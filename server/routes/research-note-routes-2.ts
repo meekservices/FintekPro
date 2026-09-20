@@ -40,17 +40,66 @@ import { sql, eq, desc } from "drizzle-orm";
 import { unlistedCompanies, companyFinancials } from "@shared/schema";
 import { logger } from "../logger";
 import { CURATED_PRE_IPOS, CURATED_LIVE_IPOS } from "./pre-ipo";
+import { buildReportData } from "./research-note-routes-1";
+
+export function unlistedDataToReportData(data: any): ReportData {
+	return {
+		symbol: data.symbol,
+		companyName: data.companyName,
+		exchange: data.exchange,
+		sector: data.sector,
+		industry: data.industry,
+		broadSector: data.broadSector,
+		financials: data.financials,
+		rating: data.rating,
+		levels: data.levels,
+		weekRange52Position: data.weekRange52Position,
+		valuationSummary: data.valuationSummary,
+		generatedAt: data.generatedAt,
+		priceTarget: data.priceTarget,
+		peg: data.peg,
+		thesis: data.thesis,
+		risks: data.risks,
+		shareholding: data.shareholding,
+		peers: data.peers,
+		sectorAvg: data.sectorAvg,
+		commentary: data.commentary,
+		managementNote: data.managementNote,
+		companyDescription: data.companyDescription,
+		plHistory: data.plHistory,
+		bsHistory: data.bsHistory,
+		cfHistory: data.cfHistory,
+		ratiosHistory: data.ratiosHistory,
+		quarterlyHistory: data.quarterlyHistory,
+		salesCagr3Y: data.salesCagr3Y,
+		salesCagr5Y: data.salesCagr5Y,
+		profitCagr3Y: data.profitCagr3Y,
+		profitCagr5Y: data.profitCagr5Y,
+	};
+}
 
 const router = Router();
 
 router.post("/generate/onepager", async (req: Request, res: Response) => {
 	try {
-		const { symbol } = req.body;
-		if (!symbol?.trim())
-			return res.status(400).json({ error: "Symbol is required" });
-		const data = await buildReportData(symbol.trim());
-		const buffer = await generateOnePager(data);
-		const safeName = data.companyName.replace(/[^a-zA-Z0-9]/g, "_");
+		const { symbol, cin, isUnlisted } = req.body;
+		const queryTarget = (cin || symbol || "").trim();
+		if (!queryTarget)
+			return res.status(400).json({ error: "Symbol or CIN is required" });
+
+		const upperTarget = queryTarget.toUpperCase();
+		const isCin = /^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/i.test(upperTarget);
+
+		let reportData: ReportData;
+		if (isUnlisted || cin || isCin || upperTarget === "NSE" || upperTarget.startsWith("PRE-")) {
+			const unlistedRaw = await buildUnlistedReportData(upperTarget === "NSE" ? "U67120MH1992PLC069769" : queryTarget);
+			reportData = unlistedDataToReportData(unlistedRaw);
+		} else {
+			reportData = await buildReportData(queryTarget);
+		}
+
+		const buffer = await generateOnePager(reportData);
+		const safeName = reportData.companyName.replace(/[^a-zA-Z0-9]/g, "_");
 		res.setHeader("Content-Type", "application/pdf");
 		res.setHeader(
 			"Content-Disposition",
@@ -61,6 +110,25 @@ router.post("/generate/onepager", async (req: Request, res: Response) => {
 		res
 			.status(500)
 			.json({ error: err.message || "Failed to generate one pager" });
+	}
+});
+
+router.post("/generate/onepager-unlisted", async (req: Request, res: Response) => {
+	try {
+		const { cin } = req.body;
+		if (!cin?.trim()) return res.status(400).json({ error: "CIN is required" });
+		const raw = await buildUnlistedReportData(cin.trim());
+		const reportData = unlistedDataToReportData(raw);
+		const buffer = await generateOnePager(reportData);
+		const safeName = reportData.companyName.replace(/[^a-zA-Z0-9]/g, "_");
+		res.setHeader("Content-Type", "application/pdf");
+		res.setHeader(
+			"Content-Disposition",
+			`attachment; filename="${safeName}_Unlisted_Summary.pdf"`,
+		);
+		res.send(buffer);
+	} catch (err: any) {
+		res.status(500).json({ error: err.message || "Failed to generate unlisted one pager" });
 	}
 });
 
@@ -695,14 +763,23 @@ export async function buildUnlistedReportData(cin: string): Promise<any> {
 		if (totalShares && transactionPrice && totalShares > 0 && transactionPrice > 0) {
 			return totalShares * transactionPrice;
 		}
-		if (valuation?.mid && Number.isFinite(valuation.mid) && valuation.mid > 0) {
-			return Math.round(valuation.mid);
+		if (totalShares && totalShares > 0 && valuation?.mid && Number.isFinite(valuation.mid) && valuation.mid > 0) {
+			return Math.round(totalShares * valuation.mid);
 		}
 		if (computedPE && latestStmt?.pat && computedPE > 0 && latestStmt.pat > 0) {
 			return Math.round(computedPE * latestStmt.pat);
 		}
 		if (computedPB && latestStmt?.networth && computedPB > 0 && latestStmt.networth > 0) {
 			return Math.round(computedPB * latestStmt.networth);
+		}
+		if (valuation?.evEbitda?.equityValue && valuation.evEbitda.equityValue > 0) {
+			return Math.round(valuation.evEbitda.equityValue);
+		}
+		if (valuation?.dcf?.equityValue && valuation.dcf.equityValue > 0) {
+			return Math.round(valuation.dcf.equityValue);
+		}
+		if (latestStmt?.networth && latestStmt.networth > 0) {
+			return Math.round(latestStmt.networth);
 		}
 		return null;
 	})();
@@ -902,40 +979,7 @@ router.post("/generate/pdf-unlisted", async (req: Request, res: Response) => {
 		const { cin } = req.body;
 		if (!cin?.trim()) return res.status(400).json({ error: "CIN is required" });
 		const data = await buildUnlistedReportData(cin.trim());
-		// Build ReportData-compatible shape for the PDF generator
-		const reportData: ReportData = {
-			symbol: data.symbol,
-			companyName: data.companyName,
-			exchange: data.exchange,
-			sector: data.sector,
-			industry: data.industry,
-			broadSector: data.broadSector,
-			financials: data.financials,
-			rating: data.rating,
-			levels: data.levels,
-			weekRange52Position: data.weekRange52Position,
-			valuationSummary: data.valuationSummary,
-			generatedAt: data.generatedAt,
-			priceTarget: data.priceTarget,
-			peg: data.peg,
-			thesis: data.thesis,
-			risks: data.risks,
-			shareholding: data.shareholding,
-			peers: data.peers,
-			sectorAvg: data.sectorAvg,
-			commentary: data.commentary,
-			managementNote: data.managementNote,
-			companyDescription: data.companyDescription,
-			plHistory: data.plHistory,
-			bsHistory: data.bsHistory,
-			cfHistory: data.cfHistory,
-			ratiosHistory: data.ratiosHistory,
-			quarterlyHistory: data.quarterlyHistory,
-			salesCagr3Y: data.salesCagr3Y,
-			salesCagr5Y: data.salesCagr5Y,
-			profitCagr3Y: data.profitCagr3Y,
-			profitCagr5Y: data.profitCagr5Y,
-		};
+		const reportData = unlistedDataToReportData(data);
 		const buffer = await generatePDF(reportData);
 		const safeName = data.companyName.replace(/[^a-zA-Z0-9]/g, "_");
 		res.setHeader("Content-Type", "application/pdf");
@@ -957,39 +1001,7 @@ router.post("/generate/ppt-unlisted", async (req: Request, res: Response) => {
 		const { cin } = req.body;
 		if (!cin?.trim()) return res.status(400).json({ error: "CIN is required" });
 		const data = await buildUnlistedReportData(cin.trim());
-		const reportData: ReportData = {
-			symbol: data.symbol,
-			companyName: data.companyName,
-			exchange: data.exchange,
-			sector: data.sector,
-			industry: data.industry,
-			broadSector: data.broadSector,
-			financials: data.financials,
-			rating: data.rating,
-			levels: data.levels,
-			weekRange52Position: data.weekRange52Position,
-			valuationSummary: data.valuationSummary,
-			generatedAt: data.generatedAt,
-			priceTarget: data.priceTarget,
-			peg: data.peg,
-			thesis: data.thesis,
-			risks: data.risks,
-			shareholding: data.shareholding,
-			peers: data.peers,
-			sectorAvg: data.sectorAvg,
-			commentary: data.commentary,
-			managementNote: data.managementNote,
-			companyDescription: data.companyDescription,
-			plHistory: data.plHistory,
-			bsHistory: data.bsHistory,
-			cfHistory: data.cfHistory,
-			ratiosHistory: data.ratiosHistory,
-			quarterlyHistory: data.quarterlyHistory,
-			salesCagr3Y: data.salesCagr3Y,
-			salesCagr5Y: data.salesCagr5Y,
-			profitCagr3Y: data.profitCagr3Y,
-			profitCagr5Y: data.profitCagr5Y,
-		};
+		const reportData = unlistedDataToReportData(data);
 		const buffer = await generatePPT(reportData);
 		const safeName = data.companyName.replace(/[^a-zA-Z0-9]/g, "_");
 		res.setHeader(
@@ -1041,7 +1053,7 @@ router.get("/sector-picks", async (req: Request, res: Response) => {
         sf.roce
       FROM listed_stocks ls
       LEFT JOIN screener_financials sf ON sf.symbol = ls.symbol
-      WHERE ls.is_published = true
+      WHERE (ls.is_published = true OR ls.is_active = true)
         AND ls.symbol != ${exclude || ""}
         AND (
           ${sector ? sql`ls.sector = ${sector}` : sql`TRUE`}

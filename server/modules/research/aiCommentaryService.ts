@@ -1,4 +1,6 @@
 import type { FinancialData } from "./dataService";
+import { logger } from "../../logger";
+import { BoundedCache } from "../../utils/bounded-cache";
 
 export interface CommentaryData {
 	industryTrends: string;
@@ -6,7 +8,7 @@ export interface CommentaryData {
 	outlook: string;
 }
 
-const cache = new Map<string, { data: CommentaryData; expiresAt: number }>();
+const cache = new BoundedCache<{ data: CommentaryData; expiresAt: number }>(500);
 
 const SECTOR_FALLBACKS: Record<string, CommentaryData> = {
 	"Construction Vehicles": {
@@ -251,14 +253,21 @@ Rules:
 				expansionPlans: lines[1],
 				outlook: lines[2],
 			};
+			logger.info("AI commentary generated", {
+				event: "AI_ADVICE_GENERATED",
+				user_id: "research_note_generator",
+				input_context: { companyName, sector, industry },
+				output_summary: data.outlook,
+				model_version: "gemini-2.5-flash",
+				timestamp: new Date().toISOString(),
+			});
 			cache.set(cacheKey, { data, expiresAt: Date.now() + 60 * 60 * 1000 });
 			return data;
 		}
 		throw new Error("Insufficient response lines");
 	} catch (e: any) {
-		console.warn(
-			`[ResearchNote] Gemini commentary failed for ${companyName}:`,
-			e?.message?.slice(0, 120),
+		logger.warn(
+			`[ResearchNote] Gemini commentary failed for ${companyName}: ${e?.message?.slice(0, 120)}`,
 		);
 		// Fall through to static sector text (no OpenAI fallback — OpenAI disabled)
 		const resolvedSector = SECTOR_ALIASES[sectorKey] ?? sectorKey;

@@ -1,9 +1,11 @@
+/* eslint-disable no-console */
 import { db } from "../../db";
 import { sql } from "drizzle-orm";
 import { logger } from "../../logger";
 import { formatMarketCap } from "./financialEngine";
 import { fetchFromScreener } from "./dataService";
 import { callPython } from "../../clients/python-client";
+import { BoundedCache } from "../../utils/bounded-cache";
 
 const BROWSER_HEADERS_GF = {
 	"User-Agent":
@@ -12,16 +14,13 @@ const BROWSER_HEADERS_GF = {
 	Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 };
 
-const peerEnrichCache = new Map<
-	string,
-	{
-		roe: number | null;
-		pe: number | null;
-		pb: number | null;
-		de: number | null;
-		expiresAt: number;
-	}
->();
+const peerEnrichCache = new BoundedCache<{
+	roe: number | null;
+	pe: number | null;
+	pb: number | null;
+	de: number | null;
+	expiresAt: number;
+}>(500);
 
 /** Scrape P/E and P/B from Google Finance static HTML for Indian stocks */
 async function fetchFromGoogleFinance(
@@ -258,14 +257,12 @@ export interface SectorAverages {
 	stockCount: number;
 }
 
-const shareholdingCache = new Map<
-	string,
+const shareholdingCache = new BoundedCache<
 	{ data: ShareholdingData; expiresAt: number }
->();
-const peersCache = new Map<
-	string,
+>(500);
+const peersCache = new BoundedCache<
 	{ data: PeerData[]; sectorAvg: SectorAverages; expiresAt: number }
->();
+>(500);
 const CACHE_TTL = 15 * 60 * 1000;
 
 const BROWSER_HEADERS = {

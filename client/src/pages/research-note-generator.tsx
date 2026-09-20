@@ -554,12 +554,12 @@ export default function ResearchNoteGenerator() {
 			const cin = cinToAnalyse || previewData?.cin;
 			let endpoint: string;
 			let body: object;
-			if (isUnlisted && cin && type !== "onepager") {
+			if (isUnlisted && cin) {
 				endpoint = `/api/research-note/generate/${type}-unlisted`;
 				body = { cin };
 			} else {
 				endpoint = `/api/research-note/generate/${type}`;
-				body = { symbol: symbolToAnalyse };
+				body = { symbol: symbolToAnalyse, cin, isUnlisted };
 			}
 			const res = await fetch(endpoint, {
 				method: "POST",

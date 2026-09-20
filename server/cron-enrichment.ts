@@ -313,7 +313,7 @@ export function initializeEnrichmentCrons(
 	staggeredStart(
 		"Stock Financial Enrichment",
 		() => {
-			cron.schedule("30 12 * * 1-5", async () => {
+			cron.schedule("30 15 * * 1-5", async () => {
 				if (!isEnrichmentWindow()) {
 					logger.info(
 						"⏭️ [StockEnrichment] Outside 8PM-8AM IST window, skipping",
@@ -321,7 +321,7 @@ export function initializeEnrichmentCrons(
 					return;
 				}
 				logger.info(
-					"[CRON] Starting daily stock financial enrichment (6 PM IST)...",
+					"[CRON] Starting daily stock financial enrichment (9 PM IST)...",
 				);
 				try {
 					const { stockFinancialEnrichmentService } = await import(
@@ -342,7 +342,7 @@ export function initializeEnrichmentCrons(
 				}
 			});
 			logger.info(
-				"📊 [StockEnrichment] Daily stock PE/EPS enrichment scheduled (6 PM IST weekdays)",
+				"📊 [StockEnrichment] Daily stock PE/EPS enrichment scheduled (9 PM IST weekdays)",
 			);
 		},
 		delay,

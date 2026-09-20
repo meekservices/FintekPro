@@ -390,7 +390,7 @@ async function upsertInstrumentCache(opts: {
 	}
 }
 
-async function buildReportData(
+export async function buildReportData(
 	symbol: string,
 ): Promise<ReportData & { dataQuality: any }> {
 	const dbResult = await resolveFromDB(symbol);
@@ -646,8 +646,32 @@ router.post("/preview", async (req: Request, res: Response) => {
 			return res.status(400).json({ error: "Symbol is required" });
 
 		const upperSym = symbol.trim().toUpperCase();
-		if (upperSym === "NSE" || upperSym === "PRE-NSE-01" || upperSym.startsWith("U67120MH1992PLC069769")) {
-			const unlistedData = await buildUnlistedReportData("U67120MH1992PLC069769");
+		const isCinPattern = /^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/i.test(upperSym);
+
+		if (
+			req.body.isUnlisted ||
+			req.body.cin ||
+			isCinPattern ||
+			upperSym === "NSE" ||
+			upperSym === "PRE-NSE-01" ||
+			upperSym.startsWith("U67120MH1992PLC069769") ||
+			upperSym.startsWith("PRE-") ||
+			upperSym.startsWith("UNLISTED-")
+		) {
+			const targetCin = req.body.cin || (upperSym === "NSE" || upperSym === "PRE-NSE-01" ? "U67120MH1992PLC069769" : upperSym);
+			const unlistedData = await buildUnlistedReportData(targetCin);
+			return res.json(unlistedData);
+		}
+
+		// Check if symbol belongs to an unlisted company in DB before attempting external listed lookup
+		const unlistedCheck = await db.execute(sql`
+			SELECT cin, id FROM unlisted_companies
+			WHERE UPPER(cin) = ${upperSym} OR UPPER(id) = ${upperSym} OR UPPER(name) = ${upperSym}
+			LIMIT 1
+		`).catch(() => null);
+		const unlistedRow = unlistedCheck ? ((unlistedCheck.rows || unlistedCheck) as any[])[0] : null;
+		if (unlistedRow) {
+			const unlistedData = await buildUnlistedReportData(unlistedRow.cin || unlistedRow.id);
 			return res.json(unlistedData);
 		}
 

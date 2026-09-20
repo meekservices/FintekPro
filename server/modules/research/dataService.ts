@@ -20,6 +20,7 @@ import { logger } from "../../logger";
 import { credhiveService } from "../../services/credhive-service";
 import { probe42Service } from "../../services/probe42-service";
 import type { CredhiveFinancialStatement } from "../../services/credhive-service";
+import { BoundedCache } from "../../utils/bounded-cache";
 
 
 export interface FinancialData {
@@ -206,7 +207,7 @@ function dbFreshnessHours(now: Date = new Date()): number {
 	return inWindow ? 6 : 48;
 }
 
-const cache = new Map<string, { data: FinancialData; expiresAt: number }>();
+const cache = new BoundedCache<{ data: FinancialData; expiresAt: number }>(1000);
 
 // HistoricalSlice includes the filed quarter label so cache validity can be
 // checked against SEBI deadline expectations without using a fixed TTL.
@@ -230,10 +231,9 @@ interface HistoricalSlice {
 // histCache: no TTL-based expiry; validity is determined by filing-driven check.
 // Safety cap of 90 days prevents indefinite retention if quarter labels can't be parsed.
 const HIST_SAFETY_TTL_MS = 90 * 24 * 60 * 60 * 1000;
-const histCache = new Map<
-	string,
+const histCache = new BoundedCache<
 	{ data: HistoricalSlice; expiresAt: number }
->();
+>(500);
 
 /**
  * Extract the latest quarter label from a quarterly history table.
@@ -1038,7 +1038,7 @@ export function mapStatementsToScreenerData(
 		roe: roeFraction,
 		roce: roceFraction,
 		dividendYield: null,
-		bookValue: toCr(latest?.networth),
+		bookValue: null, // BVPS only — total networth is captured in bsHistory
 		revenueGrowth,
 		earningsGrowth,
 		debtToEquity,
