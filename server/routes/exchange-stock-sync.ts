@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Router } from "express";
 import { exchangeStockService } from "../services/exchange-stock-service";
 
@@ -135,6 +136,29 @@ router.get("/bse/symbols", async (req, res) => {
 	} catch (error) {
 		console.error("Error fetching BSE symbols:", error);
 		res.status(500).json({ error: "Failed to fetch BSE symbols" });
+	}
+});
+
+// Trigger official NSE Bhavcopy ingestion (₹0 GCP Native EOD settlement)
+router.post("/bhavcopy", async (req, res) => {
+	try {
+		const { date } = req.body;
+		const { nseBhavcopyService } = await import("../services/nse-bhavcopy-service");
+		const result = await nseBhavcopyService.syncLatestBhavcopy(date);
+		res.json({
+			success: result.success,
+			data: result,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: "1.0.0",
+			},
+		});
+	} catch (error: any) {
+		console.error("Error running Bhavcopy ingestion:", error);
+		res.status(500).json({
+			success: false,
+			error: error.message,
+		});
 	}
 });
 

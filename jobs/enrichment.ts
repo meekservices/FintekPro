@@ -39,6 +39,22 @@ async function run(): Promise<void> {
 	});
 
 	try {
+		// Phase A0: Official NSE Bhavcopy Settlement Ingestion (₹0 GCP Native)
+		logger.info(`[${JOB_NAME}] Phase A0: Ingesting official NSE Bhavcopy settlement prices`);
+		try {
+			const { nseBhavcopyService } = await import(
+				"../server/services/nse-bhavcopy-service"
+			);
+			const bhavResult = await nseBhavcopyService.syncLatestBhavcopy();
+			logger.info(`[${JOB_NAME}] Phase A0 complete`, {
+				tradeDate: bhavResult.tradeDate,
+				updatedStocks: bhavResult.updatedStocks,
+				bigQueryInserted: bhavResult.bigQueryInserted,
+			});
+		} catch (err) {
+			logger.warn(`[${JOB_NAME}] Phase A0 failed (non-fatal)`, { error: String(err) });
+		}
+
 		// Phase A: Stock data enrichment (IndianAPI + Finnhub)
 		logger.info(`[${JOB_NAME}] Phase A: Stock/financial data enrichment`);
 		try {
