@@ -1305,8 +1305,13 @@ export async function fetchFundamentalsFromIndianAPI(
 				? (latestPl.pat - prevPl.pat) / Math.abs(prevPl.pat)
 				: null;
 
-		const toCr = (v: number | null | undefined) =>
-			v != null && !Number.isNaN(v) ? Math.round((v / 1e7) * 100) / 100 : null;
+		const toCr = (v: number | null | undefined) => {
+			if (v == null || Number.isNaN(v)) return null;
+			// If value is > 10,000,000, it is in raw INR -> convert to Cr.
+			// Otherwise IndianAPI statement figures are already in Cr.
+			const cr = Math.abs(v) > 10_000_000 ? v / 1e7 : v;
+			return Math.round(cr * 100) / 100;
+		};
 
 		return {
 			roe,

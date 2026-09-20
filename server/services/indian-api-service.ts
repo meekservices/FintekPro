@@ -10,7 +10,7 @@
  * - FII/DII institutional flows (via MrChartist free API)
  *
  * Auth: X-API-Key header
- * Base URL: https://dev.indianapi.in  (marketplace gateway — accepts sk-live-* keys)
+ * Base URL: https://analyst.indianapi.in  (Growth Plan gateway — accepts sk-live-* keys)
  * Enrichment chain priority: 0.88
  * (Slots between NSE/BSE 0.90 and Finnhub 0.75 — India-native, SEBI-safe)
  *
@@ -23,7 +23,7 @@ import { logger } from "../logger";
 import { CircuitBreaker, CircuitOpenError } from "../utils/circuit-breaker";
 
 const INDIAN_API_KEY = process.env.INDIAN_API_KEY || "";
-const INDIAN_API_BASE_URL = "https://dev.indianapi.in";
+const INDIAN_API_BASE_URL = process.env.INDIAN_API_BASE_URL || "https://analyst.indianapi.in";
 const MRCHARTIST_BASE_URL = "https://api.mrchartist.in";
 const ENGINE_VERSION = "2.0.0";
 
@@ -740,20 +740,32 @@ class IndianAPIService {
 			try {
 				const r = await this.retryWithBackoff(() =>
 					// Valid stats: quarter_results, yoy_results, balancesheet, cashflow
-				this.client.get("/statement", { params: { stock_name: symbol.toUpperCase(), stats: "quarter_results" } }),
+					this.client.get("/statement", { params: { stock_name: symbol.toUpperCase(), stats: "yoy_results" } }),
 				);
-				const rawList: any[] = (r.data?.profit_loss ?? r.data?.incomeStatement ?? r.data ?? []).slice(0, years);
+				const data = r.data?.profit_loss ?? r.data?.incomeStatement ?? r.data ?? [];
+				const list: any[] = Array.isArray(data) ? data : typeof data === "object" && data !== null ? [data] : [];
+				const rawList: any[] = list.slice(0, years);
+				const parseNum = (val: any): number => {
+					if (val == null) return 0;
+					if (typeof val === "number" && !Number.isNaN(val)) return val;
+					if (typeof val === "string") {
+						const n = Number.parseFloat(val.replace(/,/g, "").replace(/%/g, ""));
+						return Number.isNaN(n) ? 0 : n;
+					}
+					return 0;
+				};
+
 				return this.makeResult<IndianAPIProfitLoss[]>(rawList.map((row: any) => ({
-					year: row.year ?? row.period ?? "",
-					revenue: Number(row.revenue ?? row.netSales ?? row.totalIncome ?? 0),
-					gross_profit: row.grossProfit ? Number(row.grossProfit) : undefined,
-					ebitda: row.ebitda ? Number(row.ebitda) : undefined,
-					ebit: row.ebit ? Number(row.ebit) : undefined,
-					pat: Number(row.pat ?? row.netProfit ?? row.netIncome ?? 0),
-					eps: Number(row.eps ?? row.basicEps ?? 0),
-					dividend: row.dividend ? Number(row.dividend) : undefined,
-					operating_margin: row.operatingMargin ? Number(row.operatingMargin) : undefined,
-					net_margin: row.netMargin ? Number(row.netMargin) : undefined,
+					year: row.year ?? row.period ?? "FY",
+					revenue: parseNum(row.revenue ?? row.sales ?? row.netSales ?? row.totalIncome),
+					gross_profit: row.grossProfit ? parseNum(row.grossProfit) : undefined,
+					ebitda: (row.ebitda ?? row.operating_profit ?? row.operatingProfit) ? parseNum(row.ebitda ?? row.operating_profit ?? row.operatingProfit) : undefined,
+					ebit: row.ebit ? parseNum(row.ebit) : undefined,
+					pat: parseNum(row.pat ?? row.net_profit ?? row.netProfit ?? row.netIncome),
+					eps: parseNum(row.eps ?? row.basicEps),
+					dividend: row.dividend ? parseNum(row.dividend) : undefined,
+					operating_margin: (row.operating_margin ?? row.operatingMargin ?? row.opm) ? parseNum(row.operating_margin ?? row.operatingMargin ?? row.opm) : undefined,
+					net_margin: row.netMargin ? parseNum(row.netMargin) : undefined,
 				})));
 			} catch (error: any) {
 				logger.error(`[IndianAPI] getProfitLoss(${symbol}) error: ${error.message}`);
@@ -770,18 +782,30 @@ class IndianAPIService {
 				const r = await this.retryWithBackoff(() =>
 					this.client.get("/statement", { params: { stock_name: symbol.toUpperCase(), stats: "balancesheet" } }),
 				);
-				const rawList: any[] = (r.data?.balance_sheet ?? r.data?.balanceSheet ?? r.data ?? []).slice(0, years);
+				const data = r.data?.balance_sheet ?? r.data?.balanceSheet ?? r.data ?? [];
+				const list: any[] = Array.isArray(data) ? data : typeof data === "object" && data !== null ? [data] : [];
+				const rawList: any[] = list.slice(0, years);
+				const parseNum = (val: any): number => {
+					if (val == null) return 0;
+					if (typeof val === "number" && !Number.isNaN(val)) return val;
+					if (typeof val === "string") {
+						const n = Number.parseFloat(val.replace(/,/g, ""));
+						return Number.isNaN(n) ? 0 : n;
+					}
+					return 0;
+				};
+
 				return this.makeResult<IndianAPIBalanceSheet[]>(rawList.map((row: any) => ({
-					year: row.year ?? row.period ?? "",
-					total_assets: Number(row.totalAssets ?? row.total_assets ?? 0),
-					total_liabilities: Number(row.totalLiabilities ?? row.total_liabilities ?? 0),
-					networth: Number(row.networth ?? row.shareholdersEquity ?? 0),
-					total_debt: Number(row.totalDebt ?? row.borrowings ?? 0),
-					current_assets: row.currentAssets ? Number(row.currentAssets) : undefined,
-					current_liabilities: row.currentLiabilities ? Number(row.currentLiabilities) : undefined,
-					fixed_assets: row.fixedAssets ? Number(row.fixedAssets) : undefined,
-					investments: row.investments ? Number(row.investments) : undefined,
-					cash_and_bank: row.cashAndBank ? Number(row.cashAndBank) : undefined,
+					year: row.year ?? row.period ?? "FY",
+					total_assets: parseNum(row.total_assets ?? row.totalAssets),
+					total_liabilities: parseNum(row.total_liabilities ?? row.totalLiabilities),
+					networth: parseNum(row.networth ?? row.shareholdersEquity ?? row.reserves),
+					total_debt: parseNum(row.total_debt ?? row.totalDebt ?? row.borrowings),
+					current_assets: row.currentAssets ? parseNum(row.currentAssets) : undefined,
+					current_liabilities: row.currentLiabilities ? parseNum(row.currentLiabilities) : undefined,
+					fixed_assets: (row.fixed_assets ?? row.fixedAssets) ? parseNum(row.fixed_assets ?? row.fixedAssets) : undefined,
+					investments: row.investments ? parseNum(row.investments) : undefined,
+					cash_and_bank: row.cashAndBank ? parseNum(row.cashAndBank) : undefined,
 				})));
 			} catch (error: any) {
 				logger.error(`[IndianAPI] getBalanceSheet(${symbol}) error: ${error.message}`);
@@ -798,14 +822,26 @@ class IndianAPIService {
 				const r = await this.retryWithBackoff(() =>
 					this.client.get("/statement", { params: { stock_name: symbol.toUpperCase(), stats: "cashflow" } }),
 				);
-				const rawList: any[] = (r.data?.cash_flow ?? r.data?.cashFlow ?? r.data ?? []).slice(0, years);
+				const data = r.data?.cash_flow ?? r.data?.cashFlow ?? r.data ?? [];
+				const list: any[] = Array.isArray(data) ? data : typeof data === "object" && data !== null ? [data] : [];
+				const rawList: any[] = list.slice(0, years);
+				const parseNum = (val: any): number => {
+					if (val == null) return 0;
+					if (typeof val === "number" && !Number.isNaN(val)) return val;
+					if (typeof val === "string") {
+						const n = Number.parseFloat(val.replace(/,/g, ""));
+						return Number.isNaN(n) ? 0 : n;
+					}
+					return 0;
+				};
+
 				return this.makeResult<IndianAPICashFlow[]>(rawList.map((row: any) => ({
-					year: row.year ?? row.period ?? "",
-					operating_cash_flow: Number(row.operatingCashFlow ?? row.cfo ?? row.operating ?? 0),
-					investing_cash_flow: Number(row.investingCashFlow ?? row.cfi ?? row.investing ?? 0),
-					financing_cash_flow: Number(row.financingCashFlow ?? row.cff ?? row.financing ?? 0),
-					free_cash_flow: row.freeCashFlow ? Number(row.freeCashFlow) : undefined,
-					capex: row.capex ? Number(row.capex) : undefined,
+					year: row.year ?? row.period ?? "FY",
+					operating_cash_flow: parseNum(row.operating_cash_flow ?? row.operatingCashFlow ?? row["Cash from operating activity"] ?? row.cfo ?? row.operating),
+					investing_cash_flow: parseNum(row.investing_cash_flow ?? row.investingCashFlow ?? row["Cash from investing activity"] ?? row.cfi ?? row.investing),
+					financing_cash_flow: parseNum(row.financing_cash_flow ?? row.financingCashFlow ?? row["Cash from finance activity"] ?? row.cff ?? row.financing),
+					free_cash_flow: row.freeCashFlow ? parseNum(row.freeCashFlow) : undefined,
+					capex: row.capex ? parseNum(row.capex) : undefined,
 				})));
 			} catch (error: any) {
 				logger.error(`[IndianAPI] getCashFlow(${symbol}) error: ${error.message}`);
@@ -1166,7 +1202,7 @@ class IndianAPIService {
 				if (effectiveStatus && effectiveStatus !== "all") params.status = effectiveStatus;
 				if (issueType && issueType !== "all") params.issue_type = issueType;
 				const r = await this.retryWithBackoff(() => this.client.get("/ipo/v2", { params }));
-				// dev.indianapi.in/ipo/v2 returns { summary: {...}, ipos: [...] }
+				// analyst.indianapi.in/ipo/v2 returns { summary: {...}, ipos: [...] }
 				const rawList: any[] = r.data?.ipos ?? r.data?.data ?? (Array.isArray(r.data) ? r.data : []);
 				return this.makeResult<IndianAPIIPO[]>(rawList.map((item: any) => {
 					const minP = item.minimumPrice ?? item.min_price;

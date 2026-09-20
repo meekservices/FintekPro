@@ -51,6 +51,7 @@ export const SECRET_MAP: Record<string, string> = {
   FINNHUB_API_KEY:                  "FINNHUB_API_KEY",
   POLYGON_API_KEY:                  "POLYGON_API_KEY",
   INDIAN_API_KEY:                   "INDIAN_API_KEY",
+  INDIAN_API_BASE_URL:              "INDIAN_API_BASE_URL",
   EXCHANGE_RATE_API_KEY:            "EXCHANGE_RATE_API_KEY",
   // ── Infrastructure / caching ─────────────────────────────────────────────────
   REDIS_URL:                        "REDIS_URL",
@@ -371,12 +372,12 @@ export async function createAllSecrets(): Promise<void> {
           },
         },
       });
-      console.log(`✅ Created secret: ${secretId}`);
+      logger.info(`✅ Created secret: ${secretId}`);
     } catch (err: any) {
       if (err?.message?.includes("ALREADY_EXISTS")) {
-        console.log(`⏭️  Already exists: ${secretId}`);
+        logger.info(`⏭️  Already exists: ${secretId}`);
       } else {
-        console.error(`❌ Failed to create ${secretId}: ${err?.message}`);
+        logger.error(`❌ Failed to create ${secretId}: ${err?.message}`);
       }
     }
   }

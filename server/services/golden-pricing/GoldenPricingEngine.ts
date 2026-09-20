@@ -9,7 +9,7 @@
  *   NSE_BHAVCOPY(98) → INDIAN_API(93) → YAHOO_FINANCE(82) → FMP(85)
  *   → ALPHAVANTAGE(80) → LAST_TRADE(70) → MODEL_PRICE(60) → BROKER_QUOTE(50)
  *
- * Indian Sources (base: stock.indianapi.in — confirmed working 2026-08):
+ * Indian Sources (base: analyst.indianapi.in — Growth Plan):
  *   /stock              → live NSE+BSE dual quote (API key in Secret Manager)
  *   /historical_data    → EOD close backfill (daily prices, 1m-1y range)
  *   NOTE: /nse_stock_batch_live_price is not available on current plan (404)
@@ -32,6 +32,9 @@ import {
 	validateNav,
 	validateChangePercent,
 } from "../guarded-execution";
+import { logger } from "../../logger";
+
+const INDIAN_API_BASE_URL = process.env.INDIAN_API_BASE_URL || "https://analyst.indianapi.in";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -236,7 +239,7 @@ async function fetchIndianAPIPrice(
 	if (!apiKey) return null;
 
 	try {
-		const url = `https://stock.indianapi.in/stock?name=${encodeURIComponent(symbol.toUpperCase())}`;
+		const url = `${INDIAN_API_BASE_URL}/stock?name=${encodeURIComponent(symbol.toUpperCase())}`;
 		const resp = await fetch(url, {
 			headers: { "X-API-Key": apiKey },
 			signal: AbortSignal.timeout(8000),
@@ -269,7 +272,7 @@ async function fetchIndianAPIPrice(
 }
 
 /**
- * stock.indianapi.in /historical_data — EOD close prices for a symbol over a period.
+ * analyst.indianapi.in /historical_data — EOD close prices for a symbol over a period.
  * Response shape (2026-08): { datasets: [{ metric, label, values: [[date, price], ...] }] }
  * Handles both old (raw array) and new ({datasets:[...]}) response formats.
  *
@@ -286,7 +289,7 @@ export async function fetchIndianAPIHistorical(
 
 	try {
 		const url = [
-			`https://stock.indianapi.in/historical_data`,
+			`${INDIAN_API_BASE_URL}/historical_data`,
 			`?stock_name=${encodeURIComponent(symbol.toUpperCase())}`,
 			`&period=${period}&filter=default`,
 		].join("");
@@ -395,7 +398,7 @@ export async function fetchIndianAPIBatchPrices(
 		try {
 			// NOTE: batch endpoint returns 404 on current plan; per-symbol fetch is fallback
 			const resp = await fetch(
-				"https://stock.indianapi.in/nse_stock_batch_live_price",
+				`${INDIAN_API_BASE_URL}/nse_stock_batch_live_price`,
 				{
 					method: "POST",
 					headers: {
@@ -867,7 +870,7 @@ export async function runDailyGoldenPricing(
 	const date = priceDate ?? new Date().toISOString().slice(0, 10);
 	const start = Date.now();
 
-	console.log(`[GoldenPricing] Starting daily run for ${date}...`);
+	logger.info(`[GoldenPricing] Starting daily run for ${date}...`);
 
 	let processed = 0,
 		succeeded = 0,
@@ -936,7 +939,7 @@ export async function runDailyGoldenPricing(
 	}
 
 	const durationMs = Date.now() - start;
-	console.log(
+	logger.info(
 		`[GoldenPricing] Daily run complete: ${succeeded}/${processed} priced, ${flagged} flagged, ${failed} failed in ${durationMs}ms`,
 	);
 
