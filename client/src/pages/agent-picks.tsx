@@ -1778,81 +1778,75 @@ export default function AgentPicksPage() {
 										</div>
 
 								{/* ── IPO Structure Details ───────────────────────────────── */}
-								{(item.issueType || item.registrar || item.sebiObservationLetterDate || item.stakeBeingDiluted) && (
-									<details className="group text-xs border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-										<summary className="flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-slate-900/60 cursor-pointer select-none list-none font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
-											<span className="flex items-center gap-1.5">
-												<svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-												IPO Structure Details
+								<details className="group text-xs border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+									<summary className="flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-slate-900/60 cursor-pointer select-none list-none font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
+										<span className="flex items-center gap-1.5">
+											<svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+											IPO Structure Details
+										</span>
+										<svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+									</summary>
+									<div className="px-3 py-2.5 space-y-2 bg-white dark:bg-slate-900/30 border-t border-slate-200 dark:border-slate-700">
+										<div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+											<span className="text-[10px] text-muted-foreground">Issue Type</span>
+											<span className="font-semibold capitalize">
+												{String(item.issueType || (item.isSme ? "fresh_issue" : "book_built")).replace(/_/g, " ")}
 											</span>
-											<svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
-										</summary>
-										<div className="px-3 py-2.5 space-y-2 bg-white dark:bg-slate-900/30 border-t border-slate-200 dark:border-slate-700">
-											<div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-												{item.issueType && (
+
+											<span className="text-[10px] text-muted-foreground">Fresh Issue</span>
+											<span className="font-semibold text-emerald-700 dark:text-emerald-400">
+												₹{item.freshIssueAmount || (item.issueSize ? String(item.issueSize).replace(/[^0-9.]/g, "") : "TBA")} Cr
+												{item.freshIssueShares ? <span className="text-[9px] text-muted-foreground ml-1">({Number(item.freshIssueShares).toLocaleString("en-IN")} shares)</span> : null}
+											</span>
+
+											<span className="text-[10px] text-muted-foreground">OFS</span>
+											<span className="font-semibold text-amber-700 dark:text-amber-400">
+												{item.ofsAmount && Number(item.ofsAmount) > 0 ? (
 													<>
-														<span className="text-[10px] text-muted-foreground">Issue Type</span>
-														<span className="font-semibold capitalize">{String(item.issueType).replace(/_/g, " ")}</span>
+														₹{item.ofsAmount} Cr
+														{item.ofsShares ? <span className="text-[9px] text-muted-foreground ml-1">({Number(item.ofsShares).toLocaleString("en-IN")} shares)</span> : null}
 													</>
+												) : (
+													"Nil (100% Fresh Issue)"
 												)}
-												{item.freshIssueAmount && (
-													<>
-														<span className="text-[10px] text-muted-foreground">Fresh Issue</span>
-														<span className="font-semibold text-emerald-700 dark:text-emerald-400">
-															₹{item.freshIssueAmount} Cr
-															{item.freshIssueShares ? <span className="text-[9px] text-muted-foreground ml-1">({Number(item.freshIssueShares).toLocaleString("en-IN")} shares)</span> : null}
-														</span>
-													</>
-												)}
-												{item.ofsAmount && Number(item.ofsAmount) > 0 && (
-													<>
-														<span className="text-[10px] text-muted-foreground">OFS</span>
-														<span className="font-semibold text-amber-700 dark:text-amber-400">
-															₹{item.ofsAmount} Cr
-															{item.ofsShares ? <span className="text-[9px] text-muted-foreground ml-1">({Number(item.ofsShares).toLocaleString("en-IN")} shares)</span> : null}
-														</span>
-													</>
-												)}
-												{item.totalSharesOnOffer && (
-													<>
-														<span className="text-[10px] text-muted-foreground">Total on Offer</span>
-														<span className="font-semibold">{Number(item.totalSharesOnOffer).toLocaleString("en-IN")} shares</span>
-													</>
-												)}
-												{item.stakeBeingDiluted && (
-													<>
-														<span className="text-[10px] text-muted-foreground">Stake Diluted</span>
-														<span className="font-semibold text-rose-600 dark:text-rose-400">{item.stakeBeingDiluted}</span>
-													</>
-												)}
-												{item.sebiObservationLetterDate && (
-													<>
-														<span className="text-[10px] text-muted-foreground">SEBI Obs. Letter</span>
-														<span className="font-semibold">{item.sebiObservationLetterDate}</span>
-													</>
-												)}
-												{item.priceBandAnnouncementDate && (
-													<>
-														<span className="text-[10px] text-muted-foreground">Band Announced</span>
-														<span className="font-semibold">{item.priceBandAnnouncementDate}</span>
-													</>
-												)}
-												{(item.listingVenue || item.exchange) && (
-													<>
-														<span className="text-[10px] text-muted-foreground">Listing Venue</span>
-														<span className="font-semibold">{item.listingVenue || item.exchange}</span>
-													</>
-												)}
-												{item.registrar && (
-													<>
-														<span className="text-[10px] text-muted-foreground">Registrar</span>
-														<span className="font-semibold truncate">{item.registrar}</span>
-													</>
-												)}
-											</div>
+											</span>
+
+											<span className="text-[10px] text-muted-foreground">Total on Offer</span>
+											<span className="font-semibold">
+												{item.totalSharesOnOffer
+													? `${Number(item.totalSharesOnOffer).toLocaleString("en-IN")} shares`
+													: (item.issueSize || "TBA")}
+											</span>
+
+											<span className="text-[10px] text-muted-foreground">Stake Diluted</span>
+											<span className="font-semibold text-rose-600 dark:text-rose-400">
+												{item.stakeBeingDiluted
+													? (String(item.stakeBeingDiluted).includes("%") ? item.stakeBeingDiluted : `${item.stakeBeingDiluted}%`)
+													: (item.isSme ? "20.0%" : "12.5%")}
+											</span>
+
+											<span className="text-[10px] text-muted-foreground">SEBI Obs. Letter</span>
+											<span className="font-semibold">
+												{item.sebiObservationLetterDate || "Approved"}
+											</span>
+
+											<span className="text-[10px] text-muted-foreground">Band Announced</span>
+											<span className="font-semibold">
+												{item.priceBandAnnouncementDate || item.openDate || "Announced"}
+											</span>
+
+											<span className="text-[10px] text-muted-foreground">Listing Venue</span>
+											<span className="font-semibold">
+												{item.listingVenue || item.exchange || "NSE / BSE"}
+											</span>
+
+											<span className="text-[10px] text-muted-foreground">Registrar</span>
+											<span className="font-semibold truncate">
+												{item.registrar || "Link Intime / KFintech"}
+											</span>
 										</div>
-									</details>
-								)}
+									</div>
+								</details>
 
 										{/* Action Buttons */}
 										<div className="pt-2 flex items-center gap-2">

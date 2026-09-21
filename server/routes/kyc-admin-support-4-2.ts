@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 import { Express } from "express";
 import { storage } from "../storage";
 import { db } from "../db";
@@ -930,43 +931,43 @@ export function registerKYCAdminSupporPart4Part2Routes(app: Express): void {
 						symbol: "RELIANCE",
 						name: "Reliance Industries Ltd",
 						sector: "Energy",
-						fallbackPrice: 2890.5,
+						fallbackPrice: 2980.5,
 					},
 					{
 						symbol: "TCS",
 						name: "Tata Consultancy Services",
 						sector: "IT",
-						fallbackPrice: 3324.9,
+						fallbackPrice: 2133.2,
 					},
 					{
 						symbol: "HDFCBANK",
 						name: "HDFC Bank Ltd",
 						sector: "Banking",
-						fallbackPrice: 1654.25,
+						fallbackPrice: 740.5,
 					},
 					{
 						symbol: "INFY",
 						name: "Infosys Limited",
 						sector: "IT",
-						fallbackPrice: 1689.6,
+						fallbackPrice: 1845.0,
 					},
 					{
 						symbol: "ICICIBANK",
 						name: "ICICI Bank Ltd",
 						sector: "Banking",
-						fallbackPrice: 1056.4,
+						fallbackPrice: 1345.5,
 					},
 					{
 						symbol: "HINDUNILVR",
 						name: "Hindustan Unilever",
 						sector: "FMCG",
-						fallbackPrice: 2456.8,
+						fallbackPrice: 2450.0,
 					},
 					{
 						symbol: "SBIN",
 						name: "State Bank of India",
 						sector: "Banking",
-						fallbackPrice: 628.35,
+						fallbackPrice: 815.0,
 					},
 					{
 						symbol: "BHARTIARTL",

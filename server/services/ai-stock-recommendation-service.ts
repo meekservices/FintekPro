@@ -257,7 +257,7 @@ class AIStockRecommendationService {
 				companyName: "Reliance Industries Ltd",
 				sector: "Energy",
 				marketCap: "Large Cap",
-				currentPrice: 2890.5,
+				currentPrice: 2980.5,
 				peRatio: 28.5,
 				roe: 12.3,
 				returns1Y: 15.2,
@@ -267,8 +267,8 @@ class AIStockRecommendationService {
 				companyName: "Tata Consultancy Services",
 				sector: "IT",
 				marketCap: "Large Cap",
-				currentPrice: 3324.9,
-				peRatio: 32.1,
+				currentPrice: 2133.2,
+				peRatio: 24.1,
 				roe: 45.6,
 				returns1Y: 18.7,
 			},
@@ -277,17 +277,17 @@ class AIStockRecommendationService {
 				companyName: "HDFC Bank Ltd",
 				sector: "Banking",
 				marketCap: "Large Cap",
-				currentPrice: 1654.25,
-				peRatio: 19.8,
+				currentPrice: 740.5,
+				peRatio: 18.2,
 				roe: 16.2,
-				returns1Y: 8.4,
+				returns1Y: 12.4,
 			},
 			{
 				symbol: "INFY",
 				companyName: "Infosys Limited",
 				sector: "IT",
 				marketCap: "Large Cap",
-				currentPrice: 1689.6,
+				currentPrice: 1845.0,
 				peRatio: 24.5,
 				roe: 32.1,
 				returns1Y: 12.3,
@@ -297,7 +297,7 @@ class AIStockRecommendationService {
 				companyName: "ICICI Bank Ltd",
 				sector: "Banking",
 				marketCap: "Large Cap",
-				currentPrice: 1056.4,
+				currentPrice: 1345.5,
 				peRatio: 17.2,
 				roe: 17.8,
 				returns1Y: 22.1,
@@ -307,7 +307,7 @@ class AIStockRecommendationService {
 				companyName: "Hindustan Unilever",
 				sector: "FMCG",
 				marketCap: "Large Cap",
-				currentPrice: 2456.8,
+				currentPrice: 2450.0,
 				peRatio: 58.3,
 				roe: 22.1,
 				returns1Y: -5.2,
@@ -884,32 +884,27 @@ class AIStockRecommendationService {
 					}
 
 					try {
-						const quote = await yahooFinance.quote(`${stock.symbol}.NS`);
+						const quote = await unifiedStockPriceService.getPrice(stock.symbol, "NSE");
+						const livePrice = quote?.price && quote.price > 0 ? quote.price : stock.currentPrice;
 
 						return {
 							...stock,
 							...enrichedBase,
 							enrichedSnapshot,
 							liveData: {
-								currentPrice: quote?.regularMarketPrice || stock.currentPrice,
-								previousClose: quote?.regularMarketPreviousClose,
-								dayChange: quote?.regularMarketChange,
-								dayChangePercent: quote?.regularMarketChangePercent,
-								weekHigh52: quote?.fiftyTwoWeekHigh,
-								weekLow52: quote?.fiftyTwoWeekLow,
-								movingAvg50:
-									quote?.fiftyDayAverage || enrichedBase.enrichedSma50,
-								movingAvg200:
-									quote?.twoHundredDayAverage || enrichedBase.enrichedSma200,
-								volume: quote?.regularMarketVolume,
-								avgVolume: quote?.averageDailyVolume10Day,
-								marketCap: quote?.marketCap,
-								peRatio: quote?.trailingPE || enrichedBase.peRatio,
-								pbRatio: quote?.priceToBook || enrichedBase.pbRatio,
-								eps: quote?.epsTrailingTwelveMonths || enrichedBase.eps,
-								dividendYield: quote?.dividendYield
-									? quote.dividendYield * 100
-									: enrichedBase.dividendYield,
+								currentPrice: livePrice,
+								previousClose: quote?.previousClose,
+								dayChange: quote?.change,
+								dayChangePercent: quote?.changePercent,
+								weekHigh52: quote?.high,
+								weekLow52: quote?.low,
+								movingAvg50: enrichedBase.enrichedSma50,
+								movingAvg200: enrichedBase.enrichedSma200,
+								volume: quote?.volume,
+								peRatio: enrichedBase.peRatio,
+								pbRatio: enrichedBase.pbRatio,
+								eps: enrichedBase.eps || stock.eps,
+								dividendYield: enrichedBase.dividendYield,
 								roe: enrichedBase.roe || stock.roe || cachedFundamentals.roe,
 								roce:
 									enrichedBase.roce || stock.roce || cachedFundamentals.roce,
@@ -1844,8 +1839,8 @@ Provide analysis in JSON format:
 				companyName: "Tata Consultancy Services",
 				sector: "IT",
 				marketCap: "Large Cap",
-				currentPrice: 3324.9,
-				peRatio: 32.1,
+				currentPrice: 2133.2,
+				peRatio: 24.1,
 				roe: 45.6,
 				returns1Y: 18.7,
 			},
@@ -1854,34 +1849,40 @@ Provide analysis in JSON format:
 				companyName: "HDFC Bank Ltd",
 				sector: "Banking",
 				marketCap: "Large Cap",
-				currentPrice: 1654.25,
-				peRatio: 19.8,
+				currentPrice: 740.5,
+				peRatio: 18.2,
 				roe: 16.2,
-				returns1Y: 8.4,
+				returns1Y: 12.4,
 			},
 			{
 				symbol: "ICICIBANK",
 				companyName: "ICICI Bank Ltd",
 				sector: "Banking",
 				marketCap: "Large Cap",
-				currentPrice: 1056.4,
+				currentPrice: 1345.5,
 				peRatio: 17.2,
 				roe: 17.8,
 				returns1Y: 22.1,
 			},
 		];
 
-		return fallbackStocks.map((stock, idx) => ({
-			id: `STOCK-FALLBACK-${idx}`,
-			symbol: stock.symbol,
-			companyName: stock.companyName,
-			exchange: "NSE",
-			sector: stock.sector,
-			marketCap: stock.marketCap,
-			currentPrice: stock.currentPrice,
-			entryPrice: stock.currentPrice * 0.995,
-			targetPrice: stock.currentPrice * 1.15,
-			stopLoss: stock.currentPrice * 0.92,
+		return fallbackStocks.map((stock, idx) => {
+			const currentPrice = stock.currentPrice;
+			const entryPrice = Math.round(currentPrice * 0.995 * 100) / 100;
+			const targetPrice = Math.round(currentPrice * 1.15 * 100) / 100;
+			const stopLoss = Math.round(currentPrice * 0.92 * 100) / 100;
+
+			return {
+				id: `STOCK-FALLBACK-${idx}`,
+				symbol: stock.symbol,
+				companyName: stock.companyName,
+				exchange: "NSE",
+				sector: stock.sector,
+				marketCap: stock.marketCap,
+				currentPrice,
+				entryPrice,
+				targetPrice,
+				stopLoss,
 			signal: "buy" as const,
 			fintekproRating: 4,
 			confidence: 75,
@@ -1907,8 +1908,9 @@ Provide analysis in JSON format:
 				filters.timeHorizon || "medium_term",
 			),
 			generatedAt: new Date(),
-		}));
-	}
+		};
+	});
+}
 
 	async getStockById(symbol: string): Promise<StockRecommendation | null> {
 		try {

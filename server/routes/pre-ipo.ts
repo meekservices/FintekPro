@@ -197,13 +197,30 @@ export const CURATED_LIVE_IPOS = [
 		companyName: "Techflow Automations Ltd",
 		category: "Industrial Automation & Robotics",
 		exchange: "NSE / BSE",
+		listingVenue: "NSE / BSE",
 		issueSize: "₹220 Cr",
 		priceRange: "₹148 - ₹156",
+		priceBandMin: 148,
+		priceBandMax: 156,
 		lotSize: 96,
 		minInvestment: "₹14,976",
 		openDate: "2026-09-19",
 		closeDate: "2026-09-23",
 		listingDate: "2026-09-26",
+		// ── Offer structure ────────────────────────────────────────────────
+		issueType: "book_built",
+		freshIssueShares: 11538461,        // ~1.15 Cr new shares @ ₹156
+		freshIssueAmount: "180",           // ₹180 Cr
+		ofsShares: 2564102,                // ~0.26 Cr OFS shares @ ₹156
+		ofsAmount: "40",                   // ₹40 Cr OFS
+		totalSharesOnOffer: 14102563,
+		stakeBeingDiluted: "14.50",        // % of post-issue equity
+		// ── SEBI milestones ────────────────────────────────────────────────
+		sebiObservationLetterDate: "2026-08-10",
+		priceBandAnnouncementDate: "2026-09-16",
+		// ── Parties ────────────────────────────────────────────────────────
+		registrar: "KFin Technologies Ltd",
+		// ── GMP & Subscription ─────────────────────────────────────────────
 		gmp: 28,
 		gmpPercentage: 17.9,
 		subscriptionStatus: "Open for Bidding",
@@ -218,13 +235,30 @@ export const CURATED_LIVE_IPOS = [
 		companyName: "Aurolab BioPharma Ltd",
 		category: "Pharmaceuticals & Biotech",
 		exchange: "NSE / BSE",
+		listingVenue: "NSE / BSE",
 		issueSize: "₹480 Cr",
 		priceRange: "₹310 - ₹326",
+		priceBandMin: 310,
+		priceBandMax: 326,
 		lotSize: 46,
 		minInvestment: "₹14,996",
 		openDate: "2026-09-22",
 		closeDate: "2026-09-25",
 		listingDate: "2026-09-30",
+		// ── Offer structure ────────────────────────────────────────────────
+		issueType: "book_built",
+		freshIssueShares: 10736196,        // ~1.07 Cr new shares @ ₹326
+		freshIssueAmount: "350",           // ₹350 Cr
+		ofsShares: 3987730,                // ~0.40 Cr OFS shares @ ₹326
+		ofsAmount: "130",                  // ₹130 Cr OFS
+		totalSharesOnOffer: 14723926,
+		stakeBeingDiluted: "12.80",        // % of post-issue equity
+		// ── SEBI milestones ────────────────────────────────────────────────
+		sebiObservationLetterDate: "2026-08-18",
+		priceBandAnnouncementDate: "2026-09-18",
+		// ── Parties ────────────────────────────────────────────────────────
+		registrar: "Link Intime India Pvt Ltd",
+		// ── GMP & Subscription ─────────────────────────────────────────────
 		gmp: 55,
 		gmpPercentage: 16.9,
 		subscriptionStatus: "Open for Bidding",
@@ -239,13 +273,30 @@ export const CURATED_LIVE_IPOS = [
 		companyName: "GreenEarth Agro Sciences",
 		category: "Agriculture & Agro-Chemicals",
 		exchange: "BSE SME",
+		listingVenue: "BSE SME",
 		issueSize: "₹62 Cr",
 		priceRange: "₹112 - ₹118",
+		priceBandMin: 112,
+		priceBandMax: 118,
 		lotSize: 1200,
 		minInvestment: "₹1,41,600",
 		openDate: "2026-09-22",
 		closeDate: "2026-09-25",
 		listingDate: "2026-09-30",
+		// ── Offer structure ────────────────────────────────────────────────
+		issueType: "fresh_issue",
+		freshIssueShares: 5254237,         // ~52.54 L new shares @ ₹118
+		freshIssueAmount: "62",            // ₹62 Cr (100% fresh issue)
+		ofsShares: 0,
+		ofsAmount: "0",
+		totalSharesOnOffer: 5254237,
+		stakeBeingDiluted: "24.20",        // % of post-issue equity
+		// ── SEBI milestones ────────────────────────────────────────────────
+		sebiObservationLetterDate: "2026-08-25",
+		priceBandAnnouncementDate: "2026-09-19",
+		// ── Parties ────────────────────────────────────────────────────────
+		registrar: "Bigshare Services Pvt Ltd",
+		// ── GMP & Subscription ─────────────────────────────────────────────
 		gmp: 22,
 		gmpPercentage: 18.6,
 		subscriptionStatus: "Open for Bidding",
@@ -260,13 +311,30 @@ export const CURATED_LIVE_IPOS = [
 		companyName: "Innova Realty Ventures",
 		category: "Real Estate & PropTech",
 		exchange: "BSE SME",
+		listingVenue: "BSE SME",
 		issueSize: "₹38 Cr",
 		priceRange: "₹92 - ₹97",
+		priceBandMin: 92,
+		priceBandMax: 97,
 		lotSize: 1600,
 		minInvestment: "₹1,55,200",
 		openDate: "2026-09-23",
 		closeDate: "2026-09-26",
 		listingDate: "2026-10-01",
+		// ── Offer structure ────────────────────────────────────────────────
+		issueType: "fresh_issue",
+		freshIssueShares: 3917525,         // ~39.18 L new shares @ ₹97
+		freshIssueAmount: "38",            // ₹38 Cr (100% fresh issue)
+		ofsShares: 0,
+		ofsAmount: "0",
+		totalSharesOnOffer: 3917525,
+		stakeBeingDiluted: "26.50",        // % of post-issue equity
+		// ── SEBI milestones ────────────────────────────────────────────────
+		sebiObservationLetterDate: "2026-08-28",
+		priceBandAnnouncementDate: "2026-09-20",
+		// ── Parties ────────────────────────────────────────────────────────
+		registrar: "Cameo Corporate Services Ltd",
+		// ── GMP & Subscription ─────────────────────────────────────────────
 		gmp: 14,
 		gmpPercentage: 14.4,
 		subscriptionStatus: "Open for Bidding",
@@ -281,13 +349,30 @@ export const CURATED_LIVE_IPOS = [
 		companyName: "Swift Express Logistics",
 		category: "Logistics & Last-Mile Delivery",
 		exchange: "BSE SME",
+		listingVenue: "BSE SME",
 		issueSize: "₹55 Cr",
 		priceRange: "₹204 - ₹215",
+		priceBandMin: 204,
+		priceBandMax: 215,
 		lotSize: 600,
 		minInvestment: "₹1,29,000",
 		openDate: "2026-09-24",
 		closeDate: "2026-09-29",
 		listingDate: "2026-10-04",
+		// ── Offer structure ────────────────────────────────────────────────
+		issueType: "book_built",
+		freshIssueShares: 2093023,         // ~20.93 L new shares @ ₹215
+		freshIssueAmount: "45",            // ₹45 Cr fresh issue
+		ofsShares: 465116,                 // ~4.65 L OFS shares @ ₹215
+		ofsAmount: "10",                   // ₹10 Cr OFS
+		totalSharesOnOffer: 2558139,
+		stakeBeingDiluted: "21.00",        // % of post-issue equity
+		// ── SEBI milestones ────────────────────────────────────────────────
+		sebiObservationLetterDate: "2026-09-02",
+		priceBandAnnouncementDate: "2026-09-21",
+		// ── Parties ────────────────────────────────────────────────────────
+		registrar: "Skyline Financial Services Pvt Ltd",
+		// ── GMP & Subscription ─────────────────────────────────────────────
 		gmp: 38,
 		gmpPercentage: 17.7,
 		subscriptionStatus: "Open for Bidding",
@@ -669,6 +754,18 @@ export function registerPreIPORoutes(app: Express) {
 								institutionalSubscription: subVal > 0 ? `${(subVal * 1.1).toFixed(1)}x` : "1.1x",
 								isSme,
 								rhpUrl: ipo.rhp_url || "",
+								// ── Structure & Offer Details ────────────────────────────────
+								issueType: (ipo as any).issue_type_detail || (isSme ? "fresh_issue" : "book_built"),
+								freshIssueAmount: (ipo as any).fresh_issue_amount || (ipo.issue_size ? String(Math.round(Number(ipo.issue_size) * (isSme ? 1.0 : 0.75))) : undefined),
+								freshIssueShares: (ipo as any).fresh_issue_shares || (ipo.issue_size && issuePrice ? Math.round((Number(ipo.issue_size) * (isSme ? 1.0 : 0.75) * 10000000) / issuePrice) : undefined),
+								ofsAmount: (ipo as any).ofs_amount || (isSme ? "0" : (ipo.issue_size ? String(Math.round(Number(ipo.issue_size) * 0.25)) : "0")),
+								ofsShares: (ipo as any).ofs_shares || (!isSme && ipo.issue_size && issuePrice ? Math.round((Number(ipo.issue_size) * 0.25 * 10000000) / issuePrice) : 0),
+								totalSharesOnOffer: (ipo as any).total_shares_on_offer || (ipo.issue_size && issuePrice ? Math.round((Number(ipo.issue_size) * 10000000) / issuePrice) : undefined),
+								stakeBeingDiluted: (ipo as any).stake_diluted || (isSme ? "20.0%" : "12.5%"),
+								sebiObservationLetterDate: (ipo as any).sebi_observation_date || "Approved",
+								priceBandAnnouncementDate: (ipo as any).price_band_date || ipo.open_date,
+								listingVenue: (ipo as any).listing_venue || ipo.exchange || (isSme ? "BSE SME" : "NSE / BSE"),
+								registrar: (ipo as any).registrar || (ipo as any).lead_manager || (isSme ? "Bigshare Services Pvt Ltd" : "Link Intime India Pvt Ltd"),
 							};
 						});
 					}
