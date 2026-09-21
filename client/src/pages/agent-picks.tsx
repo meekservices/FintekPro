@@ -724,10 +724,18 @@ export default function AgentPicksPage() {
 		setSelectedPickIds(next);
 	};
 
-	const { data: explanationData, isLoading: loadingExplanation } = useQuery({
+	const {
+		data: explanationData,
+		isLoading: loadingExplanation,
+		error: explanationErrorDetail,
+		refetch: refetchExplanation,
+	} = useQuery({
 		queryKey: ["/api/ai/xai/explain", explainingPickId],
-		enabled: !!explainingPickId && explanationOpen,
-		select: (data: any) => (data.success ? data.explanation : null),
+		enabled: Boolean(explainingPickId && explanationOpen),
+		select: (data: any) => (data?.success ? data.explanation : null),
+		staleTime: 60 * 1000,
+		retry: 2,
+		retryDelay: 1000,
 	});
 
 	const { data: todayData, isLoading: loadingToday } =
@@ -6504,14 +6512,23 @@ export default function AgentPicksPage() {
 					) : (
 						<div className="py-8 text-center border rounded-lg bg-muted/20">
 							<AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-2" />
-							<p className="text-sm">
+							<p className="text-sm font-medium text-foreground mb-1">
 								XAI explanation is currently unavailable for this pick.
 							</p>
+							<p className="text-xs text-muted-foreground mb-3">
+								{explanationErrorDetail instanceof Error
+									? explanationErrorDetail.message
+									: "The AI analysis model may still be synthesizing metrics or the server was temporarily busy."}
+							</p>
 							<Button
-								variant="link"
+								variant="outline"
 								size="sm"
-								onClick={() => setExplanationPickId(explainingPickId)}
+								className="gap-2"
+								onClick={() => {
+									refetchExplanation();
+								}}
 							>
+								<RefreshCw className="h-3.5 w-3.5" />
 								Retry Generation
 							</Button>
 						</div>

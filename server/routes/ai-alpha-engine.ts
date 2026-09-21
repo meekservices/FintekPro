@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Router } from "express";
 import { aiBacktestingEngine } from "../services/ai-backtesting-engine";
 import { aiRegimeDetectionEngine } from "../services/ai-regime-detection-engine";
@@ -491,8 +492,9 @@ router.get("/xai/explain/:pickId", requireAuth, async (req, res) => {
 		res.json({ success: true, explanation });
 	} catch (error: any) {
 		console.error("[AI XAI] Explain error:", error);
+		const isNotFound = error.message?.includes("not found");
 		res
-			.status(500)
+			.status(isNotFound ? 404 : 500)
 			.json({
 				success: false,
 				error: error.message || "Failed to explain pick",

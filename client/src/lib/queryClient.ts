@@ -95,6 +95,8 @@ const EXCLUDED_401_ENDPOINTS = [
 	"/api/portfolio/",
 	"/api/tester-diagnostics",
 	"/api/analytics",
+	"/api/ai/",
+	"/api/xai/",
 ];
 
 let wasEverAuthenticated = false;

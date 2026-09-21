@@ -634,6 +634,8 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 		app.use("/api/isin", isinIntelligenceRoutes.default);
 		app.use("/api/ai", aiLimiter);
 		app.use("/api/ai", aiAlphaEngineRoutes.default);
+		app.use("/api/xai", aiLimiter);
+		app.use("/api/xai", aiAlphaEngineRoutes.default);
 
 		// Pick of the Day Routes
 		logBootProgress("Step 7: Registering Pick of the Day Routes...");
