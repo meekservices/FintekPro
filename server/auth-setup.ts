@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
 import passport from "passport";
@@ -78,7 +79,7 @@ export async function setupAuth(app: Express) {
 			secret: sessionSecret,
 			resave: false,
 			saveUninitialized: false,
-			rolling: true,
+			rolling: false, // Stopped session write storm on every incoming request/poll
 			store: sessionStore,
 			cookie: cookieOptions,
 			proxy: true,

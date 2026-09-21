@@ -354,12 +354,6 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 		// Subdomain detection must be first to set portal context flags
 		app.use(subdomainDetection);
 
-
-		// Acting-as context middleware — reads agent delegation session if present.
-		// Must be after session middleware, before any route handlers.
-		const { actingAsContextMiddleware } = await import("./middleware/acting-as-context");
-		app.use(actingAsContextMiddleware);
-
 		// ── AUTH & MIDDLEWARE ────────────────────────────────────────────────────
 		try {
 			const { setupAuth: setupSessionAuth } = await import("./auth-setup");
@@ -367,6 +361,11 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 
 			// Step 3a: Initialize Session Store (Redis or Postgres)
 			await setupSessionAuth(app);
+
+			// Acting-as context middleware — reads agent delegation session if present.
+			// Must be after session middleware, before any route handlers.
+			const { actingAsContextMiddleware } = await import("./middleware/acting-as-context");
+			app.use(actingAsContextMiddleware);
 
 			// Step 3b: Initialize Passport Strategies (Local, OTP, etc)
 			registerAuthRoutes(app);

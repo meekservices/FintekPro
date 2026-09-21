@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import {
 	type User,
 	type UpsertUser,
@@ -275,26 +276,110 @@ export type { IStorage } from "./storage-types";
 
 // We'll import hashPassword later to avoid circular dependency
 
+interface SessionCacheEntry {
+	sess: any;
+	cachedAt: number;
+}
+
+const PgSessionBase = connectPg(session);
+
+/**
+ * Resilient In-Memory Cached Postgres Session Store
+ *
+ * Wraps connect-pg-simple to:
+ * 1. Cache session reads in memory for 2 minutes (eliminates ~95% of DB queries from repetitive requests/polling).
+ * 2. Fall back to cached session data if PostgreSQL connection pool times out (prevents spurious 401 logouts).
+ * 3. Write-through to PostgreSQL on set() and invalidate on destroy().
+ */
+class CachedPgSessionStore extends PgSessionBase {
+	private memCache = new Map<string, SessionCacheEntry>();
+	private readonly CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+
+	constructor(options: any) {
+		super(options);
+		const cleanup = setInterval(() => {
+			const now = Date.now();
+			for (const [sid, entry] of this.memCache.entries()) {
+				if (now - entry.cachedAt > this.CACHE_TTL_MS * 2) {
+					this.memCache.delete(sid);
+				}
+			}
+		}, 60 * 1000);
+		if (cleanup.unref) cleanup.unref();
+	}
+
+	override get(sid: string, fn: (err: any, session?: any) => void): void {
+		const cached = this.memCache.get(sid);
+		const now = Date.now();
+
+		if (cached && now - cached.cachedAt < this.CACHE_TTL_MS) {
+			return process.nextTick(() => fn(null, cached.sess));
+		}
+
+		super.get(sid, (err: any, sessionData?: any) => {
+			if (err) {
+				// Resilient fallback: if DB connection pool times out under load, serve cached session to prevent 401 logouts
+				if (cached?.sess) {
+					console.warn(
+						`[SessionStore] ⚠️ DB error reading session (${err.message || String(err)}). Serving cached session for ${sid.slice(0, 8)}... to prevent unexpected logout.`,
+					);
+					return fn(null, cached.sess);
+				}
+				return fn(err);
+			}
+
+			if (sessionData) {
+				this.memCache.set(sid, { sess: sessionData, cachedAt: now });
+			} else {
+				this.memCache.delete(sid);
+			}
+			fn(null, sessionData);
+		});
+	}
+
+	override set(sid: string, sess: any, fn?: (err?: any) => void): void {
+		this.memCache.set(sid, { sess, cachedAt: Date.now() });
+		super.set(sid, sess, (err: any) => {
+			if (err) {
+				console.error(`[SessionStore] ❌ Error writing session ${sid.slice(0, 8)}... to DB:`, err);
+			}
+			if (fn) fn(err);
+		});
+	}
+
+	override destroy(sid: string, fn?: (err?: any) => void): void {
+		this.memCache.delete(sid);
+		super.destroy(sid, fn);
+	}
+
+	override touch(sid: string, sess: any, fn?: (err?: any) => void): void {
+		const cached = this.memCache.get(sid);
+		if (cached) {
+			cached.cachedAt = Date.now();
+		}
+		super.touch(sid, sess, fn);
+	}
+}
+
 export class DatabaseStorage implements IStorage {
 	private _sessionStore: session.Store | null = null;
 
 	public get sessionStore(): session.Store {
 		if (!this._sessionStore) {
-			// Use connect-pg-simple backed by the shared Postgres pool.
-			// Sessions are stored in the DB, so they are shared across ALL Cloud Run
-			// instances. This eliminates the 401 errors caused by in-process MemoryStore
-			// losing sessions when load balancing routes requests to a different instance.
-			// createTableIfMissing=true auto-creates the 'sessions' table on first boot.
-			const PgSession = connectPg(session);
-			this._sessionStore = new PgSession({
+			// Use CachedPgSessionStore backed by the shared Postgres pool.
+			// Sessions are stored in the DB, shared across ALL Cloud Run instances.
+			// In-memory cache eliminates DB contention from high-frequency dashboard polls.
+			// disableTouch=true eliminates per-request UPDATE sessions SET expire = ... writes.
+			this._sessionStore = new CachedPgSessionStore({
 				pool,
 				tableName: "sessions",
 				createTableIfMissing: true,
-				ttl: 30 * 24 * 60 * 60, // 30 days in seconds (connect-pg-simple uses seconds)
+				ttl: 30 * 24 * 60 * 60, // 30 days in seconds
 				pruneSessionInterval: 60 * 60, // Prune expired sessions every 1 hour
+				disableTouch: true,
 			});
 			console.log(
-				"[SessionStore] Using PostgreSQL session store (connect-pg-simple) — sessions shared across all instances",
+				"[SessionStore] Using Cached PostgreSQL session store (connect-pg-simple) — in-memory cache + shared PostgreSQL persistence",
 			);
 		}
 		return this._sessionStore;

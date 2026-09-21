@@ -32,18 +32,17 @@ const port = 5432;
 const dbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
 
 // FIX-3: Pool sizing for Cloud Run autoscale on db-f1-micro (max 25 connections).
-// Old: max:10 per pod — during traffic switchover, old+new revision = 20 connections;
-//   remaining 5 slots too few for new revision → proxy timeout → 500/502 on deploy.
-// New: max:5 per pod — two revisions can comfortably coexist within the 25-connection limit.
+// Sizing for Cloud Run on db-f1-micro (25 max connections total).
+// max:8 per pod — two revisions = 16 connections, safely within 25.
 // allowExitOnIdle: true — connections drain immediately on SIGTERM (fast switchover).
 // idleTimeoutMillis:60s — kills warm idle connections after 60s of inactivity.
-// connectionTimeoutMillis:10s — matches Cloud SQL socket handshake time.
+// connectionTimeoutMillis:15s — allows grace period for concurrent bursts.
 const POOL_CONFIG: any = {
-	max: isProduction ? 5 : 8,
+	max: 8,
 	min: isTest ? 0 : 1,
 	idleTimeoutMillis: isProduction ? 60_000 : 30_000,
-	connectionTimeoutMillis: isTest ? 1_000 : 10_000,
-	allowExitOnIdle: true, // FIX-3: immediate idle drain on SIGTERM — prevents deploy hang
+	connectionTimeoutMillis: isTest ? 1_000 : 15_000,
+	allowExitOnIdle: true, // immediate idle drain on SIGTERM — prevents deploy hang
 };
 
 // The `pg` library does NOT support `?host=` as a URL query parameter.

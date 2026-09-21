@@ -88,6 +88,13 @@ const EXCLUDED_401_ENDPOINTS = [
 	"/api/admin/store/audit-logs",
 	"/api/admin/pending-orders",
 	"/api/admin/kyc/dashboard",
+	// Agent portal & background polling endpoints — prevent background 401s from triggering session expired dialog
+	"/api/agent/",
+	"/api/notifications",
+	"/api/push-tokens",
+	"/api/portfolio/",
+	"/api/tester-diagnostics",
+	"/api/analytics",
 ];
 
 let wasEverAuthenticated = false;
