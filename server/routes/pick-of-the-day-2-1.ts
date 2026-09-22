@@ -29,6 +29,8 @@ import {
 	DATA_SOURCES,
 	enrichPicksWithDataSource,
 } from "./pick-of-the-day-utils";
+import { objectStorageClient } from "../objectStorage";
+import { logger } from "../logger";
 
 const watchlistAddSchema = z.object({
 	pickId: z.number(),
@@ -579,4 +581,95 @@ function getDiversificationRecommendations(
 // ENHANCED STATS WITH HISTORICAL ACCURACY
 // ==========================================
 
+// ==========================================
+// PDF INSTITUTIONAL NOTE — SECURE PROXY DOWNLOAD
+// ==========================================
+
+/**
+ * GET /api/picks/:id/download-note
+ *
+ * Generates a fresh 15-minute signed URL for the pick's institutional PDF note
+ * and redirects the client to it. This prevents exposing the private GCS bucket
+ * URL directly in the frontend and avoids AccessDenied errors.
+ *
+ * @param id - The dailyPicks serial ID
+ */
+router.get("/:id/download-note", requireAuth, async (req: Request, res: Response) => {
+	const pickId = parseInt(req.params.id, 10);
+	if (isNaN(pickId)) {
+		return res.status(400).json({ success: false, error_code: "INVALID_ID", message: "Invalid pick ID", retryable: false });
+	}
+
+	try {
+		const [pick] = await db
+			.select({ keyMetrics: dailyPicks.keyMetrics, instrumentName: dailyPicks.instrumentName })
+			.from(dailyPicks)
+			.where(eq(dailyPicks.id, pickId))
+			.limit(1);
+
+		if (!pick) {
+			return res.status(404).json({ success: false, error_code: "PICK_NOT_FOUND", message: "Pick not found", retryable: false });
+		}
+
+		const metrics = (pick.keyMetrics ?? {}) as Record<string, any>;
+		const rawUrl: string = metrics.pdfUrl ?? "";
+		const storagePath: string = metrics.pdfStoragePath ?? "";
+
+		// Resolve bucket + path from either gs:// URL or storagePath field
+		let bucket = "";
+		let objectPath = "";
+
+		if (rawUrl.startsWith("gs://")) {
+			const withoutScheme = rawUrl.slice(5);
+			const slashIdx = withoutScheme.indexOf("/");
+			bucket = withoutScheme.slice(0, slashIdx);
+			objectPath = withoutScheme.slice(slashIdx + 1);
+		} else if (storagePath) {
+			bucket = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID ?? "fintekpro-documents";
+			objectPath = storagePath;
+		} else if (rawUrl.startsWith("https://")) {
+			// Already a valid signed URL — redirect directly (may still be valid)
+			return res.redirect(rawUrl);
+		} else {
+			return res.status(404).json({ success: false, error_code: "NO_PDF", message: "No institutional note available for this pick", retryable: false });
+		}
+
+		// Generate a fresh 15-minute signed URL server-side
+		const file = objectStorageClient.bucket(bucket).file(objectPath);
+		const [signedUrl] = await file.getSignedUrl({
+			action: "read",
+			expires: Date.now() + 15 * 60 * 1000, // 15 minutes
+			responseDisposition: `attachment; filename="${pick.instrumentName?.replace(/[^a-zA-Z0-9]/g, "_")}_InstitutionalNote.pdf"`,
+			responseType: "application/pdf",
+		});
+
+		logger.info("[PickDownloadNote] Serving signed PDF URL", {
+			event: "PICK_PDF_DOWNLOAD",
+			user_id: (req as any).user?.id ?? "unknown",
+			pick_id: pickId,
+			bucket,
+			object_path: objectPath,
+			latency_ms: 0,
+			status: "ok",
+		});
+
+		return res.redirect(302, signedUrl);
+	} catch (err: any) {
+		logger.error("[PickDownloadNote] Failed to generate signed URL", {
+			event: "PICK_PDF_DOWNLOAD_ERROR",
+			pick_id: pickId,
+			error: err?.message ?? String(err),
+			retryable: true,
+		});
+		return res.status(500).json({
+			success: false,
+			error_code: "SIGNED_URL_FAILED",
+			message: "Failed to generate download link. Please try again.",
+			retryable: true,
+			meta: { timestamp: new Date().toISOString(), version: "1.0" },
+		});
+	}
+});
+
 export default router;
+

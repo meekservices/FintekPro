@@ -75,8 +75,10 @@ export class PickPdfGeneratorService {
 					});
 					downloadUrl = signedUrl;
 				} catch {
-					// Fallback to GCP direct storage link if signing credentials unavailable
-					downloadUrl = `https://storage.googleapis.com/${this.BUCKET_NAME}/${storagePath}`;
+					// Signing credentials unavailable in this Cloud Run context —
+					// store a gs:// reference so the backend proxy can sign on-demand.
+					// NEVER expose a public storage.googleapis.com URL (bucket is private).
+					downloadUrl = `gs://${this.BUCKET_NAME}/${storagePath}`;
 				}
 
 				logger.info(`[PickPdfGenerator] Uploaded 1-page PDF for ${cleanSymbol} to GCS`, {

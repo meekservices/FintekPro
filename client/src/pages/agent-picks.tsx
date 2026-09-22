@@ -3107,9 +3107,7 @@ export default function AgentPicksPage() {
 												size="sm"
 												className="h-8 gap-1.5 text-xs bg-white/80 dark:bg-zinc-900/80 hover:bg-white border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200"
 												onClick={() => {
-													if (topPickOfDay.keyMetrics?.pdfUrl) {
-														window.open(topPickOfDay.keyMetrics.pdfUrl, "_blank");
-													}
+													window.open(`/api/picks/${topPickOfDay.id}/download-note`, "_blank");
 												}}
 											>
 												<FileText className="h-3.5 w-3.5 text-amber-600" />
@@ -6240,7 +6238,7 @@ export default function AgentPicksPage() {
 										variant="outline"
 										className="w-full bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 text-amber-900 dark:text-amber-200"
 										onClick={() => {
-											window.open(selectedPick.keyMetrics!.pdfUrl, "_blank");
+											window.open(`/api/picks/${selectedPick.id}/download-note`, "_blank");
 										}}
 									>
 										<FileText className="h-4 w-4 mr-2 text-amber-600" />
@@ -8444,9 +8442,7 @@ function PickCard({
 													className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/40"
 													onClick={(e) => {
 														e.stopPropagation();
-														if (pick.keyMetrics?.pdfUrl) {
-															window.open(pick.keyMetrics.pdfUrl, "_blank");
-														}
+														window.open(`/api/picks/${pick.id}/download-note`, "_blank");
 													}}
 												>
 													<FileText className="h-4 w-4" />

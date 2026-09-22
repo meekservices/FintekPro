@@ -619,7 +619,10 @@ export class PickOfTheDayService {
 						const pdfResult = await pickPdfGenerator.generateAndUploadPickPDF(pick);
 						if (pdfResult?.url) {
 							(pick.keyMetrics as any).pdfUrl = pdfResult.url;
-							// Re-persist updated keyMetrics containing the GCS PDF URL
+							// Always persist the raw GCS storage path so the backend proxy
+							// can generate a fresh signed URL regardless of what pdfUrl holds.
+							(pick.keyMetrics as any).pdfStoragePath = pdfResult.storagePath;
+							// Re-persist updated keyMetrics containing the PDF references
 							await this.savePick(pick);
 						}
 					} catch (pdfErr) {
