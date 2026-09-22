@@ -2540,6 +2540,7 @@ export async function getFinancialData(
 					dbPreviousClose: null,
 					dbMarketCap: null,
 					dbPeRatio: null,
+					dbPbRatio: null,
 					dbFaceValue: null,
 					dbFiftyTwoWeekHigh: null,
 					dbFiftyTwoWeekLow: null,
