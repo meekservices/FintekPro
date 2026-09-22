@@ -316,48 +316,93 @@ class CachedPgSessionStore extends PgSessionBase {
 			return process.nextTick(() => fn(null, cached.sess));
 		}
 
-		super.get(sid, (err: any, sessionData?: any) => {
-			if (err) {
-				// Resilient fallback: if DB connection pool times out under load, serve cached session to prevent 401 logouts
-				if (cached?.sess) {
+		try {
+			super.get(sid, (err: any, sessionData?: any) => {
+				if (err) {
+					// Resilient fallback: if DB connection pool times out or errors under load,
+					// serve cached session to prevent 401 logouts, OR return null (no session)
+					// instead of bubbling err to express-session (which causes HTTP 500 crashes).
+					if (cached?.sess) {
+						console.warn(
+							`[SessionStore] ⚠️ DB error reading session (${err.message || String(err)}). Serving cached session for ${sid.slice(0, 8)}...`,
+						);
+						return fn(null, cached.sess);
+					}
 					console.warn(
-						`[SessionStore] ⚠️ DB error reading session (${err.message || String(err)}). Serving cached session for ${sid.slice(0, 8)}... to prevent unexpected logout.`,
+						`[SessionStore] ⚠️ DB error reading session (${err.message || String(err)}). Falling back to empty session to prevent 500 error.`,
 					);
-					return fn(null, cached.sess);
+					return fn(null, null);
 				}
-				return fn(err);
-			}
 
-			if (sessionData) {
-				this.memCache.set(sid, { sess: sessionData, cachedAt: now });
-			} else {
-				this.memCache.delete(sid);
+				if (sessionData) {
+					this.memCache.set(sid, { sess: sessionData, cachedAt: now });
+				} else {
+					this.memCache.delete(sid);
+				}
+				fn(null, sessionData);
+			});
+		} catch (syncErr: any) {
+			console.warn(
+				`[SessionStore] ⚠️ Synchronous error in session get: ${syncErr?.message || syncErr}`,
+			);
+			if (cached?.sess) {
+				return fn(null, cached.sess);
 			}
-			fn(null, sessionData);
-		});
+			return fn(null, null);
+		}
 	}
 
 	override set(sid: string, sess: any, fn?: (err?: any) => void): void {
 		this.memCache.set(sid, { sess, cachedAt: Date.now() });
-		super.set(sid, sess, (err: any) => {
-			if (err) {
-				console.error(`[SessionStore] ❌ Error writing session ${sid.slice(0, 8)}... to DB:`, err);
-			}
-			if (fn) fn(err);
-		});
+		try {
+			super.set(sid, sess, (err: any) => {
+				if (err) {
+					console.error(
+						`[SessionStore] ⚠️ Error writing session ${sid.slice(0, 8)}... to DB:`,
+						err?.message || String(err),
+					);
+					// Non-fatal: session is stored in memCache, so current instance requests succeed
+					if (fn) return fn(null);
+				}
+				if (fn) fn(null);
+			});
+		} catch (syncErr: any) {
+			console.error(
+				`[SessionStore] ⚠️ Synchronous error in session set: ${syncErr?.message || syncErr}`,
+			);
+			if (fn) fn(null);
+		}
 	}
 
 	override destroy(sid: string, fn?: (err?: any) => void): void {
 		this.memCache.delete(sid);
-		super.destroy(sid, fn);
+		try {
+			super.destroy(sid, (err: any) => {
+				if (err) {
+					console.warn(
+						`[SessionStore] ⚠️ Error destroying session ${sid.slice(0, 8)}... in DB:`,
+						err?.message || String(err),
+					);
+				}
+				if (fn) fn(null);
+			});
+		} catch {
+			if (fn) fn(null);
+		}
 	}
 
-	override touch(sid: string, sess: any, fn?: (err?: any) => void): void {
+	override touch(sid: string, sess: any, fn?: () => void): void {
 		const cached = this.memCache.get(sid);
 		if (cached) {
 			cached.cachedAt = Date.now();
 		}
-		super.touch(sid, sess, fn);
+		try {
+			super.touch(sid, sess, () => {
+				if (fn) fn();
+			});
+		} catch {
+			if (fn) fn();
+		}
 	}
 }
 
@@ -370,12 +415,14 @@ export class DatabaseStorage implements IStorage {
 			// Sessions are stored in the DB, shared across ALL Cloud Run instances.
 			// In-memory cache eliminates DB contention from high-frequency dashboard polls.
 			// disableTouch=true eliminates per-request UPDATE sessions SET expire = ... writes.
+			// createTableIfMissing=false prevents unhandled _rawEnsureSessionStoreTable queries.
+			// pruneSessionInterval=false disables uncoordinated pruning loops from web pods.
 			this._sessionStore = new CachedPgSessionStore({
 				pool,
 				tableName: "sessions",
-				createTableIfMissing: true,
+				createTableIfMissing: false,
 				ttl: 30 * 24 * 60 * 60, // 30 days in seconds
-				pruneSessionInterval: 60 * 60, // Prune expired sessions every 1 hour
+				pruneSessionInterval: false,
 				disableTouch: true,
 			});
 			console.log(

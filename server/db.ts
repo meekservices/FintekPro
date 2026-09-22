@@ -33,16 +33,26 @@ const dbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
 
 // FIX-3: Pool sizing for Cloud Run autoscale on db-f1-micro (max 25 connections).
 // Sizing for Cloud Run on db-f1-micro (25 max connections total).
-// max:8 per pod — two revisions = 16 connections, safely within 25.
+// max:4 per pod — two revisions = 8 connections, safely within 25 total.
+// min:0 — don't hold idle connections warm.
 // allowExitOnIdle: true — connections drain immediately on SIGTERM (fast switchover).
-// idleTimeoutMillis:60s — kills warm idle connections after 60s of inactivity.
-// connectionTimeoutMillis:15s — allows grace period for concurrent bursts.
+// idleTimeoutMillis:10s — kills warm idle connections quickly after 10s of inactivity.
+// connectionTimeoutMillis:10s — allows grace period for concurrent bursts.
+const defaultMax =
+	process.env.IS_WORKER === "true" ||
+	process.env.SERVICE_NAME?.includes("enrichment")
+		? 3
+		: 4;
+
 const POOL_CONFIG: any = {
-	max: 8,
-	min: isTest ? 0 : 1,
-	idleTimeoutMillis: isProduction ? 60_000 : 30_000,
-	connectionTimeoutMillis: isTest ? 1_000 : 15_000,
+	max: process.env.DB_POOL_MAX
+		? parseInt(process.env.DB_POOL_MAX, 10)
+		: defaultMax,
+	min: 0,
+	idleTimeoutMillis: 10_000,
+	connectionTimeoutMillis: isTest ? 1_000 : 10_000,
 	allowExitOnIdle: true, // immediate idle drain on SIGTERM — prevents deploy hang
+	statement_timeout: 30_000, // 30s query cap prevents hanging queries holding connections
 };
 
 // The `pg` library does NOT support `?host=` as a URL query parameter.

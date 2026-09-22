@@ -158,15 +158,6 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 			await db.execute(sql`SELECT 1`);
 			logger.info("✅ Database connection established");
 
-			// ── Pool warmup: pre-open connections so Cold Run pod startup
-			// doesn't exhaust the pool when the first burst of user requests
-			// (e.g. KYC profile loads) arrive simultaneously. ────────────────
-			Promise.allSettled(
-				Array.from({ length: 5 }, () => db.execute(sql`SELECT 1`)),
-			).then(() =>
-				logger.info("✅ DB connection pool warmed up (5 connections)"),
-			);
-
 			// ── CRITICAL SYNC MIGRATION: model_portfolios period return columns ────
 			// Must run SYNCHRONOUSLY here — before routes are registered and before
 			// any HTTP request can reach GET /api/model-portfolios. The Drizzle ORM

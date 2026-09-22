@@ -364,7 +364,9 @@ export function registerAuthRoutes(app: Express) {
 			// Modify the request to pass portal context to passport callback
 			const modifiedReq = req as any;
 			modifiedReq.targetPortal = targetPortal;
-			(req.session as any).targetPortal = targetPortal; // Persist in session for verify-otp step
+			if (req.session) {
+				(req.session as any).targetPortal = targetPortal; // Persist in session for verify-otp step
+			}
 
 			passport.authenticate(
 				"local",
