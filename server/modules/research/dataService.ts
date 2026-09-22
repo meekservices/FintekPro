@@ -1932,6 +1932,7 @@ interface DBData {
 	dbPrice: number | null;
 	dbMarketCap: number | null;
 	dbPeRatio: number | null;
+	dbPbRatio: number | null; // listed_stocks.pb_ratio — written back by writeScreenerToDB
 	dbFaceValue: number | null;
 	dbFiftyTwoWeekHigh: number | null;
 	dbFiftyTwoWeekLow: number | null;
@@ -1963,6 +1964,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 		dbPrice: null,
 		dbMarketCap: null,
 		dbPeRatio: null,
+		dbPbRatio: null,
 		dbFaceValue: null,
 		dbFiftyTwoWeekHigh: null,
 		dbFiftyTwoWeekLow: null,
@@ -1978,7 +1980,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
              sf.last_updated,
              ls.returns_1m, ls.returns_6m, ls.returns_1y, ls.beta,
              ls.current_price, ls.previous_close, ls.market_cap_value, ls.pe_ratio,
-             ls.face_value, ls.week_high_52, ls.week_low_52,
+             ls.pb_ratio, ls.face_value, ls.week_high_52, ls.week_low_52,
              ls.last_vwap
       FROM screener_financials sf
       LEFT JOIN listed_stocks ls ON ls.symbol = sf.symbol
@@ -2008,6 +2010,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 					dbPreviousClose: pf(lr.previous_close),
 					dbMarketCap: pf(lr.market_cap_value) && pf(lr.market_cap_value)! > 0 ? pf(lr.market_cap_value) : null,
 					dbPeRatio: pf(lr.pe_ratio),
+					dbPbRatio: pf(lr.pb_ratio),
 					dbFaceValue: pf(lr.face_value),
 					dbFiftyTwoWeekHigh: pf(lr.week_high_52),
 					dbFiftyTwoWeekLow: pf(lr.week_low_52),
@@ -2042,6 +2045,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 			dbPreviousClose: pf(r.previous_close),
 			dbMarketCap: pf(r.market_cap_value) && pf(r.market_cap_value)! > 0 ? pf(r.market_cap_value) : null,
 			dbPeRatio: pf(r.pe_ratio),
+			dbPbRatio: pf(r.pb_ratio),
 			dbFaceValue: pf(r.face_value),
 			// Bug 3 fix: use the actual SQL column name returned by PostgreSQL (week_high_52 / week_low_52)
 			// NOT the camelCase alias r.fifty_two_week_high which was never populated.
@@ -2273,10 +2277,17 @@ function buildFull(
 
 	const bookValue = screener.bookValue ?? dbData.bookValue ?? null;
 
+	// P/B fallback chain (4 tiers):
+	// 1. Screener.in scraped P/B (most reliable for Indian stocks — direct from source)
+	// 2. DB cached pb_ratio from listed_stocks (written back on every research note fetch)
+	// 3. Computed: price / bookValue (when bookValue is available)
+	// 4. null (show N/A)
 	const pbRatio =
-		price !== null && bookValue !== null && bookValue > 0
+		screener.pb ??
+		dbData.dbPbRatio ??
+		(price !== null && bookValue !== null && bookValue > 0
 			? Math.round((price / bookValue) * 100) / 100
-			: null;
+			: null);
 
 	return {
 		price,
@@ -2438,10 +2449,15 @@ async function fetchPythonReturns(
 			v !== null && v !== undefined && !Number.isNaN(Number(v))
 				? Number(v)
 				: null;
+		// Sanity-clamp: |return| > 5.0 (±500%) signals corrupted golden_prices data
+		// (e.g. historical prices stored in paise while current price is in rupees).
+		// Clamp to null so the UI shows N/A rather than absurd values like -345% or +5857%.
+		const clamp = (v: number | null): number | null =>
+			v !== null && Math.abs(v) > 5.0 ? null : v;
 		const returns = {
-			returns1M: pf((raw as any).return_1m),
-			returns6M: pf((raw as any).return_6m),
-			returns1Y: pf((raw as any).return_1y),
+			returns1M: clamp(pf((raw as any).return_1m)),
+			returns6M: clamp(pf((raw as any).return_6m)),
+			returns1Y: clamp(pf((raw as any).return_1y)),
 		};
 		logger.info(
 			`[ResearchNote] Python returns ${nseSymbol}: 1M=${returns.returns1M !== null ? (returns.returns1M * 100).toFixed(1) + "%" : "N/A"}, ` +
