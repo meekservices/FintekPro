@@ -1503,25 +1503,34 @@ Provide analysis in JSON format:
 		let confidence: number;
 		let fintekproRating: number;
 
+		// Confidence is deterministic (no randomness — FASP-AI v1.0 § Financial Logic Integrity).
+		// Each band maps totalScore linearly to a confidence range using a pure formula:
+		//   confidence = bandFloor + ((totalScore - bandMin) / bandWidth) * bandRange
+		// Signal bands and confidence ranges are monotonically consistent: stronger signal → higher confidence.
 		if (totalScore >= 75) {
 			signal = "strong_buy";
-			confidence = 85 + Math.random() * 10;
+			// band: [75, 100] → confidence: [82, 96]
+			confidence = 82 + ((totalScore - 75) / 25) * 14;
 			fintekproRating = 5;
 		} else if (totalScore >= 60) {
 			signal = "buy";
-			confidence = 70 + Math.random() * 15;
+			// band: [60, 75) → confidence: [68, 82)
+			confidence = 68 + ((totalScore - 60) / 15) * 14;
 			fintekproRating = 4;
 		} else if (totalScore >= 45) {
 			signal = "hold";
-			confidence = 55 + Math.random() * 15;
+			// band: [45, 60) → confidence: [55, 68)
+			confidence = 55 + ((totalScore - 45) / 15) * 13;
 			fintekproRating = 3;
 		} else if (totalScore >= 30) {
 			signal = "sell";
-			confidence = 60 + Math.random() * 15;
+			// band: [30, 45) → confidence: [42, 55)
+			confidence = 42 + ((totalScore - 30) / 15) * 13;
 			fintekproRating = 2;
 		} else {
 			signal = "strong_sell";
-			confidence = 70 + Math.random() * 15;
+			// band: [0, 30) → confidence: [30, 42)
+			confidence = 30 + (totalScore / 30) * 12;
 			fintekproRating = 1;
 		}
 
