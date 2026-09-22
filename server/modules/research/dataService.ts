@@ -2592,7 +2592,7 @@ export async function getFinancialData(
 			earningsGrowth: dbData.earningsGrowth,
 			debtToEquity: dbData.debtToEquity,
 			pe: null,
-			pb: null,
+			pb: dbData.dbPbRatio, // surface cached P/B so buildFull 4-tier fallback can use it
 			revenue: dbData.revenue,
 			netIncome: dbData.netIncome,
 			operatingCashFlow: dbData.operatingCashFlow,
