@@ -4552,4 +4552,48 @@ export async function repairBSEListingData(poolInstance?: any): Promise<void> {
 }
 
 
+/**
+ * P1.2 Migration: Persist Screener.in historical tables to Cloud SQL.
+ *
+ * Adds JSONB columns to screener_financials for P&L / BS / CF / Ratios / Quarterly history.
+ * Previously these were only held in a process-level in-memory cache (12h TTL) and lost
+ * on every Cloud Run container restart, cold start, or scaling event.
+ *
+ * After this migration, writeScreenerToDB() persists all historical tables and
+ * fetchFromDB() can serve them directly — eliminating the 3-5s Screener.in re-scrape
+ * on every cold start.
+ */
+export async function ensureScreenerHistoricalColumns(poolInstance?: any): Promise<void> {
+  try {
+    const { pool: defaultPool } = await import("../db");
+    const migPool = poolInstance || defaultPool;
+    if (!migPool) return;
 
+    const columns: [string, string][] = [
+      ["pl_history",        "JSONB"],
+      ["bs_history",        "JSONB"],
+      ["cf_history",        "JSONB"],
+      ["ratios_history",    "JSONB"],
+      ["quarterly_history", "JSONB"],
+      ["pros",              "JSONB"],
+      ["cons",              "JSONB"],
+      ["company_description", "TEXT"],
+    ];
+
+    for (const [col, colType] of columns) {
+      await migPool.query(
+        `ALTER TABLE screener_financials ADD COLUMN IF NOT EXISTS "${col}" ${colType}`
+      );
+    }
+
+    // Index for fast JSONB lookup by symbol (if not already present)
+    await migPool.query(`
+      CREATE INDEX IF NOT EXISTS idx_screener_financials_symbol_updated
+        ON screener_financials (symbol, last_updated DESC NULLS LAST)
+    `);
+
+    console.log("  ✅ [P1.2] screener_financials JSONB historical columns ensured");
+  } catch (err: any) {
+    console.warn("  ⚠️ [P1.2] ensureScreenerHistoricalColumns non-fatal error:", err?.message?.slice(0, 120));
+  }
+}

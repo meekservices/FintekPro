@@ -1938,6 +1938,14 @@ interface DBData {
 	dbFiftyTwoWeekLow: number | null;
 	dbVwap: number | null; // listed_stocks.last_vwap — last VWAP from a live NSE session
 	dbPreviousClose: number | null; // listed_stocks.previous_close — last market-close price from DB
+	// P1.2: Historical tables persisted to screener_financials JSONB columns
+	// These survive container restarts and seed the in-memory histCache on cold start.
+	dbPlHistory: HistoricalTable | null;
+	dbBsHistory: HistoricalTable | null;
+	dbCfHistory: HistoricalTable | null;
+	dbRatiosHistory: HistoricalTable | null;
+	dbQuarterlyHistory: HistoricalTable | null;
+	dbLatestQtr: string | null;
 }
 
 async function fetchFromDB(nseSymbol: string): Promise<DBData> {
@@ -1970,6 +1978,12 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 		dbFiftyTwoWeekLow: null,
 		dbVwap: null,
 		dbPreviousClose: null,
+		dbPlHistory: null,
+		dbBsHistory: null,
+		dbCfHistory: null,
+		dbRatiosHistory: null,
+		dbQuarterlyHistory: null,
+		dbLatestQtr: null,
 	};
 	try {
 		const rows = await db.execute(sql`
@@ -1978,6 +1992,8 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
              sf.operating_cash_flow, sf.free_cash_flow,
              sf.revenue, sf.net_income, sf.operating_margin,
              sf.last_updated,
+             sf.pl_history, sf.bs_history, sf.cf_history,
+             sf.ratios_history, sf.quarterly_history,
              ls.returns_1m, ls.returns_6m, ls.returns_1y, ls.beta,
              ls.current_price, ls.previous_close, ls.market_cap_value, ls.pe_ratio,
              ls.pb_ratio, ls.face_value, ls.week_high_52, ls.week_low_52,
@@ -2021,6 +2037,19 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 		}
 		const pf = (v: any) =>
 			v !== null && v !== undefined ? Number.parseFloat(v) : null;
+		// P1.2: Parse JSONB historical tables from DB — these seed the in-memory histCache
+		// on cold start, eliminating the 3-5s Screener.in re-scrape after container restarts.
+		const parseJsonb = (v: any): HistoricalTable | null => {
+			if (!v) return null;
+			try {
+				const parsed = typeof v === "string" ? JSON.parse(v) : v;
+				return parsed?.headers?.length ? parsed : null;
+			} catch {
+				return null;
+			}
+		};
+		const dbPlHist = parseJsonb(r.pl_history);
+		const dbQtrHist = parseJsonb(r.quarterly_history);
 		return {
 			eps: pf(r.eps),
 			bookValue: pf(r.book_value),
@@ -2052,6 +2081,12 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 			dbFiftyTwoWeekHigh: pf(r.week_high_52),
 			dbFiftyTwoWeekLow: pf(r.week_low_52),
 			dbVwap: pf(r.last_vwap),
+			dbPlHistory: dbPlHist,
+			dbBsHistory: parseJsonb(r.bs_history),
+			dbCfHistory: parseJsonb(r.cf_history),
+			dbRatiosHistory: parseJsonb(r.ratios_history),
+			dbQuarterlyHistory: dbQtrHist,
+			dbLatestQtr: extractLatestQtr(dbQtrHist),
 		};
 	} catch (e: any) {
 		logger.warn("[ResearchNote] DB read failed:", e?.message);
@@ -2066,6 +2101,9 @@ function isDbFresh(dbData: DBData): boolean {
 	if (dbData.revenue === null) return false; // re-scrape if new fields missing
 	// ── D/E fix: re-scrape if debtToEquity is missing (banks used to store null) ──
 	if (dbData.debtToEquity === null) return false;
+	// P1.2: Don't skip Screener.in scrape if we have no historical tables in DB yet
+	// (new stocks or those scraped before this migration). Allow one re-scrape so tables get persisted.
+	if (dbData.dbPlHistory === null) return false;
 	const ageMs = Date.now() - dbData.lastUpdated.getTime();
 	return ageMs < dbFreshnessHours() * 60 * 60 * 1000;
 }
@@ -2079,6 +2117,10 @@ async function writeScreenerToDB(
 ): Promise<void> {
 	const sym = nseSymbol.toUpperCase();
 	try {
+		// Serialize historical tables to JSON for JSONB columns.
+		// COALESCE semantics: only overwrite DB if new data has more rows (i.e. is more complete).
+		const serHist = (tbl: HistoricalTable | null | undefined) =>
+			tbl?.headers?.length ? JSON.stringify(tbl) : null;
 		const upd = await db.execute(sql`
       UPDATE screener_financials
       SET
@@ -2094,6 +2136,12 @@ async function writeScreenerToDB(
         operating_cash_flow = COALESCE(${s.operatingCashFlow}, operating_cash_flow),
         free_cash_flow   = COALESCE(${s.freeCashFlow}, free_cash_flow),
         operating_margin = COALESCE(${s.operatingMargin}, operating_margin),
+        pl_history       = COALESCE(${serHist(s.plHistory)}::jsonb, pl_history),
+        bs_history       = COALESCE(${serHist(s.bsHistory)}::jsonb, bs_history),
+        cf_history       = COALESCE(${serHist(s.cfHistory)}::jsonb, cf_history),
+        ratios_history   = COALESCE(${serHist(s.ratiosHistory)}::jsonb, ratios_history),
+        quarterly_history = COALESCE(${serHist(s.quarterlyHistory)}::jsonb, quarterly_history),
+        company_description = COALESCE(${s.companyDescription ?? null}, company_description),
         last_updated     = now()
       WHERE id = (
         SELECT id FROM screener_financials
@@ -2110,12 +2158,16 @@ async function writeScreenerToDB(
           symbol, period, fiscal_year, roe, roce, dividend_yield, book_value,
           revenue_growth, earnings_growth, debt_to_equity,
           revenue, net_income, operating_cash_flow, free_cash_flow, operating_margin,
-          last_updated
+          pl_history, bs_history, cf_history, ratios_history, quarterly_history,
+          company_description, last_updated
         ) VALUES (
           ${sym}, 'annual', ${curYear}, ${s.roe}, ${s.roce}, ${s.dividendYield}, ${s.bookValue},
           ${s.revenueGrowth}, ${s.earningsGrowth}, ${s.debtToEquity},
           ${s.revenue}, ${s.netIncome}, ${s.operatingCashFlow}, ${s.freeCashFlow}, ${s.operatingMargin},
-          now()
+          ${serHist(s.plHistory)}::jsonb, ${serHist(s.bsHistory)}::jsonb,
+          ${serHist(s.cfHistory)}::jsonb, ${serHist(s.ratiosHistory)}::jsonb,
+          ${serHist(s.quarterlyHistory)}::jsonb,
+          ${s.companyDescription ?? null}, now()
         )
       `);
 		}
@@ -2545,6 +2597,12 @@ export async function getFinancialData(
 					dbFiftyTwoWeekHigh: null,
 					dbFiftyTwoWeekLow: null,
 					dbVwap: null,
+					dbPlHistory: null,
+					dbBsHistory: null,
+					dbCfHistory: null,
+					dbRatiosHistory: null,
+					dbQuarterlyHistory: null,
+					dbLatestQtr: null,
 				};
 
 	// Step 3: DB-first decision — only scrape Screener.in if DB data is stale/missing
@@ -2603,11 +2661,11 @@ export async function getFinancialData(
 					? (dbData.dbMarketCap > 1e6 ? dbData.dbMarketCap / 1e7 : dbData.dbMarketCap)
 					: null,
 			faceValue: dbData.dbFaceValue ?? null,
-			plHistory: null,
-			bsHistory: null,
-			cfHistory: null,
-			ratiosHistory: null,
-			quarterlyHistory: null,
+			plHistory: dbData.dbPlHistory,
+			bsHistory: dbData.dbBsHistory,
+			cfHistory: dbData.dbCfHistory,
+			ratiosHistory: dbData.dbRatiosHistory,
+			quarterlyHistory: dbData.dbQuarterlyHistory,
 			companyDescription: null,
 			salesCagr3Y: null,
 			salesCagr5Y: null,
@@ -2616,6 +2674,12 @@ export async function getFinancialData(
 			pros: [],
 			cons: [],
 		};
+		// P1.2: Seed in-memory histCache from DB-persisted JSONB tables on cold start.
+		// This means container restarts don't need a live Screener.in re-scrape.
+		if (dbData.dbPlHistory && !getHistCached(nseSymbol)) {
+			setHistCache(nseSymbol, screenerToHistSlice(dbScreener));
+			logger.info(`[ResearchNote] histCache seeded from DB JSONB for ${nseSymbol}`);
+		}
 		const ageHours = dbData.lastUpdated
 			? Math.round((Date.now() - dbData.lastUpdated.getTime()) / 36000) / 100
 			: null;
@@ -2625,7 +2689,7 @@ export async function getFinancialData(
 			ageHours,
 		};
 
-		// Check 12-hour historical cache for table data (plHistory, bsHistory, cfHistory etc.)
+		// Check in-memory histCache — if present, use it (already seeded from DB above on cold start)
 		const cachedHist = getHistCached(nseSymbol);
 		if (cachedHist) {
 			screener = applyHistSlice(dbScreener, cachedHist);
@@ -2639,7 +2703,7 @@ export async function getFinancialData(
 				`[ResearchNote] DB HIT (fresh, ${ageHours}h) + histCache HIT for ${nseSymbol} (${tableCount}/4 tables)`,
 			);
 		} else {
-			// histCache miss — fetch Screener.in tables now, then cache them
+			// histCache miss (no DB tables yet) — fetch Screener.in tables, cache + persist to DB
 			logger.info(
 				`[ResearchNote] DB HIT (fresh, ${ageHours}h) + histCache MISS for ${nseSymbol} — fetching Screener.in tables`,
 			);
@@ -2650,6 +2714,8 @@ export async function getFinancialData(
 					screenerToHistSlice(screenerResult),
 				);
 				setHistCache(nseSymbol, screenerToHistSlice(screenerResult));
+				// P1.2: Also persist newly-fetched tables to DB so next cold start uses them
+				writeScreenerToDB(nseSymbol, screener).catch(() => {});
 				const tableCount = [
 					screenerResult.plHistory,
 					screenerResult.bsHistory,
@@ -2657,7 +2723,7 @@ export async function getFinancialData(
 					screenerResult.quarterlyHistory,
 				].filter(Boolean).length;
 				logger.info(
-					`[ResearchNote] Screener.in tables fetched for ${nseSymbol}: ${tableCount}/4 tables cached`,
+					`[ResearchNote] Screener.in tables fetched for ${nseSymbol}: ${tableCount}/4 tables cached+persisted`,
 				);
 			} else {
 				// Screener.in table fetch failed — fallback waterfall: CredHive -> Probe42 -> Python

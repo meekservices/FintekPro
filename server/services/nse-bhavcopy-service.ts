@@ -359,6 +359,97 @@ export class NseBhavcopyService {
 		}
 
 		const latencyMs = Date.now() - t0;
+
+		// 3. Upsert EOD close prices into golden_prices (the authoritative price time-series
+		//    consumed by the Python returns engine). This fixes the root cause of corrupt
+		//    returns (-345%, +5857%) caused by stale/manual paise-unit entries in the table.
+		let goldenInserted = 0;
+		let goldenFlagged = 0;
+		try {
+			// Fetch previous golden prices for all ISINs in this batch to enable sanity check
+			const isins = records
+				.map((r) => r.isin)
+				.filter((isin) => !!isin) as string[];
+
+			const prevPriceRows = isins.length
+				? await db.execute(sql`
+						SELECT DISTINCT ON (isin) isin, price
+						FROM golden_prices
+						WHERE isin = ANY(${isins})
+						AND is_flagged = false
+						ORDER BY isin, price_date DESC
+					`)
+				: { rows: [] };
+			const prevPriceMap = new Map<string, number>();
+			for (const row of ((prevPriceRows as any).rows ?? []) as any[]) {
+				prevPriceMap.set(row.isin, parseFloat(row.price));
+			}
+
+			// Upsert in batches of 200
+			const gpBatchSize = 200;
+			for (let i = 0; i < records.length; i += gpBatchSize) {
+				const batch = records.slice(i, i + gpBatchSize).filter((r) => !!r.isin);
+				if (batch.length === 0) continue;
+
+				const valuesSql = batch.map((r) => {
+					const prev = prevPriceMap.get(r.isin);
+					// Sanity check: flag if price deviates >90% from last known validated price
+					// (catches paise-unit entries, e.g. 36650 instead of 366.50)
+					const isSuspect =
+						prev !== undefined &&
+						prev > 0 &&
+						Math.abs((r.close - prev) / prev) > 0.9;
+					if (isSuspect) {
+						goldenFlagged++;
+						logger.warn(
+							`[NseBhavcopy] Suspicious price for ${r.isin} (${r.symbol}): prev=${prev} → ${r.close} (>90% deviation). Inserting flagged.`,
+						);
+					} else {
+						goldenInserted++;
+					}
+					return sql`(
+						${r.isin}::varchar,
+						${effectiveDate}::date,
+						'equity'::varchar,
+						${r.close.toFixed(4)}::numeric,
+						'NSE_BHAVCOPY'::varchar,
+						1.0::numeric,
+						${!isSuspect}::boolean,
+						${isSuspect}::boolean,
+						'INR'::varchar
+					)`;
+				});
+
+				await db.execute(sql`
+					INSERT INTO golden_prices
+						(isin, price_date, asset_class, price, source, confidence_score, is_validated, is_flagged, currency)
+					VALUES ${sql.join(valuesSql, sql`, `)}
+					ON CONFLICT (isin, price_date) DO UPDATE
+						SET price            = EXCLUDED.price,
+						    source           = 'NSE_BHAVCOPY',
+						    confidence_score = 1.0,
+						    is_validated     = EXCLUDED.is_validated,
+						    is_flagged       = EXCLUDED.is_flagged,
+						    updated_at       = NOW()
+					-- Only overwrite if existing entry was NOT already validated by NSE bhavcopy
+					-- (manual admin entries with confidence < 1.0 or different source should be replaced)
+					WHERE golden_prices.source != 'NSE_BHAVCOPY'
+					   OR golden_prices.price != EXCLUDED.price
+				`);
+			}
+			logger.info("[NseBhavcopy] golden_prices upsert complete", {
+				event: "GOLDEN_PRICES_UPSERT",
+				inserted: goldenInserted,
+				flagged: goldenFlagged,
+				trade_date: effectiveDate,
+				latency_ms: Date.now() - t0,
+			});
+		} catch (gpErr: any) {
+			logger.warn("[NseBhavcopy] golden_prices upsert error (non-fatal)", {
+				error: gpErr?.message,
+			});
+		}
+
 		logger.info("[NseBhavcopy] Ingestion completed successfully", {
 			event: "BHAVCOPY_INGESTION_COMPLETE",
 			trade_date: effectiveDate,

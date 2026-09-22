@@ -282,6 +282,15 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 				const { repairNSEConsolidatedFinancials } = await import("./startup/schema-repairs");
 				await repairNSEConsolidatedFinancials();
 
+				// ── P1.2: screener_financials JSONB historical columns ────────
+				// Adds pl_history, bs_history, cf_history, ratios_history,
+				// quarterly_history JSONB columns so historical table data
+				// survives container restarts instead of being lost on cold start.
+				logBootProgress("Step 2e-4 (bg): ensuring screener_financials JSONB columns...");
+				const { ensureScreenerHistoricalColumns } = await import("./startup/schema-repairs");
+				await ensureScreenerHistoricalColumns();
+
+
 					// ── Instrument Master Sync — single source of truth ─────────────
 					// Upserts from mutual_funds, listed_stocks, bond_catalog, reits,
 					// aif_master, mld_master into instrument_master.
