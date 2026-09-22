@@ -322,6 +322,23 @@ async function startReitInvitRefresh() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 7b. IPO GMP AUTO-REFRESH — every 4 hours from investorgain.com
+//     Scrapes live Grey Market Premium data and populates in-memory cache +
+//     persists to pre_ipo_companies.expected_returns. Non-fatal if site is down.
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function startIpoGmpRefresh() {
+	try {
+		const { startIpoGmpRefreshScheduler } = await import(
+			"../services/ipo-gmp-refresh-service"
+		);
+		startIpoGmpRefreshScheduler();
+	} catch {
+		console.warn("[Scheduler] ipo-gmp-refresh-service not available, skipping");
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 8. KYC & COMPLIANCE
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -531,6 +548,7 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 		runStartupTask("Data Enrichment Scheduler", startDataEnrichment);
 		runStartupTask("Financial Data Scheduler", startFinancialDataScheduler);
 		runStartupTask("REIT/InvIT Data Refresh", startReitInvitRefresh);
+		runStartupTask("IPO GMP Auto-Refresh (4h)", startIpoGmpRefresh);
 		// Auto-normalize market_cap_category on every boot (no admin action needed)
 		runStartupTask("Market Cap Category Normalization", normalizeMarketCapCategories);
 		// Schedule daily re-normalization at 1:30 AM IST for newly added stocks

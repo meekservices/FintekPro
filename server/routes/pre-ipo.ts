@@ -12,6 +12,8 @@ import {
 	type YearlyFinancial,
 } from "@shared/enterprise-valuation";
 import { screenListedEntity } from "../utils/listed-entity-registry";
+import { lookupGmp } from "../services/ipo-gmp-refresh-service";
+
 
 // High-conviction curated upcoming Indian Pre-IPO pipeline as standard baseline
 export const CURATED_PRE_IPOS = [
@@ -498,9 +500,18 @@ export function registerPreIPORoutes(app: Express) {
 					priceBandAnnouncementDate: c.priceBandAnnouncementDate || null,
 					// ── Parties ──────────────────────────────────────────────────
 					registrar: c.registrar || null,
-					// ── Legacy / GMP ─────────────────────────────────────────────
-					gmp: Math.round(gmpPct * 2.5),
-					gmpPercentage: gmpPct,
+					// ── Legacy / GMP (live from cache, fallback to expectedReturns) ──────
+					...(() => {
+						const live = lookupGmp(c.companyName);
+						const gmpPctFinal = live?.gmpPercent ?? gmpPct;
+						const gmpAbsFinal = live?.gmpAbsolute ?? Math.round(gmpPctFinal * 2.5);
+						return {
+							gmp: gmpAbsFinal,
+							gmpPercentage: gmpPctFinal,
+							estimatedListingPrice: live?.estimatedListingPrice ?? undefined,
+							gmpLastUpdated: live?.lastUpdatedAt ?? null,
+						};
+					})(),
 					subscriptionStatus: c.ipoStatus ? `Status: ${c.ipoStatus.replace(/_/g, " ").toUpperCase()}` : "Active Pipeline",
 					ipoStatus: c.ipoStatus || "drhp_filed",
 					drhpFilingDate: c.createdAt ? new Date(c.createdAt).toISOString().split("T")[0] : undefined,
@@ -555,7 +566,16 @@ export function registerPreIPORoutes(app: Express) {
 
 			for (const curated of CURATED_PRE_IPOS) {
 				const key = normalizeCompanyName(curated.companyName);
-				if (key) dedupedMap.set(key, curated);
+				// Overlay live GMP from cache if available
+				const liveGmp = lookupGmp(curated.companyName);
+				const enrichedCurated = liveGmp ? {
+					...curated,
+					gmp: liveGmp.gmpAbsolute,
+					gmpPercentage: liveGmp.gmpPercent,
+					estimatedListingPrice: liveGmp.estimatedListingPrice,
+					gmpLastUpdated: liveGmp.lastUpdatedAt,
+				} : curated;
+				if (key) dedupedMap.set(key, enrichedCurated);
 			}
 
 			// ── Early guard: reject any DB pre-IPO record that is a known listed/live entity
@@ -714,7 +734,12 @@ export function registerPreIPORoutes(app: Express) {
 							const minInvestVal = ipo.min_investment || (priceMin ? priceMin * lotSize : (ipo.issue_price ? ipo.issue_price * lotSize : issuePrice * lotSize));
 							const subVal = ipo.total_subscription ? Number(ipo.total_subscription) : 0;
 							const isSme = ipo.issue_type === "SME";
-							const gmpVal = ipo.gmp || (priceMax ? Math.round(priceMax * 0.15) : 15);
+							const gmpVal = (() => {
+								const live = lookupGmp(ipo.company_name);
+								if (live) return live.gmpAbsolute;
+								return ipo.gmp || (priceMax ? Math.round(priceMax * 0.15) : 15);
+							})();
+							const liveGmp = lookupGmp(ipo.company_name);
 
 							// Institutional listing gain calculation
 							const calc = calculateIpoListingGain({
@@ -741,7 +766,8 @@ export function registerPreIPORoutes(app: Express) {
 								gmp: gmpVal,
 								gmpPercentage: calc.expectedListingGainPercent,
 								rawGmpPercentage: calc.rawGmpPercent,
-								expectedListingPrice: calc.expectedListingPrice,
+								expectedListingPrice: liveGmp?.estimatedListingPrice ?? calc.expectedListingPrice,
+								gmpLastUpdated: liveGmp?.lastUpdatedAt ?? null,
 								expectedGrossGainPerLot: calc.expectedGrossGainPerLot,
 								expectedNetPostTaxGainPerLot: calc.expectedNetPostTaxGainPerLot,
 								priceRangeBounds: calc.priceRange,
