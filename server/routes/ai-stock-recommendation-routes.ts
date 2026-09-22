@@ -92,7 +92,7 @@ async function persistRecommendationsAsLivePicks(
 					riskLevel: riskMap[riskLevel] || "medium",
 					suitableFor: ["Balanced", "Growth"],
 					timeHorizon: timeHorizon || "medium_term",
-					confidenceScore: Math.round((r.confidence ?? 0.7) * 100),
+					confidenceScore: Math.min(100, Math.max(0, Math.round(r.confidence ?? 70))),
 					sectorCategory: r.sector || null,
 					generatedBy: "ai",
 					keyMetrics: {
