@@ -719,6 +719,14 @@ export async function queryScreener(
 		.where(
 			and(
 				...conditions,
+				// screener_financials dedup: only keep the latest fiscal-year row per symbol.
+				// Without this, stocks with N annual rows appear N times in paginated results.
+				sql`(${screenerFinancials.id} IS NULL OR ${screenerFinancials.id} = (
+					SELECT id FROM screener_financials sf2
+					WHERE sf2.symbol = ${listedStocks.symbol}
+					ORDER BY sf2.fiscal_year DESC NULLS LAST, sf2.last_updated DESC NULLS LAST
+					LIMIT 1
+				))`,
 				...(hasFinancialFilters ? financialConditions : []),
 				...(hasDerivedFilters ? derivedConditions : []),
 				...(hasTechnicalFilters ? technicalConditions : []),
@@ -740,6 +748,12 @@ export async function queryScreener(
 		.where(
 			and(
 				...conditions,
+				sql`(${screenerFinancials.id} IS NULL OR ${screenerFinancials.id} = (
+					SELECT id FROM screener_financials sf2
+					WHERE sf2.symbol = ${listedStocks.symbol}
+					ORDER BY sf2.fiscal_year DESC NULLS LAST, sf2.last_updated DESC NULLS LAST
+					LIMIT 1
+				))`,
 				...(hasFinancialFilters ? financialConditions : []),
 				...(hasDerivedFilters ? derivedConditions : []),
 				...(hasTechnicalFilters ? technicalConditions : []),
