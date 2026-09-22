@@ -2016,12 +2016,14 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 			if (lr) {
 				const pf = (v: any) =>
 					v !== null && v !== undefined ? Number.parseFloat(v) : null;
+				// Clamp corrupt returns from listed_stocks (same ±500% guard as fetchPythonReturns)
+				const cr = (v: any) => { const n = pf(v); return n !== null && Math.abs(n) > 5.0 ? null : n; };
 				return {
 					...empty,
 					existsInListedStocks: true,
-					returns1M: pf(lr.returns_1m),
-					returns6M: pf(lr.returns_6m),
-					returns1Y: pf(lr.returns_1y),
+					returns1M: cr(lr.returns_1m),
+					returns6M: cr(lr.returns_6m),
+					returns1Y: cr(lr.returns_1y),
 					dbPrice: pf(lr.current_price),
 					dbPreviousClose: pf(lr.previous_close),
 					dbMarketCap: pf(lr.market_cap_value) && pf(lr.market_cap_value)! > 0 ? pf(lr.market_cap_value) : null,
@@ -2050,6 +2052,9 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 		};
 		const dbPlHist = parseJsonb(r.pl_history);
 		const dbQtrHist = parseJsonb(r.quarterly_history);
+		// Clamp corrupt returns from listed_stocks (same ±500% guard as fetchPythonReturns).
+		// Pre-existing bad rows (paise-unit prices) may still be in DB until tonight's bhavcopy re-runs.
+		const cr = (v: any) => { const n = pf(v); return n !== null && Math.abs(n) > 5.0 ? null : n; };
 		return {
 			eps: pf(r.eps),
 			bookValue: pf(r.book_value),
@@ -2065,9 +2070,9 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 			revenue: pf(r.revenue),
 			netIncome: pf(r.net_income),
 			operatingMargin: pf(r.operating_margin),
-			returns1M: pf(r.returns_1m),
-			returns6M: pf(r.returns_6m),
-			returns1Y: pf(r.returns_1y),
+			returns1M: cr(r.returns_1m),
+			returns6M: cr(r.returns_6m),
+			returns1Y: cr(r.returns_1y),
 			lastUpdated: r.last_updated ? new Date(r.last_updated) : null,
 			existsInListedStocks: true,
 			dbPrice: pf(r.current_price),
