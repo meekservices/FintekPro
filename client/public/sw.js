@@ -1,11 +1,9 @@
-const CACHE_NAME = 'fintekpro-agent-v6'; // bumped 2026-09-15: fix navigation preload message-channel race on SPA routes
+const CACHE_NAME = 'fintekpro-agent-v7'; // bumped 2026-09-24: disable unused navigationPreload to prevent Chrome preload cancellation warnings
 
 // ── Install ──────────────────────────────────────────────────────────────────
 self.addEventListener('install', (event) => {
   console.log('[SW] Installing — skip waiting immediately');
   // Skip waiting so there is never a stale SW sitting in "waiting" state.
-  // This eliminates the race where the active SW receives postMessage
-  // types it does not recognise, causing Chrome's "message channel closed" error.
   self.skipWaiting();
 });
 
@@ -16,9 +14,11 @@ self.addEventListener('activate', (event) => {
     Promise.all([
       // Claim all open tabs immediately
       clients.claim(),
-      // Enable navigation preload so navigation requests don't block on the SW
-      // This is the primary fix for "message channel closed" on navigation events
-      self.registration.navigationPreload?.enable?.().catch(() => {}),
+      // Explicitly disable navigation preload: SPA navigations are handled natively by the browser and router.
+      // Leaving navigationPreload enabled causes Chrome to start an unused preload request that gets cancelled,
+      // resulting in "The service worker navigation preload request was cancelled before preloadResponse settled"
+      // and "message channel closed before a response was received".
+      self.registration.navigationPreload?.disable?.().catch(() => {}),
       // Delete old cache versions
       caches.keys().then((keys) =>
         Promise.all(
@@ -30,22 +30,9 @@ self.addEventListener('activate', (event) => {
 });
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
-// IMPORTANT: Navigation preload opens an internal browser MessageChannel.
-// If the SW calls respondWith() but the preload response is still pending when
-// the tab navigates away (SPA route change), Chrome logs:
-//   "A listener indicated an asynchronous response by returning true,
-//    but the message channel closed before a response was received"
-//
-// Root cause on /agent/picks: React Router intercepts the history navigation
-// before the SW's async preload resolves, tearing down the channel prematurely.
-//
-// Fix: For same-origin navigations (SPA routes), cancel the preload immediately
-// and do NOT call respondWith() — let the browser handle it natively.
-// Only use respondWith() for genuine offline/cross-origin fallback.
-//
 // Strategy:
 //  - API calls (/api/*): always network-only, never cached
-//  - Same-origin navigation (SPA): cancel preload, let browser handle natively
+//  - Same-origin navigation (SPA): let browser handle natively
 //  - Everything else: network-only (no caching for authenticated app)
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
@@ -55,17 +42,8 @@ self.addEventListener('fetch', (event) => {
     return; // Let the browser handle it natively (no event.respondWith)
   }
 
-  // Same-origin SPA navigations: cancel the preload channel immediately
-  // so Chrome doesn't hold it open waiting for a respondWith that races
-  // against React Router's client-side navigation tear-down.
+  // Same-origin SPA navigations: let browser handle natively
   if (event.request.mode === 'navigate' && url.origin === self.location.origin) {
-    // Cancel the preload response to close its MessageChannel cleanly.
-    // This prevents the "message channel closed before a response" error.
-    if (event.preloadResponse) {
-      event.preloadResponse.then((r) => r?.body?.cancel?.()).catch(() => {});
-    }
-    // Do NOT call respondWith — browser fetches the shell HTML natively,
-    // and React Router handles client-side routing as normal.
     return;
   }
 
