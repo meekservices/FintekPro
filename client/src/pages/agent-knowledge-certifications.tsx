@@ -17,6 +17,9 @@ import {
 	Sparkles,
 	FileText,
 	RotateCw,
+	Lock,
+	Timer,
+	FileCheck2,
 } from "lucide-react";
 import {
 	Card,
@@ -104,6 +107,37 @@ interface NismSummary {
 	certificationsCount: number;
 }
 
+interface AgentModuleProgress {
+	moduleId: string;
+	moduleNumber: number;
+	title: string;
+	category: string;
+	requiredMinutes: number;
+	minutesSpent: number;
+	isCompleted: boolean;
+	isUnlocked: boolean;
+	lastEngagedAt?: string | null;
+}
+
+interface PospTrainingSummary {
+	totalRequiredMinutes: number;
+	totalMinutesSpent: number;
+	hoursCompletedFormatted: string;
+	percentageCompleted: number;
+	isTrainingCompleted: boolean;
+	isExamUnlocked: boolean;
+	examStatus: "locked" | "eligible" | "passed" | "failed";
+	examScore?: number | null;
+	certificateNumber?: string | null;
+	certifiedAt?: string | null;
+}
+
+interface PospExamQuestion {
+	id: string;
+	question: string;
+	options: string[];
+}
+
 const certificationLevels: CertificationLevel[] = [
 	{
 		level: 0,
@@ -171,6 +205,18 @@ export default function AgentKnowledgeCertifications() {
 		score: number;
 	} | null>(null);
 	const [launchingCourseId, setLaunchingCourseId] = useState<string | null>(null);
+	
+	// IRDAI Exam state
+	const [pospExamOpen, setPospExamOpen] = useState(false);
+	const [pospQuestions, setPospQuestions] = useState<PospExamQuestion[]>([]);
+	const [pospAnswers, setPospAnswers] = useState<Record<string, number>>({});
+	const [pospResult, setPospResult] = useState<{
+		passed: boolean;
+		scorePercentage: number;
+		certificateNumber?: string;
+		message: string;
+	} | null>(null);
+
 	const { toast } = useToast();
 
 	// Internal Certifications
@@ -191,12 +237,32 @@ export default function AgentKnowledgeCertifications() {
 		queryKey: ["/api/knowledge-hub/nism/summary"],
 	});
 
+	// IRDAI POSP 15-Hour Modules & Summary
+	const { data: irdaiData, isLoading: irdaiLoading } = useQuery<{
+		success: boolean;
+		modules: AgentModuleProgress[];
+		summary: PospTrainingSummary;
+	}>({
+		queryKey: ["/api/knowledge-hub/irdai/modules"],
+	});
+
 	const nismCourses = nismCoursesData?.courses || [];
 	const nismSummary = nismSummaryData?.summary || {
 		totalEnrolled: 0,
 		totalCompleted: 0,
 		totalCpeCredits: 0,
 		certificationsCount: 0,
+	};
+
+	const irdaiModules = irdaiData?.modules || [];
+	const irdaiSummary = irdaiData?.summary || {
+		totalRequiredMinutes: 900,
+		totalMinutesSpent: 0,
+		hoursCompletedFormatted: "0.0 / 15.0 hrs",
+		percentageCompleted: 0,
+		isTrainingCompleted: false,
+		isExamUnlocked: false,
+		examStatus: "locked" as const,
 	};
 
 	const submitQuizMutation = useMutation({
@@ -238,6 +304,44 @@ export default function AgentKnowledgeCertifications() {
 		},
 	});
 
+	const recordHeartbeatMutation = useMutation({
+		mutationFn: async (moduleId: string) => {
+			const res = await apiRequest("POST", "/api/knowledge-hub/irdai/heartbeat", { moduleId });
+			return res.json();
+		},
+		onSuccess: (data) => {
+			queryClient.invalidateQueries({ queryKey: ["/api/knowledge-hub/irdai/modules"] });
+			toast({
+				title: "Training Time Recorded ✓",
+				description: data.message,
+			});
+		},
+	});
+
+	const submitPospExamMutation = useMutation({
+		mutationFn: async (answers: Record<string, number>) => {
+			const res = await apiRequest("POST", "/api/knowledge-hub/irdai/exam/submit", { answers });
+			return res.json();
+		},
+		onSuccess: (data) => {
+			setPospResult(data);
+			queryClient.invalidateQueries({ queryKey: ["/api/knowledge-hub/irdai/modules"] });
+			queryClient.invalidateQueries({ queryKey: ["/api/agent/empanelment"] });
+			if (data.passed) {
+				toast({
+					title: "POSP Certified! 🎉",
+					description: `Certificate ${data.certificateNumber} issued!`,
+				});
+			} else {
+				toast({
+					title: "Score Under 35%",
+					description: data.message,
+					variant: "destructive",
+				});
+			}
+		},
+	});
+
 	const handleLaunchNismCourse = async (courseId: string) => {
 		try {
 			setLaunchingCourseId(courseId);
@@ -269,6 +373,31 @@ export default function AgentKnowledgeCertifications() {
 		}
 	};
 
+	const handleStartPospExam = async () => {
+		try {
+			const res = await apiRequest("GET", "/api/knowledge-hub/irdai/exam/questions");
+			const data = await res.json();
+			if (!data.unlocked) {
+				toast({
+					title: "Exam Locked",
+					description: data.message,
+					variant: "destructive",
+				});
+				return;
+			}
+			setPospQuestions(data.questions || []);
+			setPospAnswers({});
+			setPospResult(null);
+			setPospExamOpen(true);
+		} catch (err: any) {
+			toast({
+				title: "Exam Error",
+				description: err.message,
+				variant: "destructive",
+			});
+		}
+	};
+
 	const currentLevel =
 		myCerts?.reduce(
 			(max, cert) => Math.max(max, cert.certificationLevel),
@@ -294,10 +423,14 @@ export default function AgentKnowledgeCertifications() {
 		submitQuizMutation.mutate({ quizId: selectedQuiz.id, answers });
 	};
 
+	const handleSubmitPospExam = () => {
+		submitPospExamMutation.mutate(pospAnswers);
+	};
+
 	return (
 		<div className="p-6 space-y-6">
 			{/* Header */}
-			<div className="flex items-center justify-between">
+			<div className="flex items-center justify-between flex-wrap gap-4">
 				<div className="flex items-center gap-4">
 					<Link href="/agent/knowledge-hub">
 						<Button
@@ -312,41 +445,47 @@ export default function AgentKnowledgeCertifications() {
 					<div>
 						<h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
 							<GraduationCap className="h-7 w-7 text-emerald-500" />
-							Learning & Certifications
+							Learning & Regulatory Certifications
 						</h1>
 						<p className="text-muted-foreground mt-1">
-							SEBI & NISM Accredited E-Learning, Continuing Education (CPE), and Platform Competency
+							SEBI (NISM), IRDAI (POSP), and FintekPro Platform Competency Modules
 						</p>
 					</div>
 				</div>
 
-				<Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10 px-3 py-1 flex items-center gap-1.5 text-xs">
-					<Sparkles className="h-3.5 w-3.5" />
-					LTI 1.3 / xAPI LMS Integrated
-				</Badge>
+				<div className="flex items-center gap-2">
+					<Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10 px-3 py-1 flex items-center gap-1.5 text-xs">
+						<Sparkles className="h-3.5 w-3.5" />
+						LTI 1.3 LMS Active
+					</Badge>
+					<Badge variant="outline" className="border-amber-500/40 text-amber-400 bg-amber-500/10 px-3 py-1 flex items-center gap-1.5 text-xs">
+						<LucideShield className="h-3.5 w-3.5" />
+						IRDAI Compliant
+					</Badge>
+				</div>
 			</div>
 
-			{/* NISM KPI Metrics Banner */}
+			{/* KPI Metrics Banner */}
 			<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 				<Card className="bg-card/70 border-border">
 					<CardContent className="pt-4 pb-4">
 						<div className="flex items-center justify-between">
-							<p className="text-xs text-muted-foreground uppercase font-medium">Courses Enrolled</p>
+							<p className="text-xs text-muted-foreground uppercase font-medium">NISM Enrolled</p>
 							<BookOpen className="h-4 w-4 text-blue-400" />
 						</div>
 						<p className="text-2xl font-bold text-foreground mt-1">{nismSummary.totalEnrolled}</p>
-						<p className="text-[11px] text-muted-foreground mt-0.5">Active LMS modules</p>
+						<p className="text-[11px] text-muted-foreground mt-0.5">Accredited exams</p>
 					</CardContent>
 				</Card>
 
 				<Card className="bg-card/70 border-border">
 					<CardContent className="pt-4 pb-4">
 						<div className="flex items-center justify-between">
-							<p className="text-xs text-muted-foreground uppercase font-medium">Completed / Certified</p>
-							<CheckCircle2 className="h-4 w-4 text-emerald-400" />
+							<p className="text-xs text-muted-foreground uppercase font-medium">IRDAI POSP Hours</p>
+							<Timer className="h-4 w-4 text-amber-400" />
 						</div>
-						<p className="text-2xl font-bold text-emerald-400 mt-1">{nismSummary.totalCompleted}</p>
-						<p className="text-[11px] text-muted-foreground mt-0.5">Examinations cleared</p>
+						<p className="text-2xl font-bold text-amber-400 mt-1">{irdaiSummary.hoursCompletedFormatted.split(" ")[0]} hrs</p>
+						<p className="text-[11px] text-muted-foreground mt-0.5">Mandatory 15 hrs</p>
 					</CardContent>
 				</Card>
 
@@ -354,9 +493,9 @@ export default function AgentKnowledgeCertifications() {
 					<CardContent className="pt-4 pb-4">
 						<div className="flex items-center justify-between">
 							<p className="text-xs text-muted-foreground uppercase font-medium">CPE Credits</p>
-							<Award className="h-4 w-4 text-amber-400" />
+							<Award className="h-4 w-4 text-emerald-400" />
 						</div>
-						<p className="text-2xl font-bold text-amber-400 mt-1">{nismSummary.totalCpeCredits} hrs</p>
+						<p className="text-2xl font-bold text-emerald-400 mt-1">{nismSummary.totalCpeCredits} hrs</p>
 						<p className="text-[11px] text-muted-foreground mt-0.5">Continuous education</p>
 					</CardContent>
 				</Card>
@@ -377,14 +516,18 @@ export default function AgentKnowledgeCertifications() {
 
 			{/* Main Tabs */}
 			<Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-				<TabsList className="bg-card border border-border p-1 w-full max-w-md grid grid-cols-2">
-					<TabsTrigger value="nism" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white flex items-center gap-2">
+				<TabsList className="bg-card border border-border p-1 w-full max-w-2xl grid grid-cols-3">
+					<TabsTrigger value="nism" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white flex items-center gap-1.5 text-xs sm:text-sm">
 						<GraduationCap className="h-4 w-4" />
-						NISM E-Learning Academy
+						NISM Academy
 					</TabsTrigger>
-					<TabsTrigger value="internal" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white flex items-center gap-2">
+					<TabsTrigger value="irdai" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white flex items-center gap-1.5 text-xs sm:text-sm">
 						<LucideShield className="h-4 w-4" />
-						Platform Quizzes (L0–L3)
+						IRDAI POSP (15-Hr)
+					</TabsTrigger>
+					<TabsTrigger value="internal" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white flex items-center gap-1.5 text-xs sm:text-sm">
+						<Trophy className="h-4 w-4" />
+						Platform (L0–L3)
 					</TabsTrigger>
 				</TabsList>
 
@@ -448,7 +591,6 @@ export default function AgentKnowledgeCertifications() {
 										</CardHeader>
 
 										<CardContent className="space-y-4 pt-0">
-											{/* Progress bar */}
 											<div className="space-y-1.5">
 												<div className="flex justify-between text-xs">
 													<span className="text-muted-foreground">Course Completion</span>
@@ -457,7 +599,6 @@ export default function AgentKnowledgeCertifications() {
 												<Progress value={course.progressPercentage} className="h-2 bg-muted/40" />
 											</div>
 
-											{/* Certificate indicator if completed */}
 											{course.certificateNumber && (
 												<div className="p-2.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-xs flex items-center justify-between">
 													<span className="text-emerald-300 font-mono">
@@ -469,7 +610,6 @@ export default function AgentKnowledgeCertifications() {
 												</div>
 											)}
 
-											{/* Action row */}
 											<div className="flex items-center justify-between pt-2 border-t border-border/50 gap-2">
 												<Button
 													variant="ghost"
@@ -528,7 +668,157 @@ export default function AgentKnowledgeCertifications() {
 					)}
 				</TabsContent>
 
-				{/* TAB 2: Internal Platform Levels */}
+				{/* TAB 2: IRDAI POSP 15-Hour Mandatory Training */}
+				<TabsContent value="irdai" className="space-y-6">
+					<Alert className="bg-amber-500/10 border-amber-500/30">
+						<LucideShield className="h-4 w-4 text-amber-400" />
+						<AlertTitle className="text-amber-400">
+							IRDAI Statutory 15-Hour POSP Training Guidelines
+						</AlertTitle>
+						<AlertDescription className="text-amber-200/90 text-sm">
+							Per IRDAI Circular IRDA/INT/GDL/GLD/180/08/2015, Point of Sales Persons (POSP) must complete <strong>15 verified hours (900 minutes)</strong> of training before taking the certification examination. Anti-skipping time tracking logs your active learning heartbeat.
+						</AlertDescription>
+					</Alert>
+
+					{/* Overall Progress Card */}
+					<Card className="bg-card border-border">
+						<CardHeader className="pb-3">
+							<div className="flex items-center justify-between flex-wrap gap-2">
+								<div>
+									<CardTitle className="text-base text-foreground flex items-center gap-2">
+										<Timer className="h-5 w-5 text-amber-400" />
+										Mandatory 15-Hour POSP Training Progress
+									</CardTitle>
+									<CardDescription className="text-xs text-muted-foreground mt-1">
+										Required: 900 minutes across 6 standardized modules
+									</CardDescription>
+								</div>
+
+								{irdaiSummary.certificateNumber ? (
+									<Badge className="bg-emerald-600 text-white font-mono text-xs px-3 py-1 flex items-center gap-1.5">
+										<FileCheck2 className="h-3.5 w-3.5" />
+										Cert: {irdaiSummary.certificateNumber}
+									</Badge>
+								) : irdaiSummary.isExamUnlocked ? (
+									<Badge className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs px-2.5 py-1">
+										15 Hours Complete • Exam Unlocked
+									</Badge>
+								) : (
+									<Badge variant="outline" className="text-muted-foreground text-xs">
+										{irdaiSummary.hoursCompletedFormatted}
+									</Badge>
+								)}
+							</div>
+						</CardHeader>
+						<CardContent className="space-y-3">
+							<div className="flex justify-between text-xs font-medium">
+								<span className="text-muted-foreground">Overall Completion</span>
+								<span className="text-amber-400">{irdaiSummary.percentageCompleted}% ({irdaiSummary.totalMinutesSpent} / 900 mins)</span>
+							</div>
+							<Progress value={irdaiSummary.percentageCompleted} className="h-2.5 bg-muted/40" />
+
+							<div className="flex items-center justify-between pt-2 flex-wrap gap-2">
+								<p className="text-xs text-muted-foreground">
+									{irdaiSummary.isExamUnlocked
+										? "✓ You have met the statutory 15-hour requirement. You can now take the POSP Certification Exam."
+										: `Complete ${Math.max(0, 900 - irdaiSummary.totalMinutesSpent)} more minutes across modules to unlock the certification exam.`}
+								</p>
+
+								<Button
+									size="sm"
+									className={
+										irdaiSummary.certificateNumber
+											? "bg-emerald-600 hover:bg-emerald-700 text-white"
+											: irdaiSummary.isExamUnlocked
+												? "bg-amber-600 hover:bg-amber-700 text-white"
+												: "bg-muted/40 text-muted-foreground cursor-not-allowed"
+									}
+									disabled={!irdaiSummary.isExamUnlocked && !irdaiSummary.certificateNumber}
+									onClick={handleStartPospExam}
+								>
+									{irdaiSummary.certificateNumber ? (
+										<>
+											<CheckCircle2 className="h-4 w-4 mr-1.5" />
+											View Certificate
+										</>
+									) : irdaiSummary.isExamUnlocked ? (
+										<>
+											<Play className="h-4 w-4 mr-1.5 fill-current" />
+											Start POSP Exam (50 MCQs)
+										</>
+									) : (
+										<>
+											<Lock className="h-4 w-4 mr-1.5" />
+											Exam Locked ({irdaiSummary.hoursCompletedFormatted})
+										</>
+									)}
+								</Button>
+							</div>
+						</CardContent>
+					</Card>
+
+					{/* 6 Modules Grid */}
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+						{irdaiModules.map((mod) => (
+							<Card key={mod.moduleId} className={`border-border ${mod.isUnlocked ? "bg-card" : "bg-card/40 opacity-70"}`}>
+								<CardHeader className="pb-2">
+									<div className="flex items-center justify-between gap-2">
+										<Badge variant="outline" className="text-xs font-mono bg-muted/20">
+											{mod.category}
+										</Badge>
+										{mod.isCompleted ? (
+											<Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs">
+												<CheckCircle2 className="h-3 w-3 mr-1" />
+												Completed
+											</Badge>
+										) : mod.isUnlocked ? (
+											<Badge className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs">
+												{Math.round((mod.minutesSpent / mod.requiredMinutes) * 100)}%
+											</Badge>
+										) : (
+											<Badge variant="outline" className="text-muted-foreground text-xs flex items-center gap-1">
+												<Lock className="h-3 w-3" />
+												Locked
+											</Badge>
+										)}
+									</div>
+									<CardTitle className="text-sm font-semibold text-foreground mt-1">
+										{mod.title}
+									</CardTitle>
+								</CardHeader>
+
+								<CardContent className="space-y-3 pt-0">
+									<div className="space-y-1">
+										<div className="flex justify-between text-xs text-muted-foreground">
+											<span>Time Logged</span>
+											<span>{mod.minutesSpent} / {mod.requiredMinutes} mins ({(mod.requiredMinutes / 60).toFixed(1)} hrs)</span>
+										</div>
+										<Progress value={Math.min(100, (mod.minutesSpent / mod.requiredMinutes) * 100)} className="h-1.5" />
+									</div>
+
+									<div className="flex items-center justify-between pt-1">
+										<Button
+											size="sm"
+											variant="outline"
+											className="text-xs border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
+											disabled={!mod.isUnlocked || recordHeartbeatMutation.isPending}
+											onClick={() => recordHeartbeatMutation.mutate(mod.moduleId)}
+										>
+											<Play className="h-3.5 w-3.5 mr-1" />
+											Log Study Hour (+1m)
+										</Button>
+
+										<span className="text-[11px] text-muted-foreground">
+											{mod.isCompleted ? "Goal achieved" : `${mod.requiredMinutes - mod.minutesSpent}m remaining`}
+										</span>
+									</div>
+								</CardContent>
+							</Card>
+						))}
+					</div>
+				</TabsContent>
+
+				{/* TAB 3: Internal Platform Levels */}
 				<TabsContent value="internal" className="space-y-6">
 					<Alert className="bg-blue-500/10 border-blue-500/30">
 						<Info className="h-4 w-4 text-blue-500" />
@@ -708,7 +998,104 @@ export default function AgentKnowledgeCertifications() {
 				</TabsContent>
 			</Tabs>
 
-			{/* Quiz Dialog */}
+			{/* IRDAI POSP Exam Dialog */}
+			<Dialog open={pospExamOpen} onOpenChange={setPospExamOpen}>
+				<DialogContent className="max-w-3xl bg-card border-border">
+					<DialogHeader>
+						<DialogTitle className="text-foreground flex items-center gap-2">
+							<LucideShield className="h-5 w-5 text-amber-400" />
+							IRDAI POSP Certification Examination (35% Required)
+						</DialogTitle>
+						<DialogDescription className="text-muted-foreground">
+							IRDA/INT/GDL/GLD/180/08/2015 Guidelines • FintekPro Principal Officer Digital Evaluation
+						</DialogDescription>
+					</DialogHeader>
+
+					{!pospResult && (
+						<div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
+							{pospQuestions.map((q, idx) => (
+								<div key={q.id} className="p-4 rounded-lg bg-background/50 border border-border">
+									<p className="font-medium text-foreground mb-3">
+										{idx + 1}. {q.question}
+									</p>
+									<RadioGroup
+										value={pospAnswers[q.id]?.toString() ?? ""}
+										onValueChange={(val) =>
+											setPospAnswers((prev) => ({ ...prev, [q.id]: Number(val) }))
+										}
+									>
+										{q.options.map((opt, optIdx) => (
+											<div key={optIdx} className="flex items-center space-x-2 py-1">
+												<RadioGroupItem value={optIdx.toString()} id={`posp-${q.id}-${optIdx}`} />
+												<Label htmlFor={`posp-${q.id}-${optIdx}`} className="text-muted-foreground cursor-pointer text-sm">
+													{opt}
+												</Label>
+											</div>
+										))}
+									</RadioGroup>
+								</div>
+							))}
+
+							<Button
+								className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+								disabled={
+									Object.keys(pospAnswers).length === 0 ||
+									submitPospExamMutation.isPending
+								}
+								onClick={handleSubmitPospExam}
+							>
+								{submitPospExamMutation.isPending ? "Evaluating Score..." : "Submit Examination"}
+							</Button>
+						</div>
+					)}
+
+					{pospResult && (
+						<div className="text-center py-6">
+							{pospResult.passed ? (
+								<>
+									<Trophy className="h-14 w-14 text-amber-500 mx-auto mb-3" />
+									<h3 className="text-2xl font-bold text-foreground mb-1">
+										IRDAI POSP Certified! 🎉
+									</h3>
+									<p className="text-muted-foreground mb-3 text-sm">
+										You scored {pospResult.scorePercentage}% (Passing criteria: 35%).
+									</p>
+									<div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg max-w-md mx-auto mb-4">
+										<p className="text-xs text-muted-foreground">Issued Certificate Number:</p>
+										<p className="text-lg font-mono font-bold text-emerald-400 mt-0.5">
+											{pospResult.certificateNumber}
+										</p>
+										<p className="text-[11px] text-muted-foreground mt-1">
+											Authorized by Principal Officer • Automatically synced to Empanelment Step 3
+										</p>
+									</div>
+								</>
+							) : (
+								<>
+									<Target className="h-14 w-14 text-muted-foreground mx-auto mb-3" />
+									<h3 className="text-xl font-bold text-foreground mb-1">
+										Examination Not Cleared
+									</h3>
+									<p className="text-muted-foreground mb-3 text-sm">
+										You scored {pospResult.scorePercentage}%. Minimum 35% required to pass.
+									</p>
+								</>
+							)}
+							<Button
+								variant="outline"
+								onClick={() => {
+									setPospExamOpen(false);
+									setPospResult(null);
+								}}
+							>
+								Close
+							</Button>
+						</div>
+					)}
+				</DialogContent>
+			</Dialog>
+
+			{/* Internal Quiz Dialog */}
 			<Dialog
 				open={!!selectedQuiz}
 				onOpenChange={(open) => !open && setSelectedQuiz(null)}

@@ -2,6 +2,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { knowledgeHubService } from "../services/knowledge-hub-service";
 import { nismLmsService } from "../services/nism-lms-service";
+import { irdaiPospTrainingService } from "../services/irdai-posp-training-service";
 import { requireAuth, requireRole } from "../middleware/roleMiddleware";
 
 const router = Router();
@@ -567,6 +568,80 @@ router.get(
 		const agentId = (req as any).user?.id;
 		const summary = await nismLmsService.getAgentSummary(agentId);
 		res.json({ success: true, summary });
+	}),
+);
+
+// ── IRDAI POSP 15-Hour Mandatory Training Routes ─────────────────────────────
+
+// GET /api/knowledge-hub/irdai/modules — list 15-hr POSP modules & training summary
+router.get(
+	"/irdai/modules",
+	requireAuth,
+	asyncHandler(async (req, res) => {
+		const agentId = (req as any).user?.id;
+		const data = await irdaiPospTrainingService.getModulesWithProgress(agentId);
+		res.json({ success: true, ...data });
+	}),
+);
+
+// POST /api/knowledge-hub/irdai/heartbeat — record 60-second verified engagement
+router.post(
+	"/irdai/heartbeat",
+	requireAuth,
+	asyncHandler(async (req, res) => {
+		const agentId = (req as any).user?.id;
+		const { moduleId } = req.body;
+		if (!moduleId) {
+			return res.status(400).json({ error: "moduleId is required" });
+		}
+		const result = await irdaiPospTrainingService.recordHeartbeat(agentId, moduleId);
+		res.json(result);
+	}),
+);
+
+// GET /api/knowledge-hub/irdai/exam/questions — fetch 50 MCQs
+router.get(
+	"/irdai/exam/questions",
+	requireAuth,
+	asyncHandler(async (req, res) => {
+		const agentId = (req as any).user?.id;
+		const data = await irdaiPospTrainingService.getExamQuestions(agentId);
+		res.json(data);
+	}),
+);
+
+// POST /api/knowledge-hub/irdai/exam/submit — submit POSP exam
+router.post(
+	"/irdai/exam/submit",
+	requireAuth,
+	asyncHandler(async (req, res) => {
+		const user = (req as any).user;
+		const agentId = user?.id;
+		const candidateName = `${user?.firstName || "Candidate"} ${user?.lastName || ""}`.trim();
+		const { answers } = req.body;
+
+		if (!answers || typeof answers !== "object") {
+			return res.status(400).json({ error: "Answers object is required" });
+		}
+
+		const result = await irdaiPospTrainingService.submitExam(agentId, answers, candidateName);
+
+		await knowledgeHubService.logAuditEvent({
+			userId: agentId,
+			userRole: user?.roles?.[0] || "agent",
+			eventType: "irdai_posp_exam_submitted",
+			resourceType: "irdai_posp_examination",
+			resourceId: result.certificateNumber || "attempt",
+			actionDetails: {
+				scorePercentage: result.scorePercentage,
+				passed: result.passed,
+				certificateNumber: result.certificateNumber,
+			},
+			ipAddress: req.ip,
+			userAgent: req.headers["user-agent"],
+		});
+
+		res.json(result);
 	}),
 );
 
