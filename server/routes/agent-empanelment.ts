@@ -8,6 +8,7 @@ import {
 	validateAccountNumber,
 	isNameMatchAcceptable,
 } from "../penny-drop-service";
+import { nismDigiLockerService } from "../services/nism-digilocker-service";
 
 const router = Router();
 
@@ -95,6 +96,22 @@ async function ensureTable() {
 		);
 		await db.execute(
 			sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS ca_verified_by TEXT`,
+		);
+		// Add NISM verification columns if they don't exist yet (idempotent)
+		await db.execute(
+			sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS nism_enrolment_number TEXT`,
+		);
+		await db.execute(
+			sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS nism_verification_status TEXT DEFAULT 'unverified'`,
+		);
+		await db.execute(
+			sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS nism_verified_at TIMESTAMPTZ`,
+		);
+		await db.execute(
+			sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS nism_digilocker_uri TEXT`,
+		);
+		await db.execute(
+			sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS nism_score TEXT`,
 		);
 		console.log("✅ [AgentEmpanelment] Table ready");
 	} catch (err: any) {
@@ -271,6 +288,117 @@ router.post("/step/3", requireAuth, async (req: Request, res: Response) => {
 		res.status(500).json({ error: err.message });
 	}
 });
+
+// NISM DigiLocker Pull Handler
+async function handleNismDigiLockerPull(req: Request, res: Response) {
+	try {
+		const agentId = (req as any).user?.id;
+		if (!agentId) return res.status(401).json({ error: "Unauthenticated" });
+
+		const { enrolmentNumber } = req.body;
+		let { pan } = req.body;
+
+		if (!enrolmentNumber) {
+			return res
+				.status(400)
+				.json({ error: "NISM Enrolment Number is required" });
+		}
+
+		// If PAN is not provided in body, retrieve from empanelment record or user profile
+		if (!pan) {
+			const empRows = await db.execute(
+				sql`SELECT pan_number FROM agent_empanelments WHERE agent_id = ${agentId}`,
+			);
+			pan = (empRows.rows[0] as any)?.pan_number;
+		}
+		if (!pan) {
+			const userRows = await db.execute(
+				sql`SELECT pan_number, pan, first_name, last_name FROM users WHERE id = ${agentId}`,
+			);
+			const user = userRows.rows[0] as any;
+			pan = user?.pan_number || user?.pan;
+		}
+
+		if (!pan) {
+			return res.status(400).json({
+				error:
+					"PAN is required to verify NISM certificates via DigiLocker. Please complete PAN verification in Step 1 first.",
+			});
+		}
+
+		// Candidate name from user profile if available
+		let candidateName: string | undefined;
+		try {
+			const userRes = await db.execute(
+				sql`SELECT first_name, last_name, pan_name FROM users WHERE id = ${agentId}`,
+			);
+			const u = userRes.rows[0] as any;
+			if (u) {
+				candidateName =
+					u.pan_name ||
+					`${u.first_name || ""} ${u.last_name || ""}`.trim() ||
+					undefined;
+			}
+		} catch {
+			/* non-fatal */
+		}
+
+		await getOrCreateEmpanelment(agentId);
+
+		const result = await nismDigiLockerService.pullCertificate({
+			enrolmentNumber,
+			pan,
+			candidateName,
+			userId: agentId,
+		});
+
+		// Update empanelment record with verified NISM data
+		await db.execute(sql`
+			UPDATE agent_empanelments
+			SET nism_certificate_number   = ${result.certificateNumber},
+			    nism_certificate_type     = ${result.examSeries},
+			    nism_expiry_date          = ${result.expiryDate},
+			    nism_enrolment_number     = ${result.enrolmentNumber},
+			    nism_verification_status  = 'verified_digilocker',
+			    nism_verified_at          = NOW(),
+			    nism_digilocker_uri       = ${result.digilockerUri},
+			    nism_score                = ${result.score ?? null},
+			    doc_nism_certificate      = COALESCE(${result.pdfUrl ?? null}, doc_nism_certificate),
+			    updated_at                = NOW()
+			WHERE agent_id = ${agentId}
+		`);
+
+		// Mirror to users table
+		await db.execute(sql`
+			UPDATE users
+			SET nism_certificate_number = ${result.certificateNumber},
+			    nism_certificate_type   = ${result.examSeries},
+			    nism_expiry_date        = ${result.expiryDate}
+			WHERE id = ${agentId}
+		`);
+
+		return res.json({
+			success: true,
+			data: result,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: result.engineVersion,
+			},
+		});
+	} catch (err: any) {
+		console.error("[AgentEmpanelment] NISM DigiLocker pull error:", err);
+		return res.status(400).json({
+			success: false,
+			error: err.message || "Failed to pull NISM certificate from DigiLocker",
+		});
+	}
+}
+
+// POST /api/agent/empanelment/nism/digilocker-pull — pull authentic NISM certificate via DigiLocker
+router.post("/nism/digilocker-pull", requireAuth, handleNismDigiLockerPull);
+
+// Alias: /step/3/pull-nism
+router.post("/step/3/pull-nism", requireAuth, handleNismDigiLockerPull);
 
 // POST /api/agent/empanelment/step/4/verify-bank — penny drop bank verification
 router.post(

@@ -45,6 +45,7 @@ import {
 	Clock,
 	Pencil,
 	ChevronLeft,
+	Sparkles,
 } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -64,6 +65,11 @@ interface Empanelment {
 	nism_certificate_number: string | null;
 	nism_certificate_type: string | null;
 	nism_expiry_date: string | null;
+	nism_enrolment_number?: string | null;
+	nism_verification_status?: string | null;
+	nism_verified_at?: string | null;
+	nism_digilocker_uri?: string | null;
+	nism_score?: string | null;
 	ria_number: string | null;
 	posp_number: string | null;
 	posp_insurer: string | null;
@@ -226,6 +232,15 @@ export default function AgentKycEmpanelment() {
 	const [nismCertNum, setNismCertNum] = useState("");
 	const [nismCertType, setNismCertType] = useState("");
 	const [nismExpiry, setNismExpiry] = useState("");
+	const [nismEnrolmentNum, setNismEnrolmentNum] = useState("");
+	const [nismVerifying, setNismVerifying] = useState(false);
+	const [nismVerified, setNismVerified] = useState(false);
+	const [nismVerifiedDetails, setNismVerifiedDetails] = useState<{
+		candidateName?: string;
+		examTitle?: string;
+		score?: string;
+		digilockerUri?: string;
+	} | null>(null);
 	const [riaNumber, setRiaNumber] = useState("");
 	const [pospNumber, setPospNumber] = useState("");
 	const [pospInsurer, setPospInsurer] = useState("");
@@ -238,7 +253,7 @@ export default function AgentKycEmpanelment() {
 	const [bankVerifying, setBankVerifying] = useState(false);
 	const [bankVerified, setBankVerified] = useState(false);
 	const [bankName, setBankName] = useState("");
-	const [bankBranch, setBankBranch] = useState("");
+	const [_bankBranch, setBankBranch] = useState("");
 	const [bankMsg, setBankMsg] = useState("");
 
 	// Step 5 — document names (simulated upload)
@@ -284,6 +299,10 @@ export default function AgentKycEmpanelment() {
 		setNismCertNum(emp.nism_certificate_number || "");
 		setNismCertType(emp.nism_certificate_type || "");
 		setNismExpiry(emp.nism_expiry_date || "");
+		setNismEnrolmentNum(emp.nism_enrolment_number || "");
+		if (emp.nism_verification_status === "verified_digilocker") {
+			setNismVerified(true);
+		}
 		setRiaNumber(emp.ria_number || "");
 		setPospNumber(emp.posp_number || "");
 		setPospInsurer(emp.posp_insurer || "");
@@ -499,6 +518,70 @@ export default function AgentKycEmpanelment() {
 			});
 		}
 		setBankVerifying(false);
+	}
+
+	// ── NISM DigiLocker Pull Handler ──────────────────────────────────────────
+	async function handlePullNismFromDigiLocker() {
+		if (!nismEnrolmentNum || nismEnrolmentNum.trim().length < 4) {
+			toast({
+				title: "Enrolment Number Required",
+				description:
+					"Please enter your NISM Enrolment Number (e.g. NISM-20230008472).",
+				variant: "destructive",
+			});
+			return;
+		}
+
+		setNismVerifying(true);
+		try {
+			const res = await apiRequest(
+				"/api/agent/empanelment/nism/digilocker-pull",
+				{
+					method: "POST",
+					body: JSON.stringify({
+						enrolmentNumber: nismEnrolmentNum.trim().toUpperCase(),
+						pan: panNumber || undefined,
+					}),
+				},
+			);
+
+			if (res.success && res.data) {
+				const cert = res.data;
+				setNismCertNum(cert.certificateNumber || "");
+				setNismCertType(cert.examSeries || "");
+				setNismExpiry(cert.expiryDate || "");
+				if (cert.pdfUrl) {
+					setDocNism(cert.pdfUrl);
+				}
+				setNismVerified(true);
+				setNismVerifiedDetails({
+					candidateName: cert.candidateName,
+					examTitle: cert.examTitle,
+					score: cert.score,
+					digilockerUri: cert.digilockerUri,
+				});
+
+				toast({
+					title: "NISM Verified via DigiLocker ✓",
+					description: `Successfully pulled ${cert.examTitle || cert.examSeries}. Valid till ${cert.expiryDate}.`,
+				});
+				queryClient.invalidateQueries({
+					queryKey: ["/api/agent/empanelment"],
+				});
+			} else {
+				throw new Error(res.error || "Failed to pull certificate");
+			}
+		} catch (err: any) {
+			toast({
+				title: "DigiLocker Pull Error",
+				description:
+					err.message ||
+					"Could not fetch NISM certificate. You may enter details manually.",
+				variant: "destructive",
+			});
+		} finally {
+			setNismVerifying(false);
+		}
 	}
 
 	// ── Step save handlers ────────────────────────────────────────────────────
@@ -1262,8 +1345,9 @@ export default function AgentKycEmpanelment() {
 							{SERVICE_OPTIONS.map((svc) => {
 								const selected = servicesOffered.includes(svc.id);
 								return (
-									<div
+									<button
 										key={svc.id}
+										type="button"
 										onClick={() =>
 											setServicesOffered((prev) =>
 												selected
@@ -1271,7 +1355,7 @@ export default function AgentKycEmpanelment() {
 													: [...prev, svc.id],
 											)
 										}
-										className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-4 ${selected ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30" : "border-border hover:border-blue-300"}`}
+										className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-4 text-left w-full ${selected ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30" : "border-border hover:border-blue-300"}`}
 									>
 										<span className="text-2xl">{svc.icon}</span>
 										<div className="flex-1">
@@ -1283,7 +1367,7 @@ export default function AgentKycEmpanelment() {
 										{selected && (
 											<CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0" />
 										)}
-									</div>
+									</button>
 								);
 							})}
 						</div>
@@ -1366,11 +1450,77 @@ export default function AgentKycEmpanelment() {
 						)}
 
 						{/* NISM Certificate */}
-						<div className="space-y-3 p-4 border rounded-xl">
-							<h3 className="font-semibold text-sm text-purple-700 dark:text-purple-300 flex items-center gap-2">
-								<span className="text-lg">🎓</span> NISM Certification
-							</h3>
-							<div className="grid md:grid-cols-2 gap-4">
+						<div className="space-y-4 p-4 border rounded-xl bg-card">
+							<div className="flex items-center justify-between">
+								<h3 className="font-semibold text-sm text-purple-700 dark:text-purple-300 flex items-center gap-2">
+									<span className="text-lg">🎓</span> NISM Certification
+								</h3>
+								{nismVerified && (
+									<Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 gap-1 text-[11px]">
+										<BadgeCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+										DigiLocker Verified
+									</Badge>
+								)}
+							</div>
+
+							{/* DigiLocker Fast-Track Pull Box */}
+							<div className="bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-transparent p-3.5 rounded-lg border border-purple-200 dark:border-purple-900/50 space-y-2.5">
+								<div className="flex items-center justify-between">
+									<span className="text-xs font-semibold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
+										<Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+										Fast-Track: Pull Official Certificate from DigiLocker
+									</span>
+									<span className="text-[10px] text-muted-foreground font-mono">Issuer: NISM (SEBI)</span>
+								</div>
+								<div className="flex flex-col sm:flex-row gap-2">
+									<Input
+										placeholder="Enter NISM Enrolment No. (e.g. NISM-20230008472)"
+										value={nismEnrolmentNum}
+										onChange={(e) => setNismEnrolmentNum(e.target.value.toUpperCase())}
+										className="font-mono text-xs uppercase"
+										disabled={nismVerifying}
+									/>
+									<Button
+										type="button"
+										size="sm"
+										onClick={handlePullNismFromDigiLocker}
+										disabled={nismVerifying || !nismEnrolmentNum}
+										className="shrink-0 bg-purple-600 hover:bg-purple-700 text-white text-xs gap-1.5 font-medium"
+									>
+										{nismVerifying ? (
+											<>
+												<Loader2 className="w-3.5 h-3.5 animate-spin" />
+												Pulling…
+											</>
+										) : (
+											<>
+												<Sparkles className="w-3.5 h-3.5" />
+												Fetch from DigiLocker
+											</>
+										)}
+									</Button>
+								</div>
+								{nismVerified && (
+									<div className="text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-2.5 rounded border border-emerald-200 dark:border-emerald-800 space-y-1">
+										<div className="flex items-center justify-between">
+											<span className="font-semibold flex items-center gap-1">
+												<CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+												Verified via DigiLocker:
+											</span>
+											{nismVerifiedDetails?.score && (
+												<span className="text-[11px] font-mono font-medium bg-emerald-200/60 dark:bg-emerald-900 px-1.5 py-0.5 rounded">
+													Score: {nismVerifiedDetails.score}
+												</span>
+											)}
+										</div>
+										<p className="text-muted-foreground text-[11px]">
+											{nismVerifiedDetails?.examTitle || nismCertType} • Cert: <span className="font-mono">{nismCertNum}</span>
+										</p>
+									</div>
+								)}
+							</div>
+
+							<div className="grid md:grid-cols-2 gap-4 pt-1">
 								<div className="space-y-1 md:col-span-2">
 									<Label>NISM Certificate Type *</Label>
 									<Select value={nismCertType} onValueChange={setNismCertType}>
