@@ -21,6 +21,7 @@ import { registerAuditExportRoutes } from "./routes/admin/audit-export-routes";
 import { maskEmail, maskMobile } from "./utils/pii-utils";
 import usTradingRoutes from "./routes/us-trading";
 import agentRoutes from "./agent-routes";
+import agentEmpanelmentRoutes from "./routes/agent-empanelment";
 import agentTrackerRoutes from "./routes/agent-tracker";
 import { registerAgentCapitalGainPart1Part1Routes } from "./routes/agent-capital-gains-1-1";
 import agentRevenueRoutes from "./routes/agent-revenue-routes";
@@ -329,6 +330,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	app.use("/api/reit-invit", reitInvitRouter);
 
 	// Business Logic Routes
+	app.use("/api/agent/empanelment", agentEmpanelmentRoutes);
+	app.use("/api/agent-empanelment", agentEmpanelmentRoutes);
 	app.use("/api/agent", agentRoutes);
 	app.use("/api/agent", agentTrackerRoutes);
 	registerAgentCapitalGainPart1Part1Routes(app); // Registered to fix /api/agent/activity 404
