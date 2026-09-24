@@ -476,7 +476,7 @@ export class NismLmsService {
 		const idToken = `${b64Header}.${b64Payload}.${signature}`;
 
 		const portalUrl = "https://online.nism.ac.in/nismlms/";
-		const certificationsUrl = "https://certifications.nism.ac.in/nismaol/";
+		const certificationsUrl = "https://cert.nism.ac.in/dashboard";
 		const syllabusUrl = matchedCourse?.syllabusUrl || "https://www.nism.ac.in/certification-examinations/";
 
 		return {

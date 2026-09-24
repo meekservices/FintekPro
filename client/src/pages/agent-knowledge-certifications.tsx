@@ -1353,7 +1353,7 @@ export default function AgentKnowledgeCertifications() {
 									className="w-full border-border text-xs h-8 flex items-center justify-center gap-1.5 hover:bg-muted/40"
 									onClick={() => {
 										window.open(
-											nismLaunchModal.launchData?.certificationsUrl || "https://certifications.nism.ac.in/nismaol/",
+											nismLaunchModal.launchData?.certificationsUrl || "https://cert.nism.ac.in/dashboard",
 											"_blank",
 											"noopener,noreferrer",
 										);
