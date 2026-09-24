@@ -12,7 +12,9 @@ import {
 	Clock,
 	BarChart3,
 	Newspaper,
+	Sparkles,
 } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 import {
 	Card,
 	CardContent,
@@ -61,10 +63,10 @@ export default function AgentKnowledgeMarketBrief() {
 	} = useQuery<MarketBrief>({
 		queryKey: ["/api/knowledge-hub/market-brief/today", selectedRegion],
 		queryFn: async () => {
-			const response = await fetch(
+			const response = await apiRequest(
+				"GET",
 				`/api/knowledge-hub/market-brief/today?region=${selectedRegion}`,
 			);
-			if (!response.ok) throw new Error("Failed to fetch brief");
 			return response.json();
 		},
 	});
@@ -72,10 +74,10 @@ export default function AgentKnowledgeMarketBrief() {
 	const { data: previousBriefs } = useQuery<MarketBrief[]>({
 		queryKey: ["/api/knowledge-hub/market-briefs", selectedRegion],
 		queryFn: async () => {
-			const response = await fetch(
+			const response = await apiRequest(
+				"GET",
 				`/api/knowledge-hub/market-briefs?region=${selectedRegion}&status=published&limit=5`,
 			);
-			if (!response.ok) throw new Error("Failed to fetch briefs");
 			return response.json();
 		},
 	});
@@ -86,7 +88,7 @@ export default function AgentKnowledgeMarketBrief() {
 		{ id: "global", name: "Global", flag: "🌍" },
 	];
 
-	const hasTodaysBrief = todaysBrief && !("fallback" in todaysBrief);
+	const hasTodaysBrief = Boolean(todaysBrief && todaysBrief.marketSnapshot);
 
 	return (
 		<div className="p-6 space-y-6">

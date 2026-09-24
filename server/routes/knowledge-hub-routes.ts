@@ -96,6 +96,16 @@ router.get(
 );
 
 router.post(
+	"/market-brief/generate-today",
+	requireAuth,
+	asyncHandler(async (req, res) => {
+		const region = (req.body?.region as string) || "india";
+		const brief = await knowledgeHubService.generateAndPublishDailyBrief(region);
+		res.json({ success: true, brief });
+	}),
+);
+
+router.post(
 	"/market-brief",
 	requireRole("super_admin", "admin"),
 	asyncHandler(async (req, res) => {
