@@ -70,6 +70,8 @@ interface Empanelment {
 	nism_verified_at?: string | null;
 	nism_digilocker_uri?: string | null;
 	nism_score?: string | null;
+	arn_verification_status?: string | null;
+	ria_verification_status?: string | null;
 	ria_number: string | null;
 	posp_number: string | null;
 	posp_insurer: string | null;
@@ -241,7 +243,14 @@ export default function AgentKycEmpanelment() {
 		score?: string;
 		digilockerUri?: string;
 	} | null>(null);
+	const [arnVerifying, setArnVerifying] = useState(false);
+	const [arnVerified, setArnVerified] = useState(false);
+	const [arnDistributorName, setArnDistributorName] = useState("");
+
 	const [riaNumber, setRiaNumber] = useState("");
+	const [riaVerifying, setRiaVerifying] = useState(false);
+	const [riaVerified, setRiaVerified] = useState(false);
+	const [riaEntityName, setRiaEntityName] = useState("");
 	const [pospNumber, setPospNumber] = useState("");
 	const [pospInsurer, setPospInsurer] = useState("");
 	const [dsaCode, setDsaCode] = useState("");
@@ -302,6 +311,12 @@ export default function AgentKycEmpanelment() {
 		setNismEnrolmentNum(emp.nism_enrolment_number || "");
 		if (emp.nism_verification_status === "verified_digilocker") {
 			setNismVerified(true);
+		}
+		if (emp.arn_verification_status === "verified") {
+			setArnVerified(true);
+		}
+		if (emp.ria_verification_status === "verified") {
+			setRiaVerified(true);
 		}
 		setRiaNumber(emp.ria_number || "");
 		setPospNumber(emp.posp_number || "");
@@ -581,6 +596,109 @@ export default function AgentKycEmpanelment() {
 			});
 		} finally {
 			setNismVerifying(false);
+		}
+	}
+
+	// ── AMFI ARN Verification Handler ─────────────────────────────────────────
+	async function handleVerifyArn() {
+		if (!arnCode || arnCode.trim().length < 4) {
+			toast({
+				title: "ARN Code Required",
+				description:
+					"Please enter your AMFI Registration Number (e.g. ARN-123456).",
+				variant: "destructive",
+			});
+			return;
+		}
+
+		setArnVerifying(true);
+		try {
+			const res = await apiRequest(
+				"/api/agent/empanelment/amfi/verify-arn",
+				{
+					method: "POST",
+					body: JSON.stringify({ arnCode: arnCode.trim().toUpperCase() }),
+				},
+			);
+
+			if (res.success && res.data) {
+				const info = res.data;
+				setArnCode(info.arnCode);
+				setArnExpiry(info.validTill);
+				setArnVerified(true);
+				setArnDistributorName(info.distributorName || "");
+				toast({
+					title: "AMFI ARN Verified ✓",
+					description: `Valid distributor: ${info.distributorName}. Expiry: ${info.validTill}`,
+				});
+				queryClient.invalidateQueries({
+					queryKey: ["/api/agent/empanelment"],
+				});
+			} else {
+				throw new Error(res.error || "Failed to verify ARN");
+			}
+		} catch (err: any) {
+			toast({
+				title: "ARN Verification Error",
+				description:
+					err.message ||
+					"Failed to verify ARN. You may enter details manually.",
+				variant: "destructive",
+			});
+		} finally {
+			setArnVerifying(false);
+		}
+	}
+
+	// ── SEBI RIA Verification Handler ──────────────────────────────────────────
+	async function handleVerifyRia() {
+		if (!riaNumber || riaNumber.trim().length < 5) {
+			toast({
+				title: "SEBI RIA Number Required",
+				description:
+					"Please enter your SEBI Registration Number (e.g. INA000012345).",
+				variant: "destructive",
+			});
+			return;
+		}
+
+		setRiaVerifying(true);
+		try {
+			const res = await apiRequest(
+				"/api/agent/empanelment/sebi/verify-intermediary",
+				{
+					method: "POST",
+					body: JSON.stringify({
+						registrationNumber: riaNumber.trim().toUpperCase(),
+					}),
+				},
+			);
+
+			if (res.success && res.data) {
+				const info = res.data;
+				setRiaNumber(info.registrationNumber);
+				setRiaVerified(true);
+				setRiaEntityName(info.entityName || "");
+				toast({
+					title: "SEBI Registration Verified ✓",
+					description: `Valid ${info.category}: ${info.entityName} (Status: ${info.status})`,
+				});
+				queryClient.invalidateQueries({
+					queryKey: ["/api/agent/empanelment"],
+				});
+			} else {
+				throw new Error(res.error || "Failed to verify SEBI Registration");
+			}
+		} catch (err: any) {
+			toast({
+				title: "SEBI Verification Error",
+				description:
+					err.message ||
+					"Failed to verify SEBI number. You may enter details manually.",
+				variant: "destructive",
+			});
+		} finally {
+			setRiaVerifying(false);
 		}
 	}
 
@@ -1403,23 +1521,48 @@ export default function AgentKycEmpanelment() {
 						{/* ARN + EUIN — for MF */}
 						{(servicesOffered.includes("mutual_fund") ||
 							servicesOffered.includes("stocks")) && (
-							<div className="space-y-3 p-4 border rounded-xl">
-								<h3 className="font-semibold text-sm text-blue-700 dark:text-blue-300 flex items-center gap-2">
-									<span className="text-lg">📈</span> AMFI / Mutual Fund
-									Credentials
-								</h3>
+							<div className="space-y-3 p-4 border rounded-xl bg-card">
+								<div className="flex items-center justify-between">
+									<h3 className="font-semibold text-sm text-blue-700 dark:text-blue-300 flex items-center gap-2">
+										<span className="text-lg">📈</span> AMFI / Mutual Fund Credentials
+									</h3>
+									{arnVerified && (
+										<Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 gap-1 text-[11px]">
+											<BadgeCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+											AMFI Verified
+										</Badge>
+									)}
+								</div>
 								<div className="grid md:grid-cols-2 gap-4">
 									<div className="space-y-1">
 										<Label>
 											ARN Code{" "}
 											{servicesOffered.includes("mutual_fund") ? "*" : ""}
 										</Label>
-										<Input
-											placeholder="ARN-12345"
-											value={arnCode}
-											onChange={(e) => setArnCode(e.target.value.toUpperCase())}
-											className="font-mono"
-										/>
+										<div className="flex gap-2">
+											<Input
+												placeholder="ARN-12345"
+												value={arnCode}
+												onChange={(e) => setArnCode(e.target.value.toUpperCase())}
+												className="font-mono text-sm uppercase"
+												disabled={arnVerifying}
+											/>
+											<Button
+												type="button"
+												size="sm"
+												variant="outline"
+												onClick={handleVerifyArn}
+												disabled={arnVerifying || !arnCode}
+												className="shrink-0 text-xs font-medium gap-1"
+											>
+												{arnVerifying ? (
+													<Loader2 className="w-3.5 h-3.5 animate-spin" />
+												) : (
+													<Sparkles className="w-3.5 h-3.5 text-blue-600" />
+												)}
+												Verify
+											</Button>
+										</div>
 									</div>
 									<div className="space-y-1">
 										<Label>ARN Expiry Date *</Label>
@@ -1429,7 +1572,7 @@ export default function AgentKycEmpanelment() {
 											onChange={(e) => setArnExpiry(e.target.value)}
 										/>
 									</div>
-									<div className="space-y-1">
+									<div className="space-y-1 md:col-span-2">
 										<Label>
 											EUIN Number{" "}
 											<span className="text-muted-foreground">
@@ -1446,6 +1589,14 @@ export default function AgentKycEmpanelment() {
 										/>
 									</div>
 								</div>
+								{arnVerified && (
+									<div className="text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-2.5 rounded border border-emerald-200 dark:border-emerald-800">
+										<p className="font-semibold flex items-center gap-1">
+											<CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+											Verified AMFI Distributor: {arnDistributorName || "Active"} • Valid till {arnExpiry}
+										</p>
+									</div>
+								)}
 							</div>
 						)}
 
@@ -1560,23 +1711,56 @@ export default function AgentKycEmpanelment() {
 
 						{/* SEBI RIA */}
 						{servicesOffered.includes("ria") && (
-							<div className="space-y-3 p-4 border rounded-xl">
-								<h3 className="font-semibold text-sm text-amber-700 dark:text-amber-300 flex items-center gap-2">
-									<span className="text-lg">💼</span> SEBI Registered Investment
-									Adviser (RIA)
-								</h3>
-								<div className="space-y-1">
+							<div className="space-y-3 p-4 border rounded-xl bg-card">
+								<div className="flex items-center justify-between">
+									<h3 className="font-semibold text-sm text-amber-700 dark:text-amber-300 flex items-center gap-2">
+										<span className="text-lg">💼</span> SEBI Registered Investment Adviser (RIA)
+									</h3>
+									{riaVerified && (
+										<Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 gap-1 text-[11px]">
+											<BadgeCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+											SEBI Verified
+										</Badge>
+									)}
+								</div>
+								<div className="space-y-2">
 									<Label>SEBI RIA Registration Number *</Label>
-									<Input
-										placeholder="INA000XXXXXX"
-										value={riaNumber}
-										onChange={(e) => setRiaNumber(e.target.value.toUpperCase())}
-										className="font-mono"
-									/>
+									<div className="flex gap-2">
+										<Input
+											placeholder="INA000XXXXXX"
+											value={riaNumber}
+											onChange={(e) => setRiaNumber(e.target.value.toUpperCase())}
+											className="font-mono text-sm uppercase"
+											disabled={riaVerifying}
+										/>
+										<Button
+											type="button"
+											size="sm"
+											variant="outline"
+											onClick={handleVerifyRia}
+											disabled={riaVerifying || !riaNumber}
+											className="shrink-0 text-xs font-medium gap-1"
+										>
+											{riaVerifying ? (
+												<Loader2 className="w-3.5 h-3.5 animate-spin" />
+											) : (
+												<Sparkles className="w-3.5 h-3.5 text-amber-600" />
+											)}
+											Verify
+										</Button>
+									</div>
 									<p className="text-xs text-muted-foreground">
 										Format: INA followed by 9 digits (e.g. INA000012345)
 									</p>
 								</div>
+								{riaVerified && (
+									<div className="text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-2.5 rounded border border-emerald-200 dark:border-emerald-800">
+										<p className="font-semibold flex items-center gap-1">
+											<CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+											Verified SEBI RIA: {riaEntityName || "Registered Entity"} • Standing: Active (Perpetual)
+										</p>
+									</div>
+								)}
 							</div>
 						)}
 

@@ -9,6 +9,8 @@ import {
 	isNameMatchAcceptable,
 } from "../penny-drop-service";
 import { nismDigiLockerService } from "../services/nism-digilocker-service";
+import { amfiValidationService } from "../services/amfi-validation-service";
+import { sebiIntermediaryService } from "../services/sebi-intermediary-service";
 
 const router = Router();
 
@@ -112,6 +114,25 @@ async function ensureTable() {
 		);
 		await db.execute(
 			sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS nism_score TEXT`,
+		);
+		// Add AMFI and SEBI verification columns (idempotent)
+		await db.execute(
+			sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS arn_verification_status TEXT DEFAULT 'unverified'`,
+		);
+		await db.execute(
+			sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS arn_verified_at TIMESTAMPTZ`,
+		);
+		await db.execute(
+			sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS euin_verification_status TEXT DEFAULT 'unverified'`,
+		);
+		await db.execute(
+			sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS euin_verified_at TIMESTAMPTZ`,
+		);
+		await db.execute(
+			sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS ria_verification_status TEXT DEFAULT 'unverified'`,
+		);
+		await db.execute(
+			sql`ALTER TABLE agent_empanelments ADD COLUMN IF NOT EXISTS ria_verified_at TIMESTAMPTZ`,
 		);
 		console.log("✅ [AgentEmpanelment] Table ready");
 	} catch (err: any) {
@@ -399,6 +420,138 @@ router.post("/nism/digilocker-pull", requireAuth, handleNismDigiLockerPull);
 
 // Alias: /step/3/pull-nism
 router.post("/step/3/pull-nism", requireAuth, handleNismDigiLockerPull);
+
+// AMFI ARN Verification Handler
+async function handleAmfiArnVerify(req: Request, res: Response) {
+	try {
+		const agentId = (req as any).user?.id;
+		if (!agentId) return res.status(401).json({ error: "Unauthenticated" });
+		const { arnCode } = req.body;
+		if (!arnCode) return res.status(400).json({ error: "ARN code is required" });
+
+		let candidateName: string | undefined;
+		try {
+			const uRows = await db.execute(
+				sql`SELECT first_name, last_name, pan_name FROM users WHERE id = ${agentId}`,
+			);
+			const u = uRows.rows[0] as any;
+			candidateName =
+				u?.pan_name ||
+				`${u?.first_name || ""} ${u?.last_name || ""}`.trim() ||
+				undefined;
+		} catch {
+			/* non-fatal */
+		}
+
+		await getOrCreateEmpanelment(agentId);
+		const result = await amfiValidationService.validateArn({
+			arnCode,
+			candidateName,
+			userId: agentId,
+		});
+
+		await db.execute(sql`
+			UPDATE agent_empanelments
+			SET arn_code = ${result.arnCode},
+			    arn_expiry_date = ${result.validTill},
+			    arn_verification_status = ${result.verified ? "verified" : "failed"},
+			    arn_verified_at = NOW(),
+			    updated_at = NOW()
+			WHERE agent_id = ${agentId}
+		`);
+
+		await db.execute(sql`
+			UPDATE users
+			SET arn_code = ${result.arnCode},
+			    arn_expiry_date = ${result.validTill}
+			WHERE id = ${agentId}
+		`);
+
+		return res.json({
+			success: true,
+			data: result,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: result.engineVersion,
+			},
+		});
+	} catch (err: any) {
+		return res.status(400).json({
+			success: false,
+			error: err.message || "Failed to verify ARN",
+		});
+	}
+}
+
+// POST /api/agent/empanelment/amfi/verify-arn
+router.post("/amfi/verify-arn", requireAuth, handleAmfiArnVerify);
+router.post("/step/3/verify-arn", requireAuth, handleAmfiArnVerify);
+
+// SEBI Intermediary Registry Verification Handler
+async function handleSebiIntermediaryVerify(req: Request, res: Response) {
+	try {
+		const agentId = (req as any).user?.id;
+		if (!agentId) return res.status(401).json({ error: "Unauthenticated" });
+		const { registrationNumber } = req.body;
+		if (!registrationNumber)
+			return res.status(400).json({ error: "Registration number is required" });
+
+		let candidateName: string | undefined;
+		try {
+			const uRows = await db.execute(
+				sql`SELECT first_name, last_name, pan_name FROM users WHERE id = ${agentId}`,
+			);
+			const u = uRows.rows[0] as any;
+			candidateName =
+				u?.pan_name ||
+				`${u?.first_name || ""} ${u?.last_name || ""}`.trim() ||
+				undefined;
+		} catch {
+			/* non-fatal */
+		}
+
+		await getOrCreateEmpanelment(agentId);
+		const result = await sebiIntermediaryService.verifyIntermediary({
+			registrationNumber,
+			candidateName,
+			userId: agentId,
+		});
+
+		if (result.category === "RIA") {
+			await db.execute(sql`
+				UPDATE agent_empanelments
+				SET ria_number = ${result.registrationNumber},
+				    ria_verification_status = ${result.verified ? "verified" : "failed"},
+				    ria_verified_at = NOW(),
+				    updated_at = NOW()
+				WHERE agent_id = ${agentId}
+			`);
+			await db.execute(sql`
+				UPDATE users
+				SET ria_number = ${result.registrationNumber}
+				WHERE id = ${agentId}
+			`);
+		}
+
+		return res.json({
+			success: true,
+			data: result,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: result.engineVersion,
+			},
+		});
+	} catch (err: any) {
+		return res.status(400).json({
+			success: false,
+			error: err.message || "Failed to verify SEBI intermediary",
+		});
+	}
+}
+
+// POST /api/agent/empanelment/sebi/verify-intermediary
+router.post("/sebi/verify-intermediary", requireAuth, handleSebiIntermediaryVerify);
+router.post("/step/3/verify-sebi", requireAuth, handleSebiIntermediaryVerify);
 
 // POST /api/agent/empanelment/step/4/verify-bank — penny drop bank verification
 router.post(
