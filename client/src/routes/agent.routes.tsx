@@ -444,6 +444,15 @@ export function AgentRoutes() {
 					</AgentLayout>
 				)}
 			</Route>
+			<Route path="/agent/knowledge/market-brief">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AgentKnowledgeMarketBrief />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
 			<Route path="/agent/knowledge-hub/products">
 				{() => (
 					<AgentLayout>

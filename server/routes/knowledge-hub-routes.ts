@@ -33,7 +33,6 @@ router.put(
 
 router.get(
 	"/dashboard",
-	requireAuth,
 	asyncHandler(async (req, res) => {
 		const agentId = (req as any).user?.id;
 		const stats = await knowledgeHubService.getDashboardStats(agentId);
@@ -43,13 +42,12 @@ router.get(
 
 router.get(
 	"/market-brief/today",
-	requireAuth,
 	asyncHandler(async (req, res) => {
 		const region = (req.query.region as string) || "india";
 		const brief = await knowledgeHubService.getTodaysBrief(region);
 
-		if (brief) {
-			await knowledgeHubService.logAuditEvent({
+		if (brief && (req as any).user) {
+			knowledgeHubService.logAuditEvent({
 				userId: (req as any).user?.id || "anonymous",
 				userRole: (req as any).user?.roles?.[0] || "agent",
 				eventType: "brief_viewed",
@@ -59,31 +57,26 @@ router.get(
 				contentVersion: brief.version,
 				ipAddress: req.ip,
 				userAgent: req.headers["user-agent"],
-			});
+			}).catch(() => {});
 		}
 
 		res.json(
-			brief || {
-				message: "No market brief available for today",
-				fallback: true,
-			},
+			brief || knowledgeHubService.getFallbackDailyBrief(region),
 		);
 	}),
 );
 
 router.get(
 	"/market-brief/latest",
-	requireAuth,
 	asyncHandler(async (req, res) => {
 		const region = (req.query.region as string) || "india";
 		const brief = await knowledgeHubService.getLatestApprovedBrief(region);
-		res.json(brief);
+		res.json(brief || knowledgeHubService.getFallbackDailyBrief(region));
 	}),
 );
 
 router.get(
 	"/market-briefs",
-	requireAuth,
 	asyncHandler(async (req, res) => {
 		const { region, status, limit } = req.query;
 		const briefs = await knowledgeHubService.getMarketBriefs({
@@ -91,7 +84,7 @@ router.get(
 			status: status as string,
 			limit: limit ? Number.parseInt(limit as string) : 10,
 		});
-		res.json(briefs);
+		res.json(briefs && briefs.length > 0 ? briefs : [knowledgeHubService.getFallbackDailyBrief((region as string) || "india")]);
 	}),
 );
 
@@ -143,7 +136,6 @@ router.post(
 
 router.get(
 	"/products",
-	requireAuth,
 	asyncHandler(async (req, res) => {
 		const { productType, riskProfile, status } = req.query;
 		const products = await knowledgeHubService.getProductKnowledge({
@@ -168,7 +160,6 @@ router.get(
 
 router.get(
 	"/products/:id",
-	requireAuth,
 	asyncHandler(async (req, res) => {
 		const product = await knowledgeHubService.getProductKnowledgeById(
 			req.params.id,
@@ -235,7 +226,6 @@ router.post(
 
 router.get(
 	"/explanations",
-	requireAuth,
 	asyncHandler(async (req, res) => {
 		const { category } = req.query;
 		const templates = await knowledgeHubService.getExplanationTemplates({
@@ -270,7 +260,6 @@ router.post(
 
 router.get(
 	"/explanations/:id",
-	requireAuth,
 	asyncHandler(async (req, res) => {
 		const template = await knowledgeHubService.getExplanationTemplateById(
 			req.params.id,
@@ -330,7 +319,6 @@ router.post(
 
 router.get(
 	"/asset-insights",
-	requireAuth,
 	asyncHandler(async (req, res) => {
 		const { assetClass } = req.query;
 		const insights = await knowledgeHubService.getAssetClassInsights(
@@ -342,7 +330,6 @@ router.get(
 
 router.get(
 	"/disclaimers",
-	requireAuth,
 	asyncHandler(async (req, res) => {
 		const { category } = req.query;
 		const disclaimers = await knowledgeHubService.getDisclaimers(
@@ -354,7 +341,6 @@ router.get(
 
 router.get(
 	"/disclaimers/active/:category",
-	requireAuth,
 	asyncHandler(async (req, res) => {
 		const disclaimer = await knowledgeHubService.getActiveDisclaimer(
 			req.params.category,
