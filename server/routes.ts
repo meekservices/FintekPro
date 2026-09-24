@@ -22,6 +22,7 @@ import { maskEmail, maskMobile } from "./utils/pii-utils";
 import usTradingRoutes from "./routes/us-trading";
 import agentRoutes from "./agent-routes";
 import agentEmpanelmentRoutes from "./routes/agent-empanelment";
+import knowledgeHubRoutes from "./routes/knowledge-hub-routes";
 import agentTrackerRoutes from "./routes/agent-tracker";
 import { registerAgentCapitalGainPart1Part1Routes } from "./routes/agent-capital-gains-1-1";
 import agentRevenueRoutes from "./routes/agent-revenue-routes";
@@ -367,6 +368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	app.use("/api/meetings", meetingRoutes2);
 	app.use("/api/google-calendar", googleCalendarRoutes);
 	app.use("/api/unified-cart", unifiedCartRouter);
+	app.use("/api/knowledge-hub", knowledgeHubRoutes);
 
 	// Named export registrations
 	registerOrderRoutes(app);
