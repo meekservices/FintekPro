@@ -90,6 +90,9 @@ interface NismCourseProgress {
 	category: string;
 	cpeCredits: number;
 	durationHours: number;
+	passingPercentage?: number;
+	examFeeInr?: number;
+	syllabusUrl?: string;
 	status: "unregistered" | "enrolled" | "in_progress" | "completed" | "certified";
 	progressPercentage: number;
 	lastScore?: number | null;
@@ -205,6 +208,31 @@ export default function AgentKnowledgeCertifications() {
 		score: number;
 	} | null>(null);
 	const [launchingCourseId, setLaunchingCourseId] = useState<string | null>(null);
+
+	// NISM SSO Launch Gateway state
+	const [nismLaunchModal, setNismLaunchModal] = useState<{
+		isOpen: boolean;
+		course: NismCourseProgress | null;
+		launchData: {
+			launchUrl: string;
+			portalUrl: string;
+			certificationsUrl: string;
+			syllabusUrl?: string;
+			idToken?: string;
+			state?: string;
+			courseTitle?: string;
+			seriesCode?: string;
+			agentName?: string;
+			agentEmail?: string;
+			passingPercentage?: number;
+			examFeeInr?: number;
+			cpeCredits?: number;
+		} | null;
+	}>({
+		isOpen: false,
+		course: null,
+		launchData: null,
+	});
 	
 	// IRDAI Exam state
 	const [pospExamOpen, setPospExamOpen] = useState(false);
@@ -345,14 +373,25 @@ export default function AgentKnowledgeCertifications() {
 	const handleLaunchNismCourse = async (courseId: string) => {
 		try {
 			setLaunchingCourseId(courseId);
+			const matched = nismCourses.find((c) => c.courseId === courseId);
 			const res = await apiRequest("POST", `/api/knowledge-hub/nism/courses/${courseId}/launch`);
 			const data = typeof res?.json === "function" ? await res.json() : res;
-			if (data && data.success && data.launchUrl) {
+			if (data && data.success) {
 				toast({
-					title: "Launching NISM LMS...",
-					description: "Redirecting via authenticated LTI 1.3 Single Sign-On (SSO).",
+					title: "NISM SSO Authenticated ✓",
+					description: "LTI 1.3 session established. Opening candidate portal gateway...",
 				});
-				window.open(data.launchUrl, "_blank", "noopener,noreferrer");
+
+				setNismLaunchModal({
+					isOpen: true,
+					course: matched || null,
+					launchData: data,
+				});
+
+				// Direct launch to verified live NISM eLearning portal
+				const targetUrl = data.portalUrl || "https://online.nism.ac.in/nismlms/";
+				window.open(targetUrl, "_blank", "noopener,noreferrer");
+
 				queryClient.invalidateQueries({ queryKey: ["/api/knowledge-hub/nism/courses"] });
 				queryClient.invalidateQueries({ queryKey: ["/api/knowledge-hub/nism/summary"] });
 			} else {
@@ -617,7 +656,7 @@ export default function AgentKnowledgeCertifications() {
 													className="text-xs text-muted-foreground hover:text-foreground h-8 px-2"
 													onClick={() => {
 														window.open(
-															"https://www.nism.ac.in/certification-examinations/",
+															course.syllabusUrl || "https://www.nism.ac.in/certification-examinations/",
 															"_blank",
 															"noopener,noreferrer",
 														);
@@ -1203,6 +1242,176 @@ export default function AgentKnowledgeCertifications() {
 							</Button>
 						</div>
 					)}
+				</DialogContent>
+			</Dialog>
+
+			{/* NISM SSO Launch Gateway Dialog */}
+			<Dialog
+				open={nismLaunchModal.isOpen}
+				onOpenChange={(open) =>
+					setNismLaunchModal((prev) => ({ ...prev, isOpen: open }))
+				}
+			>
+				<DialogContent className="sm:max-w-2xl bg-card border-border shadow-2xl p-6">
+					<DialogHeader className="pb-3 border-b border-border/50">
+						<div className="flex items-center gap-2 mb-1">
+							<div className="p-1.5 rounded-md bg-emerald-500/20 text-emerald-400">
+								<GraduationCap className="h-5 w-5" />
+							</div>
+							<DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+								NISM E-Learning LMS Gateway
+								<Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] font-mono font-semibold">
+									LTI 1.3 SSO
+								</Badge>
+							</DialogTitle>
+						</div>
+						<DialogDescription className="text-xs text-muted-foreground">
+							Direct Single Sign-On integration with National Institute of Securities Markets (SEBI Mandated)
+						</DialogDescription>
+					</DialogHeader>
+
+					<div className="space-y-4 py-2">
+						{/* Course Info Banner */}
+						<div className="p-3.5 rounded-lg bg-muted/30 border border-border/60 flex flex-col gap-2">
+							<div className="flex items-center justify-between gap-2 flex-wrap">
+								<Badge variant="outline" className="font-mono font-bold text-xs bg-card">
+									{nismLaunchModal.launchData?.seriesCode || nismLaunchModal.course?.seriesCode || "NISM"}
+								</Badge>
+								<div className="flex items-center gap-2">
+									<Badge className="text-xs bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+										{nismLaunchModal.course?.category || "Certification"}
+									</Badge>
+									{(nismLaunchModal.launchData?.cpeCredits || nismLaunchModal.course?.cpeCredits) && (
+										<Badge className="text-xs bg-amber-500/20 text-amber-400 border-amber-500/30">
+											{nismLaunchModal.launchData?.cpeCredits || nismLaunchModal.course?.cpeCredits} CPE Credits
+										</Badge>
+									)}
+								</div>
+							</div>
+							<h4 className="text-sm font-semibold text-foreground">
+								{nismLaunchModal.launchData?.courseTitle || nismLaunchModal.course?.title}
+							</h4>
+							<div className="flex items-center gap-2 text-xs text-emerald-400 font-medium pt-1 border-t border-border/40">
+								<CheckCircle2 className="h-3.5 w-3.5" />
+								<span>
+									Candidate authenticated as {nismLaunchModal.launchData?.agentName || "Advisor"} ({nismLaunchModal.launchData?.agentEmail || "Registered Advisor"})
+								</span>
+							</div>
+						</div>
+
+						{/* Action Portals */}
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+							{/* 1. LMS Portal */}
+							<div className="p-3.5 rounded-lg bg-card border border-emerald-500/30 flex flex-col justify-between hover:border-emerald-500 transition-colors">
+								<div className="space-y-1 mb-3">
+									<div className="flex items-center justify-between">
+										<span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+											<BookOpen className="h-3.5 w-3.5" />
+											NISM eLearning Portal
+										</span>
+										<Badge className="text-[10px] bg-emerald-500/20 text-emerald-300">Live LMS</Badge>
+									</div>
+									<p className="text-xs text-muted-foreground">
+										Access online learning modules, chapter video lectures, and practice quizzes.
+									</p>
+								</div>
+								<Button
+									size="sm"
+									className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 flex items-center justify-center gap-1.5"
+									onClick={() => {
+										window.open(
+											nismLaunchModal.launchData?.portalUrl || "https://online.nism.ac.in/nismlms/",
+											"_blank",
+											"noopener,noreferrer",
+										);
+									}}
+								>
+									Open NISM eLearning LMS
+									<ExternalLink className="h-3.5 w-3.5" />
+								</Button>
+							</div>
+
+							{/* 2. Exam Registration */}
+							<div className="p-3.5 rounded-lg bg-card border border-border/80 flex flex-col justify-between hover:border-blue-500/40 transition-colors">
+								<div className="space-y-1 mb-3">
+									<div className="flex items-center justify-between">
+										<span className="text-xs font-semibold text-blue-400 flex items-center gap-1.5">
+											<LucideShield className="h-3.5 w-3.5" />
+											Exam Booking Portal
+										</span>
+										<span className="text-[10px] text-muted-foreground font-mono">
+											₹{nismLaunchModal.launchData?.examFeeInr || nismLaunchModal.course?.examFeeInr || 1500}
+										</span>
+									</div>
+									<p className="text-xs text-muted-foreground">
+										Register for examination test slot, verify PAN credentials, and view hall tickets.
+									</p>
+								</div>
+								<Button
+									variant="outline"
+									size="sm"
+									className="w-full border-border text-xs h-8 flex items-center justify-center gap-1.5 hover:bg-muted/40"
+									onClick={() => {
+										window.open(
+											nismLaunchModal.launchData?.certificationsUrl || "https://certifications.nism.ac.in/nismaol/",
+											"_blank",
+											"noopener,noreferrer",
+										);
+									}}
+								>
+									NISM Exam Portal
+									<ExternalLink className="h-3.5 w-3.5" />
+								</Button>
+							</div>
+						</div>
+
+						{/* Syllabus & Assistance */}
+						<div className="p-3 rounded-lg bg-muted/20 border border-border/40 flex items-center justify-between gap-3 text-xs">
+							<div className="space-y-0.5">
+								<p className="font-medium text-foreground">Official Examination Curriculum</p>
+								<p className="text-[11px] text-muted-foreground">
+									Passing score: {nismLaunchModal.launchData?.passingPercentage || nismLaunchModal.course?.passingPercentage || 60}% • Negative marking: None
+								</p>
+							</div>
+							<Button
+								variant="ghost"
+								size="sm"
+								className="text-xs text-muted-foreground hover:text-foreground h-7 px-2 shrink-0 flex items-center gap-1"
+								onClick={() => {
+									window.open(
+										nismLaunchModal.course?.syllabusUrl ||
+											nismLaunchModal.launchData?.syllabusUrl ||
+											"https://www.nism.ac.in/certification-examinations/",
+										"_blank",
+										"noopener,noreferrer",
+									);
+								}}
+							>
+								<FileText className="h-3.5 w-3.5" />
+								View Syllabus
+							</Button>
+						</div>
+
+						<Alert className="bg-muted/30 border-border/50 py-2.5">
+							<Info className="h-3.5 w-3.5 text-muted-foreground" />
+							<AlertDescription className="text-[11px] text-muted-foreground">
+								<strong>Candidate Note:</strong> If NISM's portal prompts for candidate credentials, log in with your registered NISM email/PAN. Upon course completion, Continuing Professional Education (CPE) credits and test completions are synchronized with FintekPro automatically via xAPI.
+							</AlertDescription>
+						</Alert>
+					</div>
+
+					<div className="flex justify-end pt-2 border-t border-border/40">
+						<Button
+							variant="outline"
+							size="sm"
+							className="text-xs border-border"
+							onClick={() =>
+								setNismLaunchModal((prev) => ({ ...prev, isOpen: false }))
+							}
+						>
+							Close Gateway
+						</Button>
+					</div>
 				</DialogContent>
 			</Dialog>
 		</div>

@@ -34,7 +34,10 @@ export interface AgentCourseProgress {
 	category: string;
 	cpeCredits: number;
 	durationHours: number;
-	status: "enrolled" | "in_progress" | "completed" | "certified";
+	passingPercentage?: number;
+	examFeeInr?: number;
+	syllabusUrl?: string;
+	status: "unregistered" | "enrolled" | "in_progress" | "completed" | "certified";
 	progressPercentage: number;
 	lastScore?: number | null;
 	cpeCreditsEarned: number;
@@ -46,9 +49,25 @@ export interface AgentCourseProgress {
 
 export interface LtiLaunchPayload {
 	launchUrl: string;
+	portalUrl: string;
+	certificationsUrl: string;
+	syllabusUrl?: string;
 	idToken: string;
 	state: string;
 	courseTitle: string;
+	seriesCode?: string;
+	agentName?: string;
+	agentEmail?: string;
+	passingPercentage?: number;
+	examFeeInr?: number;
+	cpeCredits?: number;
+	launchParams?: {
+		id_token: string;
+		state: string;
+		lti_message_type: string;
+		lti_version: string;
+		target_link_uri: string;
+	};
 }
 
 export interface XApiStatement {
@@ -97,7 +116,7 @@ const DEFAULT_COURSES: NismCourse[] = [
 		passingPercentage: 50,
 		examFeeInr: 1500,
 		category: "Distribution",
-		syllabusUrl: "https://www.nism.ac.in/nism-series-v-a-mutual-fund-distributors-certification-examination/",
+		syllabusUrl: "https://www.nism.ac.in/mutual-fund-distributors",
 		ltiResourceLinkId: "res-nism-va-2026",
 		isActive: true,
 	},
@@ -112,7 +131,7 @@ const DEFAULT_COURSES: NismCourse[] = [
 		passingPercentage: 60,
 		examFeeInr: 1500,
 		category: "Trading",
-		syllabusUrl: "https://www.nism.ac.in/nism-series-viii-equity-derivatives-certification-examination/",
+		syllabusUrl: "https://www.nism.ac.in/equity-derivatives",
 		ltiResourceLinkId: "res-nism-viii-2026",
 		isActive: true,
 	},
@@ -127,7 +146,7 @@ const DEFAULT_COURSES: NismCourse[] = [
 		passingPercentage: 60,
 		examFeeInr: 3000,
 		category: "Advisory",
-		syllabusUrl: "https://www.nism.ac.in/nism-series-x-a-investment-adviser-level-1-certification-examination/",
+		syllabusUrl: "https://www.nism.ac.in/investment-adviser-level-1",
 		ltiResourceLinkId: "res-nism-xa-2026",
 		isActive: true,
 	},
@@ -142,7 +161,7 @@ const DEFAULT_COURSES: NismCourse[] = [
 		passingPercentage: 60,
 		examFeeInr: 3000,
 		category: "Advisory",
-		syllabusUrl: "https://www.nism.ac.in/nism-series-x-b-investment-adviser-level-2-certification-examination/",
+		syllabusUrl: "https://www.nism.ac.in/investment-advisors-level-2",
 		ltiResourceLinkId: "res-nism-xb-2026",
 		isActive: true,
 	},
@@ -157,7 +176,7 @@ const DEFAULT_COURSES: NismCourse[] = [
 		passingPercentage: 60,
 		examFeeInr: 1500,
 		category: "Research",
-		syllabusUrl: "https://www.nism.ac.in/nism-series-xv-research-analyst-certification-examination/",
+		syllabusUrl: "https://www.nism.ac.in/research-analyst-certification-examination",
 		ltiResourceLinkId: "res-nism-xv-2026",
 		isActive: true,
 	},
@@ -172,7 +191,7 @@ const DEFAULT_COURSES: NismCourse[] = [
 		passingPercentage: 60,
 		examFeeInr: 1500,
 		category: "Distribution",
-		syllabusUrl: "https://www.nism.ac.in/nism-series-xxi-a-portfolio-management-services-distributors/",
+		syllabusUrl: "https://www.nism.ac.in/about-portfolio-management-services-pms-distributors-certification-examination",
 		ltiResourceLinkId: "res-nism-xxia-2026",
 		isActive: true,
 	},
@@ -200,7 +219,7 @@ export class NismLmsService {
 
 	constructor() {
 		this.ltiSecret = process.env.NISM_LTI_SECRET || "fintekpro_nism_lti_secret_2026_prod";
-		this.lmsBaseUrl = process.env.NISM_LMS_BASE_URL || "https://elearning.nism.ac.in";
+		this.lmsBaseUrl = process.env.NISM_LMS_BASE_URL || "https://online.nism.ac.in/nismlms";
 	}
 
 	/**
@@ -258,6 +277,15 @@ export class NismLmsService {
 						) ON CONFLICT (id) DO NOTHING;
 					`);
 				}
+			} else {
+				// Refresh any outdated or dead syllabus URLs
+				for (const c of DEFAULT_COURSES) {
+					await db.execute(sql`
+						UPDATE nism_lms_courses
+						SET syllabus_url = ${c.syllabusUrl}
+						WHERE id = ${c.id} AND (syllabus_url IS NULL OR syllabus_url LIKE '%elearning%' OR syllabus_url LIKE '%-examination/');
+					`).catch(() => {});
+				}
 			}
 			this.initialized = true;
 		} catch (err: any) {
@@ -281,6 +309,9 @@ export class NismLmsService {
 					c.category,
 					c.cpe_credits,
 					c.duration_hours,
+					c.passing_percentage,
+					c.exam_fee_inr,
+					c.syllabus_url,
 					COALESCE(e.status, 'unregistered') as status,
 					COALESCE(e.progress_percentage, 0) as progress_percentage,
 					e.last_score,
@@ -311,6 +342,9 @@ export class NismLmsService {
 				category: r.category,
 				cpeCredits: Number(r.cpe_credits),
 				durationHours: Number(r.duration_hours),
+				passingPercentage: Number(r.passing_percentage) || 60,
+				examFeeInr: Number(r.exam_fee_inr) || 1500,
+				syllabusUrl: r.syllabus_url || DEFAULT_COURSES.find(c => c.id === r.course_id)?.syllabusUrl,
 				status: r.status as any,
 				progressPercentage: Number(r.progress_percentage),
 				lastScore: r.last_score ? Number(r.last_score) : null,
@@ -330,6 +364,9 @@ export class NismLmsService {
 				category: c.category,
 				cpeCredits: c.cpeCredits,
 				durationHours: c.durationHours,
+				passingPercentage: c.passingPercentage,
+				examFeeInr: c.examFeeInr,
+				syllabusUrl: c.syllabusUrl,
 				status: "unregistered" as any,
 				progressPercentage: 0,
 				lastScore: null,
@@ -367,6 +404,10 @@ export class NismLmsService {
 		// Ensure enrolled first
 		await this.enrollAgent(agentId, courseId);
 
+		const matchedCourse = DEFAULT_COURSES.find(
+			(c) => c.id.toLowerCase() === courseId.toLowerCase() || c.seriesCode.toLowerCase() === courseId.toLowerCase(),
+		);
+
 		const header = {
 			alg: "HS256",
 			typ: "JWT",
@@ -389,8 +430,8 @@ export class NismLmsService {
 			"https://purl.imsglobal.org/spec/lti/claim/deployment_id": "fintekpro_dep_01",
 			"https://purl.imsglobal.org/spec/lti/claim/target_link_uri": `${this.lmsBaseUrl}/course/${courseId}`,
 			"https://purl.imsglobal.org/spec/lti/claim/resource_link": {
-				id: `res-${courseId}`,
-				title: `NISM Course: ${courseId.toUpperCase()}`,
+				id: matchedCourse?.ltiResourceLinkId || `res-${courseId}`,
+				title: matchedCourse?.title || `NISM Course: ${courseId.toUpperCase()}`,
 			},
 			"https://purl.imsglobal.org/spec/lti/claim/roles": [
 				"http://purl.imsglobal.org/vocab/lis/v2/membership#Learner",
@@ -406,11 +447,31 @@ export class NismLmsService {
 
 		const idToken = `${b64Header}.${b64Payload}.${signature}`;
 
+		const portalUrl = "https://online.nism.ac.in/nismlms/";
+		const certificationsUrl = "https://certifications.nism.ac.in/nismaol/";
+		const syllabusUrl = matchedCourse?.syllabusUrl || "https://www.nism.ac.in/certification-examinations/";
+
 		return {
-			launchUrl: `${this.lmsBaseUrl}/lti/launch?courseId=${courseId}&token=${idToken}&state=${state}`,
+			launchUrl: `${this.lmsBaseUrl}/lti/launch?courseId=${courseId}&token=${idToken}&id_token=${idToken}&state=${state}`,
+			portalUrl,
+			certificationsUrl,
+			syllabusUrl,
 			idToken,
 			state,
-			courseTitle: courseId.toUpperCase(),
+			courseTitle: matchedCourse?.title || courseId.toUpperCase(),
+			seriesCode: matchedCourse?.seriesCode || courseId.toUpperCase(),
+			agentName,
+			agentEmail,
+			passingPercentage: matchedCourse?.passingPercentage || 60,
+			examFeeInr: matchedCourse?.examFeeInr || 1500,
+			cpeCredits: matchedCourse?.cpeCredits || 6,
+			launchParams: {
+				id_token: idToken,
+				state,
+				lti_message_type: "LtiResourceLinkRequest",
+				lti_version: "1.3.0",
+				target_link_uri: `${this.lmsBaseUrl}/course/${courseId}`,
+			},
 		};
 	}
 
