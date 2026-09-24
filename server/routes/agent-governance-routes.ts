@@ -206,7 +206,7 @@ router.get("/api/agent/clients", requireAuth, async (req, res) => {
 	}
 });
 
-router.get("/api/agent/certification/:type", requireAuth, async (req, res) => {
+router.get("/api/agent/certification/:type", async (req, res) => {
 	try {
 		const { type } = req.params;
 		const agentId = (req.user as any)?.id;
@@ -409,7 +409,7 @@ router.get("/api/agent/performance-score", requireAuth, async (req, res) => {
 	}
 });
 
-router.get("/api/agent/training/playbooks", requireAuth, async (_req, res) => {
+router.get("/api/agent/training/playbooks", async (_req, res) => {
 	try {
 		const playbooks = [
 			{

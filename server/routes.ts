@@ -129,6 +129,7 @@ import zohoHealthRouter from "./zoho/health-check";
 import { registerZohoBooksRoutes } from "./routes/zoho-books";
 import { registerClientPortalRoutes } from "./routes/client-portal-routes";
 import { registerAgentPortalEnhancementRoutes } from "./routes/agent-portal-routes";
+import { registerAgentGovernanceRoutes } from "./routes/agent-governance-routes";
 import { registerPartnerPortalEnhancementRoutes } from "./routes/partner-portal-routes";
 
 import { registerCasPortfolioUploadRoutes } from "./routes/cas-portfolio-upload-routes";
@@ -488,6 +489,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	// ── Portal feature routes ────────────────────────────────────────────────
 	registerClientPortalRoutes(app);              // /api/client/* — instrument catalog, KYC, portfolio
 	registerAgentPortalEnhancementRoutes(app);    // /api/agent/portal/* — KYC initiation, instruments by KYC level, Zoho sync
+	registerAgentGovernanceRoutes(app);           // /api/agent/certification/* and /api/agent/training/*
 	registerPartnerPortalEnhancementRoutes(app);  // /api/partner/portal/* — dashboard, referrals, catalog, Zoho deal sync
 	registerCasPortfolioUploadRoutes(app); // /api/portfolio/upload-cas-pdf + /api/portfolio/sync-status
 	registerComplianceGateRoutes(app); // GET /api/compliance/transaction-readiness
