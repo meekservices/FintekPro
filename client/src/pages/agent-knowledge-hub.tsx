@@ -12,6 +12,7 @@ import {
 	ChevronRight,
 	BarChart3,
 	RefreshCw,
+	GraduationCap,
 } from "lucide-react";
 import {
 	Card,
@@ -85,12 +86,12 @@ export default function AgentKnowledgeHub() {
 			bgColor: "bg-amber-500/10",
 		},
 		{
-			title: "My Certifications",
-			description: "Track your certifications",
-			icon: LucideShield,
+			title: "NISM Academy & Certifications",
+			description: "Accredited NISM LMS courses, CPE credits & LTI 1.3 launch",
+			icon: GraduationCap,
 			href: "/agent/knowledge-hub/certifications",
-			color: "text-purple-500",
-			bgColor: "bg-purple-500/10",
+			color: "text-emerald-500",
+			bgColor: "bg-emerald-500/10",
 		},
 	];
 

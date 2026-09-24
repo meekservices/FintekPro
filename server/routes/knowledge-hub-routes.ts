@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { Router, Request, Response, NextFunction } from "express";
 import { knowledgeHubService } from "../services/knowledge-hub-service";
+import { nismLmsService } from "../services/nism-lms-service";
 import { requireAuth, requireRole } from "../middleware/roleMiddleware";
 
 const router = Router();
@@ -483,6 +484,89 @@ router.get(
 			limit: limit ? Number.parseInt(limit as string) : 100,
 		});
 		res.json(logs);
+	}),
+);
+
+// ── NISM E-Learning LMS (LTI 1.3 / xAPI) Routes ─────────────────────────────
+
+// GET /api/knowledge-hub/nism/courses — list accredited NISM courses with progress
+router.get(
+	"/nism/courses",
+	requireAuth,
+	asyncHandler(async (req, res) => {
+		const agentId = (req as any).user?.id;
+		const courses = await nismLmsService.getCoursesWithAgentStatus(agentId);
+		res.json({ success: true, courses });
+	}),
+);
+
+// POST /api/knowledge-hub/nism/courses/:courseId/enroll — enroll in course
+router.post(
+	"/nism/courses/:courseId/enroll",
+	requireAuth,
+	asyncHandler(async (req, res) => {
+		const agentId = (req as any).user?.id;
+		const { courseId } = req.params;
+		const result = await nismLmsService.enrollAgent(agentId, courseId);
+		res.json(result);
+	}),
+);
+
+// POST /api/knowledge-hub/nism/courses/:courseId/launch — LTI 1.3 SSO launch
+router.post(
+	"/nism/courses/:courseId/launch",
+	requireAuth,
+	asyncHandler(async (req, res) => {
+		const user = (req as any).user;
+		const agentId = user?.id;
+		const agentName = `${user?.firstName || "Advisor"} ${user?.lastName || ""}`.trim();
+		const agentEmail = user?.email || "advisor@fintekpro.com";
+		const { courseId } = req.params;
+
+		const launchData = await nismLmsService.generateLtiLaunch(
+			agentId,
+			courseId,
+			agentName,
+			agentEmail,
+		);
+
+		await knowledgeHubService.logAuditEvent({
+			userId: agentId,
+			userRole: user?.roles?.[0] || "agent",
+			eventType: "nism_course_launched",
+			resourceType: "nism_lms_course",
+			resourceId: courseId,
+			actionDetails: { courseId, launchUrl: launchData.launchUrl },
+			ipAddress: req.ip,
+			userAgent: req.headers["user-agent"],
+		});
+
+		res.json({ success: true, ...launchData });
+	}),
+);
+
+// POST /api/knowledge-hub/nism/xapi/statements — Ingest xAPI / TinCan statement webhook
+router.post(
+	"/nism/xapi/statements",
+	asyncHandler(async (req, res) => {
+		const statement = req.body;
+		if (!statement || !statement.actor || !statement.verb || !statement.object) {
+			return res.status(400).json({ error: "Invalid xAPI statement format" });
+		}
+
+		const result = await nismLmsService.ingestXApiStatement(statement);
+		res.json(result);
+	}),
+);
+
+// GET /api/knowledge-hub/nism/summary — NISM metrics and CPE summary
+router.get(
+	"/nism/summary",
+	requireAuth,
+	asyncHandler(async (req, res) => {
+		const agentId = (req as any).user?.id;
+		const summary = await nismLmsService.getAgentSummary(agentId);
+		res.json({ success: true, summary });
 	}),
 );
 
