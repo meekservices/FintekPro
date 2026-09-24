@@ -187,7 +187,8 @@ export function InvestmentModal({
 
 	if (!fund) return null;
 
-	const navValue = Number.parseFloat(fund.nav || "0");
+	const _navRaw = Number.parseFloat(fund.nav || "0");
+	const navValue = _navRaw > 0 ? _navRaw : null;
 	const minSipAmount = 500;
 	const minLumpsumAmount = 1000;
 
@@ -234,7 +235,7 @@ export function InvestmentModal({
 											className="text-lg font-bold text-finance-blue"
 											data-testid="modal-nav-value"
 										>
-											₹{navValue.toFixed(2)}
+											{navValue !== null ? `₹${navValue.toFixed(2)}` : <span className="text-muted-foreground text-sm italic">N/A</span>}
 										</p>
 									</div>
 									{fund.category && (

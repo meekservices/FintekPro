@@ -129,7 +129,7 @@ export function registerReportsInline22Routes(app: Express): void {
 				fundHouse: fund.fundHouse,
 				category: fund.category,
 				subCategory: fund.subCategory || fund.category,
-				nav: String(Number.parseFloat(fund.currentNav || "0")),
+				nav: (() => { const n = Number.parseFloat(fund.currentNav || "0"); return n > 0 ? String(n) : ""; })(),
 				change: fund.change || "0",
 				changePercent: fund.changePercent || "0",
 				navDate: fund.navDate,

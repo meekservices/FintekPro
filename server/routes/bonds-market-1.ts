@@ -633,12 +633,89 @@ export function registerBondsMarkPart1Routes(app: Express): void {
 				return true;
 			});
 
+
+
+			// ── Date-based lifecycle reclassification ─────────────────────────────────
+			// Rules (evaluated in priority order):
+			//
+			//  1. closeDate < today  → IPO subscription closed; remove from active tabs.
+			//                          Status becomes "listed" (covers allotment-pending
+			//                          and already-listed scenarios alike).
+			//
+			//  2. status="upcoming" AND openDate ≤ today AND closeDate ≥ today
+			//                        → Auto-promote to "ongoing" (subscription now open).
+			//
+			//  3. listingDate ≤ today (fallback for items that lack a closeDate)
+			//                        → Also graduate to "listed".
+			//
+			// Note: "today" is midnight of the server's local date so that an IPO whose
+			// closeDate IS today is still shown (the window is open until EOD).
+			const todayMidnight = new Date();
+			todayMidnight.setHours(0, 0, 0, 0);
+
+			const reclassified = dedupedResults.map((item: any) => {
+				const parseDate = (d: string | undefined | null) => {
+					if (!d) return null;
+					const dt = new Date(d);
+					dt.setHours(0, 0, 0, 0);
+					return isNaN(dt.getTime()) ? null : dt;
+				};
+
+				const openDate    = parseDate(item.openDate);
+				const closeDate   = parseDate(item.closeDate);
+				const listingDate = parseDate(item.listingDate);
+
+				// Rule 1 — closeDate has passed → graduate out of active IPO tabs
+				if (
+					closeDate &&
+					closeDate < todayMidnight &&
+					(item.status === "ongoing" || item.status === "upcoming")
+				) {
+					return { ...item, status: "listed" };
+				}
+
+				// Rule 2 — upcoming → ongoing (subscription window just opened)
+				if (
+					item.status === "upcoming" &&
+					openDate &&
+					openDate <= todayMidnight &&
+					closeDate &&
+					closeDate >= todayMidnight
+				) {
+					return { ...item, status: "ongoing" };
+				}
+
+				// Rule 3 — fallback: listingDate passed with no closeDate data
+				if (
+					!closeDate &&
+					listingDate &&
+					listingDate <= todayMidnight &&
+					(item.status === "ongoing" || item.status === "upcoming")
+				) {
+					return { ...item, status: "listed" };
+				}
+
+				return item;
+			});
+
+			// ── Status tab filtering ──────────────────────────────────────────────────
 			if (statusStr === "sme") {
-				res.json(dedupedResults.filter((r) => r.ipoType === "sme" || r.issueType?.includes("SME")));
+				res.json(
+					reclassified.filter(
+						(r: any) => r.ipoType === "sme" || r.issueType?.includes("SME"),
+					),
+				);
 				return;
 			}
 
-			res.json(dedupedResults);
+			// When a specific status is requested, only return matching records.
+			// Without this, listed IPOs would bleed into the "ongoing" tab and vice-versa.
+			if (statusStr) {
+				res.json(reclassified.filter((r: any) => r.status === statusStr));
+				return;
+			}
+
+			res.json(reclassified);
 		} catch (error) {
 			logger.error("Error fetching IPOs: " + errorMessage(error));
 			res.status(500).json({ status: "error", error: errorMessage(error) });
