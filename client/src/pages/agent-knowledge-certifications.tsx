@@ -275,7 +275,7 @@ export default function AgentKnowledgeCertifications() {
 				`/api/knowledge-hub/quizzes/${quizId}/submit`,
 				{ answers },
 			);
-			return response.json();
+			return typeof response?.json === "function" ? await response.json() : response;
 		},
 		onSuccess: (data) => {
 			setQuizResult(data);
@@ -307,7 +307,7 @@ export default function AgentKnowledgeCertifications() {
 	const recordHeartbeatMutation = useMutation({
 		mutationFn: async (moduleId: string) => {
 			const res = await apiRequest("POST", "/api/knowledge-hub/irdai/heartbeat", { moduleId });
-			return res.json();
+			return typeof res?.json === "function" ? await res.json() : res;
 		},
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ["/api/knowledge-hub/irdai/modules"] });
@@ -321,7 +321,7 @@ export default function AgentKnowledgeCertifications() {
 	const submitPospExamMutation = useMutation({
 		mutationFn: async (answers: Record<string, number>) => {
 			const res = await apiRequest("POST", "/api/knowledge-hub/irdai/exam/submit", { answers });
-			return res.json();
+			return typeof res?.json === "function" ? await res.json() : res;
 		},
 		onSuccess: (data) => {
 			setPospResult(data);
@@ -346,8 +346,8 @@ export default function AgentKnowledgeCertifications() {
 		try {
 			setLaunchingCourseId(courseId);
 			const res = await apiRequest("POST", `/api/knowledge-hub/nism/courses/${courseId}/launch`);
-			const data = await res.json();
-			if (data.success && data.launchUrl) {
+			const data = typeof res?.json === "function" ? await res.json() : res;
+			if (data && data.success && data.launchUrl) {
 				toast({
 					title: "Launching NISM LMS...",
 					description: "Redirecting via authenticated LTI 1.3 Single Sign-On (SSO).",
@@ -358,7 +358,7 @@ export default function AgentKnowledgeCertifications() {
 			} else {
 				toast({
 					title: "Launch Failed",
-					description: data.message || "Could not generate LTI session.",
+					description: data?.message || "Could not generate LTI session.",
 					variant: "destructive",
 				});
 			}
@@ -376,7 +376,7 @@ export default function AgentKnowledgeCertifications() {
 	const handleStartPospExam = async () => {
 		try {
 			const res = await apiRequest("GET", "/api/knowledge-hub/irdai/exam/questions");
-			const data = await res.json();
+			const data = typeof res?.json === "function" ? await res.json() : res;
 			if (!data.unlocked) {
 				toast({
 					title: "Exam Locked",

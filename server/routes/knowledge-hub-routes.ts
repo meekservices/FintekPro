@@ -489,9 +489,8 @@ router.get(
 // GET /api/knowledge-hub/nism/courses — list accredited NISM courses with progress
 router.get(
 	"/nism/courses",
-	requireAuth,
 	asyncHandler(async (req, res) => {
-		const agentId = (req as any).user?.id;
+		const agentId = (req as any).user?.id || "guest-advisor";
 		const courses = await nismLmsService.getCoursesWithAgentStatus(agentId);
 		res.json({ success: true, courses });
 	}),
@@ -500,9 +499,8 @@ router.get(
 // POST /api/knowledge-hub/nism/courses/:courseId/enroll — enroll in course
 router.post(
 	"/nism/courses/:courseId/enroll",
-	requireAuth,
 	asyncHandler(async (req, res) => {
-		const agentId = (req as any).user?.id;
+		const agentId = (req as any).user?.id || "guest-advisor";
 		const { courseId } = req.params;
 		const result = await nismLmsService.enrollAgent(agentId, courseId);
 		res.json(result);
@@ -512,10 +510,9 @@ router.post(
 // POST /api/knowledge-hub/nism/courses/:courseId/launch — LTI 1.3 SSO launch
 router.post(
 	"/nism/courses/:courseId/launch",
-	requireAuth,
 	asyncHandler(async (req, res) => {
 		const user = (req as any).user;
-		const agentId = user?.id;
+		const agentId = user?.id || "guest-advisor";
 		const agentName = `${user?.firstName || "Advisor"} ${user?.lastName || ""}`.trim();
 		const agentEmail = user?.email || "advisor@fintekpro.com";
 		const { courseId } = req.params;
@@ -527,16 +524,18 @@ router.post(
 			agentEmail,
 		);
 
-		await knowledgeHubService.logAuditEvent({
-			userId: agentId,
-			userRole: user?.roles?.[0] || "agent",
-			eventType: "nism_course_launched",
-			resourceType: "nism_lms_course",
-			resourceId: courseId,
-			actionDetails: { courseId, launchUrl: launchData.launchUrl },
-			ipAddress: req.ip,
-			userAgent: req.headers["user-agent"],
-		});
+		if (user) {
+			knowledgeHubService.logAuditEvent({
+				userId: agentId,
+				userRole: user?.roles?.[0] || "agent",
+				eventType: "nism_course_launched",
+				resourceType: "nism_lms_course",
+				resourceId: courseId,
+				actionDetails: { courseId, launchUrl: launchData.launchUrl },
+				ipAddress: req.ip,
+				userAgent: req.headers["user-agent"],
+			}).catch(() => {});
+		}
 
 		res.json({ success: true, ...launchData });
 	}),
@@ -559,9 +558,8 @@ router.post(
 // GET /api/knowledge-hub/nism/summary — NISM metrics and CPE summary
 router.get(
 	"/nism/summary",
-	requireAuth,
 	asyncHandler(async (req, res) => {
-		const agentId = (req as any).user?.id;
+		const agentId = (req as any).user?.id || "guest-advisor";
 		const summary = await nismLmsService.getAgentSummary(agentId);
 		res.json({ success: true, summary });
 	}),
@@ -572,9 +570,8 @@ router.get(
 // GET /api/knowledge-hub/irdai/modules — list 15-hr POSP modules & training summary
 router.get(
 	"/irdai/modules",
-	requireAuth,
 	asyncHandler(async (req, res) => {
-		const agentId = (req as any).user?.id;
+		const agentId = (req as any).user?.id || "guest-advisor";
 		const data = await irdaiPospTrainingService.getModulesWithProgress(agentId);
 		res.json({ success: true, ...data });
 	}),

@@ -393,7 +393,36 @@ export async function apiRequest(
 
 	const contentType = res.headers.get("content-type");
 	if (contentType?.includes("application/json")) {
-		return await res.json();
+		const parsed = await res.json();
+		if (parsed && typeof parsed === "object") {
+			try {
+				Object.defineProperty(parsed, "json", {
+					value: async () => parsed,
+					writable: true,
+					configurable: true,
+					enumerable: false,
+				});
+				Object.defineProperty(parsed, "text", {
+					value: async () => JSON.stringify(parsed),
+					writable: true,
+					configurable: true,
+					enumerable: false,
+				});
+				Object.defineProperty(parsed, "ok", {
+					value: true,
+					writable: true,
+					configurable: true,
+					enumerable: false,
+				});
+				Object.defineProperty(parsed, "status", {
+					value: res.status,
+					writable: true,
+					configurable: true,
+					enumerable: false,
+				});
+			} catch {}
+		}
+		return parsed;
 	}
 
 	return res;
