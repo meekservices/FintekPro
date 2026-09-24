@@ -20,12 +20,22 @@ describe("NISM LMS Service (LTI 1.3 & xAPI)", () => {
 	it("returns accredited NISM courses for an agent", async () => {
 		const courses = await nismLmsService.getCoursesWithAgentStatus("agent-test-123");
 		expect(courses).toBeInstanceOf(Array);
-		expect(courses.length).toBeGreaterThanOrEqual(6);
+		expect(courses.length).toBeGreaterThanOrEqual(8);
 
 		const seriesVA = courses.find((c) => c.seriesCode === "NISM-SERIES-V-A");
 		expect(seriesVA).toBeDefined();
 		expect(seriesVA?.cpeCredits).toBe(6);
 		expect(seriesVA?.title).toContain("Mutual Fund Distributors");
+
+		const seriesVD = courses.find((c) => c.seriesCode === "NISM-SERIES-V-D");
+		expect(seriesVD).toBeDefined();
+		expect(seriesVD?.cpeCredits).toBe(8);
+		expect(seriesVD?.title).toContain("Specialized Investment Fund");
+
+		const seriesXIII = courses.find((c) => c.seriesCode === "NISM-SERIES-XIII");
+		expect(seriesXIII).toBeDefined();
+		expect(seriesXIII?.cpeCredits).toBe(8);
+		expect(seriesXIII?.title).toContain("Common Derivatives");
 	});
 
 	it("processes an xAPI statement for course progression", async () => {

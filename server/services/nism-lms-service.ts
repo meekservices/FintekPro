@@ -121,6 +121,21 @@ const DEFAULT_COURSES: NismCourse[] = [
 		isActive: true,
 	},
 	{
+		id: "nism-vd",
+		seriesCode: "NISM-SERIES-V-D",
+		title: "NISM Series V-D: Mutual Fund – Specialized Investment Fund (SIF) Distributors Certification",
+		description:
+			"SEBI mandated dual certification for distributors of Mutual Funds and Specialized Investment Funds (SIF). Authorizes distribution of both standard mutual fund schemes and specialized investment funds.",
+		cpeCredits: 8,
+		durationHours: 30,
+		passingPercentage: 60,
+		examFeeInr: 3000,
+		category: "Distribution",
+		syllabusUrl: "https://www.nism.ac.in/certification-exams/specialized-investment-fund-distributors",
+		ltiResourceLinkId: "res-nism-vd-2026",
+		isActive: true,
+	},
+	{
 		id: "nism-viii",
 		seriesCode: "NISM-SERIES-VIII",
 		title: "NISM Series VIII: Equity Derivatives Certification",
@@ -133,6 +148,21 @@ const DEFAULT_COURSES: NismCourse[] = [
 		category: "Trading",
 		syllabusUrl: "https://www.nism.ac.in/equity-derivatives",
 		ltiResourceLinkId: "res-nism-viii-2026",
+		isActive: true,
+	},
+	{
+		id: "nism-xiii",
+		seriesCode: "NISM-SERIES-XIII",
+		title: "NISM Series XIII: Common Derivatives Certification Examination",
+		description:
+			"Comprehensive SEBI mandated certification covering equity derivatives, currency derivatives, interest rate derivatives, and commodity derivatives segments under a single unified benchmark.",
+		cpeCredits: 8,
+		durationHours: 30,
+		passingPercentage: 60,
+		examFeeInr: 3000,
+		category: "Trading",
+		syllabusUrl: "https://www.nism.ac.in/common-derivatives-certification-examination",
+		ltiResourceLinkId: "res-nism-xiii-2026",
 		isActive: true,
 	},
 	{
@@ -262,30 +292,28 @@ export class NismLmsService {
 				);
 			`);
 
-			// Seed default courses if table is empty
-			const countRes = await db.execute(sql`SELECT count(*)::int as count FROM nism_lms_courses`);
-			const count = (countRes.rows[0] as any)?.count || 0;
-			if (count === 0) {
-				for (const c of DEFAULT_COURSES) {
-					await db.execute(sql`
-						INSERT INTO nism_lms_courses (
-							id, series_code, title, description, cpe_credits, duration_hours,
-							passing_percentage, exam_fee_inr, category, syllabus_url, lti_resource_link_id, is_active
-						) VALUES (
-							${c.id}, ${c.seriesCode}, ${c.title}, ${c.description}, ${c.cpeCredits}, ${c.durationHours},
-							${c.passingPercentage}, ${c.examFeeInr}, ${c.category}, ${c.syllabusUrl ?? null}, ${c.ltiResourceLinkId}, ${c.isActive}
-						) ON CONFLICT (id) DO NOTHING;
-					`);
-				}
-			} else {
-				// Refresh any outdated or dead syllabus URLs
-				for (const c of DEFAULT_COURSES) {
-					await db.execute(sql`
-						UPDATE nism_lms_courses
-						SET syllabus_url = ${c.syllabusUrl}
-						WHERE id = ${c.id} AND (syllabus_url IS NULL OR syllabus_url LIKE '%elearning%' OR syllabus_url LIKE '%-examination/');
-					`).catch(() => {});
-				}
+			// Upsert default courses ensuring latest syllabus and new courses like Series V-D are seeded
+			for (const c of DEFAULT_COURSES) {
+				await db.execute(sql`
+					INSERT INTO nism_lms_courses (
+						id, series_code, title, description, cpe_credits, duration_hours,
+						passing_percentage, exam_fee_inr, category, syllabus_url, lti_resource_link_id, is_active
+					) VALUES (
+						${c.id}, ${c.seriesCode}, ${c.title}, ${c.description}, ${c.cpeCredits}, ${c.durationHours},
+						${c.passingPercentage}, ${c.examFeeInr}, ${c.category}, ${c.syllabusUrl ?? null}, ${c.ltiResourceLinkId}, ${c.isActive}
+					) ON CONFLICT (id) DO UPDATE SET
+						series_code = EXCLUDED.series_code,
+						title = EXCLUDED.title,
+						description = EXCLUDED.description,
+						cpe_credits = EXCLUDED.cpe_credits,
+						duration_hours = EXCLUDED.duration_hours,
+						passing_percentage = EXCLUDED.passing_percentage,
+						exam_fee_inr = EXCLUDED.exam_fee_inr,
+						category = EXCLUDED.category,
+						syllabus_url = EXCLUDED.syllabus_url,
+						lti_resource_link_id = EXCLUDED.lti_resource_link_id,
+						is_active = EXCLUDED.is_active;
+				`).catch(() => {});
 			}
 			this.initialized = true;
 		} catch (err: any) {
