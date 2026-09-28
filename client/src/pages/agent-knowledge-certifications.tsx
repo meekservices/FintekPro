@@ -21,6 +21,11 @@ import {
 	Timer,
 	FileCheck2,
 	BadgeCheck,
+	Printer,
+	Layers,
+	HelpCircle,
+	RefreshCw,
+	ChevronRight,
 } from "lucide-react";
 import {
 	Card,
@@ -50,7 +55,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 
 interface CertificationLevel {
 	level: number;
@@ -271,6 +276,11 @@ export default function AgentKnowledgeCertifications() {
 		message: string;
 	} | null>(null);
 
+	// Spaced Repetition Flashcards state
+	const [certFlashcardCategory, setCertFlashcardCategory] = useState("all");
+	const [certCardIndex, setCertCardIndex] = useState(0);
+	const [certCardFlipped, setCertCardFlipped] = useState(false);
+
 	// NISM Practice Test state
 	const [practiceTestModal, setPracticeTestModal] = useState<{
 		isOpen: boolean;
@@ -373,12 +383,22 @@ export default function AgentKnowledgeCertifications() {
 	});
 
 	// IRDAI POSP 15-Hour Modules & Summary
-	const { data: irdaiData, isLoading: irdaiLoading } = useQuery<{
+	const { data: irdaiData } = useQuery<{
 		success: boolean;
 		modules: AgentModuleProgress[];
 		summary: PospTrainingSummary;
 	}>({
 		queryKey: ["/api/knowledge-hub/irdai/modules"],
+	});
+
+	// Flashcards query for Revision tab
+	const { data: certFlashcardsData } = useQuery<{ success: boolean; flashcards: any[] }>({
+		queryKey: ["/api/knowledge-hub/flashcards", certFlashcardCategory],
+		queryFn: async () => {
+			const res = await apiRequest("GET", `/api/knowledge-hub/flashcards?category=${encodeURIComponent(certFlashcardCategory)}`);
+			return typeof res?.json === "function" ? await res.json() : res;
+		},
+		enabled: activeTab === "flashcards",
 	});
 
 	const nismCourses = nismCoursesData?.courses || [];
@@ -483,7 +503,7 @@ export default function AgentKnowledgeCertifications() {
 			const matched = nismCourses.find((c) => c.courseId === courseId);
 			const res = await apiRequest("POST", `/api/knowledge-hub/nism/courses/${courseId}/launch`);
 			const data = typeof res?.json === "function" ? await res.json() : res;
-			if (data && data.success) {
+			if (data?.success) {
 				toast({
 					title: "NISM Gateway Ready ✓",
 					description: "Session prepared. Choose: Training, Practice Test, or Exam Booking.",
@@ -520,10 +540,14 @@ export default function AgentKnowledgeCertifications() {
 	const handleStartNismPracticeTest = async (courseId: string) => {
 		try {
 			setPracticeTestModal((prev) => ({ ...prev, loading: true }));
-			const res = await apiRequest("GET", `/api/knowledge-hub/nism/courses/${courseId}/practice-test`);
+			const url =
+				courseId === "irdai-posp"
+					? "/api/knowledge-hub/irdai/practice-test"
+					: `/api/knowledge-hub/nism/courses/${courseId}/practice-test`;
+			const res = await apiRequest("GET", url);
 			const data = typeof res?.json === "function" ? await res.json() : res;
-			if (data && data.success) {
-				const durationMinutes = data.durationMinutes || 15;
+			if (data?.success) {
+				const durationMinutes = data.durationMinutes || (courseId === "irdai-posp" ? 30 : 15);
 				setPracticeTestModal({
 					isOpen: true,
 					loading: false,
@@ -563,11 +587,11 @@ export default function AgentKnowledgeCertifications() {
 			courseId,
 			answers,
 		}: { courseId: string; answers: Record<string, number> }) => {
-			const res = await apiRequest(
-				"POST",
-				`/api/knowledge-hub/nism/courses/${courseId}/practice-test/submit`,
-				{ answers },
-			);
+			const url =
+				courseId === "irdai-posp"
+					? "/api/knowledge-hub/irdai/practice-test/submit"
+					: `/api/knowledge-hub/nism/courses/${courseId}/practice-test/submit`;
+			const res = await apiRequest("POST", url, { answers });
 			return typeof res?.json === "function" ? await res.json() : res;
 		},
 		onSuccess: (data) => {
@@ -579,10 +603,11 @@ export default function AgentKnowledgeCertifications() {
 			if (data.passed) {
 				toast({
 					title: "Practice Test Cleared! 🎉",
-					description: `You scored ${data.scorePercentage}% (Passing benchmark: ${data.passingPercentage}%). Empanelment readiness recorded!`,
+					description: `You scored ${data.scorePercentage}% (Passing benchmark: ${data.passingPercentage}%). Performance recorded!`,
 				});
 				queryClient.invalidateQueries({ queryKey: ["/api/agent-empanelment/me"] });
 				queryClient.invalidateQueries({ queryKey: ["/api/knowledge-hub/nism/courses"] });
+				queryClient.invalidateQueries({ queryKey: ["/api/knowledge-hub/irdai/modules"] });
 			} else {
 				toast({
 					title: "Score Below Benchmark",
@@ -599,6 +624,128 @@ export default function AgentKnowledgeCertifications() {
 			});
 		},
 	});
+
+	const handlePrintScorecard = () => {
+		const res: any = practiceTestModal.result;
+		if (!res) return;
+
+		const printWindow = window.open("", "_blank", "width=850,height=950");
+		if (!printWindow) {
+			window.print();
+			return;
+		}
+
+		const html = `
+			<!DOCTYPE html>
+			<html>
+			<head>
+				<title>FintekPro Regulatory Assessment Scorecard - ${practiceTestModal.seriesCode}</title>
+				<style>
+					body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 30px; color: #111; line-height: 1.5; }
+					.header { border-bottom: 2px solid #059669; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+					.logo { font-size: 22px; font-weight: 800; color: #059669; letter-spacing: -0.5px; }
+					.badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
+					.badge-pass { background: #d1fae5; color: #065f46; }
+					.badge-fail { background: #fee2e2; color: #991b1b; }
+					.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; }
+					.stat-box { border: 1px solid #e5e7eb; padding: 12px; border-radius: 6px; background: #f9fafb; text-align: center; }
+					.stat-title { font-size: 11px; text-transform: uppercase; color: #6b7280; font-weight: 600; margin-bottom: 4px; }
+					.stat-val { font-size: 18px; font-weight: 800; color: #111827; }
+					.section { margin-top: 25px; border-top: 1px solid #e5e7eb; padding-top: 15px; }
+					.section-title { font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+					table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+					th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+					th { background: #f3f4f6; font-size: 11px; text-transform: uppercase; color: #4b5563; }
+					.capsule { background: #ecfdf5; border-left: 4px solid #059669; padding: 12px 16px; border-radius: 4px; font-size: 13px; color: #064e3b; margin-top: 12px; }
+					.footer { margin-top: 40px; font-size: 11px; color: #9ca3af; text-align: center; border-top: 1px solid #f3f4f6; padding-top: 15px; }
+				</style>
+			</head>
+			<body>
+				<div class="header">
+					<div>
+						<div class="logo">FINTEKPRO ACADEMY</div>
+						<div style="font-size: 13px; color: #4b5563;">Official Regulatory Diagnostics & Performance Scorecard</div>
+					</div>
+					<div style="text-align: right;">
+						<span class="badge ${res.passed ? "badge-pass" : "badge-fail"}">
+							${res.passed ? "BENCHMARK CLEARED" : "NEEDS REVISION"}
+						</span>
+						<div style="font-size: 11px; color: #6b7280; margin-top: 4px;">Date: ${new Date().toLocaleDateString("en-IN")}</div>
+					</div>
+				</div>
+
+				<div style="margin-bottom: 15px;">
+					<h2 style="margin: 0 0 4px 0; font-size: 18px;">${practiceTestModal.courseTitle}</h2>
+					<div style="font-size: 12px; color: #6b7280;">Curriculum Code: <strong>${practiceTestModal.seriesCode}</strong> • Passing Benchmark: <strong>${res.passingPercentage}%</strong></div>
+				</div>
+
+				<div class="grid">
+					<div class="stat-box">
+						<div class="stat-title">Correct Answers</div>
+						<div class="stat-val" style="color: #059669;">+${res.correctCount}</div>
+					</div>
+					<div class="stat-box">
+						<div class="stat-title">Incorrect Penalty</div>
+						<div class="stat-val" style="color: #dc2626;">-${res.negativeMarksDeducted ?? 0}</div>
+					</div>
+					<div class="stat-box">
+						<div class="stat-title">Net Raw Score</div>
+						<div class="stat-val">${res.netRawScore ?? res.correctCount} / ${res.totalQuestions}</div>
+					</div>
+					<div class="stat-box">
+						<div class="stat-title">Final Percentage</div>
+						<div class="stat-val" style="color: ${res.passed ? "#059669" : "#d97706"};">${res.scorePercentage}%</div>
+					</div>
+				</div>
+
+				${res.aiCapsule || res.aiRemediation ? `
+					<div class="section">
+						<div class="section-title">FASP-AI Remediation Capsule</div>
+						<div class="capsule">
+							${res.aiCapsule?.summaryNotes || res.aiRemediation?.summary || "Review targeted weak chapters before official examination."}
+						</div>
+					</div>
+				` : ""}
+
+				${res.topicDiagnostics || res.chapterDiagnostics ? `
+					<div class="section">
+						<div class="section-title">Chapter Proficiency Breakdown</div>
+						<table>
+							<thead>
+								<tr>
+									<th>Chapter / Topic</th>
+									<th>Score</th>
+									<th>Accuracy</th>
+									<th>Proficiency</th>
+								</tr>
+							</thead>
+							<tbody>
+								${(res.topicDiagnostics || res.chapterDiagnostics).map((t: any) => `
+									<tr>
+										<td><strong>${t.topic || t.chapter}</strong></td>
+										<td>${t.correct ?? t.score} / ${t.total}</td>
+										<td>${t.accuracyPercentage ?? t.percentage}%</td>
+										<td>${t.status}</td>
+									</tr>
+								`).join("")}
+							</tbody>
+						</table>
+					</div>
+				` : ""}
+
+				<div class="footer">
+					Generated by FintekPro Capital Advisory System (FASP-AI v1.0) • Compliance & Advisory Record.
+				</div>
+				<script>
+					window.onload = function() { window.print(); }
+				</script>
+			</body>
+			</html>
+		`;
+
+		printWindow.document.write(html);
+		printWindow.document.close();
+	};
 
 	// Countdown Timer Hook with Auto-Submission for Practice Test
 	useEffect(() => {
@@ -793,7 +940,7 @@ export default function AgentKnowledgeCertifications() {
 
 			{/* Main Tabs */}
 			<Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-				<TabsList className="bg-card border border-border p-1 w-full max-w-2xl grid grid-cols-3">
+				<TabsList className="bg-card border border-border p-1 w-full max-w-3xl grid grid-cols-2 sm:grid-cols-4">
 					<TabsTrigger value="nism" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white flex items-center gap-1.5 text-xs sm:text-sm">
 						<GraduationCap className="h-4 w-4" />
 						NISM Academy
@@ -805,6 +952,10 @@ export default function AgentKnowledgeCertifications() {
 					<TabsTrigger value="internal" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white flex items-center gap-1.5 text-xs sm:text-sm">
 						<Trophy className="h-4 w-4" />
 						Platform (L0–L3)
+					</TabsTrigger>
+					<TabsTrigger value="flashcards" className="data-[state=active]:bg-teal-600 data-[state=active]:text-white flex items-center gap-1.5 text-xs sm:text-sm">
+						<Layers className="h-4 w-4" />
+						Revision Flashcards
 					</TabsTrigger>
 				</TabsList>
 
@@ -999,35 +1150,47 @@ export default function AgentKnowledgeCertifications() {
 										: `Complete ${Math.max(0, 900 - irdaiSummary.totalMinutesSpent)} more minutes across modules to unlock the certification exam.`}
 								</p>
 
-								<Button
-									size="sm"
-									className={
-										irdaiSummary.certificateNumber
-											? "bg-emerald-600 hover:bg-emerald-700 text-white"
-											: irdaiSummary.isExamUnlocked
-												? "bg-amber-600 hover:bg-amber-700 text-white"
-												: "bg-muted/40 text-muted-foreground cursor-not-allowed"
-									}
-									disabled={!irdaiSummary.isExamUnlocked && !irdaiSummary.certificateNumber}
-									onClick={handleStartPospExam}
-								>
-									{irdaiSummary.certificateNumber ? (
-										<>
-											<CheckCircle2 className="h-4 w-4 mr-1.5" />
-											View Certificate
-										</>
-									) : irdaiSummary.isExamUnlocked ? (
-										<>
-											<Play className="h-4 w-4 mr-1.5 fill-current" />
-											Start POSP Exam (50 MCQs)
-										</>
-									) : (
-										<>
-											<Lock className="h-4 w-4 mr-1.5" />
-											Exam Locked ({irdaiSummary.hoursCompletedFormatted})
-										</>
-									)}
-								</Button>
+								<div className="flex items-center gap-2 flex-wrap">
+									<Button
+										size="sm"
+										variant="outline"
+										className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10 text-xs flex items-center gap-1.5"
+										onClick={() => handleStartNismPracticeTest("irdai-posp")}
+									>
+										<Target className="h-3.5 w-3.5" />
+										Take Practice Mock (20 MCQs)
+									</Button>
+
+									<Button
+										size="sm"
+										className={
+											irdaiSummary.certificateNumber
+												? "bg-emerald-600 hover:bg-emerald-700 text-white"
+												: irdaiSummary.isExamUnlocked
+													? "bg-amber-600 hover:bg-amber-700 text-white"
+													: "bg-muted/40 text-muted-foreground cursor-not-allowed"
+										}
+										disabled={!irdaiSummary.isExamUnlocked && !irdaiSummary.certificateNumber}
+										onClick={handleStartPospExam}
+									>
+										{irdaiSummary.certificateNumber ? (
+											<>
+												<CheckCircle2 className="h-4 w-4 mr-1.5" />
+												View Certificate
+											</>
+										) : irdaiSummary.isExamUnlocked ? (
+											<>
+												<Play className="h-4 w-4 mr-1.5 fill-current" />
+												Start POSP Exam (50 MCQs)
+											</>
+										) : (
+											<>
+												<Lock className="h-4 w-4 mr-1.5" />
+												Exam Locked ({irdaiSummary.hoursCompletedFormatted})
+											</>
+										)}
+									</Button>
+								</div>
 							</div>
 						</CardContent>
 					</Card>
@@ -1268,6 +1431,146 @@ export default function AgentKnowledgeCertifications() {
 									</Card>
 								);
 							})}
+						</div>
+					)}
+				</TabsContent>
+
+				{/* TAB 4: Revision Flashcards */}
+				<TabsContent value="flashcards" className="space-y-6">
+					<Alert className="bg-teal-500/10 border-teal-500/30">
+						<Layers className="h-4 w-4 text-teal-400" />
+						<AlertTitle className="text-teal-400">
+							Spaced-Repetition Regulatory & Formula Drills
+						</AlertTitle>
+						<AlertDescription className="text-teal-200/90 text-sm">
+							Master high-frequency SEBI mathematical formulas, Budget 2024 taxation changes, and IRDAI statutory rules. Click any card to reveal the statutory rationale and calculation methodology.
+						</AlertDescription>
+					</Alert>
+
+					<div className="flex flex-wrap gap-2">
+						{[
+							{ id: "all", label: "All Topics" },
+							{ id: "Formulas & Quant", label: "Formulas & Quant" },
+							{ id: "Budget 2024 Tax Laws", label: "Budget 2024 Tax" },
+							{ id: "IRDAI Compliance", label: "IRDAI Compliance" },
+							{ id: "SEBI Code of Conduct", label: "SEBI Conduct" },
+						].map((cat) => (
+							<Button
+								key={cat.id}
+								variant={certFlashcardCategory === cat.id ? "default" : "outline"}
+								size="sm"
+								className="text-xs h-8"
+								onClick={() => {
+									setCertFlashcardCategory(cat.id);
+									setCertCardIndex(0);
+									setCertCardFlipped(false);
+								}}
+							>
+								{cat.label}
+							</Button>
+						))}
+					</div>
+
+					{certFlashcardsData?.flashcards && certFlashcardsData.flashcards.length > 0 ? (
+						<div className="max-w-2xl mx-auto space-y-4">
+							{(() => {
+								const card = certFlashcardsData.flashcards[certCardIndex] || certFlashcardsData.flashcards[0];
+								return (
+									<button
+										type="button"
+										onClick={() => setCertCardFlipped(!certCardFlipped)}
+										className={`min-h-[260px] p-6 rounded-xl border cursor-pointer transition-all duration-300 flex flex-col justify-between select-none text-left w-full ${
+											certCardFlipped
+												? "bg-teal-950/20 border-teal-500/40 text-foreground shadow-lg shadow-teal-950/20"
+												: "bg-card border-border hover:border-teal-500/30"
+										}`}
+									>
+										<div className="flex items-center justify-between">
+											<Badge variant="outline" className="text-xs font-semibold bg-muted/20">
+												{card.category}
+											</Badge>
+											<span className="text-xs text-muted-foreground flex items-center gap-1">
+												<HelpCircle className="h-3.5 w-3.5 text-teal-400" />
+												{certCardFlipped ? "Showing Answer" : "Click card to flip"}
+											</span>
+										</div>
+
+										<div className="my-6">
+											{certCardFlipped ? (
+												<div className="space-y-3">
+													<p className="text-xs uppercase tracking-wider text-teal-400 font-semibold">
+														Statutory Rationale & Solution
+													</p>
+													<p className="text-sm font-medium text-foreground whitespace-pre-line leading-relaxed">
+														{card.answer}
+													</p>
+													{card.significance && (
+														<div className="pt-2.5 border-t border-teal-500/20 text-xs text-muted-foreground">
+															<span className="font-semibold text-teal-300">Exam Note: </span>
+															{card.significance}
+														</div>
+													)}
+												</div>
+											) : (
+												<div className="space-y-2">
+													<p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+														Core Concept / Problem
+													</p>
+													<p className="text-base font-semibold text-foreground leading-snug">
+														{card.question}
+													</p>
+												</div>
+											)}
+										</div>
+
+										<div className="flex items-center justify-between text-xs text-muted-foreground pt-3 border-t border-border/40">
+											<span>Card {certCardIndex + 1} of {certFlashcardsData.flashcards.length}</span>
+											<span className="text-teal-400 font-medium">Click to flip</span>
+										</div>
+									</button>
+								);
+							})()}
+
+							<div className="flex items-center justify-between gap-2">
+								<Button
+									variant="outline"
+									size="sm"
+									disabled={certCardIndex === 0}
+									onClick={() => {
+										setCertCardFlipped(false);
+										setCertCardIndex((prev) => Math.max(0, prev - 1));
+									}}
+								>
+									<ChevronLeft className="h-4 w-4 mr-1" />
+									Previous
+								</Button>
+
+								<Button
+									variant="secondary"
+									size="sm"
+									onClick={() => setCertCardFlipped(!certCardFlipped)}
+								>
+									<RefreshCw className="h-4 w-4 mr-1" />
+									{certCardFlipped ? "Show Question" : "Reveal Answer"}
+								</Button>
+
+								<Button
+									variant="outline"
+									size="sm"
+									disabled={certCardIndex >= (certFlashcardsData.flashcards.length - 1)}
+									onClick={() => {
+										setCertCardFlipped(false);
+										setCertCardIndex((prev) => Math.min(certFlashcardsData.flashcards.length - 1, prev + 1));
+									}}
+								>
+									Next
+									<ChevronRight className="h-4 w-4 ml-1" />
+								</Button>
+							</div>
+						</div>
+					) : (
+						<div className="py-12 text-center text-sm text-muted-foreground">
+							Loading flashcards...
 						</div>
 					)}
 				</TabsContent>
@@ -2046,7 +2349,16 @@ export default function AgentKnowledgeCertifications() {
 									>
 										Retake Practice Test
 									</Button>
-									<div className="flex items-center gap-2">
+									<div className="flex items-center gap-2 flex-wrap">
+										<Button
+											size="sm"
+											variant="outline"
+											className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 text-xs flex items-center gap-1.5"
+											onClick={handlePrintScorecard}
+										>
+											<Printer className="h-3.5 w-3.5" />
+											Print Scorecard (PDF)
+										</Button>
 										<Button
 											size="sm"
 											className="bg-blue-600 hover:bg-blue-700 text-white text-xs flex items-center gap-1.5"

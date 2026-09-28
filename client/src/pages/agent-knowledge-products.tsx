@@ -9,9 +9,14 @@ import {
 	BookOpen,
 	AlertCircle,
 	CheckCircle2,
-	Clock,
 	Tag,
+	Sparkles,
+	Copy,
+	Check,
+	Smartphone,
+	Mail,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import {
 	Card,
 	CardContent,
@@ -94,11 +99,76 @@ const getRiskBadgeColor = (risk: string) => {
 };
 
 export default function AgentKnowledgeProducts() {
+	const { toast } = useToast();
 	const [searchTerm, setSearchTerm] = useState("");
 	const [productType, setProductType] = useState("all");
 	const [riskProfile, setRiskProfile] = useState("all");
 	const [selectedProduct, setSelectedProduct] =
 		useState<ProductKnowledge | null>(null);
+
+	// FASP-AI Client Pitch Generator State
+	const [pitchPersona, setPitchPersona] = useState<
+		"young_wealth_builder" | "conservative_senior" | "hni_tax_optimizer" | "business_owner"
+	>("young_wealth_builder");
+	const [pitchChannel, setPitchChannel] = useState<"whatsapp" | "email">("whatsapp");
+	const [generatedPitch, setGeneratedPitch] = useState<string | null>(null);
+	const [isGeneratingPitch, setIsGeneratingPitch] = useState(false);
+	const [hasCopiedPitch, setHasCopiedPitch] = useState(false);
+
+	const handleGeneratePitch = async (product: ProductKnowledge) => {
+		try {
+			setIsGeneratingPitch(true);
+			setGeneratedPitch(null);
+			setHasCopiedPitch(false);
+
+			const keyFeatures = (product.keyFeatures || []).map((f) =>
+				typeof f === "string" ? f : f.feature,
+			);
+
+			const res = await fetch("/api/knowledge-hub/generate-pitch", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					productTitle: product.title,
+					productType: product.productType,
+					persona: pitchPersona,
+					channel: pitchChannel,
+					keyFeatures,
+					riskProfile: product.riskProfile,
+				}),
+			});
+
+			const data = await res.json();
+			if (data?.success && data.pitch) {
+				setGeneratedPitch(data.pitch);
+				toast({
+					title: "FASP-AI Pitch Drafted ✓",
+					description: `Tailored for ${pitchPersona.replace(/_/g, " ")} (${pitchChannel.toUpperCase()}).`,
+				});
+			} else {
+				throw new Error(data?.error || "Failed to generate pitch");
+			}
+		} catch (err: any) {
+			toast({
+				title: "Pitch Generation Failed",
+				description: err.message,
+				variant: "destructive",
+			});
+		} finally {
+			setIsGeneratingPitch(false);
+		}
+	};
+
+	const handleCopyPitch = () => {
+		if (!generatedPitch) return;
+		navigator.clipboard.writeText(generatedPitch);
+		setHasCopiedPitch(true);
+		toast({
+			title: "Copied to Clipboard! 📋",
+			description: "Ready to paste into WhatsApp or Client Email.",
+		});
+		setTimeout(() => setHasCopiedPitch(false), 2500);
+	};
 
 	const { data: products, isLoading } = useQuery<ProductKnowledge[]>({
 		queryKey: ["/api/knowledge-hub/products", productType, riskProfile],
@@ -294,10 +364,14 @@ export default function AgentKnowledgeProducts() {
 							</DialogHeader>
 							<ScrollArea className="max-h-[60vh]">
 								<Tabs defaultValue="overview" className="w-full">
-									<TabsList className="bg-card mb-4">
+									<TabsList className="bg-card mb-4 flex-wrap">
 										<TabsTrigger value="overview">Overview</TabsTrigger>
 										<TabsTrigger value="suitability">Suitability</TabsTrigger>
 										<TabsTrigger value="compliance">Compliance</TabsTrigger>
+										<TabsTrigger value="pitch" className="text-emerald-400 flex items-center gap-1.5 font-medium">
+											<Sparkles className="h-3.5 w-3.5" />
+											Draft Pitch (AI)
+										</TabsTrigger>
 									</TabsList>
 
 									<TabsContent value="overview" className="space-y-4">
@@ -502,6 +576,113 @@ export default function AgentKnowledgeProducts() {
 												</div>
 											)}
 										</div>
+									</TabsContent>
+
+									<TabsContent value="pitch" className="space-y-4">
+										<div className="p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 space-y-1">
+											<div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
+												<Sparkles className="h-4 w-4" />
+												FASP-AI Client Communication Assistant
+											</div>
+											<p className="text-xs text-muted-foreground leading-relaxed">
+												Generate SEBI-compliant, tailored pitches highlighting suitability, tax impacts under Budget 2024, and mandatory risk disclosures.
+											</p>
+										</div>
+
+										<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+											<div className="space-y-1.5">
+												<div className="text-xs font-medium text-foreground">Target Investor Persona</div>
+												<Select
+													value={pitchPersona}
+													onValueChange={(val: any) => setPitchPersona(val)}
+												>
+													<SelectTrigger className="text-xs bg-card">
+														<SelectValue placeholder="Select Persona" />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="young_wealth_builder">Young Accumulator (25-38 yrs)</SelectItem>
+														<SelectItem value="conservative_senior">Conservative Senior Citizen / Retiree</SelectItem>
+														<SelectItem value="hni_tax_optimizer">HNI / Affluent Tax Optimizer</SelectItem>
+														<SelectItem value="business_owner">Business Owner / Treasury</SelectItem>
+													</SelectContent>
+												</Select>
+											</div>
+
+											<div className="space-y-1.5">
+												<div className="text-xs font-medium text-foreground">Delivery Channel</div>
+												<div className="flex gap-2">
+													<Button
+														type="button"
+														size="sm"
+														variant={pitchChannel === "whatsapp" ? "default" : "outline"}
+														className="text-xs flex-1 h-9 gap-1.5"
+														onClick={() => setPitchChannel("whatsapp")}
+													>
+														<Smartphone className="h-3.5 w-3.5" />
+														WhatsApp
+													</Button>
+													<Button
+														type="button"
+														size="sm"
+														variant={pitchChannel === "email" ? "default" : "outline"}
+														className="text-xs flex-1 h-9 gap-1.5"
+														onClick={() => setPitchChannel("email")}
+													>
+														<Mail className="h-3.5 w-3.5" />
+														Email
+													</Button>
+												</div>
+											</div>
+										</div>
+
+										<Button
+											className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+											disabled={isGeneratingPitch}
+											onClick={() => handleGeneratePitch(selectedProduct)}
+										>
+											{isGeneratingPitch ? (
+												<>
+													<Sparkles className="h-4 w-4 animate-spin" />
+													Drafting Compliant Pitch...
+												</>
+											) : (
+												<>
+													<Sparkles className="h-4 w-4" />
+													Generate {pitchChannel.toUpperCase()} Pitch
+												</>
+											)}
+										</Button>
+
+										{generatedPitch && (
+											<div className="p-4 rounded-lg bg-card border border-border space-y-3 mt-3">
+												<div className="flex items-center justify-between">
+													<Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/30">
+														FASP-AI v1.0 • SEBI Compliant
+													</Badge>
+													<Button
+														variant="outline"
+														size="sm"
+														onClick={handleCopyPitch}
+														className="h-7 text-xs border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 gap-1.5"
+													>
+														{hasCopiedPitch ? (
+															<>
+																<Check className="h-3 w-3" />
+																Copied!
+															</>
+														) : (
+															<>
+																<Copy className="h-3 w-3" />
+																Copy Pitch
+															</>
+														)}
+													</Button>
+												</div>
+												<div className="text-xs text-foreground/90 whitespace-pre-line leading-relaxed font-sans bg-background/60 p-3 rounded border border-border/50 select-all">
+													{generatedPitch}
+												</div>
+											</div>
+										)}
 									</TabsContent>
 								</Tabs>
 							</ScrollArea>

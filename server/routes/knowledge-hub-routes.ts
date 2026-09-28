@@ -684,4 +684,101 @@ router.post(
 	}),
 );
 
+// GET /api/knowledge-hub/irdai/practice-test — fetch IRDAI practice questions
+router.get(
+	"/irdai/practice-test",
+	asyncHandler(async (req, res) => {
+		const data = irdaiPospTrainingService.getPracticeQuestions();
+		res.json({ success: true, ...data });
+	}),
+);
+
+// POST /api/knowledge-hub/irdai/practice-test/submit — evaluate IRDAI practice test
+router.post(
+	"/irdai/practice-test/submit",
+	asyncHandler(async (req, res) => {
+		const agentId = (req as any).user?.id || "guest-advisor";
+		const { answers } = req.body;
+
+		if (!answers || typeof answers !== "object") {
+			return res.status(400).json({ error: "Answers object is required" });
+		}
+
+		const result = await irdaiPospTrainingService.submitPracticeTest(answers, agentId);
+
+		const user = (req as any).user;
+		if (user) {
+			knowledgeHubService.logAuditEvent({
+				userId: agentId,
+				userRole: user?.roles?.[0] || "agent",
+				eventType: "irdai_practice_test_submitted",
+				resourceType: "irdai_practice_test",
+				resourceId: "irdai-posp",
+				actionDetails: {
+					scorePercentage: result.scorePercentage,
+					passed: result.passed,
+				},
+				ipAddress: req.ip,
+				userAgent: req.headers["user-agent"],
+			}).catch(() => {});
+		}
+
+		res.json(result);
+	}),
+);
+
+// ── Regulatory Compliance, Omnisearch, Pitch Generator & Flashcards ─────────
+
+// GET /api/knowledge-hub/cpe-expiry-status — 3-year expiry countdown & CPE tracking
+router.get(
+	"/cpe-expiry-status",
+	asyncHandler(async (req, res) => {
+		const agentId = (req as any).user?.id || "guest-advisor";
+		const data = await knowledgeHubService.getCpeAndExpiryStatus(agentId);
+		res.json({ success: true, ...data });
+	}),
+);
+
+// GET /api/knowledge-hub/omnisearch — unified cross-hub search
+router.get(
+	"/omnisearch",
+	asyncHandler(async (req, res) => {
+		const query = (req.query.q as string) || "";
+		const results = await knowledgeHubService.omnisearch(query);
+		res.json({ success: true, ...results });
+	}),
+);
+
+// POST /api/knowledge-hub/generate-pitch — FASP-AI client pitch generator
+router.post(
+	"/generate-pitch",
+	asyncHandler(async (req, res) => {
+		const { productTitle, productType, persona, channel, keyFeatures, riskProfile } = req.body;
+		if (!productTitle) {
+			return res.status(400).json({ error: "productTitle is required" });
+		}
+
+		const result = await knowledgeHubService.generateClientPitch({
+			productTitle,
+			productType,
+			persona: persona || "young_wealth_builder",
+			channel: channel || "whatsapp",
+			keyFeatures,
+			riskProfile,
+		});
+
+		res.json({ success: true, ...result });
+	}),
+);
+
+// GET /api/knowledge-hub/flashcards — spaced repetition flashcard decks
+router.get(
+	"/flashcards",
+	asyncHandler(async (req, res) => {
+		const category = req.query.category as string;
+		const cards = knowledgeHubService.getHighYieldFlashcards(category);
+		res.json({ success: true, count: cards.length, flashcards: cards });
+	}),
+);
+
 export default router;
