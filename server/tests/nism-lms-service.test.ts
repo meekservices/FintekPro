@@ -144,6 +144,15 @@ describe("NISM LMS Service (LTI 1.3 & xAPI)", () => {
 			"nism-va-q4": 1,
 			"nism-va-q5": 0,
 			"nism-va-q6": 1,
+			"nism-va-q7": 1,
+			"nism-va-q8": 3,
+			"nism-va-q9": 1,
+			"nism-va-q10": 1,
+			"nism-va-q11": 1,
+			"nism-va-q12": 2,
+			"nism-va-q13": 1,
+			"nism-va-q14": 1,
+			"nism-va-q15": 1,
 		};
 
 		const result = await nismLmsService.submitPracticeTest("nism-va", answers, "agent-test-123");
@@ -153,5 +162,19 @@ describe("NISM LMS Service (LTI 1.3 & xAPI)", () => {
 		expect(result.negativeMarksDeducted).toBe(0);
 		expect(result.aiCapsule.recommendedAction).toContain("cert.nism.ac.in");
 		expect(result).toHaveProperty("empanelmentSynced");
+	});
+
+	it("returns at least 10 questions for any course, including Series XV, V-D, and VIII", () => {
+		const practiceXv = nismLmsService.getPracticeQuestions("nism-xv");
+		expect(practiceXv.questions.length).toBeGreaterThanOrEqual(10);
+
+		const practiceVd = nismLmsService.getPracticeQuestions("nism-vd");
+		expect(practiceVd.questions.length).toBeGreaterThanOrEqual(10);
+
+		const practiceViii = nismLmsService.getPracticeQuestions("nism-viii");
+		expect(practiceViii.questions.length).toBeGreaterThanOrEqual(10);
+
+		const practiceXa = nismLmsService.getPracticeQuestions("nism-xa");
+		expect(practiceXa.questions.length).toBeGreaterThanOrEqual(10);
 	});
 });
