@@ -46,6 +46,8 @@ import {
 	Pencil,
 	ChevronLeft,
 	Sparkles,
+	Target,
+	ExternalLink,
 } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -1606,13 +1608,45 @@ export default function AgentKycEmpanelment() {
 								<h3 className="font-semibold text-sm text-purple-700 dark:text-purple-300 flex items-center gap-2">
 									<span className="text-lg">🎓</span> NISM Certification
 								</h3>
-								{nismVerified && (
-									<Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 gap-1 text-[11px]">
-										<BadgeCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-										DigiLocker Verified
-									</Badge>
-								)}
+								<div className="flex items-center gap-2">
+									{emp?.nism_verification_status === "mock_cleared" && !nismVerified && (
+										<Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 gap-1 text-[11px]">
+											<Target className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+											Mock Cleared ({emp.nism_score || "75%+"})
+										</Badge>
+									)}
+									{nismVerified && (
+										<Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 gap-1 text-[11px]">
+											<BadgeCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+											DigiLocker Verified
+										</Badge>
+									)}
+								</div>
 							</div>
+
+							{emp?.nism_verification_status === "mock_cleared" && !nismVerified && (
+								<div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+									<div className="space-y-0.5">
+										<p className="font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+											<Sparkles className="w-4 h-4 text-amber-500" />
+											In-App NISM Practice Mock Cleared ({emp.nism_score || "Benchmark Met"})
+										</p>
+										<p className="text-muted-foreground text-[11px]">
+											Your mock readiness benchmark is recorded in FintekPro. Book your official exam slot at NISM, then pull your certificate below.
+										</p>
+									</div>
+									<Button
+										type="button"
+										size="sm"
+										variant="outline"
+										className="shrink-0 text-xs border-amber-500/40 text-amber-900 dark:text-amber-200 hover:bg-amber-500/20"
+										onClick={() => window.open("https://cert.nism.ac.in/action/login", "_blank", "noopener,noreferrer")}
+									>
+										Book Exam Slot
+										<ExternalLink className="w-3 h-3 ml-1" />
+									</Button>
+								</div>
+							)}
 
 							{/* DigiLocker Fast-Track Pull Box */}
 							<div className="bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-transparent p-3.5 rounded-lg border border-purple-200 dark:border-purple-900/50 space-y-2.5">

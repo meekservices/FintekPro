@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { nismLmsService, type XApiStatement } from "../services/nism-lms-service";
 
 describe("NISM LMS Service (LTI 1.3 & xAPI)", () => {
@@ -89,5 +89,69 @@ describe("NISM LMS Service (LTI 1.3 & xAPI)", () => {
 		const res = await nismLmsService.ingestXApiStatement(statement);
 		expect(res.success).toBe(true);
 		expect(res.actionTaken).toContain("completed");
+	});
+
+	it("retrieves practice test questions for NISM Series V-A without exposing answer keys", () => {
+		const practice = nismLmsService.getPracticeQuestions("nism-va");
+		expect(practice).toBeDefined();
+		expect(practice.courseId).toBe("nism-va");
+		expect(practice.questions.length).toBeGreaterThan(0);
+		expect(practice.passingPercentage).toBe(50);
+
+		const q1 = practice.questions[0];
+		expect(q1.question).toBeDefined();
+		expect(q1.options).toHaveLength(4);
+		expect((q1 as unknown as Record<string, unknown>).correctIndex).toBeUndefined(); // Answer key is protected
+	});
+
+	it("evaluates a submitted practice test with negative marking, topic diagnostics, and AI remediation", async () => {
+		const practice = nismLmsService.getPracticeQuestions("nism-va");
+		const answers: Record<string, number> = {};
+		for (const q of practice.questions) {
+			answers[q.id] = 0; // Choose option index 0
+		}
+
+		const result = await nismLmsService.submitPracticeTest("nism-va", answers, "agent-test-123");
+		expect(result.success).toBe(true);
+		expect(result.totalQuestions).toBe(practice.questions.length);
+		expect(typeof result.scorePercentage).toBe("number");
+		expect(result.reviews.length).toBe(practice.questions.length);
+		expect(result.reviews[0].explanation).toBeDefined();
+
+		// Negative marking verification
+		expect(result.penaltyPerWrong).toBe(0.25);
+		expect(typeof result.negativeMarksDeducted).toBe("number");
+		expect(typeof result.netRawScore).toBe("number");
+
+		// Topic diagnostics verification
+		expect(result.topicDiagnostics).toBeInstanceOf(Array);
+		expect(result.topicDiagnostics.length).toBeGreaterThan(0);
+		expect(result.topicDiagnostics[0].topic).toBeDefined();
+		expect(result.topicDiagnostics[0].status).toMatch(/Proficient|Satisfactory|Needs Review/);
+
+		// AI remediation capsule verification
+		expect(result.aiCapsule).toBeDefined();
+		expect(result.aiCapsule.generated).toBe(true);
+		expect(result.aiCapsule.summaryNotes.length).toBeGreaterThan(0);
+	});
+
+	it("evaluates a passing practice test and triggers empanelment readiness sync", async () => {
+		// Answer with all correct options for Series V-A
+		const answers: Record<string, number> = {
+			"nism-va-q1": 1,
+			"nism-va-q2": 0,
+			"nism-va-q3": 1,
+			"nism-va-q4": 1,
+			"nism-va-q5": 0,
+			"nism-va-q6": 1,
+		};
+
+		const result = await nismLmsService.submitPracticeTest("nism-va", answers, "agent-test-123");
+		expect(result.success).toBe(true);
+		expect(result.passed).toBe(true);
+		expect(result.scorePercentage).toBe(100);
+		expect(result.negativeMarksDeducted).toBe(0);
+		expect(result.aiCapsule.recommendedAction).toContain("cert.nism.ac.in");
+		expect(result).toHaveProperty("empanelmentSynced");
 	});
 });

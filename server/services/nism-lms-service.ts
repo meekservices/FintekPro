@@ -11,6 +11,8 @@
 import { db } from "../db";
 import { sql } from "drizzle-orm";
 import crypto from "crypto";
+import { aiService, AICapability } from "./ai-service";
+import { logger } from "../logger";
 
 export interface NismCourse {
 	id: string;
@@ -242,6 +244,209 @@ const DEFAULT_COURSES: NismCourse[] = [
 	},
 ];
 
+export interface NismPracticeQuestion {
+	id: string;
+	courseId: string;
+	question: string;
+	options: string[];
+	correctIndex: number;
+	explanation: string;
+	topic: string;
+}
+
+export interface NismPracticeQuestionClient {
+	id: string;
+	question: string;
+	options: string[];
+	topic: string;
+}
+
+export interface NismTopicDiagnostic {
+	topic: string;
+	total: number;
+	correct: number;
+	incorrect: number;
+	unanswered: number;
+	accuracyPercentage: number;
+	status: "Proficient" | "Satisfactory" | "Needs Review";
+}
+
+export interface NismAiRemediationCapsule {
+	generated: boolean;
+	weakTopics: string[];
+	summaryNotes: string;
+	recommendedAction: string;
+}
+
+export interface NismPracticeTestResult {
+	success: boolean;
+	courseId: string;
+	courseTitle: string;
+	seriesCode: string;
+	totalQuestions: number;
+	correctCount: number;
+	incorrectCount: number;
+	unansweredCount: number;
+	penaltyPerWrong: number;
+	negativeMarksDeducted: number;
+	grossScore: number;
+	netRawScore: number;
+	scorePercentage: number;
+	passingPercentage: number;
+	passed: boolean;
+	empanelmentSynced?: boolean;
+	topicDiagnostics: NismTopicDiagnostic[];
+	aiCapsule: NismAiRemediationCapsule;
+	reviews: Array<{
+		id: string;
+		question: string;
+		options: string[];
+		selectedOptionIndex: number | null;
+		correctOptionIndex: number;
+		isCorrect: boolean;
+		explanation: string;
+		topic: string;
+	}>;
+}
+
+const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
+	// NISM Series V-A: Mutual Fund Distributors
+	{
+		id: "nism-va-q1",
+		courseId: "nism-va",
+		question: "Which entity acts as the primary legal custodian and holds the assets of a mutual fund scheme in trust for unit holders in India?",
+		options: ["Asset Management Company (AMC)", "Custodian registered with SEBI", "Board of Trustees / Trustee Company", "Association of Mutual Funds in India (AMFI)"],
+		correctIndex: 1,
+		explanation: "Under SEBI (Mutual Funds) Regulations, the Custodian is responsible for the safekeeping of the fund's securities and assets, operating independently of the AMC.",
+		topic: "Mutual Fund Structure & Regulation"
+	},
+	{
+		id: "nism-va-q2",
+		courseId: "nism-va",
+		question: "What is the cut-off timing for receiving purchase applications in Liquid & Overnight Funds for applicable NAV of the same day?",
+		options: ["1:30 PM", "3:00 PM", "1:00 PM", "2:30 PM"],
+		correctIndex: 0,
+		explanation: "As per SEBI guidelines, the cut-off timing for historical NAV applicability on subscriptions in Liquid and Overnight funds is 1:30 PM (provided funds are available in the bank before cut-off).",
+		topic: "Operational Guidelines & NAV"
+	},
+	{
+		id: "nism-va-q3",
+		courseId: "nism-va",
+		question: "Under the SEBI categorisation of mutual fund schemes, what is the minimum percentage of total assets that an Equity Linked Savings Scheme (ELSS) must invest in equity instruments?",
+		options: ["65%", "80%", "75%", "90%"],
+		correctIndex: 1,
+		explanation: "ELSS schemes must invest at least 80% of total assets in equity and equity-related instruments, with a statutory 3-year lock-in period qualifying under Section 80C.",
+		topic: "Scheme Categorisation"
+	},
+	{
+		id: "nism-va-q4",
+		courseId: "nism-va",
+		question: "Which of the following risk profiling metrics evaluates how much portfolio return is achieved per unit of total risk (standard deviation)?",
+		options: ["Treynor Ratio", "Sharpe Ratio", "Jensen's Alpha", "Beta"],
+		correctIndex: 1,
+		explanation: "The Sharpe Ratio measures excess return over the risk-free rate divided by total risk (Standard Deviation), whereas Treynor uses systematic risk (Beta).",
+		topic: "Portfolio Performance & Risk"
+	},
+	{
+		id: "nism-va-q5",
+		courseId: "nism-va",
+		question: "What is the maximum Total Expense Ratio (TER) permissible for an open-ended equity scheme for the first ₹500 crores of daily net assets under SEBI regulations?",
+		options: ["2.25%", "2.00%", "1.75%", "2.50%"],
+		correctIndex: 0,
+		explanation: "SEBI limits the base TER for the first ₹500 crores of daily net assets of an open-ended equity-oriented scheme to 2.25% (plus additional allowances for B-30 cities and GST).",
+		topic: "Mutual Fund Expenses & Accounting"
+	},
+	{
+		id: "nism-va-q6",
+		courseId: "nism-va",
+		question: "Under Section 112A of the Income Tax Act, long-term capital gains (LTCG) on equity mutual funds exceeding ₹1.25 Lakh per financial year are taxed at what rate (post Budget 2024)?",
+		options: ["10%", "12.5%", "15%", "20% with indexation"],
+		correctIndex: 1,
+		explanation: "Effective Budget 2024, Long Term Capital Gains (LTCG) on listed equity and equity mutual funds held for more than 12 months are taxed at 12.5% on gains exceeding ₹1.25 Lakhs per fiscal year.",
+		topic: "Taxation of Mutual Funds"
+	},
+
+	// NISM Series VIII: Equity Derivatives
+	{
+		id: "nism-viii-q1",
+		courseId: "nism-viii",
+		question: "A European Call Option gives the buyer which of the following rights?",
+		options: [
+			"The right to buy the underlying asset on or before the expiration date",
+			"The right to buy the underlying asset only on the expiration date",
+			"The obligation to buy the underlying asset on the expiration date",
+			"The right to sell the underlying asset only on the expiration date"
+		],
+		correctIndex: 1,
+		explanation: "European style options can only be exercised on the expiration date itself, unlike American style options which can be exercised at any time up to expiration.",
+		topic: "Options Fundamentals"
+	},
+	{
+		id: "nism-viii-q2",
+		courseId: "nism-viii",
+		question: "In the equity derivatives market, what does a high Open Interest (OI) accompanied by an increase in futures price typically indicate?",
+		options: ["Short Covering", "Long Liquidation", "Long Buildup (Bullish)", "Short Buildup (Bearish)"],
+		correctIndex: 2,
+		explanation: "When price rises along with rising Open Interest, it signifies fresh capital entering the market to create new long positions, known as Long Buildup.",
+		topic: "Derivatives Market Dynamics"
+	},
+	{
+		id: "nism-viii-q3",
+		courseId: "nism-viii",
+		question: "Which Option Greek measures the sensitivity of an option's delta relative to a change in the price of the underlying asset?",
+		options: ["Theta", "Vega", "Gamma", "Rho"],
+		correctIndex: 2,
+		explanation: "Gamma (Γ) measures the rate of change of Delta with respect to changes in the underlying asset's price, effectively measuring the curvature of the option value.",
+		topic: "Option Greeks"
+	},
+
+	// NISM Series X-A: Investment Adviser Level 1
+	{
+		id: "nism-xa-q1",
+		courseId: "nism-xa",
+		question: "Under the SEBI (Investment Advisers) Regulations, 2013, which of the following is mandatory for an individual RIA?",
+		options: [
+			"Segregation of advisory and distribution activities at client level",
+			"Maintaining an ARN code under the same PAN for mutual fund distribution",
+			"Charging both advisory fees and distribution commission from the same client",
+			"Mandatory guarantee of capital protection in financial plans"
+		],
+		correctIndex: 0,
+		explanation: "SEBI regulations enforce strict client-level segregation between investment advisory and distribution/execution services to prevent conflicts of interest.",
+		topic: "SEBI RIA Regulations"
+	},
+	{
+		id: "nism-xa-q2",
+		courseId: "nism-xa",
+		question: "Which of the following approaches is the foundational formula of Modern Portfolio Theory (MPT) developed by Harry Markowitz?",
+		options: [
+			"Maximizing expected return for a given level of risk or minimizing risk for a given level of expected return",
+			"Purchasing only risk-free government securities and cash equivalents",
+			"Focusing solely on individual stock price-to-earnings ratios",
+			"Eliminating systematic market risk through stock diversification"
+		],
+		correctIndex: 0,
+		explanation: "Markowitz Modern Portfolio Theory states that an investor can construct an efficient frontier portfolio that maximizes expected return for a given level of risk.",
+		topic: "Portfolio Construction & Asset Allocation"
+	},
+
+	// NISM Series XV: Research Analyst
+	{
+		id: "nism-xv-q1",
+		courseId: "nism-xv",
+		question: "Under SEBI (Research Analysts) Regulations, 2014, what is the mandatory quiet period for a research analyst before and after public appearances?",
+		options: [
+			"No trading in subject company securities 30 days prior to and 5 days after publishing a research report",
+			"No trading in any equities for 1 year",
+			"Trading allowed provided notice is given to the exchange within 24 hours",
+			"No quiet period if disclosures are made verbally"
+		],
+		correctIndex: 0,
+		explanation: "SEBI (Research Analysts) Regulations mandate that RAs and their associates shall not deal or trade in securities of the subject company within 30 days before and 5 days after publication of a research report.",
+		topic: "Regulatory Code of Conduct"
+	}
+];
+
 export class NismLmsService {
 	private initialized = false;
 	private ltiSecret: string;
@@ -317,7 +522,7 @@ export class NismLmsService {
 			}
 			this.initialized = true;
 		} catch (err: any) {
-			console.error("[NismLmsService] Table init error (non-fatal fallback):", err.message);
+			logger.error("[NismLmsService] Table init error (non-fatal fallback): " + err.message);
 		}
 	}
 
@@ -355,13 +560,13 @@ export class NismLmsService {
 			`);
 
 			const latencyMs = Date.now() - startTime;
-			console.log(JSON.stringify({
+			logger.info("NISM_LMS_FETCH_COURSES", {
 				event: "NISM_LMS_FETCH_COURSES",
 				userId: agentId,
 				latency_ms: latencyMs,
 				count: rows.rows.length,
 				status: "SUCCESS"
-			}));
+			});
 
 			return rows.rows.map((r: any) => ({
 				courseId: r.course_id,
@@ -383,7 +588,7 @@ export class NismLmsService {
 				completedAt: r.completed_at ? new Date(r.completed_at).toISOString() : null,
 			}));
 		} catch (err: any) {
-			console.warn("[NismLmsService] Query fallback:", err.message);
+			logger.warn("[NismLmsService] Query fallback: " + err.message);
 			// Resilient fallback to default courses
 			return DEFAULT_COURSES.map(c => ({
 				courseId: c.id,
@@ -418,7 +623,7 @@ export class NismLmsService {
 
 			return { success: true, message: "Enrolled in course successfully" };
 		} catch (err: any) {
-			console.warn("[NismLmsService] Enrollment DB fallback:", err.message);
+			logger.warn("[NismLmsService] Enrollment DB fallback: " + err.message);
 			return { success: true, message: "Enrolled in course successfully (offline mode)" };
 		}
 	}
@@ -532,7 +737,7 @@ export class NismLmsService {
 				course = { id: r.id, cpe_credits: Number(r.cpe_credits) };
 			}
 		} catch (err: any) {
-			console.warn("[NismLmsService] DB lookup fallback for xAPI course:", err.message);
+			logger.warn("[NismLmsService] DB lookup fallback for xAPI course: " + err.message);
 		}
 
 		if (!course) {
@@ -580,17 +785,17 @@ export class NismLmsService {
 					`);
 				}
 			} catch (err: any) {
-				console.warn("[NismLmsService] Completion update DB fallback:", err.message);
+				logger.warn("[NismLmsService] Completion update DB fallback: " + err.message);
 			}
 
-			console.log(JSON.stringify({
+			logger.info("NISM_LMS_COURSE_COMPLETED", {
 				event: "NISM_LMS_COURSE_COMPLETED",
 				userId: agentId,
 				courseId: course.id,
 				creditsEarned: course.cpe_credits,
 				latency_ms: Date.now() - startTime,
 				status: "SUCCESS"
-			}));
+			});
 
 			return { success: true, actionTaken: `Marked course ${course.id} as completed (+${course.cpe_credits} CPE credits)` };
 		}
@@ -606,7 +811,7 @@ export class NismLmsService {
 					WHERE agent_id = ${agentId} AND course_id = ${course.id}
 				`);
 			} catch (err: any) {
-				console.warn("[NismLmsService] Progress update DB fallback:", err.message);
+				logger.warn("[NismLmsService] Progress update DB fallback: " + err.message);
 			}
 
 			return { success: true, actionTaken: `Updated course ${course.id} progress to ${progressPct}%` };
@@ -651,6 +856,276 @@ export class NismLmsService {
 				certificationsCount: 0,
 			};
 		}
+	}
+
+	/**
+	 * Retrieve practice test questions for a given NISM course
+	 */
+	getPracticeQuestions(courseId: string): {
+		courseId: string;
+		courseTitle: string;
+		seriesCode: string;
+		passingPercentage: number;
+		durationMinutes: number;
+		questions: NismPracticeQuestionClient[];
+	} {
+		const matchedCourse = DEFAULT_COURSES.find(
+			(c) => c.id.toLowerCase() === courseId.toLowerCase() || c.seriesCode.toLowerCase() === courseId.toLowerCase(),
+		) || DEFAULT_COURSES[0];
+
+		// Filter questions for this course, fallback to general NISM pool if none match
+		let matching = NISM_PRACTICE_BANK.filter(
+			(q) => q.courseId.toLowerCase() === courseId.toLowerCase(),
+		);
+
+		if (matching.length === 0) {
+			matching = NISM_PRACTICE_BANK.filter((q) => q.courseId === "nism-va");
+		}
+
+		return {
+			courseId: matchedCourse.id,
+			courseTitle: matchedCourse.title,
+			seriesCode: matchedCourse.seriesCode,
+			passingPercentage: matchedCourse.passingPercentage,
+			durationMinutes: Math.max(15, matching.length * 2),
+			questions: matching.map((q) => ({
+				id: q.id,
+				question: q.question,
+				options: q.options,
+				topic: q.topic,
+			})),
+		};
+	}
+
+	/**
+	 * Generate AI Remediation Notes for missed questions and weak topics (FASP-AI v1.0)
+	 */
+	async generateAiRemediationNotes(
+		courseTitle: string,
+		scorePercentage: number,
+		passingPercentage: number,
+		weakTopics: string[],
+		missedQuestions: Array<{ question: string; correctOption: string; topic: string }>,
+	): Promise<string> {
+		try {
+			const prompt = `You are a SEBI certification exam mentor for wealth managers and financial advisors in India.
+The advisor took a practice mock exam for ${courseTitle} and scored ${scorePercentage}% (Passing threshold: ${passingPercentage}%).
+Topics needing improvement: ${weakTopics.join(", ") || "Regulatory Compliance"}.
+
+Top missed questions:
+${missedQuestions.slice(0, 3).map((q, idx) => `${idx + 1}. ${q.question} -> Key Rule: ${q.correctOption}`).join("\n")}
+
+Provide a high-yield, 3-bullet revision capsule summarizing the exact regulatory rules, statutory thresholds, and formulas to remember for the official exam. Keep each bullet point under 40 words and directly actionable.`;
+
+			const response = await aiService.chat(
+				[{ role: "user", content: prompt }],
+				{
+					capability: AICapability.STANDARD,
+					temperature: 0.3,
+					maxTokens: 350,
+				},
+			);
+
+			return response?.content || this.getFallbackRemediationNotes(weakTopics);
+		} catch (err: any) {
+			logger.warn("[NismLmsService] AI Remediation fallback: " + err.message);
+			return this.getFallbackRemediationNotes(weakTopics);
+		}
+	}
+
+	private getFallbackRemediationNotes(_weakTopics: string[]): string {
+		return `• Mutual Fund Cut-Off & NAV Rules: Liquid/Overnight funds have a 1:30 PM cut-off with realization principle; other equity/debt funds use 3:00 PM cut-off.
+• Capital Gains & Taxation (Budget 2024): Equity mutual fund LTCG (>12 months) taxed at 12.5% above ₹1.25 Lakh exemption threshold. STCG is taxed at 20%.
+• Regulatory Governance: Asset segregation between AMC and Custodian is mandatory; RIAs cannot charge distribution commissions from advisory clients.`;
+	}
+
+	/**
+	 * Submit and score a practice test attempt with SEBI 0.25 negative marking, topic diagnostics & AI remediation
+	 */
+	async submitPracticeTest(
+		courseId: string,
+		answers: Record<string, number>,
+		agentId?: string,
+	): Promise<NismPracticeTestResult> {
+		const startTime = Date.now();
+		const matchedCourse = DEFAULT_COURSES.find(
+			(c) => c.id.toLowerCase() === courseId.toLowerCase() || c.seriesCode.toLowerCase() === courseId.toLowerCase(),
+		) || DEFAULT_COURSES[0];
+
+		let questions = NISM_PRACTICE_BANK.filter(
+			(q) => q.courseId.toLowerCase() === courseId.toLowerCase(),
+		);
+
+		if (questions.length === 0) {
+			questions = NISM_PRACTICE_BANK.filter((q) => q.courseId === "nism-va");
+		}
+
+		let correctCount = 0;
+		let incorrectCount = 0;
+		let unansweredCount = 0;
+
+		// Topic diagnostic accumulator
+		const topicMap: Record<string, { total: number; correct: number; incorrect: number; unanswered: number }> = {};
+
+		const reviews = questions.map((q) => {
+			const selected = answers[q.id];
+			const isAnswered = typeof selected === "number";
+			const isCorrect = isAnswered && selected === q.correctIndex;
+
+			if (!topicMap[q.topic]) {
+				topicMap[q.topic] = { total: 0, correct: 0, incorrect: 0, unanswered: 0 };
+			}
+			topicMap[q.topic].total += 1;
+
+			if (isCorrect) {
+				correctCount++;
+				topicMap[q.topic].correct += 1;
+			} else if (isAnswered) {
+				incorrectCount++;
+				topicMap[q.topic].incorrect += 1;
+			} else {
+				unansweredCount++;
+				topicMap[q.topic].unanswered += 1;
+			}
+
+			return {
+				id: q.id,
+				question: q.question,
+				options: q.options,
+				selectedOptionIndex: isAnswered ? selected : null,
+				correctOptionIndex: q.correctIndex,
+				isCorrect,
+				explanation: q.explanation,
+				topic: q.topic,
+			};
+		});
+
+		// SEBI 0.25 Negative Marking Calculation
+		const penaltyPerWrong = 0.25;
+		const negativeMarksDeducted = Number((incorrectCount * penaltyPerWrong).toFixed(2));
+		const grossScore = correctCount;
+		const netRawScore = Math.max(0, Number((grossScore - negativeMarksDeducted).toFixed(2)));
+		const scorePercentage = questions.length > 0 ? Math.max(0, Math.round((netRawScore / questions.length) * 100)) : 0;
+		const passed = scorePercentage >= matchedCourse.passingPercentage;
+
+		// Topic Diagnostics Calculation
+		const topicDiagnostics: NismTopicDiagnostic[] = Object.entries(topicMap).map(([topic, stats]) => {
+			const accuracy = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
+			let status: "Proficient" | "Satisfactory" | "Needs Review" = "Needs Review";
+			if (accuracy >= 75) status = "Proficient";
+			else if (accuracy >= 50) status = "Satisfactory";
+
+			return {
+				topic,
+				total: stats.total,
+				correct: stats.correct,
+				incorrect: stats.incorrect,
+				unanswered: stats.unanswered,
+				accuracyPercentage: accuracy,
+				status,
+			};
+		});
+
+		// AI Remediation
+		const weakTopics = topicDiagnostics
+			.filter((t) => t.status === "Needs Review")
+			.map((t) => t.topic);
+
+		const missedQuestions = reviews
+			.filter((r) => !r.isCorrect)
+			.map((r) => ({
+				question: r.question,
+				correctOption: r.options[r.correctOptionIndex],
+				topic: r.topic,
+			}));
+
+		let summaryNotes = "";
+		if (missedQuestions.length > 0) {
+			summaryNotes = await this.generateAiRemediationNotes(
+				matchedCourse.title,
+				scorePercentage,
+				matchedCourse.passingPercentage,
+				weakTopics,
+				missedQuestions,
+			);
+		} else {
+			summaryNotes = "Outstanding performance! You have mastered all tested topics with 100% accuracy. You are primed to clear the official NISM certification examination.";
+		}
+
+		const aiCapsule: NismAiRemediationCapsule = {
+			generated: true,
+			weakTopics,
+			summaryNotes,
+			recommendedAction: passed
+				? "Ready for official exam slot booking at cert.nism.ac.in"
+				: "Review weak chapters and retake practice mock before booking slot",
+		};
+
+		let empanelmentSynced = false;
+		if (passed && agentId && agentId !== "guest-advisor") {
+			try {
+				await db.execute(sql`
+					UPDATE agent_empanelments
+					SET nism_certificate_type = COALESCE(nism_certificate_type, ${matchedCourse.seriesCode}),
+						nism_verification_status = CASE 
+							WHEN nism_verification_status IN ('verified_digilocker', 'verified_lms') THEN nism_verification_status 
+							ELSE 'mock_cleared' 
+						END,
+						nism_score = ${`${scorePercentage}%`},
+						updated_at = NOW()
+					WHERE agent_id = ${agentId}
+				`);
+
+				await db.execute(sql`
+					UPDATE nism_course_enrolments
+					SET last_score = ${Math.max(0, netRawScore)},
+						last_synced_at = NOW()
+					WHERE agent_id = ${agentId} AND course_id = ${matchedCourse.id}
+				`);
+				empanelmentSynced = true;
+			} catch (dbErr: any) {
+				logger.warn("[NismLmsService] Empanelment sync DB fallback: " + dbErr.message);
+			}
+		}
+
+		if (agentId) {
+			logger.info("NISM_PRACTICE_TEST_SUBMITTED", {
+				event: "NISM_PRACTICE_TEST_SUBMITTED",
+				userId: agentId,
+				courseId: matchedCourse.id,
+				grossScore,
+				negativeMarksDeducted,
+				netRawScore,
+				scorePercentage,
+				passed,
+				empanelmentSynced,
+				weakTopicsCount: weakTopics.length,
+				latency_ms: Date.now() - startTime,
+				status: "SUCCESS"
+			});
+		}
+
+		return {
+			success: true,
+			courseId: matchedCourse.id,
+			courseTitle: matchedCourse.title,
+			seriesCode: matchedCourse.seriesCode,
+			totalQuestions: questions.length,
+			correctCount,
+			incorrectCount,
+			unansweredCount,
+			penaltyPerWrong,
+			negativeMarksDeducted,
+			grossScore,
+			netRawScore,
+			scorePercentage,
+			passingPercentage: matchedCourse.passingPercentage,
+			passed,
+			empanelmentSynced,
+			topicDiagnostics,
+			aiCapsule,
+			reviews,
+		};
 	}
 }
 

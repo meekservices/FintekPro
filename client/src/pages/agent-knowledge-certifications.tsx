@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
 	Shield as LucideShield,
@@ -20,6 +20,7 @@ import {
 	Lock,
 	Timer,
 	FileCheck2,
+	BadgeCheck,
 } from "lucide-react";
 import {
 	Card,
@@ -199,6 +200,31 @@ const getLevelBadgeColor = (level: number) => {
 	}
 };
 
+/**
+ * Bulletproof external window opening helper.
+ * Handles popup blocker restrictions (especially in Safari, Chrome & embedded webviews)
+ * by falling back to synthetic anchor click if window.open returns null or fails.
+ */
+const safeOpenUrl = (url?: string, target = "_blank") => {
+	if (!url) return;
+	try {
+		const newWindow = window.open(url, target, "noopener,noreferrer");
+		if (!newWindow || newWindow.closed || typeof newWindow.closed === "undefined") {
+			// Window open was suppressed or blocked by popup blocker; fallback to DOM anchor dispatch
+			const link = document.createElement("a");
+			link.href = url;
+			link.target = target;
+			link.rel = "noopener noreferrer";
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+		}
+	} catch {
+		// Fallback for strict iframe or security policies
+		window.location.assign(url);
+	}
+};
+
 export default function AgentKnowledgeCertifications() {
 	const [activeTab, setActiveTab] = useState("nism");
 	const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
@@ -245,7 +271,88 @@ export default function AgentKnowledgeCertifications() {
 		message: string;
 	} | null>(null);
 
+	// NISM Practice Test state
+	const [practiceTestModal, setPracticeTestModal] = useState<{
+		isOpen: boolean;
+		loading: boolean;
+		courseId: string | null;
+		courseTitle: string;
+		seriesCode: string;
+		passingPercentage: number;
+		durationMinutes: number;
+		secondsRemaining: number | null;
+		isTimerRunning: boolean;
+		activeQuestionIndex: number;
+		questions: Array<{ id: string; question: string; options: string[]; topic: string }>;
+		answers: Record<string, number>;
+		result: {
+			success: boolean;
+			courseId: string;
+			courseTitle?: string;
+			seriesCode?: string;
+			scorePercentage: number;
+			totalQuestions: number;
+			correctCount: number;
+			incorrectCount: number;
+			unansweredCount: number;
+			penaltyPerWrong: number;
+			negativeMarksDeducted: number;
+			grossScore: number;
+			netRawScore: number;
+			passingPercentage: number;
+			passed: boolean;
+			empanelmentSynced?: boolean;
+			topicDiagnostics: Array<{
+				topic: string;
+				total: number;
+				correct: number;
+				incorrect: number;
+				unanswered: number;
+				accuracyPercentage: number;
+				status: "Proficient" | "Satisfactory" | "Needs Review";
+			}>;
+			aiCapsule: {
+				generated: boolean;
+				weakTopics: string[];
+				summaryNotes: string;
+				recommendedAction: string;
+			};
+			reviews: Array<{
+				id: string;
+				question: string;
+				options: string[];
+				selectedOptionIndex: number | null;
+				correctOptionIndex: number;
+				isCorrect: boolean;
+				explanation: string;
+				topic: string;
+			}>;
+		} | null;
+	}>({
+		isOpen: false,
+		loading: false,
+		courseId: null,
+		courseTitle: "",
+		seriesCode: "",
+		passingPercentage: 60,
+		durationMinutes: 15,
+		secondsRemaining: null,
+		isTimerRunning: false,
+		activeQuestionIndex: 0,
+		questions: [],
+		answers: {},
+		result: null,
+	});
+
 	const { toast } = useToast();
+	const queryClient = useQueryClient();
+
+	const formatTimeRemaining = (seconds: number | null) => {
+		if (seconds === null || seconds === undefined) return "--:--";
+		const mins = Math.floor(seconds / 60);
+		const secs = seconds % 60;
+		return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+	};
 
 	// Internal Certifications
 	const { data: myCerts, isLoading: certsLoading } = useQuery<AgentCertification[]>({
@@ -378,8 +485,8 @@ export default function AgentKnowledgeCertifications() {
 			const data = typeof res?.json === "function" ? await res.json() : res;
 			if (data && data.success) {
 				toast({
-					title: "NISM SSO Authenticated ✓",
-					description: "LTI 1.3 session established. Opening candidate portal gateway...",
+					title: "NISM Gateway Ready ✓",
+					description: "Session prepared. Choose: Training, Practice Test, or Exam Booking.",
 				});
 
 				setNismLaunchModal({
@@ -388,9 +495,7 @@ export default function AgentKnowledgeCertifications() {
 					launchData: data,
 				});
 
-				// Direct launch to verified live NISM eLearning portal
-				const targetUrl = data.portalUrl || "https://online.nism.ac.in/nismlms/";
-				window.open(targetUrl, "_blank", "noopener,noreferrer");
+				// Note: Does NOT open external page directly, showing dialog box so user can choose action
 
 				queryClient.invalidateQueries({ queryKey: ["/api/knowledge-hub/nism/courses"] });
 				queryClient.invalidateQueries({ queryKey: ["/api/knowledge-hub/nism/summary"] });
@@ -411,6 +516,139 @@ export default function AgentKnowledgeCertifications() {
 			setLaunchingCourseId(null);
 		}
 	};
+
+	const handleStartNismPracticeTest = async (courseId: string) => {
+		try {
+			setPracticeTestModal((prev) => ({ ...prev, loading: true }));
+			const res = await apiRequest("GET", `/api/knowledge-hub/nism/courses/${courseId}/practice-test`);
+			const data = typeof res?.json === "function" ? await res.json() : res;
+			if (data && data.success) {
+				const durationMinutes = data.durationMinutes || 15;
+				setPracticeTestModal({
+					isOpen: true,
+					loading: false,
+					courseId: data.courseId,
+					courseTitle: data.courseTitle,
+					seriesCode: data.seriesCode,
+					passingPercentage: data.passingPercentage,
+					durationMinutes,
+					secondsRemaining: durationMinutes * 60,
+					isTimerRunning: true,
+					activeQuestionIndex: 0,
+					questions: data.questions || [],
+					answers: {},
+					result: null,
+				});
+				setNismLaunchModal((prev) => ({ ...prev, isOpen: false }));
+			} else {
+				toast({
+					title: "Practice Test Unavailable",
+					description: data?.message || "Could not load practice questions.",
+					variant: "destructive",
+				});
+				setPracticeTestModal((prev) => ({ ...prev, loading: false }));
+			}
+		} catch (err: any) {
+			toast({
+				title: "Practice Test Error",
+				description: err.message || "Failed to load practice questions.",
+				variant: "destructive",
+			});
+			setPracticeTestModal((prev) => ({ ...prev, loading: false }));
+		}
+	};
+
+	const submitPracticeTestMutation = useMutation({
+		mutationFn: async ({
+			courseId,
+			answers,
+		}: { courseId: string; answers: Record<string, number> }) => {
+			const res = await apiRequest(
+				"POST",
+				`/api/knowledge-hub/nism/courses/${courseId}/practice-test/submit`,
+				{ answers },
+			);
+			return typeof res?.json === "function" ? await res.json() : res;
+		},
+		onSuccess: (data) => {
+			setPracticeTestModal((prev) => ({
+				...prev,
+				result: data,
+				isTimerRunning: false,
+			}));
+			if (data.passed) {
+				toast({
+					title: "Practice Test Cleared! 🎉",
+					description: `You scored ${data.scorePercentage}% (Passing benchmark: ${data.passingPercentage}%). Empanelment readiness recorded!`,
+				});
+				queryClient.invalidateQueries({ queryKey: ["/api/agent-empanelment/me"] });
+				queryClient.invalidateQueries({ queryKey: ["/api/knowledge-hub/nism/courses"] });
+			} else {
+				toast({
+					title: "Score Below Benchmark",
+					description: `You scored ${data.scorePercentage}%. Review the answer rationales below!`,
+					variant: "destructive",
+				});
+			}
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Submission Error",
+				description: err.message || "Failed to evaluate practice test.",
+				variant: "destructive",
+			});
+		},
+	});
+
+	// Countdown Timer Hook with Auto-Submission for Practice Test
+	useEffect(() => {
+		if (!practiceTestModal.isOpen || practiceTestModal.result || !practiceTestModal.isTimerRunning) {
+			return;
+		}
+
+		if (practiceTestModal.secondsRemaining === null || practiceTestModal.secondsRemaining <= 0) {
+			return;
+		}
+
+		const timer = setInterval(() => {
+			setPracticeTestModal((prev) => {
+				if (!prev.isOpen || prev.result || !prev.isTimerRunning || prev.secondsRemaining === null) {
+					return prev;
+				}
+
+				if (prev.secondsRemaining <= 1) {
+					if (prev.courseId && !submitPracticeTestMutation.isPending) {
+						submitPracticeTestMutation.mutate({
+							courseId: prev.courseId,
+							answers: prev.answers,
+						});
+						toast({
+							title: "Time Expired! Auto-Submitting",
+							description: "Your official examination duration has elapsed. Answers submitted automatically.",
+						});
+					}
+					return {
+						...prev,
+						secondsRemaining: 0,
+						isTimerRunning: false,
+					};
+				}
+
+				return {
+					...prev,
+					secondsRemaining: prev.secondsRemaining - 1,
+				};
+			});
+		}, 1000);
+
+		return () => clearInterval(timer);
+	}, [
+		practiceTestModal.isOpen,
+		practiceTestModal.result,
+		practiceTestModal.isTimerRunning,
+		practiceTestModal.courseId,
+		submitPracticeTestMutation,
+	]);
 
 	const handleStartPospExam = async () => {
 		try {
@@ -655,10 +893,8 @@ export default function AgentKnowledgeCertifications() {
 													size="sm"
 													className="text-xs text-muted-foreground hover:text-foreground h-8 px-2"
 													onClick={() => {
-														window.open(
+														safeOpenUrl(
 															course.syllabusUrl || "https://www.nism.ac.in/certification-examinations/",
-															"_blank",
-															"noopener,noreferrer",
 														);
 													}}
 												>
@@ -1299,67 +1535,94 @@ export default function AgentKnowledgeCertifications() {
 							</div>
 						</div>
 
-						{/* Action Portals */}
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+						{/* Action Portals: 1. Training LMS | 2. Practice Mock Test | 3. Exam Booking */}
+						<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 							{/* 1. LMS Portal */}
 							<div className="p-3.5 rounded-lg bg-card border border-emerald-500/30 flex flex-col justify-between hover:border-emerald-500 transition-colors">
 								<div className="space-y-1 mb-3">
 									<div className="flex items-center justify-between">
 										<span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
 											<BookOpen className="h-3.5 w-3.5" />
-											NISM eLearning Portal
+											eLearning Training
 										</span>
 										<Badge className="text-[10px] bg-emerald-500/20 text-emerald-300">Live LMS</Badge>
 									</div>
 									<p className="text-xs text-muted-foreground">
-										Access online learning modules, chapter video lectures, and practice quizzes.
+										Access official video lectures, slides & syllabus modules in NISM LMS.
 									</p>
 								</div>
 								<Button
 									size="sm"
 									className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 flex items-center justify-center gap-1.5"
 									onClick={() => {
-										window.open(
-											nismLaunchModal.launchData?.portalUrl || "https://online.nism.ac.in/nismlms/",
-											"_blank",
-											"noopener,noreferrer",
+										safeOpenUrl(
+											nismLaunchModal.launchData?.launchUrl ||
+												nismLaunchModal.launchData?.portalUrl ||
+												"https://online.nism.ac.in/nismlms/",
 										);
 									}}
 								>
-									Open NISM eLearning LMS
+									Open Training Portal
 									<ExternalLink className="h-3.5 w-3.5" />
 								</Button>
 							</div>
 
-							{/* 2. Exam Registration */}
-							<div className="p-3.5 rounded-lg bg-card border border-border/80 flex flex-col justify-between hover:border-blue-500/40 transition-colors">
+							{/* 2. Practice Mock Test */}
+							<div className="p-3.5 rounded-lg bg-card border border-amber-500/30 flex flex-col justify-between hover:border-amber-500 transition-colors">
+								<div className="space-y-1 mb-3">
+									<div className="flex items-center justify-between">
+										<span className="text-xs font-semibold text-amber-400 flex items-center gap-1.5">
+											<Target className="h-3.5 w-3.5" />
+											Practice Mock Test
+										</span>
+										<Badge className="text-[10px] bg-amber-500/20 text-amber-300">In-App</Badge>
+									</div>
+									<p className="text-xs text-muted-foreground">
+										Simulate official MCQs with instant scoring, answer keys & regulatory rationales.
+									</p>
+								</div>
+								<Button
+									size="sm"
+									className="w-full bg-amber-600 hover:bg-amber-700 text-white text-xs h-8 flex items-center justify-center gap-1.5"
+									disabled={practiceTestModal.loading}
+									onClick={() => {
+										const targetCourseId = nismLaunchModal.course?.courseId || nismLaunchModal.launchData?.seriesCode || "nism-va";
+										handleStartNismPracticeTest(targetCourseId);
+									}}
+								>
+									<Play className="h-3.5 w-3.5 fill-current" />
+									Start Practice Test
+								</Button>
+							</div>
+
+							{/* 3. Exam Registration */}
+							<div className="p-3.5 rounded-lg bg-card border border-blue-500/30 flex flex-col justify-between hover:border-blue-500 transition-colors">
 								<div className="space-y-1 mb-3">
 									<div className="flex items-center justify-between">
 										<span className="text-xs font-semibold text-blue-400 flex items-center gap-1.5">
 											<LucideShield className="h-3.5 w-3.5" />
-											Exam Booking Portal
+											Exam Slot Booking
 										</span>
 										<span className="text-[10px] text-muted-foreground font-mono">
 											₹{nismLaunchModal.launchData?.examFeeInr || nismLaunchModal.course?.examFeeInr || 1500}
 										</span>
 									</div>
 									<p className="text-xs text-muted-foreground">
-										Register for examination test slot, verify PAN credentials, and view hall tickets.
+										Register for official examination slot, select test center city & download hall tickets.
 									</p>
 								</div>
 								<Button
 									variant="outline"
 									size="sm"
-									className="w-full border-border text-xs h-8 flex items-center justify-center gap-1.5 hover:bg-muted/40"
+									className="w-full border-blue-500/40 text-blue-400 hover:bg-blue-500/10 text-xs h-8 flex items-center justify-center gap-1.5"
 									onClick={() => {
-										window.open(
-											nismLaunchModal.launchData?.certificationsUrl || "https://cert.nism.ac.in/dashboard",
-											"_blank",
-											"noopener,noreferrer",
+										safeOpenUrl(
+											nismLaunchModal.launchData?.certificationsUrl ||
+												"https://cert.nism.ac.in/dashboard",
 										);
 									}}
 								>
-									NISM Exam Portal
+									NISM Booking Page
 									<ExternalLink className="h-3.5 w-3.5" />
 								</Button>
 							</div>
@@ -1370,7 +1633,7 @@ export default function AgentKnowledgeCertifications() {
 							<div className="space-y-0.5">
 								<p className="font-medium text-foreground">Official Examination Curriculum</p>
 								<p className="text-[11px] text-muted-foreground">
-									Passing score: {nismLaunchModal.launchData?.passingPercentage || nismLaunchModal.course?.passingPercentage || 60}% • Negative marking: None
+									Passing score: {nismLaunchModal.launchData?.passingPercentage || nismLaunchModal.course?.passingPercentage || 60}% • Negative marking: 25% (on select segments)
 								</p>
 							</div>
 							<Button
@@ -1378,12 +1641,10 @@ export default function AgentKnowledgeCertifications() {
 								size="sm"
 								className="text-xs text-muted-foreground hover:text-foreground h-7 px-2 shrink-0 flex items-center gap-1"
 								onClick={() => {
-									window.open(
+									safeOpenUrl(
 										nismLaunchModal.course?.syllabusUrl ||
 											nismLaunchModal.launchData?.syllabusUrl ||
 											"https://www.nism.ac.in/certification-examinations/",
-										"_blank",
-										"noopener,noreferrer",
 									);
 								}}
 							>
@@ -1411,6 +1672,403 @@ export default function AgentKnowledgeCertifications() {
 						>
 							Close Gateway
 						</Button>
+					</div>
+				</DialogContent>
+			</Dialog>
+
+			{/* NISM In-App Practice Test Dialog */}
+			<Dialog
+				open={practiceTestModal.isOpen}
+				onOpenChange={(open) =>
+					setPracticeTestModal((prev) => ({ ...prev, isOpen: open }))
+				}
+			>
+				<DialogContent className="sm:max-w-3xl bg-card border-border shadow-2xl p-6 max-h-[90vh] flex flex-col">
+					<DialogHeader className="pb-3 border-b border-border/50 shrink-0">
+						<div className="flex items-center justify-between flex-wrap gap-2">
+							<div className="flex items-center gap-2">
+								<div className="p-1.5 rounded-md bg-amber-500/20 text-amber-400">
+									<Target className="h-5 w-5" />
+								</div>
+								<div>
+									<DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+										{practiceTestModal.seriesCode} Practice Test
+										<Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px]">
+											Passing: {practiceTestModal.passingPercentage}%
+										</Badge>
+									</DialogTitle>
+									<DialogDescription className="text-xs text-muted-foreground">
+										{practiceTestModal.courseTitle}
+									</DialogDescription>
+								</div>
+							</div>
+							<div className="flex items-center gap-2">
+								{!practiceTestModal.result && practiceTestModal.secondsRemaining !== null && (
+									<Badge
+										variant="outline"
+										className={`text-xs font-mono font-bold flex items-center gap-1.5 px-2.5 py-1 ${
+											practiceTestModal.secondsRemaining < 60
+												? "border-red-500/60 bg-red-500/15 text-red-400 animate-pulse"
+												: practiceTestModal.secondsRemaining < 180
+												? "border-amber-500/60 bg-amber-500/15 text-amber-400"
+												: "border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
+										}`}
+									>
+										<Clock className="h-3.5 w-3.5" />
+										{formatTimeRemaining(practiceTestModal.secondsRemaining)} Left
+									</Badge>
+								)}
+								<Badge variant="outline" className="border-border text-xs flex items-center gap-1">
+									{practiceTestModal.durationMinutes} Min Exam
+								</Badge>
+							</div>
+						</div>
+					</DialogHeader>
+
+					{/* Content Area */}
+					<div className="space-y-4 py-3 overflow-y-auto pr-1 flex-1">
+						{!practiceTestModal.result ? (
+							<>
+								<div className="p-3 bg-muted/20 border border-border/40 rounded-lg space-y-2">
+									<div className="flex items-center justify-between text-xs">
+										<span className="text-muted-foreground flex items-center gap-1.5">
+											<span className="h-2 w-2 rounded-full bg-amber-400"></span>
+											{practiceTestModal.questions.length} MCQs • SEBI Negative Marking (0.25/wrong)
+										</span>
+										<span className="text-amber-400 font-medium">
+											Answered: {Object.keys(practiceTestModal.answers).length} / {practiceTestModal.questions.length}
+										</span>
+									</div>
+
+									{/* Question Palette */}
+									<div className="flex items-center gap-1.5 flex-wrap pt-1.5 border-t border-border/30">
+										<span className="text-[10px] text-muted-foreground mr-1 uppercase tracking-wider font-semibold">Palette:</span>
+										{practiceTestModal.questions.map((q, qIdx) => {
+											const isAnswered = practiceTestModal.answers[q.id] !== undefined;
+											return (
+												<button
+													key={q.id}
+													type="button"
+													onClick={() => {
+														const el = document.getElementById(`q-card-${q.id}`);
+														if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+													}}
+													className={`w-6 h-6 rounded text-[11px] font-mono font-medium transition-all ${
+														isAnswered
+															? "bg-emerald-600 text-white font-bold shadow-sm"
+															: "bg-muted/40 text-muted-foreground hover:bg-muted/80 hover:text-foreground border border-border/50"
+													}`}
+												>
+													{qIdx + 1}
+												</button>
+											);
+										})}
+									</div>
+								</div>
+
+								<div className="space-y-4">
+									{practiceTestModal.questions.map((q, idx) => (
+										<div key={q.id} id={`q-card-${q.id}`} className="p-4 rounded-lg bg-background/50 border border-border">
+											<div className="flex items-start justify-between gap-2 mb-2">
+												<p className="font-medium text-foreground text-sm">
+													{idx + 1}. {q.question}
+												</p>
+												{q.topic && (
+													<Badge variant="outline" className="text-[10px] shrink-0 text-muted-foreground">
+														{q.topic}
+													</Badge>
+												)}
+											</div>
+											<RadioGroup
+												value={practiceTestModal.answers[q.id]?.toString() ?? ""}
+												onValueChange={(val) =>
+													setPracticeTestModal((prev) => ({
+														...prev,
+														answers: { ...prev.answers, [q.id]: Number(val) },
+													}))
+												}
+											>
+												{q.options.map((opt, optIdx) => (
+													<div key={optIdx} className="flex items-center space-x-2 py-1">
+														<RadioGroupItem value={optIdx.toString()} id={`nism-prac-${q.id}-${optIdx}`} />
+														<Label htmlFor={`nism-prac-${q.id}-${optIdx}`} className="text-muted-foreground cursor-pointer text-xs">
+															{opt}
+														</Label>
+													</div>
+												))}
+											</RadioGroup>
+										</div>
+									))}
+								</div>
+
+								<Button
+									className="w-full bg-amber-600 hover:bg-amber-700 text-white mt-4"
+									disabled={
+										Object.keys(practiceTestModal.answers).length === 0 ||
+										submitPracticeTestMutation.isPending
+									}
+									onClick={() => {
+										if (!practiceTestModal.courseId) return;
+										submitPracticeTestMutation.mutate({
+											courseId: practiceTestModal.courseId,
+											answers: practiceTestModal.answers,
+										});
+									}}
+								>
+									{submitPracticeTestMutation.isPending ? "Evaluating Score..." : `Submit Practice Test (${Object.keys(practiceTestModal.answers).length}/${practiceTestModal.questions.length})`}
+								</Button>
+							</>
+						) : (
+							<div className="space-y-6">
+								{/* Score Banner */}
+								<div className="text-center py-4 bg-muted/20 border border-border rounded-lg">
+									{practiceTestModal.result.passed ? (
+										<>
+											<Trophy className="h-12 w-12 text-amber-500 mx-auto mb-2" />
+											<h3 className="text-xl font-bold text-foreground mb-1">
+												Benchmark Cleared! 🎉
+											</h3>
+											<p className="text-muted-foreground text-xs mb-3">
+												You scored {practiceTestModal.result.scorePercentage}% (Passing criteria: {practiceTestModal.result.passingPercentage}%).
+											</p>
+											<Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs px-3 py-1">
+												Ready for Official NISM Exam Booking
+											</Badge>
+										</>
+									) : (
+										<>
+											<Target className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+											<h3 className="text-xl font-bold text-foreground mb-1">
+												Review Required
+											</h3>
+											<p className="text-muted-foreground text-xs mb-3">
+												You scored {practiceTestModal.result.scorePercentage}%. Minimum {practiceTestModal.result.passingPercentage}% required to clear benchmark.
+											</p>
+											<Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs px-3 py-1">
+												Review AI Capsule & Chapter Explanations Below
+											</Badge>
+										</>
+									)}
+
+									{/* SEBI 0.25 Negative Marking Metrics Strip */}
+									<div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 pt-3 border-t border-border/40 text-left px-3">
+										<div className="p-2 rounded bg-card/60 border border-border/50">
+											<p className="text-[10px] text-muted-foreground uppercase">Gross Correct</p>
+											<p className="text-sm font-bold text-emerald-400">+{practiceTestModal.result.correctCount}</p>
+										</div>
+										<div className="p-2 rounded bg-card/60 border border-border/50">
+											<p className="text-[10px] text-muted-foreground uppercase">Incorrect (Penalty)</p>
+											<p className="text-sm font-bold text-red-400">
+												{practiceTestModal.result.incorrectCount} <span className="text-[10px] font-normal text-muted-foreground">(-0.25 ea)</span>
+											</p>
+										</div>
+										<div className="p-2 rounded bg-card/60 border border-border/50">
+											<p className="text-[10px] text-muted-foreground uppercase">Penalty Deducted</p>
+											<p className="text-sm font-bold text-amber-400">-{practiceTestModal.result.negativeMarksDeducted ?? 0}</p>
+										</div>
+										<div className="p-2 rounded bg-card/60 border border-border/50">
+											<p className="text-[10px] text-muted-foreground uppercase">Net Raw Score</p>
+											<p className="text-sm font-bold text-foreground">
+												{practiceTestModal.result.netRawScore ?? practiceTestModal.result.correctCount} / {practiceTestModal.result.totalQuestions}
+											</p>
+										</div>
+									</div>
+								</div>
+
+								{/* Empanelment Readiness Auto-Sync Alert */}
+								{practiceTestModal.result.passed && (
+									<div className="p-3.5 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-transparent border border-emerald-500/30 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+										<div className="space-y-1">
+											<div className="flex items-center gap-1.5 font-bold text-emerald-400">
+												<BadgeCheck className="h-4 w-4 text-emerald-400" />
+												Empanelment Readiness Auto-Synced ✓
+											</div>
+											<p className="text-muted-foreground text-[11px] leading-relaxed">
+												Your benchmark score ({practiceTestModal.result.scorePercentage}%) has been linked to your FintekPro distributor profile. You are cleared to proceed with official NISM slot booking.
+											</p>
+										</div>
+										<div className="flex items-center gap-2 shrink-0">
+											<Button
+												size="sm"
+												className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5 h-8"
+												onClick={() => safeOpenUrl("https://cert.nism.ac.in/action/login")}
+											>
+												Book Exam Slot
+												<ExternalLink className="h-3 w-3" />
+											</Button>
+											<Button
+												size="sm"
+												variant="outline"
+												className="border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10 text-xs h-8"
+												onClick={() => {
+													setPracticeTestModal((prev) => ({ ...prev, isOpen: false }));
+													window.location.href = "/agent/kyc-empanelment";
+												}}
+											>
+												View Empanelment
+											</Button>
+										</div>
+									</div>
+								)}
+
+								{/* FASP-AI Exam Remediation Capsule */}
+								{practiceTestModal.result.aiCapsule && (
+									<div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 space-y-2.5">
+										<div className="flex items-center justify-between gap-2 flex-wrap">
+											<div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
+												<Sparkles className="h-4 w-4" />
+												FASP-AI High-Yield Remediation Capsule
+											</div>
+											<Badge variant="outline" className="border-emerald-500/40 text-emerald-300 text-[10px]">
+												AI Tutor Insights
+											</Badge>
+										</div>
+										<div className="text-xs text-foreground/90 whitespace-pre-line leading-relaxed font-sans bg-background/40 p-3 rounded border border-border/40">
+											{practiceTestModal.result.aiCapsule.summaryNotes}
+										</div>
+										{practiceTestModal.result.aiCapsule.recommendedAction && (
+											<p className="text-[11px] text-emerald-300 font-medium">
+												👉 <strong>Recommended Action:</strong> {practiceTestModal.result.aiCapsule.recommendedAction}
+											</p>
+										)}
+									</div>
+								)}
+
+								{/* Chapter-Wise Diagnostic Analytics */}
+								{practiceTestModal.result.topicDiagnostics && practiceTestModal.result.topicDiagnostics.length > 0 && (
+									<div className="p-4 rounded-lg bg-card border border-border space-y-3">
+										<div className="flex items-center justify-between">
+											<h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5 uppercase tracking-wider">
+												<Award className="h-3.5 w-3.5 text-blue-400" />
+												Chapter & Topic Diagnostic Analytics
+											</h4>
+											<span className="text-[11px] text-muted-foreground">
+												{practiceTestModal.result.topicDiagnostics.length} Syllabus Units
+											</span>
+										</div>
+
+										<div className="space-y-2.5">
+											{practiceTestModal.result.topicDiagnostics.map((t) => (
+												<div key={t.topic} className="p-2.5 rounded bg-muted/20 border border-border/50 space-y-1.5 text-xs">
+													<div className="flex items-center justify-between gap-2">
+														<span className="font-medium text-foreground">{t.topic}</span>
+														<div className="flex items-center gap-2">
+															<span className="text-muted-foreground font-mono text-[11px]">
+																{t.correct}/{t.total} ({t.accuracyPercentage}%)
+															</span>
+															<Badge
+																variant="outline"
+																className={
+																	t.status === "Proficient"
+																		? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10 text-[10px]"
+																		: t.status === "Satisfactory"
+																		? "border-amber-500/40 text-amber-400 bg-amber-500/10 text-[10px]"
+																		: "border-red-500/40 text-red-400 bg-red-500/10 text-[10px]"
+																}
+															>
+																{t.status}
+															</Badge>
+														</div>
+													</div>
+													<Progress
+														value={t.accuracyPercentage}
+														className="h-1.5 bg-muted"
+													/>
+												</div>
+											))}
+										</div>
+									</div>
+								)}
+
+								{/* Detailed Review of Answers */}
+								<div className="space-y-3">
+									<h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+										Detailed Question Review & Explanations ({practiceTestModal.result.correctCount}/{practiceTestModal.result.totalQuestions} Correct)
+									</h4>
+									{practiceTestModal.result.reviews.map((r, idx) => (
+										<div
+											key={r.id}
+											className={`p-3.5 rounded-lg border text-xs space-y-2 ${
+												r.isCorrect
+													? "bg-emerald-500/5 border-emerald-500/30"
+													: "bg-red-500/5 border-red-500/30"
+											}`}
+										>
+											<div className="flex items-start justify-between gap-2">
+												<p className="font-semibold text-foreground">
+													{idx + 1}. {r.question}
+												</p>
+												<Badge
+													variant="outline"
+													className={
+														r.isCorrect
+															? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10 text-[10px]"
+															: "border-red-500/40 text-red-400 bg-red-500/10 text-[10px]"
+													}
+												>
+													{r.isCorrect ? "Correct ✓" : "Incorrect ✗"}
+												</Badge>
+											</div>
+
+											<div className="space-y-1 pt-1">
+												<p className="text-muted-foreground">
+													<strong className="text-foreground">Your answer:</strong>{" "}
+													{r.selectedOptionIndex !== null ? r.options[r.selectedOptionIndex] : "Unanswered"}
+												</p>
+												{!r.isCorrect && (
+													<p className="text-emerald-400 font-medium">
+														<strong>Correct answer:</strong> {r.options[r.correctOptionIndex]}
+													</p>
+												)}
+											</div>
+
+											{r.explanation && (
+												<div className="p-2.5 rounded bg-muted/30 border border-border/60 text-[11px] text-muted-foreground">
+													<strong className="text-foreground">Explanation:</strong> {r.explanation}
+												</div>
+											)}
+										</div>
+									))}
+								</div>
+
+								<div className="flex items-center justify-between gap-3 pt-3 border-t border-border flex-wrap">
+									<Button
+										variant="outline"
+										size="sm"
+										className="text-xs border-border"
+										onClick={() => {
+											setPracticeTestModal((prev) => ({
+												...prev,
+												answers: {},
+												result: null,
+											}));
+										}}
+									>
+										Retake Practice Test
+									</Button>
+									<div className="flex items-center gap-2">
+										<Button
+											size="sm"
+											className="bg-blue-600 hover:bg-blue-700 text-white text-xs flex items-center gap-1.5"
+											onClick={() => {
+												safeOpenUrl("https://cert.nism.ac.in/dashboard");
+											}}
+										>
+											Book Exam Slot at NISM
+											<ExternalLink className="h-3.5 w-3.5" />
+										</Button>
+										<Button
+											variant="ghost"
+											size="sm"
+											className="text-xs"
+											onClick={() => setPracticeTestModal((prev) => ({ ...prev, isOpen: false }))}
+										>
+											Close
+										</Button>
+									</div>
+								</div>
+							</div>
+						)}
 					</div>
 				</DialogContent>
 			</Dialog>

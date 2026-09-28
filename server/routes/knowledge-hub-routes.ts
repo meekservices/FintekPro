@@ -565,6 +565,52 @@ router.get(
 	}),
 );
 
+// GET /api/knowledge-hub/nism/courses/:courseId/practice-test — fetch interactive practice test MCQs
+router.get(
+	"/nism/courses/:courseId/practice-test",
+	asyncHandler(async (req, res) => {
+		const { courseId } = req.params;
+		const data = nismLmsService.getPracticeQuestions(courseId);
+		res.json({ success: true, ...data });
+	}),
+);
+
+// POST /api/knowledge-hub/nism/courses/:courseId/practice-test/submit — evaluate practice test
+router.post(
+	"/nism/courses/:courseId/practice-test/submit",
+	asyncHandler(async (req, res) => {
+		const agentId = (req as any).user?.id || "guest-advisor";
+		const { courseId } = req.params;
+		const { answers } = req.body;
+
+		if (!answers || typeof answers !== "object") {
+			return res.status(400).json({ error: "Answers object is required" });
+		}
+
+		const result = await nismLmsService.submitPracticeTest(courseId, answers, agentId);
+
+		const user = (req as any).user;
+		if (user) {
+			knowledgeHubService.logAuditEvent({
+				userId: agentId,
+				userRole: user?.roles?.[0] || "agent",
+				eventType: "nism_practice_test_submitted",
+				resourceType: "nism_practice_test",
+				resourceId: courseId,
+				actionDetails: {
+					courseId,
+					scorePercentage: result.scorePercentage,
+					passed: result.passed,
+				},
+				ipAddress: req.ip,
+				userAgent: req.headers["user-agent"],
+			}).catch(() => {});
+		}
+
+		res.json(result);
+	}),
+);
+
 // ── IRDAI POSP 15-Hour Mandatory Training Routes ─────────────────────────────
 
 // GET /api/knowledge-hub/irdai/modules — list 15-hr POSP modules & training summary
