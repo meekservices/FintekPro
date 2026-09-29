@@ -82,7 +82,7 @@ router.get(
 		const briefs = await knowledgeHubService.getMarketBriefs({
 			region: region as string,
 			status: status as string,
-			limit: limit ? Number.parseInt(limit as string) : 10,
+			limit: limit ? Number.parseInt(limit as string, 10) : 10,
 		});
 		res.json(briefs && briefs.length > 0 ? briefs : [knowledgeHubService.getFallbackDailyBrief((region as string) || "india")]);
 	}),
@@ -478,7 +478,7 @@ router.get(
 			eventType: eventType as string,
 			startDate: startDate ? new Date(startDate as string) : undefined,
 			endDate: endDate ? new Date(endDate as string) : undefined,
-			limit: limit ? Number.parseInt(limit as string) : 100,
+			limit: limit ? Number.parseInt(limit as string, 10) : 100,
 		});
 		res.json(logs);
 	}),
@@ -546,7 +546,7 @@ router.post(
 	"/nism/xapi/statements",
 	asyncHandler(async (req, res) => {
 		const statement = req.body;
-		if (!statement || !statement.actor || !statement.verb || !statement.object) {
+		if (!statement?.actor || !statement.verb || !statement.object) {
 			return res.status(400).json({ error: "Invalid xAPI statement format" });
 		}
 
@@ -570,7 +570,8 @@ router.get(
 	"/nism/courses/:courseId/practice-test",
 	asyncHandler(async (req, res) => {
 		const { courseId } = req.params;
-		const data = nismLmsService.getPracticeQuestions(courseId);
+		const mode = (req.query.mode as string) || (req.query.count ? String(req.query.count) : undefined);
+		const data = nismLmsService.getPracticeQuestions(courseId, mode);
 		res.json({ success: true, ...data });
 	}),
 );
@@ -581,13 +582,18 @@ router.post(
 	asyncHandler(async (req, res) => {
 		const agentId = (req as any).user?.id || "guest-advisor";
 		const { courseId } = req.params;
-		const { answers } = req.body;
+		const { answers, questionIds } = req.body;
 
 		if (!answers || typeof answers !== "object") {
 			return res.status(400).json({ error: "Answers object is required" });
 		}
 
-		const result = await nismLmsService.submitPracticeTest(courseId, answers, agentId);
+		const result = await nismLmsService.submitPracticeTest(
+			courseId,
+			answers,
+			agentId,
+			Array.isArray(questionIds) ? questionIds : undefined,
+		);
 
 		const user = (req as any).user;
 		if (user) {
@@ -687,7 +693,7 @@ router.post(
 // GET /api/knowledge-hub/irdai/practice-test — fetch IRDAI practice questions
 router.get(
 	"/irdai/practice-test",
-	asyncHandler(async (req, res) => {
+	asyncHandler(async (_req, res) => {
 		const data = irdaiPospTrainingService.getPracticeQuestions();
 		res.json({ success: true, ...data });
 	}),

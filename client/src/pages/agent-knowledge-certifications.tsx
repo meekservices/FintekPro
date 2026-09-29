@@ -264,7 +264,10 @@ export default function AgentKnowledgeCertifications() {
 		course: null,
 		launchData: null,
 	});
-	
+
+	// NISM Practice Test simulation mode (full 100 Qs mock, 50 Qs diagnostic, 25 Qs sprint, all 190+ bank)
+	const [nismPracticeTestMode, setNismPracticeTestMode] = useState<"full" | "diagnostic" | "quick" | "all">("full");
+
 	// IRDAI Exam state
 	const [pospExamOpen, setPospExamOpen] = useState(false);
 	const [pospQuestions, setPospQuestions] = useState<PospExamQuestion[]>([]);
@@ -537,17 +540,17 @@ export default function AgentKnowledgeCertifications() {
 		}
 	};
 
-	const handleStartNismPracticeTest = async (courseId: string) => {
+	const handleStartNismPracticeTest = async (courseId: string, mode: string = nismPracticeTestMode) => {
 		try {
 			setPracticeTestModal((prev) => ({ ...prev, loading: true }));
 			const url =
 				courseId === "irdai-posp"
 					? "/api/knowledge-hub/irdai/practice-test"
-					: `/api/knowledge-hub/nism/courses/${courseId}/practice-test`;
+					: `/api/knowledge-hub/nism/courses/${courseId}/practice-test?mode=${mode}`;
 			const res = await apiRequest("GET", url);
 			const data = typeof res?.json === "function" ? await res.json() : res;
 			if (data?.success) {
-				const durationMinutes = data.durationMinutes || (courseId === "irdai-posp" ? 30 : 15);
+				const durationMinutes = data.durationMinutes || (courseId === "irdai-posp" ? 30 : 120);
 				setPracticeTestModal({
 					isOpen: true,
 					loading: false,
@@ -586,12 +589,17 @@ export default function AgentKnowledgeCertifications() {
 		mutationFn: async ({
 			courseId,
 			answers,
-		}: { courseId: string; answers: Record<string, number> }) => {
+			questionIds,
+		}: {
+			courseId: string;
+			answers: Record<string, number>;
+			questionIds?: string[];
+		}) => {
 			const url =
 				courseId === "irdai-posp"
 					? "/api/knowledge-hub/irdai/practice-test/submit"
 					: `/api/knowledge-hub/nism/courses/${courseId}/practice-test/submit`;
-			const res = await apiRequest("POST", url, { answers });
+			const res = await apiRequest("POST", url, { answers, questionIds });
 			return typeof res?.json === "function" ? await res.json() : res;
 		},
 		onSuccess: (data) => {
@@ -768,6 +776,7 @@ export default function AgentKnowledgeCertifications() {
 						submitPracticeTestMutation.mutate({
 							courseId: prev.courseId,
 							answers: prev.answers,
+							questionIds: prev.questions.map((q) => q.id),
 						});
 						toast({
 							title: "Time Expired! Auto-Submitting",
@@ -1872,7 +1881,7 @@ export default function AgentKnowledgeCertifications() {
 
 							{/* 2. Practice Mock Test */}
 							<div className="p-3.5 rounded-lg bg-card border border-amber-500/30 flex flex-col justify-between hover:border-amber-500 transition-colors">
-								<div className="space-y-1 mb-3">
+								<div className="space-y-2 mb-3">
 									<div className="flex items-center justify-between">
 										<span className="text-xs font-semibold text-amber-400 flex items-center gap-1.5">
 											<Target className="h-3.5 w-3.5" />
@@ -1881,20 +1890,75 @@ export default function AgentKnowledgeCertifications() {
 										<Badge className="text-[10px] bg-amber-500/20 text-amber-300">In-App</Badge>
 									</div>
 									<p className="text-xs text-muted-foreground">
-										Simulate official MCQs with instant scoring, answer keys & regulatory rationales.
+										Real exam simulation with SEBI 0.25 negative marking, topic diagnostics & answers.
 									</p>
+									<div className="pt-1">
+										<span className="text-[10px] text-muted-foreground font-medium block mb-1">
+											Select Exam Mode:
+										</span>
+										<div className="grid grid-cols-2 gap-1.5 text-[11px]">
+											<button
+												type="button"
+												onClick={() => setNismPracticeTestMode("full")}
+												className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
+													nismPracticeTestMode === "full"
+														? "border-amber-500 bg-amber-500/20 text-amber-300 font-semibold"
+														: "border-border/60 hover:border-border text-muted-foreground"
+												}`}
+											>
+												<span>🏆 Full 100 Qs Mock</span>
+												<span className="text-[9px] opacity-80">120m • Real Exam</span>
+											</button>
+											<button
+												type="button"
+												onClick={() => setNismPracticeTestMode("diagnostic")}
+												className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
+													nismPracticeTestMode === "diagnostic"
+														? "border-amber-500 bg-amber-500/20 text-amber-300 font-semibold"
+														: "border-border/60 hover:border-border text-muted-foreground"
+												}`}
+											>
+												<span>🎯 50 Qs Diagnostic</span>
+												<span className="text-[9px] opacity-80">60m • Readiness</span>
+											</button>
+											<button
+												type="button"
+												onClick={() => setNismPracticeTestMode("quick")}
+												className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
+													nismPracticeTestMode === "quick"
+														? "border-amber-500 bg-amber-500/20 text-amber-300 font-semibold"
+														: "border-border/60 hover:border-border text-muted-foreground"
+												}`}
+											>
+												<span>⚡ 25 Qs Sprint</span>
+												<span className="text-[9px] opacity-80">30m • High-Yield</span>
+											</button>
+											<button
+												type="button"
+												onClick={() => setNismPracticeTestMode("all")}
+												className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
+													nismPracticeTestMode === "all"
+														? "border-amber-500 bg-amber-500/20 text-amber-300 font-semibold"
+														: "border-border/60 hover:border-border text-muted-foreground"
+												}`}
+											>
+												<span>📚 All 190+ Bank</span>
+												<span className="text-[9px] opacity-80">Comprehensive Bank</span>
+											</button>
+										</div>
+									</div>
 								</div>
 								<Button
 									size="sm"
-									className="w-full bg-amber-600 hover:bg-amber-700 text-white text-xs h-8 flex items-center justify-center gap-1.5"
+									className="w-full bg-amber-600 hover:bg-amber-700 text-white text-xs h-8 flex items-center justify-center gap-1.5 mt-1"
 									disabled={practiceTestModal.loading}
 									onClick={() => {
 										const targetCourseId = nismLaunchModal.course?.courseId || nismLaunchModal.launchData?.seriesCode || "nism-va";
-										handleStartNismPracticeTest(targetCourseId);
+										handleStartNismPracticeTest(targetCourseId, nismPracticeTestMode);
 									}}
 								>
 									<Play className="h-3.5 w-3.5 fill-current" />
-									Start Practice Test
+									Start Practice Test ({nismPracticeTestMode === "full" ? "100 Qs" : nismPracticeTestMode === "diagnostic" ? "50 Qs" : nismPracticeTestMode === "quick" ? "25 Qs" : "190+ Qs"})
 								</Button>
 							</div>
 
@@ -2115,6 +2179,7 @@ export default function AgentKnowledgeCertifications() {
 										submitPracticeTestMutation.mutate({
 											courseId: practiceTestModal.courseId,
 											answers: practiceTestModal.answers,
+											questionIds: practiceTestModal.questions.map((q) => q.id),
 										});
 									}}
 								>
