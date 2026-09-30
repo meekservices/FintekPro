@@ -2,17 +2,17 @@
 /**
  * NISM Examination Question Bank
  * Comprehensive question bank covering the official NISM curriculum:
- * - NISM Series V-A: Mutual Fund Distributors (Chapters 1 to 12) - 190 Questions
+ * - NISM Series V-A: Mutual Fund Distributors (Chapters 1 to 12) - 360 Questions
+ *   Equipped for 150-Question Full Examination Papers (Paper 1, Paper 2, Paper 3)
  * - NISM Series VIII: Equity Derivatives - 25 Questions
  * - NISM Series X-A: Investment Adviser Level 1 - 10 Questions
  * - NISM Series XV: Research Analyst - 10 Questions
  * - NISM Series XXI-A: PMS Distributors - 10 Questions
  * - NISM Series V-D: SIF Distributors - 10 Questions
- * Total Bank: 255 High-Yield Exam Questions
+ * Total Bank: 425 High-Yield Exam Questions
  *
  * Statutory References:
- * - SEBI (Mutual Funds) Regulations, 1996
- * - SEBI Master Circular for Mutual Funds (2024)
+ * - SEBI (Mutual Funds) Regulations, 1996 & SEBI Master Circular 2024
  * - AMFI Code of Ethics & Best Practice Guidelines
  * - Finance Act 2023 & Budget 2024 Capital Gains Tax Framework (12.5% LTCG, 20% STCG)
  */
@@ -87,7 +87,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
   {
     "id": "nism-va-q5",
     "courseId": "nism-va",
-    "question": "What is the maximum Total Expense Ratio (TER) permissible for an open-ended equity scheme for the first \u20b9500 crores of daily net assets under SEBI regulations?",
+    "question": "What is the maximum Total Expense Ratio (TER) permissible for an open-ended equity scheme for the first ₹500 crores of daily net assets under SEBI regulations?",
     "options": [
       "2.25%",
       "2.00%",
@@ -95,13 +95,13 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
       "2.50%"
     ],
     "correctIndex": 0,
-    "explanation": "SEBI limits the base TER for the first \u20b9500 crores of daily net assets of an open-ended equity-oriented scheme to 2.25% (plus additional allowances for B-30 cities and GST).",
+    "explanation": "SEBI limits the base TER for the first ₹500 crores of daily net assets of an open-ended equity-oriented scheme to 2.25% (plus additional allowances for B-30 cities and GST).",
     "topic": "Mutual Fund Expenses & Accounting"
   },
   {
     "id": "nism-va-q6",
     "courseId": "nism-va",
-    "question": "Under Section 112A of the Income Tax Act, long-term capital gains (LTCG) on equity mutual funds exceeding \u20b91.25 Lakh per financial year are taxed at what rate (post Budget 2024)?",
+    "question": "Under Section 112A of the Income Tax Act, long-term capital gains (LTCG) on equity mutual funds exceeding ₹1.25 Lakh per financial year are taxed at what rate (post Budget 2024)?",
     "options": [
       "10%",
       "12.5%",
@@ -109,7 +109,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
       "20% with indexation"
     ],
     "correctIndex": 1,
-    "explanation": "Effective Budget 2024, Long Term Capital Gains (LTCG) on listed equity and equity mutual funds held for more than 12 months are taxed at 12.5% on gains exceeding \u20b91.25 Lakhs per fiscal year.",
+    "explanation": "Effective Budget 2024, Long Term Capital Gains (LTCG) on listed equity and equity mutual funds held for more than 12 months are taxed at 12.5% on gains exceeding ₹1.25 Lakhs per fiscal year.",
     "topic": "Taxation of Mutual Funds"
   },
   {
@@ -187,13 +187,13 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "courseId": "nism-va",
     "question": "What is the statutory minimum net worth requirement that an entity must maintain to operate as an Asset Management Company (AMC) in India?",
     "options": [
-      "\u20b910 Crores",
-      "\u20b925 Crores",
-      "\u20b950 Crores",
-      "\u20b9100 Crores"
+      "₹10 Crores",
+      "₹25 Crores",
+      "₹50 Crores",
+      "₹100 Crores"
     ],
     "correctIndex": 2,
-    "explanation": "Under SEBI (Mutual Funds) Regulations, an AMC must maintain a continuous minimum net worth of at least \u20b950 Crores.",
+    "explanation": "Under SEBI (Mutual Funds) Regulations, an AMC must maintain a continuous minimum net worth of at least ₹50 Crores.",
     "topic": "Mutual Fund Governance"
   },
   {
@@ -249,7 +249,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
       "4.5%"
     ],
     "correctIndex": 1,
-    "explanation": "Real Rate of Return \u2248 Nominal Rate - Inflation Rate = 9% - 5% = 4%. Real return measures actual purchasing power growth.",
+    "explanation": "Real Rate of Return ≈ Nominal Rate - Inflation Rate = 9% - 5% = 4%. Real return measures actual purchasing power growth.",
     "topic": "Investment Landscape"
   },
   {
@@ -347,7 +347,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
       "Choice of trading platform"
     ],
     "correctIndex": 2,
-    "explanation": "Asset allocation \u2014 the proportion of wealth allocated among equity, debt, gold, and cash \u2014 is the primary driver of portfolio return variance over time.",
+    "explanation": "Asset allocation — the proportion of wealth allocated among equity, debt, gold, and cash — is the primary driver of portfolio return variance over time.",
     "topic": "Investment Landscape"
   },
   {
@@ -621,7 +621,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "courseId": "nism-va",
     "question": "What is the Net Asset Value (NAV) of a mutual fund scheme?",
     "options": [
-      "The initial issue price of \u20b910 per unit fixed forever",
+      "The initial issue price of ₹10 per unit fixed forever",
       "The market value of the scheme's investments plus current assets minus liabilities, divided by the total number of outstanding units",
       "The book value of the AMC's share capital",
       "The maximum price at which the distributor can sell units"
@@ -677,13 +677,13 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "courseId": "nism-va",
     "question": "What is the minimum continuous net worth required for an entity to function as an Asset Management Company (AMC) in India?",
     "options": [
-      "\u20b910 Crores",
-      "\u20b925 Crores",
-      "\u20b950 Crores",
-      "\u20b9100 Crores"
+      "₹10 Crores",
+      "₹25 Crores",
+      "₹50 Crores",
+      "₹100 Crores"
     ],
     "correctIndex": 2,
-    "explanation": "Under SEBI regulations, an AMC must maintain a continuous minimum net worth of at least \u20b950 Crores at all times.",
+    "explanation": "Under SEBI regulations, an AMC must maintain a continuous minimum net worth of at least ₹50 Crores at all times.",
     "topic": "Legal and Regulatory Framework"
   },
   {
@@ -1141,7 +1141,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "options": [
       "Yes, up to 5% of transaction value",
       "No, upfront commissions and upfronting of trail fees from AMCs are completely banned",
-      "Yes, for investments above \u20b91 Crore",
+      "Yes, for investments above ₹1 Crore",
       "Yes, with unitholder consent"
     ],
     "correctIndex": 1,
@@ -1151,15 +1151,15 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
   {
     "id": "nism-va-q81",
     "courseId": "nism-va",
-    "question": "What is the permissible transaction charge that an opted-in distributor can levy on a subscription of \u20b910,000 or more from a first-time mutual fund investor?",
+    "question": "What is the permissible transaction charge that an opted-in distributor can levy on a subscription of ₹10,000 or more from a first-time mutual fund investor?",
     "options": [
-      "\u20b950",
-      "\u20b9100",
-      "\u20b9150",
-      "\u20b9500"
+      "₹50",
+      "₹100",
+      "₹150",
+      "₹500"
     ],
     "correctIndex": 2,
-    "explanation": "SEBI allows opted-in distributors to deduct a transaction charge of \u20b9150 for a first-time mutual fund investor on investments of \u20b910,000 and above (and \u20b9100 for existing investors).",
+    "explanation": "SEBI allows opted-in distributors to deduct a transaction charge of ₹150 for a first-time mutual fund investor on investments of ₹10,000 and above (and ₹100 for existing investors).",
     "topic": "Fund Distribution & Channel Practices"
   },
   {
@@ -1211,7 +1211,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "options": [
       "Yes, if the client signs an indemnity bond",
       "No, SEBI mandates a strict segregation of advisory and distribution activities to eliminate conflicts of interest",
-      "Yes, up to \u20b910 Lakhs of commission",
+      "Yes, up to ₹10 Lakhs of commission",
       "Yes, if approved by AMFI"
     ],
     "correctIndex": 1,
@@ -1239,7 +1239,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "options": [
       "Their ARN is made permanently invalid without appeal",
       "Their ARN is suspended, and trail commissions on existing client folios are withheld during the invalidity period",
-      "They are fined \u20b91 Crore by the RBI",
+      "They are fined ₹1 Crore by the RBI",
       "Their clients' units are automatically redeemed"
     ],
     "correctIndex": 1,
@@ -1319,7 +1319,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
   {
     "id": "nism-va-q93",
     "courseId": "nism-va",
-    "question": "What is the maximum base Total Expense Ratio (TER) permissible for an open-ended equity scheme on the first \u20b9500 crores of daily net assets under SEBI slabs?",
+    "question": "What is the maximum base Total Expense Ratio (TER) permissible for an open-ended equity scheme on the first ₹500 crores of daily net assets under SEBI slabs?",
     "options": [
       "1.50%",
       "2.00%",
@@ -1327,7 +1327,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
       "2.75%"
     ],
     "correctIndex": 2,
-    "explanation": "Under SEBI regulations, the maximum base TER for the first \u20b9500 crores of daily net assets of an open-ended equity-oriented scheme is 2.25%.",
+    "explanation": "Under SEBI regulations, the maximum base TER for the first ₹500 crores of daily net assets of an open-ended equity-oriented scheme is 2.25%.",
     "topic": "Net Asset Value, TER & Pricing"
   },
   {
@@ -1397,7 +1397,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
       "1.00%"
     ],
     "correctIndex": 0,
-    "explanation": "Stamp Duty at the rate of 0.005% (50 paise per \u20b910,000) is deducted on all purchases and additions of mutual fund units (SIP, lumpsum, STP).",
+    "explanation": "Stamp Duty at the rate of 0.005% (50 paise per ₹10,000) is deducted on all purchases and additions of mutual fund units (SIP, lumpsum, STP).",
     "topic": "Net Asset Value, TER & Pricing"
   },
   {
@@ -1417,7 +1417,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
   {
     "id": "nism-va-q100",
     "courseId": "nism-va",
-    "question": "What is the maximum base Total Expense Ratio (TER) permissible for an open-ended debt scheme on the first \u20b9500 crores of AUM under SEBI regulations?",
+    "question": "What is the maximum base Total Expense Ratio (TER) permissible for an open-ended debt scheme on the first ₹500 crores of AUM under SEBI regulations?",
     "options": [
       "1.50%",
       "2.00%",
@@ -1425,7 +1425,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
       "2.50%"
     ],
     "correctIndex": 1,
-    "explanation": "Under SEBI limits, the base TER for open-ended debt schemes on the first \u20b9500 crores of daily net assets is capped at 2.00%.",
+    "explanation": "Under SEBI limits, the base TER for open-ended debt schemes on the first ₹500 crores of daily net assets is capped at 2.00%.",
     "topic": "Net Asset Value, TER & Pricing"
   },
   {
@@ -1517,13 +1517,13 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "courseId": "nism-va",
     "question": "Effective post Budget 2024, what is the tax rate on Long-Term Capital Gains (LTCG) from equity mutual funds held for more than 12 months?",
     "options": [
-      "10% on gains exceeding \u20b91 Lakh",
-      "12.5% on gains exceeding \u20b91.25 Lakh per financial year",
+      "10% on gains exceeding ₹1 Lakh",
+      "12.5% on gains exceeding ₹1.25 Lakh per financial year",
       "15% on all gains",
       "20% with indexation"
     ],
     "correctIndex": 1,
-    "explanation": "Budget 2024 revised the Section 112A LTCG tax rate to 12.5% with the annual tax-exempt threshold increased from \u20b91 Lakh to \u20b91.25 Lakhs.",
+    "explanation": "Budget 2024 revised the Section 112A LTCG tax rate to 12.5% with the annual tax-exempt threshold increased from ₹1 Lakh to ₹1.25 Lakhs.",
     "topic": "Taxation of Mutual Funds"
   },
   {
@@ -1559,7 +1559,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "courseId": "nism-va",
     "question": "How is dividend income (IDCW) received by an individual investor from mutual funds taxed under current Indian tax laws?",
     "options": [
-      "Tax-free up to \u20b910 Lakhs",
+      "Tax-free up to ₹10 Lakhs",
       "Taxable in the hands of the investor at their applicable personal income tax slab rate",
       "Taxed at a flat rate of 10% without deductions",
       "Subject only to Dividend Distribution Tax paid by the AMC"
@@ -1573,13 +1573,13 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "courseId": "nism-va",
     "question": "What is the threshold above which an AMC must deduct 10% TDS under Section 194K on dividend (IDCW) payouts to resident unitholders in a financial year?",
     "options": [
-      "\u20b91,000",
-      "\u20b92,500",
-      "\u20b95,000",
-      "\u20b910,000"
+      "₹1,000",
+      "₹2,500",
+      "₹5,000",
+      "₹10,000"
     ],
     "correctIndex": 2,
-    "explanation": "Under Section 194K, TDS @ 10% is deducted on mutual fund dividend payments exceeding \u20b95,000 in aggregate to a resident individual during a financial year.",
+    "explanation": "Under Section 194K, TDS @ 10% is deducted on mutual fund dividend payments exceeding ₹5,000 in aggregate to a resident individual during a financial year.",
     "topic": "Taxation of Mutual Funds"
   },
   {
@@ -1589,7 +1589,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "options": [
       "Yes, capital losses can be set off against any capital gain",
       "No, Long-Term Capital Losses can only be set off against Long-Term Capital Gains",
-      "Yes, but only up to \u20b950,000",
+      "Yes, but only up to ₹50,000",
       "Yes, if approved by the Assessing Officer"
     ],
     "correctIndex": 1,
@@ -1618,7 +1618,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
       "Yes, @ 0.001%",
       "No, STT is not applicable on transactions in debt mutual fund schemes",
       "Yes, @ 0.125%",
-      "Yes, but only for transactions above \u20b910 Lakhs"
+      "Yes, but only for transactions above ₹10 Lakhs"
     ],
     "correctIndex": 1,
     "explanation": "STT applies only to equity shares and equity-oriented mutual fund redemptions/ETFs; it is not levied on debt schemes or liquid funds.",
@@ -1643,13 +1643,13 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "courseId": "nism-va",
     "question": "Under Section 80C of the Income Tax Act, what is the maximum tax deduction available for investing in Equity Linked Savings Schemes (ELSS)?",
     "options": [
-      "\u20b950,000",
-      "\u20b91,00,000",
-      "\u20b91,50,000 per financial year",
-      "\u20b92,50,000"
+      "₹50,000",
+      "₹1,00,000",
+      "₹1,50,000 per financial year",
+      "₹2,50,000"
     ],
     "correctIndex": 2,
-    "explanation": "Investments in ELSS qualify for deduction under Section 80C of the Income Tax Act up to a maximum overall ceiling of \u20b91.50 Lakhs per financial year.",
+    "explanation": "Investments in ELSS qualify for deduction under Section 80C of the Income Tax Act up to a maximum overall ceiling of ₹1.50 Lakhs per financial year.",
     "topic": "Taxation of Mutual Funds"
   },
   {
@@ -1756,12 +1756,12 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "question": "Which of the following is an authorized exception where a third-party payment is permitted for a mutual fund investment?",
     "options": [
       "A friend paying for another friend's equity SIP",
-      "A parent or grandparent paying up to \u20b950,000 per transaction as a gift for a minor child's folio",
+      "A parent or grandparent paying up to ₹50,000 per transaction as a gift for a minor child's folio",
       "A real estate developer investing on behalf of buyers",
       "An employer investing on personal behalf without payroll linkage"
     ],
     "correctIndex": 1,
-    "explanation": "Exceptions include: parents/grandparents gifting to minor up to \u20b950,000, employer on behalf of employee via payroll, or custodian on behalf of institutional client.",
+    "explanation": "Exceptions include: parents/grandparents gifting to minor up to ₹50,000, employer on behalf of employee via payroll, or custodian on behalf of institutional client.",
     "topic": "Investor Services"
   },
   {
@@ -1839,13 +1839,13 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "courseId": "nism-va",
     "question": "What is the annual investment ceiling per financial year per AMC for 'Micro SIPs' without submitting a PAN card?",
     "options": [
-      "\u20b910,000",
-      "\u20b925,000",
-      "\u20b950,000 per financial year per AMC",
-      "\u20b91,00,000"
+      "₹10,000",
+      "₹25,000",
+      "₹50,000 per financial year per AMC",
+      "₹1,00,000"
     ],
     "correctIndex": 2,
-    "explanation": "Micro SIPs (investments up to \u20b950,000 per financial year per mutual fund) are exempt from the mandatory PAN requirement, though photo KYC remains compulsory.",
+    "explanation": "Micro SIPs (investments up to ₹50,000 per financial year per mutual fund) are exempt from the mandatory PAN requirement, though photo KYC remains compulsory.",
     "topic": "Investor Services"
   },
   {
@@ -1870,7 +1870,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
       "Only if they have filed an income tax return in that month",
       "If any financial transaction (purchase, redemption, SIP, STP, SWP, dividend) occurred in any of their folios during that month",
       "Only on their birthday",
-      "Only if their portfolio value exceeds \u20b91 Crore"
+      "Only if their portfolio value exceeds ₹1 Crore"
     ],
     "correctIndex": 1,
     "explanation": "A monthly CAS is generated and sent by the 15th of the following month if any financial transaction took place across the investor's folios.",
@@ -1929,13 +1929,13 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
       "Coupon Rate"
     ],
     "correctIndex": 1,
-    "explanation": "Standard Deviation measures total risk \u2014 the dispersion of monthly or annual returns around the historical average return of the scheme.",
+    "explanation": "Standard Deviation measures total risk — the dispersion of monthly or annual returns around the historical average return of the scheme.",
     "topic": "Risk, Return & Performance"
   },
   {
     "id": "nism-va-q137",
     "courseId": "nism-va",
-    "question": "What does a scheme Beta (\u03b2) of 1.25 indicate relative to its benchmark index?",
+    "question": "What does a scheme Beta (β) of 1.25 indicate relative to its benchmark index?",
     "options": [
       "The scheme is 25% less volatile than the benchmark index",
       "The scheme tends to move by 1.25% for every 1% move in the benchmark index, reflecting higher systematic risk",
@@ -1952,7 +1952,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "question": "What does the Sharpe Ratio measure in portfolio evaluation?",
     "options": [
       "Total return minus inflation",
-      "Excess return generated per unit of total risk (Standard Deviation): (Rp - Rf) / \u03c3p",
+      "Excess return generated per unit of total risk (Standard Deviation): (Rp - Rf) / σp",
       "Dividend payout divided by market price",
       "Trading turnover per calendar quarter"
     ],
@@ -1977,7 +1977,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
   {
     "id": "nism-va-q140",
     "courseId": "nism-va",
-    "question": "What does Jensen's Alpha (\u03b1) quantify in active portfolio management?",
+    "question": "What does Jensen's Alpha (α) quantify in active portfolio management?",
     "options": [
       "The total brokerage cost incurred on stock purchases",
       "The excess return generated by the fund manager above the expected return predicted by the Capital Asset Pricing Model (CAPM)",
@@ -2041,7 +2041,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
       "The time taken to issue new units"
     ],
     "correctIndex": 1,
-    "explanation": "Modified Duration measures a bond or debt portfolio's price sensitivity to interest rate changes (Price Change % \u2248 -Modified Duration \u00d7 Change in Yield).",
+    "explanation": "Modified Duration measures a bond or debt portfolio's price sensitivity to interest rate changes (Price Change % ≈ -Modified Duration × Change in Yield).",
     "topic": "Risk, Return & Performance"
   },
   {
@@ -2075,7 +2075,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
   {
     "id": "nism-va-q147",
     "courseId": "nism-va",
-    "question": "What does R-Squared (R\u00b2) represent when comparing a mutual fund to its benchmark index?",
+    "question": "What does R-Squared (R²) represent when comparing a mutual fund to its benchmark index?",
     "options": [
       "The fund's return divided by inflation",
       "The percentage of a fund's movements that can be explained by movements in its benchmark index",
@@ -2083,7 +2083,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
       "The ratio of equity to debt"
     ],
     "correctIndex": 1,
-    "explanation": "R-squared measures the correlation of the fund to its benchmark on a scale of 0 to 100%. An R\u00b2 of 95% means 95% of the fund's returns are explained by benchmark moves.",
+    "explanation": "R-squared measures the correlation of the fund to its benchmark on a scale of 0 to 100%. An R² of 95% means 95% of the fund's returns are explained by benchmark moves.",
     "topic": "Risk, Return & Performance"
   },
   {
@@ -2149,7 +2149,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "options": [
       "Companies ranked from 50th to 150th by market capitalization",
       "Companies ranked from 101st to 250th by full market capitalization",
-      "Companies with market capitalization below \u20b9500 Crores",
+      "Companies with market capitalization below ₹500 Crores",
       "Companies operating in rural areas"
     ],
     "correctIndex": 1,
@@ -2484,7 +2484,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "question": "What is the primary advantage of choosing a 'Growth Option' for an investor in the highest income tax slab?",
     "options": [
       "Zero tax on redemptions",
-      "Tax deferral \u2014 capital gains are taxed only upon actual redemption rather than annual tax liabilities on dividend income",
+      "Tax deferral — capital gains are taxed only upon actual redemption rather than annual tax liabilities on dividend income",
       "Immunity from capital losses",
       "Double indexation benefits"
     ],
@@ -2727,7 +2727,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
       "Rho"
     ],
     "correctIndex": 2,
-    "explanation": "Gamma (\u0393) measures the rate of change of Delta with respect to changes in the underlying asset's price, effectively measuring the curvature of the option value.",
+    "explanation": "Gamma (Γ) measures the rate of change of Delta with respect to changes in the underlying asset's price, effectively measuring the curvature of the option value.",
     "topic": "Option Greeks"
   },
   {
@@ -2741,7 +2741,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
       "Rho"
     ],
     "correctIndex": 2,
-    "explanation": "Theta (\u0398) represents time decay \u2014 the loss in option value as time moves closer to expiration, typically negative for long option positions.",
+    "explanation": "Theta (Θ) represents time decay — the loss in option value as time moves closer to expiration, typically negative for long option positions.",
     "topic": "Option Greeks"
   },
   {
@@ -2789,7 +2789,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
   {
     "id": "nism-viii-q8",
     "courseId": "nism-viii",
-    "question": "What does a Beta (\u03b2) greater than 1 signify for a stock in equity derivatives trading?",
+    "question": "What does a Beta (β) greater than 1 signify for a stock in equity derivatives trading?",
     "options": [
       "The stock has negative correlation with the index",
       "The expected percentage change in stock price will be more than the percentage change in the index (higher systematic volatility)",
@@ -2797,7 +2797,7 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
       "The stock cannot be hedged using index futures"
     ],
     "correctIndex": 1,
-    "explanation": "Beta measures sensitivity vis-\u00e0-vis index movement. A Beta > 1 indicates that the security tends to exhibit larger percentage swings than the market index.",
+    "explanation": "Beta measures sensitivity vis-à-vis index movement. A Beta > 1 indicates that the security tends to exhibit larger percentage swings than the market index.",
     "topic": "Hedging & Risk Management"
   },
   {
@@ -3037,547 +3037,2945 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "correctIndex": 1,
     "explanation": "Implied Volatility is the forward-looking volatility metric backed out of actual traded option market prices using the Black-Scholes formula.",
     "topic": "Option Pricing & Greeks"
+  },
+  {
+    "id": "nism-xa-q1",
+    "courseId": "nism-xa",
+    "question": "Under the SEBI (Investment Advisers) Regulations, 2013, which of the following is mandatory for an individual RIA?",
+    "options": [
+      "Segregation of advisory and distribution activities at client level",
+      "Maintaining an ARN code under the same PAN for mutual fund distribution",
+      "Charging both advisory fees and distribution commission from the same client",
+      "Mandatory guarantee of capital protection in financial plans"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI regulations enforce strict client-level segregation between investment advisory and distribution/execution services to prevent conflicts of interest.",
+    "topic": "SEBI RIA Regulations"
+  },
+  {
+    "id": "nism-xa-q2",
+    "courseId": "nism-xa",
+    "question": "Which of the following approaches is the foundational formula of Modern Portfolio Theory (MPT) developed by Harry Markowitz?",
+    "options": [
+      "Maximizing expected return for a given level of risk or minimizing risk for a given level of expected return",
+      "Purchasing only risk-free government securities and cash equivalents",
+      "Focusing solely on individual stock price-to-earnings ratios",
+      "Eliminating systematic market risk through stock diversification"
+    ],
+    "correctIndex": 0,
+    "explanation": "Markowitz Modern Portfolio Theory states that an investor can construct an efficient frontier portfolio that maximizes expected return for a given level of risk.",
+    "topic": "Portfolio Construction & Asset Allocation"
+  },
+  {
+    "id": "nism-xa-q3",
+    "courseId": "nism-xa",
+    "question": "What is the maximum annual fee that an individual SEBI-registered Investment Adviser (RIA) can charge under the Assets Under Advice (AUA) mechanism?",
+    "options": [
+      "1.5% of AUA",
+      "2.5% of AUA",
+      "3.0% of AUA",
+      "5.0% of AUA"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under SEBI RIA guidelines, maximum fees charged under the AUA model cannot exceed 2.5% per annum of the client's Assets under Advice.",
+    "topic": "Advisory Fee Norms"
+  },
+  {
+    "id": "nism-xa-q4",
+    "courseId": "nism-xa",
+    "question": "In investor profiling, what is the crucial distinction between 'Risk Capacity' and 'Risk Tolerance'?",
+    "options": [
+      "Capacity is psychological willingness; Tolerance is financial ability",
+      "Capacity is objective financial ability to absorb losses; Tolerance is subjective emotional attitude toward risk",
+      "Capacity is determined by credit score; Tolerance is determined by income tax slab",
+      "Both terms denote identical regulatory metrics"
+    ],
+    "correctIndex": 1,
+    "explanation": "Risk capacity is the objective ability to absorb losses (net worth, time horizon), while risk tolerance is psychological willingness to handle market volatility.",
+    "topic": "Client Profiling & Suitability"
+  },
+  {
+    "id": "nism-xa-q5",
+    "courseId": "nism-xa",
+    "question": "In financial planning, what is the standard prudent sizing recommended for an individual's emergency contingency fund?",
+    "options": [
+      "1 month of gross discretionary spending",
+      "3 to 6 months of mandatory household and debt-servicing expenses",
+      "1 year of total investments",
+      "5 years of life insurance premiums"
+    ],
+    "correctIndex": 1,
+    "explanation": "An emergency fund should cover 3 to 6 months of committed living expenses, held in safe and liquid avenues like bank deposits or overnight/liquid funds.",
+    "topic": "Personal Financial Planning"
+  },
+  {
+    "id": "nism-xa-q6",
+    "courseId": "nism-xa",
+    "question": "When should an investment advisor trigger portfolio rebalancing for a client?",
+    "options": [
+      "Whenever any individual stock declines by 2%",
+      "When portfolio asset allocations drift significantly beyond predefined percentage tolerance bands from target allocation",
+      "Every Monday morning regardless of market movements",
+      "Only when the client changes their employer"
+    ],
+    "correctIndex": 1,
+    "explanation": "Rebalancing is disciplined: it is enacted when asset classes drift beyond target allocation bands (e.g. +/- 5%) due to market performance.",
+    "topic": "Asset Allocation & Rebalancing"
+  },
+  {
+    "id": "nism-xa-q7",
+    "courseId": "nism-xa",
+    "question": "What is the tax treatment of Sovereign Gold Bonds (SGB) held until their 8-year maturity by an individual investor in India?",
+    "options": [
+      "Taxable at 20% with indexation benefit",
+      "Entire capital gain upon redemption at maturity is 100% exempt from income tax",
+      "Taxable at marginal income tax slab rates",
+      "Taxable at flat 12.5% under Section 112A"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under Section 47(viic) of the Income Tax Act, capital gains arising on redemption of Sovereign Gold Bonds by an individual at maturity are completely tax-exempt.",
+    "topic": "Taxation & Wealth Planning"
+  },
+  {
+    "id": "nism-xa-q8",
+    "courseId": "nism-xa",
+    "question": "Under the legal fiduciary duty owed by an RIA to their client, what is the core requirement?",
+    "options": [
+      "Ensuring guaranteed annual capital appreciation",
+      "Subordinating personal and institutional interests to the client's best interests at all times",
+      "Recommending the products that yield the highest brokerage",
+      "Refusing to execute transactions requested by the client"
+    ],
+    "correctIndex": 1,
+    "explanation": "Fiduciary duty requires an RIA to act strictly in the best interest of the client, maintaining independence and disclosing all potential conflicts of interest.",
+    "topic": "Code of Ethics"
+  },
+  {
+    "id": "nism-xa-q9",
+    "courseId": "nism-xa",
+    "question": "How does the Treynor Ratio differ from the Sharpe Ratio when evaluating investment portfolios?",
+    "options": [
+      "Treynor uses Beta (systematic risk); Sharpe uses Standard Deviation (total risk)",
+      "Treynor uses Standard Deviation; Sharpe uses Jensen's Alpha",
+      "Treynor ignores risk-free return; Sharpe includes it",
+      "Treynor applies only to real estate assets"
+    ],
+    "correctIndex": 0,
+    "explanation": "Treynor divides excess return by Beta (systematic risk), while Sharpe divides excess return by Standard Deviation (total risk).",
+    "topic": "Performance Measurement"
+  },
+  {
+    "id": "nism-xa-q10",
+    "courseId": "nism-xa",
+    "question": "For how long must a SEBI-registered Investment Adviser maintain client risk profiling records, financial plans, and correspondence under regulations?",
+    "options": [
+      "1 year",
+      "3 years",
+      "At least 5 years",
+      "10 years"
+    ],
+    "correctIndex": 2,
+    "explanation": "SEBI (Investment Advisers) Regulations mandate that all client agreements, advice records, risk profiling, and KYC documents must be preserved for at least 5 years.",
+    "topic": "Compliance & Record Keeping"
+  },
+  {
+    "id": "nism-xv-q1",
+    "courseId": "nism-xv",
+    "question": "Under SEBI (Research Analysts) Regulations, 2014, what is the mandatory quiet period for a research analyst before and after public appearances?",
+    "options": [
+      "No trading in subject company securities 30 days prior to and 5 days after publishing a research report",
+      "No trading in any equities for 1 year",
+      "Trading allowed provided notice is given to the exchange within 24 hours",
+      "No quiet period if disclosures are made verbally"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI (Research Analysts) Regulations mandate that RAs and their associates shall not deal or trade in securities of the subject company within 30 days before and 5 days after publication of a research report.",
+    "topic": "Regulatory Code of Conduct"
+  },
+  {
+    "id": "nism-xv-q2",
+    "courseId": "nism-xv",
+    "question": "Under SEBI RA Regulations, what is the shareholding threshold in a subject company that requires mandatory disclosure in a research report?",
+    "options": [
+      "Holding 0.1% or more of securities",
+      "Holding 1% or more of securities of the subject company at the end of the month preceding publication",
+      "Holding 5% or more under takeover regulations",
+      "Any fractional holding regardless of amount"
+    ],
+    "correctIndex": 1,
+    "explanation": "An RA must disclose if the analyst, research entity, or associates hold financial interest of 1% or more of securities of the subject company.",
+    "topic": "Conflict of Interest Disclosures"
+  },
+  {
+    "id": "nism-xv-q3",
+    "courseId": "nism-xv",
+    "question": "What is the standard formula to compute the Enterprise Value (EV) of a listed corporate entity?",
+    "options": [
+      "Market Capitalization + Total Debt - Cash and Cash Equivalents",
+      "Market Capitalization - Total Debt + Cash and Cash Equivalents",
+      "Book Value of Equity + Gross Revenue",
+      "EBITDA multiplied by Total Shares"
+    ],
+    "correctIndex": 0,
+    "explanation": "Enterprise Value represents total company value: Equity Value (Market Cap) + Total Debt - Cash & Cash Equivalents.",
+    "topic": "Equity Valuation Methodologies"
+  },
+  {
+    "id": "nism-xv-q4",
+    "courseId": "nism-xv",
+    "question": "Why is the EV/EBITDA valuation multiple often preferred over the P/E multiple when comparing capital-intensive companies?",
+    "options": [
+      "EV/EBITDA is unaffected by stock market crashes",
+      "It is capital-structure neutral and removes distortions caused by differences in debt gearing and depreciation methods",
+      "It is always a lower number than P/E",
+      "It is only applicable to companies with zero tax liabilities"
+    ],
+    "correctIndex": 1,
+    "explanation": "EV/EBITDA is independent of leverage differences and depreciation/amortization policies, making it ideal for cross-firm comparisons.",
+    "topic": "Relative Valuation"
+  },
+  {
+    "id": "nism-xv-q5",
+    "courseId": "nism-xv",
+    "question": "What is the purpose of establishing a 'Chinese Wall' inside an investment banking and research firm?",
+    "options": [
+      "Restricting internet access of junior research associates",
+      "Preventing the flow of unpublished price-sensitive information (UPSI) between research and investment banking teams",
+      "Ensuring that all reports are published in international time zones",
+      "Preventing analysts from changing their price targets"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Chinese Wall is an information barrier isolating investment banking and advisory operations from the research department to avoid conflicts of interest.",
+    "topic": "Governance & Information Barriers"
+  },
+  {
+    "id": "nism-xv-q6",
+    "courseId": "nism-xv",
+    "question": "If a research analyst inadvertently comes into possession of Unpublished Price Sensitive Information (UPSI), what is their legal obligation?",
+    "options": [
+      "Immediately publish a research report incorporating the UPSI to assist retail investors",
+      "Refrain from trading in the security, do not communicate the information, and notify the Compliance Officer",
+      "Share the UPSI with preferred HNI advisory clients",
+      "Purchase put options as a hedge"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under SEBI (Prohibition of Insider Trading) Regulations, possessing UPSI requires absolute non-disclosure and strict abstinence from trading.",
+    "topic": "Insider Trading Prevention"
+  },
+  {
+    "id": "nism-xv-q7",
+    "courseId": "nism-xv",
+    "question": "What does a Price-to-Earnings to Growth (PEG) ratio of less than 1.0 generally indicate to a fundamental equity analyst?",
+    "options": [
+      "The stock is severely overvalued and should be sold",
+      "The company is growing slower than the inflation rate",
+      "The stock may be undervalued relative to its expected earnings growth rate",
+      "The company has negative net profit margin"
+    ],
+    "correctIndex": 2,
+    "explanation": "Peter Lynch's PEG ratio compares P/E to EPS growth rate: PEG < 1 indicates that earnings growth outpaces the valuation multiple, suggesting value.",
+    "topic": "Fundamental Analysis"
+  },
+  {
+    "id": "nism-xv-q8",
+    "courseId": "nism-xv",
+    "question": "Under SEBI RA Regulations, can a research analyst share a draft research report with the subject company prior to publication?",
+    "options": [
+      "Yes, but only factual sections of the report to verify accuracy; target price and ratings must NOT be shared",
+      "Yes, the subject company must sign off on the target price",
+      "No, draft reports can never be shared under any circumstances",
+      "Yes, provided the subject company pays for the research coverage"
+    ],
+    "correctIndex": 0,
+    "explanation": "Draft reports may only be shared with the subject company to verify factual accuracy; recommendations, ratings, and valuation summaries cannot be shared.",
+    "topic": "Research Process Integrity"
+  },
+  {
+    "id": "nism-xv-q9",
+    "courseId": "nism-xv",
+    "question": "In a Discounted Cash Flow (DCF) model, how is the Terminal Value (TV) calculated using the Gordon Growth Model?",
+    "options": [
+      "TV = Final Year EBITDA × Industry Multiple",
+      "TV = FCF × (1 + g) / (WACC - g)",
+      "TV = Total Assets - Total Liabilities",
+      "TV = Market Cap / Risk Free Rate"
+    ],
+    "correctIndex": 1,
+    "explanation": "Gordon Growth formula: TV = (Expected Cash Flow in Year n+1) / (WACC - Perpetual Growth Rate).",
+    "topic": "DCF Modeling"
+  },
+  {
+    "id": "nism-xv-q10",
+    "courseId": "nism-xv",
+    "question": "How long must a Research Analyst maintain records of research reports, public appearances, and research recommendations?",
+    "options": [
+      "1 year",
+      "3 years",
+      "Minimum 5 years",
+      "Permanent archival"
+    ],
+    "correctIndex": 2,
+    "explanation": "SEBI RA Regulations mandate that all research reports, rationale documents, recommendations, and public appearance transcripts be kept for at least 5 years.",
+    "topic": "Regulatory Compliance"
+  },
+  {
+    "id": "nism-xxia-q1",
+    "courseId": "nism-xxia",
+    "question": "What is the statutory minimum investment amount required from a client to open a Portfolio Management Services (PMS) account under SEBI regulations?",
+    "options": [
+      "₹10 Lakhs",
+      "₹25 Lakhs",
+      "₹50 Lakhs",
+      "₹1 Crore"
+    ],
+    "correctIndex": 2,
+    "explanation": "SEBI (Portfolio Managers) Regulations 2020 raised the minimum investment ticket size per client for PMS to ₹50 Lakhs.",
+    "topic": "PMS Regulatory Framework"
+  },
+  {
+    "id": "nism-xxia-q2",
+    "courseId": "nism-xxia",
+    "question": "What distinguishes a Discretionary PMS from a Non-Discretionary PMS?",
+    "options": [
+      "In Discretionary PMS, the portfolio manager executes trades independently without seeking prior approval for each trade from the client",
+      "In Discretionary PMS, the client must approve every individual buy and sell order before execution",
+      "Non-Discretionary PMS does not require a SEBI registration",
+      "Discretionary PMS can only invest in government securities"
+    ],
+    "correctIndex": 0,
+    "explanation": "Under Discretionary PMS, the portfolio manager holds full investment discretion. Under Non-Discretionary PMS, the manager advises but requires client consent for each trade.",
+    "topic": "Operating Models"
+  },
+  {
+    "id": "nism-xxia-q3",
+    "courseId": "nism-xxia",
+    "question": "Which return calculation methodology is mandatory for Portfolio Managers when reporting client portfolio performance under SEBI norms?",
+    "options": [
+      "Simple Annual Return",
+      "Internal Rate of Return (IRR)",
+      "Time-Weighted Rate of Return (TWRR)",
+      "Book Value Return"
+    ],
+    "correctIndex": 2,
+    "explanation": "SEBI mandates the Time-Weighted Rate of Return (TWRR) methodology to neutralize the distortionary impact of external cash inflows and outflows on performance.",
+    "topic": "Performance Calculation"
+  },
+  {
+    "id": "nism-xxia-q4",
+    "courseId": "nism-xxia",
+    "question": "What is the 'High Water Mark' principle in the context of PMS performance fee calculation?",
+    "options": [
+      "Performance fee is charged only when portfolio returns exceed the fixed deposit rate",
+      "Performance fee is charged only on the increase in portfolio value exceeding the highest historic NAV achieved in any previous performance fee calculation period",
+      "The maximum percentage fee that can be levied on a client's capital",
+      "A minimum reserve requirement kept with the Clearing Corporation"
+    ],
+    "correctIndex": 1,
+    "explanation": "The High Water Mark ensures that clients do not pay performance fees for recovering past losses; fees apply only above the highest previous peak.",
+    "topic": "Fee Structures"
+  },
+  {
+    "id": "nism-xxia-q5",
+    "courseId": "nism-xxia",
+    "question": "Under SEBI regulations, must a Portfolio Manager provide an option for clients to onboard directly without paying distributor commission?",
+    "options": [
+      "Yes, direct onboarding without distributor fees is mandatory across all registered Portfolio Managers",
+      "No, all clients must compulsorily come through registered distributors",
+      "Only institutional clients with over ₹10 Crores can onboard directly",
+      "Direct onboarding is optional at the discretion of the Portfolio Manager"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI mandates that portfolio managers must provide a direct onboarding channel with zero distributor commission fees for prospective clients.",
+    "topic": "Investor Protection"
+  },
+  {
+    "id": "nism-xxia-q6",
+    "courseId": "nism-xxia",
+    "question": "What is the statutory minimum net worth requirement for an entity seeking registration as a Portfolio Manager with SEBI?",
+    "options": [
+      "₹1 Crore",
+      "₹2 Crores",
+      "₹5 Crores",
+      "₹10 Crores"
+    ],
+    "correctIndex": 2,
+    "explanation": "Under the SEBI (Portfolio Managers) Regulations, 2020, registered Portfolio Managers must maintain a continuous minimum net worth of ₹5 Crores.",
+    "topic": "Entity Governance"
+  },
+  {
+    "id": "nism-xxia-q7",
+    "courseId": "nism-xxia",
+    "question": "How frequently must client portfolio accounts in a PMS be audited by an independent Chartered Accountant?",
+    "options": [
+      "Every quarter",
+      "At least once every year",
+      "Every three years",
+      "Only when requested by SEBI"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI rules require an annual independent audit of every client's portfolio account and internal controls by a practicing Chartered Accountant.",
+    "topic": "Audit & Verification"
+  },
+  {
+    "id": "nism-xxia-q8",
+    "courseId": "nism-xxia",
+    "question": "How are client securities custodied in a Portfolio Management Services arrangement?",
+    "options": [
+      "Pooled in the portfolio manager's personal demat account",
+      "Held in a segregated demat account opened in the name of the client with a SEBI-registered Custodian",
+      "Deposited with the stock exchange guarantee fund",
+      "Held as physical certificates in the portfolio manager's locker"
+    ],
+    "correctIndex": 1,
+    "explanation": "Client securities in PMS are segregated and held directly in demat accounts opened in the individual client's own name with an independent custodian.",
+    "topic": "Custody & Safekeeping"
+  },
+  {
+    "id": "nism-xxia-q9",
+    "courseId": "nism-xxia",
+    "question": "What is the regulatory limit on investment in unlisted securities by a Discretionary Portfolio Manager?",
+    "options": [
+      "Unlisted investments are completely banned in discretionary PMS",
+      "Up to a maximum of 25% of the client's portfolio AUM may be invested in unlisted securities",
+      "Up to 50% without disclosure",
+      "100% permitted if approved by the custodian"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI permits discretionary portfolio managers to invest up to a maximum cap of 25% of the portfolio's total AUM in unlisted securities.",
+    "topic": "Portfolio Guidelines"
+  },
+  {
+    "id": "nism-xxia-q10",
+    "courseId": "nism-xxia",
+    "question": "When must the PMS Disclosure Document be provided to a prospective investor?",
+    "options": [
+      "Within 30 days after executing the portfolio agreement",
+      "At least two days prior to entering into the PMS agreement with the client",
+      "Only when the client explicitly requests it in writing",
+      "At the end of the first financial year"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI regulations mandate that the Disclosure Document must be handed over to the client at least two days before signing the investment agreement.",
+    "topic": "Disclosures & Transparency"
+  },
+  {
+    "id": "nism-vd-q1",
+    "courseId": "nism-vd",
+    "question": "Under the SEBI regulatory framework, what distinguishes a Specialized Investment Fund (SIF) from a standard mutual fund scheme?",
+    "options": [
+      "SIF schemes invest exclusively in sovereign gold bonds",
+      "SIF caters to accredited and sophisticated investors with specialized asset classes, structured debt, or hybrid strategies and higher minimum commitment",
+      "SIF does not require any regulatory disclosure or trustee oversight",
+      "SIF schemes are exempt from income tax"
+    ],
+    "correctIndex": 1,
+    "explanation": "SIFs provide access to specialized alternative and hybrid investment opportunities with higher suitability criteria and bespoke risk profiles.",
+    "topic": "SIF Regulatory Framework"
+  },
+  {
+    "id": "nism-vd-q2",
+    "courseId": "nism-vd",
+    "question": "Why do Specialized Investment Funds maintain higher minimum ticket thresholds than retail mutual funds?",
+    "options": [
+      "To maximize distributor trailing commissions",
+      "To ensure investment suitability, financial sophistication, and risk-absorption capacity of participants",
+      "To avoid paying stamp duty on contract notes",
+      "Because SEBI does not permit retail investors to invest in mutual funds"
+    ],
+    "correctIndex": 1,
+    "explanation": "Higher investment commitments ensure that only sophisticated investors with adequate loss-absorption capacity participate in specialized fund strategies.",
+    "topic": "Investor Categorisation & Suitability"
+  },
+  {
+    "id": "nism-vd-q3",
+    "courseId": "nism-vd",
+    "question": "How frequently must illiquid or unlisted assets in a specialized fund portfolio be valued by an independent valuation agency?",
+    "options": [
+      "Daily in real-time during market hours",
+      "At least periodically (e.g. monthly or quarterly) by an independent SEBI-recognized valuation agency",
+      "Once every five years",
+      "Only upon fund liquidation"
+    ],
+    "correctIndex": 1,
+    "explanation": "Unlisted or illiquid instruments require periodic independent valuation by an accredited valuation agency to ensure fair NAV calculation.",
+    "topic": "Valuation Principles"
+  },
+  {
+    "id": "nism-vd-q4",
+    "courseId": "nism-vd",
+    "question": "What is the primary responsibility of the Scheme Investment Committee in specialized funds?",
+    "options": [
+      "Deciding marketing slogans for fund roadshows",
+      "Overseeing investment adherence, risk mandates, and approving investments in structured or illiquid securities",
+      "Filing personal tax returns of unit holders",
+      "Setting the exchange clearing fees"
+    ],
+    "correctIndex": 1,
+    "explanation": "The Investment Committee ensures that all transactions adhere strictly to the scheme's mandate, risk parameters, and regulatory exposure limits.",
+    "topic": "Scheme Governance"
+  },
+  {
+    "id": "nism-vd-q5",
+    "courseId": "nism-vd",
+    "question": "What is a key difference in liquidity management between a specialized fund and an open-ended liquid mutual fund?",
+    "options": [
+      "Liquid funds offer daily redemptions at T+1, whereas specialized funds may incorporate defined liquidity windows or lock-in terms",
+      "Specialized funds never allow redemptions under any circumstances",
+      "Liquid funds require a 1-year notice for redemption",
+      "Specialized funds settle redemptions in physical bullion"
+    ],
+    "correctIndex": 0,
+    "explanation": "Specialized funds manage liquidity through specified redemption intervals or lock-ins matching the duration of their underlying assets.",
+    "topic": "Liquidity Risk Management"
+  },
+  {
+    "id": "nism-vd-q6",
+    "courseId": "nism-vd",
+    "question": "Who qualifies as an 'Accredited Investor' under the SEBI regulatory framework?",
+    "options": [
+      "Any individual with an active PAN card",
+      "An individual with annual income ≥ ₹2 Crores OR net worth ≥ ₹7.5 Crores (with at least ₹3.75 Cr in financial assets)",
+      "Any corporate entity regardless of balance sheet size",
+      "An investor who has passed the NISM exam"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI defines Accredited Investors by net worth or income thresholds (e.g. ₹2 Cr annual income or ₹7.5 Cr net worth for individuals).",
+    "topic": "Accredited Investor Norms"
+  },
+  {
+    "id": "nism-vd-q7",
+    "courseId": "nism-vd",
+    "question": "Are 'Side Letter' agreements offering preferential terms or fee discounts to select investors permitted in regulated specialized funds?",
+    "options": [
+      "Yes, side letters can be secretly signed with large investors without disclosure",
+      "No, SEBI prohibits side letters that provide differential rights or preferential liquidity that prejudices other unit holders",
+      "Yes, permitted if the investment exceeds ₹10 Lakhs",
+      "Permitted only for foreign institutional investors"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandates fair and equitable treatment for all investors in a scheme; preferential side letters that undermine pari-passu rights are prohibited.",
+    "topic": "Fair Treatment of Investors"
+  },
+  {
+    "id": "nism-vd-q8",
+    "courseId": "nism-vd",
+    "question": "How must related-party transactions and conflict of interest scenarios be handled in specialized fund operations?",
+    "options": [
+      "Hidden from the trustees to prevent delays",
+      "Fully disclosed to trustees and unit holders, with independent valuations and adherence to arm's length standards",
+      "Executed at a 50% discount to market rates",
+      "Referred to the local police department"
+    ],
+    "correctIndex": 1,
+    "explanation": "Affiliate and related-party deals require prior committee/trustee review, arm's-length pricing, and transparent disclosure in scheme reports.",
+    "topic": "Code of Conduct"
+  },
+  {
+    "id": "nism-vd-q9",
+    "courseId": "nism-vd",
+    "question": "How should performance benchmarks be constructed for specialized or hybrid investment funds?",
+    "options": [
+      "Using a fixed 15% arbitrary hurdle rate",
+      "Using a transparent, publicly available index that accurately reflects the asset mix and investment strategy of the fund",
+      "Benchmark choice is entirely prohibited for specialized funds",
+      "Using the US S&P 500 index regardless of domestic portfolio assets"
+    ],
+    "correctIndex": 1,
+    "explanation": "Regulations mandate benchmarks that reflect the strategy, duration, and asset composition of the underlying specialized fund portfolio.",
+    "topic": "Performance Evaluation"
+  },
+  {
+    "id": "nism-vd-q10",
+    "courseId": "nism-vd",
+    "question": "What is the dual licensing benefit of holding the NISM Series V-D certification for financial intermediaries?",
+    "options": [
+      "Authorizes the distribution of both standard mutual fund schemes and specialized investment funds (SIF) under a unified license",
+      "Allows the advisor to trade international currency futures without an exchange broker",
+      "Exempts the distributor from filing GST returns",
+      "Guarantees automatic appointment as an AMC fund manager"
+    ],
+    "correctIndex": 0,
+    "explanation": "NISM Series V-D provides accreditation covering both traditional mutual funds and specialized investment funds under SEBI distribution guidelines.",
+    "topic": "SIF Regulatory Framework"
+  },
+  {
+    "id": "nism-va-q191",
+    "courseId": "nism-va",
+    "question": "Which of the following investment assets has historically exhibited the strongest negative correlation with domestic equities during geopolitical crises in India?",
+    "options": [
+      "Real Estate",
+      "Sovereign Gold",
+      "High-Yield Corporate Bonds",
+      "Commercial Paper"
+    ],
+    "correctIndex": 1,
+    "explanation": "Gold has historically served as a safe haven and portfolio hedge with strong negative or low correlation to domestic equities during systemic and geopolitical turmoil.",
+    "topic": "Investment Landscape"
+  },
+  {
+    "id": "nism-va-q192",
+    "courseId": "nism-va",
+    "question": "An investor seeking regular fixed payouts with sovereign guarantee should prioritize which financial instrument?",
+    "options": [
+      "Subordinated Tier-II Bank Bonds",
+      "Government Securities (G-Secs) through RBI Retail Direct",
+      "Non-Convertible Debentures of NBFCs",
+      "Arbitrage Mutual Funds"
+    ],
+    "correctIndex": 1,
+    "explanation": "Government of India Dated Securities (G-Secs) provide zero credit risk backed by sovereign guarantee with fixed semi-annual coupon distributions.",
+    "topic": "Investment Landscape"
+  },
+  {
+    "id": "nism-va-q193",
+    "courseId": "nism-va",
+    "question": "If inflation in the economy is running at 6% per annum and an investor earns 7% nominal return on an FD before a 30% tax slab, what is their post-tax real rate of return?",
+    "options": [
+      "+1.00%",
+      "-1.10%",
+      "-0.90%",
+      "+0.70%"
+    ],
+    "correctIndex": 1,
+    "explanation": "Post-tax nominal return = 7% * (1 - 0.30) = 4.90%. Real rate of return approx = 4.90% - 6.00% = -1.10%. The investor's purchasing power declines in real terms.",
+    "topic": "Investment Landscape"
+  },
+  {
+    "id": "nism-va-q194",
+    "courseId": "nism-va",
+    "question": "The primary economic benefit of compounding returns is maximized when an investor:",
+    "options": [
+      "Chases momentum stocks with frequent intraday churning",
+      "Commences investing early with long holding periods and reinvests cash flows",
+      "Withdraws capital gains annually to avoid taxation",
+      "Times market peaks with leveraged derivative positions"
+    ],
+    "correctIndex": 1,
+    "explanation": "Compounding exhibits exponential growth when investments are initiated early, allowed uninterrupted tenure, and distributions are reinvested rather than withdrawn.",
+    "topic": "Investment Landscape"
+  },
+  {
+    "id": "nism-va-q195",
+    "courseId": "nism-va",
+    "question": "Which statutory authority regulates National Pension System (NPS) products and point of presence entities in India?",
+    "options": [
+      "SEBI",
+      "IRDAI",
+      "PFRDA",
+      "Reserve Bank of India"
+    ],
+    "correctIndex": 2,
+    "explanation": "The Pension Fund Regulatory and Development Authority (PFRDA) is the statutory regulator governing the National Pension System in India.",
+    "topic": "Investment Landscape"
+  },
+  {
+    "id": "nism-va-q196",
+    "courseId": "nism-va",
+    "question": "How does reinvestment risk impact an investor holding a 10-year 8.5% fixed-rate bond when interest rates decline to 6% in year 3?",
+    "options": [
+      "The periodic coupon payouts will be reinvested at the lower prevailing 6% yield",
+      "The principal will be redeemed early by the sovereign",
+      "The bond price will drop sharply in the secondary market",
+      "The coupon rate on the bond automatically drops to 6%"
+    ],
+    "correctIndex": 0,
+    "explanation": "Reinvestment risk refers to the risk that intermediate cash flows (coupons) received cannot be reinvested at the original high yield (8.5%) and must be deployed at the lower prevailing market rate (6%).",
+    "topic": "Investment Landscape"
+  },
+  {
+    "id": "nism-va-q197",
+    "courseId": "nism-va",
+    "question": "Which of the following asset classes offers the greatest liquidity for immediate settlement in India?",
+    "options": [
+      "Physical Commercial Real Estate",
+      "Overnight & Liquid Mutual Funds",
+      "Private Equity Unlisted Shares",
+      "Senior Citizen Savings Scheme (SCSS)"
+    ],
+    "correctIndex": 1,
+    "explanation": "Overnight and liquid mutual funds offer T+1 settlement with instant redemption facilities (up to ₹50,000 or 90% of folio value) within seconds.",
+    "topic": "Investment Landscape"
+  },
+  {
+    "id": "nism-va-q198",
+    "courseId": "nism-va",
+    "question": "The nominal risk-free rate of return in India is generally benchmarked against the yield on:",
+    "options": [
+      "91-day Government of India Treasury Bills (T-Bills)",
+      "30-year Corporate Infrastructure Bonds",
+      "State Development Loans (SDLs)",
+      "Nifty 50 Dividend Yield"
+    ],
+    "correctIndex": 0,
+    "explanation": "91-day Government of India Treasury Bills represent sovereign-backed short-term debt with zero default risk, serving as the benchmark risk-free rate.",
+    "topic": "Investment Landscape"
+  },
+  {
+    "id": "nism-va-q199",
+    "courseId": "nism-va",
+    "question": "Purchasing power risk is most hazardous to investors with prolonged exposure to:",
+    "options": [
+      "Diversified Equity Mutual Funds",
+      "Fixed-rate cash deposits with returns below prevailing CPI inflation",
+      "Inflation-Indexed Bonds",
+      "Precious metal ETFs"
+    ],
+    "correctIndex": 1,
+    "explanation": "Fixed-rate nominal instruments whose post-tax returns trail consumer price inflation steadily erode the purchasing power of the principal over time.",
+    "topic": "Investment Landscape"
+  },
+  {
+    "id": "nism-va-q200",
+    "courseId": "nism-va",
+    "question": "Under modern portfolio theory, the primary purpose of asset allocation across non-correlated asset classes is to:",
+    "options": [
+      "Guarantee positive returns every trading month",
+      "Reduce total portfolio volatility for a targeted expected rate of return",
+      "Eliminate all forms of market and systemic risk",
+      "Avoid paying securities transaction tax"
+    ],
+    "correctIndex": 1,
+    "explanation": "Asset allocation optimizes the risk-return frontier by combining imperfectly correlated assets, minimizing overall portfolio variance for a target return level.",
+    "topic": "Investment Landscape"
+  },
+  {
+    "id": "nism-va-q201",
+    "courseId": "nism-va",
+    "question": "Which of the following small savings schemes is backed by sovereign guarantee and exempt from tax under Section 80C with EEE status?",
+    "options": [
+      "Public Provident Fund (PPF)",
+      "Corporate Fixed Deposit",
+      "Mutual Fund Monthly Income Plan",
+      "Commercial Paper"
+    ],
+    "correctIndex": 0,
+    "explanation": "PPF enjoys sovereign backing with Exempt-Exempt-Exempt (EEE) status: contribution deductible under 80C, interest exempt, and maturity proceeds tax-free.",
+    "topic": "Investment Landscape"
+  },
+  {
+    "id": "nism-va-q202",
+    "courseId": "nism-va",
+    "question": "In financial planning, an Emergency Reserve Fund should ideally be equivalent to:",
+    "options": [
+      "1 to 2 days of discretionary dining expenses",
+      "6 to 12 months of mandatory family living expenses and debt obligations",
+      "10 years of retirement income",
+      "The entire net worth of the individual"
+    ],
+    "correctIndex": 1,
+    "explanation": "An emergency reserve should hold 6 to 12 months of non-negotiable living expenses, EMIs, and insurance premiums in high-liquidity instruments.",
+    "topic": "Investment Landscape"
+  },
+  {
+    "id": "nism-va-q203",
+    "courseId": "nism-va",
+    "question": "Which of the following instruments is considered money market debt with maturity of up to one year issued by corporations to meet short-term liabilities?",
+    "options": [
+      "Commercial Paper (CP)",
+      "Perpetual AT-1 Bonds",
+      "Municipal Bonds",
+      "Deep Discount Zero-Coupon Debentures"
+    ],
+    "correctIndex": 0,
+    "explanation": "Commercial Paper (CP) is an unsecured money market instrument issued by creditworthy corporates in promissory note form for maturities between 7 days and 1 year.",
+    "topic": "Investment Landscape"
+  },
+  {
+    "id": "nism-va-q204",
+    "courseId": "nism-va",
+    "question": "The spread between the 10-year Indian Government Bond yield and the Repo Rate primarily reflects:",
+    "options": [
+      "AMC Management Fee limits",
+      "Term premium, inflation expectations, and long-term liquidity conditions",
+      "Securities Transaction Tax collected by exchanges",
+      "Stamp duty charges payable to state treasuries"
+    ],
+    "correctIndex": 1,
+    "explanation": "The slope and term spread between the 10-year G-sec yield and overnight repo rate reflect the market's inflation expectations, credit cycle outlook, and term premium.",
+    "topic": "Investment Landscape"
+  },
+  {
+    "id": "nism-va-q205",
+    "courseId": "nism-va",
+    "question": "The operational structure of a mutual fund ensures that unit holders are entitled to:",
+    "options": [
+      "A guaranteed fixed dividend irrespective of portfolio earnings",
+      "Pro-rata ownership and sharing of scheme profits and losses",
+      "Voting rights in the AMC board meetings",
+      "Exemption from all capital gains tax"
+    ],
+    "correctIndex": 1,
+    "explanation": "Mutual funds operate on a pass-through pooling principle: every unit holder participates pro-rata in the assets, income, gains, and losses of the underlying portfolio.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q206",
+    "courseId": "nism-va",
+    "question": "Which of the following is a structural limitation of open-ended mutual funds compared to direct equity ownership?",
+    "options": [
+      "Portfolio diversification across sectors",
+      "Mandatory regulation by SEBI",
+      "Inability of an individual unit holder to customize portfolio security exclusions",
+      "Availability of systematic investment plans (SIP)"
+    ],
+    "correctIndex": 2,
+    "explanation": "In pooled mutual funds, individual investors hold units of a collective mandate and cannot dictate specific stock exclusions or individualized portfolio tilting.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q207",
+    "courseId": "nism-va",
+    "question": "What is the primary difference between a closed-ended fund and an open-ended fund in India?",
+    "options": [
+      "Closed-ended funds do not calculate daily NAV",
+      "Closed-ended funds issue units only during NFO and trade on a stock exchange until maturity",
+      "Closed-ended funds are exempt from SEBI investment limits",
+      "Open-ended funds cannot invest in equities"
+    ],
+    "correctIndex": 1,
+    "explanation": "Closed-ended funds issue units exclusively during the NFO, after which units cannot be directly redeemed with the AMC until maturity, but must be traded on stock exchanges.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q208",
+    "courseId": "nism-va",
+    "question": "The unit capital of an open-ended mutual fund scheme:",
+    "options": [
+      "Remains rigidly constant throughout the scheme's existence",
+      "Changes continuously due to daily purchases and redemptions by unit holders",
+      "Can only be altered with Central Government approval",
+      "Decreases automatically when the Nifty index falls"
+    ],
+    "correctIndex": 1,
+    "explanation": "Open-ended mutual funds have variable unit capital that expands when new units are issued upon subscription and contracts when units are redeemed.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q209",
+    "courseId": "nism-va",
+    "question": "Which of the following represents an interval fund under SEBI guidelines?",
+    "options": [
+      "A fund that invests solely in intraday algorithmic strategies",
+      "A fund that allows entry and exit during specified transaction windows (intervals) throughout the year",
+      "A fund that pays dividends every 15 minutes",
+      "A fund with no maturity and no exit load"
+    ],
+    "correctIndex": 1,
+    "explanation": "Interval funds combine features of open-ended and closed-ended funds, opening for subscriptions and redemptions only during pre-defined interval periods.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q210",
+    "courseId": "nism-va",
+    "question": "Real Estate Mutual Funds and Infrastructure Debt Schemes under SEBI regulations are primarily structured as:",
+    "options": [
+      "Open-ended daily liquid funds",
+      "Closed-ended schemes listed on recognized stock exchanges",
+      "Unregulated private partnerships",
+      "Foreign portfolio feeder funds"
+    ],
+    "correctIndex": 1,
+    "explanation": "Due to the illiquid nature of underlying infrastructure and real estate assets, SEBI mandates that such funds be structured as closed-ended schemes listed on stock exchanges.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q211",
+    "courseId": "nism-va",
+    "question": "The primary objective of a 'Growth Option' in a mutual fund scheme is to:",
+    "options": [
+      "Distribute all realized dividends to unit holders every Friday",
+      "Retain and reinvest all portfolio earnings and capital gains to compound NAV",
+      "Guarantee a minimum 15% annual return",
+      "Avoid deducting the Total Expense Ratio"
+    ],
+    "correctIndex": 1,
+    "explanation": "In a Growth option, all profits, interest, and dividends are retained in the scheme and reflected as appreciation in the NAV, maximizing compounding benefits.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q212",
+    "courseId": "nism-va",
+    "question": "In an IDCW (Income Distribution cum Capital Withdrawal) option, when a distribution is made to unit holders, the NAV of the scheme:",
+    "options": [
+      "Rises by the exact payout percentage",
+      "Falls by the exact per-unit distribution amount plus applicable taxes",
+      "Remains unaffected because cash was borrowed from the AMC",
+      "Is frozen for 30 business days"
+    ],
+    "correctIndex": 1,
+    "explanation": "Any IDCW payout is paid out of the distributable surplus of the scheme. Therefore, on the record date, the NAV drops to the extent of the gross dividend/distribution per unit.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q213",
+    "courseId": "nism-va",
+    "question": "Can an Asset Management Company guarantee a specific rate of return on an open-ended equity scheme under SEBI regulations?",
+    "options": [
+      "Yes, if the AMC has a net worth exceeding ₹1,000 Crore",
+      "No, SEBI strictly prohibits guaranteed returns unless backed by a formal credit guarantee disclosed in SID",
+      "Yes, up to 12% per annum",
+      "Yes, if the fund manager is a CFA charterholder"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI strictly prohibits promising or guaranteeing returns in mutual funds unless the guarantee is explicitly insured or backed by the sponsor/guarantor with full SID disclosures.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q214",
+    "courseId": "nism-va",
+    "question": "What is the primary role of the Association of Mutual Funds in India (AMFI)?",
+    "options": [
+      "Acting as the judicial court for investor litigations",
+      "Promoting industry standards, ethical distribution practices, and issuing ARN/EUIN licenses",
+      "Directly fixing the daily NAV of all mutual funds in India",
+      "Managing sovereign foreign exchange reserves"
+    ],
+    "correctIndex": 1,
+    "explanation": "AMFI is the premier industry association in India that sets professional standards, promotes ethical distribution, handles investor education, and issues AMFI Registration Numbers (ARN).",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q215",
+    "courseId": "nism-va",
+    "question": "How do Exchange Traded Funds (ETFs) differ from standard open-ended index funds?",
+    "options": [
+      "ETFs trade real-time on stock exchanges at market-determined prices, requiring a Demat account",
+      "ETFs have significantly higher expense ratios than active funds",
+      "ETFs do not track any underlying benchmark index",
+      "ETFs guarantee capital protection"
+    ],
+    "correctIndex": 0,
+    "explanation": "ETFs trade intra-day on stock exchange terminals like equity shares, allowing real-time trading at prevailing market bid-ask quotes, requiring a demat and trading account.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q216",
+    "courseId": "nism-va",
+    "question": "Which of the following is a statutory requirement for an entity applying to become a mutual fund Sponsor under SEBI regulations?",
+    "options": [
+      "Must have at least 5 years of track record in financial services with positive net worth in all 5 years",
+      "Must be a state-owned public enterprise",
+      "Must be registered as a non-banking finance company with RBI",
+      "Must manage at least ₹50,000 Crore of AUM"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI mandates that a sponsor must have a minimum 5-year track record in financial services, with positive net worth across all 5 years and profitability in at least 3 of the last 5 years.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q217",
+    "courseId": "nism-va",
+    "question": "In the tripartite structure of an Indian mutual fund, the Trustees owe fiduciary duty primarily to:",
+    "options": [
+      "The shareholders of the Asset Management Company",
+      "The unit holders of the mutual fund schemes",
+      "The stock exchanges where funds are listed",
+      "The Ministry of Corporate Affairs"
+    ],
+    "correctIndex": 1,
+    "explanation": "Trustees hold the fund assets in trust on behalf of unit holders and owe strict fiduciary obligations solely to protect the financial interests of scheme investors.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q218",
+    "courseId": "nism-va",
+    "question": "What proportion of the Board of Trustees must be independent directors under SEBI (Mutual Funds) Regulations?",
+    "options": [
+      "At least 25%",
+      "At least 33%",
+      "At least 50%",
+      "At least 66.67% (two-thirds)"
+    ],
+    "correctIndex": 3,
+    "explanation": "SEBI mandates that at least two-thirds (66.67%) of the members of the Board of Trustees must be independent persons not associated with the sponsor or its associates.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q219",
+    "courseId": "nism-va",
+    "question": "Under the Indian Trusts Act, 1882, who is the author of the trust in a mutual fund setup?",
+    "options": [
+      "The Custodian",
+      "The Sponsor",
+      "The Registrar and Transfer Agent",
+      "The Unit Holder"
+    ],
+    "correctIndex": 1,
+    "explanation": "The Sponsor acts as the settlor or author of the trust by executing the Trust Deed and creating the mutual fund trust for the benefit of unit holders.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q220",
+    "courseId": "nism-va",
+    "question": "What is the statutory minimum net worth required for an Asset Management Company (AMC) to operate under SEBI regulations?",
+    "options": [
+      "₹10 Crore",
+      "₹25 Crore",
+      "₹50 Crore",
+      "₹100 Crore"
+    ],
+    "correctIndex": 2,
+    "explanation": "Under SEBI (Mutual Funds) Regulations, an AMC is required to maintain a continuous minimum net worth of at least ₹50 Crore.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q221",
+    "courseId": "nism-va",
+    "question": "Can an Asset Management Company (AMC) undertake portfolio management services (PMS) or advisory activities?",
+    "options": [
+      "No, AMCs are strictly barred from any non-mutual fund activity",
+      "Yes, provided there is no conflict of interest and proper departmental Chinese walls exist as approved by SEBI",
+      "Yes, without any SEBI intimation",
+      "Only if it merges with a scheduled commercial bank"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under Regulation 24 of SEBI MF Regulations, an AMC may undertake PMS or advisory services provided it ensures complete operational segregation and no conflict of interest with mutual fund schemes.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q222",
+    "courseId": "nism-va",
+    "question": "Who appoints the Registrar and Transfer Agent (RTA) for a mutual fund in India?",
+    "options": [
+      "The Association of Mutual Funds in India (AMFI)",
+      "The Asset Management Company (AMC) with approval of Trustees",
+      "The Ministry of Finance",
+      "The Unit Holders via AGM"
+    ],
+    "correctIndex": 1,
+    "explanation": "The AMC, with the formal consent and supervision of the Board of Trustees, enters into an agreement to appoint a SEBI-registered RTA.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q223",
+    "courseId": "nism-va",
+    "question": "Which entity is legally responsible for holding physical and dematerialized securities of mutual fund portfolios in safe custody?",
+    "options": [
+      "The Registrar and Transfer Agent (RTA)",
+      "The Custodian registered with SEBI",
+      "The Chief Executive Officer of the AMC",
+      "The Depository Participant chosen by the sponsor"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under SEBI regulations, the Custodian holds the portfolio securities and tracks corporate actions, operating completely independent of the AMC.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q224",
+    "courseId": "nism-va",
+    "question": "Can the Sponsor of a mutual fund and its Custodian be the same corporate entity without restriction?",
+    "options": [
+      "Yes, it is common practice in all global jurisdictions",
+      "No, SEBI mandates that the Custodian must not be an associate of the Sponsor or AMC unless at least 50% independent directors oversee both and criteria under Regulation 24 are met",
+      "Yes, if both entities have the same CEO",
+      "Only if the fund invests solely in money market securities"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI maintains strict arm's length regulations between the Sponsor/AMC and the Custodian to prevent co-mingling of assets and conflicts of interest.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q225",
+    "courseId": "nism-va",
+    "question": "Who audits the financial accounts of a mutual fund scheme in India?",
+    "options": [
+      "The internal auditor of the Sponsor",
+      "An independent Chartered Accountant firm appointed by the Trustees",
+      "The Comptroller and Auditor General of India (CAG)",
+      "The compliance officer of the RTA"
+    ],
+    "correctIndex": 1,
+    "explanation": "The accounts of each mutual fund scheme must be audited by an independent statutory auditor appointed by the Trustees, who cannot be the same as the AMC auditor.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q226",
+    "courseId": "nism-va",
+    "question": "What is the primary role of a KYC Registration Agency (KRA) in the Indian mutual fund ecosystem?",
+    "options": [
+      "Printing unit certificates for physical folios",
+      "Centralizing and maintaining investor KYC records so that an investor does not repeat KYC across multiple intermediaries",
+      "Executing intraday stock orders for AMC dealers",
+      "Auditing the expense ratios of mutual fund schemes"
+    ],
+    "correctIndex": 1,
+    "explanation": "KRAs centralize investor KYC documents under SEBI KYC regulations, allowing an investor who is KYC-compliant with one SEBI intermediary to transact across all SEBI entities.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q227",
+    "courseId": "nism-va",
+    "question": "How often must the Trustees of a mutual fund review transactions between the AMC and its associates?",
+    "options": [
+      "Once every 5 years",
+      "At least quarterly in their meetings",
+      "Only when an associate declares bankruptcy",
+      "Annually after filing income tax returns"
+    ],
+    "correctIndex": 1,
+    "explanation": "Trustees are mandated to conduct a quarterly review of all transactions between the AMC, its associates, and related-party brokerages to enforce investor protection.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q228",
+    "courseId": "nism-va",
+    "question": "Which of the following documents legally establishes the mutual fund and defines the rights and obligations of Trustees and unit holders?",
+    "options": [
+      "Scheme Information Document (SID)",
+      "Trust Deed executed by the Sponsor and Trustees",
+      "Key Information Memorandum (KIM)",
+      "Broker Distribution Agreement"
+    ],
+    "correctIndex": 1,
+    "explanation": "The Trust Deed is the primary foundational legal document executed between the Sponsor and the Board of Trustees registered under the Registration Act, 1908.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q229",
+    "courseId": "nism-va",
+    "question": "What is the statutory role of the Investment Committee in an Asset Management Company?",
+    "options": [
+      "Approving broker commissions for distributor roadshows",
+      "Setting overall investment policy, asset allocation frameworks, and monitoring scheme risk parameters",
+      "Selecting marketing brand ambassadors",
+      "Conducting tax audits of high-net-worth investors"
+    ],
+    "correctIndex": 1,
+    "explanation": "The Investment Committee of the AMC formulates investment philosophy, monitors portfolio risk metrics, and ensures compliance with SEBI exposure limits.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q230",
+    "courseId": "nism-va",
+    "question": "What proportion of the Board of Directors of an Asset Management Company (AMC) must be independent directors?",
+    "options": [
+      "At least 25%",
+      "At least 50%",
+      "At least 66.67%",
+      "100%"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under SEBI (Mutual Funds) Regulations, at least 50% of the directors on the Board of the AMC must be independent directors not associated with the Sponsor.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q231",
+    "courseId": "nism-va",
+    "question": "Can an individual serve simultaneously as a Trustee of one mutual fund and a Director of an AMC of another mutual fund?",
+    "options": [
+      "Yes, if approved by AMFI",
+      "No, SEBI strictly prohibits common trusteeship or directorship across competing mutual fund entities to prevent conflicts of interest",
+      "Yes, if the two funds have different market caps",
+      "Yes, if an annual disclosure is published in newspapers"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI MF Regulations bar cross-directorships and common trusteeships between competing mutual fund AMCs and Trustee boards.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q232",
+    "courseId": "nism-va",
+    "question": "In case of gross negligence or breach of trust causing financial loss to unit holders, who can be held legally liable?",
+    "options": [
+      "Only the junior dealer who entered the buy order",
+      "The AMC and the Trustees in their fiduciary capacity",
+      "Only the software provider hosting the cloud servers",
+      "Unit holders who approved the NFO"
+    ],
+    "correctIndex": 1,
+    "explanation": "Trustees and the AMC carry statutory and fiduciary accountability under SEBI regulations and the Trust Deed for breach of trust or gross negligence.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q233",
+    "courseId": "nism-va",
+    "question": "Under SEBI regulations, what is the maximum permissible investment by a mutual fund scheme in debt instruments issued by a single issuer?",
+    "options": [
+      "10% of NAV (extendable to 12% with prior approval of Trustees and AMC Board)",
+      "25% of NAV without conditions",
+      "5% of NAV under all circumstances",
+      "30% of NAV if rated AAA"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI single issuer debt exposure limit is 10% of scheme NAV, extendable to 12% with prior approval of the Board of Trustees and Board of Directors of the AMC.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q234",
+    "courseId": "nism-va",
+    "question": "What is the maximum investment limit for an equity mutual fund scheme in the equity shares of a single company?",
+    "options": [
+      "5% of NAV",
+      "10% of NAV",
+      "20% of NAV",
+      "15% of NAV"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under SEBI regulations, an open-ended equity scheme cannot invest more than 10% of its NAV in the equity shares or equity-related instruments of any single company.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q235",
+    "courseId": "nism-va",
+    "question": "Can a mutual fund scheme invest in unrated debt and money market instruments issued by a corporate entity?",
+    "options": [
+      "Yes, up to 50% of scheme assets",
+      "No, SEBI mandates that mutual funds can only invest in listed or to-be-listed rated debt instruments (subject to specific G-Sec/T-bill exemptions)",
+      "Yes, if the issuer pays a 15% coupon",
+      "Yes, if the fund manager provides personal indemnity"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under SEBI revised norms, mutual funds are prohibited from investing in unlisted or unrated debt and money market instruments, except for sovereign papers and repo transactions.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q236",
+    "courseId": "nism-va",
+    "question": "Which of the following actions constitutes a violation of the SEBI (Prohibition of Insider Trading) Regulations for mutual fund employees?",
+    "options": [
+      "Submitting an internal personal trading pre-clearance request to compliance",
+      "Dealing in shares of a company while possessing Unpublished Price Sensitive Information (UPSI) acquired during fund manager research visits",
+      "Investing in the growth option of a broad market index fund",
+      "Writing research reports based entirely on public annual reports"
+    ],
+    "correctIndex": 1,
+    "explanation": "Trading or tipping based on Unpublished Price Sensitive Information (UPSI) is a severe criminal and regulatory offense under SEBI Insider Trading Regulations.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q237",
+    "courseId": "nism-va",
+    "question": "Under SEBI circular on 'Skin in the Game', key employees of an AMC (fund managers, CXOs) are mandated to:",
+    "options": [
+      "Invest a specified percentage of their net salary in the mutual fund schemes they manage with a 3-year lock-in",
+      "Provide personal collateral for scheme redemptions",
+      "Work without compensation during bear markets",
+      "Hold 100% of their net worth in government cash balances"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI mandates that key employees of AMCs must invest a minimum percentage (ranging from 10% to 20%) of their cost to company (CTC) in units of the schemes they manage, locked for 3 years.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q238",
+    "courseId": "nism-va",
+    "question": "Under SEBI guidelines, what is the maximum aggregate group exposure limit in debt schemes for a single corporate group?",
+    "options": [
+      "5% of NAV",
+      "20% of NAV (extendable to 25% with Trustee approval)",
+      "50% of NAV",
+      "35% of NAV"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandates that debt schemes cannot exceed 20% of NAV in debt securities of a single corporate group, extendable to 25% with prior Trustee approval.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q239",
+    "courseId": "nism-va",
+    "question": "What is the primary requirement under the Prevention of Money Laundering Act (PMLA) for mutual fund intermediaries?",
+    "options": [
+      "Ensuring every client doubles their capital within 3 years",
+      "Verifying the identity of the beneficial owner, conducting Customer Due Diligence (CDD), and reporting Suspicious Transaction Reports (STR) to FIU-IND",
+      "Collecting cash deposits exceeding ₹10 Lakh without PAN",
+      "Exempting high-net-worth investors from KYC verification"
+    ],
+    "correctIndex": 1,
+    "explanation": "PMLA mandates strict client identification, beneficial ownership verification, records preservation, and reporting of suspicious transactions (STR) to the Financial Intelligence Unit - India.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q240",
+    "courseId": "nism-va",
+    "question": "Can a mutual fund distributor registered under AMFI guarantee portfolio outperformance over the benchmark index?",
+    "options": [
+      "Yes, if the distributor has passed the NISM Series V-A examination with >80%",
+      "No, AMFI Code of Conduct strictly bars distributors from making exaggerated claims or guaranteeing performance",
+      "Yes, if the investor signs an indemnity waiver",
+      "Yes, for liquid and overnight funds only"
+    ],
+    "correctIndex": 1,
+    "explanation": "The AMFI Code of Conduct explicitly prohibits distributors from guaranteeing returns, making false claims, or projecting speculative performance numbers.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q241",
+    "courseId": "nism-va",
+    "question": "What is the statutory cooling-off period required before an employee of an AMC can execute a personal trade in a stock that was bought or sold by the AMC scheme?",
+    "options": [
+      "Zero hours",
+      "At least 15 calendar days from the date of the scheme's transaction",
+      "6 months",
+      "3 years"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI employee personal trading guidelines mandate a cooling-off period (typically 15 days) before or after scheme trades to prevent front-running and conflict of interest.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q242",
+    "courseId": "nism-va",
+    "question": "In mutual fund advertising, SEBI mandates that performance numbers must always be accompanied by:",
+    "options": [
+      "A mandatory risk disclaimer: 'Mutual Fund investments are subject to market risks, read all scheme related documents carefully'",
+      "The personal mobile number of the fund manager",
+      "A guarantee certificate from a nationalized bank",
+      "A pledge of sovereign gold bonds"
+    ],
+    "correctIndex": 0,
+    "explanation": "All promotional material and advertisements across print, audio, and visual media must prominently display the standard statutory risk disclaimer.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q243",
+    "courseId": "nism-va",
+    "question": "Under SEBI regulations, how long must an AMC preserve investor records, application forms, and transaction logs?",
+    "options": [
+      "1 year",
+      "3 years",
+      "At least 8 years",
+      "Only until the next audit"
+    ],
+    "correctIndex": 2,
+    "explanation": "Under PMLA and SEBI regulations, all transaction logs, account opening forms, and investor communication records must be preserved for at least 8 years.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q244",
+    "courseId": "nism-va",
+    "question": "Which authority handles unresolved investor grievances against mutual fund intermediaries through the online SCORES 2.0 portal?",
+    "options": [
+      "SEBI",
+      "RBI",
+      "IRDAI",
+      "Competition Commission of India"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI operates the SEBI Complaints Redress System (SCORES), providing centralized tracking and time-bound resolution for investor complaints against market intermediaries.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q245",
+    "courseId": "nism-va",
+    "question": "Under SEBI regulations, what is the maximum percentage of scheme NAV that can be invested in unlisted equity shares?",
+    "options": [
+      "10% of NAV",
+      "0% (Zero - unlisted equity investments are completely prohibited for open-ended MF schemes)",
+      "25% of NAV",
+      "5% of NAV"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI regulations prohibit open-ended mutual fund schemes from investing in unlisted equity shares and equity-related instruments to protect scheme liquidity.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q246",
+    "courseId": "nism-va",
+    "question": "What is 'Front-Running' under SEBI (Prohibition of Fraudulent and Unfair Trade Practices) Regulations?",
+    "options": [
+      "Running to the exchange building to submit physical share certificates",
+      "Trading in securities ahead of a substantial block order of a mutual fund scheme to profit from the anticipated price movement",
+      "Investing in an NFO on day one",
+      "Redeeming units exactly at 2:59 PM"
+    ],
+    "correctIndex": 1,
+    "explanation": "Front-running is a fraudulent market malpractice where an entity trades securities on personal account possessing advance knowledge of impending large client/fund orders.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q247",
+    "courseId": "nism-va",
+    "question": "Can an open-ended mutual fund borrow money to fund daily investment purchases in the stock market?",
+    "options": [
+      "Yes, up to 100% of its net assets",
+      "No, mutual funds can borrow ONLY to meet temporary liquidity requirements for unit redemptions, up to 20% of net assets for max 6 months",
+      "Yes, if interest rates are below 5%",
+      "Yes, with approval of the local stock broker"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under SEBI Regulation 44, funds can borrow exclusively for temporary redemption or dividend liquidity needs, capped at 20% of net assets for a maximum period of 6 months.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q248",
+    "courseId": "nism-va",
+    "question": "Under SEBI norms, the valuation of non-traded or thinly traded debt securities must be performed based on:",
+    "options": [
+      "The fund manager's optimistic personal assessment",
+      "Matrix pricing guidelines and valuation models provided by independent valuation agencies approved by AMFI (e.g. CRISIL / ICRA)",
+      "The historical purchase cost without write-downs",
+      "The Face Value of ₹1,000"
+    ],
+    "correctIndex": 1,
+    "explanation": "Non-traded debt securities must be valued strictly using mark-to-market matrix methodology released daily by AMFI-appointed independent valuation agencies.",
+    "topic": "Mutual Fund Structure & Regulation"
+  },
+  {
+    "id": "nism-va-q249",
+    "courseId": "nism-va",
+    "question": "The two primary components of a Mutual Fund Offer Document are:",
+    "options": [
+      "The Scheme Information Document (SID) and Statement of Additional Information (SAI)",
+      "The Balance Sheet and Profit & Loss Account of the Sponsor",
+      "The PAN Card and Aadhaar Card of the Fund Manager",
+      "The Broker Agreement and Distributor Passbook"
+    ],
+    "correctIndex": 0,
+    "explanation": "The Offer Document comprises the SID (scheme-specific details) and the SAI (statutory, governance, and sponsor-level information).",
+    "topic": "Legal & Regulatory Framework"
+  },
+  {
+    "id": "nism-va-q250",
+    "courseId": "nism-va",
+    "question": "Which document contains detailed statutory information regarding the Sponsor, AMC, Trustees, Custodian, and legal proceedings?",
+    "options": [
+      "Scheme Information Document (SID)",
+      "Statement of Additional Information (SAI)",
+      "Key Information Memorandum (KIM)",
+      "Factsheet"
+    ],
+    "correctIndex": 1,
+    "explanation": "The Statement of Additional Information (SAI) contains all statutory and institutional details regarding the constitution, management, sponsor history, and governance of the mutual fund.",
+    "topic": "Legal & Regulatory Framework"
+  },
+  {
+    "id": "nism-va-q251",
+    "courseId": "nism-va",
+    "question": "How frequently must an Asset Management Company update the Scheme Information Document (SID) under SEBI guidelines?",
+    "options": [
+      "Every week",
+      "At least once every financial year (annually)",
+      "Only once every 10 years",
+      "Never after the initial NFO"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandates that the SID must be updated at least once every financial year, within six months of the end of the financial year.",
+    "topic": "Legal & Regulatory Framework"
+  },
+  {
+    "id": "nism-va-q252",
+    "courseId": "nism-va",
+    "question": "Every application form for purchasing mutual fund units must be accompanied by which concise disclosure document?",
+    "options": [
+      "Full Statement of Additional Information",
+      "Key Information Memorandum (KIM)",
+      "Annual Report of the Sponsor",
+      "Custodian Agreement"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under Section 57 of the SEBI regulations, every application form must be accompanied by the Key Information Memorandum (KIM), summarizing essential scheme terms.",
+    "topic": "Legal & Regulatory Framework"
+  },
+  {
+    "id": "nism-va-q253",
+    "courseId": "nism-va",
+    "question": "Where an AMC makes a material fundamental attribute change to an existing mutual fund scheme, what statutory right must be given to existing unit holders?",
+    "options": [
+      "Right to purchase AMC equity shares at par",
+      "An exit window of at least 30 days to redeem their units at the prevailing NAV without paying any exit load",
+      "Right to veto the CEO's bonus",
+      "Immediate 100% cash dividend"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandates that unit holders must be given written communication and a 30-day exit window to redeem without exit load if fundamental attributes of a scheme are altered.",
+    "topic": "Legal & Regulatory Framework"
+  },
+  {
+    "id": "nism-va-q254",
+    "courseId": "nism-va",
+    "question": "What constitutes a 'Fundamental Attribute Change' of a mutual fund scheme under SEBI Regulation 18(15A)?",
+    "options": [
+      "Change in the office address of the local branch distributor",
+      "Change in the type of scheme (e.g. open-ended to closed-ended), investment objective, or terms of asset allocation",
+      "Change in the AMC stationary supplier",
+      "Retirement of an administrative clerk in the RTA office"
+    ],
+    "correctIndex": 1,
+    "explanation": "Fundamental attributes include the type of scheme, investment objectives, asset allocation patterns, and terms of redemption or liquidity.",
+    "topic": "Legal & Regulatory Framework"
+  },
+  {
+    "id": "nism-va-q255",
+    "courseId": "nism-va",
+    "question": "How often must a mutual fund disclose the complete portfolio of its schemes on its official website under SEBI regulations?",
+    "options": [
+      "Once every 5 years",
+      "On a monthly basis (within 10 days of month-end) and fortnightly for debt schemes",
+      "Only to unit holders who visit the head office in person",
+      "Quarterly in printed gazettes only"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandates monthly portfolio disclosures within 10 days of month-end on AMC and AMFI websites, with fortnightly portfolio disclosures for debt schemes.",
+    "topic": "Legal & Regulatory Framework"
+  },
+  {
+    "id": "nism-va-q256",
+    "courseId": "nism-va",
+    "question": "The Risk-o-meter displayed on mutual fund scheme documents and factsheets depicts risk across how many standardized levels?",
+    "options": [
+      "3 levels: Low, Medium, High",
+      "6 levels: Low, Low to Moderate, Moderate, Moderately High, High, and Very High",
+      "10 numeric grades from 1 to 10",
+      "2 levels: Safe and Risky"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI's standardized Risk-o-meter has 6 levels: Low, Low to Moderate, Moderate, Moderately High, High, and Very High, evaluated on a monthly basis.",
+    "topic": "Legal & Regulatory Framework"
+  },
+  {
+    "id": "nism-va-q257",
+    "courseId": "nism-va",
+    "question": "When an AMC modifies the fees, fundamental features, or risk profile of a scheme between annual SID updates, it issues a:",
+    "options": [
+      "Court injunction",
+      "Notice-cum-Addendum published in national newspapers and uploaded to the website",
+      "New NFO prospectus under a different fund name",
+      "Letter to the Governor of the Reserve Bank of India"
+    ],
+    "correctIndex": 1,
+    "explanation": "Interim changes in scheme terms are communicated via a formal 'Notice-cum-Addendum' published in leading English and vernacular newspapers and online.",
+    "topic": "Legal & Regulatory Framework"
+  },
+  {
+    "id": "nism-va-q258",
+    "courseId": "nism-va",
+    "question": "What is the maximum duration for which a New Fund Offer (NFO) of an open-ended mutual fund scheme can remain open for subscription?",
+    "options": [
+      "3 business days",
+      "15 calendar days",
+      "90 calendar days",
+      "1 year"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under SEBI MF Regulations, an NFO of an open-ended scheme (other than ELSS) can remain open for subscription for a maximum period of 15 calendar days.",
+    "topic": "Legal & Regulatory Framework"
+  },
+  {
+    "id": "nism-va-q259",
+    "courseId": "nism-va",
+    "question": "Within how many business days must an open-ended mutual fund re-open for continuous ongoing purchases and redemptions after NFO closure?",
+    "options": [
+      "Within 5 business days of unit allotment",
+      "Within 30 calendar days",
+      "After 6 months",
+      "Immediately on the day of NFO launch"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI mandates that units must be allotted and the scheme must re-open for continuous sales and repurchases within 5 business days from NFO closure date.",
+    "topic": "Legal & Regulatory Framework"
+  },
+  {
+    "id": "nism-va-q260",
+    "courseId": "nism-va",
+    "question": "If an AMC fails to collect the minimum subscription target during an NFO, within how many days must it refund the subscription money to applicants?",
+    "options": [
+      "Within 5 business days from the closure of the NFO",
+      "Within 60 calendar days",
+      "Within 1 year with RBI permission",
+      "Refunds are never permitted under company law"
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI regulations, if the minimum subscription amount is not raised, the AMC must refund the entire subscription amount within 5 business days of NFO closure.",
+    "topic": "Legal & Regulatory Framework"
+  },
+  {
+    "id": "nism-va-q261",
+    "courseId": "nism-va",
+    "question": "The Key Information Memorandum (KIM) must be updated by the AMC at least:",
+    "options": [
+      "Once every month",
+      "At least once a year (annually)",
+      "Only when the benchmark index drops by 10%",
+      "Every decade"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI requires the KIM to be updated at least once a year and made available to every prospective investor prior to unit subscription.",
+    "topic": "Legal & Regulatory Framework"
+  },
+  {
+    "id": "nism-va-q262",
+    "courseId": "nism-va",
+    "question": "Where can an investor inspect material documents like the Trust Deed, Custodian Agreement, and AMC Memorandum of Association?",
+    "options": [
+      "At the registered head office of the AMC during regular business hours",
+      "Only at SEBI Bhavan in Mumbai with court subpoena",
+      "On unverified social media handles",
+      "These documents are strictly confidential trade secrets"
+    ],
+    "correctIndex": 0,
+    "explanation": "The SAI explicitly lists material contracts and documents that are open for inspection by unit holders at the AMC's registered office during office hours.",
+    "topic": "Legal & Regulatory Framework"
+  },
+  {
+    "id": "nism-va-q263",
+    "courseId": "nism-va",
+    "question": "Under SEBI and AMFI guidelines, who is mandated to obtain an Employee Unique Identification Number (EUIN)?",
+    "options": [
+      "Only the CEO and Board of Directors of the Asset Management Company",
+      "Every sales employee or person interacting directly with investors for marketing, selling, or advising on mutual fund schemes",
+      "Only staff responsible for data center server cooling",
+      "Independent chartered accountants auditing the scheme"
+    ],
+    "correctIndex": 1,
+    "explanation": "AMFI mandates that all sales personnel, relationship managers, and bank employees who interact with or advise investors must obtain and quote their EUIN on application forms.",
+    "topic": "Distribution & Channel Management"
+  },
+  {
+    "id": "nism-va-q264",
+    "courseId": "nism-va",
+    "question": "What is the primary objective of quoting the EUIN on mutual fund transaction slips?",
+    "options": [
+      "To track and identify individual sales personnel in case of mis-selling or regulatory grievances, even if the corporate ARN remains the same",
+      "To determine the PAN number of the investor",
+      "To calculate daily stamp duty payable to state governments",
+      "To exempt the transaction from capital gains tax"
+    ],
+    "correctIndex": 0,
+    "explanation": "The EUIN system fixes personal accountability and enables tracking of individual salespersons involved in advising or facilitating transactions, combating mis-selling.",
+    "topic": "Distribution & Channel Management"
+  },
+  {
+    "id": "nism-va-q265",
+    "courseId": "nism-va",
+    "question": "Under SEBI regulations, how can an AMC compensate mutual fund distributors for mobilizing investments?",
+    "options": [
+      "Through upfront cash commissions paid directly from scheme assets on day one",
+      "Strictly through a trail commission model based on prevailing assets under management, with upfront commissions completely banned",
+      "By offering overseas vacation packages and luxury cars to top distributors",
+      "By issuing free bonus units from the scheme portfolio"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI abolished upfront commissions in 2018; all distributor remuneration must be paid exclusively on a trailing commission basis based on active AUM.",
+    "topic": "Distribution & Channel Management"
+  },
+  {
+    "id": "nism-va-q266",
+    "courseId": "nism-va",
+    "question": "A distributor who has opted to charge transaction charges under SEBI guidelines can collect how much on an investment of ₹10,000 or more from a first-time mutual fund investor?",
+    "options": [
+      "₹500",
+      "₹150",
+      "₹100",
+      "Nil (Zero)"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under SEBI circular, distributors who opt in can collect ₹150 for a first-time investor in mutual funds and ₹100 for an existing investor on investments of ₹10,000 and above.",
+    "topic": "Distribution & Channel Management"
+  },
+  {
+    "id": "nism-va-q267",
+    "courseId": "nism-va",
+    "question": "Can a mutual fund distributor pass back or rebate a portion of their trail commission to the investor as an incentive to invest?",
+    "options": [
+      "Yes, it is encouraged as competitive pricing",
+      "No, the AMFI Code of Conduct strictly prohibits rebating or passing back commissions in any form to clients",
+      "Yes, if the investment is above ₹1 Crore",
+      "Yes, if approved by the bank branch manager"
+    ],
+    "correctIndex": 1,
+    "explanation": "Rebating of commissions directly or indirectly to investors is a grave violation of the AMFI Code of Conduct and can lead to suspension of the ARN license.",
+    "topic": "Distribution & Channel Management"
+  },
+  {
+    "id": "nism-va-q268",
+    "courseId": "nism-va",
+    "question": "How does a 'Direct Plan' of a mutual fund scheme differ from a 'Regular Plan' of the exact same scheme?",
+    "options": [
+      "Direct Plans have lower Total Expense Ratios (TER) because no distributor commission is charged, resulting in a higher NAV and returns over time",
+      "Direct Plans invest in completely different portfolio stocks",
+      "Regular Plans are exempt from capital gains tax",
+      "Direct Plans do not allow SIP investments"
+    ],
+    "correctIndex": 0,
+    "explanation": "Direct Plans exclude distributor distribution expenses and commissions, resulting in lower expenses, higher compounding, and a higher NAV relative to Regular Plans.",
+    "topic": "Distribution & Channel Management"
+  },
+  {
+    "id": "nism-va-q269",
+    "courseId": "nism-va",
+    "question": "Under SEBI regulations, an entity registered as an Investment Adviser (RIA):",
+    "options": [
+      "Can receive both distribution commissions from AMCs and advisory fees from the same client",
+      "Is legally prohibited from receiving any distribution commission from AMCs and can charge only advisory fees directly to clients",
+      "Can accept soft-dollar commissions in cash",
+      "Must be a public listed bank"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI (Investment Advisers) Regulations enforce a strict segregation: an RIA cannot accept any commission or remuneration from AMCs and works on a fee-only advisory model.",
+    "topic": "Distribution & Channel Management"
+  },
+  {
+    "id": "nism-va-q270",
+    "courseId": "nism-va",
+    "question": "What happens to the trail commission when an investor voluntarily switches their ARN code to another distributor without the consent of the existing distributor?",
+    "options": [
+      "The new distributor receives double trail commission",
+      "The new distributor does not receive any trail commission for the transferred assets, and trail commission ceases to be paid on those assets",
+      "The AMC pays a lump-sum penalty to the old distributor",
+      "The investor is charged an exit load of 5%"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under AMFI transfer of AUM guidelines, on voluntary transfer of folio without a No Objection Certificate (NOC), the new distributor does not receive trail commission on the migrated assets.",
+    "topic": "Distribution & Channel Management"
+  },
+  {
+    "id": "nism-va-q271",
+    "courseId": "nism-va",
+    "question": "What is the validity period of an AMFI Registration Number (ARN) issued to an individual distributor upon passing NISM Series V-A?",
+    "options": [
+      "1 year",
+      "3 years",
+      "5 years",
+      "Permanent lifetime validity without renewal"
+    ],
+    "correctIndex": 1,
+    "explanation": "An ARN card issued to an individual distributor is valid for 3 years from the date of issue and must be renewed by completing CPE or passing the NISM examination prior to expiry.",
+    "topic": "Distribution & Channel Management"
+  },
+  {
+    "id": "nism-va-q272",
+    "courseId": "nism-va",
+    "question": "Under the 'Execution Only' transaction declaration on an application form, an investor signifies that:",
+    "options": [
+      "The distributor provided extensive customized financial planning advice",
+      "The transaction is executed without any advisory recommendation from the distributor, even if the scheme is not suitable to the investor",
+      "The investor promises to never redeem units for 10 years",
+      "The AMC will guarantee capital protection"
+    ],
+    "correctIndex": 1,
+    "explanation": "An 'Execution Only' (non-advisory) declaration protects distributors where an investor insists on investing contrary to the distributor's assessment of suitability.",
+    "topic": "Distribution & Channel Management"
+  },
+  {
+    "id": "nism-va-q273",
+    "courseId": "nism-va",
+    "question": "In the event of the demise of an individual ARN holder, can their trail commission continue to be paid to their legal heir or nominee?",
+    "options": [
+      "No, all accumulated and future commissions lapse to the Prime Minister Relief Fund",
+      "Yes, provided the nominee or legal heir obtains an ARN and complies with AMFI transfer norms within the stipulated time frame",
+      "Yes, without obtaining any certification or license",
+      "Only if the nominee was already a director of the AMC"
+    ],
+    "correctIndex": 1,
+    "explanation": "AMFI guidelines permit transmission of AUM and continuation of trail commission to the registered nominee/legal heir provided they obtain valid NISM certification and ARN.",
+    "topic": "Distribution & Channel Management"
+  },
+  {
+    "id": "nism-va-q274",
+    "courseId": "nism-va",
+    "question": "Under AMFI Code of Conduct, a distributor who makes derogatory or malicious statements about a competing AMC or scheme is liable to:",
+    "options": [
+      "Be awarded a certificate of marketing excellence",
+      "Disciplinary action by AMFI, including warning letters, suspension, or permanent cancellation of ARN",
+      "Promotion to the board of Trustees",
+      "Exemption from paying GST on commission"
+    ],
+    "correctIndex": 1,
+    "explanation": "The AMFI Code of Conduct prohibits unethical competitive practices, derogatory comments, or spreading rumors about competing fund houses.",
+    "topic": "Distribution & Channel Management"
+  },
+  {
+    "id": "nism-va-q275",
+    "courseId": "nism-va",
+    "question": "What is the minimum age required for an individual to appear for NISM Series V-A and obtain an ARN from AMFI?",
+    "options": [
+      "16 years",
+      "18 years (major under Indian law)",
+      "21 years",
+      "25 years"
+    ],
+    "correctIndex": 1,
+    "explanation": "An individual must have attained 18 years of age (legal majority) to enter into contracts and receive an ARN license from AMFI.",
+    "topic": "Distribution & Channel Management"
+  },
+  {
+    "id": "nism-va-q276",
+    "courseId": "nism-va",
+    "question": "Which of the following channels of mutual fund distribution is regulated by the Reserve Bank of India in addition to SEBI?",
+    "options": [
+      "Individual Independent Financial Advisers (IFAs)",
+      "Commercial Banks operating as Corporate Mutual Fund Distributors",
+      "Fintech web aggregators",
+      "Stock brokers"
+    ],
+    "correctIndex": 1,
+    "explanation": "Scheduled commercial banks acting as corporate distributors are governed primarily by RBI for their banking licenses and adhere to SEBI/AMFI distribution regulations.",
+    "topic": "Distribution & Channel Management"
+  },
+  {
+    "id": "nism-va-q277",
+    "courseId": "nism-va",
+    "question": "A mutual fund scheme has total market value of portfolio investments of ₹1,000 Crore, accrued income of ₹20 Crore, and current liabilities and accrued expenses of ₹30 Crore. If there are 50 Crore units outstanding, what is the Net Asset Value (NAV) per unit?",
+    "options": [
+      "₹19.80",
+      "₹20.00",
+      "₹20.40",
+      "₹19.40"
+    ],
+    "correctIndex": 0,
+    "explanation": "Net Assets = Investments (1000) + Accrued Income (20) - Current Liabilities (30) = ₹990 Crore. NAV per unit = 990 / 50 = ₹19.80.",
+    "topic": "Accounting, Valuation & NAV"
+  },
+  {
+    "id": "nism-va-q278",
+    "courseId": "nism-va",
+    "question": "Under SEBI cut-off rules for Liquid and Overnight funds, an investor submits an application with an electronic fund transfer at 1:15 PM on Tuesday, and funds are realized in the scheme account at 1:25 PM on Tuesday. Which NAV will be allotted?",
+    "options": [
+      "NAV of Wednesday (next business day)",
+      "Historical NAV of Monday (previous day)",
+      "NAV of Tuesday (same day)",
+      "Average NAV of the month"
+    ],
+    "correctIndex": 1,
+    "explanation": "In Liquid and Overnight funds, where application is received up to 1:30 PM and funds are realized before 1:30 PM, the applicable NAV is the previous calendar day (historical NAV).",
+    "topic": "Accounting, Valuation & NAV"
+  },
+  {
+    "id": "nism-va-q279",
+    "courseId": "nism-va",
+    "question": "Under current SEBI regulations, for all mutual fund schemes other than Liquid and Overnight funds, the realization of funds principle applies to:",
+    "options": [
+      "Purchases above ₹2 Lakh only",
+      "Purchases above ₹50 Lakh only",
+      "All purchase transactions irrespective of the investment amount",
+      "Systematic Investment Plans (SIP) only"
+    ],
+    "correctIndex": 2,
+    "explanation": "SEBI mandates that for all purchase transactions across all non-liquid schemes, the NAV of the day on which funds are available for utilization before cut-off (3:00 PM) applies, regardless of transaction value.",
+    "topic": "Accounting, Valuation & NAV"
+  },
+  {
+    "id": "nism-va-q280",
+    "courseId": "nism-va",
+    "question": "What is the maximum Total Expense Ratio (TER) permissible under SEBI Regulation 52 for an open-ended equity-oriented scheme on the first ₹500 Crore of daily net assets?",
+    "options": [
+      "2.50%",
+      "2.25%",
+      "2.00%",
+      "1.75%"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under SEBI Regulation 52, the maximum base TER for open-ended equity schemes on the first ₹500 Crore of daily net assets is 2.25%.",
+    "topic": "Accounting, Valuation & NAV"
+  },
+  {
+    "id": "nism-va-q281",
+    "courseId": "nism-va",
+    "question": "When an investor redeems units of an equity fund subject to a 1% exit load, where does the collected exit load go under SEBI regulations?",
+    "options": [
+      "100% is kept by the AMC as corporate profit",
+      "It is credited back entirely to the scheme portfolio immediately (net of GST) to benefit remaining unit holders",
+      "It is paid as a special bonus to the distributor",
+      "It is deposited in the investor protection fund of the stock exchange"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandates that 100% of the exit load charged on redemption must be credited back to the scheme immediately, ensuring remaining unit holders are compensated for the liquidity impact.",
+    "topic": "Accounting, Valuation & NAV"
+  },
+  {
+    "id": "nism-va-q282",
+    "courseId": "nism-va",
+    "question": "How does the Total Expense Ratio (TER) impact the daily Net Asset Value (NAV) of a mutual fund scheme?",
+    "options": [
+      "It is deducted once a year during Diwali",
+      "It is accrued on a daily basis and deducted before declaring the daily published NAV",
+      "It is billed separately as an invoice sent to the investor's home",
+      "It is waived during market corrections"
+    ],
+    "correctIndex": 1,
+    "explanation": "Expenses are accrued daily as 1/365th of the annual rate and deducted from the gross asset value before computing and publishing the daily NAV.",
+    "topic": "Accounting, Valuation & NAV"
+  },
+  {
+    "id": "nism-va-q283",
+    "courseId": "nism-va",
+    "question": "If a mutual fund scheme has an NAV of ₹100 and levies an exit load of 1% on redemptions within 1 year, what is the net redemption price per unit received by an investor who redeems within 6 months?",
+    "options": [
+      "₹101.00",
+      "₹99.00",
+      "₹98.00",
+      "₹100.00"
+    ],
+    "correctIndex": 1,
+    "explanation": "Redemption Price = NAV * (1 - Exit Load) = 100 * (1 - 0.01) = ₹99.00 per unit.",
+    "topic": "Accounting, Valuation & NAV"
+  },
+  {
+    "id": "nism-va-q284",
+    "courseId": "nism-va",
+    "question": "Under SEBI guidelines, what is 'Swing Pricing' in mutual funds?",
+    "options": [
+      "A mechanism that adjusts the scheme NAV upward or downward during periods of extreme market liquidity stress to protect existing investors from dilution caused by large redemptions",
+      "A method of dancing at AMC corporate conferences",
+      "A tool to increase fund manager bonuses during bull markets",
+      "A strategy of buying only midcap swinging momentum stocks"
+    ],
+    "correctIndex": 0,
+    "explanation": "Swing pricing adjusts the net asset value of a scheme during market dislocation to prevent dilution of value for long-term unit holders caused by transaction costs of massive redemptions.",
+    "topic": "Accounting, Valuation & NAV"
+  },
+  {
+    "id": "nism-va-q285",
+    "courseId": "nism-va",
+    "question": "Under SEBI valuation guidelines, how are listed equity shares valued for daily NAV computation?",
+    "options": [
+      "At the historical 52-week high price",
+      "At the closing price on the primary stock exchange (NSE/BSE) where the security is traded",
+      "At the book value from the latest annual balance sheet",
+      "At the fund manager's expected target price"
+    ],
+    "correctIndex": 1,
+    "explanation": "Traded equity shares are valued daily at the closing market price on the principal stock exchange where they are primarily listed and traded.",
+    "topic": "Accounting, Valuation & NAV"
+  },
+  {
+    "id": "nism-va-q286",
+    "courseId": "nism-va",
+    "question": "What is the purpose of 'Side-Pocketing' (Segregated Portfolio) introduced by SEBI for mutual funds?",
+    "options": [
+      "Hiding losses from the statutory auditor",
+      "Segregating distressed or defaulted illiquid credit debt assets from the main liquid portfolio so that genuine investors can continue transacting in the main fund without getting trapped",
+      "Creating an offshore tax haven account for the AMC",
+      "Paying higher management fees to foreign consultants"
+    ],
+    "correctIndex": 1,
+    "explanation": "Side-pocketing segregates defaulted or downgraded debt instruments into a separate portfolio, ensuring that arriving or exiting investors are treated equitably without panic runs.",
+    "topic": "Accounting, Valuation & NAV"
+  },
+  {
+    "id": "nism-va-q287",
+    "courseId": "nism-va",
+    "question": "Under SEBI regulations, how is Goods and Services Tax (GST) on Investment Management Fees treated?",
+    "options": [
+      "It is paid by the Central Government",
+      "It is charged to the scheme within the permissible Total Expense Ratio (TER) limits",
+      "It can be added as an extra 5% surcharge above all statutory caps",
+      "Mutual funds are completely exempt from GST"
+    ],
+    "correctIndex": 1,
+    "explanation": "GST on investment management and advisory fees must be accommodated within the maximum Total Expense Ratio limit prescribed under Regulation 52.",
+    "topic": "Accounting, Valuation & NAV"
+  },
+  {
+    "id": "nism-va-q288",
+    "courseId": "nism-va",
+    "question": "What is the cut-off time for submitting redemption applications in equity and debt mutual funds for same-day NAV applicability?",
+    "options": [
+      "1:00 PM",
+      "1:30 PM",
+      "3:00 PM",
+      "5:00 PM"
+    ],
+    "correctIndex": 2,
+    "explanation": "Under SEBI revised operational guidelines, the cut-off time for receiving redemption requests for same-day closing NAV applicability is 3:00 PM.",
+    "topic": "Accounting, Valuation & NAV"
+  },
+  {
+    "id": "nism-va-q289",
+    "courseId": "nism-va",
+    "question": "An AMC can charge additional expenses up to 30 basis points (0.30%) over the base TER if new inflows from B30 (Beyond Top 30 cities) cities are at least:",
+    "options": [
+      "10% of gross new inflows or 5% of average AUM, whichever is higher",
+      "30% of gross new inflows in the scheme or 15% of average AUM, whichever is higher",
+      "50% of the scheme corpus",
+      "100% from rural post offices"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI permits an additional expense of up to 30 bps if inflows from beyond top 30 cities reach at least 30% of gross new inflows or 15% of average AUM (year-to-date), whichever is higher.",
+    "topic": "Accounting, Valuation & NAV"
+  },
+  {
+    "id": "nism-va-q290",
+    "courseId": "nism-va",
+    "question": "If a mutual fund declares a dividend (IDCW payout) of ₹2 per unit when the cum-dividend NAV is ₹28, what will be the theoretical ex-dividend NAV on the record date (ignoring tax deduction)?",
+    "options": [
+      "₹30.00",
+      "₹28.00",
+      "₹26.00",
+      "₹25.00"
+    ],
+    "correctIndex": 2,
+    "explanation": "Theoretical Ex-dividend NAV = Cum-dividend NAV - Dividend Payout = 28 - 2 = ₹26.00.",
+    "topic": "Accounting, Valuation & NAV"
+  },
+  {
+    "id": "nism-va-q291",
+    "courseId": "nism-va",
+    "question": "Under SEBI regulations, how many decimal places must the NAV of an open-ended Liquid or Money Market fund be rounded and published to?",
+    "options": [
+      "Up to 2 decimal places",
+      "At least 4 decimal places",
+      "Rounded to the nearest integer rupee",
+      "Up to 6 decimal places"
+    ],
+    "correctIndex": 1,
+    "explanation": "Liquid, overnight, and money market funds are required to calculate and publish their NAV up to at least 4 decimal places, whereas equity and other debt funds use 2 decimal places.",
+    "topic": "Accounting, Valuation & NAV"
+  },
+  {
+    "id": "nism-va-q292",
+    "courseId": "nism-va",
+    "question": "Under the Union Budget 2024 tax amendments, what is the holding period required for units of an Equity-Oriented Mutual Fund to qualify as Long-Term Capital Assets?",
+    "options": [
+      "More than 6 months",
+      "More than 12 months",
+      "More than 24 months",
+      "More than 36 months"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under Section 2(42A) of the Income Tax Act, units of equity-oriented mutual funds held for more than 12 months qualify as long-term capital assets.",
+    "topic": "Taxation & Legal Principles"
+  },
+  {
+    "id": "nism-va-q293",
+    "courseId": "nism-va",
+    "question": "Under Section 112A of the Income Tax Act (as amended by Budget 2024), what is the tax rate applicable on Long-Term Capital Gains (LTCG) from equity mutual funds?",
+    "options": [
+      "10% on gains exceeding ₹1 Lakh",
+      "12.5% on gains exceeding ₹1.25 Lakh per financial year (without indexation)",
+      "15% flat on all gains",
+      "Taxed at marginal income slab rate"
+    ],
+    "correctIndex": 1,
+    "explanation": "Budget 2024 revised the Section 112A LTCG tax rate to 12.5% while increasing the annual tax-exempt threshold from ₹1 Lakh to ₹1.25 Lakh.",
+    "topic": "Taxation & Legal Principles"
+  },
+  {
+    "id": "nism-va-q294",
+    "courseId": "nism-va",
+    "question": "Under Section 111A of the Income Tax Act (as amended by Budget 2024), what is the tax rate on Short-Term Capital Gains (STCG) on equity mutual fund units held for 12 months or less?",
+    "options": [
+      "10%",
+      "15%",
+      "20%",
+      "Marginal tax slab rate"
+    ],
+    "correctIndex": 2,
+    "explanation": "Union Budget 2024 increased the Short-Term Capital Gains tax rate on equity-oriented securities and funds from 15% to 20% under Section 111A.",
+    "topic": "Taxation & Legal Principles"
+  },
+  {
+    "id": "nism-va-q295",
+    "courseId": "nism-va",
+    "question": "Under the Finance Act 2023 amendment (Section 50AA), how are capital gains on 'Specified Mutual Funds' (debt funds with not more than 35% domestic equity) acquired on or after April 1, 2023 taxed?",
+    "options": [
+      "Always treated as Short-Term Capital Gains and taxed at the investor's applicable marginal income tax slab rate, regardless of the holding period",
+      "Taxed at 10% after 3 years with full indexation benefit",
+      "Completely tax-free under Section 10(23D)",
+      "Taxed at a flat rate of 5%"
+    ],
+    "correctIndex": 0,
+    "explanation": "Section 50AA mandates that capital gains from debt funds with <=35% domestic equity acquired on or after April 1, 2023 are deemed short-term capital gains taxed at the investor's applicable slab rates.",
+    "topic": "Taxation & Legal Principles"
+  },
+  {
+    "id": "nism-va-q296",
+    "courseId": "nism-va",
+    "question": "Under Budget 2024, what is the holding period and tax treatment for 'Other Mutual Funds' (such as Gold ETFs, Fund of Funds, and Hybrid funds with equity between 35% and 65%)?",
+    "options": [
+      "Holding period of >12 months; taxed at 10% with indexation",
+      "Holding period of >24 months for LTCG; taxed at 12.5% without indexation",
+      "Holding period of >36 months; taxed at 30%",
+      "Always tax-exempt"
+    ],
+    "correctIndex": 1,
+    "explanation": "Budget 2024 harmonized unlisted/non-equity asset rules: assets held >24 months qualify as long-term, taxed at 12.5% with the abolition of indexation benefits.",
+    "topic": "Taxation & Legal Principles"
+  },
+  {
+    "id": "nism-va-q297",
+    "courseId": "nism-va",
+    "question": "Under the classical system of dividend taxation in India, how are Income Distribution cum Capital Withdrawal (IDCW) payouts from mutual funds taxed in the hands of unit holders?",
+    "options": [
+      "Tax-free in the hands of investors because the AMC pays Dividend Distribution Tax (DDT)",
+      "Added to the total taxable income of the investor and taxed at their applicable slab rates",
+      "Taxed at a flat rate of 10% under Section 115BB",
+      "Taxed at 30% irrespective of total income"
+    ],
+    "correctIndex": 1,
+    "explanation": "Dividends/IDCW payouts are added to the investor's taxable income and taxed at their marginal income tax slab rates.",
+    "topic": "Taxation & Legal Principles"
+  },
+  {
+    "id": "nism-va-q298",
+    "courseId": "nism-va",
+    "question": "Under Section 194K of the Income Tax Act, what is the threshold limit beyond which an AMC must deduct Tax Deducted at Source (TDS) on IDCW payouts to a resident individual in a financial year?",
+    "options": [
+      "₹1,000",
+      "₹5,000",
+      "₹10,000",
+      "₹50,000"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under Section 194K, an AMC must deduct TDS at 10% if the aggregate IDCW (dividend) payout to a resident individual exceeds ₹5,000 in a financial year.",
+    "topic": "Taxation & Legal Principles"
+  },
+  {
+    "id": "nism-va-q299",
+    "courseId": "nism-va",
+    "question": "If an investor does not provide a valid PAN to the AMC, what is the rate of TDS deducted on IDCW payouts exceeding the statutory threshold?",
+    "options": [
+      "10%",
+      "15%",
+      "20% (under Section 206AA)",
+      "30%"
+    ],
+    "correctIndex": 2,
+    "explanation": "Under Section 206AA of the Income Tax Act, failure to furnish a valid PAN results in TDS deduction at the higher penal rate of 20%.",
+    "topic": "Taxation & Legal Principles"
+  },
+  {
+    "id": "nism-va-q300",
+    "courseId": "nism-va",
+    "question": "Under the Income Tax Act, can a Long-Term Capital Loss (LTCL) incurred on the redemption of equity mutual funds be set off against Short-Term Capital Gains (STCG)?",
+    "options": [
+      "Yes, capital losses can be set off against any income head",
+      "No, Long-Term Capital Loss can ONLY be set off against Long-Term Capital Gains",
+      "Yes, but only against bank FD interest",
+      "Yes, if the loss is below ₹50,000"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under Indian tax law, Long-Term Capital Loss can only be set off against Long-Term Capital Gains. In contrast, Short-Term Capital Loss can be set off against both STCG and LTCG.",
+    "topic": "Taxation & Legal Principles"
+  },
+  {
+    "id": "nism-va-q301",
+    "courseId": "nism-va",
+    "question": "For how many consecutive assessment years can unabsorbed Long-Term or Short-Term Capital Losses be carried forward, provided the return of income is filed on time under Section 139(1)?",
+    "options": [
+      "3 assessment years",
+      "5 assessment years",
+      "Up to 8 consecutive assessment years",
+      "Indefinitely"
+    ],
+    "correctIndex": 2,
+    "explanation": "Unadjusted capital losses can be carried forward for up to 8 assessment years following the year in which the loss was incurred, provided the tax return was filed within the due date.",
+    "topic": "Taxation & Legal Principles"
+  },
+  {
+    "id": "nism-va-q302",
+    "courseId": "nism-va",
+    "question": "An investor redeems equity mutual fund units and realizes a Long-Term Capital Gain of ₹3,00,000 in FY 2024-25. Under the Budget 2024 tax framework, what is the tax liability under Section 112A (excluding cess)?",
+    "options": [
+      "₹37,500",
+      "₹21,875 (12.5% on ₹1,75,000)",
+      "₹20,000",
+      "₹30,000"
+    ],
+    "correctIndex": 1,
+    "explanation": "LTCG above the ₹1,25,000 exemption = ₹3,00,000 - ₹1,25,000 = ₹1,75,000. Tax at 12.5% = 12.5% * 1,75,000 = ₹21,875.",
+    "topic": "Taxation & Legal Principles"
+  },
+  {
+    "id": "nism-va-q303",
+    "courseId": "nism-va",
+    "question": "Is Securities Transaction Tax (STT) applicable on the redemption of units in a Pure Debt Mutual Fund or Liquid Fund in India?",
+    "options": [
+      "Yes, at 0.1% on the redemption value",
+      "No, STT is applicable ONLY on equity-oriented funds and is NOT levied on debt or liquid funds",
+      "Yes, if the investor is a corporate",
+      "Yes, if the holding period is less than 3 years"
+    ],
+    "correctIndex": 1,
+    "explanation": "STT is levied exclusively on transactions in equity shares, equity-oriented mutual funds, and equity derivatives. Debt mutual funds and money market schemes are exempt from STT.",
+    "topic": "Taxation & Legal Principles"
+  },
+  {
+    "id": "nism-va-q304",
+    "courseId": "nism-va",
+    "question": "What is the tax treatment of switching units from a Regular Plan to a Direct Plan within the exact same mutual fund scheme?",
+    "options": [
+      "It is treated as an internal bookkeeping transfer with zero tax implications",
+      "It is legally treated as a redemption from the regular plan followed by a fresh purchase into the direct plan, triggering capital gains tax",
+      "It is exempt under Section 54EC",
+      "It attracts a penalty of 10% paid to the Central Government"
+    ],
+    "correctIndex": 1,
+    "explanation": "Any inter-scheme or inter-plan switch (Regular to Direct or Growth to IDCW) constitutes a transfer/redemption under Section 2(47) and triggers applicable capital gains tax.",
+    "topic": "Taxation & Legal Principles"
+  },
+  {
+    "id": "nism-va-q305",
+    "courseId": "nism-va",
+    "question": "What is the tax treatment of mutual fund units transferred as a bona fide gift to a relative or upon transmission under a will?",
+    "options": [
+      "Treated as an immediate taxable sale at fair market value",
+      "Exempt from capital gains tax at the time of transfer; the recipient inherits the original cost and holding period of the previous owner",
+      "Subject to 30% gift tax deducted at source by the AMC",
+      "Subject to mandatory forfeiture of all accumulated dividends"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under Section 47 of the Income Tax Act, transfer of capital assets under a gift or will is not regarded as a taxable transfer. When the recipient later sells, the cost and holding period of the original owner apply.",
+    "topic": "Taxation & Legal Principles"
+  },
+  {
+    "id": "nism-va-q306",
+    "courseId": "nism-va",
+    "question": "Under Section 80C of the Income Tax Act, what is the maximum tax deduction available for investment in an Equity Linked Savings Scheme (ELSS) in a financial year (under the old tax regime)?",
+    "options": [
+      "₹50,000",
+      "₹1,00,000",
+      "₹1,50,000",
+      "₹2,50,000"
+    ],
+    "correctIndex": 2,
+    "explanation": "Under Section 80C of the Income Tax Act, investments in eligible instruments including ELSS qualify for a deduction up to ₹1,50,000 per financial year.",
+    "topic": "Taxation & Legal Principles"
+  },
+  {
+    "id": "nism-va-q307",
+    "courseId": "nism-va",
+    "question": "What is the mandatory statutory lock-in period for units allotted under an Equity Linked Savings Scheme (ELSS)?",
+    "options": [
+      "1 year",
+      "3 years from the date of allotment of units",
+      "5 years",
+      "Until the investor reaches age 60"
+    ],
+    "correctIndex": 1,
+    "explanation": "ELSS schemes carry a statutory lock-in period of 3 years from the date of each respective unit allotment (each monthly SIP installment is locked for 3 years from its own allotment date).",
+    "topic": "Taxation & Legal Principles"
+  },
+  {
+    "id": "nism-va-q308",
+    "courseId": "nism-va",
+    "question": "What is the 14-digit identifier issued to an investor upon successful completion and registration of Central KYC (CKYC)?",
+    "options": [
+      "Aadhaar Number",
+      "KYC Identification Number (KIN)",
+      "Permanent Account Number (PAN)",
+      "Bank Account IFSC Code"
+    ],
+    "correctIndex": 1,
+    "explanation": "The Central Registry of Securitisation Asset Reconstruction and Security Interest of India (CERSAI) generates a unique 14-digit KYC Identification Number (KIN) for every CKYC-registered investor.",
+    "topic": "Investor Services & Onboarding"
+  },
+  {
+    "id": "nism-va-q309",
+    "courseId": "nism-va",
+    "question": "Under SEBI and AMFI guidelines, what is the annual investment ceiling for 'Micro SIPs' to be exempt from the requirement of furnishing a PAN card?",
+    "options": [
+      "₹20,000 per financial year",
+      "₹50,000 per financial year per investor across all schemes of an AMC",
+      "₹1,00,000 per financial year",
+      "₹10,000 per financial year"
+    ],
+    "correctIndex": 1,
+    "explanation": "Micro SIPs and small lump sum investments up to ₹50,000 per financial year per investor are exempt from PAN requirement (valid photo ID proof required).",
+    "topic": "Investor Services & Onboarding"
+  },
+  {
+    "id": "nism-va-q310",
+    "courseId": "nism-va",
+    "question": "In a mutual fund folio opened on behalf of a minor, what is the regulatory requirement regarding the bank account used for investment and redemption payouts?",
+    "options": [
+      "The bank account can belong to any third-party family friend",
+      "The payment must come from the bank account of the minor, or from a joint account of the minor with the registered guardian",
+      "Payment must be made exclusively through cash deposit at post office",
+      "Bank account is not verified for minors"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandates that subscription payments for investments in the name of a minor must originate from the minor's bank account or joint account with the registered guardian.",
+    "topic": "Investor Services & Onboarding"
+  },
+  {
+    "id": "nism-va-q311",
+    "courseId": "nism-va",
+    "question": "What statutory procedure must be followed when a minor unit holder attains the age of majority (18 years)?",
+    "options": [
+      "The guardian continues operating the account until the child gets married",
+      "All further transactions in the folio are frozen until the new major submits their own PAN, KYC documentation, bank account proof, and specimen signature",
+      "The folio is automatically liquidated and cash mailed via demand draft",
+      "The units are transferred to the Prime Minister's National Relief Fund"
+    ],
+    "correctIndex": 1,
+    "explanation": "Upon attaining majority, the guardian's authority terminates immediately. The folio is locked until the young adult completes fresh KYC, updates signature, and submits their individual bank mandate.",
+    "topic": "Investor Services & Onboarding"
+  },
+  {
+    "id": "nism-va-q312",
+    "courseId": "nism-va",
+    "question": "Under SEBI guidelines, what is the maximum number of nominees that can be registered in a single mutual fund folio?",
+    "options": [
+      "1 nominee only",
+      "Up to 3 nominees, with explicit percentage allocation totaling 100%",
+      "Up to 5 nominees with equal split",
+      "Unlimited nominees"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI permits an individual unit holder to designate up to 3 nominees in a folio, specifying the percentage allocation for each nominee, which must aggregate to exactly 100%.",
+    "topic": "Investor Services & Onboarding"
+  },
+  {
+    "id": "nism-va-q313",
+    "courseId": "nism-va",
+    "question": "Can a non-individual entity such as a private limited company, partnership firm, or trust appoint a nominee in a mutual fund folio?",
+    "options": [
+      "Yes, corporate entities can appoint up to 3 directors as nominees",
+      "No, nomination facility is available exclusively to individual investors (including sole proprietors)",
+      "Yes, if approved by the Registrar of Companies",
+      "Yes, if the entity has an ARN license"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under SEBI regulations, nomination is an individual statutory right and is not available to institutional, corporate, partnership, or trust investors.",
+    "topic": "Investor Services & Onboarding"
+  },
+  {
+    "id": "nism-va-q314",
+    "courseId": "nism-va",
+    "question": "What is the primary role of the Foreign Account Tax Compliance Act (FATCA) and Common Reporting Standard (CRS) declarations collected during onboarding?",
+    "options": [
+      "To calculate domestic GST liability on management fees",
+      "To identify tax residency of the investor outside India and report cross-border financial account information to Indian tax authorities for automatic exchange with foreign jurisdictions",
+      "To permit investors to trade US equities without a broker",
+      "To exempt the investor from all domestic Indian taxes"
+    ],
+    "correctIndex": 1,
+    "explanation": "FATCA and CRS frameworks require financial institutions in India to determine the tax residency of account holders and report accounts of foreign tax residents to Indian tax authorities.",
+    "topic": "Investor Services & Onboarding"
+  },
+  {
+    "id": "nism-va-q315",
+    "courseId": "nism-va",
+    "question": "If an investor wishes to opt out of nominating anyone for their mutual fund folio, what is required under SEBI regulations?",
+    "options": [
+      "The application is rejected outright",
+      "The investor must submit a signed formal declaration of opting out of nomination",
+      "The investor must pay a ₹500 opt-out surcharge",
+      "The AMC automatically assigns a state bank as nominee"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI requires all individual folios to either register a nomination or submit a signed formal declaration explicitly opting out of nomination.",
+    "topic": "Investor Services & Onboarding"
+  },
+  {
+    "id": "nism-va-q316",
+    "courseId": "nism-va",
+    "question": "In a joint holding folio operating under the 'Anyone or Survivor' mandate, who can sign and authorize redemption requests?",
+    "options": [
+      "All joint holders must sign together on every transaction",
+      "Any one of the living joint holders can independently sign and execute transactions and redemptions",
+      "Only the nominee can authorize redemptions",
+      "Only the distributor who holds the ARN code"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under an 'Anyone or Survivor' holding mandate, any single surviving joint holder has full legal authority to transact, redeem, or switch units in the folio.",
+    "topic": "Investor Services & Onboarding"
+  },
+  {
+    "id": "nism-va-q317",
+    "courseId": "nism-va",
+    "question": "What document must be submitted for the transmission of mutual fund units upon the demise of a sole unit holder who had registered a valid nomination?",
+    "options": [
+      "Probate of will issued by the High Court",
+      "Attested copy of the Death Certificate, transmission request form from the nominee, and KYC documents with bank mandate of the nominee",
+      "Succession Certificate from a civil judge",
+      "No documents are required, units are automatically transferred"
+    ],
+    "correctIndex": 1,
+    "explanation": "Where a valid nomination is registered, transmission requires the death certificate, identity and bank verification of the nominee, and standard transmission form, avoiding court probate delays.",
+    "topic": "Investor Services & Onboarding"
+  },
+  {
+    "id": "nism-va-q318",
+    "courseId": "nism-va",
+    "question": "What is the maximum cash transaction permitted per investor per mutual fund scheme per financial year under SEBI guidelines?",
+    "options": [
+      "₹10,000",
+      "₹50,000 (provided redemptions are routed strictly through bank accounts)",
+      "₹2,00,000",
+      "Zero (cash is completely banned)"
+    ],
+    "correctIndex": 1,
+    "explanation": "To facilitate financial inclusion in rural areas, SEBI permits cash investments up to ₹50,000 per investor per financial year across all schemes of an AMC, but all redemptions must be via banking channels.",
+    "topic": "Investor Services & Onboarding"
+  },
+  {
+    "id": "nism-va-q319",
+    "courseId": "nism-va",
+    "question": "Can a Power of Attorney (PoA) holder open a mutual fund folio and appoint themselves as the registered nominee on the folio?",
+    "options": [
+      "Yes, the PoA has unlimited legal rights",
+      "No, a PoA holder cannot nominate themselves nor create a nomination on behalf of the principal unless explicitly authorized by law",
+      "Yes, if the PoA is notarized",
+      "Yes, if the principal is over 80 years of age"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under Indian law and SEBI regulations, nomination is an intimate personal right of the investor; a PoA agent cannot execute a nomination favoring themselves.",
+    "topic": "Investor Services & Onboarding"
+  },
+  {
+    "id": "nism-va-q320",
+    "courseId": "nism-va",
+    "question": "What is an In-Person Verification (IPV) in the context of mutual fund KYC onboarding?",
+    "options": [
+      "A face-to-face physical or video-based verification of the investor by an authorized official of the intermediary to match physical presence with identity documents",
+      "An eye examination at a certified clinic",
+      "A personal home visit by the CEO of the AMC",
+      "A telephone call from an automated call center"
+    ],
+    "correctIndex": 0,
+    "explanation": "IPV is a mandatory regulatory step where a SEBI-registered intermediary verifies that the individual presenting the KYC documents is the genuine living person appearing in the identity proofs.",
+    "topic": "Investor Services & Onboarding"
+  },
+  {
+    "id": "nism-va-q321",
+    "courseId": "nism-va",
+    "question": "Under SEBI norms, within how many business days must an AMC dispatch redemption proceeds to an investor's bank account under normal market conditions?",
+    "options": [
+      "Within 3 business days of the transaction date (T+2/T+3)",
+      "Within 30 calendar days",
+      "After 6 months",
+      "Within 24 hours of market opening"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI regulations mandate that mutual funds must dispatch redemption proceeds within 3 business days of receipt of valid redemption request, failing which penal interest at 15% p.a. is payable.",
+    "topic": "Investor Services & Onboarding"
+  },
+  {
+    "id": "nism-va-q322",
+    "courseId": "nism-va",
+    "question": "Which statistical metric measures the total volatility or dispersion of a mutual fund scheme's historical returns around its arithmetic mean?",
+    "options": [
+      "Beta",
+      "Standard Deviation",
+      "Sharpe Ratio",
+      "Treynor Ratio"
+    ],
+    "correctIndex": 1,
+    "explanation": "Standard Deviation is the primary statistical measure of total risk, quantifying how widely returns fluctuate relative to the fund's historical average return.",
+    "topic": "Risk, Return & Performance"
+  },
+  {
+    "id": "nism-va-q323",
+    "courseId": "nism-va",
+    "question": "A mutual fund scheme has a Beta of 1.25 relative to the Nifty 50 Index. If the Nifty 50 increases by 10% in a given period, what is the expected movement of the scheme's portfolio (all else being equal)?",
+    "options": [
+      "Expected to fall by 2.5%",
+      "Expected to rise by approximately 12.5%",
+      "Expected to rise by exactly 10.0%",
+      "Expected to remain flat"
+    ],
+    "correctIndex": 1,
+    "explanation": "Beta measures systematic sensitivity to benchmark movements. Expected return change = Beta * Benchmark Change = 1.25 * 10% = +12.5%.",
+    "topic": "Risk, Return & Performance"
+  },
+  {
+    "id": "nism-va-q324",
+    "courseId": "nism-va",
+    "question": "The Sharpe Ratio evaluates portfolio performance by measuring:",
+    "options": [
+      "Excess return generated per unit of systematic risk (Beta)",
+      "Excess return generated over the risk-free rate per unit of total risk (Standard Deviation)",
+      "The total turnover of portfolio stocks in a year",
+      "The ratio of equity to debt holdings"
+    ],
+    "correctIndex": 1,
+    "explanation": "Sharpe Ratio = (Portfolio Return - Risk Free Rate) / Standard Deviation. It evaluates how much excess return is earned per unit of total volatility.",
+    "topic": "Risk, Return & Performance"
+  },
+  {
+    "id": "nism-va-q325",
+    "courseId": "nism-va",
+    "question": "How does the Treynor Ratio differ from the Sharpe Ratio?",
+    "options": [
+      "Treynor Ratio uses Beta (systematic risk) in the denominator, whereas Sharpe Ratio uses Standard Deviation (total risk)",
+      "Treynor Ratio is used only for debt funds, while Sharpe Ratio is used for equity",
+      "Treynor Ratio ignores the risk-free rate of return",
+      "Sharpe Ratio cannot be negative"
+    ],
+    "correctIndex": 0,
+    "explanation": "Treynor Ratio measures excess return per unit of systematic market risk (Beta), whereas Sharpe Ratio measures excess return per unit of total risk (Standard Deviation).",
+    "topic": "Risk, Return & Performance"
+  },
+  {
+    "id": "nism-va-q326",
+    "courseId": "nism-va",
+    "question": "A mutual fund manager achieves an annualized return of 18% with a Beta of 1.1. If the benchmark market return was 15% and the risk-free rate is 6%, what is the fund's Jensen's Alpha?",
+    "options": [
+      "+2.1%",
+      "+2.0%",
+      "+3.0%",
+      "+1.5%"
+    ],
+    "correctIndex": 0,
+    "explanation": "Expected Return (CAPM) = Rf + Beta*(Rm - Rf) = 6% + 1.1*(15% - 6%) = 6% + 9.9% = 15.9%. Jensen's Alpha = Actual Return - Expected Return = 18.0% - 15.9% = +2.1%.",
+    "topic": "Risk, Return & Performance"
+  },
+  {
+    "id": "nism-va-q327",
+    "courseId": "nism-va",
+    "question": "What does 'Tracking Error' signify in the evaluation of an Index Fund or Exchange Traded Fund (ETF)?",
+    "options": [
+      "The number of times the fund manager clicked the wrong button",
+      "The standard deviation of the difference in returns between the index fund and its target benchmark index",
+      "The commission paid to stock brokers",
+      "The percentage of bad debt in the fund portfolio"
+    ],
+    "correctIndex": 1,
+    "explanation": "Tracking error measures the annualized standard deviation of return differences between the index fund/ETF and its target index, reflecting how closely the fund replicates the benchmark.",
+    "topic": "Risk, Return & Performance"
+  },
+  {
+    "id": "nism-va-q328",
+    "courseId": "nism-va",
+    "question": "Which bond duration metric measures the approximate percentage change in a bond or debt fund's price for a 100 basis point (1%) change in market yields?",
+    "options": [
+      "Macaulay Duration",
+      "Modified Duration",
+      "Yield to Maturity (YTM)",
+      "Current Yield"
+    ],
+    "correctIndex": 1,
+    "explanation": "Modified Duration measures the price sensitivity of a bond to interest rate changes: % Price Change ≈ - Modified Duration * Yield Change.",
+    "topic": "Risk, Return & Performance"
+  },
+  {
+    "id": "nism-va-q329",
+    "courseId": "nism-va",
+    "question": "A debt mutual fund portfolio has a Modified Duration of 5 years. If the Reserve Bank of India unexpectedly hikes interest rates by 50 basis points (0.50%), what is the expected impact on the portfolio's NAV?",
+    "options": [
+      "Expected to increase by 5.0%",
+      "Expected to decline by approximately 2.5%",
+      "Expected to decline by exactly 5.0%",
+      "Expected to remain completely unaffected"
+    ],
+    "correctIndex": 1,
+    "explanation": "Change in Price ≈ - Modified Duration * Change in Yield = - 5 * (+0.50%) = -2.50%. Bond prices fall when interest rates rise.",
+    "topic": "Risk, Return & Performance"
+  },
+  {
+    "id": "nism-va-q330",
+    "courseId": "nism-va",
+    "question": "How does Macaulay Duration relate to the cash flows of a fixed-income bond?",
+    "options": [
+      "It is the coupon rate multiplied by 100",
+      "It is the weighted average maturity of the bond's cash flows (coupons and principal), where weights are the present value of each cash flow",
+      "It is the total number of bond certificates issued",
+      "It is the credit rating assigned by CRISIL"
+    ],
+    "correctIndex": 1,
+    "explanation": "Macaulay duration represents the weighted average time an investor must hold the bond until the present value of cash flows equals the amount paid for the bond.",
+    "topic": "Risk, Return & Performance"
+  },
+  {
+    "id": "nism-va-q331",
+    "courseId": "nism-va",
+    "question": "In credit risk analysis, a 'Credit Rating Downgrade' of a corporate debt security held in a mutual fund portfolio causes:",
+    "options": [
+      "An immediate surge in the price of the bond",
+      "A widening of the bond's credit spread, leading to a drop in its market valuation and a decline in scheme NAV",
+      "An increase in the scheme's equity allocation",
+      "No change in the bond's market price"
+    ],
+    "correctIndex": 1,
+    "explanation": "A credit rating downgrade increases the perceived probability of default, widening yields and causing bond prices and scheme NAV to drop.",
+    "topic": "Risk, Return & Performance"
+  },
+  {
+    "id": "nism-va-q332",
+    "courseId": "nism-va",
+    "question": "Which type of risk can be effectively reduced or eliminated through portfolio diversification across multiple companies and industries?",
+    "options": [
+      "Systematic (Market) Risk",
+      "Unsystematic (Idiosyncratic / Company-Specific) Risk",
+      "Country Risk",
+      "Currency Exchange Rate Risk"
+    ],
+    "correctIndex": 1,
+    "explanation": "Unsystematic or company-specific risk can be virtually eliminated through diversification across non-correlated stocks. Systematic risk cannot be diversified away.",
+    "topic": "Risk, Return & Performance"
+  },
+  {
+    "id": "nism-va-q333",
+    "courseId": "nism-va",
+    "question": "The R-squared (R²) statistic in portfolio regression analysis indicates:",
+    "options": [
+      "The fund manager's retirement age",
+      "The percentage of a fund's portfolio return movements that can be explained by movements in its benchmark index",
+      "The exact percentage dividend payout",
+      "The expense ratio of the fund"
+    ],
+    "correctIndex": 1,
+    "explanation": "R-squared measures the goodness of fit: an R² between 85% and 100% indicates that the fund's performance is closely aligned with its benchmark index.",
+    "topic": "Risk, Return & Performance"
+  },
+  {
+    "id": "nism-va-q334",
+    "courseId": "nism-va",
+    "question": "What is the Compound Annual Growth Rate (CAGR) formula used to calculate multi-year annualized returns?",
+    "options": [
+      "CAGR = (End Value / Beginning Value) * (1 / n)",
+      "CAGR = [(End Value / Beginning Value) ^ (1 / n)] - 1",
+      "CAGR = (End Value - Beginning Value) / n",
+      "CAGR = (End Value + Beginning Value) / 2"
+    ],
+    "correctIndex": 1,
+    "explanation": "CAGR calculates the geometric annualized rate of return: [(End Value / Beginning Value) ^ (1 / n)] - 1.",
+    "topic": "Risk, Return & Performance"
+  },
+  {
+    "id": "nism-va-q335",
+    "courseId": "nism-va",
+    "question": "Why is Extended Internal Rate of Return (XIRR) the mandated industry standard for calculating returns on Systematic Investment Plans (SIP)?",
+    "options": [
+      "Because it ignores all cash outflows",
+      "Because it accurately accounts for irregular, recurring, and multiple dated cash flow installments over time",
+      "Because it produces the highest return percentage for marketing purposes",
+      "Because it is calculated by stock brokers"
+    ],
+    "correctIndex": 1,
+    "explanation": "XIRR accounts for multiple cash inflows and outflows occurring at different dates, computing the true annualized internal rate of return for SIP investments.",
+    "topic": "Risk, Return & Performance"
+  },
+  {
+    "id": "nism-va-q336",
+    "courseId": "nism-va",
+    "question": "Which of the following mutual fund categories carries the lowest degree of interest rate and credit risk?",
+    "options": [
+      "Credit Risk Debt Fund",
+      "Overnight Fund investing in 1-day Tri-Party Repos (TREPS) backed by G-Secs",
+      "Long Duration G-Sec Fund with 10-year maturity",
+      "Medium Duration Corporate Bond Fund"
+    ],
+    "correctIndex": 1,
+    "explanation": "Overnight funds invest in debt securities with 1-day maturity backed by collateralized sovereign repo, effectively eliminating both interest rate and credit default risk.",
+    "topic": "Risk, Return & Performance"
+  },
+  {
+    "id": "nism-va-q337",
+    "courseId": "nism-va",
+    "question": "Under SEBI's Scheme Categorisation Circular (October 2017), how is a 'Large Cap Company' officially defined in India?",
+    "options": [
+      "Any company with a stock price exceeding ₹1,000",
+      "Companies ranked 1st to 100th in terms of full market capitalization on recognized stock exchanges",
+      "Companies with revenue above ₹10,000 Crore",
+      "Companies located only in Mumbai and Delhi"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI defines Large Cap companies as those ranked 1st to 100th in terms of full market capitalization across the Indian equity markets.",
+    "topic": "Scheme Categorisation"
+  },
+  {
+    "id": "nism-va-q338",
+    "courseId": "nism-va",
+    "question": "Under SEBI categorisation norms, a 'Mid Cap Fund' must invest a minimum of what percentage of its total assets in equity shares of Mid Cap companies (ranked 101st to 250th)?",
+    "options": [
+      "At least 50% of total assets",
+      "At least 65% of total assets",
+      "At least 80% of total assets",
+      "100% of total assets"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI categorisation rules mandate that a Mid Cap fund must invest at least 65% of its total assets in equity shares of companies ranked 101st to 250th by market cap.",
+    "topic": "Scheme Categorisation"
+  },
+  {
+    "id": "nism-va-q339",
+    "courseId": "nism-va",
+    "question": "How does a 'Multi Cap Fund' differ from a 'Flexi Cap Fund' under SEBI regulatory guidelines?",
+    "options": [
+      "Multi Cap funds have a mandatory minimum allocation of 25% each in Large Cap, Mid Cap, and Small Cap stocks (total min 75% in equity), whereas Flexi Cap funds have complete flexibility with min 65% in equity across any market caps",
+      "Flexi Cap funds cannot invest in equities",
+      "Multi Cap funds invest solely in government debt",
+      "There is no difference between them under SEBI rules"
+    ],
+    "correctIndex": 0,
+    "explanation": "Multi Cap funds must strictly maintain 25% Large, 25% Mid, and 25% Small Cap equity. Flexi Cap funds require 65% overall in equity with full fund manager discretion across market caps.",
+    "topic": "Scheme Categorisation"
+  },
+  {
+    "id": "nism-va-q340",
+    "courseId": "nism-va",
+    "question": "What is the portfolio mandate of an 'Arbitrage Fund' under SEBI scheme categorisation norms?",
+    "options": [
+      "Investing 100% in speculative unhedged derivative futures",
+      "Investing a minimum of 65% in equity and equity derivatives by exploiting price differentials between the cash and futures market, maintaining a hedged low-risk profile",
+      "Investing in international currency forex swaps",
+      "Lending to high-risk real estate developers"
+    ],
+    "correctIndex": 1,
+    "explanation": "Arbitrage funds invest min 65% in equities simultaneously balanced by offsetting short derivative futures positions, capturing risk-free cash-futures spreads while qualifying for equity taxation.",
+    "topic": "Scheme Categorisation"
+  },
+  {
+    "id": "nism-va-q341",
+    "courseId": "nism-va",
+    "question": "Under SEBI categorisation guidelines, an 'Aggressive Hybrid Fund' must invest what percentage of its total assets in equity and equity-related instruments?",
+    "options": [
+      "Between 10% and 25% in equity",
+      "Between 65% and 80% in equity, with the balance 20% to 35% in debt instruments",
+      "Exactly 50% in equity and 50% in gold",
+      "100% in unlisted equities"
+    ],
+    "correctIndex": 1,
+    "explanation": "Aggressive Hybrid Funds invest between 65% and 80% of total assets in equities and 20% to 35% in debt instruments, qualifying as equity-oriented for income tax purposes.",
+    "topic": "Scheme Categorisation"
+  },
+  {
+    "id": "nism-va-q342",
+    "courseId": "nism-va",
+    "question": "What is the defining investment strategy of a 'Balanced Advantage Fund' (Dynamic Asset Allocation Fund)?",
+    "options": [
+      "Maintaining a permanent static 50:50 allocation between equity and bonds",
+      "Dynamically shifting asset allocation between equity (0% to 100%) and debt (0% to 100%) based on objective market valuation indicators like P/E, P/B, and trend metrics",
+      "Investing 100% in physical commodities",
+      "Trading only penny stocks"
+    ],
+    "correctIndex": 1,
+    "explanation": "Dynamic Asset Allocation / Balanced Advantage Funds use proprietary quantitative valuation models to actively adjust equity and debt exposure between 0% and 100%.",
+    "topic": "Scheme Categorisation"
+  },
+  {
+    "id": "nism-va-q343",
+    "courseId": "nism-va",
+    "question": "Under SEBI debt categorisation rules, a 'Liquid Fund' is permitted to invest only in debt and money market securities with a residual maturity of up to:",
+    "options": [
+      "30 days",
+      "91 days",
+      "180 days",
+      "1 year"
+    ],
+    "correctIndex": 1,
+    "explanation": "Liquid funds are mandated to invest exclusively in debt and money market instruments having residual maturities of up to 91 days only.",
+    "topic": "Scheme Categorisation"
+  },
+  {
+    "id": "nism-va-q344",
+    "courseId": "nism-va",
+    "question": "Under SEBI rules, a 'Corporate Bond Fund' must invest a minimum of what percentage of its total assets in corporate bonds rated AA+ and above?",
+    "options": [
+      "At least 50% of total assets",
+      "At least 65% of total assets",
+      "At least 80% of total assets in highest-rated corporate bonds",
+      "100% of total assets"
+    ],
+    "correctIndex": 2,
+    "explanation": "SEBI mandates that a Corporate Bond Fund must maintain at least 80% of total assets in corporate debt securities with the highest credit ratings (AA+ and above).",
+    "topic": "Scheme Categorisation"
+  },
+  {
+    "id": "nism-va-q345",
+    "courseId": "nism-va",
+    "question": "A 'Credit Risk Fund' under SEBI categorisation norms is mandated to invest at least what percentage of its assets in corporate bonds rated AA and below?",
+    "options": [
+      "At least 25% of total assets",
+      "At least 65% of total assets in lower-rated corporate bonds",
+      "Up to 10% of total assets",
+      "100% in default papers"
+    ],
+    "correctIndex": 1,
+    "explanation": "Credit Risk Funds must invest at least 65% of total assets in corporate bonds rated AA and below (excluding AA+), earning higher yields by accepting higher credit spread risks.",
+    "topic": "Scheme Categorisation"
+  },
+  {
+    "id": "nism-va-q346",
+    "courseId": "nism-va",
+    "question": "How many asset classes must a 'Multi Asset Allocation Fund' invest in simultaneously, with what minimum allocation per asset class under SEBI norms?",
+    "options": [
+      "At least 2 asset classes with min 5% in each",
+      "At least 3 asset classes (e.g. Equity, Debt, and Gold/Commodities) with a minimum allocation of at least 10% in each asset class",
+      "At least 5 asset classes with equal weightage",
+      "Only equity and bank deposits"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandates that a Multi Asset Allocation Fund must invest in at least 3 distinct asset classes with a minimum allocation of at least 10% in each asset class.",
+    "topic": "Scheme Categorisation"
+  },
+  {
+    "id": "nism-va-q347",
+    "courseId": "nism-va",
+    "question": "What is the investment objective of a 'Gilt Fund' under SEBI scheme categorisation rules?",
+    "options": [
+      "Investing in gold mining company shares",
+      "Investing at least 80% of total assets in Government Securities (G-Secs and State Development Loans) across maturities",
+      "Investing in microfinance NBFC commercial paper",
+      "Investing in US Treasury bills exclusively"
+    ],
+    "correctIndex": 1,
+    "explanation": "Gilt Funds invest at least 80% of total assets in sovereign Government Securities, carrying zero credit default risk but subject to interest rate volatility.",
+    "topic": "Scheme Categorisation"
+  },
+  {
+    "id": "nism-va-q348",
+    "courseId": "nism-va",
+    "question": "Under SEBI rules, a 'Solution Oriented Scheme' designed for Children's Gift or Retirement must have a minimum lock-in period of:",
+    "options": [
+      "1 year",
+      "At least 5 years or till the child attains majority / retirement age (whichever is earlier)",
+      "10 years compulsory",
+      "Zero lock-in"
+    ],
+    "correctIndex": 1,
+    "explanation": "Solution-oriented schemes (Retirement Fund and Children's Fund) carry a mandatory lock-in period of at least 5 years or until the child reaches age 18 / retirement age.",
+    "topic": "Scheme Categorisation"
+  },
+  {
+    "id": "nism-va-q349",
+    "courseId": "nism-va",
+    "question": "An 'Index Fund' or 'Exchange Traded Fund (ETF)' replicating the Nifty Next 50 index must invest at least what percentage of its total assets in securities of the target index?",
+    "options": [
+      "At least 65% of total assets",
+      "At least 80% of total assets",
+      "At least 95% of total assets in securities of the underlying benchmark index",
+      "100% in sovereign G-Secs"
+    ],
+    "correctIndex": 2,
+    "explanation": "Under SEBI regulations, index funds and ETFs must hold at least 95% of total assets in the constituent securities of the target benchmark index being replicated.",
+    "topic": "Scheme Categorisation"
+  },
+  {
+    "id": "nism-va-q350",
+    "courseId": "nism-va",
+    "question": "What is a 'Fund of Funds' (FoF) under SEBI mutual fund regulations?",
+    "options": [
+      "A fund that prints fake money",
+      "A mutual fund scheme that invests a minimum of 95% of its total assets in units of other underlying mutual fund schemes rather than directly in stocks or bonds",
+      "A scheme managed by foreign central banks",
+      "A fund that lends money to the stock exchange"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Fund of Funds (FoF) is a scheme whose primary portfolio consists of units of other mutual fund schemes (domestic or overseas), investing at least 95% in underlying funds.",
+    "topic": "Scheme Categorisation"
+  },
+  {
+    "id": "nism-va-q351",
+    "courseId": "nism-va",
+    "question": "How does a Systematic Withdrawal Plan (SWP) in an equity mutual fund compare with receiving IDCW (dividend) payouts for an investor in the 30% tax bracket?",
+    "options": [
+      "IDCW is more tax-efficient because dividends are tax-free",
+      "SWP is significantly more tax-efficient because each withdrawal consists primarily of return of capital (principal) with only the embedded capital gain subject to taxation at 12.5% LTCG, whereas 100% of IDCW payout is taxed at 30%",
+      "Both are taxed identically on the gross withdrawal value",
+      "SWP is illegal for retirement investors"
+    ],
+    "correctIndex": 1,
+    "explanation": "In an SWP, tax is levied only on the net capital gain portion of the redeemed units (at 12.5% LTCG or 20% STCG), whereas 100% of an IDCW payout is taxed at the investor's high marginal slab rate.",
+    "topic": "Financial Planning & Advisory"
+  },
+  {
+    "id": "nism-va-q352",
+    "courseId": "nism-va",
+    "question": "What is 'Rupee Cost Averaging' achieved through Systematic Investment Plans (SIP)?",
+    "options": [
+      "Buying fixed number of units every month regardless of price",
+      "Investing a fixed rupee amount regularly, automatically acquiring more units when the NAV is low and fewer units when the NAV is high, lowering average purchase cost over time",
+      "Selling units when the market goes up by 5%",
+      "Converting Indian Rupees into foreign currencies"
+    ],
+    "correctIndex": 1,
+    "explanation": "Rupee cost averaging removes market timing: by allocating a fixed rupee amount periodically, investors naturally buy more units during market dips and fewer units during rallies.",
+    "topic": "Financial Planning & Advisory"
+  },
+  {
+    "id": "nism-va-q353",
+    "courseId": "nism-va",
+    "question": "A client with a 15-year investment horizon for a child's higher education should primarily be advised to allocate to:",
+    "options": [
+      "Overnight Funds with daily redemptions",
+      "Diversified Equity Mutual Funds (e.g. Flexi Cap / Large & Mid Cap) with systematic monthly investments",
+      "Bank Savings Account earning 2.5%",
+      "Call Money market debt"
+    ],
+    "correctIndex": 1,
+    "explanation": "For long-term goals (>10-15 years), equity mutual funds provide the highest probability of generating inflation-beating real compounding returns.",
+    "topic": "Financial Planning & Advisory"
+  },
+  {
+    "id": "nism-va-q354",
+    "courseId": "nism-va",
+    "question": "What behavioral finance bias occurs when an investor refuses to sell a poorly performing mutual fund scheme because they are fixated on the original price at which they bought it?",
+    "options": [
+      "Recency Bias",
+      "Anchoring Bias",
+      "Herding Mentality",
+      "Overconfidence Bias"
+    ],
+    "correctIndex": 1,
+    "explanation": "Anchoring bias is the cognitive tendency to disproportionately fixate on an arbitrary reference point (such as the initial purchase price) rather than assessing future prospects.",
+    "topic": "Financial Planning & Advisory"
+  },
+  {
+    "id": "nism-va-q355",
+    "courseId": "nism-va",
+    "question": "When an investor assumes that the outstanding performance of a small-cap fund over the past 6 months will continue uninterrupted for the next 10 years, they are exhibiting:",
+    "options": [
+      "Loss Aversion",
+      "Recency Bias",
+      "Mental Accounting",
+      "Confirmation Bias"
+    ],
+    "correctIndex": 1,
+    "explanation": "Recency bias leads investors to extrapolate recent short-term market momentum or outperformance into the distant future, ignoring cyclicality and mean reversion.",
+    "topic": "Financial Planning & Advisory"
+  },
+  {
+    "id": "nism-va-q356",
+    "courseId": "nism-va",
+    "question": "In financial planning, what is the primary purpose of a Systematic Transfer Plan (STP)?",
+    "options": [
+      "Transferring funds between bank accounts to earn reward points",
+      "Parking a lump-sum amount in a liquid or ultra-short-term fund and systematically transferring a fixed sum periodically into an equity fund to manage market entry risk",
+      "Withdrawing cash from an ATM machine",
+      "Switching between competing asset management companies without paying taxes"
+    ],
+    "correctIndex": 1,
+    "explanation": "An STP mitigates timing risk for lump-sum investors by parking capital in a stable debt/liquid fund and staggering entries into equity funds over 6 to 12 months.",
+    "topic": "Financial Planning & Advisory"
+  },
+  {
+    "id": "nism-va-q357",
+    "courseId": "nism-va",
+    "question": "Which of the following client profiles has the highest risk tolerance and suitability for high-beta equity schemes?",
+    "options": [
+      "A 75-year-old retired widow relying solely on interest income for daily medical expenses",
+      "A 28-year-old corporate executive with zero debt, high disposable income, and an investment horizon of 25 years",
+      "A student with an education loan due next month",
+      "A non-profit charitable trust seeking capital preservation"
+    ],
+    "correctIndex": 1,
+    "explanation": "A young professional with stable income, negligible liabilities, and a multi-decade horizon has maximum financial capacity and emotional ability to absorb equity volatility.",
+    "topic": "Financial Planning & Advisory"
+  },
+  {
+    "id": "nism-va-q358",
+    "courseId": "nism-va",
+    "question": "According to the AMFI Code of Ethics, what must a mutual fund distributor do when a recommended product carries an inherent conflict of interest with the distributor's remuneration?",
+    "options": [
+      "Conceal the commission numbers from the client",
+      "Fully disclose the commission structure, potential conflicts of interest, and rationale for suitability to the investor prior to transaction execution",
+      "Directly credit 50% of the commission to the client's bank account in cash",
+      "Refuse to answer any client questions"
+    ],
+    "correctIndex": 1,
+    "explanation": "The AMFI Code of Ethics mandates complete transparency: distributors must disclose all commissions and resolve or disclose any potential conflicts of interest prior to transacting.",
+    "topic": "Financial Planning & Advisory"
+  },
+  {
+    "id": "nism-va-q359",
+    "courseId": "nism-va",
+    "question": "What is 'Mental Accounting' in behavioral economics?",
+    "options": [
+      "Doing complex mathematical calculations in your head",
+      "Treating money differently based on its origin or intended use (e.g. treating tax refund money as 'free gamble money' while protecting regular salary savings)",
+      "Auditing bank accounts with a mobile app",
+      "Writing financial plans in a diary"
+    ],
+    "correctIndex": 1,
+    "explanation": "Mental accounting is the cognitive tendency to assign subjective values to money based on arbitrary criteria like source or purpose, violating the economic principle of fungibility.",
+    "topic": "Financial Planning & Advisory"
+  },
+  {
+    "id": "nism-va-q360",
+    "courseId": "nism-va",
+    "question": "When designing a retirement asset allocation strategy for a 60-year-old investor entering post-retirement life, the financial advisor should ideally recommend:",
+    "options": [
+      "100% in micro-cap equities and leveraged futures",
+      "A balanced asset allocation with high-grade debt and conservative hybrid funds providing predictable monthly cash flows via SWP, combined with modest equity exposure to counter inflation",
+      "100% in physical gold jewellery",
+      "Zero investment, keeping all cash in home lockers"
+    ],
+    "correctIndex": 1,
+    "explanation": "Post-retirement planning requires a calibrated portfolio combining capital preservation and steady cash flow (debt/hybrid SWP) with 20-30% equity to protect purchasing power against longevity inflation.",
+    "topic": "Financial Planning & Advisory"
   }
-,
-
-// ==========================================
-	// NISM Series X-A: Investment Adviser Level 1 (10 Questions)
-	// ==========================================
-	{
-		id: "nism-xa-q1",
-		courseId: "nism-xa",
-		question: "Under the SEBI (Investment Advisers) Regulations, 2013, which of the following is mandatory for an individual RIA?",
-		options: [
-			"Segregation of advisory and distribution activities at client level",
-			"Maintaining an ARN code under the same PAN for mutual fund distribution",
-			"Charging both advisory fees and distribution commission from the same client",
-			"Mandatory guarantee of capital protection in financial plans"
-		],
-		correctIndex: 0,
-		explanation: "SEBI regulations enforce strict client-level segregation between investment advisory and distribution/execution services to prevent conflicts of interest.",
-		topic: "SEBI RIA Regulations"
-	},
-	{
-		id: "nism-xa-q2",
-		courseId: "nism-xa",
-		question: "Which of the following approaches is the foundational formula of Modern Portfolio Theory (MPT) developed by Harry Markowitz?",
-		options: [
-			"Maximizing expected return for a given level of risk or minimizing risk for a given level of expected return",
-			"Purchasing only risk-free government securities and cash equivalents",
-			"Focusing solely on individual stock price-to-earnings ratios",
-			"Eliminating systematic market risk through stock diversification"
-		],
-		correctIndex: 0,
-		explanation: "Markowitz Modern Portfolio Theory states that an investor can construct an efficient frontier portfolio that maximizes expected return for a given level of risk.",
-		topic: "Portfolio Construction & Asset Allocation"
-	},
-	{
-		id: "nism-xa-q3",
-		courseId: "nism-xa",
-		question: "What is the maximum annual fee that an individual SEBI-registered Investment Adviser (RIA) can charge under the Assets Under Advice (AUA) mechanism?",
-		options: ["1.5% of AUA", "2.5% of AUA", "3.0% of AUA", "5.0% of AUA"],
-		correctIndex: 1,
-		explanation: "Under SEBI RIA guidelines, maximum fees charged under the AUA model cannot exceed 2.5% per annum of the client's Assets under Advice.",
-		topic: "Advisory Fee Norms"
-	},
-	{
-		id: "nism-xa-q4",
-		courseId: "nism-xa",
-		question: "In investor profiling, what is the crucial distinction between 'Risk Capacity' and 'Risk Tolerance'?",
-		options: [
-			"Capacity is psychological willingness; Tolerance is financial ability",
-			"Capacity is objective financial ability to absorb losses; Tolerance is subjective emotional attitude toward risk",
-			"Capacity is determined by credit score; Tolerance is determined by income tax slab",
-			"Both terms denote identical regulatory metrics"
-		],
-		correctIndex: 1,
-		explanation: "Risk capacity is the objective ability to absorb losses (net worth, time horizon), while risk tolerance is psychological willingness to handle market volatility.",
-		topic: "Client Profiling & Suitability"
-	},
-	{
-		id: "nism-xa-q5",
-		courseId: "nism-xa",
-		question: "In financial planning, what is the standard prudent sizing recommended for an individual's emergency contingency fund?",
-		options: [
-			"1 month of gross discretionary spending",
-			"3 to 6 months of mandatory household and debt-servicing expenses",
-			"1 year of total investments",
-			"5 years of life insurance premiums"
-		],
-		correctIndex: 1,
-		explanation: "An emergency fund should cover 3 to 6 months of committed living expenses, held in safe and liquid avenues like bank deposits or overnight/liquid funds.",
-		topic: "Personal Financial Planning"
-	},
-	{
-		id: "nism-xa-q6",
-		courseId: "nism-xa",
-		question: "When should an investment advisor trigger portfolio rebalancing for a client?",
-		options: [
-			"Whenever any individual stock declines by 2%",
-			"When portfolio asset allocations drift significantly beyond predefined percentage tolerance bands from target allocation",
-			"Every Monday morning regardless of market movements",
-			"Only when the client changes their employer"
-		],
-		correctIndex: 1,
-		explanation: "Rebalancing is disciplined: it is enacted when asset classes drift beyond target allocation bands (e.g. +/- 5%) due to market performance.",
-		topic: "Asset Allocation & Rebalancing"
-	},
-	{
-		id: "nism-xa-q7",
-		courseId: "nism-xa",
-		question: "What is the tax treatment of Sovereign Gold Bonds (SGB) held until their 8-year maturity by an individual investor in India?",
-		options: [
-			"Taxable at 20% with indexation benefit",
-			"Entire capital gain upon redemption at maturity is 100% exempt from income tax",
-			"Taxable at marginal income tax slab rates",
-			"Taxable at flat 12.5% under Section 112A"
-		],
-		correctIndex: 1,
-		explanation: "Under Section 47(viic) of the Income Tax Act, capital gains arising on redemption of Sovereign Gold Bonds by an individual at maturity are completely tax-exempt.",
-		topic: "Taxation & Wealth Planning"
-	},
-	{
-		id: "nism-xa-q8",
-		courseId: "nism-xa",
-		question: "Under the legal fiduciary duty owed by an RIA to their client, what is the core requirement?",
-		options: [
-			"Ensuring guaranteed annual capital appreciation",
-			"Subordinating personal and institutional interests to the client's best interests at all times",
-			"Recommending the products that yield the highest brokerage",
-			"Refusing to execute transactions requested by the client"
-		],
-		correctIndex: 1,
-		explanation: "Fiduciary duty requires an RIA to act strictly in the best interest of the client, maintaining independence and disclosing all potential conflicts of interest.",
-		topic: "Code of Ethics"
-	},
-	{
-		id: "nism-xa-q9",
-		courseId: "nism-xa",
-		question: "How does the Treynor Ratio differ from the Sharpe Ratio when evaluating investment portfolios?",
-		options: [
-			"Treynor uses Beta (systematic risk); Sharpe uses Standard Deviation (total risk)",
-			"Treynor uses Standard Deviation; Sharpe uses Jensen's Alpha",
-			"Treynor ignores risk-free return; Sharpe includes it",
-			"Treynor applies only to real estate assets"
-		],
-		correctIndex: 0,
-		explanation: "Treynor divides excess return by Beta (systematic risk), while Sharpe divides excess return by Standard Deviation (total risk).",
-		topic: "Performance Measurement"
-	},
-	{
-		id: "nism-xa-q10",
-		courseId: "nism-xa",
-		question: "For how long must a SEBI-registered Investment Adviser maintain client risk profiling records, financial plans, and correspondence under regulations?",
-		options: ["1 year", "3 years", "At least 5 years", "10 years"],
-		correctIndex: 2,
-		explanation: "SEBI (Investment Advisers) Regulations mandate that all client agreements, advice records, risk profiling, and KYC documents must be preserved for at least 5 years.",
-		topic: "Compliance & Record Keeping"
-	},
-
-	// ==========================================
-	// NISM Series XV: Research Analyst (10 Questions)
-	// ==========================================
-	{
-		id: "nism-xv-q1",
-		courseId: "nism-xv",
-		question: "Under SEBI (Research Analysts) Regulations, 2014, what is the mandatory quiet period for a research analyst before and after public appearances?",
-		options: [
-			"No trading in subject company securities 30 days prior to and 5 days after publishing a research report",
-			"No trading in any equities for 1 year",
-			"Trading allowed provided notice is given to the exchange within 24 hours",
-			"No quiet period if disclosures are made verbally"
-		],
-		correctIndex: 0,
-		explanation: "SEBI (Research Analysts) Regulations mandate that RAs and their associates shall not deal or trade in securities of the subject company within 30 days before and 5 days after publication of a research report.",
-		topic: "Regulatory Code of Conduct"
-	},
-	{
-		id: "nism-xv-q2",
-		courseId: "nism-xv",
-		question: "Under SEBI RA Regulations, what is the shareholding threshold in a subject company that requires mandatory disclosure in a research report?",
-		options: [
-			"Holding 0.1% or more of securities",
-			"Holding 1% or more of securities of the subject company at the end of the month preceding publication",
-			"Holding 5% or more under takeover regulations",
-			"Any fractional holding regardless of amount"
-		],
-		correctIndex: 1,
-		explanation: "An RA must disclose if the analyst, research entity, or associates hold financial interest of 1% or more of securities of the subject company.",
-		topic: "Conflict of Interest Disclosures"
-	},
-	{
-		id: "nism-xv-q3",
-		courseId: "nism-xv",
-		question: "What is the standard formula to compute the Enterprise Value (EV) of a listed corporate entity?",
-		options: [
-			"Market Capitalization + Total Debt - Cash and Cash Equivalents",
-			"Market Capitalization - Total Debt + Cash and Cash Equivalents",
-			"Book Value of Equity + Gross Revenue",
-			"EBITDA multiplied by Total Shares"
-		],
-		correctIndex: 0,
-		explanation: "Enterprise Value represents total company value: Equity Value (Market Cap) + Total Debt - Cash & Cash Equivalents.",
-		topic: "Equity Valuation Methodologies"
-	},
-	{
-		id: "nism-xv-q4",
-		courseId: "nism-xv",
-		question: "Why is the EV/EBITDA valuation multiple often preferred over the P/E multiple when comparing capital-intensive companies?",
-		options: [
-			"EV/EBITDA is unaffected by stock market crashes",
-			"It is capital-structure neutral and removes distortions caused by differences in debt gearing and depreciation methods",
-			"It is always a lower number than P/E",
-			"It is only applicable to companies with zero tax liabilities"
-		],
-		correctIndex: 1,
-		explanation: "EV/EBITDA is independent of leverage differences and depreciation/amortization policies, making it ideal for cross-firm comparisons.",
-		topic: "Relative Valuation"
-	},
-	{
-		id: "nism-xv-q5",
-		courseId: "nism-xv",
-		question: "What is the purpose of establishing a 'Chinese Wall' inside an investment banking and research firm?",
-		options: [
-			"Restricting internet access of junior research associates",
-			"Preventing the flow of unpublished price-sensitive information (UPSI) between research and investment banking teams",
-			"Ensuring that all reports are published in international time zones",
-			"Preventing analysts from changing their price targets"
-		],
-		correctIndex: 1,
-		explanation: "A Chinese Wall is an information barrier isolating investment banking and advisory operations from the research department to avoid conflicts of interest.",
-		topic: "Governance & Information Barriers"
-	},
-	{
-		id: "nism-xv-q6",
-		courseId: "nism-xv",
-		question: "If a research analyst inadvertently comes into possession of Unpublished Price Sensitive Information (UPSI), what is their legal obligation?",
-		options: [
-			"Immediately publish a research report incorporating the UPSI to assist retail investors",
-			"Refrain from trading in the security, do not communicate the information, and notify the Compliance Officer",
-			"Share the UPSI with preferred HNI advisory clients",
-			"Purchase put options as a hedge"
-		],
-		correctIndex: 1,
-		explanation: "Under SEBI (Prohibition of Insider Trading) Regulations, possessing UPSI requires absolute non-disclosure and strict abstinence from trading.",
-		topic: "Insider Trading Prevention"
-	},
-	{
-		id: "nism-xv-q7",
-		courseId: "nism-xv",
-		question: "What does a Price-to-Earnings to Growth (PEG) ratio of less than 1.0 generally indicate to a fundamental equity analyst?",
-		options: [
-			"The stock is severely overvalued and should be sold",
-			"The company is growing slower than the inflation rate",
-			"The stock may be undervalued relative to its expected earnings growth rate",
-			"The company has negative net profit margin"
-		],
-		correctIndex: 2,
-		explanation: "Peter Lynch's PEG ratio compares P/E to EPS growth rate: PEG < 1 indicates that earnings growth outpaces the valuation multiple, suggesting value.",
-		topic: "Fundamental Analysis"
-	},
-	{
-		id: "nism-xv-q8",
-		courseId: "nism-xv",
-		question: "Under SEBI RA Regulations, can a research analyst share a draft research report with the subject company prior to publication?",
-		options: [
-			"Yes, but only factual sections of the report to verify accuracy; target price and ratings must NOT be shared",
-			"Yes, the subject company must sign off on the target price",
-			"No, draft reports can never be shared under any circumstances",
-			"Yes, provided the subject company pays for the research coverage"
-		],
-		correctIndex: 0,
-		explanation: "Draft reports may only be shared with the subject company to verify factual accuracy; recommendations, ratings, and valuation summaries cannot be shared.",
-		topic: "Research Process Integrity"
-	},
-	{
-		id: "nism-xv-q9",
-		courseId: "nism-xv",
-		question: "In a Discounted Cash Flow (DCF) model, how is the Terminal Value (TV) calculated using the Gordon Growth Model?",
-		options: [
-			"TV = Final Year EBITDA × Industry Multiple",
-			"TV = FCF × (1 + g) / (WACC - g)",
-			"TV = Total Assets - Total Liabilities",
-			"TV = Market Cap / Risk Free Rate"
-		],
-		correctIndex: 1,
-		explanation: "Gordon Growth formula: TV = (Expected Cash Flow in Year n+1) / (WACC - Perpetual Growth Rate).",
-		topic: "DCF Modeling"
-	},
-	{
-		id: "nism-xv-q10",
-		courseId: "nism-xv",
-		question: "How long must a Research Analyst maintain records of research reports, public appearances, and research recommendations?",
-		options: ["1 year", "3 years", "Minimum 5 years", "Permanent archival"],
-		correctIndex: 2,
-		explanation: "SEBI RA Regulations mandate that all research reports, rationale documents, recommendations, and public appearance transcripts be kept for at least 5 years.",
-		topic: "Regulatory Compliance"
-	},
-
-	// ==========================================
-	// NISM Series XXI-A: PMS Distributors (10 Questions)
-	// ==========================================
-	{
-		id: "nism-xxia-q1",
-		courseId: "nism-xxia",
-		question: "What is the statutory minimum investment amount required from a client to open a Portfolio Management Services (PMS) account under SEBI regulations?",
-		options: ["₹10 Lakhs", "₹25 Lakhs", "₹50 Lakhs", "₹1 Crore"],
-		correctIndex: 2,
-		explanation: "SEBI (Portfolio Managers) Regulations 2020 raised the minimum investment ticket size per client for PMS to ₹50 Lakhs.",
-		topic: "PMS Regulatory Framework"
-	},
-	{
-		id: "nism-xxia-q2",
-		courseId: "nism-xxia",
-		question: "What distinguishes a Discretionary PMS from a Non-Discretionary PMS?",
-		options: [
-			"In Discretionary PMS, the portfolio manager executes trades independently without seeking prior approval for each trade from the client",
-			"In Discretionary PMS, the client must approve every individual buy and sell order before execution",
-			"Non-Discretionary PMS does not require a SEBI registration",
-			"Discretionary PMS can only invest in government securities"
-		],
-		correctIndex: 0,
-		explanation: "Under Discretionary PMS, the portfolio manager holds full investment discretion. Under Non-Discretionary PMS, the manager advises but requires client consent for each trade.",
-		topic: "Operating Models"
-	},
-	{
-		id: "nism-xxia-q3",
-		courseId: "nism-xxia",
-		question: "Which return calculation methodology is mandatory for Portfolio Managers when reporting client portfolio performance under SEBI norms?",
-		options: ["Simple Annual Return", "Internal Rate of Return (IRR)", "Time-Weighted Rate of Return (TWRR)", "Book Value Return"],
-		correctIndex: 2,
-		explanation: "SEBI mandates the Time-Weighted Rate of Return (TWRR) methodology to neutralize the distortionary impact of external cash inflows and outflows on performance.",
-		topic: "Performance Calculation"
-	},
-	{
-		id: "nism-xxia-q4",
-		courseId: "nism-xxia",
-		question: "What is the 'High Water Mark' principle in the context of PMS performance fee calculation?",
-		options: [
-			"Performance fee is charged only when portfolio returns exceed the fixed deposit rate",
-			"Performance fee is charged only on the increase in portfolio value exceeding the highest historic NAV achieved in any previous performance fee calculation period",
-			"The maximum percentage fee that can be levied on a client's capital",
-			"A minimum reserve requirement kept with the Clearing Corporation"
-		],
-		correctIndex: 1,
-		explanation: "The High Water Mark ensures that clients do not pay performance fees for recovering past losses; fees apply only above the highest previous peak.",
-		topic: "Fee Structures"
-	},
-	{
-		id: "nism-xxia-q5",
-		courseId: "nism-xxia",
-		question: "Under SEBI regulations, must a Portfolio Manager provide an option for clients to onboard directly without paying distributor commission?",
-		options: [
-			"Yes, direct onboarding without distributor fees is mandatory across all registered Portfolio Managers",
-			"No, all clients must compulsorily come through registered distributors",
-			"Only institutional clients with over ₹10 Crores can onboard directly",
-			"Direct onboarding is optional at the discretion of the Portfolio Manager"
-		],
-		correctIndex: 0,
-		explanation: "SEBI mandates that portfolio managers must provide a direct onboarding channel with zero distributor commission fees for prospective clients.",
-		topic: "Investor Protection"
-	},
-	{
-		id: "nism-xxia-q6",
-		courseId: "nism-xxia",
-		question: "What is the statutory minimum net worth requirement for an entity seeking registration as a Portfolio Manager with SEBI?",
-		options: ["₹1 Crore", "₹2 Crores", "₹5 Crores", "₹10 Crores"],
-		correctIndex: 2,
-		explanation: "Under the SEBI (Portfolio Managers) Regulations, 2020, registered Portfolio Managers must maintain a continuous minimum net worth of ₹5 Crores.",
-		topic: "Entity Governance"
-	},
-	{
-		id: "nism-xxia-q7",
-		courseId: "nism-xxia",
-		question: "How frequently must client portfolio accounts in a PMS be audited by an independent Chartered Accountant?",
-		options: ["Every quarter", "At least once every year", "Every three years", "Only when requested by SEBI"],
-		correctIndex: 1,
-		explanation: "SEBI rules require an annual independent audit of every client's portfolio account and internal controls by a practicing Chartered Accountant.",
-		topic: "Audit & Verification"
-	},
-	{
-		id: "nism-xxia-q8",
-		courseId: "nism-xxia",
-		question: "How are client securities custodied in a Portfolio Management Services arrangement?",
-		options: [
-			"Pooled in the portfolio manager's personal demat account",
-			"Held in a segregated demat account opened in the name of the client with a SEBI-registered Custodian",
-			"Deposited with the stock exchange guarantee fund",
-			"Held as physical certificates in the portfolio manager's locker"
-		],
-		correctIndex: 1,
-		explanation: "Client securities in PMS are segregated and held directly in demat accounts opened in the individual client's own name with an independent custodian.",
-		topic: "Custody & Safekeeping"
-	},
-	{
-		id: "nism-xxia-q9",
-		courseId: "nism-xxia",
-		question: "What is the regulatory limit on investment in unlisted securities by a Discretionary Portfolio Manager?",
-		options: [
-			"Unlisted investments are completely banned in discretionary PMS",
-			"Up to a maximum of 25% of the client's portfolio AUM may be invested in unlisted securities",
-			"Up to 50% without disclosure",
-			"100% permitted if approved by the custodian"
-		],
-		correctIndex: 1,
-		explanation: "SEBI permits discretionary portfolio managers to invest up to a maximum cap of 25% of the portfolio's total AUM in unlisted securities.",
-		topic: "Portfolio Guidelines"
-	},
-	{
-		id: "nism-xxia-q10",
-		courseId: "nism-xxia",
-		question: "When must the PMS Disclosure Document be provided to a prospective investor?",
-		options: [
-			"Within 30 days after executing the portfolio agreement",
-			"At least two days prior to entering into the PMS agreement with the client",
-			"Only when the client explicitly requests it in writing",
-			"At the end of the first financial year"
-		],
-		correctIndex: 1,
-		explanation: "SEBI regulations mandate that the Disclosure Document must be handed over to the client at least two days before signing the investment agreement.",
-		topic: "Disclosures & Transparency"
-	},
-
-	// ==========================================
-	// NISM Series V-D: SIF Distributors (10 Questions)
-	// ==========================================
-	{
-		id: "nism-vd-q1",
-		courseId: "nism-vd",
-		question: "Under the SEBI regulatory framework, what distinguishes a Specialized Investment Fund (SIF) from a standard mutual fund scheme?",
-		options: [
-			"SIF schemes invest exclusively in sovereign gold bonds",
-			"SIF caters to accredited and sophisticated investors with specialized asset classes, structured debt, or hybrid strategies and higher minimum commitment",
-			"SIF does not require any regulatory disclosure or trustee oversight",
-			"SIF schemes are exempt from income tax"
-		],
-		correctIndex: 1,
-		explanation: "SIFs provide access to specialized alternative and hybrid investment opportunities with higher suitability criteria and bespoke risk profiles.",
-		topic: "SIF Regulatory Framework"
-	},
-	{
-		id: "nism-vd-q2",
-		courseId: "nism-vd",
-		question: "Why do Specialized Investment Funds maintain higher minimum ticket thresholds than retail mutual funds?",
-		options: [
-			"To maximize distributor trailing commissions",
-			"To ensure investment suitability, financial sophistication, and risk-absorption capacity of participants",
-			"To avoid paying stamp duty on contract notes",
-			"Because SEBI does not permit retail investors to invest in mutual funds"
-		],
-		correctIndex: 1,
-		explanation: "Higher investment commitments ensure that only sophisticated investors with adequate loss-absorption capacity participate in specialized fund strategies.",
-		topic: "Investor Categorisation & Suitability"
-	},
-	{
-		id: "nism-vd-q3",
-		courseId: "nism-vd",
-		question: "How frequently must illiquid or unlisted assets in a specialized fund portfolio be valued by an independent valuation agency?",
-		options: [
-			"Daily in real-time during market hours",
-			"At least periodically (e.g. monthly or quarterly) by an independent SEBI-recognized valuation agency",
-			"Once every five years",
-			"Only upon fund liquidation"
-		],
-		correctIndex: 1,
-		explanation: "Unlisted or illiquid instruments require periodic independent valuation by an accredited valuation agency to ensure fair NAV calculation.",
-		topic: "Valuation Principles"
-	},
-	{
-		id: "nism-vd-q4",
-		courseId: "nism-vd",
-		question: "What is the primary responsibility of the Scheme Investment Committee in specialized funds?",
-		options: [
-			"Deciding marketing slogans for fund roadshows",
-			"Overseeing investment adherence, risk mandates, and approving investments in structured or illiquid securities",
-			"Filing personal tax returns of unit holders",
-			"Setting the exchange clearing fees"
-		],
-		correctIndex: 1,
-		explanation: "The Investment Committee ensures that all transactions adhere strictly to the scheme's mandate, risk parameters, and regulatory exposure limits.",
-		topic: "Scheme Governance"
-	},
-	{
-		id: "nism-vd-q5",
-		courseId: "nism-vd",
-		question: "What is a key difference in liquidity management between a specialized fund and an open-ended liquid mutual fund?",
-		options: [
-			"Liquid funds offer daily redemptions at T+1, whereas specialized funds may incorporate defined liquidity windows or lock-in terms",
-			"Specialized funds never allow redemptions under any circumstances",
-			"Liquid funds require a 1-year notice for redemption",
-			"Specialized funds settle redemptions in physical bullion"
-		],
-		correctIndex: 0,
-		explanation: "Specialized funds manage liquidity through specified redemption intervals or lock-ins matching the duration of their underlying assets.",
-		topic: "Liquidity Risk Management"
-	},
-	{
-		id: "nism-vd-q6",
-		courseId: "nism-vd",
-		question: "Who qualifies as an 'Accredited Investor' under the SEBI regulatory framework?",
-		options: [
-			"Any individual with an active PAN card",
-			"An individual with annual income ≥ ₹2 Crores OR net worth ≥ ₹7.5 Crores (with at least ₹3.75 Cr in financial assets)",
-			"Any corporate entity regardless of balance sheet size",
-			"An investor who has passed the NISM exam"
-		],
-		correctIndex: 1,
-		explanation: "SEBI defines Accredited Investors by net worth or income thresholds (e.g. ₹2 Cr annual income or ₹7.5 Cr net worth for individuals).",
-		topic: "Accredited Investor Norms"
-	},
-	{
-		id: "nism-vd-q7",
-		courseId: "nism-vd",
-		question: "Are 'Side Letter' agreements offering preferential terms or fee discounts to select investors permitted in regulated specialized funds?",
-		options: [
-			"Yes, side letters can be secretly signed with large investors without disclosure",
-			"No, SEBI prohibits side letters that provide differential rights or preferential liquidity that prejudices other unit holders",
-			"Yes, permitted if the investment exceeds ₹10 Lakhs",
-			"Permitted only for foreign institutional investors"
-		],
-		correctIndex: 1,
-		explanation: "SEBI mandates fair and equitable treatment for all investors in a scheme; preferential side letters that undermine pari-passu rights are prohibited.",
-		topic: "Fair Treatment of Investors"
-	},
-	{
-		id: "nism-vd-q8",
-		courseId: "nism-vd",
-		question: "How must related-party transactions and conflict of interest scenarios be handled in specialized fund operations?",
-		options: [
-			"Hidden from the trustees to prevent delays",
-			"Fully disclosed to trustees and unit holders, with independent valuations and adherence to arm's length standards",
-			"Executed at a 50% discount to market rates",
-			"Referred to the local police department"
-		],
-		correctIndex: 1,
-		explanation: "Affiliate and related-party deals require prior committee/trustee review, arm's-length pricing, and transparent disclosure in scheme reports.",
-		topic: "Code of Conduct"
-	},
-	{
-		id: "nism-vd-q9",
-		courseId: "nism-vd",
-		question: "How should performance benchmarks be constructed for specialized or hybrid investment funds?",
-		options: [
-			"Using a fixed 15% arbitrary hurdle rate",
-			"Using a transparent, publicly available index that accurately reflects the asset mix and investment strategy of the fund",
-			"Benchmark choice is entirely prohibited for specialized funds",
-			"Using the US S&P 500 index regardless of domestic portfolio assets"
-		],
-		correctIndex: 1,
-		explanation: "Regulations mandate benchmarks that reflect the strategy, duration, and asset composition of the underlying specialized fund portfolio.",
-		topic: "Performance Evaluation"
-	},
-	{
-		id: "nism-vd-q10",
-		courseId: "nism-vd",
-		question: "What is the dual licensing benefit of holding the NISM Series V-D certification for financial intermediaries?",
-		options: [
-			"Authorizes the distribution of both standard mutual fund schemes and specialized investment funds (SIF) under a unified license",
-			"Allows the advisor to trade international currency futures without an exchange broker",
-			"Exempts the distributor from filing GST returns",
-			"Guarantees automatic appointment as an AMC fund manager"
-		],
-		correctIndex: 0,
-		explanation: "NISM Series V-D provides accreditation covering both traditional mutual funds and specialized investment funds under SEBI distribution guidelines.",
-		topic: "SIF Regulatory Framework"
-	}
 ];

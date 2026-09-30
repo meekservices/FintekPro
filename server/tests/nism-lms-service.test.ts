@@ -177,4 +177,58 @@ describe("NISM LMS Service (LTI 1.3 & xAPI)", () => {
 		const practiceXa = nismLmsService.getPracticeQuestions("nism-xa");
 		expect(practiceXa.questions.length).toBeGreaterThanOrEqual(10);
 	});
+
+	it("serves authentic 150-question examination papers with 180 minutes duration in exam mode", () => {
+		const paper1 = nismLmsService.getPracticeQuestions("nism-va", { paperId: "paper-1", testType: "exam" });
+		expect(paper1.questions.length).toBe(150);
+		expect(paper1.durationMinutes).toBe(180);
+		expect(paper1.paperId).toBe("paper-1");
+		// Ensure answer keys and rationales are strictly withheld in exam mode
+		for (const q of paper1.questions) {
+			expect(q.correctIndex).toBeUndefined();
+			expect(q.explanation).toBeUndefined();
+		}
+
+		const paper2 = nismLmsService.getPracticeQuestions("nism-va", { paperId: "paper-2", testType: "exam" });
+		expect(paper2.questions.length).toBe(150);
+		expect(paper2.durationMinutes).toBe(180);
+		expect(paper2.paperId).toBe("paper-2");
+
+		// Paper 1 and Paper 2 should have distinct leading question IDs
+		expect(paper1.questions[0].id).not.toBe(paper2.questions[0].id);
+
+		const paper3 = nismLmsService.getPracticeQuestions("nism-va", { paperId: "paper-3", testType: "exam" });
+		expect(paper3.questions.length).toBe(150);
+	});
+
+	it("exposes instant correctIndex and explanation when requested in practice mode", () => {
+		const practiceSession = nismLmsService.getPracticeQuestions("nism-va", {
+			paperId: "paper-1",
+			testType: "practice",
+			count: 10,
+		});
+
+		expect(practiceSession.testType).toBe("practice");
+		expect(practiceSession.durationMinutes).toBe(0); // untimed
+		expect(practiceSession.questions.length).toBe(10);
+
+		for (const q of practiceSession.questions) {
+			expect(typeof q.correctIndex).toBe("number");
+			expect(typeof q.explanation).toBe("string");
+			expect(q.explanation!.length).toBeGreaterThan(10);
+		}
+	});
+
+	it("can generate customized NISM question papers from curriculum topics", async () => {
+		const generated = await nismLmsService.generateNismQuestionPaperFromCurriculum({
+			courseId: "nism-va",
+			curriculumTopic: "Chapter 7: Taxation of Mutual Funds & Capital Gains",
+			questionCount: 5,
+		});
+
+		expect(generated.success).toBe(true);
+		expect(generated.paperTitle).toBeDefined();
+		expect(generated.questions.length).toBe(5);
+		expect(generated.questions[0].options.length).toBe(4);
+	});
 });

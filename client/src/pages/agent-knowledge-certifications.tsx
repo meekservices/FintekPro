@@ -26,6 +26,7 @@ import {
 	HelpCircle,
 	RefreshCw,
 	ChevronRight,
+	Lightbulb,
 } from "lucide-react";
 import {
 	Card,
@@ -265,8 +266,9 @@ export default function AgentKnowledgeCertifications() {
 		launchData: null,
 	});
 
-	// NISM Practice Test simulation mode (full 100 Qs mock, 50 Qs diagnostic, 25 Qs sprint, all 190+ bank)
-	const [nismPracticeTestMode, setNismPracticeTestMode] = useState<"full" | "diagnostic" | "quick" | "all">("full");
+	// NISM Practice Test simulation configuration (150 Qs papers, 100/50/25 Qs modes & Test vs Practice modes)
+	const [nismSelectedPaper, setNismSelectedPaper] = useState<string>("paper-1");
+	const [nismTestType, setNismTestType] = useState<"exam" | "practice">("exam");
 
 	// IRDAI Exam state
 	const [pospExamOpen, setPospExamOpen] = useState(false);
@@ -291,12 +293,22 @@ export default function AgentKnowledgeCertifications() {
 		courseId: string | null;
 		courseTitle: string;
 		seriesCode: string;
+		paperId?: string;
+		paperTitle?: string;
+		testType: "exam" | "practice";
 		passingPercentage: number;
 		durationMinutes: number;
 		secondsRemaining: number | null;
 		isTimerRunning: boolean;
 		activeQuestionIndex: number;
-		questions: Array<{ id: string; question: string; options: string[]; topic: string }>;
+		questions: Array<{
+			id: string;
+			question: string;
+			options: string[];
+			topic: string;
+			correctIndex?: number;
+			explanation?: string;
+		}>;
 		answers: Record<string, number>;
 		result: {
 			success: boolean;
@@ -347,6 +359,7 @@ export default function AgentKnowledgeCertifications() {
 		courseId: null,
 		courseTitle: "",
 		seriesCode: "",
+		testType: "exam",
 		passingPercentage: 60,
 		durationMinutes: 15,
 		secondsRemaining: null,
@@ -540,27 +553,47 @@ export default function AgentKnowledgeCertifications() {
 		}
 	};
 
-	const handleStartNismPracticeTest = async (courseId: string, mode: string = nismPracticeTestMode) => {
+	const handleStartNismPracticeTest = async (
+		courseId: string,
+		paper: string = nismSelectedPaper,
+		testType: "exam" | "practice" = nismTestType,
+	) => {
 		try {
 			setPracticeTestModal((prev) => ({ ...prev, loading: true }));
-			const url =
+			let url =
 				courseId === "irdai-posp"
 					? "/api/knowledge-hub/irdai/practice-test"
-					: `/api/knowledge-hub/nism/courses/${courseId}/practice-test?mode=${mode}`;
+					: `/api/knowledge-hub/nism/courses/${courseId}/practice-test?testType=${testType}`;
+
+			if (courseId !== "irdai-posp") {
+				if (paper.startsWith("paper-")) {
+					url += `&paperId=${paper}`;
+				} else {
+					url += `&mode=${paper}`;
+				}
+			}
+
 			const res = await apiRequest("GET", url);
 			const data = typeof res?.json === "function" ? await res.json() : res;
 			if (data?.success) {
-				const durationMinutes = data.durationMinutes || (courseId === "irdai-posp" ? 30 : 120);
+				const durationMinutes =
+					testType === "practice"
+						? 0
+						: data.durationMinutes || (courseId === "irdai-posp" ? 30 : 180);
+
 				setPracticeTestModal({
 					isOpen: true,
 					loading: false,
 					courseId: data.courseId,
 					courseTitle: data.courseTitle,
 					seriesCode: data.seriesCode,
+					paperId: data.paperId,
+					paperTitle: data.paperTitle,
+					testType: data.testType || testType,
 					passingPercentage: data.passingPercentage,
 					durationMinutes,
-					secondsRemaining: durationMinutes * 60,
-					isTimerRunning: true,
+					secondsRemaining: testType === "practice" ? null : durationMinutes * 60,
+					isTimerRunning: testType !== "practice",
 					activeQuestionIndex: 0,
 					questions: data.questions || [],
 					answers: {},
@@ -1884,80 +1917,149 @@ export default function AgentKnowledgeCertifications() {
 									<div className="flex items-center justify-between">
 										<span className="text-xs font-semibold text-amber-400 flex items-center gap-1.5">
 											<Target className="h-3.5 w-3.5" />
-											Practice Mock Test
+											NISM Practice Examination
 										</span>
-										<Badge className="text-[10px] bg-amber-500/20 text-amber-300">In-App</Badge>
+										<Badge className="text-[10px] bg-amber-500/20 text-amber-300">In-App Simulation</Badge>
 									</div>
 									<p className="text-xs text-muted-foreground">
-										Real exam simulation with SEBI 0.25 negative marking, topic diagnostics & answers.
+										Real exam simulation with SEBI 0.25 negative marking or interactive tutor study mode with instant rationales.
 									</p>
+
+									{/* Mode Switch (Test Mode vs Practice Mode) */}
 									<div className="pt-1">
-										<span className="text-[10px] text-muted-foreground font-medium block mb-1">
-											Select Exam Mode:
+										<span className="text-[10px] text-muted-foreground font-semibold block mb-1">
+											Choose Mode:
 										</span>
 										<div className="grid grid-cols-2 gap-1.5 text-[11px]">
 											<button
 												type="button"
-												onClick={() => setNismPracticeTestMode("full")}
+												onClick={() => setNismTestType("exam")}
 												className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
-													nismPracticeTestMode === "full"
+													nismTestType === "exam"
 														? "border-amber-500 bg-amber-500/20 text-amber-300 font-semibold"
 														: "border-border/60 hover:border-border text-muted-foreground"
 												}`}
 											>
-												<span>🏆 Full 100 Qs Mock</span>
-												<span className="text-[9px] opacity-80">120m • Real Exam</span>
+												<span className="flex items-center gap-1">
+													<Clock className="h-3 w-3" />
+													⏱️ Timed Test Mode
+												</span>
+												<span className="text-[9px] opacity-80">180m • 0.25 Neg Marking</span>
 											</button>
 											<button
 												type="button"
-												onClick={() => setNismPracticeTestMode("diagnostic")}
+												onClick={() => setNismTestType("practice")}
 												className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
-													nismPracticeTestMode === "diagnostic"
+													nismTestType === "practice"
+														? "border-emerald-500 bg-emerald-500/20 text-emerald-300 font-semibold"
+														: "border-border/60 hover:border-border text-muted-foreground"
+												}`}
+											>
+												<span className="flex items-center gap-1">
+													<Lightbulb className="h-3 w-3" />
+													💡 Practice / Tutor Mode
+												</span>
+												<span className="text-[9px] opacity-80">Untimed • Instant Rationales</span>
+											</button>
+										</div>
+									</div>
+
+									{/* Question Paper Selection */}
+									<div className="pt-1">
+										<span className="text-[10px] text-muted-foreground font-semibold block mb-1">
+											Select Question Paper (150 Qs Standard):
+										</span>
+										<div className="grid grid-cols-2 gap-1.5 text-[11px]">
+											<button
+												type="button"
+												onClick={() => setNismSelectedPaper("paper-1")}
+												className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
+													nismSelectedPaper === "paper-1"
+														? "border-amber-500 bg-amber-500/20 text-amber-300 font-semibold"
+														: "border-border/60 hover:border-border text-muted-foreground"
+												}`}
+											>
+												<span>📄 Mock Paper 1 (150 Qs)</span>
+												<span className="text-[9px] opacity-80">180m • Full Curriculum</span>
+											</button>
+											<button
+												type="button"
+												onClick={() => setNismSelectedPaper("paper-2")}
+												className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
+													nismSelectedPaper === "paper-2"
+														? "border-amber-500 bg-amber-500/20 text-amber-300 font-semibold"
+														: "border-border/60 hover:border-border text-muted-foreground"
+												}`}
+											>
+												<span>📄 Mock Paper 2 (150 Qs)</span>
+												<span className="text-[9px] opacity-80">180m • Case Studies & Calc</span>
+											</button>
+											<button
+												type="button"
+												onClick={() => setNismSelectedPaper("paper-3")}
+												className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
+													nismSelectedPaper === "paper-3"
+														? "border-amber-500 bg-amber-500/20 text-amber-300 font-semibold"
+														: "border-border/60 hover:border-border text-muted-foreground"
+												}`}
+											>
+												<span>📄 Mock Paper 3 (150 Qs)</span>
+												<span className="text-[9px] opacity-80">180m • Tax & Regulatory</span>
+											</button>
+											<button
+												type="button"
+												onClick={() => setNismSelectedPaper("100")}
+												className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
+													nismSelectedPaper === "100"
+														? "border-amber-500 bg-amber-500/20 text-amber-300 font-semibold"
+														: "border-border/60 hover:border-border text-muted-foreground"
+												}`}
+											>
+												<span>🏆 100 Qs Standard Mock</span>
+												<span className="text-[9px] opacity-80">120m • Real Exam Benchmark</span>
+											</button>
+											<button
+												type="button"
+												onClick={() => setNismSelectedPaper("50")}
+												className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
+													nismSelectedPaper === "50"
 														? "border-amber-500 bg-amber-500/20 text-amber-300 font-semibold"
 														: "border-border/60 hover:border-border text-muted-foreground"
 												}`}
 											>
 												<span>🎯 50 Qs Diagnostic</span>
-												<span className="text-[9px] opacity-80">60m • Readiness</span>
+												<span className="text-[9px] opacity-80">60m • Readiness Check</span>
 											</button>
 											<button
 												type="button"
-												onClick={() => setNismPracticeTestMode("quick")}
+												onClick={() => setNismSelectedPaper("all")}
 												className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
-													nismPracticeTestMode === "quick"
+													nismSelectedPaper === "all"
 														? "border-amber-500 bg-amber-500/20 text-amber-300 font-semibold"
 														: "border-border/60 hover:border-border text-muted-foreground"
 												}`}
 											>
-												<span>⚡ 25 Qs Sprint</span>
-												<span className="text-[9px] opacity-80">30m • High-Yield</span>
-											</button>
-											<button
-												type="button"
-												onClick={() => setNismPracticeTestMode("all")}
-												className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
-													nismPracticeTestMode === "all"
-														? "border-amber-500 bg-amber-500/20 text-amber-300 font-semibold"
-														: "border-border/60 hover:border-border text-muted-foreground"
-												}`}
-											>
-												<span>📚 All 190+ Bank</span>
-												<span className="text-[9px] opacity-80">Comprehensive Bank</span>
+												<span>📚 All 360+ Bank</span>
+												<span className="text-[9px] opacity-80">Comprehensive Full Bank</span>
 											</button>
 										</div>
 									</div>
 								</div>
 								<Button
 									size="sm"
-									className="w-full bg-amber-600 hover:bg-amber-700 text-white text-xs h-8 flex items-center justify-center gap-1.5 mt-1"
+									className={`w-full text-white text-xs h-8 flex items-center justify-center gap-1.5 mt-1 ${
+										nismTestType === "practice"
+											? "bg-emerald-600 hover:bg-emerald-700"
+											: "bg-amber-600 hover:bg-amber-700"
+									}`}
 									disabled={practiceTestModal.loading}
 									onClick={() => {
 										const targetCourseId = nismLaunchModal.course?.courseId || nismLaunchModal.launchData?.seriesCode || "nism-va";
-										handleStartNismPracticeTest(targetCourseId, nismPracticeTestMode);
+										handleStartNismPracticeTest(targetCourseId, nismSelectedPaper, nismTestType);
 									}}
 								>
 									<Play className="h-3.5 w-3.5 fill-current" />
-									Start Practice Test ({nismPracticeTestMode === "full" ? "100 Qs" : nismPracticeTestMode === "diagnostic" ? "50 Qs" : nismPracticeTestMode === "quick" ? "25 Qs" : "190+ Qs"})
+									Launch {nismSelectedPaper.startsWith("paper-") ? "150 Qs " + nismSelectedPaper.toUpperCase() : nismSelectedPaper + " Qs"} ({nismTestType === "exam" ? "Timed Exam" : "Tutor Practice"})
 								</Button>
 							</div>
 
@@ -2053,15 +2155,28 @@ export default function AgentKnowledgeCertifications() {
 					<DialogHeader className="pb-3 border-b border-border/50 shrink-0">
 						<div className="flex items-center justify-between flex-wrap gap-2">
 							<div className="flex items-center gap-2">
-								<div className="p-1.5 rounded-md bg-amber-500/20 text-amber-400">
-									<Target className="h-5 w-5" />
+								<div className={`p-1.5 rounded-md ${
+									practiceTestModal.testType === "practice"
+										? "bg-emerald-500/20 text-emerald-400"
+										: "bg-amber-500/20 text-amber-400"
+								}`}>
+									{practiceTestModal.testType === "practice" ? (
+										<BookOpen className="h-5 w-5" />
+									) : (
+										<Target className="h-5 w-5" />
+									)}
 								</div>
 								<div>
 									<DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
-										{practiceTestModal.seriesCode} Practice Test
+										{practiceTestModal.seriesCode} {practiceTestModal.testType === "practice" ? "Practice / Tutor Session" : "Exam Simulation"}
 										<Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px]">
 											Passing: {practiceTestModal.passingPercentage}%
 										</Badge>
+										{practiceTestModal.paperTitle && (
+											<Badge variant="secondary" className="text-[10px] hidden sm:inline-flex">
+												{practiceTestModal.paperTitle}
+											</Badge>
+										)}
 									</DialogTitle>
 									<DialogDescription className="text-xs text-muted-foreground">
 										{practiceTestModal.courseTitle}
@@ -2069,24 +2184,33 @@ export default function AgentKnowledgeCertifications() {
 								</div>
 							</div>
 							<div className="flex items-center gap-2">
-								{!practiceTestModal.result && practiceTestModal.secondsRemaining !== null && (
-									<Badge
-										variant="outline"
-										className={`text-xs font-mono font-bold flex items-center gap-1.5 px-2.5 py-1 ${
-											practiceTestModal.secondsRemaining < 60
-												? "border-red-500/60 bg-red-500/15 text-red-400 animate-pulse"
-												: practiceTestModal.secondsRemaining < 180
-												? "border-amber-500/60 bg-amber-500/15 text-amber-400"
-												: "border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
-										}`}
-									>
-										<Clock className="h-3.5 w-3.5" />
-										{formatTimeRemaining(practiceTestModal.secondsRemaining)} Left
+								{practiceTestModal.testType === "practice" ? (
+									<Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-xs flex items-center gap-1">
+										<Lightbulb className="h-3.5 w-3.5" />
+										Practice Mode • Untimed
 									</Badge>
+								) : (
+									<>
+										{!practiceTestModal.result && practiceTestModal.secondsRemaining !== null && (
+											<Badge
+												variant="outline"
+												className={`text-xs font-mono font-bold flex items-center gap-1.5 px-2.5 py-1 ${
+													practiceTestModal.secondsRemaining < 60
+														? "border-red-500/60 bg-red-500/15 text-red-400 animate-pulse"
+														: practiceTestModal.secondsRemaining < 180
+														? "border-amber-500/60 bg-amber-500/15 text-amber-400"
+														: "border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
+												}`}
+											>
+												<Clock className="h-3.5 w-3.5" />
+												{formatTimeRemaining(practiceTestModal.secondsRemaining)} Left
+											</Badge>
+										)}
+										<Badge variant="outline" className="border-border text-xs flex items-center gap-1">
+											{practiceTestModal.durationMinutes} Min Exam
+										</Badge>
+									</>
 								)}
-								<Badge variant="outline" className="border-border text-xs flex items-center gap-1">
-									{practiceTestModal.durationMinutes} Min Exam
-								</Badge>
 							</div>
 						</div>
 					</DialogHeader>
@@ -2098,8 +2222,8 @@ export default function AgentKnowledgeCertifications() {
 								<div className="p-3 bg-muted/20 border border-border/40 rounded-lg space-y-2">
 									<div className="flex items-center justify-between text-xs">
 										<span className="text-muted-foreground flex items-center gap-1.5">
-											<span className="h-2 w-2 rounded-full bg-amber-400"></span>
-											{practiceTestModal.questions.length} MCQs • SEBI Negative Marking (0.25/wrong)
+											<span className={`h-2 w-2 rounded-full ${practiceTestModal.testType === "practice" ? "bg-emerald-400" : "bg-amber-400"}`}></span>
+											{practiceTestModal.questions.length} MCQs • {practiceTestModal.testType === "practice" ? "Untimed Tutor Session with Immediate Explanations" : "SEBI Negative Marking (0.25/wrong) • Timed Exam Simulation"}
 										</span>
 										<span className="text-amber-400 font-medium">
 											Answered: {Object.keys(practiceTestModal.answers).length} / {practiceTestModal.questions.length}
@@ -2111,6 +2235,20 @@ export default function AgentKnowledgeCertifications() {
 										<span className="text-[10px] text-muted-foreground mr-1 uppercase tracking-wider font-semibold">Palette:</span>
 										{practiceTestModal.questions.map((q, qIdx) => {
 											const isAnswered = practiceTestModal.answers[q.id] !== undefined;
+											const isPractice = practiceTestModal.testType === "practice";
+											const isCorrect = isAnswered && isPractice && practiceTestModal.answers[q.id] === q.correctIndex;
+
+											let paletteClass = "bg-muted/40 text-muted-foreground hover:bg-muted/80 hover:text-foreground border border-border/50";
+											if (isAnswered) {
+												if (isPractice) {
+													paletteClass = isCorrect
+														? "bg-emerald-600 text-white font-bold shadow-sm"
+														: "bg-rose-600 text-white font-bold shadow-sm";
+												} else {
+													paletteClass = "bg-amber-600 text-white font-bold shadow-sm";
+												}
+											}
+
 											return (
 												<button
 													key={q.id}
@@ -2119,11 +2257,7 @@ export default function AgentKnowledgeCertifications() {
 														const el = document.getElementById(`q-card-${q.id}`);
 														if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
 													}}
-													className={`w-6 h-6 rounded text-[11px] font-mono font-medium transition-all ${
-														isAnswered
-															? "bg-emerald-600 text-white font-bold shadow-sm"
-															: "bg-muted/40 text-muted-foreground hover:bg-muted/80 hover:text-foreground border border-border/50"
-													}`}
+													className={`w-6 h-6 rounded text-[11px] font-mono font-medium transition-all ${paletteClass}`}
 												>
 													{qIdx + 1}
 												</button>
@@ -2133,42 +2267,108 @@ export default function AgentKnowledgeCertifications() {
 								</div>
 
 								<div className="space-y-4">
-									{practiceTestModal.questions.map((q, idx) => (
-										<div key={q.id} id={`q-card-${q.id}`} className="p-4 rounded-lg bg-background/50 border border-border">
-											<div className="flex items-start justify-between gap-2 mb-2">
-												<p className="font-medium text-foreground text-sm">
-													{idx + 1}. {q.question}
-												</p>
-												{q.topic && (
-													<Badge variant="outline" className="text-[10px] shrink-0 text-muted-foreground">
-														{q.topic}
-													</Badge>
+									{practiceTestModal.questions.map((q, idx) => {
+										const isAnswered = practiceTestModal.answers[q.id] !== undefined;
+										const userAnswer = practiceTestModal.answers[q.id];
+										const isPractice = practiceTestModal.testType === "practice";
+
+										return (
+											<div
+												key={q.id}
+												id={`q-card-${q.id}`}
+												className={`p-4 rounded-lg border transition-all ${
+													isPractice && isAnswered
+														? userAnswer === q.correctIndex
+															? "bg-emerald-950/20 border-emerald-500/40"
+															: "bg-rose-950/20 border-rose-500/40"
+														: "bg-background/50 border-border"
+												}`}
+											>
+												<div className="flex items-start justify-between gap-2 mb-2">
+													<p className="font-medium text-foreground text-sm">
+														{idx + 1}. {q.question}
+													</p>
+													{q.topic && (
+														<Badge variant="outline" className="text-[10px] shrink-0 text-muted-foreground">
+															{q.topic}
+														</Badge>
+													)}
+												</div>
+												<RadioGroup
+													value={practiceTestModal.answers[q.id]?.toString() ?? ""}
+													onValueChange={(val) =>
+														setPracticeTestModal((prev) => ({
+															...prev,
+															answers: { ...prev.answers, [q.id]: Number(val) },
+														}))
+													}
+												>
+													{q.options.map((opt, optIdx) => {
+														const isSelected = userAnswer === optIdx;
+														const isCorrectOpt = q.correctIndex !== undefined && optIdx === q.correctIndex;
+
+														let optContainerClass = "border border-transparent hover:bg-muted/30";
+														if (isPractice && isAnswered) {
+															if (isCorrectOpt) {
+																optContainerClass = "bg-emerald-500/15 border border-emerald-500/50 text-emerald-300 font-semibold";
+															} else if (isSelected && !isCorrectOpt) {
+																optContainerClass = "bg-rose-500/15 border border-rose-500/50 text-rose-300 font-medium";
+															}
+														}
+
+														return (
+															<div
+																key={optIdx}
+																className={`flex items-center space-x-2 py-1.5 px-2 rounded-md transition-colors ${optContainerClass}`}
+															>
+																<RadioGroupItem value={optIdx.toString()} id={`nism-prac-${q.id}-${optIdx}`} />
+																<Label
+																	htmlFor={`nism-prac-${q.id}-${optIdx}`}
+																	className="text-muted-foreground cursor-pointer text-xs flex-1 flex items-center justify-between"
+																>
+																	<span>{opt}</span>
+																	{isPractice && isAnswered && isCorrectOpt && (
+																		<span className="text-[10px] text-emerald-400 font-bold ml-2">✓ Correct Answer</span>
+																	)}
+																	{isPractice && isAnswered && isSelected && !isCorrectOpt && (
+																		<span className="text-[10px] text-rose-400 font-bold ml-2">✗ Your Choice</span>
+																	)}
+																</Label>
+															</div>
+														);
+													})}
+												</RadioGroup>
+
+												{/* Instant rationale in practice mode */}
+												{isPractice && isAnswered && (
+													<div
+														className={`mt-3 p-3 rounded-lg border text-xs leading-relaxed ${
+															userAnswer === q.correctIndex
+																? "bg-emerald-950/40 border-emerald-500/30 text-emerald-200"
+																: "bg-rose-950/30 border-rose-500/30 text-rose-200"
+														}`}
+													>
+														<div className="flex items-center gap-1.5 font-semibold mb-1">
+															<Lightbulb className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+															<span>
+																{userAnswer === q.correctIndex ? "Correct Answer! " : "Incorrect. "}
+																NISM Study Material Rationale & Reference:
+															</span>
+														</div>
+														<p className="text-muted-foreground">{q.explanation || `The correct option is Option ${String.fromCharCode(65 + (q.correctIndex ?? 0))}.`}</p>
+													</div>
 												)}
 											</div>
-											<RadioGroup
-												value={practiceTestModal.answers[q.id]?.toString() ?? ""}
-												onValueChange={(val) =>
-													setPracticeTestModal((prev) => ({
-														...prev,
-														answers: { ...prev.answers, [q.id]: Number(val) },
-													}))
-												}
-											>
-												{q.options.map((opt, optIdx) => (
-													<div key={optIdx} className="flex items-center space-x-2 py-1">
-														<RadioGroupItem value={optIdx.toString()} id={`nism-prac-${q.id}-${optIdx}`} />
-														<Label htmlFor={`nism-prac-${q.id}-${optIdx}`} className="text-muted-foreground cursor-pointer text-xs">
-															{opt}
-														</Label>
-													</div>
-												))}
-											</RadioGroup>
-										</div>
-									))}
+										);
+									})}
 								</div>
 
 								<Button
-									className="w-full bg-amber-600 hover:bg-amber-700 text-white mt-4"
+									className={`w-full text-white mt-4 ${
+										practiceTestModal.testType === "practice"
+											? "bg-emerald-600 hover:bg-emerald-700"
+											: "bg-amber-600 hover:bg-amber-700"
+									}`}
 									disabled={
 										Object.keys(practiceTestModal.answers).length === 0 ||
 										submitPracticeTestMutation.isPending
@@ -2182,7 +2382,11 @@ export default function AgentKnowledgeCertifications() {
 										});
 									}}
 								>
-									{submitPracticeTestMutation.isPending ? "Evaluating Score..." : `Submit Practice Test (${Object.keys(practiceTestModal.answers).length}/${practiceTestModal.questions.length})`}
+									{submitPracticeTestMutation.isPending
+										? "Evaluating Scorecard..."
+										: practiceTestModal.testType === "practice"
+										? `Complete Practice Session & View Full Diagnostics (${Object.keys(practiceTestModal.answers).length}/${practiceTestModal.questions.length})`
+										: `Submit Official Exam Simulation (${Object.keys(practiceTestModal.answers).length}/${practiceTestModal.questions.length})`}
 								</Button>
 							</>
 						) : (

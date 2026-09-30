@@ -571,8 +571,33 @@ router.get(
 	asyncHandler(async (req, res) => {
 		const { courseId } = req.params;
 		const mode = (req.query.mode as string) || (req.query.count ? String(req.query.count) : undefined);
-		const data = nismLmsService.getPracticeQuestions(courseId, mode);
+		const paperId = req.query.paperId as string;
+		const testType = req.query.testType as "exam" | "practice";
+		const count = req.query.count ? Number.parseInt(req.query.count as string, 10) : undefined;
+
+		const data = nismLmsService.getPracticeQuestions(courseId, {
+			mode,
+			paperId,
+			testType,
+			count,
+		});
 		res.json({ success: true, ...data });
+	}),
+);
+
+// POST /api/knowledge-hub/nism/courses/:courseId/generate-paper — AI-synthesized NISM questions from study material
+router.post(
+	"/nism/courses/:courseId/generate-paper",
+	asyncHandler(async (req, res) => {
+		const { courseId } = req.params;
+		const { topicOrChapter, count, difficulty } = req.body;
+		const result = await nismLmsService.generateNismQuestionPaperFromCurriculum({
+			courseId,
+			topicOrChapter,
+			count: count ? Number.parseInt(String(count), 10) : 10,
+			difficulty: difficulty === "advanced" ? "advanced" : "standard",
+		});
+		res.json(result);
 	}),
 );
 

@@ -260,6 +260,8 @@ export interface NismPracticeQuestionClient {
 	question: string;
 	options: string[];
 	topic: string;
+	correctIndex?: number;
+	explanation?: string;
 }
 
 export interface NismTopicDiagnostic {
@@ -754,49 +756,243 @@ export class NismLmsService {
 
 	/**
 	 * Retrieve practice test questions for a given NISM course
+	 * Supports:
+	 * - Multi-mode: 150 Qs Full Paper, 100 Qs Mock, 50 Qs Diagnostic, 25 Qs Sprint, All
+	 * - Dedicated 150-Question Papers: Paper 1, Paper 2, Paper 3
+	 * - Mode: "exam" (strict timed test, answers hidden) vs "practice" (tutor mode, instant explanations)
 	 */
-	getPracticeQuestions(courseId: string, mode?: string | number): {
+	getPracticeQuestions(
+		courseId: string,
+		modeOrOptions?:
+			| string
+			| number
+			| {
+					mode?: string | number;
+					paperId?: "paper-1" | "paper-2" | "paper-3" | "all" | string;
+					testType?: "exam" | "practice";
+					count?: number;
+			  },
+	): {
 		courseId: string;
 		courseTitle: string;
 		seriesCode: string;
+		paperId?: string;
+		paperTitle?: string;
+		testType: "exam" | "practice";
 		passingPercentage: number;
 		durationMinutes: number;
 		totalAvailableQuestions: number;
 		questions: NismPracticeQuestionClient[];
 	} {
-		const matchedCourse = DEFAULT_COURSES.find(
-			(c) => c.id.toLowerCase() === courseId.toLowerCase() || c.seriesCode.toLowerCase() === courseId.toLowerCase(),
-		) || DEFAULT_COURSES[0];
+		const matchedCourse =
+			DEFAULT_COURSES.find(
+				(c) =>
+					c.id.toLowerCase() === courseId.toLowerCase() ||
+					c.seriesCode.toLowerCase() === courseId.toLowerCase(),
+			) || DEFAULT_COURSES[0];
 
 		const allMatching = this.resolveQuestionsForCourse(courseId);
-		let targetCount: number | undefined;
 
-		if (mode === "quick" || mode === "25" || mode === 25) targetCount = 25;
-		else if (mode === "diagnostic" || mode === "50" || mode === 50) targetCount = 50;
-		else if (mode === "full" || mode === "100" || mode === 100) targetCount = 100;
-		else if (typeof mode === "number") targetCount = mode;
-		else if (mode === "all") targetCount = allMatching.length;
-		else {
-			// Default to real exam format: 100 questions for Series V-A (or all if < 100)
-			targetCount = matchedCourse.id === "nism-va" ? Math.min(100, allMatching.length) : undefined;
+		// Parse arguments
+		let rawMode = typeof modeOrOptions === "object" ? modeOrOptions?.mode : modeOrOptions;
+		let paperId = typeof modeOrOptions === "object" ? modeOrOptions?.paperId : undefined;
+		let testType: "exam" | "practice" =
+			(typeof modeOrOptions === "object" ? modeOrOptions?.testType : undefined) || "exam";
+
+		if (typeof rawMode === "string") {
+			if (rawMode === "practice" || rawMode === "tutor") {
+				testType = "practice";
+				rawMode = "150";
+			} else if (rawMode.startsWith("paper-")) {
+				paperId = rawMode as any;
+			}
 		}
 
-		const matching = this.resolveQuestionsForCourse(courseId, targetCount);
-		const durationMinutes = targetCount === 100 ? 120 : targetCount === 50 ? 60 : Math.max(15, Math.round(matching.length * 1.2));
+		let matching: typeof allMatching = [];
+		let paperTitle: string | undefined;
+		let targetDuration = 180;
+
+		if (paperId === "paper-1") {
+			matching = allMatching.slice(0, 150);
+			paperTitle = "Paper 1: Full Comprehensive Mock (150 Questions • 180 Mins)";
+			targetDuration = 180;
+		} else if (paperId === "paper-2") {
+			matching = allMatching.slice(150, 300);
+			if (matching.length < 150) {
+				matching = [...matching, ...allMatching.slice(0, 150 - matching.length)];
+			}
+			paperTitle = "Paper 2: Case Studies, Calculations & Regulatory Mastery (150 Questions • 180 Mins)";
+			targetDuration = 180;
+		} else if (paperId === "paper-3") {
+			const pool1 = allMatching.slice(200, 350);
+			const pool2 = allMatching.slice(50, 150);
+			matching = [...pool1, ...pool2].slice(0, 150);
+			paperTitle = "Paper 3: Advanced Scenario & Budget 2024 Tax Paper (150 Questions • 180 Mins)";
+			targetDuration = 180;
+		} else {
+			let targetCount: number | undefined;
+			if (rawMode === "quick" || rawMode === "25" || rawMode === 25) {
+				targetCount = 25;
+				targetDuration = 30;
+			} else if (rawMode === "diagnostic" || rawMode === "50" || rawMode === 50) {
+				targetCount = 50;
+				targetDuration = 60;
+			} else if (rawMode === "full" || rawMode === "100" || rawMode === 100) {
+				targetCount = 100;
+				targetDuration = 120;
+			} else if (rawMode === "150" || rawMode === 150 || rawMode === "mock150") {
+				targetCount = 150;
+				targetDuration = 180;
+				paperTitle = "NISM Model Paper: 150 Questions Full Simulation (180 Mins)";
+			} else if (typeof rawMode === "number") {
+				targetCount = rawMode;
+				targetDuration = Math.max(15, Math.round(targetCount * 1.2));
+			} else if (rawMode === "all") {
+				targetCount = allMatching.length;
+				targetDuration = Math.max(30, Math.round(allMatching.length * 1.2));
+			} else {
+				// Default to 150 questions for Series V-A if available, else 100
+				targetCount = Math.min(150, allMatching.length);
+				targetDuration = targetCount >= 150 ? 180 : 120;
+			}
+
+			matching = this.resolveQuestionsForCourse(courseId, targetCount);
+		}
+
+		if (typeof modeOrOptions === "object" && typeof modeOrOptions.count === "number" && modeOrOptions.count > 0) {
+			matching = matching.slice(0, modeOrOptions.count);
+		}
 
 		return {
 			courseId: matchedCourse.id,
 			courseTitle: matchedCourse.title,
 			seriesCode: matchedCourse.seriesCode,
+			paperId,
+			paperTitle,
+			testType,
 			passingPercentage: matchedCourse.passingPercentage,
-			durationMinutes,
+			durationMinutes: testType === "practice" ? 0 : targetDuration,
 			totalAvailableQuestions: allMatching.length,
-			questions: matching.map((q) => ({
-				id: q.id,
-				question: q.question,
-				options: q.options,
-				topic: q.topic,
-			})),
+			questions: matching.map((q) => {
+				const clientQ: NismPracticeQuestionClient = {
+					id: q.id,
+					question: q.question,
+					options: q.options,
+					topic: q.topic,
+				};
+				if (testType === "practice") {
+					clientQ.correctIndex = q.correctIndex;
+					clientQ.explanation = q.explanation;
+				}
+				return clientQ;
+			}),
+		};
+	}
+
+	/**
+	 * Generate NISM-standard question papers directly from official NISM study material (AI-powered)
+	 */
+	async generateNismQuestionPaperFromCurriculum(params: {
+		courseId: string;
+		topicOrChapter?: string;
+		curriculumTopic?: string;
+		count?: number;
+		questionCount?: number;
+		difficulty?: "standard" | "advanced";
+	}): Promise<{
+		success: boolean;
+		source: "ai_synthesis" | "curated_curriculum_bank";
+		courseTitle: string;
+		paperTitle: string;
+		totalQuestions: number;
+		questions: NismPracticeQuestion[];
+	}> {
+		const count = params.count || params.questionCount || 10;
+		const difficulty = params.difficulty || "standard";
+		const courseId = params.courseId;
+		const topic = params.topicOrChapter || params.curriculumTopic || "";
+		const matchedCourse =
+			DEFAULT_COURSES.find(
+				(c) =>
+					c.id.toLowerCase() === courseId.toLowerCase() ||
+					c.seriesCode.toLowerCase() === courseId.toLowerCase(),
+			) || DEFAULT_COURSES[0];
+
+		const paperTitle = topic
+			? `${matchedCourse.seriesCode}: ${topic}`
+			: `${matchedCourse.seriesCode} Model Practice Paper (${count} Qs)`;
+
+		try {
+			const prompt = `You are a certified NISM examination author and SEBI subject matter expert.
+Generate ${count} high-standard multiple-choice questions for ${matchedCourse.title} (${matchedCourse.seriesCode}).
+Topic/Chapter Focus: ${topic || "Comprehensive Full Syllabus (SEBI Regulations, Valuation, Taxation, Scheme Categories, Financial Planning)"}.
+Difficulty level: ${difficulty}.
+
+Requirements:
+- Adhere strictly to the SEBI (Mutual Funds) Regulations, SEBI Master Circular 2024, and Union Budget 2024 capital gains rules (12.5% LTCG > ₹1.25L, 20% STCG).
+- Exactly 4 plausible, unambiguous options per question.
+- Exactly 1 correct answer (index 0 to 3).
+- In-depth statutory or financial explanation explaining why the correct option is right and citing the relevant SEBI circular/act.
+
+Return ONLY a valid JSON array of objects with the following schema:
+[
+  {
+    "id": "gen-${matchedCourse.id}-1",
+    "courseId": "${matchedCourse.id}",
+    "question": "string",
+    "options": ["string", "string", "string", "string"],
+    "correctIndex": 0,
+    "explanation": "string",
+    "topic": "string"
+  }
+]`;
+
+			const response = await aiService.chat(
+				[{ role: "user", content: prompt }],
+				{
+					capability: AICapability.STANDARD,
+					temperature: 0.2,
+					maxTokens: 2500,
+				},
+			);
+
+			if (response?.content) {
+				const jsonMatch = response.content.match(/\[\s*\{.*\}\s*\]/s);
+				if (jsonMatch) {
+					const parsed: NismPracticeQuestion[] = JSON.parse(jsonMatch[0]);
+					if (Array.isArray(parsed) && parsed.length > 0) {
+						return {
+							success: true,
+							source: "ai_synthesis",
+							courseTitle: matchedCourse.title,
+							paperTitle,
+							totalQuestions: parsed.length,
+							questions: parsed,
+						};
+					}
+				}
+			}
+		} catch (err: any) {
+			logger.warn(`[NismLmsService] AI question generation fallback: ${err.message}`);
+		}
+
+		// Fallback: Return curated questions from the comprehensive bank
+		const allMatching = this.resolveQuestionsForCourse(courseId);
+		let filtered = allMatching;
+		if (topic) {
+			const search = topic.toLowerCase();
+			const matched = allMatching.filter((q) => q.topic.toLowerCase().includes(search));
+			if (matched.length >= 5) filtered = matched;
+		}
+
+		const selected = filtered.slice(0, count);
+		return {
+			success: true,
+			source: "curated_curriculum_bank",
+			courseTitle: matchedCourse.title,
+			paperTitle,
+			totalQuestions: selected.length,
+			questions: selected,
 		};
 	}
 
