@@ -28,6 +28,9 @@ export interface NismCourse {
 	syllabusUrl?: string;
 	ltiResourceLinkId: string;
 	isActive: boolean;
+	availableMocksCount?: number;
+	totalPracticeQuestions?: number;
+	negativeMarking?: number;
 }
 
 export interface AgentCourseProgress {
@@ -126,6 +129,9 @@ const DEFAULT_COURSES: NismCourse[] = [
 		syllabusUrl: "https://www.nism.ac.in/mutual-fund-distributors",
 		ltiResourceLinkId: "res-nism-va-2026",
 		isActive: true,
+		availableMocksCount: 5,
+		totalPracticeQuestions: 500,
+		negativeMarking: 0,
 	},
 	{
 		id: "nism-vd",
@@ -141,6 +147,9 @@ const DEFAULT_COURSES: NismCourse[] = [
 		syllabusUrl: "https://www.nism.ac.in/certification-exams/specialized-investment-fund-distributors",
 		ltiResourceLinkId: "res-nism-vd-2026",
 		isActive: true,
+		availableMocksCount: 1,
+		totalPracticeQuestions: 50,
+		negativeMarking: 0.25,
 	},
 	{
 		id: "nism-viii",
@@ -156,6 +165,9 @@ const DEFAULT_COURSES: NismCourse[] = [
 		syllabusUrl: "https://www.nism.ac.in/equity-derivatives",
 		ltiResourceLinkId: "res-nism-viii-2026",
 		isActive: true,
+		availableMocksCount: 2,
+		totalPracticeQuestions: 100,
+		negativeMarking: 0.25,
 	},
 	{
 		id: "nism-xiii",
@@ -171,6 +183,9 @@ const DEFAULT_COURSES: NismCourse[] = [
 		syllabusUrl: "https://www.nism.ac.in/common-derivatives-certification-examination",
 		ltiResourceLinkId: "res-nism-xiii-2026",
 		isActive: true,
+		availableMocksCount: 1,
+		totalPracticeQuestions: 30,
+		negativeMarking: 0.25,
 	},
 	{
 		id: "nism-xa",
@@ -186,6 +201,9 @@ const DEFAULT_COURSES: NismCourse[] = [
 		syllabusUrl: "https://www.nism.ac.in/investment-adviser-level-1",
 		ltiResourceLinkId: "res-nism-xa-2026",
 		isActive: true,
+		availableMocksCount: 2,
+		totalPracticeQuestions: 100,
+		negativeMarking: 0.25,
 	},
 	{
 		id: "nism-xb",
@@ -201,6 +219,9 @@ const DEFAULT_COURSES: NismCourse[] = [
 		syllabusUrl: "https://www.nism.ac.in/investment-advisors-level-2",
 		ltiResourceLinkId: "res-nism-xb-2026",
 		isActive: true,
+		availableMocksCount: 1,
+		totalPracticeQuestions: 30,
+		negativeMarking: 0.25,
 	},
 	{
 		id: "nism-xv",
@@ -216,6 +237,9 @@ const DEFAULT_COURSES: NismCourse[] = [
 		syllabusUrl: "https://www.nism.ac.in/research-analyst-certification-examination",
 		ltiResourceLinkId: "res-nism-xv-2026",
 		isActive: true,
+		availableMocksCount: 2,
+		totalPracticeQuestions: 100,
+		negativeMarking: 0.25,
 	},
 	{
 		id: "nism-xxia",
@@ -231,6 +255,9 @@ const DEFAULT_COURSES: NismCourse[] = [
 		syllabusUrl: "https://www.nism.ac.in/about-portfolio-management-services-pms-distributors-certification-examination",
 		ltiResourceLinkId: "res-nism-xxia-2026",
 		isActive: true,
+		availableMocksCount: 1,
+		totalPracticeQuestions: 50,
+		negativeMarking: 0.25,
 	},
 	{
 		id: "nism-cpe-mf",
@@ -246,6 +273,9 @@ const DEFAULT_COURSES: NismCourse[] = [
 		syllabusUrl: "https://www.nism.ac.in/cpe-programmes/",
 		ltiResourceLinkId: "res-nism-cpemf-2026",
 		isActive: true,
+		availableMocksCount: 1,
+		totalPracticeQuestions: 20,
+		negativeMarking: 0,
 	},
 ];
 
@@ -257,6 +287,10 @@ export interface NismPracticeQuestion {
 	correctIndex: number;
 	explanation: string;
 	topic: string;
+	chapter?: number;
+	chapterTitle?: string;
+	difficulty?: string;
+	paperId?: string;
 }
 
 export interface NismPracticeQuestionClient {
@@ -264,6 +298,9 @@ export interface NismPracticeQuestionClient {
 	question: string;
 	options: string[];
 	topic: string;
+	chapter?: number;
+	chapterTitle?: string;
+	difficulty?: string;
 	correctIndex?: number;
 	explanation?: string;
 }
@@ -276,6 +313,13 @@ export interface NismTopicDiagnostic {
 	unanswered: number;
 	accuracyPercentage: number;
 	status: "Proficient" | "Satisfactory" | "Needs Review";
+}
+
+export interface NismChapterDiagnostic {
+	chapter: string;
+	score: number;
+	total: number;
+	passed: boolean;
 }
 
 export interface NismAiRemediationCapsule {
@@ -303,6 +347,7 @@ export interface NismPracticeTestResult {
 	passed: boolean;
 	empanelmentSynced?: boolean;
 	topicDiagnostics: NismTopicDiagnostic[];
+	chapterDiagnostics?: NismChapterDiagnostic[];
 	aiCapsule: NismAiRemediationCapsule;
 	reviews: Array<{
 		id: string;
@@ -313,6 +358,8 @@ export interface NismPracticeTestResult {
 		isCorrect: boolean;
 		explanation: string;
 		topic: string;
+		chapter?: number;
+		chapterTitle?: string;
 	}>;
 }
 
@@ -736,10 +783,59 @@ export class NismLmsService {
 		}
 	}
 
-		/**
-	 * Helper to resolve authentic practice questions for any course
+	/**
+	 * Sample questions with balanced chapter representation (Stratified Random Sampling)
 	 */
-	resolveQuestionsForCourse(courseId: string, count?: number): NismPracticeQuestion[] {
+	private sampleQuestionsAcrossChapters(
+		questions: NismPracticeQuestion[],
+		targetCount: number,
+	): NismPracticeQuestion[] {
+		if (questions.length <= targetCount) return [...questions];
+
+		const byChapter = new Map<string, NismPracticeQuestion[]>();
+		for (const q of questions) {
+			const key = q.chapter ? `ch-${q.chapter}` : (q.topic || "general");
+			if (!byChapter.has(key)) byChapter.set(key, []);
+			byChapter.get(key)!.push(q);
+		}
+
+		const numGroups = byChapter.size || 1;
+		const quota = Math.max(1, Math.floor(targetCount / numGroups));
+		const selected: NismPracticeQuestion[] = [];
+		const seen = new Set<string>();
+
+		// Pass 1: Grab quota from each chapter with random shuffle
+		for (const [_, group] of byChapter.entries()) {
+			const shuffled = [...group].sort(() => Math.random() - 0.5);
+			let taken = 0;
+			for (const q of shuffled) {
+				if (selected.length >= targetCount) break;
+				if (taken >= quota) break;
+				if (!seen.has(q.id)) {
+					seen.add(q.id);
+					selected.push(q);
+					taken++;
+				}
+			}
+		}
+
+		// Pass 2: Fill remaining up to targetCount from the rest
+		if (selected.length < targetCount) {
+			const remainder = questions.filter((q) => !seen.has(q.id)).sort(() => Math.random() - 0.5);
+			for (const q of remainder) {
+				if (selected.length >= targetCount) break;
+				seen.add(q.id);
+				selected.push(q);
+			}
+		}
+
+		return selected;
+	}
+
+	/**
+	 * Helper to resolve authentic practice questions for any course with chapter stratification
+	 */
+	resolveQuestionsForCourse(courseId: string, count?: number, chapter?: number): NismPracticeQuestion[] {
 		const cid = (courseId || "").toLowerCase().trim();
 		const matchedCourse =
 			DEFAULT_COURSES.find(
@@ -751,48 +847,31 @@ export class NismLmsService {
 			(q) => q.courseId.toLowerCase() === matchedCourse.id.toLowerCase(),
 		);
 
-		const needed = count && count > 0 ? count : 10;
-		if (matching.length < needed) {
-			const ADJACENT_MAP: Record<string, string[]> = {
-				"nism-va": ["nism-vd", "nism-cpe-mf", "nism-xa", "nism-xxia"],
-				"nism-vd": ["nism-xxia", "nism-xa", "nism-xb", "nism-xv", "nism-va"],
-				"nism-viii": ["nism-xiii", "nism-xv", "nism-xa", "nism-va"],
-				"nism-xiii": ["nism-viii", "nism-xv", "nism-xa", "nism-va"],
-				"nism-xa": ["nism-xb", "nism-xxia", "nism-va", "nism-xv"],
-				"nism-xb": ["nism-xa", "nism-xxia", "nism-xv", "nism-va"],
-				"nism-xv": ["nism-viii", "nism-xxia", "nism-xa", "nism-va"],
-				"nism-xxia": ["nism-vd", "nism-xa", "nism-xb", "nism-va"],
-				"nism-cpe-mf": ["nism-va", "nism-vd", "nism-xa"],
-			};
-			const adjIds = ADJACENT_MAP[matchedCourse.id] || ["nism-va"];
-			const adjPool = NISM_PRACTICE_BANK.filter(
-				(q) => adjIds.includes(q.courseId) && !matching.some((m) => m.id === q.id),
-			);
-			const genPool = NISM_PRACTICE_BANK.filter(
-				(q) =>
-					q.courseId === "nism-va" &&
-					!matching.some((m) => m.id === q.id) &&
-					!adjPool.some((a) => a.id === q.id),
-			);
-			matching = [...matching, ...adjPool, ...genPool];
+		if (typeof chapter === "number" && chapter > 0) {
+			const chapterFiltered = matching.filter((q) => q.chapter === chapter);
+			if (chapterFiltered.length > 0) {
+				matching = chapterFiltered;
+			}
 		}
 
 		if (typeof count === "number" && count > 0 && count < matching.length) {
-			return matching.slice(0, count);
+			return this.sampleQuestionsAcrossChapters(matching, count);
 		}
 
 		return matching;
 	}
 
 	/**
-	 * Build authentic 150-question examination papers for ANY accredited NISM course
+	 * Build authentic 100-question examination papers for accredited NISM courses
+	 * Supports Paper 1, Paper 2, Paper 3, Paper 4, Paper 5 with ZERO overlap.
 	 */
 	composeCourseMockPaper(
 		courseId: string,
-		paperId: "paper-1" | "paper-2" | "paper-3" | string,
+		paperId: "paper-1" | "paper-2" | "paper-3" | "paper-4" | "paper-5" | string,
 	): {
 		paperTitle: string;
 		questions: NismPracticeQuestion[];
+		durationMinutes: number;
 	} {
 		const cid = (courseId || "").toLowerCase().trim();
 		const matchedCourse =
@@ -800,132 +879,66 @@ export class NismLmsService {
 				(c) => c.id.toLowerCase() === cid || c.seriesCode.toLowerCase() === cid,
 			) || DEFAULT_COURSES[0];
 
-		const primary = NISM_PRACTICE_BANK.filter(
+		const coursePool = NISM_PRACTICE_BANK.filter(
 			(q) => q.courseId.toLowerCase() === matchedCourse.id.toLowerCase(),
 		);
 
-		const ADJACENT_MAP: Record<string, string[]> = {
-			"nism-va": ["nism-vd", "nism-cpe-mf", "nism-xa", "nism-xxia"],
-			"nism-vd": ["nism-xxia", "nism-xa", "nism-xb", "nism-xv", "nism-va"],
-			"nism-viii": ["nism-xiii", "nism-xv", "nism-xa", "nism-va"],
-			"nism-xiii": ["nism-viii", "nism-xv", "nism-xa", "nism-va"],
-			"nism-xa": ["nism-xb", "nism-xxia", "nism-va", "nism-xv"],
-			"nism-xb": ["nism-xa", "nism-xxia", "nism-xv", "nism-va"],
-			"nism-xv": ["nism-viii", "nism-xxia", "nism-xa", "nism-va"],
-			"nism-xxia": ["nism-vd", "nism-xa", "nism-xb", "nism-va"],
-			"nism-cpe-mf": ["nism-va", "nism-vd", "nism-xa"],
-		};
+		const pNormalized = (paperId || "paper-1").toLowerCase().trim();
 
-		const adjIds = ADJACENT_MAP[matchedCourse.id] || ["nism-va"];
-		const adjPool = NISM_PRACTICE_BANK.filter(
-			(q) => adjIds.includes(q.courseId) && q.courseId !== matchedCourse.id,
-		);
-		const generalPool = NISM_PRACTICE_BANK.filter((q) => q.courseId === "nism-va");
+		// Check if questions are tagged with this paperId
+		const taggedForPaper = coursePool.filter((q) => q.paperId === pNormalized);
 
-		const selected: NismPracticeQuestion[] = [];
-		const seen = new Set<string>();
-
+		let selected: NismPracticeQuestion[] = [];
 		let paperTitle = "";
-		if (paperId === "paper-1") {
-			paperTitle = `${matchedCourse.seriesCode} Paper 1: Full Comprehensive Mock (150 Questions • 180 Mins)`;
-			for (const q of primary) {
-				if (!seen.has(q.id)) {
-					seen.add(q.id);
-					selected.push(q);
-				}
-			}
-			for (const q of adjPool) {
-				if (selected.length >= 150) break;
-				if (!seen.has(q.id)) {
-					seen.add(q.id);
-					selected.push(q);
-				}
-			}
-			for (const q of generalPool) {
-				if (selected.length >= 150) break;
-				if (!seen.has(q.id)) {
-					seen.add(q.id);
-					selected.push(q);
-				}
-			}
-		} else if (paperId === "paper-2") {
-			paperTitle = `${matchedCourse.seriesCode} Paper 2: Case Studies, Calculations & Regulatory Mastery (150 Questions • 180 Mins)`;
-			const pRev = [...primary].reverse();
-			for (const q of pRev) {
-				if (!seen.has(q.id)) {
-					seen.add(q.id);
-					selected.push(q);
-				}
-			}
-			const aRev = [...adjPool].reverse();
-			for (const q of aRev) {
-				if (selected.length >= 150) break;
-				if (!seen.has(q.id)) {
-					seen.add(q.id);
-					selected.push(q);
-				}
-			}
-			const genSlice2 = generalPool.slice(100).concat(generalPool.slice(0, 100));
-			for (const q of genSlice2) {
-				if (selected.length >= 150) break;
-				if (!seen.has(q.id)) {
-					seen.add(q.id);
-					selected.push(q);
-				}
-			}
-		} else if (paperId === "paper-3") {
-			paperTitle = `${matchedCourse.seriesCode} Paper 3: Advanced Scenario & Budget 2024 Tax Paper (150 Questions • 180 Mins)`;
-			for (const q of primary) {
-				if (!seen.has(q.id)) {
-					seen.add(q.id);
-					selected.push(q);
-				}
-			}
-			const mid = Math.floor(adjPool.length / 2);
-			const aMid = adjPool.slice(mid).concat(adjPool.slice(0, mid));
-			for (const q of aMid) {
-				if (selected.length >= 150) break;
-				if (!seen.has(q.id)) {
-					seen.add(q.id);
-					selected.push(q);
-				}
-			}
-			const genSlice3 = generalPool.slice(200).concat(generalPool.slice(0, 200));
-			for (const q of genSlice3) {
-				if (selected.length >= 150) break;
-				if (!seen.has(q.id)) {
-					seen.add(q.id);
-					selected.push(q);
-				}
+		let durationMinutes = 120;
+
+		if (matchedCourse.id === "nism-va") {
+			durationMinutes = 120; // Official NISM Series V-A duration is 120 mins (2 hrs)
+			const TITLES: Record<string, string> = {
+				"paper-1": "NISM Series V-A Paper 1: Comprehensive Model Exam (100 Questions • 120 Mins • Full 12 Chapters)",
+				"paper-2": "NISM Series V-A Paper 2: Case Studies & Numerical Calculations (100 Questions • 120 Mins)",
+				"paper-3": "NISM Series V-A Paper 3: Regulatory Compliance, AMFI Code & Ethics (100 Questions • 120 Mins)",
+				"paper-4": "NISM Series V-A Paper 4: Taxation & Budget 2024 Special (100 Questions • 120 Mins)",
+				"paper-5": "NISM Series V-A Paper 5: All-India Benchmark Final Mock Exam (100 Questions • 120 Mins)",
+			};
+
+			paperTitle = TITLES[pNormalized] || `${matchedCourse.seriesCode} 100-Question Model Mock (${pNormalized.toUpperCase()})`;
+
+			if (taggedForPaper.length >= 100) {
+				selected = taggedForPaper.slice(0, 100);
+			} else {
+				selected = this.sampleQuestionsAcrossChapters(coursePool, 100);
 			}
 		} else {
-			paperTitle = `${matchedCourse.seriesCode} 150-Question Model Simulation (180 Mins)`;
-			for (const q of primary) {
-				if (!seen.has(q.id)) {
-					seen.add(q.id);
-					selected.push(q);
-				}
-			}
-			for (const q of adjPool.concat(generalPool)) {
-				if (selected.length >= 150) break;
-				if (!seen.has(q.id)) {
-					seen.add(q.id);
-					selected.push(q);
-				}
+			durationMinutes = 120;
+			const targetLength = Math.min(100, coursePool.length);
+
+			if (pNormalized === "paper-1") {
+				paperTitle = `${matchedCourse.seriesCode} Paper 1: Full Comprehensive Mock (${targetLength} Questions • 120 Mins)`;
+				selected = coursePool.slice(0, targetLength);
+			} else if (pNormalized === "paper-2") {
+				paperTitle = `${matchedCourse.seriesCode} Paper 2: Advanced Scenario & Caselet Mock (50 Questions • 60 Mins)`;
+				selected = coursePool.slice(Math.max(0, targetLength - 50));
+				durationMinutes = 60;
+			} else {
+				paperTitle = `${matchedCourse.seriesCode} Model Practice Exam (${targetLength} Questions • 120 Mins)`;
+				selected = this.sampleQuestionsAcrossChapters(coursePool, targetLength);
 			}
 		}
 
 		return {
 			paperTitle,
-			questions: selected.slice(0, 150),
+			questions: selected,
+			durationMinutes,
 		};
 	}
 
 	/**
 	 * Retrieve practice test questions for a given NISM course
 	 * Supports:
-	 * - Multi-mode: 150 Qs Full Paper, 100 Qs Mock, 50 Qs Diagnostic, 25 Qs Sprint, All
-	 * - Dedicated 150-Question Papers: Paper 1, Paper 2, Paper 3
+	 * - Multi-mode: 100 Qs Full Paper, 50 Qs Diagnostic, 25 Qs Sprint, All
+	 * - Dedicated 100-Question Papers: Paper 1, Paper 2, Paper 3, Paper 4, Paper 5
+	 * - Chapter-wise practice drill-down
 	 * - Mode: "exam" (strict timed test, answers hidden) vs "practice" (tutor mode, instant explanations)
 	 */
 	getPracticeQuestions(
@@ -935,9 +948,10 @@ export class NismLmsService {
 			| number
 			| {
 					mode?: string | number;
-					paperId?: "paper-1" | "paper-2" | "paper-3" | "all" | string;
+					paperId?: "paper-1" | "paper-2" | "paper-3" | "paper-4" | "paper-5" | "all" | string;
 					testType?: "exam" | "practice";
 					count?: number;
+					chapter?: number;
 			  },
 	): {
 		courseId: string;
@@ -963,13 +977,14 @@ export class NismLmsService {
 		// Parse arguments
 		let rawMode = typeof modeOrOptions === "object" ? modeOrOptions?.mode : modeOrOptions;
 		let paperId = typeof modeOrOptions === "object" ? modeOrOptions?.paperId : undefined;
+		let chapter = typeof modeOrOptions === "object" ? modeOrOptions?.chapter : undefined;
 		let testType: "exam" | "practice" =
 			(typeof modeOrOptions === "object" ? modeOrOptions?.testType : undefined) || "exam";
 
 		if (typeof rawMode === "string") {
 			if (rawMode === "practice" || rawMode === "tutor") {
 				testType = "practice";
-				rawMode = "150";
+				rawMode = "100";
 			} else if (rawMode.startsWith("paper-")) {
 				paperId = rawMode as any;
 			}
@@ -977,47 +992,41 @@ export class NismLmsService {
 
 		let matching: typeof allMatching = [];
 		let paperTitle: string | undefined;
-		let targetDuration = 180;
+		let targetDuration = 120;
 
 		if (paperId?.startsWith("paper-")) {
 			const composed = this.composeCourseMockPaper(courseId, paperId);
 			matching = composed.questions;
 			paperTitle = composed.paperTitle;
-			targetDuration = 180;
-		} else if (rawMode === "150" || rawMode === 150 || rawMode === "mock150") {
+			targetDuration = composed.durationMinutes;
+		} else if (rawMode === "100" || rawMode === 100 || rawMode === "full" || rawMode === "mock100" || rawMode === "150" || rawMode === 150) {
 			const composed = this.composeCourseMockPaper(courseId, "paper-1");
 			matching = composed.questions;
 			paperTitle = composed.paperTitle;
-			targetDuration = 180;
+			targetDuration = composed.durationMinutes;
 		} else {
-			let targetCount: number | undefined;
+			let targetCount = 100;
 			if (rawMode === "quick" || rawMode === "25" || rawMode === 25) {
 				targetCount = 25;
 				targetDuration = 30;
+				paperTitle = `${matchedCourse.seriesCode} Quick Sprint (25 Questions • 30 Mins)`;
 			} else if (rawMode === "diagnostic" || rawMode === "50" || rawMode === 50) {
 				targetCount = 50;
 				targetDuration = 60;
-			} else if (rawMode === "full" || rawMode === "100" || rawMode === 100) {
-				targetCount = 100;
-				targetDuration = 120;
-				paperTitle = `${matchedCourse.seriesCode} 100 Qs Standard Mock (120 Mins)`;
+				paperTitle = `${matchedCourse.seriesCode} Readiness Diagnostic (50 Questions • 60 Mins)`;
+			} else if (rawMode === "all") {
+				targetCount = allMatching.length;
+				targetDuration = Math.max(60, Math.round(allMatching.length * 1.2));
+				paperTitle = `${matchedCourse.seriesCode} Full Question Bank (${allMatching.length} Questions)`;
 			} else if (typeof rawMode === "number") {
 				targetCount = rawMode;
 				targetDuration = Math.max(15, Math.round(targetCount * 1.2));
-			} else if (rawMode === "all") {
-				targetCount = allMatching.length;
-				targetDuration = Math.max(30, Math.round(allMatching.length * 1.2));
-			} else {
-				targetCount = 150;
-				targetDuration = 180;
 			}
 
-			if (targetCount === 150) {
-				const composed = this.composeCourseMockPaper(courseId, "paper-1");
-				matching = composed.questions;
-				paperTitle = composed.paperTitle;
+			if (targetCount >= allMatching.length && !chapter) {
+				matching = allMatching;
 			} else {
-				matching = this.resolveQuestionsForCourse(courseId, targetCount);
+				matching = this.resolveQuestionsForCourse(courseId, targetCount, chapter);
 			}
 		}
 
@@ -1041,6 +1050,9 @@ export class NismLmsService {
 					question: q.question,
 					options: q.options,
 					topic: q.topic,
+					chapter: q.chapter,
+					chapterTitle: q.chapterTitle,
+					difficulty: q.difficulty,
 					correctIndex: q.correctIndex,
 					explanation: q.explanation,
 				};
@@ -1234,8 +1246,9 @@ Provide a high-yield, 3-bullet revision capsule summarizing the exact regulatory
 		let incorrectCount = 0;
 		let unansweredCount = 0;
 
-		// Topic diagnostic accumulator
+		// Topic & Chapter diagnostic accumulators
 		const topicMap: Record<string, { total: number; correct: number; incorrect: number; unanswered: number }> = {};
+		const chapterMap: Record<string, { total: number; correct: number }> = {};
 
 		const reviews = questions.map((q) => {
 			const selected = answers[q.id];
@@ -1247,9 +1260,16 @@ Provide a high-yield, 3-bullet revision capsule summarizing the exact regulatory
 			}
 			topicMap[q.topic].total += 1;
 
+			const chapLabel = q.chapterTitle ? `Chapter ${q.chapter || ""}: ${q.chapterTitle}`.trim() : (q.topic || "General");
+			if (!chapterMap[chapLabel]) {
+				chapterMap[chapLabel] = { total: 0, correct: 0 };
+			}
+			chapterMap[chapLabel].total += 1;
+
 			if (isCorrect) {
 				correctCount++;
 				topicMap[q.topic].correct += 1;
+				chapterMap[chapLabel].correct += 1;
 			} else if (isAnswered) {
 				incorrectCount++;
 				topicMap[q.topic].incorrect += 1;
@@ -1267,11 +1287,13 @@ Provide a high-yield, 3-bullet revision capsule summarizing the exact regulatory
 				isCorrect,
 				explanation: q.explanation,
 				topic: q.topic,
+				chapter: q.chapter,
+				chapterTitle: q.chapterTitle,
 			};
 		});
 
-		// SEBI 0.25 Negative Marking Calculation
-		const penaltyPerWrong = 0.25;
+		// SEBI Negative Marking Calculation (0.0 for V-A, 0.25 for VIII, X-A, XV, XXI-A)
+		const penaltyPerWrong = matchedCourse.negativeMarking !== undefined ? matchedCourse.negativeMarking : (matchedCourse.id === "nism-va" ? 0 : 0.25);
 		const negativeMarksDeducted = Number((incorrectCount * penaltyPerWrong).toFixed(2));
 		const grossScore = correctCount;
 		const netRawScore = Math.max(0, Number((grossScore - negativeMarksDeducted).toFixed(2)));
@@ -1295,6 +1317,14 @@ Provide a high-yield, 3-bullet revision capsule summarizing the exact regulatory
 				status,
 			};
 		});
+
+		// Chapter Diagnostics Calculation
+		const chapterDiagnostics: NismChapterDiagnostic[] = Object.entries(chapterMap).map(([chapter, stats]) => ({
+			chapter,
+			score: stats.correct,
+			total: stats.total,
+			passed: stats.total > 0 ? (stats.correct / stats.total) >= (matchedCourse.passingPercentage / 100) : false,
+		}));
 
 		// AI Remediation
 		const weakTopics = topicDiagnostics
@@ -1393,6 +1423,7 @@ Provide a high-yield, 3-bullet revision capsule summarizing the exact regulatory
 			passed,
 			empanelmentSynced,
 			topicDiagnostics,
+			chapterDiagnostics,
 			aiCapsule,
 			reviews,
 		};

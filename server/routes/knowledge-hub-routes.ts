@@ -572,12 +572,14 @@ router.get(
 		const { courseId } = req.params;
 		const mode = (req.query.mode as string) || (req.query.count ? String(req.query.count) : undefined);
 		const paperId = req.query.paperId as string;
+		const chapter = req.query.chapter ? Number.parseInt(req.query.chapter as string, 10) : undefined;
 		const testType = req.query.testType as "exam" | "practice";
 		const count = req.query.count ? Number.parseInt(req.query.count as string, 10) : undefined;
 
 		const data = nismLmsService.getPracticeQuestions(courseId, {
 			mode,
 			paperId,
+			chapter,
 			testType,
 			count,
 		});
@@ -718,8 +720,9 @@ router.post(
 // GET /api/knowledge-hub/irdai/practice-test — fetch IRDAI practice questions
 router.get(
 	"/irdai/practice-test",
-	asyncHandler(async (_req, res) => {
-		const data = irdaiPospTrainingService.getPracticeQuestions();
+	asyncHandler(async (req, res) => {
+		const paperId = req.query.paperId as string;
+		const data = irdaiPospTrainingService.getPracticeQuestions(paperId);
 		res.json({ success: true, ...data });
 	}),
 );
@@ -729,13 +732,13 @@ router.post(
 	"/irdai/practice-test/submit",
 	asyncHandler(async (req, res) => {
 		const agentId = (req as any).user?.id || "guest-advisor";
-		const { answers } = req.body;
+		const { answers, paperId } = req.body;
 
 		if (!answers || typeof answers !== "object") {
 			return res.status(400).json({ error: "Answers object is required" });
 		}
 
-		const result = await irdaiPospTrainingService.submitPracticeTest(answers, agentId);
+		const result = await irdaiPospTrainingService.submitPracticeTest(answers, agentId, paperId);
 
 		const user = (req as any).user;
 		if (user) {

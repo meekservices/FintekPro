@@ -40,6 +40,9 @@ interface PracticeQuestion {
 	question: string;
 	options: string[];
 	topic?: string;
+	chapter?: number;
+	chapterTitle?: string;
+	difficulty?: string;
 	correctIndex?: number;
 	explanation?: string;
 }
@@ -94,6 +97,8 @@ interface TestResult {
 		isCorrect: boolean;
 		explanation: string;
 		topic: string;
+		chapter?: number;
+		chapterTitle?: string;
 	}>;
 }
 
@@ -120,10 +125,53 @@ export default function AgentPracticeTestPage() {
 	const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
 	const [result, setResult] = useState<TestResult | null>(null);
 
+	// Paper selection options based on course
+	const paperOptions = useMemo(() => {
+		if (courseId === "irdai-posp") {
+			return [
+				{ id: "paper-1", label: "Mock Paper 1 (50 Qs • 60 Mins)" },
+				{ id: "paper-2", label: "Mock Paper 2 (50 Qs • 60 Mins)" },
+			];
+		}
+		const cId = courseId.toLowerCase();
+		if (cId === "nism-va" || cId === "nism-series-v-a") {
+			return [
+				{ id: "paper-1", label: "Mock Paper 1 (100 Qs • 120 Mins)" },
+				{ id: "paper-2", label: "Mock Paper 2 (100 Qs • 120 Mins)" },
+				{ id: "paper-3", label: "Mock Paper 3 (100 Qs • 120 Mins)" },
+				{ id: "paper-4", label: "Mock Paper 4 (100 Qs • 120 Mins)" },
+				{ id: "paper-5", label: "Mock Paper 5 (100 Qs • 120 Mins)" },
+				{ id: "50", label: "Readiness Diagnostic (50 Qs • 60 Mins)" },
+				{ id: "25", label: "Quick Sprint (25 Qs • 30 Mins)" },
+			];
+		}
+		if (["nism-viii", "nism-xa", "nism-xv"].includes(cId)) {
+			return [
+				{ id: "paper-1", label: "Mock Paper 1 (100 Qs • 120 Mins)" },
+				{ id: "paper-2", label: "Mock Paper 2 (100 Qs • 120 Mins)" },
+				{ id: "50", label: "Readiness Diagnostic (50 Qs • 60 Mins)" },
+				{ id: "25", label: "Quick Sprint (25 Qs • 30 Mins)" },
+			];
+		}
+		return [
+			{ id: "paper-1", label: "Mock Paper 1 (Accredited Paper)" },
+			{ id: "25", label: "Quick Sprint (25 Qs • 30 Mins)" },
+			{ id: "all", label: "Full Question Bank" },
+		];
+	}, [courseId]);
+
+	const switchPaper = (newPaper: string) => {
+		setAnswers({});
+		setResult(null);
+		setActiveQuestionIndex(0);
+		setSecondsRemaining(null);
+		setLocation(`/agent/knowledge-hub/practice-test?courseId=${encodeURIComponent(courseId)}&paper=${encodeURIComponent(newPaper)}&testType=${encodeURIComponent(testType)}`);
+	};
+
 	// Fetch practice test questions
 	const queryUrl = useMemo(() => {
 		if (courseId === "irdai-posp") {
-			return "/api/knowledge-hub/irdai/practice-test";
+			return `/api/knowledge-hub/irdai/practice-test?paperId=${encodeURIComponent(paperId || "paper-1")}`;
 		}
 		let url = `/api/knowledge-hub/nism/courses/${encodeURIComponent(courseId)}/practice-test?testType=${testType}`;
 		if (paperId.startsWith("paper-")) {
@@ -160,7 +208,7 @@ export default function AgentPracticeTestPage() {
 	const seriesCode = data?.seriesCode || (courseId === "irdai-posp" ? "IRDAI-POSP" : courseId.toUpperCase());
 	const paperTitle = data?.paperTitle || (paperId.startsWith("paper-") ? `Mock ${paperId.toUpperCase()}` : `${paperId} Questions Paper`);
 	const passingPercentage = data?.passingPercentage ?? (courseId === "irdai-posp" ? 35 : 60);
-	const durationMinutes = testType === "practice" ? 0 : data?.durationMinutes || data?.timeLimitMinutes || 180;
+	const durationMinutes = testType === "practice" ? 0 : data?.durationMinutes || data?.timeLimitMinutes || 120;
 
 	// Timer logic for exam simulation
 	useEffect(() => {
@@ -201,6 +249,7 @@ export default function AgentPracticeTestPage() {
 					: `/api/knowledge-hub/nism/courses/${encodeURIComponent(courseId)}/practice-test/submit`;
 			const res = await apiRequest("POST", submitUrl, {
 				answers,
+				paperId,
 				questionIds: questions.map((q) => q.id),
 			});
 			return typeof res?.json === "function" ? await res.json() : res;
@@ -329,11 +378,25 @@ export default function AgentPracticeTestPage() {
 								<Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px]">
 									Passing: {passingPercentage}%
 								</Badge>
-								{paperTitle && (
-									<Badge variant="secondary" className="text-[10px] hidden md:inline-flex">
-										{paperTitle}
-									</Badge>
-								)}
+								{/* Paper Switcher Dropdown */}
+								<div className="flex items-center gap-1.5">
+									<label htmlFor="header-paper-select" className="text-[10px] text-muted-foreground uppercase font-semibold hidden md:inline">
+										Paper:
+									</label>
+									<select
+										id="header-paper-select"
+										value={paperId}
+										onChange={(e) => switchPaper(e.target.value)}
+										className="bg-background text-foreground border border-border/80 text-[11px] rounded-md px-2 py-1 focus:ring-1 focus:ring-amber-500 font-medium cursor-pointer shadow-sm"
+										title="Switch to another paper or sprint"
+									>
+										{paperOptions.map((opt) => (
+											<option key={opt.id} value={opt.id}>
+												{opt.label}
+											</option>
+										))}
+									</select>
+								</div>
 							</div>
 							<p className="text-[11px] text-muted-foreground truncate max-w-md hidden sm:block">
 								{courseTitle}
@@ -479,14 +542,23 @@ export default function AgentPracticeTestPage() {
 									return (
 										<div className={`p-6 rounded-2xl border transition-all space-y-5 ${cardBorderClass}`}>
 											{/* Question Header */}
-											<div className="flex items-start justify-between gap-3 border-b border-border/40 pb-3">
-												<div className="flex items-center gap-2">
+											<div className="flex items-start justify-between gap-3 border-b border-border/40 pb-3 flex-wrap">
+												<div className="flex items-center gap-2 flex-wrap">
 													<Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-xs px-2.5 py-0.5">
 														Question {activeQuestionIndex + 1} of {totalQuestions}
 													</Badge>
-													{q.topic && (
+													{q.chapterTitle ? (
+														<Badge variant="outline" className="text-xs text-sky-300 bg-sky-950/40 border-sky-500/40 font-medium">
+															{q.chapter ? `Chapter ${q.chapter}: ` : ""}{q.chapterTitle}
+														</Badge>
+													) : q.topic ? (
 														<Badge variant="outline" className="text-xs text-muted-foreground border-border/60">
 															{q.topic}
+														</Badge>
+													) : null}
+													{q.difficulty && (
+														<Badge variant="outline" className="text-[10px] uppercase tracking-wider text-muted-foreground/70 border-border/40">
+															{q.difficulty}
 														</Badge>
 													)}
 												</div>
@@ -689,14 +761,23 @@ export default function AgentPracticeTestPage() {
 												id={`q-card-${q.id}`}
 												className={`p-5 rounded-2xl border transition-all space-y-4 ${cardBorderClass}`}
 											>
-												<div className="flex items-start justify-between gap-3 border-b border-border/40 pb-2.5">
-													<div className="flex items-center gap-2">
+												<div className="flex items-start justify-between gap-3 border-b border-border/40 pb-2.5 flex-wrap">
+													<div className="flex items-center gap-2 flex-wrap">
 														<Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-xs px-2 py-0.5">
 															Q{idx + 1}
 														</Badge>
-														{q.topic && (
+														{q.chapterTitle ? (
+															<Badge variant="outline" className="text-xs text-sky-300 bg-sky-950/40 border-sky-500/40 font-medium">
+																{q.chapter ? `Ch ${q.chapter}: ` : ""}{q.chapterTitle}
+															</Badge>
+														) : q.topic ? (
 															<Badge variant="outline" className="text-xs text-muted-foreground border-border/60">
 																{q.topic}
+															</Badge>
+														) : null}
+														{q.difficulty && (
+															<Badge variant="outline" className="text-[10px] uppercase tracking-wider text-muted-foreground/70 border-border/40">
+																{q.difficulty}
 															</Badge>
 														)}
 													</div>
@@ -1059,16 +1140,62 @@ export default function AgentPracticeTestPage() {
 							</div>
 						)}
 
+						{/* Chapter-by-Chapter Syllabus Diagnostics */}
+						{result.chapterDiagnostics && result.chapterDiagnostics.length > 0 && (
+							<Card className="border-border/60 bg-card p-5 space-y-4">
+								<div className="flex items-center justify-between">
+									<h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5 uppercase tracking-wider">
+										<Award className="h-4 w-4 text-emerald-400" />
+										Syllabus Chapter-by-Chapter Proficiency
+									</h4>
+									<span className="text-xs text-muted-foreground font-mono">
+										{result.chapterDiagnostics.length} Chapters Analyzed
+									</span>
+								</div>
+
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+									{result.chapterDiagnostics.map((c) => {
+										const pct = c.total > 0 ? Math.round((c.score / c.total) * 100) : 0;
+										return (
+											<div key={c.chapter} className="p-3 rounded-xl bg-muted/20 border border-border/50 space-y-2 text-xs">
+												<div className="flex items-center justify-between gap-2">
+													<span className="font-semibold text-foreground truncate max-w-[220px]" title={c.chapter}>
+														{c.chapter}
+													</span>
+													<div className="flex items-center gap-2">
+														<span className="text-muted-foreground font-mono text-[11px]">
+															{c.score}/{c.total} ({pct}%)
+														</span>
+														<Badge
+															variant="outline"
+															className={
+																c.passed
+																	? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10 text-[10px]"
+																	: "border-red-500/40 text-red-400 bg-red-500/10 text-[10px]"
+															}
+														>
+															{c.passed ? "Passed" : "Needs Review"}
+														</Badge>
+													</div>
+												</div>
+												<Progress value={pct} className="h-1.5 bg-muted" />
+											</div>
+										);
+									})}
+								</div>
+							</Card>
+						)}
+
 						{/* Chapter & Topic Diagnostics */}
 						{result.topicDiagnostics && result.topicDiagnostics.length > 0 && (
 							<Card className="border-border/60 bg-card p-5 space-y-4">
 								<div className="flex items-center justify-between">
 									<h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5 uppercase tracking-wider">
 										<Award className="h-4 w-4 text-blue-400" />
-										Chapter & Topic Diagnostic Analytics
+										Topic Diagnostic Analytics
 									</h4>
 									<span className="text-xs text-muted-foreground font-mono">
-										{result.topicDiagnostics.length} Modules Analyzed
+										{result.topicDiagnostics.length} Topics Analyzed
 									</span>
 								</div>
 
@@ -1120,10 +1247,24 @@ export default function AgentPracticeTestPage() {
 											: "bg-rose-500/5 border-rose-500/30"
 									}`}
 								>
-									<div className="flex items-start justify-between gap-3">
-										<p className="font-semibold text-foreground leading-relaxed">
-											<span className="text-amber-400 font-mono mr-1.5">Q{idx + 1}.</span> {r.question}
-										</p>
+									<div className="flex items-start justify-between gap-3 flex-wrap">
+										<div className="space-y-1">
+											<div className="flex items-center gap-2 flex-wrap">
+												<span className="text-amber-400 font-mono font-bold">Q{idx + 1}.</span>
+												{r.chapterTitle ? (
+													<Badge variant="outline" className="text-xs text-sky-300 bg-sky-950/40 border-sky-500/40 font-medium">
+														{r.chapter ? `Chapter ${r.chapter}: ` : ""}{r.chapterTitle}
+													</Badge>
+												) : r.topic ? (
+													<Badge variant="outline" className="text-xs text-muted-foreground border-border/60">
+														{r.topic}
+													</Badge>
+												) : null}
+											</div>
+											<p className="font-semibold text-foreground leading-relaxed pt-1">
+												{r.question}
+											</p>
+										</div>
 										<Badge
 											className={
 												r.isCorrect

@@ -1214,10 +1214,19 @@ export default function AgentKnowledgeCertifications() {
 										size="sm"
 										variant="outline"
 										className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10 text-xs flex items-center gap-1.5"
-										onClick={() => handleStartNismPracticeTest("irdai-posp", "all", "practice")}
+										onClick={() => handleStartNismPracticeTest("irdai-posp", "paper-1", "practice")}
 									>
 										<Target className="h-3.5 w-3.5" />
-										Take Practice Mock (20 MCQs)
+										Practice Paper 1 (50 MCQs)
+									</Button>
+									<Button
+										size="sm"
+										variant="outline"
+										className="border-sky-500/40 text-sky-400 hover:bg-sky-500/10 text-xs flex items-center gap-1.5"
+										onClick={() => handleStartNismPracticeTest("irdai-posp", "paper-2", "practice")}
+									>
+										<Target className="h-3.5 w-3.5" />
+										Practice Paper 2 (50 MCQs)
 									</Button>
 
 									<Button
@@ -1983,83 +1992,70 @@ export default function AgentKnowledgeCertifications() {
 
 									{/* Question Paper Selection */}
 									<div className="pt-1">
-										<span className="text-[10px] text-muted-foreground font-semibold block mb-1">
-											Select Question Paper (150 Qs Standard):
-										</span>
-										<div className="grid grid-cols-2 gap-1.5 text-[11px]">
-											<button
-												type="button"
-												onClick={() => setNismSelectedPaper("paper-1")}
-												className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
-													nismSelectedPaper === "paper-1"
-														? "border-amber-500 bg-amber-500/20 text-amber-300 font-semibold"
-														: "border-border/60 hover:border-border text-muted-foreground"
-												}`}
-											>
-												<span>📄 Mock Paper 1 (150 Qs)</span>
-												<span className="text-[9px] opacity-80">180m • Full Curriculum</span>
-											</button>
-											<button
-												type="button"
-												onClick={() => setNismSelectedPaper("paper-2")}
-												className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
-													nismSelectedPaper === "paper-2"
-														? "border-amber-500 bg-amber-500/20 text-amber-300 font-semibold"
-														: "border-border/60 hover:border-border text-muted-foreground"
-												}`}
-											>
-												<span>📄 Mock Paper 2 (150 Qs)</span>
-												<span className="text-[9px] opacity-80">180m • Case Studies & Calc</span>
-											</button>
-											<button
-												type="button"
-												onClick={() => setNismSelectedPaper("paper-3")}
-												className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
-													nismSelectedPaper === "paper-3"
-														? "border-amber-500 bg-amber-500/20 text-amber-300 font-semibold"
-														: "border-border/60 hover:border-border text-muted-foreground"
-												}`}
-											>
-												<span>📄 Mock Paper 3 (150 Qs)</span>
-												<span className="text-[9px] opacity-80">180m • Tax & Regulatory</span>
-											</button>
-											<button
-												type="button"
-												onClick={() => setNismSelectedPaper("100")}
-												className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
-													nismSelectedPaper === "100"
-														? "border-amber-500 bg-amber-500/20 text-amber-300 font-semibold"
-														: "border-border/60 hover:border-border text-muted-foreground"
-												}`}
-											>
-												<span>🏆 100 Qs Standard Mock</span>
-												<span className="text-[9px] opacity-80">120m • Real Exam Benchmark</span>
-											</button>
-											<button
-												type="button"
-												onClick={() => setNismSelectedPaper("50")}
-												className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
-													nismSelectedPaper === "50"
-														? "border-amber-500 bg-amber-500/20 text-amber-300 font-semibold"
-														: "border-border/60 hover:border-border text-muted-foreground"
-												}`}
-											>
-												<span>🎯 50 Qs Diagnostic</span>
-												<span className="text-[9px] opacity-80">60m • Readiness Check</span>
-											</button>
-											<button
-												type="button"
-												onClick={() => setNismSelectedPaper("all")}
-												className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
-													nismSelectedPaper === "all"
-														? "border-amber-500 bg-amber-500/20 text-amber-300 font-semibold"
-														: "border-border/60 hover:border-border text-muted-foreground"
-												}`}
-											>
-												<span>📚 Full Question Bank</span>
-												<span className="text-[9px] opacity-80">All Accredited Questions</span>
-											</button>
-										</div>
+										{(() => {
+											const activeCourseId = (
+												nismLaunchModal.launchData?.courseId ||
+												nismLaunchModal.course?.courseId ||
+												(nismLaunchModal.course as any)?.id ||
+												nismLaunchModal.launchData?.seriesCode?.toLowerCase() ||
+												"nism-va"
+											).toLowerCase();
+
+											const isVa = activeCourseId.includes("va") || activeCourseId.includes("v-a");
+											const isMultiMock = ["nism-viii", "nism-xa", "nism-xv"].includes(activeCourseId);
+
+											let paperList = [
+												{ id: "paper-1", title: "📄 Mock Paper 1", desc: "100 Qs • 120m • Paper 1" },
+												{ id: "paper-2", title: "📄 Mock Paper 2", desc: "100 Qs • 120m • Paper 2" },
+												{ id: "paper-3", title: "📄 Mock Paper 3", desc: "100 Qs • 120m • Paper 3" },
+												{ id: "paper-4", title: "📄 Mock Paper 4", desc: "100 Qs • 120m • Paper 4" },
+												{ id: "paper-5", title: "📄 Mock Paper 5", desc: "100 Qs • 120m • Paper 5" },
+												{ id: "50", title: "🎯 50 Qs Diagnostic", desc: "60m • Multi-Chapter" },
+												{ id: "25", title: "⚡ 25 Qs Sprint", desc: "30m • Quick Review" },
+												{ id: "all", title: "📚 Full Question Bank", desc: "500 Unique Questions" },
+											];
+
+											if (!isVa && isMultiMock) {
+												paperList = [
+													{ id: "paper-1", title: "📄 Mock Paper 1", desc: "100 Qs • 120m • Benchmark" },
+													{ id: "paper-2", title: "📄 Mock Paper 2", desc: "100 Qs • 120m • Distinct" },
+													{ id: "50", title: "🎯 50 Qs Diagnostic", desc: "60m • Readiness Check" },
+													{ id: "25", title: "⚡ 25 Qs Sprint", desc: "30m • Quick Sprint" },
+													{ id: "all", title: "📚 Full Question Bank", desc: "100 Unique Questions" },
+												];
+											} else if (!isVa && !isMultiMock) {
+												paperList = [
+													{ id: "paper-1", title: "📄 Mock Paper 1", desc: "Accredited Exam Mock" },
+													{ id: "25", title: "⚡ 25 Qs Sprint", desc: "30m • Quick Sprint" },
+													{ id: "all", title: "📚 Full Question Bank", desc: "All Questions" },
+												];
+											}
+
+											return (
+												<>
+													<span className="text-[10px] text-muted-foreground font-semibold block mb-1">
+														Select Question Paper (100 Qs Standard • Zero Overlapping Questions):
+													</span>
+													<div className="grid grid-cols-2 gap-1.5 text-[11px]">
+														{paperList.map((p) => (
+															<button
+																key={p.id}
+																type="button"
+																onClick={() => setNismSelectedPaper(p.id)}
+																className={`px-2 py-1.5 rounded border text-left flex flex-col transition-all ${
+																	nismSelectedPaper === p.id
+																		? "border-amber-500 bg-amber-500/20 text-amber-300 font-semibold"
+																		: "border-border/60 hover:border-border text-muted-foreground"
+																}`}
+															>
+																<span>{p.title}</span>
+																<span className="text-[9px] opacity-80">{p.desc}</span>
+															</button>
+														))}
+													</div>
+												</>
+											);
+										})()}
 									</div>
 								</div>
 								<div className="flex items-center gap-2 mt-1">
@@ -2081,7 +2077,7 @@ export default function AgentKnowledgeCertifications() {
 										}}
 									>
 										<Play className="h-3.5 w-3.5 fill-current" />
-										Open Full Test Page ({nismSelectedPaper.startsWith("paper-") ? "150 Qs " + nismSelectedPaper.toUpperCase() : nismSelectedPaper + " Qs"})
+										Open Full Test Page ({nismSelectedPaper.startsWith("paper-") ? "100 Qs " + nismSelectedPaper.toUpperCase() : nismSelectedPaper + " Qs"})
 									</Button>
 									<Button
 										size="sm"
