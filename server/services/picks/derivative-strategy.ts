@@ -287,6 +287,7 @@ export class DerivativeStrategy extends BaseStrategy {
 					iv,
 					ivRegime: ivRegimeLabel,
 					volPreference: strategy.volPreference,
+					isCreditStrategy: strategy.volPreference === "sell" || strategy.targetMult < 1.0,
 					regulatoryNote: `${SEBI_FNO_FRAMEWORK_2026.CASH_MARGIN_DISCLAIMER} ${SEBI_FNO_FRAMEWORK_2026.EXPIRY_DAY_ELM_DISCLAIMER}`,
 					cashMarginRequiredPct: SEBI_FNO_FRAMEWORK_2026.CASH_MARGIN_MIN_PCT,
 					expiryDayELMPct:
@@ -438,6 +439,7 @@ export class DerivativeStrategy extends BaseStrategy {
 					premiumPerUnit: approxPremium,
 					iv: 18,
 					dataSource: "fallback_curated",
+					isCreditStrategy: strategy.volPreference === "sell" || strategy.targetMult < 1.0,
 					regulatoryNote: `${SEBI_FNO_FRAMEWORK_2026.CASH_MARGIN_DISCLAIMER} ${SEBI_FNO_FRAMEWORK_2026.EXPIRY_DAY_ELM_DISCLAIMER}`,
 					cashMarginRequiredPct: SEBI_FNO_FRAMEWORK_2026.CASH_MARGIN_MIN_PCT,
 					expiryDayELMPct:

@@ -46,18 +46,23 @@ export class SGBStrategy extends BaseStrategy {
 			const currentPrice = Number.parseFloat(String(top.issuePrice ?? "0"));
 			const sgbInterestRate = 2.5; // RBI fixed semi-annual coupon on SGBs
 
+			const { targetPct, stoplossPct } = this.getDynamicTargetStoploss("sgb");
+			const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
+			const stoplossPrice = Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
+
 			const rationale = await context.service.generateRationale({
 				category: "sgb",
 				name: top.name,
 				currentPrice,
-				targetPrice: currentPrice, // SGB appreciation tracks gold price
-				stoplossPrice: currentPrice * 0.9,
+				targetPrice,
+				stoplossPrice,
 				metrics: {
 					issueStatus: top.issueStatus,
 					issuePrice: currentPrice,
 					sgbInterestRate,
 					tenureYears: 8,
 					sovereignGuarantee: true,
+					targetAppreciationPct: Math.round(targetPct * 100),
 				},
 			});
 
@@ -67,8 +72,8 @@ export class SGBStrategy extends BaseStrategy {
 				instrumentName: top.name,
 				recoDate: context.today,
 				recoPrice: currentPrice,
-				targetPrice: currentPrice, // Capital appreciation = gold price movement
-				stoplossPrice: currentPrice * 0.9,
+				targetPrice,
+				stoplossPrice,
 				currentPrice,
 				status: "live",
 				expiryDate: this.getExpiryDate(2920), // 8-year SGB tenure

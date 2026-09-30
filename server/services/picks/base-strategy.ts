@@ -86,14 +86,14 @@ export abstract class BaseStrategy implements IPickStrategy {
 		currentPrice?: number,
 	): { targetPct: number; stoplossPct: number; atrPct?: number } {
 		const baseTargets: Record<string, { target: number; stoploss: number }> = {
-			listed_stocks: { target: 0.085, stoploss: 0.045 }, // Calibrated swing: +8.5% target / -4.5% stop (1.89:1 R:R)
+			listed_stocks: { target: 0.10, stoploss: 0.05 }, // Calibrated swing: +10.0% target / -5.0% stop (2:1 R:R)
 			mutual_funds: { target: 0.12, stoploss: 0.05 },
 			bonds: { target: 0.08, stoploss: 0.03 },
-			global_stocks: { target: 0.15, stoploss: 0.08 },
-			etfs: { target: 0.1, stoploss: 0.05 },
+			global_stocks: { target: 0.15, stoploss: 0.075 }, // 2:1 R:R
+			etfs: { target: 0.10, stoploss: 0.05 }, // 2:1 R:R
 			sgb: { target: 0.08, stoploss: 0.03 },
 			reits_invits: { target: 0.12, stoploss: 0.06 },
-			unlisted: { target: 0.25, stoploss: 0.15 },
+			unlisted: { target: 0.25, stoploss: 0.125 }, // 2:1 R:R
 			fixed_deposits: { target: 0, stoploss: 0 },
 		};
 
@@ -103,28 +103,27 @@ export abstract class BaseStrategy implements IPickStrategy {
 			return { targetPct: base.target, stoplossPct: base.stoploss };
 		}
 
-		// ── Fix C: ATR-based stoploss ──────────────────────────────────────────
-		// When currentPrice is provided, compute a synthetic 14-day ATR using the
-		// relationship between annualised volatility and intraday true range:
-		//   ATR_14 ≈ price × (annualVol% / 100) / √252 × √14
-		// For domestic listed_stocks: calibrate to high-probability swing targets
-		// Stoploss at 1.1× ATR (capped at 6%, floored at 3.5%).
-		// Target at 2.0× ATR (capped at 12%, floored at 6.5%) for ~1.8-2:1 R:R.
+		// ── Fix C: ATR-based stoploss & 2:1 Risk-Reward Enforcer ───────────────
+		// When currentPrice is provided, compute daily ATR using standard relationship:
+		//   Daily ATR% ≈ (annualVol% / 100) / √252 * 1.2
+		// Domestic listed_stocks: Stoploss at 1.5× daily ATR (capped at 6%, floored at 3.5%).
+		// Target at max(3.5× ATR, 2.0× stoploss) ensuring a minimum 2:1 Risk-to-Reward ratio.
 		if (
 			currentPrice != null &&
 			currentPrice > 0 &&
 			(category === "listed_stocks" || category === "global_stocks" || category === "etfs")
 		) {
 			const annualVolFrac = volatility / 100;
-			// ATR as a fraction of price (14-day window)
-			const atrFrac = annualVolFrac / Math.sqrt(252) * Math.sqrt(14);
+			const dailyVolFrac = annualVolFrac / Math.sqrt(252);
+			const atrFrac = dailyVolFrac * 1.2; // 1-day Average True Range fraction
 			const isDomesticStock = category === "listed_stocks";
 			const stoplossPct = isDomesticStock
-				? Math.min(0.06, Math.max(0.035, Math.round(atrFrac * 1.1 * 1000) / 1000))
-				: Math.min(0.15, Math.max(0.03, Math.round(atrFrac * 1.5 * 1000) / 1000));
+				? Math.min(0.06, Math.max(0.035, Math.round(atrFrac * 1.5 * 1000) / 1000))
+				: Math.min(0.12, Math.max(0.04, Math.round(atrFrac * 2.0 * 1000) / 1000));
+			// Target calibrated to guarantee at least 2.0x the stop loss (2:1 R:R minimum)
 			const targetPct = isDomesticStock
-				? Math.min(0.12, Math.max(0.065, Math.round(atrFrac * 2.0 * 1000) / 1000))
-				: Math.min(0.35, Math.max(0.06, Math.round(atrFrac * 3.0 * 1000) / 1000));
+				? Math.min(0.18, Math.max(0.09, Math.round(Math.max(atrFrac * 3.5, stoplossPct * 2.0) * 1000) / 1000))
+				: Math.min(0.35, Math.max(0.12, Math.round(Math.max(atrFrac * 4.5, stoplossPct * 2.0) * 1000) / 1000));
 			return {
 				targetPct,
 				stoplossPct,

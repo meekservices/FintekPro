@@ -484,26 +484,28 @@ export class PickOfTheDayService {
 
 					// ── Minimum Upside Filter ──────────────────────────────────────────
 					// A pick must have meaningful upside to justify BUY rating.
-					// BUG-3 FIX: Previous map used "stocks"/"equity" as keys which NEVER
-					// matched a PickCategory value. "listed_stocks" always fell through to
-					// the 8% fallback, allowing 9–11% upside equity picks to be published.
+					// Calibrated to align with strategy models (swing equities 8-15%, debt 4%, options 15%).
 					const minUpsidePct: Partial<Record<PickCategory, number>> = {
-						listed_stocks:  12, // NSE equities: meaningful upside ≥12%
-						global_stocks:  12, // overseas equities: same bar
-						etfs:           10, // ETFs: slightly lower (index-like returns)
-						reits_invits:   10, // REIT/InvIT: yield + capital appreciation
+						listed_stocks:   8, // NSE equities: swing threshold ≥8%
+						global_stocks:  10, // overseas equities: ≥10%
+						etfs:            8, // ETFs: index-linked ≥8%
+						reits_invits:    8, // REIT/InvIT: yield + capital appreciation ≥8%
 						mutual_funds:    8, // MFs: 8% minimum meaningful alpha
-						derivatives:    15, // derivatives: high conviction required
-						unlisted:       20, // unlisted: illiquid premium demanded
-						bonds:           5, // bonds: yield-based, lower bar
-						fixed_deposits:  4, // FDs: YTM-based, lowest bar
+						derivatives:    15, // derivatives: high conviction required (≥15% profit target)
+						unlisted:       15, // unlisted: illiquid premium demanded (≥15%)
+						pre_ipo:        15, // pre-IPO: growth premium ≥15%
+						bonds:           4, // bonds: yield-based
+						fixed_deposits:  4, // FDs: YTM-based
 						sgb:             4, // SGB: sovereign, yield + gold appreciation
 					};
 					const minUpside = minUpsidePct[category] ?? 8;
 					const recoP = Number(pick.recoPrice ?? 0);
 					const targetP = Number(pick.targetPrice ?? 0);
-					const upsidePct =
-						recoP > 0 ? ((targetP - recoP) / recoP) * 100 : 99;
+					const isCreditStrategy = (pick.keyMetrics as any)?.isCreditStrategy === true ||
+						(category === "derivatives" && targetP < recoP && recoP > 0);
+					const upsidePct = isCreditStrategy
+						? ((recoP - targetP) / recoP) * 100
+						: (recoP > 0 ? ((targetP - recoP) / recoP) * 100 : 99);
 
 					if (upsidePct < minUpside) {
 						logger.info(
@@ -831,23 +833,43 @@ export class PickOfTheDayService {
 		"sgb",
 		"fixed_deposits",
 		"unlisted",
+		"pre_ipo",
+		"derivatives",
 	] as PickCategory[]);
 
 	/**
 	 * Estimates returnPct for instruments without a live exchange price.
-	 * Uses the pick's annualised target yield: (targetPrice/recoPrice - 1) * 365/daysHeld.
-	 * Falls back to 0 if days held is 0 or prices are invalid.
+	 * Uses the pick's total return over its tenure and accrues linearly over daysHeld.
+	 * Supports both long investments and credit/short option strategies.
 	 *
 	 * @param recoPrice   - Price at recommendation (number)
 	 * @param targetPrice - Target price (used as proxy for yield basis)
 	 * @param daysHeld    - Days since recommendation
+	 * @param pick        - Optional pick object containing expiryDate, recoDate, and keyMetrics
 	 */
-	private estimateYieldReturn(recoPrice: number, targetPrice: number, daysHeld: number): number {
+	private estimateYieldReturn(recoPrice: number, targetPrice: number, daysHeld: number, pick?: any): number {
 		if (recoPrice <= 0 || targetPrice <= 0 || daysHeld <= 0) return 0;
-		// annualised yield implied by reco→target
-		const impliedYieldPa = (targetPrice / recoPrice - 1);
-		// daily accrual (simple interest — conservative for debt instruments)
-		return Number((impliedYieldPa * (daysHeld / 365) * 100).toFixed(2));
+		const isCredit = (pick?.keyMetrics as any)?.isCreditStrategy === true ||
+			(pick?.category === "derivatives" && targetPrice < recoPrice);
+
+		// Determine total tenure in days
+		let totalDays = 365;
+		if (pick?.expiryDate && pick?.recoDate) {
+			const expMs = new Date(pick.expiryDate).getTime();
+			const recoMs = new Date(pick.recoDate).getTime();
+			const diff = Math.floor((expMs - recoMs) / (1000 * 60 * 60 * 24));
+			if (diff > 0) totalDays = diff;
+		}
+
+		// Total expected return percentage over full tenure
+		const totalReturnPct = isCredit
+			? ((recoPrice - targetPrice) / recoPrice) * 100
+			: ((targetPrice - recoPrice) / recoPrice) * 100;
+
+		// Accrue linearly over days held up to total tenure
+		const fractionHeld = Math.min(1.0, daysHeld / totalDays);
+		const accrued = totalReturnPct * fractionHeld;
+		return Number(accrued.toFixed(2));
 	}
 
 	async refreshLivePicks(): Promise<PickUpdateResult> {
@@ -886,6 +908,7 @@ export class PickOfTheDayService {
 
 					let livePrice: number | null = null;
 					let dayHigh: number | undefined;
+					let dayLow: number | undefined;
 
 					if (strategy.getLiveQuote) {
 						const quote = await strategy.getLiveQuote(
@@ -894,6 +917,7 @@ export class PickOfTheDayService {
 						if (quote) {
 							livePrice = quote.price;
 							dayHigh = quote.dayHigh;
+							dayLow = quote.dayLow;
 						}
 					}
 					if (livePrice == null) {
@@ -905,36 +929,57 @@ export class PickOfTheDayService {
 					if (livePrice != null) {
 						// ── Exchange-traded instrument: use actual live price ──────────────
 						const recoPrice = Number.parseFloat(pick.recoPrice);
-						const returnPct = ((livePrice - recoPrice) / recoPrice) * 100;
-
 						const targetPrice = Number.parseFloat(pick.targetPrice);
 						let stoplossPrice = Number.parseFloat(pick.stoplossPrice);
 
+						const isCreditStrategy = (pick.keyMetrics as any)?.isCreditStrategy === true ||
+							(category === "derivatives" && targetPrice < recoPrice && recoPrice > 0);
+
+						const returnPct = isCreditStrategy
+							? ((recoPrice - livePrice) / recoPrice) * 100
+							: ((livePrice - recoPrice) / recoPrice) * 100;
+
 						// ── Breakeven Trailing Stop ───────────────────────────────────────
-						// If trade gained >= 4.0% and stoploss is still below entry price,
-						// trail stoploss to entry level (recoPrice) to eliminate downside risk.
 						let stoplossAdjusted = false;
-						if (returnPct >= 4.0 && stoplossPrice < recoPrice) {
-							stoplossPrice = recoPrice;
-							stoplossAdjusted = true;
+						if (isCreditStrategy) {
+							if (returnPct >= 4.0 && stoplossPrice > recoPrice) {
+								stoplossPrice = recoPrice;
+								stoplossAdjusted = true;
+							}
+						} else {
+							if (returnPct >= 4.0 && stoplossPrice < recoPrice) {
+								stoplossPrice = recoPrice;
+								stoplossAdjusted = true;
+							}
 						}
 
 						let newStatus: PickStatus = isExpired ? "expired" : "live";
 
-						const hitTarget = (dayHigh != null && dayHigh >= targetPrice) || livePrice >= targetPrice;
-						const hitStoploss = livePrice <= stoplossPrice;
+						let hitTarget = false;
+						let hitStoploss = false;
 
-						if (hitTarget) {
+						if (isCreditStrategy) {
+							// Option selling: target is hit when price drops to or below targetPrice (or dayLow <= targetPrice)
+							hitTarget = (dayLow != null && dayLow <= targetPrice) || livePrice <= targetPrice;
+							// Stoploss is hit when price rises to or above stoplossPrice (or dayHigh >= stoplossPrice)
+							hitStoploss = (dayHigh != null && dayHigh >= stoplossPrice) || livePrice >= stoplossPrice;
+						} else {
+							// Long position: target is hit when price rises to or above targetPrice
+							hitTarget = (dayHigh != null && dayHigh >= targetPrice) || livePrice >= targetPrice;
+							// Stoploss is hit when price drops to or below stoplossPrice (intraday low supported)
+							hitStoploss = (dayLow != null && dayLow <= stoplossPrice) || livePrice <= stoplossPrice;
+						}
+
+						if (hitStoploss && hitTarget) {
+							// High-volatility session: evaluate conservatively (downside triggered first)
+							newStatus = "stoploss_hit";
+						} else if (hitTarget) {
 							newStatus = "target_hit";
 						} else if (hitStoploss) {
 							newStatus = "stoploss_hit";
 						} else if (isExpired) {
 							// On expiry: if position closed with meaningful profit (>= 5%), record as target_hit win
-							if (returnPct >= 5.0) {
-								newStatus = "target_hit";
-							} else {
-								newStatus = "expired";
-							}
+							newStatus = returnPct >= 5.0 ? "target_hit" : "expired";
 						}
 
 						await db
@@ -979,8 +1024,8 @@ export class PickOfTheDayService {
 						if (needsUpdate) {
 							const recoPrice = Number.parseFloat(pick.recoPrice);
 							const targetPrice = Number.parseFloat(pick.targetPrice);
-							// Estimated accrued yield (simple daily accrual)
-							const estimatedReturn = this.estimateYieldReturn(recoPrice, targetPrice, daysHeld);
+							// Estimated accrued yield (tenure-based linear daily accrual)
+							const estimatedReturn = this.estimateYieldReturn(recoPrice, targetPrice, daysHeld, pick);
 
 							await db
 								.update(dailyPicks)
