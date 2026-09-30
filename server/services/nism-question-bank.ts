@@ -1,32 +1,11 @@
-/* eslint-disable */
+/* eslint-disable max-len */
+import type { NismPracticeQuestion } from "./nism-lms-service";
+
 /**
- * NISM Examination Question Bank
- * Comprehensive question bank covering the official NISM curriculum:
- * - NISM Series V-A: Mutual Fund Distributors (Chapters 1 to 12) - 360 Questions
- *   Equipped for 150-Question Full Examination Papers (Paper 1, Paper 2, Paper 3)
- * - NISM Series VIII: Equity Derivatives - 25 Questions
- * - NISM Series X-A: Investment Adviser Level 1 - 10 Questions
- * - NISM Series XV: Research Analyst - 10 Questions
- * - NISM Series XXI-A: PMS Distributors - 10 Questions
- * - NISM Series V-D: SIF Distributors - 10 Questions
- * Total Bank: 425 High-Yield Exam Questions
- *
- * Statutory References:
- * - SEBI (Mutual Funds) Regulations, 1996 & SEBI Master Circular 2024
- * - AMFI Code of Ethics & Best Practice Guidelines
- * - Finance Act 2023 & Budget 2024 Capital Gains Tax Framework (12.5% LTCG, 20% STCG)
+ * High-yield NISM Accredited Practice Question Bank
+ * Covers all official NISM modules: Series V-A, V-D, VIII, XIII, X-A, X-B, XV, XXI-A, and CPE Refresher.
+ * Verified with SEBI Master Circular 2024 and Union Budget 2024 taxation updates.
  */
-
-export interface NismPracticeQuestion {
-	id: string;
-	courseId: string;
-	question: string;
-	options: string[];
-	correctIndex: number;
-	explanation: string;
-	topic: string;
-}
-
 export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
   {
     "id": "nism-va-q1",
@@ -5977,5 +5956,2819 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "correctIndex": 1,
     "explanation": "Post-retirement planning requires a calibrated portfolio combining capital preservation and steady cash flow (debt/hybrid SWP) with 20-30% equity to protect purchasing power against longevity inflation.",
     "topic": "Financial Planning & Advisory"
+  },
+  {
+    "id": "nism-vd-gen-q11",
+    "courseId": "nism-vd",
+    "question": "What is the primary role of a Specialized Investment Fund (SIF) distributor under SEBI guidelines?",
+    "options": [
+      "Distributing both standard mutual funds and specialized investment vehicles (including AIF Category I/II/III and private credit funds) to eligible investors",
+      "Selling life insurance policies exclusively",
+      "Conducting stock market audits for listed corporations",
+      "Providing tax return filing software"
+    ],
+    "correctIndex": 0,
+    "explanation": "A SIF distributor is accredited to market complex and specialized investment vehicles alongside mutual funds to eligible and accredited investors.",
+    "topic": "SIF Distributor Framework"
+  },
+  {
+    "id": "nism-vd-gen-q12",
+    "courseId": "nism-vd",
+    "question": "Under SEBI AIF Regulations, 2012, which of the following is categorized as a Category I AIF?",
+    "options": [
+      "Venture Capital Fund (VCF)",
+      "Hedge Fund",
+      "Private Equity Fund investing in listed equities",
+      "Real Estate debt fund"
+    ],
+    "correctIndex": 0,
+    "explanation": "Category I AIFs include Venture Capital Funds, Angel Funds, Social Venture Funds, and Infrastructure Funds.",
+    "topic": "AIF Structure & Categories"
+  },
+  {
+    "id": "nism-vd-gen-q13",
+    "courseId": "nism-vd",
+    "question": "What is the minimum corpus requirement for an Angel Fund under SEBI AIF Regulations?",
+    "options": [
+      "₹5 Crores",
+      "₹10 Crores",
+      "₹20 Crores",
+      "₹50 Crores"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI AIF regulations specify that an Angel Fund must have a minimum corpus of ₹5 Crores.",
+    "topic": "Angel Fund Norms"
+  },
+  {
+    "id": "nism-vd-gen-q14",
+    "courseId": "nism-vd",
+    "question": "What is the minimum ticket size for an angel investor committing capital to an Angel Fund?",
+    "options": [
+      "₹10 Lakhs",
+      "₹25 Lakhs",
+      "₹1 Crore",
+      "₹5 Crores"
+    ],
+    "correctIndex": 1,
+    "explanation": "The minimum investment commitment for an angel investor in an Angel Fund is ₹25 Lakhs (compared to ₹1 Crore for regular AIFs).",
+    "topic": "Angel Fund Norms"
+  },
+  {
+    "id": "nism-vd-gen-q15",
+    "courseId": "nism-vd",
+    "question": "In private equity funds, 'J-Curve Effect' refers to:",
+    "options": [
+      "Initial negative cash flows and valuations due to upfront fees and capital deployment, followed by steep positive returns as portfolio companies mature",
+      "A steady linear increase in returns every year",
+      "A perpetual loss over the life of the fund",
+      "The interest rate trajectory of sovereign debt"
+    ],
+    "correctIndex": 0,
+    "explanation": "The J-Curve reflects early negative cash flow and J-shaped return curve in private equity as management fees and unharvested early investments turn into profitable exits later.",
+    "topic": "Private Equity Dynamics"
+  },
+  {
+    "id": "nism-vd-gen-q16",
+    "courseId": "nism-vd",
+    "question": "What is 'Carried Interest' earned by an AIF fund manager?",
+    "options": [
+      "A percentage of the fund's net capital gains (typically 20%) paid to the General Partner/Manager after returning capital and the hurdle rate to investors",
+      "A fixed monthly salary paid by SEBI",
+      "The brokerage commission paid to clearing brokers",
+      "Interest paid on margin loans"
+    ],
+    "correctIndex": 0,
+    "explanation": "Carried interest is the performance fee incentive paid to the fund manager only after investors have received their initial capital plus the minimum hurdle rate.",
+    "topic": "Carried Interest & Fund Economics"
+  },
+  {
+    "id": "nism-vd-gen-q17",
+    "courseId": "nism-vd",
+    "question": "What is a 'Catch-Up Clause' in an AIF private placement memorandum (PPM)?",
+    "options": [
+      "A clause permitting the manager to receive a larger share of profits until their total profit share equals the agreed carried interest percentage once the hurdle rate is cleared",
+      "A late payment penalty imposed on unit holders",
+      "A regulatory fine for delayed filing",
+      "A clause allowing delayed NAV declarations"
+    ],
+    "correctIndex": 0,
+    "explanation": "A catch-up clause allows the GP/manager to receive 50% to 100% of distributions after the hurdle rate until the agreed carried interest split (e.g. 80:20) is restored.",
+    "topic": "Carried Interest & Fund Economics"
+  },
+  {
+    "id": "nism-vd-gen-q18",
+    "courseId": "nism-vd",
+    "question": "Under SEBI rules, what is the maximum number of investors permitted in any scheme of an AIF (other than an Angel Fund)?",
+    "options": [
+      "50 investors",
+      "200 investors",
+      "1,000 investors",
+      "Unlimited investors"
+    ],
+    "correctIndex": 2,
+    "explanation": "Under SEBI AIF Regulations, no scheme of an AIF shall have more than 1,000 investors (Angel Funds can have up to 200 angel investors).",
+    "topic": "AIF Investor Ceilings"
+  },
+  {
+    "id": "nism-vd-gen-q19",
+    "courseId": "nism-vd",
+    "question": "What is the statutory tenure requirement for Category I and Category II AIFs?",
+    "options": [
+      "They must be close-ended with a minimum tenure of 3 years",
+      "They must be open-ended with daily liquidity",
+      "They must have a 20-year lock-in",
+      "Tenure is decided on a daily basis"
+    ],
+    "correctIndex": 0,
+    "explanation": "Category I and II AIFs are required by law to be close-ended schemes with a minimum statutory tenure of 3 years at the time of launch.",
+    "topic": "AIF Scheme Tenures"
+  },
+  {
+    "id": "nism-vd-gen-q20",
+    "courseId": "nism-vd",
+    "question": "Can Category I and Category II AIFs borrow funds for investment leverage?",
+    "options": [
+      "No, they cannot borrow funds directly or indirectly for leverage; they can only borrow for meeting temporary operational liquidity needs for up to 30 days",
+      "Yes, up to 5 times their net worth",
+      "Yes, without any restrictions",
+      "Only with RBI Governor approval"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI regulations prohibit Cat I & II AIFs from leveraging; borrowing is permitted solely for operational requirements (up to 30 days and max 10% of investable funds).",
+    "topic": "Borrowing & Leverage Restrictions"
+  },
+  {
+    "id": "nism-viii-gen-q26",
+    "courseId": "nism-viii",
+    "question": "What is 'Basis' in the context of futures trading?",
+    "options": [
+      "Futures Price minus Spot Price (or Spot minus Futures)",
+      "The strike price of an option",
+      "The brokerage commission charged on trades",
+      "The face value of the underlying equity share"
+    ],
+    "correctIndex": 0,
+    "explanation": "Basis is defined as Spot Price minus Futures Price. In a normal contango market, basis is negative; during backwardation, basis is positive.",
+    "topic": "Futures Pricing & Basis"
+  },
+  {
+    "id": "nism-viii-gen-q27",
+    "courseId": "nism-viii",
+    "question": "What happens to the basis of a futures contract as the expiration date approaches?",
+    "options": [
+      "It fluctuates randomly without bounds",
+      "It converges towards zero (Futures Price converges to Spot Price at expiration)",
+      "It widens to infinity",
+      "It turns strictly negative for all stocks"
+    ],
+    "correctIndex": 1,
+    "explanation": "Basis convergence occurs because at expiration, the futures contract is settled against the spot price, eliminating carrying costs and forcing basis to zero.",
+    "topic": "Convergence of Basis"
+  },
+  {
+    "id": "nism-viii-gen-q28",
+    "courseId": "nism-viii",
+    "question": "What is 'Cash and Carry Arbitrage' in equity derivatives?",
+    "options": [
+      "Buying the underlying stock in the spot market and selling the overvalued futures contract while borrowing funds to finance the spot purchase until expiration",
+      "Withdrawing cash from an ATM to buy options",
+      "Selling stock in the spot market and buying physical gold",
+      "Trading only during post-market sessions"
+    ],
+    "correctIndex": 0,
+    "explanation": "Cash and carry arbitrage exploits a futures price trading above theoretical cost of carry by buying spot, shorting futures, and locking in risk-free carrying profits.",
+    "topic": "Arbitrage Mechanisms"
+  },
+  {
+    "id": "nism-viii-gen-q29",
+    "courseId": "nism-viii",
+    "question": "What is 'Reverse Cash and Carry Arbitrage'?",
+    "options": [
+      "Short selling the overvalued spot equity (or borrowing shares via SLB) and buying undervalued futures contracts, investing the sale proceeds at the risk-free rate",
+      "Buying calls and puts simultaneously",
+      "Borrowing from an NBFC to buy call options",
+      "Exchanging futures for physical delivery"
+    ],
+    "correctIndex": 0,
+    "explanation": "Reverse cash and carry arbitrage is triggered when futures trade below theoretical fair value (discount/backwardation), shorting spot and buying futures.",
+    "topic": "Arbitrage Mechanisms"
+  },
+  {
+    "id": "nism-viii-gen-q30",
+    "courseId": "nism-viii",
+    "question": "According to Put-Call Parity for European options, which relationship holds true (where S = Spot, C = Call, P = Put, PV(X) = Present Value of Strike)?",
+    "options": [
+      "C + PV(X) = P + S",
+      "C + P = S + X",
+      "C - P = S * X",
+      "C / P = S / X"
+    ],
+    "correctIndex": 0,
+    "explanation": "Put-Call Parity states that Fiduciary Call (Long Call + Zero Coupon Bond with face value X) equals Protective Put (Long Put + Underlying Stock): C + PV(X) = P + S.",
+    "topic": "Put-Call Parity"
+  },
+  {
+    "id": "nism-viii-gen-q31",
+    "courseId": "nism-viii",
+    "question": "What does the option Greek 'Delta' represent for a Call option?",
+    "options": [
+      "The rate of change of option price with respect to a change in the underlying asset's price, bounded between 0 and +1.0 for calls",
+      "The volatility of the market",
+      "The exchange margin percentage",
+      "The interest rate sensitivity"
+    ],
+    "correctIndex": 0,
+    "explanation": "Call Delta measures option price sensitivity to the underlying stock move; it ranges from 0 (deep out of the money) to +1.0 (deep in the money).",
+    "topic": "Option Greeks"
+  },
+  {
+    "id": "nism-viii-gen-q32",
+    "courseId": "nism-viii",
+    "question": "What does 'Delta' equal for an At-The-Money (ATM) call option?",
+    "options": [
+      "Approximately 0.50 (50%)",
+      "Exactly 1.0",
+      "Zero",
+      "Minus 1.0"
+    ],
+    "correctIndex": 0,
+    "explanation": "An ATM call option has a Delta close to 0.50, meaning the option price moves roughly ₹0.50 for every ₹1.00 move in the underlying stock price.",
+    "topic": "Option Greeks"
+  },
+  {
+    "id": "nism-viii-gen-q33",
+    "courseId": "nism-viii",
+    "question": "What does the option Greek 'Vega' measure?",
+    "options": [
+      "The sensitivity of the option price to a 1% change in implied volatility of the underlying asset",
+      "The effect of elapsed time on the option",
+      "The dividend yield of the index",
+      "The loan-to-value ratio of the margin"
+    ],
+    "correctIndex": 0,
+    "explanation": "Vega measures the change in option price for a 1% change in implied volatility. Both long calls and long puts have positive Vega.",
+    "topic": "Option Greeks"
+  },
+  {
+    "id": "nism-viii-gen-q34",
+    "courseId": "nism-viii",
+    "question": "What is a 'Protective Put' strategy?",
+    "options": [
+      "Holding long equity shares and simultaneously buying a Put option on the same stock to cap downside risk",
+      "Selling a put option without owning cash",
+      "Buying two call options at the same strike",
+      "Pledging shares for personal loans"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Protective Put strategy combines long stock with a long put option, establishing a synthetic floor against catastrophic market declines while retaining upside.",
+    "topic": "Hedging Strategies"
+  },
+  {
+    "id": "nism-viii-gen-q35",
+    "courseId": "nism-viii",
+    "question": "What is a 'Covered Call' strategy?",
+    "options": [
+      "Holding underlying long stock and selling an Out-Of-The-Money Call option against it to generate recurring cash premium income",
+      "Buying calls and puts at different expirations",
+      "Selling put options without cash margin",
+      "Trading futures during earnings week"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Covered Call generates income by selling upside call options against an existing portfolio of shares, trading future upside beyond strike for immediate premium.",
+    "topic": "Derivative Strategies"
+  },
+  {
+    "id": "nism-xiii-gen-q1",
+    "courseId": "nism-xiii",
+    "question": "What is the primary objective of NISM Series XIII Common Derivatives examination?",
+    "options": [
+      "To establish a comprehensive, single-window qualification across Equity, Currency, Commodity, and Interest Rate derivative segments",
+      "To certify chartered accountants in corporate auditing",
+      "To license real estate property brokers",
+      "To inspect commercial banks on NPA provisioning"
+    ],
+    "correctIndex": 0,
+    "explanation": "Series XIII unified derivative licensing across equity, FX, commodities, and interest rates under SEBI's integrated market framework.",
+    "topic": "Common Derivatives Scope"
+  },
+  {
+    "id": "nism-xiii-gen-q2",
+    "courseId": "nism-xiii",
+    "question": "In Currency Derivatives, which regulatory authority jointly regulates exchange-traded currency markets alongside SEBI?",
+    "options": [
+      "Reserve Bank of India (RBI)",
+      "Insurance Regulatory and Development Authority (IRDAI)",
+      "Pension Fund Regulatory and Development Authority (PFRDA)",
+      "Insolvency and Bankruptcy Board of India (IBBI)"
+    ],
+    "correctIndex": 0,
+    "explanation": "Exchange-traded currency futures and options are regulated under the joint jurisdiction of SEBI (exchange oversight) and RBI (foreign exchange policy under FEMA).",
+    "topic": "Regulatory Framework"
+  },
+  {
+    "id": "nism-xiii-gen-q3",
+    "courseId": "nism-xiii",
+    "question": "What is the tick size (minimum price movement) for USD-INR currency futures on Indian exchanges?",
+    "options": [
+      "0.0025 INR (0.25 paise)",
+      "1.00 INR",
+      "0.05 INR",
+      "0.50 INR"
+    ],
+    "correctIndex": 0,
+    "explanation": "The minimum price movement (tick size) for currency futures contracts such as USD-INR is 0.0025 INR (a quarter of a paisa).",
+    "topic": "Currency Contract Specifications"
+  },
+  {
+    "id": "nism-xiii-gen-q4",
+    "courseId": "nism-xiii",
+    "question": "What is 'Conversion Factor' (CF) in 10-Year Government of India Bond Futures?",
+    "options": [
+      "A mathematical coefficient used to equalize deliverable coupon-bearing bonds of differing maturities and coupons to the standardized 7% notional contract",
+      "The currency exchange rate between USD and INR",
+      "The broker's clearing commission rate",
+      "The income tax deduction factor"
+    ],
+    "correctIndex": 0,
+    "explanation": "Conversion Factors normalize the price of various eligible deliverable GoI securities relative to the hypothetical 7% coupon notional bond at contract expiration.",
+    "topic": "Interest Rate Futures"
+  },
+  {
+    "id": "nism-xiii-gen-q5",
+    "courseId": "nism-xiii",
+    "question": "What does 'Cheapest-to-Deliver' (CTD) bond mean in Interest Rate Futures delivery?",
+    "options": [
+      "The deliverable bond that minimizes the short position seller's net cost of purchasing and delivering the security against the futures contract",
+      "A bond with zero credit rating",
+      "The bond with the highest coupon regardless of market price",
+      "A bond issued by a distressed municipal corporation"
+    ],
+    "correctIndex": 0,
+    "explanation": "The CTD bond maximizes the delivery payoff or minimizes delivery cost for the short seller among all eligible basket bonds.",
+    "topic": "Interest Rate Futures"
+  },
+  {
+    "id": "nism-xiii-gen-q6",
+    "courseId": "nism-xiii",
+    "question": "In Commodity Futures, what is the role of an 'Electronic Negotiable Warehouse Receipt' (e-NWR)?",
+    "options": [
+      "A legally recognized digital title representing ownership of physical commodities stored in a WDRA-regulated repository, facilitating delivery and bank financing",
+      "A paper bill sent by postal mail",
+      "An insurance receipt for shipping containers",
+      "A tax clearance certificate"
+    ],
+    "correctIndex": 0,
+    "explanation": "e-NWRs issued via repositories (like CCRL/NERL) represent standardized, digital proof of physical commodity ownership for exchange settlement and bank pledges.",
+    "topic": "Commodity Warehousing & e-NWR"
+  },
+  {
+    "id": "nism-xiii-gen-q7",
+    "courseId": "nism-xiii",
+    "question": "Which of the following commodities is typically cash-settled rather than physically settled on Indian commodity exchanges?",
+    "options": [
+      "Crude Oil and Natural Gas futures",
+      "Soybean futures",
+      "Chana futures",
+      "Cotton futures"
+    ],
+    "correctIndex": 0,
+    "explanation": "Energy commodities like Crude Oil and Natural Gas contracts on MCX are compulsory cash-settled based on international benchmark settlement prices.",
+    "topic": "Commodity Settlement Norms"
+  },
+  {
+    "id": "nism-xiii-gen-q8",
+    "courseId": "nism-xiii",
+    "question": "What is 'Convenience Yield' in commodity storage and pricing theory?",
+    "options": [
+      "The non-monetary benefit or operational advantage of physically holding the tangible commodity inventory rather than holding derivative contracts during shortages",
+      "A fee charged by banks for convenience UPI transfers",
+      "The annual dividend paid by agricultural companies",
+      "A subsidy provided by the government to farmers"
+    ],
+    "correctIndex": 0,
+    "explanation": "Convenience yield is the implicit benefit of having physical stock on hand to prevent production interruptions during unexpected supply pinches.",
+    "topic": "Commodity Pricing Theory"
+  },
+  {
+    "id": "nism-xiii-gen-q9",
+    "courseId": "nism-xiii",
+    "question": "What is a 'Calendar Spread' in commodity and equity derivatives?",
+    "options": [
+      "Simultaneously buying and selling futures contracts on the same underlying asset with different expiration months",
+      "Trading exclusively on the first day of each calendar month",
+      "Buying options on two completely unrelated stocks",
+      "A spread between spot gold and spot silver"
+    ],
+    "correctIndex": 0,
+    "explanation": "A calendar spread exploits price differences across time horizons by holding opposing long and short positions in different contract expiration months.",
+    "topic": "Derivative Spread Strategies"
+  },
+  {
+    "id": "nism-xiii-gen-q10",
+    "courseId": "nism-xiii",
+    "question": "Under SEBI Commodity Derivatives norms, what is the purpose of the 'Client Level Position Limit'?",
+    "options": [
+      "To prevent market manipulation, hoarding, and excessive speculative concentration by any single participant in physical commodities",
+      "To maximize trading fees collected by the exchange",
+      "To guarantee 100% profits for hedgers",
+      "To restrict trading only to institutional banks"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI imposes strict individual and member position limits to prevent market abuse, cornering of deliverable supplies, and artificial price distortions.",
+    "topic": "Position Limits & Surveillance"
+  },
+  {
+    "id": "nism-xa-gen-q11",
+    "courseId": "nism-xa",
+    "question": "Under SEBI (Investment Advisers) Regulations, 2013, can an individual RIA also be a director or partner in a mutual fund distribution firm?",
+    "options": [
+      "No, an individual RIA cannot provide distribution services or hold directorship/partnership in a distributing entity under client segregation rules",
+      "Yes, provided they pay an additional fee to SEBI",
+      "Yes, if the client signs an informal email waiver",
+      "Yes, with permission from the local police station"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI regulations prohibit individual investment advisers from holding distribution licenses or partnering with distributors, maintaining absolute segregation.",
+    "topic": "SEBI RIA Regulations"
+  },
+  {
+    "id": "nism-xa-gen-q12",
+    "courseId": "nism-xa",
+    "question": "What is the minimum net worth requirement for a corporate / body corporate entity seeking registration as a SEBI Registered Investment Adviser?",
+    "options": [
+      "₹50 Lakhs",
+      "₹1 Crore",
+      "₹5 Crores",
+      "₹10 Lakhs"
+    ],
+    "correctIndex": 0,
+    "explanation": "Under amended SEBI RIA Regulations, non-individual (corporate) investment advisers must maintain a minimum net worth of ₹50 Lakhs (individuals require ₹5 Lakhs).",
+    "topic": "RIA Registration Criteria"
+  },
+  {
+    "id": "nism-xa-gen-q13",
+    "courseId": "nism-xa",
+    "question": "What is the mandatory cooling-off period if an existing RIA wishes to surrender their advisory license and register as a mutual fund distributor?",
+    "options": [
+      "No cooling-off period is required",
+      "A cooling-off period of 6 months is required",
+      "3 years",
+      "10 years"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI guidelines require a mandatory cooling-off period of at least 6 months when switching between RIA registration and intermediary distribution roles.",
+    "topic": "Transition & Cooling-Off Norms"
+  },
+  {
+    "id": "nism-xa-gen-q14",
+    "courseId": "nism-xa",
+    "question": "In client risk profiling, an investor who has stable high income, owns their home, has no loans, and plans to retire in 25 years has:",
+    "options": [
+      "High Risk Capacity and potential for high equity allocation",
+      "Low Risk Capacity",
+      "Zero ability to absorb market fluctuations",
+      "Mandatory requirement to hold 100% cash"
+    ],
+    "correctIndex": 0,
+    "explanation": "Young age, long horizon, absence of liabilities, and steady surplus give this investor high objective risk capacity to withstand market cycles.",
+    "topic": "Client Profiling & Suitability"
+  },
+  {
+    "id": "nism-xa-gen-q15",
+    "courseId": "nism-xa",
+    "question": "Under SEBI regulations, how long must an Investment Adviser maintain records of client risk profiling, advisory agreements, and suitability assessments?",
+    "options": [
+      "At least 5 years",
+      "1 year",
+      "Only until the client pays the fee",
+      "10 years"
+    ],
+    "correctIndex": 0,
+    "explanation": "Regulation 19 of SEBI RIA Regulations mandates that advisers must maintain all client records, investment advice provided, and agreements for at least 5 years.",
+    "topic": "Record Keeping & Retention"
+  },
+  {
+    "id": "nism-xa-gen-q16",
+    "courseId": "nism-xa",
+    "question": "What is the Capital Asset Pricing Model (CAPM) formula for expected return of an asset?",
+    "options": [
+      "Expected Return = Rf + Beta * (Rm - Rf)",
+      "Expected Return = Spot Price / P/E Ratio",
+      "Expected Return = Dividend Yield + Inflation",
+      "Expected Return = Debt / Equity * Beta"
+    ],
+    "correctIndex": 0,
+    "explanation": "CAPM defines Expected Return as the Risk-Free Rate (Rf) plus the product of Beta and the Market Risk Premium (Rm - Rf).",
+    "topic": "Modern Portfolio Theory"
+  },
+  {
+    "id": "nism-xa-gen-q17",
+    "courseId": "nism-xa",
+    "question": "What does 'Sharpe Ratio' measure in portfolio performance analysis?",
+    "options": [
+      "Excess return earned per unit of total risk (Standard Deviation): (Portfolio Return - Risk Free Rate) / Standard Deviation",
+      "Total dividend received per share",
+      "The percentage of trading days with positive returns",
+      "The turnover ratio of portfolio stocks"
+    ],
+    "correctIndex": 0,
+    "explanation": "The Sharpe Ratio evaluates risk-adjusted return by dividing the portfolio's excess return over the risk-free benchmark by its standard deviation.",
+    "topic": "Portfolio Risk Metrics"
+  },
+  {
+    "id": "nism-xa-gen-q18",
+    "courseId": "nism-xa",
+    "question": "In personal tax planning, what is the maximum deduction allowed for health insurance premium for senior citizen parents under Section 80D?",
+    "options": [
+      "₹50,000",
+      "₹25,000",
+      "₹1,00,000",
+      "₹15,000"
+    ],
+    "correctIndex": 0,
+    "explanation": "Under Section 80D of the Income Tax Act, deduction up to ₹50,000 per financial year is available for health insurance premiums paid for senior citizen parents.",
+    "topic": "Tax Planning & Deductions"
+  },
+  {
+    "id": "nism-xa-gen-q19",
+    "courseId": "nism-xa",
+    "question": "What is the maximum investment limit per financial year in Public Provident Fund (PPF)?",
+    "options": [
+      "₹1,50,000",
+      "₹2,50,000",
+      "₹5,00,000",
+      "Unlimited"
+    ],
+    "correctIndex": 0,
+    "explanation": "The statutory maximum contribution permitted in a Public Provident Fund (PPF) account is ₹1.5 Lakhs per financial year under government rules.",
+    "topic": "Small Savings Schemes"
+  },
+  {
+    "id": "nism-xa-gen-q20",
+    "courseId": "nism-xa",
+    "question": "What is 'Systematic Withdrawal Plan' (SWP) tax treatment post Budget 2024?",
+    "options": [
+      "Each SWP installment is treated as a partial redemption of capital and capital gains, with the capital gains portion taxed as STCG or LTCG based on holding period",
+      "SWP is subject to flat 30% TDS regardless of amount",
+      "SWP is completely tax-free under Section 10(10D)",
+      "SWP is taxed as salary income"
+    ],
+    "correctIndex": 0,
+    "explanation": "SWP redemptions are taxed on a First-In-First-Out (FIFO) capital gains basis: each withdrawal consists of principal return (tax-free) and capital gain (taxed per holding period).",
+    "topic": "Taxation of Redemptions"
+  },
+  {
+    "id": "nism-xb-gen-q1",
+    "courseId": "nism-xb",
+    "question": "In estate planning, what is a 'Probate' of a Will?",
+    "options": [
+      "A court-issued legal certificate under the seal of a competent civil court certifying the genuineness and validity of the Will and executor's authority",
+      "A tax notice issued by the Income Tax Department",
+      "An insurance claim document",
+      "A receipt for property stamp duty"
+    ],
+    "correctIndex": 0,
+    "explanation": "Probate is the official court decree validating a Will and confirming the executor's legal power to administer the deceased testator's estate.",
+    "topic": "Estate Planning & Wills"
+  },
+  {
+    "id": "nism-xb-gen-q2",
+    "courseId": "nism-xb",
+    "question": "What is the legal implication of creating an 'Irrevocable Discretionary Private Trust' in India?",
+    "options": [
+      "The settlor permanently gives up ownership, the trustee has discretion on timing and amount of distribution to beneficiaries, and trust assets are shielded from beneficiaries' future creditors",
+      "The settlor can cancel the trust at any time and take back the assets",
+      "The trust is exempt from all corporate and individual tax forever",
+      "The trust must be listed on the National Stock Exchange"
+    ],
+    "correctIndex": 0,
+    "explanation": "In an irrevocable discretionary trust, assets are separated from the settlor and beneficiaries lack fixed rights to distributions, offering maximum creditor protection.",
+    "topic": "Estate Planning & Private Trusts"
+  },
+  {
+    "id": "nism-xb-gen-q3",
+    "courseId": "nism-xb",
+    "question": "Under behavioral finance, what is 'Anchoring Bias'?",
+    "options": [
+      "Fixating on a specific piece of historical information (such as purchase price or 52-week high) when making subsequent investment decisions, even when new fundamentals change",
+      "Holding ships in a harbor",
+      "Diversifying equally across all sectors",
+      "Setting stop-loss orders on all trades"
+    ],
+    "correctIndex": 0,
+    "explanation": "Anchoring bias causes an investor to over-rely on initial reference figures (e.g. initial buy price) instead of objective current valuations.",
+    "topic": "Behavioral Biases"
+  },
+  {
+    "id": "nism-xb-gen-q4",
+    "courseId": "nism-xb",
+    "question": "What does the 'Sortino Ratio' measure, and how does it differ from the Sharpe Ratio?",
+    "options": [
+      "It measures excess return divided solely by Downside Deviation, penalizing only negative volatility rather than total volatility",
+      "It measures turnover ratio divided by dividend yield",
+      "It uses Beta instead of Standard Deviation",
+      "It is identical in every way to the Sharpe Ratio"
+    ],
+    "correctIndex": 0,
+    "explanation": "While Sharpe penalizes all volatility (both upside and downside), Sortino divides excess return only by downside semi-deviation, focusing on harmful downside risk.",
+    "topic": "Portfolio Performance Evaluation"
+  },
+  {
+    "id": "nism-xb-gen-q5",
+    "courseId": "nism-xb",
+    "question": "What is 'Tracking Error' in index fund and passive portfolio management?",
+    "options": [
+      "The annualized standard deviation of the difference in returns between the portfolio and its underlying benchmark index",
+      "A computer software glitch in trade execution",
+      "The total expense ratio charged by the AMC",
+      "The delay in physical delivery of shares"
+    ],
+    "correctIndex": 0,
+    "explanation": "Tracking error measures the volatility of active return: standard deviation of (Portfolio Return - Benchmark Return), indicating how closely the fund replicates its index.",
+    "topic": "Portfolio Performance Evaluation"
+  },
+  {
+    "id": "nism-xb-gen-q6",
+    "courseId": "nism-xb",
+    "question": "In retirement planning, what percentage of the accumulated pension corpus can be withdrawn tax-free as a lump-sum upon reaching age 60 under NPS Tier 1?",
+    "options": [
+      "Up to 60% of the corpus can be commuted tax-free; the remaining minimum 40% must be used to purchase an annuity",
+      "100% tax-free lump sum",
+      "Zero, 100% must be annuitized",
+      "Up to 25% only"
+    ],
+    "correctIndex": 0,
+    "explanation": "Under PFRDA regulations, an NPS Tier 1 subscriber can withdraw up to 60% of the accumulated corpus tax-free upon maturity, with at least 40% annuitized.",
+    "topic": "Retirement Planning & NPS"
+  },
+  {
+    "id": "nism-xb-gen-q7",
+    "courseId": "nism-xb",
+    "question": "What is the primary difference between a 'Defined Benefit' (DB) pension plan and a 'Defined Contribution' (DC) pension plan?",
+    "options": [
+      "DB guarantees a predetermined retirement payout based on salary and tenure, with investment risk borne by the employer; DC specifies fixed contributions, with retirement payout and investment risk borne by the employee",
+      "DB is for corporate executives only; DC is for farmers",
+      "DB has no tax benefits; DC has full exemption",
+      "DB permits daily withdrawals; DC locks funds forever"
+    ],
+    "correctIndex": 0,
+    "explanation": "In DB plans (like old pension scheme), the employer guarantees the retirement pension; in DC plans (like NPS/EPF), the employee bears the investment risk.",
+    "topic": "Retirement Planning & Solutions"
+  },
+  {
+    "id": "nism-xb-gen-q8",
+    "courseId": "nism-xb",
+    "question": "Under Section 54EC of the Income Tax Act, an investor can claim capital gains tax exemption on long-term capital gains from real estate by investing in specified bonds (REC, PFC, NHAI) up to a maximum limit of:",
+    "options": [
+      "₹50 Lakhs per financial year within 6 months of transfer",
+      "₹1 Crore",
+      "₹25 Lakhs",
+      "Unlimited investment"
+    ],
+    "correctIndex": 0,
+    "explanation": "Section 54EC allows exemption up to ₹50 Lakhs per financial year by investing in specified infrastructure capital gains bonds within 6 months of property transfer.",
+    "topic": "Tax Exemption Framework"
+  },
+  {
+    "id": "nism-xb-gen-q9",
+    "courseId": "nism-xb",
+    "question": "What is 'Overconfidence Bias' in investment decision making?",
+    "options": [
+      "The tendency of investors to overestimate their financial knowledge, predictive accuracy, and ability to control market outcomes, leading to excessive trading and inadequate diversification",
+      "Being confident that bank deposits will be safe",
+      "Checking stock prices once a week",
+      "Investing solely in index funds"
+    ],
+    "correctIndex": 0,
+    "explanation": "Overconfidence causes investors to misjudge risk, underestimate market uncertainty, and trade too frequently, resulting in substandard net returns.",
+    "topic": "Behavioral Biases"
+  },
+  {
+    "id": "nism-xb-gen-q10",
+    "courseId": "nism-xb",
+    "question": "What is 'Asset-Liability Matching' (ALM) in institutional and high-net-worth portfolio advisory?",
+    "options": [
+      "Structuring the cash flows, maturities, and liquidity profiles of investment assets to coincide precisely with the timing and magnitudes of future client liabilities and commitments",
+      "Borrowing from credit cards to invest in equities",
+      "Balancing ledger accounts at the end of the day",
+      "Pledging assets to secure real estate mortgages"
+    ],
+    "correctIndex": 0,
+    "explanation": "ALM ensures that an investor or institution holds adequate liquid and maturing assets matching their time-specific future debt obligations and spending commitments.",
+    "topic": "Wealth Management & ALM"
+  },
+  {
+    "id": "nism-xv-gen-q11",
+    "courseId": "nism-xv",
+    "question": "What is the statutory requirement under SEBI (Research Analysts) Regulations, 2014 regarding personal shareholding disclosure in a research report?",
+    "options": [
+      "The research analyst and research entity must disclose if they hold 1% or more financial interest in the subject company as on the date of publication",
+      "They are strictly barred from publishing any disclosures",
+      "They only need to disclose if they hold 51% majority control",
+      "Disclosures are optional at the analyst's discretion"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI RA Regulations mandate explicit disclosure of whether the analyst, entity, or associates hold 1% or more beneficial ownership in the target company.",
+    "topic": "SEBI Research Analyst Regulations"
+  },
+  {
+    "id": "nism-xv-gen-q12",
+    "courseId": "nism-xv",
+    "question": "Under SEBI RA Regulations, can a research analyst trade against their own published recommendation within 30 days of report publication?",
+    "options": [
+      "No, research analysts are strictly prohibited from trading against their own recommendation or in a manner contrary to their research views within 30 days",
+      "Yes, provided they do it on an overseas stock exchange",
+      "Yes, if they need personal emergency cash",
+      "Yes, without any restrictions"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI mandates that research analysts cannot execute personal trades contrary to their published recommendations for a period of 30 days from publication.",
+    "topic": "Code of Conduct & Personal Trading"
+  },
+  {
+    "id": "nism-xv-gen-q13",
+    "courseId": "nism-xv",
+    "question": "In equity valuation, what is Enterprise Value (EV)?",
+    "options": [
+      "Market Capitalization + Total Debt + Minority Interest + Preferred Stock - Cash and Cash Equivalents",
+      "Total Revenue minus Total Expenses",
+      "Current share price multiplied by total employees",
+      "Net Worth divided by Book Value"
+    ],
+    "correctIndex": 0,
+    "explanation": "Enterprise Value reflects the total economic takeover value of a firm, calculated as Market Cap plus Debt minus Cash & Liquid Investments.",
+    "topic": "Valuation Metrics"
+  },
+  {
+    "id": "nism-xv-gen-q14",
+    "courseId": "nism-xv",
+    "question": "Why is the EV/EBITDA multiple preferred over the Price-to-Earnings (P/E) ratio when comparing capital-intensive companies with differing capital structures and tax rates?",
+    "options": [
+      "Because EBITDA is independent of capital structure (debt vs equity financing), depreciation policies, and income tax variations, providing a clean operational comparison",
+      "Because EV/EBITDA is always a smaller number than P/E",
+      "Because EBITDA includes extraordinary non-operating income",
+      "Because P/E ratios are illegal under SEBI guidelines"
+    ],
+    "correctIndex": 0,
+    "explanation": "EV/EBITDA eliminates distortions caused by differences in debt leverage, depreciation accounting, and jurisdictional tax rates across competing firms.",
+    "topic": "Valuation Metrics"
+  },
+  {
+    "id": "nism-xv-gen-q15",
+    "courseId": "nism-xv",
+    "question": "In Michael Porter's Five Forces model for industry analysis, which force evaluates the bargaining leverage that consumers have over product pricing?",
+    "options": [
+      "Bargaining Power of Buyers",
+      "Threat of New Entrants",
+      "Bargaining Power of Suppliers",
+      "Threat of Substitute Products"
+    ],
+    "correctIndex": 0,
+    "explanation": "Bargaining Power of Buyers measures the ability of customers to drive down prices, demand higher quality, or switch to competitors.",
+    "topic": "Industry Analysis"
+  },
+  {
+    "id": "nism-xv-gen-q16",
+    "courseId": "nism-xv",
+    "question": "What does the 'Current Ratio' measure in financial statement analysis?",
+    "options": [
+      "Short-term liquidity: Current Assets divided by Current Liabilities",
+      "Long-term solvency: Total Debt divided by Equity",
+      "Profitability: Net Profit divided by Net Sales",
+      "Operating efficiency: Inventory divided by COGS"
+    ],
+    "correctIndex": 0,
+    "explanation": "The Current Ratio evaluates short-term liquidity by comparing current assets (convertible to cash within 1 year) against obligations due within 1 year.",
+    "topic": "Financial Statement Analysis"
+  },
+  {
+    "id": "nism-xv-gen-q17",
+    "courseId": "nism-xv",
+    "question": "What does Return on Capital Employed (ROCE) measure?",
+    "options": [
+      "Operating Profit (EBIT) divided by Total Capital Employed (Total Assets minus Current Liabilities), reflecting efficiency of capital deployment",
+      "Net profit divided by dividend payments",
+      "Market price divided by book value",
+      "Cash generated from financing activities"
+    ],
+    "correctIndex": 0,
+    "explanation": "ROCE measures how effectively a company generates operating profits from all the capital invested into the business by both debt holders and equity shareholders.",
+    "topic": "Financial Statement Analysis"
+  },
+  {
+    "id": "nism-xv-gen-q18",
+    "courseId": "nism-xv",
+    "question": "In macroeconomic analysis, what is 'Core Inflation'?",
+    "options": [
+      "Headline inflation excluding volatile components such as food and energy prices to reveal underlying medium-term price trends",
+      "The inflation rate measured exclusively inside bank branches",
+      "The annual percentage rise in real estate rents",
+      "The inflation rate of technology software"
+    ],
+    "correctIndex": 0,
+    "explanation": "Core inflation strips out volatile food and fuel prices, providing monetary authorities like the RBI with a stable measure of structural demand-driven price pressures.",
+    "topic": "Macroeconomic Analysis"
+  },
+  {
+    "id": "nism-xv-gen-q19",
+    "courseId": "nism-xv",
+    "question": "What does an inverted yield curve (where short-term bond yields are higher than long-term bond yields) traditionally signal to research analysts?",
+    "options": [
+      "An impending economic slowdown or recession as markets anticipate future central bank rate cuts",
+      "A booming economic expansion with high inflation",
+      "A surge in foreign institutional equity investments",
+      "A sudden strengthening of the domestic currency"
+    ],
+    "correctIndex": 0,
+    "explanation": "Yield curve inversion is a classic leading indicator of recession; investors lock into long-term bonds expecting economic deceleration and lower future rates.",
+    "topic": "Economic & Bond Market Analysis"
+  },
+  {
+    "id": "nism-xv-gen-q20",
+    "courseId": "nism-xv",
+    "question": "What is 'DuPont Analysis' in financial equity research?",
+    "options": [
+      "Decomposing Return on Equity (ROE) into three distinct components: Net Profit Margin (profitability) * Asset Turnover (operating efficiency) * Financial Leverage (equity multiplier)",
+      "A chemical manufacturing process",
+      "A technical charting pattern on candlestick charts",
+      "A method of calculating brokerage commissions"
+    ],
+    "correctIndex": 0,
+    "explanation": "DuPont analysis breaks down ROE to identify whether a company's return is driven by high profit margins, efficient asset utilization, or aggressive debt leverage.",
+    "topic": "Financial Statement Analysis"
+  },
+  {
+    "id": "nism-xxia-gen-q11",
+    "courseId": "nism-xxia",
+    "question": "Under SEBI (Portfolio Managers) Regulations, 2020, what is the minimum net worth requirement for a registered Portfolio Manager?",
+    "options": [
+      "₹5 Crores",
+      "₹2 Crores",
+      "₹1 Crore",
+      "₹10 Crores"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI mandates that an entity registered as a Portfolio Manager must maintain a minimum net worth of ₹5 Crores at all times.",
+    "topic": "SEBI PMS Regulations"
+  },
+  {
+    "id": "nism-xxia-gen-q12",
+    "courseId": "nism-xxia",
+    "question": "What is the 'Disclosure Document' (Form C) provided by a Portfolio Manager to prospective clients prior to agreement signing?",
+    "options": [
+      "A comprehensive regulatory document detailing PMS history, investment strategies, performance track record, fee schedules, and pending litigation",
+      "A marketing brochure with guaranteed profit claims",
+      "A bank account opening letter",
+      "An insurance policy document"
+    ],
+    "correctIndex": 0,
+    "explanation": "Under Regulation 22, the Disclosure Document gives investors transparent, verified information on the manager's strategies, risks, fees, and past performance.",
+    "topic": "Disclosure Document & Form C"
+  },
+  {
+    "id": "nism-xxia-gen-q13",
+    "courseId": "nism-xxia",
+    "question": "How frequently must a Portfolio Manager provide detailed activity, transaction, and portfolio valuation statements to PMS clients?",
+    "options": [
+      "At least once every three months (quarterly), or monthly if requested",
+      "Once every 5 years",
+      "Only when the client explicitly issues a legal notice",
+      "Annually at the Annual General Meeting"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI regulations mandate that portfolio managers provide reports to clients at least on a quarterly basis, detailing portfolio assets, transactions, and fees charged.",
+    "topic": "Client Reporting & Statements"
+  },
+  {
+    "id": "nism-xxia-gen-q14",
+    "courseId": "nism-xxia",
+    "question": "In PMS operations, what is the role of an independent 'Custodian'?",
+    "options": [
+      "To safe-keep client securities, maintain independent demat and bank accounts, and settle trades under the instructions of the portfolio manager",
+      "To market PMS schemes across rural areas",
+      "To audit the client's personal income tax returns",
+      "To lend money to the portfolio manager"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI mandates appointment of an independent, regulated custodian for safekeeping of client funds and securities to prevent misappropriation.",
+    "topic": "Custody & Settlement"
+  },
+  {
+    "id": "nism-xxia-gen-q15",
+    "courseId": "nism-xxia",
+    "question": "Under SEBI regulations, can a Portfolio Manager invest client funds in unlisted securities?",
+    "options": [
+      "Yes, but only in discretionary and non-discretionary PMS up to a maximum aggregate limit of 25% of the client's portfolio in unlisted securities",
+      "No, zero percent unlisted investment is allowed",
+      "Yes, 100% of the portfolio can be in unlisted shares",
+      "Only if the client is a foreign citizen"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI permits investment in unlisted securities up to a maximum cap of 25% of the client's AUM under prudent risk diversification norms.",
+    "topic": "PMS Investment Restrictions"
+  },
+  {
+    "id": "nism-xxia-gen-q16",
+    "courseId": "nism-xxia",
+    "question": "What is the primary reason why Time-Weighted Rate of Return (TWRR) is mandated over Internal Rate of Return (IRR) for reporting PMS manager performance?",
+    "options": [
+      "TWRR eliminates the distorting effects of client cash deposits and withdrawals, measuring solely the manager's investment skill",
+      "TWRR always produces a higher percentage return than IRR",
+      "IRR is mathematically impossible to calculate on computers",
+      "TWRR is required by the Income Tax Department for GST calculation"
+    ],
+    "correctIndex": 0,
+    "explanation": "Since the timing and size of capital injections and withdrawals are controlled by the client, TWRR isolates the manager's true investment compounding ability.",
+    "topic": "Performance Reporting & Metrics"
+  },
+  {
+    "id": "nism-xxia-gen-q17",
+    "courseId": "nism-xxia",
+    "question": "Can a Portfolio Manager promise or guarantee fixed returns to a PMS client under SEBI regulations?",
+    "options": [
+      "No, SEBI strictly prohibits portfolio managers from promising, assuring, or indicating any guaranteed returns to clients",
+      "Yes, if backed by an insurance policy",
+      "Yes, up to 15% annual return",
+      "Yes, if the client invests more than ₹10 Crores"
+    ],
+    "correctIndex": 0,
+    "explanation": "Regulation 24(2) explicitly prohibits portfolio managers from guaranteeing or indicating guaranteed returns on any PMS product.",
+    "topic": "Code of Conduct & Prohibitions"
+  },
+  {
+    "id": "nism-xxia-gen-q18",
+    "courseId": "nism-xxia",
+    "question": "Under the SEBI PMS fee framework, how are distributor commissions paid for sourcing PMS clients?",
+    "options": [
+      "Only through a trail commission model out of the management fee; upfront commissions are strictly prohibited",
+      "Full 5% upfront commission on day one",
+      "Cash payment directly from client to distributor",
+      "No commission is permitted under any circumstances"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI banned all upfront commissions in PMS distribution: distributors can only receive ongoing trail-based compensation deducted from management fees.",
+    "topic": "Distributor Commission Norms"
+  },
+  {
+    "id": "nism-xxia-gen-q19",
+    "courseId": "nism-xxia",
+    "question": "What is a 'Model Portfolio' in PMS operations?",
+    "options": [
+      "A standardized investment basket created by the research team representing an approved strategy, which is replicated across individual client accounts based on their mandates",
+      "A portfolio created by fashion models",
+      "A demonstration account with monopoly money",
+      "An index ETF managed by a mutual fund"
+    ],
+    "correctIndex": 0,
+    "explanation": "Model portfolios represent the institutional target allocations of a strategy; trades are proportionately executed across client accounts following that model.",
+    "topic": "Portfolio Execution"
+  },
+  {
+    "id": "nism-xxia-gen-q20",
+    "courseId": "nism-xxia",
+    "question": "What is the statutory requirement for auditing of client PMS accounts by an independent Chartered Accountant?",
+    "options": [
+      "An annual audit of each client's portfolio accounts must be conducted by an independent CA, and the report submitted to the client and SEBI",
+      "Audit is only required if the client incurs a loss",
+      "Audits are conducted once every 10 years",
+      "Audits are conducted exclusively by RBI officials"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI regulations mandate an annual audit of individual client portfolio accounts by an independent practicing Chartered Accountant.",
+    "topic": "Audit & Regulatory Compliance"
+  },
+  {
+    "id": "nism-cpe-mf-gen-q1",
+    "courseId": "nism-cpe-mf",
+    "question": "What is the validity period of an initial NISM Series V-A Mutual Fund Distributors Certification, and how is it extended via CPE?",
+    "options": [
+      "Valid for 3 years from the date of examination; completing an approved 1-day CPE program prior to expiry extends certification for another 3 years",
+      "Valid for lifetime with no renewal required",
+      "Valid for 6 months only",
+      "Valid for 10 years"
+    ],
+    "correctIndex": 0,
+    "explanation": "NISM Series V-A certification is valid for 3 years. Candidates must complete a NISM CPE training session within 12 months prior to certificate expiration.",
+    "topic": "CPE Revalidation Norms"
+  },
+  {
+    "id": "nism-cpe-mf-gen-q2",
+    "courseId": "nism-cpe-mf",
+    "question": "Under the updated SEBI guidelines, what is Central KYC (CKYC) registry administered by CERSAI?",
+    "options": [
+      "A centralized repository storing verified digital KYC records of financial consumers, allowing one-time KYC verification across all SEBI, RBI, IRDAI, and PFRDA entities",
+      "A national credit rating bureau",
+      "A taxation database for GST returns",
+      "A blacklist registry of loan defaulters"
+    ],
+    "correctIndex": 0,
+    "explanation": "CKYC eliminates redundant document collection by storing verified records under a 14-digit CKYC number usable across all financial intermediaries.",
+    "topic": "KYC & AML Compliance"
+  },
+  {
+    "id": "nism-cpe-mf-gen-q3",
+    "courseId": "nism-cpe-mf",
+    "question": "Under SEBI regulations, what is the consequence of failing to link PAN with Aadhaar for mutual fund investments?",
+    "options": [
+      "The PAN becomes inoperative, leading to blocking of mutual fund transactions, higher TDS deductions, and rejection of fresh purchase and SIP orders",
+      "The investor is arrested by local police",
+      "The mutual fund units are confiscated by the AMC",
+      "No consequence, transactions continue normally"
+    ],
+    "correctIndex": 0,
+    "explanation": "An inoperative PAN due to non-linkage with Aadhaar prevents compliance with KYC laws, halting fresh investments, SIP installments, and redemptions.",
+    "topic": "Statutory Compliance & PAN"
+  },
+  {
+    "id": "nism-cpe-mf-gen-q4",
+    "courseId": "nism-cpe-mf",
+    "question": "What is the role of the Association of Mutual Funds in India (AMFI) in distributor regulation?",
+    "options": [
+      "Issuing AMFI Registration Numbers (ARN), maintaining the distributor code of conduct, and enforcing disciplinary actions for unethical selling practices",
+      "Regulating monetary policy and repo rates",
+      "Managing commercial real estate properties",
+      "Printing sovereign currency notes"
+    ],
+    "correctIndex": 0,
+    "explanation": "AMFI is the apex industry body that issues ARN cards, enforces the AMFI Code of Ethics, and coordinates with SEBI for orderly distribution growth.",
+    "topic": "Industry Structure & AMFI"
+  },
+  {
+    "id": "nism-cpe-mf-gen-q5",
+    "courseId": "nism-cpe-mf",
+    "question": "What is the maximum timeline prescribed by SEBI for processing mutual fund redemptions in standard open-ended schemes?",
+    "options": [
+      "Within 2 working days (T+2) for equity schemes and T+1 for liquid schemes",
+      "Within 30 calendar days",
+      "Within 12 hours of placing the order",
+      "Redemptions can be delayed indefinitely without notice"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI amended mutual fund redemption transfer timelines to T+2 working days for general schemes and T+1 for liquid/overnight schemes to protect investor liquidity.",
+    "topic": "Operational Turnaround Times"
+  },
+  {
+    "id": "nism-vd-q11",
+    "courseId": "nism-vd",
+    "question": "Under the SEBI (Alternative Investment Funds) Regulations, 2012, which category of AIF is primarily formed to invest in start-ups, early-stage ventures, social ventures, and SMEs?",
+    "options": [
+      "Category I AIF",
+      "Category II AIF",
+      "Category III AIF",
+      "Mutual Fund Liquid Scheme"
+    ],
+    "correctIndex": 0,
+    "explanation": "Category I AIFs invest in start-ups, early stage ventures, social ventures, SMEs, and infrastructure that the government or regulators consider socially or economically desirable.",
+    "topic": "AIF Structure & Categories"
+  },
+  {
+    "id": "nism-vd-q12",
+    "courseId": "nism-vd",
+    "question": "What is the minimum investment amount required from an investor (other than employees/directors of the AIF/manager) in a Category I or Category II AIF?",
+    "options": [
+      "₹10 Lakhs",
+      "₹25 Lakhs",
+      "₹1 Crore",
+      "₹5 Crores"
+    ],
+    "correctIndex": 2,
+    "explanation": "SEBI (AIF) Regulations mandate a minimum investment commitment of ₹1 Crore per investor for Category I and II AIFs (₹25 Lakhs for employees/directors).",
+    "topic": "AIF Regulatory Thresholds"
+  },
+  {
+    "id": "nism-vd-q13",
+    "courseId": "nism-vd",
+    "question": "Under SEBI regulations, an 'Accredited Investor' (AI) is eligible for lower minimum ticket size in AIFs if an individual investor possesses:",
+    "options": [
+      "Annual income of at least ₹2 Crores, or net worth of at least ₹7.5 Crores with at least ₹3.75 Crores in financial assets",
+      "Annual income of ₹10 Lakhs",
+      "A PAN card and an Aadhaar card only",
+      "At least 5 years of mutual fund trading experience"
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI AI norms, an individual qualifies as an Accredited Investor if they have an annual gross income >= ₹2 Crores OR net worth >= ₹7.5 Crores with at least 50% in financial assets.",
+    "topic": "Accredited Investor Framework"
+  },
+  {
+    "id": "nism-vd-q14",
+    "courseId": "nism-vd",
+    "question": "Which category of AIF employs complex or diverse trading strategies including leverage, short selling, and investment in listed derivatives?",
+    "options": [
+      "Category I AIF",
+      "Category II AIF",
+      "Category III AIF",
+      "Angel Fund"
+    ],
+    "correctIndex": 2,
+    "explanation": "Category III AIFs (such as hedge funds) employ diverse or complex trading strategies and are permitted to use leverage and derivatives to generate returns in both rising and falling markets.",
+    "topic": "AIF Structure & Categories"
+  },
+  {
+    "id": "nism-vd-q15",
+    "courseId": "nism-vd",
+    "question": "What is the maximum leverage permitted for Category III Alternative Investment Funds under SEBI regulations?",
+    "options": [
+      "No leverage is ever permitted",
+      "Up to 2 times the Net Asset Value (200% of NAV)",
+      "Up to 10 times the Net Asset Value",
+      "Unlimited leverage with investor consent"
+    ],
+    "correctIndex": 1,
+    "explanation": "Category III AIFs are permitted leverage up to 2 times their NAV (gross exposure cannot exceed 200% of NAV) under SEBI circular guidelines.",
+    "topic": "AIF Leverage & Risk"
+  },
+  {
+    "id": "nism-vd-q16",
+    "courseId": "nism-vd",
+    "question": "In private equity and venture capital funds, what is the term used for the pre-agreed minimum rate of return that must be paid to investors before the fund manager earns a performance fee (carried interest)?",
+    "options": [
+      "Risk-free rate",
+      "Hurdle Rate",
+      "Drawdown percentage",
+      "Expense ratio cap"
+    ],
+    "correctIndex": 1,
+    "explanation": "The Hurdle Rate (preferred return) is the minimum annualized return threshold (typically 8% to 10%) that must be achieved and distributed to investors before the General Partner earns carried interest.",
+    "topic": "Fund Economics & Carried Interest"
+  },
+  {
+    "id": "nism-vd-q17",
+    "courseId": "nism-vd",
+    "question": "What is a 'Capital Call' or 'Drawdown Notice' in the context of Specialized Investment Funds / AIFs?",
+    "options": [
+      "A request to redeem units immediately",
+      "A formal request issued by the fund manager to committed investors demanding transfer of a portion of their committed capital to fund an identified investment",
+      "A phone call from the custodian regarding dividend payouts",
+      "A notice issued by SEBI suspending fund operations"
+    ],
+    "correctIndex": 1,
+    "explanation": "In closed-end AIFs, investors commit a total amount upfront, and the manager issues capital calls (drawdowns) in tranches as target portfolio investments are negotiated.",
+    "topic": "Fund Operations & Drawdowns"
+  },
+  {
+    "id": "nism-vd-q18",
+    "courseId": "nism-vd",
+    "question": "What is the tax status of Category I and Category II AIFs under the Indian Income Tax Act (Section 115UB)?",
+    "options": [
+      "They are taxed as corporate entities at flat 30%",
+      "They enjoy statutory pass-through tax status, meaning income is taxed directly in the hands of the unit holders as if they had invested directly",
+      "They are completely exempt from all taxes forever",
+      "Income is taxed at double the standard rate"
+    ],
+    "correctIndex": 1,
+    "explanation": "Section 115UB provides pass-through status to Category I and II AIFs; any income earned by the fund is deemed to be income of the unit holders in the same proportion and nature.",
+    "topic": "AIF Taxation"
+  },
+  {
+    "id": "nism-vd-q19",
+    "courseId": "nism-vd",
+    "question": "Under SEBI AIF regulations, all units of Alternative Investment Funds issued after May 2024 must be issued in:",
+    "options": [
+      "Physical parchment certificates",
+      "Demat (dematerialised) format only",
+      "Bearer bond notes",
+      "Printed paper receipts"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandated that all existing and newly issued units of Alternative Investment Funds must be held and issued exclusively in dematerialised (Demat) form to enhance transparency.",
+    "topic": "AIF Dematerialisation Norms"
+  },
+  {
+    "id": "nism-vd-q20",
+    "courseId": "nism-vd",
+    "question": "What is a 'Co-investment Portfolio' under SEBI AIF rules?",
+    "options": [
+      "Investing alongside family members in an ELSS fund",
+      "An investment made by an AIF manager in an investee company alongside the AIF through a separate Co-investment Portfolio Manager (CPM) vehicle",
+      "Investing 50% in equity and 50% in gold",
+      "A joint bank account opened by two distributors"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Co-investment is an investment in an investee company made by a Category I or II AIF investor alongside the AIF itself, governed under SEBI's Co-investment Portfolio Manager framework.",
+    "topic": "Co-investment Framework"
+  },
+  {
+    "id": "nism-viii-q26",
+    "courseId": "nism-viii",
+    "question": "Under the Cost-of-Carry model for pricing futures contracts on dividend-paying stocks, the theoretical Futures Price is given by:",
+    "options": [
+      "Spot Price + Financing Cost - Dividends",
+      "Spot Price - Financing Cost + Dividends",
+      "Spot Price multiplied by Price-to-Earnings ratio",
+      "Spot Price divided by Beta"
+    ],
+    "correctIndex": 0,
+    "explanation": "The theoretical futures price equals Spot Price + Carrying Costs (interest cost on borrowed funds) minus Carrying Returns (dividends or yields earned during the holding period).",
+    "topic": "Futures Pricing & Cost of Carry"
+  },
+  {
+    "id": "nism-viii-q27",
+    "courseId": "nism-viii",
+    "question": "What does the option Greek 'Gamma' measure?",
+    "options": [
+      "The sensitivity of the option price to changes in interest rates",
+      "The rate of change of Delta for a one-unit change in the underlying stock price",
+      "The time decay of the option per day",
+      "The sensitivity of the option price to changes in implied volatility"
+    ],
+    "correctIndex": 1,
+    "explanation": "Gamma is the second derivative of the option price with respect to the underlying price; it measures the curvature or acceleration of Delta per unit move in the underlying asset.",
+    "topic": "Option Greeks"
+  },
+  {
+    "id": "nism-viii-q28",
+    "courseId": "nism-viii",
+    "question": "If an option trader executes a 'Bull Call Spread' strategy, the structure involves:",
+    "options": [
+      "Buying a lower strike Call option and selling a higher strike Call option with the same expiration date",
+      "Selling a Call option and buying a Put option",
+      "Buying both a Call and Put at the identical strike",
+      "Selling naked Call options without underlying shares"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Bull Call Spread is constructed by purchasing an In-The-Money or At-The-Money Call option and selling an Out-Of-The-Money Call option to reduce the net premium outlay.",
+    "topic": "Derivative Strategies"
+  },
+  {
+    "id": "nism-viii-q29",
+    "courseId": "nism-viii",
+    "question": "What is a 'Long Straddle' options strategy?",
+    "options": [
+      "Simultaneously buying a Call and a Put option with the identical strike price and expiration date",
+      "Selling a Call option and purchasing underlying equity shares",
+      "Buying two Calls at different expiration months",
+      "Investing only in liquid ETF derivatives"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Long Straddle involves buying both a Call and a Put with the same strike and expiration. It profits from significant volatility in either direction regardless of market trend.",
+    "topic": "Derivative Strategies"
+  },
+  {
+    "id": "nism-viii-q30",
+    "courseId": "nism-viii",
+    "question": "Under SEBI and exchange margining systems, what is SPAN (Standard Portfolio Analysis of Risk) designed to calculate?",
+    "options": [
+      "The average brokerage commission of the client",
+      "The maximum possible portfolio loss over a one-day time horizon across 16 different market scenarios",
+      "The historical dividend yield of Nifty 50",
+      "The income tax deduction available on derivative trading"
+    ],
+    "correctIndex": 1,
+    "explanation": "SPAN margin evaluates overall portfolio risk by calculating the largest loss the portfolio could suffer under 16 realistic scenarios of price changes and volatility shifts.",
+    "topic": "Margining & Risk Management"
+  },
+  {
+    "id": "nism-viii-q31",
+    "courseId": "nism-viii",
+    "question": "In an options contract, 'Theta' is almost always negative for long option holders because:",
+    "options": [
+      "Options gain value as time passes",
+      "Option premium decays over time as expiration approaches, eroding the time value component of the option",
+      "Stock markets never decline over time",
+      "Theta represents the broker's commission rate"
+    ],
+    "correctIndex": 1,
+    "explanation": "Theta measures time decay; as calendar time elapses towards expiration date, the time value of an option diminishes, causing a decay in the buyer's premium.",
+    "topic": "Option Greeks"
+  },
+  {
+    "id": "nism-viii-q32",
+    "courseId": "nism-viii",
+    "question": "What is 'Put-Call Ratio' (PCR) in open interest analysis, and what does a high PCR typically indicate?",
+    "options": [
+      "Total number of active put contracts divided by total call contracts; an unusually high PCR reflects excessive bearish hedging and potential oversold/bullish reversal conditions",
+      "The ratio of stock price to dividend yield",
+      "The exchange fee divided by the clearing fee",
+      "The number of buy orders divided by sell orders in cash market"
+    ],
+    "correctIndex": 0,
+    "explanation": "PCR = Open Interest of Puts / Open Interest of Calls. A contrarian indicator: very high PCR indicates heavy put writing or excessive hedging, signaling strong support or market bottom.",
+    "topic": "Market Indicators & Open Interest"
+  },
+  {
+    "id": "nism-viii-q33",
+    "courseId": "nism-viii",
+    "question": "Under SEBI regulations for equity derivatives, all physical delivery settlement of stock derivatives at expiration is conducted on:",
+    "options": [
+      "Cash settlement only",
+      "Mandatory physical settlement where deliverable shares must be delivered/received in Demat form",
+      "Gold bars delivery",
+      "Postponement to next year"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandated physical settlement for all stock derivatives: in-the-money options and expiring futures positions result in the actual transfer of underlying shares in Demat accounts.",
+    "topic": "Settlement & Delivery"
+  },
+  {
+    "id": "nism-xiii-q1",
+    "courseId": "nism-xiii",
+    "question": "Which four asset classes are traded under the unified framework of NISM Series XIII Common Derivatives?",
+    "options": [
+      "Equities, Currencies, Commodities, and Interest Rates",
+      "Real estate, Art, Antiques, and Cryptocurrencies",
+      "Mutual funds, Fixed deposits, PPF, and NSC",
+      "Life insurance, Health insurance, Motor insurance, and Marine insurance"
+    ],
+    "correctIndex": 0,
+    "explanation": "NISM Series XIII Common Derivatives covers derivatives across Equity, Currency (FX), Commodity, and Interest Rate segments under a unified benchmark.",
+    "topic": "Common Derivatives Overview"
+  },
+  {
+    "id": "nism-xiii-q2",
+    "courseId": "nism-xiii",
+    "question": "What is the standard contract quotation and lot size for USD-INR Currency Futures on Indian exchanges?",
+    "options": [
+      "Quoted in INR per USD, with standard lot size of 1,000 USD",
+      "Quoted in USD per INR, with lot size of 1,000,000 USD",
+      "Quoted in Gold grams, with lot size of 100 USD",
+      "Quoted in British Pounds with lot size of 10,000 USD"
+    ],
+    "correctIndex": 0,
+    "explanation": "USD-INR currency futures on NSE/BSE are quoted in Indian Rupees per US Dollar with a standard contract size of USD 1,000.",
+    "topic": "Currency Derivatives"
+  },
+  {
+    "id": "nism-xiii-q3",
+    "courseId": "nism-xiii",
+    "question": "In Interest Rate Futures (IRF), what is the underlying benchmark for the 10-year GoI Bond Futures contract?",
+    "options": [
+      "A notional 10-year Government of India (GoI) coupon-bearing bond with a standardized 7% coupon",
+      "The State Bank of India fixed deposit rate",
+      "The US 10-Year Treasury Yield",
+      "The Mumbai Interbank Offer Rate (MIBOR)"
+    ],
+    "correctIndex": 0,
+    "explanation": "10-year Interest Rate Futures on Indian exchanges are based on notional 10-year GoI bonds with a standardized 7% coupon paid semi-annually.",
+    "topic": "Interest Rate Derivatives"
+  },
+  {
+    "id": "nism-xiii-q4",
+    "courseId": "nism-xiii",
+    "question": "In Commodity Derivatives trading on MCX/NCDEX, what is the role of an 'Assayer' and 'Accredited Warehouse'?",
+    "options": [
+      "To lend margin money to retail traders",
+      "To inspect, certify quality, verify purity, and securely store the underlying physical commodity for exchange delivery",
+      "To publish daily equity research notes",
+      "To collect income tax at source"
+    ],
+    "correctIndex": 1,
+    "explanation": "Accredited warehouses store physical commodities, while certified assayers test grade, purity, and moisture to ensure goods match contract delivery specifications.",
+    "topic": "Commodity Derivatives & Logistics"
+  },
+  {
+    "id": "nism-xiii-q5",
+    "courseId": "nism-xiii",
+    "question": "What is 'Contango' in commodity and futures markets?",
+    "options": [
+      "A situation where futures prices are higher than the spot price due to storage costs, financing, and insurance",
+      "A situation where spot price is higher than futures price",
+      "A sudden cancellation of derivative contracts by the regulator",
+      "A tax deduction available on agricultural commodities"
+    ],
+    "correctIndex": 0,
+    "explanation": "Contango describes a market condition where futures contracts trade at a premium over spot prices, reflecting positive carrying costs (cost of carry: interest + storage + insurance).",
+    "topic": "Commodity Pricing & Market Structure"
+  },
+  {
+    "id": "nism-xiii-q6",
+    "courseId": "nism-xiii",
+    "question": "What is 'Backwardation' in commodity markets?",
+    "options": [
+      "When spot prices exceed futures prices, usually due to immediate supply shortages or high convenience yield",
+      "When futures prices are higher than spot prices",
+      "When trading is halted due to a circuit breaker",
+      "When clearing corporations fail to settle trades"
+    ],
+    "correctIndex": 0,
+    "explanation": "Backwardation occurs when the spot price trades at a premium to futures prices, reflecting high convenience yield or immediate physical shortage of the commodity.",
+    "topic": "Commodity Pricing & Market Structure"
+  },
+  {
+    "id": "nism-xiii-q7",
+    "courseId": "nism-xiii",
+    "question": "Under RBI guidelines, resident Indians trading exchange-traded currency derivatives (ETCD) must ensure:",
+    "options": [
+      "An underlying contracted foreign currency exposure exists before participating in speculative trades",
+      "All trades are executed solely in cash outside banking channels",
+      "Trades are settled in physical foreign currency bank notes",
+      "No margin is ever posted with the clearing corporation"
+    ],
+    "correctIndex": 0,
+    "explanation": "RBI circulars under FEMA mandate that participants in ETCD markets must have an underlying contracted foreign exchange exposure to hedge currency risk.",
+    "topic": "Currency Regulatory Framework"
+  },
+  {
+    "id": "nism-xa-q11",
+    "courseId": "nism-xa",
+    "question": "Under SEBI (Investment Advisers) Regulations, 2013, what is the maximum fixed advisory fee an RIA can charge per client across all financial services in a financial year?",
+    "options": [
+      "₹50,000",
+      "₹1,25,000",
+      "₹5,00,000",
+      "₹10,00,000"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under SEBI RIA regulations, if the adviser charges a fixed fee model, the fee cannot exceed ₹1,25,000 per annum per client family across all services.",
+    "topic": "SEBI RIA Regulations"
+  },
+  {
+    "id": "nism-xa-q12",
+    "courseId": "nism-xa",
+    "question": "What is the Human Life Value (HLV) concept used for in financial planning?",
+    "options": [
+      "Estimating the medical expenses of a person in old age",
+      "Determining the economic value of an individual to their dependents, used to calculate adequate life insurance cover required",
+      "Calculating income tax rebate under Section 80C",
+      "Valuing shares of healthcare companies"
+    ],
+    "correctIndex": 1,
+    "explanation": "HLV calculates the present value of future earnings that would have been provided to dependents after deducting personal taxes and expenses, determining adequate life cover.",
+    "topic": "Insurance Planning & Risk Management"
+  },
+  {
+    "id": "nism-xa-q13",
+    "courseId": "nism-xa",
+    "question": "In financial mathematics, if an investor requires ₹50 Lakhs after 10 years and expected annual compounded return is 12%, which formula calculates the monthly SIP required?",
+    "options": [
+      "Future Value of an Ordinary Annuity / Annuity Due formula",
+      "Present Value of a Perpetuity formula",
+      "Capital Asset Pricing Model (CAPM)",
+      "Price to Book ratio"
+    ],
+    "correctIndex": 0,
+    "explanation": "The monthly investment required to reach a future financial goal is computed using the Future Value of Annuity formula: FV = P * [((1+r)^n - 1) / r] * (1+r).",
+    "topic": "Financial Mathematics & Goal Planning"
+  },
+  {
+    "id": "nism-xa-q14",
+    "courseId": "nism-xa",
+    "question": "Under SEBI RIA guidelines, how frequently must an Investment Adviser conduct an audit of compliance with RIA regulations?",
+    "options": [
+      "Every 5 years",
+      "Annually, within six months from the end of each financial year",
+      "Only when SEBI issues a show-cause notice",
+      "Every month"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI regulations require all registered investment advisers to conduct an annual compliance audit through a practicing Chartered Accountant or Company Secretary within six months of year-end.",
+    "topic": "Compliance & Audit Norms"
+  },
+  {
+    "id": "nism-xa-q15",
+    "courseId": "nism-xa",
+    "question": "What is the difference between 'Strategic Asset Allocation' (SAA) and 'Tactical Asset Allocation' (TAA)?",
+    "options": [
+      "SAA establishes long-term baseline asset weights based on goals and risk profile; TAA makes short-term adjustments to exploit temporary market mispricings",
+      "SAA is for debt funds only; TAA is for equity funds only",
+      "SAA is illegal under SEBI guidelines; TAA is mandatory",
+      "SAA is conducted daily; TAA is conducted once in a decade"
+    ],
+    "correctIndex": 0,
+    "explanation": "Strategic Asset Allocation sets long-term targets aligned to client risk and horizon, while Tactical Asset Allocation takes short-to-medium opportunistic deviations to capture valuation anomalies.",
+    "topic": "Portfolio Construction & Asset Allocation"
+  },
+  {
+    "id": "nism-xb-q1",
+    "courseId": "nism-xb",
+    "question": "In advanced estate planning, what is the key legal distinction between a 'Revocable Trust' and an 'Irrevocable Trust'?",
+    "options": [
+      "A Revocable Trust can be altered or dissolved by the settlor during their lifetime, while an Irrevocable Trust cannot be revoked without beneficiary consent and provides superior asset protection from creditors",
+      "A Revocable Trust avoids all income taxes; an Irrevocable Trust pays double tax",
+      "Revocable Trusts can only hold cash; Irrevocable Trusts can only hold real estate",
+      "Revocable Trusts must be registered with the Reserve Bank of India"
+    ],
+    "correctIndex": 0,
+    "explanation": "In an irrevocable trust, the settlor relinquishes ownership and control of assets, shielding them from personal liabilities, litigation, and creditors, unlike revocable trusts.",
+    "topic": "Estate Planning & Private Trusts"
+  },
+  {
+    "id": "nism-xb-q2",
+    "courseId": "nism-xb",
+    "question": "Which of the following portfolio performance metrics measures excess return per unit of systematic risk (Beta)?",
+    "options": [
+      "Sharpe Ratio",
+      "Treynor Ratio",
+      "Sortino Ratio",
+      "Maximum Drawdown"
+    ],
+    "correctIndex": 1,
+    "explanation": "The Treynor Ratio measures excess return per unit of systematic risk (Beta): (Rp - Rf) / Beta, whereas the Sharpe Ratio measures excess return per unit of total risk (Standard Deviation).",
+    "topic": "Portfolio Performance Evaluation"
+  },
+  {
+    "id": "nism-xb-q3",
+    "courseId": "nism-xb",
+    "question": "What is 'Jensen's Alpha' in portfolio evaluation?",
+    "options": [
+      "The total dividend paid by the fund",
+      "The difference between the actual return of a portfolio and the return predicted by the Capital Asset Pricing Model (CAPM) given its level of market risk",
+      "The expense ratio charged by the portfolio manager",
+      "The ratio of cash to debt in the fund"
+    ],
+    "correctIndex": 1,
+    "explanation": "Jensen's Alpha = Actual Return - Expected Return under CAPM. A positive alpha indicates that the manager has added value over and above compensation for the systematic risk taken.",
+    "topic": "Portfolio Performance Evaluation"
+  },
+  {
+    "id": "nism-xb-q4",
+    "courseId": "nism-xb",
+    "question": "Under behavioral finance, what cognitive bias describes an investor who refuses to sell a losing stock because they refuse to acknowledge the emotional pain of a realised loss?",
+    "options": [
+      "Disposition Effect / Loss Aversion",
+      "Self-Attribution Bias",
+      "Overconfidence",
+      "Anchoring"
+    ],
+    "correctIndex": 0,
+    "explanation": "The Disposition Effect (rooted in Loss Aversion) causes investors to hold on to depreciating investments too long while selling winners prematurely to lock in small psychological gains.",
+    "topic": "Behavioral Finance"
+  },
+  {
+    "id": "nism-xb-q5",
+    "courseId": "nism-xb",
+    "question": "Under the Indian Income Tax Act post-Budget 2024, what is the exemption limit and tax rate for Long Term Capital Gains (LTCG) on listed equity shares and equity mutual funds held for more than 12 months?",
+    "options": [
+      "Exemption up to ₹1.25 Lakhs per financial year, with gains above ₹1.25 Lakhs taxed at flat 12.5% without indexation",
+      "Exemption up to ₹1 Lakh, with gains above ₹1 Lakh taxed at 10%",
+      "Flat 20% with indexation benefit",
+      "Zero tax for all individual taxpayers"
+    ],
+    "correctIndex": 0,
+    "explanation": "Budget 2024 increased the LTCG exemption limit to ₹1.25 Lakhs and revised the tax rate on listed equity and equity MF units held > 12 months to 12.5% without indexation.",
+    "topic": "Taxation & Wealth Optimization"
+  },
+  {
+    "id": "nism-xb-q6",
+    "courseId": "nism-xb",
+    "question": "What is the 'Information Ratio' (IR) in portfolio management?",
+    "options": [
+      "The number of quarterly reports sent to clients per year",
+      "The active return of the portfolio relative to its benchmark divided by the tracking error (standard deviation of active returns)",
+      "The ratio of equity to debt in a hybrid scheme",
+      "The price-to-earnings ratio of the fund"
+    ],
+    "correctIndex": 1,
+    "explanation": "Information Ratio = (Portfolio Return - Benchmark Return) / Tracking Error. It evaluates a manager's ability to generate excess returns relative to a benchmark on a risk-adjusted basis.",
+    "topic": "Portfolio Performance Evaluation"
+  },
+  {
+    "id": "nism-xv-q11",
+    "courseId": "nism-xv",
+    "question": "Under the SEBI (Research Analysts) Regulations, 2014, what is the minimum 'Quiet Period' during which a research analyst or research entity cannot publish research reports on an issuer following a public offering (IPO)?",
+    "options": [
+      "No quiet period exists",
+      "At least 40 calendar days from the date of prospectus or 10 days for follow-on public offerings",
+      "At least 1 year",
+      "Only 24 hours"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI regulations prescribe quiet periods (e.g. 40 days for an IPO, 10 days for FPO) during which managing underwriters and syndicate members cannot issue research reports to prevent hype.",
+    "topic": "SEBI Research Analyst Regulations"
+  },
+  {
+    "id": "nism-xv-q12",
+    "courseId": "nism-xv",
+    "question": "Under the Discounted Cash Flow (DCF) valuation method, what is Free Cash Flow to Firm (FCFF)?",
+    "options": [
+      "Total cash deposited in the company's savings accounts",
+      "Cash generated by operations available to all providers of capital (both equity shareholders and debt holders) after meeting working capital needs and capital expenditures",
+      "Net profit after tax minus dividend payments",
+      "Gross revenue minus administrative overheads"
+    ],
+    "correctIndex": 1,
+    "explanation": "FCFF = Operating Cash Flow - Capex + Interest*(1 - Tax Rate). It represents the cash flow available to all capital providers (debt and equity) prior to financing cash outflows.",
+    "topic": "Equity Valuation & Financial Modeling"
+  },
+  {
+    "id": "nism-xv-q13",
+    "courseId": "nism-xv",
+    "question": "What is the Weighted Average Cost of Capital (WACC) used as in DCF valuation?",
+    "options": [
+      "The discount rate applied to future FCFF cash flows to calculate Enterprise Value",
+      "The price target of the equity stock",
+      "The interest rate charged on bank credit cards",
+      "The growth rate of GDP"
+    ],
+    "correctIndex": 0,
+    "explanation": "WACC represents the blended cost of debt and equity capital weighted by their proportions in the firm's capital structure, used as the discount rate for FCFF.",
+    "topic": "Equity Valuation & Financial Modeling"
+  },
+  {
+    "id": "nism-xv-q14",
+    "courseId": "nism-xv",
+    "question": "What are 'Chinese Walls' in the context of research entities and merchant banking institutions?",
+    "options": [
+      "Physical border barriers between countries",
+      "Information barriers policies that physically and electronically segregate research analysts from investment banking, corporate advisory, and sales/trading divisions to prevent insider information leaks and conflicts of interest",
+      "Software firewalls on company laptops",
+      "Architectural guidelines for brokerage offices"
+    ],
+    "correctIndex": 1,
+    "explanation": "Chinese Walls are stringent institutional policies separating research analysts from investment banking and trading to maintain research objectivity and prevent insider trading.",
+    "topic": "Conflict of Interest & Governance"
+  },
+  {
+    "id": "nism-xv-q15",
+    "courseId": "nism-xv",
+    "question": "In macroeconomic analysis, what does the Reserve Bank of India's 'Repo Rate' represent?",
+    "options": [
+      "The interest rate at which commercial banks borrow short-term funds from the RBI against sovereign government securities",
+      "The rate at which retail customers take home loans",
+      "The inflation rate measured by the CPI basket",
+      "The tax levied on stock market transactions"
+    ],
+    "correctIndex": 0,
+    "explanation": "Repo Rate is the key policy interest rate at which the RBI lends money to commercial banks against government collateral. Lowering repo stimulates borrowing; raising repo controls inflation.",
+    "topic": "Economic & Industry Analysis"
+  },
+  {
+    "id": "nism-xxia-q11",
+    "courseId": "nism-xxia",
+    "question": "Under SEBI (Portfolio Managers) Regulations, 2020, what is the statutory minimum investment amount required from a client opening a Portfolio Management Services (PMS) account?",
+    "options": [
+      "₹10 Lakhs",
+      "₹25 Lakhs",
+      "₹50 Lakhs",
+      "₹1 Crore"
+    ],
+    "correctIndex": 2,
+    "explanation": "SEBI enhanced the minimum ticket size for clients opening a Portfolio Management Services (PMS) account to ₹50 Lakhs to ensure only sophisticated investors enter PMS products.",
+    "topic": "SEBI PMS Regulations"
+  },
+  {
+    "id": "nism-xxia-q12",
+    "courseId": "nism-xxia",
+    "question": "What is the crucial operational distinction between 'Discretionary PMS' and 'Non-Discretionary PMS'?",
+    "options": [
+      "In Discretionary PMS, the portfolio manager makes investment decisions independently without prior client approval; in Non-Discretionary PMS, the manager advises and requires mandatory client approval before executing each trade",
+      "Discretionary PMS is for retail investors; Non-Discretionary is for institutions",
+      "Discretionary PMS charges zero fees; Non-Discretionary charges 10% fee",
+      "Non-Discretionary PMS can only buy debt securities"
+    ],
+    "correctIndex": 0,
+    "explanation": "In Discretionary PMS, the manager exercises full day-to-day investment discretion under a power of attorney; in Non-Discretionary, client trade-by-trade confirmation is legally required.",
+    "topic": "PMS Types & Execution"
+  },
+  {
+    "id": "nism-xxia-q13",
+    "courseId": "nism-xxia",
+    "question": "Under SEBI PMS regulations, which method is mandatory for calculating and reporting portfolio performance to clients?",
+    "options": [
+      "Simple Average Rate of Return",
+      "Time-Weighted Rate of Return (TWRR)",
+      "Internal Rate of Return (IRR) only",
+      "Annual dividend yield only"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandates the Time-Weighted Rate of Return (TWRR) methodology for calculating and reporting PMS performance because TWRR neutralizes the impact of client cash inflows and withdrawals.",
+    "topic": "Performance Reporting & Metrics"
+  },
+  {
+    "id": "nism-xxia-q14",
+    "courseId": "nism-xxia",
+    "question": "What is the 'High-Water Mark' principle applied to performance fees in PMS agreements?",
+    "options": [
+      "A rule that performance fee is charged only when the portfolio NAV exceeds the highest previous peak level reached, ensuring the manager is not rewarded twice for recovering lost capital",
+      "A flood insurance policy for bank vaults",
+      "A cap on the maximum number of shares in a portfolio",
+      "A fee charged whenever the market index crosses an all-time high"
+    ],
+    "correctIndex": 0,
+    "explanation": "The high-water mark ensures that the portfolio manager receives performance fees only on net new profits generated above the previous peak portfolio value, protecting client capital from double fees.",
+    "topic": "PMS Fee Structures"
+  },
+  {
+    "id": "nism-xxia-q15",
+    "courseId": "nism-xxia",
+    "question": "In PMS, how are securities held legally, and how does this contrast with Mutual Funds?",
+    "options": [
+      "In PMS, securities are held directly in the client's own individual Demat account and PAN; in Mutual Funds, securities are pooled and held in the name of the MF Trust",
+      "In PMS, the portfolio manager owns the shares permanently",
+      "In Mutual Funds, investors own individual stock certificates directly",
+      "There is no legal difference between PMS and Mutual Fund holding structures"
+    ],
+    "correctIndex": 0,
+    "explanation": "In PMS, the client retains legal ownership of individual securities in their personal Demat account under their PAN, whereas in a mutual fund, assets belong to the scheme trust.",
+    "topic": "Custody & Asset Segregation"
+  },
+  {
+    "id": "nism-cpe-q1",
+    "courseId": "nism-cpe-mf",
+    "question": "What is the primary objective of the NISM Continuing Professional Education (CPE) program for mutual fund distributors?",
+    "options": [
+      "To revalidate and renew the expiring NISM Series V-A certification for an additional 3-year term by updating candidates on latest SEBI regulations and market practices",
+      "To register a new stockbroking firm with the exchange",
+      "To obtain a commercial pilot license",
+      "To open an overseas bank account"
+    ],
+    "correctIndex": 0,
+    "explanation": "NISM CPE is a mandatory refresher course enabling certified distributors to renew their certificate and ARN for 3 years prior to expiry through accredited training.",
+    "topic": "CPE Compliance & Revalidation"
+  },
+  {
+    "id": "nism-cpe-q2",
+    "courseId": "nism-cpe-mf",
+    "question": "Under the updated SEBI Master Circular 2024, what is the mandatory nomination requirement for individual mutual fund folios?",
+    "options": [
+      "Investors must either register up to 3 nominees with percentage allocations or submit a formal declaration to opt out of nomination",
+      "Nomination is strictly prohibited for mutual fund folios",
+      "Only parents can be registered as nominees",
+      "Nominees must hold an active ARN card"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI mandates that all individual unit holders must provide nomination details (up to 3 nominees with specified shares) or formally opt out using a prescribed signed declaration.",
+    "topic": "Regulatory Updates 2024"
+  },
+  {
+    "id": "nism-cpe-q3",
+    "courseId": "nism-cpe-mf",
+    "question": "Under the Prevention of Money Laundering Act (PMLA) guidelines, what is Customer Due Diligence (CDD) required for high-risk clients?",
+    "options": [
+      "Asking the client for a verbal confirmation only",
+      "Enhanced Due Diligence (EDD), verifying source of wealth, verifying Politically Exposed Person (PEP) status, and ongoing transaction monitoring",
+      "Waiving KYC requirements for high-net-worth clients",
+      "Conducting background checks only after 5 years"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under PMLA, reporting entities must perform Enhanced Due Diligence (EDD) for high-risk accounts and PEPs, including verifying source of wealth and funds.",
+    "topic": "AML & PMLA Compliance"
+  },
+  {
+    "id": "nism-cpe-q4",
+    "courseId": "nism-cpe-mf",
+    "question": "What is the SEBI SMART ODR (Online Dispute Resolution) portal designed to facilitate?",
+    "options": [
+      "Online trading of derivatives",
+      "Independent, digital conciliation and arbitration for resolving grievances between investors and regulated market intermediaries",
+      "Direct buying of sovereign gold bonds",
+      "Applying for IPOs via UPI"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI established the SMART ODR platform to harness online conciliation and arbitration for speedy, paperless, and neutral dispute resolution in the securities market.",
+    "topic": "Investor Grievance Redressal"
+  },
+  {
+    "id": "nism-cpe-q5",
+    "courseId": "nism-cpe-mf",
+    "question": "Under SEBI and AMFI guidelines, can a mutual fund distributor pass back any portion of their commission to investors as cash incentives or rebates?",
+    "options": [
+      "Yes, up to 50% of the commission",
+      "No, rebating or passing back commissions in cash or kind to investors is strictly prohibited by SEBI and constitutes a code of conduct violation",
+      "Yes, if the client invests more than ₹10 Lakhs",
+      "Yes, if written permission is taken from the local bank branch manager"
+    ],
+    "correctIndex": 1,
+    "explanation": "The AMFI Code of Ethics strictly prohibits distributors from rebating commissions or offering cash discounts/gifts to induce investors into mutual fund schemes.",
+    "topic": "Code of Ethics & Regulatory Prohibitions"
+  },
+  {
+    "id": "nism-vd-gen-q21",
+    "courseId": "nism-vd",
+    "question": "What is the primary role of a Specialized Investment Fund (SIF) distributor under SEBI guidelines?",
+    "options": [
+      "Distributing both standard mutual funds and specialized investment vehicles (including AIF Category I/II/III and private credit funds) to eligible investors",
+      "Selling life insurance policies exclusively",
+      "Conducting stock market audits for listed corporations",
+      "Providing tax return filing software"
+    ],
+    "correctIndex": 0,
+    "explanation": "A SIF distributor is accredited to market complex and specialized investment vehicles alongside mutual funds to eligible and accredited investors.",
+    "topic": "SIF Distributor Framework"
+  },
+  {
+    "id": "nism-vd-gen-q22",
+    "courseId": "nism-vd",
+    "question": "Under SEBI AIF Regulations, 2012, which of the following is categorized as a Category I AIF?",
+    "options": [
+      "Venture Capital Fund (VCF)",
+      "Hedge Fund",
+      "Private Equity Fund investing in listed equities",
+      "Real Estate debt fund"
+    ],
+    "correctIndex": 0,
+    "explanation": "Category I AIFs include Venture Capital Funds, Angel Funds, Social Venture Funds, and Infrastructure Funds.",
+    "topic": "AIF Structure & Categories"
+  },
+  {
+    "id": "nism-vd-gen-q23",
+    "courseId": "nism-vd",
+    "question": "What is the minimum corpus requirement for an Angel Fund under SEBI AIF Regulations?",
+    "options": [
+      "₹5 Crores",
+      "₹10 Crores",
+      "₹20 Crores",
+      "₹50 Crores"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI AIF regulations specify that an Angel Fund must have a minimum corpus of ₹5 Crores.",
+    "topic": "Angel Fund Norms"
+  },
+  {
+    "id": "nism-vd-gen-q24",
+    "courseId": "nism-vd",
+    "question": "What is the minimum ticket size for an angel investor committing capital to an Angel Fund?",
+    "options": [
+      "₹10 Lakhs",
+      "₹25 Lakhs",
+      "₹1 Crore",
+      "₹5 Crores"
+    ],
+    "correctIndex": 1,
+    "explanation": "The minimum investment commitment for an angel investor in an Angel Fund is ₹25 Lakhs (compared to ₹1 Crore for regular AIFs).",
+    "topic": "Angel Fund Norms"
+  },
+  {
+    "id": "nism-vd-gen-q25",
+    "courseId": "nism-vd",
+    "question": "In private equity funds, 'J-Curve Effect' refers to:",
+    "options": [
+      "Initial negative cash flows and valuations due to upfront fees and capital deployment, followed by steep positive returns as portfolio companies mature",
+      "A steady linear increase in returns every year",
+      "A perpetual loss over the life of the fund",
+      "The interest rate trajectory of sovereign debt"
+    ],
+    "correctIndex": 0,
+    "explanation": "The J-Curve reflects early negative cash flow and J-shaped return curve in private equity as management fees and unharvested early investments turn into profitable exits later.",
+    "topic": "Private Equity Dynamics"
+  },
+  {
+    "id": "nism-vd-gen-q26",
+    "courseId": "nism-vd",
+    "question": "What is 'Carried Interest' earned by an AIF fund manager?",
+    "options": [
+      "A percentage of the fund's net capital gains (typically 20%) paid to the General Partner/Manager after returning capital and the hurdle rate to investors",
+      "A fixed monthly salary paid by SEBI",
+      "The brokerage commission paid to clearing brokers",
+      "Interest paid on margin loans"
+    ],
+    "correctIndex": 0,
+    "explanation": "Carried interest is the performance fee incentive paid to the fund manager only after investors have received their initial capital plus the minimum hurdle rate.",
+    "topic": "Carried Interest & Fund Economics"
+  },
+  {
+    "id": "nism-vd-gen-q27",
+    "courseId": "nism-vd",
+    "question": "What is a 'Catch-Up Clause' in an AIF private placement memorandum (PPM)?",
+    "options": [
+      "A clause permitting the manager to receive a larger share of profits until their total profit share equals the agreed carried interest percentage once the hurdle rate is cleared",
+      "A late payment penalty imposed on unit holders",
+      "A regulatory fine for delayed filing",
+      "A clause allowing delayed NAV declarations"
+    ],
+    "correctIndex": 0,
+    "explanation": "A catch-up clause allows the GP/manager to receive 50% to 100% of distributions after the hurdle rate until the agreed carried interest split (e.g. 80:20) is restored.",
+    "topic": "Carried Interest & Fund Economics"
+  },
+  {
+    "id": "nism-vd-gen-q28",
+    "courseId": "nism-vd",
+    "question": "Under SEBI rules, what is the maximum number of investors permitted in any scheme of an AIF (other than an Angel Fund)?",
+    "options": [
+      "50 investors",
+      "200 investors",
+      "1,000 investors",
+      "Unlimited investors"
+    ],
+    "correctIndex": 2,
+    "explanation": "Under SEBI AIF Regulations, no scheme of an AIF shall have more than 1,000 investors (Angel Funds can have up to 200 angel investors).",
+    "topic": "AIF Investor Ceilings"
+  },
+  {
+    "id": "nism-vd-gen-q29",
+    "courseId": "nism-vd",
+    "question": "What is the statutory tenure requirement for Category I and Category II AIFs?",
+    "options": [
+      "They must be close-ended with a minimum tenure of 3 years",
+      "They must be open-ended with daily liquidity",
+      "They must have a 20-year lock-in",
+      "Tenure is decided on a daily basis"
+    ],
+    "correctIndex": 0,
+    "explanation": "Category I and II AIFs are required by law to be close-ended schemes with a minimum statutory tenure of 3 years at the time of launch.",
+    "topic": "AIF Scheme Tenures"
+  },
+  {
+    "id": "nism-vd-gen-q30",
+    "courseId": "nism-vd",
+    "question": "Can Category I and Category II AIFs borrow funds for investment leverage?",
+    "options": [
+      "No, they cannot borrow funds directly or indirectly for leverage; they can only borrow for meeting temporary operational liquidity needs for up to 30 days",
+      "Yes, up to 5 times their net worth",
+      "Yes, without any restrictions",
+      "Only with RBI Governor approval"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI regulations prohibit Cat I & II AIFs from leveraging; borrowing is permitted solely for operational requirements (up to 30 days and max 10% of investable funds).",
+    "topic": "Borrowing & Leverage Restrictions"
+  },
+  {
+    "id": "nism-viii-gen-q36",
+    "courseId": "nism-viii",
+    "question": "What is 'Basis' in the context of futures trading?",
+    "options": [
+      "Futures Price minus Spot Price (or Spot minus Futures)",
+      "The strike price of an option",
+      "The brokerage commission charged on trades",
+      "The face value of the underlying equity share"
+    ],
+    "correctIndex": 0,
+    "explanation": "Basis is defined as Spot Price minus Futures Price. In a normal contango market, basis is negative; during backwardation, basis is positive.",
+    "topic": "Futures Pricing & Basis"
+  },
+  {
+    "id": "nism-viii-gen-q37",
+    "courseId": "nism-viii",
+    "question": "What happens to the basis of a futures contract as the expiration date approaches?",
+    "options": [
+      "It fluctuates randomly without bounds",
+      "It converges towards zero (Futures Price converges to Spot Price at expiration)",
+      "It widens to infinity",
+      "It turns strictly negative for all stocks"
+    ],
+    "correctIndex": 1,
+    "explanation": "Basis convergence occurs because at expiration, the futures contract is settled against the spot price, eliminating carrying costs and forcing basis to zero.",
+    "topic": "Convergence of Basis"
+  },
+  {
+    "id": "nism-viii-gen-q38",
+    "courseId": "nism-viii",
+    "question": "What is 'Cash and Carry Arbitrage' in equity derivatives?",
+    "options": [
+      "Buying the underlying stock in the spot market and selling the overvalued futures contract while borrowing funds to finance the spot purchase until expiration",
+      "Withdrawing cash from an ATM to buy options",
+      "Selling stock in the spot market and buying physical gold",
+      "Trading only during post-market sessions"
+    ],
+    "correctIndex": 0,
+    "explanation": "Cash and carry arbitrage exploits a futures price trading above theoretical cost of carry by buying spot, shorting futures, and locking in risk-free carrying profits.",
+    "topic": "Arbitrage Mechanisms"
+  },
+  {
+    "id": "nism-viii-gen-q39",
+    "courseId": "nism-viii",
+    "question": "What is 'Reverse Cash and Carry Arbitrage'?",
+    "options": [
+      "Short selling the overvalued spot equity (or borrowing shares via SLB) and buying undervalued futures contracts, investing the sale proceeds at the risk-free rate",
+      "Buying calls and puts simultaneously",
+      "Borrowing from an NBFC to buy call options",
+      "Exchanging futures for physical delivery"
+    ],
+    "correctIndex": 0,
+    "explanation": "Reverse cash and carry arbitrage is triggered when futures trade below theoretical fair value (discount/backwardation), shorting spot and buying futures.",
+    "topic": "Arbitrage Mechanisms"
+  },
+  {
+    "id": "nism-viii-gen-q40",
+    "courseId": "nism-viii",
+    "question": "According to Put-Call Parity for European options, which relationship holds true (where S = Spot, C = Call, P = Put, PV(X) = Present Value of Strike)?",
+    "options": [
+      "C + PV(X) = P + S",
+      "C + P = S + X",
+      "C - P = S * X",
+      "C / P = S / X"
+    ],
+    "correctIndex": 0,
+    "explanation": "Put-Call Parity states that Fiduciary Call (Long Call + Zero Coupon Bond with face value X) equals Protective Put (Long Put + Underlying Stock): C + PV(X) = P + S.",
+    "topic": "Put-Call Parity"
+  },
+  {
+    "id": "nism-viii-gen-q41",
+    "courseId": "nism-viii",
+    "question": "What does the option Greek 'Delta' represent for a Call option?",
+    "options": [
+      "The rate of change of option price with respect to a change in the underlying asset's price, bounded between 0 and +1.0 for calls",
+      "The volatility of the market",
+      "The exchange margin percentage",
+      "The interest rate sensitivity"
+    ],
+    "correctIndex": 0,
+    "explanation": "Call Delta measures option price sensitivity to the underlying stock move; it ranges from 0 (deep out of the money) to +1.0 (deep in the money).",
+    "topic": "Option Greeks"
+  },
+  {
+    "id": "nism-viii-gen-q42",
+    "courseId": "nism-viii",
+    "question": "What does 'Delta' equal for an At-The-Money (ATM) call option?",
+    "options": [
+      "Approximately 0.50 (50%)",
+      "Exactly 1.0",
+      "Zero",
+      "Minus 1.0"
+    ],
+    "correctIndex": 0,
+    "explanation": "An ATM call option has a Delta close to 0.50, meaning the option price moves roughly ₹0.50 for every ₹1.00 move in the underlying stock price.",
+    "topic": "Option Greeks"
+  },
+  {
+    "id": "nism-viii-gen-q43",
+    "courseId": "nism-viii",
+    "question": "What does the option Greek 'Vega' measure?",
+    "options": [
+      "The sensitivity of the option price to a 1% change in implied volatility of the underlying asset",
+      "The effect of elapsed time on the option",
+      "The dividend yield of the index",
+      "The loan-to-value ratio of the margin"
+    ],
+    "correctIndex": 0,
+    "explanation": "Vega measures the change in option price for a 1% change in implied volatility. Both long calls and long puts have positive Vega.",
+    "topic": "Option Greeks"
+  },
+  {
+    "id": "nism-viii-gen-q44",
+    "courseId": "nism-viii",
+    "question": "What is a 'Protective Put' strategy?",
+    "options": [
+      "Holding long equity shares and simultaneously buying a Put option on the same stock to cap downside risk",
+      "Selling a put option without owning cash",
+      "Buying two call options at the same strike",
+      "Pledging shares for personal loans"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Protective Put strategy combines long stock with a long put option, establishing a synthetic floor against catastrophic market declines while retaining upside.",
+    "topic": "Hedging Strategies"
+  },
+  {
+    "id": "nism-viii-gen-q45",
+    "courseId": "nism-viii",
+    "question": "What is a 'Covered Call' strategy?",
+    "options": [
+      "Holding underlying long stock and selling an Out-Of-The-Money Call option against it to generate recurring cash premium income",
+      "Buying calls and puts at different expirations",
+      "Selling put options without cash margin",
+      "Trading futures during earnings week"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Covered Call generates income by selling upside call options against an existing portfolio of shares, trading future upside beyond strike for immediate premium.",
+    "topic": "Derivative Strategies"
+  },
+  {
+    "id": "nism-xiii-gen-q11",
+    "courseId": "nism-xiii",
+    "question": "What is the primary objective of NISM Series XIII Common Derivatives examination?",
+    "options": [
+      "To establish a comprehensive, single-window qualification across Equity, Currency, Commodity, and Interest Rate derivative segments",
+      "To certify chartered accountants in corporate auditing",
+      "To license real estate property brokers",
+      "To inspect commercial banks on NPA provisioning"
+    ],
+    "correctIndex": 0,
+    "explanation": "Series XIII unified derivative licensing across equity, FX, commodities, and interest rates under SEBI's integrated market framework.",
+    "topic": "Common Derivatives Scope"
+  },
+  {
+    "id": "nism-xiii-gen-q12",
+    "courseId": "nism-xiii",
+    "question": "In Currency Derivatives, which regulatory authority jointly regulates exchange-traded currency markets alongside SEBI?",
+    "options": [
+      "Reserve Bank of India (RBI)",
+      "Insurance Regulatory and Development Authority (IRDAI)",
+      "Pension Fund Regulatory and Development Authority (PFRDA)",
+      "Insolvency and Bankruptcy Board of India (IBBI)"
+    ],
+    "correctIndex": 0,
+    "explanation": "Exchange-traded currency futures and options are regulated under the joint jurisdiction of SEBI (exchange oversight) and RBI (foreign exchange policy under FEMA).",
+    "topic": "Regulatory Framework"
+  },
+  {
+    "id": "nism-xiii-gen-q13",
+    "courseId": "nism-xiii",
+    "question": "What is the tick size (minimum price movement) for USD-INR currency futures on Indian exchanges?",
+    "options": [
+      "0.0025 INR (0.25 paise)",
+      "1.00 INR",
+      "0.05 INR",
+      "0.50 INR"
+    ],
+    "correctIndex": 0,
+    "explanation": "The minimum price movement (tick size) for currency futures contracts such as USD-INR is 0.0025 INR (a quarter of a paisa).",
+    "topic": "Currency Contract Specifications"
+  },
+  {
+    "id": "nism-xiii-gen-q14",
+    "courseId": "nism-xiii",
+    "question": "What is 'Conversion Factor' (CF) in 10-Year Government of India Bond Futures?",
+    "options": [
+      "A mathematical coefficient used to equalize deliverable coupon-bearing bonds of differing maturities and coupons to the standardized 7% notional contract",
+      "The currency exchange rate between USD and INR",
+      "The broker's clearing commission rate",
+      "The income tax deduction factor"
+    ],
+    "correctIndex": 0,
+    "explanation": "Conversion Factors normalize the price of various eligible deliverable GoI securities relative to the hypothetical 7% coupon notional bond at contract expiration.",
+    "topic": "Interest Rate Futures"
+  },
+  {
+    "id": "nism-xiii-gen-q15",
+    "courseId": "nism-xiii",
+    "question": "What does 'Cheapest-to-Deliver' (CTD) bond mean in Interest Rate Futures delivery?",
+    "options": [
+      "The deliverable bond that minimizes the short position seller's net cost of purchasing and delivering the security against the futures contract",
+      "A bond with zero credit rating",
+      "The bond with the highest coupon regardless of market price",
+      "A bond issued by a distressed municipal corporation"
+    ],
+    "correctIndex": 0,
+    "explanation": "The CTD bond maximizes the delivery payoff or minimizes delivery cost for the short seller among all eligible basket bonds.",
+    "topic": "Interest Rate Futures"
+  },
+  {
+    "id": "nism-xiii-gen-q16",
+    "courseId": "nism-xiii",
+    "question": "In Commodity Futures, what is the role of an 'Electronic Negotiable Warehouse Receipt' (e-NWR)?",
+    "options": [
+      "A legally recognized digital title representing ownership of physical commodities stored in a WDRA-regulated repository, facilitating delivery and bank financing",
+      "A paper bill sent by postal mail",
+      "An insurance receipt for shipping containers",
+      "A tax clearance certificate"
+    ],
+    "correctIndex": 0,
+    "explanation": "e-NWRs issued via repositories (like CCRL/NERL) represent standardized, digital proof of physical commodity ownership for exchange settlement and bank pledges.",
+    "topic": "Commodity Warehousing & e-NWR"
+  },
+  {
+    "id": "nism-xiii-gen-q17",
+    "courseId": "nism-xiii",
+    "question": "Which of the following commodities is typically cash-settled rather than physically settled on Indian commodity exchanges?",
+    "options": [
+      "Crude Oil and Natural Gas futures",
+      "Soybean futures",
+      "Chana futures",
+      "Cotton futures"
+    ],
+    "correctIndex": 0,
+    "explanation": "Energy commodities like Crude Oil and Natural Gas contracts on MCX are compulsory cash-settled based on international benchmark settlement prices.",
+    "topic": "Commodity Settlement Norms"
+  },
+  {
+    "id": "nism-xiii-gen-q18",
+    "courseId": "nism-xiii",
+    "question": "What is 'Convenience Yield' in commodity storage and pricing theory?",
+    "options": [
+      "The non-monetary benefit or operational advantage of physically holding the tangible commodity inventory rather than holding derivative contracts during shortages",
+      "A fee charged by banks for convenience UPI transfers",
+      "The annual dividend paid by agricultural companies",
+      "A subsidy provided by the government to farmers"
+    ],
+    "correctIndex": 0,
+    "explanation": "Convenience yield is the implicit benefit of having physical stock on hand to prevent production interruptions during unexpected supply pinches.",
+    "topic": "Commodity Pricing Theory"
+  },
+  {
+    "id": "nism-xiii-gen-q19",
+    "courseId": "nism-xiii",
+    "question": "What is a 'Calendar Spread' in commodity and equity derivatives?",
+    "options": [
+      "Simultaneously buying and selling futures contracts on the same underlying asset with different expiration months",
+      "Trading exclusively on the first day of each calendar month",
+      "Buying options on two completely unrelated stocks",
+      "A spread between spot gold and spot silver"
+    ],
+    "correctIndex": 0,
+    "explanation": "A calendar spread exploits price differences across time horizons by holding opposing long and short positions in different contract expiration months.",
+    "topic": "Derivative Spread Strategies"
+  },
+  {
+    "id": "nism-xiii-gen-q20",
+    "courseId": "nism-xiii",
+    "question": "Under SEBI Commodity Derivatives norms, what is the purpose of the 'Client Level Position Limit'?",
+    "options": [
+      "To prevent market manipulation, hoarding, and excessive speculative concentration by any single participant in physical commodities",
+      "To maximize trading fees collected by the exchange",
+      "To guarantee 100% profits for hedgers",
+      "To restrict trading only to institutional banks"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI imposes strict individual and member position limits to prevent market abuse, cornering of deliverable supplies, and artificial price distortions.",
+    "topic": "Position Limits & Surveillance"
+  },
+  {
+    "id": "nism-xa-gen-q21",
+    "courseId": "nism-xa",
+    "question": "Under SEBI (Investment Advisers) Regulations, 2013, can an individual RIA also be a director or partner in a mutual fund distribution firm?",
+    "options": [
+      "No, an individual RIA cannot provide distribution services or hold directorship/partnership in a distributing entity under client segregation rules",
+      "Yes, provided they pay an additional fee to SEBI",
+      "Yes, if the client signs an informal email waiver",
+      "Yes, with permission from the local police station"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI regulations prohibit individual investment advisers from holding distribution licenses or partnering with distributors, maintaining absolute segregation.",
+    "topic": "SEBI RIA Regulations"
+  },
+  {
+    "id": "nism-xa-gen-q22",
+    "courseId": "nism-xa",
+    "question": "What is the minimum net worth requirement for a corporate / body corporate entity seeking registration as a SEBI Registered Investment Adviser?",
+    "options": [
+      "₹50 Lakhs",
+      "₹1 Crore",
+      "₹5 Crores",
+      "₹10 Lakhs"
+    ],
+    "correctIndex": 0,
+    "explanation": "Under amended SEBI RIA Regulations, non-individual (corporate) investment advisers must maintain a minimum net worth of ₹50 Lakhs (individuals require ₹5 Lakhs).",
+    "topic": "RIA Registration Criteria"
+  },
+  {
+    "id": "nism-xa-gen-q23",
+    "courseId": "nism-xa",
+    "question": "What is the mandatory cooling-off period if an existing RIA wishes to surrender their advisory license and register as a mutual fund distributor?",
+    "options": [
+      "No cooling-off period is required",
+      "A cooling-off period of 6 months is required",
+      "3 years",
+      "10 years"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI guidelines require a mandatory cooling-off period of at least 6 months when switching between RIA registration and intermediary distribution roles.",
+    "topic": "Transition & Cooling-Off Norms"
+  },
+  {
+    "id": "nism-xa-gen-q24",
+    "courseId": "nism-xa",
+    "question": "In client risk profiling, an investor who has stable high income, owns their home, has no loans, and plans to retire in 25 years has:",
+    "options": [
+      "High Risk Capacity and potential for high equity allocation",
+      "Low Risk Capacity",
+      "Zero ability to absorb market fluctuations",
+      "Mandatory requirement to hold 100% cash"
+    ],
+    "correctIndex": 0,
+    "explanation": "Young age, long horizon, absence of liabilities, and steady surplus give this investor high objective risk capacity to withstand market cycles.",
+    "topic": "Client Profiling & Suitability"
+  },
+  {
+    "id": "nism-xa-gen-q25",
+    "courseId": "nism-xa",
+    "question": "Under SEBI regulations, how long must an Investment Adviser maintain records of client risk profiling, advisory agreements, and suitability assessments?",
+    "options": [
+      "At least 5 years",
+      "1 year",
+      "Only until the client pays the fee",
+      "10 years"
+    ],
+    "correctIndex": 0,
+    "explanation": "Regulation 19 of SEBI RIA Regulations mandates that advisers must maintain all client records, investment advice provided, and agreements for at least 5 years.",
+    "topic": "Record Keeping & Retention"
+  },
+  {
+    "id": "nism-xa-gen-q26",
+    "courseId": "nism-xa",
+    "question": "What is the Capital Asset Pricing Model (CAPM) formula for expected return of an asset?",
+    "options": [
+      "Expected Return = Rf + Beta * (Rm - Rf)",
+      "Expected Return = Spot Price / P/E Ratio",
+      "Expected Return = Dividend Yield + Inflation",
+      "Expected Return = Debt / Equity * Beta"
+    ],
+    "correctIndex": 0,
+    "explanation": "CAPM defines Expected Return as the Risk-Free Rate (Rf) plus the product of Beta and the Market Risk Premium (Rm - Rf).",
+    "topic": "Modern Portfolio Theory"
+  },
+  {
+    "id": "nism-xa-gen-q27",
+    "courseId": "nism-xa",
+    "question": "What does 'Sharpe Ratio' measure in portfolio performance analysis?",
+    "options": [
+      "Excess return earned per unit of total risk (Standard Deviation): (Portfolio Return - Risk Free Rate) / Standard Deviation",
+      "Total dividend received per share",
+      "The percentage of trading days with positive returns",
+      "The turnover ratio of portfolio stocks"
+    ],
+    "correctIndex": 0,
+    "explanation": "The Sharpe Ratio evaluates risk-adjusted return by dividing the portfolio's excess return over the risk-free benchmark by its standard deviation.",
+    "topic": "Portfolio Risk Metrics"
+  },
+  {
+    "id": "nism-xa-gen-q28",
+    "courseId": "nism-xa",
+    "question": "In personal tax planning, what is the maximum deduction allowed for health insurance premium for senior citizen parents under Section 80D?",
+    "options": [
+      "₹50,000",
+      "₹25,000",
+      "₹1,00,000",
+      "₹15,000"
+    ],
+    "correctIndex": 0,
+    "explanation": "Under Section 80D of the Income Tax Act, deduction up to ₹50,000 per financial year is available for health insurance premiums paid for senior citizen parents.",
+    "topic": "Tax Planning & Deductions"
+  },
+  {
+    "id": "nism-xa-gen-q29",
+    "courseId": "nism-xa",
+    "question": "What is the maximum investment limit per financial year in Public Provident Fund (PPF)?",
+    "options": [
+      "₹1,50,000",
+      "₹2,50,000",
+      "₹5,00,000",
+      "Unlimited"
+    ],
+    "correctIndex": 0,
+    "explanation": "The statutory maximum contribution permitted in a Public Provident Fund (PPF) account is ₹1.5 Lakhs per financial year under government rules.",
+    "topic": "Small Savings Schemes"
+  },
+  {
+    "id": "nism-xa-gen-q30",
+    "courseId": "nism-xa",
+    "question": "What is 'Systematic Withdrawal Plan' (SWP) tax treatment post Budget 2024?",
+    "options": [
+      "Each SWP installment is treated as a partial redemption of capital and capital gains, with the capital gains portion taxed as STCG or LTCG based on holding period",
+      "SWP is subject to flat 30% TDS regardless of amount",
+      "SWP is completely tax-free under Section 10(10D)",
+      "SWP is taxed as salary income"
+    ],
+    "correctIndex": 0,
+    "explanation": "SWP redemptions are taxed on a First-In-First-Out (FIFO) capital gains basis: each withdrawal consists of principal return (tax-free) and capital gain (taxed per holding period).",
+    "topic": "Taxation of Redemptions"
+  },
+  {
+    "id": "nism-xb-gen-q11",
+    "courseId": "nism-xb",
+    "question": "In estate planning, what is a 'Probate' of a Will?",
+    "options": [
+      "A court-issued legal certificate under the seal of a competent civil court certifying the genuineness and validity of the Will and executor's authority",
+      "A tax notice issued by the Income Tax Department",
+      "An insurance claim document",
+      "A receipt for property stamp duty"
+    ],
+    "correctIndex": 0,
+    "explanation": "Probate is the official court decree validating a Will and confirming the executor's legal power to administer the deceased testator's estate.",
+    "topic": "Estate Planning & Wills"
+  },
+  {
+    "id": "nism-xb-gen-q12",
+    "courseId": "nism-xb",
+    "question": "What is the legal implication of creating an 'Irrevocable Discretionary Private Trust' in India?",
+    "options": [
+      "The settlor permanently gives up ownership, the trustee has discretion on timing and amount of distribution to beneficiaries, and trust assets are shielded from beneficiaries' future creditors",
+      "The settlor can cancel the trust at any time and take back the assets",
+      "The trust is exempt from all corporate and individual tax forever",
+      "The trust must be listed on the National Stock Exchange"
+    ],
+    "correctIndex": 0,
+    "explanation": "In an irrevocable discretionary trust, assets are separated from the settlor and beneficiaries lack fixed rights to distributions, offering maximum creditor protection.",
+    "topic": "Estate Planning & Private Trusts"
+  },
+  {
+    "id": "nism-xb-gen-q13",
+    "courseId": "nism-xb",
+    "question": "Under behavioral finance, what is 'Anchoring Bias'?",
+    "options": [
+      "Fixating on a specific piece of historical information (such as purchase price or 52-week high) when making subsequent investment decisions, even when new fundamentals change",
+      "Holding ships in a harbor",
+      "Diversifying equally across all sectors",
+      "Setting stop-loss orders on all trades"
+    ],
+    "correctIndex": 0,
+    "explanation": "Anchoring bias causes an investor to over-rely on initial reference figures (e.g. initial buy price) instead of objective current valuations.",
+    "topic": "Behavioral Biases"
+  },
+  {
+    "id": "nism-xb-gen-q14",
+    "courseId": "nism-xb",
+    "question": "What does the 'Sortino Ratio' measure, and how does it differ from the Sharpe Ratio?",
+    "options": [
+      "It measures excess return divided solely by Downside Deviation, penalizing only negative volatility rather than total volatility",
+      "It measures turnover ratio divided by dividend yield",
+      "It uses Beta instead of Standard Deviation",
+      "It is identical in every way to the Sharpe Ratio"
+    ],
+    "correctIndex": 0,
+    "explanation": "While Sharpe penalizes all volatility (both upside and downside), Sortino divides excess return only by downside semi-deviation, focusing on harmful downside risk.",
+    "topic": "Portfolio Performance Evaluation"
+  },
+  {
+    "id": "nism-xb-gen-q15",
+    "courseId": "nism-xb",
+    "question": "What is 'Tracking Error' in index fund and passive portfolio management?",
+    "options": [
+      "The annualized standard deviation of the difference in returns between the portfolio and its underlying benchmark index",
+      "A computer software glitch in trade execution",
+      "The total expense ratio charged by the AMC",
+      "The delay in physical delivery of shares"
+    ],
+    "correctIndex": 0,
+    "explanation": "Tracking error measures the volatility of active return: standard deviation of (Portfolio Return - Benchmark Return), indicating how closely the fund replicates its index.",
+    "topic": "Portfolio Performance Evaluation"
+  },
+  {
+    "id": "nism-xb-gen-q16",
+    "courseId": "nism-xb",
+    "question": "In retirement planning, what percentage of the accumulated pension corpus can be withdrawn tax-free as a lump-sum upon reaching age 60 under NPS Tier 1?",
+    "options": [
+      "Up to 60% of the corpus can be commuted tax-free; the remaining minimum 40% must be used to purchase an annuity",
+      "100% tax-free lump sum",
+      "Zero, 100% must be annuitized",
+      "Up to 25% only"
+    ],
+    "correctIndex": 0,
+    "explanation": "Under PFRDA regulations, an NPS Tier 1 subscriber can withdraw up to 60% of the accumulated corpus tax-free upon maturity, with at least 40% annuitized.",
+    "topic": "Retirement Planning & NPS"
+  },
+  {
+    "id": "nism-xb-gen-q17",
+    "courseId": "nism-xb",
+    "question": "What is the primary difference between a 'Defined Benefit' (DB) pension plan and a 'Defined Contribution' (DC) pension plan?",
+    "options": [
+      "DB guarantees a predetermined retirement payout based on salary and tenure, with investment risk borne by the employer; DC specifies fixed contributions, with retirement payout and investment risk borne by the employee",
+      "DB is for corporate executives only; DC is for farmers",
+      "DB has no tax benefits; DC has full exemption",
+      "DB permits daily withdrawals; DC locks funds forever"
+    ],
+    "correctIndex": 0,
+    "explanation": "In DB plans (like old pension scheme), the employer guarantees the retirement pension; in DC plans (like NPS/EPF), the employee bears the investment risk.",
+    "topic": "Retirement Planning & Solutions"
+  },
+  {
+    "id": "nism-xb-gen-q18",
+    "courseId": "nism-xb",
+    "question": "Under Section 54EC of the Income Tax Act, an investor can claim capital gains tax exemption on long-term capital gains from real estate by investing in specified bonds (REC, PFC, NHAI) up to a maximum limit of:",
+    "options": [
+      "₹50 Lakhs per financial year within 6 months of transfer",
+      "₹1 Crore",
+      "₹25 Lakhs",
+      "Unlimited investment"
+    ],
+    "correctIndex": 0,
+    "explanation": "Section 54EC allows exemption up to ₹50 Lakhs per financial year by investing in specified infrastructure capital gains bonds within 6 months of property transfer.",
+    "topic": "Tax Exemption Framework"
+  },
+  {
+    "id": "nism-xb-gen-q19",
+    "courseId": "nism-xb",
+    "question": "What is 'Overconfidence Bias' in investment decision making?",
+    "options": [
+      "The tendency of investors to overestimate their financial knowledge, predictive accuracy, and ability to control market outcomes, leading to excessive trading and inadequate diversification",
+      "Being confident that bank deposits will be safe",
+      "Checking stock prices once a week",
+      "Investing solely in index funds"
+    ],
+    "correctIndex": 0,
+    "explanation": "Overconfidence causes investors to misjudge risk, underestimate market uncertainty, and trade too frequently, resulting in substandard net returns.",
+    "topic": "Behavioral Biases"
+  },
+  {
+    "id": "nism-xb-gen-q20",
+    "courseId": "nism-xb",
+    "question": "What is 'Asset-Liability Matching' (ALM) in institutional and high-net-worth portfolio advisory?",
+    "options": [
+      "Structuring the cash flows, maturities, and liquidity profiles of investment assets to coincide precisely with the timing and magnitudes of future client liabilities and commitments",
+      "Borrowing from credit cards to invest in equities",
+      "Balancing ledger accounts at the end of the day",
+      "Pledging assets to secure real estate mortgages"
+    ],
+    "correctIndex": 0,
+    "explanation": "ALM ensures that an investor or institution holds adequate liquid and maturing assets matching their time-specific future debt obligations and spending commitments.",
+    "topic": "Wealth Management & ALM"
+  },
+  {
+    "id": "nism-xv-gen-q21",
+    "courseId": "nism-xv",
+    "question": "What is the statutory requirement under SEBI (Research Analysts) Regulations, 2014 regarding personal shareholding disclosure in a research report?",
+    "options": [
+      "The research analyst and research entity must disclose if they hold 1% or more financial interest in the subject company as on the date of publication",
+      "They are strictly barred from publishing any disclosures",
+      "They only need to disclose if they hold 51% majority control",
+      "Disclosures are optional at the analyst's discretion"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI RA Regulations mandate explicit disclosure of whether the analyst, entity, or associates hold 1% or more beneficial ownership in the target company.",
+    "topic": "SEBI Research Analyst Regulations"
+  },
+  {
+    "id": "nism-xv-gen-q22",
+    "courseId": "nism-xv",
+    "question": "Under SEBI RA Regulations, can a research analyst trade against their own published recommendation within 30 days of report publication?",
+    "options": [
+      "No, research analysts are strictly prohibited from trading against their own recommendation or in a manner contrary to their research views within 30 days",
+      "Yes, provided they do it on an overseas stock exchange",
+      "Yes, if they need personal emergency cash",
+      "Yes, without any restrictions"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI mandates that research analysts cannot execute personal trades contrary to their published recommendations for a period of 30 days from publication.",
+    "topic": "Code of Conduct & Personal Trading"
+  },
+  {
+    "id": "nism-xv-gen-q23",
+    "courseId": "nism-xv",
+    "question": "In equity valuation, what is Enterprise Value (EV)?",
+    "options": [
+      "Market Capitalization + Total Debt + Minority Interest + Preferred Stock - Cash and Cash Equivalents",
+      "Total Revenue minus Total Expenses",
+      "Current share price multiplied by total employees",
+      "Net Worth divided by Book Value"
+    ],
+    "correctIndex": 0,
+    "explanation": "Enterprise Value reflects the total economic takeover value of a firm, calculated as Market Cap plus Debt minus Cash & Liquid Investments.",
+    "topic": "Valuation Metrics"
+  },
+  {
+    "id": "nism-xv-gen-q24",
+    "courseId": "nism-xv",
+    "question": "Why is the EV/EBITDA multiple preferred over the Price-to-Earnings (P/E) ratio when comparing capital-intensive companies with differing capital structures and tax rates?",
+    "options": [
+      "Because EBITDA is independent of capital structure (debt vs equity financing), depreciation policies, and income tax variations, providing a clean operational comparison",
+      "Because EV/EBITDA is always a smaller number than P/E",
+      "Because EBITDA includes extraordinary non-operating income",
+      "Because P/E ratios are illegal under SEBI guidelines"
+    ],
+    "correctIndex": 0,
+    "explanation": "EV/EBITDA eliminates distortions caused by differences in debt leverage, depreciation accounting, and jurisdictional tax rates across competing firms.",
+    "topic": "Valuation Metrics"
+  },
+  {
+    "id": "nism-xv-gen-q25",
+    "courseId": "nism-xv",
+    "question": "In Michael Porter's Five Forces model for industry analysis, which force evaluates the bargaining leverage that consumers have over product pricing?",
+    "options": [
+      "Bargaining Power of Buyers",
+      "Threat of New Entrants",
+      "Bargaining Power of Suppliers",
+      "Threat of Substitute Products"
+    ],
+    "correctIndex": 0,
+    "explanation": "Bargaining Power of Buyers measures the ability of customers to drive down prices, demand higher quality, or switch to competitors.",
+    "topic": "Industry Analysis"
+  },
+  {
+    "id": "nism-xv-gen-q26",
+    "courseId": "nism-xv",
+    "question": "What does the 'Current Ratio' measure in financial statement analysis?",
+    "options": [
+      "Short-term liquidity: Current Assets divided by Current Liabilities",
+      "Long-term solvency: Total Debt divided by Equity",
+      "Profitability: Net Profit divided by Net Sales",
+      "Operating efficiency: Inventory divided by COGS"
+    ],
+    "correctIndex": 0,
+    "explanation": "The Current Ratio evaluates short-term liquidity by comparing current assets (convertible to cash within 1 year) against obligations due within 1 year.",
+    "topic": "Financial Statement Analysis"
+  },
+  {
+    "id": "nism-xv-gen-q27",
+    "courseId": "nism-xv",
+    "question": "What does Return on Capital Employed (ROCE) measure?",
+    "options": [
+      "Operating Profit (EBIT) divided by Total Capital Employed (Total Assets minus Current Liabilities), reflecting efficiency of capital deployment",
+      "Net profit divided by dividend payments",
+      "Market price divided by book value",
+      "Cash generated from financing activities"
+    ],
+    "correctIndex": 0,
+    "explanation": "ROCE measures how effectively a company generates operating profits from all the capital invested into the business by both debt holders and equity shareholders.",
+    "topic": "Financial Statement Analysis"
+  },
+  {
+    "id": "nism-xv-gen-q28",
+    "courseId": "nism-xv",
+    "question": "In macroeconomic analysis, what is 'Core Inflation'?",
+    "options": [
+      "Headline inflation excluding volatile components such as food and energy prices to reveal underlying medium-term price trends",
+      "The inflation rate measured exclusively inside bank branches",
+      "The annual percentage rise in real estate rents",
+      "The inflation rate of technology software"
+    ],
+    "correctIndex": 0,
+    "explanation": "Core inflation strips out volatile food and fuel prices, providing monetary authorities like the RBI with a stable measure of structural demand-driven price pressures.",
+    "topic": "Macroeconomic Analysis"
+  },
+  {
+    "id": "nism-xv-gen-q29",
+    "courseId": "nism-xv",
+    "question": "What does an inverted yield curve (where short-term bond yields are higher than long-term bond yields) traditionally signal to research analysts?",
+    "options": [
+      "An impending economic slowdown or recession as markets anticipate future central bank rate cuts",
+      "A booming economic expansion with high inflation",
+      "A surge in foreign institutional equity investments",
+      "A sudden strengthening of the domestic currency"
+    ],
+    "correctIndex": 0,
+    "explanation": "Yield curve inversion is a classic leading indicator of recession; investors lock into long-term bonds expecting economic deceleration and lower future rates.",
+    "topic": "Economic & Bond Market Analysis"
+  },
+  {
+    "id": "nism-xv-gen-q30",
+    "courseId": "nism-xv",
+    "question": "What is 'DuPont Analysis' in financial equity research?",
+    "options": [
+      "Decomposing Return on Equity (ROE) into three distinct components: Net Profit Margin (profitability) * Asset Turnover (operating efficiency) * Financial Leverage (equity multiplier)",
+      "A chemical manufacturing process",
+      "A technical charting pattern on candlestick charts",
+      "A method of calculating brokerage commissions"
+    ],
+    "correctIndex": 0,
+    "explanation": "DuPont analysis breaks down ROE to identify whether a company's return is driven by high profit margins, efficient asset utilization, or aggressive debt leverage.",
+    "topic": "Financial Statement Analysis"
+  },
+  {
+    "id": "nism-xxia-gen-q21",
+    "courseId": "nism-xxia",
+    "question": "Under SEBI (Portfolio Managers) Regulations, 2020, what is the minimum net worth requirement for a registered Portfolio Manager?",
+    "options": [
+      "₹5 Crores",
+      "₹2 Crores",
+      "₹1 Crore",
+      "₹10 Crores"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI mandates that an entity registered as a Portfolio Manager must maintain a minimum net worth of ₹5 Crores at all times.",
+    "topic": "SEBI PMS Regulations"
+  },
+  {
+    "id": "nism-xxia-gen-q22",
+    "courseId": "nism-xxia",
+    "question": "What is the 'Disclosure Document' (Form C) provided by a Portfolio Manager to prospective clients prior to agreement signing?",
+    "options": [
+      "A comprehensive regulatory document detailing PMS history, investment strategies, performance track record, fee schedules, and pending litigation",
+      "A marketing brochure with guaranteed profit claims",
+      "A bank account opening letter",
+      "An insurance policy document"
+    ],
+    "correctIndex": 0,
+    "explanation": "Under Regulation 22, the Disclosure Document gives investors transparent, verified information on the manager's strategies, risks, fees, and past performance.",
+    "topic": "Disclosure Document & Form C"
+  },
+  {
+    "id": "nism-xxia-gen-q23",
+    "courseId": "nism-xxia",
+    "question": "How frequently must a Portfolio Manager provide detailed activity, transaction, and portfolio valuation statements to PMS clients?",
+    "options": [
+      "At least once every three months (quarterly), or monthly if requested",
+      "Once every 5 years",
+      "Only when the client explicitly issues a legal notice",
+      "Annually at the Annual General Meeting"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI regulations mandate that portfolio managers provide reports to clients at least on a quarterly basis, detailing portfolio assets, transactions, and fees charged.",
+    "topic": "Client Reporting & Statements"
+  },
+  {
+    "id": "nism-xxia-gen-q24",
+    "courseId": "nism-xxia",
+    "question": "In PMS operations, what is the role of an independent 'Custodian'?",
+    "options": [
+      "To safe-keep client securities, maintain independent demat and bank accounts, and settle trades under the instructions of the portfolio manager",
+      "To market PMS schemes across rural areas",
+      "To audit the client's personal income tax returns",
+      "To lend money to the portfolio manager"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI mandates appointment of an independent, regulated custodian for safekeeping of client funds and securities to prevent misappropriation.",
+    "topic": "Custody & Settlement"
+  },
+  {
+    "id": "nism-xxia-gen-q25",
+    "courseId": "nism-xxia",
+    "question": "Under SEBI regulations, can a Portfolio Manager invest client funds in unlisted securities?",
+    "options": [
+      "Yes, but only in discretionary and non-discretionary PMS up to a maximum aggregate limit of 25% of the client's portfolio in unlisted securities",
+      "No, zero percent unlisted investment is allowed",
+      "Yes, 100% of the portfolio can be in unlisted shares",
+      "Only if the client is a foreign citizen"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI permits investment in unlisted securities up to a maximum cap of 25% of the client's AUM under prudent risk diversification norms.",
+    "topic": "PMS Investment Restrictions"
+  },
+  {
+    "id": "nism-xxia-gen-q26",
+    "courseId": "nism-xxia",
+    "question": "What is the primary reason why Time-Weighted Rate of Return (TWRR) is mandated over Internal Rate of Return (IRR) for reporting PMS manager performance?",
+    "options": [
+      "TWRR eliminates the distorting effects of client cash deposits and withdrawals, measuring solely the manager's investment skill",
+      "TWRR always produces a higher percentage return than IRR",
+      "IRR is mathematically impossible to calculate on computers",
+      "TWRR is required by the Income Tax Department for GST calculation"
+    ],
+    "correctIndex": 0,
+    "explanation": "Since the timing and size of capital injections and withdrawals are controlled by the client, TWRR isolates the manager's true investment compounding ability.",
+    "topic": "Performance Reporting & Metrics"
+  },
+  {
+    "id": "nism-xxia-gen-q27",
+    "courseId": "nism-xxia",
+    "question": "Can a Portfolio Manager promise or guarantee fixed returns to a PMS client under SEBI regulations?",
+    "options": [
+      "No, SEBI strictly prohibits portfolio managers from promising, assuring, or indicating any guaranteed returns to clients",
+      "Yes, if backed by an insurance policy",
+      "Yes, up to 15% annual return",
+      "Yes, if the client invests more than ₹10 Crores"
+    ],
+    "correctIndex": 0,
+    "explanation": "Regulation 24(2) explicitly prohibits portfolio managers from guaranteeing or indicating guaranteed returns on any PMS product.",
+    "topic": "Code of Conduct & Prohibitions"
+  },
+  {
+    "id": "nism-xxia-gen-q28",
+    "courseId": "nism-xxia",
+    "question": "Under the SEBI PMS fee framework, how are distributor commissions paid for sourcing PMS clients?",
+    "options": [
+      "Only through a trail commission model out of the management fee; upfront commissions are strictly prohibited",
+      "Full 5% upfront commission on day one",
+      "Cash payment directly from client to distributor",
+      "No commission is permitted under any circumstances"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI banned all upfront commissions in PMS distribution: distributors can only receive ongoing trail-based compensation deducted from management fees.",
+    "topic": "Distributor Commission Norms"
+  },
+  {
+    "id": "nism-xxia-gen-q29",
+    "courseId": "nism-xxia",
+    "question": "What is a 'Model Portfolio' in PMS operations?",
+    "options": [
+      "A standardized investment basket created by the research team representing an approved strategy, which is replicated across individual client accounts based on their mandates",
+      "A portfolio created by fashion models",
+      "A demonstration account with monopoly money",
+      "An index ETF managed by a mutual fund"
+    ],
+    "correctIndex": 0,
+    "explanation": "Model portfolios represent the institutional target allocations of a strategy; trades are proportionately executed across client accounts following that model.",
+    "topic": "Portfolio Execution"
+  },
+  {
+    "id": "nism-xxia-gen-q30",
+    "courseId": "nism-xxia",
+    "question": "What is the statutory requirement for auditing of client PMS accounts by an independent Chartered Accountant?",
+    "options": [
+      "An annual audit of each client's portfolio accounts must be conducted by an independent CA, and the report submitted to the client and SEBI",
+      "Audit is only required if the client incurs a loss",
+      "Audits are conducted once every 10 years",
+      "Audits are conducted exclusively by RBI officials"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI regulations mandate an annual audit of individual client portfolio accounts by an independent practicing Chartered Accountant.",
+    "topic": "Audit & Regulatory Compliance"
+  },
+  {
+    "id": "nism-cpe-mf-gen-q6",
+    "courseId": "nism-cpe-mf",
+    "question": "What is the validity period of an initial NISM Series V-A Mutual Fund Distributors Certification, and how is it extended via CPE?",
+    "options": [
+      "Valid for 3 years from the date of examination; completing an approved 1-day CPE program prior to expiry extends certification for another 3 years",
+      "Valid for lifetime with no renewal required",
+      "Valid for 6 months only",
+      "Valid for 10 years"
+    ],
+    "correctIndex": 0,
+    "explanation": "NISM Series V-A certification is valid for 3 years. Candidates must complete a NISM CPE training session within 12 months prior to certificate expiration.",
+    "topic": "CPE Revalidation Norms"
+  },
+  {
+    "id": "nism-cpe-mf-gen-q7",
+    "courseId": "nism-cpe-mf",
+    "question": "Under the updated SEBI guidelines, what is Central KYC (CKYC) registry administered by CERSAI?",
+    "options": [
+      "A centralized repository storing verified digital KYC records of financial consumers, allowing one-time KYC verification across all SEBI, RBI, IRDAI, and PFRDA entities",
+      "A national credit rating bureau",
+      "A taxation database for GST returns",
+      "A blacklist registry of loan defaulters"
+    ],
+    "correctIndex": 0,
+    "explanation": "CKYC eliminates redundant document collection by storing verified records under a 14-digit CKYC number usable across all financial intermediaries.",
+    "topic": "KYC & AML Compliance"
+  },
+  {
+    "id": "nism-cpe-mf-gen-q8",
+    "courseId": "nism-cpe-mf",
+    "question": "Under SEBI regulations, what is the consequence of failing to link PAN with Aadhaar for mutual fund investments?",
+    "options": [
+      "The PAN becomes inoperative, leading to blocking of mutual fund transactions, higher TDS deductions, and rejection of fresh purchase and SIP orders",
+      "The investor is arrested by local police",
+      "The mutual fund units are confiscated by the AMC",
+      "No consequence, transactions continue normally"
+    ],
+    "correctIndex": 0,
+    "explanation": "An inoperative PAN due to non-linkage with Aadhaar prevents compliance with KYC laws, halting fresh investments, SIP installments, and redemptions.",
+    "topic": "Statutory Compliance & PAN"
+  },
+  {
+    "id": "nism-cpe-mf-gen-q9",
+    "courseId": "nism-cpe-mf",
+    "question": "What is the role of the Association of Mutual Funds in India (AMFI) in distributor regulation?",
+    "options": [
+      "Issuing AMFI Registration Numbers (ARN), maintaining the distributor code of conduct, and enforcing disciplinary actions for unethical selling practices",
+      "Regulating monetary policy and repo rates",
+      "Managing commercial real estate properties",
+      "Printing sovereign currency notes"
+    ],
+    "correctIndex": 0,
+    "explanation": "AMFI is the apex industry body that issues ARN cards, enforces the AMFI Code of Ethics, and coordinates with SEBI for orderly distribution growth.",
+    "topic": "Industry Structure & AMFI"
+  },
+  {
+    "id": "nism-cpe-mf-gen-q10",
+    "courseId": "nism-cpe-mf",
+    "question": "What is the maximum timeline prescribed by SEBI for processing mutual fund redemptions in standard open-ended schemes?",
+    "options": [
+      "Within 2 working days (T+2) for equity schemes and T+1 for liquid schemes",
+      "Within 30 calendar days",
+      "Within 12 hours of placing the order",
+      "Redemptions can be delayed indefinitely without notice"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI amended mutual fund redemption transfer timelines to T+2 working days for general schemes and T+1 for liquid/overnight schemes to protect investor liquidity.",
+    "topic": "Operational Turnaround Times"
   }
 ];

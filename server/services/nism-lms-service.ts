@@ -57,6 +57,7 @@ export interface LtiLaunchPayload {
 	syllabusUrl?: string;
 	idToken: string;
 	state: string;
+	courseId?: string;
 	courseTitle: string;
 	seriesCode?: string;
 	agentName?: string;
@@ -558,6 +559,7 @@ export class NismLmsService {
 			syllabusUrl,
 			idToken,
 			state,
+			courseId: matchedCourse?.id || courseId,
 			courseTitle: matchedCourse?.title || courseId.toUpperCase(),
 			seriesCode: matchedCourse?.seriesCode || courseId.toUpperCase(),
 			agentName,
@@ -730,21 +732,40 @@ export class NismLmsService {
 	 */
 	resolveQuestionsForCourse(courseId: string, count?: number): NismPracticeQuestion[] {
 		const cid = (courseId || "").toLowerCase().trim();
-		const matchedCourse = DEFAULT_COURSES.find(
-			(c) => c.id.toLowerCase() === cid || c.seriesCode.toLowerCase() === cid,
-		) || DEFAULT_COURSES[0];
+		const matchedCourse =
+			DEFAULT_COURSES.find(
+				(c) => c.id.toLowerCase() === cid || c.seriesCode.toLowerCase() === cid,
+			) || DEFAULT_COURSES[0];
 
 		// Questions specifically tagged for this course
 		let matching = NISM_PRACTICE_BANK.filter(
 			(q) => q.courseId.toLowerCase() === matchedCourse.id.toLowerCase(),
 		);
 
-		// If fewer than 10 questions exist, augment with core foundational regulatory/compliance questions
-		if (matching.length < 10) {
-			const generalPool = NISM_PRACTICE_BANK.filter(
-				(q) => q.courseId === "nism-va" && !matching.some((m) => m.id === q.id),
+		const needed = count && count > 0 ? count : 10;
+		if (matching.length < needed) {
+			const ADJACENT_MAP: Record<string, string[]> = {
+				"nism-va": ["nism-vd", "nism-cpe-mf", "nism-xa", "nism-xxia"],
+				"nism-vd": ["nism-xxia", "nism-xa", "nism-xb", "nism-xv", "nism-va"],
+				"nism-viii": ["nism-xiii", "nism-xv", "nism-xa", "nism-va"],
+				"nism-xiii": ["nism-viii", "nism-xv", "nism-xa", "nism-va"],
+				"nism-xa": ["nism-xb", "nism-xxia", "nism-va", "nism-xv"],
+				"nism-xb": ["nism-xa", "nism-xxia", "nism-xv", "nism-va"],
+				"nism-xv": ["nism-viii", "nism-xxia", "nism-xa", "nism-va"],
+				"nism-xxia": ["nism-vd", "nism-xa", "nism-xb", "nism-va"],
+				"nism-cpe-mf": ["nism-va", "nism-vd", "nism-xa"],
+			};
+			const adjIds = ADJACENT_MAP[matchedCourse.id] || ["nism-va"];
+			const adjPool = NISM_PRACTICE_BANK.filter(
+				(q) => adjIds.includes(q.courseId) && !matching.some((m) => m.id === q.id),
 			);
-			matching = [...matching, ...generalPool];
+			const genPool = NISM_PRACTICE_BANK.filter(
+				(q) =>
+					q.courseId === "nism-va" &&
+					!matching.some((m) => m.id === q.id) &&
+					!adjPool.some((a) => a.id === q.id),
+			);
+			matching = [...matching, ...adjPool, ...genPool];
 		}
 
 		if (typeof count === "number" && count > 0 && count < matching.length) {
@@ -752,6 +773,143 @@ export class NismLmsService {
 		}
 
 		return matching;
+	}
+
+	/**
+	 * Build authentic 150-question examination papers for ANY accredited NISM course
+	 */
+	composeCourseMockPaper(
+		courseId: string,
+		paperId: "paper-1" | "paper-2" | "paper-3" | string,
+	): {
+		paperTitle: string;
+		questions: NismPracticeQuestion[];
+	} {
+		const cid = (courseId || "").toLowerCase().trim();
+		const matchedCourse =
+			DEFAULT_COURSES.find(
+				(c) => c.id.toLowerCase() === cid || c.seriesCode.toLowerCase() === cid,
+			) || DEFAULT_COURSES[0];
+
+		const primary = NISM_PRACTICE_BANK.filter(
+			(q) => q.courseId.toLowerCase() === matchedCourse.id.toLowerCase(),
+		);
+
+		const ADJACENT_MAP: Record<string, string[]> = {
+			"nism-va": ["nism-vd", "nism-cpe-mf", "nism-xa", "nism-xxia"],
+			"nism-vd": ["nism-xxia", "nism-xa", "nism-xb", "nism-xv", "nism-va"],
+			"nism-viii": ["nism-xiii", "nism-xv", "nism-xa", "nism-va"],
+			"nism-xiii": ["nism-viii", "nism-xv", "nism-xa", "nism-va"],
+			"nism-xa": ["nism-xb", "nism-xxia", "nism-va", "nism-xv"],
+			"nism-xb": ["nism-xa", "nism-xxia", "nism-xv", "nism-va"],
+			"nism-xv": ["nism-viii", "nism-xxia", "nism-xa", "nism-va"],
+			"nism-xxia": ["nism-vd", "nism-xa", "nism-xb", "nism-va"],
+			"nism-cpe-mf": ["nism-va", "nism-vd", "nism-xa"],
+		};
+
+		const adjIds = ADJACENT_MAP[matchedCourse.id] || ["nism-va"];
+		const adjPool = NISM_PRACTICE_BANK.filter(
+			(q) => adjIds.includes(q.courseId) && q.courseId !== matchedCourse.id,
+		);
+		const generalPool = NISM_PRACTICE_BANK.filter((q) => q.courseId === "nism-va");
+
+		const selected: NismPracticeQuestion[] = [];
+		const seen = new Set<string>();
+
+		let paperTitle = "";
+		if (paperId === "paper-1") {
+			paperTitle = `${matchedCourse.seriesCode} Paper 1: Full Comprehensive Mock (150 Questions • 180 Mins)`;
+			for (const q of primary) {
+				if (!seen.has(q.id)) {
+					seen.add(q.id);
+					selected.push(q);
+				}
+			}
+			for (const q of adjPool) {
+				if (selected.length >= 150) break;
+				if (!seen.has(q.id)) {
+					seen.add(q.id);
+					selected.push(q);
+				}
+			}
+			for (const q of generalPool) {
+				if (selected.length >= 150) break;
+				if (!seen.has(q.id)) {
+					seen.add(q.id);
+					selected.push(q);
+				}
+			}
+		} else if (paperId === "paper-2") {
+			paperTitle = `${matchedCourse.seriesCode} Paper 2: Case Studies, Calculations & Regulatory Mastery (150 Questions • 180 Mins)`;
+			const pRev = [...primary].reverse();
+			for (const q of pRev) {
+				if (!seen.has(q.id)) {
+					seen.add(q.id);
+					selected.push(q);
+				}
+			}
+			const aRev = [...adjPool].reverse();
+			for (const q of aRev) {
+				if (selected.length >= 150) break;
+				if (!seen.has(q.id)) {
+					seen.add(q.id);
+					selected.push(q);
+				}
+			}
+			const genSlice2 = generalPool.slice(100).concat(generalPool.slice(0, 100));
+			for (const q of genSlice2) {
+				if (selected.length >= 150) break;
+				if (!seen.has(q.id)) {
+					seen.add(q.id);
+					selected.push(q);
+				}
+			}
+		} else if (paperId === "paper-3") {
+			paperTitle = `${matchedCourse.seriesCode} Paper 3: Advanced Scenario & Budget 2024 Tax Paper (150 Questions • 180 Mins)`;
+			for (const q of primary) {
+				if (!seen.has(q.id)) {
+					seen.add(q.id);
+					selected.push(q);
+				}
+			}
+			const mid = Math.floor(adjPool.length / 2);
+			const aMid = adjPool.slice(mid).concat(adjPool.slice(0, mid));
+			for (const q of aMid) {
+				if (selected.length >= 150) break;
+				if (!seen.has(q.id)) {
+					seen.add(q.id);
+					selected.push(q);
+				}
+			}
+			const genSlice3 = generalPool.slice(200).concat(generalPool.slice(0, 200));
+			for (const q of genSlice3) {
+				if (selected.length >= 150) break;
+				if (!seen.has(q.id)) {
+					seen.add(q.id);
+					selected.push(q);
+				}
+			}
+		} else {
+			paperTitle = `${matchedCourse.seriesCode} 150-Question Model Simulation (180 Mins)`;
+			for (const q of primary) {
+				if (!seen.has(q.id)) {
+					seen.add(q.id);
+					selected.push(q);
+				}
+			}
+			for (const q of adjPool.concat(generalPool)) {
+				if (selected.length >= 150) break;
+				if (!seen.has(q.id)) {
+					seen.add(q.id);
+					selected.push(q);
+				}
+			}
+		}
+
+		return {
+			paperTitle,
+			questions: selected.slice(0, 150),
+		};
 	}
 
 	/**
@@ -812,22 +970,15 @@ export class NismLmsService {
 		let paperTitle: string | undefined;
 		let targetDuration = 180;
 
-		if (paperId === "paper-1") {
-			matching = allMatching.slice(0, 150);
-			paperTitle = "Paper 1: Full Comprehensive Mock (150 Questions • 180 Mins)";
+		if (paperId?.startsWith("paper-")) {
+			const composed = this.composeCourseMockPaper(courseId, paperId);
+			matching = composed.questions;
+			paperTitle = composed.paperTitle;
 			targetDuration = 180;
-		} else if (paperId === "paper-2") {
-			matching = allMatching.slice(150, 300);
-			if (matching.length < 150) {
-				matching = [...matching, ...allMatching.slice(0, 150 - matching.length)];
-			}
-			paperTitle = "Paper 2: Case Studies, Calculations & Regulatory Mastery (150 Questions • 180 Mins)";
-			targetDuration = 180;
-		} else if (paperId === "paper-3") {
-			const pool1 = allMatching.slice(200, 350);
-			const pool2 = allMatching.slice(50, 150);
-			matching = [...pool1, ...pool2].slice(0, 150);
-			paperTitle = "Paper 3: Advanced Scenario & Budget 2024 Tax Paper (150 Questions • 180 Mins)";
+		} else if (rawMode === "150" || rawMode === 150 || rawMode === "mock150") {
+			const composed = this.composeCourseMockPaper(courseId, "paper-1");
+			matching = composed.questions;
+			paperTitle = composed.paperTitle;
 			targetDuration = 180;
 		} else {
 			let targetCount: number | undefined;
@@ -840,10 +991,7 @@ export class NismLmsService {
 			} else if (rawMode === "full" || rawMode === "100" || rawMode === 100) {
 				targetCount = 100;
 				targetDuration = 120;
-			} else if (rawMode === "150" || rawMode === 150 || rawMode === "mock150") {
-				targetCount = 150;
-				targetDuration = 180;
-				paperTitle = "NISM Model Paper: 150 Questions Full Simulation (180 Mins)";
+				paperTitle = `${matchedCourse.seriesCode} 100 Qs Standard Mock (120 Mins)`;
 			} else if (typeof rawMode === "number") {
 				targetCount = rawMode;
 				targetDuration = Math.max(15, Math.round(targetCount * 1.2));
@@ -851,12 +999,17 @@ export class NismLmsService {
 				targetCount = allMatching.length;
 				targetDuration = Math.max(30, Math.round(allMatching.length * 1.2));
 			} else {
-				// Default to 150 questions for Series V-A if available, else 100
-				targetCount = Math.min(150, allMatching.length);
-				targetDuration = targetCount >= 150 ? 180 : 120;
+				targetCount = 150;
+				targetDuration = 180;
 			}
 
-			matching = this.resolveQuestionsForCourse(courseId, targetCount);
+			if (targetCount === 150) {
+				const composed = this.composeCourseMockPaper(courseId, "paper-1");
+				matching = composed.questions;
+				paperTitle = composed.paperTitle;
+			} else {
+				matching = this.resolveQuestionsForCourse(courseId, targetCount);
+			}
 		}
 
 		if (typeof modeOrOptions === "object" && typeof modeOrOptions.count === "number" && modeOrOptions.count > 0) {

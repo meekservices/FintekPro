@@ -252,6 +252,7 @@ export default function AgentKnowledgeCertifications() {
 			syllabusUrl?: string;
 			idToken?: string;
 			state?: string;
+			courseId?: string;
 			courseTitle?: string;
 			seriesCode?: string;
 			agentName?: string;
@@ -1093,6 +1094,16 @@ export default function AgentKnowledgeCertifications() {
 												>
 													<FileText className="h-3.5 w-3.5 mr-1" />
 													Syllabus
+												</Button>
+
+												<Button
+													size="sm"
+													variant="outline"
+													className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10 h-8 flex items-center gap-1 text-xs"
+													onClick={() => handleLaunchNismCourse(course.courseId)}
+												>
+													<Target className="h-3.5 w-3.5" />
+													Practice Tests
 												</Button>
 
 												<Button
@@ -2039,8 +2050,8 @@ export default function AgentKnowledgeCertifications() {
 														: "border-border/60 hover:border-border text-muted-foreground"
 												}`}
 											>
-												<span>📚 All 360+ Bank</span>
-												<span className="text-[9px] opacity-80">Comprehensive Full Bank</span>
+												<span>📚 Full Question Bank</span>
+												<span className="text-[9px] opacity-80">All Accredited Questions</span>
 											</button>
 										</div>
 									</div>
@@ -2054,7 +2065,12 @@ export default function AgentKnowledgeCertifications() {
 									}`}
 									disabled={practiceTestModal.loading}
 									onClick={() => {
-										const targetCourseId = nismLaunchModal.course?.courseId || nismLaunchModal.launchData?.seriesCode || "nism-va";
+										const targetCourseId =
+											nismLaunchModal.launchData?.courseId ||
+											nismLaunchModal.course?.courseId ||
+											(nismLaunchModal.course as any)?.id ||
+											nismLaunchModal.launchData?.seriesCode?.toLowerCase() ||
+											"nism-va";
 										handleStartNismPracticeTest(targetCourseId, nismSelectedPaper, nismTestType);
 									}}
 								>

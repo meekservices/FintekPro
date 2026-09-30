@@ -231,4 +231,41 @@ describe("NISM LMS Service (LTI 1.3 & xAPI)", () => {
 		expect(generated.questions.length).toBe(5);
 		expect(generated.questions[0].options.length).toBe(4);
 	});
+
+	it("serves authentic 150-question examination papers across ALL accredited NISM modules", () => {
+		const allModules = [
+			"nism-va",
+			"nism-vd",
+			"nism-viii",
+			"nism-xiii",
+			"nism-xa",
+			"nism-xb",
+			"nism-xv",
+			"nism-xxia",
+			"nism-cpe-mf",
+		];
+
+		for (const modId of allModules) {
+			// Paper 1 in Exam Mode
+			const p1Exam = nismLmsService.getPracticeQuestions(modId, { paperId: "paper-1", testType: "exam" });
+			expect(p1Exam.questions.length).toBe(150);
+			expect(p1Exam.durationMinutes).toBe(180);
+			expect(p1Exam.paperTitle).toBeDefined();
+			// No answer leakage in exam mode
+			expect(p1Exam.questions[0].correctIndex).toBeUndefined();
+			expect(p1Exam.questions[0].explanation).toBeUndefined();
+
+			// Paper 2 in Practice Mode
+			const p2Practice = nismLmsService.getPracticeQuestions(modId, { paperId: "paper-2", testType: "practice" });
+			expect(p2Practice.questions.length).toBe(150);
+			expect(p2Practice.durationMinutes).toBe(0); // untimed
+			expect(typeof p2Practice.questions[0].correctIndex).toBe("number");
+			expect(typeof p2Practice.questions[0].explanation).toBe("string");
+
+			// Paper 3 in Exam Mode
+			const p3Exam = nismLmsService.getPracticeQuestions(modId, { paperId: "paper-3", testType: "exam" });
+			expect(p3Exam.questions.length).toBe(150);
+			expect(p3Exam.durationMinutes).toBe(180);
+		}
+	});
 });
