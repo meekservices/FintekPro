@@ -3,11 +3,11 @@ import type { NismPracticeQuestion } from "./nism-lms-service";
 
 /**
  * High-yield NISM Accredited Practice Question Bank
- * Covers all official NISM modules: Series V-A (500 Qs across 5 distinct 100-Q papers),
- * Series VIII (100 Qs), Series X-A (100 Qs), Series XV (100 Qs), Series XXI-A (50 Qs),
- * Series V-D (306 Qs across 2 full 150-Q papers covering all 22 chapters with SIF framework),
- * Series XIII (30 Qs), Series X-B (30 Qs), and CPE Refresher (20 Qs).
- * Total accredited questions: 1236.
+ * Covers all 30 official NISM exam series listed on NISM & iExamWorld:
+ * Series I, II-A, II-B, III-A, III-B, IV, V-A, V-B, V-C, V-D (SIF),
+ * VI, VII (SORM), VIII, IX, X-A, X-B, XII, XIII, XV, XVI, XVII,
+ * XVIII, XIX-A, XIX-B, XIX-C, XXI-A, XXI-B, XXII, XXIII, and CPE Refresher.
+ * Total accredited questions: 1326.
  */
 export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
   {
@@ -21237,5 +21237,1625 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "chapterTitle": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
     "difficulty": "basic",
     "paperId": "paper-2"
+  },
+  {
+    "id": "nism-i-q1",
+    "courseId": "nism-i",
+    "question": "What is the standard contract size (lot size) for USD-INR Currency Futures traded on recognized Indian exchanges?",
+    "options": [
+      "USD 10,000",
+      "USD 1,000",
+      "USD 50,000",
+      "USD 5,000"
+    ],
+    "correctIndex": 1,
+    "explanation": "The standard lot size of a USD-INR currency futures contract on Indian exchanges (NSE/BSE) is exactly USD 1,000.",
+    "topic": "Currency Futures Specifications",
+    "chapter": 1,
+    "chapterTitle": "Currency Futures Specifications",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-i-q2",
+    "courseId": "nism-i",
+    "question": "Under Covered Interest Rate Parity (CIRP), what is the relationship between forward exchange rate (F) and spot exchange rate (S)?",
+    "options": [
+      "F = S * (1 + Domestic Rate) / (1 + Foreign Rate)",
+      "F = S * (1 + Foreign Rate) / (1 + Domestic Rate)",
+      "F = S * (Domestic Rate - Foreign Rate)",
+      "F = S / (1 + Domestic Rate)"
+    ],
+    "correctIndex": 0,
+    "explanation": "According to Covered Interest Rate Parity, F = S * [(1 + r_domestic) / (1 + r_foreign)]. If domestic rates exceed foreign rates, the foreign currency trades at a forward premium.",
+    "topic": "Interest Rate Parity",
+    "chapter": 1,
+    "chapterTitle": "Interest Rate Parity",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-i-q3",
+    "courseId": "nism-i",
+    "question": "An Indian exporter is expecting a receivable of USD 500,000 in 3 months. How should the exporter hedge against potential rupee appreciation using currency futures?",
+    "options": [
+      "Buy 500 lots of USD-INR Futures",
+      "Sell (Short) 500 lots of USD-INR Futures",
+      "Buy USD-INR Call options",
+      "Sell USD-INR Put options"
+    ],
+    "correctIndex": 1,
+    "explanation": "To hedge future USD inflows, the exporter must lock in the selling rate today by selling (shorting) USD-INR futures contracts (500,000 / 1,000 = 500 lots).",
+    "topic": "Currency Hedging Strategies",
+    "chapter": 1,
+    "chapterTitle": "Currency Hedging Strategies",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-i-q4",
+    "courseId": "nism-i",
+    "question": "What is the quotation tick size for currency futures traded on Indian exchanges?",
+    "options": [
+      "0.05 paisa",
+      "0.25 paisa (\u20b90.0025)",
+      "1.00 paisa (\u20b90.0100)",
+      "0.10 paisa"
+    ],
+    "correctIndex": 1,
+    "explanation": "The minimum tick size for currency futures in India is 0.25 paisa or \u20b90.0025 per unit of foreign currency.",
+    "topic": "Currency Market Mechanics",
+    "chapter": 1,
+    "chapterTitle": "Currency Market Mechanics",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-i-q5",
+    "courseId": "nism-i",
+    "question": "Which benchmark reference rate published by FBIL is used for the cash settlement of expiring USD-INR contracts?",
+    "options": [
+      "FBIL Overnight MIBOR",
+      "FBIL USD/INR Reference Rate",
+      "RBI Prime Lending Rate",
+      "London Fix Rate"
+    ],
+    "correctIndex": 1,
+    "explanation": "Expiring currency futures and options in India are cash settled against the official FBIL USD/INR Reference Rate on the final trading day.",
+    "topic": "Settlement & Clearing",
+    "chapter": 1,
+    "chapterTitle": "Settlement & Clearing",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iia-q1",
+    "courseId": "nism-iia",
+    "question": "What is the statutory role of a Registrar and Transfer Agent (RTA) in a corporate Initial Public Offering (IPO)?",
+    "options": [
+      "Underwriting the unsold portion of the issue",
+      "Processing application forms, verifying ASBA bids, and finalizing the basis of allotment in consultation with the stock exchange",
+      "Setting the floor price and cap price of the IPO",
+      "Publishing equity research reports on the issuer"
+    ],
+    "correctIndex": 1,
+    "explanation": "The RTA collects and validates bid data from ASBA banks, ensures PAN compliance, eliminates duplicate bids, and computes the basis of allotment as approved by SEBI/Stock Exchanges.",
+    "topic": "IPO Allotment & ASBA",
+    "chapter": 1,
+    "chapterTitle": "IPO Allotment & ASBA",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iia-q2",
+    "courseId": "nism-iia",
+    "question": "Under Section 124 of the Companies Act, 2013, when must unclaimed dividends and corresponding underlying shares be transferred to the Investor Education and Protection Fund (IEPF)?",
+    "options": [
+      "After 3 consecutive years of non-claim",
+      "After 7 consecutive years of remaining unpaid or unclaimed",
+      "After 10 years",
+      "Immediately at the end of the financial year"
+    ],
+    "correctIndex": 1,
+    "explanation": "Any dividend remaining unpaid or unclaimed for seven consecutive years, along with the underlying shares, must be transferred by the RTA/Company to the IEPF Authority.",
+    "topic": "IEPF Transfer Rules",
+    "chapter": 1,
+    "chapterTitle": "IEPF Transfer Rules",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iia-q3",
+    "courseId": "nism-iia",
+    "question": "What is the turnaround time (TAT) mandated by SEBI for RTAs to process dematerialization requests from the date of receipt of physical certificates?",
+    "options": [
+      "7 days",
+      "15 days",
+      "30 days",
+      "45 days"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandates that RTAs must confirm or reject Demat Request Forms (DRF) within 15 days of physical receipt from the Depository Participant.",
+    "topic": "Dematerialization Processing",
+    "chapter": 1,
+    "chapterTitle": "Dematerialization Processing",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iib-q1",
+    "courseId": "nism-iib",
+    "question": "Which entity acts as the primary data and transaction processor for mutual fund unit creation, redemptions, and dividend processing in India?",
+    "options": [
+      "Stock Broker",
+      "Mutual Fund Registrar and Transfer Agent (RTA) such as CAMS and KFintech",
+      "Custodian bank",
+      "Credit Rating Agency"
+    ],
+    "correctIndex": 1,
+    "explanation": "Mutual Fund RTAs maintain the master investor register, execute subscriptions/redemptions, compute payouts, generate account statements, and enforce compliance limits.",
+    "topic": "MF RTA Operations",
+    "chapter": 1,
+    "chapterTitle": "MF RTA Operations",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iib-q2",
+    "courseId": "nism-iib",
+    "question": "Under SEBI mutual fund regulations, what document must be submitted to the RTA to effectuate the transmission of units in the event of a sole unitholder's demise without a registered nominee?",
+    "options": [
+      "A simple letter signed by any blood relative",
+      "Succession Certificate, Probate of Will, or Letters of Administration issued by a competent court",
+      "Copy of the deceased's voter ID card",
+      "Written guarantee from the distributor"
+    ],
+    "correctIndex": 1,
+    "explanation": "In the absence of a registered nomination, transmission requires a Succession Certificate, Probate of Will, or Letters of Administration issued by a court of competent jurisdiction.",
+    "topic": "Transmission of Units",
+    "chapter": 1,
+    "chapterTitle": "Transmission of Units",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iib-q3",
+    "courseId": "nism-iib",
+    "question": "What is the statutory deadline for an AMC/RTA to dispatch redemption proceeds to an investor under SEBI norms?",
+    "options": [
+      "Within 3 working days from date of redemption (T+3)",
+      "Within 10 working days",
+      "Within 30 calendar days",
+      "Same day before 1:30 PM"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI regulations mandate that mutual funds must dispatch redemption or repurchase proceeds within 3 working days of receiving the request.",
+    "topic": "Redemption Timelines",
+    "chapter": 1,
+    "chapterTitle": "Redemption Timelines",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iiia-q1",
+    "courseId": "nism-iiia",
+    "question": "Under the Prevention of Money Laundering Act (PMLA), 2002, to which regulatory authority must a registered intermediary submit a Suspicious Transaction Report (STR)?",
+    "options": [
+      "SEBI Chairman",
+      "Financial Intelligence Unit - India (FIU-IND)",
+      "Reserve Bank of India",
+      "Income Tax Department"
+    ],
+    "correctIndex": 1,
+    "explanation": "PMLA mandates that all registered intermediaries must submit Suspicious Transaction Reports (STRs) exclusively to FIU-IND within 7 working days of establishing suspicion.",
+    "topic": "PMLA & FIU Reporting",
+    "chapter": 1,
+    "chapterTitle": "PMLA & FIU Reporting",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iiia-q2",
+    "courseId": "nism-iiia",
+    "question": "What is the concept of a 'Chinese Wall' in a securities brokerage and merchant banking firm?",
+    "options": [
+      "Physical barrier separating computers from the internet",
+      "Information barriers designed to prevent Unpublished Price Sensitive Information (UPSI) from passing between advisory/investment banking and research/trading departments",
+      "A firewall protecting the trading terminal from cyberattacks",
+      "A regulatory treaty between SEBI and international exchanges"
+    ],
+    "correctIndex": 1,
+    "explanation": "Chinese Walls are strict ethical and physical information barriers ensuring that insider knowledge in merchant banking does not contaminate research or proprietary trading desks.",
+    "topic": "Conflict of Interest & Chinese Walls",
+    "chapter": 1,
+    "chapterTitle": "Conflict of Interest & Chinese Walls",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iiia-q3",
+    "courseId": "nism-iiia",
+    "question": "Under SEBI (Stock Brokers) Regulations, what is the mandatory retention period for client KYC documents and order placement voice recordings?",
+    "options": [
+      "1 year",
+      "3 years",
+      "5 years (minimum 8 years under PMLA)",
+      "10 years"
+    ],
+    "correctIndex": 2,
+    "explanation": "Intermediaries must preserve client records, order logs, and transaction documentation for at least 5 years under SEBI norms and 8 years under PMLA guidelines.",
+    "topic": "Record Retention",
+    "chapter": 1,
+    "chapterTitle": "Record Retention",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iiib-q1",
+    "courseId": "nism-iiib",
+    "question": "Under SEBI (LODR) Regulations, 2015, what is the minimum proportion of Independent Directors required on the Board of a listed entity if the Chairperson is an Executive Director?",
+    "options": [
+      "At least one-third (33%)",
+      "At least one-half (50%)",
+      "At least two-thirds (66%)",
+      "100% independent"
+    ],
+    "correctIndex": 1,
+    "explanation": "Regulation 17 of SEBI LODR stipulates that where the chairperson of the board is an executive director, at least half (50%) of the board of directors must comprise independent directors.",
+    "topic": "Corporate Governance & Board Composition",
+    "chapter": 1,
+    "chapterTitle": "Corporate Governance & Board Composition",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iiib-q2",
+    "courseId": "nism-iiib",
+    "question": "Under SEBI (Prohibition of Insider Trading) Regulations, 2015, during what period is the 'Trading Window' mandatorily closed for designated persons of a listed issuer?",
+    "options": [
+      "From the end of the financial quarter until 48 hours after the declaration of financial results",
+      "Only on Sundays and national holidays",
+      "Throughout the entire financial year",
+      "For 7 days prior to the Annual General Meeting"
+    ],
+    "correctIndex": 0,
+    "explanation": "Trading window closure is mandatory from the end of every quarter until 48 hours after the public disclosure of financial results to prevent insider exploitation of UPSI.",
+    "topic": "PIT Regulations & Trading Window",
+    "chapter": 1,
+    "chapterTitle": "PIT Regulations & Trading Window",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iiib-q3",
+    "courseId": "nism-iiib",
+    "question": "What is the statutory constitution requirement for the Audit Committee of a listed entity under SEBI LODR?",
+    "options": [
+      "Minimum 2 directors with at least 1 independent",
+      "Minimum 3 directors, two-thirds of whom must be independent, and all members must be financially literate",
+      "5 directors selected by the promoter",
+      "Exclusively female directors"
+    ],
+    "correctIndex": 1,
+    "explanation": "The Audit Committee must comprise a minimum of 3 directors, at least two-thirds being independent, all financially literate, with at least one member having accounting or financial management expertise.",
+    "topic": "Audit Committee Norms",
+    "chapter": 1,
+    "chapterTitle": "Audit Committee Norms",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-q1",
+    "courseId": "nism-iv",
+    "question": "What is the underlying security for the standardized 10-Year Government of India (GoI) Interest Rate Futures (IRF) contract in India?",
+    "options": [
+      "A basket of corporate bonds",
+      "A notional 10-year GoI bond with a 6.00% p.a. coupon paid semi-annually",
+      "The SBI prime lending rate",
+      "91-Day Treasury Bills"
+    ],
+    "correctIndex": 1,
+    "explanation": "The 10-year IRF contract on NSE/BSE is standardized based on a notional 10-year sovereign government bond carrying an annualized coupon of 6.00% with semi-annual payouts.",
+    "topic": "IRF Underlying Contract",
+    "chapter": 1,
+    "chapterTitle": "IRF Underlying Contract",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-q2",
+    "courseId": "nism-iv",
+    "question": "How is the Conversion Factor (CF) defined in deliverable Interest Rate Futures contracts?",
+    "options": [
+      "The price of the deliverable bond per rupee of face value to yield exactly 6.00% p.a. on the delivery date",
+      "The inflation conversion factor published by CSO",
+      "The foreign exchange rate between INR and USD",
+      "The ratio of corporate bond yield to repo rate"
+    ],
+    "correctIndex": 0,
+    "explanation": "Conversion Factor aligns bonds of differing coupons and maturities to the standard 6% notional bond price, equating their delivery value.",
+    "topic": "Conversion Factor & CTD",
+    "chapter": 1,
+    "chapterTitle": "Conversion Factor & CTD",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-q3",
+    "courseId": "nism-iv",
+    "question": "If a portfolio manager expects interest rates to rise, how should the manager position in 10-year Interest Rate Futures to hedge an existing bond portfolio?",
+    "options": [
+      "Buy 10-year IRF contracts",
+      "Sell (Short) 10-year IRF contracts",
+      "Do nothing",
+      "Buy equity call options"
+    ],
+    "correctIndex": 1,
+    "explanation": "Bond prices fall when interest rates rise. Shorting IRF contracts generates gains as futures prices decline, compensating for portfolio capital depreciation.",
+    "topic": "IRF Hedging",
+    "chapter": 1,
+    "chapterTitle": "IRF Hedging",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-vb-q1",
+    "courseId": "nism-vb",
+    "question": "What is the primary benefit of investing in a mutual fund scheme compared to direct stock investing for a small retail saver?",
+    "options": [
+      "Guaranteed 100% risk-free return backed by the government",
+      "Professional fund management and instant portfolio diversification with a small ticket size (as low as \u20b9500)",
+      "Zero tax liability on all income and capital gains",
+      "Immediate voting rights in corporate AGMs"
+    ],
+    "correctIndex": 1,
+    "explanation": "Mutual funds allow small investors to access professional management and diversified portfolios across dozens of securities with modest capital.",
+    "topic": "Mutual Fund Fundamentals",
+    "chapter": 1,
+    "chapterTitle": "Mutual Fund Fundamentals",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-vb-q2",
+    "courseId": "nism-vb",
+    "question": "Which category of mutual fund schemes is designed to offer maximum capital liquidity with maturity of underlying securities up to 91 days only?",
+    "options": [
+      "Equity Linked Savings Scheme (ELSS)",
+      "Liquid Fund",
+      "Sectoral / Thematic Fund",
+      "Credit Risk Fund"
+    ],
+    "correctIndex": 1,
+    "explanation": "Liquid funds invest exclusively in money market and debt instruments with residual maturity up to 91 days, minimizing interest rate risk.",
+    "topic": "Liquid Funds",
+    "chapter": 1,
+    "chapterTitle": "Liquid Funds",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-vb-q3",
+    "courseId": "nism-vb",
+    "question": "What is the role of an Asset Management Company (AMC) in a mutual fund trust structure?",
+    "options": [
+      "Holding the shares in physical custody",
+      "Managing the investments and portfolio of the fund schemes in accordance with SEBI regulations and trust deed",
+      "Guaranteeing high dividends to unitholders",
+      "Acting as the legal sovereign regulator"
+    ],
+    "correctIndex": 1,
+    "explanation": "The AMC is appointed by the Trustees to handle portfolio investment decisions and operational scheme management.",
+    "topic": "Role of AMC",
+    "chapter": 1,
+    "chapterTitle": "Role of AMC",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-vc-q1",
+    "courseId": "nism-vc",
+    "question": "How does the Sortino Ratio differ from the Sharpe Ratio in mutual fund performance evaluation?",
+    "options": [
+      "Sortino uses Beta instead of Standard Deviation",
+      "Sortino penalizes only downside volatility (downside deviation), whereas Sharpe treats upside and downside volatility equally",
+      "Sortino applies exclusively to debt funds",
+      "Sortino ratio is always negative"
+    ],
+    "correctIndex": 1,
+    "explanation": "The Sortino ratio replaces total standard deviation with downside semi-variance, focusing strictly on harmful negative returns without penalizing upside volatility.",
+    "topic": "Advanced Performance Metrics",
+    "chapter": 1,
+    "chapterTitle": "Advanced Performance Metrics",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-vc-q2",
+    "courseId": "nism-vc",
+    "question": "What does an 'Information Ratio' (IR) measure in active portfolio management?",
+    "options": [
+      "The speed of broadband connection in the AMC dealing room",
+      "The excess return of a fund relative to its benchmark divided by its Tracking Error (active risk)",
+      "The total expense ratio divided by net yield",
+      "The ratio of AUM to number of folios"
+    ],
+    "correctIndex": 1,
+    "explanation": "Information Ratio (IR) = (Portfolio Return - Benchmark Return) / Tracking Error. It evaluates a fund manager's ability to generate excess returns relative to a benchmark per unit of active risk.",
+    "topic": "Information Ratio & Alpha",
+    "chapter": 1,
+    "chapterTitle": "Information Ratio & Alpha",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-vc-q3",
+    "courseId": "nism-vc",
+    "question": "A fund exhibits an Up-Market Capture Ratio of 115% and a Down-Market Capture Ratio of 80%. What does this demonstrate regarding the fund manager's performance?",
+    "options": [
+      "Poor performance and excessive risk",
+      "Exceptional risk-adjusted capability, gaining 115% of market rallies while participating in only 80% of market declines",
+      "Zero alpha generation",
+      "Violation of SEBI mandate"
+    ],
+    "correctIndex": 1,
+    "explanation": "Up capture > 100% combined with Down capture < 100% is the hallmark of superior alpha generation, outperforming in bull markets while shielding capital in bear phases.",
+    "topic": "Capture Ratios",
+    "chapter": 1,
+    "chapterTitle": "Capture Ratios",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-vi-q1",
+    "courseId": "nism-vi",
+    "question": "What are the two registered central depositories operating in the Indian securities market?",
+    "options": [
+      "NSE and BSE",
+      "NSDL (National Securities Depository Ltd) and CDSL (Central Depository Services Ltd)",
+      "RBI and SEBI",
+      "CAMS and KFintech"
+    ],
+    "correctIndex": 1,
+    "explanation": "NSDL and CDSL are the two licensed depositories in India holding dematerialized securities and facilitating electronic transfers.",
+    "topic": "Depository Infrastructure",
+    "chapter": 1,
+    "chapterTitle": "Depository Infrastructure",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-vi-q2",
+    "courseId": "nism-vi",
+    "question": "What is a 'Basic Services Demat Account' (BSDA) designed by SEBI for retail investors?",
+    "options": [
+      "An account that requires \u20b910 Lakh minimum balance",
+      "A low-cost demat account for individuals holding equity securities with value up to \u20b92 Lakh with nil or reduced annual maintenance charges (AMC)",
+      "An account exclusively for government employees",
+      "An account that cannot trade listed shares"
+    ],
+    "correctIndex": 1,
+    "explanation": "BSDA ensures affordable financial access by providing nil AMC for debt/equity holdings up to \u20b950,000 and capped AMC of \u20b9100 for holdings between \u20b950,000 and \u20b92 Lakhs.",
+    "topic": "BSDA Account Guidelines",
+    "chapter": 1,
+    "chapterTitle": "BSDA Account Guidelines",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-vi-q3",
+    "courseId": "nism-vi",
+    "question": "What instruction document must an investor submit to their Depository Participant (DP) to execute an off-market transfer of demat shares?",
+    "options": [
+      "Cheque leaf",
+      "Delivery Instruction Slip (DIS) or e-DIS authorization via TPIN and OTP",
+      "Voter ID card",
+      "Form 16"
+    ],
+    "correctIndex": 1,
+    "explanation": "Transfer of shares requires a physical Delivery Instruction Slip (DIS) or verified digital authorization through e-DIS with TPIN and OTP verification.",
+    "topic": "DIS and Demat Transfers",
+    "chapter": 1,
+    "chapterTitle": "DIS and Demat Transfers",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-vii-q1",
+    "courseId": "nism-vii",
+    "question": "What is the rolling settlement cycle standard currently prevailing for equities in the Indian stock market?",
+    "options": [
+      "T+5 rolling settlement",
+      "T+1 rolling settlement (with phased rollout of instantaneous T+0 settlement)",
+      "T+3 rolling settlement",
+      "Weekly fixed settlement"
+    ],
+    "correctIndex": 1,
+    "explanation": "Indian stock exchanges execute settlement on a T+1 basis (trade date plus one business day), leading global financial markets with optional T+0 same-day settlement.",
+    "topic": "Settlement Cycles",
+    "chapter": 1,
+    "chapterTitle": "Settlement Cycles",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-vii-q2",
+    "courseId": "nism-vii",
+    "question": "What is the primary function of the Core Settlement Guarantee Fund (Core SGF) maintained by Clearing Corporations in India?",
+    "options": [
+      "Paying dividends to exchange shareholders",
+      "Guaranteeing the financial settlement of trades and shielding the market from systemic risk in the event of a member clearing default",
+      "Funding broker advertisements",
+      "Collecting corporate taxes for the finance ministry"
+    ],
+    "correctIndex": 1,
+    "explanation": "Core SGF guarantees settlement of all executed trades, absorbing defaults by any trading or clearing member through a multi-tiered risk waterfall.",
+    "topic": "Clearing Risk & Core SGF",
+    "chapter": 1,
+    "chapterTitle": "Clearing Risk & Core SGF",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-vii-q3",
+    "courseId": "nism-vii",
+    "question": "What is a 'Haircut' applied to securities pledged as collateral with a clearing member?",
+    "options": [
+      "A fee deducted by the barber on Dalal Street",
+      "A percentage reduction applied to the market value of collateral securities to protect against price volatility during liquidation",
+      "The brokerage commission rate",
+      "The STT charged by the central government"
+    ],
+    "correctIndex": 1,
+    "explanation": "A collateral haircut discounts the stated market value of pledged shares (e.g. 20% haircut means \u20b9100 worth of shares gives \u20b980 margin credit) to cushion against adverse price swings.",
+    "topic": "Collateral Management & Haircuts",
+    "chapter": 1,
+    "chapterTitle": "Collateral Management & Haircuts",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-ix-q1",
+    "courseId": "nism-ix",
+    "question": "Under SEBI (ICDR) Regulations, what is the minimum net tangible asset requirement for an unlisted issuer to be eligible for an IPO through the profitability route?",
+    "options": [
+      "At least \u20b91 Crore in each of preceding 3 years",
+      "At least \u20b93 Crore in each of the preceding 3 full years, of which not more than 50% are held in monetary assets",
+      "At least \u20b950 Crore net worth",
+      "Zero requirement"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI ICDR mandates net tangible assets of at least \u20b93 Crore in each of the preceding 3 years, operating profit in at least 3 of 5 years, and net worth of at least \u20b91 Crore in each of the preceding 3 years.",
+    "topic": "SEBI ICDR IPO Eligibility",
+    "chapter": 1,
+    "chapterTitle": "SEBI ICDR IPO Eligibility",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-ix-q2",
+    "courseId": "nism-ix",
+    "question": "If an issuer does not satisfy the profitability track record under SEBI ICDR, how can it still launch an Initial Public Offering (IPO)?",
+    "options": [
+      "It cannot launch an IPO under any circumstances",
+      "Through the Alternative Book Building Route, mandating that at least 75% of the net issue be allocated to Qualified Institutional Buyers (QIBs)",
+      "By securing permission from the state chief minister",
+      "By issuing shares at a 90% discount to face value"
+    ],
+    "correctIndex": 1,
+    "explanation": "Loss-making and growth-stage companies can tap public markets via the QIB route, where 75% of the issue must be subscribed by institutional investors.",
+    "topic": "QIB Book Building Route",
+    "chapter": 1,
+    "chapterTitle": "QIB Book Building Route",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-ix-q3",
+    "courseId": "nism-ix",
+    "question": "Under SEBI (SAST) Regulations, 2011 (Takeover Code), what equity holding threshold triggers a mandatory Open Offer to public shareholders?",
+    "options": [
+      "10% of voting rights",
+      "25% of voting rights or acquiring control of the target company",
+      "51% of paid up capital",
+      "75% of total shares"
+    ],
+    "correctIndex": 1,
+    "explanation": "Acquiring 25% or more voting rights in a listed entity triggers the mandatory open offer obligation to acquire an additional 26% from public shareholders.",
+    "topic": "SEBI Takeover Regulations (SAST)",
+    "chapter": 1,
+    "chapterTitle": "SEBI Takeover Regulations (SAST)",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xii-q1",
+    "courseId": "nism-xii",
+    "question": "What is the difference between the Primary Market and the Secondary Market in securities trading?",
+    "options": [
+      "Primary market deals with government bonds, while secondary market deals with equities",
+      "Primary market is where securities are created and issued to investors for the first time (e.g. IPO), while secondary market is where investors trade existing securities among themselves",
+      "Primary market is illegal in India",
+      "Secondary market only operates on weekends"
+    ],
+    "correctIndex": 1,
+    "explanation": "In the primary market, capital flows directly from investors to the corporate issuer. In the secondary market (NSE/BSE), investors trade securities amongst themselves without altering issuer capital.",
+    "topic": "Primary vs Secondary Markets",
+    "chapter": 1,
+    "chapterTitle": "Primary vs Secondary Markets",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xii-q2",
+    "courseId": "nism-xii",
+    "question": "Which regulatory body in India is empowered by law to protect investor interests, regulate securities markets, and oversee stock exchanges and intermediaries?",
+    "options": [
+      "Reserve Bank of India (RBI)",
+      "Securities and Exchange Board of India (SEBI)",
+      "Competition Commission of India (CCI)",
+      "Ministry of Electronics and Information Technology (MeitY)"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI was established under the SEBI Act, 1992 as the premier statutory regulator of the Indian securities market.",
+    "topic": "Securities Regulatory Architecture",
+    "chapter": 1,
+    "chapterTitle": "Securities Regulatory Architecture",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xii-q3",
+    "courseId": "nism-xii",
+    "question": "What is a Dematerialized (Demat) account?",
+    "options": [
+      "A bank account used to borrow money at low interest",
+      "An electronic account that holds financial securities (equities, bonds, mutual funds) in digital form, eliminating the risks of physical certificates",
+      "A foreign exchange trading account",
+      "An insurance policy certificate"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Demat account stores securities in electronic format, preventing risks of theft, forgery, mutilation, and bad deliveries.",
+    "topic": "Demat Account Concept",
+    "chapter": 1,
+    "chapterTitle": "Demat Account Concept",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xvi-q1",
+    "courseId": "nism-xvi",
+    "question": "Which premier commodity derivatives exchange in India dominates trading in non-agricultural contracts like gold, silver, crude oil, and base metals?",
+    "options": [
+      "NCDEX",
+      "Multi Commodity Exchange of India (MCX)",
+      "BSE SME Exchange",
+      "Calcutta Stock Exchange"
+    ],
+    "correctIndex": 1,
+    "explanation": "MCX is India's leading commodity derivatives exchange, commanding significant market share in metals, energy, and bullion derivatives.",
+    "topic": "Commodity Exchange Ecosystem",
+    "chapter": 1,
+    "chapterTitle": "Commodity Exchange Ecosystem",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xvi-q2",
+    "courseId": "nism-xvi",
+    "question": "What is the role of the Warehousing Development and Regulatory Authority (WDRA) in physical delivery settlement of commodity futures?",
+    "options": [
+      "Regulating retail gold jewelers",
+      "Regulating and registering accredited warehouses and establishing electronic Negotiable Warehouse Receipts (eNWRs) to facilitate transparent delivery",
+      "Collecting agricultural export duties",
+      "Directing corporate tax refunds"
+    ],
+    "correctIndex": 1,
+    "explanation": "WDRA oversees registered warehouses issuing electronic Negotiable Warehouse Receipts (eNWRs) that serve as legal title for physical commodity deliveries on exchanges.",
+    "topic": "Warehousing & eNWRs",
+    "chapter": 1,
+    "chapterTitle": "Warehousing & eNWRs",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xvi-q3",
+    "courseId": "nism-xvi",
+    "question": "How does Goods and Services Tax (GST) apply when an exchange commodity futures contract culminates in physical delivery?",
+    "options": [
+      "GST is completely exempt on all commodity settlements",
+      "GST is payable by the buyer to the seller in the state where the accredited delivery warehouse is situated",
+      "GST is deducted automatically by SEBI",
+      "GST is 50% of the contract value"
+    ],
+    "correctIndex": 1,
+    "explanation": "Physical delivery under commodity derivatives triggers state-specific GST based on the location of the delivery center/warehouse where delivery is tendered.",
+    "topic": "Taxation in Commodities",
+    "chapter": 1,
+    "chapterTitle": "Taxation in Commodities",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xvii-q1",
+    "courseId": "nism-xvii",
+    "question": "Under the National Pension System (NPS), what is the mandatory minimum annuity requirement upon attaining age 60 in a Tier-I account (assuming corpus > \u20b95 Lakh)?",
+    "options": [
+      "100% can be withdrawn tax-free",
+      "At least 40% of the accumulated pension wealth must be utilized to purchase an immediate annuity from a registered ASP; up to 60% can be withdrawn as a tax-free lump sum",
+      "20% annuity and 80% lump sum",
+      "Corpus must be transferred to the provident fund"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under PFRDA norms, unitholders at age 60 can withdraw up to 60% lump sum tax-free, with at least 40% mandatorily committed to an annuity to ensure lifelong monthly pension.",
+    "topic": "NPS Tier I Exit Rules",
+    "chapter": 1,
+    "chapterTitle": "NPS Tier I Exit Rules",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xvii-q2",
+    "courseId": "nism-xvii",
+    "question": "In the National Pension System (NPS) Active Choice investment option, what is the maximum equity exposure (Asset Class E) permitted to a private sector subscriber up to age 50?",
+    "options": [
+      "25%",
+      "50%",
+      "75%",
+      "100%"
+    ],
+    "correctIndex": 2,
+    "explanation": "Under NPS Active Choice, subscribers up to age 50 can allocate up to a maximum of 75% to Asset Class E (Equities), tapering down gradually after age 50.",
+    "topic": "NPS Asset Allocation & Choice",
+    "chapter": 1,
+    "chapterTitle": "NPS Asset Allocation & Choice",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xvii-q3",
+    "courseId": "nism-xvii",
+    "question": "Which regulatory body oversees the pension sector and regulates the National Pension System (NPS) in India?",
+    "options": [
+      "IRDAI",
+      "Pension Fund Regulatory and Development Authority (PFRDA)",
+      "SEBI",
+      "Employees' Provident Fund Organisation (EPFO)"
+    ],
+    "correctIndex": 1,
+    "explanation": "PFRDA is the statutory regulator governing the National Pension System and registered pension funds in India.",
+    "topic": "PFRDA Regulatory Mandate",
+    "chapter": 1,
+    "chapterTitle": "PFRDA Regulatory Mandate",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xviii-q1",
+    "courseId": "nism-xviii",
+    "question": "In personal financial planning, what is the standard benchmark recommended for maintaining an Emergency Reserve Fund?",
+    "options": [
+      "1 month of discretionary luxury spending",
+      "3 to 6 months of mandatory living expenses kept in safe, highly liquid avenues (savings account/liquid fund)",
+      "10 years of annual salary locked in real estate",
+      "Zero, because credit cards can handle all emergencies"
+    ],
+    "correctIndex": 1,
+    "explanation": "Financial literacy principles emphasize maintaining 3 to 6 months of essential household expenses in liquid instruments to protect against job loss or medical crises.",
+    "topic": "Emergency Fund Principles",
+    "chapter": 1,
+    "chapterTitle": "Emergency Fund Principles",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xviii-q2",
+    "courseId": "nism-xviii",
+    "question": "Which of the following is a primary warning sign (red flag) indicative of an illegal Ponzi or unregulated collective investment scheme?",
+    "options": [
+      "Detailed Scheme Information Document registered with SEBI",
+      "Promises of abnormally high, guaranteed, risk-free returns with incentives for recruiting new members",
+      "Publishing daily Net Asset Value (NAV) verified by independent trustees",
+      "Direct bank debit mandates via NPCI NACH"
+    ],
+    "correctIndex": 1,
+    "explanation": "Ponzi schemes characteristically lure victims with promises of guaranteed multi-fold returns, zero market risk, and referral commissions funded by incoming depositor money.",
+    "topic": "Fraud Prevention & Ponzi Warnings",
+    "chapter": 1,
+    "chapterTitle": "Fraud Prevention & Ponzi Warnings",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xviii-q3",
+    "courseId": "nism-xviii",
+    "question": "What is the 'Human Life Value' (HLV) approach used for in personal insurance planning?",
+    "options": [
+      "Calculating the market resale value of physical assets",
+      "Quantifying the financial loss that an economic breadwinner's family would sustain upon premature death, used to determine adequate pure term insurance coverage",
+      "Estimating the future price of hospital beds",
+      "Determining the premium payable on motor insurance"
+    ],
+    "correctIndex": 1,
+    "explanation": "Human Life Value (HLV) computes the present value of all future earnings of an individual less personal living expenses to establish appropriate term life cover.",
+    "topic": "Human Life Value & Insurance",
+    "chapter": 1,
+    "chapterTitle": "Human Life Value & Insurance",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xixa-q1",
+    "courseId": "nism-xixa",
+    "question": "What is the statutory minimum investment ticket size prescribed by SEBI for an investor entering an Alternative Investment Fund (AIF)?",
+    "options": [
+      "\u20b910,000",
+      "\u20b910,00,000 (Ten Lakhs)",
+      "\u20b91,00,00,000 (One Crore Rupees) for standard investors (\u20b925 Lakhs for employees/directors of AIF/Angel fund)",
+      "\u20b95,00,00,000 (Five Crores)"
+    ],
+    "correctIndex": 2,
+    "explanation": "Under Regulation 10(c) of SEBI (AIF) Regulations, 2012, the minimum commitment for an investor in an AIF is \u20b91 Crore (reduced to \u20b925 Lakhs for angel fund investors and employees/directors of the AMC).",
+    "topic": "AIF Minimum Investment Norms",
+    "chapter": 1,
+    "chapterTitle": "AIF Minimum Investment Norms",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xixa-q2",
+    "courseId": "nism-xixa",
+    "question": "Which of the following fund types is classified under Category I Alternative Investment Funds (AIF)?",
+    "options": [
+      "Private Equity funds and Debt funds",
+      "Venture Capital Funds, SME Funds, Social Venture Funds, and Infrastructure Funds",
+      "Hedge funds taking leveraged derivative short positions",
+      "Real Estate Investment Trusts (REITs)"
+    ],
+    "correctIndex": 1,
+    "explanation": "Category I AIFs invest in startups, early stage ventures, social ventures, and SMEs that the government or regulators consider socially or economically desirable.",
+    "topic": "AIF Category Classification",
+    "chapter": 1,
+    "chapterTitle": "AIF Category Classification",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xixa-q3",
+    "courseId": "nism-xixa",
+    "question": "How are Category I and Category II Alternative Investment Funds (AIFs) taxed in India under Section 115UB of the Income Tax Act?",
+    "options": [
+      "Taxed at 40% corporate tax at the fund level",
+      "Tax pass-through status: Income is exempt at the fund level and taxed directly in the hands of the investor in the same nature and proportion as if earned directly",
+      "100% tax-free under all conditions",
+      "Subject to 30% dividend distribution tax only"
+    ],
+    "correctIndex": 1,
+    "explanation": "Category I and II AIFs enjoy statutory tax pass-through status; capital gains and interest income pass through to unit holders without entity-level taxation (except TDS).",
+    "topic": "AIF Tax Pass-Through Regime",
+    "chapter": 1,
+    "chapterTitle": "AIF Tax Pass-Through Regime",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xixb-q1",
+    "courseId": "nism-xixb",
+    "question": "What is the statutory 'Continuing Interest' (skin-in-the-game) commitment required from the Sponsor or Manager in a Category I or II AIF under SEBI norms?",
+    "options": [
+      "Not less than 2.5% of the corpus or \u20b95 Crore, whichever is lower",
+      "Not less than 10% of total corpus",
+      "Zero sponsor commitment is required",
+      "Fixed \u20b9100 Crore deposit with RBI"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI (AIF) Regulations require the Sponsor or Manager to maintain a continuing interest of at least 2.5% of the corpus or \u20b95 Crore (whichever is lower) for Cat I and II AIFs.",
+    "topic": "Sponsor Continuing Commitment",
+    "chapter": 1,
+    "chapterTitle": "Sponsor Continuing Commitment",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xixb-q2",
+    "courseId": "nism-xixb",
+    "question": "In AIF fund structuring, what is a 'Hurdle Rate' in the distribution waterfall?",
+    "options": [
+      "The fee paid to SEBI upon filing the PPM",
+      "The minimum annualized internal rate of return (IRR) that must be delivered to Limited Partners (investors) before the General Partner (Manager) can earn carried interest",
+      "The penalty levied on defaulting investors",
+      "The exit load charged during redemption"
+    ],
+    "correctIndex": 1,
+    "explanation": "Hurdle rate (typically 8-10% IRR) guarantees that investors receive a baseline return on invested capital before performance-based carried interest is split with the fund manager.",
+    "topic": "Distribution Waterfall & Hurdle Rate",
+    "chapter": 1,
+    "chapterTitle": "Distribution Waterfall & Hurdle Rate",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xixb-q3",
+    "courseId": "nism-xixb",
+    "question": "What is a 'Clawback Provision' in an Alternative Investment Fund Limited Partnership Agreement?",
+    "options": [
+      "A provision forcing investors to pay higher management fees during bear markets",
+      "A contractual clause requiring the General Partner / Manager to return excess carried interest received in earlier years if subsequent fund performance falls below the hurdle rate",
+      "The right of the government to seize fund assets",
+      "Automatic conversion of equity to debt"
+    ],
+    "correctIndex": 1,
+    "explanation": "Clawback provisions protect investors by compelling managers to reimburse unearned carried interest if late-stage investment losses diminish overall fund returns below the agreed hurdle.",
+    "topic": "Clawback & LP Protection",
+    "chapter": 1,
+    "chapterTitle": "Clawback & LP Protection",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xixc-q1",
+    "courseId": "nism-xixc",
+    "question": "What is the maximum leverage ceiling permitted to a Category III Alternative Investment Fund under SEBI guidelines?",
+    "options": [
+      "Leverage is completely prohibited in all AIFs",
+      "Gross exposure (including derivative positions) shall not exceed 2 times (200%) of the Net Asset Value (NAV) of the fund",
+      "Up to 10 times NAV",
+      "Unlimited leverage allowed at manager discretion"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI stipulates that Category III AIFs may take leverage (both in debt and derivative overlays) up to a maximum of 200% of the fund's Net Asset Value with stringent risk disclosures.",
+    "topic": "Cat III AIF Leverage Limits",
+    "chapter": 1,
+    "chapterTitle": "Cat III AIF Leverage Limits",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xixc-q2",
+    "courseId": "nism-xixc",
+    "question": "How does the taxation of Category III AIFs fundamentally differ from Category I and II AIFs in India?",
+    "options": [
+      "Category III AIFs enjoy automatic pass-through status for all income streams",
+      "Category III AIFs structured as determinate trusts do not enjoy statutory tax pass-through; business income and derivative trading gains are taxed at the fund level at the Maximum Marginal Rate (MMR)",
+      "Category III AIFs are taxed at a flat 5%",
+      "Category III AIFs pay zero tax"
+    ],
+    "correctIndex": 1,
+    "explanation": "Unlike Cat I and II which enjoy pass-through, Cat III AIF income (especially trading profits and business income) is taxed directly at the fund level at the Maximum Marginal Rate (MMR).",
+    "topic": "Cat III Fund Taxation",
+    "chapter": 1,
+    "chapterTitle": "Cat III Fund Taxation",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xixc-q3",
+    "courseId": "nism-xixc",
+    "question": "Which investment strategy is characteristic of Category III AIFs but strictly prohibited for retail mutual funds?",
+    "options": [
+      "Investing in government treasury bills",
+      "Taking unhedged short positions in individual equities and employing complex multi-asset quantitative hedge strategies",
+      "Investing in blue-chip Nifty 50 shares",
+      "Holding cash balances in overnight bank deposits"
+    ],
+    "correctIndex": 1,
+    "explanation": "Category III AIFs operate as hedge funds, employing market-neutral, long-short equity, and derivative strategies with short exposure that traditional mutual funds cannot execute.",
+    "topic": "Cat III Hedge Fund Strategies",
+    "chapter": 1,
+    "chapterTitle": "Cat III Hedge Fund Strategies",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xxib-q1",
+    "courseId": "nism-xxib",
+    "question": "Under SEBI (Portfolio Managers) Regulations, 2020, what is the statutory minimum net worth requirement for a registered Portfolio Management Services (PMS) entity?",
+    "options": [
+      "\u20b91 Crore",
+      "\u20b92 Crore",
+      "\u20b95 Crore",
+      "\u20b925 Crore"
+    ],
+    "correctIndex": 2,
+    "explanation": "Regulation 9 of SEBI (Portfolio Managers) Regulations, 2020 requires portfolio managers to maintain a minimum net worth of \u20b95 Crore.",
+    "topic": "PMS Entity Net Worth Requirement",
+    "chapter": 1,
+    "chapterTitle": "PMS Entity Net Worth Requirement",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xxib-q2",
+    "courseId": "nism-xxib",
+    "question": "What is the statutory minimum investment ticket size required from an investor entering a Portfolio Management Services (PMS) scheme?",
+    "options": [
+      "\u20b95,000",
+      "\u20b910,00,000",
+      "\u20b950,00,000 (Fifty Lakhs Rupees)",
+      "\u20b91,00,00,000"
+    ],
+    "correctIndex": 2,
+    "explanation": "SEBI raised the minimum investment threshold for PMS clients from \u20b925 Lakhs to \u20b950 Lakhs to ensure that only sophisticated HNIs participate.",
+    "topic": "PMS Minimum Ticket Size",
+    "chapter": 1,
+    "chapterTitle": "PMS Minimum Ticket Size",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xxib-q3",
+    "courseId": "nism-xxib",
+    "question": "How does the 'High-Water Mark' (HWM) principle govern the charging of performance fees by a Portfolio Manager?",
+    "options": [
+      "Performance fees can be charged every month regardless of past drawdowns",
+      "A performance fee can only be charged on profits that exceed the highest previously achieved portfolio NAV peak, ensuring managers cannot charge fees on recovered losses",
+      "HWM doubles the management fee when the index drops",
+      "HWM applies only to fixed-income portfolios"
+    ],
+    "correctIndex": 1,
+    "explanation": "The High-Water Mark ensures portfolio managers do not earn performance fees for merely recovering previous portfolio losses, charging fees only on new net profits.",
+    "topic": "High-Water Mark Principle",
+    "chapter": 1,
+    "chapterTitle": "High-Water Mark Principle",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xxii-q1",
+    "courseId": "nism-xxii",
+    "question": "What is the difference between a bond's Yield to Maturity (YTM) and its Coupon Rate when the bond is trading at a DISCOUNT to its face value?",
+    "options": [
+      "YTM is less than the Coupon Rate",
+      "YTM is strictly greater than the Coupon Rate",
+      "YTM is identical to the Coupon Rate",
+      "YTM is zero"
+    ],
+    "correctIndex": 1,
+    "explanation": "When a bond trades at a discount ($P < FV$), the investor earns both the periodic coupon cash flows and a capital appreciation at maturity, making YTM > Coupon Rate.",
+    "topic": "Bond Yields & Pricing",
+    "chapter": 1,
+    "chapterTitle": "Bond Yields & Pricing",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xxii-q2",
+    "courseId": "nism-xxii",
+    "question": "In the Indian sovereign debt market, what electronic platform managed by RBI facilitates secondary market order matching for Government Securities (G-Secs)?",
+    "options": [
+      "BSE StAR MF",
+      "NDS-OM (Negotiated Dealing System - Order Matching)",
+      "NSE Emerge",
+      "SCORES portal"
+    ],
+    "correctIndex": 1,
+    "explanation": "NDS-OM is the Reserve Bank of India's electronic, screen-based, anonymous order matching system for secondary market trading in government securities.",
+    "topic": "NDS-OM Trading Platform",
+    "chapter": 1,
+    "chapterTitle": "NDS-OM Trading Platform",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xxii-q3",
+    "courseId": "nism-xxii",
+    "question": "What does a 'Credit Rating Watch with Negative Implications' placed on a corporate debenture signify?",
+    "options": [
+      "An upgrade in credit rating is guaranteed within 30 days",
+      "A high likelihood that the credit rating agency may downgrade the bond in the near term due to deteriorating credit metrics or adverse events",
+      "The issuer is legally prohibited from paying coupons",
+      "The bond maturity is extended indefinitely"
+    ],
+    "correctIndex": 1,
+    "explanation": "Rating Watch Negative alerts investors that an event or trend has occurred that creates substantial downside pressure, likely culminating in a rating downgrade.",
+    "topic": "Credit Rating Dynamics",
+    "chapter": 1,
+    "chapterTitle": "Credit Rating Dynamics",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xxiii-q1",
+    "courseId": "nism-xxiii",
+    "question": "What is the Social Stock Exchange (SSE) established under the regulatory jurisdiction of SEBI?",
+    "options": [
+      "A physical flea market for non-profit souvenirs",
+      "A specialized separate segment of existing recognized stock exchanges (NSE/BSE) that enables Social Enterprises (NPOs and FPSEs) to raise capital from public donors and impact investors",
+      "An NGO registration portal administered by the Ministry of Culture",
+      "A cryptocurrency token exchange"
+    ],
+    "correctIndex": 1,
+    "explanation": "The SSE operates under SEBI (ICDR and LODR) frameworks to channel philanthropic and impact funding to genuine social enterprises through market infrastructure.",
+    "topic": "Social Stock Exchange Framework",
+    "chapter": 1,
+    "chapterTitle": "Social Stock Exchange Framework",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xxiii-q2",
+    "courseId": "nism-xxiii",
+    "question": "What instrument can a Not-for-Profit Organization (NPO) issue on the Social Stock Exchange to raise funds for social development projects?",
+    "options": [
+      "Perpetual Cumulative Preference Shares",
+      "Zero Coupon Zero Principal (ZCZP) instruments",
+      "High-yield subordinate debentures",
+      "Foreign currency convertible bonds"
+    ],
+    "correctIndex": 1,
+    "explanation": "Zero Coupon Zero Principal (ZCZP) instruments carry no coupon interest and return zero principal, operating purely as a philanthropic donation mechanism with audited impact transparency.",
+    "topic": "Zero Coupon Zero Principal (ZCZP)",
+    "chapter": 1,
+    "chapterTitle": "Zero Coupon Zero Principal (ZCZP)",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xxiii-q3",
+    "courseId": "nism-xxiii",
+    "question": "What are Social Audit Standards (SAS) formulated by the Institute of Social Auditors of India (ISAI)?",
+    "options": [
+      "Accounting standards for computing income tax liabilities",
+      "Standardized audit frameworks (SAS 100 to 1600) mapping to 16 thematic social development areas for assessing genuine on-ground social impact",
+      "Rules for organizing political rallies",
+      "Guidelines for setting employee salaries in charities"
+    ],
+    "correctIndex": 1,
+    "explanation": "Social Audit Standards (SAS) provide rigorous, uniform benchmarks for social impact assessors to evaluate programmatic efficacy and stakeholder impact.",
+    "topic": "Social Audit Standards (SAS)",
+    "chapter": 1,
+    "chapterTitle": "Social Audit Standards (SAS)",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-i-q6",
+    "courseId": "nism-i",
+    "question": "What is the maximum gross open position limit across all contracts for a domestic stock broker / trading member in USD-INR currency futures?",
+    "options": [
+      "15% of total open interest or USD 100 Million (whichever is higher)",
+      "10% of total open interest",
+      "Fixed USD 10 Million",
+      "No limit"
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI and RBI guidelines, trading member exposure in USD-INR is capped at 15% of total open interest or USD 100 Million, whichever is higher.",
+    "topic": "Position Limits in Currency Derivatives",
+    "chapter": 1,
+    "chapterTitle": "Position Limits in Currency Derivatives",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-i-q7",
+    "courseId": "nism-i",
+    "question": "If USD-INR Spot is 83.50, US 3-month risk-free rate is 5% p.a., and Indian 3-month risk-free rate is 7% p.a., what is the theoretical 3-month forward exchange rate?",
+    "options": [
+      "83.08",
+      "83.92",
+      "85.20",
+      "82.10"
+    ],
+    "correctIndex": 1,
+    "explanation": "F = S * (1 + r_d * T) / (1 + r_f * T) = 83.50 * [1 + (0.07 * 0.25)] / [1 + (0.05 * 0.25)] = 83.50 * 1.0175 / 1.0125 = 83.91.",
+    "topic": "Forward Exchange Rate Calculation",
+    "chapter": 1,
+    "chapterTitle": "Forward Exchange Rate Calculation",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-i-q8",
+    "courseId": "nism-i",
+    "question": "What happens when an importer buys a USD-INR Call Option with strike 84.00 at a premium of \u20b90.30?",
+    "options": [
+      "The importer caps their maximum purchase price at 84.30 per dollar",
+      "The importer is obligated to buy USD at 84.00 even if spot drops to 80.00",
+      "The importer receives free interest from the bank",
+      "The importer faces unlimited downside loss"
+    ],
+    "correctIndex": 0,
+    "explanation": "A call option provides an upper ceiling: Max Effective Buying Cost = Strike Price + Premium Paid = 84.00 + 0.30 = \u20b984.30 per USD.",
+    "topic": "Currency Option Payoffs",
+    "chapter": 1,
+    "chapterTitle": "Currency Option Payoffs",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iia-q4",
+    "courseId": "nism-iia",
+    "question": "What is the role of the Registrar in a Rights Issue of a listed corporate?",
+    "options": [
+      "Underwriting the equity shares",
+      "Dispatching the Letter of Offer and Composite Application Form (CAF) to eligible shareholders and processing renunciations",
+      "Fixing the market price of the rights entitlement",
+      "Cancelling all promoter share certificates"
+    ],
+    "correctIndex": 1,
+    "explanation": "In a rights issue, the RTA identifies shareholders on record date, credits Rights Entitlements (RE) to their demat accounts, and processes acceptances/renunciations.",
+    "topic": "Rights Issue Administration",
+    "chapter": 1,
+    "chapterTitle": "Rights Issue Administration",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iib-q4",
+    "courseId": "nism-iib",
+    "question": "What is the cut-off time for an investor to submit an application for purchase of units in a Debt Mutual Fund (other than Liquid/Overnight) to get the same day's NAV?",
+    "options": [
+      "1:30 PM",
+      "3:00 PM (subject to realization of funds before 3:00 PM)",
+      "12:00 Noon",
+      "5:00 PM"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under SEBI rules, the cut-off timing is 3:00 PM, provided investor subscription funds are credited and available in the AMC's bank account before 3:00 PM.",
+    "topic": "Cut-off Timings & Fund Realization",
+    "chapter": 1,
+    "chapterTitle": "Cut-off Timings & Fund Realization",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iiia-q4",
+    "courseId": "nism-iiia",
+    "question": "Under the SEBI (Intermediaries) Regulations, what action can the Designated Member take against an intermediary found guilty of fraudulent conduct?",
+    "options": [
+      "Cancel or suspend the certificate of registration, or debar the intermediary from market access",
+      "Impose capital punishment",
+      "Dissolve the company without court approval",
+      "Confiscate personal property of all clients"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI is legally empowered under Section 11 and Intermediaries Regulations to cancel or suspend registration and debar violators from capital markets.",
+    "topic": "Enforcement Actions by SEBI",
+    "chapter": 1,
+    "chapterTitle": "Enforcement Actions by SEBI",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iiib-q4",
+    "courseId": "nism-iiib",
+    "question": "Under SEBI (LODR) Regulations, within how many minutes of the closure of a Board Meeting must a listed entity disclose financial results to the stock exchange?",
+    "options": [
+      "Within 15 minutes",
+      "Within 30 minutes of board meeting conclusion",
+      "Within 24 hours",
+      "By the end of the calendar week"
+    ],
+    "correctIndex": 1,
+    "explanation": "Regulation 30 of SEBI LODR mandates prompt disclosure of financial results within 30 minutes of the board meeting conclusion.",
+    "topic": "Material Disclosures under LODR",
+    "chapter": 1,
+    "chapterTitle": "Material Disclosures under LODR",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-q4",
+    "courseId": "nism-iv",
+    "question": "What does a 'Payer Swap' represent in an Interest Rate Swap (IRS)?",
+    "options": [
+      "The party that pays fixed interest and receives floating benchmark interest",
+      "The party that pays floating and receives fixed",
+      "The broker collecting swap brokerage",
+      "The borrower paying back bank principal"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Payer Swap participant pays the agreed fixed rate and receives the floating reference rate (e.g. FBIL MIBOR), protecting against rising interest rates.",
+    "topic": "Interest Rate Swaps (IRS)",
+    "chapter": 1,
+    "chapterTitle": "Interest Rate Swaps (IRS)",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-q5",
+    "courseId": "nism-iv",
+    "question": "How is the invoice price calculated upon physical delivery of a bond under a 10-year GoI IRF contract?",
+    "options": [
+      "Invoice Price = (Futures Settlement Price * Conversion Factor) + Accrued Interest",
+      "Invoice Price = Spot Price / CF",
+      "Invoice Price = Face Value * 6%",
+      "Invoice Price = Futures Price - Haircut"
+    ],
+    "correctIndex": 0,
+    "explanation": "The buyer pays the seller: [(Settlement Price * CF) + Accrued Interest] * Quantity of bonds delivered.",
+    "topic": "IRF Delivery Settlement",
+    "chapter": 1,
+    "chapterTitle": "IRF Delivery Settlement",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-vb-q4",
+    "courseId": "nism-vb",
+    "question": "What is the full form of NAV in mutual funds and how is it calculated?",
+    "options": [
+      "National Asset Valuation",
+      "Net Asset Value: (Current Market Value of Assets - Liabilities) / Outstanding Units",
+      "Nominal Added Value",
+      "Net Annual Variance"
+    ],
+    "correctIndex": 1,
+    "explanation": "NAV represents the per-unit intrinsic market worth of a mutual fund scheme, calculated daily.",
+    "topic": "NAV Mechanics",
+    "chapter": 1,
+    "chapterTitle": "NAV Mechanics",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-vc-q4",
+    "courseId": "nism-vc",
+    "question": "In multi-factor equity investing, what does the 'Momentum Factor' target?",
+    "options": [
+      "Stocks trading at low price-to-book ratios",
+      "Stocks that have outperformed their peers over the trailing 6 to 12 months",
+      "Stocks with high dividend yields",
+      "Stocks with zero debt on balance sheet"
+    ],
+    "correctIndex": 1,
+    "explanation": "Momentum factor investing systematically selects securities that have demonstrated superior relative price performance over intermediate horizons (6-12 months).",
+    "topic": "Smart Beta & Factor Investing",
+    "chapter": 1,
+    "chapterTitle": "Smart Beta & Factor Investing",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-vi-q4",
+    "courseId": "nism-vi",
+    "question": "What is the difference between Dematerialization and Rematerialization?",
+    "options": [
+      "Dematerialization converts electronic shares into paper; Rematerialization converts paper into electronic",
+      "Dematerialization converts physical paper share certificates into electronic book entry form; Rematerialization converts electronic securities back into physical paper certificates",
+      "They are identical processes",
+      "Dematerialization is handled by banks; Rematerialization by SEBI"
+    ],
+    "correctIndex": 1,
+    "explanation": "Demat converts physical certificates into digital balances; Remat regenerates physical paper certificates from electronic holdings.",
+    "topic": "Demat vs Remat",
+    "chapter": 1,
+    "chapterTitle": "Demat vs Remat",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-vii-q4",
+    "courseId": "nism-vii",
+    "question": "What is 'Straight-Through Processing' (STP) in securities trade settlement?",
+    "options": [
+      "Printing trade confirmations manually on paper",
+      "The seamless, automated electronic transmission of trade data from order execution through clearing and settlement without manual human re-entry",
+      "A direct phone line between broker and client",
+      "Borrowing cash from clearing banks overnight"
+    ],
+    "correctIndex": 1,
+    "explanation": "STP automates the end-to-end transaction lifecycle across exchanges, clearing corporations, depositories, and custodians, minimizing operational error.",
+    "topic": "Straight-Through Processing (STP)",
+    "chapter": 1,
+    "chapterTitle": "Straight-Through Processing (STP)",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-ix-q4",
+    "courseId": "nism-ix",
+    "question": "What is the lock-in period for the minimum mandatory promoter contribution (20% of post-issue capital) in an IPO under SEBI ICDR?",
+    "options": [
+      "6 months",
+      "18 months (or 3 years depending on utilization/project status)",
+      "10 years",
+      "No lock-in"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI ICDR prescribes an 18-month lock-in for the minimum 20% promoter contribution if the issue is for general corporate purposes, or 3 years if funds are for project capital expenditure.",
+    "topic": "Promoter Contribution Lock-in",
+    "chapter": 1,
+    "chapterTitle": "Promoter Contribution Lock-in",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xii-q4",
+    "courseId": "nism-xii",
+    "question": "What is the function of the Clearing Corporation (such as NSE Clearing or ICCL) in the secondary market?",
+    "options": [
+      "Providing insurance policies to stock brokers",
+      "Acting as the Central Counterparty (CCP), executing trade novation, guaranteeing financial settlement, and managing collateral risk",
+      "Setting the repo interest rate for the economy",
+      "Regulating mutual fund expense ratios"
+    ],
+    "correctIndex": 1,
+    "explanation": "Clearing Corporations guarantee trade settlement by novation, interposing themselves as buyer to every seller and seller to every buyer.",
+    "topic": "Role of Clearing Corporation",
+    "chapter": 1,
+    "chapterTitle": "Role of Clearing Corporation",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xvi-q4",
+    "courseId": "nism-xvi",
+    "question": "What is 'Staggered Delivery' in commodity futures trading?",
+    "options": [
+      "Delivery occurring only on the exact contract expiry day",
+      "A designated delivery tender period (typically the last 5 to 10 trading days of the contract) during which sellers can issue delivery intention notices to buyers",
+      "Delivering physical goods by trucks in installments",
+      "Postponing contract settlement by 6 months"
+    ],
+    "correctIndex": 1,
+    "explanation": "The staggered delivery period allows physical commodity sellers and buyers to tender and receive delivery incrementally ahead of the final expiry day.",
+    "topic": "Commodity Delivery Mechanism",
+    "chapter": 1,
+    "chapterTitle": "Commodity Delivery Mechanism",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xvi-q5",
+    "courseId": "nism-xvi",
+    "question": "What distinguishes an 'Agri-Commodity' contract (like Jeera, Chana, Guar) from a 'Non-Agri' contract (like Gold, Crude Oil) on commodity exchanges?",
+    "options": [
+      "Agri contracts have zero margin",
+      "Agri contracts are subject to seasonal harvesting cycles, monsoon dependence, government MSP interventions, and mandatory physical warehouse settlement",
+      "Non-agri contracts cannot be traded by retail participants",
+      "Agri contracts are traded exclusively on Sundays"
+    ],
+    "correctIndex": 1,
+    "explanation": "Agri-commodities are uniquely influenced by monsoon patterns, harvest seasonality, APMC mandi arrivals, and storage shelf-life in WDRA warehouses.",
+    "topic": "Agri vs Non-Agri Derivatives",
+    "chapter": 1,
+    "chapterTitle": "Agri vs Non-Agri Derivatives",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xvii-q4",
+    "courseId": "nism-xvii",
+    "question": "What is the tax treatment of the 60% lump-sum withdrawal from NPS Tier-I upon retirement at age 60 under Section 10(12A) of the Income Tax Act?",
+    "options": [
+      "Taxed at 30% slab rate",
+      "Entirely exempt from income tax (100% tax-free)",
+      "Taxed at 12.5% LTCG",
+      "Subject to 20% withholding tax"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under Section 10(12A) of the Income Tax Act, the entire 60% lump-sum withdrawal from NPS Tier-I upon superannuation is completely tax-free.",
+    "topic": "NPS Tax Benefits & Exemptions",
+    "chapter": 1,
+    "chapterTitle": "NPS Tax Benefits & Exemptions",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xviii-q4",
+    "courseId": "nism-xviii",
+    "question": "What is the '50-30-20 Rule' of budgeting taught in financial education programs?",
+    "options": [
+      "50% Equities, 30% Debt, 20% Gold",
+      "50% Needs (essentials), 30% Wants (lifestyle), 20% Savings and Debt Repayment",
+      "50% Taxes, 30% Rent, 20% Medical",
+      "50% Stock market, 30% Real estate, 20% Cash"
+    ],
+    "correctIndex": 1,
+    "explanation": "The 50/30/20 framework allocates 50% of after-tax income to Needs, 30% to Wants, and at least 20% towards Savings, Investments, and Debt clearance.",
+    "topic": "Personal Budgeting Frameworks",
+    "chapter": 1,
+    "chapterTitle": "Personal Budgeting Frameworks",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xixa-q4",
+    "courseId": "nism-xixa",
+    "question": "Who qualifies as an 'Accredited Investor' under SEBI (AIF) Regulations, permitting lower ticket sizes and flexible governance?",
+    "options": [
+      "Any person holding a PAN card",
+      "An individual with annual income >= \u20b92 Crore OR Net Worth >= \u20b97.5 Crore (with >= \u20b93.75 Cr in financial assets)",
+      "Any registered mutual fund distributor",
+      "A person with 10 years of trading experience"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI defines individual Accredited Investors as having at least \u20b92 Crore annual income or \u20b97.5 Crore net worth (min \u20b93.75 Cr in financial assets).",
+    "topic": "Accredited Investor Framework",
+    "chapter": 1,
+    "chapterTitle": "Accredited Investor Framework",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xixb-q4",
+    "courseId": "nism-xixb",
+    "question": "In private equity fund accounting, what is the difference between an 'American Waterfall' and a 'European Waterfall'?",
+    "options": [
+      "American waterfall distributes profits deal-by-deal, whereas European waterfall distributes carried interest only after the investor's entire capital across the whole fund is fully returned",
+      "American waterfall applies only in the United States",
+      "European waterfall does not charge hurdle rate",
+      "American waterfall is strictly illegal in India"
+    ],
+    "correctIndex": 0,
+    "explanation": "European waterfall (whole-of-fund) protects LPs by ensuring full principal and hurdle return across all investments before carried interest is paid, unlike deal-by-deal American waterfall.",
+    "topic": "Waterfall Mechanics in PE/VC",
+    "chapter": 1,
+    "chapterTitle": "Waterfall Mechanics in PE/VC",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xixc-q4",
+    "courseId": "nism-xixc",
+    "question": "What is the maximum investment limit permitted for a Category III AIF in the equity shares of a single investee company under SEBI norms?",
+    "options": [
+      "Up to 50% of fund net assets",
+      "Not more than 10% of the Net Asset Value (NAV) of the scheme",
+      "Strictly 1% only",
+      "No limit whatsoever"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under Regulation 15(1)(d), Category III AIFs cannot invest more than 10% of their net assets in equity or equity-linked instruments of a single investee company.",
+    "topic": "Cat III AIF Single Investee Exposure",
+    "chapter": 1,
+    "chapterTitle": "Cat III AIF Single Investee Exposure",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xxib-q4",
+    "courseId": "nism-xxib",
+    "question": "Can a Portfolio Manager borrow funds or borrow securities on behalf of a discretionary client portfolio under SEBI (PMS) Regulations?",
+    "options": [
+      "Yes, up to 10 times the portfolio value",
+      "No, Portfolio Managers are strictly prohibited from borrowing funds or securities on behalf of clients (except to meet settlement obligations under prescribed conditions)",
+      "Only if the client has signed a blank authorization form",
+      "Yes, with RBI permission"
+    ],
+    "correctIndex": 1,
+    "explanation": "Regulation 24 of SEBI (PMS) Regulations, 2020 explicitly prohibits portfolio managers from borrowing funds or securities on behalf of clients.",
+    "topic": "PMS Leverage Prohibitions",
+    "chapter": 1,
+    "chapterTitle": "PMS Leverage Prohibitions",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xxii-q4",
+    "courseId": "nism-xxii",
+    "question": "What is the difference between a 'Price-Based Auction' and a 'Yield-Based Auction' conducted by the Reserve Bank of India for Government Securities?",
+    "options": [
+      "Price-based auctions are for new re-issued existing bonds where coupon is already known and bids are submitted in prices; Yield-based auctions are for newly introduced bonds to discover coupon rate",
+      "Price-based auctions are for corporate debt only",
+      "Yield-based auctions are only for foreign banks",
+      "There is no difference"
+    ],
+    "correctIndex": 0,
+    "explanation": "New benchmark bonds use yield-based auctions to set the coupon; subsequent re-issuances use price-based auctions where the coupon is fixed and bids reflect clean price.",
+    "topic": "Sovereign Debt Primary Auctions",
+    "chapter": 1,
+    "chapterTitle": "Sovereign Debt Primary Auctions",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-xxiii-q4",
+    "courseId": "nism-xxiii",
+    "question": "What is the minimum issue size and minimum application size for Zero Coupon Zero Principal (ZCZP) instruments on the Social Stock Exchange?",
+    "options": [
+      "Minimum issue size of \u20b950 Lakhs and minimum application size of \u20b910,000",
+      "Minimum issue size of \u20b9100 Crore and application of \u20b91 Crore",
+      "Minimum issue size of \u20b91,000",
+      "Zero minimum issue size"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI revised the SSE norms to make ZCZP issuances accessible: minimum issue size is \u20b950 Lakhs and minimum application size for public donors is \u20b910,000.",
+    "topic": "ZCZP Issue Sizing",
+    "chapter": 1,
+    "chapterTitle": "ZCZP Issue Sizing",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
   }
 ];

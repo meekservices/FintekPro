@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import {
@@ -28,6 +28,7 @@ import {
 	ChevronRight,
 	Lightbulb,
 	XCircle,
+	Search,
 } from "lucide-react";
 import {
 	Card,
@@ -38,6 +39,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -430,6 +432,46 @@ export default function AgentKnowledgeCertifications() {
 	});
 
 	const nismCourses = nismCoursesData?.courses || [];
+	const [nismCategoryFilter, setNismCategoryFilter] = useState<string>("all");
+	const [nismSearchQuery, setNismSearchQuery] = useState<string>("");
+
+	const filteredNismCourses = useMemo(() => {
+		return nismCourses.filter((course) => {
+			const cat = (course.category || "").toLowerCase();
+			let matchesCategory = nismCategoryFilter === "all";
+			if (!matchesCategory) {
+				if (nismCategoryFilter === "Distribution") {
+					matchesCategory = cat.includes("distribut");
+				} else if (nismCategoryFilter === "Trading") {
+					matchesCategory = cat.includes("trading");
+				} else if (nismCategoryFilter === "Advisory") {
+					matchesCategory = cat.includes("advisory") || cat.includes("research");
+				} else if (nismCategoryFilter === "Operations") {
+					matchesCategory = cat.includes("operation");
+				} else if (nismCategoryFilter === "Compliance") {
+					matchesCategory = cat.includes("compliance");
+				} else if (nismCategoryFilter === "Fund Management") {
+					matchesCategory = cat.includes("fund") || cat.includes("investment banking");
+				} else if (nismCategoryFilter === "Debt & Social") {
+					matchesCategory = cat.includes("debt") || cat.includes("social");
+				} else if (nismCategoryFilter === "Foundation") {
+					matchesCategory = cat.includes("foundation") || cat.includes("education") || cat.includes("cpe");
+				} else {
+					matchesCategory = cat === nismCategoryFilter.toLowerCase();
+				}
+			}
+
+			const q = nismSearchQuery.trim().toLowerCase();
+			const matchesSearch =
+				!q ||
+				course.title.toLowerCase().includes(q) ||
+				course.seriesCode.toLowerCase().includes(q) ||
+				course.category.toLowerCase().includes(q) ||
+				course.courseId.toLowerCase().includes(q);
+
+			return matchesCategory && matchesSearch;
+		});
+	}, [nismCourses, nismCategoryFilter, nismSearchQuery]);
 	const nismSummary = nismSummaryData?.summary || {
 		totalEnrolled: 0,
 		totalCompleted: 0,
@@ -988,15 +1030,102 @@ export default function AgentKnowledgeCertifications() {
 						</AlertDescription>
 					</Alert>
 
+					{/* Category Filter Pills & Search Bar */}
+					<div className="flex flex-col gap-3.5 bg-card/60 p-4 rounded-xl border border-border/80 shadow-xs">
+						<div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+							<div className="relative w-full sm:w-80">
+								<Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+								<Input
+									placeholder="Search by series, title, or topic..."
+									value={nismSearchQuery}
+									onChange={(e) => setNismSearchQuery(e.target.value)}
+									className="pl-9 h-9 text-xs sm:text-sm bg-background/80"
+								/>
+								{nismSearchQuery && (
+									<button
+										type="button"
+										onClick={() => setNismSearchQuery("")}
+										className="absolute right-2.5 top-2 text-muted-foreground hover:text-foreground text-xs"
+									>
+										✕
+									</button>
+								)}
+							</div>
+
+							<div className="text-xs text-muted-foreground self-start sm:self-auto font-medium">
+								Showing <span className="font-bold text-foreground">{filteredNismCourses.length}</span> of {nismCourses.length} Official Series
+							</div>
+						</div>
+
+						{/* Horizontal scrolling Category Tabs */}
+						<div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+							{[
+								{ id: "all", label: "All Series", count: nismCourses.length },
+								{ id: "Distribution", label: "Distribution", count: nismCourses.filter((c) => (c.category || "").toLowerCase().includes("distribut")).length },
+								{ id: "Trading", label: "Trading & Derivatives", count: nismCourses.filter((c) => (c.category || "").toLowerCase().includes("trading")).length },
+								{ id: "Advisory", label: "Advisory & Research", count: nismCourses.filter((c) => (c.category || "").toLowerCase().includes("advisory") || (c.category || "").toLowerCase().includes("research")).length },
+								{ id: "Operations", label: "Operations & SORM", count: nismCourses.filter((c) => (c.category || "").toLowerCase().includes("operation")).length },
+								{ id: "Compliance", label: "Compliance", count: nismCourses.filter((c) => (c.category || "").toLowerCase().includes("compliance")).length },
+								{ id: "Fund Management", label: "Fund Management", count: nismCourses.filter((c) => (c.category || "").toLowerCase().includes("fund") || (c.category || "").toLowerCase().includes("investment banking")).length },
+								{ id: "Debt & Social", label: "Debt & Social", count: nismCourses.filter((c) => (c.category || "").toLowerCase().includes("debt") || (c.category || "").toLowerCase().includes("social")).length },
+								{ id: "Foundation", label: "Foundation & CPE", count: nismCourses.filter((c) => (c.category || "").toLowerCase().includes("foundation") || (c.category || "").toLowerCase().includes("education") || (c.category || "").toLowerCase().includes("cpe")).length },
+							].map((cat) => {
+								const active = nismCategoryFilter === cat.id;
+								return (
+									<button
+										key={cat.id}
+										type="button"
+										onClick={() => setNismCategoryFilter(cat.id)}
+										className={`px-3 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap flex items-center gap-1.5 shrink-0 border ${
+											active
+												? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+												: "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 border-border/60"
+										}`}
+									>
+										<span>{cat.label}</span>
+										<span
+											className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+												active
+													? "bg-emerald-700/60 text-emerald-100"
+													: "bg-muted text-muted-foreground"
+											}`}
+										>
+											{cat.count}
+										</span>
+									</button>
+								);
+							})}
+						</div>
+					</div>
+
 					{nismLoading ? (
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							{[1, 2, 3, 4].map((i) => (
 								<Skeleton key={i} className="h-56 bg-card" />
 							))}
 						</div>
+					) : filteredNismCourses.length === 0 ? (
+						<div className="text-center py-12 px-4 rounded-xl border border-dashed border-border bg-card/40 space-y-3">
+							<BookOpen className="h-10 w-10 text-muted-foreground mx-auto opacity-40" />
+							<div className="font-semibold text-base">No NISM certifications found</div>
+							<p className="text-xs text-muted-foreground max-w-sm mx-auto">
+								No courses match your current search &quot;{nismSearchQuery}&quot; or filter category.
+							</p>
+							<Button
+								variant="outline"
+								size="sm"
+								className="text-xs"
+								onClick={() => {
+									setNismCategoryFilter("all");
+									setNismSearchQuery("");
+								}}
+							>
+								Clear Filters
+							</Button>
+						</div>
 					) : (
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-							{nismCourses.map((course) => {
+							{filteredNismCourses.map((course) => {
 								const isCompleted = course.status === "completed" || course.status === "certified";
 								const isInProgress = course.status === "in_progress" || course.status === "enrolled";
 
@@ -1057,7 +1186,7 @@ export default function AgentKnowledgeCertifications() {
 														Mock Papers
 													</span>
 													<span className="font-semibold text-amber-700 dark:text-amber-400 mt-0.5 text-xs truncate">
-														{course.availableMocksCount || 3} Papers ({course.totalPracticeQuestions || 450} Qs)
+														{course.availableMocksCount || 3} Papers ({course.totalPracticeQuestions || 100} Qs)
 													</span>
 												</div>
 												<div className="flex flex-col pl-1">
@@ -1066,7 +1195,7 @@ export default function AgentKnowledgeCertifications() {
 														Passing
 													</span>
 													<span className="font-semibold text-emerald-700 dark:text-emerald-400 mt-0.5 text-xs">
-														{course.passingPercentage || 60}% (–0.25 neg)
+														{course.passingPercentage || 60}% ({course.negativeMarking ? `–${course.negativeMarking} neg` : "No neg"})
 													</span>
 												</div>
 											</div>
@@ -1090,7 +1219,7 @@ export default function AgentKnowledgeCertifications() {
 												</div>
 											)}
 
-											<div className="flex items-center justify-between pt-2 border-t border-border/50 gap-2">
+											<div className="flex items-center justify-between pt-2 border-t border-border/50 gap-2 flex-wrap">
 												<Button
 													variant="ghost"
 													size="sm"
@@ -1103,6 +1232,19 @@ export default function AgentKnowledgeCertifications() {
 												>
 													<FileText className="h-3.5 w-3.5 mr-1" />
 													Syllabus
+												</Button>
+
+												<Button
+													variant="outline"
+													size="sm"
+													className="border-indigo-500/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/10 h-8 flex items-center gap-1.5 text-xs font-semibold px-2.5"
+													onClick={() => {
+														setCurriculumCourseId(course.courseId);
+														setIsCurriculumOpen(true);
+													}}
+												>
+													<BookOpen className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+													Study Guide & Notes
 												</Button>
 
 												<Button
