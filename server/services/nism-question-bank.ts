@@ -5,9 +5,9 @@ import type { NismPracticeQuestion } from "./nism-lms-service";
  * High-yield NISM Accredited Practice Question Bank
  * Covers all official NISM modules: Series V-A (500 Qs across 5 distinct 100-Q papers),
  * Series VIII (100 Qs), Series X-A (100 Qs), Series XV (100 Qs), Series XXI-A (50 Qs),
- * Series V-D (50 Qs), Series XIII (30 Qs), Series X-B (30 Qs), and CPE Refresher (20 Qs).
- * Verified with SEBI Master Circular 2024 and Union Budget 2024 taxation updates.
- * Total accredited questions: 980.
+ * Series V-D (306 Qs across 2 full 150-Q papers covering all 22 chapters with SIF framework),
+ * Series XIII (30 Qs), Series X-B (30 Qs), and CPE Refresher (20 Qs).
+ * Total accredited questions: 1236.
  */
 export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
   {
@@ -14500,766 +14500,6 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "difficulty": "Intermediate"
   },
   {
-    "id": "nism-vd-q1",
-    "courseId": "nism-vd",
-    "question": "Under the SEBI regulatory framework, what distinguishes a Specialized Investment Fund (SIF) from a standard mutual fund scheme?",
-    "options": [
-      "SIF schemes invest exclusively in sovereign gold bonds",
-      "SIF caters to accredited and sophisticated investors with specialized asset classes, structured debt, or hybrid strategies and higher minimum commitment",
-      "SIF does not require any regulatory disclosure or trustee oversight",
-      "SIF schemes are exempt from income tax"
-    ],
-    "correctIndex": 1,
-    "explanation": "SIFs provide access to specialized alternative and hybrid investment opportunities with higher suitability criteria and bespoke risk profiles.",
-    "topic": "SIF Regulatory Framework"
-  },
-  {
-    "id": "nism-vd-q2",
-    "courseId": "nism-vd",
-    "question": "Why do Specialized Investment Funds maintain higher minimum ticket thresholds than retail mutual funds?",
-    "options": [
-      "To maximize distributor trailing commissions",
-      "To ensure investment suitability, financial sophistication, and risk-absorption capacity of participants",
-      "To avoid paying stamp duty on contract notes",
-      "Because SEBI does not permit retail investors to invest in mutual funds"
-    ],
-    "correctIndex": 1,
-    "explanation": "Higher investment commitments ensure that only sophisticated investors with adequate loss-absorption capacity participate in specialized fund strategies.",
-    "topic": "Investor Categorisation & Suitability"
-  },
-  {
-    "id": "nism-vd-q3",
-    "courseId": "nism-vd",
-    "question": "How frequently must illiquid or unlisted assets in a specialized fund portfolio be valued by an independent valuation agency?",
-    "options": [
-      "Daily in real-time during market hours",
-      "At least periodically (e.g. monthly or quarterly) by an independent SEBI-recognized valuation agency",
-      "Once every five years",
-      "Only upon fund liquidation"
-    ],
-    "correctIndex": 1,
-    "explanation": "Unlisted or illiquid instruments require periodic independent valuation by an accredited valuation agency to ensure fair NAV calculation.",
-    "topic": "Valuation Principles"
-  },
-  {
-    "id": "nism-vd-q4",
-    "courseId": "nism-vd",
-    "question": "What is the primary responsibility of the Scheme Investment Committee in specialized funds?",
-    "options": [
-      "Deciding marketing slogans for fund roadshows",
-      "Overseeing investment adherence, risk mandates, and approving investments in structured or illiquid securities",
-      "Filing personal tax returns of unit holders",
-      "Setting the exchange clearing fees"
-    ],
-    "correctIndex": 1,
-    "explanation": "The Investment Committee ensures that all transactions adhere strictly to the scheme's mandate, risk parameters, and regulatory exposure limits.",
-    "topic": "Scheme Governance"
-  },
-  {
-    "id": "nism-vd-q5",
-    "courseId": "nism-vd",
-    "question": "What is a key difference in liquidity management between a specialized fund and an open-ended liquid mutual fund?",
-    "options": [
-      "Liquid funds offer daily redemptions at T+1, whereas specialized funds may incorporate defined liquidity windows or lock-in terms",
-      "Specialized funds never allow redemptions under any circumstances",
-      "Liquid funds require a 1-year notice for redemption",
-      "Specialized funds settle redemptions in physical bullion"
-    ],
-    "correctIndex": 0,
-    "explanation": "Specialized funds manage liquidity through specified redemption intervals or lock-ins matching the duration of their underlying assets.",
-    "topic": "Liquidity Risk Management"
-  },
-  {
-    "id": "nism-vd-q6",
-    "courseId": "nism-vd",
-    "question": "Who qualifies as an 'Accredited Investor' under the SEBI regulatory framework?",
-    "options": [
-      "Any individual with an active PAN card",
-      "An individual with annual income \u2265 \u20b92 Crores OR net worth \u2265 \u20b97.5 Crores (with at least \u20b93.75 Cr in financial assets)",
-      "Any corporate entity regardless of balance sheet size",
-      "An investor who has passed the NISM exam"
-    ],
-    "correctIndex": 1,
-    "explanation": "SEBI defines Accredited Investors by net worth or income thresholds (e.g. \u20b92 Cr annual income or \u20b97.5 Cr net worth for individuals).",
-    "topic": "Accredited Investor Norms"
-  },
-  {
-    "id": "nism-vd-q7",
-    "courseId": "nism-vd",
-    "question": "Are 'Side Letter' agreements offering preferential terms or fee discounts to select investors permitted in regulated specialized funds?",
-    "options": [
-      "Yes, side letters can be secretly signed with large investors without disclosure",
-      "No, SEBI prohibits side letters that provide differential rights or preferential liquidity that prejudices other unit holders",
-      "Yes, permitted if the investment exceeds \u20b910 Lakhs",
-      "Permitted only for foreign institutional investors"
-    ],
-    "correctIndex": 1,
-    "explanation": "SEBI mandates fair and equitable treatment for all investors in a scheme; preferential side letters that undermine pari-passu rights are prohibited.",
-    "topic": "Fair Treatment of Investors"
-  },
-  {
-    "id": "nism-vd-q8",
-    "courseId": "nism-vd",
-    "question": "How must related-party transactions and conflict of interest scenarios be handled in specialized fund operations?",
-    "options": [
-      "Hidden from the trustees to prevent delays",
-      "Fully disclosed to trustees and unit holders, with independent valuations and adherence to arm's length standards",
-      "Executed at a 50% discount to market rates",
-      "Referred to the local police department"
-    ],
-    "correctIndex": 1,
-    "explanation": "Affiliate and related-party deals require prior committee/trustee review, arm's-length pricing, and transparent disclosure in scheme reports.",
-    "topic": "Code of Conduct"
-  },
-  {
-    "id": "nism-vd-q9",
-    "courseId": "nism-vd",
-    "question": "How should performance benchmarks be constructed for specialized or hybrid investment funds?",
-    "options": [
-      "Using a fixed 15% arbitrary hurdle rate",
-      "Using a transparent, publicly available index that accurately reflects the asset mix and investment strategy of the fund",
-      "Benchmark choice is entirely prohibited for specialized funds",
-      "Using the US S&P 500 index regardless of domestic portfolio assets"
-    ],
-    "correctIndex": 1,
-    "explanation": "Regulations mandate benchmarks that reflect the strategy, duration, and asset composition of the underlying specialized fund portfolio.",
-    "topic": "Performance Evaluation"
-  },
-  {
-    "id": "nism-vd-q10",
-    "courseId": "nism-vd",
-    "question": "What is the dual licensing benefit of holding the NISM Series V-D certification for financial intermediaries?",
-    "options": [
-      "Authorizes the distribution of both standard mutual fund schemes and specialized investment funds (SIF) under a unified license",
-      "Allows the advisor to trade international currency futures without an exchange broker",
-      "Exempts the distributor from filing GST returns",
-      "Guarantees automatic appointment as an AMC fund manager"
-    ],
-    "correctIndex": 0,
-    "explanation": "NISM Series V-D provides accreditation covering both traditional mutual funds and specialized investment funds under SEBI distribution guidelines.",
-    "topic": "SIF Regulatory Framework"
-  },
-  {
-    "id": "nism-vd-gen-q11",
-    "courseId": "nism-vd",
-    "question": "What is the primary role of a Specialized Investment Fund (SIF) distributor under SEBI guidelines?",
-    "options": [
-      "Distributing both standard mutual funds and specialized investment vehicles (including AIF Category I/II/III and private credit funds) to eligible investors",
-      "Selling life insurance policies exclusively",
-      "Conducting stock market audits for listed corporations",
-      "Providing tax return filing software"
-    ],
-    "correctIndex": 0,
-    "explanation": "A SIF distributor is accredited to market complex and specialized investment vehicles alongside mutual funds to eligible and accredited investors.",
-    "topic": "SIF Distributor Framework"
-  },
-  {
-    "id": "nism-vd-gen-q12",
-    "courseId": "nism-vd",
-    "question": "Under SEBI AIF Regulations, 2012, which of the following is categorized as a Category I AIF?",
-    "options": [
-      "Venture Capital Fund (VCF)",
-      "Hedge Fund",
-      "Private Equity Fund investing in listed equities",
-      "Real Estate debt fund"
-    ],
-    "correctIndex": 0,
-    "explanation": "Category I AIFs include Venture Capital Funds, Angel Funds, Social Venture Funds, and Infrastructure Funds.",
-    "topic": "AIF Structure & Categories"
-  },
-  {
-    "id": "nism-vd-gen-q13",
-    "courseId": "nism-vd",
-    "question": "What is the minimum corpus requirement for an Angel Fund under SEBI AIF Regulations?",
-    "options": [
-      "\u20b95 Crores",
-      "\u20b910 Crores",
-      "\u20b920 Crores",
-      "\u20b950 Crores"
-    ],
-    "correctIndex": 0,
-    "explanation": "SEBI AIF regulations specify that an Angel Fund must have a minimum corpus of \u20b95 Crores.",
-    "topic": "Angel Fund Norms"
-  },
-  {
-    "id": "nism-vd-gen-q14",
-    "courseId": "nism-vd",
-    "question": "What is the minimum ticket size for an angel investor committing capital to an Angel Fund?",
-    "options": [
-      "\u20b910 Lakhs",
-      "\u20b925 Lakhs",
-      "\u20b91 Crore",
-      "\u20b95 Crores"
-    ],
-    "correctIndex": 1,
-    "explanation": "The minimum investment commitment for an angel investor in an Angel Fund is \u20b925 Lakhs (compared to \u20b91 Crore for regular AIFs).",
-    "topic": "Angel Fund Norms"
-  },
-  {
-    "id": "nism-vd-gen-q15",
-    "courseId": "nism-vd",
-    "question": "In private equity funds, 'J-Curve Effect' refers to:",
-    "options": [
-      "Initial negative cash flows and valuations due to upfront fees and capital deployment, followed by steep positive returns as portfolio companies mature",
-      "A steady linear increase in returns every year",
-      "A perpetual loss over the life of the fund",
-      "The interest rate trajectory of sovereign debt"
-    ],
-    "correctIndex": 0,
-    "explanation": "The J-Curve reflects early negative cash flow and J-shaped return curve in private equity as management fees and unharvested early investments turn into profitable exits later.",
-    "topic": "Private Equity Dynamics"
-  },
-  {
-    "id": "nism-vd-gen-q16",
-    "courseId": "nism-vd",
-    "question": "What is 'Carried Interest' earned by an AIF fund manager?",
-    "options": [
-      "A percentage of the fund's net capital gains (typically 20%) paid to the General Partner/Manager after returning capital and the hurdle rate to investors",
-      "A fixed monthly salary paid by SEBI",
-      "The brokerage commission paid to clearing brokers",
-      "Interest paid on margin loans"
-    ],
-    "correctIndex": 0,
-    "explanation": "Carried interest is the performance fee incentive paid to the fund manager only after investors have received their initial capital plus the minimum hurdle rate.",
-    "topic": "Carried Interest & Fund Economics"
-  },
-  {
-    "id": "nism-vd-gen-q17",
-    "courseId": "nism-vd",
-    "question": "What is a 'Catch-Up Clause' in an AIF private placement memorandum (PPM)?",
-    "options": [
-      "A clause permitting the manager to receive a larger share of profits until their total profit share equals the agreed carried interest percentage once the hurdle rate is cleared",
-      "A late payment penalty imposed on unit holders",
-      "A regulatory fine for delayed filing",
-      "A clause allowing delayed NAV declarations"
-    ],
-    "correctIndex": 0,
-    "explanation": "A catch-up clause allows the GP/manager to receive 50% to 100% of distributions after the hurdle rate until the agreed carried interest split (e.g. 80:20) is restored.",
-    "topic": "Carried Interest & Fund Economics"
-  },
-  {
-    "id": "nism-vd-gen-q18",
-    "courseId": "nism-vd",
-    "question": "Under SEBI rules, what is the maximum number of investors permitted in any scheme of an AIF (other than an Angel Fund)?",
-    "options": [
-      "50 investors",
-      "200 investors",
-      "1,000 investors",
-      "Unlimited investors"
-    ],
-    "correctIndex": 2,
-    "explanation": "Under SEBI AIF Regulations, no scheme of an AIF shall have more than 1,000 investors (Angel Funds can have up to 200 angel investors).",
-    "topic": "AIF Investor Ceilings"
-  },
-  {
-    "id": "nism-vd-gen-q19",
-    "courseId": "nism-vd",
-    "question": "What is the statutory tenure requirement for Category I and Category II AIFs?",
-    "options": [
-      "They must be close-ended with a minimum tenure of 3 years",
-      "They must be open-ended with daily liquidity",
-      "They must have a 20-year lock-in",
-      "Tenure is decided on a daily basis"
-    ],
-    "correctIndex": 0,
-    "explanation": "Category I and II AIFs are required by law to be close-ended schemes with a minimum statutory tenure of 3 years at the time of launch.",
-    "topic": "AIF Scheme Tenures"
-  },
-  {
-    "id": "nism-vd-gen-q20",
-    "courseId": "nism-vd",
-    "question": "Can Category I and Category II AIFs borrow funds for investment leverage?",
-    "options": [
-      "No, they cannot borrow funds directly or indirectly for leverage; they can only borrow for meeting temporary operational liquidity needs for up to 30 days",
-      "Yes, up to 5 times their net worth",
-      "Yes, without any restrictions",
-      "Only with RBI Governor approval"
-    ],
-    "correctIndex": 0,
-    "explanation": "SEBI regulations prohibit Cat I & II AIFs from leveraging; borrowing is permitted solely for operational requirements (up to 30 days and max 10% of investable funds).",
-    "topic": "Borrowing & Leverage Restrictions"
-  },
-  {
-    "id": "nism-vd-q11",
-    "courseId": "nism-vd",
-    "question": "Under the SEBI (Alternative Investment Funds) Regulations, 2012, which category of AIF is primarily formed to invest in start-ups, early-stage ventures, social ventures, and SMEs?",
-    "options": [
-      "Category I AIF",
-      "Category II AIF",
-      "Category III AIF",
-      "Mutual Fund Liquid Scheme"
-    ],
-    "correctIndex": 0,
-    "explanation": "Category I AIFs invest in start-ups, early stage ventures, social ventures, SMEs, and infrastructure that the government or regulators consider socially or economically desirable.",
-    "topic": "AIF Structure & Categories"
-  },
-  {
-    "id": "nism-vd-q12",
-    "courseId": "nism-vd",
-    "question": "What is the minimum investment amount required from an investor (other than employees/directors of the AIF/manager) in a Category I or Category II AIF?",
-    "options": [
-      "\u20b910 Lakhs",
-      "\u20b925 Lakhs",
-      "\u20b91 Crore",
-      "\u20b95 Crores"
-    ],
-    "correctIndex": 2,
-    "explanation": "SEBI (AIF) Regulations mandate a minimum investment commitment of \u20b91 Crore per investor for Category I and II AIFs (\u20b925 Lakhs for employees/directors).",
-    "topic": "AIF Regulatory Thresholds"
-  },
-  {
-    "id": "nism-vd-q13",
-    "courseId": "nism-vd",
-    "question": "Under SEBI regulations, an 'Accredited Investor' (AI) is eligible for lower minimum ticket size in AIFs if an individual investor possesses:",
-    "options": [
-      "Annual income of at least \u20b92 Crores, or net worth of at least \u20b97.5 Crores with at least \u20b93.75 Crores in financial assets",
-      "Annual income of \u20b910 Lakhs",
-      "A PAN card and an Aadhaar card only",
-      "At least 5 years of mutual fund trading experience"
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI AI norms, an individual qualifies as an Accredited Investor if they have an annual gross income >= \u20b92 Crores OR net worth >= \u20b97.5 Crores with at least 50% in financial assets.",
-    "topic": "Accredited Investor Framework"
-  },
-  {
-    "id": "nism-vd-q14",
-    "courseId": "nism-vd",
-    "question": "Which category of AIF employs complex or diverse trading strategies including leverage, short selling, and investment in listed derivatives?",
-    "options": [
-      "Category I AIF",
-      "Category II AIF",
-      "Category III AIF",
-      "Angel Fund"
-    ],
-    "correctIndex": 2,
-    "explanation": "Category III AIFs (such as hedge funds) employ diverse or complex trading strategies and are permitted to use leverage and derivatives to generate returns in both rising and falling markets.",
-    "topic": "AIF Structure & Categories"
-  },
-  {
-    "id": "nism-vd-q15",
-    "courseId": "nism-vd",
-    "question": "What is the maximum leverage permitted for Category III Alternative Investment Funds under SEBI regulations?",
-    "options": [
-      "No leverage is ever permitted",
-      "Up to 2 times the Net Asset Value (200% of NAV)",
-      "Up to 10 times the Net Asset Value",
-      "Unlimited leverage with investor consent"
-    ],
-    "correctIndex": 1,
-    "explanation": "Category III AIFs are permitted leverage up to 2 times their NAV (gross exposure cannot exceed 200% of NAV) under SEBI circular guidelines.",
-    "topic": "AIF Leverage & Risk"
-  },
-  {
-    "id": "nism-vd-q16",
-    "courseId": "nism-vd",
-    "question": "In private equity and venture capital funds, what is the term used for the pre-agreed minimum rate of return that must be paid to investors before the fund manager earns a performance fee (carried interest)?",
-    "options": [
-      "Risk-free rate",
-      "Hurdle Rate",
-      "Drawdown percentage",
-      "Expense ratio cap"
-    ],
-    "correctIndex": 1,
-    "explanation": "The Hurdle Rate (preferred return) is the minimum annualized return threshold (typically 8% to 10%) that must be achieved and distributed to investors before the General Partner earns carried interest.",
-    "topic": "Fund Economics & Carried Interest"
-  },
-  {
-    "id": "nism-vd-q17",
-    "courseId": "nism-vd",
-    "question": "What is a 'Capital Call' or 'Drawdown Notice' in the context of Specialized Investment Funds / AIFs?",
-    "options": [
-      "A request to redeem units immediately",
-      "A formal request issued by the fund manager to committed investors demanding transfer of a portion of their committed capital to fund an identified investment",
-      "A phone call from the custodian regarding dividend payouts",
-      "A notice issued by SEBI suspending fund operations"
-    ],
-    "correctIndex": 1,
-    "explanation": "In closed-end AIFs, investors commit a total amount upfront, and the manager issues capital calls (drawdowns) in tranches as target portfolio investments are negotiated.",
-    "topic": "Fund Operations & Drawdowns"
-  },
-  {
-    "id": "nism-vd-q18",
-    "courseId": "nism-vd",
-    "question": "What is the tax status of Category I and Category II AIFs under the Indian Income Tax Act (Section 115UB)?",
-    "options": [
-      "They are taxed as corporate entities at flat 30%",
-      "They enjoy statutory pass-through tax status, meaning income is taxed directly in the hands of the unit holders as if they had invested directly",
-      "They are completely exempt from all taxes forever",
-      "Income is taxed at double the standard rate"
-    ],
-    "correctIndex": 1,
-    "explanation": "Section 115UB provides pass-through status to Category I and II AIFs; any income earned by the fund is deemed to be income of the unit holders in the same proportion and nature.",
-    "topic": "AIF Taxation"
-  },
-  {
-    "id": "nism-vd-q19",
-    "courseId": "nism-vd",
-    "question": "Under SEBI AIF regulations, all units of Alternative Investment Funds issued after May 2024 must be issued in:",
-    "options": [
-      "Physical parchment certificates",
-      "Demat (dematerialised) format only",
-      "Bearer bond notes",
-      "Printed paper receipts"
-    ],
-    "correctIndex": 1,
-    "explanation": "SEBI mandated that all existing and newly issued units of Alternative Investment Funds must be held and issued exclusively in dematerialised (Demat) form to enhance transparency.",
-    "topic": "AIF Dematerialisation Norms"
-  },
-  {
-    "id": "nism-vd-q20",
-    "courseId": "nism-vd",
-    "question": "What is a 'Co-investment Portfolio' under SEBI AIF rules?",
-    "options": [
-      "Investing alongside family members in an ELSS fund",
-      "An investment made by an AIF manager in an investee company alongside the AIF through a separate Co-investment Portfolio Manager (CPM) vehicle",
-      "Investing 50% in equity and 50% in gold",
-      "A joint bank account opened by two distributors"
-    ],
-    "correctIndex": 1,
-    "explanation": "A Co-investment is an investment in an investee company made by a Category I or II AIF investor alongside the AIF itself, governed under SEBI's Co-investment Portfolio Manager framework.",
-    "topic": "Co-investment Framework"
-  },
-  {
-    "id": "nism-vd-gen-31",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #31), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-vd-gen-32",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #32), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-vd-gen-33",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #33), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-vd-gen-34",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #34), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-vd-gen-35",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #35), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-vd-gen-36",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #36), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-vd-gen-37",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #37), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-vd-gen-38",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #38), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-vd-gen-39",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #39), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-vd-gen-40",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #40), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-vd-gen-41",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #41), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-vd-gen-42",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #42), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-vd-gen-43",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #43), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-vd-gen-44",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #44), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-vd-gen-45",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #45), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-vd-gen-46",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #46), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-vd-gen-47",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #47), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-vd-gen-48",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #48), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-vd-gen-49",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #49), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-vd-gen-50",
-    "courseId": "nism-vd",
-    "chapter": 1,
-    "chapterTitle": "SEBI (Alternative Investment Funds) Regulations, 2012",
-    "topic": "AIF & SIF Governance",
-    "question": "Under statutory regulations for SEBI (Alternative Investment Funds) Regulations, 2012 (Compliance Benchmark #50), which operational rule is legally enforceable?",
-    "options": [
-      "Statutory mandate: Minimum ticket size for AIF Category I/II/III investors is \u20b91 Crore (\u20b925 Lakh for angel investors); borrowing is strictly restricted for Category I and II funds.",
-      "Intermediaries are exempt from regulatory reporting to SEBI.",
-      "Distributor commissions can be paid upfront without statutory trail caps.",
-      "Clients are not required to complete KYC registration."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI regulations for SEBI (Alternative Investment Funds) Regulations, 2012, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
-    "difficulty": "Intermediate"
-  },
-  {
     "id": "nism-xiii-gen-q1",
     "courseId": "nism-xiii",
     "question": "What is the primary objective of NISM Series XIII Common Derivatives examination?",
@@ -16489,5 +15729,5513 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "correctIndex": 0,
     "explanation": "Under SEBI regulations for NISM CPE Mutual Fund Refresher, all entities must maintain mandatory net worth, execute client-level fiduciary agreements, and follow statutory disclosure norms.",
     "difficulty": "Intermediate"
+  },
+  {
+    "id": "vd-p1-c1-q1",
+    "courseId": "nism-vd",
+    "question": "If an investor earns a nominal interest rate of 7.5% per annum on a fixed deposit while the CPI inflation rate is 5.2% per annum, what is the approximate real rate of return?",
+    "options": [
+      "12.7% per annum",
+      "2.3% per annum",
+      "3.5% per annum",
+      "-2.3% per annum"
+    ],
+    "correctIndex": 1,
+    "explanation": "Approximate Real Rate of Return = Nominal Rate - Inflation Rate = 7.5% - 5.2% = 2.3% per annum.",
+    "topic": "Investment Landscape",
+    "chapter": 1,
+    "chapterTitle": "Investment Landscape",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c1-q2",
+    "courseId": "nism-vd",
+    "question": "Which of the following asset classes has historically provided the highest hedge against long-term inflation in the Indian economy?",
+    "options": [
+      "Savings Bank Account",
+      "Fixed Maturity Plans (FMPs)",
+      "Equities",
+      "Short-term Treasury Bills"
+    ],
+    "correctIndex": 2,
+    "explanation": "Equities represent ownership in businesses that adjust revenues with inflation, generating the highest long-term real wealth growth.",
+    "topic": "Investment Landscape",
+    "chapter": 1,
+    "chapterTitle": "Investment Landscape",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c1-q3",
+    "courseId": "nism-vd",
+    "question": "An investor aged 28 years with a stable income, low liabilities, and an investment horizon of 25 years belongs to which stage of the financial life cycle?",
+    "options": [
+      "Transition stage",
+      "Distribution stage",
+      "Accumulation stage",
+      "Retirement stage"
+    ],
+    "correctIndex": 2,
+    "explanation": "The accumulation stage is characterized by young age, long investment horizon, growing earning capacity, and high risk tolerance.",
+    "topic": "Investment Landscape",
+    "chapter": 1,
+    "chapterTitle": "Investment Landscape",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c1-q4",
+    "courseId": "nism-vd",
+    "question": "Which of the following risks cannot be eliminated by diversifying across different company stocks within a domestic equity portfolio?",
+    "options": [
+      "Management fraud in a specific company",
+      "Strike at a manufacturing facility",
+      "Unexpected increase in the RBI repo rate",
+      "Product recall by an automobile company"
+    ],
+    "correctIndex": 2,
+    "explanation": "An unexpected increase in the RBI repo rate is a Systematic (Market) Risk that affects all businesses across the economy and cannot be diversified away.",
+    "topic": "Investment Landscape",
+    "chapter": 1,
+    "chapterTitle": "Investment Landscape",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c1-q5",
+    "courseId": "nism-vd",
+    "question": "Which of the following is a key advantage of financial assets (such as mutual fund units) over physical assets like real estate?",
+    "options": [
+      "Illiquidity and high search costs",
+      "High divisibility, lower transaction costs, and transparent pricing",
+      "Absence of regulatory oversight",
+      "Manual title deed verification requirement"
+    ],
+    "correctIndex": 1,
+    "explanation": "Financial assets offer high liquidity, divisibility (fractional unit holdings), standardized legal frameworks, low transaction costs, and daily transparent market pricing.",
+    "topic": "Investment Landscape",
+    "chapter": 1,
+    "chapterTitle": "Investment Landscape",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p2-c1-q1",
+    "courseId": "nism-vd",
+    "question": "If an investor earns a 5% nominal yield on a debt instrument during a year when headline inflation is 6.5%, the investor's purchasing power has:",
+    "options": [
+      "Increased by 1.5%",
+      "Decreased by approximately 1.5%",
+      "Remained constant",
+      "Doubled in value"
+    ],
+    "correctIndex": 1,
+    "explanation": "When inflation exceeds nominal return, real return is negative: 5% - 6.5% = -1.5%. The investor's real purchasing power diminishes.",
+    "topic": "Investment Landscape",
+    "chapter": 1,
+    "chapterTitle": "Investment Landscape",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c1-q2",
+    "courseId": "nism-vd",
+    "question": "According to the 'Rule of 72', approximately how many years will it take for an investment to double at a compounding annual growth rate of 9%?",
+    "options": [
+      "6 years",
+      "8 years",
+      "9 years",
+      "12 years"
+    ],
+    "correctIndex": 1,
+    "explanation": "Rule of 72: Years to double \u2248 72 / CAGR = 72 / 9 = 8 years.",
+    "topic": "Investment Landscape",
+    "chapter": 1,
+    "chapterTitle": "Investment Landscape",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c1-q3",
+    "courseId": "nism-vd",
+    "question": "An investor who requires funds within the next 4 months for a medical procedure should primarily allocate money to:",
+    "options": [
+      "Sectoral Equity Fund",
+      "Small Cap Growth Fund",
+      "Overnight or Liquid Fund",
+      "Credit Risk Fund"
+    ],
+    "correctIndex": 2,
+    "explanation": "For an immediate 4-month horizon where capital safety and instant liquidity are paramount, liquid or overnight funds are the appropriate allocation.",
+    "topic": "Investment Landscape",
+    "chapter": 1,
+    "chapterTitle": "Investment Landscape",
+    "difficulty": "easy",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c1-q4",
+    "courseId": "nism-vd",
+    "question": "Which of the following is classified as a long-term financial goal?",
+    "options": [
+      "Accumulating a down payment for a car purchase in 8 months",
+      "Creating an emergency contingency reserve of 6 months expenses",
+      "Building a retirement corpus over a 20-year working career",
+      "Paying the annual children school tuition fee in 3 months"
+    ],
+    "correctIndex": 2,
+    "explanation": "Building a retirement corpus over 20 years is a classic long-term financial goal, allowing for compound growth and higher equity allocation.",
+    "topic": "Investment Landscape",
+    "chapter": 1,
+    "chapterTitle": "Investment Landscape",
+    "difficulty": "easy",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c1-q5",
+    "courseId": "nism-vd",
+    "question": "Liquidity risk in an investment portfolio refers to the risk that:",
+    "options": [
+      "The corporate issuer will default on scheduled interest payments",
+      "The investor cannot sell the asset quickly at fair market value without significant price discount",
+      "The central bank will devalue the domestic currency",
+      "The stock exchange will permanently cease operations"
+    ],
+    "correctIndex": 1,
+    "explanation": "Liquidity risk is the inability to convert an asset into cash quickly at its prevailing market price without incurring substantial transaction penalties or price discounts.",
+    "topic": "Investment Landscape",
+    "chapter": 1,
+    "chapterTitle": "Investment Landscape",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p1-c2-q1",
+    "courseId": "nism-vd",
+    "question": "What is the primary mechanism through which small retail investors achieve broad diversification in a mutual fund?",
+    "options": [
+      "By directly managing and buying individual stocks on the exchange",
+      "By pooling capital with other investors to acquire a large, professionally managed portfolio of securities",
+      "By obtaining guaranteed return contracts from the sponsor",
+      "By borrowing money from the AMC at concessional rates"
+    ],
+    "correctIndex": 1,
+    "explanation": "A mutual fund pools money from multiple investors with common goals, allowing each unitholder fractional ownership of a diversified portfolio of dozens or hundreds of securities.",
+    "topic": "Concept and Role of a Mutual Fund",
+    "chapter": 2,
+    "chapterTitle": "Concept and Role of a Mutual Fund",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c2-q2",
+    "courseId": "nism-vd",
+    "question": "Which entity was established in 1963 by an Act of Parliament, marking the beginning of the mutual fund industry in India?",
+    "options": [
+      "Securities and Exchange Board of India (SEBI)",
+      "Unit Trust of India (UTI)",
+      "Life Insurance Corporation of India (LIC)",
+      "State Bank of India Mutual Fund"
+    ],
+    "correctIndex": 1,
+    "explanation": "UTI was established in 1963 by an Act of Parliament and launched its flagship scheme Unit Scheme 1964 (US-64), initiating Phase I of mutual funds in India.",
+    "topic": "Concept and Role of a Mutual Fund",
+    "chapter": 2,
+    "chapterTitle": "Concept and Role of a Mutual Fund",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c2-q3",
+    "courseId": "nism-vd",
+    "question": "Which of the following is a defining feature of an open-ended mutual fund scheme?",
+    "options": [
+      "It has a fixed maturity date after which all units are liquidated",
+      "Units can only be bought and sold on a stock exchange like listed equities",
+      "Units are available for subscription and redemption on an ongoing basis on all business days at NAV-related prices",
+      "It is restricted to a maximum of 500 investors"
+    ],
+    "correctIndex": 2,
+    "explanation": "Open-ended funds do not have a fixed maturity period; they continuously issue and redeem units at NAV-related prices on business days.",
+    "topic": "Concept and Role of a Mutual Fund",
+    "chapter": 2,
+    "chapterTitle": "Concept and Role of a Mutual Fund",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c2-q4",
+    "courseId": "nism-vd",
+    "question": "How do mutual funds contribute to the overall economic development of India?",
+    "options": [
+      "By channelizing household retail savings into productive corporate capital and financial markets",
+      "By underwriting sovereign debt deficits directly through currency printing",
+      "By setting mandatory price ceilings on listed equities",
+      "By eliminating credit risk for domestic commercial banks"
+    ],
+    "correctIndex": 0,
+    "explanation": "Mutual funds mobilize domestic household savings from idle or physical forms into institutional capital, funding corporate growth and infrastructure.",
+    "topic": "Concept and Role of a Mutual Fund",
+    "chapter": 2,
+    "chapterTitle": "Concept and Role of a Mutual Fund",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c2-q5",
+    "courseId": "nism-vd",
+    "question": "Which of the following is an inherent limitation that a mutual fund investor must accept?",
+    "options": [
+      "Total absence of SEBI regulatory oversight",
+      "No control over individual stock selection decisions made by the fund manager",
+      "Requirement to hold a full physical share certificate for each security",
+      "Compulsory lock-in of 15 years on all scheme categories"
+    ],
+    "correctIndex": 1,
+    "explanation": "In a pooled fund, the fund manager makes all security selection decisions; individual investors cannot choose or exclude specific stocks within the scheme portfolio.",
+    "topic": "Concept and Role of a Mutual Fund",
+    "chapter": 2,
+    "chapterTitle": "Concept and Role of a Mutual Fund",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p2-c2-q1",
+    "courseId": "nism-vd",
+    "question": "In which year did the private sector enter the Indian mutual fund industry following the initial SEBI Mutual Fund Regulations?",
+    "options": [
+      "1964",
+      "1987",
+      "1993",
+      "2003"
+    ],
+    "correctIndex": 2,
+    "explanation": "In 1993, SEBI formulated the first comprehensive Mutual Fund Regulations, permitting private sector AMCs (Kothari Pioneer being the first private fund).",
+    "topic": "Concept and Role of a Mutual Fund",
+    "chapter": 2,
+    "chapterTitle": "Concept and Role of a Mutual Fund",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c2-q2",
+    "courseId": "nism-vd",
+    "question": "Under SEBI regulations, how is liquidity provided to investors in a close-ended mutual fund scheme prior to maturity?",
+    "options": [
+      "Daily redemption directly at the AMC office",
+      "Mandatory listing on at least one recognized stock exchange",
+      "Compulsory buyback by the Sponsor every quarter",
+      "Conversion into equity shares of the AMC"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandates that close-ended schemes must be listed on at least one recognized stock exchange to provide an exit route to unitholders before maturity.",
+    "topic": "Concept and Role of a Mutual Fund",
+    "chapter": 2,
+    "chapterTitle": "Concept and Role of a Mutual Fund",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c2-q3",
+    "courseId": "nism-vd",
+    "question": "What is an 'Interval Fund' under SEBI scheme classifications?",
+    "options": [
+      "A fund that invests only in international sovereign bonds",
+      "A fund that combines features of open-ended and close-ended funds by allowing subscription and redemption during specified periodic intervals",
+      "A fund that pays dividends exactly at 30-day intervals",
+      "A fund that trades exclusively in overnight money markets"
+    ],
+    "correctIndex": 1,
+    "explanation": "Interval funds remain closed for general transactions but open for purchase and redemption during specified intervals (e.g. monthly, quarterly, semi-annually).",
+    "topic": "Concept and Role of a Mutual Fund",
+    "chapter": 2,
+    "chapterTitle": "Concept and Role of a Mutual Fund",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c2-q4",
+    "courseId": "nism-vd",
+    "question": "How do retail investors benefit from 'economies of scale' when investing in mutual funds?",
+    "options": [
+      "They pay zero brokerage or fund management charges",
+      "Large pooled volumes reduce transaction costs, research expenses, and custodial custody fees per unit",
+      "They are granted voting rights at the annual general meetings of all portfolio companies",
+      "The AMC guarantees to reimburse any capital losses incurred"
+    ],
+    "correctIndex": 1,
+    "explanation": "Pooling hundreds of crores lowers institutional brokerage rates, research expenses, and custodial overheads per rupee of investment compared to individual retail trading.",
+    "topic": "Concept and Role of a Mutual Fund",
+    "chapter": 2,
+    "chapterTitle": "Concept and Role of a Mutual Fund",
+    "difficulty": "easy",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c2-q5",
+    "courseId": "nism-vd",
+    "question": "In a mutual fund, security selection, market timing, and portfolio rebalancing are executed by:",
+    "options": [
+      "The Board of Trustees independently",
+      "The Custodian bank",
+      "Professional Fund Managers and research analysts employed by the Asset Management Company (AMC)",
+      "The Registrar and Transfer Agent (RTA)"
+    ],
+    "correctIndex": 2,
+    "explanation": "Professional fund managers and research analysts employed by the AMC analyze macro trends, fundamentals, and valuations to manage the scheme's portfolio.",
+    "topic": "Concept and Role of a Mutual Fund",
+    "chapter": 2,
+    "chapterTitle": "Concept and Role of a Mutual Fund",
+    "difficulty": "easy",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p1-c3-q1",
+    "courseId": "nism-vd",
+    "question": "Under SEBI (Mutual Funds) Regulations, what is the minimum track record and net worth requirement for a Sponsor to launch a mutual fund in India?",
+    "options": [
+      "Minimum 1 year track record and \u20b910 Crore net worth",
+      "Minimum 5 years of carrying on business in financial services with positive net worth in all 5 preceding years and profits in at least 3 of the last 5 years",
+      "Minimum 10 years of banking experience with \u20b9500 Crore net worth",
+      "No minimum track record if approved by the Reserve Bank of India"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandates Sponsor eligibility: at least 5 years carrying on business in financial services, positive net worth in all 5 preceding years, net worth exceeding AMC contribution in the immediate preceding year, and net profit after tax in at least 3 of the 5 preceding years.",
+    "topic": "Legal Structure of Mutual Funds in India",
+    "chapter": 3,
+    "chapterTitle": "Legal Structure of Mutual Funds in India",
+    "difficulty": "hard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c3-q2",
+    "courseId": "nism-vd",
+    "question": "Under SEBI regulations, what minimum proportion of the Board of Trustees (or directors of the Trustee Company) must be independent (not associated with the Sponsor)?",
+    "options": [
+      "At least 25%",
+      "At least 33%",
+      "At least 50%",
+      "At least 75%"
+    ],
+    "correctIndex": 2,
+    "explanation": "At least 50% of the trustees or directors of the trustee company must be independent of the sponsor and its associates to protect unitholder interests.",
+    "topic": "Legal Structure of Mutual Funds in India",
+    "chapter": 3,
+    "chapterTitle": "Legal Structure of Mutual Funds in India",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c3-q3",
+    "courseId": "nism-vd",
+    "question": "What is the statutory minimum net worth requirement mandated by SEBI for an Asset Management Company (AMC) operating in India?",
+    "options": [
+      "\u20b910 Crore",
+      "\u20b925 Crore",
+      "\u20b950 Crore",
+      "\u20b9100 Crore"
+    ],
+    "correctIndex": 2,
+    "explanation": "SEBI mandates that an AMC must maintain a minimum continuous net worth of \u20b950 Crore.",
+    "topic": "Legal Structure of Mutual Funds in India",
+    "chapter": 3,
+    "chapterTitle": "Legal Structure of Mutual Funds in India",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c3-q4",
+    "courseId": "nism-vd",
+    "question": "Which key function is performed by the Custodian in the mutual fund structure?",
+    "options": [
+      "Marketing mutual fund schemes to retail distributors",
+      "Maintaining safe custody of portfolio securities, tracking corporate actions, and settling trades",
+      "Auditing the AMC's financial statements",
+      "Calculating daily scheme NAVs for publishing in newspapers"
+    ],
+    "correctIndex": 1,
+    "explanation": "The Custodian safely holds the physical and demat securities of the fund, tracks corporate actions (dividends, bonus, rights), and settles portfolio buy/sell trades.",
+    "topic": "Legal Structure of Mutual Funds in India",
+    "chapter": 3,
+    "chapterTitle": "Legal Structure of Mutual Funds in India",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c3-q5",
+    "courseId": "nism-vd",
+    "question": "Which of the following activities is primarily handled by the Registrar and Transfer Agent (RTA)?",
+    "options": [
+      "Portfolio stock picking and sector allocation",
+      "Processing investor applications, redemptions, dividend disbursements, and issuing Account Statements",
+      "Approving the appointment of AMC directors",
+      "Deciding the benchmark index for new fund offerings"
+    ],
+    "correctIndex": 1,
+    "explanation": "RTAs (e.g. CAMS, KFintech) manage investor records, unit allotment, redemption processing, dividend credits, and dispatch of Account Statements/CAS.",
+    "topic": "Legal Structure of Mutual Funds in India",
+    "chapter": 3,
+    "chapterTitle": "Legal Structure of Mutual Funds in India",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p2-c3-q1",
+    "courseId": "nism-vd",
+    "question": "How frequently is the Board of Trustees of a mutual fund required to meet under SEBI regulations?",
+    "options": [
+      "At least once every calendar month",
+      "At least once every two months, with a minimum of six meetings in a year",
+      "At least once every six months",
+      "Only once annually during the AGM"
+    ],
+    "correctIndex": 1,
+    "explanation": "Trustees must meet at least once every two months, and at least six times in each calendar year to supervise fund activities.",
+    "topic": "Legal Structure of Mutual Funds in India",
+    "chapter": 3,
+    "chapterTitle": "Legal Structure of Mutual Funds in India",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c3-q2",
+    "courseId": "nism-vd",
+    "question": "What minimum percentage of the Board of Directors of an Asset Management Company (AMC) must be independent directors?",
+    "options": [
+      "At least 25%",
+      "At least 33%",
+      "At least 50%",
+      "100%"
+    ],
+    "correctIndex": 2,
+    "explanation": "Under SEBI (Mutual Funds) Regulations, at least 50% of the directors of an AMC must be independent directors.",
+    "topic": "Legal Structure of Mutual Funds in India",
+    "chapter": 3,
+    "chapterTitle": "Legal Structure of Mutual Funds in India",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c3-q3",
+    "courseId": "nism-vd",
+    "question": "Under SEBI regulations, can the Custodian of a mutual fund be an associate of the Sponsor?",
+    "options": [
+      "Yes, without any conditions as long as both belong to the same group",
+      "No, under no circumstances can a custodian be related to the sponsor",
+      "Yes, provided the sponsor/its associates hold less than 50% share capital/voting rights in the custodian and 50% of the custodian's board is independent",
+      "Only with special presidential exemption"
+    ],
+    "correctIndex": 2,
+    "explanation": "SEBI permits an associate custodian only if the sponsor or associates hold less than 50% voting rights/capital, 50% of directors are independent, and strict arms-length governance is maintained.",
+    "topic": "Legal Structure of Mutual Funds in India",
+    "chapter": 3,
+    "chapterTitle": "Legal Structure of Mutual Funds in India",
+    "difficulty": "hard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c3-q4",
+    "courseId": "nism-vd",
+    "question": "What minimum percentage of the net worth of the AMC must be contributed and held by the Sponsor?",
+    "options": [
+      "At least 10%",
+      "At least 25%",
+      "At least 40%",
+      "Exactly 51%"
+    ],
+    "correctIndex": 2,
+    "explanation": "The Sponsor must contribute and maintain at least 40% of the net worth of the Asset Management Company.",
+    "topic": "Legal Structure of Mutual Funds in India",
+    "chapter": 3,
+    "chapterTitle": "Legal Structure of Mutual Funds in India",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c3-q5",
+    "courseId": "nism-vd",
+    "question": "If an AMC engages in activities that violate SEBI regulations or hurt unitholder interests, who has the primary fiduciary responsibility to intervene and take corrective action?",
+    "options": [
+      "The Registrar and Transfer Agent (RTA)",
+      "The Board of Trustees",
+      "The Stock Exchange Clearing House",
+      "The Association of Mutual Funds in India (AMFI)"
+    ],
+    "correctIndex": 1,
+    "explanation": "Trustees hold the fund assets in trust for unitholders and bear the primary fiduciary responsibility to oversee the AMC and protect unitholders.",
+    "topic": "Legal Structure of Mutual Funds in India",
+    "chapter": 3,
+    "chapterTitle": "Legal Structure of Mutual Funds in India",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p1-c4-q1",
+    "courseId": "nism-vd",
+    "question": "Under SEBI regulations, if an AMC delays the dispatch of redemption proceeds beyond the statutory turnaround time, what interest rate must it pay to the investor for the period of delay?",
+    "options": [
+      "6% per annum",
+      "10% per annum",
+      "15% per annum",
+      "18% per annum"
+    ],
+    "correctIndex": 2,
+    "explanation": "SEBI mandates that AMCs must pay penal interest at 15% per annum for the period of delay beyond the statutory settlement timeline.",
+    "topic": "Legal and Regulatory Framework",
+    "chapter": 4,
+    "chapterTitle": "Legal and Regulatory Framework",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c4-q2",
+    "courseId": "nism-vd",
+    "question": "Under what conditions can unitholders pass a resolution to wind up a mutual fund scheme under SEBI regulations?",
+    "options": [
+      "If 25% of unitholders request it in writing",
+      "By a resolution passed by at least 75% of unitholders of the scheme (by value of units held)",
+      "Unitholders have no legal power to wind up a scheme",
+      "Only by filing a petition in the Supreme Court"
+    ],
+    "correctIndex": 1,
+    "explanation": "A scheme can be wound up if 75% of the unitholders of that scheme pass a resolution to that effect, or if the Trustees decide in the interest of investors.",
+    "topic": "Legal and Regulatory Framework",
+    "chapter": 4,
+    "chapterTitle": "Legal and Regulatory Framework",
+    "difficulty": "hard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c4-q3",
+    "courseId": "nism-vd",
+    "question": "Which of the following is a primary function of the Association of Mutual Funds in India (AMFI)?",
+    "options": [
+      "Licensing stock brokers and clearing corporations",
+      "Issuing AMFI Registration Numbers (ARN) to distributors and framing ethical standards/codes of conduct",
+      "Approving IPO price bands for listed companies",
+      "Managing the foreign exchange reserves of India"
+    ],
+    "correctIndex": 1,
+    "explanation": "AMFI is the self-regulatory industry body for mutual funds in India that issues ARNs, sets ethical codes of conduct, and promotes investor education.",
+    "topic": "Legal and Regulatory Framework",
+    "chapter": 4,
+    "chapterTitle": "Legal and Regulatory Framework",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c4-q4",
+    "courseId": "nism-vd",
+    "question": "What is the maximum exposure a mutual fund scheme can generally have to equity shares or equity-related instruments of a single company under SEBI regulations?",
+    "options": [
+      "5% of NAV",
+      "10% of NAV",
+      "15% of NAV",
+      "25% of NAV"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under SEBI prudential norms, an equity mutual fund scheme cannot invest more than 10% of its NAV in the equity shares of a single company (extendable up to 12% for index/sectoral funds under specific norms).",
+    "topic": "Legal and Regulatory Framework",
+    "chapter": 4,
+    "chapterTitle": "Legal and Regulatory Framework",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c4-q5",
+    "courseId": "nism-vd",
+    "question": "Under SEBI regulations, mutual fund schemes are prohibited from investing in unlisted debt instruments, except for:",
+    "options": [
+      "Unlisted equity convertible debentures of real estate firms",
+      "Government securities, other money market instruments, and unrated papers complying with strict prudential caps",
+      "Subordinated bonds of loss-making NBFCs",
+      "Unlisted perpetual tier-1 bonds"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI regulations ban investments in unlisted debt instruments, with specific exceptions for Government Securities, T-bills, and commercial papers meeting strict eligibility norms.",
+    "topic": "Legal and Regulatory Framework",
+    "chapter": 4,
+    "chapterTitle": "Legal and Regulatory Framework",
+    "difficulty": "hard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c4-q6",
+    "courseId": "nism-vd",
+    "question": "What is SEBI's centralized online platform for lodging and tracking investor complaints against capital market intermediaries including mutual funds?",
+    "options": [
+      "RBI OMBUDSMAN",
+      "SEBI SCORES 2.0",
+      "MCA Portal",
+      "NSDL SPEED-e"
+    ],
+    "correctIndex": 1,
+    "explanation": "SCORES 2.0 (SEBI Complaints Redress System) is the centralized web and mobile portal where investors lodge complaints against AMCs and RTAs.",
+    "topic": "Legal and Regulatory Framework",
+    "chapter": 4,
+    "chapterTitle": "Legal and Regulatory Framework",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p2-c4-q1",
+    "courseId": "nism-vd",
+    "question": "Under the SEBI Categorization Circular, how many distinct broad groups of mutual fund schemes are officially defined?",
+    "options": [
+      "3 groups",
+      "4 groups",
+      "5 groups (Equity, Debt, Hybrid, Solution Oriented, Other)",
+      "10 groups"
+    ],
+    "correctIndex": 2,
+    "explanation": "SEBI standardized mutual funds into 5 broad groups: 1. Equity Schemes, 2. Debt Schemes, 3. Hybrid Schemes, 4. Solution Oriented Schemes, and 5. Other Schemes (Index/ETFs/FoF).",
+    "topic": "Legal and Regulatory Framework",
+    "chapter": 4,
+    "chapterTitle": "Legal and Regulatory Framework",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c4-q2",
+    "courseId": "nism-vd",
+    "question": "Under SEBI (Mutual Funds) Regulations, can a mutual fund borrow funds, and if so, subject to what limits?",
+    "options": [
+      "No, mutual funds cannot borrow under any circumstances",
+      "Yes, but only for temporary liquidity needs (redemptions/dividends) up to a maximum of 20% of net assets and for not more than 6 months",
+      "Yes, up to 100% of net assets for investing in undervalued stocks",
+      "Yes, without any restrictions if approved by the fund manager"
+    ],
+    "correctIndex": 1,
+    "explanation": "Mutual funds can borrow only to meet temporary liquidity requirements (redemptions, dividends) up to 20% of net assets for a maximum tenure of 6 months.",
+    "topic": "Legal and Regulatory Framework",
+    "chapter": 4,
+    "chapterTitle": "Legal and Regulatory Framework",
+    "difficulty": "hard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c4-q3",
+    "courseId": "nism-vd",
+    "question": "What is the maximum exposure limit for a debt mutual fund scheme to a single sector under SEBI regulations (excluding financial services)?",
+    "options": [
+      "10% of NAV",
+      "20% of NAV (with additional 10% permissible in HFCs)",
+      "40% of NAV",
+      "50% of NAV"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI debt exposure cap is 20% of scheme NAV in a single sector, with an additional allowance of up to 10% specifically for Housing Finance Companies (HFCs).",
+    "topic": "Legal and Regulatory Framework",
+    "chapter": 4,
+    "chapterTitle": "Legal and Regulatory Framework",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c4-q4",
+    "courseId": "nism-vd",
+    "question": "Under SEBI regulations, who among the following is categorized as an 'Access Person' subject to pre-clearance and disclosure of personal securities trading?",
+    "options": [
+      "Any retail investor holding mutual fund units",
+      "Directors, fund managers, research analysts, and dealers employed by the AMC",
+      "Bank branch tellers accepting application cheques",
+      "Independent financial bloggers writing about mutual funds"
+    ],
+    "correctIndex": 1,
+    "explanation": "Access Persons include directors, fund managers, research analysts, dealers, and compliance personnel who have access to price-sensitive portfolio trading data.",
+    "topic": "Legal and Regulatory Framework",
+    "chapter": 4,
+    "chapterTitle": "Legal and Regulatory Framework",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c4-q5",
+    "courseId": "nism-vd",
+    "question": "SEBI mandates that AMCs must disclose their voting decisions (For, Against, Abstain) on corporate resolutions of investee companies on:",
+    "options": [
+      "A secret ballot basis with no public disclosure",
+      "Their website on a quarterly and annual basis, along with the rationale for each vote",
+      "Only to the top 10 institutional unitholders",
+      "Only when requested by the Ministry of Corporate Affairs"
+    ],
+    "correctIndex": 1,
+    "explanation": "AMCs must disclose detailed voting policies, rationales, and quarterly/annual summaries of how they voted on proxy resolutions of investee companies.",
+    "topic": "Legal and Regulatory Framework",
+    "chapter": 4,
+    "chapterTitle": "Legal and Regulatory Framework",
+    "difficulty": "easy",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c4-q6",
+    "courseId": "nism-vd",
+    "question": "Which of the following statutory disclaimers must be prominently displayed in all mutual fund promotional material and advertisements in India?",
+    "options": [
+      "'Returns in this fund are guaranteed by the Reserve Bank of India'",
+      "'Mutual fund investments are subject to market risks, read all scheme related documents carefully'",
+      "'Capital invested is completely protected under the Deposit Insurance Act'",
+      "'Past performance is a reliable indicator of guaranteed future returns'"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandates the standard visual and audio risk disclosure: 'Mutual fund investments are subject to market risks, read all scheme related documents carefully.'",
+    "topic": "Legal and Regulatory Framework",
+    "chapter": 4,
+    "chapterTitle": "Legal and Regulatory Framework",
+    "difficulty": "easy",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p1-c5-q1",
+    "courseId": "nism-vd",
+    "question": "Under the SEBI regulatory format, what two primary documents together constitute the official 'Offer Document' of a mutual fund scheme?",
+    "options": [
+      "Statement of Additional Information (SAI) and Key Information Memorandum (KIM)",
+      "Scheme Information Document (SID) and Statement of Additional Information (SAI)",
+      "Fund Factsheet and Annual Report",
+      "PAN Card and CKYC Form"
+    ],
+    "correctIndex": 1,
+    "explanation": "The official offer document is bifurcated into: 1. Scheme Information Document (SID) containing scheme-specific details, and 2. Statement of Additional Information (SAI) containing statutory AMC/Sponsor info.",
+    "topic": "Scheme Related Information",
+    "chapter": 5,
+    "chapterTitle": "Scheme Related Information",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c5-q2",
+    "courseId": "nism-vd",
+    "question": "Under SEBI guidelines, which document must be compulsorily attached to every mutual fund application form handed over to an investor?",
+    "options": [
+      "Full Statement of Additional Information (SAI)",
+      "Key Information Memorandum (KIM)",
+      "Audited Annual Financial Report of the Sponsor",
+      "Custodian Agreement Copy"
+    ],
+    "correctIndex": 1,
+    "explanation": "Every mutual fund application form must be accompanied by the abridged Key Information Memorandum (KIM).",
+    "topic": "Scheme Related Information",
+    "chapter": 5,
+    "chapterTitle": "Scheme Related Information",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c5-q3",
+    "courseId": "nism-vd",
+    "question": "If an AMC proposes to make a change in a 'fundamental attribute' of an existing scheme (such as modifying its investment objective or raising management fees), what must it provide to unitholders?",
+    "options": [
+      "A cash dividend equal to 10% of NAV",
+      "A 30-day exit window to redeem units at the prevailing NAV without paying any exit load",
+      "Free units in an equity derivative fund",
+      "Immediate conversion into shares of the AMC"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandates that unitholders who disagree with a change in fundamental attributes must be given at least 30 calendar days to exit at the prevailing NAV without any exit load.",
+    "topic": "Scheme Related Information",
+    "chapter": 5,
+    "chapterTitle": "Scheme Related Information",
+    "difficulty": "hard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c5-q4",
+    "courseId": "nism-vd",
+    "question": "How frequently must the Scheme Information Document (SID) of an open-ended mutual fund scheme be updated under SEBI regulations?",
+    "options": [
+      "Every month",
+      "At least once every year",
+      "Only once every five years",
+      "Only when the fund manager resigns"
+    ],
+    "correctIndex": 1,
+    "explanation": "SIDs of open-ended schemes must be updated and verified at least once every year to ensure accurate ongoing disclosures.",
+    "topic": "Scheme Related Information",
+    "chapter": 5,
+    "chapterTitle": "Scheme Related Information",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c5-q5",
+    "courseId": "nism-vd",
+    "question": "Within how many days from the end of each month must an AMC disclose the complete portfolio of its schemes on its website?",
+    "options": [
+      "Within 3 days",
+      "Within 10 days",
+      "Within 30 days",
+      "Within 90 days"
+    ],
+    "correctIndex": 1,
+    "explanation": "AMCs must disclose the complete portfolio statement of all schemes on their website and on AMFI's website within 10 days from the close of each month (and fortnightly for debt schemes within 5 days).",
+    "topic": "Scheme Related Information",
+    "chapter": 5,
+    "chapterTitle": "Scheme Related Information",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p2-c5-q1",
+    "courseId": "nism-vd",
+    "question": "Under SEBI regulations, by what date must the Statement of Additional Information (SAI) of a mutual fund be updated each year?",
+    "options": [
+      "By 31st January",
+      "By 30th April",
+      "By 30th June (within 3 months of the financial year close)",
+      "By 31st December"
+    ],
+    "correctIndex": 2,
+    "explanation": "The SAI must be updated within 3 months of the close of the financial year, i.e., by end of June every year.",
+    "topic": "Scheme Related Information",
+    "chapter": 5,
+    "chapterTitle": "Scheme Related Information",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c5-q2",
+    "courseId": "nism-vd",
+    "question": "What is the primary operational purpose of the monthly Mutual Fund Factsheet?",
+    "options": [
+      "To act as a legally binding offer document for new investors",
+      "To provide unitholders and advisors with a monthly snapshot of AUM, top holdings, sector allocations, fund manager commentary, and performance ratios",
+      "To replace the official audited annual report",
+      "To declare the personal net worth of the Sponsor"
+    ],
+    "correctIndex": 1,
+    "explanation": "Factsheets are voluntary monthly disclosures providing transparent snapshots of holdings, sector allocations, fund manager profiles, performance against benchmarks, and risk ratios.",
+    "topic": "Scheme Related Information",
+    "chapter": 5,
+    "chapterTitle": "Scheme Related Information",
+    "difficulty": "easy",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c5-q3",
+    "courseId": "nism-vd",
+    "question": "Under SEBI regulations, how frequently must the Key Information Memorandum (KIM) be updated?",
+    "options": [
+      "Every month",
+      "At least once a year, and within 7 days of any material change",
+      "Once every 3 years",
+      "Only when the scheme AUM crosses \u20b91,000 Crore"
+    ],
+    "correctIndex": 1,
+    "explanation": "KIM must be updated at least once a year, and within 7 days in the event of any material change to ensure accuracy.",
+    "topic": "Scheme Related Information",
+    "chapter": 5,
+    "chapterTitle": "Scheme Related Information",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c5-q4",
+    "courseId": "nism-vd",
+    "question": "When an AMC introduces a minor operational change or new service center without overhauling the entire SID, what document does it issue?",
+    "options": [
+      "An entirely new trust deed",
+      "An Addendum to the Scheme Information Document",
+      "A court affidavit",
+      "A formal request to the Ministry of Finance"
+    ],
+    "correctIndex": 1,
+    "explanation": "An Addendum is published to officially notify unitholders and the public of interim operational changes, manager appointments, or dividend announcements.",
+    "topic": "Scheme Related Information",
+    "chapter": 5,
+    "chapterTitle": "Scheme Related Information",
+    "difficulty": "easy",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c5-q5",
+    "courseId": "nism-vd",
+    "question": "On which of the following documents must the SEBI Risk-o-meter be prominently displayed?",
+    "options": [
+      "Only on the internal broker commission ledger",
+      "On the front page of the initial offer document, KIM, and all scheme advertisements/factsheets",
+      "Only in the annual income tax return of the AMC",
+      "Only on the website of the Custodian bank"
+    ],
+    "correctIndex": 1,
+    "explanation": "The Risk-o-meter pictorial gauge must be prominently displayed on the front cover of SID, KIM, and all advertisements and factsheets.",
+    "topic": "Scheme Related Information",
+    "chapter": 5,
+    "chapterTitle": "Scheme Related Information",
+    "difficulty": "easy",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p1-c6-q1",
+    "courseId": "nism-vd",
+    "question": "In October 2018, SEBI issued a landmark circular regarding mutual fund distributor compensation. What major change was mandated?",
+    "options": [
+      "All commissions were abolished completely",
+      "All distributor commissions must be paid strictly on a 'Trail-Only' basis; upfront commissions were completely banned",
+      "Distributors were allowed to charge 5% upfront fee directly from unitholders",
+      "Commissions were fixed at \u20b9500 flat per application"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI banned all forms of upfront commissions, upfront incentives, and gifts. All distributor remuneration must be paid on a trail-only basis from the scheme's expense ratio.",
+    "topic": "Fund Distribution and Channel Management Practices",
+    "chapter": 6,
+    "chapterTitle": "Fund Distribution and Channel Management Practices",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c6-q2",
+    "courseId": "nism-vd",
+    "question": "Under the AMFI Code of Conduct and Section 41 of the Insurance Act / SEBI regulations, what is the rule regarding passing back or rebating commissions to investors?",
+    "options": [
+      "Distributors can rebate up to 50% of their commission to large corporate clients",
+      "Rebating of commissions in any form (cash, gifts, discounts) to induce an investor is strictly prohibited",
+      "Rebating is permitted only for investments above \u20b910 Lakhs",
+      "Rebating is mandatory for direct plans"
+    ],
+    "correctIndex": 1,
+    "explanation": "Rebating or sharing commissions with clients in any form as an inducement to invest is strictly illegal and violates the AMFI Code of Ethics.",
+    "topic": "Fund Distribution and Channel Management Practices",
+    "chapter": 6,
+    "chapterTitle": "Fund Distribution and Channel Management Practices",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c6-q3",
+    "courseId": "nism-vd",
+    "question": "What is the primary regulatory objective of mandating the Employee Unique Identification Number (EUIN) on mutual fund application forms?",
+    "options": [
+      "To track the AMC's total net profit margin",
+      "To identify the specific sales person/employee interacting with the client and fix accountability to prevent mis-selling",
+      "To verify the Aadhaar number of the unitholder",
+      "To calculate the GST payable on management fees"
+    ],
+    "correctIndex": 1,
+    "explanation": "EUIN identifies the actual sales person who interacted with or advised the investor, establishing accountability and curbing mis-selling across distributor networks.",
+    "topic": "Fund Distribution and Channel Management Practices",
+    "chapter": 6,
+    "chapterTitle": "Fund Distribution and Channel Management Practices",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c6-q4",
+    "courseId": "nism-vd",
+    "question": "Why does a 'Direct Plan' of a mutual fund scheme always have a higher NAV than the 'Regular Plan' of the same scheme over time?",
+    "options": [
+      "Because Direct Plan invests in superior high-yield stocks",
+      "Because Direct Plan does not incur distributor trail commissions, resulting in a lower Total Expense Ratio (TER)",
+      "Because Direct Plan is exempt from securities transaction tax (STT)",
+      "Because the AMC subsidizes Direct Plan losses"
+    ],
+    "correctIndex": 1,
+    "explanation": "Direct plans do not pay distributor commissions, so their TER is lower. The savings compound over time, making Direct Plan NAV higher.",
+    "topic": "Fund Distribution and Channel Management Practices",
+    "chapter": 6,
+    "chapterTitle": "Fund Distribution and Channel Management Practices",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c6-q5",
+    "courseId": "nism-vd",
+    "question": "What is the validity period of an AMFI Registration Number (ARN) issued to an individual mutual fund distributor, and how is it renewed?",
+    "options": [
+      "Valid for 1 year; renewed by paying a penalty fee",
+      "Valid for 3 years; renewed by passing the NISM CPE (Continuing Professional Education) or retaking the NISM exam",
+      "Valid for life without any renewal requirement",
+      "Valid for 10 years; renewed by submitting tax returns"
+    ],
+    "correctIndex": 1,
+    "explanation": "ARN cards are issued with a validity of 3 years and can be renewed by completing the NISM Continuing Professional Education (CPE) program or re-passing the exam.",
+    "topic": "Fund Distribution and Channel Management Practices",
+    "chapter": 6,
+    "chapterTitle": "Fund Distribution and Channel Management Practices",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c6-q6",
+    "courseId": "nism-vd",
+    "question": "If an investor insists on investing in a scheme against the distributor's advice, what must the distributor obtain on the application form?",
+    "options": [
+      "A signed indemnity bond witnessed by a notary",
+      "An 'Execution-Only' transaction declaration signed by the investor, confirming advice was not sought or was overridden",
+      "Approval from the Board of Trustees",
+      "A medical certificate confirming sound mind"
+    ],
+    "correctIndex": 1,
+    "explanation": "The investor must sign the execution-only declaration box on the application form, confirming the transaction was executed without distributor advice.",
+    "topic": "Fund Distribution and Channel Management Practices",
+    "chapter": 6,
+    "chapterTitle": "Fund Distribution and Channel Management Practices",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p2-c6-q1",
+    "courseId": "nism-vd",
+    "question": "What was the objective of SEBI's B-30 (Beyond Top 30 cities) additional expense allowance framework?",
+    "options": [
+      "To reward AMCs for opening branches abroad",
+      "To incentivize distributors to penetrate and mobilize retail savings from smaller towns and tier-2/tier-3 cities",
+      "To subsidize corporate investments in debt funds",
+      "To eliminate stamp duty on rural applications"
+    ],
+    "correctIndex": 1,
+    "explanation": "B-30 allowances allowed AMCs to charge an additional expense up to 30 bps for inflows from beyond top 30 cities, incentivizing financial inclusion in tier-2/tier-3 regions.",
+    "topic": "Fund Distribution and Channel Management Practices",
+    "chapter": 6,
+    "chapterTitle": "Fund Distribution and Channel Management Practices",
+    "difficulty": "hard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c6-q2",
+    "courseId": "nism-vd",
+    "question": "Trail commission paid to a mutual fund distributor is calculated as a percentage of:",
+    "options": [
+      "The initial capital invested by the client at purchase",
+      "The daily average Net Asset Value (AUM) of the client's holding for the period it remains invested",
+      "The capital gain profit earned by the client upon redemption",
+      "The net profit of the AMC at financial year end"
+    ],
+    "correctIndex": 1,
+    "explanation": "Trail commission is calculated on the ongoing market value of the investor's portfolio (AUM), aligning distributor interests with client wealth growth.",
+    "topic": "Fund Distribution and Channel Management Practices",
+    "chapter": 6,
+    "chapterTitle": "Fund Distribution and Channel Management Practices",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c6-q3",
+    "courseId": "nism-vd",
+    "question": "Which of the following is NOT an authorized intermediary channel for distributing mutual fund schemes in India?",
+    "options": [
+      "National Distributor (e.g. NJ India, Prudent)",
+      "Unregistered unregistered sub-agent without valid ARN or EUIN",
+      "Commercial Scheduled Bank acting as corporate distributor",
+      "SEBI Registered Stock Broker"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under SEBI and AMFI regulations, no entity or individual can solicit or distribute mutual funds without holding a valid ARN and EUIN.",
+    "topic": "Fund Distribution and Channel Management Practices",
+    "chapter": 6,
+    "chapterTitle": "Fund Distribution and Channel Management Practices",
+    "difficulty": "easy",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c6-q4",
+    "courseId": "nism-vd",
+    "question": "If an investor chooses to change their distributor (ARN) for existing mutual fund investments, what is the rule regarding trail commission under AMFI guidelines?",
+    "options": [
+      "The new distributor immediately receives double trail commission",
+      "Trail commission to the new distributor is generally subject to AMFI guidelines (often nil trail on historic transferred assets unless valid NOC is obtained)",
+      "The AMC stops calculating NAV for that investor",
+      "The investor must liquidate all units and pay capital gains tax"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under AMFI guidelines on distributor changes, trail commission is not paid to the new distributor on transferred assets to discourage unethical poaching of clients.",
+    "topic": "Fund Distribution and Channel Management Practices",
+    "chapter": 6,
+    "chapterTitle": "Fund Distribution and Channel Management Practices",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c6-q5",
+    "courseId": "nism-vd",
+    "question": "What happens to the trail commission of a deceased individual mutual fund distributor if a valid nominee has been registered with AMFI?",
+    "options": [
+      "The trail commission lapses permanently to the investor education fund",
+      "The registered nominee can continue receiving trail commission on existing AUM, provided the nominee obtains ARN certification within statutory timelines",
+      "The trail commission is distributed among competing local distributors",
+      "The AMC absorbs the commission into its management fees"
+    ],
+    "correctIndex": 1,
+    "explanation": "AMFI allows transfer of AUM and ongoing trail commissions to the registered nominee/legal heir of a deceased distributor, subject to compliance and certification rules.",
+    "topic": "Fund Distribution and Channel Management Practices",
+    "chapter": 6,
+    "chapterTitle": "Fund Distribution and Channel Management Practices",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c6-q6",
+    "courseId": "nism-vd",
+    "question": "SEBI mandates enhanced institutional due diligence by AMCs for distributors that meet which of the following criteria?",
+    "options": [
+      "Handling more than 10 retail investors",
+      "Meeting defined thresholds such as multiple branch locations, significant AUM (>\u20b9100 Cr), or commission earnings (>\u20b91 Cr)",
+      "Any distributor operating for more than 1 year",
+      "Only foreign banking entities"
+    ],
+    "correctIndex": 1,
+    "explanation": "AMCs must conduct extensive annual operational and compliance due diligence on large institutional/national distributors meeting SEBI scale thresholds.",
+    "topic": "Fund Distribution and Channel Management Practices",
+    "chapter": 6,
+    "chapterTitle": "Fund Distribution and Channel Management Practices",
+    "difficulty": "hard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p1-c7-q1",
+    "courseId": "nism-vd",
+    "question": "A mutual fund scheme has total market value of investments of \u20b91,000 Crore, receivables of \u20b920 Crore, accrued income of \u20b910 Crore, accrued operating expenses of \u20b95 Crore, and other liabilities of \u20b925 Crore. If there are 10 Crore units outstanding, what is the NAV per unit?",
+    "options": [
+      "\u20b995.00",
+      "\u20b9100.00",
+      "\u20b9105.00",
+      "\u20b9103.00"
+    ],
+    "correctIndex": 1,
+    "explanation": "NAV = (Total Assets - Total Liabilities) / Units = (1,000 + 20 + 10 - 5 - 25) / 10 = 1,000 / 10 = \u20b9100.00 per unit.",
+    "topic": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "chapter": 7,
+    "chapterTitle": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c7-q2",
+    "courseId": "nism-vd",
+    "question": "Under SEBI regulations, what is the maximum permissible base Total Expense Ratio (TER) for the first \u20b9500 Crore of daily net assets of an open-ended equity-oriented scheme?",
+    "options": [
+      "1.50%",
+      "2.00%",
+      "2.25%",
+      "2.50%"
+    ],
+    "correctIndex": 2,
+    "explanation": "SEBI mandates a maximum TER limit of 2.25% on the first \u20b9500 Crore of AUM for open-ended equity schemes.",
+    "topic": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "chapter": 7,
+    "chapterTitle": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "difficulty": "hard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c7-q3",
+    "courseId": "nism-vd",
+    "question": "Under SEBI's uniform cut-off timing regulations, what NAV will an investor get for a purchase application of \u20b950,000 submitted at 11:00 AM on Monday, if the funds are realized in the AMC's bank account at 11:30 AM on Tuesday?",
+    "options": [
+      "Monday NAV",
+      "Tuesday NAV (the day funds are realized before cut-off)",
+      "Wednesday NAV",
+      "Average NAV of Monday and Tuesday"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under SEBI rules, irrespective of ticket size, the applicable NAV is based on the business day on which funds are credited/realized in the AMC's bank account before 3:00 PM.",
+    "topic": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "chapter": 7,
+    "chapterTitle": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c7-q4",
+    "courseId": "nism-vd",
+    "question": "What is the official SEBI cut-off time for submitting purchase applications in Liquid and Overnight funds (subject to fund realization)?",
+    "options": [
+      "11:30 AM",
+      "1:30 PM",
+      "3:00 PM",
+      "4:00 PM"
+    ],
+    "correctIndex": 1,
+    "explanation": "For Liquid and Overnight Funds, the cut-off time for receiving purchase applications with funds realized is 1:30 PM.",
+    "topic": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "chapter": 7,
+    "chapterTitle": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c7-q5",
+    "courseId": "nism-vd",
+    "question": "When an exit load is deducted from redemption proceeds of an investor exiting a mutual fund scheme early, where does the exit load money go?",
+    "options": [
+      "It is paid as a cash bonus to the fund manager",
+      "It is credited back into the scheme's assets (net of GST) for the benefit of remaining unitholders",
+      "It is retained as pure corporate profit by the AMC",
+      "It is remitted to the Reserve Bank of India"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandates that all exit load proceeds collected must be credited back directly to the scheme's portfolio for the benefit of long-term continuing unitholders.",
+    "topic": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "chapter": 7,
+    "chapterTitle": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c7-q6",
+    "courseId": "nism-vd",
+    "question": "What is 'Swing Pricing' introduced by SEBI for mutual funds in India?",
+    "options": [
+      "A mechanism allowing investors to switch between equity and debt funds without paying tax",
+      "A mechanism that adjusts a scheme's published NAV downwards during severe market dislocation to allocate the transaction costs of large redemptions to exiting investors rather than remaining investors",
+      "A formula to dynamically calculate AMC executive bonuses",
+      "A technique to artificially inflate stock market indices"
+    ],
+    "correctIndex": 1,
+    "explanation": "Swing pricing adjusts the net asset value of a scheme during market stress so that transaction costs associated with massive redemptions are borne by the exiting unitholders.",
+    "topic": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "chapter": 7,
+    "chapterTitle": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "difficulty": "hard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c7-q7",
+    "courseId": "nism-vd",
+    "question": "Under SEBI regulations, when a debt security held by a scheme is downgraded below investment grade (credit event), what mechanism can the AMC activate?",
+    "options": [
+      "Permanently close the entire mutual fund AMC",
+      "Create a 'Segregated Portfolio' (side-pocket) separating the distressed/illiquid debt from the main liquid portfolio",
+      "Force the Sponsor to buy back all units at par value",
+      "Convert the debt scheme into a high-risk equity derivative fund"
+    ],
+    "correctIndex": 1,
+    "explanation": "Side-pocketing (segregated portfolio) isolates distressed/defaulted debt assets into a separate unlisted sleeve, ensuring normal liquidity and daily redemptions in the main healthy portfolio.",
+    "topic": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "chapter": 7,
+    "chapterTitle": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "difficulty": "hard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c7-q8",
+    "courseId": "nism-vd",
+    "question": "Under SEBI regulations, to how many decimal places must the NAV of Liquid, Overnight, and Money Market mutual fund schemes be calculated and published?",
+    "options": [
+      "Up to 1 decimal place",
+      "Up to 2 decimal places",
+      "Up to 4 decimal places",
+      "Up to 6 decimal places"
+    ],
+    "correctIndex": 2,
+    "explanation": "SEBI mandates that NAV of liquid, overnight, and other debt/money market funds must be rounded off and published up to 4 decimal places (equity schemes up to 2 decimal places).",
+    "topic": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "chapter": 7,
+    "chapterTitle": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p2-c7-q1",
+    "courseId": "nism-vd",
+    "question": "How frequently is the Total Expense Ratio (TER) calculated and deducted from a mutual fund scheme's net assets?",
+    "options": [
+      "Only once a year during annual audit",
+      "Quarterly in advance",
+      "Daily, before the net asset value (NAV) is published",
+      "Only when an investor redeems units"
+    ],
+    "correctIndex": 2,
+    "explanation": "TER is apportioned and charged daily against the scheme's net assets before publishing the daily closing NAV.",
+    "topic": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "chapter": 7,
+    "chapterTitle": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "difficulty": "easy",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c7-q2",
+    "courseId": "nism-vd",
+    "question": "Under SEBI regulations, the difference between the TER of a Regular Plan and the Direct Plan of the same mutual fund scheme must represent:",
+    "options": [
+      "A discretionary discount decided by the AMC CEO",
+      "The exact distribution expenses, distributor commissions, and marketing costs that are not charged in the Direct Plan",
+      "A flat 0.25% fee set by SEBI across all funds",
+      "Zero, because both plans must have identical expense ratios"
+    ],
+    "correctIndex": 1,
+    "explanation": "Direct Plan TER must be lower than Regular Plan TER by the exact amount of distributor commissions and sales expenses not incurred in Direct plans.",
+    "topic": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "chapter": 7,
+    "chapterTitle": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c7-q3",
+    "courseId": "nism-vd",
+    "question": "What is the official SEBI cut-off time on business days for submitting valid redemption applications across equity and debt mutual funds (other than liquid/overnight funds)?",
+    "options": [
+      "1:00 PM",
+      "2:00 PM",
+      "3:00 PM",
+      "5:00 PM"
+    ],
+    "correctIndex": 2,
+    "explanation": "The standard SEBI cut-off time for submitting redemption applications on business days is 3:00 PM to receive that day's closing NAV.",
+    "topic": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "chapter": 7,
+    "chapterTitle": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c7-q4",
+    "courseId": "nism-vd",
+    "question": "Under SEBI guidelines, liquid fund schemes levy a graded exit load on investors who redeem their units within how many days of investment?",
+    "options": [
+      "Within 1 day only",
+      "Up to 7 days (graded exit load from Day 1 to Day 6, zero from Day 7 onwards)",
+      "Up to 30 days",
+      "Up to 365 days"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandates a graded exit load in liquid funds for redemptions from Day 1 (0.0070%) down to Day 6 (0.0045%), becoming 0% from Day 7 onwards to prevent hot-money corporate churn.",
+    "topic": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "chapter": 7,
+    "chapterTitle": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "difficulty": "hard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c7-q5",
+    "courseId": "nism-vd",
+    "question": "What is the core principle governing the valuation of securities in a mutual fund portfolio under SEBI norms?",
+    "options": [
+      "Valuing at historical purchase cost until maturity",
+      "Mark-to-Market (MTM) valuation reflecting fair and realisable market value as of the close of each trading day",
+      "Valuing at face value plus accrued bonus shares",
+      "Valuing at the highest price reached during the preceding 52 weeks"
+    ],
+    "correctIndex": 1,
+    "explanation": "All mutual fund securities must be valued on a daily Mark-to-Market (MTM) basis using exchange closing prices or independent valuation agency matrices (CRISIL/ICRA).",
+    "topic": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "chapter": 7,
+    "chapterTitle": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c7-q6",
+    "courseId": "nism-vd",
+    "question": "What is the maximum permissible base TER on the first \u20b9500 Crore of AUM for an open-ended debt mutual fund scheme (other than close-ended or index funds)?",
+    "options": [
+      "1.00%",
+      "1.50%",
+      "2.00%",
+      "2.25%"
+    ],
+    "correctIndex": 2,
+    "explanation": "Under SEBI TER slabs, open-ended debt schemes are permitted a maximum base TER of 2.00% on the first \u20b9500 Crore of net assets (compared to 2.25% for equity).",
+    "topic": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "chapter": 7,
+    "chapterTitle": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "difficulty": "hard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c7-q7",
+    "courseId": "nism-vd",
+    "question": "How is Goods and Services Tax (GST) on AMC investment management and advisory fees treated in mutual funds?",
+    "options": [
+      "It is paid by the central government from tax revenue",
+      "It is charged to the scheme over and above the management fee, but must remain within the maximum overall TER cap mandated by SEBI",
+      "It is refunded in cash directly to distributors",
+      "Mutual funds are completely exempt from GST"
+    ],
+    "correctIndex": 1,
+    "explanation": "GST on management fees is borne by the scheme but must be accommodated within the maximum statutory TER cap prescribed by SEBI.",
+    "topic": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "chapter": 7,
+    "chapterTitle": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c7-q8",
+    "courseId": "nism-vd",
+    "question": "If an equity share held by a mutual fund scheme has not been traded on any recognized stock exchange for more than 30 days, how must the AMC value it?",
+    "options": [
+      "At zero book value immediately",
+      "In good faith using fair valuation methodologies prescribed by SEBI and independent valuation agencies (based on net worth, earnings, and capital structure)",
+      "At the original purchase price paid 5 years ago",
+      "By asking the company's CEO for an estimated quote"
+    ],
+    "correctIndex": 1,
+    "explanation": "Non-traded securities must be valued in accordance with SEBI Eighth Schedule valuation principles and matrices provided by independent valuation agencies.",
+    "topic": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "chapter": 7,
+    "chapterTitle": "Net Asset Value, Total Expense Ratio and Pricing of Units",
+    "difficulty": "hard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p1-c8-q1",
+    "courseId": "nism-vd",
+    "question": "Following the amendments introduced by the Finance (No. 2) Act, 2024, what is the tax rate on Long-Term Capital Gains (LTCG) from equity-oriented mutual funds held for more than 12 months, and what is the annual exemption limit?",
+    "options": [
+      "10% tax with \u20b91 Lakh exemption",
+      "12.5% tax without indexation, with an annual exemption limit of \u20b91.25 Lakh per financial year",
+      "15% tax with \u20b92 Lakh exemption",
+      "20% tax with full indexation benefit"
+    ],
+    "correctIndex": 1,
+    "explanation": "Finance Act 2024 amended Section 112A: LTCG on equity mutual funds (holding > 12 months) is taxed at 12.5% without indexation for gains exceeding the enhanced exemption of \u20b91.25 Lakh per financial year.",
+    "topic": "Taxation of Mutual Funds",
+    "chapter": 8,
+    "chapterTitle": "Taxation of Mutual Funds",
+    "difficulty": "hard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c8-q2",
+    "courseId": "nism-vd",
+    "question": "Under the Finance (No. 2) Act, 2024, what is the amended tax rate on Short-Term Capital Gains (STCG) under Section 111A for units of equity-oriented mutual funds held for 12 months or less?",
+    "options": [
+      "10%",
+      "15%",
+      "20%",
+      "Applicable income tax slab rate"
+    ],
+    "correctIndex": 2,
+    "explanation": "Finance Act 2024 increased the STCG tax rate under Section 111A on equity-oriented mutual funds from 15% to 20%.",
+    "topic": "Taxation of Mutual Funds",
+    "chapter": 8,
+    "chapterTitle": "Taxation of Mutual Funds",
+    "difficulty": "hard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c8-q3",
+    "courseId": "nism-vd",
+    "question": "Under Section 50AA of the Income Tax Act, how are capital gains taxed on mutual funds that invest 35% or less in domestic equity shares (acquired on or after 1 April 2023)?",
+    "options": [
+      "Taxed at 10% after 3 years with indexation",
+      "Taxed at 12.5% after 2 years",
+      "Treated deemed as short-term capital gains and taxed at the investor's applicable income tax slab rates regardless of holding period",
+      "Completely tax-free up to \u20b95 Lakhs"
+    ],
+    "correctIndex": 2,
+    "explanation": "Under Section 50AA, debt mutual funds (\u226435% equity) lose indexation and long-term status; all gains are treated as short-term capital gains and taxed at the investor's slab rate.",
+    "topic": "Taxation of Mutual Funds",
+    "chapter": 8,
+    "chapterTitle": "Taxation of Mutual Funds",
+    "difficulty": "hard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c8-q4",
+    "courseId": "nism-vd",
+    "question": "For mutual funds with equity exposure between 35% and 65% (such as dynamic asset allocation or multi-asset funds), what is the holding period required for classification as Long-Term Capital Assets effective from 23 July 2024?",
+    "options": [
+      "More than 12 months",
+      "More than 24 months",
+      "More than 36 months",
+      "More than 60 months"
+    ],
+    "correctIndex": 1,
+    "explanation": "Post-July 2024 budget amendments, non-equity hybrid funds (equity between 35% and 65%) require a holding period of more than 24 months to qualify for long-term status, taxed at 12.5% without indexation.",
+    "topic": "Taxation of Mutual Funds",
+    "chapter": 8,
+    "chapterTitle": "Taxation of Mutual Funds",
+    "difficulty": "hard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c8-q5",
+    "courseId": "nism-vd",
+    "question": "Under Section 194K of the Income Tax Act, what is the rate of Tax Deducted at Source (TDS) on dividend (IDCW) payouts to resident unitholders, and what is the threshold limit?",
+    "options": [
+      "5% TDS on dividend exceeding \u20b92,500",
+      "10% TDS if the aggregate dividend paid by the mutual fund during the financial year exceeds \u20b95,000",
+      "20% TDS on all dividend payments",
+      "Zero TDS under all circumstances"
+    ],
+    "correctIndex": 1,
+    "explanation": "Section 194K mandates 10% TDS on dividend (IDCW) distributions paid to resident unitholders if the total dividend exceeds \u20b95,000 in a financial year.",
+    "topic": "Taxation of Mutual Funds",
+    "chapter": 8,
+    "chapterTitle": "Taxation of Mutual Funds",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c8-q6",
+    "courseId": "nism-vd",
+    "question": "What is the Securities Transaction Tax (STT) levied on the redemption of units of an equity-oriented mutual fund?",
+    "options": [
+      "0.1% on purchase only",
+      "0.001% on the redemption value paid by the seller",
+      "1.0% on capital gains",
+      "STT is not applicable to mutual funds"
+    ],
+    "correctIndex": 1,
+    "explanation": "STT of 0.001% is levied on the seller (investor) upon redemption of units in equity-oriented mutual funds.",
+    "topic": "Taxation of Mutual Funds",
+    "chapter": 8,
+    "chapterTitle": "Taxation of Mutual Funds",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c8-q7",
+    "courseId": "nism-vd",
+    "question": "Under the provisions of the Income Tax Act, can a Long-Term Capital Loss (LTCL) from mutual funds be set off against Short-Term Capital Gains (STCG)?",
+    "options": [
+      "Yes, LTCL can be set off against both STCG and LTCG",
+      "No, Long-Term Capital Loss can ONLY be set off against Long-Term Capital Gains",
+      "Yes, LTCL can be set off against salary income",
+      "LTCL can only be set off against bank interest"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under Section 70, Long-Term Capital Loss can be set off ONLY against Long-Term Capital Gains. It cannot be set off against Short-Term Capital Gains or any other head of income.",
+    "topic": "Taxation of Mutual Funds",
+    "chapter": 8,
+    "chapterTitle": "Taxation of Mutual Funds",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c8-q8",
+    "courseId": "nism-vd",
+    "question": "For how many subsequent assessment years can an unabsorbed capital loss from mutual funds be carried forward, provided the income tax return is filed on or before the due date?",
+    "options": [
+      "Up to 3 assessment years",
+      "Up to 5 assessment years",
+      "Up to 8 assessment years",
+      "Indefinitely"
+    ],
+    "correctIndex": 2,
+    "explanation": "Unabsorbed capital losses (both short-term and long-term) can be carried forward for up to 8 subsequent assessment years, provided the ITR was filed within the due date under Section 139(1).",
+    "topic": "Taxation of Mutual Funds",
+    "chapter": 8,
+    "chapterTitle": "Taxation of Mutual Funds",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p2-c8-q1",
+    "courseId": "nism-vd",
+    "question": "An investor purchased units of an equity mutual fund for \u20b910,00,000 on 10 August 2023 and redeemed them for \u20b913,00,000 on 1 September 2024. Assuming this is the investor's only capital gain in FY 2024-25, what is the total LTCG tax payable under Finance Act 2024?",
+    "options": [
+      "\u20b930,000",
+      "\u20b921,875 (plus cess)",
+      "\u20b917,500",
+      "\u20b937,500"
+    ],
+    "correctIndex": 1,
+    "explanation": "Holding period > 12 months = LTCG. Total Gain = \u20b913L - \u20b910L = \u20b93,00,000. Exemption under Section 112A = \u20b91,25,000. Taxable Gain = \u20b93,00,000 - \u20b91,25,000 = \u20b91,75,000. Tax @ 12.5% = \u20b921,875 (plus 4% cess = \u20b922,750).",
+    "topic": "Taxation of Mutual Funds",
+    "chapter": 8,
+    "chapterTitle": "Taxation of Mutual Funds",
+    "difficulty": "hard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c8-q2",
+    "courseId": "nism-vd",
+    "question": "For the purpose of income tax laws in India, what minimum percentage of a mutual fund's total proceeds must be invested in equity shares of domestic companies to be classified as an 'Equity-Oriented Fund'?",
+    "options": [
+      "At least 50%",
+      "At least 65%",
+      "At least 75%",
+      "At least 80%"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under Section 112A / 111A, an equity-oriented fund must invest at least 65% of its total proceeds in equity shares of domestic listed companies.",
+    "topic": "Taxation of Mutual Funds",
+    "chapter": 8,
+    "chapterTitle": "Taxation of Mutual Funds",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c8-q3",
+    "courseId": "nism-vd",
+    "question": "Investments in Equity Linked Savings Schemes (ELSS) qualify for tax deduction under which section of the Income Tax Act (under the old tax regime), and what is the statutory lock-in period?",
+    "options": [
+      "Section 80D with 5-year lock-in",
+      "Section 80C up to \u20b91.5 Lakh with a 3-year statutory lock-in period",
+      "Section 80G with no lock-in",
+      "Section 24(b) with 10-year lock-in"
+    ],
+    "correctIndex": 1,
+    "explanation": "ELSS investments qualify for tax deduction up to \u20b91.5 Lakh under Section 80C and have the shortest lock-in period (3 years) among all 80C instruments.",
+    "topic": "Taxation of Mutual Funds",
+    "chapter": 8,
+    "chapterTitle": "Taxation of Mutual Funds",
+    "difficulty": "easy",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c8-q4",
+    "courseId": "nism-vd",
+    "question": "Is Securities Transaction Tax (STT) applicable on the purchase or redemption of units in pure debt mutual funds or liquid funds?",
+    "options": [
+      "Yes, STT of 0.1% applies",
+      "No, STT is NOT applicable to debt or money market mutual funds",
+      "Only if the redemption amount exceeds \u20b91 Crore",
+      "Only for corporate investors"
+    ],
+    "correctIndex": 1,
+    "explanation": "STT applies exclusively to equity-oriented mutual fund units; pure debt, liquid, and money market funds are completely exempt from STT.",
+    "topic": "Taxation of Mutual Funds",
+    "chapter": 8,
+    "chapterTitle": "Taxation of Mutual Funds",
+    "difficulty": "easy",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c8-q5",
+    "courseId": "nism-vd",
+    "question": "Under the grandfathering rules introduced in Budget 2018 for equity LTCG, what is used as the cost of acquisition for shares/units bought before 1 February 2018?",
+    "options": [
+      "Original purchase cost only",
+      "Higher of: (a) actual cost of acquisition, and (b) lower of Fair Market Value as of 31 Jan 2018 and the sale consideration",
+      "Average NAV of the year 2017",
+      "Zero cost"
+    ],
+    "correctIndex": 1,
+    "explanation": "Section 55(2)(ac) grandfathering formula: Cost = Higher of (Actual Cost) and Lower of (FMV as of 31 Jan 2018, Sale Value).",
+    "topic": "Taxation of Mutual Funds",
+    "chapter": 8,
+    "chapterTitle": "Taxation of Mutual Funds",
+    "difficulty": "hard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c8-q6",
+    "courseId": "nism-vd",
+    "question": "Unlike resident Indian investors where no TDS is deducted on capital gains from mutual fund redemptions, what is the TDS rule for Non-Resident Indian (NRI) unitholders?",
+    "options": [
+      "NRIs are completely exempt from TDS on redemptions",
+      "TDS is compulsorily deducted at the applicable capital gains tax rates (e.g. 20% for STCG, 12.5% for equity LTCG plus applicable surcharge and cess) at the time of redemption",
+      "A flat 50% TDS is deducted on all redemptions",
+      "TDS applies only if the NRI holds an OCI card"
+    ],
+    "correctIndex": 1,
+    "explanation": "For NRIs, Section 195 mandates that the AMC must deduct TDS at the prevailing statutory rates (20% for STCG, 12.5% for equity LTCG) upon redemption.",
+    "topic": "Taxation of Mutual Funds",
+    "chapter": 8,
+    "chapterTitle": "Taxation of Mutual Funds",
+    "difficulty": "hard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c8-q7",
+    "courseId": "nism-vd",
+    "question": "Under Section 94(8) of the Income Tax Act (anti-bonus stripping provisions), if an investor purchases mutual fund units within 3 months prior to the record date of a bonus issue and sells the original units at a loss within 9 months after the record date while holding bonus units:",
+    "options": [
+      "The loss is allowed to be set off against business income",
+      "The loss is completely ignored for tax purposes and is deemed to be the cost of acquisition of the bonus units held",
+      "The investor is prosecuted for tax evasion",
+      "The bonus units are confiscated by the tax department"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under Section 94(8), bonus stripping loss cannot be set off against any capital gains; it is capitalized and added to the cost of acquisition of the bonus units.",
+    "topic": "Taxation of Mutual Funds",
+    "chapter": 8,
+    "chapterTitle": "Taxation of Mutual Funds",
+    "difficulty": "hard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c8-q8",
+    "courseId": "nism-vd",
+    "question": "When an investor switches units from Scheme A to Scheme B within the same AMC, how is the transaction treated for income tax purposes?",
+    "options": [
+      "It is treated as a tax-free internal transfer since money remains with the same AMC",
+      "It is treated as a redemption (sale) of Scheme A triggering capital gains tax, followed by a fresh purchase into Scheme B",
+      "Tax is deferred until Scheme B is finally redeemed",
+      "It is taxed as speculative business income"
+    ],
+    "correctIndex": 1,
+    "explanation": "A switch between schemes is legally a redemption of the source scheme followed by a purchase of the target scheme, triggering immediate capital gains tax liability.",
+    "topic": "Taxation of Mutual Funds",
+    "chapter": 8,
+    "chapterTitle": "Taxation of Mutual Funds",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p1-c9-q1",
+    "courseId": "nism-vd",
+    "question": "Which of the following is the single mandatory unique identification key used across India for all financial transactions and mutual fund KYC records?",
+    "options": [
+      "Driving License Number",
+      "Permanent Account Number (PAN)",
+      "Voter ID Card",
+      "Ration Card"
+    ],
+    "correctIndex": 1,
+    "explanation": "PAN is the sole universal identifier mandated by SEBI for all mutual fund investments and KYC verification.",
+    "topic": "Investor Services",
+    "chapter": 9,
+    "chapterTitle": "Investor Services",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c9-q2",
+    "courseId": "nism-vd",
+    "question": "What is the core mathematical mechanism behind a Systematic Investment Plan (SIP) that benefits long-term investors?",
+    "options": [
+      "Fixed interest rate accrual",
+      "Rupee Cost Averaging \u2014 more units are automatically accumulated when NAV is low, and fewer units when NAV is high",
+      "Guaranteed bonus units credited on Diwali",
+      "Elimination of capital gains tax"
+    ],
+    "correctIndex": 1,
+    "explanation": "Rupee Cost Averaging ensures that a fixed regular investment purchases more units during market dips and fewer units during market highs, lowering the average cost per unit over time.",
+    "topic": "Investor Services",
+    "chapter": 9,
+    "chapterTitle": "Investor Services",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c9-q3",
+    "courseId": "nism-vd",
+    "question": "What is the operational function of a Systematic Transfer Plan (STP) in mutual funds?",
+    "options": [
+      "Transferring money from a client bank account directly to the stock broker",
+      "Periodically switching a fixed amount or number of units from one scheme (e.g. liquid/debt fund) to another scheme (e.g. equity fund) within the same AMC",
+      "Transferring units to a foreign bank account",
+      "Pledging units for obtaining a credit card"
+    ],
+    "correctIndex": 1,
+    "explanation": "STP allows systematic phased movement of capital from a low-risk debt/liquid fund into an equity scheme within the same AMC.",
+    "topic": "Investor Services",
+    "chapter": 9,
+    "chapterTitle": "Investor Services",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c9-q4",
+    "courseId": "nism-vd",
+    "question": "Why is a Systematic Withdrawal Plan (SWP) considered more tax-efficient than a dividend (IDCW) payout for regular cash flow?",
+    "options": [
+      "Because SWP withdrawals are completely exempt from tax",
+      "Because each SWP installment is treated as a redemption where only the capital gain portion is taxed, while the principal component is tax-free",
+      "Because SWP carries a flat 2% tax rate",
+      "Because the AMC pays the investor's personal income tax"
+    ],
+    "correctIndex": 1,
+    "explanation": "In SWP, only the proportionate capital gain embedded in each redeemed unit is subject to tax, whereas dividend payouts are fully taxable at slab rates.",
+    "topic": "Investor Services",
+    "chapter": 9,
+    "chapterTitle": "Investor Services",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c9-q5",
+    "courseId": "nism-vd",
+    "question": "Under the CKYC registry framework managed by CERSAI, how many digits are there in the unique KYC Identification Number (KIN) issued to an individual?",
+    "options": [
+      "10 digits",
+      "12 digits",
+      "14 digits",
+      "16 digits"
+    ],
+    "correctIndex": 2,
+    "explanation": "The Central KYC Records Registry (CKYCR) issues a 14-digit KYC Identification Number (KIN).",
+    "topic": "Investor Services",
+    "chapter": 9,
+    "chapterTitle": "Investor Services",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c9-q6",
+    "courseId": "nism-vd",
+    "question": "What is a Consolidated Account Statement (CAS) in the Indian mutual fund industry?",
+    "options": [
+      "A loan sanction letter from a bank",
+      "A single consolidated statement sent monthly to the investor reflecting all mutual fund transactions and depository demat holdings across all AMCs linked to their PAN",
+      "A marketing brochure sent by AMFI",
+      "A tax audit report required for companies"
+    ],
+    "correctIndex": 1,
+    "explanation": "CAS provides a unified view of all mutual fund folios across AMCs and depository equity/bond holdings tied to the investor's PAN during that month.",
+    "topic": "Investor Services",
+    "chapter": 9,
+    "chapterTitle": "Investor Services",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p2-c9-q1",
+    "courseId": "nism-vd",
+    "question": "Who among the following is legally authorized to conduct In-Person Verification (IPV) for mutual fund KYC compliance?",
+    "options": [
+      "Any individual neighbor of the investor",
+      "KYC Registration Agencies (KRAs), AMC officials, and AMFI registered distributors with valid EUIN who have completed due diligence",
+      "Only a Gazetted Officer of Grade A",
+      "Only a High Court Judge"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI authorizes KRAs, AMC staff, RTAs, and AMFI registered distributors holding valid ARN/EUIN to conduct In-Person Verification (IPV).",
+    "topic": "Investor Services",
+    "chapter": 9,
+    "chapterTitle": "Investor Services",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c9-q2",
+    "courseId": "nism-vd",
+    "question": "Under SEBI mutual fund regulations, what is the maximum number of nominees that can be registered in a single mutual fund folio?",
+    "options": [
+      "Only 1 nominee",
+      "Up to 2 nominees",
+      "Up to 3 nominees with specified percentage allocation totaling 100%",
+      "Up to 10 nominees"
+    ],
+    "correctIndex": 2,
+    "explanation": "SEBI permits an individual unitholder to appoint up to 3 nominees, with explicit percentage allocation for each nominee summing to exactly 100%.",
+    "topic": "Investor Services",
+    "chapter": 9,
+    "chapterTitle": "Investor Services",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c9-q3",
+    "courseId": "nism-vd",
+    "question": "What is the key legal difference between 'Transfer' and 'Transmission' of mutual fund units?",
+    "options": [
+      "There is no difference",
+      "Transfer is an inter-vivos sale or gift between living parties, whereas Transmission is the transfer of title by operation of law upon the death or insolvency of a unitholder",
+      "Transmission applies only to corporate folios",
+      "Transfer is tax-free while transmission is taxed at 50%"
+    ],
+    "correctIndex": 1,
+    "explanation": "Transmission occurs automatically by operation of law upon death/insolvency to the registered nominee or legal heir, whereas transfer is a voluntary conveyance between living parties.",
+    "topic": "Investor Services",
+    "chapter": 9,
+    "chapterTitle": "Investor Services",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c9-q4",
+    "courseId": "nism-vd",
+    "question": "When an investment in mutual funds is executed through a Power of Attorney (PoA) holder, where must the redemption proceeds be credited?",
+    "options": [
+      "To the PoA holder's bank account directly",
+      "Strictly to the verified bank account of the primary unitholder (donor)",
+      "To the distributor's office account",
+      "To a joint escrow account"
+    ],
+    "correctIndex": 1,
+    "explanation": "To prevent fraud and misappropriation, redemption proceeds can NEVER be paid to the PoA holder; funds must be remitted exclusively to the unit holder's bank account.",
+    "topic": "Investor Services",
+    "chapter": 9,
+    "chapterTitle": "Investor Services",
+    "difficulty": "hard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c9-q5",
+    "courseId": "nism-vd",
+    "question": "What is the primary regulatory objective of collecting Foreign Account Tax Compliance Act (FATCA) and Common Reporting Standard (CRS) self-certifications from investors?",
+    "options": [
+      "To determine eligibility for local bank loans",
+      "To combat tax evasion by identifying investors who are tax residents of foreign jurisdictions and reporting information to tax authorities",
+      "To verify credit card credit scores",
+      "To grant foreign citizenship to high-value investors"
+    ],
+    "correctIndex": 1,
+    "explanation": "FATCA/CRS compliance identifies individuals who are tax residents of countries outside India (such as the US) to report financial accounts under international intergovernmental agreements.",
+    "topic": "Investor Services",
+    "chapter": 9,
+    "chapterTitle": "Investor Services",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c9-q6",
+    "courseId": "nism-vd",
+    "question": "If an investor opts to hold mutual fund units in dematerialized (demat) format in their depository account, how are corporate actions and statements handled?",
+    "options": [
+      "The AMC sends physical paper certificates for each unit",
+      "Units are credited to the investor's Demat account with NSDL/CDSL, and account statements are reflected in the Depository Participant (DP) holding statement",
+      "Demat units cannot be redeemed before 10 years",
+      "Demat units are exempt from income tax"
+    ],
+    "correctIndex": 1,
+    "explanation": "In demat mode, mutual fund units are held digitally alongside shares in the depository participant account, with single consolidated tracking and seamless trading via stock exchange platforms.",
+    "topic": "Investor Services",
+    "chapter": 9,
+    "chapterTitle": "Investor Services",
+    "difficulty": "easy",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p1-c10-q1",
+    "courseId": "nism-vd",
+    "question": "An investment of \u20b91,00,000 grew to \u20b91,44,000 in exactly 2 years. What is the Compound Annual Growth Rate (CAGR) of this investment?",
+    "options": [
+      "44.0% p.a.",
+      "22.0% p.a.",
+      "20.0% p.a.",
+      "18.5% p.a."
+    ],
+    "correctIndex": 2,
+    "explanation": "CAGR = (Ending Value / Beginning Value)^(1/t) - 1 = (1,44,000 / 1,00,000)^(1/2) - 1 = (1.44)^0.5 - 1 = 1.20 - 1 = 20.0% p.a.",
+    "topic": "Risk, Return and Performance of Funds",
+    "chapter": 10,
+    "chapterTitle": "Risk, Return and Performance of Funds",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c10-q2",
+    "courseId": "nism-vd",
+    "question": "A mutual fund has an annualized return of 16%, the risk-free rate is 6%, and the fund's standard deviation is 20%. What is the Sharpe Ratio of the fund?",
+    "options": [
+      "0.80",
+      "0.50",
+      "1.00",
+      "0.60"
+    ],
+    "correctIndex": 1,
+    "explanation": "Sharpe Ratio = (Fund Return - Risk Free Rate) / Standard Deviation = (16 - 6) / 20 = 10 / 20 = 0.50.",
+    "topic": "Risk, Return and Performance of Funds",
+    "chapter": 10,
+    "chapterTitle": "Risk, Return and Performance of Funds",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c10-q3",
+    "courseId": "nism-vd",
+    "question": "A mutual fund generated a return of 18%, while the risk-free rate was 6%. If the fund's Beta relative to Nifty 50 is 1.20, what is the Treynor Ratio?",
+    "options": [
+      "10.0",
+      "12.0",
+      "15.0",
+      "8.0"
+    ],
+    "correctIndex": 0,
+    "explanation": "Treynor Ratio = (Fund Return - Risk Free Rate) / Beta = (18 - 6) / 1.20 = 12 / 1.20 = 10.0.",
+    "topic": "Risk, Return and Performance of Funds",
+    "chapter": 10,
+    "chapterTitle": "Risk, Return and Performance of Funds",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c10-q4",
+    "courseId": "nism-vd",
+    "question": "If an equity mutual fund scheme has a Beta of 1.30, what does this indicate regarding its market risk?",
+    "options": [
+      "The fund is completely risk-free",
+      "The fund is 30% more volatile than the benchmark index in both upward and downward market movements",
+      "The fund will generate exactly 30% fixed annual return",
+      "The fund moves in the opposite direction to the market"
+    ],
+    "correctIndex": 1,
+    "explanation": "Beta measures systematic risk. A Beta of 1.30 means the fund tends to move 1.30% for every 1.00% move in the market index (30% more volatile).",
+    "topic": "Risk, Return and Performance of Funds",
+    "chapter": 10,
+    "chapterTitle": "Risk, Return and Performance of Funds",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c10-q5",
+    "courseId": "nism-vd",
+    "question": "In mutual fund performance analytics, Standard Deviation is used as a statistical measure of:",
+    "options": [
+      "Credit default probability",
+      "Total risk (volatility of returns around its arithmetic mean)",
+      "Sovereign interest rate risk only",
+      "The fund manager's stock picking skill"
+    ],
+    "correctIndex": 1,
+    "explanation": "Standard deviation measures the dispersion or spread of returns around the average return, representing the fund's total risk.",
+    "topic": "Risk, Return and Performance of Funds",
+    "chapter": 10,
+    "chapterTitle": "Risk, Return and Performance of Funds",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c10-q6",
+    "courseId": "nism-vd",
+    "question": "Why is the Sortino Ratio considered by some analysts to be superior to the Sharpe Ratio for evaluating equity growth funds?",
+    "options": [
+      "Because Sortino uses Beta instead of Standard Deviation",
+      "Because Sortino penalizes only Downside Deviation (negative volatility below a threshold) rather than total volatility",
+      "Because Sortino ignores the risk-free rate",
+      "Because Sortino is calculated over a 1-day period"
+    ],
+    "correctIndex": 1,
+    "explanation": "Sharpe ratio penalizes both upside and downside volatility equally. Sortino considers only downside volatility (bad risk), leaving upside volatility unpenalized.",
+    "topic": "Risk, Return and Performance of Funds",
+    "chapter": 10,
+    "chapterTitle": "Risk, Return and Performance of Funds",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c10-q7",
+    "courseId": "nism-vd",
+    "question": "What does a high 'Tracking Error' in a passive Index Fund indicate?",
+    "options": [
+      "The fund manager is generating exceptional alpha",
+      "The fund is deviating significantly from the performance of its underlying benchmark index due to cash drag, expenses, or replication imperfections",
+      "The fund has zero transaction costs",
+      "The fund is completely invested in corporate debt"
+    ],
+    "correctIndex": 1,
+    "explanation": "Tracking error is the annualized standard deviation of excess daily returns over the benchmark. A high tracking error means poor index replication.",
+    "topic": "Risk, Return and Performance of Funds",
+    "chapter": 10,
+    "chapterTitle": "Risk, Return and Performance of Funds",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p2-c10-q1",
+    "courseId": "nism-vd",
+    "question": "A fund has a Beta of 1.10 and delivered an actual return of 17%. If the Risk-Free Rate is 6% and the Market Index Return is 14%, what is the fund's Jensen's Alpha?",
+    "options": [
+      "+3.00%",
+      "+2.20%",
+      "+1.50%",
+      "-1.20%"
+    ],
+    "correctIndex": 1,
+    "explanation": "CAPM Expected Return = Rf + Beta * (Rm - Rf) = 6% + 1.10 * (14% - 6%) = 6% + 1.10 * 8% = 6% + 8.8% = 14.8%. Jensen's Alpha = Actual Return - Expected Return = 17.0% - 14.8% = +2.20%.",
+    "topic": "Risk, Return and Performance of Funds",
+    "chapter": 10,
+    "chapterTitle": "Risk, Return and Performance of Funds",
+    "difficulty": "hard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c10-q2",
+    "courseId": "nism-vd",
+    "question": "Which return calculation methodology is appropriate for calculating the annualized return of an investor who has been making monthly SIP investments for 5 years?",
+    "options": [
+      "Simple Absolute Return",
+      "Compound Annual Growth Rate (CAGR)",
+      "Extended Internal Rate of Return (XIRR)",
+      "Nominal Dividend Yield"
+    ],
+    "correctIndex": 2,
+    "explanation": "XIRR is the standard financial methodology used for multiple irregular or periodic cash flows occurring on different transaction dates.",
+    "topic": "Risk, Return and Performance of Funds",
+    "chapter": 10,
+    "chapterTitle": "Risk, Return and Performance of Funds",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c10-q3",
+    "courseId": "nism-vd",
+    "question": "Why are 'Rolling Returns' considered more reliable than point-to-point trailing returns when evaluating fund performance?",
+    "options": [
+      "Because rolling returns are guaranteed by the exchange",
+      "Because rolling returns eliminate point-to-point end-point bias by calculating returns across hundreds of overlapping periods throughout market cycles",
+      "Because rolling returns only consider positive months",
+      "Because rolling returns do not require NAV data"
+    ],
+    "correctIndex": 1,
+    "explanation": "Rolling returns measure performance across every possible holding window across cycles, eliminating the distortion of choosing arbitrary start and end dates.",
+    "topic": "Risk, Return and Performance of Funds",
+    "chapter": 10,
+    "chapterTitle": "Risk, Return and Performance of Funds",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c10-q4",
+    "courseId": "nism-vd",
+    "question": "In mutual fund statistical analysis, an R-Squared value of 0.95 relative to Nifty 50 indicates that:",
+    "options": [
+      "95% of the fund's return movements are explained by movements in the Nifty 50 index",
+      "The fund has a 95% guaranteed return",
+      "95% of the portfolio is invested in cash",
+      "The fund manager has a 5% expense ratio"
+    ],
+    "correctIndex": 0,
+    "explanation": "R-squared ranges from 0 to 1. An R-squared of 0.95 means 95% of the portfolio's price movements are directly correlated to and explained by the benchmark index.",
+    "topic": "Risk, Return and Performance of Funds",
+    "chapter": 10,
+    "chapterTitle": "Risk, Return and Performance of Funds",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c10-q5",
+    "courseId": "nism-vd",
+    "question": "If a fund has an Upside Capture Ratio of 115% and a Downside Capture Ratio of 80% over a 3-year period, this indicates that the fund manager:",
+    "options": [
+      "Underperformed the market during bull runs",
+      "Captured 115% of market gains during rallies, but lost only 80% as much as the market during downturns (superior risk-adjusted performance)",
+      "Maintained 100% cash throughout the period",
+      "Experienced massive capital erosion"
+    ],
+    "correctIndex": 1,
+    "explanation": "An upside capture > 100% combined with a downside capture < 100% indicates superior asymmetrical alpha generation.",
+    "topic": "Risk, Return and Performance of Funds",
+    "chapter": 10,
+    "chapterTitle": "Risk, Return and Performance of Funds",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c10-q6",
+    "courseId": "nism-vd",
+    "question": "Under SEBI regulations, how should the primary benchmark of a mutual fund scheme be chosen?",
+    "options": [
+      "The fund manager can pick any foreign index with low returns",
+      "It must accurately reflect the scheme's asset allocation, investment objective, and investment universe as per AMFI Tier-1 benchmarks",
+      "It is chosen by the distributor at the time of client onboarding",
+      "It must always be gold prices"
+    ],
+    "correctIndex": 1,
+    "explanation": "AMFI and SEBI mandate a two-tier benchmark framework where Tier-1 benchmark reflects the broad category asset universe.",
+    "topic": "Risk, Return and Performance of Funds",
+    "chapter": 10,
+    "chapterTitle": "Risk, Return and Performance of Funds",
+    "difficulty": "easy",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c10-q7",
+    "courseId": "nism-vd",
+    "question": "Why did SEBI mandate that all mutual fund schemes must benchmark their performance against the Total Return Index (TRI) instead of the Price Return Index (PRI)?",
+    "options": [
+      "To reduce AMC marketing costs",
+      "Because TRI accounts for both capital gains and dividend reinvestments of constituent stocks, providing a fair and accurate hurdle comparison",
+      "To eliminate capital gains tax for investors",
+      "Because PRI was banned by the stock exchanges"
+    ],
+    "correctIndex": 1,
+    "explanation": "TRI includes dividend payouts reinvested, providing an accurate, honest comparison against mutual fund NAVs which also accrue corporate dividends.",
+    "topic": "Risk, Return and Performance of Funds",
+    "chapter": 10,
+    "chapterTitle": "Risk, Return and Performance of Funds",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p1-c11-q1",
+    "courseId": "nism-vd",
+    "question": "Under SEBI scheme categorization norms, how are 'Large Cap' companies defined, and what is the minimum percentage an open-ended Large Cap Fund must invest in them?",
+    "options": [
+      "Top 50 companies; minimum 50% allocation",
+      "1st to 100th company in terms of full market capitalization; minimum 80% of total assets",
+      "Top 200 companies; minimum 65% allocation",
+      "Companies with revenue above \u20b91,000 Crore; minimum 90% allocation"
+    ],
+    "correctIndex": 1,
+    "explanation": "Large cap stocks are ranked 1st to 100th by market cap. A Large Cap fund must invest at least 80% of total assets in these securities.",
+    "topic": "Mutual Fund Scheme Selection",
+    "chapter": 11,
+    "chapterTitle": "Mutual Fund Scheme Selection",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c11-q2",
+    "courseId": "nism-vd",
+    "question": "What is the crucial regulatory difference between a Multi Cap Fund and a Flexi Cap Fund under SEBI guidelines?",
+    "options": [
+      "Multi Cap funds invest in global stocks, Flexi Cap in domestic stocks",
+      "Multi Cap funds must mandatorily hold at least 25% each in Large, Mid, and Small Cap stocks; Flexi Cap funds have dynamic allocation with minimum 65% in equity overall and no cap restrictions",
+      "Flexi Cap funds must hold 80% in debt",
+      "There is no difference between the two"
+    ],
+    "correctIndex": 1,
+    "explanation": "Multi Cap mandates minimum 25% in Large Cap, 25% in Mid Cap, and 25% in Small Cap. Flexi Cap gives full freedom across caps subject to 65% total equity.",
+    "topic": "Mutual Fund Scheme Selection",
+    "chapter": 11,
+    "chapterTitle": "Mutual Fund Scheme Selection",
+    "difficulty": "hard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c11-q3",
+    "courseId": "nism-vd",
+    "question": "What is the key defining feature of a Dynamic Asset Allocation or Balanced Advantage Fund (BAF)?",
+    "options": [
+      "It must maintain a rigid 65:35 equity:debt ratio at all times",
+      "It dynamically manages equity and debt exposure (from 0% to 100%) based on pre-defined quantitative valuation parameters (P/E, P/B, yield gap)",
+      "It invests only in international technology stocks",
+      "It guarantees capital protection under all market conditions"
+    ],
+    "correctIndex": 1,
+    "explanation": "Balanced Advantage Funds dynamically vary their unhedged equity and debt weights using valuation models, reducing equity when market is expensive and increasing when cheap.",
+    "topic": "Mutual Fund Scheme Selection",
+    "chapter": 11,
+    "chapterTitle": "Mutual Fund Scheme Selection",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c11-q4",
+    "courseId": "nism-vd",
+    "question": "What is a defining characteristic of an open-ended Gilt Fund under SEBI categorization?",
+    "options": [
+      "It must invest minimum 80% of total assets in Government Securities across maturities, carrying zero credit default risk but subject to interest rate risk",
+      "It invests in high-yield distressed corporate debt",
+      "It provides guaranteed fixed returns backed by gold deposits",
+      "It is closed for redemption during economic downturns"
+    ],
+    "correctIndex": 0,
+    "explanation": "Gilt funds invest at least 80% in government debt. They carry sovereign credit backing (zero default risk) but fluctuate significantly with interest rate changes.",
+    "topic": "Mutual Fund Scheme Selection",
+    "chapter": 11,
+    "chapterTitle": "Mutual Fund Scheme Selection",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c11-q5",
+    "courseId": "nism-vd",
+    "question": "Under SEBI regulations, an open-ended Corporate Bond Fund must invest what minimum percentage of its total assets in highest-rated corporate bonds (AA+ and above)?",
+    "options": [
+      "Minimum 50%",
+      "Minimum 65%",
+      "Minimum 80%",
+      "100% strictly"
+    ],
+    "correctIndex": 2,
+    "explanation": "Corporate Bond Funds must invest at least 80% of total assets in corporate debt instruments rated AA+ and above.",
+    "topic": "Mutual Fund Scheme Selection",
+    "chapter": 11,
+    "chapterTitle": "Mutual Fund Scheme Selection",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c11-q6",
+    "courseId": "nism-vd",
+    "question": "How do Arbitrage Funds generate low-risk returns while qualifying for equity taxation under Indian tax laws?",
+    "options": [
+      "By investing in penny stocks and holding for 10 years",
+      "By simultaneously buying equity shares in the cash market and selling equivalent futures contracts in the derivatives market to lock in the cost of carry",
+      "By lending money to speculative intraday day-traders",
+      "By shorting international currency futures"
+    ],
+    "correctIndex": 1,
+    "explanation": "Arbitrage funds exploit cash-futures price differences by holding minimum 65% in equity and hedging with matching short futures, yielding debt-like returns with equity tax treatment.",
+    "topic": "Mutual Fund Scheme Selection",
+    "chapter": 11,
+    "chapterTitle": "Mutual Fund Scheme Selection",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p2-c11-q1",
+    "courseId": "nism-vd",
+    "question": "Under SEBI scheme categorization rules, how is the 'Mid Cap' universe defined for mutual fund stock selection?",
+    "options": [
+      "51st to 150th company by market capitalization",
+      "101st to 250th company in terms of full market capitalization",
+      "Companies with market capitalization between \u20b9500 Cr and \u20b91,000 Cr",
+      "Top 100 manufacturing companies"
+    ],
+    "correctIndex": 1,
+    "explanation": "Mid Cap companies are defined by SEBI as those ranked 101st to 250th in terms of full market capitalization.",
+    "topic": "Mutual Fund Scheme Selection",
+    "chapter": 11,
+    "chapterTitle": "Mutual Fund Scheme Selection",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c11-q2",
+    "courseId": "nism-vd",
+    "question": "An open-ended Small Cap Fund must invest what minimum percentage of its total assets in equity shares of small cap companies (251st company onwards)?",
+    "options": [
+      "At least 50%",
+      "At least 65%",
+      "At least 80%",
+      "At least 90%"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Small Cap Fund must maintain at least 65% of its total assets invested in small cap stocks.",
+    "topic": "Mutual Fund Scheme Selection",
+    "chapter": 11,
+    "chapterTitle": "Mutual Fund Scheme Selection",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c11-q3",
+    "courseId": "nism-vd",
+    "question": "What is the maximum residual maturity of debt and money market securities that an Overnight Fund can invest in?",
+    "options": [
+      "1 day",
+      "7 days",
+      "30 days",
+      "91 days"
+    ],
+    "correctIndex": 0,
+    "explanation": "Overnight funds invest exclusively in overnight securities maturing in 1 business day, carrying minimal interest rate and credit risk.",
+    "topic": "Mutual Fund Scheme Selection",
+    "chapter": 11,
+    "chapterTitle": "Mutual Fund Scheme Selection",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c11-q4",
+    "courseId": "nism-vd",
+    "question": "Under SEBI guidelines, a Credit Risk Fund must invest what minimum percentage of its total assets in corporate bonds rated AA or below (excluding AA+)?",
+    "options": [
+      "At least 25%",
+      "At least 50%",
+      "At least 65%",
+      "At least 80%"
+    ],
+    "correctIndex": 2,
+    "explanation": "A Credit Risk Fund must invest at least 65% of total assets in corporate debt securities rated AA and below to earn higher credit spreads.",
+    "topic": "Mutual Fund Scheme Selection",
+    "chapter": 11,
+    "chapterTitle": "Mutual Fund Scheme Selection",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c11-q5",
+    "courseId": "nism-vd",
+    "question": "What is the statutory asset allocation requirement for an open-ended 'Aggressive Hybrid Fund' under SEBI scheme norms?",
+    "options": [
+      "Minimum 50% equity, 50% gold",
+      "65% to 80% in equity & equity-related instruments, and 20% to 35% in debt instruments",
+      "100% in equity derivatives",
+      "Minimum 90% in government debt"
+    ],
+    "correctIndex": 1,
+    "explanation": "Aggressive Hybrid Funds must invest 65% to 80% in equities (maintaining equity taxation) and 20% to 35% in debt securities.",
+    "topic": "Mutual Fund Scheme Selection",
+    "chapter": 11,
+    "chapterTitle": "Mutual Fund Scheme Selection",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c11-q6",
+    "courseId": "nism-vd",
+    "question": "What is a 'Fund of Funds' (FoF) in the mutual fund universe?",
+    "options": [
+      "A scheme that invests directly in private venture capital startups",
+      "A mutual fund scheme that invests its assets primarily in units of other mutual fund schemes rather than individual stocks or bonds",
+      "A sovereign wealth fund managed by the RBI",
+      "A scheme restricted only to mutual fund company CEOs"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Fund of Funds invests in units of other domestic or international mutual fund schemes rather than directly holding individual securities.",
+    "topic": "Mutual Fund Scheme Selection",
+    "chapter": 11,
+    "chapterTitle": "Mutual Fund Scheme Selection",
+    "difficulty": "easy",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p1-c12-q1",
+    "courseId": "nism-vd",
+    "question": "What is the fundamental ethical and regulatory principle that every mutual fund distributor must adhere to when recommending schemes to a client?",
+    "options": [
+      "Maximizing distributor commission earnings",
+      "The Suitability Principle: Recommending schemes that strictly align with the client's financial goals, risk profile, and investment horizon",
+      "Promoting only the newest NFO in the market",
+      "Ensuring equal investment in all 40 AMCs"
+    ],
+    "correctIndex": 1,
+    "explanation": "The Suitability Principle dictates that financial products must match the customer's financial situation, risk profile, and time horizon.",
+    "topic": "Mutual Fund Scheme Recommendation",
+    "chapter": 12,
+    "chapterTitle": "Mutual Fund Scheme Recommendation",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c12-q2",
+    "courseId": "nism-vd",
+    "question": "How does Strategic Asset Allocation (SAA) differ from Tactical Asset Allocation (TAA)?",
+    "options": [
+      "SAA is short-term intraday trading, TAA is long term",
+      "SAA establishes the long-term baseline asset mix based on risk profile and goals; TAA makes short-term tactical tilts to capitalize on market valuation extremes",
+      "SAA involves only gold, TAA involves only real estate",
+      "There is no difference"
+    ],
+    "correctIndex": 1,
+    "explanation": "Strategic Asset Allocation sets the long-term asset targets. Tactical Asset Allocation temporarily overweights or underweights assets to exploit cyclical market opportunities.",
+    "topic": "Mutual Fund Scheme Recommendation",
+    "chapter": 12,
+    "chapterTitle": "Mutual Fund Scheme Recommendation",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c12-q3",
+    "courseId": "nism-vd",
+    "question": "What is the mathematical and behavioural benefit of rebalancing a portfolio back to its target asset allocation (e.g. 60% equity, 40% debt) once a year?",
+    "options": [
+      "It guarantees zero tax liability",
+      "It systematically forces the investor to sell overperforming (expensive) assets and buy underperforming (cheap) assets in an unemotional manner",
+      "It eliminates the need for emergency funds",
+      "It doubles the portfolio dividend yield"
+    ],
+    "correctIndex": 1,
+    "explanation": "Rebalancing enforces disciplined profit taking and contrarian buying, returning portfolio risk back to the investor's intended risk tolerance.",
+    "topic": "Mutual Fund Scheme Recommendation",
+    "chapter": 12,
+    "chapterTitle": "Mutual Fund Scheme Recommendation",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c12-q4",
+    "courseId": "nism-vd",
+    "question": "According to behavioural finance theories (Kahneman & Tversky), 'Loss Aversion' refers to the cognitive bias where:",
+    "options": [
+      "Investors enjoy making profits twice as much as they dislike losing money",
+      "The psychological pain of an investment loss is felt approximately twice as intensely as the pleasure of an equivalent gain",
+      "Investors refuse to check their account balances",
+      "Investors trade exclusively in penny stocks"
+    ],
+    "correctIndex": 1,
+    "explanation": "Loss aversion shows people feel the pain of a \u20b910,000 loss roughly twice as acutely as the pleasure of a \u20b910,000 gain, leading to irrational holding of losing positions.",
+    "topic": "Mutual Fund Scheme Recommendation",
+    "chapter": 12,
+    "chapterTitle": "Mutual Fund Scheme Recommendation",
+    "difficulty": "medium",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c12-q5",
+    "courseId": "nism-vd",
+    "question": "For a 'Conservative' investor approaching retirement in 18 months, which model asset allocation is most appropriate?",
+    "options": [
+      "90% Small Cap Equity, 10% Cash",
+      "70% to 80% in High Quality Short-Duration Debt/Liquid Funds, and 20% to 30% in Conservative Hybrid/Equity",
+      "100% in Equity Options and Futures",
+      "100% in Cryptocurrency and Gold"
+    ],
+    "correctIndex": 1,
+    "explanation": "Conservative near-retirement investors require capital preservation, low volatility, and predictable income, dictating heavy debt/liquid allocation with modest equity.",
+    "topic": "Mutual Fund Scheme Recommendation",
+    "chapter": 12,
+    "chapterTitle": "Mutual Fund Scheme Recommendation",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c12-q6",
+    "courseId": "nism-vd",
+    "question": "How many distinct risk levels are officially defined on the SEBI pictorial Risk-o-meter gauge?",
+    "options": [
+      "3 levels",
+      "4 levels",
+      "5 levels",
+      "6 levels (Low, Low to Moderate, Moderate, Moderately High, High, Very High)"
+    ],
+    "correctIndex": 3,
+    "explanation": "SEBI mandates 6 risk levels: Low, Low to Moderate, Moderate, Moderately High, High, and Very High, evaluated monthly on underlying portfolio parameters.",
+    "topic": "Mutual Fund Scheme Recommendation",
+    "chapter": 12,
+    "chapterTitle": "Mutual Fund Scheme Recommendation",
+    "difficulty": "easy",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p2-c12-q1",
+    "courseId": "nism-vd",
+    "question": "What is 'Mental Accounting' in investor behavioural psychology?",
+    "options": [
+      "The practice of maintaining audited balance sheets",
+      "The irrational tendency of individuals to treat money differently based on its origin or intended use, rather than treating all wealth as fungible",
+      "Mental fatigue caused by calculating compound interest",
+      "Using mental math to calculate NAV"
+    ],
+    "correctIndex": 1,
+    "explanation": "Mental accounting causes investors to compartmentalize money (e.g. treating bonus money as gamble money vs hard-earned salary), leading to suboptimal portfolio decisions.",
+    "topic": "Mutual Fund Scheme Recommendation",
+    "chapter": 12,
+    "chapterTitle": "Mutual Fund Scheme Recommendation",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c12-q2",
+    "courseId": "nism-vd",
+    "question": "How does 'Recency Bias' typically manifest in retail mutual fund investor behavior?",
+    "options": [
+      "Investors buy schemes that have underperformed for 10 years",
+      "Investors extrapolate recent market performance into the indefinite future, pouring capital into top-performing sectoral/small-cap funds at peak valuations",
+      "Investors refuse to invest in any fund launched recently",
+      "Investors redeem all funds when dividends are announced"
+    ],
+    "correctIndex": 1,
+    "explanation": "Recency bias causes investors to believe recent short-term returns will continue indefinitely, leading them to buy aggressively near market tops.",
+    "topic": "Mutual Fund Scheme Recommendation",
+    "chapter": 12,
+    "chapterTitle": "Mutual Fund Scheme Recommendation",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c12-q3",
+    "courseId": "nism-vd",
+    "question": "An investor who invests heavily in a trending sectoral fund solely because friends, social media groups, and coworkers are buying it is exhibiting:",
+    "options": [
+      "Confirmation Bias",
+      "Herd Mentality (Herding Behavior)",
+      "Anchoring Bias",
+      "Overconfidence Effect"
+    ],
+    "correctIndex": 1,
+    "explanation": "Herd mentality is following the crowd without independent analysis or verifying whether the investment aligns with personal risk goals.",
+    "topic": "Mutual Fund Scheme Recommendation",
+    "chapter": 12,
+    "chapterTitle": "Mutual Fund Scheme Recommendation",
+    "difficulty": "easy",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c12-q4",
+    "courseId": "nism-vd",
+    "question": "What is the recognized sequence of steps in the comprehensive Financial Planning Process?",
+    "options": [
+      "Sell scheme -> Collect cheque -> Calculate commission -> Meet client",
+      "Establish client-planner relationship -> Gather client data & goals -> Analyze financial status -> Develop & present recommendations -> Implement recommendations -> Monitor & review periodically",
+      "Invest in equity -> Wait for crash -> Buy debt -> Pay tax",
+      "Advertise on social media -> Onboard client -> Submit KYC -> Terminate relationship"
+    ],
+    "correctIndex": 1,
+    "explanation": "The standard 6-step financial planning process: Establish relationship -> Gather data -> Analyze status -> Develop plan -> Implement -> Monitor and review.",
+    "topic": "Mutual Fund Scheme Recommendation",
+    "chapter": 12,
+    "chapterTitle": "Mutual Fund Scheme Recommendation",
+    "difficulty": "hard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c12-q5",
+    "courseId": "nism-vd",
+    "question": "Which two key dimensions must be evaluated together to establish an investor's comprehensive Risk Profile?",
+    "options": [
+      "Tax slab rate and home address",
+      "Risk Capacity (objective financial ability to absorb losses) and Risk Tolerance (psychological willingness to bear volatility)",
+      "Bank account balance and credit card limit",
+      "Age and educational degree"
+    ],
+    "correctIndex": 1,
+    "explanation": "A proper risk profile balances Risk Capacity (income, net worth, dependents, horizon) with Risk Tolerance (psychological comfort with volatility).",
+    "topic": "Mutual Fund Scheme Recommendation",
+    "chapter": 12,
+    "chapterTitle": "Mutual Fund Scheme Recommendation",
+    "difficulty": "medium",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c12-q6",
+    "courseId": "nism-vd",
+    "question": "Why is Goal-Based Investing considered more successful for wealth creation than chasing highest recent returns?",
+    "options": [
+      "Because goal-based investing guarantees 25% annual CAGR",
+      "Because tying investments to specific life milestones (education, retirement, home down payment) provides emotional discipline, defines asset allocation, and prevents panic selling during market corrections",
+      "Because goal-based investing is exempt from SEBI regulations",
+      "Because it requires no KYC documentation"
+    ],
+    "correctIndex": 1,
+    "explanation": "Goal-based investing provides clarity of purpose, determines the appropriate asset allocation for each specific milestone, and keeps investors anchored during market panics.",
+    "topic": "Mutual Fund Scheme Recommendation",
+    "chapter": 12,
+    "chapterTitle": "Mutual Fund Scheme Recommendation",
+    "difficulty": "easy",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p1-c13-q1",
+    "courseId": "nism-vd",
+    "question": "Which of the following best defines a financial derivative contract?",
+    "options": [
+      "An asset backed exclusively by physical gold or sovereign government debt",
+      "A financial instrument whose value is derived from the value of one or more underlying assets, indices, or reference rates",
+      "A fixed-income security that guarantees a risk-free annualized coupon payout",
+      "An equity share granting voting rights in an asset management company"
+    ],
+    "correctIndex": 1,
+    "explanation": "A derivative is a financial contract whose value is determined by ('derived from') the performance of an underlying asset, such as an equity share, index, commodity, currency, or interest rate.",
+    "topic": "Basics of Derivatives",
+    "chapter": 13,
+    "chapterTitle": "Basics of Derivatives",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c13-q2",
+    "courseId": "nism-vd",
+    "question": "A market participant who takes positions in financial derivatives to eliminate or mitigate an existing price risk in the cash market is classified as a:",
+    "options": [
+      "Arbitrageur",
+      "Speculator",
+      "Hedger",
+      "Day trader"
+    ],
+    "correctIndex": 2,
+    "explanation": "Hedgers enter derivative markets to protect an existing cash market portfolio or future commercial obligation from adverse price fluctuations.",
+    "topic": "Basics of Derivatives",
+    "chapter": 13,
+    "chapterTitle": "Basics of Derivatives",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c13-q3",
+    "courseId": "nism-vd",
+    "question": "An arbitrageur observes that Reliance Industries is trading at \u20b92,500 in the cash market and the 1-month futures contract is trading at \u20b92,545, while the theoretical fair value based on cost of carry is \u20b92,520. What action will the arbitrageur take?",
+    "options": [
+      "Buy futures and sell cash shares (Reverse Cash-and-Carry)",
+      "Buy cash shares and short the overvalued futures contract (Cash-and-Carry Arbitrage)",
+      "Sell both cash shares and futures contracts",
+      "Buy both cash shares and call options"
+    ],
+    "correctIndex": 1,
+    "explanation": "When futures trade at a premium above theoretical cost-of-carry fair value, arbitrageurs buy the cheap underlying stock in cash and simultaneously sell the expensive futures contract, locking in a riskless return (Cash-and-Carry Arbitrage).",
+    "topic": "Basics of Derivatives",
+    "chapter": 13,
+    "chapterTitle": "Basics of Derivatives",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c13-q4",
+    "courseId": "nism-vd",
+    "question": "Which of the following is a key structural distinction between Exchange-Traded Derivatives (ETDs) and Over-The-Counter (OTC) derivatives?",
+    "options": [
+      "ETD contracts are customized bilateral contracts, whereas OTC contracts are standardized",
+      "ETD contracts involve bilateral counterparty credit risk, whereas OTC trades are cleared by CCIL/NSE Clearing",
+      "ETD contracts are standardized with novation by a central clearing corporation, whereas OTC contracts are privately negotiated and customized",
+      "OTC contracts have mandatory daily mark-to-market margins, whereas ETDs have zero margin"
+    ],
+    "correctIndex": 2,
+    "explanation": "Exchange-Traded Derivatives (ETDs) have standardized lot sizes, expiry dates, and strike intervals, with a Central Clearing Corporation acting as legal counterparty to both sides (novation), virtually eliminating counterparty credit risk.",
+    "topic": "Basics of Derivatives",
+    "chapter": 13,
+    "chapterTitle": "Basics of Derivatives",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c13-q5",
+    "courseId": "nism-vd",
+    "question": "Which committee established the foundational regulatory and operational framework for the introduction of financial derivatives trading in India?",
+    "options": [
+      "L.C. Gupta Committee",
+      "Damodaran Committee",
+      "Malegam Committee",
+      "U.K. Sinha Committee"
+    ],
+    "correctIndex": 0,
+    "explanation": "The L.C. Gupta Committee (1998) set up by SEBI framed the regulatory architecture for derivatives trading in India, followed by the J.R. Varma Committee which specified the operational risk containment and margining mechanisms.",
+    "topic": "Basics of Derivatives",
+    "chapter": 13,
+    "chapterTitle": "Basics of Derivatives",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c13-q6",
+    "courseId": "nism-vd",
+    "question": "Under SEBI regulations, derivatives in India are legally recognized as securities under which statutory act?",
+    "options": [
+      "Reserve Bank of India Act, 1934",
+      "Securities Contracts (Regulation) Act, 1956 (SCRA)",
+      "Foreign Exchange Management Act, 1999 (FEMA)",
+      "Insolvency and Bankruptcy Code, 2016"
+    ],
+    "correctIndex": 1,
+    "explanation": "Section 2(ac) of the Securities Contracts (Regulation) Act, 1956 (SCRA) includes derivatives within the definition of 'securities', conferring legal enforceability on exchange-traded derivative contracts.",
+    "topic": "Basics of Derivatives",
+    "chapter": 13,
+    "chapterTitle": "Basics of Derivatives",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c13-q7",
+    "courseId": "nism-vd",
+    "question": "What economic role does derivatives trading fulfill in financial markets?",
+    "options": [
+      "Price discovery and risk transfer",
+      "Elimination of all market volatility",
+      "Guaranteed risk-free capital appreciation for retail investors",
+      "Providing unconditional collateralized dividend distributions"
+    ],
+    "correctIndex": 0,
+    "explanation": "The two primary economic functions of financial derivatives are price discovery (reflecting aggregate future expectations) and efficient risk transfer (allowing risk-averse entities to transfer price risk to entities willing to bear it).",
+    "topic": "Basics of Derivatives",
+    "chapter": 13,
+    "chapterTitle": "Basics of Derivatives",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c13-q8",
+    "courseId": "nism-vd",
+    "question": "Which of the following participants assumes substantial market price risk in derivatives in search of high leveraged capital gains without having an underlying exposure?",
+    "options": [
+      "Hedger",
+      "Speculator",
+      "Clearing Member",
+      "Depository Participant"
+    ],
+    "correctIndex": 1,
+    "explanation": "Speculators provide liquidity to the market by voluntarily assuming price risk in expectation of leveraged profit, without owning the underlying asset in the cash market.",
+    "topic": "Basics of Derivatives",
+    "chapter": 13,
+    "chapterTitle": "Basics of Derivatives",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c14-q1",
+    "courseId": "nism-vd",
+    "question": "How is the Nifty 50 and BSE Sensex calculated in India?",
+    "options": [
+      "Price-weighted methodology (like Dow Jones)",
+      "Equal-weighted arithmetic mean",
+      "Free-Float Market Capitalization weighted methodology",
+      "Volume-weighted geometric average"
+    ],
+    "correctIndex": 2,
+    "explanation": "Major Indian benchmark indices like Nifty 50 and S&P BSE Sensex are constructed using the Free-Float Market Capitalization weighted methodology, excluding promoter and locked-in holdings.",
+    "topic": "Introduction to Underlying Markets and Indices",
+    "chapter": 14,
+    "chapterTitle": "Introduction to Underlying Markets and Indices",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c14-q2",
+    "courseId": "nism-vd",
+    "question": "A company has 10 crore total equity shares outstanding trading at \u20b9500 per share. Promoters hold 60% of the equity, which is locked-in. What is the company's free-float market capitalization?",
+    "options": [
+      "\u20b95,000 Crore",
+      "\u20b93,000 Crore",
+      "\u20b92,000 Crore",
+      "\u20b91,200 Crore"
+    ],
+    "correctIndex": 2,
+    "explanation": "Total Market Cap = 10 Cr shares * \u20b9500 = \u20b95,000 Cr. Free-float factor = (100% - 60%) = 40%. Free-Float Market Cap = \u20b95,000 Cr * 40% = \u20b92,000 Crore.",
+    "topic": "Introduction to Underlying Markets and Indices",
+    "chapter": 14,
+    "chapterTitle": "Introduction to Underlying Markets and Indices",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c14-q3",
+    "courseId": "nism-vd",
+    "question": "In financial market microstructure, what does 'Impact Cost' measure?",
+    "options": [
+      "The brokerage fee charged per executed derivative contract",
+      "The percentage price penalty or slippage incurred while executing a transaction of a specified order size relative to the ideal market midpoint price",
+      "The STT and GST levied by the central government on derivative trades",
+      "The cost of borrowing funds to meet margin calls"
+    ],
+    "correctIndex": 1,
+    "explanation": "Impact Cost measures the liquidity of a security. It is the percentage markup/markdown paid by an investor over the ideal market price (bid-ask midpoint) when executing an order of a specific trade size.",
+    "topic": "Introduction to Underlying Markets and Indices",
+    "chapter": 14,
+    "chapterTitle": "Introduction to Underlying Markets and Indices",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c14-q4",
+    "courseId": "nism-vd",
+    "question": "Best Bid for Stock A is \u20b999.50 (for 1,000 shares) and Best Ask is \u20b9100.50 (for 1,000 shares). The ideal midpoint price is \u20b9100.00. An investor buys 1,000 shares at the ask price of \u20b9100.50. What is the impact cost?",
+    "options": [
+      "1.00%",
+      "0.50%",
+      "0.25%",
+      "0.05%"
+    ],
+    "correctIndex": 1,
+    "explanation": "Impact Cost = [(Execution Price - Ideal Price) / Ideal Price] * 100 = [(\u20b9100.50 - \u20b9100.00) / \u20b9100.00] * 100 = 0.50%.",
+    "topic": "Introduction to Underlying Markets and Indices",
+    "chapter": 14,
+    "chapterTitle": "Introduction to Underlying Markets and Indices",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c14-q5",
+    "courseId": "nism-vd",
+    "question": "What statistical metric quantifies the sensitivity of an individual stock's returns relative to the movements of the overall benchmark market index?",
+    "options": [
+      "Alpha",
+      "Beta",
+      "Sharpe Ratio",
+      "Standard Deviation"
+    ],
+    "correctIndex": 1,
+    "explanation": "Beta measures the systematic risk or volatility of an individual security or portfolio relative to the broader market index (where market beta is 1.0).",
+    "topic": "Introduction to Underlying Markets and Indices",
+    "chapter": 14,
+    "chapterTitle": "Introduction to Underlying Markets and Indices",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c14-q6",
+    "courseId": "nism-vd",
+    "question": "If Stock XYZ has a beta of 1.40 and the Nifty 50 index rises by 5%, what is the expected change in the price of Stock XYZ (assuming zero alpha)?",
+    "options": [
+      "Rises by 5.0%",
+      "Rises by 7.0%",
+      "Falls by 1.4%",
+      "Rises by 3.6%"
+    ],
+    "correctIndex": 1,
+    "explanation": "Expected return = Beta * Market Return = 1.40 * 5% = +7.0%.",
+    "topic": "Introduction to Underlying Markets and Indices",
+    "chapter": 14,
+    "chapterTitle": "Introduction to Underlying Markets and Indices",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c14-q7",
+    "courseId": "nism-vd",
+    "question": "What is the frequency of semi-annual reconstitution and rebalancing for broad market indices like the Nifty 50 by NSE Indices?",
+    "options": [
+      "Quarterly in January and July",
+      "Semi-annually, typically taking effect in March and September",
+      "Annually on April 1st",
+      "Monthly on the last Thursday of every calendar month"
+    ],
+    "correctIndex": 1,
+    "explanation": "Nifty index rebalancing is undertaken on a semi-annual basis based on six months of data ending January and July, with changes taking effect in March and September.",
+    "topic": "Introduction to Underlying Markets and Indices",
+    "chapter": 14,
+    "chapterTitle": "Introduction to Underlying Markets and Indices",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c14-q8",
+    "courseId": "nism-vd",
+    "question": "Which of the following criteria is mandatory for a stock to be eligible for introduction into the Equity Derivatives (F&O) segment on Indian stock exchanges?",
+    "options": [
+      "The stock must rank among the top 500 stocks by market cap and average daily traded value, and meet specified Median Quarter-Sigma Order Size (MQSOS) thresholds",
+      "The company must have zero promoter pledge and zero institutional ownership",
+      "The company must have paid dividends consistently for the past 15 consecutive quarters",
+      "The company must be an active component of the S&P 500 index"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI F&O eligibility criteria require the stock to be in the top 500 by market cap and average daily traded value, satisfy the Median Quarter-Sigma Order Size (MQSOS) threshold, and meet the Minimum Market Wide Position Limit (MWPL).",
+    "topic": "Introduction to Underlying Markets and Indices",
+    "chapter": 14,
+    "chapterTitle": "Introduction to Underlying Markets and Indices",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c15-q1",
+    "courseId": "nism-vd",
+    "question": "Under the Cost of Carry model with zero dividend, what is the theoretical pricing formula for a futures contract ($F$)?",
+    "options": [
+      "$F = S_0 - (r \\times T)$",
+      "$F = S_0 \\times (1 + r \\times T)$ (or $S_0 \\times e^{rT}$ in continuous compounding)",
+      "$F = S_0 / (1 + r \\times T)$",
+      "$F = S_0 \\times (1 - d)^T$"
+    ],
+    "correctIndex": 1,
+    "explanation": "Futures Price equals Spot Price plus Cost of Carry: $F = S_0 \\times (1 + r \\times T)$, where $r$ is the cost of financing (interest rate) and $T$ is the time to maturity.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c15-q2",
+    "courseId": "nism-vd",
+    "question": "A stock is trading at \u20b91,000 in the cash market. The risk-free rate of interest is 7% per annum. What is the theoretical fair value of a 3-month (0.25 year) futures contract assuming no dividends are paid during the period?",
+    "options": [
+      "\u20b91,070.00",
+      "\u20b91,017.50",
+      "\u20b9982.50",
+      "\u20b91,035.00"
+    ],
+    "correctIndex": 1,
+    "explanation": "Fair Futures Price = $S_0 \\times (1 + r \\times T) = 1,000 \\times (1 + 0.07 \\times 0.25) = 1,000 \\times (1 + 0.0175) = \u20b91,017.50$.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c15-q3",
+    "courseId": "nism-vd",
+    "question": "When the futures price of an asset is higher than its spot price ($F > S$), the market is said to be in:",
+    "options": [
+      "Backwardation",
+      "Contango (or Normal market)",
+      "Short squeeze",
+      "Inverted equilibrium"
+    ],
+    "correctIndex": 1,
+    "explanation": "When futures trade at a premium to spot due to positive cost of carry, the market condition is termed 'Contango'. When futures trade at a discount to spot, it is termed 'Backwardation'.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c15-q4",
+    "courseId": "nism-vd",
+    "question": "What happens to the difference between the futures price and the spot price (the 'Basis') as the contract approaches its expiry date?",
+    "options": [
+      "Basis widens to infinity",
+      "Basis converges towards zero (Convergence phenomenon)",
+      "Basis remains constant at the initial initial margin rate",
+      "Basis becomes unpredictable and deviates by over 50%"
+    ],
+    "correctIndex": 1,
+    "explanation": "On the day of contract expiration, the futures price must converge to the cash market spot price because any discrepancy would be instantly eliminated by arbitrageurs.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c15-q5",
+    "courseId": "nism-vd",
+    "question": "What is the system used by Indian clearing corporations for real-time portfolio-based margin calculations in the derivatives segment?",
+    "options": [
+      "Black-Scholes Margining",
+      "SPAN (Standard Portfolio Analysis of Risk)",
+      "Capital Adequacy Ratio (CAR)",
+      "Mark-to-Market Net Settlement (MMNS)"
+    ],
+    "correctIndex": 1,
+    "explanation": "SPAN (Standard Portfolio Analysis of Risk) calculates the maximum probable loss that a derivatives portfolio could sustain under 16 different risk simulation scenarios over a 1-day horizon.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c15-q6",
+    "courseId": "nism-vd",
+    "question": "An investor buys 1 lot of Nifty Futures (lot size 50) at 24,000. At the end of the day, the settlement price closes at 24,150. What is the Mark-to-Market (MTM) cash flow in the investor's margin account?",
+    "options": [
+      "Debit of \u20b97,500",
+      "Credit of \u20b97,500",
+      "Credit of \u20b915,000",
+      "Zero, because profits are credited only at contract expiry"
+    ],
+    "correctIndex": 1,
+    "explanation": "MTM Profit = (Closing Settlement Price - Buy Price) * Lot Size = (24,150 - 24,000) * 50 = +150 * 50 = +\u20b97,500 credited to the client's ledger account daily.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c15-q7",
+    "courseId": "nism-vd",
+    "question": "Under current SEBI regulations, how are stock derivatives (Single Stock Futures & Options) settled upon contract expiry?",
+    "options": [
+      "Mandatory physical delivery of underlying shares",
+      "Cash settlement based on closing price",
+      "Compulsory rollover to next month contract",
+      "Exchange-traded gold bond transfer"
+    ],
+    "correctIndex": 0,
+    "explanation": "In accordance with SEBI directives, all open positions in Single Stock Futures and in-the-money Single Stock Options at expiry are settled through mandatory physical delivery of underlying shares. Index derivatives remain cash settled.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c15-q8",
+    "courseId": "nism-vd",
+    "question": "An investor holds 1 lot of long stock futures at expiry without rolling over or closing the position. Under physical delivery settlement, what must the investor do?",
+    "options": [
+      "Pay the full contract value in cash and take delivery of the underlying physical shares into their Demat account",
+      "Deliver physical share certificates to the exchange building in Mumbai",
+      "Pay 5% penalty and forfeit the margin",
+      "Liquidate the demat account within 24 hours"
+    ],
+    "correctIndex": 0,
+    "explanation": "Holding a long stock futures contract through expiry requires the buyer to pay the entire notional delivery value (Settlement Price * Lot Size) in cash to receive delivery of the shares into their Demat account.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c15-q9",
+    "courseId": "nism-vd",
+    "question": "What is 'Open Interest' (OI) in a futures contract?",
+    "options": [
+      "Total number of contracts traded during a single trading day",
+      "Total number of outstanding derivative contracts that have been entered into and not yet closed out, liquidated, or expired",
+      "The interest rate charged by NBFCs for margin funding",
+      "The percentage of promoter equity pledged with NBFCs"
+    ],
+    "correctIndex": 1,
+    "explanation": "Open Interest represents the total number of active, outstanding contracts held by market participants at the end of the day. One open interest unit represents one buyer and one seller together.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c15-q10",
+    "courseId": "nism-vd",
+    "question": "If the price of a stock futures contract increases significantly while Open Interest (OI) also increases substantially, this pattern typically signifies:",
+    "options": [
+      "Short covering (Bearish trend ending)",
+      "Long build-up (Fresh bullish accumulation)",
+      "Short build-up (Bearish aggressive selling)",
+      "Long unwinding (Profit taking by bulls)"
+    ],
+    "correctIndex": 1,
+    "explanation": "Rising Price accompanied by Rising Open Interest indicates fresh capital entering on the buy side, which is the classic signature of 'Long Build-up' (Bullish).",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c15-q11",
+    "courseId": "nism-vd",
+    "question": "What does a 'Calendar Spread' order in futures trading entail?",
+    "options": [
+      "Buying a stock future and selling a stock option of the same maturity",
+      "Simultaneously buying a near-month futures contract and selling a far-month futures contract (or vice-versa) on the same underlying asset",
+      "Buying Nifty futures and selling Bank Nifty futures",
+      "Borrowing money on a calendar month basis to finance trading margins"
+    ],
+    "correctIndex": 1,
+    "explanation": "A calendar spread involves simultaneously holding a long position in one expiry month and a short position in a different expiry month of the same underlying asset, trading the differential basis (roll spread) at concessional margin.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c15-q12",
+    "courseId": "nism-vd",
+    "question": "What constitutes 'Market Wide Position Limit' (MWPL) for stock derivatives in India?",
+    "options": [
+      "The maximum value of margin money that an AMC can deposit with clearing banks",
+      "The maximum number of open contracts across all derivatives of a stock, set at 20% of the non-promoter holding (free-float) in terms of number of shares",
+      "The maximum intraday turnover permitted to a high-frequency algorithmic broker",
+      "A ceiling of 5% of total paid up capital reserved for retail mutual funds"
+    ],
+    "correctIndex": 1,
+    "explanation": "MWPL is set by SEBI/Exchanges at 20% of the non-promoter holding of the underlying stock. When total open interest across all exchanges reaches 95% of MWPL, the stock enters the F&O Ban period.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c16-q1",
+    "courseId": "nism-vd",
+    "question": "The buyer of an equity Call Option has:",
+    "options": [
+      "The obligation to buy the underlying stock at the strike price",
+      "The right, but not the obligation, to buy the underlying stock at the strike price",
+      "The right, but not the obligation, to sell the underlying stock at the strike price",
+      "The obligation to sell the underlying stock at the market price"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Call Option gives the holder (buyer) the right, but not the obligation, to purchase the underlying asset at a specified strike price on or before the expiration date.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c16-q2",
+    "courseId": "nism-vd",
+    "question": "When the current spot price of an underlying stock is \u20b9520, which of the following Call Options is 'In-The-Money' (ITM)?",
+    "options": [
+      "500 Call",
+      "520 Call",
+      "540 Call",
+      "560 Call"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Call Option is In-The-Money (ITM) when the Spot Price is greater than the Strike Price ($S > K$). For Strike 500, Spot \u20b9520 > \u20b9500, yielding positive intrinsic value of \u20b920.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c16-q3",
+    "courseId": "nism-vd",
+    "question": "The total premium of an option is mathematically composed of:",
+    "options": [
+      "Face Value + Book Value",
+      "Intrinsic Value + Time Value (Extrinsic Value)",
+      "Historical Volatility + Cost of Carry",
+      "Brokerage + STT"
+    ],
+    "correctIndex": 1,
+    "explanation": "Option Premium = Intrinsic Value + Time Value. For out-of-the-money and at-the-money options, intrinsic value is zero, so the entire premium consists of time value.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c16-q4",
+    "courseId": "nism-vd",
+    "question": "Stock ABC is trading at \u20b9800. A 780 Strike Call Option is trading at a premium of \u20b935. What is the Intrinsic Value and Time Value of this option?",
+    "options": [
+      "Intrinsic Value = \u20b935, Time Value = \u20b90",
+      "Intrinsic Value = \u20b920, Time Value = \u20b915",
+      "Intrinsic Value = \u20b915, Time Value = \u20b920",
+      "Intrinsic Value = \u20b90, Time Value = \u20b935"
+    ],
+    "correctIndex": 1,
+    "explanation": "Intrinsic Value of Call = Max(0, Spot - Strike) = Max(0, 800 - 780) = \u20b920. Time Value = Total Premium - Intrinsic Value = \u20b935 - \u20b920 = \u20b915.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c16-q5",
+    "courseId": "nism-vd",
+    "question": "Which Option Greek measures the rate of change of an option's premium with respect to a change in the price of the underlying asset?",
+    "options": [
+      "Delta",
+      "Gamma",
+      "Theta",
+      "Vega"
+    ],
+    "correctIndex": 0,
+    "explanation": "Delta ($\\Delta$) measures the sensitivity of the option price to a one-unit change in the underlying asset's price. Delta of a call option ranges from 0 to +1.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c16-q6",
+    "courseId": "nism-vd",
+    "question": "If a Call Option has a Delta of 0.60 and the underlying stock price increases by \u20b910, by approximately how much will the option premium increase?",
+    "options": [
+      "\u20b910.00",
+      "\u20b96.00",
+      "\u20b90.60",
+      "\u20b916.00"
+    ],
+    "correctIndex": 1,
+    "explanation": "Change in Option Premium $\\approx$ Delta * Change in Underlying Price = 0.60 * \u20b910 = \u20b96.00.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c16-q7",
+    "courseId": "nism-vd",
+    "question": "Which Option Greek represents the curvature or the rate of change of Delta for a one-unit change in the underlying price?",
+    "options": [
+      "Vega",
+      "Rho",
+      "Gamma",
+      "Theta"
+    ],
+    "correctIndex": 2,
+    "explanation": "Gamma ($\\Gamma$) measures the acceleration of Delta. It is highest for At-The-Money (ATM) options and declines for deep ITM or deep OTM options.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c16-q8",
+    "courseId": "nism-vd",
+    "question": "Theta is typically negative for long option positions because:",
+    "options": [
+      "Stock prices tend to drift downwards over time",
+      "Options lose time value each day as expiration approaches (Time Decay)",
+      "Interest rates erode margin deposits",
+      "Exchange transaction taxes accrue daily"
+    ],
+    "correctIndex": 1,
+    "explanation": "Theta represents time decay\u2014the reduction in the option's extrinsic time value as each day passes, all else being equal. Option buyers lose Theta daily, whereas option sellers gain Theta.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c16-q9",
+    "courseId": "nism-vd",
+    "question": "Which Option Greek measures the sensitivity of an option's premium to a 1% change in Implied Volatility (IV)?",
+    "options": [
+      "Delta",
+      "Gamma",
+      "Theta",
+      "Vega"
+    ],
+    "correctIndex": 3,
+    "explanation": "Vega ($\\nu$) measures the change in option price for a 1% point change in the implied volatility of the underlying asset. Both Call and Put buyers are long Vega (benefit from rising IV).",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c16-q10",
+    "courseId": "nism-vd",
+    "question": "Under the Put-Call Parity theorem for European options on non-dividend paying stocks, which relationship must hold?",
+    "options": [
+      "$C + PV(K) = P + S$",
+      "$C - P = K - S$",
+      "$C + P = S \\times PV(K)$",
+      "$C / P = S / K$"
+    ],
+    "correctIndex": 0,
+    "explanation": "Put-Call Parity states: $C + PV(K) = P + S$, or $C - P = S - PV(K)$, where $C$ is call price, $P$ is put price, $S$ is spot price, and $PV(K)$ is present value of strike price discounted at the risk-free rate.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c16-q11",
+    "courseId": "nism-vd",
+    "question": "What is 'Implied Volatility' (IV)?",
+    "options": [
+      "The standard deviation of daily stock returns over the preceding 365 calendar days",
+      "The expected future volatility of the underlying asset priced into current market option premiums, calculated by inverting the Black-Scholes formula",
+      "The annualized variance of the Nifty 50 dividend yield",
+      "The maximum price swing recorded during the quarterly earnings season"
+    ],
+    "correctIndex": 1,
+    "explanation": "Implied Volatility (IV) is the market's forward-looking estimate of volatility over the life of the option, derived by inputting the observed market option price into the Black-Scholes-Merton option pricing model.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c16-q12",
+    "courseId": "nism-vd",
+    "question": "What style of options are equity and index options traded on Indian stock exchanges (NSE and BSE)?",
+    "options": [
+      "American style for both Index and Stock options",
+      "European style for both Index options and Stock options",
+      "Bermudan style for Stock options and American for Index options",
+      "Asian style with daily arithmetic averaging"
+    ],
+    "correctIndex": 1,
+    "explanation": "In India, all exchange-traded stock options and index options are European style (exerciseable only on expiration date), designated by the CE (Call European) and PE (Put European) contract codes.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c17-q1",
+    "courseId": "nism-vd",
+    "question": "A fund manager owns 10,000 shares of Infosys at \u20b91,500 and wants to generate incremental yield while holding the stock. Which strategy should the manager execute?",
+    "options": [
+      "Long Put",
+      "Covered Call (Selling OTM Call options against the long stock position)",
+      "Short Straddle",
+      "Long Futures"
+    ],
+    "correctIndex": 1,
+    "explanation": "In a Covered Call strategy, an investor holds shares in the underlying asset and sells out-of-the-money call options against them, generating cash premium income in exchange for capping upside gains.",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c17-q2",
+    "courseId": "nism-vd",
+    "question": "An investor buys a stock at \u20b91,000 and simultaneously buys a 980 Put option for a premium of \u20b925. What is the maximum loss per share the investor can suffer?",
+    "options": [
+      "\u20b91,000",
+      "\u20b945",
+      "\u20b925",
+      "\u20b920"
+    ],
+    "correctIndex": 1,
+    "explanation": "This is a Protective Put strategy. Maximum Loss = (Stock Buy Price - Put Strike) + Put Premium Paid = (1,000 - 980) + 25 = 20 + 25 = \u20b945 per share.",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c17-q3",
+    "courseId": "nism-vd",
+    "question": "A trader creates a Bull Call Spread by buying a 24,000 Call at \u20b9300 and selling a 24,500 Call at \u20b9120. What is the net premium paid and the maximum possible profit?",
+    "options": [
+      "Net Debit = \u20b9180; Max Profit = \u20b9320",
+      "Net Debit = \u20b9420; Max Profit = \u20b9500",
+      "Net Credit = \u20b9180; Max Profit = Unlimited",
+      "Net Debit = \u20b9180; Max Profit = \u20b9500"
+    ],
+    "correctIndex": 0,
+    "explanation": "Net Debit = 300 - 120 = \u20b9180. Maximum Profit = (Higher Strike - Lower Strike) - Net Debit = (24,500 - 24,000) - 180 = 500 - 180 = \u20b9320 per unit.",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c17-q4",
+    "courseId": "nism-vd",
+    "question": "A trader buys a 24,200 Call at \u20b9200 and simultaneously buys a 24,200 Put at \u20b9180 on the Nifty index (both same expiry). What is this strategy called?",
+    "options": [
+      "Long Strangle",
+      "Long Straddle",
+      "Bear Call Spread",
+      "Iron Condor"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Long Straddle consists of buying a Call and a Put option with the exact same strike price and expiration date. The trader expects massive price movement in either direction.",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c17-q5",
+    "courseId": "nism-vd",
+    "question": "In a Long Straddle with strike 24,000 where total premium paid is \u20b9400 (Call \u20b9220 + Put \u20b9180), what are the two breakeven points at expiry?",
+    "options": [
+      "23,600 and 24,400",
+      "23,800 and 24,200",
+      "24,000 and 24,400",
+      "23,400 and 24,600"
+    ],
+    "correctIndex": 0,
+    "explanation": "Lower Breakeven = Strike - Total Premium = 24,000 - 400 = 23,600. Upper Breakeven = Strike + Total Premium = 24,000 + 400 = 24,400.",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c17-q6",
+    "courseId": "nism-vd",
+    "question": "What is the difference between a Long Straddle and a Long Strangle?",
+    "options": [
+      "A Straddle uses different strike prices, whereas a Strangle uses the same strike price",
+      "A Straddle uses identical strike prices (ATM Call and ATM Put), whereas a Strangle uses different strike prices (OTM Call and OTM Put)",
+      "A Straddle has limited risk, while a Strangle has unlimited risk",
+      "A Straddle uses futures, while a Strangle uses cash shares"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Straddle buys a Call and Put at the same strike (ATM), requiring higher premium. A Strangle buys an OTM Call (higher strike) and an OTM Put (lower strike), reducing initial cost but requiring a larger underlying move to profit.",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c17-q7",
+    "courseId": "nism-vd",
+    "question": "What positions constitute a zero-cost Collar strategy for an investor holding underlying shares?",
+    "options": [
+      "Holding stock, buying an OTM Put for downside protection, and financing it by selling an OTM Call with equivalent premium",
+      "Holding stock, buying a deep ITM Call, and selling a deep OTM Put",
+      "Selling stock and buying both Call and Put at the money",
+      "Holding cash and writing naked intraday straddles"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Collar consists of holding long stock, buying an OTM Put option (flooring downside risk), and selling an OTM Call option (capping upside gain) such that the call premium received fully offsets the put premium paid (zero cash outflow).",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c17-q8",
+    "courseId": "nism-vd",
+    "question": "Which four option positions compose a Long Iron Condor?",
+    "options": [
+      "Buy OTM Put, Sell lower OTM Put, Buy OTM Call, Sell higher OTM Call",
+      "Buy OTM Put (lower wing), Sell higher OTM Put, Sell OTM Call, Buy higher OTM Call (upper wing)",
+      "Sell ATM Call, Sell ATM Put, Buy ATM Future",
+      "Buy 2 ATM Calls and Sell 2 ATM Puts"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Long Iron Condor is a non-directional income strategy consisting of a Bear Put Spread (Sell OTM Put + Buy further OTM Put) combined with a Bull Call Spread (Sell OTM Call + Buy further OTM Call), profiting when the asset stays within the inner short strikes.",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c17-q9",
+    "courseId": "nism-vd",
+    "question": "What is the maximum risk of writing (selling) an unhedged Naked Call option?",
+    "options": [
+      "Limited to the premium received",
+      "Limited to the strike price",
+      "Theoretically unlimited as the underlying stock price can rise without bound",
+      "Strictly zero because options expire worthless"
+    ],
+    "correctIndex": 2,
+    "explanation": "The seller of a naked call receives an upfront premium but faces theoretically unlimited risk because there is no theoretical ceiling to how high the underlying stock price can surge.",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c17-q10",
+    "courseId": "nism-vd",
+    "question": "A trader enters a Bear Put Spread by buying a 24,500 Put at \u20b9250 and selling a 24,000 Put at \u20b9100. What is the breakeven point of this trade at expiry?",
+    "options": [
+      "24,350",
+      "24,250",
+      "24,150",
+      "23,850"
+    ],
+    "correctIndex": 0,
+    "explanation": "Net Debit Paid = 250 - 100 = \u20b9150. For a Bear Put Spread, Breakeven = Higher Strike - Net Debit = 24,500 - 150 = 24,350.",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p2-c13-q1",
+    "courseId": "nism-vd",
+    "question": "Which of the following derivatives instruments is NOT traded on recognized Indian stock exchanges (NSE/BSE)?",
+    "options": [
+      "Index Futures",
+      "Single Stock Options",
+      "Bespoke Credit Default Swaps (CDS) with unstandardized credit event definitions",
+      "Currency Futures (USD-INR)"
+    ],
+    "correctIndex": 2,
+    "explanation": "Exchange-traded derivatives in India are standardized contracts cleared by licensed clearing corporations. Customized OTC credit derivatives like bilateral unstandardized CDS are governed under RBI OTC bilateral framework, not open exchange trading.",
+    "topic": "Basics of Derivatives",
+    "chapter": 13,
+    "chapterTitle": "Basics of Derivatives",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c13-q2",
+    "courseId": "nism-vd",
+    "question": "What is the primary function of Novation performed by a Clearing Corporation in the derivatives market?",
+    "options": [
+      "Rebalancing the underlying equity index every six months",
+      "Interposing itself as the legal buyer to every seller and seller to every buyer, guaranteeing settlement integrity",
+      "Setting statutory margin tax collection rates for SEBI",
+      "Determining the quarterly dividend policy of listed companies"
+    ],
+    "correctIndex": 1,
+    "explanation": "Novation is the legal process where the Clearing Corporation steps in between the buyer and seller, becoming the counterparty to both sides and thereby eliminating bilateral counterparty default risk.",
+    "topic": "Basics of Derivatives",
+    "chapter": 13,
+    "chapterTitle": "Basics of Derivatives",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c13-q3",
+    "courseId": "nism-vd",
+    "question": "A portfolio manager holds \u20b950 Crore of large-cap equities. The manager fears a 10% market correction over the next month but does not want to incur brokerage and capital gains tax by selling shares. What is the most cost-effective hedging strategy?",
+    "options": [
+      "Pledge the shares with a bank to borrow cash",
+      "Short an equivalent value of Nifty 50 Index Futures",
+      "Buy physical gold bars equivalent to 50% of the portfolio",
+      "Sell all equity holdings and invest in corporate fixed deposits"
+    ],
+    "correctIndex": 1,
+    "explanation": "Shorting index futures is the most liquid, tax-efficient, and rapid method to insulate an equity portfolio from systemic market drawdowns without selling underlying cash shares.",
+    "topic": "Basics of Derivatives",
+    "chapter": 13,
+    "chapterTitle": "Basics of Derivatives",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c13-q4",
+    "courseId": "nism-vd",
+    "question": "What is the tenure of the three standard monthly contracts available for trading in equity futures and options in India?",
+    "options": [
+      "Near month (1 month), Next month (2 months), and Far month (3 months)",
+      "Weekly, Bi-weekly, and Monthly",
+      "1-year, 2-year, and 5-year contracts only",
+      "Daily, Alternate Day, and Weekly"
+    ],
+    "correctIndex": 0,
+    "explanation": "Indian stock exchanges offer 3 concurrent monthly contracts for equity and index derivatives: Near Month (1), Next Month (2), and Far Month (3), expiring on the designated expiry day of each calendar month.",
+    "topic": "Basics of Derivatives",
+    "chapter": 13,
+    "chapterTitle": "Basics of Derivatives",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c13-q5",
+    "courseId": "nism-vd",
+    "question": "When did exchange-traded equity index futures and options formally launch on the National Stock Exchange of India (NSE)?",
+    "options": [
+      "Index Futures in June 2000, Index Options in June 2001",
+      "January 1992 and March 1993",
+      "October 2008 and November 2009",
+      "August 2015 and April 2016"
+    ],
+    "correctIndex": 0,
+    "explanation": "NSE commenced trading in Index Futures on June 12, 2000, followed by Index Options on June 4, 2001, and Single Stock Futures in November 2001.",
+    "topic": "Basics of Derivatives",
+    "chapter": 13,
+    "chapterTitle": "Basics of Derivatives",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c13-q6",
+    "courseId": "nism-vd",
+    "question": "Which regulatory entity in India has statutory jurisdiction over equity and currency derivatives traded on stock exchanges?",
+    "options": [
+      "Reserve Bank of India (RBI) exclusively",
+      "Securities and Exchange Board of India (SEBI)",
+      "Forward Markets Commission (FMC)",
+      "Insurance Regulatory and Development Authority of India (IRDAI)"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI regulates all securities and derivatives markets traded on stock exchanges under the SEBI Act, 1992 and SCRA, 1956.",
+    "topic": "Basics of Derivatives",
+    "chapter": 13,
+    "chapterTitle": "Basics of Derivatives",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c13-q7",
+    "courseId": "nism-vd",
+    "question": "In derivative parlance, what is 'Basis Risk'?",
+    "options": [
+      "The risk that a broker defaults on an exchange membership deposit",
+      "The risk arising from unpredictable fluctuations in the difference between the cash price of the underlying asset and the futures price used for hedging",
+      "The risk that the exchange server experiences a hardware outage",
+      "The risk of interest rates being revised by the Monetary Policy Committee"
+    ],
+    "correctIndex": 1,
+    "explanation": "Basis Risk is the risk that the price of the futures contract will not move in exact one-to-one synchronization with the cash asset being hedged, leading to an imperfect hedge.",
+    "topic": "Basics of Derivatives",
+    "chapter": 13,
+    "chapterTitle": "Basics of Derivatives",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c13-q8",
+    "courseId": "nism-vd",
+    "question": "Which category of market participants ensures that market prices of derivative contracts stay aligned with their theoretical fair values across different trading venues?",
+    "options": [
+      "Arbitrageurs",
+      "Commercial hedgers",
+      "Retail option buyers",
+      "Credit rating agencies"
+    ],
+    "correctIndex": 0,
+    "explanation": "Arbitrageurs exploit instantaneous mispricings between the cash and derivatives markets (or across exchanges), rapidly driving market prices back to theoretical parity.",
+    "topic": "Basics of Derivatives",
+    "chapter": 13,
+    "chapterTitle": "Basics of Derivatives",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c14-q1",
+    "courseId": "nism-vd",
+    "question": "Why is the Free-Float market capitalization methodology preferred over Total Market Capitalization for index construction?",
+    "options": [
+      "It inflates the index level to attract foreign institutional investors",
+      "It reflects only the shares that are readily available for trading in the open market, preventing illiquid promoter stakes from distorting index weights",
+      "It eliminates government taxation on capital gains",
+      "It forces companies to issue bonus shares every year"
+    ],
+    "correctIndex": 1,
+    "explanation": "Free-float excludes strategic holdings, promoters, and government ownership, ensuring the index represents the investable universe available to public investors without liquidity bottlenecks.",
+    "topic": "Introduction to Underlying Markets and Indices",
+    "chapter": 14,
+    "chapterTitle": "Introduction to Underlying Markets and Indices",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c14-q2",
+    "courseId": "nism-vd",
+    "question": "If an index has a base value of 1,000 on its base date with a base market cap of \u20b910,000 Crore, what is the index level when the current aggregate free-float market cap is \u20b925,000 Crore?",
+    "options": [
+      "2,500",
+      "1,500",
+      "3,000",
+      "250"
+    ],
+    "correctIndex": 0,
+    "explanation": "Index Value = (Current Market Cap / Base Market Cap) * Base Index Value = (\u20b925,000 Cr / \u20b910,000 Cr) * 1,000 = 2.5 * 1,000 = 2,500.",
+    "topic": "Introduction to Underlying Markets and Indices",
+    "chapter": 14,
+    "chapterTitle": "Introduction to Underlying Markets and Indices",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c14-q3",
+    "courseId": "nism-vd",
+    "question": "What does a stock Beta of zero ($\beta = 0$) indicate regarding its relationship with the market index?",
+    "options": [
+      "The stock price moves in the exact opposite direction to the market index",
+      "The stock is risk-free and has zero price movement over time",
+      "The stock's price movements are completely uncorrelated with the benchmark market index",
+      "The stock has been suspended from trading by SEBI"
+    ],
+    "correctIndex": 2,
+    "explanation": "A Beta of 0 indicates that the asset's returns are statistically uncorrelated with the benchmark index returns (e.g., cash or risk-free treasury bills).",
+    "topic": "Introduction to Underlying Markets and Indices",
+    "chapter": 14,
+    "chapterTitle": "Introduction to Underlying Markets and Indices",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c14-q4",
+    "courseId": "nism-vd",
+    "question": "A mutual fund scheme has an equity portfolio worth \u20b9100 Crore with an aggregate beta of 1.25. If the fund manager wants to completely eliminate market risk using Nifty Futures (where Nifty futures lot value is \u20b912.5 Lakh), how many futures contracts must be sold?",
+    "options": [
+      "800 contracts",
+      "1,000 contracts",
+      "1,250 contracts",
+      "100 contracts"
+    ],
+    "correctIndex": 1,
+    "explanation": "Number of Contracts = [Portfolio Value * Portfolio Beta] / [Futures Contract Value] = [\u20b9100,00,00,000 * 1.25] / \u20b912,50,000 = \u20b9125,00,00,000 / \u20b912,50,000 = 1,000 contracts.",
+    "topic": "Introduction to Underlying Markets and Indices",
+    "chapter": 14,
+    "chapterTitle": "Introduction to Underlying Markets and Indices",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c14-q5",
+    "courseId": "nism-vd",
+    "question": "Which of the following statements about 'Tracking Error' in index funds or ETFs is accurate?",
+    "options": [
+      "Tracking error measures the standard deviation of the difference in returns between the fund and its underlying benchmark index",
+      "Tracking error is the brokerage fee charged by the AMC when units are redeemed",
+      "A higher tracking error is desirable because it guarantees outperformance",
+      "Tracking error is zero whenever the expense ratio is higher than 1.50%"
+    ],
+    "correctIndex": 0,
+    "explanation": "Tracking Error measures the annualized standard deviation of excess returns of the index fund/ETF relative to its benchmark index, reflecting cash drag, expense ratio, and replication slippage.",
+    "topic": "Introduction to Underlying Markets and Indices",
+    "chapter": 14,
+    "chapterTitle": "Introduction to Underlying Markets and Indices",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c14-q6",
+    "courseId": "nism-vd",
+    "question": "Under SEBI F&O eligibility norms, what is the 'Median Quarter-Sigma Order Size' (MQSOS)?",
+    "options": [
+      "The minimum ticket size for retail investors in mutual funds",
+      "The order size required to move a stock's price by one-quarter of a standard deviation (sigma), measuring order book depth",
+      "The median daily turnover of foreign institutional investors",
+      "The minimum net worth required to become a trading member"
+    ],
+    "correctIndex": 1,
+    "explanation": "MQSOS represents the order value required to inflict a price change equal to one-quarter of the stock's standard deviation. A higher MQSOS demonstrates deep liquidity and resilient order book depth.",
+    "topic": "Introduction to Underlying Markets and Indices",
+    "chapter": 14,
+    "chapterTitle": "Introduction to Underlying Markets and Indices",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c14-q7",
+    "courseId": "nism-vd",
+    "question": "What occurs when an underlying stock in the F&O segment breaches 95% of its Market Wide Position Limit (MWPL)?",
+    "options": [
+      "Trading in cash market is completely suspended",
+      "The stock enters a ban period where only unwinding of existing positions is permitted; no fresh positions are allowed",
+      "The exchange immediately liquidates all retail positions at a 10% discount",
+      "The company is delisted from the stock exchange"
+    ],
+    "correctIndex": 1,
+    "explanation": "When aggregate open interest crosses 95% of MWPL, the stock enters the F&O ban period. Traders can only square off or decrease existing open positions; opening fresh positions incurs heavy exchange penalties.",
+    "topic": "Introduction to Underlying Markets and Indices",
+    "chapter": 14,
+    "chapterTitle": "Introduction to Underlying Markets and Indices",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c14-q8",
+    "courseId": "nism-vd",
+    "question": "How does an equity stock exit from the F&O Ban period back to normal trading?",
+    "options": [
+      "When open interest falls below 80% of MWPL across all exchanges",
+      "Automatically at the start of the next calendar quarter",
+      "Upon submission of an apology letter by the trading members",
+      "When the stock price rises by at least 15%"
+    ],
+    "correctIndex": 0,
+    "explanation": "A stock exits the F&O ban period only when its aggregate open interest drops below 80% of the prescribed Market Wide Position Limit.",
+    "topic": "Introduction to Underlying Markets and Indices",
+    "chapter": 14,
+    "chapterTitle": "Introduction to Underlying Markets and Indices",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c15-q1",
+    "courseId": "nism-vd",
+    "question": "If a dividend of \u20b915 per share is expected to be paid in 2 months on a stock trading at \u20b9600, what happens to the 3-month theoretical futures price compared to a scenario with zero dividend?",
+    "options": [
+      "The futures price will be higher by \u20b915",
+      "The futures price will be lower because dividend payouts reduce the future spot price: $F = (S_0 - PV(D)) \\times (1 + r \\times T)$",
+      "The futures price will be completely unaffected",
+      "The futures contract is cancelled by the exchange"
+    ],
+    "correctIndex": 1,
+    "explanation": "Dividends accrue to the cash shareholder, not the futures holder. Therefore, anticipated dividends reduce the theoretical futures price: $F = [S_0 - PV(\\text{Dividend})] \\times (1 + rT)$.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c15-q2",
+    "courseId": "nism-vd",
+    "question": "What is 'Backwardation' (or Inverted Market) in futures markets?",
+    "options": [
+      "When the futures price trades at a discount to the cash spot price ($F < S$)",
+      "When futures price is higher than spot price",
+      "When volume in far-month contracts exceeds near-month contracts",
+      "When open interest falls to zero"
+    ],
+    "correctIndex": 0,
+    "explanation": "Backwardation occurs when futures price is lower than the spot price ($F < S$), which can happen due to high dividend yields, severe cash liquidity scarcity, or extreme short-term spot demand.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c15-q3",
+    "courseId": "nism-vd",
+    "question": "An investor sells 1 lot of TCS futures (lot size 175) at \u20b94,100. Next day the settlement price rises to \u20b94,160. What is the daily Mark-to-Market (MTM) impact on the seller?",
+    "options": [
+      "Profit of \u20b910,500 credited to account",
+      "Loss of \u20b910,500 debited from account",
+      "Loss of \u20b960,000 debited from account",
+      "Zero impact until expiry"
+    ],
+    "correctIndex": 1,
+    "explanation": "For a short futures position: MTM Loss = (Current Settlement Price - Sell Price) * Lot Size = (4,160 - 4,100) * 175 = +60 * 175 = \u20b910,500 loss debited from client account.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c15-q4",
+    "courseId": "nism-vd",
+    "question": "What is the 'Exposure Margin' levied by clearing corporations in India on futures positions?",
+    "options": [
+      "A margin to collect STT in advance",
+      "An additional margin levied over and above the SPAN margin (typically 3.5% for equity index and 5% or 1.5 sigma for stocks) to absorb tail risk",
+      "A fee paid to credit rating agencies",
+      "A refund given to retail investors who hold positions for more than 30 days"
+    ],
+    "correctIndex": 1,
+    "explanation": "Initial Margin in India consists of SPAN Margin (worst-case scenario loss) plus Exposure Margin (prescribed by SEBI, typically 3.5% for index contracts and 5% for stock contracts) to cushion against extreme tail events.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c15-q5",
+    "courseId": "nism-vd",
+    "question": "What is 'Rollover' in futures trading?",
+    "options": [
+      "Closing out an expiring near-month futures position and simultaneously opening a corresponding position in the next-month contract",
+      "Converting a futures contract into a fixed deposit",
+      "Borrowing money from the clearing corporation",
+      "Switching an equity future into a debt mutual fund"
+    ],
+    "correctIndex": 0,
+    "explanation": "Rollover refers to carrying forward an open derivative exposure by squaring off the near-month contract as expiry nears and simultaneously creating a new position in the subsequent month's contract.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c15-q6",
+    "courseId": "nism-vd",
+    "question": "A futures contract price is falling while Open Interest (OI) is increasing substantially. This technical condition indicates:",
+    "options": [
+      "Long Build-up",
+      "Short Build-up (Aggressive fresh short positions being initiated)",
+      "Short Covering",
+      "Long Unwinding"
+    ],
+    "correctIndex": 1,
+    "explanation": "Falling Price accompanied by Rising Open Interest indicates that fresh sellers are aggressively entering the market, adding short contracts. This is termed 'Short Build-up' (Bearish).",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c15-q7",
+    "courseId": "nism-vd",
+    "question": "A futures contract price is rising while Open Interest (OI) is dropping significantly. This market dynamic indicates:",
+    "options": [
+      "Long Build-up",
+      "Short Covering (Bears rushing to buy back and close existing short positions)",
+      "Short Build-up",
+      "Fresh distribution"
+    ],
+    "correctIndex": 1,
+    "explanation": "Rising Price accompanied by Falling Open Interest means existing short sellers are panicking and buying back their contracts to exit, known as 'Short Covering'.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c15-q8",
+    "courseId": "nism-vd",
+    "question": "What happens under SEBI rules if a client fails to maintain the required minimum initial margin (SPAN + Exposure) in their account on a T+1 basis?",
+    "options": [
+      "The broker must report margin shortfall to the exchange, attracting mandatory regulatory penalties, and may square off positions",
+      "The exchange waives the requirement if the client is an HNI",
+      "The client's Aadhaar card is permanently blacklisted",
+      "The trading terminal is confiscated"
+    ],
+    "correctIndex": 0,
+    "explanation": "Failure to meet margin calls leads to margin shortfall penalties imposed by the clearing corporation and authorizes the trading member to liquidate the client's collateral and square off open positions.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c15-q9",
+    "courseId": "nism-vd",
+    "question": "How does a Forward contract differ from a Futures contract with respect to counterparty credit risk?",
+    "options": [
+      "Forward contracts have zero credit risk because of clearing novation",
+      "Forward contracts carry significant bilateral counterparty default risk, whereas Futures contracts virtually eliminate it through central clearing house guarantee",
+      "Futures contracts have higher default risk than forwards",
+      "Both contracts have identical sovereign guarantees from the Reserve Bank of India"
+    ],
+    "correctIndex": 1,
+    "explanation": "Forwards are private bilateral OTC agreements dependent entirely on each party's financial solvency. Futures are exchange-traded and cleared by a Central Clearing Corporation, eliminating counterparty risk.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c15-q10",
+    "courseId": "nism-vd",
+    "question": "If the annual risk-free rate is 6% and a stock is trading at \u20b9500, what is the cost of carry for a 6-month futures contract (assume zero dividend)?",
+    "options": [
+      "\u20b930.00",
+      "\u20b915.00",
+      "\u20b97.50",
+      "\u20b90.00"
+    ],
+    "correctIndex": 1,
+    "explanation": "Cost of Carry = Spot Price * Interest Rate * Time = \u20b9500 * 6% * (6/12) = \u20b9500 * 0.06 * 0.5 = \u20b915.00.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c15-q11",
+    "courseId": "nism-vd",
+    "question": "Under physical settlement of stock derivatives, what is required if a trader holds a SHORT stock futures position to expiry?",
+    "options": [
+      "The trader must deliver the full physical lot of underlying shares from their Demat account and receive the cash settlement amount",
+      "The trader must pay cash equivalent to 20% of the contract value",
+      "The exchange automatically converts the short futures into a long call option",
+      "The trader receives free equity warrants"
+    ],
+    "correctIndex": 0,
+    "explanation": "Holding a short stock futures contract into physical expiry obligates the seller to deliver the actual underlying shares from their Demat account against receipt of the settlement consideration.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c15-q12",
+    "courseId": "nism-vd",
+    "question": "What is the maximum permissible single-client position limit in index futures and options for a retail or non-institutional client?",
+    "options": [
+      "Higher of \u20b9500 Crore or 15% of total open interest in the market",
+      "Higher of \u20b95 Crore or 5% of the total open interest in the market",
+      "No limit whatsoever",
+      "Strictly 10 lots per PAN"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under SEBI position limit regulations, client-level exposure in index derivatives is capped at the higher of \u20b95 Crore or 5% of total open interest in the market.",
+    "topic": "Introduction to Forwards and Futures",
+    "chapter": 15,
+    "chapterTitle": "Introduction to Forwards and Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c16-q1",
+    "courseId": "nism-vd",
+    "question": "The buyer of an equity Put Option acquires:",
+    "options": [
+      "The obligation to purchase underlying shares at the strike price",
+      "The right, but not the obligation, to sell the underlying shares at the strike price",
+      "The right to receive mandatory quarterly dividends from the AMC",
+      "The obligation to tender physical delivery to the clearing corporation"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Put Option gives the holder (buyer) the right, but not the obligation, to sell the underlying asset at a specified strike price on or before expiry.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c16-q2",
+    "courseId": "nism-vd",
+    "question": "Stock PQR is trading at \u20b9450. Which of the following Put Options is 'In-The-Money' (ITM)?",
+    "options": [
+      "420 Put",
+      "440 Put",
+      "450 Put",
+      "480 Put"
+    ],
+    "correctIndex": 3,
+    "explanation": "A Put Option is In-The-Money (ITM) when the Strike Price is greater than the Spot Price ($K > S$). For the 480 Put, Strike \u20b9480 > Spot \u20b9450, possessing an intrinsic value of \u20b930.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c16-q3",
+    "courseId": "nism-vd",
+    "question": "What is the Delta of a deep In-The-Money (ITM) Call Option?",
+    "options": [
+      "Approaching 0",
+      "Approaching +1.0",
+      "Approaching -1.0",
+      "Approaching +0.50"
+    ],
+    "correctIndex": 1,
+    "explanation": "As a Call option goes deep in-the-money, its delta approaches +1.0, meaning its price changes almost rupee-for-rupee with the underlying stock.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c16-q4",
+    "courseId": "nism-vd",
+    "question": "What is the Delta of an At-The-Money (ATM) Put Option approximately?",
+    "options": [
+      "+1.0",
+      "-0.50",
+      "+0.50",
+      "0.0"
+    ],
+    "correctIndex": 1,
+    "explanation": "An At-The-Money Put Option has a Delta of approximately -0.50. Put deltas are negative because put prices move inversely to the underlying stock price.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c16-q5",
+    "courseId": "nism-vd",
+    "question": "At what moneyness level is the Gamma ($\\Gamma$) of an option at its maximum?",
+    "options": [
+      "Deep Out-of-the-Money (OTM)",
+      "At-the-Money (ATM)",
+      "Deep In-the-Money (ITM)",
+      "Zero moneyness"
+    ],
+    "correctIndex": 1,
+    "explanation": "Gamma measures the rate of change of Delta and is highest for At-The-Money (ATM) options, especially as expiration approaches.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c16-q6",
+    "courseId": "nism-vd",
+    "question": "An investor writes (sells) an OTM Call option. How does Theta (time decay) affect this short position as time elapses?",
+    "options": [
+      "Positively, because time decay erodes the option premium, allowing the writer to retain the premium",
+      "Negatively, causing losses every day",
+      "Theta has zero impact on option sellers",
+      "Theta forces the seller to buy back the option at double the margin"
+    ],
+    "correctIndex": 0,
+    "explanation": "Option sellers are net short Theta. As time passes, the option loses time value, working directly in favor of the option seller (positive time decay capture).",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c16-q7",
+    "courseId": "nism-vd",
+    "question": "If market implied volatility surges from 12% to 22% (e.g., during election results), what happens to the prices of both Call and Put options, assuming the spot price remains unchanged?",
+    "options": [
+      "Both Call and Put option premiums will rise significantly because Vega is positive for both long options",
+      "Call premiums will rise but Put premiums will crash to zero",
+      "Both option premiums will decline because volatility destroys value",
+      "Only futures prices are affected by volatility"
+    ],
+    "correctIndex": 0,
+    "explanation": "Vega is positive for all long option positions (Calls and Puts). An increase in volatility expands the probability distribution of outcomes, increasing the time value of both calls and puts.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c16-q8",
+    "courseId": "nism-vd",
+    "question": "Which Option Greek measures the sensitivity of an option's premium to changes in the benchmark risk-free interest rate?",
+    "options": [
+      "Rho",
+      "Vega",
+      "Theta",
+      "Delta"
+    ],
+    "correctIndex": 0,
+    "explanation": "Rho ($\\rho$) measures the expected change in option value for a 1% point change in the risk-free interest rate. Calls have positive Rho, while Puts have negative Rho.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c16-q9",
+    "courseId": "nism-vd",
+    "question": "What is the Intrinsic Value of a 24,000 Strike Put Option when the Nifty spot index is trading at 23,750?",
+    "options": [
+      "\u20b90",
+      "\u20b9250",
+      "\u20b9500",
+      "-\u20b9250"
+    ],
+    "correctIndex": 1,
+    "explanation": "Intrinsic Value of Put = Max(0, Strike - Spot) = Max(0, 24,000 - 23,750) = \u20b9250.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c16-q10",
+    "courseId": "nism-vd",
+    "question": "Stock XYZ is trading at \u20b9300. A 320 Strike Call Option is trading at \u20b912 with 30 days to expiry. What is its Intrinsic Value?",
+    "options": [
+      "\u20b912",
+      "\u20b920",
+      "\u20b90",
+      "\u20b98"
+    ],
+    "correctIndex": 2,
+    "explanation": "Intrinsic Value of Call = Max(0, Spot - Strike) = Max(0, 300 - 320) = \u20b90. Because the option is Out-Of-The-Money (OTM), its intrinsic value is 0, and the entire \u20b912 premium represents Time Value.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c16-q11",
+    "courseId": "nism-vd",
+    "question": "In the Black-Scholes-Merton option pricing model, which of the following variables is NOT directly observable in the market and must be estimated or backed out?",
+    "options": [
+      "Current spot price of the underlying asset",
+      "Strike price of the contract",
+      "Time remaining until expiration",
+      "Future Volatility of the underlying asset over the option's life"
+    ],
+    "correctIndex": 3,
+    "explanation": "Spot price, strike price, time to expiry, and risk-free interest rate are all directly observable. Future volatility cannot be directly observed and must be estimated (Historical) or inferred from market prices (Implied).",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c16-q12",
+    "courseId": "nism-vd",
+    "question": "What is the 'Volatility Smile' or 'Volatility Skew' frequently observed in equity index options?",
+    "options": [
+      "A graphical curve showing that Implied Volatility is identical across all strike prices",
+      "A pattern where OTM Puts have higher Implied Volatility than ATM or OTM Calls, reflecting market demand for downside crash protection",
+      "A smiling face emoticon printed on contract confirmation slips",
+      "A seasonal chart of corporate profit margins"
+    ],
+    "correctIndex": 1,
+    "explanation": "In equity index options, downside Out-of-the-Money Puts typically trade at higher implied volatilities than ATM or OTM Calls (Volatility Skew), reflecting investor willingness to pay a premium for tail-risk crash protection.",
+    "topic": "Introduction to Options",
+    "chapter": 16,
+    "chapterTitle": "Introduction to Options",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c17-q1",
+    "courseId": "nism-vd",
+    "question": "An investor implements a Covered Call by buying stock at \u20b91,200 and selling a 1,250 Call for \u20b940. What is the maximum profit per share if the stock surges to \u20b91,400 at expiry?",
+    "options": [
+      "\u20b9240",
+      "\u20b990",
+      "\u20b950",
+      "\u20b940"
+    ],
+    "correctIndex": 1,
+    "explanation": "Max Profit occurs when stock reaches or exceeds strike price (\u20b91,250). Max Profit = (Strike Price - Stock Purchase Price) + Option Premium = (1,250 - 1,200) + 40 = 50 + 40 = \u20b990 per share.",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c17-q2",
+    "courseId": "nism-vd",
+    "question": "What is the maximum risk of a Covered Call strategy?",
+    "options": [
+      "Limited to the call premium received",
+      "Substantial downside risk if the underlying stock drops towards zero, mitigated only by the premium received",
+      "Zero downside risk",
+      "Limited strictly to \u20b910 per lot"
+    ],
+    "correctIndex": 1,
+    "explanation": "In a Covered Call, if the underlying stock falls drastically towards zero, the investor suffers the loss on the stock, cushioned only by the modest call premium collected.",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c17-q3",
+    "courseId": "nism-vd",
+    "question": "A trader expects a moderate drop in the Nifty index. The trader buys a 24,000 Put at \u20b9220 and sells a 23,500 Put at \u20b980. What is the maximum profit achievable on this Bear Put Spread?",
+    "options": [
+      "\u20b9500",
+      "\u20b9360",
+      "\u20b9140",
+      "Unlimited"
+    ],
+    "correctIndex": 1,
+    "explanation": "Net Debit = 220 - 80 = \u20b9140. Max Profit = (Higher Strike - Lower Strike) - Net Debit = (24,000 - 23,500) - 140 = 500 - 140 = \u20b9360 per unit.",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c17-q4",
+    "courseId": "nism-vd",
+    "question": "A trader initiates a Bull Put Spread by selling a 24,000 Put at \u20b9250 and buying a 23,500 Put at \u20b990. What is this trade type and maximum potential gain?",
+    "options": [
+      "Credit Spread; Max Gain is the Net Premium Received of \u20b9160",
+      "Debit Spread; Max Gain is \u20b9500",
+      "Directional neutral; Max Gain is \u20b9340",
+      "Unlimited upside strategy"
+    ],
+    "correctIndex": 0,
+    "explanation": "Selling a higher strike Put and buying a lower strike Put is a Bull Put Spread (Credit Spread). If the index stays above 24,000, both puts expire worthless, and the trader retains the net credit of \u20b9250 - \u20b990 = \u20b9160.",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c17-q5",
+    "courseId": "nism-vd",
+    "question": "A trader sells a 24,000 Call at \u20b9200 and simultaneously sells a 24,000 Put at \u20b9180 (Short Straddle). Under what market condition does this trader make maximum profit?",
+    "options": [
+      "If the index rallies by 2,000 points",
+      "If the index plunges by 2,000 points",
+      "If the index settles exactly at 24,000 at expiry, allowing both options to expire worthless",
+      "If implied volatility doubles overnight"
+    ],
+    "correctIndex": 2,
+    "explanation": "A Short Straddle achieves its maximum profit (total premium collected: \u20b9200 + \u20b9180 = \u20b9380) when the underlying asset expires precisely at the strike price (24,000), making both options expire worthless.",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c17-q6",
+    "courseId": "nism-vd",
+    "question": "What is the primary risk associated with writing (selling) a Short Straddle or Short Strangle?",
+    "options": [
+      "Loss of dividend entitlement",
+      "Theoretically unlimited loss if the underlying asset makes a violent breakout in either direction",
+      "The exchange automatically closes the trader's bank account",
+      "Brokerage charges multiply by 100 times"
+    ],
+    "correctIndex": 1,
+    "explanation": "Short Straddles and Strangles have capped profit (the premium collected) and unlimited risk if the market moves violently up or down beyond the breakeven thresholds.",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c17-q7",
+    "courseId": "nism-vd",
+    "question": "A Long Butterfly Spread using Call options consists of which combinations of positions?",
+    "options": [
+      "Buy 1 ITM Call, Sell 2 ATM Calls, and Buy 1 OTM Call",
+      "Sell 1 ITM Call, Buy 2 ATM Calls, and Sell 1 OTM Call",
+      "Buy 2 ITM Calls and Sell 2 OTM Calls",
+      "Buy 1 ATM Call and Sell 1 ATM Put"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Long Call Butterfly is constructed by buying 1 lower strike (ITM) call, selling 2 middle strike (ATM) calls, and buying 1 higher strike (OTM) call with equidistant strikes, offering limited risk and limited profit.",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c17-q8",
+    "courseId": "nism-vd",
+    "question": "What is a 'Synthetic Long Stock' position constructed using options?",
+    "options": [
+      "Buy a Call option and simultaneously Sell a Put option with identical strike and expiry",
+      "Buy a Put option and sell a Call option",
+      "Buy 2 Call options and 1 Put option",
+      "Buy an equity ETF and sell a futures contract"
+    ],
+    "correctIndex": 0,
+    "explanation": "By Put-Call Parity, buying a Call and selling a Put at the same strike price ($C - P$) replicates the exact payoff profile and Delta (+1.0) of owning the underlying cash stock or long futures.",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c17-q9",
+    "courseId": "nism-vd",
+    "question": "What is a 'Ratio Spread' in options trading?",
+    "options": [
+      "A strategy where the number of options bought and options sold are not in a 1:1 ratio (e.g. buy 1 ITM call, sell 2 OTM calls)",
+      "The ratio of equity assets to debt assets in an SIF fund",
+      "The ratio between bid price and ask price",
+      "A strategy dividing margins between two clearing members"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Ratio Spread involves an unequal number of options bought versus sold (such as buying 1 Call at strike A and selling 2 Calls at higher strike B) to reduce upfront cost or collect a credit.",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c17-q10",
+    "courseId": "nism-vd",
+    "question": "An investor holds a concentrated portfolio of blue-chip stocks and wants to lock in a floor price against catastrophic crash while giving up gains beyond 10%. Which strategy precisely achieves this?",
+    "options": [
+      "Collar strategy (Buy OTM Put + Sell OTM Call)",
+      "Naked Short Put strategy",
+      "Long Straddle",
+      "Reverse Cash and Carry Arbitrage"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Collar establishes a floor for downside risk (via the long put) and finances it by giving up upside beyond a ceiling (via the short call), ideal for long-term equity holders wanting capital protection.",
+    "topic": "Option Trading Strategies and Payoff Profiles",
+    "chapter": 17,
+    "chapterTitle": "Option Trading Strategies and Payoff Profiles",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p1-c18-q1",
+    "courseId": "nism-vd",
+    "question": "What is the mathematical relationship between bond prices and market interest rates (yields)?",
+    "options": [
+      "Directly proportional (Bond prices rise when interest rates rise)",
+      "Inversely proportional (Bond prices fall when interest rates rise, and rise when rates fall)",
+      "Completely independent of each other",
+      "Exponentially correlated in a positive direction"
+    ],
+    "correctIndex": 1,
+    "explanation": "Bond prices and interest rates share an inverse relationship. When prevailing interest rates rise, the present value of future fixed coupons declines, driving bond prices down, and vice-versa.",
+    "topic": "Fixed Income and Interest Rate Basics",
+    "chapter": 18,
+    "chapterTitle": "Fixed Income and Interest Rate Basics",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c18-q2",
+    "courseId": "nism-vd",
+    "question": "What does 'Yield to Maturity' (YTM) represent for a fixed-income bond?",
+    "options": [
+      "The simple coupon rate divided by the bond face value",
+      "The internal rate of return (IRR) earned by an investor assuming the bond is held until maturity and all coupon payments are reinvested at the same YTM",
+      "The highest yield recorded by the bond over the last 52 weeks",
+      "The capital gain realized upon selling the bond in the secondary market"
+    ],
+    "correctIndex": 1,
+    "explanation": "YTM is the single discount rate that equates the present value of all expected future cash flows (coupons + principal repayment) to the current market clean price of the bond.",
+    "topic": "Fixed Income and Interest Rate Basics",
+    "chapter": 18,
+    "chapterTitle": "Fixed Income and Interest Rate Basics",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c18-q3",
+    "courseId": "nism-vd",
+    "question": "What does 'Modified Duration' measure in bond portfolio management?",
+    "options": [
+      "The weighted average time in years until all cash flows are received",
+      "The percentage change in a bond's price for a 100 basis points (1%) shift in yield to maturity",
+      "The credit default probability of the corporate bond issuer",
+      "The annualized turnover ratio of the debt fund"
+    ],
+    "correctIndex": 1,
+    "explanation": "Modified Duration ($D^*) = \\text{Macaulay Duration} / (1 + YTM/m)$ measures the percentage price sensitivity of a bond to an instantaneous 1% change in yield.",
+    "topic": "Fixed Income and Interest Rate Basics",
+    "chapter": 18,
+    "chapterTitle": "Fixed Income and Interest Rate Basics",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c18-q4",
+    "courseId": "nism-vd",
+    "question": "A debt portfolio has a Modified Duration of 6.5 years and an aggregate market value of \u20b9100 Crore. If the Reserve Bank of India cuts benchmark policy repo rates and bond yields fall by 50 basis points (0.50%), what is the expected gain in portfolio value?",
+    "options": [
+      "+\u20b96.50 Crore (+6.50%)",
+      "+\u20b93.25 Crore (+3.25%)",
+      "-\u20b93.25 Crore (-3.25%)",
+      "+\u20b91.25 Crore (+1.25%)"
+    ],
+    "correctIndex": 1,
+    "explanation": "Percentage Price Change $\\approx$ - Modified Duration * $\\Delta$Yield = - 6.5 * (-0.50%) = +3.25%. Gain = \u20b9100 Cr * 3.25% = +\u20b93.25 Crore.",
+    "topic": "Fixed Income and Interest Rate Basics",
+    "chapter": 18,
+    "chapterTitle": "Fixed Income and Interest Rate Basics",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c18-q5",
+    "courseId": "nism-vd",
+    "question": "Why is 'Convexity' an important refinement over Modified Duration when modeling large interest rate shifts?",
+    "options": [
+      "Duration assumes a linear relationship between price and yield, whereas actual bond pricing curves are convex (curved), leading duration to underestimate price rises when rates fall and overestimate price drops when rates rise",
+      "Convexity measures equity beta inside hybrid funds",
+      "Duration only applies to zero-coupon bonds",
+      "Convexity guarantees that bond prices never decline"
+    ],
+    "correctIndex": 0,
+    "explanation": "Bond price-yield curves are convex. Modified duration is a first-order (linear) approximation valid only for small shifts. Convexity captures second-order curvature, improving accuracy for large yield shifts.",
+    "topic": "Fixed Income and Interest Rate Basics",
+    "chapter": 18,
+    "chapterTitle": "Fixed Income and Interest Rate Basics",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c18-q6",
+    "courseId": "nism-vd",
+    "question": "An inverted yield curve\u2014where short-term debt instruments offer higher yields than long-term government bonds\u2014historically serves as a prominent market indicator of:",
+    "options": [
+      "Upcoming economic overheating and hyperinflation",
+      "Imminent economic slowdown or recessionary expectations leading to future central bank rate cuts",
+      "Government fiscal deficit expansion beyond 10%",
+      "A sudden structural shortage of equity shares"
+    ],
+    "correctIndex": 1,
+    "explanation": "An inverted yield curve reflects expectations that economic activity will decelerate sharply, prompting the central bank to slash future policy interest rates.",
+    "topic": "Fixed Income and Interest Rate Basics",
+    "chapter": 18,
+    "chapterTitle": "Fixed Income and Interest Rate Basics",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c19-q1",
+    "courseId": "nism-vd",
+    "question": "Which two key regulators jointly oversee the Interest Rate Derivatives (IRD) architecture in India?",
+    "options": [
+      "SEBI (for exchange-traded derivatives) and RBI (for underlying money/debt markets and OTC interest rate derivatives)",
+      "IRDAI and PFRDA",
+      "Ministry of Corporate Affairs and TRAI",
+      "NABARD and SIDBI"
+    ],
+    "correctIndex": 0,
+    "explanation": "Under Indian financial law, the Reserve Bank of India (RBI) regulates the underlying money markets, government securities, and OTC interest rate derivatives, while SEBI regulates exchange-traded derivatives on stock exchanges.",
+    "topic": "Introduction to Interest Rate Derivatives",
+    "chapter": 19,
+    "chapterTitle": "Introduction to Interest Rate Derivatives",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c19-q2",
+    "courseId": "nism-vd",
+    "question": "Which benchmark overnight floating rate is universally referenced in Indian Over-The-Counter (OTC) Interest Rate Swaps (OIS)?",
+    "options": [
+      "US Dollar SOFR",
+      "FBIL Overnight MIBOR (Mumbai Interbank Outright Rate)",
+      "London Interbank Offered Rate (LIBOR)",
+      "Call Money Ceiling Rate"
+    ],
+    "correctIndex": 1,
+    "explanation": "The FBIL Overnight MIBOR (administered by Financial Benchmarks India Pvt Ltd) is the premier benchmark floating reference rate used in domestic MIBOR-OIS swaps.",
+    "topic": "Introduction to Interest Rate Derivatives",
+    "chapter": 19,
+    "chapterTitle": "Introduction to Interest Rate Derivatives",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c19-q3",
+    "courseId": "nism-vd",
+    "question": "A commercial bank has lent \u20b9500 Crore in long-term fixed-rate infrastructure loans funded by short-term floating deposits. What interest rate risk does the bank face if market rates surge?",
+    "options": [
+      "Asset-Liability mismatch risk where interest expense on deposits rises while loan interest income remains fixed, compressing net interest margin (NIM)",
+      "Equity dilution risk",
+      "Foreign currency translation loss",
+      "Tax deduction at source shortfall"
+    ],
+    "correctIndex": 0,
+    "explanation": "Funding long-term fixed assets with short-term floating liabilities exposes the lender to refinancing/interest rate risk; surging interest rates escalate borrowing costs while loan revenues remain static.",
+    "topic": "Introduction to Interest Rate Derivatives",
+    "chapter": 19,
+    "chapterTitle": "Introduction to Interest Rate Derivatives",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c19-q4",
+    "courseId": "nism-vd",
+    "question": "How can a treasury manager who is paying floating-rate interest hedge against rising rates using an Interest Rate Swap (IRS)?",
+    "options": [
+      "Enter a 'Receive Fixed, Pay Floating' swap",
+      "Enter a 'Pay Fixed, Receive Floating' swap",
+      "Buy physical corporate debentures",
+      "Short sell 91-day Treasury Bills"
+    ],
+    "correctIndex": 1,
+    "explanation": "By entering a 'Pay Fixed, Receive Floating' swap, the floating receipts from the swap cancel out the floating payment obligations on the debt, effectively converting the floating liability into a safe, predictable fixed interest rate.",
+    "topic": "Introduction to Interest Rate Derivatives",
+    "chapter": 19,
+    "chapterTitle": "Introduction to Interest Rate Derivatives",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c19-q5",
+    "courseId": "nism-vd",
+    "question": "What is the day count convention standardly adopted for calculating accrued interest and settlement in the Indian Government Securities and Interest Rate Derivatives market?",
+    "options": [
+      "30/360",
+      "Actual/Actual",
+      "Actual/360",
+      "30/Actual"
+    ],
+    "correctIndex": 1,
+    "explanation": "In the Indian Sovereign Government Securities (G-Sec) market, the standard day count convention is 'Actual/Actual', using the exact number of calendar days in the coupon period and year.",
+    "topic": "Introduction to Interest Rate Derivatives",
+    "chapter": 19,
+    "chapterTitle": "Introduction to Interest Rate Derivatives",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c19-q6",
+    "courseId": "nism-vd",
+    "question": "What is the function of the Clearing Corporation of India Limited (CCIL) in the Indian OTC interest rate derivatives market?",
+    "options": [
+      "Acts as a central counterparty (CCP) providing multilateral netting and guaranteed settlement for OTC trades like MIBOR OIS and G-Secs",
+      "Determines the benchmark repo rate during monetary policy meetings",
+      "Issues credit ratings for corporate bond issuances",
+      "Collects goods and services tax on behalf of state governments"
+    ],
+    "correctIndex": 0,
+    "explanation": "CCIL operates as a Qualified Central Counterparty (QCCP), guaranteeing settlement and providing multilateral trade compression and risk novation for rupee interest rate derivatives and government securities.",
+    "topic": "Introduction to Interest Rate Derivatives",
+    "chapter": 19,
+    "chapterTitle": "Introduction to Interest Rate Derivatives",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c20-q1",
+    "courseId": "nism-vd",
+    "question": "What is the standardized underlying asset for the most actively traded 10-year Interest Rate Futures (IRF) contract on Indian stock exchanges?",
+    "options": [
+      "A basket of corporate AAA-rated bonds",
+      "A notional 10-year Government of India (GoI) security with a standardized 6.00% coupon per annum, paid semi-annually",
+      "The 1-year State Development Loan (SDL) index",
+      "The SBI benchmark prime lending rate"
+    ],
+    "correctIndex": 1,
+    "explanation": "Exchange-traded 10-year IRF contracts in India are based on a notional 10-year Government of India security with a standardized coupon of 6.00% p.a., with semi-annual compounding.",
+    "topic": "Introduction to Interest Rate Derivatives",
+    "chapter": 19,
+    "chapterTitle": "Introduction to Interest Rate Derivatives",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c20-q2",
+    "courseId": "nism-vd",
+    "question": "What is the 'Conversion Factor' (CF) used in deliverable bond futures contracts?",
+    "options": [
+      "The price at which a specific deliverable G-Sec would trade to yield exactly 6.00% per annum on the first day of the delivery month, used to equate differing coupon rates of eligible deliverable bonds",
+      "The exchange rate between Indian Rupee and US Dollar",
+      "The ratio of cash margin to equity collateral",
+      "The percentage of units redeemed on contract maturity"
+    ],
+    "correctIndex": 0,
+    "explanation": "Conversion Factor (CF) standardizes deliverable bonds with differing coupon rates and maturities by calculating the clean price per rupee of principal that the bond would have if its YTM were exactly 6% on the delivery date.",
+    "topic": "Interest Rate Futures (IRF) in India",
+    "chapter": 20,
+    "chapterTitle": "Interest Rate Futures (IRF) in India",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c20-q3",
+    "courseId": "nism-vd",
+    "question": "In an Interest Rate Futures delivery mechanism, the 'Cheapest-to-Deliver' (CTD) bond is identified as the eligible bond that:",
+    "options": [
+      "Has the highest coupon rate among all sovereign debt",
+      "Minimizes the cost of purchasing the bond in the cash market relative to the invoiced delivery proceeds received: $\\text{Quoted Spot Price} - (\\text{Futures Price} \\times \\text{Conversion Factor})$",
+      "Has the longest residual maturity exceeding 30 years",
+      "Is issued by public sector undertakings"
+    ],
+    "correctIndex": 1,
+    "explanation": "The short position selects the Cheapest-to-Deliver (CTD) bond that maximizes delivery profit or minimizes cost, defined as the bond with the lowest Basis or lowest: $\\text{Spot Price} - (\\text{Futures Price} \\times CF)$.",
+    "topic": "Interest Rate Futures (IRF) in India",
+    "chapter": 20,
+    "chapterTitle": "Interest Rate Futures (IRF) in India",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c20-q4",
+    "courseId": "nism-vd",
+    "question": "How are exchange-traded 10-year GoI Bond Interest Rate Futures settled on the National Stock Exchange of India (NSE)?",
+    "options": [
+      "Physical delivery of eligible G-Secs or Cash Settlement based on the weighted average YTM/price of underlying benchmark securities published by FBIL",
+      "Settled by transfer of mutual fund units",
+      "Settled exclusively in US Dollars through SWIFT",
+      "Settled by issue of physical sovereign certificates"
+    ],
+    "correctIndex": 0,
+    "explanation": "NSE IRF contracts are settled either via cash settlement based on the FBIL benchmark prices of underlying deliverable sovereign securities or through physical delivery among institutional participants.",
+    "topic": "Interest Rate Futures (IRF) in India",
+    "chapter": 20,
+    "chapterTitle": "Interest Rate Futures (IRF) in India",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c20-q5",
+    "courseId": "nism-vd",
+    "question": "A debt mutual fund manager holds a \u20b9200 Crore portfolio of 10-year G-Secs. The manager expects an imminent 25 bps rate hike by the RBI. How should the manager position in 10-year IRF to hedge the portfolio?",
+    "options": [
+      "Go long 10-year IRF contracts",
+      "Sell (short) 10-year IRF contracts",
+      "Do nothing because bond yields do not affect G-Secs",
+      "Buy 91-day T-Bill futures"
+    ],
+    "correctIndex": 1,
+    "explanation": "When interest rates rise, bond prices fall. To hedge against this drop, the fund manager must sell (short) Interest Rate Futures. Gains on the short IRF hedge will offset the capital loss in the physical bond portfolio.",
+    "topic": "Interest Rate Futures (IRF) in India",
+    "chapter": 20,
+    "chapterTitle": "Interest Rate Futures (IRF) in India",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c20-q6",
+    "courseId": "nism-vd",
+    "question": "What is the notional contract size of a 10-year GoI IRF contract traded on Indian exchanges?",
+    "options": [
+      "\u20b910,000",
+      "\u20b92,00,000 (representing 2,000 underlying bonds of \u20b9100 face value)",
+      "\u20b91,00,00,000",
+      "\u20b950,00,000"
+    ],
+    "correctIndex": 1,
+    "explanation": "The contract size of an exchange-traded 10-year G-Sec IRF in India is \u20b92,00,000 notional value, corresponding to 2,000 bonds with a face value of \u20b9100 each.",
+    "topic": "Interest Rate Futures (IRF) in India",
+    "chapter": 20,
+    "chapterTitle": "Interest Rate Futures (IRF) in India",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c21-q1",
+    "courseId": "nism-vd",
+    "question": "What is an 'Interest Rate Cap'?",
+    "options": [
+      "A series of European call options on interest rates (caplets) that pays the buyer if the reference interest rate exceeds a pre-specified strike rate on designated reset dates",
+      "A regulatory restriction preventing banks from raising deposit rates",
+      "A penalty fee charged by the RBI on high repo borrowing",
+      "A minimum guaranteed return on pension savings"
+    ],
+    "correctIndex": 0,
+    "explanation": "An Interest Rate Cap consists of a portfolio of call options on interest rates (caplets) protecting floating-rate borrowers by compensating them whenever market rates exceed the agreed cap rate.",
+    "topic": "Interest Rate Options and Swaps",
+    "chapter": 21,
+    "chapterTitle": "Interest Rate Options and Swaps",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c21-q2",
+    "courseId": "nism-vd",
+    "question": "An institutional borrower buys an Interest Rate Cap at 7.50% p.a. for a notional principal of \u20b950 Crore. At the next reset date, the reference floating rate fixes at 8.25% p.a. for a 180-day period. What payout does the borrower receive (assuming Actual/365)?",
+    "options": [
+      "\u20b918.49 Lakh",
+      "\u20b937.50 Lakh",
+      "\u20b93.75 Lakh",
+      "Zero"
+    ],
+    "correctIndex": 0,
+    "explanation": "Payout = Notional * Max(0, Reference Rate - Cap Rate) * (Days / 365) = \u20b950,00,00,000 * (8.25% - 7.50%) * (180 / 365) = \u20b950 Cr * 0.0075 * 0.49315 = \u20b918,49,315 (\u20b918.49 Lakh).",
+    "topic": "Interest Rate Options and Swaps",
+    "chapter": 21,
+    "chapterTitle": "Interest Rate Options and Swaps",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c21-q3",
+    "courseId": "nism-vd",
+    "question": "What is an 'Interest Rate Floor' used for in treasury risk management?",
+    "options": [
+      "Purchased by fixed-rate borrowers to avoid tax audits",
+      "Purchased by lenders or bond investors holding floating-rate assets to guarantee a minimum income yield even if interest rates collapse",
+      "A basement vault where sovereign debt paper is stored",
+      "A ceiling on corporate bond yields enforced by the Ministry of Finance"
+    ],
+    "correctIndex": 1,
+    "explanation": "An Interest Rate Floor comprises put options on interest rates (floorlets). It guarantees a minimum return for floating-rate lenders/investors when market interest rates sink below the floor strike.",
+    "topic": "Interest Rate Options and Swaps",
+    "chapter": 21,
+    "chapterTitle": "Interest Rate Options and Swaps",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c21-q4",
+    "courseId": "nism-vd",
+    "question": "What is a 'Payer Swaption'?",
+    "options": [
+      "An option granting the buyer the right, but not the obligation, to enter into an Interest Rate Swap as the FIXED-RATE PAYER (and floating-rate receiver)",
+      "An option to receive fixed rates and pay floating rates",
+      "A swap that pays dividends in gold coins",
+      "An agreement to cancel an existing bank overdraft"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Payer Swaption gives the holder the right to pay fixed and receive floating in a future interest rate swap, shielding against anticipated increases in interest rates.",
+    "topic": "Interest Rate Options and Swaps",
+    "chapter": 21,
+    "chapterTitle": "Interest Rate Options and Swaps",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c21-q5",
+    "courseId": "nism-vd",
+    "question": "In an Overnight Indexed Swap (OIS), how is the floating leg rate calculated over the payment period?",
+    "options": [
+      "Simple arithmetic mean of the repo rate",
+      "Daily geometric compounding of the overnight MIBOR fixing rate",
+      "The highest overnight rate recorded during the tenure",
+      "The yield of the 364-day Treasury Bill"
+    ],
+    "correctIndex": 1,
+    "explanation": "In a MIBOR OIS contract, the floating leg rate is determined by the daily geometric compounding of the overnight FBIL MIBOR rates across all calendar days of the calculation period.",
+    "topic": "Interest Rate Options and Swaps",
+    "chapter": 21,
+    "chapterTitle": "Interest Rate Options and Swaps",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c22-q1",
+    "courseId": "nism-vd",
+    "question": "What is the statutory minimum investment ticket size prescribed by SEBI for an investor entering a Specialized Investment Fund (SIF) / New Asset Class?",
+    "options": [
+      "\u20b9500 (Same as retail mutual funds)",
+      "\u20b910,00,000 (Ten Lakhs) across all investment strategies within the AMC",
+      "\u20b950,00,000 (Same as Portfolio Management Services)",
+      "\u20b91,00,00,000 (Same as Alternative Investment Funds)"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI established the Specialized Investment Fund (SIF) / 'New Asset Class' with a minimum investment threshold of exactly \u20b910,00,000 (Ten Lakhs) per investor, positioning it between Mutual Funds (\u20b9500) and PMS (\u20b950 Lakhs).",
+    "topic": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "chapter": 22,
+    "chapterTitle": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c22-q2",
+    "courseId": "nism-vd",
+    "question": "Which of the following investment strategies is specifically PERMISSIBLE under the SEBI regulatory framework for Specialized Investment Funds (SIF), but prohibited for conventional retail mutual funds?",
+    "options": [
+      "Long-Short Equity strategies taking unhedged derivative short positions and Inverse Exchange-Traded Funds",
+      "Investing 100% of AUM in unrated real estate properties",
+      "Granting unsecured personal loans to corporate promoters",
+      "Guaranteed 25% annualized compounding return"
+    ],
+    "correctIndex": 0,
+    "explanation": "SIFs are specifically authorized to employ sophisticated strategies including Long-Short Equity, Inverse ETFs, and aggressive derivative overlays that are unavailable to conventional retail mutual fund schemes.",
+    "topic": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "chapter": 22,
+    "chapterTitle": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c22-q3",
+    "courseId": "nism-vd",
+    "question": "Can an investor combine investments across multiple investment strategies offered by the same AMC to satisfy the mandatory \u20b910 Lakh minimum SIF threshold?",
+    "options": [
+      "No, the \u20b910 Lakh minimum must be invested in each individual strategy separately",
+      "Yes, the \u20b910 Lakh threshold applies across all investment strategies of the SIF offered by the specific AMC for that investor PAN",
+      "Only if the investor is a registered Non-Banking Financial Company",
+      "Only with prior written permission from the Governor of RBI"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under SEBI norms, the minimum ticket size of \u20b910,00,000 applies at the investor level across all investment strategies within the specialized investment fund umbrella of that AMC.",
+    "topic": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "chapter": 22,
+    "chapterTitle": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c22-q4",
+    "courseId": "nism-vd",
+    "question": "What is the minimum Net Worth or Track Record eligibility criteria prescribed by SEBI for an Asset Management Company (AMC) to launch a Specialized Investment Fund (SIF)?",
+    "options": [
+      "Operational for at least 3 years with minimum average AUM of \u20b910,000 Crore, OR an alternate route requiring minimum Net Worth of \u20b9100 Crore with experienced fund managers",
+      "Zero net worth required if backed by foreign private equity",
+      "Minimum 25 years of continuous operations in India",
+      "Must be a registered commercial scheduled bank"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI permits established AMCs operating for 3+ years with \u20b910,000 Cr average AUM, or an alternate route requiring \u20b9100 Cr net worth and experienced CIO/fund management personnel to launch SIFs.",
+    "topic": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "chapter": 22,
+    "chapterTitle": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c22-q5",
+    "courseId": "nism-vd",
+    "question": "How does the maximum gross derivative exposure limit for a Specialized Investment Fund (SIF) compare to a traditional mutual fund scheme under SEBI guidelines?",
+    "options": [
+      "SIF is restricted to 10% gross derivative exposure, identical to debt funds",
+      "SIFs are permitted higher gross exposure limits (up to prescribed ceilings such as 200% for specific long-short strategies with risk management controls), whereas standard mutual funds cannot exceed 100% of net assets",
+      "SIFs are completely exempt from any derivative exposure restrictions or margin requirements",
+      "Derivatives are strictly prohibited in SIFs"
+    ],
+    "correctIndex": 1,
+    "explanation": "Standard mutual funds are capped at 100% net asset gross exposure. SIF strategies are granted regulatory leeway for synthetic leverage and derivative overlays up to defined limits (e.g. 200% gross exposure for long-short strategies).",
+    "topic": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "chapter": 22,
+    "chapterTitle": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c22-q6",
+    "courseId": "nism-vd",
+    "question": "Which regulatory certification is mandatory for distributors wishing to market Specialized Investment Funds (SIF) alongside standard mutual funds to clients in India?",
+    "options": [
+      "NISM Series V-A only",
+      "NISM Series V-D (Mutual Fund \u2013 Specialized Investment Fund Distributors Certification Examination)",
+      "NISM Series I (Currency Derivatives) only",
+      "AMFI basic sales registration without any exam"
+    ],
+    "correctIndex": 1,
+    "explanation": "NISM Series V-D is the newly mandated certification that equips and authorizes intermediaries to distribute both traditional Mutual Funds and Specialized Investment Funds (SIF).",
+    "topic": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "chapter": 22,
+    "chapterTitle": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p1-c22-q7",
+    "courseId": "nism-vd",
+    "question": "Under the SEBI Code of Conduct for SIF Distributors, what is an intermediary strictly prohibited from doing?",
+    "options": [
+      "Providing factual Scheme Information Documents (SID) and Key Information Memorandums (KIM) to prospective investors",
+      "Guaranteeing assured returns, misrepresenting complex derivative strategies as safe bank deposit alternatives, or splitting tickets below \u20b910 Lakhs",
+      "Conducting risk profiling of prospective high-net-worth investors",
+      "Receiving trail commission via standard banking channels"
+    ],
+    "correctIndex": 1,
+    "explanation": "Distributors are legally prohibited from promising assured returns, downplaying downside volatility of leveraged strategies, or attempting to circumvent the statutory \u20b910 Lakh minimum investment threshold.",
+    "topic": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "chapter": 22,
+    "chapterTitle": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "difficulty": "basic",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "vd-p2-c18-q1",
+    "courseId": "nism-vd",
+    "question": "What is the difference between a bond's 'Clean Price' and 'Dirty Price'?",
+    "options": [
+      "Clean Price includes accrued interest, while Dirty Price excludes it",
+      "Dirty Price = Clean Price + Accrued Interest since the last coupon date",
+      "Clean Price applies only to government bonds, while Dirty Price applies to corporate bonds",
+      "Clean Price is before brokerage, while Dirty Price is after GST"
+    ],
+    "correctIndex": 1,
+    "explanation": "Dirty Price (Cash Price) is the actual consideration paid by the buyer, comprising the quoted Clean Price plus Accrued Interest accumulated from the preceding coupon payment date up to the settlement date.",
+    "topic": "Fixed Income and Interest Rate Basics",
+    "chapter": 18,
+    "chapterTitle": "Fixed Income and Interest Rate Basics",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c18-q2",
+    "courseId": "nism-vd",
+    "question": "Which of the following bonds will exhibit the GREATEST price sensitivity (highest Modified Duration) to changes in market interest rates?",
+    "options": [
+      "A 3-year bond with a 9% coupon",
+      "A 10-year bond with an 8% coupon",
+      "A 10-year Zero-Coupon Bond",
+      "A 5-year bond with a 7% coupon"
+    ],
+    "correctIndex": 2,
+    "explanation": "Duration is higher for longer maturities and lower coupon rates. For a zero-coupon bond, Macaulay Duration exactly equals its maturity (10 years) because all cash flows occur at the very end, maximizing price volatility.",
+    "topic": "Fixed Income and Interest Rate Basics",
+    "chapter": 18,
+    "chapterTitle": "Fixed Income and Interest Rate Basics",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c18-q3",
+    "courseId": "nism-vd",
+    "question": "What is 'Macaulay Duration' of a bond?",
+    "options": [
+      "The weighted average maturity of the bond's cash flows, where the weights are the present values of each cash flow relative to the bond price",
+      "The calendar days remaining until the bond matures",
+      "The ratio of annual coupon payments to the bond's issue price",
+      "The spread of a corporate bond over equivalent sovereign debt"
+    ],
+    "correctIndex": 0,
+    "explanation": "Macaulay Duration is the weighted average time (in years) an investor must wait to receive the present value of the bond's cash flows, serving as a fundamental measure of interest rate risk.",
+    "topic": "Fixed Income and Interest Rate Basics",
+    "chapter": 18,
+    "chapterTitle": "Fixed Income and Interest Rate Basics",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c18-q4",
+    "courseId": "nism-vd",
+    "question": "If a bond has a Modified Duration of 4.0 years and its YTM increases by 75 basis points (+0.75%), what is the approximate percentage change in the bond's clean price?",
+    "options": [
+      "-3.00%",
+      "+3.00%",
+      "-0.75%",
+      "-4.00%"
+    ],
+    "correctIndex": 0,
+    "explanation": "$\\Delta P / P \\approx - \\text{Modified Duration} \\times \\Delta Y = - 4.0 \\times (+0.75\\%) = -3.00\\%$. The bond price falls by approximately 3%.",
+    "topic": "Fixed Income and Interest Rate Basics",
+    "chapter": 18,
+    "chapterTitle": "Fixed Income and Interest Rate Basics",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c18-q5",
+    "courseId": "nism-vd",
+    "question": "What shape does a standard, healthy economic yield curve typically exhibit?",
+    "options": [
+      "Upward sloping (Normal yield curve, where long-term yields exceed short-term yields to compensate for term and inflation risk)",
+      "Completely inverted (Short-term rates exceeding long-term rates by 500 bps)",
+      "Completely flat across 30 years",
+      "U-shaped with zero yield in middle tenures"
+    ],
+    "correctIndex": 0,
+    "explanation": "A normal yield curve slopes upward, reflecting a term premium where investors demand higher yields for committing capital over longer horizons due to greater interest rate and inflation risks.",
+    "topic": "Fixed Income and Interest Rate Basics",
+    "chapter": 18,
+    "chapterTitle": "Fixed Income and Interest Rate Basics",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c18-q6",
+    "courseId": "nism-vd",
+    "question": "What is 'Credit Spread' in the debt market?",
+    "options": [
+      "The difference between the yield of a corporate bond and the yield of a risk-free government bond (G-Sec) of identical maturity",
+      "The commission split between a broker and a mutual fund",
+      "The difference between the repo rate and reverse repo rate",
+      "The daily bid-ask spread on call money loans"
+    ],
+    "correctIndex": 0,
+    "explanation": "Credit Spread represents the risk premium demanded by investors to compensate for the credit default and liquidity risks of a corporate issuer over sovereign benchmark debt.",
+    "topic": "Fixed Income and Interest Rate Basics",
+    "chapter": 18,
+    "chapterTitle": "Fixed Income and Interest Rate Basics",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c19-q1",
+    "courseId": "nism-vd",
+    "question": "What is the primary motivation for an Asset Management Company managing a long-duration debt fund to use Interest Rate Derivatives (IRDs)?",
+    "options": [
+      "To speculate on foreign currency exchange rates",
+      "To manage portfolio duration and hedge against capital losses during rate hike cycles without liquidating physical underlying bonds",
+      "To artificially inflate the reported fund management fees",
+      "To avoid paying statutory withholding taxes"
+    ],
+    "correctIndex": 1,
+    "explanation": "Debt fund managers use IRDs (such as selling IRF or paying fixed in IRS) to synthetically reduce portfolio duration and insulate NAV from capital losses when yields are projected to climb.",
+    "topic": "Introduction to Interest Rate Derivatives",
+    "chapter": 19,
+    "chapterTitle": "Introduction to Interest Rate Derivatives",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c19-q2",
+    "courseId": "nism-vd",
+    "question": "What is an Over-The-Counter (OTC) Forward Rate Agreement (FRA)?",
+    "options": [
+      "An OTC contract where two parties agree on an interest rate to be paid or received on a specific notional principal beginning on a future settlement date",
+      "A forward contract for the physical purchase of gold bullion",
+      "An equity option traded on the Bombay Stock Exchange",
+      "A mandatory provident fund investment scheme"
+    ],
+    "correctIndex": 0,
+    "explanation": "An FRA is a cash-settled bilateral OTC forward contract on interest rates where the buyer locks in a borrowing rate and the seller locks in a lending rate for a future period against a benchmark floating index.",
+    "topic": "Introduction to Interest Rate Derivatives",
+    "chapter": 19,
+    "chapterTitle": "Introduction to Interest Rate Derivatives",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c19-q3",
+    "courseId": "nism-vd",
+    "question": "In a plain vanilla Rupee Interest Rate Swap (IRS), what principal cash flows are exchanged at contract inception and maturity?",
+    "options": [
+      "100% of the notional principal is wired back and forth",
+      "No exchange of principal occurs; only the net periodic interest rate differential is settled between the parties",
+      "Only foreign currency principal is exchanged",
+      "Half of the principal is deposited with the Reserve Bank of India"
+    ],
+    "correctIndex": 1,
+    "explanation": "In plain vanilla interest rate swaps, the principal amount is purely 'notional'. Only the net interest payment obligations (fixed rate vs floating rate) are settled between the counterparties on designated payment dates.",
+    "topic": "Introduction to Interest Rate Derivatives",
+    "chapter": 19,
+    "chapterTitle": "Introduction to Interest Rate Derivatives",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c19-q4",
+    "courseId": "nism-vd",
+    "question": "Under RBI Directions on Interest Rate Derivatives, which entities are classified as 'Market Makers' permitted to quote two-way prices in the OTC market?",
+    "options": [
+      "Scheduled Commercial Banks, Primary Dealers, and All-India Financial Institutions",
+      "Retail individual mutual fund investors",
+      "Unregistered local chit funds",
+      "Foreign tourist chartered airlines"
+    ],
+    "correctIndex": 0,
+    "explanation": "RBI regulations designate Scheduled Commercial Banks, Primary Dealers (PDs), and recognized All-India Financial Institutions (AIFIs) as Market Makers authorized to provide continuous two-way liquidity in OTC IRDs.",
+    "topic": "Introduction to Interest Rate Derivatives",
+    "chapter": 19,
+    "chapterTitle": "Introduction to Interest Rate Derivatives",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c19-q5",
+    "courseId": "nism-vd",
+    "question": "What is 'Trade Compression' provided by CCIL for OTC interest rate derivatives?",
+    "options": [
+      "A process that tears down and cancels redundant, offsetting OTC swap contracts while preserving net portfolio risk, reducing gross notional exposure and counterparty capital requirements",
+      "Compressing digital contracts into zip files for email delivery",
+      "Reducing the maturity of bonds from 10 years to 1 year",
+      "Cutting broker commissions by 50%"
+    ],
+    "correctIndex": 0,
+    "explanation": "Portfolio compression removes economically redundant swap transactions across market participants, drastically reducing systemic gross notional exposures and operational risks without altering net market positions.",
+    "topic": "Introduction to Interest Rate Derivatives",
+    "chapter": 19,
+    "chapterTitle": "Introduction to Interest Rate Derivatives",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c19-q6",
+    "courseId": "nism-vd",
+    "question": "If a corporate treasurer anticipates issuing \u20b9100 Crore of floating-rate commercial paper in 3 months and fears interest rates will soar, what transaction locks in borrowing costs today?",
+    "options": [
+      "Entering a 3x6 Forward Rate Agreement (FRA) as a Fixed Rate Payer",
+      "Buying equity index call options",
+      "Investing \u20b9100 Crore in overnight mutual funds",
+      "Entering a Receive-Fixed Interest Rate Swap"
+    ],
+    "correctIndex": 0,
+    "explanation": "Buying a 3x6 FRA (paying fixed, receiving floating) ensures that if benchmark rates spike during the next 3 months, the gain received on the FRA will offset the higher borrowing costs incurred on the commercial paper.",
+    "topic": "Introduction to Interest Rate Derivatives",
+    "chapter": 19,
+    "chapterTitle": "Introduction to Interest Rate Derivatives",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c20-q1",
+    "courseId": "nism-vd",
+    "question": "What is the underlying instrument for 91-Day Treasury Bill (T-Bill) Futures traded on Indian exchanges?",
+    "options": [
+      "91-Day Government of India Treasury Bills",
+      "10-year State Development Loans",
+      "30-day interbank certificates of deposit",
+      "Overnight call money rates"
+    ],
+    "correctIndex": 0,
+    "explanation": "91-Day T-Bill futures track the 91-day Government of India Treasury Bills, allowing market participants to hedge short-term money market yield fluctuations.",
+    "topic": "Interest Rate Futures (IRF) in India",
+    "chapter": 20,
+    "chapterTitle": "Interest Rate Futures (IRF) in India",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c20-q2",
+    "courseId": "nism-vd",
+    "question": "In 10-year G-Sec IRF, if an eligible deliverable bond has a coupon rate of 7.50% (which is higher than the notional 6.00% standard contract coupon), its Conversion Factor (CF) will be:",
+    "options": [
+      "Greater than 1.0000",
+      "Less than 1.0000",
+      "Exactly 1.0000",
+      "Negative"
+    ],
+    "correctIndex": 0,
+    "explanation": "If a deliverable bond's coupon exceeds the notional standard 6% coupon, it must trade at a premium to yield 6%, meaning its Conversion Factor is strictly greater than 1.0000. Conversely, coupon < 6% yields CF < 1.0000.",
+    "topic": "Interest Rate Futures (IRF) in India",
+    "chapter": 20,
+    "chapterTitle": "Interest Rate Futures (IRF) in India",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c20-q3",
+    "courseId": "nism-vd",
+    "question": "What constitutes the 'Invoiced Amount' payable by the buyer to the seller upon physical delivery of a bond under an IRF contract?",
+    "options": [
+      "$(\\text{Futures Settlement Price} \\times \\text{Conversion Factor} + \\text{Accrued Interest}) \\times \\text{Number of Bonds}$",
+      "Futures Price divided by Conversion Factor",
+      "Clean price of the bond multiplied by retail inflation index",
+      "Face value minus SPAN margin"
+    ],
+    "correctIndex": 0,
+    "explanation": "Invoiced Amount = $[(\\text{Settlement Price} \\times \\text{CF}) + \\text{Accrued Interest}] \\times \\text{Principal Quantity}$. The buyer pays for the converted futures price plus any coupon interest accumulated up to delivery date.",
+    "topic": "Interest Rate Futures (IRF) in India",
+    "chapter": 20,
+    "chapterTitle": "Interest Rate Futures (IRF) in India",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c20-q4",
+    "courseId": "nism-vd",
+    "question": "What is the trading tick size for 10-year GoI IRF contracts on the NSE?",
+    "options": [
+      "\u20b90.0025 (or 0.25 paisa per \u20b9100 face value)",
+      "\u20b91.00",
+      "\u20b90.50",
+      "\u20b90.05"
+    ],
+    "correctIndex": 0,
+    "explanation": "The tick size (minimum price fluctuation) for exchange-traded 10-year IRF contracts in India is \u20b90.0025 (0.25 paisa per \u20b9100 face value).",
+    "topic": "Interest Rate Futures (IRF) in India",
+    "chapter": 20,
+    "chapterTitle": "Interest Rate Futures (IRF) in India",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c20-q5",
+    "courseId": "nism-vd",
+    "question": "How does 'Yield Beta' affect the hedge ratio when using 10-year IRF to hedge a corporate bond portfolio?",
+    "options": [
+      "Hedge Ratio must incorporate Yield Beta to reflect the differential volatility between corporate bond yields and benchmark G-Sec futures yields",
+      "Yield Beta is always assumed to be zero for corporate bonds",
+      "Corporate bonds cannot be hedged with IRF under any circumstances",
+      "Yield Beta eliminates the need for SPAN margin"
+    ],
+    "correctIndex": 0,
+    "explanation": "Because corporate bond yields fluctuate by a multiple of sovereign yields (Yield Beta = $\\Delta Y_{\\text{corp}} / \\Delta Y_{\\text{gsec}}$), the hedge ratio must scale by Yield Beta to ensure accurate price protection.",
+    "topic": "Interest Rate Futures (IRF) in India",
+    "chapter": 20,
+    "chapterTitle": "Interest Rate Futures (IRF) in India",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c20-q6",
+    "courseId": "nism-vd",
+    "question": "Can foreign portfolio investors (FPIs) trade Interest Rate Futures in India?",
+    "options": [
+      "Yes, subject to aggregate and individual FPI limits prescribed by RBI and SEBI",
+      "No, foreign entities are strictly prohibited from touching debt derivatives",
+      "Only if they open physical branch offices in New Delhi",
+      "Only through participatory notes issued by unregistered brokers"
+    ],
+    "correctIndex": 0,
+    "explanation": "FPIs are permitted to participate in exchange-traded IRF contracts for hedging and portfolio rebalancing, subject to limits set by RBI and SEBI.",
+    "topic": "Interest Rate Futures (IRF) in India",
+    "chapter": 20,
+    "chapterTitle": "Interest Rate Futures (IRF) in India",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c21-q1",
+    "courseId": "nism-vd",
+    "question": "What is an 'Interest Rate Collar' implemented by a floating-rate corporate borrower?",
+    "options": [
+      "Buying an Interest Rate Cap to protect against rising rates, financed by selling an Interest Rate Floor to establish a bounded borrowing range",
+      "Selling both Call and Put options on sovereign debt",
+      "Borrowing from two commercial banks simultaneously",
+      "A fixed deposit with automatic overdraft facility"
+    ],
+    "correctIndex": 0,
+    "explanation": "A borrower Collar combines buying an Interest Rate Cap (ceiling on rate) and selling an Interest Rate Floor (floor on rate), allowing the borrower to cap maximum borrowing cost at low or zero net upfront premium.",
+    "topic": "Interest Rate Options and Swaps",
+    "chapter": 21,
+    "chapterTitle": "Interest Rate Options and Swaps",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c21-q2",
+    "courseId": "nism-vd",
+    "question": "What is a 'Receiver Swaption'?",
+    "options": [
+      "An option granting the buyer the right to enter an Interest Rate Swap as the FIXED-RATE RECEIVER (and floating-rate payer)",
+      "An option to cancel an equity mutual fund SIP",
+      "A swap where the bank receives free warrants",
+      "An option requiring the buyer to pay fixed coupons"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Receiver Swaption gives the holder the right to receive fixed and pay floating in a swap, protecting an investor against declining interest rates.",
+    "topic": "Interest Rate Options and Swaps",
+    "chapter": 21,
+    "chapterTitle": "Interest Rate Options and Swaps",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c21-q3",
+    "courseId": "nism-vd",
+    "question": "How does a Cross-Currency Interest Rate Swap (CCIRS) differ from a Rupee Interest Rate Swap?",
+    "options": [
+      "CCIRS involves exchange of interest payments and principals in two different currencies (e.g. USD and INR), whereas plain vanilla IRS involves a single currency",
+      "CCIRS does not involve interest rates",
+      "CCIRS is governed by the United Nations",
+      "Plain vanilla IRS requires RBI governor physical presence"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Cross-Currency Swap involves exchanging principal and interest streams denominated in two distinct currencies, allowing corporates to hedge both foreign exchange risk and interest rate risk on offshore borrowings (ECBs).",
+    "topic": "Interest Rate Options and Swaps",
+    "chapter": 21,
+    "chapterTitle": "Interest Rate Options and Swaps",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c21-q4",
+    "courseId": "nism-vd",
+    "question": "When an Indian company raises debt through External Commercial Borrowings (ECB) in US Dollars at SOFR + 150 bps, how can it neutralize both currency fluctuation and interest rate volatility?",
+    "options": [
+      "Execute a Cross-Currency Interest Rate Swap (CCIRS) converting USD floating liability into an INR fixed liability",
+      "Buy USD-INR call options only",
+      "Short Nifty futures",
+      "Invest in Indian equity index funds"
+    ],
+    "correctIndex": 0,
+    "explanation": "A CCIRS swaps the USD floating SOFR obligation into an Indian Rupee fixed obligation, locking in the rupee cash flows and shielding the company from rupee depreciation and US interest rate hikes.",
+    "topic": "Interest Rate Options and Swaps",
+    "chapter": 21,
+    "chapterTitle": "Interest Rate Options and Swaps",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c21-q5",
+    "courseId": "nism-vd",
+    "question": "Under RBI norms, what is the maximum tenure for which Rupee Interest Rate Swaps (OIS) can be entered into by market participants?",
+    "options": [
+      "Up to 30 years (with liquid tenures concentrated up to 5 and 10 years)",
+      "Strictly 30 days only",
+      "No swap can exceed 180 days",
+      "Tenure must be an exact prime number of months"
+    ],
+    "correctIndex": 0,
+    "explanation": "Rupee interest rate swaps trade across a wide maturity spectrum extending up to 30 years, with highest institutional liquidity centered around 1, 2, 3, 5, and 10-year benchmarks.",
+    "topic": "Interest Rate Options and Swaps",
+    "chapter": 21,
+    "chapterTitle": "Interest Rate Options and Swaps",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c22-q1",
+    "courseId": "nism-vd",
+    "question": "What specific investor segment is the SEBI Specialized Investment Fund (SIF) / New Asset Class primarily designed to serve?",
+    "options": [
+      "Ultra-low-income rural retail savers looking for \u20b9100 recurring micro-savings",
+      "Emerging High Net Worth Individuals (HNIs) whose investable surplus (\u20b910 Lakh to \u20b950 Lakh) exceeds retail mutual funds but falls below PMS (\u20b950 Lakh) and AIF (\u20b91 Crore)",
+      "Foreign Central Banks seeking sovereign currency swaps",
+      "Unregistered venture capital incubators"
+    ],
+    "correctIndex": 1,
+    "explanation": "SIF bridges the critical structural gap between retail mutual funds (\u20b9500 ticket) and PMS (\u20b950 Lakh minimum), targeting emerging HNIs seeking professionally managed, flexible alpha strategies with a \u20b910 Lakh ticket size.",
+    "topic": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "chapter": 22,
+    "chapterTitle": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c22-q2",
+    "courseId": "nism-vd",
+    "question": "Which of the following is a key operational transparency safeguard mandated by SEBI for Specialized Investment Funds (SIFs)?",
+    "options": [
+      "SIFs are completely exempt from publishing Net Asset Value (NAV)",
+      "SIFs must calculate and publish NAV with prescribed frequency (daily or weekly depending on strategy liquidity) and disclose portfolio holdings to investors periodically",
+      "Fund managers are permitted to keep 50% of investor funds in offshore anonymous trusts",
+      "Investors are locked in for 25 years without any exit window"
+    ],
+    "correctIndex": 1,
+    "explanation": "Unlike unregulated private pools, SIFs operate under SEBI's mutual fund trust structure, requiring periodic NAV computation, portfolio disclosures, independent trusteeship, and transparent valuation norms.",
+    "topic": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "chapter": 22,
+    "chapterTitle": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c22-q3",
+    "courseId": "nism-vd",
+    "question": "Can a Specialized Investment Fund (SIF) offer an 'Inverse ETF' or Inverse Strategy under SEBI regulations?",
+    "options": [
+      "Yes, subject to specific regulatory parameters and clear risk disclosures to investors regarding compounding effects over holding periods",
+      "No, inverse strategies are completely banned under Indian law",
+      "Only if the fund invests exclusively in agricultural commodities",
+      "Only for investors aged above 75 years"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI's framework permits SIFs to introduce Inverse ETFs and inverse strategies that deliver the inverse daily return of an index, accompanied by mandatory risk disclosures regarding volatility decay.",
+    "topic": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "chapter": 22,
+    "chapterTitle": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c22-q4",
+    "courseId": "nism-vd",
+    "question": "What risk profiling obligation is placed upon a registered SIF distributor before onboarding a client into a Specialized Investment Fund?",
+    "options": [
+      "Distributors must assess the investor's financial capacity, risk tolerance, and investment horizon to verify suitability for complex, leveraged, or long-short strategies before accepting the \u20b910 Lakh subscription",
+      "No suitability assessment is required as long as the client signs a blank cheque",
+      "The distributor only needs to verify the client's social media follower count",
+      "The distributor must require the client to surrender all other mutual fund folios"
+    ],
+    "correctIndex": 0,
+    "explanation": "Due to the presence of derivative overlays, short positions, and higher volatility, distributors must rigorously assess suitability and ensure the client understands the risk-return matrix of SIF strategies.",
+    "topic": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "chapter": 22,
+    "chapterTitle": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "difficulty": "basic",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c22-q5",
+    "courseId": "nism-vd",
+    "question": "How does the taxation of Specialized Investment Funds (SIF) compare to Portfolio Management Services (PMS)?",
+    "options": [
+      "SIFs operate under mutual fund trust taxation (tax-exempt at fund level, capital gains taxed in hands of investor upon redemption), whereas PMS triggers capital gains tax on each individual portfolio rebalancing trade",
+      "PMS is completely tax-free, while SIF is taxed at 50% flat",
+      "SIFs are subject to wealth tax and corporate dividend distribution tax",
+      "Both are taxed identically on every intraday buy and sell trade"
+    ],
+    "correctIndex": 0,
+    "explanation": "Because SIFs are structured under the SEBI Mutual Fund Regulations trust umbrella, internal portfolio rebalancing and derivative turnover do not trigger immediate tax events for investors, unlike PMS where each trade is taxable.",
+    "topic": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "chapter": 22,
+    "chapterTitle": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c22-q6",
+    "courseId": "nism-vd",
+    "question": "If an investor in an SIF submits a partial redemption request such that the residual balance in their account falls below \u20b910,00,000, what is the regulatory requirement?",
+    "options": [
+      "The AMC must automatically redeem the entire remaining investment and credit the full proceeds to the investor's bank account",
+      "The AMC retains the balance and forfeits the units to charity",
+      "The AMC levies a 25% criminal fine on the investor",
+      "The investor is permitted to hold any fractional residual amount indefinitely"
+    ],
+    "correctIndex": 0,
+    "explanation": "To preserve the integrity of the regulatory threshold, if a partial redemption causes the investor's total holding in the AMC's SIF strategies to fall below \u20b910 Lakhs, the entire holding must be liquidated and paid out.",
+    "topic": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "chapter": 22,
+    "chapterTitle": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "vd-p2-c22-q7",
+    "courseId": "nism-vd",
+    "question": "What is the role of the Independent Trustees in an AMC managing a Specialized Investment Fund (SIF)?",
+    "options": [
+      "To oversee fund manager compliance with statutory investment limits, derivative exposure ceilings, valuation accuracy, and safeguarding investor interests against conflicts of interest",
+      "To execute daily intraday scalp trades on stock exchanges",
+      "To decide the market opening and closing timings on NSE and BSE",
+      "To personally guarantee 15% annualized returns to all unit holders"
+    ],
+    "correctIndex": 0,
+    "explanation": "Trustees hold the assets in trust for the benefit of unitholders and exercise fiduciary oversight, ensuring strict adherence to SEBI regulations, risk limits, and fair treatment of investors.",
+    "topic": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "chapter": 22,
+    "chapterTitle": "Regulatory Framework and Strategies for Specialized Investment Funds (SIF)",
+    "difficulty": "basic",
+    "paperId": "paper-2"
   }
 ];

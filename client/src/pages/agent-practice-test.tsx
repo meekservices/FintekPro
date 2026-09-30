@@ -18,6 +18,7 @@ import {
 	ChevronRight,
 	GraduationCap,
 	Eye,
+	BookOpen,
 } from "lucide-react";
 import {
 	Card,
@@ -34,6 +35,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { NismCurriculumModal } from "@/components/NismCurriculumModal";
 
 interface PracticeQuestion {
 	id: string;
@@ -124,6 +126,7 @@ export default function AgentPracticeTestPage() {
 	const [answers, setAnswers] = useState<Record<string, number>>({});
 	const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
 	const [result, setResult] = useState<TestResult | null>(null);
+	const [isCurriculumOpen, setIsCurriculumOpen] = useState(false);
 
 	// Paper selection options based on course
 	const paperOptions = useMemo(() => {
@@ -134,6 +137,15 @@ export default function AgentPracticeTestPage() {
 			];
 		}
 		const cId = courseId.toLowerCase();
+		if (cId === "nism-vd" || cId === "nism-series-v-d") {
+			return [
+				{ id: "paper-1", label: "Mock Paper 1 (150 Qs • 180 Mins • All 22 Chapters)" },
+				{ id: "paper-2", label: "Mock Paper 2 (150 Qs • 180 Mins • SIF & Derivatives)" },
+				{ id: "50", label: "Readiness Diagnostic (50 Qs • 60 Mins)" },
+				{ id: "25", label: "Quick Sprint (25 Qs • 30 Mins)" },
+				{ id: "all", label: "Full Question Bank (306 Qs)" },
+			];
+		}
 		if (cId === "nism-va" || cId === "nism-series-v-a") {
 			return [
 				{ id: "paper-1", label: "Mock Paper 1 (100 Qs • 120 Mins)" },
@@ -445,6 +457,19 @@ export default function AgentPracticeTestPage() {
 								Instant Remarks & Explanations
 							</Label>
 						</div>
+
+						{/* Study Notes & Formulas */}
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => setIsCurriculumOpen(true)}
+							className="h-8 text-xs border-amber-500/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 gap-1 px-2.5 font-medium shadow-sm"
+							title="View Full Curriculum Notes & Formulas"
+						>
+							<BookOpen className="h-3 w-3 text-amber-400" />
+							<span className="hidden md:inline">22-Chapter Study Notes</span>
+							<span className="md:hidden">Notes</span>
+						</Button>
 
 						{/* Reset */}
 						<Button
@@ -1323,6 +1348,13 @@ export default function AgentPracticeTestPage() {
 					</div>
 				)}
 			</main>
+			{/* 22-Chapter Curriculum & Study Notes Modal */}
+			<NismCurriculumModal
+				isOpen={isCurriculumOpen}
+				onClose={() => setIsCurriculumOpen(false)}
+				courseId={courseId}
+				onStartMock={(paper) => switchPaper(paper)}
+			/>
 		</div>
 	);
 }

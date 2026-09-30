@@ -2,6 +2,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { knowledgeHubService } from "../services/knowledge-hub-service";
 import { nismLmsService } from "../services/nism-lms-service";
+import { nismCurriculumService } from "../services/nism-curriculum-service";
 import { irdaiPospTrainingService } from "../services/irdai-posp-training-service";
 import { requireAuth, requireRole } from "../middleware/roleMiddleware";
 
@@ -584,6 +585,19 @@ router.get(
 			count,
 		});
 		res.json({ success: true, ...data });
+	}),
+);
+
+// GET /api/knowledge-hub/nism/courses/:courseId/curriculum — official 22-chapter curriculum & study notes
+router.get(
+	"/nism/courses/:courseId/curriculum",
+	asyncHandler(async (req, res) => {
+		const { courseId } = req.params;
+		const curriculum = nismCurriculumService.getCurriculum(courseId);
+		if (!curriculum) {
+			return res.status(404).json({ error: `Curriculum not found for course ${courseId}` });
+		}
+		res.json({ success: true, curriculum });
 	}),
 );
 

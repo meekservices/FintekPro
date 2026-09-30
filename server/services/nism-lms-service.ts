@@ -147,9 +147,9 @@ const DEFAULT_COURSES: NismCourse[] = [
 		syllabusUrl: "https://www.nism.ac.in/certification-exams/specialized-investment-fund-distributors",
 		ltiResourceLinkId: "res-nism-vd-2026",
 		isActive: true,
-		availableMocksCount: 1,
-		totalPracticeQuestions: 50,
-		negativeMarking: 0.25,
+		availableMocksCount: 2,
+		totalPracticeQuestions: 306,
+		negativeMarking: 0.10,
 	},
 	{
 		id: "nism-viii",
@@ -908,6 +908,22 @@ export class NismLmsService {
 				selected = taggedForPaper.slice(0, 100);
 			} else {
 				selected = this.sampleQuestionsAcrossChapters(coursePool, 100);
+			}
+		} else if (matchedCourse.id === "nism-vd") {
+			durationMinutes = 180; // Official NISM Series V-D duration is 180 mins (3 hrs)
+			const TITLES: Record<string, string> = {
+				"paper-1": "NISM Series V-D Paper 1: Comprehensive Model Exam (150 Questions • 180 Mins • All 22 Chapters with SIF Framework)",
+				"paper-2": "NISM Series V-D Paper 2: Advanced SIF Strategies & Derivatives Caselets (150 Questions • 180 Mins • All 22 Chapters)",
+			};
+
+			paperTitle = TITLES[pNormalized] || `${matchedCourse.seriesCode} 150-Question Model Mock (${pNormalized.toUpperCase()})`;
+
+			if (taggedForPaper.length >= 150) {
+				selected = taggedForPaper.slice(0, 150);
+			} else if (taggedForPaper.length > 0) {
+				selected = taggedForPaper;
+			} else {
+				selected = this.sampleQuestionsAcrossChapters(coursePool, 150);
 			}
 		} else {
 			durationMinutes = 120;

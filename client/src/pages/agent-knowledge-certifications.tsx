@@ -59,6 +59,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { NismCurriculumModal } from "@/components/NismCurriculumModal";
 
 interface CertificationLevel {
 	level: number;
@@ -276,6 +277,8 @@ export default function AgentKnowledgeCertifications() {
 	// NISM Practice Test simulation configuration (150 Qs papers, 100/50/25 Qs modes & Test vs Practice modes)
 	const [nismSelectedPaper, setNismSelectedPaper] = useState<string>("paper-1");
 	const [nismTestType, setNismTestType] = useState<"exam" | "practice">("practice");
+	const [isCurriculumOpen, setIsCurriculumOpen] = useState(false);
+	const [curriculumCourseId, setCurriculumCourseId] = useState<string>("nism-vd");
 
 	// IRDAI Exam state
 	const [pospExamOpen, setPospExamOpen] = useState(false);
@@ -1935,6 +1938,23 @@ export default function AgentKnowledgeCertifications() {
 									Open Training Portal
 									<ExternalLink className="h-3.5 w-3.5" />
 								</Button>
+								<Button
+									size="sm"
+									variant="outline"
+									className="w-full mt-2 border-amber-500/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 text-xs h-8 flex items-center justify-center gap-1.5 font-medium shadow-sm"
+									onClick={() => {
+										const targetCourseId =
+											nismLaunchModal.launchData?.courseId ||
+											nismLaunchModal.course?.courseId ||
+											(nismLaunchModal.course as any)?.id ||
+											"nism-vd";
+										setCurriculumCourseId(targetCourseId);
+										setIsCurriculumOpen(true);
+									}}
+								>
+									<BookOpen className="h-3.5 w-3.5 text-amber-400" />
+									Read 22-Chapter Study Notes
+								</Button>
 							</div>
 
 							{/* 2. Practice Mock Test */}
@@ -2002,6 +2022,7 @@ export default function AgentKnowledgeCertifications() {
 											).toLowerCase();
 
 											const isVa = activeCourseId.includes("va") || activeCourseId.includes("v-a");
+											const isVd = activeCourseId.includes("vd") || activeCourseId.includes("v-d");
 											const isMultiMock = ["nism-viii", "nism-xa", "nism-xv"].includes(activeCourseId);
 
 											let paperList = [
@@ -2015,7 +2036,15 @@ export default function AgentKnowledgeCertifications() {
 												{ id: "all", title: "📚 Full Question Bank", desc: "500 Unique Questions" },
 											];
 
-											if (!isVa && isMultiMock) {
+											if (isVd) {
+												paperList = [
+													{ id: "paper-1", title: "📄 Mock Paper 1", desc: "150 Qs • 180m • All 22 Chapters" },
+													{ id: "paper-2", title: "📄 Mock Paper 2", desc: "150 Qs • 180m • SIF & Derivatives" },
+													{ id: "50", title: "🎯 50 Qs Diagnostic", desc: "60m • Readiness Check" },
+													{ id: "25", title: "⚡ 25 Qs Sprint", desc: "30m • Quick Review" },
+													{ id: "all", title: "📚 Full Question Bank", desc: "306 Unique Questions" },
+												];
+											} else if (!isVa && isMultiMock) {
 												paperList = [
 													{ id: "paper-1", title: "📄 Mock Paper 1", desc: "100 Qs • 120m • Benchmark" },
 													{ id: "paper-2", title: "📄 Mock Paper 2", desc: "100 Qs • 120m • Distinct" },
@@ -2034,7 +2063,7 @@ export default function AgentKnowledgeCertifications() {
 											return (
 												<>
 													<span className="text-[10px] text-muted-foreground font-semibold block mb-1">
-														Select Question Paper (100 Qs Standard • Zero Overlapping Questions):
+														{isVd ? "Select Question Paper (150 Qs Official Blueprint • Zero Overlap):" : "Select Question Paper (100 Qs Standard • Zero Overlapping Questions):"}
 													</span>
 													<div className="grid grid-cols-2 gap-1.5 text-[11px]">
 														{paperList.map((p) => (
@@ -2077,7 +2106,7 @@ export default function AgentKnowledgeCertifications() {
 										}}
 									>
 										<Play className="h-3.5 w-3.5 fill-current" />
-										Open Full Test Page ({nismSelectedPaper.startsWith("paper-") ? "100 Qs " + nismSelectedPaper.toUpperCase() : nismSelectedPaper + " Qs"})
+										Open Full Test Page ({nismSelectedPaper.startsWith("paper-") ? ((nismLaunchModal.launchData?.courseId || nismLaunchModal.course?.courseId || (nismLaunchModal.course as any)?.id || "").toLowerCase().includes("vd") ? "150 Qs " : "100 Qs ") + nismSelectedPaper.toUpperCase() : nismSelectedPaper + " Qs"})
 									</Button>
 									<Button
 										size="sm"
@@ -2803,6 +2832,14 @@ export default function AgentKnowledgeCertifications() {
 					</div>
 				</DialogContent>
 			</Dialog>
+
+			{/* 22-Chapter Curriculum & Study Notes Modal */}
+			<NismCurriculumModal
+				isOpen={isCurriculumOpen}
+				onClose={() => setIsCurriculumOpen(false)}
+				courseId={curriculumCourseId}
+				onStartMock={(paper) => handleStartNismPracticeTest(curriculumCourseId, paper, "practice")}
+			/>
 		</div>
 	);
 }
