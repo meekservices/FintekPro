@@ -48,6 +48,9 @@ export interface AgentCourseProgress {
 	certificateNumber?: string | null;
 	enrolledAt: string;
 	completedAt?: string | null;
+	availableMocksCount?: number;
+	totalPracticeQuestions?: number;
+	negativeMarking?: number;
 }
 
 export interface LtiLaunchPayload {
@@ -454,6 +457,9 @@ export class NismLmsService {
 				certificateNumber: r.certificate_number,
 				enrolledAt: new Date(r.enrolled_at).toISOString(),
 				completedAt: r.completed_at ? new Date(r.completed_at).toISOString() : null,
+				availableMocksCount: 3,
+				totalPracticeQuestions: this.resolveQuestionsForCourse(r.course_id).length,
+				negativeMarking: 0.25,
 			}));
 		} catch (err: any) {
 			logger.warn("[NismLmsService] Query fallback: " + err.message);
@@ -473,6 +479,9 @@ export class NismLmsService {
 				lastScore: null,
 				cpeCreditsEarned: 0,
 				enrolledAt: new Date().toISOString(),
+				availableMocksCount: 3,
+				totalPracticeQuestions: this.resolveQuestionsForCourse(c.id).length,
+				negativeMarking: 0.25,
 			}));
 		}
 	}
@@ -1032,11 +1041,9 @@ export class NismLmsService {
 					question: q.question,
 					options: q.options,
 					topic: q.topic,
+					correctIndex: q.correctIndex,
+					explanation: q.explanation,
 				};
-				if (testType === "practice") {
-					clientQ.correctIndex = q.correctIndex;
-					clientQ.explanation = q.explanation;
-				}
 				return clientQ;
 			}),
 		};

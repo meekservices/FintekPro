@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
 	Shield as LucideShield,
 	ChevronLeft,
@@ -27,6 +27,7 @@ import {
 	RefreshCw,
 	ChevronRight,
 	Lightbulb,
+	XCircle,
 } from "lucide-react";
 import {
 	Card,
@@ -55,6 +56,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -108,6 +110,9 @@ interface NismCourseProgress {
 	certificateNumber?: string | null;
 	enrolledAt: string;
 	completedAt?: string | null;
+	availableMocksCount?: number;
+	totalPracticeQuestions?: number;
+	negativeMarking?: number;
 }
 
 interface NismSummary {
@@ -232,6 +237,7 @@ const safeOpenUrl = (url?: string, target = "_blank") => {
 };
 
 export default function AgentKnowledgeCertifications() {
+	const [, setLocation] = useLocation();
 	const [activeTab, setActiveTab] = useState("nism");
 	const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
 	const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -269,7 +275,7 @@ export default function AgentKnowledgeCertifications() {
 
 	// NISM Practice Test simulation configuration (150 Qs papers, 100/50/25 Qs modes & Test vs Practice modes)
 	const [nismSelectedPaper, setNismSelectedPaper] = useState<string>("paper-1");
-	const [nismTestType, setNismTestType] = useState<"exam" | "practice">("exam");
+	const [nismTestType, setNismTestType] = useState<"exam" | "practice">("practice");
 
 	// IRDAI Exam state
 	const [pospExamOpen, setPospExamOpen] = useState(false);
@@ -297,6 +303,7 @@ export default function AgentKnowledgeCertifications() {
 		paperId?: string;
 		paperTitle?: string;
 		testType: "exam" | "practice";
+		showInstantRemarks: boolean;
 		passingPercentage: number;
 		durationMinutes: number;
 		secondsRemaining: number | null;
@@ -360,7 +367,8 @@ export default function AgentKnowledgeCertifications() {
 		courseId: null,
 		courseTitle: "",
 		seriesCode: "",
-		testType: "exam",
+		testType: "practice",
+		showInstantRemarks: true,
 		passingPercentage: 60,
 		durationMinutes: 15,
 		secondsRemaining: null,
@@ -554,68 +562,18 @@ export default function AgentKnowledgeCertifications() {
 		}
 	};
 
-	const handleStartNismPracticeTest = async (
+	const handleStartNismPracticeTest = (
 		courseId: string,
 		paper: string = nismSelectedPaper,
 		testType: "exam" | "practice" = nismTestType,
+		openInNewTab: boolean = false,
 	) => {
-		try {
-			setPracticeTestModal((prev) => ({ ...prev, loading: true }));
-			let url =
-				courseId === "irdai-posp"
-					? "/api/knowledge-hub/irdai/practice-test"
-					: `/api/knowledge-hub/nism/courses/${courseId}/practice-test?testType=${testType}`;
-
-			if (courseId !== "irdai-posp") {
-				if (paper.startsWith("paper-")) {
-					url += `&paperId=${paper}`;
-				} else {
-					url += `&mode=${paper}`;
-				}
-			}
-
-			const res = await apiRequest("GET", url);
-			const data = typeof res?.json === "function" ? await res.json() : res;
-			if (data?.success) {
-				const durationMinutes =
-					testType === "practice"
-						? 0
-						: data.durationMinutes || (courseId === "irdai-posp" ? 30 : 180);
-
-				setPracticeTestModal({
-					isOpen: true,
-					loading: false,
-					courseId: data.courseId,
-					courseTitle: data.courseTitle,
-					seriesCode: data.seriesCode,
-					paperId: data.paperId,
-					paperTitle: data.paperTitle,
-					testType: data.testType || testType,
-					passingPercentage: data.passingPercentage,
-					durationMinutes,
-					secondsRemaining: testType === "practice" ? null : durationMinutes * 60,
-					isTimerRunning: testType !== "practice",
-					activeQuestionIndex: 0,
-					questions: data.questions || [],
-					answers: {},
-					result: null,
-				});
-				setNismLaunchModal((prev) => ({ ...prev, isOpen: false }));
-			} else {
-				toast({
-					title: "Practice Test Unavailable",
-					description: data?.message || "Could not load practice questions.",
-					variant: "destructive",
-				});
-				setPracticeTestModal((prev) => ({ ...prev, loading: false }));
-			}
-		} catch (err: any) {
-			toast({
-				title: "Practice Test Error",
-				description: err.message || "Failed to load practice questions.",
-				variant: "destructive",
-			});
-			setPracticeTestModal((prev) => ({ ...prev, loading: false }));
+		setNismLaunchModal((prev) => ({ ...prev, isOpen: false }));
+		const targetUrl = `/agent/knowledge-hub/practice-test?courseId=${encodeURIComponent(courseId)}&paper=${encodeURIComponent(paper)}&testType=${encodeURIComponent(testType)}`;
+		if (openInNewTab) {
+			window.open(targetUrl, "_blank");
+		} else {
+			setLocation(targetUrl);
 		}
 	};
 
@@ -933,7 +891,7 @@ export default function AgentKnowledgeCertifications() {
 			</div>
 
 			{/* KPI Metrics Banner */}
-			<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+			<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
 				<Card className="bg-card/70 border-border">
 					<CardContent className="pt-4 pb-4">
 						<div className="flex items-center justify-between">
@@ -964,6 +922,19 @@ export default function AgentKnowledgeCertifications() {
 						</div>
 						<p className="text-2xl font-bold text-emerald-400 mt-1">{nismSummary.totalCpeCredits} hrs</p>
 						<p className="text-[11px] text-muted-foreground mt-0.5">Continuous education</p>
+					</CardContent>
+				</Card>
+
+				<Card className="bg-card/70 border-border">
+					<CardContent className="pt-4 pb-4">
+						<div className="flex items-center justify-between">
+							<p className="text-xs text-muted-foreground uppercase font-medium">Mock Tests Ready</p>
+							<Target className="h-4 w-4 text-amber-500" />
+						</div>
+						<p className="text-2xl font-bold text-amber-500 mt-1">
+							{nismCourses.reduce((acc, c) => acc + (c.availableMocksCount || 3), 0)} Mocks
+						</p>
+						<p className="text-[11px] text-muted-foreground mt-0.5">3 Full papers / subject</p>
 					</CardContent>
 				</Card>
 
@@ -1004,13 +975,13 @@ export default function AgentKnowledgeCertifications() {
 
 				{/* TAB 1: NISM E-Learning Academy */}
 				<TabsContent value="nism" className="space-y-6">
-					<Alert className="bg-emerald-500/10 border-emerald-500/30">
-						<Info className="h-4 w-4 text-emerald-400" />
-						<AlertTitle className="text-emerald-400">
+					<Alert className="bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-100">
+						<Info className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
+						<AlertTitle className="text-emerald-900 dark:text-emerald-300 font-bold">
 							Official NISM E-Learning Partner Integration
 						</AlertTitle>
-						<AlertDescription className="text-emerald-200/90 text-sm">
-							Launch official NISM courses directly from FintekPro using <strong>LTI 1.3 Single Sign-On (SSO)</strong>. Course progress, mock quiz completion, and Continuing Professional Education (CPE) hours are synchronized automatically via real-time <strong>xAPI webhooks</strong>.
+						<AlertDescription className="text-emerald-800 dark:text-emerald-200 text-sm leading-relaxed">
+							Launch official NISM courses directly from FintekPro using <strong className="font-semibold text-emerald-950 dark:text-emerald-100">LTI 1.3 Single Sign-On (SSO)</strong>. Course progress, mock quiz completion, and Continuing Professional Education (CPE) hours are synchronized automatically via real-time <strong className="font-semibold text-emerald-950 dark:text-emerald-100">xAPI webhooks</strong>.
 						</AlertDescription>
 					</Alert>
 
@@ -1027,7 +998,7 @@ export default function AgentKnowledgeCertifications() {
 								const isInProgress = course.status === "in_progress" || course.status === "enrolled";
 
 								return (
-									<Card key={course.courseId} className="bg-card border-border hover:border-emerald-500/40 transition-colors flex flex-col justify-between">
+									<Card key={course.courseId} className="bg-card border-border hover:border-emerald-500/40 transition-colors flex flex-col justify-between shadow-sm">
 										<CardHeader className="pb-3">
 											<div className="flex items-start justify-between gap-3">
 												<div>
@@ -1035,14 +1006,18 @@ export default function AgentKnowledgeCertifications() {
 														<Badge variant="outline" className="text-xs font-mono font-bold bg-muted/30">
 															{course.seriesCode}
 														</Badge>
-														<Badge className="text-xs bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+														<Badge className="text-xs bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
 															{course.category}
 														</Badge>
 														{course.cpeCredits > 0 && (
-															<Badge className="text-xs bg-amber-500/20 text-amber-400 border-amber-500/30">
+															<Badge className="text-xs bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30">
 																{course.cpeCredits} CPE Credits
 															</Badge>
 														)}
+														<Badge className="text-xs bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 flex items-center gap-1 font-medium">
+															<Target className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+															{course.availableMocksCount || 3} Mocks Available
+														</Badge>
 													</div>
 													<CardTitle className="text-base font-semibold text-foreground leading-snug">
 														{course.title}
@@ -1062,6 +1037,37 @@ export default function AgentKnowledgeCertifications() {
 										</CardHeader>
 
 										<CardContent className="space-y-4 pt-0">
+											{/* Quick Stats: Hours, Mock Papers, Passing Criteria */}
+											<div className="grid grid-cols-3 gap-2 py-2 px-2.5 rounded-lg bg-muted/40 border border-border/60 text-xs">
+												<div className="flex flex-col">
+													<span className="text-[10px] text-muted-foreground uppercase font-medium flex items-center gap-1">
+														<Clock className="h-3 w-3 text-muted-foreground" />
+														Est. Study
+													</span>
+													<span className="font-semibold text-foreground mt-0.5 text-xs">
+														{course.durationHours} hrs
+													</span>
+												</div>
+												<div className="flex flex-col border-x border-border/50 px-2">
+													<span className="text-[10px] text-muted-foreground uppercase font-medium flex items-center gap-1">
+														<Target className="h-3 w-3 text-amber-500" />
+														Mock Papers
+													</span>
+													<span className="font-semibold text-amber-700 dark:text-amber-400 mt-0.5 text-xs truncate">
+														{course.availableMocksCount || 3} Papers ({course.totalPracticeQuestions || 450} Qs)
+													</span>
+												</div>
+												<div className="flex flex-col pl-1">
+													<span className="text-[10px] text-muted-foreground uppercase font-medium flex items-center gap-1">
+														<CheckCircle2 className="h-3 w-3 text-emerald-500" />
+														Passing
+													</span>
+													<span className="font-semibold text-emerald-700 dark:text-emerald-400 mt-0.5 text-xs">
+														{course.passingPercentage || 60}% (–0.25 neg)
+													</span>
+												</div>
+											</div>
+
 											<div className="space-y-1.5">
 												<div className="flex justify-between text-xs">
 													<span className="text-muted-foreground">Course Completion</span>
@@ -1099,11 +1105,11 @@ export default function AgentKnowledgeCertifications() {
 												<Button
 													size="sm"
 													variant="outline"
-													className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10 h-8 flex items-center gap-1 text-xs"
-													onClick={() => handleLaunchNismCourse(course.courseId)}
+													className="border-amber-500/50 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 h-8 flex items-center gap-1.5 text-xs font-semibold px-2.5"
+													onClick={() => handleStartNismPracticeTest(course.courseId, "paper-1", "practice")}
 												>
-													<Target className="h-3.5 w-3.5" />
-													Practice Tests
+													<Target className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+													Practice Tests ({course.availableMocksCount || 3})
 												</Button>
 
 												<Button
@@ -1208,7 +1214,7 @@ export default function AgentKnowledgeCertifications() {
 										size="sm"
 										variant="outline"
 										className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10 text-xs flex items-center gap-1.5"
-										onClick={() => handleStartNismPracticeTest("irdai-posp")}
+										onClick={() => handleStartNismPracticeTest("irdai-posp", "all", "practice")}
 									>
 										<Target className="h-3.5 w-3.5" />
 										Take Practice Mock (20 MCQs)
@@ -2056,27 +2062,46 @@ export default function AgentKnowledgeCertifications() {
 										</div>
 									</div>
 								</div>
-								<Button
-									size="sm"
-									className={`w-full text-white text-xs h-8 flex items-center justify-center gap-1.5 mt-1 ${
-										nismTestType === "practice"
-											? "bg-emerald-600 hover:bg-emerald-700"
-											: "bg-amber-600 hover:bg-amber-700"
-									}`}
-									disabled={practiceTestModal.loading}
-									onClick={() => {
-										const targetCourseId =
-											nismLaunchModal.launchData?.courseId ||
-											nismLaunchModal.course?.courseId ||
-											(nismLaunchModal.course as any)?.id ||
-											nismLaunchModal.launchData?.seriesCode?.toLowerCase() ||
-											"nism-va";
-										handleStartNismPracticeTest(targetCourseId, nismSelectedPaper, nismTestType);
-									}}
-								>
-									<Play className="h-3.5 w-3.5 fill-current" />
-									Launch {nismSelectedPaper.startsWith("paper-") ? "150 Qs " + nismSelectedPaper.toUpperCase() : nismSelectedPaper + " Qs"} ({nismTestType === "exam" ? "Timed Exam" : "Tutor Practice"})
-								</Button>
+								<div className="flex items-center gap-2 mt-1">
+									<Button
+										size="sm"
+										className={`flex-1 text-white text-xs h-9 flex items-center justify-center gap-1.5 ${
+											nismTestType === "practice"
+												? "bg-emerald-600 hover:bg-emerald-700"
+												: "bg-amber-600 hover:bg-amber-700"
+										}`}
+										onClick={() => {
+											const targetCourseId =
+												nismLaunchModal.launchData?.courseId ||
+												nismLaunchModal.course?.courseId ||
+												(nismLaunchModal.course as any)?.id ||
+												nismLaunchModal.launchData?.seriesCode?.toLowerCase() ||
+												"nism-va";
+											handleStartNismPracticeTest(targetCourseId, nismSelectedPaper, nismTestType, false);
+										}}
+									>
+										<Play className="h-3.5 w-3.5 fill-current" />
+										Open Full Test Page ({nismSelectedPaper.startsWith("paper-") ? "150 Qs " + nismSelectedPaper.toUpperCase() : nismSelectedPaper + " Qs"})
+									</Button>
+									<Button
+										size="sm"
+										variant="outline"
+										className="border-border text-xs h-9 px-2.5 flex items-center gap-1 text-muted-foreground hover:text-foreground"
+										title="Open in New Tab"
+										onClick={() => {
+											const targetCourseId =
+												nismLaunchModal.launchData?.courseId ||
+												nismLaunchModal.course?.courseId ||
+												(nismLaunchModal.course as any)?.id ||
+												nismLaunchModal.launchData?.seriesCode?.toLowerCase() ||
+												"nism-va";
+											handleStartNismPracticeTest(targetCourseId, nismSelectedPaper, nismTestType, true);
+										}}
+									>
+										<ExternalLink className="h-3.5 w-3.5" />
+										<span className="hidden sm:inline">New Tab</span>
+									</Button>
+								</div>
 							</div>
 
 							{/* 3. Exam Registration */}
@@ -2235,149 +2260,258 @@ export default function AgentKnowledgeCertifications() {
 					<div className="space-y-4 py-3 overflow-y-auto pr-1 flex-1">
 						{!practiceTestModal.result ? (
 							<>
-								<div className="p-3 bg-muted/20 border border-border/40 rounded-lg space-y-2">
-									<div className="flex items-center justify-between text-xs">
-										<span className="text-muted-foreground flex items-center gap-1.5">
-											<span className={`h-2 w-2 rounded-full ${practiceTestModal.testType === "practice" ? "bg-emerald-400" : "bg-amber-400"}`}></span>
-											{practiceTestModal.questions.length} MCQs • {practiceTestModal.testType === "practice" ? "Untimed Tutor Session with Immediate Explanations" : "SEBI Negative Marking (0.25/wrong) • Timed Exam Simulation"}
-										</span>
-										<span className="text-amber-400 font-medium">
-											Answered: {Object.keys(practiceTestModal.answers).length} / {practiceTestModal.questions.length}
-										</span>
-									</div>
+								{(() => {
+									const answeredCount = Object.keys(practiceTestModal.answers).length;
+									const totalCount = practiceTestModal.questions.length;
+									const rightCount = practiceTestModal.questions.filter(
+										(q) =>
+											practiceTestModal.answers[q.id] !== undefined &&
+											q.correctIndex !== undefined &&
+											practiceTestModal.answers[q.id] === q.correctIndex,
+									).length;
+									const wrongCount = answeredCount - rightCount;
+									const isPractice = practiceTestModal.testType === "practice";
+									const showInstantRemarks = practiceTestModal.showInstantRemarks ?? true;
 
-									{/* Question Palette */}
-									<div className="flex items-center gap-1.5 flex-wrap pt-1.5 border-t border-border/30">
-										<span className="text-[10px] text-muted-foreground mr-1 uppercase tracking-wider font-semibold">Palette:</span>
-										{practiceTestModal.questions.map((q, qIdx) => {
-											const isAnswered = practiceTestModal.answers[q.id] !== undefined;
-											const isPractice = practiceTestModal.testType === "practice";
-											const isCorrect = isAnswered && isPractice && practiceTestModal.answers[q.id] === q.correctIndex;
-
-											let paletteClass = "bg-muted/40 text-muted-foreground hover:bg-muted/80 hover:text-foreground border border-border/50";
-											if (isAnswered) {
-												if (isPractice) {
-													paletteClass = isCorrect
-														? "bg-emerald-600 text-white font-bold shadow-sm"
-														: "bg-rose-600 text-white font-bold shadow-sm";
-												} else {
-													paletteClass = "bg-amber-600 text-white font-bold shadow-sm";
-												}
-											}
-
-											return (
-												<button
-													key={q.id}
-													type="button"
-													onClick={() => {
-														const el = document.getElementById(`q-card-${q.id}`);
-														if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-													}}
-													className={`w-6 h-6 rounded text-[11px] font-mono font-medium transition-all ${paletteClass}`}
-												>
-													{qIdx + 1}
-												</button>
-											);
-										})}
-									</div>
-								</div>
-
-								<div className="space-y-4">
-									{practiceTestModal.questions.map((q, idx) => {
-										const isAnswered = practiceTestModal.answers[q.id] !== undefined;
-										const userAnswer = practiceTestModal.answers[q.id];
-										const isPractice = practiceTestModal.testType === "practice";
-
-										return (
-											<div
-												key={q.id}
-												id={`q-card-${q.id}`}
-												className={`p-4 rounded-lg border transition-all ${
-													isPractice && isAnswered
-														? userAnswer === q.correctIndex
-															? "bg-emerald-950/20 border-emerald-500/40"
-															: "bg-rose-950/20 border-rose-500/40"
-														: "bg-background/50 border-border"
-												}`}
-											>
-												<div className="flex items-start justify-between gap-2 mb-2">
-													<p className="font-medium text-foreground text-sm">
-														{idx + 1}. {q.question}
-													</p>
-													{q.topic && (
-														<Badge variant="outline" className="text-[10px] shrink-0 text-muted-foreground">
-															{q.topic}
-														</Badge>
-													)}
+									return (
+										<>
+											<div className="p-3 bg-muted/20 border border-border/40 rounded-lg space-y-2.5">
+												<div className="flex items-center justify-between text-xs flex-wrap gap-2">
+													<span className="text-muted-foreground flex items-center gap-1.5">
+														<span className={`h-2 w-2 rounded-full ${isPractice ? "bg-emerald-400" : "bg-amber-400"}`}></span>
+														{totalCount} MCQs • {isPractice ? "Untimed Tutor Session with Immediate Explanations" : "Timed Exam Simulation"}
+													</span>
+													<div className="flex items-center gap-3 flex-wrap">
+														<div className="flex items-center gap-1.5 text-xs font-medium">
+															<span className="text-muted-foreground">Score:</span>
+															<span className="text-emerald-400 font-bold flex items-center gap-0.5">
+																<CheckCircle2 className="h-3 w-3 inline" /> {rightCount} Right
+															</span>
+															<span className="text-muted-foreground/40">•</span>
+															<span className="text-rose-400 font-bold flex items-center gap-0.5">
+																<XCircle className="h-3 w-3 inline" /> {wrongCount} Wrong
+															</span>
+															<span className="text-muted-foreground/40">•</span>
+															<span className="text-amber-400">
+																{answeredCount}/{totalCount} Attended
+															</span>
+														</div>
+														<div className="flex items-center gap-1.5 pl-2 border-l border-border/40">
+															<Switch
+																id="toggle-instant-remarks"
+																checked={showInstantRemarks}
+																onCheckedChange={(checked) =>
+																	setPracticeTestModal((prev) => ({
+																		...prev,
+																		showInstantRemarks: checked,
+																	}))
+																}
+																className="scale-75 data-[state=checked]:bg-emerald-600"
+															/>
+															<Label
+																htmlFor="toggle-instant-remarks"
+																className="text-[11px] text-muted-foreground cursor-pointer select-none"
+															>
+																Instant Remarks & Explanations
+															</Label>
+														</div>
+													</div>
 												</div>
-												<RadioGroup
-													value={practiceTestModal.answers[q.id]?.toString() ?? ""}
-													onValueChange={(val) =>
-														setPracticeTestModal((prev) => ({
-															...prev,
-															answers: { ...prev.answers, [q.id]: Number(val) },
-														}))
-													}
-												>
-													{q.options.map((opt, optIdx) => {
-														const isSelected = userAnswer === optIdx;
-														const isCorrectOpt = q.correctIndex !== undefined && optIdx === q.correctIndex;
 
-														let optContainerClass = "border border-transparent hover:bg-muted/30";
-														if (isPractice && isAnswered) {
-															if (isCorrectOpt) {
-																optContainerClass = "bg-emerald-500/15 border border-emerald-500/50 text-emerald-300 font-semibold";
-															} else if (isSelected && !isCorrectOpt) {
-																optContainerClass = "bg-rose-500/15 border border-rose-500/50 text-rose-300 font-medium";
+												{/* Question Palette */}
+												<div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-border/30">
+													<span className="text-[10px] text-muted-foreground mr-1 uppercase tracking-wider font-semibold">Palette:</span>
+													{practiceTestModal.questions.map((q, qIdx) => {
+														const isAnswered = practiceTestModal.answers[q.id] !== undefined;
+														const isCorrect = isAnswered && q.correctIndex !== undefined && practiceTestModal.answers[q.id] === q.correctIndex;
+
+														let paletteClass = "bg-muted/40 text-muted-foreground hover:bg-muted/80 hover:text-foreground border border-border/50";
+														if (isAnswered) {
+															if (showInstantRemarks || isPractice) {
+																paletteClass = isCorrect
+																	? "bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-sm ring-1 ring-emerald-400/50"
+																	: "bg-rose-600 hover:bg-rose-500 text-white font-bold shadow-sm ring-1 ring-rose-400/50";
+															} else {
+																paletteClass = "bg-amber-600 text-white font-bold shadow-sm";
 															}
 														}
 
 														return (
-															<div
-																key={optIdx}
-																className={`flex items-center space-x-2 py-1.5 px-2 rounded-md transition-colors ${optContainerClass}`}
+															<button
+																key={q.id}
+																type="button"
+																onClick={() => {
+																	const el = document.getElementById(`q-card-${q.id}`);
+																	if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+																}}
+																className={`w-6 h-6 rounded text-[11px] font-mono font-medium transition-all ${paletteClass}`}
+																title={`Q${qIdx + 1}: ${isAnswered ? (isCorrect ? "Right Answer" : "Wrong Answer") : "Unanswered"}`}
 															>
-																<RadioGroupItem value={optIdx.toString()} id={`nism-prac-${q.id}-${optIdx}`} />
-																<Label
-																	htmlFor={`nism-prac-${q.id}-${optIdx}`}
-																	className="text-muted-foreground cursor-pointer text-xs flex-1 flex items-center justify-between"
-																>
-																	<span>{opt}</span>
-																	{isPractice && isAnswered && isCorrectOpt && (
-																		<span className="text-[10px] text-emerald-400 font-bold ml-2">✓ Correct Answer</span>
-																	)}
-																	{isPractice && isAnswered && isSelected && !isCorrectOpt && (
-																		<span className="text-[10px] text-rose-400 font-bold ml-2">✗ Your Choice</span>
-																	)}
-																</Label>
-															</div>
+																{qIdx + 1}
+															</button>
 														);
 													})}
-												</RadioGroup>
-
-												{/* Instant rationale in practice mode */}
-												{isPractice && isAnswered && (
-													<div
-														className={`mt-3 p-3 rounded-lg border text-xs leading-relaxed ${
-															userAnswer === q.correctIndex
-																? "bg-emerald-950/40 border-emerald-500/30 text-emerald-200"
-																: "bg-rose-950/30 border-rose-500/30 text-rose-200"
-														}`}
-													>
-														<div className="flex items-center gap-1.5 font-semibold mb-1">
-															<Lightbulb className="h-3.5 w-3.5 shrink-0 text-amber-400" />
-															<span>
-																{userAnswer === q.correctIndex ? "Correct Answer! " : "Incorrect. "}
-																NISM Study Material Rationale & Reference:
-															</span>
-														</div>
-														<p className="text-muted-foreground">{q.explanation || `The correct option is Option ${String.fromCharCode(65 + (q.correctIndex ?? 0))}.`}</p>
-													</div>
-												)}
+												</div>
 											</div>
-										);
-									})}
-								</div>
+
+											<div className="space-y-4">
+												{practiceTestModal.questions.map((q, idx) => {
+													const isAnswered = practiceTestModal.answers[q.id] !== undefined;
+													const userAnswer = practiceTestModal.answers[q.id];
+													const isRemarkActive = (showInstantRemarks || isPractice) && isAnswered;
+													const isCorrect = isAnswered && q.correctIndex !== undefined && userAnswer === q.correctIndex;
+													const correctIndex = q.correctIndex ?? 0;
+													const correctLetter = String.fromCharCode(65 + correctIndex);
+													const correctOptionText = q.options[correctIndex] || "";
+													const userLetter = userAnswer !== undefined ? String.fromCharCode(65 + userAnswer) : "";
+													const userOptionText = userAnswer !== undefined ? q.options[userAnswer] : "";
+
+													let cardBorderClass = "bg-background/50 border-border";
+													if (isRemarkActive) {
+														cardBorderClass = isCorrect
+															? "bg-emerald-950/20 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.08)]"
+															: "bg-rose-950/20 border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.08)]";
+													}
+
+													return (
+														<div
+															key={q.id}
+															id={`q-card-${q.id}`}
+															className={`p-4 rounded-xl border transition-all space-y-3 ${cardBorderClass}`}
+														>
+															<div className="flex items-start justify-between gap-2">
+																<p className="font-semibold text-foreground text-sm leading-relaxed">
+																	<span className="text-amber-400 font-mono mr-1.5">Q{idx + 1}.</span> {q.question}
+																</p>
+																{q.topic && (
+																	<Badge variant="outline" className="text-[10px] shrink-0 text-muted-foreground border-border/60">
+																		{q.topic}
+																	</Badge>
+																)}
+															</div>
+
+															<RadioGroup
+																value={practiceTestModal.answers[q.id]?.toString() ?? ""}
+																onValueChange={(val) =>
+																	setPracticeTestModal((prev) => ({
+																		...prev,
+																		answers: { ...prev.answers, [q.id]: Number(val) },
+																	}))
+																}
+																className="space-y-1.5"
+															>
+																{q.options.map((opt, optIdx) => {
+																	const isSelected = userAnswer === optIdx;
+																	const isThisOptionCorrect = q.correctIndex !== undefined && optIdx === q.correctIndex;
+																	const optLetter = String.fromCharCode(65 + optIdx);
+
+																	let optContainerClass = "border border-border/50 hover:bg-muted/30 bg-muted/10";
+																	if (isRemarkActive) {
+																		if (isThisOptionCorrect) {
+																			optContainerClass = "bg-emerald-500/15 border-2 border-emerald-500 text-emerald-200 font-medium shadow-sm";
+																		} else if (isSelected && !isThisOptionCorrect) {
+																			optContainerClass = "bg-rose-500/15 border-2 border-rose-500 text-rose-200 font-medium shadow-sm";
+																		} else {
+																			optContainerClass = "opacity-50 border-border/30 hover:opacity-80";
+																		}
+																	} else if (isSelected) {
+																		optContainerClass = "bg-amber-500/15 border border-amber-500/50 text-amber-200 font-medium";
+																	}
+
+																	return (
+																		<div
+																			key={optIdx}
+																			className={`flex items-center space-x-2 py-2 px-3 rounded-lg transition-all ${optContainerClass}`}
+																		>
+																			<RadioGroupItem value={optIdx.toString()} id={`nism-prac-${q.id}-${optIdx}`} />
+																			<Label
+																				htmlFor={`nism-prac-${q.id}-${optIdx}`}
+																				className="text-foreground cursor-pointer text-xs flex-1 flex items-center justify-between gap-2"
+																			>
+																				<span className="flex items-center gap-2">
+																					<span className="font-mono font-bold text-muted-foreground text-[11px] min-w-[18px]">
+																						{optLetter}.
+																					</span>
+																					<span className="leading-snug">{opt}</span>
+																				</span>
+																				{isRemarkActive && isThisOptionCorrect && (
+																					<Badge className="bg-emerald-500/30 text-emerald-300 border-emerald-500/50 text-[10px] shrink-0 font-bold">
+																						✓ Right Answer
+																					</Badge>
+																				)}
+																				{isRemarkActive && isSelected && !isThisOptionCorrect && (
+																					<Badge className="bg-rose-500/30 text-rose-300 border-rose-500/50 text-[10px] shrink-0 font-bold">
+																						✗ Wrong Answer (Your Choice)
+																					</Badge>
+																				)}
+																			</Label>
+																		</div>
+																	);
+																})}
+															</RadioGroup>
+
+															{/* Immediate Remark (Right or Wrong) & Comprehensive Concept Explanation */}
+															{isRemarkActive && (
+																<div className="space-y-2.5 pt-1">
+																	{/* Status Remark Callout */}
+																	{isCorrect ? (
+																		<div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300">
+																			<CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+																			<div>
+																				<div className="font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 text-emerald-300">
+																					✓ Remark: Right Answer!
+																				</div>
+																				<p className="text-xs text-emerald-200/90 mt-0.5">
+																					Spot on! You selected Option {correctLetter} ({correctOptionText}).
+																				</p>
+																			</div>
+																		</div>
+																	) : (
+																		<div className="flex items-start gap-3 p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300">
+																			<XCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
+																			<div>
+																				<div className="font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 text-rose-400">
+																					✗ Remark: Wrong Answer
+																				</div>
+																				<p className="text-xs text-rose-200/90 mt-0.5 leading-relaxed">
+																					You selected <span className="font-semibold text-rose-300">Option {userLetter}: {userOptionText}</span>.
+																					<br />
+																					The correct answer is <span className="font-bold text-emerald-300 underline underline-offset-2">Option {correctLetter}: {correctOptionText}</span>.
+																				</p>
+																			</div>
+																		</div>
+																	)}
+
+																	{/* Concept Explanation Card */}
+																	<div className="p-4 rounded-xl border bg-gradient-to-br from-card via-card/90 to-amber-500/5 border-amber-500/30 text-xs leading-relaxed space-y-2.5 shadow-sm">
+																		<div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2 flex-wrap">
+																			<div className="flex items-center gap-2 font-semibold text-amber-300">
+																				<Lightbulb className="h-4 w-4 shrink-0 text-amber-400 animate-pulse" />
+																				<span>Concept Explanation & Regulatory Rationale</span>
+																			</div>
+																			{q.topic && (
+																				<Badge variant="outline" className="border-amber-500/40 text-amber-300 bg-amber-500/10 text-[10px]">
+																					{q.topic}
+																				</Badge>
+																			)}
+																		</div>
+																		<p className="text-foreground/90 text-xs leading-relaxed whitespace-pre-line">
+																			{q.explanation || `Option ${correctLetter} is the accredited regulatory answer according to official curriculum standards.`}
+																		</p>
+																		<div className="flex items-center gap-1.5 text-[11px] text-muted-foreground pt-1 border-t border-border/40">
+																			<GraduationCap className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+																			<span>Core Concept: Understanding this rationale prepares you to answer variant questions in the final examination.</span>
+																		</div>
+																	</div>
+																</div>
+															)}
+														</div>
+													);
+												})}
+											</div>
+										</>
+									);
+								})()}
 
 								<Button
 									className={`w-full text-white mt-4 ${
@@ -2586,21 +2720,22 @@ export default function AgentKnowledgeCertifications() {
 													{idx + 1}. {r.question}
 												</p>
 												<Badge
-													variant="outline"
 													className={
 														r.isCorrect
-															? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10 text-[10px]"
-															: "border-red-500/40 text-red-400 bg-red-500/10 text-[10px]"
+															? "border-emerald-500/50 text-emerald-300 bg-emerald-500/20 text-[10px] font-semibold"
+															: "border-rose-500/50 text-rose-300 bg-rose-500/20 text-[10px] font-semibold"
 													}
 												>
-													{r.isCorrect ? "Correct ✓" : "Incorrect ✗"}
+													{r.isCorrect ? "✓ Right Answer" : "✗ Wrong Answer"}
 												</Badge>
 											</div>
 
 											<div className="space-y-1 pt-1">
 												<p className="text-muted-foreground">
 													<strong className="text-foreground">Your answer:</strong>{" "}
-													{r.selectedOptionIndex !== null ? r.options[r.selectedOptionIndex] : "Unanswered"}
+													<span className={r.isCorrect ? "text-emerald-400 font-medium" : "text-rose-400 font-medium line-through"}>
+														{r.selectedOptionIndex !== null ? r.options[r.selectedOptionIndex] : "Unanswered"}
+													</span>
 												</p>
 												{!r.isCorrect && (
 													<p className="text-emerald-400 font-medium">
@@ -2610,8 +2745,12 @@ export default function AgentKnowledgeCertifications() {
 											</div>
 
 											{r.explanation && (
-												<div className="p-2.5 rounded bg-muted/30 border border-border/60 text-[11px] text-muted-foreground">
-													<strong className="text-foreground">Explanation:</strong> {r.explanation}
+												<div className="p-3 rounded-lg bg-card border border-amber-500/30 text-[11px] text-muted-foreground space-y-1">
+													<div className="flex items-center gap-1.5 font-semibold text-amber-400">
+														<Lightbulb className="h-3.5 w-3.5 shrink-0" />
+														<span>Concept Explanation & Rationale:</span>
+													</div>
+													<p className="text-foreground/90 leading-relaxed">{r.explanation}</p>
 												</div>
 											)}
 										</div>

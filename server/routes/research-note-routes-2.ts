@@ -41,6 +41,7 @@ import { unlistedCompanies, companyFinancials } from "@shared/schema";
 import { logger } from "../logger";
 import { CURATED_PRE_IPOS, CURATED_LIVE_IPOS } from "./pre-ipo";
 import { buildReportData } from "./research-note-routes-1";
+import { isListedEntity } from "../utils/listed-entity-registry";
 
 export function unlistedDataToReportData(data: any): ReportData {
 	return {
@@ -90,9 +91,10 @@ router.post("/generate/onepager", async (req: Request, res: Response) => {
 		const upperTarget = queryTarget.toUpperCase();
 		const isCin = /^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/i.test(upperTarget);
 
+		const isGraduated = isListedEntity({ name: upperTarget, cin });
 		let reportData: ReportData;
-		if (isUnlisted || cin || isCin || upperTarget === "NSE" || upperTarget.startsWith("PRE-")) {
-			const unlistedRaw = await buildUnlistedReportData(upperTarget === "NSE" ? "U67120MH1992PLC069769" : queryTarget);
+		if ((isUnlisted || cin || isCin || upperTarget.startsWith("PRE-")) && !isGraduated) {
+			const unlistedRaw = await buildUnlistedReportData(upperTarget === "PRE-NSE-01" ? "U67120MH1992PLC069769" : queryTarget);
 			reportData = unlistedDataToReportData(unlistedRaw);
 		} else {
 			reportData = await buildReportData(queryTarget);
@@ -250,24 +252,19 @@ async function discoverIpoAndPriceSources(
 		logger.warn({ event: "PRE_IPO_COMPANIES_QUERY_WARN", error: e?.message });
 	}
 
-	// 3. Check curated pre-IPO pipeline
-	const curatedMatch = [...CURATED_PRE_IPOS, ...CURATED_LIVE_IPOS].find((c) => {
+	// 3. Check curated pre-IPO pipeline (only for genuine unlisted/pre-IPO entities)
+	const isGraduated = isListedEntity({ name: companyName, cin });
+	const curatedMatch = !isGraduated ? [...CURATED_PRE_IPOS, ...CURATED_LIVE_IPOS].find((c) => {
 		const cName = (c.companyName || "").toLowerCase();
 		const qName = (companyName || "").toLowerCase();
 		if (cName.includes(qName) || qName.includes(cName)) return true;
-		if (
-			(qName.includes("nse") || qName.includes("national stock exchange")) &&
-			(cName.includes("nse") || cName.includes("national stock exchange"))
-		) {
-			return true;
-		}
 		if (qName.includes("tata play") && cName.includes("tata play")) {
 			return true;
 		}
 		return tokens.some(
 			(tok) => tok.length >= 4 && cName.toUpperCase().includes(tok),
 		);
-	});
+	}) : null;
 
 	if (curatedMatch) {
 		if ((!priceBandMin || !priceBandMax) && curatedMatch.priceRange) {
@@ -435,19 +432,14 @@ export async function buildUnlistedReportData(cin: string): Promise<any> {
 		companyName.toLowerCase().includes("nse") ||
 		companyName.toLowerCase().includes("national stock exchange");
 
-	// Check if this company exists in curated pre-IPO pipeline (e.g. NSE) with verified multi-year financials
-	const curatedMatch = [...CURATED_PRE_IPOS, ...CURATED_LIVE_IPOS].find((c) => {
+	// Check if this company exists in curated pre-IPO pipeline with verified multi-year financials
+	const isGraduated = isListedEntity({ name: companyName, cin: compCin });
+	const curatedMatch = !isGraduated ? [...CURATED_PRE_IPOS, ...CURATED_LIVE_IPOS].find((c) => {
 		const cName = (c.companyName || "").toLowerCase();
 		const qName = companyName.toLowerCase();
 		if (cName.includes(qName) || qName.includes(cName)) return true;
-		if (
-			(qName.includes("nse") || qName.includes("national stock exchange")) &&
-			(cName.includes("nse") || cName.includes("national stock exchange"))
-		) {
-			return true;
-		}
 		return false;
-	});
+	}) : null;
 
 	const totalShares =
 		isNse

@@ -738,13 +738,23 @@ export class IrdaiPospTrainingService {
 		seriesCode: string;
 		passingPercentage: number;
 		timeLimitMinutes: number;
-		questions: { id: string; question: string; options: string[]; topic: string }[];
+		testType: "practice";
+		questions: {
+			id: string;
+			question: string;
+			options: string[];
+			topic: string;
+			correctIndex: number;
+			explanation: string;
+		}[];
 	} {
 		const questions = POSP_QUESTION_BANK.map((q) => ({
 			id: q.id,
 			question: q.question,
 			options: [...q.options],
 			topic: q.category,
+			correctIndex: q.correctIndex,
+			explanation: q.explanation,
 		}));
 
 		return {
@@ -753,6 +763,7 @@ export class IrdaiPospTrainingService {
 			seriesCode: "IRDAI-POSP",
 			passingPercentage: 35,
 			timeLimitMinutes: 30,
+			testType: "practice",
 			questions,
 		};
 	}

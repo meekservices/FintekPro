@@ -397,6 +397,9 @@ export const AgentKnowledgeExplanations = lazyWithRetry(
 export const AgentKnowledgeCertifications = lazyWithRetry(
 	() => import("@/pages/agent-knowledge-certifications"),
 );
+export const AgentPracticeTest = lazyWithRetry(
+	() => import("@/pages/agent-practice-test"),
+);
 export const AgentInvestmentAdvisory = lazyWithRetry(
 	() => import("@/pages/agent-investment-advisory"),
 );

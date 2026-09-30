@@ -157,44 +157,6 @@ export const CURATED_PRE_IPOS = [
 // isIpoExpired() before serving; do NOT keep closed IPOs here permanently.
 export const CURATED_LIVE_IPOS = [
 	{
-		id: "live-nse-ipo",
-		companyName: "National Stock Exchange of India (NSE)",
-		category: "Financial Market Infrastructure",
-		exchange: "BSE",
-		listingVenue: "BSE",
-		issueSize: "₹26,000 Cr",
-		priceRange: "₹1,700 - ₹1,785",
-		priceBandMin: 1700,
-		priceBandMax: 1785,
-		lotSize: 8,
-		minInvestment: "₹14,280",
-		openDate: "2026-09-17",
-		closeDate: "2026-09-21",
-		listingDate: "2026-09-24",
-		// ── Offer structure ────────────────────────────────────────────────
-		issueType: "fresh_issue",
-		freshIssueShares: 14565217,        // ~1.46 Cr new shares @ ₹1,785
-		freshIssueAmount: "26,000",        // ₹26,000 Cr
-		ofsShares: 0,
-		ofsAmount: "0",
-		totalSharesOnOffer: 14565217,
-		stakeBeingDiluted: "2.90",         // % of post-issue equity
-		// ── SEBI milestones ────────────────────────────────────────────────
-		sebiObservationLetterDate: "2026-07-14",
-		priceBandAnnouncementDate: "2026-09-13",
-		// ── Parties ────────────────────────────────────────────────────────
-		registrar: "Link Intime India Pvt Ltd",
-		// ── GMP & Subscription ─────────────────────────────────────────────
-		gmp: 400,
-		gmpPercentage: 22.4,
-		subscriptionStatus: "Open for Bidding",
-		retailSubscription: "2.4x",
-		hniSubscription: "4.1x",
-		institutionalSubscription: "1.8x",
-		isSme: false,
-		rhpUrl: "https://www.bseindia.com",
-	},
-	{
 		id: "live-techflow-automations",
 		companyName: "Techflow Automations Ltd",
 		category: "Industrial Automation & Robotics",

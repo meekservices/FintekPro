@@ -51,6 +51,7 @@ import {
 	AgentKnowledgeProducts,
 	AgentKnowledgeExplanations,
 	AgentKnowledgeCertifications,
+	AgentPracticeTest,
 	AgentRevenueCockpit,
 	AgentUsClientAccounts as _AgentUsClientAccounts,
 	AlpacaHubAgent,
@@ -476,6 +477,24 @@ export function AgentRoutes() {
 					<AgentLayout>
 						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
 							<AgentKnowledgeCertifications />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
+			<Route path="/agent/knowledge-hub/practice-test">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AgentPracticeTest />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
+			<Route path="/agent/practice-test">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AgentPracticeTest />
 						</Suspense>
 					</AgentLayout>
 				)}
