@@ -1868,8 +1868,7 @@ export default function AgentKnowledgeCertifications() {
 									className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 flex items-center justify-center gap-1.5"
 									onClick={() => {
 										safeOpenUrl(
-											nismLaunchModal.launchData?.launchUrl ||
-												nismLaunchModal.launchData?.portalUrl ||
+											nismLaunchModal.launchData?.portalUrl ||
 												"https://online.nism.ac.in/nismlms/",
 										);
 									}}
@@ -1985,7 +1984,7 @@ export default function AgentKnowledgeCertifications() {
 									onClick={() => {
 										safeOpenUrl(
 											nismLaunchModal.launchData?.certificationsUrl ||
-												"https://cert.nism.ac.in/dashboard",
+												"https://certifications.nism.ac.in/",
 										);
 									}}
 								>
