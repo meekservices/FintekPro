@@ -377,7 +377,7 @@ export const DEFAULT_COURSES: NismCourse[] = [
 		ltiResourceLinkId: "res-nism-iv-2026",
 		isActive: true,
 		availableMocksCount: 1,
-		totalPracticeQuestions: 30,
+		totalPracticeQuestions: 105,
 		negativeMarking: 0.25,
 	},
 	{

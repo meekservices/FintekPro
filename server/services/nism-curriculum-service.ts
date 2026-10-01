@@ -973,6 +973,336 @@ export const NISM_VA_CURRICULUM: NismCourseCurriculum = {
   ]
 };
 
+export const NISM_IV_CURRICULUM: NismCourseCurriculum = {
+  "courseId": "nism-iv",
+  "seriesCode": "NISM-SERIES-IV",
+  "title": "NISM Series IV: Interest Rate Derivatives Certification Examination",
+  "description": "SEBI mandated benchmark certification for approved users and sales personnel of trading members in the Interest Rate Derivatives segment. Comprehensive coverage across all 10 official chapters.",
+  "totalModules": 3,
+  "totalChapters": 10,
+  "totalQuestionsExam": 100,
+  "examDurationMinutes": 120,
+  "passingPercentage": 60,
+  "negativeMarkingPercentage": 25,
+  "modules": [
+    {
+      "moduleNumber": 1,
+      "title": "Module 1: Fixed Income Markets & Money Market Instruments",
+      "weightagePercentage": 30,
+      "chapters": [
+        {
+          "chapterNumber": 1,
+          "moduleNumber": 1,
+          "moduleTitle": "Fixed Income Markets & Money Market Instruments",
+          "title": "Introduction to Fixed Income Markets",
+          "weightage": "10% (10 Qs)",
+          "overview": "Structure of the Indian government securities market, G-Secs, SDLs, primary issuance on E-Kuber, secondary trading on NDS-OM, and CCIL clearing infrastructure.",
+          "keyConcepts": [
+            "Central Government dated securities and State Development Loans (SDLs)",
+            "Primary auctions: Price-based (re-openings) vs Yield-based (new issuances)",
+            "Non-competitive bidding facility reserves up to 5% of notified amount for retail investors",
+            "Actual/Actual day count convention officially used for Indian sovereign debt",
+            "Clean Market Price vs Dirty Price (Dirty Price = Clean Price + Accrued Interest)",
+            "STRIPS separates coupon and principal cash flows into independent zero-coupon securities"
+          ],
+          "formulas": [
+            {
+              "name": "Dirty Price",
+              "formula": "Dirty Price = Clean Market Price + Accrued Interest",
+              "explanation": "Actual cash amount paid by bond buyer to bond seller at settlement."
+            }
+          ],
+          "highYieldTips": [
+            "SDLs trade at a positive yield spread of 30 to 70 bps above Central G-Secs due to state fiscal variances and lower secondary liquidity.",
+            "CCIL acts as Central Counterparty (CCP) with legal novation for all trades on NDS-OM."
+          ]
+        },
+        {
+          "chapterNumber": 2,
+          "moduleNumber": 1,
+          "moduleTitle": "Fixed Income Markets & Money Market Instruments",
+          "title": "Interest Rate Basics & Money Market Instruments",
+          "weightage": "10% (10 Qs)",
+          "overview": "Treasury bills (91D, 182D, 364D), Commercial Paper, Certificates of Deposit, Call/Notice/Term money, Triparty Repo (TREPS), and term structure theories.",
+          "keyConcepts": [
+            "T-Bills are zero-coupon instruments issued at a discount to par face value (\u20b9100)",
+            "CP and CD minimum denomination is \u20b95 Lakhs and in multiples of \u20b95 Lakhs",
+            "Money market tenors: Call Money (1 day/overnight), Notice Money (2-14 days), Term Money (>14 days)",
+            "FBIL calculates and administers benchmark fixings including Overnight MIBOR",
+            "Yield curve theories: Expectations Hypothesis, Liquidity Preference, Market Segmentation",
+            "Yield curve shifts: Bear Flattening (short rates rise faster), Bull Steepening (short rates fall faster)"
+          ],
+          "formulas": [
+            {
+              "name": "T-Bill Annualized Yield",
+              "formula": "Yield = [(Face Value - Price) / Price] * (365 / D) * 100",
+              "explanation": "Calculates the annualized money market yield of a Treasury Bill on a 365-day basis."
+            }
+          ],
+          "highYieldTips": [
+            "Treasury bills are issued only in 91-day, 182-day, and 364-day tenors by the Government of India.",
+            "Global markets transitioned from LIBOR to SOFR (Secured Overnight Financing Rate) based on overnight Treasury repo."
+          ]
+        },
+        {
+          "chapterNumber": 3,
+          "moduleNumber": 1,
+          "moduleTitle": "Fixed Income Markets & Money Market Instruments",
+          "title": "Bond Valuation & Pricing Mechanics",
+          "weightage": "10% (10 Qs)",
+          "overview": "Discounted cash flow valuation, coupon vs YTM relationship, clean vs dirty price, Current Yield, Yield to Call (YTC), and spot curve bootstrapping.",
+          "keyConcepts": [
+            "When Coupon < YTM, bond trades at a Discount; when Coupon > YTM, bond trades at a Premium",
+            "YTM assumes all intermediate coupons are reinvested at the same YTM until maturity",
+            "Current Yield = (Annual Coupon / Clean Market Price) * 100",
+            "Yield to Call (YTC) is the primary return metric when a callable bond trades at a high premium",
+            "Bootstrapping recursively extracts spot discount rates from a sequence of coupon bond prices"
+          ],
+          "formulas": [
+            {
+              "name": "Accrued Interest",
+              "formula": "Accrued Interest = (Annual Coupon / 2) * (Days Elapsed / Days in Period)",
+              "explanation": "Calculates interest earned since the last semi-annual coupon date."
+            },
+            {
+              "name": "Forward Rate Derivation",
+              "formula": "(1 + s2)^2 = (1 + s1) * (1 + 1f1)",
+              "explanation": "Calculates the forward rate between two spot rate maturities."
+            }
+          ],
+          "highYieldTips": [
+            "Price and yield have an inverse, convex relationship for all option-free sovereign bonds.",
+            "Accrued interest resets to zero immediately upon coupon payment date."
+          ]
+        }
+      ]
+    },
+    {
+      "moduleNumber": 2,
+      "title": "Module 2: Bond Risks, Valuation & OTC Derivatives",
+      "weightagePercentage": 20,
+      "chapters": [
+        {
+          "chapterNumber": 4,
+          "moduleNumber": 2,
+          "moduleTitle": "Bond Risks, Valuation & OTC Derivatives",
+          "title": "Bond Risks, Duration & Convexity",
+          "weightage": "10% (10 Qs)",
+          "overview": "Macaulay Duration, Modified Duration, price sensitivity, DV01/PVBP, convexity, and negative convexity in callable bonds.",
+          "keyConcepts": [
+            "For a zero-coupon bond, Macaulay Duration is strictly equal to its term to maturity",
+            "Modified Duration measures percentage price change for a 100 bps (1%) change in yield",
+            "Higher coupon bonds have lower duration because cash flows are received earlier",
+            "Positive convexity causes bond prices to rise more when yields drop than they fall when yields rise",
+            "Callable bonds exhibit negative convexity at low yields due to the price ceiling of the call strike"
+          ],
+          "formulas": [
+            {
+              "name": "Modified Duration",
+              "formula": "Modified Duration = Macaulay Duration / (1 + YTM / m)",
+              "explanation": "Direct price percentage sensitivity per unit change in yield."
+            },
+            {
+              "name": "Portfolio DV01",
+              "formula": "DV01 = Market Value * Modified Duration * 0.0001",
+              "explanation": "Rupee gain or loss for a 1 basis point (0.01%) shift in yield."
+            }
+          ],
+          "highYieldTips": [
+            "Modified duration underestimates bond price increases and overestimates bond price declines without convexity adjustment.",
+            "DV01 is also known as PVBP (Price Value of a Basis Point)."
+          ]
+        },
+        {
+          "chapterNumber": 5,
+          "moduleNumber": 2,
+          "moduleTitle": "Bond Risks, Valuation & OTC Derivatives",
+          "title": "OTC Interest Rate Derivatives (FRAs, IRS, OIS)",
+          "weightage": "10% (10 Qs)",
+          "overview": "Forward Rate Agreements (FRAs), plain-vanilla Interest Rate Swaps (IRS), Overnight Indexed Swaps (OIS), ISDA documentation, and CCIL trade reporting.",
+          "keyConcepts": [
+            "In an AxB FRA, agreement begins in A months and ends in B months (covering B - A months)",
+            "FRA payoffs are settled upfront at start of loan period and must be discounted",
+            "Payer Swap (Pay Fixed, Receive Floating) hedges against rising borrowing costs",
+            "Receiver Swap (Pay Floating, Receive Fixed) locks in fixed yield in declining rate environments",
+            "At inception, an IRS has a net present value of zero (fair swap rate)",
+            "All OTC interest rate derivatives must be reported to the CCIL Trade Reporting Platform"
+          ],
+          "formulas": [
+            {
+              "name": "FRA Settlement Payoff",
+              "formula": "Settlement = [Notional * (Reference - Fixed) * (d / 360)] / [1 + Reference * (d / 360)]",
+              "explanation": "Cash settlement received by FRA buyer on effective start date."
+            }
+          ],
+          "highYieldTips": [
+            "Principal is never exchanged in a standard IRS; only periodic net interest differences are settled.",
+            "ISDA Master Agreement standardizes bilateral OTC derivatives and close-out netting."
+          ]
+        }
+      ]
+    },
+    {
+      "moduleNumber": 3,
+      "title": "Module 3: Exchange Traded IRF, Options, Strategies & Regulations",
+      "weightagePercentage": 50,
+      "chapters": [
+        {
+          "chapterNumber": 6,
+          "moduleNumber": 3,
+          "moduleTitle": "Exchange Traded IRF, Options, Strategies & Regulations",
+          "title": "Exchange Traded Interest Rate Futures (IRF Specifications)",
+          "weightage": "10% (10 Qs)",
+          "overview": "Contract specifications of 10-Year GoI IRF and 91-Day T-Bill futures, contract size (\u20b92 Lakhs), tick size (\u20b90.0025), expiry cycles, and delivery settlement.",
+          "keyConcepts": [
+            "Contract value of 10-Year GoI IRF is \u20b92,00,000 (2,000 units of \u20b9100 face value)",
+            "Tick size is \u20b90.0025, giving a tick value of \u20b95.00 per contract",
+            "Trading hours: 9:00 AM to 5:00 PM on business days",
+            "Expiry: Last Thursday of the expiry month (or preceding trading day if holiday)",
+            "Underlying is a notional 10-year GoI bond with 6.00% p.a. semi-annual coupon",
+            "Deliverable basket: Sovereign GoI bonds with residual maturity between 8 and 11 years"
+          ],
+          "formulas": [
+            {
+              "name": "Tick Value",
+              "formula": "Tick Value = Tick Size (\u20b90.0025) * Contract Units (2,000) = \u20b95.00",
+              "explanation": "Minimum rupee change in contract value per price tick."
+            }
+          ],
+          "highYieldTips": [
+            "91-Day T-Bill futures are quoted as (100 - Discount Yield).",
+            "The short seller holds the Delivery Option (which bond to deliver and when during delivery window)."
+          ]
+        },
+        {
+          "chapterNumber": 7,
+          "moduleNumber": 3,
+          "moduleTitle": "Exchange Traded IRF, Options, Strategies & Regulations",
+          "title": "Pricing & Valuation of Interest Rate Futures",
+          "weightage": "10% (10 Qs)",
+          "overview": "Cost of carry model, Conversion Factor (CF), Invoice Price, Gross Basis, Net Basis, Cheapest-to-Deliver (CTD) bond, and Implied Repo Rate (IRR).",
+          "keyConcepts": [
+            "Futures Price = Spot Clean Price + Financing Cost - Coupon Income",
+            "Conversion Factor is the clean price of \u20b91 face value to yield 6% on delivery month start",
+            "Invoice Price = (Futures Settlement Price * Conversion Factor) + Accrued Interest",
+            "Gross Basis = Spot Clean Price - (Futures Price * Conversion Factor)",
+            "CTD bond is the deliverable bond that maximizes IRR or minimizes Net Basis",
+            "When yields > 6%, high coupon bonds tend to become CTD; when yields < 6%, low coupon bonds become CTD"
+          ],
+          "formulas": [
+            {
+              "name": "Invoice Price",
+              "formula": "Invoice Price = (Futures Settlement Price * Conversion Factor) + Accrued Interest",
+              "explanation": "Total cash paid per bond upon physical delivery."
+            },
+            {
+              "name": "Gross Basis",
+              "formula": "Gross Basis = Spot Price - (Futures Price * Conversion Factor)",
+              "explanation": "Basis between cash bond and conversion-factor adjusted futures."
+            }
+          ],
+          "highYieldTips": [
+            "At contract expiration, the gross basis of the CTD bond converges to zero (Basis Convergence).",
+            "When futures are overpriced (Futures > Theoretical Value), execute Cash-and-Carry Arbitrage."
+          ]
+        },
+        {
+          "chapterNumber": 8,
+          "moduleNumber": 3,
+          "moduleTitle": "Exchange Traded IRF, Options, Strategies & Regulations",
+          "title": "Exchange Traded Interest Rate Options (IRO)",
+          "weightage": "10% (10 Qs)",
+          "overview": "Option contract specifications, European style exercise, Call & Put payoffs, Intrinsic value vs Time value, and option Greeks (Delta, Gamma, Vega, Theta, Rho).",
+          "keyConcepts": [
+            "Interest Rate Options in India follow European style exercise (exercised only on expiry)",
+            "Call Option on Bond Price profits when interest rates fall (bond prices rise)",
+            "Put Option on Bond Price profits when interest rates rise (economically equivalent to Call on Rate)",
+            "Delta measures price sensitivity to underlying bond; Vega measures volatility sensitivity",
+            "Theta measures time decay; option buyers experience daily time value erosion"
+          ],
+          "formulas": [
+            {
+              "name": "Call Intrinsic Value",
+              "formula": "Call Intrinsic Value = Max(0, Spot Price - Strike Price)",
+              "explanation": "Inherent value if exercised immediately."
+            },
+            {
+              "name": "Put Intrinsic Value",
+              "formula": "Put Intrinsic Value = Max(0, Strike Price - Spot Price)",
+              "explanation": "Inherent value of put option."
+            }
+          ],
+          "highYieldTips": [
+            "A Bond Put Option is economically equivalent to an Interest Rate Call Option.",
+            "Total Option Premium = Intrinsic Value + Extrinsic (Time) Value."
+          ]
+        },
+        {
+          "chapterNumber": 9,
+          "moduleNumber": 3,
+          "moduleTitle": "Exchange Traded IRF, Options, Strategies & Regulations",
+          "title": "Trading, Hedging & Arbitrage Strategies",
+          "weightage": "10% (10 Qs)",
+          "overview": "Target duration hedging, Short Hedge, Long Hedge, DV01 matching, Basis Risk, Cross-Hedging, Curve Flattener, Curve Steepener, and Butterfly trades.",
+          "keyConcepts": [
+            "Short Hedge: Sells IRF contracts to protect existing bond portfolio against rising interest rates",
+            "Long Hedge: Buys IRF contracts to lock in investment yields for future cash inflows",
+            "Target Duration formula calculates exact number of IRF contracts to achieve portfolio duration goal",
+            "Curve Flattener: Long long-term contracts, Short short-term contracts",
+            "Curve Steepener: Short long-term contracts, Long short-term contracts",
+            "Cross-hedging corporate bonds with G-Sec IRFs introduces Credit Spread risk"
+          ],
+          "formulas": [
+            {
+              "name": "Target Duration Contracts",
+              "formula": "N = [(Target Duration - Portfolio Duration) * Portfolio Value] / [Futures Duration * Futures Value]",
+              "explanation": "Calculates number of futures contracts needed to adjust portfolio duration."
+            },
+            {
+              "name": "DV01 Hedge Ratio",
+              "formula": "Hedge Ratio = (DV01_portfolio / DV01_ctd) * CF_ctd",
+              "explanation": "Optimal contract ratio to match absolute rupee price sensitivity."
+            }
+          ],
+          "highYieldTips": [
+            "Basis risk occurs when spot-futures relationship changes unexpectedly over the hedge horizon.",
+            "CTD switching occurs when yield movements shift the cheapest bond, changing futures duration."
+          ]
+        },
+        {
+          "chapterNumber": 10,
+          "moduleNumber": 3,
+          "moduleTitle": "Exchange Traded IRF, Options, Strategies & Regulations",
+          "title": "Clearing, Settlement, Risk Management & Regulations",
+          "weightage": "10% (10 Qs)",
+          "overview": "Joint regulatory framework of RBI and SEBI, SPAN margining, Extreme Loss Margin (ELM), daily MTM cash settlement, position limits, FEMA guidelines, and code of conduct.",
+          "keyConcepts": [
+            "RBI regulates money markets & G-Secs; SEBI regulates exchange-traded derivatives",
+            "SPAN calculates initial margin across 16 simulated market risk scenarios",
+            "Extreme Loss Margin (ELM) covers tail risk beyond 99% SPAN confidence level",
+            "Mark-to-market (MTM) margin is settled daily on a T+1 cash settlement basis",
+            "Client position limits: 3% of total open interest or \u20b9200 Crores, whichever is higher",
+            "Trading Member / MF scheme position limits: 10% of total open interest or \u20b91,200 Crores",
+            "Front running is strictly prohibited under SEBI PFUTP regulations with severe penalties",
+            "Intermediaries must preserve books and trade audit trails for a minimum of 5 years"
+          ],
+          "formulas": [
+            {
+              "name": "Client Position Limit",
+              "formula": "Max Position = Max(3% of Total Open Interest, \u20b9200 Crores)",
+              "explanation": "Statutory limit on gross open position for a single client."
+            }
+          ],
+          "highYieldTips": [
+            "Legal novation by NSCCL/ICCL ensures clearing corporation acts as CCP, eliminating bilateral credit risk.",
+            "FPIs are permitted to participate in IRFs subject to overall aggregate debt ceilings monitored by RBI/SEBI."
+          ]
+        }
+      ]
+    }
+  ]
+};
+
 class NismCurriculumService {
 	private curriculumCache: Map<string, NismCourseCurriculum> = new Map();
 
@@ -986,6 +1316,9 @@ class NismCurriculumService {
 		}
 		if (cId === "nism-va" || cId === "nism-series-v-a") {
 			return NISM_VA_CURRICULUM;
+		}
+		if (cId === "nism-iv" || cId === "nism-series-iv") {
+			return NISM_IV_CURRICULUM;
 		}
 
 		if (this.curriculumCache.has(cId)) {

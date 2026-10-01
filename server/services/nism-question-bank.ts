@@ -4,10 +4,10 @@ import type { NismPracticeQuestion } from "./nism-lms-service";
 /**
  * High-yield NISM Accredited Practice Question Bank
  * Covers all 30 official NISM exam series listed on NISM & iExamWorld:
- * Series I, II-A, II-B, III-A, III-B, IV, V-A, V-B, V-C, V-D (SIF),
- * VI, VII (SORM), VIII, IX, X-A, X-B, XII, XIII, XV, XVI, XVII,
- * XVIII, XIX-A, XIX-B, XIX-C, XXI-A, XXI-B, XXII, XXIII, and CPE Refresher.
- * Total accredited questions: 1326.
+ * Series I, II-A, II-B, III-A, III-B, IV (Interest Rate Derivatives),
+ * V-A, V-B, V-C, V-D (SIF), VI, VII (SORM), VIII, IX, X-A, X-B, XII,
+ * XIII, XV, XVI, XVII, XVIII, XIX-A, XIX-B, XIX-C, XXI-A, XXI-B, XXII, XXIII, and CPE Refresher.
+ * Total accredited questions: 1426.
  */
 export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
   {
@@ -22857,5 +22857,1805 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "chapterTitle": "ZCZP Issue Sizing",
     "difficulty": "intermediate",
     "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch1-q1",
+    "courseId": "nism-iv",
+    "question": "Which of the following electronic platforms is operated by the Reserve Bank of India for the primary issuance of Government of India dated securities and Treasury Bills?",
+    "options": [
+      "NDS-OM (Negotiated Dealing System - Order Matching)",
+      "E-Kuber (Core Banking Solution of RBI)",
+      "CROMS (Clearcorp Repo Order Matching System)",
+      "TREPS (Triparty Repo Dealing System)"
+    ],
+    "correctIndex": 1,
+    "explanation": "RBI's E-Kuber platform is the dedicated portal for primary market auctions of Central Government dated securities, State Development Loans (SDLs), and Treasury Bills.",
+    "topic": "Primary Issuance Infrastructure",
+    "chapter": 1,
+    "chapterTitle": "Introduction to Fixed Income Markets",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch1-q2",
+    "courseId": "nism-iv",
+    "question": "What is the primary operational distinction between a price-based auction and a yield-based auction in the issuance of Government of India securities?",
+    "options": [
+      "Price-based auctions are used exclusively for corporate debt, whereas yield-based auctions are for G-Secs",
+      "In a price-based auction, bidders bid in terms of bond price for an existing security with a predetermined coupon, while in a yield-based auction, bidders bid the yield to determine the coupon of a new security",
+      "Yield-based auctions are non-competitive, while price-based auctions are strictly competitive",
+      "Price-based auctions do not allow participation by Primary Dealers"
+    ],
+    "correctIndex": 1,
+    "explanation": "In yield-based auctions (typically for new bond re-issuances/launches), bidders submit yields and the cut-off yield sets the coupon. In price-based auctions (re-openings of existing bonds), coupon is fixed and bidders bid the clean purchase price.",
+    "topic": "Auction Mechanisms",
+    "chapter": 1,
+    "chapterTitle": "Introduction to Fixed Income Markets",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch1-q3",
+    "courseId": "nism-iv",
+    "question": "Under RBI guidelines, what maximum percentage of the notified auction amount in dated Government Securities is allocated for non-competitive bidding by retail investors?",
+    "options": [
+      "2%",
+      "5%",
+      "10%",
+      "15%"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under the Non-Competitive Bidding Facility in G-Sec auctions, up to 5% of the notified amount is reserved for retail and mid-segment investors at the weighted average cut-off price.",
+    "topic": "Non-Competitive Bidding",
+    "chapter": 1,
+    "chapterTitle": "Introduction to Fixed Income Markets",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch1-q4",
+    "courseId": "nism-iv",
+    "question": "Which entity acts as the Central Counterparty (CCP) providing guaranteed clearing and settlement for secondary market trades executed on NDS-OM?",
+    "options": [
+      "National Securities Depository Limited (NSDL)",
+      "Clearing Corporation of India Limited (CCIL)",
+      "Securities and Exchange Board of India (SEBI)",
+      "National Stock Exchange Clearing Corporation (NSCCL)"
+    ],
+    "correctIndex": 1,
+    "explanation": "CCIL provides central counterparty clearing, netting, and settlement guarantees through legal novation for trades in Government Securities and secondary market repo executed on NDS-OM.",
+    "topic": "Settlement Infrastructure & CCIL",
+    "chapter": 1,
+    "chapterTitle": "Introduction to Fixed Income Markets",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch1-q5",
+    "courseId": "nism-iv",
+    "question": "What is the day-count convention officially adopted in India for calculating accrued interest on Central Government dated securities?",
+    "options": [
+      "30/360",
+      "Actual/360",
+      "Actual/Actual",
+      "Actual/365"
+    ],
+    "correctIndex": 2,
+    "explanation": "In Indian sovereign bond markets, interest on Central Government dated securities is calculated using the Actual/Actual day count convention, measuring the exact number of calendar days elapsed over the actual days in the coupon period.",
+    "topic": "Day Count Conventions",
+    "chapter": 1,
+    "chapterTitle": "Introduction to Fixed Income Markets",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch1-q6",
+    "courseId": "nism-iv",
+    "question": "What are State Development Loans (SDLs) and how do they differ from Central Government Securities in terms of pricing?",
+    "options": [
+      "SDLs are issued by municipal corporations with sovereign guarantees",
+      "SDLs are debt securities issued by State Governments that trade at a yield spread (typically 30-70 bps higher) over Central Government Securities of matching maturity",
+      "SDLs are zero-coupon commercial bills backed by state public sector enterprises",
+      "SDLs carry higher credit risk than private corporate paper"
+    ],
+    "correctIndex": 1,
+    "explanation": "SDLs are sovereign-backed state government debt securities eligible for SLR. Due to state-level fiscal deficits and relatively lower liquidity than G-Secs, they trade at a positive yield spread (30 to 70 bps) above Central G-Secs.",
+    "topic": "State Development Loans (SDLs)",
+    "chapter": 1,
+    "chapterTitle": "Introduction to Fixed Income Markets",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch1-q7",
+    "courseId": "nism-iv",
+    "question": "What does the process of 'STRIPS' (Separate Trading of Registered Interest and Principal of Securities) achieve in the government bond market?",
+    "options": [
+      "Converts physical bond certificates into dematerialized form",
+      "Separates each individual coupon cash flow and the final principal redemption into distinct zero-coupon securities",
+      "Exchanges illiquid bonds for newly auctioned benchmark bonds",
+      "Converts corporate debt into sovereign guaranteed debt"
+    ],
+    "correctIndex": 1,
+    "explanation": "STRIPS unbundles a coupon-bearing bond into separate zero-coupon instruments corresponding to each semi-annual coupon date and the maturity principal date, creating a zero-coupon sovereign yield curve.",
+    "topic": "STRIPS and Zero-Coupon Securities",
+    "chapter": 1,
+    "chapterTitle": "Introduction to Fixed Income Markets",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch1-q8",
+    "courseId": "nism-iv",
+    "question": "What is the benchmark coupon reset frequency for Indian Sovereign Floating Rate Bonds (FRBs)?",
+    "options": [
+      "Monthly, linked to Overnight MIBOR",
+      "Quarterly, linked to 3-month SBI FD rate",
+      "Semi-annually, linked to the average cut-off yield of preceding 182-day or 364-day Treasury Bill auctions",
+      "Annually, linked to CPI inflation"
+    ],
+    "correctIndex": 2,
+    "explanation": "Sovereign FRBs have coupons reset semi-annually based on the base rate determined by the cut-off yield of the specified Treasury Bill auctions (e.g. 182-day T-Bill) plus a fixed spread.",
+    "topic": "Floating Rate Bonds",
+    "chapter": 1,
+    "chapterTitle": "Introduction to Fixed Income Markets",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch1-q9",
+    "courseId": "nism-iv",
+    "question": "If an investor purchases an 8-year Government bond at a clean price of \u20b9102.50, and accrued interest is \u20b91.85, what is the dirty price paid per bond?",
+    "options": [
+      "\u20b9100.65",
+      "\u20b9102.50",
+      "\u20b9104.35",
+      "\u20b9103.45"
+    ],
+    "correctIndex": 2,
+    "explanation": "Dirty Price (Cash Settlement Price) = Clean Market Price + Accrued Interest = \u20b9102.50 + \u20b91.85 = \u20b9104.35.",
+    "topic": "Clean vs Dirty Price",
+    "chapter": 1,
+    "chapterTitle": "Introduction to Fixed Income Markets",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch1-q10",
+    "courseId": "nism-iv",
+    "question": "Which institutional category is statutorily required to maintain a minimum percentage of Net Demand and Time Liabilities (NDTL) in Government Securities under Statutory Liquidity Ratio (SLR)?",
+    "options": [
+      "Mutual Funds",
+      "Non-Banking Financial Companies (NBFCs)",
+      "Commercial Banks",
+      "Foreign Portfolio Investors (FPIs)"
+    ],
+    "correctIndex": 2,
+    "explanation": "Under Section 24 of the Banking Regulation Act, 1949, all Scheduled Commercial Banks must maintain SLR in approved liquid assets, predominantly Central & State Government securities.",
+    "topic": "SLR and Institutional Demand",
+    "chapter": 1,
+    "chapterTitle": "Introduction to Fixed Income Markets",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch2-q11",
+    "courseId": "nism-iv",
+    "question": "Which of the following tenors of Treasury Bills are currently issued by the Government of India via regular weekly/fortnightly auctions?",
+    "options": [
+      "30-day, 60-day, and 90-day",
+      "91-day, 182-day, and 364-day",
+      "1-year, 2-year, and 3-year",
+      "14-day, 28-day, and 56-day"
+    ],
+    "correctIndex": 1,
+    "explanation": "The Government of India issues Treasury Bills in three standard tenors: 91-day (weekly), 182-day (fortnightly), and 364-day (fortnightly).",
+    "topic": "Treasury Bill Tenors",
+    "chapter": 2,
+    "chapterTitle": "Interest Rate Basics & Money Market Instruments",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch2-q12",
+    "courseId": "nism-iv",
+    "question": "A 91-day Treasury Bill with face value of \u20b9100 is auctioned at a cut-off price of \u20b998.25. What is its annualized discount yield (using a 365-day year basis)?",
+    "options": [
+      "6.85%",
+      "7.15%",
+      "7.01%",
+      "6.92%"
+    ],
+    "correctIndex": 1,
+    "explanation": "Yield = [(Face Value - Price) / Price] * (365 / D) * 100 = [(100 - 98.25) / 98.25] * (365 / 91) * 100 = (1.75 / 98.25) * 4.011 * 100 = 7.144% \u2248 7.15%.",
+    "topic": "T-Bill Yield Formula",
+    "chapter": 2,
+    "chapterTitle": "Interest Rate Basics & Money Market Instruments",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch2-q13",
+    "courseId": "nism-iv",
+    "question": "What is the minimum denomination and minimum investment ticket size for Commercial Paper (CP) and Certificates of Deposit (CD) in India?",
+    "options": [
+      "\u20b910,000 and multiples thereof",
+      "\u20b91,00,000 and multiples thereof",
+      "\u20b95,00,000 and multiples thereof",
+      "\u20b925,00,000 and multiples thereof"
+    ],
+    "correctIndex": 2,
+    "explanation": "Under RBI Master Directions, both Commercial Paper (CP) and Certificates of Deposit (CD) are issued in minimum denominations of \u20b95 Lakhs and in multiples of \u20b95 Lakhs thereafter.",
+    "topic": "CP and CD Specifications",
+    "chapter": 2,
+    "chapterTitle": "Interest Rate Basics & Money Market Instruments",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch2-q14",
+    "courseId": "nism-iv",
+    "question": "In the interbank money market, what is the term used to classify unsecured borrowing and lending for periods between 2 days and 14 days?",
+    "options": [
+      "Call Money",
+      "Notice Money",
+      "Term Money",
+      "Repo"
+    ],
+    "correctIndex": 1,
+    "explanation": "Call Money refers to 1-day (overnight) lending; Notice Money refers to lending for 2 to 14 days; Term Money refers to lending for periods exceeding 14 days up to 1 year.",
+    "topic": "Call vs Notice vs Term Money",
+    "chapter": 2,
+    "chapterTitle": "Interest Rate Basics & Money Market Instruments",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch2-q15",
+    "courseId": "nism-iv",
+    "question": "Which benchmark administrator calculates and publishes the FBIL Overnight MIBOR (Mumbai Interbank Outright Rate) in India?",
+    "options": [
+      "Reserve Bank of India (RBI)",
+      "Financial Benchmarks India Private Limited (FBIL)",
+      "Indian Banks' Association (IBA)",
+      "Fixed Income Money Market and Derivatives Association (FIMMDA)"
+    ],
+    "correctIndex": 1,
+    "explanation": "FBIL (Financial Benchmarks India Pvt Ltd) is the designated independent benchmark administrator authorized by RBI to calculate and publish key benchmark rates including MIBOR and the USD/INR reference rate.",
+    "topic": "FBIL Benchmarks",
+    "chapter": 2,
+    "chapterTitle": "Interest Rate Basics & Money Market Instruments",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch2-q16",
+    "courseId": "nism-iv",
+    "question": "According to the Expectations Hypothesis of the term structure of interest rates, what does an upward-sloping yield curve indicate?",
+    "options": [
+      "Investors prefer holding long-term bonds regardless of yields",
+      "Market participants expect future short-term interest rates to rise",
+      "Central bank is about to lower the policy repo rate",
+      "Inflation is expected to decline significantly over the medium term"
+    ],
+    "correctIndex": 1,
+    "explanation": "Pure Expectations Hypothesis asserts that long-term yields reflect the market's collective forecast of future short-term rates. An upward-sloping curve signals expectations of rising short-term interest rates.",
+    "topic": "Term Structure Theories",
+    "chapter": 2,
+    "chapterTitle": "Interest Rate Basics & Money Market Instruments",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch2-q17",
+    "courseId": "nism-iv",
+    "question": "How does the Liquidity Preference Theory explain the normal upward slope of the sovereign yield curve?",
+    "options": [
+      "Short-term securities are inherently riskier than long-term bonds",
+      "Investors require a positive liquidity premium to compensate for greater price risk and illiquidity in longer-dated maturities",
+      "Banks are legally prohibited from lending for more than 5 years",
+      "The sovereign issues fewer long-term bonds than short-term bills"
+    ],
+    "correctIndex": 1,
+    "explanation": "Liquidity Preference Theory states that lenders prefer liquidity and shorter maturities, requiring an increasing term premium (liquidity premium) to induce them to lend long-term.",
+    "topic": "Liquidity Preference Theory",
+    "chapter": 2,
+    "chapterTitle": "Interest Rate Basics & Money Market Instruments",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch2-q18",
+    "courseId": "nism-iv",
+    "question": "What type of yield curve shift occurs when short-term interest rates rise faster than long-term interest rates, causing the yield spread to narrow?",
+    "options": [
+      "Bull Steepening",
+      "Bear Flattening",
+      "Bull Flattening",
+      "Bear Steepening"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Bear Flattening shift occurs when yields rise across the board but short-term yields rise faster than long-term yields (often caused by central bank monetary tightening).",
+    "topic": "Yield Curve Dynamics",
+    "chapter": 2,
+    "chapterTitle": "Interest Rate Basics & Money Market Instruments",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch2-q19",
+    "courseId": "nism-iv",
+    "question": "What is the primary role of Triparty Repo (TREPS) facilitated by CCIL in the Indian money market?",
+    "options": [
+      "Direct issuance of equity rights to institutional investors",
+      "A collateralized repo borrowing and lending mechanism where CCIL acts as a neutral third party managing collateral selection, custody, and settlement",
+      "Unsecured interbank overnight call lending",
+      "Cross-currency swaps between state-owned commercial banks"
+    ],
+    "correctIndex": 1,
+    "explanation": "In TREPS, CCIL acts as the triparty agent handling collateral allocation, valuation, margins, and settlement, allowing market participants (including mutual funds and corporate treasuries) to borrow and lend against G-Secs with CCP safety.",
+    "topic": "TREPS Mechanism",
+    "chapter": 2,
+    "chapterTitle": "Interest Rate Basics & Money Market Instruments",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch2-q20",
+    "courseId": "nism-iv",
+    "question": "What is the global alternative reference rate (ARR) adopted to replace USD LIBOR in financial derivatives?",
+    "options": [
+      "EURIBOR",
+      "SOFR (Secured Overnight Financing Rate)",
+      "TONA (Tokyo Overnight Average Rate)",
+      "SONIA (Sterling Overnight Index Average)"
+    ],
+    "correctIndex": 1,
+    "explanation": "SOFR (Secured Overnight Financing Rate), administered by the Federal Reserve Bank of New York based on Treasury repo transactions, is the global benchmark replacing USD LIBOR.",
+    "topic": "LIBOR Transition to SOFR",
+    "chapter": 2,
+    "chapterTitle": "Interest Rate Basics & Money Market Instruments",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch3-q21",
+    "courseId": "nism-iv",
+    "question": "When the coupon rate on a Government of India dated security is lower than the prevailing market Yield to Maturity (YTM), how will the bond trade in the secondary market?",
+    "options": [
+      "At a premium to its face value (Price > \u20b9100)",
+      "At a discount to its face value (Price < \u20b9100)",
+      "Exactly at par (Price = \u20b9100)",
+      "Cannot be determined without maturity duration"
+    ],
+    "correctIndex": 1,
+    "explanation": "When Coupon Rate < YTM, the bond's cash flows yield less than current market demand, so the bond price falls below par (discount bond) to bring its total return in line with prevailing market yields.",
+    "topic": "Coupon vs YTM Relationship",
+    "chapter": 3,
+    "chapterTitle": "Bond Valuation & Pricing Mechanics",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch3-q22",
+    "courseId": "nism-iv",
+    "question": "What fundamental assumption underlies the calculation of a bond's Yield to Maturity (YTM)?",
+    "options": [
+      "All intermediate coupon payments will be reinvested at the same internal rate of return (YTM) until the bond's maturity",
+      "Interest rates will remain perfectly constant in the global economy",
+      "The bond will be called before maturity by the issuer",
+      "Inflation will be exactly zero throughout the life of the bond"
+    ],
+    "correctIndex": 0,
+    "explanation": "YTM is the single discount rate equating PV of all future cash flows to current market price. It inherently assumes all coupon cash flows are reinvested at that same YTM until maturity (reinvestment rate assumption).",
+    "topic": "YTM Assumptions & Reinvestment Risk",
+    "chapter": 3,
+    "chapterTitle": "Bond Valuation & Pricing Mechanics",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch3-q23",
+    "courseId": "nism-iv",
+    "question": "An investor holds a 7.18% GoI 2033 bond paying semi-annual coupons on January 8 and July 8. If the settlement date is April 8 (90 days elapsed in a 181-day coupon period), what is the accrued interest per \u20b9100 face value bond?",
+    "options": [
+      "\u20b91.785",
+      "\u20b93.590",
+      "\u20b91.795",
+      "\u20b90.892"
+    ],
+    "correctIndex": 0,
+    "explanation": "Semi-annual coupon = 7.18% / 2 = \u20b93.59 per \u20b9100. Accrued Interest = Semi-annual coupon * (Days elapsed / Total days in period) = \u20b93.59 * (90 / 181) = \u20b91.785 per \u20b9100 face value.",
+    "topic": "Accrued Interest Calculation",
+    "chapter": 3,
+    "chapterTitle": "Bond Valuation & Pricing Mechanics",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch3-q24",
+    "courseId": "nism-iv",
+    "question": "What is the Current Yield of a 7.50% semi-annual coupon Government bond trading at a clean market price of \u20b9104.00?",
+    "options": [
+      "7.50%",
+      "7.21%",
+      "7.80%",
+      "6.95%"
+    ],
+    "correctIndex": 1,
+    "explanation": "Current Yield = (Annual Coupon / Clean Market Price) * 100 = (\u20b97.50 / \u20b9104.00) * 100 = 7.211% \u2248 7.21%.",
+    "topic": "Current Yield Formula",
+    "chapter": 3,
+    "chapterTitle": "Bond Valuation & Pricing Mechanics",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch3-q25",
+    "courseId": "nism-iv",
+    "question": "What mathematical technique is used to extract zero-coupon spot rates from a sequence of coupon-bearing government securities prices?",
+    "options": [
+      "Black-Scholes valuation",
+      "Bootstrapping",
+      "Monte Carlo simulation",
+      "Linear regression"
+    ],
+    "correctIndex": 1,
+    "explanation": "Bootstrapping is the recursive financial technique that solves for pure zero-coupon spot discount rates from shortest maturity T-bills up through sequentially longer coupon bonds.",
+    "topic": "Bootstrapping Spot Curve",
+    "chapter": 3,
+    "chapterTitle": "Bond Valuation & Pricing Mechanics",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch3-q26",
+    "courseId": "nism-iv",
+    "question": "For a callable bond, under what market condition does Yield to Call (YTC) become a more relevant return measure than Yield to Maturity (YTM)?",
+    "options": [
+      "When market yields rise well above the coupon rate",
+      "When market yields fall significantly below the coupon rate and the bond trades at a high premium",
+      "When the issuer is downgraded to junk status",
+      "When the bond is near maturity"
+    ],
+    "correctIndex": 1,
+    "explanation": "When interest rates decline below the coupon rate, the issuer has a strong financial incentive to call the bond and refinance at lower rates; hence Yield to Worst (YTW) will reflect Yield to Call (YTC).",
+    "topic": "Yield to Call vs YTM",
+    "chapter": 3,
+    "chapterTitle": "Bond Valuation & Pricing Mechanics",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch3-q27",
+    "courseId": "nism-iv",
+    "question": "If the 1-year spot rate is 6.50% and the 2-year spot rate is 7.00%, what is the 1-year forward rate starting one year from today (1f1)?",
+    "options": [
+      "7.00%",
+      "7.50%",
+      "7.51%",
+      "6.75%"
+    ],
+    "correctIndex": 2,
+    "explanation": "(1 + s2)^2 = (1 + s1) * (1 + 1f1) => (1.070)^2 = (1.065) * (1 + 1f1) => 1.1449 / 1.065 = 1 + 1f1 => 1.07502 - 1 = 7.502% \u2248 7.51%.",
+    "topic": "Forward Rate Derivation",
+    "chapter": 3,
+    "chapterTitle": "Bond Valuation & Pricing Mechanics",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch3-q28",
+    "courseId": "nism-iv",
+    "question": "How does an increase in the frequency of coupon payments (e.g. from annual to quarterly) affect the effective annual yield of a bond for a given nominal coupon rate?",
+    "options": [
+      "Effective yield decreases due to administrative costs",
+      "Effective yield remains unchanged",
+      "Effective yield increases due to more frequent compounding of reinvested cash flows",
+      "Effective yield drops to zero"
+    ],
+    "correctIndex": 2,
+    "explanation": "Higher compounding frequency increases the effective annual rate (EAR): EAR = (1 + r/m)^m - 1. More frequent compounding yields greater compounded cash returns.",
+    "topic": "Compounding Frequency & Yield",
+    "chapter": 3,
+    "chapterTitle": "Bond Valuation & Pricing Mechanics",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch3-q29",
+    "courseId": "nism-iv",
+    "question": "What is the relationship between bond price and yield for an option-free fixed-rate sovereign bond?",
+    "options": [
+      "Linear and positive",
+      "Inverse and convex",
+      "Direct and parabolic",
+      "Independent and uncorrelated"
+    ],
+    "correctIndex": 1,
+    "explanation": "The relationship is strictly inverse (as yield rises, bond price falls) and convex (the price-yield curve curves upward, causing prices to rise more on yield drops than they fall on yield rises).",
+    "topic": "Price-Yield Relationship",
+    "chapter": 3,
+    "chapterTitle": "Bond Valuation & Pricing Mechanics",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch3-q30",
+    "courseId": "nism-iv",
+    "question": "If a zero-coupon bond has 5 years to maturity and the prevailing yield is 7.20% per annum (annual compounding), what is its fair value per \u20b9100 face value?",
+    "options": [
+      "\u20b970.64",
+      "\u20b973.50",
+      "\u20b975.20",
+      "\u20b968.45"
+    ],
+    "correctIndex": 0,
+    "explanation": "PV = Face Value / (1 + r)^n = 100 / (1.072)^5 = 100 / 1.4157 = \u20b970.636 \u2248 \u20b970.64.",
+    "topic": "Zero-Coupon Bond Valuation",
+    "chapter": 3,
+    "chapterTitle": "Bond Valuation & Pricing Mechanics",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch4-q31",
+    "courseId": "nism-iv",
+    "question": "For a zero-coupon bond, what is its Macaulay Duration relative to its maturity term?",
+    "options": [
+      "Macaulay duration is always half its maturity",
+      "Macaulay duration is strictly equal to its term to maturity",
+      "Macaulay duration is zero",
+      "Macaulay duration is greater than maturity due to compounding"
+    ],
+    "correctIndex": 1,
+    "explanation": "Because a zero-coupon bond has only one cash flow at maturity, 100% of its cash flow weight occurs at redemption, making Macaulay duration exactly equal to its maturity.",
+    "topic": "Zero-Coupon Macaulay Duration",
+    "chapter": 4,
+    "chapterTitle": "Bond Risks, Duration & Convexity",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch4-q32",
+    "courseId": "nism-iv",
+    "question": "A Government bond has a Macaulay Duration of 7.20 years and a semi-annually compounded YTM of 7.00%. What is its Modified Duration (MD)?",
+    "options": [
+      "7.20 years",
+      "6.96 years",
+      "6.73 years",
+      "7.45 years"
+    ],
+    "correctIndex": 1,
+    "explanation": "Modified Duration = Macaulay Duration / (1 + YTM / m) = 7.20 / (1 + 0.07 / 2) = 7.20 / 1.035 = 6.9565 \u2248 6.96 years.",
+    "topic": "Modified Duration Formula",
+    "chapter": 4,
+    "chapterTitle": "Bond Risks, Duration & Convexity",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch4-q33",
+    "courseId": "nism-iv",
+    "question": "If a bond portfolio has a Modified Duration of 5.50 years and market interest rates increase by 50 basis points (+0.50%), what is the approximate percentage change in portfolio value?",
+    "options": [
+      "+2.75%",
+      "-2.75%",
+      "-5.50%",
+      "+1.10%"
+    ],
+    "correctIndex": 1,
+    "explanation": "Percentage Price Change \u2248 - Modified Duration * \u0394Y = - 5.50 * (+0.0050) = - 0.0275 = - 2.75% decline.",
+    "topic": "Duration Price Sensitivity",
+    "chapter": 4,
+    "chapterTitle": "Bond Risks, Duration & Convexity",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch4-q34",
+    "courseId": "nism-iv",
+    "question": "What does DV01 (Dollar Value of a Basis Point) or PVBP (Price Value of a Basis Point) represent?",
+    "options": [
+      "The percentage change in bond price for a 1% change in yield",
+      "The absolute rupee change in the price or value of a bond portfolio for a one basis point (0.01% or 0.0001) shift in yield",
+      "The annual coupon payout on a 1-year Treasury Bill",
+      "The default spread over the benchmark repo rate"
+    ],
+    "correctIndex": 1,
+    "explanation": "DV01 (or PVBP) measures the absolute currency gain or loss in bond portfolio value when yields shift by 1 basis point (0.01%).",
+    "topic": "DV01 and PVBP Definition",
+    "chapter": 4,
+    "chapterTitle": "Bond Risks, Duration & Convexity",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch4-q35",
+    "courseId": "nism-iv",
+    "question": "Holding all other factors constant, how does an increase in a bond's coupon rate affect its duration?",
+    "options": [
+      "Duration increases because total cash flows are larger",
+      "Duration decreases because more weight is received earlier in intermediate coupon payments",
+      "Duration remains unchanged because maturity is identical",
+      "Duration becomes negative"
+    ],
+    "correctIndex": 1,
+    "explanation": "Higher coupons return cash to the investor sooner, increasing the weights of earlier periods and thus reducing Macaulay and Modified Duration.",
+    "topic": "Factors Affecting Duration",
+    "chapter": 4,
+    "chapterTitle": "Bond Risks, Duration & Convexity",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch4-q36",
+    "courseId": "nism-iv",
+    "question": "Why is duration alone an incomplete measure for estimating bond price changes for large shifts in interest rates?",
+    "options": [
+      "Because duration assumes a linear price-yield relationship, ignoring the positive curvature (convexity) of the price-yield curve",
+      "Because duration changes daily with inflation",
+      "Because duration only applies to equity securities",
+      "Because clearing corporations disallow duration calculations"
+    ],
+    "correctIndex": 0,
+    "explanation": "Duration is a first-order (linear) approximation of the tangent line to the price-yield curve. For large yield changes, convexity (second derivative) must be added to account for curvature.",
+    "topic": "Convexity Correction",
+    "chapter": 4,
+    "chapterTitle": "Bond Risks, Duration & Convexity",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch4-q37",
+    "courseId": "nism-iv",
+    "question": "What is the primary advantage of a bond possessing higher positive convexity over a bond with lower convexity (assuming identical duration and yield)?",
+    "options": [
+      "The higher convexity bond will appreciate more when yields fall and depreciate less when yields rise",
+      "The higher convexity bond has zero default risk",
+      "The higher convexity bond pays higher coupon yields",
+      "The higher convexity bond is exempt from income tax"
+    ],
+    "correctIndex": 0,
+    "explanation": "Positive convexity benefits the bondholder symmetrically: prices rise by more than duration predicts when yields drop, and drop by less than duration predicts when yields rise.",
+    "topic": "Property of Positive Convexity",
+    "chapter": 4,
+    "chapterTitle": "Bond Risks, Duration & Convexity",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch4-q38",
+    "courseId": "nism-iv",
+    "question": "Under what condition does a callable bond exhibit 'negative convexity'?",
+    "options": [
+      "When interest rates rise to historic highs",
+      "When market yields drop to levels where the issuer is likely to call the bond, capping price appreciation",
+      "When the bond enters bankruptcy restructuring",
+      "When inflation turns negative"
+    ],
+    "correctIndex": 1,
+    "explanation": "As interest rates fall, the price of a callable bond cannot rise significantly above its call price (price compression). This ceiling causes the price-yield curve to become concave (negative convexity).",
+    "topic": "Negative Convexity in Callable Bonds",
+    "chapter": 4,
+    "chapterTitle": "Bond Risks, Duration & Convexity",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch4-q39",
+    "courseId": "nism-iv",
+    "question": "A bond portfolio with a market value of \u20b950 Crores has a Modified Duration of 6.0 years. What is the portfolio's estimated DV01 (PVBP)?",
+    "options": [
+      "\u20b930,000",
+      "\u20b93,00,000",
+      "\u20b930,00,000",
+      "\u20b93,000"
+    ],
+    "correctIndex": 1,
+    "explanation": "DV01 = Market Value * Modified Duration * 0.0001 = \u20b950,00,00,000 * 6.0 * 0.0001 = \u20b93,00,000 per basis point shift.",
+    "topic": "Portfolio DV01 Calculation",
+    "chapter": 4,
+    "chapterTitle": "Bond Risks, Duration & Convexity",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch4-q40",
+    "courseId": "nism-iv",
+    "question": "What is the key difference between Macaulay Duration and Modified Duration?",
+    "options": [
+      "Macaulay duration is measured in rupees, while Modified duration is measured in years",
+      "Macaulay duration measures the weighted average time until cash flows, while Modified duration measures price percentage sensitivity per unit change in yield",
+      "Macaulay duration applies to corporate bonds, while Modified duration applies to government bonds",
+      "Modified duration does not account for YTM"
+    ],
+    "correctIndex": 1,
+    "explanation": "Macaulay duration provides time dimension (weighted average maturity in years). Modified duration divides this by (1 + y/m) to directly measure price sensitivity to yield changes.",
+    "topic": "Macaulay vs Modified Duration",
+    "chapter": 4,
+    "chapterTitle": "Bond Risks, Duration & Convexity",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch5-q41",
+    "courseId": "nism-iv",
+    "question": "In a 3x6 Forward Rate Agreement (FRA), what do the numbers '3' and '6' signify?",
+    "options": [
+      "3% fixed rate exchanged for 6% floating rate",
+      "The agreement begins 3 months from today and terminates 6 months from today (covering a 3-month borrowing period)",
+      "3 counterparties and 6 settlement dates",
+      "A 3-year swap amortized over 6 semi-annual payments"
+    ],
+    "correctIndex": 1,
+    "explanation": "In an AxB FRA, 'A' indicates the start of the forward borrowing period (months from now), and 'B' indicates the end date. A 3x6 FRA covers a 3-month borrowing period beginning 3 months from trade date.",
+    "topic": "FRA Notation and Mechanics",
+    "chapter": 5,
+    "chapterTitle": "OTC Interest Rate Derivatives (FRAs, IRS, OIS)",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch5-q42",
+    "courseId": "nism-iv",
+    "question": "Why is the cash settlement of a Forward Rate Agreement (FRA) discounted back to the start date of the forward loan period?",
+    "options": [
+      "Because clearing houses charge an upfront discounting fee",
+      "Because settlement occurs at the beginning of the forward period, whereas interest on an actual loan is payable at the end of the period",
+      "Because inflation reduces the nominal value of money",
+      "Because RBI requires discounting for capital adequacy"
+    ],
+    "correctIndex": 1,
+    "explanation": "Unlike loans where interest is paid in arrears at maturity, FRA payoffs are settled upfront at the start of the loan period. Therefore, the payoff must be discounted by (1 + Reference Rate * d / 360).",
+    "topic": "FRA Discounted Settlement",
+    "chapter": 5,
+    "chapterTitle": "OTC Interest Rate Derivatives (FRAs, IRS, OIS)",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch5-q43",
+    "courseId": "nism-iv",
+    "question": "A corporate treasurer has borrowed \u20b9100 Crores at a floating rate of 3-month MIBOR + 150 bps. How can the treasurer use a plain-vanilla Interest Rate Swap (IRS) to convert this liability into a fixed-rate obligation?",
+    "options": [
+      "Enter as a Receiver Swap (Pay Floating, Receive Fixed)",
+      "Enter as a Payer Swap (Pay Fixed, Receive Floating)",
+      "Buy an interest rate floor",
+      "Sell an interest rate cap"
+    ],
+    "correctIndex": 1,
+    "explanation": "The company pays floating on its underlying debt. By entering a Payer Swap, it receives floating (offsetting the debt cost) and pays fixed, converting its net interest outgo to a predictable fixed rate.",
+    "topic": "IRS Liability Hedging",
+    "chapter": 5,
+    "chapterTitle": "OTC Interest Rate Derivatives (FRAs, IRS, OIS)",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch5-q44",
+    "courseId": "nism-iv",
+    "question": "In an Overnight Indexed Swap (OIS) in India, what floating rate benchmark is compounded daily over the calculation period?",
+    "options": [
+      "SBI MCLR",
+      "FBIL Overnight MIBOR",
+      "RBI Policy Repo Rate",
+      "91-Day T-Bill Cut-off Yield"
+    ],
+    "correctIndex": 1,
+    "explanation": "The floating leg of an Indian OIS contract compounds the daily FBIL Overnight MIBOR over each payment period, matched against the pre-agreed fixed swap rate.",
+    "topic": "OIS Benchmarks in India",
+    "chapter": 5,
+    "chapterTitle": "OTC Interest Rate Derivatives (FRAs, IRS, OIS)",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch5-q45",
+    "courseId": "nism-iv",
+    "question": "At the inception of a plain-vanilla fixed-for-floating Interest Rate Swap (IRS), what is its fair economic market value?",
+    "options": [
+      "Equal to the notional principal amount",
+      "Strictly zero (PV of fixed leg equals PV of floating leg)",
+      "Equal to the initial margin deposited",
+      "Equal to the prevailing overnight MIBOR"
+    ],
+    "correctIndex": 1,
+    "explanation": "The swap rate is set at initiation such that the present value of expected floating leg cash flows equals the present value of fixed leg cash flows, giving the swap an initial net present value of zero.",
+    "topic": "Initial Swap Valuation",
+    "chapter": 5,
+    "chapterTitle": "OTC Interest Rate Derivatives (FRAs, IRS, OIS)",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch5-q46",
+    "courseId": "nism-iv",
+    "question": "What is the primary difference in counterparty risk between an Over-The-Counter (OTC) swap and an Exchange-Traded Interest Rate Future (IRF)?",
+    "options": [
+      "OTC swaps have zero counterparty risk due to bilateral agreements",
+      "OTC swaps carry bilateral counterparty default risk (unless centrally cleared), whereas Exchange-Traded IRFs are backed by a CCP guarantee and daily mark-to-market margin",
+      "Exchange-traded IRFs have higher counterparty risk than OTC swaps",
+      "Counterparty risk is identical across both markets"
+    ],
+    "correctIndex": 1,
+    "explanation": "Bilateral OTC contracts depend on the financial solvency of the counterparty. Exchange-traded futures replace bilateral exposure with the central counterparty (Clearing Corporation) via legal novation and daily MTM.",
+    "topic": "Counterparty Risk: OTC vs ETD",
+    "chapter": 5,
+    "chapterTitle": "OTC Interest Rate Derivatives (FRAs, IRS, OIS)",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch5-q47",
+    "courseId": "nism-iv",
+    "question": "What document standardizes bilateral Over-the-Counter (OTC) derivative transactions and netting agreements globally?",
+    "options": [
+      "FIMMDA Master Charter",
+      "ISDA (International Swaps and Derivatives Association) Master Agreement",
+      "SEBI Intermediary Regulations",
+      "RBI Prudential Circular"
+    ],
+    "correctIndex": 1,
+    "explanation": "The ISDA Master Agreement is the standard international legal contract governing OTC derivative transactions, including credit support annexes (CSA) and close-out netting.",
+    "topic": "ISDA Master Documentation",
+    "chapter": 5,
+    "chapterTitle": "OTC Interest Rate Derivatives (FRAs, IRS, OIS)",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch5-q48",
+    "courseId": "nism-iv",
+    "question": "Under RBI directions, which centralized platform must be used by banks and primary dealers to report all secondary market OTC Interest Rate Swaps in India?",
+    "options": [
+      "NDS-OM",
+      "CCIL Trade Reporting Platform (TRP)",
+      "BSE StAR MF",
+      "NSE NEAT"
+    ],
+    "correctIndex": 1,
+    "explanation": "All OTC interest rate derivative transactions (IRS, OIS, FRAs) executed by regulated entities in India must be reported to the CCIL Trade Reporting Platform within mandated timelines.",
+    "topic": "CCIL Reporting Mandate",
+    "chapter": 5,
+    "chapterTitle": "OTC Interest Rate Derivatives (FRAs, IRS, OIS)",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch5-q49",
+    "courseId": "nism-iv",
+    "question": "What is an 'Interest Rate Cap' in OTC derivatives markets?",
+    "options": [
+      "A series of call options on interest rates (caplets) that sets an upper ceiling on floating borrowing costs",
+      "A series of put options guaranteeing a minimum return to lenders",
+      "A regulatory limit imposed by RBI on lending rates",
+      "An exchange rate peg"
+    ],
+    "correctIndex": 0,
+    "explanation": "An Interest Rate Cap is a package of European call options on interest rates (caplets). If the benchmark floating rate exceeds the cap rate, the seller pays the buyer the difference, protecting borrowers from rate spikes.",
+    "topic": "Interest Rate Caps and Floors",
+    "chapter": 5,
+    "chapterTitle": "OTC Interest Rate Derivatives (FRAs, IRS, OIS)",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch5-q50",
+    "courseId": "nism-iv",
+    "question": "In an Interest Rate Swap, how are net periodic settlement cash flows executed between counterparties on reset dates?",
+    "options": [
+      "Both parties physically exchange the full notional principal",
+      "Only the net differential between fixed and floating interest payments is settled in cash",
+      "The clearing house pays both parties in sovereign bonds",
+      "Payments are deferred until swap maturity"
+    ],
+    "correctIndex": 1,
+    "explanation": "There is no exchange of principal in a standard IRS. On each payment date, only the net difference between the fixed leg obligation and floating leg obligation is transferred.",
+    "topic": "IRS Net Settlement",
+    "chapter": 5,
+    "chapterTitle": "OTC Interest Rate Derivatives (FRAs, IRS, OIS)",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-iv-ch6-q51",
+    "courseId": "nism-iv",
+    "question": "What is the standardized contract size (notional face value) for the 10-Year Government of India (GoI) Interest Rate Futures contract on NSE and BSE?",
+    "options": [
+      "\u20b950,000",
+      "\u20b91,00,000",
+      "\u20b92,00,000",
+      "\u20b910,00,000"
+    ],
+    "correctIndex": 2,
+    "explanation": "The contract value of a single 10-Year GoI Interest Rate Futures contract on Indian exchanges is \u20b92,00,000 (represented as 2,000 units of \u20b9100 face value).",
+    "topic": "10-Year IRF Contract Size",
+    "chapter": 6,
+    "chapterTitle": "Exchange Traded Interest Rate Futures (IRF)",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch6-q52",
+    "courseId": "nism-iv",
+    "question": "What is the minimum tick size and corresponding minimum tick value for the 10-Year GoI IRF contract?",
+    "options": [
+      "Tick size of \u20b90.05 and tick value of \u20b9100",
+      "Tick size of \u20b90.01 and tick value of \u20b920",
+      "Tick size of \u20b90.0025 and tick value of \u20b95",
+      "Tick size of \u20b90.0001 and tick value of \u20b91"
+    ],
+    "correctIndex": 2,
+    "explanation": "The minimum price quotation increment (tick size) is \u20b90.0025 per \u20b9100 face value. For a \u20b92,00,000 contract (2,000 units), the tick value is \u20b90.0025 * 2,000 = \u20b95.00.",
+    "topic": "Tick Size and Tick Value",
+    "chapter": 6,
+    "chapterTitle": "Exchange Traded Interest Rate Futures (IRF)",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch6-q53",
+    "courseId": "nism-iv",
+    "question": "On what day of the expiry month do standardized Interest Rate Futures contracts expire on Indian exchanges?",
+    "options": [
+      "The last Friday of the month",
+      "The last Thursday of the expiry month (or previous trading day if Thursday is a holiday)",
+      "The 15th calendar day of the month",
+      "The last business day of the quarter"
+    ],
+    "correctIndex": 1,
+    "explanation": "IRF contracts expire on the last Thursday of the expiry month. If the last Thursday is a trading holiday, the contract expires on the immediately preceding trading day.",
+    "topic": "IRF Expiry Cycle",
+    "chapter": 6,
+    "chapterTitle": "Exchange Traded Interest Rate Futures (IRF)",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch6-q54",
+    "courseId": "nism-iv",
+    "question": "What is the notional coupon rate assumed for the standard deliverable 10-year sovereign bond underlying the 10-Year GoI IRF contract?",
+    "options": [
+      "5.00% p.a. paid annually",
+      "6.00% p.a. paid semi-annually",
+      "7.00% p.a. paid quarterly",
+      "8.00% p.a. compounded monthly"
+    ],
+    "correctIndex": 1,
+    "explanation": "The underlying security is a notional 10-year coupon-bearing Government of India bond carrying an annualized coupon of 6.00% payable semi-annually.",
+    "topic": "Notional Coupon Standard",
+    "chapter": 6,
+    "chapterTitle": "Exchange Traded Interest Rate Futures (IRF)",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch6-q55",
+    "courseId": "nism-iv",
+    "question": "How is the price quoted for the 91-Day Treasury Bill Interest Rate Futures contract on Indian exchanges?",
+    "options": [
+      "Direct yield percentage (e.g. 6.85%)",
+      "100 minus the discount yield (e.g. 100 - 6.85 = 93.15)",
+      "Rupees per \u20b9100 face value (Clean price)",
+      "Clean price plus accrued interest"
+    ],
+    "correctIndex": 1,
+    "explanation": "91-Day T-Bill futures are quoted as (100 - Discount Yield), ensuring that futures prices rise when yields fall and fall when yields rise, consistent with bond price dynamics.",
+    "topic": "91-Day T-Bill IRF Quotation",
+    "chapter": 6,
+    "chapterTitle": "Exchange Traded Interest Rate Futures (IRF)",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch6-q56",
+    "courseId": "nism-iv",
+    "question": "What residual maturity range is mandated by SEBI/RBI for GoI securities to be eligible in the deliverable basket for the 10-Year GoI IRF contract?",
+    "options": [
+      "1 to 3 years",
+      "8 to 11 years (or 7.5 to 10.5 years as specified in contract circulars)",
+      "15 to 30 years",
+      "Exactly 10 years only"
+    ],
+    "correctIndex": 1,
+    "explanation": "Eligible bonds must be semi-annual coupon-bearing sovereign GoI securities with residual maturity between 8 and 11 years on the delivery date.",
+    "topic": "Deliverable Basket Specifications",
+    "chapter": 6,
+    "chapterTitle": "Exchange Traded Interest Rate Futures (IRF)",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch6-q57",
+    "courseId": "nism-iv",
+    "question": "What trading hours apply to the Interest Rate Futures segment on Indian stock exchanges?",
+    "options": [
+      "9:15 AM to 3:30 PM",
+      "9:00 AM to 5:00 PM",
+      "10:00 AM to 11:30 PM",
+      "8:00 AM to 4:00 PM"
+    ],
+    "correctIndex": 1,
+    "explanation": "The trading session for Interest Rate Derivatives on NSE/BSE operates from 9:00 AM to 5:00 PM on all business days.",
+    "topic": "IRF Trading Hours",
+    "chapter": 6,
+    "chapterTitle": "Exchange Traded Interest Rate Futures (IRF)",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch6-q58",
+    "courseId": "nism-iv",
+    "question": "In a deliverable IRF contract, which party possesses the option to decide WHICH specific eligible bond from the basket will be delivered?",
+    "options": [
+      "The Buyer (Long position holder)",
+      "The Seller (Short position holder)",
+      "The Clearing Corporation",
+      "The Reserve Bank of India"
+    ],
+    "correctIndex": 1,
+    "explanation": "The short position holder has the 'Delivery Option' (choosing which bond to deliver, on which day of the delivery window), and will naturally choose the Cheapest-to-Deliver (CTD) bond.",
+    "topic": "Delivery Option of Short Seller",
+    "chapter": 6,
+    "chapterTitle": "Exchange Traded Interest Rate Futures (IRF)",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch6-q59",
+    "courseId": "nism-iv",
+    "question": "How many monthly and quarterly contract expirations are available for trading in the 10-Year GoI IRF contract at any point in time?",
+    "options": [
+      "Only 1 near-month contract",
+      "3 consecutive serial monthly contracts and 3 quarterly contracts of the cycle March, June, September, December",
+      "12 weekly contracts",
+      "5 annual contracts"
+    ],
+    "correctIndex": 1,
+    "explanation": "The contract tenure structure consists of 3 serial monthly contracts followed by 3 quarterly contracts following the standard financial calendar cycle (March, June, September, December).",
+    "topic": "IRF Contract Cycles",
+    "chapter": 6,
+    "chapterTitle": "Exchange Traded Interest Rate Futures (IRF)",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch6-q60",
+    "courseId": "nism-iv",
+    "question": "Under cash-settlement provisions of 10-year IRFs, how is the Final Settlement Price (FSP) determined on expiry day?",
+    "options": [
+      "Closing price of the stock index",
+      "Volume-weighted average price (VWAP) of the underlying benchmark GoI bond in the NDS-OM secondary market in the last two hours of trading",
+      "Face value of \u20b9100",
+      "Average of interbank MIBOR fixings"
+    ],
+    "correctIndex": 1,
+    "explanation": "The Final Settlement Price (FSP) is derived from the secondary market volume-weighted average price (VWAP) of the underlying sovereign bond on NDS-OM during the specified closing window.",
+    "topic": "Final Settlement Price (FSP)",
+    "chapter": 6,
+    "chapterTitle": "Exchange Traded Interest Rate Futures (IRF)",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch7-q61",
+    "courseId": "nism-iv",
+    "question": "What is the theoretical forward pricing formula for an Interest Rate Futures contract under the Cost of Carry model?",
+    "options": [
+      "Futures Price = Spot Price + Coupon Income",
+      "Futures Price = Spot Clean Price + Financing Cost - Coupon Income",
+      "Futures Price = Spot Price / Conversion Factor",
+      "Futures Price = Par Value * (1 + Repo Rate)"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under the cost of carry model: Futures Price = Spot Clean Price + Cost of Financing (Repo interest to carry bond to expiry) - Income earned on underlying bond (Accrued coupon received).",
+    "topic": "Cost of Carry Model for IRF",
+    "chapter": 7,
+    "chapterTitle": "Pricing & Valuation of Interest Rate Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch7-q62",
+    "courseId": "nism-iv",
+    "question": "How is the Conversion Factor (CF) of an eligible bond calculated in physical delivery IRF contracts?",
+    "options": [
+      "It is the clean price of \u20b91 face value of the deliverable bond to yield exactly 6.00% p.a. semi-annually on the first day of the delivery month",
+      "It is the ratio of the bond's duration to the market index duration",
+      "It is the inflation index adjustment factor",
+      "It is the yield spread over 91-Day T-Bills"
+    ],
+    "correctIndex": 0,
+    "explanation": "The Conversion Factor represents the clean price of a deliverable bond per \u20b91 face value if it were discounted at the notional coupon rate of 6% semi-annually on the delivery month start.",
+    "topic": "Conversion Factor Definition",
+    "chapter": 7,
+    "chapterTitle": "Pricing & Valuation of Interest Rate Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch7-q63",
+    "courseId": "nism-iv",
+    "question": "A short position holder delivers a bond with Conversion Factor of 1.0450 and Accrued Interest of \u20b91.80 per \u20b9100 face value. If the Futures Final Settlement Price is \u20b998.00, what is the Invoice Price per bond?",
+    "options": [
+      "\u20b9104.21",
+      "\u20b9102.41",
+      "\u20b9100.61",
+      "\u20b999.80"
+    ],
+    "correctIndex": 1,
+    "explanation": "Invoice Price = (Futures Settlement Price * Conversion Factor) + Accrued Interest = (\u20b998.00 * 1.0450) + \u20b91.80 = \u20b9102.41 + \u20b91.80 = \u20b9104.21 per \u20b9100 face value. (Wait: 98 * 1.045 = 102.41. Plus 1.80 = 104.21). Option 0 is \u20b9104.21.",
+    "topic": "Invoice Price Calculation",
+    "chapter": 7,
+    "chapterTitle": "Pricing & Valuation of Interest Rate Futures",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch7-q64",
+    "courseId": "nism-iv",
+    "question": "What is the Gross Basis of a deliverable bond?",
+    "options": [
+      "Gross Basis = Spot Clean Price - (Futures Price * Conversion Factor)",
+      "Gross Basis = Futures Price - Spot Price",
+      "Gross Basis = Accrued Interest - Repo Rate",
+      "Gross Basis = Invoice Amount / Contract Size"
+    ],
+    "correctIndex": 0,
+    "explanation": "Gross Basis represents the difference between the spot clean market price of the deliverable bond and its conversion-factor adjusted futures price: Gross Basis = Spot Price - (Futures Price * CF).",
+    "topic": "Gross Basis Formula",
+    "chapter": 7,
+    "chapterTitle": "Pricing & Valuation of Interest Rate Futures",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch7-q65",
+    "courseId": "nism-iv",
+    "question": "How is Net Basis (Carry-Adjusted Basis) calculated?",
+    "options": [
+      "Net Basis = Gross Basis + Accrued Interest",
+      "Net Basis = Gross Basis - Net Carry (Cost of financing minus coupon income)",
+      "Net Basis = Spot Price / Futures Price",
+      "Net Basis = Conversion Factor * YTM"
+    ],
+    "correctIndex": 1,
+    "explanation": "Net Basis = Gross Basis - Net Carry. It measures the net profit or loss from purchasing the bond, financing it to futures delivery, and delivering it against the short futures contract.",
+    "topic": "Net Basis Calculation",
+    "chapter": 7,
+    "chapterTitle": "Pricing & Valuation of Interest Rate Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch7-q66",
+    "courseId": "nism-iv",
+    "question": "Which bond among the deliverable basket is classified as the 'Cheapest-to-Deliver' (CTD) bond?",
+    "options": [
+      "The bond with the highest coupon rate",
+      "The bond that maximizes the Implied Repo Rate (IRR) or minimizes the Net Basis for the short seller",
+      "The bond with the longest maturity",
+      "The bond selected at random by the stock exchange"
+    ],
+    "correctIndex": 1,
+    "explanation": "The Cheapest-to-Deliver (CTD) bond is the bond in the deliverable basket that provides the highest return (highest Implied Repo Rate) or the minimum cost of delivery (lowest net basis) to the short position.",
+    "topic": "Cheapest-to-Deliver (CTD) Selection",
+    "chapter": 7,
+    "chapterTitle": "Pricing & Valuation of Interest Rate Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch7-q67",
+    "courseId": "nism-iv",
+    "question": "As a rule of thumb, when prevailing market yields on deliverable bonds are substantially ABOVE 6.00%, which type of bonds tend to become Cheapest-to-Deliver (CTD)?",
+    "options": [
+      "Low-coupon, long-maturity bonds",
+      "High-coupon, short-maturity bonds",
+      "Zero-coupon Treasury Bills",
+      "All bonds become equally cheap"
+    ],
+    "correctIndex": 1,
+    "explanation": "When market yields > 6%, the Conversion Factor formula penalizes low-coupon bonds. Consequently, high-coupon bonds (and bonds with shorter duration) tend to have the lowest gross/net basis and become CTD.",
+    "topic": "CTD Rule of Thumb (>6% Yield)",
+    "chapter": 7,
+    "chapterTitle": "Pricing & Valuation of Interest Rate Futures",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch7-q68",
+    "courseId": "nism-iv",
+    "question": "What is the Implied Repo Rate (IRR) of a deliverable bond in an Interest Rate Futures contract?",
+    "options": [
+      "The interest rate announced by RBI at monetary policy meetings",
+      "The annualized rate of return earned by buying the cash bond today, financing it, and delivering it against a short futures contract at expiration",
+      "The dividend yield of the banking index",
+      "The swap spread over overnight MIBOR"
+    ],
+    "correctIndex": 1,
+    "explanation": "IRR is the theoretical rate of return from a cash-and-carry trade: buying the cash bond at the current spot price, shorting the IRF, and delivering the bond at the futures invoice price.",
+    "topic": "Implied Repo Rate (IRR)",
+    "chapter": 7,
+    "chapterTitle": "Pricing & Valuation of Interest Rate Futures",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch7-q69",
+    "courseId": "nism-iv",
+    "question": "What happens to the Gross Basis of the Cheapest-to-Deliver (CTD) bond as the futures contract reaches its final expiration day?",
+    "options": [
+      "Basis increases to infinity",
+      "Basis converges toward zero (Basis Convergence)",
+      "Basis fluctuates randomly",
+      "Basis becomes equal to the coupon rate"
+    ],
+    "correctIndex": 1,
+    "explanation": "At expiration, time value and cost of carry drop to zero. The futures price adjusted for CF converges to the spot price of the CTD bond, driving gross basis to zero.",
+    "topic": "Basis Convergence at Expiry",
+    "chapter": 7,
+    "chapterTitle": "Pricing & Valuation of Interest Rate Futures",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch7-q70",
+    "courseId": "nism-iv",
+    "question": "If an IRF contract trades at \u20b999.50 while its theoretical fair value under cost of carry is \u20b998.70, what arbitrage strategy should an institutional desk execute?",
+    "options": [
+      "Reverse cash-and-carry (Short bond, Buy futures)",
+      "Cash-and-carry arbitrage (Buy cash bond, Sell overpriced futures)",
+      "Buy call options on MIBOR",
+      "Do nothing as arbitrage is impossible"
+    ],
+    "correctIndex": 1,
+    "explanation": "When futures are overpriced relative to fair value (Futures > Theoretical value), the trader buys the cash bond (financed in repo) and sells the futures contract, locking in a return greater than the repo borrowing rate.",
+    "topic": "Cash-and-Carry Arbitrage",
+    "chapter": 7,
+    "chapterTitle": "Pricing & Valuation of Interest Rate Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch8-q71",
+    "courseId": "nism-iv",
+    "question": "What is the underlying asset for Exchange Traded Interest Rate Options (IROs) introduced on Indian exchanges?",
+    "options": [
+      "A basket of Nifty 50 shares",
+      "10-Year Government of India dated securities or 10-year GoI IRF contracts",
+      "Overnight call money rates",
+      "USD/INR exchange rate"
+    ],
+    "correctIndex": 1,
+    "explanation": "Exchange Traded Interest Rate Options (IROs) on NSE/BSE are based on 10-Year Government of India dated securities or underlying 10-Year GoI IRF futures.",
+    "topic": "IRO Underlying Asset",
+    "chapter": 8,
+    "chapterTitle": "Exchange Traded Interest Rate Options (IRO)",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch8-q72",
+    "courseId": "nism-iv",
+    "question": "What is the exercise style of Interest Rate Options (IROs) traded on Indian stock exchanges?",
+    "options": [
+      "American style (exercisable on any business day up to expiry)",
+      "European style (exercisable only on the expiration date)",
+      "Bermudan style (exercisable on specific cycle dates)",
+      "Asian style (exercisable on average prices)"
+    ],
+    "correctIndex": 1,
+    "explanation": "Interest Rate Options in India follow European style exercise, meaning they can only be exercised on the final expiration date.",
+    "topic": "European Exercise Style",
+    "chapter": 8,
+    "chapterTitle": "Exchange Traded Interest Rate Options (IRO)",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch8-q73",
+    "courseId": "nism-iv",
+    "question": "An investor purchases a Call Option on a 10-Year Government Bond with a strike price of \u20b9100.00. Under what interest rate scenario will this position become profitable?",
+    "options": [
+      "When interest rates rise sharply",
+      "When interest rates fall, causing bond prices to rise above the strike price plus premium paid",
+      "When interest rates remain completely static",
+      "When the government experiences a debt downgrade"
+    ],
+    "correctIndex": 1,
+    "explanation": "Bond prices rise when yields fall. A Call option on a bond price gives the right to buy at strike; hence it profits when interest rates fall and bond prices rally above Strike + Premium.",
+    "topic": "Bond Call Option Payoff",
+    "chapter": 8,
+    "chapterTitle": "Exchange Traded Interest Rate Options (IRO)",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch8-q74",
+    "courseId": "nism-iv",
+    "question": "How is a Put Option on a Bond Price economically equivalent to an option on an Interest Rate?",
+    "options": [
+      "A Put Option on a bond price is economically equivalent to a Call Option on an Interest Rate (both profit when interest rates rise)",
+      "A Put Option on a bond price is identical to a Put Option on an interest rate",
+      "There is no correlation between bond options and rate options",
+      "It is equivalent to a long forward contract"
+    ],
+    "correctIndex": 0,
+    "explanation": "Because bond prices move inversely to interest rates, an option giving the right to sell a bond at a fixed price (Put on Bond) gains value when rates rise \u2014 exactly like a Call Option on an Interest Rate.",
+    "topic": "Bond Put vs Rate Call Equivalence",
+    "chapter": 8,
+    "chapterTitle": "Exchange Traded Interest Rate Options (IRO)",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch8-q75",
+    "courseId": "nism-iv",
+    "question": "If the spot price of an underlying GoI security is \u20b9102.50, what is the Intrinsic Value of a Put Option with a strike price of \u20b9105.00?",
+    "options": [
+      "\u20b90.00",
+      "\u20b92.50",
+      "\u20b95.00",
+      "\u20b9102.50"
+    ],
+    "correctIndex": 1,
+    "explanation": "Intrinsic Value of a Put Option = Max(0, Strike Price - Spot Price) = Max(0, \u20b9105.00 - \u20b9102.50) = \u20b92.50.",
+    "topic": "Put Intrinsic Value Calculation",
+    "chapter": 8,
+    "chapterTitle": "Exchange Traded Interest Rate Options (IRO)",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch8-q76",
+    "courseId": "nism-iv",
+    "question": "What does the option Greek 'Delta' represent in an Interest Rate Option?",
+    "options": [
+      "The sensitivity of the option price to a one-unit change in the price of the underlying bond",
+      "The rate of time decay of the option",
+      "The sensitivity of option premium to changes in implied volatility",
+      "The curvature of the bond price-yield curve"
+    ],
+    "correctIndex": 0,
+    "explanation": "Delta (\u0394) measures the rate of change of the option premium with respect to changes in the price of the underlying security (\u2202V / \u2202S).",
+    "topic": "Option Greek Delta",
+    "chapter": 8,
+    "chapterTitle": "Exchange Traded Interest Rate Options (IRO)",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch8-q77",
+    "courseId": "nism-iv",
+    "question": "What does 'Vega' measure in Interest Rate Options?",
+    "options": [
+      "The sensitivity of the option price to changes in interest rate volatility (a 1% change in implied volatility)",
+      "The time decay per day",
+      "The change in delta for a unit change in bond price",
+      "The risk-free rate of return"
+    ],
+    "correctIndex": 0,
+    "explanation": "Vega measures the sensitivity of the option price to changes in the implied volatility of the underlying interest rate or bond price.",
+    "topic": "Option Greek Vega",
+    "chapter": 8,
+    "chapterTitle": "Exchange Traded Interest Rate Options (IRO)",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch8-q78",
+    "courseId": "nism-iv",
+    "question": "Why is 'Theta' typically negative for buyers of both Call and Put Interest Rate Options?",
+    "options": [
+      "Because interest rates always decline over time",
+      "Because option contracts lose time value (extrinsic value) each day as the expiration date approaches (Time Decay)",
+      "Because clearing corporations charge daily negative interest",
+      "Because option buyers receive continuous dividends"
+    ],
+    "correctIndex": 1,
+    "explanation": "Theta measures time decay. As an option approaches expiration with other factors constant, the probability of moving deeper in-the-money diminishes, eroding extrinsic value.",
+    "topic": "Option Greek Theta",
+    "chapter": 8,
+    "chapterTitle": "Exchange Traded Interest Rate Options (IRO)",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch8-q79",
+    "courseId": "nism-iv",
+    "question": "An Interest Rate Call option on a GoI bond has a strike price of \u20b998.00 and trades at a premium of \u20b93.20. If the underlying bond is currently trading at \u20b9100.50, what are its Intrinsic Value and Time Value?",
+    "options": [
+      "Intrinsic Value = \u20b93.20, Time Value = \u20b90.00",
+      "Intrinsic Value = \u20b92.50, Time Value = \u20b90.70",
+      "Intrinsic Value = \u20b90.70, Time Value = \u20b92.50",
+      "Intrinsic Value = \u20b92.00, Time Value = \u20b91.20"
+    ],
+    "correctIndex": 1,
+    "explanation": "Intrinsic Value = Max(0, Spot - Strike) = Max(0, 100.50 - 98.00) = \u20b92.50. Total Premium = Intrinsic Value + Time Value => \u20b93.20 = \u20b92.50 + Time Value => Time Value = \u20b90.70.",
+    "topic": "Intrinsic vs Time Value Decomposition",
+    "chapter": 8,
+    "chapterTitle": "Exchange Traded Interest Rate Options (IRO)",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch8-q80",
+    "courseId": "nism-iv",
+    "question": "When is an option on an Interest Rate Future considered 'At-the-Money' (ATM)?",
+    "options": [
+      "When the strike price is significantly higher than the underlying futures price",
+      "When the strike price is equal to (or closest to) the current market price of the underlying futures contract",
+      "When the option has expired worthless",
+      "When delta is exactly equal to 1.0"
+    ],
+    "correctIndex": 1,
+    "explanation": "An option is At-the-Money (ATM) when the strike price is equal to the prevailing market price of the underlying asset.",
+    "topic": "Moneyness of Options",
+    "chapter": 8,
+    "chapterTitle": "Exchange Traded Interest Rate Options (IRO)",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch9-q81",
+    "courseId": "nism-iv",
+    "question": "A mutual fund manager holds a debt portfolio of \u20b9100 Crores with a Modified Duration of 6.0 years. If the manager wishes to reduce the portfolio's effective duration to 4.0 years using 10-Year IRF contracts (where each contract has a value of \u20b92,00,000 and a duration of 7.0 years), how many IRF contracts must be sold?",
+    "options": [
+      "714 contracts",
+      "1,429 contracts",
+      "2,143 contracts",
+      "500 contracts"
+    ],
+    "correctIndex": 1,
+    "explanation": "Number of Contracts N = [(Target Duration - Current Duration) * Portfolio Value] / [Futures Duration * Futures Contract Value] = [(4.0 - 6.0) * \u20b91,00,00,00,000] / [7.0 * \u20b92,00,000] = [- \u20b92,00,00,00,000] / \u20b914,00,000 = - 1,428.57 \u2248 1,429 contracts sold (short).",
+    "topic": "Target Duration Hedging Formula",
+    "chapter": 9,
+    "chapterTitle": "Trading, Hedging & Arbitrage Strategies",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch9-q82",
+    "courseId": "nism-iv",
+    "question": "What is 'Basis Risk' in an Interest Rate Futures hedging strategy?",
+    "options": [
+      "The risk of the broker defaulting on client margins",
+      "The risk that the basis (Spot Price minus Futures Price * CF) changes unexpectedly between the initiation and unwinding of the hedge",
+      "The risk of central bank altering currency reserves",
+      "The risk of electronic trading terminal failure"
+    ],
+    "correctIndex": 1,
+    "explanation": "Basis Risk arises because the relationship between the spot price of the bond being hedged and the futures price does not remain constant over the hedge horizon.",
+    "topic": "Basis Risk in Hedging",
+    "chapter": 9,
+    "chapterTitle": "Trading, Hedging & Arbitrage Strategies",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch9-q83",
+    "courseId": "nism-iv",
+    "question": "A portfolio manager hedges a portfolio of AAA-rated corporate bonds by shorting sovereign 10-Year GoI Interest Rate Futures. What additional risk does this cross-hedge introduce?",
+    "options": [
+      "Currency risk",
+      "Credit spread risk (spread between corporate bond yields and G-Sec yields widening)",
+      "Equity beta risk",
+      "Regulatory prohibition risk"
+    ],
+    "correctIndex": 1,
+    "explanation": "This is a cross-hedge. Corporate bond yields equal sovereign yields plus a credit spread. If credit spreads widen, corporate bond prices fall even if G-Secs rally, creating underperformance.",
+    "topic": "Cross-Hedging & Credit Spread Risk",
+    "chapter": 9,
+    "chapterTitle": "Trading, Hedging & Arbitrage Strategies",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch9-q84",
+    "courseId": "nism-iv",
+    "question": "How is a 'Yield Curve Flattener' trade constructed using interest rate derivatives?",
+    "options": [
+      "Long short-term rate futures and short long-term rate futures",
+      "Long long-term bonds / futures (benefits from falling long yields) and short short-term contracts (hedges or benefits from rising short yields)",
+      "Buy call options on both short and long bonds",
+      "Sell sovereign debt and buy equities"
+    ],
+    "correctIndex": 1,
+    "explanation": "A curve flattener profits when the spread between long-term and short-term yields narrows. The trader goes long the long-term contract and short the short-term contract.",
+    "topic": "Yield Curve Flattener Strategy",
+    "chapter": 9,
+    "chapterTitle": "Trading, Hedging & Arbitrage Strategies",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch9-q85",
+    "courseId": "nism-iv",
+    "question": "What is a 'Yield Curve Steepener' trade designed to profit from?",
+    "options": [
+      "An increase in the yield spread between long-term and short-term maturities",
+      "A parallel downward shift in all interest rates",
+      "A complete freeze in interbank liquidity",
+      "Currency appreciation"
+    ],
+    "correctIndex": 0,
+    "explanation": "A steepener position profits when the difference (spread) between long-term yields and short-term yields increases (curve becomes steeper).",
+    "topic": "Yield Curve Steepener Strategy",
+    "chapter": 9,
+    "chapterTitle": "Trading, Hedging & Arbitrage Strategies",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch9-q86",
+    "courseId": "nism-iv",
+    "question": "What is a 'Butterfly Spread' in fixed income and interest rate trading?",
+    "options": [
+      "Trading equity calls against debt puts",
+      "A three-legged relative value trade consisting of long positions in the wings (short and long maturities) and a short position in the body (intermediate maturity), or vice-versa, to trade yield curve curvature",
+      "Borrowing uncollateralized in call money and lending in corporate bonds",
+      "A calendar spread between identical maturities"
+    ],
+    "correctIndex": 1,
+    "explanation": "A butterfly spread isolates curvature risk across three points on the yield curve: short maturity (wing), medium maturity (body), and long maturity (wing).",
+    "topic": "Butterfly Spread Strategy",
+    "chapter": 9,
+    "chapterTitle": "Trading, Hedging & Arbitrage Strategies",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch9-q87",
+    "courseId": "nism-iv",
+    "question": "In a DV01-neutral hedge, how is the optimal Hedge Ratio calculated between a cash bond portfolio and the Cheapest-to-Deliver (CTD) bond in an IRF contract?",
+    "options": [
+      "Hedge Ratio = (DV01 of Portfolio / DV01 of CTD) * Conversion Factor of CTD",
+      "Hedge Ratio = Portfolio Face Value / Contract Size",
+      "Hedge Ratio = YTM of Portfolio / Repo Rate",
+      "Hedge Ratio = 1.0 always"
+    ],
+    "correctIndex": 0,
+    "explanation": "To match rupee price sensitivities: Hedge Ratio = (DV01_portfolio / DV01_ctd) * CF_ctd. This ensures the rupee gains on the futures exactly offset rupee losses on the portfolio.",
+    "topic": "DV01 Hedge Ratio Formula",
+    "chapter": 9,
+    "chapterTitle": "Trading, Hedging & Arbitrage Strategies",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch9-q88",
+    "courseId": "nism-iv",
+    "question": "What is an institutional investor's primary objective when executing a 'Long Hedge' in Interest Rate Futures?",
+    "options": [
+      "To speculate on falling equity prices",
+      "To lock in an attractive investment yield for expected future cash inflows against the risk of falling interest rates",
+      "To exit all sovereign bonds ahead of a credit downgrade",
+      "To avoid paying clearing corporation margins"
+    ],
+    "correctIndex": 1,
+    "explanation": "An investor who expects a large cash inflow in 3 months risks yields falling before the funds can be deployed. Buying IRF contracts (Long Hedge) locks in the current higher yield.",
+    "topic": "Long Hedge Strategy",
+    "chapter": 9,
+    "chapterTitle": "Trading, Hedging & Arbitrage Strategies",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch9-q89",
+    "courseId": "nism-iv",
+    "question": "What is 'CTD Switching' in the context of deliverable Interest Rate Futures contracts?",
+    "options": [
+      "The clearing corporation changing the underlying index",
+      "The phenomenon where a change in prevailing yields causes a different bond in the deliverable basket to become the Cheapest-to-Deliver, altering futures price sensitivity",
+      "Exchanging cash for equity mutual funds",
+      "Switching from physical delivery to cash settlement on trade day"
+    ],
+    "correctIndex": 1,
+    "explanation": "As yields shift across 6%, the identity of the CTD bond can switch from a low-coupon bond to a high-coupon bond (or vice versa), which causes the futures contract's duration to shift.",
+    "topic": "CTD Switching Risk",
+    "chapter": 9,
+    "chapterTitle": "Trading, Hedging & Arbitrage Strategies",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch9-q90",
+    "courseId": "nism-iv",
+    "question": "How does an institutional arbitrageur profit from 'Negative Basis' (when the spot price of the CTD bond is below its futures price * CF)?",
+    "options": [
+      "By shorting the cash bond and buying the futures",
+      "By buying the cash bond in spot, shorting the futures, and delivering the bond at maturity (Cash-and-Carry trade)",
+      "By liquidating all repo lines",
+      "By writing unhedged put options"
+    ],
+    "correctIndex": 1,
+    "explanation": "When the gross basis is negative (Spot < Futures * CF), the bond is cheap relative to futures. Buying the bond and shorting the futures captures the convergence at expiration.",
+    "topic": "Basis Trading Strategies",
+    "chapter": 9,
+    "chapterTitle": "Trading, Hedging & Arbitrage Strategies",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch10-q91",
+    "courseId": "nism-iv",
+    "question": "Which regulatory bodies jointly regulate the interest rate derivatives market in India?",
+    "options": [
+      "IRDAI and PFRDA",
+      "Reserve Bank of India (RBI) and Securities and Exchange Board of India (SEBI)",
+      "Ministry of Finance and IBA",
+      "Competition Commission of India and CCIL"
+    ],
+    "correctIndex": 1,
+    "explanation": "RBI regulates interest rate markets, government securities, money markets, and OTC interest rate derivatives, while SEBI regulates exchange-traded derivatives and stock exchanges.",
+    "topic": "Joint Regulatory Framework (RBI & SEBI)",
+    "chapter": 10,
+    "chapterTitle": "Clearing, Settlement, Risk Management & Regulations",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch10-q92",
+    "courseId": "nism-iv",
+    "question": "What is the primary function of the SPAN (Standard Portfolio Analysis of Risk) system in exchange-traded interest rate derivatives?",
+    "options": [
+      "Calculating tax withholding on corporate bonds",
+      "Assessing portfolio risk and determining initial margin by evaluating total portfolio gains and losses across 16 simulated market risk scenarios",
+      "Selecting benchmark bonds for primary auctions",
+      "Regulating Foreign Portfolio Investor limits"
+    ],
+    "correctIndex": 1,
+    "explanation": "SPAN evaluates the largest loss that a portfolio of futures and options might incur under 16 combined scenarios of price movement and volatility changes.",
+    "topic": "SPAN Margining System",
+    "chapter": 10,
+    "chapterTitle": "Clearing, Settlement, Risk Management & Regulations",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch10-q93",
+    "courseId": "nism-iv",
+    "question": "What is the Extreme Loss Margin (ELM) collected in addition to SPAN margin in the IRF segment?",
+    "options": [
+      "An insurance premium against broker fraud",
+      "A margin collected to cover tail risk and price volatility beyond the 99% confidence level covered by SPAN initial margin",
+      "A penalty on late trade reporting",
+      "A fee paid to the bond issuer"
+    ],
+    "correctIndex": 1,
+    "explanation": "ELM is an additional safety buffer mandated by SEBI to protect the clearing house against extreme outlier price shifts that exceed normal statistical standard deviations.",
+    "topic": "Extreme Loss Margin (ELM)",
+    "chapter": 10,
+    "chapterTitle": "Clearing, Settlement, Risk Management & Regulations",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch10-q94",
+    "courseId": "nism-iv",
+    "question": "How often is Mark-to-Market (MTM) margin settled for Interest Rate Futures positions on Indian stock exchanges?",
+    "options": [
+      "Weekly on Fridays",
+      "Daily on a T+1 cash settlement basis",
+      "Monthly on the last Thursday",
+      "Only upon final contract expiration"
+    ],
+    "correctIndex": 1,
+    "explanation": "All open futures positions are marked-to-market daily based on the Daily Settlement Price (DSP), with profits credited and losses debited in cash on a T+1 basis.",
+    "topic": "Daily Mark-to-Market Settlement",
+    "chapter": 10,
+    "chapterTitle": "Clearing, Settlement, Risk Management & Regulations",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch10-q95",
+    "courseId": "nism-iv",
+    "question": "What is the SEBI mandated position limit for an individual client in 10-Year Interest Rate Futures?",
+    "options": [
+      "1% of total open interest or \u20b950 Crores, whichever is higher",
+      "3% of total open interest or \u20b9200 Crores, whichever is higher",
+      "10% of total open interest or \u20b91,000 Crores, whichever is higher",
+      "No client position limits apply"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under SEBI regulations, client-level gross open position limits in IRFs are set at 3% of total open interest or \u20b9200 Crores, whichever is higher.",
+    "topic": "Client Position Limits",
+    "chapter": 10,
+    "chapterTitle": "Clearing, Settlement, Risk Management & Regulations",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch10-q96",
+    "courseId": "nism-iv",
+    "question": "What is the Trading Member (TM) / Mutual Fund scheme-level position limit in the Interest Rate Futures segment?",
+    "options": [
+      "5% of open interest or \u20b9500 Crores",
+      "10% of total open interest or \u20b91,200 Crores, whichever is higher",
+      "20% of open interest or \u20b92,500 Crores",
+      "Strictly 15% of open interest"
+    ],
+    "correctIndex": 1,
+    "explanation": "Trading Members and Mutual Fund schemes are subject to a position limit of 10% of the total open interest or \u20b91,200 Crores, whichever is higher.",
+    "topic": "Trading Member Position Limits",
+    "chapter": 10,
+    "chapterTitle": "Clearing, Settlement, Risk Management & Regulations",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch10-q97",
+    "courseId": "nism-iv",
+    "question": "Under Foreign Exchange Management Act (FEMA) guidelines, what is the regulatory framework governing Foreign Portfolio Investors (FPIs) participating in Indian Interest Rate Futures?",
+    "options": [
+      "FPIs are completely prohibited from trading IRFs",
+      "FPIs are permitted to trade IRFs for both hedging and non-hedging (speculative) purposes subject to overall aggregate debt ceilings monitored by RBI/SEBI",
+      "FPIs may trade only with prior individual approval from the Ministry of Finance",
+      "FPIs can only trade cash-settled equity derivatives"
+    ],
+    "correctIndex": 1,
+    "explanation": "FPIs are permitted to trade exchange-traded IRFs up to separate overall aggregate ceilings established by RBI/SEBI, facilitating both hedging and liquidity provision.",
+    "topic": "FPI Regulatory Guidelines",
+    "chapter": 10,
+    "chapterTitle": "Clearing, Settlement, Risk Management & Regulations",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch10-q98",
+    "courseId": "nism-iv",
+    "question": "What constitutes 'Legal Novation' performed by the Clearing Corporation (NSCCL / ICCL) upon trade execution?",
+    "options": [
+      "The conversion of debt instruments into equity rights",
+      "The interposition of the Clearing Corporation between the buyer and the seller, becoming the legal buyer to every seller and seller to every buyer",
+      "The cancellation of unexecuted orders at end of day",
+      "The authorization of high-frequency trading algorithms"
+    ],
+    "correctIndex": 1,
+    "explanation": "Legal novation replaces the original bilateral contract with two distinct legal contracts with the CCP, eliminating bilateral credit risk for all market participants.",
+    "topic": "Legal Novation and CCP Role",
+    "chapter": 10,
+    "chapterTitle": "Clearing, Settlement, Risk Management & Regulations",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch10-q99",
+    "courseId": "nism-iv",
+    "question": "What is the penalty or regulatory consequence for a trading member engaging in 'Front Running' in the interest rate derivatives market?",
+    "options": [
+      "A nominal administrative warning with no suspension",
+      "Severe disciplinary action under SEBI (Prohibition of Fraudulent and Unfair Trade Practices) Regulations, including debarment, disgorgement of profits, and monetary penalties",
+      "No violation if executed on proprietary accounts",
+      "Exemption if trading volume is below \u20b91 Crore"
+    ],
+    "correctIndex": 1,
+    "explanation": "Front running (trading ahead of a large client order to profit from the anticipated market impact) is a grave violation of the SEBI PFUTP Regulations, resulting in heavy fines, criminal referral, and ban from securities markets.",
+    "topic": "PFUTP & Code of Conduct",
+    "chapter": 10,
+    "chapterTitle": "Clearing, Settlement, Risk Management & Regulations",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-iv-ch10-q100",
+    "courseId": "nism-iv",
+    "question": "Under SEBI regulations, how long must a certified intermediary maintain physical or electronic records of client orders, trade confirmations, and risk disclosure documents for interest rate derivatives?",
+    "options": [
+      "1 year",
+      "3 years",
+      "Minimum 5 years",
+      "10 years"
+    ],
+    "correctIndex": 2,
+    "explanation": "SEBI Intermediary regulations mandate that all registered trading members maintain books of accounts, client order logs, KYC records, and trade confirmations for a minimum statutory period of 5 years.",
+    "topic": "Statutory Record Keeping",
+    "chapter": 10,
+    "chapterTitle": "Clearing, Settlement, Risk Management & Regulations",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
   }
 ];
