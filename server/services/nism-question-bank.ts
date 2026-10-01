@@ -4,10 +4,10 @@ import type { NismPracticeQuestion } from "./nism-lms-service";
 /**
  * High-yield NISM Accredited Practice Question Bank
  * Covers all 30 official NISM exam series listed on NISM & iExamWorld:
- * Series I, II-A, II-B, III-A, III-B, IV (Interest Rate Derivatives),
- * V-A, V-B, V-C, V-D (SIF), VI, VII (SORM), VIII, IX, X-A, X-B, XII,
+ * Series I, II-A, II-B, III-A, III-B, IV, V-A, V-B, V-C, V-D (SIF),
+ * VI, VII (SORM), VIII (Equity Derivatives: 153 Qs), IX, X-A, X-B, XII,
  * XIII, XV, XVI, XVII, XVIII, XIX-A, XIX-B, XIX-C, XXI-A, XXI-B, XXII, XXIII, and CPE Refresher.
- * Total accredited questions: 1426.
+ * Total accredited questions: 1479.
  */
 export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
   {
@@ -8713,1616 +8713,6 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "explanation": "Under SEBI regulations for Financial Planning & Advisory, mutual funds operate under strict fiduciary guidelines ensuring scheme assets are held in trust, segregated from AMC capital, and compliant with disclosure norms.",
     "difficulty": "Intermediate",
     "paperId": "paper-5"
-  },
-  {
-    "id": "nism-viii-q1",
-    "courseId": "nism-viii",
-    "question": "A European Call Option gives the buyer which of the following rights?",
-    "options": [
-      "The right to buy the underlying asset on or before the expiration date",
-      "The right to buy the underlying asset only on the expiration date",
-      "The obligation to buy the underlying asset on the expiration date",
-      "The right to sell the underlying asset only on the expiration date"
-    ],
-    "correctIndex": 1,
-    "explanation": "European style options can only be exercised on the expiration date itself, unlike American style options which can be exercised at any time up to expiration.",
-    "topic": "Options Fundamentals"
-  },
-  {
-    "id": "nism-viii-q2",
-    "courseId": "nism-viii",
-    "question": "In the equity derivatives market, what does a high Open Interest (OI) accompanied by an increase in futures price typically indicate?",
-    "options": [
-      "Short Covering",
-      "Long Liquidation",
-      "Long Buildup (Bullish)",
-      "Short Buildup (Bearish)"
-    ],
-    "correctIndex": 2,
-    "explanation": "When price rises along with rising Open Interest, it signifies fresh capital entering the market to create new long positions, known as Long Buildup.",
-    "topic": "Derivatives Market Dynamics"
-  },
-  {
-    "id": "nism-viii-q3",
-    "courseId": "nism-viii",
-    "question": "Which Option Greek measures the sensitivity of an option's delta relative to a change in the price of the underlying asset?",
-    "options": [
-      "Theta",
-      "Vega",
-      "Gamma",
-      "Rho"
-    ],
-    "correctIndex": 2,
-    "explanation": "Gamma (\u0393) measures the rate of change of Delta with respect to changes in the underlying asset's price, effectively measuring the curvature of the option value.",
-    "topic": "Option Greeks"
-  },
-  {
-    "id": "nism-viii-q4",
-    "courseId": "nism-viii",
-    "question": "Which Option Greek measures the rate of decay of an option premium due to the passage of time?",
-    "options": [
-      "Delta",
-      "Vega",
-      "Theta",
-      "Rho"
-    ],
-    "correctIndex": 2,
-    "explanation": "Theta (\u0398) represents time decay \u2014 the loss in option value as time moves closer to expiration, typically negative for long option positions.",
-    "topic": "Option Greeks"
-  },
-  {
-    "id": "nism-viii-q5",
-    "courseId": "nism-viii",
-    "question": "Under what condition is an equity Put Option considered to be 'In-The-Money' (ITM)?",
-    "options": [
-      "Spot Price is greater than Strike Price",
-      "Strike Price is greater than Spot Price",
-      "Spot Price is equal to Strike Price",
-      "Implied Volatility is above historical volatility"
-    ],
-    "correctIndex": 1,
-    "explanation": "A Put Option is In-The-Money (ITM) when the Strike Price is higher than the current Spot Price, giving the put holder the right to sell above current market price.",
-    "topic": "Options Fundamentals"
-  },
-  {
-    "id": "nism-viii-q6",
-    "courseId": "nism-viii",
-    "question": "What happens to a 'Day Order' in an exchange trading system if it remains unexecuted at market close?",
-    "options": [
-      "It rolls over to the after-hours trading session",
-      "It executes in the closing auction automatically",
-      "It carries forward to the next trading day",
-      "It is cancelled automatically by the trading engine at the end of the day"
-    ],
-    "correctIndex": 3,
-    "explanation": "A Day order is valid exclusively for the trading day on which it is entered. If unexecuted, the trading system automatically purges it at market close.",
-    "topic": "Trading Systems & Order Types"
-  },
-  {
-    "id": "nism-viii-q7",
-    "courseId": "nism-viii",
-    "question": "As per Accounting Standards, the initial margin paid by an option seller is recorded under which head in the balance sheet?",
-    "options": [
-      "Current Liabilities",
-      "Current Assets",
-      "Long-Term Borrowings",
-      "Contingent Liabilities"
-    ],
-    "correctIndex": 1,
-    "explanation": "Initial margin paid to the clearing corporation is debited to an Option Margin Account and reported under Current Assets until position settlement.",
-    "topic": "Accounting & Margining"
-  },
-  {
-    "id": "nism-viii-q8",
-    "courseId": "nism-viii",
-    "question": "What does a Beta (\u03b2) greater than 1 signify for a stock in equity derivatives trading?",
-    "options": [
-      "The stock has negative correlation with the index",
-      "The expected percentage change in stock price will be more than the percentage change in the index (higher systematic volatility)",
-      "The stock has zero systematic risk",
-      "The stock cannot be hedged using index futures"
-    ],
-    "correctIndex": 1,
-    "explanation": "Beta measures sensitivity vis-\u00e0-vis index movement. A Beta > 1 indicates that the security tends to exhibit larger percentage swings than the market index.",
-    "topic": "Hedging & Risk Management"
-  },
-  {
-    "id": "nism-viii-q9",
-    "courseId": "nism-viii",
-    "question": "Which of the following contracts is NOT part of the Indian equity derivatives market?",
-    "options": [
-      "Index Futures",
-      "Stock Options",
-      "Interest Rate Futures",
-      "Index Options"
-    ],
-    "correctIndex": 2,
-    "explanation": "Interest rate futures trade under the interest rate derivatives segment on the exchange and are separate from equity derivatives.",
-    "topic": "Derivatives Market Structure"
-  },
-  {
-    "id": "nism-viii-q10",
-    "courseId": "nism-viii",
-    "question": "What is 'Arbitrage' in derivatives markets?",
-    "options": [
-      "Gambling on unpredictable earnings announcements",
-      "Earning a risk-free profit by simultaneously buying and selling replicating assets in two or more different markets to exploit price differentials",
-      "Holding open unhedged short options",
-      "Borrowing money from commercial banks at subprime rates"
-    ],
-    "correctIndex": 1,
-    "explanation": "Arbitrage exploits pricing discrepancies between markets (e.g. cash vs futures) by simultaneously entering opposing positions to lock in riskless profit.",
-    "topic": "Arbitrage & Trading Strategies"
-  },
-  {
-    "id": "nism-viii-q11",
-    "courseId": "nism-viii",
-    "question": "What is 'Mark-to-Market' (MTM) margin settlement in futures trading?",
-    "options": [
-      "Daily settlement of profits and losses arising from differences between the previous day's settlement price and the current closing price",
-      "Paying brokerage fees to exchange directors",
-      "Filing monthly income tax statements",
-      "The physical delivery of share certificates every Friday"
-    ],
-    "correctIndex": 0,
-    "explanation": "MTM is the daily cash settlement where clearing corporations credit gains and debit losses to trading accounts based on daily closing settlement prices.",
-    "topic": "Clearing & Settlement"
-  },
-  {
-    "id": "nism-viii-q12",
-    "courseId": "nism-viii",
-    "question": "What does 'Cost of Carry' represent in futures pricing?",
-    "options": [
-      "The storage and shipping cost of physical share certificates",
-      "The net financing cost of holding the underlying asset until futures expiration, including interest paid minus dividends received",
-      "The broker's monthly trading terminal rent",
-      "The security transaction tax paid on entry"
-    ],
-    "correctIndex": 1,
-    "explanation": "Cost of Carry model establishes that Futures Price = Spot Price + Financing Cost - Dividends/Income earned until maturity.",
-    "topic": "Futures Pricing"
-  },
-  {
-    "id": "nism-viii-q13",
-    "courseId": "nism-viii",
-    "question": "What is 'Contango' in futures markets?",
-    "options": [
-      "When futures price trades at a discount below spot price",
-      "When futures price trades at a premium above spot price, reflecting positive cost of carry",
-      "When options volatility hits zero",
-      "When market trading is halted by circuit breakers"
-    ],
-    "correctIndex": 1,
-    "explanation": "Contango occurs when futures trade at a premium over spot prices, reflecting normal cost of financing, storage, and interest.",
-    "topic": "Futures Pricing"
-  },
-  {
-    "id": "nism-viii-q14",
-    "courseId": "nism-viii",
-    "question": "What is 'Backwardation' in futures markets?",
-    "options": [
-      "When futures price trades below spot price, often due to high dividend expectations or immediate physical scarcity",
-      "When prices double overnight",
-      "When open interest falls to zero",
-      "When clearing margins are refunded"
-    ],
-    "correctIndex": 0,
-    "explanation": "Backwardation occurs when futures price trades at a discount to the spot price, commonly seen when large near-term dividends are expected.",
-    "topic": "Futures Pricing"
-  },
-  {
-    "id": "nism-viii-q15",
-    "courseId": "nism-viii",
-    "question": "Which Option Greek measures the sensitivity of an option's premium to changes in the implied volatility (IV) of the underlying asset?",
-    "options": [
-      "Delta",
-      "Gamma",
-      "Vega",
-      "Rho"
-    ],
-    "correctIndex": 2,
-    "explanation": "Vega measures the change in option price for a 1% change in implied volatility. Long option holders benefit from rising Vega/volatility.",
-    "topic": "Option Greeks"
-  },
-  {
-    "id": "nism-viii-q16",
-    "courseId": "nism-viii",
-    "question": "What is the maximum loss potential for the buyer (holder) of a Call Option?",
-    "options": [
-      "Unlimited",
-      "Equal to the Strike Price",
-      "Limited strictly to the initial premium paid to purchase the option",
-      "Equal to the Spot Price"
-    ],
-    "correctIndex": 2,
-    "explanation": "An option buyer pays a premium for the right (not obligation) to buy. The maximum loss is capped at the premium paid, while upside is theoretically unlimited.",
-    "topic": "Options Fundamentals"
-  },
-  {
-    "id": "nism-viii-q17",
-    "courseId": "nism-viii",
-    "question": "What is the risk profile of an uncovered (naked) Call Option seller (writer)?",
-    "options": [
-      "Limited risk and unlimited profit",
-      "Limited profit (maximum equal to premium received) and theoretically unlimited loss potential if stock price surges",
-      "Zero risk under all market conditions",
-      "Risk capped at the strike price"
-    ],
-    "correctIndex": 1,
-    "explanation": "Naked call sellers take on unlimited upside risk if the stock price skyrockets, while their maximum gain is strictly capped at the option premium collected.",
-    "topic": "Options Fundamentals"
-  },
-  {
-    "id": "nism-viii-q18",
-    "courseId": "nism-viii",
-    "question": "What is a 'Protective Put' hedging strategy?",
-    "options": [
-      "Selling put options without owning the underlying stock",
-      "Holding a long stock position and simultaneously purchasing a Put Option on that stock to establish a price floor against downside decline",
-      "Buying call options and selling futures",
-      "Investing in fixed maturity debt plans"
-    ],
-    "correctIndex": 1,
-    "explanation": "A Protective Put acts as insurance: the investor owns the underlying stock and buys a put option to protect against steep market declines below the strike price.",
-    "topic": "Hedging & Risk Management"
-  },
-  {
-    "id": "nism-viii-q19",
-    "courseId": "nism-viii",
-    "question": "What is a 'Covered Call' strategy?",
-    "options": [
-      "Buying put options and shorting stock",
-      "Holding long shares of a stock and selling (writing) a Call Option on the same stock to generate extra income from the option premium",
-      "Buying both call and put options at the same strike",
-      "Selling futures contracts on foreign indices"
-    ],
-    "correctIndex": 1,
-    "explanation": "In a Covered Call, an investor writes call options against shares they already own, generating cash flow from premiums in exchange for capping upside gains.",
-    "topic": "Hedging & Risk Management"
-  },
-  {
-    "id": "nism-viii-q20",
-    "courseId": "nism-viii",
-    "question": "What is a 'Long Straddle' options strategy?",
-    "options": [
-      "Simultaneously buying a Call Option and a Put Option with the same strike price and same expiration date, expecting high volatility in either direction",
-      "Buying options and selling bonds",
-      "Selling out-of-the-money puts only",
-      "Holding cash in savings accounts"
-    ],
-    "correctIndex": 0,
-    "explanation": "A Long Straddle profits when the underlying asset experiences large directional price swings (up or down) exceeding the total combined premium paid.",
-    "topic": "Option Strategies"
-  },
-  {
-    "id": "nism-viii-q21",
-    "courseId": "nism-viii",
-    "question": "What does 'SPAN Margin' (Standard Portfolio Analysis of Risk) calculate in derivatives trading?",
-    "options": [
-      "Broker corporate income tax",
-      "The maximum worst-case portfolio loss calculated across 16 simulated market risk scenarios over a 1-day time horizon",
-      "Annual management fees charged by clearing banks",
-      "The historical dividend yield of Nifty 50"
-    ],
-    "correctIndex": 1,
-    "explanation": "SPAN calculates portfolio-level initial margin by simulating potential portfolio value changes across 16 different price and volatility scenarios.",
-    "topic": "Accounting & Margining"
-  },
-  {
-    "id": "nism-viii-q22",
-    "courseId": "nism-viii",
-    "question": "What is 'Exposure Margin' levied in Indian derivatives markets?",
-    "options": [
-      "A margin collected in addition to SPAN margin to cushion against extreme intra-day price swings beyond the standard deviation coverage",
-      "A fee paid to financial newspapers for advertising",
-      "The margin required to open a demat account",
-      "A deposit refunded after 10 years"
-    ],
-    "correctIndex": 0,
-    "explanation": "Exposure margin is an additional margin charged by clearing corporations on gross open positions to protect against tail-risk and black-swan moves.",
-    "topic": "Accounting & Margining"
-  },
-  {
-    "id": "nism-viii-q23",
-    "courseId": "nism-viii",
-    "question": "Under SEBI regulations, how are stock derivative contracts settled upon expiration in India?",
-    "options": [
-      "Only through cash difference settlement",
-      "Through mandatory physical delivery of underlying shares for all in-the-money stock futures and stock options contracts",
-      "Through promissory notes issued by brokers",
-      "Through conversion to government bonds"
-    ],
-    "correctIndex": 1,
-    "explanation": "SEBI introduced mandatory physical delivery settlement for all stock derivatives contracts. Open in-the-money positions require delivering or receiving physical shares.",
-    "topic": "Clearing & Settlement"
-  },
-  {
-    "id": "nism-viii-q24",
-    "courseId": "nism-viii",
-    "question": "What does a 'Put-Call Ratio' (PCR) by volume or open interest above 1.0 typically indicate in market sentiment analysis?",
-    "options": [
-      "Extreme bearish breakdown",
-      "Higher put open interest relative to calls, often interpreted by contrarians as an oversold or bullish support zone",
-      "The market will be closed for a week",
-      "All brokers are insolvent"
-    ],
-    "correctIndex": 1,
-    "explanation": "PCR measures the ratio of put options traded/open to call options. A high PCR indicates heavy put writing by institutional players, forming strong support.",
-    "topic": "Derivatives Market Dynamics"
-  },
-  {
-    "id": "nism-viii-q25",
-    "courseId": "nism-viii",
-    "question": "What is 'Implied Volatility' (IV) in options pricing?",
-    "options": [
-      "The historical standard deviation of daily returns over the last 100 days",
-      "The market's forecast of the underlying stock's future volatility implied by the current market price of the option using pricing models (e.g. Black-Scholes)",
-      "The interest rate set by the Reserve Bank of India",
-      "The brokerage rate charged by discount brokers"
-    ],
-    "correctIndex": 1,
-    "explanation": "Implied Volatility is the forward-looking volatility metric backed out of actual traded option market prices using the Black-Scholes formula.",
-    "topic": "Option Pricing & Greeks"
-  },
-  {
-    "id": "nism-viii-gen-q26",
-    "courseId": "nism-viii",
-    "question": "What is 'Basis' in the context of futures trading?",
-    "options": [
-      "Futures Price minus Spot Price (or Spot minus Futures)",
-      "The strike price of an option",
-      "The brokerage commission charged on trades",
-      "The face value of the underlying equity share"
-    ],
-    "correctIndex": 0,
-    "explanation": "Basis is defined as Spot Price minus Futures Price. In a normal contango market, basis is negative; during backwardation, basis is positive.",
-    "topic": "Futures Pricing & Basis"
-  },
-  {
-    "id": "nism-viii-gen-q27",
-    "courseId": "nism-viii",
-    "question": "What happens to the basis of a futures contract as the expiration date approaches?",
-    "options": [
-      "It fluctuates randomly without bounds",
-      "It converges towards zero (Futures Price converges to Spot Price at expiration)",
-      "It widens to infinity",
-      "It turns strictly negative for all stocks"
-    ],
-    "correctIndex": 1,
-    "explanation": "Basis convergence occurs because at expiration, the futures contract is settled against the spot price, eliminating carrying costs and forcing basis to zero.",
-    "topic": "Convergence of Basis"
-  },
-  {
-    "id": "nism-viii-gen-q28",
-    "courseId": "nism-viii",
-    "question": "What is 'Cash and Carry Arbitrage' in equity derivatives?",
-    "options": [
-      "Buying the underlying stock in the spot market and selling the overvalued futures contract while borrowing funds to finance the spot purchase until expiration",
-      "Withdrawing cash from an ATM to buy options",
-      "Selling stock in the spot market and buying physical gold",
-      "Trading only during post-market sessions"
-    ],
-    "correctIndex": 0,
-    "explanation": "Cash and carry arbitrage exploits a futures price trading above theoretical cost of carry by buying spot, shorting futures, and locking in risk-free carrying profits.",
-    "topic": "Arbitrage Mechanisms"
-  },
-  {
-    "id": "nism-viii-gen-q29",
-    "courseId": "nism-viii",
-    "question": "What is 'Reverse Cash and Carry Arbitrage'?",
-    "options": [
-      "Short selling the overvalued spot equity (or borrowing shares via SLB) and buying undervalued futures contracts, investing the sale proceeds at the risk-free rate",
-      "Buying calls and puts simultaneously",
-      "Borrowing from an NBFC to buy call options",
-      "Exchanging futures for physical delivery"
-    ],
-    "correctIndex": 0,
-    "explanation": "Reverse cash and carry arbitrage is triggered when futures trade below theoretical fair value (discount/backwardation), shorting spot and buying futures.",
-    "topic": "Arbitrage Mechanisms"
-  },
-  {
-    "id": "nism-viii-gen-q30",
-    "courseId": "nism-viii",
-    "question": "According to Put-Call Parity for European options, which relationship holds true (where S = Spot, C = Call, P = Put, PV(X) = Present Value of Strike)?",
-    "options": [
-      "C + PV(X) = P + S",
-      "C + P = S + X",
-      "C - P = S * X",
-      "C / P = S / X"
-    ],
-    "correctIndex": 0,
-    "explanation": "Put-Call Parity states that Fiduciary Call (Long Call + Zero Coupon Bond with face value X) equals Protective Put (Long Put + Underlying Stock): C + PV(X) = P + S.",
-    "topic": "Put-Call Parity"
-  },
-  {
-    "id": "nism-viii-gen-q31",
-    "courseId": "nism-viii",
-    "question": "What does the option Greek 'Delta' represent for a Call option?",
-    "options": [
-      "The rate of change of option price with respect to a change in the underlying asset's price, bounded between 0 and +1.0 for calls",
-      "The volatility of the market",
-      "The exchange margin percentage",
-      "The interest rate sensitivity"
-    ],
-    "correctIndex": 0,
-    "explanation": "Call Delta measures option price sensitivity to the underlying stock move; it ranges from 0 (deep out of the money) to +1.0 (deep in the money).",
-    "topic": "Option Greeks"
-  },
-  {
-    "id": "nism-viii-gen-q32",
-    "courseId": "nism-viii",
-    "question": "What does 'Delta' equal for an At-The-Money (ATM) call option?",
-    "options": [
-      "Approximately 0.50 (50%)",
-      "Exactly 1.0",
-      "Zero",
-      "Minus 1.0"
-    ],
-    "correctIndex": 0,
-    "explanation": "An ATM call option has a Delta close to 0.50, meaning the option price moves roughly \u20b90.50 for every \u20b91.00 move in the underlying stock price.",
-    "topic": "Option Greeks"
-  },
-  {
-    "id": "nism-viii-gen-q33",
-    "courseId": "nism-viii",
-    "question": "What does the option Greek 'Vega' measure?",
-    "options": [
-      "The sensitivity of the option price to a 1% change in implied volatility of the underlying asset",
-      "The effect of elapsed time on the option",
-      "The dividend yield of the index",
-      "The loan-to-value ratio of the margin"
-    ],
-    "correctIndex": 0,
-    "explanation": "Vega measures the change in option price for a 1% change in implied volatility. Both long calls and long puts have positive Vega.",
-    "topic": "Option Greeks"
-  },
-  {
-    "id": "nism-viii-gen-q34",
-    "courseId": "nism-viii",
-    "question": "What is a 'Protective Put' strategy?",
-    "options": [
-      "Holding long equity shares and simultaneously buying a Put option on the same stock to cap downside risk",
-      "Selling a put option without owning cash",
-      "Buying two call options at the same strike",
-      "Pledging shares for personal loans"
-    ],
-    "correctIndex": 0,
-    "explanation": "A Protective Put strategy combines long stock with a long put option, establishing a synthetic floor against catastrophic market declines while retaining upside.",
-    "topic": "Hedging Strategies"
-  },
-  {
-    "id": "nism-viii-q26",
-    "courseId": "nism-viii",
-    "question": "Under the Cost-of-Carry model for pricing futures contracts on dividend-paying stocks, the theoretical Futures Price is given by:",
-    "options": [
-      "Spot Price + Financing Cost - Dividends",
-      "Spot Price - Financing Cost + Dividends",
-      "Spot Price multiplied by Price-to-Earnings ratio",
-      "Spot Price divided by Beta"
-    ],
-    "correctIndex": 0,
-    "explanation": "The theoretical futures price equals Spot Price + Carrying Costs (interest cost on borrowed funds) minus Carrying Returns (dividends or yields earned during the holding period).",
-    "topic": "Futures Pricing & Cost of Carry"
-  },
-  {
-    "id": "nism-viii-q27",
-    "courseId": "nism-viii",
-    "question": "What does the option Greek 'Gamma' measure?",
-    "options": [
-      "The sensitivity of the option price to changes in interest rates",
-      "The rate of change of Delta for a one-unit change in the underlying stock price",
-      "The time decay of the option per day",
-      "The sensitivity of the option price to changes in implied volatility"
-    ],
-    "correctIndex": 1,
-    "explanation": "Gamma is the second derivative of the option price with respect to the underlying price; it measures the curvature or acceleration of Delta per unit move in the underlying asset.",
-    "topic": "Option Greeks"
-  },
-  {
-    "id": "nism-viii-q28",
-    "courseId": "nism-viii",
-    "question": "If an option trader executes a 'Bull Call Spread' strategy, the structure involves:",
-    "options": [
-      "Buying a lower strike Call option and selling a higher strike Call option with the same expiration date",
-      "Selling a Call option and buying a Put option",
-      "Buying both a Call and Put at the identical strike",
-      "Selling naked Call options without underlying shares"
-    ],
-    "correctIndex": 0,
-    "explanation": "A Bull Call Spread is constructed by purchasing an In-The-Money or At-The-Money Call option and selling an Out-Of-The-Money Call option to reduce the net premium outlay.",
-    "topic": "Derivative Strategies"
-  },
-  {
-    "id": "nism-viii-q30",
-    "courseId": "nism-viii",
-    "question": "Under SEBI and exchange margining systems, what is SPAN (Standard Portfolio Analysis of Risk) designed to calculate?",
-    "options": [
-      "The average brokerage commission of the client",
-      "The maximum possible portfolio loss over a one-day time horizon across 16 different market scenarios",
-      "The historical dividend yield of Nifty 50",
-      "The income tax deduction available on derivative trading"
-    ],
-    "correctIndex": 1,
-    "explanation": "SPAN margin evaluates overall portfolio risk by calculating the largest loss the portfolio could suffer under 16 realistic scenarios of price changes and volatility shifts.",
-    "topic": "Margining & Risk Management"
-  },
-  {
-    "id": "nism-viii-q31",
-    "courseId": "nism-viii",
-    "question": "In an options contract, 'Theta' is almost always negative for long option holders because:",
-    "options": [
-      "Options gain value as time passes",
-      "Option premium decays over time as expiration approaches, eroding the time value component of the option",
-      "Stock markets never decline over time",
-      "Theta represents the broker's commission rate"
-    ],
-    "correctIndex": 1,
-    "explanation": "Theta measures time decay; as calendar time elapses towards expiration date, the time value of an option diminishes, causing a decay in the buyer's premium.",
-    "topic": "Option Greeks"
-  },
-  {
-    "id": "nism-viii-q32",
-    "courseId": "nism-viii",
-    "question": "What is 'Put-Call Ratio' (PCR) in open interest analysis, and what does a high PCR typically indicate?",
-    "options": [
-      "Total number of active put contracts divided by total call contracts; an unusually high PCR reflects excessive bearish hedging and potential oversold/bullish reversal conditions",
-      "The ratio of stock price to dividend yield",
-      "The exchange fee divided by the clearing fee",
-      "The number of buy orders divided by sell orders in cash market"
-    ],
-    "correctIndex": 0,
-    "explanation": "PCR = Open Interest of Puts / Open Interest of Calls. A contrarian indicator: very high PCR indicates heavy put writing or excessive hedging, signaling strong support or market bottom.",
-    "topic": "Market Indicators & Open Interest"
-  },
-  {
-    "id": "nism-viii-q33",
-    "courseId": "nism-viii",
-    "question": "Under SEBI regulations for equity derivatives, all physical delivery settlement of stock derivatives at expiration is conducted on:",
-    "options": [
-      "Cash settlement only",
-      "Mandatory physical settlement where deliverable shares must be delivered/received in Demat form",
-      "Gold bars delivery",
-      "Postponement to next year"
-    ],
-    "correctIndex": 1,
-    "explanation": "SEBI mandated physical settlement for all stock derivatives: in-the-money options and expiring futures positions result in the actual transfer of underlying shares in Demat accounts.",
-    "topic": "Settlement & Delivery"
-  },
-  {
-    "id": "nism-viii-ch1-1",
-    "courseId": "nism-viii",
-    "chapter": 1,
-    "chapterTitle": "Basics of Derivatives",
-    "topic": "Derivative Definition",
-    "question": "Under the Securities Contracts (Regulation) Act, 1956 (SCRA), how is a 'Derivative' legally defined in India?",
-    "options": [
-      "A physical delivery contract for agricultural produce exclusively",
-      "A security derived from a debt instrument, share, loan, risk instrument or contract for differences whose value depends on underlying assets",
-      "An unsecured loan issued by a non-banking financial company",
-      "A fixed-rate municipal bond"
-    ],
-    "correctIndex": 1,
-    "explanation": "Section 2(ac) of the SCRA defines a derivative as a security derived from a debt instrument, share, loan, risk instrument or contract for differences whose value depends on underlying assets.",
-    "difficulty": "Foundation"
-  },
-  {
-    "id": "nism-viii-ch1-2",
-    "courseId": "nism-viii",
-    "chapter": 1,
-    "chapterTitle": "Basics of Derivatives",
-    "topic": "Types of Market Participants",
-    "question": "Which category of derivative market participants enters into derivative transactions to lock in prices and eliminate existing price risk in physical/cash assets?",
-    "options": [
-      "Speculators",
-      "Arbitrageurs",
-      "Hedgers",
-      "Day Traders"
-    ],
-    "correctIndex": 2,
-    "explanation": "Hedgers face price risk in the underlying physical/spot asset and use derivatives to transfer or lock in prices, minimizing potential adverse market movements.",
-    "difficulty": "Foundation"
-  },
-  {
-    "id": "nism-viii-ch1-3",
-    "courseId": "nism-viii",
-    "chapter": 1,
-    "chapterTitle": "Basics of Derivatives",
-    "topic": "Arbitrage Concept",
-    "question": "What is the primary operational mechanism of an 'Arbitrageur' in equity derivatives markets?",
-    "options": [
-      "Taking leveraged directional bets on high-beta penny stocks",
-      "Simultaneously buying in a cheaper market and selling in an overpriced market to exploit temporary pricing discrepancies without market risk",
-      "Writing uncovered out-of-the-money call options",
-      "Holding physical index baskets for 10 years"
-    ],
-    "correctIndex": 1,
-    "explanation": "Arbitrageurs capture risk-free profit by simultaneously exploiting temporary mispricing between spot and futures markets or between different exchanges.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-viii-ch2-1",
-    "courseId": "nism-viii",
-    "chapter": 2,
-    "chapterTitle": "Understanding Index",
-    "topic": "Free Float Market Capitalization",
-    "question": "How is the 'Free Float Market Capitalization' of a constituent stock in an index like Nifty 50 computed?",
-    "options": [
-      "Total Shares Outstanding \u00d7 Face Value of the Share",
-      "Total Shares Outstanding \u00d7 Current Market Price \u00d7 Investible Weight Factor (IWF / Free Float Factor)",
-      "Total Promoter Shares \u00d7 Current Market Price",
-      "Total Debt of the Company / Share Price"
-    ],
-    "correctIndex": 1,
-    "explanation": "Free Float Market Cap = Total Shares \u00d7 Market Price \u00d7 Free Float Factor (excluding shares held by promoters, government, and locked-in strategic holders).",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-viii-ch2-2",
-    "courseId": "nism-viii",
-    "chapter": 2,
-    "chapterTitle": "Understanding Index",
-    "topic": "Index Impact Cost",
-    "question": "What does 'Impact Cost' measure in relation to an underlying stock index or liquid derivative contract?",
-    "options": [
-      "The brokerage and exchange transaction fee charged on each trade",
-      "The percentage price change incurred when executing an order of a standard benchmark size relative to the ideal pre-trade mid-quote",
-      "The quarterly dividend payout percentage",
-      "The annual corporate management expense"
-    ],
-    "correctIndex": 1,
-    "explanation": "Impact cost reflects the liquidity and market depth of a security. It is the percentage markup or discount incurred to execute a transaction of specified value compared to the mid-market price.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-viii-ch3-1",
-    "courseId": "nism-viii",
-    "chapter": 3,
-    "chapterTitle": "Forwards & Futures",
-    "topic": "Futures vs Forwards Comparison",
-    "question": "Which of the following is a primary distinction between an exchange-traded Futures contract and an Over-the-Counter (OTC) Forward contract?",
-    "options": [
-      "Futures contracts are customized bilateral contracts; Forwards are standardized",
-      "Futures contracts are standardized, traded on recognized exchanges, and guaranteed by a clearing corporation with daily MTM settlement; Forwards carry counterparty default risk",
-      "Forwards have daily cash settlement; Futures settle only at expiry",
-      "Forwards require SPAN margins; Futures do not"
-    ],
-    "correctIndex": 1,
-    "explanation": "Futures are exchange-traded, standardized in lot size and expiry, with counterparty risk eliminated via the clearing corporation's novation and daily MTM margining.",
-    "difficulty": "Foundation"
-  },
-  {
-    "id": "nism-viii-ch3-2",
-    "courseId": "nism-viii",
-    "chapter": 3,
-    "chapterTitle": "Forwards & Futures",
-    "topic": "Cost of Carry Futures Pricing Numerical",
-    "question": "A stock is trading in the cash spot market at \u20b91,000. The risk-free interest rate is 8% per annum, and the stock is expected to pay a dividend of \u20b920 in 6 months. What is the theoretical 6-month fair futures price (using simple interest Cost of Carry)?",
-    "options": [
-      "\u20b91,080",
-      "\u20b91,040",
-      "\u20b91,020",
-      "\u20b9980"
-    ],
-    "correctIndex": 2,
-    "explanation": "Fair Futures Price = Spot Price + Financing Cost - Dividend = \u20b91,000 + (\u20b91,000 \u00d7 8% \u00d7 6/12) - \u20b920 = \u20b91,000 + \u20b940 - \u20b920 = \u20b91,020.",
-    "difficulty": "Advanced Scenario / Numerical"
-  },
-  {
-    "id": "nism-viii-ch3-3",
-    "courseId": "nism-viii",
-    "chapter": 3,
-    "chapterTitle": "Forwards & Futures",
-    "topic": "Basis in Futures",
-    "question": "What is 'Basis' in the context of futures trading, and what happens to the basis at expiry?",
-    "options": [
-      "Basis = Futures Price - Spot Price; it expands to infinity at expiry",
-      "Basis = Spot Price - Futures Price; it converges to zero at the time of contract expiration",
-      "Basis = Strike Price - Spot Price; it equals the dividend yield",
-      "Basis = Implied Volatility minus Historical Volatility"
-    ],
-    "correctIndex": 1,
-    "explanation": "Basis is defined as Spot Price minus Futures Price. Due to the convergence property, futures prices converge to the cash spot price on the expiration day, causing basis to become zero.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-viii-ch3-4",
-    "courseId": "nism-viii",
-    "chapter": 3,
-    "chapterTitle": "Forwards & Futures",
-    "topic": "Contango vs Backwardation",
-    "question": "When a futures contract trades at a discount to the cash spot price (Basis is positive), the market condition is termed as:",
-    "options": [
-      "Contango",
-      "Backwardation (Inverted Market)",
-      "Normal Market",
-      "Short Squeeze"
-    ],
-    "correctIndex": 1,
-    "explanation": "When Futures Price < Spot Price, the market is in 'Backwardation'. When Futures Price > Spot Price (normal cost of carry), the market is in 'Contango'.",
-    "difficulty": "Foundation"
-  },
-  {
-    "id": "nism-viii-ch4-1",
-    "courseId": "nism-viii",
-    "chapter": 4,
-    "chapterTitle": "Introduction to Options",
-    "topic": "Call Option Intrinsic Value Numerical",
-    "question": "A European Call option has a strike price of \u20b9450. If the underlying stock spot price is \u20b9485, what is the intrinsic value of the Call option?",
-    "options": [
-      "\u20b90",
-      "\u20b935",
-      "\u20b9450",
-      "\u20b9485"
-    ],
-    "correctIndex": 1,
-    "explanation": "Call Option Intrinsic Value = Max(0, Spot Price - Strike Price) = Max(0, \u20b9485 - \u20b9450) = \u20b935. The remaining portion of any market premium above \u20b935 represents time value.",
-    "difficulty": "Foundation"
-  },
-  {
-    "id": "nism-viii-ch4-2",
-    "courseId": "nism-viii",
-    "chapter": 4,
-    "chapterTitle": "Introduction to Options",
-    "topic": "Put Option Intrinsic Value Numerical",
-    "question": "A Put option has a strike price of \u20b9800 and the underlying stock spot price is \u20b9840. What is the intrinsic value of this Put option?",
-    "options": [
-      "\u20b940",
-      "\u20b90 (Out-of-the-Money)",
-      "\u20b9800",
-      "-\u20b940"
-    ],
-    "correctIndex": 1,
-    "explanation": "Put Option Intrinsic Value = Max(0, Strike Price - Spot Price) = Max(0, \u20b9800 - \u20b9840) = \u20b90. An option cannot have a negative intrinsic value.",
-    "difficulty": "Foundation"
-  },
-  {
-    "id": "nism-viii-ch4-3",
-    "courseId": "nism-viii",
-    "chapter": 4,
-    "chapterTitle": "Introduction to Options",
-    "topic": "Option Moneyness Classification",
-    "question": "If the current market price of Nifty index is 24,500, which of the following options is 'In-the-Money' (ITM)?",
-    "options": [
-      "24,700 Call Option",
-      "24,300 Call Option",
-      "24,300 Put Option",
-      "24,000 Put Option"
-    ],
-    "correctIndex": 1,
-    "explanation": "For a Call option, strike price < spot price means ITM. 24,300 Call is ITM by 200 points. 24,700 Call is OTM. For Puts, strike > spot is ITM.",
-    "difficulty": "Foundation"
-  },
-  {
-    "id": "nism-viii-ch4-4",
-    "courseId": "nism-viii",
-    "chapter": 4,
-    "chapterTitle": "Introduction to Options",
-    "topic": "American vs European Options",
-    "question": "In the Indian equity derivatives market, what style of exercise applies to index options and stock options contracts?",
-    "options": [
-      "American style for both index and stock options",
-      "European style for index options, American style for stock options",
-      "European style for both index and stock options (exercisable only on expiry date)",
-      "Bermudan style"
-    ],
-    "correctIndex": 2,
-    "explanation": "Under SEBI regulations, all equity derivative option contracts (both index options and stock options) in India are traded and settled as European style options.",
-    "difficulty": "Foundation"
-  },
-  {
-    "id": "nism-viii-ch5-1",
-    "courseId": "nism-viii",
-    "chapter": 5,
-    "chapterTitle": "Option Trading Strategies",
-    "topic": "Bull Call Spread Payoff Numerical",
-    "question": "An investor constructs a Bull Call Spread by buying a \u20b9500 Strike Call at a premium of \u20b930 and selling a \u20b9550 Strike Call at a premium of \u20b910. What is the maximum possible profit per share from this strategy?",
-    "options": [
-      "\u20b920",
-      "\u20b930",
-      "\u20b950",
-      "Unlimited"
-    ],
-    "correctIndex": 1,
-    "explanation": "Net Debit Paid = \u20b930 - \u20b910 = \u20b920. Strike Difference = \u20b9550 - \u20b9500 = \u20b950. Maximum Profit = Strike Difference - Net Debit = \u20b950 - \u20b920 = \u20b930 per share (achieved if stock rises to \u20b9550 or higher).",
-    "difficulty": "Advanced Scenario / Numerical"
-  },
-  {
-    "id": "nism-viii-ch5-2",
-    "courseId": "nism-viii",
-    "chapter": 5,
-    "chapterTitle": "Option Trading Strategies",
-    "topic": "Long Straddle Strategy",
-    "question": "An investor expects an upcoming corporate earnings announcement or election result to cause a massive price swing in a stock, but is unsure of the direction. Which options strategy is most suitable?",
-    "options": [
-      "Covered Call",
-      "Long Straddle (buying ATM Call and ATM Put with identical strike and expiry)",
-      "Bear Call Spread",
-      "Short Straddle"
-    ],
-    "correctIndex": 1,
-    "explanation": "A Long Straddle (buying both ATM Call and ATM Put) profits from significant volatility in either direction once the underlying moves beyond the total premium paid.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-viii-ch5-3",
-    "courseId": "nism-viii",
-    "chapter": 5,
-    "chapterTitle": "Option Trading Strategies",
-    "topic": "Short Straddle Risk Profile",
-    "question": "What is the maximum risk (potential loss) for a trader who sells (writes) an uncovered Short Straddle?",
-    "options": [
-      "Limited to the net premium received",
-      "Unlimited in both upward and downward market directions",
-      "Limited to the strike price",
-      "Zero risk if held to expiry"
-    ],
-    "correctIndex": 1,
-    "explanation": "A short straddle involves selling both a call and a put. While profit is capped at the premium collected, the potential loss is theoretically unlimited if the stock surges or crashes.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-viii-ch5-4",
-    "courseId": "nism-viii",
-    "chapter": 5,
-    "chapterTitle": "Option Trading Strategies",
-    "topic": "Covered Call Strategy",
-    "question": "What are the constituent legs of a 'Covered Call' strategy, and what is its primary investment objective?",
-    "options": [
-      "Buying a Put option and selling a Call option",
-      "Holding long physical stock shares while simultaneously selling an OTM Call option on that stock to generate extra income in a neutral/mildly bullish market",
-      "Buying ATM Call and buying ATM Put",
-      "Shorting physical stock and buying a Call"
-    ],
-    "correctIndex": 1,
-    "explanation": "A Covered Call combines a long stock position with writing an OTM Call option. The option premium provides downside buffer and generates income, capping upside at the strike price.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-viii-ch5-5",
-    "courseId": "nism-viii",
-    "chapter": 5,
-    "chapterTitle": "Option Trading Strategies",
-    "topic": "Collar Strategy",
-    "question": "How is a 'Collar Strategy' constructed by an institutional portfolio manager holding a substantial equity portfolio?",
-    "options": [
-      "Long Stock + Buy OTM Put (protective floor) + Sell OTM Call (financing the put premium)",
-      "Long Futures + Short Futures",
-      "Long Straddle + Short Strangle",
-      "Sell Put + Sell Call"
-    ],
-    "correctIndex": 0,
-    "explanation": "A Collar protects against downside loss below the put strike, funded partially or fully by premium earned from writing an upside call option.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-viii-ch6-1",
-    "courseId": "nism-viii",
-    "chapter": 6,
-    "chapterTitle": "Option Greeks & Pricing Models",
-    "topic": "Delta Greek Concept",
-    "question": "A Call option has a Delta of +0.60. If the underlying stock price increases by \u20b910, what is the expected change in the price of the Call option?",
-    "options": [
-      "Increases by \u20b910.00",
-      "Increases by \u20b96.00",
-      "Decreases by \u20b96.00",
-      "Increases by \u20b90.60"
-    ],
-    "correctIndex": 1,
-    "explanation": "Delta measures the rate of change of option price per \u20b91 move in the underlying. Expected change = Delta \u00d7 Underlying Change = 0.60 \u00d7 \u20b910 = +\u20b96.00.",
-    "difficulty": "Foundation"
-  },
-  {
-    "id": "nism-viii-ch6-2",
-    "courseId": "nism-viii",
-    "chapter": 6,
-    "chapterTitle": "Option Greeks & Pricing Models",
-    "topic": "Gamma Greek Sensitivity",
-    "question": "Which of the following options contracts exhibits the highest 'Gamma' value?",
-    "options": [
-      "Deep Out-of-the-Money options with 6 months to expiry",
-      "At-the-Money (ATM) options approaching near-term expiration",
-      "Deep In-the-Money options",
-      "Futures contracts"
-    ],
-    "correctIndex": 1,
-    "explanation": "Gamma measures the rate of change of Delta. Gamma peaks for At-the-Money (ATM) options and increases sharply as expiration approaches.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-viii-ch6-3",
-    "courseId": "nism-viii",
-    "chapter": 6,
-    "chapterTitle": "Option Greeks & Pricing Models",
-    "topic": "Theta Greek Time Decay",
-    "question": "What does 'Theta' quantify in options pricing, and who benefits from Theta decay?",
-    "options": [
-      "Sensitivity to interest rates; benefits option buyers",
-      "The daily loss in option value due to the passage of time (time decay); benefits option sellers (writers)",
-      "The sensitivity to implied volatility; benefits arbitrageurs",
-      "The dividend yield impact"
-    ],
-    "correctIndex": 1,
-    "explanation": "Theta represents the rate of decline in option premium caused by the erosion of time value. Theta is negative for option buyers and positive for option sellers.",
-    "difficulty": "Foundation"
-  },
-  {
-    "id": "nism-viii-ch6-4",
-    "courseId": "nism-viii",
-    "chapter": 6,
-    "chapterTitle": "Option Greeks & Pricing Models",
-    "topic": "Vega Greek & Implied Volatility",
-    "question": "If an investor is 'Long Vega', what market condition will increase the value of their options position?",
-    "options": [
-      "A sharp fall in implied volatility (IV)",
-      "A sharp surge in implied volatility (IV)",
-      "Passage of time with no price change",
-      "A drop in the cash spot price"
-    ],
-    "correctIndex": 1,
-    "explanation": "Vega measures option price sensitivity to a 1% change in Implied Volatility. Option buyers have positive Vega and profit when IV spikes.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-viii-ch6-5",
-    "courseId": "nism-viii",
-    "chapter": 6,
-    "chapterTitle": "Option Greeks & Pricing Models",
-    "topic": "Put-Call Parity Formula",
-    "question": "Under the classical Put-Call Parity principle for European options on non-dividend paying stocks, what is the fundamental mathematical relationship?",
-    "options": [
-      "Call Premium + Strike Price = Put Premium + Spot Price",
-      "Call Premium + Present Value of Strike Price = Put Premium + Current Spot Price (C + PV(K) = P + S)",
-      "Call Premium - Put Premium = Beta \u00d7 Spot Price",
-      "Call Premium \u00d7 Put Premium = Spot Price"
-    ],
-    "correctIndex": 1,
-    "explanation": "Put-Call Parity states: C + K/(1+r)^t = P + S. Any deviation creates a risk-free arbitrage opportunity (synthetic conversions and reversals).",
-    "difficulty": "Advanced Scenario / Numerical"
-  },
-  {
-    "id": "nism-viii-ch7-1",
-    "courseId": "nism-viii",
-    "chapter": 7,
-    "chapterTitle": "Trading Systems & Clearing",
-    "topic": "Novation in Clearing Corporation",
-    "question": "What is the legal function of 'Novation' performed by the Clearing Corporation (e.g. NSE Clearing Limited - NCL)?",
-    "options": [
-      "Fixing daily stock prices at opening",
-      "Interposing itself as the legal counterparty to every trade: becoming buyer to every seller and seller to every buyer, thereby guaranteeing settlement",
-      "Providing investment advisory to retail clients",
-      "Collecting income tax for the government"
-    ],
-    "correctIndex": 1,
-    "explanation": "Through novation, the clearing corporation steps into every matched trade as the central counterparty, guaranteeing financial settlement and eliminating bilateral default risk.",
-    "difficulty": "Foundation"
-  },
-  {
-    "id": "nism-viii-ch10-1",
-    "courseId": "nism-viii",
-    "chapter": 10,
-    "chapterTitle": "Risk Management & Margining System",
-    "topic": "SPAN Margining System",
-    "question": "How does the SPAN (Standard Portfolio Analysis of Risk) margining system calculate the initial margin requirement for derivative portfolios?",
-    "options": [
-      "By taking a fixed 20% flat cash deposit on contract value",
-      "By simulating the portfolio's profit or loss across 16 different risk scenarios of underlying price shifts and volatility changes to assess maximum worst-case 1-day loss",
-      "By checking the client's CIBIL credit score",
-      "By assessing the broker's annual net profit"
-    ],
-    "correctIndex": 1,
-    "explanation": "SPAN evaluates overall portfolio risk by calculating potential gains and losses across 16 standardized risk arrays combining underlying price changes and volatility shifts.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-viii-ch9-1",
-    "courseId": "nism-viii",
-    "chapter": 9,
-    "chapterTitle": "Accounting & Taxation of Derivatives",
-    "topic": "Section 43(5) Business Income",
-    "question": "Under Section 43(5) of the Income Tax Act, how are exchange-traded derivative transactions (futures and options) classified for tax purposes?",
-    "options": [
-      "Speculative business income",
-      "Non-speculative business income",
-      "Exempt income under Section 10",
-      "Salary income"
-    ],
-    "correctIndex": 1,
-    "explanation": "Clause (d) of Section 43(5) explicitly states that eligible transactions in derivatives carried out on a recognized stock exchange are NOT deemed speculative, but are treated as non-speculative business income.",
-    "difficulty": "Intermediate"
-  },
-  {
-    "id": "nism-viii-gen-68",
-    "courseId": "nism-viii",
-    "chapter": 8,
-    "chapterTitle": "Legal & Regulatory Environment",
-    "topic": "SEBI Derivative Norms & Position Limits",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Legal & Regulatory Environment (Module Spec #68), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-69",
-    "courseId": "nism-viii",
-    "chapter": 9,
-    "chapterTitle": "Accounting & Taxation",
-    "topic": "Section 43(5) Business Income & STT Rates",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Accounting & Taxation (Module Spec #69), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-70",
-    "courseId": "nism-viii",
-    "chapter": 10,
-    "chapterTitle": "Risk Management & Margining System",
-    "topic": "SPAN Margins, Exposure Margins & MTM Cash Flow",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Risk Management & Margining System (Module Spec #70), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-71",
-    "courseId": "nism-viii",
-    "chapter": 1,
-    "chapterTitle": "Basics of Derivatives",
-    "topic": "Derivatives Evolution & Mechanics",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Basics of Derivatives (Module Spec #71), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-72",
-    "courseId": "nism-viii",
-    "chapter": 2,
-    "chapterTitle": "Understanding Index",
-    "topic": "Index Calculation & Beta",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Understanding Index (Module Spec #72), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-73",
-    "courseId": "nism-viii",
-    "chapter": 3,
-    "chapterTitle": "Introduction to Forwards & Futures",
-    "topic": "Futures Pricing & Cash and Carry Arbitrage",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Introduction to Forwards & Futures (Module Spec #73), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-74",
-    "courseId": "nism-viii",
-    "chapter": 4,
-    "chapterTitle": "Introduction to Options",
-    "topic": "Option Intrinsic Value, Time Value & Moneyness",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Introduction to Options (Module Spec #74), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-75",
-    "courseId": "nism-viii",
-    "chapter": 5,
-    "chapterTitle": "Option Trading Strategies",
-    "topic": "Spreads, Straddles, Strangles & Collars",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Option Trading Strategies (Module Spec #75), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-76",
-    "courseId": "nism-viii",
-    "chapter": 6,
-    "chapterTitle": "Option Greeks & Pricing Models",
-    "topic": "Delta, Gamma, Theta, Vega & Put-Call Parity",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Option Greeks & Pricing Models (Module Spec #76), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-77",
-    "courseId": "nism-viii",
-    "chapter": 7,
-    "chapterTitle": "Trading Systems & Clearing",
-    "topic": "Contract Specifications & Trading Cycles",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Trading Systems & Clearing (Module Spec #77), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-78",
-    "courseId": "nism-viii",
-    "chapter": 8,
-    "chapterTitle": "Legal & Regulatory Environment",
-    "topic": "SEBI Derivative Norms & Position Limits",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Legal & Regulatory Environment (Module Spec #78), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-79",
-    "courseId": "nism-viii",
-    "chapter": 9,
-    "chapterTitle": "Accounting & Taxation",
-    "topic": "Section 43(5) Business Income & STT Rates",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Accounting & Taxation (Module Spec #79), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-80",
-    "courseId": "nism-viii",
-    "chapter": 10,
-    "chapterTitle": "Risk Management & Margining System",
-    "topic": "SPAN Margins, Exposure Margins & MTM Cash Flow",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Risk Management & Margining System (Module Spec #80), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-81",
-    "courseId": "nism-viii",
-    "chapter": 1,
-    "chapterTitle": "Basics of Derivatives",
-    "topic": "Derivatives Evolution & Mechanics",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Basics of Derivatives (Module Spec #81), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-82",
-    "courseId": "nism-viii",
-    "chapter": 2,
-    "chapterTitle": "Understanding Index",
-    "topic": "Index Calculation & Beta",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Understanding Index (Module Spec #82), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-83",
-    "courseId": "nism-viii",
-    "chapter": 3,
-    "chapterTitle": "Introduction to Forwards & Futures",
-    "topic": "Futures Pricing & Cash and Carry Arbitrage",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Introduction to Forwards & Futures (Module Spec #83), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-84",
-    "courseId": "nism-viii",
-    "chapter": 4,
-    "chapterTitle": "Introduction to Options",
-    "topic": "Option Intrinsic Value, Time Value & Moneyness",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Introduction to Options (Module Spec #84), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-85",
-    "courseId": "nism-viii",
-    "chapter": 5,
-    "chapterTitle": "Option Trading Strategies",
-    "topic": "Spreads, Straddles, Strangles & Collars",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Option Trading Strategies (Module Spec #85), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-86",
-    "courseId": "nism-viii",
-    "chapter": 6,
-    "chapterTitle": "Option Greeks & Pricing Models",
-    "topic": "Delta, Gamma, Theta, Vega & Put-Call Parity",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Option Greeks & Pricing Models (Module Spec #86), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-87",
-    "courseId": "nism-viii",
-    "chapter": 7,
-    "chapterTitle": "Trading Systems & Clearing",
-    "topic": "Contract Specifications & Trading Cycles",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Trading Systems & Clearing (Module Spec #87), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-88",
-    "courseId": "nism-viii",
-    "chapter": 8,
-    "chapterTitle": "Legal & Regulatory Environment",
-    "topic": "SEBI Derivative Norms & Position Limits",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Legal & Regulatory Environment (Module Spec #88), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-89",
-    "courseId": "nism-viii",
-    "chapter": 9,
-    "chapterTitle": "Accounting & Taxation",
-    "topic": "Section 43(5) Business Income & STT Rates",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Accounting & Taxation (Module Spec #89), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-90",
-    "courseId": "nism-viii",
-    "chapter": 10,
-    "chapterTitle": "Risk Management & Margining System",
-    "topic": "SPAN Margins, Exposure Margins & MTM Cash Flow",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Risk Management & Margining System (Module Spec #90), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-91",
-    "courseId": "nism-viii",
-    "chapter": 1,
-    "chapterTitle": "Basics of Derivatives",
-    "topic": "Derivatives Evolution & Mechanics",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Basics of Derivatives (Module Spec #91), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-92",
-    "courseId": "nism-viii",
-    "chapter": 2,
-    "chapterTitle": "Understanding Index",
-    "topic": "Index Calculation & Beta",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Understanding Index (Module Spec #92), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-93",
-    "courseId": "nism-viii",
-    "chapter": 3,
-    "chapterTitle": "Introduction to Forwards & Futures",
-    "topic": "Futures Pricing & Cash and Carry Arbitrage",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Introduction to Forwards & Futures (Module Spec #93), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-94",
-    "courseId": "nism-viii",
-    "chapter": 4,
-    "chapterTitle": "Introduction to Options",
-    "topic": "Option Intrinsic Value, Time Value & Moneyness",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Introduction to Options (Module Spec #94), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-95",
-    "courseId": "nism-viii",
-    "chapter": 5,
-    "chapterTitle": "Option Trading Strategies",
-    "topic": "Spreads, Straddles, Strangles & Collars",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Option Trading Strategies (Module Spec #95), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-96",
-    "courseId": "nism-viii",
-    "chapter": 6,
-    "chapterTitle": "Option Greeks & Pricing Models",
-    "topic": "Delta, Gamma, Theta, Vega & Put-Call Parity",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Option Greeks & Pricing Models (Module Spec #96), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-97",
-    "courseId": "nism-viii",
-    "chapter": 7,
-    "chapterTitle": "Trading Systems & Clearing",
-    "topic": "Contract Specifications & Trading Cycles",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Trading Systems & Clearing (Module Spec #97), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-98",
-    "courseId": "nism-viii",
-    "chapter": 8,
-    "chapterTitle": "Legal & Regulatory Environment",
-    "topic": "SEBI Derivative Norms & Position Limits",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Legal & Regulatory Environment (Module Spec #98), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-99",
-    "courseId": "nism-viii",
-    "chapter": 9,
-    "chapterTitle": "Accounting & Taxation",
-    "topic": "Section 43(5) Business Income & STT Rates",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Accounting & Taxation (Module Spec #99), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
-  },
-  {
-    "id": "nism-viii-gen-100",
-    "courseId": "nism-viii",
-    "chapter": 10,
-    "chapterTitle": "Risk Management & Margining System",
-    "topic": "SPAN Margins, Exposure Margins & MTM Cash Flow",
-    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Risk Management & Margining System (Module Spec #100), which operational standard is true?",
-    "options": [
-      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
-      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
-      "Retail clients can trade without registering a KYC or demat account.",
-      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
-    ],
-    "correctIndex": 0,
-    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
-    "difficulty": "Intermediate",
-    "paperId": "paper-2"
   },
   {
     "id": "nism-xa-q1",
@@ -24657,5 +23047,2651 @@ export const NISM_PRACTICE_BANK: NismPracticeQuestion[] = [
     "chapterTitle": "Clearing, Settlement, Risk Management & Regulations",
     "difficulty": "intermediate",
     "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-q1",
+    "courseId": "nism-viii",
+    "question": "A European Call Option gives the buyer which of the following rights?",
+    "options": [
+      "The right to buy the underlying asset on or before the expiration date",
+      "The right to buy the underlying asset only on the expiration date",
+      "The obligation to buy the underlying asset on the expiration date",
+      "The right to sell the underlying asset only on the expiration date"
+    ],
+    "correctIndex": 1,
+    "explanation": "European style options can only be exercised on the expiration date itself, unlike American style options which can be exercised at any time up to expiration.",
+    "topic": "Options Fundamentals",
+    "chapter": 4,
+    "chapterTitle": "Introduction to Options"
+  },
+  {
+    "id": "nism-viii-q2",
+    "courseId": "nism-viii",
+    "question": "In the equity derivatives market, what does a high Open Interest (OI) accompanied by an increase in futures price typically indicate?",
+    "options": [
+      "Short Covering",
+      "Long Liquidation",
+      "Long Buildup (Bullish)",
+      "Short Buildup (Bearish)"
+    ],
+    "correctIndex": 2,
+    "explanation": "When price rises along with rising Open Interest, it signifies fresh capital entering the market to create new long positions, known as Long Buildup.",
+    "topic": "Derivatives Market Dynamics",
+    "chapter": 1,
+    "chapterTitle": "Basics of Derivatives"
+  },
+  {
+    "id": "nism-viii-q3",
+    "courseId": "nism-viii",
+    "question": "Which Option Greek measures the sensitivity of an option's delta relative to a change in the price of the underlying asset?",
+    "options": [
+      "Theta",
+      "Vega",
+      "Gamma",
+      "Rho"
+    ],
+    "correctIndex": 2,
+    "explanation": "Gamma (\u0393) measures the rate of change of Delta with respect to changes in the underlying asset's price, effectively measuring the curvature of the option value.",
+    "topic": "Option Greeks",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks"
+  },
+  {
+    "id": "nism-viii-q4",
+    "courseId": "nism-viii",
+    "question": "Which Option Greek measures the rate of decay of an option premium due to the passage of time?",
+    "options": [
+      "Delta",
+      "Vega",
+      "Theta",
+      "Rho"
+    ],
+    "correctIndex": 2,
+    "explanation": "Theta (\u0398) represents time decay \u2014 the loss in option value as time moves closer to expiration, typically negative for long option positions.",
+    "topic": "Option Greeks",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks"
+  },
+  {
+    "id": "nism-viii-q5",
+    "courseId": "nism-viii",
+    "question": "Under what condition is an equity Put Option considered to be 'In-The-Money' (ITM)?",
+    "options": [
+      "Spot Price is greater than Strike Price",
+      "Strike Price is greater than Spot Price",
+      "Spot Price is equal to Strike Price",
+      "Implied Volatility is above historical volatility"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Put Option is In-The-Money (ITM) when the Strike Price is higher than the current Spot Price, giving the put holder the right to sell above current market price.",
+    "topic": "Options Fundamentals",
+    "chapter": 4,
+    "chapterTitle": "Introduction to Options"
+  },
+  {
+    "id": "nism-viii-q6",
+    "courseId": "nism-viii",
+    "question": "What happens to a 'Day Order' in an exchange trading system if it remains unexecuted at market close?",
+    "options": [
+      "It rolls over to the after-hours trading session",
+      "It executes in the closing auction automatically",
+      "It carries forward to the next trading day",
+      "It is cancelled automatically by the trading engine at the end of the day"
+    ],
+    "correctIndex": 3,
+    "explanation": "A Day order is valid exclusively for the trading day on which it is entered. If unexecuted, the trading system automatically purges it at market close.",
+    "topic": "Trading Systems & Order Types",
+    "chapter": 7,
+    "chapterTitle": "Trading Systems & Mechanisms"
+  },
+  {
+    "id": "nism-viii-q7",
+    "courseId": "nism-viii",
+    "question": "As per Accounting Standards, the initial margin paid by an option seller is recorded under which head in the balance sheet?",
+    "options": [
+      "Current Liabilities",
+      "Current Assets",
+      "Long-Term Borrowings",
+      "Contingent Liabilities"
+    ],
+    "correctIndex": 1,
+    "explanation": "Initial margin paid to the clearing corporation is debited to an Option Margin Account and reported under Current Assets until position settlement.",
+    "topic": "Accounting & Margining",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices"
+  },
+  {
+    "id": "nism-viii-q8",
+    "courseId": "nism-viii",
+    "question": "What does a Beta (\u03b2) greater than 1 signify for a stock in equity derivatives trading?",
+    "options": [
+      "The stock has negative correlation with the index",
+      "The expected percentage change in stock price will be more than the percentage change in the index (higher systematic volatility)",
+      "The stock has zero systematic risk",
+      "The stock cannot be hedged using index futures"
+    ],
+    "correctIndex": 1,
+    "explanation": "Beta measures sensitivity vis-\u00e0-vis index movement. A Beta > 1 indicates that the security tends to exhibit larger percentage swings than the market index.",
+    "topic": "Hedging & Risk Management",
+    "chapter": 2,
+    "chapterTitle": "Understanding Underlying Markets (Indices & Equities)"
+  },
+  {
+    "id": "nism-viii-q9",
+    "courseId": "nism-viii",
+    "question": "Which of the following contracts is NOT part of the Indian equity derivatives market?",
+    "options": [
+      "Index Futures",
+      "Stock Options",
+      "Interest Rate Futures",
+      "Index Options"
+    ],
+    "correctIndex": 2,
+    "explanation": "Interest rate futures trade under the interest rate derivatives segment on the exchange and are separate from equity derivatives.",
+    "topic": "Derivatives Market Structure",
+    "chapter": 1,
+    "chapterTitle": "Basics of Derivatives"
+  },
+  {
+    "id": "nism-viii-q10",
+    "courseId": "nism-viii",
+    "question": "What is 'Arbitrage' in derivatives markets?",
+    "options": [
+      "Gambling on unpredictable earnings announcements",
+      "Earning a risk-free profit by simultaneously buying and selling replicating assets in two or more different markets to exploit price differentials",
+      "Holding open unhedged short options",
+      "Borrowing money from commercial banks at subprime rates"
+    ],
+    "correctIndex": 1,
+    "explanation": "Arbitrage exploits pricing discrepancies between markets (e.g. cash vs futures) by simultaneously entering opposing positions to lock in riskless profit.",
+    "topic": "Arbitrage & Trading Strategies",
+    "chapter": 8,
+    "chapterTitle": "Clearing and Settlement System"
+  },
+  {
+    "id": "nism-viii-q11",
+    "courseId": "nism-viii",
+    "question": "What is 'Mark-to-Market' (MTM) margin settlement in futures trading?",
+    "options": [
+      "Daily settlement of profits and losses arising from differences between the previous day's settlement price and the current closing price",
+      "Paying brokerage fees to exchange directors",
+      "Filing monthly income tax statements",
+      "The physical delivery of share certificates every Friday"
+    ],
+    "correctIndex": 0,
+    "explanation": "MTM is the daily cash settlement where clearing corporations credit gains and debit losses to trading accounts based on daily closing settlement prices.",
+    "topic": "Clearing & Settlement",
+    "chapter": 8,
+    "chapterTitle": "Clearing and Settlement System"
+  },
+  {
+    "id": "nism-viii-q12",
+    "courseId": "nism-viii",
+    "question": "What does 'Cost of Carry' represent in futures pricing?",
+    "options": [
+      "The storage and shipping cost of physical share certificates",
+      "The net financing cost of holding the underlying asset until futures expiration, including interest paid minus dividends received",
+      "The broker's monthly trading terminal rent",
+      "The security transaction tax paid on entry"
+    ],
+    "correctIndex": 1,
+    "explanation": "Cost of Carry model establishes that Futures Price = Spot Price + Financing Cost - Dividends/Income earned until maturity.",
+    "topic": "Futures Pricing",
+    "chapter": 3,
+    "chapterTitle": "Introduction to Forwards & Futures"
+  },
+  {
+    "id": "nism-viii-q13",
+    "courseId": "nism-viii",
+    "question": "What is 'Contango' in futures markets?",
+    "options": [
+      "When futures price trades at a discount below spot price",
+      "When futures price trades at a premium above spot price, reflecting positive cost of carry",
+      "When options volatility hits zero",
+      "When market trading is halted by circuit breakers"
+    ],
+    "correctIndex": 1,
+    "explanation": "Contango occurs when futures trade at a premium over spot prices, reflecting normal cost of financing, storage, and interest.",
+    "topic": "Futures Pricing",
+    "chapter": 3,
+    "chapterTitle": "Introduction to Forwards & Futures"
+  },
+  {
+    "id": "nism-viii-q14",
+    "courseId": "nism-viii",
+    "question": "What is 'Backwardation' in futures markets?",
+    "options": [
+      "When futures price trades below spot price, often due to high dividend expectations or immediate physical scarcity",
+      "When prices double overnight",
+      "When open interest falls to zero",
+      "When clearing margins are refunded"
+    ],
+    "correctIndex": 0,
+    "explanation": "Backwardation occurs when futures price trades at a discount to the spot price, commonly seen when large near-term dividends are expected.",
+    "topic": "Futures Pricing",
+    "chapter": 3,
+    "chapterTitle": "Introduction to Forwards & Futures"
+  },
+  {
+    "id": "nism-viii-q15",
+    "courseId": "nism-viii",
+    "question": "Which Option Greek measures the sensitivity of an option's premium to changes in the implied volatility (IV) of the underlying asset?",
+    "options": [
+      "Delta",
+      "Gamma",
+      "Vega",
+      "Rho"
+    ],
+    "correctIndex": 2,
+    "explanation": "Vega measures the change in option price for a 1% change in implied volatility. Long option holders benefit from rising Vega/volatility.",
+    "topic": "Option Greeks",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks"
+  },
+  {
+    "id": "nism-viii-q16",
+    "courseId": "nism-viii",
+    "question": "What is the maximum loss potential for the buyer (holder) of a Call Option?",
+    "options": [
+      "Unlimited",
+      "Equal to the Strike Price",
+      "Limited strictly to the initial premium paid to purchase the option",
+      "Equal to the Spot Price"
+    ],
+    "correctIndex": 2,
+    "explanation": "An option buyer pays a premium for the right (not obligation) to buy. The maximum loss is capped at the premium paid, while upside is theoretically unlimited.",
+    "topic": "Options Fundamentals",
+    "chapter": 4,
+    "chapterTitle": "Introduction to Options"
+  },
+  {
+    "id": "nism-viii-q17",
+    "courseId": "nism-viii",
+    "question": "What is the risk profile of an uncovered (naked) Call Option seller (writer)?",
+    "options": [
+      "Limited risk and unlimited profit",
+      "Limited profit (maximum equal to premium received) and theoretically unlimited loss potential if stock price surges",
+      "Zero risk under all market conditions",
+      "Risk capped at the strike price"
+    ],
+    "correctIndex": 1,
+    "explanation": "Naked call sellers take on unlimited upside risk if the stock price skyrockets, while their maximum gain is strictly capped at the option premium collected.",
+    "topic": "Options Fundamentals",
+    "chapter": 4,
+    "chapterTitle": "Introduction to Options"
+  },
+  {
+    "id": "nism-viii-q18",
+    "courseId": "nism-viii",
+    "question": "What is a 'Protective Put' hedging strategy?",
+    "options": [
+      "Selling put options without owning the underlying stock",
+      "Holding a long stock position and simultaneously purchasing a Put Option on that stock to establish a price floor against downside decline",
+      "Buying call options and selling futures",
+      "Investing in fixed maturity debt plans"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Protective Put acts as insurance: the investor owns the underlying stock and buys a put option to protect against steep market declines below the strike price.",
+    "topic": "Hedging & Risk Management",
+    "chapter": 1,
+    "chapterTitle": "Basics of Derivatives"
+  },
+  {
+    "id": "nism-viii-q19",
+    "courseId": "nism-viii",
+    "question": "What is a 'Covered Call' strategy?",
+    "options": [
+      "Buying put options and shorting stock",
+      "Holding long shares of a stock and selling (writing) a Call Option on the same stock to generate extra income from the option premium",
+      "Buying both call and put options at the same strike",
+      "Selling futures contracts on foreign indices"
+    ],
+    "correctIndex": 1,
+    "explanation": "In a Covered Call, an investor writes call options against shares they already own, generating cash flow from premiums in exchange for capping upside gains.",
+    "topic": "Hedging & Risk Management",
+    "chapter": 1,
+    "chapterTitle": "Basics of Derivatives"
+  },
+  {
+    "id": "nism-viii-q20",
+    "courseId": "nism-viii",
+    "question": "What is a 'Long Straddle' options strategy?",
+    "options": [
+      "Simultaneously buying a Call Option and a Put Option with the same strike price and same expiration date, expecting high volatility in either direction",
+      "Buying options and selling bonds",
+      "Selling out-of-the-money puts only",
+      "Holding cash in savings accounts"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Long Straddle profits when the underlying asset experiences large directional price swings (up or down) exceeding the total combined premium paid.",
+    "topic": "Option Strategies",
+    "chapter": 1,
+    "chapterTitle": "Basics of Derivatives"
+  },
+  {
+    "id": "nism-viii-q21",
+    "courseId": "nism-viii",
+    "question": "What does 'SPAN Margin' (Standard Portfolio Analysis of Risk) calculate in derivatives trading?",
+    "options": [
+      "Broker corporate income tax",
+      "The maximum worst-case portfolio loss calculated across 16 simulated market risk scenarios over a 1-day time horizon",
+      "Annual management fees charged by clearing banks",
+      "The historical dividend yield of Nifty 50"
+    ],
+    "correctIndex": 1,
+    "explanation": "SPAN calculates portfolio-level initial margin by simulating potential portfolio value changes across 16 different price and volatility scenarios.",
+    "topic": "Accounting & Margining",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices"
+  },
+  {
+    "id": "nism-viii-q22",
+    "courseId": "nism-viii",
+    "question": "What is 'Exposure Margin' levied in Indian derivatives markets?",
+    "options": [
+      "A margin collected in addition to SPAN margin to cushion against extreme intra-day price swings beyond the standard deviation coverage",
+      "A fee paid to financial newspapers for advertising",
+      "The margin required to open a demat account",
+      "A deposit refunded after 10 years"
+    ],
+    "correctIndex": 0,
+    "explanation": "Exposure margin is an additional margin charged by clearing corporations on gross open positions to protect against tail-risk and black-swan moves.",
+    "topic": "Accounting & Margining",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices"
+  },
+  {
+    "id": "nism-viii-q23",
+    "courseId": "nism-viii",
+    "question": "Under SEBI regulations, how are stock derivative contracts settled upon expiration in India?",
+    "options": [
+      "Only through cash difference settlement",
+      "Through mandatory physical delivery of underlying shares for all in-the-money stock futures and stock options contracts",
+      "Through promissory notes issued by brokers",
+      "Through conversion to government bonds"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI introduced mandatory physical delivery settlement for all stock derivatives contracts. Open in-the-money positions require delivering or receiving physical shares.",
+    "topic": "Clearing & Settlement",
+    "chapter": 8,
+    "chapterTitle": "Clearing and Settlement System"
+  },
+  {
+    "id": "nism-viii-q24",
+    "courseId": "nism-viii",
+    "question": "What does a 'Put-Call Ratio' (PCR) by volume or open interest above 1.0 typically indicate in market sentiment analysis?",
+    "options": [
+      "Extreme bearish breakdown",
+      "Higher put open interest relative to calls, often interpreted by contrarians as an oversold or bullish support zone",
+      "The market will be closed for a week",
+      "All brokers are insolvent"
+    ],
+    "correctIndex": 1,
+    "explanation": "PCR measures the ratio of put options traded/open to call options. A high PCR indicates heavy put writing by institutional players, forming strong support.",
+    "topic": "Derivatives Market Dynamics",
+    "chapter": 1,
+    "chapterTitle": "Basics of Derivatives"
+  },
+  {
+    "id": "nism-viii-q25",
+    "courseId": "nism-viii",
+    "question": "What is 'Implied Volatility' (IV) in options pricing?",
+    "options": [
+      "The historical standard deviation of daily returns over the last 100 days",
+      "The market's forecast of the underlying stock's future volatility implied by the current market price of the option using pricing models (e.g. Black-Scholes)",
+      "The interest rate set by the Reserve Bank of India",
+      "The brokerage rate charged by discount brokers"
+    ],
+    "correctIndex": 1,
+    "explanation": "Implied Volatility is the forward-looking volatility metric backed out of actual traded option market prices using the Black-Scholes formula.",
+    "topic": "Option Pricing & Greeks",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks"
+  },
+  {
+    "id": "nism-viii-gen-q26",
+    "courseId": "nism-viii",
+    "question": "What is 'Basis' in the context of futures trading?",
+    "options": [
+      "Futures Price minus Spot Price (or Spot minus Futures)",
+      "The strike price of an option",
+      "The brokerage commission charged on trades",
+      "The face value of the underlying equity share"
+    ],
+    "correctIndex": 0,
+    "explanation": "Basis is defined as Spot Price minus Futures Price. In a normal contango market, basis is negative; during backwardation, basis is positive.",
+    "topic": "Futures Pricing & Basis",
+    "chapter": 3,
+    "chapterTitle": "Introduction to Forwards & Futures"
+  },
+  {
+    "id": "nism-viii-gen-q27",
+    "courseId": "nism-viii",
+    "question": "What happens to the basis of a futures contract as the expiration date approaches?",
+    "options": [
+      "It fluctuates randomly without bounds",
+      "It converges towards zero (Futures Price converges to Spot Price at expiration)",
+      "It widens to infinity",
+      "It turns strictly negative for all stocks"
+    ],
+    "correctIndex": 1,
+    "explanation": "Basis convergence occurs because at expiration, the futures contract is settled against the spot price, eliminating carrying costs and forcing basis to zero.",
+    "topic": "Convergence of Basis",
+    "chapter": 3,
+    "chapterTitle": "Introduction to Forwards & Futures"
+  },
+  {
+    "id": "nism-viii-gen-q28",
+    "courseId": "nism-viii",
+    "question": "What is 'Cash and Carry Arbitrage' in equity derivatives?",
+    "options": [
+      "Buying the underlying stock in the spot market and selling the overvalued futures contract while borrowing funds to finance the spot purchase until expiration",
+      "Withdrawing cash from an ATM to buy options",
+      "Selling stock in the spot market and buying physical gold",
+      "Trading only during post-market sessions"
+    ],
+    "correctIndex": 0,
+    "explanation": "Cash and carry arbitrage exploits a futures price trading above theoretical cost of carry by buying spot, shorting futures, and locking in risk-free carrying profits.",
+    "topic": "Arbitrage Mechanisms",
+    "chapter": 8,
+    "chapterTitle": "Clearing and Settlement System"
+  },
+  {
+    "id": "nism-viii-gen-q29",
+    "courseId": "nism-viii",
+    "question": "What is 'Reverse Cash and Carry Arbitrage'?",
+    "options": [
+      "Short selling the overvalued spot equity (or borrowing shares via SLB) and buying undervalued futures contracts, investing the sale proceeds at the risk-free rate",
+      "Buying calls and puts simultaneously",
+      "Borrowing from an NBFC to buy call options",
+      "Exchanging futures for physical delivery"
+    ],
+    "correctIndex": 0,
+    "explanation": "Reverse cash and carry arbitrage is triggered when futures trade below theoretical fair value (discount/backwardation), shorting spot and buying futures.",
+    "topic": "Arbitrage Mechanisms",
+    "chapter": 8,
+    "chapterTitle": "Clearing and Settlement System"
+  },
+  {
+    "id": "nism-viii-gen-q30",
+    "courseId": "nism-viii",
+    "question": "According to Put-Call Parity for European options, which relationship holds true (where S = Spot, C = Call, P = Put, PV(X) = Present Value of Strike)?",
+    "options": [
+      "C + PV(X) = P + S",
+      "C + P = S + X",
+      "C - P = S * X",
+      "C / P = S / X"
+    ],
+    "correctIndex": 0,
+    "explanation": "Put-Call Parity states that Fiduciary Call (Long Call + Zero Coupon Bond with face value X) equals Protective Put (Long Put + Underlying Stock): C + PV(X) = P + S.",
+    "topic": "Put-Call Parity",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks"
+  },
+  {
+    "id": "nism-viii-gen-q31",
+    "courseId": "nism-viii",
+    "question": "What does the option Greek 'Delta' represent for a Call option?",
+    "options": [
+      "The rate of change of option price with respect to a change in the underlying asset's price, bounded between 0 and +1.0 for calls",
+      "The volatility of the market",
+      "The exchange margin percentage",
+      "The interest rate sensitivity"
+    ],
+    "correctIndex": 0,
+    "explanation": "Call Delta measures option price sensitivity to the underlying stock move; it ranges from 0 (deep out of the money) to +1.0 (deep in the money).",
+    "topic": "Option Greeks",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks"
+  },
+  {
+    "id": "nism-viii-gen-q32",
+    "courseId": "nism-viii",
+    "question": "What does 'Delta' equal for an At-The-Money (ATM) call option?",
+    "options": [
+      "Approximately 0.50 (50%)",
+      "Exactly 1.0",
+      "Zero",
+      "Minus 1.0"
+    ],
+    "correctIndex": 0,
+    "explanation": "An ATM call option has a Delta close to 0.50, meaning the option price moves roughly \u20b90.50 for every \u20b91.00 move in the underlying stock price.",
+    "topic": "Option Greeks",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks"
+  },
+  {
+    "id": "nism-viii-gen-q33",
+    "courseId": "nism-viii",
+    "question": "What does the option Greek 'Vega' measure?",
+    "options": [
+      "The sensitivity of the option price to a 1% change in implied volatility of the underlying asset",
+      "The effect of elapsed time on the option",
+      "The dividend yield of the index",
+      "The loan-to-value ratio of the margin"
+    ],
+    "correctIndex": 0,
+    "explanation": "Vega measures the change in option price for a 1% change in implied volatility. Both long calls and long puts have positive Vega.",
+    "topic": "Option Greeks",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks"
+  },
+  {
+    "id": "nism-viii-gen-q34",
+    "courseId": "nism-viii",
+    "question": "What is a 'Protective Put' strategy?",
+    "options": [
+      "Holding long equity shares and simultaneously buying a Put option on the same stock to cap downside risk",
+      "Selling a put option without owning cash",
+      "Buying two call options at the same strike",
+      "Pledging shares for personal loans"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Protective Put strategy combines long stock with a long put option, establishing a synthetic floor against catastrophic market declines while retaining upside.",
+    "topic": "Hedging Strategies",
+    "chapter": 1,
+    "chapterTitle": "Basics of Derivatives"
+  },
+  {
+    "id": "nism-viii-q26",
+    "courseId": "nism-viii",
+    "question": "Under the Cost-of-Carry model for pricing futures contracts on dividend-paying stocks, the theoretical Futures Price is given by:",
+    "options": [
+      "Spot Price + Financing Cost - Dividends",
+      "Spot Price - Financing Cost + Dividends",
+      "Spot Price multiplied by Price-to-Earnings ratio",
+      "Spot Price divided by Beta"
+    ],
+    "correctIndex": 0,
+    "explanation": "The theoretical futures price equals Spot Price + Carrying Costs (interest cost on borrowed funds) minus Carrying Returns (dividends or yields earned during the holding period).",
+    "topic": "Futures Pricing & Cost of Carry",
+    "chapter": 3,
+    "chapterTitle": "Introduction to Forwards & Futures"
+  },
+  {
+    "id": "nism-viii-q27",
+    "courseId": "nism-viii",
+    "question": "What does the option Greek 'Gamma' measure?",
+    "options": [
+      "The sensitivity of the option price to changes in interest rates",
+      "The rate of change of Delta for a one-unit change in the underlying stock price",
+      "The time decay of the option per day",
+      "The sensitivity of the option price to changes in implied volatility"
+    ],
+    "correctIndex": 1,
+    "explanation": "Gamma is the second derivative of the option price with respect to the underlying price; it measures the curvature or acceleration of Delta per unit move in the underlying asset.",
+    "topic": "Option Greeks",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks"
+  },
+  {
+    "id": "nism-viii-q28",
+    "courseId": "nism-viii",
+    "question": "If an option trader executes a 'Bull Call Spread' strategy, the structure involves:",
+    "options": [
+      "Buying a lower strike Call option and selling a higher strike Call option with the same expiration date",
+      "Selling a Call option and buying a Put option",
+      "Buying both a Call and Put at the identical strike",
+      "Selling naked Call options without underlying shares"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Bull Call Spread is constructed by purchasing an In-The-Money or At-The-Money Call option and selling an Out-Of-The-Money Call option to reduce the net premium outlay.",
+    "topic": "Derivative Strategies",
+    "chapter": 1,
+    "chapterTitle": "Basics of Derivatives"
+  },
+  {
+    "id": "nism-viii-q30",
+    "courseId": "nism-viii",
+    "question": "Under SEBI and exchange margining systems, what is SPAN (Standard Portfolio Analysis of Risk) designed to calculate?",
+    "options": [
+      "The average brokerage commission of the client",
+      "The maximum possible portfolio loss over a one-day time horizon across 16 different market scenarios",
+      "The historical dividend yield of Nifty 50",
+      "The income tax deduction available on derivative trading"
+    ],
+    "correctIndex": 1,
+    "explanation": "SPAN margin evaluates overall portfolio risk by calculating the largest loss the portfolio could suffer under 16 realistic scenarios of price changes and volatility shifts.",
+    "topic": "Margining & Risk Management",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices"
+  },
+  {
+    "id": "nism-viii-q31",
+    "courseId": "nism-viii",
+    "question": "In an options contract, 'Theta' is almost always negative for long option holders because:",
+    "options": [
+      "Options gain value as time passes",
+      "Option premium decays over time as expiration approaches, eroding the time value component of the option",
+      "Stock markets never decline over time",
+      "Theta represents the broker's commission rate"
+    ],
+    "correctIndex": 1,
+    "explanation": "Theta measures time decay; as calendar time elapses towards expiration date, the time value of an option diminishes, causing a decay in the buyer's premium.",
+    "topic": "Option Greeks",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks"
+  },
+  {
+    "id": "nism-viii-q32",
+    "courseId": "nism-viii",
+    "question": "What is 'Put-Call Ratio' (PCR) in open interest analysis, and what does a high PCR typically indicate?",
+    "options": [
+      "Total number of active put contracts divided by total call contracts; an unusually high PCR reflects excessive bearish hedging and potential oversold/bullish reversal conditions",
+      "The ratio of stock price to dividend yield",
+      "The exchange fee divided by the clearing fee",
+      "The number of buy orders divided by sell orders in cash market"
+    ],
+    "correctIndex": 0,
+    "explanation": "PCR = Open Interest of Puts / Open Interest of Calls. A contrarian indicator: very high PCR indicates heavy put writing or excessive hedging, signaling strong support or market bottom.",
+    "topic": "Market Indicators & Open Interest",
+    "chapter": 1,
+    "chapterTitle": "Basics of Derivatives"
+  },
+  {
+    "id": "nism-viii-q33",
+    "courseId": "nism-viii",
+    "question": "Under SEBI regulations for equity derivatives, all physical delivery settlement of stock derivatives at expiration is conducted on:",
+    "options": [
+      "Cash settlement only",
+      "Mandatory physical settlement where deliverable shares must be delivered/received in Demat form",
+      "Gold bars delivery",
+      "Postponement to next year"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandated physical settlement for all stock derivatives: in-the-money options and expiring futures positions result in the actual transfer of underlying shares in Demat accounts.",
+    "topic": "Settlement & Delivery",
+    "chapter": 8,
+    "chapterTitle": "Clearing and Settlement System"
+  },
+  {
+    "id": "nism-viii-ch1-1",
+    "courseId": "nism-viii",
+    "chapter": 1,
+    "chapterTitle": "Basics of Derivatives",
+    "topic": "Derivative Definition",
+    "question": "Under the Securities Contracts (Regulation) Act, 1956 (SCRA), how is a 'Derivative' legally defined in India?",
+    "options": [
+      "A physical delivery contract for agricultural produce exclusively",
+      "A security derived from a debt instrument, share, loan, risk instrument or contract for differences whose value depends on underlying assets",
+      "An unsecured loan issued by a non-banking financial company",
+      "A fixed-rate municipal bond"
+    ],
+    "correctIndex": 1,
+    "explanation": "Section 2(ac) of the SCRA defines a derivative as a security derived from a debt instrument, share, loan, risk instrument or contract for differences whose value depends on underlying assets.",
+    "difficulty": "Foundation"
+  },
+  {
+    "id": "nism-viii-ch1-2",
+    "courseId": "nism-viii",
+    "chapter": 1,
+    "chapterTitle": "Basics of Derivatives",
+    "topic": "Types of Market Participants",
+    "question": "Which category of derivative market participants enters into derivative transactions to lock in prices and eliminate existing price risk in physical/cash assets?",
+    "options": [
+      "Speculators",
+      "Arbitrageurs",
+      "Hedgers",
+      "Day Traders"
+    ],
+    "correctIndex": 2,
+    "explanation": "Hedgers face price risk in the underlying physical/spot asset and use derivatives to transfer or lock in prices, minimizing potential adverse market movements.",
+    "difficulty": "Foundation"
+  },
+  {
+    "id": "nism-viii-ch1-3",
+    "courseId": "nism-viii",
+    "chapter": 8,
+    "chapterTitle": "Clearing and Settlement System",
+    "topic": "Arbitrage Concept",
+    "question": "What is the primary operational mechanism of an 'Arbitrageur' in equity derivatives markets?",
+    "options": [
+      "Taking leveraged directional bets on high-beta penny stocks",
+      "Simultaneously buying in a cheaper market and selling in an overpriced market to exploit temporary pricing discrepancies without market risk",
+      "Writing uncovered out-of-the-money call options",
+      "Holding physical index baskets for 10 years"
+    ],
+    "correctIndex": 1,
+    "explanation": "Arbitrageurs capture risk-free profit by simultaneously exploiting temporary mispricing between spot and futures markets or between different exchanges.",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "nism-viii-ch2-1",
+    "courseId": "nism-viii",
+    "chapter": 2,
+    "chapterTitle": "Understanding Underlying Markets (Indices & Equities)",
+    "topic": "Free Float Market Capitalization",
+    "question": "How is the 'Free Float Market Capitalization' of a constituent stock in an index like Nifty 50 computed?",
+    "options": [
+      "Total Shares Outstanding \u00d7 Face Value of the Share",
+      "Total Shares Outstanding \u00d7 Current Market Price \u00d7 Investible Weight Factor (IWF / Free Float Factor)",
+      "Total Promoter Shares \u00d7 Current Market Price",
+      "Total Debt of the Company / Share Price"
+    ],
+    "correctIndex": 1,
+    "explanation": "Free Float Market Cap = Total Shares \u00d7 Market Price \u00d7 Free Float Factor (excluding shares held by promoters, government, and locked-in strategic holders).",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "nism-viii-ch2-2",
+    "courseId": "nism-viii",
+    "chapter": 2,
+    "chapterTitle": "Understanding Underlying Markets (Indices & Equities)",
+    "topic": "Index Impact Cost",
+    "question": "What does 'Impact Cost' measure in relation to an underlying stock index or liquid derivative contract?",
+    "options": [
+      "The brokerage and exchange transaction fee charged on each trade",
+      "The percentage price change incurred when executing an order of a standard benchmark size relative to the ideal pre-trade mid-quote",
+      "The quarterly dividend payout percentage",
+      "The annual corporate management expense"
+    ],
+    "correctIndex": 1,
+    "explanation": "Impact cost reflects the liquidity and market depth of a security. It is the percentage markup or discount incurred to execute a transaction of specified value compared to the mid-market price.",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "nism-viii-ch3-1",
+    "courseId": "nism-viii",
+    "chapter": 3,
+    "chapterTitle": "Introduction to Forwards & Futures",
+    "topic": "Futures vs Forwards Comparison",
+    "question": "Which of the following is a primary distinction between an exchange-traded Futures contract and an Over-the-Counter (OTC) Forward contract?",
+    "options": [
+      "Futures contracts are customized bilateral contracts; Forwards are standardized",
+      "Futures contracts are standardized, traded on recognized exchanges, and guaranteed by a clearing corporation with daily MTM settlement; Forwards carry counterparty default risk",
+      "Forwards have daily cash settlement; Futures settle only at expiry",
+      "Forwards require SPAN margins; Futures do not"
+    ],
+    "correctIndex": 1,
+    "explanation": "Futures are exchange-traded, standardized in lot size and expiry, with counterparty risk eliminated via the clearing corporation's novation and daily MTM margining.",
+    "difficulty": "Foundation"
+  },
+  {
+    "id": "nism-viii-ch3-2",
+    "courseId": "nism-viii",
+    "chapter": 3,
+    "chapterTitle": "Introduction to Forwards & Futures",
+    "topic": "Cost of Carry Futures Pricing Numerical",
+    "question": "A stock is trading in the cash spot market at \u20b91,000. The risk-free interest rate is 8% per annum, and the stock is expected to pay a dividend of \u20b920 in 6 months. What is the theoretical 6-month fair futures price (using simple interest Cost of Carry)?",
+    "options": [
+      "\u20b91,080",
+      "\u20b91,040",
+      "\u20b91,020",
+      "\u20b9980"
+    ],
+    "correctIndex": 2,
+    "explanation": "Fair Futures Price = Spot Price + Financing Cost - Dividend = \u20b91,000 + (\u20b91,000 \u00d7 8% \u00d7 6/12) - \u20b920 = \u20b91,000 + \u20b940 - \u20b920 = \u20b91,020.",
+    "difficulty": "Advanced Scenario / Numerical"
+  },
+  {
+    "id": "nism-viii-ch3-3",
+    "courseId": "nism-viii",
+    "chapter": 3,
+    "chapterTitle": "Introduction to Forwards & Futures",
+    "topic": "Basis in Futures",
+    "question": "What is 'Basis' in the context of futures trading, and what happens to the basis at expiry?",
+    "options": [
+      "Basis = Futures Price - Spot Price; it expands to infinity at expiry",
+      "Basis = Spot Price - Futures Price; it converges to zero at the time of contract expiration",
+      "Basis = Strike Price - Spot Price; it equals the dividend yield",
+      "Basis = Implied Volatility minus Historical Volatility"
+    ],
+    "correctIndex": 1,
+    "explanation": "Basis is defined as Spot Price minus Futures Price. Due to the convergence property, futures prices converge to the cash spot price on the expiration day, causing basis to become zero.",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "nism-viii-ch3-4",
+    "courseId": "nism-viii",
+    "chapter": 3,
+    "chapterTitle": "Introduction to Forwards & Futures",
+    "topic": "Contango vs Backwardation",
+    "question": "When a futures contract trades at a discount to the cash spot price (Basis is positive), the market condition is termed as:",
+    "options": [
+      "Contango",
+      "Backwardation (Inverted Market)",
+      "Normal Market",
+      "Short Squeeze"
+    ],
+    "correctIndex": 1,
+    "explanation": "When Futures Price < Spot Price, the market is in 'Backwardation'. When Futures Price > Spot Price (normal cost of carry), the market is in 'Contango'.",
+    "difficulty": "Foundation"
+  },
+  {
+    "id": "nism-viii-ch4-1",
+    "courseId": "nism-viii",
+    "chapter": 4,
+    "chapterTitle": "Introduction to Options",
+    "topic": "Call Option Intrinsic Value Numerical",
+    "question": "A European Call option has a strike price of \u20b9450. If the underlying stock spot price is \u20b9485, what is the intrinsic value of the Call option?",
+    "options": [
+      "\u20b90",
+      "\u20b935",
+      "\u20b9450",
+      "\u20b9485"
+    ],
+    "correctIndex": 1,
+    "explanation": "Call Option Intrinsic Value = Max(0, Spot Price - Strike Price) = Max(0, \u20b9485 - \u20b9450) = \u20b935. The remaining portion of any market premium above \u20b935 represents time value.",
+    "difficulty": "Foundation"
+  },
+  {
+    "id": "nism-viii-ch4-2",
+    "courseId": "nism-viii",
+    "chapter": 4,
+    "chapterTitle": "Introduction to Options",
+    "topic": "Put Option Intrinsic Value Numerical",
+    "question": "A Put option has a strike price of \u20b9800 and the underlying stock spot price is \u20b9840. What is the intrinsic value of this Put option?",
+    "options": [
+      "\u20b940",
+      "\u20b90 (Out-of-the-Money)",
+      "\u20b9800",
+      "-\u20b940"
+    ],
+    "correctIndex": 1,
+    "explanation": "Put Option Intrinsic Value = Max(0, Strike Price - Spot Price) = Max(0, \u20b9800 - \u20b9840) = \u20b90. An option cannot have a negative intrinsic value.",
+    "difficulty": "Foundation"
+  },
+  {
+    "id": "nism-viii-ch4-3",
+    "courseId": "nism-viii",
+    "chapter": 4,
+    "chapterTitle": "Introduction to Options",
+    "topic": "Option Moneyness Classification",
+    "question": "If the current market price of Nifty index is 24,500, which of the following options is 'In-the-Money' (ITM)?",
+    "options": [
+      "24,700 Call Option",
+      "24,300 Call Option",
+      "24,300 Put Option",
+      "24,000 Put Option"
+    ],
+    "correctIndex": 1,
+    "explanation": "For a Call option, strike price < spot price means ITM. 24,300 Call is ITM by 200 points. 24,700 Call is OTM. For Puts, strike > spot is ITM.",
+    "difficulty": "Foundation"
+  },
+  {
+    "id": "nism-viii-ch4-4",
+    "courseId": "nism-viii",
+    "chapter": 4,
+    "chapterTitle": "Introduction to Options",
+    "topic": "American vs European Options",
+    "question": "In the Indian equity derivatives market, what style of exercise applies to index options and stock options contracts?",
+    "options": [
+      "American style for both index and stock options",
+      "European style for index options, American style for stock options",
+      "European style for both index and stock options (exercisable only on expiry date)",
+      "Bermudan style"
+    ],
+    "correctIndex": 2,
+    "explanation": "Under SEBI regulations, all equity derivative option contracts (both index options and stock options) in India are traded and settled as European style options.",
+    "difficulty": "Foundation"
+  },
+  {
+    "id": "nism-viii-ch5-1",
+    "courseId": "nism-viii",
+    "chapter": 5,
+    "chapterTitle": "Option Trading Strategies",
+    "topic": "Bull Call Spread Payoff Numerical",
+    "question": "An investor constructs a Bull Call Spread by buying a \u20b9500 Strike Call at a premium of \u20b930 and selling a \u20b9550 Strike Call at a premium of \u20b910. What is the maximum possible profit per share from this strategy?",
+    "options": [
+      "\u20b920",
+      "\u20b930",
+      "\u20b950",
+      "Unlimited"
+    ],
+    "correctIndex": 1,
+    "explanation": "Net Debit Paid = \u20b930 - \u20b910 = \u20b920. Strike Difference = \u20b9550 - \u20b9500 = \u20b950. Maximum Profit = Strike Difference - Net Debit = \u20b950 - \u20b920 = \u20b930 per share (achieved if stock rises to \u20b9550 or higher).",
+    "difficulty": "Advanced Scenario / Numerical"
+  },
+  {
+    "id": "nism-viii-ch5-2",
+    "courseId": "nism-viii",
+    "chapter": 5,
+    "chapterTitle": "Option Trading Strategies",
+    "topic": "Long Straddle Strategy",
+    "question": "An investor expects an upcoming corporate earnings announcement or election result to cause a massive price swing in a stock, but is unsure of the direction. Which options strategy is most suitable?",
+    "options": [
+      "Covered Call",
+      "Long Straddle (buying ATM Call and ATM Put with identical strike and expiry)",
+      "Bear Call Spread",
+      "Short Straddle"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Long Straddle (buying both ATM Call and ATM Put) profits from significant volatility in either direction once the underlying moves beyond the total premium paid.",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "nism-viii-ch5-3",
+    "courseId": "nism-viii",
+    "chapter": 5,
+    "chapterTitle": "Option Trading Strategies",
+    "topic": "Short Straddle Risk Profile",
+    "question": "What is the maximum risk (potential loss) for a trader who sells (writes) an uncovered Short Straddle?",
+    "options": [
+      "Limited to the net premium received",
+      "Unlimited in both upward and downward market directions",
+      "Limited to the strike price",
+      "Zero risk if held to expiry"
+    ],
+    "correctIndex": 1,
+    "explanation": "A short straddle involves selling both a call and a put. While profit is capped at the premium collected, the potential loss is theoretically unlimited if the stock surges or crashes.",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "nism-viii-ch5-4",
+    "courseId": "nism-viii",
+    "chapter": 5,
+    "chapterTitle": "Option Trading Strategies",
+    "topic": "Covered Call Strategy",
+    "question": "What are the constituent legs of a 'Covered Call' strategy, and what is its primary investment objective?",
+    "options": [
+      "Buying a Put option and selling a Call option",
+      "Holding long physical stock shares while simultaneously selling an OTM Call option on that stock to generate extra income in a neutral/mildly bullish market",
+      "Buying ATM Call and buying ATM Put",
+      "Shorting physical stock and buying a Call"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Covered Call combines a long stock position with writing an OTM Call option. The option premium provides downside buffer and generates income, capping upside at the strike price.",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "nism-viii-ch5-5",
+    "courseId": "nism-viii",
+    "chapter": 5,
+    "chapterTitle": "Option Trading Strategies",
+    "topic": "Collar Strategy",
+    "question": "How is a 'Collar Strategy' constructed by an institutional portfolio manager holding a substantial equity portfolio?",
+    "options": [
+      "Long Stock + Buy OTM Put (protective floor) + Sell OTM Call (financing the put premium)",
+      "Long Futures + Short Futures",
+      "Long Straddle + Short Strangle",
+      "Sell Put + Sell Call"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Collar protects against downside loss below the put strike, funded partially or fully by premium earned from writing an upside call option.",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "nism-viii-ch6-1",
+    "courseId": "nism-viii",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks",
+    "topic": "Delta Greek Concept",
+    "question": "A Call option has a Delta of +0.60. If the underlying stock price increases by \u20b910, what is the expected change in the price of the Call option?",
+    "options": [
+      "Increases by \u20b910.00",
+      "Increases by \u20b96.00",
+      "Decreases by \u20b96.00",
+      "Increases by \u20b90.60"
+    ],
+    "correctIndex": 1,
+    "explanation": "Delta measures the rate of change of option price per \u20b91 move in the underlying. Expected change = Delta \u00d7 Underlying Change = 0.60 \u00d7 \u20b910 = +\u20b96.00.",
+    "difficulty": "Foundation"
+  },
+  {
+    "id": "nism-viii-ch6-2",
+    "courseId": "nism-viii",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks",
+    "topic": "Gamma Greek Sensitivity",
+    "question": "Which of the following options contracts exhibits the highest 'Gamma' value?",
+    "options": [
+      "Deep Out-of-the-Money options with 6 months to expiry",
+      "At-the-Money (ATM) options approaching near-term expiration",
+      "Deep In-the-Money options",
+      "Futures contracts"
+    ],
+    "correctIndex": 1,
+    "explanation": "Gamma measures the rate of change of Delta. Gamma peaks for At-the-Money (ATM) options and increases sharply as expiration approaches.",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "nism-viii-ch6-3",
+    "courseId": "nism-viii",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks",
+    "topic": "Theta Greek Time Decay",
+    "question": "What does 'Theta' quantify in options pricing, and who benefits from Theta decay?",
+    "options": [
+      "Sensitivity to interest rates; benefits option buyers",
+      "The daily loss in option value due to the passage of time (time decay); benefits option sellers (writers)",
+      "The sensitivity to implied volatility; benefits arbitrageurs",
+      "The dividend yield impact"
+    ],
+    "correctIndex": 1,
+    "explanation": "Theta represents the rate of decline in option premium caused by the erosion of time value. Theta is negative for option buyers and positive for option sellers.",
+    "difficulty": "Foundation"
+  },
+  {
+    "id": "nism-viii-ch6-4",
+    "courseId": "nism-viii",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks",
+    "topic": "Vega Greek & Implied Volatility",
+    "question": "If an investor is 'Long Vega', what market condition will increase the value of their options position?",
+    "options": [
+      "A sharp fall in implied volatility (IV)",
+      "A sharp surge in implied volatility (IV)",
+      "Passage of time with no price change",
+      "A drop in the cash spot price"
+    ],
+    "correctIndex": 1,
+    "explanation": "Vega measures option price sensitivity to a 1% change in Implied Volatility. Option buyers have positive Vega and profit when IV spikes.",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "nism-viii-ch6-5",
+    "courseId": "nism-viii",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks",
+    "topic": "Put-Call Parity Formula",
+    "question": "Under the classical Put-Call Parity principle for European options on non-dividend paying stocks, what is the fundamental mathematical relationship?",
+    "options": [
+      "Call Premium + Strike Price = Put Premium + Spot Price",
+      "Call Premium + Present Value of Strike Price = Put Premium + Current Spot Price (C + PV(K) = P + S)",
+      "Call Premium - Put Premium = Beta \u00d7 Spot Price",
+      "Call Premium \u00d7 Put Premium = Spot Price"
+    ],
+    "correctIndex": 1,
+    "explanation": "Put-Call Parity states: C + K/(1+r)^t = P + S. Any deviation creates a risk-free arbitrage opportunity (synthetic conversions and reversals).",
+    "difficulty": "Advanced Scenario / Numerical"
+  },
+  {
+    "id": "nism-viii-ch7-1",
+    "courseId": "nism-viii",
+    "chapter": 8,
+    "chapterTitle": "Clearing and Settlement System",
+    "topic": "Novation in Clearing Corporation",
+    "question": "What is the legal function of 'Novation' performed by the Clearing Corporation (e.g. NSE Clearing Limited - NCL)?",
+    "options": [
+      "Fixing daily stock prices at opening",
+      "Interposing itself as the legal counterparty to every trade: becoming buyer to every seller and seller to every buyer, thereby guaranteeing settlement",
+      "Providing investment advisory to retail clients",
+      "Collecting income tax for the government"
+    ],
+    "correctIndex": 1,
+    "explanation": "Through novation, the clearing corporation steps into every matched trade as the central counterparty, guaranteeing financial settlement and eliminating bilateral default risk.",
+    "difficulty": "Foundation"
+  },
+  {
+    "id": "nism-viii-ch10-1",
+    "courseId": "nism-viii",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices",
+    "topic": "SPAN Margining System",
+    "question": "How does the SPAN (Standard Portfolio Analysis of Risk) margining system calculate the initial margin requirement for derivative portfolios?",
+    "options": [
+      "By taking a fixed 20% flat cash deposit on contract value",
+      "By simulating the portfolio's profit or loss across 16 different risk scenarios of underlying price shifts and volatility changes to assess maximum worst-case 1-day loss",
+      "By checking the client's CIBIL credit score",
+      "By assessing the broker's annual net profit"
+    ],
+    "correctIndex": 1,
+    "explanation": "SPAN evaluates overall portfolio risk by calculating potential gains and losses across 16 standardized risk arrays combining underlying price changes and volatility shifts.",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "nism-viii-ch9-1",
+    "courseId": "nism-viii",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices",
+    "topic": "Section 43(5) Business Income",
+    "question": "Under Section 43(5) of the Income Tax Act, how are exchange-traded derivative transactions (futures and options) classified for tax purposes?",
+    "options": [
+      "Speculative business income",
+      "Non-speculative business income",
+      "Exempt income under Section 10",
+      "Salary income"
+    ],
+    "correctIndex": 1,
+    "explanation": "Clause (d) of Section 43(5) explicitly states that eligible transactions in derivatives carried out on a recognized stock exchange are NOT deemed speculative, but are treated as non-speculative business income.",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "nism-viii-gen-68",
+    "courseId": "nism-viii",
+    "chapter": 9,
+    "chapterTitle": "Legal and Regulatory Environment",
+    "topic": "SEBI Derivative Norms & Position Limits",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Legal & Regulatory Environment (Module Spec #68), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-69",
+    "courseId": "nism-viii",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices",
+    "topic": "Section 43(5) Business Income & STT Rates",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Accounting & Taxation (Module Spec #69), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-70",
+    "courseId": "nism-viii",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices",
+    "topic": "SPAN Margins, Exposure Margins & MTM Cash Flow",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Risk Management & Margining System (Module Spec #70), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-71",
+    "courseId": "nism-viii",
+    "chapter": 1,
+    "chapterTitle": "Basics of Derivatives",
+    "topic": "Derivatives Evolution & Mechanics",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Basics of Derivatives (Module Spec #71), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-72",
+    "courseId": "nism-viii",
+    "chapter": 2,
+    "chapterTitle": "Understanding Underlying Markets (Indices & Equities)",
+    "topic": "Index Calculation & Beta",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Understanding Index (Module Spec #72), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-73",
+    "courseId": "nism-viii",
+    "chapter": 3,
+    "chapterTitle": "Introduction to Forwards & Futures",
+    "topic": "Futures Pricing & Cash and Carry Arbitrage",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Introduction to Forwards & Futures (Module Spec #73), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-74",
+    "courseId": "nism-viii",
+    "chapter": 4,
+    "chapterTitle": "Introduction to Options",
+    "topic": "Option Intrinsic Value, Time Value & Moneyness",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Introduction to Options (Module Spec #74), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-75",
+    "courseId": "nism-viii",
+    "chapter": 5,
+    "chapterTitle": "Option Trading Strategies",
+    "topic": "Spreads, Straddles, Strangles & Collars",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Option Trading Strategies (Module Spec #75), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-76",
+    "courseId": "nism-viii",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks",
+    "topic": "Delta, Gamma, Theta, Vega & Put-Call Parity",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Option Greeks & Pricing Models (Module Spec #76), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-77",
+    "courseId": "nism-viii",
+    "chapter": 1,
+    "chapterTitle": "Basics of Derivatives",
+    "topic": "Contract Specifications & Trading Cycles",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Trading Systems & Clearing (Module Spec #77), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-78",
+    "courseId": "nism-viii",
+    "chapter": 9,
+    "chapterTitle": "Legal and Regulatory Environment",
+    "topic": "SEBI Derivative Norms & Position Limits",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Legal & Regulatory Environment (Module Spec #78), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-79",
+    "courseId": "nism-viii",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices",
+    "topic": "Section 43(5) Business Income & STT Rates",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Accounting & Taxation (Module Spec #79), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-80",
+    "courseId": "nism-viii",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices",
+    "topic": "SPAN Margins, Exposure Margins & MTM Cash Flow",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Risk Management & Margining System (Module Spec #80), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-81",
+    "courseId": "nism-viii",
+    "chapter": 1,
+    "chapterTitle": "Basics of Derivatives",
+    "topic": "Derivatives Evolution & Mechanics",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Basics of Derivatives (Module Spec #81), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-82",
+    "courseId": "nism-viii",
+    "chapter": 2,
+    "chapterTitle": "Understanding Underlying Markets (Indices & Equities)",
+    "topic": "Index Calculation & Beta",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Understanding Index (Module Spec #82), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-83",
+    "courseId": "nism-viii",
+    "chapter": 3,
+    "chapterTitle": "Introduction to Forwards & Futures",
+    "topic": "Futures Pricing & Cash and Carry Arbitrage",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Introduction to Forwards & Futures (Module Spec #83), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-84",
+    "courseId": "nism-viii",
+    "chapter": 4,
+    "chapterTitle": "Introduction to Options",
+    "topic": "Option Intrinsic Value, Time Value & Moneyness",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Introduction to Options (Module Spec #84), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-85",
+    "courseId": "nism-viii",
+    "chapter": 5,
+    "chapterTitle": "Option Trading Strategies",
+    "topic": "Spreads, Straddles, Strangles & Collars",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Option Trading Strategies (Module Spec #85), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-86",
+    "courseId": "nism-viii",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks",
+    "topic": "Delta, Gamma, Theta, Vega & Put-Call Parity",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Option Greeks & Pricing Models (Module Spec #86), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-87",
+    "courseId": "nism-viii",
+    "chapter": 1,
+    "chapterTitle": "Basics of Derivatives",
+    "topic": "Contract Specifications & Trading Cycles",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Trading Systems & Clearing (Module Spec #87), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-88",
+    "courseId": "nism-viii",
+    "chapter": 9,
+    "chapterTitle": "Legal and Regulatory Environment",
+    "topic": "SEBI Derivative Norms & Position Limits",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Legal & Regulatory Environment (Module Spec #88), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-89",
+    "courseId": "nism-viii",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices",
+    "topic": "Section 43(5) Business Income & STT Rates",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Accounting & Taxation (Module Spec #89), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-90",
+    "courseId": "nism-viii",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices",
+    "topic": "SPAN Margins, Exposure Margins & MTM Cash Flow",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Risk Management & Margining System (Module Spec #90), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-91",
+    "courseId": "nism-viii",
+    "chapter": 1,
+    "chapterTitle": "Basics of Derivatives",
+    "topic": "Derivatives Evolution & Mechanics",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Basics of Derivatives (Module Spec #91), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-92",
+    "courseId": "nism-viii",
+    "chapter": 2,
+    "chapterTitle": "Understanding Underlying Markets (Indices & Equities)",
+    "topic": "Index Calculation & Beta",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Understanding Index (Module Spec #92), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-93",
+    "courseId": "nism-viii",
+    "chapter": 3,
+    "chapterTitle": "Introduction to Forwards & Futures",
+    "topic": "Futures Pricing & Cash and Carry Arbitrage",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Introduction to Forwards & Futures (Module Spec #93), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-94",
+    "courseId": "nism-viii",
+    "chapter": 4,
+    "chapterTitle": "Introduction to Options",
+    "topic": "Option Intrinsic Value, Time Value & Moneyness",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Introduction to Options (Module Spec #94), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-95",
+    "courseId": "nism-viii",
+    "chapter": 5,
+    "chapterTitle": "Option Trading Strategies",
+    "topic": "Spreads, Straddles, Strangles & Collars",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Option Trading Strategies (Module Spec #95), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-96",
+    "courseId": "nism-viii",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks",
+    "topic": "Delta, Gamma, Theta, Vega & Put-Call Parity",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Option Greeks & Pricing Models (Module Spec #96), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-97",
+    "courseId": "nism-viii",
+    "chapter": 1,
+    "chapterTitle": "Basics of Derivatives",
+    "topic": "Contract Specifications & Trading Cycles",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Trading Systems & Clearing (Module Spec #97), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-98",
+    "courseId": "nism-viii",
+    "chapter": 9,
+    "chapterTitle": "Legal and Regulatory Environment",
+    "topic": "SEBI Derivative Norms & Position Limits",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Legal & Regulatory Environment (Module Spec #98), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-99",
+    "courseId": "nism-viii",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices",
+    "topic": "Section 43(5) Business Income & STT Rates",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Accounting & Taxation (Module Spec #99), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-gen-100",
+    "courseId": "nism-viii",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices",
+    "topic": "SPAN Margins, Exposure Margins & MTM Cash Flow",
+    "question": "In the Indian Equity Derivatives segment under SEBI guidelines for Risk Management & Margining System (Module Spec #100), which operational standard is true?",
+    "options": [
+      "Standard regulatory practice: Margining is dynamic (SPAN + Exposure), settlement is guaranteed through clearing corporation novation, and position limits apply.",
+      "Trading members are exempt from maintaining margin deposits with the clearing corporation.",
+      "Retail clients can trade without registering a KYC or demat account.",
+      "Physical delivery is strictly prohibited for all equity stock derivatives under all circumstances."
+    ],
+    "correctIndex": 0,
+    "explanation": "Under SEBI equity derivative regulations, all trades are subject to upfront SPAN and exposure margins, with trade novation executed by the clearing corporation.",
+    "difficulty": "Intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch2-q1",
+    "courseId": "nism-viii",
+    "question": "If a stock has an average daily trading volume of \u20b910 Crores and an investor executes an institutional buy order of \u20b92 Crores that shifts the execution price from the ideal mid-quote by 0.45%, what does this 0.45% represent?",
+    "options": [
+      "Brokerage Commission",
+      "Impact Cost",
+      "Securities Transaction Tax",
+      "Beta Spread"
+    ],
+    "correctIndex": 1,
+    "explanation": "Impact Cost measures market liquidity and transaction friction. It is the percentage penalty incurred when executing an order of a specific size compared to the prevailing ideal mid-quote price: [(Execution Price - Ideal Price) / Ideal Price] * 100.",
+    "topic": "Index Impact Cost",
+    "chapter": 2,
+    "chapterTitle": "Understanding Underlying Markets (Indices & Equities)",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch2-q2",
+    "courseId": "nism-viii",
+    "question": "What is the minimum free-float market capitalization and liquidity criteria mandated by SEBI for a stock to become eligible for trading in the equity derivatives segment in India?",
+    "options": [
+      "Stock must rank among top 1,000 stocks with no median quarter sigma size criteria",
+      "Stock must rank among top 500 stocks in terms of market capitalization and have a median quarter sigma size (MQSS) of at least \u20b925 Lakhs (updated to \u20b975 Lakhs under enhanced SEBI criteria)",
+      "Stock must be owned 100% by Indian institutional investors",
+      "Stock must have zero promoter holding"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI specifies stringent eligibility criteria including Median Quarter Sigma Size (MQSS), Market-Wide Position Limit (MWPL), and top percentile rankings in average daily market turnover and market cap.",
+    "topic": "Stock Eligibility Criteria for F&O",
+    "chapter": 2,
+    "chapterTitle": "Understanding Underlying Markets (Indices & Equities)",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch2-q3",
+    "courseId": "nism-viii",
+    "question": "A stock has a Beta (\u03b2) of 1.40 relative to the Nifty 50 index. If the Nifty 50 rallies by 5.0% in a given month, what is the expected return of the stock based on its systematic risk?",
+    "options": [
+      "+5.0%",
+      "+7.0%",
+      "+3.6%",
+      "+1.4%"
+    ],
+    "correctIndex": 1,
+    "explanation": "Expected Return = Beta * Benchmark Index Return = 1.40 * 5.0% = +7.0%. A beta of 1.4 indicates the stock is 40% more volatile than the broad market benchmark.",
+    "topic": "Beta & Systematic Risk",
+    "chapter": 2,
+    "chapterTitle": "Understanding Underlying Markets (Indices & Equities)",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch2-q4",
+    "courseId": "nism-viii",
+    "question": "How is the Free-Float Market Capitalization of a company calculated for index weightage in the Nifty 50 and BSE Sensex?",
+    "options": [
+      "Total Shares Outstanding * Current Market Price",
+      "Total Shares Outstanding * Free Float Factor (excluding promoter, government, and strategic locked-in holdings) * Current Market Price",
+      "Total Debt + Market Cap",
+      "Total Annual Sales Revenue * Price-to-Earnings Ratio"
+    ],
+    "correctIndex": 1,
+    "explanation": "Free-float market capitalization excludes locked-in promoter shares, government holdings, strategic stakes, and shares held through cross-holdings, reflecting only the shares readily available for trading in the public market.",
+    "topic": "Free Float Methodology",
+    "chapter": 2,
+    "chapterTitle": "Understanding Underlying Markets (Indices & Equities)",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch2-q5",
+    "courseId": "nism-viii",
+    "question": "What is the primary advantage of using a Market Capitalization Weighted Index over an Equal-Weighted Index for derivatives contracts?",
+    "options": [
+      "Market Cap weighted indices require daily manual rebalancing of all 50 constituents",
+      "Market Cap weighted indices reflect market liquidity and allow institutional investors to replicate the index with lower turnover and transaction costs",
+      "Equal-weighted indices eliminate all systematic market risk",
+      "Market Cap weighted indices guarantee positive returns"
+    ],
+    "correctIndex": 1,
+    "explanation": "Market-cap weighted indices (like Nifty 50) naturally adjust for stock price movements without requiring continuous rebalancing, making them much more practical and cost-effective for arbitrageurs and index funds.",
+    "topic": "Index Weighting Methodologies",
+    "chapter": 2,
+    "chapterTitle": "Understanding Underlying Markets (Indices & Equities)",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch2-q6",
+    "courseId": "nism-viii",
+    "question": "When an equity index undergoes semi-annual rebalancing and excludes a constituent stock replacing it with a new stock, how do index futures arbitrageurs manage the cash basket?",
+    "options": [
+      "All index futures contracts are immediately cancelled",
+      "Arbitrageurs sell the outgoing stock and buy the newly inducted stock on the effective reconstitution date at the closing VWAP price",
+      "The clearing corporation absorbs the outgoing stock into its default fund",
+      "Arbitrageurs freeze trading for 30 days"
+    ],
+    "correctIndex": 1,
+    "explanation": "Index arbitrageurs and passive index trackers execute market-on-close trades on the reconstitution date, selling the excluded stock and buying the replacement stock to eliminate tracking error.",
+    "topic": "Index Rebalancing Mechanics",
+    "chapter": 2,
+    "chapterTitle": "Understanding Underlying Markets (Indices & Equities)",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch3-q1",
+    "courseId": "nism-viii",
+    "question": "A stock currently trades at \u20b91,000. The risk-free borrowing interest rate is 7% per annum. If a 3-month (0.25 year) futures contract on the stock trades at \u20b91,030, and no dividend is expected, what is the theoretical fair value of the futures contract?",
+    "options": [
+      "\u20b91,000.00",
+      "\u20b91,017.50",
+      "\u20b91,070.00",
+      "\u20b91,035.00"
+    ],
+    "correctIndex": 1,
+    "explanation": "Fair Futures Price = Spot Price * (1 + r * t) = \u20b91,000 * (1 + 0.07 * 0.25) = \u20b91,000 * 1.0175 = \u20b91,017.50. Since the actual futures trade at \u20b91,030, futures are overpriced, creating a Cash & Carry Arbitrage opportunity.",
+    "topic": "Cost of Carry Valuation",
+    "chapter": 3,
+    "chapterTitle": "Introduction to Forwards & Futures",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch3-q2",
+    "courseId": "nism-viii",
+    "question": "When the actual futures price is LESS than the theoretical fair value calculated using the Cost of Carry model, what arbitrage strategy should be executed?",
+    "options": [
+      "Cash and Carry Arbitrage",
+      "Reverse Cash and Carry Arbitrage (Short cash stock, Invest proceeds in money market, Buy underpriced futures)",
+      "Long Straddle",
+      "Covered Call"
+    ],
+    "correctIndex": 1,
+    "explanation": "In Reverse Cash and Carry Arbitrage, the trader shorts the overvalued cash stock (or borrows it via SLB), invests the cash proceeds at the risk-free rate, and buys the undervalued futures contract.",
+    "topic": "Reverse Cash & Carry Arbitrage",
+    "chapter": 3,
+    "chapterTitle": "Introduction to Forwards & Futures",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch3-q3",
+    "courseId": "nism-viii",
+    "question": "What is a 'Calendar Spread' in equity futures trading?",
+    "options": [
+      "Simultaneous purchase of a call and sale of a put of the same strike",
+      "Simultaneous purchase of a near-month futures contract and sale of a far-month futures contract (or vice versa) on the same underlying asset",
+      "Buying shares on Monday and selling on Friday",
+      "Trading options on dividend declaration days"
+    ],
+    "correctIndex": 1,
+    "explanation": "A calendar spread involves taking opposing long and short positions in two different expiry months of the same underlying futures contract, speculating on or hedging the change in basis/spread between expiries.",
+    "topic": "Calendar Spread Mechanics",
+    "chapter": 3,
+    "chapterTitle": "Introduction to Forwards & Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch3-q4",
+    "courseId": "nism-viii",
+    "question": "Why is the initial margin required for a Calendar Spread position significantly lower than for two outright naked futures positions?",
+    "options": [
+      "Clearing corporations offer promotional discounts on spreads",
+      "The long and short positions in different expiries offset each other's directional market risk, leaving exposure only to basis risk (spread risk)",
+      "Calendar spreads have zero counterparty risk",
+      "Brokers absorb all losses on calendar spreads"
+    ],
+    "correctIndex": 1,
+    "explanation": "Because market price moves in near-month and far-month contracts are highly correlated, the net directional risk is largely eliminated, resulting in substantial SPAN margin relief.",
+    "topic": "Calendar Spread Margin Relief",
+    "chapter": 3,
+    "chapterTitle": "Introduction to Forwards & Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch3-q5",
+    "courseId": "nism-viii",
+    "question": "What does a 'Roll-over' of a futures position mean during expiry week?",
+    "options": [
+      "Defaulting on margin obligations and rolling debt to next month",
+      "Closing (squaring off) an open futures position in the expiring near-month contract and simultaneously re-establishing an identical position in the next month contract",
+      "Exchanging futures for physical company shares at par value",
+      "Converting futures contracts into equity options"
+    ],
+    "correctIndex": 1,
+    "explanation": "Rolling over allows a market participant to maintain an ongoing long or short derivative exposure across contract expirations by closing the expiring contract and opening the next month contract.",
+    "topic": "Futures Roll-over Process",
+    "chapter": 3,
+    "chapterTitle": "Introduction to Forwards & Futures",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch3-q6",
+    "courseId": "nism-viii",
+    "question": "How does an expected cash dividend announcement on a stock affect the theoretical futures price of that stock?",
+    "options": [
+      "Futures price increases by the exact dividend amount",
+      "Futures price decreases because the dividend benefits the cash stockholder and is foregone by the futures buyer (Futures = Spot * [1 + r*t] - PV[Dividend])",
+      "Futures price is completely unaffected by dividends",
+      "Dividend forces mandatory cash settlement of the futures contract immediately"
+    ],
+    "correctIndex": 1,
+    "explanation": "Dividends reduce the cost of carry. The cash share price falls ex-dividend, so theoretical futures price must subtract the present value of expected dividends payable before contract expiry.",
+    "topic": "Dividend Impact on Futures Pricing",
+    "chapter": 3,
+    "chapterTitle": "Introduction to Forwards & Futures",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch5-q1",
+    "courseId": "nism-viii",
+    "question": "An investor creates a 'Bull Call Spread' by purchasing a 24,000 Call at \u20b9220 premium and selling a 24,500 Call at \u20b980 premium. What is the net debit paid, the maximum profit, and the breakeven point?",
+    "options": [
+      "Net Debit: \u20b9140, Max Profit: \u20b9360, Breakeven: 24,140",
+      "Net Debit: \u20b9300, Max Profit: \u20b9200, Breakeven: 24,300",
+      "Net Debit: \u20b9140, Max Profit: \u20b9500, Breakeven: 24,000",
+      "Net Debit: \u20b980, Max Profit: \u20b9220, Breakeven: 24,500"
+    ],
+    "correctIndex": 0,
+    "explanation": "Net Debit = \u20b9220 - \u20b980 = \u20b9140. Max Profit = Strike Difference - Net Debit = (24,500 - 24,000) - \u20b9140 = \u20b9500 - \u20b9140 = \u20b9360. Breakeven = Lower Strike + Net Debit = 24,000 + 140 = 24,140.",
+    "topic": "Bull Call Spread Payoff Numerical",
+    "chapter": 5,
+    "chapterTitle": "Option Trading Strategies",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch5-q2",
+    "courseId": "nism-viii",
+    "question": "What is the primary objective of a 'Collar Strategy' for an equity investor holding a large portfolio of stocks?",
+    "options": [
+      "Speculating on sharp intraday breakouts",
+      "Locking in a floor price (by buying a protective Put) financed partially or completely by selling an Out-of-the-Money Call (capping upside gain)",
+      "Eliminating all trading fees and STT",
+      "Generating unlimited leveraged returns"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Collar combines holding underlying shares with buying an OTM Put (downside protection) and selling an OTM Call (income that offsets the put premium), establishing a protected price band.",
+    "topic": "Collar Strategy Payoff",
+    "chapter": 5,
+    "chapterTitle": "Option Trading Strategies",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch5-q3",
+    "courseId": "nism-viii",
+    "question": "How does a 'Long Strangle' differ from a 'Long Straddle'?",
+    "options": [
+      "Long Straddle uses different expiry months, while Long Strangle uses the same expiry month",
+      "Long Straddle uses identical strike prices for both Call and Put (ATM), whereas Long Strangle uses different strike prices (OTM Call and OTM Put), making the Strangle cheaper upfront",
+      "Long Strangle requires owning underlying shares, while Straddle does not",
+      "Long Straddle has capped upside profit"
+    ],
+    "correctIndex": 1,
+    "explanation": "Both profit from high volatility. A Straddle buys ATM Call and ATM Put (same strike). A Strangle buys OTM Call (higher strike) and OTM Put (lower strike), costing less premium but requiring larger price movement to breakeven.",
+    "topic": "Straddle vs Strangle",
+    "chapter": 5,
+    "chapterTitle": "Option Trading Strategies",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch5-q4",
+    "courseId": "nism-viii",
+    "question": "A trader expects a stock trading at \u20b9500 to remain stagnant in a narrow range over the next month. Which options strategy generates maximum profit if the stock closes exactly at \u20b9500 on expiry?",
+    "options": [
+      "Long Straddle",
+      "Short Straddle (Sell \u20b9500 Call and Sell \u20b9500 Put)",
+      "Bull Call Spread",
+      "Long Strangle"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Short Straddle collects maximum premium from selling both ATM Call and ATM Put. If the stock expires exactly at strike, both options expire worthless, allowing the writer to keep 100% of both premiums.",
+    "topic": "Short Straddle for Neutral Markets",
+    "chapter": 5,
+    "chapterTitle": "Option Trading Strategies",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch5-q5",
+    "courseId": "nism-viii",
+    "question": "In a 'Bear Put Spread', what positions are established by the trader?",
+    "options": [
+      "Buy higher strike Put, Sell lower strike Put (both with same expiry)",
+      "Buy lower strike Put, Sell higher strike Put",
+      "Sell Call and Buy Put at same strike",
+      "Sell naked Put"
+    ],
+    "correctIndex": 0,
+    "explanation": "A Bear Put Spread is a debit spread created by buying a higher strike Put (e.g. 24,500 Put) and selling a lower strike Put (e.g. 24,000 Put) to reduce the cost of the bearish bet.",
+    "topic": "Bear Put Spread Structure",
+    "chapter": 5,
+    "chapterTitle": "Option Trading Strategies",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch5-q6",
+    "courseId": "nism-viii",
+    "question": "What is the maximum risk potential for an investor selling an uncovered (naked) Call option?",
+    "options": [
+      "Limited to the premium received",
+      "Limited to the strike price",
+      "Theoretically unlimited, as the underlying stock price can rise indefinitely",
+      "Zero risk if executed on a Tuesday"
+    ],
+    "correctIndex": 2,
+    "explanation": "Because a stock's price has no theoretical upper ceiling, the writer of a naked Call option faces infinite potential loss if the stock rallies sharply.",
+    "topic": "Naked Call Risk Profile",
+    "chapter": 5,
+    "chapterTitle": "Option Trading Strategies",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch6-q1",
+    "courseId": "nism-viii",
+    "question": "According to the Put-Call Parity principle for European options on non-dividend paying stocks, what formula relates Call price (C), Put price (P), Spot price (S), and Strike price (K)?",
+    "options": [
+      "C + S = P + K",
+      "C + K * e^(-r*t) = P + S",
+      "C - P = S + K",
+      "C * P = S * K"
+    ],
+    "correctIndex": 1,
+    "explanation": "Put-Call Parity states: C + K * e^(-r*t) = P + S (Fiduciary Call = Protective Put). A synthetic long stock can be created via: S = C - P + K * e^(-r*t).",
+    "topic": "Put-Call Parity Formula",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch6-q2",
+    "courseId": "nism-viii",
+    "question": "What happens to the Delta of an At-the-Money (ATM) option as the contract approaches its final expiration day?",
+    "options": [
+      "Delta remains fixed at 0.50 regardless of price",
+      "Delta becomes extremely sensitive to small spot price changes around the strike (high Gamma risk), snapping quickly toward 1.0 or 0.0",
+      "Delta drops to negative infinity",
+      "Delta becomes exactly equal to Vega"
+    ],
+    "correctIndex": 1,
+    "explanation": "As time to expiry approaches zero, Gamma for ATM options spikes to its peak. A tiny shift in the underlying stock price immediately flips an ATM option between in-the-money (Delta -> 1) and out-of-the-money (Delta -> 0).",
+    "topic": "Expiry Day Gamma Risk",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch6-q3",
+    "courseId": "nism-viii",
+    "question": "What is the theoretical range of Delta for standard European equity Call and Put options?",
+    "options": [
+      "Call Delta: -1 to +1; Put Delta: -1 to +1",
+      "Call Delta: 0 to +1; Put Delta: -1 to 0",
+      "Call Delta: 0 to +100; Put Delta: 0 to -100",
+      "Delta is always greater than 1.0"
+    ],
+    "correctIndex": 1,
+    "explanation": "Call Delta ranges from 0 (deep OTM) to +1.0 (deep ITM). Put Delta ranges from -1.0 (deep ITM) to 0 (deep OTM).",
+    "topic": "Delta Ranges",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch6-q4",
+    "courseId": "nism-viii",
+    "question": "What does the 'Volatility Smile' or 'Volatility Skew' observed in equity options markets demonstrate about Black-Scholes model assumptions?",
+    "options": [
+      "It proves that stock prices never fluctuate",
+      "It shows that market participants price OTM puts with higher implied volatility than ATM options due to downside crash risk, violating the Black-Scholes constant volatility assumption",
+      "It indicates that options are tax-free",
+      "It proves that interest rates are zero"
+    ],
+    "correctIndex": 1,
+    "explanation": "Black-Scholes assumes constant implied volatility across all strikes. In reality, options on equity indices show a downward-sloping volatility skew, where lower strike OTM puts have higher IV due to demand for crash protection.",
+    "topic": "Volatility Smile and Skew",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch6-q5",
+    "courseId": "nism-viii",
+    "question": "Which Option Greek is at its HIGHEST absolute level for At-the-Money (ATM) options compared to deep In-the-Money or deep Out-of-the-Money options?",
+    "options": [
+      "Delta",
+      "Gamma and Vega",
+      "Rho",
+      "Intrinsic Value"
+    ],
+    "correctIndex": 1,
+    "explanation": "Both Gamma (rate of change of delta) and Vega (sensitivity to volatility) are maximized when an option is At-the-Money (ATM) and decrease as options move deep ITM or deep OTM.",
+    "topic": "ATM Peak of Gamma and Vega",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch6-q6",
+    "courseId": "nism-viii",
+    "question": "If a Call option has a Vega of 0.35 and implied volatility increases by 3 percentage points (e.g. from 15% to 18%), what is the expected change in option premium, all else equal?",
+    "options": [
+      "+\u20b90.35",
+      "+\u20b91.05",
+      "-\u20b91.05",
+      "+\u20b93.00"
+    ],
+    "correctIndex": 1,
+    "explanation": "Change in Option Price = Vega * Change in Volatility (in percentage points) = 0.35 * 3 = +\u20b91.05 increase.",
+    "topic": "Vega Option Calculation",
+    "chapter": 6,
+    "chapterTitle": "Option Pricing & Option Greeks",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch7-q1",
+    "courseId": "nism-viii",
+    "question": "What is an 'Immediate or Cancel' (IOC) order in an exchange trading system?",
+    "options": [
+      "An order that executes after market close",
+      "An order that requires immediate execution for as much quantity as available in the market, with any unexecuted remainder cancelled immediately without resting in the order book",
+      "An order that cancels automatically after 24 hours",
+      "An order that is held in a hidden dark pool"
+    ],
+    "correctIndex": 1,
+    "explanation": "An IOC (Immediate or Cancel) order matches immediately against available opposite orders at the limit price. Any unfilled portion is instantly killed, leaving zero resting queue.",
+    "topic": "IOC Order Types",
+    "chapter": 7,
+    "chapterTitle": "Trading Systems & Mechanisms",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch7-q2",
+    "courseId": "nism-viii",
+    "question": "How does a Stop-Loss Limit (SL-L) order differ from a Stop-Loss Market (SL-M) order?",
+    "options": [
+      "SL-L can only be placed by institutional brokers",
+      "When the trigger price is breached, an SL-L order places a Limit order at the specified limit price, whereas an SL-M order enters an unrestricted Market order to execute at prevailing prices",
+      "SL-M orders guarantee zero slippage",
+      "SL-L orders are valid for 1 year"
+    ],
+    "correctIndex": 1,
+    "explanation": "Once the trigger price is hit, an SL-Limit order becomes a limit order, risking non-execution if the market gaps past the limit. An SL-Market order executes immediately at market price, guaranteeing fill but risking slippage.",
+    "topic": "Stop-Loss Order Mechanics",
+    "chapter": 7,
+    "chapterTitle": "Trading Systems & Mechanisms",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch7-q3",
+    "courseId": "nism-viii",
+    "question": "What is the trade matching priority algorithm implemented by Indian stock exchanges (NSE NEAT / BSE BOLT)?",
+    "options": [
+      "Size-Time priority (largest orders executed first)",
+      "Price-Time priority (best price executed first; for orders at the same price, the earliest timestamp executed first)",
+      "Random allocation",
+      "Pro-rata allocation based on broker net worth"
+    ],
+    "correctIndex": 1,
+    "explanation": "Indian exchanges operate on a strict Price-Time priority rule: orders with the best price (highest buy, lowest sell) have priority. At the same price level, earlier entered orders execute first.",
+    "topic": "Price-Time Priority Algorithm",
+    "chapter": 7,
+    "chapterTitle": "Trading Systems & Mechanisms",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch7-q4",
+    "courseId": "nism-viii",
+    "question": "What does a contract note issued by a registered stockbroker to a client signify legally?",
+    "options": [
+      "An informal estimate of portfolio profit",
+      "A statutory legal confirmation of trades executed on behalf of the client, specifying order numbers, trade numbers, trade timings, execution price, brokerage, and statutory taxes",
+      "A loan application for margin trading",
+      "An annual income tax statement"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Contract Note (issued in Form A/B/C within 24 hours of trade execution) is the formal legal record of transactions executed on the exchange, binding on both broker and client.",
+    "topic": "Contract Note Legal Requirements",
+    "chapter": 7,
+    "chapterTitle": "Trading Systems & Mechanisms",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch7-q5",
+    "courseId": "nism-viii",
+    "question": "What is an 'Execution Range' or 'Operating Range' enforced by exchanges on derivatives contracts?",
+    "options": [
+      "The physical geographic boundary of the stock exchange floor",
+      "A dynamic price corridor centered around the reference price beyond which incoming orders cannot execute, preventing trade-to-trade flash crashes and errant algorithm fat-finger orders",
+      "The allowable range of promoter equity holding",
+      "The maximum number of contracts a retail investor can trade per day"
+    ],
+    "correctIndex": 1,
+    "explanation": "Operating/Execution ranges prevent catastrophic slippage from fat-finger errors. Orders placed outside the execution range are rejected or placed on hold by the exchange trading engine.",
+    "topic": "Operating & Execution Ranges",
+    "chapter": 7,
+    "chapterTitle": "Trading Systems & Mechanisms",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch7-q6",
+    "courseId": "nism-viii",
+    "question": "Under SEBI regulations, within how many hours of trade execution must an Electronic Contract Note (ECN) be sent to the client's registered email address?",
+    "options": [
+      "Within 12 hours",
+      "Within 24 hours of execution of the trade",
+      "Within 7 working days",
+      "At month-end only"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandates that brokers issue contract notes (physically or electronically via ECN) within 24 hours of the trade execution date.",
+    "topic": "Contract Note Issuance Timeline",
+    "chapter": 7,
+    "chapterTitle": "Trading Systems & Mechanisms",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch8-q1",
+    "courseId": "nism-viii",
+    "question": "What is the mandatory settlement mechanism for all stock futures and stock options contracts expiring in-the-money on Indian exchanges since October 2019?",
+    "options": [
+      "100% Cash settlement against closing price",
+      "Compulsory Physical Settlement through actual delivery of underlying equity shares via depository accounts",
+      "Settlement in sovereign gold bonds",
+      "Settlement rolled over to next quarter automatically"
+    ],
+    "correctIndex": 1,
+    "explanation": "Since October 2019, SEBI mandated Compulsory Physical Settlement for all stock derivatives. Long futures or ITM call buyers must pay cash and take delivery of shares; short futures or ITM put buyers must deliver shares.",
+    "topic": "Physical Delivery of Stock Derivatives",
+    "chapter": 8,
+    "chapterTitle": "Clearing and Settlement System",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch8-q2",
+    "courseId": "nism-viii",
+    "question": "What margin is progressively levied during the expiry week on open positions in stock derivatives to ensure smooth transition to physical delivery?",
+    "options": [
+      "Tender Period / Delivery Margin",
+      "Currency Fluctuation Margin",
+      "Cross-Margin Penalty",
+      "Dividend Reinvestment Margin"
+    ],
+    "correctIndex": 0,
+    "explanation": "Delivery Margins are levied on physical-settlement stock derivatives in a staggered manner (e.g. 10%, 25%, 50% of cash market VaR + ELM) during the 4 to 5 days leading up to expiry.",
+    "topic": "Delivery Margin in Expiry Week",
+    "chapter": 8,
+    "chapterTitle": "Clearing and Settlement System",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch8-q3",
+    "courseId": "nism-viii",
+    "question": "Which category of clearing member is authorized to clear and settle trades for trading members who do not have clearing rights, but does NOT trade on its own account?",
+    "options": [
+      "Self-Clearing Member (SCM)",
+      "Trading Member - Clearing Member (TM-CM)",
+      "Professional Clearing Member (PCM)",
+      "Primary Dealer (PD)"
+    ],
+    "correctIndex": 2,
+    "explanation": "A Professional Clearing Member (PCM) (typically a bank or institutional custodian) only clears and settles trades executed by other trading members, without executing trades of its own.",
+    "topic": "Types of Clearing Members",
+    "chapter": 8,
+    "chapterTitle": "Clearing and Settlement System",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch8-q4",
+    "courseId": "nism-viii",
+    "question": "How are index futures and index options contracts (e.g. Nifty 50, Bank Nifty) settled on their expiration date?",
+    "options": [
+      "Physical delivery of all 50 shares in exact index proportion",
+      "Cash settlement based on the final closing volume-weighted average price (VWAP) of the underlying index constituents during the last 30 minutes of trading",
+      "Deferred settlement to the next calendar month",
+      "Settled via CCIL in Treasury Bills"
+    ],
+    "correctIndex": 1,
+    "explanation": "All index derivatives in India are cash-settled based on the closing index value calculated from the last 30 minutes VWAP of constituent stocks in the cash market.",
+    "topic": "Index Settlement Mechanics",
+    "chapter": 8,
+    "chapterTitle": "Clearing and Settlement System",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch8-q5",
+    "courseId": "nism-viii",
+    "question": "If a client holding an expiring short stock futures position fails to deliver the required shares on physical settlement day (T+1), what action is taken by the Clearing Corporation?",
+    "options": [
+      "The client is declared permanently insolvent immediately",
+      "The Clearing Corporation conducts an Auction Buy-in in the cash market on T+1 to purchase the shares at the seller's cost and risk",
+      "The contract is converted to a loan from the bank",
+      "The short seller is given 30 days grace period"
+    ],
+    "correctIndex": 1,
+    "explanation": "Failure to deliver securities triggers an auction session conducted by the Clearing Corporation to procure the shares from the market, debiting the auction purchase cost and penalty to the defaulting member.",
+    "topic": "Auction Buy-in on Delivery Default",
+    "chapter": 8,
+    "chapterTitle": "Clearing and Settlement System",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch8-q6",
+    "courseId": "nism-viii",
+    "question": "What is the role of the Core Settlement Guarantee Fund (Core SGF) maintained by Clearing Corporations under SEBI regulations?",
+    "options": [
+      "Financing advertising campaigns for derivatives brokers",
+      "Providing a multi-tiered financial backstop to ensure market integrity and honor settlement obligations in the event of a clearing member default",
+      "Paying dividends to stock exchange shareholders",
+      "Funding infrastructure loans for tech startups"
+    ],
+    "correctIndex": 1,
+    "explanation": "Core SGF is a dedicated corpus of risk capital contributed by the exchange, clearing corporation, and clearing members to absorb losses and guarantee settlement in the event of major member defaults.",
+    "topic": "Core Settlement Guarantee Fund (SGF)",
+    "chapter": 8,
+    "chapterTitle": "Clearing and Settlement System",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch9-q1",
+    "courseId": "nism-viii",
+    "question": "What is the Market-Wide Position Limit (MWPL) for a stock in the equity derivatives segment as prescribed by SEBI?",
+    "options": [
+      "5% of total paid-up equity capital",
+      "20% of the non-promoter holding (free-float market capitalization) of the company in terms of number of shares",
+      "50% of the daily traded volume",
+      "\u20b9500 Crores fixed for all stocks"
+    ],
+    "correctIndex": 1,
+    "explanation": "MWPL is set at 20% of the non-promoter holding (free-float shares) of the company across all exchanges combined. Open interest across all strike prices and expiries cannot exceed this aggregate limit.",
+    "topic": "Market-Wide Position Limit (MWPL)",
+    "chapter": 9,
+    "chapterTitle": "Legal and Regulatory Environment",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch9-q2",
+    "courseId": "nism-viii",
+    "question": "What happens when aggregate open interest in an underlying stock derivative crosses 95% of its Market-Wide Position Limit (MWPL)?",
+    "options": [
+      "All open positions are immediately liquidated at market price",
+      "The stock derivative enters a 'Ban Period' where no new positions can be opened; market participants can only trade to reduce (square-off) existing open positions",
+      "Trading is permanently suspended for the stock on all cash and F&O segments",
+      "Brokers must pay a 100% tax surcharge"
+    ],
+    "correctIndex": 1,
+    "explanation": "When open interest reaches 95% of MWPL, the stock enters the F&O ban period. Any member who initiates fresh positions during this ban is subject to exchange penalties.",
+    "topic": "F&O Ban Period at 95% MWPL",
+    "chapter": 9,
+    "chapterTitle": "Legal and Regulatory Environment",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch9-q3",
+    "courseId": "nism-viii",
+    "question": "When does a stock exit the F&O 'Ban Period' and resume normal trading?",
+    "options": [
+      "On the next calendar Monday",
+      "When the aggregate open interest falls below 80% of its Market-Wide Position Limit (MWPL)",
+      "Only on the quarterly expiry date",
+      "When SEBI issues a special gazette notification"
+    ],
+    "correctIndex": 1,
+    "explanation": "Once in ban period, normal trading is reinstated only when the aggregate open interest drops below 80% of the Market-Wide Position Limit.",
+    "topic": "Exit from F&O Ban Period",
+    "chapter": 9,
+    "chapterTitle": "Legal and Regulatory Environment",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch9-q4",
+    "courseId": "nism-viii",
+    "question": "What is the maximum gross position limit for a single non-institutional client across all derivative contracts on a specific underlying stock?",
+    "options": [
+      "1% of the free-float market capitalization or 5% of open interest in the derivative contracts, whichever is higher",
+      "10% of total paid-up capital",
+      "\u20b950 Crores fixed limit",
+      "No client-level position limit applies"
+    ],
+    "correctIndex": 0,
+    "explanation": "SEBI specifies that gross open positions for any client across all contracts on an underlying stock shall not exceed 1% of the free float market capitalization or 5% of open interest, whichever is higher.",
+    "topic": "Client Position Limits in Stock F&O",
+    "chapter": 9,
+    "chapterTitle": "Legal and Regulatory Environment",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch9-q5",
+    "courseId": "nism-viii",
+    "question": "Which historic high-powered committee appointed by SEBI formulated the foundational regulatory framework for introducing exchange-traded derivatives in India in 1998?",
+    "options": [
+      "Narasimham Committee",
+      "Dr. L. C. Gupta Committee",
+      "Tarapore Committee",
+      "Raghuram Rajan Committee"
+    ],
+    "correctIndex": 1,
+    "explanation": "The Dr. L. C. Gupta Committee on Derivatives (1998) established the regulatory blueprint, risk containment mechanisms, and eligibility criteria for launching derivatives trading in India.",
+    "topic": "L. C. Gupta Committee Recommendations",
+    "chapter": 9,
+    "chapterTitle": "Legal and Regulatory Environment",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch9-q6",
+    "courseId": "nism-viii",
+    "question": "What constitutes 'Front Running' under SEBI (Prohibition of Fraudulent and Unfair Trade Practices) Regulations?",
+    "options": [
+      "Trading fast algorithms during pre-market open",
+      "A trader or broker using non-public advance knowledge of an impending large client buy/sell order to trade on personal or favored accounts to profit from market impact",
+      "Executing orders in the near-month contract rather than far-month contract",
+      "Arbitraging price differences between NSE and BSE"
+    ],
+    "correctIndex": 1,
+    "explanation": "Front running is a fraudulent practice where an intermediary exploits non-public advance information of a substantial client block trade to place proprietary orders first, capturing illegal profits.",
+    "topic": "PFUTP and Front Running",
+    "chapter": 9,
+    "chapterTitle": "Legal and Regulatory Environment",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch10-q1",
+    "courseId": "nism-viii",
+    "question": "Under Section 43(5) of the Income Tax Act, 1961, how are transactions in eligible exchange-traded equity derivatives treated for tax purposes?",
+    "options": [
+      "Speculative Business Income",
+      "Non-Speculative Business Income (Eligible transactions carried out on recognized stock exchanges are specifically excluded from speculative transactions)",
+      "Short-term Capital Gains under Section 111A",
+      "Tax-free agricultural income"
+    ],
+    "correctIndex": 1,
+    "explanation": "Clause (d) of the proviso to Section 43(5) specifically excludes eligible transactions in derivatives carried out on a recognized stock exchange from the definition of 'speculative transaction', treating them as normal Non-Speculative Business Income.",
+    "topic": "Section 43(5) Non-Speculative Classification",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch10-q2",
+    "courseId": "nism-viii",
+    "question": "For how many consecutive assessment years can non-speculative business losses arising from trading in equity derivatives be carried forward to set off against future business profits?",
+    "options": [
+      "4 consecutive assessment years",
+      "8 consecutive assessment years",
+      "Indefinitely without limit",
+      "Cannot be carried forward at all"
+    ],
+    "correctIndex": 1,
+    "explanation": "Under Section 72 of the Income Tax Act, non-speculative business losses can be carried forward for up to 8 assessment years and set off against any business profits (both speculative and non-speculative).",
+    "topic": "Carry Forward of Derivative Losses",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch10-q3",
+    "courseId": "nism-viii",
+    "question": "What is the Securities Transaction Tax (STT) rate levied on the sale of equity option contracts on the premium value?",
+    "options": [
+      "0.0125%",
+      "0.05%",
+      "0.10% (100 rupees per lakh of option premium)",
+      "0.001%"
+    ],
+    "correctIndex": 2,
+    "explanation": "Under the Finance Act (effective October 2024 revisions), STT on the sale of options is levied at 0.10% on option premium, and STT on sale of futures is levied at 0.02% of turnover.",
+    "topic": "STT Rates on Derivatives",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices",
+    "difficulty": "intermediate",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch10-q4",
+    "courseId": "nism-viii",
+    "question": "Under what condition is a trader whose turnover includes equity derivatives mandatory subject to tax audit under Section 44AB of the Income Tax Act?",
+    "options": [
+      "Only if net profit is above \u20b91 Crore",
+      "If total business turnover exceeds \u20b910 Crores (assuming 95%+ transactions are digital/banking channel based) or if declaring profits lower than presumptive limits under Section 44AD",
+      "Whenever total trades exceed 50 in a financial year",
+      "Tax audit is never applicable to derivatives traders"
+    ],
+    "correctIndex": 1,
+    "explanation": "For digital transactions (which all exchange trades are), the turnover threshold for tax audit under Section 44AB is \u20b910 Crores. Audit is also required if turnover is up to \u20b92 Cr and profit declared is less than 6% under Section 44AD.",
+    "topic": "Tax Audit Applicability under 44AB",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices",
+    "difficulty": "advanced",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch10-q5",
+    "courseId": "nism-viii",
+    "question": "What document must be mandatorily provided to and signed/acknowledged by a client prior to opening a trading account in the equity derivatives segment?",
+    "options": [
+      "Power of Attorney for bank locker",
+      "Risk Disclosure Document (RDD) detailing the high risk of capital loss and leveraged nature of derivatives trading",
+      "Promissory note for margin deficit",
+      "Dividend reinvestment mandate"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandates that all brokers furnish the Risk Disclosure Document (RDD) highlighting that trading in leveraged derivatives entails high capital risk and that up to 90% of individual traders lose capital.",
+    "topic": "Risk Disclosure Document (RDD)",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch10-q6",
+    "courseId": "nism-viii",
+    "question": "What is SCORES 2.0 operated by SEBI?",
+    "options": [
+      "An automated algorithmic order matching engine",
+      "SEBI's centralized web-based platform for lodging, tracking, and redressing investor grievances against market intermediaries and listed companies",
+      "A credit scoring model for derivatives margin lending",
+      "A tax calculation portal for capital gains"
+    ],
+    "correctIndex": 1,
+    "explanation": "SCORES (SEBI Complaints Redress System) 2.0 provides an online mechanism for investors to file complaints directly against intermediaries, with automated routing and two-tier review mechanisms.",
+    "topic": "Investor Grievance Redressal (SCORES 2.0)",
+    "chapter": 10,
+    "chapterTitle": "Accounting, Taxation & Sales Practices",
+    "difficulty": "standard",
+    "paperId": "paper-2"
+  },
+  {
+    "id": "nism-viii-ch7-extra1",
+    "courseId": "nism-viii",
+    "question": "What is 'Direct Market Access' (DMA) in the Indian equity derivatives market?",
+    "options": [
+      "Trading directly on the exchange floor without computer terminals",
+      "A facility that allows institutional clients to route orders directly to the exchange trading system through their broker's infrastructure without manual broker intervention",
+      "Unrestricted retail margin lending without collateral",
+      "Direct settlement of trades with the central bank"
+    ],
+    "correctIndex": 1,
+    "explanation": "DMA enables institutional clients to have direct electronic access to the exchange trading engine via their broker's certified software, maintaining broker-level pre-trade risk controls.",
+    "topic": "Direct Market Access (DMA)",
+    "chapter": 7,
+    "chapterTitle": "Trading Systems & Mechanisms",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch7-extra2",
+    "courseId": "nism-viii",
+    "question": "What is 'Co-location' (Colo) facility provided by stock exchanges to institutional and algorithmic traders?",
+    "options": [
+      "Sharing office space between competing brokers",
+      "Renting rack space for member servers within the stock exchange's dedicated data center, minimizing network latency to sub-millisecond execution speeds",
+      "Joint customer service centers for retail investors",
+      "Cooperative margin lending between mutual funds"
+    ],
+    "correctIndex": 1,
+    "explanation": "Co-location places algorithmic servers in the exchange premises, reducing network transmission time (latency) for high-frequency algorithmic trade execution.",
+    "topic": "Co-location & Low Latency Infrastructure",
+    "chapter": 7,
+    "chapterTitle": "Trading Systems & Mechanisms",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch7-extra3",
+    "courseId": "nism-viii",
+    "question": "Under SEBI algorithmic trading guidelines, what pre-trade risk control mechanism is mandatory for all algorithmic trading orders?",
+    "options": [
+      "Prior approval of each order by a human compliance officer",
+      "Automated system checks for order price, maximum order quantity, and maximum order value before submission to the exchange engine",
+      "Zero margin requirement for profitable algorithms",
+      "Executing trades only during the last hour of market hours"
+    ],
+    "correctIndex": 1,
+    "explanation": "SEBI mandates pre-trade risk controls (order quantity limits, order value limits, price execution corridors) built into all trading systems to prevent market manipulation and flash disruptions.",
+    "topic": "Algorithmic Pre-Trade Risk Controls",
+    "chapter": 7,
+    "chapterTitle": "Trading Systems & Mechanisms",
+    "difficulty": "advanced",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch7-extra4",
+    "courseId": "nism-viii",
+    "question": "What is a 'Spread Order' entry in the exchange derivatives trading system?",
+    "options": [
+      "Entering an order that executes across multiple asset classes simultaneously",
+      "A single two-legged order that executes both legs (e.g. buying near-month and selling far-month futures) simultaneously at a specified net price difference (spread price)",
+      "An order that spreads across different stock exchanges",
+      "An order that splits execution across 30 days"
+    ],
+    "correctIndex": 1,
+    "explanation": "A Spread Order executes both the buy leg and sell leg concurrently at the specified net price difference, eliminating leg risk for calendar spread arbitrageurs.",
+    "topic": "Spread Order Entry Mechanics",
+    "chapter": 7,
+    "chapterTitle": "Trading Systems & Mechanisms",
+    "difficulty": "standard",
+    "paperId": "paper-1"
+  },
+  {
+    "id": "nism-viii-ch7-extra5",
+    "courseId": "nism-viii",
+    "question": "In the event of an erroneous trade execution caused by a technical glitch or broker punch error, what is the exchange policy on trade cancellation in India?",
+    "options": [
+      "Any trader can unilaterally cancel an executed trade within 10 minutes",
+      "Executed trades can only be annulled under exceptional circumstances by the Exchange/Clearing Corporation after examining whether both parties consent and if the trade disrupted market fairness",
+      "Trades are never reviewed once matched",
+      "Brokers can reverse trades after market close without notifying the counterparty"
+    ],
+    "correctIndex": 1,
+    "explanation": "Trade annulment is strictly regulated. SEBI guidelines require that trade modification/annulment requests be subject to stringent exchange scrutiny, bilateral consent, and explicit clearing corporation approval.",
+    "topic": "Trade Annulment & Modification Norms",
+    "chapter": 7,
+    "chapterTitle": "Trading Systems & Mechanisms",
+    "difficulty": "intermediate",
+    "paperId": "paper-1"
   }
 ];

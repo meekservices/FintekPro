@@ -1303,6 +1303,318 @@ export const NISM_IV_CURRICULUM: NismCourseCurriculum = {
   ]
 };
 
+export const NISM_VIII_CURRICULUM: NismCourseCurriculum = {
+  "courseId": "nism-viii",
+  "seriesCode": "NISM-SERIES-VIII",
+  "title": "NISM Series VIII: Equity Derivatives Certification Examination",
+  "description": "SEBI mandated benchmark certification for approved users and sales personnel of trading members in the equity derivatives segment. Comprehensive coverage across all 10 official chapters.",
+  "totalModules": 3,
+  "totalChapters": 10,
+  "totalQuestionsExam": 100,
+  "examDurationMinutes": 120,
+  "passingPercentage": 60,
+  "negativeMarkingPercentage": 25,
+  "modules": [
+    {
+      "moduleNumber": 1,
+      "title": "Module 1: Market Fundamentals, Indices & Forwards/Futures",
+      "weightagePercentage": 30,
+      "chapters": [
+        {
+          "chapterNumber": 1,
+          "moduleNumber": 1,
+          "moduleTitle": "Market Fundamentals, Indices & Forwards/Futures",
+          "title": "Basics of Derivatives",
+          "weightage": "10% (10 Qs)",
+          "overview": "Definition of derivatives, underlying assets, market participants (hedgers, speculators, arbitrageurs), economic significance, exchange-traded vs OTC derivatives, and evolution in India.",
+          "keyConcepts": [
+            "Derivatives derive their value from an underlying asset, index, or reference rate",
+            "Three core participant types: Hedgers (risk transfer), Speculators (risk assumption), Arbitrageurs (price alignment)",
+            "Exchange-traded derivatives feature standardization, central counterparty guarantee, and daily mark-to-market",
+            "OTC derivatives offer customized contracts but carry bilateral counterparty default risk",
+            "Derivatives enhance price discovery, increase liquidity, and facilitate institutional portfolio risk management"
+          ],
+          "formulas": [],
+          "highYieldTips": [
+            "In India, derivatives on commodities, currencies, and interest rates are governed by joint regulatory frameworks, while equity derivatives are overseen by SEBI.",
+            "Arbitrageurs enforce the law of one price by capitalizing on transient price disparities between cash and derivatives markets."
+          ]
+        },
+        {
+          "chapterNumber": 2,
+          "moduleNumber": 1,
+          "moduleTitle": "Market Fundamentals, Indices & Forwards/Futures",
+          "title": "Understanding Underlying Markets (Indices & Equities)",
+          "weightage": "10% (10 Qs)",
+          "overview": "Stock index construction, Free-Float market capitalization methodology, stock eligibility criteria for F&O, Impact Cost, Beta (systematic risk), and index rebalancing.",
+          "keyConcepts": [
+            "Free-Float Market Cap = Total Shares Outstanding * Free Float Factor * Market Price",
+            "Free float excludes promoter stakes, strategic holdings, and government shares",
+            "Impact Cost measures liquidity friction: percentage penalty when executing an order against the ideal mid-quote",
+            "Beta (\u03b2) measures sensitivity of a stock to broad market index movements: \u03b2 > 1 indicates aggressive/high-volatility stock",
+            "SEBI eligibility criteria for stocks in F&O includes Median Quarter Sigma Size (MQSS) and top market turnover rankings"
+          ],
+          "formulas": [
+            {
+              "name": "Impact Cost",
+              "formula": "Impact Cost (%) = [(Actual Execution Price - Ideal Mid-Quote Price) / Ideal Mid-Quote Price] * 100",
+              "explanation": "Measures liquidity friction and execution slippage for a given transaction size."
+            },
+            {
+              "name": "Expected Return from Beta",
+              "formula": "Expected Return = Beta (\u03b2) * Benchmark Index Return",
+              "explanation": "Calculates expected systematic stock performance relative to market moves."
+            }
+          ],
+          "highYieldTips": [
+            "A lower impact cost denotes higher secondary market liquidity.",
+            "Free-float market cap weighted indices naturally self-rebalance for stock price moves without continuous turnover."
+          ]
+        },
+        {
+          "chapterNumber": 3,
+          "moduleNumber": 1,
+          "moduleTitle": "Market Fundamentals, Indices & Forwards/Futures",
+          "title": "Introduction to Forwards & Futures",
+          "weightage": "10% (10 Qs)",
+          "overview": "Forward vs futures contracts, Cost of Carry model, Cash & Carry arbitrage, Reverse Cash & Carry, Basis, Contango & Backwardation, Calendar Spreads, and roll-over mechanics.",
+          "keyConcepts": [
+            "Futures Price = Spot Price * (1 + r * t) - PV(Dividends)",
+            "Cost of carry includes financing interest minus expected dividend cash flows",
+            "Basis = Spot Price - Futures Price (Positive in backwardation, Negative in contango)",
+            "At expiration, futures price converges exactly to cash spot price (Basis converges to zero)",
+            "Cash & Carry Arbitrage: Buy cash stock, finance in repo, sell overpriced futures",
+            "Calendar Spread: Opposing positions in two different expiry months of the same underlying"
+          ],
+          "formulas": [
+            {
+              "name": "Cost of Carry Fair Futures Price",
+              "formula": "Futures Fair Value = Spot Price * (1 + r * t) - PV(Dividends)",
+              "explanation": "Theoretical forward value under continuous or simple compounding."
+            },
+            {
+              "name": "Basis",
+              "formula": "Basis = Spot Price - Futures Price",
+              "explanation": "Drives arbitrage and hedging effectiveness; converges to zero at contract expiration."
+            }
+          ],
+          "highYieldTips": [
+            "Contango occurs when Futures Price > Spot Price (Normal market where cost of carry is positive).",
+            "Backwardation occurs when Spot Price > Futures Price (often driven by high dividend expectations or supply scarcity)."
+          ]
+        }
+      ]
+    },
+    {
+      "moduleNumber": 2,
+      "title": "Module 2: Options Mechanics, Trading Strategies & Greeks",
+      "weightagePercentage": 35,
+      "chapters": [
+        {
+          "chapterNumber": 4,
+          "moduleNumber": 2,
+          "moduleTitle": "Options Mechanics, Trading Strategies & Greeks",
+          "title": "Introduction to Options",
+          "weightage": "10% (10 Qs)",
+          "overview": "Call and Put options, buyer vs seller rights and obligations, strike prices, expiration cycles, moneyness (ITM, ATM, OTM), intrinsic value vs time value, and payoff graphs.",
+          "keyConcepts": [
+            "Call Option: Buyer has the right (not obligation) to buy; Writer has obligation to sell",
+            "Put Option: Buyer has the right to sell; Writer has obligation to buy",
+            "Call Intrinsic Value = Max(0, Spot - Strike); Put Intrinsic Value = Max(0, Strike - Spot)",
+            "Total Option Premium = Intrinsic Value + Time (Extrinsic) Value",
+            "Option buyers have limited downside (premium paid) and unlimited upside potential",
+            "Option writers have limited upside (premium received) and theoretically unlimited downside potential"
+          ],
+          "formulas": [
+            {
+              "name": "Option Premium Decomposition",
+              "formula": "Option Premium = Intrinsic Value + Extrinsic (Time) Value",
+              "explanation": "Time value erodes continuously as contract expiration nears."
+            }
+          ],
+          "highYieldTips": [
+            "Out-of-the-Money (OTM) and At-the-Money (ATM) options have ZERO intrinsic value; their entire premium is time value.",
+            "In India, index options follow European style exercise (exercised only on expiry day)."
+          ]
+        },
+        {
+          "chapterNumber": 5,
+          "moduleNumber": 2,
+          "moduleTitle": "Options Mechanics, Trading Strategies & Greeks",
+          "title": "Option Trading Strategies",
+          "weightage": "15% (15 Qs)",
+          "overview": "Covered Call, Protective Put, Bull Call Spread, Bear Put Spread, Bull Put Spread, Bear Call Spread, Long/Short Straddle, Long/Short Strangle, and Collar strategies.",
+          "keyConcepts": [
+            "Covered Call: Long Stock + Short OTM Call (generates income; caps upside at strike + premium)",
+            "Protective Put: Long Stock + Long OTM Put (downside floor protection like an insurance policy)",
+            "Bull Call Spread: Buy lower strike Call + Sell higher strike Call (reduces net debit paid)",
+            "Bear Put Spread: Buy higher strike Put + Sell lower strike Put",
+            "Long Straddle: Buy ATM Call + Buy ATM Put (profits from large price breakout in either direction)",
+            "Short Straddle: Sell ATM Call + Sell ATM Put (profits from stagnant, range-bound market)",
+            "Collar: Long Stock + Long OTM Put + Short OTM Call (zero/low cost downside insurance)"
+          ],
+          "formulas": [
+            {
+              "name": "Bull Call Spread Max Profit",
+              "formula": "Max Profit = (Higher Strike - Lower Strike) - Net Debit Paid",
+              "explanation": "Achieved when underlying price expires at or above the higher strike."
+            },
+            {
+              "name": "Straddle Breakeven Points",
+              "formula": "Upper Breakeven = Strike + Total Premium Paid; Lower Breakeven = Strike - Total Premium Paid",
+              "explanation": "Points where total straddle payoff equals zero."
+            }
+          ],
+          "highYieldTips": [
+            "A Short Straddle carries UNLIMITED risk if the market experiences a sharp rally or steep crash.",
+            "In a Covered Call, the writer remains exposed to downside stock depreciation below (Purchase Price - Premium)."
+          ]
+        },
+        {
+          "chapterNumber": 6,
+          "moduleNumber": 2,
+          "moduleTitle": "Options Mechanics, Trading Strategies & Greeks",
+          "title": "Option Pricing & Option Greeks",
+          "weightage": "10% (10 Qs)",
+          "overview": "Black-Scholes-Merton model assumptions, Put-Call Parity, Delta, Gamma, Theta, Vega, Rho, Implied Volatility (IV), and Volatility Smile/Skew.",
+          "keyConcepts": [
+            "Put-Call Parity: C + K * e^(-r*t) = P + S (Synthetic Stock: S = C - P + K * e^(-r*t))",
+            "Delta (\u0394): Sensitivity of option price to underlying stock price change (Call: 0 to 1, Put: -1 to 0)",
+            "Gamma (\u0393): Rate of change of Delta; peaks for At-the-Money options near expiration",
+            "Theta (\u0398): Rate of time decay per day; always negative for long option holders",
+            "Vega (\u03bd): Sensitivity of option price to changes in implied volatility; peaks for ATM options",
+            "Volatility Skew: Downward sloping IV curve reflecting institutional demand for OTM downside puts"
+          ],
+          "formulas": [
+            {
+              "name": "Put-Call Parity",
+              "formula": "C + K * e^(-r*t) = P + S",
+              "explanation": "Guarantees no-arbitrage relationship between European calls, puts, and cash shares."
+            },
+            {
+              "name": "Vega Price Impact",
+              "formula": "Price Change = Vega * \u0394Volatility (in percentage points)",
+              "explanation": "Impact of implied volatility changes on option premium."
+            }
+          ],
+          "highYieldTips": [
+            "Gamma risk is at its absolute maximum for ATM options on expiry day, creating extreme delta volatility.",
+            "Higher interest rates increase Call option prices (positive Rho) and decrease Put option prices (negative Rho)."
+          ]
+        }
+      ]
+    },
+    {
+      "moduleNumber": 3,
+      "title": "Module 3: Trading Infrastructure, Settlement, Risk & Regulations",
+      "weightagePercentage": 35,
+      "chapters": [
+        {
+          "chapterNumber": 7,
+          "moduleNumber": 3,
+          "moduleTitle": "Trading Infrastructure, Settlement, Risk & Regulations",
+          "title": "Trading Systems & Mechanisms",
+          "weightage": "10% (10 Qs)",
+          "overview": "Electronic trading architecture (NEAT/BOLT), order types (Market, Limit, Stop-Loss, IOC, Spread orders), Price-Time priority matching, contract notes, operating ranges, DMA, and co-location.",
+          "keyConcepts": [
+            "Order matching follows strict Price-Time priority: best price first, earlier timestamp first",
+            "Immediate or Cancel (IOC) orders match available depth instantly and cancel any unexecuted portion",
+            "Stop-Loss Limit orders place a limit order upon trigger, while Stop-Loss Market orders execute at market",
+            "Contract notes must be issued by brokers within 24 hours of trade execution (Form A/B/C or ECN)",
+            "Operating/Execution ranges prevent catastrophic execution slippage from fat-finger errors",
+            "Direct Market Access (DMA) and Co-location provide low-latency connectivity with pre-trade risk controls"
+          ],
+          "formulas": [],
+          "highYieldTips": [
+            "Electronic Contract Notes (ECNs) are legally binding documents with digital signatures.",
+            "SEBI mandates pre-trade order value and quantity limits on all algorithmic trading desks."
+          ]
+        },
+        {
+          "chapterNumber": 8,
+          "moduleNumber": 3,
+          "moduleTitle": "Trading Infrastructure, Settlement, Risk & Regulations",
+          "title": "Clearing and Settlement System",
+          "weightage": "10% (10 Qs)",
+          "overview": "Role of Clearing Corporation, Clearing Members (TM-CM, PCM, SCM), legal novation, cash settlement for index derivatives, compulsory physical delivery for stock derivatives, and Core SGF.",
+          "keyConcepts": [
+            "Clearing Corporation acts as Central Counterparty (CCP) with legal novation, eliminating bilateral risk",
+            "Index futures and options are cash-settled against the last 30 minutes VWAP of constituent stocks",
+            "All stock futures and stock options expiring ITM are subject to Compulsory Physical Delivery of shares",
+            "Delivery Margins are levied progressively in a staggered manner during expiry week",
+            "Failure to deliver shares on settlement triggers an Auction Buy-in by the Clearing Corporation",
+            "Core Settlement Guarantee Fund (SGF) provides a multi-tiered capital cushion against member defaults"
+          ],
+          "formulas": [],
+          "highYieldTips": [
+            "Compulsory physical settlement for single-stock derivatives has been mandatory since October 2019.",
+            "Professional Clearing Members (PCMs) clear trades for trading members but cannot trade on their own account."
+          ]
+        },
+        {
+          "chapterNumber": 9,
+          "moduleNumber": 3,
+          "moduleTitle": "Trading Infrastructure, Settlement, Risk & Regulations",
+          "title": "Legal and Regulatory Environment",
+          "weightage": "10% (10 Qs)",
+          "overview": "Regulatory framework under SEBI Act 1992 and SCRA 1956, L C Gupta Committee, position limits (Client, TM, MWPL), F&O ban period at 95% MWPL, PMLA 2002, and code of conduct.",
+          "keyConcepts": [
+            "Market-Wide Position Limit (MWPL) is set at 20% of the non-promoter holding (free-float shares)",
+            "When aggregate open interest crosses 95% of MWPL, the stock enters the F&O Ban Period (no fresh positions allowed)",
+            "Stock exits the F&O ban period only when open interest drops below 80% of MWPL",
+            "Client-level gross position limit in stock F&O is 1% of free-float or 5% of open interest, whichever is higher",
+            "Dr. L. C. Gupta Committee laid the foundational regulatory framework for exchange-traded derivatives in India",
+            "Front running and insider trading attract severe civil debarment and criminal penalties under SEBI PFUTP"
+          ],
+          "formulas": [
+            {
+              "name": "Market-Wide Position Limit",
+              "formula": "MWPL = 20% of Non-Promoter Holding (Free Float Shares)",
+              "explanation": "Maximum open interest allowed across all contracts on an underlying stock."
+            }
+          ],
+          "highYieldTips": [
+            "Trading during the F&O ban period is permitted only for closing/reducing existing open positions.",
+            "Brokers must retain client order logs and KYC records for a statutory minimum of 5 years."
+          ]
+        },
+        {
+          "chapterNumber": 10,
+          "moduleNumber": 3,
+          "moduleTitle": "Trading Infrastructure, Settlement, Risk & Regulations",
+          "title": "Accounting, Taxation & Sales Practices",
+          "weightage": "10% (10 Qs)",
+          "overview": "Taxation under Section 43(5) (Non-speculative business income), carry forward of losses (8 years), tax audit under Section 44AB, STT rates, Risk Disclosure Document, and SCORES 2.0 / Smart ODR.",
+          "keyConcepts": [
+            "Section 43(5) classifies exchange-traded equity derivatives as Non-Speculative Business Income",
+            "Derivative business losses can be carried forward for up to 8 assessment years to set off against business profits",
+            "Tax audit under Section 44AB applies if business turnover exceeds \u20b910 Crores (for digital trades)",
+            "STT on sale of options is 0.10% on option premium; STT on sale of futures is 0.02% of contract value",
+            "Risk Disclosure Document (RDD) must be mandatorily acknowledged by clients highlighting that leveraged trading carries high risk",
+            "SCORES 2.0 and Smart ODR platform provide two-tier investor grievance redressal"
+          ],
+          "formulas": [
+            {
+              "name": "STT on Option Sale",
+              "formula": "STT = 0.10% * Total Option Premium Value (\u20b9100 per Lakh)",
+              "explanation": "Statutory transaction tax levied on option sellers."
+            },
+            {
+              "name": "Derivative Turnover for Tax Audit",
+              "formula": "Turnover = Sum of Positive and Negative Differences from Trades + Option Premium Received on Sale",
+              "explanation": "Calculates business turnover under Guidance Note on Tax Audit."
+            }
+          ],
+          "highYieldTips": [
+            "Exchange-traded derivative losses CANNOT be set off against Salary income.",
+            "Brokers are mandated to display risk warnings prominently on trading terminals."
+          ]
+        }
+      ]
+    }
+  ]
+};
+
 class NismCurriculumService {
 	private curriculumCache: Map<string, NismCourseCurriculum> = new Map();
 
@@ -1319,6 +1631,9 @@ class NismCurriculumService {
 		}
 		if (cId === "nism-iv" || cId === "nism-series-iv") {
 			return NISM_IV_CURRICULUM;
+		}
+		if (cId === "nism-viii" || cId === "nism-series-viii") {
+			return NISM_VIII_CURRICULUM;
 		}
 
 		if (this.curriculumCache.has(cId)) {
