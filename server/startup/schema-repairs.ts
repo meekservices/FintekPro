@@ -2964,6 +2964,44 @@ export async function ensureSharedRouteTables(): Promise<void> {
     console.warn("  ⚠️  agent_notifications (non-fatal):", e.message?.slice(0, 80));
   }
 
+  // ── stock_prices_cache ──────────────────────────────────────────────────────
+  try {
+    await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS stock_prices_cache (
+        id             VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        symbol         VARCHAR NOT NULL UNIQUE,
+        name           TEXT NOT NULL,
+        exchange       VARCHAR NOT NULL DEFAULT 'NSE',
+        current_price  NUMERIC(15, 2) NOT NULL,
+        previous_close NUMERIC(15, 2),
+        change         NUMERIC(15, 2),
+        change_percent NUMERIC(10, 4),
+        day_high       NUMERIC(15, 2),
+        day_low        NUMERIC(15, 2),
+        open_price     NUMERIC(15, 2),
+        volume         BIGINT,
+        market_cap     NUMERIC(20, 2),
+        is_gainer      BOOLEAN DEFAULT false,
+        is_loser       BOOLEAN DEFAULT false,
+        gainer_rank    INTEGER,
+        loser_rank     INTEGER,
+        data_source    VARCHAR DEFAULT 'nse',
+        fetched_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await migDb.execute(migSql`
+      CREATE INDEX IF NOT EXISTS idx_stock_prices_symbol ON stock_prices_cache(symbol);
+      CREATE INDEX IF NOT EXISTS idx_stock_prices_gainer ON stock_prices_cache(is_gainer, gainer_rank);
+      CREATE INDEX IF NOT EXISTS idx_stock_prices_loser ON stock_prices_cache(is_loser, loser_rank);
+      CREATE INDEX IF NOT EXISTS idx_stock_prices_fetched ON stock_prices_cache(fetched_at);
+    `);
+    console.log("  ✅ stock_prices_cache: ready");
+  } catch (e: any) {
+    console.warn("  ⚠️  stock_prices_cache (non-fatal):", e.message?.slice(0, 80));
+  }
+
   // ── partner_team_members ────────────────────────────────────────────────────
   try {
     await migDb.execute(migSql`

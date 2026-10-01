@@ -311,30 +311,44 @@ class IndianAPIMarketProvider {
 	 */
 	async fetchMarketMovers(): Promise<Stock[]> {
 		try {
-			const { indianApiService } = await import("./indian-api-service");
-			const [activeRes, trendRes] = await Promise.all([
+			const { indianApiService, cleanIndianTicker } = await import("./indian-api-service");
+			const [activeRes, trendRes] = await Promise.allSettled([
 				indianApiService.getMostActive("NSE"),
-				indianApiService.getTrending("NSE"),
+				indianApiService.getTrendingCategorized("NSE"),
 			]);
 
-			const combined = [
-				...(activeRes.success ? (activeRes.data ?? []) : []),
-				...(trendRes.success ? (trendRes.data ?? []) : []),
-			];
+			const combined: any[] = [];
 
-			// De-duplicate by ticker, keep first occurrence (MostActiveStock uses ticker/company fields)
+			// 1. Add categorized gainers and losers from trending
+			if (trendRes.status === "fulfilled" && trendRes.value.success && trendRes.value.data) {
+				const { gainers, losers } = trendRes.value.data;
+				combined.push(...(gainers ?? []), ...(losers ?? []));
+			}
+
+			// 2. Add heavyweight active stocks
+			if (activeRes.status === "fulfilled" && activeRes.value.success && activeRes.value.data) {
+				combined.push(...activeRes.value.data);
+			}
+
+			// De-duplicate by cleaned ticker
 			const seen = new Set<string>();
 			const stockQuotes: Stock[] = [];
 			for (const item of combined) {
-				if (!item.ticker || seen.has(item.ticker)) continue;
-				seen.add(item.ticker);
-				const price = item.price ?? 0;
-				const changePct = item.percent_change ?? 0;
-				const change = item.net_change ?? (price * changePct) / (100 + (changePct || 1));
+				const rawTicker = item.ticker || item.symbol || item.ric || "";
+				const symbol = cleanIndianTicker(rawTicker);
+				if (!symbol || seen.has(symbol)) continue;
+				seen.add(symbol);
+
+				const price = Number(item.price ?? 0);
+				const changePct = Number(item.percent_change ?? 0);
+				const change = Number(
+					item.net_change ?? (price * changePct) / (100 + (changePct || 1)),
+				);
 				const previousClose = price - change;
+
 				stockQuotes.push({
-					symbol: item.ticker,
-					name: item.company ?? item.ticker,
+					symbol,
+					name: item.company || symbol,
 					price: Math.round(price * 100) / 100,
 					change: Math.round(change * 100) / 100,
 					changePercent: Math.round(changePct * 100) / 100,

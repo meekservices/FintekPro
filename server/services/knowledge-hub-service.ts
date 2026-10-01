@@ -57,29 +57,107 @@ export class KnowledgeHubService {
 	}
 
 	/**
+	 * Fetches real-time top movers (gainers + losers) from live cache/IndianAPI
+	 */
+	async getRealTimeTopMovers(region: string = "india") {
+		if (region === "india") {
+			try {
+				const { marketMoversCache } = await import("./market-movers-cache");
+				const moversResult = await marketMoversCache.getMarketMovers();
+				const data = moversResult?.data;
+				if (data && (data.gainers?.length || data.losers?.length)) {
+					const movers: Array<{
+						name: string;
+						symbol?: string;
+						price?: number;
+						change: number;
+						direction: "up" | "down";
+					}> = [];
+
+					for (const g of (data.gainers || []).slice(0, 3)) {
+						movers.push({
+							name: g.name,
+							symbol: g.symbol,
+							price: g.price,
+							change: Math.abs(g.changePercent),
+							direction: "up",
+						});
+					}
+
+					for (const l of (data.losers || []).slice(0, 3)) {
+						movers.push({
+							name: l.name,
+							symbol: l.symbol,
+							price: l.price,
+							change: -Math.abs(l.changePercent),
+							direction: "down",
+						});
+					}
+
+					if (movers.length > 0) return movers;
+				}
+			} catch (err: any) {
+				console.warn("[KnowledgeHubService] getRealTimeTopMovers fallback:", err?.message);
+			}
+		}
+
+		return this.getDefaultTopMovers(region);
+	}
+
+	getDefaultTopMovers(region: string = "india") {
+		return region === "india"
+			? [
+					{ name: "HDFC Bank Ltd", symbol: "HDFCBANK", price: 1743.85, change: 1.45, direction: "up" as const },
+					{ name: "Tata Consultancy Services", symbol: "TCS", price: 4156.30, change: 1.12, direction: "up" as const },
+					{ name: "Reliance Industries", symbol: "RELIANCE", price: 1285.40, change: 0.85, direction: "up" as const },
+					{ name: "ICICI Bank Ltd", symbol: "ICICIBANK", price: 1287.55, change: 0.72, direction: "up" as const },
+					{ name: "Tata Motors Ltd", symbol: "TATAMOTORS", price: 980.20, change: -0.65, direction: "down" as const },
+					{ name: "Larsen & Toubro", symbol: "LT", price: 3620.00, change: 1.25, direction: "up" as const },
+				]
+			: [
+					{ name: "Apple Inc", symbol: "AAPL", price: 230.15, change: 1.15, direction: "up" as const },
+					{ name: "Microsoft Corp", symbol: "MSFT", price: 425.20, change: 0.95, direction: "up" as const },
+					{ name: "NVIDIA Corp", symbol: "NVDA", price: 122.50, change: 2.45, direction: "up" as const },
+					{ name: "Tesla Inc", symbol: "TSLA", price: 215.30, change: -1.20, direction: "down" as const },
+				];
+	}
+
+	/**
 	 * Formats a brief record with dynamic UI fields (topMovers, sectorHighlights, agentTips, sources)
 	 */
-	formatBriefForClient(brief: any) {
+	async formatBriefForClient(brief: any) {
 		if (!brief) return null;
 
 		const region = brief.region || "india";
 		const isIndia = region === "india";
 
-		const topMovers = isIndia
-			? [
-					{ name: "HDFC Bank Ltd", symbol: "HDFCBANK", change: 1.45, direction: "up" },
-					{ name: "Tata Consultancy Services", symbol: "TCS", change: 1.12, direction: "up" },
-					{ name: "Reliance Industries", symbol: "RELIANCE", change: 0.85, direction: "up" },
-					{ name: "ICICI Bank Ltd", symbol: "ICICIBANK", change: 0.72, direction: "up" },
-					{ name: "Tata Motors Ltd", symbol: "TATAMOTORS", change: -0.65, direction: "down" },
-					{ name: "Larsen & Toubro", symbol: "LT", change: 1.25, direction: "up" },
-				]
-			: [
-					{ name: "Apple Inc", symbol: "AAPL", change: 1.15, direction: "up" },
-					{ name: "Microsoft Corp", symbol: "MSFT", change: 0.95, direction: "up" },
-					{ name: "NVIDIA Corp", symbol: "NVDA", change: 2.45, direction: "up" },
-					{ name: "Tesla Inc", symbol: "TSLA", change: -1.20, direction: "down" },
-				];
+		const topMovers = brief.topMovers && brief.topMovers.length > 0
+			? brief.topMovers
+			: await this.getRealTimeTopMovers(region);
+
+		// If Indian brief has default placeholder snapshot, try to enrich with today's live indices
+		if (isIndia && (!brief.marketSnapshot || brief.marketSnapshot.includes("Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows"))) {
+			try {
+				const { indianApiService } = await import("./indian-api-service");
+				const idxRes = await indianApiService.getIndices();
+				if (idxRes.success && idxRes.data && idxRes.data.length > 0) {
+					const nifty = idxRes.data.find((i) => i.name.toUpperCase().includes("NIFTY 50"));
+					const sensex = idxRes.data.find((i) => i.name.toUpperCase().includes("SENSEX"));
+					const bankNifty = idxRes.data.find((i) => i.name.toUpperCase().includes("BANK"));
+					if (nifty && sensex) {
+						const niftyDir = nifty.netChange >= 0 ? "advanced" : "shed";
+						const sensexDir = sensex.netChange >= 0 ? "gaining" : "declining";
+						const niftyPts = `${Math.abs(nifty.netChange).toFixed(1)} pts (${nifty.percentChange >= 0 ? "+" : ""}${nifty.percentChange.toFixed(2)}%) to close at ${nifty.price.toLocaleString("en-IN")}`;
+						const sensexPts = `${Math.abs(sensex.netChange).toFixed(1)} pts (${sensex.percentChange >= 0 ? "+" : ""}${sensex.percentChange.toFixed(2)}%) to ${sensex.price.toLocaleString("en-IN")}`;
+						const bankStr = bankNifty ? ` Nifty Bank traded at ${bankNifty.price.toLocaleString("en-IN")} (${bankNifty.percentChange >= 0 ? "+" : ""}${bankNifty.percentChange.toFixed(2)}%).` : "";
+
+						brief.marketSnapshot = `Indian equity benchmarks traded with ${nifty.netChange >= 0 ? "positive" : "defensive"} momentum today. Frontline index Nifty 50 ${niftyDir} ${niftyPts}, while the 30-share BSE Sensex consolidated, ${sensexDir} ${sensexPts}.${bankStr} The benchmark 10-year Indian Government Bond (G-Sec) yield hovered near 6.84%, offering resilient real yield spreads. Domestic institutional inflows (DIIs) provided strong underlying liquidity support through ongoing mutual fund SIP commitments (~₹26,000+ Cr monthly run-rate).`;
+					}
+				}
+			} catch (err: any) {
+				console.warn("[KnowledgeHubService] Live index enrichment failed:", err?.message);
+			}
+		}
 
 		const sectorHighlights = isIndia
 			? [
@@ -125,7 +203,66 @@ export class KnowledgeHubService {
 
 		return {
 			...brief,
-			topMovers: brief.topMovers || topMovers,
+			topMovers,
+			sectorHighlights: brief.sectorHighlights || sectorHighlights,
+			agentTips: brief.agentTips || agentTips,
+			sources: brief.sources || sources,
+		};
+	}
+
+	formatBriefForClientSync(brief: any) {
+		if (!brief) return null;
+
+		const region = brief.region || "india";
+		const isIndia = region === "india";
+
+		const topMovers = brief.topMovers || this.getDefaultTopMovers(region);
+
+		const sectorHighlights = isIndia
+			? [
+					{
+						sector: "Banking & Financials (Nifty Bank)",
+						trend: "Bullish",
+						outlook: "Expanding credit growth (+14% YoY), benign credit costs, and resilient net interest margins (NIMs).",
+					},
+					{
+						sector: "Information Technology (Nifty IT)",
+						trend: "Neutral to Positive",
+						outlook: "Cloud modernization and enterprise AI mandates underpinning multi-year pipeline deals.",
+					},
+					{
+						sector: "Automobile & Auto Ancillary",
+						trend: "Positive",
+						outlook: "Healthy festive dispatch bookings, premium SUV product mix, and moderating input commodity costs.",
+					},
+					{
+						sector: "Fixed Income & Sovereign Debt",
+						trend: "Stable / Attractive",
+						outlook: "10-year benchmark G-Sec yield consolidated at 6.84%, offering superior real returns.",
+					},
+				]
+			: [
+					{
+						sector: "Tech & Megacap Growth",
+						trend: "Bullish",
+						outlook: "Hyperscaler capex investments in semiconductor & AI clusters continuing at scale.",
+					},
+					{
+						sector: "Fixed Income / US Treasuries",
+						trend: "Yield Consolidation",
+						outlook: "10-year US Treasury hovering at 4.15% anticipating monetary easing cycle.",
+					},
+				];
+
+		const agentTips = isIndia
+			? "Counsel clients against trying to time near-term volatility. Recommend balanced multi-asset allocation strategies and continuing systematic investment plans (SIPs) to benefit from rupee-cost averaging."
+			: "Highlight global diversification benefits. Recommend curated US tech ETF baskets to complement domestic core portfolios.";
+
+		const sources = ["NSE Live Indices", "BSE S&P Sensex", "RBI Economic Bulletins", "SEBI Disclosures"];
+
+		return {
+			...brief,
+			topMovers,
 			sectorHighlights: brief.sectorHighlights || sectorHighlights,
 			agentTips: brief.agentTips || agentTips,
 			sources: brief.sources || sources,
@@ -136,9 +273,33 @@ export class KnowledgeHubService {
 		const date = dateStr || new Date().toISOString().split("T")[0];
 		const isIndia = region === "india";
 
-		const marketSnapshot = isIndia
+		let marketSnapshot = isIndia
 			? "Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield remained steady at 6.84%, offering attractive real yield spreads for fixed income investors."
 			: "US equities traded higher with the S&P 500 and Nasdaq supported by megacap technology earnings and steady labor market prints. 10-year Treasury yields consolidated as markets digested central bank policy commentary.";
+
+		// Fetch live Indian indices for realistic market snapshot
+		if (isIndia) {
+			try {
+				const { indianApiService } = await import("./indian-api-service");
+				const idxRes = await indianApiService.getIndices();
+				if (idxRes.success && idxRes.data && idxRes.data.length > 0) {
+					const nifty = idxRes.data.find((i) => i.name.toUpperCase().includes("NIFTY 50"));
+					const sensex = idxRes.data.find((i) => i.name.toUpperCase().includes("SENSEX"));
+					const bankNifty = idxRes.data.find((i) => i.name.toUpperCase().includes("BANK"));
+					if (nifty && sensex) {
+						const niftyDir = nifty.netChange >= 0 ? "advanced" : "shed";
+						const sensexDir = sensex.netChange >= 0 ? "gaining" : "declining";
+						const niftyPts = `${Math.abs(nifty.netChange).toFixed(1)} pts (${nifty.percentChange >= 0 ? "+" : ""}${nifty.percentChange.toFixed(2)}%) to close at ${nifty.price.toLocaleString("en-IN")}`;
+						const sensexPts = `${Math.abs(sensex.netChange).toFixed(1)} pts (${sensex.percentChange >= 0 ? "+" : ""}${sensex.percentChange.toFixed(2)}%) to ${sensex.price.toLocaleString("en-IN")}`;
+						const bankStr = bankNifty ? ` Nifty Bank traded at ${bankNifty.price.toLocaleString("en-IN")} (${bankNifty.percentChange >= 0 ? "+" : ""}${bankNifty.percentChange.toFixed(2)}%).` : "";
+
+						marketSnapshot = `Indian equity benchmarks traded with ${nifty.netChange >= 0 ? "positive" : "defensive"} momentum today. Frontline index Nifty 50 ${niftyDir} ${niftyPts}, while the 30-share BSE Sensex consolidated, ${sensexDir} ${sensexPts}.${bankStr} The benchmark 10-year Indian Government Bond (G-Sec) yield hovered near 6.84%, offering resilient real yield spreads. Domestic institutional inflows (DIIs) provided strong underlying liquidity support through ongoing mutual fund SIP commitments (~₹26,000+ Cr monthly run-rate).`;
+					}
+				}
+			} catch (idxErr: any) {
+				console.warn("[KnowledgeHubService] Live index fetch in generateAndPublishDailyBrief:", idxErr?.message);
+			}
+		}
 
 		const whatChanged = isIndia
 			? "1. RBI Macroeconomic Stability: Systemic liquidity remained comfortable, and inflation prints tracking within the RBI target band.\n2. Institutional Inflows: Domestic Mutual Funds registered net equity inflows, continuing strong SIP momentum (~Rs 26,000+ Cr monthly run-rate).\n3. Corporate Balance Sheets: Capex announcements in infrastructure, defense, and renewables reinforced long-term domestic investment themes."
@@ -185,10 +346,10 @@ export class KnowledgeHubService {
 				.values(briefData as any)
 				.returning();
 
-			return this.formatBriefForClient(inserted[0]);
+			return await this.formatBriefForClient(inserted[0]);
 		} catch (err: any) {
 			console.warn("[KnowledgeHubService] DB insert error in generateBrief:", err.message);
-			return this.formatBriefForClient({
+			return await this.formatBriefForClient({
 				id: `mb-auto-${date}-${region}`,
 				...briefData,
 			});
@@ -219,7 +380,7 @@ export class KnowledgeHubService {
 			? "Remind clients that market fluctuations are natural during benchmark consolidation. Guide conservative investors towards multi-asset funds to smooth portfolio volatility while capturing upside."
 			: "Encourage clients to maintain 10–15% international asset diversification to hedge domestic currency risk.";
 
-		return this.formatBriefForClient({
+		return this.formatBriefForClientSync({
 			id: `mb-fallback-${date}-${region}`,
 			date,
 			region,
@@ -254,7 +415,7 @@ export class KnowledgeHubService {
 				.limit(1);
 
 			if (briefs.length > 0 && briefs[0]) {
-				const formatted = this.formatBriefForClient(briefs[0]);
+				const formatted = await this.formatBriefForClient(briefs[0]);
 				if (formatted && formatted.marketSnapshot) {
 					return formatted;
 				}
@@ -287,7 +448,7 @@ export class KnowledgeHubService {
 				.limit(1);
 
 			if (briefs.length > 0) {
-				return this.formatBriefForClient(briefs[0]);
+				return await this.formatBriefForClient(briefs[0]);
 			}
 			return await this.getTodaysBrief(region);
 		} catch (err: any) {
@@ -312,7 +473,7 @@ export class KnowledgeHubService {
 
 			const results = await query.orderBy(desc(marketBriefs.date)).limit(limit);
 			if (results.length > 0) {
-				return results.map((b) => this.formatBriefForClient(b));
+				return await Promise.all(results.map((b) => this.formatBriefForClient(b)));
 			}
 
 			// If empty, return at least today's generated brief in the list

@@ -231,6 +231,46 @@ export interface MostActiveStock {
 	overall_rating?: string;
 }
 
+export interface MarketIndex {
+	name: string;
+	price: number;
+	percentChange: number;
+	netChange: number;
+	tickerId?: string;
+	exchangeType?: string;
+	date?: string;
+	time?: string;
+}
+
+export const RIC_TO_NSE_SYMBOL_MAP: Record<string, string> = {
+	KTKM: "KOTAKBANK",
+	TISC: "TATASTEEL",
+	HDBK: "HDFCBANK",
+	RELI: "RELIANCE",
+	WIPR: "WIPRO",
+	CNBK: "CANBK",
+	ADAN: "ADANIPOWER",
+	SAMD: "MOTHERSON",
+	JIOF: "JIOFIN",
+	ETEA: "ETERNAL",
+	SBIN: "SBIN",
+	ICBK: "ICICIBANK",
+	AXBK: "AXISBANK",
+	LART: "LT",
+	INFO: "INFY",
+	TCS: "TCS",
+	BAF: "BAJFINANCE",
+	MRTI: "MARUTI",
+	ITC: "ITC",
+	HLL: "HINDUNILVR",
+};
+
+export function cleanIndianTicker(tickerOrRic: string): string {
+	if (!tickerOrRic) return "";
+	const cleaned = tickerOrRic.toUpperCase().replace(/\.NS$|\.BO$|\.BSE$/, "").trim();
+	return RIC_TO_NSE_SYMBOL_MAP[cleaned] || cleaned;
+}
+
 export interface MutualFundSummary {
 	id: string;
 	name: string;
@@ -418,19 +458,23 @@ class IndianAPIService {
 				const endpoint = exchange === "NSE" ? "/NSE_most_active" : "/BSE_most_active";
 				const r = await this.retryWithBackoff(() => this.client.get(endpoint));
 				const rawList: any[] = Array.isArray(r.data) ? r.data : r.data?.data ?? [];
-				return this.makeResult<MostActiveStock[]>(rawList.map((s: any) => ({
-					ticker: s.ticker ?? s.symbol ?? "",
-					company: s.company ?? s.companyName ?? "",
-					price: Number(s.price ?? 0),
-					percent_change: Number(s.percent_change ?? s.pChange ?? 0),
-					net_change: Number(s.net_change ?? s.change ?? 0),
-					volume: Number(s.volume ?? 0),
-					high: Number(s.high ?? 0),
-					low: Number(s.low ?? 0),
-					week_high_52: Number(s["52_week_high"] ?? s.weekHigh52 ?? 0),
-					week_low_52: Number(s["52_week_low"] ?? s.weekLow52 ?? 0),
-					overall_rating: s.overall_rating,
-				})));
+				return this.makeResult<MostActiveStock[]>(rawList.map((s: any) => {
+					const rawTicker = s.ticker ?? s.symbol ?? s.ric ?? s.ticker_id ?? "";
+					const cleanTicker = cleanIndianTicker(rawTicker);
+					return {
+						ticker: cleanTicker,
+						company: s.company ?? s.company_name ?? s.companyName ?? cleanTicker,
+						price: Number(s.price ?? s.lastPrice ?? 0),
+						percent_change: Number(s.percent_change ?? s.percentChange ?? s.pChange ?? 0),
+						net_change: Number(s.net_change ?? s.netChange ?? s.change ?? 0),
+						volume: Number(s.volume ?? 0),
+						high: Number(s.high ?? 0),
+						low: Number(s.low ?? 0),
+						week_high_52: Number(s["52_week_high"] ?? s.weekHigh52 ?? 0),
+						week_low_52: Number(s["52_week_low"] ?? s.weekLow52 ?? 0),
+						overall_rating: s.overall_rating ?? s.overallRating,
+					};
+				}));
 			} catch (error: any) {
 				logger.error(`[IndianAPI] getMostActive(${exchange}) error: ${error.message}`);
 				return this.makeError(error.message);
@@ -446,22 +490,109 @@ class IndianAPIService {
 				const r = await this.retryWithBackoff(() =>
 					this.client.get("/trending", { params: { exchange } }),
 				);
-				const rawList: any[] = r.data?.trending_stocks ?? (Array.isArray(r.data) ? r.data : []);
-				return this.makeResult<MostActiveStock[]>(rawList.map((s: any) => ({
-					ticker: s.ticker ?? s.symbol ?? "",
-					company: s.company ?? s.companyName ?? "",
-					price: Number(s.price ?? 0),
-					percent_change: Number(s.percent_change ?? s.pChange ?? 0),
-					net_change: Number(s.net_change ?? s.change ?? 0),
-					volume: Number(s.volume ?? 0),
-					high: Number(s.high ?? 0),
-					low: Number(s.low ?? 0),
-					week_high_52: Number(s["52_week_high"] ?? 0),
-					week_low_52: Number(s["52_week_low"] ?? 0),
-					overall_rating: s.overall_rating,
-				})));
+				let rawList: any[] = [];
+				if (Array.isArray(r.data)) {
+					rawList = r.data;
+				} else if (r.data?.trending_stocks) {
+					if (Array.isArray(r.data.trending_stocks)) {
+						rawList = r.data.trending_stocks;
+					} else if (typeof r.data.trending_stocks === "object") {
+						const gainers = Array.isArray(r.data.trending_stocks.top_gainers) ? r.data.trending_stocks.top_gainers : [];
+						const losers = Array.isArray(r.data.trending_stocks.top_losers) ? r.data.trending_stocks.top_losers : [];
+						rawList = [...gainers, ...losers];
+					}
+				} else if (Array.isArray(r.data?.data)) {
+					rawList = r.data.data;
+				}
+
+				return this.makeResult<MostActiveStock[]>(rawList.map((s: any) => {
+					const rawTicker = s.ticker ?? s.symbol ?? s.ric ?? s.ticker_id ?? "";
+					const cleanTicker = cleanIndianTicker(rawTicker);
+					return {
+						ticker: cleanTicker,
+						company: s.company ?? s.company_name ?? s.companyName ?? cleanTicker,
+						price: Number(s.price ?? s.lastPrice ?? 0),
+						percent_change: Number(s.percent_change ?? s.percentChange ?? s.pChange ?? 0),
+						net_change: Number(s.net_change ?? s.netChange ?? s.change ?? 0),
+						volume: Number(s.volume ?? 0),
+						high: Number(s.high ?? 0),
+						low: Number(s.low ?? 0),
+						week_high_52: Number(s["52_week_high"] ?? s.year_high ?? 0),
+						week_low_52: Number(s["52_week_low"] ?? s.year_low ?? 0),
+						overall_rating: s.overall_rating ?? s.overallRating,
+					};
+				}));
 			} catch (error: any) {
 				logger.error(`[IndianAPI] getTrending(${exchange}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.MARKET);
+	}
+
+	async getTrendingCategorized(exchange: "NSE" | "BSE" = "NSE"): Promise<IndianAPIResult<{ gainers: MostActiveStock[]; losers: MostActiveStock[] }>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "trending_categorized", exchange);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/trending", { params: { exchange } }),
+				);
+				const trendingObj = r.data?.trending_stocks;
+				const rawGainers: any[] = Array.isArray(trendingObj?.top_gainers) ? trendingObj.top_gainers : [];
+				const rawLosers: any[] = Array.isArray(trendingObj?.top_losers) ? trendingObj.top_losers : [];
+
+				const mapItem = (s: any): MostActiveStock => {
+					const rawTicker = s.ticker ?? s.symbol ?? s.ric ?? s.ticker_id ?? "";
+					const cleanTicker = cleanIndianTicker(rawTicker);
+					return {
+						ticker: cleanTicker,
+						company: s.company ?? s.company_name ?? s.companyName ?? cleanTicker,
+						price: Number(s.price ?? s.lastPrice ?? 0),
+						percent_change: Number(s.percent_change ?? s.percentChange ?? s.pChange ?? 0),
+						net_change: Number(s.net_change ?? s.netChange ?? s.change ?? 0),
+						volume: Number(s.volume ?? 0),
+						high: Number(s.high ?? 0),
+						low: Number(s.low ?? 0),
+						week_high_52: Number(s["52_week_high"] ?? s.year_high ?? 0),
+						week_low_52: Number(s["52_week_low"] ?? s.year_low ?? 0),
+						overall_rating: s.overall_rating ?? s.overallRating,
+					};
+				};
+
+				return this.makeResult<{ gainers: MostActiveStock[]; losers: MostActiveStock[] }>({
+					gainers: rawGainers.map(mapItem),
+					losers: rawLosers.map(mapItem),
+				});
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getTrendingCategorized(${exchange}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.MARKET);
+	}
+
+	async getIndices(): Promise<IndianAPIResult<MarketIndex[]>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "indices", "all");
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() => this.client.get("/indices"));
+				const rawList: any[] = Array.isArray(r.data?.indices)
+					? r.data.indices
+					: Array.isArray(r.data)
+					? r.data
+					: [];
+				return this.makeResult<MarketIndex[]>(rawList.map((idx: any) => ({
+					name: String(idx.name || ""),
+					price: Number(idx.price || 0),
+					percentChange: Number(idx.percentChange || idx.percent_change || 0),
+					netChange: Number(idx.netChange || idx.net_change || 0),
+					tickerId: idx.tickerId,
+					exchangeType: idx.exchangeType,
+					date: idx.date,
+					time: idx.time,
+				})));
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getIndices() error: ${error.message}`);
 				return this.makeError(error.message);
 			}
 		}, TTL.MARKET);
@@ -481,13 +612,24 @@ class IndianAPIService {
 		}, TTL.MARKET);
 	}
 
-	async get52WeekHighLow(): Promise<IndianAPIResult<{ nse: any[]; bse: any[] }>> {
+	async get52WeekHighLow(): Promise<IndianAPIResult<{ nse: { high: any[]; low: any[] }; bse: { high: any[]; low: any[] } }>> {
 		if (!this.isConfigured) return this.notConfigured();
 		const key = requestDedupeService.createKey("indian_api", "52whl", "all");
 		return requestDedupeService.dedupe(key, async () => {
 			try {
 				const r = await this.retryWithBackoff(() => this.client.get("/fetch_52_week_high_low_data"));
-				return this.makeResult({ nse: r.data?.NSE_52WeekHighLow ?? [], bse: r.data?.BSE_52WeekHighLow ?? [] });
+				const nseRaw = r.data?.NSE_52WeekHighLow ?? {};
+				const bseRaw = r.data?.BSE_52WeekHighLow ?? {};
+				return this.makeResult({
+					nse: {
+						high: Array.isArray(nseRaw.high52Week) ? nseRaw.high52Week : (Array.isArray(nseRaw) ? nseRaw : []),
+						low: Array.isArray(nseRaw.low52Week) ? nseRaw.low52Week : [],
+					},
+					bse: {
+						high: Array.isArray(bseRaw.high52Week) ? bseRaw.high52Week : (Array.isArray(bseRaw) ? bseRaw : []),
+						low: Array.isArray(bseRaw.low52Week) ? bseRaw.low52Week : [],
+					},
+				});
 			} catch (error: any) {
 				logger.error(`[IndianAPI] get52WeekHighLow() error: ${error.message}`);
 				return this.makeError(error.message);

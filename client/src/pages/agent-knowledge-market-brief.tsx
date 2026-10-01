@@ -6,13 +6,11 @@ import {
 	TrendingDown,
 	Calendar,
 	AlertTriangle,
-	Globe,
 	ChevronLeft,
 	RefreshCw,
 	Clock,
 	BarChart3,
 	Newspaper,
-	Sparkles,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -25,7 +23,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 
@@ -38,6 +35,7 @@ interface MarketBrief {
 	topMovers: {
 		name: string;
 		symbol?: string;
+		price?: number;
 		change: number;
 		direction: "up" | "down";
 	}[];
@@ -156,7 +154,7 @@ export default function AgentKnowledgeMarketBrief() {
 				);
 				if (response.ok) {
 					const data = await response.json();
-					if (data && data.marketSnapshot) return data;
+					if (data?.marketSnapshot) return data;
 				}
 			} catch (e) {
 				console.warn("apiRequest failed, attempting direct fetch:", e);
@@ -168,7 +166,7 @@ export default function AgentKnowledgeMarketBrief() {
 				);
 				if (res.ok) {
 					const data = await res.json();
-					if (data && data.marketSnapshot) return data;
+					if (data?.marketSnapshot) return data;
 				}
 			} catch (err) {
 				console.warn("fetch failed:", err);
@@ -215,7 +213,7 @@ export default function AgentKnowledgeMarketBrief() {
 	];
 
 	const briefToDisplay =
-		todaysBrief && todaysBrief.marketSnapshot
+		todaysBrief?.marketSnapshot
 			? todaysBrief
 			: getClientFallbackBrief(selectedRegion);
 
@@ -344,9 +342,16 @@ export default function AgentKnowledgeMarketBrief() {
 														: "bg-red-500/10 border-red-500/30"
 												}`}
 											>
-												<p className="font-medium text-foreground text-sm">
-													{mover.name}
-												</p>
+												<div className="flex items-start justify-between gap-1">
+													<p className="font-medium text-foreground text-sm truncate">
+														{mover.name}
+													</p>
+													{mover.price !== undefined && mover.price !== null && (
+														<span className="text-xs font-mono font-semibold text-foreground/80 shrink-0">
+															₹{mover.price.toLocaleString("en-IN")}
+														</span>
+													)}
+												</div>
 												{mover.symbol && (
 													<p className="text-xs text-muted-foreground">
 														{mover.symbol}
