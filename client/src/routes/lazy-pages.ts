@@ -391,6 +391,9 @@ export const FestivalGreetingPreview = lazyWithRetry(
 export const AgentKnowledgeProducts = lazyWithRetry(
 	() => import("@/pages/agent-knowledge-products"),
 );
+export const AgentProductDetail = lazyWithRetry(
+	() => import("@/pages/agent-product-detail"),
+);
 export const AgentKnowledgeExplanations = lazyWithRetry(
 	() => import("@/pages/agent-knowledge-explanations"),
 );

@@ -855,10 +855,10 @@ export default function AgentKnowledgeCertifications() {
 				});
 				return;
 			}
-			setPospQuestions(data.questions || []);
-			setPospAnswers({});
-			setPospResult(null);
-			setPospExamOpen(true);
+			window.open(
+				"/agent/knowledge-hub/practice-test?courseId=irdai-posp&paper=paper-1&testType=exam",
+				"_blank",
+			);
 		} catch (err: any) {
 			toast({
 				title: "Exam Error",

@@ -15,6 +15,7 @@ import {
 	Check,
 	Smartphone,
 	Mail,
+	ExternalLink,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -316,6 +317,26 @@ export default function AgentKnowledgeProducts() {
 										))}
 									</div>
 								)}
+								<div className="flex items-center justify-between pt-2.5 mt-2.5 border-t border-border/50">
+									<Button
+										size="sm"
+										variant="outline"
+										className="h-7 text-xs border-amber-500/40 text-amber-400 hover:bg-amber-500/10 gap-1 px-2 font-medium"
+										onClick={(e) => {
+											e.stopPropagation();
+											window.open(
+												`/agent/knowledge-hub/products/${encodeURIComponent(product.id)}`,
+												"_blank",
+											);
+										}}
+									>
+										<ExternalLink className="h-3 w-3" />
+										<span>Dossier & Pitch</span>
+									</Button>
+									<span className="text-[11px] text-muted-foreground hover:text-foreground">
+										Quick Preview →
+									</span>
+								</div>
 							</CardContent>
 						</Card>
 					))}
@@ -344,7 +365,7 @@ export default function AgentKnowledgeProducts() {
 					{selectedProduct && (
 						<>
 							<DialogHeader>
-								<div className="flex items-start justify-between">
+								<div className="flex items-start justify-between gap-3">
 									<div>
 										<DialogTitle className="text-foreground text-xl">
 											{selectedProduct.title}
@@ -355,11 +376,29 @@ export default function AgentKnowledgeProducts() {
 											{selectedProduct.productType.replace(/_/g, " ")}
 										</DialogDescription>
 									</div>
-									<Badge
-										className={getRiskBadgeColor(selectedProduct.riskProfile)}
-									>
-										{selectedProduct.riskProfile}
-									</Badge>
+									<div className="flex items-center gap-2">
+										<Badge
+											className={getRiskBadgeColor(selectedProduct.riskProfile)}
+										>
+											{selectedProduct.riskProfile}
+										</Badge>
+										<Button
+											size="sm"
+											variant="outline"
+											className="h-7 text-xs border-amber-500/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 gap-1 px-2 font-medium"
+											onClick={() => {
+												const pid = selectedProduct.id;
+												setSelectedProduct(null);
+												window.open(
+													`/agent/knowledge-hub/products/${encodeURIComponent(pid)}`,
+													"_blank",
+												);
+											}}
+										>
+											<ExternalLink className="h-3 w-3" />
+											<span className="hidden sm:inline">Open Full Page</span>
+										</Button>
+									</div>
 								</div>
 							</DialogHeader>
 							<ScrollArea className="max-h-[60vh]">

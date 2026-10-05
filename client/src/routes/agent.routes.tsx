@@ -49,6 +49,7 @@ import {
 	AgentKnowledgeMarketBrief,
 	FestivalGreetingPreview,
 	AgentKnowledgeProducts,
+	AgentProductDetail,
 	AgentKnowledgeExplanations,
 	AgentKnowledgeCertifications,
 	AgentPracticeTest,
@@ -460,6 +461,24 @@ export function AgentRoutes() {
 					<AgentLayout>
 						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
 							<AgentKnowledgeProducts />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
+			<Route path="/agent/knowledge-hub/products/:id">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AgentProductDetail />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
+			<Route path="/agent/knowledge-hub/product-detail">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AgentProductDetail />
 						</Suspense>
 					</AgentLayout>
 				)}
