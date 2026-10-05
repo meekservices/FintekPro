@@ -15,7 +15,6 @@ import {
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
@@ -40,7 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 
 interface ExplanationTemplate {
 	id: string;
@@ -276,10 +275,10 @@ export default function AgentKnowledgeExplanations() {
 				open={!!selectedTemplate}
 				onOpenChange={() => setSelectedTemplate(null)}
 			>
-				<DialogContent className="max-w-2xl max-h-[90vh] bg-background border-border">
+				<DialogContent className="max-w-4xl lg:max-w-5xl max-h-[92vh] bg-background border-border">
 					{selectedTemplate && (
 						<>
-							<DialogHeader>
+							<DialogHeader className="pb-3 border-b border-border/50">
 								<DialogTitle className="text-foreground text-xl">
 									{selectedTemplate.topic}
 								</DialogTitle>
@@ -287,46 +286,48 @@ export default function AgentKnowledgeExplanations() {
 									{selectedTemplate.category} • v{selectedTemplate.version}
 								</DialogDescription>
 							</DialogHeader>
-							<ScrollArea className="max-h-[60vh]">
-								<div className="space-y-6">
-									<div>
-										<h4 className="text-sm font-medium text-amber-400 mb-2 flex items-center gap-2">
-											<Sparkles className="h-4 w-4" />
-											Simplified Version (for clients)
-										</h4>
-										<div className="p-4 bg-card rounded-lg relative">
-											<p className="text-muted-foreground pr-8">
-												{selectedTemplate.simplifiedVersion}
-											</p>
-											<Button
-												size="sm"
-												variant="ghost"
-												className="absolute top-2 right-2"
-												onClick={() =>
-													copyToClipboard(
-														selectedTemplate.simplifiedVersion,
-														selectedTemplate.id,
-													)
-												}
-											>
-												{copiedId === selectedTemplate.id ? (
-													<Check className="h-4 w-4 text-emerald-500" />
-												) : (
-													<Copy className="h-4 w-4" />
-												)}
-											</Button>
+							<ScrollArea className="max-h-[70vh]">
+								<div className="space-y-6 pt-2">
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+										<div>
+											<h4 className="text-sm font-semibold text-amber-400 mb-2 flex items-center gap-2">
+												<Sparkles className="h-4 w-4" />
+												Simplified Version (Client Pitch & WhatsApp)
+											</h4>
+											<div className="p-4 bg-card rounded-xl border border-border/70 relative h-[calc(100%-2rem)] flex flex-col justify-between">
+												<p className="text-foreground text-sm leading-relaxed pr-8">
+													{selectedTemplate.simplifiedVersion}
+												</p>
+												<Button
+													size="sm"
+													variant="ghost"
+													className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
+													onClick={() =>
+														copyToClipboard(
+															selectedTemplate.simplifiedVersion,
+															selectedTemplate.id,
+														)
+													}
+												>
+													{copiedId === selectedTemplate.id ? (
+														<Check className="h-4 w-4 text-emerald-500" />
+													) : (
+														<Copy className="h-4 w-4" />
+													)}
+												</Button>
+											</div>
 										</div>
-									</div>
 
-									<div>
-										<h4 className="text-sm font-medium text-blue-400 mb-2 flex items-center gap-2">
-											<BookOpen className="h-4 w-4" />
-											Expert Version (technical details)
-										</h4>
-										<div className="p-4 bg-card/50 rounded-lg">
-											<p className="text-muted-foreground text-sm">
-												{selectedTemplate.expertVersion}
-											</p>
+										<div>
+											<h4 className="text-sm font-semibold text-blue-400 mb-2 flex items-center gap-2">
+												<BookOpen className="h-4 w-4" />
+												Expert Version (Technical SEBI Definition)
+											</h4>
+											<div className="p-4 bg-card/60 rounded-xl border border-border/70 h-[calc(100%-2rem)]">
+												<p className="text-muted-foreground text-sm leading-relaxed">
+													{selectedTemplate.expertVersion}
+												</p>
+											</div>
 										</div>
 									</div>
 
@@ -389,9 +390,9 @@ export default function AgentKnowledgeExplanations() {
 					</DialogHeader>
 					<div className="space-y-4">
 						<div>
-							<label className="text-sm text-muted-foreground mb-2 block">
+							<span className="text-sm text-muted-foreground mb-2 block font-medium">
 								Complex Text
-							</label>
+							</span>
 							<Textarea
 								placeholder="Paste the technical explanation here..."
 								value={customText}
@@ -417,10 +418,10 @@ export default function AgentKnowledgeExplanations() {
 						</Button>
 						{simplifiedResult && (
 							<div>
-								<label className="text-sm text-emerald-400 mb-2 block flex items-center gap-2">
+								<span className="text-sm text-emerald-400 mb-2 flex items-center gap-2 font-medium">
 									<Check className="h-4 w-4" />
 									Simplified Version
-								</label>
+								</span>
 								<div className="p-4 bg-card rounded-lg relative">
 									<p className="text-muted-foreground pr-8">
 										{simplifiedResult}

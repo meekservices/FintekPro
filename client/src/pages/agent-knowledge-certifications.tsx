@@ -280,11 +280,11 @@ export default function AgentKnowledgeCertifications() {
 	const [nismSelectedPaper, setNismSelectedPaper] = useState<string>("paper-1");
 	const [nismTestType, setNismTestType] = useState<"exam" | "practice">("practice");
 	const [isCurriculumOpen, setIsCurriculumOpen] = useState(false);
-	const [curriculumCourseId, setCurriculumCourseId] = useState<string>("nism-vd");
+	const [curriculumCourseId, _setCurriculumCourseId] = useState<string>("nism-vd");
 
 	// IRDAI Exam state
 	const [pospExamOpen, setPospExamOpen] = useState(false);
-	const [pospQuestions, setPospQuestions] = useState<PospExamQuestion[]>([]);
+	const [pospQuestions, _setPospQuestions] = useState<PospExamQuestion[]>([]);
 	const [pospAnswers, setPospAnswers] = useState<Record<string, number>>({});
 	const [pospResult, setPospResult] = useState<{
 		passed: boolean;
@@ -2007,7 +2007,7 @@ export default function AgentKnowledgeCertifications() {
 					setNismLaunchModal((prev) => ({ ...prev, isOpen: open }))
 				}
 			>
-				<DialogContent className="sm:max-w-2xl bg-card border-border shadow-2xl p-6">
+				<DialogContent className="sm:max-w-4xl lg:max-w-5xl bg-card/95 border-border/80 shadow-2xl p-6 max-h-[92vh] overflow-y-auto">
 					<DialogHeader className="pb-3 border-b border-border/50">
 						<div className="flex items-center gap-2 mb-1">
 							<div className="p-1.5 rounded-md bg-emerald-500/20 text-emerald-400">
@@ -2054,8 +2054,45 @@ export default function AgentKnowledgeCertifications() {
 							</div>
 						</div>
 
+						{/* Full-Width Study Notes Showcase Banner */}
+						<div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-card to-card border border-amber-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+							<div className="space-y-0.5">
+								<div className="flex items-center gap-2 flex-wrap">
+									<span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+										<BookOpen className="h-4 w-4" />
+										Official Curriculum Study Guide & Formula Bank
+									</span>
+									<Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px]">
+										Full Chapters • Formulas • Exam Tips
+									</Badge>
+								</div>
+								<p className="text-xs text-muted-foreground">
+									High-yield chapter-by-chapter revision notes, calculations, and SEBI regulatory traps on a dedicated page.
+								</p>
+							</div>
+							<Button
+								size="sm"
+								variant="outline"
+								className="border-amber-500/50 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 text-xs h-8 flex items-center gap-1.5 font-semibold shrink-0 shadow-sm"
+								onClick={() => {
+									const targetCourseId =
+										nismLaunchModal.launchData?.courseId ||
+										nismLaunchModal.course?.courseId ||
+										(nismLaunchModal.course as any)?.id ||
+										"nism-vd";
+									window.open(
+										`/agent/knowledge-hub/study-notes?courseId=${encodeURIComponent(targetCourseId)}`,
+										"_blank",
+									);
+								}}
+							>
+								<span>Read Study Notes (New Tab)</span>
+								<ExternalLink className="h-3.5 w-3.5" />
+							</Button>
+						</div>
+
 						{/* Action Portals: 1. Training LMS | 2. Practice Mock Test | 3. Exam Booking */}
-						<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+						<div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
 							{/* 1. LMS Portal */}
 							<div className="p-3.5 rounded-lg bg-card border border-emerald-500/30 flex flex-col justify-between hover:border-emerald-500 transition-colors">
 								<div className="space-y-1 mb-3">
@@ -2072,7 +2109,7 @@ export default function AgentKnowledgeCertifications() {
 								</div>
 								<Button
 									size="sm"
-									className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 flex items-center justify-center gap-1.5"
+									className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9 flex items-center justify-center gap-1.5 shadow-sm font-semibold"
 									onClick={() => {
 										safeOpenUrl(
 											nismLaunchModal.launchData?.portalUrl ||
@@ -2080,28 +2117,8 @@ export default function AgentKnowledgeCertifications() {
 										);
 									}}
 								>
-									Open Training Portal
+									<span>Open Training Portal</span>
 									<ExternalLink className="h-3.5 w-3.5" />
-								</Button>
-								<Button
-									size="sm"
-									variant="outline"
-									className="w-full mt-2 border-amber-500/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 text-xs h-8 flex items-center justify-center gap-1.5 font-medium shadow-sm"
-									onClick={() => {
-										const targetCourseId =
-											nismLaunchModal.launchData?.courseId ||
-											nismLaunchModal.course?.courseId ||
-											(nismLaunchModal.course as any)?.id ||
-											"nism-vd";
-										window.open(
-											`/agent/knowledge-hub/study-notes?courseId=${encodeURIComponent(targetCourseId)}`,
-											"_blank",
-										);
-									}}
-								>
-									<BookOpen className="h-3.5 w-3.5 text-amber-400" />
-									Read 22-Chapter Study Notes
-									<ExternalLink className="h-3 w-3 ml-0.5 opacity-70" />
 								</Button>
 							</div>
 
