@@ -1239,12 +1239,15 @@ export default function AgentKnowledgeCertifications() {
 													size="sm"
 													className="border-indigo-500/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/10 h-8 flex items-center gap-1.5 text-xs font-semibold px-2.5"
 													onClick={() => {
-														setCurriculumCourseId(course.courseId);
-														setIsCurriculumOpen(true);
+														window.open(
+															`/agent/knowledge-hub/study-notes?courseId=${encodeURIComponent(course.courseId)}`,
+															"_blank",
+														);
 													}}
 												>
 													<BookOpen className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
 													Study Guide & Notes
+													<ExternalLink className="h-3 w-3 ml-0.5 opacity-60" />
 												</Button>
 
 												<Button
@@ -2090,12 +2093,15 @@ export default function AgentKnowledgeCertifications() {
 											nismLaunchModal.course?.courseId ||
 											(nismLaunchModal.course as any)?.id ||
 											"nism-vd";
-										setCurriculumCourseId(targetCourseId);
-										setIsCurriculumOpen(true);
+										window.open(
+											`/agent/knowledge-hub/study-notes?courseId=${encodeURIComponent(targetCourseId)}`,
+											"_blank",
+										);
 									}}
 								>
 									<BookOpen className="h-3.5 w-3.5 text-amber-400" />
 									Read 22-Chapter Study Notes
+									<ExternalLink className="h-3 w-3 ml-0.5 opacity-70" />
 								</Button>
 							</div>
 

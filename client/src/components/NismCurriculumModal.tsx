@@ -172,6 +172,21 @@ export function NismCurriculumModal({
 								<AlertCircle className="h-3 w-3 text-red-400" />
 								<span>Negative: {curriculum?.negativeMarkingPercentage || 10}%</span>
 							</div>
+							<Button
+								size="sm"
+								variant="outline"
+								className="h-6 text-[11px] border-amber-500/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 gap-1 px-2 font-medium"
+								onClick={() => {
+									onClose();
+									window.open(
+										`/agent/knowledge-hub/study-notes?courseId=${encodeURIComponent(courseId)}&chapter=${activeChapterNumber}`,
+										"_blank",
+									);
+								}}
+							>
+								<ExternalLink className="h-3 w-3" />
+								Open Full Page
+							</Button>
 						</div>
 					</div>
 

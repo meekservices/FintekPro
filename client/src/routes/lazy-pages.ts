@@ -400,6 +400,9 @@ export const AgentKnowledgeCertifications = lazyWithRetry(
 export const AgentPracticeTest = lazyWithRetry(
 	() => import("@/pages/agent-practice-test"),
 );
+export const AgentStudyNotes = lazyWithRetry(
+	() => import("@/pages/agent-study-notes"),
+);
 export const AgentInvestmentAdvisory = lazyWithRetry(
 	() => import("@/pages/agent-investment-advisory"),
 );

@@ -462,13 +462,19 @@ export default function AgentPracticeTestPage() {
 						<Button
 							variant="outline"
 							size="sm"
-							onClick={() => setIsCurriculumOpen(true)}
+							onClick={() =>
+								window.open(
+									`/agent/knowledge-hub/study-notes?courseId=${encodeURIComponent(courseId)}`,
+									"_blank",
+								)
+							}
 							className="h-8 text-xs border-amber-500/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 gap-1 px-2.5 font-medium shadow-sm"
-							title="View Full Curriculum Notes & Formulas"
+							title="Open 22-Chapter Study Notes in New Tab"
 						>
 							<BookOpen className="h-3 w-3 text-amber-400" />
 							<span className="hidden md:inline">22-Chapter Study Notes</span>
 							<span className="md:hidden">Notes</span>
+							<ExternalLink className="h-3 w-3 ml-0.5 opacity-70" />
 						</Button>
 
 						{/* Reset */}
