@@ -4254,26 +4254,27 @@ export default function AgentModelPortfoliosPage() {
           return staticP?.goal ?? ["wealth_creation"];
         })(),
         performance: (() => {
-          // Fix E: use real NAV history when navHistoryCache has data for this portfolio.
-          // navHistoryCache rows: { month_start, nav, monthly_return, benchmark_return, ... }
-          // PerformancePoint: { date, portfolioNav, benchmarkNav }
-          // IMPORTANT: field names must match exactly — prior attempt used wrong names → NaN.
           const navRows = navHistoryCache[p.id];
           if (navRows && navRows.length >= 2) {
-            return navRows
-              .filter((r: any) => r.nav != null && Number(r.nav) > 0)
-              .map((r: any) => ({
+            // Deduplicate by calendar month (YYYY-MM) keeping the latest entry per month
+            const byMonth = new Map<string, any>();
+            for (const r of navRows) {
+              if (r.nav != null && Number(r.nav) > 0 && r.month_start) {
+                const ym = String(r.month_start).slice(0, 7);
+                byMonth.set(ym, r);
+              }
+            }
+            const dedupedRows = Array.from(byMonth.values());
+            if (dedupedRows.length >= 2) {
+              return dedupedRows.map((r: any) => ({
                 date:         new Date(r.month_start).toLocaleString("en-IN", { month: "short", year: "2-digit" }),
                 portfolioNav: Math.round(Number(r.nav) * 100) / 100,
-                // benchmark_cum_return is cumulative % from inception (e.g. 8.5 = +8.5%)
-                // Reconstruct benchmark NAV: 1000 * (1 + cum_return / 100)
                 benchmarkNav: r.benchmark_cum_return != null
                   ? Math.round(1000 * (1 + Number(r.benchmark_cum_return) / 100) * 100) / 100
-                  : undefined,
+                  : (r.benchmark_return != null ? Math.round((1000 * (1 + Number(r.benchmark_return) / 100)) * 100) / 100 : undefined),
               })) as PerformancePoint[];
+            }
           }
-          // P1 (math integrity): no synthetic fallback chart — return empty.
-          // UI shows 'Performance data loading…' until real NAV data arrives.
           return [];
         })(),
         performanceData: (() => {
@@ -4352,6 +4353,49 @@ export default function AgentModelPortfoliosPage() {
   useEffect(() => {
     setShowAllHoldings(true); // Always show all when switching portfolios
   }, [canViewFullHoldings, selectedPortfolio?.id]);
+
+  // Keep selectedPortfolio synced with livePortfolios (so navHistoryCache updates reflect immediately)
+  useEffect(() => {
+    if (selectedPortfolio?.id) {
+      const live = livePortfolios.find((p) => p.id === selectedPortfolio.id);
+      if (live && (live !== selectedPortfolio || (live.performance?.length !== selectedPortfolio.performance?.length))) {
+        setSelectedPortfolio(live);
+      }
+    }
+  }, [livePortfolios, selectedPortfolio?.id]);
+
+  // Eagerly fetch NAV history whenever a portfolio is selected
+  useEffect(() => {
+    if (selectedPortfolio?.id && !navHistoryCache[selectedPortfolio.id]) {
+      fetchNavHistory(selectedPortfolio.id);
+    }
+  }, [selectedPortfolio?.id]);
+
+  // Derived performance data for selected portfolio: falls back directly to navHistoryCache if livePortfolios memo hasn't flushed
+  const selectedPortfolioPerformance = useMemo(() => {
+    if (!selectedPortfolio) return [];
+    if (selectedPortfolio.performance && selectedPortfolio.performance.length >= 2) {
+      return selectedPortfolio.performance;
+    }
+    const navRows = navHistoryCache[selectedPortfolio.id];
+    if (navRows && navRows.length >= 2) {
+      const byMonth = new Map<string, any>();
+      for (const r of navRows) {
+        if (r.nav != null && Number(r.nav) > 0 && r.month_start) {
+          const ym = String(r.month_start).slice(0, 7);
+          byMonth.set(ym, r);
+        }
+      }
+      return Array.from(byMonth.values()).map((r: any) => ({
+        date: new Date(r.month_start).toLocaleString("en-IN", { month: "short", year: "2-digit" }),
+        portfolioNav: Math.round(Number(r.nav) * 100) / 100,
+        benchmarkNav: r.benchmark_cum_return != null
+          ? Math.round(1000 * (1 + Number(r.benchmark_cum_return) / 100) * 100) / 100
+          : (r.benchmark_return != null ? Math.round((1000 * (1 + Number(r.benchmark_return) / 100)) * 100) / 100 : undefined),
+      })) as PerformancePoint[];
+    }
+    return [];
+  }, [selectedPortfolio, navHistoryCache]);
 
   // ── FASP-AI v3.0: Proposals + Alerts state ──────────────────────────────────
   const [proposals, setProposals] = useState<Record<string, any[]>>({});
@@ -4582,6 +4626,13 @@ export default function AgentModelPortfoliosPage() {
 
   // ── Detail panel tab + on-demand holdings enrichment ─────────────────────────
   const [activeDetailTab, setActiveDetailTab] = useState("overview");
+
+  // Eagerly fetch NAV history whenever Performance tab is clicked and data is not yet cached
+  useEffect(() => {
+    if (activeDetailTab === "performance" && selectedPortfolio?.id && !navHistoryCache[selectedPortfolio.id]) {
+      fetchNavHistory(selectedPortfolio.id);
+    }
+  }, [activeDetailTab, selectedPortfolio?.id]);
 
   // Fetch enriched holdings (with live 1Y returns from mfapi.in) only when
   // user clicks the Holdings tab. Results cached 6h server-side.
@@ -5731,9 +5782,9 @@ export default function AgentModelPortfoliosPage() {
                   {/* CAGR quick stats */}
                   <div className="grid grid-cols-3 gap-3 mt-4">
                     {[
-                      { label: "1Y CAGR", value: `+${selectedPortfolio.cagr1Y}%` },
-                      { label: "3Y CAGR", value: `+${selectedPortfolio.cagr3Y}%` },
-                      { label: "5Y CAGR", value: `+${selectedPortfolio.cagr5Y}%` },
+                      { label: "1Y CAGR", value: selectedPortfolio.cagr1Y != null ? `${selectedPortfolio.cagr1Y >= 0 ? "+" : ""}${selectedPortfolio.cagr1Y}%` : "—" },
+                      { label: "3Y CAGR", value: selectedPortfolio.cagr3Y != null ? `${selectedPortfolio.cagr3Y >= 0 ? "+" : ""}${selectedPortfolio.cagr3Y}%` : "—" },
+                      { label: "5Y CAGR", value: selectedPortfolio.cagr5Y != null ? `${selectedPortfolio.cagr5Y >= 0 ? "+" : ""}${selectedPortfolio.cagr5Y}%` : "—" },
                     ].map((s) => (
                       <div key={s.label} className="bg-white/15 rounded-lg p-2 text-center">
                         <p className="text-[10px] text-indigo-200">{s.label}</p>
@@ -5842,6 +5893,20 @@ export default function AgentModelPortfoliosPage() {
                         </div>
                       ))}
                     </div>
+
+                    {/* Balanced / Hybrid Portfolio Upgrade Banner */}
+                    {(selectedPortfolio.assetClass === "hybrid" || selectedPortfolio.subCategory === "balanced" || selectedPortfolio.riskProfile === "moderate") && (
+                      <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-gradient-to-r from-indigo-50/70 to-purple-50/70 dark:from-indigo-950/20 dark:to-purple-950/20 p-3 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <Scale className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                          <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">⚖️ Dynamic Balanced Allocation Engine</span>
+                          <span className="text-[9px] bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.2 rounded font-semibold ml-auto">Hybrid Strategy</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                          Automated multi-asset balancing across equity growth, debt stability, and cash preservation. Drift-triggered rebalancing limits downside drawdown during corrections while preserving compounding participation.
+                        </p>
+                      </div>
+                    )}
 
                     {/* Allocation Pie + Legend */}
                     <Card>
@@ -6165,7 +6230,7 @@ export default function AgentModelPortfoliosPage() {
                     </p>
                   </TabsContent>
 
-                  {/* Performance Tab */}
+                    {/* Performance Tab */}
                   <TabsContent value="performance" className="space-y-4">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-medium">Simulated NAV vs Benchmark (24 months)</span>
@@ -6174,20 +6239,30 @@ export default function AgentModelPortfoliosPage() {
                         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-400 inline-block" /> {selectedPortfolio.benchmarkName}</span>
                       </div>
                     </div>
-                    <ResponsiveContainer width="100%" height={220}>
-                      <LineChart data={selectedPortfolio.performance} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
-                        <XAxis dataKey="date" tick={{ fontSize: 9 }} interval={3} />
-                        <YAxis tick={{ fontSize: 9 }} domain={["auto", "auto"]} tickFormatter={(v) => `₹${v}`} />
-                        <RechartsTooltip
-                          formatter={(v: number, name: string) => [`₹${v.toFixed(0)}`, name === "portfolioNav" ? "Portfolio NAV" : "Benchmark"]}
-                          labelStyle={{ fontSize: 10 }}
-                        />
-                        <ReferenceLine y={1000} stroke="#6B7280" strokeDasharray="4 4" strokeOpacity={0.5} />
-                        <Line type="monotone" dataKey="portfolioNav" stroke="#6366F1" strokeWidth={2} dot={false} name="portfolioNav" />
-                        <Line type="monotone" dataKey="benchmarkNav" stroke="#9CA3AF" strokeWidth={1.5} dot={false} strokeDasharray="5 3" name="benchmarkNav" />
-                      </LineChart>
-                    </ResponsiveContainer>
+                    {selectedPortfolioPerformance && selectedPortfolioPerformance.length >= 2 ? (
+                      <div className="w-full min-w-0 h-[220px]">
+                        <ResponsiveContainer width="100%" height={220} minWidth={0} key={`perf-chart-${selectedPortfolio.id}-${selectedPortfolioPerformance.length}`}>
+                          <LineChart data={selectedPortfolioPerformance} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
+                            <XAxis dataKey="date" tick={{ fontSize: 9 }} interval="preserveStartEnd" minTickGap={20} />
+                            <YAxis tick={{ fontSize: 9 }} domain={["auto", "auto"]} tickFormatter={(v) => `₹${v}`} />
+                            <RechartsTooltip
+                              formatter={(v: number, name: string) => [`₹${v.toFixed(0)}`, name === "portfolioNav" ? "Portfolio NAV" : (selectedPortfolio.benchmarkName || "Benchmark")]}
+                              labelStyle={{ fontSize: 10 }}
+                            />
+                            <ReferenceLine y={1000} stroke="#6B7280" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: "Base ₹1,000", position: "insideBottomRight", fontSize: 9, fill: "#6B7280" }} />
+                            <Line type="monotone" dataKey="portfolioNav" stroke="#6366F1" strokeWidth={2} dot={false} name="portfolioNav" />
+                            <Line type="monotone" dataKey="benchmarkNav" stroke="#9CA3AF" strokeWidth={1.5} dot={false} strokeDasharray="5 3" name="benchmarkNav" />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <div className="w-full h-[220px] rounded-lg border border-dashed border-border/80 flex flex-col items-center justify-center p-4 bg-muted/20 text-center">
+                        <RefreshCw className="h-5 w-5 animate-spin text-indigo-500 mb-2" />
+                        <p className="text-xs font-medium text-foreground">Loading simulated NAV vs Benchmark...</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">Fetching 24-month historical performance points</p>
+                      </div>
+                    )}
 
                     {/* Full performance period table — CAGR / Absolute / Monthly Rolling */}
                     <PerformancePeriodTable portfolioId={selectedPortfolio.id}
@@ -6204,7 +6279,7 @@ export default function AgentModelPortfoliosPage() {
                       returnSinceInception={selectedPortfolio.returnSinceInception}
                       benchmarkSinceInception={selectedPortfolio.benchmarkSinceInception}
                       portfolioDividendYield={selectedPortfolio.portfolioDividendYield ?? null}
-                      performance={selectedPortfolio.performance}
+                      performance={selectedPortfolioPerformance.length > 0 ? selectedPortfolioPerformance : selectedPortfolio.performance}
                       inceptionDate={selectedPortfolio.inceptionDate}
                     />
 

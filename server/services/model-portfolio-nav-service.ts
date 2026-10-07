@@ -162,14 +162,14 @@ async function fetchRealNavCurve(db: DbClient, portfolio: any): Promise<MonthRow
   try {
     const res = await db.execute(sql`
       SELECT
-        month_year::TEXT                        AS month_start,
-        AVG(return_percent::NUMERIC)            AS avg_return_pct,
-        AVG(benchmark_return::NUMERIC)          AS avg_bench_pct
+        TO_CHAR(DATE_TRUNC('month', month_year::DATE), 'YYYY-MM-01') AS month_start,
+        AVG(return_percent::NUMERIC)                                 AS avg_return_pct,
+        AVG(benchmark_return::NUMERIC)                               AS avg_bench_pct
       FROM mf_monthwise_performance
       WHERE scheme_code = ANY(${schemeCodes})
         AND month_year >= COALESCE(${inceptionFilter}::DATE, NOW() - INTERVAL '3 years')
-      GROUP BY month_year
-      ORDER BY month_year ASC
+      GROUP BY DATE_TRUNC('month', month_year::DATE)
+      ORDER BY DATE_TRUNC('month', month_year::DATE) ASC
     `);
 
     let rows = ((res as any).rows ?? []) as any[];
@@ -283,7 +283,7 @@ export async function computeAndStorePortfolioNavHistory(
            benchmark_return, benchmark_cum_return, had_rebalance_event, rebalance_trigger,
            source, engine_version, updated_at)
         VALUES
-          (${pid}, ${row.month_start}, ${row.portfolio_nav},
+          (${pid}, ${monthKey}, ${row.portfolio_nav},
            ${Number(monthlyReturn.toFixed(4))}, ${Number(absoluteReturn.toFixed(4))},
            ${Number(benchReturn.toFixed(4))}, ${Number(benchCumReturn.toFixed(4))},
            ${hadRebal}, ${rebalTrigger},
