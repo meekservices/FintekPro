@@ -120,7 +120,12 @@ export function checkRiskBudget(
   let weightedBeta = 0;
   for (const h of proposedHoldings) {
     const w = Number(h.weight ?? 0);
-    const b = h.beta != null ? Number(h.beta) : 1.0; // default beta = 1 (market)
+    const isDebtOrCash =
+      (h.type && ["debt", "liquid", "cash", "bond", "fixed_income", "fd", "fixed_deposit"].some(t => h.type!.toLowerCase().includes(t))) ||
+      (h.sector && ["debt", "liquid", "cash", "bond", "fixed income", "treasury"].some(s => h.sector!.toLowerCase().includes(s))) ||
+      (h.name && ["liquid", "debt", "bond", "g-sec", "treasury", "fixed deposit"].some(n => h.name.toLowerCase().includes(n)));
+    const defaultBeta = isDebtOrCash ? 0.05 : 1.0;
+    const b = h.beta != null ? Number(h.beta) : defaultBeta;
     weightedBeta += (w / 100) * b;
     totalWeight += w;
   }

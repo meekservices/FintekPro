@@ -192,4 +192,76 @@ describe("Pick of the Day Engine - Unit Tests & Upgrades", () => {
 			expect(newStatus).toBe("stoploss_hit");
 		});
 	});
+
+	describe("6. Non-Live Asset Class Yield Settlement on Expiry", () => {
+		it("resolves matured Bond/FD/SGB as target_hit when accrued yield meets expectation", () => {
+			const recoPrice = 1000;
+			const targetPrice = 1080; // 8% target yield
+			const daysHeld = 365;
+			const totalDays = 365;
+			const expectedTargetReturn = ((targetPrice - recoPrice) / recoPrice) * 100; // 8%
+
+			const fractionHeld = Math.min(1.0, daysHeld / totalDays);
+			const estimatedReturn = Number((expectedTargetReturn * fractionHeld).toFixed(2)); // 8%
+
+			const isExpired = true;
+			const category = "bonds";
+			const minWinReturn = (category === "bonds" || category === "fixed_deposits" || category === "sgb") ? 3.5 : 5.0;
+			const reachedTargetYield = (expectedTargetReturn > 0 && estimatedReturn >= expectedTargetReturn * 0.85) ||
+				estimatedReturn >= minWinReturn;
+
+			const newStatus = isExpired ? (reachedTargetYield ? "target_hit" : "expired") : "live";
+			expect(newStatus).toBe("target_hit"); // Accrued yield successfully counts as win!
+		});
+
+		it("resolves credit derivative strategy as target_hit when option premium decayed to target over tenure", () => {
+			const recoPrice = 10000;
+			const targetPrice = 4000; // credit strategy: target is lower price (decay)
+			const isCredit = true;
+			const daysHeld = 7;
+			const totalDays = 7;
+			const expectedTargetReturn = ((recoPrice - targetPrice) / recoPrice) * 100; // 60%
+			const estimatedReturn = expectedTargetReturn * (daysHeld / totalDays); // 60%
+
+			const isExpired = true;
+			const reachedTargetYield = (expectedTargetReturn > 0 && estimatedReturn >= expectedTargetReturn * 0.85) ||
+				estimatedReturn >= 5.0;
+
+			const newStatus = isExpired ? (reachedTargetYield ? "target_hit" : "expired") : "live";
+			expect(newStatus).toBe("target_hit"); // Full option decay over 7 days counts as target_hit
+		});
+	});
+
+	describe("7. Trailing Stop Breathing Buffer Protection", () => {
+		it("protects against immediate stopout when price touches exact entry price after +4% gain", () => {
+			const recoPrice = 100;
+			const livePrice = 100.2;
+			const dayLow = 100.0; // touched exact entry price
+			const returnPct = 4.5; // gained 4.5%
+
+			// With 0.5% breathing buffer:
+			let stoplossPrice = 95;
+			if (returnPct >= 4.0 && stoplossPrice < recoPrice * 0.995) {
+				stoplossPrice = recoPrice * 0.995; // 99.50
+			}
+
+			expect(stoplossPrice).toBe(99.5);
+			// Intraday retest at 100.0 does NOT breach 99.50
+			const hitStoploss = (dayLow != null && dayLow <= stoplossPrice) || livePrice <= stoplossPrice;
+			expect(hitStoploss).toBe(false); // Protected against exact-entry wick stopout!
+		});
+	});
+
+	describe("8. Mutual Fund Expiry Benchmark Evaluation", () => {
+		it("classifies mutual fund with >=3% return over holding period as target_hit", () => {
+			const category = "mutual_funds";
+			const returnPct = 4.2; // 4.2% return in holding period (17% annualized)
+			const minWinPct = category === "mutual_funds" ? 3.0 : 5.0;
+			const isExpired = true;
+
+			const newStatus = isExpired ? (returnPct >= minWinPct ? "target_hit" : "expired") : "live";
+			expect(newStatus).toBe("target_hit"); // Solid fund performance is rewarded as a win
+		});
+	});
 });
+

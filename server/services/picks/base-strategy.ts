@@ -87,7 +87,7 @@ export abstract class BaseStrategy implements IPickStrategy {
 	): { targetPct: number; stoplossPct: number; atrPct?: number } {
 		const baseTargets: Record<string, { target: number; stoploss: number }> = {
 			listed_stocks: { target: 0.10, stoploss: 0.05 }, // Calibrated swing: +10.0% target / -5.0% stop (2:1 R:R)
-			mutual_funds: { target: 0.12, stoploss: 0.05 },
+			mutual_funds: { target: 0.08, stoploss: 0.04 }, // Realistic 180-day fund target (8% upside / 4% stop, 2:1 R:R)
 			bonds: { target: 0.08, stoploss: 0.03 },
 			global_stocks: { target: 0.15, stoploss: 0.075 }, // 2:1 R:R
 			etfs: { target: 0.10, stoploss: 0.05 }, // 2:1 R:R

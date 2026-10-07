@@ -429,11 +429,15 @@ class AlgoSignalEngine {
 		const targetPrice =
 			signal === "buy"
 				? +(currentPrice + atr14 * atrMultiplier * 2).toFixed(4)
-				: +(currentPrice - atr14 * atrMultiplier * 2).toFixed(4);
+				: signal === "sell"
+					? +(currentPrice - atr14 * atrMultiplier * 2).toFixed(4)
+					: entryPrice;
 		const stopLossPrice =
 			signal === "buy"
 				? +(currentPrice - atr14 * atrMultiplier).toFixed(4)
-				: +(currentPrice + atr14 * atrMultiplier).toFixed(4);
+				: signal === "sell"
+					? +(currentPrice + atr14 * atrMultiplier).toFixed(4)
+					: entryPrice;
 
 		const suggestedNotional = NOTIONAL_BY_RISK[riskProfile];
 

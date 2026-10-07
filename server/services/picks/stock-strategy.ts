@@ -1366,23 +1366,30 @@ export class StockStrategy extends BaseStrategy {
 		const fiiBoost = getFIISectorScoreBoost(fiiSignal ?? null, stockBroadSector);
 		if (fiiBoost !== 0) score += fiiBoost;
 
-		// ── Phase 3: Apply adaptive weight-override multipliers ───────────────
+		// ── Phase 3: Apply adaptive weight-override multipliers (Surgical) ───
 		// Weight overrides are auto-written by pick-outcome-analyzer when a signal
 		// has lift < 0.7 on ≥30 closed picks (FASP-AI v3.0 defensive-only rule).
-		// Multiplier (0.80) is applied to the current score proportionally.
-		// Cache TTL: 1h — takes effect on next morning's pick generation run.
-		// Non-fatal: if adminSettings read fails, score is used unchanged.
+		// Multiplier (typically 0.80) attenuates only the relevant factor contribution,
+		// preventing a death-spiral blanket penalty across the entire candidate universe.
 		try {
 			const overrides = await _getWeightOverrides();
 			if (Object.keys(overrides).length > 0) {
-				// We apply a blended multiplier: if any signal in overrides is known
-				// to be weak, reduce the overall raw score by the weakest multiplier.
-				// This is a conservative approach — avoids per-signal decomposition complexity.
-				const minMultiplier = Math.min(...Object.values(overrides));
-				if (minMultiplier < 1.0) {
-					const penaltyApplied = Math.round(score * (1 - minMultiplier));
-					score = Math.max(0, score - penaltyApplied);
+				let factorPenalty = 0;
+				if (overrides.pe && pe > 0) {
+					factorPenalty += Math.round(15 * (1 - Math.min(1, overrides.pe)));
 				}
+				if (overrides.roic && advancedMetrics?.roic && advancedMetrics.roic > 20) {
+					factorPenalty += Math.round(10 * (1 - Math.min(1, overrides.roic)));
+				}
+				if (overrides.rsi && rsiForScore !== null && rsiForScore >= 40 && rsiForScore <= 65) {
+					factorPenalty += Math.round(8 * (1 - Math.min(1, overrides.rsi)));
+				}
+				if (overrides.piotroskiFScore && advancedMetrics?.piotroskiFScore && advancedMetrics.piotroskiFScore >= 8) {
+					factorPenalty += Math.round(15 * (1 - Math.min(1, overrides.piotroskiFScore)));
+				}
+				// Cap total deduction to 8 pts so candidate pool is not starved below threshold
+				const cappedPenalty = Math.min(8, factorPenalty);
+				score = Math.max(0, score - cappedPenalty);
 			}
 		} catch { /* non-fatal */ }
 

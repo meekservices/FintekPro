@@ -1,5 +1,6 @@
 import { db } from "../../db";
 import { quantRunLog, rebalanceDecisionLog } from "@shared/schema";
+import { logger } from "../../logger";
 import { desc, eq, and, gte } from "drizzle-orm";
 
 export interface DriftFeatures {
@@ -244,10 +245,10 @@ class DriftPredictionEngine {
 					fallbackUsed: false,
 				});
 			} catch (e) {
-				console.warn("[DriftPred] Failed to log run:", e);
+				logger.warn("[DriftPred] Failed to log run:", { error: String(e) });
 			}
 
-			console.log(
+			logger.info(
 				`[DriftPred] Prediction complete in ${runTimeMs}ms. High-risk: ${highRiskCategories.join(", ") || "none"}. Portfolio breach prob: ${(portfolioBreachProbability * 100).toFixed(1)}%`,
 			);
 
@@ -270,13 +271,13 @@ class DriftPredictionEngine {
 					fallbackUsed: true,
 				});
 			} catch (reportErr: any) {
-				console.warn(
+				logger.warn(
 					"[DriftPred] Failed to record error status:",
-					reportErr?.message,
+					{ error: reportErr?.message },
 				);
 			}
 
-			console.error("[DriftPred] Prediction failed:", error.message);
+			logger.error("[DriftPred] Prediction failed:", { error: error.message });
 			throw error;
 		}
 	}
@@ -317,20 +318,21 @@ class DriftPredictionEngine {
 		toleranceBandPct: number,
 		config: DriftPredictionConfig,
 	): number {
-		const distanceToBreachUp = toleranceBandPct - features.currentDrift;
-		const distanceToBreachDown = toleranceBandPct + features.currentDrift;
-		const minDistance = Math.min(
-			Math.abs(distanceToBreachUp),
-			Math.abs(distanceToBreachDown),
-		);
+		// If current drift has already reached or breached the tolerance band, probability is 1.0
+		if (Math.abs(features.currentDrift) >= toleranceBandPct) {
+			return 1.0;
+		}
+
+		// Remaining distance to band
+		const minDistance = toleranceBandPct - Math.abs(features.currentDrift);
+		if (minDistance <= 0) return 1.0;
 
 		const driftStd = Math.max(
 			features.historicalDriftStd,
 			features.categoryVolatility * 5,
 		);
 
-		if (driftStd === 0)
-			return Math.abs(features.currentDrift) >= toleranceBandPct ? 1.0 : 0.0;
+		if (driftStd === 0) return 0.0;
 
 		const zScore = minDistance / driftStd;
 
@@ -447,7 +449,7 @@ class DriftPredictionEngine {
 				.limit(500);
 			return rows;
 		} catch (e) {
-			console.warn("[DriftPred] Failed to fetch historical drift data:", e);
+			logger.warn("[DriftPred] Failed to fetch historical drift data:", { error: String(e) });
 			return [];
 		}
 	}

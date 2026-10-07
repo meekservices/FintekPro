@@ -157,7 +157,7 @@ export class MutualFundStrategy extends BaseStrategy {
 				stoplossPrice: stoplossNav,
 				currentPrice: currentNav,
 				status: "live",
-				expiryDate: this.getExpiryDate(90),
+				expiryDate: this.getExpiryDate(180),
 				rationale,
 				riskLevel: topFund.riskLevel || "medium",
 				suitableFor: this.deriveSuitableFor(

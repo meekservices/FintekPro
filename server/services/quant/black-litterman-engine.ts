@@ -1,5 +1,6 @@
 import { db } from "../../db";
 import { quantRunLog } from "@shared/schema";
+import { logger } from "../../logger";
 import type { MVOResult } from "./mvo-engine";
 
 export interface ViewSignal {
@@ -50,28 +51,58 @@ class BlackLittermanEngine {
 		return pi;
 	}
 
+	private matchCategoryIndex(viewCat: string, categories: string[]): number {
+		const exact = categories.indexOf(viewCat);
+		if (exact >= 0) return exact;
+
+		const lower = viewCat.toLowerCase();
+		const aliases: Record<string, string[]> = {
+			listed_stocks: ["equity", "equity_largecap", "equity_midcap", "equity_in", "stocks"],
+			mutual_funds: ["equity", "hybrid", "mf", "equity_largecap"],
+			bonds: ["debt", "debt_long_term", "debt_short_term", "fixed_income"],
+			fixed_deposits: ["debt", "cash", "liquid", "fixed_income"],
+			sgb: ["gold", "commodities"],
+			etfs: ["equity", "index", "equity_largecap"],
+			reits_invits: ["reit", "real_estate", "alternatives"],
+			global_stocks: ["international", "equity_us", "equity_global"],
+		};
+
+		const candidateAliases = aliases[lower] ?? [];
+		for (const alias of candidateAliases) {
+			const idx = categories.findIndex((c) => c.toLowerCase() === alias.toLowerCase());
+			if (idx >= 0) return idx;
+		}
+
+		return categories.findIndex(
+			(c) => c.toLowerCase().includes(lower) || lower.includes(c.toLowerCase()),
+		);
+	}
+
 	buildViewMatrices(
 		views: ViewSignal[],
 		categories: string[],
 	): { P: number[][]; Q: number[]; Omega: number[][] } {
-		const validViews = views.filter((v) => {
-			const idx = categories.indexOf(v.category);
-			return idx >= 0 && v.direction !== "NEUTRAL";
-		});
+		const resolvedViews: Array<{ view: ViewSignal; catIdx: number }> = [];
+		for (const v of views) {
+			if (v.direction === "NEUTRAL") continue;
+			const catIdx = this.matchCategoryIndex(v.category, categories);
+			if (catIdx >= 0) {
+				resolvedViews.push({ view: v, catIdx });
+			}
+		}
 
-		if (validViews.length === 0) {
+		if (resolvedViews.length === 0) {
 			return { P: [], Q: [], Omega: [] };
 		}
 
-		const k = validViews.length;
+		const k = resolvedViews.length;
 		const n = categories.length;
 
 		const P: number[][] = Array.from({ length: k }, () => Array(n).fill(0));
 		const Q: number[] = new Array(k);
 		const Omega: number[][] = Array.from({ length: k }, () => Array(k).fill(0));
 
-		validViews.forEach((view, vi) => {
-			const catIdx = categories.indexOf(view.category);
+		resolvedViews.forEach(({ view, catIdx }, vi) => {
 			P[vi][catIdx] = view.direction === "BULLISH" ? 1 : -1;
 			Q[vi] = view.magnitude * (view.direction === "BULLISH" ? 1 : -1);
 			const uncertainty = 1 / Math.max(view.confidence, 0.1);
@@ -100,7 +131,7 @@ class BlackLittermanEngine {
 
 		const tauSigmaInv = this.invertMatrix(tauSigma);
 		if (!tauSigmaInv) {
-			console.warn(
+			logger.warn(
 				"[BL] Failed to invert tau*Sigma, returning implied returns",
 			);
 			return [...impliedReturns];
@@ -109,7 +140,7 @@ class BlackLittermanEngine {
 		const Pt = this.transpose(P);
 		const OmegaInv = this.invertMatrix(Omega);
 		if (!OmegaInv) {
-			console.warn("[BL] Failed to invert Omega, returning implied returns");
+			logger.warn("[BL] Failed to invert Omega, returning implied returns");
 			return [...impliedReturns];
 		}
 
@@ -125,7 +156,7 @@ class BlackLittermanEngine {
 
 		const posteriorCov = this.invertMatrix(posteriorPrecision);
 		if (!posteriorCov) {
-			console.warn(
+			logger.warn(
 				"[BL] Failed to invert posterior precision, returning implied returns",
 			);
 			return [...impliedReturns];
@@ -257,10 +288,10 @@ class BlackLittermanEngine {
 					fallbackUsed: false,
 				});
 			} catch (e) {
-				console.warn("[BL] Failed to log run:", e);
+				logger.warn("[BL] Failed to log run:", { error: String(e) });
 			}
 
-			console.log(
+			logger.info(
 				`[BL] Tactical overlay complete in ${runTimeMs}ms. Views: ${views.length}, Active tilts: ${Object.values(tacticalTilts).filter((t) => Math.abs(t) > 0.001).length}`,
 			);
 
@@ -285,10 +316,10 @@ class BlackLittermanEngine {
 					fallbackUsed: true,
 				});
 			} catch (reportErr: any) {
-				console.warn("[BL] Failed to record error status:", reportErr?.message);
+				logger.warn("[BL] Failed to record error status:", { error: reportErr?.message });
 			}
 
-			console.error("[BL] Tactical overlay failed:", error.message);
+			logger.error("[BL] Tactical overlay failed:", { error: error.message });
 			throw error;
 		}
 	}
@@ -402,11 +433,15 @@ class BlackLittermanEngine {
 		}>,
 	): ViewSignal[] {
 		return potdPicks.map((pick) => {
-			const upside = (pick.targetPrice - pick.recoPrice) / pick.recoPrice;
+			const reco = Number(pick.recoPrice) || 1;
+			const target = Number(pick.targetPrice) || reco;
+			const upside = (target - reco) / reco;
+			// Guardrail: bound magnitude to [0.01, 0.25] (1% to 25% annual active alpha view)
+			const magnitude = Math.min(0.25, Math.max(0.01, Math.abs(upside)));
 			return {
 				category: pick.category,
 				direction: upside > 0 ? ("BULLISH" as const) : ("BEARISH" as const),
-				magnitude: Math.abs(upside),
+				magnitude,
 				confidence: (pick.confidenceScore || 50) / 100,
 				source: "POTD" as const,
 			};

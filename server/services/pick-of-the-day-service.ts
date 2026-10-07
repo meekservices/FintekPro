@@ -613,6 +613,27 @@ export class PickOfTheDayService {
 						}
 					}
 
+					// ── Fix B: Broad-sector diversity gate ───────────────────────────────
+					// For listed_stocks only: cap at 1 pick per broad sector per day to
+					// prevent IT/Financials concentration when multiple sectors score high.
+					// Must execute BEFORE savePick() to avoid persisting ghost/duplicate DB rows.
+					const bsl = (pick.keyMetrics as any)?.broadSectorLabel as string | undefined;
+					if (category === "listed_stocks" && bsl) {
+						const alreadyHasSector = generated.some(
+							(g) =>
+								g.category === "listed_stocks" &&
+								(g.keyMetrics as any)?.broadSectorLabel === bsl,
+						);
+						if (alreadyHasSector) {
+							sectorGateBlocked++;
+							logger.info(
+								`⚠️  [PickOfTheDay] Sector gate: skipping ${pick.instrumentName} ` +
+								`(broad sector "${bsl}" already represented today)`,
+							);
+							continue;
+						}
+					}
+
 					await this.savePick(pick);
 
 					// ── Phase 3: GCS Automated 1-Page PDF Investment Note ────────────────
@@ -649,25 +670,6 @@ export class PickOfTheDayService {
 					}).catch((err: Error) =>
 						logger.warn(`[FASP-AI v2] Advisory log failed for ${pick.instrumentName}: ${err.message}`),
 					);
-
-					// ── Fix B: Broad-sector diversity gate ───────────────────────────────
-					// For listed_stocks only: cap at 1 pick per broad sector per day to
-					// prevent IT/Financials concentration when multiple sectors score high.
-					const bsl = (pick.keyMetrics as any)?.broadSectorLabel as string | undefined;
-					if (category === "listed_stocks" && bsl) {
-						const alreadyHasSector = generated.some(
-							(g) =>
-								g.category === "listed_stocks" &&
-								(g.keyMetrics as any)?.broadSectorLabel === bsl,
-						);
-						if (alreadyHasSector) {
-							logger.info(
-								`⚠️  [PickOfTheDay] Sector gate: skipping ${pick.instrumentName} ` +
-								`(broad sector "${bsl}" already represented today)`,
-							);
-							continue;
-						}
-					}
 
 					generated.push(pick);
 					const sectorTag = bsl ? ` [${bsl}]` : "";
@@ -939,16 +941,16 @@ export class PickOfTheDayService {
 							? ((recoPrice - livePrice) / recoPrice) * 100
 							: ((livePrice - recoPrice) / recoPrice) * 100;
 
-						// ── Breakeven Trailing Stop ───────────────────────────────────────
+						// ── Breakeven Trailing Stop with breathing buffer ─────────────────
 						let stoplossAdjusted = false;
 						if (isCreditStrategy) {
-							if (returnPct >= 4.0 && stoplossPrice > recoPrice) {
-								stoplossPrice = recoPrice;
+							if (returnPct >= 4.0 && stoplossPrice > recoPrice * 1.005) {
+								stoplossPrice = recoPrice * 1.005;
 								stoplossAdjusted = true;
 							}
 						} else {
-							if (returnPct >= 4.0 && stoplossPrice < recoPrice) {
-								stoplossPrice = recoPrice;
+							if (returnPct >= 4.0 && stoplossPrice < recoPrice * 0.995) {
+								stoplossPrice = recoPrice * 0.995;
 								stoplossAdjusted = true;
 							}
 						}
@@ -978,8 +980,10 @@ export class PickOfTheDayService {
 						} else if (hitStoploss) {
 							newStatus = "stoploss_hit";
 						} else if (isExpired) {
-							// On expiry: if position closed with meaningful profit (>= 5%), record as target_hit win
-							newStatus = returnPct >= 5.0 ? "target_hit" : "expired";
+							// On expiry: if position closed with meaningful profit, record as target_hit win
+							// Equity/derivatives: >= 5%, Mutual funds: >= 3% (outperformed benchmark)
+							const minWinPct = category === "mutual_funds" ? 3.0 : 5.0;
+							newStatus = returnPct >= minWinPct ? "target_hit" : "expired";
 						}
 
 						await db
@@ -1013,20 +1017,37 @@ export class PickOfTheDayService {
 							);
 						}
 					} else {
-						// ── Fix 2: No live price (bonds/SGB/unlisted/FD/REIT) ─────────────
+						// ── Non-live price categories (bonds/SGB/unlisted/FD/REIT/derivatives) ─────────────
 						// Compute yield-based return so the user sees meaningful progress,
-						// and always expire picks past their expiry date.
-						const newStatus: PickStatus = isExpired ? "expired" : "live";
+						// and correctly settle picks past their expiry date based on accrued tenure yield.
+						const recoPrice = Number.parseFloat(pick.recoPrice);
+						const targetPrice = Number.parseFloat(pick.targetPrice);
+						// Estimated accrued yield (tenure-based linear daily accrual)
+						const estimatedReturn = this.estimateYieldReturn(recoPrice, targetPrice, daysHeld, pick);
+
+						let newStatus: PickStatus = pick.status;
+						if (isExpired) {
+							const isCredit = (pick.keyMetrics as any)?.isCreditStrategy === true ||
+								(category === "derivatives" && targetPrice < recoPrice && recoPrice > 0);
+							const expectedTargetReturn = isCredit
+								? ((recoPrice - targetPrice) / recoPrice) * 100
+								: (recoPrice > 0 ? ((targetPrice - recoPrice) / recoPrice) * 100 : 0);
+
+							// Fixed income/gold/credit: if accrued at least 85% of tenure target, or delivered >= 3.5% annualized yield
+							const minWinReturn = (category === "bonds" || category === "fixed_deposits" || category === "sgb") ? 3.5 : 5.0;
+							const reachedTargetYield = (expectedTargetReturn > 0 && estimatedReturn >= expectedTargetReturn * 0.85) ||
+								estimatedReturn >= minWinReturn;
+
+							newStatus = reachedTargetYield ? "target_hit" : "expired";
+						} else if (pick.status === "live") {
+							newStatus = "live";
+						}
+
 						const needsUpdate =
-							newStatus !== pick.status || // status transition (expiry)
+							newStatus !== pick.status || // status transition (expiry / target reached)
 							PickOfTheDayService.NO_LIVE_PRICE_CATEGORIES.has(category); // yield accrual
 
 						if (needsUpdate) {
-							const recoPrice = Number.parseFloat(pick.recoPrice);
-							const targetPrice = Number.parseFloat(pick.targetPrice);
-							// Estimated accrued yield (tenure-based linear daily accrual)
-							const estimatedReturn = this.estimateYieldReturn(recoPrice, targetPrice, daysHeld, pick);
-
 							await db
 								.update(dailyPicks)
 								.set({
