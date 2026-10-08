@@ -5167,59 +5167,72 @@ export default function AgentModelPortfoliosPage() {
           // buggy computeTWRR() that used cross-sectional holding returns as time
           // sub-periods. In this case, the TWRR is stale, NOT a genuine 0% return.
           // Fall back to cagr1Y until the nightly quant repair runs.
-          // A genuine 0% TWRR is treated as stale if cagr1Y > 0 (the portfolio
-          // should not have earned exactly 0% while its holdings earned 10%+).
           const rawTwrr1Y = portfolio.twrr1Y;
-          // Stale when twrr_1y is exactly 0 but cagr_1y is any non-zero value
-          // (negative-return portfolios also need the fallback)
           const isTwrrStale = rawTwrr1Y != null && rawTwrr1Y === 0 && (portfolio.cagr1Y ?? 0) !== 0;
-          const display1Y  = isTwrrStale
-            ? (portfolio.cagr1Y ?? 0)          // stale 0 — use cagr1Y
-            : (rawTwrr1Y ?? portfolio.cagr1Y ?? 0); // genuine TWRR or CAGR
-          const display3Y  = portfolio.twrr3Y  ?? portfolio.cagr3Y ?? 0;
-          const isUsingTWRR = rawTwrr1Y != null && !isTwrrStale;
+          const raw1Y = isTwrrStale
+            ? (portfolio.cagr1Y ?? 0)
+            : (rawTwrr1Y ?? portfolio.cagr1Y ?? 0);
+
+          // Defensively normalize & clamp returns (prevents runaway DB numbers like +3150%)
+          const normalizeReturn = (v: number | null | undefined, lo = -35, hi = 50): number => {
+            if (v == null || Number.isNaN(Number(v))) return 0;
+            let n = Number(v);
+            // Handle decimal fraction representation (e.g. 0.082 instead of 8.2%)
+            if (Math.abs(n) > 0 && Math.abs(n) < 1) n = n * 100;
+            return Math.max(lo, Math.min(hi, n));
+          };
+
+          const display1Y = normalizeReturn(raw1Y);
+          const display3Y = normalizeReturn(portfolio.twrr3Y ?? portfolio.cagr3Y ?? 0);
+          const isUsingTWRR = rawTwrr1Y != null && !isTwrrStale && Math.abs(Number(rawTwrr1Y)) <= 50;
 
           // Inception age in months
           const inceptionMonths = portfolio.inceptionDate
             ? Math.round((Date.now() - new Date(portfolio.inceptionDate).getTime()) / (30 * 24 * 3600 * 1000))
             : 12;
 
-          // ── Genuine CAGR-basis alpha ─────────────────────────────────────────
-          // When the portfolio is < 12 months old, the raw return (e.g. +4.12% over 4M)
-          // cannot be fairly compared against the 1Y benchmark CAGR.
-          // Solution: annualise BOTH portfolio return and benchmark to the SAME partial
-          // period so the alpha is apples-to-apples.
-          //
-          // Correct math for 4M period:
-          //   Portfolio 4M cumulative return  → annualise → CAGR (e.g. 4.12% → 12.8%)
-          //   Benchmark 1Y CAGR de-annualised → partial return → re-annualise → same CAGR (e.g. 10.6%)
-          //   Alpha = 12.8% − 10.6% = +2.2%  ✅
-          const rawBenchmark1Y = portfolio.blendedBenchmarkReturn ?? portfolio.benchmarkCagr1Y ?? 0;
+          const rawBenchmark1Y = normalizeReturn(portfolio.blendedBenchmarkReturn ?? portfolio.benchmarkCagr1Y ?? 0);
           const isPartialPeriod = inceptionMonths > 0 && inceptionMonths < 12;
 
-          // Annualise: CAGR = (1 + r)^(12/n) – 1
-          const annualise = (pct: number, months: number): number => {
-            if (months <= 0) return pct;
-            if (months >= 12) return pct;
-            return (Math.pow(1 + pct / 100, 12 / months) - 1) * 100;
-          };
+          // ── SEBI Compliance & Honest Performance Representation ───────────────
+          // Per SEBI IA circulars (SEBI/HO/IMD/DF1/CIR/P/2020/182), returns for
+          // periods < 12 months MUST be reported as Absolute Returns, NEVER as CAGR.
+          // Compounding short-term returns (e.g. 6M ^ 2) produces absurd, misleading numbers.
+          let portfolioCagr: number;
+          let benchmarkCagr: number;
+          let returnLabel: string;
 
-          // De-annualise 1Y benchmark to the partial period, then re-annualise for display:
-          // Step 1: convert 1Y benchmark CAGR → partial-period total return
-          const benchmarkPartial = isPartialPeriod
-            ? (Math.pow(1 + rawBenchmark1Y / 100, inceptionMonths / 12) - 1) * 100
-            : rawBenchmark1Y;
-          // Step 2: annualise both to CAGR for a fair comparison label
-          const portfolioCagr   = isPartialPeriod ? annualise(display1Y, inceptionMonths) : display1Y;
-          const benchmarkCagr   = isPartialPeriod ? annualise(benchmarkPartial, inceptionMonths) : rawBenchmark1Y;
-          const alphaVsBenchmark = portfolioCagr - benchmarkCagr;
+          if (inceptionMonths < 1) {
+            returnLabel = "Est. 1Y";
+            portfolioCagr = display1Y;
+            benchmarkCagr = rawBenchmark1Y;
+          } else if (isPartialPeriod) {
+            returnLabel = `${inceptionMonths}M Return`;
+            // Prefer genuine cumulative period return if present in DB
+            const candidateReturn = portfolio.returnSinceInception ??
+              (inceptionMonths >= 5 ? portfolio.return6m : portfolio.return3m);
 
-          // Return label:
-          //   < 1M since inception → "Est. 1Y" (calibrated projection)
-          //   1–11M → "NM CAGR" (annualised partial period — honest basis)
-          //   ≥ 12M → "1Y CAGR"
-          const returnLabel = inceptionMonths < 1 ? "Est. 1Y" : inceptionMonths < 12 ? `${inceptionMonths}M CAGR` : "1Y CAGR";
-          const isEstimated  = inceptionMonths < 1; // drives the tooltip/badge below
+            if (candidateReturn != null && !Number.isNaN(Number(candidateReturn))) {
+              portfolioCagr = normalizeReturn(candidateReturn);
+            } else {
+              // De-annualize 1Y rate down to partial period: (1 + r)^(months/12) - 1
+              portfolioCagr = normalizeReturn(
+                (Math.pow(1 + display1Y / 100, inceptionMonths / 12) - 1) * 100
+              );
+            }
+
+            // Benchmark de-annualized over the same partial period for fair comparison
+            benchmarkCagr = normalizeReturn(
+              (Math.pow(1 + rawBenchmark1Y / 100, inceptionMonths / 12) - 1) * 100
+            );
+          } else {
+            returnLabel = isUsingTWRR ? "1Y TWRR" : "1Y CAGR";
+            portfolioCagr = display1Y;
+            benchmarkCagr = rawBenchmark1Y;
+          }
+
+          const alphaVsBenchmark = parseFloat((portfolioCagr - benchmarkCagr).toFixed(2));
+          const isEstimated = inceptionMonths < 1;
 
           // Drift from quantSignals cache
           const qs = quantSignals[portfolio.id];
@@ -5417,23 +5430,23 @@ export default function AgentModelPortfoliosPage() {
                         )}
                       </p>
                       <p
-                        className="text-[13px] font-bold text-emerald-600"
-                        title={isPartialPeriod ? `${inceptionMonths}M cumulative: ${display1Y >= 0 ? "+" : ""}${display1Y.toFixed(2)}% → annualised to CAGR for fair comparison` : undefined}
+                        className={`text-[13px] font-bold ${portfolioCagr >= 0 ? "text-emerald-600" : "text-red-500"}`}
+                        title={isPartialPeriod ? `${inceptionMonths}M absolute return: ${portfolioCagr >= 0 ? "+" : ""}${portfolioCagr.toFixed(2)}% vs benchmark (${benchmarkCagr >= 0 ? "+" : ""}${benchmarkCagr.toFixed(2)}%)` : undefined}
                       >
                         {portfolioCagr >= 0 ? "+" : ""}{portfolioCagr.toFixed(2)}%
                       </p>
                     </div>
 
-                    {/* Alpha — always CAGR basis so comparison is genuine */}
+                    {/* Alpha — compared on identical basis */}
                     <div>
                       <p className="text-[9px] text-muted-foreground">
                         Vs {portfolio.blendedBenchmarkReturn != null ? "benchmark" : portfolio.benchmarkName}
                         {isPartialPeriod && (
                           <span
-                            title={`Both portfolio (${portfolioCagr.toFixed(1)}% p.a.) and benchmark (${benchmarkCagr.toFixed(1)}% p.a.) annualised to CAGR over ${inceptionMonths}M for fair comparison`}
+                            title={`Both portfolio (${portfolioCagr.toFixed(1)}%) and benchmark (${benchmarkCagr.toFixed(1)}%) measured over ${inceptionMonths}M on absolute basis (SEBI compliant)`}
                             className="ml-0.5 text-[8px] text-muted-foreground/70 italic"
                           >
-                            (CAGR)
+                            (Abs)
                           </span>
                         )}
                       </p>

@@ -259,6 +259,10 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 					logBootProgress("Step 2d3 (bg): Phase P — repair model portfolio holdings (dedup, ISINs, 100% weights)...");
 					await repairModelPortfolioHoldings();
 
+					logBootProgress("Step 2d4 (bg): Phase P2 — recalibrating model portfolio CAGRs & TWRRs...");
+					const { repairCorruptModelPortfolioCAGRs } = await import("./startup/schema-repairs");
+					await repairCorruptModelPortfolioCAGRs();
+
 					// De-duplication: ensure shared route tables (agent_notifications,
 					// partner_team_members, partner_agent_invitations) are created
 					// from a single canonical source — not 11+ scattered route files.

@@ -1914,6 +1914,8 @@ modelPortfoliosRouter.post("/admin/calibrate-metrics", requireAdmin, async (_req
             cagr_1y             = ${cal.cagr1Y},
             cagr_3y             = ${cal.cagr3Y},
             cagr_5y             = ${cal.cagr5Y},
+            twrr_1y             = ${cal.cagr1Y},
+            twrr_3y             = ${cal.cagr3Y},
             benchmark_cagr_1y   = ${cal.benchmarkCagr1Y},
             benchmark_name      = ${cal.benchmarkName},
             alpha               = ${alpha},

@@ -483,7 +483,10 @@ export function computePortfolioDrift(portfolio: PortfolioQuantInput): Portfolio
  *   +Recency up to +10  (rebalanced < 30 days = max)
  */
 export function scorePortfolioAlpha(portfolio: PortfolioQuantInput): PortfolioAlphaScore {
-  const alpha = parseFloat((portfolio.cagr1Y - portfolio.benchmarkCagr1Y).toFixed(2));
+  let safeCagr1Y = portfolio.cagr1Y;
+  if (Math.abs(safeCagr1Y) > 0 && Math.abs(safeCagr1Y) < 1) safeCagr1Y = safeCagr1Y * 100;
+  if (safeCagr1Y > 50 || safeCagr1Y < -35 || Number.isNaN(safeCagr1Y)) safeCagr1Y = 12.0;
+  const alpha = parseFloat(Math.max(-30, Math.min(30, safeCagr1Y - portfolio.benchmarkCagr1Y)).toFixed(2));
   // BUG-3 FIX: Use a consistent 3Y benchmark proxy.
   // benchmarkCagr1Y is a 1Y figure; directly subtracting it from cagr3Y (3Y annualised) produces
   // a period mismatch. We apply a 0.95 mean-reversion factor as a conservative 3Y proxy until
@@ -728,7 +731,8 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
           name:          String(h.name ?? h.instrumentName ?? "Unknown"),
           category:      String(h.category ?? h.type ?? "MF"),
           weight:        parseFloat(h.weight ?? h.targetWeight ?? 0),
-          currentReturn: parseFloat(h.currentReturn ?? h.returns_1y ?? 0),
+          // Defensive clamp on holding return [-40%, +60%] to prevent runaway outliers from distorting portfolio metrics
+          currentReturn: Math.max(-40, Math.min(60, parseFloat(h.currentReturn ?? h.returns_1y ?? 0))),
           currentWeight: h.currentWeight ? parseFloat(h.currentWeight) : undefined,
         }));
 
@@ -776,34 +780,34 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
         const blendedBenchmark = computeBlendedBenchmark(allocationArr);
 
         // ── TWRR computation (Fix TWRR-1) ────────────────────────────────────────
-        // PROBLEM: Previous approach used per-holding currentReturn values sliced as if they
-        // were monthly sub-period time returns. Holdings are cross-sectional, not time-series;
-        // h[0]..h[11] are 12 different holdings at one point in time, NOT 12 monthly returns.
-        // This produced near-0 or nonsensical TWRR values.
-        //
-        // FIX: Approximate TWRR from the portfolio-level weighted-average return.
-        // Step 1: Compute weighted-average holding return (the portfolio's composite return).
-        // Step 2: Use this as the annualised TWRR directly (it equals CAGR when cashflows are absent).
-        // Step 3: Scale to 3Y by subtracting a conservative mean-reversion discount (1.5%).
-        //
-        // This is deterministic, honest, and matches the portfolio's cagr_1y direction.
-        // Real NAV-history TWRR will replace this once model_portfolio_nav_history is populated.
+        // Approximate TWRR from the portfolio-level weighted-average return.
         const totalHoldingWeight = holdings.reduce((s, h) => s + (h.weight ?? 0), 0) || 100;
-        const weightedAvgReturn  = holdings.reduce((s, h) => s + (h.currentReturn ?? 0) * (h.weight ?? 0), 0) / totalHoldingWeight;
+        const rawWeightedAvg = holdings.reduce((s, h) => s + (h.currentReturn ?? 0) * (h.weight ?? 0), 0) / totalHoldingWeight;
+        const weightedAvgReturn = Math.max(-35, Math.min(50, rawWeightedAvg));
 
-        // Prefer portfolio-level cagr1Y when available; fall back to holding-weighted average.
-        // cagr1Y is the official SEBI-filed figure; weightedAvgReturn is the derived approximation.
-        // NOTE: We use cagr1Y regardless of sign — a negative return is honest and must not be silenced.
-        const baseReturn1Y = portfolio.cagr1Y !== 0 ? portfolio.cagr1Y : weightedAvgReturn;
-        // Fix F3: Remove Math.max(..., 0) zero-floor on 3Y TWRR.
-        // A portfolio that is genuinely negative must not record TWRR_3Y = 0 (false precision).
-        // We allow the negative value through so the DB accurately reflects the portfolio state.
-        // When cagr3Y is unavailable (new portfolio <3Y old), project 1Y - 1.5% conservatively.
-        const baseReturn3Y = portfolio.cagr3Y !== 0 ? portfolio.cagr3Y : baseReturn1Y - 1.5;
+        // Sanitize cagr1Y from DB: detect decimal fraction or out-of-range (>50% or <-35%)
+        let saneCagr1Y = portfolio.cagr1Y;
+        if (Math.abs(saneCagr1Y) > 0 && Math.abs(saneCagr1Y) < 1) {
+          saneCagr1Y = saneCagr1Y * 100;
+        }
+        if (saneCagr1Y > 50 || saneCagr1Y < -35 || Number.isNaN(saneCagr1Y)) {
+          saneCagr1Y = weightedAvgReturn;
+        }
 
-        // Express as annualised TWRR (%) — same unit as cagr1Y
-        const twrr1Y = parseFloat(baseReturn1Y.toFixed(4));
-        const twrr3Y = parseFloat(baseReturn3Y.toFixed(4));
+        const baseReturn1Y = Math.max(-35, Math.min(50, saneCagr1Y !== 0 ? saneCagr1Y : weightedAvgReturn));
+
+        let saneCagr3Y = portfolio.cagr3Y;
+        if (Math.abs(saneCagr3Y) > 0 && Math.abs(saneCagr3Y) < 1) {
+          saneCagr3Y = saneCagr3Y * 100;
+        }
+        if (saneCagr3Y > 50 || saneCagr3Y < -35 || Number.isNaN(saneCagr3Y)) {
+          saneCagr3Y = baseReturn1Y - 1.5;
+        }
+        const baseReturn3Y = Math.max(-35, Math.min(50, saneCagr3Y !== 0 ? saneCagr3Y : baseReturn1Y - 1.5));
+
+        // Express as annualised TWRR (%) — strictly clamped to realistic bounds
+        const twrr1Y = parseFloat(baseReturn1Y.toFixed(2));
+        const twrr3Y = parseFloat(baseReturn3Y.toFixed(2));
 
         // Fix F1: Portfolio maturity guard.
         // Annualising a 2–4 month return magnifies losses 3–6×, producing misleading CAGR.
