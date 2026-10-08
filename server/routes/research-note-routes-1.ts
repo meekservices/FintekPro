@@ -337,6 +337,7 @@ async function upsertInstrumentCache(opts: {
 	pe: number | null;
 	dividendYield: number | null;
 	returns1M: number | null;
+	returns3M: number | null;
 	returns6M: number | null;
 	returns1Y: number | null;
 }): Promise<void> {
@@ -347,7 +348,7 @@ async function upsertInstrumentCache(opts: {
         exchange, currency, country,
         current_price, previous_close,
         market_cap, pe_ratio, dividend_yield,
-        return_1m, return_6m, return_1y,
+        return_1m, return_3m, return_6m, return_1y,
         fetched_at, updated_at, created_at
       ) VALUES (
         gen_random_uuid(),
@@ -363,6 +364,7 @@ async function upsertInstrumentCache(opts: {
         ${opts.pe},
         ${opts.dividendYield},
         ${opts.returns1M},
+        ${opts.returns3M},
         ${opts.returns6M},
         ${opts.returns1Y},
         NOW(), NOW(), NOW()
@@ -377,6 +379,7 @@ async function upsertInstrumentCache(opts: {
         pe_ratio       = COALESCE(EXCLUDED.pe_ratio,       financial_instruments_cache.pe_ratio),
         dividend_yield = COALESCE(EXCLUDED.dividend_yield, financial_instruments_cache.dividend_yield),
         return_1m      = COALESCE(EXCLUDED.return_1m,      financial_instruments_cache.return_1m),
+        return_3m      = COALESCE(EXCLUDED.return_3m,      financial_instruments_cache.return_3m),
         return_6m      = COALESCE(EXCLUDED.return_6m,      financial_instruments_cache.return_6m),
         return_1y      = COALESCE(EXCLUDED.return_1y,      financial_instruments_cache.return_1y),
         fetched_at     = NOW(),
@@ -477,6 +480,7 @@ export async function buildReportData(
 			pe: financials.pe ?? null,
 			dividendYield: financials.dividendYield ?? null,
 			returns1M: financials.returns1M ?? null,
+			returns3M: financials.returns3M ?? null,
 			returns6M: financials.returns6M ?? null,
 			returns1Y: financials.returns1Y ?? null,
 		}).catch(() => {});

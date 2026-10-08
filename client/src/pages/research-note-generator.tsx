@@ -85,6 +85,7 @@ interface FinancialData {
 	targetMeanPrice: number | null;
 	currency: string;
 	returns1M: number | null;
+	returns3M?: number | null;
 	returns6M: number | null;
 	returns1Y: number | null;
 	revenue?: number | null;
@@ -299,9 +300,12 @@ function fmtPct(val: number | null): string {
 }
 
 function signPct(val: number | null): string {
-	if (val === null || val === undefined) return "N/A";
-	const s = (val * 100).toFixed(1);
-	return val >= 0 ? `+${s}%` : `${s}%`;
+	if (val === null || val === undefined || Number.isNaN(val)) return "N/A";
+	// FinancialData contract standardizes returns as decimal fractions (e.g. 0.0206 for 2.06%).
+	// If |val| > 1.0, it is already a percentage (e.g. 2.06 for 2.06%, 15.2 for 15.2%).
+	const pct = Math.abs(val) > 1.0 ? val : val * 100;
+	const s = pct.toFixed(1);
+	return pct >= 0 ? `+${s}%` : `${s}%`;
 }
 
 function fmtCap(val: number | null | undefined, currency = "INR"): string {
@@ -1725,10 +1729,14 @@ export default function ResearchNoteGenerator() {
 										/>
 									)}
 								</div>
-								{(f.returns1M !== null || f.returns1Y !== null) && (
-									<div className="mt-3 pt-3 border-t grid grid-cols-3 gap-2 text-center">
+								{(f.returns1M !== null ||
+									f.returns3M != null ||
+									f.returns6M !== null ||
+									f.returns1Y !== null) && (
+									<div className="mt-3 pt-3 border-t grid grid-cols-4 gap-2 text-center">
 										{[
 											["1M", f.returns1M],
+											["3M", f.returns3M ?? null],
 											["6M", f.returns6M],
 											["1Y", f.returns1Y],
 										].map(([label, val]) => (

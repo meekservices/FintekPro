@@ -51,8 +51,9 @@ export interface FinancialData {
 	revenue: number | null; // absolute ₹ crores
 	netIncome: number | null; // absolute ₹ crores
 	operatingMargin: number | null; // decimal fraction
-	// Price returns from listed_stocks
-	returns1M: number | null; // decimal fraction
+	// Price returns from listed_stocks (normalized decimal fractions, e.g. 0.0206 for 2.06%)
+	returns1M: number | null;
+	returns3M: number | null;
 	returns6M: number | null;
 	returns1Y: number | null;
 }
@@ -1906,6 +1907,26 @@ async function fetchFromScreenerDirect(symbol: string): Promise<ScreenerData> {
 	return emptyScreenerData();
 }
 
+// ─── Return normalization helper ──────────────────────────────────────────────
+/**
+ * Normalizes returns to decimal fractions (e.g. 0.0206 for 2.06%).
+ * Handles both:
+ *  - Percentage values from listed_stocks (e.g. 2.06, -4.89, 15.2 -> 0.0206, -0.0489, 0.152)
+ *  - Decimal fractions (e.g. 0.0206 -> 0.0206)
+ * Sanity guards: clamps corrupt outliers (|return| > 500%) caused by historical paise-unit glitches to null.
+ */
+export function normalizeReturn(v: any): number | null {
+	if (v === null || v === undefined) return null;
+	const n = typeof v === "number" ? v : Number.parseFloat(v);
+	if (!Number.isFinite(n)) return null;
+	// Guard against corrupt outliers (> 500% in percentage terms)
+	if (Math.abs(n) > 500.0) return null;
+	// If |n| > 1.0, it is definitely a percentage value from listed_stocks (e.g. 2.06 -> 0.0206, 15.2 -> 0.152)
+	if (Math.abs(n) > 1.0) return n / 100;
+	// If |n| <= 1.0, it is already a decimal fraction
+	return n;
+}
+
 // ─── DB enrichment (read all cached fields + freshness check) ─────────────────
 
 interface DBData {
@@ -1924,6 +1945,7 @@ interface DBData {
 	netIncome: number | null;
 	operatingMargin: number | null;
 	returns1M: number | null;
+	returns3M: number | null;
 	returns6M: number | null;
 	returns1Y: number | null;
 	lastUpdated: Date | null; // when fundamentals were last written to DB
@@ -1965,6 +1987,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 		netIncome: null,
 		operatingMargin: null,
 		returns1M: null,
+		returns3M: null,
 		returns6M: null,
 		returns1Y: null,
 		lastUpdated: null,
@@ -1994,7 +2017,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
              sf.last_updated,
              sf.pl_history, sf.bs_history, sf.cf_history,
              sf.ratios_history, sf.quarterly_history,
-             ls.returns_1m, ls.returns_6m, ls.returns_1y, ls.beta,
+             ls.returns_1m, ls.returns_3m, ls.returns_6m, ls.returns_1y, ls.beta,
              ls.current_price, ls.previous_close, ls.market_cap_value, ls.pe_ratio,
              ls.pb_ratio, ls.face_value, ls.week_high_52, ls.week_low_52,
              ls.last_vwap
@@ -2007,7 +2030,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 		const r = ((rows as any).rows ?? rows)[0] as any;
 		if (!r) {
 			const lsRows = await db.execute(sql`
-        SELECT returns_1m, returns_6m, returns_1y, current_price, previous_close,
+        SELECT returns_1m, returns_3m, returns_6m, returns_1y, current_price, previous_close,
                market_cap_value, pe_ratio, face_value,
                week_high_52, week_low_52, last_vwap
         FROM listed_stocks WHERE symbol = ${nseSymbol.toUpperCase()} LIMIT 1
@@ -2016,14 +2039,13 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 			if (lr) {
 				const pf = (v: any) =>
 					v !== null && v !== undefined ? Number.parseFloat(v) : null;
-				// Clamp corrupt returns from listed_stocks (same ±500% guard as fetchPythonReturns)
-				const cr = (v: any) => { const n = pf(v); return n !== null && Math.abs(n) > 5.0 ? null : n; };
 				return {
 					...empty,
 					existsInListedStocks: true,
-					returns1M: cr(lr.returns_1m),
-					returns6M: cr(lr.returns_6m),
-					returns1Y: cr(lr.returns_1y),
+					returns1M: normalizeReturn(lr.returns_1m),
+					returns3M: normalizeReturn(lr.returns_3m),
+					returns6M: normalizeReturn(lr.returns_6m),
+					returns1Y: normalizeReturn(lr.returns_1y),
 					dbPrice: pf(lr.current_price),
 					dbPreviousClose: pf(lr.previous_close),
 					dbMarketCap: pf(lr.market_cap_value) && pf(lr.market_cap_value)! > 0 ? pf(lr.market_cap_value) : null,
@@ -2052,9 +2074,6 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 		};
 		const dbPlHist = parseJsonb(r.pl_history);
 		const dbQtrHist = parseJsonb(r.quarterly_history);
-		// Clamp corrupt returns from listed_stocks (same ±500% guard as fetchPythonReturns).
-		// Pre-existing bad rows (paise-unit prices) may still be in DB until tonight's bhavcopy re-runs.
-		const cr = (v: any) => { const n = pf(v); return n !== null && Math.abs(n) > 5.0 ? null : n; };
 		return {
 			eps: pf(r.eps),
 			bookValue: pf(r.book_value),
@@ -2070,9 +2089,10 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 			revenue: pf(r.revenue),
 			netIncome: pf(r.net_income),
 			operatingMargin: pf(r.operating_margin),
-			returns1M: cr(r.returns_1m),
-			returns6M: cr(r.returns_6m),
-			returns1Y: cr(r.returns_1y),
+			returns1M: normalizeReturn(r.returns_1m),
+			returns3M: normalizeReturn(r.returns_3m),
+			returns6M: normalizeReturn(r.returns_6m),
+			returns1Y: normalizeReturn(r.returns_1y),
 			lastUpdated: r.last_updated ? new Date(r.last_updated) : null,
 			existsInListedStocks: true,
 			dbPrice: pf(r.current_price),
@@ -2456,6 +2476,7 @@ function buildFull(
 		netIncome: screener.netIncome ?? dbData.netIncome ?? null,
 		operatingMargin: screener.operatingMargin ?? dbData.operatingMargin ?? null,
 		returns1M: dbData.returns1M ?? null,
+		returns3M: dbData.returns3M ?? null,
 		returns6M: dbData.returns6M ?? null,
 		returns1Y: dbData.returns1Y ?? null,
 	};
@@ -2472,15 +2493,17 @@ async function fetchPythonReturns(
 	nseSymbol: string,
 ): Promise<{
 	returns1M: number | null;
+	returns3M: number | null;
 	returns6M: number | null;
 	returns1Y: number | null;
 }> {
-	const empty = { returns1M: null, returns6M: null, returns1Y: null };
+	const empty = { returns1M: null, returns3M: null, returns6M: null, returns1Y: null };
 	try {
 		const result = await callPython<{
 			status: string;
 			raw?: {
 				return_1m: number | null;
+				return_3m: number | null;
 				return_6m: number | null;
 				return_1y: number | null;
 			};
@@ -2513,11 +2536,13 @@ async function fetchPythonReturns(
 			v !== null && Math.abs(v) > 5.0 ? null : v;
 		const returns = {
 			returns1M: clamp(pf((raw as any).return_1m)),
+			returns3M: clamp(pf((raw as any).return_3m)),
 			returns6M: clamp(pf((raw as any).return_6m)),
 			returns1Y: clamp(pf((raw as any).return_1y)),
 		};
 		logger.info(
 			`[ResearchNote] Python returns ${nseSymbol}: 1M=${returns.returns1M !== null ? (returns.returns1M * 100).toFixed(1) + "%" : "N/A"}, ` +
+				`3M=${returns.returns3M !== null ? (returns.returns3M * 100).toFixed(1) + "%" : "N/A"}, ` +
 				`6M=${returns.returns6M !== null ? (returns.returns6M * 100).toFixed(1) + "%" : "N/A"}, ` +
 				`1Y=${returns.returns1Y !== null ? (returns.returns1Y * 100).toFixed(1) + "%" : "N/A"}`,
 		);
@@ -2589,6 +2614,7 @@ export async function getFinancialData(
 					netIncome: null,
 					operatingMargin: null,
 					returns1M: null,
+					returns3M: null,
 					returns6M: null,
 					returns1Y: null,
 					lastUpdated: null,
@@ -2951,6 +2977,7 @@ export async function getFinancialData(
 		// Fetch price returns from NSE historical API when not in DB
 		if (
 			data.returns1M === null &&
+			data.returns3M === null &&
 			data.returns6M === null &&
 			data.returns1Y === null
 		) {
@@ -2986,9 +3013,15 @@ export async function getFinancialData(
 			if (mcData.price !== null) {
 				let data = buildFull(mcData, dbData, screener);
 				// Attempt to fetch returns from Python even on Google Finance path
-				if (data.returns1M === null && data.returns6M === null && data.returns1Y === null) {
+				if (
+					data.returns1M === null &&
+					data.returns3M === null &&
+					data.returns6M === null &&
+					data.returns1Y === null
+				) {
 					const returns = await fetchPythonReturns(nseSymbol).catch(() => ({
 						returns1M: null,
+						returns3M: null,
 						returns6M: null,
 						returns1Y: null,
 					}));

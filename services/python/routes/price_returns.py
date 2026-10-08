@@ -218,21 +218,26 @@ async def upsert_instrument_returns(isin: str, symbol: Optional[str],
 async def sync_to_stock_tables(isin: str, symbol: Optional[str], ret: Dict[str, Any], conn) -> None:
     """
     Write-back returns to all stock tables so existing code and scoring engines work:
-      - listed_stocks.returns_1m/6m/1y  (used by dataService, research notes, pick-of-the-day)
+      - listed_stocks.returns_1m/3m/6m/1y (as percentages, used by dataService, research notes, pick-of-the-day)
       - screener_financials.return_1y/return_3y/return_5y  (used by derived-metrics growth_score)
     """
+    def to_pct(v):
+        return round(v * 100, 4) if v is not None else None
+
     await conn.execute(
         """
         UPDATE listed_stocks SET
             returns_1m = $2,
-            returns_6m = $3,
-            returns_1y = $4
+            returns_3m = $3,
+            returns_6m = $4,
+            returns_1y = $5
         WHERE isin = $1
         """,
         isin,
-        ret.get("return_1m"),
-        ret.get("return_6m"),
-        ret.get("return_1y"),
+        to_pct(ret.get("return_1m")),
+        to_pct(ret.get("return_3m")),
+        to_pct(ret.get("return_6m")),
+        to_pct(ret.get("return_1y")),
     )
 
     # Resolve symbol if not provided

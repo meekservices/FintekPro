@@ -818,6 +818,7 @@ export async function buildUnlistedReportData(cin: string): Promise<any> {
 			targetMeanPrice: valuation.mid,
 			currency: "INR",
 			returns1M: null,
+			returns3M: null,
 			returns6M: null,
 			returns1Y: null,
 			adminPrice: ipoDetails.adminPrice,
