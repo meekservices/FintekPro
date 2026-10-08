@@ -675,6 +675,7 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
   drifting: number;
   needing_rebalance: number;
   circuit_breaker_trips: number; // PM-3: distinct from needing_rebalance
+  circuit_breaker_tripped_ids: string[];
   errors: number;
   latency_ms: number;
   drift_triggered_ids: string[]; // BUG-3 FIX: portfolios needing immediate rebalance
@@ -682,6 +683,7 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
   const t0 = Date.now();
   let scored = 0, drifting = 0, needingRebalance = 0, circuitBreakerTrips = 0, errors = 0;
   const driftTriggeredIds: string[] = []; // BUG-3: collect needs_rebalance portfolio IDs
+  const circuitBreakerTrippedIds: string[] = [];
 
   logger.info("[QuantEngine] Nightly model portfolio rebalance started", {
     event: "NIGHTLY_PORTFOLIO_REBALANCE_START",
@@ -847,7 +849,7 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
           scored++;
           circuitBreakerTrips++; // PM-3: track CB trips separately from drift-triggered
           needingRebalance++;    // still surfaces in ops alerts
-          driftTriggeredIds.push(`CIRCUIT_BREAKER:${row.id}`);
+          circuitBreakerTrippedIds.push(row.id);
           continue;
         }
 
@@ -995,6 +997,7 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
     drifting,
     needing_rebalance: needingRebalance,
     circuit_breaker_trips: circuitBreakerTrips, // PM-3 FIX: distinct from drift-triggered
+    circuit_breaker_tripped_ids: circuitBreakerTrippedIds,
     errors,
     latency_ms,
     drift_triggered_ids: driftTriggeredIds, // BUG-3 FIX
@@ -1024,6 +1027,7 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
       drifting,
       needing_rebalance: needingRebalance,
       circuit_breaker_trips: circuitBreakerTrips,
+      circuit_breaker_tripped_ids: circuitBreakerTrippedIds,
       engine_version: ENGINE_VERSION,
     },
   });

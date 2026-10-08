@@ -1114,8 +1114,8 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 							);
 
 							// BUG-3: Chain drift-triggered portfolios to auto-apply
-							if (result.needing_rebalance > 0 && result.drift_triggered_ids.length > 0) {
-								const driftIds = result.drift_triggered_ids;
+							if (result.needing_rebalance > 0 && result.drift_triggered_ids?.length > 0) {
+								const driftIds = result.drift_triggered_ids.filter((id: string) => !id.startsWith("CIRCUIT_BREAKER:"));
 								if (driftIds.length > 0) {
 									console.log(`[QuantEngine] 🔄 Drift-triggered rebalance for ${driftIds.length} portfolios: ${driftIds.join(", ")}`);
 									const { autoApplyHighConfidenceSwaps } = await import(

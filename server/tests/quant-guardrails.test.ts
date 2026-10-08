@@ -160,4 +160,33 @@ describe("Quant & Decision Support Engine Guardrails", () => {
 			expect(prob).toBe(1.0); // Already breached must be 1.0 (not near zero)
 		});
 	});
+
+	describe("4. Model Portfolio Auto-Rebalance & Weight Normalization Guardrails", () => {
+		it("normalizes rebalanced weights to sum to exactly 100.0% without fractional drift", async () => {
+			const { applyWeightRebalancing } = await import("../services/portfolio-rebalance-scheduler");
+			const holdings = [
+				{ name: "Asset A", weight: 45, targetWeight: 33.33, type: "debt" },
+				{ name: "Asset B", weight: 35, targetWeight: 33.33, type: "debt" },
+				{ name: "Asset C", weight: 20, targetWeight: 33.34, type: "debt" },
+			];
+
+			const res = applyWeightRebalancing(holdings, "NORMAL" as any);
+			expect(res.corrected).toBeGreaterThan(0);
+			const sum = res.updated.reduce((s: number, h: any) => s + Number(h.weight), 0);
+			expect(Math.abs(sum - 100)).toBeLessThan(0.0001);
+		});
+
+		it("correctly identifies drawdown breaches to pause auto-rebalance", async () => {
+			const { checkDrawdownCircuitBreaker } = await import("../services/model-portfolio-quant-service");
+
+			// Conservative profile has 8% threshold (0.08)
+			const safeDrawdown = checkDrawdownCircuitBreaker(-5.5, "conservative");
+			expect(safeDrawdown.tripped).toBe(false);
+
+			const breachedDrawdown = checkDrawdownCircuitBreaker(-12.4, "conservative");
+			expect(breachedDrawdown.tripped).toBe(true);
+			expect(breachedDrawdown.threshold).toBe(8);
+			expect(breachedDrawdown.message).toContain("Auto-rebalance paused");
+		});
+	});
 });

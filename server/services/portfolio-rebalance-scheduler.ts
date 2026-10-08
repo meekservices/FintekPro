@@ -44,6 +44,7 @@ import {
   OptimizationSuggestion,
   OPTIMIZER_MODEL_VERSION,
 } from "./model-portfolio-optimizer";
+import { checkDrawdownCircuitBreaker } from "./model-portfolio-quant-service";
 
 const MODEL_VERSION = "FASP-AI v3.0 / rebalance-v1";
 const RISK_DISCLAIMER =
@@ -386,6 +387,9 @@ export async function runRebalanceScan(): Promise<RebalanceQueue> {
     holdings: modelPortfolios.holdings,
     lastRebalanced: modelPortfolios.lastRebalanced,
     rebalancingFrequency: modelPortfolios.rebalancingFrequency,
+    circuitBreakerTripped: modelPortfolios.circuitBreakerTripped,
+    maxDrawdown: modelPortfolios.maxDrawdown,
+    maxDrawdownThreshold: modelPortfolios.maxDrawdownThreshold,
   }).from(modelPortfolios);
 
   const candidates: RebalanceCandidate[] = [];
@@ -398,6 +402,17 @@ export async function runRebalanceScan(): Promise<RebalanceQueue> {
 
     const triggers: TriggerType[] = [];
     const holdings = Array.isArray(p.holdings) ? p.holdings : [];
+
+    // Circuit breaker check (SEBI PMS Reg 22 / FASP-AI drawdown gate)
+    const cbCheck = checkDrawdownCircuitBreaker(
+      p.maxDrawdown ? parseFloat(p.maxDrawdown) : 0,
+      p.riskProfile,
+      p.maxDrawdownThreshold ? parseFloat(p.maxDrawdownThreshold) : null,
+    );
+    const isCircuitBreakerTripped = Boolean(p.circuitBreakerTripped || cbCheck.tripped);
+    if (isCircuitBreakerTripped) {
+      triggers.push("risk_breach");
+    }
 
     // Alpha breach trigger
     if (analysis.status === "critical" || analysis.status === "underperforming") {
@@ -435,10 +450,15 @@ export async function runRebalanceScan(): Promise<RebalanceQueue> {
     // Count auto-applicable suggestions for this portfolio
     const portfolioSuggestions = suggestions.filter(s => s.portfolioId === p.id);
     let autoApplicable = 0;
-    for (const s of portfolioSuggestions) {
-      const guardrails = checkGuardrails(s, riskReport, regime.regime);
-      if (guardrails.passed) autoApplicable++;
-      else queuedForAdvisor++;
+    if (isCircuitBreakerTripped) {
+      // Drawdown protection: suppress automated mutations and route all to advisor queue
+      queuedForAdvisor += portfolioSuggestions.length;
+    } else {
+      for (const s of portfolioSuggestions) {
+        const guardrails = checkGuardrails(s, riskReport, regime.regime);
+        if (guardrails.passed) autoApplicable++;
+        else queuedForAdvisor++;
+      }
     }
     autoApplicableTotal += autoApplicable;
 
@@ -536,7 +556,40 @@ export async function autoApplyHighConfidenceSwaps(
     const portfolio = portfolioMap.get(portfolioId);
     if (!portfolio) continue;
 
-    const holdings: any[] = Array.isArray(portfolio.holdings) ? [...portfolio.holdings] : [];
+    // Circuit breaker check (SEBI PMS Reg 22 / FASP-AI drawdown gate)
+    const cbCheck = checkDrawdownCircuitBreaker(
+      portfolio.maxDrawdown ? parseFloat(portfolio.maxDrawdown) : 0,
+      portfolio.riskProfile,
+      portfolio.maxDrawdownThreshold ? parseFloat(portfolio.maxDrawdownThreshold) : null,
+    );
+    if (portfolio.circuitBreakerTripped || cbCheck.tripped) {
+      logger.warn(`[Rebalance] Auto-apply skipped for ${portfolioId} — circuit breaker active`, {
+        event: "REBALANCE_SKIPPED_CIRCUIT_BREAKER",
+        portfolio_id: portfolioId,
+        max_drawdown: portfolio.maxDrawdown,
+        circuit_breaker_tripped: portfolio.circuitBreakerTripped,
+        threshold: cbCheck.threshold,
+        message: cbCheck.message,
+      });
+      results.push({
+        portfolioId,
+        swapsApplied: 0,
+        swapsQueued: pSuggestions.length,
+        holdingsChanged: [],
+        triggers: ["risk_breach"],
+        riskReport: checkRiskBudget(portfolioId, portfolio.riskProfile, Array.isArray(portfolio.holdings) ? portfolio.holdings : []),
+        marketRegime: regime.regime,
+        confidence_score: 0,
+        factors_considered: ["circuit_breaker_active", cbCheck.message],
+        model_version: MODEL_VERSION,
+        timestamp: new Date().toISOString(),
+        risk_disclaimer: RISK_DISCLAIMER,
+        event: "REBALANCE_CIRCUIT_BREAKER_BLOCKED",
+      });
+      continue;
+    }
+
+    let holdings: any[] = Array.isArray(portfolio.holdings) ? [...portfolio.holdings] : [];
     const riskReport = checkRiskBudget(portfolioId, portfolio.riskProfile, holdings);
 
     const applied: string[] = [];
@@ -606,6 +659,33 @@ export async function autoApplyHighConfidenceSwaps(
         event: "REBALANCE_NO_ACTION",
       });
       continue;
+    }
+
+    // Ensure total weights sum to 100% with remainder distribution
+    const totalWeight = holdings.reduce((sum: number, h: any) => sum + Number(h.weight ?? 0), 0);
+    if (totalWeight > 0 && Math.abs(totalWeight - 100) > 0.01) {
+      const scale = 100 / totalWeight;
+      holdings = holdings.map((h: any) => ({
+        ...h,
+        weight: Math.round(Number(h.weight ?? 0) * scale * 10) / 10,
+      }));
+      const newSum = holdings.reduce((sum: number, h: any) => sum + Number(h.weight ?? 0), 0);
+      const remainder = Math.round((100 - newSum) * 10) / 10;
+      if (remainder !== 0 && holdings.length > 0) {
+        let maxIdx = 0;
+        let maxW = -1;
+        for (let i = 0; i < holdings.length; i++) {
+          const w = Number(holdings[i].weight ?? 0);
+          if (w > maxW) {
+            maxW = w;
+            maxIdx = i;
+          }
+        }
+        holdings[maxIdx] = {
+          ...holdings[maxIdx],
+          weight: Math.round((Number(holdings[maxIdx].weight) + remainder) * 10) / 10,
+        };
+      }
     }
 
     // Persist template changes
@@ -757,6 +837,10 @@ export async function autoApplyCalendarRebalancing(): Promise<{
       lastRebalanced:       modelPortfolios.lastRebalanced,
       rebalancingFrequency: modelPortfolios.rebalancingFrequency,
       riskProfile:          modelPortfolios.riskProfile,
+      circuitBreakerTripped: modelPortfolios.circuitBreakerTripped,
+      maxDrawdown:          modelPortfolios.maxDrawdown,
+      maxDrawdownThreshold: modelPortfolios.maxDrawdownThreshold,
+      rebalancingMode:      modelPortfolios.rebalancingMode,
     })
     .from(modelPortfolios)
     .where(eq(modelPortfolios.isPublished, true));
@@ -767,6 +851,24 @@ export async function autoApplyCalendarRebalancing(): Promise<{
 
   for (const portfolio of allPortfolios) {
     portfoliosChecked++;
+
+    // ── Circuit breaker gate: pause rebalancing during deep drawdown ───────────
+    const cbCheck = checkDrawdownCircuitBreaker(
+      portfolio.maxDrawdown ? parseFloat(portfolio.maxDrawdown) : 0,
+      portfolio.riskProfile,
+      portfolio.maxDrawdownThreshold ? parseFloat(portfolio.maxDrawdownThreshold) : null,
+    );
+    if (portfolio.circuitBreakerTripped || cbCheck.tripped) {
+      logger.warn(`[CalendarRebalance] Skipping portfolio ${portfolio.id} — circuit breaker active`, {
+        portfolio_id: portfolio.id,
+        max_drawdown: portfolio.maxDrawdown,
+        circuitBreakerTripped: portfolio.circuitBreakerTripped,
+        threshold: cbCheck.threshold,
+        message: cbCheck.message,
+      });
+      portfoliosSkipped++;
+      continue;
+    }
 
     // ── Calendar gate: check if rebalancing is due ────────────────────────────
     const isDue = isCalendarRebalanceDue(
@@ -881,14 +983,31 @@ export async function autoApplyCalendarRebalancing(): Promise<{
       }
 
 
-      // Normalize weights to 100
+      // Normalize weights to 100 with remainder distribution
       const totalWeight = updatedHoldings.reduce((sum, h) => sum + (h.weight ?? 0), 0);
-      if (totalWeight > 0 && Math.abs(totalWeight - 100) > 0.1) {
+      if (totalWeight > 0 && Math.abs(totalWeight - 100) > 0.01) {
         const scale = 100 / totalWeight;
         updatedHoldings = updatedHoldings.map((h) => ({
           ...h,
           weight: Math.round(h.weight * scale * 10) / 10,
         }));
+        const newSum = updatedHoldings.reduce((sum, h) => sum + (h.weight ?? 0), 0);
+        const remainder = Math.round((100 - newSum) * 10) / 10;
+        if (remainder !== 0 && updatedHoldings.length > 0) {
+          let maxIdx = 0;
+          let maxW = -1;
+          for (let i = 0; i < updatedHoldings.length; i++) {
+            const w = Number(updatedHoldings[i].weight ?? 0);
+            if (w > maxW) {
+              maxW = w;
+              maxIdx = i;
+            }
+          }
+          updatedHoldings[maxIdx] = {
+            ...updatedHoldings[maxIdx],
+            weight: Math.round((Number(updatedHoldings[maxIdx].weight) + remainder) * 10) / 10,
+          };
+        }
       }
 
       // Persist updated template
@@ -910,7 +1029,7 @@ export async function autoApplyCalendarRebalancing(): Promise<{
 
       const rebalanceEvent = {
         date:         today.toISOString().split("T")[0],
-        trigger:      "drift_triggered",                         // always drift-triggered per product decision
+        trigger:      portfolio.rebalancingMode === "calendar" ? "calendar_scheduled" : "drift_triggered",
         swapsApplied: applied.length,
         changes:      applied.slice(0, 10),                      // cap at 10 for JSONB size
         confidence:   Math.round(
@@ -1101,16 +1220,34 @@ export function applyWeightRebalancing(
     return { ...h, weight: newWeight };
   });
 
-  // Normalize corrected weights to sum = 100%
+  // Normalize corrected weights to sum = 100% with exact remainder distribution
   if (corrected > 0) {
     const total = updated.reduce((s: number, h: any) => s + Number(h.weight ?? 0), 0);
-    if (total > 0 && Math.abs(total - 100) > 0.1) {
+    if (total > 0 && Math.abs(total - 100) > 0.01) {
       const scale = 100 / total;
+      let normalized = updated.map((h: any) => ({
+        ...h,
+        weight: Math.round(Number(h.weight) * scale * 10) / 10,
+      }));
+      const newSum = normalized.reduce((s: number, h: any) => s + Number(h.weight ?? 0), 0);
+      const remainder = Math.round((100 - newSum) * 10) / 10;
+      if (remainder !== 0 && normalized.length > 0) {
+        let maxIdx = 0;
+        let maxW = -1;
+        for (let i = 0; i < normalized.length; i++) {
+          const w = Number(normalized[i].weight ?? 0);
+          if (w > maxW) {
+            maxW = w;
+            maxIdx = i;
+          }
+        }
+        normalized[maxIdx] = {
+          ...normalized[maxIdx],
+          weight: Math.round((Number(normalized[maxIdx].weight) + remainder) * 10) / 10,
+        };
+      }
       return {
-        updated: updated.map((h: any) => ({
-          ...h,
-          weight: Math.round(Number(h.weight) * scale * 10) / 10,
-        })),
+        updated: normalized,
         changes,
         corrected,
       };
