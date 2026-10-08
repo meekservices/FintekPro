@@ -329,6 +329,14 @@ router.get(
 	}),
 );
 
+router.post(
+	"/seed-defaults",
+	asyncHandler(async (req, res) => {
+		const result = await knowledgeHubService.seedDefaultKnowledgeHubData();
+		res.json(result);
+	}),
+);
+
 router.get(
 	"/disclaimers",
 	asyncHandler(async (req, res) => {

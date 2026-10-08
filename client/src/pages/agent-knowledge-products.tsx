@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
@@ -102,7 +102,39 @@ const getRiskBadgeColor = (risk: string) => {
 export default function AgentKnowledgeProducts() {
 	const { toast } = useToast();
 	const [searchTerm, setSearchTerm] = useState("");
-	const [productType, setProductType] = useState("all");
+	const parseAssetClassToProductType = () => {
+		if (typeof window === "undefined") return "all";
+		const params = new URLSearchParams(window.location.search);
+		const assetClassParam = params.get("assetClass") || params.get("productType");
+		if (assetClassParam) {
+			const map: Record<string, string> = {
+				mutual_funds: "mutual_fund",
+				mutual_fund: "mutual_fund",
+				stocks: "stock",
+				stock: "stock",
+				bonds_ncds: "bond",
+				bonds: "bond",
+				bond: "bond",
+				global_etfs: "etf",
+				etfs: "etf",
+				etf: "etf",
+				aif_pms: "aif",
+				aif: "aif",
+				pms: "pms",
+			};
+			return map[assetClassParam.toLowerCase()] || "all";
+		}
+		return "all";
+	};
+
+	const [productType, setProductType] = useState(parseAssetClassToProductType);
+
+	useEffect(() => {
+		const target = parseAssetClassToProductType();
+		if (target && target !== "all") {
+			setProductType(target);
+		}
+	}, []);
 	const [riskProfile, setRiskProfile] = useState("all");
 	const [selectedProduct, setSelectedProduct] =
 		useState<ProductKnowledge | null>(null);

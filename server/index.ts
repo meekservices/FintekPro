@@ -316,6 +316,15 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 						logger.warn("[Boot] instrument-master-sync schedule failed (non-fatal)", { error: e.message })
 					);
 
+					// ── Knowledge Hub Master Seed (Asset Class Insights, Products, Templates)
+					logBootProgress("Step 2f-2 (bg): Seeding default Knowledge Hub assets...");
+					const { knowledgeHubService } = await import(
+						"./services/knowledge-hub-service"
+					);
+					knowledgeHubService.seedDefaultKnowledgeHubData().catch((e: Error) =>
+						logger.warn("[Boot] Knowledge Hub seed failed (non-fatal)", { error: e.message })
+					);
+
 					logBootProgress("Step 2 (bg): All schema migrations complete.");
 				} catch (migErr: any) {
 					logger.warn("[Boot] Background migration error (non-fatal):", { error: migErr?.message });
