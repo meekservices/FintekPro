@@ -187,6 +187,16 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 			logger.info(`✅ model_portfolios period columns: ${_pcOk}/${_periodCols.length} ensured`);
 			// ── END CRITICAL SYNC MIGRATION ───────────────────────────────────────
 
+			// Background model portfolio holdings auto-repair (idempotent, ~150ms)
+			setImmediate(async () => {
+				try {
+					const { repairModelPortfolioHoldings } = await import("./startup/schema-repairs");
+					await repairModelPortfolioHoldings();
+				} catch (err: any) {
+					logger.warn("[Boot] repairModelPortfolioHoldings (bg non-fatal):", err?.message);
+				}
+			});
+
 		} catch (dbErr) {
 			// Log DB failure but do NOT crash — server is already listening
 			logger.error(

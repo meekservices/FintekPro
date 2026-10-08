@@ -137,6 +137,15 @@ async function main() {
     // Non-fatal: schema repair job continues even if stock seed fails
   }
 
+  // ── Phase P: Repair model portfolio holdings (dedup, ISINs, 100% weights) ─────
+  console.log("Phase P — repairing model portfolio holdings (dedup, ISIN fix, 100% weight normalization)...");
+  try {
+    const { repairModelPortfolioHoldings } = await import("./schema-repairs");
+    await repairModelPortfolioHoldings();
+  } catch (e: any) {
+    console.error("  ❌ Phase P error:", e.message);
+  }
+
   // ── Phase E-2: Sync portfolio stocks → listed_stocks ─────────────────────────
   // Ensures every stock referenced in any model portfolio is discoverable by the
   // research note /search endpoint (listed_stocks table). Fixes: "company not found"
@@ -270,11 +279,8 @@ async function main() {
   await runEtfInstrumentClassificationRepair();
 
   console.log("Phase O — synchronizing audited 5-year Screener financials for NSE...");
-  const { repairNSEConsolidatedFinancials, repairModelPortfolioHoldings } = await import("./schema-repairs");
+  const { repairNSEConsolidatedFinancials } = await import("./schema-repairs");
   await repairNSEConsolidatedFinancials();
-
-  console.log("Phase P — repairing model portfolio holdings (dedup, ISIN fix, 100% weight normalization)...");
-  await repairModelPortfolioHoldings();
 
   console.log("FintekPro schema repair job complete.");
   try {
