@@ -243,8 +243,11 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 					// Phase C — ISIN + schemeCode resolver + sub_category + benchmarkSchemeCode
 					// Idempotent: safe to run every startup. Resolver fires in background via setImmediate.
 					logBootProgress("Step 2d2 (bg): Phase C — ISIN resolver + sub_category + benchmark codes...");
-					const { applyPhaseC_ISINResolverAndColumns } = await import("./startup/schema-repairs");
+					const { applyPhaseC_ISINResolverAndColumns, repairModelPortfolioHoldings } = await import("./startup/schema-repairs");
 					await applyPhaseC_ISINResolverAndColumns();
+
+					logBootProgress("Step 2d3 (bg): Phase P — repair model portfolio holdings (dedup, ISINs, 100% weights)...");
+					await repairModelPortfolioHoldings();
 
 					// De-duplication: ensure shared route tables (agent_notifications,
 					// partner_team_members, partner_agent_invitations) are created

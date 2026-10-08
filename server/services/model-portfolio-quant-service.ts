@@ -27,6 +27,7 @@ import { rebalanceOptimizer } from "../core/rebalance-optimizer";
 import { logger } from "../logger";
 import { retryWithBackoff } from "../utils/retry-with-backoff";
 import { telemetryBus } from "./engine-telemetry-bus";
+import { normalizePortfolioHoldings } from "../utils/portfolio-holdings-normalizer";
 
 export const ENGINE_VERSION = "FASP-AI-v3.0"; // Fix 5: mandatory version per FASP-AI v3.0
 const RISK_FREE_RATE = 7.1; // RBI repo rate proxy (annualised %)
@@ -407,9 +408,15 @@ export function computePortfolioDrift(portfolio: PortfolioQuantInput): Portfolio
     : 6;
   const t = monthsSinceRebalance / 12; // fraction of year
 
+  // Pre-normalize incoming holdings (deduplicate and normalize weights to 100%)
+  const cleanHoldings = normalizePortfolioHoldings(portfolio.holdings, {
+    id: portfolio.id,
+    assetClass: portfolio.assetClass,
+  }).holdings;
+
   // FIX B2: Compute compound weight evolution
   // Each holding's value grows at (1 + annualReturn/100)^t, guarded against severe drawdowns <= -100%
-  const compoundedValues = portfolio.holdings.map((h) => {
+  const compoundedValues = cleanHoldings.map((h) => {
     const rawReturn = typeof h.currentReturn === "number" && isFinite(h.currentReturn) ? h.currentReturn : 0;
     const growthFactor = Math.max(0.001, 1 + rawReturn / 100);
     const weightFraction = Math.max(0, (h.weight ?? 0) / 100);

@@ -2981,7 +2981,7 @@ modelPortfoliosRouter.post("/admin/seed-holdings", requireAdmin, async (_req: Re
       { rank: 4, name: "IndiGrid InvIT",                 symbol: "INDIGRID",  isin: "INE219X07025", weight: 14, type: "InvIT" },
       { rank: 5, name: "IRB InvIT Fund",                 symbol: "IRBINVIT",  isin: "INE761T23010", weight: 12, type: "InvIT" },
       { rank: 6, name: "Powergrid Infrastructure InvIT", symbol: "PGINFRA",   isin: "INE977K08013", weight: 10, type: "InvIT" },
-      { rank: 7, name: "Nexus Select Trust REIT",        symbol: "NXST",      isin: "INE0CJ07019",  weight:  9, type: "REIT" },
+      { rank: 7, name: "Nexus Select Trust REIT",        symbol: "NXST",      isin: "INE0CJ025010",  weight:  9, type: "REIT" },
     ],
     "pure-debt-portfolio": [
       { rank: 1, name: "SBI Magnum Gilt Fund", weight: 22, type: "Gilt Bond MF" },
@@ -3203,6 +3203,36 @@ modelPortfoliosRouter.post("/admin/seed-holdings", requireAdmin, async (_req: Re
     });
   } catch (err: any) {
     logger.error("[ModelPortfolios] seed-holdings error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── POST /api/model-portfolios/admin/repair-holdings ──────────────────────────
+// Scans all model portfolios in the database, removes duplicates, fixes invalid ISINs,
+// enriches missing ISINs/AMFI scheme codes, and strictly normalizes holding weights to 100.0%.
+// Idempotent and safe to run at any time.
+modelPortfoliosRouter.post("/admin/repair-holdings", requireAdmin, async (_req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { repairModelPortfolioHoldings } = await import("../startup/schema-repairs");
+    const result = await repairModelPortfolioHoldings(db);
+
+    logger.info("[ModelPortfolios] admin/repair-holdings complete", {
+      ...result,
+      latency_ms: Date.now() - t0,
+    });
+
+    return res.json({
+      success: true,
+      data: result,
+      meta: {
+        timestamp: new Date().toISOString(),
+        engine_version: ENGINE_VERSION,
+        latency_ms: Date.now() - t0,
+      },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] repair-holdings error:", err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });

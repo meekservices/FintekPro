@@ -28,6 +28,7 @@
  */
 
 import { sql } from "drizzle-orm";
+import { normalizePortfolioHoldings } from "../utils/portfolio-holdings-normalizer";
 
 const ENGINE_VERSION = "stock-seed-v1.0";
 
@@ -532,12 +533,12 @@ const STOCK_SEEDS: PortfolioSeed[] = [
       { rank: 12, name: "ABB India",                     symbol: "ABB",         isin: "INE117A01022", weight: 5,  type: "equity", sector: "Engineering" },
       { rank: 13, name: "Bharat Electronics (BEL)",      symbol: "BEL",         isin: "INE263A01024", weight: 4,  type: "equity", sector: "Defence" },
       { rank: 14, name: "Rail Vikas Nigam (RVNL)",       symbol: "RVNL",        isin: "INE415G01027", weight: 4,  type: "equity", sector: "Railways" },
-      { rank: 15, name: "IRCON International",           symbol: "IRCON",       isin: "INE821I01022", weight: 4,  type: "equity", sector: "Railways" },
+      { rank: 15, name: "IRCON International",           symbol: "IRCON",       isin: "INE962Y01021", weight: 4,  type: "equity", sector: "Railways" },
       { rank: 16, name: "Kalpataru Projects International",symbol: "KPIL",      isin: "INE220J01025", weight: 4,  type: "equity", sector: "Engineering" },
-      { rank: 17, name: "Techno Electric & Engineering",  symbol: "TECHNOE",    isin: "INE947Q01028", weight: 4,  type: "equity", sector: "Power" },
+      { rank: 17, name: "Techno Electric & Engineering",  symbol: "TECHNOE",    isin: "INE285K01026", weight: 4,  type: "equity", sector: "Power" },
       { rank: 18, name: "PNC Infratech",                 symbol: "PNCINFRA",   isin: "INE195J01020", weight: 4,  type: "equity", sector: "Roads" },
       { rank: 19, name: "Ashoka Buildcon",               symbol: "ASHOKA",     isin: "INE442H01029", weight: 4,  type: "equity", sector: "Roads" },
-      { rank: 20, name: "Capacite Infraprojects",        symbol: "CAPACITE",   isin: "INE-C01012",   weight: 4,  type: "equity", sector: "Construction" },
+      { rank: 20, name: "Capacite Infraprojects",        symbol: "CAPACITE",   isin: "INE264T01014",   weight: 4,  type: "equity", sector: "Construction" },
       { rank: 21, name: "HCC (Hindustan Construction)",  symbol: "HCC",        isin: "INE549A01026", weight: 4,  type: "equity", sector: "Construction" },
       { rank: 22, name: "REC Limited",                   symbol: "REC",        isin: "INE020B01018", weight: 3,  type: "equity", sector: "PSU Financing" },
       { rank: 23, name: "Power Finance Corporation (PFC)",symbol: "PFC",       isin: "INE134E01011", weight: 3,  type: "equity", sector: "PSU Financing" },
@@ -606,7 +607,7 @@ const STOCK_SEEDS: PortfolioSeed[] = [
       { rank: 11, name: "Mishra Dhatu Nigam (Midhani)",   symbol: "MIDHANI",   isin: "INE310L01015", weight: 5,  type: "equity", sector: "Defence" },
       { rank: 12, name: "Hindustan Aeronautics (HAL)",    symbol: "HAL",        isin: "INE066F01012", weight: 5,  type: "equity", sector: "Defence" },
       { rank: 13, name: "RITES",                          symbol: "RITES",      isin: "INE320J01015", weight: 4,  type: "equity", sector: "PSU Engineering" },
-      { rank: 14, name: "IRCON International",            symbol: "IRCON",       isin: "INE265I01013", weight: 4,  type: "equity", sector: "Railways" },
+      { rank: 14, name: "IRCON International",            symbol: "IRCON",       isin: "INE962Y01021", weight: 4,  type: "equity", sector: "Railways" },
       { rank: 15, name: "Data Patterns India",            symbol: "DATAPATTNS",  isin: "INE0IAV01011", weight: 4,  type: "equity", sector: "Defence" },
       { rank: 16, name: "Paras Defence & Space Tech",     symbol: "PARASDEF",   isin: "INE05ND01010", weight: 4,  type: "equity", sector: "Defence" },
       { rank: 17, name: "Astra Microwave Products",       symbol: "ASTRAMICRO", isin: "INE386C01029", weight: 4,  type: "equity", sector: "Defence" },
@@ -976,7 +977,9 @@ export async function seedStockPortfolios(db: any): Promise<void> {
 
   for (const seed of STOCK_SEEDS) {
     try {
-      const holdingsJson = JSON.stringify(seed.holdings);
+      const normResult = normalizePortfolioHoldings(seed.holdings, { id: seed.id });
+      const cleanHoldings = normResult.holdings;
+      const holdingsJson = JSON.stringify(cleanHoldings);
       const allocationJson = JSON.stringify(seed.allocation);
 
       // Execute conditional UPDATE — only update if holdings still contain:
@@ -989,7 +992,7 @@ export async function seedStockPortfolios(db: any): Promise<void> {
         SET
           holdings       = ${holdingsJson}::jsonb,
           allocation     = ${allocationJson}::jsonb,
-          total_holdings = ${seed.holdings.length},
+          total_holdings = ${cleanHoldings.length},
           highlight      = ${seed.highlight},
           updated_at     = NOW()
         WHERE id = ${seed.id}

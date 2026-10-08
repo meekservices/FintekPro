@@ -45,6 +45,7 @@ import {
   OPTIMIZER_MODEL_VERSION,
 } from "./model-portfolio-optimizer";
 import { checkDrawdownCircuitBreaker } from "./model-portfolio-quant-service";
+import { normalizePortfolioHoldings } from "../utils/portfolio-holdings-normalizer";
 
 const MODEL_VERSION = "FASP-AI v3.0 / rebalance-v1";
 const RISK_DISCLAIMER =
@@ -589,7 +590,10 @@ export async function autoApplyHighConfidenceSwaps(
       continue;
     }
 
-    let holdings: any[] = Array.isArray(portfolio.holdings) ? [...portfolio.holdings] : [];
+    let holdings: any[] = normalizePortfolioHoldings(Array.isArray(portfolio.holdings) ? portfolio.holdings : [], {
+      id: portfolioId,
+      name: portfolio.name,
+    }).holdings;
     const riskReport = checkRiskBudget(portfolioId, portfolio.riskProfile, holdings);
 
     const applied: string[] = [];
@@ -661,32 +665,8 @@ export async function autoApplyHighConfidenceSwaps(
       continue;
     }
 
-    // Ensure total weights sum to 100% with remainder distribution
-    const totalWeight = holdings.reduce((sum: number, h: any) => sum + Number(h.weight ?? 0), 0);
-    if (totalWeight > 0 && Math.abs(totalWeight - 100) > 0.01) {
-      const scale = 100 / totalWeight;
-      holdings = holdings.map((h: any) => ({
-        ...h,
-        weight: Math.round(Number(h.weight ?? 0) * scale * 10) / 10,
-      }));
-      const newSum = holdings.reduce((sum: number, h: any) => sum + Number(h.weight ?? 0), 0);
-      const remainder = Math.round((100 - newSum) * 10) / 10;
-      if (remainder !== 0 && holdings.length > 0) {
-        let maxIdx = 0;
-        let maxW = -1;
-        for (let i = 0; i < holdings.length; i++) {
-          const w = Number(holdings[i].weight ?? 0);
-          if (w > maxW) {
-            maxW = w;
-            maxIdx = i;
-          }
-        }
-        holdings[maxIdx] = {
-          ...holdings[maxIdx],
-          weight: Math.round((Number(holdings[maxIdx].weight) + remainder) * 10) / 10,
-        };
-      }
-    }
+    // Ensure total weights strictly sum to 100.0%, remove duplicates, and enrich ISINs
+    holdings = normalizePortfolioHoldings(holdings, { id: portfolioId, name: portfolio.name }).holdings;
 
     // Persist template changes
     await db
@@ -983,32 +963,8 @@ export async function autoApplyCalendarRebalancing(): Promise<{
       }
 
 
-      // Normalize weights to 100 with remainder distribution
-      const totalWeight = updatedHoldings.reduce((sum, h) => sum + (h.weight ?? 0), 0);
-      if (totalWeight > 0 && Math.abs(totalWeight - 100) > 0.01) {
-        const scale = 100 / totalWeight;
-        updatedHoldings = updatedHoldings.map((h) => ({
-          ...h,
-          weight: Math.round(h.weight * scale * 10) / 10,
-        }));
-        const newSum = updatedHoldings.reduce((sum, h) => sum + (h.weight ?? 0), 0);
-        const remainder = Math.round((100 - newSum) * 10) / 10;
-        if (remainder !== 0 && updatedHoldings.length > 0) {
-          let maxIdx = 0;
-          let maxW = -1;
-          for (let i = 0; i < updatedHoldings.length; i++) {
-            const w = Number(updatedHoldings[i].weight ?? 0);
-            if (w > maxW) {
-              maxW = w;
-              maxIdx = i;
-            }
-          }
-          updatedHoldings[maxIdx] = {
-            ...updatedHoldings[maxIdx],
-            weight: Math.round((Number(updatedHoldings[maxIdx].weight) + remainder) * 10) / 10,
-          };
-        }
-      }
+      // Ensure total weights strictly sum to 100.0%, remove duplicates, and enrich ISINs
+      updatedHoldings = normalizePortfolioHoldings(updatedHoldings, { id: portfolio.id, name: portfolio.name }).holdings;
 
       // Persist updated template
       await db
@@ -1186,10 +1142,13 @@ export function applyWeightRebalancing(
   const MIN_HOLDING_WEIGHT = 1;           // %
   const DRIFT_TOLERANCE = 2;              // % — don't correct within ±2% of target (transaction costs)
 
+  // Pre-normalize incoming holdings (deduplicate and normalize weights to 100%)
+  const preNorm = normalizePortfolioHoldings(holdings);
+  const cleanHoldings = preNorm.holdings;
   const changes: string[] = [];
   let corrected = 0;
 
-  const updated = holdings.map((h: any) => {
+  const updated = cleanHoldings.map((h: any) => {
     const current = Number(h.weight ?? 0);
     const target  = Number(h.targetWeight ?? h.weight ?? current); // fall back to current if no target
     const drift   = current - target; // positive = overweight, negative = underweight
@@ -1220,41 +1179,14 @@ export function applyWeightRebalancing(
     return { ...h, weight: newWeight };
   });
 
-  // Normalize corrected weights to sum = 100% with exact remainder distribution
-  if (corrected > 0) {
-    const total = updated.reduce((s: number, h: any) => s + Number(h.weight ?? 0), 0);
-    if (total > 0 && Math.abs(total - 100) > 0.01) {
-      const scale = 100 / total;
-      let normalized = updated.map((h: any) => ({
-        ...h,
-        weight: Math.round(Number(h.weight) * scale * 10) / 10,
-      }));
-      const newSum = normalized.reduce((s: number, h: any) => s + Number(h.weight ?? 0), 0);
-      const remainder = Math.round((100 - newSum) * 10) / 10;
-      if (remainder !== 0 && normalized.length > 0) {
-        let maxIdx = 0;
-        let maxW = -1;
-        for (let i = 0; i < normalized.length; i++) {
-          const w = Number(normalized[i].weight ?? 0);
-          if (w > maxW) {
-            maxW = w;
-            maxIdx = i;
-          }
-        }
-        normalized[maxIdx] = {
-          ...normalized[maxIdx],
-          weight: Math.round((Number(normalized[maxIdx].weight) + remainder) * 10) / 10,
-        };
-      }
-      return {
-        updated: normalized,
-        changes,
-        corrected,
-      };
-    }
-  }
+  // Always ensure final output is guaranteed 100.0% normalized, deduplicated, and clean
+  const finalNorm = normalizePortfolioHoldings(updated);
 
-  return { updated, changes, corrected };
+  return {
+    updated: finalNorm.holdings,
+    changes,
+    corrected,
+  };
 }
 
 // ── Helper: is the portfolio's rebalancing calendar due? ─────────────────────

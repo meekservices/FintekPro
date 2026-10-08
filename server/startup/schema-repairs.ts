@@ -4635,3 +4635,136 @@ export async function ensureScreenerHistoricalColumns(poolInstance?: any): Promi
     console.warn("  ⚠️ [P1.2] ensureScreenerHistoricalColumns non-fatal error:", err?.message?.slice(0, 120));
   }
 }
+
+/**
+ * Phase P: repairModelPortfolioHoldings
+ *
+ * Scans all published model portfolios in the database, removes duplicates,
+ * corrects invalid/typo ISINs, enriches missing ISINs/AMFI codes from INSTRUMENT_REGISTRY,
+ * guarantees exact 100.0% weight normalization, and synchronizes both JSONB
+ * and the model_portfolio_holdings relational table.
+ */
+export async function repairModelPortfolioHoldings(dbInstance?: any): Promise<{
+  portfoliosProcessed: number;
+  portfoliosRepaired: number;
+  duplicatesRemoved: number;
+  isinsEnriched: number;
+  invalidIsinsFixed: number;
+}> {
+  const { db: defaultDb } = await import("../db");
+  const { sql } = await import("drizzle-orm");
+  const { normalizePortfolioHoldings } = await import("../utils/portfolio-holdings-normalizer");
+  const migDb = dbInstance || defaultDb;
+
+  let portfoliosProcessed = 0;
+  let portfoliosRepaired = 0;
+  let duplicatesRemoved = 0;
+  let isinsEnriched = 0;
+  let invalidIsinsFixed = 0;
+
+  try {
+    const result = await migDb.execute(sql`
+      SELECT id, name, holdings, total_holdings
+      FROM model_portfolios
+      ORDER BY id
+    `);
+
+    const rows = (result as any).rows ?? [];
+    portfoliosProcessed = rows.length;
+
+    for (const p of rows) {
+      const rawHoldings = Array.isArray(p.holdings) ? p.holdings : [];
+      if (rawHoldings.length === 0) continue;
+
+      const normResult = normalizePortfolioHoldings(rawHoldings, { id: p.id, name: p.name });
+      const changes = normResult.changes;
+
+      // Determine if repair is needed:
+      // (1) duplicates merged, (2) weights needed normalization, (3) ISINs enriched or fixed
+      const needsRepair =
+        changes.duplicatesMerged > 0 ||
+        Math.abs(changes.weightSumBefore - 100) > 0.05 ||
+        changes.isinsEnriched > 0 ||
+        changes.invalidIsinsFixed > 0;
+
+      if (needsRepair) {
+        portfoliosRepaired++;
+        duplicatesRemoved += changes.duplicatesMerged;
+        isinsEnriched += changes.isinsEnriched;
+        invalidIsinsFixed += changes.invalidIsinsFixed;
+
+        const normalizedHoldingsJson = JSON.stringify(normResult.holdings);
+
+        // 1. Update model_portfolios JSONB holdings
+        await migDb.execute(sql`
+          UPDATE model_portfolios
+          SET
+            holdings       = ${normalizedHoldingsJson}::jsonb,
+            total_holdings = ${normResult.holdings.length},
+            updated_at     = NOW()
+          WHERE id = ${p.id}
+        `);
+
+        // 2. Synchronize to model_portfolio_holdings relational table
+        for (const h of normResult.holdings) {
+          const instrumentName = h.name;
+          const instrumentType = h.type ?? h.category ?? "equity";
+          const assetClass     = h.assetClass ?? "equity";
+          const weight         = h.weight;
+          const isin           = h.isin ?? null;
+          const schemeCode     = h.amfiSchemeCode ?? (h.schemeCode ? String(h.schemeCode) : null);
+
+          try {
+            await migDb.execute(sql`
+              INSERT INTO model_portfolio_holdings (
+                portfolio_id, isin, instrument_name, instrument_type, asset_class,
+                sub_category, weight, scheme_code, source, engine_version,
+                created_at, updated_at
+              ) VALUES (
+                ${p.id},
+                ${isin},
+                ${instrumentName},
+                ${instrumentType},
+                ${assetClass},
+                ${instrumentType},
+                ${weight},
+                ${schemeCode},
+                'system',
+                'FASP-AI-v3.0',
+                NOW(), NOW()
+              )
+              ON CONFLICT (portfolio_id, instrument_name)
+              DO UPDATE SET
+                isin            = COALESCE(EXCLUDED.isin, model_portfolio_holdings.isin),
+                weight          = EXCLUDED.weight,
+                instrument_type = EXCLUDED.instrument_type,
+                asset_class     = EXCLUDED.asset_class,
+                scheme_code     = COALESCE(EXCLUDED.scheme_code, model_portfolio_holdings.scheme_code),
+                engine_version  = 'FASP-AI-v3.0',
+                updated_at      = NOW()
+            `);
+          } catch {
+            // non-fatal for single relational row
+          }
+        }
+      }
+    }
+
+    console.log(
+      `  ✅ [Phase P] repairModelPortfolioHoldings complete: ` +
+      `processed=${portfoliosProcessed}, repaired=${portfoliosRepaired}, ` +
+      `dupesRemoved=${duplicatesRemoved}, isinsEnriched=${isinsEnriched}, invalidIsinsFixed=${invalidIsinsFixed}`
+    );
+  } catch (err: any) {
+    console.warn("  ⚠️ [Phase P] repairModelPortfolioHoldings error:", err?.message?.slice(0, 120));
+  }
+
+  return {
+    portfoliosProcessed,
+    portfoliosRepaired,
+    duplicatesRemoved,
+    isinsEnriched,
+    invalidIsinsFixed,
+  };
+}
+

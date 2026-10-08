@@ -270,8 +270,11 @@ async function main() {
   await runEtfInstrumentClassificationRepair();
 
   console.log("Phase O — synchronizing audited 5-year Screener financials for NSE...");
-  const { repairNSEConsolidatedFinancials } = await import("./schema-repairs");
+  const { repairNSEConsolidatedFinancials, repairModelPortfolioHoldings } = await import("./schema-repairs");
   await repairNSEConsolidatedFinancials();
+
+  console.log("Phase P — repairing model portfolio holdings (dedup, ISIN fix, 100% weight normalization)...");
+  await repairModelPortfolioHoldings();
 
   console.log("FintekPro schema repair job complete.");
   try {
