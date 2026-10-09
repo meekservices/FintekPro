@@ -4068,6 +4068,7 @@ modelPortfoliosRouter.get("/:id/quant-signals", async (req: Request, res: Respon
     const holdings: QuantHolding[] = ((row.holdings as any[]) ?? []).map((h: any) => ({
       rank: Number(h.rank ?? 0),
       name: String(h.name ?? "Unknown"),
+      symbol: h.symbol ? String(h.symbol) : undefined,
       category: String(h.category ?? h.type ?? "MF"),
       weight: parseFloat(h.weight ?? 0),
       currentReturn: parseFloat(h.currentReturn ?? h.returns_1y ?? 0),
@@ -4092,6 +4093,7 @@ modelPortfoliosRouter.get("/:id/quant-signals", async (req: Request, res: Respon
     const driftReport = computePortfolioDrift(portfolio);
     const alphaScore  = scorePortfolioAlpha(portfolio);
     const extremeRiskMetrics = computeCornishFisherRisk(portfolio);
+    const quantResult = runPortfolioRebalance(portfolio);
 
     // Persist updated drift score
     await db.execute(sql`
@@ -4130,6 +4132,7 @@ modelPortfoliosRouter.get("/:id/quant-signals", async (req: Request, res: Respon
         factors:            alphaScore.factors,
         recommendation:     alphaScore.recommendation,
         extremeRiskMetrics,
+        stockLevelSignals:  quantResult.stockLevelSignals ?? [],
         driftDetails:       driftReport.holdingsDrift.filter(h => h.exceedsThreshold).slice(0, 5),
       },
       meta: {
@@ -4710,6 +4713,7 @@ modelPortfoliosRouter.post("/:id/rebalance", async (req: Request, res: Response)
     const holdings: QuantHolding[] = ((row.holdings as any[]) ?? []).map((h: any) => ({
       rank: Number(h.rank ?? 0),
       name: String(h.name ?? "Unknown"),
+      symbol: h.symbol ? String(h.symbol) : undefined,
       category: String(h.category ?? h.type ?? "MF"),
       weight: parseFloat(h.weight ?? 0),
       currentReturn: parseFloat(h.currentReturn ?? 0),
@@ -4828,6 +4832,7 @@ modelPortfoliosRouter.post("/:id/rebalance", async (req: Request, res: Response)
         alphaScore:    quantResult.alphaScore,
         extremeRiskMetrics: quantResult.extremeRiskMetrics,
         rebalancePlan: quantResult.rebalancePlan,
+        stockLevelSignals: quantResult.stockLevelSignals ?? [],
         taxLossHarvestOpportunities: quantResult.rebalancePlan?.taxLossHarvestOpportunities ?? [],
         passiveInflowPlan: quantResult.rebalancePlan?.passiveInflowPlan ?? null,
         advisory_note: preview
