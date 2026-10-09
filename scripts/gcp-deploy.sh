@@ -369,7 +369,7 @@ else
       --image=asia-south1-docker.pkg.dev/${PROJECT_ID}/fintekpro-repo/fintekpro-app:latest \
       --project=$PROJECT_ID \
       --region=$REGION \
-      --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
+      --set-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
       --vpc-connector=fintekpro-vpc-connector \
       --vpc-egress=all \
       --memory=2Gi \

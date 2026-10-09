@@ -20,7 +20,7 @@ set -euo pipefail
 
 PROJECT_ID="${GCP_PROJECT_ID:-fintekpro}"
 REGION="${GCP_REGION:-asia-south1}"
-SERVICE_ACCOUNT="${GCP_JOBS_SA:-fintekpro-jobs@fintekpro.iam.gserviceaccount.com}"
+SERVICE_ACCOUNT="${GCP_JOBS_SA:-124901641600-compute@developer.gserviceaccount.com}"
 
 echo "================================================================="
 echo " Configuring FintekPro Cloud Schedulers (Project: ${PROJECT_ID})"
@@ -33,7 +33,7 @@ upsert_scheduler_job() {
   local schedule="$2"
   local target_job="$3"
   local description="$4"
-  local uri="https://${REGION}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${PROJECT_ID}/jobs/${target_job}:run"
+  local uri="https://run.googleapis.com/v2/projects/${PROJECT_ID}/locations/${REGION}/jobs/${target_job}:run"
 
   echo ""
   echo "⏳ Processing scheduler: ${job_name}..."
@@ -46,7 +46,7 @@ upsert_scheduler_job() {
       --project="${PROJECT_ID}" \
       --location="${REGION}" \
       --schedule="${schedule}" \
-      --time-zone="UTC" \
+      --time-zone="Asia/Kolkata" \
       --uri="${uri}" \
       --http-method="POST" \
       --oauth-service-account-email="${SERVICE_ACCOUNT}" \
@@ -59,7 +59,7 @@ upsert_scheduler_job() {
       --project="${PROJECT_ID}" \
       --location="${REGION}" \
       --schedule="${schedule}" \
-      --time-zone="UTC" \
+      --time-zone="Asia/Kolkata" \
       --uri="${uri}" \
       --http-method="POST" \
       --oauth-service-account-email="${SERVICE_ACCOUNT}" \
@@ -69,38 +69,38 @@ upsert_scheduler_job() {
   fi
 }
 
-# 1. Daily Picks Generator (Mon-Fri 08:45 AM IST = 03:15 UTC)
+# 1. Daily Picks Generator (Mon-Fri 08:45 AM IST)
 upsert_scheduler_job \
   "fintekpro-picks-trigger" \
-  "15 3 * * 1-5" \
+  "45 8 * * 1-5" \
   "fintekpro-picks" \
   "Triggers daily multi-asset candidate evaluation and pick generation prior to Indian market open"
 
-# 2. Daily Market Data & Financial Enrichment (Mon-Fri 06:00 PM IST = 12:30 UTC)
+# 2. Daily Market Data & Financial Enrichment (Daily 09:00 PM IST)
 upsert_scheduler_job \
   "fintekpro-enrichment-trigger" \
-  "30 12 * * 1-5" \
+  "0 21 * * *" \
   "fintekpro-enrichment" \
   "Enriches stock fundamentals, EOD market prices, and calculates financial ratios post market close"
 
-# 3. AMFI Mutual Fund NAV Sync (Daily 11:30 PM IST = 18:00 UTC)
+# 3. AMFI Mutual Fund NAV Sync (Mon-Fri 10:00 AM IST)
 upsert_scheduler_job \
   "fintekpro-nav-sync-trigger" \
-  "0 18 * * *" \
+  "0 10 * * 1-5" \
   "fintekpro-nav-sync" \
   "Ingests latest official AMFI mutual fund daily NAVs and refreshes fund return metrics"
 
-# 4. Daily Regulatory Compliance & Audit Integrity (Daily 12:30 AM IST = 19:00 UTC)
+# 4. Daily Regulatory Compliance & Audit Integrity (Daily 12:30 AM IST)
 upsert_scheduler_job \
   "fintekpro-compliance-trigger" \
-  "0 19 * * *" \
+  "30 0 * * *" \
   "fintekpro-compliance" \
   "Runs nightly SEBI regulatory checks, audit log integrity validation, and compliance reconciliation"
 
-# 5. Autonomous Model Portfolio Rebalancing & Risk/Reward Engine (Mon-Fri 07:00 PM IST = 13:30 UTC)
+# 5. Autonomous Model Portfolio Rebalancing & Risk/Reward Engine (Mon-Fri 07:00 PM IST)
 upsert_scheduler_job \
   "fintekpro-rebalance-trigger" \
-  "30 13 * * 1-5" \
+  "0 19 * * 1-5" \
   "fintekpro-rebalance" \
   "Executes autonomous model portfolio drift rebalancing, momentum swaps, and real-money risk/reward queue generation post market close"
 

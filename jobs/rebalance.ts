@@ -65,7 +65,8 @@ async function run(): Promise<void> {
 	});
 
 	try {
-		const { db, sql } = await import("../server/db");
+		const { db } = await import("../server/db");
+		const { sql } = await import("drizzle-orm");
 		const { detectRegime } = await import("../server/services/market-regime-detector");
 		const {
 			runNightlyModelPortfolioRebalance,
