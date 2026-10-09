@@ -957,6 +957,32 @@ const STOCK_SEEDS: PortfolioSeed[] = [
       { type: "gold",           label: "Gold SGB",        weight: 5,  color: "#D97706" },
     ],
   },
+  {
+    id: "fii-inflow-compounder",
+    highlight: "HDFC Bank, ICICI Bank, L&T, Bharti Airtel — Systematic smart money tracking with institutional accumulation signals",
+    holdings: [
+      { rank: 1,  name: "HDFC Bank Ltd",                  symbol: "HDFCBANK",   isin: "INE040A01034", weight: 8, type: "equity", sector: "Banking" },
+      { rank: 2,  name: "ICICI Bank Ltd",                 symbol: "ICICIBANK",  isin: "INE090A01021", weight: 8, type: "equity", sector: "Banking" },
+      { rank: 3,  name: "Larsen & Toubro Ltd",            symbol: "LT",         isin: "INE018A01030", weight: 7, type: "equity", sector: "Engineering" },
+      { rank: 4,  name: "Bharti Airtel Ltd",              symbol: "BHARTIARTL", isin: "INE397D01024", weight: 7, type: "equity", sector: "Telecom" },
+      { rank: 5,  name: "Infosys Ltd",                    symbol: "INFY",       isin: "INE009A01021", weight: 7, type: "equity", sector: "IT" },
+      { rank: 6,  name: "Mahindra & Mahindra Ltd",        symbol: "M&M",        isin: "INE213A01029", weight: 7, type: "equity", sector: "Auto" },
+      { rank: 7,  name: "Trent Ltd",                      symbol: "TRENT",      isin: "INE849A01020", weight: 7, type: "equity", sector: "Retail" },
+      { rank: 8,  name: "Tata Consultancy Services Ltd", symbol: "TCS",        isin: "INE467B01029", weight: 6, type: "equity", sector: "IT" },
+      { rank: 9,  name: "Axis Bank Ltd",                  symbol: "AXISBANK",   isin: "INE238A01034", weight: 6, type: "equity", sector: "Banking" },
+      { rank: 10, name: "Bajaj Finance Ltd",              symbol: "BAJFINANCE", isin: "INE296A01024", weight: 6, type: "equity", sector: "NBFC" },
+      { rank: 11, name: "Tata Motors Ltd",                symbol: "TATAMOTORS", isin: "INE155A01022", weight: 6, type: "equity", sector: "Auto" },
+      { rank: 12, name: "Siemens Ltd",                    symbol: "SIEMENS",    isin: "INE003A01024", weight: 6, type: "equity", sector: "Engineering" },
+      { rank: 13, name: "Sun Pharmaceutical Ind Ltd",     symbol: "SUNPHARMA",  isin: "INE044A01036", weight: 6, type: "equity", sector: "Pharma" },
+      { rank: 14, name: "Cipla Ltd",                      symbol: "CIPLA",      isin: "INE059A01026", weight: 5, type: "equity", sector: "Pharma" },
+      { rank: 15, name: "Persistent Systems Ltd",         symbol: "PERSISTENT", isin: "INE262H01021", weight: 5, type: "equity", sector: "IT" },
+      { rank: 16, name: "Liquid Buffer",                  symbol: "LIQUID",     isin: null,           weight: 3, type: "cash",   sector: "Cash" },
+    ],
+    allocation: [
+      { type: "equity", label: "Institutional Equity", weight: 97, color: "#6366F1" },
+      { type: "cash",   label: "Liquid Buffer",        weight: 3,  color: "#10B981" },
+    ],
+  },
 ];
 
 // ── Main seeder ───────────────────────────────────────────────────────────────

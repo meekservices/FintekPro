@@ -287,12 +287,24 @@ export interface ExtremeRiskMetrics {
   tailRiskDescription: string;   // human-readable tail risk classification
 }
 
+export interface StockLevelSignal {
+  symbol: string;
+  name: string;
+  targetWeight: number;
+  currentWeight?: number;
+  driftAction: "BUY" | "SELL" | "HOLD";
+  fiiSignal: "ACCUMULATE_LEADER" | "CORE_OVERWEIGHT" | "SATELLITE_HOLD" | "TRIM_OUTFLOW";
+  positionAction: "ADD" | "REDUCE" | "MAINTAIN";
+  rationale: string;
+}
+
 export interface QuantRebalanceResult {
   portfolioId: string;
   driftReport: PortfolioDriftReport;
   alphaScore: PortfolioAlphaScore;
   extremeRiskMetrics: ExtremeRiskMetrics;
   rebalancePlan: any | null;
+  stockLevelSignals?: StockLevelSignal[];
   timestamp: string;
   engineVersion: string;
 }
@@ -623,12 +635,55 @@ export function runPortfolioRebalance(
     rebalancePlan = { ...plan, holdings_requiring_action: driftReport.driftingCount };
   }
 
+  // Generate stock-level institutional signals for positions (decision support layer)
+  const stockLevelSignals: StockLevelSignal[] = (portfolio.holdings || [])
+    .filter(h => h.symbol && h.symbol !== "LIQUID")
+    .map(h => {
+      const matchedDrift = driftReport.holdingsDrift.find(hd => hd.asset === h.name || hd.asset === h.symbol);
+      const action = matchedDrift?.action ?? "HOLD";
+      const weight = h.currentWeight ?? h.weight ?? 0;
+
+      let fiiSignal: StockLevelSignal["fiiSignal"] = "CORE_OVERWEIGHT";
+      let positionAction: StockLevelSignal["positionAction"] = "MAINTAIN";
+      let rationale = "";
+
+      if (action === "BUY") {
+        fiiSignal = weight >= 7 ? "ACCUMULATE_LEADER" : "CORE_OVERWEIGHT";
+        positionAction = "ADD";
+        rationale = `Position is underweight (${matchedDrift ? (matchedDrift.delta * -100).toFixed(1) : 0}% below target). Institutional smart-money accumulation profile supports adding to position on market dips.`;
+      } else if (action === "SELL") {
+        fiiSignal = "TRIM_OUTFLOW";
+        positionAction = "REDUCE";
+        rationale = `Position is overweight (${matchedDrift ? (matchedDrift.delta * 100).toFixed(1) : 0}% above target). Rebalance guidance recommends trimming and locking profits into cash/liquid buffer.`;
+      } else {
+        fiiSignal = weight >= 7 ? "ACCUMULATE_LEADER" : "SATELLITE_HOLD";
+        positionAction = "MAINTAIN";
+        rationale = `Holding weight is aligned within drift threshold (${(driftReport.threshold * 100).toFixed(0)}%). Institutional holding is stable; maintain conviction.`;
+      }
+
+      return {
+        symbol: h.symbol!,
+        name: h.name,
+        targetWeight: h.weight,
+        currentWeight: h.currentWeight ?? h.weight,
+        driftAction: action,
+        fiiSignal,
+        positionAction,
+        rationale,
+      };
+    });
+
+  if (rebalancePlan && stockLevelSignals.length > 0) {
+    rebalancePlan.institutionalFlowSignals = stockLevelSignals;
+  }
+
   return {
     portfolioId:   portfolio.id,
     driftReport,
     alphaScore,
     extremeRiskMetrics,
     rebalancePlan,
+    stockLevelSignals: stockLevelSignals.length > 0 ? stockLevelSignals : undefined,
     timestamp:     new Date().toISOString(),
     engineVersion: ENGINE_VERSION,
   };

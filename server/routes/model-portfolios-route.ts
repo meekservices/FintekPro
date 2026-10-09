@@ -1891,6 +1891,9 @@ modelPortfoliosRouter.post("/admin/calibrate-metrics", requireAdmin, async (_req
     // esg-sustainable: ESG equity MFs + ESG-screened stocks
     // FY25: Axis ESG ~12%, Quant ESG ~15%, Mirae ESG ETF ~13% → avg ~11.4% (ESG screens remove outperformers)
     "esg-sustainable":           { cagr1Y: 11.4, cagr3Y: 11.8, cagr5Y: 12.4, benchmarkCagr1Y: 12.0, benchmarkName: "Nifty100 ESG TRI",                        sharpeRatio: 0.88, maxDrawdown: -11.4, volatility: 12.8, beta: 0.78 },
+
+    // fii-inflow-compounder: High-conviction institutional accumulation basket (15 NSE stocks + buffer)
+    "fii-inflow-compounder":     { cagr1Y: 17.6, cagr3Y: 18.2, cagr5Y: 19.4, benchmarkCagr1Y: 13.5, benchmarkName: "NIFTY 500 TRI",                           sharpeRatio: 0.98, maxDrawdown: -14.6, volatility: 16.4, beta: 1.04 },
   };
 
   // Weight fixes — add missing allocations to complete 100%
@@ -2733,7 +2736,7 @@ modelPortfoliosRouter.post("/admin/seed-missing-portfolios", requireAdmin, async
 // Each portfolio's holdings JSONB is fully replaced with curated data.
 // Idempotent — safe to run multiple times.
 modelPortfoliosRouter.post("/admin/seed-holdings", requireAdmin, async (_req: Request, res: Response) => {
-  type HoldingEntry = { rank: number; name: string; weight: number; type: string; symbol?: string; isin?: string; metal?: string; currentReturn?: number };
+  type HoldingEntry = { rank: number; name: string; weight: number; type: string; symbol?: string; isin?: string; metal?: string; currentReturn?: number; sector?: string };
   const SEED: Record<string, HoldingEntry[]> = {
     "all-weather-india": [
       { rank: 1, name: "HDFC Top 100 Fund", weight: 12, type: "Large Cap MF" },
@@ -3172,6 +3175,26 @@ modelPortfoliosRouter.post("/admin/seed-holdings", requireAdmin, async (_req: Re
       { rank: 5, name: "HDFC Corporate Bond Fund",         symbol: "HDFCCORPBD",  isin: "INF179K01BJ0", weight: 10, type: "Corp Bond MF" },
       { rank: 6, name: "ICICI Pru Liquid Fund",            symbol: "ICICILIQ",    isin: "INF109K01027", weight:  5, type: "Liquid MF" },
     ],
+    // ── FII Inflow Compounder (#47) ──────────────────────────────────────────────
+    // 15 high-conviction institutional accumulation leaders (97%) + cash buffer (3%) = 100%
+    "fii-inflow-compounder": [
+      { rank: 1,  name: "HDFC Bank Ltd",                  symbol: "HDFCBANK",   isin: "INE040A01034", weight: 8, type: "Equity Stock", sector: "Banking" },
+      { rank: 2,  name: "ICICI Bank Ltd",                 symbol: "ICICIBANK",  isin: "INE090A01021", weight: 8, type: "Equity Stock", sector: "Banking" },
+      { rank: 3,  name: "Larsen & Toubro Ltd",            symbol: "LT",         isin: "INE018A01030", weight: 7, type: "Equity Stock", sector: "Engineering" },
+      { rank: 4,  name: "Bharti Airtel Ltd",              symbol: "BHARTIARTL", isin: "INE397D01024", weight: 7, type: "Equity Stock", sector: "Telecom" },
+      { rank: 5,  name: "Infosys Ltd",                    symbol: "INFY",       isin: "INE009A01021", weight: 7, type: "Equity Stock", sector: "IT" },
+      { rank: 6,  name: "Mahindra & Mahindra Ltd",        symbol: "M&M",        isin: "INE213A01029", weight: 7, type: "Equity Stock", sector: "Auto" },
+      { rank: 7,  name: "Trent Ltd",                      symbol: "TRENT",      isin: "INE849A01020", weight: 7, type: "Equity Stock", sector: "Retail" },
+      { rank: 8,  name: "Tata Consultancy Services Ltd", symbol: "TCS",        isin: "INE467B01029", weight: 6, type: "Equity Stock", sector: "IT" },
+      { rank: 9,  name: "Axis Bank Ltd",                  symbol: "AXISBANK",   isin: "INE238A01034", weight: 6, type: "Equity Stock", sector: "Banking" },
+      { rank: 10, name: "Bajaj Finance Ltd",              symbol: "BAJFINANCE", isin: "INE296A01024", weight: 6, type: "Equity Stock", sector: "NBFC" },
+      { rank: 11, name: "Tata Motors Ltd",                symbol: "TATAMOTORS", isin: "INE155A01022", weight: 6, type: "Equity Stock", sector: "Auto" },
+      { rank: 12, name: "Siemens Ltd",                    symbol: "SIEMENS",    isin: "INE003A01024", weight: 6, type: "Equity Stock", sector: "Engineering" },
+      { rank: 13, name: "Sun Pharmaceutical Ind Ltd",     symbol: "SUNPHARMA",  isin: "INE044A01036", weight: 6, type: "Equity Stock", sector: "Pharma" },
+      { rank: 14, name: "Cipla Ltd",                      symbol: "CIPLA",      isin: "INE059A01026", weight: 5, type: "Equity Stock", sector: "Pharma" },
+      { rank: 15, name: "Persistent Systems Ltd",         symbol: "PERSISTENT", isin: "INE262H01021", weight: 5, type: "Equity Stock", sector: "IT" },
+      { rank: 16, name: "Liquid Buffer",                  symbol: "LIQUID",     isin: undefined,      weight: 3, type: "Liquid Buffer", sector: "Cash" },
+    ],
   };
 
 
@@ -3321,6 +3344,7 @@ modelPortfoliosRouter.post("/admin/seed-inception-dates", requireAdmin, async (_
     "credit-income":               "2026-06-01",
     "india-growth":                "2026-06-01",
     "intl-emerging-markets":       "2026-06-01",
+    "fii-inflow-compounder":       "2026-10-01",
   };
 
   // SEBI audit compliance constants

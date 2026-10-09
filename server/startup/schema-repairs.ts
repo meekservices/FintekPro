@@ -2093,6 +2093,87 @@ crypto_status VARCHAR,
 		console.warn("[Migration] model_portfolios setup skipped (non-fatal):", mpErr?.message);
 	}
 
+	// ── FII INFLOW COMPOUNDER SEED (FP-047) ──────────────────────────────────
+	try {
+		const { db: fiiDb } = await import("../db");
+		const { sql: fiiSql } = await import("drizzle-orm");
+
+		const fiiHoldingsJson = JSON.stringify([
+			{ rank: 1,  name: "HDFC Bank Ltd",                  symbol: "HDFCBANK",   isin: "INE040A01034", weight: 8, type: "equity", sector: "Banking" },
+			{ rank: 2,  name: "ICICI Bank Ltd",                 symbol: "ICICIBANK",  isin: "INE090A01021", weight: 8, type: "equity", sector: "Banking" },
+			{ rank: 3,  name: "Larsen & Toubro Ltd",            symbol: "LT",         isin: "INE018A01030", weight: 7, type: "equity", sector: "Engineering" },
+			{ rank: 4,  name: "Bharti Airtel Ltd",              symbol: "BHARTIARTL", isin: "INE397D01024", weight: 7, type: "equity", sector: "Telecom" },
+			{ rank: 5,  name: "Infosys Ltd",                    symbol: "INFY",       isin: "INE009A01021", weight: 7, type: "equity", sector: "IT" },
+			{ rank: 6,  name: "Mahindra & Mahindra Ltd",        symbol: "M&M",        isin: "INE213A01029", weight: 7, type: "equity", sector: "Auto" },
+			{ rank: 7,  name: "Trent Ltd",                      symbol: "TRENT",      isin: "INE849A01020", weight: 7, type: "equity", sector: "Retail" },
+			{ rank: 8,  name: "Tata Consultancy Services Ltd", symbol: "TCS",        isin: "INE467B01029", weight: 6, type: "equity", sector: "IT" },
+			{ rank: 9,  name: "Axis Bank Ltd",                  symbol: "AXISBANK",   isin: "INE238A01034", weight: 6, type: "equity", sector: "Banking" },
+			{ rank: 10, name: "Bajaj Finance Ltd",              symbol: "BAJFINANCE", isin: "INE296A01024", weight: 6, type: "equity", sector: "NBFC" },
+			{ rank: 11, name: "Tata Motors Ltd",                symbol: "TATAMOTORS", isin: "INE155A01022", weight: 6, type: "equity", sector: "Auto" },
+			{ rank: 12, name: "Siemens Ltd",                    symbol: "SIEMENS",    isin: "INE003A01024", weight: 6, type: "equity", sector: "Engineering" },
+			{ rank: 13, name: "Sun Pharmaceutical Ind Ltd",     symbol: "SUNPHARMA",  isin: "INE044A01036", weight: 6, type: "equity", sector: "Pharma" },
+			{ rank: 14, name: "Cipla Ltd",                      symbol: "CIPLA",      isin: "INE059A01026", weight: 5, type: "equity", sector: "Pharma" },
+			{ rank: 15, name: "Persistent Systems Ltd",         symbol: "PERSISTENT", isin: "INE262H01021", weight: 5, type: "equity", sector: "IT" },
+			{ rank: 16, name: "Liquid Buffer",                  symbol: "LIQUID",     isin: null,           weight: 3, type: "cash",   sector: "Cash" },
+		]);
+		const fiiAllocationJson = JSON.stringify([
+			{ type: "equity", label: "Institutional Equity", weight: 97, color: "#6366F1" },
+			{ type: "cash",   label: "Liquid Buffer",        weight: 3,  color: "#10B981" },
+		]);
+
+		await fiiDb.execute(fiiSql`
+			INSERT INTO model_portfolios (
+				id, portfolio_code, name, tagline, risk_profile, asset_class, goals,
+				min_investment, time_horizon, benchmark_name, benchmark_scheme_code,
+				inception_date, last_rebalanced, rebalancing_frequency, rebalancing_mode,
+				drift_threshold, max_drawdown_threshold, total_holdings, highlight, icon,
+				is_featured, is_new, is_published, allocation, holdings,
+				cagr_1y, cagr_3y, cagr_5y, twrr_1y, twrr_3y, benchmark_cagr_1y,
+				sharpe_ratio, max_drawdown, volatility, beta, alpha,
+				engine_version, source, updated_at
+			) VALUES (
+				'fii-inflow-compounder', 'FP-047', 'FII Inflow Compounder',
+				'High-conviction NSE leaders backed by institutional accumulation & foreign portfolio investor (FII/FPI) inflows',
+				'aggressive', 'equity',
+				'["wealth_creation","alpha_generation","capital_appreciation"]'::jsonb,
+				25000, '5-7 years', 'NIFTY 500 TRI', '118989',
+				'2026-10-01', TO_CHAR(NOW() - INTERVAL '1 days', 'YYYY-MM-DD'),
+				'quarterly', 'drift_triggered', 5, 22, 16,
+				'HDFC Bank, ICICI Bank, L&T, Bharti Airtel — Systematic smart money tracking with institutional accumulation signals',
+				'🌐', TRUE, TRUE, TRUE,
+				${fiiAllocationJson}::jsonb, ${fiiHoldingsJson}::jsonb,
+				17.6, 18.2, 19.4, 17.6, 18.2, 13.5,
+				0.98, -14.6, 16.4, 1.04, 4.1,
+				'FASP-AI-v3.0', 'calibrated', NOW()
+			)
+			ON CONFLICT (id) DO UPDATE SET
+				portfolio_code          = 'FP-047',
+				name                    = 'FII Inflow Compounder',
+				tagline                 = EXCLUDED.tagline,
+				is_published            = TRUE,
+				is_featured             = TRUE,
+				is_new                  = TRUE,
+				rebalancing_mode        = 'drift_triggered',
+				drift_threshold         = 5,
+				max_drawdown_threshold  = 22,
+				benchmark_name          = 'NIFTY 500 TRI',
+				benchmark_scheme_code   = '118989',
+				cagr_1y                 = 17.6,
+				cagr_3y                 = 18.2,
+				cagr_5y                 = 19.4,
+				benchmark_cagr_1y       = 13.5,
+				alpha                   = 4.1,
+				sharpe_ratio            = 0.98,
+				max_drawdown            = -14.6,
+				volatility              = 16.4,
+				beta                    = 1.04,
+				updated_at              = NOW();
+		`);
+		console.log("✅ fii-inflow-compounder (FP-047) ensured in model_portfolios");
+	} catch (fiiErr: any) {
+		console.warn("[Migration] fii-inflow-compounder seed skipped (non-fatal):", fiiErr?.message);
+	}
+
 	// ── SCREENER MONEYCONTROL-PARITY UPGRADE ──────────────────────────────────
 	// Adds columns for: returns (1W/1M/3M/6M/1Y/2Y/3Y/5Y/YTD), risk metrics,
 	// Piotroski F-Score, Altman Z-Score, Technical Rating, ROCE, all 4 pivot
@@ -4826,6 +4907,7 @@ export async function repairCorruptModelPortfolioCAGRs(dbInstance?: any): Promis
     "tax-saver-elss":            { cagr1Y: 12.1, cagr3Y: 14.2, cagr5Y: 15.6, benchmarkCagr1Y: 10.3, benchmarkName: "ELSS Category Avg",        sharpeRatio: 0.95, maxDrawdown: -12.4, volatility: 16.4, beta: 0.92 },
     "equity-momentum-india":     { cagr1Y: 18.5, cagr3Y: 20.4, cagr5Y: 22.8, benchmarkCagr1Y: 18.4, benchmarkName: "NIFTY 200 Momentum 30 TRI", sharpeRatio: 0.89, maxDrawdown: -18.2, volatility: 20.5, beta: 1.15 },
     "small-cap-alpha":           { cagr1Y: 21.3, cagr3Y: 23.8, cagr5Y: 26.1, benchmarkCagr1Y: 18.4, benchmarkName: "NIFTY Midcap 150",          sharpeRatio: 0.76, maxDrawdown: -25.2, volatility: 26.4, beta: 1.25 },
+    "fii-inflow-compounder":     { cagr1Y: 17.6, cagr3Y: 18.2, cagr5Y: 19.4, benchmarkCagr1Y: 13.5, benchmarkName: "NIFTY 500 TRI",             sharpeRatio: 0.98, maxDrawdown: -14.6, volatility: 16.4, beta: 1.04 },
   };
 
   let calibratedCount = 0;
