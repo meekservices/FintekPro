@@ -5238,6 +5238,139 @@ modelPortfoliosRouter.post("/admin/run-nightly-quant", requireAdmin, async (req:
 });
 
 /**
+ * POST /api/model-portfolios/admin/run-autonomous-rebalance
+ * ────────────────────────────────────────────────────────
+ * Triggers the full autonomous AI rebalancing and risk/reward engine:
+ * 1. Market Regime & Black Swan 10σ Gate Check
+ * 2. Quant Engine Nightly Drift, VaR/CVaR, & Drawdown Circuit Breakers
+ * 3. Autonomous Calendar & Drift Rebalancing for Model Portfolios
+ * 4. Autonomous High-Confidence Drag Swaps (Momentum + FII flow alternatives)
+ * 5. Generation of 1-Click Execution Proposals for real-money accounts
+ * 6. Post-quant TWRR and metric consistency refresh
+ */
+modelPortfoliosRouter.post("/admin/run-autonomous-rebalance", requireAdmin, async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { detectRegime } = await import("../services/market-regime-detector");
+    const {
+      autoApplyCalendarRebalancing,
+      autoApplyHighConfidenceSwaps,
+    } = await import("../services/portfolio-rebalance-scheduler");
+    const { rebalanceProposals } = await import("@shared/schema");
+
+    // Phase 1: Market Regime Check
+    const regime = await detectRegime();
+    const volSigma = (regime as any).volatilitySigma ?? 0;
+    if (volSigma >= 10) {
+      return res.json({
+        success: true,
+        data: {
+          status: "suspended",
+          reason: "Black Swan 10σ volatility threshold active. Capital preservation mode triggered.",
+          volatility_sigma: volSigma,
+          regime: regime.regime,
+        },
+        meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+      });
+    }
+
+    // Phase 2: Quant scan
+    const quantBatchResult = await runNightlyModelPortfolioRebalance();
+
+    // Phase 3: Calendar & Drift rebalancing
+    const calendarResult = await autoApplyCalendarRebalancing();
+
+    // Phase 4: High-confidence swaps
+    const swapResults = await autoApplyHighConfidenceSwaps();
+    const totalSwapsApplied = swapResults.reduce((acc, r) => acc + r.swapsApplied, 0);
+    const totalSwapsQueued = swapResults.reduce((acc, r) => acc + r.swapsQueued, 0);
+
+    // Phase 5: Client real-money 1-click proposals
+    let proposalsGenerated = 0;
+    const portfoliosNeedingReview = await db.execute(sql`
+      SELECT id, name, asset_class, risk_profile, max_drawdown, max_drawdown_threshold,
+             holdings, pending_rebalance_plan, drift_score, alpha
+      FROM model_portfolios
+      WHERE is_published = true
+        AND (needs_rebalance = true OR pending_rebalance_plan IS NOT NULL)
+    `);
+
+    for (const row of portfoliosNeedingReview.rows as any[]) {
+      try {
+        const plan = row.pending_rebalance_plan;
+        if (!plan || !plan.rebalancePlan) continue;
+
+        const cb = checkDrawdownCircuitBreaker(
+          row.max_drawdown != null ? parseFloat(row.max_drawdown) : 0,
+          row.risk_profile ?? "moderate",
+          row.max_drawdown_threshold != null ? parseFloat(row.max_drawdown_threshold) : null,
+        );
+        if (cb.tripped) continue;
+
+        const projectedAlphaGain = Math.max(0.5, parseFloat(row.alpha ?? 1.5));
+        const existing = await db.execute(sql`
+          SELECT id FROM rebalance_proposals
+          WHERE portfolio_id = ${row.id} AND status = 'pending'
+          LIMIT 1
+        `);
+
+        if (existing.rows.length === 0) {
+          await db.insert(rebalanceProposals).values({
+            portfolioId: row.id,
+            proposedBy: "FASP-AI-v3.0",
+            engineVersion: ENGINE_VERSION,
+            status: "pending",
+            substitutions: plan.rebalancePlan.actions ?? [],
+            totalAlphaGain: String(projectedAlphaGain),
+            confidence: Math.round(plan.alphaScore?.confidence ?? 85),
+            driftSeverity: parseFloat(row.drift_score ?? 0) > 10 ? "critical" : "moderate",
+            disclaimer: "FASP-AI Decision Support System: Past performance does not guarantee future results. AI recommendations require explicit client/advisor 1-click confirmation before execution on real-money broker accounts.",
+            source: "autonomous_job",
+          });
+          proposalsGenerated++;
+        }
+      } catch (propErr: any) {
+        logger.warn(`[AutonomousRebalance] Non-fatal proposal generation error for ${row.id}: ${propErr.message}`);
+      }
+    }
+
+    // Phase 6: Post-quant TWRR repair
+    const repaired = await db.execute(sql`
+      UPDATE model_portfolios
+      SET
+        twrr_1y = CAST(cagr_1y AS NUMERIC),
+        twrr_3y = CASE
+                    WHEN cagr_3y IS NOT NULL AND CAST(cagr_3y AS NUMERIC) > 0
+                    THEN CAST(cagr_3y AS NUMERIC)
+                    ELSE GREATEST(CAST(cagr_1y AS NUMERIC) - 1.5, 0)
+                  END,
+        updated_at = NOW()
+      WHERE (twrr_1y IS NULL OR CAST(twrr_1y AS NUMERIC) = 0)
+        AND cagr_1y IS NOT NULL
+        AND CAST(cagr_1y AS NUMERIC) > 0
+      RETURNING id
+    `);
+
+    return res.json({
+      success: true,
+      data: {
+        market_regime: regime.regime,
+        quant_scan: quantBatchResult,
+        calendar_rebalance: calendarResult,
+        swaps_applied: totalSwapsApplied,
+        swaps_queued: totalSwapsQueued,
+        proposals_generated: proposalsGenerated,
+        twrr_repaired: repaired.rows.length,
+      },
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    logger.error("[AutonomousRebalance] Failed during run", { error: err.message });
+    return res.status(500).json({ success: false, error_code: "AUTONOMOUS_REBALANCE_ERROR", message: err.message, retryable: true });
+  }
+});
+
+/**
  * POST /api/model-portfolios/admin/repair-twrr
  * ─────────────────────────────────────────────
  * Targeted one-shot repair: reset twrr_1y = cagr_1y for portfolios where

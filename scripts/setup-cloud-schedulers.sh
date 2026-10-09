@@ -97,7 +97,15 @@ upsert_scheduler_job \
   "fintekpro-compliance" \
   "Runs nightly SEBI regulatory checks, audit log integrity validation, and compliance reconciliation"
 
+# 5. Autonomous Model Portfolio Rebalancing & Risk/Reward Engine (Mon-Fri 07:00 PM IST = 13:30 UTC)
+upsert_scheduler_job \
+  "fintekpro-rebalance-trigger" \
+  "30 13 * * 1-5" \
+  "fintekpro-rebalance" \
+  "Executes autonomous model portfolio drift rebalancing, momentum swaps, and real-money risk/reward queue generation post market close"
+
 echo ""
 echo "================================================================="
-echo "✅ All 4 Cloud Scheduler triggers configured successfully!"
+echo "✅ All 5 Cloud Scheduler triggers configured successfully!"
 echo "================================================================="
+

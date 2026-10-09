@@ -345,7 +345,45 @@ gcloud run jobs update fintekpro-picks \
     --task-timeout=1200 \
     2>&1 | tail -3
 
-echo "✅ All 5 Cloud Run Jobs updated — next executions will have DB access + latest code."
+echo ""
+echo "🔧 Updating/Creating fintekpro-rebalance job..."
+if gcloud run jobs describe fintekpro-rebalance --project=$PROJECT_ID --region=$REGION >/dev/null 2>&1; then
+  gcloud run jobs update fintekpro-rebalance \
+      --image=asia-south1-docker.pkg.dev/${PROJECT_ID}/fintekpro-repo/fintekpro-app:latest \
+      --project=$PROJECT_ID \
+      --region=$REGION \
+      --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
+      --vpc-connector=fintekpro-vpc-connector \
+      --vpc-egress=all \
+      --memory=2Gi \
+      --cpu=2 \
+      --set-env-vars="NODE_OPTIONS=--max-old-space-size=1536" \
+      --command="node" \
+      --args="dist/jobs/rebalance.js" \
+      --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest" \
+      --max-retries=1 \
+      --task-timeout=1200 \
+      2>&1 | tail -3
+else
+  gcloud run jobs create fintekpro-rebalance \
+      --image=asia-south1-docker.pkg.dev/${PROJECT_ID}/fintekpro-repo/fintekpro-app:latest \
+      --project=$PROJECT_ID \
+      --region=$REGION \
+      --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
+      --vpc-connector=fintekpro-vpc-connector \
+      --vpc-egress=all \
+      --memory=2Gi \
+      --cpu=2 \
+      --set-env-vars="NODE_OPTIONS=--max-old-space-size=1536" \
+      --command="node" \
+      --args="dist/jobs/rebalance.js" \
+      --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest" \
+      --max-retries=1 \
+      --task-timeout=1200 \
+      2>&1 | tail -3
+fi
+
+echo "✅ All 6 Cloud Run Jobs updated — next executions will have DB access + latest code."
 
 # ── Firebase Hosting Deploy (serves the static frontend at agent.fintekpro.com) ──
 echo ""
