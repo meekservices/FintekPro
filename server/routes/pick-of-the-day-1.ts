@@ -112,7 +112,20 @@ router.get("/today", async (req, res) => {
 		const { picks: rawEnriched, categoryLastUpdated } =
 			await enrichPicksWithDataSource(rawPicks);
 		// Fix K: apply confidence decay before sending to clients
-		const picks = applyConfidenceDecay(rawEnriched);
+		let picks = applyConfidenceDecay(rawEnriched);
+
+		// Support ?horizon=short_term|medium_term|long_term query filter
+		const horizonFilter = req.query.horizon as string | undefined;
+		if (horizonFilter && horizonFilter !== "all") {
+			picks = picks.filter((p) => p.timeHorizon === horizonFilter);
+		}
+
+		// Support ?category=listed_stocks etc query filter
+		const categoryFilter = req.query.category as string | undefined;
+		if (categoryFilter && categoryFilter !== "all") {
+			picks = picks.filter((p) => p.category === categoryFilter);
+		}
+
 		const fallbackDate =
 			isFallback && picks.length > 0 ? picks[0].recoDate : undefined;
 
@@ -143,9 +156,12 @@ router.get("/today", async (req, res) => {
 		});
 	} catch (error) {
 		logger.error("[API] Error fetching today's picks:", error instanceof Error ? error : new Error(String(error)));
-		res
-			.status(500)
-			.json({ success: false, error: "Failed to fetch today's picks" });
+		res.status(500).json({
+			success: false,
+			error_code: "FETCH_TODAY_PICKS_FAILED",
+			message: "Failed to fetch today's picks",
+			retryable: true,
+		});
 	}
 });
 
@@ -155,7 +171,20 @@ router.get("/live", async (req, res) => {
 		const { picks: allPicks, categoryLastUpdated } =
 			await enrichPicksWithDataSource(rawPicks);
 		// Exclude picks that were just auto-expired by enrichment (expiryDate passed)
-		const picks = allPicks.filter((p) => p.status !== "expired");
+		let picks = allPicks.filter((p) => p.status !== "expired");
+
+		// Support ?horizon=short_term|medium_term|long_term query filter
+		const horizonFilter = req.query.horizon as string | undefined;
+		if (horizonFilter && horizonFilter !== "all") {
+			picks = picks.filter((p) => p.timeHorizon === horizonFilter);
+		}
+
+		// Support ?category=listed_stocks etc query filter
+		const categoryFilter = req.query.category as string | undefined;
+		if (categoryFilter && categoryFilter !== "all") {
+			picks = picks.filter((p) => p.category === categoryFilter);
+		}
+
 		const lastUpdated = await db
 			.select({ maxUpdated: sql<string>`MAX(updated_at)` })
 			.from(dailyPicks)
@@ -169,12 +198,19 @@ router.get("/live", async (req, res) => {
 			lastRefreshedAt: lastUpdated[0]?.maxUpdated || new Date().toISOString(),
 			dataSources: DATA_SOURCES,
 			disclaimer: REGULATORY_DISCLAIMER,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: "3.0.0",
+			},
 		});
 	} catch (error) {
 		logger.error("[API] Error fetching live picks:", error instanceof Error ? error : new Error(String(error)));
-		res
-			.status(500)
-			.json({ success: false, error: "Failed to fetch live picks" });
+		res.status(500).json({
+			success: false,
+			error_code: "FETCH_LIVE_PICKS_FAILED",
+			message: "Failed to fetch live picks",
+			retryable: true,
+		});
 	}
 });
 

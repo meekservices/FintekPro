@@ -15,15 +15,11 @@ export abstract class BaseStrategy implements IPickStrategy {
 
 	protected getTimeHorizon(category: PickCategory): string {
 		switch (category) {
-			// ── #8: Corrected time-horizon labels ──────────────────────────────────────
-			// Listed stocks are typically held 30 days (DEFAULT_VALIDITY_DAYS).
-			// Large/Mid Cap equities and ETFs are medium-term investment ideas;
-			// labelling them "short_term" was misleading for advisor UX.
-			// Global stocks trade on different sessions — medium_term is accurate.
 			case "listed_stocks":
+			case "derivatives":
+				return "short_term";
 			case "global_stocks":
 			case "etfs":
-				return "medium_term";
 			case "mutual_funds":
 			case "bonds":
 			case "fixed_deposits":

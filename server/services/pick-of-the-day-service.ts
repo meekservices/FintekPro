@@ -934,6 +934,21 @@ export class PickOfTheDayService {
 						const targetPrice = Number.parseFloat(pick.targetPrice);
 						let stoplossPrice = Number.parseFloat(pick.stoplossPrice);
 
+						// Price sanity guardrail: ignore corrupted non-finite numbers
+						if (
+							!Number.isFinite(recoPrice) ||
+							recoPrice <= 0 ||
+							!Number.isFinite(targetPrice) ||
+							!Number.isFinite(stoplossPrice) ||
+							!Number.isFinite(livePrice) ||
+							livePrice <= 0
+						) {
+							logger.warn(
+								`[PickOfTheDay] Invalid price parameters for pick ${pick.id} (${pick.instrumentName}), skipping refresh`,
+							);
+							continue;
+						}
+
 						const isCreditStrategy = (pick.keyMetrics as any)?.isCreditStrategy === true ||
 							(category === "derivatives" && targetPrice < recoPrice && recoPrice > 0);
 
@@ -941,16 +956,30 @@ export class PickOfTheDayService {
 							? ((recoPrice - livePrice) / recoPrice) * 100
 							: ((livePrice - recoPrice) / recoPrice) * 100;
 
-						// ── Breakeven Trailing Stop with breathing buffer ─────────────────
+						// ── Dynamic Multi-Tier Profit-Locking Trailing Stop ─────────────────
 						let stoplossAdjusted = false;
 						if (isCreditStrategy) {
+							// Tier 1: At 4% gain, move SL to breakeven + 0.5%
 							if (returnPct >= 4.0 && stoplossPrice > recoPrice * 1.005) {
-								stoplossPrice = recoPrice * 1.005;
+								stoplossPrice = Math.round(recoPrice * 1.005 * 100) / 100;
+								stoplossAdjusted = true;
+							}
+							// Tier 2: At >= 8% gain, trail SL to protect 50% of profit
+							const halfProfitSL = recoPrice * (1 - (returnPct * 0.5) / 100);
+							if (returnPct >= 8.0 && stoplossPrice > halfProfitSL) {
+								stoplossPrice = Math.round(halfProfitSL * 100) / 100;
 								stoplossAdjusted = true;
 							}
 						} else {
+							// Tier 1: At 4% gain, move SL to breakeven (recoPrice - 0.5% breathing room)
 							if (returnPct >= 4.0 && stoplossPrice < recoPrice * 0.995) {
-								stoplossPrice = recoPrice * 0.995;
+								stoplossPrice = Math.round(recoPrice * 0.995 * 100) / 100;
+								stoplossAdjusted = true;
+							}
+							// Tier 2: At >= 8% gain, trail SL to protect 50% of peak gains
+							const halfGainSL = recoPrice * (1 + (returnPct * 0.5) / 100);
+							if (returnPct >= 8.0 && stoplossPrice < halfGainSL) {
+								stoplossPrice = Math.round(halfGainSL * 100) / 100;
 								stoplossAdjusted = true;
 							}
 						}
@@ -986,11 +1015,33 @@ export class PickOfTheDayService {
 							newStatus = returnPct >= minWinPct ? "target_hit" : "expired";
 						}
 
+						// ── Intraday Execution Exit Price Guardrail ─────────────────────
+						// When target or stoploss is triggered, record the true execution exit price
+						// rather than an end-of-day retraced live price.
+						let exitPrice = livePrice;
+						let exitReturnPct = returnPct;
+
+						if (newStatus === "target_hit") {
+							exitPrice = isCreditStrategy
+								? (dayLow != null && dayLow <= targetPrice ? targetPrice : Math.min(livePrice, targetPrice))
+								: (dayHigh != null && dayHigh >= targetPrice ? targetPrice : Math.max(livePrice, targetPrice));
+							exitReturnPct = isCreditStrategy
+								? ((recoPrice - exitPrice) / recoPrice) * 100
+								: ((exitPrice - recoPrice) / recoPrice) * 100;
+						} else if (newStatus === "stoploss_hit") {
+							exitPrice = isCreditStrategy
+								? (dayHigh != null && dayHigh >= stoplossPrice ? stoplossPrice : Math.max(livePrice, stoplossPrice))
+								: (dayLow != null && dayLow <= stoplossPrice ? stoplossPrice : Math.min(livePrice, stoplossPrice));
+							exitReturnPct = isCreditStrategy
+								? ((recoPrice - exitPrice) / recoPrice) * 100
+								: ((exitPrice - recoPrice) / recoPrice) * 100;
+						}
+
 						await db
 							.update(dailyPicks)
 							.set({
-								currentPrice: livePrice.toString(),
-								returnPct: returnPct.toFixed(2),
+								currentPrice: exitPrice.toString(),
+								returnPct: exitReturnPct.toFixed(2),
 								...(stoplossAdjusted ? { stoplossPrice: stoplossPrice.toString() } : {}),
 								daysHeld,
 								status: newStatus,
@@ -1004,7 +1055,7 @@ export class PickOfTheDayService {
 						updated++;
 						if (newStatus !== pick.status) {
 							details.push(
-								`${pick.instrumentName}: ${pick.status} -> ${newStatus} @ ₹${livePrice}`,
+								`${pick.instrumentName}: ${pick.status} -> ${newStatus} @ ₹${exitPrice}`,
 							);
 						}
 
@@ -1012,8 +1063,8 @@ export class PickOfTheDayService {
 							await this.notifyWatchlistSubscribers(
 								pick,
 								newStatus,
-								livePrice,
-								returnPct,
+								exitPrice,
+								exitReturnPct,
 							);
 						}
 					} else {

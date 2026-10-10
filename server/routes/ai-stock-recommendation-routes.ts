@@ -27,7 +27,7 @@ async function isStocksCategoryEnabled(): Promise<boolean> {
 		if (categories.length === 0) return true;
 		return categories[0].isEnabled !== false;
 	} catch (e) {
-		console.warn("[AI Stock] Error checking category status:", e);
+		logger.warn("[AI Stock] Error checking category status:", { error: e });
 		return true;
 	}
 }
@@ -179,6 +179,10 @@ export function registerAIStockRecommendationRoutes(app: Express): void {
 					success: true,
 					count: recommendations.length,
 					generatedAt: new Date().toISOString(),
+					meta: {
+						timestamp: new Date().toISOString(),
+						version: "FASP-AI-v3.0",
+					},
 					filters: {
 						sectors: filters.sectors || "All",
 						marketCap: filters.marketCap || "All",
@@ -188,10 +192,16 @@ export function registerAIStockRecommendationRoutes(app: Express): void {
 					recommendations,
 				});
 			} catch (error: any) {
-				console.error("Error generating stock recommendations:", error);
+				logger.error("Error generating stock recommendations:", error);
 				res.status(500).json({
 					success: false,
 					error: error.message || "Failed to generate recommendations",
+					error_code: "AI_RECOMMENDATION_FAILED",
+					retryable: true,
+					meta: {
+						timestamp: new Date().toISOString(),
+						version: "FASP-AI-v3.0",
+					},
 				});
 			}
 		},
@@ -212,11 +222,24 @@ export function registerAIStockRecommendationRoutes(app: Express): void {
 				res.json({
 					success: true,
 					count: recommendations.length,
+					meta: {
+						timestamp: new Date().toISOString(),
+						version: "FASP-AI-v3.0",
+					},
 					recommendations,
 				});
 			} catch (error: any) {
-				console.error("Error fetching quick recommendations:", error);
-				res.status(500).json({ success: false, error: error.message });
+				logger.error("Error fetching quick recommendations:", error);
+				res.status(500).json({
+					success: false,
+					error: error.message,
+					error_code: "AI_RECOMMENDATION_FAILED",
+					retryable: true,
+					meta: {
+						timestamp: new Date().toISOString(),
+						version: "FASP-AI-v3.0",
+					},
+				});
 			}
 		},
 	);
@@ -241,7 +264,7 @@ export function registerAIStockRecommendationRoutes(app: Express): void {
 					recommendation,
 				});
 			} catch (error: any) {
-				console.error("Error fetching stock recommendation:", error);
+				logger.error("Error fetching stock recommendation:", { error });
 				res.status(500).json({ success: false, error: error.message });
 			}
 		},
@@ -262,7 +285,7 @@ export function registerAIStockRecommendationRoutes(app: Express): void {
 					recommendations,
 				});
 			} catch (error: any) {
-				console.error("Error fetching sector recommendations:", error);
+				logger.error("Error fetching sector recommendations:", { error });
 				res.status(500).json({ success: false, error: error.message });
 			}
 		},
@@ -315,5 +338,5 @@ export function registerAIStockRecommendationRoutes(app: Express): void {
 		},
 	);
 
-	console.log("✅ AI Stock Recommendation routes registered");
+	logger.info("✅ AI Stock Recommendation routes registered");
 }

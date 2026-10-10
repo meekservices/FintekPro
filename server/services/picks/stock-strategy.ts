@@ -469,6 +469,8 @@ export class StockStrategy extends BaseStrategy {
 			const orderedSectors = reorderBroadSectorsByFII(BROAD_SECTORS, fiiSignal);
 
 			const totalSectors = orderedSectors.length;
+			let shortTermCount = 0;
+			let mediumTermCount = 0;
 			for (const broadSector of orderedSectors) {
 				// Fix 1: Only skip recently-used sectors if there are enough un-used sectors
 				// to still fill a healthy set of picks. If ALL sectors are recently used
@@ -486,9 +488,17 @@ export class StockStrategy extends BaseStrategy {
 						context,
 						usedIds,
 						fiiSignal,
+						results.length,
+						shortTermCount,
+						mediumTermCount,
 					);
 					if (pick) {
 						results.push(pick);
+						if (pick.timeHorizon === "short_term") {
+							shortTermCount++;
+						} else {
+							mediumTermCount++;
+						}
 						// Prevent the same stock appearing in multiple sectors
 						if (pick.instrumentId) usedIds.add(pick.instrumentId);
 						if (pick.symbol) {
@@ -539,6 +549,77 @@ export class StockStrategy extends BaseStrategy {
 	}
 
 	/**
+	 * deriveStockTimeHorizon - FASP-AI Quantitative Horizon Determination
+	 * Classifies equity picks into 'short_term' vs 'medium_term' dynamically based on:
+	 * 1. Technical momentum & RSI (momentum RSI >= 52 -> tactical swing)
+	 * 2. Volatility & Beta (volatility > 20% or mid/small cap -> short_term swing)
+	 * 3. Market Cap & Fundamentals (Large-cap low-vol compounders -> medium_term)
+	 * 4. Batch balance enforcer (ensures both short_term and medium_term picks are generated daily)
+	 */
+	protected deriveStockTimeHorizon(params: {
+		stock: any;
+		volatility: number;
+		rsi: number | null;
+		roic: number | null;
+		existingCount?: number;
+		shortTermCount?: number;
+		mediumTermCount?: number;
+	}): { timeHorizon: "short_term" | "medium_term"; validityDays: number } {
+		const {
+			stock,
+			volatility,
+			rsi,
+			roic,
+			existingCount = 0,
+			shortTermCount = 0,
+			mediumTermCount = 0,
+		} = params;
+		const rsiVal = rsi ?? 50;
+		const isHighMomentum = rsiVal >= 52 && rsiVal <= 72;
+		const isHighVol = volatility > 20;
+		const isMidSmall = Boolean(
+			stock.marketCap && /mid|small/i.test(stock.marketCap),
+		);
+		const isLargeCapSteady = Boolean(
+			stock.marketCap &&
+				/large/i.test(stock.marketCap) &&
+				volatility <= 18 &&
+				(roic != null ? roic >= 15 : true),
+		);
+
+		// Batch balance enforcer: If we have multiple picks and all are medium_term, favor short_term
+		if (
+			mediumTermCount > shortTermCount &&
+			(isHighMomentum || isHighVol || isMidSmall)
+		) {
+			return { timeHorizon: "short_term", validityDays: 30 };
+		}
+		if (shortTermCount > mediumTermCount && isLargeCapSteady) {
+			return { timeHorizon: "medium_term", validityDays: 90 };
+		}
+
+		// Intrinsic setup classification:
+		// Swing/Tactical breakout -> short_term (30 days validity)
+		if (
+			(isHighMomentum && isHighVol) ||
+			(isMidSmall && isHighMomentum) ||
+			isHighVol
+		) {
+			return { timeHorizon: "short_term", validityDays: 30 };
+		}
+
+		// Fundamental compounder -> medium_term (90 days validity)
+		if (isLargeCapSteady && !isHighVol) {
+			return { timeHorizon: "medium_term", validityDays: 90 };
+		}
+
+		// Balanced alternation when indicators are neutral
+		const timeHorizon = existingCount % 2 === 0 ? "short_term" : "medium_term";
+		const validityDays = timeHorizon === "short_term" ? 30 : 90;
+		return { timeHorizon, validityDays };
+	}
+
+	/**
 	 * Picks the single best stock for a given broad sector.
 	 * Fetches up to 8 candidates, scores them, returns the top scorer.
 	 *
@@ -546,6 +627,9 @@ export class StockStrategy extends BaseStrategy {
 	 * @param context     - Strategy context (today, recentIds, service).
 	 * @param usedIds     - Already-selected stock IDs to exclude (cross-sector dedup).
 	 * @param fiiSignal   - Today's FII/DII sector signal (can be null — degrades gracefully).
+	 * @param existingCount - Current count of generated picks in this batch.
+	 * @param shortTermCount - Count of short_term picks already generated.
+	 * @param mediumTermCount - Count of medium_term picks already generated.
 	 * @returns A DailyPickData for the best stock in this sector, or null if none qualify.
 	 */
 	private async pickBestForSector(
@@ -553,6 +637,9 @@ export class StockStrategy extends BaseStrategy {
 		context: StrategyContext,
 		usedIds: Set<string>,
 		fiiSignal: FIISectorSignal | null = null,
+		existingCount = 0,
+		shortTermCount = 0,
+		mediumTermCount = 0,
 	): Promise<DailyPickData | null> {
 		// Build keyword filter — match any of the sector's keywords in the sector column
 		const sectorConditions = broadSector.keywords.map((kw) =>
@@ -918,6 +1005,16 @@ export class StockStrategy extends BaseStrategy {
 			{ marketCap: topStock.marketCap },
 		);
 
+		const horizonInfo = this.deriveStockTimeHorizon({
+			stock: topStock,
+			volatility: volatility ?? 20,
+			rsi: topEnriched?.technicals?.rsi ?? directRsi ?? null,
+			roic: topEnriched?.fundamentals?.roic ?? directRoic ?? null,
+			existingCount,
+			shortTermCount,
+			mediumTermCount,
+		});
+
 		return {
 			category: "listed_stocks",
 			instrumentId: topStock.id,
@@ -931,11 +1028,11 @@ export class StockStrategy extends BaseStrategy {
 			stoplossPrice,
 			currentPrice,
 			status: "live",
-			expiryDate: this.getExpiryDate(this.DEFAULT_VALIDITY_DAYS),
+			expiryDate: this.getExpiryDate(horizonInfo.validityDays),
 			rationale,
 			riskLevel,
 			suitableFor: this.deriveSuitableFor(riskLevel, "listed_stocks"),
-			timeHorizon: this.getTimeHorizon("listed_stocks"),
+			timeHorizon: horizonInfo.timeHorizon,
 			confidenceScore,
 			sectorCategory: topStock.sector || sectorLabel,
 			keyMetrics: {
@@ -1982,6 +2079,15 @@ export class StockStrategy extends BaseStrategy {
 			return null;
 		}
 
+		// Reward-to-Risk gate: minimum 1.5:1
+		const rrRatio = (targetPrice - currentPrice) / Math.max(currentPrice - stoplossPrice, 0.01);
+		if (rrRatio < 1.5) {
+			logger.warn(
+				`[StockStrategy/fallback] ${top.symbol}: R:R ratio ${rrRatio.toFixed(2)} < 1.5 minimum. Discarding.`,
+			);
+			return null;
+		}
+
 		const riskLevel = this.getRiskLevel(volatility ?? 20);
 		const STOCK_SCORE_MAX = 120; // consistent with primary sector path
 		const confidenceScore = this.getConfidenceScore("listed_stocks", scored[0].score, STOCK_SCORE_MAX);
@@ -2005,6 +2111,16 @@ export class StockStrategy extends BaseStrategy {
 		const broadSector = mapToBroadSector(top.sector);
 		const bsMeta = BROAD_SECTORS.find((b) => b.id === broadSector) ?? BROAD_SECTORS[0];
 
+		const horizonInfo = this.deriveStockTimeHorizon({
+			stock: top,
+			volatility: volatility ?? 20,
+			rsi: topFallbackEnriched?.technicals?.rsi ?? null,
+			roic: topFallbackEnriched?.fundamentals?.roic ?? null,
+			existingCount: 0,
+			shortTermCount: 0,
+			mediumTermCount: 0,
+		});
+
 		return {
 			category: "listed_stocks",
 			instrumentId: top.id,
@@ -2018,11 +2134,11 @@ export class StockStrategy extends BaseStrategy {
 			stoplossPrice,
 			currentPrice,
 			status: "live",
-			expiryDate: this.getExpiryDate(this.DEFAULT_VALIDITY_DAYS),
+			expiryDate: this.getExpiryDate(horizonInfo.validityDays),
 			rationale,
 			riskLevel,
 			suitableFor: this.deriveSuitableFor(riskLevel, "listed_stocks"),
-			timeHorizon: this.getTimeHorizon("listed_stocks"),
+			timeHorizon: horizonInfo.timeHorizon,
 			confidenceScore,
 			sectorCategory: top.sector || bsMeta.label,
 			keyMetrics: {
@@ -2047,6 +2163,7 @@ export class StockStrategy extends BaseStrategy {
 					: Math.round((scored[0].score / STOCK_SCORE_MAX) * 100) >= 40 ? "Good"
 					: "Weak",
 				atr14Pct: atrPctFb,
+				rewardToRiskRatio: Math.round(rrRatio * 100) / 100,
 			},
 		};
 	}

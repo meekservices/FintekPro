@@ -90,6 +90,8 @@ export interface StockRecommendation {
 	};
 
 	generatedAt: Date;
+	modelVersion?: string;
+	engineVersion?: string;
 }
 
 export interface StockRecommendationFilters {
@@ -238,6 +240,18 @@ class AIStockRecommendationService {
 					this.ensureCompleteRecommendationMetrics(r),
 				),
 			);
+
+			logger.info("[FASP-AI] Advice generated", {
+				event: "AI_ADVICE_GENERATED",
+				user_id: "system",
+				input_context: filters,
+				output_summary: {
+					count: recommendations.length,
+					topPicks: recommendations.slice(0, 3).map((r) => r.symbol),
+				},
+				model_version: "FASP-AI-v3.0",
+				timestamp: new Date().toISOString(),
+			});
 
 			this.recommendationCache.set(cacheKey, {
 				recommendations,
@@ -1782,6 +1796,8 @@ Provide analysis in JSON format:
 			taxImplications: this.calculateTaxImplications(timeHorizon),
 
 			generatedAt: new Date(),
+			modelVersion: "FASP-AI-v3.0",
+			engineVersion: "FASP-AI-v3.0",
 		};
 	}
 
@@ -1798,12 +1814,14 @@ Provide analysis in JSON format:
 	}
 
 	private calculateRSI(scored: ScoredStock): number {
-		const momentum = scored.momentumScore;
-		if (momentum >= 80) return 30 + Math.random() * 10;
-		if (momentum >= 60) return 45 + Math.random() * 15;
-		if (momentum >= 40) return 50 + Math.random() * 10;
-		if (momentum >= 20) return 55 + Math.random() * 15;
-		return 65 + Math.random() * 15;
+		// Pure deterministic RSI estimation based on technical and momentum indicators
+		// FASP-AI v1.0 Financial Logic Integrity: Same input -> same output ALWAYS (no hidden randomness)
+		const momentum = Math.max(0, Math.min(100, scored.momentumScore));
+		const technical = Math.max(0, Math.min(100, scored.technicalScore));
+		const composite = momentum * 0.6 + technical * 0.4;
+		// Maps composite score [0, 100] deterministically to realistic RSI range [25, 78]
+		const deterministicRsi = 25 + (composite / 100) * 53;
+		return Math.round(deterministicRsi);
 	}
 
 	private calculateFintekproRating(scored: ScoredStock): number {
@@ -1917,6 +1935,8 @@ Provide analysis in JSON format:
 				filters.timeHorizon || "medium_term",
 			),
 			generatedAt: new Date(),
+			modelVersion: "FASP-AI-v3.0",
+			engineVersion: "FASP-AI-v3.0",
 		};
 	});
 }

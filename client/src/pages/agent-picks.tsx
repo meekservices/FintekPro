@@ -305,7 +305,52 @@ type AIStockRecommendation = {
 	riskFactors: string[];
 	taxImplications: AIStockTaxImplications;
 	generatedAt: string;
+	modelVersion?: string;
+	engineVersion?: string;
 };
+
+/**
+ * computeGuardedPortfolioWeights - FASP-AI v3.0 Quantitative Allocation Guardrails
+ * 1. Single asset concentration cap (max 30% per stock if basket has >= 4 assets)
+ * 2. Pure deterministic normalization to 100%
+ * 3. Graceful handling of edge-cases (0 confidence, empty basket)
+ */
+function computeGuardedPortfolioWeights(
+	stocks: AIStockRecommendation[],
+): Record<string, number> {
+	if (!stocks || stocks.length === 0) return {};
+	const n = stocks.length;
+	const rawWeights = stocks.map((s) => Math.max(10, Number(s.confidence) || 70));
+	const sumRaw = rawWeights.reduce((a, b) => a + b, 0) || 1;
+	let normalized = rawWeights.map((w) => (w / sumRaw) * 100);
+
+	if (n >= 4) {
+		const MAX_WEIGHT = 30;
+		let excess = 0;
+		normalized = normalized.map((w) => {
+			if (w > MAX_WEIGHT) {
+				excess += w - MAX_WEIGHT;
+				return MAX_WEIGHT;
+			}
+			return w;
+		});
+		const uncappedIndices = normalized
+			.map((w, idx) => (w < MAX_WEIGHT ? idx : -1))
+			.filter((idx) => idx !== -1);
+		if (uncappedIndices.length > 0 && excess > 0) {
+			const boost = excess / uncappedIndices.length;
+			uncappedIndices.forEach((idx) => {
+				normalized[idx] += boost;
+			});
+		}
+	}
+
+	const weightMap: Record<string, number> = {};
+	stocks.forEach((s, idx) => {
+		weightMap[s.id] = parseFloat((normalized[idx] ?? 100 / n).toFixed(2));
+	});
+	return weightMap;
+}
 
 // ── UI config maps ────────────────────────────────────────────────────────────
 
@@ -653,7 +698,9 @@ export default function AgentPicksPage() {
 		useState<string>("all");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [todayMarketFilter, setTodayMarketFilter] = useState<string>("all");
+	const [todayHorizonFilter, setTodayHorizonFilter] = useState<string>("all");
 	const [liveMarketFilter, setLiveMarketFilter] = useState<string>("all");
+	const [liveHorizonFilter, setLiveHorizonFilter] = useState<string>("all");
 	const [historyMarketFilter, setHistoryMarketFilter] = useState<string>("all");
 	const [liveSearchQuery, setLiveSearchQuery] = useState<string>("");
 	const [shareDialogOpen, setShareDialogOpen] = useState(false);
@@ -1939,6 +1986,9 @@ export default function AgentPicksPage() {
 			!filterByMarket(p, todayMarketFilter)
 		)
 			return false;
+		if (todayHorizonFilter !== "all" && p.timeHorizon !== todayHorizonFilter) {
+			return false;
+		}
 		return true;
 	});
 
@@ -1959,6 +2009,9 @@ export default function AgentPicksPage() {
 			!filterByMarket(p, liveMarketFilter)
 		)
 			return false;
+		if (liveHorizonFilter !== "all" && p.timeHorizon !== liveHorizonFilter) {
+			return false;
+		}
 		if (liveSearchQuery.trim()) {
 			const q = liveSearchQuery.toLowerCase();
 			const match =
@@ -3304,6 +3357,45 @@ export default function AgentPicksPage() {
 								</div>
 							)}
 
+							{/* Time Horizon Filter */}
+							<div className="flex items-center gap-1.5 mb-4 pb-3 border-b flex-wrap">
+								<span className="text-xs font-medium text-muted-foreground mr-1 flex items-center gap-1">
+									<Timer className="h-3 w-3" />
+									Horizon:
+								</span>
+								{[
+									{ key: "all", label: "All Horizons" },
+									{ key: "short_term", label: "Short Term (1-3M)", icon: "📈", color: "text-blue-600 dark:text-blue-400" },
+									{ key: "medium_term", label: "Medium Term (3-12M)", icon: "📊", color: "text-purple-600 dark:text-purple-400" },
+									{ key: "long_term", label: "Long Term (1Y+)", icon: "🎯", color: "text-amber-600 dark:text-amber-400" },
+								].map(({ key, label, icon, color }) => {
+									const isActive = todayHorizonFilter === key;
+									const count = key === "all"
+										? nonExpiredTodayPicks.filter(p => todayCategoryFilter === "all" || p.category === todayCategoryFilter).length
+										: nonExpiredTodayPicks.filter(p => (todayCategoryFilter === "all" || p.category === todayCategoryFilter) && p.timeHorizon === key).length;
+									return (
+										<Button
+											key={key}
+											variant={isActive ? "secondary" : "ghost"}
+											size="sm"
+											onClick={() => setTodayHorizonFilter(key)}
+											className={`h-7 px-2.5 text-xs font-medium ${isActive ? "bg-accent font-semibold" : "text-muted-foreground"}`}
+										>
+											{icon && <span className="mr-1">{icon}</span>}
+											<span className={isActive && color ? color : ""}>{label}</span>
+											{count > 0 && (
+												<Badge
+													variant={isActive ? "default" : "outline"}
+													className="ml-1 text-[9px] px-1 py-0 h-4"
+												>
+													{count}
+												</Badge>
+											)}
+										</Button>
+									);
+								})}
+							</div>
+
 							{loadingToday ? (
 								<div className="space-y-4">
 									{[1, 2, 3, 4].map((i) => (
@@ -3825,7 +3917,10 @@ export default function AgentPicksPage() {
 											</Card>
 										)}
 
-										{aiRecommendations.length > 0 && (
+										{aiRecommendations.length > 0 && (() => {
+											const guardedWeights = computeGuardedPortfolioWeights(aiRecommendations);
+
+											return (
 											<div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
 												<div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b pb-4">
 													<div>
@@ -3868,6 +3963,25 @@ export default function AgentPicksPage() {
 													</div>
 												</div>
 
+												{/* FASP-AI Decision Support System Banner */}
+												<div className="flex items-start gap-3 p-3.5 bg-primary/5 border border-primary/20 rounded-xl text-xs">
+													<LucideShield className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+													<div className="flex-1 space-y-1">
+														<div className="flex items-center gap-2">
+															<span className="font-semibold text-foreground">
+																FASP-AI v3.0 Decision Support Engine
+															</span>
+															<Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 border-primary/30 text-primary">
+																Deterministic Quants
+															</Badge>
+														</div>
+														<p className="text-muted-foreground leading-relaxed">
+															Model portfolio weights are generated as algorithmic guidance only. Per SEBI IA regulations, 
+															target estimates are non-binding and do not guarantee returns. Final execution requires client authorization or RIA/CA confirmation.
+														</p>
+													</div>
+												</div>
+
 												{/* Visual Portfolio Allocation */}
 												<div className="bg-card border rounded-xl p-4 shadow-sm">
 													<h4 className="text-sm font-medium mb-3 flex items-center gap-2">
@@ -3881,17 +3995,9 @@ export default function AgentPicksPage() {
 													>
 														{(() => {
 															let currentX = 0;
-															const totalConfidence = aiRecommendations.reduce(
-																(acc: number, s: any) =>
-																	acc + (s.confidence || 100),
-																0,
-															);
 															return aiRecommendations.map(
 																(stock: AIStockRecommendation, idx: number) => {
-																	const weight =
-																		((stock.confidence || 100) /
-																			totalConfidence) *
-																		100;
+																	const weight = guardedWeights[stock.id] ?? (100 / aiRecommendations.length);
 																	const colors = [
 																		"fill-blue-500",
 																		"fill-indigo-500",
@@ -3941,16 +4047,7 @@ export default function AgentPicksPage() {
 													<div className="flex flex-wrap gap-3 mt-3">
 														{aiRecommendations.map(
 															(stock: AIStockRecommendation, idx: number) => {
-																const totalConfidence =
-																	aiRecommendations.reduce(
-																		(acc: number, s: any) =>
-																			acc + (s.confidence || 100),
-																		0,
-																	);
-																const weight =
-																	((stock.confidence || 100) /
-																		totalConfidence) *
-																	100;
+																const weight = guardedWeights[stock.id] ?? (100 / aiRecommendations.length);
 																const colors = [
 																	"bg-blue-500",
 																	"bg-indigo-500",
@@ -3986,13 +4083,7 @@ export default function AgentPicksPage() {
 												<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 													{aiRecommendations.map(
 														(stock: AIStockRecommendation) => {
-															const totalConfidence = aiRecommendations.reduce(
-																(acc: number, s: any) =>
-																	acc + (s.confidence || 100),
-																0,
-															);
-															const weight =
-																(stock.confidence || 100) / totalConfidence;
+															const weight = (guardedWeights[stock.id] ?? (100 / aiRecommendations.length)) / 100;
 															const allocatedAmount =
 																stockInvestmentAmount[0] * weight;
 
@@ -4037,9 +4128,21 @@ export default function AgentPicksPage() {
 																	<CardContent className="pt-4">
 																		<div className="flex items-end justify-between mb-5">
 																			<div>
-																				<p className="text-xs text-muted-foreground mb-1 font-medium">
-																					Expected Return
-																				</p>
+																				<div className="flex items-center gap-1 mb-1">
+																					<p className="text-xs text-muted-foreground font-medium">
+																						Target Potential (Est.)
+																					</p>
+																					<TooltipProvider>
+																						<Tooltip>
+																							<TooltipTrigger asChild>
+																								<Info className="h-3 w-3 text-muted-foreground/70 cursor-help" />
+																							</TooltipTrigger>
+																							<TooltipContent className="max-w-xs text-xs">
+																								Indicative target upside from entry price based on quantitative valuation models. Not a guaranteed return. Subject to market risks.
+																							</TooltipContent>
+																						</Tooltip>
+																					</TooltipProvider>
+																				</div>
 																				<p
 																					className={`text-2xl font-bold flex items-center gap-1 ${stock.expectedReturn >= 0 ? "text-green-600" : "text-red-600"}`}
 																				>
@@ -4091,7 +4194,7 @@ export default function AgentPicksPage() {
 																			</div>
 																		</div>
 
-																		<div className={`flex items-center justify-between text-sm mb-4 px-3 py-2 rounded-md border ${
+																		<div className={`flex items-center justify-between text-sm mb-3 px-3 py-2 rounded-md border ${
 																			Number(stock.confidence ?? 0) >= 85
 																				? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800"
 																				: Number(stock.confidence ?? 0) >= 70
@@ -4131,6 +4234,14 @@ export default function AgentPicksPage() {
 																			</div>
 																		</div>
 
+																		{/* Guardrail: Downgrade notice if confidence is below high threshold */}
+																		{Number(stock.confidence ?? 0) < 75 && (
+																			<div className="flex items-center gap-1.5 mb-3 px-2.5 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-md text-[11px] text-amber-700 dark:text-amber-400">
+																				<AlertTriangle className="h-3 w-3 shrink-0" />
+																				<span>Advisory Downgrade: Moderate Conviction — RIA Review Advised</span>
+																			</div>
+																		)}
+
 																		<div className="flex items-center gap-2 flex-wrap">
 																			<Badge
 																				variant="secondary"
@@ -4158,8 +4269,20 @@ export default function AgentPicksPage() {
 														},
 													)}
 												</div>
+
+												{/* SEBI Compliance & Risk Disclosure */}
+												<div className="p-4 bg-muted/40 border border-border/60 rounded-xl text-xs text-muted-foreground space-y-1.5">
+													<div className="flex items-center gap-2 font-medium text-foreground">
+														<AlertCircle className="h-4 w-4 text-amber-500" />
+														<span>Mandatory SEBI Risk & Volatility Disclosure</span>
+													</div>
+													<p className="leading-relaxed">
+														Investments in securities are subject to market risks. Read all scheme-related and offering documents carefully before investing. FintekPro AI operates strictly as a decision support system and does not execute autonomous trades. Historical metrics, alpha scores, and projected targets do not assure future outcomes.
+													</p>
+												</div>
 											</div>
-										)}
+										);
+									})()}
 
 										{selectedAIStock && (
 											<Card>
@@ -5283,6 +5406,45 @@ export default function AgentPicksPage() {
 									})}
 								</div>
 							)}
+
+							{/* Time Horizon Filter */}
+							<div className="flex items-center gap-1.5 mb-4 pb-3 border-b flex-wrap">
+								<span className="text-xs font-medium text-muted-foreground mr-1 flex items-center gap-1">
+									<Timer className="h-3 w-3" />
+									Horizon:
+								</span>
+								{[
+									{ key: "all", label: "All Horizons" },
+									{ key: "short_term", label: "Short Term (1-3M)", icon: "📈", color: "text-blue-600 dark:text-blue-400" },
+									{ key: "medium_term", label: "Medium Term (3-12M)", icon: "📊", color: "text-purple-600 dark:text-purple-400" },
+									{ key: "long_term", label: "Long Term (1Y+)", icon: "🎯", color: "text-amber-600 dark:text-amber-400" },
+								].map(({ key, label, icon, color }) => {
+									const isActive = liveHorizonFilter === key;
+									const count = key === "all"
+										? nonExpiredLivePicks.filter(p => liveCategoryFilter === "all" || p.category === liveCategoryFilter).length
+										: nonExpiredLivePicks.filter(p => (liveCategoryFilter === "all" || p.category === liveCategoryFilter) && p.timeHorizon === key).length;
+									return (
+										<Button
+											key={key}
+											variant={isActive ? "secondary" : "ghost"}
+											size="sm"
+											onClick={() => setLiveHorizonFilter(key)}
+											className={`h-7 px-2.5 text-xs font-medium ${isActive ? "bg-accent font-semibold" : "text-muted-foreground"}`}
+										>
+											{icon && <span className="mr-1">{icon}</span>}
+											<span className={isActive && color ? color : ""}>{label}</span>
+											{count > 0 && (
+												<Badge
+													variant={isActive ? "default" : "outline"}
+													className="ml-1 text-[9px] px-1 py-0 h-4"
+												>
+													{count}
+												</Badge>
+											)}
+										</Button>
+									);
+								})}
+							</div>
 
 							{loadingLive ? (
 								<div className="space-y-4">
