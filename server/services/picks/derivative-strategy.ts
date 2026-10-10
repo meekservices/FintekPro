@@ -272,7 +272,7 @@ export class DerivativeStrategy extends BaseStrategy {
 				rationale,
 				riskLevel: strategy.risk,
 				suitableFor: this.deriveSuitableFor(strategy.risk, "derivatives"),
-				timeHorizon: "short_term",
+				timeHorizon: "ultra_short_term",
 				confidenceScore: this.getConfidenceScore("derivatives", 60, 100),
 				sectorCategory: indexSymbols.includes(selectedSymbol)
 					? "Index Derivatives"
@@ -427,7 +427,7 @@ export class DerivativeStrategy extends BaseStrategy {
 				rationale,
 				riskLevel: strategy.risk,
 				suitableFor: this.deriveSuitableFor(strategy.risk, "derivatives"),
-				timeHorizon: "short_term",
+				timeHorizon: "ultra_short_term",
 				confidenceScore: 60,
 				sectorCategory: sector,
 				keyMetrics: {

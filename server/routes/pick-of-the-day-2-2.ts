@@ -84,7 +84,17 @@ router.get("/", requireAuth, async (req, res) => {
 		//   • confidenceScore stored as raw quant score (e.g. 8600) instead of 0–100
 		//     This happens when legacy/admin-created picks bypass getConfidenceScore()
 		//   • timeHorizon = NULL on picks created before the column was added
-		const VALID_HORIZONS = new Set(["short_term", "medium_term", "long_term"]);
+		const VALID_HORIZONS = new Set([
+			"intraday",
+			"ultra_short_term",
+			"ultra_short",
+			"short_term",
+			"short",
+			"medium_term",
+			"medium",
+			"long_term",
+			"long",
+		]);
 		const normalizedPicks = picks.map((p) => {
 			// Clamp confidenceScore to 0–100. If value > 100 treat as raw integer
 			// score that was never converted (e.g. 8600 → 86, 7000 → 70).
@@ -93,10 +103,16 @@ router.get("/", requireAuth, async (req, res) => {
 				? Math.min(100, Math.round(rawScore / 100))
 				: Math.min(100, Math.max(0, rawScore));
 
-			// Normalise horizon: NULL or unrecognised values → "medium_term"
-			const timeHorizon = VALID_HORIZONS.has(p.timeHorizon ?? "")
-				? p.timeHorizon
-				: "medium_term";
+			// Normalise horizon: canonical keys or fallback to "medium_term"
+			const rawH = p.timeHorizon ?? "";
+			let timeHorizon = "medium_term";
+			if (VALID_HORIZONS.has(rawH)) {
+				if (rawH === "ultra_short") timeHorizon = "ultra_short_term";
+				else if (rawH === "short") timeHorizon = "short_term";
+				else if (rawH === "medium") timeHorizon = "medium_term";
+				else if (rawH === "long") timeHorizon = "long_term";
+				else timeHorizon = rawH;
+			}
 
 			return { ...p, confidenceScore, timeHorizon };
 		});
@@ -122,7 +138,7 @@ router.post("/generate", requireAdmin, async (req, res) => {
 			picks,
 		});
 	} catch (error) {
-		console.error("[API] Error generating picks:", error);
+		logger.error("[API] Error generating picks:", error instanceof Error ? error : new Error(String(error)));
 		res.status(500).json({ success: false, error: "Failed to generate picks" });
 	}
 });
@@ -243,7 +259,7 @@ router.get("/stats/enhanced", requireAuth, async (req, res) => {
 			},
 		});
 	} catch (error) {
-		console.error("[API] Error fetching enhanced stats:", error);
+		logger.error("[API] Error fetching enhanced stats:", error instanceof Error ? error : new Error(String(error)));
 		res
 			.status(500)
 			.json({ success: false, error: "Failed to fetch enhanced stats" });
@@ -366,7 +382,7 @@ router.post("/add-to-proposal", requireAuth, async (req, res) => {
 			proposalItem,
 		});
 	} catch (error) {
-		console.error("[API] Error adding pick to proposal:", error);
+		logger.error("[API] Error adding pick to proposal:", error instanceof Error ? error : new Error(String(error)));
 		res
 			.status(500)
 			.json({ success: false, error: "Failed to add to proposal" });
@@ -443,7 +459,7 @@ router.post("/share", requireAuth, async (req, res) => {
 			res.status(400).json({ success: false, error: "Invalid channel" });
 		}
 	} catch (error) {
-		console.error("[API] Error sharing pick:", error);
+		logger.error("[API] Error sharing pick:", error instanceof Error ? error : new Error(String(error)));
 		res.status(500).json({ success: false, error: "Failed to share pick" });
 	}
 });
@@ -546,7 +562,7 @@ router.get("/:id/suitability", requireAuth, async (req, res) => {
 			},
 		});
 	} catch (error) {
-		console.error("[API] Error calculating suitability:", error);
+		logger.error("[API] Error calculating suitability:", error instanceof Error ? error : new Error(String(error)));
 		res
 			.status(500)
 			.json({ success: false, error: "Failed to calculate suitability" });
@@ -670,7 +686,7 @@ function calculateSuitabilityScore(
 
 router.post("/refresh-prices", requireAdmin, async (req, res) => {
 	try {
-		console.log("[API] Triggering price refresh for live picks");
+		logger.info("[API] Triggering price refresh for live picks");
 		const result = await pickOfTheDayService.refreshLivePicks();
 		res.json({
 			success: true,
@@ -678,7 +694,7 @@ router.post("/refresh-prices", requireAdmin, async (req, res) => {
 			...result,
 		});
 	} catch (error) {
-		console.error("[API] Error refreshing prices:", error);
+		logger.error("[API] Error refreshing prices:", error instanceof Error ? error : new Error(String(error)));
 		res.status(500).json({ success: false, error: "Failed to refresh prices" });
 	}
 });
@@ -705,7 +721,7 @@ router.get("/alerts/history", requireAuth, async (req, res) => {
 
 		res.json({ success: true, alerts });
 	} catch (error) {
-		console.error("[API] Error fetching alert history:", error);
+		logger.error("[API] Error fetching alert history:", error instanceof Error ? error : new Error(String(error)));
 		res
 			.status(500)
 			.json({ success: false, error: "Failed to fetch alert history" });

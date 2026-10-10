@@ -114,10 +114,11 @@ router.get("/today", async (req, res) => {
 		// Fix K: apply confidence decay before sending to clients
 		let picks = applyConfidenceDecay(rawEnriched);
 
-		// Support ?horizon=short_term|medium_term|long_term query filter
-		const horizonFilter = req.query.horizon as string | undefined;
-		if (horizonFilter && horizonFilter !== "all") {
-			picks = picks.filter((p) => p.timeHorizon === horizonFilter);
+		// Support ?horizon=intraday|ultra_short_term|short_term|medium_term|long_term query filter
+		const rawHorizon = req.query.horizon as string | undefined;
+		if (rawHorizon && rawHorizon !== "all") {
+			const targetH = rawHorizon === "ultra_short" ? "ultra_short_term" : rawHorizon === "short" ? "short_term" : rawHorizon === "medium" ? "medium_term" : rawHorizon === "long" ? "long_term" : rawHorizon;
+			picks = picks.filter((p) => p.timeHorizon === targetH || (targetH === "ultra_short_term" && p.timeHorizon === "ultra_short"));
 		}
 
 		// Support ?category=listed_stocks etc query filter
@@ -173,10 +174,11 @@ router.get("/live", async (req, res) => {
 		// Exclude picks that were just auto-expired by enrichment (expiryDate passed)
 		let picks = allPicks.filter((p) => p.status !== "expired");
 
-		// Support ?horizon=short_term|medium_term|long_term query filter
-		const horizonFilter = req.query.horizon as string | undefined;
-		if (horizonFilter && horizonFilter !== "all") {
-			picks = picks.filter((p) => p.timeHorizon === horizonFilter);
+		// Support ?horizon=intraday|ultra_short_term|short_term|medium_term|long_term query filter
+		const rawLiveHorizon = req.query.horizon as string | undefined;
+		if (rawLiveHorizon && rawLiveHorizon !== "all") {
+			const targetH = rawLiveHorizon === "ultra_short" ? "ultra_short_term" : rawLiveHorizon === "short" ? "short_term" : rawLiveHorizon === "medium" ? "medium_term" : rawLiveHorizon === "long" ? "long_term" : rawLiveHorizon;
+			picks = picks.filter((p) => p.timeHorizon === targetH || (targetH === "ultra_short_term" && p.timeHorizon === "ultra_short"));
 		}
 
 		// Support ?category=listed_stocks etc query filter

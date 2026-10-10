@@ -167,7 +167,14 @@ type DailyPick = {
 	 */
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	keyMetrics?: Record<string, any>;
-	timeHorizon?: "short_term" | "medium_term" | "long_term";
+	timeHorizon?:
+		| "intraday"
+		| "ultra_short_term"
+		| "ultra_short"
+		| "short_term"
+		| "medium_term"
+		| "long_term"
+		| string;
 	confidenceScore?: number;
 	sectorCategory?: string;
 	priceDataSource?: string;
@@ -493,6 +500,16 @@ const horizonConfig: Record<string, HorizonEntry> = {
 		color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
 		icon: "⚡",
 	},
+	ultra_short_term: {
+		label: "Ultra Short Term",
+		color: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300",
+		icon: "🚀",
+	},
+	ultra_short: {
+		label: "Ultra Short Term",
+		color: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300",
+		icon: "🚀",
+	},
 	short_term: {
 		label: "Short Term",
 		color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
@@ -506,7 +523,7 @@ const horizonConfig: Record<string, HorizonEntry> = {
 	},
 	long_term: {
 		label: "Long Term",
-		color: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300",
+		color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300",
 		icon: "🎯",
 	},
 	// Legacy aliases (without underscore)
@@ -522,9 +539,21 @@ const horizonConfig: Record<string, HorizonEntry> = {
 	},
 	long: {
 		label: "Long Term",
-		color: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300",
+		color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300",
 		icon: "🎯",
 	},
+};
+
+/** Normalizes horizon string to standard canonical key */
+const normalizePickHorizon = (h?: string | null): string => {
+	if (!h) return "medium_term";
+	const lower = h.toLowerCase().trim();
+	if (lower === "intraday") return "intraday";
+	if (lower === "ultra_short" || lower === "ultra-short" || lower === "ultra_short_term") return "ultra_short_term";
+	if (lower === "short" || lower === "short_term") return "short_term";
+	if (lower === "medium" || lower === "medium_term") return "medium_term";
+	if (lower === "long" || lower === "long_term") return "long_term";
+	return lower;
 };
 
 
@@ -1986,7 +2015,7 @@ export default function AgentPicksPage() {
 			!filterByMarket(p, todayMarketFilter)
 		)
 			return false;
-		if (todayHorizonFilter !== "all" && p.timeHorizon !== todayHorizonFilter) {
+		if (todayHorizonFilter !== "all" && normalizePickHorizon(p.timeHorizon) !== todayHorizonFilter) {
 			return false;
 		}
 		return true;
@@ -2009,7 +2038,7 @@ export default function AgentPicksPage() {
 			!filterByMarket(p, liveMarketFilter)
 		)
 			return false;
-		if (liveHorizonFilter !== "all" && p.timeHorizon !== liveHorizonFilter) {
+		if (liveHorizonFilter !== "all" && normalizePickHorizon(p.timeHorizon) !== liveHorizonFilter) {
 			return false;
 		}
 		if (liveSearchQuery.trim()) {
@@ -3365,14 +3394,16 @@ export default function AgentPicksPage() {
 								</span>
 								{[
 									{ key: "all", label: "All Horizons" },
+									{ key: "intraday", label: "Intraday", icon: "⚡", color: "text-red-600 dark:text-red-400" },
+									{ key: "ultra_short_term", label: "Ultra Short (1-7D)", icon: "🚀", color: "text-amber-600 dark:text-amber-400" },
 									{ key: "short_term", label: "Short Term (1-3M)", icon: "📈", color: "text-blue-600 dark:text-blue-400" },
 									{ key: "medium_term", label: "Medium Term (3-12M)", icon: "📊", color: "text-purple-600 dark:text-purple-400" },
-									{ key: "long_term", label: "Long Term (1Y+)", icon: "🎯", color: "text-amber-600 dark:text-amber-400" },
+									{ key: "long_term", label: "Long Term (1Y+)", icon: "🎯", color: "text-emerald-600 dark:text-emerald-400" },
 								].map(({ key, label, icon, color }) => {
 									const isActive = todayHorizonFilter === key;
 									const count = key === "all"
 										? nonExpiredTodayPicks.filter(p => todayCategoryFilter === "all" || p.category === todayCategoryFilter).length
-										: nonExpiredTodayPicks.filter(p => (todayCategoryFilter === "all" || p.category === todayCategoryFilter) && p.timeHorizon === key).length;
+										: nonExpiredTodayPicks.filter(p => (todayCategoryFilter === "all" || p.category === todayCategoryFilter) && normalizePickHorizon(p.timeHorizon) === key).length;
 									return (
 										<Button
 											key={key}
@@ -3823,10 +3854,11 @@ export default function AgentPicksPage() {
 														<SelectValue />
 													</SelectTrigger>
 													<SelectContent>
-														<SelectItem value="intraday">Intraday</SelectItem>
-														<SelectItem value="short_term">Short Term (1-3 months)</SelectItem>
-														<SelectItem value="medium_term">Medium Term (3-12 months)</SelectItem>
-														<SelectItem value="long_term">Long Term (1+ year)</SelectItem>
+														<SelectItem value="intraday">⚡ Intraday</SelectItem>
+														<SelectItem value="ultra_short_term">🚀 Ultra Short (1-7 days)</SelectItem>
+														<SelectItem value="short_term">📈 Short Term (1-3 months)</SelectItem>
+														<SelectItem value="medium_term">📊 Medium Term (3-12 months)</SelectItem>
+														<SelectItem value="long_term">🎯 Long Term (1+ year)</SelectItem>
 													</SelectContent>
 												</Select>
 											</div>
@@ -5415,14 +5447,16 @@ export default function AgentPicksPage() {
 								</span>
 								{[
 									{ key: "all", label: "All Horizons" },
+									{ key: "intraday", label: "Intraday", icon: "⚡", color: "text-red-600 dark:text-red-400" },
+									{ key: "ultra_short_term", label: "Ultra Short (1-7D)", icon: "🚀", color: "text-amber-600 dark:text-amber-400" },
 									{ key: "short_term", label: "Short Term (1-3M)", icon: "📈", color: "text-blue-600 dark:text-blue-400" },
 									{ key: "medium_term", label: "Medium Term (3-12M)", icon: "📊", color: "text-purple-600 dark:text-purple-400" },
-									{ key: "long_term", label: "Long Term (1Y+)", icon: "🎯", color: "text-amber-600 dark:text-amber-400" },
+									{ key: "long_term", label: "Long Term (1Y+)", icon: "🎯", color: "text-emerald-600 dark:text-emerald-400" },
 								].map(({ key, label, icon, color }) => {
 									const isActive = liveHorizonFilter === key;
 									const count = key === "all"
 										? nonExpiredLivePicks.filter(p => liveCategoryFilter === "all" || p.category === liveCategoryFilter).length
-										: nonExpiredLivePicks.filter(p => (liveCategoryFilter === "all" || p.category === liveCategoryFilter) && p.timeHorizon === key).length;
+										: nonExpiredLivePicks.filter(p => (liveCategoryFilter === "all" || p.category === liveCategoryFilter) && normalizePickHorizon(p.timeHorizon) === key).length;
 									return (
 										<Button
 											key={key}
@@ -7272,9 +7306,19 @@ function PicksTable({
 				break;
 			}
 			case "horizon": {
-				const hOrder: Record<string, number> = { short_term: 0, medium_term: 1, long_term: 2 };
-				av = hOrder[a.timeHorizon ?? ""] ?? 1;
-				bv = hOrder[b.timeHorizon ?? ""] ?? 1;
+				const hOrder: Record<string, number> = {
+					intraday: 0,
+					ultra_short_term: 1,
+					ultra_short: 1,
+					short_term: 2,
+					short: 2,
+					medium_term: 3,
+					medium: 3,
+					long_term: 4,
+					long: 4,
+				};
+				av = hOrder[normalizePickHorizon(a.timeHorizon)] ?? 2;
+				bv = hOrder[normalizePickHorizon(b.timeHorizon)] ?? 2;
 				break;
 			}
 			case "recoDate":

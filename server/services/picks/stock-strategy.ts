@@ -469,6 +469,8 @@ export class StockStrategy extends BaseStrategy {
 			const orderedSectors = reorderBroadSectorsByFII(BROAD_SECTORS, fiiSignal);
 
 			const totalSectors = orderedSectors.length;
+			let intradayCount = 0;
+			let ultraShortCount = 0;
 			let shortTermCount = 0;
 			let mediumTermCount = 0;
 			for (const broadSector of orderedSectors) {
@@ -491,10 +493,16 @@ export class StockStrategy extends BaseStrategy {
 						results.length,
 						shortTermCount,
 						mediumTermCount,
+						intradayCount,
+						ultraShortCount,
 					);
 					if (pick) {
 						results.push(pick);
-						if (pick.timeHorizon === "short_term") {
+						if (pick.timeHorizon === "intraday") {
+							intradayCount++;
+						} else if (pick.timeHorizon === "ultra_short_term") {
+							ultraShortCount++;
+						} else if (pick.timeHorizon === "short_term") {
 							shortTermCount++;
 						} else {
 							mediumTermCount++;
@@ -550,11 +558,12 @@ export class StockStrategy extends BaseStrategy {
 
 	/**
 	 * deriveStockTimeHorizon - FASP-AI Quantitative Horizon Determination
-	 * Classifies equity picks into 'short_term' vs 'medium_term' dynamically based on:
-	 * 1. Technical momentum & RSI (momentum RSI >= 52 -> tactical swing)
-	 * 2. Volatility & Beta (volatility > 20% or mid/small cap -> short_term swing)
-	 * 3. Market Cap & Fundamentals (Large-cap low-vol compounders -> medium_term)
-	 * 4. Batch balance enforcer (ensures both short_term and medium_term picks are generated daily)
+	 * Classifies equity picks dynamically into 'intraday', 'ultra_short_term', 'short_term', or 'medium_term':
+	 * 1. Intraday (1 day): High intraday breakout momentum (RSI >= 65 or Volatility > 28%)
+	 * 2. Ultra Short Term (7 days): Weekly momentum swing (RSI 58-65 or mid/small momentum, Volatility > 22%)
+	 * 3. Short Term (30 days): Tactical swing continuation (RSI 50-58 or mid/small caps)
+	 * 4. Medium Term (90 days): Large-cap steady fundamental compounders (low volatility <= 18%, ROIC >= 15%)
+	 * 5. Batch balance enforcer ensures balanced distribution across all horizons daily.
 	 */
 	protected deriveStockTimeHorizon(params: {
 		stock: any;
@@ -564,7 +573,12 @@ export class StockStrategy extends BaseStrategy {
 		existingCount?: number;
 		shortTermCount?: number;
 		mediumTermCount?: number;
-	}): { timeHorizon: "short_term" | "medium_term"; validityDays: number } {
+		intradayCount?: number;
+		ultraShortCount?: number;
+	}): {
+		timeHorizon: "intraday" | "ultra_short_term" | "short_term" | "medium_term";
+		validityDays: number;
+	} {
 		const {
 			stock,
 			volatility,
@@ -573,8 +587,13 @@ export class StockStrategy extends BaseStrategy {
 			existingCount = 0,
 			shortTermCount = 0,
 			mediumTermCount = 0,
+			intradayCount = 0,
+			ultraShortCount = 0,
 		} = params;
 		const rsiVal = rsi ?? 50;
+		const isIntradayMomentum = rsiVal >= 65 || volatility > 28;
+		const isUltraShortMomentum =
+			(rsiVal >= 58 && rsiVal < 65) || (volatility > 22 && volatility <= 28);
 		const isHighMomentum = rsiVal >= 52 && rsiVal <= 72;
 		const isHighVol = volatility > 20;
 		const isMidSmall = Boolean(
@@ -587,36 +606,55 @@ export class StockStrategy extends BaseStrategy {
 				(roic != null ? roic >= 15 : true),
 		);
 
-		// Batch balance enforcer: If we have multiple picks and all are medium_term, favor short_term
-		if (
-			mediumTermCount > shortTermCount &&
-			(isHighMomentum || isHighVol || isMidSmall)
-		) {
+		// 1. Extreme Intraday Breakout / Volatility Surge (1 day validity)
+		if (intradayCount === 0 && (isIntradayMomentum || (isMidSmall && volatility > 25))) {
+			return { timeHorizon: "intraday", validityDays: 1 };
+		}
+
+		// 2. Ultra Short Term Weekly Swing (7 days validity)
+		if (ultraShortCount === 0 && (isUltraShortMomentum || (isMidSmall && isHighMomentum))) {
+			return { timeHorizon: "ultra_short_term", validityDays: 7 };
+		}
+
+		// 3. Large-cap compounder -> medium_term (90 days validity)
+		if (isLargeCapSteady && !isHighVol) {
+			return { timeHorizon: "medium_term", validityDays: 90 };
+		}
+
+		// 4. Batch balance enforcer across daily sector picks
+		if (intradayCount === 0 && existingCount % 4 === 1 && !isLargeCapSteady) {
+			return { timeHorizon: "intraday", validityDays: 1 };
+		}
+		if (ultraShortCount === 0 && existingCount % 4 === 2) {
+			return { timeHorizon: "ultra_short_term", validityDays: 7 };
+		}
+		if (mediumTermCount > shortTermCount && (isHighMomentum || isHighVol || isMidSmall)) {
 			return { timeHorizon: "short_term", validityDays: 30 };
 		}
 		if (shortTermCount > mediumTermCount && isLargeCapSteady) {
 			return { timeHorizon: "medium_term", validityDays: 90 };
 		}
 
-		// Intrinsic setup classification:
-		// Swing/Tactical breakout -> short_term (30 days validity)
-		if (
-			(isHighMomentum && isHighVol) ||
-			(isMidSmall && isHighMomentum) ||
-			isHighVol
-		) {
+		// 5. Tactical swing -> short_term (30 days validity)
+		if (isHighMomentum || isMidSmall || isHighVol) {
 			return { timeHorizon: "short_term", validityDays: 30 };
 		}
 
-		// Fundamental compounder -> medium_term (90 days validity)
-		if (isLargeCapSteady && !isHighVol) {
-			return { timeHorizon: "medium_term", validityDays: 90 };
-		}
-
-		// Balanced alternation when indicators are neutral
-		const timeHorizon = existingCount % 2 === 0 ? "short_term" : "medium_term";
-		const validityDays = timeHorizon === "short_term" ? 30 : 90;
-		return { timeHorizon, validityDays };
+		// 6. Balanced cyclical assignment for neutral indicators
+		const horizonCycle: Array<"intraday" | "ultra_short_term" | "short_term" | "medium_term"> = [
+			"short_term",
+			"intraday",
+			"ultra_short_term",
+			"medium_term",
+		];
+		const timeHorizon = horizonCycle[existingCount % horizonCycle.length];
+		const validityMap = {
+			intraday: 1,
+			ultra_short_term: 7,
+			short_term: 30,
+			medium_term: 90,
+		};
+		return { timeHorizon, validityDays: validityMap[timeHorizon] };
 	}
 
 	/**
@@ -630,6 +668,8 @@ export class StockStrategy extends BaseStrategy {
 	 * @param existingCount - Current count of generated picks in this batch.
 	 * @param shortTermCount - Count of short_term picks already generated.
 	 * @param mediumTermCount - Count of medium_term picks already generated.
+	 * @param intradayCount - Count of intraday picks already generated.
+	 * @param ultraShortCount - Count of ultra_short_term picks already generated.
 	 * @returns A DailyPickData for the best stock in this sector, or null if none qualify.
 	 */
 	private async pickBestForSector(
@@ -640,6 +680,8 @@ export class StockStrategy extends BaseStrategy {
 		existingCount = 0,
 		shortTermCount = 0,
 		mediumTermCount = 0,
+		intradayCount = 0,
+		ultraShortCount = 0,
 	): Promise<DailyPickData | null> {
 		// Build keyword filter — match any of the sector's keywords in the sector column
 		const sectorConditions = broadSector.keywords.map((kw) =>
@@ -1013,6 +1055,8 @@ export class StockStrategy extends BaseStrategy {
 			existingCount,
 			shortTermCount,
 			mediumTermCount,
+			intradayCount,
+			ultraShortCount,
 		});
 
 		return {

@@ -1593,19 +1593,21 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 	}
 
 	/**
-	 * Normalise timeHorizon values to canonical set: short_term | medium_term | long_term | intraday
-	 * Handles legacy values (short, medium, long, null, undefined).
+	 * Normalise timeHorizon values to canonical set: intraday | ultra_short_term | short_term | medium_term | long_term
+	 * Handles legacy values (short, medium, long, ultra_short, null, undefined).
 	 */
 	private normaliseHorizon(raw?: string | null): string {
 		if (!raw) return "medium_term";
 		const map: Record<string, string> = {
-			intraday:    "intraday",
-			short_term:  "short_term",
-			short:       "short_term",
-			medium_term: "medium_term",
-			medium:      "medium_term",
-			long_term:   "long_term",
-			long:        "long_term",
+			intraday:         "intraday",
+			ultra_short_term: "ultra_short_term",
+			ultra_short:      "ultra_short_term",
+			short_term:       "short_term",
+			short:            "short_term",
+			medium_term:      "medium_term",
+			medium:           "medium_term",
+			long_term:        "long_term",
+			long:             "long_term",
 		};
 		return map[raw.toLowerCase().trim()] ?? "medium_term";
 	}

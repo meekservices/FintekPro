@@ -98,7 +98,13 @@ export interface StockRecommendationFilters {
 	sectors?: string[];
 	marketCap?: string[];
 	riskLevel?: "conservative" | "moderate" | "aggressive" | "very_aggressive";
-	timeHorizon?: "intraday" | "short_term" | "medium_term" | "long_term";
+	timeHorizon?:
+		| "intraday"
+		| "ultra_short_term"
+		| "ultra_short"
+		| "short_term"
+		| "medium_term"
+		| "long_term";
 	investmentAmount?: number;
 	signalTypes?: ("buy" | "sell" | "hold")[];
 	minFintekproRating?: number;
@@ -1551,6 +1557,8 @@ Provide analysis in JSON format:
 		const timeHorizon = filters.timeHorizon || "medium_term";
 		const targetMultipliers: Record<string, number> = {
 			intraday: 0.02,
+			ultra_short_term: 0.04,
+			ultra_short: 0.04,
 			short_term: 0.08,
 			medium_term: 0.15,
 			long_term: 0.3,
@@ -1662,6 +1670,8 @@ Provide analysis in JSON format:
 
 		const timeHorizonDays: Record<string, number> = {
 			intraday: 1,
+			ultra_short_term: 7,
+			ultra_short: 7,
 			short_term: 30,
 			medium_term: 180,
 			long_term: 365,

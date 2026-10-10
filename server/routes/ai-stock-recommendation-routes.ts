@@ -132,7 +132,14 @@ const filtersSchema = z.object({
 		.enum(["conservative", "moderate", "aggressive", "very_aggressive"])
 		.optional(),
 	timeHorizon: z
-		.enum(["intraday", "short_term", "medium_term", "long_term"])
+		.enum([
+			"intraday",
+			"ultra_short_term",
+			"ultra_short",
+			"short_term",
+			"medium_term",
+			"long_term",
+		])
 		.optional(),
 	investmentAmount: z.number().positive().optional(),
 	signalTypes: z.array(z.enum(["buy", "sell", "hold"])).optional(),
@@ -320,7 +327,13 @@ export function registerAIStockRecommendationRoutes(app: Express): void {
 					"aggressive",
 					"very_aggressive",
 				],
-				timeHorizons: ["intraday", "short_term", "medium_term", "long_term"],
+				timeHorizons: [
+					"intraday",
+					"ultra_short_term",
+					"short_term",
+					"medium_term",
+					"long_term",
+				],
 				signalTypes: ["buy", "hold", "sell"],
 			});
 		},
