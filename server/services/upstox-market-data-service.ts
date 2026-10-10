@@ -92,8 +92,48 @@ export interface UpstoxServiceResult<T> {
 const UPSTOX_BASE_URL = "https://api.upstox.com/v2";
 const ENGINE_VERSION = "upstox-market-data-service@1.0.0";
 
-const toNseKey = (symbol: string): string => `NSE_EQ|${symbol.toUpperCase()}`;
-const toBseKey = (symbol: string): string => `BSE_EQ|${symbol.toUpperCase()}`;
+// Top NSE/BSE symbol to ISIN dictionary for instant resolution
+export const SYMBOL_TO_ISIN: Record<string, string> = {
+  RELIANCE: "INE002A01018",
+  TCS: "INE467B01029",
+  HDFCBANK: "INE040A01034",
+  INFY: "INE009A01021",
+  ICICIBANK: "INE090A01021",
+  SBIN: "INE062A01020",
+  BHARTIARTL: "INE397D01024",
+  ITC: "INE154A01025",
+  KOTAKBANK: "INE237A01028",
+  LT: "INE018A01030",
+  AXISBANK: "INE238A01034",
+  HINDUNILVR: "INE030A01027",
+  BAJFINANCE: "INE296A01024",
+  MARUTI: "INE585B01010",
+  TATAMOTORS: "INE155A01022",
+  TATASTEEL: "INE081A01020",
+  ASIANPAINT: "INE176A01028",
+  TITAN: "INE280A01028",
+  SUNPHARMA: "INE044A01036",
+  WIPRO: "INE075A01022",
+  NTPC: "INE733E01010",
+  ONGC: "INE213A01029",
+  POWERGRID: "INE752E01010",
+  COALINDIA: "INE522F01014",
+  HCLTECH: "INE860A01027",
+};
+
+export const toNseKey = (symbol: string): string => {
+  const upper = symbol.toUpperCase();
+  if (upper.startsWith("NSE_") || upper.startsWith("BSE_")) return upper;
+  const isin = SYMBOL_TO_ISIN[upper] || upper;
+  return `NSE_EQ|${isin}`;
+};
+
+export const toBseKey = (symbol: string): string => {
+  const upper = symbol.toUpperCase();
+  if (upper.startsWith("NSE_") || upper.startsWith("BSE_")) return upper;
+  const isin = SYMBOL_TO_ISIN[upper] || upper;
+  return `BSE_EQ|${isin}`;
+};
 
 // ── Service Class ──────────────────────────────────────────────────────────────
 
@@ -289,7 +329,13 @@ class UpstoxMarketDataService {
       const res = await this.client!.get("/market-quote/ltp", {
         params: { instrument_key: key },
       });
-      const raw = res.data?.data?.[key];
+      const dataObj = (res.data?.data ?? {}) as Record<string, any>;
+      const raw =
+        dataObj[key] ??
+        dataObj[`${exchange}_EQ:${symbol.toUpperCase()}`] ??
+        dataObj[`${exchange}_EQ|${symbol.toUpperCase()}`] ??
+        Object.values(dataObj)[0];
+
       if (!raw?.last_price) {
         return {
           success: false,
@@ -303,7 +349,7 @@ class UpstoxMarketDataService {
       }
       return {
         success: true,
-        data: this._mapLtp(symbol, exchange, raw),
+        data: this._mapLtp(raw.symbol ?? symbol, exchange, raw),
         meta: this._meta(t0),
       };
     }, t0);
@@ -357,15 +403,31 @@ class UpstoxMarketDataService {
       }
 
       const raw = (chunkResult.data ?? {}) as Record<string, any>;
-      chunk.forEach((sym, idx) => {
-        const q = raw[keys[idx]];
-        if (q?.last_price) {
-          resultMap.set(sym, this._mapFullQuote(sym, exchange, q));
+      // Map both by exact key and by returned symbol (e.g. NSE_EQ:RELIANCE -> RELIANCE)
+      for (const [resKey, quoteObj] of Object.entries(raw)) {
+        const q = quoteObj as any;
+        const sym = q?.symbol || resKey.split(":")[1] || resKey.split("|")[1];
+        if (sym && q?.last_price) {
+          resultMap.set(sym.toUpperCase(), this._mapFullQuote(sym, exchange, q));
+          if (q.instrument_token) {
+            const tokenIsin = q.instrument_token.split("|")[1];
+            if (tokenIsin) resultMap.set(tokenIsin.toUpperCase(), this._mapFullQuote(sym, exchange, q));
+          }
         }
-      });
+      }
     }
 
     return { success: true, data: resultMap, meta: this._meta(t0) };
+  }
+
+  /**
+   * Alias for getLTP to provide full quote / single ticker price.
+   */
+  async getQuote(
+    symbol: string,
+    exchange: "NSE" | "BSE" = "NSE"
+  ): Promise<UpstoxServiceResult<UpstoxQuote>> {
+    return this.getLTP(symbol, exchange);
   }
 
   // ── Historical OHLCV ───────────────────────────────────────────────────────
@@ -438,7 +500,8 @@ class UpstoxMarketDataService {
       const res = await this.client!.get("/market-quote/ltp", {
         params: { instrument_key: INDEX_KEY },
       });
-      const raw = res.data?.data?.[INDEX_KEY];
+      const dataObj = (res.data?.data ?? {}) as Record<string, any>;
+      const raw = dataObj[INDEX_KEY] ?? dataObj["NSE_INDEX:Nifty 50"] ?? Object.values(dataObj)[0];
       if (!raw?.last_price) {
         return {
           success: false,

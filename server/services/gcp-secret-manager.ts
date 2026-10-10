@@ -53,6 +53,8 @@ export const SECRET_MAP: Record<string, string> = {
   INDIAN_API_KEY:                   "INDIAN_API_KEY",
   INDIAN_API_BASE_URL:              "INDIAN_API_BASE_URL",
   EXCHANGE_RATE_API_KEY:            "EXCHANGE_RATE_API_KEY",
+  UPSTOX_ACCESS_TOKEN:              "UPSTOX_ACCESS_TOKEN",
+  UPSTOX_TOKEN_ISSUED_AT:           "UPSTOX_TOKEN_ISSUED_AT",
   // ── Infrastructure / caching ─────────────────────────────────────────────────
   REDIS_URL:                        "REDIS_URL",
   PYTHON_SERVICE_URL:               "PYTHON_SERVICE_URL",

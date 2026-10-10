@@ -33,6 +33,7 @@ import {
 	validateChangePercent,
 } from "../guarded-execution";
 import { logger } from "../../logger";
+import { upstoxMarketDataService } from "../upstox-market-data-service";
 
 const INDIAN_API_BASE_URL = process.env.INDIAN_API_BASE_URL || "https://analyst.indianapi.in";
 
@@ -91,6 +92,7 @@ interface PricingJob {
 const SOURCE_CONFIDENCE: Record<string, number> = {
 	NSE_BHAVCOPY: 98,
 	AMFI_NAV: 97,
+	UPSTOX: 96,        // Upstox Developer API v2 — Licensed NSE/BSE broker feed, SEBI-compliant
 	INDIAN_API: 93,    // IndianAPI.in — India-native, NSE+BSE dual quotes, SEBI-safe, INDIAN_API_KEY in Secret Manager
 	BSE_CLOSE: 95,
 	FMP: 85,
@@ -388,13 +390,35 @@ export async function fetchIndianAPIBatchPrices(
 	symbols: string[],
 ): Promise<Map<string, number>> {
 	const result = new Map<string, number>();
+	if (symbols.length === 0) return result;
+
+	// 1. Try Upstox licensed batch market quote feed first (up to 500 symbols per chunk)
+	if (upstoxMarketDataService.isReady()) {
+		try {
+			const upstoxRes = await upstoxMarketDataService.getBatchQuotes(symbols, "NSE");
+			if (upstoxRes.success && upstoxRes.data) {
+				for (const [sym, quote] of upstoxRes.data.entries()) {
+					if (quote.last_price && quote.last_price > 0) {
+						result.set(sym.toUpperCase(), quote.last_price);
+					}
+				}
+				// If all symbols covered, return immediately
+				if (result.size >= symbols.length) return result;
+			}
+		} catch (err: any) {
+			logger.warn(`[GoldenPricing] Upstox batch quote error: ${err?.message || err}`);
+		}
+	}
+
+	// 2. Fallback to IndianAPI.in
 	const apiKey = process.env.INDIAN_API_KEY;
-	if (!apiKey || symbols.length === 0) return result;
+	if (!apiKey) return result;
 
 	// Process in chunks of 100 (API limit)
+	const remainingSymbols = symbols.filter((s) => !result.has(s.toUpperCase()));
 	const CHUNK_SIZE = 100;
-	for (let i = 0; i < symbols.length; i += CHUNK_SIZE) {
-		const chunk = symbols.slice(i, i + CHUNK_SIZE);
+	for (let i = 0; i < remainingSymbols.length; i += CHUNK_SIZE) {
+		const chunk = remainingSymbols.slice(i, i + CHUNK_SIZE);
 		try {
 			// NOTE: batch endpoint returns 404 on current plan; per-symbol fetch is fallback
 			const resp = await fetch(
@@ -717,9 +741,34 @@ async function discoverBestPrice(
 	}
 
 	// Equity / ETF / Commodity waterfall:
-	// NSE_BHAVCOPY(98) → INDIAN_API(93) → YAHOO_FINANCE(82) → FMP(85) → LAST_KNOWN
+	// UPSTOX(96) → NSE_BHAVCOPY(98/403) → INDIAN_API(93) → YAHOO_FINANCE(82) → FMP(85) → LAST_KNOWN
 	if (symbol) {
-		// 1. NSE direct — primary (403 blocked from datacenter IPs, fails gracefully)
+		// 1. Upstox Market Data — Licensed NSE/BSE real-time feed (SEBI-compliant)
+		if (upstoxMarketDataService.isReady()) {
+			try {
+				const upstoxRes = await upstoxMarketDataService.getQuote(
+					symbol,
+					job.exchange === "BSE" ? "BSE" : "NSE",
+				);
+				if (upstoxRes.success && upstoxRes.data?.last_price) {
+					const q = upstoxRes.data;
+					validateStockPrice(q.last_price, symbol);
+					return {
+						price: q.last_price,
+						open: q.open_price,
+						high: q.high_price,
+						low: q.low_price,
+						changePercent: q.change_percent,
+						source: "UPSTOX",
+						confidence: SOURCE_CONFIDENCE.UPSTOX,
+					};
+				}
+			} catch (err: any) {
+				logger.warn(`[GoldenPricing] Upstox quote failed for ${symbol}: ${err?.message || err}`);
+			}
+		}
+
+		// 2. NSE direct — primary (403 blocked from datacenter IPs, fails gracefully)
 		const nse = await fetchNSEClose(symbol);
 		if (nse?.price) return nse;
 

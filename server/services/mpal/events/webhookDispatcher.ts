@@ -88,6 +88,24 @@ export class WebhookDispatcher {
 					// TODO: await setuWebhookHandler.handleEvent(payload);
 					break;
 
+				case "UPSTOX":
+					logger.info(
+						`[WebhookDispatcher] Upstox webhook received — updating broker_orders`,
+						{
+							event: "UPSTOX_WEBHOOK",
+							orderId: payload?.order_id,
+							status: payload?.status,
+						},
+					);
+					await this.updateBrokerOrderFromWebhook("UPSTOX", payload?.order_id, {
+						status: this.normalizeUpstoxStatus(payload?.status),
+						filledQty: payload?.filled_quantity?.toString(),
+						filledPrice: payload?.average_price?.toString(),
+						errorCode: payload?.error_code,
+						errorMessage: payload?.error_message || payload?.status_message,
+					});
+					break;
+
 				default:
 					logger.warn(
 						`[WebhookDispatcher] Unrecognized provider: ${providerId}`,
@@ -181,6 +199,20 @@ export class WebhookDispatcher {
 			CancelledAfterMarket: "cancelled",
 		};
 		return map[iiflStatus ?? ""] ?? "submitted";
+	}
+
+	/** Maps Upstox order status strings to MPAL canonical status values */
+	private normalizeUpstoxStatus(upstoxStatus?: string): string {
+		const map: Record<string, string> = {
+			complete: "filled",
+			rejected: "rejected",
+			cancelled: "cancelled",
+			open: "submitted",
+			"trigger pending": "pending",
+			"after market order req received": "pending",
+			"validation pending": "pending",
+		};
+		return map[upstoxStatus?.toLowerCase() ?? ""] ?? "submitted";
 	}
 }
 
