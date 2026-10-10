@@ -634,6 +634,26 @@ export class PickOfTheDayService {
 						}
 					}
 
+					// ── Market Holiday Guard Rail: Intraday Calls Forbidden on Holidays/Weekends ──
+					const isMarketTradingDay = this.isNSETradingDay(today);
+					if (!isMarketTradingDay && pick.timeHorizon === "intraday") {
+						logger.warn(
+							`⚠️ [PickOfTheDay] Market holiday guard rail triggered: suppressed intraday call for ${pick.instrumentName} (${pick.symbol}) on ${today} (NSE closed). Converting to ultra_short_term with 7-day validity.`,
+							{
+								event: "INTRADAY_ON_HOLIDAY_PREVENTED",
+								user_id: "SYSTEM",
+								instrument: pick.instrumentName,
+								symbol: pick.symbol,
+								date: today,
+								latency_ms: 0,
+								status: "guardrail_applied",
+							},
+						);
+						pick.timeHorizon = "ultra_short_term";
+						const exp = new Date(Date.now() + 5.5 * 60 * 60 * 1000 + 7 * 86400000);
+						pick.expiryDate = exp.toISOString().split("T")[0];
+					}
+
 					await this.savePick(pick);
 
 					// ── Phase 3: GCS Automated 1-Page PDF Investment Note ────────────────

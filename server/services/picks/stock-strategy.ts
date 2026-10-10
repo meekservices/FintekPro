@@ -30,6 +30,7 @@ import {
 	reorderBroadSectorsByFII,
 	type FIISectorSignal,
 } from "./fii-sector-signal";
+import { marketHolidayService } from "../market-holiday-service";
 
 
 const financialMetricsCalculator = new FinancialMetricsCalculator();
@@ -564,6 +565,10 @@ export class StockStrategy extends BaseStrategy {
 	 * 3. Short Term (30 days): Tactical swing continuation (RSI 50-58 or mid/small caps)
 	 * 4. Medium Term (90 days): Large-cap steady fundamental compounders (low volatility <= 18%, ROIC >= 15%)
 	 * 5. Batch balance enforcer ensures balanced distribution across all horizons daily.
+	 *
+	 * GUARD RAIL: Intraday calls CANNOT be generated on market holidays or weekends.
+	 * If the recommendation date is not an NSE trading day, intraday calls are automatically
+	 * converted to 'ultra_short_term' (weekly swing) or 'short_term' (tactical swing).
 	 */
 	protected deriveStockTimeHorizon(params: {
 		stock: any;
@@ -575,6 +580,7 @@ export class StockStrategy extends BaseStrategy {
 		mediumTermCount?: number;
 		intradayCount?: number;
 		ultraShortCount?: number;
+		today?: string;
 	}): {
 		timeHorizon: "intraday" | "ultra_short_term" | "short_term" | "medium_term";
 		validityDays: number;
@@ -589,7 +595,16 @@ export class StockStrategy extends BaseStrategy {
 			mediumTermCount = 0,
 			intradayCount = 0,
 			ultraShortCount = 0,
+			today,
 		} = params;
+
+		// ── Market Holiday Guard Rail ──────────────────────────────────────────
+		// Intraday calls CANNOT be generated on market holidays or weekends.
+		// On non-trading days, positions cannot be squared off intraday.
+		const isMarketTradingDay = today
+			? marketHolidayService.isTradingDay(today, "NSE")
+			: marketHolidayService.isTradingDay(new Date(), "NSE");
+
 		const rsiVal = rsi ?? 50;
 		const isIntradayMomentum = rsiVal >= 65 || volatility > 28;
 		const isUltraShortMomentum =
@@ -607,8 +622,13 @@ export class StockStrategy extends BaseStrategy {
 		);
 
 		// 1. Extreme Intraday Breakout / Volatility Surge (1 day validity)
+		// GUARD RAIL: Strictly enforce no intraday calls on market holidays or weekends.
 		if (intradayCount === 0 && (isIntradayMomentum || (isMidSmall && volatility > 25))) {
-			return { timeHorizon: "intraday", validityDays: 1 };
+			if (isMarketTradingDay) {
+				return { timeHorizon: "intraday", validityDays: 1 };
+			}
+			// Non-trading day fallback: Weekly momentum swing instead of intraday
+			return { timeHorizon: "ultra_short_term", validityDays: 7 };
 		}
 
 		// 2. Ultra Short Term Weekly Swing (7 days validity)
@@ -623,7 +643,10 @@ export class StockStrategy extends BaseStrategy {
 
 		// 4. Batch balance enforcer across daily sector picks
 		if (intradayCount === 0 && existingCount % 4 === 1 && !isLargeCapSteady) {
-			return { timeHorizon: "intraday", validityDays: 1 };
+			if (isMarketTradingDay) {
+				return { timeHorizon: "intraday", validityDays: 1 };
+			}
+			return { timeHorizon: "short_term", validityDays: 30 };
 		}
 		if (ultraShortCount === 0 && existingCount % 4 === 2) {
 			return { timeHorizon: "ultra_short_term", validityDays: 7 };
@@ -641,12 +664,10 @@ export class StockStrategy extends BaseStrategy {
 		}
 
 		// 6. Balanced cyclical assignment for neutral indicators
-		const horizonCycle: Array<"intraday" | "ultra_short_term" | "short_term" | "medium_term"> = [
-			"short_term",
-			"intraday",
-			"ultra_short_term",
-			"medium_term",
-		];
+		// On non-trading days (holidays/weekends), remove "intraday" from the cycle entirely
+		const horizonCycle: Array<"intraday" | "ultra_short_term" | "short_term" | "medium_term"> = isMarketTradingDay
+			? ["short_term", "intraday", "ultra_short_term", "medium_term"]
+			: ["short_term", "ultra_short_term", "short_term", "medium_term"];
 		const timeHorizon = horizonCycle[existingCount % horizonCycle.length];
 		const validityMap = {
 			intraday: 1,
@@ -654,6 +675,15 @@ export class StockStrategy extends BaseStrategy {
 			short_term: 30,
 			medium_term: 90,
 		};
+
+		// Final safety assertion: never emit intraday on non-trading days
+		if (!isMarketTradingDay && timeHorizon === "intraday") {
+			logger.warn(
+				`[StockStrategy] Market holiday guard rail triggered: suppressed intraday call for ${stock?.symbol || "equity"} on ${today || "today"} (market closed). Converted to ultra_short_term.`,
+			);
+			return { timeHorizon: "ultra_short_term", validityDays: 7 };
+		}
+
 		return { timeHorizon, validityDays: validityMap[timeHorizon] };
 	}
 
@@ -1057,6 +1087,7 @@ export class StockStrategy extends BaseStrategy {
 			mediumTermCount,
 			intradayCount,
 			ultraShortCount,
+			today: context.today,
 		});
 
 		return {
@@ -2163,6 +2194,7 @@ export class StockStrategy extends BaseStrategy {
 			existingCount: 0,
 			shortTermCount: 0,
 			mediumTermCount: 0,
+			today: context.today,
 		});
 
 		return {

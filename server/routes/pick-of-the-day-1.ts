@@ -30,6 +30,7 @@ import {
 	enrichPicksWithDataSource,
 } from "./pick-of-the-day-utils";
 import { formatPicksForRole } from "../services/advisory-output-formatter";
+import { marketHolidayService } from "../services/market-holiday-service";
 import { logger } from "../logger";
 
 const watchlistAddSchema = z.object({
@@ -113,6 +114,25 @@ router.get("/today", async (req, res) => {
 			await enrichPicksWithDataSource(rawPicks);
 		// Fix K: apply confidence decay before sending to clients
 		let picks = applyConfidenceDecay(rawEnriched);
+
+		// ── Market Holiday Guard Rail: Intraday calls cannot be active on market holidays/weekends ──
+		picks = picks.map((p) => {
+			if (p.timeHorizon === "intraday") {
+				const isTradingDay = p.recoDate
+					? marketHolidayService.isTradingDay(p.recoDate, "NSE")
+					: marketHolidayService.isTradingDay(new Date(), "NSE");
+				if (!isTradingDay) {
+					logger.info(
+						`[API/Picks] Market holiday guard rail: pick ${p.symbol || p.instrumentName} horizon converted from 'intraday' to 'ultra_short_term' because ${p.recoDate} is not an NSE trading day.`,
+					);
+					return {
+						...p,
+						timeHorizon: "ultra_short_term",
+					};
+				}
+			}
+			return p;
+		});
 
 		// Support ?horizon=intraday|ultra_short_term|short_term|medium_term|long_term query filter
 		const rawHorizon = req.query.horizon as string | undefined;
@@ -261,6 +281,17 @@ router.get("/stats", async (req, res) => {
 
 router.post("/generate", requireAdmin, async (req, res) => {
 	try {
+		const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+		const todayIST = new Date(Date.now() + IST_OFFSET_MS)
+			.toISOString()
+			.split("T")[0];
+		if (!marketHolidayService.isTradingDay(todayIST, "NSE")) {
+			return res.status(400).json({
+				success: false,
+				error_code: "MARKET_CLOSED_HOLIDAY",
+				message: `Cannot generate picks: ${todayIST} is a market holiday or weekend (NSE closed). Daily market picks and intraday calls are disabled on non-trading days.`,
+			});
+		}
 		const picks = await pickOfTheDayService.generateDailyPicks();
 		res.json({
 			success: true,
@@ -282,6 +313,14 @@ router.post("/catchup", requireAuth, async (req, res) => {
 		const today = new Date(Date.now() + IST_OFFSET_MS)
 			.toISOString()
 			.split("T")[0];
+		if (!marketHolidayService.isTradingDay(today, "NSE")) {
+			return res.json({
+				success: true,
+				message: `Skipping catch-up — ${today} is an NSE market holiday or weekend. Markets are closed.`,
+				existingCategories: [],
+				generated: 0,
+			});
+		}
 		const categoryCounts = await db
 			.select({ category: dailyPicks.category, cnt: sql`COUNT(*)` })
 			.from(dailyPicks)

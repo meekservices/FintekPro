@@ -24,6 +24,7 @@ import { unifiedStockPriceService } from "./unified-stock-price-service";
 import { logger } from "../logger";
 import { getFinancialData } from "../modules/research/dataService";
 import { indianApiService } from "./indian-api-service";
+import { marketHolidayService } from "./market-holiday-service";
 
 export interface StockRecommendation {
 	id: string;
@@ -163,7 +164,19 @@ class AIStockRecommendationService {
 			includeAIAnalysis = true,
 		} = filters;
 
-		const cacheKey = JSON.stringify(filters);
+		// ── Market Holiday Guard Rail: Intraday calls prohibited on holidays/weekends ──
+		let effectiveTimeHorizon = timeHorizon;
+		const isMarketTradingDay = marketHolidayService.isTradingDay(new Date(), "NSE");
+		if (effectiveTimeHorizon === "intraday" && !isMarketTradingDay) {
+			logger.warn(
+				`[FASP-AI] Guard Rail: Intraday recommendation requested on non-trading day/holiday. Downgrading to ultra_short_term.`,
+				{ event: "INTRADAY_ON_HOLIDAY_PREVENTED", user_id: "system", latency_ms: 0, status: "downgraded" },
+			);
+			effectiveTimeHorizon = "ultra_short_term";
+		}
+		const effectiveFilters = { ...filters, timeHorizon: effectiveTimeHorizon };
+
+		const cacheKey = JSON.stringify(effectiveFilters);
 		const cached = this.recommendationCache.get(cacheKey);
 		if (cached && Date.now() - cached.timestamp.getTime() < this.CACHE_TTL_MS) {
 			return cached.recommendations;
@@ -215,11 +228,11 @@ class AIStockRecommendationService {
 			if (includeAIAnalysis) {
 				recommendations = await this.generateAIRecommendations(
 					topStocks,
-					filters,
+					effectiveFilters,
 				);
 			} else {
 				recommendations = topStocks.map((scored) =>
-					this.buildRuleBasedRecommendation(scored, timeHorizon, riskLevel),
+					this.buildRuleBasedRecommendation(scored, effectiveTimeHorizon, riskLevel),
 				);
 			}
 

@@ -9,6 +9,7 @@ import { storeCategories, dailyPicks } from "@shared/schema";
 import { eq, or } from "drizzle-orm";
 import { logger } from "../logger";
 import { FaspAIv2Service } from "../services/fasp-ai-v2-service";
+import { marketHolidayService } from "../services/market-holiday-service";
 
 // Helper to check if Stocks category is enabled for recommendations
 async function isStocksCategoryEnabled(): Promise<boolean> {
@@ -46,6 +47,14 @@ async function persistRecommendationsAsLivePicks(
 	const todayIST = new Date(Date.now() + IST_OFFSET_MS)
 		.toISOString()
 		.split("T")[0];
+
+	// Guard Rail: Suppress persisting intraday calls on market holidays and weekends
+	if (timeHorizon === "intraday" && !marketHolidayService.isTradingDay(todayIST, "NSE")) {
+		logger.warn(
+			`[AI Stock Persist] Suppressing persistence of intraday calls for ${todayIST} — market is closed.`,
+		);
+		return 0;
+	}
 
 	// Only save buy/strong_buy signals (not hold/sell)
 	const toBePersisted = recommendations.filter(
@@ -167,6 +176,21 @@ export function registerAIStockRecommendationRoutes(app: Express): void {
 				}
 
 				const filters = filtersSchema.parse(req.body);
+				const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+				const todayIST = new Date(Date.now() + IST_OFFSET_MS)
+					.toISOString()
+					.split("T")[0];
+				const isTradingDay = marketHolidayService.isTradingDay(todayIST, "NSE");
+
+				if (filters.timeHorizon === "intraday" && !isTradingDay) {
+					return res.status(400).json({
+						success: false,
+						error_code: "MARKET_CLOSED_INTRADAY_PROHIBITED",
+						message: `Intraday stock calls cannot be generated on a market holiday or weekend (${todayIST}). NSE/BSE markets are closed.`,
+						isMarketClosed: true,
+					});
+				}
+
 				const recommendations =
 					await aiStockRecommendationService.getSmartRecommendations(filters);
 
