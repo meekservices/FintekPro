@@ -411,6 +411,7 @@ export default function ResearchNoteGenerator() {
 		useState<CompanySearchResult | null>(null);
 	const [showDropdown, setShowDropdown] = useState(false);
 	const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+	const [loadingPeerSymbol, setLoadingPeerSymbol] = useState<string | null>(null);
 	/** Recent searches — persisted to localStorage, max 5 entries */
 	const [recentSearches, setRecentSearches] = useState<CompanySearchResult[]>(() => {
 		try {
@@ -516,6 +517,9 @@ export default function ResearchNoteGenerator() {
 				duration: isRateLimit ? 10000 : 5000,
 			});
 		},
+		onSettled: () => {
+			setLoadingPeerSymbol(null);
+		},
 	});
 
 	// ── Deep-link query param support (?q=... or ?cin=... or ?symbol=...) ────
@@ -619,6 +623,36 @@ export default function ResearchNoteGenerator() {
 		setPreviewData(null);
 		setShowDropdown(false);
 		inputRef.current?.focus();
+	};
+	const handlePeerClick = (peer: { symbol: string; name?: string }) => {
+		if (!peer.symbol || previewMutation.isPending) return;
+		const cleanSymbol = peer.symbol.trim().toUpperCase();
+		const companyData: CompanySearchResult = {
+			symbol: cleanSymbol,
+			company_name: peer.name || cleanSymbol,
+			isin: null,
+			sector: previewData?.sector || null,
+			nse_code: cleanSymbol,
+			bse_code: null,
+			type: "listed",
+		};
+		setSelectedCompany(companyData);
+		setSearchText(peer.name || cleanSymbol);
+		setShowDropdown(false);
+		setLoadingPeerSymbol(cleanSymbol);
+		setRecentSearches((prev) => {
+			const deduped = [companyData, ...prev.filter((r) => r.symbol !== cleanSymbol)].slice(0, 5);
+			try {
+				localStorage.setItem("rng_recent_searches", JSON.stringify(deduped));
+			} catch {}
+			return deduped;
+		});
+		previewMutation.mutate({
+			symbol: cleanSymbol,
+			cin: null,
+			isUnlisted: false,
+		});
+		window.scrollTo({ top: 0, behavior: "smooth" });
 	};
 	const handlePreview = () => {
 		if (!symbolToAnalyse) return;
@@ -2805,9 +2839,15 @@ export default function ResearchNoteGenerator() {
 					{d.peers && d.peers.length > 0 && (
 						<Card>
 							<CardHeader className="pb-2">
-								<CardTitle className="text-sm flex items-center gap-2">
-									<Users className="h-4 w-4 text-indigo-600" /> Peer Comparison
-								</CardTitle>
+								<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+									<CardTitle className="text-sm flex items-center gap-2">
+										<Users className="h-4 w-4 text-indigo-600" /> Peer Comparison
+									</CardTitle>
+									<span className="text-[11px] text-muted-foreground flex items-center gap-1">
+										<Sparkles className="h-3 w-3 text-indigo-500" />
+										Click any peer company name to generate research note
+									</span>
+								</div>
 								{d.sector && (
 									<p className="text-xs text-muted-foreground">
 										Sector: {d.sector}
@@ -2881,15 +2921,30 @@ export default function ResearchNoteGenerator() {
 											{scoredPeers.map((peer) => (
 												<tr
 													key={peer.symbol}
-													className="border-b last:border-0 hover:bg-muted/40"
+													className="border-b last:border-0 hover:bg-muted/40 transition-colors"
 												>
 													<td className="py-2 text-foreground">
-														{peer.name.length > 22
-															? peer.name.slice(0, 22) + "…"
-															: peer.name}
-														<span className="ml-1 text-[10px] text-muted-foreground font-mono">
-															({peer.symbol})
-														</span>
+														<button
+															type="button"
+															onClick={() => handlePeerClick(peer)}
+															disabled={previewMutation.isPending}
+															className="text-left group inline-flex items-center gap-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 focus:outline-none transition-colors"
+															title={`Generate research note for ${peer.name} (${peer.symbol})`}
+														>
+															<span className="font-medium underline-offset-2 group-hover:underline">
+																{peer.name.length > 22
+																	? peer.name.slice(0, 22) + "…"
+																	: peer.name}
+															</span>
+															<span className="text-[10px] text-muted-foreground group-hover:text-blue-500 font-mono">
+																({peer.symbol})
+															</span>
+															{loadingPeerSymbol === peer.symbol ? (
+																<Loader2 className="h-3 w-3 animate-spin text-blue-600 shrink-0" />
+															) : (
+																<ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 text-blue-600 dark:text-blue-400 transition-opacity shrink-0" />
+															)}
+														</button>
 													</td>
 													<td className="text-right py-2">
 														{peer.price
@@ -3160,10 +3215,16 @@ export default function ResearchNoteGenerator() {
 					{d?.peers && d.peers.length > 0 && (
 						<Card>
 							<CardHeader className="pb-2">
-								<CardTitle className="text-sm flex items-center gap-2">
-									<TrendingUp className="h-4 w-4 text-indigo-600" />
-									Peer Companies — BUY / HOLD / SELL Ratings ({d.sector || "Same Sector"})
-								</CardTitle>
+								<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+									<CardTitle className="text-sm flex items-center gap-2">
+										<TrendingUp className="h-4 w-4 text-indigo-600" />
+										Peer Companies — BUY / HOLD / SELL Ratings ({d.sector || "Same Sector"})
+									</CardTitle>
+									<span className="text-[11px] text-muted-foreground flex items-center gap-1">
+										<Sparkles className="h-3 w-3 text-indigo-500" />
+										Click company to analyse
+									</span>
+								</div>
 								<p className="text-[10px] text-muted-foreground">
 									All sector peers scored by ROE, P/E, P/B. Sorted strongest to weakest.
 								</p>
@@ -3197,10 +3258,27 @@ export default function ResearchNoteGenerator() {
 														className="border-b last:border-0 hover:bg-muted/30 transition-colors"
 													>
 														<td className="py-2 pr-4">
-															<p className="font-semibold text-xs">{peer.symbol}</p>
-															<p className="text-[10px] text-muted-foreground leading-tight">
-																{peer.name.length > 28 ? peer.name.slice(0, 28) + "\u2026" : peer.name}
-															</p>
+															<button
+																type="button"
+																onClick={() => handlePeerClick(peer)}
+																disabled={previewMutation.isPending}
+																className="text-left group transition-colors focus:outline-none"
+																title={`Generate research note for ${peer.name} (${peer.symbol})`}
+															>
+																<div className="flex items-center gap-1.5">
+																	<p className="font-semibold text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline-offset-2 group-hover:underline flex items-center gap-1">
+																		{peer.symbol}
+																		{loadingPeerSymbol === peer.symbol ? (
+																			<Loader2 className="h-3 w-3 animate-spin text-blue-600 shrink-0" />
+																		) : (
+																			<ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 text-blue-600 dark:text-blue-400 transition-opacity shrink-0" />
+																		)}
+																	</p>
+																</div>
+																<p className="text-[10px] text-muted-foreground group-hover:text-blue-500/80 leading-tight">
+																	{peer.name.length > 28 ? peer.name.slice(0, 28) + "\u2026" : peer.name}
+																</p>
+															</button>
 														</td>
 														<td className="text-right py-2 px-2 text-xs font-medium">
 															{peer.price ? `\u20b9${Math.round(peer.price).toLocaleString("en-IN")}` : "\u2014"}
