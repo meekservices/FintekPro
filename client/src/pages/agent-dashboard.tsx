@@ -1082,7 +1082,7 @@ export default function AgentDashboard() {
 				<div>
 					<h1 className="text-xl sm:text-2xl md:text-3xl font-bold flex items-center gap-2">
 						<LucideShield className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
-						Care Agent Dashboard
+						Care Partner Dashboard
 					</h1>
 					<p className="text-muted-foreground text-sm sm:text-base">
 						Manage CKYC client communications and support
@@ -1127,7 +1127,7 @@ export default function AgentDashboard() {
 					</Button>
 					<Badge variant="secondary" className="flex items-center gap-2 ml-2">
 						<User size={16} />
-						Agent Portal
+						Partner Portal
 					</Badge>
 				</div>
 			</div>

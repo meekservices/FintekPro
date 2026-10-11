@@ -1138,8 +1138,8 @@ export default function AuthPage() {
 		message: MessageSquare,
 	};
 
-	// ── Agent Portal: dedicated full-page layout ──────────────────────────────
-	if (portalType === "agent") {
+	// ── Partner Portal: dedicated full-page layout ─────────────────────────────
+	if (portalType === "agent" || portalType === "partner") {
 		return (
 			<div className="min-h-screen flex flex-col lg:flex-row">
 				{/* ── Left Panel – dark navy with network pattern ── */}
@@ -1229,7 +1229,7 @@ export default function AuthPage() {
 									10k+
 								</div>
 								<div className="text-blue-300/55 text-[10px] sm:text-xs uppercase tracking-widest mt-0.5">
-									Active Agents
+									Active Partners
 								</div>
 							</div>
 						</div>
@@ -1250,13 +1250,13 @@ export default function AuthPage() {
 								{/* Logo above title */}
 								<div className="flex justify-center mb-4">
 									<img
-										src={agentLogoImg}
+										src={partnerLogoImg}
 										alt="FintekPro"
 										className="h-16 w-16 object-contain"
 									/>
 								</div>
 								<h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 text-center">
-									FintekPro | Agent Portal
+									FintekPro | Partner Portal
 								</h2>
 								<p className="text-sm text-gray-500 mb-7 text-center">
 									Sign in to manage your practice
@@ -1309,7 +1309,7 @@ export default function AuthPage() {
 												<Input
 													id="agent-pw-id"
 													{...loginForm.register("identifier")}
-													placeholder="agent@fintekpro.in"
+													placeholder="partner@fintekpro.in"
 													className="pl-9"
 													autoFocus
 												/>
@@ -1405,7 +1405,7 @@ export default function AuthPage() {
 													id="agent-otp-id"
 													value={otpLoginEmail}
 													onChange={(e) => setOtpLoginEmail(e.target.value)}
-													placeholder="9876543210 or agent@email.com"
+													placeholder="9876543210 or partner@email.com"
 													className="pl-9"
 													autoFocus
 												/>
@@ -1443,7 +1443,7 @@ export default function AuthPage() {
 													id="agent-pin-id"
 													value={pinDirectId}
 													onChange={(e) => setPinDirectId(e.target.value)}
-													placeholder="agent@fintekpro.in or mobile"
+													placeholder="partner@fintekpro.in or mobile"
 													className="pl-9"
 													autoFocus
 												/>
@@ -1546,7 +1546,7 @@ export default function AuthPage() {
 								)}
 
 								<p className="text-center text-sm text-gray-400 mt-7">
-									Need an agent account?{" "}
+									Need a partner account?{" "}
 									<button
 										type="button"
 										onClick={() => setAuthMode("register")}
@@ -1562,13 +1562,13 @@ export default function AuthPage() {
 									{portalLabel} — Register
 								</h2>
 								<p className="text-sm text-gray-500 mb-5 text-center">
-									Create your agent account
+									Create your partner account
 								</p>
 
 								<div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-5 text-sm text-blue-700 flex items-start gap-2">
 									<Info className="h-4 w-4 mt-0.5 shrink-0" />
 									<span>
-										You'll receive a unique Agent ID on registration. Your
+										You'll receive a unique Partner ID on registration. Your
 										account will be active immediately — use your email or ID to
 										log in.
 									</span>
@@ -1624,7 +1624,7 @@ export default function AuthPage() {
 											id="agent-reg-email"
 											{...registerForm.register("email")}
 											type="email"
-											placeholder="agent@example.com"
+											placeholder="partner@example.com"
 										/>
 										{registerForm.formState.errors.email && (
 											<p className="text-sm text-red-600 mt-1">
@@ -1711,7 +1711,7 @@ export default function AuthPage() {
 										{registerMutation.isPending && (
 											<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 										)}
-										Create Agent Account
+										Create Partner Account
 									</Button>
 								</form>
 
@@ -2360,14 +2360,14 @@ export default function AuthPage() {
 								Registration Successful!
 							</DialogTitle>
 							<DialogDescription className="text-center">
-								Welcome to FintekPro Agent Portal! Your account has been
+								Welcome to FintekPro Partner Portal! Your account has been
 								created.
 							</DialogDescription>
 						</DialogHeader>
 						<div className="space-y-4">
 							<div className="p-4 rounded-lg border-2 border-blue-200 bg-blue-50">
 								<p className="text-sm text-muted-foreground mb-2 text-center">
-									Your unique Agent ID:
+									Your unique Partner ID:
 								</p>
 								<div className="flex items-center justify-center gap-2">
 									<Badge className="text-lg px-4 py-2 bg-blue-600 text-white">
@@ -2383,7 +2383,7 @@ export default function AuthPage() {
 								<Info className="h-4 w-4" />
 								<AlertDescription className="text-sm">
 									You can now sign in using your email, mobile number, or this
-									Agent ID with your password.
+									Partner ID with your password.
 								</AlertDescription>
 							</Alert>
 							<Button
@@ -2393,7 +2393,7 @@ export default function AuthPage() {
 									navigate(portalHomeRoute);
 								}}
 							>
-								Go to Agent Dashboard
+								Go to Partner Dashboard
 							</Button>
 						</div>
 					</DialogContent>
@@ -2456,7 +2456,7 @@ export default function AuthPage() {
 								<Info className="h-4 w-4" />
 								<AlertDescription className="text-sm">
 									If this is your existing account, please login instead. If
-									you're a different agent, you can still proceed.
+									you're a different partner, you can still proceed.
 								</AlertDescription>
 							</Alert>
 							<div className="flex flex-col gap-2">
@@ -2582,11 +2582,9 @@ export default function AuthPage() {
 									<CardDescription>
 										{portalType === "admin"
 											? "Access the platform control center"
-											: portalType === "partner"
-												? "Access your partner dashboard"
-												: portalType === "agent"
-													? "Access your agent workspace"
-													: "Access your financial services platform"}
+											: portalType === "partner" || portalType === "agent"
+												? "Access your partner workspace"
+												: "Access your financial services platform"}
 									</CardDescription>
 								</CardHeader>
 								<CardContent>
@@ -2738,7 +2736,7 @@ export default function AuthPage() {
 
 												{portalType === "main" && (
 													<p className="text-xs text-center text-muted-foreground space-x-2">
-														<span>Partner / Agent?{" "}
+														<span>Partner?{" "}
 															<a
 																href="https://partner.fintekpro.com"
 																className="font-medium underline [color:var(--portal-color)]"
@@ -3045,7 +3043,7 @@ export default function AuthPage() {
 
 											{portalType === "main" && (
 												<p className="text-xs text-center text-muted-foreground space-x-2">
-													<span>Partner / Agent?{" "}
+													<span>Partner?{" "}
 														<a
 															href="https://partner.fintekpro.com?mode=register"
 															className="font-medium underline [color:var(--portal-color)]"

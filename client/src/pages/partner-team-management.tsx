@@ -91,10 +91,10 @@ function MyTeamTab() {
 			apiRequest("DELETE", `/api/partner/my-team/${agentUserId}`),
 		onSuccess: () => {
 			qc.invalidateQueries({ queryKey: ["/api/partner/my-team"] });
-			toast({ title: "Agent removed from team" });
+			toast({ title: "Partner removed from team" });
 		},
 		onError: () =>
-			toast({ title: "Failed to remove agent", variant: "destructive" }),
+			toast({ title: "Failed to remove partner", variant: "destructive" }),
 	});
 
 	const startEdit = (member: any) => {
@@ -118,9 +118,9 @@ function MyTeamTab() {
 		return (
 			<div className="text-center py-16 text-muted-foreground">
 				<Users className="h-12 w-12 mx-auto mb-4 opacity-40" />
-				<p className="font-medium">No agents in your team yet</p>
+				<p className="font-medium">No partners in your team yet</p>
 				<p className="text-sm mt-1">
-					Invite agents using the "Invite Agent" tab — when they join, they
+					Invite partners using the "Invite Partner" tab — when they join, they
 					appear here.
 				</p>
 			</div>
@@ -133,7 +133,7 @@ function MyTeamTab() {
 				<Info className="h-4 w-4 flex-shrink-0" />
 				<span>
 					You earn <strong>partner-level override commission</strong> on every
-					transaction your team agents close, in addition to your own agent
+					transaction your team partners close, in addition to your own partner
 					commissions.
 				</span>
 			</div>
@@ -142,7 +142,7 @@ function MyTeamTab() {
 				<Table>
 					<TableHeader>
 						<TableRow>
-							<TableHead>Agent</TableHead>
+							<TableHead>Partner</TableHead>
 							<TableHead>Status</TableHead>
 							<TableHead>KYC</TableHead>
 							<TableHead>SM Assigned</TableHead>
@@ -435,19 +435,19 @@ function InviteAgentTab() {
 			<Card>
 				<CardHeader>
 					<CardTitle className="text-base flex items-center gap-2">
-						<UserPlus className="h-4 w-4 text-primary" /> Create Agent
+						<UserPlus className="h-4 w-4 text-primary" /> Create Partner
 						Invitation
 					</CardTitle>
 					<CardDescription>
-						Generate a unique invite link. When an agent registers using your
+						Generate a unique invite link. When a partner registers using your
 						link, they automatically join your team and you get promoted to
-						Partner (dual role).
+						Master Partner.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-4">
 					<div className="grid md:grid-cols-3 gap-4">
 						<div>
-							<Label>Agent Name (optional)</Label>
+							<Label>Partner Name (optional)</Label>
 							<Input
 								value={form.inviteeName}
 								onChange={(e) =>
@@ -464,7 +464,7 @@ function InviteAgentTab() {
 								onChange={(e) =>
 									setForm((f) => ({ ...f, inviteeEmail: e.target.value }))
 								}
-								placeholder="agent@email.com"
+								placeholder="partner@email.com"
 							/>
 						</div>
 						<div>
@@ -517,7 +517,7 @@ function InviteAgentTab() {
 									</Button>
 								</div>
 								<p className="text-xs text-green-600 dark:text-green-400 mt-2">
-									Share this link with the agent. Valid for 30 days.
+									Share this link with the partner. Valid for 30 days.
 								</p>
 							</div>
 						</div>
@@ -782,8 +782,8 @@ function CommissionSplitsTab() {
 							<p className="mt-1">
 								You receive the full partner override commission from the
 								platform. The split % you configure here is the portion you pass
-								on to each agent from <em>your</em> share. Example: if platform
-								pays you ₹1,000 override and you set 60% for an agent, they get
+								on to each partner from <em>your</em> share. Example: if platform
+								pays you ₹1,000 override and you set 60% for a partner, they get
 								₹600 and you keep ₹400.
 							</p>
 						</div>
@@ -800,7 +800,7 @@ function CommissionSplitsTab() {
 					<Percent className="h-10 w-10 mx-auto mb-3 opacity-40" />
 					<p className="font-medium">No active team members yet</p>
 					<p className="text-sm mt-1">
-						Add agents via Invite Agent — they will appear here once they join.
+						Add partners via Invite Partner — they will appear here once they join.
 					</p>
 				</div>
 			) : (
@@ -809,9 +809,9 @@ function CommissionSplitsTab() {
 						<Table>
 							<TableHeader>
 								<TableRow>
-									<TableHead>Agent</TableHead>
+									<TableHead>Partner</TableHead>
 									<TableHead>Current Split</TableHead>
-									<TableHead>Agent Gets</TableHead>
+									<TableHead>Partner Gets</TableHead>
 									<TableHead>You Keep</TableHead>
 									<TableHead className="text-right">Action</TableHead>
 								</TableRow>
@@ -932,12 +932,12 @@ export default function PartnerTeamManagement() {
 		<div className="space-y-6">
 			<div>
 				<h1 className="text-2xl font-bold flex items-center gap-2">
-					<Users className="h-6 w-6 text-primary" /> My Agent Team
+					<Users className="h-6 w-6 text-primary" /> My Partner Team
 				</h1>
 				<p className="text-sm text-muted-foreground mt-1">
-					Manage your field executives, invite new agents, configure
+					Manage your field team, invite new partners, configure
 					commissions, and assign SM/RM. As a partner, you earn{" "}
-					<strong>both agent commissions</strong> and{" "}
+					<strong>both partner commissions</strong> and{" "}
 					<strong>team override income</strong>.
 				</p>
 			</div>
@@ -948,7 +948,7 @@ export default function PartnerTeamManagement() {
 						<p className="text-3xl font-bold text-primary">
 							{(team as any[]).length}
 						</p>
-						<p className="text-sm text-muted-foreground mt-1">Active Agents</p>
+						<p className="text-sm text-muted-foreground mt-1">Active Partners</p>
 					</CardContent>
 				</Card>
 				<Card>
@@ -966,10 +966,10 @@ export default function PartnerTeamManagement() {
 							<TrendingUp className="h-5 w-5 text-blue-600" />
 						</div>
 						<p className="text-sm text-muted-foreground mt-1">
-							Dual Role Active
+							Network Role
 						</p>
 						<p className="text-xs text-green-600 font-medium">
-							Agent + Partner
+							Partner Network
 						</p>
 					</CardContent>
 				</Card>
@@ -986,7 +986,7 @@ export default function PartnerTeamManagement() {
 						)}
 					</TabsTrigger>
 					<TabsTrigger value="invite" className="flex items-center gap-1.5">
-						<UserPlus className="h-3.5 w-3.5" /> Invite Agent
+						<UserPlus className="h-3.5 w-3.5" /> Invite Partner
 						{pending > 0 && (
 							<Badge
 								variant="secondary"

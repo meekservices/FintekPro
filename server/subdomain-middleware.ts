@@ -257,7 +257,7 @@ export async function requireAgentPortal(
 	if (!req.isAgentPortal && !req.isPartnerPortal) {
 		return res.status(403).json({
 			error: "Access denied",
-			message: "This resource is only available on the agent / partner portal",
+			message: "This resource is only available on the partner portal",
 			redirectTo: `https://partner.${req.hostname.replace(/^(admin\.|partner\.|agent\.|ca\.)/, "")}`,
 		});
 	}
@@ -266,7 +266,7 @@ export async function requireAgentPortal(
 	if (!req.user) {
 		return res.status(401).json({
 			error: "Authentication required",
-			message: "Please log in to access the agent portal",
+			message: "Please log in to access the partner portal",
 		});
 	}
 
@@ -285,7 +285,7 @@ export async function requireAgentPortal(
 	if (!isAgent) {
 		return res.status(403).json({
 			error: "Access denied",
-			message: "Agent privileges required",
+			message: "Partner privileges required",
 		});
 	}
 

@@ -2391,7 +2391,7 @@ export default function AgentPicksPage() {
 		const shareData = {
 			files: [file],
 			title: `FintekPro — ${categoryLabel} Picks`,
-			text: `Today's ${categoryLabel} picks from FintekPro Agent Portal (${today})`,
+			text: `Today's ${categoryLabel} picks from FintekPro Partner Portal (${today})`,
 		};
 
 		if (

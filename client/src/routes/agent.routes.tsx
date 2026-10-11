@@ -118,7 +118,7 @@ function AgentRoot() {
 	// If we get a persistent error and no user, show the auth page as fallback.
 	// This prevents the "white page" (stuck loading) issue if the initial auth check fails.
 	if (error && !user) {
-		console.warn("⚠️ Agent Portal authentication check failed:", error);
+		console.warn("⚠️ Partner Portal authentication check failed:", error);
 		return <AuthPage />;
 	}
 

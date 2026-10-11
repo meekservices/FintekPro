@@ -218,10 +218,10 @@ export default function PartnerAgentDashboard() {
 						</div>
 						<div>
 							<h1 className="text-2xl font-bold text-foreground">
-								Agent Cost Center Dashboard
+								Partner Cost Center Dashboard
 							</h1>
 							<p className="text-muted-foreground">
-								Manage your agents as cost centers with P&L tracking
+								Manage your partners as cost centers with P&L tracking
 							</p>
 						</div>
 					</div>
@@ -308,7 +308,7 @@ export default function PartnerAgentDashboard() {
 							<Wallet className="w-8 h-8 text-amber-400" />
 						</div>
 						<p className="text-xs text-amber-600 mt-1">
-							{aggregateMetrics.activeAgents} agents awaiting
+							{aggregateMetrics.activeAgents} partners awaiting
 						</p>
 					</CardContent>
 				</Card>
@@ -317,7 +317,7 @@ export default function PartnerAgentDashboard() {
 					<CardContent className="pt-4">
 						<div className="flex items-center justify-between">
 							<div>
-								<p className="text-xs text-muted-foreground">Active Agents</p>
+								<p className="text-xs text-muted-foreground">Active Partners</p>
 								<p className="text-xl font-bold">
 									{aggregateMetrics.activeAgents}/{aggregateMetrics.totalAgents}
 								</p>
@@ -345,7 +345,7 @@ export default function PartnerAgentDashboard() {
 						className="flex items-center gap-2"
 						data-testid="tab-agents"
 					>
-						<Users className="w-4 h-4" /> Agent P&L
+						<Users className="w-4 h-4" /> Partner P&L
 					</TabsTrigger>
 					<TabsTrigger
 						value="expenses"
@@ -374,7 +374,7 @@ export default function PartnerAgentDashboard() {
 							<CardHeader>
 								<CardTitle className="flex items-center gap-2">
 									<PieChart className="w-5 h-5 text-blue-600" />
-									Revenue Distribution by Agent
+									Revenue Distribution by Partner
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
@@ -504,16 +504,16 @@ export default function PartnerAgentDashboard() {
 						<CardHeader>
 							<div className="flex items-center justify-between">
 								<div>
-									<CardTitle>Agent Profit & Loss</CardTitle>
+									<CardTitle>Partner Profit & Loss</CardTitle>
 									<CardDescription>
-										View each agent as a cost center with detailed P&L
+										View each partner as a cost center with detailed P&L
 									</CardDescription>
 								</div>
 								<div className="flex gap-2">
 									<div className="relative">
 										<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
 										<Input
-											placeholder="Search agents..."
+											placeholder="Search partners..."
 											value={searchQuery}
 											onChange={(e) => setSearchQuery(e.target.value)}
 											className="pl-9 w-[200px]"
@@ -541,7 +541,7 @@ export default function PartnerAgentDashboard() {
 							<Table>
 								<TableHeader>
 									<TableRow>
-										<TableHead>Agent</TableHead>
+										<TableHead>Partner</TableHead>
 										<TableHead>Status</TableHead>
 										<TableHead className="text-right">Revenue</TableHead>
 										<TableHead className="text-right">Expenses</TableHead>
@@ -632,7 +632,7 @@ export default function PartnerAgentDashboard() {
 										Expense Claims
 									</CardTitle>
 									<CardDescription>
-										Review and approve agent expense claims
+										Review and approve partner expense claims
 									</CardDescription>
 								</div>
 								<Badge variant="destructive">
@@ -645,7 +645,7 @@ export default function PartnerAgentDashboard() {
 								<TableHeader>
 									<TableRow>
 										<TableHead>Date</TableHead>
-										<TableHead>Agent</TableHead>
+										<TableHead>Partner</TableHead>
 										<TableHead>Category</TableHead>
 										<TableHead>Description</TableHead>
 										<TableHead className="text-right">Amount</TableHead>
@@ -727,7 +727,7 @@ export default function PartnerAgentDashboard() {
 								Commission Payouts
 							</CardTitle>
 							<CardDescription>
-								Manage pending commission payouts to agents
+								Manage pending commission payouts to partners
 							</CardDescription>
 						</CardHeader>
 						<CardContent>
@@ -812,7 +812,7 @@ export default function PartnerAgentDashboard() {
 			<Dialog open={showAgentDetail} onOpenChange={setShowAgentDetail}>
 				<DialogContent className="max-w-2xl">
 					<DialogHeader>
-						<DialogTitle>Agent Details - {selectedAgent?.name}</DialogTitle>
+						<DialogTitle>Partner Details - {selectedAgent?.name}</DialogTitle>
 						<DialogDescription>
 							Complete P&L and performance metrics
 						</DialogDescription>

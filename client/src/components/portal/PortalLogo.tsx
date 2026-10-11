@@ -40,7 +40,7 @@ export function usePortalMeta() {
 
 const LOGO_MAP: Record<string, string> = {
 	main: mainLogoImg,
-	agent: agentLogoImg,
+	agent: partnerLogoImg,
 	partner: partnerLogoImg,
 	admin: adminLogoImg,
 };

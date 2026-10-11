@@ -149,7 +149,7 @@ const agentNavCategories: NavCategory[] = [
 				title: "Leaderboard",
 				href: "/agent/leaderboard",
 				icon: Trophy,
-				description: "Agent performance rankings",
+				description: "Partner performance rankings",
 			},
 		],
 	},
@@ -964,13 +964,13 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 							Access Denied
 						</h1>
 						<p className="text-muted-foreground mb-2">
-							This agent portal is restricted to registered agents only.
+							This partner portal is restricted to registered partners only.
 						</p>
 						{actualUser?.email && (
 							<p className="text-sm text-muted-foreground mb-6">
 								You are signed in as{" "}
 								<strong className="text-foreground">{actualUser.email}</strong>,
-								which does not have agent access.
+								which does not have partner access.
 							</p>
 						)}
 						<div className="space-y-3">
@@ -1025,6 +1025,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 								<Menu className="h-5 w-5" />
 							)}
 						</Button>
+						<PortalLogo size="sm" />
 					</div>
 
 					<div className="flex items-center gap-1 sm:gap-2">
@@ -1118,7 +1119,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 										</div>
 										<div className="text-left hidden md:block">
 											<p className="text-xs font-medium text-foreground leading-tight max-w-[90px] truncate">
-												{user?.email?.split("@")[0] || "Agent"}
+												{user?.email?.split("@")[0] || "Partner"}
 											</p>
 											<div className="flex items-center gap-1">
 												<span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -1146,7 +1147,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 												<p className="text-sm font-semibold text-foreground truncate">
 													{user?.firstName && user?.lastName
 														? `${user.firstName} ${user.lastName}`
-														: user?.email?.split("@")[0] || "Agent"}
+														: user?.email?.split("@")[0] || "Partner"}
 												</p>
 												<p className="text-xs text-muted-foreground truncate">
 													{user?.email}
@@ -1154,7 +1155,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 												<div className="flex items-center gap-1 mt-0.5">
 													<span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
 													<span className="text-[10px] text-emerald-500 font-medium">
-														Agent · Active
+														Partner · Active
 													</span>
 												</div>
 											</div>

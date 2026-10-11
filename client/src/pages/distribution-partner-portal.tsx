@@ -184,7 +184,7 @@ export default function DistributionPartnerPortal() {
 					<Card className="border-l-4 border-l-blue-500">
 						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 							<CardTitle className="text-sm font-medium">
-								Total Agents
+								Total Partners
 							</CardTitle>
 							<Users className="h-4 w-4 text-blue-500" />
 						</CardHeader>
@@ -192,7 +192,7 @@ export default function DistributionPartnerPortal() {
 							<div className="text-2xl font-bold">{stats.totalAgents}</div>
 							<p className="text-xs text-muted-foreground">
 								<span className="text-green-600">{stats.activeAgents}</span>{" "}
-								active agents
+								active partners
 							</p>
 						</CardContent>
 					</Card>
@@ -206,7 +206,7 @@ export default function DistributionPartnerPortal() {
 						</CardHeader>
 						<CardContent>
 							<div className="text-2xl font-bold">{stats.totalClients}</div>
-							<p className="text-xs text-muted-foreground">Across all agents</p>
+							<p className="text-xs text-muted-foreground">Across all partners</p>
 						</CardContent>
 					</Card>
 
@@ -307,7 +307,7 @@ export default function DistributionPartnerPortal() {
 						</TabsTrigger>
 						<TabsTrigger value="agents" data-testid="tab-partner-agents">
 							<Users className="h-4 w-4 mr-2" />
-							Agent Network
+							Partner Network
 						</TabsTrigger>
 						<TabsTrigger value="clients" data-testid="tab-partner-clients">
 							<Building2 className="h-4 w-4 mr-2" />
@@ -408,7 +408,7 @@ export default function DistributionPartnerPortal() {
 
 							<Card>
 								<CardHeader>
-									<CardTitle>Top Performing Agents</CardTitle>
+									<CardTitle>Top Performing Partners</CardTitle>
 									<CardDescription>
 										Based on this month's business
 									</CardDescription>
@@ -450,7 +450,7 @@ export default function DistributionPartnerPortal() {
 											))
 										) : (
 											<p className="text-muted-foreground text-center py-4">
-												No agent data available
+												No partner data available
 											</p>
 										)}
 									</div>
@@ -459,9 +459,9 @@ export default function DistributionPartnerPortal() {
 
 							<Card className="lg:col-span-2">
 								<CardHeader>
-									<CardTitle>Agent Network Summary</CardTitle>
+									<CardTitle>Partner Network Summary</CardTitle>
 									<CardDescription>
-										Distribution of your agent network
+										Distribution of your partner network
 									</CardDescription>
 								</CardHeader>
 								<CardContent>
@@ -472,7 +472,7 @@ export default function DistributionPartnerPortal() {
 												{stats.activeAgents || 0}
 											</p>
 											<p className="text-sm text-muted-foreground">
-												Active Agents
+												Active Partners
 											</p>
 										</div>
 										<div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg text-center">
@@ -507,9 +507,9 @@ export default function DistributionPartnerPortal() {
 							<CardHeader>
 								<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 									<div>
-										<CardTitle>Agent Network Management</CardTitle>
+										<CardTitle>Partner Network Management</CardTitle>
 										<CardDescription>
-											Manage your agents, field executives, and business
+											Manage your partners, field executives, and business
 											associates
 										</CardDescription>
 									</div>
@@ -517,7 +517,7 @@ export default function DistributionPartnerPortal() {
 										<div className="relative">
 											<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 											<Input
-												placeholder="Search agents..."
+												placeholder="Search partners..."
 												className="pl-9 w-64"
 												value={searchQuery}
 												onChange={(e) => setSearchQuery(e.target.value)}
@@ -530,7 +530,7 @@ export default function DistributionPartnerPortal() {
 											onClick={() => navigate("/partner-application")}
 										>
 											<UserPlus className="h-4 w-4 mr-2" />
-											Add Agent
+											Add Partner
 										</Button>
 									</div>
 								</div>
@@ -539,7 +539,7 @@ export default function DistributionPartnerPortal() {
 								<Table>
 									<TableHeader>
 										<TableRow>
-											<TableHead>Agent Name</TableHead>
+											<TableHead>Partner Name</TableHead>
 											<TableHead>Level</TableHead>
 											<TableHead>EUIN/ARN</TableHead>
 											<TableHead>Clients</TableHead>
@@ -554,7 +554,7 @@ export default function DistributionPartnerPortal() {
 											<TableRow>
 												<TableCell colSpan={8} className="text-center py-8">
 													<div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2" />
-													Loading agents...
+													Loading partners...
 												</TableCell>
 											</TableRow>
 										) : (agents as any)?.length > 0 ? (
@@ -575,7 +575,7 @@ export default function DistributionPartnerPortal() {
 															}
 														>
 															{agent.agentLevel === "master"
-																? "Agent"
+																? "Partner"
 																: agent.agentLevel === "sub_agent"
 																	? "Field Executive"
 																	: agent.agentLevel === "district_associate"
@@ -621,7 +621,7 @@ export default function DistributionPartnerPortal() {
 												<TableCell colSpan={8} className="text-center py-12">
 													<Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
 													<p className="text-lg font-medium mb-1">
-														No agents in your network
+														No partners in your network
 													</p>
 													<p className="text-muted-foreground mb-4">
 														Start building your distribution network
@@ -632,7 +632,7 @@ export default function DistributionPartnerPortal() {
 														onClick={() => navigate("/partner-application")}
 													>
 														<UserPlus className="h-4 w-4 mr-2" />
-														Onboard First Agent
+														Onboard First Partner
 													</Button>
 												</TableCell>
 											</TableRow>
@@ -650,7 +650,7 @@ export default function DistributionPartnerPortal() {
 									<div>
 										<CardTitle>Client Overview</CardTitle>
 										<CardDescription>
-											All clients across your agent network
+											All clients across your partner network
 										</CardDescription>
 									</div>
 									<div className="flex gap-2">
@@ -685,7 +685,7 @@ export default function DistributionPartnerPortal() {
 										<TableRow>
 											<TableHead>Client Name</TableHead>
 											<TableHead>PAN</TableHead>
-											<TableHead>Agent</TableHead>
+											<TableHead>Partner</TableHead>
 											<TableHead>Portfolio Value</TableHead>
 											<TableHead>KYC Status</TableHead>
 											<TableHead>Last Activity</TableHead>
@@ -903,8 +903,8 @@ export default function DistributionPartnerPortal() {
 									testId: "client",
 								},
 								{
-									title: "Agent Performance",
-									desc: "Agent-wise business analysis",
+									title: "Partner Performance",
+									desc: "Partner-wise business analysis",
 									icon: Users,
 									testId: "agent",
 								},

@@ -2386,7 +2386,7 @@ const REGULATORY_MATRIX = [
 		regulatoryBasis:
 			"AMFI Circular CIR/ARN/002/2025 — All AMFI-registered agents and sub-agents must complete Standard KYC (PAN + Address OVD + Photograph) before distributing mutual funds or advising clients.",
 		complianceNote:
-			"Agent portal access is gated at Level 1. Agents without KYC cannot view client portfolios or place orders on behalf of clients.",
+			"Partner portal access is gated at Level 1. Partners without KYC cannot view client portfolios or place orders on behalf of clients.",
 		statusColor: "blue",
 	},
 	{

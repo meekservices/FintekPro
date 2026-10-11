@@ -288,7 +288,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 																	className="cursor-pointer flex items-center gap-2"
 																>
 																	<Briefcase className="h-4 w-4 text-emerald-500" />
-																	<span>Agent Portal</span>
+																	<span>Partner Portal</span>
 																</a>
 															</DropdownMenuItem>
 														)}

@@ -1034,21 +1034,17 @@ export default function AlpacaClientHub() {
 																				{rec.confidenceScore}/100
 																			</span>
 																		</div>
-																		<div
-																			className={cn(
-																				"h-1.5 rounded-full overflow-hidden",
-																				`[--bar-w:${rec.confidenceScore}%]`,
-																			)}
-																		>
+																		<div className="h-1.5 rounded-full overflow-hidden bg-muted">
 																			<div
 																				className={cn(
-																					"h-full rounded-full transition-all duration-700 w-[var(--bar-w)]",
+																					"h-full rounded-full transition-all duration-700",
 																					rec.signal === "buy"
 																						? "bg-emerald-500"
 																						: rec.signal === "hold"
 																							? "bg-amber-500"
 																							: "bg-rose-500",
 																				)}
+																				style={{ width: `${rec.confidenceScore}%` }}
 																			/>
 																		</div>
 																	</div>

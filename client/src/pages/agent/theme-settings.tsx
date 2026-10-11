@@ -10,7 +10,7 @@ export default function AgentThemeSettings() {
 					Theme & Accessibility
 				</h1>
 				<p className="text-muted-foreground mt-1">
-					Customize your visual experience for the agent portal
+					Customize your visual experience for the partner portal
 				</p>
 			</div>
 

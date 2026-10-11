@@ -80,7 +80,6 @@ export default defineConfig({
           // Feature-specific component dirs are excluded so they stay collocated
           // with their page chunk and don't create false cycles via chunk-shared.
           if (
-            id.includes("/client/src/components/loan") ||
             id.includes("/client/src/components/agent/")
           ) return undefined; // let Vite place these naturally with their page chunk
 
@@ -178,15 +177,6 @@ export default defineConfig({
             id.includes("/pages/reit") ||
             id.includes("/pages/alternative-investments")
           ) return "chunk-investments";
-
-          if (
-            id.includes("/pages/loan") ||
-            id.includes("/pages/loans") ||
-            id.includes("/pages/icici-") ||
-            id.includes("/pages/hdfc-") ||
-            id.includes("/pages/bajaj-") ||
-            id.includes("/pages/tata-capital")
-          ) return "chunk-loans";
 
           if (id.includes("/pages/portfolio")) return "chunk-portfolio";
 

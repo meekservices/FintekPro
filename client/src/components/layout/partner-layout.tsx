@@ -73,29 +73,29 @@ const partnerNavSections: NavSection[] = [
 		],
 	},
 	{
-		id: "agent-network",
-		section: "Agent Network",
+		id: "partner-network",
+		section: "Partner Network",
 		items: [
 			{
 				title: "My Team",
 				href: "/partner/my-team?tab=team",
 				icon: GitBranch,
-				description: "Sub-agents, SM/RM, invites & commissions",
+				description: "Sub-partners, SM/RM, invites & commissions",
 			},
 			{
-				title: "Agent Cost Centre",
+				title: "Partner Cost Centre",
 				href: "/partner/agents",
 				icon: Users,
-				description: "Recruit & manage agents in your hierarchy",
+				description: "Recruit & manage partners in your hierarchy",
 			},
 			{
-				title: "Agent Performance",
+				title: "Partner Performance",
 				href: "/partner/agent-performance",
 				icon: LineChart,
-				description: "Track agent metrics & P&L",
+				description: "Track partner metrics & P&L",
 			},
 			{
-				title: "Agent Payouts",
+				title: "Partner Payouts",
 				href: "/partner/payouts",
 				icon: DollarSign,
 				description: "Commission payouts & settlements",
@@ -369,12 +369,8 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
 								</p>
 								<p className="text-xs text-indigo-400 capitalize">
 									{user?.roles?.includes("master_agent")
-										? "Master Agent"
-										: user?.roles?.includes("partner")
-											? "Partner"
-											: user?.roles?.includes("agent")
-												? "Agent"
-												: "Partner"}
+										? "Master Partner"
+										: "Partner"}
 								</p>
 							</div>
 							<Button

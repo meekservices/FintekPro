@@ -1427,8 +1427,12 @@ export class NismLmsService {
 					chapter: q.chapter,
 					chapterTitle: q.chapterTitle,
 					difficulty: q.difficulty,
-					correctIndex: q.correctIndex,
-					explanation: q.explanation,
+					...(testType === "practice"
+						? {
+								correctIndex: q.correctIndex,
+								explanation: q.explanation,
+						  }
+						: {}),
 				};
 				return clientQ;
 			}),

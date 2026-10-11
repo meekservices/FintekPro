@@ -202,7 +202,7 @@ export default function PartnerPortal() {
 								Partner Portal
 							</h1>
 							<p className="text-sm text-muted-foreground">
-								Agent Recruitment, Payouts & CA Services
+								Partner Recruitment, Payouts & CA Services
 							</p>
 						</div>
 						<div className="flex items-center space-x-4">
@@ -250,7 +250,7 @@ export default function PartnerPortal() {
 										<Users className="h-8 w-8 text-blue-600" />
 										<div className="ml-4">
 											<p className="text-sm font-medium text-muted-foreground">
-												Total Agents
+												Total Partners
 											</p>
 											<p className="text-2xl font-bold text-foreground">
 												{agents.length}
@@ -276,7 +276,7 @@ export default function PartnerPortal() {
 											</p>
 											<p className="text-xs text-green-600 flex items-center">
 												<ArrowUpRight className="h-3 w-3 mr-0.5" />
-												Agent payouts
+												Partner payouts
 											</p>
 										</div>
 									</div>
@@ -329,17 +329,17 @@ export default function PartnerPortal() {
 								<CardHeader>
 									<CardTitle className="flex items-center gap-2">
 										<Users className="h-5 w-5 text-blue-600" />
-										Recent Agents
+										Recent Partners
 									</CardTitle>
 								</CardHeader>
 								<CardContent>
 									{agents.length === 0 ? (
 										<div className="text-center py-6 text-muted-foreground">
 											<Users className="h-10 w-10 mx-auto mb-2 opacity-40" />
-											<p className="text-sm">No agents recruited yet</p>
+											<p className="text-sm">No partners recruited yet</p>
 											<a href="/partner/agents">
 												<Button variant="outline" size="sm" className="mt-2">
-													Recruit Agents
+													Recruit Partners
 												</Button>
 											</a>
 										</div>
@@ -354,7 +354,7 @@ export default function PartnerPortal() {
 														<p className="font-medium text-sm">
 															{agent.name ||
 																agent.fullName ||
-																`Agent #${agent.id}`}
+																`Partner #${agent.id}`}
 														</p>
 														<p className="text-xs text-muted-foreground">
 															{agent.email || agent.mobile || ""}
@@ -383,7 +383,7 @@ export default function PartnerPortal() {
 														size="sm"
 														className="text-blue-600"
 													>
-														View all {agents.length} agents →
+														View all {agents.length} partners →
 													</Button>
 												</a>
 											)}
@@ -452,9 +452,9 @@ export default function PartnerPortal() {
 											<Users className="h-6 w-6 text-blue-600" />
 										</div>
 										<div>
-											<p className="font-semibold text-sm">Agent Recruitment</p>
+											<p className="font-semibold text-sm">Partner Recruitment</p>
 											<p className="text-xs text-muted-foreground">
-												Recruit & manage your agent network
+												Recruit & manage your partner network
 											</p>
 										</div>
 										<ArrowUpRight className="h-4 w-4 ml-auto text-muted-foreground" />
@@ -468,7 +468,7 @@ export default function PartnerPortal() {
 											<Wallet className="h-6 w-6 text-green-600" />
 										</div>
 										<div>
-											<p className="font-semibold text-sm">Agent Payouts</p>
+											<p className="font-semibold text-sm">Partner Payouts</p>
 											<p className="text-xs text-muted-foreground">
 												Commission payouts & settlements
 											</p>
@@ -599,7 +599,7 @@ export default function PartnerPortal() {
 									<Card>
 										<CardContent className="p-4 text-center">
 											<p className="text-xs text-muted-foreground">
-												Agent Income
+												Partner Income
 											</p>
 											<p
 												className="text-xl font-bold text-blue-700 dark:text-blue-300"
@@ -799,7 +799,7 @@ export default function PartnerPortal() {
 								<CardHeader>
 									<CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
 										<IndianRupee className="h-5 w-5" />
-										1. Direct Earnings (Agent Income)
+										1. Direct Earnings (Partner Income)
 									</CardTitle>
 								</CardHeader>
 								<CardContent className="space-y-2">
@@ -880,7 +880,7 @@ export default function PartnerPortal() {
 									</p>
 									<ul className="text-sm text-muted-foreground space-y-1 list-disc pl-4">
 										<li>Who sold the product</li>
-										<li>Your role in the transaction (Agent or Upline)</li>
+										<li>Your role in the transaction (Partner or Upline)</li>
 										<li>How your payout was calculated</li>
 										<li>Final credited amount</li>
 									</ul>

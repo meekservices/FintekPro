@@ -335,7 +335,7 @@ export default function FieldAgentPortal() {
 				<div className="container mx-auto p-6">
 					<div className="flex items-center justify-center h-64">
 						<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3" />
-						<div className="text-lg">Loading agent portal...</div>
+						<div className="text-lg">Loading partner portal...</div>
 					</div>
 				</div>
 			</div>
@@ -392,7 +392,7 @@ export default function FieldAgentPortal() {
 
 	const agentLevel = (agentProfile as any)?.agentLevel || "agent";
 	const AGENT_LEVEL_LABELS: Record<string, string> = {
-		master: "Agent",
+		master: "Partner",
 		sub_agent: "Field Executive",
 		associate: "Business Associate",
 		district_associate: "District Associate",
@@ -411,11 +411,11 @@ export default function FieldAgentPortal() {
 						<div className="flex items-center gap-2 mb-1">
 							<Award className="h-8 w-8 text-primary" />
 							<h1 className="text-3xl font-bold text-foreground">
-								Agent Dashboard
+								Partner Dashboard
 							</h1>
 						</div>
 						<p className="text-muted-foreground">
-							Welcome back, {(agentProfile as any)?.fullName || "Agent"}
+							Welcome back, {(agentProfile as any)?.fullName || "Partner"}
 						</p>
 					</div>
 					<div className="flex gap-2">
@@ -1789,7 +1789,7 @@ export default function FieldAgentPortal() {
 						<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 							<Card>
 								<CardHeader>
-									<CardTitle>Agent Profile</CardTitle>
+									<CardTitle>Partner Profile</CardTitle>
 									<CardDescription>Your professional details</CardDescription>
 								</CardHeader>
 								<CardContent className="space-y-4">
@@ -1804,7 +1804,7 @@ export default function FieldAgentPortal() {
 										</div>
 										<div>
 											<label className="text-sm font-medium text-muted-foreground">
-												Agent Level
+												Partner Level
 											</label>
 											<p className="font-medium">{levelLabel}</p>
 										</div>

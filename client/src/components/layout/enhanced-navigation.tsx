@@ -905,11 +905,11 @@ export function EnhancedNavigation() {
 									variant="ghost"
 									size="sm"
 									className={`${inSheet || !isCollapsed ? "w-full justify-start" : "w-full justify-center px-0"} mb-0.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10`}
-									title={isCollapsed && !inSheet ? "Agent Portal" : undefined}
+									title={isCollapsed && !inSheet ? "Partner Portal" : undefined}
 								>
 									<Briefcase className="h-4 w-4" />
 									{(inSheet || !isCollapsed) && (
-										<span className="ml-3 text-xs">Agent Portal</span>
+										<span className="ml-3 text-xs">Partner Portal</span>
 									)}
 								</Button>
 							</a>

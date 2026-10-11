@@ -39,8 +39,8 @@ export const PORTAL_BRAND_CONFIG: Record<PortalType, PortalBrandConfig> = {
   },
   [PortalType.AGENT]: {
     portalType: PortalType.AGENT,
-    logoPath: '/api/system/portal-logo/agent',
-    label: 'FintekPro | Agent',
+    logoPath: '/api/system/portal-logo/partner',
+    label: 'FintekPro | Partner',
     tagline: 'Empower Your Clients',
     primaryColor: '#059669',
     accentColor: '#10B981',

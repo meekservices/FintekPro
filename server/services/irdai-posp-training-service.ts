@@ -155,7 +155,7 @@ export interface PospQuestionItem {
 }
 
 // Comprehensive IRDAI standardized question bank with full rationales & categories
-const POSP_QUESTION_BANK: PospQuestionItem[] = [
+export const POSP_QUESTION_BANK: PospQuestionItem[] = [
 	{
 		id: "q1",
 		question: "Under the principle of Utmost Good Faith (Uberrimae Fidei), what is the proposer required to disclose?",
