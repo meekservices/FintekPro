@@ -107,12 +107,12 @@ export class KnowledgeHubService {
 	getDefaultTopMovers(region: string = "india") {
 		return region === "india"
 			? [
-					{ name: "HDFC Bank Ltd", symbol: "HDFCBANK", price: 1743.85, change: 1.45, direction: "up" as const },
-					{ name: "Tata Consultancy Services", symbol: "TCS", price: 4156.30, change: 1.12, direction: "up" as const },
-					{ name: "Reliance Industries", symbol: "RELIANCE", price: 1285.40, change: 0.85, direction: "up" as const },
-					{ name: "ICICI Bank Ltd", symbol: "ICICIBANK", price: 1287.55, change: 0.72, direction: "up" as const },
-					{ name: "Tata Motors Ltd", symbol: "TATAMOTORS", price: 980.20, change: -0.65, direction: "down" as const },
-					{ name: "Larsen & Toubro", symbol: "LT", price: 3620.00, change: 1.25, direction: "up" as const },
+					{ name: "ITC Limited", symbol: "ITC", price: 266.0, change: 4.31, direction: "up" as const },
+					{ name: "Tata Consultancy Services", symbol: "TCS", price: 2156.0, change: 3.85, direction: "up" as const },
+					{ name: "Infosys Limited", symbol: "INFY", price: 1023.4, change: 2.65, direction: "up" as const },
+					{ name: "Reliance Industries", symbol: "RELIANCE", price: 1170.3, change: -0.65, direction: "down" as const },
+					{ name: "JSW Steel Limited", symbol: "JSWSTEEL", price: 1168.0, change: -0.61, direction: "down" as const },
+					{ name: "Cipla Limited", symbol: "CIPLA", price: 1301.0, change: -0.44, direction: "down" as const },
 				]
 			: [
 					{ name: "Apple Inc", symbol: "AAPL", price: 230.15, change: 1.15, direction: "up" as const },

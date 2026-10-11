@@ -139,12 +139,12 @@ function getClientFallbackBrief(region: string): MarketBrief {
 			: "1. Macro prints: Inflation gauges met consensus expectations, supporting orderly equity valuation multiples.\n2. Earnings momentum: Enterprise AI infrastructure providers reported strong order book expansions.",
 		topMovers: isIndia
 			? [
-					{ name: "HDFC Bank Ltd", symbol: "HDFCBANK", price: 1743.85, change: 1.45, direction: "up" },
-					{ name: "Tata Consultancy Services", symbol: "TCS", price: 4156.30, change: 1.12, direction: "up" },
-					{ name: "Reliance Industries", symbol: "RELIANCE", price: 1285.40, change: 0.85, direction: "up" },
-					{ name: "ICICI Bank Ltd", symbol: "ICICIBANK", price: 1287.55, change: 0.72, direction: "up" },
-					{ name: "Tata Motors Ltd", symbol: "TATAMOTORS", price: 980.20, change: -0.65, direction: "down" },
-					{ name: "Larsen & Toubro", symbol: "LT", price: 3620.00, change: 1.25, direction: "up" },
+					{ name: "ITC Limited", symbol: "ITC", price: 266.0, change: 4.31, direction: "up" },
+					{ name: "Tata Consultancy Services", symbol: "TCS", price: 2156.0, change: 3.85, direction: "up" },
+					{ name: "Infosys Limited", symbol: "INFY", price: 1023.4, change: 2.65, direction: "up" },
+					{ name: "Reliance Industries", symbol: "RELIANCE", price: 1170.3, change: -0.65, direction: "down" },
+					{ name: "JSW Steel Limited", symbol: "JSWSTEEL", price: 1168.0, change: -0.61, direction: "down" },
+					{ name: "Cipla Limited", symbol: "CIPLA", price: 1301.0, change: -0.44, direction: "down" },
 				]
 			: [
 					{ name: "Apple Inc", symbol: "AAPL", price: 230.15, change: 1.15, direction: "up" },

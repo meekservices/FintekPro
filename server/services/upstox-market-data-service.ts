@@ -119,6 +119,16 @@ export const SYMBOL_TO_ISIN: Record<string, string> = {
   POWERGRID: "INE752E01010",
   COALINDIA: "INE522F01014",
   HCLTECH: "INE860A01027",
+  NESTLEIND: "INE239A01016",
+  ULTRACEMCO: "INE481G01011",
+  ADANIENT: "INE423A01024",
+  JSWSTEEL: "INE019A01038",
+  HINDALCO: "INE038A01020",
+  CIPLA: "INE059A01026",
+  DRREDDY: "INE089A01023",
+  TRENT: "INE849A01020",
+  BEL: "INE263A01024",
+  BAJAJFINSV: "INE918I01018",
 };
 
 export const toNseKey = (symbol: string): string => {
@@ -556,11 +566,22 @@ class UpstoxMarketDataService {
     raw: any
   ): UpstoxQuote {
     const lastPrice = Number(raw.last_price ?? 0);
-    const prevClose = raw.ohlc?.close ? Number(raw.ohlc.close) : undefined;
-    const change = prevClose !== undefined ? lastPrice - prevClose : undefined;
+    // In Upstox v2 API, raw.net_change provides the exact daily net change.
+    // If raw.net_change is available, prevClose = lastPrice - net_change.
+    let change: number | undefined = undefined;
+    let prevClose: number | undefined = undefined;
+
+    if (raw.net_change !== undefined && raw.net_change !== null) {
+      change = Number(raw.net_change);
+      prevClose = lastPrice - change;
+    } else if (raw.ohlc?.close) {
+      prevClose = Number(raw.ohlc.close);
+      change = lastPrice - prevClose;
+    }
+
     const changePct =
-      prevClose && prevClose > 0
-        ? Math.round(((change! / prevClose) * 100) * 100) / 100
+      prevClose && prevClose > 0 && change !== undefined
+        ? Math.round(((change / prevClose) * 100) * 100) / 100
         : undefined;
 
     return {
