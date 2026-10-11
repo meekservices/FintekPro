@@ -89,6 +89,24 @@ router.get(
 	}),
 );
 
+router.get(
+	"/ccil-benchmarks",
+	asyncHandler(async (_req, res) => {
+		const { ccilMarketService } = await import("../services/ccil-market-service");
+		const data = await ccilMarketService.getSovereignBenchmarks();
+		res.json(data);
+	}),
+);
+
+router.get(
+	"/commodity-benchmarks",
+	asyncHandler(async (_req, res) => {
+		const { commodityMarketService } = await import("../services/commodity-market-service");
+		const data = await commodityMarketService.getCommodityBenchmarks();
+		res.json(data);
+	}),
+);
+
 router.post(
 	"/market-brief/generate-today",
 	requireAuth,

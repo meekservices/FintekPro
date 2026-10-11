@@ -2,6 +2,7 @@ import yahooFinance from "yahoo-finance2";
 import { pool } from "../db";
 import { callPython } from "../clients/python-client";
 import { distributedCache } from "../utils/distributed-cache";
+import { upstoxMarketDataService } from "./upstox-market-data-service";
 
 interface Stock {
 	symbol: string;
@@ -43,6 +44,7 @@ interface CacheMetrics {
 	yahooLatency: number;
 	backoffUntil: number;
 	providers: {
+		upstox: ProviderMetrics;
 		yahoo: ProviderMetrics;
 		finnhub: ProviderMetrics;
 		nse: ProviderMetrics;
@@ -84,84 +86,84 @@ const FALLBACK_DATA: MarketMoversData = {
 		{
 			symbol: "RELIANCE",
 			name: "Reliance Industries",
-			price: 2847.65,
-			change: 89.45,
-			changePercent: 3.24,
-			previousClose: 2758.2,
+			price: 1285.4,
+			change: 18.45,
+			changePercent: 1.46,
+			previousClose: 1266.95,
 		},
 		{
 			symbol: "TCS",
 			name: "Tata Consultancy Services",
 			price: 4156.3,
-			change: 116.2,
-			changePercent: 2.87,
-			previousClose: 4040.1,
+			change: 54.2,
+			changePercent: 1.32,
+			previousClose: 4102.1,
 		},
 		{
 			symbol: "HDFCBANK",
 			name: "HDFC Bank Limited",
 			price: 1743.85,
-			change: 33.35,
-			changePercent: 1.95,
-			previousClose: 1710.5,
+			change: 21.35,
+			changePercent: 1.24,
+			previousClose: 1722.5,
 		},
 		{
 			symbol: "INFY",
 			name: "Infosys Limited",
 			price: 1856.4,
-			change: 28.9,
-			changePercent: 1.58,
-			previousClose: 1827.5,
+			change: 19.9,
+			changePercent: 1.08,
+			previousClose: 1836.5,
 		},
 		{
 			symbol: "ICICIBANK",
 			name: "ICICI Bank Limited",
 			price: 1287.55,
-			change: 18.75,
-			changePercent: 1.48,
-			previousClose: 1268.8,
+			change: 12.75,
+			changePercent: 1.0,
+			previousClose: 1274.8,
 		},
 	],
 	losers: [
 		{
 			symbol: "BAJFINANCE",
 			name: "Bajaj Finance Limited",
-			price: 6789.25,
-			change: -156.3,
-			changePercent: -2.26,
-			previousClose: 6945.55,
+			price: 7120.5,
+			change: -112.3,
+			changePercent: -1.55,
+			previousClose: 7232.8,
 		},
 		{
 			symbol: "MARUTI",
 			name: "Maruti Suzuki India",
-			price: 11245.8,
-			change: -198.65,
-			changePercent: -1.74,
-			previousClose: 11444.45,
+			price: 12350.0,
+			change: -175.65,
+			changePercent: -1.4,
+			previousClose: 12525.65,
 		},
 		{
 			symbol: "ASIANPAINT",
 			name: "Asian Paints Limited",
-			price: 2943.15,
-			change: -48.9,
-			changePercent: -1.63,
-			previousClose: 2992.05,
+			price: 2890.15,
+			change: -38.9,
+			changePercent: -1.33,
+			previousClose: 2929.05,
 		},
 		{
 			symbol: "NESTLEIND",
 			name: "Nestle India Limited",
-			price: 24567.35,
-			change: -389.25,
-			changePercent: -1.56,
-			previousClose: 24956.6,
+			price: 2345.5,
+			change: -28.25,
+			changePercent: -1.19,
+			previousClose: 2373.75,
 		},
 		{
 			symbol: "ULTRACEMCO",
 			name: "UltraTech Cement",
-			price: 10876.4,
-			change: -156.85,
-			changePercent: -1.42,
-			previousClose: 11033.25,
+			price: 11450.0,
+			change: -126.85,
+			changePercent: -1.09,
+			previousClose: 11576.85,
 		},
 	],
 };
@@ -856,6 +858,14 @@ class MarketMoversCache {
 		yahooLatency: 0,
 		backoffUntil: 0,
 		providers: {
+			upstox: {
+				successCount: 0,
+				failureCount: 0,
+				lastSuccess: 0,
+				lastFailure: 0,
+				lastLatency: 0,
+				rateLimitErrors: 0,
+			},
 			yahoo: {
 				successCount: 0,
 				failureCount: 0,
@@ -1356,9 +1366,91 @@ class MarketMoversCache {
 		return all;
 	}
 
+	private async fetchFromUpstox(): Promise<Stock[]> {
+		if (!upstoxMarketDataService.isReady()) {
+			throw new Error("Upstox service not configured or active");
+		}
+		const startTime = Date.now();
+		const symbols = [
+			"RELIANCE",
+			"TCS",
+			"HDFCBANK",
+			"INFY",
+			"ICICIBANK",
+			"BAJFINANCE",
+			"MARUTI",
+			"ASIANPAINT",
+			"NESTLEIND",
+			"ULTRACEMCO",
+			"HINDUNILVR",
+			"LT",
+			"WIPRO",
+			"BHARTIARTL",
+			"KOTAKBANK",
+			"TITAN",
+			"AXISBANK",
+			"SUNPHARMA",
+			"ITC",
+			"M&M",
+		];
+		const res = await upstoxMarketDataService.getBatchQuotes(symbols, "NSE");
+		if (!res.success || !res.data || res.data.size === 0) {
+			throw new Error(res.error?.message || "No quote data returned from Upstox");
+		}
+
+		const stockQuotes: Stock[] = [];
+		for (const [sym, q] of res.data.entries()) {
+			const cleanSymbol = sym
+				.replace(/^NSE_EQ:/, "")
+				.replace(/^NSE_EQ\|/, "")
+				.replace(/\.NS$/, "");
+			const stockMeta = INDIAN_STOCKS.find(
+				(s) => s.symbol.replace(/\.NS$/, "") === cleanSymbol,
+			);
+			const name = stockMeta?.name || cleanSymbol;
+			const price = q.last_price || 0;
+			const prevClose = q.previous_close || (price - (q.change || 0));
+			const change =
+				q.change !== undefined && q.change !== null
+					? q.change
+					: prevClose > 0
+						? price - prevClose
+						: 0;
+			const changePercent =
+				q.change_percent !== undefined && q.change_percent !== null
+					? q.change_percent
+					: prevClose > 0
+						? (change / prevClose) * 100
+						: 0;
+
+			if (price > 0) {
+				stockQuotes.push({
+					symbol: cleanSymbol,
+					name,
+					price,
+					change,
+					changePercent,
+					previousClose: prevClose,
+				});
+			}
+		}
+
+		if (stockQuotes.length < 5) {
+			throw new Error(
+				`Insufficient stocks returned by Upstox (${stockQuotes.length})`,
+			);
+		}
+
+		this.metrics.providers.upstox.lastLatency = Date.now() - startTime;
+		this.metrics.providers.upstox.successCount++;
+		this.metrics.providers.upstox.lastSuccess = Date.now();
+
+		return stockQuotes;
+	}
+
 	private async refreshCache(): Promise<void> {
 		if (this.refreshLock) {
-   // eslint-disable-next-line no-console
+			// eslint-disable-next-line no-console
 			console.log(
 				"⏳ [MarketMoversCache] Refresh already in progress, skipping",
 			);
@@ -1369,25 +1461,49 @@ class MarketMoversCache {
 		const startTime = Date.now();
 
 		try {
-   // eslint-disable-next-line no-console
+			// eslint-disable-next-line no-console
 			console.log("📊 [MarketMoversCache] Fetching fresh market data...");
 
 			let stockQuotes: Stock[] = [];
 			let successProvider: string | null = null;
 
-			// Priority 1: NSE India (direct exchange, proven working in production)
+			// Priority 1: Upstox Developer API v2 (SEBI-registered broker licensed NSE/BSE feed)
+			if (stockQuotes.length === 0 && upstoxMarketDataService.isReady()) {
+				try {
+					// eslint-disable-next-line no-console
+					console.log(
+						"🔄 [MarketMoversCache] Trying Upstox API v2 (Tier-1 licensed feed)...",
+					);
+					stockQuotes = await this.fetchFromUpstox();
+					successProvider = "upstox";
+					// eslint-disable-next-line no-console
+					console.log(
+						`✅ [MarketMoversCache] Upstox succeeded with ${stockQuotes.length} stocks`,
+					);
+				} catch (upstoxError: any) {
+					// eslint-disable-next-line no-console
+					console.warn(
+						"⚠️ [MarketMoversCache] Upstox API failed:",
+						upstoxError?.message || upstoxError,
+					);
+					this.metrics.providers.upstox.failureCount++;
+					this.metrics.providers.upstox.lastFailure = Date.now();
+				}
+			}
+
+			// Priority 2: NSE India (direct exchange)
 			if (stockQuotes.length === 0 && this.nseProvider.isEnabled()) {
 				try {
-     // eslint-disable-next-line no-console
-					console.log("🔄 [MarketMoversCache] Trying NSE India (primary)...");
+					// eslint-disable-next-line no-console
+					console.log("🔄 [MarketMoversCache] Trying NSE India fallback...");
 					stockQuotes = await this.fetchFromNse();
 					successProvider = "nse";
-     // eslint-disable-next-line no-console
+					// eslint-disable-next-line no-console
 					console.log(
 						`✅ [MarketMoversCache] NSE India succeeded with ${stockQuotes.length} stocks`,
 					);
 				} catch (nseError) {
-     // eslint-disable-next-line no-console
+					// eslint-disable-next-line no-console
 					console.warn("⚠️ [MarketMoversCache] NSE India failed:", nseError);
 					this.metrics.providers.nse.failureCount++;
 					this.metrics.providers.nse.lastFailure = Date.now();
