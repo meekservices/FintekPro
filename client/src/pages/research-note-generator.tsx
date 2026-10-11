@@ -27,7 +27,6 @@ import {
 	Target,
 	ShieldAlert,
 	Loader2,
-	Info,
 	DollarSign,
 	Percent,
 	X,
@@ -729,7 +728,7 @@ export default function ResearchNoteGenerator() {
 	})();
 
 	// Subset of scoredPeers that are BUY or STRONG BUY, sorted by score descending
-	const scoredPeerPicks = scoredPeers
+	const _scoredPeerPicks = scoredPeers
 		.filter((p) => p.recommendation === "STRONG BUY" || p.recommendation === "BUY")
 		.sort((a, b) => b.score - a.score)
 		.slice(0, 5);
