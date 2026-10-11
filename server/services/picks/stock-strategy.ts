@@ -31,6 +31,7 @@ import {
 	type FIISectorSignal,
 } from "./fii-sector-signal";
 import { marketHolidayService } from "../market-holiday-service";
+import { upstoxMarketDataService } from "../upstox-market-data-service";
 
 
 const financialMetricsCalculator = new FinancialMetricsCalculator();
@@ -1852,15 +1853,33 @@ export class StockStrategy extends BaseStrategy {
 			const NSE_CLOSE_UTC = 10 * 60;       // 3:30 PM IST
 			const isNSEMarketHours = utcMinutes >= NSE_OPEN_UTC && utcMinutes <= NSE_CLOSE_UTC;
 
-			// ── Tier 0: IndianAPI (primary Indian market source, 5-min cache) ────────
+			// ── Tier 0 (Priority 1): Upstox (licensed broker feed, live NSE/BSE) ────
+			if (symbol && upstoxMarketDataService.isReady()) {
+				try {
+					const upstoxRes = await upstoxMarketDataService.getLTP(symbol, "NSE");
+					if (upstoxRes.success && upstoxRes.data?.last_price && upstoxRes.data.last_price > 0) {
+						const price = upstoxRes.data.last_price;
+						logger.info(`[StockStrategy.getLivePrice] Tier 0 (Upstox) for ${symbol}: ₹${price}`);
+						db.update(listedStocks)
+							.set({ currentPrice: String(price) })
+							.where(eq(listedStocks.id, instrumentId))
+							.catch(() => {});
+						return price;
+					}
+				} catch (upstoxErr: any) {
+					logger.warn(`[StockStrategy.getLivePrice] Upstox Tier 0 failed for ${symbol}: ${upstoxErr?.message || upstoxErr}`);
+				}
+			}
+
+			// ── Tier 1: IndianAPI (secondary Indian market source, 5-min cache) ──────
 			// Growth plan — 300 req/min dedicated server. Available 24/7 with closing price.
-			// Falls through silently on error so Tier 1 (FMP) is tried next.
+			// Falls through silently on error so FMP is tried next.
 			if (symbol) {
 				try {
 					const quoteResult = await indianApiService.getStockQuote(symbol, "NSE");
 					const price = quoteResult.data?.current_price;
 					if (price != null && Number.isFinite(price) && price > 0) {
-						logger.info(`[StockStrategy.getLivePrice] Tier 0 (IndianAPI) for ${symbol}: ₹${price}`);
+						logger.info(`[StockStrategy.getLivePrice] Tier 1 (IndianAPI) for ${symbol}: ₹${price}`);
 						// Write-back to pre-warm Tier 4
 						db.update(listedStocks)
 							.set({ currentPrice: String(price) })
@@ -1869,7 +1888,7 @@ export class StockStrategy extends BaseStrategy {
 						return price;
 					}
 				} catch (err: any) {
-					logger.warn(`[StockStrategy.getLivePrice] IndianAPI Tier 0 failed for ${symbol}: ${err?.message || err}`);
+					logger.warn(`[StockStrategy.getLivePrice] IndianAPI failed for ${symbol}: ${err?.message || err}`);
 				}
 			}
 

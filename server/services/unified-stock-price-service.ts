@@ -301,14 +301,61 @@ class UnifiedStockPriceService {
 			return result;
 		}
 
-  // eslint-disable-next-line no-console
+		// 0. Upstox Batch Quotes (Tier 0 — instant licensed feed)
+		if (
+			upstoxMarketDataService.isReady() &&
+			!this.isProviderCoolingDown("upstox")
+		) {
+			try {
+				const upstoxRes = await upstoxMarketDataService.getBatchQuotes(
+					toFetch,
+					exchange ?? "NSE",
+				);
+				if (upstoxRes.success && upstoxRes.data) {
+					for (const [sym, q] of upstoxRes.data.entries()) {
+						if (sym.startsWith("INE") || sym.includes("|")) continue;
+						if (q.last_price && q.last_price > 0) {
+							const stockPrice: StockPrice = {
+								symbol: sym,
+								price: q.last_price,
+								previousClose: q.previous_close,
+								change: q.change,
+								changePercent: q.change_percent,
+								high: q.high_price,
+								low: q.low_price,
+								open: q.open_price,
+								timestamp: q.timestamp,
+								source: "UPSTOX" as const,
+							};
+							result.prices.set(sym, stockPrice);
+							result.fromApi++;
+							this.setCache(sym, stockPrice, CACHE_TTL.REALTIME, exchange);
+							this.writeToDb(stockPrice);
+						}
+					}
+					this.recordSuccess("upstox");
+				}
+			} catch (err: any) {
+				// eslint-disable-next-line no-console
+				console.warn(`[StockPrice] Upstox batch quotes failed: ${err?.message}`);
+				this.recordFailure("upstox", this.isRateLimitError(err));
+			}
+		}
+
+		// Filter for remaining symbols that need fallback
+		const remainingToFetch = toFetch.filter((s) => !result.prices.has(s));
+		if (remainingToFetch.length === 0) {
+			return result;
+		}
+
+		// eslint-disable-next-line no-console
 		console.log(
-			`[StockPrice] Batch fetching ${toFetch.length} symbols (${result.fromCache} from cache)`,
+			`[StockPrice] Fallback batch fetching ${remainingToFetch.length} remaining symbols`,
 		);
 
 		const batchSize = 5;
-		for (let i = 0; i < toFetch.length; i += batchSize) {
-			const batch = toFetch.slice(i, i + batchSize);
+		for (let i = 0; i < remainingToFetch.length; i += batchSize) {
+			const batch = remainingToFetch.slice(i, i + batchSize);
 
 			const promises = batch.map(async (symbol) => {
 				try {
@@ -326,7 +373,7 @@ class UnifiedStockPriceService {
 
 			await Promise.all(promises);
 
-			if (i + batchSize < toFetch.length) {
+			if (i + batchSize < remainingToFetch.length) {
 				await new Promise((resolve) => setTimeout(resolve, 2000));
 			}
 		}
