@@ -341,6 +341,247 @@ export class UpstoxAdapter extends BaseBroker {
   ): Promise<BrokerOrderResult> {
     throw new BrokerCapabilityError(this.brokerId, "NOTIONAL_ORDER");
   }
+
+  // ─── 1. Getting Started: Auth & Config Helpers ─────────────────────────────
+
+  /**
+   * Generates Upstox OAuth login authorization dialog URL.
+   */
+  getLoginDialogUrl(clientId: string, redirectUri: string, state = "fintekpro"): string {
+    return `https://api.upstox.com/v2/login/authorization/dialog?response_type=code&client_id=${encodeURIComponent(
+      clientId
+    )}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`;
+  }
+
+  /**
+   * Exchanges authorization code for Upstox access token.
+   */
+  async exchangeAuthCode(
+    code: string,
+    clientId: string,
+    clientSecret: string,
+    redirectUri: string
+  ): Promise<{ access_token: string; user_id?: string; user_name?: string }> {
+    const params = new URLSearchParams({
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code",
+    });
+
+    const resp = await axios.post("https://api.upstox.com/v2/login/authorization/token", params.toString(), {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      },
+    });
+
+    return resp.data;
+  }
+
+  /**
+   * Returns hosted Upstox Model Context Protocol (MCP) configuration.
+   */
+  getMcpConfig() {
+    return {
+      serverName: "Upstox MCP",
+      endpoint: "https://mcp.upstox.com/mcp",
+      clientCommand: "npx -y mcp-remote https://mcp.upstox.com/mcp",
+      capabilities: ["holdings", "orders", "positions", "funds", "profile", "mutual-funds"],
+    };
+  }
+
+  // ─── 2. Accounts & Funds ───────────────────────────────────────────────────
+
+  /**
+   * Fetches the user profile (UCC, client name, enabled exchanges).
+   */
+  async getProfile(): Promise<any> {
+    const resp = await this.client.get("/user/profile");
+    return resp.data?.data;
+  }
+
+  /**
+   * Fetches available funds, cash balance, and margin utilization.
+   */
+  async getFundsAndMargin(segment?: "SEC" | "COM"): Promise<any> {
+    const resp = await this.client.get("/user/get-funds-and-margin", {
+      params: segment ? { segment } : undefined,
+    });
+    return resp.data?.data;
+  }
+
+  /**
+   * Computes brokerage and exchange transaction charges before placing order.
+   */
+  async calculateBrokerage(params: {
+    symbol: string;
+    quantity: number;
+    price: number;
+    transactionType: "BUY" | "SELL";
+    product?: "D" | "I";
+  }): Promise<any> {
+    const isinKey = toNseKey(params.symbol);
+    const resp = await this.client.get("/charges/brokerage", {
+      params: {
+        instrument_token: isinKey,
+        quantity: params.quantity,
+        product: params.product || "D",
+        transaction_type: params.transactionType,
+        price: params.price,
+      },
+    });
+    return resp.data?.data;
+  }
+
+  /**
+   * Computes upfront margin required for one or more order instruments.
+   */
+  async calculateOrderMargin(instruments: Array<{
+    symbol: string;
+    quantity: number;
+    transactionType: "BUY" | "SELL";
+    price: number;
+    product?: "D" | "I";
+  }>): Promise<any> {
+    const payload = {
+      instruments: instruments.map((inst) => ({
+        instrument_key: toNseKey(inst.symbol),
+        quantity: inst.quantity,
+        product: inst.product || "D",
+        transaction_type: inst.transactionType,
+        price: inst.price,
+      })),
+    };
+    const resp = await this.client.post("/charges/margin", payload);
+    return resp.data?.data;
+  }
+
+  /**
+   * Retrieves kill-switch segment lock status.
+   */
+  async getKillSwitch(): Promise<any> {
+    const resp = await this.client.get("/user/kill-switch");
+    return resp.data?.data;
+  }
+
+  // ─── 3. Orders & Trading ───────────────────────────────────────────────────
+
+  /**
+   * Modifies an existing open/pending order.
+   */
+  async modifyOrder(
+    orderId: string,
+    updates: {
+      quantity?: number;
+      price?: number;
+      orderType?: "LIMIT" | "MARKET";
+      validity?: "DAY" | "IOC";
+      triggerPrice?: number;
+      disclosedQuantity?: number;
+    }
+  ): Promise<any> {
+    const payload: Record<string, any> = { order_id: orderId };
+    if (updates.quantity !== undefined) payload.quantity = updates.quantity;
+    if (updates.price !== undefined) payload.price = updates.price;
+    if (updates.orderType !== undefined) payload.order_type = updates.orderType;
+    if (updates.validity !== undefined) payload.validity = updates.validity;
+    if (updates.triggerPrice !== undefined) payload.trigger_price = updates.triggerPrice;
+    if (updates.disclosedQuantity !== undefined) payload.disclosed_quantity = updates.disclosedQuantity;
+
+    const resp = await this.client.put("/order/modify", payload);
+    return resp.data?.data;
+  }
+
+  /**
+   * Retrieves the complete order book for the current trading day.
+   */
+  async getOrderBook(): Promise<any[]> {
+    const resp = await this.client.get("/order/retrieve-all");
+    return resp.data?.data || [];
+  }
+
+  /**
+   * Exits all open positions across segments or matching a tag filter.
+   */
+  async exitAllPositions(tag?: string, segment?: string): Promise<any> {
+    const payload: Record<string, any> = {};
+    if (tag) payload.tag = tag;
+    if (segment) payload.segment = segment;
+    const resp = await this.client.post("/order/positions/exit", payload);
+    return resp.data?.data;
+  }
+
+  // ─── 4. Portfolio ──────────────────────────────────────────────────────────
+
+  /**
+   * Converts open position margin product (e.g. Intraday 'I' -> Delivery 'D').
+   */
+  async convertPosition(params: {
+    symbol: string;
+    quantity: number;
+    newProduct: "D" | "I";
+    oldProduct: "D" | "I";
+    transactionType: "BUY" | "SELL";
+  }): Promise<any> {
+    const payload = {
+      instrument_token: toNseKey(params.symbol),
+      new_product: params.newProduct,
+      old_product: params.oldProduct,
+      transaction_type: params.transactionType,
+      quantity: params.quantity,
+    };
+    const resp = await this.client.put("/portfolio/positions/convert", payload);
+    return resp.data?.data;
+  }
+
+  // ─── 5. Market Data ────────────────────────────────────────────────────────
+
+  /**
+   * Retrieves full Put/Call option chain with strike Greeks and IV.
+   */
+  async getOptionChain(symbol = "Nifty 50", expiryDate?: string): Promise<any[]> {
+    const instrumentKey = symbol.toUpperCase().includes("|")
+      ? symbol
+      : symbol.toUpperCase().includes("NIFTY")
+      ? `NSE_INDEX|${symbol}`
+      : toNseKey(symbol);
+
+    const params: Record<string, string> = { instrument_key: instrumentKey };
+    if (expiryDate) params.expiry_date = expiryDate;
+
+    const resp = await this.client.get("/option/chain", { params });
+    return resp.data?.data || [];
+  }
+
+  // ─── 6. Realtime & Streaming ───────────────────────────────────────────────
+
+  /**
+   * Authorizes WebSocket streaming endpoint for live Market Data Feed (V3).
+   */
+  async getMarketDataWsAuth(): Promise<{ authorizedRedirectUri: string }> {
+    const resp = await axios.get("https://api.upstox.com/v3/feed/market-data-feed/authorize", {
+      headers: {
+        Authorization: `Bearer ${this.getToken()}`,
+        Accept: "application/json",
+      },
+      timeout: 10_000,
+    });
+    const data = resp.data?.data;
+    const uri = data?.authorizedRedirectUri || data?.authorized_redirect_uri || "";
+    return { authorizedRedirectUri: uri };
+  }
+
+  /**
+   * Authorizes WebSocket streaming endpoint for live Portfolio / Order Updates.
+   */
+  async getPortfolioStreamWsAuth(): Promise<{ authorizedRedirectUri: string }> {
+    const resp = await this.client.get("/feed/portfolio-stream-feed/authorize");
+    const data = resp.data?.data;
+    const uri = data?.authorizedRedirectUri || data?.authorized_redirect_uri || "";
+    return { authorizedRedirectUri: uri };
+  }
 }
 
 export const upstoxAdapter = new UpstoxAdapter();
