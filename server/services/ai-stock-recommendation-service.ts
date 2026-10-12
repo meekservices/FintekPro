@@ -132,6 +132,40 @@ interface ScoredStock {
 	};
 }
 
+/**
+ * SEBI / FintekPro Market Cap Classification Guardrail
+ * Accurately classifies Indian stocks by market capitalization threshold
+ * rather than defaulting blindly to "Large Cap".
+ */
+export function resolveMarketCapCategory(stock: any): string {
+	const rawCap = String(stock?.marketCap ?? "").toLowerCase();
+	if (rawCap.includes("large")) return "Large Cap";
+	if (rawCap.includes("mid")) return "Mid Cap";
+	if (rawCap.includes("small")) return "Small Cap";
+	if (rawCap.includes("micro") || rawCap.includes("sme")) return "Micro Cap";
+
+	const valCr = Number(stock?.marketCapValue ?? stock?.marketCapCr ?? 0);
+	if (valCr > 20000) return "Large Cap";
+	if (valCr >= 5000) return "Mid Cap";
+	if (valCr >= 500) return "Small Cap";
+	if (valCr > 0) return "Micro Cap";
+
+	// Check SME series
+	if (stock?.series === "SM" || String(stock?.symbol ?? "").includes("-SM")) return "Micro Cap";
+
+	const sym = String(stock?.symbol ?? "").toUpperCase();
+	const LARGE_CAP_SYMBOLS = new Set([
+		"RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "HINDUNILVR", "SBIN",
+		"BHARTIARTL", "ITC", "KOTAKBANK", "LT", "AXISBANK", "HCLTECH", "BAJFINANCE",
+		"ASIANPAINT", "MARUTI", "SUNPHARMA", "TITAN", "ULTRACEMCO", "TATAMOTORS",
+		"WIPRO", "NTPC", "ONGC", "JSWSTEEL", "POWERGRID", "M&M", "COALINDIA",
+		"TATASTEEL", "ADANIENT", "ADANIPORTS", "ADANIPOWER", "BPCL", "HINDZINC"
+	]);
+	if (LARGE_CAP_SYMBOLS.has(sym)) return "Large Cap";
+
+	return "Small Cap";
+}
+
 class AIStockRecommendationService {
 	private recommendationCache = new Map<
 		string,
@@ -1605,25 +1639,35 @@ Provide analysis in JSON format:
 			riskFactors.push("General market volatility risk");
 		}
 
-		const baseTargetPct = targetMultipliers[timeHorizon] * 100;
+		// Dynamic volatility and beta calibration
+		const rawVol = Number.parseFloat(stock.volatility || "0");
+		const rawBeta = Number.parseFloat(stock.beta || "1.0");
+		let dynamicVolAdj = 1.0;
+		if (rawVol > 30 || rawBeta > 1.3) {
+			dynamicVolAdj = 1.2; // High-beta / momentum
+		} else if (rawVol > 0 && rawVol < 15 && rawBeta < 0.8) {
+			dynamicVolAdj = 0.85; // Low-volatility defensive
+		}
+
+		const baseTargetPct = Math.round(targetMultipliers[timeHorizon] * 100 * dynamicVolAdj * 10) / 10;
 		let targetPricePercent: number;
 		let stopLossPercent: number;
 
 		if (signal === "strong_buy") {
-			targetPricePercent = baseTargetPct * 1.2;
-			stopLossPercent = baseTargetPct * 0.4;
+			targetPricePercent = Math.round(baseTargetPct * 1.2 * 10) / 10;
+			stopLossPercent = Math.round((targetPricePercent / 2.0) * 10) / 10; // strictly 2:1 R:R
 		} else if (signal === "buy") {
 			targetPricePercent = baseTargetPct;
-			stopLossPercent = baseTargetPct * 0.5;
+			stopLossPercent = Math.round((targetPricePercent / 1.8) * 10) / 10; // strictly >= 1.8:1 R:R
 		} else if (signal === "hold") {
-			targetPricePercent = baseTargetPct * 0.5;
-			stopLossPercent = baseTargetPct * 0.5;
+			targetPricePercent = Math.round(baseTargetPct * 0.5 * 10) / 10;
+			stopLossPercent = Math.round(baseTargetPct * 0.5 * 10) / 10;
 		} else if (signal === "sell") {
-			targetPricePercent = baseTargetPct * -0.3;
-			stopLossPercent = baseTargetPct * 0.3;
+			targetPricePercent = Math.round(baseTargetPct * -0.3 * 10) / 10;
+			stopLossPercent = Math.round(baseTargetPct * 0.3 * 10) / 10;
 		} else {
-			targetPricePercent = baseTargetPct * -0.5;
-			stopLossPercent = baseTargetPct * 0.25;
+			targetPricePercent = Math.round(baseTargetPct * -0.5 * 10) / 10;
+			stopLossPercent = Math.round(baseTargetPct * 0.25 * 10) / 10;
 		}
 
 		return {
@@ -1670,16 +1714,48 @@ Provide analysis in JSON format:
 			| undefined;
 		const ef = enriched?.fundamentals;
 		const et = enriched?.technicals;
-		const currentPrice = Number.parseFloat(
-			live.currentPrice || stock.currentPrice || 100,
+		const rawPrice = Number.parseFloat(
+			live.currentPrice || stock.currentPrice || "100",
 		);
+		const currentPrice = Number.isFinite(rawPrice) && rawPrice > 0 ? rawPrice : 100;
 
-		const targetPricePercent = aiAnalysis.targetPricePercent || 15;
-		const stopLossPercent = aiAnalysis.stopLossPercent || 8;
+		let targetPricePercent = Number(aiAnalysis.targetPricePercent || 14.5);
+		let stopLossPercent = Number(aiAnalysis.stopLossPercent || 7.5);
 
-		const targetPrice = currentPrice * (1 + targetPricePercent / 100);
-		const stopLoss = currentPrice * (1 - stopLossPercent / 100);
-		const entryPrice = currentPrice * 0.995;
+		let targetPrice = Math.round(currentPrice * (1 + targetPricePercent / 100) * 100) / 100;
+		let stopLoss = Math.round(currentPrice * (1 - stopLossPercent / 100) * 100) / 100;
+		let entryPrice = Math.round(currentPrice * 0.995 * 100) / 100;
+
+		// ── CRITICAL GUARDRAIL: Pre-Publication Price & Target Reality Gate ──
+		// 1. If currentPrice >= targetPrice (or remaining upside is less than 5%), the target has ALREADY BEEN HIT!
+		//    We CANNOT emit a BUY or STRONG_BUY signal with a stale or already surpassed target.
+		let signal: SignalType = aiAnalysis.signal;
+		let expectedReturn = Math.round(targetPricePercent * 10) / 10;
+		const remainingUpsidePct = ((targetPrice - currentPrice) / currentPrice) * 100;
+
+		if (signal === "buy" || signal === "strong_buy") {
+			if (currentPrice >= targetPrice || remainingUpsidePct < 5.0) {
+				// Target already breached or no meaningful upside left from current LTP
+				if (scored.momentumScore >= 65 && scored.technicalScore >= 60) {
+					// Breakout continuation: re-anchor target from currentPrice with fresh dynamic swing upside
+					const freshTargetPct = Math.max(8.0, Math.round((targetPricePercent * 0.85) * 10) / 10);
+					targetPrice = Math.round(currentPrice * (1 + freshTargetPct / 100) * 100) / 100;
+					stopLoss = Math.round(currentPrice * (1 - (freshTargetPct / 1.8) / 100) * 100) / 100;
+					targetPricePercent = freshTargetPct;
+					expectedReturn = freshTargetPct;
+				} else {
+					// Downgrade signal to "hold" as target has been achieved
+					signal = "hold";
+					targetPrice = Math.max(targetPrice, Math.round(currentPrice * 1.02 * 100) / 100);
+					expectedReturn = Math.round(((targetPrice - currentPrice) / currentPrice) * 1000) / 10;
+				}
+			}
+		}
+
+		// Ensure stopLoss is strictly below currentPrice and valid (at least 5% risk buffer)
+		if (stopLoss >= currentPrice || stopLoss <= 0) {
+			stopLoss = Math.round(currentPrice * 0.94 * 100) / 100; // safe 6% stop loss floor
+		}
 
 		const timeHorizonDays: Record<string, number> = {
 			intraday: 1,
@@ -1716,23 +1792,23 @@ Provide analysis in JSON format:
 			id: `STOCK-${Date.now()}-${stock.symbol}`,
 			symbol: stock.symbol,
 			companyName: stock.companyName,
-			exchange: "NSE",
+			exchange: stock.exchange || "NSE",
 			sector: stock.sector || "Unknown",
 			industry: stock.industry,
-			marketCap: stock.marketCap || "Large Cap",
+			marketCap: resolveMarketCapCategory(stock),
 
 			currentPrice,
-			entryPrice: Math.round(entryPrice * 100) / 100,
-			targetPrice: Math.round(targetPrice * 100) / 100,
-			stopLoss: Math.round(stopLoss * 100) / 100,
+			entryPrice,
+			targetPrice,
+			stopLoss,
 
-			signal: aiAnalysis.signal,
+			signal,
 			fintekproRating:
 				aiAnalysis.fintekproRating || this.calculateFintekproRating(scored),
 			confidence: aiAnalysis.confidence,
 			riskScore: Math.round(10 - scored.fundamentalScore / 12),
 
-			expectedReturn: Math.round(targetPricePercent * 10) / 10,
+			expectedReturn,
 			timeHorizon,
 			timeHorizonDays: timeHorizonDays[timeHorizon] || 180,
 

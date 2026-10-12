@@ -231,6 +231,12 @@ function checkGuardrails(
     reasons.push(`confidence ${suggestion.confidence_score} < threshold ${MIN_CONFIDENCE_AUTO_APPLY}`);
   }
 
+  // Recommendation status guard: only explicit "replace" can be auto-applied.
+  // "hold", "reduce_weight", and "manual_review" must be deferred or handled by advisor.
+  if (suggestion.recommendation && suggestion.recommendation !== "replace") {
+    reasons.push(`recommendation_${suggestion.recommendation}_requires_advisor_review`);
+  }
+
   if (!riskReport.approved) {
     reasons.push(`risk_guard_hard_breach: ${riskReport.hardBreaches.map(b => b.field).join(",")}`);
   }

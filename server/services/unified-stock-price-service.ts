@@ -453,49 +453,81 @@ class UnifiedStockPriceService {
 		return null;
 	}
 
-	private async fetchFromYahoo(symbol: string): Promise<StockPrice | null> {
+	private async fetchFromYahoo(
+		symbol: string,
+		exchange?: "NSE" | "BSE",
+	): Promise<StockPrice | null> {
 		// Primary: Yahoo Finance v8/chart API (open endpoint — no crumb/cookie auth needed)
 		// Confirmed working from Cloud Run. The yahoo-finance2 npm quote() uses crumb-auth
 		// endpoints that are rate-limited (429) from GCP datacenter.
-		try {
-			const yahooSym = symbol.endsWith(".NS") || symbol.endsWith(".BO")
-				? symbol
-				: `${symbol}.NS`;
-			const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=1d&range=1d`;
-			const res = await fetch(url, {
-				headers: {
-					"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-				},
-				signal: AbortSignal.timeout(8_000),
-			});
-			if (res.ok) {
-				const body = (await res.json()) as any;
-				const meta = body?.chart?.result?.[0]?.meta;
-				if (meta?.regularMarketPrice && meta.regularMarketPrice > 0) {
-					const pf = (v: any): number | undefined => {
-						if (v == null) return undefined;
-						const n = typeof v === "number" ? v : Number.parseFloat(v);
-						return Number.isFinite(n) && n > 0 ? n : undefined;
-					};
-     // eslint-disable-next-line no-console
-					console.log(`[StockPrice] Yahoo v8/chart OK for ${yahooSym} — ₹${meta.regularMarketPrice}`);
-					return {
-						symbol,
-						price: meta.regularMarketPrice,
-						previousClose: pf(meta.previousClose) ?? pf(meta.chartPreviousClose),
-						timestamp: Date.now(),
-						source: "YAHOO" as const,
-					};
+		const cleanSym = symbol.replace(/\.NS$/i, "").replace(/\.BO$/i, "").toUpperCase();
+
+		// Candidate symbols to check in intelligent order:
+		// 1. If explicit BSE exchange, prioritize .BO then .NS
+		// 2. If NSE or undefined, try .NS, -SM.NS (SME series), then .BO
+		const candidates: string[] = [];
+		if (symbol.endsWith(".NS") || symbol.endsWith(".BO")) {
+			candidates.push(symbol);
+		} else if (exchange === "BSE") {
+			candidates.push(`${cleanSym}.BO`, `${cleanSym}.NS`);
+		} else {
+			candidates.push(`${cleanSym}.NS`, `${cleanSym}-SM.NS`, `${cleanSym}.BO`);
+		}
+
+		for (const yahooSym of candidates) {
+			try {
+				const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=1d&range=1d`;
+				const res = await fetch(url, {
+					headers: {
+						"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+					},
+					signal: AbortSignal.timeout(8_000),
+				});
+				if (res.ok) {
+					const body = (await res.json()) as any;
+					const meta = body?.chart?.result?.[0]?.meta;
+					const price = meta?.regularMarketPrice;
+					const regularMarketTime = meta?.regularMarketTime;
+
+					// Timestamp freshness guardrail:
+					// Reject quotes older than 7 calendar days (prevents accepting defunct/stale SME symbols like SERVICE.NS from 2024)
+					if (regularMarketTime && typeof regularMarketTime === "number") {
+						const ageDays = (Date.now() / 1000 - regularMarketTime) / 86400;
+						if (ageDays > 7) {
+							// eslint-disable-next-line no-console
+							console.warn(
+								`[StockPrice] Yahoo quote for ${yahooSym} is stale (${ageDays.toFixed(0)} days old, price ₹${price}) — skipping candidate`,
+							);
+							continue;
+						}
+					}
+
+					if (price && typeof price === "number" && price > 0) {
+						const pf = (v: any): number | undefined => {
+							if (v == null) return undefined;
+							const n = typeof v === "number" ? v : Number.parseFloat(v);
+							return Number.isFinite(n) && n > 0 ? n : undefined;
+						};
+						// eslint-disable-next-line no-console
+						console.log(`[StockPrice] Yahoo v8/chart OK for ${yahooSym} — ₹${price}`);
+						return {
+							symbol,
+							price,
+							previousClose: pf(meta.previousClose) ?? pf(meta.chartPreviousClose),
+							timestamp: regularMarketTime ? regularMarketTime * 1000 : Date.now(),
+							source: "YAHOO" as const,
+						};
+					}
 				}
+			} catch (error: any) {
+				// eslint-disable-next-line no-console
+				console.warn(`[StockPrice] Yahoo v8/chart failed for ${yahooSym}: ${error.message?.slice(0, 80)}`);
 			}
-		} catch (error: any) {
-   // eslint-disable-next-line no-console
-			console.warn(`[StockPrice] Yahoo v8/chart failed for ${symbol}: ${error.message?.slice(0, 80)}`);
 		}
 
 		// Secondary fallback: yahoo-finance2 npm library
 		try {
-			const yahooSymbol = `${symbol}.NS`;
+			const yahooSymbol = exchange === "BSE" ? `${cleanSym}.BO` : `${cleanSym}.NS`;
 			const quote = await yahooFinance.quote(yahooSymbol);
 			if (quote?.regularMarketPrice) {
 				return {
@@ -523,10 +555,10 @@ class UnifiedStockPriceService {
 				health.lastFailure = Date.now();
 				health.cooldownUntil = Date.now() + 30 * 60 * 1000;
 				this.providerHealth.set("yahoo", health);
-    // eslint-disable-next-line no-console
+				// eslint-disable-next-line no-console
 				console.warn(`[StockPrice] Yahoo npm rate-limited (429) — 30-min cooldown`);
 			} else {
-    // eslint-disable-next-line no-console
+				// eslint-disable-next-line no-console
 				console.warn(`[StockPrice] Yahoo npm failed for ${symbol}: ${error.message?.slice(0, 80)}`);
 			}
 		}
@@ -667,7 +699,7 @@ class UnifiedStockPriceService {
 		// 2. Yahoo Finance v8/chart API (fallback — open endpoint, works from Cloud Run)
 		if (!this.isProviderCoolingDown("yahoo")) {
 			try {
-				const yahooPrice = await this.fetchFromYahoo(symbol);
+				const yahooPrice = await this.fetchFromYahoo(symbol, exchange);
 				if (yahooPrice) {
 					this.recordSuccess("yahoo");
 					return yahooPrice;
@@ -704,7 +736,7 @@ class UnifiedStockPriceService {
 		// 5. Yahoo Finance npm library (LAST RESORT — rate-limited from datacenter, 30-min cooldown)
 		if (!this.isProviderCoolingDown("yahoo")) {
 			try {
-				const yahooPrice = await this.fetchFromYahoo(symbol);
+				const yahooPrice = await this.fetchFromYahoo(symbol, exchange);
 				if (yahooPrice) {
 					this.recordSuccess("yahoo");
 					return yahooPrice;

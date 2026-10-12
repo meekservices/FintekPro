@@ -501,16 +501,42 @@ export class PickOfTheDayService {
 					const minUpside = minUpsidePct[category] ?? 8;
 					const recoP = Number(pick.recoPrice ?? 0);
 					const targetP = Number(pick.targetPrice ?? 0);
+					const currentP = Number(pick.currentPrice ?? recoP);
 					const isCreditStrategy = (pick.keyMetrics as any)?.isCreditStrategy === true ||
 						(category === "derivatives" && targetP < recoP && recoP > 0);
 					const upsidePct = isCreditStrategy
 						? ((recoP - targetP) / recoP) * 100
 						: (recoP > 0 ? ((targetP - recoP) / recoP) * 100 : 99);
 
-					if (upsidePct < minUpside) {
+					// ── Guardrail 1: Target Already Achieved Gate ──────────────────────
+					// Never publish a BUY recommendation if current market price is already at or above target
+					if (!isCreditStrategy && targetP > 0 && currentP >= targetP) {
+						logger.warn(
+							`[PickOfTheDay] Target already achieved or breached for ${pick.instrumentName} (LTP: ₹${currentP} >= Target: ₹${targetP}). Rejecting stale pick.`,
+							{ instrument: pick.instrumentName, currentPrice: currentP, targetPrice: targetP, category },
+						);
+						continue;
+					}
+
+					// ── Guardrail 2: Stop Loss Already Breached Gate ───────────────────
+					const stoplossP = Number(pick.stoplossPrice ?? 0);
+					if (stoplossP > 0 && currentP <= stoplossP) {
+						logger.warn(
+							`[PickOfTheDay] Current price has already breached stop loss for ${pick.instrumentName} (LTP: ₹${currentP} <= StopLoss: ₹${stoplossP}). Rejecting candidate.`,
+							{ instrument: pick.instrumentName, currentPrice: currentP, stoplossPrice: stoplossP, category },
+						);
+						continue;
+					}
+
+					// ── Guardrail 3: Live Remaining Upside Gate ────────────────────────
+					const liveRemainingUpsidePct = !isCreditStrategy && currentP > 0
+						? ((targetP - currentP) / currentP) * 100
+						: upsidePct;
+
+					if (upsidePct < minUpside || (!isCreditStrategy && liveRemainingUpsidePct < minUpside)) {
 						logger.info(
-							`[PickOfTheDay] Skipping low-upside pick ${pick.instrumentName} (${upsidePct.toFixed(1)}% < min ${minUpside}%)`,
-							{ instrument: pick.instrumentName, upsidePct, minUpside, category },
+							`[PickOfTheDay] Skipping low-upside pick ${pick.instrumentName} (reco upside: ${upsidePct.toFixed(1)}%, live upside: ${liveRemainingUpsidePct.toFixed(1)}% < min ${minUpside}%)`,
+							{ instrument: pick.instrumentName, upsidePct, liveRemainingUpsidePct, minUpside, category },
 						);
 						continue;
 					}

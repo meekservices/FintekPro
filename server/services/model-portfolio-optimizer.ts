@@ -403,6 +403,31 @@ export async function generateOptimizationSuggestions(
     }
   }
 
+  // ── Engine Synergy: Pre-fetch active high-conviction daily picks (confidence >= 75%) ──
+  const activeDailyPicksMap = new Map<string, { symbol: string; confidence: number; targetUpside: number }>();
+  try {
+    const potdRows = await db.execute(sql`
+      SELECT symbol, confidence_score, target_price, reco_price
+      FROM daily_picks
+      WHERE status = 'live' AND confidence_score >= 75 AND symbol IS NOT NULL
+      ORDER BY confidence_score DESC
+      LIMIT 100
+    `).catch(() => ({ rows: [] }));
+    for (const row of (potdRows as any).rows ?? []) {
+      const sym = String(row.symbol).toUpperCase();
+      const reco = Number(row.reco_price ?? 0);
+      const target = Number(row.target_price ?? 0);
+      const upside = reco > 0 ? ((target - reco) / reco) * 100 : 0;
+      activeDailyPicksMap.set(sym, {
+        symbol: sym,
+        confidence: Number(row.confidence_score ?? 75),
+        targetUpside: upside,
+      });
+    }
+  } catch (err) {
+    logger.warn("[Optimizer] Active Daily Picks pre-fetch skipped", err as Error);
+  }
+
   for (const analysis of targets) {
     // E1: benchmark return as a fraction — all candidates must beat this floor
     const benchFloor = analysis.benchmarkCagr1Y / 100;
@@ -448,6 +473,13 @@ export async function generateOptimizationSuggestions(
               const sharpe = r.sharpe_ratio_1y != null ? Math.round(Number(r.sharpe_ratio_1y) * 100) / 100 : null;
               const beta   = r.beta != null ? Math.round(Number(r.beta) * 10000) / 10000 : null;
               const alpha  = r.alpha_vs_nifty != null ? Math.round(Number(r.alpha_vs_nifty) * 10000) / 100 : null;
+              const symKey = String(r.symbol).toUpperCase();
+              const potdMatch = activeDailyPicksMap.get(symKey);
+              let score = compositeScore(r1y, sharpe, beta, alpha);
+              if (potdMatch) {
+                // Engine Synergy boost: 3 extra score points for instruments verified by Pick of the Day AI
+                score += 3.0;
+              }
               return {
                 symbol: r.symbol,
                 name:   r.name ?? r.symbol,
@@ -457,7 +489,7 @@ export async function generateOptimizationSuggestions(
                 sharpe,
                 beta,
                 isin: r.isin ?? null,
-                compositeScore: Math.round(compositeScore(r1y, sharpe, beta, alpha) * 100) / 100,
+                compositeScore: Math.round(score * 100) / 100,
                 improvementVsCurrent: Math.round((r1y - (drag.currentReturn ?? 0)) * 100) / 100,
               };
             });
@@ -465,6 +497,9 @@ export async function generateOptimizationSuggestions(
             if (alternatives.length > 0) {
               factors.push(`screener:sector:${sector}`, "alpha_floor:benchmark_relative", "alpha_gate:positive_alpha_only", "batch_query:true");
               if (cap) factors.push(`screener:cap:${cap}`);
+              if (alternatives.some((a) => activeDailyPicksMap.has(a.symbol.toUpperCase()))) {
+                factors.push("engine_synergy:active_pick_of_the_day");
+              }
             } else {
               factors.push("no_positive_alpha_candidates_found");
             }
@@ -574,6 +609,44 @@ export async function generateOptimizationSuggestions(
         }
       }
 
+      // ── Net-of-Tax Alpha Gate & Profit Guard (Finance Act 2024) ────────────
+      // STCG @ 20%, LTCG @ 12.5%. If tax + exit load friction exceeds the expected
+      // alpha recovery, or if holding is within 90 days of LTCG, defer or reduce weight.
+      const holdingPeriodDays = (drag as any).holdingPeriodDays ?? (drag as any).daysHeld ?? 180;
+      const unrealizedGainPct = drag.currentReturn ?? 0;
+      const estDriftWeight = drag.weight / 100;
+      const PORTFOLIO_BENCHMARK_AUM = 1000000; // ₹10 Lakhs proxy base for portfolio friction check
+      const proposedSellAmount = PORTFOLIO_BENCHMARK_AUM * estDriftWeight;
+      const unrealizedGainRs = unrealizedGainPct > 0 ? Math.round(proposedSellAmount * (unrealizedGainPct / 100)) : 0;
+
+      const isShortTerm = holdingPeriodDays < 365;
+      const applicableTaxRate = isShortTerm ? 0.20 : 0.125;
+      const estimatedTaxCost = Math.round(unrealizedGainRs * applicableTaxRate);
+
+      // Tax saved by deferring to LTCG (if holding is between 270 and 364 days — within 90 days of LTCG)
+      const isNearLtcgThreshold = isShortTerm && holdingPeriodDays >= 270 && unrealizedGainRs > 10000;
+      const estimatedTaxSaved = isNearLtcgThreshold ? Math.round(unrealizedGainRs * (0.20 - 0.125)) : 0;
+
+      // Expected monetary benefit of alpha recovery over 1 year
+      const expectedAlphaRecoveryPct = best?.improvementVsCurrent ? Math.max(0, best.improvementVsCurrent) : 0;
+      const driftBenefitRs = Math.round(proposedSellAmount * (expectedAlphaRecoveryPct / 100));
+
+      // Exit load cost (equity MFs typically 1% if < 365 days)
+      const exitLoadPct = drag.type?.toLowerCase().includes("fund") && holdingPeriodDays < 365 ? 1.0 : 0.0;
+      const exitLoadCost = Math.round(proposedSellAmount * (exitLoadPct / 100));
+      const totalFrictionCost = estimatedTaxCost + exitLoadCost;
+
+      // ── Friction-to-Benefit Gate ──────────────────────────────────────────
+      if (recommendation === "replace" && totalFrictionCost > 0 && driftBenefitRs > 0 && totalFrictionCost > driftBenefitRs * 0.8) {
+        if (isNearLtcgThreshold) {
+          recommendation = "hold";
+          factors.push(`profit_guard:defer_for_ltcg:save_₹${estimatedTaxSaved}`);
+        } else {
+          recommendation = "reduce_weight";
+          factors.push(`profit_guard:tax_friction_₹${totalFrictionCost}_vs_benefit_₹${driftBenefitRs}`);
+        }
+      }
+
       suggestions.push({
         portfolioId:      analysis.portfolioId,
         portfolioName:    analysis.portfolioName,
@@ -585,6 +658,14 @@ export async function generateOptimizationSuggestions(
         model_version:    OPTIMIZER_MODEL_VERSION,
         timestamp:        ts,
         risk_disclaimer:  RISK_DISCLAIMER,
+        assetClass:       drag.type?.toLowerCase().includes("fund") ? "mutual_fund" : "equity",
+        holdingPeriodDays,
+        exitLoadPct,
+        exitLoadCost,
+        unrealizedGainRs,
+        estimatedTaxCost,
+        estimatedTaxSaved,
+        driftBenefitRs,
       });
     }
   }

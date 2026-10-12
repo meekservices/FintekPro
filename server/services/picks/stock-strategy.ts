@@ -1834,16 +1834,16 @@ export class StockStrategy extends BaseStrategy {
 	 */
 	async getLivePrice(instrumentId: string): Promise<number | null> {
 		try {
-			// Fetch stock base data (ISIN, symbol, currentPrice fallback)
+			// Fetch stock base data (ISIN, symbol, currentPrice fallback, exchange)
 			const stockRow = await db
-				.select({ currentPrice: listedStocks.currentPrice, isin: listedStocks.isin, symbol: listedStocks.symbol })
+				.select({ currentPrice: listedStocks.currentPrice, isin: listedStocks.isin, symbol: listedStocks.symbol, exchange: listedStocks.exchange })
 				.from(listedStocks)
 				.where(eq(listedStocks.id, instrumentId))
 				.limit(1);
 
 			if (!stockRow[0]) return null;
 
-			const { isin, symbol, currentPrice: fallbackPrice } = stockRow[0];
+			const { isin, symbol, currentPrice: fallbackPrice, exchange: stockExchange } = stockRow[0];
 
 			// ── Market hours check (used by Tier 0 + Tier 1) ────────────────────────
 			const nowUtcH = new Date().getUTCHours();
@@ -1933,60 +1933,84 @@ export class StockStrategy extends BaseStrategy {
 			// If OHLC is unavailable, fall back to regularMarketPrice with a 3× sanity cap
 			// against the DB baseline (fallbackPrice).
 			if (symbol) {
-				try {
-					const nseSymbol = `${symbol.toUpperCase()}.NS`;
-					// Use range=5d to get recent OHLC array — last non-null close = actual price
-					const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(nseSymbol)}?interval=1d&range=5d`;
-					const resp = await fetch(yahooUrl, {
-						signal: AbortSignal.timeout(7000),
-						headers: {
-							"User-Agent": "Mozilla/5.0 (compatible; FintekPro/2.0)",
-							Accept: "application/json",
-						},
-					});
-					if (resp.ok) {
-						const data: any = await resp.json();
-						const result = data?.chart?.result?.[0];
-						const meta = result?.meta;
-						const closes: (number | null)[] = result?.indicators?.quote?.[0]?.close ?? [];
+				const cleanSym = symbol.replace(/\.NS$/i, "").replace(/\.BO$/i, "").toUpperCase();
+				const candidates: string[] = [];
+				if (symbol.endsWith(".NS") || symbol.endsWith(".BO")) {
+					candidates.push(symbol);
+				} else if (stockExchange === "BSE") {
+					candidates.push(`${cleanSym}.BO`, `${cleanSym}.NS`);
+				} else {
+					candidates.push(`${cleanSym}.NS`, `${cleanSym}-SM.NS`, `${cleanSym}.BO`);
+				}
 
-						// Prefer last non-null OHLC close (actual exchange price, corporate-action immune)
-						let price: number | null = null;
-						for (let i = closes.length - 1; i >= 0; i--) {
-							if (closes[i] != null && Number.isFinite(closes[i]) && closes[i]! > 0) {
-								price = closes[i];
-								break;
-							}
-						}
+				for (const candSymbol of candidates) {
+					try {
+						// Use range=5d to get recent OHLC array — last non-null close = actual price
+						const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(candSymbol)}?interval=1d&range=5d`;
+						const resp = await fetch(yahooUrl, {
+							signal: AbortSignal.timeout(7000),
+							headers: {
+								"User-Agent": "Mozilla/5.0 (compatible; FintekPro/2.0)",
+								Accept: "application/json",
+							},
+						});
+						if (resp.ok) {
+							const data: any = await resp.json();
+							const result = data?.chart?.result?.[0];
+							const meta = result?.meta;
+							const regularMarketTime = meta?.regularMarketTime;
 
-						// Fallback to meta.regularMarketPrice only if OHLC is empty
-						if (price === null) {
-							const metaPrice = meta?.regularMarketPrice ?? meta?.previousClose;
-							if (metaPrice != null && Number.isFinite(Number(metaPrice)) && Number(metaPrice) > 0) {
-								// Sanity check: reject if >3× the DB baseline (catches stale rights-adjusted data)
-								const baseline = fallbackPrice ? Number.parseFloat(fallbackPrice) : 0;
-								if (baseline <= 0 || Number(metaPrice) <= baseline * 3) {
-									price = Number(metaPrice);
-								} else {
+							// Freshness check: reject quotes older than 7 calendar days (prevents accepting defunct/stale SME symbols like SERVICE.NS from 2024)
+							if (regularMarketTime && typeof regularMarketTime === "number") {
+								const ageDays = (Date.now() / 1000 - regularMarketTime) / 86400;
+								if (ageDays > 7) {
 									logger.warn(
-										`[StockStrategy.getLivePrice] Yahoo meta price ₹${metaPrice} > 3× baseline ₹${baseline} for ${nseSymbol} — rejected, falling through`
+										`[StockStrategy.getLivePrice] Yahoo quote for ${candSymbol} is stale (${ageDays.toFixed(0)} days old) — skipping candidate`
 									);
+									continue;
 								}
 							}
-						}
 
-						if (price !== null && price > 0) {
-							logger.info(`[StockStrategy.getLivePrice] Yahoo v8/chart OK for ${nseSymbol}: ₹${price}`);
-							// Write back so Tier 4 is pre-warmed for next run
-							db.update(listedStocks)
-								.set({ currentPrice: String(price) })
-								.where(eq(listedStocks.id, instrumentId))
-								.catch(() => {});
-							return price;
+							const closes: (number | null)[] = result?.indicators?.quote?.[0]?.close ?? [];
+
+							// Prefer last non-null OHLC close (actual exchange price, corporate-action immune)
+							let price: number | null = null;
+							for (let i = closes.length - 1; i >= 0; i--) {
+								if (closes[i] != null && Number.isFinite(closes[i]) && closes[i]! > 0) {
+									price = closes[i];
+									break;
+								}
+							}
+
+							// Fallback to meta.regularMarketPrice only if OHLC is empty
+							if (price === null) {
+								const metaPrice = meta?.regularMarketPrice ?? meta?.previousClose;
+								if (metaPrice != null && Number.isFinite(Number(metaPrice)) && Number(metaPrice) > 0) {
+									// Sanity check: reject if >3× the DB baseline (catches stale rights-adjusted data)
+									const baseline = fallbackPrice ? Number.parseFloat(fallbackPrice) : 0;
+									if (baseline <= 0 || Number(metaPrice) <= baseline * 3) {
+										price = Number(metaPrice);
+									} else {
+										logger.warn(
+											`[StockStrategy.getLivePrice] Yahoo meta price ₹${metaPrice} > 3× baseline ₹${baseline} for ${candSymbol} — rejected, falling through`
+										);
+									}
+								}
+							}
+
+							if (price !== null && price > 0) {
+								logger.info(`[StockStrategy.getLivePrice] Yahoo v8/chart OK for ${candSymbol}: ₹${price}`);
+								// Write back so Tier 4 is pre-warmed for next run
+								db.update(listedStocks)
+									.set({ currentPrice: String(price) })
+									.where(eq(listedStocks.id, instrumentId))
+									.catch(() => {});
+								return price;
+							}
 						}
+					} catch (err: any) {
+						logger.warn(`[StockStrategy.getLivePrice] Yahoo v8 failed for ${candSymbol}: ${err?.message || err}`);
 					}
-				} catch (err: any) {
-					logger.warn(`[StockStrategy.getLivePrice] Yahoo v8 failed for ${symbol}: ${err?.message || err}`);
 				}
 			}
 

@@ -4197,34 +4197,89 @@ export default function AgentPicksPage() {
 																			</div>
 																		</div>
 
-																		<div className="grid grid-cols-3 gap-2 p-3 bg-muted/40 rounded-lg border border-border/50 mb-4">
+																		<div className="grid grid-cols-4 gap-1.5 p-2.5 bg-muted/40 rounded-lg border border-border/50 mb-3">
 																			<div className="text-center">
 																				<p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">
-																					Entry
+																					Reco Entry
 																				</p>
-																				<p className="font-semibold text-sm">
+																				<p className="font-semibold text-xs sm:text-sm">
 																					{formatExactStockPrice(
 																						stock.entryPrice ?? stock.currentPrice,
 																					)}
 																				</p>
 																			</div>
-																			<div className="text-center border-x border-border/50">
+																			<div className="text-center border-l border-border/50">
+																				<p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">
+																					Live LTP
+																				</p>
+																				<p className={`font-semibold text-xs sm:text-sm ${
+																					Number(stock.currentPrice ?? 0) >= Number(stock.entryPrice ?? stock.currentPrice)
+																						? "text-emerald-600 dark:text-emerald-400"
+																						: "text-amber-600 dark:text-amber-400"
+																				}`}>
+																					{formatExactStockPrice(stock.currentPrice)}
+																				</p>
+																			</div>
+																			<div className="text-center border-l border-border/50">
 																				<p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">
 																					Target
 																				</p>
-																				<p className="font-semibold text-sm text-green-600">
+																				<p className="font-semibold text-xs sm:text-sm text-green-600 dark:text-green-400">
 																					{formatExactStockPrice(stock.targetPrice)}
 																				</p>
 																			</div>
-																			<div className="text-center">
+																			<div className="text-center border-l border-border/50">
 																				<p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">
 																					Stop Loss
 																				</p>
-																				<p className="font-semibold text-sm text-red-600">
+																				<p className="font-semibold text-xs sm:text-sm text-red-600 dark:text-red-400">
 																					{formatExactStockPrice(stock.stopLoss)}
 																				</p>
 																			</div>
 																		</div>
+
+																		{/* Execution Zone Status Badge */}
+																		{(() => {
+																			const current = Number(stock.currentPrice ?? 0);
+																			const entry = Number(stock.entryPrice ?? stock.currentPrice ?? 0);
+																			const target = Number(stock.targetPrice ?? 0);
+																			const sl = Number(stock.stopLoss ?? 0);
+
+																			if (target > 0 && current >= target) {
+																				return null; // Handled by Target Achieved banner below
+																			}
+																			if (sl > 0 && current <= sl) {
+																				return null; // Handled by Stop Loss Hit banner below
+																			}
+																			if (entry > 0 && current > 0) {
+																				const diffPct = ((current - entry) / entry) * 100;
+																				if (Math.abs(diffPct) <= 1.5) {
+																					return (
+																						<div className="flex items-center justify-between px-2.5 py-1 mb-3 rounded-md bg-blue-500/10 border border-blue-500/20 text-[11px] font-medium text-blue-700 dark:text-blue-300">
+																							<span className="flex items-center gap-1"><Target className="h-3 w-3 text-blue-500" /> In Buy Zone (±1.5%)</span>
+																							<span>{diffPct >= 0 ? `+${diffPct.toFixed(1)}%` : `${diffPct.toFixed(1)}%`} of Reco</span>
+																						</div>
+																					);
+																				}
+																				if (diffPct > 1.5) {
+																					return (
+																						<div className="flex items-center justify-between px-2.5 py-1 mb-3 rounded-md bg-purple-500/10 border border-purple-500/20 text-[11px] font-medium text-purple-700 dark:text-purple-300">
+																							<span className="flex items-center gap-1"><TrendingUp className="h-3 w-3 text-purple-500" /> Run-Up Window</span>
+																							<span>+{diffPct.toFixed(1)}% from entry</span>
+																						</div>
+																					);
+																				}
+																				if (diffPct < -1.5) {
+																					return (
+																						<div className="flex items-center justify-between px-2.5 py-1 mb-3 rounded-md bg-amber-500/10 border border-amber-500/20 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+																							<span className="flex items-center gap-1"><TrendingDown className="h-3 w-3 text-amber-500" /> Pullback / Entry Dip</span>
+																							<span>{diffPct.toFixed(1)}% below entry</span>
+																						</div>
+																					);
+																				}
+																			}
+																			return null;
+																		})()}
 
 																		<div className={`flex items-center justify-between text-sm mb-3 px-3 py-2 rounded-md border ${
 																			Number(stock.confidence ?? 0) >= 85
@@ -4266,6 +4321,22 @@ export default function AgentPicksPage() {
 																			</div>
 																		</div>
 
+																		{/* Guardrail: Target Reached / Stale Entry Warning */}
+																		{Number(stock.currentPrice ?? 0) >= Number(stock.targetPrice ?? 0) && Number(stock.targetPrice ?? 0) > 0 && (
+																			<div className="flex items-center gap-1.5 mb-3 px-2.5 py-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded-md text-[11px] text-emerald-800 dark:text-emerald-300 font-medium">
+																				<CheckCircle className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+																				<span>Target Achieved (LTP: ₹{Number(stock.currentPrice).toFixed(2)}) — Profit Booking or Trailing Stop Recommended</span>
+																			</div>
+																		)}
+
+																		{/* Guardrail: Stop Loss Hit Warning */}
+																		{Boolean(stock.stopLoss && Number(stock.currentPrice ?? 0) <= Number(stock.stopLoss) && Number(stock.stopLoss) > 0) && (
+																			<div className="flex items-center gap-1.5 mb-3 px-2.5 py-1.5 bg-red-500/10 border border-red-500/30 rounded-md text-[11px] text-red-800 dark:text-red-300 font-medium">
+																				<AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-600 dark:text-red-400" />
+																				<span>Stop Loss Triggered (LTP: ₹{Number(stock.currentPrice).toFixed(2)}) — Risk Limit Reached</span>
+																			</div>
+																		)}
+
 																		{/* Guardrail: Downgrade notice if confidence is below high threshold */}
 																		{Number(stock.confidence ?? 0) < 75 && (
 																			<div className="flex items-center gap-1.5 mb-3 px-2.5 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-md text-[11px] text-amber-700 dark:text-amber-400">
@@ -4285,7 +4356,9 @@ export default function AgentPicksPage() {
 																				variant="secondary"
 																				className="text-xs bg-muted hover:bg-muted/80 text-muted-foreground"
 																			>
-																				{stock.marketCap}
+																				{stock.marketCap && stock.marketCap !== "Unknown"
+																					? stock.marketCap
+																					: (stock.sector?.toLowerCase().includes("sme") ? "Micro Cap" : "Mid Cap")}
 																			</Badge>
 																			<Badge
 																				variant="outline"
