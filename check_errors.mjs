@@ -17,8 +17,8 @@ async function checkConsoleErrors() {
 
   try {
     // Go to the agent portal
-    console.log('Navigating to agent portal...');
-    await page.goto('https://agent.fintekpro.com/', { waitUntil: 'networkidle', timeout: 30000 });
+    console.log('Navigating to partner portal...');
+    await page.goto('https://partner.fintekpro.com/', { waitUntil: 'networkidle', timeout: 30000 });
     
     // Check if there is an error boundary
     const errorText = await page.evaluate(() => {

@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 import "dotenv/config";
 import { db } from "./db";
 import { users, customerCareAgents } from "@shared/schema";
@@ -61,7 +62,7 @@ async function seedSangram() {
 	}
 
 	console.log(
-		"\n🚀 Seeding complete! You can now log in at agent.fintekpro.com",
+		"\n🚀 Seeding complete! You can now log in at partner.fintekpro.com",
 	);
 	process.exit(0);
 }

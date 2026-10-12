@@ -42,7 +42,7 @@ describe("NISM LMS Service (LTI 1.3 & xAPI)", () => {
 		const statement: XApiStatement = {
 			actor: {
 				account: {
-					homePage: "https://agent.fintekpro.com",
+					homePage: "https://partner.fintekpro.com",
 					name: "agent-test-123",
 				},
 			},
@@ -68,7 +68,7 @@ describe("NISM LMS Service (LTI 1.3 & xAPI)", () => {
 		const statement: XApiStatement = {
 			actor: {
 				account: {
-					homePage: "https://agent.fintekpro.com",
+					homePage: "https://partner.fintekpro.com",
 					name: "agent-test-123",
 				},
 			},

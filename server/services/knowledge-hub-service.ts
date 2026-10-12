@@ -1294,7 +1294,7 @@ Simplified explanation:`;
 					cpeHoursRequired: 6,
 					cpeHoursEarned: 6,
 					cpeCompleted: true,
-					cpeBookingUrl: "https://agent.fintekpro.com/agent/knowledge-hub/certifications",
+					cpeBookingUrl: "https://partner.fintekpro.com/agent/knowledge-hub/certifications",
 					renewalEligible: diffDays <= 365,
 				});
 			}
@@ -1338,7 +1338,7 @@ Simplified explanation:`;
 					cpeHoursRequired: 6,
 					cpeHoursEarned: 6,
 					cpeCompleted: true,
-					cpeBookingUrl: "https://agent.fintekpro.com/agent/knowledge-hub/certifications",
+					cpeBookingUrl: "https://partner.fintekpro.com/agent/knowledge-hub/certifications",
 					renewalEligible: false,
 				},
 			];

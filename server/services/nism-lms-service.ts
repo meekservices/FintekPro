@@ -932,7 +932,7 @@ export class NismLmsService {
 		const state = crypto.randomBytes(16).toString("hex");
 
 		const payload = {
-			iss: "https://agent.fintekpro.com",
+			iss: "https://partner.fintekpro.com",
 			sub: agentId,
 			aud: "nism-elearning-platform",
 			exp: now + 3600, // 1 hour validity

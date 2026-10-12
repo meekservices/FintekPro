@@ -4732,7 +4732,7 @@ export default function AgentModelPortfoliosPage() {
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          // Session ID fallback — required when Chrome 3PCD blocks cookies on agent.fintekpro.com
+          // Session ID fallback — required when Chrome 3PCD blocks cookies on partner.fintekpro.com
           ...(getStoredSessionId() ? { "X-Session-ID": getStoredSessionId()! } : {}),
           ...(getStoredPinDeviceToken() ? { "X-Pin-Device-Token": getStoredPinDeviceToken()! } : {}),
         },
@@ -4894,7 +4894,7 @@ export default function AgentModelPortfoliosPage() {
           `💰 Min Investment: ${formatINR(selectedPortfolio.minInvestment)}\n` +
           `⏱️ Time Horizon: ${selectedPortfolio.timeHorizon}\n\n` +
           `_${DISCLAIMER_TEXT.slice(0, 120)}..._\n\n` +
-          `Shared via FintekPro Research — agent.fintekpro.com`,
+          `Shared via FintekPro Research — partner.fintekpro.com`,
       );
       window.open(`https://wa.me/?text=${text}`, "_blank");
     }
