@@ -9,6 +9,7 @@ import {
 	buildETFRegulatoryMeta,
 	isETFFrameworkActive,
 } from "../etf-trading-framework";
+import { unifiedStockPriceService } from "../unified-stock-price-service";
 
 
 /** Detect ETF type from name for accurate sectorCategory display. */
@@ -288,11 +289,25 @@ export class ETFStrategy extends BaseStrategy {
 	}
 
 	async getLivePrice(instrumentId: string): Promise<number | null> {
-		const row = await db
-			.select({ lastPrice: instrumentMaster.lastPrice })
-			.from(instrumentMaster)
-			.where(eq(instrumentMaster.id, instrumentId))
-			.limit(1);
-		return row[0]?.lastPrice ? Number.parseFloat(row[0].lastPrice) : null;
+		try {
+			const row = await db
+				.select({ symbol: instrumentMaster.symbol, lastPrice: instrumentMaster.lastPrice })
+				.from(instrumentMaster)
+				.where(eq(instrumentMaster.id, instrumentId))
+				.limit(1);
+
+			const symbol = row[0]?.symbol || instrumentId;
+			if (symbol && typeof symbol === "string" && !/^\d+$/.test(symbol)) {
+				const quote = await unifiedStockPriceService.getPrice(symbol, "NSE");
+				if (quote && Number.isFinite(quote.price) && quote.price > 0) {
+					return quote.price;
+				}
+			}
+
+			return row[0]?.lastPrice ? Number.parseFloat(row[0].lastPrice) : null;
+		} catch (err) {
+			logger.warn(`[ETFStrategy.getLivePrice] Error fetching live price for ${instrumentId}: ${err instanceof Error ? err.message : String(err)}`);
+			return null;
+		}
 	}
 }

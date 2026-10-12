@@ -1035,16 +1035,22 @@ export class PickOfTheDayService {
 						let hitTarget = false;
 						let hitStoploss = false;
 
+						// Guardrail: on Day 0 (same day as recommendation), whole-session dayHigh/dayLow reflects
+						// morning ticks before the recommendation was generated. Only evaluate livePrice on Day 0
+						// to prevent pre-publication price spikes from triggering false stoplosses or targets.
+						// On subsequent days (daysHeld >= 1), full-session dayHigh/dayLow is safe and valid.
+						const useIntradayExtremes = daysHeld > 0;
+
 						if (isCreditStrategy) {
 							// Option selling: target is hit when price drops to or below targetPrice (or dayLow <= targetPrice)
-							hitTarget = (dayLow != null && dayLow <= targetPrice) || livePrice <= targetPrice;
+							hitTarget = (useIntradayExtremes && dayLow != null && dayLow <= targetPrice) || livePrice <= targetPrice;
 							// Stoploss is hit when price rises to or above stoplossPrice (or dayHigh >= stoplossPrice)
-							hitStoploss = (dayHigh != null && dayHigh >= stoplossPrice) || livePrice >= stoplossPrice;
+							hitStoploss = (useIntradayExtremes && dayHigh != null && dayHigh >= stoplossPrice) || livePrice >= stoplossPrice;
 						} else {
 							// Long position: target is hit when price rises to or above targetPrice
-							hitTarget = (dayHigh != null && dayHigh >= targetPrice) || livePrice >= targetPrice;
-							// Stoploss is hit when price drops to or below stoplossPrice (intraday low supported)
-							hitStoploss = (dayLow != null && dayLow <= stoplossPrice) || livePrice <= stoplossPrice;
+							hitTarget = (useIntradayExtremes && dayHigh != null && dayHigh >= targetPrice) || livePrice >= targetPrice;
+							// Stoploss is hit when price drops to or below stoplossPrice (intraday low supported on held days)
+							hitStoploss = (useIntradayExtremes && dayLow != null && dayLow <= stoplossPrice) || livePrice <= stoplossPrice;
 						}
 
 						if (hitStoploss && hitTarget) {
@@ -1069,15 +1075,15 @@ export class PickOfTheDayService {
 
 						if (newStatus === "target_hit") {
 							exitPrice = isCreditStrategy
-								? (dayLow != null && dayLow <= targetPrice ? targetPrice : Math.min(livePrice, targetPrice))
-								: (dayHigh != null && dayHigh >= targetPrice ? targetPrice : Math.max(livePrice, targetPrice));
+								? (useIntradayExtremes && dayLow != null && dayLow <= targetPrice ? targetPrice : Math.min(livePrice, targetPrice))
+								: (useIntradayExtremes && dayHigh != null && dayHigh >= targetPrice ? targetPrice : Math.max(livePrice, targetPrice));
 							exitReturnPct = isCreditStrategy
 								? ((recoPrice - exitPrice) / recoPrice) * 100
 								: ((exitPrice - recoPrice) / recoPrice) * 100;
 						} else if (newStatus === "stoploss_hit") {
 							exitPrice = isCreditStrategy
-								? (dayHigh != null && dayHigh >= stoplossPrice ? stoplossPrice : Math.max(livePrice, stoplossPrice))
-								: (dayLow != null && dayLow <= stoplossPrice ? stoplossPrice : Math.min(livePrice, stoplossPrice));
+								? (useIntradayExtremes && dayHigh != null && dayHigh >= stoplossPrice ? stoplossPrice : Math.max(livePrice, stoplossPrice))
+								: (useIntradayExtremes && dayLow != null && dayLow <= stoplossPrice ? stoplossPrice : Math.min(livePrice, stoplossPrice));
 							exitReturnPct = isCreditStrategy
 								? ((recoPrice - exitPrice) / recoPrice) * 100
 								: ((exitPrice - recoPrice) / recoPrice) * 100;

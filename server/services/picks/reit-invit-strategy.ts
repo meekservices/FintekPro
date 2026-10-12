@@ -4,6 +4,7 @@ import { logger } from "../../logger";
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
 import { DailyPickData, PickCategory } from "../pick-of-the-day-service";
+import { unifiedStockPriceService } from "../unified-stock-price-service";
 
 
 // Reference prices for known REITs/InvITs — used as fallback when current_price is NULL/0 in DB.
@@ -236,30 +237,33 @@ export class REITInvITStrategy extends BaseStrategy {
 	}
 
 	async getLivePrice(instrumentId: string): Promise<number | null> {
-		// ── Fix: handle synthetic IDs (synth_POWERGRID, synth_NHIT etc.) ──────────
-		// When the reits/invits DB tables are empty, REITInvITStrategy.generate()
-		// uses synthetic instruments with id="synth_SYMBOL". These are not real
-		// DB row IDs so the SQL query below returns nothing, causing null → no yield
-		// accrual in refreshLivePicks(). Fix: detect synth IDs and return the
-		// reference price so estimateYieldReturn() can compute an accrued return.
 		if (instrumentId.startsWith("synth_")) {
 			const symbol = instrumentId.replace("synth_", "");
+			// Try live exchange price first via unifiedStockPriceService
+			try {
+				const quote = await unifiedStockPriceService.getPrice(symbol, "NSE");
+				if (quote && Number.isFinite(quote.price) && quote.price > 0) return quote.price;
+			} catch {}
 			const refPrice = REIT_REFERENCE_PRICES[symbol];
 			return refPrice != null ? refPrice : null;
 		}
 
 		try {
 			const result = await db.execute(sql`
-        SELECT current_price FROM reits WHERE id::text = ${instrumentId}
-        UNION ALL SELECT current_price FROM invits WHERE id::text = ${instrumentId}
+        SELECT symbol, current_price FROM reits WHERE id::text = ${instrumentId}
+        UNION ALL SELECT symbol, current_price FROM invits WHERE id::text = ${instrumentId}
         LIMIT 1
       `);
 			const reitRow = result.rows?.[0] as any;
-			// If DB has a live price, use it; else fall back to reference prices
+			if (reitRow?.symbol) {
+				try {
+					const quote = await unifiedStockPriceService.getPrice(reitRow.symbol, "NSE");
+					if (quote && Number.isFinite(quote.price) && quote.price > 0) return quote.price;
+				} catch {}
+			}
 			if (reitRow?.current_price) {
 				return Number.parseFloat(reitRow.current_price);
 			}
-			// Try to infer the symbol from instrumentId for reference price lookup
 			return null;
 		} catch {
 			return null;

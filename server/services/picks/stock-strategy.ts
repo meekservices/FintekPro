@@ -1022,11 +1022,11 @@ export class StockStrategy extends BaseStrategy {
 			return null;
 		}
 
-		// ── #2: Reward-to-Risk gate (min 1.5:1) ───────────────────────────────────
+		// ── #2: Reward-to-Risk gate (min 1.8:1 per FASP-AI v3.0) ──────────────────
 		const rrRatio = (targetPrice - currentPrice) / Math.max(currentPrice - stoplossPrice, 0.01);
-		if (rrRatio < 1.5) {
+		if (rrRatio < 1.8) {
 			logger.warn(
-				`[StockStrategy] ${topStock.symbol}: R:R ratio ${rrRatio.toFixed(2)} < 1.5 minimum. Discarding.`,
+				`[StockStrategy] ${topStock.symbol}: R:R ratio ${rrRatio.toFixed(2)} < 1.8 minimum. Discarding.`,
 			);
 			return null;
 		}
@@ -1066,11 +1066,21 @@ export class StockStrategy extends BaseStrategy {
 		// 52-week positioning) added ~50 pts to the theoretical max score.
 		// Using 70 caused confScore > 100 clipping. 120 reflects current signal set.
 		const STOCK_SCORE_MAX = 120;
-		const confidenceScore = this.getConfidenceScore(
+		let confidenceScore = this.getConfidenceScore(
 			"listed_stocks",
 			topScore,
 			STOCK_SCORE_MAX,
 		);
+
+		// ── SME & Micro-Cap Liquidity Guardrail ─────────────────────────────────
+		// SME series or market cap < ₹500 Cr: cap confidence to 80% to enforce conservative allocation
+		const isSmeStock = ((topStock as any).series === "SM") || 
+			(topStock.symbol && topStock.symbol.endsWith("-SM")) ||
+			(Number((topStock as any).marketCapValue || 0) > 0 && Number((topStock as any).marketCapValue) < 500);
+		if (isSmeStock) {
+			confidenceScore = Math.min(confidenceScore, 80);
+		}
+
 		const suggestedAllocation = calculateSuggestedAllocation(
 			"listed_stocks",
 			riskLevel,

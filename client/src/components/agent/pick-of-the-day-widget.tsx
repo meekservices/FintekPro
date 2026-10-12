@@ -226,24 +226,71 @@ export default function PickOfTheDayWidget() {
 												<Calculator className="h-3 w-3" />
 											</Button>
 										</div>
-										<div className="flex items-center gap-4 text-xs text-muted-foreground">
+
+										{/* Execution Zone Pill */}
+										{(() => {
+											if (effectiveStatus === "target_hit") {
+												return (
+													<span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 mb-1 w-fit">
+														<Target className="h-2.5 w-2.5" /> Target Achieved
+													</span>
+												);
+											}
+											if (effectiveStatus === "stoploss_hit") {
+												return (
+													<span className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-700 dark:text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20 mb-1 w-fit">
+														<LucideShield className="h-2.5 w-2.5" /> Stop Loss Triggered
+													</span>
+												);
+											}
+											if (pick.currentPrice && pick.recoPrice && pick.recoPrice > 0) {
+												const diffPct = ((pick.currentPrice - pick.recoPrice) / pick.recoPrice) * 100;
+												if (Math.abs(diffPct) <= 1.5) {
+													return (
+														<span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700 dark:text-blue-300 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 mb-1 w-fit">
+															<Target className="h-2.5 w-2.5" /> In Buy Zone (±1.5%)
+														</span>
+													);
+												}
+												if (diffPct > 1.5) {
+													return (
+														<span className="inline-flex items-center gap-1 text-[10px] font-medium text-purple-700 dark:text-purple-300 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20 mb-1 w-fit">
+															<TrendingUp className="h-2.5 w-2.5" /> Run-Up (+{diffPct.toFixed(1)}%)
+														</span>
+													);
+												}
+												return (
+													<span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 mb-1 w-fit">
+														<TrendingDown className="h-2.5 w-2.5" /> Entry Dip ({diffPct.toFixed(1)}%)
+													</span>
+												);
+											}
+											return null;
+										})()}
+
+										<div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
 											<span className="flex items-center gap-1">
-												<Target className="h-3 w-3" />+{upside}%
+												<Target className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />+{upside}% Target
 											</span>
 											<span className="flex items-center gap-1">
-												<LucideShield className="h-3 w-3" />
-												{formatPrice(pick.stoplossPrice, pick.category)}
+												<LucideShield className="h-3 w-3 text-red-600 dark:text-red-400" />
+												SL {formatPrice(pick.stoplossPrice, pick.category)}
 											</span>
+											{Boolean(pick.keyMetrics?.rewardToRiskRatio) && (
+												<span className="text-[10px] px-1.5 py-0.5 rounded bg-muted font-mono font-medium">
+													R:R {pick.keyMetrics?.rewardToRiskRatio}:1
+												</span>
+											)}
 											{currentReturn && (
 												<span
-													className={`flex items-center gap-1 ${Number.parseFloat(currentReturn) >= 0 ? "text-green-600" : "text-red-600"}`}
+													className={`flex items-center gap-1 font-medium ${Number.parseFloat(currentReturn) >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
 												>
 													{Number.parseFloat(currentReturn) >= 0 ? (
 														<TrendingUp className="h-3 w-3" />
 													) : (
 														<TrendingDown className="h-3 w-3" />
 													)}
-													{currentReturn}%
+													LTP {Number.parseFloat(currentReturn) >= 0 ? `+${currentReturn}` : currentReturn}%
 												</span>
 											)}
 										</div>
