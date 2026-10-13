@@ -62,6 +62,20 @@ export async function runStartupSchemaRepairs() {
 				await migPool.query(`ALTER TABLE portfolio_metrics_daily ADD COLUMN IF NOT EXISTS "${col}" ${colType}`);
 			} catch { /* table or col exists */ }
 		}
+
+		// Fix stale listed_stocks baseline record for SERVICE (Service Care Limited):
+		// 54.10 is a defunct July 2024 quote; active price is 69.15 (SME Series SM).
+		try {
+			await migPool.query(`
+				UPDATE listed_stocks
+				SET current_price = '69.15',
+				    market_cap = 'Micro Cap',
+				    series = 'SM',
+				    last_updated = NOW()
+				WHERE symbol = 'SERVICE'
+			`);
+			console.log("  ✅ listed_stocks: SERVICE baseline price updated to ₹69.15 (Micro Cap / SM series)");
+		} catch { /* non-fatal */ }
 		// ── END CRITICAL FAST-PATH ────────────────────────────────────────────
 
 

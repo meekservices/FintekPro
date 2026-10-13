@@ -240,8 +240,11 @@ export function registerAIStockRecommendationRoutes(app: Express): void {
 
 	app.get(
 		"/api/ai-stock-recommendations/quick",
-		async (_req: Request, res: Response) => {
+		async (req: Request, res: Response) => {
 			try {
+				if (req.query.fresh === "true" || req.query.refresh === "true") {
+					aiStockRecommendationService.clearCache();
+				}
 				const recommendations =
 					await aiStockRecommendationService.getSmartRecommendations({
 						maxResults: 5,

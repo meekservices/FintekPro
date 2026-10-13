@@ -191,6 +191,10 @@ class AIStockRecommendationService {
 		);
 	}
 
+	clearCache(): void {
+		this.recommendationCache.clear();
+	}
+
 	async getSmartRecommendations(
 		filters: StockRecommendationFilters = {},
 	): Promise<StockRecommendation[]> {
