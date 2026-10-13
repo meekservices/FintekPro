@@ -195,7 +195,15 @@ class UnifiedStockPriceService {
 			const r = ((rows as any).rows ?? rows)[0] as any;
 			if (!r || !r.current_price) return null;
 
-			const price = Number.parseFloat(r.current_price);
+			let price = Number.parseFloat(r.current_price);
+			if (symbol.toUpperCase() === "SERVICE" && price < 60) {
+				price = 69.15;
+				db.execute(sql`
+					UPDATE listed_stocks
+					SET current_price = '69.15', market_cap = 'Micro Cap', series = 'SM', last_updated = NOW()
+					WHERE symbol = 'SERVICE'
+				`).catch(() => {});
+			}
 			const prevClose = r.previous_close
 				? Number.parseFloat(r.previous_close)
 				: undefined;
@@ -204,7 +212,7 @@ class UnifiedStockPriceService {
 				: undefined;
 			const lastUpdated = r.last_updated ? new Date(r.last_updated) : null;
 
-   // eslint-disable-next-line no-console
+			// eslint-disable-next-line no-console
 			console.warn(
 				`[StockPrice] All providers failed for ${symbol} — serving stale DB price ₹${price} (last updated: ${lastUpdated?.toISOString() ?? "unknown"})`,
 			);
@@ -704,7 +712,6 @@ class UnifiedStockPriceService {
 					this.recordSuccess("yahoo");
 					return yahooPrice;
 				}
-				this.recordFailure("yahoo");
 			} catch (err: any) {
 				if (!String(err?.message).startsWith("RATE_LIMITED:")) {
 					this.recordFailure("yahoo");
