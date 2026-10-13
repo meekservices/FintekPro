@@ -138,11 +138,17 @@ interface ScoredStock {
  * rather than defaulting blindly to "Large Cap".
  */
 export function resolveMarketCapCategory(stock: any): string {
-	const rawCap = String(stock?.marketCap ?? "").toLowerCase();
-	if (rawCap.includes("large")) return "Large Cap";
-	if (rawCap.includes("mid")) return "Mid Cap";
-	if (rawCap.includes("small")) return "Small Cap";
-	if (rawCap.includes("micro") || rawCap.includes("sme")) return "Micro Cap";
+	const sym = String(stock?.symbol ?? "").toUpperCase();
+
+	// Check SME series and known SME / Micro Cap stocks
+	if (
+		sym === "SERVICE" ||
+		stock?.series === "SM" ||
+		sym.includes("-SM") ||
+		String(stock?.companyName ?? "").toLowerCase().includes("sme")
+	) {
+		return "Micro Cap";
+	}
 
 	const valCr = Number(stock?.marketCapValue ?? stock?.marketCapCr ?? 0);
 	if (valCr > 20000) return "Large Cap";
@@ -150,10 +156,6 @@ export function resolveMarketCapCategory(stock: any): string {
 	if (valCr >= 500) return "Small Cap";
 	if (valCr > 0) return "Micro Cap";
 
-	// Check SME series
-	if (stock?.series === "SM" || String(stock?.symbol ?? "").includes("-SM")) return "Micro Cap";
-
-	const sym = String(stock?.symbol ?? "").toUpperCase();
 	const LARGE_CAP_SYMBOLS = new Set([
 		"RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "HINDUNILVR", "SBIN",
 		"BHARTIARTL", "ITC", "KOTAKBANK", "LT", "AXISBANK", "HCLTECH", "BAJFINANCE",
@@ -162,6 +164,12 @@ export function resolveMarketCapCategory(stock: any): string {
 		"TATASTEEL", "ADANIENT", "ADANIPORTS", "ADANIPOWER", "BPCL", "HINDZINC"
 	]);
 	if (LARGE_CAP_SYMBOLS.has(sym)) return "Large Cap";
+
+	const rawCap = String(stock?.marketCap ?? "").toLowerCase();
+	if (rawCap.includes("large")) return "Large Cap";
+	if (rawCap.includes("mid")) return "Mid Cap";
+	if (rawCap.includes("small")) return "Small Cap";
+	if (rawCap.includes("micro") || rawCap.includes("sme")) return "Micro Cap";
 
 	return "Small Cap";
 }
@@ -1640,8 +1648,9 @@ Provide analysis in JSON format:
 		}
 
 		// Dynamic volatility and beta calibration
-		const rawVol = Number.parseFloat(stock.volatility || "0");
-		const rawBeta = Number.parseFloat(stock.beta || "1.0");
+		const stock = scored.stock || (scored as any);
+		const rawVol = Number.parseFloat(stock?.volatility || "0");
+		const rawBeta = Number.parseFloat(stock?.beta || "1.0");
 		let dynamicVolAdj = 1.0;
 		if (rawVol > 30 || rawBeta > 1.3) {
 			dynamicVolAdj = 1.2; // High-beta / momentum

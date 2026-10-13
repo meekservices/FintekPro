@@ -479,7 +479,7 @@ class UnifiedStockPriceService {
 				const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=1d&range=1d`;
 				const res = await fetch(url, {
 					headers: {
-						"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+						"User-Agent": "Mozilla/5.0",
 					},
 					signal: AbortSignal.timeout(8_000),
 				});
@@ -490,10 +490,10 @@ class UnifiedStockPriceService {
 					const regularMarketTime = meta?.regularMarketTime;
 
 					// Timestamp freshness guardrail:
-					// Reject quotes older than 7 calendar days (prevents accepting defunct/stale SME symbols like SERVICE.NS from 2024)
+					// Reject quotes older than 14 calendar days (prevents accepting defunct/stale SME symbols like SERVICE.NS from 2024 which are >800 days old)
 					if (regularMarketTime && typeof regularMarketTime === "number") {
 						const ageDays = (Date.now() / 1000 - regularMarketTime) / 86400;
-						if (ageDays > 7) {
+						if (ageDays > 14) {
 							// eslint-disable-next-line no-console
 							console.warn(
 								`[StockPrice] Yahoo quote for ${yahooSym} is stale (${ageDays.toFixed(0)} days old, price ₹${price}) — skipping candidate`,
@@ -811,34 +811,11 @@ class UnifiedStockPriceService {
 				}
 			}
 		}
-		// Fallback: Yahoo Finance .NS
-		try {
-			const resp = await axios.get(
-				`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.NS`,
-				{ timeout: 8_000, headers: { "User-Agent": "Mozilla/5.0" } },
-			);
-			const meta = resp.data?.chart?.result?.[0]?.meta || {};
-			if (meta.regularMarketPrice) {
-				return {
-					symbol,
-					price: meta.regularMarketPrice,
-					previousClose: meta.previousClose ?? meta.chartPreviousClose,
-					change: meta.regularMarketPrice - (meta.previousClose ?? 0),
-					changePercent: meta.regularMarketChangePercent,
-					timestamp: Date.now(),
-					source: "NSE",
-				};
-			}
-		} catch (err: any) {
-			if (!String(err?.message).startsWith("RATE_LIMITED:")) {
-				this.recordFailure("yahoo");
-			}
-		}
 		return null;
 	}
 
 	/**
-	 * Tier 1 (BSE) — Exchange direct via IndianAPI BSE or Yahoo Finance .BO fallback.
+	 * Tier 1 (BSE) — Exchange direct via IndianAPI BSE.
 	 * Used when exchange is BSE, or as fallback when NSE price is unavailable.
 	 */
 	private async fetchFromBSE(symbol: string): Promise<StockPrice | null> {
@@ -865,47 +842,6 @@ class UnifiedStockPriceService {
 					this.recordFailure("bse");
 				}
 			}
-		}
-		// Fallback 1: Yahoo Finance .BO
-		try {
-			const bseSym = symbol.endsWith(".BO") ? symbol : `${symbol}.BO`;
-			const resp = await axios.get(
-				`https://query1.finance.yahoo.com/v8/finance/chart/${bseSym}`,
-				{ timeout: 8_000, headers: { "User-Agent": "Mozilla/5.0" } },
-			);
-			const meta = resp.data?.chart?.result?.[0]?.meta || {};
-			if (meta.regularMarketPrice && meta.regularMarketPrice > 0) {
-				return {
-					symbol,
-					price: meta.regularMarketPrice,
-					previousClose: meta.previousClose ?? meta.chartPreviousClose,
-					change: meta.regularMarketPrice - (meta.previousClose ?? 0),
-					changePercent: meta.regularMarketChangePercent,
-					timestamp: Date.now(),
-					source: "BSE",
-				};
-			}
-		} catch {
-			// ignore and try Google Finance
-		}
-		// Fallback 2: Google Finance BSE
-		try {
-			const gfQuote = await fetchGFQuote(symbol, "BSE");
-			if (gfQuote?.price && gfQuote.price > 0) {
-				return {
-					symbol,
-					price: gfQuote.price,
-					previousClose: gfQuote.previousClose ?? undefined,
-					change: gfQuote.change ?? undefined,
-					changePercent: gfQuote.changePercent ?? undefined,
-					timestamp: gfQuote.marketTimestampUnix
-						? gfQuote.marketTimestampUnix * 1000
-						: Date.now(),
-					source: "BSE",
-				};
-			}
-		} catch {
-			// ignore
 		}
 		return null;
 	}
