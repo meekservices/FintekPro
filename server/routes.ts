@@ -107,6 +107,7 @@ import screenerRouter from "./routes/screener-routes";
 import { instrumentScreenerRouter } from "./routes/instrument-screener-routes";
 import { faspAdvisoryRouter } from "./routes/fasp-advisory-routes";
 import errorTrackingRouter from "./routes/error-tracking-routes";
+import goldenPricingRouter from "./routes/golden-pricing-routes";
 import { Router } from "express";
 
 // ── Previously-missing route modules (fix: all portals returning 404) ─────────
@@ -441,6 +442,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 	// Research Lists / Saved Screeners (/api/research-lists/screeners, etc.)
 	app.use("/api/research-lists", researchWorkspaceRouter);
+
+	// Golden Source Pricing Engine (/api/pricing/stats, /batch, /price-now, /override, /audit)
+	app.use("/api/pricing", goldenPricingRouter);
 
 	// Smallcase Gateway routes (/api/smallcase/auth/token, /transaction/create, etc.)
 	// Gracefully inactive when SMALLCASE_GATEWAY_NAME / SMALLCASE_SECRET not set.

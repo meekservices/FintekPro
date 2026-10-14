@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Bloomberg-Style Golden Source Pricing Engine
  *
@@ -6,24 +5,22 @@
  * using a multi-source hierarchy with validation, audit trail, and confidence scoring.
  *
  * Source Hierarchy (equity):
- *   NSE_BHAVCOPY(98) → INDIAN_API(93) → YAHOO_FINANCE(82) → FMP(85)
+ *   UPSTOX(96) → NSE_BHAVCOPY(98/DB) → INDIAN_API(93) → YAHOO_FINANCE(82) → FMP(85)
  *   → ALPHAVANTAGE(80) → LAST_TRADE(70) → MODEL_PRICE(60) → BROKER_QUOTE(50)
  *
- * Indian Sources (base: analyst.indianapi.in — Growth Plan):
- *   /stock              → live NSE+BSE dual quote (API key in Secret Manager)
- *   /historical_data    → EOD close backfill (daily prices, 1m-1y range)
- *   NOTE: /nse_stock_batch_live_price is not available on current plan (404)
- *
  * Asset-class specialisations:
- *   Mutual Funds  → AMFI_NAV
+ *   Mutual Funds  → AMFI_NAV → LAST_KNOWN
  *   Bonds         → YIELD_CURVE / DCF model
  *   Unlisted      → CREDHIVE → liquidity-discount model
  *   Derivatives   → BLACK_SCHOLES
+ *
+ * Compliance: FintekPro GCR v1.0 & FASP-AI v1.0 (Explainability, Versioning, Observability)
+ * Version: 2.1.0
  */
 
 import { db } from "../../db";
 import { sql } from "drizzle-orm";
-import { goldenPrices, priceAuditLog } from "../../../shared/schema";
+import type { GoldenPrice } from "@shared/schema";
 import fetch from "node-fetch";
 import { indianBondService } from "../indian-bond-service";
 import {
@@ -33,9 +30,15 @@ import {
 	validateChangePercent,
 } from "../guarded-execution";
 import { logger } from "../../logger";
-import { upstoxMarketDataService } from "../upstox-market-data-service";
+import {
+	upstoxMarketDataService,
+	type UpstoxQuote,
+} from "../upstox-market-data-service";
 
-const INDIAN_API_BASE_URL = process.env.INDIAN_API_BASE_URL || "https://analyst.indianapi.in";
+const INDIAN_API_BASE_URL =
+	process.env.INDIAN_API_BASE_URL || "https://analyst.indianapi.in";
+
+export const GOLDEN_PRICING_ENGINE_VERSION = "2.1.0";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -57,6 +60,13 @@ export interface RawPrice {
 	changePercent?: number;
 	source: string;
 	confidence: number;
+	metadata?: Record<string, unknown>;
+}
+
+export interface ExplainabilityLayer {
+	inputs_used: Record<string, unknown>;
+	formula_applied: string;
+	intermediate_steps: string[];
 }
 
 export interface GoldenPriceResult {
@@ -71,10 +81,13 @@ export interface GoldenPriceResult {
 	isFlagged: boolean;
 	flagReason?: string;
 	deviationPct?: number;
+	engine_version: string;
+	calculation_timestamp: string;
+	explainability: ExplainabilityLayer;
 	metadata?: Record<string, unknown>;
 }
 
-interface PricingJob {
+export interface PricingJob {
 	isin: string;
 	symbol?: string;
 	assetClass: AssetClass;
@@ -89,14 +102,14 @@ interface PricingJob {
 
 // ─── Source Confidence Map ────────────────────────────────────────────────────
 
-const SOURCE_CONFIDENCE: Record<string, number> = {
+export const SOURCE_CONFIDENCE: Record<string, number> = {
 	NSE_BHAVCOPY: 98,
 	AMFI_NAV: 97,
-	UPSTOX: 96,        // Upstox Developer API v2 — Licensed NSE/BSE broker feed, SEBI-compliant
-	INDIAN_API: 93,    // IndianAPI.in — India-native, NSE+BSE dual quotes, SEBI-safe, INDIAN_API_KEY in Secret Manager
+	UPSTOX: 96, // Upstox Developer API v2 — Licensed NSE/BSE broker feed, SEBI-compliant
+	INDIAN_API: 93, // IndianAPI.in — India-native, NSE+BSE dual quotes, SEBI-safe
 	BSE_CLOSE: 95,
 	FMP: 85,
-	YAHOO_FINANCE: 82, // Free, no API key, confirmed working from GCP datacenter
+	YAHOO_FINANCE: 82, // Free, confirmed working from GCP datacenter
 	ALPHAVANTAGE: 80,
 	CREDHIVE: 75,
 	YIELD_CURVE: 80,
@@ -108,6 +121,13 @@ const SOURCE_CONFIDENCE: Record<string, number> = {
 
 // ─── Price Validation ─────────────────────────────────────────────────────────
 
+/**
+ * Validates price change deviation against the prior authoritative price.
+ * Flags prices moving greater than 20% in a single day for SEBI/compliance audit.
+ *
+ * @param price Current candidate price
+ * @param prevPrice Previous close price (if available)
+ */
 function validatePrice(
 	price: number,
 	prevPrice: number | null,
@@ -120,6 +140,10 @@ function validatePrice(
 
 // ─── Source Adapters ──────────────────────────────────────────────────────────
 
+/**
+ * Fetches equity quote from NSE India endpoint via guarded execution.
+ * Note: Data centers may be blocked with 403; fails gracefully to downstream sources.
+ */
 async function fetchNSEClose(symbol: string): Promise<RawPrice | null> {
 	return guardedExecution(
 		async () => {
@@ -127,11 +151,11 @@ async function fetchNSEClose(symbol: string): Promise<RawPrice | null> {
 			const url = `https://www.nseindia.com/api/quote-equity?symbol=${encoded}`;
 			const resp = await fetch(url, {
 				headers: {
-					"User-Agent": "Mozilla/5.0",
+					"User-Agent": "Mozilla/5.0 (compatible; FintekPro/2.1)",
 					Accept: "application/json",
 					Referer: "https://www.nseindia.com/",
 				},
-				signal: AbortSignal.timeout(6000),
+				signal: AbortSignal.timeout(4000),
 			});
 			if (!resp.ok) return null;
 			const data = (await resp.json()) as any;
@@ -160,6 +184,9 @@ async function fetchNSEClose(symbol: string): Promise<RawPrice | null> {
 	);
 }
 
+/**
+ * Fetches latest mutual fund Net Asset Value (NAV) from AMFI / mfapi.in.
+ */
 async function fetchAMFINav(isin: string): Promise<RawPrice | null> {
 	return guardedExecution(
 		async () => {
@@ -188,6 +215,9 @@ async function fetchAMFINav(isin: string): Promise<RawPrice | null> {
 	);
 }
 
+/**
+ * Fetches US or global equity price from Financial Modeling Prep (FMP).
+ */
 async function fetchFMPPrice(symbol: string): Promise<RawPrice | null> {
 	return guardedExecution(
 		async () => {
@@ -196,7 +226,7 @@ async function fetchFMPPrice(symbol: string): Promise<RawPrice | null> {
 			if (!apiKey) return null;
 			const resp = await fetch(
 				`https://financialmodelingprep.com/stable/profile?symbol=${symbol}.NS&apikey=${apiKey}`,
-				{ signal: AbortSignal.timeout(8000) },
+				{ signal: AbortSignal.timeout(6000) },
 			);
 			if (!resp.ok) return null;
 			const data = (await resp.json()) as any[];
@@ -224,15 +254,9 @@ async function fetchFMPPrice(symbol: string): Promise<RawPrice | null> {
 	);
 }
 
-// ── Indian-Native Sources ─────────────────────────────────────────────────────
-
 /**
- * IndianAPI.in /stock endpoint — India's primary market data API.
+ * Fetches stock price from IndianAPI.in.
  * Returns live NSE + BSE dual price, 52W H/L, PE, volume.
- * Requires INDIAN_API_KEY (stored in Secret Manager as INDIAN_API_KEY:latest).
- *
- * Response: { currentPrice: { NSE: '1318.10', BSE: '1318.25' }, percentChange, yearHigh, yearLow }
- * Confidence: 93 — India-native, SEBI-safe, dedicated growth plan (300 req/min)
  */
 async function fetchIndianAPIPrice(
 	symbol: string,
@@ -244,17 +268,20 @@ async function fetchIndianAPIPrice(
 		const url = `${INDIAN_API_BASE_URL}/stock?name=${encodeURIComponent(symbol.toUpperCase())}`;
 		const resp = await fetch(url, {
 			headers: { "X-API-Key": apiKey },
-			signal: AbortSignal.timeout(8000),
+			signal: AbortSignal.timeout(6000),
 		});
 		if (!resp.ok) return null;
 		const data = (await resp.json()) as any;
 
-		// currentPrice is { NSE: '1318.10', BSE: '1318.25' }
 		const priceObj = data?.currentPrice;
 		if (!priceObj) return null;
 
-		const nsePrice = priceObj?.NSE ? Number.parseFloat(String(priceObj.NSE).replace(/,/g, "")) : null;
-		const bsePrice = priceObj?.BSE ? Number.parseFloat(String(priceObj.BSE).replace(/,/g, "")) : null;
+		const nsePrice = priceObj?.NSE
+			? Number.parseFloat(String(priceObj.NSE).replace(/,/g, ""))
+			: null;
+		const bsePrice = priceObj?.BSE
+			? Number.parseFloat(String(priceObj.BSE).replace(/,/g, ""))
+			: null;
 		const price = nsePrice ?? bsePrice;
 		if (!price || price <= 0) return null;
 
@@ -275,8 +302,6 @@ async function fetchIndianAPIPrice(
 
 /**
  * analyst.indianapi.in /historical_data — EOD close prices for a symbol over a period.
- * Response shape (2026-08): { datasets: [{ metric, label, values: [[date, price], ...] }] }
- * Handles both old (raw array) and new ({datasets:[...]}) response formats.
  *
  * @param symbol  NSE symbol e.g. "RELIANCE"
  * @param period  "1m" | "3m" | "6m" | "1y"
@@ -297,19 +322,19 @@ export async function fetchIndianAPIHistorical(
 		].join("");
 		const resp = await fetch(url, {
 			headers: { "X-API-Key": apiKey },
-			signal: AbortSignal.timeout(15000),
+			signal: AbortSignal.timeout(12000),
 		});
 		if (!resp.ok) return [];
 		const raw = (await resp.json()) as any;
 
-		// API returns { datasets: [...] } wrapper (2026-08 format) or raw array (legacy)
 		const datasets: any[] = Array.isArray(raw)
 			? raw
 			: Array.isArray(raw?.datasets)
 			? raw.datasets
 			: [];
 		const priceDataset = datasets.find(
-			(d: any) => d?.metric === "Price" || d?.label?.toLowerCase().includes("price"),
+			(d: any) =>
+				d?.metric === "Price" || d?.label?.toLowerCase().includes("price"),
 		);
 		if (!priceDataset?.values) return [];
 
@@ -328,10 +353,6 @@ export async function fetchIndianAPIHistorical(
 /**
  * Fetch daily historical close prices from Yahoo Finance v8/chart API.
  * No API key required. Tries NSE (.NS) suffix first, falls back to BSE (.BO).
- *
- * @param symbol  NSE/BSE symbol WITHOUT exchange suffix (e.g. "HDFCBANK")
- * @param period  "1m" | "3m" | "6m" | "1y"
- * @returns Array of {date: "YYYY-MM-DD", close: number} sorted ascending by date
  */
 export async function fetchYahooHistorical(
 	symbol: string,
@@ -350,8 +371,8 @@ export async function fetchYahooHistorical(
 			const ticker = `${symbol.toUpperCase()}${suffix}`;
 			const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=${range}`;
 			const resp = await fetch(url, {
-				headers: { "User-Agent": "Mozilla/5.0 (compatible; FintekPro/1.0)" },
-				signal: AbortSignal.timeout(15000),
+				headers: { "User-Agent": "Mozilla/5.0 (compatible; FintekPro/2.1)" },
+				signal: AbortSignal.timeout(10000),
 			});
 			if (!resp.ok) continue;
 			const raw = (await resp.json()) as any;
@@ -359,7 +380,8 @@ export async function fetchYahooHistorical(
 			if (!result) continue;
 
 			const timestamps: number[] = result.timestamp ?? [];
-			const closes: (number | null)[] = result.indicators?.quote?.[0]?.close ?? [];
+			const closes: (number | null)[] =
+				result.indicators?.quote?.[0]?.close ?? [];
 			if (timestamps.length === 0) continue;
 
 			const rows = timestamps
@@ -372,19 +394,16 @@ export async function fetchYahooHistorical(
 
 			if (rows.length >= 5) return rows;
 		} catch {
-			continue;
+			// try next suffix
 		}
 	}
 	return [];
 }
 
-
 /**
- * IndianAPI.in /nse_stock_batch_live_price — bulk live prices for up to 500 NSE symbols.
- * Used by the EOD Golden Pricing Engine batch run for all listed stocks.
- *
- * @param symbols  Array of NSE symbols
- * @returns Map of symbol → price
+ * Fetch batch prices for an array of symbols or ISINs.
+ * 1. Tries Upstox licensed batch market quote feed first (up to 500 symbols per request)
+ * 2. Falls back to Yahoo Finance in parallel for any remaining missing symbols
  */
 export async function fetchIndianAPIBatchPrices(
 	symbols: string[],
@@ -392,73 +411,51 @@ export async function fetchIndianAPIBatchPrices(
 	const result = new Map<string, number>();
 	if (symbols.length === 0) return result;
 
-	// 1. Try Upstox licensed batch market quote feed first (up to 500 symbols per chunk)
+	// 1. Try Upstox licensed batch market quote feed first
 	if (upstoxMarketDataService.isReady()) {
 		try {
-			const upstoxRes = await upstoxMarketDataService.getBatchQuotes(symbols, "NSE");
+			const upstoxRes = await upstoxMarketDataService.getBatchQuotes(
+				symbols,
+				"NSE",
+			);
 			if (upstoxRes.success && upstoxRes.data) {
 				for (const [sym, quote] of upstoxRes.data.entries()) {
 					if (quote.last_price && quote.last_price > 0) {
 						result.set(sym.toUpperCase(), quote.last_price);
 					}
 				}
-				// If all symbols covered, return immediately
 				if (result.size >= symbols.length) return result;
 			}
 		} catch (err: any) {
-			logger.warn(`[GoldenPricing] Upstox batch quote error: ${err?.message || err}`);
-		}
-	}
-
-	// 2. Fallback to IndianAPI.in
-	const apiKey = process.env.INDIAN_API_KEY;
-	if (!apiKey) return result;
-
-	// Process in chunks of 100 (API limit)
-	const remainingSymbols = symbols.filter((s) => !result.has(s.toUpperCase()));
-	const CHUNK_SIZE = 100;
-	for (let i = 0; i < remainingSymbols.length; i += CHUNK_SIZE) {
-		const chunk = remainingSymbols.slice(i, i + CHUNK_SIZE);
-		try {
-			// NOTE: batch endpoint returns 404 on current plan; per-symbol fetch is fallback
-			const resp = await fetch(
-				`${INDIAN_API_BASE_URL}/nse_stock_batch_live_price`,
-				{
-					method: "POST",
-					headers: {
-						"X-API-Key": apiKey,
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({ stock_ids: chunk.map((s) => s.toUpperCase()) }),
-					signal: AbortSignal.timeout(15000),
-				},
+			logger.warn(
+				`[GoldenPricing] Upstox batch quote error: ${err?.message || err}`,
 			);
-			if (!resp.ok) continue;
-			const data = (await resp.json()) as any;
-			// Response is { RELIANCE: { price: 1318.10, ... }, TCS: { ... }, ... }
-			if (typeof data === "object" && data !== null) {
-				for (const [sym, info] of Object.entries(data)) {
-					const p = (info as any)?.price ?? (info as any)?.currentPrice ?? (info as any)?.last_price;
-					if (p && Number(p) > 0) result.set(sym.toUpperCase(), Number(p));
-				}
-			}
-		} catch {
-			// continue with next chunk
-		}
-		// Respect 300 req/min rate limit — 100ms between chunks
-		if (i + CHUNK_SIZE < symbols.length) {
-			await new Promise((r) => setTimeout(r, 100));
 		}
 	}
+
+	// 2. Resilient fallback to Yahoo Finance for any missing symbols
+	const remaining = symbols.filter((s) => !result.has(s.toUpperCase()));
+	if (remaining.length > 0) {
+		const CHUNK_SIZE = 10;
+		for (let i = 0; i < remaining.length; i += CHUNK_SIZE) {
+			const slice = remaining.slice(i, i + CHUNK_SIZE);
+			await Promise.allSettled(
+				slice.map(async (sym) => {
+					const yf = await fetchYahooFinancePrice(sym);
+					if (yf?.price && yf.price > 0) {
+						result.set(sym.toUpperCase(), yf.price);
+					}
+				}),
+			);
+		}
+	}
+
 	return result;
 }
 
 /**
- * Yahoo Finance chart API — free, no API key, confirmed working from GCP datacenter.
- * Tries NSE (.NS suffix) first, BSE (.BO) as fallback.
- * Used as priority-3 in the equity waterfall when NSE direct is 403-blocked.
- *
- * Confidence: 82 (higher than AlphaVantage, below FMP)
+ * Yahoo Finance chart API — free, verified reliable from GCP Cloud Run.
+ * Tries NSE (.NS) first, then BSE (.BO).
  */
 async function fetchYahooFinancePrice(
 	symbol: string,
@@ -471,8 +468,8 @@ async function fetchYahooFinancePrice(
 			const ticker = encodeURIComponent(`${symbol}${suffix}`);
 			const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
 			const resp = await fetch(url, {
-				headers: { "User-Agent": "Mozilla/5.0" },
-				signal: AbortSignal.timeout(8000),
+				headers: { "User-Agent": "Mozilla/5.0 (compatible; FintekPro/2.1)" },
+				signal: AbortSignal.timeout(6000),
 			});
 			if (!resp.ok) continue;
 			const data = (await resp.json()) as any;
@@ -493,8 +490,12 @@ async function fetchYahooFinancePrice(
 				open: lastIdx >= 0 ? (quote?.open?.[lastIdx] ?? undefined) : undefined,
 				high: lastIdx >= 0 ? (quote?.high?.[lastIdx] ?? undefined) : undefined,
 				low: lastIdx >= 0 ? (quote?.low?.[lastIdx] ?? undefined) : undefined,
-				volume: lastIdx >= 0 ? (quote?.volume?.[lastIdx] ?? undefined) : undefined,
-				changePercent: validateChangePercent(meta.regularMarketChangePercent, symbol),
+				volume:
+					lastIdx >= 0 ? (quote?.volume?.[lastIdx] ?? undefined) : undefined,
+				changePercent: validateChangePercent(
+					meta.regularMarketChangePercent,
+					symbol,
+				),
 				source: "YAHOO_FINANCE",
 				confidence: SOURCE_CONFIDENCE.YAHOO_FINANCE,
 			};
@@ -505,6 +506,9 @@ async function fetchYahooFinancePrice(
 	return null;
 }
 
+/**
+ * Fetches the most recent authoritative golden price from DB history for this ISIN.
+ */
 async function fetchLastKnownPrice(
 	isin: string,
 	priceDate: string,
@@ -554,10 +558,8 @@ async function fetchBondPrice(job: PricingJob): Promise<RawPrice | null> {
 			(maturity.getTime() - now.getTime()) / (365.25 * 24 * 3600 * 1000),
 		);
 
-		// Fetch live India G-Sec yield for this tenor from IndianBondService
-		// Sources: FMP treasury-rates (confirmed ✅) → AlphaVantage 10Y (✅) → RBI repo fallback
 		const ytmResult = await indianBondService.getIndiaYTM(years);
-		const yieldRate = ytmResult.ytm / 100; // convert % to decimal
+		const yieldRate = ytmResult.ytm / 100;
 
 		const price = priceBond(
 			job.faceValue,
@@ -569,8 +571,12 @@ async function fetchBondPrice(job: PricingJob): Promise<RawPrice | null> {
 			price,
 			source: "YIELD_CURVE",
 			confidence: SOURCE_CONFIDENCE.YIELD_CURVE,
-			// @ts-ignore — metadata passthrough for audit trail
-			metadata: { ytm: ytmResult.ytm, ytmSource: ytmResult.source, tenorYears: years, asOf: ytmResult.asOf },
+			metadata: {
+				ytm: ytmResult.ytm,
+				ytmSource: ytmResult.source,
+				tenorYears: years,
+				asOf: ytmResult.asOf,
+			},
 		};
 	} catch {
 		return null;
@@ -590,7 +596,7 @@ async function fetchUnlistedPrice(
 		if (apiKey) {
 			const resp = await fetch(`${baseUrl}/company/search?isin=${isin}`, {
 				headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
-				signal: AbortSignal.timeout(8000),
+				signal: AbortSignal.timeout(6000),
 			});
 			if (resp.ok) {
 				const data = (await resp.json()) as any;
@@ -681,16 +687,37 @@ async function fetchDerivativePrice(
 
 // ─── Hierarchy Waterfall ──────────────────────────────────────────────────────
 
+/**
+ * Discovers the authoritative golden price for an instrument across multi-tier hierarchy.
+ *
+ * Tier order:
+ *  - Mutual funds: AMFI NAV → Last Known Price
+ *  - Bonds: DCF / Yield Curve → Last Known Price
+ *  - Unlisted: CredHive / Valuation → Last Known Price
+ *  - Equity / ETF / Commodity:
+ *    1. Pre-fetched Upstox Quote (bulk cache)
+ *    2. Live Upstox Market Quote (SEBI licensed)
+ *    3. Official NSE Bhavcopy in local DB (0 network latency)
+ *    4. IndianAPI Dual NSE/BSE Quote
+ *    5. Yahoo Finance
+ *    6. FMP Profile
+ *    7. Last Authoritative Golden Price
+ */
 async function discoverBestPrice(
 	job: PricingJob,
 	priceDate: string,
+	preFetchedQuote?: UpstoxQuote,
 ): Promise<RawPrice | null> {
-	const { isin, symbol, assetClass } = job;
+	const { isin, assetClass } = job;
 
+	// 1. Mutual Funds — AMFI with reliable fallback
 	if (assetClass === "mutual_fund") {
-		return (await fetchAMFINav(isin)) ?? null;
+		const amfi = await fetchAMFINav(isin);
+		if (amfi?.price) return amfi;
+		return await fetchLastKnownPrice(isin, priceDate);
 	}
 
+	// 2. Bonds
 	if (assetClass === "bond") {
 		return (
 			(await fetchBondPrice(job)) ??
@@ -698,6 +725,7 @@ async function discoverBestPrice(
 		);
 	}
 
+	// 3. Unlisted Stocks
 	if (assetClass === "unlisted") {
 		return (
 			(await fetchUnlistedPrice(isin, job)) ??
@@ -705,11 +733,11 @@ async function discoverBestPrice(
 		);
 	}
 
+	// 4. Derivatives
 	if (assetClass === "derivative") {
-		const underlyingSymbol = job.underlying ?? symbol;
+		const underlyingSymbol = job.underlying ?? job.symbol;
 		let uPrice = 0;
 
-		// 1. Try golden_prices DB for underlying first (fastest, no external call)
 		if (underlyingSymbol) {
 			const gpRow = await db
 				.execute(sql`
@@ -717,17 +745,16 @@ async function discoverBestPrice(
         ORDER BY price_date DESC LIMIT 1
       `)
 				.catch(() => ({ rows: [] }));
-			if (gpRow.rows?.[0])
+			if (gpRow.rows?.[0]) {
 				uPrice = Number.parseFloat((gpRow.rows[0] as any).price);
+			}
 		}
 
-		// 2. Fallback: live NSE quote
 		if (uPrice <= 0 && underlyingSymbol) {
 			const nseQuote = await fetchNSEClose(underlyingSymbol);
 			if (nseQuote?.price) uPrice = nseQuote.price;
 		}
 
-		// 3. Fallback: FMP
 		if (uPrice <= 0 && underlyingSymbol) {
 			const fmpQuote = await fetchFMPPrice(underlyingSymbol);
 			if (fmpQuote?.price) uPrice = fmpQuote.price;
@@ -740,69 +767,146 @@ async function discoverBestPrice(
 		return await fetchLastKnownPrice(isin, priceDate);
 	}
 
-	// Equity / ETF / Commodity waterfall:
-	// UPSTOX(96) → NSE_BHAVCOPY(98/403) → INDIAN_API(93) → YAHOO_FINANCE(82) → FMP(85) → LAST_KNOWN
-	if (symbol) {
-		// 1. Upstox Market Data — Licensed NSE/BSE real-time feed (SEBI-compliant)
-		if (upstoxMarketDataService.isReady()) {
-			try {
-				const upstoxRes = await upstoxMarketDataService.getQuote(
-					symbol,
-					job.exchange === "BSE" ? "BSE" : "NSE",
-				);
-				if (upstoxRes.success && upstoxRes.data?.last_price) {
-					const q = upstoxRes.data;
-					validateStockPrice(q.last_price, symbol);
-					return {
-						price: q.last_price,
-						open: q.open_price,
-						high: q.high_price,
-						low: q.low_price,
-						changePercent: q.change_percent,
-						source: "UPSTOX",
-						confidence: SOURCE_CONFIDENCE.UPSTOX,
-					};
-				}
-			} catch (err: any) {
-				logger.warn(`[GoldenPricing] Upstox quote failed for ${symbol}: ${err?.message || err}`);
+	// 5. Equity / ETF / Commodity Waterfall
+	// Resolve missing symbol from DB if only ISIN was passed
+	let resolvedSymbol = job.symbol;
+	if (!resolvedSymbol && isin) {
+		const stockRow = await db
+			.execute(sql`
+      SELECT symbol, exchange FROM listed_stocks WHERE isin = ${isin} LIMIT 1
+    `)
+			.catch(() => ({ rows: [] }));
+		if (stockRow.rows?.[0]) {
+			resolvedSymbol = (stockRow.rows[0] as any).symbol;
+			if (!job.exchange) job.exchange = (stockRow.rows[0] as any).exchange;
+		}
+	}
+
+	// 5a. Use pre-fetched Upstox quote if available
+	if (preFetchedQuote?.last_price && preFetchedQuote.last_price > 0) {
+		validateStockPrice(preFetchedQuote.last_price, resolvedSymbol || isin);
+		return {
+			price: preFetchedQuote.last_price,
+			open: preFetchedQuote.open_price,
+			high: preFetchedQuote.high_price,
+			low: preFetchedQuote.low_price,
+			changePercent: preFetchedQuote.change_percent,
+			source: "UPSTOX",
+			confidence: SOURCE_CONFIDENCE.UPSTOX,
+		};
+	}
+
+	const queryTarget = resolvedSymbol || isin;
+
+	// 5b. Live Upstox Quote (Licensed SEBI feed)
+	if (queryTarget && upstoxMarketDataService.isReady()) {
+		try {
+			const upstoxRes = await upstoxMarketDataService.getQuote(
+				queryTarget,
+				job.exchange === "BSE" ? "BSE" : "NSE",
+			);
+			if (upstoxRes.success && upstoxRes.data?.last_price) {
+				const q = upstoxRes.data;
+				validateStockPrice(q.last_price, queryTarget);
+				return {
+					price: q.last_price,
+					open: q.open_price,
+					high: q.high_price,
+					low: q.low_price,
+					changePercent: q.change_percent,
+					source: "UPSTOX",
+					confidence: SOURCE_CONFIDENCE.UPSTOX,
+				};
+			}
+		} catch (err: any) {
+			logger.warn(
+				`[GoldenPricing] Upstox quote failed for ${queryTarget}: ${err?.message || err}`,
+			);
+		}
+	}
+
+	// 5c. Official Bhavcopy in local DB (populated by nightly Bhavcopy Ingestion, 0 network lag)
+	if (resolvedSymbol || isin) {
+		const bhavRow = await db
+			.execute(sql`
+      SELECT current_price, previous_close, change_percent
+      FROM listed_stocks
+      WHERE (isin = ${isin} OR symbol = ${resolvedSymbol ?? null})
+        AND current_price IS NOT NULL AND current_price > 0
+      LIMIT 1
+    `)
+			.catch(() => ({ rows: [] }));
+		if (bhavRow.rows?.[0]) {
+			const r = bhavRow.rows[0] as any;
+			const price = Number.parseFloat(r.current_price);
+			if (price > 0) {
+				return {
+					price,
+					changePercent: r.change_percent
+						? Number.parseFloat(r.change_percent)
+						: undefined,
+					source: "NSE_BHAVCOPY",
+					confidence: SOURCE_CONFIDENCE.NSE_BHAVCOPY,
+				};
 			}
 		}
+	}
 
-		// 2. NSE direct — primary (403 blocked from datacenter IPs, fails gracefully)
-		const nse = await fetchNSEClose(symbol);
-		if (nse?.price) return nse;
-
-		// 2. IndianAPI.in — India-native, NSE+BSE dual quotes, INDIAN_API_KEY in Secret Manager
-		const indianApi = await fetchIndianAPIPrice(symbol);
+	// 5d. IndianAPI.in Dual Quote
+	if (resolvedSymbol) {
+		const indianApi = await fetchIndianAPIPrice(resolvedSymbol);
 		if (indianApi?.price) return indianApi;
+	}
 
-		// 3. Yahoo Finance — free, no API key, confirmed working from Cloud Run
+	// 5e. Yahoo Finance
+	if (resolvedSymbol) {
 		const yahoo = await fetchYahooFinancePrice(
-			symbol,
-			(job.exchange === "BSE" ? "BSE" : "NSE"),
+			resolvedSymbol,
+			job.exchange === "BSE" ? "BSE" : "NSE",
 		);
 		if (yahoo?.price) return yahoo;
+	}
 
-		// 4. FMP — requires FMP_API_KEY (stored in Secret Manager as FMP_API_KEY:latest)
-		const fmp = await fetchFMPPrice(symbol);
+	// 5f. FMP Profile
+	if (resolvedSymbol) {
+		const fmp = await fetchFMPPrice(resolvedSymbol);
 		if (fmp?.price) return fmp;
 	}
 
+	// 5g. Direct NSE Scraping fallback
+	if (resolvedSymbol) {
+		const nse = await fetchNSEClose(resolvedSymbol);
+		if (nse?.price) return nse;
+	}
+
+	// 5h. Last known authoritative price
 	return await fetchLastKnownPrice(isin, priceDate);
 }
 
 // ─── Core: Price One Instrument ───────────────────────────────────────────────
 
+/**
+ * Computes the authoritative golden price for an instrument on a given date.
+ * Enforces validation, audit trail, versioning, and explainability layer.
+ *
+ * @param job Instrument pricing parameters
+ * @param priceDate Date string "YYYY-MM-DD"
+ * @param opts Configuration options
+ */
 export async function priceInstrument(
 	job: PricingJob,
 	priceDate: string,
-	opts: { changedBy?: string; dryRun?: boolean } = {},
+	opts: {
+		changedBy?: string;
+		dryRun?: boolean;
+		preFetchedQuote?: UpstoxQuote;
+	} = {},
 ): Promise<GoldenPriceResult | null> {
 	const { isin, symbol, assetClass = "equity" } = job;
-	const { changedBy = "system", dryRun = false } = opts;
+	const { changedBy = "system", dryRun = false, preFetchedQuote } = opts;
 
-	const raw = await discoverBestPrice(job, priceDate);
-	if (!raw || !raw.price || raw.price <= 0) return null;
+	const raw = await discoverBestPrice(job, priceDate, preFetchedQuote);
+	if (!raw?.price || raw.price <= 0) return null;
 
 	const prevRow = await db
 		.execute(sql`
@@ -814,6 +918,29 @@ export async function priceInstrument(
 		: null;
 
 	const { valid, deviation } = validatePrice(raw.price, prevPrice);
+
+	const calcTimestamp = new Date().toISOString();
+	const explainability: ExplainabilityLayer = {
+		inputs_used: {
+			isin,
+			symbol,
+			assetClass,
+			priceDate,
+			prevPrice,
+			source: raw.source,
+			confidence: raw.confidence,
+		},
+		formula_applied: `${raw.source}_HIERARCHICAL_DISCOVERY`,
+		intermediate_steps: [
+			`Discovered candidate price ₹${raw.price} from source '${raw.source}' (confidence: ${raw.confidence})`,
+			prevPrice
+				? `Prior price: ₹${prevPrice}. Calculated deviation: ${(deviation ?? 0).toFixed(2)}%`
+				: "No prior reference price found. Baseline initialization.",
+			valid
+				? "Validation passed (deviation within allowable 20% band)"
+				: `FLAGGED: Deviation of ${(deviation ?? 0).toFixed(1)}% exceeds 20% limit. Compliance audit triggered.`,
+		],
+	};
 
 	const result: GoldenPriceResult = {
 		isin,
@@ -829,12 +956,19 @@ export async function priceInstrument(
 			? `Price deviation ${deviation?.toFixed(1)}% exceeds 20% threshold`
 			: undefined,
 		deviationPct: deviation,
+		engine_version: GOLDEN_PRICING_ENGINE_VERSION,
+		calculation_timestamp: calcTimestamp,
+		explainability,
 		metadata: {
 			open: raw.open,
 			high: raw.high,
 			low: raw.low,
 			volume: raw.volume,
 			changePercent: raw.changePercent,
+			engine_version: GOLDEN_PRICING_ENGINE_VERSION,
+			calculation_timestamp: calcTimestamp,
+			explainability,
+			...raw.metadata,
 		},
 	};
 
@@ -872,8 +1006,14 @@ export async function priceInstrument(
 
 		if (Number.parseFloat(ex.price) !== raw.price) {
 			await db.execute(sql`
-        INSERT INTO price_audit_log (isin, price_date, old_price, new_price, old_source, new_source, change_reason, changed_by, confidence_score)
-        VALUES (${isin}, ${priceDate}, ${ex.price}, ${raw.price}, ${ex.source}, ${raw.source}, ${"Daily pricing run update"}, ${changedBy}, ${raw.confidence})
+        INSERT INTO price_audit_log (
+          isin, price_date, old_price, new_price, old_source, new_source,
+          change_reason, changed_by, confidence_score, metadata
+        ) VALUES (
+          ${isin}, ${priceDate}, ${ex.price}, ${raw.price}, ${ex.source}, ${raw.source},
+          ${"Authoritative golden price update"}, ${changedBy}, ${raw.confidence},
+          ${JSON.stringify({ engine_version: GOLDEN_PRICING_ENGINE_VERSION, explainability })}::jsonb
+        )
       `);
 		}
 	} else {
@@ -891,8 +1031,14 @@ export async function priceInstrument(
       )
     `);
 		await db.execute(sql`
-      INSERT INTO price_audit_log (isin, price_date, new_price, new_source, change_reason, changed_by, confidence_score)
-      VALUES (${isin}, ${priceDate}, ${raw.price}, ${raw.source}, ${"Initial golden price set"}, ${changedBy}, ${raw.confidence})
+      INSERT INTO price_audit_log (
+        isin, price_date, new_price, new_source, change_reason, changed_by,
+        confidence_score, metadata
+      ) VALUES (
+        ${isin}, ${priceDate}, ${raw.price}, ${raw.source},
+        ${"Initial authoritative golden price established"}, ${changedBy}, ${raw.confidence},
+        ${JSON.stringify({ engine_version: GOLDEN_PRICING_ENGINE_VERSION, explainability })}::jsonb
+      )
     `);
 	}
 
@@ -911,15 +1057,22 @@ export interface DailyPricingRunResult {
 	errors: string[];
 }
 
+/**
+ * Runs the nightly EOD Golden Pricing Run across all active instruments.
+ * Upgraded with Upstox bulk pre-fetching (chunks of 500) to eliminate N+1 latency.
+ */
 export async function runDailyGoldenPricing(
 	priceDate?: string,
 	opts: { batchSize?: number; delayMs?: number } = {},
 ): Promise<DailyPricingRunResult> {
-	const { batchSize = 20, delayMs = 500 } = opts;
+	const { batchSize = 25, delayMs = 100 } = opts;
 	const date = priceDate ?? new Date().toISOString().slice(0, 10);
 	const start = Date.now();
 
-	logger.info(`[GoldenPricing] Starting daily run for ${date}...`);
+	logger.info(`[GoldenPricing] Starting daily run for ${date}...`, {
+		event: "GOLDEN_PRICING_DAILY_START",
+		price_date: date,
+	});
 
 	let processed = 0,
 		succeeded = 0,
@@ -961,6 +1114,42 @@ export async function runDailyGoldenPricing(
 		jobs.push({ isin: r.isin, symbol: r.symbol, assetClass: "mutual_fund" });
 	}
 
+	// ── Bulk Pre-fetch Upstox Quotes in chunks of 500 (Eliminates 2,000 single HTTP calls)
+	const equitySymbols = jobs
+		.filter(
+			(j) =>
+				(j.assetClass === "equity" || j.assetClass === "etf") &&
+				Boolean(j.symbol),
+		)
+		.map((j) => j.symbol as string);
+
+	const preFetchedMap = new Map<string, UpstoxQuote>();
+	if (equitySymbols.length > 0 && upstoxMarketDataService.isReady()) {
+		try {
+			logger.info(
+				`[GoldenPricing] Pre-fetching batch quotes for ${equitySymbols.length} equities...`,
+			);
+			const batchRes = await upstoxMarketDataService.getBatchQuotes(
+				equitySymbols,
+				"NSE",
+			);
+			if (batchRes.success && batchRes.data) {
+				for (const [sym, quote] of batchRes.data.entries()) {
+					if (quote.last_price && quote.last_price > 0) {
+						preFetchedMap.set(sym.toUpperCase(), quote);
+					}
+				}
+				logger.info(
+					`[GoldenPricing] Batch pre-fetch resolved ${preFetchedMap.size}/${equitySymbols.length} symbols`,
+				);
+			}
+		} catch (err: any) {
+			logger.warn(
+				`[GoldenPricing] Bulk pre-fetch failed (will fall back to single discovery): ${err?.message || err}`,
+			);
+		}
+	}
+
 	// Process in batches
 	for (let i = 0; i < jobs.length; i += batchSize) {
 		const batch = jobs.slice(i, i + batchSize);
@@ -968,7 +1157,12 @@ export async function runDailyGoldenPricing(
 			batch.map(async (job) => {
 				processed++;
 				try {
-					const result = await priceInstrument(job, date);
+					const preQuote = job.symbol
+						? preFetchedMap.get(job.symbol.toUpperCase())
+						: undefined;
+					const result = await priceInstrument(job, date, {
+						preFetchedQuote: preQuote,
+					});
 					if (!result) {
 						failed++;
 						return;
@@ -990,6 +1184,15 @@ export async function runDailyGoldenPricing(
 	const durationMs = Date.now() - start;
 	logger.info(
 		`[GoldenPricing] Daily run complete: ${succeeded}/${processed} priced, ${flagged} flagged, ${failed} failed in ${durationMs}ms`,
+		{
+			event: "GOLDEN_PRICING_DAILY_COMPLETE",
+			price_date: date,
+			succeeded,
+			processed,
+			flagged,
+			failed,
+			latency_ms: durationMs,
+		},
 	);
 
 	return { date, processed, succeeded, failed, flagged, durationMs, errors };
@@ -1028,7 +1231,6 @@ export async function batchGetGoldenPrices(
 	if (!isins.length) return {};
 	const date = priceDate ?? new Date().toISOString().slice(0, 10);
 
-	// Build safe IN clause with individual Drizzle params
 	const inParts = isins.map((i) => sql`${i}`);
 	const inClause = sql.join(inParts, sql`, `);
 
@@ -1051,6 +1253,11 @@ type GoldenPriceRow = {
 	price_date: string;
 	asset_class: string;
 	price: string;
+	open_price?: string | number | null;
+	high_price?: string | number | null;
+	low_price?: string | number | null;
+	volume?: string | number | null;
+	change_percent?: string | number | null;
 	source: string;
 	confidence_score: number;
 	is_validated: boolean;
