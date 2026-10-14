@@ -9925,6 +9925,15 @@ export const researchLists = pgTable("research_lists", {
   isEditable: boolean("is_editable").default(true),
   isArchived: boolean("is_archived").default(false),
   
+  // PRO Stock List / System Category extensions
+  listType: varchar("list_type", { length: 32 }).default("custom"), // 'custom' | 'system_pro' | 'ai_strategy'
+  categorySlug: varchar("category_slug", { length: 64 }),           // e.g. 'green-energy', 'fscore'
+  isSystemCurated: boolean("is_system_curated").default(false),     // Prevents deletion of core templates
+  benchmarkIndex: varchar("benchmark_index", { length: 32 }).default("NIFTY 500"),
+  refreshFrequency: varchar("refresh_frequency", { length: 16 }).default("realtime"), // 'realtime' | 'hourly' | 'eod'
+  primaryProvider: varchar("primary_provider", { length: 32 }).default("UPSTOX"),    // 'UPSTOX' | 'INDIAN_API'
+  lastSyncedAt: timestamp("last_synced_at"),
+
   // Screener origin (if created from screener)
   screenerConfig: jsonb("screener_config"), // { filters: {...}, universe: "MF" }
   
@@ -9942,6 +9951,7 @@ export const researchLists = pgTable("research_lists", {
   index("idx_research_lists_visibility").on(table.visibility),
   index("idx_research_lists_universe").on(table.universeType),
   index("idx_research_lists_org").on(table.organizationId),
+  index("idx_research_lists_type_slug").on(table.listType, table.categorySlug),
 ]);
 
 export const insertResearchListSchema = createInsertSchema(researchLists).omit({
@@ -9964,8 +9974,20 @@ export const researchListItems = pgTable("research_list_items", {
   instrumentSymbol: varchar("instrument_symbol"),
   instrumentIsin: varchar("instrument_isin"),
   
+  // Upstox & PRO Market Data Enhancements
+  upstoxInstrumentKey: varchar("upstox_instrument_key", { length: 64 }), // e.g. 'NSE_EQ|INE040H01021'
+  displayOrder: integer("display_order").default(0),
+  primaryMetricLabel: varchar("primary_metric_label", { length: 64 }),
+  primaryMetricValue: varchar("primary_metric_value", { length: 64 }),
+  targetPrice: decimal("target_price", { precision: 15, scale: 2 }),
+  upsidePercent: decimal("upside_percent", { precision: 8, scale: 2 }),
+  fScore: integer("f_score"),
+  themeBadge: varchar("theme_badge", { length: 48 }),
+  lastQuoteAt: timestamp("last_quote_at"),
+  isQuoteFresh: boolean("is_quote_fresh").default(true),
+
   // How the item was added
-  addedSource: varchar("added_source").default("manual"), // manual, screener, import, ai_suggestion
+  addedSource: varchar("added_source").default("manual"), // manual, screener, import, ai_suggestion, pro_stock_list
   addedByAgentId: varchar("added_by_agent_id").references(() => agents.id),
   
   // Advisor notes
@@ -9981,6 +10003,8 @@ export const researchListItems = pgTable("research_list_items", {
   index("idx_research_list_items_list").on(table.researchListId),
   index("idx_research_list_items_instrument").on(table.instrumentId, table.instrumentType),
   index("idx_research_list_items_added").on(table.addedAt),
+  index("idx_research_items_upstox_key").on(table.upstoxInstrumentKey),
+  index("idx_research_items_list_order").on(table.researchListId, table.displayOrder),
 ]);
 
 export const insertResearchListItemSchema = createInsertSchema(researchListItems).omit({
@@ -9988,6 +10012,35 @@ export const insertResearchListItemSchema = createInsertSchema(researchListItems
 });
 export type ResearchListItem = typeof researchListItems.$inferSelect;
 export type InsertResearchListItem = z.infer<typeof insertResearchListItemSchema>;
+
+// PRO List EOD Snapshots - Nightly performance track record
+export const proListEodSnapshots = pgTable("pro_list_eod_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  categorySlug: varchar("category_slug", { length: 64 }).notNull(),
+  snapshotDate: date("snapshot_date").notNull(),
+  
+  constituentsCount: integer("constituents_count").notNull(),
+  avg1YReturn: decimal("avg_1y_return", { precision: 8, scale: 4 }),
+  benchmarkReturn1Y: decimal("benchmark_return_1y", { precision: 8, scale: 4 }),
+  alphaVsBenchmark: decimal("alpha_vs_benchmark", { precision: 8, scale: 4 }),
+  
+  gainersCount: integer("gainers_count").default(0),
+  losersCount: integer("losers_count").default(0),
+  
+  dataSource: varchar("data_source", { length: 32 }).default("UPSTOX"), // 'UPSTOX' | 'INDIAN_API'
+  snapshotPayload: jsonb("snapshot_payload"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_pro_snapshot_slug_date").on(table.categorySlug, table.snapshotDate),
+  index("idx_pro_snapshot_slug").on(table.categorySlug),
+  index("idx_pro_snapshot_slug_date").on(table.categorySlug, table.snapshotDate),
+]);
+
+export const insertProListEodSnapshotSchema = createInsertSchema(proListEodSnapshots).omit({
+  id: true, createdAt: true,
+});
+export type ProListEodSnapshot = typeof proListEodSnapshots.$inferSelect;
+export type InsertProListEodSnapshot = z.infer<typeof insertProListEodSnapshotSchema>;
 
 // Saved Screeners - Reusable screener configurations
 export const savedScreeners = pgTable("saved_screeners", {

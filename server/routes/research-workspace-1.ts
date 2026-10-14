@@ -27,6 +27,7 @@ import {
 	lte,
 } from "drizzle-orm";
 import { z } from "zod";
+import { proStockListsRouter } from "./pro-stock-lists-router";
 
 const router = Router();
 
@@ -244,6 +245,11 @@ router.get("/", async (req, res) => {
 	}
 });
 
+// =====================================================
+// PRO STOCK LISTS (Moneycontrol-Format / Upstox-Powered)
+// =====================================================
+router.use("/pro-stock-lists", proStockListsRouter);
+
 // GET /api/research-lists/:id - Get single research list with items
 // NOTE: This route catches dynamic IDs but must skip reserved paths
 router.get("/:id", async (req, res, next) => {
@@ -251,7 +257,7 @@ router.get("/:id", async (req, res, next) => {
 		const { id } = req.params;
 
 		// Skip reserved paths - let them fall through to their specific handlers
-		const reservedPaths = ["screeners", "analytics", "instruments"];
+		const reservedPaths = ["screeners", "analytics", "instruments", "pro-stock-lists"];
 		if (reservedPaths.includes(id)) {
 			return next(); // Let Express continue to specific route handlers
 		}
