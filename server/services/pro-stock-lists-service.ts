@@ -1528,12 +1528,21 @@ export class ProStockListsService {
         }
       }
 
-      // Strict Freshness Gate: If only fresh data is allowed, skip unverified or stale stocks
+      // Strict Freshness Gate configuration
       const requireFresh = options?.onlyFresh !== false;
+
+      // Outside market hours, verified DB/baseline closing prices are authoritative EOD quotes
+      if (!isFresh && !isMarketOpen) {
+        isFresh = true;
+        stalenessSeconds = 0;
+        freshQuotesCount++;
+      }
+
+      // Strict Freshness Gate: during live market session, drop quotes older than 180s
       if (isMarketOpen && stalenessSeconds > 180) {
         isFresh = false;
       }
-      if (requireFresh && !isFresh) {
+      if (requireFresh && !isFresh && isMarketOpen) {
         continue;
       }
 
