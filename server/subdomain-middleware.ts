@@ -42,6 +42,20 @@ export function subdomainDetection(
 		""
 	).toLowerCase();
 
+	// ── Graceful Decommission: 301 Permanent Redirect agent.fintekpro.com → partner.fintekpro.com ──
+	if (
+		hostname === "agent.fintekpro.com" ||
+		hostname.startsWith("agent.fintekpro.")
+	) {
+		logger.info("REDIRECT_LEGACY_AGENT_SUBDOMAIN", {
+			event: "REDIRECT_LEGACY_AGENT_SUBDOMAIN",
+			from: hostname,
+			to: "partner.fintekpro.com",
+			url: req.originalUrl,
+		});
+		return res.redirect(301, `https://partner.fintekpro.com${req.originalUrl}`);
+	}
+
 	const debugEnabled =
 		process.env.DEBUG_SUBDOMAIN === "true" ||
 		process.env.NODE_ENV !== "production";
@@ -82,7 +96,7 @@ export function subdomainDetection(
 			forwardedParts[0] !== "www" &&
 			["admin", "partner", "agent", "ca"].includes(forwardedParts[0])
 		) {
-			subdomain = forwardedParts[0];
+			subdomain = forwardedParts[0] === "agent" ? "partner" : forwardedParts[0];
 			logger.info("SUBDOMAIN_GCP_RECOVERED", { event: "SUBDOMAIN_GCP_RECOVERED", subdomain, hostname });
 		} else {
 			subdomain = "";
@@ -102,10 +116,8 @@ export function subdomainDetection(
 			subdomain = "admin";
 		} else if (parts[0] === "ca") {
 			subdomain = "ca";
-		} else if (parts[0] === "partner") {
+		} else if (parts[0] === "partner" || parts[0] === "agent") {
 			subdomain = "partner";
-		} else if (parts[0] === "agent") {
-			subdomain = "agent";
 		} else {
 			subdomain = "";
 		}
@@ -115,7 +127,7 @@ export function subdomainDetection(
 		// If we have more than 2 parts, the first part is likely a subdomain
 		// Example: partner.fintekpro.com -> parts = ['partner', 'fintekpro', 'com'] -> length 3
 		if (parts.length > 2 && parts[0] !== "www") {
-			subdomain = parts[0];
+			subdomain = parts[0] === "agent" ? "partner" : parts[0];
 		} else {
 			subdomain = "";
 		}
@@ -124,15 +136,14 @@ export function subdomainDetection(
 	// Development-only override - NEVER allow in production
 	// Allow override via query params (enabled in production for Cloud Run compatibility)
 	if (req.query.portal) {
-		subdomain = String(req.query.portal);
+		const portalStr = String(req.query.portal);
+		subdomain = portalStr === "agent" ? "partner" : portalStr;
 	} else if (req.query.admin === "true") {
 		subdomain = "admin";
 	} else if (req.query.ca === "true") {
 		subdomain = "ca";
-	} else if (req.query.partner === "true") {
+	} else if (req.query.partner === "true" || req.query.agent === "true") {
 		subdomain = "partner";
-	} else if (req.query.agent === "true") {
-		subdomain = "agent";
 	}
 
 	// Set flags on request
@@ -140,7 +151,7 @@ export function subdomainDetection(
 	req.isAdminPortal = subdomain === "admin";
 	req.isCaPortal = subdomain === "ca";
 	req.isPartnerPortal = subdomain === "partner";
-	req.isAgentPortal = subdomain === "agent";
+	req.isAgentPortal = subdomain === "partner"; // legacy alias to partner
 
 	// Log only for portal requests to reduce noise (disabled by default)
 	// Enable with DEBUG_SUBDOMAIN=true for troubleshooting

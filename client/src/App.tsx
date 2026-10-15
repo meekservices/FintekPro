@@ -67,7 +67,7 @@ function IdleTimeoutWrapper() {
 }
 
 function Router() {
-	const { isAdminPortal, isCaPortal, isPartnerPortal, isAgentPortal } =
+	const { isAdminPortal, isCaPortal, isPartnerPortal } =
 		useSubdomain();
 
 	// Render admin portal on admin subdomain
@@ -90,8 +90,8 @@ function Router() {
 		);
 	}
 
-	// Render agent portal on partner subdomain (partner.fintekpro.com) and legacy agent subdomain (agent.fintekpro.com)
-	if (isPartnerPortal || isAgentPortal) {
+	// Render partner portal on partner subdomain (partner.fintekpro.com)
+	if (isPartnerPortal) {
 		return (
 			<Suspense fallback={<LoadingState />}>
 				<IdleTimeoutWrapper />

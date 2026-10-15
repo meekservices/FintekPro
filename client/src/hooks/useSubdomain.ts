@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const KNOWN_SUBDOMAINS = ["admin", "partner", "agent", "ca"] as const;
+const KNOWN_SUBDOMAINS = ["admin", "partner", "ca"] as const;
 type KnownSubdomain = (typeof KNOWN_SUBDOMAINS)[number];
 
 function detectSubdomain(): string {
@@ -9,13 +9,22 @@ function detectSubdomain(): string {
 	const pathname = window.location.pathname;
 	const parts = hostname.split(".");
 
+	// Immediate client-side 301-equivalent redirect if landing on legacy agent domain
+	if (
+		typeof window !== "undefined" &&
+		(hostname === "agent.fintekpro.com" ||
+			hostname.startsWith("agent.fintekpro."))
+	) {
+		window.location.replace(
+			`https://partner.fintekpro.com${window.location.pathname}${window.location.search}`,
+		);
+		return "partner";
+	}
+
 	const urlParams = new URLSearchParams(search);
 	const isReplitEnv =
 		hostname.includes("replit.dev") || hostname.includes("replit.app");
 	const isDev = import.meta.env.DEV || isReplitEnv;
-
-	// Debug logging only on initial detection (not during polling)
-	// Note: Removed frequent console.log to improve performance
 
 	// PRIORITY 1: Query params — works in ALL environments
 	if (urlParams.get("admin") === "true") {
@@ -24,30 +33,25 @@ function detectSubdomain(): string {
 	if (urlParams.get("ca") === "true") {
 		return "ca";
 	}
-	if (urlParams.get("partner") === "true") {
+	if (urlParams.get("partner") === "true" || urlParams.get("agent") === "true") {
 		return "partner";
-	}
-	if (urlParams.get("agent") === "true") {
-		return "agent";
 	}
 
 	// PRIORITY 2: Path-based portal detection — DEV / REPLIT ONLY
-	// In production, the correct subdomains (partner.fintekpro.com, ca.fintekpro.com, admin.fintekpro.com, etc.)
-	// are used for portal routing. Enabling this in production would incorrectly treat
-	// client-portal routes like /agent (AgentDashboard) or /admin (AdminPanel) as
-	// portal-switch signals, redirecting users to the wrong portal layout.
 	if (isDev) {
 		if (pathname.startsWith("/ca/") || pathname === "/ca") {
 			return "ca";
 		}
-		if (pathname.startsWith("/agent/") || pathname === "/agent") {
-			return "agent";
+		if (
+			pathname.startsWith("/agent/") ||
+			pathname === "/agent" ||
+			pathname.startsWith("/partner/") ||
+			pathname === "/partner"
+		) {
+			return "partner";
 		}
 		if (pathname.startsWith("/admin/") || pathname === "/admin") {
 			return "admin";
-		}
-		if (pathname.startsWith("/partner/") || pathname === "/partner") {
-			return "partner";
 		}
 	}
 
@@ -59,17 +63,14 @@ function detectSubdomain(): string {
 		if (parts[0] === "ca") {
 			return "ca";
 		}
-		if (parts[0] === "partner") {
+		if (parts[0] === "partner" || parts[0] === "agent") {
 			return "partner";
-		}
-		if (parts[0] === "agent") {
-			return "agent";
 		}
 		return "";
 	}
 
-	// PRIORITY 4: Production subdomain detection (admin.fintekpro.com, ca.fintekpro.com, etc.)
-	const firstPart = parts[0];
+	// PRIORITY 4: Production subdomain detection (admin.fintekpro.com, ca.fintekpro.com, partner.fintekpro.com)
+	const firstPart = parts[0] === "agent" ? "partner" : parts[0];
 	if (
 		parts.length >= 2 &&
 		KNOWN_SUBDOMAINS.includes(firstPart as KnownSubdomain)
@@ -78,6 +79,9 @@ function detectSubdomain(): string {
 	}
 
 	// PRIORITY 5: Fallback pattern matching
+	if (hostname.startsWith("agent.") || hostname.startsWith("agent-")) {
+		return "partner";
+	}
 	for (const sub of KNOWN_SUBDOMAINS) {
 		if (hostname.startsWith(`${sub}.`) || hostname.startsWith(`${sub}-`)) {
 			return sub;
@@ -91,13 +95,11 @@ export function getPortalQueryParams(): string {
 	const urlParams = new URLSearchParams(window.location.search);
 	const adminParam = urlParams.get("admin");
 	const caParam = urlParams.get("ca");
-	const partnerParam = urlParams.get("partner");
-	const agentParam = urlParams.get("agent");
+	const partnerParam = urlParams.get("partner") || urlParams.get("agent");
 
 	if (adminParam === "true") return "?admin=true";
 	if (caParam === "true") return "?ca=true";
 	if (partnerParam === "true") return "?partner=true";
-	if (agentParam === "true") return "?agent=true";
 	return "";
 }
 
@@ -184,7 +186,7 @@ export function useSubdomain() {
 	const isAdminPortal = subdomain === "admin";
 	const isCaPortal = subdomain === "ca";
 	const isPartnerPortal = subdomain === "partner";
-	const isAgentPortal = subdomain === "agent";
+	const isAgentPortal = isPartnerPortal; // Legacy alias mapped directly to partner portal
 
 	return {
 		subdomain,
@@ -193,7 +195,7 @@ export function useSubdomain() {
 		isPartnerPortal,
 		isAgentPortal,
 		isClientPortal:
-			!isAdminPortal && !isCaPortal && !isPartnerPortal && !isAgentPortal,
+			!isAdminPortal && !isCaPortal && !isPartnerPortal,
 		withPortalParams,
 	};
 }

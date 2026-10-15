@@ -390,7 +390,7 @@ echo "✅ All 6 Cloud Run Jobs updated — next executions will have DB access +
 # ── Firebase Hosting Deploy (serves the static frontend at partner.fintekpro.com) ──
 echo ""
 echo "🔥 Building frontend locally for Firebase Hosting..."
-echo "   (Firebase Hosting serves partner.fintekpro.com & agent.fintekpro.com — must deploy from freshly built dist/)"
+echo "   (Firebase Hosting serves partner.fintekpro.com — must deploy from freshly built dist/)"
 NODE_OPTIONS=--max-old-space-size=8192 npm run build 2>&1 | tail -5
 if [ $? -ne 0 ]; then
   echo "❌ Local vite build failed — Firebase deploy aborted"
