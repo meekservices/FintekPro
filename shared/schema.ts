@@ -1049,9 +1049,25 @@ export const listedStocks = pgTable("listed_stocks", {
   fmpSymbol: varchar("fmp_symbol"),              // FMP API symbol (e.g. RELIANCE.NS)
   lastFmpSync: timestamp("last_fmp_sync"),        // Last FMP enrichment timestamp
   marketCapCategory: varchar("market_cap_category"), // Large Cap | Mid Cap | Small Cap (from FMP)
+  
+  // ── Phase 4: Dynamic Research Feeder & Upstox Integration ───────────
+  series: varchar("series", { length: 16 }).default("EQ"),
+  upstoxInstrumentKey: varchar("upstox_instrument_key", { length: 64 }), // e.g. 'NSE_EQ|INE002A01018'
+  piotroskiFScore: integer("piotroski_f_score"),                         // 0-9 Piotroski fundamental strength
+  consensusUpsidePercent: decimal("consensus_upside_percent", { precision: 8, scale: 2 }), // Target upside %
+  technicalSignal: varchar("technical_signal", { length: 32 }),         // 'bullish' | 'bearish' | 'neutral' | 'breakout'
+  proThemes: text("pro_themes").array().default([]),                     // Thematic tags e.g. ['green-energy', 'ev-leaders', 'defence-guardians', 'turnaround', 'profit-blasters']
+  
   lastUpdated: timestamp("last_updated").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_listed_stocks_upstox_key").on(table.upstoxInstrumentKey),
+  index("idx_listed_stocks_sector").on(table.sector),
+  index("idx_listed_stocks_market_cap").on(table.marketCap),
+  index("idx_listed_stocks_fscore").on(table.piotroskiFScore),
+  index("idx_listed_stocks_upside").on(table.consensusUpsidePercent),
+  index("idx_listed_stocks_tech_signal").on(table.technicalSignal),
+]);
 
 export const insertListedStockSchema = createInsertSchema(listedStocks).omit({
   id: true,
@@ -9937,6 +9953,11 @@ export const researchLists = pgTable("research_lists", {
   // Screener origin (if created from screener)
   screenerConfig: jsonb("screener_config"), // { filters: {...}, universe: "MF" }
   
+  // Dynamic Rule Feeder Extensions
+  isDynamic: boolean("is_dynamic").default(false),                  // Rule-driven dynamic constituent feeder
+  dynamicCriteria: jsonb("dynamic_criteria"),                       // { minFScore, minUpsidePercent, maxPe, sectors, proThemes, marketCap, technicalSignal }
+  maxConstituents: integer("max_constituents").default(50),        // Limit max stocks rendered/calculated
+  
   // Cached metrics (updated periodically)
   cachedMetrics: jsonb("cached_metrics"), // { avgReturn3y, avgExpenseRatio, avgSharpe, etc. }
   metricsLastUpdated: timestamp("metrics_last_updated"),
@@ -9952,6 +9973,7 @@ export const researchLists = pgTable("research_lists", {
   index("idx_research_lists_universe").on(table.universeType),
   index("idx_research_lists_org").on(table.organizationId),
   index("idx_research_lists_type_slug").on(table.listType, table.categorySlug),
+  index("idx_research_lists_dynamic").on(table.isDynamic),
 ]);
 
 export const insertResearchListSchema = createInsertSchema(researchLists).omit({

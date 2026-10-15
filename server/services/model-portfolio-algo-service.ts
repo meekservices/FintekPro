@@ -34,6 +34,9 @@ import {
   type QuantHolding,
 } from "./model-portfolio-quant-service";
 import { randomBytes } from "crypto";
+import { upstoxMarketDataService } from "./upstox-market-data-service";
+import { unifiedStockPriceService } from "./unified-stock-price-service";
+import { upstoxAdapter } from "./mpal/adapters/upstoxAdapter";
 
 export const ALGO_ENGINE_VERSION = "FASP-AI-v3.0-ALGO";
 
@@ -48,6 +51,7 @@ export interface ModelPortfolioAlgoConfig {
   autoExecute?: boolean;          // true = full algo rebalance, false = requires 1-click confirmation
   executionChannel?: "ALGO_AUTO" | "ADVISOR_APPROVED" | "DRIFT_REBALANCE";
   allowedAssetClasses?: string[];
+  executionMode?: "SIMULATION" | "UPSTOX_SANDBOX" | "UPSTOX_LIVE";
 }
 
 export interface ExecuteAlgoOptions {
@@ -57,6 +61,7 @@ export interface ExecuteAlgoOptions {
   clientPan?: string;
   userId?: string;
   forceExecution?: boolean; // bypass drift threshold if manually triggered by manager
+  executeWithBroker?: boolean; // send real orders to Upstox if configured
 }
 
 export interface AlgoExecutionResult {
@@ -386,12 +391,35 @@ export class ModelPortfolioAlgoService {
       };
     }
 
-    // 6. Pre-Trade RMS Limit Verification on Individual Legs
+    // 6. Pre-Trade RMS Limit Verification & Live Upstox Price Resolution
     const maxTradeAmountCap = algoConfig.maxTradeAmount ?? 500_000;
     const recordedTransactions: ModelPortfolioTransaction[] = [];
     let totalAmountTraded = 0;
 
     const channel = algoConfig.executionChannel ?? (options.actorType === "agent" ? "ADVISOR_APPROVED" : "ALGO_AUTO");
+
+    // Upstox Upgrade: Pre-fetch live quotes for all symbols to avoid ₹100 fallback
+    const symbolsToPrice = rawHoldings
+      .map((h: any) => h.symbol)
+      .filter((s: any): s is string => typeof s === "string" && s.trim().length > 0);
+
+    const livePriceMap = new Map<string, number>();
+    if (symbolsToPrice.length > 0) {
+      try {
+        if (upstoxMarketDataService.isReady()) {
+          const batchResult = await upstoxMarketDataService.getBatchQuotes(symbolsToPrice);
+          if (batchResult.success && batchResult.data) {
+            for (const [sym, quote] of batchResult.data.entries()) {
+              if (quote?.last_price && quote.last_price > 0) {
+                livePriceMap.set(sym.toUpperCase(), quote.last_price);
+              }
+            }
+          }
+        }
+      } catch (quoteErr: any) {
+        logger.warn("[ModelPortfolioAlgo] Upstox batch quote non-fatal error", { error: quoteErr.message });
+      }
+    }
 
     for (const rawAction of actions) {
       const action = rawAction as any;
@@ -406,10 +434,29 @@ export class ModelPortfolioAlgoService {
       const isin = matchingHolding?.isin ?? null;
       const schemeCode = matchingHolding?.schemeCode ?? null;
       const assetClass = matchingHolding?.assetClass ?? matchingHolding?.category ?? portfolio.assetClass;
-      const nav = matchingHolding?.currentNav ? parseFloat(matchingHolding.currentNav) : (action.price ?? 100);
+      const holdingSymbol = matchingHolding?.symbol ? String(matchingHolding.symbol).toUpperCase() : null;
+
+      // ── Accurate Price Resolution ───────────────────────────────────────────
+      let resolvedPrice: number | undefined = holdingSymbol ? livePriceMap.get(holdingSymbol) : undefined;
+      if (!resolvedPrice && matchingHolding?.currentNav) {
+        resolvedPrice = parseFloat(matchingHolding.currentNav);
+      }
+      if ((!resolvedPrice || isNaN(resolvedPrice) || resolvedPrice <= 0) && holdingSymbol) {
+        try {
+          const priceObj = await unifiedStockPriceService.getPrice(holdingSymbol);
+          if (priceObj?.price && priceObj.price > 0) {
+            resolvedPrice = priceObj.price;
+          }
+        } catch { /* non-fatal */ }
+      }
+      const nav: number = (resolvedPrice && !isNaN(resolvedPrice) && resolvedPrice > 0)
+        ? resolvedPrice
+        : (action.price && Number(action.price) > 0 ? Number(action.price) : 100);
+      if (!resolvedPrice || isNaN(resolvedPrice) || resolvedPrice <= 0) {
+        logger.warn(`[ModelPortfolioAlgo] Price unavailable for ${instrumentName} (${holdingSymbol ?? "NO_SYM"}), defaulted to ₹${nav}`);
+      }
 
       // Sizing calculation:
-      // action.quantity_proxy is derived from rebalanceOptimizer as target weight delta % of totalPortfolioValue
       const rawNotional = Math.abs(action.quantity_proxy ?? ((action.weight_delta ?? 2) / 100) * totalPortfolioValue);
       // Enforce RMS Cap
       const executedAmount = Math.min(rawNotional, maxTradeAmountCap);
@@ -417,6 +464,53 @@ export class ModelPortfolioAlgoService {
 
       const transNum = this.generateTransactionNumber();
       const idempotencyKey = `algo_${portfolioId}_${transNum}`;
+
+      // ── Broker Execution via UpstoxAdapter (when enabled) ───────────────────
+      let brokerOrderId: string | null = null;
+      let executionStatus: "executed" | "submitted" | "simulated" = "executed";
+
+      const shouldRouteToBroker =
+        Boolean(options.executeWithBroker || algoConfig.executionMode === "UPSTOX_LIVE" || algoConfig.executionMode === "UPSTOX_SANDBOX") &&
+        upstoxAdapter.isConfigured() &&
+        Boolean(holdingSymbol);
+
+      if (shouldRouteToBroker && holdingSymbol) {
+        try {
+          const brokerRes = await upstoxAdapter.placeOrder({
+            idempotencyKey,
+            userId: userId ?? "system_model_portfolio",
+            symbol: holdingSymbol,
+            capability: "EQUITY_IN",
+            side: legAction === "BUY" ? "buy" : "sell",
+            type: "limit",
+            qty: Math.max(1, Math.round(units ?? 1)),
+            limitPrice: nav,
+            timeInForce: "day",
+            meta: {
+              portfolioId,
+              portfolioCode: portfolio.portfolioCode,
+              legAction,
+              executionChannel: channel,
+            },
+          });
+
+          brokerOrderId = brokerRes.brokerOrderId;
+          executionStatus = brokerRes.status === "filled" ? "executed" : "submitted";
+          logger.info(`[ModelPortfolioAlgo] Dispatched order to Upstox`, {
+            portfolioId,
+            symbol: holdingSymbol,
+            brokerOrderId,
+            status: executionStatus,
+          });
+        } catch (brokerErr: any) {
+          logger.error(`[ModelPortfolioAlgo] Upstox order dispatch non-fatal failure`, {
+            error: brokerErr.message,
+            portfolioId,
+            symbol: holdingSymbol,
+          });
+          executionStatus = "simulated";
+        }
+      }
 
       // ── A. Record in model_portfolio_transactions ───────────────────────────
       const [mptRow] = await db
@@ -438,7 +532,7 @@ export class ModelPortfolioAlgoService {
           targetWeightPct: matchingHolding?.weight ? parseFloat(matchingHolding.weight).toFixed(2) : null,
           executedWeightPct: matchingHolding ? ((executedAmount / totalPortfolioValue) * 100).toFixed(2) : null,
           driftBeforePct: matchingHolding?.drift ? parseFloat(matchingHolding.drift).toFixed(2) : null,
-          executionStatus: "executed",
+          executionStatus,
           executionChannel: channel,
           rationale: action.reason || `Algo drift rebalance: ${legAction} ${instrumentName} to maintain target allocation`,
           confidenceScore: 90,
@@ -448,6 +542,7 @@ export class ModelPortfolioAlgoService {
             threshold: effectiveThreshold,
             rebalanceMode: portfolio.rebalancingMode,
             engineVersion: ALGO_ENGINE_VERSION,
+            brokerOrderId: brokerOrderId ?? undefined,
           },
           idempotencyKey,
           engineVersion: ALGO_ENGINE_VERSION,
@@ -473,8 +568,8 @@ export class ModelPortfolioAlgoService {
             orderType: legAction.toLowerCase(),
             amount: executedAmount.toFixed(2),
             quantity: units ? units.toFixed(4) : null,
-            status: "executed",
-            executionStatus: "executed",
+            status: executionStatus === "submitted" ? "pending" : "executed",
+            executionStatus,
             executionPrice: nav.toFixed(6),
             executedQuantity: units ? units.toFixed(4) : null,
             executedAt: new Date(),
@@ -484,6 +579,8 @@ export class ModelPortfolioAlgoService {
               transactionNumber: transNum,
               algoExecution: true,
               engineVersion: ALGO_ENGINE_VERSION,
+              upstoxRouted: Boolean(brokerOrderId),
+              brokerOrderId: brokerOrderId ?? undefined,
             },
           })
           .returning();
@@ -497,10 +594,10 @@ export class ModelPortfolioAlgoService {
         // ── C. Record order lifecycle event ───────────────────────────────────
         await db.insert(orderLifecycleEvents).values({
           orderId: uniOrder.id,
-          eventType: "ALGO_ORDER_EXECUTED",
-          eventName: "Algorithmic Model Portfolio Trade Executed",
-          eventDescription: `Algo executed ${legAction} of ₹${executedAmount.toLocaleString("en-IN")} on ${instrumentName}`,
-          newState: { status: "executed", amount: executedAmount, nav },
+          eventType: brokerOrderId ? "UPSTOX_ALGO_ORDER_SUBMITTED" : "ALGO_ORDER_EXECUTED",
+          eventName: brokerOrderId ? "Upstox Model Portfolio Trade Dispatched" : "Algorithmic Model Portfolio Trade Executed",
+          eventDescription: `Algo executed ${legAction} of ₹${executedAmount.toLocaleString("en-IN")} on ${instrumentName} at ₹${nav.toFixed(2)}`,
+          newState: { status: executionStatus, amount: executedAmount, nav, brokerOrderId },
           actorId: actorId ?? null,
           actorType,
           isSystemGenerated: true,
@@ -508,6 +605,7 @@ export class ModelPortfolioAlgoService {
             portfolioId,
             transactionNumber: transNum,
             algoEngine: ALGO_ENGINE_VERSION,
+            brokerOrderId: brokerOrderId ?? undefined,
           },
         });
       } catch (orderErr: any) {

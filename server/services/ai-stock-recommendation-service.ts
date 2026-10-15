@@ -2094,11 +2094,6 @@ Provide analysis in JSON format:
 			maxResults: 5,
 		});
 	}
-
-	clearCache(): void {
-		this.recommendationCache.clear();
-		logger.info("Stock recommendation cache cleared");
-	}
 }
 
 export const aiStockRecommendationService = new AIStockRecommendationService();

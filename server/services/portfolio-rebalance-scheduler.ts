@@ -46,6 +46,8 @@ import {
 } from "./model-portfolio-optimizer";
 import { checkDrawdownCircuitBreaker } from "./model-portfolio-quant-service";
 import { normalizePortfolioHoldings } from "../utils/portfolio-holdings-normalizer";
+import { upstoxMarketDataService } from "./upstox-market-data-service";
+import { unifiedStockPriceService } from "./unified-stock-price-service";
 
 const MODEL_VERSION = "FASP-AI v3.0 / rebalance-v1";
 const RISK_DISCLAIMER =
@@ -1000,22 +1002,59 @@ export async function autoApplyCalendarRebalancing(): Promise<{
         ),
         marketRegime: regime.regime,
         engine:       MODEL_VERSION,
-        // Fix G: NAV at decision — SEBI audit trail requires recording the price in effect
-        // at the time of the swap recommendation. Fetched from mf_nav_history; non-fatal if absent.
+        // Upstox Upgrade: NAV/Price at decision — SEBI audit trail requires recording the price in effect
+        // at the time of the swap recommendation. Fetched from Upstox/Unified for stocks, mf_nav_history for MFs.
         navAtDecision: await (async () => {
           try {
             const firstSuggestion = applicableSuggestions[0];
-            // The replacement candidate is at .alternatives[0] (HoldingCandidate)
             const best = firstSuggestion?.alternatives?.[0];
-            const isin = best?.isin ?? null;  // HoldingCandidate has isin; AlphaDragHolding does not
-            if (!isin) return null;
-            const navRow = await db.execute(sql`
-              SELECT nav_date, nav FROM mf_nav_history
-              WHERE isin = ${String(isin)}
-              ORDER BY nav_date DESC LIMIT 1
-            `);
-            const r = (navRow as any).rows?.[0];
-            return r ? { navDate: r.nav_date, nav: Number(r.nav) } : null;
+            const symbol = best?.symbol ? String(best.symbol).toUpperCase() : null;
+            const isin = best?.isin ? String(best.isin) : null;
+
+            // 1. If equity stock / ETF with symbol, use Upstox Tier-0 / Unified pricing
+            if (symbol) {
+              if (upstoxMarketDataService.isReady()) {
+                const uQuote = await upstoxMarketDataService.getQuote(symbol);
+                if (uQuote.success && uQuote.data?.last_price) {
+                  return {
+                    navDate: new Date().toISOString().split("T")[0],
+                    nav: uQuote.data.last_price,
+                    source: "UPSTOX",
+                    symbol,
+                    isin,
+                  };
+                }
+              }
+              const priceObj = await unifiedStockPriceService.getPrice(symbol);
+              if (priceObj?.price) {
+                return {
+                  navDate: new Date(priceObj.timestamp || Date.now()).toISOString().split("T")[0],
+                  nav: priceObj.price,
+                  source: priceObj.source || "UNIFIED",
+                  symbol,
+                  isin,
+                };
+              }
+            }
+
+            // 2. If MF (or if symbol didn't resolve), check mf_nav_history
+            if (isin) {
+              const navRow = await db.execute(sql`
+                SELECT nav_date, nav FROM mf_nav_history
+                WHERE isin = ${isin} OR scheme_code = ${isin}
+                ORDER BY nav_date DESC LIMIT 1
+              `);
+              const r = (navRow as any).rows?.[0];
+              if (r) {
+                return {
+                  navDate: r.nav_date,
+                  nav: Number(r.nav),
+                  source: "MF_NAV_HISTORY",
+                  isin,
+                };
+              }
+            }
+            return null;
           } catch { return null; }
         })(),
 

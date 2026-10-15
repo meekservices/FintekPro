@@ -15,7 +15,7 @@ import {
 } from "../services/pro-stock-lists-service";
 import { logger } from "../logger";
 import { db } from "../db";
-import { toNseKey } from "../services/upstox-market-data-service";
+import { toNseKey, upstoxMarketDataService } from "../services/upstox-market-data-service";
 import { researchLists, researchListItems, agents } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
@@ -225,3 +225,71 @@ proStockListsRouter.post("/:slug/save-to-research-list", async (req: Request, re
     });
   }
 });
+
+// ── GET /api/research-lists/pro-stock-lists/time-series/:symbol ────────────────
+// Returns daily OHLCV candles & normalized sparkline points for dynamic plotting
+proStockListsRouter.get("/time-series/:symbol", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  const rawSymbol = req.params.symbol.trim().toUpperCase();
+  const days = Math.min(Math.max(Number.parseInt(req.query.days as string, 10) || 30, 5), 365);
+  const toDate = new Date().toISOString().split("T")[0];
+  const fromDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+  try {
+    let candles: Array<{ timestamp: string; open: number; high: number; low: number; close: number; volume: number }> = [];
+
+    if (upstoxMarketDataService.isReady()) {
+      const result = await upstoxMarketDataService.getHistoricalData(rawSymbol, "day", fromDate, toDate, "NSE");
+      if (result.success && result.data && result.data.length > 0) {
+        candles = result.data;
+      }
+    }
+
+    // Normalized sparkline data points
+    const sparkline = candles.map((c) => ({
+      date: c.timestamp.split("T")[0],
+      close: c.close,
+    }));
+
+    const startPrice = candles.length > 0 ? candles[0].close : 0;
+    const endPrice = candles.length > 0 ? candles[candles.length - 1].close : 0;
+    const returnPercent = startPrice > 0 ? ((endPrice - startPrice) / startPrice) * 100 : 0;
+
+    res.json({
+      success: true,
+      data: {
+        symbol: rawSymbol,
+        days,
+        candles,
+        sparkline,
+        summary: {
+          startPrice,
+          endPrice,
+          returnPercent: Math.round(returnPercent * 100) / 100,
+          candlesCount: candles.length,
+        },
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: "1.0.0",
+        provider: candles.length > 0 ? "UPSTOX" : "UNAVAILABLE",
+        latency_ms: Date.now() - t0,
+      },
+    });
+  } catch (error: any) {
+    logger.warn("[ProStockListsRouter] Failed to fetch time-series for plotting", {
+      symbol: rawSymbol,
+      error: error?.message || String(error),
+    });
+    res.status(500).json({
+      success: false,
+      error: {
+        error_code: "PLOT_DATA_FAILED",
+        message: `Failed to retrieve plotting time-series for ${rawSymbol}`,
+        retryable: true,
+      },
+      meta: { timestamp: new Date().toISOString(), version: "1.0.0" },
+    });
+  }
+});
+

@@ -1,6 +1,14 @@
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+} from "recharts";
+import {
   Card,
   CardContent,
   CardHeader,
@@ -183,6 +191,28 @@ export function ProStockListsView() {
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState<boolean>(false);
   const [saveListName, setSaveListName] = useState<string>("");
+  const [plottingStock, setPlottingStock] = useState<{ symbol: string; companyName: string; ltp: number } | null>(null);
+
+  // Time-Series Plot Query
+  const { data: plotResponse, isLoading: isPlotLoading } = useQuery<{
+    success: boolean;
+    data: {
+      symbol: string;
+      days: number;
+      sparkline: Array<{ date: string; close: number }>;
+      summary: { startPrice: number; endPrice: number; returnPercent: number; candlesCount: number };
+    };
+  }>({
+    queryKey: ["/api/research-lists/pro-stock-lists/time-series", plottingStock?.symbol],
+    queryFn: async () => {
+      if (!plottingStock?.symbol) return null;
+      const res = await fetch(`/api/research-lists/pro-stock-lists/time-series/${plottingStock.symbol}?days=30`);
+      if (!res.ok) throw new Error("Failed to fetch plot data");
+      return res.json();
+    },
+    enabled: Boolean(plottingStock?.symbol),
+    staleTime: 60 * 1000,
+  });
 
   // Categories list query
   const { data: categoriesData } = useQuery<{
@@ -912,6 +942,21 @@ export function ProStockListsView() {
                         {/* Quick Analysis Actions */}
                         <TableCell className="text-center py-3">
                           <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-cyan-400"
+                              title="Plot Dynamic Time-Series"
+                              onClick={() =>
+                                setPlottingStock({
+                                  symbol: stock.symbol,
+                                  companyName: stock.companyName,
+                                  ltp: stock.ltp,
+                                })
+                              }
+                            >
+                              <Activity className="h-3.5 w-3.5" />
+                            </Button>
                             <Link href={`/agent/iris-hub?symbol=${stock.symbol}`}>
                               <Button
                                 variant="ghost"
@@ -951,6 +996,85 @@ export function ProStockListsView() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Dynamic Price Plot Modal ── */}
+      <Dialog open={Boolean(plottingStock)} onOpenChange={(open) => !open && setPlottingStock(null)}>
+        <DialogContent className="max-w-2xl bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between text-base">
+              <div className="flex items-center gap-2">
+                <Activity className="h-4 w-4 text-cyan-400" />
+                <span>{plottingStock?.companyName}</span>
+                <Badge variant="outline" className="font-mono text-xs">{plottingStock?.symbol}</Badge>
+              </div>
+              <span className="font-mono text-sm font-semibold">₹{plottingStock?.ltp?.toFixed(2)}</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              30-Day Trading Session Dynamic Price Plot (Powered by Upstox Market Data Feed)
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2">
+            {isPlotLoading ? (
+              <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">
+                <RefreshCw className="h-5 w-5 animate-spin mr-2 text-cyan-400" />
+                Plotting historical time-series...
+              </div>
+            ) : plotResponse?.data?.sparkline && plotResponse.data.sparkline.length > 0 ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-2 p-2.5 rounded-lg bg-muted/30 border border-border/50 text-xs font-mono">
+                  <div>
+                    <span className="text-muted-foreground block text-[10px]">Start Price</span>
+                    <span className="font-semibold">₹{plotResponse.data.summary.startPrice?.toFixed(2)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[10px]">Latest Close</span>
+                    <span className="font-semibold">₹{plotResponse.data.summary.endPrice?.toFixed(2)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[10px]">30D Trajectory</span>
+                    <span className={`font-semibold ${plotResponse.data.summary.returnPercent >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      {plotResponse.data.summary.returnPercent >= 0 ? "+" : ""}{plotResponse.data.summary.returnPercent?.toFixed(2)}%
+                    </span>
+                  </div>
+                </div>
+
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={plotResponse.data.sparkline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="plotGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={plotResponse.data.summary.returnPercent >= 0 ? "#10b981" : "#ef4444"} stopOpacity={0.3} />
+                          <stop offset="95%" stopColor={plotResponse.data.summary.returnPercent >= 0 ? "#10b981" : "#ef4444"} stopOpacity={0.0} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="date" stroke="#64748b" fontSize={10} tickLine={false} />
+                      <YAxis domain={["auto", "auto"]} stroke="#64748b" fontSize={10} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", borderRadius: "8px", fontSize: "12px" }}
+                        formatter={(value: any) => [`₹${Number(value).toFixed(2)}`, "Close Price"]}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="close"
+                        stroke={plotResponse.data.summary.returnPercent >= 0 ? "#10b981" : "#ef4444"}
+                        strokeWidth={2}
+                        fillOpacity={1}
+                        fill="url(#plotGradient)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : (
+              <div className="h-64 flex flex-col items-center justify-center text-xs text-muted-foreground">
+                <Info className="h-6 w-6 text-muted-foreground mb-2" />
+                Historical trading sessions being plotted into database cache.
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Regulatory Disclaimer (FASP-AI v1.0) ── */}
       <div className="rounded-lg bg-muted/30 border border-border/40 p-3 text-[11px] text-muted-foreground space-y-1">

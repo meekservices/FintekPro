@@ -76,6 +76,44 @@ export async function runStartupSchemaRepairs() {
 			`);
 			console.log("  ✅ listed_stocks: SERVICE baseline price updated to ₹69.15 (Micro Cap / SM series)");
 		} catch { /* non-fatal */ }
+
+		// ── Fast-path for listed_stocks dynamic feeder columns ───────────────
+		const _listedStockCols: Array<[string, string]> = [
+			["series", "VARCHAR(16) DEFAULT 'EQ'"],
+			["upstox_instrument_key", "VARCHAR(64)"],
+			["piotroski_f_score", "INTEGER"],
+			["consensus_upside_percent", "NUMERIC(8,2)"],
+			["technical_signal", "VARCHAR(32)"],
+			["pro_themes", "TEXT[] DEFAULT '{}'"],
+		];
+		for (const [col, colType] of _listedStockCols) {
+			try {
+				await migPool.query(`ALTER TABLE listed_stocks ADD COLUMN IF NOT EXISTS "${col}" ${colType}`);
+			} catch { /* column or table exists */ }
+		}
+		try {
+			await migPool.query(`CREATE INDEX IF NOT EXISTS "idx_listed_stocks_upstox_key" ON listed_stocks("upstox_instrument_key")`);
+			await migPool.query(`CREATE INDEX IF NOT EXISTS "idx_listed_stocks_fscore" ON listed_stocks("piotroski_f_score")`);
+			await migPool.query(`CREATE INDEX IF NOT EXISTS "idx_listed_stocks_upside" ON listed_stocks("consensus_upside_percent")`);
+			await migPool.query(`CREATE INDEX IF NOT EXISTS "idx_listed_stocks_tech_signal" ON listed_stocks("technical_signal")`);
+		} catch { /* non-fatal */ }
+
+		// ── Fast-path for research_lists dynamic feeder columns ──────────────
+		const _researchListCols: Array<[string, string]> = [
+			["is_dynamic", "BOOLEAN DEFAULT FALSE"],
+			["dynamic_criteria", "JSONB"],
+			["max_constituents", "INTEGER DEFAULT 50"],
+		];
+		for (const [col, colType] of _researchListCols) {
+			try {
+				await migPool.query(`ALTER TABLE research_lists ADD COLUMN IF NOT EXISTS "${col}" ${colType}`);
+			} catch { /* column or table exists */ }
+		}
+		try {
+			await migPool.query(`CREATE INDEX IF NOT EXISTS "idx_research_lists_dynamic" ON research_lists("is_dynamic")`);
+		} catch { /* non-fatal */ }
+		console.log("  ✅ [CRITICAL] listed_stocks & research_lists dynamic feeder columns ensured");
+
 		// ── END CRITICAL FAST-PATH ────────────────────────────────────────────
 
 

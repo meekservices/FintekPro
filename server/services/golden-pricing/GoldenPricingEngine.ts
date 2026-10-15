@@ -301,6 +301,84 @@ async function fetchIndianAPIPrice(
 }
 
 /**
+ * Upstox Developer API v2 /historical-candle — EOD daily close prices for a symbol over a period.
+ * Licensed NSE/BSE broker feed (SEBI grade, Confidence 96).
+ *
+ * @param symbol  NSE symbol e.g. "RELIANCE"
+ * @param period  "1m" | "3m" | "6m" | "1y" | "2y" | "3y" | "5y"
+ * @param exchange "NSE" | "BSE"
+ * @returns Array of { date: string, close: number } sorted ascending
+ */
+export async function fetchUpstoxHistorical(
+	symbol: string,
+	period: "1m" | "3m" | "6m" | "1y" | "2y" | "3y" | "5y" = "1y",
+	exchange: "NSE" | "BSE" = "NSE",
+): Promise<{ date: string; close: number }[]> {
+	if (!upstoxMarketDataService.isReady()) return [];
+
+	try {
+		const now = new Date();
+		const toDate = now.toISOString().slice(0, 10);
+		const from = new Date(now);
+
+		switch (period) {
+			case "1m": from.setMonth(from.getMonth() - 1); break;
+			case "3m": from.setMonth(from.getMonth() - 3); break;
+			case "6m": from.setMonth(from.getMonth() - 6); break;
+			case "1y": from.setFullYear(from.getFullYear() - 1); break;
+			case "2y": from.setFullYear(from.getFullYear() - 2); break;
+			case "3y": from.setFullYear(from.getFullYear() - 3); break;
+			case "5y": from.setFullYear(from.getFullYear() - 5); break;
+			default:   from.setFullYear(from.getFullYear() - 1); break;
+		}
+
+		const fromDate = from.toISOString().slice(0, 10);
+		const res = await upstoxMarketDataService.getHistoricalData(
+			symbol,
+			"day",
+			fromDate,
+			toDate,
+			exchange,
+		);
+
+		if (!res.success || !res.data || res.data.length === 0) return [];
+
+		return res.data
+			.map((c) => ({
+				date: c.timestamp.slice(0, 10),
+				close: c.close,
+			}))
+			.filter((r) => r.close > 0)
+			.sort((a, b) => a.date.localeCompare(b.date));
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * Multi-source historical price fetcher:
+ *   Tier 0: Upstox (Licensed NSE/BSE)
+ *   Tier 1: IndianAPI
+ *   Tier 2: Yahoo Finance
+ */
+export async function fetchHistoricalPrices(
+	symbol: string,
+	period: "1m" | "3m" | "6m" | "1y" | "2y" | "3y" | "5y" = "1y",
+): Promise<{ date: string; close: number }[]> {
+	// 1. Upstox (Tier 0)
+	const upstoxRows = await fetchUpstoxHistorical(symbol, period);
+	if (upstoxRows.length >= 5) return upstoxRows;
+
+	// 2. IndianAPI (Tier 1)
+	const p1 = (period === "2y" || period === "3y" || period === "5y") ? "1y" : period;
+	const indianRows = await fetchIndianAPIHistorical(symbol, p1 as any);
+	if (indianRows.length >= 5) return indianRows;
+
+	// 3. Yahoo Finance (Tier 2)
+	return fetchYahooHistorical(symbol, p1 as any);
+}
+
+/**
  * analyst.indianapi.in /historical_data — EOD close prices for a symbol over a period.
  *
  * @param symbol  NSE symbol e.g. "RELIANCE"

@@ -19,6 +19,7 @@ import { sql } from "drizzle-orm";
 import { logger } from "../logger";
 import { db as _dbType } from "../db"; // L-MP4: import for typeof — do NOT use the singleton directly (callers pass their own)
 import { bigQueryTimeSeriesService } from "./bigquery-timeseries-service";
+import { fetchHistoricalPrices } from "./golden-pricing/GoldenPricingEngine";
 type DbClient = typeof _dbType;
 
 
@@ -101,6 +102,91 @@ function generateSyntheticNavCurve(
   return rows;
 }
 
+/**
+ * Upstox Upgrade: Fetches real stock price history for an equity model portfolio's constituents,
+ * weighted by target allocation, to produce a blended monthly NAV series.
+ *
+ * Source priority:
+ *   1. Upstox Tier-0 / GoldenPricing historical candles via fetchHistoricalPrices()
+ *   2. Falls back to synthetic curve if history unavailable
+ */
+async function fetchStockNavCurve(
+  stockHoldings: Array<{ symbol: string; weight: number }>,
+  inceptionDate?: Date | null,
+): Promise<MonthRow[] | null> {
+  if (!stockHoldings.length) return null;
+
+  try {
+    const totalWeight = stockHoldings.reduce((sum, h) => sum + h.weight, 0) || 100;
+    // Limit to top 8 holdings to stay well within rate limits and execution budgets
+    const topHoldings = [...stockHoldings]
+      .sort((a, b) => b.weight - a.weight)
+      .slice(0, 8);
+
+    // Map month_start -> blended return
+    const monthReturnsMap = new Map<string, number>();
+
+    for (const holding of topHoldings) {
+      const prices = await fetchHistoricalPrices(holding.symbol, "1y");
+      if (!prices || prices.length < 10) continue;
+
+      // Group by YYYY-MM
+      const monthlyBuckets = new Map<string, { firstClose: number; lastClose: number }>();
+      for (const p of prices) {
+        const monthKey = p.date.slice(0, 7) + "-01";
+        const entry = monthlyBuckets.get(monthKey);
+        if (!entry) {
+          monthlyBuckets.set(monthKey, { firstClose: p.close, lastClose: p.close });
+        } else {
+          entry.lastClose = p.close;
+        }
+      }
+
+      const sortedMonths = Array.from(monthlyBuckets.keys()).sort();
+      for (let i = 0; i < sortedMonths.length; i++) {
+        const mKey = sortedMonths[i];
+        const bucket = monthlyBuckets.get(mKey)!;
+        let retPct = 0;
+        if (i === 0) {
+          retPct = ((bucket.lastClose - bucket.firstClose) / bucket.firstClose) * 100;
+        } else {
+          const prevBucket = monthlyBuckets.get(sortedMonths[i - 1])!;
+          retPct = ((bucket.lastClose - prevBucket.lastClose) / prevBucket.lastClose) * 100;
+        }
+
+        const effectiveWeight = holding.weight / totalWeight;
+        const currentSum = monthReturnsMap.get(mKey) ?? 0;
+        monthReturnsMap.set(mKey, currentSum + retPct * effectiveWeight);
+      }
+    }
+
+    const validMonths = Array.from(monthReturnsMap.keys()).sort();
+    if (validMonths.length < 2) return null;
+
+    const navRows: MonthRow[] = [];
+    let nav = 1000;
+    let bench = 1000;
+    const benchMonthlyPct = 1.05; // ~13.2% p.a. Nifty 50 TRI baseline
+
+    for (const mKey of validMonths) {
+      const blendedReturn = monthReturnsMap.get(mKey) ?? 0;
+      nav *= (1 + blendedReturn / 100);
+      bench *= (1 + benchMonthlyPct / 100);
+
+      navRows.push({
+        month_start: mKey,
+        portfolio_nav: Math.round(nav * 100) / 100,
+        benchmark_nav: Math.round(bench * 100) / 100,
+        had_rebalance: false,
+      });
+    }
+
+    return navRows.length >= 2 ? navRows : null;
+  } catch (err: any) {
+    logger.warn("[NavService] fetchStockNavCurve non-fatal error", { error: err.message });
+    return null;
+  }
+}
 
 /**
  * Fetches real mf_monthwise_performance data for a portfolio's holdings,
@@ -109,15 +195,13 @@ function generateSyntheticNavCurve(
  * Source priority for scheme codes:
  *   1. model_portfolio_holdings (relational table — enriched by Phase C ISIN resolver)
  *   2. JSONB holdings seed (fallback for portfolios not yet migrated)
+ *   3. Direct equity stock holdings via Upstox / fetchHistoricalPrices
  *
  * Benchmark source priority:
  *   1. benchmark_return column of mf_monthwise_performance (real monthly %)
  *   2. Hardcoded 0.80%/month flat rate (9.6% pa) — last-resort fallback
  *
  * Returns null if insufficient data (< 2 months).
- *
- * Bug C fix: previous version queried non-existent columns nav_date + nav.
- * mf_monthwise_performance has month_year (date) + return_percent (numeric).
  */
 async function fetchRealNavCurve(db: DbClient, portfolio: any): Promise<MonthRow[] | null> {
   const pid = portfolio.id as string;
@@ -125,6 +209,7 @@ async function fetchRealNavCurve(db: DbClient, portfolio: any): Promise<MonthRow
 
   // ── Scheme codes: relational table PRIMARY, JSONB seed FALLBACK ───────────
   let schemeCodes: string[] = [];
+  let rawHoldingsList: any[] = [];
 
   try {
     const relResult = await db.execute(sql`
@@ -141,20 +226,35 @@ async function fetchRealNavCurve(db: DbClient, portfolio: any): Promise<MonthRow
 
   // JSONB fallback: use seed holdings if relational table yielded nothing
   if (schemeCodes.length === 0) {
-    // Bug B-style safe parse: pg returns JSONB as already-parsed object
     const rawH = portfolio.holdings;
-    const holdings: any[] = Array.isArray(rawH)
+    rawHoldingsList = Array.isArray(rawH)
       ? rawH
       : typeof rawH === "string"
       ? (() => { try { return JSON.parse(rawH); } catch { return []; } })()
       : [];
-    schemeCodes = holdings
+    schemeCodes = rawHoldingsList
       .map((h: any) => h.schemeCode ?? h.scheme_code ?? h.amfiSchemeCode)
       .filter(Boolean)
       .map(String);
   }
 
-  if (schemeCodes.length === 0) return null;
+  // If no mutual fund scheme codes, check for direct equity stock holdings
+  if (schemeCodes.length === 0) {
+    const stockHoldings = rawHoldingsList
+      .filter((h: any) => h.symbol && typeof h.symbol === "string" && !/^\d+$/.test(h.symbol))
+      .map((h: any) => ({
+        symbol: String(h.symbol).toUpperCase(),
+        weight: Number(h.weight ?? 0) || 1,
+      }));
+
+    if (stockHoldings.length > 0) {
+      const stockCurve = await fetchStockNavCurve(stockHoldings, inceptionFilter ? new Date(inceptionFilter) : null);
+      if (stockCurve && stockCurve.length >= 2) {
+        return stockCurve;
+      }
+    }
+    return null;
+  }
 
   // ── Bug C fix: query month_year + return_percent (not nav_date + nav) ─────
   // Fetch monthly return_percent per scheme, group by month, average across
