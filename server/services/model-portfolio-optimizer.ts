@@ -32,6 +32,7 @@ import { db } from "../db";
 import { sql, eq } from "drizzle-orm";
 import { modelPortfolios } from "../../shared/schema";
 import { logger } from "../logger";
+import { upstoxMarketDataService } from "./upstox-market-data-service";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 export const OPTIMIZER_MODEL_VERSION = "FASP-AI v3.0 / optimizer-v1";
@@ -97,6 +98,9 @@ export interface HoldingCandidate {
   isin: string | null;
   compositeScore: number;
   improvementVsCurrent: number;
+  currentPrice?: number | null;
+  dayChangePercent?: number | null;
+  priceSource?: "UPSTOX" | "UNIFIED" | "DB_STALE";
 }
 
 export interface OptimizationSuggestion {
@@ -667,6 +671,43 @@ export async function generateOptimizationSuggestions(
         estimatedTaxSaved,
         driftBenefitRs,
       });
+    }
+  }
+
+  // ── Upstox Live Price Enrichment for Replacement Alternatives ───────────────
+  // Collect all unique stock alternative symbols across suggestions and batch price them via Upstox.
+  if (upstoxMarketDataService.isReady()) {
+    const alternativeSymbols = new Set<string>();
+    for (const s of suggestions) {
+      for (const alt of s.alternatives) {
+        if (alt.symbol && alt.symbol.length >= 2 && !alt.symbol.startsWith("INE") && alt.symbol !== "MF") {
+          alternativeSymbols.add(alt.symbol.toUpperCase());
+        }
+      }
+    }
+
+    if (alternativeSymbols.size > 0) {
+      try {
+        const batchResult = await upstoxMarketDataService.getBatchQuotes(Array.from(alternativeSymbols), "NSE");
+        if (batchResult.success && batchResult.data) {
+          for (const s of suggestions) {
+            for (const alt of s.alternatives) {
+              const sym = alt.symbol?.toUpperCase();
+              if (sym && batchResult.data.has(sym)) {
+                const quote = batchResult.data.get(sym);
+                if (quote?.last_price && quote.last_price > 0) {
+                  alt.currentPrice = quote.last_price;
+                  alt.dayChangePercent = quote.change_percent ?? null;
+                  alt.priceSource = "UPSTOX";
+                }
+              }
+            }
+          }
+          logger.info(`[Optimizer] Upstox enriched live prices for ${alternativeSymbols.size} replacement alternatives`);
+        }
+      } catch (err: any) {
+        logger.warn("[Optimizer] Upstox batch price enrichment skipped", { error: err?.message });
+      }
     }
   }
 

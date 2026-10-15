@@ -4,6 +4,7 @@ import { eq, and, gte, desc, sql, inArray } from "drizzle-orm";
 import { aiAnalyticsEngine } from "./ai-analytics-engine";
 import { aiResponseCacheService } from "./ai-response-cache-service";
 import { logger } from "../logger"; // Fix #14: structured GCR-compliant logging
+import { upstoxMarketDataService } from "./upstox-market-data-service";
 
 export interface AssetCandidate {
 	pickId: number;
@@ -256,8 +257,31 @@ export class AIPortfolioOptimizer {
 			(p) => p.instrumentId || p.symbol || `pick-${p.id}`,
 		);
 
-		// Batch fetch return series for all picks to reduce DB roundtrips
-		const returnSeriesMap = await this.fetchReturnSeriesBatch(assetIds);
+		// ── Upstox Upgrade 1: Pre-fetch live batch quotes for candidate picks ────────
+		if (upstoxMarketDataService.isReady()) {
+			const symbolsToPrice = picks
+				.map((p) => p.symbol)
+				.filter((s): s is string => typeof s === "string" && s.trim().length > 0 && !s.startsWith("INE"));
+			if (symbolsToPrice.length > 0) {
+				try {
+					const batchRes = await upstoxMarketDataService.getBatchQuotes(symbolsToPrice, "NSE");
+					if (batchRes.success && batchRes.data) {
+						for (const pick of picks) {
+							if (!pick.symbol) continue;
+							const q = batchRes.data.get(pick.symbol.toUpperCase());
+							if (q?.last_price && q.last_price > 0) {
+								pick.currentPrice = String(q.last_price);
+							}
+						}
+					}
+				} catch (err: any) {
+					logger.warn("[AIPortfolioOptimizer] Upstox batch pricing non-fatal error", { error: err?.message });
+				}
+			}
+		}
+
+		// Batch fetch return series for all picks (with Upstox historical candle fallback)
+		const returnSeriesMap = await this.fetchReturnSeriesBatch(picks);
 
 		for (const pick of picks) {
 			try {
@@ -325,10 +349,12 @@ export class AIPortfolioOptimizer {
 	}
 
 	private async fetchReturnSeriesBatch(
-		assetIds: string[],
+		picks: any[],
 		days: number = 90,
 	): Promise<Map<string, number[]>> {
 		const results = new Map<string, number[]>();
+		const assetIds = picks.map((p) => p.instrumentId || p.symbol || `pick-${p.id}`);
+
 		try {
 			const cutoffDate = new Date();
 			cutoffDate.setDate(cutoffDate.getDate() - days);
@@ -358,11 +384,48 @@ export class AIPortfolioOptimizer {
 				groupedData.get(data.assetId)!.push(data);
 			}
 
+			// 1. Populate from DB price history
 			for (const assetId of assetIds) {
 				const priceData = groupedData.get(assetId) || [];
 				if (priceData.length >= 5) {
 					const prices = priceData.map((p) => Number.parseFloat(p.close));
 					results.set(assetId, aiAnalyticsEngine.pricesToReturns(prices));
+				}
+			}
+
+			// 2. Upstox Upgrade: For symbols with < 5 DB records, fetch real historical daily candles
+			if (upstoxMarketDataService.isReady()) {
+				const toDateStr = new Date().toISOString().split("T")[0];
+				const fromDateStr = cutoff;
+
+				for (const pick of picks) {
+					const assetId = pick.instrumentId || pick.symbol || `pick-${pick.id}`;
+					if (results.has(assetId)) continue; // Already has DB history
+
+					const symbol = pick.symbol;
+					if (symbol && typeof symbol === "string" && !symbol.startsWith("INE") && symbol.length >= 2) {
+						try {
+							const candleRes = await upstoxMarketDataService.getHistoricalData(
+								symbol.toUpperCase(),
+								"day",
+								fromDateStr,
+								toDateStr,
+								"NSE"
+							);
+							if (candleRes.success && Array.isArray(candleRes.data) && candleRes.data.length >= 5) {
+								const closes = candleRes.data
+									.map((c) => c.close)
+									.filter((c) => Number.isFinite(c) && c > 0)
+									.reverse(); // Upstox candles come newest-first, reverse to chronological
+								if (closes.length >= 5) {
+									results.set(assetId, aiAnalyticsEngine.pricesToReturns(closes));
+									logger.info(`[AIPortfolioOptimizer] Upstox loaded ${closes.length} real historical candles for ${symbol}`);
+								}
+							}
+						} catch (candleErr: any) {
+							// Silent fall-through to synthetic
+						}
+					}
 				}
 			}
 		} catch (err) {

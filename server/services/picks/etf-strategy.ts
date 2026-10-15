@@ -10,6 +10,7 @@ import {
 	isETFFrameworkActive,
 } from "../etf-trading-framework";
 import { unifiedStockPriceService } from "../unified-stock-price-service";
+import { upstoxMarketDataService } from "../upstox-market-data-service";
 
 
 /** Detect ETF type from name for accurate sectorCategory display. */
@@ -298,6 +299,16 @@ export class ETFStrategy extends BaseStrategy {
 
 			const symbol = row[0]?.symbol || instrumentId;
 			if (symbol && typeof symbol === "string" && !/^\d+$/.test(symbol)) {
+				// Upstox Tier-0 (Licensed NSE Feed)
+				if (upstoxMarketDataService.isReady()) {
+					try {
+						const uRes = await upstoxMarketDataService.getLTP(symbol, "NSE");
+						if (uRes.success && uRes.data?.last_price && uRes.data.last_price > 0) {
+							return uRes.data.last_price;
+						}
+					} catch {}
+				}
+
 				const quote = await unifiedStockPriceService.getPrice(symbol, "NSE");
 				if (quote && Number.isFinite(quote.price) && quote.price > 0) {
 					return quote.price;

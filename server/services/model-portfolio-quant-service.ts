@@ -28,6 +28,7 @@ import { logger } from "../logger";
 import { retryWithBackoff } from "../utils/retry-with-backoff";
 import { telemetryBus } from "./engine-telemetry-bus";
 import { normalizePortfolioHoldings } from "../utils/portfolio-holdings-normalizer";
+import { upstoxMarketDataService } from "./upstox-market-data-service";
 
 export const ENGINE_VERSION = "FASP-AI-v3.0"; // Fix 5: mandatory version per FASP-AI v3.0
 const RISK_FREE_RATE = 7.1; // RBI repo rate proxy (annualised %)
@@ -776,20 +777,64 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
       { context: "NightlyBatch.fetchPortfolios", maxRetries: 3 },
     );
 
+    // ── Upstox Upgrade: Pre-warm live quotes for equity stock holdings ──────────
+    const allStockSymbols = new Set<string>();
+    if (upstoxMarketDataService.isReady()) {
+      for (const row of portfolios.rows as any[]) {
+        const rawHoldings = (row.holdings as any[]) ?? [];
+        for (const h of rawHoldings) {
+          const sym = h.symbol ?? (typeof h.name === "string" && !h.name.toLowerCase().includes("fund") ? h.name : null);
+          if (sym && typeof sym === "string" && sym.length >= 2 && !sym.startsWith("INE") && sym !== "LIQUID") {
+            allStockSymbols.add(sym.toUpperCase());
+          }
+        }
+      }
+    }
+
+    const upstoxPriceMap = new Map<string, number>();
+    if (allStockSymbols.size > 0 && upstoxMarketDataService.isReady()) {
+      try {
+        const batchRes = await upstoxMarketDataService.getBatchQuotes(Array.from(allStockSymbols), "NSE");
+        if (batchRes.success && batchRes.data) {
+          for (const [sym, quote] of batchRes.data.entries()) {
+            if (quote?.last_price && quote.last_price > 0) {
+              upstoxPriceMap.set(sym.toUpperCase(), quote.last_price);
+            }
+          }
+          logger.info(`[QuantEngine] Upstox loaded real-time prices for ${upstoxPriceMap.size}/${allStockSymbols.size} equity holdings`);
+        }
+      } catch (upstoxErr: any) {
+        logger.warn("[QuantEngine] Upstox batch pre-fetch skipped", { error: upstoxErr?.message });
+      }
+    }
+
     for (const row of portfolios.rows as any[]) {
       // BUG-4 / PM-1 FIX: Per-portfolio latency stopwatch.
       // The outer t0 only captures batch-total latency; slow outlier portfolios were invisible.
       const portfolioT0 = Date.now();
       try {
-        const holdings: QuantHolding[] = ((row.holdings as any[]) ?? []).map((h: any) => ({
-          rank:          Number(h.rank ?? 0),
-          name:          String(h.name ?? h.instrumentName ?? "Unknown"),
-          category:      String(h.category ?? h.type ?? "MF"),
-          weight:        parseFloat(h.weight ?? h.targetWeight ?? 0),
-          // Defensive clamp on holding return [-40%, +60%] to prevent runaway outliers from distorting portfolio metrics
-          currentReturn: Math.max(-40, Math.min(60, parseFloat(h.currentReturn ?? h.returns_1y ?? 0))),
-          currentWeight: h.currentWeight ? parseFloat(h.currentWeight) : undefined,
-        }));
+        const holdings: QuantHolding[] = ((row.holdings as any[]) ?? []).map((h: any) => {
+          const symKey = h.symbol ? String(h.symbol).toUpperCase() : null;
+          let currentReturnVal = parseFloat(h.currentReturn ?? h.returns_1y ?? 0);
+          if (symKey && upstoxPriceMap.has(symKey)) {
+            const liveP = upstoxPriceMap.get(symKey)!;
+            const avgCost = parseFloat(h.averageCost ?? h.buyPrice ?? 0);
+            if (avgCost > 0) {
+              currentReturnVal = ((liveP - avgCost) / avgCost) * 100;
+            }
+          }
+
+          return {
+            rank:          Number(h.rank ?? 0),
+            name:          String(h.name ?? h.instrumentName ?? "Unknown"),
+            symbol:        h.symbol ? String(h.symbol) : undefined,
+            category:      String(h.category ?? h.type ?? "MF"),
+            weight:        parseFloat(h.weight ?? h.targetWeight ?? 0),
+            // Defensive clamp on holding return [-40%, +60%] to prevent runaway outliers from distorting portfolio metrics
+            currentReturn: Math.max(-40, Math.min(60, currentReturnVal)),
+            currentWeight: h.currentWeight ? parseFloat(h.currentWeight) : undefined,
+          };
+        });
 
         if (holdings.length === 0) continue;
 

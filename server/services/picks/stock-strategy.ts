@@ -918,6 +918,29 @@ export class StockStrategy extends BaseStrategy {
 			/* non-fatal — scoring degrades gracefully */
 		}
 
+		// ── Upstox Upgrade: Pre-fetch live batch quotes for candidate pool ─────────
+		// Ensures scoring metrics (PE, DMA relative to price, 52w high proximity) use live licensed quotes.
+		if (symbols.length > 0 && upstoxMarketDataService.isReady()) {
+			try {
+				const batchResult = await upstoxMarketDataService.getBatchQuotes(symbols, "NSE");
+				if (batchResult.success && batchResult.data) {
+					for (const stock of eligibleStocks) {
+						if (!stock.symbol) continue;
+						const quote = batchResult.data.get(stock.symbol.toUpperCase());
+						if (quote?.last_price && quote.last_price > 0) {
+							stock.currentPrice = String(quote.last_price);
+							if (quote.change_percent != null) {
+								stock.dayChangePercent = String(quote.change_percent);
+							}
+						}
+					}
+					logger.info(`[StockStrategy] Upstox pre-warmed live prices for ${batchResult.data.size}/${symbols.length} candidates in ${broadSector.label}`);
+				}
+			} catch (upstoxBatchErr: any) {
+				logger.warn(`[StockStrategy] Upstox batch pre-warm skipped for ${broadSector.label}`, { error: upstoxBatchErr?.message });
+			}
+		}
+
 		// Score all candidates, pick the top scorer
 		// ── Fix 2: Pre-warm AI alpha cache in parallel ──────────────────────────
 		await Promise.allSettled(
@@ -2065,6 +2088,22 @@ export class StockStrategy extends BaseStrategy {
 			const { symbol, currentPrice: fallbackPrice } = stockRow[0];
 
 			if (symbol) {
+				// ── Upstox Tier-0: Licensed Broker Full Quote ──────────────────────────
+				if (upstoxMarketDataService.isReady()) {
+					try {
+						const uQuote = await upstoxMarketDataService.getQuote(symbol, "NSE");
+						if (uQuote.success && uQuote.data?.last_price && uQuote.data.last_price > 0) {
+							return {
+								price: uQuote.data.last_price,
+								dayHigh: uQuote.data.high_price,
+								dayLow: uQuote.data.low_price,
+							};
+						}
+					} catch (upstoxErr: any) {
+						logger.warn(`[StockStrategy.getLiveQuote] Upstox failed for ${symbol}: ${upstoxErr?.message || upstoxErr}`);
+					}
+				}
+
 				try {
 					const quoteResult = await indianApiService.getStockQuote(symbol, "NSE");
 					const price = quoteResult.data?.current_price;
