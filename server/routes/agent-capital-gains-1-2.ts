@@ -17,6 +17,7 @@ import {
 	count,
 } from "drizzle-orm";
 import { agentAppointments, prospectClients, portfolios } from "@shared/schema";
+import { logger } from "../logger";
 
 export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
 	app.post("/api/agent/leads", requireAgent, async (req, res) => {
@@ -91,6 +92,104 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
 		} catch (error) {
 			console.error("Error creating lead:", error);
 			res.status(500).json({ error: "Failed to create lead" });
+		}
+	});
+
+	// POST bulk upload leads
+	app.post("/api/agent/leads/bulk", requireAgent, async (req, res) => {
+		try {
+			const { leads } = req.body;
+			if (!Array.isArray(leads) || leads.length === 0) {
+				return res.status(400).json({ error: "No leads provided in array" });
+			}
+
+			if (leads.length > 500) {
+				return res.status(400).json({ error: "Maximum 500 leads per bulk upload batch" });
+			}
+
+			let assignedAgentId = (req.user as any)!.id;
+			let resolvedSource = "bulk_import";
+			const userRole = (req.user as any).role;
+
+			if (userRole === "associate") {
+				try {
+					const [baRecord] = await db
+						.select()
+						.from(schema.agents)
+						.where(eq(schema.agents.userId, (req.user as any)!.id))
+						.limit(1);
+
+					if (baRecord?.reportingTo) {
+						const [uplineAgent] = await db
+							.select()
+							.from(schema.agents)
+							.where(eq(schema.agents.id, baRecord.reportingTo))
+							.limit(1);
+
+						if (uplineAgent?.userId) {
+							assignedAgentId = uplineAgent.userId;
+							resolvedSource = "associate_referral";
+						}
+					}
+				} catch (e: any) {
+					logger.error("[BulkLeadCreate] BA upline lookup failed", { error: e.message });
+				}
+			}
+
+			const validStages = ["new", "contacted", "proposal_sent", "negotiating", "converted", "lost"];
+			const validLeads = leads
+				.filter((l: any) => l && l.name && String(l.name).trim().length > 0)
+				.map((l: any) => {
+					const stage = validStages.includes(l.stage) ? l.stage : "new";
+					const tags = Array.isArray(l.tags)
+						? l.tags
+						: typeof l.tags === "string" && l.tags.trim().length > 0
+							? l.tags.split(",").map((t: string) => t.trim())
+							: [];
+
+					return {
+						agentId: assignedAgentId,
+						name: String(l.name).trim(),
+						email: l.email ? String(l.email).trim() : null,
+						phone: l.phone ? String(l.phone).replace(/[^\d+]/g, "") : null,
+						source: l.source ? String(l.source).trim() : resolvedSource,
+						potentialValue: l.potentialValue ? String(l.potentialValue).replace(/[^\d.]/g, "") : "0",
+						notes: l.notes ? String(l.notes).trim() : null,
+						stage,
+						score: Number(l.score) || 50,
+						tags,
+					};
+				});
+
+			if (validLeads.length === 0) {
+				return res.status(400).json({ error: "No valid leads found in upload. Ensure each row contains a name." });
+			}
+
+			const inserted = await db
+				.insert(schema.agentLeads)
+				.values(validLeads)
+				.returning();
+
+			res.json({
+				success: true,
+				importedCount: inserted.length,
+				data: inserted.map((lead) => ({
+					id: lead.id,
+					name: lead.name,
+					email: lead.email || "",
+					phone: lead.phone || "",
+					stage: lead.stage,
+					source: lead.source,
+					potentialValue: Number(lead.potentialValue) || 0,
+					score: lead.score || 50,
+					notes: lead.notes || "",
+					createdAt: lead.createdAt?.toISOString(),
+					tags: lead.tags || [],
+				})),
+			});
+		} catch (error: any) {
+			logger.error("Error bulk uploading leads", { error: error.message });
+			res.status(500).json({ error: error.message || "Failed to bulk upload leads" });
 		}
 	});
 

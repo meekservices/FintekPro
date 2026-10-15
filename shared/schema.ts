@@ -5,6 +5,7 @@ export * from "./schema/enums.ts";
 export * from "./schema/commissions.ts";
 export * from "./schema/banking.ts";
 export * from "./schema/crm.ts";
+export * from "./schema/telephony.ts";
 import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, uniqueIndex, integer, date, bigint, numeric, pgEnum, serial, uuid, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -12193,4 +12194,7 @@ export const insertISINRegistrySchema = createInsertSchema(isinRegistry).omit({
 
 // Regulatory Stage Taxonomy & Demarcation (SEBI & MCA)
 export * from "./regulatory-stage";
+
+// Progressive Auto-Dialer & Telephony Schema
+export * from "./schema/telephony";
 

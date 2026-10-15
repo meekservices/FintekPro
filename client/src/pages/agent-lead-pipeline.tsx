@@ -31,10 +31,16 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { AutoDialerModal } from "@/components/dialer/AutoDialerModal";
 import {
 	Plus,
 	Search,
 	Phone,
+	PhoneCall,
+	Upload,
+	FileSpreadsheet,
+	Download,
+	Check,
 	Mail,
 	Calendar,
 	User,
@@ -153,6 +159,9 @@ export default function AgentLeadPipeline() {
 	const [showAddLead, setShowAddLead] = useState(false);
 	const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 	const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
+	const [dialerOpen, setDialerOpen] = useState(false);
+	const [dialerTargetLead, setDialerTargetLead] = useState<any>(null);
+	const [isQueueMode, setIsQueueMode] = useState(false);
 
 	const [newLead, setNewLead] = useState({
 		name: "",
@@ -191,6 +200,133 @@ export default function AgentLeadPipeline() {
 				notes: "",
 			});
 			toast({ title: "Lead added successfully" });
+		},
+	});
+
+	const [showBulkUpload, setShowBulkUpload] = useState(false);
+	const [bulkFile, setBulkFile] = useState<File | null>(null);
+	const [parsedLeads, setParsedLeads] = useState<any[]>([]);
+	const [parsingError, setParsingError] = useState<string | null>(null);
+
+	const downloadSampleTemplate = () => {
+		const csvContent =
+			"Name,Phone,Email,Potential Value,Source,Stage,Notes,Tags\n" +
+			"Rajesh Sharma,9876543210,rajesh.sharma@example.com,2500000,referral,new,Interested in mutual fund portfolio,HNI;Wealth\n" +
+			"Priya Patel,9823456789,priya.patel@example.com,5000000,website,contacted,Looking for tax advisory and corporate bonds,Tax;HNW\n" +
+			"Amit Verma,9811223344,amit.verma@example.com,1500000,cold_call,new,Portfolio review requested,Retirement\n" +
+			"Sunita Rao,9833445566,sunita.rao@example.com,4000000,linkedin,new,High networth prospect from Bengaluru,UltraHNI\n";
+
+		const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement("a");
+		link.setAttribute("href", url);
+		link.setAttribute("download", "fintekpro_leads_template.csv");
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		URL.revokeObjectURL(url);
+	};
+
+	const handleCSVFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		setParsingError(null);
+		const file = e.target.files?.[0];
+		if (!file) return;
+
+		setBulkFile(file);
+		const reader = new FileReader();
+		reader.onload = (event) => {
+			try {
+				const text = (event.target?.result as string) || "";
+				const lines = text
+					.split(/\r?\n/)
+					.map((l) => l.trim())
+					.filter((l) => l.length > 0);
+
+				if (lines.length < 2) {
+					setParsingError("CSV file must have a header row and at least one lead row.");
+					setParsedLeads([]);
+					return;
+				}
+
+				const headers = lines[0]
+					.split(",")
+					.map((h) => h.trim().toLowerCase().replace(/['"]/g, ""));
+
+				const extracted: any[] = [];
+				for (let i = 1; i < lines.length; i++) {
+					// Handle comma separation
+					const cells = lines[i].split(",").map((c) => c.trim().replace(/^["']|["']$/g, ""));
+					if (cells.length === 0 || !cells.some((c) => c.length > 0)) continue;
+
+					const leadRow: Record<string, any> = {};
+					headers.forEach((header, idx) => {
+						const val = cells[idx] || "";
+						if (header.includes("name")) leadRow.name = val;
+						else if (header.includes("phone") || header.includes("mobile")) leadRow.phone = val;
+						else if (header.includes("email")) leadRow.email = val;
+						else if (header.includes("value") || header.includes("amount") || header.includes("aum"))
+							leadRow.potentialValue = val;
+						else if (header.includes("source")) leadRow.source = val;
+						else if (header.includes("stage")) leadRow.stage = val;
+						else if (header.includes("note") || header.includes("remark")) leadRow.notes = val;
+						else if (header.includes("tag"))
+							leadRow.tags = val ? val.split(";").map((t) => t.trim()) : [];
+					});
+
+					if (leadRow.name) {
+						extracted.push({
+							name: leadRow.name,
+							phone: leadRow.phone || "",
+							email: leadRow.email || "",
+							potentialValue: leadRow.potentialValue || "0",
+							source: leadRow.source || "bulk_import",
+							stage: leadRow.stage || "new",
+							notes: leadRow.notes || "",
+							tags: leadRow.tags || [],
+						});
+					}
+				}
+
+				if (extracted.length === 0) {
+					setParsingError("No valid leads found in CSV. Please verify that a 'Name' column is present.");
+					setParsedLeads([]);
+				} else {
+					setParsedLeads(extracted);
+				}
+			} catch (err: any) {
+				setParsingError(`Failed to parse file: ${err.message}`);
+				setParsedLeads([]);
+			}
+		};
+		reader.readAsText(file);
+	};
+
+	const bulkUploadMutation = useMutation({
+		mutationFn: async (leadsToImport: any[]) => {
+			const res = await apiRequest("/api/agent/leads/bulk", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ leads: leadsToImport }),
+			});
+			return res.json();
+		},
+		onSuccess: (data: any) => {
+			queryClient.invalidateQueries({ queryKey: ["/api/agent/leads"] });
+			queryClient.invalidateQueries({ queryKey: ["/api/agent/leads/stats"] });
+			setShowBulkUpload(false);
+			setParsedLeads([]);
+			setBulkFile(null);
+			toast({
+				title: "Bulk Import Successful",
+				description: `Successfully added ${data.importedCount || parsedLeads.length} leads to your pipeline!`,
+			});
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Bulk Upload Failed",
+				description: err.message || "Failed to upload leads batch",
+				variant: "destructive",
+			});
 		},
 	});
 
@@ -295,10 +431,162 @@ export default function AgentLeadPipeline() {
 								data-testid="input-search-leads"
 							/>
 						</div>
+						<Button
+							onClick={() => {
+								setDialerTargetLead(null);
+								setIsQueueMode(true);
+								setDialerOpen(true);
+							}}
+							className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm"
+							data-testid="button-start-auto-dialer"
+						>
+							<PhoneCall className="h-4 w-4 mr-2" />
+							Auto-Dialer Queue
+						</Button>
+						<Dialog open={showBulkUpload} onOpenChange={setShowBulkUpload}>
+							<DialogTrigger asChild>
+								<Button
+									variant="outline"
+									className="border-emerald-500/40 text-emerald-400 bg-emerald-500/5 hover:bg-emerald-500/10 font-medium"
+									data-testid="button-bulk-upload-leads"
+								>
+									<FileSpreadsheet className="h-4 w-4 mr-2 text-emerald-400" />
+									Bulk Upload
+								</Button>
+							</DialogTrigger>
+							<DialogContent className="bg-slate-950 border-slate-800 text-white max-w-2xl">
+								<DialogHeader>
+									<div className="flex items-center justify-between">
+										<DialogTitle className="text-xl font-bold flex items-center gap-2">
+											<Upload className="h-5 w-5 text-emerald-400" />
+											Bulk Upload Leads
+										</DialogTitle>
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={downloadSampleTemplate}
+											className="border-slate-700 text-slate-300 hover:text-white text-xs h-8"
+											data-testid="button-download-leads-template"
+										>
+											<Download className="h-3.5 w-3.5 mr-1.5" />
+											Download CSV Template
+										</Button>
+									</div>
+									<DialogDescription className="text-xs text-slate-400">
+										Import multiple prospects at once using a CSV file. Columns supported: Name, Phone, Email, Potential Value, Source, Stage, Notes, Tags.
+									</DialogDescription>
+								</DialogHeader>
+
+								<div className="space-y-4 py-2">
+									{/* File Dropzone */}
+									<div className="border-2 border-dashed border-slate-800 hover:border-emerald-500/50 rounded-xl p-6 text-center transition-colors bg-slate-900/40">
+										<input
+											type="file"
+											accept=".csv,.txt"
+											onChange={handleCSVFileChange}
+											className="hidden"
+											id="bulk-lead-file-input"
+										/>
+										<label
+											htmlFor="bulk-lead-file-input"
+											className="cursor-pointer flex flex-col items-center space-y-2"
+										>
+											<div className="p-3 rounded-full bg-emerald-500/10 text-emerald-400">
+												<FileSpreadsheet className="h-6 w-6" />
+											</div>
+											<div>
+												<p className="text-sm font-semibold text-white">
+													{bulkFile ? bulkFile.name : "Click to browse or drag and drop your CSV file"}
+												</p>
+												<p className="text-xs text-slate-400 mt-0.5">
+													Supports standard comma-separated (.csv) files up to 500 leads per batch
+												</p>
+											</div>
+										</label>
+									</div>
+
+									{parsingError && (
+										<div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+											<AlertCircle className="h-4 w-4 shrink-0" />
+											<span>{parsingError}</span>
+										</div>
+									)}
+
+									{/* Parsed Preview Table */}
+									{parsedLeads.length > 0 && (
+										<div className="space-y-2">
+											<div className="flex items-center justify-between text-xs">
+												<span className="font-semibold text-emerald-400 flex items-center gap-1.5">
+													<Check className="h-3.5 w-3.5" />
+													{parsedLeads.length} Leads ready for import
+												</span>
+												<span className="text-slate-400">Showing top 5 preview rows</span>
+											</div>
+
+											<div className="border border-slate-800 rounded-lg overflow-hidden bg-slate-900/60 max-h-48 overflow-y-auto">
+												<table className="w-full text-xs text-left">
+													<thead className="bg-slate-900 text-slate-400 border-b border-slate-800">
+														<tr>
+															<th className="p-2">Name</th>
+															<th className="p-2">Phone</th>
+															<th className="p-2">Email</th>
+															<th className="p-2">Value</th>
+															<th className="p-2">Tags</th>
+														</tr>
+													</thead>
+													<tbody className="divide-y divide-slate-800/60 text-slate-300">
+														{parsedLeads.slice(0, 5).map((l, i) => (
+															<tr key={i} className="hover:bg-slate-800/40">
+																<td className="p-2 font-medium text-white">{l.name}</td>
+																<td className="p-2 font-mono text-emerald-400">{l.phone || "—"}</td>
+																<td className="p-2 text-slate-400">{l.email || "—"}</td>
+																<td className="p-2">₹{Number(l.potentialValue || 0).toLocaleString("en-IN")}</td>
+																<td className="p-2">
+																	{Array.isArray(l.tags) && l.tags.length > 0
+																		? l.tags.join(", ")
+																		: "—"}
+																</td>
+															</tr>
+														))}
+													</tbody>
+												</table>
+											</div>
+										</div>
+									)}
+								</div>
+
+								<div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+									<Button
+										variant="outline"
+										onClick={() => {
+											setShowBulkUpload(false);
+											setParsedLeads([]);
+											setBulkFile(null);
+											setParsingError(null);
+										}}
+										className="border-slate-800 text-slate-300 hover:text-white"
+									>
+										Cancel
+									</Button>
+									<Button
+										onClick={() => bulkUploadMutation.mutate(parsedLeads)}
+										disabled={parsedLeads.length === 0 || bulkUploadMutation.isPending}
+										className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-6"
+										data-testid="button-confirm-bulk-upload"
+									>
+										{bulkUploadMutation.isPending
+											? "Importing Leads..."
+											: `Import ${parsedLeads.length} Leads`}
+									</Button>
+								</div>
+							</DialogContent>
+						</Dialog>
+
 						<Dialog open={showAddLead} onOpenChange={setShowAddLead}>
 							<DialogTrigger asChild>
 								<Button
-									className="bg-emerald-600 hover:bg-emerald-700"
+									variant="outline"
+									className="border-border text-foreground hover:bg-muted"
 									data-testid="button-add-lead"
 								>
 									<Plus className="h-4 w-4 mr-2" />
@@ -836,11 +1124,24 @@ export default function AgentLeadPipeline() {
 									)}
 									<div className="flex gap-3 pt-4 border-t border-border">
 										<Button
-											className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+											onClick={() => {
+												setDialerTargetLead({
+													id: selectedLead.id,
+													companyName: selectedLead.name,
+													contactName: selectedLead.name,
+													phone: selectedLead.phone,
+													email: selectedLead.email,
+													leadScore: selectedLead.score,
+													notes: selectedLead.notes,
+												});
+												setIsQueueMode(false);
+												setDialerOpen(true);
+											}}
+											className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
 											data-testid="button-call-lead"
 										>
 											<Phone className="h-4 w-4 mr-2" />
-											Call
+											Call (Device SIM)
 										</Button>
 										<Button
 											variant="outline"
@@ -863,6 +1164,14 @@ export default function AgentLeadPipeline() {
 						)}
 					</DialogContent>
 				</Dialog>
+
+				{/* Exotel Cloud Telephony Progressive Auto-Dialer Modal */}
+				<AutoDialerModal
+					isOpen={dialerOpen}
+					onClose={() => setDialerOpen(false)}
+					initialLead={dialerTargetLead}
+					isQueueMode={isQueueMode}
+				/>
 			</div>
 		</div>
 	);

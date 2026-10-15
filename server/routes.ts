@@ -182,6 +182,7 @@ import { agentGeoCoverageRouter } from "./routes/agent-geo-coverage-routes"; // 
 // EasyLeadz webhook route is deprecated (kept as dead file for historical reference).
 // import { registerEasyLeadzWebhookRoutes } from "./routes/easyleadz-callback-routes";
 import { registerTruecallerBusinessRoutes } from "./routes/truecaller-business-routes"; // /api/calling/*
+import { dialerRouter } from "./routes/dialer-routes"; // /api/dialer/*
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -588,6 +589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	registerTruecallerBusinessRoutes(app);  // POST /api/calling/pre-call-setup
 	                                        // POST /api/calling/register-agent-number
 	                                        // GET  /api/calling/truecaller-status
+	app.use("/api/dialer", dialerRouter);   // POST /api/dialer/call, /disposition, GET /queue, /history, /stats
 
 	const httpServer = createServer(app);
 	return httpServer;
