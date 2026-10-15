@@ -4,7 +4,6 @@ const ALLOWED_ORIGINS = [
   'https://fintekpro.com',
   'https://www.fintekpro.com',
   'https://admin.fintekpro.com',
-  'https://agent.fintekpro.com',
   'https://partner.fintekpro.com',
   'https://ca.fintekpro.com',
   'https://ins.fintekpro.com',
