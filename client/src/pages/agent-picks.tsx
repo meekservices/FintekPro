@@ -789,6 +789,21 @@ export default function AgentPicksPage() {
 			localStorage.setItem("picks-view-mode", mode);
 		} catch {}
 	};
+	const [aiStrategyViewMode, setAiStrategyViewMode] = useState<"grid" | "table">(() => {
+		try {
+			return (
+				(localStorage.getItem("ai-strategy-view-mode") as "grid" | "table") || "grid"
+			);
+		} catch {
+			return "grid";
+		}
+	});
+	const toggleAiStrategyViewMode = (mode: "grid" | "table") => {
+		setAiStrategyViewMode(mode);
+		try {
+			localStorage.setItem("ai-strategy-view-mode", mode);
+		} catch {}
+	};
 
 	const handleSelectToggle = (id: number) => {
 		const next = new Set(selectedPickIds);
@@ -3993,6 +4008,36 @@ export default function AgentPicksPage() {
 															</span>
 														</p>
 													</div>
+
+													{/* AI Strategy View Mode Toggle (Grid vs Tabular) */}
+													<div className="flex items-center gap-1 border rounded-lg p-0.5 bg-background shadow-xs shrink-0 self-start sm:self-end">
+														<button
+															type="button"
+															onClick={() => toggleAiStrategyViewMode("grid")}
+															className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+																aiStrategyViewMode === "grid"
+																	? "bg-primary text-primary-foreground shadow-xs font-semibold"
+																	: "hover:bg-muted text-muted-foreground hover:text-foreground"
+															}`}
+															title="Card Grid View"
+														>
+															<LayoutGrid className="h-3.5 w-3.5" />
+															<span>Grid View</span>
+														</button>
+														<button
+															type="button"
+															onClick={() => toggleAiStrategyViewMode("table")}
+															className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+																aiStrategyViewMode === "table"
+																	? "bg-primary text-primary-foreground shadow-xs font-semibold"
+																	: "hover:bg-muted text-muted-foreground hover:text-foreground"
+															}`}
+															title="Tabular Data View"
+														>
+															<Table2 className="h-3.5 w-3.5" />
+															<span>Tabular View</span>
+														</button>
+													</div>
 												</div>
 
 												{/* FASP-AI Decision Support System Banner */}
@@ -4112,7 +4157,25 @@ export default function AgentPicksPage() {
 													</div>
 												</div>
 
-												<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+												{aiStrategyViewMode === "table" ? (
+													<AIPortfolioStrategyTable
+														stocks={aiRecommendations}
+														guardedWeights={guardedWeights}
+														totalInvestment={stockInvestmentAmount[0]}
+														selectedStock={selectedAIStock}
+														onSelectStock={(stock) =>
+															setSelectedAIStock(
+																selectedAIStock?.id === stock.id ? null : stock,
+															)
+														}
+														formatCurrencyINR={formatCurrencyINR}
+														formatExactStockPrice={formatExactStockPrice}
+														getSignalColor={getSignalColor}
+														getSignalText={getSignalText}
+														renderStars={renderStars}
+													/>
+												) : (
+													<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 													{aiRecommendations.map(
 														(stock: AIStockRecommendation) => {
 															const weight = (guardedWeights[stock.id] ?? (100 / aiRecommendations.length)) / 100;
@@ -4374,6 +4437,7 @@ export default function AgentPicksPage() {
 														},
 													)}
 												</div>
+												)}
 
 												{/* SEBI Compliance & Risk Disclosure */}
 												<div className="p-4 bg-muted/40 border border-border/60 rounded-xl text-xs text-muted-foreground space-y-1.5">
@@ -7604,6 +7668,453 @@ function PicksTable({
 					})}
 				</tbody>
 			</table>
+		</div>
+	);
+}
+
+// ─── AIPortfolioStrategyTable ──────────────────────────────────────────────────
+interface AIPortfolioStrategyTableProps {
+	stocks: AIStockRecommendation[];
+	guardedWeights: Record<string, number>;
+	totalInvestment: number;
+	selectedStock: AIStockRecommendation | null;
+	onSelectStock: (stock: AIStockRecommendation) => void;
+	formatCurrencyINR: (value: number) => string;
+	formatExactStockPrice: (value: number | undefined | null) => string;
+	getSignalColor: (signal: string) => string;
+	getSignalText: (signal: string) => string;
+	renderStars: (rating: number) => React.ReactNode;
+}
+
+function AIPortfolioStrategyTable({
+	stocks,
+	guardedWeights,
+	totalInvestment,
+	selectedStock,
+	onSelectStock,
+	formatCurrencyINR,
+	formatExactStockPrice,
+	getSignalColor,
+	getSignalText,
+	renderStars,
+}: AIPortfolioStrategyTableProps) {
+	const [sortCol, setSortCol] = useState<string>("weight");
+	const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+	const handleSort = (col: string) => {
+		if (sortCol === col) {
+			setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+		} else {
+			setSortCol(col);
+			setSortDir("desc");
+		}
+	};
+
+	const sorted = [...stocks].sort((a, b) => {
+		const weightA = guardedWeights[a.id] ?? (100 / stocks.length);
+		const weightB = guardedWeights[b.id] ?? (100 / stocks.length);
+		let av: any = 0;
+		let bv: any = 0;
+
+		switch (sortCol) {
+			case "symbol":
+				av = a.symbol;
+				bv = b.symbol;
+				break;
+			case "weight":
+				av = weightA;
+				bv = weightB;
+				break;
+			case "entry":
+				av = Number(a.entryPrice ?? a.currentPrice ?? 0);
+				bv = Number(b.entryPrice ?? b.currentPrice ?? 0);
+				break;
+			case "ltp":
+				av = Number(a.currentPrice ?? 0);
+				bv = Number(b.currentPrice ?? 0);
+				break;
+			case "target":
+				av = Number(a.targetPrice ?? 0);
+				bv = Number(b.targetPrice ?? 0);
+				break;
+			case "stoploss":
+				av = Number(a.stopLoss ?? 0);
+				bv = Number(b.stopLoss ?? 0);
+				break;
+			case "upside":
+				av = Number(a.expectedReturn ?? 0);
+				bv = Number(b.expectedReturn ?? 0);
+				break;
+			case "confidence":
+				av = Number(a.confidence ?? 0);
+				bv = Number(b.confidence ?? 0);
+				break;
+			case "rating":
+				av = Number(a.fintekproRating ?? 0);
+				bv = Number(b.fintekproRating ?? 0);
+				break;
+			default:
+				av = weightA;
+				bv = weightB;
+		}
+
+		if (typeof av === "string" && typeof bv === "string") {
+			return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+		}
+		if (av < bv) return sortDir === "asc" ? -1 : 1;
+		if (av > bv) return sortDir === "asc" ? 1 : -1;
+		return 0;
+	});
+
+	const SortIcon = ({ col }: { col: string }) => {
+		if (sortCol !== col)
+			return <ArrowUpDown className="h-3 w-3 opacity-30 ml-1 inline" />;
+		return sortDir === "asc" ? (
+			<ChevronUp className="h-3 w-3 ml-1 inline text-primary" />
+		) : (
+			<ChevronDown className="h-3 w-3 ml-1 inline text-primary" />
+		);
+	};
+
+	const Th = ({
+		col,
+		label,
+		right,
+		tooltip,
+	}: { col: string; label: string; right?: boolean; tooltip?: string }) => (
+		<th
+			onClick={() => handleSort(col)}
+			className={`px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground cursor-pointer select-none whitespace-nowrap hover:text-foreground hover:bg-muted/70 transition-colors ${right ? "text-right" : "text-left"}`}
+			title={tooltip || `Sort by ${label}`}
+		>
+			<span className="inline-flex items-center gap-0.5">
+				{label}
+				<SortIcon col={col} />
+			</span>
+		</th>
+	);
+
+	// Portfolio aggregate metrics for the footer
+	const totalWeight = stocks.reduce(
+		(sum, s) => sum + (guardedWeights[s.id] ?? (100 / stocks.length)),
+		0,
+	);
+	const weightedPotential = stocks.reduce((sum, s) => {
+		const w = (guardedWeights[s.id] ?? (100 / stocks.length)) / 100;
+		return sum + Number(s.expectedReturn ?? 0) * w;
+	}, 0);
+	const weightedConfidence = stocks.reduce((sum, s) => {
+		const w = (guardedWeights[s.id] ?? (100 / stocks.length)) / 100;
+		return sum + Number(s.confidence ?? 0) * w;
+	}, 0);
+
+	return (
+		<div className="space-y-2">
+			<div className="overflow-x-auto rounded-xl border border-border/80 bg-card shadow-sm">
+				<table className="w-full text-sm border-collapse">
+					<thead className="bg-muted/70 border-b sticky top-0 z-10">
+						<tr>
+							<th className="px-3 py-2.5 text-xs font-semibold text-muted-foreground text-left w-8">
+								#
+							</th>
+							<Th col="symbol" label="Stock / Asset" />
+							<th className="px-3 py-2.5 text-xs font-semibold text-muted-foreground text-center">
+								Signal
+							</th>
+							<Th col="rating" label="Rating" />
+							<Th
+								col="weight"
+								label="Allocation"
+								right
+								tooltip="Guarded portfolio weight and suggested capital"
+							/>
+							<Th col="entry" label="Reco Entry" right />
+							<Th col="ltp" label="Live LTP" right />
+							<Th col="target" label="Target" right />
+							<Th
+								col="upside"
+								label="Potential"
+								right
+								tooltip="Model expected return upside from quantitative valuation"
+							/>
+							<Th col="stoploss" label="Stop Loss" right />
+							<th className="px-3 py-2.5 text-xs font-semibold text-muted-foreground text-center">
+								Zone / Status
+							</th>
+							<Th col="confidence" label="Confidence" right />
+							<th className="px-3 py-2.5 text-xs font-semibold text-muted-foreground text-center">
+								Action
+							</th>
+						</tr>
+					</thead>
+					<tbody className="divide-y divide-border/50">
+						{sorted.map((stock, idx) => {
+							const weightPct =
+								guardedWeights[stock.id] ?? (100 / stocks.length);
+							const allocatedAmt = totalInvestment * (weightPct / 100);
+							const isSelected = selectedStock?.id === stock.id;
+							const current = Number(stock.currentPrice ?? 0);
+							const entry = Number(
+								stock.entryPrice ?? stock.currentPrice ?? 0,
+							);
+							const target = Number(stock.targetPrice ?? 0);
+							const sl = Number(stock.stopLoss ?? 0);
+							const conf = Number(stock.confidence ?? 0);
+
+							const diffPct =
+								entry > 0 && current > 0 ? ((current - entry) / entry) * 100 : 0;
+							const isTargetAchieved = target > 0 && current >= target;
+							const isStopLossHit = sl > 0 && current <= sl;
+
+							return (
+								<tr
+									key={stock.id}
+									onClick={() => onSelectStock(stock)}
+									className={`cursor-pointer transition-colors ${
+										isSelected
+											? "bg-primary/10 hover:bg-primary/15 border-l-4 border-l-primary"
+											: "hover:bg-muted/50"
+									} ${idx % 2 === 1 && !isSelected ? "bg-muted/15" : ""}`}
+								>
+									{/* # */}
+									<td className="px-3 py-3 text-xs text-muted-foreground font-mono">
+										{idx + 1}
+									</td>
+
+									{/* Stock / Asset */}
+									<td className="px-3 py-3 whitespace-nowrap">
+										<div className="flex flex-col">
+											<div className="flex items-center gap-1.5">
+												<span className="font-bold text-foreground text-sm group-hover:text-primary transition-colors">
+													{stock.symbol}
+												</span>
+												{stock.exchange && (
+													<span className="text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground font-mono">
+														{stock.exchange}
+													</span>
+												)}
+											</div>
+											<span className="text-xs text-muted-foreground truncate max-w-[180px]">
+												{stock.companyName}
+											</span>
+											<div className="flex items-center gap-1 mt-0.5">
+												{stock.sector && (
+													<span className="text-[10px] text-muted-foreground">
+														{stock.sector}
+													</span>
+												)}
+												{stock.marketCap && (
+													<span className="text-[10px] text-muted-foreground/70">
+														• {stock.marketCap}
+													</span>
+												)}
+											</div>
+										</div>
+									</td>
+
+									{/* Signal */}
+									<td className="px-3 py-3 text-center whitespace-nowrap">
+										<Badge
+											className={`${getSignalColor(stock.signal)} shadow-xs text-xs px-2 py-0.5`}
+										>
+											{getSignalText(stock.signal)}
+										</Badge>
+									</td>
+
+									{/* Rating */}
+									<td className="px-3 py-3 whitespace-nowrap">
+										<div className="flex items-center">
+											{renderStars(stock.fintekproRating)}
+										</div>
+									</td>
+
+									{/* Suggested Allocation */}
+									<td className="px-3 py-3 text-right whitespace-nowrap">
+										<div className="flex flex-col items-end">
+											<span className="font-bold text-sm text-foreground tabular-nums">
+												{formatCurrencyINR(allocatedAmt)}
+											</span>
+											<span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[11px] font-semibold bg-primary/10 text-primary">
+												{weightPct.toFixed(0)}% weight
+											</span>
+										</div>
+									</td>
+
+									{/* Reco Entry */}
+									<td className="px-3 py-3 text-right whitespace-nowrap font-mono text-xs sm:text-sm">
+										{formatExactStockPrice(
+											stock.entryPrice ?? stock.currentPrice,
+										)}
+									</td>
+
+									{/* Live LTP */}
+									<td className="px-3 py-3 text-right whitespace-nowrap font-mono text-xs sm:text-sm">
+										<div className="flex flex-col items-end">
+											<span
+												className={`font-semibold ${
+													current >= entry
+														? "text-emerald-600 dark:text-emerald-400"
+														: "text-amber-600 dark:text-amber-400"
+												}`}
+											>
+												{formatExactStockPrice(stock.currentPrice)}
+											</span>
+											{entry > 0 && current > 0 && (
+												<span
+													className={`text-[10px] ${
+														diffPct >= 0
+															? "text-emerald-600 dark:text-emerald-400"
+															: "text-amber-600 dark:text-amber-400"
+													}`}
+												>
+													{diffPct >= 0
+														? `+${diffPct.toFixed(1)}%`
+														: `${diffPct.toFixed(1)}%`}
+												</span>
+											)}
+										</div>
+									</td>
+
+									{/* Target */}
+									<td className="px-3 py-3 text-right whitespace-nowrap font-mono text-xs sm:text-sm text-green-600 dark:text-green-400 font-semibold">
+										{formatExactStockPrice(stock.targetPrice)}
+									</td>
+
+									{/* Potential */}
+									<td className="px-3 py-3 text-right whitespace-nowrap">
+										<span
+											className={`inline-flex items-center gap-0.5 font-bold text-xs sm:text-sm ${
+												stock.expectedReturn >= 0
+													? "text-green-600 dark:text-green-400"
+													: "text-red-600 dark:text-red-400"
+											}`}
+										>
+											{stock.expectedReturn >= 0 ? (
+												<TrendingUp className="h-3.5 w-3.5" />
+											) : (
+												<TrendingDown className="h-3.5 w-3.5" />
+											)}
+											{stock.expectedReturn >= 0 ? "+" : ""}
+											{stock.expectedReturn}%
+										</span>
+									</td>
+
+									{/* Stop Loss */}
+									<td className="px-3 py-3 text-right whitespace-nowrap font-mono text-xs sm:text-sm text-red-600 dark:text-red-400">
+										{formatExactStockPrice(stock.stopLoss)}
+									</td>
+
+									{/* Zone / Status */}
+									<td className="px-3 py-3 text-center whitespace-nowrap">
+										{isTargetAchieved ? (
+											<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+												<CheckCircle className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />{" "}
+												Target Hit
+											</span>
+										) : isStopLossHit ? (
+											<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/30">
+												<AlertTriangle className="h-3 w-3 text-red-600 dark:text-red-400" />{" "}
+												SL Hit
+											</span>
+										) : Math.abs(diffPct) <= 1.5 ? (
+											<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30">
+												<Target className="h-3 w-3 text-blue-500" /> Buy Zone
+											</span>
+										) : diffPct > 1.5 ? (
+											<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
+												<TrendingUp className="h-3 w-3 text-purple-500" /> Run-Up
+											</span>
+										) : (
+											<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+												<TrendingDown className="h-3 w-3 text-amber-500" /> Dip
+												Entry
+											</span>
+										)}
+									</td>
+
+									{/* AI Confidence */}
+									<td className="px-3 py-3 text-right whitespace-nowrap">
+										<div className="flex items-center justify-end gap-1.5">
+											<div className="w-16 hidden sm:block">
+												<Progress
+													value={conf}
+													className={`h-1.5 ${
+														conf >= 85
+															? "[&>div]:bg-emerald-500"
+															: conf >= 70
+																? "[&>div]:bg-amber-400"
+																: "[&>div]:bg-red-400"
+													}`}
+												/>
+											</div>
+											<span
+												className={`text-xs font-bold tabular-nums ${
+													conf >= 85
+														? "text-emerald-700 dark:text-emerald-400"
+														: conf >= 70
+															? "text-amber-600 dark:text-amber-400"
+															: "text-red-600 dark:text-red-400"
+												}`}
+											>
+												{conf}%
+											</span>
+										</div>
+									</td>
+
+									{/* Action */}
+									<td className="px-3 py-3 text-center whitespace-nowrap">
+										<Button
+											variant={isSelected ? "default" : "outline"}
+											size="sm"
+											className="h-7 text-xs px-2 gap-1"
+											onClick={(e) => {
+												e.stopPropagation();
+												onSelectStock(stock);
+											}}
+										>
+											<span>{isSelected ? "Active" : "Analyze"}</span>
+											<ChevronRight className="h-3 w-3" />
+										</Button>
+									</td>
+								</tr>
+							);
+						})}
+					</tbody>
+					<tfoot className="bg-muted/60 font-semibold border-t text-xs">
+						<tr>
+							<td colSpan={4} className="px-3 py-3 text-muted-foreground">
+								Portfolio Total ({stocks.length} assets • {totalWeight.toFixed(0)}%
+								allocated)
+							</td>
+							<td className="px-3 py-3 text-right font-bold text-foreground font-mono text-sm">
+								{formatCurrencyINR(totalInvestment)}
+							</td>
+							<td
+								colSpan={3}
+								className="px-3 py-3 text-right text-muted-foreground"
+							>
+								Weighted Avg Potential:
+							</td>
+							<td className="px-3 py-3 text-right font-bold text-green-600 dark:text-green-400 font-mono text-sm">
+								+{weightedPotential.toFixed(1)}%
+							</td>
+							<td className="px-3 py-3 text-right text-muted-foreground">
+								Weighted AI Conf:
+							</td>
+							<td
+								colSpan={3}
+								className="px-3 py-3 font-bold text-foreground text-left"
+							>
+								{weightedConfidence.toFixed(0)}%
+							</td>
+						</tr>
+					</tfoot>
+				</table>
+			</div>
+			<p className="text-[11px] text-muted-foreground italic px-1">
+				Tip: Click any row to view full quantitative analysis, financial metrics,
+				and AI breakdown below.
+			</p>
 		</div>
 	);
 }
