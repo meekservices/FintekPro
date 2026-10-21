@@ -29,7 +29,7 @@ import {
   proThematicConstituents,
 } from "@shared/schema";
 import { inArray, and, or, eq, gte, gt, desc, asc, sql, ilike, isNotNull } from "drizzle-orm";
-import { proThematicScreenerService } from "./pro-thematic-screener-service";
+import { proThematicScreenerService, normalizeMarketCap } from "./pro-thematic-screener-service";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -1473,6 +1473,9 @@ export class ProStockListsService {
             currentPrice: listedStocks.currentPrice,
             dayChange: listedStocks.dayChange,
             dayChangePercent: listedStocks.dayChangePercent,
+            sector: listedStocks.sector,
+            marketCap: listedStocks.marketCap,
+            marketCapCategory: listedStocks.marketCapCategory,
           })
           .from(listedStocks)
           .where(inArray(listedStocks.symbol, symbols));
@@ -1490,8 +1493,8 @@ export class ProStockListsService {
             symbol: c.symbol,
             isin: effectiveIsin,
             name: c.companyName,
-            sector: c.sector || "General",
-            marketCap: (c.marketCapCategory as any) || "Mid Cap",
+            sector: c.sector || s?.sector || "Equities",
+            marketCap: normalizeMarketCap(s?.marketCapCategory, c.marketCapCategory || s?.marketCap),
             primaryMetricValue: c.primaryMetricValue,
             secondaryMetricValue: c.secondaryMetricValue || undefined,
             baselinePrice,

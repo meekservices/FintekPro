@@ -47,6 +47,22 @@ export interface ScreenerRunResult {
   calculationTimestamp: string;
 }
 
+/**
+ * Normalizes DB market cap strings (e.g. 'mega', 'large', 'Unknown') to
+ * standardized institutional categories: 'Large Cap' | 'Mid Cap' | 'Small Cap'
+ */
+export function normalizeMarketCap(
+  category?: string | null,
+  cap?: string | null
+): "Large Cap" | "Mid Cap" | "Small Cap" {
+  const cat = (category || "").toLowerCase().trim();
+  const raw = (cap || "").toLowerCase().trim();
+  if (cat === "mega" || cat === "large" || cat.includes("large") || raw.includes("large") || raw === "mega") return "Large Cap";
+  if (cat === "mid" || cat.includes("mid") || raw.includes("mid")) return "Mid Cap";
+  if (cat === "small" || cat.includes("small") || raw.includes("small") || cat === "micro") return "Small Cap";
+  return "Large Cap";
+}
+
 export class ProThematicScreenerService {
   private readonly ENGINE_VERSION = "pro-screener@2.0.0";
 
@@ -127,7 +143,7 @@ export class ProThematicScreenerService {
           isin: c.isin || null,
           companyName: c.companyName,
           sector: c.sector || "General",
-          marketCapCategory: c.marketCapCategory || "Mid Cap",
+          marketCapCategory: normalizeMarketCap(c.marketCapCategory),
           rank: rank++,
           primaryMetricLabel: c.primaryMetricLabel,
           primaryMetricValue: c.primaryMetricValue,
@@ -146,7 +162,7 @@ export class ProThematicScreenerService {
           set: {
             companyName: c.companyName,
             sector: c.sector || "General",
-            marketCapCategory: c.marketCapCategory || "Mid Cap",
+            marketCapCategory: normalizeMarketCap(c.marketCapCategory),
             rank: rank - 1,
             primaryMetricLabel: c.primaryMetricLabel,
             primaryMetricValue: c.primaryMetricValue,
@@ -180,6 +196,7 @@ export class ProThematicScreenerService {
             companyName: listedStocks.companyName,
             sector: listedStocks.sector,
             marketCap: listedStocks.marketCap,
+            marketCapCategory: listedStocks.marketCapCategory,
             currentPrice: listedStocks.currentPrice,
             targetPrice: sql<number>`COALESCE(${stockAnalystConsensus.targetPriceMean}, ${listedStocks.targetPrice})`.as("target_price"),
             totalAnalysts: stockAnalystConsensus.totalAnalysts,
@@ -195,7 +212,9 @@ export class ProThematicScreenerService {
           .where(
             and(
               isNotNull(listedStocks.currentPrice),
-              sql`COALESCE(${stockAnalystConsensus.targetPriceMean}, ${listedStocks.targetPrice}) > ${listedStocks.currentPrice}`
+              sql`COALESCE(${stockAnalystConsensus.targetPriceMean}, ${listedStocks.targetPrice}) > ${listedStocks.currentPrice}`,
+              // Anomaly guardrail: Exclude target prices that exceed 120% upside (indicates unadjusted split/bonus action)
+              sql`COALESCE(${stockAnalystConsensus.targetPriceMean}, ${listedStocks.targetPrice}) <= ${listedStocks.currentPrice} * 2.2`
             )
           )
           .orderBy(desc(sql`upside_percent`))
@@ -205,8 +224,8 @@ export class ProThematicScreenerService {
           symbol: r.symbol,
           isin: r.isin,
           companyName: r.companyName,
-          sector: r.sector,
-          marketCapCategory: r.marketCap,
+          sector: r.sector || "Equities",
+          marketCapCategory: normalizeMarketCap(r.marketCapCategory, r.marketCap),
           primaryMetricLabel: "Price Forecast Upside %",
           primaryMetricValue: `+${Number(r.upsidePercent || 0).toFixed(2)}%`,
           secondaryMetricLabel: "Target Price",

@@ -165,8 +165,8 @@ async function main() {
   console.log("Seeding market bulk & block deals...");
   const dealSeeds = [
     { date: "2026-03-20", symbol: "ITC", isin: "INE154A01025", type: "BLOCK", txn: "SELL", client: "British American Tobacco (BAT)", qty: "436851000", price: "400.25", val: "17484.96" },
-    { date: "2026-03-22", symbol: "HDFCBANK", isin: "INE040A01034", type: "BLOCK", txn: "BUY", client: "SBI Mutual Fund Large Cap", qty: "18250000", price: "1680.00", val: "3066.00" },
-    { date: "2026-03-25", symbol: "RELIANCE", isin: "INE002A01018", type: "BLOCK", txn: "BUY", client: "Government of Singapore (GIC)", qty: "8500000", price: "2840.50", val: "2414.42" },
+    { date: "2026-03-22", symbol: "HDFCBANK", isin: "INE040A01034", type: "BLOCK", txn: "BUY", client: "SBI Mutual Fund Large Cap", qty: "35000000", price: "710.00", val: "2485.00" },
+    { date: "2026-03-25", symbol: "RELIANCE", isin: "INE002A01018", type: "BLOCK", txn: "BUY", client: "Government of Singapore (GIC)", qty: "17000000", price: "1220.00", val: "2074.00" },
     { date: "2026-03-26", symbol: "BHARTIARTL", isin: "INE397D01024", type: "BLOCK", txn: "BUY", client: "Vanguard Emerging Markets ETF", qty: "12400000", price: "1620.00", val: "2008.80" },
     { date: "2026-03-27", symbol: "TCS", isin: "INE467B01029", type: "BLOCK", txn: "SELL", client: "Tata Sons Institutional Tranche", qty: "4200000", price: "4180.00", val: "1755.60" },
   ];
@@ -199,8 +199,8 @@ async function main() {
     { symbol: "THERMAX", isin: "INE152A01029", total: 22, strongBuy: 14, buy: 5, hold: 2, sell: 1, buyPct: "86.36", targetMean: "4418.00", targetMedian: "4380.00" },
     { symbol: "WAAREEENER", isin: "INE377N01017", total: 12, strongBuy: 9, buy: 2, hold: 1, sell: 0, buyPct: "91.67", targetMean: "3280.00", targetMedian: "3250.00" },
     { symbol: "BEL", isin: "INE263A01024", total: 34, strongBuy: 24, buy: 7, hold: 2, sell: 1, buyPct: "91.18", targetMean: "491.00", targetMedian: "485.00" },
-    { symbol: "HDFCBANK", isin: "INE040A01034", total: 42, strongBuy: 30, buy: 9, hold: 3, sell: 0, buyPct: "92.86", targetMean: "2050.00", targetMedian: "2020.00" },
-    { symbol: "RELIANCE", isin: "INE002A01018", total: 38, strongBuy: 26, buy: 8, hold: 3, sell: 1, buyPct: "89.47", targetMean: "3420.00", targetMedian: "3390.00" },
+    { symbol: "HDFCBANK", isin: "INE040A01034", total: 42, strongBuy: 30, buy: 9, hold: 3, sell: 0, buyPct: "92.86", targetMean: "865.00", targetMedian: "850.00" },
+    { symbol: "RELIANCE", isin: "INE002A01018", total: 38, strongBuy: 26, buy: 8, hold: 3, sell: 1, buyPct: "89.47", targetMean: "1520.00", targetMedian: "1500.00" },
     { symbol: "ICICIBANK", isin: "INE090A01021", total: 39, strongBuy: 32, buy: 5, hold: 2, sell: 0, buyPct: "94.87", targetMean: "1520.00", targetMedian: "1500.00" },
   ];
 
