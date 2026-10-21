@@ -44,6 +44,34 @@ export const insertUsBrokerAccountSchema = createInsertSchema(usBrokerAccounts).
 export type UsBrokerAccount = typeof usBrokerAccounts.$inferSelect;
 export type InsertUsBrokerAccount = z.infer<typeof insertUsBrokerAccountSchema>;
 
+// ===== INDIAN DEMAT BROKER ACCOUNTS (Upstox, Zerodha, etc.) =====
+export const indianBrokerAccounts = pgTable("indian_broker_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  broker: varchar("broker", { length: 50 }).notNull().default("UPSTOX"), // UPSTOX, ZERODHA, GROWW, ANGELONE
+  brokerClientId: varchar("broker_client_id", { length: 100 }), // UCC / Client ID (e.g. 6ABCDE)
+  brokerClientName: varchar("broker_client_name", { length: 200 }),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  tokenExpiresAt: timestamp("token_expires_at"),
+  status: varchar("status", { length: 50 }).notNull().default("connected"), // connected | disconnected | expired | revoked
+  edisAuthorized: boolean("edis_authorized").default(false),
+  edisExpiresAt: timestamp("edis_expires_at"),
+  exchangesEnabled: jsonb("exchanges_enabled"), // e.g. ["NSE", "BSE", "MCX"]
+  metadata: jsonb("metadata"),
+  lastSyncAt: timestamp("last_sync_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_in_broker_accounts_user").on(table.userId),
+  index("idx_in_broker_accounts_broker").on(table.broker),
+  index("idx_in_broker_accounts_status").on(table.status),
+]);
+
+export const insertIndianBrokerAccountSchema = createInsertSchema(indianBrokerAccounts).omit({ id: true, createdAt: true, updatedAt: true });
+export type IndianBrokerAccount = typeof indianBrokerAccounts.$inferSelect;
+export type InsertIndianBrokerAccount = z.infer<typeof insertIndianBrokerAccountSchema>;
+
 
 
 // ===== BOND ORDERS =====

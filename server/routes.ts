@@ -177,6 +177,8 @@ import overlapIntelligenceRouter from "./routes/overlap-intelligence"; // /api/p
 import { modelPortfoliosRouter } from "./routes/model-portfolios-route"; // /api/model-portfolios — engine audit Fix #6
 import { agentLeadInboxRouter } from "./routes/agent-lead-inbox"; // /api/agent/leads
 import { exploriumWebhookRouter } from "./routes/explorium-webhook-routes"; // /api/webhooks/explorium
+import { webhookRoutes } from "./routes/webhook-routes"; // /api/webhooks/upstox, /api/webhooks/alpaca, /api/webhooks/iris
+import { upstoxOAuthRouter } from "./routes/upstox-oauth-routes"; // /api/upstox/oauth/*, /api/upstox/partner/*
 import { agentGeoCoverageRouter } from "./routes/agent-geo-coverage-routes"; // /api/agent/geo-coverage
 // Director phone enrichment is CredHive-only — no external phone provider needed.
 // EasyLeadz webhook route is deprecated (kept as dead file for historical reference).
@@ -580,6 +582,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	// ── Lead Pipeline & Geo Routes ─────────────────────────────────────────────
 	app.use("/api/agent/leads", agentLeadInboxRouter);
 	app.use("/api/webhooks", exploriumWebhookRouter);
+	app.use("/api/webhooks", webhookRoutes); // /api/webhooks/upstox, /api/webhooks/alpaca, /api/webhooks/iris
+	app.use("/api/upstox", upstoxOAuthRouter); // /api/upstox/oauth/*, /api/upstox/partner/*
 	app.use("/api/agent/geo-coverage", agentGeoCoverageRouter);
 
 	// ── Phone Enrichment & Calling ─────────────────────────────────────────────

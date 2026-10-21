@@ -5,6 +5,7 @@ import {
 	alpacaWebhookHandler,
 	verifyAlpacaWebhookSignature,
 } from "../services/alpaca/core/alpacaWebhookHandler";
+import { upstoxWebhookHandler } from "../services/upstox-webhook-handler";
 
 const router = Router();
 
@@ -128,6 +129,52 @@ router.post("/alpaca", async (req: Request, res: Response) => {
 		return res
 			.status(500)
 			.json({ success: false, message: "Internal server error" });
+	}
+});
+
+// ─── Upstox Postback Webhook ────────────────────────────────────────────────
+/**
+ * POST /api/webhooks/upstox
+ *
+ * Receives real-time asynchronous order fill & lifecycle postbacks from Upstox.
+ * Configured in Upstox Developer App console as Postback URL.
+ *
+ * Upstox delivers a JSON payload with order status changes:
+ * { order_id, status, filled_quantity, average_price, tag, status_message }
+ */
+router.post("/upstox", async (req: Request, res: Response) => {
+	const t0 = Date.now();
+	try {
+		const payload = req.body;
+		logger.info("[Webhook] Received Upstox postback event", {
+			event: "UPSTOX_WEBHOOK_RECEIVED",
+			orderId: payload?.order_id || payload?.data?.order_id,
+			status: payload?.status || payload?.data?.status,
+		});
+
+		const result = await upstoxWebhookHandler.handlePostback(payload);
+
+		// Upstox requires an immediate 200 HTTP response
+		return res.status(200).json({
+			success: true,
+			data: result,
+			meta: {
+				timestamp: new Date().toISOString(),
+				latency_ms: Date.now() - t0,
+			},
+		});
+	} catch (error: any) {
+		logger.error("[Webhook] Failed to process Upstox webhook", {
+			event: "UPSTOX_WEBHOOK_ERROR",
+			error: error.message,
+			latency_ms: Date.now() - t0,
+		});
+		// Always return 200 to prevent Upstox from disabling the webhook endpoint, but log error internally
+		return res.status(200).json({
+			success: false,
+			message: "Upstox postback recorded with internal warning",
+			error: error.message,
+		});
 	}
 });
 

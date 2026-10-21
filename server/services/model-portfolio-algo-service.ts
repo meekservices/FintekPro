@@ -37,6 +37,7 @@ import { randomBytes } from "crypto";
 import { upstoxMarketDataService } from "./upstox-market-data-service";
 import { unifiedStockPriceService } from "./unified-stock-price-service";
 import { upstoxAdapter } from "./mpal/adapters/upstoxAdapter";
+import { calculateIntegerShareAllocation } from "./model-portfolio-share-sizing";
 
 export const ALGO_ENGINE_VERSION = "FASP-AI-v3.0-ALGO";
 
@@ -62,6 +63,7 @@ export interface ExecuteAlgoOptions {
   userId?: string;
   forceExecution?: boolean; // bypass drift threshold if manually triggered by manager
   executeWithBroker?: boolean; // send real orders to Upstox if configured
+  userToken?: string; // Client OAuth access token for multi-tenant Demat execution
 }
 
 export interface AlgoExecutionResult {
@@ -421,7 +423,37 @@ export class ModelPortfolioAlgoService {
       }
     }
 
-    for (const rawAction of actions) {
+    // ── Pre-trade RMS: Verify Upstox Available Margin (when broker execution active) ──
+    const shouldRouteToBroker =
+      Boolean(options.executeWithBroker || algoConfig.executionMode === "UPSTOX_LIVE" || algoConfig.executionMode === "UPSTOX_SANDBOX") &&
+      upstoxAdapter.isConfigured();
+
+    if (shouldRouteToBroker) {
+      try {
+        const fundsData = await upstoxAdapter.getFundsAndMargin("SEC", options.userToken);
+        const availableMargin = Number(fundsData?.equity?.available_margin ?? fundsData?.available_margin ?? 0);
+        logger.info(`[ModelPortfolioAlgo] Upstox pre-trade margin verified: ₹${availableMargin.toLocaleString("en-IN")}`, {
+          event: "UPSTOX_PRETRADE_MARGIN_VERIFIED",
+          available_margin: availableMargin,
+          portfolio_id: portfolioId,
+          user_id: options.userId ?? actorId,
+          is_client_token: Boolean(options.userToken),
+        });
+      } catch (fundsErr: any) {
+        logger.warn(`[ModelPortfolioAlgo] Upstox pre-trade margin query non-fatal warning: ${fundsErr.message}`);
+      }
+    }
+
+    // ── Execution Sequencing: SELL/TRIM First -> BUY/ADD Second ─────────────
+    // Indian Demat trading requires selling overweight positions first to release
+    // exchange margin/collateral, preventing INSUFFICIENT_FUNDS rejects on BUY orders.
+    const sequencedActions = [...actions].sort((a: any, b: any) => {
+      const aIsSell = (a.action === "SELL" || a.action === "TRIM") ? 0 : 1;
+      const bIsSell = (b.action === "SELL" || b.action === "TRIM") ? 0 : 1;
+      return aIsSell - bIsSell;
+    });
+
+    for (const rawAction of sequencedActions) {
       const action = rawAction as any;
       const legAction = (action.action === "BUY" || action.action === "ADD") ? "BUY" : "TRIM";
       const instrumentName = action.asset || action.name || "Unknown Instrument";
@@ -458,9 +490,25 @@ export class ModelPortfolioAlgoService {
 
       // Sizing calculation:
       const rawNotional = Math.abs(action.quantity_proxy ?? ((action.weight_delta ?? 2) / 100) * totalPortfolioValue);
-      // Enforce RMS Cap
-      const executedAmount = Math.min(rawNotional, maxTradeAmountCap);
-      const units = nav > 0 ? parseFloat((executedAmount / nav).toFixed(4)) : null;
+      const cappedNotional = Math.min(rawNotional, maxTradeAmountCap);
+
+      // ── Integer Share Sizing & Cash Drag Calculation ─────────────────────────
+      // NSE/BSE rejects fractional quantities. For equities/ETFs, calculate exact whole shares.
+      const isDematInstrument = Boolean(holdingSymbol) || assetClass === "equity" || assetClass === "etf";
+      let units: number | null = null;
+      let executedAmount = cappedNotional;
+
+      if (isDematInstrument && nav > 0) {
+        const integerQty = Math.floor(cappedNotional / nav);
+        if (integerQty === 0 && legAction === "BUY") {
+          logger.warn(`[ModelPortfolioAlgo] Notional ₹${cappedNotional} < 1 share price ₹${nav} for ${instrumentName}. Skipping 0-share order to prevent Demat reject.`);
+          continue;
+        }
+        units = Math.max(1, integerQty);
+        executedAmount = parseFloat((units * nav).toFixed(2));
+      } else {
+        units = nav > 0 ? parseFloat((cappedNotional / nav).toFixed(4)) : null;
+      }
 
       const transNum = this.generateTransactionNumber();
       const idempotencyKey = `algo_${portfolioId}_${transNum}`;
@@ -469,12 +517,9 @@ export class ModelPortfolioAlgoService {
       let brokerOrderId: string | null = null;
       let executionStatus: "executed" | "submitted" | "simulated" = "executed";
 
-      const shouldRouteToBroker =
-        Boolean(options.executeWithBroker || algoConfig.executionMode === "UPSTOX_LIVE" || algoConfig.executionMode === "UPSTOX_SANDBOX") &&
-        upstoxAdapter.isConfigured() &&
-        Boolean(holdingSymbol);
+      const canRouteInstrument = shouldRouteToBroker && Boolean(holdingSymbol);
 
-      if (shouldRouteToBroker && holdingSymbol) {
+      if (canRouteInstrument && holdingSymbol) {
         try {
           const brokerRes = await upstoxAdapter.placeOrder({
             idempotencyKey,
@@ -491,6 +536,8 @@ export class ModelPortfolioAlgoService {
               portfolioCode: portfolio.portfolioCode,
               legAction,
               executionChannel: channel,
+              userToken: options.userToken,
+              clientToken: options.userToken,
             },
           });
 
@@ -501,6 +548,8 @@ export class ModelPortfolioAlgoService {
             symbol: holdingSymbol,
             brokerOrderId,
             status: executionStatus,
+            qty: units,
+            user_token_routed: Boolean(options.userToken),
           });
         } catch (brokerErr: any) {
           logger.error(`[ModelPortfolioAlgo] Upstox order dispatch non-fatal failure`, {
@@ -534,6 +583,7 @@ export class ModelPortfolioAlgoService {
           driftBeforePct: matchingHolding?.drift ? parseFloat(matchingHolding.drift).toFixed(2) : null,
           executionStatus,
           executionChannel: channel,
+          brokerOrderId: brokerOrderId ?? null,
           rationale: action.reason || `Algo drift rebalance: ${legAction} ${instrumentName} to maintain target allocation`,
           confidenceScore: 90,
           factorsConsidered: {
@@ -543,6 +593,8 @@ export class ModelPortfolioAlgoService {
             rebalanceMode: portfolio.rebalancingMode,
             engineVersion: ALGO_ENGINE_VERSION,
             brokerOrderId: brokerOrderId ?? undefined,
+            integerQuantity: units ? Math.round(units) : undefined,
+            userTokenRouted: Boolean(options.userToken),
           },
           idempotencyKey,
           engineVersion: ALGO_ENGINE_VERSION,
@@ -863,6 +915,249 @@ export class ModelPortfolioAlgoService {
       .orderBy(desc(modelPortfolios.algoTradingEnabled), modelPortfolios.id);
 
     return rows;
+  }
+
+  /**
+   * Syncs the live execution status of an individual Upstox order
+   * from Upstox order history into model_portfolio_transactions and unified_orders.
+   */
+  async syncOrderStatus(
+    identifier: string,
+    userToken?: string,
+  ): Promise<{
+    success: boolean;
+    transactionNumber: string;
+    brokerOrderId: string | null;
+    previousStatus: string;
+    newStatus: string;
+    filledQty?: number;
+    filledPrice?: number;
+    message: string;
+  }> {
+    const t0 = Date.now();
+    // 1. Locate transaction by transactionNumber, id, or brokerOrderId
+    const [tx] = await db
+      .select()
+      .from(modelPortfolioTransactions)
+      .where(
+        sql`${modelPortfolioTransactions.transactionNumber} = ${identifier} OR ${modelPortfolioTransactions.id} = ${identifier} OR ${modelPortfolioTransactions.brokerOrderId} = ${identifier}`
+      )
+      .limit(1);
+
+    if (!tx) {
+      throw new Error(`Transaction '${identifier}' not found`);
+    }
+
+    const brokerOrderId = tx.brokerOrderId || (tx.factorsConsidered as any)?.brokerOrderId;
+    if (!brokerOrderId) {
+      return {
+        success: false,
+        transactionNumber: tx.transactionNumber,
+        brokerOrderId: null,
+        previousStatus: tx.executionStatus,
+        newStatus: tx.executionStatus,
+        message: "Transaction has no associated Upstox brokerOrderId.",
+      };
+    }
+
+    // 2. Fetch live status from Upstox API
+    const brokerResult = await upstoxAdapter.getOrderStatus(brokerOrderId, userToken);
+    const previousStatus = tx.executionStatus;
+
+    // Map Upstox status to ModelPortfolioTransaction status
+    let mappedStatus: "executed" | "submitted" | "failed" | "cancelled" = "submitted";
+    if (brokerResult.status === "filled") {
+      mappedStatus = "executed";
+    } else if (brokerResult.status === "rejected") {
+      mappedStatus = "failed";
+    } else if (brokerResult.status === "cancelled") {
+      mappedStatus = "cancelled";
+    } else if (
+      brokerResult.status === "submitted" ||
+      brokerResult.status === "pending" ||
+      brokerResult.status === "partially_filled"
+    ) {
+      mappedStatus = "submitted";
+    }
+
+    const filledQty = brokerResult.filledQty ?? 0;
+    const filledPrice = brokerResult.filledPrice ?? 0;
+
+    // 3. Update modelPortfolioTransactions
+    const updatePayload: Record<string, any> = {
+      executionStatus: mappedStatus,
+      updatedAt: new Date(),
+    };
+
+    if (filledQty > 0) {
+      updatePayload.units = filledQty.toFixed(4);
+    }
+    if (filledPrice > 0) {
+      updatePayload.nav = filledPrice.toFixed(4);
+    }
+    if (filledQty > 0 && filledPrice > 0) {
+      updatePayload.amount = (filledQty * filledPrice).toFixed(2);
+    }
+
+    await db
+      .update(modelPortfolioTransactions)
+      .set(updatePayload)
+      .where(eq(modelPortfolioTransactions.id, tx.id));
+
+    // 4. Update linked unifiedOrders and lifecycle events if present
+    if (tx.unifiedOrderId) {
+      try {
+        const orderStatus =
+          mappedStatus === "executed"
+            ? "executed"
+            : mappedStatus === "failed"
+            ? "failed"
+            : mappedStatus === "cancelled"
+            ? "cancelled"
+            : "pending";
+
+        await db
+          .update(unifiedOrders)
+          .set({
+            status: orderStatus,
+            executionStatus: mappedStatus,
+            ...(filledPrice > 0 ? { executionPrice: filledPrice.toFixed(6) } : {}),
+            ...(filledQty > 0 ? { executedQuantity: filledQty.toFixed(4) } : {}),
+            updatedAt: new Date(),
+          })
+          .where(eq(unifiedOrders.id, tx.unifiedOrderId));
+
+        if (previousStatus !== mappedStatus) {
+          await db.insert(orderLifecycleEvents).values({
+            orderId: tx.unifiedOrderId,
+            eventType: `UPSTOX_ORDER_${mappedStatus.toUpperCase()}`,
+            eventName: `Upstox Demat Order Status: ${mappedStatus.toUpperCase()}`,
+            eventDescription: `Order ${brokerOrderId} updated from ${previousStatus} to ${mappedStatus}. Filled: ${filledQty} shares at ₹${filledPrice}`,
+            newState: { status: mappedStatus, filledQty, filledPrice, brokerOrderId },
+            actorId: "system_sync",
+            actorType: "system",
+            isSystemGenerated: true,
+          });
+        }
+      } catch (uniErr: any) {
+        logger.warn(`[ModelPortfolioAlgo] Failed to sync unified order for tx ${tx.transactionNumber}`, {
+          error: uniErr.message,
+        });
+      }
+    }
+
+    logger.info(`[ModelPortfolioAlgo] Synced Upstox order ${brokerOrderId}`, {
+      event: "UPSTOX_ORDER_SYNCED",
+      transaction_number: tx.transactionNumber,
+      broker_order_id: brokerOrderId,
+      previous_status: previousStatus,
+      new_status: mappedStatus,
+      latency_ms: Date.now() - t0,
+    });
+
+    return {
+      success: true,
+      transactionNumber: tx.transactionNumber,
+      brokerOrderId,
+      previousStatus,
+      newStatus: mappedStatus,
+      filledQty,
+      filledPrice,
+      message: `Status updated from ${previousStatus} to ${mappedStatus}`,
+    };
+  }
+
+  /**
+   * Syncs all open/submitted orders for a model portfolio against Upstox order history.
+   */
+  async syncPortfolioPendingOrders(
+    portfolioId: string,
+    userToken?: string,
+  ): Promise<{
+    success: boolean;
+    portfolioId: string;
+    totalPending: number;
+    synced: number;
+    filled: number;
+    rejected: number;
+    cancelled: number;
+    stillPending: number;
+    results: Array<{
+      transactionNumber: string;
+      brokerOrderId: string | null;
+      previousStatus: string;
+      newStatus: string;
+    }>;
+  }> {
+    const t0 = Date.now();
+    logger.info(`[ModelPortfolioAlgo] Syncing pending orders for portfolio ${portfolioId}`, {
+      event: "PORTFOLIO_ORDERS_SYNC_START",
+      portfolio_id: portfolioId,
+    });
+
+    const pendingTxns = await db
+      .select()
+      .from(modelPortfolioTransactions)
+      .where(
+        and(
+          eq(modelPortfolioTransactions.portfolioId, portfolioId),
+          eq(modelPortfolioTransactions.executionStatus, "submitted"),
+        ),
+      );
+
+    let filled = 0;
+    let rejected = 0;
+    let cancelled = 0;
+    let stillPending = 0;
+    const results: Array<{
+      transactionNumber: string;
+      brokerOrderId: string | null;
+      previousStatus: string;
+      newStatus: string;
+    }> = [];
+
+    for (const tx of pendingTxns) {
+      try {
+        const syncRes = await this.syncOrderStatus(tx.transactionNumber, userToken);
+        results.push({
+          transactionNumber: tx.transactionNumber,
+          brokerOrderId: syncRes.brokerOrderId,
+          previousStatus: syncRes.previousStatus,
+          newStatus: syncRes.newStatus,
+        });
+
+        if (syncRes.newStatus === "executed") filled++;
+        else if (syncRes.newStatus === "failed") rejected++;
+        else if (syncRes.newStatus === "cancelled") cancelled++;
+        else stillPending++;
+      } catch (err: any) {
+        logger.warn(`[ModelPortfolioAlgo] Error syncing tx ${tx.transactionNumber}`, { error: err.message });
+        stillPending++;
+      }
+    }
+
+    logger.info(`[ModelPortfolioAlgo] Sync complete for ${portfolioId}`, {
+      event: "PORTFOLIO_ORDERS_SYNC_COMPLETE",
+      portfolio_id: portfolioId,
+      total_pending: pendingTxns.length,
+      filled,
+      rejected,
+      cancelled,
+      still_pending: stillPending,
+      latency_ms: Date.now() - t0,
+    });
+
+    return {
+      success: true,
+      portfolioId,
+      totalPending: pendingTxns.length,
+      synced: results.length,
+      filled,
+      rejected,
+      cancelled,
+      stillPending,
+      results,
+    };
   }
 }
 

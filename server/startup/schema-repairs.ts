@@ -3001,6 +3001,38 @@ export async function runFASPAIv3Migrations(): Promise<void> {
     console.warn("  ⚠️  model_portfolio_transactions (non-fatal):", e.message?.slice(0, 80));
   }
 
+  // ── Indian Demat Broker Accounts (Upstox, etc.) ─────────────────────────────
+  try {
+    const { db: migDb } = await import("../db");
+    const { sql: migSql } = await import("drizzle-orm");
+    await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS indian_broker_accounts (
+        id                   VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::varchar,
+        user_id              VARCHAR NOT NULL REFERENCES users(id),
+        broker               VARCHAR(50) NOT NULL DEFAULT 'UPSTOX',
+        broker_client_id     VARCHAR(100),
+        broker_client_name   VARCHAR(200),
+        access_token         TEXT,
+        refresh_token        TEXT,
+        token_expires_at     TIMESTAMP,
+        status               VARCHAR(50) NOT NULL DEFAULT 'connected',
+        edis_authorized      BOOLEAN DEFAULT false,
+        edis_expires_at      TIMESTAMP,
+        exchanges_enabled    JSONB,
+        metadata             JSONB,
+        last_sync_at         TIMESTAMP,
+        created_at           TIMESTAMP DEFAULT NOW(),
+        updated_at           TIMESTAMP DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_in_broker_accounts_user ON indian_broker_accounts(user_id);
+      CREATE INDEX IF NOT EXISTS idx_in_broker_accounts_broker ON indian_broker_accounts(broker);
+      CREATE INDEX IF NOT EXISTS idx_in_broker_accounts_status ON indian_broker_accounts(status);
+    `);
+    console.log("  ✅ indian_broker_accounts: created/ensured");
+  } catch (e: any) {
+    console.warn("  ⚠️  indian_broker_accounts (non-fatal):", e.message?.slice(0, 80));
+  }
+
   console.log("  ✅ [FASP-AI v3.0] All dynamic portfolio management tables created");
 }
 

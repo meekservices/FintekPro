@@ -187,6 +187,15 @@ describe("Quant & Decision Support Engine Guardrails", () => {
 			expect(breachedDrawdown.tripped).toBe(true);
 			expect(breachedDrawdown.threshold).toBe(8);
 			expect(breachedDrawdown.message).toContain("Auto-rebalance paused");
+
+			// Also verify with database-stored percentage threshold (e.g. 8 for 8%, 15 for 15%)
+			const dbThresholdBreached = checkDrawdownCircuitBreaker(-14.2, "conservative", 8);
+			expect(dbThresholdBreached.tripped).toBe(true);
+			expect(dbThresholdBreached.threshold).toBe(8);
+
+			const dbThresholdSafe = checkDrawdownCircuitBreaker(-6.0, "moderate", 15);
+			expect(dbThresholdSafe.tripped).toBe(false);
+			expect(dbThresholdSafe.threshold).toBe(15);
 		});
 	});
 });

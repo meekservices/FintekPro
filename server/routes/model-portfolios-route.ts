@@ -56,6 +56,7 @@ import { getInstrument } from "../data/instrument-registry";
 import { lookupByISIN, lookupByNSESymbol } from "../services/isin-registry-service";
 import { unifiedStockPriceService } from "../services/unified-stock-price-service";
 import { modelPortfolioAlgoService } from "../services/model-portfolio-algo-service";
+import { calculateIntegerShareAllocation } from "../services/model-portfolio-share-sizing";
 
 export const modelPortfoliosRouter = Router();
 
@@ -4898,7 +4899,8 @@ modelPortfoliosRouter.get("/:id/invest/preview", async (req: Request, res: Respo
       });
     }
 
-    const holdings: QuantHolding[] = ((row.holdings as any[]) ?? []).map((h: any) => ({
+    const rawHoldings = (row.holdings as any[]) ?? [];
+    const holdings: QuantHolding[] = rawHoldings.map((h: any) => ({
       rank: Number(h.rank ?? 0),
       name: String(h.name ?? "Unknown"),
       category: String(h.category ?? "MF"),
@@ -4909,6 +4911,25 @@ modelPortfoliosRouter.get("/:id/invest/preview", async (req: Request, res: Respo
     const allocation = buildInvestAllocation(holdings, amount);
     const holdingsBelow = allocation.filter(a => a.isBelowMinimum).length;
 
+    // ── Integer Share Sizing & Cash Drag Engine for Demat / Equity Portfolios ──
+    const hasDematHoldings = rawHoldings.some(
+      (h: any) => h.symbol || h.category === "Stock" || h.category === "ETF" || h.category === "equity"
+    );
+
+    let integerSizing = null;
+    if (hasDematHoldings) {
+      const sizingInputs = rawHoldings.map((h: any, idx: number) => ({
+        rank: Number(h.rank ?? idx + 1),
+        name: String(h.name ?? h.instrumentName ?? "Unknown"),
+        symbol: String(h.symbol ?? "").toUpperCase(),
+        isin: h.isin ?? null,
+        category: h.category ?? "equity",
+        targetWeight: Number(h.weight ?? h.targetWeight ?? 0),
+        marketPrice: h.currentNav ? Number(h.currentNav) : (h.marketPrice ? Number(h.marketPrice) : 100),
+      }));
+      integerSizing = calculateIntegerShareAllocation(sizingInputs, amount);
+    }
+
     return res.json({
       success: true,
       data: {
@@ -4918,15 +4939,18 @@ modelPortfoliosRouter.get("/:id/invest/preview", async (req: Request, res: Respo
         totalAmount:   amount,
         allocation,
         holdingsBelowMinimum: holdingsBelow,
+        integerSizing: integerSizing ?? undefined,
         advisory_note: holdingsBelow > 0
           ? `${holdingsBelow} holding(s) receive less than ₹100 at this amount. Consider increasing the investment amount for better diversification.`
+          : integerSizing && !integerSizing.isFullyInvestable
+          ? integerSizing.summary
           : "All holdings meet the ₹100 minimum. Proceed to generate a proposal.",
       },
       meta: {
         timestamp: new Date().toISOString(),
         version: ENGINE_VERSION,
         latency_ms: Date.now() - t0,
-        disclaimer: "Mutual Fund investments are subject to market risks. Past performance is not indicative of future results.",
+        disclaimer: "Mutual Fund and Demat investments are subject to market risks. Past performance is not indicative of future results.",
       },
     });
   } catch (err: any) {
@@ -6190,7 +6214,7 @@ modelPortfoliosRouter.post("/:id/algo-trading/disable", async (req: Request, res
 /**
  * POST /api/model-portfolios/:id/algo-trading/execute
  * Triggers algorithmic rebalancing and trade execution for a specific model portfolio.
- * Body: { totalPortfolioValue?: number, forceExecution?: boolean, clientPan?: string }
+ * Body: { totalPortfolioValue?: number, forceExecution?: boolean, clientPan?: string, executeWithBroker?: boolean, userToken?: string }
  */
 modelPortfoliosRouter.post("/:id/algo-trading/execute", async (req: Request, res: Response) => {
   const t0 = Date.now();
@@ -6198,7 +6222,8 @@ modelPortfoliosRouter.post("/:id/algo-trading/execute", async (req: Request, res
     const { id } = req.params;
     const actorId = (req as any).user?.id?.toString() || "system";
     const actorType = (req as any).user?.role === "advisor" ? "agent" : "system";
-    const { totalPortfolioValue, forceExecution, clientPan, userId } = req.body || {};
+    const { totalPortfolioValue, forceExecution, clientPan, userId, executeWithBroker, userToken } = req.body || {};
+    const resolvedUserToken = userToken || (req.headers["x-upstox-token"] as string) || undefined;
 
     const executionResult = await modelPortfolioAlgoService.executeModelPortfolioAlgo(id, {
       totalPortfolioValue: totalPortfolioValue ? Number(totalPortfolioValue) : undefined,
@@ -6207,6 +6232,8 @@ modelPortfoliosRouter.post("/:id/algo-trading/execute", async (req: Request, res
       clientPan,
       userId,
       forceExecution: Boolean(forceExecution),
+      executeWithBroker: Boolean(executeWithBroker),
+      userToken: resolvedUserToken,
     });
 
     const httpStatus = executionResult.status === "RMS_BLOCKED" ? 400 :
@@ -6229,6 +6256,72 @@ modelPortfoliosRouter.post("/:id/algo-trading/execute", async (req: Request, res
       error_code: "ALGO_EXECUTION_FAILED",
       message: err.message,
       retryable: false,
+    });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/:id/algo-trading/sync-orders
+ * Syncs all open/pending Upstox Demat orders for a model portfolio against Upstox order book.
+ * Body: { userToken?: string } or Header: 'x-upstox-token'
+ */
+modelPortfoliosRouter.post("/:id/algo-trading/sync-orders", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const userToken = req.body?.userToken || (req.headers["x-upstox-token"] as string) || undefined;
+
+    const syncResult = await modelPortfolioAlgoService.syncPortfolioPendingOrders(id, userToken);
+
+    return res.json({
+      success: syncResult.success,
+      data: syncResult,
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: "FASP-AI-v3.0-ALGO",
+        latency_ms: Date.now() - t0,
+      },
+    });
+  } catch (err: any) {
+    logger.error(`[ModelPortfolios] Failed to sync orders for ${req.params.id}`, err);
+    return res.status(500).json({
+      success: false,
+      error_code: "ORDERS_SYNC_FAILED",
+      message: err.message,
+      retryable: true,
+    });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/transactions/:identifier/sync-order
+ * Syncs a single Upstox Demat order fill status.
+ * Param: identifier can be transactionNumber, id, or brokerOrderId.
+ */
+modelPortfoliosRouter.post("/transactions/:identifier/sync-order", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { identifier } = req.params;
+    const userToken = req.body?.userToken || (req.headers["x-upstox-token"] as string) || undefined;
+
+    const result = await modelPortfolioAlgoService.syncOrderStatus(identifier, userToken);
+
+    return res.json({
+      success: result.success,
+      data: result,
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: "FASP-AI-v3.0-ALGO",
+        latency_ms: Date.now() - t0,
+      },
+    });
+  } catch (err: any) {
+    logger.error(`[ModelPortfolios] Failed to sync order ${req.params.identifier}`, err);
+    return res.status(500).json({
+      success: false,
+      error_code: "ORDER_STATUS_SYNC_FAILED",
+      message: err.message,
+      retryable: true,
     });
   }
 });

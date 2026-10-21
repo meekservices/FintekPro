@@ -624,7 +624,12 @@ export async function autoApplyHighConfidenceSwaps(
       }
 
       const best = suggestion.alternatives[0];
-      const idx = holdings.findIndex((h: any) => h.rank === suggestion.alphaDragHolding.rank);
+      const idx = holdings.findIndex(
+        (h: any) =>
+          (h.name && h.name.toLowerCase() === suggestion.alphaDragHolding.name.toLowerCase()) ||
+          (suggestion.alphaDragHolding.symbol && h.symbol && h.symbol.toUpperCase() === suggestion.alphaDragHolding.symbol.toUpperCase()) ||
+          (h.rank != null && h.rank === suggestion.alphaDragHolding.rank)
+      );
       if (idx === -1 || !best) continue;
 
       const old = holdings[idx];
@@ -676,20 +681,59 @@ export async function autoApplyHighConfidenceSwaps(
     // Ensure total weights strictly sum to 100.0%, remove duplicates, and enrich ISINs
     holdings = normalizePortfolioHoldings(holdings, { id: portfolioId, name: portfolio.name }).holdings;
 
-    // Persist template changes
-    await db
-      .update(modelPortfolios)
-      .set({
-        holdings: holdings as any,
-        lastRebalanced: new Date().toISOString().split("T")[0],
-        updatedAt: new Date(),
-      })
-      .where(eq(modelPortfolios.id, portfolioId));
-
     // Compute average confidence of applied swaps
     const avgConfidence = pSuggestions
       .filter(s => applied.some(a => a.includes(s.alphaDragHolding.name)))
       .reduce((sum, s) => sum + s.confidence_score, 0) / Math.max(applied.length, 1);
+
+    const todayStr = new Date().toISOString().split("T")[0];
+    const currentHistory: any[] = Array.isArray(portfolio.rebalancingHistory)
+      ? portfolio.rebalancingHistory
+      : [];
+
+    const rebalanceEvent = {
+      date: todayStr,
+      trigger: "high_confidence_swap",
+      swapsApplied: applied.length,
+      changes: applied.slice(0, 10),
+      confidence: Math.round(avgConfidence * 100),
+      marketRegime: regime.regime,
+      engine: MODEL_VERSION,
+    };
+    const updatedHistory = [...currentHistory, rebalanceEvent].slice(-24);
+
+    // Persist template changes & clear pending drift flags
+    await db
+      .update(modelPortfolios)
+      .set({
+        holdings: holdings as any,
+        lastRebalanced: todayStr,
+        needsRebalance: false,
+        pendingRebalancePlan: null,
+        driftScore: 0,
+        rebalancingHistory: updatedHistory as any,
+        updatedAt: new Date(),
+      })
+      .where(eq(modelPortfolios.id, portfolioId));
+
+    // SEBI audit trail: record to portfolio_rebalance_events
+    try {
+      await db.execute(sql`
+        INSERT INTO portfolio_rebalance_events
+          (portfolio_id, trigger_type, drift_score_at_trigger, drift_threshold_pct,
+           holdings_drift, action_taken, engine_version, source)
+        VALUES (
+          ${portfolioId}, 'auto_high_confidence_swap',
+          ${portfolio.driftScore ?? 0},
+          ${portfolio.driftThreshold ? Number(portfolio.driftThreshold) : 5},
+          ${JSON.stringify((portfolio.driftDetails as any[]) ?? [])}::jsonb,
+          'AUTO_REBALANCED',
+          ${MODEL_VERSION}, 'system'
+        )
+      `);
+    } catch (eventErr: any) {
+      logger.warn("[Rebalance] portfolio_rebalance_events insert (non-fatal)", { error: eventErr?.message });
+    }
 
     // ── FASP-AI v3.0: Persist to advisory outputs for SEBI audit trail ──
     const confidence = FaspAIv2Service.computeConfidence({
@@ -829,6 +873,10 @@ export async function autoApplyCalendarRebalancing(): Promise<{
       maxDrawdown:          modelPortfolios.maxDrawdown,
       maxDrawdownThreshold: modelPortfolios.maxDrawdownThreshold,
       rebalancingMode:      modelPortfolios.rebalancingMode,
+      rebalancingHistory:   modelPortfolios.rebalancingHistory,
+      driftScore:           modelPortfolios.driftScore,
+      driftThreshold:       modelPortfolios.driftThreshold,
+      driftDetails:         modelPortfolios.driftDetails,
     })
     .from(modelPortfolios)
     .where(eq(modelPortfolios.isPublished, true));
@@ -974,12 +1022,15 @@ export async function autoApplyCalendarRebalancing(): Promise<{
       // Ensure total weights strictly sum to 100.0%, remove duplicates, and enrich ISINs
       updatedHoldings = normalizePortfolioHoldings(updatedHoldings, { id: portfolio.id, name: portfolio.name }).holdings;
 
-      // Persist updated template
+      // Persist updated template & clear pending drift flags
       await db
         .update(modelPortfolios)
         .set({
           holdings:       updatedHoldings as any,
           lastRebalanced: today.toISOString().split("T")[0],
+          needsRebalance: false,
+          pendingRebalancePlan: null,
+          driftScore: 0,
           updatedAt:      today,
         })
         .where(eq(modelPortfolios.id, portfolio.id));
@@ -1068,6 +1119,25 @@ export async function autoApplyCalendarRebalancing(): Promise<{
         SET rebalancing_history = ${JSON.stringify(updatedHistory)}::jsonb
         WHERE id = ${portfolio.id}
       `);
+
+      // Record to portfolio_rebalance_events for regulatory audit trail
+      try {
+        await db.execute(sql`
+          INSERT INTO portfolio_rebalance_events
+            (portfolio_id, trigger_type, drift_score_at_trigger, drift_threshold_pct,
+             holdings_drift, action_taken, engine_version, source)
+          VALUES (
+            ${portfolio.id}, ${portfolio.rebalancingMode === "calendar" ? "calendar_scheduled" : "drift_triggered"},
+            ${(portfolio as any).driftScore ?? 0},
+            ${(portfolio as any).driftThreshold ? Number((portfolio as any).driftThreshold) : 5},
+            ${JSON.stringify(((portfolio as any).driftDetails as any[]) ?? [])}::jsonb,
+            'AUTO_REBALANCED',
+            ${MODEL_VERSION}, 'system'
+          )
+        `);
+      } catch (eventErr: any) {
+        logger.warn("[CalendarRebalance] portfolio_rebalance_events insert (non-fatal)", { error: eventErr?.message });
+      }
 
       logger.info("[CalendarRebalance] Rebalance event appended to history", {
         portfolio_id: portfolio.id,

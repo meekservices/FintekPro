@@ -140,6 +140,19 @@ async function run(): Promise<void> {
 			total_swaps_queued: totalSwapsQueued,
 		});
 
+		if (totalSwapsApplied > 0 || calendarResult.portfoliosRebalanced > 0) {
+			try {
+				const { enrichAndPersistAllHoldings, computeAndPersistAllPortfolioCAGRs } = await import(
+					"../server/services/model-portfolio-metrics-service"
+				);
+				await enrichAndPersistAllHoldings();
+				await computeAndPersistAllPortfolioCAGRs();
+				logger.info(`[${JOB_NAME}] Post-rebalance enrichment and CAGR recompute complete`);
+			} catch (postErr: any) {
+				logger.warn(`[${JOB_NAME}] Post-rebalance metrics enrichment non-fatal error`, { error: postErr.message });
+			}
+		}
+
 		// ── PHASE 5: Real-Money Client Risk & Reward Protection (FASP-AI v1.0) ─────
 		logger.info(`[${JOB_NAME}] Phase 5: Generating 1-Click Execution Proposals for real-money accounts...`);
 		let proposalsGenerated = 0;

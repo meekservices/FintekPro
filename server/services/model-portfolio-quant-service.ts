@@ -170,10 +170,15 @@ export function checkDrawdownCircuitBreaker(
   riskProfile: string,
   dbThreshold?: number | null,
 ): { tripped: boolean; threshold: number; message: string } {
-  const threshold = dbThreshold ?? (MAX_DRAWDOWN_BY_RISK[riskProfile.toLowerCase()] ?? 0.20);
+  // If dbThreshold is passed as percentage (e.g. 8, 15, 25 where > 1), use it directly.
+  // If dbThreshold is a decimal ratio <= 1 (e.g. 0.08), multiply by 100.
+  // If dbThreshold is null/undefined, use MAX_DRAWDOWN_BY_RISK decimal ratio * 100.
+  const thresholdPct = dbThreshold != null
+    ? (dbThreshold > 1 ? dbThreshold : dbThreshold * 100)
+    : (MAX_DRAWDOWN_BY_RISK[riskProfile.toLowerCase()] ?? 0.20) * 100;
+
   // Normalise: DB stores negative %, we compare absolute magnitude against threshold %
   const absDrawdown = Math.abs(currentMaxDrawdown);
-  const thresholdPct = threshold * 100;
   const tripped = absDrawdown > thresholdPct;
   return {
     tripped,

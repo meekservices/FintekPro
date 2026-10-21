@@ -71,23 +71,44 @@ export class UpstoxAdapter extends BaseBroker {
     );
   }
 
-  private get client(): AxiosInstance {
+  /**
+   * Retrieves an Axios instance configured with either the custom user token or the default system token.
+   */
+  public getClient(customToken?: string): AxiosInstance {
     const baseURL = this.isSandbox() ? SANDBOX_BASE_URL : LIVE_BASE_URL;
-    const token = this.getToken();
+    const token = customToken || this.getToken();
 
-    if (!this._client || this._client.defaults.baseURL !== baseURL) {
-      this._client = axios.create({
-        baseURL,
-        timeout: 10_000,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          "Api-Version": "2.0",
-        },
-      });
+    if (!customToken) {
+      if (!this._client || this._client.defaults.baseURL !== baseURL) {
+        this._client = axios.create({
+          baseURL,
+          timeout: 10_000,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "Api-Version": "2.0",
+          },
+        });
+      }
+      return this._client;
     }
-    return this._client;
+
+    // Return dedicated instance for client-specific OAuth token
+    return axios.create({
+      baseURL,
+      timeout: 10_000,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "Api-Version": "2.0",
+      },
+    });
+  }
+
+  private get client(): AxiosInstance {
+    return this.getClient();
   }
 
   /**
@@ -154,6 +175,7 @@ export class UpstoxAdapter extends BaseBroker {
 
   /**
    * Place an order on Upstox (v3 PlaceOrderRequest format).
+   * Supports client-specific OAuth multi-tenancy via order.meta.userToken or order.meta.clientToken.
    */
   async placeOrder(order: BrokerOrder): Promise<BrokerOrderResult> {
     const t0 = Date.now();
@@ -191,6 +213,13 @@ export class UpstoxAdapter extends BaseBroker {
       is_amo: false,
     };
 
+    const customToken =
+      (order.meta?.userToken as string) ||
+      (order.meta?.clientToken as string) ||
+      (order.meta?.token as string);
+
+    const activeClient = this.getClient(customToken);
+
     logger.info(`[UpstoxAdapter] Submitting order`, {
       event: "UPSTOX_ORDER_SUBMIT",
       symbol: order.symbol,
@@ -198,11 +227,12 @@ export class UpstoxAdapter extends BaseBroker {
       side: order.side,
       is_sandbox: this.isSandbox(),
       user_id: order.userId,
+      is_custom_token: Boolean(customToken),
     });
 
     try {
       const endpoint = "/order/place";
-      const resp = await this.client.post(endpoint, payload);
+      const resp = await activeClient.post(endpoint, payload);
       const resData = resp.data?.data;
       const orderId = resData?.order_id || resData?.order_ids?.[0] || `UP-${Date.now()}`;
 
@@ -238,9 +268,10 @@ export class UpstoxAdapter extends BaseBroker {
   /**
    * Cancel an open order on Upstox.
    */
-  async cancelOrder(orderId: string): Promise<void> {
+  async cancelOrder(orderId: string, customToken?: string): Promise<void> {
     try {
-      await this.client.delete("/order/cancel", {
+      const activeClient = this.getClient(customToken);
+      await activeClient.delete("/order/cancel", {
         params: { order_id: orderId },
       });
     } catch (err: any) {
@@ -254,15 +285,31 @@ export class UpstoxAdapter extends BaseBroker {
   }
 
   /**
-   * Poll Upstox for live order status.
+   * Poll Upstox for live order status with deterministic status mapping.
    */
-  async getOrderStatus(orderId: string): Promise<BrokerOrderResult> {
+  async getOrderStatus(orderId: string, customToken?: string): Promise<BrokerOrderResult> {
     try {
-      const resp = await this.client.get("/order/history", {
+      const activeClient = this.getClient(customToken);
+      const resp = await activeClient.get("/order/history", {
         params: { order_id: orderId },
       });
       const orderData = resp.data?.data?.[0];
-      const status = orderData?.status === "complete" ? "filled" : "submitted";
+      const rawStatus = (orderData?.status || "").toLowerCase();
+
+      let status: BrokerOrderResult["status"] = "submitted";
+      if (rawStatus === "complete") {
+        status = "filled";
+      } else if (rawStatus === "rejected") {
+        status = "rejected";
+      } else if (rawStatus === "cancelled") {
+        status = "cancelled";
+      } else if (rawStatus.includes("partially")) {
+        status = "partially_filled";
+      } else if (rawStatus === "pending" || rawStatus === "validation pending") {
+        status = "pending";
+      } else if (rawStatus === "open" || rawStatus === "trigger pending") {
+        status = "submitted";
+      }
 
       return {
         brokerOrderId: orderId,
@@ -285,9 +332,10 @@ export class UpstoxAdapter extends BaseBroker {
   /**
    * Fetch open positions.
    */
-  async getPositions(userId?: string): Promise<NormalizedPosition[]> {
+  async getPositions(userId?: string, customToken?: string): Promise<NormalizedPosition[]> {
     try {
-      const resp = await this.client.get("/portfolio/short-term-positions");
+      const activeClient = this.getClient(customToken);
+      const resp = await activeClient.get("/portfolio/short-term-positions");
       const positions = resp.data?.data || [];
       return positions.map((p: any) => ({
         symbol: p.trading_symbol || p.symbol,
@@ -309,9 +357,10 @@ export class UpstoxAdapter extends BaseBroker {
   /**
    * Fetch long-term portfolio holdings (Demat holdings).
    */
-  async getHoldings(_userId?: string): Promise<NormalizedPosition[]> {
+  async getHoldings(_userId?: string, customToken?: string): Promise<NormalizedPosition[]> {
     try {
-      const resp = await this.client.get("/portfolio/long-term-holdings");
+      const activeClient = this.getClient(customToken);
+      const resp = await activeClient.get("/portfolio/long-term-holdings");
       const holdings = resp.data?.data || [];
       return holdings.map((h: any) => ({
         symbol: h.trading_symbol || h.symbol || h.isin,
@@ -397,16 +446,18 @@ export class UpstoxAdapter extends BaseBroker {
   /**
    * Fetches the user profile (UCC, client name, enabled exchanges).
    */
-  async getProfile(): Promise<any> {
-    const resp = await this.client.get("/user/profile");
+  async getProfile(customToken?: string): Promise<any> {
+    const activeClient = this.getClient(customToken);
+    const resp = await activeClient.get("/user/profile");
     return resp.data?.data;
   }
 
   /**
    * Fetches available funds, cash balance, and margin utilization.
    */
-  async getFundsAndMargin(segment?: "SEC" | "COM"): Promise<any> {
-    const resp = await this.client.get("/user/get-funds-and-margin", {
+  async getFundsAndMargin(segment?: "SEC" | "COM", customToken?: string): Promise<any> {
+    const activeClient = this.getClient(customToken);
+    const resp = await activeClient.get("/user/get-funds-and-margin", {
       params: segment ? { segment } : undefined,
     });
     return resp.data?.data;
@@ -415,15 +466,19 @@ export class UpstoxAdapter extends BaseBroker {
   /**
    * Computes brokerage and exchange transaction charges before placing order.
    */
-  async calculateBrokerage(params: {
-    symbol: string;
-    quantity: number;
-    price: number;
-    transactionType: "BUY" | "SELL";
-    product?: "D" | "I";
-  }): Promise<any> {
+  async calculateBrokerage(
+    params: {
+      symbol: string;
+      quantity: number;
+      price: number;
+      transactionType: "BUY" | "SELL";
+      product?: "D" | "I";
+    },
+    customToken?: string
+  ): Promise<any> {
+    const activeClient = this.getClient(customToken);
     const isinKey = toNseKey(params.symbol);
-    const resp = await this.client.get("/charges/brokerage", {
+    const resp = await activeClient.get("/charges/brokerage", {
       params: {
         instrument_token: isinKey,
         quantity: params.quantity,
@@ -438,13 +493,17 @@ export class UpstoxAdapter extends BaseBroker {
   /**
    * Computes upfront margin required for one or more order instruments.
    */
-  async calculateOrderMargin(instruments: Array<{
-    symbol: string;
-    quantity: number;
-    transactionType: "BUY" | "SELL";
-    price: number;
-    product?: "D" | "I";
-  }>): Promise<any> {
+  async calculateOrderMargin(
+    instruments: Array<{
+      symbol: string;
+      quantity: number;
+      transactionType: "BUY" | "SELL";
+      price: number;
+      product?: "D" | "I";
+    }>,
+    customToken?: string
+  ): Promise<any> {
+    const activeClient = this.getClient(customToken);
     const payload = {
       instruments: instruments.map((inst) => ({
         instrument_key: toNseKey(inst.symbol),
@@ -454,15 +513,16 @@ export class UpstoxAdapter extends BaseBroker {
         price: inst.price,
       })),
     };
-    const resp = await this.client.post("/charges/margin", payload);
+    const resp = await activeClient.post("/charges/margin", payload);
     return resp.data?.data;
   }
 
   /**
    * Retrieves kill-switch segment lock status.
    */
-  async getKillSwitch(): Promise<any> {
-    const resp = await this.client.get("/user/kill-switch");
+  async getKillSwitch(customToken?: string): Promise<any> {
+    const activeClient = this.getClient(customToken);
+    const resp = await activeClient.get("/user/kill-switch");
     return resp.data?.data;
   }
 
@@ -480,8 +540,10 @@ export class UpstoxAdapter extends BaseBroker {
       validity?: "DAY" | "IOC";
       triggerPrice?: number;
       disclosedQuantity?: number;
-    }
+    },
+    customToken?: string
   ): Promise<any> {
+    const activeClient = this.getClient(customToken);
     const payload: Record<string, any> = { order_id: orderId };
     if (updates.quantity !== undefined) payload.quantity = updates.quantity;
     if (updates.price !== undefined) payload.price = updates.price;
@@ -490,26 +552,28 @@ export class UpstoxAdapter extends BaseBroker {
     if (updates.triggerPrice !== undefined) payload.trigger_price = updates.triggerPrice;
     if (updates.disclosedQuantity !== undefined) payload.disclosed_quantity = updates.disclosedQuantity;
 
-    const resp = await this.client.put("/order/modify", payload);
+    const resp = await activeClient.put("/order/modify", payload);
     return resp.data?.data;
   }
 
   /**
    * Retrieves the complete order book for the current trading day.
    */
-  async getOrderBook(): Promise<any[]> {
-    const resp = await this.client.get("/order/retrieve-all");
+  async getOrderBook(customToken?: string): Promise<any[]> {
+    const activeClient = this.getClient(customToken);
+    const resp = await activeClient.get("/order/retrieve-all");
     return resp.data?.data || [];
   }
 
   /**
    * Exits all open positions across segments or matching a tag filter.
    */
-  async exitAllPositions(tag?: string, segment?: string): Promise<any> {
+  async exitAllPositions(tag?: string, segment?: string, customToken?: string): Promise<any> {
+    const activeClient = this.getClient(customToken);
     const payload: Record<string, any> = {};
     if (tag) payload.tag = tag;
     if (segment) payload.segment = segment;
-    const resp = await this.client.post("/order/positions/exit", payload);
+    const resp = await activeClient.post("/order/positions/exit", payload);
     return resp.data?.data;
   }
 
@@ -576,11 +640,164 @@ export class UpstoxAdapter extends BaseBroker {
   /**
    * Authorizes WebSocket streaming endpoint for live Portfolio / Order Updates.
    */
-  async getPortfolioStreamWsAuth(): Promise<{ authorizedRedirectUri: string }> {
-    const resp = await this.client.get("/feed/portfolio-stream-feed/authorize");
+  async getPortfolioStreamWsAuth(customToken?: string): Promise<{ authorizedRedirectUri: string }> {
+    const activeClient = this.getClient(customToken);
+    const resp = await activeClient.get("/feed/portfolio-stream-feed/authorize");
     const data = resp.data?.data;
     const uri = data?.authorizedRedirectUri || data?.authorized_redirect_uri || "";
     return { authorizedRedirectUri: uri };
+  }
+
+  // ─── 7. Partner & Advanced Demat Features ───────────────────────────────────
+
+  /**
+   * Submits an atomic basket / multi-order in a single API trip (POST /v2/order/multi/place).
+   * Essential for Model Portfolio rebalancing across multiple constituents.
+   */
+  async placeMultiOrder(
+    orders: Array<{
+      symbol: string;
+      qty: number;
+      side: "buy" | "sell";
+      type?: "market" | "limit";
+      limitPrice?: number;
+      tag?: string;
+      product?: "D" | "I";
+    }>,
+    customToken?: string
+  ): Promise<{ success: boolean; orderIds: string[]; raw?: any }> {
+    const t0 = Date.now();
+    const activeClient = this.getClient(customToken);
+
+    const payload = orders.map((o) => ({
+      quantity: Math.max(1, Math.round(o.qty)),
+      product: o.product || "D",
+      validity: "DAY",
+      price: o.type === "market" ? 0 : (o.limitPrice ?? 0),
+      tag: o.tag || `fp-basket-${Date.now()}`,
+      instrument_token: toNseKey(o.symbol),
+      order_type: o.type === "market" ? "MARKET" : "LIMIT",
+      transaction_type: o.side.toUpperCase() as "BUY" | "SELL",
+      disclosed_quantity: 0,
+      trigger_price: 0,
+      is_amo: false,
+    }));
+
+    try {
+      const resp = await activeClient.post("/order/multi/place", payload);
+      const resData = resp.data?.data || [];
+      const orderIds: string[] = Array.isArray(resData)
+        ? resData.map((r: any) => r.order_id || r.id).filter(Boolean)
+        : resData.order_ids || [];
+
+      logger.info("[UpstoxAdapter] Placed multi-order basket", {
+        event: "UPSTOX_MULTI_ORDER_SUCCESS",
+        count: orders.length,
+        orderIds,
+        latency_ms: Date.now() - t0,
+      });
+
+      return { success: true, orderIds, raw: resp.data };
+    } catch (err: any) {
+      logger.error("[UpstoxAdapter] Multi-order basket failure", {
+        event: "UPSTOX_MULTI_ORDER_FAILED",
+        error: err.response?.data || err.message,
+        latency_ms: Date.now() - t0,
+      });
+      throw new BrokerError(
+        this.brokerId,
+        "MULTI_ORDER_FAILED",
+        `Upstox basket order placement failed: ${err.message}`,
+        err?.response?.status === 429
+      );
+    }
+  }
+
+  /**
+   * Fetches active CDSL/NSDL EDIS pre-trade authorization status for Demat holdings.
+   */
+  async getEdisDetails(customToken?: string): Promise<any> {
+    const activeClient = this.getClient(customToken);
+    try {
+      const resp = await activeClient.get("/edis/details");
+      return resp.data?.data;
+    } catch (err: any) {
+      logger.warn(`[UpstoxAdapter] Failed to fetch EDIS details: ${err.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Generates a CDSL TPIN EDIS authorization request for selling holdings.
+   */
+  async requestEdis(
+    params: { isin: string; quantity: number },
+    customToken?: string
+  ): Promise<{ redirectUrl?: string; htmlForm?: string; raw?: any }> {
+    const activeClient = this.getClient(customToken);
+    try {
+      const resp = await activeClient.post("/edis/request", {
+        isin: params.isin,
+        quantity: Math.max(1, Math.round(params.quantity)),
+      });
+      return {
+        redirectUrl: resp.data?.data?.redirect_url,
+        htmlForm: resp.data?.data?.html,
+        raw: resp.data?.data,
+      };
+    } catch (err: any) {
+      throw new BrokerError(
+        this.brokerId,
+        "EDIS_REQUEST_FAILED",
+        `Failed to request EDIS authorization: ${err.message}`,
+        false
+      );
+    }
+  }
+
+  /**
+   * Places a Good-Till-Triggered (GTT) conditional stop-loss / target order (POST /v3/order/gtt/place).
+   */
+  async placeGttOrder(
+    params: {
+      symbol: string;
+      transactionType: "BUY" | "SELL";
+      quantity: number;
+      triggerPrice: number;
+      limitPrice: number;
+      product?: "D" | "I";
+    },
+    customToken?: string
+  ): Promise<any> {
+    const activeClient = this.getClient(customToken);
+    const payload = {
+      type: "SINGLE",
+      quantity: Math.max(1, Math.round(params.quantity)),
+      product: params.product || "D",
+      rules: [
+        {
+          strategy: params.transactionType === "BUY" ? "ENTRY" : "STOPLOSS",
+          trigger_type: params.transactionType === "BUY" ? "ABOVE" : "BELOW",
+          trigger_price: params.triggerPrice,
+        },
+      ],
+      instrument_token: toNseKey(params.symbol),
+      transaction_type: params.transactionType,
+      order_type: "LIMIT",
+      price: params.limitPrice,
+    };
+
+    try {
+      const resp = await activeClient.post("/order/gtt/place", payload);
+      return resp.data?.data;
+    } catch (err: any) {
+      throw new BrokerError(
+        this.brokerId,
+        "GTT_ORDER_FAILED",
+        `Failed to place Upstox GTT order: ${err.message}`,
+        false
+      );
+    }
   }
 }
 
