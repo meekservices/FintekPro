@@ -13,6 +13,7 @@ import {
   proStockListsService,
   type ProListSlug,
 } from "../services/pro-stock-lists-service";
+import { proThematicScreenerService } from "../services/pro-thematic-screener-service";
 import { logger } from "../logger";
 import { db } from "../db";
 import { toNseKey, upstoxMarketDataService } from "../services/upstox-market-data-service";
@@ -26,7 +27,7 @@ export const proStockListsRouter = Router();
 proStockListsRouter.get("/categories", async (_req: Request, res: Response) => {
   const t0 = Date.now();
   try {
-    const categories = proStockListsService.getAllCategoriesSummary();
+    const categories = await proStockListsService.getAllCategoriesSummary();
     res.json({
       success: true,
       data: categories,
@@ -289,6 +290,41 @@ proStockListsRouter.get("/time-series/:symbol", async (req: Request, res: Respon
         retryable: true,
       },
       meta: { timestamp: new Date().toISOString(), version: "1.0.0" },
+    });
+  }
+});
+
+// ── POST /api/research-lists/pro-stock-lists/refresh-screener ─────────────────
+// Triggers the dynamic screener pipeline across all 12 categories
+proStockListsRouter.post("/refresh-screener", async (_req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const results = await proThematicScreenerService.refreshAllCategories(35);
+    res.json({
+      success: true,
+      data: {
+        refreshedCategories: results.length,
+        categories: results,
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: "2.0.0",
+        latency_ms: Date.now() - t0,
+      },
+    });
+  } catch (error: any) {
+    logger.error("[ProStockListsRouter] Screener refresh error", {
+      event: "PRO_SCREENER_REFRESH_ERROR",
+      error: error?.message || String(error),
+    });
+    res.status(500).json({
+      success: false,
+      error: {
+        error_code: "REFRESH_FAILED",
+        message: "Failed to refresh dynamic PRO screener constituents",
+        retryable: true,
+      },
+      meta: { timestamp: new Date().toISOString(), version: "2.0.0" },
     });
   }
 });

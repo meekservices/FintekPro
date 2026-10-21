@@ -10065,6 +10065,185 @@ export const insertProListEodSnapshotSchema = createInsertSchema(proListEodSnaps
 export type ProListEodSnapshot = typeof proListEodSnapshots.$inferSelect;
 export type InsertProListEodSnapshot = z.infer<typeof insertProListEodSnapshotSchema>;
 
+// =========================================================================
+// CURATED PRO THEMES & DYNAMIC SCREENER ENGINE (FintekPro GCR v1.0)
+// =========================================================================
+
+// 1. Curated PRO Thematic Categories Taxonomy
+export const proThematicCategories = pgTable("pro_thematic_categories", {
+  slug: varchar("slug", { length: 64 }).primaryKey(), // 'green-energy', 'ev-leaders', 'fscore', etc.
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  primaryMetricLabel: varchar("primary_metric_label", { length: 64 }).notNull(),
+  secondaryMetricLabel: varchar("secondary_metric_label", { length: 64 }),
+  screeningFormula: text("screening_formula"), // SQL / Financial logic explainability
+  tableFooters: text("table_footers"),
+  displayOrder: integer("display_order").default(0),
+  isActive: boolean("is_active").default(true),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertProThematicCategorySchema = createInsertSchema(proThematicCategories);
+export type ProThematicCategory = typeof proThematicCategories.$inferSelect;
+export type InsertProThematicCategory = z.infer<typeof insertProThematicCategorySchema>;
+
+// 2. Relational Thematic Assignments (Clean Energy, EV, Defence, etc.)
+export const stockThematicAssignments = pgTable("stock_thematic_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  categorySlug: varchar("category_slug", { length: 64 })
+    .references(() => proThematicCategories.slug, { onDelete: "cascade" }).notNull(),
+  symbol: varchar("symbol", { length: 30 }).notNull(),
+  isin: varchar("isin", { length: 20 }),
+  themeBadge: varchar("theme_badge", { length: 48 }), // 'Solar EPC', 'Battery Tech', 'Missile Systems'
+  revenueExposurePercent: decimal("revenue_exposure_percent", { precision: 5, scale: 2 }), // Audited exposure %
+  thesisSummary: text("thesis_summary"),
+  assignedBy: varchar("assigned_by", { length: 32 }).default("system_screener"), // 'system_screener' | 'ria_analyst'
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_stock_thematic_lookup").on(table.categorySlug, table.symbol),
+  uniqueIndex("uq_theme_stock_slug_symbol").on(table.categorySlug, table.symbol),
+]);
+
+export const insertStockThematicAssignmentSchema = createInsertSchema(stockThematicAssignments).omit({
+  id: true, createdAt: true,
+});
+export type StockThematicAssignment = typeof stockThematicAssignments.$inferSelect;
+export type InsertStockThematicAssignment = z.infer<typeof insertStockThematicAssignmentSchema>;
+
+// 3. Quarterly Financials (Powers 'turnaround' and 'profit-blasters' with real filing data)
+export const stockQuarterlyFinancials = pgTable("stock_quarterly_financials", {
+  id: serial("id").primaryKey(),
+  symbol: varchar("symbol", { length: 30 }).notNull(),
+  isin: varchar("isin", { length: 20 }),
+  quarterEnd: date("quarter_end").notNull(),
+  quarterLabel: varchar("quarter_label", { length: 16 }).notNull(), // 'Q3 FY26'
+  
+  revenueCr: decimal("revenue_cr", { precision: 12, scale: 2 }),
+  ebitdaCr: decimal("ebitda_cr", { precision: 12, scale: 2 }),
+  ebitdaMarginPercent: decimal("ebitda_margin_percent", { precision: 6, scale: 2 }),
+  netProfitCr: decimal("net_profit_cr", { precision: 12, scale: 2 }),
+  netMarginPercent: decimal("net_margin_percent", { precision: 6, scale: 2 }),
+  
+  previousQuarterNetProfitCr: decimal("prev_quarter_pat_cr", { precision: 12, scale: 2 }),
+  previousYearNetProfitCr: decimal("prev_year_pat_cr", { precision: 12, scale: 2 }),
+  patGrowthYoyPercent: decimal("pat_growth_yoy_percent", { precision: 10, scale: 2 }),
+  isLossToProfitTurnaround: boolean("is_loss_to_profit_turnaround").default(false), // Swung to profit
+  
+  filingDate: timestamp("filing_date"),
+  source: varchar("source", { length: 32 }).default("bse_nse_filing"),
+}, (table) => [
+  index("idx_quarterly_symbol_quarter").on(table.symbol, table.quarterEnd),
+  index("idx_quarterly_turnaround").on(table.isLossToProfitTurnaround),
+  index("idx_quarterly_pat_growth").on(table.patGrowthYoyPercent),
+]);
+
+export const insertStockQuarterlyFinancialSchema = createInsertSchema(stockQuarterlyFinancials).omit({ id: true });
+export type StockQuarterlyFinancial = typeof stockQuarterlyFinancials.$inferSelect;
+export type InsertStockQuarterlyFinancial = z.infer<typeof insertStockQuarterlyFinancialSchema>;
+
+// 4. Institutional Bulk and Block Deals (Powers 'top-deals')
+export const marketBulkBlockDeals = pgTable("market_bulk_block_deals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dealDate: date("deal_date").notNull(),
+  symbol: varchar("symbol", { length: 30 }).notNull(),
+  isin: varchar("isin", { length: 20 }),
+  exchange: varchar("exchange", { length: 10 }).default("NSE"),
+  dealType: varchar("deal_type", { length: 16 }).notNull(), // 'BULK' | 'BLOCK'
+  transactionType: varchar("transaction_type", { length: 10 }).notNull(), // 'BUY' | 'SELL'
+  clientName: text("client_name").notNull(), // e.g. 'Goldman Sachs India EQ', 'SBI Mutual Fund'
+  quantity: decimal("quantity", { precision: 15, scale: 0 }).notNull(),
+  tradePrice: decimal("trade_price", { precision: 12, scale: 2 }).notNull(),
+  dealValueCr: decimal("deal_value_cr", { precision: 12, scale: 2 }).notNull(), // in ₹ Cr
+  reportedAt: timestamp("reported_at").defaultNow(),
+}, (table) => [
+  index("idx_deals_date_symbol").on(table.dealDate, table.symbol),
+  index("idx_deals_value").on(table.dealValueCr),
+]);
+
+export const insertMarketBulkBlockDealSchema = createInsertSchema(marketBulkBlockDeals).omit({
+  id: true, reportedAt: true,
+});
+export type MarketBulkBlockDeal = typeof marketBulkBlockDeals.$inferSelect;
+export type InsertMarketBulkBlockDeal = z.infer<typeof insertMarketBulkBlockDealSchema>;
+
+// 5. Consensus Research Analyst Estimates (Powers 'high-potential-upside', 'analysts', 'top-buy-rating')
+export const stockAnalystConsensus = pgTable("stock_analyst_consensus", {
+  symbol: varchar("symbol", { length: 30 }).primaryKey(),
+  isin: varchar("isin", { length: 20 }),
+  totalAnalysts: integer("total_analysts").notNull(),
+  strongBuyCount: integer("strong_buy_count").default(0),
+  buyCount: integer("buy_count").default(0),
+  holdCount: integer("hold_count").default(0),
+  sellCount: integer("sell_count").default(0),
+  buyRatingPercent: decimal("buy_rating_percent", { precision: 5, scale: 2 }), // % of Buy / Strong Buy
+  targetPriceMean: decimal("target_price_mean", { precision: 12, scale: 2 }),
+  targetPriceMedian: decimal("target_price_median", { precision: 12, scale: 2 }),
+  lastRevisionDate: date("last_revision_date"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_analyst_total_analysts").on(table.totalAnalysts),
+  index("idx_analyst_buy_rating_pct").on(table.buyRatingPercent),
+]);
+
+export const insertStockAnalystConsensusSchema = createInsertSchema(stockAnalystConsensus).omit({ updatedAt: true });
+export type StockAnalystConsensus = typeof stockAnalystConsensus.$inferSelect;
+export type InsertStockAnalystConsensus = z.infer<typeof insertStockAnalystConsensusSchema>;
+
+// 6. Technical Signals Engine (Powers 'turning-bullish' and 'turning-bearish')
+export const stockTechnicalSignals = pgTable("stock_technical_signals", {
+  symbol: varchar("symbol", { length: 30 }).primaryKey(),
+  rsi14: decimal("rsi_14", { precision: 6, scale: 2 }),
+  dma20: decimal("dma_20", { precision: 12, scale: 2 }),
+  dma50: decimal("dma_50", { precision: 12, scale: 2 }),
+  dma200: decimal("dma_200", { precision: 12, scale: 2 }),
+  macdHistogram: decimal("macd_histogram", { precision: 8, scale: 4 }),
+  signalType: varchar("signal_type", { length: 32 }), // 'Golden Cross', '200 EMA Breakdown', 'ATH Breakout'
+  trendDirection: varchar("trend_direction", { length: 16 }), // 'bullish' | 'bearish' | 'neutral'
+  calculatedAt: timestamp("calculated_at").defaultNow(),
+}, (table) => [
+  index("idx_tech_signal_trend").on(table.trendDirection),
+  index("idx_tech_signal_type").on(table.signalType),
+]);
+
+export const insertStockTechnicalSignalSchema = createInsertSchema(stockTechnicalSignals).omit({ calculatedAt: true });
+export type StockTechnicalSignal = typeof stockTechnicalSignals.$inferSelect;
+export type InsertStockTechnicalSignal = z.infer<typeof insertStockTechnicalSignalSchema>;
+
+// 7. Materialized Thematic Constituents Table (Active Dynamic Screener Output)
+export const proThematicConstituents = pgTable("pro_thematic_constituents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  categorySlug: varchar("category_slug", { length: 64 }).notNull(),
+  symbol: varchar("symbol", { length: 30 }).notNull(),
+  isin: varchar("isin", { length: 20 }),
+  companyName: text("company_name").notNull(),
+  sector: varchar("sector", { length: 100 }),
+  marketCapCategory: varchar("market_cap_category", { length: 32 }),
+  
+  rank: integer("rank").notNull(),
+  primaryMetricLabel: varchar("primary_metric_label", { length: 64 }).notNull(),
+  primaryMetricValue: varchar("primary_metric_value", { length: 64 }).notNull(), // Real value! e.g. "+312% YoY"
+  secondaryMetricLabel: varchar("secondary_metric_label", { length: 64 }),
+  secondaryMetricValue: varchar("secondary_metric_value", { length: 64 }),
+  
+  targetPrice: decimal("target_price", { precision: 12, scale: 2 }),
+  upsidePercent: decimal("upside_percent", { precision: 8, scale: 2 }),
+  fScore: integer("f_score"),
+  themeBadge: varchar("theme_badge", { length: 48 }),
+  technicalSignal: varchar("technical_signal", { length: 48 }),
+  
+  engineVersion: varchar("engine_version", { length: 32 }).default("pro-screener@2.0.0"),
+  calculationTimestamp: timestamp("calculation_timestamp").defaultNow(),
+}, (table) => [
+  index("idx_pro_constituents_slug_rank").on(table.categorySlug, table.rank),
+  uniqueIndex("uq_pro_constituents_slug_symbol").on(table.categorySlug, table.symbol),
+]);
+
+export const insertProThematicConstituentSchema = createInsertSchema(proThematicConstituents).omit({
+  id: true, calculationTimestamp: true,
+});
+export type ProThematicConstituent = typeof proThematicConstituents.$inferSelect;
+export type InsertProThematicConstituent = z.infer<typeof insertProThematicConstituentSchema>;
+
 // Saved Screeners - Reusable screener configurations
 export const savedScreeners = pgTable("saved_screeners", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

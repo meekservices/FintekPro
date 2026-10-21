@@ -22,8 +22,14 @@ import { logger } from "../logger";
 import { upstoxMarketDataService, toNseKey } from "./upstox-market-data-service";
 import { indianApiService } from "./indian-api-service";
 import { db } from "../db";
-import { listedStocks, stockFinancialMetrics } from "@shared/schema";
+import {
+  listedStocks,
+  stockFinancialMetrics,
+  proThematicCategories,
+  proThematicConstituents,
+} from "@shared/schema";
 import { inArray, and, or, eq, gte, gt, desc, asc, sql, ilike, isNotNull } from "drizzle-orm";
+import { proThematicScreenerService } from "./pro-thematic-screener-service";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -1403,8 +1409,31 @@ export class ProStockListsService {
 
   /**
    * Return high-level summary of all 12 categories for the navigation grid.
+   * Dynamically loads from pro_thematic_categories in DB with graceful fallback.
    */
-  getAllCategoriesSummary() {
+  async getAllCategoriesSummary() {
+    try {
+      const dbCategories = await db
+        .select()
+        .from(proThematicCategories)
+        .where(eq(proThematicCategories.isActive, true))
+        .orderBy(asc(proThematicCategories.displayOrder));
+
+      if (dbCategories && dbCategories.length > 0) {
+        return dbCategories.map((c) => ({
+          id: c.displayOrder || 1,
+          slug: c.slug as ProListSlug,
+          name: c.name,
+          description: c.description,
+          stockCount: 35,
+        }));
+      }
+    } catch (err: any) {
+      logger.warn("[ProStockLists] Dynamic categories fetch failed, using fallback config", {
+        error: err?.message || String(err),
+      });
+    }
+
     return Object.values(PRO_LISTS_CONFIG).map((cfg) => ({
       id: cfg.id,
       slug: cfg.slug,
@@ -1415,8 +1444,11 @@ export class ProStockListsService {
   }
 
   /**
-   * Resolves constituent stocks dynamically from listed_stocks in FintekPro DB.
-   * If DB has fewer than 3 matching records for the category, gracefully falls back to config.stocks.
+   * Resolves constituent stocks dynamically from FintekPro DB.
+   * Priority:
+   *   1. Materialized pro_thematic_constituents (calculated real values from screener engine)
+   *   2. Live candidate queries across domain tables (analyst consensus, quarterly financials, bulk deals, technical signals)
+   *   3. Self-healing fallback to curated baseline if database is disconnected
    */
   async resolveDynamicStocks(
     slug: ProListSlug,
@@ -1424,204 +1456,81 @@ export class ProStockListsService {
     limit = 35
   ): Promise<Array<ProListCategoryConfig["stocks"][number]>> {
     try {
-      let dbCandidates: any[] = [];
+      // 1. Primary: Check materialized constituents table for real calculated metrics
+      const materialized = await proThematicScreenerService.getMaterializedConstituents(slug, limit);
+      if (materialized && materialized.length >= 3) {
+        logger.info("[ProStockLists] Resolved dynamic constituents from pro_thematic_constituents", {
+          slug,
+          count: materialized.length,
+        });
 
-      switch (slug) {
-        case "high-potential-upside": {
-          dbCandidates = await db
-            .select()
-            .from(listedStocks)
-            .where(
-              and(
-                isNotNull(listedStocks.targetPrice),
-                isNotNull(listedStocks.currentPrice),
-                gt(listedStocks.targetPrice, listedStocks.currentPrice)
-              )
-            )
-            .orderBy(
-              desc(
-                sql`COALESCE(${listedStocks.consensusUpsidePercent}, ((${listedStocks.targetPrice} - ${listedStocks.currentPrice}) / NULLIF(${listedStocks.currentPrice}, 0)) * 100)`
-              )
-            )
-            .limit(limit);
-          break;
-        }
+        // Enrich with real database price and exchange metadata from listed_stocks
+        const symbols = materialized.map((c) => c.symbol);
+        const stockRows = await db
+          .select({
+            symbol: listedStocks.symbol,
+            isin: listedStocks.isin,
+            currentPrice: listedStocks.currentPrice,
+            dayChange: listedStocks.dayChange,
+            dayChangePercent: listedStocks.dayChangePercent,
+          })
+          .from(listedStocks)
+          .where(inArray(listedStocks.symbol, symbols));
 
-        case "fscore": {
-          dbCandidates = await db
-            .select({
-              id: listedStocks.id,
-              symbol: listedStocks.symbol,
-              isin: listedStocks.isin,
-              companyName: listedStocks.companyName,
-              sector: listedStocks.sector,
-              marketCap: listedStocks.marketCap,
-              currentPrice: listedStocks.currentPrice,
-              dayChange: listedStocks.dayChange,
-              dayChangePercent: listedStocks.dayChangePercent,
-              targetPrice: listedStocks.targetPrice,
-              consensusUpsidePercent: listedStocks.consensusUpsidePercent,
-              piotroskiFScore: sql<number>`COALESCE(${listedStocks.piotroskiFScore}, ${stockFinancialMetrics.piotroskiFScore}, 7)`.as("piotroski_f_score"),
-            })
-            .from(listedStocks)
-            .leftJoin(stockFinancialMetrics, eq(listedStocks.symbol, stockFinancialMetrics.symbol))
-            .where(
-              or(
-                gte(listedStocks.piotroskiFScore, 7),
-                gte(stockFinancialMetrics.piotroskiFScore, 7)
-              )
-            )
-            .orderBy(desc(sql`COALESCE(${listedStocks.piotroskiFScore}, ${stockFinancialMetrics.piotroskiFScore}, 0)`))
-            .limit(limit);
-          break;
-        }
+        const stockMap = new Map(stockRows.map((r) => [r.symbol, r]));
 
-        case "green-energy": {
-          dbCandidates = await db
-            .select()
-            .from(listedStocks)
-            .where(
-              or(
-                sql`${listedStocks.proThemes} @> ARRAY['green-energy']::text[]`,
-                ilike(listedStocks.sector, "%Renewable%"),
-                ilike(listedStocks.sector, "%Clean%"),
-                ilike(listedStocks.industry, "%Solar%"),
-                ilike(listedStocks.industry, "%Wind%"),
-                inArray(listedStocks.symbol, ["SUZLON", "IW", "IREDA", "ADANIGREEN", "TATAPOWER", "JSWENERGY", "NHPC", "SJVN", "BORORENEW", "KPIGREEN", "WAAREE"])
-              )
-            )
-            .limit(limit);
-          break;
-        }
-
-        case "ev-leaders": {
-          dbCandidates = await db
-            .select()
-            .from(listedStocks)
-            .where(
-              or(
-                sql`${listedStocks.proThemes} @> ARRAY['ev-leaders']::text[]`,
-                ilike(listedStocks.industry, "%Electric%"),
-                inArray(listedStocks.symbol, ["TATAMOTORS", "OLECTRA", "EXIDEIND", "AMARAJABAT", "SONACOMS", "KPITTECH", "TIINDIA", "JBMMA", "HEROMOTOCO"])
-              )
-            )
-            .limit(limit);
-          break;
-        }
-
-        case "defence-guardians": {
-          dbCandidates = await db
-            .select()
-            .from(listedStocks)
-            .where(
-              or(
-                sql`${listedStocks.proThemes} @> ARRAY['defence-guardians']::text[]`,
-                ilike(listedStocks.sector, "%Defence%"),
-                ilike(listedStocks.industry, "%Aerospace%"),
-                inArray(listedStocks.symbol, ["HAL", "BEL", "MAZDOCK", "COCHINSHIP", "BDL", "BEML", "PARAS", "DATAPATTNS", "GRSE", "ZEN"])
-              )
-            )
-            .limit(limit);
-          break;
-        }
-
-        case "analysts":
-        case "top-buy-rating": {
-          dbCandidates = await db
-            .select()
-            .from(listedStocks)
-            .where(
-              and(
-                isNotNull(listedStocks.numberOfAnalysts),
-                gt(listedStocks.numberOfAnalysts, 3),
-                or(
-                  eq(listedStocks.analystRating, "Strong Buy"),
-                  eq(listedStocks.analystRating, "Buy"),
-                  isNotNull(listedStocks.targetPrice)
-                )
-              )
-            )
-            .orderBy(desc(listedStocks.numberOfAnalysts))
-            .limit(limit);
-          break;
-        }
-
-        case "turning-bullish": {
-          dbCandidates = await db
-            .select()
-            .from(listedStocks)
-            .where(
-              or(
-                eq(listedStocks.technicalSignal, "bullish"),
-                gt(listedStocks.returns1M, "3.0")
-              )
-            )
-            .orderBy(desc(listedStocks.returns1M))
-            .limit(limit);
-          break;
-        }
-
-        case "turning-bearish": {
-          dbCandidates = await db
-            .select()
-            .from(listedStocks)
-            .where(
-              or(
-                eq(listedStocks.technicalSignal, "bearish"),
-                sql`${listedStocks.returns1M} < -3.0`
-              )
-            )
-            .orderBy(asc(listedStocks.returns1M))
-            .limit(limit);
-          break;
-        }
-
-        default: {
-          dbCandidates = await db
-            .select()
-            .from(listedStocks)
-            .where(sql`${listedStocks.proThemes} @> ARRAY[${slug}]::text[]`)
-            .limit(limit);
-          break;
-        }
-      }
-
-      if (dbCandidates && dbCandidates.length >= 3) {
-        return dbCandidates.map((stock) => {
-          const ltp = Number(stock.currentPrice || stock.lastVwap || 100);
-          const target = Number(stock.targetPrice || ltp * 1.15);
-          const upside = stock.consensusUpsidePercent
-            ? Number(stock.consensusUpsidePercent)
-            : (ltp > 0 ? ((target - ltp) / ltp) * 100 : 15);
-          const fScore = Number(stock.piotroskiFScore || 7);
-          const change = Number(stock.dayChange || 0);
-          const changePct = Number(stock.dayChangePercent || 0);
-
-          let primaryVal = `+${upside.toFixed(2)}%`;
-          if (slug === "analysts") primaryVal = `${stock.numberOfAnalysts || 12} Analysts`;
-          else if (slug === "fscore") primaryVal = `${fScore} / 9`;
-          else if (slug === "top-buy-rating") primaryVal = `${Math.round((stock.numberOfAnalysts || 10) * 0.8)} Buys`;
-          else if (slug === "turning-bullish" || slug === "turning-bearish") primaryVal = `${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`;
+        return materialized.map((c) => {
+          const s = stockMap.get(c.symbol);
+          const effectiveIsin = c.isin || s?.isin || undefined;
+          const baselinePrice = Number(s?.currentPrice || c.targetPrice || 100);
+          const baselineChange = Number(s?.dayChange || 0);
+          const baselineChangePercent = Number(s?.dayChangePercent || 0);
 
           return {
-            symbol: stock.symbol,
-            isin: stock.isin || undefined,
-            name: stock.companyName,
-            sector: stock.sector || "General",
-            marketCap: (stock.marketCap as any) || "Mid Cap",
-            primaryMetricValue: primaryVal,
-            secondaryMetricValue: target > 0 ? `₹ ${target.toFixed(2)}` : undefined,
-            baselinePrice: ltp,
-            baselineChange: change,
-            baselineChangePercent: changePct,
-            upsidePercent: Math.round(upside * 100) / 100,
-            targetPrice: target,
-            fScore,
-            themeBadge: stock.sector?.split(" ")[0] || "PRO",
-            analystsCount: stock.numberOfAnalysts || undefined,
-            technicalSignal: stock.technicalSignal || undefined,
+            symbol: c.symbol,
+            isin: effectiveIsin,
+            name: c.companyName,
+            sector: c.sector || "General",
+            marketCap: (c.marketCapCategory as any) || "Mid Cap",
+            primaryMetricValue: c.primaryMetricValue,
+            secondaryMetricValue: c.secondaryMetricValue || undefined,
+            baselinePrice,
+            baselineChange,
+            baselineChangePercent,
+            upsidePercent: c.upsidePercent ? Number(c.upsidePercent) : undefined,
+            targetPrice: c.targetPrice ? Number(c.targetPrice) : undefined,
+            fScore: c.fScore || undefined,
+            themeBadge: c.themeBadge || undefined,
+            technicalSignal: c.technicalSignal || undefined,
           };
         });
+      }
+
+      // 2. Secondary: Run on-demand candidate query across domain tables
+      const dbCandidates = await proThematicScreenerService.queryCategoryCandidates(slug, limit);
+      if (dbCandidates && dbCandidates.length >= 3) {
+        logger.info("[ProStockLists] Resolved dynamic candidates directly from domain tables", {
+          slug,
+          count: dbCandidates.length,
+        });
+
+        return dbCandidates.map((stock) => ({
+          symbol: stock.symbol,
+          isin: stock.isin || undefined,
+          name: stock.companyName,
+          sector: stock.sector || "General",
+          marketCap: (stock.marketCapCategory as any) || (stock.marketCap as any) || "Mid Cap",
+          primaryMetricValue: stock.primaryMetricValue,
+          secondaryMetricValue: stock.secondaryMetricValue || undefined,
+          baselinePrice: Number(stock.currentPrice || stock.targetPrice || 100),
+          baselineChange: 0,
+          baselineChangePercent: 0,
+          upsidePercent: stock.upsidePercent,
+          targetPrice: stock.targetPrice,
+          fScore: stock.fScore,
+          themeBadge: stock.themeBadge,
+          technicalSignal: stock.technicalSignal,
+        }));
       }
     } catch (err: any) {
       logger.warn("[ProStockLists] Dynamic DB query failed, falling back to curated seeds", {
@@ -1677,7 +1586,9 @@ export class ProStockListsService {
     let upstoxQuotes = new Map<string, any>();
     if (upstoxMarketDataService.isReady()) {
       try {
-        const queryKeys = isinList.length > 0 ? isinList : symbols;
+        const queryKeys = candidateStocks
+          .map((s) => s.isin || s.symbol)
+          .filter((k): k is string => Boolean(k));
         const res = await upstoxMarketDataService.getBatchQuotes(queryKeys, "NSE");
         if (res.success && res.data && res.data.size > 0) {
           upstoxQuotes = res.data;

@@ -1,5 +1,8 @@
 /* eslint-disable no-console */
 // Infrastructure file: console is intentional for Cloud Run structured log output.
+import dotenv from "dotenv";
+dotenv.config();
+
 import { drizzle } from "drizzle-orm/node-postgres";
 // pg is a CommonJS module — use default import + destructure for ESM bundle compatibility.
 // Named import `import { Pool } from 'pg'` fails at runtime when bundled with esbuild.
@@ -69,11 +72,20 @@ if (dbUrl) {
 		POOL_CONFIG.user = cloudSqlMatch[1] || "postgres";
 		POOL_CONFIG.password = cloudSqlMatch[2] || undefined;
 		POOL_CONFIG.database = cloudSqlMatch[3] || "fintekpro";
-		POOL_CONFIG.host = cloudSqlMatch[4]; // e.g. /cloudsql/fintekpro:asia-south1:fintekpro-db
-		POOL_CONFIG.port = undefined;
-		console.log(
-			`[DB] 🔧 Cloud SQL socket mode: user=${POOL_CONFIG.user} db=${POOL_CONFIG.database} socket=${POOL_CONFIG.host}`,
-		);
+		if (existsSync(cloudSqlMatch[4])) {
+			POOL_CONFIG.host = cloudSqlMatch[4]; // e.g. /cloudsql/fintekpro:asia-south1:fintekpro-db
+			POOL_CONFIG.port = undefined;
+			console.log(
+				`[DB] 🔧 Cloud SQL socket mode: user=${POOL_CONFIG.user} db=${POOL_CONFIG.database} socket=${POOL_CONFIG.host}`,
+			);
+		} else {
+			// Local development with cloud-sql-proxy on TCP 127.0.0.1:5432
+			POOL_CONFIG.host = "127.0.0.1";
+			POOL_CONFIG.port = 5432;
+			console.log(
+				`[DB] 📡 Local Cloud SQL Proxy mode: user=${POOL_CONFIG.user} db=${POOL_CONFIG.database} host=127.0.0.1:5432`,
+			);
+		}
 	} else {
 		// Standard TCP connection string
 		POOL_CONFIG.connectionString = dbUrl;
