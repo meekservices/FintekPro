@@ -140,6 +140,12 @@ async function run(): Promise<void> {
 			total_swaps_queued: totalSwapsQueued,
 		});
 
+		// ── PHASE 5 (formerly 6): TWRR Repair & Post-Rebalance Enrichment ─────────
+		// ISSUE-5 FIX: Move enrichment BEFORE proposal generation so Phase 6 proposals
+		// are created with fresh, post-enrichment CAGR and return data (not stale values
+		// from before the swap was applied). Original order was: swap → proposals → enrich.
+		// New order: swap → enrich → TWRR repair → proposals.
+		logger.info(`[${JOB_NAME}] Phase 5: Post-rebalance enrichment and TWRR repair...`);
 		if (totalSwapsApplied > 0 || calendarResult.portfoliosRebalanced > 0) {
 			try {
 				const { enrichAndPersistAllHoldings, computeAndPersistAllPortfolioCAGRs } = await import(
@@ -147,14 +153,33 @@ async function run(): Promise<void> {
 				);
 				await enrichAndPersistAllHoldings();
 				await computeAndPersistAllPortfolioCAGRs();
-				logger.info(`[${JOB_NAME}] Post-rebalance enrichment and CAGR recompute complete`);
+				logger.info(`[${JOB_NAME}] Phase 5: Post-rebalance enrichment and CAGR recompute complete`);
 			} catch (postErr: any) {
 				logger.warn(`[${JOB_NAME}] Post-rebalance metrics enrichment non-fatal error`, { error: postErr.message });
 			}
 		}
 
-		// ── PHASE 5: Real-Money Client Risk & Reward Protection (FASP-AI v1.0) ─────
-		logger.info(`[${JOB_NAME}] Phase 5: Generating 1-Click Execution Proposals for real-money accounts...`);
+		const twrrRepair = await db.execute(sql`
+			UPDATE model_portfolios
+			SET
+				twrr_1y = CAST(cagr_1y AS NUMERIC),
+				twrr_3y = CASE
+						WHEN cagr_3y IS NOT NULL AND CAST(cagr_3y AS NUMERIC) > 0
+						THEN CAST(cagr_3y AS NUMERIC)
+						ELSE GREATEST(CAST(cagr_1y AS NUMERIC) - 1.5, 0)
+					  END,
+				updated_at = NOW()
+			WHERE (twrr_1y IS NULL OR CAST(twrr_1y AS NUMERIC) = 0)
+			  AND cagr_1y IS NOT NULL
+			  AND CAST(cagr_1y AS NUMERIC) > 0
+			RETURNING id
+		`);
+		logger.info(`[${JOB_NAME}] Phase 5 Complete: TWRR repaired for ${twrrRepair.rows.length} portfolios`);
+
+		// ── PHASE 6: Real-Money Client Risk & Reward Protection (FASP-AI v1.0) ─────
+		// ISSUE-5 FIX: Proposals now generated AFTER enrichment so they use fresh
+		// CAGR/return data. Previously proposals were built before enrichment ran.
+		logger.info(`[${JOB_NAME}] Phase 6: Generating 1-Click Execution Proposals for real-money accounts...`);
 		let proposalsGenerated = 0;
 
 		// Fetch published portfolios that need rebalance or have pending plans
@@ -234,28 +259,10 @@ async function run(): Promise<void> {
 			}
 		}
 
-		logger.info(`[${JOB_NAME}] Phase 5 Complete: Real-money 1-click proposals generated`, {
+		logger.info(`[${JOB_NAME}] Phase 6 Complete: Real-money 1-click proposals generated`, {
 			event: "CLIENT_PROPOSALS_QUEUED",
 			proposals_generated: proposalsGenerated,
 		});
-
-		// ── PHASE 6: Post-quant Metric & TWRR Repair ──────────────────────────────
-		logger.info(`[${JOB_NAME}] Phase 6: Refreshing TWRR and metric consistency...`);
-		const twrrRepair = await db.execute(sql`
-			UPDATE model_portfolios
-			SET
-				twrr_1y = CAST(cagr_1y AS NUMERIC),
-				twrr_3y = CASE
-							WHEN cagr_3y IS NOT NULL AND CAST(cagr_3y AS NUMERIC) > 0
-							THEN CAST(cagr_3y AS NUMERIC)
-							ELSE GREATEST(CAST(cagr_1y AS NUMERIC) - 1.5, 0)
-						  END,
-				updated_at = NOW()
-			WHERE (twrr_1y IS NULL OR CAST(twrr_1y AS NUMERIC) = 0)
-			  AND cagr_1y IS NOT NULL
-			  AND CAST(cagr_1y AS NUMERIC) > 0
-			RETURNING id
-		`);
 
 		const latencyMs = Date.now() - START_TIME;
 		logger.info(`[${JOB_NAME}] Autonomous portfolio rebalance job completed successfully`, {

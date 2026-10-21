@@ -26,55 +26,169 @@ export interface CashFlow {
   amount: number; // positive = investment (outflow), negative = redemption (inflow)
 }
 
-// ── XIRR ─────────────────────────────────────────────────────────────────────
+export const XIRR_ENGINE_VERSION = "2.0.0-ROBUST";
+
+export interface XIRRExplainedResult {
+  xirr: number;
+  engine_version: string;
+  calculation_timestamp: string;
+  convergedMethod: "newton_raphson" | "bisection" | "none";
+  iterations: number;
+  npvAtSolution: number;
+  isConverged: boolean;
+}
 
 /**
- * Computes XIRR for irregular cash flows using Newton-Raphson method.
- * Equivalent to Excel's XIRR function.
+ * Computes XIRR for irregular cash flows using an institutional-grade,
+ * multi-tier numerical solver (Newton-Raphson with bisection fallback).
+ * Equivalent to Excel's XIRR function, robust against non-monotonic cash flows.
  *
  * @param cashflows - Array of {date, amount}. At least one must be positive and one negative.
  * @param guess - Initial guess (default 0.1 = 10%)
  * @returns Annual return rate as a decimal (0.15 = 15% pa)
  */
 export function computeXIRR(cashflows: CashFlow[], guess = 0.1): number {
-  if (cashflows.length < 2) return 0;
+  return computeXIRRExplained(cashflows, guess).xirr;
+}
+
+/**
+ * Detailed XIRR computation with explainability layer per FintekPro GCR v1.0.
+ */
+export function computeXIRRExplained(cashflows: CashFlow[], guess = 0.1): XIRRExplainedResult {
+  const timestamp = new Date().toISOString();
+
+  if (!cashflows || cashflows.length < 2) {
+    return {
+      xirr: 0,
+      engine_version: XIRR_ENGINE_VERSION,
+      calculation_timestamp: timestamp,
+      convergedMethod: "none",
+      iterations: 0,
+      npvAtSolution: 0,
+      isConverged: false,
+    };
+  }
 
   // Check for sign change (required for IRR to exist)
   const hasPositive = cashflows.some(c => c.amount > 0);
   const hasNegative = cashflows.some(c => c.amount < 0);
-  if (!hasPositive || !hasNegative) return 0;
+  if (!hasPositive || !hasNegative) {
+    return {
+      xirr: 0,
+      engine_version: XIRR_ENGINE_VERSION,
+      calculation_timestamp: timestamp,
+      convergedMethod: "none",
+      iterations: 0,
+      npvAtSolution: 0,
+      isConverged: false,
+    };
+  }
 
-  const t0 = cashflows[0].date.getTime();
+  // Ensure cashflows are sorted chronologically
+  const sorted = [...cashflows].sort((a, b) => a.date.getTime() - b.date.getTime());
+  const t0 = sorted[0].date.getTime();
 
   /** f(r) = sum of discounted cash flows */
-  const f = (r: number): number =>
-    cashflows.reduce((sum, c) => {
+  const f = (r: number): number => {
+    if (r <= -1) return Number.POSITIVE_INFINITY;
+    return sorted.reduce((sum, c) => {
       const t = (c.date.getTime() - t0) / (365.25 * 86400000);
       return sum + c.amount / Math.pow(1 + r, t);
     }, 0);
+  };
 
   /** f'(r) = derivative */
-  const df = (r: number): number =>
-    cashflows.reduce((sum, c) => {
+  const df = (r: number): number => {
+    if (r <= -1) return Number.NEGATIVE_INFINITY;
+    return sorted.reduce((sum, c) => {
       const t = (c.date.getTime() - t0) / (365.25 * 86400000);
-      return sum - t * c.amount / Math.pow(1 + r, t + 1);
+      return sum - (t * c.amount) / Math.pow(1 + r, t + 1);
     }, 0);
+  };
 
-  let rate = guess;
-  for (let i = 0; i < 100; i++) {
-    const fv = f(rate);
-    const dfv = df(rate);
-    if (Math.abs(dfv) < 1e-12) break;
-    const next = rate - fv / dfv;
-    if (Math.abs(next - rate) < 1e-8) { rate = next; break; }
-    rate = next;
-    if (rate < -0.999) rate = -0.999; // clamp to avoid log(0)
+  // Tier 1: Try Newton-Raphson with multiple starting guesses
+  const candidateGuesses = [guess, 0.05, 0.25, -0.15, 0.60, -0.50, 1.5];
+  for (const g of candidateGuesses) {
+    let rate = g;
+    let converged = false;
+    let iters = 0;
+
+    for (let i = 0; i < 100; i++) {
+      iters++;
+      const fv = f(rate);
+      const dfv = df(rate);
+
+      if (Math.abs(dfv) < 1e-12 || !isFinite(dfv)) break;
+
+      const next = rate - fv / dfv;
+      if (Math.abs(next - rate) < 1e-8) {
+        rate = next;
+        converged = true;
+        break;
+      }
+      rate = next;
+      if (rate < -0.999) rate = -0.999;
+      if (rate > 20.0) { rate = 20.0; break; } // prevent runaway positive divergence
+    }
+
+    if (converged && isFinite(rate) && !isNaN(rate) && Math.abs(f(rate)) < 1.0) {
+      return {
+        xirr: Math.round(rate * 10000) / 10000,
+        engine_version: XIRR_ENGINE_VERSION,
+        calculation_timestamp: timestamp,
+        convergedMethod: "newton_raphson",
+        iterations: iters,
+        npvAtSolution: Math.round(f(rate) * 100) / 100,
+        isConverged: true,
+      };
+    }
   }
 
-  // Validate result
-  if (isNaN(rate) || !isFinite(rate)) return 0;
-  if (Math.abs(f(rate)) > 1.0) return 0; // didn't converge
-  return Math.round(rate * 10000) / 10000; // 4 decimal places
+  // Tier 2: Robust Bisection Fallback on bracket [-0.999, 10.0]
+  let low = -0.999;
+  let high = 10.0;
+  let fLow = f(low);
+  let fHigh = f(high);
+
+  if (fLow * fHigh <= 0) {
+    let mid = 0;
+    let bisectionIters = 0;
+    for (let i = 0; i < 100; i++) {
+      bisectionIters++;
+      mid = (low + high) / 2;
+      const fMid = f(mid);
+
+      if (Math.abs(fMid) < 1e-5 || (high - low) / 2 < 1e-7) {
+        return {
+          xirr: Math.round(mid * 10000) / 10000,
+          engine_version: XIRR_ENGINE_VERSION,
+          calculation_timestamp: timestamp,
+          convergedMethod: "bisection",
+          iterations: bisectionIters,
+          npvAtSolution: Math.round(fMid * 100) / 100,
+          isConverged: true,
+        };
+      }
+
+      if (fLow * fMid < 0) {
+        high = mid;
+        fHigh = fMid;
+      } else {
+        low = mid;
+        fLow = fMid;
+      }
+    }
+  }
+
+  return {
+    xirr: 0,
+    engine_version: XIRR_ENGINE_VERSION,
+    calculation_timestamp: timestamp,
+    convergedMethod: "none",
+    iterations: 100,
+    npvAtSolution: 0,
+    isConverged: false,
+  };
 }
 
 // ── IRR (regular periods) ─────────────────────────────────────────────────────

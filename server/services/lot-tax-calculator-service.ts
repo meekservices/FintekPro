@@ -21,8 +21,10 @@ import {
 	getTaxRegime,
 	getFiscalYear,
 	getCII,
+	CESS_RATE,
 	type TaxAssetClass,
 } from "./tax-regime-config";
+import { logger } from "../logger";
 
 export type AssetClass = TaxAssetClass;
 
@@ -103,7 +105,7 @@ class LotTaxCalculatorService {
 	private assetClassCache: Map<string, AssetClass> = new Map();
 
 	private constructor() {
-		console.log("✅ Lot Tax Calculator Service initialized");
+		logger.info("[LotTax] Lot Tax Calculator Service initialized");
 	}
 
 	static getInstance(): LotTaxCalculatorService {
@@ -136,7 +138,7 @@ class LotTaxCalculatorService {
 				return assetClass;
 			}
 		} catch (error) {
-			console.warn(`[LotTax] Database lookup failed for ${isin}:`, error);
+			logger.warn(`[LotTax] Database lookup failed for ${isin}: ${error}`);
 		}
 
 		// Fallback: Classify from scheme name
@@ -344,9 +346,10 @@ class LotTaxCalculatorService {
 				? regimeTaxRates[assetClass].stcg
 				: regimeTaxRates[assetClass].ltcg;
 
-		// Calculate estimated tax (note: equity LTCG exemption applied at portfolio level)
+		// Calculate estimated tax including statutory 4% Health & Education Cess
+		// (note: equity LTCG exemption applied at portfolio level)
 		const taxableGain = Math.max(0, unrealizedGain);
-		const estimatedTax = taxableGain * taxRate;
+		const estimatedTax = Math.round(taxableGain * taxRate * (1 + CESS_RATE) * 100) / 100;
 
 		// Epic 3.3: Calculate exit load
 		let exitLoad: ExitLoadResult | null = null;
@@ -745,9 +748,8 @@ class LotTaxCalculatorService {
 				hasExitLoad = exitLoadAmount > 0;
 				exitLoadSource = exitResult.source;
 			} catch (error) {
-				console.warn(
-					`[LotTax FIFO] Exit load lookup failed for lot ${lot.purchaseDate}, using zero:`,
-					error,
+				logger.warn(
+					`[LotTax FIFO] Exit load lookup failed for lot ${lot.purchaseDate}, using zero: ${error}`,
 				);
 			}
 

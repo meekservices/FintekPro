@@ -1118,6 +1118,14 @@ export class PickOfTheDayService {
 								exitPrice,
 								exitReturnPct,
 							);
+							// BUG-4 FIX: Fire pick-outcome-analyzer after every status change.
+							// Previously pickOutcomeAnalyzer was imported but NEVER called anywhere in
+							// the pipeline — the efficacy feedback loop was entirely dead code.
+							// Now: trigger a non-blocking weekly analysis after each status transition.
+							// analyzeRecentOutcomes() is idempotent and rate-limited internally.
+							pickOutcomeAnalyzer.analyzeOutcomes(30).catch((e: Error) =>
+								logger.warn(`[PickOfTheDay] Outcome analysis non-fatal error: ${e.message}`)
+							);
 						}
 					} else {
 						// ── Non-live price categories (bonds/SGB/unlisted/FD/REIT/derivatives) ─────────────
@@ -1188,6 +1196,22 @@ export class PickOfTheDayService {
 		} catch (error) {
 			logger.error("[PickOfTheDay] Error in refreshLivePicks:", error instanceof Error ? error : new Error(String(error)));
 			return { updated, errors, details };
+		} finally {
+			// BUG-3 FIX: Invalidate the picks:live Redis cache after any status updates.
+			// Previously, picks marked as stoploss_hit/target_hit/expired were still served
+			// as 'live' from the Redis cache for up to 4 hours — a regulatory compliance risk.
+			// Now: always invalidate if anything changed, forcing the next getLivePicks() to re-read DB.
+			if (updated > 0) {
+				try {
+					const redis = await this.getRedis();
+					if (redis) {
+						await redis.del("picks:live");
+						logger.info("[PickOfTheDay] Invalidated picks:live Redis cache after status updates", {
+							event: "PICKS_LIVE_CACHE_INVALIDATED", updated, latency_ms: 0, status: "success",
+						});
+					}
+				} catch { /* non-fatal */ }
+			}
 		}
 	}
 

@@ -27,8 +27,9 @@ import { logger } from "../logger";
 // Engine versioning — bump when any rate or formula changes
 // Budget 2024 = Finance Act 2024, assented 16 August 2024
 // ─────────────────────────────────────────────────────────────────────────────
-export const STT_ENGINE_VERSION = "1.0.0-FA2024";
-const EFFECTIVE_DATE_FA2024 = "2024-07-23"; // Budget 2024 announcement date (Lok Sabha)
+export const STT_ENGINE_VERSION = "1.1.0-FA2024";
+// Finance Act 2024, Chapter IV, Section 144: Effective date for F&O STT hike is 1 October 2024 (Notification No. 106/2024)
+const EFFECTIVE_DATE_FO_FA2024 = "2024-10-01";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STT Rate Table (Income Tax Act, Chapter VII, Section 98)
@@ -91,30 +92,30 @@ export const STT_RATES: Record<SttProductType, SttRateSpec> = {
    * F&O Futures
    * Rate: 0.02% on transaction value — SELLER only
    * Section 98, Table, Item 2(b)
-   * ★ Budget 2024: doubled from 0.01% → 0.02% effective 23 July 2024
+   * ★ Budget 2024: doubled from 0.01% → 0.02% effective 1 October 2024 (Notification 106/2024)
    */
   fo_futures: {
     rate: 0.0002,                // 0.02% ← Budget 2024 (was 0.0001 / 0.01%)
     payerSide: "sell",
     basis: "transaction_value",
     statuteSection: "Section 98, Table, Item 2(b) — Futures on securities",
-    regulatoryNote: "Seller pays 0.02% STT on futures transaction value. Budget 2024 doubled this from 0.01%.",
-    effectiveSince: EFFECTIVE_DATE_FA2024,
+    regulatoryNote: "Seller pays 0.02% STT on futures transaction value. Budget 2024 doubled this from 0.01% effective 1 Oct 2024.",
+    effectiveSince: EFFECTIVE_DATE_FO_FA2024,
   },
 
   /**
    * F&O Options
    * Rate: 0.1% on OPTION PREMIUM — SELLER only (Buyer exempt)
    * Section 98, Table, Item 2(a)
-   * ★ Budget 2024: increased from 0.0625% → 0.1% effective 23 July 2024
+   * ★ Budget 2024: increased from 0.0625% → 0.1% effective 1 October 2024 (Notification 106/2024)
    */
   fo_options: {
     rate: 0.001,                 // 0.1% ← Budget 2024 (was 0.000625 / 0.0625%)
     payerSide: "sell",
     basis: "option_premium",
     statuteSection: "Section 98, Table, Item 2(a) — Options on securities",
-    regulatoryNote: "Seller pays 0.1% STT on option premium (not notional value). Budget 2024 increased from 0.0625%.",
-    effectiveSince: EFFECTIVE_DATE_FA2024,
+    regulatoryNote: "Seller pays 0.1% STT on option premium (not notional value). Budget 2024 increased from 0.0625% effective 1 Oct 2024.",
+    effectiveSince: EFFECTIVE_DATE_FO_FA2024,
   },
 
   /**

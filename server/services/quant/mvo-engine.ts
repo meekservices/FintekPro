@@ -754,6 +754,11 @@ class MVOEngine {
 				assetsData,
 				fullConfig,
 			);
+			// Annualise the covariance matrix so that variance and return are dimensionally
+			// aligned on the same annual scale (daily covariance × 252) for QP optimization.
+			const annualizedCovarianceMatrix = covarianceMatrix.map((row) =>
+				row.map((v) => v * 252),
+			);
 			const expectedReturns =
 				expectedReturnsOverride ||
 				this.computeExpectedReturns(assetsData, fullConfig);
@@ -761,7 +766,7 @@ class MVOEngine {
 
 			const { weights: optimalWeights, metrics } = this.optimize(
 				expectedReturns,
-				covarianceMatrix,
+				annualizedCovarianceMatrix,
 				fullConfig,
 				currentWeights,
 				tc,
@@ -774,13 +779,12 @@ class MVOEngine {
 				portfolioReturn += optimalWeights[i] * expectedReturns[i];
 				for (let j = 0; j < optimalWeights.length; j++) {
 					portfolioVariance +=
-						optimalWeights[i] * optimalWeights[j] * covarianceMatrix[i][j];
+						optimalWeights[i] * optimalWeights[j] * annualizedCovarianceMatrix[i][j];
 				}
 			}
-			// covarianceMatrix is built from daily returns → variance is in daily terms.
-			// expectedReturns are annualised (EWMA × 252). Annualise variance before Sharpe.
+			// annualizedCovarianceMatrix is already scaled by 252 → portfolioVariance is annual.
 			const portfolioVolatility = Math.sqrt(
-				Math.max(0, portfolioVariance * 252),
+				Math.max(0, portfolioVariance),
 			);
 			const sharpeRatio =
 				portfolioVolatility > 0
@@ -817,11 +821,6 @@ class MVOEngine {
 
 			logger.info(
 				`[MVO] Transition optimization complete in ${runTimeMs}ms. Sharpe: ${sharpeRatio.toFixed(3)}, Vol: ${(portfolioVolatility * 100).toFixed(1)}%, Turnover: ${(metrics.turnover * 100).toFixed(1)}%, Gamma: ${metrics.gammaUsed.toFixed(1)}`,
-			);
-
-			// Annualise the covariance matrix for Black-Litterman (BL uses annual-scale views/returns)
-			const annualizedCovarianceMatrix = covarianceMatrix.map((row) =>
-				row.map((v) => v * 252),
 			);
 
 			return {

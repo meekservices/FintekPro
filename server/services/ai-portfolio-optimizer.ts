@@ -1,10 +1,36 @@
 import { db } from "../db";
-import { dailyPicks, aiPriceHistory } from "@shared/schema";
+import { dailyPicks, aiPriceHistory, adminSettings } from "@shared/schema";
 import { eq, and, gte, desc, sql, inArray } from "drizzle-orm";
 import { aiAnalyticsEngine } from "./ai-analytics-engine";
 import { aiResponseCacheService } from "./ai-response-cache-service";
 import { logger } from "../logger"; // Fix #14: structured GCR-compliant logging
 import { upstoxMarketDataService } from "./upstox-market-data-service";
+
+/**
+ * BUG-2 FIX: Risk-free rate sourced dynamically from DB admin_settings.
+ * Falls back to RBI repo rate proxy (6.5%) if DB read fails.
+ * Call getRiskFreeRate() instead of hardcoding 0.065 anywhere.
+ */
+let _cachedRFR: { value: number; ts: number } = { value: 0.065, ts: 0 };
+const RFR_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+async function getRiskFreeRate(): Promise<number> {
+	if (Date.now() - _cachedRFR.ts < RFR_CACHE_TTL_MS) return _cachedRFR.value;
+	try {
+		const row = await db
+			.select({ value: adminSettings.value })
+			.from(adminSettings)
+			.where(eq(adminSettings.key, "rbi_repo_rate"))
+			.limit(1);
+		if (row.length > 0) {
+			const parsed = parseFloat(String(row[0].value));
+			if (isFinite(parsed) && parsed > 0 && parsed < 0.2) {
+				_cachedRFR = { value: parsed, ts: Date.now() };
+				return parsed;
+			}
+		}
+	} catch { /* fall through to cached default */ }
+	return _cachedRFR.value;
+}
 
 export interface AssetCandidate {
 	pickId: number;
@@ -300,7 +326,7 @@ export class AIPortfolioOptimizer {
 				const assetClass = pick.category || "listed_stocks";
 
 				const returnSeries =
-					returnSeriesMap.get(assetId) || this.generateSyntheticReturns(90);
+					returnSeriesMap.get(assetId) || this.generateSyntheticReturns(90, assetId);
 
 				let volatility = 0.2;
 				if (returnSeries.length >= 5) {
@@ -566,7 +592,10 @@ export class AIPortfolioOptimizer {
 
 		const maxIterations = 100;
 		const convergenceThreshold = 0.0001;
-		const learningRate = 0.01;
+		// BUG-5 FIX: Apply adaptive learning rate — same fix as max-Sharpe optimizer.
+		// Fixed learningRate=0.01 diverges for correlated assets, producing sub-optimal min-variance portfolios.
+		let learningRate = 0.01;
+		let noImprovementCount = 0;
 		const delta = 0.001;
 
 		let weights = new Array(n).fill(1 / n);
@@ -610,6 +639,15 @@ export class AIPortfolioOptimizer {
 			if (Math.abs(currentVar - prevVar) < convergenceThreshold) {
 				break;
 			}
+			// BUG-5 FIX: Adaptive LR backtrack on variance regression, grow slowly on improvement
+			if (currentVar > prevVar) {
+				learningRate = Math.max(learningRate * 0.5, 0.0002);
+				noImprovementCount++;
+			} else {
+				learningRate = Math.min(learningRate * 1.05, 0.05);
+				noImprovementCount = 0;
+			}
+			if (noImprovementCount >= 10) break;
 			prevVar = currentVar;
 		}
 
@@ -885,7 +923,7 @@ export class AIPortfolioOptimizer {
 				return aiAnalyticsEngine.pricesToReturns(prices);
 			}
 
-			return this.generateSyntheticReturns(days);
+			return this.generateSyntheticReturns(days, assetId);
 		} catch (err) {
 			// Fix #14: structured GCR-compliant log
 			logger.warn("[AIPortfolioOptimizer] Error fetching return series for asset", {
@@ -899,13 +937,32 @@ export class AIPortfolioOptimizer {
 		}
 	}
 
-	private generateSyntheticReturns(days: number): number[] {
-		const returns: number[] = [];
+	private generateSyntheticReturns(days: number, assetId?: string): number[] {
+		// BUG-1 FIX: Replace Math.random() (non-deterministic) with a seeded LCG
+		// (Linear Congruential Generator) keyed by assetId.
+		// GCR Rule: "Same input → same output ALWAYS (no hidden randomness)."
+		// The previous implementation produced a different covariance matrix every call,
+		// causing weight allocations to fluctuate with no signal for assets without DB history.
+		//
+		// Seed derivation: sum char codes of assetId (or 42 fallback) → always reproducible.
+		let seed = 0;
+		const idStr = assetId ?? "default";
+		for (let i = 0; i < idStr.length; i++) seed += idStr.charCodeAt(i);
+		seed = seed || 42;
+
+		// Lehmer LCG (park-miller variant): period 2^31 - 1
+		const lcgNext = (): number => {
+			seed = (seed * 48271) % 2147483647;
+			return seed / 2147483647; // normalize to (0, 1)
+		};
+
 		const dailyMean = 0.0004;
 		const dailyStd = 0.015;
+		const returns: number[] = [];
 		for (let i = 0; i < days - 1; i++) {
-			const u1 = Math.random();
-			const u2 = Math.random();
+			// Box-Muller transform using deterministic LCG
+			const u1 = Math.max(1e-10, lcgNext()); // guard against log(0)
+			const u2 = lcgNext();
 			const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
 			returns.push(dailyMean + dailyStd * z);
 		}

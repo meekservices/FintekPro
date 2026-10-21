@@ -802,9 +802,9 @@ class RebalancingEngine {
 		const isGoldOrReit = ["gold", "reit", "invit", "sgb"].includes(assetType.toLowerCase());
 		const holdingPeriod = holdingPeriodMonths ?? 6; // default: short-term
 
-		// Holding period thresholds (Finance Act 2024)
-		// Equity: 12 months | Debt: 36 months | Gold/REIT: 24 months
-		const longTermThreshold = isEquity ? 12 : isGoldOrReit ? 24 : 36;
+		// Holding period thresholds (Finance Act 2024 harmonization)
+		// Listed Equity: 12 months | Unlisted shares / Debt / Gold / REIT: 24 months (36m abolished)
+		const longTermThreshold = isEquity ? 12 : 24;
 		const isLongTerm = holdingPeriod >= longTermThreshold;
 
 		let shortTermGains = 0;
@@ -835,7 +835,7 @@ class RebalancingEngine {
 		} else {
 			// Debt instruments
 			if (isLongTerm) {
-				// LTCG debt: 12.5% no indexation (Finance Act 2024)
+				// LTCG debt: 12.5% no indexation (Finance Act 2024, held >= 24m)
 				longTermGains = taxableAmount;
 				estimatedTax = taxableAmount * DEBT_LTCG_RATE;
 			} else {
@@ -845,6 +845,9 @@ class RebalancingEngine {
 				estimatedTax = taxableAmount * slabRate;
 			}
 		}
+
+		// Apply statutory 4% Health & Education Cess
+		estimatedTax = Math.round(estimatedTax * 1.04 * 100) / 100;
 
 		const taxEfficiency: "high" | "medium" | "low" =
 			estimatedTax === 0

@@ -18,6 +18,7 @@ import {
 	getEnrichedStockSnapshot,
 	EnrichedStockSnapshot,
 } from "./screener/enriched-stock-data";
+import { logger } from "../logger";
 
 // ===================================================================
 // TYPE DEFINITIONS
@@ -358,9 +359,9 @@ class IntrinsicValueCalculatorService {
 				}
 
 				const terminalFCF = projectedFCFs[projectedFCFs.length - 1];
+				const terminalSpread = Math.max(wacc - terminalGrowthRate, 1.5) / 100;
 				const terminalValue =
-					(terminalFCF * (1 + terminalGrowthRate / 100)) /
-					((wacc - terminalGrowthRate) / 100);
+					(terminalFCF * (1 + terminalGrowthRate / 100)) / terminalSpread;
 				const pvOfTerminalValue =
 					terminalValue / (1 + wacc / 100) ** projectionYears;
 				const enterpriseValue = pvOfFCF + pvOfTerminalValue;
@@ -449,9 +450,9 @@ class IntrinsicValueCalculatorService {
 		}
 
 		const terminalFCF = projectedFCFs[projectedFCFs.length - 1];
+		const terminalSpread = Math.max(wacc - terminalGrowthRate, 1.5) / 100;
 		const terminalValue =
-			(terminalFCF * (1 + terminalGrowthRate / 100)) /
-			((wacc - terminalGrowthRate) / 100);
+			(terminalFCF * (1 + terminalGrowthRate / 100)) / terminalSpread;
 		const pvOfTerminalValue =
 			terminalValue / (1 + wacc / 100) ** projectionYears;
 
@@ -918,7 +919,7 @@ class IntrinsicValueCalculatorService {
 				};
 			}
 		} catch (error) {
-			console.error("[IntrinsicValue] Sector average query error:", error);
+			logger.error("[IntrinsicValue] Sector average query error:", error instanceof Error ? error : new Error(String(error)));
 		}
 
 		return { avgPE: null, avgPB: null, avgEvEbitda: null, peerCount: 0 };
@@ -1100,9 +1101,9 @@ class IntrinsicValueCalculatorService {
 				sector: stock.sector || stock.industry || null,
 			};
 		} catch (error) {
-			console.error(
+			logger.error(
 				"[IntrinsicValue] Error fetching listed stock data:",
-				error,
+				error instanceof Error ? error : new Error(String(error)),
 			);
 			return null;
 		}
@@ -1201,9 +1202,9 @@ class IntrinsicValueCalculatorService {
 				sector: company.industry || null,
 			};
 		} catch (error) {
-			console.error(
+			logger.error(
 				"[IntrinsicValue] Error fetching unlisted stock data:",
-				error,
+				error instanceof Error ? error : new Error(String(error)),
 			);
 			return null;
 		}
@@ -1275,7 +1276,7 @@ class IntrinsicValueCalculatorService {
 
 			return fcfs;
 		} catch (error) {
-			console.error("[IntrinsicValue] Error fetching historical FCFs:", error);
+			logger.error("[IntrinsicValue] Error fetching historical FCFs:", error instanceof Error ? error : new Error(String(error)));
 			return [];
 		}
 	}

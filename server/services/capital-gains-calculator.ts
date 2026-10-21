@@ -17,7 +17,8 @@ import {
 import { eq, and, sql, inArray, gte, lte } from "drizzle-orm";
 import type { InsertCapitalGainsTaxReminder } from "@shared/schema";
 import { exitLoadService } from "./exit-load-service";
-import { getTaxRatesForAsset, type TaxAssetClass } from "./tax-regime-config";
+import { getTaxRatesForAsset, CESS_RATE, type TaxAssetClass } from "./tax-regime-config";
+import { logger } from "../logger";
 
 /** Typed row for the holdings breakdown array */
 interface HoldingBreakdownItem {
@@ -216,8 +217,16 @@ export class CapitalGainsCalculatorService {
 				});
 			}
 
-			const stcgTax = totalSTCG * stcgRate;
-			const ltcgTax = totalLTCG * ltcgRate;
+			const equityRates = getTaxRatesForAsset("equity");
+			const ltcgExemption = Math.min(
+				equityRates.ltcgExemption,
+				Math.max(0, totalLTCG),
+			);
+			const taxableLTCG = Math.max(0, totalLTCG - ltcgExemption);
+			const baseStcgTax = totalSTCG * stcgRate;
+			const baseLtcgTax = taxableLTCG * ltcgRate;
+			const stcgTax = baseStcgTax * (1 + CESS_RATE);
+			const ltcgTax = baseLtcgTax * (1 + CESS_RATE);
 			const totalTaxLiability = stcgTax + ltcgTax;
 
 			return {
@@ -229,7 +238,7 @@ export class CapitalGainsCalculatorService {
 				holdings: holdingsBreakdown,
 			};
 		} catch (error) {
-			console.error("Error calculating portfolio gains:", error);
+			logger.error("[CapitalGains] Error calculating portfolio gains:", error instanceof Error ? error : new Error(String(error)));
 			throw new Error("Failed to calculate capital gains");
 		}
 	}
@@ -308,13 +317,15 @@ export class CapitalGainsCalculatorService {
 				});
 			}
 
-			const stcgTax = totalSTCG > 0 ? totalSTCG * stcgRate : 0;
+			const baseStcgTax = totalSTCG > 0 ? totalSTCG * stcgRate : 0;
 			const equityRates = getTaxRatesForAsset("equity");
 			const ltcgExemption = Math.min(
 				equityRates.ltcgExemption,
 				Math.max(0, totalLTCG),
 			);
-			const ltcgTax = Math.max(0, totalLTCG - ltcgExemption) * ltcgRate;
+			const baseLtcgTax = Math.max(0, totalLTCG - ltcgExemption) * ltcgRate;
+			const stcgTax = baseStcgTax * (1 + CESS_RATE);
+			const ltcgTax = baseLtcgTax * (1 + CESS_RATE);
 
 			return {
 				stcgAmount: Math.round(totalSTCG * 100) / 100,
@@ -325,7 +336,7 @@ export class CapitalGainsCalculatorService {
 				trades,
 			};
 		} catch (error) {
-			console.error("Error calculating realized gains:", error);
+			logger.error("[CapitalGains] Error calculating realized gains:", error instanceof Error ? error : new Error(String(error)));
 			throw new Error("Failed to calculate realized capital gains");
 		}
 	}
@@ -341,16 +352,33 @@ export class CapitalGainsCalculatorService {
 			this.calculateRealizedGains(userId, fy),
 		]);
 
+		const totalStcg = unrealized.stcgAmount + realized.stcgAmount;
+		const totalLtcg = unrealized.ltcgAmount + realized.ltcgAmount;
+		const { stcgRate, ltcgRate } = await this.getTaxRates();
+		const equityRates = getTaxRatesForAsset("equity");
+
+		// Unified single ₹1.25L exemption applied across the combined portfolio for the FY
+		const ltcgExemption = Math.min(
+			equityRates.ltcgExemption,
+			Math.max(0, totalLtcg),
+		);
+		const taxableCombinedLtcg = Math.max(0, totalLtcg - ltcgExemption);
+		const combinedStcgTax =
+			Math.round(totalStcg * stcgRate * (1 + CESS_RATE) * 100) / 100;
+		const combinedLtcgTax =
+			Math.round(taxableCombinedLtcg * ltcgRate * (1 + CESS_RATE) * 100) / 100;
+		const combinedTotalTax =
+			Math.round((combinedStcgTax + combinedLtcgTax) * 100) / 100;
+
 		return {
 			unrealized,
 			realized,
 			combined: {
-				stcgAmount: unrealized.stcgAmount + realized.stcgAmount,
-				ltcgAmount: unrealized.ltcgAmount + realized.ltcgAmount,
-				stcgTax: unrealized.stcgTax + realized.stcgTax,
-				ltcgTax: unrealized.ltcgTax + realized.ltcgTax,
-				totalTaxLiability:
-					unrealized.totalTaxLiability + realized.totalTaxLiability,
+				stcgAmount: Math.round(totalStcg * 100) / 100,
+				ltcgAmount: Math.round(totalLtcg * 100) / 100,
+				stcgTax: combinedStcgTax,
+				ltcgTax: combinedLtcgTax,
+				totalTaxLiability: combinedTotalTax,
 			},
 			fiscalYear: fy,
 		};
@@ -367,8 +395,8 @@ export class CapitalGainsCalculatorService {
 			const annualTaxLiability = gainsBreakdown.totalTaxLiability;
 
 			if (annualTaxLiability <= 0) {
-				console.log(
-					`No tax liability for user ${userId}, skipping reminder generation`,
+				logger.info(
+					`[CapitalGains] No tax liability for user ${userId}, skipping reminder generation`,
 				);
 				return [];
 			}
@@ -425,14 +453,14 @@ export class CapitalGainsCalculatorService {
 			// Insert all reminders in a transaction
 			if (reminderRecords.length > 0) {
 				await db.insert(capitalGainsTaxReminders).values(reminderRecords);
-				console.log(
-					`Created ${reminderRecords.length} quarterly reminders for user ${userId}`,
+				logger.info(
+					`[CapitalGains] Created ${reminderRecords.length} quarterly reminders for user ${userId}`,
 				);
 			}
 
 			return reminders;
 		} catch (error) {
-			console.error("Error generating quarterly reminders:", error);
+			logger.error("[CapitalGains] Error generating quarterly reminders:", error instanceof Error ? error : new Error(String(error)));
 			throw new Error("Failed to generate quarterly reminders");
 		}
 	}
@@ -447,7 +475,7 @@ export class CapitalGainsCalculatorService {
 
 			return reminders;
 		} catch (error) {
-			console.error("Error fetching reminders for user:", error);
+			logger.error("[CapitalGains] Error fetching reminders for user:", error instanceof Error ? error : new Error(String(error)));
 			throw new Error("Failed to fetch reminders");
 		}
 	}
@@ -466,7 +494,7 @@ export class CapitalGainsCalculatorService {
 				})
 				.where(eq(capitalGainsTaxReminders.id, reminderId));
 		} catch (error) {
-			console.error("Error updating reminder status:", error);
+			logger.error("[CapitalGains] Error updating reminder status:", error instanceof Error ? error : new Error(String(error)));
 			throw new Error("Failed to update reminder status");
 		}
 	}
@@ -675,9 +703,8 @@ export class CapitalGainsCalculatorService {
 				hasExitLoad = exitLoadAmount > 0;
 				exitLoadSource = exitResult.source;
 			} catch (error) {
-				console.warn(
-					`[CapitalGains FIFO] Exit load lookup failed for lot ${lot.purchaseDate}, using zero:`,
-					error,
+				logger.warn(
+					`[CapitalGains FIFO] Exit load lookup failed for lot ${lot.purchaseDate}, using zero: ${error}`,
 				);
 			}
 

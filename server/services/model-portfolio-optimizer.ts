@@ -233,9 +233,42 @@ export async function analyzeAlphaGaps(): Promise<AlphaAnalysis[]> {
   const results: AlphaAnalysis[] = [];
 
   for (const p of rows) {
-    const cagr1Y    = p.cagr1Y          != null ? Number(p.cagr1Y)          : 0;
-    const benchCagr = p.benchmarkCagr1Y != null ? Number(p.benchmarkCagr1Y) : 0;
-    if (benchCagr === 0) continue;
+    // BUG-5 FIX: Original code silently skipped portfolios with benchCagr === 0,
+    // meaning any portfolio with missing/stale benchmark data was NEVER rebalanced.
+    // New behaviour: fall back to computeBlendedBenchmark() from the quant service,
+    // which uses asset-class-weighted proxy returns. Log a structured alert so the
+    // data team knows the benchmark column needs updating.
+    const cagr1Y    = p.cagr1Y != null ? Number(p.cagr1Y) : 0;
+    let benchCagr = p.benchmarkCagr1Y != null ? Number(p.benchmarkCagr1Y) : 0;
+    if (benchCagr === 0) {
+      // Attempt blended benchmark fallback
+      const holdingsForBlend = Array.isArray(p.holdings) ? p.holdings : [];
+      if (holdingsForBlend.length > 0) {
+        try {
+          const { computeBlendedBenchmark } = await import("./model-portfolio-quant-service");
+          benchCagr = computeBlendedBenchmark(
+            holdingsForBlend.map((h: any) => ({ type: h.type ?? h.category, weight: Number(h.weight ?? 0) }))
+          );
+          logger.warn("[Optimizer] BENCHMARK_DATA_MISSING: using blended proxy", {
+            event: "BENCHMARK_DATA_MISSING",
+            portfolioId: p.id,
+            blended_benchmark: benchCagr,
+            latency_ms: 0,
+            status: "degraded",
+          });
+        } catch {
+          logger.warn("[Optimizer] BENCHMARK_DATA_MISSING: blended fallback failed, skipping", {
+            event: "BENCHMARK_DATA_MISSING",
+            portfolioId: p.id,
+            latency_ms: 0,
+            status: "skipped",
+          });
+          continue; // still skip if fallback also fails
+        }
+      } else {
+        continue; // no holdings to derive benchmark from
+      }
+    }
 
     const trueAlpha  = cagr1Y - benchCagr;
     // Fix #16: use risk-profile-aware alpha ratio instead of a flat 0.20 for all portfolios
@@ -588,6 +621,9 @@ export async function generateOptimizationSuggestions(
       }
 
       // ── Confidence scoring ────────────────────────────────────────────────
+      // ISSUE-2 FIX: Added data-quality and improvement-quality signals:
+      //   - Penalty if improvement < 5% (marginal swap — high friction risk)
+      //   - Bonus if best alternative has 3Y track record (quality filter)
       let confidence = 0;
       if (alternatives.length >= 3) confidence += 0.30;
       else if (alternatives.length >= 1) confidence += 0.15;
@@ -596,6 +632,13 @@ export async function generateOptimizationSuggestions(
       const best = alternatives[0];
       if (best?.sharpe != null && best.sharpe > 0.5) confidence += 0.15;
       if (best?.improvementVsCurrent != null && best.improvementVsCurrent > 10) confidence += 0.15;
+      else if (best?.improvementVsCurrent != null && best.improvementVsCurrent >= 5) confidence += 0.08;
+      // Quality: bonus for verified 3Y track record
+      if (best?.return_3y != null && best.return_3y > 0) confidence += 0.08;
+      // Quality: penalty when improvement is marginal (< 5% better) — high friction risk
+      if (best?.improvementVsCurrent != null && best.improvementVsCurrent < 5 && best.improvementVsCurrent >= 0) confidence -= 0.08;
+      // Quality: penalty if alternative has no ISIN (can't actually execute)
+      if (best && !best.isin) confidence -= 0.10;
       confidence = Math.min(Math.round(confidence * 100) / 100, 1.0);
 
       // ── E6: Recommendation gate ────────────────────────────────────────────
@@ -616,28 +659,34 @@ export async function generateOptimizationSuggestions(
       // ── Net-of-Tax Alpha Gate & Profit Guard (Finance Act 2024) ────────────
       // STCG @ 20%, LTCG @ 12.5%. If tax + exit load friction exceeds the expected
       // alpha recovery, or if holding is within 90 days of LTCG, defer or reduce weight.
-      const holdingPeriodDays = (drag as any).holdingPeriodDays ?? (drag as any).daysHeld ?? 180;
+      //
+      // BUG-2 FIX: Original code defaulted holdingPeriodDays to 180 when lot data was
+      // unavailable, which ALWAYS applied STCG tax rate (20%) and exit load — creating
+      // phantom friction that blocked valid swaps. New behaviour: use null to signal
+      // "lot data unavailable" and skip friction guardrails rather than mis-applying them.
+      const holdingPeriodDays: number | null = (drag as any).holdingPeriodDays ?? (drag as any).daysHeld ?? null;
       const unrealizedGainPct = drag.currentReturn ?? 0;
       const estDriftWeight = drag.weight / 100;
       const PORTFOLIO_BENCHMARK_AUM = 1000000; // ₹10 Lakhs proxy base for portfolio friction check
       const proposedSellAmount = PORTFOLIO_BENCHMARK_AUM * estDriftWeight;
       const unrealizedGainRs = unrealizedGainPct > 0 ? Math.round(proposedSellAmount * (unrealizedGainPct / 100)) : 0;
 
-      const isShortTerm = holdingPeriodDays < 365;
-      const applicableTaxRate = isShortTerm ? 0.20 : 0.125;
-      const estimatedTaxCost = Math.round(unrealizedGainRs * applicableTaxRate);
+      // Only compute tax/friction if we have actual holding period data
+      const isShortTerm = holdingPeriodDays !== null && holdingPeriodDays < 365;
+      const applicableTaxRate = holdingPeriodDays === null ? 0 : (isShortTerm ? 0.20 : 0.125);
+      const estimatedTaxCost = holdingPeriodDays !== null ? Math.round(unrealizedGainRs * applicableTaxRate) : 0;
 
       // Tax saved by deferring to LTCG (if holding is between 270 and 364 days — within 90 days of LTCG)
-      const isNearLtcgThreshold = isShortTerm && holdingPeriodDays >= 270 && unrealizedGainRs > 10000;
+      const isNearLtcgThreshold = holdingPeriodDays !== null && isShortTerm && holdingPeriodDays >= 270 && unrealizedGainRs > 10000;
       const estimatedTaxSaved = isNearLtcgThreshold ? Math.round(unrealizedGainRs * (0.20 - 0.125)) : 0;
 
       // Expected monetary benefit of alpha recovery over 1 year
       const expectedAlphaRecoveryPct = best?.improvementVsCurrent ? Math.max(0, best.improvementVsCurrent) : 0;
       const driftBenefitRs = Math.round(proposedSellAmount * (expectedAlphaRecoveryPct / 100));
 
-      // Exit load cost (equity MFs typically 1% if < 365 days)
-      const exitLoadPct = drag.type?.toLowerCase().includes("fund") && holdingPeriodDays < 365 ? 1.0 : 0.0;
-      const exitLoadCost = Math.round(proposedSellAmount * (exitLoadPct / 100));
+      // Exit load cost (equity MFs typically 1% if < 365 days) — only apply if lot data available
+      const exitLoadPct = holdingPeriodDays !== null && drag.type?.toLowerCase().includes("fund") && holdingPeriodDays < 365 ? 1.0 : 0.0;
+      const exitLoadCost = holdingPeriodDays !== null ? Math.round(proposedSellAmount * (exitLoadPct / 100)) : 0;
       const totalFrictionCost = estimatedTaxCost + exitLoadCost;
 
       // ── Friction-to-Benefit Gate ──────────────────────────────────────────
