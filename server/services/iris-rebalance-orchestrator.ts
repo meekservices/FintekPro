@@ -26,7 +26,7 @@ import { db } from "../db";
 import {
   rebalanceProposals,
   irisRebalanceExecutions,
-} from "@shared/schema";
+} from "../../shared/schema";
 import { eq } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { logger } from "../logger";

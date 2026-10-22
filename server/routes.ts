@@ -183,9 +183,11 @@ import { upstoxOAuthRouter } from "./routes/upstox-oauth-routes"; // /api/upstox
 import { agentGeoCoverageRouter } from "./routes/agent-geo-coverage-routes"; // /api/agent/geo-coverage
 // Director phone enrichment is CredHive-only — no external phone provider needed.
 // EasyLeadz webhook route is deprecated (kept as dead file for historical reference).
-// import { registerEasyLeadzWebhookRoutes } from "./routes/easyleadz-callback-routes";
 import { registerTruecallerBusinessRoutes } from "./routes/truecaller-business-routes"; // /api/calling/*
 import { dialerRouter } from "./routes/dialer-routes"; // /api/dialer/*
+import taxLossHarvestingRouter from "./routes/tax-loss-harvesting-routes"; // /api/tax-loss-harvesting
+import monteCarloGoalRouter from "./routes/monte-carlo-goal-routes"; // /api/goal-planning/monte-carlo-simulate
+import asyncJobsRouter from "./routes/async-jobs-routes"; // /api/async-jobs
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -563,6 +565,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 	// Model Portfolios: /api/model-portfolios, /api/model-portfolios/:id (engine audit Fix #6)
 	app.use("/api/model-portfolios", modelPortfoliosRouter);
+
+	// Tax Loss Harvesting: /api/tax-loss-harvesting/*
+	app.use("/api/tax-loss-harvesting", taxLossHarvestingRouter);
+
+	// Monte Carlo Goal Simulation: /api/goal-planning/*
+	app.use("/api/goal-planning", monteCarloGoalRouter);
+
+	// Async Background Worker Queue: /api/async-jobs/*
+	app.use("/api/async-jobs", asyncJobsRouter);
 
 	// Profile Sharing Toggle
 	app.patch("/api/user/profile/sharing", async (req, res) => {

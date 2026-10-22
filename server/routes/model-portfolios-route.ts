@@ -57,6 +57,7 @@ import { lookupByISIN, lookupByNSESymbol } from "../services/isin-registry-servi
 import { unifiedStockPriceService } from "../services/unified-stock-price-service";
 import { modelPortfolioAlgoService } from "../services/model-portfolio-algo-service";
 import { calculateIntegerShareAllocation } from "../services/model-portfolio-share-sizing";
+import { stockIntersectionAnalysisService } from "../services/stock-intersection-analysis-service";
 
 export const modelPortfoliosRouter = Router();
 
@@ -3953,6 +3954,38 @@ modelPortfoliosRouter.get("/:id/holdings", isAuthenticated, async (req: Request,
       error_code: "HOLDINGS_FETCH_ERROR",
       message: "Failed to fetch holdings with returns",
       retryable: true,
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
+    });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODEL PORTFOLIO STOCK OVERLAP ANALYSIS
+/**
+ * GET /api/model-portfolios/:id/overlap
+ * Performs underlying stock intersection & overlap analysis for a model portfolio.
+ */
+modelPortfoliosRouter.get("/:id/overlap", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const result = await stockIntersectionAnalysisService.analyzeModelPortfolio(id);
+
+    return res.json({
+      success: true,
+      data: result,
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: ENGINE_VERSION,
+        latency_ms: Date.now() - t0,
+      },
+    });
+  } catch (error: any) {
+    logger.error("[ModelPortfolios] GET /:id/overlap error:", error instanceof Error ? error : new Error(String(error)));
+    return res.status(500).json({
+      success: false,
+      error_code: "OVERLAP_ANALYSIS_ERROR",
+      message: error?.message || "Failed to analyze model portfolio overlap",
       meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
     });
   }

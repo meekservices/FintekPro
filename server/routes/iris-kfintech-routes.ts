@@ -25,19 +25,21 @@ async function wrap(res: Response, fn: () => Promise<unknown>): Promise<void> {
 			message?: string;
 		};
 		const msg = e?.response?.data?.message ?? e?.message ?? "IRIS API error";
-		// When IRIS is not yet authenticated/configured, return empty 200 instead of 500
-		// so the agent dashboard loads gracefully without error toasts
+		// When IRIS is not yet authenticated/configured or tenant is missing, return graceful payload
 		if (
 			msg === "IRIS authentication failed" ||
 			msg?.includes("IRIS_USERNAME") ||
-			msg?.includes("IRIS_PASSWORD")
+			msg?.includes("IRIS_PASSWORD") ||
+			msg?.includes("Invalid Tenent") ||
+			msg?.includes("Tenant not allowed") ||
+			msg?.includes("tenant")
 		) {
 			return res.json({
 				success: true,
 				data: null,
 				unconfigured: true,
 				message:
-					"IRIS/KFintech credentials not configured. Complete OTP login via Admin → IRIS settings.",
+					"IRIS/KFintech credentials or Tenant Code not configured. Configure IRIS_TENANT_CODE and complete OTP login via Admin → IRIS settings.",
 			});
 		}
 		const status = e?.response?.status ?? 500;

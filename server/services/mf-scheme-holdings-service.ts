@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { mfSchemeStockHoldings, mutualFunds } from "../../shared/schema";
-import { eq, desc, and, sql, inArray } from "drizzle-orm";
+import { eq, desc, and, sql, inArray, or } from "drizzle-orm";
 
 interface SchemeHolding {
 	stockSymbol: string;
@@ -28,38 +28,29 @@ class MfSchemeHoldingsService {
 	}
 
 	async getHoldingsForScheme(mfIsin: string): Promise<SchemeHolding[]> {
-		const holdings = await db
-			.select()
-			.from(mfSchemeStockHoldings)
-			.where(eq(mfSchemeStockHoldings.mfIsin, mfIsin))
-			.orderBy(desc(mfSchemeStockHoldings.holdingPercentage));
-
-		return holdings.map((h) => ({
-			stockSymbol: h.stockSymbol,
-			stockName: h.stockName || h.stockSymbol,
-			stockIsin: h.stockIsin || undefined,
-			sector: h.sector || undefined,
-			holdingPercentage: Number.parseFloat(String(h.holdingPercentage)),
-		}));
+		const result = await this.getHoldingsForMultipleSchemes([mfIsin]);
+		return result.get(mfIsin) || [];
 	}
 
 	async getHoldingsForMultipleSchemes(
-		mfIsins: string[],
+		identifiers: string[],
 	): Promise<Map<string, SchemeHolding[]>> {
-		if (mfIsins.length === 0) return new Map();
+		if (!identifiers || identifiers.length === 0) return new Map();
 
-		const holdings = await db
+		const cleanIds = Array.from(new Set(identifiers.filter(Boolean)));
+		const holdingsMap = new Map<string, SchemeHolding[]>();
+
+		// 1. Direct query on mf_scheme_stock_holdings by mfIsin
+		const directHoldings = await db
 			.select()
 			.from(mfSchemeStockHoldings)
-			.where(inArray(mfSchemeStockHoldings.mfIsin, mfIsins))
+			.where(inArray(mfSchemeStockHoldings.mfIsin, cleanIds))
 			.orderBy(
 				mfSchemeStockHoldings.mfIsin,
 				desc(mfSchemeStockHoldings.holdingPercentage),
 			);
 
-		const holdingsMap = new Map<string, SchemeHolding[]>();
-
-		for (const h of holdings) {
+		for (const h of directHoldings) {
 			const existing = holdingsMap.get(h.mfIsin) || [];
 			existing.push({
 				stockSymbol: h.stockSymbol,
@@ -69,6 +60,93 @@ class MfSchemeHoldingsService {
 				holdingPercentage: Number.parseFloat(String(h.holdingPercentage)),
 			});
 			holdingsMap.set(h.mfIsin, existing);
+		}
+
+		// 2. Check for missing identifiers (e.g. scheme codes instead of ISINs, or vice versa)
+		const missingIds = cleanIds.filter((id) => !holdingsMap.has(id));
+		if (missingIds.length > 0) {
+			try {
+				const matchedFunds = await db
+					.select({
+						schemeCode: mutualFunds.schemeCode,
+						isin: mutualFunds.isin,
+					})
+					.from(mutualFunds)
+					.where(
+						or(
+							inArray(mutualFunds.schemeCode, missingIds),
+							inArray(mutualFunds.isin, missingIds),
+						),
+					);
+
+				const idToAltId = new Map<string, string>();
+				for (const mf of matchedFunds) {
+					if (mf.schemeCode && mf.isin) {
+						if (missingIds.includes(mf.schemeCode)) {
+							idToAltId.set(mf.schemeCode, mf.isin);
+						}
+						if (missingIds.includes(mf.isin)) {
+							idToAltId.set(mf.isin, mf.schemeCode);
+						}
+					}
+				}
+
+				const altIds = Array.from(new Set(Array.from(idToAltId.values())));
+				if (altIds.length > 0) {
+					const altHoldings = await db
+						.select()
+						.from(mfSchemeStockHoldings)
+						.where(inArray(mfSchemeStockHoldings.mfIsin, altIds))
+						.orderBy(
+							mfSchemeStockHoldings.mfIsin,
+							desc(mfSchemeStockHoldings.holdingPercentage),
+						);
+
+					const altHoldingsMap = new Map<string, SchemeHolding[]>();
+					for (const h of altHoldings) {
+						const existing = altHoldingsMap.get(h.mfIsin) || [];
+						existing.push({
+							stockSymbol: h.stockSymbol,
+							stockName: h.stockName || h.stockSymbol,
+							stockIsin: h.stockIsin || undefined,
+							sector: h.sector || undefined,
+							holdingPercentage: Number.parseFloat(String(h.holdingPercentage)),
+						});
+						altHoldingsMap.set(h.mfIsin, existing);
+					}
+
+					idToAltId.forEach((altId, origId) => {
+						if (altHoldingsMap.has(altId)) {
+							holdingsMap.set(origId, altHoldingsMap.get(altId)!);
+						}
+					});
+				}
+
+				// 3. Fallback: Check mf_portfolio_holdings if still missing
+				const stillMissing = cleanIds.filter((id) => !holdingsMap.has(id));
+				if (stillMissing.length > 0) {
+					const pfHoldings = await db.execute(sql`
+						SELECT scheme_code, isin as stock_isin, stock_name, weight_percent
+						FROM mf_portfolio_holdings
+						WHERE scheme_code IN (${sql.join(stillMissing.map((id) => sql`${id}`), sql`, `)})
+					`);
+					const rows = (pfHoldings as any).rows || [];
+					for (const r of rows) {
+						const code = String(r.scheme_code);
+						const existing = holdingsMap.get(code) || [];
+						existing.push({
+							stockSymbol: r.stock_name || r.stock_isin,
+							stockName: r.stock_name,
+							stockIsin: r.stock_isin,
+							sector: undefined,
+							holdingPercentage: Number.parseFloat(String(r.weight_percent || "0")),
+						});
+						holdingsMap.set(code, existing);
+					}
+				}
+			} catch (e: any) {
+				console.warn("[MfSchemeHoldings] Identifier resolution fallback warning:", e?.message);
+			}
 		}
 
 		return holdingsMap;

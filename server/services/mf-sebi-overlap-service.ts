@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { mutualFunds } from "@shared/schema";
+import { mutualFunds } from "../../shared/schema";
 import { sql, eq } from "drizzle-orm";
 
 interface HoldingRow {
@@ -67,10 +67,11 @@ class MfSebiOverlapService {
 		try {
 			// Get distinct scheme codes that have holdings
 			const schemesResult = await db.execute(sql`
-        SELECT DISTINCT scheme_code, MAX(as_of_date) as latest_date
-        FROM mf_scheme_stock_holdings
-        WHERE percentage_holdings IS NOT NULL AND percentage_holdings > 0
-        GROUP BY scheme_code
+        SELECT DISTINCT mf.scheme_code, MAX(mssh.holding_date) as latest_date
+        FROM mf_scheme_stock_holdings mssh
+        JOIN mutual_funds mf ON mf.isin = mssh.mf_isin
+        WHERE mssh.holding_percentage IS NOT NULL AND CAST(mssh.holding_percentage AS NUMERIC) > 0
+        GROUP BY mf.scheme_code
         LIMIT ${limit}
       `);
 			const schemes = (schemesResult as any).rows || [];
@@ -84,11 +85,12 @@ class MfSebiOverlapService {
 				try {
 					// Normalize weights to sum to 100 for this scheme on this date
 					const holdingsResult = await db.execute(sql`
-            SELECT isin, stock_name, SUM(percentage_holdings) as weight
-            FROM mf_scheme_stock_holdings
-            WHERE scheme_code = ${scheme_code}
-            GROUP BY isin, stock_name
-            HAVING isin IS NOT NULL AND SUM(percentage_holdings) > 0
+            SELECT COALESCE(mssh.stock_isin, mssh.stock_symbol) as isin, mssh.stock_name, SUM(CAST(mssh.holding_percentage AS NUMERIC)) as weight
+            FROM mf_scheme_stock_holdings mssh
+            JOIN mutual_funds mf ON mf.isin = mssh.mf_isin
+            WHERE mf.scheme_code = ${scheme_code}
+            GROUP BY COALESCE(mssh.stock_isin, mssh.stock_symbol), mssh.stock_name
+            HAVING SUM(CAST(mssh.holding_percentage AS NUMERIC)) > 0
           `);
 					const holdings = (holdingsResult as any).rows || [];
 

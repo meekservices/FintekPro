@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from "axios";
 import { db } from "../db";
-import { irisSessions } from "@shared/schema";
+import { irisSessions } from "../../shared/schema";
 import { desc } from "drizzle-orm";
 import { logger } from "../logger";
 
@@ -273,11 +273,17 @@ class IrisKfintechService {
 		authenticated: boolean;
 		tokenExpiresAt?: number;
 		credentialsSource?: string;
+		baseUrl: string;
+		tenantConfigured: boolean;
 	} {
 		const hasIris = !!(process.env.IRIS_USERNAME && process.env.IRIS_PASSWORD);
 		const hasKfin = !!(
 			process.env.KFINTECH_USERNAME && process.env.KFINTECH_PASSWORD
 		);
+		const tenantCode =
+			process.env.IRIS_TENANT_CODE ||
+			process.env.KFINTECH_MEMBER_ID ||
+			"";
 		return {
 			configured: hasIris || hasKfin,
 			authenticated: this.isTokenValid(),
@@ -287,6 +293,8 @@ class IrisKfintechService {
 				: hasKfin
 					? "KFINTECH_ prefix"
 					: "none",
+			baseUrl: IRIS_BASE_URL,
+			tenantConfigured: !!tenantCode,
 		};
 	}
 

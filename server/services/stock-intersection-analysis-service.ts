@@ -1,13 +1,50 @@
 import { db } from "../db";
-import { stockIntersectionAnalysis } from "../../shared/schema";
+import {
+	stockIntersectionAnalysis,
+	portfolios,
+	portfolioHoldings,
+	modelPortfolios,
+	modelPortfolioHoldings,
+} from "../../shared/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { mfSchemeHoldingsService } from "./mf-scheme-holdings-service";
+import { twoTierCacheService } from "./two-tier-cache-service";
 
-interface PortfolioFund {
+export interface PortfolioFund {
 	mfIsin: string;
 	name: string;
 	portfolioWeight: number;
 	currentValue?: number;
+}
+
+export interface SimulationImpact {
+	scoreDelta: number;
+	newOverlappingStocks: StockOverlap[];
+	elevatedRiskStocks: StockOverlap[];
+	recommendation:
+		| "DIVERSIFICATION_SAFE"
+		| "MODERATE_OVERLAP_PENALTY"
+		| "HIGH_CONCENTRATION_RISK";
+	summary: string;
+}
+
+export interface SchemeComparisonResult {
+	schemeA: string;
+	schemeB: string;
+	overlapPercentage: number;
+	commonStocksCount: number;
+	commonStocks: Array<{
+		stock: string;
+		stockIsin?: string;
+		sector?: string;
+		weightInA: number;
+		weightInB: number;
+		minWeight: number;
+	}>;
+	isBreach: boolean;
+	maxAllowedThreshold: number;
+	engineVersion: string;
+	timestamp: string;
 }
 
 interface StockOverlap {
@@ -91,14 +128,14 @@ class StockIntersectionAnalysisService {
 	async analyzePortfolio(
 		funds: PortfolioFund[],
 	): Promise<IntersectionAnalysisResult> {
-		const cacheKey = funds
+		const cacheKey = `mf_overlap:${funds
 			.map((f) => `${f.mfIsin}:${f.portfolioWeight}`)
 			.sort()
-			.join("|");
-		const cached = this.cache.get(cacheKey);
+			.join("|")}`;
+		const cached = await twoTierCacheService.get<IntersectionAnalysisResult>(cacheKey);
 
-		if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-			return cached.data;
+		if (cached) {
+			return cached;
 		}
 
 		const mfIsins = funds.map((f) => f.mfIsin);
@@ -165,7 +202,7 @@ class StockIntersectionAnalysisService {
 
 		const overlappingStocks: StockOverlap[] = [];
 
-		for (const [stock, data] of stockExposures.entries()) {
+		stockExposures.forEach((data, stock) => {
 			if (data.funds.length >= 2) {
 				overlappingStocks.push({
 					stock,
@@ -177,7 +214,7 @@ class StockIntersectionAnalysisService {
 					funds: data.funds.sort((a, b) => b.contribution - a.contribution),
 				});
 			}
-		}
+		});
 
 		overlappingStocks.sort((a, b) => b.totalExposure - a.totalExposure);
 
@@ -199,7 +236,7 @@ class StockIntersectionAnalysisService {
 
 		const sectorConcentration: SectorConcentration[] = [];
 
-		for (const [sector, data] of sectorExposures.entries()) {
+		sectorExposures.forEach((data, sector) => {
 			const stocks = Array.from(data.stocks);
 			const topStocksForSector = overlappingStocks
 				.filter((o) => (o.sector || "Unknown") === sector)
@@ -214,7 +251,7 @@ class StockIntersectionAnalysisService {
 				topStocks: topStocksForSector,
 				riskFlag: this.getRiskFlag(data.exposure),
 			});
-		}
+		});
 
 		sectorConcentration.sort((a, b) => b.exposure - a.exposure);
 
@@ -271,6 +308,7 @@ class StockIntersectionAnalysisService {
 		};
 
 		this.cache.set(cacheKey, { data: result, timestamp: Date.now() });
+		twoTierCacheService.set(cacheKey, result, 1800).catch(() => {});
 
 		return result;
 	}
@@ -349,7 +387,289 @@ class StockIntersectionAnalysisService {
 
 	clearCache(): void {
 		this.cache.clear();
-		console.log("[StockIntersection] Cache cleared");
+		twoTierCacheService.clear().catch(() => {});
+		console.log("[StockIntersection] Local and Two-Tier cache cleared");
+	}
+
+	/**
+	 * Analyzes an existing user portfolio by portfolioId
+	 */
+	async analyzeExistingPortfolio(
+		portfolioId: string,
+	): Promise<IntersectionAnalysisResult> {
+		const [portfolio] = await db
+			.select()
+			.from(portfolios)
+			.where(eq(portfolios.id, portfolioId))
+			.limit(1);
+
+		if (!portfolio) {
+			throw new Error(`Portfolio not found with ID: ${portfolioId}`);
+		}
+
+		const holdings = await db
+			.select()
+			.from(portfolioHoldings)
+			.where(eq(portfolioHoldings.portfolioId, portfolioId));
+
+		const mfHoldingsList = holdings.filter((h) => {
+			const assetType = (h.assetType || "").toLowerCase();
+			const isin = (h.isin || "").toUpperCase();
+			return (
+				assetType.includes("mutual_fund") ||
+				assetType.includes("mf") ||
+				assetType.includes("fund") ||
+				isin.startsWith("INF")
+			);
+		});
+
+		if (mfHoldingsList.length === 0) {
+			return {
+				totalFundsAnalyzed: 0,
+				totalStocksFound: 0,
+				overlappingStocksCount: 0,
+				highRiskStocksCount: 0,
+				mediumRiskStocksCount: 0,
+				stockOverlaps: [],
+				sectorConcentration: [],
+				diversificationScore: 100,
+				topOverlappingStocks: [],
+				warnings: ["No mutual fund holdings found in this portfolio."],
+			};
+		}
+
+		const totalMfValue = mfHoldingsList.reduce(
+			(sum, h) =>
+				sum +
+				Number.parseFloat(String(h.currentValue || h.investedValue || 0)),
+			0,
+		);
+
+		const funds: PortfolioFund[] = mfHoldingsList.map((h) => {
+			const val = Number.parseFloat(
+				String(h.currentValue || h.investedValue || 0),
+			);
+			const weight =
+				totalMfValue > 0
+					? (val / totalMfValue) * 100
+					: 100 / mfHoldingsList.length;
+			return {
+				mfIsin: h.isin || h.symbol || "",
+				name: h.name || h.symbol || "Mutual Fund",
+				portfolioWeight: Math.round(weight * 100) / 100,
+				currentValue: val,
+			};
+		});
+
+		return this.analyzePortfolio(funds);
+	}
+
+	/**
+	 * Analyzes a curated or advisor Model Portfolio by ID
+	 */
+	async analyzeModelPortfolio(
+		modelPortfolioId: string,
+	): Promise<IntersectionAnalysisResult> {
+		const cacheKey = `model_portfolio_overlap:${modelPortfolioId}`;
+		const cached = await twoTierCacheService.get<IntersectionAnalysisResult>(cacheKey);
+		if (cached) return cached;
+
+		const [mp] = await db
+			.select()
+			.from(modelPortfolios)
+			.where(eq(modelPortfolios.id, modelPortfolioId))
+			.limit(1);
+
+		if (!mp) {
+			throw new Error(`Model portfolio not found with ID: ${modelPortfolioId}`);
+		}
+
+		const holdings = await db
+			.select()
+			.from(modelPortfolioHoldings)
+			.where(eq(modelPortfolioHoldings.portfolioId, modelPortfolioId));
+
+		let funds: PortfolioFund[] = [];
+
+		if (holdings.length > 0) {
+			funds = holdings.map((h) => ({
+				mfIsin: h.isin || h.schemeCode || h.symbol || "",
+				name: h.instrumentName || h.symbol || "Model Fund",
+				portfolioWeight: Number.parseFloat(String(h.weight || 0)),
+			}));
+		} else if (Array.isArray(mp.holdings)) {
+			funds = (mp.holdings as any[]).map((h) => ({
+				mfIsin: h.isin || h.schemeCode || h.symbol || "",
+				name: h.name || h.instrumentName || h.symbol || "Model Fund",
+				portfolioWeight: Number.parseFloat(String(h.weight || 0)),
+			}));
+		}
+
+		if (funds.length === 0) {
+			return {
+				totalFundsAnalyzed: 0,
+				totalStocksFound: 0,
+				overlappingStocksCount: 0,
+				highRiskStocksCount: 0,
+				mediumRiskStocksCount: 0,
+				stockOverlaps: [],
+				sectorConcentration: [],
+				diversificationScore: 100,
+				topOverlappingStocks: [],
+				warnings: ["No fund holdings configured in this model portfolio."],
+			};
+		}
+
+		// Normalize weights if not summing to 100
+		const totalWeight = funds.reduce((sum, f) => sum + f.portfolioWeight, 0);
+		if (totalWeight > 0 && Math.abs(totalWeight - 100) > 0.5) {
+			funds.forEach((f) => {
+				f.portfolioWeight = Math.round((f.portfolioWeight / totalWeight) * 10000) / 100;
+			});
+		}
+
+		const result = await this.analyzePortfolio(funds);
+		twoTierCacheService.set(cacheKey, result, 86400).catch(() => {});
+		return result;
+	}
+
+	/**
+	 * Simulates adding candidate funds to an existing or new portfolio basket
+	 */
+	async simulateAddition(
+		currentFunds: PortfolioFund[],
+		candidateFunds: PortfolioFund[],
+	): Promise<{
+		baseline: IntersectionAnalysisResult;
+		simulated: IntersectionAnalysisResult;
+		impact: SimulationImpact;
+	}> {
+		const baseline = await this.analyzePortfolio(currentFunds);
+
+		// Combine and rebalance weights equally or proportionally
+		const combined = [...currentFunds, ...candidateFunds];
+		const totalWeight = combined.reduce((sum, f) => sum + f.portfolioWeight, 0);
+		const normalizedCombined = combined.map((f) => ({
+			...f,
+			portfolioWeight:
+				totalWeight > 0
+					? Math.round((f.portfolioWeight / totalWeight) * 10000) / 100
+					: 100 / combined.length,
+		}));
+
+		const simulated = await this.analyzePortfolio(normalizedCombined);
+
+		const baselineStockSet = new Set(
+			baseline.stockOverlaps.map((o) => o.stock.toUpperCase()),
+		);
+		const newOverlappingStocks = simulated.stockOverlaps.filter(
+			(o) => !baselineStockSet.has(o.stock.toUpperCase()),
+		);
+
+		const elevatedRiskStocks = simulated.stockOverlaps.filter(
+			(o) => o.riskFlag === "HIGH" || o.riskFlag === "MEDIUM",
+		);
+
+		const scoreDelta =
+			simulated.diversificationScore - baseline.diversificationScore;
+
+		let recommendation:
+			| "DIVERSIFICATION_SAFE"
+			| "MODERATE_OVERLAP_PENALTY"
+			| "HIGH_CONCENTRATION_RISK" = "DIVERSIFICATION_SAFE";
+
+		let summary = "Candidate addition maintains healthy portfolio diversification.";
+
+		if (elevatedRiskStocks.some((s) => s.riskFlag === "HIGH") || scoreDelta < -15) {
+			recommendation = "HIGH_CONCENTRATION_RISK";
+			summary = `Adding candidate fund(s) increases concentration risk. Diversification score drops by ${Math.abs(scoreDelta)} points with high stock exposure.`;
+		} else if (scoreDelta < -5 || newOverlappingStocks.length >= 3) {
+			recommendation = "MODERATE_OVERLAP_PENALTY";
+			summary = `Adding candidate fund(s) introduces ${newOverlappingStocks.length} newly overlapping stocks and reduces diversification score by ${Math.abs(scoreDelta)} points.`;
+		}
+
+		return {
+			baseline,
+			simulated,
+			impact: {
+				scoreDelta,
+				newOverlappingStocks,
+				elevatedRiskStocks,
+				recommendation,
+				summary,
+			},
+		};
+	}
+
+	/**
+	 * Pairwise comparison between two mutual funds
+	 */
+	async compareSchemes(
+		schemeA: string,
+		schemeB: string,
+	): Promise<SchemeComparisonResult> {
+		const holdingsMap =
+			await mfSchemeHoldingsService.getHoldingsForMultipleSchemes([
+				schemeA,
+				schemeB,
+			]);
+
+		const holdingsA = holdingsMap.get(schemeA) || [];
+		const holdingsB = holdingsMap.get(schemeB) || [];
+
+		const mapA = new Map<string, { weight: number; name: string; isin?: string; sector?: string }>();
+		for (const h of holdingsA) {
+			mapA.set(h.stockSymbol.toUpperCase(), {
+				weight: h.holdingPercentage,
+				name: h.stockName,
+				isin: h.stockIsin,
+				sector: h.sector,
+			});
+		}
+
+		let overlapTotal = 0;
+		const commonStocks: Array<{
+			stock: string;
+			stockIsin?: string;
+			sector?: string;
+			weightInA: number;
+			weightInB: number;
+			minWeight: number;
+		}> = [];
+
+		for (const h of holdingsB) {
+			const sym = h.stockSymbol.toUpperCase();
+			if (mapA.has(sym)) {
+				const a = mapA.get(sym)!;
+				const minWeight = Math.min(a.weight, h.holdingPercentage);
+				overlapTotal += minWeight;
+				commonStocks.push({
+					stock: a.name || sym,
+					stockIsin: a.isin || h.stockIsin,
+					sector: a.sector || h.sector,
+					weightInA: Math.round(a.weight * 100) / 100,
+					weightInB: Math.round(h.holdingPercentage * 100) / 100,
+					minWeight: Math.round(minWeight * 100) / 100,
+				});
+			}
+		}
+
+		commonStocks.sort((a, b) => b.minWeight - a.minWeight);
+
+		const maxAllowedThreshold = 60; // Standard SEBI threshold
+		const isBreach = overlapTotal > maxAllowedThreshold;
+
+		return {
+			schemeA,
+			schemeB,
+			overlapPercentage: Math.round(overlapTotal * 100) / 100,
+			commonStocksCount: commonStocks.length,
+			commonStocks,
+			isBreach,
+			maxAllowedThreshold,
+			engineVersion: "FASP-AI-v1.0",
+			timestamp: new Date().toISOString(),
+		};
 	}
 }
 

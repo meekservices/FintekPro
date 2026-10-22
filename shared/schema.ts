@@ -11141,7 +11141,7 @@ export const symbolMapping = pgTable("symbol_mapping", {
 // Persists the KFintech IRIS JWT across server restarts (Railway container recycles).
 // Single-row table: only the latest token is kept.
 export const irisSessions = pgTable("iris_sessions", {
-  id: serial("id").primaryKey(),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   token: text("token").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   refreshedAt: timestamp("refreshed_at").defaultNow().notNull(),

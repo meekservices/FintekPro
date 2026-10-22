@@ -357,12 +357,26 @@ action      VARCHAR NOT NULL,
 		try {
 			await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS iris_sessions (
-            id           VARCHAR PRIMARY KEY,
-            pan          VARCHAR NOT NULL UNIQUE,
-            cookies      JSONB NOT NULL,
-            expires_at   TIMESTAMPTZ NOT NULL,
+            id           VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::varchar,
+            token        TEXT,
+            expires_at   TIMESTAMPTZ,
+            refreshed_at TIMESTAMPTZ DEFAULT NOW(),
+            pan          VARCHAR,
+            access_token TEXT,
             created_at   TIMESTAMPTZ DEFAULT NOW()
           );
+          ALTER TABLE iris_sessions 
+            ADD COLUMN IF NOT EXISTS token text,
+            ADD COLUMN IF NOT EXISTS refreshed_at timestamp with time zone DEFAULT now(),
+            ALTER COLUMN id SET DEFAULT gen_random_uuid()::varchar;
+          DO $$ BEGIN
+            ALTER TABLE iris_sessions ALTER COLUMN pan DROP NOT NULL;
+          EXCEPTION WHEN others THEN NULL;
+          END $$;
+          DO $$ BEGIN
+            ALTER TABLE iris_sessions ALTER COLUMN access_token DROP NOT NULL;
+          EXCEPTION WHEN others THEN NULL;
+          END $$;
         `);
 		} catch (e: any) {
 			console.warn("[Migration] iris_sessions table skipped:", e?.message);
