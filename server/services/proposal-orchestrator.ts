@@ -14,10 +14,14 @@ import {
 	proposalShares,
 	proposalVersions,
 	proposalBacktestResults,
-} from "@shared/schema";
+} from "../../shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { createHash } from "crypto";
+import { twoTierCacheService } from "./two-tier-cache-service";
+import { mfSchemeHoldingsService } from "./mf-scheme-holdings-service";
+import { monteCarloGoalSimulator } from "./monte-carlo-goal-simulator";
+import { taxLossHarvestingScanner } from "./tax-loss-harvesting-scanner";
 
 export type AllocationMode = "AI_DRIVEN" | "MANUAL";
 
@@ -1844,6 +1848,16 @@ export class ProposalOrchestrator {
 			throw new Error("Strategy must be locked before backtesting");
 		}
 
+		// L1/L2 cache check
+		const cacheKey = `proposal:backtest:${proposalId}:${strategy.versionNumber}`;
+		const cached = await twoTierCacheService.get<{
+			delta: BacktestDelta;
+			oldMetrics: any;
+			proposedMetrics: any;
+			commonPeriod: { start: string; end: string };
+		}>(cacheKey);
+		if (cached) return cached;
+
 		const proposedAllocation = strategy.snapshot.assetAllocation;
 		const commonStartDate =
 			ProposalOrchestrator.computeCommonStartDate(oldHoldings);
@@ -1865,11 +1879,10 @@ export class ProposalOrchestrator {
 		);
 
 		const delta: BacktestDelta = {
-			cagrDifference: proposedMetrics.cagr - oldMetrics.cagr,
-			volatilityDifference: proposedMetrics.volatility - oldMetrics.volatility,
-			maxDrawdownDifference:
-				proposedMetrics.maxDrawdown - oldMetrics.maxDrawdown,
-			sharpeImprovement: proposedMetrics.sharpeRatio - oldMetrics.sharpeRatio,
+			cagrDifference: Math.round((proposedMetrics.cagr - oldMetrics.cagr) * 100) / 100,
+			volatilityDifference: Math.round((proposedMetrics.volatility - oldMetrics.volatility) * 100) / 100,
+			maxDrawdownDifference: Math.round((proposedMetrics.maxDrawdown - oldMetrics.maxDrawdown) * 100) / 100,
+			sharpeImprovement: Math.round((proposedMetrics.sharpeRatio - oldMetrics.sharpeRatio) * 1000) / 1000,
 		};
 
 		const snapshotHash = createHash("sha256")
@@ -1916,12 +1929,17 @@ export class ProposalOrchestrator {
 			newState: { proposedMetrics, delta, snapshotHash },
 		});
 
-		return {
+		const result = {
 			delta,
 			oldMetrics,
 			proposedMetrics,
 			commonPeriod: { start: commonStartDate, end: commonEndDate },
 		};
+
+		// Cache for 24 hours
+		await twoTierCacheService.set(cacheKey, result, 86400);
+
+		return result;
 	}
 
 	private static computeCommonStartDate(
@@ -2013,6 +2031,11 @@ export class ProposalOrchestrator {
 			);
 		}
 
+		// L1/L2 cache check
+		const cacheKey = `proposal:diff:${proposalId}:${strategy.versionNumber}`;
+		const cached = await twoTierCacheService.get<PortfolioDifferenceSummary>(cacheKey);
+		if (cached) return cached;
+
 		const proposed = strategy.snapshot.assetAllocation;
 		const allAssetClasses = [
 			...new Set([
@@ -2077,7 +2100,7 @@ export class ProposalOrchestrator {
 		].map((m) => ({
 			...m,
 			impact:
-				m.metric === "Volatility" || m.metric === "Max Drawdown"
+				m.metric === "Volatility"
 					? m.proposedValue < m.oldValue
 						? "Improved"
 						: m.proposedValue > m.oldValue
@@ -2132,6 +2155,8 @@ export class ProposalOrchestrator {
 			newState: { summary },
 		});
 
+		await twoTierCacheService.set(cacheKey, summary, 86400);
+
 		return summary;
 	}
 
@@ -2182,6 +2207,16 @@ export class ProposalOrchestrator {
 			agentId,
 		);
 
+		// Invalidate cached analyses on version bump
+		try {
+			await twoTierCacheService.delete(`proposal:backtest:${proposalId}:${existingStrategy.versionNumber}`);
+			await twoTierCacheService.delete(`proposal:diff:${proposalId}:${existingStrategy.versionNumber}`);
+			await twoTierCacheService.delete(`proposal:overlap:${proposalId}`);
+			await twoTierCacheService.delete(`proposal:montecarlo:${proposalId}`);
+		} catch (err: any) {
+			console.warn("[ProposalOrchestrator] Cache invalidation notice:", err?.message);
+		}
+
 		await logSystemAction({
 			agentId,
 			clientId: proposal.clientId,
@@ -2197,6 +2232,322 @@ export class ProposalOrchestrator {
 		});
 
 		return { newVersionNumber: result.versionId, snapshotId: result.versionId };
+	}
+
+	// ============================================================================
+	// ENGINE SYNCHRONIZATION: OVERLAP, MONTE CARLO, & TAX ALPHA ENGINES
+	// ============================================================================
+
+	/**
+	 * Overlap & Concentration Engine Sync:
+	 * Evaluates underlying portfolio overlap across proposed instruments and
+	 * identifies single-stock concentration risks across common holdings.
+	 */
+	static async analyzeProposalOverlap(proposalId: string): Promise<{
+		success: boolean;
+		proposalId: string;
+		overlapScore: number;
+		highOverlapPairs: Array<{
+			fundA: string;
+			fundB: string;
+			overlapPercentage: number;
+			commonHoldingsCount: number;
+		}>;
+		topStockExposures: Array<{
+			stockName: string;
+			weight: number;
+		}>;
+		diversificationStatus: "OPTIMAL" | "MODERATE_OVERLAP" | "HIGH_CONCENTRATION_RISK";
+		engine_version: string;
+		calculation_timestamp: string;
+	}> {
+		const cacheKey = `proposal:overlap:${proposalId}`;
+		const cached = await twoTierCacheService.get<any>(cacheKey);
+		if (cached) return cached;
+
+		let instruments: any[] = [];
+		try {
+			const prodSelection = await ProposalOrchestrator.selectInstrumentsWithinStrategy(proposalId, "system");
+			instruments = prodSelection.allocations;
+		} catch {
+			// Fallback: check investment_proposal_items
+			const dbItems = await db
+				.select()
+				.from(investmentProposalItems)
+				.where(eq(investmentProposalItems.proposalId, proposalId));
+			instruments = dbItems.map((item) => ({
+				instrumentName: item.productName || item.productCode,
+				isin: item.productCode,
+				allocationPercentage: Number(item.allocationPercentage || 10),
+			}));
+		}
+
+		const fundInstruments = instruments.filter((i) => i.isin || i.instrumentType === "mutual_fund");
+		const highOverlapPairs: Array<{
+			fundA: string;
+			fundB: string;
+			overlapPercentage: number;
+			commonHoldingsCount: number;
+		}> = [];
+
+		const stockWeightMap = new Map<string, number>();
+
+		// Fetch holdings for each fund
+		const fundHoldingsMap = new Map<string, Array<{ companyName: string; holdingPercentage: number }>>();
+		for (const fund of fundInstruments) {
+			const rawHoldings = await mfSchemeHoldingsService.getHoldingsForScheme(fund.isin || "");
+			const holdings = (rawHoldings || []).map((h) => ({
+				companyName: h.stockName || h.stockSymbol,
+				holdingPercentage: h.holdingPercentage,
+			}));
+			fundHoldingsMap.set(fund.instrumentName || fund.isin, holdings);
+
+			// Add to total portfolio stock weight
+			const fundPortWeight = (fund.allocationPercentage || 10) / 100;
+			for (const h of holdings) {
+				const current = stockWeightMap.get(h.companyName) || 0;
+				stockWeightMap.set(h.companyName, current + (fundPortWeight * (h.holdingPercentage || 0)));
+			}
+		}
+
+		// Compute pairwise overlaps
+		const fundNames = Array.from(fundHoldingsMap.keys());
+		let totalOverlapSum = 0;
+		let pairsCount = 0;
+
+		for (let i = 0; i < fundNames.length; i++) {
+			for (let j = i + 1; j < fundNames.length; j++) {
+				const nameA = fundNames[i];
+				const nameB = fundNames[j];
+				const holdingsA = fundHoldingsMap.get(nameA) || [];
+				const holdingsB = fundHoldingsMap.get(nameB) || [];
+
+				const mapB = new Map(holdingsB.map((h) => [h.companyName.toUpperCase().trim(), h.holdingPercentage]));
+				let commonWeight = 0;
+				let commonCount = 0;
+
+				for (const hA of holdingsA) {
+					const normName = hA.companyName.toUpperCase().trim();
+					const weightB = mapB.get(normName);
+					if (weightB !== undefined) {
+						commonWeight += Math.min(hA.holdingPercentage, weightB);
+						commonCount++;
+					}
+				}
+
+				commonWeight = Math.round(commonWeight * 100) / 100;
+				totalOverlapSum += commonWeight;
+				pairsCount++;
+
+				if (commonWeight >= 40) {
+					highOverlapPairs.push({
+						fundA: nameA,
+						fundB: nameB,
+						overlapPercentage: commonWeight,
+						commonHoldingsCount: commonCount,
+					});
+				}
+			}
+		}
+
+		// Top consolidated stock exposures
+		const topStockExposures = Array.from(stockWeightMap.entries())
+			.map(([stockName, weight]) => ({
+				stockName,
+				weight: Math.round(weight * 100) / 100,
+			}))
+			.sort((a, b) => b.weight - a.weight)
+			.slice(0, 10);
+
+		const avgOverlap = pairsCount > 0 ? Math.round((totalOverlapSum / pairsCount) * 100) / 100 : 0;
+		const maxSingleStock = topStockExposures[0]?.weight || 0;
+
+		const diversificationStatus =
+			maxSingleStock > 15 || avgOverlap > 50
+				? "HIGH_CONCENTRATION_RISK"
+				: avgOverlap > 35
+					? "MODERATE_OVERLAP"
+					: "OPTIMAL";
+
+		const result = {
+			success: true,
+			proposalId,
+			overlapScore: avgOverlap,
+			averageOverlapPct: avgOverlap,
+			highOverlapPairs,
+			topStockExposures,
+			topConsolidatedHoldings: topStockExposures,
+			diversificationStatus,
+			engine_version: "FASP-AI-v3.0",
+			calculation_timestamp: new Date().toISOString(),
+		};
+
+		await twoTierCacheService.set(cacheKey, result, 86400);
+		return result;
+	}
+
+	/**
+	 * Monte Carlo Simulation Engine Sync:
+	 * Runs 10,000 Geometric Brownian Motion trajectories for the proposal allocation
+	 * and derives empirical milestone probability and percentile wealth cones.
+	 */
+	static async simulateProposalGoalProbability(
+		proposalId: string,
+		options: {
+			targetCorpus?: number;
+			monthlySip?: number;
+			investmentHorizonYears?: number;
+			inflationRate?: number;
+		} = {},
+	): Promise<any> {
+		const cacheKey = `proposal:montecarlo:${proposalId}:${JSON.stringify(options)}`;
+		const cached = await twoTierCacheService.get<any>(cacheKey);
+		if (cached) return cached;
+
+		const [proposal] = await db
+			.select()
+			.from(investmentProposals)
+			.where(eq(investmentProposals.id, proposalId))
+			.limit(1);
+
+		const strategy = await ProposalOrchestrator.getLockedStrategy(proposalId);
+		const allocations = strategy.snapshot?.assetAllocation || (proposal?.targetAllocation as AssetAllocation[]) || [
+			{ assetClass: "equity", weight: 60 },
+			{ assetClass: "debt", weight: 30 },
+			{ assetClass: "gold", weight: 10 },
+		];
+
+		const assetReturns: Record<string, { ret: number; vol: number }> = {
+			equity: { ret: 12.5, vol: 18.0 },
+			debt: { ret: 7.2, vol: 4.5 },
+			gold: { ret: 8.5, vol: 12.0 },
+			international: { ret: 11.0, vol: 16.0 },
+			cash: { ret: 4.0, vol: 0.5 },
+		};
+
+		let weightedReturn = 0;
+		let weightedVar = 0;
+		for (const a of allocations) {
+			const stats = assetReturns[a.assetClass] || assetReturns.equity;
+			const w = a.weight / 100;
+			weightedReturn += w * stats.ret;
+			weightedVar += w * w * stats.vol * stats.vol;
+		}
+		const weightedVol = Math.sqrt(weightedVar);
+
+		const initialInvestment = Number.parseFloat(proposal?.totalInvestmentAmount?.toString() || "100000");
+		const horizon = options.investmentHorizonYears || (proposal?.timeHorizon === "long_term" ? 10 : 5);
+		const targetCorpus = options.targetCorpus || Math.round(initialInvestment * (1 + weightedReturn / 100) ** horizon);
+		const monthlySip = options.monthlySip || 10000;
+
+		const simulation = await monteCarloGoalSimulator.simulateGoal({
+			targetAmount: targetCorpus,
+			currentSavings: initialInvestment,
+			monthlySip,
+			monthsRemaining: horizon * 12,
+			expectedReturnRate: Math.round(weightedReturn * 100) / 100,
+			volatilityRate: Math.round(weightedVol * 100) / 100,
+			inflationRate: options.inflationRate || 6.0,
+			iterations: 10000,
+		});
+
+		const result = {
+			...simulation,
+			proposalId,
+			derivedAllocationMetrics: {
+				weightedReturn: Math.round(weightedReturn * 100) / 100,
+				weightedVolatility: Math.round(weightedVol * 100) / 100,
+			},
+		};
+
+		await twoTierCacheService.set(cacheKey, result, 86400);
+		return result;
+	}
+
+	/**
+	 * Tax Loss Harvesting & Transition Alpha Engine Sync:
+	 * Scans the client's current portfolio for unrealized losses to harvest
+	 * tax alpha (20.8% STCG / 13% LTCG) when funding the proposed allocation.
+	 */
+	static async scanTransitionTaxAlpha(
+		proposalId: string,
+		options: { portfolioId?: string; agentId?: string } = {},
+	): Promise<any> {
+		const [proposal] = await db
+			.select()
+			.from(investmentProposals)
+			.where(eq(investmentProposals.id, proposalId))
+			.limit(1);
+
+		let portfolioId = options.portfolioId;
+		if (!portfolioId && proposal?.clientId) {
+			const [p] = await db
+				.select({ id: portfolios.id })
+				.from(portfolios)
+				.where(eq(portfolios.userId, proposal.clientId))
+				.limit(1);
+			portfolioId = p?.id;
+		}
+
+		if (!portfolioId) {
+			return {
+				success: false,
+				proposalId,
+				message: "No existing client portfolio found to evaluate tax harvesting.",
+				summary: {
+					totalHarvestableLoss: 0,
+					estimatedTaxAlpha: 0,
+					lossLotsCount: 0,
+				},
+				actionableRecommendations: [
+					"Fresh capital onboarding: no existing capital gains to harvest.",
+				],
+				transitionAlphaNarrative: "Fresh capital investment — no prior capital assets eligible for tax-loss harvesting.",
+				engine_version: "FASP-AI-v1.0",
+				calculation_timestamp: new Date().toISOString(),
+			};
+		}
+
+		try {
+			const scanResult = await taxLossHarvestingScanner.scanPortfolio(portfolioId);
+			const totalTaxSavings = scanResult.totalTaxSavings || 0;
+			return {
+				...scanResult,
+				proposalId,
+				summary: {
+					totalHarvestableLoss: scanResult.totalLoss || 0,
+					estimatedTaxAlpha: totalTaxSavings,
+					lossLotsCount: scanResult.lossLots?.length || 0,
+				},
+				transitionAlphaNarrative: totalTaxSavings > 0
+					? `Identified ₹${totalTaxSavings.toLocaleString("en-IN")} in harvestable tax savings to accelerate proposal capital efficiency.`
+					: "Portfolio holds no unrealized capital loss lots eligible for tax harvesting.",
+				actionableRecommendations: [
+					...(scanResult.recommendations || []),
+					`Reinvest ₹${totalTaxSavings.toLocaleString("en-IN")} saved tax alpha into the proposal's strategic allocation.`,
+				],
+				engine_version: "FASP-AI-v1.0",
+				calculation_timestamp: new Date().toISOString(),
+			};
+		} catch (scanErr: any) {
+			return {
+				success: false,
+				proposalId,
+				portfolioId,
+				message: `Portfolio tax harvesting scan notice: ${scanErr?.message}`,
+				summary: {
+					totalHarvestableLoss: 0,
+					estimatedTaxAlpha: 0,
+					lossLotsCount: 0,
+				},
+				transitionAlphaNarrative: "Portfolio data unavailable or zero lots active. Standard allocation transition applies.",
+				actionableRecommendations: [
+					"No trade lots eligible for harvesting. Proceed with standard proposal allocation funding.",
+				],
+				engine_version: "FASP-AI-v1.0",
+				calculation_timestamp: new Date().toISOString(),
+			};
+		}
 	}
 }
 

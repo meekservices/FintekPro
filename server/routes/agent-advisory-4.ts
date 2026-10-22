@@ -631,7 +631,60 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 		},
 	);
 
+	// ── Overlap & Concentration Analysis for Proposal ──────────────────────────
+	app.get(
+		"/api/proposals/:proposalId/overlap",
+		requireAgentPortal,
+		async (req: Request, res: Response) => {
+			try {
+				const { proposalId } = req.params;
+				const result = await ProposalOrchestrator.analyzeProposalOverlap(proposalId);
+				res.json({ success: true, data: result });
+			} catch (error: any) {
+				res.status(500).json({ success: false, error: error.message });
+			}
+		},
+	);
+
+	// ── 10,000-Path Monte Carlo Simulation for Proposal ────────────────────────
+	app.post(
+		"/api/proposals/:proposalId/monte-carlo",
+		requireAgentPortal,
+		async (req: Request, res: Response) => {
+			try {
+				const { proposalId } = req.params;
+				const options = req.body || {};
+				const result = await ProposalOrchestrator.simulateProposalGoalProbability(
+					proposalId,
+					options,
+				);
+				res.json({ success: true, data: result });
+			} catch (error: any) {
+				res.status(500).json({ success: false, error: error.message });
+			}
+		},
+	);
+
+	// ── Tax-Loss Harvesting for Client Portfolio Transition ────────────────────
+	app.post(
+		"/api/proposals/:proposalId/transition-tax-harvesting",
+		requireAgentPortal,
+		async (req: Request, res: Response) => {
+			try {
+				const { proposalId } = req.params;
+				const options = req.body || {};
+				const result = await ProposalOrchestrator.scanTransitionTaxAlpha(
+					proposalId,
+					options,
+				);
+				res.json({ success: true, data: result });
+			} catch (error: any) {
+				res.status(500).json({ success: false, error: error.message });
+			}
+		},
+	);
+
 	console.log(
-		"✅ Agent Advisory routes registered (including Proposal Builder Upgrade APIs)",
+		"✅ Agent Advisory routes registered (including Proposal Builder Upgrade APIs: Overlap, Monte Carlo, Tax-Alpha)",
 	);
 }

@@ -775,7 +775,7 @@ export default function StrategyAllocationPanel({
 														<DeltaIndicator
 															value={backtestResult.delta.maxDrawdownDifference}
 															suffix="%"
-															positive={false}
+															positive={true}
 														/>
 													</div>
 												</div>

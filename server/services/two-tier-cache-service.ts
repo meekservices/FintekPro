@@ -174,6 +174,13 @@ export class TwoTierCacheService {
 	}
 
 	/**
+	 * Alias for del()
+	 */
+	async delete(key: string): Promise<void> {
+		return this.del(key);
+	}
+
+	/**
 	 * Clear local memory cache and purge all L2 rows
 	 */
 	async clear(): Promise<void> {
