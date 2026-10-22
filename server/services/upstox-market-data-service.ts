@@ -471,13 +471,48 @@ class UpstoxMarketDataService {
   }
 
   /**
-   * Alias for getLTP to provide full quote / single ticker price.
+   * Get full OHLC quote (open, high, low, close, volume) for a single ticker or ISIN.
+   */
+  async getFullQuote(
+    symbolOrIsin: string,
+    exchange: "NSE" | "BSE" = "NSE"
+  ): Promise<UpstoxServiceResult<UpstoxQuote>> {
+    const t0 = Date.now();
+    if (!this.isReady()) return this._inactive<UpstoxQuote>();
+
+    const key = exchange === "BSE" ? toBseKey(symbolOrIsin) : toNseKey(symbolOrIsin);
+
+    return this._withRetry<UpstoxQuote>(async () => {
+      const res = await this.client!.get("/market-quote/quotes", {
+        params: { instrument_key: key },
+      });
+      const dataObj = (res.data?.data ?? {}) as Record<string, any>;
+      const raw =
+        dataObj[key] ??
+        dataObj[`${exchange}_EQ:${symbolOrIsin.toUpperCase()}`] ??
+        dataObj[`${exchange}_EQ|${symbolOrIsin.toUpperCase()}`] ??
+        Object.values(dataObj)[0];
+
+      if (!raw || (!raw.last_price && !raw.ohlc?.close)) {
+        // Fallback to getLTP if quotes endpoint had no match
+        return this.getLTP(symbolOrIsin, exchange);
+      }
+      return {
+        success: true,
+        data: this._mapFullQuote(raw.symbol ?? symbolOrIsin, exchange, raw),
+        meta: this._meta(t0),
+      };
+    }, t0);
+  }
+
+  /**
+   * Quote endpoint providing LTP along with full dayHigh, dayLow and OHLC metrics.
    */
   async getQuote(
     symbol: string,
     exchange: "NSE" | "BSE" = "NSE"
   ): Promise<UpstoxServiceResult<UpstoxQuote>> {
-    return this.getLTP(symbol, exchange);
+    return this.getFullQuote(symbol, exchange);
   }
 
   // ── Historical OHLCV ───────────────────────────────────────────────────────

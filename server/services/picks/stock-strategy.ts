@@ -32,6 +32,7 @@ import {
 } from "./fii-sector-signal";
 import { marketHolidayService } from "../market-holiday-service";
 import { upstoxMarketDataService } from "../upstox-market-data-service";
+import { proThematicScreenerService, type ThematicSynergyInfo } from "../pro-thematic-screener-service";
 
 
 const financialMetricsCalculator = new FinancialMetricsCalculator();
@@ -606,6 +607,37 @@ export class StockStrategy extends BaseStrategy {
 			? marketHolidayService.isTradingDay(today, "NSE")
 			: marketHolidayService.isTradingDay(new Date(), "NSE");
 
+		// ── Guardrail 1: Session Timing Window (09:15 – 12:30 IST) ────────────
+		// Intraday positions must be initiated before 12:30 PM IST to leave sufficient
+		// session run-time before 15:15–15:25 CAS auto-square-off.
+		const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+		const nowIST = new Date(Date.now() + IST_OFFSET_MS);
+		const currentHourIST = nowIST.getUTCHours();
+		const currentMinIST = nowIST.getUTCMinutes();
+		const isBeforeIntradayCutoff =
+			currentHourIST < 12 || (currentHourIST === 12 && currentMinIST <= 30);
+
+		// ── Guardrail 2: Market Cap & Liquidity Floor ─────────────────────────
+		// Intraday calls are restricted to Large and high-liquidity Mid Caps.
+		// Small Caps and Micro Caps are barred from intraday due to circuit risk and MIS non-marginability.
+		const isSmallOrMicro = Boolean(
+			stock.marketCap && /small|micro/i.test(stock.marketCap),
+		);
+		const avgVol = Number(stock.averageVolume ?? 0);
+		const hasIntradayLiquidity = !isSmallOrMicro && (avgVol === 0 || avgVol >= 100000);
+
+		// ── Guardrail 3: Whipsaw & Overextended Surge Protection ──────────────
+		// Annualized volatility > 40% or existing intraday gain >= +3.5% indicates
+		// overextension or high binary risk (earnings/news). Barred from intraday initiation.
+		const dayChange = Math.abs(Number(stock.dayChangePercent ?? 0));
+		const isExcessiveRisk = volatility > 40 || dayChange >= 3.5;
+
+		const canTradeIntraday =
+			isMarketTradingDay &&
+			isBeforeIntradayCutoff &&
+			hasIntradayLiquidity &&
+			!isExcessiveRisk;
+
 		const rsiVal = rsi ?? 50;
 		const isIntradayMomentum = rsiVal >= 65 || volatility > 28;
 		const isUltraShortMomentum =
@@ -622,13 +654,13 @@ export class StockStrategy extends BaseStrategy {
 				(roic != null ? roic >= 15 : true),
 		);
 
-		// 1. Extreme Intraday Breakout / Volatility Surge (1 day validity)
-		// GUARD RAIL: Strictly enforce no intraday calls on market holidays or weekends.
-		if (intradayCount === 0 && (isIntradayMomentum || (isMidSmall && volatility > 25))) {
-			if (isMarketTradingDay) {
-				return { timeHorizon: "intraday", validityDays: 1 };
+		// 1. Extreme Intraday Breakout / Volatility Surge (same-day validity, auto-square-off at 3:25 PM IST)
+		// GUARD RAIL: Strictly enforce all intraday eligibility criteria
+		if (intradayCount === 0 && (isIntradayMomentum || (isMidSmall && volatility > 25 && !isSmallOrMicro))) {
+			if (canTradeIntraday) {
+				return { timeHorizon: "intraday", validityDays: 0 };
 			}
-			// Non-trading day fallback: Weekly momentum swing instead of intraday
+			// Non-eligible fallback: Weekly momentum swing instead of intraday
 			return { timeHorizon: "ultra_short_term", validityDays: 7 };
 		}
 
@@ -644,8 +676,8 @@ export class StockStrategy extends BaseStrategy {
 
 		// 4. Batch balance enforcer across daily sector picks
 		if (intradayCount === 0 && existingCount % 4 === 1 && !isLargeCapSteady) {
-			if (isMarketTradingDay) {
-				return { timeHorizon: "intraday", validityDays: 1 };
+			if (canTradeIntraday) {
+				return { timeHorizon: "intraday", validityDays: 0 };
 			}
 			return { timeHorizon: "short_term", validityDays: 30 };
 		}
@@ -671,7 +703,7 @@ export class StockStrategy extends BaseStrategy {
 			: ["short_term", "ultra_short_term", "short_term", "medium_term"];
 		const timeHorizon = horizonCycle[existingCount % horizonCycle.length];
 		const validityMap = {
-			intraday: 1,
+			intraday: 0,
 			ultra_short_term: 7,
 			short_term: 30,
 			medium_term: 90,
@@ -969,22 +1001,36 @@ export class StockStrategy extends BaseStrategy {
 				}),
 		);
 
-		const scoringTasks = eligibleStocks.map((stock) => async () => ({
-			stock,
-			enriched: stock.symbol
-				? enrichedSnapshots.get(stock.symbol.toUpperCase()) || null
-				: null,
-			rsiOverride: stock.symbol ? (rsiMap.get(stock.symbol) ?? null) : null,
-			score: await this.score(
+		// ── Cross-Engine Synergy: Pre-warm Pro Thematic Screener map ───────────
+		let thematicMap = new Map<string, ThematicSynergyInfo>();
+		try {
+			thematicMap = await proThematicScreenerService.getThematicSynergyMap();
+		} catch {
+			/* non-fatal — defaults to empty map */
+		}
+
+		const scoringTasks = eligibleStocks.map((stock) => async () => {
+			const symUpper = stock.symbol ? stock.symbol.toUpperCase() : "";
+			const thematicInfo = symUpper ? (thematicMap.get(symUpper) ?? null) : null;
+			return {
 				stock,
-				stock.symbol
-					? enrichedSnapshots.get(stock.symbol.toUpperCase()) || null
+				enriched: stock.symbol
+					? enrichedSnapshots.get(symUpper) || null
 					: null,
-				context,
-				fiiSignal,
-				stock.symbol ? (rsiMap.get(stock.symbol) ?? null) : null, // BUG-4: unified RSI
-			),
-		}));
+				rsiOverride: stock.symbol ? (rsiMap.get(stock.symbol) ?? null) : null,
+				thematicInfo,
+				score: await this.score(
+					stock,
+					stock.symbol
+						? enrichedSnapshots.get(symUpper) || null
+						: null,
+					context,
+					fiiSignal,
+					stock.symbol ? (rsiMap.get(stock.symbol) ?? null) : null, // BUG-4: unified RSI
+					thematicInfo,
+				),
+			};
+		});
 		const scored = (await runConcurrent(scoringTasks, 4)).sort(
 			(a, b) => b.score - a.score,
 		);
@@ -995,6 +1041,7 @@ export class StockStrategy extends BaseStrategy {
 			enriched: topEnriched,
 			score: topScore,
 			rsiOverride: topRsiOverride,
+			thematicInfo: topThematicInfo,
 		} = scored[0];
 		// ── Fetch live price at generation time ──────────────────────────────
 		// Fetching live price at pick-generation time (not stale DB value) so that
@@ -1011,10 +1058,34 @@ export class StockStrategy extends BaseStrategy {
 		const volatility = topStock.volatility
 			? Number.parseFloat(topStock.volatility)
 			: undefined;
+
+		// BUG-4 fix: Use pre-fetched unified RSI (already computed in rsiMap above)
+		// instead of re-fetching it here for rationale. This ensures score() and
+		// keyMetrics both reflect the same RSI value.
+		const directRsi: number | null = topRsiOverride ?? null;
+		let directRoic: number | null = null;
+		if (!topEnriched?.fundamentals?.roic && topStock.roce)
+			directRoic = Number.parseFloat(topStock.roce);
+
+		// Determine timeHorizon BEFORE target/stoploss so intraday calls get realistic 1-session parameters
+		const horizonInfo = this.deriveStockTimeHorizon({
+			stock: topStock,
+			volatility: volatility ?? 20,
+			rsi: topEnriched?.technicals?.rsi ?? directRsi ?? null,
+			roic: topEnriched?.fundamentals?.roic ?? directRoic ?? null,
+			existingCount,
+			shortTermCount,
+			mediumTermCount,
+			intradayCount,
+			ultraShortCount,
+			today: context.today,
+		});
+
 		const { targetPct, stoplossPct, atrPct } = this.getDynamicTargetStoploss(
 			"listed_stocks",
 			volatility,
 			currentPrice,
+			horizonInfo.timeHorizon,
 		);
 		const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
 		const stoplossPrice =
@@ -1034,13 +1105,13 @@ export class StockStrategy extends BaseStrategy {
 
 
 		// ── Minimum upside guard ────────────────────────────────────────────
-		// If the live price has already run up to within 5% of the target,
-		// there is no meaningful upside left.
-		const MIN_UPSIDE_PCT = 0.05;
+		// Positional swings require >=5% remaining upside.
+		// Intraday breakouts require >=1.5% remaining upside.
+		const MIN_UPSIDE_PCT = horizonInfo.timeHorizon === "intraday" ? 0.015 : 0.05;
 		const remainingUpside = (targetPrice - currentPrice) / currentPrice;
 		if (remainingUpside < MIN_UPSIDE_PCT) {
 			logger.warn(
-				`[StockStrategy] ${topStock.symbol}: upside to target is only ${(remainingUpside * 100).toFixed(1)}% — below 5% minimum. Discarding.`,
+				`[StockStrategy] ${topStock.symbol}: upside to target is only ${(remainingUpside * 100).toFixed(1)}% — below ${(MIN_UPSIDE_PCT * 100).toFixed(1)}% minimum. Discarding.`,
 			);
 			return null;
 		}
@@ -1054,16 +1125,8 @@ export class StockStrategy extends BaseStrategy {
 			return null;
 		}
 
-		// BUG-4 fix: Use pre-fetched unified RSI (already computed in rsiMap above)
-		// instead of re-fetching it here for rationale. This ensures score() and
-		// keyMetrics both reflect the same RSI value.
-		const directRsi: number | null = topRsiOverride ?? null;
-		let directRoic: number | null = null;
-		if (!topEnriched?.fundamentals?.roic && topStock.roce)
-			directRoic = Number.parseFloat(topStock.roce);
-
 		const sectorLabel = broadSector.label;
-		const rationale = await context.service.generateRationale({
+		let rationale = await context.service.generateRationale({
 			category: "listed_stocks",
 			name: topStock.companyName || topStock.symbol,
 			symbol: topStock.symbol,
@@ -1077,6 +1140,10 @@ export class StockStrategy extends BaseStrategy {
 				returns1y: topStock.returns1Y || undefined,
 			},
 		});
+
+		if (topThematicInfo?.highlightText) {
+			rationale += ` • Thematic Screener Synergy: ${topThematicInfo.highlightText}`;
+		}
 
 		const exchange = topStock.nseCode
 			? "NSE"
@@ -1111,19 +1178,6 @@ export class StockStrategy extends BaseStrategy {
 			{ marketCap: topStock.marketCap },
 		);
 
-		const horizonInfo = this.deriveStockTimeHorizon({
-			stock: topStock,
-			volatility: volatility ?? 20,
-			rsi: topEnriched?.technicals?.rsi ?? directRsi ?? null,
-			roic: topEnriched?.fundamentals?.roic ?? directRoic ?? null,
-			existingCount,
-			shortTermCount,
-			mediumTermCount,
-			intradayCount,
-			ultraShortCount,
-			today: context.today,
-		});
-
 		return {
 			category: "listed_stocks",
 			instrumentId: topStock.id,
@@ -1137,7 +1191,7 @@ export class StockStrategy extends BaseStrategy {
 			stoplossPrice,
 			currentPrice,
 			status: "live",
-			expiryDate: this.getExpiryDate(horizonInfo.validityDays),
+			expiryDate: horizonInfo.timeHorizon === "intraday" ? context.today : this.getExpiryDate(horizonInfo.validityDays),
 			rationale,
 			riskLevel,
 			suitableFor: this.deriveSuitableFor(riskLevel, "listed_stocks"),
@@ -1164,6 +1218,8 @@ export class StockStrategy extends BaseStrategy {
 				roic: topEnriched?.fundamentals?.roic ?? directRoic ?? null,
 				rsi: topEnriched?.technicals?.rsi ?? directRsi ?? null,
 				suggestedAllocation,
+				thematicBadges: topThematicInfo?.themeBadges ?? [],
+				thematicHighlight: topThematicInfo?.highlightText ?? null,
 				rawQuantScore: Math.min(100, Math.round((topScore / STOCK_SCORE_MAX) * 100)),
 				qualityTier:
 					Math.round((topScore / STOCK_SCORE_MAX) * 100) >= 80 ? "Premium"
@@ -1224,6 +1280,9 @@ export class StockStrategy extends BaseStrategy {
 							dmaPositioning:    _dma,
 							aiBoost:           0,
 							fiiBoost:          0,
+							thematicBonus:     topThematicInfo?.scoreBonus ?? 0,
+							thematicHighlight: topThematicInfo?.highlightText ?? null,
+							thematicBadges:    topThematicInfo?.themeBadges ?? [],
 							liquiditySignal:   _av === null ? 0 : (_av * currentPrice) >= 50_000_000 ? 10 : (_av * currentPrice) >= 10_000_000 ? 5 : (_av * currentPrice) < 2_000_000 ? -15 : 0,
 							rsiSignal:         _rsi === null ? 0 : _rsi >= 40 && _rsi <= 65 ? 8 : _rsi < 30 ? 5 : _rsi > 75 ? -12 : 0,
 							totalRawScore:         topScore,
@@ -1249,6 +1308,8 @@ export class StockStrategy extends BaseStrategy {
 		fiiSignal?: FIISectorSignal | null,
 		/** BUG-4 fix: pre-fetched unified RSI (from screener or golden_prices) */
 		rsiOverride?: number | null,
+		/** Cross-Engine Synergy: pre-fetched thematic synergy info */
+		thematicInfo?: ThematicSynergyInfo | null,
 	): Promise<number> {
 		let score = 0;
 
@@ -1571,6 +1632,16 @@ export class StockStrategy extends BaseStrategy {
 		const stockBroadSector = mapToBroadSector(stock.sector);
 		const fiiBoost = getFIISectorScoreBoost(fiiSignal ?? null, stockBroadSector);
 		if (fiiBoost !== 0) score += fiiBoost;
+
+		// ── Cross-Engine Synergy: Pro Thematic Screener ───────────────────────
+		// Connects the 12 Curated Institutional screens (Piotroski 7-9, Bulk/Block Deals,
+		// Defence/EV/Green Energy themes, Breakouts/Breakdowns) directly into POTD.
+		try {
+			const synergy = thematicInfo ?? (stock.symbol ? await proThematicScreenerService.getThematicSynergyForSymbol(stock.symbol) : null);
+			if (synergy && synergy.scoreBonus !== 0) {
+				score += synergy.scoreBonus;
+			}
+		} catch { /* non-fatal */ }
 
 		// ── Phase 3: Apply adaptive weight-override multipliers (Surgical) ───
 		// Weight overrides are auto-written by pick-outcome-analyzer when a signal
@@ -2079,19 +2150,19 @@ export class StockStrategy extends BaseStrategy {
 	async getLiveQuote(instrumentId: string): Promise<{ price: number; dayHigh?: number; dayLow?: number } | null> {
 		try {
 			const stockRow = await db
-				.select({ currentPrice: listedStocks.currentPrice, symbol: listedStocks.symbol })
+				.select({ currentPrice: listedStocks.currentPrice, symbol: listedStocks.symbol, isin: listedStocks.isin })
 				.from(listedStocks)
 				.where(eq(listedStocks.id, instrumentId))
 				.limit(1);
 
 			if (!stockRow[0]) return null;
-			const { symbol, currentPrice: fallbackPrice } = stockRow[0];
+			const { symbol, isin, currentPrice: fallbackPrice } = stockRow[0];
 
-			if (symbol) {
-				// ── Upstox Tier-0: Licensed Broker Full Quote ──────────────────────────
+			if (isin || symbol) {
+				// ── Upstox Tier-0: Licensed Broker Full Quote with OHLC ───────────────
 				if (upstoxMarketDataService.isReady()) {
 					try {
-						const uQuote = await upstoxMarketDataService.getQuote(symbol, "NSE");
+						const uQuote = await upstoxMarketDataService.getFullQuote(isin || symbol!, "NSE");
 						if (uQuote.success && uQuote.data?.last_price && uQuote.data.last_price > 0) {
 							return {
 								price: uQuote.data.last_price,
@@ -2230,27 +2301,42 @@ export class StockStrategy extends BaseStrategy {
 		const volatility = top.volatility
 			? Number.parseFloat(top.volatility)
 			: undefined;
+
+		const horizonInfo = this.deriveStockTimeHorizon({
+			stock: top,
+			volatility: volatility ?? 20,
+			rsi: topFallbackEnriched?.technicals?.rsi ?? null,
+			roic: topFallbackEnriched?.fundamentals?.roic ?? null,
+			existingCount: 0,
+			shortTermCount: 0,
+			mediumTermCount: 0,
+			today: context.today,
+		});
+
 		const { targetPct, stoplossPct, atrPct: atrPctFb } = this.getDynamicTargetStoploss(
 			"listed_stocks",
 			volatility,
 			currentPrice,
+			horizonInfo.timeHorizon,
 		);
 		const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
 		const stoplossPrice =
 			Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
 
-		// Upside guard: same 5% minimum as primary sector path
+		// Upside guard: 1.5% for intraday, 5% for positional swing
 		const remainingUpside = (targetPrice - currentPrice) / currentPrice;
-		if (remainingUpside < 0.05) {
-			logger.warn(`[StockStrategy/fallback] ${top.symbol}: upside ${(remainingUpside * 100).toFixed(1)}% < 5% minimum. Returning null.`);
+		const minUpside = horizonInfo.timeHorizon === "intraday" ? 0.015 : 0.05;
+		if (remainingUpside < minUpside) {
+			logger.warn(`[StockStrategy/fallback] ${top.symbol}: upside ${(remainingUpside * 100).toFixed(1)}% < ${(minUpside * 100)}% minimum. Returning null.`);
 			return null;
 		}
 
-		// Reward-to-Risk gate: minimum 1.5:1
+		// Reward-to-Risk gate: minimum 1.5:1 (1.8:1 for intraday)
+		const minRr = horizonInfo.timeHorizon === "intraday" ? 1.8 : 1.5;
 		const rrRatio = (targetPrice - currentPrice) / Math.max(currentPrice - stoplossPrice, 0.01);
-		if (rrRatio < 1.5) {
+		if (rrRatio < minRr) {
 			logger.warn(
-				`[StockStrategy/fallback] ${top.symbol}: R:R ratio ${rrRatio.toFixed(2)} < 1.5 minimum. Discarding.`,
+				`[StockStrategy/fallback] ${top.symbol}: R:R ratio ${rrRatio.toFixed(2)} < ${minRr} minimum. Discarding.`,
 			);
 			return null;
 		}
@@ -2277,17 +2363,6 @@ export class StockStrategy extends BaseStrategy {
 		const exchange = top.nseCode ? "NSE" : top.bseCode ? "BSE" : "NSE";
 		const broadSector = mapToBroadSector(top.sector);
 		const bsMeta = BROAD_SECTORS.find((b) => b.id === broadSector) ?? BROAD_SECTORS[0];
-
-		const horizonInfo = this.deriveStockTimeHorizon({
-			stock: top,
-			volatility: volatility ?? 20,
-			rsi: topFallbackEnriched?.technicals?.rsi ?? null,
-			roic: topFallbackEnriched?.fundamentals?.roic ?? null,
-			existingCount: 0,
-			shortTermCount: 0,
-			mediumTermCount: 0,
-			today: context.today,
-		});
 
 		return {
 			category: "listed_stocks",

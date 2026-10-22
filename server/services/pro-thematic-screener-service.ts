@@ -39,6 +39,7 @@ import {
   type ProThematicConstituent,
 } from "@shared/schema";
 import { eq, desc, asc, and, or, gte, gt, sql, inArray, isNotNull } from "drizzle-orm";
+import { telemetryBus } from "./engine-telemetry-bus";
 
 export interface ScreenerRunResult {
   categorySlug: string;
@@ -111,10 +112,30 @@ export class ProThematicScreenerService {
       }
     }
 
+    const totalConstituents = results.reduce((acc, r) => acc + r.constituentsCount, 0);
+    const latencyMs = Date.now() - t0;
+
     logger.info("[ProThematicScreener] Screening pipeline completed", {
       event: "PRO_SCREENER_COMPLETE",
       totalCategories: results.length,
-      latency_ms: Date.now() - t0,
+      totalConstituents,
+      latency_ms: latencyMs,
+    });
+
+    telemetryBus.report({
+      engineId: "pro-thematic-screener",
+      engineName: "Pro Thematic Screener",
+      category: "Alpha Generation",
+      reportedAt: new Date().toISOString(),
+      latencyMs,
+      qualityScore: totalConstituents >= 40 ? 94 : totalConstituents >= 20 ? 80 : 55,
+      itemsProcessed: totalConstituents,
+      errorCount: slugs.length - results.length,
+      meta: {
+        totalCategories: results.length,
+        engineVersion: this.ENGINE_VERSION,
+        activeSlugs: results.map((r) => r.categorySlug),
+      },
     });
 
     return results;
@@ -678,6 +699,157 @@ export class ProThematicScreenerService {
       .orderBy(asc(proThematicConstituents.rank))
       .limit(limit);
   }
+
+  // ── Cross-Engine Synergy Methods (FASP-AI v3.0 / GCR v1.0) ──────────────
+  private synergyCache: { map: Map<string, ThematicSynergyInfo>; ts: number } | null = null;
+  private readonly SYNERGY_CACHE_TTL_MS = 15 * 60 * 1000; // 15 mins
+
+  /**
+   * Builds or returns cached cross-engine synergy map from pro_thematic_constituents.
+   * Feeds quantitative scores, institutional flow badges, and theme tags to
+   * Pick of the Day (POTD) and Model Portfolio Optimizer engines.
+   */
+  async getThematicSynergyMap(): Promise<Map<string, ThematicSynergyInfo>> {
+    const now = Date.now();
+    if (this.synergyCache && (now - this.synergyCache.ts) < this.SYNERGY_CACHE_TTL_MS) {
+      return this.synergyCache.map;
+    }
+
+    const rows = await db
+      .select()
+      .from(proThematicConstituents)
+      .orderBy(asc(proThematicConstituents.rank));
+
+    const map = new Map<string, ThematicSynergyInfo>();
+
+    for (const r of rows) {
+      const sym = r.symbol.toUpperCase();
+      let existing = map.get(sym);
+      if (!existing) {
+        existing = {
+          symbol: sym,
+          categorySlugs: [],
+          themeBadges: [],
+          bestFScore: null,
+          bestRank: r.rank,
+          isTopDeal: false,
+          isBullish: false,
+          isBearish: false,
+          scoreBonus: 0,
+          highlightText: "",
+        };
+        map.set(sym, existing);
+      }
+
+      existing.categorySlugs.push(r.categorySlug);
+      if (r.themeBadge && !existing.themeBadges.includes(r.themeBadge)) {
+        existing.themeBadges.push(r.themeBadge);
+      }
+      if (r.fScore !== null) {
+        existing.bestFScore = Math.max(existing.bestFScore ?? 0, r.fScore);
+      }
+      if (r.rank < existing.bestRank) {
+        existing.bestRank = r.rank;
+      }
+      if (r.categorySlug === "top-deals") {
+        existing.isTopDeal = true;
+      }
+      if (r.categorySlug === "turning-bullish") {
+        existing.isBullish = true;
+      }
+      if (r.categorySlug === "turning-bearish") {
+        existing.isBearish = true;
+      }
+    }
+
+    // Compute synergistic quantitative score bonus
+    for (const info of map.values()) {
+      let bonus = 0;
+      const highlights: string[] = [];
+
+      // 1. Piotroski F-Score audited institutional health
+      if (info.bestFScore !== null) {
+        if (info.bestFScore >= 8) {
+          bonus += 10;
+          highlights.push(`Piotroski F-Score ${info.bestFScore}/9`);
+        } else if (info.bestFScore === 7) {
+          bonus += 6;
+          highlights.push(`Piotroski F-Score 7/9`);
+        }
+      }
+
+      // 2. Institutional Bulk/Block Deals (smart money accumulation)
+      if (info.isTopDeal) {
+        bonus += 12;
+        highlights.push("Institutional Bulk/Block Deals");
+      }
+
+      // 3. High-Conviction Macro Thematic Leader (Rank <= 3)
+      const macroThematicSlugs = ["defence-guardians", "green-energy", "ev-leaders", "profit-blasters", "turnaround"];
+      const hasMacroTheme = info.categorySlugs.some((s) => macroThematicSlugs.includes(s));
+      if (hasMacroTheme) {
+        if (info.bestRank <= 3) {
+          bonus += 8;
+          highlights.push(`Thematic Leader (#${info.bestRank})`);
+        } else if (info.bestRank <= 10) {
+          bonus += 4;
+          highlights.push(`Thematic Constituent (#${info.bestRank})`);
+        }
+      }
+
+      // 4. Momentum shifts
+      if (info.isBullish) {
+        bonus += 6;
+        highlights.push("Technical Breakout / Turning Bullish");
+      }
+      if (info.isBearish) {
+        bonus -= 12;
+        highlights.push("Technical Breakdown / Turning Bearish");
+      }
+
+      // Bound bonus to [-15, 25] to prevent runaway distortion
+      info.scoreBonus = Math.max(-15, Math.min(25, bonus));
+      info.highlightText = highlights.join(" • ");
+    }
+
+    this.synergyCache = { map, ts: now };
+    return map;
+  }
+
+  /**
+   * Single-symbol lookup for thematic synergy.
+   */
+  async getThematicSynergyForSymbol(symbol: string): Promise<ThematicSynergyInfo | null> {
+    if (!symbol) return null;
+    const map = await this.getThematicSynergyMap();
+    return map.get(symbol.toUpperCase()) ?? null;
+  }
+
+  /**
+   * Fetches top-ranked constituents across given theme slugs for candidate injection.
+   */
+  async getConstituentsForThemes(themeSlugs: string[], limit = 5): Promise<ProThematicConstituent[]> {
+    if (!themeSlugs.length) return [];
+    return db
+      .select()
+      .from(proThematicConstituents)
+      .where(inArray(proThematicConstituents.categorySlug, themeSlugs))
+      .orderBy(asc(proThematicConstituents.rank))
+      .limit(limit);
+  }
+}
+
+export interface ThematicSynergyInfo {
+  symbol: string;
+  categorySlugs: string[];
+  themeBadges: string[];
+  bestFScore: number | null;
+  bestRank: number;
+  isTopDeal: boolean;
+  isBullish: boolean;
+  isBearish: boolean;
+  scoreBonus: number;
+  highlightText: string;
 }
 
 export const proThematicScreenerService = new ProThematicScreenerService();

@@ -48,7 +48,7 @@ async function persistRecommendationsAsLivePicks(
 		.toISOString()
 		.split("T")[0];
 
-	// Guard Rail: Suppress persisting intraday calls on market holidays and weekends
+	// Guard Rail 1: Suppress persisting intraday calls on market holidays and weekends
 	if (timeHorizon === "intraday" && !marketHolidayService.isTradingDay(todayIST, "NSE")) {
 		logger.warn(
 			`[AI Stock Persist] Suppressing persistence of intraday calls for ${todayIST} — market is closed.`,
@@ -56,21 +56,42 @@ async function persistRecommendationsAsLivePicks(
 		return 0;
 	}
 
+	// Guard Rail 2: Suppress persisting intraday calls after 12:30 PM IST cutoff
+	const nowIST = new Date(Date.now() + IST_OFFSET_MS);
+	const currentHourIST = nowIST.getUTCHours();
+	const currentMinIST = nowIST.getUTCMinutes();
+	const isPastCutoff = currentHourIST > 12 || (currentHourIST === 12 && currentMinIST > 30);
+	if (timeHorizon === "intraday" && isPastCutoff) {
+		logger.warn(
+			`[AI Stock Persist] Suppressing persistence of intraday calls for ${todayIST} — past 12:30 PM IST cutoff.`,
+		);
+		return 0;
+	}
+
 	// Only save buy/strong_buy signals (not hold/sell)
-	const toBePersisted = recommendations.filter(
+	let toBePersisted = recommendations.filter(
 		(r) => r.signal === "buy" || r.signal === "strong_buy",
 	);
+
+	// Guard Rail 3: Exposure Cap — max 2 intraday recommendations persisted per day
+	if (timeHorizon === "intraday" && toBePersisted.length > 2) {
+		toBePersisted = toBePersisted.slice(0, 2);
+	}
 
 	let saved = 0;
 	for (const r of toBePersisted) {
 		try {
-			// Expiry: medium_term → 90 days, short_term → 30 days, long_term → 365 days
+			// Expiry: intraday → 0 days (same-day), ultra_short_term → 7 days, short_term → 30 days, long_term → 365 days, default → 90 days
 			const horizonDays =
-				timeHorizon === "short_term"
-					? 30
-					: timeHorizon === "long_term"
-						? 365
-						: 90;
+				timeHorizon === "intraday"
+					? 0
+					: timeHorizon === "ultra_short_term"
+						? 7
+						: timeHorizon === "short_term"
+							? 30
+							: timeHorizon === "long_term"
+								? 365
+								: 90;
 			const expiryDate = new Date(Date.now() + IST_OFFSET_MS + horizonDays * 86400000)
 				.toISOString()
 				.split("T")[0];

@@ -49,6 +49,7 @@ import orderStatusRoutes from "./routes/fixed-income-status-routes";
 import aiInvestmentRoutes from "./routes/ai-investment-routes";
 import { registerAIStockRecommendationRoutes } from "./routes/ai-stock-recommendation-routes";
 import engineHealthRoutes from "./routes/engine-health-check";
+import engineLearningRoutes from "./routes/engine-learning-routes";
 import { registerMarketDataRoutes } from "./routes/market-data";
 import { registerMarketNewsRoutes } from "./routes/market-news-routes";
 import { registerPlatformStatsRoutes } from "./routes/platform-stats-routes";
@@ -399,6 +400,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	app.use("/api/treasury", treasuryRoutes);
 	app.use("/api/engine-health", engineHealthRoutes); // matches UI calls: /api/engine-health/run, /registry, /gemini-deep-audit
 	app.use("/api/engine", engineHealthRoutes); // backward-compat alias
+	app.use("/api/engine-learning", engineLearningRoutes); // Continuous Learning & Autonomous Self-Improvement
 
 	// Missing Production Routes
 	registerMarketDataRoutes(app);

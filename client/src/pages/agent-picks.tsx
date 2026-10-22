@@ -319,8 +319,9 @@ type AIStockRecommendation = {
 /**
  * computeGuardedPortfolioWeights - FASP-AI v3.0 Quantitative Allocation Guardrails
  * 1. Single asset concentration cap (max 30% per stock if basket has >= 4 assets)
- * 2. Pure deterministic normalization to 100%
- * 3. Graceful handling of edge-cases (0 confidence, empty basket)
+ * 2. Sector concentration cap (max 40% per sector per APRE §5.2 if basket has >= 2 sectors)
+ * 3. Pure deterministic normalization to exact 100.00%
+ * 4. Graceful handling of edge-cases (0 confidence, empty basket)
  */
 function computeGuardedPortfolioWeights(
 	stocks: AIStockRecommendation[],
@@ -331,6 +332,7 @@ function computeGuardedPortfolioWeights(
 	const sumRaw = rawWeights.reduce((a, b) => a + b, 0) || 1;
 	let normalized = rawWeights.map((w) => (w / sumRaw) * 100);
 
+	// Guardrail 1: Single asset concentration cap (max 30% per stock)
 	if (n >= 4) {
 		const MAX_WEIGHT = 30;
 		let excess = 0;
@@ -352,9 +354,56 @@ function computeGuardedPortfolioWeights(
 		}
 	}
 
+	// Guardrail 2: Sector Concentration Cap (max 40% per sector per APRE §5.2)
+	const uniqueSectors = new Set(stocks.map((s) => s.sector || "General"));
+	if (n >= 4 && uniqueSectors.size > 1) {
+		const MAX_SECTOR_WEIGHT = 40;
+		const sectorTotals: Record<string, number> = {};
+		stocks.forEach((s, idx) => {
+			const sec = s.sector || "General";
+			sectorTotals[sec] = (sectorTotals[sec] || 0) + normalized[idx];
+		});
+
+		let sectorExcess = 0;
+		const cappedSectors = new Set<string>();
+		for (const [sec, total] of Object.entries(sectorTotals)) {
+			if (total > MAX_SECTOR_WEIGHT) {
+				sectorExcess += total - MAX_SECTOR_WEIGHT;
+				cappedSectors.add(sec);
+				const scale = MAX_SECTOR_WEIGHT / total;
+				stocks.forEach((s, idx) => {
+					if ((s.sector || "General") === sec) {
+						normalized[idx] *= scale;
+					}
+				});
+			}
+		}
+
+		if (sectorExcess > 0) {
+			const nonCappedIndices = stocks
+				.map((s, idx) => (!cappedSectors.has(s.sector || "General") ? idx : -1))
+				.filter((idx) => idx !== -1);
+			if (nonCappedIndices.length > 0) {
+				const boost = sectorExcess / nonCappedIndices.length;
+				nonCappedIndices.forEach((idx) => {
+					normalized[idx] += boost;
+				});
+			}
+		}
+	}
+
+	// Final exact 100% deterministic sum
+	const finalSum = normalized.reduce((a, b) => a + b, 0) || 1;
 	const weightMap: Record<string, number> = {};
+	let runningTotal = 0;
 	stocks.forEach((s, idx) => {
-		weightMap[s.id] = parseFloat((normalized[idx] ?? 100 / n).toFixed(2));
+		if (idx === n - 1) {
+			weightMap[s.id] = parseFloat((100 - runningTotal).toFixed(2));
+		} else {
+			const val = parseFloat(((normalized[idx] / finalSum) * 100).toFixed(2));
+			weightMap[s.id] = val;
+			runningTotal += val;
+		}
 	});
 	return weightMap;
 }
@@ -803,6 +852,62 @@ export default function AgentPicksPage() {
 		try {
 			localStorage.setItem("ai-strategy-view-mode", mode);
 		} catch {}
+	};
+
+	// ── Save as Model Portfolio State & Handlers ──
+	const [saveModelPortfolioOpen, setSaveModelPortfolioOpen] = useState(false);
+	const [modelPortfolioName, setModelPortfolioName] = useState("");
+	const [savingModelPortfolio, setSavingModelPortfolio] = useState(false);
+
+	const handleOpenSaveModelPortfolio = () => {
+		const defaultName = `AI Strategy (${aiRecommendations.length} Stocks - ${stockRiskLevel.replace('_', ' ').toUpperCase()})`;
+		setModelPortfolioName(defaultName);
+		setSaveModelPortfolioOpen(true);
+	};
+
+	const handleSaveModelPortfolio = async () => {
+		if (!aiRecommendations.length) return;
+		setSavingModelPortfolio(true);
+		try {
+			const guardedWeights = computeGuardedPortfolioWeights(aiRecommendations);
+			const formattedStocks = aiRecommendations.map((stock: AIStockRecommendation) => ({
+				symbol: stock.symbol,
+				companyName: stock.companyName,
+				sector: stock.sector,
+				currentPrice: stock.currentPrice,
+				weight: guardedWeights[stock.id] ?? (100 / aiRecommendations.length),
+				confidence: stock.confidence,
+				returns: stock.returns,
+			}));
+
+			const res = await apiRequest("POST", "/api/model-portfolios/from-ai-strategy", {
+				name: modelPortfolioName || `AI Strategy (${aiRecommendations.length} Stocks)`,
+				riskProfile: stockRiskLevel,
+				timeHorizon: stockTimeHorizon,
+				assetClass: "equity",
+				investmentAmount: stockInvestmentAmount[0] || 100000,
+				stocks: formattedStocks,
+			});
+			const data = await res.json();
+			if (data.success) {
+				toast({
+					title: "Model Portfolio Created",
+					description: `Successfully published as ${data.data?.portfolioCode || "Model Portfolio"}. You can now view it in Model Portfolios.`,
+				});
+				queryClient.invalidateQueries({ queryKey: ["/api/model-portfolios"] });
+				setSaveModelPortfolioOpen(false);
+			} else {
+				throw new Error(data.message || "Failed to create model portfolio");
+			}
+		} catch (err: any) {
+			toast({
+				title: "Error Creating Portfolio",
+				description: err.message || "Could not save AI strategy to Model Portfolios.",
+				variant: "destructive",
+			});
+		} finally {
+			setSavingModelPortfolio(false);
+		}
 	};
 
 	const handleSelectToggle = (id: number) => {
@@ -2007,9 +2112,15 @@ export default function AgentPicksPage() {
 		return pick.market === marketFilter;
 	};
 
-	const isPickExpired = (p: DailyPick) =>
-		p.status === "expired" ||
-		(p.expiryDate != null && new Date(p.expiryDate) < new Date());
+	const isPickExpired = (p: DailyPick) => {
+		if (p.status === "expired") return true;
+		if (!p.expiryDate) return false;
+		const isIntraday = p.timeHorizon === "intraday" || p.timeHorizon === "intra_day";
+		const expiryIso = isIntraday
+			? `${p.expiryDate.split("T")[0]}T15:30:00+05:30`
+			: `${p.expiryDate.split("T")[0]}T23:59:59+05:30`;
+		return Date.now() > new Date(expiryIso).getTime();
+	};
 
 	const filteredTodayPicks = todayPicks.filter((p) => {
 		if (isPickExpired(p)) return false;
@@ -4009,34 +4120,46 @@ export default function AgentPicksPage() {
 														</p>
 													</div>
 
-													{/* AI Strategy View Mode Toggle (Grid vs Tabular) */}
-													<div className="flex items-center gap-1 border rounded-lg p-0.5 bg-background shadow-xs shrink-0 self-start sm:self-end">
-														<button
+													{/* AI Strategy Actions: Save to Model Portfolio & View Mode Toggle */}
+													<div className="flex items-center gap-2 self-start sm:self-end flex-wrap">
+														<Button
 															type="button"
-															onClick={() => toggleAiStrategyViewMode("grid")}
-															className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-																aiStrategyViewMode === "grid"
-																	? "bg-primary text-primary-foreground shadow-xs font-semibold"
-																	: "hover:bg-muted text-muted-foreground hover:text-foreground"
-															}`}
-															title="Card Grid View"
+															size="sm"
+															onClick={handleOpenSaveModelPortfolio}
+															className="gap-1.5 bg-primary text-primary-foreground text-xs shadow-xs hover:bg-primary/90 h-8"
 														>
-															<LayoutGrid className="h-3.5 w-3.5" />
-															<span>Grid View</span>
-														</button>
-														<button
-															type="button"
-															onClick={() => toggleAiStrategyViewMode("table")}
-															className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-																aiStrategyViewMode === "table"
-																	? "bg-primary text-primary-foreground shadow-xs font-semibold"
-																	: "hover:bg-muted text-muted-foreground hover:text-foreground"
-															}`}
-															title="Tabular Data View"
-														>
-															<Table2 className="h-3.5 w-3.5" />
-															<span>Tabular View</span>
-														</button>
+															<Bookmark className="h-3.5 w-3.5" />
+															<span>Save as Model Portfolio</span>
+														</Button>
+
+														<div className="flex items-center gap-1 border rounded-lg p-0.5 bg-background shadow-xs shrink-0">
+															<button
+																type="button"
+																onClick={() => toggleAiStrategyViewMode("grid")}
+																className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+																	aiStrategyViewMode === "grid"
+																		? "bg-primary text-primary-foreground shadow-xs font-semibold"
+																		: "hover:bg-muted text-muted-foreground hover:text-foreground"
+																}`}
+																title="Card Grid View"
+															>
+																<LayoutGrid className="h-3.5 w-3.5" />
+																<span>Grid View</span>
+															</button>
+															<button
+																type="button"
+																onClick={() => toggleAiStrategyViewMode("table")}
+																className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+																	aiStrategyViewMode === "table"
+																		? "bg-primary text-primary-foreground shadow-xs font-semibold"
+																		: "hover:bg-muted text-muted-foreground hover:text-foreground"
+																}`}
+																title="Tabular Data View"
+															>
+																<Table2 className="h-3.5 w-3.5" />
+																<span>Tabular View</span>
+															</button>
+														</div>
 													</div>
 												</div>
 
@@ -7343,6 +7466,117 @@ export default function AgentPicksPage() {
 							className="text-xs bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
 						>
 							Close
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* Save AI Strategy as Model Portfolio Modal */}
+			<Dialog open={saveModelPortfolioOpen} onOpenChange={setSaveModelPortfolioOpen}>
+				<DialogContent className="max-w-lg">
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2 text-base font-bold">
+							<Bookmark className="h-5 w-5 text-primary" />
+							Save Strategy as Model Portfolio
+						</DialogTitle>
+						<DialogDescription className="text-xs">
+							Convert this high-conviction AI stock basket into a registered Model Portfolio with FASP-AI quantitative guardrails.
+						</DialogDescription>
+					</DialogHeader>
+
+					<div className="space-y-4 py-2">
+						<div className="space-y-1.5">
+							<Label htmlFor="model-name" className="text-xs font-semibold">
+								Model Portfolio Name
+							</Label>
+							<Input
+								id="model-name"
+								value={modelPortfolioName}
+								onChange={(e) => setModelPortfolioName(e.target.value)}
+								placeholder="e.g. AI Strategy: High Growth Multicap"
+								className="text-xs"
+							/>
+						</div>
+
+						<div className="grid grid-cols-3 gap-2 p-2.5 rounded-lg bg-muted/40 border text-xs">
+							<div>
+								<span className="text-[10px] text-muted-foreground uppercase font-medium">Risk Profile</span>
+								<p className="font-semibold capitalize">{stockRiskLevel.replace("_", " ")}</p>
+							</div>
+							<div>
+								<span className="text-[10px] text-muted-foreground uppercase font-medium">Time Horizon</span>
+								<p className="font-semibold capitalize">{stockTimeHorizon.replace("_", " ")}</p>
+							</div>
+							<div>
+								<span className="text-[10px] text-muted-foreground uppercase font-medium">Target Basket</span>
+								<p className="font-semibold">{aiRecommendations.length} Stocks</p>
+							</div>
+						</div>
+
+						<div className="space-y-2">
+							<div className="flex items-center justify-between text-xs font-semibold">
+								<span>Guarded Asset Allocations</span>
+								<span className="text-muted-foreground text-[11px] font-normal">Max 30% Stock | Max 40% Sector</span>
+							</div>
+							<ScrollArea className="h-44 border rounded-md p-2 bg-background">
+								{(() => {
+									const weights = computeGuardedPortfolioWeights(aiRecommendations);
+									return (
+										<div className="space-y-1.5">
+											{aiRecommendations.map((stock: AIStockRecommendation) => (
+												<div key={stock.id} className="flex items-center justify-between text-xs py-1 px-1.5 hover:bg-muted/50 rounded">
+													<div className="flex items-center gap-2">
+														<span className="font-bold text-foreground">{stock.symbol}</span>
+														<span className="text-[10px] text-muted-foreground truncate max-w-[150px]">{stock.companyName}</span>
+														<Badge variant="outline" className="text-[9px] py-0 px-1 border-muted-foreground/30">
+															{stock.sector}
+														</Badge>
+													</div>
+													<div className="flex items-center gap-2">
+														<span className="font-mono font-semibold text-primary">{weights[stock.id]}%</span>
+													</div>
+												</div>
+											))}
+										</div>
+									);
+								})()}
+							</ScrollArea>
+						</div>
+
+						{/* FASP-AI Decision Support Disclosure */}
+						<div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-800 dark:text-amber-300">
+							<AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+							<p className="leading-tight">
+								<strong>FASP-AI v3.0 Compliance:</strong> This model portfolio serves as inspirational Decision Support guidance for your advisory practice. It does not execute client orders automatically.
+							</p>
+						</div>
+					</div>
+
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={() => setSaveModelPortfolioOpen(false)}
+							disabled={savingModelPortfolio}
+							className="text-xs"
+						>
+							Cancel
+						</Button>
+						<Button
+							onClick={handleSaveModelPortfolio}
+							disabled={savingModelPortfolio || !modelPortfolioName.trim()}
+							className="text-xs gap-1.5"
+						>
+							{savingModelPortfolio ? (
+								<>
+									<RefreshCw className="h-3.5 w-3.5 animate-spin" />
+									<span>Publishing Portfolio…</span>
+								</>
+							) : (
+								<>
+									<Sparkles className="h-3.5 w-3.5" />
+									<span>Confirm & Save Model Portfolio</span>
+								</>
+							)}
 						</Button>
 					</DialogFooter>
 				</DialogContent>

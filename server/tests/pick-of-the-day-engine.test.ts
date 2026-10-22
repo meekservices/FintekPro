@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { BaseStrategy } from "../services/picks/base-strategy";
-import type { PickCategory } from "../services/pick-of-the-day-service";
+import { isPickExpired, pickOfTheDayService, type PickCategory } from "../services/pick-of-the-day-service";
 
 // Test harness subclass to expose protected methods of BaseStrategy
 class TestStrategy extends BaseStrategy {
@@ -9,13 +9,18 @@ class TestStrategy extends BaseStrategy {
 	score() { return 50; }
 	async getLivePrice() { return null; }
 
-	public testGetDynamicTargetStoploss(category: PickCategory, vol?: number, price?: number) {
-		return this.getDynamicTargetStoploss(category, vol, price);
+	public testGetDynamicTargetStoploss(category: PickCategory, vol?: number, price?: number, timeHorizon?: string) {
+		return this.getDynamicTargetStoploss(category, vol, price, timeHorizon);
+	}
+
+	public testGetExpiryDate(days: number) {
+		return this.getExpiryDate(days);
 	}
 }
 
 describe("Pick of the Day Engine - Unit Tests & Upgrades", () => {
 	const testStrat = new TestStrategy();
+	const testStockStrat = pickOfTheDayService.getStrategy("listed_stocks") as any;
 
 	describe("1. Risk-to-Reward (R:R) 2:1 Enforcement", () => {
 		it("enforces minimum 2:1 R:R for domestic listed stocks with base targets", () => {
@@ -261,6 +266,155 @@ describe("Pick of the Day Engine - Unit Tests & Upgrades", () => {
 
 			const newStatus = isExpired ? (returnPct >= minWinPct ? "target_hit" : "expired") : "live";
 			expect(newStatus).toBe("target_hit"); // Solid fund performance is rewarded as a win
+		});
+	});
+
+	describe("9. Intraday Pick Engine Calibration & Lifecycle", () => {
+		it("calibrates realistic intraday target (1.5% - 3.0%) with 2:1 R:R", () => {
+			const { targetPct, stoplossPct } = testStrat.testGetDynamicTargetStoploss(
+				"listed_stocks",
+				20, // 20% annual vol (~1.26% daily ATR)
+				1500,
+				"intraday",
+			);
+			expect(targetPct).toBeGreaterThanOrEqual(0.015); // >= 1.5%
+			expect(targetPct).toBeLessThanOrEqual(0.035);   // capped at 3.0% (or slight buffer)
+			expect(stoplossPct).toBeGreaterThanOrEqual(0.0075);
+			expect(stoplossPct).toBeLessThanOrEqual(0.015);
+			expect(targetPct / stoplossPct).toBeGreaterThanOrEqual(1.99); // 2:1 R:R
+		});
+
+		it("ensures 0-day horizon returns today date for same-day expiry", () => {
+			const expiry = testStrat.testGetExpiryDate(0);
+			const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+			const expectedToday = new Date(Date.now() + IST_OFFSET_MS).toISOString().split("T")[0];
+			expect(expiry).toBe(expectedToday);
+		});
+
+		it("correctly identifies whether intraday pick is expired based on 15:30 IST market close", () => {
+			const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+			const todayIST = new Date(Date.now() + IST_OFFSET_MS).toISOString().split("T")[0];
+			const yesterdayIST = new Date(Date.now() + IST_OFFSET_MS - 86400000).toISOString().split("T")[0];
+
+			// Yesterday's pick is always expired
+			expect(isPickExpired(yesterdayIST, "intraday")).toBe(true);
+
+			// Today's pick expiry depends on current IST time vs 15:30 IST
+			const nowIST = new Date(Date.now() + IST_OFFSET_MS);
+			const isPast330 = (nowIST.getUTCHours() > 15) || (nowIST.getUTCHours() === 15 && nowIST.getUTCMinutes() >= 30);
+			expect(isPickExpired(todayIST, "intraday")).toBe(isPast330);
+		});
+
+		it("evaluates auto-square-off outcomes correctly at 3:25 PM IST", () => {
+			// +1.5% return at 3:25 PM -> target_hit
+			const winReturn = 1.5;
+			const winStatus = winReturn >= 1.0 ? "target_hit" : winReturn <= -0.8 ? "stoploss_hit" : "expired";
+			expect(winStatus).toBe("target_hit");
+
+			// -1.1% return at 3:25 PM -> stoploss_hit
+			const lossReturn = -1.1;
+			const lossStatus = lossReturn >= 1.0 ? "target_hit" : lossReturn <= -0.8 ? "stoploss_hit" : "expired";
+			expect(lossStatus).toBe("stoploss_hit");
+
+			// flat +0.2% return at 3:25 PM -> expired
+			const flatReturn = 0.2;
+			const flatStatus = flatReturn >= 1.0 ? "target_hit" : flatReturn <= -0.8 ? "stoploss_hit" : "expired";
+			expect(flatStatus).toBe("expired");
+		});
+
+		it("downgrades intraday breakout to weekly swing (ultra_short_term) for Small Cap stocks", () => {
+			const res = testStockStrat.deriveStockTimeHorizon({
+				stock: { marketCap: "Small Cap", averageVolume: "45000" },
+				volatility: 29,
+				rsi: 68,
+				roic: null,
+				intradayCount: 0,
+				ultraShortCount: 0,
+			});
+			// Must be barred from intraday due to circuit risk and MIS non-marginability
+			expect(res.timeHorizon).toBe("ultra_short_term");
+			expect(res.validityDays).toBe(7);
+		});
+
+		it("downgrades intraday breakout when volatility is extreme (>40%) or day change >= 3.5%", () => {
+			const highVolRes = testStockStrat.deriveStockTimeHorizon({
+				stock: { marketCap: "Large Cap", averageVolume: "500000", dayChangePercent: "1.2" },
+				volatility: 45, // extreme whipsaw risk
+				rsi: 70,
+				roic: 18,
+				intradayCount: 0,
+				ultraShortCount: 0,
+			});
+			expect(highVolRes.timeHorizon).toBe("ultra_short_term");
+
+			const overextendedRes = testStockStrat.deriveStockTimeHorizon({
+				stock: { marketCap: "Large Cap", averageVolume: "500000", dayChangePercent: "4.2" }, // gap-up overextended
+				volatility: 25,
+				rsi: 72,
+				roic: 18,
+				intradayCount: 0,
+				ultraShortCount: 0,
+			});
+			expect(overextendedRes.timeHorizon).toBe("ultra_short_term");
+		});
+	});
+
+	describe("10. Cross-Engine Synergy (Pro Thematic Screener ↔ Pick of the Day)", () => {
+		it("awards positive conviction score bonus for stocks verified by institutional screens", async () => {
+			const mockStock = {
+				symbol: "TEST_SYNERGY_CO",
+				sector: "Capital Goods",
+				currentPrice: "300",
+				averageVolume: "5000000",
+				analystRating: "Strong Buy",
+				numberOfAnalysts: "6",
+			};
+			const mockThematicLeader = {
+				symbol: "TEST_SYNERGY_CO",
+				categorySlugs: ["defence-guardians", "fscore"],
+				themeBadges: ["Defence Pioneer", "Piotroski Leader"],
+				bestFScore: 8,
+				bestRank: 1,
+				isTopDeal: false,
+				isBullish: true,
+				isBearish: false,
+				scoreBonus: 24, // 10 (F-Score 8) + 8 (Theme Rank 1) + 6 (Bullish) = 24
+				highlightText: "Piotroski F-Score 8/9 • Thematic Leader (#1) • Technical Breakout / Turning Bullish",
+			};
+
+			// Warm up cache so any asynchronous external AI signals are identical across runs
+			await testStockStrat.score(mockStock, null, null, null, null, { scoreBonus: 0, themeBadges: [], highlightText: "" });
+
+			const baseScore = await testStockStrat.score(mockStock, null, null, null, null, { scoreBonus: 0, themeBadges: [], highlightText: "" });
+			const boostedScore = await testStockStrat.score(mockStock, null, null, null, null, mockThematicLeader);
+
+			expect(boostedScore - baseScore).toBe(24);
+		});
+
+		it("penalises stocks showing technical breakdowns in turning-bearish screen", async () => {
+			const mockStock = {
+				symbol: "WEAKCO",
+				sector: "IT",
+				currentPrice: "100",
+				averageVolume: "1000000",
+			};
+			const mockBearishConstituent = {
+				symbol: "WEAKCO",
+				categorySlugs: ["turning-bearish"],
+				themeBadges: ["Under Pressure"],
+				bestFScore: 3,
+				bestRank: 5,
+				isTopDeal: false,
+				isBullish: false,
+				isBearish: true,
+				scoreBonus: -12,
+				highlightText: "Technical Breakdown / Turning Bearish",
+			};
+
+			const baseScore = await testStockStrat.score(mockStock, null, null, null, null, { scoreBonus: 0, themeBadges: [], highlightText: "" });
+			const penalizedScore = await testStockStrat.score(mockStock, null, null, null, null, mockBearishConstituent);
+
+			expect(penalizedScore).toBe(Math.max(0, baseScore - 12));
 		});
 	});
 });

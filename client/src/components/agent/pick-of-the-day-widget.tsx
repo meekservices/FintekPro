@@ -36,7 +36,7 @@ interface DailyPick {
 	rationale: string;
 	riskLevel: string;
 	keyMetrics?: Record<string, any>;
-	timeHorizon?: "short_term" | "medium_term" | "long_term";
+	timeHorizon?: "intraday" | "ultra_short_term" | "short_term" | "medium_term" | "long_term" | string;
 	confidenceScore?: number;
 	sectorCategory?: string;
 	expiryDate?: string;
@@ -150,10 +150,17 @@ export default function PickOfTheDayWidget() {
 				) : (
 					picks.slice(0, 4).map((pick) => {
 						const Icon = categoryIcons[pick.category] || TrendingUp;
-						const effectiveStatus =
-							pick.status === "live" &&
+						const isIntraday = pick.timeHorizon === "intraday" || pick.timeHorizon === "intra_day";
+						const isExpired =
 							pick.expiryDate &&
-							new Date(pick.expiryDate) < new Date()
+							Date.now() >
+								new Date(
+									isIntraday
+										? `${pick.expiryDate.split("T")[0]}T15:30:00+05:30`
+										: `${pick.expiryDate.split("T")[0]}T23:59:59+05:30`,
+								).getTime();
+						const effectiveStatus =
+							pick.status === "live" && isExpired
 								? "expired"
 								: pick.status;
 						const upside =

@@ -6371,3 +6371,239 @@ modelPortfoliosRouter.get("/:id/algo-trading/transactions", async (req: Request,
   }
 });
 
+// ── POST /api/model-portfolios/from-ai-strategy ───────────────────────────────
+/**
+ * Creates a registered Model Portfolio from an AI Portfolio Strategy basket.
+ * FASP-AI Decision Support System: Advisor-confirmed model creation with
+ * automatic sector/stock guardrails and ISIN resolution.
+ */
+modelPortfoliosRouter.post("/from-ai-strategy", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const {
+      name,
+      portfolioCode,
+      riskProfile = "moderate",
+      timeHorizon = "medium_term",
+      assetClass = "equity",
+      stocks = [],
+      investmentAmount = 100000,
+      highlight,
+    } = req.body;
+
+    if (!Array.isArray(stocks) || stocks.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error_code: "INVALID_STOCKS_PAYLOAD",
+        message: "At least one stock is required to create a Model Portfolio from AI Strategy.",
+      });
+    }
+
+    // Resolve missing ISINs from listed_stocks
+    const symbols = stocks.map((s: any) => String(s.symbol || "").toUpperCase()).filter(Boolean);
+    const isinMap = new Map<string, string>();
+    if (symbols.length > 0) {
+      try {
+        const lsRows = await db.execute(sql`
+          SELECT symbol, isin FROM listed_stocks
+          WHERE symbol IN (${sql.join(symbols.map((s) => sql`${s}`), sql`, `)})
+            AND isin IS NOT NULL
+        `).catch(() => ({ rows: [] }));
+        for (const row of (lsRows as any).rows ?? []) {
+          if (row.symbol && row.isin) {
+            isinMap.set(String(row.symbol).toUpperCase(), row.isin);
+          }
+        }
+      } catch {
+        // Fallback to existing isins
+      }
+    }
+
+    // Determine unique portfolio code
+    let finalCode = portfolioCode;
+    if (!finalCode) {
+      const existingCodes = await db.execute(sql`
+        SELECT portfolio_code FROM model_portfolios
+        WHERE portfolio_code LIKE 'FP-AI-%'
+        ORDER BY id DESC LIMIT 1
+      `).catch(() => ({ rows: [] }));
+      const lastRow = (existingCodes as any).rows?.[0]?.portfolio_code;
+      const nextNum = lastRow ? (parseInt(lastRow.replace("FP-AI-", ""), 10) || 100) + 1 : 101;
+      finalCode = `FP-AI-${nextNum}`;
+    }
+
+    // Format holdings
+    const holdings = stocks.map((s: any, idx: number) => {
+      const sym = String(s.symbol || "").toUpperCase();
+      const isin = s.isin || isinMap.get(sym) || null;
+      return {
+        rank: idx + 1,
+        name: s.companyName || s.name || s.symbol,
+        symbol: sym,
+        isin,
+        type: "equity",
+        sector: s.sector || "General",
+        weight: Number(s.weight ?? (100 / stocks.length).toFixed(2)),
+        targetWeight: Number(s.weight ?? (100 / stocks.length).toFixed(2)),
+        currentPrice: s.currentPrice ? Number(s.currentPrice) : undefined,
+        currentReturn: s.returns?.returns1Y ?? s.return_1y ?? undefined,
+        confidence: s.confidence ? Number(s.confidence) : undefined,
+        schemeCode: null,
+        amfiSchemeCode: null,
+      };
+    });
+
+    // Group by sector for asset allocation
+    const sectorTotals: Record<string, number> = {};
+    for (const h of holdings) {
+      sectorTotals[h.sector] = (sectorTotals[h.sector] || 0) + h.weight;
+    }
+    const allocation = Object.entries(sectorTotals).map(([sector, weight]) => ({
+      name: sector,
+      weight: parseFloat(weight.toFixed(2)),
+      type: "equity",
+    }));
+
+    const portfolioId = `ai-strategy-${Date.now()}`;
+    const portfolioName = name?.trim() || `AI Strategy (${stocks.slice(0, 3).map((s: any) => s.symbol).join(", ")}${stocks.length > 3 ? "..." : ""})`;
+
+    await db.insert(modelPortfolios).values({
+      id: portfolioId,
+      portfolioCode: finalCode,
+      name: portfolioName,
+      tagline: "AI quantitative portfolio strategy with FASP-AI allocation guardrails",
+      riskProfile,
+      assetClass,
+      subCategory: "AI Quantitative Basket",
+      timeHorizon,
+      minInvestment: String(investmentAmount || 10000),
+      benchmarkName: "NIFTY 500",
+      lastRebalanced: new Date().toISOString().split("T")[0],
+      rebalancingFrequency: "quarterly",
+      rebalancingMode: "drift_triggered",
+      totalHoldings: holdings.length,
+      highlight: highlight || `Top ${holdings.length} AI stock picks with FASP-AI concentration guardrails`,
+      icon: "🤖",
+      isPublished: true,
+      isFeatured: false,
+      isNew: true,
+      allocation,
+      holdings,
+      engineVersion: "FASP-AI-v3.0",
+      quantEngineVersion: "FASP-AI-v3.0",
+      source: "ai_portfolio_strategy",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    logger.info("[ModelPortfolios] Created model portfolio from AI Strategy", {
+      event: "MODEL_PORTFOLIO_CREATED_FROM_AI_STRATEGY",
+      user_id: (req as any).user?.id || "advisor",
+      portfolioId,
+      portfolioCode: finalCode,
+      holdingsCount: holdings.length,
+      latency_ms: Date.now() - t0,
+      status: "success",
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        id: portfolioId,
+        portfolioCode: finalCode,
+        name: portfolioName,
+        totalHoldings: holdings.length,
+        holdings,
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: "FASP-AI-v3.0",
+        message: "Model portfolio created successfully from AI strategy basket.",
+      },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] Error creating portfolio from AI Strategy", err);
+    return res.status(500).json({
+      success: false,
+      error_code: "CREATE_FROM_AI_STRATEGY_FAILED",
+      message: err.message,
+      retryable: true,
+    });
+  }
+});
+
+// ── POST /api/model-portfolios/:id/sync-ai-picks ──────────────────────────────
+/**
+ * Injects top active AI stock picks into an existing Model Portfolio's pending rebalance plan
+ * for RIA / Advisor review and approval (FASP-AI Decision Support System).
+ */
+modelPortfoliosRouter.post("/:id/sync-ai-picks", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  const { id } = req.params;
+  try {
+    const portfolio = await db.query.modelPortfolios.findFirst({
+      where: eq(modelPortfolios.id, id),
+    });
+
+    if (!portfolio) {
+      return res.status(404).json({
+        success: false,
+        error_code: "PORTFOLIO_NOT_FOUND",
+        message: `Model portfolio ${id} not found`,
+      });
+    }
+
+    // Fetch top active daily picks
+    const topAiPicks = await db.execute(sql`
+      SELECT dp.symbol, dp.instrument_name, dp.confidence_score, dp.reco_price, dp.target_price, dp.sector_category, ls.isin
+      FROM daily_picks dp
+      LEFT JOIN listed_stocks ls ON ls.symbol = dp.symbol
+      WHERE dp.category = 'listed_stocks' AND dp.status = 'live' AND dp.confidence_score >= 80
+      ORDER BY dp.confidence_score DESC
+      LIMIT 10
+    `).catch(() => ({ rows: [] }));
+
+    const plan = {
+      generatedAt: new Date().toISOString(),
+      source: "ai_portfolio_strategy_sync",
+      model_version: "FASP-AI v3.0",
+      suggestedPicks: ((topAiPicks as any).rows ?? []).map((p: any) => ({
+        symbol: p.symbol,
+        name: p.instrument_name,
+        confidence: Number(p.confidence_score),
+        upside: p.reco_price > 0 ? Math.round(((p.target_price - p.reco_price) / p.reco_price) * 100) : 15,
+        sector: p.sector_category,
+        isin: p.isin,
+      })),
+      status: "pending_advisor_approval",
+    };
+
+    await db.update(modelPortfolios)
+      .set({
+        pendingRebalancePlan: plan,
+        updatedAt: new Date(),
+      })
+      .where(eq(modelPortfolios.id, id));
+
+    return res.json({
+      success: true,
+      data: {
+        portfolioId: id,
+        plan,
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: "FASP-AI-v3.0",
+        latency_ms: Date.now() - t0,
+      },
+    });
+  } catch (err: any) {
+    logger.error(`[ModelPortfolios] Failed to sync AI picks for ${id}`, err);
+    return res.status(500).json({
+      success: false,
+      error_code: "SYNC_AI_PICKS_FAILED",
+      message: err.message,
+    });
+  }
+});
+

@@ -74,6 +74,20 @@ export type PickCategory =
 
 export type PickStatus = "live" | "target_hit" | "stoploss_hit" | "expired";
 
+/**
+ * Returns true if the pick has passed its expiry window.
+ * Intraday calls expire at 15:30:00 IST (3:30 PM market close) on their expiry date.
+ * Positional calls expire at 23:59:59 IST on their expiry date.
+ */
+export function isPickExpired(expiryDateStr?: string | null, timeHorizon?: string | null): boolean {
+	if (!expiryDateStr) return false;
+	const dateOnly = expiryDateStr.split("T")[0];
+	const isIntraday = timeHorizon === "intraday";
+	const cutoff = isIntraday ? "T15:30:00+05:30" : "T23:59:59+05:30";
+	const expiryTs = new Date(`${dateOnly}${cutoff}`).getTime();
+	return Date.now() > expiryTs;
+}
+
 export const SCORER_VERSION = "3.0.0";
 export const SCORER_MIN_THRESHOLD = 15;
 /** FASP-AI protocol version applied to all pick advisory outputs */
@@ -498,7 +512,8 @@ export class PickOfTheDayService {
 						fixed_deposits:  4, // FDs: YTM-based
 						sgb:             4, // SGB: sovereign, yield + gold appreciation
 					};
-					const minUpside = minUpsidePct[category] ?? 8;
+					// Intraday equity calls have realistic 1.5% - 3.0% targets and must not be blocked by 8% positional swing gate
+					const minUpside = pick.timeHorizon === "intraday" ? 1.5 : (minUpsidePct[category] ?? 8);
 					const recoP = Number(pick.recoPrice ?? 0);
 					const targetP = Number(pick.targetPrice ?? 0);
 					const currentP = Number(pick.currentPrice ?? recoP);
@@ -660,24 +675,35 @@ export class PickOfTheDayService {
 						}
 					}
 
-					// ── Market Holiday Guard Rail: Intraday Calls Forbidden on Holidays/Weekends ──
+					// ── Market Holiday & Cutoff Guard Rail: Intraday Calls Forbidden on Holidays or Past 12:30 IST ──
 					const isMarketTradingDay = this.isNSETradingDay(today);
-					if (!isMarketTradingDay && pick.timeHorizon === "intraday") {
-						logger.warn(
-							`⚠️ [PickOfTheDay] Market holiday guard rail triggered: suppressed intraday call for ${pick.instrumentName} (${pick.symbol}) on ${today} (NSE closed). Converting to ultra_short_term with 7-day validity.`,
-							{
-								event: "INTRADAY_ON_HOLIDAY_PREVENTED",
-								user_id: "SYSTEM",
-								instrument: pick.instrumentName,
-								symbol: pick.symbol,
-								date: today,
-								latency_ms: 0,
-								status: "guardrail_applied",
-							},
-						);
-						pick.timeHorizon = "ultra_short_term";
-						const exp = new Date(Date.now() + 5.5 * 60 * 60 * 1000 + 7 * 86400000);
-						pick.expiryDate = exp.toISOString().split("T")[0];
+					const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+					const nowIST = new Date(Date.now() + IST_OFFSET_MS);
+					const currentHourIST = nowIST.getUTCHours();
+					const currentMinIST = nowIST.getUTCMinutes();
+					const isPastIntradayCutoff =
+						currentHourIST > 12 || (currentHourIST === 12 && currentMinIST > 30);
+
+					if (pick.timeHorizon === "intraday") {
+						if (!isMarketTradingDay || isPastIntradayCutoff) {
+							const reason = !isMarketTradingDay ? "NSE closed (holiday/weekend)" : "past 12:30 PM IST cutoff";
+							logger.warn(
+								`⚠️ [PickOfTheDay] Intraday guard rail triggered (${reason}): suppressed intraday call for ${pick.instrumentName} (${pick.symbol}) on ${today}. Converting to ultra_short_term with 7-day validity.`,
+								{
+									event: "INTRADAY_GUARDRAIL_APPLIED",
+									reason,
+									user_id: "SYSTEM",
+									instrument: pick.instrumentName,
+									symbol: pick.symbol,
+									date: today,
+									latency_ms: 0,
+									status: "guardrail_applied",
+								},
+							);
+							pick.timeHorizon = "ultra_short_term";
+							const exp = new Date(Date.now() + IST_OFFSET_MS + 7 * 86400000);
+							pick.expiryDate = exp.toISOString().split("T")[0];
+						}
 					}
 
 					await this.savePick(pick);
@@ -947,12 +973,9 @@ export class PickOfTheDayService {
 						(Date.now() - recoDate.getTime()) / (1000 * 60 * 60 * 24),
 					);
 
-					// ── Fix 1: Expiry check runs unconditionally ────────────────────────────
-					// Previously expiry was inside the `if (livePrice != null)` block,
-					// so bonds/SGB/unlisted/FD/REIT picks never expired (getLivePrice→null).
-					// Now: check expiry first regardless of whether we have a live price.
-					const expiryDate = new Date(pick.expiryDate);
-					const isExpired = new Date() > expiryDate;
+					// ── Fix 1: Expiry check runs unconditionally with market-hours awareness ──
+					// Intraday calls expire at 15:30 IST on expiry date; positional calls at 23:59:59 IST.
+					const isExpired = isPickExpired(pick.expiryDate, pick.timeHorizon);
 
 					let livePrice: number | null = null;
 					let dayHigh: number | undefined;
@@ -1035,11 +1058,12 @@ export class PickOfTheDayService {
 						let hitTarget = false;
 						let hitStoploss = false;
 
-						// Guardrail: on Day 0 (same day as recommendation), whole-session dayHigh/dayLow reflects
-						// morning ticks before the recommendation was generated. Only evaluate livePrice on Day 0
-						// to prevent pre-publication price spikes from triggering false stoplosses or targets.
-						// On subsequent days (daysHeld >= 1), full-session dayHigh/dayLow is safe and valid.
-						const useIntradayExtremes = daysHeld > 0;
+						// Guardrail: on Day 0 for positional swings, whole-session dayHigh/dayLow reflects
+						// morning ticks before the recommendation was generated.
+						// FOR INTRADAY PICKS: dayHigh/dayLow from live quote represents the active trading session
+						// and MUST be evaluated for target and stoploss hits.
+						const isIntraday = pick.timeHorizon === "intraday";
+						const useIntradayExtremes = daysHeld > 0 || isIntraday;
 
 						if (isCreditStrategy) {
 							// Option selling: target is hit when price drops to or below targetPrice (or dayLow <= targetPrice)
@@ -1062,9 +1086,15 @@ export class PickOfTheDayService {
 							newStatus = "stoploss_hit";
 						} else if (isExpired) {
 							// On expiry: if position closed with meaningful profit, record as target_hit win
-							// Equity/derivatives: >= 5%, Mutual funds: >= 3% (outperformed benchmark)
-							const minWinPct = category === "mutual_funds" ? 3.0 : 5.0;
-							newStatus = returnPct >= minWinPct ? "target_hit" : "expired";
+							// Intraday: >= 1.0% (positive return), Mutual funds: >= 3%, Equities/Derivatives: >= 5%
+							const minWinPct = isIntraday ? 1.0 : category === "mutual_funds" ? 3.0 : 5.0;
+							if (returnPct >= minWinPct) {
+								newStatus = "target_hit";
+							} else if (isIntraday && returnPct <= -0.8) {
+								newStatus = "stoploss_hit";
+							} else {
+								newStatus = "expired";
+							}
 						}
 
 						// ── Intraday Execution Exit Price Guardrail ─────────────────────
@@ -1213,6 +1243,125 @@ export class PickOfTheDayService {
 				} catch { /* non-fatal */ }
 			}
 		}
+	}
+
+	/**
+	 * 3:25 PM IST Intraday Auto-Square-Off:
+	 * Finds all live picks with timeHorizon === "intraday" for today,
+	 * fetches their latest market prices, and evaluates their final status:
+	 *   - If returnPct >= 1.0 (or hitTarget): "target_hit"
+	 *   - If returnPct <= -0.8 (or hitStoploss): "stoploss_hit"
+	 *   - Otherwise: "expired" (closed at break-even)
+	 */
+	async squareOffIntradayPicks(): Promise<{ squaredOff: number; details: string[] }> {
+		const today = todayIST();
+		const liveIntradayPicks = await db
+			.select()
+			.from(dailyPicks)
+			.where(
+				and(
+					eq(dailyPicks.status, "live"),
+					eq(dailyPicks.timeHorizon, "intraday"),
+				),
+			);
+
+		logger.info(`⚡ [PickOfTheDay] Squaring off ${liveIntradayPicks.length} live intraday picks for ${today}...`);
+		const details: string[] = [];
+		let squaredOff = 0;
+
+		for (const pick of liveIntradayPicks) {
+			try {
+				const strategy = this.getStrategy(pick.category as PickCategory);
+				let livePrice: number | null = null;
+				let dayHigh: number | undefined;
+				let dayLow: number | undefined;
+
+				if (strategy.getLiveQuote) {
+					const quote = await strategy.getLiveQuote(pick.instrumentId || pick.symbol || "");
+					if (quote) {
+						livePrice = quote.price;
+						dayHigh = quote.dayHigh;
+						dayLow = quote.dayLow;
+					}
+				}
+				if (livePrice == null) {
+					livePrice = await strategy.getLivePrice(pick.instrumentId || pick.symbol || "");
+				}
+				const recoPrice = Number.parseFloat(pick.recoPrice);
+				const targetPrice = Number.parseFloat(pick.targetPrice);
+				const stoplossPrice = Number.parseFloat(pick.stoplossPrice);
+				const currentP = (livePrice != null && livePrice > 0) ? livePrice : Number.parseFloat(pick.currentPrice || pick.recoPrice);
+
+				const returnPct = Number.parseFloat((((currentP - recoPrice) / recoPrice) * 100).toFixed(2));
+
+				const hitTarget = (dayHigh != null && dayHigh >= targetPrice) || currentP >= targetPrice;
+				const hitStoploss = (dayLow != null && dayLow <= stoplossPrice) || currentP <= stoplossPrice;
+
+				let finalStatus: PickStatus = "expired";
+				let exitPrice = currentP;
+
+				if (hitStoploss && hitTarget) {
+					finalStatus = "stoploss_hit";
+					exitPrice = stoplossPrice;
+				} else if (hitTarget) {
+					finalStatus = "target_hit";
+					exitPrice = Math.max(currentP, targetPrice);
+				} else if (hitStoploss) {
+					finalStatus = "stoploss_hit";
+					exitPrice = Math.min(currentP, stoplossPrice);
+				} else if (returnPct >= 1.0) {
+					finalStatus = "target_hit";
+					exitPrice = currentP;
+				} else if (returnPct <= -0.8) {
+					finalStatus = "stoploss_hit";
+					exitPrice = currentP;
+				}
+
+				const finalReturnPct = Number.parseFloat((((exitPrice - recoPrice) / recoPrice) * 100).toFixed(2));
+
+				await db
+					.update(dailyPicks)
+					.set({
+						currentPrice: exitPrice.toString(),
+						returnPct: finalReturnPct.toFixed(2),
+						status: finalStatus,
+						statusUpdatedAt: new Date(),
+						daysHeld: 0,
+						updatedAt: new Date(),
+					})
+					.where(eq(dailyPicks.id, pick.id));
+
+				squaredOff++;
+				const msg = `[AutoSquareOff] ${pick.symbol || pick.instrumentName}: ${pick.status} -> ${finalStatus} (Entry: ₹${recoPrice}, Exit: ₹${exitPrice}, P&L: ${finalReturnPct}%)`;
+				details.push(msg);
+				logger.info(`⚡ ${msg}`, {
+					event: "INTRADAY_AUTO_SQUARE_OFF",
+					pick_id: pick.id,
+					symbol: pick.symbol,
+					reco_price: recoPrice,
+					exit_price: exitPrice,
+					return_pct: finalReturnPct,
+					status: finalStatus,
+					hit_target: hitTarget,
+					hit_stoploss: hitStoploss,
+					timestamp: new Date().toISOString(),
+				});
+			} catch (err: any) {
+				logger.error(`[AutoSquareOff] Failed for pick ${pick.id}:`, err?.message || err);
+			}
+		}
+
+		if (squaredOff > 0) {
+			try {
+				const redis = await this.getRedis();
+				if (redis) {
+					await redis.del("picks:live");
+					await redis.del(`picks:daily:${today}`);
+				}
+			} catch { /* non-fatal */ }
+		}
+
+		return { squaredOff, details };
 	}
 
 	/**
@@ -2003,8 +2152,54 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 		};
 		scheduleMidAfternoonRefresh();
 
+		// ── 3:25 PM IST ── Intraday Auto-Square-Off (NSE trading days only)
+		// Squares off all open intraday calls 5 minutes before normal market close (3:30 PM),
+		// matching SEBI/broker auto-square-off discipline.
+		const scheduleIntradaySquareOff = () => {
+			const delayMs = msUntilIst(15, 25);
+			logger.info(
+				`📅 [PickOfTheDay] Intraday auto-square-off scheduled in ${Math.round(delayMs / 60000)} min (3:25 PM IST)`,
+			);
+			setTimeout(() => {
+				if (this.isNSETradingDay(todayIST())) {
+					logger.info(`⚡ [PickOfTheDay] Executing 3:25 PM IST Intraday Auto-Square-Off...`);
+					this.squareOffIntradayPicks().catch((err) =>
+						logger.error("[PickOfTheDay] 3:25PM Intraday square-off error:", err instanceof Error ? err : new Error(String(err))),
+					);
+				}
+				scheduleIntradaySquareOff();
+			}, delayMs);
+		};
+		scheduleIntradaySquareOff();
+
+		// ── Market Hours Intraday Heartbeat (every 15 min between 9:25 AM and 3:25 PM IST) ──
+		const INTRADAY_MONITOR_INTERVAL_MS = 15 * 60 * 1000;
+		setInterval(async () => {
+			try {
+				const now = new Date(Date.now() + 5.5 * 3600 * 1000);
+				const hours = now.getUTCHours();
+				const minutes = now.getUTCMinutes();
+				const timeVal = hours * 60 + minutes;
+				// Active market window: 9:20 AM (560m) to 3:25 PM (925m) IST
+				const isMarketHours = timeVal >= 560 && timeVal <= 925;
+				if (isMarketHours && this.isNSETradingDay(todayIST())) {
+					// Check if any live intraday picks exist before firing full refresh
+					const liveIntradayCount = await db
+						.select({ count: sql<number>`COUNT(*)` })
+						.from(dailyPicks)
+						.where(and(eq(dailyPicks.status, "live"), eq(dailyPicks.timeHorizon, "intraday")));
+					if (Number(liveIntradayCount[0]?.count || 0) > 0) {
+						logger.info(`⚡ [PickOfTheDay] Intraday heartbeat: syncing prices for active intraday calls...`);
+						await this.refreshLivePicks();
+					}
+				}
+			} catch (heartbeatErr) {
+				// Non-fatal background monitor
+			}
+		}, INTRADAY_MONITOR_INTERVAL_MS);
+
 		logger.info(
-			`📅 [PickOfTheDay] Market-aware scheduler started: Generation@9:20AM, Refresh@11AM+12:30PM+2:30PM+4:00PM IST (NSE trading days only)`,
+			`📅 [PickOfTheDay] Market-aware scheduler started: Gen@9:20AM, Refresh@11AM+12:30PM+2:30PM, SquareOff@3:25PM, EOD@4:00PM IST`,
 		);
 
 		// ── Auto-heal: every 6 hours ── Catch any generation failures silently

@@ -80,7 +80,24 @@ export abstract class BaseStrategy implements IPickStrategy {
 		category: PickCategory,
 		volatility?: number,
 		currentPrice?: number,
+		timeHorizon?: string,
 	): { targetPct: number; stoplossPct: number; atrPct?: number } {
+		// ── Intraday Calibration: 1-session target (1.5% - 3.0%) with strict 2:1 R:R ──
+		if (timeHorizon === "intraday" && (category === "listed_stocks" || category === "derivatives")) {
+			const annualVol = volatility && volatility > 0 ? volatility : 25;
+			const dailyVolFrac = (annualVol / 100) / Math.sqrt(252);
+			const atrFrac = dailyVolFrac * 1.2;
+			// Target: 1.5% to 3.0% (calibrated to ~1.2x daily ATR)
+			const targetPct = Math.min(0.035, Math.max(0.015, Math.round(atrFrac * 1.2 * 1000) / 1000));
+			// Strict 2:1 Risk-to-Reward ratio for intraday (stoploss is exactly half of target)
+			const stoplossPct = Math.round((targetPct / 2.0) * 1000) / 1000;
+			return {
+				targetPct,
+				stoplossPct,
+				atrPct: Math.round(atrFrac * 10000) / 10000,
+			};
+		}
+
 		const baseTargets: Record<string, { target: number; stoploss: number }> = {
 			listed_stocks: { target: 0.10, stoploss: 0.05 }, // Calibrated swing: +10.0% target / -5.0% stop (2:1 R:R)
 			mutual_funds: { target: 0.08, stoploss: 0.04 }, // Realistic 180-day fund target (8% upside / 4% stop, 2:1 R:R)
@@ -146,7 +163,9 @@ export abstract class BaseStrategy implements IPickStrategy {
 
 	protected getExpiryDate(days: number): string {
 		const date = new Date();
-		date.setDate(date.getDate() + days);
+		if (days > 0) {
+			date.setDate(date.getDate() + days);
+		}
 		return date.toISOString().split("T")[0];
 	}
 

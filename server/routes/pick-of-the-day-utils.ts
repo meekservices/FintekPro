@@ -10,7 +10,7 @@ import {
 	dailyPicks,
 } from "@shared/schema";
 import { eq, sql, inArray, and } from "drizzle-orm";
-import { calculateSuggestedAllocation } from "../services/pick-of-the-day-service";
+import { calculateSuggestedAllocation, isPickExpired } from "../services/pick-of-the-day-service";
 
 export const REGULATORY_DISCLAIMER =
 	"Investment recommendations are AI-generated and for informational purposes only. Past performance does not guarantee future results. Investors should conduct independent due diligence and consult a SEBI-registered investment advisor before making investment decisions. FintekPro does not guarantee accuracy of third-party data. Data sourced from NSE, BSE, AMFI, Alpha Vantage, and Yahoo Finance.";
@@ -273,10 +273,9 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 	// ── Phase 1: live price fetch (2s cap per pick, market categories only) ──────
 	Promise.all(
 		picks.map(async (pick) => {
-			// Expiry check
+			// Expiry check (respects intraday 15:30 IST market close)
 			if (pick.status === "live" && pick.expiryDate) {
-				const expiry = new Date(pick.expiryDate);
-				if (expiry < now) {
+				if (isPickExpired(pick.expiryDate, pick.timeHorizon)) {
 					pick.status = "expired";
 					if (pick.id) expiredPickIds.push(pick.id);
 				}

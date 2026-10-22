@@ -387,22 +387,33 @@ export class PickOutcomeAnalyzer {
     // Stored as a JSONB blob under key "pick_signal_efficacy_report".
     // No schema migration required — adminSettings is a key-value store.
     try {
-      await db
-        .insert(adminSettings)
-        .values({
-          key: EFFICACY_REPORT_KEY,
-          value: report as any,  // jsonb column accepts object directly
-          description: "Latest Pick of the Day signal efficacy report (auto-generated weekly). " +
-            "FASP-AI v3.0 — review scoringWeightHints and escalate approved changes to engineering.",
-          updatedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: adminSettings.key,
-          set: {
-            value: JSON.stringify(report),
+      const existing = await db
+        .select({ id: adminSettings.id })
+        .from(adminSettings)
+        .where(eq(adminSettings.key, EFFICACY_REPORT_KEY))
+        .limit(1);
+
+      if (existing.length > 0) {
+        await db
+          .update(adminSettings)
+          .set({
+            value: report as any,
+            description: "Latest Pick of the Day signal efficacy report (auto-generated weekly). " +
+              "FASP-AI v3.0 — review scoringWeightHints and escalate approved changes to engineering.",
             updatedAt: new Date(),
-          },
-        });
+          })
+          .where(eq(adminSettings.key, EFFICACY_REPORT_KEY));
+      } else {
+        await db
+          .insert(adminSettings)
+          .values({
+            key: EFFICACY_REPORT_KEY,
+            value: report as any,
+            description: "Latest Pick of the Day signal efficacy report (auto-generated weekly). " +
+              "FASP-AI v3.0 — review scoringWeightHints and escalate approved changes to engineering.",
+            updatedAt: new Date(),
+          });
+      }
       logger.info(`[PickOutcomeAnalyzer] Efficacy report persisted to adminSettings key='${EFFICACY_REPORT_KEY}'`);
     } catch (persistErr) {
       // Non-fatal: log but don't fail the analysis
@@ -439,24 +450,37 @@ export class PickOutcomeAnalyzer {
     if (Object.keys(autoDowngrades).length > 0) {
       try {
         const WEIGHT_OVERRIDES_KEY = "pick_scoring_weight_overrides";
-        await db
-          .insert(adminSettings)
-          .values({
-            key: WEIGHT_OVERRIDES_KEY,
-            value: autoDowngrades as any,
-            description:
-              "Auto-generated scoring weight overrides from pick-outcome-analyzer. " +
-              "Signals with lift < 0.7 on ≥30 picks are penalised by 20%. " +
-              "FASP-AI v3.0: only decreases are automated — increases require human approval.",
-            updatedAt: new Date(),
-          })
-          .onConflictDoUpdate({
-            target: adminSettings.key,
-            set: {
-              value: JSON.stringify(autoDowngrades),
+        const existingOverride = await db
+          .select({ id: adminSettings.id })
+          .from(adminSettings)
+          .where(eq(adminSettings.key, WEIGHT_OVERRIDES_KEY))
+          .limit(1);
+
+        if (existingOverride.length > 0) {
+          await db
+            .update(adminSettings)
+            .set({
+              value: autoDowngrades as any,
+              description:
+                "Auto-generated scoring weight overrides from pick-outcome-analyzer. " +
+                "Signals with lift < 0.7 on ≥30 picks are penalised by 20%. " +
+                "FASP-AI v3.0: only decreases are automated — increases require human approval.",
               updatedAt: new Date(),
-            },
-          });
+            })
+            .where(eq(adminSettings.key, WEIGHT_OVERRIDES_KEY));
+        } else {
+          await db
+            .insert(adminSettings)
+            .values({
+              key: WEIGHT_OVERRIDES_KEY,
+              value: autoDowngrades as any,
+              description:
+                "Auto-generated scoring weight overrides from pick-outcome-analyzer. " +
+                "Signals with lift < 0.7 on ≥30 picks are penalised by 20%. " +
+                "FASP-AI v3.0: only decreases are automated — increases require human approval.",
+              updatedAt: new Date(),
+            });
+        }
         logger.info(
           `[PickOutcomeAnalyzer] Weight overrides persisted: ${JSON.stringify(autoDowngrades)}`,
         );

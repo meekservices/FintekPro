@@ -465,11 +465,19 @@ export async function refreshAllHoldingNAVs(): Promise<{
   });
 
   // Fetch all active holdings with schemeCode (only MFs/ETFs get mfapi refresh)
-  const activeHoldings = await db
-    .select()
-    .from(modelPortfolioHoldings)
-    .where(isNull(modelPortfolioHoldings.removedAt))
-    .orderBy(desc(modelPortfolioHoldings.alphaScore));
+  let activeHoldings: any[] = [];
+  try {
+    activeHoldings = await db
+      .select()
+      .from(modelPortfolioHoldings)
+      .where(isNull(modelPortfolioHoldings.removedAt))
+      .orderBy(desc(modelPortfolioHoldings.alphaScore));
+  } catch (err: unknown) {
+    logger.warn("[HoldingNAVRefresh] Relational table model_portfolio_holdings not available; holdings stored in model_portfolios JSONB", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return { updated: 0, skipped: 0, errors: 0 };
+  }
 
   const withSchemeCode = activeHoldings.filter((h) => !!h.schemeCode);
   const withoutSchemeCode = activeHoldings.length - withSchemeCode.length;
