@@ -78,6 +78,17 @@ async function run(): Promise<void> {
 			logger.warn(`[${JOB_NAME}] Phase C failed (non-fatal)`, { error: String(err) });
 		}
 
+		// Phase D: Model Portfolio Unitized NAV & History sync
+		logger.info(`[${JOB_NAME}] Phase D: Model portfolio unitized NAV sync`);
+		try {
+			const { refreshAllPortfolioNavHistory } = await import("../server/services/model-portfolio-nav-service");
+			const { db } = await import("../server/db");
+			const navResult = await refreshAllPortfolioNavHistory(db);
+			logger.info(`[${JOB_NAME}] Phase D complete: ${navResult.ok}/${navResult.total} model portfolios NAV updated`);
+		} catch (err) {
+			logger.warn(`[${JOB_NAME}] Phase D failed (non-fatal)`, { error: String(err) });
+		}
+
 		const latencyMs = Date.now() - START_TIME;
 		logger.info(`[${JOB_NAME}] Job completed successfully`, {
 			event: "JOB_COMPLETE",

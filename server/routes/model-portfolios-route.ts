@@ -6640,3 +6640,131 @@ modelPortfoliosRouter.post("/:id/sync-ai-picks", async (req: Request, res: Respo
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MUTUAL FUND STYLE FACTSHEET & UNITIZED NAV ENGINE (FASP-AI v3.0)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/model-portfolios/:id/factsheet
+ * Returns complete mutual-fund style factsheet data model (JSON).
+ */
+modelPortfoliosRouter.get("/:id/factsheet", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const { modelPortfolioFactsheetService } = await import(
+      "../services/model-portfolio-factsheet-service"
+    );
+    const factsheet = await modelPortfolioFactsheetService.getFactsheet(id);
+    return res.json({
+      success: true,
+      data: factsheet,
+      meta: {
+        portfolioId: id,
+        timestamp: new Date().toISOString(),
+        version: "FASP-AI-v3.0",
+        latency_ms: Date.now() - t0,
+      },
+    });
+  } catch (err: any) {
+    logger.error(`[ModelPortfolios] Factsheet generation error for ${req.params.id}`, err);
+    return res.status(err.message.includes("not found") ? 404 : 500).json({
+      success: false,
+      error_code: "FACTSHEET_GENERATION_FAILED",
+      message: err.message,
+    });
+  }
+});
+
+/**
+ * GET /api/model-portfolios/:id/factsheet/view
+ * Renders executive-grade, printable/downloadable HTML Mutual Fund Factsheet.
+ */
+modelPortfoliosRouter.get("/:id/factsheet/view", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { modelPortfolioFactsheetService } = await import(
+      "../services/model-portfolio-factsheet-service"
+    );
+    const html = await modelPortfolioFactsheetService.generateFactsheetHtml(id);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.send(html);
+  } catch (err: any) {
+    return res.status(err.message.includes("not found") ? 404 : 500).send(`
+      <div style="font-family: sans-serif; padding: 40px; text-align: center; color: #dc2626;">
+        <h2>Factsheet Not Available</h2>
+        <p>${err.message}</p>
+      </div>
+    `);
+  }
+});
+
+/**
+ * GET /api/model-portfolios/:id/daily-nav
+ * Returns live unitized NAV with daily change, 52W high/low, and latest NAV date.
+ */
+modelPortfoliosRouter.get("/:id/daily-nav", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { modelPortfolioFactsheetService } = await import(
+      "../services/model-portfolio-factsheet-service"
+    );
+    const factsheet = await modelPortfolioFactsheetService.getFactsheet(id);
+    return res.json({
+      success: true,
+      data: {
+        portfolioId: id,
+        portfolioCode: factsheet.fundProfile.portfolioCode,
+        name: factsheet.fundProfile.name,
+        currentNav: factsheet.fundProfile.currentNav,
+        navDate: factsheet.fundProfile.navDate,
+        navChange: factsheet.fundProfile.navChange,
+        navChangePct: factsheet.fundProfile.navChangePct,
+        high52WeekNav: factsheet.fundProfile.high52WeekNav,
+        low52WeekNav: factsheet.fundProfile.low52WeekNav,
+        inceptionNav: factsheet.fundProfile.inceptionNav,
+        inceptionDate: factsheet.fundProfile.inceptionDate,
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: "FASP-AI-v3.0",
+      },
+    });
+  } catch (err: any) {
+    return res.status(err.message.includes("not found") ? 404 : 500).json({
+      success: false,
+      error_code: "NAV_FETCH_FAILED",
+      message: err.message,
+    });
+  }
+});
+
+/**
+ * GET /api/model-portfolios/:id/unit-statement
+ * Computes client virtual unit statement (Consolidated Account Statement style).
+ */
+modelPortfoliosRouter.get("/:id/unit-statement", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const clientId = (req.query.clientId as string) || (req as any).user?.id || "client-demo-1";
+    const { modelPortfolioFactsheetService } = await import(
+      "../services/model-portfolio-factsheet-service"
+    );
+    const statement = await modelPortfolioFactsheetService.calculateClientUnitStatement(clientId, id);
+    return res.json({
+      success: true,
+      data: statement,
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: "FASP-AI-v3.0",
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error_code: "STATEMENT_GENERATION_FAILED",
+      message: err.message,
+    });
+  }
+});
+
