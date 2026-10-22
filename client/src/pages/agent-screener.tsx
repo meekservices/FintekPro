@@ -710,6 +710,19 @@ export default function AgentScreener() {
 				if (!r.ok) throw new Error("Failed to fetch screener data");
 				return r.json();
 			}),
+		select: (data: any) => {
+			if (!data?.stocks || !Array.isArray(data.stocks)) return data;
+			const seen = new Set<string>();
+			const uniqueStocks: any[] = [];
+			for (const s of data.stocks) {
+				const sym = s.symbol || s.id;
+				if (!seen.has(sym)) {
+					seen.add(sym);
+					uniqueStocks.push(s);
+				}
+			}
+			return { ...data, stocks: uniqueStocks };
+		},
 	});
 
 	// ── Instrument screener query (MF / Bond / ETF / Unlisted / REIT) ───────────

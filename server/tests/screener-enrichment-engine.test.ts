@@ -19,6 +19,7 @@ import {
 	calculateAnalystConsensus,
 	type StockFundamentalInputs,
 } from "../services/screener/screener-enrichment-engine";
+import { queryScreener } from "../services/screener/screener-query-engine";
 
 describe("Screener Enrichment Engine — Mathematical DCF", () => {
 	const relianceLikeStock: StockFundamentalInputs = {
@@ -142,4 +143,31 @@ describe("Screener Enrichment Engine — Analyst Consensus Baseline", () => {
 		const c2 = calculateAnalystConsensus(stock, dcf);
 		expect(c1).toEqual(c2);
 	});
+});
+
+describe("Screener Query Engine — Deduplication & Guardrails", () => {
+	it("returns zero duplicate symbols on default screener page (verifying HINDZINC and TCS)", async () => {
+		const res = await queryScreener({ page: 1, limit: 30 });
+		expect(res.stocks.length).toBeGreaterThan(0);
+
+		const symbols = res.stocks.map((s) => s.symbol);
+		const uniqueSymbols = new Set(symbols);
+
+		// Every stock symbol returned in the page MUST be completely unique
+		expect(symbols.length).toBe(uniqueSymbols.size);
+
+		// Specific check for HINDZINC: must appear at most once
+		const hindzincOccurrences = symbols.filter((s) => s === "HINDZINC").length;
+		expect(hindzincOccurrences).toBeLessThanOrEqual(1);
+	}, 15000);
+
+	it("returns exact unique matches when searching specifically for TCS", async () => {
+		const res = await queryScreener({ search: "TCS", page: 1, limit: 10 });
+		const symbols = res.stocks.map((s) => s.symbol);
+		const uniqueSymbols = new Set(symbols);
+
+		expect(symbols.length).toBe(uniqueSymbols.size);
+		const tcsOccurrences = symbols.filter((s) => s === "TCS").length;
+		expect(tcsOccurrences).toBe(1);
+	}, 15000);
 });

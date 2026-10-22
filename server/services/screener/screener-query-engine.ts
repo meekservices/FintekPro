@@ -727,6 +727,28 @@ export async function queryScreener(
 					ORDER BY sf2.fiscal_year DESC NULLS LAST, sf2.last_updated DESC NULLS LAST
 					LIMIT 1
 				))`,
+				// screener_dcf_valuations dedup: only keep the latest DCF valuation per symbol.
+				// Prevents historical DCF runs from multiplying rows in paginated screener results.
+				sql`(${screenerDcfValuations.id} IS NULL OR ${screenerDcfValuations.id} = (
+					SELECT id FROM screener_dcf_valuations sdcf2
+					WHERE sdcf2.symbol = ${listedStocks.symbol}
+					ORDER BY sdcf2.date DESC NULLS LAST, sdcf2.last_updated DESC NULLS LAST
+					LIMIT 1
+				))`,
+				// screener_key_metrics dedup: only keep the latest key metrics row per symbol.
+				sql`(${screenerKeyMetrics.id} IS NULL OR ${screenerKeyMetrics.id} = (
+					SELECT id FROM screener_key_metrics skm2
+					WHERE skm2.symbol = ${listedStocks.symbol}
+					ORDER BY skm2.date DESC NULLS LAST, skm2.last_updated DESC NULLS LAST
+					LIMIT 1
+				))`,
+				// screener_shareholding dedup: only keep the latest quarter shareholding per symbol.
+				sql`(${screenerShareholding.id} IS NULL OR ${screenerShareholding.id} = (
+					SELECT id FROM screener_shareholding ssh2
+					WHERE ssh2.symbol = ${listedStocks.symbol}
+					ORDER BY ssh2.quarter_date DESC NULLS LAST, ssh2.created_at DESC NULLS LAST
+					LIMIT 1
+				))`,
 				...(hasFinancialFilters ? financialConditions : []),
 				...(hasDerivedFilters ? derivedConditions : []),
 				...(hasTechnicalFilters ? technicalConditions : []),
@@ -745,6 +767,8 @@ export async function queryScreener(
 		.leftJoin(screenerKeyMetrics, eq(listedStocks.symbol, screenerKeyMetrics.symbol))
 		.leftJoin(screenerTechnicalIndicatorsLatest, eq(listedStocks.symbol, screenerTechnicalIndicatorsLatest.symbol))
 		.leftJoin(screenerShareholding, eq(listedStocks.symbol, screenerShareholding.symbol))
+		.leftJoin(screenerAnalystConsensus, eq(listedStocks.symbol, screenerAnalystConsensus.symbol))
+		.leftJoin(screenerDcfValuations, eq(listedStocks.symbol, screenerDcfValuations.symbol))
 		.where(
 			and(
 				...conditions,
@@ -752,6 +776,24 @@ export async function queryScreener(
 					SELECT id FROM screener_financials sf2
 					WHERE sf2.symbol = ${listedStocks.symbol}
 					ORDER BY sf2.fiscal_year DESC NULLS LAST, sf2.last_updated DESC NULLS LAST
+					LIMIT 1
+				))`,
+				sql`(${screenerDcfValuations.id} IS NULL OR ${screenerDcfValuations.id} = (
+					SELECT id FROM screener_dcf_valuations sdcf2
+					WHERE sdcf2.symbol = ${listedStocks.symbol}
+					ORDER BY sdcf2.date DESC NULLS LAST, sdcf2.last_updated DESC NULLS LAST
+					LIMIT 1
+				))`,
+				sql`(${screenerKeyMetrics.id} IS NULL OR ${screenerKeyMetrics.id} = (
+					SELECT id FROM screener_key_metrics skm2
+					WHERE skm2.symbol = ${listedStocks.symbol}
+					ORDER BY skm2.date DESC NULLS LAST, skm2.last_updated DESC NULLS LAST
+					LIMIT 1
+				))`,
+				sql`(${screenerShareholding.id} IS NULL OR ${screenerShareholding.id} = (
+					SELECT id FROM screener_shareholding ssh2
+					WHERE ssh2.symbol = ${listedStocks.symbol}
+					ORDER BY ssh2.quarter_date DESC NULLS LAST, ssh2.created_at DESC NULLS LAST
 					LIMIT 1
 				))`,
 				...(hasFinancialFilters ? financialConditions : []),
@@ -795,7 +837,17 @@ export async function queryScreener(
 			),
 	]);
 
-	const enrichedStocks = enrichStocksJIT(stocks as ScreenerResult[]);
+	// Guardrail: in-memory deduplication by symbol to guarantee 100% unique stocks per page
+	const seenSymbols = new Set<string>();
+	const uniqueStocks: typeof stocks = [];
+	for (const s of stocks) {
+		if (!seenSymbols.has(s.symbol)) {
+			seenSymbols.add(s.symbol);
+			uniqueStocks.push(s);
+		}
+	}
+
+	const enrichedStocks = enrichStocksJIT(uniqueStocks as ScreenerResult[]);
 
 	return {
 		stocks: enrichedStocks,
