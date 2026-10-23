@@ -2452,23 +2452,27 @@ export default function AgentPicksPage() {
 		} else {
 			// Stocks / ETFs / Bonds / All — pick columns
 			const picksToExport = todayCategoryFilter === "all" ? todayPicks : filteredTodayPicks;
-			const head = [["#", "Name", "Symbol", "Category", "Entry", "Target", "Stop Loss", "Upside%", "Downside%", "Horizon", "Conf.", "Date"]];
+			const head = [["#", "Name", "Symbol", "Category", "Entry", "LTP", "Target", "SL", "Upside%", "Return%", "Horizon", "Conf.", "Date"]];
 			const body = picksToExport.map((p: any, i: number) => {
 				const cur = getCurrencySymbol(p.category);
-				const up = p.targetPrice && p.recoPrice
-					? `${(((p.targetPrice - p.recoPrice) / p.recoPrice) * 100).toFixed(1)}%` : "—";
-				const dn = p.stoplossPrice && p.recoPrice
-					? `${(((p.recoPrice - p.stoplossPrice) / p.recoPrice) * 100).toFixed(1)}%` : "—";
+				const _rec = safeNum(p.recoPrice);
+				const _ltp = safeNum(p.currentPrice) > 0 ? safeNum(p.currentPrice) : _rec;
+				const up = p.targetPrice && _rec
+					? `${(((p.targetPrice - _rec) / _rec) * 100).toFixed(1)}%` : "—";
+				const ret = p.returnPct != null
+					? `${safeNum(p.returnPct) >= 0 ? "+" : ""}${safeNum(p.returnPct).toFixed(1)}%`
+					: _rec > 0 ? `${(((_ltp - _rec) / _rec) * 100).toFixed(1)}%` : "—";
 				return [
 					i + 1,
 					p.instrumentName || "—",
 					p.symbol || "—",
 					categoryLabels[p.category] || p.category,
-					p.recoPrice ? `${cur}${p.recoPrice}` : "—",
+					_rec ? `${cur}${_rec}` : "—",
+					_ltp ? `${cur}${_ltp}` : "—",
 					p.targetPrice ? `${cur}${p.targetPrice}` : "—",
 					p.stoplossPrice ? `${cur}${p.stoplossPrice}` : "—",
 					up,
-					dn,
+					ret,
 					p.timeHorizon || "—",
 					p.confidenceScore != null ? `${p.confidenceScore}%` : "—",
 					new Date(p.recoDate).toLocaleDateString("en-IN"),
@@ -2478,11 +2482,11 @@ export default function AgentPicksPage() {
 				startY: 22,
 				head,
 				body,
-				styles: { fontSize: 7.5, cellPadding: 2 },
+				styles: { fontSize: 7, cellPadding: 2 },
 				headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: "bold" },
 				alternateRowStyles: { fillColor: [239, 246, 255] },
-				columnStyles: { 0: { halign: "center", cellWidth: 7 }, 1: { cellWidth: 45 } },
-				margin: { left: 10, right: 10 },
+				columnStyles: { 0: { halign: "center", cellWidth: 6 }, 1: { cellWidth: 40 } },
+				margin: { left: 8, right: 8 },
 			});
 		}
 
@@ -2546,31 +2550,38 @@ export default function AgentPicksPage() {
 				"Symbol",
 				"Category",
 				"Entry Price",
+				"LTP",
 				"Target",
 				"Stoploss",
 				"Upside%",
+				"Return%",
 				"Downside%",
 				"Horizon",
 				"Confidence",
 				"Date",
 			],
 			...todayPicks.map((p) => {
+				const _rec = safeNum(p.recoPrice);
+				const _ltp = safeNum(p.currentPrice) > 0 ? safeNum(p.currentPrice) : _rec;
 				const up =
-					p.targetPrice && p.recoPrice
-						? (((p.targetPrice - p.recoPrice) / p.recoPrice) * 100).toFixed(1)
+					p.targetPrice && _rec
+						? (((p.targetPrice - _rec) / _rec) * 100).toFixed(1)
 						: "";
 				const dn =
-					p.stoplossPrice && p.recoPrice
-						? (((p.recoPrice - p.stoplossPrice) / p.recoPrice) * 100).toFixed(1)
+					p.stoplossPrice && _rec
+						? (((_rec - p.stoplossPrice) / _rec) * 100).toFixed(1)
 						: "";
+				const ret = p.returnPct != null ? String(p.returnPct) : _rec > 0 ? (((_ltp - _rec) / _rec) * 100).toFixed(1) : "0.0";
 				return [
 					p.instrumentName,
 					p.symbol || "",
 					categoryLabels[p.category] || p.category,
-					p.recoPrice,
+					_rec,
+					_ltp,
 					p.targetPrice,
 					p.stoplossPrice,
 					up,
+					ret,
 					dn,
 					p.timeHorizon || "",
 					p.confidenceScore ?? "",
@@ -3165,6 +3176,7 @@ export default function AgentPicksPage() {
 												`   - *Asset Class:* ${label}\n` +
 												`   - *Recommended Sizing:* ${formatPrice(Math.round(targetAllocation), pick.category)} (${((weight / totalWeight) * 100).toFixed(0)}% allocation)\n` +
 												`   - *Entry Price:* ${formatPrice(pick.recoPrice, pick.category)}\n` +
+												`   - *LTP (CMP):* ${formatPrice(safeNum(pick.currentPrice) > 0 ? safeNum(pick.currentPrice) : safeNum(pick.recoPrice), pick.category)}\n` +
 												`   - *Target Price:* ${formatPrice(pick.targetPrice, pick.category)} (+${(((pick.targetPrice - pick.recoPrice) / pick.recoPrice) * 100).toFixed(0)}%)\n` +
 												`   - *Approx. Purchase Qty:* ${qty} shares/units`,
 										);
