@@ -23,7 +23,7 @@ export interface NewsGroundingResult {
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
 export class PickNewsGroundingService {
-	private readonly MODEL_NAME = "gemini-2.0-flash";
+	private readonly MODEL_NAME = "gemini-2.5-flash";
 
 	/**
 	 * Runs a real-time Google Search-grounded news scan for an investment candidate.

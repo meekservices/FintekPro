@@ -92,10 +92,10 @@ function setCache<T>(key: string, data: T): void {
 
 const RSS_SOURCES = {
   et_markets: {
-    url: "https://economictimes.indiatimes.com/markets/rss.cms",
+    url: "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms",
     label: "ET Markets",
     source: "et_markets" as NewsSource,
-    fallbackUrl: "https://economictimes.indiatimes.com/prime/money-and-markets/rss.cms",
+    fallbackUrl: "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms",
   },
   financial_express: {
     url: "https://www.financialexpress.com/market/feed/",
@@ -120,8 +120,8 @@ function extractBetweenTags(xml: string, tag: string): string {
 
 function parseRssItems(xml: string, source: NewsSource, sourceLabel: string): MarketNewsItem[] {
   const items: MarketNewsItem[] = [];
-  // Extract all <item> blocks
-  const itemRe = /<item>([\s\S]*?)<\/item>/gi;
+  // Extract all <item> blocks (supporting attributes or namespace)
+  const itemRe = /<item[^>]*>([\s\S]*?)<\/item>/gi;
   let match: RegExpExecArray | null;
 
   while ((match = itemRe.exec(xml)) !== null) {
@@ -182,7 +182,7 @@ async function fetchWithRetry(url: string, maxRetries = 3, timeoutMs = 8000): Pr
       const response = await fetch(url, {
         signal: controller.signal,
         headers: {
-          "User-Agent": "FintekPro-NewsAggregator/1.0 (market-news-bot; +https://fintekpro.in)",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 (FintekPro Market News Bot)",
           "Accept": "application/rss+xml, application/xml, text/xml, */*",
         },
       });
