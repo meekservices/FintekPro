@@ -312,7 +312,7 @@ export default function AgentResearchLists() {
 					</TabsTrigger>
 				</TabsList>
 
-				{/* ── Tab 1: PRO Stock Lists (Moneycontrol Format / Upstox Powered) ── */}
+				{/* ── Tab 1: PRO Stock Lists (Standard Market Format) ── */}
 				<TabsContent value="pro-lists" className="space-y-6 mt-0">
 					<ProStockListsView />
 				</TabsContent>

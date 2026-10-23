@@ -280,18 +280,17 @@ export default function PickOfTheDayWidget() {
 										})()}
 
 										<div className="flex items-center gap-2.5 text-xs text-muted-foreground flex-wrap">
-											{/* Live LTP Pill - Powered by Upstox */}
+											{/* Live LTP Pill */}
 											<span
 												className={`inline-flex items-center gap-1 font-mono font-semibold px-2 py-0.5 rounded text-[11px] border ${
 													Number.parseFloat(currentReturn) >= 0
 														? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800"
 														: "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-300 dark:border-red-800"
 												}`}
-												title="Live LTP powered by Upstox licensed market data"
+												title="Live LTP (Current Market Price)"
 											>
 												<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
 												Live LTP {formatPrice(effectiveLtp, pick.category)}
-												<span className="text-[9px] font-sans font-medium px-1 py-0.2 rounded bg-primary/10 text-primary">Upstox</span>
 												<span className="text-[10px] font-medium">
 													({Number.parseFloat(currentReturn) >= 0 ? "+" : ""}{currentReturn}%)
 												</span>

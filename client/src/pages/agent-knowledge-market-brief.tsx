@@ -320,7 +320,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 			? "Counsel clients against trying to time near-term volatility. Recommend balanced multi-asset allocation strategies and continuing systematic investment plans (SIPs) to benefit from rupee-cost averaging."
 			: "Highlight global diversification benefits. Recommend curated US tech ETF baskets to complement domestic core portfolios.",
 		sources: [
-			"Upstox Licensed NSE/BSE Feed",
+			"Licensed NSE/BSE Exchange Feed",
 			"CCIL (The Clearing Corporation of India Limited - ccilindia.com)",
 			"FBIL Benchmark Rates",
 			"MCX India & COMEX/CMX Commodity Desks",

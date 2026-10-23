@@ -21,7 +21,7 @@ export const DATA_SOURCES: Record<
 	{ name: string; type: string; refreshInterval: string }
 > = {
 	listed_stocks: {
-		name: "Upstox Live Exchange Feed (NSE/BSE)",
+		name: "Live Exchange Feed (NSE/BSE)",
 		type: "Real-time Live LTP",
 		refreshInterval: "Live Tick / Market Hours",
 	},
@@ -86,7 +86,7 @@ export async function getLiveInstrumentPrice(
 				if (batchMap && (isin || sym)) {
 					const cached = (isin ? batchMap.get(isin.toUpperCase()) : null) || (sym ? batchMap.get(sym.toUpperCase()) : null);
 					if (cached?.last_price && cached.last_price > 0) {
-						pick.priceDataSource = "Upstox Live";
+						pick.priceDataSource = "Live Exchange Feed";
 						pick.dataFreshness = "live";
 						return cached.last_price;
 					}
@@ -100,7 +100,7 @@ export async function getLiveInstrumentPrice(
 						try {
 							const uRes = await upstoxMarketDataService.getLTP(queryTarget, "NSE");
 							if (uRes.success && uRes.data?.last_price && uRes.data.last_price > 0) {
-								pick.priceDataSource = "Upstox Live";
+								pick.priceDataSource = "Live Exchange Feed";
 								pick.dataFreshness = "live";
 								return uRes.data.last_price;
 							}
@@ -122,7 +122,7 @@ export async function getLiveInstrumentPrice(
 					try {
 						const uRes = await upstoxMarketDataService.getLTP(row[0].isin, "NSE");
 						if (uRes.success && uRes.data?.last_price && uRes.data.last_price > 0) {
-							pick.priceDataSource = "Upstox Live";
+							pick.priceDataSource = "Live Exchange Feed";
 							pick.dataFreshness = "live";
 							return uRes.data.last_price;
 						}
@@ -183,7 +183,7 @@ export async function getLiveInstrumentPrice(
 				if (batchMap && queryTarget) {
 					const cached = (pick.isin ? batchMap.get(pick.isin.toUpperCase()) : null) || (pick.symbol ? batchMap.get(pick.symbol.toUpperCase()) : null);
 					if (cached?.last_price && cached.last_price > 0) {
-						pick.priceDataSource = "Upstox Live";
+						pick.priceDataSource = "Live Exchange Feed";
 						pick.dataFreshness = "live";
 						return cached.last_price;
 					}
@@ -192,7 +192,7 @@ export async function getLiveInstrumentPrice(
 					try {
 						const uRes = await upstoxMarketDataService.getLTP(queryTarget, "NSE");
 						if (uRes.success && uRes.data?.last_price && uRes.data.last_price > 0) {
-							pick.priceDataSource = "Upstox Live";
+							pick.priceDataSource = "Live Exchange Feed";
 							pick.dataFreshness = "live";
 							return uRes.data.last_price;
 						}
@@ -224,7 +224,7 @@ export async function getLiveInstrumentPrice(
 				if (batchMap && queryTarget) {
 					const cached = (pick.isin ? batchMap.get(pick.isin.toUpperCase()) : null) || (pick.symbol ? batchMap.get(pick.symbol.toUpperCase()) : null);
 					if (cached?.last_price && cached.last_price > 0) {
-						pick.priceDataSource = "Upstox Live";
+						pick.priceDataSource = "Live Exchange Feed";
 						pick.dataFreshness = "live";
 						return cached.last_price;
 					}
@@ -233,7 +233,7 @@ export async function getLiveInstrumentPrice(
 					try {
 						const uRes = await upstoxMarketDataService.getLTP(queryTarget, "NSE");
 						if (uRes.success && uRes.data?.last_price && uRes.data.last_price > 0) {
-							pick.priceDataSource = "Upstox Live";
+							pick.priceDataSource = "Live Exchange Feed";
 							pick.dataFreshness = "live";
 							return uRes.data.last_price;
 						}
@@ -648,7 +648,7 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 				pick.returnPct = Number.parseFloat((((cur - reco) / reco) * 100).toFixed(2));
 			}
 			if (!pick.priceDataSource) {
-				pick.priceDataSource = "Upstox Live";
+				pick.priceDataSource = "Live Exchange Feed";
 				pick.dataFreshness = "live";
 			}
 		} else if (Number.isFinite(reco) && reco > 0) {
@@ -659,7 +659,7 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 			}
 			pick.isLtpFallback = true;
 			if (!pick.priceDataSource) {
-				pick.priceDataSource = "Upstox Reference";
+				pick.priceDataSource = "Exchange Reference";
 				pick.dataFreshness = "recent";
 			}
 		}

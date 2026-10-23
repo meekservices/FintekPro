@@ -382,7 +382,7 @@ export default function PicksMonitor() {
 											<TableHead>Horizon</TableHead>
 											<TableHead>Confidence</TableHead>
 											<TableHead className="text-right">Reco Price</TableHead>
-											<TableHead className="text-right font-semibold text-blue-600 dark:text-blue-400">Live LTP (Upstox)</TableHead>
+											<TableHead className="text-right font-semibold text-blue-600 dark:text-blue-400">Live LTP</TableHead>
 											<TableHead className="text-right">Target</TableHead>
 											<TableHead className="text-right">Stoploss</TableHead>
 											<TableHead className="text-right">Return %</TableHead>
