@@ -17,7 +17,7 @@ RUN npm install --no-audit --no-fund --legacy-peer-deps
 COPY . .
 
 # Build the React/TypeScript assets and the Express server
-RUN NODE_OPTIONS='--max-old-space-size=2048' npm run build
+RUN NODE_OPTIONS='--max-old-space-size=4096' npm run build
 
 # Stage 2: Production runtime
 # INFRA-C3: Pinned to node:22-alpine to match builder and package.json engines constraint.

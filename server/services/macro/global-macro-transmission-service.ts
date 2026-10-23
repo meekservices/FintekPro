@@ -25,6 +25,7 @@ import { commodityMarketService, CommodityMarketSnapshot } from "../commodity-ma
 import { ccilMarketService, CcilMoneyMarketSnapshot } from "../ccil-market-service";
 import { CurrencyExchangeService } from "../currency-exchange-service";
 import { indianApiService } from "../indian-api-service";
+import { telemetryBus } from "../engine-telemetry-bus";
 
 export type MacroBias =
 	| "STRONG_TAILWIND"
@@ -413,6 +414,24 @@ export class GlobalMacroTransmissionService {
 			brent: brentPrice,
 			spread_bps: spreadBps,
 			latency_ms: Date.now() - t0,
+		});
+
+		// Report engine performance and quality to central telemetry bus
+		telemetryBus.report({
+			engineId: "global-macro-transmission",
+			engineName: "Global Macro Transmission Engine",
+			category: "Risk & Regime",
+			reportedAt: new Date().toISOString(),
+			latencyMs: Date.now() - t0,
+			qualityScore: Math.round(Math.min(100, Math.max(0, globalTailwindScore))),
+			itemsProcessed: transmissionChannels.length,
+			errorCount: 0,
+			meta: {
+				score: globalTailwindScore,
+				bias: macroBias,
+				brent: brentPrice,
+				spread_bps: spreadBps,
+			},
 		});
 
 		return report;

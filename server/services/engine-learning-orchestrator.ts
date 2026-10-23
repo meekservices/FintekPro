@@ -229,6 +229,9 @@ class EngineLearningOrchestrator {
       if (s.engineId === "model-portfolio-optimizer") {
         activeCalibrations.push("Alpha Recovery & Holding Drag Calibration Active");
       }
+      if (s.engineId === "global-macro-transmission") {
+        activeCalibrations.push("Cross-Border Transmission Channels & Global Shock Simulation Active");
+      }
 
       if (s.health === "degraded") {
         learningStatus = "calibrating";
@@ -250,12 +253,13 @@ class EngineLearningOrchestrator {
     });
 
     // Ensure core engines are always represented even if no telemetry report occurred yet
-    const registeredCoreEngines: Array<{ id: string; name: string; category: string }> = [
-      { id: "pick-of-the-day", name: "Pick of the Day Engine", category: "Alpha Generation" },
-      { id: "pro-thematic-screener", name: "Pro Thematic Screener", category: "Alpha Generation" },
-      { id: "model-portfolio-optimizer", name: "Model Portfolio Quant Optimizer", category: "Portfolio" },
-      { id: "ai-regime-detection", name: "Market Regime Detection Engine", category: "Risk & Regime" },
-      { id: "upstox-golden-pricing", name: "Upstox Golden Market Data", category: "Data Quality" },
+    const registeredCoreEngines: Array<{ id: string; name: string; category: string; defaultCalibration?: string }> = [
+      { id: "pick-of-the-day", name: "Pick of the Day Engine", category: "Alpha Generation", defaultCalibration: `Scorer Threshold: ${currentScorerThreshold} pts` },
+      { id: "pro-thematic-screener", name: "Pro Thematic Screener", category: "Alpha Generation", defaultCalibration: "Constituent Momentum & F-Score Efficacy Tracked" },
+      { id: "model-portfolio-optimizer", name: "Model Portfolio Quant Optimizer", category: "Portfolio", defaultCalibration: "Alpha Recovery & Holding Drag Calibration Active" },
+      { id: "global-macro-transmission", name: "Global Macro Transmission Engine", category: "Risk & Regime", defaultCalibration: "Cross-Border Transmission Channels & Global Shock Simulation Active" },
+      { id: "ai-regime-detection", name: "Market Regime Detection Engine", category: "Risk & Regime", defaultCalibration: "Black Swan 10σ Volatility Detection Active" },
+      { id: "upstox-golden-pricing", name: "Upstox Golden Market Data", category: "Data Quality", defaultCalibration: "Live Tick Freshness & Golden Price Resolution Active" },
     ];
 
     for (const core of registeredCoreEngines) {
@@ -269,7 +273,7 @@ class EngineLearningOrchestrator {
           qualityScore: 90,
           reportCount: 1,
           lastReportedAt: new Date().toISOString(),
-          activeCalibrations: ["Standard Adaptive Learning Active"],
+          activeCalibrations: [core.defaultCalibration ?? "Standard Adaptive Learning Active"],
         });
       }
     }
@@ -308,7 +312,8 @@ class EngineLearningOrchestrator {
    *   1. Evaluates closed outcomes via PickOutcomeAnalyzer.
    *   2. Calibrates scorer thresholds via ScorerCalibrationService.
    *   3. Evaluates thematic constituent forward momentum.
-   *   4. Detects engine drift and triggers self-correction.
+   *   4. Audits Global Macro Transmission signals & cross-border tailwinds.
+   *   5. Detects engine drift and triggers self-correction.
    */
   async runSelfImprovementCycle(): Promise<{
     success: boolean;
@@ -317,6 +322,7 @@ class EngineLearningOrchestrator {
     efficacyReport?: SignalEfficacyReport;
     calibrationResult?: any;
     thematicConstituentsEvaluated?: number;
+    macroTransmissionStatus?: string;
     driftDetections: number;
     meta: {
       timestamp: string;
@@ -386,7 +392,21 @@ class EngineLearningOrchestrator {
         logger.warn("[EngineLearningOrchestrator] Thematic screener audit failed", { error: err?.message });
       }
 
-      // ── Step 4: Detect Cross-Engine Drift ───────────────────────────────────
+      // ── Step 4: Audit Global Macro Transmission Engine (GMTE) Signals ───────
+      let macroSummary = "Neutral";
+      try {
+        const { globalMacroTransmissionService } = await import("./macro/global-macro-transmission-service");
+        const macroReport = await globalMacroTransmissionService.getMacroTransmissionReport();
+        macroSummary = `${macroReport.macroBias} (${macroReport.globalTailwindScore}/100)`;
+        logger.info("[EngineLearningOrchestrator] GMTE transmission channels audited in self-improvement cycle", {
+          score: macroReport.globalTailwindScore,
+          bias: macroReport.macroBias,
+        });
+      } catch (err: any) {
+        logger.warn("[EngineLearningOrchestrator] GMTE transmission audit non-fatal warning", { error: err?.message });
+      }
+
+      // ── Step 5: Detect Cross-Engine Drift ───────────────────────────────────
       const allStatuses = telemetryBus.getAllStatuses();
       let newDriftCount = 0;
 
@@ -424,6 +444,7 @@ class EngineLearningOrchestrator {
         efficacyReport,
         calibrationResult,
         thematicConstituentsEvaluated: thematicConstituentsCount,
+        macroTransmissionStatus: macroSummary,
         driftDetections: newDriftCount,
         meta: {
           timestamp: this.lastCycleAt,

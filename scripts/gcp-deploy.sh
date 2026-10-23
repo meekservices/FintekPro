@@ -308,6 +308,10 @@ gcloud run jobs update fintekpro-enrichment \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
     --vpc-connector=fintekpro-vpc-connector \
     --vpc-egress=all \
+    --memory=2Gi \
+    --cpu=2 \
+    --set-env-vars="NODE_OPTIONS=--max-old-space-size=1536" \
+    --task-timeout=1200 \
     --command="node" \
     --args="dist/jobs/enrichment.js" \
     --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest,FMP_API_KEY=FMP_API_KEY:latest,INDIAN_API_KEY=INDIAN_API_KEY:latest,FINNHUB_API_KEY=FINNHUB_API_KEY:latest,ALPHA_VANTAGE_API_KEY=ALPHA_VANTAGE_API_KEY:latest,EMAIL_HOST=EMAIL_HOST:latest,EMAIL_USER=EMAIL_USER:latest,EMAIL_PASS=EMAIL_PASS:latest,EMAIL_PORT=EMAIL_PORT:latest,EMAIL_FROM=EMAIL_FROM:latest,IRIS_USERNAME=IRIS_USERNAME:latest,IRIS_PASSWORD=IRIS_PASSWORD:latest,IRIS_TENANT_CODE=IRIS_TENANT_CODE:latest" \

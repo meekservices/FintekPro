@@ -526,6 +526,8 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 		).catch((err) =>
 			logger.error("[PickEnrich] Batch price update error:", err),
 		);
+	}
+
 	// Guarantee LTP (currentPrice) and returnPct for every instrument across all categories
 	for (const pick of picks) {
 		const cur = Number.parseFloat(pick.currentPrice);

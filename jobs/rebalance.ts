@@ -264,6 +264,24 @@ async function run(): Promise<void> {
 			proposals_generated: proposalsGenerated,
 		});
 
+		// ── PHASE 7: Engine Learning Orchestrator & Autonomous Calibration ────────
+		logger.info(`[${JOB_NAME}] Phase 7: Triggering Autonomous Engine Learning & Calibration Cycle...`);
+		let learningSuccess = false;
+		try {
+			const { engineLearningOrchestrator } = await import("../server/services/engine-learning-orchestrator");
+			const learningResult = await engineLearningOrchestrator.runSelfImprovementCycle();
+			learningSuccess = learningResult.success;
+			logger.info(`[${JOB_NAME}] Phase 7 Complete: Engine learning cycle finished`, {
+				event: "ENGINE_LEARNING_SYNC_COMPLETE",
+				success: learningResult.success,
+				cycle_id: learningResult.cycleId,
+				drift_detections: learningResult.driftDetections,
+				macro_transmission: learningResult.macroTransmissionStatus,
+			});
+		} catch (learnErr: any) {
+			logger.warn(`[${JOB_NAME}] Non-fatal engine learning cycle warning: ${learnErr.message}`);
+		}
+
 		const latencyMs = Date.now() - START_TIME;
 		logger.info(`[${JOB_NAME}] Autonomous portfolio rebalance job completed successfully`, {
 			event: "JOB_COMPLETE",
@@ -274,6 +292,7 @@ async function run(): Promise<void> {
 			swaps_applied: totalSwapsApplied,
 			proposals_generated: proposalsGenerated,
 			twrr_repaired: twrrRepair.rows.length,
+			engine_learning_synced: learningSuccess,
 			latency_ms: latencyMs,
 		});
 
