@@ -1399,7 +1399,7 @@ export class PickOfTheDayService {
 		// Dedup guard: keep only the latest pick per (category, symbol || instrumentName)
 		const seen = new Map<string, (typeof picks)[0]>();
 		for (const p of picks) {
-			const identifier = (p.symbol || p.instrumentName).trim().toLowerCase();
+			const identifier = (p.symbol || p.instrumentName || String(p.id ?? "")).trim().toLowerCase();
 			const key = `${p.category}|||${identifier}`;
 			if (!seen.has(key)) seen.set(key, p);
 		}
@@ -1452,7 +1452,7 @@ export class PickOfTheDayService {
 		// Protects the UI in case the DB accumulates duplicates between cleanup runs.
 		const seen = new Map<string, (typeof picks)[0]>();
 		for (const pick of picks) {
-			const idKey = (pick.symbol || pick.instrumentName).trim().toLowerCase();
+			const idKey = (pick.symbol || pick.instrumentName || String(pick.id ?? "")).trim().toLowerCase();
 			const key = `${pick.category}|||${idKey}`;
 			if (!seen.has(key)) seen.set(key, pick); // already DESC by recoDate
 		}
@@ -2008,7 +2008,7 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 		// Dedup guard: keep only the latest pick per (category, symbol || instrumentName)
 		const seen = new Map<string, (typeof picks)[0]>();
 		for (const p of picks) {
-			const identifier = (p.symbol || p.instrumentName).trim().toLowerCase();
+			const identifier = (p.symbol || p.instrumentName || String(p.id ?? "")).trim().toLowerCase();
 			const key = `${p.category}|||${identifier}`;
 			if (!seen.has(key)) seen.set(key, p);
 		}

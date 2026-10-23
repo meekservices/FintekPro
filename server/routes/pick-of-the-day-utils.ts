@@ -74,6 +74,7 @@ export const DATA_SOURCES: Record<
 
 export async function getLiveInstrumentPrice(
 	pick: any,
+	batchMap?: Map<string, any>,
 ): Promise<number | null> {
 	try {
 		switch (pick.category) {
@@ -81,8 +82,19 @@ export async function getLiveInstrumentPrice(
 				const sym = pick.symbol;
 				const isin = pick.isin;
 
+				// 0. Check pre-fetched Upstox batch quote map first (instant 0ms in-memory hit)
+				if (batchMap && (isin || sym)) {
+					const cached = (isin ? batchMap.get(isin.toUpperCase()) : null) || (sym ? batchMap.get(sym.toUpperCase()) : null);
+					if (cached?.last_price && cached.last_price > 0) {
+						pick.priceDataSource = "Upstox Live";
+						pick.dataFreshness = "live";
+						return cached.last_price;
+					}
+				}
+
 				// 1. Upstox Licensed Live Exchange Feed (Priority 1 for real-time market hours)
-				if (upstoxMarketDataService.isReady()) {
+				// If batchMap was already evaluated, skip individual call to avoid redundant rate-limited traffic
+				if (upstoxMarketDataService.isReady() && !batchMap) {
 					const queryTarget = isin || sym;
 					if (queryTarget) {
 						try {
@@ -96,14 +108,17 @@ export async function getLiveInstrumentPrice(
 					}
 				}
 
-				const row = await db
-					.select({ currentPrice: listedStocks.currentPrice, symbol: listedStocks.symbol, isin: listedStocks.isin })
-					.from(listedStocks)
-					.where(eq(listedStocks.id, pick.instrumentId))
-					.limit(1);
+				let row: any[] = [];
+				try {
+					row = await db
+						.select({ currentPrice: listedStocks.currentPrice, symbol: listedStocks.symbol, isin: listedStocks.isin })
+						.from(listedStocks)
+						.where(eq(listedStocks.id, pick.instrumentId))
+						.limit(1);
+				} catch { /* DB read skipped if instrumentId invalid */ }
 
 				// If DB has ISIN and first call didn't have it, retry Upstox with ISIN
-				if (upstoxMarketDataService.isReady() && row[0]?.isin && !isin) {
+				if (upstoxMarketDataService.isReady() && !batchMap && row[0]?.isin && !isin) {
 					try {
 						const uRes = await upstoxMarketDataService.getLTP(row[0].isin, "NSE");
 						if (uRes.success && uRes.data?.last_price && uRes.data.last_price > 0) {
@@ -164,47 +179,65 @@ export async function getLiveInstrumentPrice(
 					: null;
 			}
 			case "etfs": {
-				if (upstoxMarketDataService.isReady()) {
-					const queryTarget = pick.isin || pick.symbol;
-					if (queryTarget) {
-						try {
-							const uRes = await upstoxMarketDataService.getLTP(queryTarget, "NSE");
-							if (uRes.success && uRes.data?.last_price && uRes.data.last_price > 0) {
-								pick.priceDataSource = "Upstox Live";
-								pick.dataFreshness = "live";
-								return uRes.data.last_price;
-							}
-						} catch {}
+				const queryTarget = pick.isin || pick.symbol;
+				if (batchMap && queryTarget) {
+					const cached = (pick.isin ? batchMap.get(pick.isin.toUpperCase()) : null) || (pick.symbol ? batchMap.get(pick.symbol.toUpperCase()) : null);
+					if (cached?.last_price && cached.last_price > 0) {
+						pick.priceDataSource = "Upstox Live";
+						pick.dataFreshness = "live";
+						return cached.last_price;
 					}
 				}
-				const row = await db
-					.select({ lastPrice: instrumentMaster.lastPrice })
-					.from(instrumentMaster)
-					.where(eq(instrumentMaster.id, pick.instrumentId))
-					.limit(1);
+				if (upstoxMarketDataService.isReady() && !batchMap && queryTarget) {
+					try {
+						const uRes = await upstoxMarketDataService.getLTP(queryTarget, "NSE");
+						if (uRes.success && uRes.data?.last_price && uRes.data.last_price > 0) {
+							pick.priceDataSource = "Upstox Live";
+							pick.dataFreshness = "live";
+							return uRes.data.last_price;
+						}
+					} catch {}
+				}
+				let row: any[] = [];
+				try {
+					row = await db
+						.select({ lastPrice: instrumentMaster.lastPrice })
+						.from(instrumentMaster)
+						.where(eq(instrumentMaster.id, pick.instrumentId))
+						.limit(1);
+				} catch {}
 				return row[0]?.lastPrice ? Number.parseFloat(row[0].lastPrice) : null;
 			}
 			case "global_stocks": {
-				const row = await db
-					.select({ lastPrice: globalInstruments.lastPrice })
-					.from(globalInstruments)
-					.where(eq(globalInstruments.id, pick.instrumentId))
-					.limit(1);
+				let row: any[] = [];
+				try {
+					row = await db
+						.select({ lastPrice: globalInstruments.lastPrice })
+						.from(globalInstruments)
+						.where(eq(globalInstruments.id, pick.instrumentId))
+						.limit(1);
+				} catch {}
 				return row[0]?.lastPrice ? Number.parseFloat(row[0].lastPrice) : null;
 			}
 			case "reits_invits": {
-				if (upstoxMarketDataService.isReady()) {
-					const queryTarget = pick.isin || pick.symbol;
-					if (queryTarget) {
-						try {
-							const uRes = await upstoxMarketDataService.getLTP(queryTarget, "NSE");
-							if (uRes.success && uRes.data?.last_price && uRes.data.last_price > 0) {
-								pick.priceDataSource = "Upstox Live";
-								pick.dataFreshness = "live";
-								return uRes.data.last_price;
-							}
-						} catch {}
+				const queryTarget = pick.isin || pick.symbol;
+				if (batchMap && queryTarget) {
+					const cached = (pick.isin ? batchMap.get(pick.isin.toUpperCase()) : null) || (pick.symbol ? batchMap.get(pick.symbol.toUpperCase()) : null);
+					if (cached?.last_price && cached.last_price > 0) {
+						pick.priceDataSource = "Upstox Live";
+						pick.dataFreshness = "live";
+						return cached.last_price;
 					}
+				}
+				if (upstoxMarketDataService.isReady() && !batchMap && queryTarget) {
+					try {
+						const uRes = await upstoxMarketDataService.getLTP(queryTarget, "NSE");
+						if (uRes.success && uRes.data?.last_price && uRes.data.last_price > 0) {
+							pick.priceDataSource = "Upstox Live";
+							pick.dataFreshness = "live";
+							return uRes.data.last_price;
+						}
+					} catch {}
 				}
 				const result = await db.execute(sql`
           SELECT current_price FROM reits WHERE id::text = ${pick.instrumentId}
@@ -336,6 +369,25 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 		"fixed_deposits",
 	]);
 
+	// Pre-batch Upstox Live quotes for all equity/etf/reit picks in a single call (sub-100ms, avoids 429)
+	let upstoxBatchMap = new Map<string, any>();
+	if (upstoxMarketDataService.isReady()) {
+		const upstoxSymbols = picks
+			.filter((p) => p.status === "live" && (p.category === "listed_stocks" || p.category === "etfs" || p.category === "reits_invits"))
+			.map((p) => p.isin || p.symbol)
+			.filter(Boolean);
+		if (upstoxSymbols.length > 0) {
+			try {
+				const bRes = await upstoxMarketDataService.getBatchQuotes(upstoxSymbols, "NSE");
+				if (bRes.success && bRes.data) {
+					upstoxBatchMap = bRes.data;
+				}
+			} catch (err) {
+				logger.warn("[PickEnrich] Upstox batch pre-fetch warning:", { error: String(err) });
+			}
+		}
+	}
+
 	await Promise.all([
 	// ── Phase 1: live price fetch (2s cap per pick, market categories only) ──────
 	Promise.all(
@@ -360,7 +412,7 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 			if (pick.status === "live" && pick.instrumentId && LIVE_PRICE_CATEGORIES.has(pick.category)) {
 				try {
 					const freshPrice = await Promise.race([
-						getLiveInstrumentPrice(pick),
+						getLiveInstrumentPrice(pick, upstoxBatchMap),
 						new Promise<null>((resolve) =>
 							setTimeout(() => resolve(null), PRICE_TIMEOUT_MS),
 						),

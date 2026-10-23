@@ -188,24 +188,29 @@ router.get("/today", async (req, res) => {
 
 router.get("/live", async (req, res) => {
 	try {
-		const rawPicks = await pickOfTheDayService.getLivePicks();
-		const { picks: allPicks, categoryLastUpdated } =
-			await enrichPicksWithDataSource(rawPicks);
-		// Exclude picks that were just auto-expired by enrichment (expiryDate passed)
-		let picks = allPicks.filter((p) => p.status !== "expired");
+		let filteredPicks = await pickOfTheDayService.getLivePicks();
 
 		// Support ?horizon=intraday|ultra_short_term|short_term|medium_term|long_term query filter
 		const rawLiveHorizon = req.query.horizon as string | undefined;
 		if (rawLiveHorizon && rawLiveHorizon !== "all") {
 			const targetH = rawLiveHorizon === "ultra_short" ? "ultra_short_term" : rawLiveHorizon === "short" ? "short_term" : rawLiveHorizon === "medium" ? "medium_term" : rawLiveHorizon === "long" ? "long_term" : rawLiveHorizon;
-			picks = picks.filter((p) => p.timeHorizon === targetH || (targetH === "ultra_short_term" && p.timeHorizon === "ultra_short"));
+			filteredPicks = filteredPicks.filter((p) => p.timeHorizon === targetH || (targetH === "ultra_short_term" && p.timeHorizon === "ultra_short"));
 		}
 
 		// Support ?category=listed_stocks etc query filter
 		const categoryFilter = req.query.category as string | undefined;
 		if (categoryFilter && categoryFilter !== "all") {
-			picks = picks.filter((p) => p.category === categoryFilter);
+			filteredPicks = filteredPicks.filter((p) => p.category === categoryFilter);
 		}
+
+		// Cap batch enrichment to 60 items per page request to guarantee snappy response times
+		const limit = Math.min(Number.parseInt(req.query.limit as string) || 60, 100);
+		const targetPicks = filteredPicks.slice(0, limit);
+
+		const { picks: allPicks, categoryLastUpdated } =
+			await enrichPicksWithDataSource(targetPicks);
+		// Exclude picks that were just auto-expired by enrichment (expiryDate passed)
+		const picks = allPicks.filter((p) => p.status !== "expired");
 
 		const lastUpdated = await db
 			.select({ maxUpdated: sql<string>`MAX(updated_at)` })
