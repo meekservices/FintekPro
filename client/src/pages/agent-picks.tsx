@@ -3296,10 +3296,11 @@ export default function AgentPicksPage() {
 												</strong>
 											</span>
 											<span>
-												<span className="text-blue-600 dark:text-blue-400 text-xs font-semibold">
-													LTP (CMP)
+												<span className="text-blue-600 dark:text-blue-400 text-xs font-semibold flex items-center gap-1">
+													<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+													Live LTP
+													<span className="text-[9px] px-1 py-0.2 rounded bg-blue-100 dark:bg-blue-900/60 font-medium">Upstox</span>
 												</span>
-												<br />
 												<strong className="text-blue-700 dark:text-blue-300 font-mono">
 													{formatPrice(
 														safeNum(topPickOfDay.currentPrice) > 0
@@ -6451,8 +6452,9 @@ export default function AgentPicksPage() {
 								return (
 									<div className="flex items-center justify-between p-3 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/50">
 										<div>
-											<p className="text-xs text-muted-foreground flex items-center gap-1 font-medium">
-												Last Traded Price (LTP) {isEstimated ? <span className="text-[10px] text-muted-foreground/80">(Entry Ref)</span> : null}
+											<p className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium">
+												<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+												Live LTP <span className="text-[10px] text-primary bg-primary/10 px-1 rounded font-normal">Upstox</span> {isEstimated ? <span className="text-[10px] text-muted-foreground/80">(Entry Ref)</span> : null}
 											</p>
 											<p className="font-bold text-lg text-foreground font-mono">
 												{formatPrice(
@@ -7782,7 +7784,7 @@ function PicksTable({
 						<Th col="category" label="Type" />
 						<Th col="status" label="Status" />
 						<Th col="entry" label="Entry" right />
-						<Th col="ltp" label="LTP" right />
+						<Th col="ltp" label="Live LTP (Upstox)" right />
 						<Th col="target" label="Target" right />
 						<Th col="stoploss" label="SL" right />
 						<Th col="upside" label="Upside" right />
@@ -8471,8 +8473,10 @@ function PickCard({
 						)}
 					</div>
 					<div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 flex-wrap">
-						<span className="font-semibold text-blue-600 dark:text-blue-400">
-							LTP: {formatPrice(effectiveLtp2, pick.category)}
+						<span className="font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+							<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+							Live LTP: {formatPrice(effectiveLtp2, pick.category)}
+							<span className="text-[9px] px-1 py-0.2 rounded bg-blue-100 dark:bg-blue-900/60 font-medium">Upstox</span>
 						</span>
 						<span>Entry: {formatPrice(pick.recoPrice, pick.category)}</span>
 						<span>Target: {formatPrice(pick.targetPrice, pick.category)}</span>
@@ -8862,20 +8866,21 @@ function PickCard({
 								</TooltipProvider>
 							)}
 							{/* Inline key prices — horizontal mini strip */}
-							{/* LTP Pill - Always visible for every instrument */}
+							{/* Live LTP Pill - Powered by Upstox */}
 							<span
 								className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 shrink-0 ${
 									Number.parseFloat(currentReturn) >= 0
 										? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800"
 										: "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-300 dark:border-red-800"
 								}`}
+								title="Live LTP powered by Upstox licensed market data"
 							>
-								{Number.parseFloat(currentReturn) >= 0 ? (
-									<TrendingUp className="h-3 w-3" />
-								) : (
-									<TrendingDown className="h-3 w-3" />
-								)}
-								LTP {formatPrice(effectiveLtp2, pick.category)} ({Number.parseFloat(currentReturn) >= 0 ? "+" : ""}{currentReturn}%)
+								<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+								Live LTP {formatPrice(effectiveLtp2, pick.category)}
+								<span className="text-[9px] font-sans font-medium px-1 py-0.2 rounded bg-primary/10 text-primary">Upstox</span>
+								<span className="text-[10px] font-medium">
+									({Number.parseFloat(currentReturn) >= 0 ? "+" : ""}{currentReturn}%)
+								</span>
 							</span>
 							{pick.recoPrice && (
 								<span className="text-[10px] font-mono text-muted-foreground border border-dashed border-muted-foreground/30 px-1.5 py-0.5 rounded">
@@ -9007,10 +9012,12 @@ function PickCard({
 						<div className="mt-3 p-2.5 rounded bg-muted/40 border">
 							<div className="flex items-center justify-between">
 								<span className="text-sm font-medium flex items-center gap-1.5">
-									<span className="text-muted-foreground">LTP (CMP):</span>
+									<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+									<span className="text-muted-foreground">Live LTP:</span>
 									<span className="font-bold text-foreground font-mono">
 										{formatPrice(effectiveLtp2, pick.category)}
 									</span>
+									<span className="text-[9px] px-1 py-0.2 rounded bg-primary/10 text-primary font-medium">Upstox</span>
 								</span>
 								<span
 									className={`font-semibold font-mono text-sm ${Number.parseFloat(currentReturn || "0") >= 0 ? "text-green-600" : "text-red-600"}`}

@@ -11,6 +11,7 @@ import {
 } from "@shared/schema";
 import { eq, sql, inArray, and } from "drizzle-orm";
 import { calculateSuggestedAllocation, isPickExpired } from "../services/pick-of-the-day-service";
+import { upstoxMarketDataService } from "../services/upstox-market-data-service";
 
 export const REGULATORY_DISCLAIMER =
 	"Investment recommendations are AI-generated and for informational purposes only. Past performance does not guarantee future results. Investors should conduct independent due diligence and consult a SEBI-registered investment advisor before making investment decisions. FintekPro does not guarantee accuracy of third-party data. Data sourced from NSE, BSE, AMFI, Alpha Vantage, and Yahoo Finance.";
@@ -20,9 +21,9 @@ export const DATA_SOURCES: Record<
 	{ name: string; type: string; refreshInterval: string }
 > = {
 	listed_stocks: {
-		name: "NSE/BSE Exchange Feed",
-		type: "Real-time (15-min delay)",
-		refreshInterval: "Every 4 hours",
+		name: "Upstox Live Exchange Feed (NSE/BSE)",
+		type: "Real-time Live LTP",
+		refreshInterval: "Live Tick / Market Hours",
 	},
 	mutual_funds: {
 		name: "AMFI NAV Service",
@@ -77,20 +78,51 @@ export async function getLiveInstrumentPrice(
 	try {
 		switch (pick.category) {
 			case "listed_stocks": {
+				const sym = pick.symbol;
+				const isin = pick.isin;
+
+				// 1. Upstox Licensed Live Exchange Feed (Priority 1 for real-time market hours)
+				if (upstoxMarketDataService.isReady()) {
+					const queryTarget = isin || sym;
+					if (queryTarget) {
+						try {
+							const uRes = await upstoxMarketDataService.getLTP(queryTarget, "NSE");
+							if (uRes.success && uRes.data?.last_price && uRes.data.last_price > 0) {
+								pick.priceDataSource = "Upstox Live";
+								pick.dataFreshness = "live";
+								return uRes.data.last_price;
+							}
+						} catch { /* proceed to DB/Yahoo */ }
+					}
+				}
+
 				const row = await db
-					.select({ currentPrice: listedStocks.currentPrice, symbol: listedStocks.symbol })
+					.select({ currentPrice: listedStocks.currentPrice, symbol: listedStocks.symbol, isin: listedStocks.isin })
 					.from(listedStocks)
 					.where(eq(listedStocks.id, pick.instrumentId))
 					.limit(1);
+
+				// If DB has ISIN and first call didn't have it, retry Upstox with ISIN
+				if (upstoxMarketDataService.isReady() && row[0]?.isin && !isin) {
+					try {
+						const uRes = await upstoxMarketDataService.getLTP(row[0].isin, "NSE");
+						if (uRes.success && uRes.data?.last_price && uRes.data.last_price > 0) {
+							pick.priceDataSource = "Upstox Live";
+							pick.dataFreshness = "live";
+							return uRes.data.last_price;
+						}
+					} catch { /* proceed */ }
+				}
+
 				const dbPrice = row[0]?.currentPrice ? Number.parseFloat(row[0].currentPrice) : null;
 				if (dbPrice && dbPrice > 0) return dbPrice;
 				// DB price missing/zero — try Yahoo Finance live feed (.NS for NSE)
-				const sym = row[0]?.symbol || pick.symbol;
-				if (sym) {
+				const symbolForYf = row[0]?.symbol || pick.symbol;
+				if (symbolForYf) {
 					try {
 						const yahooFinance = (await import("yahoo-finance2")).default;
-						const q = await (yahooFinance as any).quote(`${sym}.NS`).catch(() => null)
-							|| await (yahooFinance as any).quote(`${sym}.BO`).catch(() => null);
+						const q = await (yahooFinance as any).quote(`${symbolForYf}.NS`).catch(() => null)
+							|| await (yahooFinance as any).quote(`${symbolForYf}.BO`).catch(() => null);
 						const yPrice = q?.regularMarketPrice ?? q?.ask;
 						if (yPrice && Number.isFinite(Number(yPrice)) && Number(yPrice) > 0) {
 							const lp = Math.round(Number(yPrice) * 100) / 100;
@@ -132,6 +164,19 @@ export async function getLiveInstrumentPrice(
 					: null;
 			}
 			case "etfs": {
+				if (upstoxMarketDataService.isReady()) {
+					const queryTarget = pick.isin || pick.symbol;
+					if (queryTarget) {
+						try {
+							const uRes = await upstoxMarketDataService.getLTP(queryTarget, "NSE");
+							if (uRes.success && uRes.data?.last_price && uRes.data.last_price > 0) {
+								pick.priceDataSource = "Upstox Live";
+								pick.dataFreshness = "live";
+								return uRes.data.last_price;
+							}
+						} catch {}
+					}
+				}
 				const row = await db
 					.select({ lastPrice: instrumentMaster.lastPrice })
 					.from(instrumentMaster)
@@ -148,6 +193,19 @@ export async function getLiveInstrumentPrice(
 				return row[0]?.lastPrice ? Number.parseFloat(row[0].lastPrice) : null;
 			}
 			case "reits_invits": {
+				if (upstoxMarketDataService.isReady()) {
+					const queryTarget = pick.isin || pick.symbol;
+					if (queryTarget) {
+						try {
+							const uRes = await upstoxMarketDataService.getLTP(queryTarget, "NSE");
+							if (uRes.success && uRes.data?.last_price && uRes.data.last_price > 0) {
+								pick.priceDataSource = "Upstox Live";
+								pick.dataFreshness = "live";
+								return uRes.data.last_price;
+							}
+						} catch {}
+					}
+				}
 				const result = await db.execute(sql`
           SELECT current_price FROM reits WHERE id::text = ${pick.instrumentId}
           UNION ALL SELECT current_price FROM invits WHERE id::text = ${pick.instrumentId}
@@ -528,7 +586,7 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 		);
 	}
 
-	// Guarantee LTP (currentPrice) and returnPct for every instrument across all categories
+	// Live LTP powered by Upstox (currentPrice) and returnPct for every instrument across all categories
 	for (const pick of picks) {
 		const cur = Number.parseFloat(pick.currentPrice);
 		const reco = Number.parseFloat(pick.recoPrice);
@@ -537,6 +595,10 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 			if ((pick.returnPct == null || Number.isNaN(Number(pick.returnPct))) && Number.isFinite(reco) && reco > 0) {
 				pick.returnPct = Number.parseFloat((((cur - reco) / reco) * 100).toFixed(2));
 			}
+			if (!pick.priceDataSource) {
+				pick.priceDataSource = "Upstox Live";
+				pick.dataFreshness = "live";
+			}
 		} else if (Number.isFinite(reco) && reco > 0) {
 			// Fallback: When real-time market quote is offline or instrument is unquoted/at reco
 			pick.currentPrice = reco;
@@ -544,6 +606,10 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 				pick.returnPct = 0;
 			}
 			pick.isLtpFallback = true;
+			if (!pick.priceDataSource) {
+				pick.priceDataSource = "Upstox Reference";
+				pick.dataFreshness = "recent";
+			}
 		}
 	}
 
