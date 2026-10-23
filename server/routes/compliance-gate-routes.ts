@@ -100,4 +100,130 @@ export function registerComplianceGateRoutes(app: Express): void {
 			}
 		},
 	);
+
+	/**
+	 * GET /api/compliance/rules
+	 *
+	 * Returns the statutory SEBI Mutual Fund & Model Portfolio holding compliance rulebook
+	 * (Seventh Schedule caps, group/sector limits, categorizations, and passive breach guidelines).
+	 */
+	app.get("/api/compliance/rules", async (_req: Request, res: Response) => {
+		try {
+			const { sebiHoldingComplianceService } = await import(
+				"../services/sebi-holding-compliance-service"
+			);
+			const rulebook = sebiHoldingComplianceService.getSebiRulebook();
+			return res.status(200).json({
+				success: true,
+				data: rulebook,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: rulebook.version,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[ComplianceGate] Failed to fetch SEBI rulebook", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "RULEBOOK_FETCH_FAILED",
+				message: err?.message || "Failed to fetch SEBI rulebook",
+				meta: { timestamp: new Date().toISOString(), version: "1.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/compliance/model-portfolios/:id
+	 *
+	 * Audits a specific Model Portfolio against statutory SEBI Seventh Schedule & Categorization limits.
+	 */
+	app.get("/api/compliance/model-portfolios/:id", async (req: Request, res: Response) => {
+		try {
+			const { sebiHoldingComplianceService } = await import(
+				"../services/sebi-holding-compliance-service"
+			);
+			const report = await sebiHoldingComplianceService.auditPortfolioHoldingCompliance(
+				req.params.id
+			);
+			return res.status(200).json({
+				success: true,
+				data: report,
+				meta: report.meta,
+			});
+		} catch (err: any) {
+			logger.error("[ComplianceGate] Model portfolio audit error", {
+				portfolio_id: req.params.id,
+				error: err?.message,
+			});
+			return res.status(500).json({
+				success: false,
+				error: "COMPLIANCE_AUDIT_FAILED",
+				message: err?.message || "Unable to audit model portfolio holding compliance",
+				meta: { timestamp: new Date().toISOString(), version: "1.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/compliance/proposals/:proposalId
+	 *
+	 * Audits an Advisory Investment Proposal against SEBI concentration caps before client sign-off.
+	 */
+	app.get("/api/compliance/proposals/:proposalId", async (req: Request, res: Response) => {
+		try {
+			const { sebiHoldingComplianceService } = await import(
+				"../services/sebi-holding-compliance-service"
+			);
+			const report = await sebiHoldingComplianceService.auditProposalHoldingCompliance(
+				req.params.proposalId
+			);
+			return res.status(200).json({
+				success: true,
+				data: report,
+				meta: report.meta,
+			});
+		} catch (err: any) {
+			logger.error("[ComplianceGate] Proposal audit error", {
+				proposal_id: req.params.proposalId,
+				error: err?.message,
+			});
+			return res.status(500).json({
+				success: false,
+				error: "PROPOSAL_AUDIT_FAILED",
+				message: err?.message || "Unable to audit proposal holding compliance",
+				meta: { timestamp: new Date().toISOString(), version: "1.0" },
+			});
+		}
+	});
+
+	/**
+	 * POST /api/compliance/sweep
+	 *
+	 * Runs a comprehensive SEBI compliance sweep across all model portfolios.
+	 */
+	app.post("/api/compliance/sweep", requireAuth, async (req: Request, res: Response) => {
+		try {
+			const { sebiHoldingComplianceService } = await import(
+				"../services/sebi-holding-compliance-service"
+			);
+			const auditSummary = await sebiHoldingComplianceService.auditAllModelPortfolios();
+			return res.status(200).json({
+				success: true,
+				data: auditSummary,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: "SEBI-COMPLIANCE-v1.0",
+				},
+			});
+		} catch (err: any) {
+			logger.error("[ComplianceGate] Compliance sweep error", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "COMPLIANCE_SWEEP_FAILED",
+				message: err?.message || "Failed to execute compliance sweep",
+				meta: { timestamp: new Date().toISOString(), version: "1.0" },
+			});
+		}
+	});
 }
+

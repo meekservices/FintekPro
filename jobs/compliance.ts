@@ -74,6 +74,23 @@ async function run(): Promise<void> {
 			logger.warn(`[${JOB_NAME}] Phase C failed (non-fatal)`, { error: String(err) });
 		}
 
+		// Phase D: SEBI Mutual Fund & Model Portfolio Holding Compliance Scan
+		logger.info(`[${JOB_NAME}] Phase D: SEBI Holding Compliance Audit`);
+		try {
+			const { sebiHoldingComplianceService } = await import(
+				"../server/services/sebi-holding-compliance-service"
+			);
+			const auditSummary = await sebiHoldingComplianceService.auditAllModelPortfolios();
+			logger.info(`[${JOB_NAME}] Phase D complete: SEBI Holding Compliance Audit`, {
+				total_portfolios: auditSummary.totalAudited,
+				compliant: auditSummary.compliant,
+				warning: auditSummary.warning,
+				non_compliant: auditSummary.nonCompliant,
+			});
+		} catch (err) {
+			logger.warn(`[${JOB_NAME}] Phase D failed (non-fatal)`, { error: String(err) });
+		}
+
 		const latencyMs = Date.now() - START_TIME;
 		logger.info(`[${JOB_NAME}] Job completed successfully`, {
 			event: "JOB_COMPLETE",
