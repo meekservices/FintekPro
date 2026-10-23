@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
+import { GlobalMacroRadarWidget } from "@/components/macro/GlobalMacroRadarWidget";
 
 interface MarketBrief {
 	id: string;
@@ -465,6 +466,9 @@ export default function AgentKnowledgeMarketBrief() {
 					</Button>
 				))}
 			</div>
+
+			{/* FintekPro Global Macro Transmission Engine Radar */}
+			<GlobalMacroRadarWidget />
 
 			{todayLoading && !briefToDisplay ? (
 				<div className="space-y-4">
