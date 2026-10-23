@@ -264,9 +264,18 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 	const PRICE_TIMEOUT_MS     = 2000;
 	const SECONDARY_TIMEOUT_MS = 2000;
 
-	// Categories with real-time market price APIs
+	// Categories with market/NAV/catalog price resolution
 	const LIVE_PRICE_CATEGORIES = new Set([
-		"listed_stocks", "global_stocks", "mutual_funds", "reits_invits", "sgb",
+		"listed_stocks",
+		"global_stocks",
+		"mutual_funds",
+		"reits_invits",
+		"sgb",
+		"bonds",
+		"unlisted",
+		"etfs",
+		"derivatives",
+		"fixed_deposits",
 	]);
 
 	await Promise.all([
@@ -517,6 +526,23 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 		).catch((err) =>
 			logger.error("[PickEnrich] Batch price update error:", err),
 		);
+	// Guarantee LTP (currentPrice) and returnPct for every instrument across all categories
+	for (const pick of picks) {
+		const cur = Number.parseFloat(pick.currentPrice);
+		const reco = Number.parseFloat(pick.recoPrice);
+		if (Number.isFinite(cur) && cur > 0) {
+			pick.currentPrice = cur;
+			if ((pick.returnPct == null || Number.isNaN(Number(pick.returnPct))) && Number.isFinite(reco) && reco > 0) {
+				pick.returnPct = Number.parseFloat((((cur - reco) / reco) * 100).toFixed(2));
+			}
+		} else if (Number.isFinite(reco) && reco > 0) {
+			// Fallback: When real-time market quote is offline or instrument is unquoted/at reco
+			pick.currentPrice = reco;
+			if (pick.returnPct == null || Number.isNaN(Number(pick.returnPct))) {
+				pick.returnPct = 0;
+			}
+			pick.isLtpFallback = true;
+		}
 	}
 
 	return { picks, categoryLastUpdated };

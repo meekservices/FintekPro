@@ -2963,7 +2963,7 @@ export default function AgentPicksPage() {
 									<tr>
 										<th className="p-3">Security Name</th>
 										<th className="p-3">Category</th>
-										<th className="p-3 text-right">Rec. Price</th>
+										<th className="p-3 text-right">LTP / Entry</th>
 										<th className="p-3 text-center">Weight</th>
 										<th className="p-3 text-right">Allocation Sizing</th>
 										<th className="p-3 text-right">Target Quantity</th>
@@ -3005,7 +3005,17 @@ export default function AgentPicksPage() {
 																{categoryLabels[pick.category] || pick.category}
 															</td>
 															<td className="p-3 text-right font-mono">
-																{formatPrice(pick.recoPrice, pick.category)}
+																<div className="font-semibold text-blue-600 dark:text-blue-400">
+																	{formatPrice(
+																		safeNum(pick.currentPrice) > 0
+																			? safeNum(pick.currentPrice)
+																			: safeNum(pick.recoPrice),
+																		pick.category,
+																	)}
+																</div>
+																<div className="text-[10px] text-muted-foreground">
+																	Entry: {formatPrice(pick.recoPrice, pick.category)}
+																</div>
 															</td>
 															<td className="p-3 text-center font-bold text-primary">
 																{weight}%
@@ -3269,6 +3279,20 @@ export default function AgentPicksPage() {
 												<strong>
 													{formatPrice(
 														topPickOfDay.recoPrice,
+														topPickOfDay.category,
+													)}
+												</strong>
+											</span>
+											<span>
+												<span className="text-blue-600 dark:text-blue-400 text-xs font-semibold">
+													LTP (CMP)
+												</span>
+												<br />
+												<strong className="text-blue-700 dark:text-blue-300 font-mono">
+													{formatPrice(
+														safeNum(topPickOfDay.currentPrice) > 0
+															? safeNum(topPickOfDay.currentPrice)
+															: safeNum(topPickOfDay.recoPrice),
 														topPickOfDay.category,
 													)}
 												</strong>
@@ -4399,11 +4423,11 @@ export default function AgentPicksPage() {
 																					Live LTP
 																				</p>
 																				<p className={`font-semibold text-xs sm:text-sm ${
-																					Number(stock.currentPrice ?? 0) >= Number(stock.entryPrice ?? stock.currentPrice)
+																					Number(stock.currentPrice ?? stock.entryPrice ?? 0) >= Number(stock.entryPrice ?? stock.currentPrice ?? 0)
 																						? "text-emerald-600 dark:text-emerald-400"
 																						: "text-amber-600 dark:text-amber-400"
 																				}`}>
-																					{formatExactStockPrice(stock.currentPrice)}
+																					{formatExactStockPrice(stock.currentPrice ?? stock.entryPrice)}
 																				</p>
 																			</div>
 																			<div className="text-center border-l border-border/50">
@@ -6163,10 +6187,10 @@ export default function AgentPicksPage() {
 																	</div>
 																</div>
 																<div>
-																	<div className="text-muted-foreground">
-																		Current
+																	<div className="text-muted-foreground font-medium">
+																		LTP
 																	</div>
-																	<div className="font-medium">
+																	<div className="font-semibold text-blue-600 dark:text-blue-400">
 																		{formatPrice(currentPrice, pick.category)}
 																	</div>
 																</div>
@@ -6398,50 +6422,51 @@ export default function AgentPicksPage() {
 								</div>
 							</div>
 
-							{/* Current Price + P&L */}
-							{selectedPick.currentPrice && (
-								<div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
-									<div>
-										<p className="text-xs text-muted-foreground">
-											Current Price
-										</p>
-										<p className="font-semibold">
-											{formatPrice(
-												selectedPick.currentPrice,
-												selectedPick.category,
-											)}
-										</p>
-									</div>
-									<div className="text-right">
-										<p className="text-xs text-muted-foreground">Live P&L</p>
-										{(() => {
-											const _spRec = safeNum(selectedPick.recoPrice);
-											const ret =
-												_spRec > 0
-													? (
-															((safeNum(selectedPick.currentPrice) - _spRec) /
-																_spRec) *
-															100
-														).toFixed(2)
-													: null;
-											return ret ? (
-												<p
-													className={`font-bold text-lg ${Number.parseFloat(ret) >= 0 ? "text-green-600" : "text-red-600"}`}
-												>
-													{Number.parseFloat(ret) >= 0 ? "+" : ""}
-													{ret}%
-												</p>
-											) : null;
-										})()}
-									</div>
-									{selectedPick.daysHeld !== undefined && (
-										<div className="text-right">
-											<p className="text-xs text-muted-foreground">Days Held</p>
-											<p className="font-medium">{selectedPick.daysHeld}d</p>
+							{/* Current Price / LTP + P&L */}
+							{(() => {
+								const cur = safeNum(selectedPick.currentPrice);
+								const _spRec = safeNum(selectedPick.recoPrice);
+								const effectiveLtp = cur > 0 ? cur : _spRec;
+								const isEstimated = cur <= 0 && _spRec > 0;
+								const ret =
+									_spRec > 0
+										? (
+												((effectiveLtp - _spRec) /
+													_spRec) *
+												100
+											).toFixed(2)
+										: "0.00";
+								return (
+									<div className="flex items-center justify-between p-3 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/50">
+										<div>
+											<p className="text-xs text-muted-foreground flex items-center gap-1 font-medium">
+												Last Traded Price (LTP) {isEstimated ? <span className="text-[10px] text-muted-foreground/80">(Entry Ref)</span> : null}
+											</p>
+											<p className="font-bold text-lg text-foreground font-mono">
+												{formatPrice(
+													effectiveLtp,
+													selectedPick.category,
+												)}
+											</p>
 										</div>
-									)}
-								</div>
-							)}
+										<div className="text-right">
+											<p className="text-xs text-muted-foreground">Live Return</p>
+											<p
+												className={`font-bold text-lg font-mono ${Number.parseFloat(ret) >= 0 ? "text-green-600" : "text-red-600"}`}
+											>
+												{Number.parseFloat(ret) >= 0 ? "+" : ""}
+												{ret}%
+											</p>
+										</div>
+										{selectedPick.daysHeld !== undefined && (
+											<div className="text-right">
+												<p className="text-xs text-muted-foreground">Days Held</p>
+												<p className="font-medium">{selectedPick.daysHeld}d</p>
+											</div>
+										)}
+									</div>
+								);
+							})()}
 
 							{/* Time horizon + risk */}
 							<div className="flex items-center gap-3 flex-wrap">
@@ -7644,6 +7669,10 @@ function PicksTable({
 				av = a.recoPrice;
 				bv = b.recoPrice;
 				break;
+			case "ltp":
+				av = safeNum(a.currentPrice) > 0 ? safeNum(a.currentPrice) : safeNum(a.recoPrice);
+				bv = safeNum(b.currentPrice) > 0 ? safeNum(b.currentPrice) : safeNum(b.recoPrice);
+				break;
 			case "target":
 				av = a.targetPrice;
 				bv = b.targetPrice;
@@ -7741,6 +7770,7 @@ function PicksTable({
 						<Th col="category" label="Type" />
 						<Th col="status" label="Status" />
 						<Th col="entry" label="Entry" right />
+						<Th col="ltp" label="LTP" right />
 						<Th col="target" label="Target" right />
 						<Th col="stoploss" label="SL" right />
 						<Th col="upside" label="Upside" right />
@@ -7832,6 +7862,9 @@ function PicksTable({
 								</td>
 								<td className="px-3 py-2.5 text-right font-mono text-xs whitespace-nowrap">
 									{formatPrice(pick.recoPrice, pick.category)}
+								</td>
+								<td className="px-3 py-2.5 text-right font-mono text-xs whitespace-nowrap font-bold text-blue-600 dark:text-blue-400">
+									{formatPrice(_cur, pick.category)}
 								</td>
 								<td className="px-3 py-2.5 text-right font-mono text-xs whitespace-nowrap text-emerald-600 dark:text-emerald-400">
 									{formatPrice(pick.targetPrice, pick.category)}
@@ -8191,7 +8224,7 @@ function AIPortfolioStrategyTable({
 														: "text-amber-600 dark:text-amber-400"
 												}`}
 											>
-												{formatExactStockPrice(stock.currentPrice)}
+												{formatExactStockPrice(stock.currentPrice ?? stock.entryPrice)}
 											</span>
 											{entry > 0 && current > 0 && (
 												<span
@@ -8385,12 +8418,15 @@ function PickCard({
 	const _tgt2 = safeNum(pick.targetPrice);
 	const _sl2 = safeNum(pick.stoplossPrice);
 	const _cur2 = safeNum(pick.currentPrice);
+	const effectiveLtp2 = _cur2 > 0 ? _cur2 : _rec2;
 	const upside =
 		_tgt2 && _rec2 ? (((_tgt2 - _rec2) / _rec2) * 100).toFixed(1) : "0.0";
 	const downside =
 		_sl2 && _rec2 ? (((_rec2 - _sl2) / _rec2) * 100).toFixed(1) : "0.0";
 	const currentReturn =
-		_cur2 && _rec2 ? (((_cur2 - _rec2) / _rec2) * 100).toFixed(1) : null;
+		_rec2 > 0
+			? (((effectiveLtp2 - _rec2) / _rec2) * 100).toFixed(1)
+			: "0.0";
 
 	if (compact) {
 		return (
@@ -8422,22 +8458,23 @@ function PickCard({
 							</TooltipProvider>
 						)}
 					</div>
-					<div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
-						<span>Reco: {formatPrice(pick.recoPrice, pick.category)}</span>
+					<div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 flex-wrap">
+						<span className="font-semibold text-blue-600 dark:text-blue-400">
+							LTP: {formatPrice(effectiveLtp2, pick.category)}
+						</span>
+						<span>Entry: {formatPrice(pick.recoPrice, pick.category)}</span>
 						<span>Target: {formatPrice(pick.targetPrice, pick.category)}</span>
 						<span>{new Date(pick.recoDate).toLocaleDateString("en-IN")}</span>
 					</div>
 				</div>
-				<div className="text-right">
+				<div className="text-right shrink-0">
 					<Badge className={status.color}>{status.label}</Badge>
-					{currentReturn && (
-						<div
-							className={`text-sm font-medium mt-1 ${Number.parseFloat(currentReturn) >= 0 ? "text-green-600" : "text-red-600"}`}
-						>
-							{Number.parseFloat(currentReturn) >= 0 ? "+" : ""}
-							{currentReturn}%
-						</div>
-					)}
+					<div
+						className={`text-sm font-semibold font-mono mt-1 ${Number.parseFloat(currentReturn) >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+					>
+						{Number.parseFloat(currentReturn) >= 0 ? "+" : ""}
+						{currentReturn}%
+					</div>
 				</div>
 			</div>
 		);
@@ -8813,6 +8850,21 @@ function PickCard({
 								</TooltipProvider>
 							)}
 							{/* Inline key prices — horizontal mini strip */}
+							{/* LTP Pill - Always visible for every instrument */}
+							<span
+								className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 shrink-0 ${
+									Number.parseFloat(currentReturn) >= 0
+										? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800"
+										: "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-300 dark:border-red-800"
+								}`}
+							>
+								{Number.parseFloat(currentReturn) >= 0 ? (
+									<TrendingUp className="h-3 w-3" />
+								) : (
+									<TrendingDown className="h-3 w-3" />
+								)}
+								LTP {formatPrice(effectiveLtp2, pick.category)} ({Number.parseFloat(currentReturn) >= 0 ? "+" : ""}{currentReturn}%)
+							</span>
 							{pick.recoPrice && (
 								<span className="text-[10px] font-mono text-muted-foreground border border-dashed border-muted-foreground/30 px-1.5 py-0.5 rounded">
 									Entry {formatPrice(pick.recoPrice, pick.category)}
@@ -8826,12 +8878,6 @@ function PickCard({
 							{!isPreIpo && pick.stoplossPrice && (
 								<span className="text-[10px] font-mono text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 px-1.5 py-0.5 rounded">
 									SL {formatPrice(pick.stoplossPrice, pick.category)} <span className="text-[9px]">-{downside}%</span>
-								</span>
-							)}
-							{/* Inline current return */}
-							{pick.currentPrice && currentReturn && (
-								<span className={`text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded ${Number.parseFloat(currentReturn) >= 0 ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800" : "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800"}`}>
-									CMP {formatPrice(pick.currentPrice, pick.category)} ({Number.parseFloat(currentReturn) >= 0 ? "+" : ""}{currentReturn}%)
 								</span>
 							)}
 						</div>
@@ -8880,13 +8926,13 @@ function PickCard({
 
 
 						{/* #4 Visual price level gauge — hidden for Pre-IPO (illiquid; no exchange price tracking) */}
-						{!isPreIpo && pick.currentPrice &&
+						{!isPreIpo && effectiveLtp2 > 0 &&
 							pick.stoplossPrice &&
 							pick.targetPrice &&
 							(() => {
 								const sl = pick.stoplossPrice;
 								const tgt = pick.targetPrice;
-								const cur = pick.currentPrice;
+								const cur = effectiveLtp2;
 								const range = tgt - sl;
 								const pct =
 									range > 0
@@ -8903,13 +8949,13 @@ function PickCard({
 								return (
 									<div className="mt-3">
 										<div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-											<span className="text-red-500">
+											<span className="text-red-500 font-mono">
 												SL {formatPrice(sl, pick.category)}
 											</span>
-											<span className="font-medium text-xs">
-												{formatPrice(cur, pick.category)}
+											<span className="font-bold text-xs text-blue-600 dark:text-blue-400 font-mono">
+												LTP {formatPrice(cur, pick.category)}
 											</span>
-											<span className="text-green-600">
+											<span className="text-green-600 font-mono">
 												TGT {formatPrice(tgt, pick.category)}
 											</span>
 										</div>
@@ -8946,19 +8992,21 @@ function PickCard({
 								);
 							})()}
 
-						{pick.currentPrice && (
-							<div className="mt-3 p-2 rounded bg-muted/50">
-								<div className="flex items-center justify-between">
-									<span className="text-sm">
-										Current: {formatPrice(pick.currentPrice, pick.category)}
+						<div className="mt-3 p-2.5 rounded bg-muted/40 border">
+							<div className="flex items-center justify-between">
+								<span className="text-sm font-medium flex items-center gap-1.5">
+									<span className="text-muted-foreground">LTP (CMP):</span>
+									<span className="font-bold text-foreground font-mono">
+										{formatPrice(effectiveLtp2, pick.category)}
 									</span>
-									<span
-										className={`font-medium ${Number.parseFloat(currentReturn || "0") >= 0 ? "text-green-600" : "text-red-600"}`}
-									>
-										{Number.parseFloat(currentReturn || "0") >= 0 ? "+" : ""}
-										{currentReturn}%
-									</span>
-								</div>
+								</span>
+								<span
+									className={`font-semibold font-mono text-sm ${Number.parseFloat(currentReturn || "0") >= 0 ? "text-green-600" : "text-red-600"}`}
+								>
+									{Number.parseFloat(currentReturn || "0") >= 0 ? "+" : ""}
+									{currentReturn}%
+								</span>
+							</div>
 								<div className="flex items-center justify-between mt-1">
 									{pick.daysHeld !== undefined && (
 										<span className="text-xs text-muted-foreground">
@@ -9020,7 +9068,6 @@ function PickCard({
 									)}
 								</div>
 							</div>
-						)}
 
 						{/* Inline Sizing Calculator — adapted for Pre-IPO (lot size / ticket size) */}
 						<div

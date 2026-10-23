@@ -170,13 +170,17 @@ export default function PickOfTheDayWidget() {
 										100
 									).toFixed(1)
 								: "0.0";
+						const effectiveLtp =
+							pick.currentPrice && pick.currentPrice > 0
+								? pick.currentPrice
+								: (pick.recoPrice || 0);
 						const currentReturn =
-							pick.currentPrice && pick.recoPrice
+							pick.recoPrice && pick.recoPrice > 0
 								? (
-										((pick.currentPrice - pick.recoPrice) / pick.recoPrice) *
+										((effectiveLtp - pick.recoPrice) / pick.recoPrice) *
 										100
 									).toFixed(1)
-								: null;
+								: "0.0";
 
 						const suggestedAllocation =
 							pick.keyMetrics?.suggestedAllocation || 5;
@@ -275,29 +279,38 @@ export default function PickOfTheDayWidget() {
 											return null;
 										})()}
 
-										<div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-											<span className="flex items-center gap-1">
-												<Target className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />+{upside}% Target
+										<div className="flex items-center gap-2.5 text-xs text-muted-foreground flex-wrap">
+											{/* LTP Pill - Always visible for every instrument */}
+											<span
+												className={`inline-flex items-center gap-1 font-mono font-semibold px-2 py-0.5 rounded text-[11px] border ${
+													Number.parseFloat(currentReturn) >= 0
+														? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800"
+														: "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-300 dark:border-red-800"
+												}`}
+											>
+												{Number.parseFloat(currentReturn) >= 0 ? (
+													<TrendingUp className="h-3 w-3" />
+												) : (
+													<TrendingDown className="h-3 w-3" />
+												)}
+												LTP {formatPrice(effectiveLtp, pick.category)}
+												<span className="text-[10px] font-medium">
+													({Number.parseFloat(currentReturn) >= 0 ? "+" : ""}{currentReturn}%)
+												</span>
 											</span>
-											<span className="flex items-center gap-1">
+											<span className="flex items-center gap-1 font-mono text-[11px]">
+												Entry {formatPrice(pick.recoPrice, pick.category)}
+											</span>
+											<span className="flex items-center gap-1 text-[11px]">
+												<Target className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />+{upside}% TGT
+											</span>
+											<span className="flex items-center gap-1 text-[11px]">
 												<LucideShield className="h-3 w-3 text-red-600 dark:text-red-400" />
 												SL {formatPrice(pick.stoplossPrice, pick.category)}
 											</span>
 											{Boolean(pick.keyMetrics?.rewardToRiskRatio) && (
 												<span className="text-[10px] px-1.5 py-0.5 rounded bg-muted font-mono font-medium">
 													R:R {pick.keyMetrics?.rewardToRiskRatio}:1
-												</span>
-											)}
-											{currentReturn && (
-												<span
-													className={`flex items-center gap-1 font-medium ${Number.parseFloat(currentReturn) >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-												>
-													{Number.parseFloat(currentReturn) >= 0 ? (
-														<TrendingUp className="h-3 w-3" />
-													) : (
-														<TrendingDown className="h-3 w-3" />
-													)}
-													LTP {Number.parseFloat(currentReturn) >= 0 ? `+${currentReturn}` : currentReturn}%
 												</span>
 											)}
 										</div>

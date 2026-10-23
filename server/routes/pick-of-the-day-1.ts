@@ -407,7 +407,9 @@ router.get("/admin/list", requireAdmin, async (req, res) => {
 			.orderBy(desc(dailyPicks.recoDate), desc(dailyPicks.id))
 			.limit(Number.parseInt(limit as string));
 
-		res.json({ success: true, picks });
+		const { picks: enrichedPicks } = await enrichPicksWithDataSource(picks);
+
+		res.json({ success: true, picks: enrichedPicks });
 	} catch (error) {
 		logger.error("[API] Error listing picks:", error instanceof Error ? error : new Error(String(error)));
 		res.status(500).json({ success: false, error: "Failed to list picks" });

@@ -382,6 +382,7 @@ export default function PicksMonitor() {
 											<TableHead>Horizon</TableHead>
 											<TableHead>Confidence</TableHead>
 											<TableHead className="text-right">Reco Price</TableHead>
+											<TableHead className="text-right font-semibold text-blue-600 dark:text-blue-400">LTP</TableHead>
 											<TableHead className="text-right">Target</TableHead>
 											<TableHead className="text-right">Stoploss</TableHead>
 											<TableHead className="text-right">Return %</TableHead>
@@ -442,6 +443,12 @@ export default function PicksMonitor() {
 												<TableCell className="text-right font-medium text-sm">
 													₹
 													{Number.parseFloat(pick.recoPrice).toLocaleString(
+														"en-IN",
+													)}
+												</TableCell>
+												<TableCell className="text-right font-bold font-mono text-sm text-blue-600 dark:text-blue-400">
+													₹
+													{(Number.parseFloat(pick.currentPrice || pick.recoPrice) || 0).toLocaleString(
 														"en-IN",
 													)}
 												</TableCell>
