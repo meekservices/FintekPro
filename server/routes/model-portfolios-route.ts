@@ -4501,56 +4501,83 @@ modelPortfoliosRouter.get("/:id/ai-track-record", async (req: Request, res: Resp
       }
 
       if (navData && navData.length > 0) {
-        const geomChain = (rows: any[]): number | null => {
-          if (!rows.length) return null;
-          let cum = 1;
-          for (const r of rows) {
-            const rp = Number(r.monthly_return ?? r.return_percent ?? 0);
-            cum *= (1 + rp / 100);
-          }
-          return Math.round((cum - 1) * 10000) / 100;
-        };
-        const annualise = (totalPct: number | null, years: number): number | null => {
-          if (totalPct === null) return null;
-          return Math.round((Math.pow(1 + totalPct / 100, 1 / years) - 1) * 10000) / 100;
-        };
+        // 1. Deduplicate by calendar month (YYYY-MM), taking the latest entry per month
+        const monthMap = new Map<string, any>();
+        for (const r of navData) {
+          if (!r.month_start && !r.month_year) continue;
+          const rawDate = r.month_start ? (r.month_start instanceof Date ? r.month_start.toISOString() : String(r.month_start)) : String(r.month_year);
+          const ym = rawDate.slice(0, 7);
+          monthMap.set(ym, r);
+        }
+        const sortedBars = Array.from(monthMap.entries())
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .map(e => e[1]);
 
-        const now = new Date();
-        const yearStart = new Date(now.getFullYear(), 0, 1);
-        const cutoff = (months: number) => { const d = new Date(now); d.setMonth(d.getMonth() - months); return d; };
-
-        const slice = (from: Date) => navData.filter((r) => new Date(r.month_start || r.month_year) >= from);
-        const ytdRows = navData.filter((r) => new Date(r.month_start || r.month_year) >= yearStart);
-
-        const periods: any[] = [
-          { label: "1M",  rows: slice(cutoff(1)),   annYears: null },
-          { label: "3M",  rows: slice(cutoff(3)),   annYears: null },
-          { label: "6M",  rows: slice(cutoff(6)),   annYears: null },
-          { label: "YTD", rows: ytdRows,             annYears: null },
-          { label: "1Y",  rows: slice(cutoff(12)),  annYears: null },
-          { label: "2Y",  rows: slice(cutoff(24)),  annYears: 2    },
-          { label: "3Y",  rows: slice(cutoff(36)),  annYears: 3    },
-          { label: "5Y",  rows: slice(cutoff(60)),  annYears: 5    },
-          { label: "sinceInception", rows: navData,  annYears: null },
-        ];
-
-        for (const p of periods) {
-          if (!p.rows.length) continue;
-          const raw = geomChain(p.rows);
-          const benchRaw = geomChain(p.rows.map((r: any) => ({ monthly_return: r.benchmark_return })));
-          const returnPct = p.annYears ? annualise(raw, p.annYears) : raw;
-          const benchPct  = p.annYears ? annualise(benchRaw, p.annYears) : benchRaw;
-          performancePeriods[p.label] = {
-            returnPct,
-            benchmarkPct: benchPct,
-            alpha: returnPct !== null && benchPct !== null ? Math.round((returnPct - benchPct) * 100) / 100 : null,
-            annualised: !!p.annYears,
-            barsUsed: p.rows.length,
-            ...(p.label === "sinceInception" ? {
-              inceptionDate: port.inception_date,
-              monthsOfData: navData.length,
-            } : {}),
+        if (sortedBars.length > 0) {
+          const geomChain = (rows: any[]): number | null => {
+            if (!rows.length) return null;
+            let cum = 1;
+            for (const r of rows) {
+              const rp = Number(r.monthly_return ?? r.return_percent ?? 0);
+              if (Number.isFinite(rp)) cum *= (1 + rp / 100);
+            }
+            return Math.round((cum - 1) * 10000) / 100;
           };
+
+          const geomChainBench = (rows: any[]): number | null => {
+            if (!rows.length) return null;
+            let cum = 1;
+            for (const r of rows) {
+              const bp = Number(r.benchmark_return ?? 0);
+              if (Number.isFinite(bp)) cum *= (1 + bp / 100);
+            }
+            return Math.round((cum - 1) * 10000) / 100;
+          };
+
+          const annualise = (totalPct: number | null, years: number): number | null => {
+            if (totalPct === null || totalPct <= -100 || years <= 0) return null;
+            return Math.round((Math.pow(1 + totalPct / 100, 1 / years) - 1) * 10000) / 100;
+          };
+
+          const curYearStr = new Date().getFullYear().toString();
+          const ytdRows = sortedBars.filter((r) => {
+            const dt = r.month_start instanceof Date ? r.month_start.toISOString() : String(r.month_start || r.month_year);
+            return dt.startsWith(curYearStr);
+          });
+
+          const nBars = sortedBars.length;
+          const periods: any[] = [
+            { label: "1M",  rows: sortedBars.slice(-1),  minBars: 1,  annYears: null },
+            { label: "3M",  rows: sortedBars.slice(-3),  minBars: 3,  annYears: null },
+            { label: "6M",  rows: sortedBars.slice(-6),  minBars: 6,  annYears: null },
+            { label: "YTD", rows: ytdRows,               minBars: 1,  annYears: null },
+            { label: "1Y",  rows: sortedBars.slice(-12), minBars: 12, annYears: 1    },
+            { label: "2Y",  rows: sortedBars.slice(-24), minBars: 24, annYears: 2    },
+            { label: "3Y",  rows: sortedBars.slice(-36), minBars: 36, annYears: 3    },
+            { label: "5Y",  rows: sortedBars.slice(-60), minBars: 60, annYears: 5    },
+            { label: "sinceInception", rows: sortedBars, minBars: 1,  annYears: nBars >= 12 ? nBars / 12 : null },
+          ];
+
+          for (const p of periods) {
+            if (p.rows.length < p.minBars) continue;
+            const raw = geomChain(p.rows);
+            const benchRaw = geomChainBench(p.rows);
+            const returnPct = p.annYears && p.annYears > 1 ? annualise(raw, p.annYears) : raw;
+            const benchPct  = p.annYears && p.annYears > 1 ? annualise(benchRaw, p.annYears) : benchRaw;
+            performancePeriods[p.label] = {
+              returnPct,
+              cumulativePct: raw,
+              benchmarkPct: benchPct,
+              benchmarkCumulativePct: benchRaw,
+              alpha: returnPct !== null && benchPct !== null ? Math.round((returnPct - benchPct) * 100) / 100 : null,
+              annualised: !!(p.annYears && p.annYears >= 1),
+              barsUsed: p.rows.length,
+              ...(p.label === "sinceInception" ? {
+                inceptionDate: port.inception_date,
+                monthsOfData: nBars,
+              } : {}),
+            };
+          }
         }
       }
     } catch (perfErr: any) {

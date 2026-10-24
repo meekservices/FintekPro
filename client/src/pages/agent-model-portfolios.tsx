@@ -3454,7 +3454,9 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
       return {
         label: PERIOD_LABELS[key],
         returnPct: p.returnPct,
+        cumulativePct: p.cumulativePct,
         benchmarkPct: p.benchmarkPct,
+        benchmarkCumulativePct: p.benchmarkCumulativePct,
         alpha: p.alpha,
         note: p.note,
         extra: key === "sinceInception" && p.inceptionDate
@@ -3477,10 +3479,23 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
     return combined;
   }, [liveRows, staticRows, derivedPerformanceRows]);
 
-  // Absolute = cumulative total return: (1+cagr%)^years - 1
-  // BUG-I fix: guard abs/absB for NaN/null before calling toFixed.
+  // Absolute = cumulative total wealth return: (1+cagr%)^years - 1 or direct cumulativePct
   const absoluteRows = useMemo(() => cagrRows.map((r: any) => {
-    const yrs = r.label.includes("5 Year") ? 5 : r.label.includes("3 Year") ? 3 : r.label.includes("2 Year") ? 2 : null;
+    if (r.cumulativePct != null && Number.isFinite(Number(r.cumulativePct))) {
+      const cp = Number(r.cumulativePct);
+      const bcp = r.benchmarkCumulativePct != null && Number.isFinite(Number(r.benchmarkCumulativePct))
+        ? Number(r.benchmarkCumulativePct)
+        : (r.benchmarkPct != null && Number.isFinite(Number(r.benchmarkPct)) ? Number(r.benchmarkPct) : null);
+      return {
+        ...r,
+        returnPct: Number(cp.toFixed(2)),
+        benchmarkPct: bcp != null ? Number(bcp.toFixed(2)) : null,
+        alpha: bcp != null ? Number((cp - bcp).toFixed(2)) : r.alpha,
+        label: r.label.replace("(ann.)", "(total)"),
+      };
+    }
+
+    const yrs = r.label.includes("5 Year") ? 5 : r.label.includes("3 Year") ? 3 : r.label.includes("2 Year") ? 2 : r.label.includes("1 Year") ? 1 : null;
     const rp  = r.returnPct    != null && Number.isFinite(Number(r.returnPct))    ? Number(r.returnPct)    : null;
     const bpv = r.benchmarkPct != null && Number.isFinite(Number(r.benchmarkPct)) ? Number(r.benchmarkPct) : null;
     const abs  = yrs != null && rp  != null ? (Math.pow(1 + rp  / 100, yrs) - 1) * 100 : rp;
@@ -3494,14 +3509,14 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
   }), [cagrRows]);
 
   // Monthly rolling: month-on-month NAV changes
-  // BUG-F fix: guard for prev.portfolioNav=0 or prev.benchmarkNav=0 (division → Infinity/NaN).
-  // Filter out NaN/Infinity rows before rendering — they'd show as "NaN%" in the table.
   const rollingData = useMemo(() => {
     if (!performance || performance.length < 2) return [];
     return performance.slice(1).map((pt, i) => {
       const prev = performance![i];
       const pr = prev.portfolioNav  > 0 ? ((pt.portfolioNav  - prev.portfolioNav)  / prev.portfolioNav)  * 100 : null;
-      const br = prev.benchmarkNav  > 0 ? ((pt.benchmarkNav  - prev.benchmarkNav)  / prev.benchmarkNav)  * 100 : null;
+      const br = prev.benchmarkNav != null && prev.benchmarkNav > 0 && pt.benchmarkNav != null
+        ? ((pt.benchmarkNav  - prev.benchmarkNav)  / prev.benchmarkNav)  * 100
+        : null;
       if (pr === null || !Number.isFinite(pr)) return null;
       return {
         date:      pt.date,
@@ -4336,13 +4351,20 @@ export default function AgentModelPortfoliosPage() {
             }
             const dedupedRows = Array.from(byMonth.values());
             if (dedupedRows.length >= 2) {
-              return dedupedRows.map((r: any) => ({
-                date:         new Date(r.month_start).toLocaleString("en-IN", { month: "short", year: "2-digit" }),
-                portfolioNav: Math.round(Number(r.nav) * 100) / 100,
-                benchmarkNav: r.benchmark_cum_return != null
+              let runningBench = 1000;
+              return dedupedRows.map((r: any, idx: number) => {
+                if (idx > 0 && r.benchmark_return != null) {
+                  runningBench *= (1 + Number(r.benchmark_return) / 100);
+                }
+                const bNav = r.benchmark_cum_return != null
                   ? Math.round(1000 * (1 + Number(r.benchmark_cum_return) / 100) * 100) / 100
-                  : (r.benchmark_return != null ? Math.round((1000 * (1 + Number(r.benchmark_return) / 100)) * 100) / 100 : undefined),
-              })) as PerformancePoint[];
+                  : Math.round(runningBench * 100) / 100;
+                return {
+                  date:         new Date(r.month_start).toLocaleString("en-IN", { month: "short", year: "2-digit" }),
+                  portfolioNav: Math.round(Number(r.nav) * 100) / 100,
+                  benchmarkNav: bNav,
+                };
+              }) as PerformancePoint[];
             }
           }
           return [];
@@ -4464,13 +4486,20 @@ export default function AgentModelPortfoliosPage() {
           byMonth.set(ym, r);
         }
       }
-      return Array.from(byMonth.values()).map((r: any) => ({
-        date: new Date(r.month_start).toLocaleString("en-IN", { month: "short", year: "2-digit" }),
-        portfolioNav: Math.round(Number(r.nav) * 100) / 100,
-        benchmarkNav: r.benchmark_cum_return != null
+      let runningBench = 1000;
+      return Array.from(byMonth.values()).map((r: any, idx: number) => {
+        if (idx > 0 && r.benchmark_return != null) {
+          runningBench *= (1 + Number(r.benchmark_return) / 100);
+        }
+        const bNav = r.benchmark_cum_return != null
           ? Math.round(1000 * (1 + Number(r.benchmark_cum_return) / 100) * 100) / 100
-          : (r.benchmark_return != null ? Math.round((1000 * (1 + Number(r.benchmark_return) / 100)) * 100) / 100 : undefined),
-      })) as PerformancePoint[];
+          : Math.round(runningBench * 100) / 100;
+        return {
+          date: new Date(r.month_start).toLocaleString("en-IN", { month: "short", year: "2-digit" }),
+          portfolioNav: Math.round(Number(r.nav) * 100) / 100,
+          benchmarkNav: bNav,
+        };
+      }) as PerformancePoint[];
     }
     return [];
   }, [selectedPortfolio, navHistoryCache]);
@@ -5251,12 +5280,11 @@ export default function AgentModelPortfoliosPage() {
             ? (portfolio.cagr1Y ?? 0)
             : (rawTwrr1Y ?? portfolio.cagr1Y ?? 0);
 
-          // Defensively normalize & clamp returns (prevents runaway DB numbers like +3150%)
-          const normalizeReturn = (v: number | null | undefined, lo = -35, hi = 50): number => {
+          // Defensively normalize returns: guards against NaN/null, ensures finite numbers without distorting decimals
+          const normalizeReturn = (v: number | null | undefined, lo = -90, hi = 500): number => {
             if (v == null || Number.isNaN(Number(v))) return 0;
-            let n = Number(v);
-            // Handle decimal fraction representation (e.g. 0.082 instead of 8.2%)
-            if (Math.abs(n) > 0 && Math.abs(n) < 1) n = n * 100;
+            const n = Number(v);
+            if (!Number.isFinite(n)) return 0;
             return Math.max(lo, Math.min(hi, n));
           };
 
@@ -5275,7 +5303,6 @@ export default function AgentModelPortfoliosPage() {
           // ── SEBI Compliance & Honest Performance Representation ───────────────
           // Per SEBI IA circulars (SEBI/HO/IMD/DF1/CIR/P/2020/182), returns for
           // periods < 12 months MUST be reported as Absolute Returns, NEVER as CAGR.
-          // Compounding short-term returns (e.g. 6M ^ 2) produces absurd, misleading numbers.
           let portfolioCagr: number;
           let benchmarkCagr: number;
           let returnLabel: string;
@@ -5285,24 +5312,26 @@ export default function AgentModelPortfoliosPage() {
             portfolioCagr = display1Y;
             benchmarkCagr = rawBenchmark1Y;
           } else if (isPartialPeriod) {
-            returnLabel = `${inceptionMonths}M Return`;
-            // Prefer genuine cumulative period return if present in DB
+            // For portfolios < 12 months, check for genuine computed period return in DB
             const candidateReturn = portfolio.returnSinceInception ??
               (inceptionMonths >= 5 ? portfolio.return6m : portfolio.return3m);
 
             if (candidateReturn != null && !Number.isNaN(Number(candidateReturn))) {
+              returnLabel = `${inceptionMonths}M Return`;
               portfolioCagr = normalizeReturn(candidateReturn);
-            } else {
-              // De-annualize 1Y rate down to partial period: (1 + r)^(months/12) - 1
-              portfolioCagr = normalizeReturn(
-                (Math.pow(1 + display1Y / 100, inceptionMonths / 12) - 1) * 100
+              // Benchmark de-annualized over the same partial period for fair comparison
+              benchmarkCagr = normalizeReturn(
+                (Math.pow(1 + rawBenchmark1Y / 100, inceptionMonths / 12) - 1) * 100
               );
+            } else if (display1Y !== 0) {
+              returnLabel = isUsingTWRR ? "1Y TWRR" : "1Y CAGR";
+              portfolioCagr = display1Y;
+              benchmarkCagr = rawBenchmark1Y;
+            } else {
+              returnLabel = `${inceptionMonths}M Return`;
+              portfolioCagr = 0;
+              benchmarkCagr = 0;
             }
-
-            // Benchmark de-annualized over the same partial period for fair comparison
-            benchmarkCagr = normalizeReturn(
-              (Math.pow(1 + rawBenchmark1Y / 100, inceptionMonths / 12) - 1) * 100
-            );
           } else {
             returnLabel = isUsingTWRR ? "1Y TWRR" : "1Y CAGR";
             portfolioCagr = display1Y;

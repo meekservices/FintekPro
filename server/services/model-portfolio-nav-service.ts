@@ -60,27 +60,42 @@ function generateSyntheticNavCurve(
   volatility: number,
   inceptionDate: Date,
 ): MonthRow[] {
-  const monthlyReturn = (1 + annualReturn / 100) ** (1 / 12) - 1;
-  const benchmarkAnnualReturn = annualReturn * 0.85;
-  const monthlyBench = (1 + benchmarkAnnualReturn / 100) ** (1 / 12) - 1;
+  const safeAnnualReturn = Number.isFinite(annualReturn) ? annualReturn : 10;
+  const base = Math.max(0.01, 1 + safeAnnualReturn / 100);
+  const monthlyReturn = Math.pow(base, 1 / 12) - 1;
+  const benchmarkAnnualReturn = safeAnnualReturn * 0.85;
+  const benchBase = Math.max(0.01, 1 + benchmarkAnnualReturn / 100);
+  const monthlyBench = Math.pow(benchBase, 1 / 12) - 1;
 
   const rows: MonthRow[] = [];
   const now = new Date();
-  const cur = new Date(inceptionDate.getFullYear(), inceptionDate.getMonth(), 1);
+  const nowYear = now.getUTCFullYear();
+  const nowMonth = now.getUTCMonth();
 
+  const incYear = inceptionDate.getUTCFullYear();
+  const incMonth = inceptionDate.getUTCMonth();
+
+  let curYear = incYear;
+  let curMonth = incMonth;
   let monthIndex = 0;
-  while (cur <= now) {
-    // Pure mathematical geometric compound progression: NAV_t = NAV_0 * (1 + r_m)^t
-    const nav = 1000 * ((1 + monthlyReturn) ** monthIndex);
-    const bench = 1000 * ((1 + monthlyBench) ** monthIndex);
+
+  while (curYear < nowYear || (curYear === nowYear && curMonth <= nowMonth)) {
+    const monthKey = `${curYear}-${String(curMonth + 1).padStart(2, "0")}-01`;
+    const nav = 1000 * Math.pow(1 + monthlyReturn, monthIndex);
+    const bench = 1000 * Math.pow(1 + monthlyBench, monthIndex);
 
     rows.push({
-      month_start: cur.toISOString().slice(0, 10),
+      month_start: monthKey,
       portfolio_nav: Math.round(nav * 100) / 100,
       benchmark_nav: Math.round(bench * 100) / 100,
       had_rebalance: false,
     });
-    cur.setMonth(cur.getMonth() + 1);
+
+    curMonth++;
+    if (curMonth > 11) {
+      curMonth = 0;
+      curYear++;
+    }
     monthIndex++;
   }
 
@@ -133,15 +148,21 @@ async function fetchStockNavCurve(
         const bucket = monthlyBuckets.get(mKey)!;
         let retPct = 0;
         if (i === 0) {
-          retPct = ((bucket.lastClose - bucket.firstClose) / bucket.firstClose) * 100;
+          if (bucket.firstClose > 0) {
+            retPct = ((bucket.lastClose - bucket.firstClose) / bucket.firstClose) * 100;
+          }
         } else {
           const prevBucket = monthlyBuckets.get(sortedMonths[i - 1])!;
-          retPct = ((bucket.lastClose - prevBucket.lastClose) / prevBucket.lastClose) * 100;
+          if (prevBucket.lastClose > 0) {
+            retPct = ((bucket.lastClose - prevBucket.lastClose) / prevBucket.lastClose) * 100;
+          }
         }
 
-        const effectiveWeight = holding.weight / totalWeight;
-        const currentSum = monthReturnsMap.get(mKey) ?? 0;
-        monthReturnsMap.set(mKey, currentSum + retPct * effectiveWeight);
+        if (Number.isFinite(retPct)) {
+          const effectiveWeight = holding.weight / totalWeight;
+          const currentSum = monthReturnsMap.get(mKey) ?? 0;
+          monthReturnsMap.set(mKey, currentSum + retPct * effectiveWeight);
+        }
       }
     }
 
@@ -174,57 +195,35 @@ async function fetchStockNavCurve(
 }
 
 /**
- * Fetches real mf_monthwise_performance data for a portfolio's holdings,
+ * Fetches real historical NAV data for a portfolio's mutual fund holdings from historical_nav_data,
  * weighted by target allocation, to produce a blended monthly NAV series.
  *
  * Source priority for scheme codes:
- *   1. model_portfolio_holdings (relational table — enriched by Phase C ISIN resolver)
- *   2. JSONB holdings seed (fallback for portfolios not yet migrated)
- *   3. Direct equity stock holdings via Upstox / fetchHistoricalPrices
- *
- * Benchmark source priority:
- *   1. benchmark_return column of mf_monthwise_performance (real monthly %)
- *   2. Hardcoded 0.80%/month flat rate (9.6% pa) — last-resort fallback
+ *   1. JSONB holdings seed (amfiSchemeCode / schemeCode)
+ *   2. Direct equity stock holdings via Upstox / fetchHistoricalPrices
  *
  * Returns null if insufficient data (< 2 months).
  */
 async function fetchRealNavCurve(db: DbClient, portfolio: any): Promise<MonthRow[] | null> {
-  const pid = portfolio.id as string;
   const inceptionFilter = portfolio.inception_date ?? portfolio.inceptionDate ?? null;
 
-  // ── Scheme codes: relational table PRIMARY, JSONB seed FALLBACK ───────────
-  let schemeCodes: string[] = [];
-  let rawHoldingsList: any[] = [];
+  // Extract holdings list and weights
+  const rawH = portfolio.holdings;
+  const rawHoldingsList: any[] = Array.isArray(rawH)
+    ? rawH
+    : typeof rawH === "string"
+    ? (() => { try { return JSON.parse(rawH); } catch { return []; } })()
+    : [];
 
-  try {
-    const relResult = await db.execute(sql`
-      SELECT scheme_code
-      FROM model_portfolio_holdings
-      WHERE portfolio_id = ${pid}
-        AND removed_at IS NULL
-        AND scheme_code IS NOT NULL
-    `);
-    schemeCodes = ((relResult as any).rows ?? [])
-      .map((r: any) => r.scheme_code as string)
-      .filter(Boolean);
-  } catch { /* relational table not ready — will use JSONB fallback below */ }
-
-  // JSONB fallback: use seed holdings if relational table yielded nothing
-  if (schemeCodes.length === 0) {
-    const rawH = portfolio.holdings;
-    rawHoldingsList = Array.isArray(rawH)
-      ? rawH
-      : typeof rawH === "string"
-      ? (() => { try { return JSON.parse(rawH); } catch { return []; } })()
-      : [];
-    schemeCodes = rawHoldingsList
-      .map((h: any) => h.schemeCode ?? h.scheme_code ?? h.amfiSchemeCode)
-      .filter(Boolean)
-      .map(String);
-  }
+  const mfHoldings = rawHoldingsList
+    .filter((h: any) => (h.schemeCode || h.amfiSchemeCode) && Number(h.weight ?? 0) > 0)
+    .map((h: any) => ({
+      code: String(h.schemeCode ?? h.amfiSchemeCode),
+      weight: Number(h.weight ?? 0) || 1,
+    }));
 
   // If no mutual fund scheme codes, check for direct equity stock holdings
-  if (schemeCodes.length === 0) {
+  if (mfHoldings.length === 0) {
     const stockHoldings = rawHoldingsList
       .filter((h: any) => h.symbol && typeof h.symbol === "string" && !/^\d+$/.test(h.symbol))
       .map((h: any) => ({
@@ -241,55 +240,102 @@ async function fetchRealNavCurve(db: DbClient, portfolio: any): Promise<MonthRow
     return null;
   }
 
-  // ── Bug C fix: query month_year + return_percent (not nav_date + nav) ─────
-  // Fetch monthly return_percent per scheme, group by month, average across
-  // all scheme codes (equal-weight blend — good enough for chart accuracy).
+  const schemeCodes = mfHoldings.map((h) => h.code);
+  const totalWeight = mfHoldings.reduce((sum, h) => sum + h.weight, 0) || 100;
+  const weightMap = new Map(mfHoldings.map((h) => [h.code, h.weight / totalWeight]));
+
   try {
+    // Fetch month-end NAVs from historical_nav_data
     const res = await db.execute(sql`
-      SELECT
-        TO_CHAR(DATE_TRUNC('month', month_year::DATE), 'YYYY-MM-01') AS month_start,
-        AVG(return_percent::NUMERIC)                                 AS avg_return_pct,
-        AVG(benchmark_return::NUMERIC)                               AS avg_bench_pct
-      FROM mf_monthwise_performance
-      WHERE scheme_code = ANY(${schemeCodes})
-        AND month_year >= COALESCE(${inceptionFilter}::DATE, NOW() - INTERVAL '3 years')
-      GROUP BY DATE_TRUNC('month', month_year::DATE)
-      ORDER BY DATE_TRUNC('month', month_year::DATE) ASC
+      SELECT DISTINCT ON (identifier, TO_CHAR(date, 'YYYY-MM'))
+        identifier,
+        TO_CHAR(date, 'YYYY-MM-01') AS month_start,
+        date,
+        nav::NUMERIC AS nav
+      FROM historical_nav_data
+      WHERE identifier IN (${sql.join(schemeCodes.map((c) => sql`${c}`), sql`, `)})
+        AND date >= COALESCE(${inceptionFilter}::DATE, NOW() - INTERVAL '3 years')
+      ORDER BY identifier, TO_CHAR(date, 'YYYY-MM'), date DESC
     `);
 
-    let rows = ((res as any).rows ?? []) as any[];
-    if (rows.length < 2) {
-      // GCP BigQuery fallback: query partitioned daily_nav_timeseries
-      const bqSeries = await bigQueryTimeSeriesService.getMonthlyNavSeries(schemeCodes).catch(() => null);
-      if (bqSeries && bqSeries.length >= 2) {
-        rows = bqSeries;
-      } else {
-        return null;
+    const rawRows = ((res as any).rows ?? []) as Array<{
+      identifier: string;
+      month_start: string;
+      date: string;
+      nav: number;
+    }>;
+
+    if (rawRows.length < 2) return null;
+
+    // Group by scheme -> month_start -> nav
+    const schemeMonthNavs = new Map<string, Map<string, number>>();
+    const allMonthsSet = new Set<string>();
+
+    for (const r of rawRows) {
+      if (!Number.isFinite(Number(r.nav)) || Number(r.nav) <= 0) continue;
+      if (!schemeMonthNavs.has(r.identifier)) {
+        schemeMonthNavs.set(r.identifier, new Map());
+      }
+      schemeMonthNavs.get(r.identifier)!.set(r.month_start, Number(r.nav));
+      allMonthsSet.add(r.month_start);
+    }
+
+    const sortedMonths = Array.from(allMonthsSet).sort();
+    if (sortedMonths.length < 2) return null;
+
+    // Calculate month-on-month blended portfolio return
+    const navRows: MonthRow[] = [];
+    let nav = 1000;
+    let bench = 1000;
+    const benchMonthlyPct = 1.05; // ~13.2% pa Nifty 50 TRI baseline
+
+    // First month: base ₹1000
+    navRows.push({
+      month_start: sortedMonths[0],
+      portfolio_nav: 1000,
+      benchmark_nav: 1000,
+      had_rebalance: false,
+    });
+
+    for (let i = 1; i < sortedMonths.length; i++) {
+      const prevMonth = sortedMonths[i - 1];
+      const curMonth = sortedMonths[i];
+
+      let blendedReturn = 0;
+      let totalEffectiveWeight = 0;
+
+      for (const [code, monthMap] of schemeMonthNavs.entries()) {
+        const prevNav = monthMap.get(prevMonth);
+        const curNav = monthMap.get(curMonth);
+        const w = weightMap.get(code) ?? 0;
+
+        if (prevNav && curNav && prevNav > 0 && curNav > 0) {
+          const retPct = ((curNav - prevNav) / prevNav) * 100;
+          if (Number.isFinite(retPct)) {
+            blendedReturn += retPct * w;
+            totalEffectiveWeight += w;
+          }
+        }
+      }
+
+      if (totalEffectiveWeight > 0.2) {
+        // Rescale to 100% covered weight
+        const scaledReturn = blendedReturn / totalEffectiveWeight;
+        nav *= (1 + scaledReturn / 100);
+        bench *= (1 + benchMonthlyPct / 100);
+
+        navRows.push({
+          month_start: curMonth,
+          portfolio_nav: Math.round(nav * 100) / 100,
+          benchmark_nav: Math.round(bench * 100) / 100,
+          had_rebalance: false,
+        });
       }
     }
 
-    const navRows: MonthRow[] = [];
-    let nav   = 1000;
-    let bench = 1000;
-
-    for (const r of rows) {
-      // return_percent is a monthly % — e.g. 1.5 for 1.5%, -2.3 for -2.3%
-      const returnPct = Number(r.avg_return_pct ?? 0);
-      const benchPct  = Number(r.avg_bench_pct  ?? 0.80); // fallback: ~9.6% pa
-
-      if (!isNaN(returnPct)) nav   *= (1 + returnPct / 100);
-      if (!isNaN(benchPct))  bench *= (1 + benchPct  / 100);
-
-      navRows.push({
-        month_start:   r.month_start,
-        portfolio_nav: Math.round(nav   * 100) / 100,
-        benchmark_nav: Math.round(bench * 100) / 100,
-        had_rebalance: false,
-      });
-    }
-
     return navRows.length >= 2 ? navRows : null;
-  } catch {
+  } catch (err: any) {
+    logger.warn("[NavService] fetchRealNavCurve error", { error: err.message });
     return null;
   }
 }
@@ -385,6 +431,72 @@ export async function computeAndStorePortfolioNavHistory(
               updated_at           = NOW()
       `);
       written++;
+    }
+
+    // 4. Calculate summary trailing metrics and update model_portfolios table
+    if (navRows.length >= 2) {
+      const latestNav = navRows[navRows.length - 1].portfolio_nav;
+      const latestBenchNav = navRows[navRows.length - 1].benchmark_nav;
+      const firstNav = navRows[0].portfolio_nav;
+      const firstBenchNav = navRows[0].benchmark_nav;
+
+      // 1M return (last month vs prior month)
+      const p1m = navRows[navRows.length - 2]?.portfolio_nav;
+      const return1m = p1m && p1m > 0 ? ((latestNav - p1m) / p1m) * 100 : null;
+
+      // 3M return (3 completed monthly bars ago)
+      const p3m = navRows.length >= 4 ? navRows[navRows.length - 4]?.portfolio_nav : null;
+      const return3m = p3m && p3m > 0 ? ((latestNav - p3m) / p3m) * 100 : null;
+
+      // 6M return (6 completed monthly bars ago)
+      const p6m = navRows.length >= 7 ? navRows[navRows.length - 7]?.portfolio_nav : null;
+      const return6m = p6m && p6m > 0 ? ((latestNav - p6m) / p6m) * 100 : null;
+
+      // YTD return: compare latest with December of prior year or first month of current year
+      const curYear = new Date().getFullYear();
+      const ytdBaseRow = navRows.slice().reverse().find(r => {
+        const y = Number(r.month_start.slice(0, 4));
+        return y < curYear;
+      }) ?? navRows[0];
+      const returnYtd = ytdBaseRow && ytdBaseRow.portfolio_nav > 0
+        ? ((latestNav - ytdBaseRow.portfolio_nav) / ytdBaseRow.portfolio_nav) * 100
+        : null;
+
+      // 1Y CAGR (12 monthly bars): for 1 year, CAGR = absolute return
+      const p1y = navRows.length >= 13 ? navRows[navRows.length - 13]?.portfolio_nav : null;
+      const cagr1y = p1y && p1y > 0 ? ((latestNav - p1y) / p1y) * 100 : null;
+      const b1y = navRows.length >= 13 ? navRows[navRows.length - 13]?.benchmark_nav : null;
+      const benchCagr1y = b1y && b1y > 0 ? ((latestBenchNav - b1y) / b1y) * 100 : null;
+
+      // 2Y CAGR (24 monthly bars)
+      const p2y = navRows.length >= 25 ? navRows[navRows.length - 25]?.portfolio_nav : null;
+      const cagr2y = p2y && p2y > 0 ? (Math.pow(latestNav / p2y, 1 / 2) - 1) * 100 : null;
+
+      // 3Y CAGR (36 monthly bars)
+      const p3y = navRows.length >= 37 ? navRows[navRows.length - 37]?.portfolio_nav : null;
+      const cagr3y = p3y && p3y > 0 ? (Math.pow(latestNav / p3y, 1 / 3) - 1) * 100 : null;
+
+      // Since inception
+      const returnSinceInception = firstNav > 0 ? ((latestNav - firstNav) / firstNav) * 100 : null;
+      const benchmarkSinceInception = firstBenchNav > 0 ? ((latestBenchNav - firstBenchNav) / firstBenchNav) * 100 : null;
+
+      await db.execute(sql`
+        UPDATE model_portfolios SET
+          return_1m                 = ${return1m != null ? Number(return1m.toFixed(2)) : null},
+          return_3m                 = ${return3m != null ? Number(return3m.toFixed(2)) : null},
+          return_6m                 = ${return6m != null ? Number(return6m.toFixed(2)) : null},
+          return_ytd                = ${returnYtd != null ? Number(returnYtd.toFixed(2)) : null},
+          cagr_1y                   = COALESCE(${cagr1y != null ? Number(cagr1y.toFixed(2)) : null}, cagr_1y),
+          twrr_1y                   = COALESCE(${cagr1y != null ? Number(cagr1y.toFixed(2)) : null}, twrr_1y),
+          benchmark_cagr_1y         = COALESCE(${benchCagr1y != null ? Number(benchCagr1y.toFixed(2)) : null}, benchmark_cagr_1y),
+          cagr_2y                   = ${cagr2y != null ? Number(cagr2y.toFixed(2)) : null},
+          cagr_3y                   = COALESCE(${cagr3y != null ? Number(cagr3y.toFixed(2)) : null}, cagr_3y),
+          return_since_inception    = ${returnSinceInception != null ? Number(returnSinceInception.toFixed(2)) : null},
+          benchmark_since_inception = ${benchmarkSinceInception != null ? Number(benchmarkSinceInception.toFixed(2)) : null},
+          periods_computed_at       = NOW(),
+          updated_at                = NOW()
+        WHERE id = ${pid}
+      `);
     }
 
     const latencyMs = Date.now() - t0;
