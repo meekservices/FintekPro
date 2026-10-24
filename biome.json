@@ -76,10 +76,10 @@
 	"files": {
 		"includes": [
 			"**",
-			"!**/node_modules/**",
-			"!**/dist/**",
-			"!**/build/**",
-			"!**/.git/**"
+			"!**/node_modules",
+			"!**/dist",
+			"!**/build",
+			"!**/.git"
 		]
 	}
 }

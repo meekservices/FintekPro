@@ -2,7 +2,8 @@
   // ─── Biome ────────────────────────────────────────────────────────────────
   // Points the VS Code Biome extension to the local node_modules binary.
   // Fixes: "Unable to find the Biome binary" on workspace open.
-  "biome.lspBin": "${workspaceFolder}/node_modules/@biomejs/biome/bin/biome",
+  "biome.lsp.bin": "node_modules/@biomejs/biome/bin/biome",
+  "biome.lspBin": "node_modules/@biomejs/biome/bin/biome",
 
   // ─── TypeScript ───────────────────────────────────────────────────────────
   "typescript.tsdk": "node_modules/typescript/lib",
