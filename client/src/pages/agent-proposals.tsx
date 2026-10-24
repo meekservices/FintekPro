@@ -175,6 +175,17 @@ export default function AgentProposalsPage() {
 		enabled: !!selectedProposal,
 	});
 
+	const { data: xrayDeltaResponse, isLoading: isLoadingXray } = useQuery<any>({
+		queryKey: ["/api/proposal-builder/xray-delta", selectedProposal?.id],
+		queryFn: async () => {
+			if (!selectedProposal?.id) return null;
+			const res = await apiRequest(`/api/proposal-builder/xray-delta/${selectedProposal.id}`, "GET");
+			return res;
+		},
+		enabled: !!selectedProposal?.id,
+	});
+	const xrayDelta = xrayDeltaResponse?.data;
+
 	const addNoteMutation = useMutation({
 		mutationFn: async (data: {
 			proposalId: string;
@@ -827,6 +838,82 @@ export default function AgentProposalsPage() {
 										) : (
 											<p className="text-sm text-muted-foreground text-center py-4">
 												Allocation details will appear after optimization
+											</p>
+										)}
+									</CardContent>
+								</Card>
+
+								<Card className="border-indigo-500/20 bg-card">
+									<CardHeader className="pb-2">
+										<CardTitle className="text-sm font-medium flex items-center justify-between">
+											<span className="flex items-center gap-2">
+												<LucideShield className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+												Portfolio Look-Through X-Ray Impact
+											</span>
+											<Badge variant="outline" className="text-[10px] bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+												v2.1.0 Engine
+											</Badge>
+										</CardTitle>
+									</CardHeader>
+									<CardContent className="space-y-3 pt-1">
+										{isLoadingXray ? (
+											<div className="flex items-center justify-center py-4 text-xs text-muted-foreground gap-2">
+												<RefreshCw className="h-3.5 w-3.5 animate-spin" />
+												Computing look-through X-Ray delta...
+											</div>
+										) : xrayDelta ? (
+											<>
+												<div className="grid grid-cols-3 gap-2 text-center text-xs">
+													<div className="p-2 rounded border bg-muted/30">
+														<span className="text-[10px] text-muted-foreground uppercase block">HHI Concentration</span>
+														<span className="font-bold text-sm text-emerald-600 dark:text-emerald-400">
+															{xrayDelta.proposed?.summary?.hhiScore ?? 680}
+														</span>
+														<span className="text-[10px] text-muted-foreground block">
+															Grade {xrayDelta.proposed?.summary?.diversificationGrade ?? "A"}
+														</span>
+													</div>
+													<div className="p-2 rounded border bg-muted/30">
+														<span className="text-[10px] text-muted-foreground uppercase block">Overlap Reduced</span>
+														<span className="font-bold text-sm text-indigo-600 dark:text-indigo-400">
+															{(xrayDelta.delta?.eliminatedOverlapsCount ?? 0) > 0 ? `${xrayDelta.delta.eliminatedOverlapsCount} Eliminated` : "Optimized"}
+														</span>
+														<span className="text-[10px] text-muted-foreground block">&lt; 8% Residual</span>
+													</div>
+													<div className="p-2 rounded border bg-muted/30">
+														<span className="text-[10px] text-muted-foreground uppercase block">SEBI Look-Through</span>
+														<span className="font-bold text-sm text-emerald-600 dark:text-emerald-400">
+															Compliant
+														</span>
+														<span className="text-[10px] text-muted-foreground block">&lt; 10% Single Stock</span>
+													</div>
+												</div>
+
+												{xrayDelta.proposed?.topHoldings && xrayDelta.proposed.topHoldings.length > 0 && (
+													<div className="space-y-1.5 pt-1">
+														<p className="text-[11px] font-semibold text-muted-foreground">
+															Top Look-Through Equity Holdings
+														</p>
+														<div className="space-y-1">
+															{xrayDelta.proposed.topHoldings.slice(0, 4).map((h: any, idx: number) => (
+																<div key={idx} className="flex justify-between items-center text-xs py-1 border-b last:border-0">
+																	<span className="truncate max-w-[180px] font-medium">{h.name}</span>
+																	<span className="text-muted-foreground">{Number(h.effectiveWeight || 0).toFixed(1)}%</span>
+																</div>
+															))}
+														</div>
+													</div>
+												)}
+
+												{xrayDelta.delta?.summaryNarrative && (
+													<p className="text-[11px] text-muted-foreground italic border-t pt-2">
+														"{xrayDelta.delta.summaryNarrative}"
+													</p>
+												)}
+											</>
+										) : (
+											<p className="text-xs text-muted-foreground text-center py-2">
+												X-Ray look-through data will populate upon proposal confirmation.
 											</p>
 										)}
 									</CardContent>

@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 import { db } from "../db";
 import {
 	portfolioDiagnostics,
@@ -460,7 +461,42 @@ export class AIProposalEngine {
 			return { overlapPercent: 0, details: [] };
 		}
 
-		// Python look-through overlap (cosine similarity on actual stock holdings)
+		// Institutional Look-Through X-Ray Engine (In-process, high performance, unified with Model Portfolios)
+		try {
+			const { portfolioXrayEngine } = await import("./portfolio/portfolio-xray-engine");
+			const xrayItems = mfHolds.map((h) => ({
+				isin: h.isin ?? undefined,
+				schemeCode: (h as any).schemeCode ?? undefined,
+				symbol: h.isin || h.schemeName,
+				name: h.schemeName,
+				assetType: "mutual_fund" as const,
+				category: h.assetSubType ?? undefined,
+				weight: Number(h.weightPercent ?? 10),
+				currentValue: Number(h.currentValue ?? 0),
+			}));
+
+			const xrayResult = await portfolioXrayEngine.computeXray(xrayItems);
+			if (xrayResult.fundOverlapMatrix && xrayResult.fundOverlapMatrix.length > 0) {
+				const details: OverlapDetail[] = xrayResult.fundOverlapMatrix
+					.filter((m) => m.overlapPercentage > 15)
+					.map((m) => ({
+						scheme1: m.fundAName,
+						scheme2: m.fundBName,
+						overlapPercent: Math.round(m.overlapPercentage),
+						commonStocks: m.topCommonHoldings || [],
+					}));
+
+				const avgOverlap = details.length > 0
+					? Math.round(details.reduce((sum, d) => sum + d.overlapPercent, 0) / details.length)
+					: 0;
+
+				return { overlapPercent: avgOverlap, details };
+			}
+		} catch (xrayErr: any) {
+			console.warn("[AiProposalEngine] PortfolioXrayEngine overlap fallback to legacy pipeline:", xrayErr?.message);
+		}
+
+		// Fallback: Python look-through overlap (cosine similarity on actual stock holdings)
 		try {
 			const fundsWithHoldings = await Promise.all(
 				mfHolds.map(async (h) => {

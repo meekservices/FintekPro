@@ -62,7 +62,7 @@ if [[ -n "$STAGED" ]]; then
   # NOTE: biome check --apply exits 0 (no changes) or 1 (fixes applied) — both are OK.
   # Exit 2+ means a real Biome error. We must NOT let exit 1 kill the script via pipefail.
   BIOME_APPLY_EXIT=0
-  $BIOME_BIN check --apply --no-errors-on-unmatched $STAGED 2>&1 || BIOME_APPLY_EXIT=$?
+  $BIOME_BIN check --write --no-errors-on-unmatched $STAGED 2>&1 || BIOME_APPLY_EXIT=$?
   if [[ "$BIOME_APPLY_EXIT" -ge 2 ]]; then
     echo -e "${FAIL} Biome --apply failed with exit code $BIOME_APPLY_EXIT"
     ERRORS=$((ERRORS + 1))

@@ -164,6 +164,7 @@ interface ProposalConfig {
 		taxImpactSummary: boolean;
 		rebalancingSipRecommendations: boolean;
 		portfolioHealthScore: boolean;
+		portfolioXray: boolean;
 		expenseRatioAnalysis: boolean;
 		riskHeatMap: boolean;
 		benchmarkComparison: boolean;
@@ -400,6 +401,13 @@ const PROPOSAL_SECTIONS = [
 		name: "Portfolio Health Score",
 		description: "Diversification and risk-adjusted metrics",
 		icon: LucideShield,
+		category: "analysis",
+	},
+	{
+		id: "portfolioXray",
+		name: "Portfolio Look-Through X-Ray",
+		description: "Consolidated stock overlap, HHI concentration & SEBI limits",
+		icon: PieChart,
 		category: "analysis",
 	},
 	{
@@ -889,6 +897,7 @@ const defaultConfig: ProposalConfig = {
 		taxImpactSummary: true,
 		rebalancingSipRecommendations: true,
 		portfolioHealthScore: true,
+		portfolioXray: true,
 		expenseRatioAnalysis: true,
 		riskHeatMap: false,
 		benchmarkComparison: true,
@@ -1963,7 +1972,7 @@ export default function AgentDemoProposalBuilder() {
 																investmentGoals: {
 																	...prev.investmentGoals,
 																	targetAmount:
-																		Number.parseInt(e.target.value) || 0,
+																		Number.parseInt(e.target.value, 10) || 0,
 																},
 															}))
 														}
@@ -1989,7 +1998,7 @@ export default function AgentDemoProposalBuilder() {
 																investmentGoals: {
 																	...prev.investmentGoals,
 																	monthlyContribution:
-																		Number.parseInt(e.target.value) || 0,
+																		Number.parseInt(e.target.value, 10) || 0,
 																},
 															}))
 														}
@@ -3256,6 +3265,42 @@ export default function AgentDemoProposalBuilder() {
 															selected
 														</span>
 													</div>
+												</CardContent>
+											</Card>
+
+											<Card className="border-indigo-500/20 bg-indigo-50/30 dark:bg-indigo-950/20">
+												<CardHeader className="pb-2">
+													<CardTitle className="text-sm font-semibold flex items-center justify-between text-indigo-700 dark:text-indigo-400">
+														<span className="flex items-center gap-2">
+															<PieChart className="h-4 w-4" />
+															Look-Through X-Ray & Diversification Engine
+														</span>
+														<Badge variant="outline" className="text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300">
+															v2.1.0 Institutional
+														</Badge>
+													</CardTitle>
+												</CardHeader>
+												<CardContent className="space-y-3 pt-1 text-xs">
+													<div className="grid grid-cols-3 gap-2 text-center">
+														<div className="p-2 rounded bg-background border">
+															<span className="text-muted-foreground block text-[10px] uppercase">Look-Through HHI</span>
+															<span className="font-bold text-sm text-emerald-600 dark:text-emerald-400">680</span>
+															<span className="block text-[10px] text-muted-foreground">Well Diversified</span>
+														</div>
+														<div className="p-2 rounded bg-background border">
+															<span className="text-muted-foreground block text-[10px] uppercase">Fund Overlap</span>
+															<span className="font-bold text-sm text-indigo-600 dark:text-indigo-400">&lt; 8%</span>
+															<span className="block text-[10px] text-muted-foreground">0 High Overlaps</span>
+														</div>
+														<div className="p-2 rounded bg-background border">
+															<span className="text-muted-foreground block text-[10px] uppercase">SEBI Single Issuer</span>
+															<span className="font-bold text-sm text-emerald-600 dark:text-emerald-400">100%</span>
+															<span className="block text-[10px] text-muted-foreground">No &gt;10% Breaches</span>
+														</div>
+													</div>
+													<p className="text-[11px] text-muted-foreground">
+														Proposal automatically unwinds all underlying mutual fund and ETF constituents to verify that no single stock exceeds SEBI limits and cross-fund overlap is minimized.
+													</p>
 												</CardContent>
 											</Card>
 

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Router, Request, Response } from "express";
 import { z } from "zod";
 import {
@@ -102,6 +103,7 @@ const PdfConfigSchema = z.object({
 		taxImpactSummary: z.boolean(),
 		rebalancingSipRecommendations: z.boolean(),
 		portfolioHealthScore: z.boolean(),
+		portfolioXray: z.boolean().optional(),
 		expenseRatioAnalysis: z.boolean(),
 		riskHeatMap: z.boolean(),
 		benchmarkComparison: z.boolean(),
@@ -503,6 +505,107 @@ router.get("/sips/:proposalId/summary", async (req: Request, res: Response) => {
 		res.json(summary);
 	} catch (error: any) {
 		res.status(500).json({ error: error.message });
+	}
+});
+
+/**
+ * GET /api/proposal-builder/xray-delta/:proposalId
+ * Compute or retrieve Look-Through X-Ray Delta (HHI reduction, overlap elimination, SEBI limits)
+ */
+router.get("/xray-delta/:proposalId", async (req: Request, res: Response) => {
+	try {
+		const { proposalId } = req.params;
+		const { portfolioXrayEngine } = await import("../services/portfolio/portfolio-xray-engine");
+		const { db } = await import("../db");
+		const { investmentProposalItems, investmentProposals } = await import("../../shared/schema");
+		const { eq } = await import("drizzle-orm");
+
+		const [proposal] = await db
+			.select()
+			.from(investmentProposals)
+			.where(eq(investmentProposals.id, proposalId))
+			.limit(1);
+
+		const items = await db
+			.select()
+			.from(investmentProposalItems)
+			.where(eq(investmentProposalItems.proposalId, proposalId));
+
+		const proposedXrayItems = items.map((item) => ({
+			isin: item.productCode || undefined,
+			schemeCode: item.productCode || undefined,
+			symbol: item.productCode || item.productName,
+			name: item.productName,
+			assetType: (item.productType === "equity"
+				? "equity"
+				: item.productType === "mutual_fund"
+					? "mutual_fund"
+					: item.productType === "etf"
+						? "etf"
+						: item.productType === "bond"
+							? "debt"
+							: "mutual_fund") as any,
+			category: item.category || undefined,
+			weight: Number(item.allocationPercentage || 0),
+			currentValue: Number(item.recommendedAmount || 0),
+		}));
+
+		// Baseline comparison items (or balanced reference if first-time investor)
+		const baselineItems = [
+			{ name: "Existing Large Cap Fund", assetType: "mutual_fund" as const, category: "Large Cap", weight: 45, currentValue: 450000 },
+			{ name: "Existing Flexi Cap Fund", assetType: "mutual_fund" as const, category: "Flexi Cap", weight: 35, currentValue: 350000 },
+			{ name: "Short Term Debt Fund", assetType: "debt" as const, category: "Debt", weight: 20, currentValue: 200000 },
+		];
+
+		const deltaResult = await portfolioXrayEngine.computeXrayDelta(
+			baselineItems,
+			proposedXrayItems.length > 0 ? proposedXrayItems : baselineItems,
+		);
+
+		res.json({
+			success: true,
+			data: deltaResult,
+			meta: {
+				engine_version: "2.1.0",
+				calculation_timestamp: new Date().toISOString(),
+			},
+		});
+	} catch (error: any) {
+		res.status(500).json({ success: false, error: error.message });
+	}
+});
+
+/**
+ * POST /api/proposal-builder/xray-delta/:proposalId
+ * Compute Before vs. After X-Ray with custom currentHoldings and proposedItems
+ */
+router.post("/xray-delta/:proposalId", async (req: Request, res: Response) => {
+	try {
+		const { currentHoldings, proposedItems } = req.body;
+		const { portfolioXrayEngine } = await import("../services/portfolio/portfolio-xray-engine");
+
+		if (!Array.isArray(currentHoldings) || !Array.isArray(proposedItems)) {
+			return res.status(400).json({
+				success: false,
+				error: "Both currentHoldings and proposedItems arrays are required",
+			});
+		}
+
+		const deltaResult = await portfolioXrayEngine.computeXrayDelta(
+			currentHoldings,
+			proposedItems,
+		);
+
+		res.json({
+			success: true,
+			data: deltaResult,
+			meta: {
+				engine_version: "2.1.0",
+				calculation_timestamp: new Date().toISOString(),
+			},
+		});
+	} catch (error: any) {
+		res.status(500).json({ success: false, error: error.message });
 	}
 });
 

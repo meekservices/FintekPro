@@ -91,6 +91,7 @@ const PdfConfigSchema = z.object({
 		taxImpactSummary: z.boolean(),
 		rebalancingSipRecommendations: z.boolean(),
 		portfolioHealthScore: z.boolean(),
+		portfolioXray: z.boolean().optional(),
 		expenseRatioAnalysis: z.boolean(),
 		riskHeatMap: z.boolean(),
 		benchmarkComparison: z.boolean(),

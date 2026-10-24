@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 import { db } from "../db";
 import {
 	advisorySessions,
@@ -75,6 +76,25 @@ export interface PortfolioDifferenceSummary {
 		oldConcentration: number;
 		proposedConcentration: number;
 	}[];
+	xrayDelta?: {
+		diversificationScoreChange: number;
+		hhiScoreChange: number;
+		top10ConcentrationChange: number;
+		maxSingleStockChange: number;
+		eliminatedOverlapsCount: number;
+		summaryNarrative: string;
+		currentHhiScore: number;
+		proposedHhiScore: number;
+		currentDiversificationGrade: string;
+		proposedDiversificationGrade: string;
+		currentTopHoldings: Array<{ name: string; effectiveWeight: number }>;
+		proposedTopHoldings: Array<{ name: string; effectiveWeight: number }>;
+		sebiCompliant: boolean;
+	};
+	meta?: {
+		engine_version: string;
+		calculation_timestamp: string;
+	};
 }
 
 async function logSystemAction(data: {
@@ -2132,11 +2152,95 @@ export class ProposalOrchestrator {
 				proposed.find((a) => a.assetClass === ac)?.weight || 0,
 		}));
 
+		// Compute Look-Through Portfolio X-Ray Delta
+		let xrayDeltaSummary: PortfolioDifferenceSummary["xrayDelta"];
+		try {
+			const { portfolioXrayEngine } = await import("./portfolio/portfolio-xray-engine");
+			const proposalItems = await db
+				.select()
+				.from(investmentProposalItems)
+				.where(eq(investmentProposalItems.proposalId, proposalId));
+
+			const proposedXrayItems = proposalItems.length > 0
+				? proposalItems.map((item) => ({
+						isin: item.productCode || undefined,
+						schemeCode: item.productCode || undefined,
+						symbol: item.productCode || item.productName,
+						name: item.productName,
+						assetType: (item.productType === "equity"
+							? "equity"
+							: item.productType === "mutual_fund"
+								? "mutual_fund"
+								: item.productType === "etf"
+									? "etf"
+									: item.productType === "bond"
+										? "debt"
+										: "mutual_fund") as any,
+						category: item.category || undefined,
+						weight: Number(item.allocationPercentage || 0),
+						currentValue: Number(item.recommendedAmount || 0),
+					}))
+				: proposed.map((a) => ({
+						name: `${a.assetClass.toUpperCase()} Strategy`,
+						assetType: (a.assetClass.toLowerCase().includes("debt")
+							? "debt"
+							: a.assetClass.toLowerCase().includes("gold")
+								? "gold"
+								: a.assetClass.toLowerCase().includes("cash")
+									? "cash"
+									: "mutual_fund") as any,
+						category: a.assetClass,
+						weight: a.weight,
+					}));
+
+			const oldXrayItems = oldAllocation.map((a: any) => ({
+				isin: a.isin || undefined,
+				schemeCode: a.schemeCode || undefined,
+				symbol: a.symbol || a.isin || a.name || a.instrumentName,
+				name: a.name || a.instrumentName || `${a.assetClass.toUpperCase()} Holding`,
+				assetType: (a.assetType ||
+					(a.assetClass?.toLowerCase().includes("debt")
+						? "debt"
+						: a.assetClass?.toLowerCase().includes("gold")
+							? "gold"
+							: a.assetClass?.toLowerCase().includes("cash")
+								? "cash"
+								: "mutual_fund")) as any,
+				category: a.category || a.assetClass,
+				weight: a.weight || 0,
+				currentValue: a.currentValue || a.value || 0,
+			}));
+
+			const deltaResult = await portfolioXrayEngine.computeXrayDelta(oldXrayItems, proposedXrayItems);
+			xrayDeltaSummary = {
+				diversificationScoreChange: deltaResult.delta.diversificationScoreChange,
+				hhiScoreChange: deltaResult.delta.hhiScoreChange,
+				top10ConcentrationChange: deltaResult.delta.top10ConcentrationChange,
+				maxSingleStockChange: deltaResult.delta.maxSingleStockChange,
+				eliminatedOverlapsCount: deltaResult.delta.eliminatedOverlapsCount,
+				summaryNarrative: deltaResult.delta.summaryNarrative,
+				currentHhiScore: deltaResult.current.summary.hhiScore,
+				proposedHhiScore: deltaResult.proposed.summary.hhiScore,
+				currentDiversificationGrade: deltaResult.current.summary.diversificationGrade,
+				proposedDiversificationGrade: deltaResult.proposed.summary.diversificationGrade,
+				currentTopHoldings: deltaResult.current.topHoldings.slice(0, 5).map((h) => ({ name: h.name, effectiveWeight: h.effectiveWeight })),
+				proposedTopHoldings: deltaResult.proposed.topHoldings.slice(0, 5).map((h) => ({ name: h.name, effectiveWeight: h.effectiveWeight })),
+				sebiCompliant: deltaResult.proposed.sebiCompliance.overallStatus !== "NON_COMPLIANT",
+			};
+		} catch (xrayErr: any) {
+			console.warn("[ProposalOrchestrator] Look-through X-Ray delta computation skipped:", xrayErr?.message);
+		}
+
 		const summary: PortfolioDifferenceSummary = {
 			allocationDelta,
 			riskMetricDelta,
 			costDelta,
 			concentrationDelta,
+			xrayDelta: xrayDeltaSummary,
+			meta: {
+				engine_version: "2.1.0",
+				calculation_timestamp: new Date().toISOString(),
+			},
 		};
 
 		await db
