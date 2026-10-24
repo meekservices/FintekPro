@@ -1,0 +1,93 @@
+{
+  "$schema": "https://fintekpro.in/schemas/broker-requirement-schema/v1",
+  "broker_id": "upstox",
+  "broker_name": "Upstox Securities",
+  "schema_version": "1.0",
+  "regulatory_regime": "SEBI",
+  "kra_reuse_eligible": true,
+  "last_reviewed": "2026-06-25",
+  "api_reference": "https://upstox.com/developer/api-documentation",
+  "segments": {
+    "equity": {
+      "required_fields": [
+        "full_legal_name",
+        "date_of_birth",
+        "pan_number",
+        "mobile_number",
+        "email",
+        "current_address",
+        "permanent_address",
+        "bank_account_number",
+        "ifsc_code",
+        "demat_account_linked",
+        "nominee_details",
+        "occupation",
+        "annual_income_band",
+        "trading_experience_years"
+      ],
+      "broker_unique_fields": [
+        "upstox_client_code",
+        "segment_activation_equity"
+      ],
+      "prefillable_from_kra": [
+        "full_legal_name",
+        "date_of_birth",
+        "pan_number",
+        "current_address",
+        "permanent_address",
+        "occupation"
+      ],
+      "always_required_delta": [
+        "bank_account_number",
+        "ifsc_code",
+        "demat_account_linked",
+        "nominee_details"
+      ],
+      "freshness_windows_days": {
+        "address_proof": 90,
+        "bank_details": 180,
+        "income_proof": 365,
+        "pan_verification": 730
+      },
+      "field_mapping": {
+        "full_legal_name": "name",
+        "date_of_birth": "dob",
+        "pan_number": "pan",
+        "mobile_number": "mobile",
+        "email": "email",
+        "bank_account_number": "bankAccountNumber",
+        "ifsc_code": "ifscCode",
+        "occupation": "occupation",
+        "annual_income_band": "incomeRange"
+      }
+    },
+    "fo": {
+      "required_fields": [
+        "full_legal_name",
+        "pan_number",
+        "income_proof_document_ref",
+        "annual_income_band",
+        "trading_experience_years"
+      ],
+      "broker_unique_fields": [
+        "segment_activation_fo",
+        "income_proof_type"
+      ],
+      "prefillable_from_kra": [
+        "full_legal_name",
+        "pan_number"
+      ],
+      "always_required_delta": [
+        "income_proof_document_ref",
+        "trading_experience_years"
+      ],
+      "freshness_windows_days": {
+        "income_proof": 180
+      },
+      "field_mapping": {
+        "annual_income_band": "incomeRange",
+        "income_proof_document_ref": "incomeProofDoc"
+      }
+    }
+  }
+}

@@ -1350,6 +1350,14 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			);
 		});
 
+		// ─── IRIS SIP Renewal Trigger Scheduler ───────────────────────────────────
+		runStartupTask("SIP Renewal Trigger Scheduler", async () => {
+			const { sipRenewalScheduler } = await import(
+				"../services/sip-renewal-scheduler"
+			);
+			sipRenewalScheduler.start();
+		});
+
 		console.log(
 			"✅ [Schedulers] All background services initialized. Portal is self-operating.",
 		);

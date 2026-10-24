@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Express } from "express";
 import { db } from "../db";
 import {
@@ -7,6 +8,7 @@ import {
 	crmClientTags,
 	crmActivityLog,
 	users,
+	userNotifications,
 } from "@shared/schema";
 import { eq, desc, and, or, sql, gte, lte } from "drizzle-orm";
 
@@ -268,6 +270,31 @@ export function registerCrmRoutes(app: Express) {
 				.orderBy(desc(crmActivityLog.createdAt))
 				.limit(20);
 
+			// Fetch automated communication & notification history (IRIS, WhatsApp, SIP reminders)
+			const communicationHistory = await db
+				.select()
+				.from(userNotifications)
+				.where(eq(userNotifications.userId, clientId))
+				.orderBy(desc(userNotifications.createdAt))
+				.limit(20);
+
+			// Merge automated notices into combined chronological timeline
+			const formattedNotices = communicationHistory.map((n) => ({
+				id: `notice-${n.id}`,
+				clientId,
+				activityType: "automated_notice",
+				subject: n.title,
+				description: n.message,
+				summary: `📢 [Automated] ${n.title}: ${n.message}`,
+				createdAt: n.createdAt,
+			}));
+
+			const combinedTimeline = [...activityTimeline, ...formattedNotices].sort(
+				(a, b) =>
+					new Date(b.createdAt || 0).getTime() -
+					new Date(a.createdAt || 0).getTime(),
+			).slice(0, 30);
+
 			// Calculate stats
 			const totalOpportunityValue = opportunities.reduce(
 				(sum, o) => sum + Number(o.expectedAmount || 0),
@@ -281,7 +308,8 @@ export function registerCrmRoutes(app: Express) {
 				opportunities,
 				pendingTasks,
 				tags: tags.map((t) => t.tag),
-				activityTimeline,
+				activityTimeline: combinedTimeline,
+				communicationHistory,
 				stats: {
 					totalOpportunityValue,
 					totalInteractions,

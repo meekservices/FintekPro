@@ -1,8 +1,9 @@
-import * as cron from "node-cron";
+/* eslint-disable no-console */
+import cron, { type ScheduledTask } from "node-cron";
 
-let incrementalTask: cron.ScheduledTask | null = null;
-let webhookTask: cron.ScheduledTask | null = null;
-let reconciliationTask: cron.ScheduledTask | null = null;
+let incrementalTask: ScheduledTask | null = null;
+let webhookTask: ScheduledTask | null = null;
+let reconciliationTask: ScheduledTask | null = null;
 
 function isSyncEnabled(): boolean {
 	if (process.env.ZOHO_SYNC_ENABLED === "true") return true;

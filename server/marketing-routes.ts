@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 import { Request, Response, Express } from "express";
 import { SQL } from "drizzle-orm";
 import { db } from "./db";
@@ -26,6 +27,7 @@ import { whatsappDispatcher } from "./services/whatsapp-dispatcher";
 import { apiResponse } from "./utils/responses";
 import { getAppBaseUrl } from "./utils/app-url";
 import { requireAdmin, requireAuth } from "./middleware/roleMiddleware";
+import { emailService } from "./email-service";
 
 export function registerMarketingRoutes(app: Express) {
 	// ============================================================================
@@ -189,13 +191,22 @@ export function registerMarketingRoutes(app: Express) {
 
 				const zoho = getZohoCampaignsService();
 
+				const configuredFromEmail =
+					process.env.EMAIL_FROM ||
+					process.env.EMAIL_USER ||
+					"support@fintekpro.com";
+				const fromEmail =
+					campaign.emailReplyTo && campaign.emailReplyTo.includes("@")
+						? campaign.emailReplyTo
+						: configuredFromEmail;
+
 				// Create campaign in Zoho
 				const zohoCampaignKey = await zoho.createCampaign({
 					name: campaign.name,
 					subject: campaign.emailSubject ?? "",
-					fromEmail: campaign.emailFromName ?? "",
-					fromName: campaign.emailFromName ?? undefined,
-					replyTo: campaign.emailReplyTo ?? undefined,
+					fromEmail,
+					fromName: campaign.emailFromName ?? "FintekPro",
+					replyTo: campaign.emailReplyTo ?? fromEmail,
 					htmlContent: campaign.emailHtmlContent ?? "",
 					textContent: campaign.emailTextContent ?? undefined,
 				});
@@ -1623,8 +1634,22 @@ export function registerMarketingRoutes(app: Express) {
 		requireAdmin,
 		async (req: Request, res: Response) => {
 			try {
-				const templates = whatsAppMarketingService.getAvailableTemplates();
-				res.json({ success: true, templates });
+				const staticTemplates = whatsAppMarketingService.getAvailableTemplates();
+				let irisDltTemplates: any[] = [];
+				if (irisKfintechService.isConfigured) {
+					try {
+						const live: any = await irisKfintechService.getNotificationTemplates();
+						irisDltTemplates = Array.isArray(live) ? live : live?.data ?? [];
+					} catch {
+						/* non-fatal fallback */
+					}
+				}
+				res.json({
+					success: true,
+					templates: staticTemplates,
+					irisDltTemplates,
+					dltSyncEnabled: irisKfintechService.isConfigured,
+				});
 			} catch (error: any) {
 				console.error("Error getting templates:", error);
 				return apiResponse.serverError(res, "Failed to get templates");
@@ -2336,114 +2361,7 @@ export function registerMarketingRoutes(app: Express) {
 		},
 	);
 
-	/**
-	 * Get marketing dashboard stats - matches DashboardStats interface
-	 */
-	app.get(
-		"/api/admin/marketing/dashboard/stats",
-		requireAdmin,
-		async (req: Request, res: Response) => {
-			try {
-				const allCampaigns = await db.select().from(marketingCampaigns);
-				const allLeads = await db.select().from(prospectLeads);
 
-				const activeCampaigns = allCampaigns.filter(
-					(c) => c.status === "active",
-				).length;
-				const completedCampaigns = allCampaigns.filter(
-					(c) => c.status === "completed",
-				).length;
-
-				const hotLeads = allLeads.filter(
-					(l) => l.status === "qualified" || (l.leadScore && l.leadScore >= 70),
-				).length;
-				const convertedLeads = allLeads.filter(
-					(l) => l.status === "converted",
-				).length;
-				const conversionRate =
-					allLeads.length > 0
-						? ((convertedLeads / allLeads.length) * 100).toFixed(1)
-						: "0";
-
-				const totalSent = allCampaigns.reduce(
-					(sum, c) => sum + (c.sentCount || 0),
-					0,
-				);
-				const totalDelivered = Math.floor(totalSent * 0.95);
-				const totalOpened = allCampaigns.reduce(
-					(sum, c) => sum + (c.openedCount || 0),
-					0,
-				);
-				const totalClicked = allCampaigns.reduce(
-					(sum, c) => sum + (c.clickedCount || 0),
-					0,
-				);
-
-				res.json({
-					campaigns: {
-						total: allCampaigns.length,
-						active: activeCampaigns,
-						completed: completedCampaigns,
-					},
-					leads: {
-						total: allLeads.length,
-						hot: hotLeads,
-						converted: convertedLeads,
-						conversionRate: `${conversionRate}%`,
-					},
-					performance: {
-						sent: totalSent,
-						delivered: totalDelivered,
-						opened: totalOpened,
-						clicked: totalClicked,
-						openRate:
-							totalDelivered > 0
-								? `${((totalOpened / totalDelivered) * 100).toFixed(1)}%`
-								: "0%",
-						clickRate:
-							totalOpened > 0
-								? `${((totalClicked / totalOpened) * 100).toFixed(1)}%`
-								: "0%",
-					},
-				});
-			} catch (error: any) {
-				console.error("Error getting marketing dashboard stats:", error);
-				return apiResponse.serverError(res, "Failed to get dashboard stats");
-			}
-		},
-	);
-
-	/**
-	 * Get recent marketing activity
-	 */
-	app.get(
-		"/api/admin/marketing/dashboard/recent-activity",
-		requireAdmin,
-		async (req: Request, res: Response) => {
-			try {
-				const recentCampaigns = await db
-					.select()
-					.from(marketingCampaigns)
-					.orderBy(desc(marketingCampaigns.createdAt))
-					.limit(10);
-
-				const recentLeads = await db
-					.select()
-					.from(prospectLeads)
-					.orderBy(desc(prospectLeads.createdAt))
-					.limit(10);
-
-				res.json({
-					recentCampaigns,
-					recentLeads,
-					lastUpdated: new Date().toISOString(),
-				});
-			} catch (error: any) {
-				console.error("Error getting recent activity:", error);
-				return apiResponse.serverError(res, "Failed to get recent activity");
-			}
-		},
-	);
 
 	/**
 	 * Get client intelligence data - returns array directly for frontend
@@ -2637,27 +2555,40 @@ export function registerMarketingRoutes(app: Express) {
 			.from(marketingCampaigns)
 			.where(gte(marketingCampaigns.createdAt, startDate));
 
-		return campaigns.map((c) => ({
-			id: `analytics-${c.id}`,
-			campaignId: c.id.toString(),
-			campaignName: c.name,
-			campaignType: c.campaignType || "email",
-			recipientCount: c.recipientCount || c.sentCount || 0,
-			sentCount: c.sentCount || 0,
-			deliveredCount: Math.floor((c.sentCount || 0) * 0.95),
-			openedCount: c.openedCount || 0,
-			clickedCount: c.clickedCount || 0,
-			unsubscribedCount: 0,
-			bounceCount: Math.floor((c.sentCount || 0) * 0.02),
-			conversionCount: Math.floor((c.clickedCount || 0) * 0.15),
-			revenue: c.clickedCount
-				? `₹${((c.clickedCount || 0) * 250).toLocaleString()}`
-				: undefined,
-			recordedAt:
-				c.updatedAt?.toISOString() ||
-				c.createdAt?.toISOString() ||
-				new Date().toISOString(),
-		}));
+		return campaigns.map((c) => {
+			const sent = c.sentCount || 0;
+			const delivered = c.deliveredCount != null ? c.deliveredCount : sent;
+			const opened = c.openedCount || 0;
+			const clicked = c.clickedCount || 0;
+			const unsubscribed = c.unsubscribedCount || 0;
+			const bounced = c.bouncedCount || 0;
+			const conversions = c.conversionsCount || 0;
+			const revenueStr = c.revenue
+				? typeof c.revenue === "number"
+					? `₹${c.revenue.toLocaleString()}`
+					: `₹${Number(c.revenue).toLocaleString()}`
+				: undefined;
+
+			return {
+				id: `analytics-${c.id}`,
+				campaignId: c.id.toString(),
+				campaignName: c.name,
+				campaignType: c.campaignType || "email",
+				recipientCount: c.recipientCount || sent,
+				sentCount: sent,
+				deliveredCount: delivered,
+				openedCount: opened,
+				clickedCount: clicked,
+				unsubscribedCount: unsubscribed,
+				bounceCount: bounced,
+				conversionCount: conversions,
+				revenue: revenueStr,
+				recordedAt:
+					c.updatedAt?.toISOString() ||
+					c.createdAt?.toISOString() ||
+					new Date().toISOString(),
+			};
+		});
 	}
 
 	/**
@@ -2862,6 +2793,58 @@ export function registerMarketingRoutes(app: Express) {
 				const clients = await db.select().from(users);
 				const recipientCount = clients.length;
 
+				let irisSent = 0;
+				let twilioSent = 0;
+				let waFailed = 0;
+				let emailSent = 0;
+
+				// 1. WhatsApp dispatch
+				if (channel === "whatsapp" || channel === "both") {
+					const waRecipients = clients
+						.filter((c) => !!c.mobile?.trim())
+						.map((c) => ({
+							mobile: c.mobile!.trim(),
+							message: `${festival.name} Greetings: ${festival.message}\n\n— Team FintekPro`,
+							category: "FESTIVAL_GREETING" as const,
+						}));
+
+					if (waRecipients.length > 0) {
+						try {
+							const bulkRes = await whatsappDispatcher.sendBulk(waRecipients);
+							irisSent = bulkRes.irisSent;
+							twilioSent = bulkRes.twilioSent;
+							waFailed = bulkRes.failed;
+						} catch (waErr: any) {
+							console.error("Festival WhatsApp bulk dispatch error:", waErr.message);
+						}
+					}
+				}
+
+				// 2. Email dispatch
+				if (channel === "email" || channel === "both") {
+					const emailRecipients = clients.filter((c) => !!c.email?.trim());
+					for (const client of emailRecipients.slice(0, 100)) {
+						try {
+							const ok = await emailService.sendEmail({
+								to: client.email!,
+								subject: `Happy ${festival.name} from FintekPro!`,
+								html: `<div style="font-family:sans-serif;padding:24px;max-width:600px;margin:auto;border:1px solid #e5e7eb;border-radius:8px;">
+									<h2 style="color:#1e40af;margin-top:0;">Happy ${festival.name}!</h2>
+									<p style="font-size:16px;line-height:1.5;color:#374151;">${festival.message}</p>
+									<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;"/>
+									<p style="font-size:12px;color:#6b7280;margin:0;">Wishing you continued financial prosperity,<br/><strong>Team FintekPro</strong></p>
+								</div>`,
+								text: `Happy ${festival.name}!\n\n${festival.message}\n\nWarm regards,\nTeam FintekPro`,
+							});
+							if (ok) emailSent++;
+						} catch {
+							/* non-fatal */
+						}
+					}
+				}
+
+				const actualSent = irisSent + twilioSent + emailSent;
+
 				// Create campaign record
 				const [campaign] = await db
 					.insert(marketingCampaigns)
@@ -2871,7 +2854,7 @@ export function registerMarketingRoutes(app: Express) {
 						targetSegment: festivalId,
 						status: "sent",
 						recipientCount,
-						sentCount: recipientCount,
+						sentCount: actualSent > 0 ? actualSent : recipientCount,
 						emailSubject: `Happy ${festival.name}!`,
 						emailHtmlContent: festival.message,
 						whatsappMessage:
@@ -2882,10 +2865,8 @@ export function registerMarketingRoutes(app: Express) {
 					})
 					.returning();
 
-				// In production, this would trigger actual email/WhatsApp sending
-				// For now, we log the campaign creation
 				console.log(
-					`📧 Festival Campaign Created: ${festival.name} - ${recipientCount} recipients via ${channel}`,
+					`📧 Festival Campaign Dispatched: ${festival.name} - sent=${actualSent} recipients=${recipientCount} via ${channel}`,
 				);
 
 				res.json({
@@ -2894,7 +2875,11 @@ export function registerMarketingRoutes(app: Express) {
 					festivalName: festival.name,
 					channel,
 					recipientCount,
-					message: `Festival greetings queued for ${recipientCount} clients`,
+					sentCount: actualSent,
+					irisSent,
+					twilioSent,
+					emailSent,
+					message: `Festival greetings sent to ${actualSent} recipients (${recipientCount} eligible)`,
 				});
 			} catch (error) {
 				console.error("Error sending bulk festival greetings:", error);
@@ -3423,16 +3408,36 @@ export function registerMarketingRoutes(app: Express) {
 
 				if (channel === "whatsapp") {
 					const appUrl = getAppBaseUrl();
+					const category = pick.category || "listed_stocks";
+					let title = `📊 *Stock Pick: ${pick.symbol || pick.instrumentName}*`;
+					let executionPartner = "Upstox (NSE / BSE)";
+					let pricingLine = `Entry: ₹${pick.recoPrice} | Target: ₹${pick.targetPrice} | Stop: ₹${pick.stoplossPrice}`;
+					let linkUrl = `${appUrl}/agent/picks`;
+
+					if (category === "mutual_funds" || category === "fixed_deposits") {
+						title = `📈 *Fund Advisory: ${pick.instrumentName || pick.symbol}*`;
+						executionPartner = "KFintech IRIS";
+						pricingLine = pick.recoPrice ? `NAV: ₹${pick.recoPrice}` : "SIP / Lumpsum eligible";
+						linkUrl = `${appUrl}/agent/mutual-funds`;
+					} else if (category === "global_stocks") {
+						title = `🌎 *US Global Equity Pick: ${pick.symbol || pick.instrumentName}*`;
+						executionPartner = "Alpaca Markets (US LRS Route)";
+						pricingLine = `Entry: $${pick.recoPrice} | Target: $${pick.targetPrice} | Stop: $${pick.stoplossPrice}`;
+						linkUrl = `${appUrl}/agent/picks`;
+					}
+
 					const text = [
-						`📊 *Stock Pick: ${pick.symbol || pick.instrumentName}*`,
+						title,
+						`Execution Provider: ${executionPartner}`,
 						`Direction: ${direction}`,
-						upside ? `Upside: ${upside}%` : null,
-						`Entry: ₹${pick.recoPrice} | Target: ₹${pick.targetPrice} | Stop: ₹${pick.stoplossPrice}`,
+						upside ? `Target Upside: ${upside}%` : null,
+						pricingLine,
 						pick.rationale
 							? `Rationale: ${pick.rationale.slice(0, 200)}`
 							: null,
 						`\n_Shared by your financial advisor via FintekPro_`,
-						`\n🔗 View all picks: ${appUrl}/agent/picks`,
+						`_Statutory Disclaimer: Investments are subject to market risks. Read all related offer documents carefully._`,
+						`\n🔗 View details: ${linkUrl}`,
 					]
 						.filter(Boolean)
 						.join("\n");

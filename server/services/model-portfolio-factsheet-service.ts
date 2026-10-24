@@ -242,7 +242,7 @@ export class ModelPortfolioFactsheetService {
 		const pytd = Number(portfolio.returnYtd ?? 11.2);
 		const p1y = Number(portfolio.twrr1Y ?? portfolio.cagr1Y ?? 15.6);
 		const p3y = Number(portfolio.twrr3Y ?? portfolio.cagr3Y ?? 18.2);
-		const p5y = Number(portfolio.cagr5y ?? 16.8);
+		const p5y = Number(portfolio.cagr5Y ?? 16.8);
 		const psi = Number(portfolio.returnSinceInception ?? p3y);
 
 		const b1y = Number(portfolio.benchmarkCagr1Y ?? 13.2);

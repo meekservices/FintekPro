@@ -4,6 +4,10 @@ import "./index.css";
 import { SessionProvider } from "@/contexts/session-context";
 import { SessionExpiredDialog } from "@/components/ui/session-expired-dialog";
 import { APP_VERSION } from "@shared/version";
+import { initMarketingAttribution } from "@/lib/utm";
+
+// Initialize UTM & marketing attribution immediately on script evaluation
+initMarketingAttribution();
 
 const SW_VERSION = APP_VERSION;
 // In dev: use 'dev' so the SW URL never changes → no banner on every refresh.

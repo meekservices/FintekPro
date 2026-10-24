@@ -1,8 +1,10 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 import twilio from "twilio";
 import { getTwilioClient, getTwilioFromPhoneNumber } from "./twilio-client";
 import { db } from "../db";
-import { users, marketingCampaigns, campaignRecipients } from "@shared/schema";
+import { users, marketingCampaigns, campaignRecipients, prospectClients } from "@shared/schema";
+import { prospectLeads } from "@shared/schema/crm";
 import { eq, and, inArray, sql } from "drizzle-orm";
 
 interface SMSMarketingResult {
@@ -340,15 +342,40 @@ class SMSMarketingService {
 	async processOptOut(mobile: string): Promise<boolean> {
 		try {
 			const cleaned = mobile.replace(/\D/g, "");
+			const last10 = cleaned.slice(-10);
 
+			// 1. Update registered users
 			await db
 				.update(users)
 				.set({ marketingConsent: false })
 				.where(
-					sql`REPLACE(${users.mobile}, '+', '') LIKE ${"%" + cleaned.slice(-10)}`,
+					sql`REPLACE(${users.mobile}, '+', '') LIKE ${"%" + last10}`,
 				);
 
-			console.log(`📵 User opted out: ${mobile.substring(0, 6)}***`);
+			// 2. Update prospect clients
+			try {
+				await db
+					.update(prospectClients)
+					.set({ advisoryConsent: false })
+					.where(
+						sql`REPLACE(${prospectClients.mobile}, '+', '') LIKE ${"%" + last10}`,
+					);
+			} catch {}
+
+			// 3. Mark prospect leads as DND in notes
+			try {
+				await db
+					.update(prospectLeads)
+					.set({
+						status: "on_hold",
+						notes: sql`COALESCE(${prospectLeads.notes}, '') || ' [DND OPT-OUT: ' || NOW() || ']'`,
+					})
+					.where(
+						sql`REPLACE(${prospectLeads.primaryMobile}, '+', '') LIKE ${"%" + last10}`,
+					);
+			} catch {}
+
+			console.log(`📵 Contact opted out (TRAI DND): ${mobile.substring(0, 6)}***`);
 			return true;
 		} catch (error) {
 			console.error("Error processing opt-out:", error);

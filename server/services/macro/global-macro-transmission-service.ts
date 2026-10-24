@@ -424,7 +424,7 @@ export class GlobalMacroTransmissionService {
 			reportedAt: new Date().toISOString(),
 			latencyMs: Date.now() - t0,
 			qualityScore: Math.round(Math.min(100, Math.max(0, globalTailwindScore))),
-			itemsProcessed: transmissionChannels.length,
+			itemsProcessed: pillars.length,
 			errorCount: 0,
 			meta: {
 				score: globalTailwindScore,
@@ -435,6 +435,13 @@ export class GlobalMacroTransmissionService {
 		});
 
 		return report;
+	}
+
+	/**
+	 * Alias for getGlobalMacroReport to support engine learning orchestrator
+	 */
+	public async getMacroTransmissionReport(): Promise<GlobalMacroReport> {
+		return this.getGlobalMacroReport();
 	}
 
 	/**

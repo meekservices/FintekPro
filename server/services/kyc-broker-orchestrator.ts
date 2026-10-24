@@ -32,6 +32,8 @@ import type { CanonicalKycProfile, BrokerAdapter, FieldProvenance } from "./adap
 import { alpacaAdapter } from "./adapters/alpaca-adapter";
 import { iiflAdapter } from "./adapters/iifl-adapter";
 import { jmFinancialAdapter } from "./adapters/jm-financial-adapter";
+import { upstoxKycAdapter } from "./adapters/upstox-adapter";
+import { irisBrokerKycAdapter } from "./adapters/iris-adapter";
 import {
   checkIdempotency,
   recordSubmissionResult,
@@ -43,7 +45,7 @@ import { logger } from "../logger";
 
 export interface BrokerDiffRequest {
   userId: string;
-  brokerId: "iifl" | "jm_financial" | "alpaca";
+  brokerId: "iifl" | "jm_financial" | "alpaca" | "upstox" | "iris";
   segment: string;
   /** Pass IP from request for consent artifact */
   ipAddress?: string;
@@ -84,7 +86,7 @@ export interface BrokerDiffResult {
 
 export interface BrokerSubmitRequest {
   userId: string;
-  brokerId: "iifl" | "jm_financial" | "alpaca";
+  brokerId: "iifl" | "jm_financial" | "alpaca" | "upstox" | "iris";
   segment: string;
   /** User-provided delta fields (form submission) */
   brokerDelta: Record<string, unknown>;
@@ -108,6 +110,8 @@ const ADAPTER_REGISTRY: Record<string, BrokerAdapter> = {
   iifl:         iiflAdapter,
   jm_financial: jmFinancialAdapter,
   alpaca:       alpacaAdapter,
+  upstox:       upstoxKycAdapter,
+  iris:         irisBrokerKycAdapter,
 };
 
 // ─── Broker schema loader ─────────────────────────────────────────────────────

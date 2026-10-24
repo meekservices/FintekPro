@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 import twilio from "twilio";
 import { getTwilioClient } from "./twilio-client";
 import { db } from "../db";
@@ -269,8 +270,8 @@ class WhatsAppMarketingService {
 
 		const template = MARKETING_TEMPLATES[templateType];
 		if (!template || !template.contentSid) {
-			console.log(
-				`⚠️ Template ${templateType} not configured, falling back to freeform`,
+			console.warn(
+				`⚠️ Template ${templateType} not configured — WhatsApp marketing requires an approved template ContentSid`,
 			);
 			return {
 				success: false,

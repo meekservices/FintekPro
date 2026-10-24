@@ -144,6 +144,8 @@ export default function AgentCrmClient360() {
 				return FileText;
 			case "whatsapp":
 				return MessageSquare;
+			case "automated_notice":
+				return Send;
 			default:
 				return Activity;
 		}
@@ -161,6 +163,8 @@ export default function AgentCrmClient360() {
 				return "bg-yellow-500/20 text-yellow-400";
 			case "whatsapp":
 				return "bg-emerald-500/20 text-emerald-400";
+			case "automated_notice":
+				return "bg-cyan-500/20 text-cyan-400";
 			default:
 				return "bg-muted/20 text-muted-foreground";
 		}

@@ -85,7 +85,7 @@ function buildProspectLeadValues(
 
   return {
     companyName: business.name,
-    website: business.website ?? enrichment?.firmographics ? undefined : undefined,
+    website: business.website ?? (business as any).domain ?? undefined,
     city: business.city ?? enrichment?.firmographics?.hq_city,
     state: business.state ?? enrichment?.firmographics?.hq_state,
     industrySegment: business.industry ?? enrichment?.firmographics?.industry,

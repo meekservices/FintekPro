@@ -291,7 +291,10 @@ export default function FestivalMarketing() {
 							</CardDescription>
 						</CardHeader>
 						<CardContent>
-							<Select>
+							<Select
+								value={selectedAgents[0] || "all"}
+								onValueChange={(val) => setSelectedAgents(val === "all" ? [] : [val])}
+							>
 								<SelectTrigger>
 									<SelectValue placeholder="All clients (Master Agent)" />
 								</SelectTrigger>
@@ -301,7 +304,7 @@ export default function FestivalMarketing() {
 									</SelectItem>
 									{(agents as any[])?.map((agent: any) => (
 										<SelectItem key={agent.id} value={agent.id}>
-											{agent.fullName} ({agent.activeClients || 0} clients)
+											{agent.fullName || agent.name || `Agent ${agent.id}`} ({agent.activeClients || 0} clients)
 										</SelectItem>
 									))}
 								</SelectContent>

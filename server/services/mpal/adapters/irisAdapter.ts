@@ -54,10 +54,8 @@ export class IrisAdapter extends BaseBroker {
 		}
 		const start = Date.now();
 		try {
-			// Lightweight call — fetch 1 scheme to verify API reachability
-			await (irisKfintechService as any).getTopPerformingSchemes?.({
-				limit: 1,
-			});
+			// Lightweight call — fetch funds list to verify API reachability
+			await irisKfintechService.getAllFunds();
 			return {
 				brokerId: this.brokerId,
 				configured: true,

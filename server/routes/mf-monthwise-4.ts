@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Express } from "express";
 import { randomInt } from "crypto";
 import { storage } from "../storage";
@@ -18,6 +19,7 @@ import { auditLogArchivalService } from "../services/audit-log-archival";
 import { objectStorageClient as objectStorage } from "../objectStorage";
 import { whatsappService } from "../whatsapp";
 import { marketingService } from "../marketing-automation";
+import { requireAdmin } from "../middleware/roleMiddleware";
 import { portfolioIntelligence } from "../portfolio-intelligence";
 import { amfiService } from "../amfi-service";
 
@@ -173,7 +175,7 @@ export function registerMFMonthwiPart4Routes(app: Express): void {
 	});
 
 	// Marketing Automation API endpoints
-	app.post("/api/marketing/campaign", async (req, res) => {
+	app.post("/api/marketing/campaign", requireAdmin, async (req, res) => {
 		try {
 			const { targetAudience } = req.body;
 			const campaign = await marketingService.generateMarketingCampaign(
@@ -186,7 +188,7 @@ export function registerMFMonthwiPart4Routes(app: Express): void {
 		}
 	});
 
-	app.post("/api/marketing/send-campaigns", async (req, res) => {
+	app.post("/api/marketing/send-campaigns", requireAdmin, async (req, res) => {
 		try {
 			const { userSegment } = req.body;
 			await marketingService.sendPortfolioMarketingMessages(
@@ -202,7 +204,7 @@ export function registerMFMonthwiPart4Routes(app: Express): void {
 		}
 	});
 
-	app.post("/api/marketing/onboarding", async (req, res) => {
+	app.post("/api/marketing/onboarding", requireAdmin, async (req, res) => {
 		try {
 			const { phoneNumber, userName } = req.body;
 			if (!phoneNumber || !userName) {
@@ -218,7 +220,7 @@ export function registerMFMonthwiPart4Routes(app: Express): void {
 		}
 	});
 
-	app.post("/api/marketing/market-alerts", async (req, res) => {
+	app.post("/api/marketing/market-alerts", requireAdmin, async (req, res) => {
 		try {
 			await marketingService.sendMarketAlerts();
 			res.json({ success: true, message: "Market alerts sent successfully" });
