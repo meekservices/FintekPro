@@ -11758,11 +11758,12 @@ export const modelPortfolios = pgTable("model_portfolios", {
   /**
    * Institutional tier classification:
    * - "retail_mf": Retail Mutual Fund & ETF Baskets (Min ₹5,000 / ₹500 SIP, SEBI MF Regs 1996)
+   * - "affluent_sif": Specified Investment Fund / New Asset Class (Statutory Min ₹10 Lakhs, SEBI MF Amendment Regs 2024)
    * - "hni_pms": High Net-worth Multi-Asset PMS (Statutory Min ₹50 Lakhs, SEBI PMS Regs 2020 Reg 23(2))
    * - "uhni_aif": Ultra HNI Multi-Asset AIF (Statutory Min ₹1 Crore, SEBI AIF Regs 2012 Reg 10(c))
    */
   portfolioTier:        varchar("portfolio_tier", { length: 50 }).notNull().default("retail_mf"),
-  /** Vehicle structure: MUTUAL_FUND | PMS_MULTI_ASSET | AIF_MULTI_ASSET */
+  /** Vehicle structure: MUTUAL_FUND | SIF_NEW_ASSET_CLASS | PMS_MULTI_ASSET | AIF_MULTI_ASSET */
   vehicleType:          varchar("vehicle_type", { length: 50 }).notNull().default("MUTUAL_FUND"),
   /** Formal SEBI Regulatory Regime description */
   sebiRegulatoryRegime: varchar("sebi_regulatory_regime", { length: 255 }).default("SEBI (Mutual Funds) Regulations, 1996 & SEBI (Investment Advisers) Regulations, 2013"),

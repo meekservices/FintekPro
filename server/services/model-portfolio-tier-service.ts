@@ -37,10 +37,10 @@ import { modelPortfolios, modelPortfolioHoldings } from "@shared/schema";
 import { eq, sql, and } from "drizzle-orm";
 import { logger } from "../logger";
 
-export type PortfolioTier = "retail_mf" | "hni_pms" | "uhni_aif";
-export type VehicleType = "MUTUAL_FUND" | "PMS_MULTI_ASSET" | "AIF_MULTI_ASSET";
-export type ExecutionRoute = "iris" | "upstox_pms" | "multi_asset_orchestration";
-export type CustodyStructure = "DIRECT_AMC_FOLIO" | "SEGREGATED_CLIENT_DEMAT" | "POOLED_TRUST_UNITS";
+export type PortfolioTier = "retail_mf" | "affluent_sif" | "hni_pms" | "uhni_aif";
+export type VehicleType = "MUTUAL_FUND" | "SIF_NEW_ASSET_CLASS" | "PMS_MULTI_ASSET" | "AIF_MULTI_ASSET";
+export type ExecutionRoute = "iris" | "sif_orchestration" | "upstox_pms" | "multi_asset_orchestration";
+export type CustodyStructure = "DIRECT_AMC_FOLIO" | "TRUSTEE_AMC_UNITS" | "SEGREGATED_CLIENT_DEMAT" | "POOLED_TRUST_UNITS";
 
 export interface TierSpecification {
   tier: PortfolioTier;
@@ -95,6 +95,41 @@ export const SEBI_TIER_CONFIGS: Record<PortfolioTier, TierSpecification> = {
       "Direct AMC Folio or Client Demat custody",
     ],
     targetInvestorProfile: "Retail and Emerging Affluent investors building systematic wealth with moderate to high liquidity needs.",
+  },
+
+  affluent_sif: {
+    tier: "affluent_sif",
+    tierName: "Specified Investment Fund (SIF / New Asset Class)",
+    vehicleType: "SIF_NEW_ASSET_CLASS",
+    sebiRegulatoryRegime: "SEBI (Mutual Funds) (Amendment) Regulations, 2024 — New Asset Class Framework",
+    sebiRegulationRef: "SEBI MF Amendment Regulations 2024 / SIF Master Framework",
+    statutoryMinInvestment: 1000000, // ₹10 Lakhs statutory minimum
+    statutoryMinInvestmentFormatted: "₹10,00,000 (Ten Lakhs)",
+    minSipAmount: 10000,
+    executionRoute: "sif_orchestration",
+    custodyStructure: "TRUSTEE_AMC_UNITS",
+    allowedAssetClasses: [
+      "direct_equity",
+      "etf",
+      "derivatives_hedge",
+      "long_short_equity",
+      "debt_instruments",
+      "reit_invit",
+      "liquid_buffer",
+    ],
+    accreditationRequired: false,
+    lockInPeriodMonths: 0,
+    reportingStandard: "Daily / Weekly NAV Mark-to-Market with statutory SIF Risk-o-meter disclosures",
+    riskDisclosure:
+      "Specified Investment Funds (SIF) are governed by SEBI (Mutual Funds) (Amendment) Regulations, 2024. Statutory minimum ticket is ₹10 Lakhs across all SIF strategies. SIF employs sophisticated derivative strategies, long-short equity, and factor arbitrage overlays. Capital is subject to equity and derivative market risks.",
+    keyFeatures: [
+      "Strict statutory minimum of ₹10 Lakhs per investor under SEBI SIF framework",
+      "Sophisticated strategies: Long-short equity, factor arbitrage, and inverse derivative hedging",
+      "Higher 12% single-stock issuer cap (vs 10% for traditional Mutual Funds)",
+      "Trustee-governed unitized custody with independent institutional custodian (TRUSTEE_AMC_UNITS)",
+      "Strict 0% unlisted equity prohibition and no borrowing for leverage",
+    ],
+    targetInvestorProfile: "Affluent investors seeking hedge-fund-like alpha and market-neutral strategies with institutional trustee oversight.",
   },
 
   hni_pms: {
@@ -184,7 +219,7 @@ export interface InvestmentComplianceResult {
   custodyStructure: CustodyStructure;
   sebiRegulatoryRegime: string;
   sebiRegulationRef: string;
-  violationCode?: "SEBI_PMS_REG23_MINIMUM_VIOLATION" | "SEBI_AIF_REG10C_MINIMUM_VIOLATION" | "BELOW_PORTFOLIO_MINIMUM" | "ACCREDITATION_REQUIRED";
+  violationCode?: "SEBI_PMS_REG23_MINIMUM_VIOLATION" | "SEBI_AIF_REG10C_MINIMUM_VIOLATION" | "SEBI_SIF_MINIMUM_VIOLATION" | "BELOW_PORTFOLIO_MINIMUM" | "ACCREDITATION_REQUIRED";
   message: string;
   statutoryWarning?: string;
   regulatoryNotice: string;
@@ -199,29 +234,7 @@ export function validateInvestmentTierCompliance(input: InvestmentComplianceChec
   const spec = SEBI_TIER_CONFIGS[input.portfolioTier] || SEBI_TIER_CONFIGS.retail_mf;
   const amount = Number(input.amount) || 0;
 
-  // 1. Strict Statutory Check for HNI PMS (Regulation 23(2) — ₹50 Lakhs minimum)
-  if (input.portfolioTier === "hni_pms" && amount < 5000000) {
-    const deficit = 5000000 - amount;
-    return {
-      isCompliant: false,
-      portfolioTier: "hni_pms",
-      vehicleType: "PMS_MULTI_ASSET",
-      statutoryMinInvestment: 5000000,
-      enteredAmount: amount,
-      deficitAmount: deficit,
-      executionRoute: spec.executionRoute,
-      custodyStructure: spec.custodyStructure,
-      sebiRegulatoryRegime: spec.sebiRegulatoryRegime,
-      sebiRegulationRef: spec.sebiRegulationRef,
-      violationCode: "SEBI_PMS_REG23_MINIMUM_VIOLATION",
-      message: `SEBI Compliance Rejection: Under SEBI (Portfolio Managers) Regulations, 2020, Regulation 23(2), the statutory minimum investment for a Portfolio Management Services (PMS) account is ₹50,00,000 (Fifty Lakhs). The proposed investment of ₹${amount.toLocaleString("en-IN")} is ₹${deficit.toLocaleString("en-IN")} below the legal limit.`,
-      statutoryWarning: "Statutory Violation: Accepting funds below ₹50 Lakhs for a PMS vehicle constitutes a non-compliance penalty under SEBI PMS regulations.",
-      regulatoryNotice: "Client assets must be routed to segregated Demat accounts once the ₹50L threshold is satisfied.",
-      advisoryDisclaimer: spec.riskDisclosure,
-    };
-  }
-
-  // 2. Strict Statutory Check for UHNI AIF (Regulation 10(c) — ₹1 Crore minimum)
+  // 1. Strict Statutory Check for UHNI AIF (Regulation 10(c) — ₹1 Crore minimum)
   if (input.portfolioTier === "uhni_aif" && amount < 10000000) {
     const deficit = 10000000 - amount;
     return {
@@ -243,7 +256,51 @@ export function validateInvestmentTierCompliance(input: InvestmentComplianceChec
     };
   }
 
-  // 3. Retail Mutual Fund minimum check
+  // 2. Strict Statutory Check for HNI PMS (Regulation 23(2) — ₹50 Lakhs minimum)
+  if (input.portfolioTier === "hni_pms" && amount < 5000000) {
+    const deficit = 5000000 - amount;
+    return {
+      isCompliant: false,
+      portfolioTier: "hni_pms",
+      vehicleType: "PMS_MULTI_ASSET",
+      statutoryMinInvestment: 5000000,
+      enteredAmount: amount,
+      deficitAmount: deficit,
+      executionRoute: spec.executionRoute,
+      custodyStructure: spec.custodyStructure,
+      sebiRegulatoryRegime: spec.sebiRegulatoryRegime,
+      sebiRegulationRef: spec.sebiRegulationRef,
+      violationCode: "SEBI_PMS_REG23_MINIMUM_VIOLATION",
+      message: `SEBI Compliance Rejection: Under SEBI (Portfolio Managers) Regulations, 2020, Regulation 23(2), the statutory minimum investment for a Portfolio Management Services (PMS) account is ₹50,00,000 (Fifty Lakhs). The proposed investment of ₹${amount.toLocaleString("en-IN")} is ₹${deficit.toLocaleString("en-IN")} below the legal limit.`,
+      statutoryWarning: "Statutory Violation: Accepting funds below ₹50 Lakhs for a PMS vehicle constitutes a non-compliance penalty under SEBI PMS regulations.",
+      regulatoryNotice: "Client assets must be routed to segregated Demat accounts once the ₹50L threshold is satisfied.",
+      advisoryDisclaimer: spec.riskDisclosure,
+    };
+  }
+
+  // 3. Strict Statutory Check for Affluent SIF / New Asset Class (₹10 Lakhs minimum)
+  if (input.portfolioTier === "affluent_sif" && amount < 1000000) {
+    const deficit = 1000000 - amount;
+    return {
+      isCompliant: false,
+      portfolioTier: "affluent_sif",
+      vehicleType: "SIF_NEW_ASSET_CLASS",
+      statutoryMinInvestment: 1000000,
+      enteredAmount: amount,
+      deficitAmount: deficit,
+      executionRoute: spec.executionRoute,
+      custodyStructure: spec.custodyStructure,
+      sebiRegulatoryRegime: spec.sebiRegulatoryRegime,
+      sebiRegulationRef: spec.sebiRegulationRef,
+      violationCode: "SEBI_SIF_MINIMUM_VIOLATION",
+      message: `SEBI Compliance Rejection: Under SEBI (Mutual Funds) (Amendment) Regulations, 2024 (New Asset Class), the statutory minimum investment across all Specified Investment Fund (SIF) strategies is ₹10,00,000 (Ten Lakhs). The proposed investment of ₹${amount.toLocaleString("en-IN")} is ₹${deficit.toLocaleString("en-IN")} below the legal limit.`,
+      statutoryWarning: "Statutory Violation: Subscribing to SIF strategies below ₹10 Lakhs is strictly prohibited under the SEBI New Asset Class framework.",
+      regulatoryNotice: "Units will be issued under AMC Trustee governance with independent custodian custody upon satisfying the ₹10L threshold.",
+      advisoryDisclaimer: spec.riskDisclosure,
+    };
+  }
+
+  // 4. Retail Mutual Fund minimum check
   if (input.portfolioTier === "retail_mf" && amount < spec.statutoryMinInvestment) {
     const deficit = spec.statutoryMinInvestment - amount;
     return {
@@ -281,19 +338,22 @@ export function validateInvestmentTierCompliance(input: InvestmentComplianceChec
       ? "Direct execution routed to Upstox for segregated Demat custody in client's name."
       : input.portfolioTier === "uhni_aif"
       ? "Multi-vendor orchestrated execution across Upstox (domestic equities/derivatives), Alpaca (US/global equities), and IRIS (liquid cash buffer)."
+      : input.portfolioTier === "affluent_sif"
+      ? "Executed under SIF Master Framework with AMC Trustee custody and independent institutional custodian."
       : "Executed as mutual fund scheme basket via KFintech IRIS.",
     advisoryDisclaimer: spec.riskDisclosure,
   };
 }
 
 /**
- * Returns complete institutional comparison metadata across all three SEBI tiers.
+ * Returns complete institutional comparison metadata across all four SEBI tiers.
  */
 export function getTierComparisonMatrix() {
   return {
     tiers: Object.values(SEBI_TIER_CONFIGS),
     statutoryRulesSummary: {
       retail: "Retail MF: Open to all retail investors. Minimum ticket ₹5,000 lumpsum / ₹500 SIP. Managed under SEBI (Mutual Funds) Regulations, 1996.",
+      sif: "Affluent SIF: Specified Investment Fund / New Asset Class. Minimum ticket ₹10 Lakhs across all SIF strategies under SEBI MF (Amendment) Regs 2024. Trustee unitized custody.",
       hni: "HNI PMS: Multi-Asset Portfolio Management Services. Minimum ticket ₹50 Lakhs under SEBI (Portfolio Managers) Regulations, 2020, Reg 23(2). Segregated Demat accounts.",
       uhni: "UHNI AIF: Multi-Asset Alternative Investment Funds. Minimum commitment ₹1 Crore under SEBI (Alternative Investment Funds) Regulations, 2012, Reg 10(c). Multi-vendor global execution.",
     },
@@ -395,16 +455,17 @@ export async function seedInstitutionalModelPortfolios(): Promise<{ seeded: numb
         { category: "gold", label: "Sovereign Gold / Gold ETFs", weight: 10, color: "#F59E0B", icon: "🪙" },
       ],
       holdings: [
-        { rank: 1, name: "Reliance Industries Ltd", symbol: "RELIANCE", category: "Stock", weight: 12, isin: "INE002A01018", currentReturn: 18.5 },
-        { rank: 2, name: "HDFC Bank Ltd", symbol: "HDFCBANK", category: "Stock", weight: 10, isin: "INE040A01034", currentReturn: 14.2 },
-        { rank: 3, name: "Tata Consultancy Services Ltd", symbol: "TCS", category: "Stock", weight: 9, isin: "INE467B01029", currentReturn: 16.8 },
-        { rank: 4, name: "Larsen & Toubro Ltd", symbol: "LT", category: "Stock", weight: 8, isin: "INE018A01030", currentReturn: 22.4 },
-        { rank: 5, name: "ICICI Bank Ltd", symbol: "ICICIBANK", category: "Stock", weight: 8, isin: "INE090A01021", currentReturn: 19.1 },
-        { rank: 6, name: "Bharti Airtel Ltd", symbol: "BHARTIARTL", category: "Stock", weight: 8, isin: "INE397D01024", currentReturn: 24.6 },
-        { rank: 7, name: "NABARD AAA Corporate Bond 2029", symbol: "NABARD29", category: "Bond", weight: 15, isin: "INE261F08018", currentReturn: 7.8 },
-        { rank: 8, name: "REC Ltd AAA Taxable Bond 2031", symbol: "RECL31", category: "Bond", weight: 10, isin: "INE020B08898", currentReturn: 7.9 },
-        { rank: 9, name: "Embassy Office Parks REIT", symbol: "EMBASSY", category: "REIT", weight: 10, isin: "INE041025011", currentReturn: 11.2 },
-        { rank: 10, name: "Nippon India Gold ETF", symbol: "GOLDBEES", category: "ETF", weight: 10, isin: "INF204KB17I5", currentReturn: 14.5 },
+        { rank: 1, name: "Reliance Industries Ltd", symbol: "RELIANCE", assetClass: "equity", category: "Stock", weight: 9.5, isin: "INE002A01018", currentReturn: 18.5 },
+        { rank: 2, name: "HDFC Bank Ltd", symbol: "HDFCBANK", assetClass: "equity", category: "Stock", weight: 9.5, isin: "INE040A01034", currentReturn: 14.2 },
+        { rank: 3, name: "Tata Consultancy Services Ltd", symbol: "TCS", assetClass: "equity", category: "Stock", weight: 9.0, isin: "INE467B01029", currentReturn: 16.8 },
+        { rank: 4, name: "Larsen & Toubro Ltd", symbol: "LT", assetClass: "equity", category: "Stock", weight: 9.0, isin: "INE018A01030", currentReturn: 22.4 },
+        { rank: 5, name: "ICICI Bank Ltd", symbol: "ICICIBANK", assetClass: "equity", category: "Stock", weight: 9.0, isin: "INE090A01021", currentReturn: 19.1 },
+        { rank: 6, name: "Bharti Airtel Ltd", symbol: "BHARTIARTL", assetClass: "equity", category: "Stock", weight: 9.0, isin: "INE397D01024", currentReturn: 24.6 },
+        { rank: 7, name: "NABARD AAA Corporate Bond 2029", symbol: "NABARD29", assetClass: "debt", category: "Bond", weight: 9.5, isin: "INE261F08018", currentReturn: 7.8 },
+        { rank: 8, name: "REC Ltd AAA Taxable Bond 2031", symbol: "RECL31", assetClass: "debt", category: "Bond", weight: 9.5, isin: "INE020B08898", currentReturn: 7.9 },
+        { rank: 9, name: "SIDBI AAA Corporate Bond 2028", symbol: "SIDBI28", assetClass: "debt", category: "Bond", weight: 6.0, isin: "INE556F08014", currentReturn: 7.7 },
+        { rank: 10, name: "Embassy Office Parks REIT", symbol: "EMBASSY", assetClass: "reit", category: "REIT", weight: 10.0, isin: "INE041025011", currentReturn: 11.2 },
+        { rank: 11, name: "Nippon India Gold ETF", symbol: "GOLDBEES", assetClass: "gold", category: "ETF", weight: 10.0, isin: "INF204KB17I5", currentReturn: 14.5 },
       ],
     },
     {
@@ -503,7 +564,91 @@ export async function seedInstitutionalModelPortfolios(): Promise<{ seeded: numb
     },
   ];
 
-  const allPortfoliosToSeed = [...retailPortfolios, ...hniPmsPortfolios, ...uhniAifPortfolios];
+  // Tier 4: Affluent SIF / New Asset Class Portfolios (₹10L Statutory Minimum)
+  const affluentSifPortfolios = [
+    {
+      id: "sif-long-short-equity",
+      name: "FintekPro SIF Long-Short Equity Alpha Strategy",
+      tagline: "SEBI New Asset Class fund combining high-conviction long equity with systematic short derivative hedges",
+      riskProfile: "aggressive",
+      assetClass: "equity",
+      subCategory: "Long-Short Equity (SIF)",
+      minInvestment: "1000000", // ₹10 Lakhs
+      timeHorizon: "3-5 Years",
+      benchmarkName: "NIFTY 500 TRI",
+      portfolioTier: "affluent_sif",
+      vehicleType: "SIF_NEW_ASSET_CLASS",
+      sebiRegulatoryRegime: "SEBI (Mutual Funds) (Amendment) Regulations, 2024 — New Asset Class Framework",
+      sebiRegulationRef: "SEBI MF Amendment Regulations 2024 / SIF Master Framework",
+      statutoryMinInvestment: "1000000",
+      executionRoute: "sif_orchestration",
+      custodyStructure: "TRUSTEE_AMC_UNITS",
+      allowedAssetClasses: ["direct_equity", "etf", "derivatives_hedge", "long_short_equity", "debt_instruments", "liquid_buffer"],
+      accreditationRequired: false,
+      lockInPeriodMonths: 0,
+      highlight: "SEBI New Asset Class (Min ₹10 Lakhs)",
+      icon: "⚡",
+      portfolioCode: "FP-SIF-01",
+      allocation: [
+        { category: "direct_equity", label: "Long High-Conviction Equities", weight: 55, color: "#3B82F6", icon: "📈" },
+        { category: "derivatives_hedge", label: "Systematic Short/Hedge Derivatives", weight: 20, color: "#EF4444", icon: "🛡️" },
+        { category: "arbitrage", label: "Factor Arbitrage Overlay", weight: 15, color: "#8B5CF6", icon: "⚖️" },
+        { category: "liquid_yield", label: "Sovereign T-Bills & Liquid Collateral", weight: 10, color: "#10B981", icon: "🏛️" },
+      ],
+      holdings: [
+        { rank: 1, name: "Reliance Industries Ltd", symbol: "RELIANCE", assetClass: "equity", category: "Stock", weight: 9.5, isin: "INE002A01018", currentReturn: 18.5 },
+        { rank: 2, name: "HDFC Bank Ltd", symbol: "HDFCBANK", assetClass: "equity", category: "Stock", weight: 9.2, isin: "INE040A01034", currentReturn: 14.2 },
+        { rank: 3, name: "ICICI Bank Ltd", symbol: "ICICIBANK", assetClass: "equity", category: "Stock", weight: 8.8, isin: "INE090A01021", currentReturn: 19.1 },
+        { rank: 4, name: "Tata Consultancy Services Ltd", symbol: "TCS", assetClass: "equity", category: "Stock", weight: 8.5, isin: "INE467B01029", currentReturn: 16.8 },
+        { rank: 5, name: "Larsen & Toubro Ltd", symbol: "LT", assetClass: "equity", category: "Stock", weight: 8.0, isin: "INE018A01030", currentReturn: 22.4 },
+        { rank: 6, name: "Bharti Airtel Ltd", symbol: "BHARTIARTL", assetClass: "equity", category: "Stock", weight: 8.0, isin: "INE397D01024", currentReturn: 24.6 },
+        { rank: 7, name: "NIFTY Put Hedge & Index Futures Short", symbol: "NIFTY-SHORT", assetClass: "derivatives", category: "Derivatives", weight: 15.0, currentReturn: 5.5 },
+        { rank: 8, name: "Dynamic Factor Arbitrage Basket", symbol: "FACTOR-ARB", assetClass: "arbitrage", category: "Arbitrage", weight: 15.0, currentReturn: 8.2 },
+        { rank: 9, name: "91-Day Sovereign T-Bills Collateral", symbol: "TBILL-91D", assetClass: "debt", category: "Sovereign Debt", weight: 18.0, currentReturn: 6.85 },
+      ],
+    },
+    {
+      id: "sif-dynamic-factor-arbitrage",
+      name: "FintekPro SIF Dynamic Factor Arbitrage Strategy",
+      tagline: "Market-neutral quantitative arbitrage and factor momentum overlay under SEBI SIF framework",
+      riskProfile: "moderate",
+      assetClass: "hybrid",
+      subCategory: "Dynamic Factor Arbitrage (SIF)",
+      minInvestment: "1000000", // ₹10 Lakhs
+      timeHorizon: "2-4 Years",
+      benchmarkName: "NIFTY 50 Arbitrage Index",
+      portfolioTier: "affluent_sif",
+      vehicleType: "SIF_NEW_ASSET_CLASS",
+      sebiRegulatoryRegime: "SEBI (Mutual Funds) (Amendment) Regulations, 2024 — New Asset Class Framework",
+      sebiRegulationRef: "SEBI MF Amendment Regulations 2024 / SIF Master Framework",
+      statutoryMinInvestment: "1000000",
+      executionRoute: "sif_orchestration",
+      custodyStructure: "TRUSTEE_AMC_UNITS",
+      allowedAssetClasses: ["direct_equity", "etf", "derivatives_hedge", "long_short_equity", "debt_instruments", "liquid_buffer"],
+      accreditationRequired: false,
+      lockInPeriodMonths: 0,
+      highlight: "Market-Neutral SIF (Min ₹10 Lakhs)",
+      icon: "⚖️",
+      portfolioCode: "FP-SIF-02",
+      allocation: [
+        { category: "arbitrage", label: "Cash-Futures Equity Arbitrage Pairs", weight: 50, color: "#3B82F6", icon: "📊" },
+        { category: "derivatives_hedge", label: "Factor Momentum Long/Short Overlay", weight: 25, color: "#8B5CF6", icon: "⚡" },
+        { category: "liquid_yield", label: "Sovereign Collateral & TREPS", weight: 25, color: "#10B981", icon: "🏛️" },
+      ],
+      holdings: [
+        { rank: 1, name: "Infosys Cash-Futures Arbitrage", symbol: "INFY-ARB", assetClass: "arbitrage", category: "Arbitrage", weight: 9.5, isin: "INE009A01021", currentReturn: 7.2 },
+        { rank: 2, name: "Reliance Cash-Futures Arbitrage", symbol: "RELIANCE-ARB", assetClass: "arbitrage", category: "Arbitrage", weight: 9.5, isin: "INE002A01018", currentReturn: 7.1 },
+        { rank: 3, name: "HDFC Bank Cash-Futures Arbitrage", symbol: "HDFCBANK-ARB", assetClass: "arbitrage", category: "Arbitrage", weight: 9.0, isin: "INE040A01034", currentReturn: 7.0 },
+        { rank: 4, name: "Axis Bank Cash-Futures Arbitrage", symbol: "AXISBANK-ARB", assetClass: "arbitrage", category: "Arbitrage", weight: 8.0, isin: "INE238A01034", currentReturn: 7.4 },
+        { rank: 5, name: "Tata Motors Cash-Futures Arbitrage", symbol: "TATAMOTORS-ARB", assetClass: "arbitrage", category: "Arbitrage", weight: 7.0, isin: "INE155A01022", currentReturn: 7.5 },
+        { rank: 6, name: "Quantitative Momentum Factor Long/Short", symbol: "QUANT-MOM", assetClass: "derivatives", category: "Derivatives", weight: 25.0, currentReturn: 11.2 },
+        { rank: 7, name: "182-Day Sovereign Treasury Bills", symbol: "TBILL-182D", assetClass: "debt", category: "Sovereign Debt", weight: 17.0, currentReturn: 6.9 },
+        { rank: 8, name: "CCIL Triparty Repo (TREPS) Yield", symbol: "TREPS-LIQ", assetClass: "debt", category: "Money Market", weight: 15.0, currentReturn: 6.6 },
+      ],
+    },
+  ];
+
+  const allPortfoliosToSeed = [...retailPortfolios, ...affluentSifPortfolios, ...hniPmsPortfolios, ...uhniAifPortfolios];
 
   for (const item of allPortfoliosToSeed) {
     const existing = await db.execute(sql`SELECT id FROM model_portfolios WHERE id = ${item.id} LIMIT 1`);
@@ -563,7 +708,7 @@ export async function seedInstitutionalModelPortfolios(): Promise<{ seeded: numb
           SET allocation = ${JSON.stringify((item as any).allocation)}::jsonb,
               holdings = ${JSON.stringify((item as any).holdings)}::jsonb,
               total_holdings = ${(item as any).holdings.length}
-          WHERE id = ${item.id} AND (holdings IS NULL OR jsonb_array_length(holdings) = 0)
+          WHERE id = ${item.id} AND (holdings IS NULL OR jsonb_array_length(holdings) = 0 OR ${item.id.startsWith("sif-") || item.id === "hni-multi-asset-alpha-pms"})
         `);
       }
 

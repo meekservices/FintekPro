@@ -179,6 +179,7 @@ import stockIntersectionRouter from "./routes/stock-intersection";
 import { registerAgentAdvisoryPart4Routes } from "./routes/agent-advisory-4";
 import overlapIntelligenceRouter from "./routes/overlap-intelligence"; // /api/portfolio/intelligence, /simulate-impact, /optimize-sip, /goal-based-score
 import { modelPortfoliosRouter } from "./routes/model-portfolios-route"; // /api/model-portfolios — engine audit Fix #6
+import { sifRouter } from "./routes/sif-routes"; // /api/sif/* — Specified Investment Funds (New Asset Class)
 import { agentLeadInboxRouter } from "./routes/agent-lead-inbox"; // /api/agent/leads
 import { exploriumWebhookRouter } from "./routes/explorium-webhook-routes"; // /api/webhooks/explorium
 import { webhookRoutes } from "./routes/webhook-routes"; // /api/webhooks/upstox, /api/webhooks/alpaca, /api/webhooks/iris
@@ -572,6 +573,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 	// Model Portfolios: /api/model-portfolios, /api/model-portfolios/:id (engine audit Fix #6)
 	app.use("/api/model-portfolios", modelPortfoliosRouter);
+
+	// Specified Investment Funds (SIF / New Asset Class): /api/sif/*
+	app.use("/api/sif", sifRouter);
 
 	// Tax Loss Harvesting: /api/tax-loss-harvesting/*
 	app.use("/api/tax-loss-harvesting", taxLossHarvestingRouter);

@@ -241,14 +241,45 @@ export class SebiHoldingComplianceService {
 					? JSON.parse(portfolio.holdings)
 					: [];
 
-			holdings = raw.map((h: any) => ({
-				instrumentName: h.name || h.instrumentName || h.symbol || "Instrument",
-				assetClass: h.assetClass || portfolio.assetClass || "equity",
-				subCategory: h.subCategory || h.category,
-				weight: Number(h.weight || h.allocation || 0),
-				isin: h.isin,
-				symbol: h.symbol,
-			}));
+			holdings = raw.map((h: any) => {
+				const cat = (h.category || "").toLowerCase();
+				let inferredAssetClass = h.assetClass;
+				if (!inferredAssetClass) {
+					if (
+						cat.includes("debt") ||
+						cat.includes("bond") ||
+						cat.includes("t-bill") ||
+						cat.includes("money market") ||
+						cat.includes("repo") ||
+						cat.includes("treps") ||
+						cat.includes("gilt")
+					) {
+						inferredAssetClass = "debt";
+					} else if (
+						cat.includes("derivative") ||
+						cat.includes("hedge") ||
+						cat.includes("short") ||
+						cat.includes("arbitrage") ||
+						cat.includes("f&o")
+					) {
+						inferredAssetClass = "derivatives";
+					} else if (cat.includes("gold") || cat.includes("silver") || cat.includes("commodity")) {
+						inferredAssetClass = "gold";
+					} else if (cat.includes("reit") || cat.includes("invit")) {
+						inferredAssetClass = "reit";
+					} else {
+						inferredAssetClass = portfolio.assetClass || "equity";
+					}
+				}
+				return {
+					instrumentName: h.name || h.instrumentName || h.symbol || "Instrument",
+					assetClass: inferredAssetClass,
+					subCategory: h.subCategory || h.category,
+					weight: Number(h.weight || h.allocation || 0),
+					isin: h.isin,
+					symbol: h.symbol,
+				};
+			});
 		}
 
 		return this.evaluateHoldingsCompliance(
@@ -574,8 +605,12 @@ export class SebiHoldingComplianceService {
 		}));
 
 		// ─────────────────────────────────────────────────────────────────────────────
-		// CHECK 1: Single Issuer Equity Cap (10% Cap, 8% Warning)
+		// CHECK 1: Single Issuer Equity Cap (12% for SIF, 10% for Mutual Funds)
 		// ─────────────────────────────────────────────────────────────────────────────
+		const isSif = portfolioTier === "affluent_sif" || vehicleType === "SIF_NEW_ASSET_CLASS";
+		const singleStockLimit = isSif ? 12.0 : SebiHoldingComplianceService.SINGLE_STOCK_LIMIT_PCT;
+		const singleStockWarn = isSif ? 10.0 : SebiHoldingComplianceService.SINGLE_STOCK_WARN_PCT;
+
 		const equityHoldings = normalizedHoldings.filter(
 			(h) => h.assetClass.toLowerCase() === "equity" || h.assetClass.toLowerCase() === "thematic",
 		);
@@ -586,51 +621,51 @@ export class SebiHoldingComplianceService {
 
 		for (const h of equityHoldings) {
 			if (h.weight > maxEquityWeight) maxEquityWeight = h.weight;
-			if (h.weight > SebiHoldingComplianceService.SINGLE_STOCK_LIMIT_PCT) {
+			if (h.weight > singleStockLimit) {
 				breachingEquityStocks.push(`${h.instrumentName} (${h.weight}%)`);
-			} else if (h.weight >= SebiHoldingComplianceService.SINGLE_STOCK_WARN_PCT) {
+			} else if (h.weight >= singleStockWarn) {
 				warningEquityStocks.push(`${h.instrumentName} (${h.weight}%)`);
 			}
 		}
 
 		if (breachingEquityStocks.length > 0) {
 			checks.push({
-				ruleId: "SEBI-7TH-SCH-1",
-				ruleName: "Single Issuer Equity Exposure Cap (10%)",
-				statutoryReference: "Seventh Schedule, Clause 1",
-				thresholdLimit: SebiHoldingComplianceService.SINGLE_STOCK_LIMIT_PCT,
+				ruleId: isSif ? "SIF-SINGLE-STOCK-CAP" : "SEBI-7TH-SCH-1",
+				ruleName: isSif ? "Single Issuer Equity Exposure Cap (12% SIF)" : "Single Issuer Equity Exposure Cap (10%)",
+				statutoryReference: isSif ? "SEBI SIF Master Framework §4.1" : "Seventh Schedule, Clause 1",
+				thresholdLimit: singleStockLimit,
 				observedValue: maxEquityWeight,
 				unit: "% of NAV",
 				status: "BREACH",
-				details: `Breached 10% statutory limit in ${breachingEquityStocks.length} stock(s): ${breachingEquityStocks.join(", ")}.`,
+				details: `Breached ${singleStockLimit}% statutory limit in ${breachingEquityStocks.length} stock(s): ${breachingEquityStocks.join(", ")}.`,
 				offendingItems: breachingEquityStocks,
 			});
-			breaches.push(`Equity single-stock concentration exceeds SEBI 10% limit: ${breachingEquityStocks.join(", ")}`);
-			remedialActions.push(`Trim position(s) ${breachingEquityStocks.join(", ")} to strictly under 10.0% of NAV.`);
+			breaches.push(`Equity single-stock concentration exceeds ${singleStockLimit}% limit: ${breachingEquityStocks.join(", ")}`);
+			remedialActions.push(`Trim position(s) ${breachingEquityStocks.join(", ")} to strictly under ${singleStockLimit}% of NAV.`);
 		} else if (warningEquityStocks.length > 0) {
 			checks.push({
-				ruleId: "SEBI-7TH-SCH-1",
-				ruleName: "Single Issuer Equity Exposure Cap (10%)",
-				statutoryReference: "Seventh Schedule, Clause 1",
-				thresholdLimit: SebiHoldingComplianceService.SINGLE_STOCK_LIMIT_PCT,
+				ruleId: isSif ? "SIF-SINGLE-STOCK-CAP" : "SEBI-7TH-SCH-1",
+				ruleName: isSif ? "Single Issuer Equity Exposure Cap (12% SIF)" : "Single Issuer Equity Exposure Cap (10%)",
+				statutoryReference: isSif ? "SEBI SIF Master Framework §4.1" : "Seventh Schedule, Clause 1",
+				thresholdLimit: singleStockLimit,
 				observedValue: maxEquityWeight,
 				unit: "% of NAV",
 				status: "WARNING",
-				details: `Approaching 10% limit in ${warningEquityStocks.length} stock(s): ${warningEquityStocks.join(", ")}. Proactive rebalance recommended.`,
+				details: `Approaching ${singleStockLimit}% limit in ${warningEquityStocks.length} stock(s): ${warningEquityStocks.join(", ")}. Proactive rebalance recommended.`,
 				offendingItems: warningEquityStocks,
 			});
 			warnings.push(`Approaching single-stock concentration limit: ${warningEquityStocks.join(", ")}`);
 			remedialActions.push(`Monitor ${warningEquityStocks.join(", ")} closely to avoid passive breach on market run-up.`);
 		} else {
 			checks.push({
-				ruleId: "SEBI-7TH-SCH-1",
-				ruleName: "Single Issuer Equity Exposure Cap (10%)",
-				statutoryReference: "Seventh Schedule, Clause 1",
-				thresholdLimit: SebiHoldingComplianceService.SINGLE_STOCK_LIMIT_PCT,
+				ruleId: isSif ? "SIF-SINGLE-STOCK-CAP" : "SEBI-7TH-SCH-1",
+				ruleName: isSif ? "Single Issuer Equity Exposure Cap (12% SIF)" : "Single Issuer Equity Exposure Cap (10%)",
+				statutoryReference: isSif ? "SEBI SIF Master Framework §4.1" : "Seventh Schedule, Clause 1",
+				thresholdLimit: singleStockLimit,
 				observedValue: maxEquityWeight,
 				unit: "% of NAV",
 				status: "PASS",
-				details: `All equity holdings within permissible limits. Maximum single stock weight is ${maxEquityWeight}%.`,
+				details: `All equity holdings within permissible limits. Maximum single stock weight is ${maxEquityWeight}% (limit: ${singleStockLimit}%).`,
 			});
 		}
 
@@ -650,7 +685,11 @@ export class SebiHoldingComplianceService {
 				nameLower.includes("sovereign") ||
 				nameLower.includes("treasury") ||
 				nameLower.includes("bharat bond") ||
-				nameLower.includes("t-bill");
+				nameLower.includes("t-bill") ||
+				nameLower.includes("g-sec") ||
+				nameLower.includes("treps") ||
+				nameLower.includes("triparty") ||
+				nameLower.includes("repo");
 			if (!isSovereign && h.weight > SebiHoldingComplianceService.SINGLE_DEBT_ISSUER_LIMIT_PCT) {
 				breachingDebtItems.push(`${h.instrumentName} (${h.weight}%)`);
 			}
