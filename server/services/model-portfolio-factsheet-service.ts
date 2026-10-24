@@ -69,6 +69,13 @@ export interface ModelPortfolioFactsheet {
 		high52WeekNav: number;
 		low52WeekNav: number;
 		minInvestment: number;
+		portfolioTier: string;
+		vehicleType: string;
+		sebiRegulatoryRegime: string;
+		sebiRegulationRef: string;
+		statutoryMinInvestment: number;
+		executionRoute: string;
+		custodyStructure: string;
 		rebalancingFrequency: string;
 		rebalancingMode: string;
 		riskOmeter: "LOW" | "MODERATELY_LOW" | "MODERATE" | "MODERATELY_HIGH" | "HIGH" | "VERY_HIGH";
@@ -339,6 +346,13 @@ export class ModelPortfolioFactsheetService {
 				high52WeekNav: Math.round(high52Week * 100) / 100,
 				low52WeekNav: Math.round(low52Week * 100) / 100,
 				minInvestment: Number(portfolio.minInvestment || 5000),
+				portfolioTier: portfolio.portfolioTier || "retail_mf",
+				vehicleType: portfolio.vehicleType || "MUTUAL_FUND",
+				sebiRegulatoryRegime: portfolio.sebiRegulatoryRegime || "SEBI (Mutual Funds) Regulations, 1996 & SEBI (Investment Advisers) Regulations, 2013",
+				sebiRegulationRef: portfolio.sebiRegulationRef || "SEBI MF Regs 1996",
+				statutoryMinInvestment: Number(portfolio.statutoryMinInvestment || (portfolio.portfolioTier === "hni_pms" ? 5000000 : portfolio.portfolioTier === "uhni_aif" ? 10000000 : 5000)),
+				executionRoute: portfolio.executionRoute || (portfolio.portfolioTier === "hni_pms" ? "upstox_pms" : portfolio.portfolioTier === "uhni_aif" ? "multi_asset_orchestration" : "iris"),
+				custodyStructure: portfolio.custodyStructure || (portfolio.portfolioTier === "hni_pms" ? "SEGREGATED_CLIENT_DEMAT" : portfolio.portfolioTier === "uhni_aif" ? "POOLED_TRUST_UNITS" : "DIRECT_AMC_FOLIO"),
 				rebalancingFrequency: portfolio.rebalancingFrequency || "quarterly",
 				rebalancingMode: portfolio.rebalancingMode || "drift_triggered",
 				riskOmeter,
@@ -389,9 +403,21 @@ export class ModelPortfolioFactsheetService {
 					},
 				],
 				sebiDisclosures: {
-					riaDeclaration: "Advised by FintekPro SEBI Registered Investment Advisory (RIA) partners under SEBI (Investment Advisers) Regulations, 2013.",
-					nonPoolingDisclaimer: "Model Portfolios are non-pooled virtual unitized strategies. Client retains 100% direct legal ownership of all securities in their own demat/broking account.",
-					riskWarning: "Mutual fund and securities investments are subject to market risks. Read all scheme and offer documents carefully before investing.",
+					riaDeclaration: portfolio.portfolioTier === "hni_pms"
+						? "Managed under SEBI (Portfolio Managers) Regulations, 2020. Statutory minimum ticket is ₹50 Lakhs under Regulation 23(2)."
+						: portfolio.portfolioTier === "uhni_aif"
+						? "Governed by SEBI (Alternative Investment Funds) Regulations, 2012. Statutory minimum investment commitment is ₹1 Crore under Regulation 10(c)."
+						: "Advised by FintekPro SEBI Registered Investment Advisory (RIA) partners under SEBI (Investment Advisers) Regulations, 2013 and SEBI (Mutual Funds) Regulations, 1996.",
+					nonPoolingDisclaimer: portfolio.portfolioTier === "hni_pms"
+						? "Segregated Demat Mandate: Client retains 100% direct legal ownership of all securities in their own Demat/trading account (strictly no pooling under Regulation 22)."
+						: portfolio.portfolioTier === "uhni_aif"
+						? "Pooled Contributory Trust Structure: Units held with SEBI-registered institutional custodian under Category II/III AIF guidelines."
+						: "Model Portfolios are non-pooled virtual unitized strategies. Client retains direct folio ownership of all scheme units.",
+					riskWarning: portfolio.portfolioTier === "uhni_aif"
+						? "AIF investments are complex, carry high market and liquidity risk, and involve capital call drawdowns and lock-in periods."
+						: portfolio.portfolioTier === "hni_pms"
+						? "Portfolio Management Services are subject to market risks. Past performance does not guarantee future returns."
+						: "Mutual fund and securities investments are subject to market risks. Read all scheme and offer documents carefully before investing.",
 					conflictDisclosure: portfolio.conflictDisclosure || "Zero commission conflict: FintekPro operates under strict fiduciary standards.",
 				},
 			},

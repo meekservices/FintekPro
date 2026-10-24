@@ -248,6 +248,50 @@ async function main() {
     `);
     console.log("  ✅ Phase F.4: rebalancingMode = drift_triggered applied to all portfolios");
 
+    // 6. Ensure SEBI institutional tiering columns exist (FASP-AI v3.1 / GCR v1.0)
+    await phFDb.execute(phFSql`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS portfolio_tier VARCHAR(50) DEFAULT 'retail_mf'`);
+    await phFDb.execute(phFSql`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS vehicle_type VARCHAR(50) DEFAULT 'MUTUAL_FUND'`);
+    await phFDb.execute(phFSql`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS sebi_regulatory_regime VARCHAR(255) DEFAULT 'SEBI (Mutual Funds) Regulations, 1996 & SEBI (Investment Advisers) Regulations, 2013'`);
+    await phFDb.execute(phFSql`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS sebi_regulation_ref VARCHAR(100) DEFAULT 'SEBI MF Regs 1996'`);
+    await phFDb.execute(phFSql`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS statutory_min_investment NUMERIC DEFAULT '5000'`);
+    await phFDb.execute(phFSql`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS execution_route VARCHAR(50) DEFAULT 'iris'`);
+    await phFDb.execute(phFSql`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS custody_structure VARCHAR(100) DEFAULT 'DIRECT_AMC_FOLIO'`);
+    await phFDb.execute(phFSql`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS allowed_asset_classes JSONB DEFAULT '[]'`);
+    await phFDb.execute(phFSql`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS accreditation_required BOOLEAN DEFAULT FALSE`);
+    await phFDb.execute(phFSql`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS lock_in_period_months INTEGER DEFAULT 0`);
+    await phFDb.execute(phFSql`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS sebi_compliance_rules JSONB`);
+    await phFDb.execute(phFSql`CREATE INDEX IF NOT EXISTS idx_model_portfolios_tier ON model_portfolios(portfolio_tier)`);
+
+    // Backfill any portfolios with asset_class='hni' or min_investment >= 5000000 to hni_pms
+    await phFDb.execute(phFSql`
+      UPDATE model_portfolios
+      SET portfolio_tier = 'hni_pms',
+          vehicle_type = 'PMS_MULTI_ASSET',
+          sebi_regulatory_regime = 'SEBI (Portfolio Managers) Regulations, 2020',
+          sebi_regulation_ref = 'SEBI PMS Reg 23(2)',
+          statutory_min_investment = '5000000',
+          execution_route = 'upstox_pms',
+          custody_structure = 'SEGREGATED_CLIENT_DEMAT'
+      WHERE (asset_class = 'hni' OR id LIKE '%pms%' OR min_investment >= 5000000)
+        AND (min_investment < 10000000 OR min_investment IS NULL);
+    `);
+
+    // Backfill any portfolios with min_investment >= 10000000 or id containing 'aif' to uhni_aif
+    await phFDb.execute(phFSql`
+      UPDATE model_portfolios
+      SET portfolio_tier = 'uhni_aif',
+          vehicle_type = 'AIF_MULTI_ASSET',
+          sebi_regulatory_regime = 'SEBI (Alternative Investment Funds) Regulations, 2012',
+          sebi_regulation_ref = 'SEBI AIF Reg 10(c)',
+          statutory_min_investment = '10000000',
+          execution_route = 'multi_asset_orchestration',
+          custody_structure = 'POOLED_TRUST_UNITS',
+          accreditation_required = TRUE
+      WHERE id LIKE '%aif%' OR min_investment >= 10000000;
+    `);
+
+    console.log("  ✅ Phase F.5: SEBI model portfolio institutional tiers ensured and backfilled");
+
   } catch (e: any) {
     console.error("  ❌ Phase F error:", e.message, "|", e.code);
     // Non-fatal

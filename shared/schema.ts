@@ -11753,11 +11753,41 @@ export const modelPortfolios = pgTable("model_portfolios", {
   lastAlgoRunAt:         timestamp("last_algo_run_at"),
   /** Outcome status of the latest algo run (e.g. EXECUTED, NO_DRIFT, CIRCUIT_BREAKER, RMS_BLOCKED, ERROR) */
   lastAlgoStatus:        varchar("last_algo_status", { length: 50 }),
+
+  // ── SEBI Institutional Tiering & Compliance (FASP-AI v3.1 / GCR v1.0) ─────────
+  /**
+   * Institutional tier classification:
+   * - "retail_mf": Retail Mutual Fund & ETF Baskets (Min ₹5,000 / ₹500 SIP, SEBI MF Regs 1996)
+   * - "hni_pms": High Net-worth Multi-Asset PMS (Statutory Min ₹50 Lakhs, SEBI PMS Regs 2020 Reg 23(2))
+   * - "uhni_aif": Ultra HNI Multi-Asset AIF (Statutory Min ₹1 Crore, SEBI AIF Regs 2012 Reg 10(c))
+   */
+  portfolioTier:        varchar("portfolio_tier", { length: 50 }).notNull().default("retail_mf"),
+  /** Vehicle structure: MUTUAL_FUND | PMS_MULTI_ASSET | AIF_MULTI_ASSET */
+  vehicleType:          varchar("vehicle_type", { length: 50 }).notNull().default("MUTUAL_FUND"),
+  /** Formal SEBI Regulatory Regime description */
+  sebiRegulatoryRegime: varchar("sebi_regulatory_regime", { length: 255 }).default("SEBI (Mutual Funds) Regulations, 1996 & SEBI (Investment Advisers) Regulations, 2013"),
+  /** Specific section/circular reference (e.g. "SEBI PMS Reg 23(2)", "SEBI AIF Reg 10(c)") */
+  sebiRegulationRef:    varchar("sebi_regulation_ref", { length: 100 }),
+  /** Statutory Minimum Investment (INR) enforced by SEBI law (₹5,000 for MF, ₹50,00,000 for PMS, ₹1,00,00,000 for AIF) */
+  statutoryMinInvestment: numeric("statutory_min_investment").default("5000"),
+  /** Execution orchestration route: iris | upstox_pms | multi_asset_orchestration */
+  executionRoute:       varchar("execution_route", { length: 50 }).default("iris"),
+  /** Custody structure: DIRECT_AMC_FOLIO | SEGREGATED_CLIENT_DEMAT | POOLED_TRUST_UNITS */
+  custodyStructure:     varchar("custody_structure", { length: 100 }).default("DIRECT_AMC_FOLIO"),
+  /** Allowed asset classes JSON array */
+  allowedAssetClasses:  jsonb("allowed_asset_classes").default([]),
+  /** Whether client must be certified as Accredited Investor (AI) under SEBI guidelines */
+  accreditationRequired: boolean("accreditation_required").default(false),
+  /** Mandatory lock-in or capital commitment period in months (0 for open-ended MF/PMS, 36+ for Cat II AIF) */
+  lockInPeriodMonths:   integer("lock_in_period_months").default(0),
+  /** Structured SEBI compliance rules, disclosures, drawdown terms, and risk disclosures */
+  sebiComplianceRules:  jsonb("sebi_compliance_rules"),
 }, (table) => [
   index("idx_model_portfolios_risk").on(table.riskProfile),
   index("idx_model_portfolios_asset").on(table.assetClass),
   index("idx_model_portfolios_published").on(table.isPublished),
   index("idx_model_portfolios_algo").on(table.algoTradingEnabled),
+  index("idx_model_portfolios_tier").on(table.portfolioTier),
 ]);
 
 export const insertModelPortfolioSchema = createInsertSchema(modelPortfolios).omit({

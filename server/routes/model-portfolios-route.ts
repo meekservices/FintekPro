@@ -58,6 +58,13 @@ import { unifiedStockPriceService } from "../services/unified-stock-price-servic
 import { modelPortfolioAlgoService } from "../services/model-portfolio-algo-service";
 import { calculateIntegerShareAllocation } from "../services/model-portfolio-share-sizing";
 import { stockIntersectionAnalysisService } from "../services/stock-intersection-analysis-service";
+import {
+  validateInvestmentTierCompliance,
+  getTierComparisonMatrix,
+  seedInstitutionalModelPortfolios,
+  SEBI_TIER_CONFIGS,
+  type PortfolioTier,
+} from "../services/model-portfolio-tier-service";
 
 export const modelPortfoliosRouter = Router();
 
@@ -3752,11 +3759,52 @@ modelPortfoliosRouter.get("/:id/suitability", async (req: Request, res: Response
   }
 });
 
+// ── GET /api/model-portfolios/tiers/summary ──────────────────────────────────
+/**
+ * Returns SEBI institutional tiering specifications and statutory guidelines:
+ * - Retail Portfolios (Mutual Fund & ETF baskets via IRIS)
+ * - HNI Multi-Asset PMS (Min ₹50L, SEBI PMS Regs 2020 Reg 23(2), Upstox Demat)
+ * - UHNI Multi-Asset AIF (Min ₹1 Cr, SEBI AIF Regs 2012 Reg 10(c), Multi-vendor Orchestration)
+ */
+modelPortfoliosRouter.get("/tiers/summary", async (_req: Request, res: Response) => {
+  const matrix = getTierComparisonMatrix();
+  return res.json({
+    success: true,
+    data: matrix,
+    meta: {
+      timestamp: new Date().toISOString(),
+      version: ENGINE_VERSION,
+      engine_version: ENGINE_VERSION,
+      disclaimer: "Classification complies with SEBI (Mutual Funds) Regulations 1996, SEBI (Portfolio Managers) Regulations 2020, and SEBI (Alternative Investment Funds) Regulations 2012.",
+    },
+  });
+});
+
+// ── POST /api/model-portfolios/admin/seed-sebi-tiers ──────────────────────────
+modelPortfoliosRouter.post("/admin/seed-sebi-tiers", requireAdmin, async (_req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const result = await seedInstitutionalModelPortfolios();
+    return res.json({
+      success: true,
+      data: result,
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: ENGINE_VERSION,
+        latency_ms: Date.now() - t0,
+      },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] Seed SEBI tiers error", { error: err.message });
+    return res.status(500).json({ success: false, error_code: "SEED_TIERS_ERROR", message: err.message });
+  }
+});
+
 // ── GET /api/model-portfolios ──────────────────────────────────────────────────
 modelPortfoliosRouter.get("/", async (req: Request, res: Response) => {
   const start = Date.now();
   try {
-    const { riskProfile, assetClass, featured } = req.query;
+    const { riskProfile, assetClass, featured, tier } = req.query;
 
     const conditions = [eq(modelPortfolios.isPublished, true)];
     if (riskProfile && typeof riskProfile === "string") {
@@ -3767,6 +3815,9 @@ modelPortfoliosRouter.get("/", async (req: Request, res: Response) => {
     }
     if (featured === "true") {
       conditions.push(eq(modelPortfolios.isFeatured, true));
+    }
+    if (tier && typeof tier === "string" && ["retail_mf", "hni_pms", "uhni_aif"].includes(tier)) {
+      conditions.push(eq(modelPortfolios.portfolioTier, tier));
     }
 
     // WEAKNESS-1: Pagination per GCR v1.0 list endpoint requirements
@@ -4909,7 +4960,9 @@ modelPortfoliosRouter.get("/:id/invest/preview", async (req: Request, res: Respo
     }
 
     const result = await db.execute(sql`
-      SELECT id, name, min_investment, holdings
+      SELECT id, name, min_investment, holdings, portfolio_tier, vehicle_type,
+             sebi_regulatory_regime, sebi_regulation_ref, statutory_min_investment,
+             execution_route, custody_structure
       FROM model_portfolios
       WHERE id = ${id} AND is_published = true
       LIMIT 1
@@ -4920,14 +4973,30 @@ modelPortfoliosRouter.get("/:id/invest/preview", async (req: Request, res: Respo
     }
 
     const row = result.rows[0] as any;
-    const minInvestment = parseFloat(row.min_investment ?? "5000");
+    const portfolioTier = (row.portfolio_tier as PortfolioTier) ?? "retail_mf";
 
-    if (amount < minInvestment) {
+    // ── SEBI Statutory Tier Compliance Validation ──
+    const tierValidation = validateInvestmentTierCompliance({
+      portfolioId: id,
+      portfolioTier,
+      amount,
+    });
+
+    if (!tierValidation.isCompliant) {
       return res.status(400).json({
         success: false,
-        error_code: "BELOW_MINIMUM",
-        message: `Minimum investment for this portfolio is ₹${minInvestment.toLocaleString("en-IN")}`,
-        data: { minInvestment },
+        error_code: tierValidation.violationCode ?? "BELOW_MINIMUM",
+        message: tierValidation.message,
+        data: {
+          minInvestment: tierValidation.statutoryMinInvestment,
+          enteredAmount: amount,
+          deficit: tierValidation.deficitAmount,
+          portfolioTier: tierValidation.portfolioTier,
+          vehicleType: tierValidation.vehicleType,
+          sebiRegulatoryRegime: tierValidation.sebiRegulatoryRegime,
+          sebiRegulationRef: tierValidation.sebiRegulationRef,
+          statutoryWarning: tierValidation.statutoryWarning,
+        },
         retryable: false,
       });
     }
@@ -4968,22 +5037,29 @@ modelPortfoliosRouter.get("/:id/invest/preview", async (req: Request, res: Respo
       data: {
         portfolioId:   id,
         portfolioName: row.name,
+        portfolioTier: tierValidation.portfolioTier,
+        vehicleType:   tierValidation.vehicleType,
+        sebiRegulatoryRegime: tierValidation.sebiRegulatoryRegime,
+        sebiRegulationRef: tierValidation.sebiRegulationRef,
+        executionRoute: tierValidation.executionRoute,
+        custodyStructure: tierValidation.custodyStructure,
         investType,
         totalAmount:   amount,
         allocation,
         holdingsBelowMinimum: holdingsBelow,
         integerSizing: integerSizing ?? undefined,
+        regulatoryNotice: tierValidation.regulatoryNotice,
         advisory_note: holdingsBelow > 0
           ? `${holdingsBelow} holding(s) receive less than ₹100 at this amount. Consider increasing the investment amount for better diversification.`
           : integerSizing && !integerSizing.isFullyInvestable
           ? integerSizing.summary
-          : "All holdings meet the ₹100 minimum. Proceed to generate a proposal.",
+          : `All holdings meet investment threshold under ${tierValidation.sebiRegulationRef}. Proceed to generate an advisory proposal.`,
       },
       meta: {
         timestamp: new Date().toISOString(),
         version: ENGINE_VERSION,
         latency_ms: Date.now() - t0,
-        disclaimer: "Mutual Fund and Demat investments are subject to market risks. Past performance is not indicative of future results.",
+        disclaimer: tierValidation.advisoryDisclaimer,
       },
     });
   } catch (err: any) {
@@ -4996,9 +5072,10 @@ modelPortfoliosRouter.get("/:id/invest/preview", async (req: Request, res: Respo
  * POST /api/model-portfolios/:id/invest
  * ──────────────────────────────────────
  * Creates an investment from a model portfolio:
- *   1. Computes per-holding allocation (buildInvestAllocation)
- *   2. Adds all MF holdings to unified_cart_items
- *   3. Creates an advisory advisory session (proposal stub)
+ *   1. Strictly validates statutory minimums (PMS ₹50L, AIF ₹1Cr)
+ *   2. Computes per-holding allocation (buildInvestAllocation)
+ *   3. Adds all holdings to unified_cart_items with correct item_type and custody metadata
+ *   4. Creates an advisory session (proposal stub)
  *
  * FASP-AI mandate: Advisory-only. Advisor must share proposal.
  *   No autonomous trade execution.
@@ -5029,6 +5106,8 @@ modelPortfoliosRouter.post("/:id/invest", async (req: Request, res: Response) =>
     // Fetch portfolio from DB
     const result = await db.execute(sql`
       SELECT id, name, min_investment, holdings, risk_profile, asset_class,
+             portfolio_tier, vehicle_type, sebi_regulatory_regime, sebi_regulation_ref,
+             statutory_min_investment, execution_route, custody_structure,
              cagr_1y, cagr_3y, benchmark_name, benchmark_cagr_1y, sharpe_ratio,
              volatility, last_rebalanced
       FROM model_portfolios
@@ -5041,14 +5120,31 @@ modelPortfoliosRouter.post("/:id/invest", async (req: Request, res: Response) =>
     }
 
     const row = result.rows[0] as any;
-    const minInvestment = parseFloat(row.min_investment ?? "5000");
+    const portfolioTier = (row.portfolio_tier as PortfolioTier) ?? "retail_mf";
 
-    if (amount < minInvestment) {
+    // ── Strict SEBI Statutory Minimum & Compliance Gate ──
+    const tierValidation = validateInvestmentTierCompliance({
+      portfolioId: id,
+      portfolioTier,
+      amount,
+      clientId,
+    });
+
+    if (!tierValidation.isCompliant) {
       return res.status(400).json({
         success: false,
-        error_code: "BELOW_MINIMUM",
-        message: `Minimum investment is ₹${minInvestment.toLocaleString("en-IN")}`,
-        data: { minInvestment },
+        error_code: tierValidation.violationCode ?? "BELOW_MINIMUM",
+        message: tierValidation.message,
+        data: {
+          minInvestment: tierValidation.statutoryMinInvestment,
+          enteredAmount: amount,
+          deficit: tierValidation.deficitAmount,
+          portfolioTier: tierValidation.portfolioTier,
+          vehicleType: tierValidation.vehicleType,
+          sebiRegulatoryRegime: tierValidation.sebiRegulatoryRegime,
+          sebiRegulationRef: tierValidation.sebiRegulationRef,
+          statutoryWarning: tierValidation.statutoryWarning,
+        },
         retryable: false,
       });
     }
@@ -5084,8 +5180,9 @@ modelPortfoliosRouter.post("/:id/invest", async (req: Request, res: Response) =>
     const now = new Date().toISOString();
 
     for (const alloc of allocation) {
-      if (alloc.targetAmount < 100) continue; // Skip holdings below MF minimum
+      if (alloc.targetAmount < 100) continue; // Skip holdings below minimum
 
+      const itemType = portfolioTier === "hni_pms" ? "pms_basket" : portfolioTier === "uhni_aif" ? "aif_commitment" : "mutual_fund";
       const itemId = `ci_mp_${id}_${alloc.rank}_${Date.now().toString(36)}`;
       await db.execute(sql`
         INSERT INTO unified_cart_items (
@@ -5096,7 +5193,7 @@ modelPortfoliosRouter.post("/:id/invest", async (req: Request, res: Response) =>
           ${itemId},
           ${clientId},
           ${agentId ?? null},
-          'mutual_fund',
+          ${itemType},
           ${alloc.name},
           1,
           ${alloc.targetAmount},
@@ -5106,6 +5203,12 @@ modelPortfoliosRouter.post("/:id/invest", async (req: Request, res: Response) =>
           ${JSON.stringify({
             portfolioId: id,
             portfolioName: row.name,
+            portfolioTier,
+            vehicleType: tierValidation.vehicleType,
+            sebiRegulatoryRegime: tierValidation.sebiRegulatoryRegime,
+            sebiRegulationRef: tierValidation.sebiRegulationRef,
+            executionRoute: tierValidation.executionRoute,
+            custodyStructure: tierValidation.custodyStructure,
             targetWeight: alloc.targetWeight,
             category: alloc.category,
             investType,
@@ -5123,7 +5226,8 @@ modelPortfoliosRouter.post("/:id/invest", async (req: Request, res: Response) =>
 
     // ── 2. Create advisory session / proposal stub ──────────────────────────
     const proposalId = `AI-MP-${id.toUpperCase().slice(0, 8)}-${Date.now().toString(36).toUpperCase()}`;
-    const riskDisclaimer = "Mutual Fund investments are subject to market risks. Read all scheme-related documents carefully. Past performance is not indicative of future results. This is an advisory recommendation — final execution requires advisor approval.";
+    const riskDisclaimer = tierValidation.advisoryDisclaimer;
+    const proposalType = portfolioTier === "hni_pms" ? "pms_invest_proposal" : portfolioTier === "uhni_aif" ? "aif_invest_proposal" : "model_portfolio_invest";
 
     await db.execute(sql`
       INSERT INTO proposals (
@@ -5138,7 +5242,7 @@ modelPortfoliosRouter.post("/:id/invest", async (req: Request, res: Response) =>
         ${clientId},
         ${agentId ?? null},
         'draft',
-        'model_portfolio_invest',
+        ${proposalType},
         ${amount},
         ${investType},
         ${id},

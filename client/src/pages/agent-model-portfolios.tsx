@@ -281,6 +281,16 @@ type ModelPortfolio = {
    *  Reflects dividend yield for equity, distribution yield for REIT/InvIT, coupon for bonds.
    *  Computed nightly by computeAndPersistDividendYields(). */
   portfolioDividendYield?: number | null;
+  // ── SEBI Institutional Tiering & Compliance (FASP-AI v3.1) ───────────────
+  portfolioTier?: "retail_mf" | "hni_pms" | "uhni_aif";
+  vehicleType?: "MUTUAL_FUND" | "PMS_MULTI_ASSET" | "AIF_MULTI_ASSET";
+  sebiRegulatoryRegime?: string;
+  sebiRegulationRef?: string;
+  statutoryMinInvestment?: number;
+  executionRoute?: string;
+  custodyStructure?: string;
+  accreditationRequired?: boolean;
+  lockInPeriodMonths?: number;
 };
 
 // ─── Seed Data — 22 Curated Model Portfolios ─────────────────────────────────
@@ -3259,42 +3269,34 @@ const THEMATIC_SUBCATEGORIES = ["Thematic / Sectoral", "BFSI", "Healthcare & Pha
 const GOAL_SUBCATEGORIES = ["Child Education", "Retirement", "Wedding / Life Event", "Home Purchase", "Emergency Fund", "Senior Citizen", "First Investment", "NRI"];
 const HNI_SUBCATEGORIES = ["Multi-Asset ₹50L", "Multi-Asset ₹1Cr", "Multi-Asset ₹10Cr", "Wealth Compounder"];
 
-// ── Investor Segment Tiers ──────────────────────────────────────────────────
-const SEGMENT_CONFIG: Record<string, { label: string; icon: string; gradient: string; badgeColor: string; desc: string; minLabel: string }> = {
-  all:       { label: "All Portfolios",  icon: "🗂️", gradient: "from-slate-600 to-slate-700",   badgeColor: "bg-slate-500",   desc: "Full catalogue",     minLabel: "" },
-  retail:    { label: "Retail",          icon: "🏠", gradient: "from-blue-600 to-indigo-600",  badgeColor: "bg-blue-500",    desc: "Up to ₹10L min",    minLabel: "₹500 — ₹10L" },
-  hni:       { label: "HNI",             icon: "💼", gradient: "from-purple-600 to-violet-600", badgeColor: "bg-purple-500",  desc: "₹50L — ₹1Cr tier",   minLabel: "₹50L — ₹1Cr" },
-  ultra_hni: { label: "Ultra HNI",       icon: "💎", gradient: "from-amber-500 to-orange-600",  badgeColor: "bg-amber-500",   desc: "₹1Cr+ family wealth", minLabel: "₹1Cr+" },
+// ── Investor Segment Tiers & SEBI Compliance ──────────────────────────────────
+const SEGMENT_CONFIG: Record<string, { label: string; icon: string; gradient: string; badgeColor: string; desc: string; minLabel: string; tierKey: string }> = {
+  all:       { label: "All Portfolios",         icon: "🗂️", gradient: "from-slate-600 to-slate-700",   badgeColor: "bg-slate-500",   desc: "Full catalogue",             minLabel: "All Regulated Tiers", tierKey: "all" },
+  retail:    { label: "Retail Mutual Funds",    icon: "🏠", gradient: "from-blue-600 to-indigo-600",  badgeColor: "bg-blue-500",    desc: "SEBI MF Regs · Folio / IRIS", minLabel: "Min ₹5,000 / ₹500 SIP", tierKey: "retail_mf" },
+  hni:       { label: "HNI Multi-Asset PMS",    icon: "💼", gradient: "from-purple-600 to-violet-600", badgeColor: "bg-purple-500",  desc: "SEBI PMS Reg 23(2) · Upstox", minLabel: "SEBI Min ₹50 Lakhs", tierKey: "hni_pms" },
+  ultra_hni: { label: "UHNI Multi-Asset AIF",   icon: "💎", gradient: "from-amber-500 to-orange-600",  badgeColor: "bg-amber-500",   desc: "SEBI AIF Reg 10(c) · Global", minLabel: "SEBI Min ₹1 Crore", tierKey: "uhni_aif" },
 };
 
 /**
- * D2: FIX — getSegment now uses assetClass as primary discriminator.
- *
- * Problem: minInvestment threshold alone was ambiguous:
- *   - family-office (minInvestment=₹10Cr) → fell into ultra_hni
- *   - hni-1cr-multi-asset (minInvestment=₹1Cr) → fell into ultra_hni wrongly
- *   - hni-50l-multi-asset (minInvestment=₹50L) → correctly HNI
- *
- * Fix:
- *   - assetClass === 'hni' → always routes to 'hni' segment
- *   - minInvestment >= ₹10Cr (family office tier) → 'ultra_hni'
- *   - minInvestment >= ₹1Cr → 'ultra_hni'
- *   - minInvestment >= ₹50L → 'hni'
- *   - else → 'retail'
+ * Categorizes a model portfolio into the appropriate statutory SEBI institutional tier:
+ * - retail: Mutual Fund / ETF baskets (ticket size < ₹50L, SEBI MF Regs 1996)
+ * - hni: Multi-Asset PMS (statutory ticket >= ₹50L, SEBI PMS Regs 2020 Reg 23(2))
+ * - ultra_hni: Multi-Asset AIF (statutory commitment >= ₹1Cr, SEBI AIF Regs 2012 Reg 10(c))
  */
-function getSegment(p: { minInvestment?: number; assetClass?: string }): "retail" | "hni" | "ultra_hni" {
+function getSegment(p: { minInvestment?: number; assetClass?: string; portfolioTier?: string }): "retail" | "hni" | "ultra_hni" {
+  if (p.portfolioTier === "uhni_aif") return "ultra_hni";
+  if (p.portfolioTier === "hni_pms") return "hni";
+  if (p.portfolioTier === "retail_mf") return "retail";
+
+  const min = Number(p.minInvestment ?? 0);
+  if (min >= 10_000_000) return "ultra_hni"; // ≥ ₹1 Cr (AIF statutory threshold)
+  if (min >= 5_000_000)  return "hni";       // ≥ ₹50L (PMS statutory threshold)
+
   const ac = (p.assetClass ?? "").toLowerCase();
-  const min = p.minInvestment ?? 0;
-
-  // assetClass 'hni' — always HNI tier, subdivided by minInvestment
-  if (ac === "hni") {
-    if (min >= 10_000_000) return "ultra_hni"; // ₹1Cr+ → Ultra HNI
-    return "hni";                              // ₹50L tier → HNI
+  if (ac === "hni" || ac === "alternatives") {
+    if (min >= 10_000_000) return "ultra_hni";
+    return "hni";
   }
-
-  // Generic min-investment thresholds
-  if (min >= 10_000_000) return "ultra_hni"; // ≥ ₹1 Cr
-  if (min >= 5_000_000)  return "hni";       // ≥ ₹50L
   return "retail";
 }
 
@@ -4389,6 +4391,14 @@ export default function AgentModelPortfoliosPage() {
         // ── Fix F1/F5: Portfolio maturity + circuit breaker flags from nightly quant engine
         isEstablishing:       p.isEstablishing       ?? p.is_establishing        ?? false,
         circuitBreakerTripped: p.circuitBreakerTripped ?? p.circuit_breaker_tripped ?? false,
+        // ── SEBI Institutional Tiering & Compliance (FASP-AI v3.1) ───────────────
+        portfolioTier: p.portfolioTier ?? p.portfolio_tier ?? (Number(p.minInvestment ?? p.min_investment ?? 0) >= 10000000 ? "uhni_aif" : Number(p.minInvestment ?? p.min_investment ?? 0) >= 5000000 ? "hni_pms" : "retail_mf"),
+        vehicleType: p.vehicleType ?? p.vehicle_type ?? (Number(p.minInvestment ?? p.min_investment ?? 0) >= 10000000 ? "AIF_MULTI_ASSET" : Number(p.minInvestment ?? p.min_investment ?? 0) >= 5000000 ? "PMS_MULTI_ASSET" : "MUTUAL_FUND"),
+        sebiRegulatoryRegime: p.sebiRegulatoryRegime ?? p.sebi_regulatory_regime ?? undefined,
+        sebiRegulationRef: p.sebiRegulationRef ?? p.sebi_regulation_ref ?? undefined,
+        statutoryMinInvestment: p.statutoryMinInvestment != null ? Number(p.statutoryMinInvestment) : undefined,
+        executionRoute: p.executionRoute ?? p.execution_route ?? undefined,
+        custodyStructure: p.custodyStructure ?? p.custody_structure ?? undefined,
       };
     });
   }, [apiData]);
@@ -5355,10 +5365,25 @@ export default function AgentModelPortfoliosPage() {
             >
               {/* ── Top badge row ─────────────────────────────────────────── */}
               <div className="flex items-center justify-between px-4 pt-3 pb-0 gap-2">
-                {/* Left: drift status pill */}
-                <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full text-white ${driftStatusColor}`}>
-                  {driftStatusLabel}
-                </span>
+                {/* Left: tier badge + drift status pill */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {portfolio.portfolioTier === "uhni_aif" ? (
+                    <span title="SEBI (Alternative Investment Funds) Regulations, 2012 Reg 10(c) · Min ₹1 Crore" className="bg-amber-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                      💎 Multi-Asset AIF (Min ₹1Cr)
+                    </span>
+                  ) : portfolio.portfolioTier === "hni_pms" ? (
+                    <span title="SEBI (Portfolio Managers) Regulations, 2020 Reg 23(2) · Min ₹50 Lakhs" className="bg-purple-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                      💼 Multi-Asset PMS (Min ₹50L)
+                    </span>
+                  ) : (
+                    <span title="SEBI (Mutual Funds) Regulations, 1996 · Retail Folio / IRIS" className="bg-blue-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                      🏠 Mutual Fund Basket
+                    </span>
+                  )}
+                  <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full text-white ${driftStatusColor}`}>
+                    {driftStatusLabel}
+                  </span>
+                </div>
 
                 {/* Right: risk / featured / suitability / proposals */}
                 <div className="flex items-center gap-1.5 flex-wrap justify-end">
@@ -5859,6 +5884,18 @@ export default function AgentModelPortfoliosPage() {
                         {selectedPortfolio.tagline}
                       </SheetDescription>
                     </div>
+                  </div>
+                  {/* Institutional Tier & Compliance Pills */}
+                  <div className="flex flex-wrap items-center gap-2 mt-3 text-xs">
+                    <span className="bg-white/20 backdrop-blur-sm rounded-full px-2.5 py-0.5 font-bold flex items-center gap-1 text-white">
+                      {selectedPortfolio.portfolioTier === "uhni_aif" ? "💎 Multi-Asset AIF (Min ₹1Cr)" : selectedPortfolio.portfolioTier === "hni_pms" ? "💼 Multi-Asset PMS (Min ₹50L)" : "🏠 Mutual Fund Basket"}
+                    </span>
+                    <span className="bg-white/15 rounded-full px-2.5 py-0.5 text-indigo-100">
+                      {selectedPortfolio.sebiRegulationRef || (selectedPortfolio.portfolioTier === "hni_pms" ? "SEBI PMS Reg 23(2)" : selectedPortfolio.portfolioTier === "uhni_aif" ? "SEBI AIF Reg 10(c)" : "SEBI MF Regs 1996")}
+                    </span>
+                    <span className="bg-white/15 rounded-full px-2.5 py-0.5 text-indigo-100">
+                      {selectedPortfolio.custodyStructure === "SEGREGATED_CLIENT_DEMAT" ? "Segregated Demat (Upstox)" : selectedPortfolio.custodyStructure === "POOLED_TRUST_UNITS" ? "Pooled Trust Units" : "Direct AMC Folios (IRIS)"}
+                    </span>
                   </div>
                   {/* CAGR quick stats */}
                   <div className="grid grid-cols-3 gap-3 mt-4">
@@ -7320,6 +7357,33 @@ export default function AgentModelPortfoliosPage() {
 
           {/* Body */}
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+            {/* Regulatory Tier Banner */}
+            <div className={`p-3 rounded-lg border text-xs ${
+              selectedPortfolio.portfolioTier === "uhni_aif"
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300"
+                : selectedPortfolio.portfolioTier === "hni_pms"
+                ? "bg-purple-500/10 border-purple-500/30 text-purple-700 dark:text-purple-300"
+                : "bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-300"
+            }`}>
+              <div className="flex items-center gap-1.5 font-bold mb-1">
+                <span>{selectedPortfolio.portfolioTier === "uhni_aif" ? "💎" : selectedPortfolio.portfolioTier === "hni_pms" ? "💼" : "🏠"}</span>
+                <span>
+                  {selectedPortfolio.portfolioTier === "uhni_aif"
+                    ? "SEBI (AIF) Regulations, 2012 — Regulation 10(c)"
+                    : selectedPortfolio.portfolioTier === "hni_pms"
+                    ? "SEBI (Portfolio Managers) Regulations, 2020 — Regulation 23(2)"
+                    : "SEBI (Mutual Funds) Regulations, 1996"}
+                </span>
+              </div>
+              <p className="text-[11px] opacity-90 leading-relaxed">
+                {selectedPortfolio.portfolioTier === "uhni_aif"
+                  ? "Statutory Minimum Commitment: ₹1,00,00,000 (One Crore). Executed across Upstox, Alpaca, and IRIS with institutional custodian oversight."
+                  : selectedPortfolio.portfolioTier === "hni_pms"
+                  ? "Statutory Minimum Ticket: ₹50,00,000 (Fifty Lakhs). Held directly in investor's segregated Demat account via Upstox (no pooling)."
+                  : "Retail Ticket: Min ₹5,000 Lumpsum / ₹500 SIP. Executed as Mutual Fund / ETF scheme folios via KFintech IRIS."}
+              </p>
+            </div>
+
             {/* Invest Type Toggle */}
             <div>
               <label htmlFor="invest-type-toggle" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Investment Type</label>
@@ -7351,13 +7415,26 @@ export default function AgentModelPortfoliosPage() {
                   id="invest-amount-input"
                   type="number"
                   min={selectedPortfolio.minInvestment}
-                  step={1000}
+                  step={selectedPortfolio.minInvestment >= 5000000 ? 50000 : 1000}
                   value={investAmount}
                   onChange={e => setInvestAmount(e.target.value)}
-                  placeholder={`Min ${selectedPortfolio.minInvestment.toLocaleString("en-IN")}`}
+                  placeholder={`Min ₹${selectedPortfolio.minInvestment.toLocaleString("en-IN")}`}
                   className="w-full pl-7 pr-4 py-2.5 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
+
+              {/* Deficit / Below Minimum Statutory Warning */}
+              {investAmount && Number(investAmount) < selectedPortfolio.minInvestment && (
+                <div className="mt-2 p-2.5 rounded bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs">
+                  <p className="font-semibold flex items-center gap-1">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Below Statutory Minimum
+                  </p>
+                  <p className="text-[11px] mt-0.5">
+                    This portfolio requires a minimum of ₹{selectedPortfolio.minInvestment.toLocaleString("en-IN")}. Current deficit: ₹{(selectedPortfolio.minInvestment - Number(investAmount)).toLocaleString("en-IN")}.
+                  </p>
+                </div>
+              )}
+
               {investType === "sip" && (
                 <div className="mt-2">
                   <label htmlFor="sip-date-select" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">SIP Date</label>
@@ -7406,7 +7483,13 @@ export default function AgentModelPortfoliosPage() {
             {/* SEBI Disclaimer */}
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2.5">
               <p className="text-[10px] text-amber-800 dark:text-amber-200 leading-relaxed">
-                <strong>⚠️ Important:</strong> Mutual Fund investments are subject to market risks. Past performance is not indicative of future results. This is an advisory recommendation. Final execution requires advisor review and approval. No trades have been executed.
+                <strong>⚠️ SEBI Statutory Disclaimer:</strong>{" "}
+                {selectedPortfolio.portfolioTier === "uhni_aif"
+                  ? "Alternative Investment Funds (AIF) are high-risk pooled investment vehicles governed by SEBI (Alternative Investment Funds) Regulations, 2012. Minimum statutory commitment is ₹1 Crore under Regulation 10(c). AIF investments carry high market and liquidity risks and involve capital call drawdowns."
+                  : selectedPortfolio.portfolioTier === "hni_pms"
+                  ? "Portfolio Management Services (PMS) are subject to market risks. Minimum statutory ticket is ₹50 Lakhs under SEBI (Portfolio Managers) Regulations, 2020, Reg 23(2). All securities are held directly in segregated Demat accounts in the client's name."
+                  : "Mutual Fund investments are subject to market risks. Read all scheme-related documents carefully. Past performance is not indicative of future results."}
+                {" "}This is a Decision Support advisory recommendation — final execution requires advisor confirmation. No trades are executed autonomously.
               </p>
             </div>
 
