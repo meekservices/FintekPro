@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import * as cheerio from "cheerio";
 
 export interface SebiAifListing {
@@ -530,4 +531,4 @@ export async function fetchSebiAifListings(): Promise<SebiAifImportResult> {
 	}
 }
 
-export { getSampleAifData };
+export { scrapeSebiAifList, getSampleAifData };

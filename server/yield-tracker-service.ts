@@ -488,8 +488,6 @@ export class YieldTrackerService {
 		benchmarkReturn: number;
 		activeReturn: number;
 	}> {
-		// Simplified monthly returns calculation
-		const monthlyReturns = [];
 		const months = [
 			"Jan",
 			"Feb",
@@ -505,15 +503,68 @@ export class YieldTrackerService {
 			"Dec",
 		];
 
+		// If insufficient price history, return deterministic zeroed monthly slots
+		if (!priceHistory || priceHistory.length < 2) {
+			return months.map((m) => ({
+				month: m,
+				return: 0,
+				benchmarkReturn: 0.95, // Standard benchmark historical monthly geometric return (~12% p.a.)
+				activeReturn: -0.95,
+			}));
+		}
+
+		// Sort history chronologically
+		const sorted = [...priceHistory].sort(
+			(a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+		);
+
+		// Group prices by calendar month
+		const monthlyBuckets = new Map<number, number[]>();
+		for (const pt of sorted) {
+			const d = new Date(pt.date);
+			if (!isNaN(d.getTime())) {
+				const mIndex = d.getMonth();
+				const p = Number(pt.price || 0);
+				if (p > 0) {
+					if (!monthlyBuckets.has(mIndex)) {
+						monthlyBuckets.set(mIndex, []);
+					}
+					monthlyBuckets.get(mIndex)!.push(p);
+				}
+			}
+		}
+
+		const monthlyReturns: Array<{
+			month: string;
+			return: number;
+			benchmarkReturn: number;
+			activeReturn: number;
+		}> = [];
+
+		const benchmarkMonthlyRate = 0.95; // (1 + 0.12)^(1/12) - 1 ≈ 0.9488%
+
 		for (let i = 0; i < 12; i++) {
-			const monthReturn = Math.random() * 4 - 2; // Mock data for now
-			const benchmarkReturn = Math.random() * 3 - 1;
+			const pricesInMonth = monthlyBuckets.get(i);
+			let monthReturn = 0;
+			if (pricesInMonth && pricesInMonth.length >= 2) {
+				const startPrice = pricesInMonth[0];
+				const endPrice = pricesInMonth[pricesInMonth.length - 1];
+				monthReturn = ((endPrice - startPrice) / startPrice) * 100;
+			} else if (pricesInMonth && pricesInMonth.length === 1 && i > 0) {
+				const prevMonthPrices = monthlyBuckets.get(i - 1);
+				if (prevMonthPrices && prevMonthPrices.length > 0) {
+					const prevPrice = prevMonthPrices[prevMonthPrices.length - 1];
+					monthReturn = ((pricesInMonth[0] - prevPrice) / prevPrice) * 100;
+				}
+			}
+
+			const activeReturn = monthReturn - benchmarkMonthlyRate;
 
 			monthlyReturns.push({
 				month: months[i],
-				return: monthReturn,
-				benchmarkReturn,
-				activeReturn: monthReturn - benchmarkReturn,
+				return: Number(monthReturn.toFixed(2)),
+				benchmarkReturn: benchmarkMonthlyRate,
+				activeReturn: Number(activeReturn.toFixed(2)),
 			});
 		}
 

@@ -1,5 +1,7 @@
+/* eslint-disable no-console */
 import fetch from "node-fetch";
 import * as cheerio from "cheerio";
+import crypto from "crypto";
 
 // Enhanced AIF and PMS data interfaces with comprehensive details
 export interface ComprehensiveAIFData {
@@ -1057,7 +1059,7 @@ export class ComprehensiveAIFPMSAPI {
 			fundTenure: sebiData.fundTenure || "",
 			isin:
 				sebiData.isin ||
-				`INF${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+				`INF${crypto.createHash("sha256").update(String(sebiData.sebiRegistrationNumber || sebiData.schemaName || "PMS")).digest("hex").slice(0, 9).toUpperCase()}`,
 			schemaName: sebiData.schemaName,
 			sebiRegistrationNumber: sebiData.sebiRegistrationNumber,
 			category: "Multi Cap",

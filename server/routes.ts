@@ -136,6 +136,8 @@ import { registerPartnerPortalEnhancementRoutes } from "./routes/partner-portal-
 
 import { registerCasPortfolioUploadRoutes } from "./routes/cas-portfolio-upload-routes";
 import { registerComplianceGateRoutes } from "./routes/compliance-gate-routes";
+import { registerPmsRoutes } from "./routes/pms-routes";
+import { registerAifRoutes } from "./routes/aif-routes";
 import { registerMacroRoutes } from "./routes/macro-routes";
 import { registerCrmRoutes } from "./routes/crm";
 import { registerLoanRoutes } from "./routes/loans/index";
@@ -506,6 +508,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	registerPartnerPortalEnhancementRoutes(app);  // /api/partner/portal/* — dashboard, referrals, catalog, Zoho deal sync
 	registerCasPortfolioUploadRoutes(app); // /api/portfolio/upload-cas-pdf + /api/portfolio/sync-status
 	registerComplianceGateRoutes(app); // GET /api/compliance/transaction-readiness
+	registerPmsRoutes(app); // /api/pms/* — Dedicated SEBI Portfolio Management Services endpoints
+	registerAifRoutes(app); // /api/aif/* — Dedicated SEBI Alternative Investment Funds endpoints
 	registerMacroRoutes(app); // GET /api/macro/* global macro transmission engine
 	registerCrmRoutes(app); // /api/crm/* client relationship management
 	registerLoanRoutes(app); // /api/loans/* loan marketplace

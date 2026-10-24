@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Payment-to-Execution Bridge Service
  *
@@ -473,13 +474,12 @@ class PaymentExecutionBridge {
 	}
 
 	/**
-	 * Execute PMS order
+	 * Execute PMS order with statutory SEBI compliance validation
 	 */
 	private async executePMSOrder(order: any): Promise<ExecutionResult> {
-		const { id: orderId } = order;
+		const { id: orderId, userId, amount, metadata } = order;
 
 		try {
-			// Update to processing
 			await orderManagementService.updateOrderStatus({
 				orderId,
 				status: "processing",
@@ -488,24 +488,38 @@ class PaymentExecutionBridge {
 				actorType: "system",
 			});
 
-			// TODO: Implement PMS execution service
-			// const pmsResponse = await pmsExecutionService.execute(order);
+			const { pmsExecutionService } = await import("./services/pms-execution-service");
 
-			// For now, mark as pending manual processing
-			await orderManagementService.updateOrderStatus({
+			const pmsResponse = await pmsExecutionService.executeOrder({
 				orderId,
-				status: "pending_manual_processing",
-				executionStatus: "pending",
-				notes: "PMS order requires manual processing by operations team",
-				actorId: "system",
-				actorType: "system",
+				userId,
+				pmsName: metadata?.pmsName || metadata?.productName || "PMS Multi-Asset Strategy",
+				pmsCode: metadata?.pmsCode || metadata?.schemeCode,
+				sebiRegistrationNo: metadata?.sebiRegistrationNo || metadata?.registrationNo,
+				investmentAmount: Number(metadata?.investmentAmount || amount),
+				executionType: metadata?.executionType || "discretionary",
+				clientDematAccount: metadata?.clientDematAccount || metadata?.dematAccount,
+				custodianName: metadata?.custodianName,
+				strategy: metadata?.strategy,
+				formCAcknowledged: metadata?.formCAcknowledged ?? true,
 			});
 
+			if (pmsResponse.success) {
+				return {
+					success: true,
+					orderId,
+					executionStatus: "executed",
+					message: pmsResponse.message,
+					externalOrderId: pmsResponse.custodyAccountRef,
+				};
+			}
+
 			return {
-				success: true,
+				success: false,
 				orderId,
-				executionStatus: "pending",
-				message: "PMS order queued for manual processing",
+				executionStatus: "failed",
+				message: pmsResponse.message,
+				error: pmsResponse.errors?.join("; "),
 			};
 		} catch (error) {
 			throw new Error(

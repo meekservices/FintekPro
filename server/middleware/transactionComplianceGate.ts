@@ -33,7 +33,7 @@ import { queueTransactionForMasterApproval } from "../services/masterAgentApprov
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type TransactionType = "MF" | "US_EQUITY";
+export type TransactionType = "MF" | "US_EQUITY" | "PMS" | "AIF";
 export type TransactionAction =
 	| "purchase"
 	| "redemption"
@@ -144,7 +144,11 @@ async function checkKycStatus(
 	const GATE_NAME = "KYC Status";
 	try {
 		const productCode =
-			transactionType === "US_EQUITY" ? "EQUITY_TRADING" : "MUTUAL_FUNDS";
+			transactionType === "US_EQUITY"
+				? "EQUITY_TRADING"
+				: transactionType === "PMS" || transactionType === "AIF"
+					? "PMS_AIF"
+					: "MUTUAL_FUNDS";
 		const result = await kycSufficiencyService.checkSufficiency(
 			userId,
 			productCode,
@@ -466,6 +470,43 @@ async function checkSchemeRules(
 
 	if (transactionType === "US_EQUITY") {
 		// US equity: no pre-check at gate level; Alpaca validates order type/quantity
+		res.locals.schemeRulesPreValidated = true;
+		return { gate: GATE, gateName: GATE_NAME, passed: true, retryable: false };
+	}
+
+	if (transactionType === "PMS") {
+		// SEBI (Portfolio Managers) Regulations, 2020 — Reg 23(2) statutory minimum ₹50 Lakhs
+		const STATUTORY_PMS_MIN = 50_00_000;
+		if (amount !== undefined && amount < STATUTORY_PMS_MIN) {
+			const deficit = STATUTORY_PMS_MIN - amount;
+			return {
+				gate: GATE,
+				gateName: GATE_NAME,
+				passed: false,
+				retryable: true,
+				errorCode: "SEBI_PMS_REG23_MINIMUM_VIOLATION",
+				message: `Under SEBI (Portfolio Managers) Regulations 2020 Reg 23(2), statutory minimum investment in a PMS is ₹50,00,000 (Fifty Lakhs). Proposed ₹${amount.toLocaleString("en-IN")} is ₹${deficit.toLocaleString("en-IN")} below legal limit.`,
+				remediationUrl: "/pms/explore",
+			};
+		}
+		res.locals.schemeRulesPreValidated = true;
+		return { gate: GATE, gateName: GATE_NAME, passed: true, retryable: false };
+	}
+
+	if (transactionType === "AIF") {
+		// SEBI (Alternative Investment Funds) Regulations, 2012 — Reg 10(c) statutory minimum ₹1 Crore
+		const STATUTORY_AIF_MIN = 1_00_00_000;
+		if (amount !== undefined && amount < STATUTORY_AIF_MIN) {
+			return {
+				gate: GATE,
+				gateName: GATE_NAME,
+				passed: false,
+				retryable: true,
+				errorCode: "SEBI_AIF_REG10C_MINIMUM_VIOLATION",
+				message: `Under SEBI (AIF) Regulations 2012 Reg 10(c), statutory minimum commitment in an AIF is ₹1,00,00,000 (One Crore) for standard investors. Verified Accredited Investors or Angel Fund investments are exempt from this floor.`,
+				remediationUrl: "/aif/accreditation",
+			};
+		}
 		res.locals.schemeRulesPreValidated = true;
 		return { gate: GATE, gateName: GATE_NAME, passed: true, retryable: false };
 	}

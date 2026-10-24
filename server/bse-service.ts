@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import axios from "axios";
 import { format, subMonths, subYears, parseISO } from "date-fns";
 
@@ -262,6 +263,21 @@ class BSEService {
 		schemeCode: string,
 	): Promise<BSEFundData | null> {
 		try {
+			// Attempt to fetch verified NAV from mf_nav_history in DB
+			let verifiedNav = 0;
+			try {
+				const { pool } = await import("./db");
+				const res = await pool.query(
+					`SELECT nav FROM mf_nav_history WHERE scheme_code = $1 ORDER BY nav_date DESC LIMIT 1`,
+					[schemeCode],
+				);
+				if (res.rows.length > 0 && Number(res.rows[0].nav) > 0) {
+					verifiedNav = Number(res.rows[0].nav);
+				}
+			} catch {
+				// DB unavailable in this context
+			}
+
 			// Try alternative API if available
 			const popularSchemes = this.getPopularSchemeCodes();
 			const scheme = popularSchemes.find((s) => s.schemeCode === schemeCode);
@@ -274,7 +290,7 @@ class BSEService {
 					category: this.inferCategory(scheme.schemeName),
 					subCategory: "Growth",
 					isin: scheme.isin || "",
-					currentNav: 150 + Math.random() * 500, // Mock NAV for fallback
+					currentNav: verifiedNav > 0 ? verifiedNav : 100.0, // Real DB NAV or deterministic base unit NAV
 					navDate: new Date().toISOString().split("T")[0],
 					minInvestment: 5000,
 					riskLevel: this.categorizeRiskLevel(

@@ -260,6 +260,8 @@ export class SebiHoldingComplianceService {
 			portfolio.subCategory || portfolio.assetClass,
 			holdings,
 			t0,
+			portfolio.portfolioTier || undefined,
+			portfolio.vehicleType || undefined,
 		);
 	}
 
@@ -363,6 +365,181 @@ export class SebiHoldingComplianceService {
 	}
 
 	/**
+	 * Enforces and records statutory SEBI compliance across ALL model portfolios in the database.
+	 * Persists the structured compliance audit report, rules, and status to model_portfolios.sebi_compliance_rules.
+	 * Also records compliance implementation audit records in complianceAuditTrail.
+	 */
+	async enforceAndRecordAllPortfoliosCompliance(): Promise<{
+		totalProcessed: number;
+		compliant: number;
+		warning: number;
+		nonCompliant: number;
+		records: Array<{
+			id: string;
+			name: string;
+			portfolioTier: string;
+			vehicleType: string;
+			complianceStatus: string;
+			complianceScore: number;
+			statutoryRegime: string;
+			statutoryMinInvestment: number;
+			custodyStructure: string;
+			breaches: string[];
+			warnings: string[];
+			implementedAt: string;
+		}>;
+		executionLatencyMs: number;
+	}> {
+		const t0 = Date.now();
+		logger.info("[SebiCompliance] 🛡️ Enforcing & Recording SEBI Compliance for all model portfolios");
+
+		// 1. Ensure all institutional tier portfolios are seeded/updated in database
+		try {
+			const { seedInstitutionalModelPortfolios } = await import("./model-portfolio-tier-service");
+			await seedInstitutionalModelPortfolios();
+		} catch (seedErr: any) {
+			logger.warn("[SebiCompliance] Institutional seeding notice:", seedErr?.message);
+		}
+
+		// 2. Fetch all model portfolios
+		const portfolios = await db.select().from(modelPortfolios);
+
+		const { SEBI_TIER_CONFIGS } = await import("./model-portfolio-tier-service");
+		const records: Array<any> = [];
+		let compliant = 0;
+		let warning = 0;
+		let nonCompliant = 0;
+		const nowIso = new Date().toISOString();
+
+		for (const p of portfolios) {
+			try {
+				// Audit holding compliance
+				const holdingReport = await this.auditPortfolioHoldingCompliance(p.id);
+
+				// Determine tier config
+				const tier = (p.portfolioTier as any) || "retail_mf";
+				const tierConfig =
+					SEBI_TIER_CONFIGS[tier as keyof typeof SEBI_TIER_CONFIGS] ||
+					SEBI_TIER_CONFIGS.retail_mf;
+
+				// Consolidate full SEBI compliance rules object
+				const sebiComplianceRules = {
+					complianceStatus: holdingReport.overallStatus,
+					complianceScore: holdingReport.complianceScore,
+					complianceImplemented: true,
+					statutoryRegime: tierConfig.sebiRegulatoryRegime,
+					regulationRef: tierConfig.sebiRegulationRef,
+					statutoryMinInvestment: tierConfig.statutoryMinInvestment,
+					statutoryMinInvestmentFormatted: tierConfig.statutoryMinInvestmentFormatted,
+					executionRoute: tierConfig.executionRoute,
+					custodyStructure: tierConfig.custodyStructure,
+					reportingStandard: tierConfig.reportingStandard,
+					riskDisclosure: tierConfig.riskDisclosure,
+					holdingChecks: holdingReport.checks,
+					holdingBreaches: holdingReport.breaches,
+					holdingWarnings: holdingReport.warnings,
+					remedialActions: holdingReport.remedialActions,
+					rectificationDeadline: holdingReport.rectificationDeadline || null,
+					implementedAt: nowIso,
+					engineVersion: "SEBI-COMPLIANCE-v1.0",
+					recordedBy: "SEBI_STATUTORY_COMPLIANCE_ENGINE",
+				};
+
+				// Update model_portfolios table with the persisted compliance record
+				await db
+					.update(modelPortfolios)
+					.set({
+						sebiComplianceRules,
+						portfolioTier: tierConfig.tier,
+						vehicleType: tierConfig.vehicleType,
+						sebiRegulatoryRegime: tierConfig.sebiRegulatoryRegime,
+						sebiRegulationRef: tierConfig.sebiRegulationRef,
+						statutoryMinInvestment: String(tierConfig.statutoryMinInvestment),
+						executionRoute: tierConfig.executionRoute,
+						custodyStructure: tierConfig.custodyStructure,
+						accreditationRequired: tierConfig.accreditationRequired,
+						lockInPeriodMonths: tierConfig.lockInPeriodMonths,
+						updatedAt: new Date(),
+					})
+					.where(eq(modelPortfolios.id, p.id));
+
+				// Record compliance implementation into complianceAuditTrail
+				try {
+					const { complianceAuditTrail } = await import("@shared/schema");
+					await db.insert(complianceAuditTrail).values({
+						action: "SEBI_COMPLIANCE_IMPLEMENTED",
+						entityType: "MODEL_PORTFOLIO",
+						entityId: p.id,
+						complianceImpact: holdingReport.overallStatus,
+						performedBy: "SYSTEM_SEBI_COMPLIANCE_ENGINE",
+						performedByRole: "compliance_engine",
+						reason: `SEBI statutory compliance implemented & recorded for ${p.name} (${tierConfig.tier}). Score: ${holdingReport.complianceScore}/100.`,
+						metadata: {
+							portfolioId: p.id,
+							portfolioName: p.name,
+							tier: tierConfig.tier,
+							statutoryMinInvestment: tierConfig.statutoryMinInvestment,
+							complianceScore: holdingReport.complianceScore,
+							status: holdingReport.overallStatus,
+							breachesCount: holdingReport.breaches.length,
+							warningsCount: holdingReport.warnings.length,
+							timestamp: nowIso,
+						},
+					});
+				} catch (trailErr: any) {
+					logger.warn(
+						`[SebiCompliance] Audit trail insert notice for ${p.id}:`,
+						trailErr?.message,
+					);
+				}
+
+				if (holdingReport.overallStatus === "COMPLIANT") compliant++;
+				else if (holdingReport.overallStatus === "WARNING") warning++;
+				else nonCompliant++;
+
+				records.push({
+					id: p.id,
+					name: p.name,
+					portfolioTier: tierConfig.tier,
+					vehicleType: tierConfig.vehicleType,
+					complianceStatus: holdingReport.overallStatus,
+					complianceScore: holdingReport.complianceScore,
+					statutoryRegime: tierConfig.sebiRegulatoryRegime,
+					statutoryMinInvestment: tierConfig.statutoryMinInvestment,
+					custodyStructure: tierConfig.custodyStructure,
+					breaches: holdingReport.breaches,
+					warnings: holdingReport.warnings,
+					implementedAt: nowIso,
+				});
+			} catch (err: any) {
+				logger.error(
+					`[SebiCompliance] Error enforcing compliance on ${p.id}:`,
+					{ error: err?.message },
+				);
+			}
+		}
+
+		const latency = Date.now() - t0;
+		logger.info("[SebiCompliance] All model portfolios compliance enforced and recorded", {
+			event: "SEBI_COMPLIANCE_ENFORCED_ALL",
+			total: records.length,
+			compliant,
+			warning,
+			nonCompliant,
+			latency_ms: latency,
+		});
+
+		return {
+			totalProcessed: records.length,
+			compliant,
+			warning,
+			nonCompliant,
+			records,
+			executionLatencyMs: latency,
+		};
+	}
+
+	/**
 	 * Core evaluation engine that checks holding lists against SEBI rules.
 	 */
 	private async evaluateHoldingsCompliance(
@@ -381,6 +558,8 @@ export class SebiHoldingComplianceService {
 			symbol?: string;
 		}>,
 		t0: number,
+		portfolioTier?: string,
+		vehicleType?: string,
 	): Promise<SebiComplianceReport> {
 		const checks: SebiRuleCheck[] = [];
 		const breaches: string[] = [];
@@ -464,8 +643,14 @@ export class SebiHoldingComplianceService {
 
 		for (const h of debtHoldings) {
 			if (h.weight > maxDebtWeight) maxDebtWeight = h.weight;
-			// G-Sec and Sovereign funds are exempt from single issuer cap
-			const isSovereign = (h.instrumentName || "").toLowerCase().includes("gilt") || (h.instrumentName || "").toLowerCase().includes("sovereign");
+			// G-Sec, Sovereign funds, Treasury Bills, and Bharat Bond ETFs are exempt from single issuer cap per SEBI Seventh Schedule Clause 1 proviso
+			const nameLower = (h.instrumentName || "").toLowerCase();
+			const isSovereign =
+				nameLower.includes("gilt") ||
+				nameLower.includes("sovereign") ||
+				nameLower.includes("treasury") ||
+				nameLower.includes("bharat bond") ||
+				nameLower.includes("t-bill");
 			if (!isSovereign && h.weight > SebiHoldingComplianceService.SINGLE_DEBT_ISSUER_LIMIT_PCT) {
 				breachingDebtItems.push(`${h.instrumentName} (${h.weight}%)`);
 			}
@@ -584,13 +769,26 @@ export class SebiHoldingComplianceService {
 		}
 
 		// ─────────────────────────────────────────────────────────────────────────────
-		// CHECK 5: Unlisted Equity Securities Prohibition (0% Allowed)
+		// CHECK 5: Unlisted Equity Securities Prohibition (0% in Open-Ended MF)
 		// ─────────────────────────────────────────────────────────────────────────────
+		const isAif = portfolioTier === "uhni_aif" || vehicleType === "AIF_MULTI_ASSET";
 		const unlistedItems = normalizedHoldings.filter(
 			(h) => (h.instrumentName || "").toLowerCase().includes("unlisted") || (h.subCategory || "").toLowerCase().includes("unlisted"),
 		);
 
-		if (unlistedItems.length > 0) {
+		if (isAif) {
+			// Under SEBI (Alternative Investment Funds) Regulations, 2012, Category I & II AIFs are statutorily permitted to invest in unlisted investee companies, private equity, and pre-IPO trusts
+			checks.push({
+				ruleId: "SEBI-AIF-UNLISTED-PERMITTED",
+				ruleName: "Unlisted Investee Holdings (SEBI AIF Regs 2012)",
+				statutoryReference: "SEBI (Alternative Investment Funds) Regulations, 2012 (Reg 15 & 16)",
+				thresholdLimit: 100,
+				observedValue: unlistedItems.reduce((s, u) => s + u.weight, 0),
+				unit: "% of NAV",
+				status: "PASS",
+				details: `AIF Category permitted to hold unlisted equity, debt, and pre-IPO instruments under SEBI AIF Regulations 2012 (${unlistedItems.map((u) => u.instrumentName).join(", ") || "None"}).`,
+			});
+		} else if (unlistedItems.length > 0) {
 			checks.push({
 				ruleId: "SEBI-UNLISTED-PROHIB",
 				ruleName: "Unlisted Securities Prohibition (0%)",
@@ -599,7 +797,7 @@ export class SebiHoldingComplianceService {
 				observedValue: unlistedItems.reduce((s, u) => s + u.weight, 0),
 				unit: "% of NAV",
 				status: "BREACH",
-				details: `Unlisted security identified in portfolio: ${unlistedItems.map((u) => u.instrumentName).join(", ")}.`,
+				details: `Unlisted security identified in open-ended portfolio: ${unlistedItems.map((u) => u.instrumentName).join(", ")}.`,
 				offendingItems: unlistedItems.map((u) => u.instrumentName),
 			});
 			breaches.push(`Unlisted securities found in public portfolio: ${unlistedItems.map((u) => u.instrumentName).join(", ")}`);

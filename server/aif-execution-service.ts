@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * AIF Order Execution Service
  *
@@ -15,13 +16,16 @@ import { orderManagementService } from "./order-management-service";
 import { ACCREDITED_INVESTOR_CRITERIA } from "./kyc-tier-service";
 
 // AIF Categories and minimum investments per SEBI regulations
-// Updated: ₹10L minimum with partial payment support
+// Regulation 10(c): ₹1 Crore statutory commitment floor for standard investors
+// Regulation 19P(1): ₹25 Lakhs statutory floor for Angel Funds
+// Proviso 2 to Reg 10(c): Waived for verified Accredited Investors
 export const AIF_CATEGORIES = {
 	CAT_I: {
 		name: "Category I AIF",
 		description:
 			"Venture capital, SME funds, social venture funds, infrastructure funds",
-		minInvestment: 1000000, // ₹10 Lakh (initial payment, balance on demand)
+		statutoryMinCommitment: 10000000, // ₹1 Crore statutory commitment (SEBI Reg 10(c))
+		minInvestment: 1000000, // ₹10 Lakh initial drawdown call
 		lockInPeriod: "3 years",
 		riskLevel: "medium-high",
 		sebiRegulated: true,
@@ -29,7 +33,8 @@ export const AIF_CATEGORIES = {
 	CAT_II: {
 		name: "Category II AIF",
 		description: "Private equity funds, debt funds (other than Cat I & III)",
-		minInvestment: 1000000, // ₹10 Lakh (initial payment, balance on demand)
+		statutoryMinCommitment: 10000000, // ₹1 Crore statutory commitment (SEBI Reg 10(c))
+		minInvestment: 1000000, // ₹10 Lakh initial drawdown call
 		lockInPeriod: "3 years",
 		riskLevel: "medium-high",
 		sebiRegulated: true,
@@ -37,9 +42,19 @@ export const AIF_CATEGORIES = {
 	CAT_III: {
 		name: "Category III AIF",
 		description: "Hedge funds, PIPE funds (complex trading strategies)",
-		minInvestment: 1000000, // ₹10 Lakh (initial payment, balance on demand)
+		statutoryMinCommitment: 10000000, // ₹1 Crore statutory commitment (SEBI Reg 10(c))
+		minInvestment: 1000000, // ₹10 Lakh initial drawdown call
 		lockInPeriod: "1 year minimum",
 		riskLevel: "high",
+		sebiRegulated: true,
+	},
+	ANGEL_FUND: {
+		name: "Angel Fund (Category I VCF)",
+		description: "Early-stage startup investments (SEBI Reg 19P(1))",
+		statutoryMinCommitment: 2500000, // ₹25 Lakhs statutory ticket
+		minInvestment: 500000, // ₹5 Lakh initial drawdown call
+		lockInPeriod: "3 years",
+		riskLevel: "very-high",
 		sebiRegulated: true,
 	},
 };
@@ -47,12 +62,13 @@ export const AIF_CATEGORIES = {
 export interface AIFExecutionRequest {
 	orderId: string;
 	userId: string;
-	aifCategory: "CAT_I" | "CAT_II" | "CAT_III";
+	aifCategory: "CAT_I" | "CAT_II" | "CAT_III" | "ANGEL_FUND";
 	fundName: string;
 	fundCode: string;
 	investmentAmount: number; // Total committed investment
 	paidAmount: number; // Amount paid so far (initial or balance payment)
 	isPartialPayment?: boolean; // Whether this is a partial payment scenario
+	isEmployeeOrDirector?: boolean; // ₹25L minimum under Reg 10(c) proviso 1
 	units?: number;
 	navPerUnit?: number;
 }
@@ -110,36 +126,47 @@ class AIFExecutionService {
 				`[AIF Execution] Starting execution for order ${request.orderId}`,
 			);
 
-			// Step 1: Validate accredited investor status (MANDATORY for AIF)
-			const investorValidation = await this.validateAccreditedInvestor(
-				request.userId,
-			);
-			if (!investorValidation.isValid) {
-				await this.handleExecutionFailure(
-					request.orderId,
-					investorValidation.errors,
-				);
-				return {
-					success: false,
-					orderId: request.orderId,
-					message: `Accredited investor verification failed: ${investorValidation.errors.join(", ")}`,
-					errors: investorValidation.errors,
-				};
-			}
-
-			console.log(
-				`[AIF Execution] Accredited investor verified via ${investorValidation.qualificationRoute}`,
-			);
-
-			// Step 2: Validate minimum investment criteria with partial payment support
-			const categoryConfig = AIF_CATEGORIES[request.aifCategory];
+			// Step 1: Validate SEBI Regulation 10(c) statutory commitment floor & Accredited Investor eligibility
+			const categoryConfig = AIF_CATEGORIES[request.aifCategory] || AIF_CATEGORIES.CAT_II;
 			const totalInvestment = request.investmentAmount;
 			const paidAmount = request.paidAmount;
 			const balanceAmount = totalInvestment - paidAmount;
 
-			// Validate minimum initial payment (₹10L)
+			const statutoryFloor = request.isEmployeeOrDirector
+				? 2500000 // ₹25 Lakhs for employees/directors under Reg 10(c) proviso 1
+				: categoryConfig.statutoryMinCommitment;
+
+			// Check accredited investor status
+			const investorValidation = await this.validateAccreditedInvestor(
+				request.userId,
+			);
+			const isAccredited = investorValidation.isValid;
+
+			// If commitment is below statutory floor and investor is NOT accredited, reject per SEBI Reg 10(c)
+			if (totalInvestment < statutoryFloor && !isAccredited) {
+				const error = `Total investment commitment ₹${totalInvestment.toLocaleString("en-IN")} is below statutory ₹${(statutoryFloor / 10000000).toFixed(2)} Crore floor under SEBI (AIF) Regulations, 2012, Regulation 10(c). Subscriptions below ₹1 Crore require verified Accredited Investor certification: ${investorValidation.errors.join(", ")}`;
+				await this.handleExecutionFailure(request.orderId, [error]);
+				return {
+					success: false,
+					orderId: request.orderId,
+					message: error,
+					errors: [error],
+				};
+			}
+
+			if (isAccredited) {
+				console.log(
+					`[AIF Execution] Investor verified under Accredited Investor carve-out via ${investorValidation.qualificationRoute}`,
+				);
+			} else {
+				console.log(
+					`[AIF Execution] Investor qualified under SEBI Reg 10(c) standard HNI commitment (₹${totalInvestment.toLocaleString("en-IN")} ≥ ₹${statutoryFloor.toLocaleString("en-IN")})`,
+				);
+			}
+
+			// Step 2: Validate initial payment criteria
 			if (paidAmount < categoryConfig.minInvestment) {
-				const error = `Initial payment ₹${paidAmount.toLocaleString()} is below minimum ₹${categoryConfig.minInvestment.toLocaleString()} for ${categoryConfig.name}`;
+				const error = `Initial payment ₹${paidAmount.toLocaleString("en-IN")} is below minimum initial call of ₹${categoryConfig.minInvestment.toLocaleString("en-IN")} for ${categoryConfig.name}`;
 				await this.handleExecutionFailure(request.orderId, [error]);
 				return {
 					success: false,
@@ -154,7 +181,7 @@ class AIFExecutionService {
 			const paymentStage = isPartialPayment ? "initial_payment" : "fully_paid";
 
 			console.log(
-				`[AIF Execution] Payment validation: Total=₹${totalInvestment.toLocaleString()}, Paid=₹${paidAmount.toLocaleString()}, Balance=₹${balanceAmount.toLocaleString()}, Stage=${paymentStage}`,
+				`[AIF Execution] Payment validation passed: Total=₹${totalInvestment.toLocaleString("en-IN")}, Paid=₹${paidAmount.toLocaleString("en-IN")}, Balance=₹${balanceAmount.toLocaleString("en-IN")}, Stage=${paymentStage}`,
 			);
 
 			// Step 3: Generate subscription agreement

@@ -45,14 +45,22 @@ export function registerComplianceGateRoutes(app: Express): void {
 			const userId = (req as any).user?.id as string;
 			const rawType = ((req.query.type as string) ?? "MF").toUpperCase();
 			const transactionType: TransactionType =
-				rawType === "US_EQUITY" ? "US_EQUITY" : "MF";
+				rawType === "US_EQUITY"
+					? "US_EQUITY"
+					: rawType === "PMS"
+						? "PMS"
+						: rawType === "AIF"
+							? "AIF"
+							: "MF";
 			const action = (req.query.action as string) ?? "purchase";
+			const amount = req.query.amount ? Number(req.query.amount) : undefined;
 
 			const startMs = Date.now();
 
 			try {
 				const result = await runComplianceChecks(userId, transactionType, res, {
 					action: action as any,
+					amount,
 				});
 
 				logger.info("TRANSACTION_READINESS_CHECKED", {
@@ -221,6 +229,175 @@ export function registerComplianceGateRoutes(app: Express): void {
 				success: false,
 				error: "COMPLIANCE_SWEEP_FAILED",
 				message: err?.message || "Failed to execute compliance sweep",
+				meta: { timestamp: new Date().toISOString(), version: "1.0" },
+			});
+		}
+	});
+
+	/**
+	 * POST /api/compliance/model-portfolios/enforce-all
+	 *
+	 * Enforces SEBI statutory rules on ALL model portfolios (Retail MF, HNI PMS, UHNI AIF)
+	 * and persists the compliance report directly into model_portfolios.sebi_compliance_rules.
+	 */
+	app.post(
+		"/api/compliance/model-portfolios/enforce-all",
+		requireAuth,
+		async (_req: Request, res: Response) => {
+			try {
+				const { sebiHoldingComplianceService } = await import(
+					"../services/sebi-holding-compliance-service"
+				);
+				const result =
+					await sebiHoldingComplianceService.enforceAndRecordAllPortfoliosCompliance();
+				return res.status(200).json({
+					success: true,
+					data: result,
+					meta: {
+						timestamp: new Date().toISOString(),
+						version: "SEBI-COMPLIANCE-v1.0",
+					},
+				});
+			} catch (err: any) {
+				logger.error("[ComplianceGate] Enforce all portfolios compliance error", {
+					error: err?.message,
+				});
+				return res.status(500).json({
+					success: false,
+					error: "COMPLIANCE_ENFORCE_FAILED",
+					message: err?.message || "Failed to enforce compliance on all portfolios",
+					meta: { timestamp: new Date().toISOString(), version: "1.0" },
+				});
+			}
+		},
+	);
+
+	/**
+	 * GET /api/compliance/model-portfolios
+	 *
+	 * Retrieves SEBI compliance implementation status for all model portfolios.
+	 */
+	app.get("/api/compliance/model-portfolios", async (_req: Request, res: Response) => {
+		try {
+			const { db } = await import("../db");
+			const { modelPortfolios } = await import("@shared/schema");
+			const portfolios = await db
+				.select({
+					id: modelPortfolios.id,
+					name: modelPortfolios.name,
+					portfolioTier: modelPortfolios.portfolioTier,
+					vehicleType: modelPortfolios.vehicleType,
+					statutoryMinInvestment: modelPortfolios.statutoryMinInvestment,
+					sebiRegulatoryRegime: modelPortfolios.sebiRegulatoryRegime,
+					sebiRegulationRef: modelPortfolios.sebiRegulationRef,
+					custodyStructure: modelPortfolios.custodyStructure,
+					sebiComplianceRules: modelPortfolios.sebiComplianceRules,
+					updatedAt: modelPortfolios.updatedAt,
+				})
+				.from(modelPortfolios);
+
+			return res.status(200).json({
+				success: true,
+				data: portfolios,
+				total: portfolios.length,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: "1.0",
+				},
+			});
+		} catch (err: any) {
+			logger.error("[ComplianceGate] Get model portfolios compliance error", {
+				error: err?.message,
+			});
+			return res.status(500).json({
+				success: false,
+				error: "COMPLIANCE_PORTFOLIOS_FETCH_FAILED",
+				message: err?.message || "Failed to fetch model portfolios compliance",
+				meta: { timestamp: new Date().toISOString(), version: "1.0" },
+			});
+		}
+	});
+
+	/**
+	 * POST /api/compliance/pms/audit
+	 *
+	 * Audits a proposed PMS transaction against SEBI (Portfolio Managers) Regulations, 2020.
+	 */
+	app.post("/api/compliance/pms/audit", requireAuth, async (req: Request, res: Response) => {
+		try {
+			const userId = (req as any).user?.id as string;
+			const { pmsComplianceService } = await import(
+				"../services/pms-compliance-service"
+			);
+			const report = await pmsComplianceService.auditPmsCompliance({
+				userId,
+				investmentAmount: Number(req.body.investmentAmount || 0),
+				pmsName: req.body.pmsName || "PMS Multi-Asset Portfolio",
+				sebiRegistrationNo: req.body.sebiRegistrationNo,
+				executionType: req.body.executionType || "discretionary",
+				clientDematAccount: req.body.clientDematAccount,
+				custodianName: req.body.custodianName,
+				riskProfileScore: req.body.riskProfileScore ? Number(req.body.riskProfileScore) : undefined,
+				pmsRiskCategory: req.body.pmsRiskCategory,
+				formCAcknowledged: req.body.formCAcknowledged,
+				imaSigned: req.body.imaSigned,
+			});
+			return res.status(200).json({
+				success: true,
+				data: report,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: report.meta.engineVersion,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[ComplianceGate] PMS audit error", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "PMS_AUDIT_FAILED",
+				message: err?.message || "Failed to audit PMS compliance",
+				meta: { timestamp: new Date().toISOString(), version: "1.0" },
+			});
+		}
+	});
+
+	/**
+	 * POST /api/compliance/aif/audit
+	 *
+	 * Audits a proposed AIF subscription commitment against SEBI (Alternative Investment Funds) Regulations, 2012.
+	 */
+	app.post("/api/compliance/aif/audit", requireAuth, async (req: Request, res: Response) => {
+		try {
+			const userId = (req as any).user?.id as string;
+			const { aifComplianceService } = await import(
+				"../services/aif-compliance-service"
+			);
+			const report = await aifComplianceService.auditAifCompliance({
+				userId,
+				committedAmount: Number(req.body.committedAmount || 0),
+				initialPaymentAmount: req.body.initialPaymentAmount ? Number(req.body.initialPaymentAmount) : undefined,
+				fundName: req.body.fundName || "Alternative Investment Fund",
+				sebiRegistrationNo: req.body.sebiRegistrationNo,
+				aifCategory: req.body.aifCategory || "CAT_II",
+				isEmployeeOrDirector: req.body.isEmployeeOrDirector,
+				ppmAcknowledged: req.body.ppmAcknowledged,
+				contributionAgreementSigned: req.body.contributionAgreementSigned,
+				plannedLeverageRatio: req.body.plannedLeverageRatio ? Number(req.body.plannedLeverageRatio) : undefined,
+			});
+			return res.status(200).json({
+				success: true,
+				data: report,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: report.meta.engineVersion,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[ComplianceGate] AIF audit error", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "AIF_AUDIT_FAILED",
+				message: err?.message || "Failed to audit AIF compliance",
 				meta: { timestamp: new Date().toISOString(), version: "1.0" },
 			});
 		}

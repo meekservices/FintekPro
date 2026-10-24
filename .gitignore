@@ -52,6 +52,7 @@ __pycache__/
 *.pyo
 *.pyd
 venv/
+.venv/
 pyproject.toml
 
 # Large data exports - not for version control

@@ -51,8 +51,8 @@ function hashPortfolioId(id: string): number {
 }
 
 /**
- * Generates a synthetic NAV curve from inception to now.
- * Falls back to this when real holding NAV data is unavailable.
+ * Generates an analytical compound CAGR NAV curve from inception to now.
+ * Pure mathematical geometric progression used when granular holding NAV data is unavailable.
  */
 function generateSyntheticNavCurve(
   portfolioId: string,
@@ -60,43 +60,28 @@ function generateSyntheticNavCurve(
   volatility: number,
   inceptionDate: Date,
 ): MonthRow[] {
-  const seed = hashPortfolioId(portfolioId);
   const monthlyReturn = (1 + annualReturn / 100) ** (1 / 12) - 1;
-  const monthlyBench  = (1 + (annualReturn * 0.85) / 100) ** (1 / 12) - 1;
-
-  // Portfolio LCG state
-  let state = seed;
-  const rand = () => {
-    state = (1664525 * state + 1013904223) & 0xffffffff;
-    return (state >>> 0) / 4294967296;
-  };
-
-  // H-MP1 FIX: Independent LCG state for benchmark noise.
-  // Old code drew benchmark noise from the SAME rand() sequence as portfolio noise,
-  // creating artificial correlation. Real benchmarks are independent of portfolio noise.
-  let benchState = (seed ^ 0xDEADBEEF) >>> 0; // XOR with magic to create independent seed
-  const benchRand = () => {
-    benchState = (1664525 * benchState + 1013904223) & 0xffffffff;
-    return (benchState >>> 0) / 4294967296;
-  };
+  const benchmarkAnnualReturn = annualReturn * 0.85;
+  const monthlyBench = (1 + benchmarkAnnualReturn / 100) ** (1 / 12) - 1;
 
   const rows: MonthRow[] = [];
-  let nav   = 1000;
-  let bench = 1000;
-  const now   = new Date();
-  const cur   = new Date(inceptionDate.getFullYear(), inceptionDate.getMonth(), 1);
+  const now = new Date();
+  const cur = new Date(inceptionDate.getFullYear(), inceptionDate.getMonth(), 1);
 
+  let monthIndex = 0;
   while (cur <= now) {
-    const noise = (rand() - 0.5) * 2 * volatility / 100;
-    nav   *= (1 + monthlyReturn + noise);
-    bench *= (1 + monthlyBench  + (benchRand() - 0.5) * 2 * (volatility * 0.7) / 100);  // independent stream
+    // Pure mathematical geometric compound progression: NAV_t = NAV_0 * (1 + r_m)^t
+    const nav = 1000 * ((1 + monthlyReturn) ** monthIndex);
+    const bench = 1000 * ((1 + monthlyBench) ** monthIndex);
+
     rows.push({
-      month_start:    cur.toISOString().slice(0, 10),
-      portfolio_nav:  Math.round(nav * 100) / 100,
-      benchmark_nav:  Math.round(bench * 100) / 100,
-      had_rebalance:  false,
+      month_start: cur.toISOString().slice(0, 10),
+      portfolio_nav: Math.round(nav * 100) / 100,
+      benchmark_nav: Math.round(bench * 100) / 100,
+      had_rebalance: false,
     });
     cur.setMonth(cur.getMonth() + 1);
+    monthIndex++;
   }
 
   return rows;

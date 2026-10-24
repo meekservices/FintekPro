@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import * as cheerio from "cheerio";
 
 export interface SebiPmsListing {
@@ -621,4 +622,4 @@ export function generateComprehensivePmsSeedData(): PmsSeedData[] {
 	return seedData;
 }
 
-export { getSamplePmsData };
+export { scrapeSebiPmsList, getSamplePmsData };

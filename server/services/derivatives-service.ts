@@ -1161,34 +1161,52 @@ class DerivativesService {
 			(_, i) => atm + (i - 15) * interval,
 		);
 		const dte = this.daysToExpiry(selected);
-		const iv = 0.15 + Math.random() * 0.2;
+		const baseAtmIv = 0.14; // Baseline 14.0% annualized volatility
 		const calls: OptionData[] = [];
 		const puts: OptionData[] = [];
 
 		for (const strike of strikes) {
-			const callP = this.bsPrice(spotPrice, strike, dte, iv, "call");
-			const putP = this.bsPrice(spotPrice, strike, dte, iv, "put");
-			const oi = () => Math.floor(Math.random() * 500_000) + 10_000;
+			// Mathematical Volatility Smile (SVI / parabolic skew model):
+			// moneyness m = ln(K / S)
+			const m = Math.log(strike / Math.max(1, spotPrice));
+			// Volatility skew: negative skew for equity puts + smile curvature for deep wings
+			const strikeIv = baseAtmIv * (1 - 0.12 * m + 0.35 * (m ** 2));
+			const boundedIv = Math.max(0.08, Math.min(0.65, strikeIv));
 
-			const base = (price: number, type: "CE" | "PE"): OptionData => ({
-				strikePrice: strike,
-				expiryDate: selected,
-				optionType: type,
-				openInterest: oi(),
-				changeinOpenInterest: Math.floor((Math.random() - 0.5) * 50_000),
-				totalTradedVolume: Math.floor(Math.random() * 100_000),
-				impliedVolatility: iv * 100,
-				lastPrice: price,
-				change: (Math.random() - 0.5) * price * 0.1,
-				pChange: (Math.random() - 0.5) * 10,
-				totalBuyQuantity: Math.floor(Math.random() * 10_000),
-				totalSellQuantity: Math.floor(Math.random() * 10_000),
-				bidQty: Math.floor(Math.random() * 1000),
-				bidPrice: price * 0.99,
-				askQty: Math.floor(Math.random() * 1000),
-				askPrice: price * 1.01,
-				underlyingValue: spotPrice,
-			});
+			const callP = this.bsPrice(spotPrice, strike, dte, boundedIv, "call");
+			const putP = this.bsPrice(spotPrice, strike, dte, boundedIv, "put");
+
+			// Gaussian moneyness density for theoretical Open Interest & Volume distribution
+			const moneynessDensity = Math.exp(-0.5 * ((m / 0.1) ** 2));
+			const theoreticalOi = Math.max(500, Math.round(150_000 * moneynessDensity));
+			const theoreticalVol = Math.max(100, Math.round(30_000 * moneynessDensity));
+
+			const base = (price: number, type: "CE" | "PE"): OptionData => {
+				const tickSize = 0.05;
+				const roundedPrice = Math.round(price / tickSize) * tickSize;
+				const bid = Math.max(tickSize, Math.round((roundedPrice * 0.995) / tickSize) * tickSize);
+				const ask = Math.max(tickSize * 2, Math.round((roundedPrice * 1.005) / tickSize) * tickSize);
+
+				return {
+					strikePrice: strike,
+					expiryDate: selected,
+					optionType: type,
+					openInterest: theoreticalOi,
+					changeinOpenInterest: 0,
+					totalTradedVolume: theoreticalVol,
+					impliedVolatility: Number((boundedIv * 100).toFixed(2)),
+					lastPrice: roundedPrice,
+					change: 0,
+					pChange: 0,
+					totalBuyQuantity: Math.round(theoreticalVol * 0.45),
+					totalSellQuantity: Math.round(theoreticalVol * 0.45),
+					bidQty: 500,
+					bidPrice: bid,
+					askQty: 500,
+					askPrice: ask,
+					underlyingValue: spotPrice,
+				};
+			};
 
 			calls.push(base(callP, "CE"));
 			puts.push(base(putP, "PE"));
