@@ -58,6 +58,7 @@ import { unifiedStockPriceService } from "../services/unified-stock-price-servic
 import { modelPortfolioAlgoService } from "../services/model-portfolio-algo-service";
 import { calculateIntegerShareAllocation } from "../services/model-portfolio-share-sizing";
 import { stockIntersectionAnalysisService } from "../services/stock-intersection-analysis-service";
+import { portfolioXrayEngine } from "../services/portfolio/portfolio-xray-engine";
 import {
   validateInvestmentTierCompliance,
   getTierComparisonMatrix,
@@ -4038,6 +4039,115 @@ modelPortfoliosRouter.get("/:id/overlap", async (req: Request, res: Response) =>
       error_code: "OVERLAP_ANALYSIS_ERROR",
       message: error?.message || "Failed to analyze model portfolio overlap",
       meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
+    });
+  }
+});
+
+/**
+ * GET /api/model-portfolios/:id/xray
+ * Performs deep look-through Portfolio X-Ray analysis:
+ * - Unwinds constituent stocks from mutual funds / ETFs
+ * - Sector exposure and market-cap tilt
+ * - Pairwise mutual fund overlap matrix
+ * - HHI and diversification scores
+ * - Statutory SEBI concentration checks (10% single-stock, 20% sector)
+ */
+modelPortfoliosRouter.get("/:id/xray", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const result = await portfolioXrayEngine.computeXrayForModelPortfolio(id);
+
+    return res.json({
+      success: true,
+      data: result,
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: "XRAY-ENGINE-v1.0",
+        latency_ms: Date.now() - t0,
+      },
+    });
+  } catch (error: any) {
+    logger.error("[ModelPortfolios] GET /:id/xray error:", error instanceof Error ? error : new Error(String(error)));
+    return res.status(500).json({
+      success: false,
+      error_code: "XRAY_ANALYSIS_ERROR",
+      message: error?.message || "Failed to compute portfolio X-Ray look-through analysis",
+      meta: { timestamp: new Date().toISOString(), version: "XRAY-ENGINE-v1.0" },
+    });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/xray/analyze
+ * Ad-hoc Portfolio X-Ray analysis for arbitrary portfolio holdings or external statements.
+ */
+modelPortfoliosRouter.post("/xray/analyze", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { items, totalValue } = req.body;
+    if (!Array.isArray(items)) {
+      return res.status(400).json({
+        success: false,
+        error_code: "INVALID_REQUEST",
+        message: "Expected 'items' array of portfolio holdings",
+      });
+    }
+
+    const result = await portfolioXrayEngine.computeXray(items, { totalPortfolioValue: totalValue });
+    return res.json({
+      success: true,
+      data: result,
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: "XRAY-ENGINE-v1.0",
+        latency_ms: Date.now() - t0,
+      },
+    });
+  } catch (error: any) {
+    logger.error("[ModelPortfolios] POST /xray/analyze error:", error instanceof Error ? error : new Error(String(error)));
+    return res.status(500).json({
+      success: false,
+      error_code: "XRAY_ANALYSIS_ERROR",
+      message: error?.message || "Failed to compute ad-hoc portfolio X-Ray",
+      meta: { timestamp: new Date().toISOString(), version: "XRAY-ENGINE-v1.0" },
+    });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/xray/delta
+ * Before vs. After Portfolio X-Ray comparison for rebalancing and advisory proposals.
+ */
+modelPortfoliosRouter.post("/xray/delta", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { currentItems, proposedItems } = req.body;
+    if (!Array.isArray(currentItems) || !Array.isArray(proposedItems)) {
+      return res.status(400).json({
+        success: false,
+        error_code: "INVALID_REQUEST",
+        message: "Expected 'currentItems' and 'proposedItems' arrays",
+      });
+    }
+
+    const result = await portfolioXrayEngine.computeXrayDelta(currentItems, proposedItems);
+    return res.json({
+      success: true,
+      data: result,
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: "XRAY-ENGINE-v1.0",
+        latency_ms: Date.now() - t0,
+      },
+    });
+  } catch (error: any) {
+    logger.error("[ModelPortfolios] POST /xray/delta error:", error instanceof Error ? error : new Error(String(error)));
+    return res.status(500).json({
+      success: false,
+      error_code: "XRAY_DELTA_ERROR",
+      message: error?.message || "Failed to compute portfolio X-Ray delta",
+      meta: { timestamp: new Date().toISOString(), version: "XRAY-ENGINE-v1.0" },
     });
   }
 });

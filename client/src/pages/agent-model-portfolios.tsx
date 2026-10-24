@@ -3960,6 +3960,304 @@ function HoldingOverlapTab({ selectedPortfolio, allPortfolios }: {
   );
 }
 
+// ─── PortfolioXrayTab ────────────────────────────────────────────────────────
+// Deep look-through constituent analysis across asset allocation, sector, cap tilt,
+// stock overlap matrix, HHI score, and statutory SEBI concentration rules.
+
+function PortfolioXrayTab({ portfolioId }: { portfolioId: string }) {
+  const { data: resp, isLoading, error } = useQuery<{ success: boolean; data: any }>({
+    queryKey: ["model-portfolio-xray", portfolioId],
+    queryFn: async () => {
+      const res = await fetch(`/api/model-portfolios/${portfolioId}/xray`);
+      if (!res.ok) throw new Error("Failed to load portfolio X-Ray");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground">
+        <div className="h-6 w-6 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+        <span className="text-xs font-medium">Computing look-through constituent X-Ray…</span>
+      </div>
+    );
+  }
+
+  if (error || !resp?.data) {
+    return (
+      <div className="p-4 rounded-xl border border-destructive/20 bg-destructive/5 text-center text-xs text-destructive">
+        Unable to compute look-through X-Ray: {String(error || "No data returned")}
+      </div>
+    );
+  }
+
+  const xray = resp.data;
+  const { summary, assetAllocation, marketCapTilt, sectorExposure, topHoldings, fundOverlapMatrix, sebiCompliance } = xray;
+
+  return (
+    <div className="space-y-5 text-left" id="portfolio-xray-tab">
+      {/* 1. Header KPI Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="rounded-xl p-3 bg-muted/40 border border-border/50">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Diversification</p>
+          <div className="flex items-baseline gap-1.5 mt-1">
+            <span className="text-xl font-bold">{summary.diversificationScore}</span>
+            <span className="text-[10px] text-muted-foreground">/ 100</span>
+          </div>
+          <Badge variant="outline" className={`mt-1 text-[9px] px-1.5 py-0 ${
+            summary.diversificationGrade === "EXCELLENT" ? "text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30" :
+            summary.diversificationGrade === "GOOD" ? "text-blue-600 border-blue-300 bg-blue-50 dark:bg-blue-950/30" :
+            "text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30"
+          }`}>
+            {summary.diversificationGrade}
+          </Badge>
+        </div>
+
+        <div className="rounded-xl p-3 bg-muted/40 border border-border/50">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">HHI Index</p>
+          <div className="flex items-baseline gap-1 mt-1">
+            <span className="text-xl font-bold">{summary.hhiScore}</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            {summary.concentrationRisk === "LOW" ? "✅ Low Concentration" : summary.concentrationRisk === "MODERATE" ? "⚠️ Moderate" : "🚨 High Concentration"}
+          </p>
+        </div>
+
+        <div className="rounded-xl p-3 bg-muted/40 border border-border/50">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Top 5 Concentration</p>
+          <div className="flex items-baseline gap-1 mt-1">
+            <span className="text-xl font-bold">{summary.top5Concentration}%</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">Peak stock: {summary.maxSingleStockConcentration}%</p>
+        </div>
+
+        <div className="rounded-xl p-3 bg-muted/40 border border-border/50">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Underlying Stocks</p>
+          <div className="flex items-baseline gap-1 mt-1">
+            <span className="text-xl font-bold">{summary.totalLookthroughStocks}</span>
+            <span className="text-[10px] text-muted-foreground">unwound</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">From {summary.mutualFundsCount} constituent funds</p>
+        </div>
+      </div>
+
+      {/* 2. Market Cap & Asset Allocation */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Market Cap Tilt */}
+        <div className="rounded-xl p-3.5 border bg-card">
+          <p className="text-xs font-semibold mb-2.5 flex items-center gap-1.5">
+            <BarChart3 className="h-3.5 w-3.5 text-primary" /> Equity Market-Cap Tilt
+          </p>
+          <div className="space-y-2">
+            <div>
+              <div className="flex justify-between text-[11px] mb-1">
+                <span>Large Cap (Top 100)</span>
+                <span className="font-semibold">{marketCapTilt.largeCap}%</span>
+              </div>
+              <Progress value={marketCapTilt.largeCap} className="h-1.5 bg-muted" />
+            </div>
+            <div>
+              <div className="flex justify-between text-[11px] mb-1">
+                <span>Mid Cap (101-250)</span>
+                <span className="font-semibold">{marketCapTilt.midCap}%</span>
+              </div>
+              <Progress value={marketCapTilt.midCap} className="h-1.5 bg-muted" />
+            </div>
+            <div>
+              <div className="flex justify-between text-[11px] mb-1">
+                <span>Small Cap (251+)</span>
+                <span className="font-semibold">{marketCapTilt.smallCap}%</span>
+              </div>
+              <Progress value={marketCapTilt.smallCap} className="h-1.5 bg-muted" />
+            </div>
+          </div>
+        </div>
+
+        {/* Look-through Asset Allocation */}
+        <div className="rounded-xl p-3.5 border bg-card">
+          <p className="text-xs font-semibold mb-2.5 flex items-center gap-1.5">
+            <PieChart className="h-3.5 w-3.5 text-primary" /> Effective Asset Class Allocation
+          </p>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="p-2 rounded-lg bg-muted/40">
+              <span className="text-[10px] text-muted-foreground block">Equity</span>
+              <span className="text-xs font-bold text-blue-600">{assetAllocation.equity}%</span>
+            </div>
+            <div className="p-2 rounded-lg bg-muted/40">
+              <span className="text-[10px] text-muted-foreground block">Debt</span>
+              <span className="text-xs font-bold text-emerald-600">{assetAllocation.debt}%</span>
+            </div>
+            <div className="p-2 rounded-lg bg-muted/40">
+              <span className="text-[10px] text-muted-foreground block">Cash / Liquid</span>
+              <span className="text-xs font-bold text-slate-600">{assetAllocation.cash}%</span>
+            </div>
+            <div className="p-2 rounded-lg bg-muted/40">
+              <span className="text-[10px] text-muted-foreground block">Commodities</span>
+              <span className="text-xs font-bold text-amber-600">{assetAllocation.commodities}%</span>
+            </div>
+            <div className="p-2 rounded-lg bg-muted/40">
+              <span className="text-[10px] text-muted-foreground block">REITs / InvITs</span>
+              <span className="text-xs font-bold text-purple-600">{assetAllocation.reits}%</span>
+            </div>
+            <div className="p-2 rounded-lg bg-muted/40">
+              <span className="text-[10px] text-muted-foreground block">Alternatives</span>
+              <span className="text-xs font-bold text-indigo-600">{assetAllocation.alternatives}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Top Look-Through Stock Holdings */}
+      <div className="rounded-xl border bg-card overflow-hidden">
+        <div className="p-3 border-b bg-muted/20 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5 text-primary" /> Top Look-Through Equity Holdings
+            </p>
+            <p className="text-[10px] text-muted-foreground">Aggregated across all direct stocks and underlying mutual fund constituents</p>
+          </div>
+          <Badge variant="outline" className="text-[10px]">Top {topHoldings.length}</Badge>
+        </div>
+
+        <div className="divide-y divide-border/60 max-h-72 overflow-y-auto">
+          {topHoldings.map((stock: any, idx: number) => (
+            <div key={stock.symbol || idx} className="p-2.5 flex items-center justify-between hover:bg-muted/30 transition-colors">
+              <div className="min-w-0 flex-1 pr-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-foreground truncate">{stock.name}</span>
+                  <span className="text-[9px] text-muted-foreground font-mono">({stock.symbol})</span>
+                  {stock.sebiLimitBreach && (
+                    <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4">Breach &gt;10%</Badge>
+                  )}
+                  {stock.sebiLimitWarning && (
+                    <Badge variant="outline" className="text-[8px] text-amber-600 border-amber-300 px-1 py-0 h-4">Warning &gt;8%</Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 mt-0.5 text-[9px] text-muted-foreground">
+                  <span>{stock.sector}</span>
+                  <span>•</span>
+                  <span>{stock.marketCapCategory}</span>
+                  {stock.contributingFunds?.length > 0 && (
+                    <>
+                      <span>•</span>
+                      <span>Held in {stock.contributingFunds.length} fund(s)</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="text-right shrink-0">
+                <span className="text-xs font-bold text-foreground">{stock.effectiveWeight}%</span>
+                <span className="text-[9px] text-muted-foreground block">
+                  {stock.directWeight > 0 ? `Dir: ${stock.directWeight}% ` : ""}{stock.viaFundsWeight > 0 ? `Funds: ${stock.viaFundsWeight}%` : ""}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 4. Consolidated Sector Exposure */}
+      <div className="rounded-xl border bg-card p-3.5">
+        <p className="text-xs font-semibold mb-2 flex items-center gap-1.5">
+          <Activity className="h-3.5 w-3.5 text-primary" /> Consolidated Sector Exposure
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {sectorExposure.slice(0, 8).map((sec: any) => (
+            <div key={sec.sector} className="p-2 rounded-lg bg-muted/30 flex items-center justify-between text-xs">
+              <div className="min-w-0 pr-2">
+                <span className="font-medium text-foreground text-[11px] truncate block">{sec.sector}</span>
+                {sec.isOverweightRisk && (
+                  <span className="text-[9px] text-amber-600 font-semibold">Exceeds 20% SEBI Prudential Cap</span>
+                )}
+              </div>
+              <div className="text-right shrink-0">
+                <span className={`font-bold ${sec.isOverweightRisk ? "text-amber-600" : "text-foreground"}`}>
+                  {sec.effectiveWeight}%
+                </span>
+                <span className="text-[9px] text-muted-foreground block">{sec.equityWeightShare}% of equity</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 5. Pairwise Fund Overlap Matrix */}
+      {fundOverlapMatrix.length > 0 && (
+        <div className="rounded-xl border bg-card p-3.5">
+          <p className="text-xs font-semibold mb-2 flex items-center gap-1.5">
+            <Target className="h-3.5 w-3.5 text-primary" /> Inter-Fund Common Stock Overlap
+          </p>
+          <div className="space-y-2">
+            {fundOverlapMatrix.slice(0, 4).map((pair: any, idx: number) => (
+              <div key={idx} className="p-2.5 rounded-lg bg-muted/30 border border-border/40 text-xs">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="min-w-0 pr-2">
+                    <span className="font-semibold text-foreground text-[11px] truncate block">
+                      {pair.fundA.name} ↔ {pair.fundB.name}
+                    </span>
+                    <span className="text-[9px] text-muted-foreground">
+                      {pair.commonStocksCount} overlapping common stock(s)
+                    </span>
+                  </div>
+                  <Badge variant="outline" className={`text-[10px] shrink-0 ${
+                    pair.overlapPercentage > 40 ? "text-red-600 border-red-300 bg-red-50 dark:bg-red-950/30" :
+                    pair.overlapPercentage > 25 ? "text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30" :
+                    "text-emerald-600 border-emerald-300"
+                  }`}>
+                    {pair.overlapPercentage}% Overlap
+                  </Badge>
+                </div>
+                {pair.topCommonStocks?.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {pair.topCommonStocks.map((cs: any) => (
+                      <span key={cs.symbol} className="text-[9px] bg-background px-1.5 py-0.5 rounded border border-border/60 text-muted-foreground">
+                        {cs.symbol}: {cs.weightInA}% / {cs.weightInB}%
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 6. Statutory SEBI Compliance Notice */}
+      <div className={`p-3 rounded-xl border ${
+        sebiCompliance.singleStockCapBreached || sebiCompliance.singleSectorCapBreached
+          ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800 text-red-900 dark:text-red-300"
+          : "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-300"
+      }`}>
+        <div className="flex items-start gap-2">
+          {sebiCompliance.singleStockCapBreached ? (
+            <ShieldAlert className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+          ) : (
+            <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+          )}
+          <div className="text-[11px] leading-relaxed">
+            <p className="font-semibold">
+              {sebiCompliance.singleStockCapBreached
+                ? "Statutory Look-Through Concentration Breach Detected"
+                : "SEBI Look-Through Statutory Compliance: Compliant"}
+            </p>
+            {sebiCompliance.breaches.map((b: string, i: number) => (
+              <p key={i} className="text-[10px] text-red-600 mt-0.5">• {b}</p>
+            ))}
+            {sebiCompliance.warnings.map((w: string, i: number) => (
+              <p key={i} className="text-[10px] text-amber-600 mt-0.5">• {w}</p>
+            ))}
+            <p className="text-[9px] text-muted-foreground mt-1">
+              Evaluated per SEBI (Mutual Funds) Regulations Seventh Schedule &amp; SEBI Master Circular 2023/74.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── AiTrackRecordTab ─────────────────────────────────────────────────────────
 // FASP-AI Track Record panel: AI decision history, win rate, performance periods.
 // Fetched lazily only when the tab is activated — not pre-loaded.
@@ -6012,12 +6310,13 @@ export default function AgentModelPortfoliosPage() {
                   }}
                   className="px-5 pt-4 pb-6"
                 >
-                  <TabsList className="grid w-full grid-cols-7 mb-4 h-8 text-xs">
+                  <TabsList className="grid w-full grid-cols-8 mb-4 h-8 text-xs">
                     <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
                     <TabsTrigger value="holdings" className="text-xs">Holdings</TabsTrigger>
                     <TabsTrigger value="performance" className="text-xs">Performance</TabsTrigger>
                     <TabsTrigger value="rebalancing" className="text-xs">Rebalancing</TabsTrigger>
                     <TabsTrigger value="sip" className="text-xs">💰 SIP</TabsTrigger>
+                    <TabsTrigger value="xray" className="text-xs">🔬 X-Ray</TabsTrigger>
                     <TabsTrigger value="overlap" className="text-xs">🔗 Overlap</TabsTrigger>
                     <TabsTrigger value="ai-record" className="text-xs">🤖 AI</TabsTrigger>
                   </TabsList>
@@ -6607,6 +6906,11 @@ export default function AgentModelPortfoliosPage() {
                   {/* D5: SIP Simulator Tab */}
                   <TabsContent value="sip" className="space-y-4">
                     <SipSimulatorTab portfolio={selectedPortfolio} />
+                  </TabsContent>
+
+                  {/* Look-Through Portfolio X-Ray Tab */}
+                  <TabsContent value="xray" className="space-y-4">
+                    <PortfolioXrayTab portfolioId={selectedPortfolio.id} />
                   </TabsContent>
 
                   {/* D6: Holding Overlap Tab */}

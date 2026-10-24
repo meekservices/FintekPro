@@ -31,7 +31,7 @@ export interface PortfolioXrayData {
 export function computePortfolioXray(
 	portfolioData: PortfolioData,
 ): PortfolioXrayData {
-	const { holdings, portfolio } = portfolioData;
+	const { holdings } = portfolioData;
 
 	const holdingsWithValue = holdings.map((h) => ({
 		...h,
@@ -89,16 +89,24 @@ export function computePortfolioXray(
 
 	const maxConcentration =
 		topHoldings.length > 0 ? topHoldings[0].percentage : 0;
-	const diversificationScore = Math.min(
-		100,
-		holdings.length * 5 + assetTypeMap.size * 10 + sectorMap.size * 5,
+	
+	// Institutional HHI-based diversification score
+	const hhi = Math.round(
+		topHoldings.reduce((sum, h) => sum + Math.pow(h.percentage, 2), 0)
 	);
-	const concentrationRisk = maxConcentration;
+	const diversificationScore = Math.max(
+		10,
+		Math.min(
+			100,
+			Math.round(100 - Math.max(0, hhi - 400) / 30 - Math.max(0, maxConcentration - 20) * 0.8)
+		)
+	);
+	const concentrationRisk = Math.round(maxConcentration * 10) / 10;
 
 	let overallRisk: "low" | "moderate" | "high" = "moderate";
-	if (diversificationScore >= 70 && concentrationRisk < 20) {
+	if (hhi <= 1000 && maxConcentration < 15) {
 		overallRisk = "low";
-	} else if (diversificationScore < 40 || concentrationRisk > 40) {
+	} else if (hhi > 1800 || maxConcentration > 30) {
 		overallRisk = "high";
 	}
 

@@ -2604,6 +2604,23 @@ class CASStatementService {
 		console.log(`[CAS Service v4] Persisting ${lots.length} lots to database`);
 		return holdingLotsStorageService.insertLots(lots);
 	}
+
+	/**
+	 * Compute automated Portfolio X-Ray diagnostic for ingested CAS holdings.
+	 * Analyzes true stock look-through, sector concentration, HHI, and SEBI compliance.
+	 */
+	async computeXrayForHoldings(holdings: CASHolding[]): Promise<any> {
+		const { portfolioXrayEngine } = await import("./portfolio/portfolio-xray-engine");
+		const items = holdings.map((h) => ({
+			isin: h.isin,
+			symbol: h.isin || h.schemeName,
+			name: h.schemeName,
+			assetType: h.assetType,
+			currentValue: h.marketValue,
+			schemeCode: h.schemeCode,
+		}));
+		return portfolioXrayEngine.computeXray(items);
+	}
 }
 
 export const casStatementService = CASStatementService.getInstance();

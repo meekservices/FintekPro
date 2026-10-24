@@ -30,7 +30,7 @@ import {
 	investmentProposals,
 	agentComplianceAuditLogs,
 } from "@shared/schema";
-import { eq, sql, desc, and, isNull } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { logger } from "../logger";
 
 export interface SebiRuleCheck {
@@ -666,6 +666,77 @@ export class SebiHoldingComplianceService {
 				unit: "% of NAV",
 				status: "PASS",
 				details: `All equity holdings within permissible limits. Maximum single stock weight is ${maxEquityWeight}% (limit: ${singleStockLimit}%).`,
+			});
+		}
+
+		// ─────────────────────────────────────────────────────────────────────────────
+		// CHECK 1B: Look-Through Consolidated Single Issuer Exposure Cap (10%)
+		// Unwinds underlying stocks from mutual funds + direct stocks to verify
+		// that total look-through exposure to any single corporation does not breach 10%.
+		// ─────────────────────────────────────────────────────────────────────────────
+		try {
+			const { portfolioXrayEngine } = await import("./portfolio/portfolio-xray-engine");
+			const xrayItems = normalizedHoldings.map((h) => ({
+				isin: h.isin,
+				symbol: h.symbol || h.isin || h.instrumentName,
+				name: h.instrumentName,
+				assetType: h.assetClass,
+				weight: h.weight,
+			}));
+			const xray = await portfolioXrayEngine.computeXray(xrayItems);
+			const lookthroughBreaches: string[] = [];
+			const lookthroughWarnings: string[] = [];
+
+			for (const stock of xray.topHoldings) {
+				if (stock.effectiveWeight > singleStockLimit) {
+					lookthroughBreaches.push(`${stock.name} (${stock.effectiveWeight}% look-through across ${stock.contributingFunds.length} fund(s))`);
+				} else if (stock.effectiveWeight >= singleStockWarn) {
+					lookthroughWarnings.push(`${stock.name} (${stock.effectiveWeight}% look-through)`);
+				}
+			}
+
+			if (lookthroughBreaches.length > 0) {
+				checks.push({
+					ruleId: "SEBI-XRAY-LOOKTHROUGH-CAP",
+					ruleName: "Look-Through Consolidated Single Stock Cap (10%)",
+					statutoryReference: "SEBI Master Circular 2023/74 §3.3 & Seventh Schedule",
+					thresholdLimit: singleStockLimit,
+					observedValue: xray.summary.maxSingleStockConcentration,
+					unit: "% of NAV",
+					status: "BREACH",
+					details: `Look-through unwinding reveals ${lookthroughBreaches.length} stock(s) breaching 10% statutory limit across funds: ${lookthroughBreaches.join(", ")}.`,
+					offendingItems: lookthroughBreaches,
+				});
+				breaches.push(`Look-through single-stock exposure exceeds ${singleStockLimit}% cap: ${lookthroughBreaches.join(", ")}`);
+				remedialActions.push(`Consolidate overlapping funds or trim allocations to reduce look-through concentration in ${lookthroughBreaches.join(", ")}.`);
+			} else if (lookthroughWarnings.length > 0) {
+				checks.push({
+					ruleId: "SEBI-XRAY-LOOKTHROUGH-CAP",
+					ruleName: "Look-Through Consolidated Single Stock Cap (10%)",
+					statutoryReference: "SEBI Master Circular 2023/74 §3.3 & Seventh Schedule",
+					thresholdLimit: singleStockLimit,
+					observedValue: xray.summary.maxSingleStockConcentration,
+					unit: "% of NAV",
+					status: "WARNING",
+					details: `Look-through concentration warning: ${lookthroughWarnings.join(", ")} near statutory ceiling.`,
+					offendingItems: lookthroughWarnings,
+				});
+				warnings.push(`Look-through concentration warning: ${lookthroughWarnings.join(", ")}.`);
+			} else {
+				checks.push({
+					ruleId: "SEBI-XRAY-LOOKTHROUGH-CAP",
+					ruleName: "Look-Through Consolidated Single Stock Cap (10%)",
+					statutoryReference: "SEBI Master Circular 2023/74 §3.3 & Seventh Schedule",
+					thresholdLimit: singleStockLimit,
+					observedValue: xray.summary.maxSingleStockConcentration,
+					unit: "% of NAV",
+					status: "PASS",
+					details: `Look-through analysis verified: No underlying stock exceeds ${singleStockLimit}% across constituent mutual funds (max: ${xray.summary.maxSingleStockConcentration}%).`,
+				});
+			}
+		} catch (err: unknown) {
+			logger.warn("[SebiCompliance] Look-through check error", {
+				error: err instanceof Error ? err.message : String(err),
 			});
 		}
 
