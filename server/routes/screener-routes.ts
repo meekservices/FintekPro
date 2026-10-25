@@ -102,6 +102,8 @@ router.get("/api/screener/stocks", async (req, res) => {
 		const filters: ScreenerFilters = {
 			// Universe
 			sector: f.sector as string,
+			macroSector: (f.macroSector || f.broadSector) as string,
+			subSector: f.subSector as string,
 			industry: f.industry as string,
 			marketCapCategory: f.marketCapCategory as string,
 			exchange: f.exchange as string,

@@ -20,15 +20,27 @@ import {
 	or,
 	ilike,
 	isNotNull,
+	inArray,
 } from "drizzle-orm";
 import {
 	calculateMathematicalDCF,
 	calculateForwardPe,
 	calculateAnalystConsensus,
 } from "./screener-enrichment-engine";
+import {
+	MACRO_SECTORS,
+	mapGranularToMacroSector,
+	isMacroSector,
+	getSubsectorsForMacroSector,
+	getMacroSectorsWithSubsectors,
+} from "@shared/sector-taxonomy";
+
 export interface ScreenerFilters {
 	// ── Universe filters ────────────────────────────────────────────────────────
 	sector?: string;
+	macroSector?: string;
+	broadSector?: string;
+	subSector?: string;
 	industry?: string;
 	marketCapCategory?: string;
 	exchange?: string;
@@ -228,6 +240,8 @@ export interface ScreenerResponse {
 		industries: string[];
 		marketCapCategories: string[];
 		technicalRatings: string[];
+		macroSectors?: string[];
+		taxonomy?: Array<{ macroSector: string; subSectors: string[] }>;
 	};
 }
 
@@ -240,9 +254,28 @@ export async function queryScreener(
 
 	const conditions: any[] = [eq(listedStocks.isActive, true)];
 
-	if (filters.sector)
-		conditions.push(eq(listedStocks.sector, filters.sector));
-	if (filters.industry)
+	const effectiveMacroSector = filters.macroSector || filters.broadSector || (filters.sector && isMacroSector(filters.sector) ? filters.sector : undefined);
+	const effectiveSubSector = filters.subSector || (filters.sector && !isMacroSector(filters.sector) ? filters.sector : undefined);
+
+	if (effectiveSubSector) {
+		conditions.push(
+			or(
+				eq(listedStocks.sector, effectiveSubSector),
+				eq(listedStocks.industry, effectiveSubSector),
+			),
+		);
+	} else if (effectiveMacroSector) {
+		const subsectors = getSubsectorsForMacroSector(effectiveMacroSector);
+		conditions.push(
+			or(
+				eq(listedStocks.broadSector, effectiveMacroSector),
+				eq(listedStocks.sector, effectiveMacroSector),
+				subsectors.length > 0 ? inArray(listedStocks.sector, subsectors) : sql`false`,
+			),
+		);
+	}
+
+	if (filters.industry && !effectiveSubSector)
 		conditions.push(eq(listedStocks.industry, filters.industry));
 	if (filters.marketCapCategory)
 		conditions.push(
@@ -860,6 +893,8 @@ export async function queryScreener(
 			industries: industries.map((i) => i.value).filter(Boolean) as string[],
 			marketCapCategories: marketCaps.map((m) => m.value).filter(Boolean) as string[],
 			technicalRatings: ['Strong Buy', 'Buy', 'Neutral', 'Sell', 'Strong Sell'],
+			macroSectors: [...MACRO_SECTORS],
+			taxonomy: getMacroSectorsWithSubsectors(),
 		},
 	};
 }
@@ -1287,9 +1322,44 @@ export async function getScreenerDistribution() {
 		pinned: PINNED_SECTORS.has(row.sector) ? true : undefined,
 	}));
 
+	// Group granular sectors into 12 canonical Macro Sectors
+	const macroMap = new Map<
+		string,
+		{
+			macroSector: string;
+			count: number;
+			subSectors: Array<{ sector: string; count: number }>;
+		}
+	>();
+	for (const macro of MACRO_SECTORS) {
+		macroMap.set(macro, { macroSector: macro, count: 0, subSectors: [] });
+	}
+
+	for (const row of sectorRows) {
+		if (PINNED_SECTORS.has(row.sector)) continue;
+		const macro = mapGranularToMacroSector(row.sector);
+		const entry = macroMap.get(macro) || {
+			macroSector: macro,
+			count: 0,
+			subSectors: [],
+		};
+		const countNum = Number(row.count) || 0;
+		entry.count += countNum;
+		entry.subSectors.push({ sector: row.sector, count: countNum });
+		macroMap.set(macro, entry);
+	}
+
+	const macroSectors = Array.from(macroMap.values())
+		.sort((a, b) => b.count - a.count)
+		.map((m) => ({
+			...m,
+			subSectors: m.subSectors.sort((a, b) => b.count - a.count),
+		}));
+
 	return {
 		marketCap: (marketCapDist as any).rows || marketCapDist,
 		sectors,
+		macroSectors,
 		ratings: (ratingDist as any).rows || ratingDist,
 		scoreRanges: (scoreDistribution as any).rows || scoreDistribution,
 	};

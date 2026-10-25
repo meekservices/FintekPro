@@ -25,10 +25,15 @@ import {
   unlistedCompanies,
   reits,
   invits,
+  marketIndices,
+  agentBaskets,
 } from "@shared/schema";
 import { and, eq, gte, lte, ilike, sql, desc, asc, or, getTableColumns } from "drizzle-orm";
-import { IRIS_PRODUCT_REGISTRY } from "../services/iris/irisProductRegistry";
 import { logger } from "../logger";
+import { instrumentAiChatService } from "../services/instrument-ai-chat-service";
+import { MACRO_SECTORS, getMacroSectorsWithSubsectors } from "@shared/sector-taxonomy";
+import { CURATED_SMALLCASES, CURATED_INDICES } from "../services/screener-curated-data";
+import { IRIS_PRODUCT_REGISTRY } from "../services/iris/irisProductRegistry";
 
 export const instrumentScreenerRouter = Router();
 
@@ -46,6 +51,10 @@ const DISCLAIMERS: Record<string, string> = {
     "Unlisted and Pre-IPO securities are illiquid and carry high investment risk including loss of capital. Fair values are indicative based on audited DRHP/financial filings. Not a public offer. Regulatory disclosures apply.",
   reit_invit:
     "REIT & InvIT investments are subject to market and real estate asset yield fluctuations. Past distributions are not guaranteed. Review offer documents before investing.",
+  smallcase:
+    "Smallcase thematic baskets are model equity portfolios and do not guarantee returns. Equity holdings are subject to market volatility. Rebalance suggestions require investor approval.",
+  index:
+    "Index levels and performance reflect underlying benchmark components. Index investing involves market risk and tracking errors. Past trends do not ensure future direction.",
 };
 
 // ─── Bond rating hierarchy (for minRating filter) ────────────────────────────
@@ -841,11 +850,123 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
       });
     }
 
+    // ── Smallcase Thematic Baskets ───────────────────────────────────────────
+    if (type === "smallcase") {
+      let items = [...CURATED_SMALLCASES];
+
+      const { theme, riskLevel, minCagr, macroSector } = req.query as Record<string, string>;
+
+      if (theme && theme !== "all") {
+        items = items.filter((s) => s.theme.toLowerCase().includes(theme.toLowerCase()));
+      }
+      if (macroSector && macroSector !== "all") {
+        items = items.filter((s) => s.macroSector.toLowerCase().includes(macroSector.toLowerCase()));
+      }
+      if (riskLevel && riskLevel !== "all") {
+        items = items.filter((s) => s.riskLevel.toLowerCase() === riskLevel.toLowerCase());
+      }
+      if (minCagr) {
+        const minCagrVal = Number(minCagr) || 0;
+        items = items.filter((s) => s.cagr3y >= minCagrVal);
+      }
+      if (q) {
+        const query = q.toLowerCase();
+        items = items.filter(
+          (s) =>
+            s.name.toLowerCase().includes(query) ||
+            s.theme.toLowerCase().includes(query) ||
+            s.description.toLowerCase().includes(query) ||
+            s.topHoldings.some((h) => h.symbol.toLowerCase().includes(query) || h.name.toLowerCase().includes(query))
+        );
+      }
+
+      // Sort
+      if (sortBy === "cagr3y") {
+        items.sort((a, b) => sortOrder === "asc" ? a.cagr3y - b.cagr3y : b.cagr3y - a.cagr3y);
+      } else if (sortBy === "returns1y") {
+        items.sort((a, b) => sortOrder === "asc" ? a.returns1y - b.returns1y : b.returns1y - a.returns1y);
+      } else if (sortBy === "minInvestment") {
+        items.sort((a, b) => sortOrder === "asc" ? a.minInvestment - b.minInvestment : b.minInvestment - a.minInvestment);
+      } else {
+        items.sort((a, b) => a.name.localeCompare(b.name));
+      }
+
+      const total = items.length;
+      const paginatedData = items.slice(offset, offset + limitNum);
+
+      return res.json({
+        success: true,
+        type: "smallcase",
+        data: paginatedData,
+        meta: {
+          timestamp: new Date().toISOString(),
+          engine_version: ENGINE_VERSION,
+          page: pageNum,
+          limit: limitNum,
+          total,
+          disclaimer: DISCLAIMERS.smallcase,
+        },
+      });
+    }
+
+    // ── Market & Sectoral Indices ────────────────────────────────────────────
+    if (type === "index") {
+      let items = [...CURATED_INDICES];
+
+      const { category, provider } = req.query as Record<string, string>;
+
+      if (category && category !== "all") {
+        items = items.filter((i) => i.category.toLowerCase() === category.toLowerCase());
+      }
+      if (provider && provider !== "all") {
+        items = items.filter((i) => i.provider.toLowerCase() === provider.toLowerCase());
+      }
+      if (q) {
+        const query = q.toLowerCase();
+        items = items.filter(
+          (i) =>
+            i.name.toLowerCase().includes(query) ||
+            i.indexCode.toLowerCase().includes(query) ||
+            i.description.toLowerCase().includes(query)
+        );
+      }
+
+      // Sort
+      if (sortBy === "returns1y") {
+        items.sort((a, b) => sortOrder === "asc" ? a.returns1y - b.returns1y : b.returns1y - a.returns1y);
+      } else if (sortBy === "returns3y") {
+        items.sort((a, b) => sortOrder === "asc" ? a.returns3y - b.returns3y : b.returns3y - a.returns3y);
+      } else if (sortBy === "changePercent") {
+        items.sort((a, b) => sortOrder === "asc" ? a.changePercent - b.changePercent : b.changePercent - a.changePercent);
+      } else if (sortBy === "currentLevel") {
+        items.sort((a, b) => sortOrder === "asc" ? a.currentLevel - b.currentLevel : b.currentLevel - a.currentLevel);
+      } else {
+        items.sort((a, b) => a.name.localeCompare(b.name));
+      }
+
+      const total = items.length;
+      const paginatedData = items.slice(offset, offset + limitNum);
+
+      return res.json({
+        success: true,
+        type: "index",
+        data: paginatedData,
+        meta: {
+          timestamp: new Date().toISOString(),
+          engine_version: ENGINE_VERSION,
+          page: pageNum,
+          limit: limitNum,
+          total,
+          disclaimer: DISCLAIMERS.index,
+        },
+      });
+    }
+
     // ── Unknown type ──────────────────────────────────────────────────────────
     return res.status(400).json({
       success: false,
       error_code: "INVALID_INSTRUMENT_TYPE",
-      message: `Invalid type '${type}'. Valid: mutual_fund | bond | etf | stock | unlisted | reit_invit`,
+      message: `Invalid type '${type}'. Valid: mutual_fund | bond | etf | stock | unlisted | reit_invit | smallcase | index`,
       retryable: false,
       meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
     });
@@ -928,6 +1049,26 @@ instrumentScreenerRouter.get("/instruments/filters", async (_req: Request, res: 
           { key: "category", label: "Trust Type", type: "select", options: ["all", "reit", "invit"] },
           { key: "minYield", label: "Min Distribution Yield (%)", type: "number" },
           { key: "q",        label: "Search", type: "text" },
+        ],
+      },
+      stock: {
+        macroSectors: [...MACRO_SECTORS],
+        taxonomy: getMacroSectorsWithSubsectors(),
+      },
+      smallcase: {
+        sortFields: ["cagr3y", "returns1y", "minInvestment", "name"],
+        filters: [
+          { key: "theme", label: "Theme", type: "select", options: ["all", "Asset Allocation", "Market Leaders", "Information Technology", "Green Transition", "Healthcare & Life Sciences", "Credit Growth & Financialization", "National Infrastructure", "Consumer Staples", "Cash Flow & Yield", "Rural Consumption"] },
+          { key: "riskLevel", label: "Risk Level", type: "select", options: ["all", "Low", "Moderate", "High"] },
+          { key: "q", label: "Search", type: "text" },
+        ],
+      },
+      index: {
+        sortFields: ["returns1y", "returns3y", "changePercent", "currentLevel", "name"],
+        filters: [
+          { key: "category", label: "Category", type: "select", options: ["all", "Broad Market", "Sectoral"] },
+          { key: "provider", label: "Provider", type: "select", options: ["all", "NSE", "BSE"] },
+          { key: "q", label: "Search", type: "text" },
         ],
       },
     },
@@ -1022,10 +1163,95 @@ instrumentScreenerRouter.get("/instruments/:id", async (req: Request, res: Respo
       return res.status(404).json({ success: false, error_code: "NOT_FOUND", message: `REIT/InvIT '${id}' not found`, retryable: false });
     }
 
-    return res.status(400).json({ success: false, error_code: "INVALID_TYPE", message: "Valid types: mutual_fund | bond | etf | unlisted | reit_invit" });
+    if (type === "smallcase") {
+      const basket = CURATED_SMALLCASES.find((b) => b.id === id || b.name.toLowerCase() === id.toLowerCase());
+      if (!basket) return res.status(404).json({ success: false, error_code: "NOT_FOUND", message: `Smallcase '${id}' not found`, retryable: false });
+      return res.json({ success: true, type: "smallcase", data: basket, meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, disclaimer: DISCLAIMERS.smallcase } });
+    }
+
+    if (type === "index") {
+      const idx = CURATED_INDICES.find((i) => i.indexCode.toUpperCase() === id.toUpperCase() || i.name.toLowerCase() === id.toLowerCase());
+      if (!idx) return res.status(404).json({ success: false, error_code: "NOT_FOUND", message: `Index '${id}' not found`, retryable: false });
+      return res.json({ success: true, type: "index", data: idx, meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, disclaimer: DISCLAIMERS.index } });
+    }
+
+    return res.status(400).json({ success: false, error_code: "INVALID_TYPE", message: "Valid types: mutual_fund | bond | etf | unlisted | reit_invit | smallcase | index" });
 
   } catch (err: any) {
     logger.error("Instrument detail error", { event: "INSTRUMENT_DETAIL_ERROR", id, type, message: err.message, latency_ms: Date.now() - start });
     return res.status(500).json({ success: false, error_code: "INSTRUMENT_DETAIL_ERROR", message: `Failed to fetch ${type} detail`, retryable: true, meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION } });
   }
 });
+
+/**
+ * POST /api/screener/instruments/chat
+ * FASP-AI Universal Contextual Advisory Copilot across all instrument asset classes
+ */
+instrumentScreenerRouter.post("/instruments/chat", async (req: Request, res: Response) => {
+  const start = Date.now();
+  const {
+    instrumentType = "stock",
+    symbolOrId,
+    name,
+    context = {},
+    message,
+    history = [],
+    userSegment = "retail",
+  } = req.body;
+
+  if (!message || typeof message !== "string") {
+    return res.status(400).json({
+      success: false,
+      error_code: "INVALID_MESSAGE",
+      message: "Chat message content is required",
+      retryable: false,
+    });
+  }
+
+  if (!symbolOrId) {
+    return res.status(400).json({
+      success: false,
+      error_code: "INVALID_INSTRUMENT",
+      message: "Instrument symbolOrId is required",
+      retryable: false,
+    });
+  }
+
+  try {
+    const result = await instrumentAiChatService.processChat({
+      instrumentType,
+      symbolOrId,
+      name: name || symbolOrId,
+      context,
+      message,
+      history,
+      userSegment,
+    });
+
+    return res.json({
+      success: true,
+      data: result,
+      meta: {
+        timestamp: new Date().toISOString(),
+        engine_version: ENGINE_VERSION,
+        latency_ms: Date.now() - start,
+      },
+    });
+  } catch (err: any) {
+    logger.error("Instrument chat error", {
+      event: "INSTRUMENT_CHAT_ERROR",
+      message: err.message,
+      instrumentType,
+      symbolOrId,
+      latency_ms: Date.now() - start,
+    });
+
+    return res.status(500).json({
+      success: false,
+      error_code: "INSTRUMENT_CHAT_ERROR",
+      message: "Failed to generate instrument analysis",
+      retryable: true,
+    });
+  }
+});
+

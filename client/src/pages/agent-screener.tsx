@@ -73,6 +73,7 @@ import {
 	Briefcase,
 	Cpu,
 	Plus,
+	Bot,
 } from "lucide-react";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -81,12 +82,29 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SectorDistributionPanel } from "@/components/screener/SectorDistributionPanel";
 import {
+	InstrumentChatDialog,
+	type ChatInstrumentTarget,
+} from "@/components/screener/InstrumentChatDialog";
+import {
+	MACRO_SECTORS,
+	getSubsectorsForMacroSector,
+} from "@shared/sector-taxonomy";
+import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-type ScreenerType = "mutual_fund" | "stock" | "bond" | "etf" | "global_stock" | "unlisted" | "reit_invit";
+type ScreenerType =
+	| "mutual_fund"
+	| "stock"
+	| "bond"
+	| "etf"
+	| "global_stock"
+	| "unlisted"
+	| "reit_invit"
+	| "smallcase"
+	| "index";
 type ViewMode = "table" | "cards";
 
 const FALLBACK_US_STOCKS = [
@@ -609,6 +627,8 @@ export default function AgentScreener() {
 		);
 	});
 	const [dbSector, setDbSector] = useState("");
+	const [dbMacroSector, setDbMacroSector] = useState("");
+	const [dbSubSector, setDbSubSector] = useState("");
 	const [dbMarketCap, setDbMarketCap] = useState("");
 	const [dbMinPE, setDbMinPE] = useState("");
 	const [dbMaxPE, setDbMaxPE] = useState("");
@@ -666,12 +686,34 @@ export default function AgentScreener() {
 	const [reitSortBy, setReitSortBy] = useState("distributionYield");
 	const [reitSortOrder, setReitSortOrder] = useState<"asc" | "desc">("desc");
 
+	// ── Smallcase filter state ────────────────────────────────────────────────
+	const [smallcaseSearch, setSmallcaseSearch] = useState("");
+	const [smallcaseRisk, setSmallcaseRisk] = useState("all");
+	const [smallcaseSector, setSmallcaseSector] = useState("all");
+	const [smallcasePage, setSmallcasePage] = useState(1);
+
+	// ── Index filter state ────────────────────────────────────────────────────
+	const [indexSearch, setIndexSearch] = useState("");
+	const [indexCategory, setIndexCategory] = useState("all");
+	const [indexPage, setIndexPage] = useState(1);
+
+	// ── Instrument AI Copilot Chat state ──────────────────────────────────────
+	const [activeChatInstrument, setActiveChatInstrument] = useState<ChatInstrumentTarget | null>(null);
+	const [isChatOpen, setIsChatOpen] = useState(false);
+
+	const handleOpenChat = (target: ChatInstrumentTarget) => {
+		setActiveChatInstrument(target);
+		setIsChatOpen(true);
+	};
+
 	const buildQueryParams = () => {
 		const params = new URLSearchParams();
 		params.set("page", String(dbPage));
 		params.set("limit", String(dbLimit));
 		if (dbSearch) params.set("search", dbSearch);
-		if (dbSector) params.set("sector", dbSector);
+		if (dbMacroSector) params.set("macroSector", dbMacroSector);
+		if (dbSubSector) params.set("subSector", dbSubSector);
+		else if (dbSector) params.set("sector", dbSector);
 		if (dbMarketCap) params.set("marketCapCategory", dbMarketCap);
 		if (dbMinPE) params.set("minPE", dbMinPE);
 		if (dbMaxPE) params.set("maxPE", dbMaxPE);
@@ -691,6 +733,8 @@ export default function AgentScreener() {
 			"/api/screener/stocks",
 			dbPage,
 			dbSearch,
+			dbMacroSector,
+			dbSubSector,
 			dbSector,
 			dbMarketCap,
 			dbMinPE,
@@ -770,6 +814,15 @@ export default function AgentScreener() {
 			if (reitCategory && reitCategory !== "all")   p.set("category", reitCategory);
 			if (reitMinYield)                             p.set("minYield", reitMinYield);
 			if (reitSearch)                               p.set("q", reitSearch);
+		} else if (screenerType === "smallcase") {
+			p.set("page", String(smallcasePage));
+			if (smallcaseSearch)                          p.set("q", smallcaseSearch);
+			if (smallcaseRisk && smallcaseRisk !== "all") p.set("riskLevel", smallcaseRisk);
+			if (smallcaseSector && smallcaseSector !== "all") p.set("macroSector", smallcaseSector);
+		} else if (screenerType === "index") {
+			p.set("page", String(indexPage));
+			if (indexSearch)                              p.set("q", indexSearch);
+			if (indexCategory && indexCategory !== "all") p.set("category", indexCategory);
 		}
 		return p.toString();
 	};
@@ -783,6 +836,8 @@ export default function AgentScreener() {
 			etfPage, etfCategory, etfSearch,
 			unlistedPage, unlistedStage, unlistedSector, unlistedSearch, unlistedSortBy, unlistedSortOrder,
 			reitPage, reitCategory, reitMinYield, reitSearch, reitSortBy, reitSortOrder,
+			smallcasePage, smallcaseSearch, smallcaseRisk, smallcaseSector,
+			indexPage, indexSearch, indexCategory,
 		],
 		enabled: isNonStockType,
 		queryFn: () =>
@@ -1328,6 +1383,8 @@ export default function AgentScreener() {
 
 	const resetDbFilters = () => {
 		setDbSearch("");
+		setDbMacroSector("");
+		setDbSubSector("");
 		setDbSector("");
 		setDbMarketCap("");
 		setDbMinPE("");
@@ -1348,6 +1405,8 @@ export default function AgentScreener() {
 
 	const activeFilterCount = [
 		dbSearch,
+		dbMacroSector,
+		dbSubSector,
 		dbSector,
 		dbMarketCap,
 		dbMinPE,
@@ -1376,6 +1435,10 @@ export default function AgentScreener() {
 							? "Unlisted & Pre-IPO Equity Screener"
 							: screenerType === "reit_invit"
 							? "REITs & InvITs Yield Screener"
+							: screenerType === "smallcase"
+							? "Smallcase Thematic Baskets"
+							: screenerType === "index"
+							? "Benchmark & Sectoral Indices"
 							: "Multi-Asset Screener"}
 					</h1>
 					<p className="text-xs text-muted-foreground mt-0.5">
@@ -1391,6 +1454,10 @@ export default function AgentScreener() {
 							? "Screen vetted pre-IPO companies, late-stage unicorns & growth private equities"
 							: screenerType === "reit_invit"
 							? "Screen real estate & infrastructure investment trusts by distribution yield, NAV & occupancy"
+							: screenerType === "smallcase"
+							? "Model portfolios & curated thematic stock baskets managed by SEBI registered research analysts"
+							: screenerType === "index"
+							? "Track broad market benchmarks, sectoral indices, and strategic smart-beta indicators"
 							: "Screen ETFs by category, NAV, tracking error & liquidity"}
 					</p>
 				</div>
@@ -1425,6 +1492,8 @@ export default function AgentScreener() {
 									 screenerType === "global_stock" ? "Global Equities Screener" :
 									 screenerType === "unlisted" ? "Unlisted & Pre-IPO Screener" :
 									 screenerType === "reit_invit" ? "REITs & InvITs Screener" :
+									 screenerType === "smallcase" ? "Smallcase Thematic Screener" :
+									 screenerType === "index" ? "Indices & Benchmarks Screener" :
 									 "Stock Screener"}
 								</CardTitle>
 								<CardDescription className="text-xs mt-0.5">
@@ -1440,6 +1509,10 @@ export default function AgentScreener() {
 										? "Screen high-growth pre-IPO startups & private enterprises with buy/sell quotes"
 										: screenerType === "reit_invit"
 										? "Screen high-yielding commercial real estate and infrastructure trusts"
+										: screenerType === "smallcase"
+										? "Curated model portfolios, asset-allocation strategies, and sector baskets"
+										: screenerType === "index"
+										? "NSE & BSE market benchmarks, sectoral leaders, and valuation indicators"
 										: "Screen ETFs by category, NAV & tracking error"}
 								</CardDescription>
 							</div>
@@ -1467,6 +1540,8 @@ export default function AgentScreener() {
 						{([
 							{ type: "stock" as ScreenerType, label: "Stocks", icon: <BarChart3 className="h-3.5 w-3.5" />, color: "text-blue-600 dark:text-blue-400", activeBg: "bg-blue-600 dark:bg-blue-500" },
 							{ type: "mutual_fund" as ScreenerType, label: "Mutual Funds", icon: <PieChart className="h-3.5 w-3.5" />, color: "text-purple-600 dark:text-purple-400", activeBg: "bg-purple-600 dark:bg-purple-500" },
+							{ type: "smallcase" as ScreenerType, label: "Smallcases", icon: <Zap className="h-3.5 w-3.5" />, color: "text-indigo-600 dark:text-indigo-400", activeBg: "bg-indigo-600 dark:bg-indigo-500" },
+							{ type: "index" as ScreenerType, label: "Indices", icon: <Activity className="h-3.5 w-3.5" />, color: "text-teal-600 dark:text-teal-400", activeBg: "bg-teal-600 dark:bg-teal-500" },
 							{ type: "bond" as ScreenerType, label: "Bonds & FD", icon: <Landmark className="h-3.5 w-3.5" />, color: "text-amber-600 dark:text-amber-400", activeBg: "bg-amber-600 dark:bg-amber-500" },
 							{ type: "reit_invit" as ScreenerType, label: "REITs & InvITs", icon: <Building2 className="h-3.5 w-3.5" />, color: "text-cyan-600 dark:text-cyan-400", activeBg: "bg-cyan-600 dark:bg-cyan-500" },
 							{ type: "unlisted" as ScreenerType, label: "Unlisted & Pre-IPO", icon: <Briefcase className="h-3.5 w-3.5" />, color: "text-violet-600 dark:text-violet-400", activeBg: "bg-violet-600 dark:bg-violet-500" },
@@ -1636,6 +1711,7 @@ export default function AgentScreener() {
 															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("sortinoRatio"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>Sortino{mfSortBy==="sortinoRatio" ? (mfSortOrder==="desc" ? " ▼" : " ▲") : ""}</th>
 															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("standardDeviation"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>Vol (σ)</th>
 															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("rating"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>Rating</th>
+															<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider w-12">AI</th>
 														</tr>
 													</thead>
 													<tbody className="divide-y">
@@ -1661,6 +1737,26 @@ export default function AgentScreener() {
 																<td className={`py-2 px-3 text-right font-mono text-xs ${f.sortinoRatio != null && Number(f.sortinoRatio) >= 1 ? "text-emerald-600 dark:text-emerald-400 font-semibold" : ""}`}>{f.sortinoRatio != null ? Number(f.sortinoRatio).toFixed(2) : "—"}</td>
 																<td className="py-2 px-3 text-right font-mono text-xs">{f.standardDeviation != null ? `${Number(f.standardDeviation).toFixed(1)}%` : "—"}</td>
 																<td className="py-2 px-3 text-right font-mono text-xs">{f.rating ? `★${f.rating}` : "—"}</td>
+																<td className="py-2 px-3 text-center">
+																	<Button
+																		variant="ghost"
+																		size="sm"
+																		className="h-6 w-6 p-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950/40"
+																		title="Chat with AI"
+																		onClick={() => handleOpenChat({
+																			id: String(f.id ?? f.schemeCode),
+																			name: f.schemeName,
+																			assetType: "mutual_fund",
+																			sector: f.category,
+																			currentPrice: f.nav,
+																			cagr3y: f.returns3y,
+																			riskLevel: f.riskLevel,
+																			rating: f.rating ? `★${f.rating}` : undefined,
+																		})}
+																	>
+																		<Bot className="h-3.5 w-3.5" />
+																	</Button>
+																</td>
 															</tr>
 														))}
 													</tbody>
@@ -1705,11 +1801,12 @@ export default function AgentScreener() {
 															<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider">Rating</th>
 															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Min Invest</th>
 															<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider">Tax</th>
+															<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider w-12">AI</th>
 														</tr>
 													</thead>
 													<tbody className="divide-y">
 														{(instrumentData?.data ?? []).length === 0 && !instrumentLoading && (
-															<tr><td colSpan={9} className="py-12 text-center text-muted-foreground text-sm">No bonds match the current filters. The bond catalog is currently seeded with sample data.</td></tr>
+															<tr><td colSpan={10} className="py-12 text-center text-muted-foreground text-sm">No bonds match the current filters. The bond catalog is currently seeded with sample data.</td></tr>
 														)}
 														{(instrumentData?.data ?? []).map((b: any, i: number) => (
 															<tr key={b.id ?? b.isin} className="hover:bg-muted/30 transition-colors">
@@ -1722,6 +1819,26 @@ export default function AgentScreener() {
 																<td className="py-2 px-3 text-center text-xs"><span className="px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 rounded font-bold text-[10px]">{b.creditRating ?? "—"}</span></td>
 																<td className="py-2 px-3 text-right text-xs">{b.minimumInvestment ? `₹${Number(b.minimumInvestment).toLocaleString()}` : "—"}</td>
 																<td className="py-2 px-3 text-center text-[10px]">{b.taxStatus === "taxfree" ? <span className="text-emerald-600 font-medium">Tax-Free</span> : "Taxable"}</td>
+																<td className="py-2 px-3 text-center">
+																	<Button
+																		variant="ghost"
+																		size="sm"
+																		className="h-6 w-6 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+																		title="Chat with AI"
+																		onClick={() => handleOpenChat({
+																			id: String(b.id ?? b.isin),
+																			name: b.name,
+																			symbol: b.isin,
+																			assetType: "bond",
+																			sector: b.bondType === "govt" ? "G-Sec" : "Corporate Bond",
+																			yield: b.yieldToMaturity,
+																			rating: b.creditRating,
+																			currentPrice: b.minimumInvestment,
+																		})}
+																	>
+																		<Bot className="h-3.5 w-3.5" />
+																	</Button>
+																</td>
 															</tr>
 														))}
 													</tbody>
@@ -1757,11 +1874,12 @@ export default function AgentScreener() {
 															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Price ₹</th>
 															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Market Cap</th>
 															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">ISIN</th>
+															<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider w-12">AI</th>
 														</tr>
 													</thead>
 													<tbody className="divide-y">
 														{(instrumentData?.data ?? []).length === 0 && !instrumentLoading && (
-															<tr><td colSpan={6} className="py-12 text-center text-muted-foreground text-sm">No ETFs found with current filters.</td></tr>
+															<tr><td colSpan={7} className="py-12 text-center text-muted-foreground text-sm">No ETFs found with current filters.</td></tr>
 														)}
 														{(instrumentData?.data ?? []).map((e: any) => (
 															<tr key={e.id ?? e.symbol} className="hover:bg-muted/30 transition-colors">
@@ -1771,6 +1889,24 @@ export default function AgentScreener() {
 																<td className="py-2 px-3 text-right font-mono text-xs">{e.currentPrice ? `₹${Number(e.currentPrice).toFixed(2)}` : "—"}</td>
 																<td className="py-2 px-3 text-right text-xs">{e.marketCap ? `₹${(Number(e.marketCap)/10000000).toFixed(0)}Cr` : "—"}</td>
 																<td className="py-2 px-3 text-xs text-muted-foreground font-mono text-[10px]">{e.isin ?? "—"}</td>
+																<td className="py-2 px-3 text-center">
+																	<Button
+																		variant="ghost"
+																		size="sm"
+																		className="h-6 w-6 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+																		title="Chat with AI"
+																		onClick={() => handleOpenChat({
+																			id: String(e.id ?? e.symbol),
+																			name: e.companyName || e.symbol,
+																			symbol: e.symbol,
+																			assetType: "etf",
+																			sector: e.category,
+																			currentPrice: e.currentPrice,
+																		})}
+																	>
+																		<Bot className="h-3.5 w-3.5" />
+																	</Button>
+																</td>
 															</tr>
 														))}
 													</tbody>
@@ -1930,15 +2066,35 @@ export default function AgentScreener() {
 																		</span>
 																	</td>
 																	<td className="py-2 px-3 text-center text-xs">
-																		<Button
-																			variant="outline"
-																			size="sm"
-																			className="h-6 px-2 text-[10px] hover:bg-primary/10 hover:text-primary transition-colors"
-																			onClick={() => handleAddToProposal(r, r.category || "REIT/InvIT")}
-																		>
-																			<Plus className="h-3 w-3 mr-1" />
-																			Proposal
-																		</Button>
+																		<div className="flex items-center justify-center gap-1">
+																			<Button
+																				variant="ghost"
+																				size="sm"
+																				className="h-6 w-6 p-0 text-cyan-600 hover:text-cyan-700 hover:bg-cyan-50 dark:hover:bg-cyan-950/40"
+																				title="Chat with AI"
+																				onClick={() => handleOpenChat({
+																					id: String(r.id ?? r.symbol),
+																					name: r.name,
+																					symbol: r.symbol,
+																					assetType: "reit_invit",
+																					sector: r.category,
+																					currentPrice: r.currentPrice,
+																					yield: r.distributionYield,
+																					rating: r.aiSignal,
+																				})}
+																			>
+																				<Bot className="h-3.5 w-3.5" />
+																			</Button>
+																			<Button
+																				variant="outline"
+																				size="sm"
+																				className="h-6 px-2 text-[10px] hover:bg-primary/10 hover:text-primary transition-colors"
+																				onClick={() => handleAddToProposal(r, r.category || "REIT/InvIT")}
+																			>
+																				<Plus className="h-3 w-3 mr-1" />
+																				Proposal
+																			</Button>
+																		</div>
 																	</td>
 																</tr>
 															);
@@ -2082,15 +2238,34 @@ export default function AgentScreener() {
 																	</span>
 																</td>
 																<td className="py-2 px-3 text-center text-xs">
-																	<Button
-																		variant="outline"
-																		size="sm"
-																		className="h-6 px-2 text-[10px] hover:bg-primary/10 hover:text-primary transition-colors"
-																		onClick={() => handleAddToProposal(u, "Unlisted Share")}
-																	>
-																		<Plus className="h-3 w-3 mr-1" />
-																		Proposal
-																	</Button>
+																	<div className="flex items-center justify-center gap-1">
+																		<Button
+																			variant="ghost"
+																			size="sm"
+																			className="h-6 w-6 p-0 text-violet-600 hover:text-violet-700 hover:bg-violet-50 dark:hover:bg-violet-950/40"
+																			title="Chat with AI"
+																			onClick={() => handleOpenChat({
+																				id: String(u.id ?? u.cin),
+																				name: u.name,
+																				symbol: u.cin,
+																				assetType: "unlisted",
+																				sector: u.sector,
+																				currentPrice: u.publishedBuyPrice,
+																				riskLevel: u.riskCategory,
+																			})}
+																		>
+																			<Bot className="h-3.5 w-3.5" />
+																		</Button>
+																		<Button
+																			variant="outline"
+																			size="sm"
+																			className="h-6 px-2 text-[10px] hover:bg-primary/10 hover:text-primary transition-colors"
+																			onClick={() => handleAddToProposal(u, "Unlisted Share")}
+																		>
+																			<Plus className="h-3 w-3 mr-1" />
+																			Proposal
+																		</Button>
+																	</div>
 																</td>
 															</tr>
 														))}
@@ -2100,6 +2275,544 @@ export default function AgentScreener() {
 										</div>
 										)}
 										<p className="text-[10px] text-muted-foreground text-center py-1">⚠️ {instrumentData?.meta?.disclaimer ?? "Unlisted shares are illiquid and carry high investment risk. Indicative dealer quotes only."}</p>
+									</div>
+								)}
+
+								{/* ── Smallcase Thematic Screener ──────────────────────────────── */}
+								{screenerType === "smallcase" && (
+									<div className="space-y-3">
+										<div className="flex flex-wrap items-center justify-between gap-2">
+											<div className="flex flex-wrap items-center gap-2">
+												<div className="relative w-64">
+													<Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+													<Input
+														placeholder="Search theme, basket or manager..."
+														className="pl-8 h-8 text-xs"
+														value={smallcaseSearch}
+														onChange={(e) => {
+															setSmallcaseSearch(e.target.value);
+															setSmallcasePage(1);
+														}}
+													/>
+													{smallcaseSearch && (
+														<Button
+															variant="ghost"
+															size="sm"
+															className="absolute right-0 top-0 h-8 w-8 p-0"
+															onClick={() => setSmallcaseSearch("")}
+														>
+															<X className="h-3 w-3" />
+														</Button>
+													)}
+												</div>
+												<select
+													className="h-8 text-xs border rounded-md px-2.5 bg-background"
+													value={smallcaseRisk}
+													onChange={(e) => {
+														setSmallcaseRisk(e.target.value);
+														setSmallcasePage(1);
+													}}
+												>
+													<option value="all">All Risk Levels</option>
+													<option value="Low">Low Volatility</option>
+													<option value="Moderate">Moderate Risk</option>
+													<option value="High">High Growth / High Risk</option>
+												</select>
+												<select
+													className="h-8 text-xs border rounded-md px-2.5 bg-background"
+													value={smallcaseSector}
+													onChange={(e) => {
+														setSmallcaseSector(e.target.value);
+														setSmallcasePage(1);
+													}}
+												>
+													<option value="all">All Themes / Sectors</option>
+													<option value="Multi-Asset">Multi-Asset Allocation</option>
+													<option value="Technology">Technology & IT</option>
+													<option value="Energy & Utilities">Clean Energy & Utilities</option>
+													<option value="Healthcare & Pharma">Pharma & Healthcare</option>
+													<option value="Banking & Finance">Banking & Finance</option>
+													<option value="Infrastructure & Construction">Infrastructure & Capital Goods</option>
+													<option value="Consumer Goods & Retail">Consumer & FMCG</option>
+												</select>
+											</div>
+											<div className="flex items-center gap-2">
+												<span className="text-xs text-muted-foreground">
+													{instrumentData?.meta?.total ?? 0} baskets
+												</span>
+												<div className="flex items-center border rounded-md">
+													<Button
+														variant={viewMode === "table" ? "secondary" : "ghost"}
+														size="sm"
+														className="h-7 w-7 p-0 rounded-r-none"
+														onClick={() => setViewMode("table")}
+													>
+														<List className="h-3.5 w-3.5" />
+													</Button>
+													<Button
+														variant={viewMode === "cards" ? "secondary" : "ghost"}
+														size="sm"
+														className="h-7 w-7 p-0 rounded-l-none"
+														onClick={() => setViewMode("cards")}
+													>
+														<LayoutGrid className="h-3.5 w-3.5" />
+													</Button>
+												</div>
+											</div>
+										</div>
+
+										{instrumentLoading ? (
+											<div className="flex items-center justify-center py-14">
+												<Loader2 className="h-6 w-6 animate-spin text-primary" />
+												<span className="ml-2 text-sm text-muted-foreground">Loading thematic baskets...</span>
+											</div>
+										) : viewMode === "cards" ? (
+											<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+												{(instrumentData?.data ?? []).map((sc: any) => (
+													<Card key={sc.id} className="hover:shadow-md transition-all duration-200 border-border/80 flex flex-col justify-between">
+														<CardContent className="p-4 space-y-3">
+															<div className="flex items-start justify-between gap-2">
+																<div className="flex-1 min-w-0">
+																	<div className="flex items-center gap-1.5 flex-wrap mb-1">
+																		<Badge variant="outline" className="text-[10px] font-mono py-0 px-1.5 h-4 bg-muted/60">
+																			{sc.symbol}
+																		</Badge>
+																		<Badge variant="outline" className={`text-[10px] font-medium py-0 px-1.5 h-4 ${
+																			sc.riskLevel === "Low" ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" :
+																			sc.riskLevel === "Moderate" ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
+																			"bg-rose-500/10 text-rose-600 border-rose-500/20"
+																		}`}>
+																			{sc.riskLevel} Risk
+																		</Badge>
+																		<span className="text-[10px] text-muted-foreground">{sc.manager}</span>
+																	</div>
+																	<h3 className="font-semibold text-sm text-foreground truncate" title={sc.name}>
+																		{sc.name}
+																	</h3>
+																	<p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">
+																		{sc.description}
+																	</p>
+																</div>
+															</div>
+
+															<div className="grid grid-cols-3 gap-2 bg-muted/40 rounded-lg p-2.5 text-center">
+																<div>
+																	<div className="text-[10px] text-muted-foreground">Min Investment</div>
+																	<div className="text-xs font-mono font-semibold text-foreground mt-0.5">
+																		₹{Number(sc.minInvestment).toLocaleString("en-IN")}
+																	</div>
+																</div>
+																<div>
+																	<div className="text-[10px] text-muted-foreground">3Y CAGR</div>
+																	<div className={`text-xs font-mono font-semibold mt-0.5 ${Number(sc.cagr3y) > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+																		{sc.cagr3y != null ? `${Number(sc.cagr3y).toFixed(1)}%` : "—"}
+																	</div>
+																</div>
+																<div>
+																	<div className="text-[10px] text-muted-foreground">1Y Return</div>
+																	<div className={`text-xs font-mono font-semibold mt-0.5 ${Number(sc.returns1y) > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+																		{sc.returns1y != null ? `${Number(sc.returns1y).toFixed(1)}%` : "—"}
+																	</div>
+																</div>
+															</div>
+
+															<div>
+																<div className="text-[10px] text-muted-foreground mb-1 flex items-center justify-between">
+																	<span>Key Holdings ({sc.constituentsCount || sc.topConstituents?.length || 0})</span>
+																	<span className="text-[9px] opacity-75">{sc.rebalanceFrequency} Rebalance</span>
+																</div>
+																<div className="flex flex-wrap gap-1">
+																	{(sc.topConstituents || []).slice(0, 4).map((c: string) => (
+																		<span key={c} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-foreground border border-border/50">
+																			{c}
+																		</span>
+																	))}
+																</div>
+															</div>
+
+															<div className="flex items-center gap-2 pt-2 border-t border-border/60">
+																<Button
+																	variant="default"
+																	size="sm"
+																	className="flex-1 h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+																	onClick={() => handleOpenChat({
+																		id: sc.id,
+																		name: sc.name,
+																		symbol: sc.symbol,
+																		assetType: "smallcase",
+																		sector: sc.theme || sc.macroSector,
+																		macroSector: sc.macroSector,
+																		currentPrice: sc.minInvestment,
+																		cagr3y: sc.cagr3y,
+																		riskLevel: sc.riskLevel,
+																		manager: sc.manager,
+																		constituentsCount: sc.constituentsCount,
+																	})}
+																>
+																	<Bot className="h-3.5 w-3.5 mr-1" />
+																	Chat with AI
+																</Button>
+																<Button
+																	variant="outline"
+																	size="sm"
+																	className="h-7 text-xs"
+																	onClick={() => handleAddToProposal(sc, "Smallcase Basket")}
+																>
+																	<Plus className="h-3 w-3 mr-1" />
+																	Proposal
+																</Button>
+															</div>
+														</CardContent>
+													</Card>
+												))}
+											</div>
+										) : (
+											<div className="border rounded-lg [overflow:clip]">
+												<div className="overflow-x-auto">
+													<table className="w-full text-sm">
+														<thead className="bg-card text-muted-foreground sticky top-0 z-10 border-b shadow-sm">
+															<tr>
+																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider w-8">#</th>
+																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider min-w-[200px]">Smallcase Name</th>
+																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">Manager</th>
+																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">Sector/Theme</th>
+																<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider">Risk</th>
+																<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Min Inv ₹</th>
+																<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">3Y CAGR</th>
+																<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">1Y Return</th>
+																<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Vol (σ)</th>
+																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">Key Holdings</th>
+																<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider w-24">Actions</th>
+															</tr>
+														</thead>
+														<tbody className="divide-y">
+															{(instrumentData?.data ?? []).map((sc: any, i: number) => (
+																<tr key={sc.id} className="hover:bg-muted/30 transition-colors">
+																	<td className="py-2 px-3 text-xs text-muted-foreground">{i + 1}</td>
+																	<td className="py-2 px-3 text-xs font-medium max-w-[220px]">
+																		<div className="font-semibold text-foreground truncate" title={sc.name}>{sc.name}</div>
+																		<div className="text-[10px] text-muted-foreground">{sc.symbol} • {sc.rebalanceFrequency}</div>
+																	</td>
+																	<td className="py-2 px-3 text-xs text-muted-foreground">{sc.manager}</td>
+																	<td className="py-2 px-3 text-xs">
+																		<span className="px-2 py-0.5 rounded text-[10px] font-medium bg-muted text-foreground">
+																			{sc.theme || sc.macroSector}
+																		</span>
+																	</td>
+																	<td className="py-2 px-3 text-center text-xs">
+																		<span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+																			sc.riskLevel === "Low" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" :
+																			sc.riskLevel === "Moderate" ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" :
+																			"bg-rose-500/15 text-rose-600 dark:text-rose-400"
+																		}`}>
+																			{sc.riskLevel}
+																		</span>
+																	</td>
+																	<td className="py-2 px-3 text-right font-mono text-xs font-medium">
+																		₹{Number(sc.minInvestment).toLocaleString("en-IN")}
+																	</td>
+																	<td className={`py-2 px-3 text-right font-mono text-xs font-semibold ${Number(sc.cagr3y) > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+																		{sc.cagr3y != null ? `${Number(sc.cagr3y).toFixed(1)}%` : "—"}
+																	</td>
+																	<td className={`py-2 px-3 text-right font-mono text-xs font-semibold ${Number(sc.returns1y) > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+																		{sc.returns1y != null ? `${Number(sc.returns1y).toFixed(1)}%` : "—"}
+																	</td>
+																	<td className="py-2 px-3 text-right font-mono text-xs text-muted-foreground">
+																		{sc.volatility ? `${Number(sc.volatility).toFixed(1)}%` : "—"}
+																	</td>
+																	<td className="py-2 px-3 text-xs">
+																		<div className="flex gap-1 max-w-[160px] truncate">
+																			{(sc.topConstituents || []).slice(0, 3).map((h: string) => (
+																				<span key={h} className="text-[9px] font-mono px-1 py-0.5 bg-muted rounded">
+																					{h}
+																				</span>
+																			))}
+																		</div>
+																	</td>
+																	<td className="py-2 px-3 text-center text-xs">
+																		<div className="flex items-center justify-center gap-1">
+																			<Button
+																				variant="ghost"
+																				size="sm"
+																				className="h-6 w-6 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+																				title="Chat with AI"
+																				onClick={() => handleOpenChat({
+																					id: sc.id,
+																					name: sc.name,
+																					symbol: sc.symbol,
+																					assetType: "smallcase",
+																					sector: sc.theme || sc.macroSector,
+																					macroSector: sc.macroSector,
+																					currentPrice: sc.minInvestment,
+																					cagr3y: sc.cagr3y,
+																					riskLevel: sc.riskLevel,
+																					manager: sc.manager,
+																					constituentsCount: sc.constituentsCount,
+																				})}
+																			>
+																				<Bot className="h-3.5 w-3.5" />
+																			</Button>
+																			<Button
+																				variant="outline"
+																				size="sm"
+																				className="h-6 px-1.5 text-[10px]"
+																				onClick={() => handleAddToProposal(sc, "Smallcase Basket")}
+																			>
+																				<Plus className="h-3 w-3" />
+																			</Button>
+																		</div>
+																	</td>
+																</tr>
+															))}
+														</tbody>
+													</table>
+												</div>
+											</div>
+										)}
+										<p className="text-[10px] text-muted-foreground text-center py-1">
+											⚠️ {instrumentData?.meta?.disclaimer ?? "Smallcases are curated baskets of stocks/ETFs managed by SEBI registered research analysts and investment advisers."}
+										</p>
+									</div>
+								)}
+
+								{/* ── Benchmark & Sectoral Indices Screener ───────────────────── */}
+								{screenerType === "index" && (
+									<div className="space-y-3">
+										<div className="flex flex-wrap items-center justify-between gap-2">
+											<div className="flex flex-wrap items-center gap-2">
+												<div className="relative w-64">
+													<Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+													<Input
+														placeholder="Search index or benchmark..."
+														className="pl-8 h-8 text-xs"
+														value={indexSearch}
+														onChange={(e) => {
+															setIndexSearch(e.target.value);
+															setIndexPage(1);
+														}}
+													/>
+													{indexSearch && (
+														<Button
+															variant="ghost"
+															size="sm"
+															className="absolute right-0 top-0 h-8 w-8 p-0"
+															onClick={() => setIndexSearch("")}
+														>
+															<X className="h-3 w-3" />
+														</Button>
+													)}
+												</div>
+												<select
+													className="h-8 text-xs border rounded-md px-2.5 bg-background"
+													value={indexCategory}
+													onChange={(e) => {
+														setIndexCategory(e.target.value);
+														setIndexPage(1);
+													}}
+												>
+													<option value="all">All Index Categories</option>
+													<option value="Broad Market">Broad Market Benchmarks</option>
+													<option value="Sectoral">Sectoral Leaders</option>
+												</select>
+											</div>
+											<div className="flex items-center gap-2">
+												<span className="text-xs text-muted-foreground">
+													{instrumentData?.meta?.total ?? 0} indices tracked
+												</span>
+												<div className="flex items-center border rounded-md">
+													<Button
+														variant={viewMode === "table" ? "secondary" : "ghost"}
+														size="sm"
+														className="h-7 w-7 p-0 rounded-r-none"
+														onClick={() => setViewMode("table")}
+													>
+														<List className="h-3.5 w-3.5" />
+													</Button>
+													<Button
+														variant={viewMode === "cards" ? "secondary" : "ghost"}
+														size="sm"
+														className="h-7 w-7 p-0 rounded-l-none"
+														onClick={() => setViewMode("cards")}
+													>
+														<LayoutGrid className="h-3.5 w-3.5" />
+													</Button>
+												</div>
+											</div>
+										</div>
+
+										{instrumentLoading ? (
+											<div className="flex items-center justify-center py-14">
+												<Loader2 className="h-6 w-6 animate-spin text-primary" />
+												<span className="ml-2 text-sm text-muted-foreground">Loading index metrics...</span>
+											</div>
+										) : viewMode === "cards" ? (
+											<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+												{(instrumentData?.data ?? []).map((idx: any) => (
+													<Card key={idx.id} className="hover:shadow-md transition-all duration-200 border-border/80 flex flex-col justify-between">
+														<CardContent className="p-4 space-y-3">
+															<div className="flex items-start justify-between gap-2">
+																<div className="flex-1 min-w-0">
+																	<div className="flex items-center gap-1.5 flex-wrap mb-1">
+																		<Badge variant="outline" className="text-[10px] font-mono py-0 px-1.5 h-4 bg-muted/60">
+																			{idx.exchange || "NSE"}
+																		</Badge>
+																		<Badge variant="outline" className="text-[10px] font-medium py-0 px-1.5 h-4 bg-teal-500/10 text-teal-600 border-teal-500/20">
+																			{idx.category}
+																		</Badge>
+																		{idx.macroSector && (
+																			<span className="text-[10px] text-muted-foreground">{idx.macroSector}</span>
+																		)}
+																	</div>
+																	<h3 className="font-semibold text-sm text-foreground truncate" title={idx.name}>
+																		{idx.name}
+																	</h3>
+																	<div className="flex items-baseline gap-2 mt-1">
+																		<span className="text-lg font-mono font-bold text-foreground">
+																			{Number(idx.currentPrice).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+																		</span>
+																		<span className={`text-xs font-mono font-semibold ${Number(idx.change1d) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+																			{Number(idx.change1d) >= 0 ? "+" : ""}{Number(idx.change1d).toFixed(2)}%
+																		</span>
+																	</div>
+																</div>
+															</div>
+
+															<div className="grid grid-cols-3 gap-2 bg-muted/40 rounded-lg p-2.5 text-center">
+																<div>
+																	<div className="text-[10px] text-muted-foreground">1Y Return</div>
+																	<div className={`text-xs font-mono font-semibold mt-0.5 ${Number(idx.returns1y) > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+																		{idx.returns1y != null ? `${Number(idx.returns1y).toFixed(1)}%` : "—"}
+																	</div>
+																</div>
+																<div>
+																	<div className="text-[10px] text-muted-foreground">3Y CAGR</div>
+																	<div className={`text-xs font-mono font-semibold mt-0.5 ${Number(idx.cagr3y) > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+																		{idx.cagr3y != null ? `${Number(idx.cagr3y).toFixed(1)}%` : "—"}
+																	</div>
+																</div>
+																<div>
+																	<div className="text-[10px] text-muted-foreground">P/E Ratio</div>
+																	<div className="text-xs font-mono font-semibold text-foreground mt-0.5">
+																		{idx.peRatio != null ? Number(idx.peRatio).toFixed(1) : "—"}
+																	</div>
+																</div>
+															</div>
+
+															<div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
+																<span>P/B: {idx.pbRatio != null ? Number(idx.pbRatio).toFixed(2) : "—"}</span>
+																<span>Div Yield: {idx.dividendYield != null ? `${Number(idx.dividendYield).toFixed(2)}%` : "—"}</span>
+																<span>{idx.constituentsCount} Stocks</span>
+															</div>
+
+															<div className="pt-2 border-t border-border/60">
+																<Button
+																	variant="default"
+																	size="sm"
+																	className="w-full h-7 text-xs bg-teal-600 hover:bg-teal-700 text-white"
+																	onClick={() => handleOpenChat({
+																		id: idx.id,
+																		name: idx.name,
+																		symbol: idx.symbol,
+																		assetType: "index",
+																		sector: idx.macroSector,
+																		macroSector: idx.macroSector,
+																		currentPrice: idx.currentPrice,
+																		cagr3y: idx.cagr3y,
+																		pe: idx.peRatio,
+																		constituentsCount: idx.constituentsCount,
+																	})}
+																>
+																	<Bot className="h-3.5 w-3.5 mr-1" />
+																	Chat with AI Advisor
+																</Button>
+															</div>
+														</CardContent>
+													</Card>
+												))}
+											</div>
+										) : (
+											<div className="border rounded-lg [overflow:clip]">
+												<div className="overflow-x-auto">
+													<table className="w-full text-sm">
+														<thead className="bg-card text-muted-foreground sticky top-0 z-10 border-b shadow-sm">
+															<tr>
+																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider w-8">#</th>
+																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider min-w-[200px]">Index Name</th>
+																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">Category</th>
+																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">Macro Sector</th>
+																<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Level</th>
+																<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">1D %</th>
+																<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">1Y Return</th>
+																<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">3Y CAGR</th>
+																<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">P/E</th>
+																<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Div %</th>
+																<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider w-20">AI Chat</th>
+															</tr>
+														</thead>
+														<tbody className="divide-y">
+															{(instrumentData?.data ?? []).map((idx: any, i: number) => (
+																<tr key={idx.id} className="hover:bg-muted/30 transition-colors">
+																	<td className="py-2 px-3 text-xs text-muted-foreground">{i + 1}</td>
+																	<td className="py-2 px-3 text-xs font-medium max-w-[220px]">
+																		<div className="font-semibold text-foreground truncate" title={idx.name}>{idx.name}</div>
+																		<div className="text-[10px] text-muted-foreground">{idx.symbol} • {idx.exchange}</div>
+																	</td>
+																	<td className="py-2 px-3 text-xs">
+																		<span className="px-2 py-0.5 rounded text-[10px] font-medium bg-teal-500/10 text-teal-600 dark:text-teal-400">
+																			{idx.category}
+																		</span>
+																	</td>
+																	<td className="py-2 px-3 text-xs text-muted-foreground">{idx.macroSector}</td>
+																	<td className="py-2 px-3 text-right font-mono text-xs font-semibold">
+																		{Number(idx.currentPrice).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+																	</td>
+																	<td className={`py-2 px-3 text-right font-mono text-xs font-medium ${Number(idx.change1d) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+																		{Number(idx.change1d) >= 0 ? "+" : ""}{Number(idx.change1d).toFixed(2)}%
+																	</td>
+																	<td className={`py-2 px-3 text-right font-mono text-xs font-semibold ${Number(idx.returns1y) > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+																		{idx.returns1y != null ? `${Number(idx.returns1y).toFixed(1)}%` : "—"}
+																	</td>
+																	<td className={`py-2 px-3 text-right font-mono text-xs font-semibold ${Number(idx.cagr3y) > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+																		{idx.cagr3y != null ? `${Number(idx.cagr3y).toFixed(1)}%` : "—"}
+																	</td>
+																	<td className="py-2 px-3 text-right font-mono text-xs text-foreground">
+																		{idx.peRatio != null ? Number(idx.peRatio).toFixed(1) : "—"}
+																	</td>
+																	<td className="py-2 px-3 text-right font-mono text-xs text-muted-foreground">
+																		{idx.dividendYield != null ? `${Number(idx.dividendYield).toFixed(2)}%` : "—"}
+																	</td>
+																	<td className="py-2 px-3 text-center text-xs">
+																		<Button
+																			variant="ghost"
+																			size="sm"
+																			className="h-6 w-6 p-0 text-teal-600 hover:text-teal-700 hover:bg-teal-50 dark:hover:bg-teal-950/40"
+																			title="Chat with AI"
+																			onClick={() => handleOpenChat({
+																				id: idx.id,
+																				name: idx.name,
+																				symbol: idx.symbol,
+																				assetType: "index",
+																				sector: idx.macroSector,
+																				macroSector: idx.macroSector,
+																				currentPrice: idx.currentPrice,
+																				cagr3y: idx.cagr3y,
+																				pe: idx.peRatio,
+																				constituentsCount: idx.constituentsCount,
+																			})}
+																		>
+																			<Bot className="h-3.5 w-3.5" />
+																		</Button>
+																	</td>
+																</tr>
+															))}
+														</tbody>
+													</table>
+												</div>
+											</div>
+										)}
+										<p className="text-[10px] text-muted-foreground text-center py-1">
+											⚠️ {instrumentData?.meta?.disclaimer ?? "Indices are market benchmarks and statistical indicators. Direct investment in an index is made via Index Funds or ETFs."}
+										</p>
 									</div>
 								)}
 
@@ -2168,29 +2881,64 @@ export default function AgentScreener() {
 								{showFilters && (
 									<div className="bg-muted/30 rounded-lg p-3 border space-y-2.5">
 										<div className="flex flex-wrap items-end gap-2">
-											<div className="w-36">
-												<Label className="text-[10px] text-muted-foreground mb-0.5 block">
-													Sector
+											<div className="w-44">
+												<Label className="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1 font-medium">
+													<Building2 className="h-2.5 w-2.5 text-blue-500" />
+													Macro Sector
 												</Label>
 												<Select
-													value={dbSector}
+													value={dbMacroSector || "all"}
 													onValueChange={(v) => {
-														setDbSector(v === "all" ? "" : v);
+														const val = v === "all" ? "" : v;
+														setDbMacroSector(val);
+														setDbSubSector("");
+														setDbSector("");
 														setDbPage(1);
 													}}
 												>
 													<SelectTrigger className="h-7 text-xs">
-														<SelectValue placeholder="All Sectors" />
+														<SelectValue placeholder="All Macro Sectors" />
 													</SelectTrigger>
-													<SelectContent>
-														<SelectItem value="all">All Sectors</SelectItem>
-														{(dbScreenerData?.filters?.sectors || [])
-															.sort()
-															.map((s: string) => (
-																<SelectItem key={s} value={s}>
-																	{s}
-																</SelectItem>
-															))}
+													<SelectContent className="max-h-64">
+														<SelectItem value="all">All Macro Sectors ({MACRO_SECTORS.length})</SelectItem>
+														{MACRO_SECTORS.map((m) => (
+															<SelectItem key={m} value={m}>
+																{m}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
+											</div>
+											<div className="w-48">
+												<Label className="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1 font-medium">
+													<Layers className="h-2.5 w-2.5 text-indigo-500" />
+													Sub-Sector / Industry
+												</Label>
+												<Select
+													value={dbSubSector || "all"}
+													disabled={!dbMacroSector}
+													onValueChange={(v) => {
+														const val = v === "all" ? "" : v;
+														setDbSubSector(val);
+														setDbSector(val);
+														setDbPage(1);
+													}}
+												>
+													<SelectTrigger className="h-7 text-xs">
+														<SelectValue placeholder={dbMacroSector ? "All Sub-Sectors" : "Select Macro First"} />
+													</SelectTrigger>
+													<SelectContent className="max-h-64">
+														<SelectItem value="all">
+															{dbMacroSector ? `All ${dbMacroSector}` : "Select Macro Sector"}
+														</SelectItem>
+														{(dbMacroSector
+															? (dbScreenerData?.filters?.taxonomy?.[dbMacroSector] || getSubsectorsForMacroSector(dbMacroSector))
+															: []
+														).map((sub: string) => (
+															<SelectItem key={sub} value={sub}>
+																{sub}
+															</SelectItem>
+														))}
 													</SelectContent>
 												</Select>
 											</div>
@@ -2335,7 +3083,17 @@ export default function AgentScreener() {
 												Search: {dbSearch} <span className="text-[9px] opacity-70">✕</span>
 											</button>
 										)}
-										{dbSector && (
+										{dbMacroSector && (
+											<button type="button" onClick={() => { setDbMacroSector(""); setDbSubSector(""); setDbSector(""); setDbPage(1); }} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] hover:bg-blue-500/20 transition-colors font-medium">
+												Macro: {dbMacroSector} <span className="text-[9px] opacity-70">✕</span>
+											</button>
+										)}
+										{dbSubSector && (
+											<button type="button" onClick={() => { setDbSubSector(""); setDbSector(""); setDbPage(1); }} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] hover:bg-indigo-500/20 transition-colors font-medium">
+												Sub: {dbSubSector} <span className="text-[9px] opacity-70">✕</span>
+											</button>
+										)}
+										{dbSector && !dbSubSector && !dbMacroSector && (
 											<button type="button" onClick={() => { setDbSector(""); setDbPage(1); }} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] hover:bg-blue-500/20 transition-colors">
 												Sector: {dbSector} <span className="text-[9px] opacity-70">✕</span>
 											</button>
@@ -2794,22 +3552,45 @@ export default function AgentScreener() {
 																				/>
 																			</td>
 																			<td className="py-2.5 px-3 text-center">
-																				<Button
-																					variant="ghost"
-																					size="sm"
-																					className="h-6 w-6 p-0"
-																					onClick={() =>
-																						setExpandedStock(
-																							expandedStock === stock.symbol
-																								? null
-																								: stock.symbol,
-																						)
-																					}
-																				>
-																					<Eye
-																						className={`h-3.5 w-3.5 ${expandedStock === stock.symbol ? "text-primary" : "text-muted-foreground"}`}
-																					/>
-																				</Button>
+																				<div className="flex items-center justify-center gap-1">
+																					<Button
+																						variant="ghost"
+																						size="sm"
+																						className="h-6 w-6 p-0 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+																						title="Chat with AI"
+																						onClick={(e) => {
+																							e.stopPropagation();
+																							handleOpenChat({
+																								id: stock.symbol,
+																								name: stock.companyName,
+																								symbol: stock.symbol,
+																								assetType: "stock",
+																								sector: stock.sector,
+																								currentPrice: stock.currentPrice,
+																								pe: stock.peRatio,
+																								rating: stock.fintekRating,
+																							});
+																						}}
+																					>
+																						<Bot className="h-3.5 w-3.5" />
+																					</Button>
+																					<Button
+																						variant="ghost"
+																						size="sm"
+																						className="h-6 w-6 p-0"
+																						onClick={() =>
+																							setExpandedStock(
+																								expandedStock === stock.symbol
+																									? null
+																									: stock.symbol,
+																							)
+																						}
+																					>
+																						<Eye
+																							className={`h-3.5 w-3.5 ${expandedStock === stock.symbol ? "text-primary" : "text-muted-foreground"}`}
+																						/>
+																					</Button>
+																				</div>
 																			</td>
 																		</tr>
 																		{expandedStock === stock.symbol && (
@@ -3545,10 +4326,27 @@ export default function AgentScreener() {
 																	</div>
 																</div>
 																<div className="flex items-center justify-between mt-2 pt-2 border-t">
-																	<div className="text-[10px] text-muted-foreground">
-																		Mkt Cap:{" "}
-																		{formatMarketCap(stock.marketCapValue)}
-																	</div>
+																	<Button
+																		variant="ghost"
+																		size="sm"
+																		className="h-6 px-2 text-[10px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+																		onClick={(e) => {
+																			e.stopPropagation();
+																			handleOpenChat({
+																				id: stock.symbol,
+																				name: stock.companyName,
+																				symbol: stock.symbol,
+																				assetType: "stock",
+																				sector: stock.sector,
+																				currentPrice: stock.currentPrice,
+																				pe: stock.peRatio,
+																				rating: stock.fintekRating,
+																			});
+																		}}
+																	>
+																		<Bot className="h-3 w-3 mr-1" />
+																		AI Copilot
+																	</Button>
 																	<div className="flex gap-1">
 																		<ScoreBadge
 																			score={stock.growthScore}
@@ -4807,14 +5605,22 @@ export default function AgentScreener() {
 							<CardHeader className="pb-2 pt-4 px-4">
 								<CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
 									<Building2 className="h-3.5 w-3.5" />
-									Top {distribution.sectors.filter((d: any) => !d.pinned).length} Sectors · REIT · InvIT
+									Macro Sectors & Sub-Sectors · REIT · InvIT
 								</CardTitle>
 							</CardHeader>
 							<CardContent className="px-4 pb-4">
 								<SectorDistributionPanel
 									sectors={distribution.sectors}
+									macroSectors={distribution.macroSectors}
 									onSectorClick={(sector) => {
+										setDbSubSector(sector);
 										setDbSector(sector);
+										setDbPage(1);
+									}}
+									onMacroSectorClick={(macro, sub) => {
+										setDbMacroSector(macro);
+										setDbSubSector(sub || "");
+										setDbSector(sub || "");
 										setDbPage(1);
 									}}
 								/>
@@ -4823,6 +5629,13 @@ export default function AgentScreener() {
 					)}
 				</CollapsibleContent>
 			</Collapsible>
+
+			{/* ── Universal Instrument AI Chat Dialog ──────────────────────── */}
+			<InstrumentChatDialog
+				instrument={activeChatInstrument}
+				isOpen={isChatOpen}
+				onClose={() => setIsChatOpen(false)}
+			/>
 		</div>
 	);
 }
