@@ -176,6 +176,28 @@ export class IrisProductMapper {
     };
   }
 
+  /** Loan Against Securities (LAS / LAMF) */
+  static normalizeLasLoan(irisLoan: Record<string, unknown>) {
+    return {
+      providerId: (irisLoan.loanId || irisLoan.applicationId) as string,
+      provider: "KFINTECH",
+      assetClass: "LOAN_AGAINST_SECURITIES",
+      name: `LAS — ${(irisLoan.schemeName as string) || "Mutual Fund Loan"}`,
+      loanAmount: irisLoan.loanAmount as number,
+      interestRate: (irisLoan.interestRate as number) || 10.5,
+      pledgedUnits: irisLoan.pledgedUnits as number,
+      eligibleValue: irisLoan.eligibleValue as number,
+      status: (irisLoan.status as string) || "initiated",
+      metadata: {
+        schemeCode: irisLoan.schemeCode as string,
+        folioNumber: irisLoan.folioNumber as string,
+        executionApi: "iris",
+        orderType: "las_loan_application",
+        fintekproRoute: "/api/iris/las/apply",
+      },
+    };
+  }
+
   private static mapRiskLevel(
     riskometer?: string,
   ): "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" {

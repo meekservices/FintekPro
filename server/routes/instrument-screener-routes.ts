@@ -34,6 +34,8 @@ import { instrumentAiChatService } from "../services/instrument-ai-chat-service"
 import { MACRO_SECTORS, getMacroSectorsWithSubsectors } from "@shared/sector-taxonomy";
 import { CURATED_SMALLCASES, CURATED_INDICES } from "../services/screener-curated-data";
 import { IRIS_PRODUCT_REGISTRY } from "../services/iris/irisProductRegistry";
+import { multiAssetPerformanceService } from "../services/multi-asset-performance-service";
+import { multiVendorInstrumentMasterService } from "../services/multi-vendor-instrument-master-service";
 
 export const instrumentScreenerRouter = Router();
 
@@ -1254,4 +1256,216 @@ instrumentScreenerRouter.post("/instruments/chat", async (req: Request, res: Res
     });
   }
 });
+
+/**
+ * POST /api/screener/performance/chart
+ * Returns aligned normalized (base-100) or raw time-series across multi-asset instruments
+ * (Stocks, Mutual Funds, Indices, Smallcases, ETFs).
+ */
+instrumentScreenerRouter.post("/instruments/performance/chart", async (req: Request, res: Response) => {
+  const start = Date.now();
+  const { instruments, period = "1Y", startDate, endDate, rebaseTo100 = true } = req.body;
+
+  if (!instruments || !Array.isArray(instruments) || instruments.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error_code: "INVALID_INSTRUMENTS",
+      message: "Must provide a non-empty array of instruments: [{ symbol, type, name? }]",
+    });
+  }
+
+  try {
+    const result = await multiAssetPerformanceService.getComparativeChart({
+      instruments,
+      period,
+      startDate,
+      endDate,
+      rebaseTo100,
+    });
+
+    return res.json({
+      success: true,
+      data: result,
+      meta: {
+        timestamp: new Date().toISOString(),
+        engine_version: ENGINE_VERSION,
+        latency_ms: Date.now() - start,
+      },
+    });
+  } catch (err: any) {
+    logger.error("Performance chart error", {
+      event: "PERFORMANCE_CHART_ERROR",
+      message: err.message,
+      latency_ms: Date.now() - start,
+    });
+
+    return res.status(500).json({
+      success: false,
+      error_code: "PERFORMANCE_CHART_ERROR",
+      message: err.message || "Failed to generate performance chart series",
+      retryable: true,
+    });
+  }
+});
+
+/**
+ * POST /api/screener/performance/backtest
+ * Simulates portfolio performance with Lump-Sum or SIP, periodic rebalancing,
+ * and quant metrics (CAGR, Sharpe, Sortino, Max Drawdown, Beta, Alpha vs Benchmark).
+ */
+instrumentScreenerRouter.post("/instruments/performance/backtest", async (req: Request, res: Response) => {
+  const start = Date.now();
+  const {
+    strategyName = "Custom Multi-Asset Strategy",
+    mode = "lumpsum",
+    initialAmount = 100000,
+    monthlySipAmount = 10000,
+    startDate,
+    endDate,
+    rebalanceFrequency = "quarterly",
+    benchmarkCode = "NIFTY50",
+    constituents,
+  } = req.body;
+
+  if (!constituents || !Array.isArray(constituents) || constituents.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error_code: "INVALID_CONSTITUENTS",
+      message: "Must provide non-empty constituents array: [{ symbol, type, weight }]",
+    });
+  }
+
+  try {
+    const result = await multiAssetPerformanceService.runBacktest({
+      strategyName,
+      mode,
+      initialAmount: Number(initialAmount) || 100000,
+      monthlySipAmount: Number(monthlySipAmount) || 10000,
+      startDate,
+      endDate,
+      rebalanceFrequency,
+      benchmarkCode,
+      constituents,
+      userId: (req as any).user?.id,
+    });
+
+    return res.json({
+      success: true,
+      data: result,
+      meta: {
+        timestamp: new Date().toISOString(),
+        engine_version: ENGINE_VERSION,
+        latency_ms: Date.now() - start,
+      },
+    });
+  } catch (err: any) {
+    logger.error("Strategy backtest error", {
+      event: "STRATEGY_BACKTEST_ERROR",
+      message: err.message,
+      latency_ms: Date.now() - start,
+    });
+
+    return res.status(500).json({
+      success: false,
+      error_code: "STRATEGY_BACKTEST_ERROR",
+      message: err.message || "Failed to run strategy backtest",
+      retryable: true,
+    });
+  }
+});
+
+/**
+ * GET /api/screener/performance/backtest/history
+ * Retrieves saved backtest runs
+ */
+instrumentScreenerRouter.get("/instruments/performance/backtest/history", async (req: Request, res: Response) => {
+  const start = Date.now();
+  try {
+    const history = await multiAssetPerformanceService.getBacktestHistory((req as any).user?.id);
+    return res.json({
+      success: true,
+      data: history,
+      meta: {
+        timestamp: new Date().toISOString(),
+        engine_version: ENGINE_VERSION,
+        latency_ms: Date.now() - start,
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error_code: "BACKTEST_HISTORY_ERROR",
+      message: err.message || "Failed to retrieve backtest history",
+    });
+  }
+});
+
+/**
+ * GET /api/screener/instruments/vendors/directory
+ * Directory of supported financial vendors, capabilities, and execution matrices.
+ */
+instrumentScreenerRouter.get("/instruments/vendors/directory", async (req: Request, res: Response) => {
+  const start = Date.now();
+  const assetClasses = ["stock", "mutual_fund", "bond", "smallcase", "us_stock", "fd", "nps"];
+  const matrix = assetClasses.map(ac => multiVendorInstrumentMasterService.getVendorsForAssetClass(ac));
+
+  return res.json({
+    success: true,
+    data: {
+      vendors: [
+        { id: "IRIS", name: "IRIS (KFintech)", type: "RTA_AND_LENDING", description: "Mutual Funds, Corporate FDs, NPS, Bonds, and TPIN-based folio LAS" },
+        { id: "UPSTOX", name: "Upstox Pro", type: "BROKER_EXCHANGE", description: "NSE/BSE Listed Equities, Derivatives, Real-time Market Feeds, and DMA Execution" },
+        { id: "SMALLCASE", name: "Smallcase Gateway", type: "BASKET_AND_LENDING", description: "Thematic Equity Baskets, Model Portfolios, and Demat Equity LAS" },
+        { id: "ALPACA", name: "Alpaca Securities", type: "US_BROKER", description: "US Equities, Dollar-denominated assets, and Fractional Share Trading" },
+        { id: "AMFI", name: "AMFI / MFAPI", type: "NAV_AGGREGATOR", description: "Official Mutual Fund NAVs and Scheme Taxonomy" },
+        { id: "BSE_STAR_MF", name: "BSE StAR MF", type: "EXCHANGE_MF_GATEWAY", description: "Exchange-traded Mutual Fund Order Routing Gateway" },
+      ],
+      assetClassMatrix: matrix,
+    },
+    meta: {
+      timestamp: new Date().toISOString(),
+      engine_version: ENGINE_VERSION,
+      latency_ms: Date.now() - start,
+    },
+  });
+});
+
+/**
+ * GET /api/screener/instruments/:identifier/vendors
+ * Multi-vendor profile, routing, capabilities, and collateral lending for a specific instrument.
+ */
+instrumentScreenerRouter.get("/instruments/:identifier/vendors", async (req: Request, res: Response) => {
+  const start = Date.now();
+  const { identifier } = req.params;
+  const isin = identifier.length >= 12 && /^[A-Z]{2}[A-Z0-9]{10}$/.test(identifier.toUpperCase()) ? identifier.toUpperCase() : undefined;
+  const amfiCode = /^\d{5,7}$/.test(identifier) ? Number(identifier) : undefined;
+  const symbol = !isin && !amfiCode ? identifier.toUpperCase() : undefined;
+
+  const profile = await multiVendorInstrumentMasterService.resolveInstrument({
+    isin,
+    symbol,
+    amfiCode,
+    instrumentType: req.query.type as string | undefined,
+  });
+
+  if (!profile) {
+    return res.status(404).json({
+      success: false,
+      error_code: "INSTRUMENT_NOT_FOUND",
+      message: `Instrument '${identifier}' not found in multi-vendor registry`,
+    });
+  }
+
+  return res.json({
+    success: true,
+    data: profile,
+    meta: {
+      timestamp: new Date().toISOString(),
+      engine_version: ENGINE_VERSION,
+      latency_ms: Date.now() - start,
+    },
+  });
+});
+
+
 

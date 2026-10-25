@@ -769,3 +769,64 @@ export type InsertScreenerShareholding = z.infer<typeof insertScreenerShareholdi
 // REIT types and schemas are now in reit-invit.ts
 export { insertReitSchema };
 export type { Reit, InsertReit } from './reit-invit';
+
+// ── Multi-Asset Strategy Backtest Runs ──────────────────────────────────────
+export const strategyBacktestRuns = pgTable("strategy_backtest_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id"),
+  strategyName: varchar("strategy_name", { length: 255 }).notNull(),
+  mode: varchar("mode", { length: 30 }).default("lumpsum"), // 'lumpsum' | 'sip'
+  initialAmount: decimal("initial_amount", { precision: 18, scale: 2 }).default("100000"),
+  monthlySipAmount: decimal("monthly_sip_amount", { precision: 18, scale: 2 }),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  rebalanceFrequency: varchar("rebalance_frequency", { length: 30 }).default("quarterly"), // 'none' | 'monthly' | 'quarterly' | 'annual'
+  benchmarkCode: varchar("benchmark_code", { length: 50 }).default("NIFTY50"),
+  constituents: jsonb("constituents").$type<Array<{
+    symbol: string;
+    type: "stock" | "mutual_fund" | "index" | "smallcase" | "etf";
+    name?: string;
+    weight: number;
+  }>>().notNull(),
+  metrics: jsonb("metrics").$type<{
+    cagr: number;
+    annualizedVolatility: number;
+    sharpeRatio: number;
+    sortinoRatio: number;
+    maxDrawdown: number;
+    calmarRatio: number;
+    beta: number;
+    alpha: number;
+    totalReturn: number;
+    benchmarkCagr: number;
+    benchmarkMaxDrawdown: number;
+  }>(),
+  timeSeries: jsonb("time_series").$type<Array<{
+    date: string;
+    portfolioValue: number;
+    benchmarkValue: number;
+    portfolioDrawdown: number;
+    benchmarkDrawdown: number;
+  }>>(),
+  yearByYearReturns: jsonb("year_by_year_returns").$type<Array<{
+    year: number;
+    portfolioReturn: number;
+    benchmarkReturn: number;
+  }>>(),
+  engineVersion: varchar("engine_version", { length: 50 }).default("FASP-AI-v3.0"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_strategy_backtest_user").on(table.userId),
+  index("idx_strategy_backtest_created").on(table.createdAt),
+  index("idx_strategy_backtest_benchmark").on(table.benchmarkCode),
+]);
+
+export const insertStrategyBacktestRunSchema = createInsertSchema(strategyBacktestRuns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type StrategyBacktestRun = typeof strategyBacktestRuns.$inferSelect;
+export type InsertStrategyBacktestRun = z.infer<typeof insertStrategyBacktestRunSchema>;
+

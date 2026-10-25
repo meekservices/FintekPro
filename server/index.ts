@@ -291,8 +291,10 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 				// enrichHolding uses this for DB-first ISIN resolution (Step 0a).
 				// Non-fatal: falls back to in-memory instrument-registry if missing.
 				logBootProgress("Step 2e-2 (bg): ISIN Equalizer — creating isin_registry table...");
-				const { createISINRegistryTable } = await import("./startup/schema-repairs");
+				const { createISINRegistryTable, ensureMultiVendorInstrumentMasterColumns, ensureStrategyBacktestRunsTable } = await import("./startup/schema-repairs");
 				await createISINRegistryTable();
+				await ensureMultiVendorInstrumentMasterColumns();
+				await ensureStrategyBacktestRunsTable();
 
 				// ── Screener 5-Year Financials Sync for NSE ──────────────────
 				logBootProgress("Step 2e-3 (bg): Syncing Screener 5-year financials for NSE...");

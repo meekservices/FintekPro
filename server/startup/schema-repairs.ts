@@ -4309,6 +4309,147 @@ export async function createISINRegistryTable(): Promise<void> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// MIGRATION: Multi-Vendor Instrument Master Columns & Backtest Persistence
+// Extends isin_registry and financial_instruments_cache with multi-vendor
+// mapping columns (IRIS, UPSTOX, SMALLCASE, ALPACA, AMFI, BSE_STAR_MF)
+// and ensures the strategy_backtest_runs table exists for quant backtests.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function ensureMultiVendorInstrumentMasterColumns(): Promise<void> {
+  try {
+    const { pool: migPool } = await import("../db");
+
+    // 1. isin_registry multi-vendor columns
+    await migPool.query(`
+      ALTER TABLE isin_registry
+        ADD COLUMN IF NOT EXISTS iris_product_code VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS upstox_instrument_key VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS smallcase_id VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS alpaca_symbol VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS bse_star_scheme_code VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS primary_vendor VARCHAR(50) DEFAULT 'DIRECT',
+        ADD COLUMN IF NOT EXISTS supported_vendors JSONB DEFAULT '[]'::jsonb,
+        ADD COLUMN IF NOT EXISTS vendor_mapping JSONB DEFAULT '{}'::jsonb,
+        ADD COLUMN IF NOT EXISTS las_eligible BOOLEAN DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS las_vendor VARCHAR(50) DEFAULT 'NONE',
+        ADD COLUMN IF NOT EXISTS las_ltv_percent DECIMAL(5,2);
+
+      CREATE INDEX IF NOT EXISTS idx_isin_registry_iris_code ON isin_registry(iris_product_code) WHERE iris_product_code IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_isin_registry_upstox_key ON isin_registry(upstox_instrument_key) WHERE upstox_instrument_key IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_isin_registry_primary_vendor ON isin_registry(primary_vendor);
+    `);
+    console.log("  ✅ [Multi-Vendor Instrument Master] isin_registry multi-vendor columns ensured");
+
+    // 2. financial_instruments_cache multi-vendor columns
+    await migPool.query(`
+      CREATE TABLE IF NOT EXISTS financial_instruments_cache (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        instrument_type VARCHAR NOT NULL,
+        symbol VARCHAR NOT NULL,
+        isin VARCHAR,
+        name TEXT NOT NULL,
+        exchange VARCHAR,
+        currency VARCHAR DEFAULT 'INR',
+        country VARCHAR DEFAULT 'IN',
+        current_price DECIMAL(15, 4),
+        previous_close DECIMAL(15, 4),
+        day_change DECIMAL(15, 4),
+        day_change_percent DECIMAL(10, 4),
+        day_high DECIMAL(15, 4),
+        day_low DECIMAL(15, 4),
+        open_price DECIMAL(15, 4),
+        volume BIGINT,
+        nav DECIMAL(15, 4),
+        nav_date DATE,
+        return_1d DECIMAL(10, 4),
+        return_1w DECIMAL(10, 4),
+        return_1m DECIMAL(10, 4),
+        return_3m DECIMAL(10, 4),
+        return_6m DECIMAL(10, 4),
+        return_1y DECIMAL(10, 4),
+        return_3y DECIMAL(10, 4),
+        return_5y DECIMAL(10, 4),
+        yield_percent DECIMAL(10, 4),
+        coupon_rate DECIMAL(10, 4),
+        maturity_date DATE,
+        market_cap DECIMAL(20, 2),
+        pe_ratio DECIMAL(10, 2),
+        dividend_yield DECIMAL(10, 4),
+        category VARCHAR,
+        sector VARCHAR,
+        sub_sector VARCHAR,
+        amc VARCHAR,
+        fund_manager VARCHAR,
+        expense_ratio DECIMAL(6, 4),
+        aum DECIMAL(20, 2),
+        risk_level VARCHAR,
+        volatility DECIMAL(10, 4),
+        sharpe_ratio DECIMAL(10, 4),
+        beta DECIMAL(10, 4),
+        data_source VARCHAR NOT NULL DEFAULT 'SYSTEM',
+        secondary_source VARCHAR,
+        confidence_score INTEGER DEFAULT 100,
+        is_verified BOOLEAN DEFAULT FALSE,
+        verification_notes TEXT,
+        primary_vendor VARCHAR(50) DEFAULT 'DIRECT',
+        supported_vendors JSONB DEFAULT '[]'::jsonb,
+        vendor_product_map JSONB DEFAULT '{}'::jsonb,
+        las_eligible BOOLEAN DEFAULT FALSE,
+        las_vendor VARCHAR(50) DEFAULT 'NONE',
+        las_ltv_percent DECIMAL(5,2),
+        price_updated_at TIMESTAMPTZ,
+        fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      ALTER TABLE financial_instruments_cache
+        ADD COLUMN IF NOT EXISTS primary_vendor VARCHAR(50) DEFAULT 'DIRECT',
+        ADD COLUMN IF NOT EXISTS supported_vendors JSONB DEFAULT '[]'::jsonb,
+        ADD COLUMN IF NOT EXISTS vendor_product_map JSONB DEFAULT '{}'::jsonb,
+        ADD COLUMN IF NOT EXISTS las_eligible BOOLEAN DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS las_vendor VARCHAR(50) DEFAULT 'NONE',
+        ADD COLUMN IF NOT EXISTS las_ltv_percent DECIMAL(5,2);
+    `);
+    console.log("  ✅ [Multi-Vendor Instrument Master] financial_instruments_cache multi-vendor columns ensured");
+  } catch (err: any) {
+    console.warn("  ⚠️  [Multi-Vendor Instrument Master] schema repair (non-fatal):", err?.message?.slice(0, 100));
+  }
+}
+
+export async function ensureStrategyBacktestRunsTable(): Promise<void> {
+  try {
+    const { pool: migPool } = await import("../db");
+    await migPool.query(`
+      CREATE TABLE IF NOT EXISTS strategy_backtest_runs (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id VARCHAR,
+        strategy_name VARCHAR(255) NOT NULL,
+        mode VARCHAR(30) DEFAULT 'lumpsum',
+        initial_amount DECIMAL(18, 2) DEFAULT 100000,
+        monthly_sip_amount DECIMAL(18, 2),
+        start_date DATE NOT NULL,
+        end_date DATE NOT NULL,
+        rebalance_frequency VARCHAR(30) DEFAULT 'quarterly',
+        benchmark_code VARCHAR(50) DEFAULT 'NIFTY50',
+        constituents JSONB NOT NULL,
+        metrics JSONB,
+        time_series JSONB,
+        year_by_year_returns JSONB,
+        engine_version VARCHAR(50) DEFAULT 'FASP-AI-v3.0',
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_strategy_backtest_user ON strategy_backtest_runs(user_id);
+      CREATE INDEX IF NOT EXISTS idx_strategy_backtest_created ON strategy_backtest_runs(created_at);
+      CREATE INDEX IF NOT EXISTS idx_strategy_backtest_benchmark ON strategy_backtest_runs(benchmark_code);
+    `);
+    console.log("  ✅ [StrategyBacktestRuns] table and indexes ensured");
+  } catch (err: any) {
+    console.warn("  ⚠️  [StrategyBacktestRuns] table creation (non-fatal):", err?.message?.slice(0, 100));
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MIGRATION: Agent Geo Coverage Columns (Lead Pipeline v2)
 // Adds operating_cities and operating_states JSONB columns to the users table.
 // These enable geo-priority lead routing in the Lead Assignment Engine.

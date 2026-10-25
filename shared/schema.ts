@@ -9298,6 +9298,16 @@ export const financialInstrumentsCache = pgTable("financial_instruments_cache", 
   confidenceScore: integer("confidence_score").default(100),
   isVerified: boolean("is_verified").default(false),
   verificationNotes: text("verification_notes"),
+
+  // ── Multi-Vendor Architecture & Capabilities ──────────────────────────────
+  primaryVendor: varchar("primary_vendor", { length: 50 }).default("DIRECT"), // 'IRIS' | 'UPSTOX' | 'SMALLCASE' | 'ALPACA' | 'AMFI' | 'DIRECT'
+  supportedVendors: jsonb("supported_vendors").$type<string[]>().default([]),
+  vendorProductMap: jsonb("vendor_product_map").$type<Record<string, any>>().default({}),
+
+  // ── Lending / Collateral (LAS / LAMF) ────────────────────────────────────
+  lasEligible: boolean("las_eligible").default(false),
+  lasVendor: varchar("las_vendor", { length: 50 }).default("NONE"), // 'IRIS' | 'SMALLCASE' | 'BOTH' | 'NONE'
+  lasLtvPercent: decimal("las_ltv_percent", { precision: 5, scale: 2 }), // e.g. 50.00 for equity, 80.00 for debt
   
   priceUpdatedAt: timestamp("price_updated_at"),
   fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
@@ -12380,6 +12390,21 @@ export const isinRegistry = pgTable("isin_registry", {
   bloombergTicker:   varchar("bloomberg_ticker", { length: 50 }), // e.g. "QQQ US Equity"
   reutersRic:        varchar("reuters_ric", { length: 50 }), // Refinitiv RIC
 
+  // ── Multi-Vendor Identifiers & Cross-Platform Mapping ───────────────────
+  irisProductCode:   varchar("iris_product_code", { length: 50 }),   // KFintech IRIS scheme/product code
+  upstoxInstrumentKey: varchar("upstox_instrument_key", { length: 100 }), // e.g. "NSE_EQ|INE002A01018"
+  smallcaseId:       varchar("smallcase_id", { length: 50 }),        // Smallcase instrument identifier
+  alpacaSymbol:      varchar("alpaca_symbol", { length: 20 }),       // US Equities fractional/Alpaca ticker
+  bseStarSchemeCode: varchar("bse_star_scheme_code", { length: 50 }), // BSE StAR MF unique scheme code
+  primaryVendor:     varchar("primary_vendor", { length: 50 }).default("DIRECT"), // 'IRIS' | 'UPSTOX' | 'SMALLCASE' | 'ALPACA' | 'AMFI' | 'DIRECT'
+  supportedVendors:  jsonb("supported_vendors").$type<string[]>().default([]), // ['IRIS', 'UPSTOX', 'SMALLCASE', 'ALPACA', 'AMFI', 'BSE_STAR_MF']
+  vendorMapping:     jsonb("vendor_mapping").$type<Record<string, any>>().default({}), // Detailed vendor metadata payload
+
+  // ── Lending / Collateral (LAS / LAMF) ────────────────────────────────────
+  lasEligible:       boolean("las_eligible").default(false).notNull(),
+  lasVendor:         varchar("las_vendor", { length: 50 }).default("NONE"), // 'IRIS' | 'SMALLCASE' | 'BOTH' | 'NONE'
+  lasLtvPercent:     decimal("las_ltv_percent", { precision: 5, scale: 2 }), // Regulatory max LTV % (e.g. 50.00% equity, 80.00% debt)
+
   // ── Status & metadata ───────────────────────────────────────────────────
   isActive:          boolean("is_active").default(true).notNull(),
   isProxy:           boolean("is_proxy").default(false).notNull(), // true = code is a proxy (not exact fund)
@@ -12394,6 +12419,9 @@ export const isinRegistry = pgTable("isin_registry", {
   index("idx_isin_registry_nse_symbol").on(t.nseSymbol),
   index("idx_isin_registry_type_country").on(t.instrumentType, t.country),
   index("idx_isin_registry_canonical_name").on(t.canonicalName),
+  index("idx_isin_registry_iris_code").on(t.irisProductCode),
+  index("idx_isin_registry_upstox_key").on(t.upstoxInstrumentKey),
+  index("idx_isin_registry_primary_vendor").on(t.primaryVendor),
 ]);
 
 export type ISINRegistryRecord   = typeof isinRegistry.$inferSelect;

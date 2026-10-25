@@ -27,7 +27,8 @@ export type IrisProductCategory =
   | "SWP"
   | "SWITCH"
   | "REDEMPTION"
-  | "NFO";
+  | "NFO"
+  | "LOAN_AGAINST_SECURITIES";
 
 export interface IrisEndpointDef {
   /** Canonical IRIS REST path (relative to IRIS_BASE_URL) */
@@ -226,6 +227,17 @@ export const IRIS_PRODUCT_REGISTRY: Record<IrisProductCategory, IrisEndpointDef>
     requiresDisclaimer: true,
     label: "NFO Application",
   },
+
+  LOAN_AGAINST_SECURITIES: {
+    irisPath: "/las/loans/apply",
+    method: "POST",
+    fintekproRoute: "/api/iris/las/apply",
+    irisProductType: "LAS_LOAN_APPLICATION",
+    requiredFields: ["pan", "folioNumber", "schemeCode", "pledgeUnits", "loanAmount", "bankAccountId"],
+    requiresAdvisorApproval: true,
+    requiresDisclaimer: true,
+    label: "Loan Against Securities / Mutual Funds (LAS/LAMF)",
+  },
 };
 
 /**
@@ -256,6 +268,8 @@ export const IRIS_LIFECYCLE_ENDPOINTS: Record<
   "KYC:status":             { irisPath: "/investors/:pan/ekyc-status",               method: "GET",  fintekproRoute: "/api/iris/investors/:pan/ekyc-status",               label: "eKYC Status" },
   "KYC:kra":                { irisPath: "/investors/:pan/kra-status",                method: "GET",  fintekproRoute: "/api/iris/investors/:pan/kra-status",                label: "KRA Status" },
   "NFO:cancel":             { irisPath: "/nfo/applications/:applicationId/cancel",   method: "POST", fintekproRoute: "/api/iris/nfo/applications/:applicationId/cancel",   label: "NFO Cancel" },
+  "LOAN_AGAINST_SECURITIES:status": { irisPath: "/las/loans/:loanId/status",         method: "GET",  fintekproRoute: "/api/iris/las/loans/:loanId/status",         label: "LAS Loan Status" },
+  "LOAN_AGAINST_SECURITIES:pledge": { irisPath: "/las/pledge/confirm",              method: "POST", fintekproRoute: "/api/iris/las/pledge/confirm",              label: "LAS Pledge Confirmation" },
 };
 
 /**
