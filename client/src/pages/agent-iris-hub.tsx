@@ -29,7 +29,6 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -86,7 +85,6 @@ import {
 	Plus,
 	Fingerprint,
 	LineChart,
-	PlusCircle,
 	Star,
 	User,
 	BookOpen,
@@ -99,8 +97,6 @@ import {
 	Building2,
 	Bell,
 	MessageSquare,
-	ChevronDown,
-	ChevronUp,
 	TrendingDown,
 	ShieldCheck,
 	Loader2,
@@ -2082,8 +2078,7 @@ function ManageInvestorPanel({ pan, onClose }: ManagePanelProps) {
 					)}
 
 					{tab === "contact" && (
-						<>
-							<div className="grid grid-cols-1 gap-3">
+						<div className="grid grid-cols-1 gap-3">
 								<div>
 									<Label className="text-xs">New Email Address</Label>
 									<Input
@@ -2118,7 +2113,6 @@ function ManageInvestorPanel({ pan, onClose }: ManagePanelProps) {
 									{updateMobile.isPending ? "Saving…" : "Update Mobile"}
 								</Button>
 							</div>
-						</>
 					)}
 
 					{tab === "fatca" && (
@@ -10968,8 +10962,9 @@ function MandatesTab() {
 						</p>
 					) : (
 						<>
-							<div
-								className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${physDragging ? "border-primary bg-primary/5" : "border-muted-foreground/30 hover:border-primary/50"}`}
+							<button
+								type="button"
+								className={`w-full border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${physDragging ? "border-primary bg-primary/5" : "border-muted-foreground/30 hover:border-primary/50"}`}
 								onDragOver={(e) => {
 									e.preventDefault();
 									setPhysDragging(true);
@@ -11035,7 +11030,7 @@ function MandatesTab() {
 										</p>
 									</div>
 								)}
-							</div>
+							</button>
 							<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 								<div>
 									<Label>Bank Name *</Label>
@@ -13075,15 +13070,17 @@ function LasTab() {
 	// ── State ──────────────────────────────────────────────────────────────────
 	const [eligibilityPan, setEligibilityPan] = useState("");
 	const [eligibilityTrigger, setEligibilityTrigger] = useState<string | null>(null);
-	const [pledgeStep, setPledgeStep] = useState<"idle" | "eligibility" | "confirm" | "submitted">("idle");
+	const [selectedVendor, setSelectedVendor] = useState<"ALL" | "IRIS" | "SMALLCASE">("ALL");
+	const [_pledgeStep, setPledgeStep] = useState<"idle" | "eligibility" | "confirm" | "submitted">("idle");
 	const [selectedFolios, setSelectedFolios] = useState<string[]>([]);
-	const [loanAmount, setLoanAmount] = useState("");
+	const [selectedSecurities, setSelectedSecurities] = useState<string[]>([]);
+	const [loanAmount, _setLoanAmount] = useState("");
 	const [activeSection, setActiveSection] = useState<"eligibility" | "pledges" | "loans">("eligibility");
 
 	// ── Queries ────────────────────────────────────────────────────────────────
-	const { data: eligibilityData, isLoading: eligLoading } = useQuery<any>({
-		queryKey: ["/api/iris/las/mf/eligibility", eligibilityTrigger],
-		queryFn: () => irisGet(`/api/iris/las/mf/eligibility/${eligibilityTrigger}`),
+	const { data: compareData, isLoading: eligLoading } = useQuery<any>({
+		queryKey: ["/api/las/compare", eligibilityTrigger],
+		queryFn: () => irisGet(`/api/las/compare/${eligibilityTrigger}`),
 		enabled: !!eligibilityTrigger,
 		retry: false,
 	});
@@ -13114,7 +13111,7 @@ function LasTab() {
 			return json.data;
 		},
 		onSuccess: (data) => {
-			toast({ title: "Pledge initiated", description: `Local Pledge ID: ${data?.localPledgeId ?? "—"}. Investor will be notified to approve via TPIN.` });
+			toast({ title: "IRIS Pledge Initiated", description: `Local Pledge ID: ${data?.localPledgeId ?? "—"}. Investor will receive OTP/TPIN from depository.` });
 			setPledgeStep("submitted");
 			queryClient.invalidateQueries({ queryKey: ["/api/iris/las/pledges"] });
 		},
@@ -13123,14 +13120,46 @@ function LasTab() {
 		},
 	});
 
-	const eligibility = eligibilityData?.data;
+	const initiateSmallcaseLending = useMutation({
+		mutationFn: async (body: Record<string, unknown>) => {
+			const res = await fetch("/api/smallcase/las/transaction", {
+				method: "POST",
+				credentials: "include",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+			const json = await res.json();
+			if (!json.success) throw new Error(json.error?.message ?? "Smallcase transaction failed");
+			return json.data;
+		},
+		onSuccess: (data) => {
+			toast({
+				title: "Smallcase Lending Initialized",
+				description: `Transaction ID: ${data?.transactionId ?? "—"}. Opening Smallcase Gateway SDK for depository lien marking.`,
+			});
+		},
+		onError: (err: Error) => {
+			toast({ title: "Smallcase lending failed", description: err.message, variant: "destructive" });
+		},
+	});
+
+	const comparison = compareData?.data;
+	const eligibility = comparison?.irisQuote;
+	const smallcaseQuote = comparison?.smallcaseQuote;
+	const consolidated = comparison?.consolidated;
+
 	const eligibleFolios: any[] = eligibility?.eligibleFolios ?? [];
+	const eligibleSecurities: any[] = smallcaseQuote?.eligibleSecurities ?? [];
 	const pledges: any[] = Array.isArray(pledgesData?.data) ? pledgesData.data : pledgesData?.data?.pledges ?? [];
 	const loans: any[] = Array.isArray(loansData?.data) ? loansData.data : loansData?.data?.loans ?? [];
 
-	const maxLoan = eligibleFolios
+	const maxMfLoan = eligibleFolios
 		.filter((f) => selectedFolios.includes(f.folioNo))
 		.reduce((sum, f) => sum + (f.maxLoanAmount ?? 0), 0);
+
+	const maxSecLoan = eligibleSecurities
+		.filter((s) => selectedSecurities.includes(s.isin))
+		.reduce((sum, s) => sum + (s.maxLoanAmount ?? 0), 0);
 
 	return (
 		<div className="space-y-6">
@@ -13138,11 +13167,10 @@ function LasTab() {
 			<div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4 flex gap-3">
 				<AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
 				<div className="text-sm text-amber-800 dark:text-amber-200">
-					<strong>SEBI Advisory Disclosure:</strong> Loan Against Securities / Mutual Funds
-					involves pledging investor assets as collateral. Interest rates, LTV ratios, and
-					eligibility are determined by IRIS-integrated lenders. This tool is a{" "}
-					<strong>Decision Support System only</strong> — loan applications require explicit
-					investor consent. Market volatility may affect collateral value and trigger margin calls.
+					<strong>SEBI Advisory Disclosure:</strong> Loan Against Securities (LAS/LAMF)
+					involves pledging investor assets as collateral. FintekPro supports dual licensed providers:
+					<strong> IRIS (KFintech)</strong> for mutual funds and <strong>Smallcase Gateway</strong> for demat equities & ETFs.
+					Decision Support System only — loan applications require explicit investor consent.
 				</div>
 			</div>
 
@@ -13169,13 +13197,34 @@ function LasTab() {
 				<div className="space-y-4">
 					<Card>
 						<CardHeader>
-							<CardTitle className="text-base flex items-center gap-2">
-								<Calculator className="h-4 w-4 text-primary" />
-								MF Folio Eligibility Check
-							</CardTitle>
-							<CardDescription>
-								Check which mutual fund folios are eligible for Loan Against Mutual Funds (LAMF).
-							</CardDescription>
+							<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+								<div>
+									<CardTitle className="text-base flex items-center gap-2">
+										<Calculator className="h-4 w-4 text-primary" />
+										Multi-Vendor LAS Collateral & Borrowing Power Check
+									</CardTitle>
+									<CardDescription>
+										Evaluates Mutual Funds via IRIS and Demat Equities & ETFs via Smallcase Gateway.
+									</CardDescription>
+								</div>
+								{/* Vendor Filter Pill */}
+								<div className="flex rounded-lg border bg-muted p-1 text-xs">
+									{(["ALL", "IRIS", "SMALLCASE"] as const).map((v) => (
+										<button
+											key={v}
+											type="button"
+											onClick={() => setSelectedVendor(v)}
+											className={`px-3 py-1 rounded-md font-medium transition-all ${
+												selectedVendor === v
+													? "bg-background text-foreground shadow-sm"
+													: "text-muted-foreground hover:text-foreground"
+											}`}
+										>
+											{v === "ALL" ? "All Vendors" : v === "IRIS" ? "IRIS (MF)" : "Smallcase (Stocks)"}
+										</button>
+									))}
+								</div>
+							</div>
 						</CardHeader>
 						<CardContent className="space-y-4">
 							<div className="flex gap-2">
@@ -13187,140 +13236,306 @@ function LasTab() {
 									maxLength={10}
 								/>
 								<Button
-									onClick={() => { setEligibilityTrigger(eligibilityPan); setPledgeStep("eligibility"); setSelectedFolios([]); }}
+									onClick={() => {
+										setEligibilityTrigger(eligibilityPan);
+										setPledgeStep("eligibility");
+										setSelectedFolios([]);
+										setSelectedSecurities([]);
+									}}
 									disabled={eligibilityPan.length !== 10 || eligLoading}
 								>
-									{eligLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check Eligibility"}
+									{eligLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Compare Borrowing Power"}
 								</Button>
 							</div>
 
 							{eligLoading && <Skeleton className="h-32 w-full" />}
 
-							{eligibility && !eligLoading && (
+							{comparison && !eligLoading && (
 								<>
-									{/* Summary Row */}
-									<div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-										<div className="rounded-lg bg-muted/50 p-3 border text-center">
-											<p className="text-xs text-muted-foreground">Eligible Folios</p>
-											<p className="text-xl font-bold">{eligibleFolios.length}</p>
+									{/* Consolidated Multi-Vendor Borrowing Cap Banner */}
+									<div className="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/10 via-background to-secondary/10 p-4 space-y-2">
+										<div className="flex items-center justify-between">
+											<span className="text-xs font-semibold tracking-wider uppercase text-primary">
+												Consolidated Multi-Vendor Borrowing Cap
+											</span>
+											<Badge variant="secondary" className="font-mono text-xs">
+												{consolidated?.recommendedProvider === "DUAL_PLEDGE" ? "Dual Collateral Unlocked" : "Optimal Match"}
+											</Badge>
 										</div>
-										<div className="rounded-lg bg-muted/50 p-3 border text-center">
-											<p className="text-xs text-muted-foreground">Total Pledgeable Value</p>
-											<p className="text-xl font-bold">{fmt(eligibility.totalPledgeableValue)}</p>
+										<div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+											<div>
+												<p className="text-2xl sm:text-3xl font-extrabold text-foreground">
+													{fmt(consolidated?.combinedMaxLoanAmount)}
+												</p>
+												<p className="text-xs text-muted-foreground mt-0.5">
+													Total Maximum Loan across Mutual Funds (IRIS) + Demat Equities (Smallcase)
+												</p>
+											</div>
+											<div className="text-right text-xs text-muted-foreground">
+												<p>Gross Collateral: <span className="font-medium text-foreground">{fmt(consolidated?.totalGrossCollateral)}</span></p>
+												<p>Pledgeable Value: <span className="font-medium text-foreground">{fmt(consolidated?.totalPledgeableCollateral)}</span></p>
+											</div>
 										</div>
-										<div className="rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 p-3 text-center">
-											<p className="text-xs text-muted-foreground">Max Loan Available</p>
-											<p className="text-xl font-bold text-green-700 dark:text-green-400">{fmt(eligibility.totalMaxLoanAmount)}</p>
+										<p className="text-xs text-primary/80 pt-1 border-t border-primary/10">
+											💡 {consolidated?.recommendationRationale}
+										</p>
+									</div>
+
+									{/* Side-by-Side Provider Cards */}
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+										{/* IRIS Card */}
+										<div className={`rounded-xl border p-4 space-y-3 transition-all ${
+											selectedVendor === "IRIS" || selectedVendor === "ALL"
+												? "border-primary/40 bg-card"
+												: "opacity-50 pointer-events-none"
+										}`}>
+											<div className="flex items-center justify-between">
+												<div className="flex items-center gap-2">
+													<Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+														IRIS KFintech
+													</Badge>
+													<span className="text-xs font-medium text-muted-foreground">Mutual Funds</span>
+												</div>
+												<span className="text-sm font-bold text-green-600">
+													Max: {fmt(eligibility?.totalMaxLoanAmount || 0)}
+												</span>
+											</div>
+											<div className="grid grid-cols-2 gap-2 text-xs">
+												<div className="rounded bg-muted/40 p-2">
+													<p className="text-muted-foreground">Interest Rate</p>
+													<p className="font-semibold text-foreground">9.50% – 10.75% p.a.</p>
+												</div>
+												<div className="rounded bg-muted/40 p-2">
+													<p className="text-muted-foreground">LTV Ratio</p>
+													<p className="font-semibold text-foreground">80% Debt / 50% Equity</p>
+												</div>
+												<div className="rounded bg-muted/40 p-2">
+													<p className="text-muted-foreground">Lien Marking</p>
+													<p className="font-semibold text-foreground">Direct RTA TPIN/OTP</p>
+												</div>
+												<div className="rounded bg-muted/40 p-2">
+													<p className="text-muted-foreground">Turnaround Time</p>
+													<p className="font-semibold text-foreground">2 – 4 Hours</p>
+												</div>
+											</div>
+											<p className="text-xs text-muted-foreground">
+												Lenders: HDFC Bank, Bajaj Finance, ICICI Bank, Tata Capital
+											</p>
+										</div>
+
+										{/* Smallcase Card */}
+										<div className={`rounded-xl border p-4 space-y-3 transition-all ${
+											selectedVendor === "SMALLCASE" || selectedVendor === "ALL"
+												? "border-primary/40 bg-card"
+												: "opacity-50 pointer-events-none"
+										}`}>
+											<div className="flex items-center justify-between">
+												<div className="flex items-center gap-2">
+													<Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+														Smallcase Gateway
+													</Badge>
+													<span className="text-xs font-medium text-muted-foreground">Demat Equities</span>
+												</div>
+												<span className="text-sm font-bold text-purple-600">
+													Max: {fmt(smallcaseQuote?.totalMaxLoanAmount || 0)}
+												</span>
+											</div>
+											<div className="grid grid-cols-2 gap-2 text-xs">
+												<div className="rounded bg-muted/40 p-2">
+													<p className="text-muted-foreground">Interest Rate</p>
+													<p className="font-semibold text-foreground">9.99% – 11.25% p.a.</p>
+												</div>
+												<div className="rounded bg-muted/40 p-2">
+													<p className="text-muted-foreground">LTV Ratio</p>
+													<p className="font-semibold text-foreground">50% Equity / 70% ETFs</p>
+												</div>
+												<div className="rounded bg-muted/40 p-2">
+													<p className="text-muted-foreground">Lien Marking</p>
+													<p className="font-semibold text-foreground">Gateway SDK Overlay</p>
+												</div>
+												<div className="rounded bg-muted/40 p-2">
+													<p className="text-muted-foreground">Turnaround Time</p>
+													<p className="font-semibold text-foreground">Within 24 Hours</p>
+												</div>
+											</div>
+											<p className="text-xs text-muted-foreground">
+												Lenders: Smallcase Capital, Bajaj Finance, VoloFin, Mirae Asset
+											</p>
 										</div>
 									</div>
 
-									{eligibility.warning && (
-										<div className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-950/20 p-3 rounded border border-amber-200">
-											{eligibility.warning}
+									{/* ── Table 1: IRIS Mutual Funds Collateral ── */}
+									{(selectedVendor === "ALL" || selectedVendor === "IRIS") && (
+										<div className="space-y-2 pt-2 border-t">
+											<div className="flex items-center justify-between">
+												<h4 className="text-sm font-semibold flex items-center gap-2">
+													<Badge variant="outline" className="text-xs">IRIS</Badge>
+													Eligible Mutual Fund Folios ({eligibleFolios.length})
+												</h4>
+												<span className="text-xs text-muted-foreground">Select folios to pledge</span>
+											</div>
+
+											{eligibleFolios.length > 0 ? (
+												<ScrollArea className="h-44 border rounded-lg">
+													<table className="w-full text-sm">
+														<thead className="sticky top-0 bg-background border-b text-xs">
+															<tr>
+																<th className="p-2 text-left w-8">✓</th>
+																<th className="p-2 text-left">Scheme</th>
+																<th className="p-2 text-right">Units</th>
+																<th className="p-2 text-right">Mkt Value</th>
+																<th className="p-2 text-right">Max Loan</th>
+																<th className="p-2 text-center">LTV</th>
+															</tr>
+														</thead>
+														<tbody>
+															{eligibleFolios.map((f: any, i) => (
+																<tr key={i} className="border-b hover:bg-muted/40">
+																	<td className="p-2">
+																		<Checkbox
+																			checked={selectedFolios.includes(f.folioNo)}
+																			onCheckedChange={(v) =>
+																				setSelectedFolios((prev) =>
+																					v ? [...prev, f.folioNo] : prev.filter((x) => x !== f.folioNo)
+																				)
+																			}
+																		/>
+																	</td>
+																	<td className="p-2">
+																		<p className="font-medium truncate max-w-[180px]">{f.schemeName ?? "—"}</p>
+																		<p className="text-xs text-muted-foreground font-mono">{f.folioNo}</p>
+																	</td>
+																	<td className="p-2 text-right font-mono text-xs">{f.units?.toFixed(3)}</td>
+																	<td className="p-2 text-right">{fmt(f.marketValue)}</td>
+																	<td className="p-2 text-right text-green-600 font-medium">{fmt(f.maxLoanAmount)}</td>
+																	<td className="p-2 text-center">
+																		<Badge variant="outline">{((f.ltvRatio ?? 0) * 100).toFixed(0)}%</Badge>
+																	</td>
+																</tr>
+															))}
+														</tbody>
+													</table>
+												</ScrollArea>
+											) : (
+												<p className="text-xs text-muted-foreground p-3 border rounded-lg text-center">
+													No eligible mutual fund folios found under this PAN.
+												</p>
+											)}
+
+											{selectedFolios.length > 0 && (
+												<div className="flex items-center justify-between p-3 rounded-lg border bg-blue-50/50 dark:bg-blue-950/20 text-xs">
+													<div>
+														<span className="font-medium">Selected MF Loan Cap: </span>
+														<span className="text-sm font-bold text-green-600">{fmt(maxMfLoan)}</span>
+													</div>
+													<Button
+														size="sm"
+														disabled={initiatePledge.isPending}
+														onClick={() => {
+															const folioDetails = eligibleFolios
+																.filter((f) => selectedFolios.includes(f.folioNo))
+																.map((f) => ({ folioNo: f.folioNo, schemeCode: f.schemeCode, units: f.units }));
+															initiatePledge.mutate({
+																pan: eligibilityPan,
+																folioDetails,
+																loanAmount: Number(loanAmount) || maxMfLoan,
+															});
+														}}
+													>
+														{initiatePledge.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Pledge via IRIS (TPIN)"}
+													</Button>
+												</div>
+											)}
 										</div>
 									)}
 
-									{/* Folio Table with Selection */}
-									{eligibleFolios.length > 0 && (
-										<>
-											<p className="text-sm font-medium">Select folios to pledge:</p>
-											<ScrollArea className="h-48 border rounded-lg">
-												<table className="w-full text-sm">
-													<thead className="sticky top-0 bg-background border-b">
-														<tr>
-															<th className="p-2 text-left w-8">✓</th>
-															<th className="p-2 text-left">Scheme</th>
-															<th className="p-2 text-right">Units</th>
-															<th className="p-2 text-right">Mkt Value</th>
-															<th className="p-2 text-right">Max Loan</th>
-															<th className="p-2 text-center">LTV</th>
-														</tr>
-													</thead>
-													<tbody>
-														{eligibleFolios.map((f: any, i) => (
-															<tr key={i} className="border-b hover:bg-muted/40">
-																<td className="p-2">
-																	<Checkbox
-																		checked={selectedFolios.includes(f.folioNo)}
-																		onCheckedChange={(v) =>
-																			setSelectedFolios((prev) =>
-																				v ? [...prev, f.folioNo] : prev.filter((x) => x !== f.folioNo)
-																			)
-																		}
-																	/>
-																</td>
-																<td className="p-2">
-																	<p className="font-medium truncate max-w-[160px]">{f.schemeName ?? "—"}</p>
-																	<p className="text-xs text-muted-foreground font-mono">{f.folioNo}</p>
-																</td>
-																<td className="p-2 text-right font-mono text-xs">{f.units?.toFixed(3)}</td>
-																<td className="p-2 text-right">{fmt(f.marketValue)}</td>
-																<td className="p-2 text-right text-green-600 font-medium">{fmt(f.maxLoanAmount)}</td>
-																<td className="p-2 text-center">
-																	<Badge variant="outline">{((f.ltvRatio ?? 0) * 100).toFixed(0)}%</Badge>
-																</td>
+									{/* ── Table 2: Smallcase Demat Equities Collateral ── */}
+									{(selectedVendor === "ALL" || selectedVendor === "SMALLCASE") && (
+										<div className="space-y-2 pt-2 border-t">
+											<div className="flex items-center justify-between">
+												<h4 className="text-sm font-semibold flex items-center gap-2">
+													<Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+														Smallcase
+													</Badge>
+													Eligible Demat Equities & ETFs ({eligibleSecurities.length})
+												</h4>
+												<span className="text-xs text-muted-foreground">Select stocks to pledge</span>
+											</div>
+
+											{eligibleSecurities.length > 0 ? (
+												<ScrollArea className="h-44 border rounded-lg">
+													<table className="w-full text-sm">
+														<thead className="sticky top-0 bg-background border-b text-xs">
+															<tr>
+																<th className="p-2 text-left w-8">✓</th>
+																<th className="p-2 text-left">Security</th>
+																<th className="p-2 text-right">Qty</th>
+																<th className="p-2 text-right">Price</th>
+																<th className="p-2 text-right">Max Loan</th>
+																<th className="p-2 text-center">Haircut</th>
 															</tr>
-														))}
-													</tbody>
-												</table>
-											</ScrollArea>
-
-											{/* Pledge Initiation */}
-											{selectedFolios.length > 0 && (
-												<Card className="border-primary/30 bg-primary/5">
-													<CardContent className="pt-4 space-y-3">
-														<div className="flex items-center justify-between">
-															<span className="text-sm font-medium">Max loan for selected folios:</span>
-															<span className="text-lg font-bold text-green-600">{fmt(maxLoan)}</span>
-														</div>
-														<div className="flex gap-2 items-center">
-															<Input
-																type="number"
-																placeholder={`Enter amount (max ${fmt(maxLoan)})`}
-																value={loanAmount}
-																onChange={(e) => setLoanAmount(e.target.value)}
-																className="flex-1"
-															/>
-															<Button
-																disabled={!loanAmount || Number(loanAmount) > maxLoan || initiatePledge.isPending}
-																onClick={() => {
-																	if (pledgeStep === "confirm") {
-																		const folioDetails = eligibleFolios
-																			.filter((f) => selectedFolios.includes(f.folioNo))
-																			.map((f) => ({ folioNo: f.folioNo, schemeCode: f.schemeCode, units: f.units }));
-																		initiatePledge.mutate({
-																			pan: eligibilityPan,
-																			folioDetails,
-																			loanAmount: Number(loanAmount),
-																		});
-																	} else {
-																		setPledgeStep("confirm");
-																	}
-																}}
-																variant={pledgeStep === "confirm" ? "destructive" : "default"}
-															>
-																{initiatePledge.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : pledgeStep === "confirm" ? "Confirm & Initiate Pledge" : "Initiate Pledge"}
-															</Button>
-														</div>
-														{pledgeStep === "confirm" && (
-															<p className="text-xs text-amber-700 bg-amber-50 dark:bg-amber-950/30 p-2 rounded border border-amber-200">
-																⚠️ Clicking "Confirm" will pledge the selected MF folios. The investor will receive an OTP/TPIN confirmation request from the lender to complete the pledge.
-															</p>
-														)}
-														{pledgeStep === "submitted" && (
-															<div className="flex items-center gap-2 text-green-600 text-sm">
-																<CheckCircle2 className="h-4 w-4" /> Pledge initiated! Investor must confirm via lender portal.
-															</div>
-														)}
-													</CardContent>
-												</Card>
+														</thead>
+														<tbody>
+															{eligibleSecurities.map((s: any, i) => (
+																<tr key={i} className="border-b hover:bg-muted/40">
+																	<td className="p-2">
+																		<Checkbox
+																			checked={selectedSecurities.includes(s.isin)}
+																			onCheckedChange={(v) =>
+																				setSelectedSecurities((prev) =>
+																					v ? [...prev, s.isin] : prev.filter((x) => x !== s.isin)
+																				)
+																			}
+																		/>
+																	</td>
+																	<td className="p-2">
+																		<p className="font-medium truncate max-w-[180px]">{s.companyName}</p>
+																		<p className="text-xs text-muted-foreground font-mono">{s.symbol} · {s.exchange}</p>
+																	</td>
+																	<td className="p-2 text-right font-mono text-xs">{s.quantity}</td>
+																	<td className="p-2 text-right">{fmt(s.currentPrice)}</td>
+																	<td className="p-2 text-right text-purple-600 font-medium">{fmt(s.maxLoanAmount)}</td>
+																	<td className="p-2 text-center">
+																		<Badge variant="outline">{s.haircutPercent}%</Badge>
+																	</td>
+																</tr>
+															))}
+														</tbody>
+													</table>
+												</ScrollArea>
+											) : (
+												<p className="text-xs text-muted-foreground p-3 border rounded-lg text-center">
+													No eligible demat securities found for this account.
+												</p>
 											)}
-										</>
-									)}
 
-									{eligibleFolios.length === 0 && (
-										<div className="text-sm text-muted-foreground p-4 text-center border rounded-lg">
-											No eligible MF folios found for this PAN. ELSS and lock-in schemes are excluded.
+											{selectedSecurities.length > 0 && (
+												<div className="flex items-center justify-between p-3 rounded-lg border bg-purple-50/50 dark:bg-purple-950/20 text-xs">
+													<div>
+														<span className="font-medium">Selected Demat Loan Cap: </span>
+														<span className="text-sm font-bold text-purple-600">{fmt(maxSecLoan)}</span>
+													</div>
+													<Button
+														size="sm"
+														variant="outline"
+														className="border-purple-300 text-purple-700 hover:bg-purple-50"
+														disabled={initiateSmallcaseLending.isPending}
+														onClick={() => {
+															const securities = eligibleSecurities
+																.filter((s) => selectedSecurities.includes(s.isin))
+																.map((s) => ({ isin: s.isin, quantity: s.quantity }));
+															initiateSmallcaseLending.mutate({
+																pan: eligibilityPan,
+																securities,
+																requestedAmount: maxSecLoan,
+																tenure: 12,
+															});
+														}}
+													>
+														{initiateSmallcaseLending.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Pledge via Smallcase Gateway"}
+													</Button>
+												</div>
+											)}
 										</div>
 									)}
 								</>

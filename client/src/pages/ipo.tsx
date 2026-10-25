@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,22 @@ import {
 	BarChart3,
 	AlertTriangle,
 	ArrowRight,
+	CheckCircle2,
+	ShieldCheck,
+	Loader2,
 } from "lucide-react";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+	DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -28,6 +43,16 @@ import { KYCWarningBanner } from "@/components/KYCWarningBanner";
 import { LoadingState } from "@/components/LoadingState";
 
 export default function IPO() {
+	const { toast } = useToast();
+	const [selectedIpoForApply, setSelectedIpoForApply] = useState<IpoCompany | null>(null);
+	const [upiId, setUpiId] = useState("");
+	const [lots, setLots] = useState(1);
+	const [useCutOff, setUseCutOff] = useState(true);
+	const [bidPrice, setBidPrice] = useState<number | "">("");
+	const [consentChecked, setConsentChecked] = useState(false);
+	const [isApplying, setIsApplying] = useState(false);
+	const [applySuccessData, setApplySuccessData] = useState<any | null>(null);
+
 	const { data: rawUpcoming, isLoading: upcomingLoading } = useQuery({
 		queryKey: ["/api/ipos?status=upcoming"],
 	});
@@ -80,6 +105,79 @@ export default function IPO() {
 				{returnPercent.toFixed(2)}%
 			</span>
 		);
+	};
+
+	const handleOpenApply = (ipo: IpoCompany) => {
+		setSelectedIpoForApply(ipo);
+		setLots(1);
+		setUseCutOff(true);
+		const defaultPrice = Number(ipo.priceBandMax || ipo.priceBandMin || 100);
+		setBidPrice(defaultPrice);
+		setConsentChecked(false);
+		setApplySuccessData(null);
+	};
+
+	const handleApplySubmit = async () => {
+		if (!selectedIpoForApply) return;
+		if (!upiId?.includes("@")) {
+			toast({
+				title: "Invalid UPI ID",
+				description: "Please enter a valid UPI ID (e.g. yourname@okhdfcbank or mobile@upi).",
+				variant: "destructive",
+			});
+			return;
+		}
+		if (!consentChecked) {
+			toast({
+				title: "Terms Consent Required",
+				description: "Please accept the ASBA authorization terms.",
+				variant: "destructive",
+			});
+			return;
+		}
+
+		setIsApplying(true);
+		try {
+			const lotSize = Number((selectedIpoForApply as any)?.lotSize || 1);
+			const unitQty = lotSize * lots;
+			const finalPrice = useCutOff ? Number(selectedIpoForApply.priceBandMax || 100) : Number(bidPrice || 100);
+
+			const res = await fetch("/api/ipo/apply", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					ipo_id: selectedIpoForApply.id,
+					upi_id: upiId.trim(),
+					bids: [
+						{
+							quantity: unitQty,
+							price: finalPrice,
+							cut_off: useCutOff,
+						},
+					],
+					terms_and_conditions_consent: true,
+				}),
+			});
+
+			const json = await res.json();
+			if (!res.ok || !json.success) {
+				throw new Error(json.error?.message || "Failed to submit IPO bid");
+			}
+
+			setApplySuccessData(json.data);
+			toast({
+				title: "IPO Application Placed via Upstox",
+				description: `UPI mandate of ₹${(unitQty * finalPrice).toLocaleString("en-IN")} initiated to ${upiId}.`,
+			});
+		} catch (err: any) {
+			toast({
+				title: "Application Failed",
+				description: err.message || "Could not process order through Upstox",
+				variant: "destructive",
+			});
+		} finally {
+			setIsApplying(false);
+		}
 	};
 
 	const renderIpoCard = (ipo: IpoCompany, showPerformance = false) => (
@@ -239,10 +337,11 @@ export default function IPO() {
 					{ipo.status === "ongoing" && (
 						<Button
 							size="sm"
-							className="flex-1 bg-green-600 hover:bg-green-700"
+							className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium"
 							data-testid="ipo-apply"
+							onClick={() => handleOpenApply(ipo)}
 						>
-							Apply Now
+							Apply Now (Upstox)
 						</Button>
 					)}
 				</div>
@@ -270,7 +369,7 @@ export default function IPO() {
 								Looking to invest early before public bidding opens?
 							</h4>
 							<p className="text-xs text-muted-foreground">
-								Discover high-growth private equity companies in the Pre-IPO Runway (Tata Play, NSE, Boat Lifestyle & more).
+								Discover high-growth private equity companies in the Pre-IPO Runway (Reliance Jio, Tata Play, Boat Lifestyle, Zepto & more).
 							</p>
 						</div>
 					</div>
@@ -876,6 +975,246 @@ export default function IPO() {
 					</div>
 				</section>
 			</div>
+
+			{/* Upstox UPI ASBA IPO Application Dialog */}
+			<Dialog
+				open={!!selectedIpoForApply}
+				onOpenChange={(open) => {
+					if (!open) {
+						setSelectedIpoForApply(null);
+						setApplySuccessData(null);
+					}
+				}}
+			>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<div className="flex items-center gap-2 mb-1">
+							<Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200">
+								<ShieldCheck className="w-3 h-3 mr-1" /> Upstox ASBA Execution
+							</Badge>
+							<Badge variant="secondary" className="text-xs">
+								SEBI Regulated
+							</Badge>
+						</div>
+						<DialogTitle className="text-lg font-bold">
+							{applySuccessData ? "Application Submitted" : `Apply for ${selectedIpoForApply?.companyName}`}
+						</DialogTitle>
+						<DialogDescription className="text-xs text-muted-foreground">
+							{applySuccessData
+								? "Your IPO application has been placed through Upstox exchange routing."
+								: `Bid via UPI ASBA. Price Band: ₹${selectedIpoForApply?.priceBandMin || 0} - ₹${selectedIpoForApply?.priceBandMax || 0}`}
+						</DialogDescription>
+					</DialogHeader>
+
+					{applySuccessData ? (
+						<div className="space-y-4 py-2">
+							<div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 text-center">
+								<CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto mb-2" />
+								<h4 className="font-bold text-emerald-900 dark:text-emerald-100 text-base">
+									Bid Registered with Exchange
+								</h4>
+								<p className="text-xs text-emerald-800 dark:text-emerald-300 mt-1">
+									Application No: <span className="font-mono font-bold">{applySuccessData.application_number}</span>
+								</p>
+							</div>
+
+							<div className="space-y-2 text-xs bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border">
+								<div className="flex justify-between">
+									<span className="text-muted-foreground">Mandate Status:</span>
+									<span className="font-semibold text-amber-600 dark:text-amber-400">UPI Mandate Pending</span>
+								</div>
+								<div className="flex justify-between">
+									<span className="text-muted-foreground">UPI ID Sent:</span>
+									<span className="font-mono font-medium">{upiId}</span>
+								</div>
+								<div className="flex justify-between">
+									<span className="text-muted-foreground">Execution Provider:</span>
+									<span className="font-medium text-blue-600">Upstox Developer API v2</span>
+								</div>
+							</div>
+
+							<p className="text-xs text-muted-foreground text-center">
+								⚠️ Open your UPI app (Google Pay, PhonePe, BHIM) and authorize the mandate request within 24 hours to block ASBA funds.
+							</p>
+
+							<DialogFooter className="mt-4">
+								<Button
+									className="w-full bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+									onClick={() => setSelectedIpoForApply(null)}
+								>
+									Done
+								</Button>
+							</DialogFooter>
+						</div>
+					) : (
+						<div className="space-y-4 py-2">
+							{/* Issue Metrics */}
+							<div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-lg border text-xs">
+								<div>
+									<span className="text-muted-foreground">Lot Size:</span>
+									<span className="font-bold ml-1">{Number((selectedIpoForApply as any)?.lotSize || 1)} Shares</span>
+								</div>
+								<div>
+									<span className="text-muted-foreground">Cut-off Price:</span>
+									<span className="font-bold ml-1 text-emerald-600">₹{selectedIpoForApply?.priceBandMax || "TBD"}</span>
+								</div>
+							</div>
+
+							{/* Lots input */}
+							<div className="space-y-1.5">
+								<div className="flex justify-between items-center">
+									<Label className="text-xs font-semibold">Number of Lots</Label>
+									<span className="text-[11px] text-muted-foreground">
+										Total: {Number((selectedIpoForApply as any)?.lotSize || 1) * lots} shares
+									</span>
+								</div>
+								<div className="flex items-center gap-2">
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										className="h-8 w-8 p-0"
+										onClick={() => setLots((prev) => Math.max(1, prev - 1))}
+										disabled={lots <= 1}
+									>
+										-
+									</Button>
+									<Input
+										type="number"
+										min="1"
+										max="13"
+										value={lots}
+										onChange={(e) => setLots(Math.max(1, Math.min(13, Number(e.target.value) || 1)))}
+										className="h-8 text-center text-xs font-semibold"
+									/>
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										className="h-8 w-8 p-0"
+										onClick={() => setLots((prev) => Math.min(13, prev + 1))}
+										disabled={lots >= 13}
+									>
+										+
+									</Button>
+								</div>
+							</div>
+
+							{/* Cut-off selection */}
+							<div className="flex items-center justify-between p-2.5 rounded-lg border bg-slate-50/50 dark:bg-slate-900/30">
+								<div className="space-y-0.5">
+									<Label className="text-xs font-semibold">Bid at Cut-Off Price</Label>
+									<p className="text-[11px] text-muted-foreground">
+										Recommended for retail to maximize allotment chance
+									</p>
+								</div>
+								<Checkbox
+									checked={useCutOff}
+									onCheckedChange={(checked) => setUseCutOff(Boolean(checked))}
+								/>
+							</div>
+
+							{!useCutOff && (
+								<div className="space-y-1.5">
+									<Label className="text-xs font-semibold">Custom Bid Price (₹)</Label>
+									<Input
+										type="number"
+										min={selectedIpoForApply?.priceBandMin || 0}
+										max={selectedIpoForApply?.priceBandMax || 99999}
+										value={bidPrice}
+										onChange={(e) => setBidPrice(e.target.value === "" ? "" : Number(e.target.value))}
+										placeholder={`Between ₹${selectedIpoForApply?.priceBandMin} and ₹${selectedIpoForApply?.priceBandMax}`}
+										className="h-8 text-xs font-semibold"
+									/>
+								</div>
+							)}
+
+							{/* UPI ID input */}
+							<div className="space-y-1.5">
+								<Label className="text-xs font-semibold">UPI ID for ASBA Block</Label>
+								<Input
+									type="text"
+									placeholder="e.g. yourname@okhdfcbank or mobile@upi"
+									value={upiId}
+									onChange={(e) => setUpiId(e.target.value)}
+									className="h-8 text-xs font-mono"
+								/>
+								<div className="flex flex-wrap gap-1 mt-1">
+									{["@okhdfcbank", "@okaxis", "@oksbi", "@ybl", "@upi"].map((handle) => (
+										<Button
+											key={handle}
+											type="button"
+											variant="ghost"
+											size="sm"
+											className="h-5 px-1.5 text-[10px] bg-slate-100 dark:bg-slate-800 text-muted-foreground hover:text-foreground"
+											onClick={() => {
+												const base = upiId.includes("@") ? upiId.split("@")[0] : upiId;
+												setUpiId(base + handle);
+											}}
+										>
+											{handle}
+										</Button>
+									))}
+								</div>
+							</div>
+
+							{/* Total Calculation */}
+							<div className="p-3 bg-blue-50/80 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-800 flex justify-between items-center">
+								<div>
+									<span className="text-xs text-muted-foreground">Total ASBA Block Amount</span>
+									<p className="text-base font-extrabold text-blue-900 dark:text-blue-100">
+										₹{((Number((selectedIpoForApply as any)?.lotSize || 1) * lots) * (useCutOff ? Number(selectedIpoForApply?.priceBandMax || 100) : (Number(bidPrice) || 100))).toLocaleString("en-IN")}
+									</p>
+								</div>
+								<Badge className="bg-blue-600 text-white font-medium text-[11px]">
+									No Debits Until Allotment
+								</Badge>
+							</div>
+
+							{/* ASBA Consent Checkbox */}
+							<div className="flex items-start gap-2 pt-1">
+								<Checkbox
+									id="asba-consent"
+									checked={consentChecked}
+									onCheckedChange={(c) => setConsentChecked(Boolean(c))}
+									className="mt-0.5"
+								/>
+								<Label htmlFor="asba-consent" className="text-[11px] leading-tight text-muted-foreground font-normal">
+									I hereby authorize my bank to block funds for this application under SEBI UPI ASBA norms. Funds remain in my bank account and earn interest until allotment.
+								</Label>
+							</div>
+
+							<DialogFooter className="pt-2">
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onClick={() => setSelectedIpoForApply(null)}
+									disabled={isApplying}
+								>
+									Cancel
+								</Button>
+								<Button
+									type="button"
+									size="sm"
+									className="bg-green-600 hover:bg-green-700 text-white font-semibold gap-1.5"
+									onClick={handleApplySubmit}
+									disabled={isApplying || !upiId || !consentChecked}
+								>
+									{isApplying ? (
+										<>
+											<Loader2 className="w-3.5 h-3.5 animate-spin" />
+											Submitting to Upstox...
+										</>
+									) : (
+										"Confirm & Submit Bid"
+									)}
+								</Button>
+							</DialogFooter>
+						</div>
+					)}
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

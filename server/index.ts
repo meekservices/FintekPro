@@ -733,9 +733,11 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 		);
 		registerIrisKfintechRoutes(app);
 
-		// IRIS LAS/LAMF — Loan Against Securities & Mutual Funds
+		// IRIS & Smallcase Multi-Vendor LAS/LAMF — Loan Against Securities & Mutual Funds
 		const { registerIrisLasRoutes } = await import("./routes/iris-las-routes");
 		registerIrisLasRoutes(app);
+		const { registerMultiVendorLasRoutes } = await import("./routes/multi-vendor-las-routes");
+		registerMultiVendorLasRoutes(app);
 
 		// Algo Trading Signal Engine — FASP-AI v1.0 DSS
 		logBootProgress("Step 9b: Registering Algo Trading Signal Routes...");

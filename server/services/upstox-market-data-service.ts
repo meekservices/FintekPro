@@ -614,6 +614,117 @@ class UpstoxMarketDataService {
     }, t0);
   }
 
+  // ── IPO (Initial Public Offering) ──────────────────────────────────────────
+
+  /**
+   * List publicly available IPOs on NSE/BSE via Upstox API v2.
+   *
+   * @param status 'open' | 'upcoming' | 'closed' | 'listed' (default: 'open')
+   * @param issue_type 'regular' | 'sme' (optional)
+   */
+  async getIPOs(
+    status: "open" | "upcoming" | "closed" | "listed" = "open",
+    issue_type?: "regular" | "sme"
+  ): Promise<UpstoxServiceResult<any[]>> {
+    const t0 = Date.now();
+    if (!this.isReady()) return this._inactive<any[]>();
+
+    return this._withRetry<any[]>(async () => {
+      const res = await this.client!.get("/ipo", {
+        params: { status, ...(issue_type ? { issue_type } : {}) },
+      });
+      return {
+        success: true,
+        data: res.data?.data ?? [],
+        meta: this._meta(t0),
+      };
+    }, t0);
+  }
+
+  /**
+   * Fetch full public details of a single IPO by ID/slug from Upstox.
+   */
+  async getIPODetails(ipoId: string): Promise<UpstoxServiceResult<any>> {
+    const t0 = Date.now();
+    if (!this.isReady()) return this._inactive<any>();
+
+    return this._withRetry<any>(async () => {
+      const res = await this.client!.get(`/ipo/${encodeURIComponent(ipoId)}`);
+      return {
+        success: true,
+        data: res.data?.data,
+        meta: this._meta(t0),
+      };
+    }, t0);
+  }
+
+  /**
+   * Apply / Submit an IPO Bid application order through Upstox UPI ASBA.
+   *
+   * @param params.ipo_id Upstox IPO ID slug (e.g. 'bombay-coated-and-special-steels-limited-ipo')
+   * @param params.upi_id Investor's UPI ID (e.g. 'name@okhdfcbank')
+   * @param params.bids Array of quantity, price, cut_off
+   */
+  async applyIPO(params: {
+    ipo_id: string;
+    upi_id: string;
+    bids: Array<{
+      quantity: number;
+      price?: number;
+      cut_off?: boolean;
+    }>;
+    terms_and_conditions_consent?: boolean;
+  }): Promise<UpstoxServiceResult<any>> {
+    const t0 = Date.now();
+    if (!this.isReady()) return this._inactive<any>();
+
+    return this._withRetry<any>(async () => {
+      const payload = {
+        ipo_id: params.ipo_id,
+        upi_id: params.upi_id,
+        bids: params.bids.map((b) => ({
+          quantity: b.quantity,
+          price: b.cut_off ? undefined : b.price,
+          cut_off: Boolean(b.cut_off),
+        })),
+        terms_and_conditions_consent: params.terms_and_conditions_consent !== false,
+      };
+
+      logger.info("[Upstox] Submitting IPO application order", {
+        event: "UPSTOX_IPO_APPLY_SUBMITTED",
+        ipo_id: params.ipo_id,
+        upi_id_masked: params.upi_id.replace(/^(.{2})(.*)(@.*)$/, "$1***$3"),
+        bid_count: params.bids.length,
+      });
+
+      const res = await this.client!.post("/ipo/apply", payload);
+      return {
+        success: true,
+        data: res.data?.data,
+        meta: this._meta(t0),
+      };
+    }, t0);
+  }
+
+  /**
+   * Fetch authenticated user's submitted IPO application orders.
+   */
+  async getIPOOrders(page_number = 1, records = 20): Promise<UpstoxServiceResult<any[]>> {
+    const t0 = Date.now();
+    if (!this.isReady()) return this._inactive<any[]>();
+
+    return this._withRetry<any[]>(async () => {
+      const res = await this.client!.get("/ipo/orders", {
+        params: { page_number, records },
+      });
+      return {
+        success: true,
+        data: res.data?.data ?? [],
+        meta: this._meta(t0),
+      };
+    }, t0);
+  }
+
   // ── Private Helpers ────────────────────────────────────────────────────────
 
   private _mapLtp(

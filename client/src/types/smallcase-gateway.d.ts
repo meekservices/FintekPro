@@ -17,9 +17,11 @@ export type SmallcaseEnvironment = "production" | "development";
 
 /** Transaction intents supported by the Gateway */
 export type SmallcaseIntent =
-  | "LOGIN"         // Broker authentication only
-  | "TRANSACTION"   // Basket order placement
-  | "CONNECT";      // Account linking
+  | "LOGIN"           // Broker authentication only
+  | "TRANSACTION"     // Basket order placement
+  | "CONNECT"         // Account linking
+  | "HOLDINGS_IMPORT" // Fetch holdings for portfolio analytics
+  | "LENDING";        // Loan Against Securities (LAS) / Borrow against holdings
 
 /** Status codes returned in a completed transaction response */
 export type SmallcaseTransactionStatus =
