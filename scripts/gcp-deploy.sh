@@ -125,7 +125,7 @@ gcloud run deploy $SERVICE_NAME \
     --max-instances 10 \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
     --vpc-connector=fintekpro-vpc-connector \
-    --vpc-egress=all \
+    --vpc-egress=private-ranges-only \
     --set-env-vars="NODE_ENV=production,NODE_OPTIONS=--max-old-space-size=3072,DEBUG_SUBDOMAIN=true,CUSTOM_DOMAIN=fintekpro.com,RUN_STARTUP_MIGRATIONS=true,PRIVATE_OBJECT_DIR=gs://fintekpro-documents/private,ALLOW_TESTER_BYPASS=true,INDIAN_API_BASE_URL=https://analyst.indianapi.in" \
     --set-secrets="\
 PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,\
@@ -293,7 +293,7 @@ gcloud run jobs update fintekpro-compliance \
     --region=$REGION \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
     --vpc-connector=fintekpro-vpc-connector \
-    --vpc-egress=all \
+    --vpc-egress=private-ranges-only \
     --command="node" \
     --args="dist/jobs/compliance.js" \
     --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest,EMAIL_HOST=EMAIL_HOST:latest,EMAIL_USER=EMAIL_USER:latest,EMAIL_PASS=EMAIL_PASS:latest,EMAIL_PORT=EMAIL_PORT:latest,EMAIL_FROM=EMAIL_FROM:latest,TWILIO_ACCOUNT_SID=TWILIO_ACCOUNT_SID:latest,TWILIO_AUTH_TOKEN=TWILIO_AUTH_TOKEN:latest,TWILIO_PHONE_NUMBER=TWILIO_PHONE_NUMBER:latest,COMPLIANCE_SECRET=COMPLIANCE_SECRET:latest" \
@@ -307,7 +307,7 @@ gcloud run jobs update fintekpro-enrichment \
     --region=$REGION \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
     --vpc-connector=fintekpro-vpc-connector \
-    --vpc-egress=all \
+    --vpc-egress=private-ranges-only \
     --memory=2Gi \
     --cpu=2 \
     --set-env-vars="NODE_OPTIONS=--max-old-space-size=1536" \
@@ -326,7 +326,7 @@ gcloud run jobs update fintekpro-nav-sync \
     --region=$REGION \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
     --vpc-connector=fintekpro-vpc-connector \
-    --vpc-egress=all \
+    --vpc-egress=private-ranges-only \
     --command="node" \
     --args="dist/jobs/nav-sync.js" \
     --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest,EMAIL_HOST=EMAIL_HOST:latest,EMAIL_USER=EMAIL_USER:latest,EMAIL_PASS=EMAIL_PASS:latest,EMAIL_PORT=EMAIL_PORT:latest,EMAIL_FROM=EMAIL_FROM:latest" \
@@ -340,7 +340,7 @@ gcloud run jobs update fintekpro-picks \
     --region=$REGION \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
     --vpc-connector=fintekpro-vpc-connector \
-    --vpc-egress=all \
+    --vpc-egress=private-ranges-only \
     --memory=2Gi \
     --cpu=2 \
     --set-env-vars="NODE_OPTIONS=--max-old-space-size=1536" \
@@ -360,7 +360,7 @@ if gcloud run jobs describe fintekpro-rebalance --project=$PROJECT_ID --region=$
       --region=$REGION \
       --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
       --vpc-connector=fintekpro-vpc-connector \
-      --vpc-egress=all \
+      --vpc-egress=private-ranges-only \
       --memory=2Gi \
       --cpu=2 \
       --set-env-vars="NODE_OPTIONS=--max-old-space-size=1536" \
@@ -377,7 +377,7 @@ else
       --region=$REGION \
       --set-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
       --vpc-connector=fintekpro-vpc-connector \
-      --vpc-egress=all \
+      --vpc-egress=private-ranges-only \
       --memory=2Gi \
       --cpu=2 \
       --set-env-vars="NODE_OPTIONS=--max-old-space-size=1536" \
