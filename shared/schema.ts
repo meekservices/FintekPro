@@ -12436,3 +12436,6 @@ export * from "./regulatory-stage";
 // Progressive Auto-Dialer & Telephony Schema
 export * from "./schema/telephony";
 
+// Multi-Vendor Instrument Mappings, Historical Time-Series & Performance Analytics
+export * from "./schema/instruments";
+

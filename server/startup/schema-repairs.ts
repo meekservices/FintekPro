@@ -63,6 +63,87 @@ export async function runStartupSchemaRepairs() {
 			} catch { /* table or col exists */ }
 		}
 
+		// ── GCR v1.0: Multi-Vendor Instrument Mappings, Time-Series & Performance Analytics ──
+		try {
+			await migPool.query(`
+				CREATE TABLE IF NOT EXISTS instrument_vendor_mappings (
+					id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+					instrument_id VARCHAR,
+					isin VARCHAR(50) NOT NULL,
+					vendor VARCHAR(50) NOT NULL,
+					vendor_symbol VARCHAR(100),
+					vendor_instrument_token VARCHAR(100) NOT NULL,
+					feed_role VARCHAR(50) NOT NULL DEFAULT 'PRIMARY_QUOTE',
+					is_active BOOLEAN NOT NULL DEFAULT true,
+					sync_status VARCHAR(50) NOT NULL DEFAULT 'synced',
+					last_verified_at TIMESTAMPTZ,
+					vendor_metadata JSONB DEFAULT '{}',
+					source VARCHAR(50) NOT NULL DEFAULT 'system',
+					created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+					updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+				);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_ivm_vendor_token_unique ON instrument_vendor_mappings(vendor, vendor_instrument_token);
+				CREATE INDEX IF NOT EXISTS idx_ivm_isin_vendor ON instrument_vendor_mappings(isin, vendor);
+				CREATE INDEX IF NOT EXISTS idx_ivm_instrument_id ON instrument_vendor_mappings(instrument_id);
+				CREATE INDEX IF NOT EXISTS idx_ivm_vendor_role ON instrument_vendor_mappings(vendor, feed_role);
+
+				CREATE TABLE IF NOT EXISTS historical_market_prices (
+					id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+					instrument_id VARCHAR,
+					isin VARCHAR(50) NOT NULL,
+					symbol VARCHAR(50),
+					asset_class VARCHAR(50) NOT NULL,
+					price_date DATE NOT NULL,
+					open NUMERIC(18, 4),
+					high NUMERIC(18, 4),
+					low NUMERIC(18, 4),
+					close NUMERIC(18, 4) NOT NULL,
+					adj_close NUMERIC(18, 4),
+					volume BIGINT,
+					change NUMERIC(18, 4),
+					change_percent NUMERIC(10, 4),
+					is_corporate_action_adjusted BOOLEAN NOT NULL DEFAULT true,
+					data_source VARCHAR(50) NOT NULL,
+					created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+				);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_hmp_isin_date_unique ON historical_market_prices(isin, price_date);
+				CREATE INDEX IF NOT EXISTS idx_hmp_price_date_close ON historical_market_prices(price_date, close);
+				CREATE INDEX IF NOT EXISTS idx_hmp_symbol_date ON historical_market_prices(symbol, price_date);
+				CREATE INDEX IF NOT EXISTS idx_hmp_asset_class_date ON historical_market_prices(asset_class, price_date);
+
+				CREATE TABLE IF NOT EXISTS instrument_performance_metrics (
+					id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+					isin VARCHAR(50) NOT NULL,
+					benchmark_isin VARCHAR(50) NOT NULL DEFAULT '^NSEI',
+					return_1d NUMERIC(10, 4),
+					return_1w NUMERIC(10, 4),
+					return_1m NUMERIC(10, 4),
+					return_3m NUMERIC(10, 4),
+					return_6m NUMERIC(10, 4),
+					return_1y NUMERIC(10, 4),
+					return_3y NUMERIC(10, 4),
+					return_5y NUMERIC(10, 4),
+					cagr NUMERIC(10, 4),
+					volatility NUMERIC(10, 4),
+					sharpe_ratio NUMERIC(10, 4),
+					sortino_ratio NUMERIC(10, 4),
+					max_drawdown NUMERIC(10, 4),
+					beta NUMERIC(10, 4),
+					alpha NUMERIC(10, 4),
+					engine_version VARCHAR(50) NOT NULL DEFAULT 'GCR-1.0',
+					calculation_timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+					explainability JSONB NOT NULL DEFAULT '{}',
+					source VARCHAR(50) NOT NULL DEFAULT 'system',
+					created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+				);
+				CREATE INDEX IF NOT EXISTS idx_ipm_isin_timestamp ON instrument_performance_metrics(isin, calculation_timestamp);
+				CREATE INDEX IF NOT EXISTS idx_ipm_isin_benchmark ON instrument_performance_metrics(isin, benchmark_isin);
+			`);
+			console.log("  ✅ [GCR v1.0] Multi-Vendor Mappings, Historical Prices & Performance Analytics tables ensured");
+		} catch (err: any) {
+			console.warn("  ⚠️ [GCR v1.0] Failed to ensure multi-vendor/historical tables:", err?.message?.slice(0, 100));
+		}
+
 		// Fix stale listed_stocks baseline record for SERVICE (Service Care Limited):
 		// 54.10 is a defunct July 2024 quote; active price is 69.15 (SME Series SM).
 		try {
