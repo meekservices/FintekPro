@@ -17,10 +17,10 @@ export function useAuth() {
 	const { toast } = useToast();
 
 	const {
-		data: user,
+		data: rawUser,
 		isLoading,
 		error,
-	} = useQuery<User>({
+	} = useQuery<any>({
 		queryKey: ["/api/user"],
 		queryFn: getQueryFn({ on401: "returnNull" }),
 		retry: false,
@@ -34,6 +34,16 @@ export function useAuth() {
 		refetchOnWindowFocus: false,
 		refetchOnReconnect: false,
 	});
+
+	// Normalize user object: handles both raw User and { success: true, data: User }
+	const user: User | null = (() => {
+		if (!rawUser) return null;
+		const resolved = rawUser.data !== undefined ? rawUser.data : rawUser;
+		if (!resolved || resolved.success === false) return null;
+		// Must have at least an id, userId, or email to be a valid authenticated user
+		if (!resolved.id && !resolved.userId && !resolved.email) return null;
+		return resolved as User;
+	})();
 
 	const loginMutation = useMutation({
 		mutationFn: async (credentials: {

@@ -8,6 +8,8 @@ import {
 	Calculator,
 	Shield as LucideShield,
 	Zap,
+	Sparkles,
+	Activity,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -30,7 +32,7 @@ export function QuickActionsWidget() {
 			icon: TrendingUp,
 			color: "text-blue-600",
 			bgColor: "bg-blue-50 dark:bg-blue-950",
-			description: "Begin your investment journey",
+			description: "Begin your wealth journey",
 		},
 		{
 			name: "Explore Funds",
@@ -41,12 +43,28 @@ export function QuickActionsWidget() {
 			description: "Browse mutual funds",
 		},
 		{
+			name: "AI Insights",
+			href: "/wealth-management",
+			icon: Sparkles,
+			color: "text-amber-600",
+			bgColor: "bg-amber-50 dark:bg-amber-950",
+			description: "FASP-AI Decision Support",
+		},
+		{
+			name: "Market Pulse",
+			href: "/markets",
+			icon: Activity,
+			color: "text-indigo-600",
+			bgColor: "bg-indigo-50 dark:bg-indigo-950",
+			description: "Live NSE & BSE quotes",
+		},
+		{
 			name: "Calculators",
 			href: "/calculators",
 			icon: Calculator,
 			color: "text-purple-600",
 			bgColor: "bg-purple-50 dark:bg-purple-950",
-			description: "Plan your finances",
+			description: "SIP, lumpsum & taxes",
 		},
 	];
 

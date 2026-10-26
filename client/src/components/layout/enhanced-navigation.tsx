@@ -685,32 +685,71 @@ export function EnhancedNavigation() {
 
 	const NavigationContent = ({ inSheet = false }: { inSheet?: boolean }) => (
 		<div className="flex flex-col h-full">
-			{/* User Profile Section */}
-			{isAuthenticated && user && (inSheet || !isCollapsed) && (
-				<div className="flex items-center space-x-3 p-4 border-b border-border bg-muted/50">
-					{user?.profileImageUrl && (
-						<img
-							src={user.profileImageUrl}
-							alt="Profile"
-							className="w-8 h-8 rounded-full object-cover"
-						/>
-					)}
-					<div className="flex-1 min-w-0">
-						<p className="font-medium text-foreground truncate text-sm">
-							UID: {user?.userId || user?.id || "N/A"}
-						</p>
-						<p className="text-xs text-muted-foreground truncate">
-							{user?.previousLoginAt
-								? `Last login: ${new Date(user.previousLoginAt).toLocaleString(
-										"en-IN",
-										{
-											dateStyle: "short",
-											timeStyle: "short",
-										},
-									)}`
-								: "Welcome!"}
-						</p>
+			{/* User Profile / Guest Portal Section */}
+			{inSheet || !isCollapsed ? (
+				isAuthenticated && user ? (
+					<div className="flex items-center space-x-3 p-3.5 border-b border-border bg-muted/40">
+						{user?.profileImageUrl ? (
+							<img
+								src={user.profileImageUrl}
+								alt={user.firstName || user.userId || "Profile"}
+								className="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-border"
+							/>
+						) : (
+							<div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-semibold text-xs shadow-xs flex-shrink-0">
+								{(user.firstName?.[0] || user.userId?.[0] || user.email?.[0] || "U").toUpperCase()}
+							</div>
+						)}
+						<div className="flex-1 min-w-0">
+							<div className="flex items-center gap-1.5">
+								<p className="font-semibold text-foreground truncate text-sm">
+									{[user.firstName, user.lastName].filter(Boolean).join(" ") || user.userId || user.email || "Investor"}
+								</p>
+								<Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium tracking-wide">
+									{user.roles?.[0] ? user.roles[0].toUpperCase() : "CLIENT"}
+								</Badge>
+							</div>
+							<p className="text-[11px] text-muted-foreground truncate">
+								{user.userId ? `ID: ${user.userId}` : user.email || "Verified"}
+							</p>
+						</div>
 					</div>
+				) : (
+					<div className="p-3 border-b border-border bg-muted/20">
+						<div className="flex items-center justify-between gap-2">
+							<div className="flex items-center gap-2 min-w-0">
+								<div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground flex-shrink-0">
+									<UserIcon className="w-4 h-4" />
+								</div>
+								<div className="truncate">
+									<p className="text-xs font-semibold text-foreground truncate">Guest Portal</p>
+									<p className="text-[10px] text-muted-foreground truncate">Client Services</p>
+								</div>
+							</div>
+							<Link href="/auth" onClick={inSheet ? handleMobileNavClick : undefined}>
+								<Button size="sm" variant="default" className="h-7 text-xs px-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-xs">
+									Sign In
+								</Button>
+							</Link>
+						</div>
+					</div>
+				)
+			) : (
+				<div className="py-2.5 flex justify-center border-b border-border">
+					{isAuthenticated && user ? (
+						<div
+							className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-semibold text-xs shadow-xs"
+							title={[user.firstName, user.lastName].filter(Boolean).join(" ") || user.userId || "Investor"}
+						>
+							{(user.firstName?.[0] || user.userId?.[0] || "U").toUpperCase()}
+						</div>
+					) : (
+						<Link href="/auth">
+							<Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" title="Sign In">
+								<UserIcon className="h-4 w-4" />
+							</Button>
+						</Link>
+					)}
 				</div>
 			)}
 

@@ -754,6 +754,63 @@ export default function Home() {
 				</div>
 			</section>
 
+			{/* FASP-AI Decision Support & Analytics Showcase */}
+			<section className="py-14 bg-gradient-to-r from-blue-950 via-indigo-950 to-slate-900 text-white relative overflow-hidden border-y border-blue-800/40" data-testid="fasp-ai-showcase">
+				<div className="absolute inset-0 bg-[radial-gradient(#3b82f6_1px,transparent_1px)] [background-size:16px_16px] opacity-15" />
+				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+					<div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+						<div className="lg:col-span-7 space-y-4">
+							<div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold tracking-wide">
+								<Sparkles className="w-3.5 h-3.5 text-yellow-400 animate-pulse" />
+								<span>FASP-AI v1.0 DECISION SUPPORT</span>
+							</div>
+							<h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+								Quantitative Intelligence Meets SEBI Compliance
+							</h2>
+							<p className="text-base text-blue-200/90 leading-relaxed">
+								Powered by deterministic multi-vendor market feeds (NSE, BSE, KFintech IRIS) and multi-factor risk attribution. Get institutional-grade Sharpe, Sortino, Alpha, Beta, and real-time portfolio health checks.
+							</p>
+							<div className="flex flex-wrap gap-4 pt-2">
+								<Link href="/wealth-management">
+									<Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-bold px-6 py-2.5 rounded-lg shadow-lg">
+										<Sparkles className="w-4 h-4 mr-2" />
+										Run Portfolio Health Check
+									</Button>
+								</Link>
+								<Link href="/markets">
+									<Button variant="outline" className="border-blue-400/40 text-blue-100 hover:bg-blue-900/40 font-semibold px-6 py-2.5 rounded-lg">
+										<Activity className="w-4 h-4 mr-2" />
+										Live Instrument Metrics
+									</Button>
+								</Link>
+							</div>
+						</div>
+						<div className="lg:col-span-5 grid grid-cols-2 gap-3.5">
+							<div className="p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
+								<p className="text-xs text-blue-300 font-medium">Calculation Engine</p>
+								<p className="text-lg font-bold text-white mt-1">Deterministic</p>
+								<p className="text-[11px] text-blue-200/70 mt-1">100% reproducible GCR v1.0</p>
+							</div>
+							<div className="p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
+								<p className="text-xs text-emerald-300 font-medium">Advisory Safety</p>
+								<p className="text-lg font-bold text-white mt-1">SEBI RIA Aligned</p>
+								<p className="text-[11px] text-emerald-200/70 mt-1">Explainability on all factors</p>
+							</div>
+							<div className="p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
+								<p className="text-xs text-amber-300 font-medium">Risk Attribution</p>
+								<p className="text-lg font-bold text-white mt-1">Multi-Horizon</p>
+								<p className="text-[11px] text-amber-200/70 mt-1">1D to 5Y CAGR & Max Drawdown</p>
+							</div>
+							<div className="p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
+								<p className="text-xs text-purple-300 font-medium">Data Resiliency</p>
+								<p className="text-lg font-bold text-white mt-1">Multi-Vendor</p>
+								<p className="text-[11px] text-purple-200/70 mt-1">Auto-failover price resolution</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+
 			{/* Live Market Data Section */}
 			<section className="py-20 bg-gradient-to-r from-gray-900 to-blue-900 text-foreground">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

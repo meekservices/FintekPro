@@ -13,6 +13,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
 import { ASSET_COLORS, ASSET_TYPE_LABELS } from "@/lib/constants";
 import { RebalanceDashboard } from "./rebalance-dashboard";
 import { useState } from "react";
+import { Link } from "wouter";
 
 interface PortfolioSummaryProps {
 	userId: string;
@@ -222,13 +223,15 @@ export function PortfolioSummary({ userId }: PortfolioSummaryProps) {
 							/>
 						</DialogContent>
 					</Dialog>
-					<Button
-						variant="outline"
-						className="w-full border-finance-blue text-finance-blue hover:bg-blue-50 dark:bg-blue-950/30"
-						data-testid="add-investment-button"
-					>
-						Add Investment
-					</Button>
+					<Link href="/wealth-management" className="block w-full">
+						<Button
+							variant="outline"
+							className="w-full border-finance-blue text-finance-blue hover:bg-blue-50 dark:bg-blue-950/30"
+							data-testid="add-investment-button"
+						>
+							Add Investment
+						</Button>
+					</Link>
 				</div>
 			</CardContent>
 		</Card>

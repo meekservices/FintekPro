@@ -13,9 +13,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FintekPro" />
     <meta name="description" content="FintekPro is India's leading SEBI-compliant financial services platform for personal finance, portfolio management, mutual funds, stocks, bonds, and AI-powered investment insights." />
-    <link rel="canonical" href="https://fintekpro.in/" />
+    <link rel="canonical" href="https://fintekpro.com/" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://fintekpro.in/" />
+    <meta property="og:url" content="https://fintekpro.com/" />
     <meta property="og:title" content="FintekPro - Smart Financial Services Platform" />
     <meta property="og:description" content="Comprehensive SEBI-compliant platform for portfolio management, mutual funds, stocks, bonds, and AI-powered investment insights. Empowering investors and financial advisors." />
     <meta property="og:image" content="/icon-512.png" />
@@ -42,6 +42,11 @@
         var ati = document.getElementById('apple-touch-icon-link');
         if (fav) fav.href = icon;
         if (ati) ati.href = icon;
+
+        var can = document.querySelector('link[rel="canonical"]');
+        if (can && window.location.origin) can.href = window.location.origin + window.location.pathname;
+        var ogUrl = document.querySelector('meta[property="og:url"]');
+        if (ogUrl && window.location.origin) ogUrl.content = window.location.origin + window.location.pathname;
 
         fetch('/api/system/portal-meta')
           .then(function(r) { return r.json(); })
