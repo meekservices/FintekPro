@@ -16,6 +16,10 @@ import {
 	Smartphone,
 	Mail,
 	ExternalLink,
+	TrendingUp,
+	Building2,
+	PieChart,
+	RefreshCw,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -203,6 +207,46 @@ export default function AgentKnowledgeProducts() {
 		setTimeout(() => setHasCopiedPitch(false), 2500);
 	};
 
+	const [isSyncingAmc, setIsSyncingAmc] = useState(false);
+
+	const { data: amcFactsheetData, isLoading: factsheetLoading } = useQuery<{
+		success: boolean;
+		factsheet: any;
+	}>({
+		queryKey: ["/api/knowledge-hub/amc/schemes", selectedProduct?.title],
+		queryFn: async () => {
+			if (!selectedProduct?.title) return null;
+			const res = await fetch(
+				`/api/knowledge-hub/amc/schemes/${encodeURIComponent(selectedProduct.title)}/factsheet`,
+			);
+			if (!res.ok) return null;
+			return res.json();
+		},
+		enabled: !!selectedProduct && selectedProduct.productType === "mutual_fund",
+	});
+
+	const handleSyncAmc = async () => {
+		try {
+			setIsSyncingAmc(true);
+			const res = await fetch("/api/knowledge-hub/amc/sync", { method: "POST" });
+			const data = await res.json();
+			if (data.success) {
+				toast({
+					title: "AMC Ingestion Complete ✓",
+					description: `Synced ${data.products?.syncedCount || 0} AMC scheme factsheets and ${data.templates?.syncedCount || 0} concept templates into Knowledge Hub.`,
+				});
+			}
+		} catch (err: any) {
+			toast({
+				title: "Sync Failed",
+				description: err?.message || "Could not sync AMC feeds.",
+				variant: "destructive",
+			});
+		} finally {
+			setIsSyncingAmc(false);
+		}
+	};
+
 	const { data: products, isLoading } = useQuery<ProductKnowledge[]>({
 		queryKey: ["/api/knowledge-hub/products", productType, riskProfile],
 		queryFn: async () => {
@@ -225,26 +269,39 @@ export default function AgentKnowledgeProducts() {
 
 	return (
 		<div className="p-6 space-y-6">
-			<div className="flex items-center gap-4">
-				<Link href="/agent/knowledge-hub">
-					<Button
-						variant="ghost"
-						size="sm"
-						className="text-muted-foreground hover:text-foreground"
-					>
-						<ChevronLeft className="h-4 w-4 mr-1" />
-						Back
-					</Button>
-				</Link>
-				<div>
-					<h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-						<FileCheck className="h-7 w-7 text-emerald-500" />
-						Product Knowledge Cards
-					</h1>
-					<p className="text-muted-foreground mt-1">
-						Comprehensive product information for client discussions
-					</p>
+			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+				<div className="flex items-center gap-4">
+					<Link href="/agent/knowledge-hub">
+						<Button
+							variant="ghost"
+							size="sm"
+							className="text-muted-foreground hover:text-foreground"
+						>
+							<ChevronLeft className="h-4 w-4 mr-1" />
+							Back
+						</Button>
+					</Link>
+					<div>
+						<h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+							<FileCheck className="h-7 w-7 text-emerald-500" />
+							Product Knowledge Cards
+						</h1>
+						<p className="text-muted-foreground mt-1">
+							Comprehensive product information, AMC factsheets & live TER metrics
+						</p>
+					</div>
 				</div>
+
+				<Button
+					size="sm"
+					variant="outline"
+					onClick={handleSyncAmc}
+					disabled={isSyncingAmc}
+					className="border-purple-500/40 text-purple-400 hover:bg-purple-500/10 gap-1.5 self-start sm:self-auto"
+				>
+					<RefreshCw className={`h-3.5 w-3.5 ${isSyncingAmc ? "animate-spin" : ""}`} />
+					{isSyncingAmc ? "Syncing AMC Feeds..." : "Sync AMC Disclosures"}
+				</Button>
 			</div>
 
 			<div className="flex flex-col md:flex-row gap-4">
@@ -437,6 +494,15 @@ export default function AgentKnowledgeProducts() {
 								<Tabs defaultValue="overview" className="w-full">
 									<TabsList className="bg-card mb-4 flex-wrap">
 										<TabsTrigger value="overview">Overview</TabsTrigger>
+										{selectedProduct.productType === "mutual_fund" && (
+											<TabsTrigger
+												value="amc-factsheet"
+												className="text-purple-400 font-medium flex items-center gap-1.5"
+											>
+												<Building2 className="h-3.5 w-3.5" />
+												AMC Factsheet
+											</TabsTrigger>
+										)}
 										<TabsTrigger value="suitability">Suitability</TabsTrigger>
 										<TabsTrigger value="compliance">Compliance</TabsTrigger>
 										<TabsTrigger value="pitch" className="text-emerald-400 flex items-center gap-1.5 font-medium">
@@ -522,6 +588,103 @@ export default function AgentKnowledgeProducts() {
 												</div>
 											)}
 										</div>
+									</TabsContent>
+
+									<TabsContent value="amc-factsheet" className="space-y-4">
+										{factsheetLoading ? (
+											<div className="p-8 text-center space-y-2">
+												<RefreshCw className="h-6 w-6 animate-spin mx-auto text-purple-400" />
+												<p className="text-xs text-muted-foreground">Fetching official AMC factsheet & portfolio disclosures...</p>
+											</div>
+										) : amcFactsheetData?.factsheet ? (
+											<div className="space-y-4">
+												{/* Header Key Metrics */}
+												<div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 rounded-lg bg-card border border-border">
+													<div>
+														<p className="text-[10px] uppercase tracking-wider text-muted-foreground">Current NAV</p>
+														<p className="text-base font-bold text-foreground">₹{amcFactsheetData.factsheet.nav?.toFixed(2)}</p>
+														<p className="text-[10px] text-muted-foreground">As of {amcFactsheetData.factsheet.navDate}</p>
+													</div>
+													<div>
+														<p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Exp Ratio (TER)</p>
+														<p className="text-base font-bold text-purple-400">{amcFactsheetData.factsheet.expenseRatio}%</p>
+														<p className="text-[10px] text-muted-foreground">Annualized</p>
+													</div>
+													<div>
+														<p className="text-[10px] uppercase tracking-wider text-muted-foreground">AUM Size</p>
+														<p className="text-base font-bold text-foreground">₹{Number(amcFactsheetData.factsheet.aumCrores || 0).toLocaleString("en-IN")} Cr</p>
+														<p className="text-[10px] text-muted-foreground">{amcFactsheetData.factsheet.amcName}</p>
+													</div>
+													<div>
+														<p className="text-[10px] uppercase tracking-wider text-muted-foreground">3Y Returns (CAGR)</p>
+														<p className="text-base font-bold text-emerald-400">
+															{amcFactsheetData.factsheet.returns?.returns3y ? `+${amcFactsheetData.factsheet.returns.returns3y}%` : "N/A"}
+														</p>
+														<p className="text-[10px] text-muted-foreground">vs {amcFactsheetData.factsheet.benchmarkIndex?.split(" ")[0] || "Benchmark"}</p>
+													</div>
+												</div>
+
+												{/* Fund Managers & Benchmark */}
+												<div className="p-3 rounded-lg bg-card/60 border border-border text-xs space-y-1.5">
+													<div className="flex items-center justify-between">
+														<span className="text-muted-foreground">Fund House:</span>
+														<span className="font-medium text-foreground">{amcFactsheetData.factsheet.amcName}</span>
+													</div>
+													<div className="flex items-center justify-between">
+														<span className="text-muted-foreground">Benchmark Index:</span>
+														<span className="font-medium text-foreground">{amcFactsheetData.factsheet.benchmarkIndex}</span>
+													</div>
+													<div className="flex items-center justify-between">
+														<span className="text-muted-foreground">Fund Manager(s):</span>
+														<span className="font-medium text-foreground">{amcFactsheetData.factsheet.fundManagers?.join(", ")}</span>
+													</div>
+													<div className="flex items-center justify-between">
+														<span className="text-muted-foreground">Exit Load:</span>
+														<span className="font-medium text-foreground">{amcFactsheetData.factsheet.exitLoad}</span>
+													</div>
+												</div>
+
+												{/* Top Holdings Table */}
+												{amcFactsheetData.factsheet.topHoldings && amcFactsheetData.factsheet.topHoldings.length > 0 && (
+													<div className="space-y-1.5">
+														<h5 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+															<PieChart className="h-3.5 w-3.5 text-purple-400" />
+															Top Portfolio Holdings (Monthly AMC Disclosure)
+														</h5>
+														<div className="rounded border border-border overflow-hidden">
+															<table className="w-full text-xs">
+																<thead className="bg-muted/40 text-muted-foreground border-b border-border">
+																	<tr>
+																		<th className="text-left p-2">Company / Instrument</th>
+																		<th className="text-left p-2">Sector</th>
+																		<th className="text-right p-2">Weight</th>
+																	</tr>
+																</thead>
+																<tbody>
+																	{amcFactsheetData.factsheet.topHoldings.map((h: any, idx: number) => (
+																		<tr key={idx} className="border-b border-border/40 hover:bg-muted/20">
+																			<td className="p-2 font-medium text-foreground">{h.company}</td>
+																			<td className="p-2 text-muted-foreground">{h.sector}</td>
+																			<td className="p-2 text-right font-semibold text-purple-400">{h.weightPercent}%</td>
+																		</tr>
+																	))}
+																</tbody>
+															</table>
+														</div>
+													</div>
+												)}
+
+												{/* Tax & Regulatory Framework */}
+												<div className="p-3 rounded bg-purple-500/10 border border-purple-500/20 text-xs text-purple-200/90 space-y-1">
+													<p className="font-semibold text-purple-300">SEBI / Finance Act Tax Framework:</p>
+													<p>{amcFactsheetData.factsheet.taxImplication}</p>
+												</div>
+											</div>
+										) : (
+											<div className="p-6 text-center text-xs text-muted-foreground">
+												No AMC factsheet data available for this product. Click "Sync AMC Disclosures" above to fetch latest feeds.
+											</div>
+										)}
 									</TabsContent>
 
 									<TabsContent value="suitability" className="space-y-4">

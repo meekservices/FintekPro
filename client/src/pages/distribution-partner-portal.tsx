@@ -734,7 +734,7 @@ export default function DistributionPartnerPortal() {
 														No clients yet
 													</p>
 													<p className="text-muted-foreground">
-														Clients will appear here once agents onboard them
+														Clients will appear here once partners onboard them
 													</p>
 												</TableCell>
 											</TableRow>

@@ -145,10 +145,10 @@ const navCategories: NavCategory[] = [
 				description: "AI-powered trends & signals",
 			},
 			{
-				title: "Agent Oversight",
+				title: "Partner Oversight",
 				href: "/admin/agent-oversight",
 				icon: UserCog,
-				description: "Monitor all agent activity",
+				description: "Monitor all partner activity",
 			},
 			{
 				title: "User Activity",
@@ -179,7 +179,7 @@ const navCategories: NavCategory[] = [
 				title: "Stakeholders",
 				href: "/admin/stakeholders",
 				icon: Users,
-				description: "Clients, partners & agents",
+				description: "Clients & partner network",
 			},
 			{
 				title: "Prospect Dashboard",
@@ -188,16 +188,16 @@ const navCategories: NavCategory[] = [
 				description: "All prospects & leads",
 			},
 			{
-				title: "Agent Performance",
+				title: "Partner Performance",
 				href: "/admin/agent-performance",
 				icon: LineChart,
-				description: "Agent metrics & tracking",
+				description: "Partner metrics & tracking",
 			},
 			{
 				title: "Task Oversight",
 				href: "/admin/task-oversight",
 				icon: ClipboardList,
-				description: "Monitor agents' tasks",
+				description: "Monitor partners' tasks",
 			},
 			{
 				title: "Zoho Integration",
@@ -590,7 +590,7 @@ const navCategories: NavCategory[] = [
 				title: "Partner Payouts",
 				href: "/admin/payouts",
 				icon: Wallet,
-				description: "Agent & partner payouts",
+				description: "Partner payouts & commissions",
 			},
 			{
 				title: "Firm DP Inventory",

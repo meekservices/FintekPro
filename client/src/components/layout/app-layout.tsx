@@ -46,7 +46,7 @@ const PARTNER_ROLE_SET = new Set<string>(PARTNER_PORTAL_ROLES);
 
 const ROLE_LABELS: Record<string, string> = {
 	superadmin: "Super Admin",
-	master_agent: "Master Agent",
+	master_agent: "Master Partner",
 	admin: "Admin",
 	tester: "Tester",
 	bd_head: "BD Head",
@@ -66,9 +66,9 @@ const ROLE_LABELS: Record<string, string> = {
 	tech_devops: "DevOps",
 	partner: "Partner",
 	partner_ops: "Partner Ops",
-	agent: "Agent",
-	sub_agent: "Field Executive",
-	associate: "Associate",
+	agent: "Partner",
+	sub_agent: "Associate Partner",
+	associate: "Partner Associate",
 	business_client: "Business Client",
 	client: "Client",
 	user: "User",
@@ -279,20 +279,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 														<DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground px-2 py-1 font-semibold">
 															My Portals
 														</DropdownMenuLabel>
-														{hasAgentRole && (
-															<DropdownMenuItem asChild>
-																<a
-																	href="/?agent=true"
-																	target="_blank"
-																	rel="noopener noreferrer"
-																	className="cursor-pointer flex items-center gap-2"
-																>
-																	<Briefcase className="h-4 w-4 text-emerald-500" />
-																	<span>Partner Portal</span>
-																</a>
-															</DropdownMenuItem>
-														)}
-														{hasPartnerRole && (
+														{(hasPartnerRole || hasAgentRole) && (
 															<DropdownMenuItem asChild>
 																<a
 																	href="/?partner=true"
@@ -300,7 +287,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 																	rel="noopener noreferrer"
 																	className="cursor-pointer flex items-center gap-2"
 																>
-																	<Building2 className="h-4 w-4 text-blue-500" />
+																	<Briefcase className="h-4 w-4 text-emerald-500" />
 																	<span>Partner Portal</span>
 																</a>
 															</DropdownMenuItem>

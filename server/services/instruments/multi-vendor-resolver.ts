@@ -18,6 +18,7 @@ import {
 } from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { logger } from "../../logger";
+import { upstoxMarketDataService } from "../upstox-market-data-service";
 
 export interface ResolvedQuote {
   isin: string;
@@ -243,7 +244,7 @@ export class MultiVendorInstrumentResolver {
 
     for (const route of routingChain) {
       const mapping = mappingsByVendor.get(route.vendor);
-      if (!mapping && route.vendor !== "amfi" && route.vendor !== "nse") {
+      if (!mapping && route.vendor !== "amfi" && route.vendor !== "nse" && route.vendor !== "upstox") {
         // Vendor not mapped for this ISIN, continue to next fallback
         continue;
       }
@@ -307,7 +308,32 @@ export class MultiVendorInstrumentResolver {
     isin: string,
     mapping?: InstrumentVendorMapping
   ): Promise<ResolvedQuote | null> {
-    // 1. MFAPI / AMFI for Mutual Funds
+    // 1. Upstox for Listed Indian Equities & ETFs (Priority 1 licensed feed)
+    if (vendor === "upstox" && upstoxMarketDataService.isReady()) {
+      const lookupKey = mapping?.vendorSymbol || mapping?.vendorInstrumentToken || isin;
+      const exchange = (mapping as any)?.exchange === "BSE" ? "BSE" : "NSE";
+      const upstoxRes = await upstoxMarketDataService.getQuote(lookupKey, exchange);
+      if (upstoxRes.success && upstoxRes.data && upstoxRes.data.last_price > 0) {
+        const q = upstoxRes.data;
+        return {
+          isin,
+          symbol: q.symbol || lookupKey,
+          price: q.last_price,
+          change: q.change,
+          changePercent: q.change_percent,
+          open: q.open_price,
+          high: q.high_price,
+          low: q.low_price,
+          volume: q.volume,
+          vendorUsed: "upstox",
+          isFallback: false,
+          timestamp: new Date(q.timestamp).toISOString(),
+          cached: false,
+        };
+      }
+    }
+
+    // 2. MFAPI / AMFI for Mutual Funds
     if (vendor === "amfi" || (vendor === "iris" && isin.startsWith("INF"))) {
       const schemeCode = mapping?.vendorInstrumentToken || mapping?.vendorSymbol;
       if (schemeCode) {

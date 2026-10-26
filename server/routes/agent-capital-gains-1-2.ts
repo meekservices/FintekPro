@@ -20,7 +20,7 @@ import { agentAppointments, prospectClients, portfolios } from "@shared/schema";
 import { logger } from "../logger";
 
 export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
-	app.post("/api/agent/leads", requireAgent, async (req, res) => {
+	app.post(["/api/agent/leads", "/api/partner/leads"], requireAgent, async (req, res) => {
 		try {
 			const { name, email, phone, source, potentialValue, notes } = req.body;
 
@@ -96,7 +96,7 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
 	});
 
 	// POST bulk upload leads
-	app.post("/api/agent/leads/bulk", requireAgent, async (req, res) => {
+	app.post(["/api/agent/leads/bulk", "/api/partner/leads/bulk"], requireAgent, async (req, res) => {
 		try {
 			const { leads } = req.body;
 			if (!Array.isArray(leads) || leads.length === 0) {
@@ -194,7 +194,7 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
 	});
 
 	// PATCH update lead stage
-	app.patch("/api/agent/leads/:id/stage", requireAgent, async (req, res) => {
+	app.patch(["/api/agent/leads/:id/stage", "/api/partner/leads/:id/stage"], requireAgent, async (req, res) => {
 		try {
 			const { id } = req.params;
 			const { stage } = req.body;
@@ -234,6 +234,175 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
 		} catch (error) {
 			console.error("Error updating lead stage:", error);
 			res.status(500).json({ error: "Failed to update lead stage" });
+		}
+	});
+
+	// PUT / PATCH update full lead details
+	const handleUpdateLead = async (req: any, res: any) => {
+		try {
+			const { id } = req.params;
+			const {
+				name,
+				email,
+				phone,
+				stage,
+				source,
+				potentialValue,
+				score,
+				notes,
+				tags,
+				nextFollowUpAt,
+				lastContactAt,
+			} = req.body;
+
+			const userId = req.user?.id;
+			const userRoles: string[] = req.user?.roles || [req.user?.role || "user"];
+			const isAdmin = userRoles.some((r: string) =>
+				["admin", "superadmin", "master_agent"].includes(r),
+			);
+
+			// Check existing lead
+			const [existingLead] = await db
+				.select()
+				.from(schema.agentLeads)
+				.where(eq(schema.agentLeads.id, id))
+				.limit(1);
+
+			if (!existingLead) {
+				return res.status(404).json({ error: "Lead not found" });
+			}
+
+			if (!isAdmin && existingLead.agentId !== userId) {
+				return res
+					.status(403)
+					.json({ error: "You do not have permission to edit this lead" });
+			}
+
+			const validStages = [
+				"new",
+				"contacted",
+				"proposal_sent",
+				"negotiating",
+				"converted",
+				"lost",
+			];
+
+			const updateData: Record<string, any> = {
+				updatedAt: new Date(),
+			};
+
+			if (name !== undefined) {
+				if (!name || String(name).trim().length === 0) {
+					return res.status(400).json({ error: "Lead name cannot be empty" });
+				}
+				updateData.name = String(name).trim();
+			}
+			if (email !== undefined) updateData.email = email ? String(email).trim() : null;
+			if (phone !== undefined) updateData.phone = phone ? String(phone).trim() : null;
+			if (stage !== undefined) {
+				if (!validStages.includes(stage)) {
+					return res
+						.status(400)
+						.json({ error: `Invalid stage. Must be one of: ${validStages.join(", ")}` });
+				}
+				updateData.stage = stage;
+			}
+			if (source !== undefined) updateData.source = source ? String(source).trim() : "manual";
+			if (potentialValue !== undefined)
+				updateData.potentialValue = String(potentialValue).replace(/[^\d.]/g, "") || "0";
+			if (score !== undefined) updateData.score = Number(score) || 50;
+			if (notes !== undefined) updateData.notes = notes ? String(notes).trim() : null;
+			if (tags !== undefined) {
+				updateData.tags = Array.isArray(tags)
+					? tags
+					: typeof tags === "string" && tags.trim().length > 0
+						? tags.split(",").map((t: string) => t.trim())
+						: [];
+			}
+			if (nextFollowUpAt !== undefined) {
+				updateData.nextFollowUpAt = nextFollowUpAt ? new Date(nextFollowUpAt) : null;
+			}
+			if (lastContactAt !== undefined) {
+				updateData.lastContactAt = lastContactAt ? new Date(lastContactAt) : null;
+			}
+
+			const [updated] = await db
+				.update(schema.agentLeads)
+				.set(updateData)
+				.where(eq(schema.agentLeads.id, id))
+				.returning();
+
+			const transformedLead = {
+				id: updated.id,
+				name: updated.name,
+				email: updated.email || "",
+				phone: updated.phone || "",
+				mobile: updated.phone || "",
+				stage: updated.stage,
+				status: updated.stage,
+				source: updated.source || "manual",
+				potentialValue: Number(updated.potentialValue) || 0,
+				score: updated.score || 50,
+				notes: updated.notes || "",
+				interest: updated.notes || "",
+				lastContact: updated.lastContactAt?.toISOString(),
+				nextFollowUp: updated.nextFollowUpAt?.toISOString(),
+				createdAt: updated.createdAt?.toISOString(),
+				tags: updated.tags || [],
+			};
+
+			res.json({
+				success: true,
+				data: transformedLead,
+				lead: transformedLead,
+				message: "Lead updated successfully",
+				meta: { timestamp: new Date().toISOString(), version: "1.0" },
+			});
+		} catch (error: any) {
+			logger.error("Error updating lead details", { error: error.message });
+			res.status(500).json({ error: error.message || "Failed to update lead" });
+		}
+	};
+
+	app.put(["/api/agent/leads/:id", "/api/partner/leads/:id"], requireAgent, handleUpdateLead);
+	app.patch(["/api/agent/leads/:id", "/api/partner/leads/:id"], requireAgent, handleUpdateLead);
+
+	// DELETE lead
+	app.delete(["/api/agent/leads/:id", "/api/partner/leads/:id"], requireAgent, async (req, res) => {
+		try {
+			const { id } = req.params;
+			const userId = (req.user as any)?.id;
+			const userRoles: string[] = (req.user as any)?.roles || [(req.user as any)?.role || "user"];
+			const isAdmin = userRoles.some((r: string) =>
+				["admin", "superadmin", "master_agent"].includes(r),
+			);
+
+			const [existingLead] = await db
+				.select()
+				.from(schema.agentLeads)
+				.where(eq(schema.agentLeads.id, id))
+				.limit(1);
+
+			if (!existingLead) {
+				return res.status(404).json({ error: "Lead not found" });
+			}
+
+			if (!isAdmin && existingLead.agentId !== userId) {
+				return res
+					.status(403)
+					.json({ error: "You do not have permission to delete this lead" });
+			}
+
+			await db.delete(schema.agentLeads).where(eq(schema.agentLeads.id, id));
+
+			res.json({
+				success: true,
+				message: "Lead deleted successfully",
+				meta: { timestamp: new Date().toISOString(), version: "1.0" },
+			});
+		} catch (error: any) {
+			logger.error("Error deleting lead", { error: error.message });
+			res.status(500).json({ error: error.message || "Failed to delete lead" });
 		}
 	});
 

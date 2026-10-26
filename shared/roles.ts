@@ -90,11 +90,11 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     requiresCompliance: false,
   },
 
-  // Level 1: Master Agent (Compliance Anchor)
+  // Level 1: Master Partner (Compliance Anchor)
   master_agent: {
     id: 'master_agent',
-    name: 'Master Agent',
-    description: 'Top compliance anchor with ARN/EUIN/POSP/DSA certifications',
+    name: 'Master Partner',
+    description: 'Top compliance partner anchor with ARN/EUIN/POSP/DSA certifications',
     parentRoles: ['superadmin'],
     portal: 'admin',
     level: 1,
@@ -464,13 +464,14 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     requiresCompliance: true,
   },
 
-  // Level 5: Agents
+  // Level 5: Distribution Partners (Migrated from Agent)
+  // Human distribution roles are Partners. The "agent" name is reserved exclusively for AI agents.
   agent: {
     id: 'agent',
-    name: 'Agent',
-    description: 'Field agent under a partner',
+    name: 'Partner',
+    description: 'Distribution Partner (human distribution role migrated to Partner; "agent" name reserved for AI agents)',
     parentRoles: ['partner', 'agent'],
-    portal: 'agent',
+    portal: 'partner',
     level: 5,
     permissions: [
       'manage:own_clients',
@@ -486,13 +487,13 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     requiresCompliance: true,
   },
 
-  // Level 6: Field Executives
+  // Level 6: Associate Partners (Migrated from Field Executives)
   sub_agent: {
     id: 'sub_agent',
-    name: 'Field Executive',
-    description: 'Field Executive under an agent',
+    name: 'Associate Partner',
+    description: 'Associate Partner in distribution network',
     parentRoles: ['agent', 'sub_agent'],
-    portal: 'agent',
+    portal: 'partner',
     level: 6,
     permissions: [
       'manage:own_clients',
@@ -507,13 +508,13 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     requiresCompliance: true,
   },
 
-  // Level 7: Associates
+  // Level 7: Partner Associates (Migrated from Business Associates)
   associate: {
     id: 'associate',
-    name: 'Business Associate',
-    description: 'Business Associate under a Field Executive',
+    name: 'Partner Associate',
+    description: 'Partner Associate in distribution network',
     parentRoles: ['sub_agent', 'associate'],
-    portal: 'agent',
+    portal: 'partner',
     level: 7,
     permissions: [
       'create:leads',
@@ -666,7 +667,9 @@ export function getManageableRoles(userRoles: RoleId[]): RoleId[] {
  * Get the portal a role should access
  */
 export function getPortalForRole(role: RoleId): 'admin' | 'partner' | 'agent' | 'client' {
-  return ROLE_DEFINITIONS[role]?.portal || 'client';
+  const portal = ROLE_DEFINITIONS[role]?.portal;
+  if (portal === 'agent') return 'partner';
+  return portal || 'client';
 }
 
 /**
@@ -676,8 +679,8 @@ export function getPrimaryPortal(roles: RoleId[]): 'admin' | 'partner' | 'agent'
   const portalPriority: Record<string, number> = {
     admin: 0,
     partner: 1,
-    agent: 2,
-    client: 3,
+    agent: 1,
+    client: 2,
   };
   
   let primaryPortal: 'admin' | 'partner' | 'agent' | 'client' = 'client';
@@ -685,7 +688,7 @@ export function getPrimaryPortal(roles: RoleId[]): 'admin' | 'partner' | 'agent'
   
   for (const role of roles) {
     const portal = getPortalForRole(role);
-    const priority = portalPriority[portal];
+    const priority = portalPriority[portal] ?? 2;
     if (priority < lowestPriority) {
       lowestPriority = priority;
       primaryPortal = portal;
@@ -813,15 +816,16 @@ export function getRoleOptions(filterByPortal?: 'admin' | 'partner' | 'agent' | 
 // Export role groups for easy access
 export const ADMIN_ROLES: RoleId[] = ['superadmin', 'master_agent', 'admin', 'bd_head', 'compliance_officer', 'finance_head', 'ops_head', 'hr_head', 'tech_head', 'regulatory_auditor', 'tester'];
 export const TEAM_ROLES: RoleId[] = ['bd_team', 'compliance_team', 'finance_team', 'ops_team', 'hr_team', 'tech_backend', 'tech_frontend', 'tech_devops'];
-export const PARTNER_ROLES: RoleId[] = ['partner', 'partner_ops'];
-export const AGENT_ROLES: RoleId[] = ['agent', 'sub_agent', 'associate'];
+// Human distribution roles are Partners. The "agent" name is reserved exclusively for AI agents.
+export const PARTNER_ROLES: RoleId[] = ['partner', 'partner_ops', 'agent', 'sub_agent', 'associate'];
 export const CLIENT_ROLES: RoleId[] = ['client', 'business_client', 'user'];
 
 // All roles that can access admin portal
 export const ADMIN_PORTAL_ROLES: RoleId[] = [...ADMIN_ROLES, ...TEAM_ROLES];
 
-// All roles that can access partner portal
+// All roles that can access partner portal (human distribution network)
 export const PARTNER_PORTAL_ROLES: RoleId[] = [...PARTNER_ROLES];
 
-// All roles that can access agent portal  
-export const AGENT_PORTAL_ROLES: RoleId[] = [...AGENT_ROLES];
+// Backwards-compatibility aliases (human agent migrated to partner; agent reserved for AI agents)
+export const AGENT_ROLES: RoleId[] = PARTNER_ROLES;
+export const AGENT_PORTAL_ROLES: RoleId[] = PARTNER_PORTAL_ROLES;

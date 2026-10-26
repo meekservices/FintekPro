@@ -58,6 +58,7 @@ import {
 	Mail,
 	Target,
 	Award,
+	Edit,
 	ArrowUpRight,
 	ArrowDownRight,
 	Wallet,
@@ -129,6 +130,57 @@ export default function FieldAgentPortal() {
 
 	const { data: leads, isLoading: leadsLoading } = useQuery({
 		queryKey: ["/api/agent/leads"],
+	});
+
+	const [editingLead, setEditingLead] = useState<any>(null);
+	const [editLeadDialogOpen, setEditLeadDialogOpen] = useState(false);
+	const [leadFormData, setLeadFormData] = useState({
+		name: "",
+		email: "",
+		phone: "",
+		stage: "new",
+		notes: "",
+		potentialValue: "",
+	});
+
+	const handleOpenEditLead = (lead: any) => {
+		setEditingLead(lead);
+		setLeadFormData({
+			name: lead.name || "",
+			email: lead.email || "",
+			phone: lead.phone || lead.mobile || "",
+			stage: lead.stage || lead.status || "new",
+			notes: lead.notes || lead.interest || "",
+			potentialValue: lead.potentialValue ? String(lead.potentialValue) : "",
+		});
+		setEditLeadDialogOpen(true);
+	};
+
+	const updateLeadMutation = useMutation({
+		mutationFn: async (data: typeof leadFormData & { id: string }) => {
+			const res = await apiRequest(`/api/agent/leads/${data.id}`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(data),
+			});
+			return res.json();
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["/api/agent/leads"] });
+			setEditLeadDialogOpen(false);
+			setEditingLead(null);
+			toast({
+				title: "Lead Updated",
+				description: "Lead details have been saved successfully.",
+			});
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Update Failed",
+				description: err.message || "Failed to update lead",
+				variant: "destructive",
+			});
+		},
 	});
 
 	const { data: tasks, isLoading: tasksLoading } = useQuery({
@@ -391,14 +443,15 @@ export default function FieldAgentPortal() {
 		_monthlyTarget > 0 ? (_thisMonth / _monthlyTarget) * 100 : 0;
 
 	const agentLevel = (agentProfile as any)?.agentLevel || "agent";
-	const AGENT_LEVEL_LABELS: Record<string, string> = {
-		master: "Partner",
-		sub_agent: "Field Executive",
-		associate: "Business Associate",
-		district_associate: "District Associate",
-		field_associate: "Field Associate",
+	const PARTNER_LEVEL_LABELS: Record<string, string> = {
+		master: "Master Partner",
+		agent: "Partner",
+		sub_agent: "Associate Partner",
+		associate: "Partner Associate",
+		district_associate: "District Partner",
+		field_associate: "Field Partner",
 	};
-	const levelLabel = AGENT_LEVEL_LABELS[agentLevel] || "Business Associate";
+	const levelLabel = PARTNER_LEVEL_LABELS[agentLevel] || "Partner";
 
 	return (
 		<div
@@ -1011,10 +1064,10 @@ export default function FieldAgentPortal() {
 													</TableCell>
 													<TableCell>
 														<span className="text-xs">
-															{lead.mobile || lead.email || "-"}
+															{lead.phone || lead.mobile || lead.email || "-"}
 														</span>
 													</TableCell>
-													<TableCell>{lead.interest || "-"}</TableCell>
+													<TableCell>{lead.interest || lead.notes || "-"}</TableCell>
 													<TableCell>
 														<Badge
 															variant={
@@ -1025,7 +1078,7 @@ export default function FieldAgentPortal() {
 																		: "secondary"
 															}
 														>
-															{lead.status || "New"}
+															{lead.status || lead.stage || "New"}
 														</Badge>
 													</TableCell>
 													<TableCell className="text-sm text-muted-foreground">
@@ -1036,11 +1089,22 @@ export default function FieldAgentPortal() {
 															<Button
 																variant="ghost"
 																size="sm"
+																className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"
+																data-testid={`button-edit-lead-${index}`}
+																onClick={() => handleOpenEditLead(lead)}
+																title="Edit Lead"
+															>
+																<Edit className="h-4 w-4" />
+															</Button>
+															<Button
+																variant="ghost"
+																size="sm"
 																className="text-green-600 hover:text-green-800 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950"
 																data-testid={`button-call-lead-${index}`}
 																onClick={() => {
-																	if (lead.mobile)
-																		window.open(`tel:${lead.mobile}`);
+																	const phone = lead.phone || lead.mobile;
+																	if (phone)
+																		window.open(`tel:${phone}`);
 																	else
 																		toast({
 																			title: "No phone number",
@@ -1095,6 +1159,128 @@ export default function FieldAgentPortal() {
 								</Table>
 							</CardContent>
 						</Card>
+
+						{/* Edit Lead Dialog */}
+						<Dialog
+							open={editLeadDialogOpen}
+							onOpenChange={setEditLeadDialogOpen}
+						>
+							<DialogContent className="max-w-md">
+								<DialogHeader>
+									<DialogTitle>Edit Lead</DialogTitle>
+									<DialogDescription>
+										Update contact and status details for {editingLead?.name}
+									</DialogDescription>
+								</DialogHeader>
+								<div className="space-y-4 py-2">
+									<div>
+										<Label htmlFor="field-edit-lead-name">Name *</Label>
+										<Input
+											id="field-edit-lead-name"
+											value={leadFormData.name}
+											onChange={(e) =>
+												setLeadFormData({ ...leadFormData, name: e.target.value })
+											}
+											placeholder="Full Name"
+										/>
+									</div>
+									<div className="grid grid-cols-2 gap-3">
+										<div>
+											<Label htmlFor="field-edit-lead-phone">Phone</Label>
+											<Input
+												id="field-edit-lead-phone"
+												value={leadFormData.phone}
+												onChange={(e) =>
+													setLeadFormData({ ...leadFormData, phone: e.target.value })
+												}
+												placeholder="9876543210"
+											/>
+										</div>
+										<div>
+											<Label htmlFor="field-edit-lead-email">Email</Label>
+											<Input
+												id="field-edit-lead-email"
+												type="email"
+												value={leadFormData.email}
+												onChange={(e) =>
+													setLeadFormData({ ...leadFormData, email: e.target.value })
+												}
+												placeholder="client@example.com"
+											/>
+										</div>
+									</div>
+									<div className="grid grid-cols-2 gap-3">
+										<div>
+											<Label htmlFor="field-edit-lead-stage">Pipeline Stage</Label>
+											<Select
+												value={leadFormData.stage}
+												onValueChange={(val) =>
+													setLeadFormData({ ...leadFormData, stage: val })
+												}
+											>
+												<SelectTrigger id="field-edit-lead-stage">
+													<SelectValue placeholder="Select Stage" />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="new">New Lead</SelectItem>
+													<SelectItem value="contacted">Contacted</SelectItem>
+													<SelectItem value="proposal_sent">Proposal Sent</SelectItem>
+													<SelectItem value="negotiating">Negotiating</SelectItem>
+													<SelectItem value="converted">Converted</SelectItem>
+													<SelectItem value="lost">Lost</SelectItem>
+												</SelectContent>
+											</Select>
+										</div>
+										<div>
+											<Label htmlFor="field-edit-lead-value">Potential Value (₹)</Label>
+											<Input
+												id="field-edit-lead-value"
+												type="number"
+												value={leadFormData.potentialValue}
+												onChange={(e) =>
+													setLeadFormData({
+														...leadFormData,
+														potentialValue: e.target.value,
+													})
+												}
+												placeholder="500000"
+											/>
+										</div>
+									</div>
+									<div>
+										<Label htmlFor="field-edit-lead-notes">Interest / Notes</Label>
+										<Textarea
+											id="field-edit-lead-notes"
+											value={leadFormData.notes}
+											onChange={(e) =>
+												setLeadFormData({ ...leadFormData, notes: e.target.value })
+											}
+											placeholder="Investment preferences, notes, remarks..."
+											rows={3}
+										/>
+									</div>
+									<div className="flex justify-end gap-2 pt-2">
+										<Button
+											variant="outline"
+											onClick={() => setEditLeadDialogOpen(false)}
+										>
+											Cancel
+										</Button>
+										<Button
+											disabled={!leadFormData.name || updateLeadMutation.isPending}
+											onClick={() =>
+												updateLeadMutation.mutate({
+													...leadFormData,
+													id: editingLead.id,
+												})
+											}
+										>
+											{updateLeadMutation.isPending ? "Saving..." : "Save Changes"}
+										</Button>
+									</div>
+								</div>
+							</DialogContent>
+						</Dialog>
 					</TabsContent>
 
 					<TabsContent value="tasks" className="mt-6">

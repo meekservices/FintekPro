@@ -938,22 +938,7 @@ export function EnhancedNavigation() {
 								<Layers className="h-3 w-3" /> My Portals
 							</p>
 						)}
-						{hasAgentRole && (
-							<a href="/?agent=true" target="_blank" rel="noopener noreferrer">
-								<Button
-									variant="ghost"
-									size="sm"
-									className={`${inSheet || !isCollapsed ? "w-full justify-start" : "w-full justify-center px-0"} mb-0.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10`}
-									title={isCollapsed && !inSheet ? "Partner Portal" : undefined}
-								>
-									<Briefcase className="h-4 w-4" />
-									{(inSheet || !isCollapsed) && (
-										<span className="ml-3 text-xs">Partner Portal</span>
-									)}
-								</Button>
-							</a>
-						)}
-						{hasPartnerRole && (
+						{(hasPartnerRole || hasAgentRole) && (
 							<a
 								href="/?partner=true"
 								target="_blank"
@@ -962,10 +947,10 @@ export function EnhancedNavigation() {
 								<Button
 									variant="ghost"
 									size="sm"
-									className={`${inSheet || !isCollapsed ? "w-full justify-start" : "w-full justify-center px-0"} mb-0.5 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10`}
+									className={`${inSheet || !isCollapsed ? "w-full justify-start" : "w-full justify-center px-0"} mb-0.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10`}
 									title={isCollapsed && !inSheet ? "Partner Portal" : undefined}
 								>
-									<Building2 className="h-4 w-4" />
+									<Briefcase className="h-4 w-4" />
 									{(inSheet || !isCollapsed) && (
 										<span className="ml-3 text-xs">Partner Portal</span>
 									)}

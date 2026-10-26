@@ -22,6 +22,7 @@ import {
 	HelpCircle,
 	X,
 	Sparkles,
+	Building2,
 } from "lucide-react";
 import {
 	Card,
@@ -43,6 +44,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 
@@ -429,6 +431,38 @@ export default function AgentKnowledgeHub() {
 	const [flashcardCategory, setFlashcardCategory] = useState("all");
 	const [currentCardIndex, setCurrentCardIndex] = useState(0);
 	const [isCardFlipped, setIsCardFlipped] = useState(false);
+	const [showAmcModal, setShowAmcModal] = useState(false);
+	const [selectedAmcCode, setSelectedAmcCode] = useState<string>("HDFC_MF");
+
+	const { data: amcInsightsData } = useQuery<{
+		success: boolean;
+		count: number;
+		insights: Array<{
+			id: string;
+			amcName: string;
+			amcCode: string;
+			title: string;
+			author: string;
+			authorDesignation: string;
+			category: string;
+			keyTakeaways: string[];
+			sectorCalls: {
+				overweight: string[];
+				neutral: string[];
+				underweight: string[];
+			};
+			macroIndicators: {
+				gdpGrowthEstimate: string;
+				rbiRateStance: string;
+				tenYearGsecOutlook: string;
+				crudeImpact: string;
+			};
+			advisoryTipForPartners: string;
+			publishedDate: string;
+		}>;
+	}>({
+		queryKey: ["/api/knowledge-hub/amc/insights"],
+	});
 
 	const [selectedAssetClassId, setSelectedAssetClassId] = useState<string | null>(() => {
 		if (typeof window === "undefined") return null;
@@ -497,8 +531,17 @@ export default function AgentKnowledgeHub() {
 			bgColor: "bg-blue-500/10",
 		},
 		{
+			title: "AMC Strategist Insights",
+			description: "Monthly CIO outlooks, sector calls & duration stance",
+			icon: Building2,
+			href: "#",
+			onClick: () => setShowAmcModal(true),
+			color: "text-purple-500",
+			bgColor: "bg-purple-500/10",
+		},
+		{
 			title: "Product Knowledge Cards",
-			description: "Comprehensive product information",
+			description: "Comprehensive product information & AMC factsheets",
 			icon: FileCheck,
 			href: "/agent/knowledge-hub/products",
 			color: "text-emerald-500",
@@ -506,7 +549,7 @@ export default function AgentKnowledgeHub() {
 		},
 		{
 			title: "Client Explanations",
-			description: "Ready-to-use explanation templates",
+			description: "Ready-to-use explanation templates & BAF models",
 			icon: Lightbulb,
 			href: "/agent/knowledge-hub/explanations",
 			color: "text-amber-500",
@@ -564,13 +607,22 @@ export default function AgentKnowledgeHub() {
 				<div>
 					<h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
 						<BookOpen className="h-7 w-7 text-emerald-500" />
-						Agent Knowledge Hub
+						Partner Knowledge Hub
 					</h1>
 					<p className="text-muted-foreground mt-1">
-						Market intelligence, product knowledge, and regulatory compliance tools
+						Market intelligence, AMC strategist outlooks, product knowledge, and regulatory compliance tools
 					</p>
 				</div>
-				<div className="flex items-center gap-2">
+				<div className="flex items-center gap-2 flex-wrap">
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => setShowAmcModal(true)}
+						className="border-purple-500/40 text-purple-400 hover:bg-purple-500/10 gap-1.5"
+					>
+						<Building2 className="h-4 w-4" />
+						AMC Insights & Outlooks
+					</Button>
 					<Button
 						variant="outline"
 						size="sm"
@@ -675,11 +727,11 @@ export default function AgentKnowledgeHub() {
 			)}
 
 			{/* Quick Links Grid */}
-			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-				{quickLinks.map((link) => (
-					<Link key={link.href} href={link.href}>
+			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+				{quickLinks.map((link) => {
+					const cardContent = (
 						<Card
-							className="bg-background border-border hover:border-border transition-colors cursor-pointer h-full"
+							className="bg-background border-border hover:border-emerald-500/50 transition-colors cursor-pointer h-full"
 							data-testid={`card-${link.title.toLowerCase().replace(/\s+/g, "-")}`}
 						>
 							<CardContent className="p-4">
@@ -700,8 +752,22 @@ export default function AgentKnowledgeHub() {
 								</div>
 							</CardContent>
 						</Card>
-					</Link>
-				))}
+					);
+
+					if (link.onClick) {
+						return (
+							<div key={link.title} onClick={link.onClick} className="h-full">
+								{cardContent}
+							</div>
+						);
+					}
+
+					return (
+						<Link key={link.href} href={link.href}>
+							{cardContent}
+						</Link>
+					);
+				})}
 			</div>
 
 			{/* 3-Year Certification Expiry & CPE Renewal Tracker */}
@@ -1321,6 +1387,205 @@ export default function AgentKnowledgeHub() {
 							</>
 						);
 					})()}
+				</DialogContent>
+			</Dialog>
+
+			{/* AMC Strategist Insights & CIO Perspectives Modal */}
+			<Dialog open={showAmcModal} onOpenChange={setShowAmcModal}>
+				<DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-6 bg-card border-border">
+					<DialogHeader>
+						<div className="flex items-center gap-2">
+							<Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20 text-xs">
+								<Building2 className="h-3 w-3 mr-1" />
+								Institutional Feeds
+							</Badge>
+							<span className="text-xs text-muted-foreground">Updated Monthly from AMC Disclosures</span>
+						</div>
+						<DialogTitle className="text-xl font-bold text-foreground flex items-center gap-2">
+							AMC Strategist Intelligence & CIO Perspectives
+						</DialogTitle>
+						<DialogDescription className="text-sm text-muted-foreground">
+							Direct macro views, equity valuation calls, and duration playbooks from India's top fund houses to support client discussions.
+						</DialogDescription>
+					</DialogHeader>
+
+					{amcInsightsData?.insights && amcInsightsData.insights.length > 0 ? (
+						<Tabs
+							value={selectedAmcCode}
+							onValueChange={setSelectedAmcCode}
+							className="flex-1 flex flex-col min-h-0 mt-2"
+						>
+							<TabsList className="grid grid-cols-5 w-full bg-muted/40 p-1 mb-3">
+								{amcInsightsData.insights.map((insight) => (
+									<TabsTrigger
+										key={insight.amcCode}
+										value={insight.amcCode}
+										className="text-xs py-1.5 px-1 truncate data-[state=active]:bg-background data-[state=active]:text-foreground"
+									>
+										{insight.amcName.replace(" Mutual Fund", "")}
+									</TabsTrigger>
+								))}
+							</TabsList>
+
+							<ScrollArea className="flex-1 pr-3">
+								{(() => {
+									const activeInsight =
+										amcInsightsData.insights.find((i) => i.amcCode === selectedAmcCode) ||
+										amcInsightsData.insights[0];
+									if (!activeInsight) return null;
+
+									return (
+										<div className="space-y-4 pb-4">
+											{/* Header Summary */}
+											<div className="p-4 rounded-xl bg-muted/30 border border-border">
+												<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+													<div>
+														<Badge variant="outline" className="text-xs mb-1 bg-primary/10 text-primary border-primary/20">
+															{activeInsight.category}
+														</Badge>
+														<h3 className="text-base font-semibold text-foreground">
+															{activeInsight.title}
+														</h3>
+														<p className="text-xs text-muted-foreground">
+															By <span className="font-medium text-foreground">{activeInsight.author}</span> ({activeInsight.authorDesignation}) • Published {activeInsight.publishedDate}
+														</p>
+													</div>
+													<Link href={`/agent/knowledge-hub/products`}>
+														<Button size="sm" variant="outline" className="text-xs border-border shrink-0">
+															View Scheme Factsheets
+															<ChevronRight className="h-3.5 w-3.5 ml-1" />
+														</Button>
+													</Link>
+												</div>
+											</div>
+
+											{/* Key Strategic Takeaways */}
+											<div>
+												<h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+													<Sparkles className="h-3.5 w-3.5 text-amber-500" />
+													Key Strategic Takeaways
+												</h4>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+													{activeInsight.keyTakeaways.map((takeaway, idx) => (
+														<div
+															key={idx}
+															className="flex items-start gap-2 p-2.5 rounded-lg bg-card border border-border text-xs text-muted-foreground"
+														>
+															<CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+															<span>{takeaway}</span>
+														</div>
+													))}
+												</div>
+											</div>
+
+											{/* Sector Allocation Calls */}
+											<div>
+												<h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+													<Layers className="h-3.5 w-3.5 text-blue-500" />
+													Tactical Sector Calls
+												</h4>
+												<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+													{/* Overweight */}
+													<div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+														<div className="flex items-center gap-1.5 mb-2">
+															<Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px]">
+																OVERWEIGHT
+															</Badge>
+														</div>
+														<ul className="space-y-1.5 text-xs text-foreground">
+															{activeInsight.sectorCalls.overweight.map((sec, i) => (
+																<li key={i} className="flex items-center gap-1.5">
+																	<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+																	{sec}
+																</li>
+															))}
+														</ul>
+													</div>
+
+													{/* Neutral */}
+													<div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
+														<div className="flex items-center gap-1.5 mb-2">
+															<Badge className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px]">
+																NEUTRAL
+															</Badge>
+														</div>
+														<ul className="space-y-1.5 text-xs text-foreground">
+															{activeInsight.sectorCalls.neutral.map((sec, i) => (
+																<li key={i} className="flex items-center gap-1.5">
+																	<span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+																	{sec}
+																</li>
+															))}
+														</ul>
+													</div>
+
+													{/* Underweight */}
+													<div className="p-3 rounded-xl bg-red-500/5 border border-red-500/20">
+														<div className="flex items-center gap-1.5 mb-2">
+															<Badge className="bg-red-500/10 text-red-400 border-red-500/30 text-[10px]">
+																UNDERWEIGHT
+															</Badge>
+														</div>
+														<ul className="space-y-1.5 text-xs text-foreground">
+															{activeInsight.sectorCalls.underweight.map((sec, i) => (
+																<li key={i} className="flex items-center gap-1.5">
+																	<span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+																	{sec}
+																</li>
+															))}
+														</ul>
+													</div>
+												</div>
+											</div>
+
+											{/* Macro Indicators */}
+											<div>
+												<h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+													<TrendingUp className="h-3.5 w-3.5 text-purple-500" />
+													Macro & Rate Projections
+												</h4>
+												<div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+													<div className="p-2.5 rounded-lg bg-card border border-border">
+														<p className="text-[10px] text-muted-foreground uppercase font-medium">GDP Growth</p>
+														<p className="text-xs font-semibold text-foreground mt-0.5">{activeInsight.macroIndicators.gdpGrowthEstimate}</p>
+													</div>
+													<div className="p-2.5 rounded-lg bg-card border border-border">
+														<p className="text-[10px] text-muted-foreground uppercase font-medium">RBI Stance</p>
+														<p className="text-xs font-semibold text-foreground mt-0.5">{activeInsight.macroIndicators.rbiRateStance}</p>
+													</div>
+													<div className="p-2.5 rounded-lg bg-card border border-border">
+														<p className="text-[10px] text-muted-foreground uppercase font-medium">10Y G-Sec</p>
+														<p className="text-xs font-semibold text-foreground mt-0.5">{activeInsight.macroIndicators.tenYearGsecOutlook}</p>
+													</div>
+													<div className="p-2.5 rounded-lg bg-card border border-border">
+														<p className="text-[10px] text-muted-foreground uppercase font-medium">Crude & FX</p>
+														<p className="text-xs font-semibold text-foreground mt-0.5">{activeInsight.macroIndicators.crudeImpact}</p>
+													</div>
+												</div>
+											</div>
+
+											{/* Partner Advisory Tip */}
+											<div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+												<div className="flex items-center gap-2 mb-1">
+													<Lightbulb className="h-4 w-4 text-emerald-500" />
+													<p className="text-xs font-semibold text-emerald-400">
+														Partner Client Advisory Takeaway
+													</p>
+												</div>
+												<p className="text-xs text-emerald-200/90 leading-relaxed">
+													{activeInsight.advisoryTipForPartners}
+												</p>
+											</div>
+										</div>
+									);
+								})()}
+							</ScrollArea>
+						</Tabs>
+					) : (
+						<div className="py-8 text-center text-sm text-muted-foreground">
+							Loading AMC Strategist insights...
+						</div>
+					)}
 				</DialogContent>
 			</Dialog>
 		</div>

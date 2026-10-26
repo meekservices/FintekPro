@@ -614,6 +614,52 @@ class UpstoxMarketDataService {
     }, t0);
   }
 
+  /**
+   * Get all major Indian market benchmark indices in a single fast call (Nifty 50, Nifty Bank, Sensex).
+   */
+  async getMajorIndices(): Promise<UpstoxServiceResult<Record<string, UpstoxQuote>>> {
+    const t0 = Date.now();
+    if (!this.isReady()) return this._inactive<Record<string, UpstoxQuote>>();
+
+    const keys = "NSE_INDEX|Nifty 50,NSE_INDEX|Nifty Bank,BSE_INDEX|SENSEX";
+    return this._withRetry<Record<string, UpstoxQuote>>(async () => {
+      const res = await this.client!.get("/market-quote/ltp", {
+        params: { instrument_key: keys },
+      });
+      const dataObj = (res.data?.data ?? {}) as Record<string, any>;
+      const result: Record<string, UpstoxQuote> = {};
+
+      const mapIndex = (key: string, symbol: string, exchange: "NSE" | "BSE") => {
+        const raw =
+          dataObj[key] ??
+          Object.values(dataObj).find(
+            (v: any) => v?.instrument_token === key || v?.symbol === symbol
+          );
+        if (raw?.last_price) {
+          result[symbol] = {
+            symbol,
+            exchange,
+            last_price: Number(raw.last_price),
+            previous_close: raw.ohlc?.close ? Number(raw.ohlc.close) : undefined,
+            timestamp: Date.now(),
+            data_source: "UPSTOX",
+            engine_version: ENGINE_VERSION,
+          };
+        }
+      };
+
+      mapIndex("NSE_INDEX|Nifty 50", "NIFTY50", "NSE");
+      mapIndex("NSE_INDEX|Nifty Bank", "BANKNIFTY", "NSE");
+      mapIndex("BSE_INDEX|SENSEX", "SENSEX", "BSE");
+
+      return {
+        success: true,
+        data: result,
+        meta: this._meta(t0),
+      };
+    }, t0);
+  }
+
   // ── IPO (Initial Public Offering) ──────────────────────────────────────────
 
   /**
@@ -630,7 +676,7 @@ class UpstoxMarketDataService {
     if (!this.isReady()) return this._inactive<any[]>();
 
     return this._withRetry<any[]>(async () => {
-      const res = await this.client!.get("/ipo", {
+      const res = await this.client!.get("/ipos", {
         params: { status, ...(issue_type ? { issue_type } : {}) },
       });
       return {
@@ -649,7 +695,7 @@ class UpstoxMarketDataService {
     if (!this.isReady()) return this._inactive<any>();
 
     return this._withRetry<any>(async () => {
-      const res = await this.client!.get(`/ipo/${encodeURIComponent(ipoId)}`);
+      const res = await this.client!.get(`/ipos/${encodeURIComponent(ipoId)}`);
       return {
         success: true,
         data: res.data?.data,
@@ -697,7 +743,7 @@ class UpstoxMarketDataService {
         bid_count: params.bids.length,
       });
 
-      const res = await this.client!.post("/ipo/apply", payload);
+      const res = await this.client!.post("/ipos/apply", payload);
       return {
         success: true,
         data: res.data?.data,
@@ -714,7 +760,7 @@ class UpstoxMarketDataService {
     if (!this.isReady()) return this._inactive<any[]>();
 
     return this._withRetry<any[]>(async () => {
-      const res = await this.client!.get("/ipo/orders", {
+      const res = await this.client!.get("/ipos/orders", {
         params: { page_number, records },
       });
       return {

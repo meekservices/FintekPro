@@ -504,6 +504,13 @@ export function AdminRoutes() {
 					</AdminLayout>
 				)}
 			</Route>
+			<Route path="/admin/partner-performance">
+				{() => (
+					<AdminLayout>
+						<AgentPerformanceDashboard />
+					</AdminLayout>
+				)}
+			</Route>
 			<Route path="/admin/demo-proposals">
 				{() => (
 					<AdminLayout>

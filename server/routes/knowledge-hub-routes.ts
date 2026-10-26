@@ -4,6 +4,7 @@ import { knowledgeHubService } from "../services/knowledge-hub-service";
 import { nismLmsService } from "../services/nism-lms-service";
 import { nismCurriculumService } from "../services/nism-curriculum-service";
 import { irdaiPospTrainingService } from "../services/irdai-posp-training-service";
+import { amcKnowledgeHubService } from "../services/amc-knowledge-hub-service";
 import { requireAuth, requireRole } from "../middleware/roleMiddleware";
 
 const router = Router();
@@ -852,6 +853,74 @@ router.get(
 		const category = req.query.category as string;
 		const cards = knowledgeHubService.getHighYieldFlashcards(category);
 		res.json({ success: true, count: cards.length, flashcards: cards });
+	}),
+);
+
+// ── AMC Integration Endpoints ───────────────────────────────────────────────
+
+// GET /api/knowledge-hub/amc/insights — fetch market commentaries & strategist outlooks from top AMCs
+router.get(
+	"/amc/insights",
+	asyncHandler(async (_req, res) => {
+		const insights = amcKnowledgeHubService.getAmcStrategistInsights();
+		res.json({
+			success: true,
+			count: insights.length,
+			insights,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: "1.0",
+				providers: ["HDFC MF", "ICICI Prudential MF", "Nippon India MF", "SBI MF", "Mirae Asset MF"],
+			},
+		});
+	}),
+);
+
+// GET /api/knowledge-hub/amc/schemes/:code/factsheet — get rich AMC scheme factsheet
+router.get(
+	"/amc/schemes/:code/factsheet",
+	asyncHandler(async (req, res) => {
+		const { code } = req.params;
+		const factsheet = await amcKnowledgeHubService.getSchemeFactsheet(code);
+		if (!factsheet) {
+			return res.status(404).json({
+				success: false,
+				error: "Scheme factsheet not found",
+				code: "SCHEME_NOT_FOUND",
+			});
+		}
+		res.json({
+			success: true,
+			factsheet,
+			meta: {
+				timestamp: new Date().toISOString(),
+				source: "AMC_RTA_ACCORD",
+			},
+		});
+	}),
+);
+
+// POST /api/knowledge-hub/amc/sync — admin-triggered synchronization of AMC factsheets & explanation templates
+router.post(
+	"/amc/sync",
+	requireRole("superadmin", "admin", "master_agent"),
+	asyncHandler(async (req, res) => {
+		const userId = (req as any).user?.id || "system";
+		const [productsResult, templatesResult] = await Promise.all([
+			amcKnowledgeHubService.syncAmcProductsToKnowledgeHub(userId),
+			amcKnowledgeHubService.syncAmcExplanationTemplates(userId),
+		]);
+
+		res.json({
+			success: true,
+			message: "AMC Knowledge Hub synchronization complete",
+			products: productsResult,
+			templates: templatesResult,
+			meta: {
+				timestamp: new Date().toISOString(),
+				syncedBy: userId,
+			},
+		});
 	}),
 );
 

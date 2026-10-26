@@ -17,6 +17,9 @@ const Bonds = lazyWithRetry(() => import("@/pages/bonds"));
 const CASupportDashboard = lazyWithRetry(
 	() => import("@/pages/ca-support-dashboard"),
 );
+const AgentLeadPipeline = lazyWithRetry(
+	() => import("@/pages/agent-lead-pipeline"),
+);
 const CASupportDetail = lazyWithRetry(
 	() => import("@/pages/ca-support-detail"),
 );
@@ -132,6 +135,24 @@ export function PartnerRoutes() {
 					</PartnerShell>
 				)}
 			</Route>
+			<Route path="/partner/partners">
+				{() => (
+					<PartnerShell>
+						<Suspense fallback={<PartnerLoading />}>
+							<PartnerAgentDashboard />
+						</Suspense>
+					</PartnerShell>
+				)}
+			</Route>
+			<Route path="/partner/leads">
+				{() => (
+					<PartnerShell>
+						<Suspense fallback={<PartnerLoading />}>
+							<AgentLeadPipeline />
+						</Suspense>
+					</PartnerShell>
+				)}
+			</Route>
 			<Route path="/partner/my-team">
 				{() => (
 					<PartnerShell>
@@ -192,6 +213,15 @@ export function PartnerRoutes() {
 				)}
 			</Route>
 			<Route path="/partner/agent-performance">
+				{() => (
+					<PartnerShell>
+						<Suspense fallback={<PartnerLoading />}>
+							<PartnerAgentDashboard />
+						</Suspense>
+					</PartnerShell>
+				)}
+			</Route>
+			<Route path="/partner/performance">
 				{() => (
 					<PartnerShell>
 						<Suspense fallback={<PartnerLoading />}>

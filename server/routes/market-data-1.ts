@@ -1,6 +1,8 @@
 import { Express, Request, Response } from "express";
 import { finnhubService } from "../finnhub-service";
 import { marketMoversCache } from "../services/market-movers-cache";
+import { upstoxMarketDataService } from "../services/upstox-market-data-service";
+import { logger } from "../logger";
 import { requireAdmin } from "../middleware/roleMiddleware";
 import type {
 	MarketQuoteData,
@@ -168,7 +170,38 @@ export function registerMarketDataPart1Routes(app: Express): void {
 			try {
 				const { symbol } = req.params;
 
-				// 1. Try Finnhub
+				// Priority 1: Upstox Developer API v2 (SEBI-licensed exchange feed)
+				if (upstoxMarketDataService.isReady()) {
+					try {
+						const cleanSym = symbol.toUpperCase().replace(/\.NS$/, "").replace(/\.BO$/, "");
+						const exchange = symbol.toUpperCase().endsWith(".BO") ? "BSE" : "NSE";
+						const upstoxRes = await upstoxMarketDataService.getQuote(cleanSym, exchange);
+						if (upstoxRes.success && upstoxRes.data && upstoxRes.data.last_price > 0) {
+							const q = upstoxRes.data;
+							res.json({
+								symbol: cleanSym,
+								price: q.last_price,
+								change: q.change ?? 0,
+								changePercent: q.change_percent ?? 0,
+								high: q.high_price ?? q.last_price,
+								low: q.low_price ?? q.last_price,
+								open: q.open_price ?? q.last_price,
+								previousClose: q.previous_close ?? q.last_price,
+								source: "UPSTOX",
+								lastUpdated: new Date(q.timestamp).toISOString(),
+							});
+							return;
+						}
+					} catch (upstoxErr) {
+						logger.warn("[MarketData] Upstox quote lookup failed, trying fallbacks", {
+							event: "UPSTOX_QUOTE_FALLBACK",
+							symbol,
+							message: (upstoxErr as any)?.message,
+						});
+					}
+				}
+
+				// Priority 2: Try Finnhub
 				try {
 					if (process.env.FINNHUB_API_KEY) {
 						const finnhubQuote = await finnhubService.getQuote(
@@ -239,7 +272,52 @@ export function registerMarketDataPart1Routes(app: Express): void {
 					: Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
 				const toTs = to ? queryInt(to, 0) : Math.floor(Date.now() / 1000);
 
-				// 1. Try Finnhub
+				// Priority 1: Upstox Historical OHLCV Candles (SEBI licensed feed)
+				if (upstoxMarketDataService.isReady()) {
+					try {
+						const cleanSym = symbol.toUpperCase().replace(/\.NS$/, "").replace(/\.BO$/, "");
+						const exchange = symbol.toUpperCase().endsWith(".BO") ? "BSE" : "NSE";
+						const fromDateStr = new Date(fromTs * 1000).toISOString().split("T")[0];
+						const toDateStr = new Date(toTs * 1000).toISOString().split("T")[0];
+						const interval =
+							resolution === "1"
+								? "1minute"
+								: resolution === "30"
+									? "30minute"
+									: resolution === "W"
+										? "week"
+										: resolution === "M"
+											? "month"
+											: "day";
+						const histRes = await upstoxMarketDataService.getHistoricalData(
+							cleanSym,
+							interval,
+							fromDateStr,
+							toDateStr,
+							exchange,
+						);
+						if (histRes.success && histRes.data && histRes.data.length > 0) {
+							const c = histRes.data.map((item) => item.close);
+							const h = histRes.data.map((item) => item.high);
+							const l = histRes.data.map((item) => item.low);
+							const o = histRes.data.map((item) => item.open);
+							const v = histRes.data.map((item) => item.volume);
+							const t = histRes.data.map((item) =>
+								Math.floor(new Date(item.timestamp).getTime() / 1000),
+							);
+							res.json({ s: "ok", c, h, l, o, t, v, source: "UPSTOX" });
+							return;
+						}
+					} catch (upstoxErr) {
+						logger.warn("[MarketData] Upstox candles failed, falling back", {
+							event: "UPSTOX_CANDLES_FALLBACK",
+							symbol,
+							message: (upstoxErr as any)?.message,
+						});
+					}
+				}
+
+				// Priority 2: Try Finnhub
 				try {
 					if (process.env.FINNHUB_API_KEY) {
 						const finnhubCandles = await finnhubService.getCandles(
@@ -546,58 +624,66 @@ export function registerMarketDataPart1Routes(app: Express): void {
 					return;
 				}
 
-				const globalIndices: Array<{ symbol: string; name: string }> = [
+				let upstoxIndices: Record<string, any> = {};
+				if (upstoxMarketDataService.isReady()) {
+					try {
+						const upstoxRes = await upstoxMarketDataService.getMajorIndices();
+						if (upstoxRes.success && upstoxRes.data) {
+							upstoxIndices = upstoxRes.data;
+						}
+					} catch (err: any) {
+						logger.warn("[MarketData] Upstox major indices warning", {
+							event: "UPSTOX_INDICES_WARN",
+							message: err?.message,
+						});
+					}
+				}
+
+				const globalIndices: Array<{ symbol: string; name: string; upstoxKey?: string }> = [
+					{ symbol: "^NSEI", name: "Nifty 50", upstoxKey: "NIFTY50" },
+					{ symbol: "^NSEBANK", name: "Nifty Bank", upstoxKey: "BANKNIFTY" },
+					{ symbol: "^BSESN", name: "BSE Sensex", upstoxKey: "SENSEX" },
 					{ symbol: "^GSPC", name: "S&P 500" },
 					{ symbol: "^IXIC", name: "NASDAQ" },
 					{ symbol: "^DJI", name: "Dow Jones" },
-					{ symbol: "^NSEI", name: "Nifty 50" },
-					{ symbol: "^BSESN", name: "BSE Sensex" },
 					{ symbol: "^N225", name: "Nikkei 225" },
 					{ symbol: "^HSI", name: "Hang Seng" },
 					{ symbol: "^FTSE", name: "FTSE 100" },
 					{ symbol: "^GDAXI", name: "DAX" },
-					{ symbol: "^FCHI", name: "CAC 40" },
 				];
 
-				const promises = globalIndices.map(
-					async (index): Promise<IndexQuote> => {
-						try {
-							const basePrice = getBasePrice(index.symbol);
-							// Static data – real prices require a paid exchange feed
-							if (basePrice > 0) {
-								return {
-									symbol: index.symbol,
-									price: basePrice,
-									change: 0,
-									changePercent: 0,
-									high: basePrice,
-									low: basePrice,
-									open: basePrice,
-									previousClose: basePrice,
-									timestamp: Math.floor(Date.now() / 1000),
-								};
-							}
-							throw new Error("No base price");
-						} catch {
-							const basePrice = getBasePrice(index.symbol);
-							const change = (Math.random() - 0.5) * (basePrice * 0.015);
-							const changePercent = (change / basePrice) * 100;
-							return {
-								symbol: index.symbol,
-								price: basePrice + change,
-								change,
-								changePercent,
-								high: basePrice + Math.abs(change) * 1.1,
-								low: basePrice - Math.abs(change) * 1.1,
-								open: basePrice,
-								previousClose: basePrice,
-								timestamp: Math.floor(Date.now() / 1000),
-							};
-						}
-					},
-				);
+				const results: IndexQuote[] = globalIndices.map((index) => {
+					if (index.upstoxKey && upstoxIndices[index.upstoxKey]) {
+						const u = upstoxIndices[index.upstoxKey];
+						const prevClose = u.previous_close || u.last_price;
+						const change = u.last_price - prevClose;
+						const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+						return {
+							symbol: index.symbol,
+							price: u.last_price,
+							change: Math.round(change * 100) / 100,
+							changePercent: Math.round(changePercent * 100) / 100,
+							high: u.high_price ?? u.last_price,
+							low: u.low_price ?? u.last_price,
+							open: u.open_price ?? u.last_price,
+							previousClose: prevClose,
+							timestamp: Math.floor(u.timestamp / 1000),
+						};
+					}
 
-				const results = await Promise.all(promises);
+					const basePrice = getBasePrice(index.symbol);
+					return {
+						symbol: index.symbol,
+						price: basePrice,
+						change: 0,
+						changePercent: 0,
+						high: basePrice,
+						low: basePrice,
+						open: basePrice,
+						previousClose: basePrice,
+						timestamp: Math.floor(Date.now() / 1000),
+					};
+				});
 
 				marketDataCache.set(cacheKey, { data: results, timestamp: Date.now() });
 				res.json(results);

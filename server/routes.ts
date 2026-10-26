@@ -607,12 +607,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 		}
 	});
 
-	// ── Lead Pipeline & Geo Routes ─────────────────────────────────────────────
+	// ── Lead Pipeline & Geo Routes (Partner Portal) ───────────────────────────
+	app.use("/api/partner/leads", agentLeadInboxRouter);
 	app.use("/api/agent/leads", agentLeadInboxRouter);
+	app.use("/api/partner/geo-coverage", agentGeoCoverageRouter);
+	app.use("/api/agent/geo-coverage", agentGeoCoverageRouter);
 	app.use("/api/webhooks", exploriumWebhookRouter);
 	app.use("/api/webhooks", webhookRoutes); // /api/webhooks/upstox, /api/webhooks/alpaca, /api/webhooks/iris
 	app.use("/api/upstox", upstoxOAuthRouter); // /api/upstox/oauth/*, /api/upstox/partner/*
-	app.use("/api/agent/geo-coverage", agentGeoCoverageRouter);
 	app.use("/api/infra", vendorInfraRoutes); // /api/infra/vendors, /api/infra/vendors/probe
 
 	// ── Phone Enrichment & Calling ─────────────────────────────────────────────

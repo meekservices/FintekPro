@@ -155,7 +155,8 @@ export function requireAdminPortal(
 
 /**
  * Middleware: Require Partner Portal access
- * Allows: partner, partner_ops (and all admin roles)
+ * Allows: partner, partner_ops, agent, sub_agent, associate, and admin roles
+ * Note: Human agent portal has been migrated to Partner Portal. "Agent" is reserved for AI agents.
  */
 export function requirePartnerPortal(
 	req: Request,
@@ -172,7 +173,7 @@ export function requirePartnerPortal(
 
 	const userRoles = getUserRoles(req.user);
 
-	if (!roleService.canAccessPartnerPortal(userRoles)) {
+	if (!roleService.canAccessPartnerPortal(userRoles) && !roleService.canAccessAgentPortal(userRoles)) {
 		return res.status(403).json({
 			success: false,
 			message: "Partner portal access required",
@@ -184,36 +185,8 @@ export function requirePartnerPortal(
 	next();
 }
 
-/**
- * Middleware: Require Agent Portal access
- * Allows: agent, sub_agent, associate (and partner + admin roles)
- */
-export function requireAgentPortal(
-	req: Request,
-	res: Response,
-	next: NextFunction,
-) {
-	if (!req.user) {
-		return res.status(401).json({
-			success: false,
-			message: "Authentication required",
-			code: "AUTH_REQUIRED",
-		});
-	}
-
-	const userRoles = getUserRoles(req.user);
-
-	if (!roleService.canAccessAgentPortal(userRoles)) {
-		return res.status(403).json({
-			success: false,
-			message: "Agent portal access required",
-			code: "AGENT_ACCESS_REQUIRED",
-			userRoles,
-		});
-	}
-
-	next();
-}
+// Backwards-compatibility alias: requireAgentPortal -> requirePartnerPortal
+export const requireAgentPortal = requirePartnerPortal;
 
 /**
  * Middleware: Require Superadmin role only
@@ -331,35 +304,25 @@ export function requireBD(req: Request, res: Response, next: NextFunction) {
 }
 
 /**
- * Middleware: Require Partner or higher role
+ * Middleware: Require Partner or higher role (includes partner, admin hierarchy)
+ * Allows: superadmin, master_agent, admin, bd_head, partner, agent, sub_agent, associate
+ * Note: Human agent role has been migrated to Partner. "Agent" is reserved exclusively for AI agents.
  */
-export function requirePartner(
-	req: Request,
-	res: Response,
-	next: NextFunction,
-) {
+export function requirePartner(req: Request, res: Response, next: NextFunction) {
 	return requireRole(
 		"superadmin",
 		"master_agent",
 		"admin",
 		"bd_head",
 		"partner",
+		"agent",
+		"sub_agent",
+		"associate",
 	)(req, res, next);
 }
 
-/**
- * Middleware: Require Agent or higher role (includes partner, admin hierarchy)
- */
-export function requireAgent(req: Request, res: Response, next: NextFunction) {
-	return requireRole(
-		"superadmin",
-		"master_agent",
-		"admin",
-		"partner",
-		"agent",
-		"sub_agent",
-	)(req, res, next);
-}
+// Backwards-compatibility alias: requireAgent -> requirePartner
+export const requireAgent = requirePartner;
 
 /**
  * Middleware: Require Client role (includes all distribution and admin roles)

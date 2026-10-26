@@ -450,9 +450,9 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
 			res.json({ pendingTasks: 0, overdueCount: 0 });
 		}
 	});
-	// Agent leads - Full CRUD for lead pipeline
-	// GET all leads for agent
-	app.get("/api/agent/leads", requireAgent, async (req, res) => {
+	// Partner / Agent leads - Full CRUD for lead pipeline
+	// GET all leads for partner/agent
+	app.get(["/api/agent/leads", "/api/partner/leads"], requireAgent, async (req, res) => {
 		try {
 			const leads = await db
 				.select()
@@ -466,11 +466,14 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
 				name: lead.name || "",
 				email: lead.email || "",
 				phone: lead.phone || "",
+				mobile: lead.phone || "",
 				stage: lead.stage || "new",
+				status: lead.stage || "new",
 				source: lead.source || "manual",
 				potentialValue: Number(lead.potentialValue) || 0,
 				score: lead.score || 50,
 				notes: lead.notes || "",
+				interest: lead.notes || "",
 				lastContact: lead.lastContactAt?.toISOString(),
 				nextFollowUp: lead.nextFollowUpAt?.toISOString(),
 				createdAt: lead.createdAt?.toISOString() || new Date().toISOString(),
@@ -479,13 +482,13 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
 
 			res.json(transformedLeads);
 		} catch (error) {
-			console.error("Error fetching agent leads:", error);
+			console.error("Error fetching agent/partner leads:", error);
 			res.status(500).json({ error: "Failed to fetch leads" });
 		}
 	});
 
 	// GET leads stats with full metrics
-	app.get("/api/agent/leads/stats", requireAgent, async (req, res) => {
+	app.get(["/api/agent/leads/stats", "/api/partner/leads/stats"], requireAgent, async (req, res) => {
 		try {
 			const leads = await db
 				.select()

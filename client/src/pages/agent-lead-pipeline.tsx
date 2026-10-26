@@ -172,6 +172,111 @@ export default function AgentLeadPipeline() {
 		notes: "",
 	});
 
+	const [showEditLead, setShowEditLead] = useState(false);
+	const [editLead, setEditLead] = useState({
+		id: "",
+		name: "",
+		email: "",
+		phone: "",
+		stage: "new" as Lead["stage"],
+		source: "referral",
+		potentialValue: "",
+		score: 50,
+		notes: "",
+		tags: [] as string[],
+		nextFollowUp: "",
+	});
+
+	const handleOpenEditLead = (lead: Lead) => {
+		setEditLead({
+			id: lead.id,
+			name: lead.name || "",
+			email: lead.email || "",
+			phone: lead.phone || "",
+			stage: lead.stage || "new",
+			source: lead.source || "referral",
+			potentialValue: lead.potentialValue ? String(lead.potentialValue) : "",
+			score: lead.score || 50,
+			notes: lead.notes || "",
+			tags: lead.tags || [],
+			nextFollowUp: lead.nextFollowUp ? lead.nextFollowUp.split("T")[0] : "",
+		});
+		setShowEditLead(true);
+	};
+
+	const updateLeadMutation = useMutation({
+		mutationFn: async (data: typeof editLead) => {
+			const res = await apiRequest(`/api/agent/leads/${data.id}`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					name: data.name,
+					email: data.email,
+					phone: data.phone,
+					stage: data.stage,
+					source: data.source,
+					potentialValue: data.potentialValue,
+					score: data.score,
+					notes: data.notes,
+					tags: data.tags,
+					nextFollowUpAt: data.nextFollowUp || undefined,
+				}),
+			});
+			return res.json();
+		},
+		onSuccess: (data: any) => {
+			queryClient.invalidateQueries({ queryKey: ["/api/agent/leads"] });
+			queryClient.invalidateQueries({ queryKey: ["/api/agent/leads/stats"] });
+			setShowEditLead(false);
+			if (data?.data) {
+				setSelectedLead(data.data);
+			} else if (selectedLead) {
+				setSelectedLead({
+					...selectedLead,
+					...editLead,
+					potentialValue: Number(editLead.potentialValue) || 0,
+				});
+			}
+			toast({
+				title: "Lead Updated",
+				description: "Lead details have been saved successfully.",
+			});
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Update Failed",
+				description: err.message || "Failed to update lead",
+				variant: "destructive",
+			});
+		},
+	});
+
+	const deleteLeadMutation = useMutation({
+		mutationFn: async (id: string) => {
+			const res = await apiRequest(`/api/agent/leads/${id}`, {
+				method: "DELETE",
+			});
+			return res.json();
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["/api/agent/leads"] });
+			queryClient.invalidateQueries({ queryKey: ["/api/agent/leads/stats"] });
+			setSelectedLead(null);
+			setShowEditLead(false);
+			toast({
+				title: "Lead Deleted",
+				description: "Lead was removed from pipeline.",
+			});
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Delete Failed",
+				description: err.message || "Failed to delete lead",
+				variant: "destructive",
+			});
+		},
+	});
+
 	const { data: leads, isLoading: leadsLoading } = useQuery<Lead[]>({
 		queryKey: ["/api/agent/leads"],
 	});
@@ -904,11 +1009,26 @@ export default function AgentLeadPipeline() {
 																		{lead.source}
 																	</p>
 																</div>
-																<Badge
-																	className={`${getScoreColor(lead.score)} text-xs`}
-																>
-																	{lead.score}
-																</Badge>
+																<div className="flex items-center gap-1.5">
+																	<Button
+																		variant="ghost"
+																		size="icon"
+																		className="h-6 w-6 text-muted-foreground hover:text-foreground"
+																		data-testid={`btn-quick-edit-${lead.id}`}
+																		onClick={(e) => {
+																			e.stopPropagation();
+																			handleOpenEditLead(lead);
+																		}}
+																		title="Edit Lead"
+																	>
+																		<Edit className="h-3.5 w-3.5" />
+																	</Button>
+																	<Badge
+																		className={`${getScoreColor(lead.score)} text-xs`}
+																	>
+																		{lead.score}
+																	</Badge>
+																</div>
 															</div>
 															<div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
 																<IndianRupee className="h-3 w-3" />
@@ -1153,15 +1273,223 @@ export default function AgentLeadPipeline() {
 										</Button>
 										<Button
 											variant="outline"
-											className="border-border"
+											className="border-border hover:bg-muted"
 											data-testid="button-edit-lead"
+											onClick={() => handleOpenEditLead(selectedLead)}
+											title="Edit Lead"
 										>
-											<Edit className="h-4 w-4" />
+											<Edit className="h-4 w-4 mr-2" />
+											Edit
+										</Button>
+										<Button
+											variant="ghost"
+											size="icon"
+											className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+											data-testid="button-delete-lead"
+											onClick={() => {
+												if (confirm(`Are you sure you want to delete lead "${selectedLead.name}"?`)) {
+													deleteLeadMutation.mutate(selectedLead.id);
+												}
+											}}
+											title="Delete Lead"
+										>
+											<Trash2 className="h-4 w-4" />
 										</Button>
 									</div>
 								</div>
 							</>
 						)}
+					</DialogContent>
+				</Dialog>
+
+				{/* Edit Lead Dialog */}
+				<Dialog open={showEditLead} onOpenChange={setShowEditLead}>
+					<DialogContent className="bg-background border-border text-foreground max-w-lg">
+						<DialogHeader>
+							<DialogTitle className="text-xl">Edit Lead</DialogTitle>
+							<DialogDescription className="text-muted-foreground">
+								Modify prospect details and pipeline stage
+							</DialogDescription>
+						</DialogHeader>
+						<div className="space-y-4 mt-4">
+							<div>
+								<Label htmlFor="edit-name" className="text-muted-foreground">
+									Name *
+								</Label>
+								<Input
+									id="edit-name"
+									value={editLead.name}
+									onChange={(e) =>
+										setEditLead({ ...editLead, name: e.target.value })
+									}
+									className="mt-1 bg-card border-border"
+									placeholder="Full name"
+									data-testid="input-edit-lead-name"
+								/>
+							</div>
+							<div className="grid grid-cols-2 gap-4">
+								<div>
+									<Label htmlFor="edit-email" className="text-muted-foreground">
+										Email
+									</Label>
+									<Input
+										id="edit-email"
+										type="email"
+										value={editLead.email}
+										onChange={(e) =>
+											setEditLead({ ...editLead, email: e.target.value })
+										}
+										className="mt-1 bg-card border-border"
+										placeholder="email@example.com"
+										data-testid="input-edit-lead-email"
+									/>
+								</div>
+								<div>
+									<Label htmlFor="edit-phone" className="text-muted-foreground">
+										Phone
+									</Label>
+									<Input
+										id="edit-phone"
+										value={editLead.phone}
+										onChange={(e) =>
+											setEditLead({ ...editLead, phone: e.target.value })
+										}
+										className="mt-1 bg-card border-border"
+										placeholder="9876543210"
+										data-testid="input-edit-lead-phone"
+									/>
+								</div>
+							</div>
+							<div className="grid grid-cols-2 gap-4">
+								<div>
+									<Label htmlFor="edit-stage" className="text-muted-foreground">
+										Stage
+									</Label>
+									<Select
+										value={editLead.stage}
+										onValueChange={(value: Lead["stage"]) =>
+											setEditLead({ ...editLead, stage: value })
+										}
+									>
+										<SelectTrigger
+											className="mt-1 bg-card border-border"
+											data-testid="select-edit-lead-stage"
+										>
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent className="bg-card border-border">
+											{STAGES.map((s) => (
+												<SelectItem key={s} value={s}>
+													{STAGE_CONFIG[s].label}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+								<div>
+									<Label htmlFor="edit-source" className="text-muted-foreground">
+										Source
+									</Label>
+									<Select
+										value={editLead.source}
+										onValueChange={(value) =>
+											setEditLead({ ...editLead, source: value })
+										}
+									>
+										<SelectTrigger
+											className="mt-1 bg-card border-border"
+											data-testid="select-edit-lead-source"
+										>
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent className="bg-card border-border">
+											<SelectItem value="referral">Referral</SelectItem>
+											<SelectItem value="website">Website</SelectItem>
+											<SelectItem value="linkedin">LinkedIn</SelectItem>
+											<SelectItem value="event">Event</SelectItem>
+											<SelectItem value="webinar">Webinar</SelectItem>
+											<SelectItem value="cold_call">Cold Call</SelectItem>
+											<SelectItem value="manual">Manual</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
+							<div className="grid grid-cols-2 gap-4">
+								<div>
+									<Label htmlFor="edit-value" className="text-muted-foreground">
+										Potential Value (₹)
+									</Label>
+									<Input
+										id="edit-value"
+										type="number"
+										value={editLead.potentialValue}
+										onChange={(e) =>
+											setEditLead({
+												...editLead,
+												potentialValue: e.target.value,
+											})
+										}
+										className="mt-1 bg-card border-border"
+										placeholder="1000000"
+										data-testid="input-edit-lead-value"
+									/>
+								</div>
+								<div>
+									<Label htmlFor="edit-followup" className="text-muted-foreground">
+										Next Follow-up
+									</Label>
+									<Input
+										id="edit-followup"
+										type="date"
+										value={editLead.nextFollowUp}
+										onChange={(e) =>
+											setEditLead({
+												...editLead,
+												nextFollowUp: e.target.value,
+											})
+										}
+										className="mt-1 bg-card border-border"
+										data-testid="input-edit-lead-followup"
+									/>
+								</div>
+							</div>
+							<div>
+								<Label htmlFor="edit-notes" className="text-muted-foreground">
+									Notes
+								</Label>
+								<Textarea
+									id="edit-notes"
+									value={editLead.notes}
+									onChange={(e) =>
+										setEditLead({ ...editLead, notes: e.target.value })
+									}
+									className="mt-1 bg-card border-border"
+									placeholder="Observations, client requirements, investment goals..."
+									rows={3}
+									data-testid="textarea-edit-lead-notes"
+								/>
+							</div>
+							<div className="flex justify-end gap-3 pt-4">
+								<Button
+									variant="outline"
+									onClick={() => setShowEditLead(false)}
+									className="border-border"
+								>
+									Cancel
+								</Button>
+								<Button
+									onClick={() => updateLeadMutation.mutate(editLead)}
+									disabled={!editLead.name || updateLeadMutation.isPending}
+									className="bg-emerald-600 hover:bg-emerald-700"
+									data-testid="button-save-edit-lead"
+								>
+									{updateLeadMutation.isPending && (
+										<Loader2 className="h-4 w-4 mr-2 animate-spin" />
+									)}
+									Save Changes
+								</Button>
+							</div>
+						</div>
 					</DialogContent>
 				</Dialog>
 

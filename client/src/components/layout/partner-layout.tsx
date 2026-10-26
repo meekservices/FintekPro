@@ -34,6 +34,7 @@ import {
 	Palette,
 	ShieldCheck,
 	Headphones,
+	Target,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
@@ -81,6 +82,12 @@ const partnerNavSections: NavSection[] = [
 				href: "/partner/my-team?tab=team",
 				icon: GitBranch,
 				description: "Sub-partners, SM/RM, invites & commissions",
+			},
+			{
+				title: "Lead Pipeline",
+				href: "/partner/leads",
+				icon: Target,
+				description: "Track, edit & convert leads",
 			},
 			{
 				title: "Partner Cost Centre",

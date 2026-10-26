@@ -310,4 +310,40 @@ export function registerUpstoxTokenRoutes(app: Express): void {
 			},
 		});
 	});
+
+	// ── GET /api/upstox/live-indices ──────────────────────────────────────────
+	// Public endpoint providing live licensed Upstox benchmark quotes
+	app.get("/api/upstox/live-indices", async (_req, res) => {
+		try {
+			if (!upstoxMarketDataService.isReady()) {
+				return res.status(503).json({
+					success: false,
+					message: "Upstox market data service currently unavailable",
+				});
+			}
+
+			const result = await upstoxMarketDataService.getMajorIndices();
+			if (!result.success) {
+				return res.status(502).json({
+					success: false,
+					error: result.error,
+				});
+			}
+
+			return res.json({
+				success: true,
+				data: result.data,
+				meta: result.meta,
+			});
+		} catch (err: any) {
+			logger.error("[UpstoxRoutes] Error fetching live indices", {
+				event: "UPSTOX_LIVE_INDICES_ERROR",
+				error: err?.message,
+			});
+			return res.status(500).json({
+				success: false,
+				message: "Internal server error fetching Upstox indices",
+			});
+		}
+	});
 }
