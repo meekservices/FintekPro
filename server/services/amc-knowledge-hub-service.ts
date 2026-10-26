@@ -17,10 +17,10 @@ import { db } from "../db";
 import {
 	productKnowledge,
 	explanationTemplates,
-	marketBriefs,
 	mutualFunds,
 } from "@shared/schema";
-import { eq, and, desc, sql, ilike, or } from "drizzle-orm";
+import { eq, ilike, or } from "drizzle-orm";
+import { logger } from "../logger";
 import axios from "axios";
 
 export interface AmcStrategistInsight {
@@ -555,7 +555,7 @@ export class AmcKnowledgeHubService {
 
 				syncedCount++;
 			} catch (err: any) {
-				console.error(`[AmcKnowledgeHub] Failed to sync scheme ${scheme.schemeCode}:`, err?.message);
+				logger.error(`[AmcKnowledgeHub] Failed to sync scheme ${scheme.schemeCode}: ${err?.message}`);
 			}
 		}
 
@@ -662,7 +662,7 @@ The ₹8 difference (0.8%) is locked in with **zero directional market risk**.
 				}
 				syncedCount++;
 			} catch (err: any) {
-				console.error(`[AmcKnowledgeHub] Failed to sync template ${t.title}:`, err?.message);
+				logger.error(`[AmcKnowledgeHub] Failed to sync template ${t.title}: ${err?.message}`);
 			}
 		}
 
@@ -739,7 +739,7 @@ The ₹8 difference (0.8%) is locked in with **zero directional market risk**.
 				};
 			}
 		} catch (err: any) {
-			console.warn("[AmcKnowledgeHub] DB lookup fallback:", err?.message);
+			logger.warn(`[AmcKnowledgeHub] DB lookup fallback: ${err?.message}`);
 		}
 
 		// 3. Fallback to MFAPI.in if numeric scheme code
@@ -775,7 +775,7 @@ The ₹8 difference (0.8%) is locked in with **zero directional market risk**.
 					};
 				}
 			} catch (mfapiErr: any) {
-				console.warn("[AmcKnowledgeHub] MFAPI fetch failed:", mfapiErr?.message);
+				logger.warn(`[AmcKnowledgeHub] MFAPI fetch failed: ${mfapiErr?.message}`);
 			}
 		}
 
