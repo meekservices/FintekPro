@@ -124,8 +124,7 @@ gcloud run deploy $SERVICE_NAME \
     --min-instances 1 \
     --max-instances 10 \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
-    --vpc-connector=fintekpro-vpc-connector \
-    --vpc-egress=private-ranges-only \
+    --clear-vpc-connector \
     --set-env-vars="NODE_ENV=production,NODE_OPTIONS=--max-old-space-size=3072,DEBUG_SUBDOMAIN=true,CUSTOM_DOMAIN=fintekpro.com,RUN_STARTUP_MIGRATIONS=true,PRIVATE_OBJECT_DIR=gs://fintekpro-documents/private,ALLOW_TESTER_BYPASS=true,INDIAN_API_BASE_URL=https://analyst.indianapi.in" \
     --set-secrets="\
 PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,\
@@ -292,11 +291,9 @@ gcloud run jobs update fintekpro-compliance \
     --project=$PROJECT_ID \
     --region=$REGION \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
-    --vpc-connector=fintekpro-vpc-connector \
-    --vpc-egress=private-ranges-only \
     --command="node" \
     --args="dist/jobs/compliance.js" \
-    --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest,EMAIL_HOST=EMAIL_HOST:latest,EMAIL_USER=EMAIL_USER:latest,EMAIL_PASS=EMAIL_PASS:latest,EMAIL_PORT=EMAIL_PORT:latest,EMAIL_FROM=EMAIL_FROM:latest,TWILIO_ACCOUNT_SID=TWILIO_ACCOUNT_SID:latest,TWILIO_AUTH_TOKEN=TWILIO_AUTH_TOKEN:latest,TWILIO_PHONE_NUMBER=TWILIO_PHONE_NUMBER:latest,COMPLIANCE_SECRET=COMPLIANCE_SECRET:latest" \
+    --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,EMAIL_HOST=EMAIL_HOST:latest,EMAIL_USER=EMAIL_USER:latest,EMAIL_PASS=EMAIL_PASS:latest,EMAIL_PORT=EMAIL_PORT:latest,EMAIL_FROM=EMAIL_FROM:latest,TWILIO_ACCOUNT_SID=TWILIO_ACCOUNT_SID:latest,TWILIO_AUTH_TOKEN=TWILIO_AUTH_TOKEN:latest,TWILIO_PHONE_NUMBER=TWILIO_PHONE_NUMBER:latest,COMPLIANCE_SECRET=COMPLIANCE_SECRET:latest" \
     2>&1 | tail -3
 
 echo ""
@@ -306,15 +303,13 @@ gcloud run jobs update fintekpro-enrichment \
     --project=$PROJECT_ID \
     --region=$REGION \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
-    --vpc-connector=fintekpro-vpc-connector \
-    --vpc-egress=private-ranges-only \
     --memory=2Gi \
     --cpu=2 \
     --set-env-vars="NODE_OPTIONS=--max-old-space-size=1536" \
     --task-timeout=1200 \
     --command="node" \
     --args="dist/jobs/enrichment.js" \
-    --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest,FMP_API_KEY=FMP_API_KEY:latest,INDIAN_API_KEY=INDIAN_API_KEY:latest,FINNHUB_API_KEY=FINNHUB_API_KEY:latest,ALPHA_VANTAGE_API_KEY=ALPHA_VANTAGE_API_KEY:latest,EMAIL_HOST=EMAIL_HOST:latest,EMAIL_USER=EMAIL_USER:latest,EMAIL_PASS=EMAIL_PASS:latest,EMAIL_PORT=EMAIL_PORT:latest,EMAIL_FROM=EMAIL_FROM:latest,IRIS_USERNAME=IRIS_USERNAME:latest,IRIS_PASSWORD=IRIS_PASSWORD:latest,IRIS_TENANT_CODE=IRIS_TENANT_CODE:latest" \
+    --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,FMP_API_KEY=FMP_API_KEY:latest,INDIAN_API_KEY=INDIAN_API_KEY:latest,FINNHUB_API_KEY=FINNHUB_API_KEY:latest,ALPHA_VANTAGE_API_KEY=ALPHA_VANTAGE_API_KEY:latest,EMAIL_HOST=EMAIL_HOST:latest,EMAIL_USER=EMAIL_USER:latest,EMAIL_PASS=EMAIL_PASS:latest,EMAIL_PORT=EMAIL_PORT:latest,EMAIL_FROM=EMAIL_FROM:latest,IRIS_USERNAME=IRIS_USERNAME:latest,IRIS_PASSWORD=IRIS_PASSWORD:latest,IRIS_TENANT_CODE=IRIS_TENANT_CODE:latest" \
     2>&1 | tail -3
 
 
@@ -325,11 +320,9 @@ gcloud run jobs update fintekpro-nav-sync \
     --project=$PROJECT_ID \
     --region=$REGION \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
-    --vpc-connector=fintekpro-vpc-connector \
-    --vpc-egress=private-ranges-only \
     --command="node" \
     --args="dist/jobs/nav-sync.js" \
-    --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest,EMAIL_HOST=EMAIL_HOST:latest,EMAIL_USER=EMAIL_USER:latest,EMAIL_PASS=EMAIL_PASS:latest,EMAIL_PORT=EMAIL_PORT:latest,EMAIL_FROM=EMAIL_FROM:latest" \
+    --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,EMAIL_HOST=EMAIL_HOST:latest,EMAIL_USER=EMAIL_USER:latest,EMAIL_PASS=EMAIL_PASS:latest,EMAIL_PORT=EMAIL_PORT:latest,EMAIL_FROM=EMAIL_FROM:latest" \
     2>&1 | tail -3
 
 echo ""
@@ -339,14 +332,12 @@ gcloud run jobs update fintekpro-picks \
     --project=$PROJECT_ID \
     --region=$REGION \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
-    --vpc-connector=fintekpro-vpc-connector \
-    --vpc-egress=private-ranges-only \
     --memory=2Gi \
     --cpu=2 \
     --set-env-vars="NODE_OPTIONS=--max-old-space-size=1536" \
     --command="node" \
     --args="dist/jobs/picks.js" \
-    --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest" \
+    --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest" \
     --max-retries=1 \
     --task-timeout=1200 \
     2>&1 | tail -3
@@ -359,14 +350,12 @@ if gcloud run jobs describe fintekpro-rebalance --project=$PROJECT_ID --region=$
       --project=$PROJECT_ID \
       --region=$REGION \
       --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
-      --vpc-connector=fintekpro-vpc-connector \
-      --vpc-egress=private-ranges-only \
       --memory=2Gi \
       --cpu=2 \
       --set-env-vars="NODE_OPTIONS=--max-old-space-size=1536" \
       --command="node" \
       --args="dist/jobs/rebalance.js" \
-      --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest" \
+      --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest" \
       --max-retries=1 \
       --task-timeout=1200 \
       2>&1 | tail -3
@@ -376,14 +365,12 @@ else
       --project=$PROJECT_ID \
       --region=$REGION \
       --set-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
-      --vpc-connector=fintekpro-vpc-connector \
-      --vpc-egress=private-ranges-only \
       --memory=2Gi \
       --cpu=2 \
       --set-env-vars="NODE_OPTIONS=--max-old-space-size=1536" \
       --command="node" \
       --args="dist/jobs/rebalance.js" \
-      --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest" \
+      --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest" \
       --max-retries=1 \
       --task-timeout=1200 \
       2>&1 | tail -3
