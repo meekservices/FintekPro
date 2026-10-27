@@ -63,6 +63,23 @@ export async function runStartupSchemaRepairs() {
 			} catch { /* table or col exists */ }
 		}
 
+		// ── GCR v1.0: Cross-Engine Consensus Repair: Retire Contradictory Picks (AMBUJACEM) ──
+		try {
+			const res = await migPool.query(`
+				UPDATE daily_picks 
+				SET status = 'expired', 
+				    status_updated_at = NOW(),
+				    rationale = '[VETOED BY RESEARCH DESK CONSENSUS: Research Note engine rated SELL] ' || COALESCE(rationale, '')
+				WHERE (symbol = 'AMBUJACEM' OR instrument_name ILIKE '%Ambuja%')
+				  AND status = 'live'
+			`);
+			if (res.rowCount && res.rowCount > 0) {
+				console.log(`  🛡️ [ConsensusRepair] Retired ${res.rowCount} contradictory live pick(s) for AMBUJACEM.`);
+			}
+		} catch (err: any) {
+			console.warn("  ⚠️ [ConsensusRepair] Non-fatal error retiring contradictory picks:", err?.message?.slice(0, 100));
+		}
+
 		// ── GCR v1.0: Multi-Vendor Instrument Mappings, Time-Series & Performance Analytics ──
 		try {
 			await migPool.query(`

@@ -88,8 +88,8 @@ export function isPickExpired(expiryDateStr?: string | null, timeHorizon?: strin
 	return Date.now() > expiryTs;
 }
 
-export const SCORER_VERSION = "3.0.0";
-export const SCORER_MIN_THRESHOLD = 15;
+export const SCORER_VERSION = "3.1.0";
+export const SCORER_MIN_THRESHOLD = 45; // Minimum institutional grade (was 15; prevents low-score/weak picks)
 /** FASP-AI protocol version applied to all pick advisory outputs */
 const FASP_AI_VERSION = "FASP-AI-v3.0" as const;
 

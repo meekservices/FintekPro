@@ -25,10 +25,10 @@
 import { logger } from "../logger";
 import { telemetryBus } from "./engine-telemetry-bus";
 
-const CALIBRATION_VERSION = "1.0.0";
-const DEFAULT_THRESHOLD = 15;   // Hardcoded baseline (12.5% of 120 max)
-const MIN_FLOOR = 10;
-const MAX_CAP = 25;
+const CALIBRATION_VERSION = "1.1.0";
+const DEFAULT_THRESHOLD = 45;   // Hardcoded baseline (37.5% of 120 max, >= Good quality tier)
+const MIN_FLOOR = 35;
+const MAX_CAP = 65;
 const REDIS_KEY = "scorer:min_threshold";
 const REDIS_TTL = 72 * 3600; // 72h — refreshed on each calibration run
 

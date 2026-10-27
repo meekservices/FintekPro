@@ -33,6 +33,10 @@ import {
 import { marketHolidayService } from "../market-holiday-service";
 import { upstoxMarketDataService } from "../upstox-market-data-service";
 import { proThematicScreenerService, type ThematicSynergyInfo } from "../pro-thematic-screener-service";
+import { computeRating } from "../../modules/research/recommendationEngine";
+import { getFinancialData } from "../../modules/research/dataService";
+import { momentumSignal } from "../../modules/research/technicalEngine";
+import { priceToTargetUpside } from "../../modules/research/valuationEngine";
 
 
 const financialMetricsCalculator = new FinancialMetricsCalculator();
@@ -721,6 +725,67 @@ export class StockStrategy extends BaseStrategy {
 	}
 
 	/**
+	 * Verify candidate alignment against Research Note recommendation engine.
+	 * Cross-engine consensus rule: Stocks rated 'SELL' or 'STRONG SELL' or with score < 45
+	 * are quarantined and cannot be selected as BUY picks.
+	 */
+	private async verifyResearchConsensus(
+		stock: typeof listedStocks.$inferSelect,
+		enriched: EnrichedStockSnapshot | null,
+		currentPrice: number,
+		targetPrice: number,
+	): Promise<{ allowed: boolean; rating: string; score: number; reason: string }> {
+		try {
+			const sym = (stock.symbol ?? "").toUpperCase();
+			if (!sym) return { allowed: true, rating: "UNKNOWN", score: 50, reason: "No symbol" };
+
+			// Fetch fundamentals from Research dataService (DB-first with 15-min cache)
+			const fData = await getFinancialData(sym).catch(() => null);
+
+			const pe = fData?.pe ?? (stock.peRatio ? Number.parseFloat(stock.peRatio) : enriched?.fundamentals?.peRatio ?? null);
+			const roe = fData?.roe ?? (stock.roe ? Number.parseFloat(stock.roe) / (Number.parseFloat(stock.roe) > 1 ? 100 : 1) : enriched?.fundamentals?.roe ? enriched.fundamentals.roe / (enriched.fundamentals.roe > 1 ? 100 : 1) : null);
+			const debtToEquity = fData?.debtToEquity ?? enriched?.fundamentals?.debtToEquity ?? null;
+			const revenueGrowth = fData?.revenueGrowth ?? (enriched?.growth?.revenueGrowth ? enriched.growth.revenueGrowth / (enriched.growth.revenueGrowth > 1 ? 100 : 1) : null);
+			const earningsGrowth = fData?.earningsGrowth ?? (enriched?.growth?.epsGrowth ? enriched.growth.epsGrowth / (enriched.growth.epsGrowth > 1 ? 100 : 1) : null);
+
+			const weekHigh = fData?.fiftyTwoWeekHigh ?? (stock.weekHigh52 ? Number.parseFloat(stock.weekHigh52) : null);
+			const weekLow = fData?.fiftyTwoWeekLow ?? (stock.weekLow52 ? Number.parseFloat(stock.weekLow52) : null);
+
+			const momScore = momentumSignal(currentPrice, weekHigh, weekLow);
+			const targetUpside = priceToTargetUpside(currentPrice, fData?.targetMeanPrice ?? targetPrice);
+
+			const ratingResult = computeRating({
+				pe,
+				roe,
+				debtToEquity,
+				revenueGrowth,
+				earningsGrowth,
+				momentumScore: momScore,
+				upsidePotential: targetUpside,
+			});
+
+			if (ratingResult.rating === "SELL" || ratingResult.rating === "STRONG SELL" || ratingResult.score < 45) {
+				return {
+					allowed: false,
+					rating: ratingResult.rating,
+					score: ratingResult.score,
+					reason: ratingResult.rationale,
+				};
+			}
+
+			return {
+				allowed: true,
+				rating: ratingResult.rating,
+				score: ratingResult.score,
+				reason: ratingResult.rationale,
+			};
+		} catch (err: any) {
+			logger.warn(`[StockStrategy] verifyResearchConsensus error for ${stock.symbol}:`, { error: err?.message });
+			return { allowed: true, rating: "BYPASS", score: 50, reason: "Error in check" };
+		}
+	}
+
+	/**
 	 * Picks the single best stock for a given broad sector.
 	 * Fetches up to 8 candidates, scores them, returns the top scorer.
 	 *
@@ -1036,267 +1101,297 @@ export class StockStrategy extends BaseStrategy {
 		);
 		if (scored.length === 0) return null;
 
-		const {
-			stock: topStock,
-			enriched: topEnriched,
-			score: topScore,
-			rsiOverride: topRsiOverride,
-			thematicInfo: topThematicInfo,
-		} = scored[0];
-		// ── Fetch live price at generation time ──────────────────────────────
-		// Fetching live price at pick-generation time (not stale DB value) so that
-		// recoPrice and target are computed against the actual market price.
-		// This prevents the YAAP-type bug where the DB price is e.g. ₹140 from
-		// last night, target is computed as ₹161, but the stock already opened
-		// at ₹158 today and the target is almost reached at the moment of publishing.
-		const liveAtGeneration = await this.getLivePrice(topStock.id).catch(() => null);
-		const currentPrice = (liveAtGeneration ?? 0) > 0
-			? liveAtGeneration!
-			: Number.parseFloat(topStock.currentPrice || "0");
-		if (currentPrice <= 0) return null;
-
-		const volatility = topStock.volatility
-			? Number.parseFloat(topStock.volatility)
-			: undefined;
-
-		// BUG-4 fix: Use pre-fetched unified RSI (already computed in rsiMap above)
-		// instead of re-fetching it here for rationale. This ensures score() and
-		// keyMetrics both reflect the same RSI value.
-		const directRsi: number | null = topRsiOverride ?? null;
-		let directRoic: number | null = null;
-		if (!topEnriched?.fundamentals?.roic && topStock.roce)
-			directRoic = Number.parseFloat(topStock.roce);
-
-		// Determine timeHorizon BEFORE target/stoploss so intraday calls get realistic 1-session parameters
-		const horizonInfo = this.deriveStockTimeHorizon({
-			stock: topStock,
-			volatility: volatility ?? 20,
-			rsi: topEnriched?.technicals?.rsi ?? directRsi ?? null,
-			roic: topEnriched?.fundamentals?.roic ?? directRoic ?? null,
-			existingCount,
-			shortTermCount,
-			mediumTermCount,
-			intradayCount,
-			ultraShortCount,
-			today: context.today,
-		});
-
-		const { targetPct, stoplossPct, atrPct } = this.getDynamicTargetStoploss(
-			"listed_stocks",
-			volatility,
-			currentPrice,
-			horizonInfo.timeHorizon,
-		);
-		const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
-		const stoplossPrice =
-			Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
-
-		// ── WEAKNESS-3 fix: Minimum quant score gate (self-calibrating) ──────────
-		// Picks with topScore < effectiveMinThreshold have insufficient signal coverage.
-		// The effective threshold comes from ScorerCalibrationService (auto-adjusts
-		// based on rolling 90-day hit rate) or falls back to SCORER_MIN_THRESHOLD.
-		const effectiveMinThreshold = context.minThreshold ?? SCORER_MIN_THRESHOLD;
-		if (topScore < effectiveMinThreshold) {
-			logger.warn(
-				`[StockStrategy] ${topStock.symbol} (${broadSector.label}): quant score ${topScore} below calibrated threshold ${effectiveMinThreshold} — skipping sector.`,
-			);
-			return null;
-		}
-
-
-		// ── Minimum upside guard ────────────────────────────────────────────
-		// Positional swings require >=5% remaining upside.
-		// Intraday breakouts require >=1.5% remaining upside.
-		const MIN_UPSIDE_PCT = horizonInfo.timeHorizon === "intraday" ? 0.015 : 0.05;
-		const remainingUpside = (targetPrice - currentPrice) / currentPrice;
-		if (remainingUpside < MIN_UPSIDE_PCT) {
-			logger.warn(
-				`[StockStrategy] ${topStock.symbol}: upside to target is only ${(remainingUpside * 100).toFixed(1)}% — below ${(MIN_UPSIDE_PCT * 100).toFixed(1)}% minimum. Discarding.`,
-			);
-			return null;
-		}
-
-		// ── #2: Reward-to-Risk gate (min 1.8:1 per FASP-AI v3.0) ──────────────────
-		const rrRatio = (targetPrice - currentPrice) / Math.max(currentPrice - stoplossPrice, 0.01);
-		if (rrRatio < 1.8) {
-			logger.warn(
-				`[StockStrategy] ${topStock.symbol}: R:R ratio ${rrRatio.toFixed(2)} < 1.8 minimum. Discarding.`,
-			);
-			return null;
-		}
-
-		const sectorLabel = broadSector.label;
-		let rationale = await context.service.generateRationale({
-			category: "listed_stocks",
-			name: topStock.companyName || topStock.symbol,
-			symbol: topStock.symbol,
-			currentPrice,
-			targetPrice,
-			stoplossPrice,
-			metrics: {
-				pe: topStock.peRatio || undefined,
-				roic: topEnriched?.fundamentals?.roic ?? directRoic ?? undefined,
-				rsi: topEnriched?.technicals?.rsi ?? directRsi ?? undefined,
-				returns1y: topStock.returns1Y || undefined,
-			},
-		});
-
-		if (topThematicInfo?.highlightText) {
-			rationale += ` • Thematic Screener Synergy: ${topThematicInfo.highlightText}`;
-		}
-
-		const exchange = topStock.nseCode
-			? "NSE"
-			: topStock.bseCode
-				? "BSE"
-				: "NSE";
-		const riskLevel = this.getRiskLevel(volatility ?? 20);
-		// ── #5: Updated score normalisation max (70 → 120) ──────────────────────────
-		// P0 Alpha factors (Beneish, Interest Coverage, Quick Ratio, RSI, Volume,
-		// 52-week positioning) added ~50 pts to the theoretical max score.
-		// Using 70 caused confScore > 100 clipping. 120 reflects current signal set.
+		// ── Institutional Candidate Selection Loop with Cross-Engine Consensus Guard ──
+		// Previously, scored[0] was selected unconditionally, even if it had a "Weak"
+		// quality tier or an active SELL recommendation from the Research Note engine.
+		// We now evaluate candidates in order of quant score (top 10), enforcing:
+		// 1. Minimum quant score & Quality Tier floor (no "Weak" picks permitted)
+		// 2. Cross-Engine Consensus: Disqualify any stock rated SELL / STRONG SELL by Research Note
+		// 3. Negative return / momentum trap filter
+		// 4. Minimum upside and Reward-to-Risk gates (min 1.8:1)
+		const effectiveMinThreshold = Math.max(context.minThreshold ?? SCORER_MIN_THRESHOLD, 45);
 		const STOCK_SCORE_MAX = 120;
-		let confidenceScore = this.getConfidenceScore(
-			"listed_stocks",
-			topScore,
-			STOCK_SCORE_MAX,
-		);
+		const MIN_QUALIFYING_RAW_SCORE = 40; // Equivalent to at least "Good" quality tier (>=40/100)
 
-		// ── SME & Micro-Cap Liquidity Guardrail ─────────────────────────────────
-		// SME series or market cap < ₹500 Cr: cap confidence to 80% to enforce conservative allocation
-		const isSmeStock = ((topStock as any).series === "SM") || 
-			(topStock.symbol && topStock.symbol.endsWith("-SM")) ||
-			(Number((topStock as any).marketCapValue || 0) > 0 && Number((topStock as any).marketCapValue) < 500);
-		if (isSmeStock) {
-			confidenceScore = Math.min(confidenceScore, 80);
+		for (const candidate of scored.slice(0, 10)) {
+			const {
+				stock: topStock,
+				enriched: topEnriched,
+				score: topScore,
+				rsiOverride: topRsiOverride,
+				thematicInfo: topThematicInfo,
+			} = candidate;
+
+			// Gate 1: Quant Score Floor
+			if (topScore < effectiveMinThreshold) {
+				logger.warn(
+					`[StockStrategy] Candidate ${topStock.symbol} (${broadSector.label}): quant score ${topScore} below calibrated threshold ${effectiveMinThreshold}. Skipping candidate.`,
+				);
+				break; // scored is sorted descending, so all remaining are also below threshold
+			}
+
+			// Gate 1b: Quality Tier Floor (Reject "Weak" quality tier stocks)
+			const rawQuantScore = Math.min(100, Math.round((topScore / STOCK_SCORE_MAX) * 100));
+			if (rawQuantScore < MIN_QUALIFYING_RAW_SCORE) {
+				logger.warn(
+					`[StockStrategy] Candidate ${topStock.symbol} (${broadSector.label}): raw score ${rawQuantScore}/100 in 'Weak' tier (<${MIN_QUALIFYING_RAW_SCORE}). Disqualifying.`,
+				);
+				continue;
+			}
+
+			// Gate 2: Fetch live price at generation time
+			const liveAtGeneration = await this.getLivePrice(topStock.id).catch(() => null);
+			const currentPrice = (liveAtGeneration ?? 0) > 0
+				? liveAtGeneration!
+				: Number.parseFloat(topStock.currentPrice || "0");
+			if (currentPrice <= 0) continue;
+
+			const volatility = topStock.volatility
+				? Number.parseFloat(topStock.volatility)
+				: undefined;
+
+			// BUG-4 fix: Use pre-fetched unified RSI (already computed in rsiMap above)
+			const directRsi: number | null = topRsiOverride ?? null;
+			let directRoic: number | null = null;
+			if (!topEnriched?.fundamentals?.roic && topStock.roce)
+				directRoic = Number.parseFloat(topStock.roce);
+
+			// Determine timeHorizon BEFORE target/stoploss so intraday calls get realistic 1-session parameters
+			const horizonInfo = this.deriveStockTimeHorizon({
+				stock: topStock,
+				volatility: volatility ?? 20,
+				rsi: topEnriched?.technicals?.rsi ?? directRsi ?? null,
+				roic: topEnriched?.fundamentals?.roic ?? directRoic ?? null,
+				existingCount,
+				shortTermCount,
+				mediumTermCount,
+				intradayCount,
+				ultraShortCount,
+				today: context.today,
+			});
+
+			const { targetPct, stoplossPct, atrPct } = this.getDynamicTargetStoploss(
+				"listed_stocks",
+				volatility,
+				currentPrice,
+				horizonInfo.timeHorizon,
+			);
+			const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
+			const stoplossPrice =
+				Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
+
+			// Gate 3: Cross-Engine Consensus Verification (Research Note Desk Alignment)
+			// A BUY pick must NEVER be issued for a stock that carries an active SELL / STRONG SELL rating.
+			const consensusCheck = await this.verifyResearchConsensus(
+				topStock,
+				topEnriched,
+				currentPrice,
+				targetPrice,
+			);
+			if (!consensusCheck.allowed) {
+				logger.warn(
+					`[StockStrategy] 🛡️ Cross-Engine Consensus VETO: ${topStock.symbol} rejected — Research Note engine: ${consensusCheck.rating} (Score: ${consensusCheck.score}/100, Reason: ${consensusCheck.reason}). Trying next candidate.`,
+				);
+				continue;
+			}
+
+			// Gate 4: Minimum upside guard
+			const MIN_UPSIDE_PCT = horizonInfo.timeHorizon === "intraday" ? 0.015 : 0.05;
+			const remainingUpside = (targetPrice - currentPrice) / currentPrice;
+			if (remainingUpside < MIN_UPSIDE_PCT) {
+				logger.warn(
+					`[StockStrategy] ${topStock.symbol}: upside to target is only ${(remainingUpside * 100).toFixed(1)}% — below ${(MIN_UPSIDE_PCT * 100).toFixed(1)}% minimum. Discarding candidate.`,
+				);
+				continue;
+			}
+
+			// Gate 5: Reward-to-Risk gate (min 1.8:1 per FASP-AI v3.0)
+			const rrRatio = (targetPrice - currentPrice) / Math.max(currentPrice - stoplossPrice, 0.01);
+			if (rrRatio < 1.8) {
+				logger.warn(
+					`[StockStrategy] ${topStock.symbol}: R:R ratio ${rrRatio.toFixed(2)} < 1.8 minimum. Discarding candidate.`,
+				);
+				continue;
+			}
+
+			// Gate 6: Negative Return Trap Check (-15% 1Y with negative momentum)
+			const ret1Y = topStock.returns1Y ? Number.parseFloat(topStock.returns1Y) : (topEnriched?.performance?.return1Y ?? 0);
+			if (ret1Y <= -15 && (directRsi ? directRsi < 40 : true)) {
+				logger.warn(
+					`[StockStrategy] ${topStock.symbol}: Severe 1Y drawdown (${ret1Y.toFixed(1)}%) with weak momentum (RSI: ${directRsi}). Discarding candidate.`,
+				);
+				continue;
+			}
+
+			const sectorLabel = broadSector.label;
+			let rationale = await context.service.generateRationale({
+				category: "listed_stocks",
+				name: topStock.companyName || topStock.symbol,
+				symbol: topStock.symbol,
+				currentPrice,
+				targetPrice,
+				stoplossPrice,
+				metrics: {
+					pe: topStock.peRatio || undefined,
+					roic: topEnriched?.fundamentals?.roic ?? directRoic ?? undefined,
+					rsi: topEnriched?.technicals?.rsi ?? directRsi ?? undefined,
+					returns1y: topStock.returns1Y || undefined,
+				},
+			});
+
+			if (topThematicInfo?.highlightText) {
+				rationale += ` • Thematic Screener Synergy: ${topThematicInfo.highlightText}`;
+			}
+
+			const exchange = topStock.nseCode
+				? "NSE"
+				: topStock.bseCode
+					? "BSE"
+					: "NSE";
+			const riskLevel = this.getRiskLevel(volatility ?? 20);
+
+			let confidenceScore = this.getConfidenceScore(
+				"listed_stocks",
+				topScore,
+				STOCK_SCORE_MAX,
+			);
+
+			// SME & Micro-Cap Liquidity Guardrail
+			const isSmeStock = ((topStock as any).series === "SM") || 
+				(topStock.symbol && topStock.symbol.endsWith("-SM")) ||
+				(Number((topStock as any).marketCapValue || 0) > 0 && Number((topStock as any).marketCapValue) < 500);
+			if (isSmeStock) {
+				confidenceScore = Math.min(confidenceScore, 80);
+			}
+
+			const suggestedAllocation = calculateSuggestedAllocation(
+				"listed_stocks",
+				riskLevel,
+				confidenceScore,
+				{ marketCap: topStock.marketCap },
+			);
+
+			return {
+				category: "listed_stocks",
+				instrumentId: topStock.id,
+				instrumentName: topStock.companyName || topStock.symbol,
+				isin: topStock.isin || undefined,
+				symbol: topStock.symbol,
+				exchange,
+				recoDate: context.today,
+				recoPrice: currentPrice,
+				targetPrice,
+				stoplossPrice,
+				currentPrice,
+				status: "live",
+				expiryDate: horizonInfo.timeHorizon === "intraday" ? context.today : this.getExpiryDate(horizonInfo.validityDays),
+				rationale,
+				riskLevel,
+				suitableFor: this.deriveSuitableFor(riskLevel, "listed_stocks"),
+				timeHorizon: horizonInfo.timeHorizon,
+				confidenceScore,
+				sectorCategory: topStock.sector || sectorLabel,
+				keyMetrics: {
+					cmp: currentPrice,
+					pe: topStock.peRatio ? Number.parseFloat(topStock.peRatio) : undefined,
+					returns1y: topStock.returns1Y
+						? Number.parseFloat(topStock.returns1Y)
+						: undefined,
+					returns3y: topStock.returns3Y
+						? Number.parseFloat(topStock.returns3Y)
+						: undefined,
+					volatility: volatility,
+					sector: topStock.sector || sectorLabel,
+					broadSector: broadSector.id,
+					broadSectorLabel: sectorLabel,
+					broadSectorIcon: broadSector.icon,
+					broadSectorColor: broadSector.color,
+					marketCap: topStock.marketCap || undefined,
+					analystRating: topStock.analystRating || undefined,
+					roic: topEnriched?.fundamentals?.roic ?? directRoic ?? null,
+					rsi: topEnriched?.technicals?.rsi ?? directRsi ?? null,
+					suggestedAllocation,
+					thematicBadges: topThematicInfo?.themeBadges ?? [],
+					thematicHighlight: topThematicInfo?.highlightText ?? null,
+					rawQuantScore,
+					qualityTier:
+						rawQuantScore >= 80 ? "Premium"
+						: rawQuantScore >= 60 ? "Strong"
+						: rawQuantScore >= 40 ? "Good"
+						: "Weak",
+					atr14Pct: atrPct,
+					rewardToRiskRatio: Math.round(rrRatio * 100) / 100,
+					scoreBreakdown: (() => {
+						try {
+							const _bsid = mapToBroadSector(topStock.sector ?? "");
+							const _medPE = SECTOR_MEDIAN_PE[_bsid] ?? 25;
+							const _pe    = topStock.peRatio ? Number.parseFloat(topStock.peRatio) : 0;
+							const _disc  = _pe > 0 ? (_medPE - _pe) / _medPE : 0;
+							const _r1y   = topEnriched?.performance?.return1Y
+								?? (topStock.returns1Y ? Number.parseFloat(topStock.returns1Y) : 0);
+							const _rg    = topEnriched?.growth?.revenueGrowth ?? null;
+							const _eg    = topEnriched?.growth?.epsGrowth ?? null;
+							const _de    = topEnriched?.fundamentals?.debtToEquity ?? null;
+							const _macd  = topEnriched?.technicals?.macd ?? null;
+							const _s200  = topEnriched?.technicals?.sma200 ?? null;
+							const _s50   = topEnriched?.technicals?.sma50  ?? null;
+							const _rsi   = topEnriched?.technicals?.rsi ?? directRsi ?? null;
+							const _av    = topStock.averageVolume
+								? Number.parseFloat(topStock.averageVolume) : null;
+							const _ar    = (topStock.analystRating ?? "").toLowerCase();
+							const _na    = topStock.numberOfAnalysts
+								? Number(topStock.numberOfAnalysts) : 0;
+
+							let _revEps = 0;
+							if (_rg !== null && _eg !== null) {
+								_revEps = (_eg - _rg) > 30 ? -10 : (_eg - _rg) > 20 ? -5 : 0;
+								if (_rg > 15 && _eg > 15) _revEps += 10;
+								else if (_rg > 10 && _eg > 10) _revEps += 5;
+							}
+							let _dma = 0;
+							if (_s200 !== null) {
+								_dma = currentPrice > _s200 * 1.02 ? 8
+									: currentPrice > _s200 ? 4
+									: currentPrice < _s200 * 0.95 ? -10
+									: currentPrice < _s200 ? -5 : 0;
+								if (_s50 !== null && _s50 > _s200 * 1.01) _dma += 6;
+							}
+							return {
+								analystSignal:     _ar.includes("strong buy") ? (_na >= 5 ? 25 : 12) : _ar.includes("buy") ? (_na >= 3 ? 20 : 8) : 0,
+								momentum1Y:        _r1y > 30 ? 20 : _r1y > 15 ? 15 : 0,
+								piotroski:         null as null,
+								beneish:           null as null,
+								sectorRelativePE:  _pe > 0 ? (_disc >= 0.30 ? 15 : _disc >= 0.15 ? 10 : _disc <= -0.30 ? -8 : 0) : 0,
+								promoterSignal:    0,
+								revenueEpsQuality: _revEps,
+								debtStrength:      _de === null ? 0 : _de < 0.3 ? 8 : _de < 0.8 ? 4 : _de > 2.0 ? -10 : _de > 1.5 ? -5 : 0,
+								macdSignal:        _macd === null ? 0 : _macd > 0.5 ? 6 : _macd > 0 ? 3 : _macd < -0.5 ? -6 : _macd < 0 ? -3 : 0,
+								dmaPositioning:    _dma,
+								aiBoost:           0,
+								fiiBoost:          0,
+								thematicBonus:     topThematicInfo?.scoreBonus ?? 0,
+								thematicHighlight: topThematicInfo?.highlightText ?? null,
+								thematicBadges:    topThematicInfo?.themeBadges ?? [],
+								liquiditySignal:   _av === null ? 0 : (_av * currentPrice) >= 50_000_000 ? 10 : (_av * currentPrice) >= 10_000_000 ? 5 : (_av * currentPrice) < 2_000_000 ? -15 : 0,
+								rsiSignal:         _rsi === null ? 0 : _rsi >= 40 && _rsi <= 65 ? 8 : _rsi < 30 ? 5 : _rsi > 75 ? -12 : 0,
+								totalRawScore:         topScore,
+								scoreMax:              155,
+								model_version:         "FASP-AI-v1.0-upgrades-10",
+								calculation_timestamp: new Date().toISOString(),
+							};
+						} catch (err) {
+							logger.warn(`[StockStrategy] scoreBreakdown failed for ${topStock?.symbol}: ${err instanceof Error ? err.message : String(err)}`);
+							return { totalRawScore: topScore, scoreMax: 155, model_version: "FASP-AI-v1.0-upgrades-10", calculation_timestamp: new Date().toISOString(), _error: "partial" };
+						}
+					})(),
+				},
+			};
 		}
 
-		const suggestedAllocation = calculateSuggestedAllocation(
-			"listed_stocks",
-			riskLevel,
-			confidenceScore,
-			{ marketCap: topStock.marketCap },
+		logger.warn(
+			`[StockStrategy] ${broadSector.label}: None of the top ${scored.length} candidates met institutional quality, risk/reward, or cross-engine consensus standards — skipping sector.`,
 		);
-
-		return {
-			category: "listed_stocks",
-			instrumentId: topStock.id,
-			instrumentName: topStock.companyName || topStock.symbol,
-			isin: topStock.isin || undefined,
-			symbol: topStock.symbol,
-			exchange,
-			recoDate: context.today,
-			recoPrice: currentPrice,
-			targetPrice,
-			stoplossPrice,
-			currentPrice,
-			status: "live",
-			expiryDate: horizonInfo.timeHorizon === "intraday" ? context.today : this.getExpiryDate(horizonInfo.validityDays),
-			rationale,
-			riskLevel,
-			suitableFor: this.deriveSuitableFor(riskLevel, "listed_stocks"),
-			timeHorizon: horizonInfo.timeHorizon,
-			confidenceScore,
-			sectorCategory: topStock.sector || sectorLabel,
-			keyMetrics: {
-				cmp: currentPrice,
-				pe: topStock.peRatio ? Number.parseFloat(topStock.peRatio) : undefined,
-				returns1y: topStock.returns1Y
-					? Number.parseFloat(topStock.returns1Y)
-					: undefined,
-				returns3y: topStock.returns3Y
-					? Number.parseFloat(topStock.returns3Y)
-					: undefined,
-				volatility: volatility,
-				sector: topStock.sector || sectorLabel,
-				broadSector: broadSector.id,
-				broadSectorLabel: sectorLabel,
-				broadSectorIcon: broadSector.icon,
-				broadSectorColor: broadSector.color,
-				marketCap: topStock.marketCap || undefined,
-				analystRating: topStock.analystRating || undefined,
-				roic: topEnriched?.fundamentals?.roic ?? directRoic ?? null,
-				rsi: topEnriched?.technicals?.rsi ?? directRsi ?? null,
-				suggestedAllocation,
-				thematicBadges: topThematicInfo?.themeBadges ?? [],
-				thematicHighlight: topThematicInfo?.highlightText ?? null,
-				rawQuantScore: Math.min(100, Math.round((topScore / STOCK_SCORE_MAX) * 100)),
-				qualityTier:
-					Math.round((topScore / STOCK_SCORE_MAX) * 100) >= 80 ? "Premium"
-					: Math.round((topScore / STOCK_SCORE_MAX) * 100) >= 60 ? "Strong"
-					: Math.round((topScore / STOCK_SCORE_MAX) * 100) >= 40 ? "Good"
-					: "Weak",
-				atr14Pct: atrPct,
-				// #2: expose R:R ratio in keyMetrics for advisor transparency
-				rewardToRiskRatio: Math.round(rrRatio * 100) / 100,
-				// ── Upgrade #9: Per-signal score breakdown (FASP-AI v1.0) ──────────────
-				// try-catch IIFE: a throw in any signal block must NOT drop the whole
-				// keyMetrics object. Falls back to a minimal stub on error.
-				scoreBreakdown: (() => {
-					try {
-						const _bsid = mapToBroadSector(topStock.sector ?? "");
-						const _medPE = SECTOR_MEDIAN_PE[_bsid] ?? 25;
-						const _pe    = topStock.peRatio ? Number.parseFloat(topStock.peRatio) : 0;
-						const _disc  = _pe > 0 ? (_medPE - _pe) / _medPE : 0;
-						const _r1y   = topEnriched?.performance?.return1Y
-							?? (topStock.returns1Y ? Number.parseFloat(topStock.returns1Y) : 0);
-						const _rg    = topEnriched?.growth?.revenueGrowth ?? null;
-						const _eg    = topEnriched?.growth?.epsGrowth ?? null;
-						const _de    = topEnriched?.fundamentals?.debtToEquity ?? null;
-						const _macd  = topEnriched?.technicals?.macd ?? null;
-						const _s200  = topEnriched?.technicals?.sma200 ?? null;
-						const _s50   = topEnriched?.technicals?.sma50  ?? null;
-						const _rsi   = topEnriched?.technicals?.rsi ?? directRsi ?? null;
-						const _av    = topStock.averageVolume
-							? Number.parseFloat(topStock.averageVolume) : null;
-						const _ar    = (topStock.analystRating ?? "").toLowerCase();
-						const _na    = topStock.numberOfAnalysts
-							? Number(topStock.numberOfAnalysts) : 0;
-
-						let _revEps = 0;
-						if (_rg !== null && _eg !== null) {
-							_revEps = (_eg - _rg) > 30 ? -10 : (_eg - _rg) > 20 ? -5 : 0;
-							if (_rg > 15 && _eg > 15) _revEps += 10;
-							else if (_rg > 10 && _eg > 10) _revEps += 5;
-						}
-						let _dma = 0;
-						if (_s200 !== null) {
-							_dma = currentPrice > _s200 * 1.02 ? 8
-								: currentPrice > _s200 ? 4
-								: currentPrice < _s200 * 0.95 ? -10
-								: currentPrice < _s200 ? -5 : 0;
-							if (_s50 !== null && _s50 > _s200 * 1.01) _dma += 6;
-						}
-						return {
-							analystSignal:     _ar.includes("strong buy") ? (_na >= 5 ? 25 : 12) : _ar.includes("buy") ? (_na >= 3 ? 20 : 8) : 0,
-							momentum1Y:        _r1y > 30 ? 20 : _r1y > 15 ? 15 : 0,
-							piotroski:         null as null,
-							beneish:           null as null,
-							sectorRelativePE:  _pe > 0 ? (_disc >= 0.30 ? 15 : _disc >= 0.15 ? 10 : _disc <= -0.30 ? -8 : 0) : 0,
-							promoterSignal:    0,
-							revenueEpsQuality: _revEps,
-							debtStrength:      _de === null ? 0 : _de < 0.3 ? 8 : _de < 0.8 ? 4 : _de > 2.0 ? -10 : _de > 1.5 ? -5 : 0,
-							macdSignal:        _macd === null ? 0 : _macd > 0.5 ? 6 : _macd > 0 ? 3 : _macd < -0.5 ? -6 : _macd < 0 ? -3 : 0,
-							dmaPositioning:    _dma,
-							aiBoost:           0,
-							fiiBoost:          0,
-							thematicBonus:     topThematicInfo?.scoreBonus ?? 0,
-							thematicHighlight: topThematicInfo?.highlightText ?? null,
-							thematicBadges:    topThematicInfo?.themeBadges ?? [],
-							liquiditySignal:   _av === null ? 0 : (_av * currentPrice) >= 50_000_000 ? 10 : (_av * currentPrice) >= 10_000_000 ? 5 : (_av * currentPrice) < 2_000_000 ? -15 : 0,
-							rsiSignal:         _rsi === null ? 0 : _rsi >= 40 && _rsi <= 65 ? 8 : _rsi < 30 ? 5 : _rsi > 75 ? -12 : 0,
-							totalRawScore:         topScore,
-							scoreMax:              155,
-							model_version:         "FASP-AI-v1.0-upgrades-10",
-							calculation_timestamp: new Date().toISOString(),
-						};
-					} catch (err) {
-						logger.warn(`[StockStrategy] scoreBreakdown failed for ${topStock?.symbol}: ${err instanceof Error ? err.message : String(err)}`);
-						return { totalRawScore: topScore, scoreMax: 155, model_version: "FASP-AI-v1.0-upgrades-10", calculation_timestamp: new Date().toISOString(), _error: "partial" };
-					}
-				})(),
-			},
-		};
+		return null;
 	}
 
 	async score(
