@@ -120,7 +120,7 @@ export class SGBStrategy extends BaseStrategy {
 	async getLivePrice(_instrumentId: string): Promise<number | null> {
 		try {
 			const result = await db.execute(sql`
-        SELECT current_price FROM commodity_prices
+        SELECT COALESCE(current_price, price) AS current_price FROM commodity_prices
         WHERE symbol = 'GOLD'
         ORDER BY last_updated DESC
         LIMIT 1
@@ -148,7 +148,7 @@ export class SGBStrategy extends BaseStrategy {
 		let goldPrice: number | null = null;
 		try {
 			const result = await db.execute(sql`
-        SELECT current_price, last_updated FROM commodity_prices
+        SELECT COALESCE(current_price, price) AS current_price, last_updated FROM commodity_prices
         WHERE symbol = 'GOLD'
         ORDER BY last_updated DESC
         LIMIT 1

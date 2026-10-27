@@ -358,7 +358,42 @@ export class MultiVendorInstrumentResolver {
       }
     }
 
-    // Additional live vendor connectors integrate here seamlessly via the adapter contract
+    // 3. Local DB Bhavcopy fallback for equities & ETFs
+    if (vendor === "nse" || vendor === "bse" || vendor === "indianapi") {
+      try {
+        const { listedStocks } = await import("@shared/schema");
+        const { or } = await import("drizzle-orm");
+        const lookupSym = mapping?.vendorSymbol || isin;
+        const [stock] = await db
+          .select({
+            symbol: listedStocks.symbol,
+            companyName: listedStocks.companyName,
+            currentPrice: listedStocks.currentPrice,
+            changePercent: listedStocks.dayChangePercent,
+            lastUpdated: listedStocks.lastUpdated,
+          })
+          .from(listedStocks)
+          .where(or(eq(listedStocks.isin, isin), eq(listedStocks.symbol, lookupSym)))
+          .limit(1);
+
+        if (stock?.currentPrice && Number(stock.currentPrice) > 0) {
+          return {
+            isin,
+            symbol: stock.symbol || lookupSym,
+            name: stock.companyName,
+            price: Number(stock.currentPrice),
+            changePercent: stock.changePercent ? Number(stock.changePercent) : undefined,
+            vendorUsed: "nse_bhavcopy_db",
+            isFallback: true,
+            timestamp: stock.lastUpdated?.toISOString() || new Date().toISOString(),
+            cached: true,
+          };
+        }
+      } catch {
+        // fallback skipped
+      }
+    }
+
     return null;
   }
 }

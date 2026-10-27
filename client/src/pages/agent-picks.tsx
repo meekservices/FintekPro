@@ -937,11 +937,15 @@ export default function AgentPicksPage() {
 	const { data: todayData, isLoading: loadingToday } =
 		useQuery<PicksApiResponse>({
 			queryKey: ["/api/picks/today"],
+			refetchInterval: 30000,
+			refetchOnWindowFocus: true,
 		});
 
 	const { data: liveData, isLoading: loadingLive } = useQuery<PicksApiResponse>(
 		{
 			queryKey: ["/api/picks/live"],
+			refetchInterval: 30000,
+			refetchOnWindowFocus: true,
 		},
 	);
 
@@ -1657,7 +1661,7 @@ export default function AgentPicksPage() {
 		const retSub = parseSub(ipo.retailSubscription);
 
 		// Issue size in Cr
-		let issueSizeCr: number | undefined = undefined;
+		let issueSizeCr: number | undefined ;
 		if (ipo.issueSize) {
 			const m = String(ipo.issueSize).match(/(\d+(?:,\d+)*(?:\.\d+)?)/);
 			if (m) issueSizeCr = parseFloat(m[1].replace(/,/g, ""));

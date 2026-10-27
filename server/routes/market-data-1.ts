@@ -218,40 +218,85 @@ export function registerMarketDataPart1Routes(app: Express): void {
 					console.log("Finnhub failed for", symbol, "- trying Yahoo fallback");
 				}
 
-				// 2. Try Yahoo Finance Fallback
+				// Priority 3: Try Yahoo Finance Fallback with proper exchange suffix (.NS / .BO)
 				try {
+					const cleanSym = symbol.toUpperCase().replace(/\.NS$/, "").replace(/\.BO$/, "");
+					const isBse = symbol.toUpperCase().endsWith(".BO");
+					const yahooSym = isBse ? `${cleanSym}.BO` : `${cleanSym}.NS`;
 					const yahooResponse = await fetch(
-						`https://query1.finance.yahoo.com/v8/finance/chart/${symbol.toUpperCase()}`,
+						`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSym}`,
+						{ headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }
 					);
-					const yahooData = (await yahooResponse.json()) as any;
-					const meta = yahooData.chart?.result?.[0]?.meta;
+					if (yahooResponse.ok) {
+						const yahooData = (await yahooResponse.json()) as any;
+						const meta = yahooData.chart?.result?.[0]?.meta;
 
-					if (meta) {
-						const price = meta.regularMarketPrice ?? 0;
-						const prevClose = meta.previousClose ?? 0;
+						if (meta && meta.regularMarketPrice) {
+							const price = meta.regularMarketPrice ?? 0;
+							const prevClose = meta.previousClose ?? price;
+							res.json({
+								symbol: cleanSym,
+								price,
+								change: price - prevClose,
+								changePercent: prevClose
+									? ((price - prevClose) / prevClose) * 100
+									: 0,
+								high: meta.regularMarketDayHigh ?? price,
+								low: meta.regularMarketDayLow ?? price,
+								open: meta.regularMarketOpen ?? price,
+								previousClose: prevClose,
+								source: "yahoo-fallback",
+								lastUpdated: new Date().toISOString(),
+							});
+							return;
+						}
+					}
+				} catch (err) {
+					logger.warn("[MarketData] Yahoo fallback failed for symbol", { symbol });
+				}
+
+				// Priority 4: Authoritative DB Bhavcopy / listed_stocks fallback
+				try {
+					const { db } = await import("../db");
+					const { listedStocks } = await import("@shared/schema");
+					const { eq, or } = await import("drizzle-orm");
+					const cleanSym = symbol.toUpperCase().replace(/\.NS$/, "").replace(/\.BO$/, "");
+					const [stock] = await db
+						.select({
+							symbol: listedStocks.symbol,
+							currentPrice: listedStocks.currentPrice,
+							previousClose: listedStocks.previousClose,
+							changePercent: listedStocks.dayChangePercent,
+							lastUpdated: listedStocks.lastUpdated,
+						})
+						.from(listedStocks)
+						.where(or(eq(listedStocks.symbol, cleanSym), eq(listedStocks.isin, cleanSym)))
+						.limit(1);
+
+					if (stock && stock.currentPrice) {
+						const price = Number(stock.currentPrice);
+						const prevClose = stock.previousClose ? Number(stock.previousClose) : price;
 						res.json({
-							symbol: symbol.toUpperCase(),
+							symbol: cleanSym,
 							price,
 							change: price - prevClose,
-							changePercent: prevClose
-								? ((price - prevClose) / prevClose) * 100
-								: 0,
-							high: meta.regularMarketDayHigh ?? 0,
-							low: meta.regularMarketDayLow ?? 0,
-							open: meta.regularMarketOpen ?? 0,
+							changePercent: stock.changePercent
+								? Number(stock.changePercent)
+								: (prevClose ? ((price - prevClose) / prevClose) * 100 : 0),
+							high: price,
+							low: price,
+							open: price,
 							previousClose: prevClose,
-							source: "yahoo-fallback",
-							lastUpdated: new Date().toISOString(),
+							source: "NSE_BHAVCOPY_DB",
+							lastUpdated: stock.lastUpdated?.toISOString() || new Date().toISOString(),
 						});
 						return;
 					}
-				} catch (err) {
-					console.log("Yahoo fallback failed for", symbol);
-				}
+				} catch { /* DB fallback skipped */ }
 
 				res.status(503).json({
 					error: "Market quote temporarily unavailable.",
-					details: "Finnhub API key missing and fallback services failed.",
+					details: "Upstox and secondary market fallbacks returned no quote for this instrument.",
 				});
 			} catch (err: unknown) {
 				console.error("Error fetching quote:", err);

@@ -75,6 +75,9 @@ export function formatPickForRole(pick: Record<string, unknown>, role: string | 
     // confidenceLabel is kept for the detail panel and SEBI-compliant display.
     confidenceScore: pick.confidenceScore,
     confidenceLabel: scoreToLabel(pick.confidenceScore as number | undefined),
+    priceDataSource: pick.priceDataSource ?? "Live Exchange Feed",
+    dataFreshness: pick.dataFreshness ?? "live",
+    lastPriceUpdate: pick.lastPriceUpdate ?? new Date().toISOString(),
     disclaimer: REGULATORY_DISCLAIMER,
     formatter_version: FORMATTER_VERSION,
   };

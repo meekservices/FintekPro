@@ -169,11 +169,93 @@ export const SYMBOL_TO_ISIN: Record<string, string> = {
   WABAG: "INE956G01038",
   VAML: "INE956G01038",
   "BAJAJ-AUTO": "INE917I01010",
+  // Top candidates & market movers
+  AMBUJACEM: "INE042A01014",
+  MANKIND: "INE683Z01011",
+  PFC: "INE134E01011",
+  RECLTD: "INE020B01018",
+  CHOLAFIN: "INE121A01024",
+  HINDPETRO: "INE094A01015",
+  ERIS: "INE406M01024",
+  LICI: "INE0J1Y01017",
+  VEDL: "INE205A01025",
+  INDIGO: "INE646L01027",
+  DLF: "INE271C01023",
+  JIOFIN: "INE758E01017",
+  TATACONSUM: "INE192A01025",
+  SHREECEM: "INE070A01015",
+  ACCCEM: "INE012A01025",
+  ACC: "INE012A01025",
+  BAJAJHLDNG: "INE118A01012",
+  BPCL: "INE029A01011",
+  IOC: "INE242A01010",
+  GAIL: "INE129A01019",
+  DIVISLAB: "INE361B01024",
+  APOLLOHOSP: "INE437A01024",
+  EICHERMOT: "INE066A01021",
+  GRASIM: "INE047A01021",
+  HEROMOTOCO: "INE158A01026",
+  HINDZINC: "INE267A01025",
+  PIDILITIND: "INE318A01026",
+  SIEMENS: "INE003A01024",
+  ABB: "INE117A01022",
+  POLYCAB: "INE455K01017",
+  PERSISTENT: "INE262H01013",
+  COFORGE: "INE591G01017",
+  MPHASIS: "INE356A01018",
+  LTIM: "INE214T01019",
+  TATACOMM: "INE151A01013",
+  IRFC: "INE053F01010",
+  RVNL: "INE415G01027",
+  IRCTC: "INE335Y01020",
+  CONCOR: "INE111A01025",
+  BOSCHLTD: "INE323A01026",
+  TVSMOTOR: "INE494B01023",
+  ASHOKLEY: "INE214A01028",
+  BHARATFORG: "INE465A01025",
+  ASTRAL: "INE006I01046",
+  SUPREMEIND: "INE578A01017",
+  VOLTAS: "INE226A01021",
+  BLUESTARCO: "INE472A01039",
+  HAVELLS: "INE176B01034",
+  CROMPTON: "INE299U01018",
+  KALYANKJIL: "INE303R01014",
+  MUTHOOTFIN: "INE414G01012",
+  MANAPPURAM: "INE522D01027",
+  FEDERALBNK: "INE171A01029",
+  IDFCFIRSTB: "INE092T01019",
+  PNB: "INE160A01022",
+  BANKBARODA: "INE077A01032",
+  CANBK: "INE476A01022",
+  UNIONBANK: "INE692A01016",
+  IOB: "INE565A01014",
+  INDIANB: "INE562A01011",
+  MAXHEALTH: "INE027H01010",
+  FORTIS: "INE061F01013",
+  MEDANTA: "INE474Q01031",
+  LUPIN: "INE326A01037",
+  AUROPHARMA: "INE406A01037",
+  BIOCON: "INE376G01013",
+  ALKEM: "INE540L01014",
+  TORNTPHARM: "INE685A01028",
+  GLENMARK: "INE936A01020",
+  IPCALAB: "INE571A01038",
+  NATCOPHARM: "INE987B01026",
+  AJANTPHARM: "INE031B01049",
+  JBCHEPHARM: "INE572A01036",
+  GRANULES: "INE101A01026",
+  LAURUSLABS: "INE947Q01028",
+  SYNGENE: "INE398R01022",
+  EMBASSY: "INE041025011",
+  MINDSPACE: "INE0CCU25019",
+  BIRET: "INE0E1925017",
+  PGINVIT: "INE0G2723012",
 };
 
 export const toNseKey = (symbol: string): string => {
   const upper = symbol.toUpperCase();
   if (upper.startsWith("NSE_") || upper.startsWith("BSE_")) return upper;
+  if (/^IN[A-Z0-9]{10}$/.test(upper)) return `NSE_EQ|${upper}`;
   const isin = SYMBOL_TO_ISIN[upper] || upper;
   return `NSE_EQ|${isin}`;
 };
@@ -181,6 +263,7 @@ export const toNseKey = (symbol: string): string => {
 export const toBseKey = (symbol: string): string => {
   const upper = symbol.toUpperCase();
   if (upper.startsWith("NSE_") || upper.startsWith("BSE_")) return upper;
+  if (/^IN[A-Z0-9]{10}$/.test(upper)) return `BSE_EQ|${upper}`;
   const isin = SYMBOL_TO_ISIN[upper] || upper;
   return `BSE_EQ|${isin}`;
 };
@@ -353,6 +436,39 @@ class UpstoxMarketDataService {
     };
   }
 
+  /**
+   * Resolves a symbol or ISIN to its canonical Upstox instrument key.
+   * If the symbol is not in memory, performs a fast DB lookup against listed_stocks.
+   */
+  async resolveInstrumentKey(
+    symbolOrIsin: string,
+    exchange: "NSE" | "BSE" = "NSE"
+  ): Promise<string> {
+    const upper = symbolOrIsin.toUpperCase();
+    if (upper.startsWith("NSE_") || upper.startsWith("BSE_")) return upper;
+    if (/^IN[A-Z0-9]{10}$/.test(upper)) return `${exchange}_EQ|${upper}`;
+    if (SYMBOL_TO_ISIN[upper]) return `${exchange}_EQ|${SYMBOL_TO_ISIN[upper]}`;
+
+    // Lazy load from DB if not yet cached
+    try {
+      const { db } = await import("../db");
+      const { listedStocks } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [stock] = await db
+        .select({ isin: listedStocks.isin })
+        .from(listedStocks)
+        .where(eq(listedStocks.symbol, upper))
+        .limit(1);
+      if (stock?.isin) {
+        SYMBOL_TO_ISIN[upper] = stock.isin;
+        return `${exchange}_EQ|${stock.isin}`;
+      }
+    } catch {
+      // Non-fatal fallback
+    }
+    return `${exchange}_EQ|${upper}`;
+  }
+
   // ── Single LTP ─────────────────────────────────────────────────────────────
 
   /**
@@ -373,7 +489,7 @@ class UpstoxMarketDataService {
     const t0 = Date.now();
     if (!this.isReady()) return this._inactive<UpstoxQuote>();
 
-    const key = exchange === "BSE" ? toBseKey(symbol) : toNseKey(symbol);
+    const key = await this.resolveInstrumentKey(symbol, exchange);
 
     return this._withRetry<UpstoxQuote>(async () => {
       const res = await this.client!.get("/market-quote/ltp", {
@@ -426,8 +542,8 @@ class UpstoxMarketDataService {
     // Chunk into batches of 500 (Upstox limit)
     for (let i = 0; i < symbols.length; i += 500) {
       const chunk = symbols.slice(i, i + 500);
-      const keys = chunk.map((s) =>
-        exchange === "BSE" ? toBseKey(s) : toNseKey(s)
+      const keys = await Promise.all(
+        chunk.map((s) => this.resolveInstrumentKey(s, exchange))
       );
 
       const chunkResult = await this._withRetry<Record<string, unknown>>(async () => {
@@ -458,10 +574,24 @@ class UpstoxMarketDataService {
         const q = quoteObj as any;
         const sym = q?.symbol || resKey.split(":")[1] || resKey.split("|")[1];
         if (sym && q?.last_price) {
-          resultMap.set(sym.toUpperCase(), this._mapFullQuote(sym, exchange, q));
+          const mapped = this._mapFullQuote(sym, exchange, q);
+          resultMap.set(sym.toUpperCase(), mapped);
           if (q.instrument_token) {
             const tokenIsin = q.instrument_token.split("|")[1];
-            if (tokenIsin) resultMap.set(tokenIsin.toUpperCase(), this._mapFullQuote(sym, exchange, q));
+            if (tokenIsin) resultMap.set(tokenIsin.toUpperCase(), mapped);
+          }
+          const tokenKey = resKey.split("|")[1] || resKey.split(":")[1];
+          if (tokenKey) resultMap.set(tokenKey.toUpperCase(), mapped);
+        }
+      }
+
+      // Ensure all requested chunk symbols have an entry if their mapped ISIN was resolved
+      for (const reqSym of chunk) {
+        const upper = reqSym.toUpperCase();
+        if (!resultMap.has(upper)) {
+          const mappedIsin = SYMBOL_TO_ISIN[upper];
+          if (mappedIsin && resultMap.has(mappedIsin)) {
+            resultMap.set(upper, resultMap.get(mappedIsin)!);
           }
         }
       }
@@ -480,7 +610,7 @@ class UpstoxMarketDataService {
     const t0 = Date.now();
     if (!this.isReady()) return this._inactive<UpstoxQuote>();
 
-    const key = exchange === "BSE" ? toBseKey(symbolOrIsin) : toNseKey(symbolOrIsin);
+    const key = await this.resolveInstrumentKey(symbolOrIsin, exchange);
 
     return this._withRetry<UpstoxQuote>(async () => {
       const res = await this.client!.get("/market-quote/quotes", {

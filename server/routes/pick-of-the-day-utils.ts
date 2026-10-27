@@ -263,7 +263,7 @@ export async function getLiveInstrumentPrice(
 			}
 			case "sgb": {
 				const goldResult = await db.execute(sql`
-          SELECT current_price, last_updated FROM commodity_prices WHERE symbol = 'GOLD' ORDER BY last_updated DESC LIMIT 1
+          SELECT COALESCE(current_price, price) AS current_price, last_updated FROM commodity_prices WHERE symbol = 'GOLD' ORDER BY last_updated DESC LIMIT 1
         `);
 				const goldRow = (goldResult as any).rows?.[0] || (goldResult as any)[0];
 				if (goldRow?.current_price) {
@@ -409,7 +409,7 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 			}
 
 			// Live price fetch — only for market categories with real-time APIs
-			if (pick.status === "live" && pick.instrumentId && LIVE_PRICE_CATEGORIES.has(pick.category)) {
+			if (pick.status === "live" && (pick.instrumentId || pick.symbol || pick.isin) && LIVE_PRICE_CATEGORIES.has(pick.category)) {
 				try {
 					const freshPrice = await Promise.race([
 						getLiveInstrumentPrice(pick, upstoxBatchMap),

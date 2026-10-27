@@ -140,6 +140,8 @@ export default function AIStockPicks() {
 		recommendations: StockRecommendation[];
 	}>({
 		queryKey: ["/api/ai-stock-recommendations/quick"],
+		refetchInterval: 30000,
+		refetchOnWindowFocus: true,
 	});
 
 	const handleGenerate = () => {
