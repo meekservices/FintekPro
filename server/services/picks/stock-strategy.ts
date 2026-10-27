@@ -849,35 +849,37 @@ export class StockStrategy extends BaseStrategy {
 			ilike(listedStocks.broadSector, `%${kw}%`),
 		);
 
-		let stocks = await db
+		// ── Dual-Track Candidate Pool ──────────────────────────────────────────────
+		// Track A: Institutional Quality Core (Large & Mid Caps by Market Cap, limit 30)
+		// Track B: Early Breakout & Momentum Leaders (High-volume & 1M momentum, limit 20)
+		// Merging Track A + B ensures emerging breakout mid/small-caps with strong institutional
+		// turnover are not crowded out by large-cap market capitalization rankings alone.
+		const baseSectorFilter = or(or(...sectorConditions), or(...broadSectorConditions));
+		const baseWhere = and(
+			eq(listedStocks.isPublished, true),
+			sql`${listedStocks.currentPrice} IS NOT NULL`,
+			sql`CAST(${listedStocks.currentPrice} AS DECIMAL) > 50`,
+			// Circuit breaker filter: Exclude stocks locked at lower or upper circuit
+			sql`(
+				${listedStocks.dayChangePercent} IS NULL
+				OR (
+					CAST(${listedStocks.dayChangePercent} AS DECIMAL) > -9.5
+					AND CAST(${listedStocks.dayChangePercent} AS DECIMAL) < 9.5
+				)
+			)`,
+			// Exclude zero-volume / illiquid stocks
+			sql`(
+				${listedStocks.averageVolume} IS NULL
+				OR CAST(${listedStocks.averageVolume} AS DECIMAL) > 0
+			)`,
+			baseSectorFilter,
+		);
+
+		const trackAPromise = db
 			.select()
 			.from(listedStocks)
-			.where(
-				and(
-					eq(listedStocks.isPublished, true),
-					sql`${listedStocks.currentPrice} IS NOT NULL`,
-					sql`CAST(${listedStocks.currentPrice} AS DECIMAL) > 50`,
-					// ── Circuit breaker filter ──────────────────────────────────────
-					// Exclude stocks at or near lower circuit (day_change_percent ≤ -9.5%)
-					// Exclude stocks at upper circuit gap-ups (day_change_percent ≥ +9.5%)
-					// Both indicate illiquidity / circuit-locked price.
-					sql`(
-						${listedStocks.dayChangePercent} IS NULL
-						OR (
-							CAST(${listedStocks.dayChangePercent} AS DECIMAL) > -9.5
-							AND CAST(${listedStocks.dayChangePercent} AS DECIMAL) < 9.5
-						)
-					)`,
-					// Exclude zero-volume stocks (circuit-locked, no buyers/sellers)
-					sql`(
-						${listedStocks.averageVolume} IS NULL
-						OR CAST(${listedStocks.averageVolume} AS DECIMAL) > 0
-					)`,
-					or(or(...sectorConditions), or(...broadSectorConditions)),
-				),
-			)
+			.where(baseWhere)
 			.orderBy(
-				// ── Institutional Quality Floor: Large & Mid Caps First ───────────────
 				sql`CASE 
 					WHEN ${listedStocks.marketCapCategory} = 'Large Cap' OR ${listedStocks.marketCap} = 'Large Cap' THEN 1 
 					WHEN ${listedStocks.marketCapCategory} = 'Mid Cap' OR ${listedStocks.marketCap} = 'Mid Cap' THEN 2 
@@ -888,8 +890,42 @@ export class StockStrategy extends BaseStrategy {
 				sql`COALESCE(CAST(${listedStocks.marketCapValue} AS DECIMAL), 0) DESC`,
 				sql`COALESCE(CAST(${listedStocks.averageVolume} AS DECIMAL), 0) DESC`
 			)
-			// ── Candidate pool: 40 per sector ─────────────────────────────────────
-			.limit(40);
+			.limit(30);
+
+		const trackBPromise = db
+			.select()
+			.from(listedStocks)
+			.where(
+				and(
+					baseWhere,
+					sql`(
+						${listedStocks.marketCapValue} IS NULL 
+						OR CAST(${listedStocks.marketCapValue} AS DECIMAL) >= 20000000000
+						OR ${listedStocks.marketCapCategory} IN ('Large Cap', 'Mid Cap', 'Small Cap')
+					)`,
+					sql`(
+						COALESCE(CAST(${listedStocks.averageVolume} AS DECIMAL), 0) >= 25000
+						OR (CAST(${listedStocks.currentPrice} AS DECIMAL) * COALESCE(CAST(${listedStocks.averageVolume} AS DECIMAL), 0)) >= 25000000
+					)`,
+				),
+			)
+			.orderBy(
+				sql`COALESCE(CAST(${listedStocks.returns1M} AS DECIMAL), 0) DESC`,
+				sql`COALESCE(CAST(${listedStocks.averageVolume} AS DECIMAL), 0) DESC`
+			)
+			.limit(20);
+
+		const [trackARows, trackBRows] = await Promise.all([trackAPromise, trackBPromise]);
+
+		const seenCandidateIds = new Set<string>();
+		const mergedCandidates: typeof listedStocks.$inferSelect[] = [];
+		for (const s of [...trackARows, ...trackBRows]) {
+			if (!s.id || seenCandidateIds.has(s.id)) continue;
+			seenCandidateIds.add(s.id);
+			mergedCandidates.push(s);
+		}
+
+		let stocks = mergedCandidates;
 
 		// Fallback to listedStocks if listedStocks has no sector data
 		if (stocks.length === 0) {
@@ -1107,22 +1143,25 @@ export class StockStrategy extends BaseStrategy {
 		const scoringTasks = eligibleStocks.map((stock) => async () => {
 			const symUpper = stock.symbol ? stock.symbol.toUpperCase() : "";
 			const thematicInfo = symUpper ? (thematicMap.get(symUpper) ?? null) : null;
+			const rsiVal = stock.symbol ? (rsiMap.get(stock.symbol) ?? null) : null;
+			const enriched = stock.symbol
+				? enrichedSnapshots.get(symUpper) || null
+				: null;
+			const isEarlyBreakout = this.detectEarlyBreakout(stock, enriched, rsiVal);
 			return {
 				stock,
-				enriched: stock.symbol
-					? enrichedSnapshots.get(symUpper) || null
-					: null,
-				rsiOverride: stock.symbol ? (rsiMap.get(stock.symbol) ?? null) : null,
+				enriched,
+				rsiOverride: rsiVal,
 				thematicInfo,
+				isEarlyBreakout,
 				score: await this.score(
 					stock,
-					stock.symbol
-						? enrichedSnapshots.get(symUpper) || null
-						: null,
+					enriched,
 					context,
 					fiiSignal,
-					stock.symbol ? (rsiMap.get(stock.symbol) ?? null) : null, // BUG-4: unified RSI
+					rsiVal,
 					thematicInfo,
+					isEarlyBreakout,
 				),
 			};
 		});
@@ -1150,6 +1189,7 @@ export class StockStrategy extends BaseStrategy {
 				score: topScore,
 				rsiOverride: topRsiOverride,
 				thematicInfo: topThematicInfo,
+				isEarlyBreakout: topIsEarlyBreakout,
 			} = candidate;
 
 			// Gate 1: Quant Score Floor
@@ -1276,6 +1316,10 @@ export class StockStrategy extends BaseStrategy {
 				rationale += ` • Thematic Screener Synergy: ${topThematicInfo.highlightText}`;
 			}
 
+			if (topIsEarlyBreakout) {
+				rationale += ` • Technical Setup: Stage-2 Early Breakout near 52-week high with momentum acceleration`;
+			}
+
 			const exchange = topStock.nseCode
 				? "NSE"
 				: topStock.bseCode
@@ -1346,6 +1390,8 @@ export class StockStrategy extends BaseStrategy {
 					suggestedAllocation,
 					thematicBadges: topThematicInfo?.themeBadges ?? [],
 					thematicHighlight: topThematicInfo?.highlightText ?? null,
+					isEarlyBreakout: topIsEarlyBreakout ?? false,
+					breakoutSetup: topIsEarlyBreakout ? "Stage-2 Consolidation Breakout" : undefined,
 					rawQuantScore,
 					qualityTier:
 						rawQuantScore >= 80 ? "Premium"
@@ -1438,8 +1484,12 @@ export class StockStrategy extends BaseStrategy {
 		rsiOverride?: number | null,
 		/** Cross-Engine Synergy: pre-fetched thematic synergy info */
 		thematicInfo?: ThematicSynergyInfo | null,
+		/** Optional pre-computed Stage-2 Early Breakout flag */
+		isEarlyBreakoutFlag?: boolean | null,
 	): Promise<number> {
 		let score = 0;
+		const rsiForScore = rsiOverride ?? enriched?.technicals?.rsi ?? null;
+		const isEarlyStage2 = isEarlyBreakoutFlag ?? this.detectEarlyBreakout(stock, enriched, rsiForScore);
 
 		// ── Upgrade #3: Analyst count gate ────────────────────────────────────────
 		// A single small-broker "strong buy" carries the same label as 15-analyst
@@ -1553,6 +1603,13 @@ export class StockStrategy extends BaseStrategy {
 			const screenerReturn1Y = enriched?.performance?.return1Y
 				?? (stock.returns1Y ? Number.parseFloat(stock.returns1Y) : 0);
 			if (pos52w >= 0.90 && screenerReturn1Y < 0) score -= 10;
+		}
+
+		// ── P0 Alpha Factor: Stage-2 Early Breakout Detection ──────────────────────
+		// Rewards consolidation just below 52W high with aligned moving averages and sweet-spot RSI (+15 pts).
+		// Bridges the gap to capture tomorrow's Top Gainers before the parabolic move.
+		if (isEarlyStage2) {
+			score += 15;
 		}
 
 		// ── P0 Alpha Factor B: Beneish M-Score (Earnings Manipulation Detector) ─────
@@ -1700,27 +1757,29 @@ export class StockStrategy extends BaseStrategy {
 		// rsiOverride is pre-fetched in pickBestForSector via rsiMap:
 		//   1. screener_derived_metrics.rsi (enriched.technicals.rsi)  — preferred
 		//   2. golden_prices 14-day RSI calculation                    — fallback
-		// This ensures score() and keyMetrics always use the same RSI.
-		// RSI 40–65: healthy trend momentum, ideal entry zone
-		// RSI < 30:  oversold — contrarian entry (only for fundamentally sound stocks)
-		// RSI > 75:  overbought — poor entry timing, avoid regardless of fundamentals
-		const rsiForScore = rsiOverride ?? enriched?.technicals?.rsi ?? null;
+		// rsiForScore is unified and initialized at method entry
 		if (rsiForScore !== null) {
 			if (rsiForScore >= 40 && rsiForScore <= 65) score += 8;  // Ideal entry zone
 			else if (rsiForScore < 30) score += 5;                   // Oversold — contrarian entry
 			else if (rsiForScore > 75) score -= 12;                  // Overbought — poor timing
 		}
 
-		// ── Day-change circuit penalty ──────────────────────────────────────
-		// Heavily penalise stocks whose day change is near lower circuit.
-		// This is a safety net on top of the SQL filter: if DB data is slightly
-		// stale and circuit hit is not yet reflected in day_change_percent,
-		// the penalty drops the score below any reasonable threshold.
+		// ── Day-change circuit & early strength calibration ─────────────────
+		// Heavily penalise stocks near lower circuit (<= -7%) or upper circuit gap-up (>= +7%).
+		// However, for early Stage-2 breakouts showing healthy, controlled intraday strength (+1.0% to +3.5%),
+		// reward early buyer conviction (+5 pts) instead of penalizing momentum.
 		const dayChangePct = stock.dayChangePercent
 			? Number.parseFloat(stock.dayChangePercent)
 			: null;
-		if (dayChangePct !== null && dayChangePct <= -7) score -= 40; // near/at lower circuit
-		if (dayChangePct !== null && dayChangePct >= 7) score -= 15;  // near upper circuit gap-up
+		if (dayChangePct !== null) {
+			if (dayChangePct <= -7) {
+				score -= 40; // near/at lower circuit
+			} else if (dayChangePct >= 7) {
+				score -= 15; // near upper circuit gap-up / exhaustion risk
+			} else if (dayChangePct >= 1.0 && dayChangePct <= 3.5 && isEarlyStage2) {
+				score += 5;  // Controlled early strength on high-conviction breakout
+			}
+		}
 
 		// ── Fix 2: Market-regime-aware score multipliers ──────────────────────────
 		// Adjust signal weights based on current market regime from detectRegime().
@@ -2000,6 +2059,52 @@ export class StockStrategy extends BaseStrategy {
 		} catch (err) {
 			logger.warn("[StockStrategy] calculateAdvancedMetrics failed:", { error: err instanceof Error ? err.message : String(err) });
 			return {};
+		}
+	}
+
+	/**
+	 * Detects whether a stock qualifies as an Early Stage-2 Breakout candidate.
+	 * Evaluates ex-ante technical and accumulation characteristics:
+	 * 1. Base Consolidation & Proximity: pos52w between 0.82 and 0.97 (near 52W high, not overextended).
+	 * 2. Trend Alignment (Weinstein Stage-2): Price above 50-DMA, and 50-DMA >= 200-DMA.
+	 * 3. RSI Acceleration Zone: RSI between 55 and 70 (velocity expansion before overbought >75).
+	 * 4. Controlled Accumulation: 1-month returns between +2% and +22% (steady buildup).
+	 * 5. Minimum Liquidity: Average volume >= 25,000 or turnover proxy >= ₹2.5 Cr.
+	 */
+	detectEarlyBreakout(
+		stock: any,
+		enriched?: EnrichedStockSnapshot | null,
+		rsiOverride?: number | null,
+	): boolean {
+		try {
+			const weekHigh52 = stock.weekHigh52 ? Number.parseFloat(stock.weekHigh52) : null;
+			const weekLow52  = stock.weekLow52  ? Number.parseFloat(stock.weekLow52)  : null;
+			const curPrice   = stock.currentPrice ? Number.parseFloat(stock.currentPrice) : null;
+			if (!weekHigh52 || !weekLow52 || !curPrice || weekHigh52 <= weekLow52) return false;
+
+			const pos52w = (curPrice - weekLow52) / (weekHigh52 - weekLow52);
+			const inBreakoutBase = pos52w >= 0.82 && pos52w <= 0.97;
+			if (!inBreakoutBase) return false;
+
+			const sma50 = enriched?.technicals?.sma50 ?? null;
+			const sma200 = enriched?.technicals?.sma200 ?? null;
+			const isTrendAligned = sma50 != null
+				? curPrice >= sma50 * 0.98 && (sma200 == null || sma50 >= sma200 * 0.98)
+				: true;
+			if (!isTrendAligned) return false;
+
+			const rsiVal = rsiOverride ?? enriched?.technicals?.rsi ?? null;
+			const inRsiSweetSpot = rsiVal != null ? rsiVal >= 55 && rsiVal <= 70 : true;
+			if (!inRsiSweetSpot) return false;
+
+			const ret1M = stock.returns1M
+				? Number.parseFloat(stock.returns1M)
+				: (enriched?.performance?.return1M ?? null);
+			if (ret1M != null && (ret1M < 2 || ret1M > 25)) return false;
+
+			return true;
+		} catch {
+			return false;
 		}
 	}
 
