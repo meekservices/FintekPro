@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Express, Request, Response } from "express";
 import { finnhubService } from "../finnhub-service";
 import { marketMoversCache } from "../services/market-movers-cache";
