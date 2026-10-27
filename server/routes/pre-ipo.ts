@@ -713,7 +713,12 @@ export function registerPreIPORoutes(app: Express) {
 
 			if (indianApiService.isReady()) {
 				try {
-					const apiRes = await indianApiService.getIPOv2("open");
+					const apiRes = await Promise.race([
+						indianApiService.getIPOv2("open"),
+						new Promise<never>((_, reject) =>
+							setTimeout(() => reject(new Error("Timeout fetching open IPOs from IndianAPI (5000ms)")), 5000),
+						),
+					]);
 					if (apiRes.success && Array.isArray(apiRes.data) && apiRes.data.length > 0) {
 						liveApiIpos = apiRes.data.map((ipo) => {
 							const lotSize = ipo.lot_size || 50;
@@ -893,7 +898,12 @@ export function registerPreIPORoutes(app: Express) {
 			let liveListed: any[] = [];
 			if (indianApiService.isReady()) {
 				try {
-					const apiRes = await indianApiService.getIPOv2("listed");
+					const apiRes = await Promise.race([
+						indianApiService.getIPOv2("listed"),
+						new Promise<never>((_, reject) =>
+							setTimeout(() => reject(new Error("Timeout fetching listed IPOs from IndianAPI (5000ms)")), 5000),
+						),
+					]);
 					if (apiRes.success && Array.isArray(apiRes.data) && apiRes.data.length > 0) {
 						liveListed = apiRes.data.slice(0, 10).map((ipo, idx) => {
 							const issueP = ipo.issue_price || 100;

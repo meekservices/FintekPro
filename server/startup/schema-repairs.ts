@@ -4150,6 +4150,120 @@ export async function ensureSharedRouteTables(): Promise<void> {
   //               sebi_circular_ref, sebi_effective_date
   try {
     await migDb.execute(migSql`
+      -- Ensure reits table exists
+      CREATE TABLE IF NOT EXISTS reits (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        symbol VARCHAR NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        sponsor TEXT,
+        manager TEXT,
+        trustee TEXT,
+        listing_date TIMESTAMP,
+        exchange VARCHAR DEFAULT 'NSE',
+        isin_code VARCHAR,
+        sector VARCHAR NOT NULL DEFAULT 'mixed',
+        property_type VARCHAR,
+        geography TEXT,
+        total_properties INTEGER,
+        total_leasable_area NUMERIC(15, 2),
+        occupancy_rate NUMERIC(5, 2),
+        current_price NUMERIC(15, 4),
+        nav NUMERIC(15, 4),
+        premium_to_nav NUMERIC(8, 4),
+        week_high_52 NUMERIC(15, 4),
+        week_low_52 NUMERIC(15, 4),
+        market_cap NUMERIC(20, 2),
+        distribution_yield NUMERIC(8, 4),
+        dividend_frequency VARCHAR DEFAULT 'quarterly',
+        last_dividend NUMERIC(10, 4),
+        last_dividend_date TIMESTAMP,
+        returns_1m NUMERIC(8, 4),
+        returns_3m NUMERIC(8, 4),
+        returns_6m NUMERIC(8, 4),
+        returns_1y NUMERIC(8, 4),
+        returns_3y NUMERIC(8, 4),
+        returns_since_inception NUMERIC(8, 4),
+        debt_to_equity NUMERIC(10, 4),
+        interest_coverage_ratio NUMERIC(10, 4),
+        funds_from_operations NUMERIC(15, 2),
+        net_operating_income NUMERIC(15, 2),
+        minimum_investment NUMERIC(15, 2),
+        lot_size INTEGER DEFAULT 1,
+        face_value NUMERIC(10, 2),
+        risk_level VARCHAR DEFAULT 'moderate',
+        credit_rating VARCHAR,
+        rating_agency VARCHAR,
+        ai_signal VARCHAR DEFAULT 'hold',
+        ai_confidence NUMERIC(5, 2),
+        ai_rationale TEXT,
+        ai_target_price NUMERIC(15, 4),
+        sebi_asset_class VARCHAR(20) DEFAULT 'equity',
+        amfi_cap_category VARCHAR(20),
+        equity_index_eligible BOOLEAN DEFAULT true,
+        sebi_circular_ref VARCHAR(100) DEFAULT 'SEBI/HO/IMD/IMD-I/DOF5/P/CIR/2025/177',
+        sebi_effective_date TIMESTAMP,
+        is_active BOOLEAN DEFAULT true,
+        last_updated TIMESTAMP DEFAULT now(),
+        created_at TIMESTAMP DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_reits_symbol ON reits(symbol);
+
+      -- Ensure invits table exists
+      CREATE TABLE IF NOT EXISTS invits (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        symbol VARCHAR NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        sponsor TEXT,
+        manager TEXT,
+        trustee TEXT,
+        listing_date TIMESTAMP,
+        exchange VARCHAR DEFAULT 'NSE',
+        isin_code VARCHAR,
+        sector VARCHAR NOT NULL DEFAULT 'mixed',
+        infrastructure_type VARCHAR,
+        geography TEXT,
+        total_assets INTEGER,
+        asset_details TEXT,
+        concession_life NUMERIC(5, 1),
+        current_price NUMERIC(15, 4),
+        nav NUMERIC(15, 4),
+        premium_to_nav NUMERIC(8, 4),
+        week_high_52 NUMERIC(15, 4),
+        week_low_52 NUMERIC(15, 4),
+        market_cap NUMERIC(20, 2),
+        distribution_yield NUMERIC(8, 4),
+        dividend_frequency VARCHAR DEFAULT 'quarterly',
+        last_dividend NUMERIC(10, 4),
+        last_dividend_date TIMESTAMP,
+        returns_1m NUMERIC(8, 4),
+        returns_3m NUMERIC(8, 4),
+        returns_6m NUMERIC(8, 4),
+        returns_1y NUMERIC(8, 4),
+        returns_3y NUMERIC(8, 4),
+        returns_since_inception NUMERIC(8, 4),
+        debt_to_equity NUMERIC(10, 4),
+        interest_coverage_ratio NUMERIC(10, 4),
+        ebitda NUMERIC(15, 2),
+        cash_flow_from_operations NUMERIC(15, 2),
+        minimum_investment NUMERIC(15, 2),
+        lot_size INTEGER DEFAULT 1,
+        face_value NUMERIC(10, 2),
+        risk_level VARCHAR DEFAULT 'moderate',
+        credit_rating VARCHAR,
+        rating_agency VARCHAR,
+        ai_signal VARCHAR DEFAULT 'hold',
+        ai_confidence NUMERIC(5, 2),
+        ai_rationale TEXT,
+        ai_target_price NUMERIC(15, 4),
+        sebi_asset_class VARCHAR(20) DEFAULT 'hybrid',
+        sebi_circular_ref VARCHAR(100) DEFAULT 'SEBI/HO/IMD/IMD-I/DOF5/P/CIR/2025/177',
+        sebi_effective_date TIMESTAMP,
+        is_active BOOLEAN DEFAULT true,
+        last_updated TIMESTAMP DEFAULT now(),
+        created_at TIMESTAMP DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_invits_symbol ON invits(symbol);
+
       -- Add SEBI classification columns to reits table
       ALTER TABLE reits ADD COLUMN IF NOT EXISTS sebi_asset_class    VARCHAR(20)  DEFAULT 'equity';
       ALTER TABLE reits ADD COLUMN IF NOT EXISTS amfi_cap_category   VARCHAR(20);
@@ -4200,6 +4314,59 @@ export async function ensureSharedRouteTables(): Promise<void> {
     console.log("  ✅ Fix SEBI-1: REIT/InvIT SEBI classification columns applied (Nov 28, 2025 circular)");
   } catch (e: any) {
     console.warn("  ⚠️  Fix SEBI-1 REIT/InvIT classification (non-fatal):", e.message?.slice(0, 200));
+  }
+
+  // ── Fix DIALER-1: Ensure outbound_call_logs and dialer_queues tables exist ────────
+  try {
+    await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS outbound_call_logs (
+        id                   VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        agent_id             VARCHAR NOT NULL,
+        prospect_lead_id     VARCHAR,
+        prospect_client_id   VARCHAR,
+        prospect_name        VARCHAR NOT NULL,
+        prospect_phone       VARCHAR NOT NULL,
+        agent_phone          VARCHAR NOT NULL,
+        caller_id            VARCHAR,
+        exotel_call_sid      VARCHAR,
+        direction            VARCHAR NOT NULL DEFAULT 'outbound',
+        dialer_mode          VARCHAR NOT NULL DEFAULT 'progressive_queue',
+        status               VARCHAR NOT NULL DEFAULT 'initiated',
+        duration             INTEGER DEFAULT 0,
+        recording_url        TEXT,
+        disposition          VARCHAR,
+        disposition_notes    TEXT,
+        follow_up_date       TIMESTAMP,
+        dnd_status           VARCHAR DEFAULT 'scrubbed_clean',
+        compliance_warning   TEXT,
+        metadata             JSONB,
+        source               VARCHAR DEFAULT 'agent_dialer',
+        created_at           TIMESTAMP DEFAULT now(),
+        updated_at           TIMESTAMP DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_call_logs_agent ON outbound_call_logs(agent_id);
+      CREATE INDEX IF NOT EXISTS idx_call_logs_status ON outbound_call_logs(status);
+      CREATE INDEX IF NOT EXISTS idx_call_logs_created ON outbound_call_logs(created_at);
+
+      CREATE TABLE IF NOT EXISTS dialer_queues (
+        id                   VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        agent_id             VARCHAR NOT NULL,
+        name                 VARCHAR NOT NULL DEFAULT 'Daily Prospect Queue',
+        status               VARCHAR NOT NULL DEFAULT 'active',
+        target_segment       VARCHAR DEFAULT 'all',
+        lead_ids             JSONB DEFAULT '[]'::jsonb,
+        current_index        INTEGER DEFAULT 0,
+        total_count          INTEGER DEFAULT 0,
+        completed_count      INTEGER DEFAULT 0,
+        created_at           TIMESTAMP DEFAULT now(),
+        updated_at           TIMESTAMP DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_dialer_queues_agent ON dialer_queues(agent_id);
+      CREATE INDEX IF NOT EXISTS idx_dialer_queues_status ON dialer_queues(status);
+    `);
+    console.log("  ✅ Fix DIALER-1: outbound_call_logs and dialer_queues tables ensured");
+  } catch (e: any) {
+    console.warn("  ⚠️  Fix DIALER-1 telephony tables (non-fatal):", e.message?.slice(0, 120));
   }
 }
 

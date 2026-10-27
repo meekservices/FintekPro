@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { db } from "../db";
 import { reits, invits } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
@@ -433,22 +434,27 @@ class ReitInvitDataService {
 		failed: number;
 		results: RefreshResult[];
 	}> {
-		const allReits = await db.select({ symbol: reits.symbol }).from(reits);
-		const results: RefreshResult[] = [];
+		try {
+			const allReits = await db.select({ symbol: reits.symbol }).from(reits);
+			const results: RefreshResult[] = [];
 
-		for (const reit of allReits) {
-			const result = await this.refreshReit(reit.symbol);
-			results.push(result);
-			await new Promise((resolve) => setTimeout(resolve, 1000));
+			for (const reit of allReits) {
+				const result = await this.refreshReit(reit.symbol);
+				results.push(result);
+				await new Promise((resolve) => setTimeout(resolve, 1000));
+			}
+
+			const success = results.filter((r) => r.success).length;
+			return {
+				total: allReits.length,
+				success,
+				failed: allReits.length - success,
+				results,
+			};
+		} catch (error: any) {
+			console.warn("⚠️ [ReitInvitDataService] refreshAllReits query skipped (table may be syncing):", error?.message);
+			return { total: 0, success: 0, failed: 0, results: [] };
 		}
-
-		const success = results.filter((r) => r.success).length;
-		return {
-			total: allReits.length,
-			success,
-			failed: allReits.length - success,
-			results,
-		};
 	}
 
 	async refreshAllInvits(): Promise<{
@@ -457,22 +463,27 @@ class ReitInvitDataService {
 		failed: number;
 		results: RefreshResult[];
 	}> {
-		const allInvits = await db.select({ symbol: invits.symbol }).from(invits);
-		const results: RefreshResult[] = [];
+		try {
+			const allInvits = await db.select({ symbol: invits.symbol }).from(invits);
+			const results: RefreshResult[] = [];
 
-		for (const invit of allInvits) {
-			const result = await this.refreshInvit(invit.symbol);
-			results.push(result);
-			await new Promise((resolve) => setTimeout(resolve, 1000));
+			for (const invit of allInvits) {
+				const result = await this.refreshInvit(invit.symbol);
+				results.push(result);
+				await new Promise((resolve) => setTimeout(resolve, 1000));
+			}
+
+			const success = results.filter((r) => r.success).length;
+			return {
+				total: allInvits.length,
+				success,
+				failed: allInvits.length - success,
+				results,
+			};
+		} catch (error: any) {
+			console.warn("⚠️ [ReitInvitDataService] refreshAllInvits query skipped (table may be syncing):", error?.message);
+			return { total: 0, success: 0, failed: 0, results: [] };
 		}
-
-		const success = results.filter((r) => r.success).length;
-		return {
-			total: allInvits.length,
-			success,
-			failed: allInvits.length - success,
-			results,
-		};
 	}
 
 	async refreshAll(): Promise<{
@@ -602,7 +613,7 @@ class ReitInvitDataService {
 					error,
 				);
 			}
-		}, 30000);
+		}, 60000);
 	}
 
 	stopScheduledRefresh(): void {
