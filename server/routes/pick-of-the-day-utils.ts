@@ -93,12 +93,11 @@ export async function getLiveInstrumentPrice(
 				}
 
 				// 1. Upstox Licensed Live Exchange Feed (Priority 1 for real-time market hours)
-				// If batchMap was already evaluated, skip individual call to avoid redundant rate-limited traffic
-				if (upstoxMarketDataService.isReady() && !batchMap) {
+				if (upstoxMarketDataService.isReady()) {
 					const queryTarget = isin || sym;
 					if (queryTarget) {
 						try {
-							const uRes = await upstoxMarketDataService.getLTP(queryTarget, "NSE");
+							const uRes = await upstoxMarketDataService.getQuote(queryTarget, "NSE");
 							if (uRes.success && uRes.data?.last_price && uRes.data.last_price > 0) {
 								pick.priceDataSource = "Live Exchange Feed";
 								pick.dataFreshness = "live";
@@ -118,9 +117,9 @@ export async function getLiveInstrumentPrice(
 				} catch { /* DB read skipped if instrumentId invalid */ }
 
 				// If DB has ISIN and first call didn't have it, retry Upstox with ISIN
-				if (upstoxMarketDataService.isReady() && !batchMap && row[0]?.isin && !isin) {
+				if (upstoxMarketDataService.isReady() && row[0]?.isin && !isin) {
 					try {
-						const uRes = await upstoxMarketDataService.getLTP(row[0].isin, "NSE");
+						const uRes = await upstoxMarketDataService.getQuote(row[0].isin, "NSE");
 						if (uRes.success && uRes.data?.last_price && uRes.data.last_price > 0) {
 							pick.priceDataSource = "Live Exchange Feed";
 							pick.dataFreshness = "live";
@@ -153,12 +152,31 @@ export async function getLiveInstrumentPrice(
 				return null;
 			}
 			case "mutual_funds": {
-				const row = await db
-					.select({ nav: mutualFunds.nav })
-					.from(mutualFunds)
-					.where(eq(mutualFunds.schemeCode, pick.instrumentId))
-					.limit(1);
-				return row[0]?.nav ? Number.parseFloat(row[0].nav) : null;
+				let nav: number | null = null;
+				try {
+					const row = await db
+						.select({ nav: mutualFunds.nav })
+						.from(mutualFunds)
+						.where(eq(mutualFunds.schemeCode, pick.instrumentId))
+						.limit(1);
+					nav = row[0]?.nav ? Number.parseFloat(row[0].nav) : null;
+				} catch {}
+				if (nav && nav > 0) return nav;
+				// Fallback to MFAPI if DB is missing or zero
+				if (pick.instrumentId && /^\d+$/.test(String(pick.instrumentId))) {
+					try {
+						const mfRes = await fetch(`https://api.mfapi.in/mf/${pick.instrumentId}/latest`, {
+							signal: AbortSignal.timeout(2500),
+						});
+						if (mfRes.ok) {
+							const mData = (await mfRes.json()) as any;
+							if (mData?.data?.[0]?.nav) {
+								return Number.parseFloat(mData.data[0].nav);
+							}
+						}
+					} catch {}
+				}
+				return null;
 			}
 			case "bonds": {
 				const row = await db
@@ -188,13 +206,33 @@ export async function getLiveInstrumentPrice(
 						return cached.last_price;
 					}
 				}
-				if (upstoxMarketDataService.isReady() && !batchMap && queryTarget) {
+				if (upstoxMarketDataService.isReady() && queryTarget) {
 					try {
-						const uRes = await upstoxMarketDataService.getLTP(queryTarget, "NSE");
+						const uRes = await upstoxMarketDataService.getQuote(queryTarget, "NSE");
 						if (uRes.success && uRes.data?.last_price && uRes.data.last_price > 0) {
 							pick.priceDataSource = "Live Exchange Feed";
 							pick.dataFreshness = "live";
 							return uRes.data.last_price;
+						}
+					} catch {}
+				}
+				// If numeric scheme code, fetch latest NAV from MFAPI
+				const code = pick.symbol || pick.instrumentId;
+				if (code && /^\d+$/.test(String(code))) {
+					try {
+						const mfRes = await fetch(`https://api.mfapi.in/mf/${code}/latest`, {
+							signal: AbortSignal.timeout(2500),
+						});
+						if (mfRes.ok) {
+							const mData = (await mfRes.json()) as any;
+							if (mData?.data?.[0]?.nav) {
+								const nav = Number.parseFloat(mData.data[0].nav);
+								if (nav > 0) {
+									pick.priceDataSource = "AMFI NAV Service";
+									pick.dataFreshness = "live";
+									return nav;
+								}
+							}
 						}
 					} catch {}
 				}
@@ -373,7 +411,7 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 	let upstoxBatchMap = new Map<string, any>();
 	if (upstoxMarketDataService.isReady()) {
 		const upstoxSymbols = picks
-			.filter((p) => p.status === "live" && (p.category === "listed_stocks" || p.category === "etfs" || p.category === "reits_invits"))
+			.filter((p) => p.category === "listed_stocks" || p.category === "etfs" || p.category === "reits_invits")
 			.map((p) => p.isin || p.symbol)
 			.filter(Boolean);
 		if (upstoxSymbols.length > 0) {
@@ -409,7 +447,7 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 			}
 
 			// Live price fetch — only for market categories with real-time APIs
-			if (pick.status === "live" && (pick.instrumentId || pick.symbol || pick.isin) && LIVE_PRICE_CATEGORIES.has(pick.category)) {
+			if ((pick.instrumentId || pick.symbol || pick.isin) && LIVE_PRICE_CATEGORIES.has(pick.category)) {
 				try {
 					const freshPrice = await Promise.race([
 						getLiveInstrumentPrice(pick, upstoxBatchMap),
@@ -468,9 +506,9 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 				pick.priceDataType = source?.type || "Unknown";
 				pick.priceRefreshInterval = source?.refreshInterval || "Unknown";
 
-				if (pick.lastPriceUpdate || pick.updatedAt || pick.statusUpdatedAt) {
+				if (!pick.lastPriceUpdate && (pick.updatedAt || pick.statusUpdatedAt)) {
 					const updatedAt =
-						pick.lastPriceUpdate || pick.statusUpdatedAt || pick.updatedAt;
+						pick.statusUpdatedAt || pick.updatedAt;
 					pick.lastPriceUpdate = updatedAt;
 					const cat = pick.category;
 					if (

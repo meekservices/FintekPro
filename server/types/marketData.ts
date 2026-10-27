@@ -7,7 +7,7 @@ export interface MarketQuoteData {
 	low: number;
 	open: number;
 	previousClose: number;
-	source: "finnhub" | "yahoo" | "fallback" | "unavailable";
+	source: "finnhub" | "yahoo" | "upstox" | "UPSTOX" | "fallback" | "unavailable";
 	timestamp: string;
 }
 

@@ -25,6 +25,7 @@ import { logger } from "../logger";
 import { getFinancialData } from "../modules/research/dataService";
 import { indianApiService } from "./indian-api-service";
 import { marketHolidayService } from "./market-holiday-service";
+import { upstoxMarketDataService } from "./upstox-market-data-service";
 
 export interface StockRecommendation {
 	id: string;
@@ -305,6 +306,27 @@ class AIStockRecommendationService {
 					this.ensureCompleteRecommendationMetrics(r),
 				),
 			);
+
+			// Enrich recommendations with live licensed Upstox LTP tick data
+			if (upstoxMarketDataService.isReady()) {
+				try {
+					const syms = recommendations.map((r) => r.symbol).filter(Boolean);
+					const bRes = await upstoxMarketDataService.getBatchQuotes(syms, "NSE");
+					if (bRes.success && bRes.data) {
+						for (const rec of recommendations) {
+							const liveQ = bRes.data.get(rec.symbol?.toUpperCase());
+							if (liveQ?.last_price && liveQ.last_price > 0) {
+								rec.currentPrice = liveQ.last_price;
+								if (rec.targetPrice && rec.targetPrice > 0) {
+									rec.expectedReturn = Math.round((((rec.targetPrice - liveQ.last_price) / liveQ.last_price) * 100) * 10) / 10;
+								}
+							}
+						}
+					}
+				} catch (err) {
+					logger.warn("[AI Recommendations] Live LTP enrich warning:", { error: String(err) });
+				}
+			}
 
 			logger.info("[FASP-AI] Advice generated", {
 				event: "AI_ADVICE_GENERATED",

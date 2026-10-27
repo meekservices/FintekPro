@@ -125,7 +125,7 @@ export const SYMBOL_TO_ISIN: Record<string, string> = {
   JSWSTEEL: "INE019A01038",
   HINDALCO: "INE038A01020",
   CIPLA: "INE059A01026",
-  DRREDDY: "INE089A01023",
+  DRREDDY: "INE089A01031",
   TRENT: "INE849A01020",
   BEL: "INE263A01024",
   BAJAJFINSV: "INE918I01018",
@@ -170,8 +170,8 @@ export const SYMBOL_TO_ISIN: Record<string, string> = {
   VAML: "INE956G01038",
   "BAJAJ-AUTO": "INE917I01010",
   // Top candidates & market movers
-  AMBUJACEM: "INE042A01014",
-  MANKIND: "INE683Z01011",
+  AMBUJACEM: "INE079A01024",
+  MANKIND: "INE634S01028",
   PFC: "INE134E01011",
   RECLTD: "INE020B01018",
   CHOLAFIN: "INE121A01024",
@@ -466,6 +466,31 @@ class UpstoxMarketDataService {
     } catch {
       // Non-fatal fallback
     }
+
+    // Dynamic Upstox Instrument Search resolution
+    if (this.client) {
+      try {
+        const searchRes = await this.client.get("/instruments/search", {
+          params: { query: upper, exchange },
+        });
+        const items = searchRes.data?.data || [];
+        const match = items.find(
+          (d: any) =>
+            d.trading_symbol?.toUpperCase() === upper &&
+            (d.segment === `${exchange}_EQ` || d.segment === `${exchange}_INDEX`)
+        );
+        if (match?.isin) {
+          SYMBOL_TO_ISIN[upper] = match.isin;
+          return `${exchange}_EQ|${match.isin}`;
+        }
+        if (match?.instrument_key) {
+          return match.instrument_key;
+        }
+      } catch {
+        // dynamic search failed, proceed to fallback
+      }
+    }
+
     return `${exchange}_EQ|${upper}`;
   }
 
@@ -489,18 +514,42 @@ class UpstoxMarketDataService {
     const t0 = Date.now();
     if (!this.isReady()) return this._inactive<UpstoxQuote>();
 
-    const key = await this.resolveInstrumentKey(symbol, exchange);
+    let key = await this.resolveInstrumentKey(symbol, exchange);
 
     return this._withRetry<UpstoxQuote>(async () => {
-      const res = await this.client!.get("/market-quote/ltp", {
+      let res = await this.client!.get("/market-quote/ltp", {
         params: { instrument_key: key },
       });
-      const dataObj = (res.data?.data ?? {}) as Record<string, any>;
-      const raw =
+      let dataObj = (res.data?.data ?? {}) as Record<string, any>;
+      let raw =
         dataObj[key] ??
         dataObj[`${exchange}_EQ:${symbol.toUpperCase()}`] ??
         dataObj[`${exchange}_EQ|${symbol.toUpperCase()}`] ??
         Object.values(dataObj)[0];
+
+      // Self-healing: if initial key yielded no last_price and wasn't dynamically verified, search Upstox instruments
+      if (!raw?.last_price && !symbol.toUpperCase().startsWith("IN")) {
+        try {
+          const searchRes = await this.client!.get("/instruments/search", {
+            params: { query: symbol.toUpperCase(), exchange },
+          });
+          const items = searchRes.data?.data || [];
+          const match = items.find(
+            (d: any) =>
+              d.trading_symbol?.toUpperCase() === symbol.toUpperCase() &&
+              d.segment === `${exchange}_EQ`
+          );
+          if (match?.isin && `${exchange}_EQ|${match.isin}` !== key) {
+            key = `${exchange}_EQ|${match.isin}`;
+            SYMBOL_TO_ISIN[symbol.toUpperCase()] = match.isin;
+            res = await this.client!.get("/market-quote/ltp", {
+              params: { instrument_key: key },
+            });
+            dataObj = (res.data?.data ?? {}) as Record<string, any>;
+            raw = dataObj[key] ?? Object.values(dataObj)[0];
+          }
+        } catch { /* proceed */ }
+      }
 
       if (!raw?.last_price) {
         return {

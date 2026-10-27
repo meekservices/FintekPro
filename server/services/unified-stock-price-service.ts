@@ -653,7 +653,7 @@ class UnifiedStockPriceService {
 				// AUTH_EXPIRED → cooldown so we don't hammer with 401s
 				if (result.error?.error_code === "AUTH_EXPIRED") {
 					this.recordFailure("upstox", true);
-				} else {
+				} else if (result.error?.error_code !== "NO_DATA") {
 					this.recordFailure("upstox");
 				}
 			} catch (err: any) {

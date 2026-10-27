@@ -440,6 +440,31 @@ export function registerMarketDataPart1Routes(app: Express): void {
 					source: "fallback",
 					timestamp: new Date().toISOString(),
 				};
+				// Priority 1: Upstox Developer API v2 for Indian stocks
+				if (upstoxMarketDataService.isReady()) {
+					try {
+						const cleanSym = symbol.toUpperCase().replace(/\.NS$/, "").replace(/\.BO$/, "");
+						const exchange = symbol.toUpperCase().endsWith(".BO") ? "BSE" : "NSE";
+						const upstoxRes = await upstoxMarketDataService.getQuote(cleanSym, exchange);
+						if (upstoxRes.success && upstoxRes.data && upstoxRes.data.last_price > 0) {
+							const q = upstoxRes.data;
+							data = {
+								symbol: cleanSym,
+								price: q.last_price,
+								change: q.change ?? 0,
+								changePercent: q.change_percent ?? 0,
+								high: q.high_price ?? q.last_price,
+								low: q.low_price ?? q.last_price,
+								open: q.open_price ?? q.last_price,
+								previousClose: q.previous_close ?? q.last_price,
+								source: "UPSTOX",
+								timestamp: new Date(q.timestamp).toISOString(),
+							};
+							res.json(data);
+							return;
+						}
+					} catch { /* proceed to Finnhub */ }
+				}
 
 				try {
 					if (process.env.FINNHUB_API_KEY) {
