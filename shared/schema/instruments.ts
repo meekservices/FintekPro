@@ -149,3 +149,85 @@ export const insertInstrumentPerformanceMetricsSchema = createInsertSchema(instr
 
 export type InstrumentPerformanceMetrics = typeof instrumentPerformanceMetrics.$inferSelect;
 export type InsertInstrumentPerformanceMetrics = z.infer<typeof insertInstrumentPerformanceMetricsSchema>;
+
+/**
+ * Unified Instrument Consensus Records
+ * Single source of truth for cross-engine investment consensus.
+ * Aggregates signals from Research Desk, Quant Picks, Thematic Screener, and FASP-AI.
+ * Architecture: GCR v1.0 + FASP-AI v1.0 (Zero Redis cost — backed by Cloud SQL Postgres)
+ */
+export const instrumentConsensusRecords = pgTable(
+  "instrument_consensus_records",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    symbol: varchar("symbol", { length: 50 }).notNull(),
+    isin: varchar("isin", { length: 50 }),
+    instrumentName: varchar("instrument_name", { length: 255 }),
+    consensusStatus: varchar("consensus_status", { length: 50 }).notNull().default("approved"), // "approved" | "quarantined" | "under_review"
+    primaryRating: varchar("primary_rating", { length: 50 }).notNull().default("HOLD"), // "STRONG BUY" | "BUY" | "HOLD" | "SELL" | "STRONG SELL"
+    compositeScore: numeric("composite_score", { precision: 6, scale: 2 }),
+    engineRatings: jsonb("engine_ratings").default({}).notNull(),
+    quarantineReason: varchar("quarantine_reason", { length: 500 }),
+    quarantinedUntil: timestamp("quarantined_until"),
+    quarantinedByEngine: varchar("quarantined_by_engine", { length: 50 }),
+    driftDetected: boolean("drift_detected").default(false).notNull(),
+    driftSpread: numeric("drift_spread", { precision: 6, scale: 2 }),
+    manualOverride: boolean("manual_override").default(false).notNull(),
+    overrideByUserId: varchar("override_by_user_id", { length: 50 }),
+    overrideReason: varchar("override_reason", { length: 500 }),
+    overrideExpiresAt: timestamp("override_expires_at"),
+    engineVersion: varchar("engine_version", { length: 50 }).notNull().default("UICS-v1.0"),
+    calculationTimestamp: timestamp("calculation_timestamp").defaultNow().notNull(),
+    source: varchar("source", { length: 50 }).default("system").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("idx_icr_symbol_unique").on(table.symbol),
+    index("idx_icr_status").on(table.consensusStatus),
+    index("idx_icr_isin").on(table.isin),
+    index("idx_icr_rating").on(table.primaryRating),
+  ]
+);
+
+export const insertInstrumentConsensusRecordSchema = createInsertSchema(instrumentConsensusRecords).extend({
+  id: z.any().optional(),
+  createdAt: z.any().optional(),
+  updatedAt: z.any().optional(),
+});
+
+export type InstrumentConsensusRecord = typeof instrumentConsensusRecords.$inferSelect;
+export type InsertInstrumentConsensusRecord = z.infer<typeof insertInstrumentConsensusRecordSchema>;
+
+/**
+ * Adverse Signal Quarantine Audit Logs
+ * Immutable audit trail of every quarantine and override event.
+ */
+export const instrumentQuarantineLogs = pgTable(
+  "instrument_quarantine_logs",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    symbol: varchar("symbol", { length: 50 }).notNull(),
+    isin: varchar("isin", { length: 50 }),
+    event: varchar("event", { length: 50 }).notNull(), // "QUARANTINE_ENTERED" | "QUARANTINE_LIFTED" | "OVERRIDE_APPLIED" | "OVERRIDE_EXPIRED"
+    triggerEngine: varchar("trigger_engine", { length: 50 }).notNull(),
+    triggerRating: varchar("trigger_rating", { length: 50 }).notNull(),
+    triggerScore: numeric("trigger_score", { precision: 6, scale: 2 }),
+    reason: varchar("reason", { length: 500 }),
+    metadata: jsonb("metadata").default({}).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_iql_symbol").on(table.symbol),
+    index("idx_iql_created_at").on(table.createdAt),
+    index("idx_iql_event").on(table.event),
+  ]
+);
+
+export const insertInstrumentQuarantineLogSchema = createInsertSchema(instrumentQuarantineLogs).extend({
+  id: z.any().optional(),
+  createdAt: z.any().optional(),
+});
+
+export type InstrumentQuarantineLog = typeof instrumentQuarantineLogs.$inferSelect;
+export type InsertInstrumentQuarantineLog = z.infer<typeof insertInstrumentQuarantineLogSchema>;

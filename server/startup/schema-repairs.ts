@@ -155,10 +155,56 @@ export async function runStartupSchemaRepairs() {
 				);
 				CREATE INDEX IF NOT EXISTS idx_ipm_isin_timestamp ON instrument_performance_metrics(isin, calculation_timestamp);
 				CREATE INDEX IF NOT EXISTS idx_ipm_isin_benchmark ON instrument_performance_metrics(isin, benchmark_isin);
+
+				-- ── Unified Instrument Consensus Service (Zero Redis, PostgreSQL-backed) ──
+				CREATE TABLE IF NOT EXISTS instrument_consensus_records (
+					id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+					symbol VARCHAR(50) NOT NULL,
+					isin VARCHAR(50),
+					instrument_name VARCHAR(255),
+					consensus_status VARCHAR(50) NOT NULL DEFAULT 'approved',
+					primary_rating VARCHAR(50) NOT NULL DEFAULT 'HOLD',
+					composite_score NUMERIC(6, 2),
+					engine_ratings JSONB NOT NULL DEFAULT '{}',
+					quarantine_reason VARCHAR(500),
+					quarantined_until TIMESTAMPTZ,
+					quarantined_by_engine VARCHAR(50),
+					drift_detected BOOLEAN NOT NULL DEFAULT false,
+					drift_spread NUMERIC(6, 2),
+					manual_override BOOLEAN NOT NULL DEFAULT false,
+					override_by_user_id VARCHAR(50),
+					override_reason VARCHAR(500),
+					override_expires_at TIMESTAMPTZ,
+					engine_version VARCHAR(50) NOT NULL DEFAULT 'UICS-v1.0',
+					calculation_timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+					source VARCHAR(50) NOT NULL DEFAULT 'system',
+					created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+					updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+				);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_icr_symbol_unique ON instrument_consensus_records(symbol);
+				CREATE INDEX IF NOT EXISTS idx_icr_status ON instrument_consensus_records(consensus_status);
+				CREATE INDEX IF NOT EXISTS idx_icr_isin ON instrument_consensus_records(isin);
+				CREATE INDEX IF NOT EXISTS idx_icr_rating ON instrument_consensus_records(primary_rating);
+
+				CREATE TABLE IF NOT EXISTS instrument_quarantine_logs (
+					id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+					symbol VARCHAR(50) NOT NULL,
+					isin VARCHAR(50),
+					event VARCHAR(50) NOT NULL,
+					trigger_engine VARCHAR(50) NOT NULL,
+					trigger_rating VARCHAR(50) NOT NULL,
+					trigger_score NUMERIC(6, 2),
+					reason VARCHAR(500),
+					metadata JSONB NOT NULL DEFAULT '{}',
+					created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+				);
+				CREATE INDEX IF NOT EXISTS idx_iql_symbol ON instrument_quarantine_logs(symbol);
+				CREATE INDEX IF NOT EXISTS idx_iql_created_at ON instrument_quarantine_logs(created_at);
+				CREATE INDEX IF NOT EXISTS idx_iql_event ON instrument_quarantine_logs(event);
 			`);
-			console.log("  ✅ [GCR v1.0] Multi-Vendor Mappings, Historical Prices & Performance Analytics tables ensured");
+			console.log("  ✅ [GCR v1.0] Multi-Vendor Mappings, Historical Prices & Unified Consensus tables ensured");
 		} catch (err: any) {
-			console.warn("  ⚠️ [GCR v1.0] Failed to ensure multi-vendor/historical tables:", err?.message?.slice(0, 100));
+			console.warn("  ⚠️ [GCR v1.0] Failed to ensure multi-vendor/consensus tables:", err?.message?.slice(0, 100));
 		}
 
 		// Fix stale listed_stocks baseline record for SERVICE (Service Care Limited):

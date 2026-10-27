@@ -670,6 +670,11 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 		const picksRoutes = await import("./routes/pick-of-the-day");
 		app.use("/api/picks", picksRoutes.default);
 
+		// Unified Instrument Consensus Service (Zero Redis, PostgreSQL-backed)
+		logBootProgress("Step 7a: Registering Instrument Consensus Routes...");
+		const consensusRoutes = await import("./routes/instrument-consensus-routes");
+		app.use("/api/consensus", consensusRoutes.default);
+
 		// AI Mutual Fund Recommendation Routes
 		// NOTE: Routes inside this file use full paths (e.g. /api/ai-mf/recommendations)
 		// so we mount without a prefix using app.use(router) — same pattern as agentRoutes

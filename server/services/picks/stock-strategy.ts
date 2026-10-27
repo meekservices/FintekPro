@@ -37,6 +37,7 @@ import { computeRating } from "../../modules/research/recommendationEngine";
 import { getFinancialData } from "../../modules/research/dataService";
 import { momentumSignal } from "../../modules/research/technicalEngine";
 import { priceToTargetUpside } from "../../modules/research/valuationEngine";
+import { unifiedInstrumentConsensusService } from "../unified-instrument-consensus-service";
 
 
 const financialMetricsCalculator = new FinancialMetricsCalculator();
@@ -734,10 +735,24 @@ export class StockStrategy extends BaseStrategy {
 		enriched: EnrichedStockSnapshot | null,
 		currentPrice: number,
 		targetPrice: number,
+		candidateScore?: number,
+		candidateRawQuantScore?: number,
+		candidateQualityTier?: "Premium" | "Strong" | "Good" | "Weak",
 	): Promise<{ allowed: boolean; rating: string; score: number; reason: string }> {
 		try {
 			const sym = (stock.symbol ?? "").toUpperCase();
 			if (!sym) return { allowed: true, rating: "UNKNOWN", score: 50, reason: "No symbol" };
+
+			// Fast check: is this symbol already quarantined in UICS?
+			const buyCheck = await unifiedInstrumentConsensusService.isBuyAllowed(sym);
+			if (!buyCheck.allowed) {
+				return {
+					allowed: false,
+					rating: buyCheck.primaryRating || "SELL",
+					score: buyCheck.compositeScore || 30,
+					reason: buyCheck.reason || "Quarantined by Unified Instrument Consensus Service",
+				};
+			}
 
 			// Fetch fundamentals from Research dataService (DB-first with 15-min cache)
 			const fData = await getFinancialData(sym).catch(() => null);
@@ -764,23 +779,38 @@ export class StockStrategy extends BaseStrategy {
 				upsidePotential: targetUpside,
 			});
 
-			if (ratingResult.rating === "SELL" || ratingResult.rating === "STRONG SELL" || ratingResult.score < 45) {
-				return {
-					allowed: false,
-					rating: ratingResult.rating,
-					score: ratingResult.score,
-					reason: ratingResult.rationale,
-				};
-			}
+			// Register & evaluate via Unified Instrument Consensus Service (Zero Redis, Postgres-backed)
+			const evaluation = await unifiedInstrumentConsensusService.evaluateConsensus({
+				symbol: sym,
+				isin: stock.isin || undefined,
+				instrumentName: stock.companyName || sym,
+				signals: {
+					research: {
+						rating: ratingResult.rating,
+						score: ratingResult.score,
+						rationale: ratingResult.rationale,
+						updatedAt: new Date().toISOString(),
+					},
+					picks: candidateScore !== undefined ? {
+						score: candidateScore,
+						rawQuantScore: candidateRawQuantScore ?? Math.min(100, Math.round((candidateScore / 120) * 100)),
+						qualityTier: candidateQualityTier ?? "Good",
+						updatedAt: new Date().toISOString(),
+					} : null,
+				},
+				source: "stock_strategy",
+			});
 
 			return {
-				allowed: true,
-				rating: ratingResult.rating,
-				score: ratingResult.score,
-				reason: ratingResult.rationale,
+				allowed: evaluation.allowedForBuy,
+				rating: evaluation.primaryRating,
+				score: evaluation.compositeScore,
+				reason: evaluation.rejectionReason || ratingResult.rationale,
 			};
-		} catch (err: any) {
-			logger.warn(`[StockStrategy] verifyResearchConsensus error for ${stock.symbol}:`, { error: err?.message });
+		} catch (err: unknown) {
+			logger.warn(`[StockStrategy] verifyResearchConsensus error for ${stock.symbol}:`, {
+				error: err instanceof Error ? err.message : String(err),
+			});
 			return { allowed: true, rating: "BYPASS", score: 50, reason: "Error in check" };
 		}
 	}
@@ -1187,6 +1217,9 @@ export class StockStrategy extends BaseStrategy {
 				topEnriched,
 				currentPrice,
 				targetPrice,
+				topScore,
+				rawQuantScore,
+				rawQuantScore >= 80 ? "Premium" : rawQuantScore >= 60 ? "Strong" : rawQuantScore >= 40 ? "Good" : "Weak",
 			);
 			if (!consensusCheck.allowed) {
 				logger.warn(
