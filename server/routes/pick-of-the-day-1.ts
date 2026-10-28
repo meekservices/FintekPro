@@ -114,6 +114,8 @@ router.get("/today", async (req, res) => {
 			await enrichPicksWithDataSource(rawPicks);
 		// Fix K: apply confidence decay before sending to clients
 		let picks = applyConfidenceDecay(rawEnriched);
+		// Policy: Display Current Data Only — exclude expired picks from today's active view
+		picks = picks.filter((p) => p.status !== "expired");
 
 		// ── Market Holiday Guard Rail: Intraday calls cannot be active on market holidays/weekends ──
 		picks = picks.map((p) => {

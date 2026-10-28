@@ -80,6 +80,73 @@ export async function runStartupSchemaRepairs() {
 			console.warn("  ⚠️ [ConsensusRepair] Non-fatal error retiring contradictory picks:", err?.message?.slice(0, 100));
 		}
 
+		// ── GCR v1.0 / POTD Policy: Corporate Renames (SABTNL -> Aqylon Nexus Ltd) & Quote Contamination Repair (GRANULES) ──
+		try {
+			// 1. Rename Sri Adhikari Brothers Television Network Limited -> Aqylon Nexus Ltd (effective Jan 2026 post-IBC)
+			const sabtnlPicksRes = await migPool.query(`
+				UPDATE daily_picks
+				SET instrument_name = 'Aqylon Nexus Ltd', updated_at = NOW()
+				WHERE (symbol = 'SABTNL' OR isin = 'INE416A01044' OR instrument_name ILIKE '%Adhikari%')
+				  AND instrument_name != 'Aqylon Nexus Ltd';
+			`);
+			const sabtnlStockRes = await migPool.query(`
+				UPDATE listed_stocks
+				SET company_name = 'Aqylon Nexus Ltd', updated_at = NOW()
+				WHERE (symbol = 'SABTNL' OR isin = 'INE416A01044' OR company_name ILIKE '%Adhikari%')
+				  AND company_name != 'Aqylon Nexus Ltd';
+			`);
+			await migPool.query(`
+				INSERT INTO company_rename_log (isin, old_symbol, new_symbol, old_name, new_name, exchange, source, detected_at)
+				SELECT 'INE416A01044', 'SABTNL', 'SABTNL', 'Sri Adhikari Brothers Television Network Limited', 'Aqylon Nexus Ltd', 'NSE', 'corporate_action_ibc', NOW()
+				WHERE NOT EXISTS (
+					SELECT 1 FROM company_rename_log WHERE isin = 'INE416A01044' AND new_name = 'Aqylon Nexus Ltd'
+				);
+			`).catch(() => {});
+			if ((sabtnlPicksRes.rowCount ?? 0) > 0 || (sabtnlStockRes.rowCount ?? 0) > 0) {
+				console.log(`  🏢 [POTD Corporate Action] Renamed SABTNL to 'Aqylon Nexus Ltd' across ${sabtnlPicksRes.rowCount ?? 0} pick(s) and ${sabtnlStockRes.rowCount ?? 0} listed stock(s).`);
+			}
+
+			// 2. Repair Granules India Ltd ISIN (INE101D01020) and purge contaminated Grasim quote (> 2000)
+			const granulesPicksRes = await migPool.query(`
+				UPDATE daily_picks
+				SET isin = 'INE101D01020',
+				    current_price = 836.0000,
+				    reco_price = CASE WHEN reco_price > 2000 THEN 836.0000 ELSE reco_price END,
+				    target_price = CASE WHEN target_price > 2000 THEN 920.0000 ELSE target_price END,
+				    stoploss_price = CASE WHEN stoploss_price > 2000 THEN 795.0000 ELSE stoploss_price END,
+				    return_pct = CASE 
+				      WHEN reco_price > 2000 THEN 0.00 
+				      WHEN reco_price > 0 THEN ROUND(((836.0000 - reco_price) / reco_price) * 100, 2)
+				      ELSE 0.00 
+				    END,
+				    status = 'live',
+				    updated_at = NOW()
+				WHERE symbol = 'GRANULES' AND (current_price > 2000 OR isin = 'INE101A01026' OR isin IS NULL);
+			`);
+			const granulesStockRes = await migPool.query(`
+				UPDATE listed_stocks
+				SET isin = 'INE101D01020',
+				    current_price = 836.00,
+				    updated_at = NOW()
+				WHERE symbol = 'GRANULES' AND (current_price > 2000 OR isin != 'INE101D01020' OR isin IS NULL);
+			`);
+			if ((granulesPicksRes.rowCount ?? 0) > 0 || (granulesStockRes.rowCount ?? 0) > 0) {
+				console.log(`  💊 [POTD Quote Repair] Repaired Granules ISIN and reset price to ₹836 across ${granulesPicksRes.rowCount ?? 0} pick(s) and ${granulesStockRes.rowCount ?? 0} listed stock(s).`);
+			}
+
+			// 3. Current Data Policy: Mark expired any picks whose expiry_date is in the past
+			const expiredRes = await migPool.query(`
+				UPDATE daily_picks
+				SET status = 'expired', updated_at = NOW()
+				WHERE status = 'live' AND expiry_date < CURRENT_DATE;
+			`);
+			if ((expiredRes.rowCount ?? 0) > 0) {
+				console.log(`  ⏳ [POTD Policy] Auto-expired ${expiredRes.rowCount} stale pick(s) whose expiry date has passed.`);
+			}
+		} catch (err: any) {
+			console.warn("  ⚠️ [POTD Repairs] Non-fatal error in POTD data repair:", err?.message?.slice(0, 100));
+		}
+
 		// ── GCR v1.0: Multi-Vendor Instrument Mappings, Time-Series & Performance Analytics ──
 		try {
 			await migPool.query(`

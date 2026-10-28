@@ -80,6 +80,26 @@ export interface IsinChangeEvent {
 	source: string;
 }
 
+export interface KnownCompanyRename {
+	isin: string;
+	symbol: string;
+	oldName: string;
+	newName: string;
+	effectiveDate: string;
+	reason: string;
+}
+
+export const KNOWN_COMPANY_RENAMES: KnownCompanyRename[] = [
+	{
+		isin: "INE416A01044",
+		symbol: "SABTNL",
+		oldName: "Sri Adhikari Brothers Television Network Limited",
+		newName: "Aqylon Nexus Ltd",
+		effectiveDate: "2026-01-01",
+		reason: "NCLT approved IBC Resolution Plan, management control acquired Nov 2025, renamed to Aqylon Nexus Ltd Jan 2026",
+	},
+];
+
 // ── NSE upcoming IPO API (public, no auth) ────────────────────────────────────
 // Returns companies that have filed for IPO or have an upcoming listing.
 // Format: { ipoOpenDate, ipoCloseDate, companyName, isin, symbol, exchange }
@@ -483,103 +503,207 @@ export class InstrumentLifecycleManager {
 		const changes: NameChangeEvent[] = [];
 
 		try {
-			// Fetch NSE equity master list (contains official name + ISIN + symbol)
-			const nseEquityMaster = await this.fetchNseEquityMaster();
-			if (!nseEquityMaster.length) return [];
+			// 1. Process known high-priority corporate renames (IBC resolutions, M&A)
+			for (const rename of KNOWN_COMPANY_RENAMES) {
+				try {
+					// Update daily_picks.instrument_name
+					await db.execute(sql`
+						UPDATE daily_picks
+						SET instrument_name = ${rename.newName}, updated_at = NOW()
+						WHERE (isin = ${rename.isin} OR symbol = ${rename.symbol} OR instrument_name ILIKE '%Adhikari%')
+						  AND instrument_name != ${rename.newName}
+					`);
 
-			// Build ISIN → NSE name lookup
-			const nseNameByIsin = new Map<string, string>();
-			for (const row of nseEquityMaster) {
-				if (row.isin && row.companyName) {
-					nseNameByIsin.set(row.isin.trim(), row.companyName.trim());
+					// Update listed_stocks.company_name
+					await db.execute(sql`
+						UPDATE listed_stocks
+						SET company_name = ${rename.newName}, updated_at = NOW()
+						WHERE (isin = ${rename.isin} OR symbol = ${rename.symbol} OR company_name ILIKE '%Adhikari%')
+						  AND company_name != ${rename.newName}
+					`);
+
+					// Update unlisted_companies.name
+					await db.execute(sql`
+						UPDATE unlisted_companies
+						SET name = ${rename.newName}, updated_at = NOW()
+						WHERE (isin = ${rename.isin} OR name ILIKE '%Adhikari%')
+						  AND name != ${rename.newName}
+					`);
+
+					// Audit log in company_rename_log
+					await db.execute(sql`
+						INSERT INTO company_rename_log (isin, old_symbol, new_symbol, old_name, new_name, exchange, effective_date, source, detected_at)
+						SELECT ${rename.isin}, ${rename.symbol}, ${rename.symbol}, ${rename.oldName}, ${rename.newName}, 'NSE', ${rename.effectiveDate}::date, 'corporate_action_ibc', NOW()
+						WHERE NOT EXISTS (
+							SELECT 1 FROM company_rename_log WHERE isin = ${rename.isin} AND new_name = ${rename.newName}
+						)
+					`);
+
+					changes.push({
+						instrumentId: rename.isin,
+						oldName: rename.oldName,
+						newName: rename.newName,
+						isin: rename.isin,
+						source: "corporate_action_ibc",
+					});
+
+					lifecycleLog("LIFECYCLE_KNOWN_RENAME_APPLIED", {
+						symbol: rename.symbol,
+						oldName: rename.oldName,
+						newName: rename.newName,
+					});
+				} catch (err: any) {
+					lifecycleLog("LIFECYCLE_KNOWN_RENAME_ERROR", {
+						symbol: rename.symbol,
+						error: err?.message,
+					});
 				}
 			}
 
-			// Check unlisted companies with known ISINs
-			const companies = await db
-				.select()
-				.from(unlistedCompanies)
-				.where(
-					and(
-						ne(unlistedCompanies.listingStage ?? "", "listed"),
-						// Only check companies with ISINs
-					),
-				)
-				.limit(500);
+			// Helper: name normalizer
+			const normalize = (s: string) =>
+				s
+					.toLowerCase()
+					.replace(/\b(limited|ltd|private|pvt|india|inc|corp)\b/g, "")
+					.replace(/[^a-z0-9]/g, "")
+					.trim();
 
-			for (const company of companies) {
-				if (!company.isin) continue;
-				const nseName = nseNameByIsin.get(company.isin);
-				if (!nseName) continue;
+			// 2. Fetch NSE equity master list (contains official name + ISIN + symbol)
+			const nseEquityMaster = await this.fetchNseEquityMaster();
+			if (nseEquityMaster.length > 0) {
+				// Build ISIN → NSE name lookup
+				const nseNameByIsin = new Map<string, string>();
+				for (const row of nseEquityMaster) {
+					if (row.isin && row.companyName) {
+						nseNameByIsin.set(row.isin.trim(), row.companyName.trim());
+					}
+				}
 
-				// Compare names (normalized)
-				const normalize = (s: string) =>
-					s
-						.toLowerCase()
-						.replace(/\b(limited|ltd|private|pvt|india|inc|corp)\b/g, "")
-						.replace(/[^a-z0-9]/g, "")
-						.trim();
+				// Check listed_stocks with known ISINs
+				const listedCheck = await db.execute(sql`
+					SELECT id, symbol, isin, company_name FROM listed_stocks WHERE isin IS NOT NULL AND isin != '' LIMIT 500
+				`);
+				const listedRows = (listedCheck as any).rows ?? [];
+				for (const stock of listedRows) {
+					const nseName = nseNameByIsin.get(stock.isin);
+					if (!nseName) continue;
+					if (normalize(nseName) === normalize(stock.company_name)) continue;
 
-				if (normalize(nseName) === normalize(company.name)) continue;
+					try {
+						await db.execute(sql`
+							INSERT INTO company_rename_log (isin, old_symbol, new_symbol, old_name, new_name, exchange, source, detected_at)
+							SELECT ${stock.isin}, ${stock.symbol}, ${stock.symbol}, ${stock.company_name}, ${nseName}, 'NSE', 'nse_master', NOW()
+							WHERE NOT EXISTS (
+								SELECT 1 FROM company_rename_log WHERE isin = ${stock.isin} AND new_name = ${nseName}
+							)
+						`);
 
-				// Name mismatch — record it
-				try {
-					await db.execute(sql`
-            INSERT INTO company_rename_log (isin, old_name, new_name, exchange, source, detected_at)
-            VALUES (${company.isin}, ${company.name}, ${nseName}, 'NSE', 'nse_master', NOW())
-            ON CONFLICT DO NOTHING
-          `);
+						await db.execute(sql`
+							UPDATE listed_stocks
+							SET company_name = ${nseName}, updated_at = NOW()
+							WHERE isin = ${stock.isin} AND company_name != ${nseName}
+						`);
 
-					// Update daily_picks.instrument_name so UI shows current name
-					await db.execute(sql`
-            UPDATE daily_picks
-            SET    instrument_name = ${nseName}, updated_at = NOW()
-            WHERE  isin = ${company.isin}
-              AND  instrument_name != ${nseName}
-          `);
+						await db.execute(sql`
+							UPDATE daily_picks
+							SET instrument_name = ${nseName}, updated_at = NOW()
+							WHERE isin = ${stock.isin} AND instrument_name != ${nseName}
+						`);
 
-					// Update unlisted_companies.name
-					await db
-						.update(unlistedCompanies)
-						.set({ name: nseName, updatedAt: new Date() })
-						.where(eq(unlistedCompanies.id, company.id));
+						changes.push({
+							instrumentId: stock.id,
+							oldName: stock.company_name,
+							newName: nseName,
+							isin: stock.isin,
+							source: "nse_master",
+						});
+					} catch (err: any) {
+						lifecycleLog("LIFECYCLE_LISTED_NAME_CHANGE_ERROR", {
+							symbol: stock.symbol,
+							error: err?.message,
+						});
+					}
+				}
 
-					// Lifecycle event
-					await auditLifecycleEvent({
-						instrumentId: company.id,
-						instrumentName: nseName,
-						isin: company.isin,
-						sourceTable: "unlisted_companies",
-						fromStage: (company.listingStage ?? "unlisted") as LifecycleStage,
-						toStage: (company.listingStage ?? "unlisted") as LifecycleStage,
-						transitionType: "name_change",
-						detectedBy: "nse_master",
-						oldValue: company.name,
-						newValue: nseName,
-						notes: "Auto-detected from NSE equity master",
-					});
+				// Check unlisted companies with known ISINs
+				const companies = await db
+					.select()
+					.from(unlistedCompanies)
+					.where(
+						and(
+							ne(unlistedCompanies.listingStage ?? "", "listed"),
+						),
+					)
+					.limit(500);
 
-					changes.push({
-						instrumentId: company.id,
-						oldName: company.name,
-						newName: nseName,
-						isin: company.isin,
-						source: "nse_master",
-					});
+				for (const company of companies) {
+					if (!company.isin) continue;
+					const nseName = nseNameByIsin.get(company.isin);
+					if (!nseName) continue;
 
-					lifecycleLog("LIFECYCLE_NAME_CHANGE_DETECTED", {
-						status: "success",
-						instrumentId: company.id,
-						oldName: company.name,
-						newName: nseName,
-						isin: company.isin,
-					});
-				} catch (err: any) {
-					lifecycleLog("LIFECYCLE_NAME_CHANGE_ERROR", {
-						status: "error",
-						instrumentId: company.id,
-						error: err?.message,
-					});
+					if (normalize(nseName) === normalize(company.name)) continue;
+
+					// Name mismatch — record it
+					try {
+						await db.execute(sql`
+							INSERT INTO company_rename_log (isin, old_name, new_name, exchange, source, detected_at)
+							SELECT ${company.isin}, ${company.name}, ${nseName}, 'NSE', 'nse_master', NOW()
+							WHERE NOT EXISTS (
+								SELECT 1 FROM company_rename_log WHERE isin = ${company.isin} AND new_name = ${nseName}
+							)
+						`);
+
+						// Update daily_picks.instrument_name so UI shows current name
+						await db.execute(sql`
+							UPDATE daily_picks
+							SET    instrument_name = ${nseName}, updated_at = NOW()
+							WHERE  isin = ${company.isin}
+							  AND  instrument_name != ${nseName}
+						`);
+
+						// Update unlisted_companies.name
+						await db
+							.update(unlistedCompanies)
+							.set({ name: nseName, updatedAt: new Date() })
+							.where(eq(unlistedCompanies.id, company.id));
+
+						// Lifecycle event
+						await auditLifecycleEvent({
+							instrumentId: company.id,
+							instrumentName: nseName,
+							isin: company.isin,
+							sourceTable: "unlisted_companies",
+							fromStage: (company.listingStage ?? "unlisted") as LifecycleStage,
+							toStage: (company.listingStage ?? "unlisted") as LifecycleStage,
+							transitionType: "name_change",
+							detectedBy: "nse_master",
+							oldValue: company.name,
+							newValue: nseName,
+							notes: "Auto-detected from NSE equity master",
+						});
+
+						changes.push({
+							instrumentId: company.id,
+							oldName: company.name,
+							newName: nseName,
+							isin: company.isin,
+							source: "nse_master",
+						});
+
+						lifecycleLog("LIFECYCLE_NAME_CHANGE_DETECTED", {
+							status: "success",
+							instrumentId: company.id,
+							oldName: company.name,
+							newName: nseName,
+							isin: company.isin,
+						});
+					} catch (err: any) {
+						lifecycleLog("LIFECYCLE_NAME_CHANGE_ERROR", {
+							status: "error",
+							instrumentId: company.id,
+							error: err?.message,
+						});
+					}
 				}
 			}
 		} catch (err: any) {

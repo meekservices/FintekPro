@@ -334,6 +334,14 @@ async function main() {
     console.warn("Phase P (BigQuery warehouse) non-fatal error:", bqErr?.message);
   }
 
+  console.log("Phase Q — purging stale POTD cache...");
+  try {
+    const { pickOfTheDayService } = await import("../services/pick-of-the-day-service");
+    await pickOfTheDayService.invalidatePicksCache();
+  } catch (cacheErr: any) {
+    console.warn("Phase Q (POTD cache purge) non-fatal error:", cacheErr?.message);
+  }
+
   console.log("FintekPro schema repair job complete.");
   try {
     const { pool } = await import("../db");

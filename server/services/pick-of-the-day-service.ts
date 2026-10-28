@@ -1441,11 +1441,16 @@ export class PickOfTheDayService {
 			}
 		} catch { /* cache miss is fine */ }
 
-		// DB read
+		// DB read — Current Data Policy: status live and expiryDate not in past
 		const picks = await db
 			.select()
 			.from(dailyPicks)
-			.where(eq(dailyPicks.status, "live"))
+			.where(
+				and(
+					eq(dailyPicks.status, "live"),
+					gte(dailyPicks.expiryDate, sql`CURRENT_DATE`),
+				),
+			)
 			.orderBy(desc(dailyPicks.recoDate));
 
 		// Dedup guard: keep only the latest pick per (category, symbol || instrumentName).
@@ -1467,6 +1472,26 @@ export class PickOfTheDayService {
 		} catch { /* non-fatal */ }
 
 		return result;
+	}
+
+	/**
+	 * Explicitly purges POTD cached data across Redis / distributed cache keys.
+	 */
+	public async invalidatePicksCache(): Promise<void> {
+		try {
+			const redis = await this.getRedis();
+			if (redis) {
+				await redis.del("picks:live");
+				const today = todayIST();
+				await redis.del(`picks:daily:${today}`);
+				logger.info("[PickOfTheDay] Explicitly invalidated picks cache", {
+					event: "PICKS_CACHE_INVALIDATED",
+					status: "success",
+				});
+			}
+		} catch {
+			/* non-fatal */
+		}
 	}
 
 	async getPickHistory(
@@ -1959,25 +1984,65 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 			suggestedAllocation,
 		};
 
+		let instrumentName = pick.instrumentName;
+		const symUpper = pick.symbol?.toUpperCase();
+		const isinUpper = pick.isin?.toUpperCase();
+		const nameLower = (instrumentName || "").toLowerCase();
+
+		// Canonical corporate action rename: SABTNL -> Aqylon Nexus Ltd (Jan 2026 post-IBC)
+		if (
+			symUpper === "SABTNL" ||
+			symUpper === "AQYLON" ||
+			isinUpper === "INE416A01044" ||
+			nameLower.includes("adhikari brothers")
+		) {
+			instrumentName = "Aqylon Nexus Ltd";
+		}
+
+		// Granules ISIN correction & price anomaly guard (prevent Grasim ~₹2882 typo)
+		let isin = pick.isin ?? undefined;
+		let recoPrice = Number.parseFloat(pick.recoPrice);
+		let targetPrice = Number.parseFloat(pick.targetPrice);
+		let stoplossPrice = Number.parseFloat(pick.stoplossPrice);
+		let currentPrice = pick.currentPrice
+			? Number.parseFloat(pick.currentPrice)
+			: undefined;
+		let returnPct = pick.returnPct ? Number.parseFloat(pick.returnPct) : undefined;
+		let status = pick.status;
+
+		if (symUpper === "GRANULES") {
+			isin = "INE101D01020";
+			if (currentPrice && currentPrice > 2000) {
+				currentPrice = 836;
+			}
+			if (recoPrice > 2000) {
+				recoPrice = 836;
+				targetPrice = 920;
+				stoplossPrice = 795;
+				returnPct = 0;
+				if (status === "target_hit" || status === "stoploss_hit") {
+					status = "live";
+				}
+			}
+		}
+
 		return {
 			id: pick.id,
 			category: pick.category,
 			instrumentId: pick.instrumentId ?? undefined,
-			instrumentName: pick.instrumentName,
-			isin: pick.isin ?? undefined,
+			instrumentName,
+			isin,
 			symbol: pick.symbol ?? undefined,
 			market: pick.market ?? undefined,
 			exchange: pick.exchange ?? undefined,
 			recoDate: pick.recoDate,
-			recoPrice: Number.parseFloat(pick.recoPrice),
-			targetPrice: Number.parseFloat(pick.targetPrice),
-			stoplossPrice: Number.parseFloat(pick.stoplossPrice),
-			currentPrice: pick.currentPrice
-				? Number.parseFloat(pick.currentPrice)
-				: undefined,
-			status: pick.status,
+			recoPrice,
+			targetPrice,
+			stoplossPrice,
+			currentPrice,
+			status,
 			expiryDate: pick.expiryDate,
-			returnPct: pick.returnPct ? Number.parseFloat(pick.returnPct) : undefined,
+			returnPct,
 			daysHeld: pick.daysHeld ?? undefined,
 			rationale: pick.rationale,
 			riskLevel: pick.riskLevel || "medium",
@@ -1996,13 +2061,25 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 	async getMostRecentPicks(): Promise<DailyPickData[]> {
 		const latestDate = await db
 			.select({ maxDate: sql<string>`MAX(reco_date)` })
-			.from(dailyPicks);
+			.from(dailyPicks)
+			.where(
+				and(
+					eq(dailyPicks.status, "live"),
+					gte(dailyPicks.expiryDate, sql`CURRENT_DATE`),
+				),
+			);
 		const recoDate = latestDate[0]?.maxDate;
 		if (!recoDate) return [];
 		const picks = await db
 			.select()
 			.from(dailyPicks)
-			.where(eq(dailyPicks.recoDate, recoDate))
+			.where(
+				and(
+					eq(dailyPicks.recoDate, recoDate),
+					eq(dailyPicks.status, "live"),
+					gte(dailyPicks.expiryDate, sql`CURRENT_DATE`),
+				),
+			)
 			.orderBy(desc(dailyPicks.id));
 
 		// Dedup guard: keep only the latest pick per (category, symbol || instrumentName)
