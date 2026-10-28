@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { db } from "../db";
 import {
 	users,
@@ -576,10 +577,18 @@ IMPORTANT:
 - For unlisted shares, prioritize flagging tax risks (Section 56(2)(x)) if valuation deviation is high.
 - Prioritize revenue-critical and security-critical items.`;
 
-			const aiResponse = await aiService.chat(
-				[{ role: "user", content: prompt }],
-				{ model: "gemini-2.5-flash", maxTokens: 2500 },
-			);
+			let aiResponse: any = null;
+			try {
+				aiResponse = await aiService.chat(
+					[{ role: "user", content: prompt }],
+					{ model: "gemini-2.5-flash", maxTokens: 2500 },
+				);
+			} catch (aiErr: any) {
+				console.warn(
+					`[ActivityInsights] AI chat provider failed (${aiErr?.message || "quota/timeout"}), gracefully falling back to rule-based insights`,
+				);
+				return this.getDefaultInsights(metrics);
+			}
 
 			if (!aiResponse?.content) {
 				console.error("[ActivityInsights] No AI response received");

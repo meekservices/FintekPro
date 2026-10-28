@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Express } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
@@ -421,7 +422,7 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
 		try {
 			const agentId = (req.user as any)?.id;
 			const rows = await db.execute(sql`
-        SELECT id, agent_id, type, title, message, read, created_at
+        SELECT id, agent_id, type, title, COALESCE(message, body) AS message, COALESCE(read, read_at IS NOT NULL, false) AS read, created_at
         FROM agent_notifications
         WHERE agent_id = ${agentId}
         ORDER BY created_at DESC

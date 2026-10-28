@@ -47,6 +47,7 @@ const MFA_EXEMPT_PATHS = new Set([
 	"/api/mfa/status",
 	"/api/csrf-token",
 	"/api/health",
+	"/api/ready",
 	"/health",
 	"/live",
 ]);

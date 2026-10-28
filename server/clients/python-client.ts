@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Python Analytics Service Proxy Client
  *
@@ -22,8 +23,8 @@ import jwt from "jsonwebtoken";
 import { errorTrackingService } from "../services/error-tracking-service";
 
 // ── Circuit breaker state ──────────────────────────────────────────────────
-const CIRCUIT_OPEN_THRESHOLD = 3; // consecutive failures before opening
-const CIRCUIT_OPEN_DURATION_MS = 30 * 60 * 1000; // 30 minutes open before retry (prevents hourly scheduler hammering a dead service)
+const CIRCUIT_OPEN_THRESHOLD = 5; // consecutive failures before opening
+const CIRCUIT_OPEN_DURATION_MS = 2 * 60 * 1000; // 2 minutes open before retry (fast recovery from transient glitches)
 
 let circuitFailures = 0;
 let circuitOpenUntil = 0; // epoch ms — 0 means closed
@@ -459,7 +460,7 @@ export async function callPython<T = any>(
 		const res = await fetchWithToken(user, url, {
 			method,
 			body: body !== undefined ? JSON.stringify(body) : undefined,
-			signal: AbortSignal.timeout(15_000),
+			signal: AbortSignal.timeout(30_000),
 		});
 
 		if (!res.ok) {

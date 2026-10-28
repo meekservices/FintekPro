@@ -330,9 +330,14 @@ export async function getLiveInstrumentPrice(
 				return null;
 			}
 			case "sgb": {
-				const goldResult = await db.execute(sql`
-          SELECT COALESCE(current_price, price) AS current_price, last_updated FROM commodity_prices WHERE symbol = 'GOLD' ORDER BY last_updated DESC LIMIT 1
-        `);
+				let goldResult: any = null;
+				try {
+					goldResult = await db.execute(sql`
+            SELECT price AS current_price, last_updated FROM commodity_prices WHERE symbol = 'GOLD' ORDER BY last_updated DESC LIMIT 1
+          `);
+				} catch {
+					goldResult = { rows: [] };
+				}
 				const goldRow = (goldResult as any).rows?.[0] || (goldResult as any)[0];
 				if (goldRow?.current_price) {
 					const priceVal = Number.parseFloat(goldRow.current_price);

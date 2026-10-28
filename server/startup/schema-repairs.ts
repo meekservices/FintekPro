@@ -63,6 +63,21 @@ export async function runStartupSchemaRepairs() {
 			} catch { /* table or col exists */ }
 		}
 
+		// ── Fast-path for production missing columns (commodity_prices, pre_ipo_companies, agent_notifications) ───
+		const _urgentSchemaPatches = [
+			`ALTER TABLE commodity_prices ADD COLUMN IF NOT EXISTS current_price DECIMAL(15, 4)`,
+			`ALTER TABLE pre_ipo_companies ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`,
+			`ALTER TABLE agent_notifications ADD COLUMN IF NOT EXISTS message TEXT`,
+			`ALTER TABLE agent_notifications ADD COLUMN IF NOT EXISTS read BOOLEAN DEFAULT false`,
+			`ALTER TABLE agent_notifications ADD COLUMN IF NOT EXISTS body TEXT`,
+			`ALTER TABLE agent_notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ`,
+		];
+		for (const patchSql of _urgentSchemaPatches) {
+			try {
+				await migPool.query(patchSql);
+			} catch { /* non-fatal */ }
+		}
+
 		// ── GCR v1.0: Cross-Engine Consensus Repair: Retire Contradictory Picks (AMBUJACEM) ──
 		try {
 			const res = await migPool.query(`

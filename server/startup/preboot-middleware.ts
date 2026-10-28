@@ -178,6 +178,19 @@ export function registerPrebootMiddleware(app: Express) {
 		});
 	});
 
+	// ── Deep readiness probe ───────────────────────────────────────────────────
+	app.get("/api/ready", async (req, res) => {
+		try {
+			const { readinessCheck } = await import("../health-check");
+			return readinessCheck(req, res);
+		} catch (err: any) {
+			return res.status(503).json({
+				status: "unhealthy",
+				error: err?.message || "Readiness probe failed",
+			});
+		}
+	});
+
 	// ── Cache-Control: no-store on ALL /api/ responses ────────────────────────
 	// Prevents Firebase CDN (and any other proxy) from caching API responses.
 	// Without this, a transient 404 during cold-start (before routes are
@@ -202,6 +215,7 @@ export function registerPrebootMiddleware(app: Express) {
 		// and must NOT require DB access. /api/version is static (APP_VERSION env var).
 		const safePaths = [
 			"/api/health",
+			"/api/ready",
 			"/api/boot-status",
 			"/api/version",      // static, no DB — prevents 503 on frontend version check
 		];

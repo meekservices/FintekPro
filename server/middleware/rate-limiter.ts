@@ -56,7 +56,7 @@ const base: Partial<Options> = {
 	// Cloud Run: trust first proxy (Google Frontend)
 	skip: (req) => {
 		// Never limit health checks — Cloud Run startup probes must always pass
-		return req.path === "/api/health" || req.path === "/api/boot-status";
+		return req.path === "/api/health" || req.path === "/api/ready" || req.path === "/api/boot-status";
 	},
 };
 
