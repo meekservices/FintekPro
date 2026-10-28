@@ -125,6 +125,8 @@ gcloud run deploy $SERVICE_NAME \
     --max-instances 10 \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
     --clear-vpc-connector \
+    --startup-probe=initialDelaySeconds=10,periodSeconds=5,failureThreshold=30,httpGet.port=8080,httpGet.path=/api/health \
+    --liveness-probe=initialDelaySeconds=30,periodSeconds=15,timeoutSeconds=5,failureThreshold=3,httpGet.port=8080,httpGet.path=/api/health \
     --set-env-vars="NODE_ENV=production,NODE_OPTIONS=--max-old-space-size=3072,DEBUG_SUBDOMAIN=true,CUSTOM_DOMAIN=fintekpro.com,RUN_STARTUP_MIGRATIONS=true,PRIVATE_OBJECT_DIR=gs://fintekpro-documents/private,ALLOW_TESTER_BYPASS=true,INDIAN_API_BASE_URL=https://analyst.indianapi.in" \
     --set-secrets="\
 PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,\
@@ -184,9 +186,8 @@ INDIAN_API_KEY=INDIAN_API_KEY:latest,\
 DEFAULT_OBJECT_STORAGE_BUCKET_ID=DEFAULT_OBJECT_STORAGE_BUCKET_ID:latest,\
 IRIS_USERNAME=IRIS_USERNAME:latest,\
 IRIS_PASSWORD=IRIS_PASSWORD:latest,\
-ZOHO_CLIENT_ID=ZOHO_CLIENT_ID:latest,\
-ZOHO_CLIENT_SECRET=ZOHO_CLIENT_SECRET:latest,\
-ZOHO_REFRESH_TOKEN=ZOHO_REFRESH_TOKEN:latest,\
+IRIS_TENANT_CODE=IRIS_TENANT_CODE:latest,\
+ERROR_ALERT_WEBHOOK=ERROR_ALERT_WEBHOOK:latest,\
 ZOHO_REDIRECT_URI=ZOHO_REDIRECT_URI:latest,\
 ZOHO_DATACENTER=ZOHO_DATACENTER:latest,\
 EXPLORIUM_API_KEY=EXPLORIUM_API_KEY:latest,\

@@ -3,6 +3,10 @@
 # Mirrors the main app deploy pattern with Cloud SQL + Secret Manager.
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT"
+
 # Configuration — must match the main app's GCP project
 PROJECT_ID="fintekpro"
 REGION="asia-south1"
@@ -32,10 +36,14 @@ gcloud run deploy "$SERVICE_NAME" \
     --min-instances 0 \
     --max-instances 2 \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
-    --remove-env-vars=PRODUCTION_DATABASE_URL,PYTHON_SERVICE_SECRET \
+    --startup-probe=periodSeconds=240,timeoutSeconds=240,failureThreshold=1,tcpSocket.port=8001 \
     --set-secrets="\
 PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,\
-PYTHON_SERVICE_SECRET=PYTHON_SERVICE_SECRET:latest\
+DATABASE_URL=DATABASE_URL:latest,\
+PYTHON_SERVICE_SECRET=PYTHON_SERVICE_SECRET:latest,\
+GEMINI_API_KEY=GEMINI_API_KEY:latest,\
+OPENAI_API_KEY=OPENAI_API_KEY:latest,\
+FINNHUB_API_KEY=FINNHUB_API_KEY:latest\
 "
 
 echo "✅ Python service deployment complete!"

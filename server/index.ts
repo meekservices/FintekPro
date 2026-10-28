@@ -331,6 +331,15 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 						logger.warn("[Boot] Knowledge Hub seed failed (non-fatal)", { error: e.message })
 					);
 
+					// ── BigQuery Time-Series Warehouse Initialization ──────────────
+					logBootProgress("Step 2f-3 (bg): Ensuring BigQuery analytics warehouse tables...");
+					const { bigQueryTimeSeriesService } = await import(
+						"./services/bigquery-timeseries-service"
+					);
+					bigQueryTimeSeriesService.ensureDatasetAndTables().catch((e: Error) =>
+						logger.warn("[Boot] BigQuery warehouse init failed (non-fatal)", { error: e.message })
+					);
+
 					logBootProgress("Step 2 (bg): All schema migrations complete.");
 				} catch (migErr: any) {
 					logger.warn("[Boot] Background migration error (non-fatal):", { error: migErr?.message });

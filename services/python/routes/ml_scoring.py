@@ -69,7 +69,7 @@ async def train_model_internal(
                 FROM daily_picks
                 WHERE status IN ('target_hit', 'stoploss_hit', 'expired')
                   AND return_pct IS NOT NULL
-                  AND ($1 = 'all' OR category = $1)
+                  AND ($1 = 'all' OR category::text = $1)
                 ORDER BY reco_date DESC
                 LIMIT $2
                 """,
@@ -374,7 +374,7 @@ async def cross_validate(
                 FROM daily_picks
                 WHERE status IN ('target_hit', 'stoploss_hit', 'expired')
                   AND return_pct IS NOT NULL
-                  AND ($1 = 'all' OR category = $1)
+                  AND ($1 = 'all' OR category::text = $1)
                 ORDER BY reco_date DESC
                 LIMIT 5000
                 """,

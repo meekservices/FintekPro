@@ -18,6 +18,7 @@ from routes.price_returns import router as price_returns_router
 from routes.corporate_actions import router as corporate_actions_router
 from routes.data_lake import router as data_lake_router
 from routes.market_data import router as market_data_router
+from routes.derivatives import router as derivatives_router
 
 load_dotenv()
 
@@ -93,6 +94,7 @@ app.include_router(price_returns_router)
 app.include_router(corporate_actions_router)
 app.include_router(data_lake_router)
 app.include_router(market_data_router)
+app.include_router(derivatives_router)
 
 
 @app.get("/health")

@@ -326,6 +326,14 @@ async function main() {
   const { repairNSEConsolidatedFinancials } = await import("./schema-repairs");
   await repairNSEConsolidatedFinancials();
 
+  console.log("Phase P — ensuring BigQuery analytics warehouse tables...");
+  try {
+    const { bigQueryTimeSeriesService } = await import("../services/bigquery-timeseries-service");
+    await bigQueryTimeSeriesService.ensureDatasetAndTables();
+  } catch (bqErr: any) {
+    console.warn("Phase P (BigQuery warehouse) non-fatal error:", bqErr?.message);
+  }
+
   console.log("FintekPro schema repair job complete.");
   try {
     const { pool } = await import("../db");
