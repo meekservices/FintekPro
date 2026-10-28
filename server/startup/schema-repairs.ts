@@ -71,6 +71,40 @@ export async function runStartupSchemaRepairs() {
 			`ALTER TABLE agent_notifications ADD COLUMN IF NOT EXISTS read BOOLEAN DEFAULT false`,
 			`ALTER TABLE agent_notifications ADD COLUMN IF NOT EXISTS body TEXT`,
 			`ALTER TABLE agent_notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ`,
+			`ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS forward_pe NUMERIC(10, 2)`,
+			`ALTER TABLE mf_monthwise_performance ADD COLUMN IF NOT EXISTS start_date DATE`,
+			`ALTER TABLE mf_monthwise_performance ADD COLUMN IF NOT EXISTS end_date DATE`,
+			`CREATE TABLE IF NOT EXISTS model_portfolio_holdings (
+				id              SERIAL PRIMARY KEY,
+				portfolio_id    VARCHAR(255) NOT NULL,
+				isin            VARCHAR(12),
+				symbol          VARCHAR(255),
+				instrument_name VARCHAR(255) NOT NULL,
+				instrument_type VARCHAR(100) NOT NULL,
+				asset_class     VARCHAR(100) NOT NULL,
+				sub_category    VARCHAR(100),
+				weight          NUMERIC(5, 2) NOT NULL,
+				scheme_code     VARCHAR(50),
+				current_nav     NUMERIC(12, 4),
+				nav_date        DATE,
+				cagr_1y         NUMERIC(6, 2),
+				cagr_3y         NUMERIC(6, 2),
+				cagr_5y         NUMERIC(6, 2),
+				expense_ratio   NUMERIC(4, 2),
+				sharpe_ratio    NUMERIC(6, 3),
+				alpha           NUMERIC(6, 3),
+				alpha_score     NUMERIC(6, 2),
+				current_weight  NUMERIC(5, 2),
+				drift           NUMERIC(5, 2),
+				inception_nav   NUMERIC(12, 4),
+				inception_date  DATE,
+				removed_at      TIMESTAMPTZ,
+				created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_mph_portfolio_id ON model_portfolio_holdings (portfolio_id)`,
+			`CREATE INDEX IF NOT EXISTS idx_mph_isin ON model_portfolio_holdings (isin)`,
+			`CREATE INDEX IF NOT EXISTS idx_mph_scheme_code ON model_portfolio_holdings (scheme_code)`,
 		];
 		for (const patchSql of _urgentSchemaPatches) {
 			try {
@@ -3734,39 +3768,45 @@ export async function ensureSharedRouteTables(): Promise<void> {
 
   // ── Fix IM-7: screener_stocks compat VIEW (Phase 3) ─────────────────────────
   // Create a VIEW that maps listed_stocks columns back to the old screener_stocks
-  // column names. This allows any SQL that still references screener_stocks to
-  // transparently read from listed_stocks during the migration window.
-  // DROP + CREATE is safe here since it's a view, not a table — no data loss.
+  // column names ONLY if screener_stocks is not already a physical table.
   try {
-    await migDb.execute(migSql`
-      CREATE OR REPLACE VIEW screener_stocks AS
-      SELECT
-        id,
-        symbol,
-        company_name         AS company_name,
-        'NSE'                AS exchange,
-        isin,
-        sector,
-        industry,
-        market_cap           AS market_cap_category,
-        'IN'                 AS country,
-        'INR'                AS currency,
-        is_active,
-        current_price,
-        market_cap_value,
-        fmp_symbol,
-        last_fmp_sync,
-        'fmp'                AS data_source,
-        NULL::timestamptz    AS last_financials_sync,
-        NULL::timestamptz    AS last_technicals_sync,
-        NULL::timestamptz    AS last_shareholding_sync,
-        NULL::timestamptz    AS last_key_metrics_sync,
-        created_at,
-        last_updated         AS updated_at
-      FROM listed_stocks
-      WHERE is_active = true
+    const isBaseTableRes = await migDb.execute(migSql`
+      SELECT 1 FROM information_schema.tables WHERE table_name = 'screener_stocks' AND table_type = 'BASE TABLE'
     `);
-    console.log("  ✅ Fix IM-7: screener_stocks compat VIEW created → listed_stocks");
+    const isBaseTable = ((isBaseTableRes as any).rows?.length ?? 0) > 0;
+    if (!isBaseTable) {
+      await migDb.execute(migSql`
+        CREATE OR REPLACE VIEW screener_stocks AS
+        SELECT
+          id,
+          symbol,
+          company_name         AS company_name,
+          'NSE'                AS exchange,
+          isin,
+          sector,
+          industry,
+          market_cap           AS market_cap_category,
+          'IN'                 AS country,
+          'INR'                AS currency,
+          is_active,
+          current_price,
+          market_cap_value,
+          fmp_symbol,
+          last_fmp_sync,
+          'fmp'                AS data_source,
+          NULL::timestamptz    AS last_financials_sync,
+          NULL::timestamptz    AS last_technicals_sync,
+          NULL::timestamptz    AS last_shareholding_sync,
+          NULL::timestamptz    AS last_key_metrics_sync,
+          created_at,
+          last_updated         AS updated_at
+        FROM listed_stocks
+        WHERE is_active = true
+      `);
+      console.log("  ✅ Fix IM-7: screener_stocks compat VIEW created → listed_stocks");
+    } else {
+      console.log("  ℹ️  Fix IM-7: screener_stocks is a physical table — preserved without view overwrite");
+    }
   } catch (e: any) {
     console.warn("  ⚠️  Fix IM-7 screener_stocks view (non-fatal):", e.message?.slice(0, 120));
   }
@@ -3831,24 +3871,24 @@ export async function ensureSharedRouteTables(): Promise<void> {
       CREATE OR REPLACE VIEW aif_funds AS
       SELECT
         id,
-        fund_name,
-        fund_manager,
+        name                 AS fund_name,
+        manager_id::text     AS fund_manager,
         category,
-        sub_category,
-        inception_date,
+        subcategory          AS sub_category,
+        NULL::date           AS inception_date,
         aum,
-        vintage,
-        irr,
-        nav,
-        hurdle_rate,
-        management_fee,
-        performance_fee,
-        lock_in_period,
-        risk_level,
-        minimum_investment,
-        sebi_registration_number,
-        data_source,
-        is_active,
+        NULL::text           AS vintage,
+        NULL::numeric        AS irr,
+        latest_nav           AS nav,
+        NULL::numeric        AS hurdle_rate,
+        NULL::numeric        AS management_fee,
+        NULL::numeric        AS performance_fee,
+        lock_in              AS lock_in_period,
+        NULL::text           AS risk_level,
+        min_investment       AS minimum_investment,
+        registration_no      AS sebi_registration_number,
+        'iris'               AS data_source,
+        is_published         AS is_active,
         created_at,
         updated_at
       FROM aif_master

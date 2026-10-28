@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import v8 from "node:v8";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
 
@@ -56,7 +57,10 @@ export async function healthCheck(_req: Request, res: Response) {
 export async function readinessCheck(_req: Request, res: Response) {
 	const dbStart = Date.now();
 	const mem = process.memoryUsage();
+	const heapStats = v8.getHeapStatistics();
+	const heapLimit = heapStats.heap_size_limit || mem.heapTotal;
 	const toMb = (b: number) => Math.round(b / 1024 / 1024);
+	const heapUtilizationPct = Math.round((mem.heapUsed / heapLimit) * 100);
 
 	const readiness: ReadinessStatus = {
 		status: "healthy",
@@ -69,7 +73,7 @@ export async function readinessCheck(_req: Request, res: Response) {
 			heapUsedMb: toMb(mem.heapUsed),
 			heapTotalMb: toMb(mem.heapTotal),
 			rssMb: toMb(mem.rss),
-			heapUtilizationPct: Math.round((mem.heapUsed / mem.heapTotal) * 100),
+			heapUtilizationPct,
 		},
 		pythonService: {
 			reachable: false,
