@@ -185,6 +185,15 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 				} catch { /* column already exists or table missing — non-fatal */ }
 			}
 			logger.info(`✅ model_portfolios period columns: ${_pcOk}/${_periodCols.length} ensured`);
+
+			// ── CRITICAL SYNC MIGRATION: market_briefs multi_exchange_data & amc_consensus columns ────
+			try {
+				await _pgPool.query(`ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS "multi_exchange_data" jsonb`);
+				await _pgPool.query(`ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS "amc_consensus" jsonb`);
+				logger.info("✅ market_briefs multi_exchange_data & amc_consensus columns ensured");
+			} catch (mbErr: any) {
+				logger.warn("[Boot] market_briefs column check non-fatal:", mbErr?.message);
+			}
 			// ── END CRITICAL SYNC MIGRATION ───────────────────────────────────────
 
 			// Background model portfolio holdings auto-repair (idempotent, ~150ms)

@@ -83,6 +83,7 @@ class DataProviderRegistry {
 				registeredAt: new Date(),
 			},
 		});
+		// eslint-disable-next-line no-console
 		console.log(
 			`[ProviderRegistry] Registered: ${provider.name} (priority: ${priority})`,
 		);
@@ -163,7 +164,6 @@ class DataProviderRegistry {
 				if (usedFallback) this.fallbacksTriggered++;
 				return { result: result as T, provider: entry.provider.name };
 			} catch (err: any) {
-				const latency = Date.now() - start;
 				this.recordFailure(entry, err.message || "Unknown error");
 				usedFallback = true;
 			}
@@ -356,17 +356,25 @@ export function getProviderRegistry(): DataProviderRegistry {
 	if (!registryInstance) {
 		registryInstance = new DataProviderRegistry();
 
+		const { getUpstoxDataProvider } = require("./upstox-provider");
+		const { getIndianApiDataProvider } = require("./indian-api-provider");
 		const { getDataProvider } = require("./fmp-provider");
 		const { getAlphaVantageProvider } = require("./alpha-vantage-provider");
 
+		const upstoxProvider = getUpstoxDataProvider();
+		const indianApiProvider = getIndianApiDataProvider();
 		const fmpProvider = getDataProvider();
 		const avProvider = getAlphaVantageProvider();
 
-		registryInstance.register(fmpProvider, 1);
-		registryInstance.register(avProvider, 2);
+		// Priority Order: Upstox (Tier 0 Quotes/History) -> IndianAPI (Tier 1 Fundamentals & Quote Backup) -> FMP -> AlphaVantage
+		registryInstance.register(upstoxProvider, 1);
+		registryInstance.register(indianApiProvider, 2);
+		registryInstance.register(fmpProvider, 3);
+		registryInstance.register(avProvider, 4);
 
+		// eslint-disable-next-line no-console
 		console.log(
-			"✅ [ProviderRegistry] Initialized with FMP (primary) + AlphaVantage (fallback)",
+			"✅ [ProviderRegistry] Initialized with Upstox (Tier 0 Quote/OHLCV) + IndianAPI (Tier 1 Fundamentals & Quote Backup) + FMP (Tier 2 Fallback)",
 		);
 	}
 	return registryInstance;

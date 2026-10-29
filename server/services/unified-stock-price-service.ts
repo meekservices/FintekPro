@@ -351,7 +351,48 @@ class UnifiedStockPriceService {
 		}
 
 		// Filter for remaining symbols that need fallback
-		const remainingToFetch = toFetch.filter((s) => !result.prices.has(s));
+		let remainingToFetch = toFetch.filter((s) => !result.prices.has(s));
+		if (remainingToFetch.length === 0) {
+			return result;
+		}
+
+		// 1. IndianAPI Batch Fallback (Tier 1 — fast bulk resolution for Indian equities)
+		if (
+			indianApiService.isReady() &&
+			!this.isProviderCoolingDown("indianapi_batch")
+		) {
+			try {
+				const batchRes =
+					exchange === "BSE"
+						? await indianApiService.getBatchLivePriceBSE(remainingToFetch)
+						: await indianApiService.getBatchLivePriceNSE(remainingToFetch);
+
+				if (batchRes.success && batchRes.data) {
+					for (const [sym, price] of Object.entries(batchRes.data)) {
+						if (price && price > 0) {
+							const stockPrice: StockPrice = {
+								symbol: sym,
+								price,
+								timestamp: Date.now(),
+								source: exchange === "BSE" ? "BSE" : "NSE",
+							};
+							result.prices.set(sym, stockPrice);
+							result.fromApi++;
+							this.setCache(sym, stockPrice, CACHE_TTL.REALTIME, exchange);
+							this.writeToDb(stockPrice);
+						}
+					}
+					this.recordSuccess("indianapi_batch");
+				}
+			} catch (err: any) {
+				// eslint-disable-next-line no-console
+				console.warn(`[StockPrice] IndianAPI batch live price failed: ${err?.message}`);
+				this.recordFailure("indianapi_batch", this.isRateLimitError(err));
+			}
+		}
+
+		// Re-check remaining symbols after IndianAPI batch
+		remainingToFetch = remainingToFetch.filter((s) => !result.prices.has(s));
 		if (remainingToFetch.length === 0) {
 			return result;
 		}

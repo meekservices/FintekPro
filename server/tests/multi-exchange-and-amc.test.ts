@@ -66,4 +66,16 @@ describe("AMC Research & House Consensus Service", () => {
 		expect(data.advisorTalkingPoints.length).toBeGreaterThanOrEqual(3);
 		expect(data.faspAiDisclaimer).toContain("FASP-AI v1.0 Regulatory Notice");
 	});
+
+	it("guarantees knowledgeHubService fallback brief includes multiExchangeData and amcConsensus", async () => {
+		const { knowledgeHubService } = await import("../services/knowledge-hub-service");
+		const fallback = knowledgeHubService.getFallbackDailyBrief("india");
+		expect(fallback).toBeDefined();
+		expect(fallback.multiExchangeData).toBeDefined();
+		expect(fallback.multiExchangeData.bseBreadth).toBeDefined();
+		expect(fallback.amcConsensus).toBeDefined();
+		expect(fallback.amcConsensus.contributingAmcs.length).toBeGreaterThanOrEqual(4);
+		expect(fallback.commodityRadar).toBeDefined();
+		expect(fallback.commodityRadar.crudeOilBreakevenStatus.brentUsd).toBe(114.2);
+	});
 });

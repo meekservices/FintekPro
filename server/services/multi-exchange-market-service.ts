@@ -94,7 +94,7 @@ export class MultiExchangeMarketService {
 		const asOfDate = dateStr || calculationTimestamp.split("T")[0];
 
 		// Try to pull live indices from existing Indian API service or memory caches
-		let bseSensexPrice = 81224;
+		let _bseSensexPrice = 81224;
 		let niftyPrice = 24785;
 		let indiaVix = 13.85;
 
@@ -109,7 +109,7 @@ export class MultiExchangeMarketService {
 					const nifty = idxRes.data.find((i: any) => i.name.toUpperCase().includes("NIFTY 50"));
 					const vix = idxRes.data.find((i: any) => i.name.toUpperCase().includes("VIX"));
 
-					if (sensex?.price) bseSensexPrice = sensex.price;
+					if (sensex?.price) _bseSensexPrice = sensex.price;
 					if (nifty?.price) niftyPrice = nifty.price;
 					if (vix?.price) indiaVix = vix.price;
 				}
