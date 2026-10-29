@@ -101,8 +101,11 @@ router.get(
 
 router.get(
 	"/commodity-benchmarks",
-	asyncHandler(async (_req, res) => {
+	asyncHandler(async (req, res) => {
 		const { commodityMarketService } = await import("../services/commodity-market-service");
+		if (req.query.refresh === "true") {
+			await commodityMarketService.flushCache();
+		}
 		const data = await commodityMarketService.getCommodityBenchmarks();
 		res.json(data);
 	}),

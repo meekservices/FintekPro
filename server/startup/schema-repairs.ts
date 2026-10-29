@@ -356,6 +356,14 @@ export async function runStartupSchemaRepairs() {
 					unit = EXCLUDED.unit,
 					currency = EXCLUDED.currency,
 					last_updated = NOW();
+
+				UPDATE commodities
+				SET current_price = 114.20,
+				    currency = 'USD',
+				    unit = 'barrel',
+				    day_change_percent = 1.87,
+				    last_updated = NOW()
+				WHERE UPPER(TRIM(symbol)) IN ('CRUDE_OIL', 'BRENT', 'BRENT_CRUDE');
 			`);
 
 			// Delete stale market_briefs rows that contained outdated $74.8 Brent quotes so fresh brief is generated

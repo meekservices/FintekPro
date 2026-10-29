@@ -170,6 +170,17 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
 
 export class CommodityMarketService {
   /**
+   * Flushes cached commodity benchmark snapshots from distributed cache / in-memory store.
+   */
+  async flushCache(): Promise<void> {
+    try {
+      await distributedCache.del(CACHE_KEY);
+    } catch (err: any) {
+      logger.warn("[CommodityMarketService] flushCache error:", err?.message);
+    }
+  }
+
+  /**
    * Retrieves commodity benchmarks across MCX India and CMX/COMEX.
    */
   async getCommodityBenchmarks(): Promise<CommodityServiceResult<CommodityMarketSnapshot>> {
@@ -310,7 +321,14 @@ export class CommodityMarketService {
           let updatedMcxChange = base.mcxChangePercent;
           let lastUpdated = base.lastUpdated;
 
-          for (const row of matchingRows) {
+          // Sort so authoritative USD reference contracts (e.g. BRENT) take final precedence
+          const sortedRows = [...matchingRows].sort((a, b) => {
+            const aIsUsd = a.symbol === "BRENT" || a.symbol === "BRENT_CRUDE" || (a.currency || "").toUpperCase() === "USD";
+            const bIsUsd = b.symbol === "BRENT" || b.symbol === "BRENT_CRUDE" || (b.currency || "").toUpperCase() === "USD";
+            return aIsUsd ? 1 : bIsUsd ? -1 : 0;
+          });
+
+          for (const row of sortedRows) {
             const price = Number(row.currentPrice);
             const rawChange = Number(row.dayChangePercent);
             const saneChange = !isNaN(rawChange) && Math.abs(rawChange) <= 25 ? rawChange : undefined;
