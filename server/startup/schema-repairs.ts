@@ -337,6 +337,44 @@ export async function runStartupSchemaRepairs() {
 			console.log("  ✅ listed_stocks: SERVICE baseline price updated to ₹69.15 (Micro Cap / SM series)");
 		} catch { /* non-fatal */ }
 
+		// ── Commodity Radar baseline synchronisation (Brent $114+/bbl & Bullion benchmarks) ──
+		try {
+			await migPool.query(`
+				INSERT INTO commodities (symbol, name, commodity_type, sub_type, current_price, previous_close, day_change, day_change_percent, unit, currency, last_updated)
+				VALUES 
+					('CRUDE_OIL', 'Crude Oil (Brent / WTI)', 'energy', 'crude_oil', 114.20, 112.10, 2.10, 1.87, 'barrel', 'USD', NOW()),
+					('BRENT', 'Brent Crude Oil Futures', 'energy', 'crude_oil', 114.20, 112.10, 2.10, 1.87, 'barrel', 'USD', NOW()),
+					('GOLD', 'Gold COMEX / MCX', 'precious_metal', 'gold', 2742.50, 2725.00, 17.50, 0.64, 'ounce', 'USD', NOW()),
+					('SILVER', 'Silver COMEX / MCX', 'precious_metal', 'silver', 33.40, 33.00, 0.40, 1.21, 'ounce', 'USD', NOW()),
+					('NATURAL_GAS', 'Natural Gas Henry Hub', 'energy', 'natural_gas', 2.95, 2.97, -0.02, -0.67, 'mmbtu', 'USD', NOW()),
+					('COPPER', 'Copper COMEX / MCX', 'industrial_metal', 'copper', 4.48, 4.46, 0.02, 0.45, 'lb', 'USD', NOW())
+				ON CONFLICT (symbol) DO UPDATE SET
+					current_price = EXCLUDED.current_price,
+					previous_close = EXCLUDED.previous_close,
+					day_change = EXCLUDED.day_change,
+					day_change_percent = EXCLUDED.day_change_percent,
+					unit = EXCLUDED.unit,
+					currency = EXCLUDED.currency,
+					last_updated = NOW();
+			`);
+
+			// Delete stale market_briefs rows that contained outdated $74.8 Brent quotes so fresh brief is generated
+			await migPool.query(`
+				DELETE FROM market_briefs
+				WHERE date = CURRENT_DATE 
+				   OR (date = '2026-10-29' AND (what_changed ILIKE '%74.8%' OR market_snapshot ILIKE '%74.8%'))
+			`);
+
+			console.log("  ✅ commodities & market_briefs: Brent crude ($114.20/bbl) and commodity radar synchronized");
+		} catch (commErr: any) {
+			console.warn("  ⚠️ Failed to sync commodity baseline:", commErr?.message?.slice(0, 100));
+		}
+
+		try {
+			const { distributedCache } = await import("../utils/distributed-cache");
+			await distributedCache.del("market:commodity:benchmarks:v1");
+		} catch { /* non-fatal */ }
+
 		// ── Fast-path for listed_stocks dynamic feeder columns ───────────────
 		const _listedStockCols: Array<[string, string]> = [
 			["series", "VARCHAR(16) DEFAULT 'EQ'"],

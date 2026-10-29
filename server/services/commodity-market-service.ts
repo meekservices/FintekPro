@@ -84,11 +84,11 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     name: "Gold 24K",
     category: "Precious Metals",
     mcxSymbol: "GOLD",
-    mcxPrice: 76420,
+    mcxPrice: 78450,
     mcxUnit: "₹ / 10g",
     mcxChangePercent: 0.65,
     cmxSymbol: "GC=F (COMEX Gold)",
-    cmxPrice: 2658.4,
+    cmxPrice: 2742.5,
     cmxUnit: "$ / oz",
     cmxChangePercent: 0.58,
     trend: "Bullish",
@@ -101,11 +101,11 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     name: "Silver",
     category: "Precious Metals",
     mcxSymbol: "SILVER",
-    mcxPrice: 92850,
+    mcxPrice: 94200,
     mcxUnit: "₹ / 1kg",
     mcxChangePercent: 1.15,
     cmxSymbol: "SI=F (COMEX Silver)",
-    cmxPrice: 31.85,
+    cmxPrice: 33.4,
     cmxUnit: "$ / oz",
     cmxChangePercent: 1.05,
     trend: "Bullish",
@@ -118,16 +118,16 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     name: "Crude Oil (Brent / WTI)",
     category: "Energy",
     mcxSymbol: "CRUDEOIL",
-    mcxPrice: 6180,
+    mcxPrice: 9918,
     mcxUnit: "₹ / bbl",
-    mcxChangePercent: -0.95,
+    mcxChangePercent: 1.85,
     cmxSymbol: "BZ=F (Brent ICE) / CL=F (WTI)",
-    cmxPrice: 74.8,
+    cmxPrice: 114.2,
     cmxUnit: "$ / bbl",
-    cmxChangePercent: -1.1,
-    trend: "Neutral",
+    cmxChangePercent: 1.95,
+    trend: "Bullish",
     macroImplication:
-      "Crude consolidating in the $72–$78/bbl comfort band. Eases India's import bill (85%+ imported), containing CAD and supporting margin expansion for paints, tyres, and aviation.",
+      "Brent crude surging above $110/bbl (currently $114+/bbl) poses acute macroeconomic headwinds for India. Escalates imported inflation, widens the Current Account Deficit (CAD), and compresses operating margins for paints, tyre manufacturers, airlines, and auto ancillaries, while expanding realisations for domestic upstream E&P explorers (ONGC, Oil India).",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
   {
@@ -135,13 +135,13 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     name: "Natural Gas",
     category: "Energy",
     mcxSymbol: "NATURALGAS",
-    mcxPrice: 242.5,
+    mcxPrice: 248.5,
     mcxUnit: "₹ / mmBtu",
-    mcxChangePercent: -1.45,
+    mcxChangePercent: -0.85,
     cmxSymbol: "NG=F (NYMEX Henry Hub)",
-    cmxPrice: 2.88,
+    cmxPrice: 2.95,
     cmxUnit: "$ / mmBtu",
-    cmxChangePercent: -1.7,
+    cmxChangePercent: -0.9,
     trend: "Neutral",
     macroImplication:
       "Comfortable gas storage levels globally. Favorable for domestic City Gas Distribution (CGD) companies and fertilizer subsidy outlays.",
@@ -152,11 +152,11 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     name: "Copper ('Dr. Copper')",
     category: "Base Metals",
     mcxSymbol: "COPPER",
-    mcxPrice: 846.5,
+    mcxPrice: 852.0,
     mcxUnit: "₹ / kg",
     mcxChangePercent: 0.42,
     cmxSymbol: "HG=F (COMEX Copper)",
-    cmxPrice: 4.42,
+    cmxPrice: 4.48,
     cmxUnit: "$ / lb",
     cmxChangePercent: 0.38,
     trend: "Bullish",
@@ -248,10 +248,19 @@ export class CommodityMarketService {
     const crude = data.commodities.find((c) => c.id === "CRUDE_OIL") || BASELINE_COMMODITIES[2];
     const copper = data.commodities.find((c) => c.id === "COPPER") || BASELINE_COMMODITIES[4];
 
+    const isElevated = data.crudeOilBreakevenStatus.inflationImpact === "Elevated";
+    const headline = isElevated
+      ? `Brent Crude Surges to $${data.crudeOilBreakevenStatus.brentUsd}/bbl (Elevated Macro Risk) | MCX Gold at ₹${gold.mcxPrice.toLocaleString("en-IN")}/10g`
+      : `Brent Crude at $${data.crudeOilBreakevenStatus.brentUsd}/bbl (${data.crudeOilBreakevenStatus.inflationImpact} Inflation) | MCX Gold at ₹${gold.mcxPrice.toLocaleString("en-IN")}/10g`;
+
+    const crudeBullet = isElevated
+      ? `Energy Radar: Brent Crude traded at $${data.crudeOilBreakevenStatus.brentUsd}/bbl (MCX Crude: ₹${crude.mcxPrice.toLocaleString("en-IN")}/bbl). Elevated crude levels (> $80 threshold) create imported inflation headwinds for India and squeeze margins for paint, tyre, aviation, and auto ancillary companies, while supporting upstream E&P producers (ONGC, Oil India).`
+      : `Energy Radar: Brent Crude traded at $${data.crudeOilBreakevenStatus.brentUsd}/bbl (MCX Crude: ₹${crude.mcxPrice.toLocaleString("en-IN")}/bbl). Current levels represent a ${data.crudeOilBreakevenStatus.inflationImpact.toLowerCase()} inflation environment for India, aiding paint, chemical, and lubricant margins.`;
+
     return {
-      headline: `Brent Crude at $${data.crudeOilBreakevenStatus.brentUsd}/bbl (${data.crudeOilBreakevenStatus.inflationImpact} Inflation) | MCX Gold at ₹${gold.mcxPrice.toLocaleString("en-IN")}/10g`,
+      headline,
       bulletPoints: [
-        `Energy Radar: Brent Crude traded at $${data.crudeOilBreakevenStatus.brentUsd}/bbl (MCX Crude: ₹${crude.mcxPrice.toLocaleString("en-IN")}/bbl). Current levels represent a ${data.crudeOilBreakevenStatus.inflationImpact.toLowerCase()} inflation environment for India, aiding paint, chemical, and lubricant margins.`,
+        crudeBullet,
         `Precious Metals: MCX Gold printed at ₹${gold.mcxPrice.toLocaleString("en-IN")}/10g (COMEX: $${gold.cmxPrice}/oz), while MCX Silver traded at ₹${silver.mcxPrice.toLocaleString("en-IN")}/kg (COMEX: $${silver.cmxPrice}/oz). Strong retail & industrial photovoltaic demand persists.`,
         `Base Metals Barometer: MCX Copper held firm at ₹${copper.mcxPrice.toLocaleString("en-IN")}/kg (COMEX: $${copper.cmxPrice}/lb), confirming robust domestic grid transmission and automotive capex allocations.`,
         `Gold/Silver Ratio: Standing at ${data.goldSilverRatio.toFixed(1)}, signaling balanced asset allocation opportunities across multi-asset funds and physical gold ETFs.`,
@@ -276,6 +285,7 @@ export class CommodityMarketService {
             "SILVER",
             "CRUDE_OIL",
             "BRENT",
+            "BRENT_CRUDE",
             "NATURAL_GAS",
             "COPPER",
           ]),
@@ -284,27 +294,75 @@ export class CommodityMarketService {
       if (!rows || rows.length === 0) return null;
 
       const items: CommodityItem[] = [];
+      const usdInrRate = 86.85;
+
       for (const base of BASELINE_COMMODITIES) {
-        const row = rows.find(
+        const matchingRows = rows.filter(
           (r) =>
             r.symbol === base.id ||
-            (base.id === "CRUDE_OIL" && (r.symbol === "BRENT" || r.symbol === "CRUDE_OIL")),
+            (base.id === "CRUDE_OIL" && (r.symbol === "BRENT" || r.symbol === "BRENT_CRUDE" || r.symbol === "CRUDE_OIL")),
         );
 
-        if (row && Number(row.currentPrice) > 0) {
-          const priceNum = Number(row.currentPrice);
-          const changePct = Number(row.dayChangePercent || 0);
+        if (matchingRows.length > 0) {
+          let updatedCmxPrice = base.cmxPrice;
+          let updatedMcxPrice = base.mcxPrice;
+          let updatedCmxChange = base.cmxChangePercent;
+          let updatedMcxChange = base.mcxChangePercent;
+          let lastUpdated = base.lastUpdated;
 
-          // Update CMX or MCX depending on currency/unit
-          const cmxPrice = base.category === "Precious Metals" && priceNum > 1000 ? priceNum : base.cmxPrice;
+          for (const row of matchingRows) {
+            const price = Number(row.currentPrice);
+            const rawChange = Number(row.dayChangePercent);
+            const saneChange = !isNaN(rawChange) && Math.abs(rawChange) <= 25 ? rawChange : undefined;
+
+            if (price > 0) {
+              const curr = (row.currency || "").toUpperCase();
+              const isUsd = curr === "USD" || row.unit === "barrel" || row.unit === "ounce" || row.unit === "lb" || row.unit === "mmbtu";
+
+              if (isUsd) {
+                if (base.id === "CRUDE_OIL" && price >= 30 && price <= 250) {
+                  updatedCmxPrice = price;
+                  updatedMcxPrice = Math.round(price * usdInrRate);
+                } else if (base.id === "GOLD" && price >= 1500 && price <= 3800) {
+                  updatedCmxPrice = price;
+                } else if (base.id === "SILVER" && price >= 15 && price <= 75) {
+                  updatedCmxPrice = price;
+                } else if (base.id === "NATURAL_GAS" && price >= 0.5 && price <= 15) {
+                  updatedCmxPrice = price;
+                } else if (base.id === "COPPER" && price >= 1.5 && price <= 10) {
+                  updatedCmxPrice = price;
+                }
+                if (saneChange !== undefined) updatedCmxChange = saneChange;
+              } else {
+                if (base.id === "CRUDE_OIL" && price >= 2500 && price <= 25000) {
+                  updatedMcxPrice = price;
+                  updatedCmxPrice = Number((price / usdInrRate).toFixed(2));
+                } else if (base.id === "GOLD" && price >= 40000 && price <= 120000) {
+                  updatedMcxPrice = price;
+                } else if (base.id === "SILVER" && price >= 40000 && price <= 150000) {
+                  updatedMcxPrice = price;
+                } else if (base.id === "NATURAL_GAS" && price >= 50 && price <= 1000) {
+                  updatedMcxPrice = price;
+                } else if (base.id === "COPPER" && price >= 300 && price <= 2000) {
+                  updatedMcxPrice = price;
+                }
+                if (saneChange !== undefined) updatedMcxChange = saneChange;
+              }
+
+              if (row.lastUpdated) {
+                lastUpdated = new Date(row.lastUpdated).toISOString().split("T")[0];
+              }
+            }
+          }
 
           items.push({
             ...base,
-            cmxPrice: cmxPrice > 0 ? cmxPrice : base.cmxPrice,
-            cmxChangePercent: changePct !== 0 ? changePct : base.cmxChangePercent,
-            lastUpdated: row.lastUpdated
-              ? new Date(row.lastUpdated).toISOString().split("T")[0]
-              : base.lastUpdated,
+            cmxPrice: updatedCmxPrice,
+            mcxPrice: updatedMcxPrice,
+            cmxChangePercent: updatedCmxChange,
+            mcxChangePercent: updatedMcxChange,
+            trend: updatedCmxPrice > base.cmxPrice * 1.01 ? "Bullish" : updatedCmxPrice < base.cmxPrice * 0.99 ? "Bearish" : base.trend,
+            lastUpdated,
           });
         } else {
           items.push(base);
@@ -323,11 +381,20 @@ export class CommodityMarketService {
     const gold = items.find((c) => c.id === "GOLD") || BASELINE_COMMODITIES[0];
     const silver = items.find((c) => c.id === "SILVER") || BASELINE_COMMODITIES[1];
 
-    const brentPrice = crude.cmxPrice || 74.8;
+    const brentPrice = crude.cmxPrice || 114.2;
     const inflationImpact: "Benign" | "Moderate" | "Elevated" =
       brentPrice < 78 ? "Benign" : brentPrice <= 85 ? "Moderate" : "Elevated";
 
-    const gsRatio = silver.cmxPrice > 0 ? Number((gold.cmxPrice / silver.cmxPrice).toFixed(1)) : 83.5;
+    const gsRatio = silver.cmxPrice > 0 ? Number((gold.cmxPrice / silver.cmxPrice).toFixed(1)) : 82.6;
+
+    let commentary = "";
+    if (brentPrice < 80) {
+      commentary = `Brent crude at $${brentPrice.toFixed(2)}/bbl is within India's comfort threshold (<$80/bbl), limiting imported inflation and fiscal subsidy strains.`;
+    } else if (brentPrice <= 90) {
+      commentary = `Brent crude at $${brentPrice.toFixed(2)}/bbl tests the upper boundary of India's macroeconomic comfort zone ($80-$85/bbl). Monitor CAD and foreign exchange intervention.`;
+    } else {
+      commentary = `Brent crude at $${brentPrice.toFixed(2)}/bbl surges significantly above India's comfort threshold ($80/bbl). Elevated crude prices widen the Current Account Deficit (CAD), fuel imported inflation, and pressure operating margins for paint, auto, tyre, and chemical sectors.`;
+    }
 
     return {
       commodities: items,
@@ -335,10 +402,7 @@ export class CommodityMarketService {
         brentUsd: brentPrice,
         indiaComfortBandMaxUsd: 80.0,
         inflationImpact,
-        commentary:
-          brentPrice < 80
-            ? `Brent crude at $${brentPrice}/bbl is within India's comfort threshold (<$80/bbl), limiting imported inflation and fiscal subsidy strains.`
-            : `Brent crude at $${brentPrice}/bbl tests the upper boundary of India's macroeconomic comfort zone. Monitor CAD and foreign exchange intervention.`,
+        commentary,
       },
       goldSilverRatio: gsRatio,
       asOfDate: today,

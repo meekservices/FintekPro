@@ -133,10 +133,10 @@ function getClientFallbackBrief(region: string): MarketBrief {
 		date: today,
 		region,
 		marketSnapshot: isIndia
-			? "Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at 6.79%, backed by CCIL sovereign clearing, offering attractive +2.59% real yield spreads. CCIL TREPS overnight funding rate printed at 6.42%, reflecting balanced systemic money market liquidity. Brent crude traded at $74.8/bbl in the domestic comfort band."
+			? "Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at 6.79%, backed by CCIL sovereign clearing, offering attractive +2.59% real yield spreads. CCIL TREPS overnight funding rate printed at 6.42%, reflecting balanced systemic money market liquidity. Brent crude traded at $114.20/bbl, with elevated pricing monitored closely for imported inflation risks."
 			: "US equities traded higher with the S&P 500 and Nasdaq supported by megacap technology earnings and steady labor market prints. 10-year Treasury yields consolidated as markets digested central bank policy commentary.",
 		whatChanged: isIndia
-			? "1. Sovereign Debt & Money Markets: CCIL 10-Year Benchmark G-Sec yield traded at 6.79%; CCIL TREPS overnight repo volume remained healthy with weighted average rate at 6.42%.\n2. Commodity Radar: Brent crude consolidated at $74.8/bbl within India's comfort threshold (<$80), reducing CAD and imported inflation risks. MCX Gold traded firm on steady consumer and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows."
+			? "1. Sovereign Debt & Money Markets: CCIL 10-Year Benchmark G-Sec yield traded at 6.79%; CCIL TREPS overnight repo volume remained healthy with weighted average rate at 6.42%.\n2. Commodity Radar: Brent crude traded firm at $114.20/bbl, remaining above India's $80 comfort threshold and creating imported inflation headwinds. MCX Gold traded firm at ₹78,450/10g on steady safe-haven and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows."
 			: "1. Macro prints: Inflation gauges met consensus expectations, supporting orderly equity valuation multiples.\n2. Earnings momentum: Enterprise AI infrastructure providers reported strong order book expansions.",
 		topMovers: isIndia
 			? [
@@ -193,11 +193,11 @@ function getClientFallbackBrief(region: string): MarketBrief {
 							name: "Gold 24K",
 							category: "Precious Metals",
 							mcxSymbol: "GOLD",
-							mcxPrice: 76420,
+							mcxPrice: 78450,
 							mcxUnit: "₹ / 10g",
 							mcxChangePercent: 0.65,
 							cmxSymbol: "GC=F (COMEX Gold)",
-							cmxPrice: 2658.4,
+							cmxPrice: 2742.5,
 							cmxUnit: "$ / oz",
 							cmxChangePercent: 0.58,
 							trend: "Bullish",
@@ -208,11 +208,11 @@ function getClientFallbackBrief(region: string): MarketBrief {
 							name: "Silver",
 							category: "Precious Metals",
 							mcxSymbol: "SILVER",
-							mcxPrice: 92850,
+							mcxPrice: 94200,
 							mcxUnit: "₹ / 1kg",
 							mcxChangePercent: 1.15,
 							cmxSymbol: "SI=F (COMEX Silver)",
-							cmxPrice: 31.85,
+							cmxPrice: 33.4,
 							cmxUnit: "$ / oz",
 							cmxChangePercent: 1.05,
 							trend: "Bullish",
@@ -223,28 +223,28 @@ function getClientFallbackBrief(region: string): MarketBrief {
 							name: "Crude Oil (Brent)",
 							category: "Energy",
 							mcxSymbol: "CRUDEOIL",
-							mcxPrice: 6180,
+							mcxPrice: 9918,
 							mcxUnit: "₹ / bbl",
-							mcxChangePercent: -0.95,
+							mcxChangePercent: 1.85,
 							cmxSymbol: "BZ=F (ICE Brent)",
-							cmxPrice: 74.8,
+							cmxPrice: 114.2,
 							cmxUnit: "$ / bbl",
-							cmxChangePercent: -1.1,
-							trend: "Neutral",
-							macroImplication: "Consolidating in India's comfort zone (<$80), reducing imported inflation and supporting chemical/paint margins.",
+							cmxChangePercent: 1.95,
+							trend: "Bullish",
+							macroImplication: "Elevated crude above $110/bbl tests India's comfort threshold, increasing imported inflation and pressuring auto/paint/chemical margins.",
 						},
 						{
 							id: "NATURAL_GAS",
 							name: "Natural Gas",
 							category: "Energy",
 							mcxSymbol: "NATURALGAS",
-							mcxPrice: 242.5,
+							mcxPrice: 248.5,
 							mcxUnit: "₹ / mmBtu",
-							mcxChangePercent: -1.45,
+							mcxChangePercent: -0.85,
 							cmxSymbol: "NG=F (NYMEX Henry Hub)",
-							cmxPrice: 2.88,
+							cmxPrice: 2.95,
 							cmxUnit: "$ / mmBtu",
-							cmxChangePercent: -1.7,
+							cmxChangePercent: -0.9,
 							trend: "Neutral",
 							macroImplication: "Healthy global storage levels easing industrial input costs.",
 						},
@@ -253,11 +253,11 @@ function getClientFallbackBrief(region: string): MarketBrief {
 							name: "Copper",
 							category: "Base Metals",
 							mcxSymbol: "COPPER",
-							mcxPrice: 846.5,
+							mcxPrice: 852.0,
 							mcxUnit: "₹ / kg",
 							mcxChangePercent: 0.42,
 							cmxSymbol: "HG=F (COMEX Copper)",
-							cmxPrice: 4.42,
+							cmxPrice: 4.48,
 							cmxUnit: "$ / lb",
 							cmxChangePercent: 0.38,
 							trend: "Bullish",
@@ -265,11 +265,11 @@ function getClientFallbackBrief(region: string): MarketBrief {
 						},
 					],
 					crudeOilBreakevenStatus: {
-						brentUsd: 74.8,
-						inflationImpact: "Benign",
-						commentary: "Brent crude at $74.8/bbl remains within India's macroeconomic comfort band (<$80).",
+						brentUsd: 114.2,
+						inflationImpact: "Elevated",
+						commentary: "Brent crude at $114.20/bbl surges above India's macroeconomic comfort band (<$80), increasing imported inflation and CAD pressure.",
 					},
-					goldSilverRatio: 83.5,
+					goldSilverRatio: 82.6,
 					source: "MCX India & CMX / COMEX",
 				}
 			: undefined,
@@ -287,8 +287,8 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					},
 					{
 						sector: "Commodities & Energy (MCX / CMX)",
-						trend: "Favorable",
-						outlook: "Brent Crude at $74.8/bbl in India comfort band; MCX Gold at ₹76,420/10g.",
+						trend: "Elevated Input Pressure",
+						outlook: "Brent Crude at $114.20/bbl above India comfort band; MCX Gold at ₹78,450/10g.",
 					},
 					{
 						sector: "Information Technology (Nifty IT)",
@@ -744,7 +744,9 @@ export default function AgentKnowledgeMarketBrief() {
 												className={`text-xs ${
 													briefToDisplay.commodityRadar.crudeOilBreakevenStatus.inflationImpact === "Benign"
 														? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-														: "bg-amber-500/20 text-amber-400 border-amber-500/30"
+														: briefToDisplay.commodityRadar.crudeOilBreakevenStatus.inflationImpact === "Moderate"
+															? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+															: "bg-red-500/20 text-red-400 border-red-500/30"
 												}`}
 											>
 												Crude Inflation: {briefToDisplay.commodityRadar.crudeOilBreakevenStatus.inflationImpact} ($

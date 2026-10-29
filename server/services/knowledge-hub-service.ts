@@ -194,12 +194,12 @@ export class KnowledgeHubService {
 		const gsecYieldStr = ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent
 			? `${ccilFixedIncome.sovereignYields[0].yieldPercent}%`
 			: "6.79%";
-		const brentStr = commodityRadar?.crudeOilBreakevenStatus?.brentUsd
-			? `$${commodityRadar.crudeOilBreakevenStatus.brentUsd}/bbl`
-			: "$74.8/bbl";
+		const brentPriceNum = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? 114.2;
+		const brentStr = `$${brentPriceNum}/bbl`;
 		const goldStr = commodityRadar?.commodities?.[0]?.mcxPrice
 			? `₹${commodityRadar.commodities[0].mcxPrice.toLocaleString("en-IN")}/10g`
-			: "₹76,420/10g";
+			: "₹78,450/10g";
+		const isElevatedCrude = brentPriceNum > 85;
 
 		const sectorHighlights = isIndia
 			? [
@@ -215,8 +215,10 @@ export class KnowledgeHubService {
 					},
 					{
 						sector: "Commodities & Energy (MCX / CMX)",
-						trend: commodityRadar?.crudeOilBreakevenStatus?.inflationImpact === "Benign" ? "Favorable" : "Rangebound",
-						outlook: `Brent crude at ${brentStr} within India's macro comfort band. MCX Gold at ${goldStr} providing multi-asset portfolio ballast.`,
+						trend: isElevatedCrude ? "Elevated Input Pressure" : "Favorable",
+						outlook: isElevatedCrude
+							? `Brent crude at ${brentStr} above India's $80 comfort threshold increases imported inflation and pressures downstream user margins (paints, tyres), while upstream ONGC benefits.`
+							: `Brent crude at ${brentStr} within India's macro comfort band. MCX Gold at ${goldStr} providing multi-asset portfolio ballast.`,
 					},
 					{
 						sector: "Information Technology (Nifty IT)",
@@ -300,8 +302,8 @@ export class KnowledgeHubService {
 					},
 					{
 						sector: "Commodities & Energy (MCX / CMX)",
-						trend: "Favorable",
-						outlook: "Brent Crude at $74.8/bbl in India comfort band; MCX Gold at ₹76,420/10g.",
+						trend: "Elevated Input Pressure",
+						outlook: "Brent Crude at $114.20/bbl above India comfort band; MCX Gold at ₹78,450/10g.",
 					},
 					{
 						sector: "Information Technology (Nifty IT)",
@@ -383,10 +385,11 @@ export class KnowledgeHubService {
 
 		const gsecYieldStr = ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? 6.79;
 		const trepsRateStr = ccilFixedIncome?.treps?.weightedAverageRate ?? 6.42;
-		const brentStr = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? 74.8;
+		const brentStr = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? 114.2;
+		const isElevatedB = Number(brentStr) > 85;
 
 		let marketSnapshot = isIndia
-			? `Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at ${gsecYieldStr}%, backed by CCIL sovereign clearing, offering attractive +${(gsecYieldStr - 4.2).toFixed(2)}% real yield spreads. CCIL TREPS overnight funding rate printed at ${trepsRateStr}%, reflecting balanced systemic money market liquidity. Brent crude traded at $${brentStr}/bbl in the domestic comfort band.`
+			? `Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at ${gsecYieldStr}%, backed by CCIL sovereign clearing, offering attractive +${(gsecYieldStr - 4.2).toFixed(2)}% real yield spreads. CCIL TREPS overnight funding rate printed at ${trepsRateStr}%, reflecting balanced systemic money market liquidity. Brent crude traded at $${brentStr}/bbl${isElevatedB ? ", remaining elevated above India's $80 comfort threshold and keeping imported inflation risks active" : " in the domestic comfort band"}.`
 			: "US equities traded higher with the S&P 500 and Nasdaq supported by megacap technology earnings and steady labor market prints. 10-year Treasury yields consolidated as markets digested central bank policy commentary.";
 
 		// Fetch live Indian indices for realistic market snapshot
@@ -414,11 +417,15 @@ export class KnowledgeHubService {
 		}
 
 		const whatChanged = isIndia
-			? `1. Sovereign Debt & Money Markets: CCIL 10-Year Benchmark G-Sec yield traded at ${gsecYieldStr}%; CCIL TREPS overnight repo volume remained healthy with weighted average rate at ${trepsRateStr}%.\n2. Commodity Radar: Brent crude consolidated at $${brentStr}/bbl within India's comfort threshold (<$80), reducing CAD and imported inflation risks. MCX Gold traded firm on steady consumer and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows.`
+			? `1. Sovereign Debt & Money Markets: CCIL 10-Year Benchmark G-Sec yield traded at ${gsecYieldStr}%; CCIL TREPS overnight repo volume remained healthy with weighted average rate at ${trepsRateStr}%.\n2. Commodity Radar: ${
+				isElevatedCrude
+					? `Brent crude traded firm at ${brentStr}, staying above India's $80 comfort threshold and elevating imported inflation and CAD risks. MCX Gold printed at ${goldStr} on sustained safe-haven demand.`
+					: `Brent crude consolidated at ${brentStr} within India's comfort threshold (<$80), reducing CAD and imported inflation risks. MCX Gold traded firm on steady consumer and central bank demand.`
+			}\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows.`
 			: "1. Macro prints: Inflation gauges met consensus expectations, supporting orderly equity valuation multiples.\n2. Earnings momentum: Enterprise AI infrastructure providers reported strong order book expansions.";
 
 		const keyRisks = isIndia
-			? `Crude oil volatility (Brent currently at $${brentStr}/bbl), US Dollar Index (DXY) movements, global trade tariff negotiations, and shifting foreign institutional (FPI) derivative positions.`
+			? `Crude oil volatility (Brent currently at ${brentStr}), US Dollar Index (DXY) movements, global trade tariff negotiations, and shifting foreign institutional (FPI) derivative positions.`
 			: "Interest rate trajectory, commercial real estate refinancing, and geopolitical trade developments.";
 
 		const opportunityAreas = isIndia
@@ -476,15 +483,15 @@ export class KnowledgeHubService {
 		const isIndia = region === "india";
 
 		const marketSnapshot = isIndia
-			? "Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at 6.79%, backed by CCIL sovereign clearing, offering attractive +2.59% real yield spreads. CCIL TREPS overnight funding rate printed at 6.42%, reflecting balanced systemic money market liquidity. Brent crude traded at $74.8/bbl in the domestic comfort band."
+			? "Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at 6.79%, backed by CCIL sovereign clearing, offering attractive +2.59% real yield spreads. CCIL TREPS overnight funding rate printed at 6.42%, reflecting balanced systemic money market liquidity. Brent crude traded at $114.20/bbl, with elevated energy levels monitored closely for imported inflation risks."
 			: "US equities traded higher with the S&P 500 and Nasdaq supported by megacap technology earnings and steady labor market prints. 10-year Treasury yields consolidated as markets digested central bank policy commentary.";
 
 		const whatChanged = isIndia
-			? "1. RBI Macro & Sovereign Debt Desk: Systemic liquidity remained comfortable under RBI operations, with CCIL 10-Year Benchmark G-Sec yield trading at 6.79% and CCIL TREPS overnight weighted average rate at 6.42%.\n2. Commodity Radar: Brent crude consolidated at $74.8/bbl within India's comfort threshold (<$80), reducing CAD and imported inflation risks. MCX Gold traded firm on steady consumer and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows."
+			? "1. RBI Macro & Sovereign Debt Desk: Systemic liquidity remained comfortable under RBI operations, with CCIL 10-Year Benchmark G-Sec yield trading at 6.79% and CCIL TREPS overnight weighted average rate at 6.42%.\n2. Commodity Radar: Brent crude traded firm at $114.20/bbl, remaining above India's $80 comfort threshold and creating imported inflation headwinds. MCX Gold traded firm at ₹78,450/10g on steady safe-haven and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows."
 			: "1. Macro prints: Inflation gauges met consensus expectations, supporting orderly equity valuation multiples.\n2. Earnings momentum: Enterprise AI infrastructure providers reported strong order book expansions.";
 
 		const keyRisks = isIndia
-			? "Crude oil volatility (Brent ~$74–$78/bbl), US Dollar Index (DXY) movements, and shifting foreign institutional (FPI) derivative positions."
+			? "Elevated crude oil volatility (Brent at $114.20/bbl), US Dollar Index (DXY) movements, and shifting foreign institutional (FPI) derivative positions."
 			: "Interest rate trajectory, commercial real estate refinancing, and geopolitical trade developments.";
 
 		const opportunityAreas = isIndia
