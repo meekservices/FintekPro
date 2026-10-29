@@ -618,14 +618,15 @@ export async function computePortfolioCagrFromDB(
 						continue;
 					}
 				}
-				// Fallback: name-based match in screener_derived_metrics
+				// Fallback: name-based match in screener_derived_metrics joined with listed_stocks
 				if (name) {
 					const dmRow2 = await db.execute(sql`
-						SELECT return_1y, return_3y
-						FROM screener_derived_metrics
-						WHERE LOWER(company_name) = LOWER(${name})
-						   OR company_name ILIKE ${'%' + name.replace(/%/g, '\\%') + '%'}
-						ORDER BY CASE WHEN LOWER(company_name) = LOWER(${name}) THEN 0 ELSE 1 END
+						SELECT sdm.return_1y, sdm.return_3y
+						FROM screener_derived_metrics sdm
+						JOIN listed_stocks ls ON ls.symbol = sdm.symbol
+						WHERE LOWER(ls.company_name) = LOWER(${name})
+						   OR ls.company_name ILIKE ${'%' + name.replace(/%/g, '\\%') + '%'}
+						ORDER BY CASE WHEN LOWER(ls.company_name) = LOWER(${name}) THEN 0 ELSE 1 END
 						LIMIT 1
 					`).catch(() => ({ rows: [] }));
 					const r2 = (dmRow2 as any).rows?.[0];
@@ -780,9 +781,10 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 	const screenerMap = new Map<string, { r1y: number; r3y: number }>();
 	try {
 		const scrRows = await db.execute(sql`
-			SELECT LOWER(company_name) as key, return_1y, return_3y
-			FROM screener_derived_metrics
-			WHERE return_1y IS NOT NULL
+			SELECT LOWER(ls.company_name) as key, sdm.return_1y, sdm.return_3y
+			FROM screener_derived_metrics sdm
+			JOIN listed_stocks ls ON ls.symbol = sdm.symbol
+			WHERE sdm.return_1y IS NOT NULL
 		`).catch(() => ({ rows: [] }));
 		for (const row of (scrRows as any).rows ?? []) {
 			if (!screenerMap.has(row.key)) {
