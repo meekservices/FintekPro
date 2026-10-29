@@ -137,6 +137,8 @@ export class KnowledgeHubService {
 
 		let ccilFixedIncome: any = brief.ccilFixedIncome || null;
 		let commodityRadar: any = brief.commodityRadar || null;
+		let multiExchangeData: any = brief.multiExchangeData || null;
+		let amcConsensus: any = brief.amcConsensus || null;
 
 		if (isIndia) {
 			if (!ccilFixedIncome) {
@@ -160,6 +162,30 @@ export class KnowledgeHubService {
 					}
 				} catch (err: any) {
 					console.warn("[KnowledgeHubService] Commodity radar fetch failed:", err?.message);
+				}
+			}
+
+			if (!multiExchangeData) {
+				try {
+					const { multiExchangeMarketService } = await import("./multi-exchange-market-service");
+					const meRes = await multiExchangeMarketService.getMultiExchangeSnapshot();
+					if (meRes.success && meRes.data) {
+						multiExchangeData = meRes.data;
+					}
+				} catch (err: any) {
+					console.warn("[KnowledgeHubService] Multi-exchange fetch failed:", err?.message);
+				}
+			}
+
+			if (!amcConsensus) {
+				try {
+					const { amcResearchService } = await import("./amc-research-service");
+					const amcRes = await amcResearchService.getAmcConsensus();
+					if (amcRes.success && amcRes.data) {
+						amcConsensus = amcRes.data;
+					}
+				} catch (err: any) {
+					console.warn("[KnowledgeHubService] AMC consensus fetch failed:", err?.message);
 				}
 			}
 		}
@@ -256,9 +282,13 @@ export class KnowledgeHubService {
 		const sources = isIndia
 			? [
 					"Upstox Licensed NSE/BSE Feed",
+					"BSE India (Market Breadth & Circuits)",
+					"NSE IX (GIFT City IFSC) - GIFT Nifty",
 					"CCIL (The Clearing Corporation of India Limited - ccilindia.com)",
 					"FBIL Money Market Benchmarks",
 					"MCX India & COMEX/CMX Commodity Desks",
+					"NCDEX Agricultural Benchmarks",
+					"Synthesized AMC Morning Notes (HDFC, ICICI Pru, SBI MF, Kotak, Nippon India)",
 					"RBI Economic Bulletins & Liquidity Operations",
 					"SEBI Disclosures",
 				]
@@ -307,6 +337,8 @@ export class KnowledgeHubService {
 			topMovers: formattedMovers,
 			ccilFixedIncome,
 			commodityRadar,
+			multiExchangeData,
+			amcConsensus,
 			sectorHighlights: brief.sectorHighlights || sectorHighlights,
 			agentTips: brief.agentTips || agentTips,
 			sources: brief.sources || sources,
@@ -401,6 +433,8 @@ export class KnowledgeHubService {
 		return {
 			...brief,
 			topMovers: formattedMovers,
+			multiExchangeData: brief.multiExchangeData || null,
+			amcConsensus: brief.amcConsensus || null,
 			sectorHighlights: brief.sectorHighlights || sectorHighlights,
 			agentTips: brief.agentTips || agentTips,
 			sources: brief.sources || sources,
@@ -413,6 +447,8 @@ export class KnowledgeHubService {
 
 		let ccilFixedIncome: any = null;
 		let commodityRadar: any = null;
+		let multiExchangeData: any = null;
+		let amcConsensus: any = null;
 
 		if (isIndia) {
 			try {
@@ -429,6 +465,22 @@ export class KnowledgeHubService {
 				if (commRes.success && commRes.data) commodityRadar = commRes.data;
 			} catch (err: any) {
 				console.warn("[KnowledgeHubService] Commodity fetch in generateAndPublishDailyBrief:", err?.message);
+			}
+
+			try {
+				const { multiExchangeMarketService } = await import("./multi-exchange-market-service");
+				const meRes = await multiExchangeMarketService.getMultiExchangeSnapshot(date);
+				if (meRes.success && meRes.data) multiExchangeData = meRes.data;
+			} catch (err: any) {
+				console.warn("[KnowledgeHubService] Multi-exchange in generateAndPublishDailyBrief:", err?.message);
+			}
+
+			try {
+				const { amcResearchService } = await import("./amc-research-service");
+				const amcRes = await amcResearchService.getAmcConsensus(date);
+				if (amcRes.success && amcRes.data) amcConsensus = amcRes.data;
+			} catch (err: any) {
+				console.warn("[KnowledgeHubService] AMC consensus in generateAndPublishDailyBrief:", err?.message);
 			}
 		}
 
@@ -506,6 +558,8 @@ export class KnowledgeHubService {
 			dataSourcesUsed,
 			ccilFixedIncome,
 			commodityRadar,
+			multiExchangeData,
+			amcConsensus,
 			status: "published",
 			version: 1,
 			publishedAt: new Date(),

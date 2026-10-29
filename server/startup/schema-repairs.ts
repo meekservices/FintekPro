@@ -376,6 +376,9 @@ export async function runStartupSchemaRepairs() {
 
 			// Purge and sanitize any stale market_briefs rows that contained outdated $74.8 Brent quotes so fresh brief is generated
 			await migPool.query(`
+				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS multi_exchange_data jsonb;
+				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS amc_consensus jsonb;
+
 				UPDATE market_briefs
 				SET market_snapshot = REPLACE(REPLACE(market_snapshot, '$74.8/bbl', '$114.20/bbl'), 'in the domestic comfort band', 'with elevated pricing monitored closely for imported inflation risks'),
 				    what_changed = REPLACE(what_changed, '$74.8/bbl', '$114.20/bbl')

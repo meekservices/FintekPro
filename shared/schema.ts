@@ -7777,6 +7777,10 @@ export const marketBriefs = pgTable("market_briefs", {
   // Raw Data Sources
   dataSourcesUsed: jsonb("data_sources_used").default([]), // [{source: "NSE", timestamp: "..."}]
   
+  // Multi-Exchange & AMC Intelligence Layer
+  multiExchangeData: jsonb("multi_exchange_data"),
+  amcConsensus: jsonb("amc_consensus"),
+  
   // Approval Workflow
   status: varchar("status", { length: 20 }).default("draft").notNull(), // draft, pending_review, approved, published, rejected
   generatedAt: timestamp("generated_at").defaultNow().notNull(),
