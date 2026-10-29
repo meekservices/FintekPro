@@ -362,17 +362,8 @@ export function getTierComparisonMatrix() {
   };
 }
 
-/**
- * Seed or update curated institutional model portfolios covering all three regulated tiers.
- */
-export async function seedInstitutionalModelPortfolios(): Promise<{ seeded: number; updated: number }> {
-  let seeded = 0;
-  let updated = 0;
-
-  const now = new Date().toISOString();
-
-  // Tier 1: Retail Mutual Fund Portfolios
-  const retailPortfolios = [
+// Tier 1: Retail Mutual Fund Portfolios
+const retailPortfolios = [
     {
       id: "all-weather-india",
       name: "All-Weather India Strategy",
@@ -398,7 +389,7 @@ export async function seedInstitutionalModelPortfolios(): Promise<{ seeded: numb
       portfolioCode: "FP-001",
     },
     {
-      id: "conservative-income-mf",
+      id: "conservative-income",
       name: "Conservative Capital Preserver",
       tagline: "High-grade sovereign gilts, banking PSU debt, and liquid instruments",
       riskProfile: "conservative",
@@ -491,6 +482,29 @@ export async function seedInstitutionalModelPortfolios(): Promise<{ seeded: numb
       highlight: "High Conviction Equity PMS (Min ₹50 Lakhs)",
       icon: "🎯",
       portfolioCode: "FP-PMS-02",
+      allocation: [
+        { category: "direct_equity", label: "Structural High-ROCE Compounders (Upstox)", weight: 80, color: "#3B82F6", icon: "💎" },
+        { category: "mid_cap", label: "High-Growth Emerging Champions", weight: 15, color: "#8B5CF6", icon: "🚀" },
+        { category: "liquid_buffer", label: "Liquid Buffer & Overnight Collateral", weight: 5, color: "#10B981", icon: "🏛️" },
+      ],
+      holdings: [
+        { rank: 1, name: "Tata Consultancy Services Ltd", symbol: "TCS", assetClass: "equity", category: "Stock", weight: 8.0, isin: "INE467B01029", currentReturn: 16.8 },
+        { rank: 2, name: "Titan Company Ltd", symbol: "TITAN", assetClass: "equity", category: "Stock", weight: 7.5, isin: "INE280A01028", currentReturn: 21.4 },
+        { rank: 3, name: "Hindustan Unilever Ltd", symbol: "HINDUNILVR", assetClass: "equity", category: "Stock", weight: 7.0, isin: "INE030A01027", currentReturn: 11.2 },
+        { rank: 4, name: "Infosys Ltd", symbol: "INFY", assetClass: "equity", category: "Stock", weight: 7.0, isin: "INE009A01021", currentReturn: 17.5 },
+        { rank: 5, name: "Larsen & Toubro Ltd", symbol: "LT", assetClass: "equity", category: "Stock", weight: 7.0, isin: "INE018A01030", currentReturn: 22.4 },
+        { rank: 6, name: "Bajaj Finance Ltd", symbol: "BAJFINANCE", assetClass: "equity", category: "Stock", weight: 6.5, isin: "INE296A01024", currentReturn: 19.8 },
+        { rank: 7, name: "Asian Paints Ltd", symbol: "ASIANPAINT", assetClass: "equity", category: "Stock", weight: 6.5, isin: "INE021A01026", currentReturn: 13.6 },
+        { rank: 8, name: "ICICI Bank Ltd", symbol: "ICICIBANK", assetClass: "equity", category: "Stock", weight: 6.5, isin: "INE090A01021", currentReturn: 19.1 },
+        { rank: 9, name: "Bharti Airtel Ltd", symbol: "BHARTIARTL", assetClass: "equity", category: "Stock", weight: 6.5, isin: "INE397D01024", currentReturn: 24.6 },
+        { rank: 10, name: "HCL Technologies Ltd", symbol: "HCLTECH", assetClass: "equity", category: "Stock", weight: 6.0, isin: "INE860A01027", currentReturn: 18.2 },
+        { rank: 11, name: "ITC Ltd", symbol: "ITC", assetClass: "equity", category: "Stock", weight: 6.0, isin: "INE154A01025", currentReturn: 15.4 },
+        { rank: 12, name: "Pidilite Industries Ltd", symbol: "PIDILITIND", assetClass: "equity", category: "Stock", weight: 5.5, isin: "INE318A01026", currentReturn: 18.9 },
+        { rank: 13, name: "Sun Pharmaceutical Industries Ltd", symbol: "SUNPHARMA", assetClass: "equity", category: "Stock", weight: 5.0, isin: "INE044A01036", currentReturn: 23.1 },
+        { rank: 14, name: "Bharat Electronics Ltd", symbol: "BEL", assetClass: "equity", category: "Stock", weight: 5.0, isin: "INE263A01024", currentReturn: 32.5 },
+        { rank: 15, name: "UltraTech Cement Ltd", symbol: "ULTRACEMCO", assetClass: "equity", category: "Stock", weight: 4.5, isin: "INE481G01011", currentReturn: 14.8 },
+        { rank: 16, name: "CCIL TREPS & Overnight Yield Buffer", symbol: "TREPS-LIQ", assetClass: "debt", category: "Money Market", weight: 5.0, currentReturn: 6.6 },
+      ],
     },
   ];
 
@@ -561,6 +575,24 @@ export async function seedInstitutionalModelPortfolios(): Promise<{ seeded: numb
       highlight: "Unlisted Tech Growth AIF (Min ₹1 Crore)",
       icon: "🚀",
       portfolioCode: "FP-AIF-02",
+      allocation: [
+        { category: "unlisted_equity", label: "Late-Stage Market Titans (NSE, Unicorns)", weight: 48, color: "#3B82F6", icon: "🏛️" },
+        { category: "pre_ipo", label: "IPO-Bound Growth Tech Tranches", weight: 36, color: "#F59E0B", icon: "💎" },
+        { category: "structured_debt", label: "Senior Secured Venture Debt Notes", weight: 8, color: "#8B5CF6", icon: "📜" },
+        { category: "liquid_yield", label: "Sovereign T-Bills & Treasury Yield", weight: 8, color: "#10B981", icon: "🛡️" },
+      ],
+      holdings: [
+        { rank: 1, name: "National Stock Exchange of India (NSE)", symbol: "NSE", assetClass: "unlisted", category: "Unlisted Equity", weight: 18.0, currentReturn: 28.5 },
+        { rank: 2, name: "Swiggy Limited Pre-IPO Equity Tranche", symbol: "SWIGGY", assetClass: "unlisted", category: "Pre-IPO", weight: 14.0, currentReturn: 22.0 },
+        { rank: 3, name: "Imagine Marketing Ltd (boAt) Pre-IPO", symbol: "BOAT", assetClass: "unlisted", category: "Pre-IPO", weight: 12.0, currentReturn: 19.5 },
+        { rank: 4, name: "Oravel Stays Ltd (OYO) Private Trust", symbol: "OYO", assetClass: "unlisted", category: "Unlisted Equity", weight: 10.0, currentReturn: 16.2 },
+        { rank: 5, name: "Tata Technologies Private Placement Units", symbol: "TATATECH-PE", assetClass: "unlisted", category: "Pre-IPO", weight: 10.0, currentReturn: 24.8 },
+        { rank: 6, name: "API Holdings (PharmEasy) Growth Tranche", symbol: "PHARMEASY", assetClass: "unlisted", category: "Unlisted Equity", weight: 8.0, currentReturn: 15.0 },
+        { rank: 7, name: "Pine Labs FinTech Private Equity Trust", symbol: "PINELABS", assetClass: "unlisted", category: "Unlisted Equity", weight: 8.0, currentReturn: 18.5 },
+        { rank: 8, name: "Zepto (KiranaKart) Hyperlocal Growth Units", symbol: "ZEPTO", assetClass: "unlisted", category: "Unlisted Equity", weight: 6.0, currentReturn: 32.0 },
+        { rank: 9, name: "Senior Secured Venture Debt Note 2027", symbol: "VENTURE-DEBT", assetClass: "debt", category: "Structured Debt", weight: 7.0, currentReturn: 12.4 },
+        { rank: 10, name: "91-Day Sovereign T-Bills Collateral Reserve", symbol: "TBILL-LIQ", assetClass: "debt", category: "Sovereign Debt", weight: 7.0, currentReturn: 6.85 },
+      ],
     },
   ];
 
@@ -648,7 +680,19 @@ export async function seedInstitutionalModelPortfolios(): Promise<{ seeded: numb
     },
   ];
 
-  const allPortfoliosToSeed = [...retailPortfolios, ...affluentSifPortfolios, ...hniPmsPortfolios, ...uhniAifPortfolios];
+export const allPortfoliosToSeed = [...retailPortfolios, ...affluentSifPortfolios, ...hniPmsPortfolios, ...uhniAifPortfolios];
+
+export function getInstitutionalPortfolioDefinition(id: string) {
+  return allPortfoliosToSeed.find((p) => p.id === id);
+}
+
+/**
+ * Seed or update curated institutional model portfolios covering all three regulated tiers.
+ */
+export async function seedInstitutionalModelPortfolios(): Promise<{ seeded: number; updated: number }> {
+  let seeded = 0;
+  let updated = 0;
+  const now = new Date().toISOString();
 
   for (const item of allPortfoliosToSeed) {
     const existing = await db.execute(sql`SELECT id FROM model_portfolios WHERE id = ${item.id} LIMIT 1`);
@@ -708,7 +752,7 @@ export async function seedInstitutionalModelPortfolios(): Promise<{ seeded: numb
           SET allocation = ${JSON.stringify((item as any).allocation)}::jsonb,
               holdings = ${JSON.stringify((item as any).holdings)}::jsonb,
               total_holdings = ${(item as any).holdings.length}
-          WHERE id = ${item.id} AND (holdings IS NULL OR jsonb_array_length(holdings) = 0 OR ${item.id.startsWith("sif-") || item.id === "hni-multi-asset-alpha-pms"})
+          WHERE id = ${item.id} AND (holdings IS NULL OR jsonb_array_length(holdings) = 0 OR ${item.id.startsWith("sif-") || item.id === "hni-multi-asset-alpha-pms" || item.id === "hni-focused-leaders-pms" || item.id === "uhni-private-tech-disruptors-aif"})
         `);
       }
 

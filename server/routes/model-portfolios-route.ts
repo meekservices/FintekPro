@@ -63,6 +63,7 @@ import {
   validateInvestmentTierCompliance,
   getTierComparisonMatrix,
   seedInstitutionalModelPortfolios,
+  getInstitutionalPortfolioDefinition,
   SEBI_TIER_CONFIGS,
   type PortfolioTier,
 } from "../services/model-portfolio-tier-service";
@@ -1386,8 +1387,19 @@ async function enrichHolding(h: any): Promise<any> {
  *     `investmentHorizonYrs` field (3/5/7yr) stored in portfolio metadata.
  */
 async function enrichPortfolio(portfolio: any, horizonYrs?: number): Promise<any> {
-  const holdings: any[] = Array.isArray(portfolio.holdings) ? portfolio.holdings : [];
-  if (!holdings.length) return portfolio;
+  let holdings: any[] = Array.isArray(portfolio.holdings) ? portfolio.holdings : [];
+  if (!holdings.length) {
+    const portfolioId: string = portfolio.portfolioId ?? portfolio.slug ?? portfolio.id ?? "";
+    const institutionalDef = getInstitutionalPortfolioDefinition(portfolioId);
+    if (institutionalDef && Array.isArray((institutionalDef as any).holdings) && (institutionalDef as any).holdings.length > 0) {
+      holdings = (institutionalDef as any).holdings;
+      portfolio.holdings = holdings;
+      portfolio.allocation = (institutionalDef as any).allocation ?? portfolio.allocation;
+      portfolio.totalHoldings = holdings.length;
+    } else {
+      return portfolio;
+    }
+  }
 
   const portfolioId: string = portfolio.portfolioId ?? portfolio.slug ?? portfolio.id ?? "";
 
@@ -3823,7 +3835,7 @@ modelPortfoliosRouter.get("/", async (req: Request, res: Response) => {
 
     // WEAKNESS-1: Pagination per GCR v1.0 list endpoint requirements
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
-    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10)));
+    const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "100"), 10)));
     const offset = (page - 1) * limit;
 
     // Total count for pagination meta
@@ -3957,7 +3969,41 @@ modelPortfoliosRouter.get("/:id/holdings", isAuthenticated, async (req: Request,
       });
     }
 
-    const rawHoldings: any[] = Array.isArray(result[0].holdings) ? result[0].holdings : [];
+    let rawHoldings: any[] = Array.isArray(result[0].holdings) ? result[0].holdings : [];
+
+    // Fallback: If DB holdings JSONB is empty, check relational table and institutional tier definitions
+    if (rawHoldings.length === 0) {
+      const relational = await getHoldingsForPortfolio(id);
+      if (relational.length > 0) {
+        rawHoldings = relational.map((r: any) => ({
+          rank: r.rank ?? undefined,
+          name: r.instrumentName,
+          symbol: r.symbol,
+          category: r.instrumentType,
+          weight: Number(r.targetWeight ?? r.currentWeight ?? 0),
+          isin: r.isin,
+          currentReturn: r.cagr1y ?? undefined,
+        }));
+      } else {
+        const institutionalDef = getInstitutionalPortfolioDefinition(id);
+        if (institutionalDef && Array.isArray((institutionalDef as any).holdings) && (institutionalDef as any).holdings.length > 0) {
+          rawHoldings = (institutionalDef as any).holdings;
+          // Self-healing writeback: persist back to DB so subsequent reads are instant
+          db.update(modelPortfolios)
+            .set({
+              holdings: rawHoldings as any,
+              allocation: (institutionalDef as any).allocation as any,
+              totalHoldings: rawHoldings.length,
+              updatedAt: new Date(),
+            })
+            .where(eq(modelPortfolios.id, id))
+            .execute()
+            .catch((err: Error) =>
+              logger.warn("[ModelPortfolios] Self-healing holdings write-back failed", { portfolioId: id, error: err.message })
+            );
+        }
+      }
+    }
 
     // Enrich each holding with trailing 12M return via mfapi.in
     // Cached 6h per scheme code — subsequent opens are instant

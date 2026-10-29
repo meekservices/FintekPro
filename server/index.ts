@@ -246,6 +246,13 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 					);
 					await seedModelPortfolioHoldings();
 
+					// Seed institutional model portfolios (PMS, AIF, SIF)
+					logBootProgress("Step 2b2 (bg): Seeding institutional model portfolios...");
+					const { seedInstitutionalModelPortfolios } = await import(
+						"./services/model-portfolio-tier-service"
+					);
+					await seedInstitutionalModelPortfolios();
+
 					// FASP-AI v3.0 — create dynamic portfolio management tables
 					logBootProgress("Step 2c (bg): FASP-AI v3.0 schema migrations...");
 					const { runFASPAIv3Migrations, applyPhaseB_HoldingsUniqueIndex } = await import("./startup/schema-repairs");
@@ -254,10 +261,11 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 					// Phase B — unique index + auto-migrate JSONB holdings → relational table
 					logBootProgress("Step 2d (bg): Phase B — model_portfolio_holdings migration...");
 					await applyPhaseB_HoldingsUniqueIndex();
-					const { ensureHoldingsRelationalTablePopulated } = await import(
+					const { ensureHoldingsRelationalTablePopulated, migrateHoldingsToRelationalTable } = await import(
 						"./services/model-portfolio-holdings-service"
 					);
 					await ensureHoldingsRelationalTablePopulated();
+					await migrateHoldingsToRelationalTable();
 
 					// Phase C — ISIN + schemeCode resolver + sub_category + benchmarkSchemeCode
 					// Idempotent: safe to run every startup. Resolver fires in background via setImmediate.

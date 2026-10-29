@@ -112,6 +112,14 @@ export async function runStartupSchemaRepairs() {
 			} catch { /* non-fatal */ }
 		}
 
+		// ── GCR v1.0 / Model Portfolio Repair: Purge phantom duplicate 'conservative-income-mf' ──
+		try {
+			await migPool.query(`DELETE FROM model_portfolio_holdings WHERE portfolio_id = 'conservative-income-mf'`);
+			await migPool.query(`DELETE FROM model_portfolios WHERE id = 'conservative-income-mf'`);
+		} catch (err: any) {
+			console.warn("  ⚠️ [ModelPortfolioRepair] Purge duplicate conservative-income-mf:", err?.message?.slice(0, 80));
+		}
+
 		// ── GCR v1.0: Cross-Engine Consensus Repair: Retire Contradictory Picks (AMBUJACEM) ──
 		try {
 			const res = await migPool.query(`
@@ -5664,6 +5672,9 @@ export async function repairCorruptModelPortfolioCAGRs(dbInstance?: any): Promis
     "equity-momentum-india":     { cagr1Y: 18.5, cagr3Y: 20.4, cagr5Y: 22.8, benchmarkCagr1Y: 18.4, benchmarkName: "NIFTY 200 Momentum 30 TRI", sharpeRatio: 0.89, maxDrawdown: -18.2, volatility: 20.5, beta: 1.15 },
     "small-cap-alpha":           { cagr1Y: 21.3, cagr3Y: 23.8, cagr5Y: 26.1, benchmarkCagr1Y: 18.4, benchmarkName: "NIFTY Midcap 150",          sharpeRatio: 0.76, maxDrawdown: -25.2, volatility: 26.4, beta: 1.25 },
     "fii-inflow-compounder":     { cagr1Y: 17.6, cagr3Y: 18.2, cagr5Y: 19.4, benchmarkCagr1Y: 13.5, benchmarkName: "NIFTY 500 TRI",             sharpeRatio: 0.98, maxDrawdown: -14.6, volatility: 16.4, beta: 1.04 },
+    "hni-multi-asset-alpha-pms": { cagr1Y: 14.41, cagr3Y: 15.8, cagr5Y: 17.2, benchmarkCagr1Y: 12.32, benchmarkName: "NSE Multi Asset Index 1", sharpeRatio: 1.24, maxDrawdown: -13.2, volatility: 11.8, beta: 0.82 },
+    "hni-focused-leaders-pms":   { cagr1Y: 18.2, cagr3Y: 19.8, cagr5Y: 21.4, benchmarkCagr1Y: 14.2, benchmarkName: "BSE 200 TRI",               sharpeRatio: 1.18, maxDrawdown: -14.8, volatility: 15.6, beta: 0.92 },
+    "uhni-private-tech-disruptors-aif": { cagr1Y: 22.4, cagr3Y: 24.6, cagr5Y: 26.8, benchmarkCagr1Y: 15.2, benchmarkName: "Crisil AIF Benchmark (Cat II)", sharpeRatio: 1.25, maxDrawdown: -16.2, volatility: 18.4, beta: 0.85 },
   };
 
   let calibratedCount = 0;
