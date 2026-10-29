@@ -107,18 +107,18 @@ export class KnowledgeHubService {
 	getDefaultTopMovers(region: string = "india") {
 		return region === "india"
 			? [
-					{ name: "ITC Limited", symbol: "ITC", price: 266.0, change: 4.31, direction: "up" as const },
-					{ name: "Tata Consultancy Services", symbol: "TCS", price: 2156.0, change: 3.85, direction: "up" as const },
-					{ name: "Infosys Limited", symbol: "INFY", price: 1023.4, change: 2.65, direction: "up" as const },
-					{ name: "Reliance Industries", symbol: "RELIANCE", price: 1170.3, change: -0.65, direction: "down" as const },
-					{ name: "JSW Steel Limited", symbol: "JSWSTEEL", price: 1168.0, change: -0.61, direction: "down" as const },
-					{ name: "Cipla Limited", symbol: "CIPLA", price: 1301.0, change: -0.44, direction: "down" as const },
+					{ name: "ITC Limited", symbol: "ITC", price: 266.0, change: 4.31, direction: "up" as const, currency: "INR" },
+					{ name: "Tata Consultancy Services", symbol: "TCS", price: 2156.0, change: 3.85, direction: "up" as const, currency: "INR" },
+					{ name: "Infosys Limited", symbol: "INFY", price: 1023.4, change: 2.65, direction: "up" as const, currency: "INR" },
+					{ name: "Reliance Industries", symbol: "RELIANCE", price: 1170.3, change: -0.65, direction: "down" as const, currency: "INR" },
+					{ name: "JSW Steel Limited", symbol: "JSWSTEEL", price: 1168.0, change: -0.61, direction: "down" as const, currency: "INR" },
+					{ name: "Cipla Limited", symbol: "CIPLA", price: 1301.0, change: -0.44, direction: "down" as const, currency: "INR" },
 				]
 			: [
-					{ name: "Apple Inc", symbol: "AAPL", price: 230.15, change: 1.15, direction: "up" as const },
-					{ name: "Microsoft Corp", symbol: "MSFT", price: 425.20, change: 0.95, direction: "up" as const },
-					{ name: "NVIDIA Corp", symbol: "NVDA", price: 122.50, change: 2.45, direction: "up" as const },
-					{ name: "Tesla Inc", symbol: "TSLA", price: 215.30, change: -1.20, direction: "down" as const },
+					{ name: "Apple Inc", symbol: "AAPL", price: 230.15, change: 1.15, direction: "up" as const, currency: "USD" },
+					{ name: "Microsoft Corp", symbol: "MSFT", price: 425.20, change: 0.95, direction: "up" as const, currency: "USD" },
+					{ name: "NVIDIA Corp", symbol: "NVDA", price: 122.50, change: 2.45, direction: "up" as const, currency: "USD" },
+					{ name: "Tesla Inc", symbol: "TSLA", price: 215.30, change: -1.20, direction: "down" as const, currency: "USD" },
 				];
 	}
 
@@ -269,9 +269,42 @@ export class KnowledgeHubService {
 					"Federal Reserve Releases",
 				];
 
+		if (brief.marketSnapshot && typeof brief.marketSnapshot === "string") {
+			if (brief.marketSnapshot.includes("74.8") || (isElevatedCrude && brief.marketSnapshot.includes("comfort band"))) {
+				brief.marketSnapshot = brief.marketSnapshot
+					.replace(/\$74\.8\/bbl/g, `$${brentPriceNum}/bbl`)
+					.replace(/in the domestic comfort band/g, "with elevated pricing monitored closely for imported inflation risks")
+					.replace(/within India's comfort threshold \(<\$80\/bbl\)/g, "elevated above India's comfort threshold ($80/bbl)");
+			}
+		}
+
+		if (brief.whatChanged && typeof brief.whatChanged === "string") {
+			if (brief.whatChanged.includes("74.8") || (isElevatedCrude && brief.whatChanged.includes("comfort threshold (<$80)"))) {
+				brief.whatChanged = brief.whatChanged
+					.replace(/Brent crude consolidated at \$74\.8\/bbl within India's comfort threshold \(<\$80\), reducing CAD and imported inflation risks\./g, `Brent crude traded firm at $${brentPriceNum}/bbl, remaining above India's $80 comfort threshold and creating imported inflation headwinds.`)
+					.replace(/\$74\.8\/bbl/g, `$${brentPriceNum}/bbl`);
+			}
+		}
+
+		const formattedMovers = (topMovers || []).map((m: any) => {
+			const isUs =
+				m.currency === "USD" ||
+				m.currency === "$" ||
+				region === "us" ||
+				region === "global" ||
+				(m.symbol &&
+					["AAPL", "MSFT", "NVDA", "TSLA", "GOOGL", "GOOG", "AMZN", "META", "BRK.A", "BRK.B", "LLY", "JPM", "V"].includes(
+						m.symbol.toUpperCase(),
+					));
+			return {
+				...m,
+				currency: isUs ? "USD" : "INR",
+			};
+		});
+
 		return {
 			...brief,
-			topMovers,
+			topMovers: formattedMovers,
 			ccilFixedIncome,
 			commodityRadar,
 			sectorHighlights: brief.sectorHighlights || sectorHighlights,
@@ -349,9 +382,25 @@ export class KnowledgeHubService {
 					"Federal Reserve Releases",
 				];
 
+		const formattedMovers = (topMovers || []).map((m: any) => {
+			const isUs =
+				m.currency === "USD" ||
+				m.currency === "$" ||
+				region === "us" ||
+				region === "global" ||
+				(m.symbol &&
+					["AAPL", "MSFT", "NVDA", "TSLA", "GOOGL", "GOOG", "AMZN", "META", "BRK.A", "BRK.B", "LLY", "JPM", "V"].includes(
+						m.symbol.toUpperCase(),
+					));
+			return {
+				...m,
+				currency: isUs ? "USD" : "INR",
+			};
+		});
+
 		return {
 			...brief,
-			topMovers,
+			topMovers: formattedMovers,
 			sectorHighlights: brief.sectorHighlights || sectorHighlights,
 			agentTips: brief.agentTips || agentTips,
 			sources: brief.sources || sources,

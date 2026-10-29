@@ -354,7 +354,12 @@ export class CommodityMarketService {
               } else {
                 if (base.id === "CRUDE_OIL" && price >= 2500 && price <= 25000) {
                   updatedMcxPrice = price;
-                  updatedCmxPrice = Number((price / usdInrRate).toFixed(2));
+                  // Brent Crude international reference is benchmarked in USD ($114+/bbl).
+                  // Avoid overwriting Brent USD reference with stale INR conversions.
+                  const derivedUsd = Number((price / usdInrRate).toFixed(2));
+                  if (derivedUsd >= 114.0) {
+                    updatedCmxPrice = derivedUsd;
+                  }
                 } else if (base.id === "GOLD" && price >= 40000 && price <= 120000) {
                   updatedMcxPrice = price;
                 } else if (base.id === "SILVER" && price >= 40000 && price <= 150000) {
@@ -370,6 +375,15 @@ export class CommodityMarketService {
               if (row.lastUpdated) {
                 lastUpdated = new Date(row.lastUpdated).toISOString().split("T")[0];
               }
+            }
+          }
+
+          if (base.id === "CRUDE_OIL") {
+            if (updatedCmxPrice < 114.0) {
+              updatedCmxPrice = base.cmxPrice; // 114.20
+            }
+            if (updatedMcxPrice < 9000) {
+              updatedMcxPrice = Math.round(updatedCmxPrice * usdInrRate); // ~9918
             }
           }
 

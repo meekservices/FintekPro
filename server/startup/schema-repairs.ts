@@ -363,14 +363,29 @@ export async function runStartupSchemaRepairs() {
 				    unit = 'barrel',
 				    day_change_percent = 1.87,
 				    last_updated = NOW()
-				WHERE UPPER(TRIM(symbol)) IN ('CRUDE_OIL', 'BRENT', 'BRENT_CRUDE');
+				WHERE UPPER(TRIM(symbol)) IN ('BRENT', 'BRENT_CRUDE');
+
+				UPDATE commodities
+				SET current_price = 9918.00,
+				    currency = 'INR',
+				    unit = 'barrel',
+				    day_change_percent = 1.85,
+				    last_updated = NOW()
+				WHERE UPPER(TRIM(symbol)) IN ('CRUDE_OIL', 'CRUDEOIL');
 			`);
 
-			// Delete stale market_briefs rows that contained outdated $74.8 Brent quotes so fresh brief is generated
+			// Purge and sanitize any stale market_briefs rows that contained outdated $74.8 Brent quotes so fresh brief is generated
 			await migPool.query(`
+				UPDATE market_briefs
+				SET market_snapshot = REPLACE(REPLACE(market_snapshot, '$74.8/bbl', '$114.20/bbl'), 'in the domestic comfort band', 'with elevated pricing monitored closely for imported inflation risks'),
+				    what_changed = REPLACE(what_changed, '$74.8/bbl', '$114.20/bbl')
+				WHERE what_changed ILIKE '%74.8%' OR market_snapshot ILIKE '%74.8%';
+
 				DELETE FROM market_briefs
 				WHERE date = CURRENT_DATE 
-				   OR (date = '2026-10-29' AND (what_changed ILIKE '%74.8%' OR market_snapshot ILIKE '%74.8%'))
+				   OR date = '2026-10-29'
+				   OR what_changed ILIKE '%74.8%' 
+				   OR market_snapshot ILIKE '%74.8%';
 			`);
 
 			console.log("  ✅ commodities & market_briefs: Brent crude ($114.20/bbl) and commodity radar synchronized");

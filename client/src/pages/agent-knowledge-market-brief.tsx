@@ -45,6 +45,7 @@ interface MarketBrief {
 		price?: number;
 		change: number;
 		direction: "up" | "down";
+		currency?: string;
 	}[];
 	ccilFixedIncome?: {
 		fbilMiborOvernight: number;
@@ -140,18 +141,18 @@ function getClientFallbackBrief(region: string): MarketBrief {
 			: "1. Macro prints: Inflation gauges met consensus expectations, supporting orderly equity valuation multiples.\n2. Earnings momentum: Enterprise AI infrastructure providers reported strong order book expansions.",
 		topMovers: isIndia
 			? [
-					{ name: "ITC Limited", symbol: "ITC", price: 266.0, change: 4.31, direction: "up" },
-					{ name: "Tata Consultancy Services", symbol: "TCS", price: 2156.0, change: 3.85, direction: "up" },
-					{ name: "Infosys Limited", symbol: "INFY", price: 1023.4, change: 2.65, direction: "up" },
-					{ name: "Reliance Industries", symbol: "RELIANCE", price: 1170.3, change: -0.65, direction: "down" },
-					{ name: "JSW Steel Limited", symbol: "JSWSTEEL", price: 1168.0, change: -0.61, direction: "down" },
-					{ name: "Cipla Limited", symbol: "CIPLA", price: 1301.0, change: -0.44, direction: "down" },
+					{ name: "ITC Limited", symbol: "ITC", price: 266.0, change: 4.31, direction: "up", currency: "INR" },
+					{ name: "Tata Consultancy Services", symbol: "TCS", price: 2156.0, change: 3.85, direction: "up", currency: "INR" },
+					{ name: "Infosys Limited", symbol: "INFY", price: 1023.4, change: 2.65, direction: "up", currency: "INR" },
+					{ name: "Reliance Industries", symbol: "RELIANCE", price: 1170.3, change: -0.65, direction: "down", currency: "INR" },
+					{ name: "JSW Steel Limited", symbol: "JSWSTEEL", price: 1168.0, change: -0.61, direction: "down", currency: "INR" },
+					{ name: "Cipla Limited", symbol: "CIPLA", price: 1301.0, change: -0.44, direction: "down", currency: "INR" },
 				]
 			: [
-					{ name: "Apple Inc", symbol: "AAPL", price: 230.15, change: 1.15, direction: "up" },
-					{ name: "Microsoft Corp", symbol: "MSFT", price: 425.20, change: 0.95, direction: "up" },
-					{ name: "NVIDIA Corp", symbol: "NVDA", price: 122.50, change: 2.45, direction: "up" },
-					{ name: "Tesla Inc", symbol: "TSLA", price: 215.30, change: -1.20, direction: "down" },
+					{ name: "Apple Inc", symbol: "AAPL", price: 230.15, change: 1.15, direction: "up", currency: "USD" },
+					{ name: "Microsoft Corp", symbol: "MSFT", price: 425.20, change: 0.95, direction: "up", currency: "USD" },
+					{ name: "NVIDIA Corp", symbol: "NVDA", price: 122.50, change: 2.45, direction: "up", currency: "USD" },
+					{ name: "Tesla Inc", symbol: "TSLA", price: 215.30, change: -1.20, direction: "down", currency: "USD" },
 				],
 		ccilFixedIncome: isIndia
 			? {
@@ -531,49 +532,71 @@ export default function AgentKnowledgeMarketBrief() {
 										Top Movers
 									</h3>
 									<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-										{briefToDisplay.topMovers.map((mover, idx) => (
-											<div
-												key={idx}
-												className={`p-3 rounded-lg border ${
-													mover.direction === "up"
-														? "bg-emerald-500/10 border-emerald-500/30"
-														: "bg-red-500/10 border-red-500/30"
-												}`}
-											>
-												<div className="flex items-start justify-between gap-1">
-													<p className="font-medium text-foreground text-sm truncate">
-														{mover.name}
-													</p>
-													{mover.price !== undefined && mover.price !== null && (
-														<span className="text-xs font-mono font-semibold text-foreground/80 shrink-0">
-															₹{mover.price.toLocaleString("en-IN")}
+										{briefToDisplay.topMovers.map((mover, idx) => {
+											const isUsSecurity =
+												mover.currency === "USD" ||
+												mover.currency === "$" ||
+												briefToDisplay.region === "us" ||
+												briefToDisplay.region === "global" ||
+												(mover.symbol &&
+													["AAPL", "MSFT", "NVDA", "TSLA", "GOOGL", "GOOG", "AMZN", "META", "BRK.A", "BRK.B", "LLY", "JPM", "V"].includes(
+														mover.symbol.toUpperCase(),
+													));
+											const currencySymbol = isUsSecurity ? "$" : "₹";
+											const formattedPrice = isUsSecurity
+												? mover.price?.toLocaleString("en-US", {
+														minimumFractionDigits: 2,
+														maximumFractionDigits: 2,
+													})
+												: mover.price?.toLocaleString("en-IN", {
+														minimumFractionDigits: 2,
+														maximumFractionDigits: 2,
+													});
+
+											return (
+												<div
+													key={idx}
+													className={`p-3 rounded-lg border ${
+														mover.direction === "up"
+															? "bg-emerald-500/10 border-emerald-500/30"
+															: "bg-red-500/10 border-red-500/30"
+													}`}
+												>
+													<div className="flex items-start justify-between gap-1">
+														<p className="font-medium text-foreground text-sm truncate">
+															{mover.name}
+														</p>
+														{mover.price !== undefined && mover.price !== null && (
+															<span className="text-xs font-mono font-semibold text-foreground/80 shrink-0">
+																{currencySymbol}{formattedPrice}
+															</span>
+														)}
+													</div>
+													{mover.symbol && (
+														<p className="text-xs text-muted-foreground">
+															{mover.symbol}
+														</p>
+													)}
+													<div className="flex items-center gap-1 mt-1">
+														{mover.direction === "up" ? (
+															<TrendingUp className="h-4 w-4 text-emerald-500" />
+														) : (
+															<TrendingDown className="h-4 w-4 text-red-500" />
+														)}
+														<span
+															className={`font-semibold ${
+																mover.direction === "up"
+																	? "text-emerald-400"
+																	: "text-red-400"
+															}`}
+														>
+															{mover.change > 0 ? "+" : ""}
+															{mover.change.toFixed(2)}%
 														</span>
-													)}
+													</div>
 												</div>
-												{mover.symbol && (
-													<p className="text-xs text-muted-foreground">
-														{mover.symbol}
-													</p>
-												)}
-												<div className="flex items-center gap-1 mt-1">
-													{mover.direction === "up" ? (
-														<TrendingUp className="h-4 w-4 text-emerald-500" />
-													) : (
-														<TrendingDown className="h-4 w-4 text-red-500" />
-													)}
-													<span
-														className={`font-semibold ${
-															mover.direction === "up"
-																? "text-emerald-400"
-																: "text-red-400"
-														}`}
-													>
-														{mover.change > 0 ? "+" : ""}
-														{mover.change.toFixed(2)}%
-													</span>
-												</div>
-											</div>
-										))}
+											);
+										})}
 									</div>
 								</div>
 							)}
