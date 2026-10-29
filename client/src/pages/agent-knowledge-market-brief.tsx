@@ -394,7 +394,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					},
 				],
 		keyRisks: isIndia
-			? "Crude oil volatility (Brent ~$74–$78/bbl), US Dollar Index (DXY) movements, and shifting foreign institutional (FPI) derivative positions."
+			? "Elevated crude oil volatility (Brent currently $110+/bbl), US Dollar Index (DXY) movements, global trade tariff negotiations, and shifting foreign institutional (FPI) derivative positions."
 			: "Interest rate trajectory, commercial real estate refinancing, and geopolitical trade developments.",
 		agentTips: isIndia
 			? "Counsel clients against trying to time near-term volatility. Recommend balanced multi-asset allocation strategies and continuing systematic investment plans (SIPs) to benefit from rupee-cost averaging."
@@ -589,8 +589,22 @@ export default function AgentKnowledgeMarketBrief() {
 
 	const briefToDisplay =
 		todaysBrief?.marketSnapshot
-			? todaysBrief
+			? { ...todaysBrief }
 			: getClientFallbackBrief(selectedRegion);
+
+	// Defense in depth: Ensure keyRisks never displays stale $74.8 Brent quotes even if cached by react-query
+	if (briefToDisplay?.keyRisks && typeof briefToDisplay.keyRisks === "string") {
+		const liveBrent = briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd;
+		const brentDisplay = liveBrent ? `$${liveBrent}/bbl` : "$110+/bbl";
+		briefToDisplay.keyRisks = briefToDisplay.keyRisks
+			.replace(/\$74\.8\/bbl/g, brentDisplay)
+			.replace(/74\.8/g, liveBrent ? `${liveBrent}` : "110.21")
+			.replace(/~\$74[–-](\$?)78\/bbl/g, brentDisplay)
+			.replace(/\$74[–-](\$?)78\/bbl/g, brentDisplay);
+		if (briefToDisplay.keyRisks.startsWith("Crude oil volatility")) {
+			briefToDisplay.keyRisks = briefToDisplay.keyRisks.replace("Crude oil volatility", "Elevated crude oil volatility");
+		}
+	}
 
 	return (
 		<div className="p-6 space-y-6">

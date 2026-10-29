@@ -302,7 +302,8 @@ export class KnowledgeHubService {
 		if (brief.marketSnapshot && typeof brief.marketSnapshot === "string") {
 			if (brief.marketSnapshot.includes("74.8") || (isElevatedCrude && brief.marketSnapshot.includes("comfort band"))) {
 				brief.marketSnapshot = brief.marketSnapshot
-					.replace(/\$74\.8\/bbl/g, `$${brentPriceNum}/bbl`)
+					.replace(/\$74\.8\/bbl/g, brentStr)
+					.replace(/\$74\.8/g, `$${brentPriceNum}`)
 					.replace(/in the domestic comfort band/g, "with elevated pricing monitored closely for imported inflation risks")
 					.replace(/within India's comfort threshold \(<\$80\/bbl\)/g, "elevated above India's comfort threshold ($80/bbl)");
 			}
@@ -311,8 +312,23 @@ export class KnowledgeHubService {
 		if (brief.whatChanged && typeof brief.whatChanged === "string") {
 			if (brief.whatChanged.includes("74.8") || (isElevatedCrude && brief.whatChanged.includes("comfort threshold (<$80)"))) {
 				brief.whatChanged = brief.whatChanged
-					.replace(/Brent crude consolidated at \$74\.8\/bbl within India's comfort threshold \(<\$80\), reducing CAD and imported inflation risks\./g, `Brent crude traded firm at $${brentPriceNum}/bbl, remaining above India's $80 comfort threshold and creating imported inflation headwinds.`)
-					.replace(/\$74\.8\/bbl/g, `$${brentPriceNum}/bbl`);
+					.replace(/Brent crude consolidated at \$74\.8\/bbl within India's comfort threshold \(<\$80\), reducing CAD and imported inflation risks\./g, `Brent crude traded firm at ${brentStr}, remaining above India's $80 comfort threshold and creating imported inflation headwinds.`)
+					.replace(/\$74\.8\/bbl/g, brentStr)
+					.replace(/\$74\.8/g, `$${brentPriceNum}`);
+			}
+		}
+
+		if (brief.keyRisks && typeof brief.keyRisks === "string") {
+			brief.keyRisks = brief.keyRisks
+				.replace(/\$74\.8\/bbl/g, brentStr)
+				.replace(/\$74\.8/g, `$${brentPriceNum}`)
+				.replace(/74\.8/g, `${brentPriceNum}`)
+				.replace(/\~\$74[–\-](\$?)78\/bbl/g, brentStr)
+				.replace(/\$74[–\-](\$?)78\/bbl/g, brentStr)
+				.replace(/Brent currently at \$[0-9.]+\/bbl/g, `Brent currently at ${brentStr}`)
+				.replace(/Brent currently at [0-9.]+/g, `Brent currently at ${brentStr}`);
+			if (isElevatedCrude && brief.keyRisks.startsWith("Crude oil volatility")) {
+				brief.keyRisks = brief.keyRisks.replace("Crude oil volatility", "Elevated crude oil volatility");
 			}
 		}
 
@@ -679,6 +695,43 @@ export class KnowledgeHubService {
 				}
 			: null;
 
+		const brentPriceNum = (brief.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? defaultCommodityRadar?.crudeOilBreakevenStatus?.brentUsd) ?? 114.2;
+		const brentStr = `$${brentPriceNum}/bbl`;
+		const isElevatedCrude = brentPriceNum > 85;
+
+		if (brief.marketSnapshot && typeof brief.marketSnapshot === "string") {
+			if (brief.marketSnapshot.includes("74.8") || (isElevatedCrude && brief.marketSnapshot.includes("comfort band"))) {
+				brief.marketSnapshot = brief.marketSnapshot
+					.replace(/\$74\.8\/bbl/g, brentStr)
+					.replace(/\$74\.8/g, `$${brentPriceNum}`)
+					.replace(/in the domestic comfort band/g, "with elevated pricing monitored closely for imported inflation risks")
+					.replace(/within India's comfort threshold \(<\$80\/bbl\)/g, "elevated above India's comfort threshold ($80/bbl)");
+			}
+		}
+
+		if (brief.whatChanged && typeof brief.whatChanged === "string") {
+			if (brief.whatChanged.includes("74.8") || (isElevatedCrude && brief.whatChanged.includes("comfort threshold (<$80)"))) {
+				brief.whatChanged = brief.whatChanged
+					.replace(/Brent crude consolidated at \$74\.8\/bbl within India's comfort threshold \(<\$80\), reducing CAD and imported inflation risks\./g, `Brent crude traded firm at ${brentStr}, remaining above India's $80 comfort threshold and creating imported inflation headwinds.`)
+					.replace(/\$74\.8\/bbl/g, brentStr)
+					.replace(/\$74\.8/g, `$${brentPriceNum}`);
+			}
+		}
+
+		if (brief.keyRisks && typeof brief.keyRisks === "string") {
+			brief.keyRisks = brief.keyRisks
+				.replace(/\$74\.8\/bbl/g, brentStr)
+				.replace(/\$74\.8/g, `$${brentPriceNum}`)
+				.replace(/74\.8/g, `${brentPriceNum}`)
+				.replace(/\~\$74[–\-](\$?)78\/bbl/g, brentStr)
+				.replace(/\$74[–\-](\$?)78\/bbl/g, brentStr)
+				.replace(/Brent currently at \$[0-9.]+\/bbl/g, `Brent currently at ${brentStr}`)
+				.replace(/Brent currently at [0-9.]+/g, `Brent currently at ${brentStr}`);
+			if (isElevatedCrude && brief.keyRisks.startsWith("Crude oil volatility")) {
+				brief.keyRisks = brief.keyRisks.replace("Crude oil volatility", "Elevated crude oil volatility");
+			}
+		}
+
 		return {
 			...brief,
 			topMovers: formattedMovers,
@@ -737,11 +790,15 @@ export class KnowledgeHubService {
 
 		const gsecYieldStr = ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? 6.79;
 		const trepsRateStr = ccilFixedIncome?.treps?.weightedAverageRate ?? 6.42;
-		const brentStr = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? 114.2;
-		const isElevatedB = Number(brentStr) > 85;
+		const brentPriceNum = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? 114.2;
+		const brentStr = `$${brentPriceNum}/bbl`;
+		const goldStr = commodityRadar?.commodities?.[0]?.mcxPrice
+			? `₹${commodityRadar.commodities[0].mcxPrice.toLocaleString("en-IN")}/10g`
+			: "₹78,450/10g";
+		const isElevatedB = Number(brentPriceNum) > 85;
 
 		let marketSnapshot = isIndia
-			? `Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at ${gsecYieldStr}%, backed by CCIL sovereign clearing, offering attractive +${(gsecYieldStr - 4.2).toFixed(2)}% real yield spreads. CCIL TREPS overnight funding rate printed at ${trepsRateStr}%, reflecting balanced systemic money market liquidity. Brent crude traded at $${brentStr}/bbl${isElevatedB ? ", remaining elevated above India's $80 comfort threshold and keeping imported inflation risks active" : " in the domestic comfort band"}.`
+			? `Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at ${gsecYieldStr}%, backed by CCIL sovereign clearing, offering attractive +${(gsecYieldStr - 4.2).toFixed(2)}% real yield spreads. CCIL TREPS overnight funding rate printed at ${trepsRateStr}%, reflecting balanced systemic money market liquidity. Brent crude traded at ${brentStr}${isElevatedB ? ", remaining elevated above India's $80 comfort threshold and keeping imported inflation risks active" : " in the domestic comfort band"}.`
 			: "US equities traded higher with the S&P 500 and Nasdaq supported by megacap technology earnings and steady labor market prints. 10-year Treasury yields consolidated as markets digested central bank policy commentary.";
 
 		// Fetch live Indian indices for realistic market snapshot
@@ -760,7 +817,7 @@ export class KnowledgeHubService {
 						const sensexPts = `${Math.abs(sensex.netChange).toFixed(1)} pts (${sensex.percentChange >= 0 ? "+" : ""}${sensex.percentChange.toFixed(2)}%) to ${sensex.price.toLocaleString("en-IN")}`;
 						const bankStr = bankNifty ? ` Nifty Bank traded at ${bankNifty.price.toLocaleString("en-IN")} (${bankNifty.percentChange >= 0 ? "+" : ""}${bankNifty.percentChange.toFixed(2)}%).` : "";
 
-						marketSnapshot = `Indian equity benchmarks traded with ${nifty.netChange >= 0 ? "positive" : "defensive"} momentum today. Frontline index Nifty 50 ${niftyDir} ${niftyPts}, while the 30-share BSE Sensex consolidated, ${sensexDir} ${sensexPts}.${bankStr} The benchmark 10-year Indian Government Bond (G-Sec) yield hovered near ${gsecYieldStr}%, backed by CCIL sovereign clearing, offering resilient real yield spreads (+${(gsecYieldStr - 4.2).toFixed(2)}% over CPI). CCIL TREPS overnight weighted average rate printed at ${trepsRateStr}%, signaling comfortable money market liquidity. Brent crude traded at $${brentStr}/bbl, anchoring imported inflation expectations. Domestic institutional inflows (DIIs) provided strong underlying liquidity support through ongoing mutual fund SIP commitments (~₹26,000+ Cr monthly run-rate).`;
+						marketSnapshot = `Indian equity benchmarks traded with ${nifty.netChange >= 0 ? "positive" : "defensive"} momentum today. Frontline index Nifty 50 ${niftyDir} ${niftyPts}, while the 30-share BSE Sensex consolidated, ${sensexDir} ${sensexPts}.${bankStr} The benchmark 10-year Indian Government Bond (G-Sec) yield hovered near ${gsecYieldStr}%, backed by CCIL sovereign clearing, offering resilient real yield spreads (+${(gsecYieldStr - 4.2).toFixed(2)}% over CPI). CCIL TREPS overnight weighted average rate printed at ${trepsRateStr}%, signaling comfortable money market liquidity. Brent crude traded at ${brentStr}, anchoring imported inflation expectations. Domestic institutional inflows (DIIs) provided strong underlying liquidity support through ongoing mutual fund SIP commitments (~₹26,000+ Cr monthly run-rate).`;
 					}
 				}
 			} catch (idxErr: any) {
@@ -770,14 +827,14 @@ export class KnowledgeHubService {
 
 		const whatChanged = isIndia
 			? `1. Sovereign Debt & Money Markets: CCIL 10-Year Benchmark G-Sec yield traded at ${gsecYieldStr}%; CCIL TREPS overnight repo volume remained healthy with weighted average rate at ${trepsRateStr}%.\n2. Commodity Radar: ${
-				isElevatedCrude
+				isElevatedB
 					? `Brent crude traded firm at ${brentStr}, staying above India's $80 comfort threshold and elevating imported inflation and CAD risks. MCX Gold printed at ${goldStr} on sustained safe-haven demand.`
 					: `Brent crude consolidated at ${brentStr} within India's comfort threshold (<$80), reducing CAD and imported inflation risks. MCX Gold traded firm on steady consumer and central bank demand.`
 			}\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows.`
 			: "1. Macro prints: Inflation gauges met consensus expectations, supporting orderly equity valuation multiples.\n2. Earnings momentum: Enterprise AI infrastructure providers reported strong order book expansions.";
 
 		const keyRisks = isIndia
-			? `Crude oil volatility (Brent currently at ${brentStr}), US Dollar Index (DXY) movements, global trade tariff negotiations, and shifting foreign institutional (FPI) derivative positions.`
+			? `${isElevatedB ? "Elevated crude" : "Crude"} oil volatility (Brent currently at ${brentStr}), US Dollar Index (DXY) movements, global trade tariff negotiations, and shifting foreign institutional (FPI) derivative positions.`
 			: "Interest rate trajectory, commercial real estate refinancing, and geopolitical trade developments.";
 
 		const opportunityAreas = isIndia

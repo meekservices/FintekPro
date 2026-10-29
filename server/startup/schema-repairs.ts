@@ -397,14 +397,18 @@ export async function runStartupSchemaRepairs() {
 
 				UPDATE market_briefs
 				SET market_snapshot = REPLACE(REPLACE(market_snapshot, '$74.8/bbl', '$114.20/bbl'), 'in the domestic comfort band', 'with elevated pricing monitored closely for imported inflation risks'),
-				    what_changed = REPLACE(what_changed, '$74.8/bbl', '$114.20/bbl')
-				WHERE what_changed ILIKE '%74.8%' OR market_snapshot ILIKE '%74.8%';
+				    what_changed = REPLACE(what_changed, '$74.8/bbl', '$114.20/bbl'),
+				    key_risks = REPLACE(REPLACE(REPLACE(key_risks, '$74.8/bbl', '$110.21/bbl'), '74.8', '110.21'), 'Crude oil volatility', 'Elevated crude oil volatility')
+				WHERE what_changed ILIKE '%74.8%' 
+				   OR market_snapshot ILIKE '%74.8%' 
+				   OR key_risks ILIKE '%74.8%';
 
 				DELETE FROM market_briefs
-				WHERE date = CURRENT_DATE 
-				   OR date = '2026-10-29'
+				WHERE "date"::text = CURRENT_DATE::text 
+				   OR "date"::text = '2026-10-29'
 				   OR what_changed ILIKE '%74.8%' 
-				   OR market_snapshot ILIKE '%74.8%';
+				   OR market_snapshot ILIKE '%74.8%'
+				   OR key_risks ILIKE '%74.8%';
 			`);
 
 			console.log("  ✅ commodities & market_briefs: Brent crude ($114.20/bbl) and commodity radar synchronized");
