@@ -961,7 +961,7 @@ export default function AgentKnowledgeMarketBrief() {
 										{briefToDisplay.commodityRadar.commodities?.map((item, idx) => (
 											<div key={idx} className="p-3 rounded-lg bg-card/60 border border-border/60 space-y-1.5">
 												<div className="flex items-center justify-between">
-													<span className="font-semibold text-foreground text-sm truncate">{item.name}</span>
+													<span className="font-semibold text-foreground text-sm truncate" title={item.name}>{item.name}</span>
 													<Badge
 														variant="outline"
 														className={`text-[10px] px-1.5 py-0 ${

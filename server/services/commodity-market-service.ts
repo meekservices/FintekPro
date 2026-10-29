@@ -149,7 +149,7 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
   },
   {
     id: "COPPER",
-    name: "Copper ('Dr. Copper')",
+    name: "Copper (Dr. Copper)",
     category: "Base Metals",
     mcxSymbol: "COPPER",
     mcxPrice: 852.0,
@@ -387,13 +387,22 @@ export class CommodityMarketService {
             }
           }
 
+          const computedTrend: "Bullish" | "Neutral" | "Bearish" =
+            updatedMcxChange < -0.3 || updatedCmxChange < -0.3
+              ? (updatedMcxChange < -1.5 ? "Bearish" : "Neutral")
+              : (updatedMcxChange > 0.3 || updatedCmxPrice > base.cmxPrice * 1.01)
+                ? "Bullish"
+                : updatedCmxPrice < base.cmxPrice * 0.99
+                  ? "Bearish"
+                  : base.trend;
+
           items.push({
             ...base,
             cmxPrice: updatedCmxPrice,
             mcxPrice: updatedMcxPrice,
             cmxChangePercent: updatedCmxChange,
             mcxChangePercent: updatedMcxChange,
-            trend: updatedCmxPrice > base.cmxPrice * 1.01 ? "Bullish" : updatedCmxPrice < base.cmxPrice * 0.99 ? "Bearish" : base.trend,
+            trend: computedTrend,
             lastUpdated,
           });
         } else {
