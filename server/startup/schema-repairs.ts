@@ -342,12 +342,12 @@ export async function runStartupSchemaRepairs() {
 			await migPool.query(`
 				INSERT INTO commodities (symbol, name, commodity_type, sub_type, current_price, previous_close, day_change, day_change_percent, unit, currency, last_updated)
 				VALUES 
-					('CRUDE_OIL', 'Crude Oil (Brent / WTI)', 'energy', 'crude_oil', 114.20, 112.10, 2.10, 1.87, 'barrel', 'USD', NOW()),
-					('BRENT', 'Brent Crude Oil Futures', 'energy', 'crude_oil', 114.20, 112.10, 2.10, 1.87, 'barrel', 'USD', NOW()),
-					('GOLD', 'Gold COMEX / MCX', 'precious_metal', 'gold', 2742.50, 2725.00, 17.50, 0.64, 'ounce', 'USD', NOW()),
-					('SILVER', 'Silver COMEX / MCX', 'precious_metal', 'silver', 33.40, 33.00, 0.40, 1.21, 'ounce', 'USD', NOW()),
-					('NATURAL_GAS', 'Natural Gas Henry Hub', 'energy', 'natural_gas', 2.95, 2.97, -0.02, -0.67, 'mmbtu', 'USD', NOW()),
-					('COPPER', 'Copper COMEX / MCX', 'industrial_metal', 'copper', 4.48, 4.46, 0.02, 0.45, 'lb', 'USD', NOW())
+					('CRUDE_OIL', 'Crude Oil (Brent / WTI)', 'energy', 'crude_oil', 110.24, 116.72, -6.48, -5.55, 'barrel', 'USD', NOW()),
+					('BRENT', 'Brent Crude Oil Futures', 'energy', 'crude_oil', 110.24, 116.72, -6.48, -5.55, 'barrel', 'USD', NOW()),
+					('GOLD', 'Gold COMEX / Global CFD', 'precious_metal', 'gold', 4055.60, 4007.90, 47.70, 1.19, 'ounce', 'USD', NOW()),
+					('SILVER', 'Silver COMEX / Global CFD', 'precious_metal', 'silver', 53.31, 53.71, -0.40, -0.74, 'ounce', 'USD', NOW()),
+					('NATURAL_GAS', 'Natural Gas Henry Hub', 'energy', 'natural_gas', 3.03, 2.64, 0.39, 14.77, 'mmbtu', 'USD', NOW()),
+					('COPPER', 'Copper COMEX / MCX', 'industrial_metal', 'copper', 6.65, 6.48, 0.17, 2.62, 'lb', 'USD', NOW())
 				ON CONFLICT (symbol) DO UPDATE SET
 					current_price = EXCLUDED.current_price,
 					previous_close = EXCLUDED.previous_close,
@@ -358,10 +358,10 @@ export async function runStartupSchemaRepairs() {
 					last_updated = NOW();
 
 				UPDATE commodities
-				SET current_price = 114.20,
+				SET current_price = 110.24,
 				    currency = 'USD',
 				    unit = 'barrel',
-				    day_change_percent = 1.87,
+				    day_change_percent = 1.85,
 				    last_updated = NOW()
 				WHERE UPPER(TRIM(symbol)) IN ('BRENT', 'BRENT_CRUDE');
 
@@ -372,6 +372,22 @@ export async function runStartupSchemaRepairs() {
 				    day_change_percent = 1.85,
 				    last_updated = NOW()
 				WHERE UPPER(TRIM(symbol)) IN ('CRUDE_OIL', 'CRUDEOIL');
+
+				UPDATE commodities
+				SET current_price = 143703.00,
+				    currency = 'INR',
+				    unit = '10g',
+				    day_change_percent = 0.65,
+				    last_updated = NOW()
+				WHERE UPPER(TRIM(symbol)) IN ('GOLD_MCX', 'MCX_GOLD');
+
+				UPDATE commodities
+				SET current_price = 193207.00,
+				    currency = 'INR',
+				    unit = 'kg',
+				    day_change_percent = 1.15,
+				    last_updated = NOW()
+				WHERE UPPER(TRIM(symbol)) IN ('SILVER_MCX', 'MCX_SILVER');
 			`);
 
 			// Purge and sanitize any stale market_briefs rows that contained outdated $74.8 Brent quotes so fresh brief is generated

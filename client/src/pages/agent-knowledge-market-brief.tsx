@@ -931,13 +931,13 @@ export default function AgentKnowledgeMarketBrief() {
 											<Coins className="h-5 w-5 text-amber-400" />
 											<div>
 												<h3 className="text-base font-semibold text-foreground flex items-center gap-2">
-													Commodity Radar (MCX India & CMX / COMEX Benchmarks)
+													Commodity Radar (MCX India & Global CFD Benchmarks)
 													<Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-300 border-amber-500/30">
 														Multi-Asset
 													</Badge>
 												</h3>
 												<p className="text-xs text-muted-foreground">
-													Domestic MCX price discovery coupled with CME/COMEX & ICE Brent international reference contracts
+													Domestic MCX price discovery paired with live International CFD benchmarks (Moneycontrol Multi-Asset standard)
 												</p>
 											</div>
 										</div>
@@ -985,9 +985,9 @@ export default function AgentKnowledgeMarketBrief() {
 													</span>
 												</div>
 
-												{/* Global CMX */}
+												{/* Global CFD / International Benchmarks */}
 												<div className="flex items-baseline justify-between">
-													<span className="text-xs text-muted-foreground">CMX / Glob:</span>
+													<span className="text-xs text-muted-foreground">CFD / Global:</span>
 													<span className="font-mono text-xs font-medium text-foreground/80">
 														{item.cmxPrice < 10 ? `$${item.cmxPrice.toFixed(2)}` : `$${item.cmxPrice.toLocaleString("en-US")}`}{" "}
 														<span className="text-[10px] text-muted-foreground font-normal">{item.cmxUnit.replace("$ / ", "/")}</span>

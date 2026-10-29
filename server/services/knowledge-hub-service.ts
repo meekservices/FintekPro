@@ -153,7 +153,7 @@ export class KnowledgeHubService {
 				}
 			}
 
-			if (!commodityRadar) {
+			if (!commodityRadar || (commodityRadar?.commodities?.[0]?.mcxPrice < 100000)) {
 				try {
 					const { commodityMarketService } = await import("./commodity-market-service");
 					const commRes = await commodityMarketService.getCommodityBenchmarks();
@@ -465,16 +465,16 @@ export class KnowledgeHubService {
 							name: "Gold 24K",
 							category: "Precious Metals",
 							mcxSymbol: "GOLD",
-							mcxPrice: 78450,
+							mcxPrice: 143703,
 							mcxUnit: "₹ / 10g",
 							mcxChangePercent: 0.65,
-							cmxSymbol: "GC=F (COMEX Gold)",
-							cmxPrice: 2742.5,
+							cmxSymbol: "GC=F (COMEX / Global CFD)",
+							cmxPrice: 4055.6,
 							cmxUnit: "$ / oz",
 							cmxChangePercent: 0.58,
 							trend: "Bullish",
 							macroImplication:
-								"Central bank buying & geopolitical de-escalation hedges sustaining gold demand. Positive for Sovereign Gold Bonds (SGB) and Gold ETFs.",
+								"Central bank accumulation & global de-escalation hedges sustaining gold demand. Positive for Sovereign Gold Bonds (SGB) and Gold ETFs.",
 							lastUpdated: new Date().toISOString().split("T")[0],
 						},
 						{
@@ -482,11 +482,11 @@ export class KnowledgeHubService {
 							name: "Silver",
 							category: "Precious Metals",
 							mcxSymbol: "SILVER",
-							mcxPrice: 94200,
+							mcxPrice: 193207,
 							mcxUnit: "₹ / 1kg",
 							mcxChangePercent: 1.15,
-							cmxSymbol: "SI=F (COMEX Silver)",
-							cmxPrice: 33.4,
+							cmxSymbol: "SI=F (COMEX / Global CFD)",
+							cmxPrice: 53.31,
 							cmxUnit: "$ / oz",
 							cmxChangePercent: 1.05,
 							trend: "Bullish",
@@ -502,13 +502,13 @@ export class KnowledgeHubService {
 							mcxPrice: 9918,
 							mcxUnit: "₹ / bbl",
 							mcxChangePercent: 1.85,
-							cmxSymbol: "BZ=F (Brent ICE) / CL=F (WTI)",
-							cmxPrice: 114.2,
+							cmxSymbol: "BZ=F (Brent CFD) / CL=F (WTI)",
+							cmxPrice: 110.24,
 							cmxUnit: "$ / bbl",
 							cmxChangePercent: 1.95,
 							trend: "Bullish",
 							macroImplication:
-								"Brent crude surging above $110/bbl (currently $114+/bbl) poses acute macroeconomic headwinds for India. Escalates imported inflation, widens CAD, and compresses margins for paints, tyres, airlines, and auto ancillaries.",
+								"Brent crude at elevated levels ($110+/bbl) poses acute macroeconomic headwinds for India. Escalates imported inflation, widens CAD, and compresses margins for paints, tyres, airlines, and auto ancillaries.",
 							lastUpdated: new Date().toISOString().split("T")[0],
 						},
 						{
@@ -516,11 +516,11 @@ export class KnowledgeHubService {
 							name: "Natural Gas",
 							category: "Energy",
 							mcxSymbol: "NATURALGAS",
-							mcxPrice: 248.5,
+							mcxPrice: 268.5,
 							mcxUnit: "₹ / mmBtu",
 							mcxChangePercent: -0.85,
 							cmxSymbol: "NG=F (NYMEX Henry Hub)",
-							cmxPrice: 3.05,
+							cmxPrice: 3.03,
 							cmxUnit: "$ / mmBtu",
 							cmxChangePercent: -0.9,
 							trend: "Neutral",
@@ -530,14 +530,14 @@ export class KnowledgeHubService {
 						},
 						{
 							id: "COPPER",
-							name: "Copper ('Dr. Copper')",
+							name: "Copper (Dr. Copper)",
 							category: "Base Metals",
 							mcxSymbol: "COPPER",
-							mcxPrice: 852,
+							mcxPrice: 858,
 							mcxUnit: "₹ / kg",
 							mcxChangePercent: 0.42,
 							cmxSymbol: "HG=F (COMEX Copper)",
-							cmxPrice: 4.48,
+							cmxPrice: 6.65,
 							cmxUnit: "$ / lb",
 							cmxChangePercent: 0.38,
 							trend: "Bullish",
@@ -551,7 +551,7 @@ export class KnowledgeHubService {
 						indiaComfortBandMaxUsd: 80,
 						inflationImpact: "Elevated",
 						commentary:
-							"Brent crude at $114.20/bbl surges significantly above India's comfort threshold ($80/bbl). Elevated crude prices widen the Current Account Deficit (CAD), fuel imported inflation, and pressure operating margins for paint, auto, tyre, and chemical sectors.",
+							"Brent crude at $114.20/bbl remains significantly above India's comfort threshold ($80/bbl). Elevated crude prices widen the Current Account Deficit (CAD), fuel imported inflation, and pressure operating margins for paint, auto, tyre, and chemical sectors.",
 					},
 					goldSilverRatio: 82.1,
 					asOfDate: new Date().toISOString().split("T")[0],
