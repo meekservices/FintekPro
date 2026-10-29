@@ -134,3 +134,4 @@ When translating portfolio weights into live Demat orders via Upstox:
 
 *FintekPro Investment & Risk Committee (IRC)*  
 *SEBI Registered Advisory Platform Architecture*
+
