@@ -12,11 +12,21 @@
 FintekPro operates as a financial technology platform powering SEBI-registered Investment Advisers (RIAs), Research Analysts (RAs), Chartered Accountants (CAs), and Mutual Fund Distributors (MFDs).
 
 The **FintekPro Regulatory Compliance Policy** establishes enforceable operational, engineering, and data standards to guarantee 100% adherence to:
-1. **SEBI (Investment Advisers) Regulations, 2013** (including 2020 Amendments).
-2. **SEBI (Research Analysts) Regulations, 2014**.
-3. **Prevention of Money Laundering Act, 2002 (PMLA)** and FIU-IND circulars.
-4. **RBI Foreign Exchange Management Act, 1999 (FEMA)** & Liberalised Remittance Scheme (LRS).
-5. **Digital Personal Data Protection Act, 2023 (DPDP Act)** and SEBI Cybersecurity Framework.
+1. **SEBI (Mutual Funds) Regulations, 1996** and **AMFI Code of Conduct**.
+2. **SEBI (Portfolio Managers) Regulations, 2020** (including Regulation 23(2) statutory ₹50L minimums).
+3. **SEBI (Alternative Investment Funds) Regulations, 2012** (including Regulation 10(c) statutory ₹1Cr minimums & AI Framework).
+4. **SEBI (Investment Advisers) Regulations, 2013** (including 2020 Amendments).
+5. **SEBI (Research Analysts) Regulations, 2014**.
+6. **Prevention of Money Laundering Act, 2002 (PMLA)** and FIU-IND circulars.
+7. **RBI Foreign Exchange Management Act, 1999 (FEMA)** & Liberalised Remittance Scheme (LRS).
+8. **Digital Personal Data Protection Act, 2023 (DPDP Act)** and SEBI Cybersecurity Framework.
+
+### 1.1 Category-Specific Operating Policies (SOPs)
+
+Because Mutual Funds, PMS, and AIFs operate under fundamentally different custody architectures and statutory parameters, operational execution is governed by dedicated Standard Operating Policies:
+- **Mutual Funds Operating Policy**: [`SOP_MUTUAL_FUNDS.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_MUTUAL_FUNDS.md) (Pooled AMC trust units, daily NAV cut-offs, RTA reconciliation, Direct vs Regular plan segregation).
+- **PMS Operating Policy**: [`SOP_PMS_OPERATIONS.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_PMS_OPERATIONS.md) (Statutory ₹50 Lakhs floor, segregated client demat custody via Upstox, High-Water Mark performance fees, Form C disclosures).
+- **AIF Operating Policy**: [`SOP_AIF_OPERATIONS.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_AIF_OPERATIONS.md) (Statutory ₹1 Crore floor, Accredited Investor certification, capital commitment & drawdown notices, 4-tier distribution waterfall).
 
 ---
 
