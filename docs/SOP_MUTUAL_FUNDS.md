@@ -71,3 +71,4 @@ Order routing must enforce strict cut-off adherence in accordance with SEBI NAV 
 
 *FintekPro Legal & Regulatory Council*  
 *Standard Operating Policy — Mutual Funds Desk*
+

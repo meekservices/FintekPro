@@ -67,3 +67,4 @@ Unlike Mutual Funds, PMS operates strictly on a **segregated client custody arch
 
 *FintekPro Legal & Regulatory Council*  
 *Standard Operating Policy — PMS Desk*
+

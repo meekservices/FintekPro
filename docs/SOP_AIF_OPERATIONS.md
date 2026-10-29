@@ -75,3 +75,4 @@ AIFs are structured as **privately pooled investment trusts or Limited Liability
 
 *FintekPro Legal & Regulatory Council*  
 *Standard Operating Policy — AIF Desk*
+
