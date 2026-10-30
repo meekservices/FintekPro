@@ -470,9 +470,20 @@ async function fetchMFNAVCagr(schemeCode: string): Promise<{ cagr1Y: number; cag
 
 		if (cagr1Y === null) return null;
 
-		// Compliance fix: return null for missing periods instead of fabricating
-		// via cagr1Y * 0.92 / 0.88 — caller handles null gracefully
-		return { cagr1Y, cagr3Y: cagr3Y ?? null, cagr5Y: cagr5Y ?? null } as any;
+		// Split/Corporate action filter & sanity bounds:
+		// For an individual Indian MF scheme or ETF:
+		// 1Y return cannot exceed [-45%, +75%]. Anything outside this is an unadjusted
+		// ETF split (e.g. Kotak PSU Bank ETF 10:1 split) or bad data — reject holding.
+		if (cagr1Y < -45 || cagr1Y > 75) {
+			logger.warn(`[MFAPIClient] Unadjusted split or extreme NAV detected for scheme ${schemeCode}: 1Y=${cagr1Y}%, rejecting holding`);
+			return null;
+		}
+
+		const valid3Y = cagr3Y != null && cagr3Y >= -35 && cagr3Y <= 60 ? cagr3Y : null;
+		const valid5Y = cagr5Y != null && cagr5Y >= -25 && cagr5Y <= 50 ? cagr5Y : null;
+
+		// Compliance fix: return null for missing/extreme periods instead of fabricating
+		return { cagr1Y, cagr3Y: valid3Y, cagr5Y: valid5Y } as any;
 	} catch (err) {
 		logger.warn(`[MFAPIClient] Fetch failed for scheme ${schemeCode}`, err instanceof Error ? err : new Error(String(err)));
 		return null;
@@ -489,8 +500,12 @@ async function fetchMFNAVCagr(schemeCode: string): Promise<{ cagr1Y: number; cag
 async function computePortfolioCagrFromMFAPI(
 	holdings: Array<{ name: string; weight: number; amfiSchemeCode?: string; type?: string }>,
 ): Promise<{ cagr1Y: number; cagr3Y: number; cagr5Y: number } | null> {
-	let totalWeightFetched = 0;
-	let weighted1Y = 0, weighted3Y = 0, weighted5Y = 0;
+	let totalWeight1Y = 0;
+	let totalWeight3Y = 0;
+	let totalWeight5Y = 0;
+	let weighted1Y = 0;
+	let weighted3Y = 0;
+	let weighted5Y = 0;
 
 	const mfHoldings = holdings.filter((h) => h.amfiSchemeCode);
 	if (mfHoldings.length === 0) return null;
@@ -498,22 +513,37 @@ async function computePortfolioCagrFromMFAPI(
 	for (const holding of mfHoldings) {
 		const navCagr = await fetchMFNAVCagr(holding.amfiSchemeCode!);
 		if (!navCagr) continue;
-		const w = holding.weight;
-		weighted1Y += navCagr.cagr1Y * w;
-		weighted3Y += navCagr.cagr3Y * w;
-		weighted5Y += navCagr.cagr5Y * w;
-		totalWeightFetched += w;
+		const w = Number(holding.weight || 0);
+		if (w <= 0) continue;
+
+		if (navCagr.cagr1Y != null && !isNaN(navCagr.cagr1Y)) {
+			weighted1Y += navCagr.cagr1Y * w;
+			totalWeight1Y += w;
+		}
+		if (navCagr.cagr3Y != null && !isNaN(navCagr.cagr3Y)) {
+			weighted3Y += navCagr.cagr3Y * w;
+			totalWeight3Y += w;
+		}
+		if (navCagr.cagr5Y != null && !isNaN(navCagr.cagr5Y)) {
+			weighted5Y += navCagr.cagr5Y * w;
+			totalWeight5Y += w;
+		}
 	}
 
-	// Only use if we fetched data for ≥50% of portfolio weight
-	if (totalWeightFetched < 50) return null;
+	// Only use if we fetched valid data for ≥50% of portfolio weight
+	if (totalWeight1Y < 50) return null;
 
-	const scale = 100 / totalWeightFetched;
-	return {
-		cagr1Y: parseFloat((weighted1Y * scale).toFixed(2)),
-		cagr3Y: parseFloat((weighted3Y * scale).toFixed(2)),
-		cagr5Y: parseFloat((weighted5Y * scale).toFixed(2)),
-	};
+	const cagr1Y = parseFloat((weighted1Y / totalWeight1Y).toFixed(2));
+	const cagr3Y = totalWeight3Y >= 40 ? parseFloat((weighted3Y / totalWeight3Y).toFixed(2)) : cagr1Y;
+	const cagr5Y = totalWeight5Y >= 40 ? parseFloat((weighted5Y / totalWeight5Y).toFixed(2)) : cagr3Y;
+
+	// Hard sanity check on final portfolio-level CAGR
+	if (cagr1Y < -35 || cagr1Y > 50 || (Math.abs(cagr1Y) > 0 && Math.abs(cagr1Y) < 1)) {
+		logger.warn(`[MFAPIClient] Portfolio CAGR out of bounds: 1Y=${cagr1Y}%, rejecting result`);
+		return null;
+	}
+
+	return { cagr1Y, cagr3Y, cagr5Y };
 }
 
 /**
@@ -555,6 +585,14 @@ export async function computePortfolioCagrFromDB(
 	// repeat. A Map keyed by "symbol" or "name" deduplicates within each call.
 	type ReturnRow = { r1y: number; r3y: number; r5y: number };
 	const _memo = new Map<string, ReturnRow | null>();
+
+	// Helper to safely normalise returns from decimal fractions or percentages to standard percent
+	const normaliseReturn = (v: unknown): number | null => {
+		if (v == null || isNaN(Number(v))) return null;
+		const n = Number(v);
+		const pct = Math.abs(n) < 2 && Math.abs(n) > 0 ? n * 100 : n;
+		return Math.max(-35, Math.min(65, pct)); // hard sanity clamp
+	};
 
 	let totalWeight = 0;
 	let coveredWeight = 0;
@@ -599,12 +637,16 @@ export async function computePortfolioCagrFromDB(
 						`).catch(() => ({ rows: [] }));
 						const r = (dmRow as any).rows?.[0];
 						if (r?.return_1y != null) {
-							const r1y = Number(r.return_1y);
-							cached = {
-							r1y,
-							r3y: r?.return_3y != null ? Number(r.return_3y) : null as any,
-							r5y: null as any,
-						};
+							const r1y = normaliseReturn(r.return_1y);
+							if (r1y != null) {
+								cached = {
+									r1y,
+									r3y: normaliseReturn(r?.return_3y) as any,
+									r5y: null as any,
+								};
+							} else {
+								cached = null;
+							}
 						} else {
 							cached = null;
 						}
@@ -631,12 +673,15 @@ export async function computePortfolioCagrFromDB(
 					`).catch(() => ({ rows: [] }));
 					const r2 = (dmRow2 as any).rows?.[0];
 					if (r2?.return_1y != null) {
-						const r1y = Number(r2.return_1y);
-						weighted1Y += r1y * w;
-						if (r2?.return_3y != null) { weighted3Y += Number(r2.return_3y) * w; coveredWeight3Y += w; }
-						// No 5Y in screener_derived_metrics — don't fabricate
-						coveredWeight += w;
-						continue;
+						const r1y = normaliseReturn(r2.return_1y);
+						if (r1y != null) {
+							weighted1Y += r1y * w;
+							const r3y = normaliseReturn(r2.return_3y);
+							if (r3y != null) { weighted3Y += r3y * w; coveredWeight3Y += w; }
+							// No 5Y in screener_derived_metrics — don't fabricate
+							coveredWeight += w;
+							continue;
+						}
 					}
 				}
 			} catch { /* non-fatal */ }
@@ -658,15 +703,15 @@ export async function computePortfolioCagrFromDB(
 					`).catch(() => ({ rows: [] }));
 					const r = (mphRow as any).rows?.[0];
 					if (r?.cagr_1y != null) {
-						// model_portfolio_holdings stores CAGR as percentage (e.g. 17.4 = 17.4%)
-						const r1y = Number(r.cagr_1y);
-						// Sanity check: skip obviously bad data (stale/corrupt rows)
-						if (r1y < -30 || r1y > 60) {
+						const r1y = normaliseReturn(r.cagr_1y);
+						if (r1y == null) {
 							// Fall through to financial_instruments_cache
 						} else {
 							weighted1Y += r1y * w;
-							if (r?.cagr_3y != null) { weighted3Y += Number(r.cagr_3y) * w; coveredWeight3Y += w; }
-							if (r?.cagr_5y != null) { weighted5Y += Number(r.cagr_5y) * w; coveredWeight5Y += w; }
+							const r3y = normaliseReturn(r.cagr_3y);
+							if (r3y != null) { weighted3Y += r3y * w; coveredWeight3Y += w; }
+							const r5y = normaliseReturn(r.cagr_5y);
+							if (r5y != null) { weighted5Y += r5y * w; coveredWeight5Y += w; }
 							coveredWeight += w;
 							continue;
 						}
@@ -694,19 +739,16 @@ export async function computePortfolioCagrFromDB(
 
 				const r = (ficRow as any).rows?.[0];
 				if (r?.return_1y != null) {
-					// financial_instruments_cache stores returns as DECIMAL FRACTIONS (0.174 = 17.4%)
-					// Normalise rule: if |v| < 2, treat as fraction → ×100. Otherwise already in %.
-					// Sanity clamp: [-30%, +60%] — catches stale/corrupt rows before they pollute CAGR.
-					const normalise = (v: number): number => {
-						const pct = Math.abs(v) < 2 ? v * 100 : v;
-						return Math.max(-30, Math.min(60, pct)); // hard sanity clamp
-					};
-					const r1y = normalise(Number(r.return_1y));
-					weighted1Y += r1y * w;
-					if (r?.return_3y != null) { weighted3Y += normalise(Number(r.return_3y)) * w; coveredWeight3Y += w; }
-					if (r?.return_5y != null) { weighted5Y += normalise(Number(r.return_5y)) * w; coveredWeight5Y += w; }
-					coveredWeight += w;
-					continue;
+					const r1y = normaliseReturn(r.return_1y);
+					if (r1y != null) {
+						weighted1Y += r1y * w;
+						const r3y = normaliseReturn(r.return_3y);
+						if (r3y != null) { weighted3Y += r3y * w; coveredWeight3Y += w; }
+						const r5y = normaliseReturn(r.return_5y);
+						if (r5y != null) { weighted5Y += r5y * w; coveredWeight5Y += w; }
+						coveredWeight += w;
+						continue;
+					}
 				}
 			} catch { /* non-fatal */ }
 		}
@@ -723,12 +765,25 @@ export async function computePortfolioCagrFromDB(
 	// if coveredWeight somehow rounds to zero (e.g. all holdings filtered out).
 	if (coveredWeight <= 0) return null;
 
-	// Normalise to 100% of covered weight
-	const scale = 1 / coveredWeight;
+	// Normalise to each horizon's covered weight
+	const cagr1Y = parseFloat((weighted1Y / coveredWeight).toFixed(2));
+	const cagr3Y = coveredWeight3Y >= 40
+		? parseFloat((weighted3Y / coveredWeight3Y).toFixed(2))
+		: cagr1Y;
+	const cagr5Y = coveredWeight5Y >= 40
+		? parseFloat((weighted5Y / coveredWeight5Y).toFixed(2))
+		: cagr3Y;
+
+	// Hard sanity check on final portfolio-level CAGR
+	if (cagr1Y < -35 || cagr1Y > 50 || (Math.abs(cagr1Y) > 0 && Math.abs(cagr1Y) < 1)) {
+		logger.warn(`[PortfolioCAGR] DB CAGR out of bounds: 1Y=${cagr1Y}%, rejecting result`);
+		return null;
+	}
+
 	const result = {
-		cagr1Y: parseFloat((weighted1Y * scale).toFixed(2)),
-		cagr3Y: parseFloat((weighted3Y * scale).toFixed(2)),
-		cagr5Y: parseFloat((weighted5Y * scale).toFixed(2)),
+		cagr1Y,
+		cagr3Y,
+		cagr5Y,
 		coverage,
 	};
 
@@ -1020,16 +1075,35 @@ async function refreshPortfolioMetrics(
 			// Build weights for backtest
 			const weights: Record<string, number> = {};
 			for (const h of allocation) {
-				weights[h.type] = (weights[h.type] ?? 0) + (h.weight ?? 0) / 100;
+				const k = h.type || "default";
+				weights[k] = (weights[k] ?? 0) + (h.weight ?? 0) / 100;
+			}
+			// If allocation is empty, infer weights from holdings
+			if (Object.keys(weights).length === 0 && holdings.length > 0) {
+				for (const h of holdings) {
+					const k = h.type || "default";
+					weights[k] = (weights[k] ?? 0) + (h.weight ?? 0) / 100;
+				}
 			}
 			// Normalise
 			const wSum = Object.values(weights).reduce((s, v) => s + v, 0);
-			if (wSum > 0) for (const k of Object.keys(weights)) { weights[k] /= wSum; }
+			if (wSum > 0) {
+				for (const k of Object.keys(weights)) { weights[k] /= wSum; }
+			} else {
+				weights["default"] = 1.0;
+			}
 
 			// Build monthly returns (real DB data per holding: screener equity return > MF NAV > asset class fallback)
 			const monthlyReturns = await buildMonthlyReturns(
 				holdings.map((h) => ({ isin: h.isin, symbol: h.symbol, type: h.type, weight: h.weight })),
 			);
+
+			// Ensure every key in weights exists in monthlyReturns to satisfy Python /api/quant/backtest
+			for (const k of Object.keys(weights)) {
+				if (!monthlyReturns[k] || monthlyReturns[k].length < 6) {
+					monthlyReturns[k] = ASSET_CLASS_MONTHLY_RETURNS[k] || ASSET_CLASS_MONTHLY_RETURNS.default;
+				}
+			}
 
 			// Call FintekAnalytics /api/quant/backtest
 			let btResult: {
@@ -1158,11 +1232,22 @@ async function refreshPortfolioMetrics(
 			// calibrated backtest series. Only real NAV-computed values are allowed in DB.
 			// When source is 'backtest:synthetic', preserve the existing cagr_1y in DB.
 			const isSyntheticSource = cagrSource === "backtest:synthetic";
+
+			// Pre-write DB guard: Validate that CAGR numbers are realistic.
+			// SEBI-compliant bounds: cagr1Y must be in [-35, 50] and not a tiny decimal fraction.
+			const isValidCagr = typeof cagr1Y === "number" && !isNaN(cagr1Y) &&
+				cagr1Y >= -35 && cagr1Y <= 50 &&
+				!(Math.abs(cagr1Y) > 0 && Math.abs(cagr1Y) < 1);
+
+			if (!isSyntheticSource && !isValidCagr) {
+				logger.warn(`[ModelPortfolioMetrics] Computed CAGR ${cagr1Y}% out of bounds for ${portfolio.id}, preserving existing DB CAGR`);
+			}
+
 			await db
 				.update(modelPortfolios)
 				.set({
-					// Only write CAGR if derived from real data (mfapi.in or per-holding DB values)
-					...(isSyntheticSource ? {} : {
+					// Only write CAGR if derived from real data AND passes sanity validation
+					...((isSyntheticSource || !isValidCagr) ? {} : {
 						cagr1Y: String(cagr1Y),
 						cagr3Y: String(cagr3Y),
 						cagr5Y: String(cagr5Y),
