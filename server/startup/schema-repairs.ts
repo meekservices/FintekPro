@@ -28,6 +28,22 @@ export async function runStartupSchemaRepairs() {
 			["return_since_inception",   "NUMERIC(8,4)"],
 			["benchmark_since_inception","NUMERIC(8,4)"],
 			["periods_computed_at",      "TIMESTAMPTZ"],
+			["portfolio_tier",           "VARCHAR(50) DEFAULT 'retail_mf'"],
+			["vehicle_type",             "VARCHAR(50) DEFAULT 'MUTUAL_FUND'"],
+			["sebi_regulatory_regime",   "VARCHAR(255) DEFAULT 'SEBI (Mutual Funds) Regulations, 1996 & SEBI (Investment Advisers) Regulations, 2013'"],
+			["sebi_regulation_ref",      "VARCHAR(100) DEFAULT 'SEBI MF Regs 1996'"],
+			["statutory_min_investment", "NUMERIC DEFAULT '5000'"],
+			["execution_route",          "VARCHAR(50) DEFAULT 'iris'"],
+			["custody_structure",        "VARCHAR(100) DEFAULT 'DIRECT_AMC_FOLIO'"],
+			["allowed_asset_classes",    "JSONB DEFAULT '[]'"],
+			["accreditation_required",   "BOOLEAN DEFAULT FALSE"],
+			["lock_in_period_months",    "INTEGER DEFAULT 0"],
+			["sebi_compliance_rules",    "JSONB"],
+			["max_cash_drag",            "NUMERIC DEFAULT '10'"],
+			["alpha_drag_floor",         "NUMERIC DEFAULT '-8'"],
+			["days_to_liquidate_25",     "NUMERIC"],
+			["days_to_liquidate_50",     "NUMERIC"],
+			["apmi_benchmark_name",      "VARCHAR(100)"],
 		];
 		let _ccOk = 0;
 		for (const [col, colType] of _criticalCols) {
@@ -36,7 +52,19 @@ export async function runStartupSchemaRepairs() {
 				_ccOk++;
 			} catch { /* column already exists or table missing — non-fatal */ }
 		}
-		console.log(`  ✅ [CRITICAL] model_portfolios period columns: ${_ccOk}/${_criticalCols.length} ensured`);
+		console.log(`  ✅ [CRITICAL] model_portfolios period & guardrail columns: ${_ccOk}/${_criticalCols.length} ensured`);
+
+		// ── Fast-path for iris_pms_aif_products columns (HWM & Demat) ─────────
+		const _irisPmsCols: Array<[string, string]> = [
+			["hurdle_rate", "DECIMAL(6,4)"],
+			["high_water_mark_nav", "DECIMAL(12,4)"],
+			["is_demat_mandatory", "BOOLEAN DEFAULT TRUE"],
+		];
+		for (const [col, colType] of _irisPmsCols) {
+			try {
+				await migPool.query(`ALTER TABLE iris_pms_aif_products ADD COLUMN IF NOT EXISTS "${col}" ${colType}`);
+			} catch { /* table or col exists */ }
+		}
 		// ── Fast-path for fund_financial_ratios columns (Scheme Level) ───────
 		const _fundRatioCols: Array<[string, string]> = [
 			["pe_ratio", "NUMERIC(10,2)"],

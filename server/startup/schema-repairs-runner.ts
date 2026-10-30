@@ -120,7 +120,7 @@ async function main() {
     console.log("  ✅ FASP-6: future-multibaggers — seeded (ON CONFLICT DO NOTHING)");
   } catch (e: any) {
     console.error("  ❌ Phase D seed error:", e.message, "| code:", e.code, "| detail:", e.detail);
-    throw e;
+    // Non-fatal: do not abort remaining schema migrations
   }
 
   // ── Phase E: Convert MF scheme holdings → direct NSE equity stocks ──────────
