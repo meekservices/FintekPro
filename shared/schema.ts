@@ -11797,6 +11797,16 @@ export const modelPortfolios = pgTable("model_portfolios", {
   lockInPeriodMonths:   integer("lock_in_period_months").default(0),
   /** Structured SEBI compliance rules, disclosures, drawdown terms, and risk disclosures */
   sebiComplianceRules:  jsonb("sebi_compliance_rules"),
+  /** Maximum cash drag ceiling (%) before automated sweep or warning triggers */
+  maxCashDrag:          numeric("max_cash_drag").default("10"),
+  /** Trailing alpha floor (%) beyond which underperforming holding triggers tactical review */
+  alphaDragFloor:       numeric("alpha_drag_floor").default("-8"),
+  /** SEBI Small/Mid-Cap Liquidity Horizon: estimated days to liquidate 25% of portfolio */
+  daysToLiquidate25:    numeric("days_to_liquidate_25"),
+  /** SEBI Small/Mid-Cap Liquidity Horizon: estimated days to liquidate 50% of portfolio */
+  daysToLiquidate50:    numeric("days_to_liquidate_50"),
+  /** Standardized APMI Benchmark Name for PMS peer group tracking */
+  apmiBenchmarkName:    varchar("apmi_benchmark_name", { length: 100 }),
 }, (table) => [
   index("idx_model_portfolios_risk").on(table.riskProfile),
   index("idx_model_portfolios_asset").on(table.assetClass),
@@ -12316,6 +12326,9 @@ export const irisPmsAifProducts = pgTable("iris_pms_aif_products", {
   lockInMonths:   integer("lock_in_months"),
   managementFee:  decimal("management_fee",   { precision: 6,  scale: 4 }), // % p.a.
   performanceFee: decimal("performance_fee",  { precision: 6,  scale: 4 }), // % of gains above hurdle
+  hurdleRate:     decimal("hurdle_rate",      { precision: 6,  scale: 4 }), // Hurdle rate (%) for HWM performance fees
+  highWaterMarkNav: decimal("high_water_mark_nav", { precision: 12, scale: 4 }), // High-Water Mark NAV for fee crystallization
+  isDematMandatory: boolean("is_demat_mandatory").default(true), // SEBI mandatory dematerialization for AIF units
 
   // Performance
   return1y:       decimal("return_1y",        { precision: 8,  scale: 4 }),

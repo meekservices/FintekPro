@@ -269,6 +269,16 @@ async function main() {
     await phFDb.execute(phFSql`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS accreditation_required BOOLEAN DEFAULT FALSE`);
     await phFDb.execute(phFSql`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS lock_in_period_months INTEGER DEFAULT 0`);
     await phFDb.execute(phFSql`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS sebi_compliance_rules JSONB`);
+    // Performance guardrail columns (SOP upgrade 2026 / FASP-AI v3.1)
+    await phFDb.execute(phFSql`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS max_cash_drag NUMERIC DEFAULT '10'`);
+    await phFDb.execute(phFSql`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS alpha_drag_floor NUMERIC DEFAULT '-8'`);
+    await phFDb.execute(phFSql`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS days_to_liquidate_25 NUMERIC`);
+    await phFDb.execute(phFSql`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS days_to_liquidate_50 NUMERIC`);
+    await phFDb.execute(phFSql`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS apmi_benchmark_name VARCHAR(100)`);
+    // PMS/AIF fee & demat compliance columns
+    await phFDb.execute(phFSql`ALTER TABLE iris_pms_aif_products ADD COLUMN IF NOT EXISTS hurdle_rate DECIMAL(6,4)`);
+    await phFDb.execute(phFSql`ALTER TABLE iris_pms_aif_products ADD COLUMN IF NOT EXISTS high_water_mark_nav DECIMAL(12,4)`);
+    await phFDb.execute(phFSql`ALTER TABLE iris_pms_aif_products ADD COLUMN IF NOT EXISTS is_demat_mandatory BOOLEAN DEFAULT TRUE`);
     await phFDb.execute(phFSql`CREATE INDEX IF NOT EXISTS idx_model_portfolios_tier ON model_portfolios(portfolio_tier)`);
 
     // Backfill any portfolios with asset_class='hni' or min_investment >= 5000000 to hni_pms
