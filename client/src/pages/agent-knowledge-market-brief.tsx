@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
@@ -511,18 +511,39 @@ function getClientFallbackBrief(region: string): MarketBrief {
 
 export default function AgentKnowledgeMarketBrief() {
 	const [selectedRegion, setSelectedRegion] = useState("india");
+	const [refreshInterval, setRefreshInterval] = useState<number>(60000); // 60s default auto-refresh
+	const [secondsUntilNextRefresh, setSecondsUntilNextRefresh] = useState<number>(60);
+	const [lastRefreshedAt, setLastRefreshedAt] = useState<Date>(new Date());
+
+	// Countdown timer for next dynamic auto-refresh
+	useEffect(() => {
+		if (!refreshInterval || refreshInterval <= 0) return;
+		setSecondsUntilNextRefresh(Math.round(refreshInterval / 1000));
+		const timer = setInterval(() => {
+			setSecondsUntilNextRefresh((prev) => {
+				if (prev <= 1) {
+					return Math.round(refreshInterval / 1000);
+				}
+				return prev - 1;
+			});
+		}, 1000);
+		return () => clearInterval(timer);
+	}, [refreshInterval]);
 
 	const {
 		data: todaysBrief,
 		isLoading: todayLoading,
+		isFetching,
 		refetch,
 	} = useQuery<MarketBrief>({
 		queryKey: ["/api/knowledge-hub/market-brief/today", selectedRegion],
 		queryFn: async () => {
+			setLastRefreshedAt(new Date());
+			setSecondsUntilNextRefresh(refreshInterval > 0 ? Math.round(refreshInterval / 1000) : 0);
 			try {
 				const response = await apiRequest(
 					"GET",
-					`/api/knowledge-hub/market-brief/today?region=${selectedRegion}`,
+					`/api/knowledge-hub/market-brief/today?region=${selectedRegion}&t=${Date.now()}`,
 				);
 				if (response.ok) {
 					const data = await response.json();
@@ -534,7 +555,7 @@ export default function AgentKnowledgeMarketBrief() {
 
 			try {
 				const res = await fetch(
-					`/api/knowledge-hub/market-brief/today?region=${selectedRegion}`,
+					`/api/knowledge-hub/market-brief/today?region=${selectedRegion}&t=${Date.now()}`,
 				);
 				if (res.ok) {
 					const data = await res.json();
@@ -546,6 +567,8 @@ export default function AgentKnowledgeMarketBrief() {
 
 			return getClientFallbackBrief(selectedRegion);
 		},
+		refetchInterval: refreshInterval > 0 ? refreshInterval : false,
+		refetchOnWindowFocus: true,
 	});
 
 	const { data: previousBriefs } = useQuery<MarketBrief[]>({
@@ -608,7 +631,7 @@ export default function AgentKnowledgeMarketBrief() {
 
 	return (
 		<div className="p-6 space-y-6">
-			<div className="flex items-center justify-between">
+			<div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
 				<div className="flex items-center gap-4">
 					<Link href="/agent/knowledge-hub">
 						<Button
@@ -626,19 +649,73 @@ export default function AgentKnowledgeMarketBrief() {
 							Daily Market Brief
 						</h1>
 						<p className="text-muted-foreground mt-1">
-							AI-generated market intelligence & macro indicators
+							AI-generated market intelligence & live dynamic price feeds
 						</p>
 					</div>
 				</div>
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={() => refetch()}
-					className="border-border"
-				>
-					<RefreshCw className="h-4 w-4 mr-2" />
-					Refresh
-				</Button>
+
+				{/* Dynamic Live Refresh Controls */}
+				<div className="flex flex-wrap items-center gap-2">
+					{/* Live Stream Pulse Badge */}
+					<div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border shadow-xs text-xs">
+						<span className="relative flex h-2 w-2">
+							<span
+								className={`animate-ping absolute inline-flex h-full w-full rounded-full ${
+									refreshInterval > 0 ? "bg-emerald-400" : "bg-muted-foreground"
+								} opacity-75`}
+							/>
+							<span
+								className={`relative inline-flex rounded-full h-2 w-2 ${
+									refreshInterval > 0 ? "bg-emerald-500" : "bg-muted"
+								}`}
+							/>
+						</span>
+						<span className="text-foreground font-semibold">
+							{refreshInterval > 0 ? `Live (${secondsUntilNextRefresh}s)` : "Paused"}
+						</span>
+						<span className="text-muted-foreground/60">•</span>
+						<span className="text-[11px] text-muted-foreground font-medium">
+							{format(lastRefreshedAt, "HH:mm:ss")}
+						</span>
+					</div>
+
+					{/* Auto-Refresh Interval Selector */}
+					<div className="flex items-center border border-border rounded-lg p-0.5 bg-card">
+						{[
+							{ label: "30s", value: 30000 },
+							{ label: "1m", value: 60000 },
+							{ label: "5m", value: 300000 },
+							{ label: "Off", value: 0 },
+						].map((opt) => (
+							<Button
+								key={opt.label}
+								type="button"
+								variant={refreshInterval === opt.value ? "default" : "ghost"}
+								size="sm"
+								className={`h-7 px-2.5 text-xs font-semibold rounded-md ${
+									refreshInterval === opt.value
+										? "bg-primary text-primary-foreground shadow-xs"
+										: "text-muted-foreground hover:text-foreground"
+								}`}
+								onClick={() => setRefreshInterval(opt.value)}
+							>
+								{opt.label}
+							</Button>
+						))}
+					</div>
+
+					{/* Instant Sync Button */}
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => refetch()}
+						disabled={isFetching}
+						className="h-8 gap-1.5 border-border font-medium shadow-xs"
+					>
+						<RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin text-primary" : ""}`} />
+						<span>{isFetching ? "Syncing..." : "Sync Now"}</span>
+					</Button>
+				</div>
 			</div>
 
 			<div className="flex gap-2">
@@ -1024,8 +1101,8 @@ export default function AgentKnowledgeMarketBrief() {
 									</div>
 
 									{briefToDisplay.commodityRadar.crudeOilBreakevenStatus?.commentary && (
-										<p className="text-xs text-amber-200/80 bg-amber-900/20 p-2.5 rounded-lg border border-amber-500/20">
-											⚡ <span className="font-semibold text-amber-200">Macro Takeaway:</span>{" "}
+										<p className="text-xs text-amber-950 dark:text-amber-100 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg border border-amber-300 dark:border-amber-800 font-medium">
+											⚡ <span className="font-bold text-amber-900 dark:text-amber-200">Macro Takeaway:</span>{" "}
 											{briefToDisplay.commodityRadar.crudeOilBreakevenStatus.commentary}
 										</p>
 									)}

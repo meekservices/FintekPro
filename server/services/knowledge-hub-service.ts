@@ -131,9 +131,16 @@ export class KnowledgeHubService {
 		const region = brief.region || "india";
 		const isIndia = region === "india";
 
-		const topMovers = brief.topMovers && brief.topMovers.length > 0
-			? brief.topMovers
-			: await this.getRealTimeTopMovers(region);
+		// Dynamic real-time market data enrichment on each polling tick
+		let topMovers = brief.topMovers && brief.topMovers.length > 0 ? brief.topMovers : null;
+		try {
+			const realTime = await this.getRealTimeTopMovers(region);
+			if (realTime && realTime.length > 0) {
+				topMovers = realTime;
+			}
+		} catch {
+			topMovers = topMovers || this.getDefaultTopMovers(region);
+		}
 
 		let ccilFixedIncome: any = brief.ccilFixedIncome || null;
 		let commodityRadar: any = brief.commodityRadar || null;
@@ -153,28 +160,26 @@ export class KnowledgeHubService {
 				}
 			}
 
-			if (!commodityRadar || (commodityRadar?.commodities?.[0]?.mcxPrice < 100000)) {
-				try {
-					const { commodityMarketService } = await import("./commodity-market-service");
-					const commRes = await commodityMarketService.getCommodityBenchmarks();
-					if (commRes.success && commRes.data) {
-						commodityRadar = commRes.data;
-					}
-				} catch (err: any) {
-					console.warn("[KnowledgeHubService] Commodity radar fetch failed:", err?.message);
+			// Dynamic live commodity benchmarks query (Brent Crude, Gold, Silver, Copper, Natural Gas)
+			try {
+				const { commodityMarketService } = await import("./commodity-market-service");
+				const commRes = await commodityMarketService.getCommodityBenchmarks();
+				if (commRes.success && commRes.data) {
+					commodityRadar = commRes.data;
 				}
+			} catch (err: any) {
+				console.warn("[KnowledgeHubService] Dynamic commodity radar fetch failed:", err?.message);
 			}
 
-			if (!multiExchangeData) {
-				try {
-					const { multiExchangeMarketService } = await import("./multi-exchange-market-service");
-					const meRes = await multiExchangeMarketService.getMultiExchangeSnapshot();
-					if (meRes.success && meRes.data) {
-						multiExchangeData = meRes.data;
-					}
-				} catch (err: any) {
-					console.warn("[KnowledgeHubService] Multi-exchange fetch failed:", err?.message);
+			// Dynamic multi-exchange data query (GIFT Nifty, BSE market breadth, circuits, VIX)
+			try {
+				const { multiExchangeMarketService } = await import("./multi-exchange-market-service");
+				const meRes = await multiExchangeMarketService.getMultiExchangeSnapshot();
+				if (meRes.success && meRes.data) {
+					multiExchangeData = meRes.data;
 				}
+			} catch (err: any) {
+				console.warn("[KnowledgeHubService] Dynamic multi-exchange fetch failed:", err?.message);
 			}
 
 			if (!amcConsensus) {
@@ -356,6 +361,11 @@ export class KnowledgeHubService {
 			sectorHighlights: brief.sectorHighlights || sectorHighlights,
 			agentTips: brief.agentTips || agentTips,
 			sources: brief.sources || sources,
+			meta: {
+				lastRefreshedAt: new Date().toISOString(),
+				engineVersion: "knowledge-hub-service@2.5.0",
+				isDynamicFeed: true,
+			},
 		};
 	}
 
