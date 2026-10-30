@@ -25,6 +25,7 @@ The **FintekPro Regulatory Compliance Policy** establishes enforceable operation
 
 Because Mutual Funds, SIFs, PMS, and AIFs operate under fundamentally different custody architectures and statutory parameters, operational execution is governed by dedicated Standard Operating Policies:
 - **Mutual Funds & SIF Operating Policy**: [`SOP_MUTUAL_FUNDS.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_MUTUAL_FUNDS.md) (Pooled AMC trust units, universal fund realization NAV cut-offs, SEBI SIF ₹10L framework, liquidity stress testing, anti-cash drag guardrails).
+- **Balanced Portfolio Monitoring Policy**: [`SOP_BALANCED_PORTFOLIO_MONITORING.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_BALANCED_PORTFOLIO_MONITORING.md) (Daily equity/debt band monitoring, blended benchmark deviation alerts, SEBI categorization compliance, Sharpe/drawdown breach detection, `monitorBalancedPortfolios()` cron enforcement).
 - **PMS Operating Policy**: [`SOP_PMS_OPERATIONS.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_PMS_OPERATIONS.md) (Statutory ₹50 Lakhs floor, segregated client demat custody via Upstox, APMI standardized TWRR audits, High-Water Mark performance fees, ADTV slippage limits).
 - **AIF Operating Policy**: [`SOP_AIF_OPERATIONS.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_AIF_OPERATIONS.md) (Statutory ₹1 Crore floor, Accredited Investor certification, mandatory NSDL/CDSL unit dematerialization, direct plan fee unbundling, 4-tier distribution waterfall).
 

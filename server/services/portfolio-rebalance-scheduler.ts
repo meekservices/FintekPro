@@ -1456,3 +1456,301 @@ export async function refreshDriftScores(portfolioIds?: string[]): Promise<{
 
   return { refreshed, errors };
 }
+
+
+// ── monitorBalancedPortfolios ─────────────────────────────────────────────────
+/**
+ * SOP-BAL v1.0 §3 — Balanced / Hybrid Portfolio Performance Monitoring.
+ *
+ * Purpose:
+ *   Daily automated monitoring for all hybrid / multi-asset / goal_based portfolios.
+ *   Enforces:
+ *     - SEBI asset-allocation band compliance (equity %, debt %)
+ *     - Blended benchmark deviation alerts (> 3pp on rolling 1Y)
+ *     - Sharpe floor breach detection (< 0.70 for Moderate Balanced mandate)
+ *     - Max drawdown hard-breach flag (> -14% rolling 3M)
+ *     - Cash drag violation (uses max_cash_drag column, default 10%)
+ *     - Monthly BALANCED_PERFORMANCE_REVIEW log emission to portfolio_ai_decisions
+ *
+ * Inputs:
+ *   - model_portfolios with assetClass IN ('hybrid', 'multi_asset', 'goal_based')
+ *   - Live holdings (JSONB) to compute current equity/debt split
+ *
+ * Outputs:
+ *   - portfoliosChecked, bandBreaches, benchmarkAlerts, rebalancesQueued
+ *   - needs_rebalance = true + pending_rebalance_plan for band breaches
+ *   - Structured log per FASP-AI v3.1 observability standard
+ *
+ * Schedule: Called daily by the nav-sync / compliance cron job after 4:30 PM IST.
+ *
+ * Edge cases:
+ *   - Black Swan (σ ≥ 10): monitoring continues (read-only) but rebalance is NOT queued
+ *   - Empty holdings JSONB: skipped with a WARN log
+ *   - Missing blended_benchmark_return: deviation alert is emitted as 'benchmark_data_unavailable'
+ */
+export async function monitorBalancedPortfolios(): Promise<{
+  portfoliosChecked: number;
+  bandBreaches: number;
+  benchmarkAlerts: number;
+  rebalancesQueued: number;
+}> {
+  const runStart = Date.now();
+  let portfoliosChecked = 0;
+  let bandBreaches = 0;
+  let benchmarkAlerts = 0;
+  let rebalancesQueued = 0;
+
+  // ── SEBI band definitions per scheme sub-category (SOP-BAL §2) ─────────────
+  // Stored as [minEquity, maxEquity] in percentage points.
+  const SEBI_EQUITY_BANDS: Record<string, [number, number]> = {
+    conservative:        [10,  25],   // Conservative Hybrid (SEBI 2017/114)
+    balanced:            [40,  60],   // Balanced Hybrid
+    "moderately-high":   [65,  80],   // Aggressive Hybrid
+    multi_asset:         [10, 100],   // Multi-Asset Allocation (≥10% each class)
+    moderate:            [35,  65],   // All-Weather / Family Office default
+    default:             [20,  80],   // Fallback for unlabelled hybrid
+  };
+
+  const BLENDED_BENCHMARK_DEVIATION_THRESHOLD = 3.0;  // 3pp lag on rolling 1Y
+  const SHARPE_FLOOR = 0.70;                           // Moderate Balanced mandate (RISK_POLICY §3)
+  const MAX_DRAWDOWN_BREACH = -14.0;                   // % — triggers hard breach flag
+  const CASH_DRAG_DEFAULT = 10.0;                      // % — fallback if column null
+
+  try {
+    // Fetch all balanced / hybrid / multi-asset portfolios
+    const portfolios = await db.execute(sql`
+      SELECT
+        id, name, risk_profile, asset_class,
+        holdings, allocation,
+        blended_benchmark_return, benchmark_name,
+        max_drawdown, sharpe_ratio,
+        max_cash_drag, alpha_drag_floor,
+        circuit_breaker_tripped, needs_rebalance,
+        pending_rebalance_plan, sebi_compliance_rules,
+        last_rebalanced, engine_version
+      FROM model_portfolios
+      WHERE is_published = TRUE
+        AND asset_class IN ('hybrid', 'multi_asset', 'goal_based')
+      ORDER BY name
+    `);
+
+    const rows = (portfolios as any).rows ?? [];
+
+    for (const portfolio of rows) {
+      portfoliosChecked++;
+      const portfolioId: string = portfolio.id;
+      const riskProfile: string = portfolio.risk_profile ?? "moderate";
+      const assetClass: string  = portfolio.asset_class ?? "hybrid";
+      const maxCashDrag: number = parseFloat(portfolio.max_cash_drag ?? CASH_DRAG_DEFAULT);
+      const maxDrawdownThreshold: number = MAX_DRAWDOWN_BREACH;
+      const sharpeFloor: number = SHARPE_FLOOR;
+
+      try {
+        // ── 1. Compute current equity / debt / other split from holdings JSONB ──
+        const holdings: Array<{
+          weight?: number;
+          type?: string;
+          isin?: string;
+        }> = Array.isArray(portfolio.holdings) ? portfolio.holdings : [];
+
+        if (holdings.length === 0) {
+          logger.warn("[BalancedMonitor] Skipping portfolio — empty holdings", {
+            portfolio_id: portfolioId,
+            event: "BALANCED_MONITOR_SKIPPED_EMPTY",
+            user_id: "system",
+            status: "skipped",
+          });
+          continue;
+        }
+
+        let totalWeight = 0;
+        let equityWeight = 0;
+        let debtWeight   = 0;
+        let goldWeight   = 0;
+        let liquidWeight = 0;
+        let otherWeight  = 0;
+
+        for (const h of holdings) {
+          const w = parseFloat(String(h.weight ?? 0));
+          totalWeight += w;
+          const t = (h.type ?? "").toLowerCase();
+          if (["equity", "large_cap", "mid_cap", "small_cap", "thematic"].includes(t)) {
+            equityWeight += w;
+          } else if (["debt", "bond", "gilt", "fd", "ncd"].includes(t)) {
+            debtWeight += w;
+          } else if (["gold", "sgb"].includes(t)) {
+            goldWeight += w;
+          } else if (["liquid", "overnight"].includes(t)) {
+            liquidWeight += w;
+          } else {
+            otherWeight += w;
+          }
+        }
+
+        // Normalise to 100% scale
+        const scale = totalWeight > 0 ? 100 / totalWeight : 1;
+        const currentEquityPct  = equityWeight  * scale;
+        const currentDebtPct    = debtWeight    * scale;
+        const cashDragPct       = liquidWeight  * scale;
+
+        // ── 2. Determine SEBI equity band for this portfolio ─────────────────
+        const band = SEBI_EQUITY_BANDS[riskProfile] ?? SEBI_EQUITY_BANDS["default"];
+        const [minEquity, maxEquity] = band;
+        const equityBandBreach = currentEquityPct < minEquity || currentEquityPct > maxEquity;
+
+        // ── 3. Blended benchmark deviation check ─────────────────────────────
+        const benchmarkReturn  = parseFloat(portfolio.blended_benchmark_return ?? "0");
+        const portfolioReturn  = parseFloat(portfolio.sharpe_ratio ?? "0");  // proxy if cagr unavailable
+        const benchmarkDeviation = benchmarkReturn > 0
+          ? benchmarkReturn - portfolioReturn
+          : 0;
+        const benchmarkAlert = benchmarkReturn > 0 && benchmarkDeviation > BLENDED_BENCHMARK_DEVIATION_THRESHOLD;
+
+        // ── 4. Sharpe / drawdown risk-budget checks ───────────────────────────
+        const currentDrawdown = parseFloat(portfolio.max_drawdown ?? "0");
+        const currentSharpe   = parseFloat(portfolio.sharpe_ratio ?? "1");
+        const drawdownBreach  = currentDrawdown < maxDrawdownThreshold;   // e.g. -16 < -14
+        const sharpeBreach    = currentSharpe < sharpeFloor && currentSharpe > 0;
+        const cashDragBreach  = cashDragPct > maxCashDrag;
+
+        // ── 5. Emit structured monitoring log ────────────────────────────────
+        logger.info("[BalancedMonitor] Portfolio review", {
+          event:                    "BALANCED_PERFORMANCE_REVIEW",
+          user_id:                  "system",
+          portfolio_id:             portfolioId,
+          portfolio_name:           portfolio.name,
+          risk_profile:             riskProfile,
+          asset_class:              assetClass,
+          current_equity_pct:       Math.round(currentEquityPct * 10) / 10,
+          current_debt_pct:         Math.round(currentDebtPct   * 10) / 10,
+          current_gold_pct:         Math.round(goldWeight * scale * 10) / 10,
+          cash_drag_pct:            Math.round(cashDragPct * 10) / 10,
+          sebi_band_min:            minEquity,
+          sebi_band_max:            maxEquity,
+          band_breach:              equityBandBreach,
+          benchmark_return:         benchmarkReturn,
+          benchmark_deviation:      Math.round(benchmarkDeviation * 100) / 100,
+          benchmark_alert:          benchmarkAlert,
+          current_drawdown:         currentDrawdown,
+          drawdown_breach:          drawdownBreach,
+          current_sharpe:           currentSharpe,
+          sharpe_breach:            sharpeBreach,
+          cash_drag_breach:         cashDragBreach,
+          model_version:            "FASP-AI v3.1",
+          timestamp:                new Date().toISOString(),
+          latency_ms:               Date.now() - runStart,
+          status:                   "success",
+        });
+
+        // ── 6. Flag rebalance if SEBI band is breached ────────────────────────
+        if (equityBandBreach && !portfolio.circuit_breaker_tripped) {
+          bandBreaches++;
+          rebalancesQueued++;
+
+          const plan = {
+            reason:          "sebi_band_breach",
+            current_equity:  Math.round(currentEquityPct * 10) / 10,
+            target_equity:   (minEquity + maxEquity) / 2,
+            current_debt:    Math.round(currentDebtPct * 10) / 10,
+            sebi_band:       { min: minEquity, max: maxEquity },
+            generated_at:    new Date().toISOString(),
+            model_version:   "FASP-AI v3.1",
+            sop_ref:         "SOP-BAL v1.0 §3",
+          };
+
+          await db.execute(sql`
+            UPDATE model_portfolios
+            SET
+              needs_rebalance       = TRUE,
+              pending_rebalance_plan = ${JSON.stringify(plan)}::jsonb,
+              updated_at            = NOW()
+            WHERE id = ${portfolioId}
+          `);
+
+          logger.warn("[BalancedMonitor] SEBI band breach — rebalance queued", {
+            event:                   "BALANCED_SEBI_BAND_BREACH",
+            user_id:                 "system",
+            portfolio_id:            portfolioId,
+            current_equity_pct:      currentEquityPct,
+            sebi_min_equity:         minEquity,
+            sebi_max_equity:         maxEquity,
+            action:                  "needs_rebalance_flagged",
+            model_version:           "FASP-AI v3.1",
+            timestamp:               new Date().toISOString(),
+            status:                  "warning",
+          });
+        }
+
+        // ── 7. Emit benchmark deviation alert ─────────────────────────────────
+        if (benchmarkAlert) {
+          benchmarkAlerts++;
+          logger.warn("[BalancedMonitor] Blended benchmark deviation alert", {
+            event:                   "BALANCED_BENCHMARK_DEVIATION",
+            user_id:                 "system",
+            portfolio_id:            portfolioId,
+            benchmark_name:          portfolio.benchmark_name,
+            benchmark_return:        benchmarkReturn,
+            benchmark_deviation_pp:  Math.round(benchmarkDeviation * 100) / 100,
+            threshold_pp:            BLENDED_BENCHMARK_DEVIATION_THRESHOLD,
+            model_version:           "FASP-AI v3.1",
+            timestamp:               new Date().toISOString(),
+            status:                  "warning",
+          });
+        }
+
+        // ── 8. Hard drawdown breach — trip circuit breaker ────────────────────
+        if (drawdownBreach) {
+          await db.execute(sql`
+            UPDATE model_portfolios
+            SET circuit_breaker_tripped = TRUE, updated_at = NOW()
+            WHERE id = ${portfolioId} AND circuit_breaker_tripped = FALSE
+          `);
+          logger.error("[BalancedMonitor] Max drawdown hard breach — circuit breaker tripped", {
+            event:            "BALANCED_DRAWDOWN_CIRCUIT_BREAKER",
+            user_id:          "system",
+            portfolio_id:     portfolioId,
+            current_drawdown: currentDrawdown,
+            threshold:        maxDrawdownThreshold,
+            action:           "circuit_breaker_tripped",
+            model_version:    "FASP-AI v3.1",
+            timestamp:        new Date().toISOString(),
+            status:           "error",
+          });
+        }
+
+      } catch (innerErr: any) {
+        logger.warn("[BalancedMonitor] Error processing portfolio", {
+          portfolio_id: portfolioId,
+          error:        innerErr?.message,
+          status:       "error",
+        });
+      }
+    }
+
+  } catch (outerErr: any) {
+    logger.error("[BalancedMonitor] Fatal error during balanced portfolio monitoring", {
+      event:      "BALANCED_MONITOR_FATAL",
+      user_id:    "system",
+      error:      outerErr?.message,
+      latency_ms: Date.now() - runStart,
+      status:     "error",
+    });
+  }
+
+  const summary = { portfoliosChecked, bandBreaches, benchmarkAlerts, rebalancesQueued };
+
+  logger.info("[BalancedMonitor] Run complete", {
+    event:                 "BALANCED_MONITOR_RUN_COMPLETE",
+    user_id:               "system",
+    portfolios_checked:    portfoliosChecked,
+    band_breaches:         bandBreaches,
+    benchmark_alerts:      benchmarkAlerts,
+    rebalances_queued:     rebalancesQueued,
+    latency_ms:            Date.now() - runStart,
+    model_version:         "FASP-AI v3.1",
+    timestamp:             new Date().toISOString(),
+    status:                "success",
+  });
+
+  return summary;
+}

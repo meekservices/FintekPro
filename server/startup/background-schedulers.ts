@@ -1003,6 +1003,45 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			};
 			scheduleDriftRefresh();
 
+			// ── Daily: Balanced Portfolio Performance Monitor (SOP-BAL v1.0) ─────
+			// Monitors all hybrid / multi-asset / goal_based portfolios for:
+			//   - SEBI asset-allocation band compliance (equity %, debt %)
+			//   - Blended benchmark deviation alerts (> 3pp on rolling 1Y)
+			//   - Sharpe / drawdown hard-breach detection
+			//   - Cash drag violation (uses max_cash_drag column)
+			// Runs daily at 4:30 PM IST (11:00 UTC) — after market close.
+			const scheduleBalancedMonitor = () => {
+				const DAILY_MS_BAL = 24 * 60 * 60 * 1000;
+				const nowB = new Date();
+				const nextB = new Date();
+				nextB.setUTCHours(11, 0, 0, 0);
+				if (nextB <= nowB) nextB.setTime(nextB.getTime() + DAILY_MS_BAL);
+
+				setTimeout(async () => {
+					const runBalancedMonitor = async () => {
+						try {
+							console.log("[BalancedMonitor] 📊 SOP-BAL v1.0 daily balanced portfolio monitor starting...");
+							const { monitorBalancedPortfolios } = await import(
+								"../services/portfolio-rebalance-scheduler"
+							);
+							const result = await monitorBalancedPortfolios();
+							console.log(
+								`[BalancedMonitor] ✅ Balanced monitor complete: ` +
+								`checked=${result.portfoliosChecked}, ` +
+								`band_breaches=${result.bandBreaches}, ` +
+								`benchmark_alerts=${result.benchmarkAlerts}, ` +
+								`rebalances_queued=${result.rebalancesQueued}`
+							);
+						} catch (err) {
+							console.error("[BalancedMonitor] SOP-BAL monitor failed:", err);
+						}
+					};
+					await runBalancedMonitor();
+					setInterval(runBalancedMonitor, DAILY_MS_BAL);
+				}, Math.max(nextB.getTime() - nowB.getTime(), 1000));
+			};
+			scheduleBalancedMonitor();
+
 			// ── Daily: Portfolio NAV History Refresh ──────────────────────────────
 			// Computes monthly NAV time-series for all published portfolios.
 			// Powers the rolling bar chart and cumulative benchmark line chart
