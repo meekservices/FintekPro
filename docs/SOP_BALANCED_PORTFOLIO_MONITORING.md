@@ -214,3 +214,4 @@ Every balanced portfolio factsheet, proposal, and client report must include:
 
 *FintekPro Investment & Risk Committee (IRC)*  
 *SOP-BAL v1.0 — Balanced Portfolio Performance Monitoring*
+
