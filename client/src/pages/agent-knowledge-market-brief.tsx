@@ -18,6 +18,7 @@ import {
 	Building2,
 	Scale,
 	Compass,
+	Lightbulb,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -766,7 +767,7 @@ export default function AgentKnowledgeMarketBrief() {
 											: "Latest update"}
 									</CardDescription>
 								</div>
-								<Badge className="bg-blue-500/20 text-blue-400 border-0">
+								<Badge className="bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-200 border border-blue-200 dark:border-blue-800 text-xs font-semibold">
 									v{briefToDisplay.version || 1}
 								</Badge>
 							</div>
@@ -774,11 +775,11 @@ export default function AgentKnowledgeMarketBrief() {
 						<CardContent className="space-y-6">
 							<div>
 								<h3 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
-									<BarChart3 className="h-5 w-5 text-emerald-500" />
+									<BarChart3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
 									Market Snapshot
 								</h3>
-								<div className="prose prose-invert prose-sm max-w-none">
-									<p className="text-muted-foreground whitespace-pre-line">
+								<div className="prose prose-sm max-w-none">
+									<p className="text-foreground/90 whitespace-pre-line leading-relaxed font-medium">
 										{briefToDisplay.marketSnapshot}
 									</p>
 								</div>
@@ -786,11 +787,11 @@ export default function AgentKnowledgeMarketBrief() {
 
 							<div>
 								<h3 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
-									<Newspaper className="h-5 w-5 text-amber-500" />
+									<Newspaper className="h-5 w-5 text-amber-600 dark:text-amber-400" />
 									What Changed
 								</h3>
-								<div className="prose prose-invert prose-sm max-w-none">
-									<p className="text-muted-foreground whitespace-pre-line">
+								<div className="prose prose-sm max-w-none">
+									<p className="text-foreground/90 whitespace-pre-line leading-relaxed font-medium">
 										{briefToDisplay.whatChanged}
 									</p>
 								</div>
@@ -833,31 +834,31 @@ export default function AgentKnowledgeMarketBrief() {
 													}`}
 												>
 													<div className="flex items-start justify-between gap-1">
-														<p className="font-medium text-foreground text-sm truncate">
+														<p className="font-semibold text-foreground text-sm truncate">
 															{mover.name}
 														</p>
 														{mover.price !== undefined && mover.price !== null && (
-															<span className="text-xs font-mono font-semibold text-foreground/80 shrink-0">
+															<span className="text-xs font-mono font-semibold text-foreground/90 shrink-0">
 																{currencySymbol}{formattedPrice}
 															</span>
 														)}
 													</div>
 													{mover.symbol && (
-														<p className="text-xs text-muted-foreground">
+														<p className="text-xs text-muted-foreground font-medium">
 															{mover.symbol}
 														</p>
 													)}
 													<div className="flex items-center gap-1 mt-1">
 														{mover.direction === "up" ? (
-															<TrendingUp className="h-4 w-4 text-emerald-500" />
+															<TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
 														) : (
-															<TrendingDown className="h-4 w-4 text-red-500" />
+															<TrendingDown className="h-4 w-4 text-rose-600 dark:text-rose-400" />
 														)}
 														<span
 															className={`font-semibold ${
 																mover.direction === "up"
-																	? "text-emerald-400"
-																	: "text-red-400"
+																	? "text-emerald-700 dark:text-emerald-400"
+																	: "text-rose-700 dark:text-rose-400"
 															}`}
 														>
 															{mover.change > 0 ? "+" : ""}
@@ -902,14 +903,14 @@ export default function AgentKnowledgeMarketBrief() {
 
 							{/* CCIL Sovereign Debt & Money Market Desk */}
 							{briefToDisplay.ccilFixedIncome && (
-								<div className="p-4 rounded-xl border border-blue-500/30 bg-blue-950/20 space-y-4">
-									<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-500/20 pb-3">
+								<div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/50 dark:bg-blue-950/20 space-y-4">
+									<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-200 dark:border-blue-800/40 pb-3">
 										<div className="flex items-center gap-2">
-											<Landmark className="h-5 w-5 text-blue-400" />
+											<Landmark className="h-5 w-5 text-blue-700 dark:text-blue-400" />
 											<div>
 												<h3 className="text-base font-semibold text-foreground flex items-center gap-2">
 													CCIL Sovereign Debt & Money Market Desk
-													<Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-300 border-blue-500/30">
+													<Badge variant="outline" className="text-xs bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-300 border-blue-300 dark:border-blue-700 font-semibold">
 														ccilindia.com
 													</Badge>
 												</h3>
@@ -922,7 +923,7 @@ export default function AgentKnowledgeMarketBrief() {
 											href="https://www.ccilindia.com/"
 											target="_blank"
 											rel="noopener noreferrer"
-											className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 shrink-0 underline"
+											className="inline-flex items-center gap-1 text-xs text-blue-700 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 shrink-0 font-medium underline"
 										>
 											Verify on CCIL <ExternalLink className="h-3 w-3" />
 										</a>
@@ -930,10 +931,10 @@ export default function AgentKnowledgeMarketBrief() {
 
 									<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 										{/* 10Y G-Sec */}
-										<div className="p-3 rounded-lg bg-card/60 border border-border/60">
+										<div className="p-3 rounded-lg bg-card border border-border shadow-xs">
 											<div className="flex items-center justify-between">
 												<span className="text-xs text-muted-foreground font-medium">10Y Benchmark G-Sec</span>
-												<Badge className="text-[10px] bg-emerald-500/20 text-emerald-400 border-0">
+												<Badge className="text-[10px] bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800 font-semibold">
 													Real: +{briefToDisplay.ccilFixedIncome.yieldCurveAnalysis?.realYield10Y ?? 2.59}%
 												</Badge>
 											</div>
@@ -941,7 +942,7 @@ export default function AgentKnowledgeMarketBrief() {
 												<span className="text-xl font-bold font-mono text-foreground">
 													{briefToDisplay.ccilFixedIncome.sovereignYields?.[0]?.yieldPercent ?? 6.79}%
 												</span>
-												<span className="text-xs text-emerald-400 font-mono">
+												<span className="text-xs text-emerald-700 dark:text-emerald-400 font-mono font-semibold">
 													{briefToDisplay.ccilFixedIncome.sovereignYields?.[0]?.changeBps ?? -1.5} bps
 												</span>
 											</div>
@@ -951,10 +952,10 @@ export default function AgentKnowledgeMarketBrief() {
 										</div>
 
 										{/* TREPS Overnight */}
-										<div className="p-3 rounded-lg bg-card/60 border border-border/60">
+										<div className="p-3 rounded-lg bg-card border border-border shadow-xs">
 											<div className="flex items-center justify-between">
 												<span className="text-xs text-muted-foreground font-medium">TREPS Overnight WAR</span>
-												<Badge className="text-[10px] bg-blue-500/20 text-blue-400 border-0">
+												<Badge className="text-[10px] bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-200 border border-blue-300 dark:border-blue-800 font-semibold">
 													{briefToDisplay.ccilFixedIncome.treps?.marketCondition ?? "COMFORTABLE"}
 												</Badge>
 											</div>
@@ -969,10 +970,10 @@ export default function AgentKnowledgeMarketBrief() {
 										</div>
 
 										{/* 91D T-Bill & MIBOR */}
-										<div className="p-3 rounded-lg bg-card/60 border border-border/60">
+										<div className="p-3 rounded-lg bg-card border border-border shadow-xs">
 											<div className="flex items-center justify-between">
 												<span className="text-xs text-muted-foreground font-medium">91D T-Bill / MIBOR</span>
-												<Badge className="text-[10px] bg-purple-500/20 text-purple-400 border-0">
+												<Badge className="text-[10px] bg-purple-100 text-purple-900 dark:bg-purple-950/60 dark:text-purple-200 border border-purple-300 dark:border-purple-800 font-semibold">
 													Risk-Free
 												</Badge>
 											</div>
@@ -987,10 +988,10 @@ export default function AgentKnowledgeMarketBrief() {
 										</div>
 
 										{/* Yield Curve Slope & SDL Spread */}
-										<div className="p-3 rounded-lg bg-card/60 border border-border/60">
+										<div className="p-3 rounded-lg bg-card border border-border shadow-xs">
 											<div className="flex items-center justify-between">
 												<span className="text-xs text-muted-foreground font-medium">10Y–2Y Curve Slope</span>
-												<Badge className="text-[10px] bg-amber-500/20 text-amber-400 border-0">
+												<Badge className="text-[10px] bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 border border-amber-300 dark:border-amber-800 font-semibold">
 													{briefToDisplay.ccilFixedIncome.yieldCurveAnalysis?.slope ?? "Normal Upward"}
 												</Badge>
 											</div>
@@ -1006,8 +1007,8 @@ export default function AgentKnowledgeMarketBrief() {
 									</div>
 
 									{briefToDisplay.ccilFixedIncome.yieldCurveAnalysis?.commentary && (
-										<p className="text-xs text-blue-200/80 bg-blue-900/30 p-2.5 rounded-lg border border-blue-500/20">
-											💡 <span className="font-semibold text-blue-200">CCIL Curve Insight:</span>{" "}
+										<p className="text-xs text-blue-950 dark:text-blue-100 bg-blue-100/60 dark:bg-blue-950/50 p-2.5 rounded-lg border border-blue-300 dark:border-blue-800 font-medium">
+											💡 <span className="font-bold text-blue-900 dark:text-blue-200">CCIL Curve Insight:</span>{" "}
 											{briefToDisplay.ccilFixedIncome.yieldCurveAnalysis.commentary}
 										</p>
 									)}
@@ -1016,14 +1017,14 @@ export default function AgentKnowledgeMarketBrief() {
 
 							{/* Commodity Radar (MCX & CMX / COMEX) */}
 							{briefToDisplay.commodityRadar && (
-								<div className="p-4 rounded-xl border border-amber-500/30 bg-amber-950/10 space-y-4">
-									<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-500/20 pb-3">
+								<div className="p-4 rounded-xl border border-amber-300 dark:border-amber-900/60 bg-amber-50/50 dark:bg-amber-950/20 space-y-4">
+									<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-300/60 dark:border-amber-800/40 pb-3">
 										<div className="flex items-center gap-2">
-											<Coins className="h-5 w-5 text-amber-400" />
+											<Coins className="h-5 w-5 text-amber-700 dark:text-amber-400" />
 											<div>
 												<h3 className="text-base font-semibold text-foreground flex items-center gap-2">
 													Commodity Radar (MCX India & Global CFD Benchmarks)
-													<Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-300 border-amber-500/30">
+													<Badge variant="outline" className="text-xs bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-700 font-semibold">
 														Multi-Asset
 													</Badge>
 												</h3>
@@ -1034,12 +1035,12 @@ export default function AgentKnowledgeMarketBrief() {
 										</div>
 										{briefToDisplay.commodityRadar.crudeOilBreakevenStatus && (
 											<Badge
-												className={`text-xs ${
+												className={`text-xs font-semibold ${
 													briefToDisplay.commodityRadar.crudeOilBreakevenStatus.inflationImpact === "Benign"
-														? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+														? "bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800"
 														: briefToDisplay.commodityRadar.crudeOilBreakevenStatus.inflationImpact === "Moderate"
-															? "bg-amber-500/20 text-amber-400 border-amber-500/30"
-															: "bg-red-500/20 text-red-400 border-red-500/30"
+															? "bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 border border-amber-300 dark:border-amber-800"
+															: "bg-rose-100 text-rose-900 dark:bg-rose-950/60 dark:text-rose-200 border border-rose-300 dark:border-rose-800"
 												}`}
 											>
 												Crude Inflation: {briefToDisplay.commodityRadar.crudeOilBreakevenStatus.inflationImpact} ($
@@ -1050,16 +1051,16 @@ export default function AgentKnowledgeMarketBrief() {
 
 									<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
 										{briefToDisplay.commodityRadar.commodities?.map((item, idx) => (
-											<div key={idx} className="p-3 rounded-lg bg-card/60 border border-border/60 space-y-1.5">
+											<div key={idx} className="p-3 rounded-lg bg-card border border-border shadow-xs space-y-1.5">
 												<div className="flex items-center justify-between">
 													<span className="font-semibold text-foreground text-sm truncate" title={item.name}>{item.name}</span>
 													<Badge
 														variant="outline"
-														className={`text-[10px] px-1.5 py-0 ${
+														className={`text-[10px] px-1.5 py-0 font-semibold ${
 															item.trend === "Bullish"
-																? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
+																? "text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50"
 																: item.trend === "Bearish"
-																	? "text-red-400 border-red-500/30 bg-red-500/10"
+																	? "text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/50"
 																	: "text-muted-foreground border-border"
 														}`}
 													>
@@ -1085,11 +1086,11 @@ export default function AgentKnowledgeMarketBrief() {
 													</span>
 												</div>
 
-												<div className="flex items-center justify-between pt-1 border-t border-border/40 text-[11px]">
+												<div className="flex items-center justify-between pt-1 border-t border-border text-[11px]">
 													<span className="text-muted-foreground">Day's Chg:</span>
 													<span
 														className={`font-semibold font-mono ${
-															item.mcxChangePercent >= 0 ? "text-emerald-400" : "text-red-400"
+															item.mcxChangePercent >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"
 														}`}
 													>
 														{item.mcxChangePercent >= 0 ? "+" : ""}
@@ -1101,7 +1102,7 @@ export default function AgentKnowledgeMarketBrief() {
 									</div>
 
 									{briefToDisplay.commodityRadar.crudeOilBreakevenStatus?.commentary && (
-										<p className="text-xs text-amber-950 dark:text-amber-100 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg border border-amber-300 dark:border-amber-800 font-medium">
+										<p className="text-xs text-amber-950 dark:text-amber-100 bg-amber-100/60 dark:bg-amber-950/50 p-2.5 rounded-lg border border-amber-300 dark:border-amber-800 font-medium">
 											⚡ <span className="font-bold text-amber-900 dark:text-amber-200">Macro Takeaway:</span>{" "}
 											{briefToDisplay.commodityRadar.crudeOilBreakevenStatus.commentary}
 										</p>
@@ -1111,16 +1112,16 @@ export default function AgentKnowledgeMarketBrief() {
 
 							{/* Multi-Exchange Intelligence Desk */}
 							{briefToDisplay.multiExchangeData && (
-								<div className="p-4 rounded-xl border border-indigo-500/30 bg-indigo-950/10 space-y-4">
-									<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-500/20 pb-3">
+								<div className="p-4 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/50 dark:bg-indigo-950/20 space-y-4">
+									<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-200 dark:border-indigo-800/40 pb-3">
 										<div className="flex items-center gap-2">
-											<Globe className="h-5 w-5 text-indigo-400" />
+											<Globe className="h-5 w-5 text-indigo-700 dark:text-indigo-400" />
 											<div>
 												<div className="flex items-center gap-2">
 													<h3 className="text-base font-bold text-foreground">
 														Multi-Exchange Intelligence Desk
 													</h3>
-													<Badge className="text-xs bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+													<Badge className="text-xs bg-indigo-100 text-indigo-900 dark:bg-indigo-950/60 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-800 font-semibold">
 														Cross-Market Pulse
 													</Badge>
 												</div>
@@ -1129,21 +1130,21 @@ export default function AgentKnowledgeMarketBrief() {
 												</p>
 											</div>
 										</div>
-										<Badge variant="outline" className="text-xs border-indigo-500/30 text-indigo-300">
+										<Badge variant="outline" className="text-xs border-indigo-300 dark:border-indigo-700 text-indigo-900 dark:text-indigo-300 font-medium">
 											NSE IX · BSE · NSDL · NCDEX
 										</Badge>
 									</div>
 
 									<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
 										{/* BSE Market Breadth */}
-										<div className="p-3 rounded-lg bg-card/60 border border-border/60">
+										<div className="p-3 rounded-lg bg-card border border-border shadow-xs">
 											<div className="flex items-center justify-between">
 												<span className="text-xs text-muted-foreground font-medium">BSE Market Breadth</span>
 												<Badge
-													className={`text-[10px] border-0 ${
+													className={`text-[10px] font-semibold ${
 														briefToDisplay.multiExchangeData.bseBreadth.advanceDeclineRatio >= 1.0
-															? "bg-emerald-500/20 text-emerald-400"
-															: "bg-red-500/20 text-red-400"
+															? "bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800"
+															: "bg-rose-100 text-rose-900 dark:bg-rose-950/60 dark:text-rose-200 border border-rose-300 dark:border-rose-800"
 													}`}
 												>
 													{briefToDisplay.multiExchangeData.bseBreadth.sentiment}
@@ -1159,21 +1160,21 @@ export default function AgentKnowledgeMarketBrief() {
 												</span>
 												<span className="text-xs text-muted-foreground">Dec</span>
 											</div>
-											<div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1 pt-1 border-t border-border/40">
+											<div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1 pt-1 border-t border-border">
 												<span>Ratio: {briefToDisplay.multiExchangeData.bseBreadth.advanceDeclineRatio}:1</span>
 												<span>M-Cap: ₹{briefToDisplay.multiExchangeData.bseBreadth.totalMarketCapLakhCr}L Cr</span>
 											</div>
 										</div>
 
 										{/* GIFT Nifty Lead */}
-										<div className="p-3 rounded-lg bg-card/60 border border-border/60">
+										<div className="p-3 rounded-lg bg-card border border-border shadow-xs">
 											<div className="flex items-center justify-between">
 												<span className="text-xs text-muted-foreground font-medium">GIFT Nifty 21h Lead</span>
 												<Badge
-													className={`text-[10px] border-0 ${
+													className={`text-[10px] font-semibold ${
 														briefToDisplay.multiExchangeData.giftNifty.netChange >= 0
-															? "bg-emerald-500/20 text-emerald-400"
-															: "bg-red-500/20 text-red-400"
+															? "bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800"
+															: "bg-rose-100 text-rose-900 dark:bg-rose-950/60 dark:text-rose-200 border border-rose-300 dark:border-rose-800"
 													}`}
 												>
 													{briefToDisplay.multiExchangeData.giftNifty.openingBias}
@@ -1186,8 +1187,8 @@ export default function AgentKnowledgeMarketBrief() {
 												<span
 													className={`text-xs font-semibold font-mono ${
 														briefToDisplay.multiExchangeData.giftNifty.netChange >= 0
-															? "text-emerald-400"
-															: "text-red-400"
+															? "text-emerald-700 dark:text-emerald-400"
+															: "text-rose-700 dark:text-rose-400"
 													}`}
 												>
 													{briefToDisplay.multiExchangeData.giftNifty.netChange >= 0 ? "+" : ""}
@@ -1195,17 +1196,17 @@ export default function AgentKnowledgeMarketBrief() {
 													{briefToDisplay.multiExchangeData.giftNifty.percentChange.toFixed(2)}%)
 												</span>
 											</div>
-											<div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1 pt-1 border-t border-border/40">
+											<div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1 pt-1 border-t border-border">
 												<span>Spread: +{briefToDisplay.multiExchangeData.giftNifty.spreadOverNiftyBps} bps</span>
 												<span className="truncate">{briefToDisplay.multiExchangeData.giftNifty.asOfSession}</span>
 											</div>
 										</div>
 
 										{/* Institutional Flows & SIP */}
-										<div className="p-3 rounded-lg bg-card/60 border border-border/60">
+										<div className="p-3 rounded-lg bg-card border border-border shadow-xs">
 											<div className="flex items-center justify-between">
 												<span className="text-xs text-muted-foreground font-medium">FII / DII Institutional Net</span>
-												<Badge className="text-[10px] bg-blue-500/20 text-blue-400 border-0">
+												<Badge className="text-[10px] bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-200 border border-blue-300 dark:border-blue-800 font-semibold">
 													SIP Moat
 												</Badge>
 											</div>
@@ -1215,8 +1216,8 @@ export default function AgentKnowledgeMarketBrief() {
 													<strong
 														className={
 															briefToDisplay.multiExchangeData.institutionalFlows.fiiNetInflowCr >= 0
-																? "text-emerald-400"
-																: "text-red-400"
+																? "text-emerald-700 dark:text-emerald-400"
+																: "text-rose-700 dark:text-rose-400"
 														}
 													>
 														{briefToDisplay.multiExchangeData.institutionalFlows.fiiNetInflowCr >= 0 ? "+" : ""}
@@ -1228,8 +1229,8 @@ export default function AgentKnowledgeMarketBrief() {
 													<strong
 														className={
 															briefToDisplay.multiExchangeData.institutionalFlows.diiNetInflowCr >= 0
-																? "text-emerald-400"
-																: "text-red-400"
+																? "text-emerald-700 dark:text-emerald-400"
+																: "text-rose-700 dark:text-rose-400"
 														}
 													>
 														{briefToDisplay.multiExchangeData.institutionalFlows.diiNetInflowCr >= 0 ? "+" : ""}
@@ -1237,17 +1238,17 @@ export default function AgentKnowledgeMarketBrief() {
 													</strong>
 												</span>
 											</div>
-											<div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1 pt-1 border-t border-border/40">
+											<div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1 pt-1 border-t border-border">
 												<span>Monthly SIP: ₹{briefToDisplay.multiExchangeData.institutionalFlows.monthlyMfSipRunRateCr.toLocaleString("en-IN")} Cr</span>
 												<span className="truncate">{briefToDisplay.multiExchangeData.institutionalFlows.liquidityRegime}</span>
 											</div>
 										</div>
 
 										{/* Volatility Pulse */}
-										<div className="p-3 rounded-lg bg-card/60 border border-border/60">
+										<div className="p-3 rounded-lg bg-card border border-border shadow-xs">
 											<div className="flex items-center justify-between">
 												<span className="text-xs text-muted-foreground font-medium">Volatility Pulse</span>
-												<Badge className="text-[10px] bg-purple-500/20 text-purple-400 border-0">
+												<Badge className="text-[10px] bg-purple-100 text-purple-900 dark:bg-purple-950/60 dark:text-purple-200 border border-purple-300 dark:border-purple-800 font-semibold">
 													{briefToDisplay.multiExchangeData.volatilityPulse?.regime ?? "LOW VOL"}
 												</Badge>
 											</div>
@@ -1260,7 +1261,7 @@ export default function AgentKnowledgeMarketBrief() {
 													Cboe: {briefToDisplay.multiExchangeData.volatilityPulse?.cboeVix.toFixed(2) ?? "15.40"}
 												</span>
 											</div>
-											<p className="text-[11px] text-muted-foreground mt-1 pt-1 border-t border-border/40 truncate">
+											<p className="text-[11px] text-muted-foreground mt-1 pt-1 border-t border-border truncate">
 												{briefToDisplay.multiExchangeData.volatilityPulse?.advisoryTakeaway ??
 													"Calm volatility backdrop favors disciplined STP / SIP equity allocations."}
 											</p>
@@ -1269,16 +1270,16 @@ export default function AgentKnowledgeMarketBrief() {
 
 									{/* NCDEX Agri Drivers */}
 									{briefToDisplay.multiExchangeData.ncdexAgriPulse && (
-										<div className="p-2.5 rounded-lg bg-indigo-900/20 border border-indigo-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+										<div className="p-2.5 rounded-lg bg-indigo-100/60 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
 											<div className="flex items-center gap-2">
-												<span className="font-semibold text-indigo-300">🌾 NCDEX Food Inflation Pulse:</span>
-												<span className="text-muted-foreground">
+												<span className="font-bold text-indigo-900 dark:text-indigo-200">🌾 NCDEX Food Inflation Pulse:</span>
+												<span className="text-foreground/90 font-medium">
 													Staples Index:{" "}
 													<strong
 														className={
 															briefToDisplay.multiExchangeData.ncdexAgriPulse.staplesIndexChangePct >= 0
-																? "text-red-400"
-																: "text-emerald-400"
+																? "text-rose-700 dark:text-rose-400"
+																: "text-emerald-700 dark:text-emerald-400"
 														}
 													>
 														{briefToDisplay.multiExchangeData.ncdexAgriPulse.staplesIndexChangePct >= 0 ? "+" : ""}
@@ -1289,7 +1290,7 @@ export default function AgentKnowledgeMarketBrief() {
 											</div>
 											<div className="flex items-center gap-2">
 												{briefToDisplay.multiExchangeData.ncdexAgriPulse.keyCommodityDrivers.map((driver, dIdx) => (
-													<span key={dIdx} className="px-2 py-0.5 rounded bg-card/60 text-[11px] text-foreground/80 border border-border/50">
+													<span key={dIdx} className="px-2 py-0.5 rounded bg-card text-[11px] font-medium text-foreground border border-border">
 														{driver.name}: <strong>{driver.trend}</strong>
 													</span>
 												))}
@@ -1301,16 +1302,16 @@ export default function AgentKnowledgeMarketBrief() {
 
 							{/* AMC House Consensus & Asset Allocation Desk */}
 							{briefToDisplay.amcConsensus && (
-								<div className="p-4 rounded-xl border border-teal-500/30 bg-teal-950/10 space-y-4">
-									<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-teal-500/20 pb-3">
+								<div className="p-4 rounded-xl border border-teal-200 dark:border-teal-900/60 bg-teal-50/50 dark:bg-teal-950/20 space-y-4">
+									<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-teal-200 dark:border-teal-800/40 pb-3">
 										<div className="flex items-center gap-2">
-											<Building2 className="h-5 w-5 text-teal-400" />
+											<Building2 className="h-5 w-5 text-teal-700 dark:text-teal-400" />
 											<div>
 												<div className="flex items-center gap-2">
 													<h3 className="text-base font-bold text-foreground">
 														AMC House Consensus & Asset Allocation Desk
 													</h3>
-													<Badge className="text-xs bg-teal-500/20 text-teal-400 border border-teal-500/30">
+													<Badge className="text-xs bg-teal-100 text-teal-900 dark:bg-teal-950/60 dark:text-teal-200 border border-teal-300 dark:border-teal-800 font-semibold">
 														FASP-AI Decision Support
 													</Badge>
 												</div>
@@ -1319,23 +1320,23 @@ export default function AgentKnowledgeMarketBrief() {
 												</p>
 											</div>
 										</div>
-										<Badge variant="outline" className="text-xs border-teal-500/30 text-teal-300">
+										<Badge variant="outline" className="text-xs border-teal-300 dark:border-teal-700 text-teal-900 dark:text-teal-300 font-medium">
 											CIO & Fund Manager Stance
 										</Badge>
 									</div>
 
 									{/* Contributing AMC Badges & Consensus Stance */}
-									<div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-teal-900/20 border border-teal-500/20">
+									<div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-teal-100/60 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800">
 										<div className="flex items-center gap-2">
-											<span className="text-xs font-semibold text-teal-300">Consensus Equity Bias:</span>
-											<Badge className="text-xs bg-teal-500/30 text-teal-200 border-0">
+											<span className="text-xs font-bold text-teal-950 dark:text-teal-200">Consensus Equity Bias:</span>
+											<Badge className="text-xs bg-teal-200 text-teal-950 dark:bg-teal-900/80 dark:text-teal-100 border border-teal-300 dark:border-teal-700 font-bold">
 												{briefToDisplay.amcConsensus.consensusEquityStance}
 											</Badge>
 										</div>
 										<div className="flex items-center gap-1.5 flex-wrap">
-											<span className="text-[11px] text-muted-foreground">Contributing Houses:</span>
+											<span className="text-[11px] text-muted-foreground font-medium">Contributing Houses:</span>
 											{briefToDisplay.amcConsensus.contributingAmcs.map((amc, aIdx) => (
-												<span key={aIdx} className="px-2 py-0.5 rounded text-[10px] font-medium bg-card/60 text-foreground/80 border border-border/50">
+												<span key={aIdx} className="px-2 py-0.5 rounded text-[10px] font-semibold bg-card text-foreground border border-border">
 													{amc}
 												</span>
 											))}
@@ -1345,20 +1346,20 @@ export default function AgentKnowledgeMarketBrief() {
 									{/* Valuation Context & Fixed Income Stance */}
 									<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 										{/* Equity Valuation Context */}
-										<div className="p-3 rounded-lg bg-card/60 border border-border/60 space-y-2">
+										<div className="p-3 rounded-lg bg-card border border-border shadow-xs space-y-2">
 											<div className="flex items-center justify-between">
-												<span className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
-													<Scale className="h-3.5 w-3.5 text-teal-400" />
+												<span className="text-xs text-foreground font-bold flex items-center gap-1.5">
+													<Scale className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" />
 													Nifty 50 Forward Valuation Context
 												</span>
-												<Badge className="text-[10px] bg-amber-500/20 text-amber-400 border-0">
+												<Badge className="text-[10px] bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 border border-amber-300 dark:border-amber-800 font-semibold">
 													{briefToDisplay.amcConsensus.valuationContext.valuationStatus}
 												</Badge>
 											</div>
 											<div className="flex items-baseline gap-4 text-xs font-mono">
 												<div>
 													<span className="text-muted-foreground">Fwd P/E: </span>
-													<strong className="text-foreground text-sm">
+													<strong className="text-foreground text-sm font-bold">
 														{briefToDisplay.amcConsensus.valuationContext.niftyForwardPE}x
 													</strong>
 												</div>
@@ -1370,31 +1371,31 @@ export default function AgentKnowledgeMarketBrief() {
 												</div>
 												<div>
 													<span className="text-muted-foreground">P/B: </span>
-													<strong className="text-foreground text-sm">
+													<strong className="text-foreground text-sm font-bold">
 														{briefToDisplay.amcConsensus.valuationContext.priceToBook}x
 													</strong>
 												</div>
 											</div>
-											<p className="text-xs text-muted-foreground leading-relaxed">
+											<p className="text-xs text-foreground/80 leading-relaxed font-medium">
 												{briefToDisplay.amcConsensus.valuationContext.commentary}
 											</p>
 										</div>
 
 										{/* Fixed Income Duration Strategy */}
-										<div className="p-3 rounded-lg bg-card/60 border border-border/60 space-y-2">
+										<div className="p-3 rounded-lg bg-card border border-border shadow-xs space-y-2">
 											<div className="flex items-center justify-between">
-												<span className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
-													<Compass className="h-3.5 w-3.5 text-teal-400" />
+												<span className="text-xs text-foreground font-bold flex items-center gap-1.5">
+													<Compass className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" />
 													Fixed Income Recommended Duration
 												</span>
-												<Badge className="text-[10px] bg-emerald-500/20 text-emerald-400 border-0">
+												<Badge className="text-[10px] bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800 font-semibold">
 													{briefToDisplay.amcConsensus.fixedIncomeStance.recommendedDurationBand}
 												</Badge>
 											</div>
 											<div className="text-xs text-foreground font-medium">
-												Category: <strong className="text-teal-300">{briefToDisplay.amcConsensus.fixedIncomeStance.recommendedCategory}</strong>
+												Category: <strong className="text-teal-800 dark:text-teal-300 font-bold">{briefToDisplay.amcConsensus.fixedIncomeStance.recommendedCategory}</strong>
 											</div>
-											<p className="text-xs text-muted-foreground leading-relaxed">
+											<p className="text-xs text-foreground/80 leading-relaxed font-medium">
 												{briefToDisplay.amcConsensus.fixedIncomeStance.rationale}
 											</p>
 										</div>
@@ -1402,21 +1403,21 @@ export default function AgentKnowledgeMarketBrief() {
 
 									{/* Thematic Rotations */}
 									<div className="space-y-2">
-										<span className="text-xs font-semibold text-foreground">
+										<span className="text-xs font-bold text-foreground">
 											Key Thematic Rotations & Sectoral Positioning:
 										</span>
 										<div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
 											{briefToDisplay.amcConsensus.thematicRotations.map((theme, tIdx) => (
-												<div key={tIdx} className="p-2.5 rounded-lg bg-card/40 border border-border/40 space-y-1.5">
+												<div key={tIdx} className="p-2.5 rounded-lg bg-card border border-border shadow-xs space-y-1.5">
 													<div className="flex items-center justify-between">
-														<span className="text-xs font-semibold text-foreground">{theme.theme}</span>
+														<span className="text-xs font-bold text-foreground">{theme.theme}</span>
 														<Badge
-															className={`text-[10px] border-0 ${
+															className={`text-[10px] font-semibold ${
 																theme.sentiment === "Overweight"
-																	? "bg-emerald-500/20 text-emerald-400"
+																	? "bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800"
 																	: theme.sentiment === "Underweight"
-																		? "bg-red-500/20 text-red-400"
-																		: "bg-muted text-muted-foreground"
+																		? "bg-rose-100 text-rose-900 dark:bg-rose-950/60 dark:text-rose-200 border border-rose-300 dark:border-rose-800"
+																		: "bg-muted text-foreground border border-border"
 															}`}
 														>
 															{theme.sentiment}
@@ -1425,7 +1426,7 @@ export default function AgentKnowledgeMarketBrief() {
 													<p className="text-[11px] text-muted-foreground leading-normal">
 														{theme.fundManagerRationale}
 													</p>
-													<div className="text-[10px] text-teal-300/80 pt-1 border-t border-border/30">
+													<div className="text-[10px] text-teal-800 dark:text-teal-300 pt-1 border-t border-border font-medium">
 														Favored: {theme.favoredSectors.join(", ")}
 													</div>
 												</div>
@@ -1434,11 +1435,11 @@ export default function AgentKnowledgeMarketBrief() {
 									</div>
 
 									{/* Advisor Client Talking Points */}
-									<div className="p-3 rounded-lg bg-teal-900/20 border border-teal-500/20 space-y-1.5">
-										<span className="text-xs font-semibold text-teal-200">
+									<div className="p-3.5 rounded-xl bg-teal-100/60 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 space-y-1.5">
+										<span className="text-xs font-bold text-teal-950 dark:text-teal-200">
 											🗣️ Advisor Client Talking Points (SEBI FASP-AI Compliant):
 										</span>
-										<ul className="list-disc list-inside space-y-1 text-xs text-muted-foreground">
+										<ul className="list-disc list-inside space-y-1 text-xs text-foreground/90 font-medium">
 											{briefToDisplay.amcConsensus.advisorTalkingPoints.map((point, pIdx) => (
 												<li key={pIdx} className="leading-relaxed">
 													{point}
@@ -1456,23 +1457,24 @@ export default function AgentKnowledgeMarketBrief() {
 
 
 							{briefToDisplay.keyRisks && (
-								<div className="p-4 bg-red-500/10 rounded-lg border border-red-500/30">
-									<h3 className="text-lg font-semibold text-red-400 mb-2 flex items-center gap-2">
-										<AlertTriangle className="h-5 w-5" />
+								<div className="p-4 bg-rose-50/90 dark:bg-rose-950/30 rounded-xl border border-rose-200 dark:border-rose-900/50 shadow-xs">
+									<h3 className="text-base font-bold text-rose-900 dark:text-rose-300 mb-2 flex items-center gap-2">
+										<AlertTriangle className="h-5 w-5 text-rose-600 dark:text-rose-400" />
 										Key Risks to Watch
 									</h3>
-									<p className="text-muted-foreground">
+									<p className="text-rose-950 dark:text-rose-100 text-sm leading-relaxed font-medium">
 										{briefToDisplay.keyRisks}
 									</p>
 								</div>
 							)}
 
 							{briefToDisplay.agentTips && (
-								<div className="p-4 bg-emerald-500/10 rounded-lg border border-emerald-500/30">
-									<h3 className="text-lg font-semibold text-emerald-400 mb-2">
+								<div className="p-4 bg-emerald-50/90 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-900/50 shadow-xs">
+									<h3 className="text-base font-bold text-emerald-900 dark:text-emerald-300 mb-2 flex items-center gap-2">
+										<Lightbulb className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
 										Advisor Tips & Allocation Guidance
 									</h3>
-									<p className="text-muted-foreground">
+									<p className="text-emerald-950 dark:text-emerald-100 text-sm leading-relaxed font-medium">
 										{briefToDisplay.agentTips}
 									</p>
 								</div>

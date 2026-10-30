@@ -880,7 +880,7 @@ export default function AgentKnowledgeHub() {
 									<TrendingUp className="h-5 w-5 text-blue-500" />
 									Today's Market Brief
 								</CardTitle>
-								<Badge className="bg-blue-500/20 text-blue-400 border-0">
+								<Badge className="bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-200 border border-blue-200 dark:border-blue-800 text-xs font-semibold">
 									{(briefToDisplay.region || "india").toUpperCase()}
 								</Badge>
 							</div>
@@ -891,27 +891,28 @@ export default function AgentKnowledgeHub() {
 						<CardContent>
 							<div className="space-y-4">
 								<div>
-									<h4 className="text-sm font-medium text-muted-foreground mb-2">
+									<h4 className="text-sm font-semibold text-foreground mb-1.5">
 										Market Snapshot
 									</h4>
-									<p className="text-muted-foreground text-sm line-clamp-3">
+									<p className="text-muted-foreground text-sm leading-relaxed line-clamp-3">
 										{briefToDisplay.marketSnapshot}
 									</p>
 								</div>
 								<div>
-									<h4 className="text-sm font-medium text-muted-foreground mb-2">
+									<h4 className="text-sm font-semibold text-foreground mb-1.5">
 										What Changed
 									</h4>
-									<p className="text-muted-foreground text-sm line-clamp-2">
+									<p className="text-muted-foreground text-sm leading-relaxed line-clamp-2">
 										{briefToDisplay.whatChanged}
 									</p>
 								</div>
 								{briefToDisplay.keyRisks && (
-									<div className="p-3 bg-red-500/10 rounded-lg border border-red-500/20">
-										<h4 className="text-sm font-medium text-red-400 mb-1">
+									<div className="p-3.5 bg-rose-50/90 dark:bg-rose-950/30 rounded-lg border border-rose-200 dark:border-rose-900/50">
+										<h4 className="text-xs font-bold uppercase tracking-wider text-rose-900 dark:text-rose-300 mb-1 flex items-center gap-1.5">
+											<AlertTriangle className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
 											Key Risks
 										</h4>
-										<p className="text-muted-foreground text-sm">
+										<p className="text-rose-950 dark:text-rose-100 text-xs font-medium leading-relaxed">
 											{briefToDisplay.keyRisks}
 										</p>
 									</div>
@@ -1395,8 +1396,8 @@ export default function AgentKnowledgeHub() {
 				<DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-6 bg-card border-border">
 					<DialogHeader>
 						<div className="flex items-center gap-2">
-							<Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20 text-xs">
-								<Building2 className="h-3 w-3 mr-1" />
+							<Badge className="bg-purple-100 text-purple-900 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-300 dark:border-purple-700 text-xs font-semibold">
+								<Building2 className="h-3 w-3 mr-1 text-purple-700 dark:text-purple-400" />
 								Institutional Feeds
 							</Badge>
 							<span className="text-xs text-muted-foreground">Updated Monthly from AMC Disclosures</span>
@@ -1440,8 +1441,8 @@ export default function AgentKnowledgeHub() {
 											<div className="p-4 rounded-xl bg-muted/30 border border-border">
 												<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
 													<div>
-														<Badge variant="outline" className="text-xs mb-1 bg-primary/10 text-primary border-primary/20">
-															{activeInsight.category}
+														<Badge variant="outline" className="text-xs mb-1.5 bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-200 border-blue-300 dark:border-blue-700 font-semibold uppercase tracking-wider text-[10px] px-2 py-0.5">
+															{activeInsight.category.replace(/_/g, " ")}
 														</Badge>
 														<h3 className="text-base font-semibold text-foreground">
 															{activeInsight.title}
@@ -1465,14 +1466,16 @@ export default function AgentKnowledgeHub() {
 													<Sparkles className="h-3.5 w-3.5 text-amber-500" />
 													Key Strategic Takeaways
 												</h4>
-												<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
 													{activeInsight.keyTakeaways.map((takeaway, idx) => (
 														<div
 															key={idx}
-															className="flex items-start gap-2.5 p-3 rounded-lg bg-card border border-border text-xs text-foreground font-medium shadow-xs"
+															className={`flex items-start gap-2.5 p-3 rounded-lg bg-card border border-border text-xs text-foreground font-medium shadow-xs ${
+																activeInsight.keyTakeaways.length % 2 !== 0 && idx === activeInsight.keyTakeaways.length - 1 ? "md:col-span-2" : ""
+															}`}
 														>
 															<CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-															<span>{takeaway}</span>
+															<span className="leading-relaxed">{takeaway}</span>
 														</div>
 													))}
 												</div>
@@ -1486,9 +1489,9 @@ export default function AgentKnowledgeHub() {
 												</h4>
 												<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 													{/* Overweight */}
-													<div className="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 shadow-xs">
+													<div className="p-3 rounded-xl bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 shadow-xs">
 														<div className="flex items-center gap-1.5 mb-2">
-															<Badge className="bg-emerald-100 text-emerald-900 dark:bg-emerald-900/60 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700 text-[10px] font-bold">
+															<Badge className="bg-emerald-100 text-emerald-900 dark:bg-emerald-900/80 dark:text-emerald-200 border border-emerald-400 dark:border-emerald-700 text-[10px] font-bold">
 																OVERWEIGHT
 															</Badge>
 														</div>
@@ -1503,9 +1506,9 @@ export default function AgentKnowledgeHub() {
 													</div>
 
 													{/* Neutral */}
-													<div className="p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 shadow-xs">
+													<div className="p-3 rounded-xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 shadow-xs">
 														<div className="flex items-center gap-1.5 mb-2">
-															<Badge className="bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200 border border-amber-300 dark:border-amber-700 text-[10px] font-bold">
+															<Badge className="bg-amber-100 text-amber-900 dark:bg-amber-900/80 dark:text-amber-200 border border-amber-400 dark:border-amber-700 text-[10px] font-bold">
 																NEUTRAL
 															</Badge>
 														</div>
@@ -1520,9 +1523,9 @@ export default function AgentKnowledgeHub() {
 													</div>
 
 													{/* Underweight */}
-													<div className="p-3 rounded-xl bg-rose-50/80 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60 shadow-xs">
+													<div className="p-3 rounded-xl bg-rose-50/90 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 shadow-xs">
 														<div className="flex items-center gap-1.5 mb-2">
-															<Badge className="bg-rose-100 text-rose-900 dark:bg-rose-900/60 dark:text-rose-200 border border-rose-300 dark:border-rose-700 text-[10px] font-bold">
+															<Badge className="bg-rose-100 text-rose-900 dark:bg-rose-900/80 dark:text-rose-200 border border-rose-400 dark:border-rose-700 text-[10px] font-bold">
 																UNDERWEIGHT
 															</Badge>
 														</div>
@@ -1565,14 +1568,14 @@ export default function AgentKnowledgeHub() {
 											</div>
 
 											{/* Partner Advisory Tip */}
-											<div className="p-3.5 rounded-xl bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 shadow-xs">
+											<div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/70 border-l-4 border-l-emerald-600 border border-slate-300 dark:border-slate-800 shadow-sm">
 												<div className="flex items-center gap-2 mb-1.5">
-													<Lightbulb className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
-													<p className="text-xs font-bold text-emerald-950 dark:text-emerald-200 uppercase tracking-wide">
+													<Lightbulb className="h-4 w-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
+													<p className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
 														Partner Client Advisory Takeaway
 													</p>
 												</div>
-												<p className="text-xs text-emerald-950 dark:text-emerald-100 font-medium leading-relaxed">
+												<p className="text-xs text-slate-800 dark:text-slate-200 font-medium leading-relaxed pl-6">
 													{activeInsight.advisoryTipForPartners}
 												</p>
 											</div>
