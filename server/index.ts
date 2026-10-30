@@ -239,6 +239,11 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 					await runGeoCoverageColumnsRepair();
 					await runTruecallerRegistrationColumnRepair();
 
+					// Recalibrate model portfolio CAGRs immediately on boot
+					logBootProgress("Step 2b-cagr (bg): Phase P2 — recalibrating model portfolio CAGRs & TWRRs...");
+					const { repairCorruptModelPortfolioCAGRs } = await import("./startup/schema-repairs");
+					await repairCorruptModelPortfolioCAGRs();
+
 					// Seed model portfolio holdings (idempotent)
 					logBootProgress("Step 2b (bg): Seeding model portfolio holdings...");
 					const { seedModelPortfolioHoldings } = await import(
@@ -275,10 +280,6 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 
 					logBootProgress("Step 2d3 (bg): Phase P — repair model portfolio holdings (dedup, ISINs, 100% weights)...");
 					await repairModelPortfolioHoldings();
-
-					logBootProgress("Step 2d4 (bg): Phase P2 — recalibrating model portfolio CAGRs & TWRRs...");
-					const { repairCorruptModelPortfolioCAGRs } = await import("./startup/schema-repairs");
-					await repairCorruptModelPortfolioCAGRs();
 
 					// De-duplication: ensure shared route tables (agent_notifications,
 					// partner_team_members, partner_agent_invitations) are created

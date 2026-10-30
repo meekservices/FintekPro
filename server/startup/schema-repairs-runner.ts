@@ -146,6 +146,15 @@ async function main() {
     console.error("  ❌ Phase P error:", e.message);
   }
 
+  // ── Phase P2: Recalibrate corrupted model portfolio CAGRs ─────────────────────
+  console.log("Phase P2 — recalibrating model portfolio CAGRs (resetting corrupt multipliers and decimals)...");
+  try {
+    const { repairCorruptModelPortfolioCAGRs } = await import("./schema-repairs");
+    await repairCorruptModelPortfolioCAGRs();
+  } catch (e: any) {
+    console.error("  ❌ Phase P2 error:", e.message);
+  }
+
   // ── Phase E-2: Sync portfolio stocks → listed_stocks ─────────────────────────
   // Ensures every stock referenced in any model portfolio is discoverable by the
   // research note /search endpoint (listed_stocks table). Fixes: "company not found"
