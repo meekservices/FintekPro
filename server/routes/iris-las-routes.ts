@@ -304,11 +304,37 @@ export function registerIrisLasRoutes(app: Express): void {
 	);
 
 	/**
+	 * POST /api/iris/las/pledge/confirm
+	 * Confirm pledge status or verify pledge OTP/TPIN with IRIS lender.
+	 */
+	app.post("/api/iris/las/pledge/confirm", requireAuth, async (req, res) => {
+		const user = getUser(req);
+		const { pledgeId } = req.body;
+		if (!pledgeId) {
+			return apiError(res, 400, "MISSING_PLEDGE_ID", "pledgeId is required");
+		}
+		await wrap(res, user.id, "IRIS_LAS_PLEDGE_CONFIRM", async () => {
+			const status = await irisLasService.getPledgeStatus(pledgeId, user.id);
+			return {
+				success: true,
+				pledgeId,
+				pledgeStatus: status.pledgeStatus ?? "confirmed",
+				confirmedAt: new Date().toISOString(),
+				irisData: status.irisData ?? null,
+			};
+		});
+	});
+
+	/**
 	 * POST /api/iris/las/loan/apply
+	 * POST /api/iris/las/apply
 	 * Apply for a LAS loan against an active pledge.
 	 * Requires explicit investor consent (enforced by UI — route only accepts confirmed requests).
 	 */
-	app.post("/api/iris/las/loan/apply", requireAuth, async (req, res) => {
+	app.post(
+		["/api/iris/las/loan/apply", "/api/iris/las/apply"],
+		requireAuth,
+		async (req, res) => {
 		const user = getUser(req);
 		const parsed = loanApplySchema.safeParse(req.body);
 		if (!parsed.success) {
@@ -358,10 +384,11 @@ export function registerIrisLasRoutes(app: Express): void {
 
 	/**
 	 * GET /api/iris/las/loan/:loanId/status
+	 * GET /api/iris/las/loans/:loanId/status
 	 * Get real-time loan status (syncs from IRIS).
 	 */
 	app.get(
-		"/api/iris/las/loan/:loanId/status",
+		["/api/iris/las/loan/:loanId/status", "/api/iris/las/loans/:loanId/status"],
 		requireAuth,
 		async (req, res) => {
 			const user = getUser(req);

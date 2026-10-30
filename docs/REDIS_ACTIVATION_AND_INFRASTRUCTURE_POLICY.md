@@ -153,3 +153,4 @@ curl -s "https://fintekpro-app-7f3fb64pqq-el.a.run.app/api/health" | jq .
 - **Drafted By**: FintekPro Platform Engineering & Quant Systems  
 - **Regulatory Verification**: SEBI RIA & MFD Operational Segregation Audit  
 - **Review Cycle**: Quarterly or upon reaching 500, 1,000, and 5,000 user milestones  
+

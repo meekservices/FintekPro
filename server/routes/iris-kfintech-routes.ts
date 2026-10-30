@@ -254,7 +254,7 @@ export function registerIrisKfintechRoutes(app: Express): void {
 	);
 
 	app.get(
-		"/api/iris/investors/:pan/kyc",
+		["/api/iris/investors/:pan/kyc", "/api/iris/investors/:pan/kyc-details"],
 		requireAuth,
 		requireAgent,
 		async (req, res) => {
@@ -969,14 +969,19 @@ export function registerIrisKfintechRoutes(app: Express): void {
 	);
 
 	app.post(
-		"/api/iris/nps/transactions/contribution",
+		[
+			"/api/iris/nps/transactions/contribution",
+			"/api/iris/nps/subscriber/:pran/contribution",
+		],
 		requireAuth,
 		requireAgent,
 		async (req, res) => {
+			const pran = req.params.pran || req.body?.pran;
 			await wrap(res, () =>
-				irisKfintechService.placeNpsContribution(
-					req.body as Record<string, unknown>,
-				),
+				irisKfintechService.placeNpsContribution({
+					...(req.body as Record<string, unknown>),
+					...(pran ? { pran } : {}),
+				}),
 			);
 		},
 	);
