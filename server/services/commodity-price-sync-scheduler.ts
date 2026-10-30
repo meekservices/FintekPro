@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { db } from "../db";
 import { commodities } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
@@ -43,9 +44,9 @@ class CommodityPriceSyncScheduler {
 		PLATINUM: "PL=F",
 		PALLADIUM: "PA=F",
 		// ── Energy ──────────────────────────────────────────────────────────────
-		CRUDE_OIL: "CL=F",
-		BRENT: "BZ=F",
-		BRENT_CRUDE: "BZ=F", // DB alias — same ICE Brent contract
+		CRUDE_OIL: "BZ=F", // NYMEX Brent Crude Oil Last Day Financial Futures
+		BRENT: "BZ=F", // NYMEX Brent Futures
+		BRENT_CRUDE: "BZ=F", // DB alias — NYMEX Brent contract
 		NATURAL_GAS: "NG=F",
 		// ── Base metals (CME) ────────────────────────────────────────────────────
 		COPPER: "HG=F",

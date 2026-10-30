@@ -2645,28 +2645,28 @@ export default function AgentKnowledgeCertifications() {
 																<div className="space-y-2.5 pt-1">
 																	{/* Status Remark Callout */}
 																	{isCorrect ? (
-																		<div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300">
-																			<CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+																		<div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/60 shadow-sm">
+																			<CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
 																			<div>
-																				<div className="font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 text-emerald-300">
+																				<div className="font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 text-emerald-900 dark:text-emerald-200">
 																					✓ Remark: Right Answer!
 																				</div>
-																				<p className="text-xs text-emerald-200/90 mt-0.5">
+																				<p className="text-xs text-emerald-950 dark:text-emerald-100 font-medium mt-0.5">
 																					Spot on! You selected Option {correctLetter} ({correctOptionText}).
 																				</p>
 																			</div>
 																		</div>
 																	) : (
-																		<div className="flex items-start gap-3 p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300">
-																			<XCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
+																		<div className="flex items-start gap-3 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-700/60 shadow-sm">
+																			<XCircle className="h-5 w-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
 																			<div>
-																				<div className="font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 text-rose-400">
+																				<div className="font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 text-rose-900 dark:text-rose-200">
 																					✗ Remark: Wrong Answer
 																				</div>
-																				<p className="text-xs text-rose-200/90 mt-0.5 leading-relaxed">
-																					You selected <span className="font-semibold text-rose-300">Option {userLetter}: {userOptionText}</span>.
+																				<p className="text-xs text-rose-950 dark:text-rose-100 mt-0.5 leading-relaxed font-medium">
+																					You selected <span className="font-bold text-rose-900 dark:text-rose-200">Option {userLetter}: {userOptionText}</span>.
 																					<br />
-																					The correct answer is <span className="font-bold text-emerald-300 underline underline-offset-2">Option {correctLetter}: {correctOptionText}</span>.
+																					The correct answer is <span className="font-bold text-emerald-800 dark:text-emerald-300 underline underline-offset-2">Option {correctLetter}: {correctOptionText}</span>.
 																				</p>
 																			</div>
 																		</div>

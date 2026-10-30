@@ -220,7 +220,7 @@ export class KnowledgeHubService {
 		const gsecYieldStr = ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent
 			? `${ccilFixedIncome.sovereignYields[0].yieldPercent}%`
 			: "6.79%";
-		const brentPriceNum = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? 114.2;
+		const brentPriceNum = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? 117.0;
 		const brentStr = `$${brentPriceNum}/bbl`;
 		const goldStr = commodityRadar?.commodities?.[0]?.mcxPrice
 			? `₹${commodityRadar.commodities[0].mcxPrice.toLocaleString("en-IN")}/10g`
@@ -300,22 +300,20 @@ export class KnowledgeHubService {
 				];
 
 		if (brief.marketSnapshot && typeof brief.marketSnapshot === "string") {
-			if (brief.marketSnapshot.includes("74.8") || (isElevatedCrude && brief.marketSnapshot.includes("comfort band"))) {
-				brief.marketSnapshot = brief.marketSnapshot
-					.replace(/\$74\.8\/bbl/g, brentStr)
-					.replace(/\$74\.8/g, `$${brentPriceNum}`)
-					.replace(/in the domestic comfort band/g, "with elevated pricing monitored closely for imported inflation risks")
-					.replace(/within India's comfort threshold \(<\$80\/bbl\)/g, "elevated above India's comfort threshold ($80/bbl)");
-			}
+			brief.marketSnapshot = brief.marketSnapshot
+				.replace(/Brent crude traded at \$[0-9.]+\/bbl/g, `Brent crude traded at ${brentStr}`)
+				.replace(/\$74\.8\/bbl/g, brentStr)
+				.replace(/\$74\.8/g, `$${brentPriceNum}`)
+				.replace(/in the domestic comfort band/g, "with elevated pricing monitored closely for imported inflation risks")
+				.replace(/within India's comfort threshold \(<\$80\/bbl\)/g, "elevated above India's comfort threshold ($80/bbl)");
 		}
 
 		if (brief.whatChanged && typeof brief.whatChanged === "string") {
-			if (brief.whatChanged.includes("74.8") || (isElevatedCrude && brief.whatChanged.includes("comfort threshold (<$80)"))) {
-				brief.whatChanged = brief.whatChanged
-					.replace(/Brent crude consolidated at \$74\.8\/bbl within India's comfort threshold \(<\$80\), reducing CAD and imported inflation risks\./g, `Brent crude traded firm at ${brentStr}, remaining above India's $80 comfort threshold and creating imported inflation headwinds.`)
-					.replace(/\$74\.8\/bbl/g, brentStr)
-					.replace(/\$74\.8/g, `$${brentPriceNum}`);
-			}
+			brief.whatChanged = brief.whatChanged
+				.replace(/Brent crude traded firm at \$[0-9.]+\/bbl/g, `Brent crude traded firm at ${brentStr}`)
+				.replace(/Brent crude consolidated at \$[0-9.]+\/bbl[^\n]+/g, `Brent crude traded firm at ${brentStr}, remaining above India's $80 comfort threshold and creating imported inflation headwinds.`)
+				.replace(/\$74\.8\/bbl/g, brentStr)
+				.replace(/\$74\.8/g, `$${brentPriceNum}`);
 		}
 
 		if (brief.keyRisks && typeof brief.keyRisks === "string") {
@@ -384,7 +382,7 @@ export class KnowledgeHubService {
 					{
 						sector: "Commodities & Energy (MCX / CMX)",
 						trend: "Elevated Input Pressure",
-						outlook: "Brent Crude at $114.20/bbl above India comfort band; MCX Gold at ₹78,450/10g.",
+						outlook: "Brent Crude on NYMEX at $117.00/bbl above India comfort band; MCX Gold at ₹78,450/10g.",
 					},
 					{
 						sector: "Information Technology (Nifty IT)",
@@ -512,19 +510,19 @@ export class KnowledgeHubService {
 						},
 						{
 							id: "CRUDE_OIL",
-							name: "Crude Oil (Brent / WTI)",
+							name: "Brent Crude Oil (NYMEX)",
 							category: "Energy",
 							mcxSymbol: "CRUDEOIL",
-							mcxPrice: 9918,
+							mcxPrice: 10355,
 							mcxUnit: "₹ / bbl",
 							mcxChangePercent: 1.85,
-							cmxSymbol: "BZ=F (Brent CFD) / CL=F (WTI)",
-							cmxPrice: 110.24,
+							cmxSymbol: "NYMEX Brent Futures (BZ=F)",
+							cmxPrice: 117.0,
 							cmxUnit: "$ / bbl",
 							cmxChangePercent: 1.95,
 							trend: "Bullish",
 							macroImplication:
-								"Brent crude at elevated levels ($110+/bbl) poses acute macroeconomic headwinds for India. Escalates imported inflation, widens CAD, and compresses margins for paints, tyres, airlines, and auto ancillaries.",
+								"Brent crude on NYMEX at $117.00/bbl poses acute macroeconomic headwinds for India. Escalates imported inflation, widens CAD, and compresses margins for paints, tyres, airlines, and auto ancillaries.",
 							lastUpdated: new Date().toISOString().split("T")[0],
 						},
 						{
@@ -563,11 +561,11 @@ export class KnowledgeHubService {
 						},
 					],
 					crudeOilBreakevenStatus: {
-						brentUsd: 114.2,
+						brentUsd: 117.0,
 						indiaComfortBandMaxUsd: 80,
 						inflationImpact: "Elevated",
 						commentary:
-							"Brent crude at $114.20/bbl remains significantly above India's comfort threshold ($80/bbl). Elevated crude prices widen the Current Account Deficit (CAD), fuel imported inflation, and pressure operating margins for paint, auto, tyre, and chemical sectors.",
+							"Brent crude on NYMEX at $117.00/bbl remains significantly above India's comfort threshold ($80/bbl). Elevated crude prices widen the Current Account Deficit (CAD), fuel imported inflation, and pressure operating margins for paint, auto, tyre, and chemical sectors.",
 					},
 					goldSilverRatio: 82.1,
 					asOfDate: new Date().toISOString().split("T")[0],
@@ -695,27 +693,25 @@ export class KnowledgeHubService {
 				}
 			: null;
 
-		const brentPriceNum = (brief.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? defaultCommodityRadar?.crudeOilBreakevenStatus?.brentUsd) ?? 114.2;
+		const brentPriceNum = (brief.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? defaultCommodityRadar?.crudeOilBreakevenStatus?.brentUsd) ?? 117.0;
 		const brentStr = `$${brentPriceNum}/bbl`;
 		const isElevatedCrude = brentPriceNum > 85;
 
 		if (brief.marketSnapshot && typeof brief.marketSnapshot === "string") {
-			if (brief.marketSnapshot.includes("74.8") || (isElevatedCrude && brief.marketSnapshot.includes("comfort band"))) {
-				brief.marketSnapshot = brief.marketSnapshot
-					.replace(/\$74\.8\/bbl/g, brentStr)
-					.replace(/\$74\.8/g, `$${brentPriceNum}`)
-					.replace(/in the domestic comfort band/g, "with elevated pricing monitored closely for imported inflation risks")
-					.replace(/within India's comfort threshold \(<\$80\/bbl\)/g, "elevated above India's comfort threshold ($80/bbl)");
-			}
+			brief.marketSnapshot = brief.marketSnapshot
+				.replace(/Brent crude traded at \$[0-9.]+\/bbl/g, `Brent crude traded at ${brentStr}`)
+				.replace(/\$74\.8\/bbl/g, brentStr)
+				.replace(/\$74\.8/g, `$${brentPriceNum}`)
+				.replace(/in the domestic comfort band/g, "with elevated pricing monitored closely for imported inflation risks")
+				.replace(/within India's comfort threshold \(<\$80\/bbl\)/g, "elevated above India's comfort threshold ($80/bbl)");
 		}
 
 		if (brief.whatChanged && typeof brief.whatChanged === "string") {
-			if (brief.whatChanged.includes("74.8") || (isElevatedCrude && brief.whatChanged.includes("comfort threshold (<$80)"))) {
-				brief.whatChanged = brief.whatChanged
-					.replace(/Brent crude consolidated at \$74\.8\/bbl within India's comfort threshold \(<\$80\), reducing CAD and imported inflation risks\./g, `Brent crude traded firm at ${brentStr}, remaining above India's $80 comfort threshold and creating imported inflation headwinds.`)
-					.replace(/\$74\.8\/bbl/g, brentStr)
-					.replace(/\$74\.8/g, `$${brentPriceNum}`);
-			}
+			brief.whatChanged = brief.whatChanged
+				.replace(/Brent crude traded firm at \$[0-9.]+\/bbl/g, `Brent crude traded firm at ${brentStr}`)
+				.replace(/Brent crude consolidated at \$[0-9.]+\/bbl[^\n]+/g, `Brent crude traded firm at ${brentStr}, remaining above India's $80 comfort threshold and creating imported inflation headwinds.`)
+				.replace(/\$74\.8\/bbl/g, brentStr)
+				.replace(/\$74\.8/g, `$${brentPriceNum}`);
 		}
 
 		if (brief.keyRisks && typeof brief.keyRisks === "string") {
@@ -894,15 +890,15 @@ export class KnowledgeHubService {
 		const isIndia = region === "india";
 
 		const marketSnapshot = isIndia
-			? "Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at 6.79%, backed by CCIL sovereign clearing, offering attractive +2.59% real yield spreads. CCIL TREPS overnight funding rate printed at 6.42%, reflecting balanced systemic money market liquidity. Brent crude traded at $114.20/bbl, with elevated energy levels monitored closely for imported inflation risks."
+			? "Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at 6.79%, backed by CCIL sovereign clearing, offering attractive +2.59% real yield spreads. CCIL TREPS overnight funding rate printed at 6.42%, reflecting balanced systemic money market liquidity. Brent crude traded at $117.00/bbl, with elevated energy levels monitored closely for imported inflation risks."
 			: "US equities traded higher with the S&P 500 and Nasdaq supported by megacap technology earnings and steady labor market prints. 10-year Treasury yields consolidated as markets digested central bank policy commentary.";
 
 		const whatChanged = isIndia
-			? "1. RBI Macro & Sovereign Debt Desk: Systemic liquidity remained comfortable under RBI operations, with CCIL 10-Year Benchmark G-Sec yield trading at 6.79% and CCIL TREPS overnight weighted average rate at 6.42%.\n2. Commodity Radar: Brent crude traded firm at $114.20/bbl, remaining above India's $80 comfort threshold and creating imported inflation headwinds. MCX Gold traded firm at ₹78,450/10g on steady safe-haven and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows."
+			? "1. RBI Macro & Sovereign Debt Desk: Systemic liquidity remained comfortable under RBI operations, with CCIL 10-Year Benchmark G-Sec yield trading at 6.79% and CCIL TREPS overnight weighted average rate at 6.42%.\n2. Commodity Radar: Brent crude traded firm at $117.00/bbl, remaining above India's $80 comfort threshold and creating imported inflation headwinds. MCX Gold traded firm at ₹78,450/10g on steady safe-haven and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows."
 			: "1. Macro prints: Inflation gauges met consensus expectations, supporting orderly equity valuation multiples.\n2. Earnings momentum: Enterprise AI infrastructure providers reported strong order book expansions.";
 
 		const keyRisks = isIndia
-			? "Elevated crude oil volatility (Brent at $114.20/bbl), US Dollar Index (DXY) movements, and shifting foreign institutional (FPI) derivative positions."
+			? "Elevated crude oil volatility (Brent currently at $117.00/bbl), US Dollar Index (DXY) movements, and shifting foreign institutional (FPI) derivative positions."
 			: "Interest rate trajectory, commercial real estate refinancing, and geopolitical trade developments.";
 
 		const opportunityAreas = isIndia

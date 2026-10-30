@@ -345,13 +345,13 @@ export async function runStartupSchemaRepairs() {
 			console.log("  ✅ listed_stocks: SERVICE baseline price updated to ₹69.15 (Micro Cap / SM series)");
 		} catch { /* non-fatal */ }
 
-		// ── Commodity Radar baseline synchronisation (Brent $114+/bbl & Bullion benchmarks) ──
+		// ── Commodity Radar baseline synchronisation (NYMEX Brent $117/bbl & Bullion benchmarks) ──
 		try {
 			await migPool.query(`
 				INSERT INTO commodities (symbol, name, commodity_type, sub_type, current_price, previous_close, day_change, day_change_percent, unit, currency, last_updated)
 				VALUES 
-					('CRUDE_OIL', 'Crude Oil (Brent / WTI)', 'energy', 'crude_oil', 110.24, 116.72, -6.48, -5.55, 'barrel', 'USD', NOW()),
-					('BRENT', 'Brent Crude Oil Futures', 'energy', 'crude_oil', 110.24, 116.72, -6.48, -5.55, 'barrel', 'USD', NOW()),
+					('CRUDE_OIL', 'Brent Crude Oil (NYMEX)', 'energy', 'crude_oil', 117.00, 116.20, 0.80, 0.69, 'barrel', 'USD', NOW()),
+					('BRENT', 'Brent Crude Oil Futures (NYMEX)', 'energy', 'crude_oil', 117.00, 116.20, 0.80, 0.69, 'barrel', 'USD', NOW()),
 					('GOLD', 'Gold COMEX / Global CFD', 'precious_metal', 'gold', 4055.60, 4007.90, 47.70, 1.19, 'ounce', 'USD', NOW()),
 					('SILVER', 'Silver COMEX / Global CFD', 'precious_metal', 'silver', 53.31, 53.71, -0.40, -0.74, 'ounce', 'USD', NOW()),
 					('NATURAL_GAS', 'Natural Gas Henry Hub', 'energy', 'natural_gas', 3.03, 2.64, 0.39, 14.77, 'mmbtu', 'USD', NOW()),
@@ -366,20 +366,24 @@ export async function runStartupSchemaRepairs() {
 					last_updated = NOW();
 
 				UPDATE commodities
-				SET current_price = 110.24,
+				SET current_price = 117.00,
+				    previous_close = 116.20,
+				    day_change = 0.80,
+				    day_change_percent = 0.69,
 				    currency = 'USD',
 				    unit = 'barrel',
-				    day_change_percent = 1.85,
 				    last_updated = NOW()
 				WHERE UPPER(TRIM(symbol)) IN ('BRENT', 'BRENT_CRUDE');
 
 				UPDATE commodities
-				SET current_price = 9918.00,
+				SET current_price = 10355.00,
+				    previous_close = 10283.00,
+				    day_change = 72.00,
 				    currency = 'INR',
 				    unit = 'barrel',
-				    day_change_percent = 1.85,
+				    day_change_percent = 0.70,
 				    last_updated = NOW()
-				WHERE UPPER(TRIM(symbol)) IN ('CRUDE_OIL', 'CRUDEOIL');
+				WHERE UPPER(TRIM(symbol)) IN ('CRUDE_OIL', 'CRUDEOIL', 'CRUDE');
 
 				UPDATE commodities
 				SET current_price = 143703.00,
@@ -398,28 +402,37 @@ export async function runStartupSchemaRepairs() {
 				WHERE UPPER(TRIM(symbol)) IN ('SILVER_MCX', 'MCX_SILVER');
 			`);
 
-			// Purge and sanitize any stale market_briefs rows that contained outdated $74.8 Brent quotes so fresh brief is generated
+			// Purge and sanitize any stale market_briefs rows that contained outdated Brent quotes so fresh brief is generated
 			await migPool.query(`
 				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS multi_exchange_data jsonb;
 				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS amc_consensus jsonb;
 
 				UPDATE market_briefs
-				SET market_snapshot = REPLACE(REPLACE(market_snapshot, '$74.8/bbl', '$114.20/bbl'), 'in the domestic comfort band', 'with elevated pricing monitored closely for imported inflation risks'),
-				    what_changed = REPLACE(what_changed, '$74.8/bbl', '$114.20/bbl'),
-				    key_risks = REPLACE(REPLACE(REPLACE(key_risks, '$74.8/bbl', '$110.21/bbl'), '74.8', '110.21'), 'Crude oil volatility', 'Elevated crude oil volatility')
-				WHERE what_changed ILIKE '%74.8%' 
+				SET market_snapshot = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(market_snapshot, '$74.8/bbl', '$117.00/bbl'), '$111.45/bbl', '$117.00/bbl'), '$111.26/bbl', '$117.00/bbl'), '$113.37/bbl', '$117.00/bbl'), '$114.20/bbl', '$117.00/bbl'),
+				    what_changed = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(what_changed, '$74.8/bbl', '$117.00/bbl'), '$111.45/bbl', '$117.00/bbl'), '$111.26/bbl', '$117.00/bbl'), '$113.37/bbl', '$117.00/bbl'), '$114.20/bbl', '$117.00/bbl'),
+				    key_risks = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(key_risks, '$74.8/bbl', '$117.00/bbl'), '$111.45/bbl', '$117.00/bbl'), '$111.26/bbl', '$117.00/bbl'), '$113.37/bbl', '$117.00/bbl'), '$114.20/bbl', '$117.00/bbl')
+				WHERE what_changed ILIKE '%111.%' 
+				   OR market_snapshot ILIKE '%111.%' 
+				   OR key_risks ILIKE '%111.%'
+				   OR what_changed ILIKE '%113.%' 
+				   OR market_snapshot ILIKE '%113.%' 
+				   OR key_risks ILIKE '%113.%'
+				   OR what_changed ILIKE '%74.8%' 
 				   OR market_snapshot ILIKE '%74.8%' 
 				   OR key_risks ILIKE '%74.8%';
 
 				DELETE FROM market_briefs
 				WHERE "date"::text = CURRENT_DATE::text 
+				   OR "date"::text = '2026-10-30'
 				   OR "date"::text = '2026-10-29'
+				   OR what_changed ILIKE '%111.%' 
+				   OR market_snapshot ILIKE '%111.%'
 				   OR what_changed ILIKE '%74.8%' 
 				   OR market_snapshot ILIKE '%74.8%'
 				   OR key_risks ILIKE '%74.8%';
 			`);
 
-			console.log("  ✅ commodities & market_briefs: Brent crude ($114.20/bbl) and commodity radar synchronized");
+			console.log("  ✅ commodities & market_briefs: NYMEX Brent crude ($117.00/bbl) and commodity radar synchronized");
 		} catch (commErr: any) {
 			console.warn("  ⚠️ Failed to sync commodity baseline:", commErr?.message?.slice(0, 100));
 		}
@@ -427,6 +440,8 @@ export async function runStartupSchemaRepairs() {
 		try {
 			const { distributedCache } = await import("../utils/distributed-cache");
 			await distributedCache.del("market:commodity:benchmarks:v1");
+			await distributedCache.del("commodity_benchmarks_snapshot_v1");
+			await distributedCache.del("market_brief_today_india");
 		} catch { /* non-fatal */ }
 
 		// ── Fast-path for listed_stocks dynamic feeder columns ───────────────

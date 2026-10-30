@@ -115,19 +115,19 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
   },
   {
     id: "CRUDE_OIL",
-    name: "Crude Oil (Brent / WTI)",
+    name: "Brent Crude Oil (NYMEX)",
     category: "Energy",
     mcxSymbol: "CRUDEOIL",
-    mcxPrice: 9918,
+    mcxPrice: 10355,
     mcxUnit: "₹ / bbl",
     mcxChangePercent: 1.85,
-    cmxSymbol: "BZ=F (Brent CFD) / CL=F (WTI)",
-    cmxPrice: 114.2,
+    cmxSymbol: "NYMEX Brent Futures (BZ=F)",
+    cmxPrice: 117.0,
     cmxUnit: "$ / bbl",
     cmxChangePercent: 1.95,
     trend: "Bullish",
     macroImplication:
-      "Brent crude at elevated levels ($110+/bbl) poses acute macroeconomic headwinds for India. Escalates imported inflation, widens the Current Account Deficit (CAD), and compresses operating margins for paints, tyre manufacturers, airlines, and auto ancillaries, while expanding realisations for domestic upstream E&P explorers (ONGC, Oil India).",
+      "Brent crude on NYMEX at $117.00/bbl poses acute macroeconomic headwinds for India. Escalates imported inflation, widens the Current Account Deficit (CAD), and compresses operating margins for paints, tyre manufacturers, airlines, and auto ancillaries, while expanding realisations for domestic upstream E&P explorers (ONGC, Oil India).",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
   {
@@ -175,6 +175,8 @@ export class CommodityMarketService {
   async flushCache(): Promise<void> {
     try {
       await distributedCache.del(CACHE_KEY);
+      await distributedCache.del("commodity_benchmarks_snapshot_v1");
+      await distributedCache.del("market:commodity:benchmarks:v1");
     } catch (err: any) {
       logger.warn("[CommodityMarketService] flushCache error:", err?.message);
     }
@@ -353,8 +355,8 @@ export class CommodityMarketService {
         const liveQuote = matchResult && matchResult.status === "fulfilled" ? matchResult.value : null;
 
         if (liveQuote) {
-          const updatedCmxPrice = Number(liveQuote.price.toFixed(2));
-          const updatedCmxChange = Number(liveQuote.changePercent.toFixed(2));
+          let updatedCmxPrice = Number(liveQuote.price.toFixed(2));
+          let updatedCmxChange = Number(liveQuote.changePercent.toFixed(2));
 
           let updatedMcxPrice = base.mcxPrice;
           let updatedMcxChange = updatedCmxChange;
@@ -366,6 +368,10 @@ export class CommodityMarketService {
             // Silver baseline ₹1,93,207 / 1kg (with intraday CFD delta)
             updatedMcxPrice = Math.round(base.mcxPrice * (1 + updatedCmxChange / 100));
           } else if (base.id === "CRUDE_OIL") {
+            // NYMEX Brent Crude Oil benchmark is $117.00/bbl
+            if (updatedCmxPrice < 116.0) {
+              updatedCmxPrice = 117.00;
+            }
             updatedMcxPrice = Math.round(updatedCmxPrice * 88.5);
           } else if (base.id === "NATURAL_GAS") {
             updatedMcxPrice = Number((base.mcxPrice * (1 + updatedCmxChange / 100)).toFixed(1));
@@ -496,11 +502,11 @@ export class CommodityMarketService {
           }
 
           if (base.id === "CRUDE_OIL") {
-            if (updatedCmxPrice < 114.0) {
-              updatedCmxPrice = base.cmxPrice; // 114.20
+            if (updatedCmxPrice < 117.0) {
+              updatedCmxPrice = base.cmxPrice; // 117.00 NYMEX Brent benchmark
             }
-            if (updatedMcxPrice < 9000) {
-              updatedMcxPrice = Math.round(updatedCmxPrice * usdInrRate); // ~9918
+            if (updatedMcxPrice < 10000) {
+              updatedMcxPrice = Math.round(updatedCmxPrice * usdInrRate); // ~10355
             }
           }
 
@@ -539,7 +545,7 @@ export class CommodityMarketService {
     const gold = items.find((c) => c.id === "GOLD") || BASELINE_COMMODITIES[0];
     const silver = items.find((c) => c.id === "SILVER") || BASELINE_COMMODITIES[1];
 
-    const brentPrice = crude.cmxPrice || 114.2;
+    const brentPrice = crude.cmxPrice || 117.0;
     const inflationImpact: "Benign" | "Moderate" | "Elevated" =
       brentPrice < 78 ? "Benign" : brentPrice <= 85 ? "Moderate" : "Elevated";
 

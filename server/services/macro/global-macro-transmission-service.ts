@@ -163,7 +163,7 @@ export class GlobalMacroTransmissionService {
 		const brentPrice =
 			commodityData?.crudeOilBreakevenStatus?.brentUsd ??
 			commodityData?.commodities.find((c) => c.id === "CRUDE_OIL")?.cmxPrice ??
-			114.2;
+			117.0;
 
 		let pillar1Score = 75;
 		let p1Status: PillarScore["status"] = "FAVORABLE";

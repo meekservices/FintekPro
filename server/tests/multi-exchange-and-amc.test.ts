@@ -76,6 +76,6 @@ describe("AMC Research & House Consensus Service", () => {
 		expect(fallback.amcConsensus).toBeDefined();
 		expect(fallback.amcConsensus.contributingAmcs.length).toBeGreaterThanOrEqual(4);
 		expect(fallback.commodityRadar).toBeDefined();
-		expect(fallback.commodityRadar.crudeOilBreakevenStatus.brentUsd).toBe(114.2);
+		expect(fallback.commodityRadar.crudeOilBreakevenStatus.brentUsd).toBe(117.0);
 	});
 });

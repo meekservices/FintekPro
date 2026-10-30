@@ -12,11 +12,8 @@ import {
 	BarChart3,
 	Newspaper,
 	Landmark,
-	Fuel,
 	Coins,
 	ExternalLink,
-	Layers,
-	ShieldCheck,
 	Globe,
 	Building2,
 	Scale,
@@ -213,10 +210,10 @@ function getClientFallbackBrief(region: string): MarketBrief {
 		date: today,
 		region,
 		marketSnapshot: isIndia
-			? "Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at 6.79%, backed by CCIL sovereign clearing, offering attractive +2.59% real yield spreads. CCIL TREPS overnight funding rate printed at 6.42%, reflecting balanced systemic money market liquidity. Brent crude traded at $114.20/bbl, with elevated pricing monitored closely for imported inflation risks."
+			? "Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at 6.79%, backed by CCIL sovereign clearing, offering attractive +2.59% real yield spreads. CCIL TREPS overnight funding rate printed at 6.42%, reflecting balanced systemic money market liquidity. Brent crude traded at $117.00/bbl, with elevated pricing monitored closely for imported inflation risks."
 			: "US equities traded higher with the S&P 500 and Nasdaq supported by megacap technology earnings and steady labor market prints. 10-year Treasury yields consolidated as markets digested central bank policy commentary.",
 		whatChanged: isIndia
-			? "1. Sovereign Debt & Money Markets: CCIL 10-Year Benchmark G-Sec yield traded at 6.79%; CCIL TREPS overnight repo volume remained healthy with weighted average rate at 6.42%.\n2. Commodity Radar: Brent crude traded firm at $114.20/bbl, remaining above India's $80 comfort threshold and creating imported inflation headwinds. MCX Gold traded firm at ₹78,450/10g on steady safe-haven and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows."
+			? "1. Sovereign Debt & Money Markets: CCIL 10-Year Benchmark G-Sec yield traded at 6.79%; CCIL TREPS overnight repo volume remained healthy with weighted average rate at 6.42%.\n2. Commodity Radar: Brent crude traded firm at $117.00/bbl, remaining above India's $80 comfort threshold and creating imported inflation headwinds. MCX Gold traded firm at ₹78,450/10g on steady safe-haven and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows."
 			: "1. Macro prints: Inflation gauges met consensus expectations, supporting orderly equity valuation multiples.\n2. Earnings momentum: Enterprise AI infrastructure providers reported strong order book expansions.",
 		topMovers: isIndia
 			? [
@@ -345,9 +342,9 @@ function getClientFallbackBrief(region: string): MarketBrief {
 						},
 					],
 					crudeOilBreakevenStatus: {
-						brentUsd: 114.2,
+						brentUsd: 117.0,
 						inflationImpact: "Elevated",
-						commentary: "Brent crude at $114.20/bbl surges above India's macroeconomic comfort band (<$80), increasing imported inflation and CAD pressure.",
+						commentary: "Brent crude on NYMEX at $117.00/bbl surges above India's macroeconomic comfort band (<$80), increasing imported inflation and CAD pressure.",
 					},
 					goldSilverRatio: 82.6,
 					source: "MCX India & CMX / COMEX",
@@ -368,7 +365,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					{
 						sector: "Commodities & Energy (MCX / CMX)",
 						trend: "Elevated Input Pressure",
-						outlook: "Brent Crude at $114.20/bbl above India comfort band; MCX Gold at ₹78,450/10g.",
+						outlook: "Brent Crude at $117.00/bbl above India comfort band; MCX Gold at ₹78,450/10g.",
 					},
 					{
 						sector: "Information Technology (Nifty IT)",
@@ -394,7 +391,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					},
 				],
 		keyRisks: isIndia
-			? "Elevated crude oil volatility (Brent currently $110+/bbl), US Dollar Index (DXY) movements, global trade tariff negotiations, and shifting foreign institutional (FPI) derivative positions."
+			? "Elevated crude oil volatility (Brent currently $117.00/bbl), US Dollar Index (DXY) movements, global trade tariff negotiations, and shifting foreign institutional (FPI) derivative positions."
 			: "Interest rate trajectory, commercial real estate refinancing, and geopolitical trade developments.",
 		agentTips: isIndia
 			? "Counsel clients against trying to time near-term volatility. Recommend balanced multi-asset allocation strategies and continuing systematic investment plans (SIPs) to benefit from rupee-cost averaging."
@@ -592,15 +589,18 @@ export default function AgentKnowledgeMarketBrief() {
 			? { ...todaysBrief }
 			: getClientFallbackBrief(selectedRegion);
 
-	// Defense in depth: Ensure keyRisks never displays stale $74.8 Brent quotes even if cached by react-query
+	// Defense in depth: Ensure keyRisks never displays stale Brent quotes even if cached by react-query
 	if (briefToDisplay?.keyRisks && typeof briefToDisplay.keyRisks === "string") {
 		const liveBrent = briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd;
-		const brentDisplay = liveBrent ? `$${liveBrent}/bbl` : "$110+/bbl";
+		const brentDisplay = liveBrent ? `$${liveBrent}/bbl` : "$117.00/bbl";
 		briefToDisplay.keyRisks = briefToDisplay.keyRisks
 			.replace(/\$74\.8\/bbl/g, brentDisplay)
-			.replace(/74\.8/g, liveBrent ? `${liveBrent}` : "110.21")
+			.replace(/74\.8/g, liveBrent ? `${liveBrent}` : "117.00")
 			.replace(/~\$74[–-](\$?)78\/bbl/g, brentDisplay)
-			.replace(/\$74[–-](\$?)78\/bbl/g, brentDisplay);
+			.replace(/\$74[–-](\$?)78\/bbl/g, brentDisplay)
+			.replace(/Brent currently at \$[0-9.]+\/bbl/g, `Brent currently at ${brentDisplay}`)
+			.replace(/Brent currently at [0-9.]+/g, `Brent currently at ${brentDisplay}`)
+			.replace(/Brent currently \$[0-9.+/a-zA-Z]+/g, `Brent currently ${brentDisplay}`);
 		if (briefToDisplay.keyRisks.startsWith("Crude oil volatility")) {
 			briefToDisplay.keyRisks = briefToDisplay.keyRisks.replace("Crude oil volatility", "Elevated crude oil volatility");
 		}
