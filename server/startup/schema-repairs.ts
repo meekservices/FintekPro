@@ -3156,6 +3156,109 @@ crypto_status VARCHAR,
 	} catch (e: any) {
 		console.warn("  ⚠️  FASP-6 non-fatal (big INSERT handles it):", e.message?.slice(0, 120));
 	}
+
+	// ── FASP-7A: New-Age Digital India MF portfolio seed (Route A: Pure MF Basket) ──
+	// Regulated under SEBI MF Regulations 1996 & SOP-MF v1.0. Minimum ₹5,000 (SIP: ₹500).
+	try {
+		const f7aAlloc = JSON.stringify([
+			{ type: "digital_platforms", label: "Digital & Tech Funds", weight: 40, color: "#3B82F6" },
+			{ type: "ipo_innovation",    label: "Innovation & Recent IPOs", weight: 40, color: "#8B5CF6" },
+			{ type: "passive_etf",       label: "Digital Index ETF",    weight: 15, color: "#10B981" },
+			{ type: "liquid",            label: "Liquid Buffer",        weight:  5, color: "#6B7280" },
+		]);
+		const f7aHold = JSON.stringify([
+			{ name: "Tata Digital India Fund (Direct-G)",            isin: "INF277K01Y64", weight: 25, type: "equity" },
+			{ name: "Edelweiss Recently Listed IPO Fund (Direct-G)", isin: "INF754K01GU4", weight: 20, type: "equity" },
+			{ name: "Nippon India Innovation Fund (Direct-G)",       isin: "INF204KB1845", weight: 20, type: "equity" },
+			{ name: "ICICI Prudential Technology Fund (Direct-G)",   isin: "INF109K01Z48", weight: 15, type: "equity" },
+			{ name: "Motilal Oswal Nifty India Digital ETF",         isin: "INF247L01BL7", weight: 15, type: "equity" },
+			{ name: "SBI Liquid Fund (Direct-G)",                    isin: "INF200K01FT1", weight:  5, type: "liquid" },
+		]);
+		const f7aR = await p1Pool.query(
+			`INSERT INTO model_portfolios
+				(id, name, tagline, risk_profile, asset_class, goals, min_investment,
+				 time_horizon, benchmark_name, last_rebalanced, rebalancing_frequency,
+				 total_holdings, highlight, icon, is_featured, is_published, allocation, holdings)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+			ON CONFLICT (id) DO UPDATE SET
+				name = EXCLUDED.name,
+				tagline = EXCLUDED.tagline,
+				min_investment = EXCLUDED.min_investment,
+				highlight = EXCLUDED.highlight,
+				icon = EXCLUDED.icon,
+				is_published = TRUE
+			RETURNING id`,
+			[
+				"new-age-digital-mf",
+				"New-Age Digital India MF",
+				"Next-gen tech disruptors, digital platforms & innovation via SEBI direct-growth mutual funds",
+				"aggressive", "thematic",
+				JSON.stringify(["capital_appreciation", "wealth_creation", "digital_india", "thematic"]),
+				5000, "5-7 years", "Nifty India Digital Index", "2026-10-30",
+				"quarterly", 6,
+				"Tata Digital, Edelweiss Recently Listed IPO, Nippon Innovation, ICICI Pru Tech — Digital compounders",
+				"📱", true, true, f7aAlloc, f7aHold,
+			]
+		);
+		console.log(`  ✅ FASP-7A: new-age-digital-mf — upserted ${f7aR.rowCount} row(s), icon 📱`);
+	} catch (e: any) {
+		console.warn("  ⚠️  FASP-7A non-fatal:", e.message?.slice(0, 120));
+	}
+
+	// ── FASP-7B: New-Age Tech Leaders stock portfolio seed (Route B: Direct Stocks) ──
+	// Regulated under SEBI IA Regulations 2013 with SEBI MF 10% Single-Issuer Diversification Cap.
+	try {
+		const f7bAlloc = JSON.stringify([
+			{ type: "consumer_tech",  label: "Consumer Tech & Quick Commerce", weight: 32, color: "#F43F5E" },
+			{ type: "fintech",        label: "FinTech & InsurTech",             weight: 16, color: "#3B82F6" },
+			{ type: "saas_mobility",  label: "SaaS, Logistics & DeepTech",     weight: 47, color: "#8B5CF6" },
+			{ type: "liquid",         label: "Liquid Buffer",                   weight:  5, color: "#10B981" },
+		]);
+		const f7bHold = JSON.stringify([
+			{ rank: 1,  name: "Zomato Ltd / Eternal",              symbol: "ETERNAL",    isin: "INE758T01015", weight: 9, type: "equity", sector: "Consumer Tech" },
+			{ rank: 2,  name: "PB Fintech Ltd (Policybazaar)",     symbol: "POLICYBZR",  isin: "INE417T01026", weight: 9, type: "equity", sector: "FinTech" },
+			{ rank: 3,  name: "Info Edge (India) Ltd (Naukri)",    symbol: "NAUKRI",     isin: "INE663F01024", weight: 8, type: "equity", sector: "Internet" },
+			{ rank: 4,  name: "KPIT Technologies Ltd",             symbol: "KPITTECH",   isin: "INE04I401011", weight: 8, type: "equity", sector: "Mobility Tech" },
+			{ rank: 5,  name: "CE Info Systems Ltd (MapmyIndia)",  symbol: "MAPMYINDIA", isin: "INE0BV301023", weight: 8, type: "equity", sector: "DeepTech & GIS" },
+			{ rank: 6,  name: "Affle (India) Ltd",                 symbol: "AFFLE",      isin: "INE00WC01027", weight: 8, type: "equity", sector: "AdTech" },
+			{ rank: 7,  name: "Delhivery Ltd",                     symbol: "DELHIVERY",  isin: "INE148O01028", weight: 8, type: "equity", sector: "Digital Logistics" },
+			{ rank: 8,  name: "Swiggy Ltd",                        symbol: "SWIGGY",     isin: "INE00H001014", weight: 8, type: "equity", sector: "Quick Commerce" },
+			{ rank: 9,  name: "FSN E-Commerce Ventures (Nykaa)",   symbol: "NYKAA",      isin: "INE388Y01029", weight: 7, type: "equity", sector: "E-Commerce" },
+			{ rank: 10, name: "One97 Communications (Paytm)",      symbol: "PAYTM",      isin: "INE982J01020", weight: 7, type: "equity", sector: "FinTech" },
+			{ rank: 11, name: "RateGain Travel Technologies",      symbol: "RATEGAIN",   isin: "INE0CLI01024", weight: 6, type: "equity", sector: "SaaS" },
+			{ rank: 12, name: "CarTrade Tech Ltd",                 symbol: "CARTRADE",   isin: "INE290S01011", weight: 6, type: "equity", sector: "Auto Tech" },
+			{ rank: 13, name: "SBI Liquid Fund",                   symbol: "SBILIQ",     isin: "INF200K01FT1", weight: 5, type: "liquid", sector: "Liquid Buffer" },
+		]);
+		const f7bR = await p1Pool.query(
+			`INSERT INTO model_portfolios
+				(id, name, tagline, risk_profile, asset_class, goals, min_investment,
+				 time_horizon, benchmark_name, last_rebalanced, rebalancing_frequency,
+				 total_holdings, highlight, icon, is_featured, is_published, allocation, holdings)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+			ON CONFLICT (id) DO UPDATE SET
+				name = EXCLUDED.name,
+				tagline = EXCLUDED.tagline,
+				min_investment = EXCLUDED.min_investment,
+				highlight = EXCLUDED.highlight,
+				icon = EXCLUDED.icon,
+				is_published = TRUE
+			RETURNING id`,
+			[
+				"new-age-tech-leaders",
+				"New-Age Tech Leaders",
+				"Direct ownership in India's leading digital platforms, fintechs & SaaS compounders with 10% MF risk caps",
+				"aggressive", "equity",
+				JSON.stringify(["capital_appreciation", "wealth_creation", "high_growth", "new_age_tech"]),
+				25000, "5-7 years", "Nifty India Digital Index", "2026-10-30",
+				"quarterly", 13,
+				"Zomato, PB Fintech, Swiggy, Info Edge, MapmyIndia, KPIT — Strict 10% MF single-issuer cap",
+				"⚡", true, true, f7bAlloc, f7bHold,
+			]
+		);
+		console.log(`  ✅ FASP-7B: new-age-tech-leaders — upserted ${f7bR.rowCount} row(s), icon ⚡`);
+	} catch (e: any) {
+		console.warn("  ⚠️  FASP-7B non-fatal:", e.message?.slice(0, 120));
+	}
 }
 
 
@@ -5691,6 +5794,8 @@ export async function repairCorruptModelPortfolioCAGRs(dbInstance?: any): Promis
     "hni-multi-asset-alpha-pms": { cagr1Y: 14.41, cagr3Y: 15.8, cagr5Y: 17.2, benchmarkCagr1Y: 12.32, benchmarkName: "NSE Multi Asset Index 1", sharpeRatio: 1.24, maxDrawdown: -13.2, volatility: 11.8, beta: 0.82 },
     "hni-focused-leaders-pms":   { cagr1Y: 18.2, cagr3Y: 19.8, cagr5Y: 21.4, benchmarkCagr1Y: 14.2, benchmarkName: "BSE 200 TRI",               sharpeRatio: 1.18, maxDrawdown: -14.8, volatility: 15.6, beta: 0.92 },
     "uhni-private-tech-disruptors-aif": { cagr1Y: 22.4, cagr3Y: 24.6, cagr5Y: 26.8, benchmarkCagr1Y: 15.2, benchmarkName: "Crisil AIF Benchmark (Cat II)", sharpeRatio: 1.25, maxDrawdown: -16.2, volatility: 18.4, beta: 0.85 },
+    "new-age-digital-mf":        { cagr1Y: 24.8, cagr3Y: 20.4, cagr5Y: 22.1, benchmarkCagr1Y: 19.5, benchmarkName: "Nifty India Digital Index",  sharpeRatio: 0.89, maxDrawdown: -21.4, volatility: 23.2, beta: 1.08 },
+    "new-age-tech-leaders":      { cagr1Y: 28.6, cagr3Y: 22.8, cagr5Y: 24.2, benchmarkCagr1Y: 19.5, benchmarkName: "Nifty India Digital Index",  sharpeRatio: 0.94, maxDrawdown: -23.8, volatility: 26.5, beta: 1.15 },
   };
 
   let calibratedCount = 0;

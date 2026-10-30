@@ -1846,6 +1846,10 @@ modelPortfoliosRouter.post("/admin/calibrate-metrics", requireAdmin, async (_req
     // Benchmark: Nifty India Defence Index TRI (launched May 2022)
     // Note: 5Y estimated — dedicated defence funds have <3Y history
     "psu-defence-atmanirbhar":   { cagr1Y: 22.4, cagr3Y: 19.8, cagr5Y: 21.6, benchmarkCagr1Y: 18.2, benchmarkName: "Nifty India Defence Index", sharpeRatio: 0.84, maxDrawdown: -22.6, volatility: 26.8, beta: 1.12 },
+    // ── New-Age Digital India MF (Route A: Pure MF Basket) ───────────────────────
+    "new-age-digital-mf":        { cagr1Y: 24.8, cagr3Y: 20.4, cagr5Y: 22.1, benchmarkCagr1Y: 19.5, benchmarkName: "Nifty India Digital Index",  sharpeRatio: 0.89, maxDrawdown: -21.4, volatility: 23.2, beta: 1.08 },
+    // ── New-Age Tech Leaders (Route B: Direct Stocks with 10% MF Single-Issuer Cap) 
+    "new-age-tech-leaders":      { cagr1Y: 28.6, cagr3Y: 22.8, cagr5Y: 24.2, benchmarkCagr1Y: 19.5, benchmarkName: "Nifty India Digital Index",  sharpeRatio: 0.94, maxDrawdown: -23.8, volatility: 26.5, beta: 1.15 },
     // ── Equity Savings Hybrid (Portfolio #46, Jun 2022) ──────────────────────────
     // SEBI Equity Savings category: gross equity ≥65% (hedged + unhedged) = equity fund taxation
     // Net unhedged equity ~35-45%; volatility much lower than balanced advantage
@@ -2631,6 +2635,65 @@ modelPortfoliosRouter.post("/admin/seed-missing-portfolios", requireAdmin, async
         { rank: 6, name: "Nippon India Power & Infra Fund",    weight: 10, type: "Infra MF",    symbol: "NIPPONPWR" },
         { rank: 7, name: "SBI Liquid Fund",                    weight:  8, type: "Liquid MF",   symbol: "SBILIQ" },
         { rank: 8, name: "ICICI Pru Liquid Fund",              weight:  2, type: "Liquid MF",   symbol: "ICICILIQ" },
+      ],
+    },
+    {
+      // ── New-Age Digital India MF (Route A: Pure MF Basket) ─────────────────
+      id: "new-age-digital-mf",
+      name: "New-Age Digital India MF",
+      tagline: "Next-gen tech disruptors, digital platforms & innovation via SEBI direct-growth mutual funds",
+      riskProfile: "aggressive",
+      assetClass: "thematic",
+      subCategory: "thematic",
+      timeHorizon: "5-7 years",
+      minInvestment: 5000,
+      benchmarkName: "Nifty India Digital Index",
+      rebalancingFrequency: "quarterly",
+      highlight: "Tata Digital, Edelweiss Recently Listed IPO, Nippon Innovation, ICICI Pru Tech — Digital compounders",
+      icon: "📱",
+      cagr1Y: 24.8, cagr3Y: 20.4, cagr5Y: 22.1,
+      benchmarkCagr1Y: 19.5, sharpeRatio: 0.89, maxDrawdown: -21.4, volatility: 23.2, beta: 1.08,
+      goals: ["capital_appreciation", "wealth_creation", "digital_india", "thematic"],
+      holdings: [
+        { rank: 1, name: "Tata Digital India Fund (Direct-G)",            weight: 25, type: "Digital MF", symbol: "TATADIG" },
+        { rank: 2, name: "Edelweiss Recently Listed IPO Fund (Direct-G)", weight: 20, type: "IPO MF",     symbol: "EDELIPO" },
+        { rank: 3, name: "Nippon India Innovation Fund (Direct-G)",       weight: 20, type: "Innov MF",   symbol: "NIPPINN" },
+        { rank: 4, name: "ICICI Prudential Technology Fund (Direct-G)",   weight: 15, type: "Tech MF",    symbol: "ICICITECH" },
+        { rank: 5, name: "Motilal Oswal Nifty India Digital ETF",         weight: 15, type: "Index ETF",  symbol: "MOTDIGETF" },
+        { rank: 6, name: "SBI Liquid Fund (Direct-G)",                    weight:  5, type: "Liquid MF",  symbol: "SBILIQ" },
+      ],
+    },
+    {
+      // ── New-Age Tech Leaders (Route B: Direct Stocks with 10% MF Single-Issuer Cap) ──
+      id: "new-age-tech-leaders",
+      name: "New-Age Tech Leaders",
+      tagline: "Direct ownership in India's leading digital platforms, fintechs & SaaS compounders with 10% MF risk caps",
+      riskProfile: "aggressive",
+      assetClass: "equity",
+      subCategory: "thematic",
+      timeHorizon: "5-7 years",
+      minInvestment: 25000,
+      benchmarkName: "Nifty India Digital Index",
+      rebalancingFrequency: "quarterly",
+      highlight: "Zomato, PB Fintech, Swiggy, Info Edge, MapmyIndia, KPIT — Strict 10% MF single-issuer cap",
+      icon: "⚡",
+      cagr1Y: 28.6, cagr3Y: 22.8, cagr5Y: 24.2,
+      benchmarkCagr1Y: 19.5, sharpeRatio: 0.94, maxDrawdown: -23.8, volatility: 26.5, beta: 1.15,
+      goals: ["capital_appreciation", "wealth_creation", "high_growth", "new_age_tech"],
+      holdings: [
+        { rank: 1,  name: "Zomato Ltd / Eternal",              symbol: "ETERNAL",    weight: 9, type: "Consumer Tech" },
+        { rank: 2,  name: "PB Fintech Ltd (Policybazaar)",     symbol: "POLICYBZR",  weight: 9, type: "FinTech" },
+        { rank: 3,  name: "Info Edge (India) Ltd (Naukri)",    symbol: "NAUKRI",     weight: 8, type: "Internet" },
+        { rank: 4,  name: "KPIT Technologies Ltd",             symbol: "KPITTECH",   weight: 8, type: "Mobility Tech" },
+        { rank: 5,  name: "CE Info Systems Ltd (MapmyIndia)",  symbol: "MAPMYINDIA", weight: 8, type: "DeepTech" },
+        { rank: 6,  name: "Affle (India) Ltd",                 symbol: "AFFLE",      weight: 8, type: "AdTech" },
+        { rank: 7,  name: "Delhivery Ltd",                     symbol: "DELHIVERY",  weight: 8, type: "Logistics" },
+        { rank: 8,  name: "Swiggy Ltd",                        symbol: "SWIGGY",     weight: 8, type: "Quick Commerce" },
+        { rank: 9,  name: "FSN E-Commerce Ventures (Nykaa)",   symbol: "NYKAA",      weight: 7, type: "E-Commerce" },
+        { rank: 10, name: "One97 Communications (Paytm)",      symbol: "PAYTM",      weight: 7, type: "FinTech" },
+        { rank: 11, name: "RateGain Travel Technologies",      symbol: "RATEGAIN",   weight: 6, type: "SaaS" },
+        { rank: 12, name: "CarTrade Tech Ltd",                 symbol: "CARTRADE",   weight: 6, type: "Auto Tech" },
+        { rank: 13, name: "SBI Liquid Fund",                   symbol: "SBILIQ",     weight: 5, type: "Liquid Buffer" },
       ],
     },
   ];

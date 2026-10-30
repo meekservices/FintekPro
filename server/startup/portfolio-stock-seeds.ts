@@ -983,6 +983,32 @@ const STOCK_SEEDS: PortfolioSeed[] = [
       { type: "cash",   label: "Liquid Buffer",        weight: 3,  color: "#10B981" },
     ],
   },
+
+  {
+    id: "new-age-tech-leaders",
+    highlight: "Zomato, PB Fintech, Swiggy, Info Edge, MapmyIndia, KPIT — Strict 10% MF single-issuer cap",
+    holdings: [
+      { rank: 1,  name: "Zomato Ltd / Eternal",              symbol: "ETERNAL",    isin: "INE758T01015", weight: 9, type: "equity", sector: "Consumer Tech" },
+      { rank: 2,  name: "PB Fintech Ltd (Policybazaar)",     symbol: "POLICYBZR",  isin: "INE417T01026", weight: 9, type: "equity", sector: "FinTech" },
+      { rank: 3,  name: "Info Edge (India) Ltd (Naukri)",    symbol: "NAUKRI",     isin: "INE663F01024", weight: 8, type: "equity", sector: "Internet" },
+      { rank: 4,  name: "KPIT Technologies Ltd",             symbol: "KPITTECH",   isin: "INE04I401011", weight: 8, type: "equity", sector: "Mobility Tech" },
+      { rank: 5,  name: "CE Info Systems Ltd (MapmyIndia)",  symbol: "MAPMYINDIA", isin: "INE0BV301023", weight: 8, type: "equity", sector: "DeepTech & GIS" },
+      { rank: 6,  name: "Affle (India) Ltd",                 symbol: "AFFLE",      isin: "INE00WC01027", weight: 8, type: "equity", sector: "AdTech" },
+      { rank: 7,  name: "Delhivery Ltd",                     symbol: "DELHIVERY",  isin: "INE148O01028", weight: 8, type: "equity", sector: "Digital Logistics" },
+      { rank: 8,  name: "Swiggy Ltd",                        symbol: "SWIGGY",     isin: "INE00H001014", weight: 8, type: "equity", sector: "Quick Commerce" },
+      { rank: 9,  name: "FSN E-Commerce Ventures (Nykaa)",   symbol: "NYKAA",      isin: "INE388Y01029", weight: 7, type: "equity", sector: "E-Commerce" },
+      { rank: 10, name: "One97 Communications (Paytm)",      symbol: "PAYTM",      isin: "INE982J01020", weight: 7, type: "equity", sector: "FinTech" },
+      { rank: 11, name: "RateGain Travel Technologies",      symbol: "RATEGAIN",   isin: "INE0CLI01024", weight: 6, type: "equity", sector: "SaaS" },
+      { rank: 12, name: "CarTrade Tech Ltd",                 symbol: "CARTRADE",   isin: "INE290S01011", weight: 6, type: "equity", sector: "Auto Tech" },
+      { rank: 13, name: "SBI Liquid Fund",                   symbol: "SBILIQ",     isin: "INF200K01FT1", weight: 5, type: "liquid", sector: "Liquid Buffer" },
+    ],
+    allocation: [
+      { type: "consumer_tech",  label: "Consumer Tech & Quick Commerce", weight: 32, color: "#F43F5E" },
+      { type: "fintech",        label: "FinTech & InsurTech",             weight: 16, color: "#3B82F6" },
+      { type: "saas_mobility",  label: "SaaS, Logistics & DeepTech",     weight: 47, color: "#8B5CF6" },
+      { type: "liquid",         label: "Liquid Buffer",                   weight:  5, color: "#10B981" },
+    ],
+  },
 ];
 
 // ── Main seeder ───────────────────────────────────────────────────────────────

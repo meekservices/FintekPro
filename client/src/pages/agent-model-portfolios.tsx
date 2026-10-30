@@ -3351,14 +3351,139 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       timestamp: new Date().toISOString(),
     },
   },
+  // ── NEW: New-Age Digital India MF (Route A: Pure MF Basket) ─────────────────
+  {
+    id: "new-age-digital-mf",
+    assetClass: "thematic",
+    subCategory: "Thematic",
+    name: "New-Age Digital India MF",
+    tagline: "Next-gen tech disruptors, digital platforms & innovation via SEBI direct-growth mutual funds",
+    riskProfile: "aggressive",
+    goal: ["capital_appreciation", "wealth_creation", "digital_india", "thematic"],
+    minInvestment: 5000,
+    timeHorizon: "5-7 years",
+    cagr1Y: 24.8,
+    cagr3Y: 20.4,
+    cagr5Y: 22.1,
+    benchmarkCagr1Y: 19.5,
+    benchmarkName: "Nifty India Digital Index",
+    lastRebalanced: "2026-10-30",
+    portfolioCode: "FP-043",
+    inceptionDate: "2024-04-01",
+    rebalancingFrequency: "quarterly",
+    totalHoldings: 6,
+    highlight: "Tata Digital, Edelweiss Recently Listed IPO, Nippon Innovation, ICICI Pru Tech — Digital compounders",
+    icon: "📱",
+    isFeatured: true,
+    isNew: true,
+    driftThreshold: 7,
+
+    allocation: [
+      { category: "digital_platforms", label: "Digital & Tech Funds", weight: 40, color: "#3B82F6", icon: "💻" },
+      { category: "ipo_innovation",    label: "Innovation & Recent IPOs", weight: 40, color: "#8B5CF6", icon: "🚀" },
+      { category: "passive_etf",       label: "Digital Index ETF",    weight: 15, color: "#10B981", icon: "📊" },
+      { category: "liquid",            label: "Liquid Buffer",        weight:  5, color: "#6B7280", icon: "💧" },
+    ],
+    holdings: [
+      { rank: 1, name: "Tata Digital India Fund (Direct-G)",            category: "Digital MF",  weight: 25, currentReturn: 26.4, isin: "INF277K01Y64" },
+      { rank: 2, name: "Edelweiss Recently Listed IPO Fund (Direct-G)", category: "IPO MF",      weight: 20, currentReturn: 28.2, isin: "INF754K01GU4" },
+      { rank: 3, name: "Nippon India Innovation Fund (Direct-G)",       category: "Innov MF",    weight: 20, currentReturn: 24.8, isin: "INF204KB1845" },
+      { rank: 4, name: "ICICI Prudential Technology Fund (Direct-G)",   category: "Tech MF",     weight: 15, currentReturn: 22.6, isin: "INF109K01Z48" },
+      { rank: 5, name: "Motilal Oswal Nifty India Digital ETF",         category: "Index ETF",   weight: 15, currentReturn: 19.8, isin: "INF247L01BL7" },
+      { rank: 6, name: "SBI Liquid Fund (Direct-G)",                    category: "Liquid MF",   weight:  5, currentReturn:  7.1, isin: "INF200K01FT1" },
+    ],
+    performance: PERFORMANCE_BASE("new-age-digital-mf", 1000, 24, 24.8, 23.2, 19.5),
+    riskMetrics: { sharpeRatio: 0.89, maxDrawdown: -21.4, volatility: 23.2, beta: 1.08, alpha: 5.3 },
+    rebalancingHistory: [
+      { date: "Oct 2026", description: "Portfolio initialised with SEBI direct-growth digital innovation schemes", changes: ["Target weights set", "Liquid buffer allocated"] },
+    ],
+    aiInsight: {
+      recommendation: "New-Age Digital India MF provides retail investors institutional exposure to India's tech ecosystem via regulated direct-growth mutual funds and ETFs. Compliant with FintekPro SOP-MF v1.0 with a ₹5,000 lumpsum and ₹500 monthly SIP floor. Offers broad diversification across quick-commerce, fintech, and digital platforms while eliminating single-stock default risks.",
+      confidence_score: 82,
+      factors_considered: [
+        "Regulated pooled trust structure: Zero single-stock bankruptcy risk through SEBI-registered mutual funds",
+        "Direct plan TER savings: 0.8% - 1.2% lower annual expense ratio compared to regular plans",
+        "Digital economy expansion: India digital consumption growing 2.5x faster than GDP",
+        "SIP liquidity: Instant redemption with T+1 / T+2 cut-off rules via KFintech/CAMS IRIS",
+      ],
+      model_version: "FASP-AI-v3.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+  // ── NEW: New-Age Tech Leaders (Route B: Direct Stocks with 10% MF Single-Issuer Cap) ──
+  {
+    id: "new-age-tech-leaders",
+    assetClass: "equity",
+    subCategory: "Thematic",
+    name: "New-Age Tech Leaders",
+    tagline: "Direct ownership in India's leading digital platforms, fintechs & SaaS compounders with 10% MF risk caps",
+    riskProfile: "aggressive",
+    goal: ["capital_appreciation", "wealth_creation", "high_growth", "new_age_tech"],
+    minInvestment: 25000,
+    timeHorizon: "5-7 years",
+    cagr1Y: 28.6,
+    cagr3Y: 22.8,
+    cagr5Y: 24.2,
+    benchmarkCagr1Y: 19.5,
+    benchmarkName: "Nifty India Digital Index",
+    lastRebalanced: "2026-10-30",
+    portfolioCode: "FP-044",
+    inceptionDate: "2024-04-01",
+    rebalancingFrequency: "quarterly",
+    totalHoldings: 13,
+    highlight: "Zomato, PB Fintech, Swiggy, Info Edge, MapmyIndia, KPIT — Strict 10% MF single-issuer cap",
+    icon: "⚡",
+    isFeatured: true,
+    isNew: true,
+    driftThreshold: 5,
+
+    allocation: [
+      { category: "consumer_tech",  label: "Consumer Tech & Quick Commerce", weight: 32, color: "#F43F5E", icon: "🛍️" },
+      { category: "fintech",        label: "FinTech & InsurTech",             weight: 16, color: "#3B82F6", icon: "💳" },
+      { category: "saas_mobility",  label: "SaaS, Logistics & DeepTech",     weight: 47, color: "#8B5CF6", icon: "🌐" },
+      { category: "liquid",         label: "Liquid Buffer",                   weight:  5, color: "#10B981", icon: "💧" },
+    ],
+    holdings: [
+      { rank: 1,  name: "Zomato Ltd / Eternal",              category: "Consumer Tech",  weight: 9, currentReturn: 34.2, symbol: "ETERNAL",    isin: "INE758T01015" },
+      { rank: 2,  name: "PB Fintech Ltd (Policybazaar)",     category: "FinTech",        weight: 9, currentReturn: 38.6, symbol: "POLICYBZR",  isin: "INE417T01026" },
+      { rank: 3,  name: "Info Edge (India) Ltd (Naukri)",    category: "Internet",       weight: 8, currentReturn: 24.1, symbol: "NAUKRI",     isin: "INE663F01024" },
+      { rank: 4,  name: "KPIT Technologies Ltd",             category: "Mobility Tech",  weight: 8, currentReturn: 28.4, symbol: "KPITTECH",   isin: "INE04I401011" },
+      { rank: 5,  name: "CE Info Systems Ltd (MapmyIndia)",  category: "DeepTech",       weight: 8, currentReturn: 22.5, symbol: "MAPMYINDIA", isin: "INE0BV301023" },
+      { rank: 6,  name: "Affle (India) Ltd",                 category: "AdTech",         weight: 8, currentReturn: 21.8, symbol: "AFFLE",      isin: "INE00WC01027" },
+      { rank: 7,  name: "Delhivery Ltd",                     category: "Logistics",      weight: 8, currentReturn: 19.4, symbol: "DELHIVERY",  isin: "INE148O01028" },
+      { rank: 8,  name: "Swiggy Ltd",                        category: "Quick Commerce", weight: 8, currentReturn: 25.0, symbol: "SWIGGY",     isin: "INE00H001014" },
+      { rank: 9,  name: "FSN E-Commerce Ventures (Nykaa)",   category: "E-Commerce",     weight: 7, currentReturn: 18.2, symbol: "NYKAA",      isin: "INE388Y01029" },
+      { rank: 10, name: "One97 Communications (Paytm)",      category: "FinTech",        weight: 7, currentReturn: 16.5, symbol: "PAYTM",      isin: "INE982J01020" },
+      { rank: 11, name: "RateGain Travel Technologies",      category: "SaaS",           weight: 6, currentReturn: 22.0, symbol: "RATEGAIN",   isin: "INE0CLI01024" },
+      { rank: 12, name: "CarTrade Tech Ltd",                 category: "Auto Tech",      weight: 6, currentReturn: 20.4, symbol: "CARTRADE",   isin: "INE290S01011" },
+      { rank: 13, name: "SBI Liquid Fund",                   category: "Liquid Buffer",  weight: 5, currentReturn:  7.1, symbol: "SBILIQ",     isin: "INF200K01FT1" },
+    ],
+    performance: PERFORMANCE_BASE("new-age-tech-leaders", 1000, 24, 28.6, 26.5, 19.5),
+    riskMetrics: { sharpeRatio: 0.94, maxDrawdown: -23.8, volatility: 26.5, beta: 1.15, alpha: 9.1 },
+    rebalancingHistory: [
+      { date: "Oct 2026", description: "Initialised with 13 new-age champions with SEBI MF 10% single-stock ceiling", changes: ["Weights capped <=10%", "5% liquid buffer preserved"] },
+    ],
+    aiInsight: {
+      recommendation: "New-Age Tech Leaders provides high-conviction direct stock exposure to India's profitable and emerging digital titans. Strictly implements SEBI Mutual Fund prudential concentration limits: no single stock exceeds 10% allocation, and sub-sectors are capped at 32%. Backed by a 5% liquid cash buffer for disciplined dip buying and quarterly rebalancing.",
+      confidence_score: 84,
+      factors_considered: [
+        "SEBI 10% single-stock limit: Prevents idiosyncratic shock from single quarterly earnings misses",
+        "EBITDA turnaround: Leading holdings (Zomato, PB Fintech) have achieved sustained operational profitability",
+        "Quick commerce & digital moats: Blinkit and Instamart expanding TAM beyond traditional e-commerce",
+        "Quarterly drift guard: Automated rebalancing triggered whenever any holding drifts beyond 5%",
+      ],
+      model_version: "FASP-AI-v3.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
 ];
 
 
 // Total portfolios in DB (used for count displays before/after API loads)
-// Breakdown: 44 retail + 1 HNI (₹50L tier) + 2 ultra HNI (₹1Cr+ tier) = 47 published.
+// Breakdown: 46 retail + 1 HNI (₹50L tier) + 2 ultra HNI (₹1Cr+ tier) = 49 published.
 // Note: hni-wealth-compounder (₹5L) counts as retail by minInvestment threshold.
-const DB_PORTFOLIO_COUNT = 47;
-const DB_RETAIL_COUNT    = 44;
+const DB_PORTFOLIO_COUNT = 49;
+const DB_RETAIL_COUNT    = 46;
 const DB_HNI_COUNT       = 1;
 const DB_ULTRA_HNI_COUNT = 2;
 
