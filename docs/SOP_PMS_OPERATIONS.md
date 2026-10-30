@@ -57,10 +57,33 @@ Unlike Mutual Funds, PMS operates strictly on a **segregated client custody arch
 
 ---
 
-## 6. Codebase Enforcement Architecture
+## 6. APMI Standardized Performance Reporting & TWRR Audits
+
+1. **Time-Weighted Rate of Return (TWRR)**:
+   - In compliance with SEBI circular `SEBI/HO/IMD/DF1/CIR/P/2020/26` and Association of Portfolio Managers in India (APMI) reporting standards, all portfolio performance is calculated strictly on a **daily Time-Weighted Rate of Return (TWRR)** basis.
+   - Eliminates distortions caused by large capital contributions or withdrawals.
+2. **Monthly APMI Benchmarking**:
+   - Portfolio performance is reconciled monthly against standard APMI peer benchmarks (NSE Multi Asset Index 1, BSE 200 TRI, Nifty 500 TRI) and reported net of all fees and expenses.
+
+---
+
+## 7. Performance Guardrails & Capital Efficiency (FASP-AI v3.1)
+
+1. **Anti-Cash Drag Protocol**:
+   - Idle cash in client Demat accounts exceeding **5%** triggers an automated sweep into 91-Day T-Bills, Overnight instruments, or Liquid ETFs yielding market repo rates.
+   - Eliminates cash drag during sustained upward market regimes.
+2. **Associate & Related-Party Investment Cap**:
+   - Investments in securities of associates or related-party group entities of the Portfolio Manager are capped at **15% to 25%** of portfolio value and require prior written client consent under SEBI PMS Reg 24.
+3. **Slippage & Market Impact Controls**:
+   - Slice-order algorithms restrict individual execution legs to **$\le 5\%$ of the Average Daily Trading Volume (ADTV)**, minimizing market impact and trade friction.
+
+---
+
+## 8. Codebase Enforcement Architecture
 
 - **Tier Validator**: [`model-portfolio-tier-service.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/model-portfolio-tier-service.ts) (`portfolioTier: "hni_pms"`, `custodyStructure: "SEGREGATED_CLIENT_DEMAT"`).
 - **Execution Driver**: [`upstox-execution-engine.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/upstox-execution-engine.ts) for atomic batch order slicing and execution.
+- **Risk Budget Guard**: [`portfolio-risk-guard.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/portfolio-risk-guard.ts) with dynamic drift and cash-drag monitoring.
 - **Capital Sizing**: [`model-portfolio-share-sizing.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/model-portfolio-share-sizing.ts) ensuring whole-share integer allocations across segregated demats.
 
 ---

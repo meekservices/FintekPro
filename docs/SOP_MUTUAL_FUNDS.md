@@ -37,17 +37,17 @@ Mutual funds operate on a **pooled investment trust architecture** wherein inves
 
 ---
 
-## 4. Order Execution, Cut-Off Timings & NAV Realization
+## 4. Order Execution, Cut-Off Timings & Universal NAV Realization (SEBI Circular 2020/175)
 
-Order routing must enforce strict cut-off adherence in accordance with SEBI NAV realization rules:
+Order routing enforces strict cut-off adherence in accordance with unified SEBI NAV realization rules:
 
-| Category | Cut-Off Time (IST) | Applicable NAV Rule |
+| Category | Cut-Off Time (IST) | Universal NAV Realization Rule |
 | :--- | :---: | :--- |
 | **Liquid & Overnight Funds** | **1:30 PM** | Lower of: Historical day NAV / Day of fund realization in AMC bank account |
-| **Equity & Debt Funds (< ₹2 Lakhs)** | **3:00 PM** | Same day NAV, subject to realization of funds before cut-off |
-| **High Value Orders ($\ge ₹2 Lakhs$)** | **3:00 PM** | Closing NAV of the business day on which funds are credited to AMC account |
+| **Equity & Debt Funds (All Ticket Sizes)** | **3:00 PM** | Closing NAV of the business day on which investor funds are credited to the AMC collection account prior to cut-off |
+| **Redemptions & Switches** | **3:00 PM** (Equity) / **1:30 PM** (Liquid) | Closing NAV of the transaction submission day |
 
-*Platform Rule*: Any payment confirmation received after cut-off time is automatically timestamped for T+1 business day processing.
+*Platform Rule*: Any payment confirmation or fund credit received after cut-off time is automatically timestamped for T+1 business day processing.
 
 ---
 
@@ -61,10 +61,48 @@ Order routing must enforce strict cut-off adherence in accordance with SEBI NAV 
 
 ---
 
-## 6. Codebase Enforcement Architecture
+## 6. SEBI New Asset Class / Specified Investment Products (SIF Desk)
 
-- **Validation Gate**: [`model-portfolio-tier-service.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/model-portfolio-tier-service.ts) (`portfolioTier: "retail_mf"`).
+1. **Regulatory Framework**:
+   - Governed under **SEBI (Mutual Funds) (Amendment) Regulations, 2024 — Master Framework for Specified Investment Products (SIF)**.
+   - Designed to bridge the retail mutual fund market (₹5,000) and the high-ticket PMS market (₹50 Lakhs).
+2. **Statutory Ticket Size & Eligibility**:
+   - Minimum investment commitment: **₹10,00,000 (Rupees Ten Lakhs)** across one or more strategies under the SIF umbrella.
+   - Vehicle Type: `SIF_NEW_ASSET_CLASS` with pooled trustee custody (`TRUSTEE_AMC_UNITS`).
+3. **Permitted Investment Strategies**:
+   - **Long-Short Equity**: Systematic equity long positions combined with index/stock derivative shorts for downside hedging.
+   - **Dynamic Factor Arbitrage**: Market-neutral factor spreads capturing valuation anomalies.
+   - **Derivative Exposure Ceiling**: Net long/short derivative gross exposure capped at 25% of AUM for hedging and risk mitigation.
+
+---
+
+## 7. Liquidity Stress Testing & Concentration Guardrails
+
+1. **Small & Mid-Cap Liquidity Horizon (SEBI Circular March 2024)**:
+   - All small-cap and mid-cap mutual fund holdings are subjected to monthly stress testing models to compute **Days to Liquidate 25% and 50%** of the portfolio.
+   - Portfolios requiring $> 15$ days to liquidate 25% are flagged with an elevated liquidity risk warning.
+2. **Prudential Diversification Limits**:
+   - **Single-Stock Look-Through Cap**: Underlying consolidated stock exposure across multiple schemes capped at 10% (SEBI Seventh Schedule).
+   - **Thematic Overlap Cap**: Pairwise overlap between thematic/sectoral schemes capped at 50% to prevent over-concentration.
+
+---
+
+## 8. Fund Performance Maximization Guardrails (FASP-AI v3.1)
+
+1. **Anti-Cash Drag Protocol**:
+   - Uninvested cash buffer in equity model portfolios is capped at **5% to 10%**. Any idle cash exceeding the threshold triggers an automated yield deployment alert into 91-Day T-Bills or liquid yield funds yielding 6.8%–7.1% p.a.
+2. **Alpha Drag & Underperformance Exit**:
+   - Holdings exhibiting trailing alpha $< -8\%$ across 3 consecutive quarters trigger automated tactical replacement recommendations.
+3. **Tax-Friction Optimization Gate**:
+   - Prior to generating rebalancing proposals, the rebalance optimizer verifies that the projected net alpha gain exceeds the capital gains tax friction (STCG 20%, LTCG 12.5% per Union Budget 2024).
+
+---
+
+## 9. Codebase Enforcement Architecture
+
+- **Validation Gate**: [`model-portfolio-tier-service.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/model-portfolio-tier-service.ts) (`portfolioTier: "retail_mf"` and `"affluent_sif"`).
 - **Suitability Checker**: [`risk-suitability-engine.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/risk-suitability-engine.ts) enforcing scheme risk-o-meter alignment with client risk appetite.
+- **Risk Budget Guard**: [`portfolio-risk-guard.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/portfolio-risk-guard.ts) enforcing cash-drag limits and alpha drag floors.
 - **AMFI & EUIN Verifier**: [`sebi-compliance-service.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/sebi-compliance-service.ts).
 
 ---

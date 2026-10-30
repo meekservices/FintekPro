@@ -34,14 +34,16 @@ interface RiskBudget {
   sharpeFloor: number;      // minimum acceptable Sharpe ratio
   maxSingleWeight: number;  // % max weight in any single holding
   maxSectorWeight: number;  // % max combined weight in one sector
+  maxCashDrag: number;      // % max liquid/cash allocation to prevent performance drag
+  alphaDragFloor: number;   // % minimum acceptable trailing alpha before flagging underperformer
 }
 
 const RISK_BUDGETS: Record<string, RiskBudget> = {
-  conservative:  { maxVolatility: 8,   maxDrawdown: -6,   betaCeiling: 0.4, sharpeFloor: 1.2, maxSingleWeight: 30, maxSectorWeight: 50 },
-  moderate:      { maxVolatility: 16,  maxDrawdown: -14,  betaCeiling: 1.0, sharpeFloor: 0.7, maxSingleWeight: 25, maxSectorWeight: 40 },
-  aggressive:    { maxVolatility: 26,  maxDrawdown: -24,  betaCeiling: 1.6, sharpeFloor: 0.4, maxSingleWeight: 15, maxSectorWeight: 35 },
-  high:          { maxVolatility: 30,  maxDrawdown: -28,  betaCeiling: 1.9, sharpeFloor: 0.3, maxSingleWeight: 12, maxSectorWeight: 30 },
-  all_weather:   { maxVolatility: 12,  maxDrawdown: -10,  betaCeiling: 0.7, sharpeFloor: 0.9, maxSingleWeight: 25, maxSectorWeight: 40 },
+  conservative:  { maxVolatility: 8,   maxDrawdown: -6,   betaCeiling: 0.4, sharpeFloor: 1.2, maxSingleWeight: 30, maxSectorWeight: 50, maxCashDrag: 40, alphaDragFloor: -5 },
+  moderate:      { maxVolatility: 16,  maxDrawdown: -14,  betaCeiling: 1.0, sharpeFloor: 0.7, maxSingleWeight: 25, maxSectorWeight: 40, maxCashDrag: 15, alphaDragFloor: -7 },
+  aggressive:    { maxVolatility: 26,  maxDrawdown: -24,  betaCeiling: 1.6, sharpeFloor: 0.4, maxSingleWeight: 15, maxSectorWeight: 35, maxCashDrag: 10, alphaDragFloor: -8 },
+  high:          { maxVolatility: 30,  maxDrawdown: -28,  betaCeiling: 1.9, sharpeFloor: 0.3, maxSingleWeight: 12, maxSectorWeight: 30, maxCashDrag: 10, alphaDragFloor: -10 },
+  all_weather:   { maxVolatility: 12,  maxDrawdown: -10,  betaCeiling: 0.7, sharpeFloor: 0.9, maxSingleWeight: 25, maxSectorWeight: 40, maxCashDrag: 20, alphaDragFloor: -6 },
 };
 
 const DEFAULT_BUDGET = RISK_BUDGETS["moderate"];
@@ -68,6 +70,8 @@ export interface RiskReport {
     maxSingleWeight: number;
     maxSectorWeight: number;
     estimatedVolatility: number;
+    cashDragWeight: number;
+    alphaDragHoldingsCount: number;
   };
   model_version: string;
   timestamp: string;
@@ -109,26 +113,64 @@ export function checkRiskBudget(
       riskScore: 100,
       hardBreaches: [{ type: "hard", field: "holdings", actual: 0, limit: 1, message: "Empty holdings array" }],
       softWarnings: [],
-      metrics: { weightedBeta: 0, maxSingleWeight: 0, maxSectorWeight: 0, estimatedVolatility: 0 },
+      metrics: { weightedBeta: 0, maxSingleWeight: 0, maxSectorWeight: 0, estimatedVolatility: 0, cashDragWeight: 0, alphaDragHoldingsCount: 0 },
       model_version: MODEL_VERSION,
       timestamp: ts,
     };
   }
 
-  // 1. Weighted beta
+  // 1. Weighted beta & Cash Drag tracking
   let totalWeight = 0;
   let weightedBeta = 0;
+  let totalCashWeight = 0;
+  let alphaDragCount = 0;
+
   for (const h of proposedHoldings) {
     const w = Number(h.weight ?? 0);
     const isDebtOrCash =
       (h.type && ["debt", "liquid", "cash", "bond", "fixed_income", "fd", "fixed_deposit"].some(t => h.type!.toLowerCase().includes(t))) ||
       (h.sector && ["debt", "liquid", "cash", "bond", "fixed income", "treasury"].some(s => h.sector!.toLowerCase().includes(s))) ||
       (h.name && ["liquid", "debt", "bond", "g-sec", "treasury", "fixed deposit"].some(n => h.name.toLowerCase().includes(n)));
+
+    const isPureCashOrLiquid =
+      (h.type && ["liquid", "cash"].some(t => h.type!.toLowerCase().includes(t))) ||
+      (h.sector && ["liquid", "cash", "treasury"].some(s => h.sector!.toLowerCase().includes(s))) ||
+      (h.name && ["liquid", "overnight", "cash", "t-bill"].some(n => h.name.toLowerCase().includes(n)));
+
+    if (isPureCashOrLiquid) {
+      totalCashWeight += w;
+    }
+
     const defaultBeta = isDebtOrCash ? 0.05 : 1.0;
     const b = h.beta != null ? Number(h.beta) : defaultBeta;
     weightedBeta += (w / 100) * b;
     totalWeight += w;
+
+    // Check alpha drag if holding has historical return/alpha data
+    const alphaVal = (h as any).alpha != null ? Number((h as any).alpha) : (h.currentReturn != null && h.currentReturn < -15 ? -10 : null);
+    if (alphaVal != null && alphaVal < budget.alphaDragFloor) {
+      alphaDragCount++;
+      softWarnings.push({
+        type: "soft",
+        field: "alphaDrag",
+        actual: alphaVal,
+        limit: budget.alphaDragFloor,
+        message: `Holding '${h.name}' trailing alpha (${alphaVal}%) breaches ${budget.alphaDragFloor}% floor — candidate for tactical review`,
+      });
+    }
   }
+
+  // Cash Drag Performance Check
+  if (totalCashWeight > budget.maxCashDrag) {
+    softWarnings.push({
+      type: "soft",
+      field: "cashDrag",
+      actual: totalCashWeight,
+      limit: budget.maxCashDrag,
+      message: `Cash/liquid buffer ${totalCashWeight}% exceeds ${budget.maxCashDrag}% ceiling — idle cash erodes compounding performance during bull trends`,
+    });
+  }
+
   if (weightedBeta > budget.betaCeiling) {
     const breach: RiskBreach = {
       type: weightedBeta > budget.betaCeiling * 1.2 ? "hard" : "soft",
@@ -220,6 +262,8 @@ export function checkRiskBudget(
       maxSingleWeight: maxSingle,
       maxSectorWeight: maxSectorW,
       estimatedVolatility,
+      cashDragWeight: totalCashWeight,
+      alphaDragHoldingsCount: alphaDragCount,
     },
     model_version: MODEL_VERSION,
     timestamp: ts,

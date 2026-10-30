@@ -60,16 +60,45 @@ AIFs are structured as **privately pooled investment trusts or Limited Liability
 1. **Tenure & Lock-in Enforcement**:
    - Category I and II AIFs are strictly closed-ended with a statutory tenure of **3 to 7 years** (extendable by up to 2 years with approval of two-thirds of investors by value).
    - Early redemptions are strictly prohibited during the fund lifecycle.
-2. **Secondary Transfers & Demat Units**:
+2. **Secondary Transfers**:
    - Unit transfers to third parties are permitted only with the written consent of the Investment Manager and subject to the transferee meeting the ₹1 Crore minimum / Accredited Investor eligibility threshold.
 
 ---
 
-## 6. Codebase Enforcement Architecture
+## 6. Mandatory Dematerialization of AIF Units (SEBI 2024 Mandate)
+
+1. **Depository Holding via NSDL / CDSL**:
+   - In accordance with SEBI circulars, all beneficial trust units issued by Category I, Category II, and Category III AIFs must be held in **dematerialized format**.
+   - Platform automates corporate action credit and statement of account (SOA) conversion into client depository participant (DP) accounts.
+
+---
+
+## 7. Direct Plan Onboarding & Fee Unbundling
+
+1. **Zero-Distribution Direct Class**:
+   - The platform enforces an unbundled **Direct Class** for institutional and self-directed UHNIs.
+   - Eliminates distributor placement fees and ongoing trail commissions, directly improving net-of-fee fund IRR by 1.0% to 1.5% annually.
+
+---
+
+## 8. Fund Performance Guardrails & Capital Optimization (FASP-AI v3.1)
+
+1. **Uncalled Commitment Cash Drag Elimination**:
+   - Investor capital called but pending final disbursement into unlisted portfolio companies is automatically swept into **Sovereign T-Bills or Tri-Party Repo (TREPS)** yielding 6.75%–7.05% p.a.
+   - Prevents unallocated cash from dragging down the fund's gross IRR.
+2. **Valuation Governance & Ind AS 113 Standards**:
+   - Portfolio valuation conducted quarterly by IBBI-registered independent valuers following the International Private Equity and Venture Capital Valuation (IPEV) and Ind AS 113 fair value hierarchy.
+3. **Co-Investment Vehicle (CIV) Parity**:
+   - Co-investment opportunities offered to select anchor investors must follow pro-rata rights and identical terms, preventing preferential pricing or cherry-picking.
+
+---
+
+## 9. Codebase Enforcement Architecture
 
 - **Tier Validator**: [`model-portfolio-tier-service.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/model-portfolio-tier-service.ts) (`portfolioTier: "uhni_aif"`, `statutoryMinInvestment: "10000000"`, `accreditationRequired: true`).
 - **Accreditation Gate**: Verified through `validateInvestmentTierCompliance()`.
 - **Institutional Custody**: `custodyStructure: "POOLED_TRUST_UNITS"`.
+- **Performance Guard**: Cash-drag sweep and liquidity horizon validation.
 
 ---
 
