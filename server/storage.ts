@@ -2293,7 +2293,26 @@ export class DatabaseStorage implements IStorage {
 		proposalId: string,
 		userId: string,
 	): Promise<InvestmentProposal | undefined> {
-		return undefined;
+		try {
+			const [updated] = await db
+				.update(schema.investmentProposals)
+				.set({
+					status: "accepted",
+					approvedAt: new Date(),
+					updatedAt: new Date(),
+				})
+				.where(
+					and(
+						eq(schema.investmentProposals.id, proposalId),
+						eq(schema.investmentProposals.clientId, userId),
+					),
+				)
+				.returning();
+			return updated;
+		} catch (error) {
+			console.error("Error accepting proposal:", error);
+			throw error;
+		}
 	}
 
 	async addProposalToCart(proposalId: string, userId: string): Promise<any> {

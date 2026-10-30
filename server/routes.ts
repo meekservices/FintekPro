@@ -110,6 +110,7 @@ import { instrumentScreenerRouter } from "./routes/instrument-screener-routes";
 import { faspAdvisoryRouter } from "./routes/fasp-advisory-routes";
 import errorTrackingRouter from "./routes/error-tracking-routes";
 import goldenPricingRouter from "./routes/golden-pricing-routes";
+import agentProposalTransactionRoutes from "./routes/agent-proposal-transaction-routes";
 import { Router } from "express";
 
 // ── Previously-missing route modules (fix: all portals returning 404) ─────────
@@ -513,6 +514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	registerPartnerPortalEnhancementRoutes(app);  // /api/partner/portal/* — dashboard, referrals, catalog, Zoho deal sync
 	registerCasPortfolioUploadRoutes(app); // /api/portfolio/upload-cas-pdf + /api/portfolio/sync-status
 	registerComplianceGateRoutes(app); // GET /api/compliance/transaction-readiness
+	app.use(agentProposalTransactionRoutes); // /api/agent/proposals/* transaction lifecycle + Zoho & SEBI dispatch
 	registerPmsRoutes(app); // /api/pms/* — Dedicated SEBI Portfolio Management Services endpoints
 	registerAifRoutes(app); // /api/aif/* — Dedicated SEBI Alternative Investment Funds endpoints
 	registerMacroRoutes(app); // GET /api/macro/* global macro transmission engine

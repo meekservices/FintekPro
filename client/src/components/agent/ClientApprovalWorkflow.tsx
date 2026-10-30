@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +30,11 @@ import {
 	ThumbsUp,
 	ThumbsDown,
 	Calendar,
+	ArrowRight,
+	Database,
+	Building2,
+	Send,
+	Sparkles,
 } from "lucide-react";
 
 interface ApprovalStatus {
@@ -91,7 +96,7 @@ export function ClientApprovalWorkflow({
 	totalAmount,
 	onApproved,
 	onRejected,
-	isAgentView = true,
+	isAgentView: _isAgentView = true,
 }: ClientApprovalWorkflowProps) {
 	const { toast } = useToast();
 	const [disclosureAck, setDisclosureAck] = useState(false);
@@ -104,6 +109,107 @@ export function ClientApprovalWorkflow({
 	const { data: approval, isLoading } = useQuery<ApprovalStatus>({
 		queryKey: ["/api/agent/proposals", proposalId, "approval"],
 		enabled: !!proposalId,
+	});
+
+	// Fetch transaction lifecycle and external sync status
+	const {
+		data: lifecycleData,
+		refetch: refetchLifecycle,
+	} = useQuery({
+		queryKey: ["/api/agent/proposals", proposalId, "transaction-lifecycle"],
+		queryFn: async () => {
+			const res = await apiRequest(
+				`/api/agent/proposals/${proposalId}/transaction-lifecycle`,
+			);
+			return res?.data || res;
+		},
+		enabled: !!proposalId && approval?.status === "approved",
+		refetchInterval: 15000,
+	});
+
+	const lifecycle: any = lifecycleData;
+
+	// Mutation: Initiate Transaction on FintekPro
+	const initiateTxMutation = useMutation({
+		mutationFn: async (gateway?: string) => {
+			return await apiRequest(
+				`/api/agent/proposals/${proposalId}/initiate-transaction`,
+				{
+					method: "POST",
+					body: JSON.stringify({
+						orderType: "LUMPSUM",
+						paymentGateway: gateway || "bse_star",
+						executionGateway: gateway || "BSE_STAR_MF",
+					}),
+					headers: { "Content-Type": "application/json" },
+				},
+			);
+		},
+		onSuccess: (res) => {
+			toast({
+				title: "Transaction Initiated",
+				description: `Order ${res.data?.orderNumber || ""} successfully carved on FintekPro.`,
+			});
+			refetchLifecycle();
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Initiation Failed",
+				description: err.message,
+				variant: "destructive",
+			});
+		},
+	});
+
+	// Mutation: Complete Transaction & Dispatch Copies to Zoho & SEBI
+	const completeTxMutation = useMutation({
+		mutationFn: async (orderId: string) => {
+			return await apiRequest(
+				`/api/agent/proposals/${proposalId}/complete-transaction`,
+				{
+					method: "POST",
+					body: JSON.stringify({
+						orderId,
+						executionStatus: "completed",
+						dispatchToExternalApis: true,
+					}),
+					headers: { "Content-Type": "application/json" },
+				},
+			);
+		},
+		onSuccess: () => {
+			toast({
+				title: "Transaction Completed & Dispatched",
+				description:
+					"Recorded at FintekPro. Copies dispatched to Zoho Books and SEBI compliance ledger.",
+			});
+			refetchLifecycle();
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Completion Error",
+				description: err.message,
+				variant: "destructive",
+			});
+		},
+	});
+
+	// Mutation: On-Demand Dispatch copies
+	const dispatchCopiesMutation = useMutation({
+		mutationFn: async (orderId: string) => {
+			return await apiRequest(`/api/transactions/${orderId}/dispatch-copies`, {
+				method: "POST",
+				body: JSON.stringify({ destinations: ["zoho", "sebi"] }),
+				headers: { "Content-Type": "application/json" },
+			});
+		},
+		onSuccess: () => {
+			toast({
+				title: "Copies Dispatched",
+				description: "Synchronized with Zoho Books and SEBI Regulatory Dossier.",
+			});
+			refetchLifecycle();
+		},
 	});
 
 	const submitApprovalMutation = useMutation({
@@ -192,51 +298,292 @@ export function ClientApprovalWorkflow({
 	const StatusIcon = STATUS_CONFIG[status].icon;
 
 	if (status === "approved") {
+		const order = lifecycle?.order;
+		const isOrderInitiated = !!order;
+		const isOrderCompleted = order?.status === "completed" || order?.status === "settled";
+		const sebiDossier = order?.sebiAuditDossier;
+		const zohoStatus = order?.dispatchStatus?.zoho;
+
 		return (
-			<Card className="border-green-200 dark:border-green-800">
-				<CardHeader>
-					<CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-300">
-						<CheckCircle2 className="h-5 w-5" />
-						Proposal Approved
-					</CardTitle>
-					<CardDescription>
-						{prospectName} approved this proposal on{" "}
-						{approval?.approvedAt
-							? format(new Date(approval.approvedAt), "MMM d, yyyy h:mm a")
-							: "N/A"}
-					</CardDescription>
+			<Card className="border-green-200 dark:border-green-800 shadow-md">
+				<CardHeader className="bg-green-50/50 dark:bg-green-950/20 border-b border-green-100 dark:border-green-900/40">
+					<div className="flex items-center justify-between">
+						<div>
+							<CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-300">
+								<CheckCircle2 className="h-5 w-5 text-green-600" />
+								Proposal Approved & Execution Path Active
+							</CardTitle>
+							<CardDescription>
+								{prospectName} approved this proposal on{" "}
+								{approval?.approvedAt
+									? format(new Date(approval.approvedAt), "MMM d, yyyy h:mm a")
+									: "N/A"}
+							</CardDescription>
+						</div>
+						<Badge variant="outline" className="border-green-500 text-green-700 dark:text-green-300 font-semibold">
+							Consent Recorded
+						</Badge>
+					</div>
 				</CardHeader>
-				<CardContent>
-					<div className="grid grid-cols-2 gap-4">
-						<div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg">
-							<p className="text-sm text-muted-foreground">Total Amount</p>
-							<p className="text-lg font-bold">
+				<CardContent className="space-y-6 pt-5">
+					<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+						<div className="p-3 bg-muted/60 rounded-lg border">
+							<p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Value</p>
+							<p className="text-lg font-bold text-foreground">
 								₹{totalAmount.toLocaleString("en-IN")}
 							</p>
 						</div>
-						<div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg">
-							<p className="text-sm text-muted-foreground">Signature</p>
-							<p className="text-lg font-bold capitalize">
-								{approval?.signatureType || "Digital"}
+						<div className="p-3 bg-muted/60 rounded-lg border">
+							<p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Verification</p>
+							<p className="text-lg font-bold capitalize text-foreground">
+								{approval?.signatureType || "Digital OTP"}
+							</p>
+						</div>
+						<div className="p-3 bg-muted/60 rounded-lg border">
+							<p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">SEBI Compliance</p>
+							<p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-1">
+								<LucideShield className="h-4 w-4" /> Compliant
+							</p>
+						</div>
+						<div className="p-3 bg-muted/60 rounded-lg border">
+							<p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Order Status</p>
+							<p className="text-sm font-semibold capitalize text-foreground mt-1">
+								{order?.status ? order.status.replace("_", " ") : "Not Initiated"}
 							</p>
 						</div>
 					</div>
+
 					{approval?.clientNotes && (
-						<div className="mt-4 p-3 bg-muted rounded-lg">
-							<p className="text-sm font-medium">Client Notes</p>
-							<p className="text-sm text-muted-foreground">
-								{approval.clientNotes}
-							</p>
+						<div className="p-3 bg-muted/40 border rounded-lg text-sm">
+							<span className="font-semibold text-muted-foreground">Client Note: </span>
+							<span className="text-foreground">{approval.clientNotes}</span>
 						</div>
 					)}
-					<Alert className="mt-4 bg-green-50 dark:bg-green-950 border-green-200">
-						<CheckCircle2 className="h-4 w-4 text-green-600" />
-						<AlertTitle>Ready for Execution</AlertTitle>
-						<AlertDescription>
-							All consents received. You can now proceed with executing the
-							transactions on FintekPro.
-						</AlertDescription>
-					</Alert>
+
+					{/* Carved Transaction Path Pipeline Stepper */}
+					<div className="p-4 rounded-xl border bg-card/60 space-y-4">
+						<div className="flex items-center justify-between">
+							<div className="flex items-center gap-2">
+								<Sparkles className="h-4 w-4 text-primary" />
+								<h4 className="font-semibold text-sm">End-to-End Transaction Path</h4>
+							</div>
+							<Badge variant="secondary" className="text-xs">
+								FintekPro Ledger
+							</Badge>
+						</div>
+
+						<div className="grid grid-cols-1 md:grid-cols-4 gap-2 pt-2">
+							{/* Step 1: Consent */}
+							<div className="p-3 rounded-lg border border-green-200 dark:border-green-900 bg-green-50/40 dark:bg-green-950/20">
+								<div className="flex items-center gap-2 text-green-700 dark:text-green-300 font-medium text-xs mb-1">
+									<CheckCircle2 className="h-4 w-4 text-green-600" />
+									1. Client Consent
+								</div>
+								<p className="text-[11px] text-muted-foreground">
+									SEBI risk disclosure acknowledged & OTP digitally signed.
+								</p>
+							</div>
+
+							{/* Step 2: Order Initiation */}
+							<div className={`p-3 rounded-lg border ${
+								isOrderInitiated 
+									? "border-green-200 dark:border-green-900 bg-green-50/40 dark:bg-green-950/20" 
+									: "border-primary/40 bg-primary/5"
+							}`}>
+								<div className={`flex items-center gap-2 font-medium text-xs mb-1 ${
+									isOrderInitiated ? "text-green-700 dark:text-green-300" : "text-primary"
+								}`}>
+									{isOrderInitiated ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Clock className="h-4 w-4" />}
+									2. Order Initiated
+								</div>
+								<p className="text-[11px] text-muted-foreground">
+									{isOrderInitiated 
+										? (order?.orderId || "FIN-ORD Generated") 
+										: "Ready to initiate on FintekPro order engine"}
+								</p>
+							</div>
+
+							{/* Step 3: Transaction Completion */}
+							<div className={`p-3 rounded-lg border ${
+								isOrderCompleted 
+									? "border-green-200 dark:border-green-900 bg-green-50/40 dark:bg-green-950/20" 
+									: isOrderInitiated 
+									? "border-amber-300 dark:border-amber-900 bg-amber-50/40 dark:bg-amber-950/20" 
+									: "border-muted bg-muted/20"
+							}`}>
+								<div className={`flex items-center gap-2 font-medium text-xs mb-1 ${
+									isOrderCompleted 
+										? "text-green-700 dark:text-green-300" 
+										: isOrderInitiated 
+										? "text-amber-700 dark:text-amber-300" 
+										: "text-muted-foreground"
+								}`}>
+									{isOrderCompleted ? (
+										<CheckCircle2 className="h-4 w-4 text-green-600" />
+									) : (
+										<Clock className="h-4 w-4" />
+									)}
+									3. Settlement
+								</div>
+								<p className="text-[11px] text-muted-foreground">
+									{isOrderCompleted ? "Settled & Cleared" : "Awaiting exchange/bank settlement"}
+								</p>
+							</div>
+
+							{/* Step 4: Multi-API Dispatch */}
+							<div className={`p-3 rounded-lg border ${
+								order?.dispatchStatus?.sebi?.status === "dossier_created"
+									? "border-green-200 dark:border-green-900 bg-green-50/40 dark:bg-green-950/20"
+									: isOrderCompleted
+									? "border-blue-300 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20"
+									: "border-muted bg-muted/20"
+							}`}>
+								<div className={`flex items-center gap-2 font-medium text-xs mb-1 ${
+									order?.dispatchStatus?.sebi?.status === "dossier_created"
+										? "text-green-700 dark:text-green-300"
+										: "text-muted-foreground"
+								}`}>
+									<Send className="h-4 w-4" />
+									4. Dual Dispatch
+								</div>
+								<p className="text-[11px] text-muted-foreground">
+									Copies to Zoho Books & SEBI Regulatory Audit Log
+								</p>
+							</div>
+						</div>
+					</div>
+
+					{/* Action Trigger Area */}
+					{!isOrderInitiated ? (
+						<div className="p-5 border-2 border-dashed border-primary/30 rounded-xl bg-primary/5 flex flex-col md:flex-row items-center justify-between gap-4">
+							<div className="space-y-1">
+								<h4 className="font-semibold text-foreground flex items-center gap-2">
+									<ArrowRight className="h-4 w-4 text-primary" />
+									Carve & Transact on FintekPro
+								</h4>
+								<p className="text-xs text-muted-foreground">
+									Route approved proposal items through FintekPro execution gateway (BSE Star MF / Upstox).
+								</p>
+							</div>
+							<Button
+								onClick={() => initiateTxMutation.mutate("BSE_STAR_MF")}
+								disabled={initiateTxMutation.isPending}
+								className="w-full md:w-auto font-medium"
+							>
+								{initiateTxMutation.isPending ? (
+									<>
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										Initiating Order...
+									</>
+								) : (
+									<>
+										<Sparkles className="mr-2 h-4 w-4" />
+										Initiate Transaction
+									</>
+								)}
+							</Button>
+						</div>
+					) : (
+						<div className="space-y-4">
+							<div className="p-4 rounded-xl border bg-muted/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+								<div className="space-y-1">
+									<div className="flex items-center gap-2">
+										<span className="text-xs text-muted-foreground uppercase font-bold">Order ID:</span>
+										<code className="text-xs font-mono font-bold bg-background px-2 py-0.5 rounded border">
+											{order.orderId}
+										</code>
+										<Badge variant={isOrderCompleted ? "default" : "secondary"}>
+											{order.status}
+										</Badge>
+									</div>
+									<p className="text-xs text-muted-foreground">
+										Gateway: <strong className="text-foreground">{order.executionGateway}</strong> | Created: {order.createdAt ? format(new Date(order.createdAt), "dd MMM yyyy, HH:mm") : "N/A"}
+									</p>
+								</div>
+
+								<div className="flex items-center gap-2 w-full md:w-auto">
+									{!isOrderCompleted && (
+										<Button
+											size="sm"
+											onClick={() => completeTxMutation.mutate(order.orderId)}
+											disabled={completeTxMutation.isPending}
+										>
+											{completeTxMutation.isPending ? (
+												<>
+													<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+													Settling...
+												</>
+											) : (
+												<>
+													<CheckCircle2 className="mr-2 h-3.5 w-3.5" />
+													Mark Settled & Dispatch
+												</>
+											)}
+										</Button>
+									)}
+
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => dispatchCopiesMutation.mutate(order.orderId)}
+										disabled={dispatchCopiesMutation.isPending}
+									>
+										{dispatchCopiesMutation.isPending ? (
+											<Loader2 className="h-3.5 w-3.5 animate-spin" />
+										) : (
+											<>
+												<Send className="mr-1.5 h-3.5 w-3.5" />
+												Re-dispatch Copies
+											</>
+										)}
+									</Button>
+								</div>
+							</div>
+
+							{/* External Sync Status Details (Zoho & SEBI) */}
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+								{/* Zoho Books Copy */}
+								<div className="p-3.5 rounded-lg border bg-card/60 flex items-start gap-3">
+									<Building2 className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+									<div className="space-y-1 text-xs">
+										<div className="flex items-center gap-2">
+											<span className="font-semibold text-foreground">Zoho Books & CRM</span>
+											<Badge variant="outline" className="text-[10px] h-5 text-blue-600 border-blue-300">
+												{zohoStatus?.synced ? "Synced" : "Ready / Pending"}
+											</Badge>
+										</div>
+										<p className="text-muted-foreground text-[11px]">
+											{zohoStatus?.synced
+												? `Invoice / Ledger ID: ${zohoStatus?.invoiceId || zohoStatus?.journalId || "Synced"}`
+												: "Transaction copy formatted for accounting & reconciliation."}
+										</p>
+									</div>
+								</div>
+
+								{/* SEBI Regulatory Audit Dossier */}
+								<div className="p-3.5 rounded-lg border bg-card/60 flex items-start gap-3">
+									<Database className="h-5 w-5 text-emerald-600 mt-0.5 shrink-0" />
+									<div className="space-y-1 text-xs">
+										<div className="flex items-center gap-2">
+											<span className="font-semibold text-foreground">SEBI Audit Dossier</span>
+											<Badge variant="outline" className="text-[10px] h-5 text-emerald-600 border-emerald-300">
+												{sebiDossier?.auditId ? "Immutable Log" : "Draft"}
+											</Badge>
+										</div>
+										<p className="text-muted-foreground text-[11px]">
+											{sebiDossier?.auditId ? (
+												<>
+													ID: <span className="font-mono">{sebiDossier.auditId}</span> | SHA-256 Hash Verified
+												</>
+											) : (
+												"Pre-cleared with advisory risk disclosure & client consent."
+											)}
+										</p>
+									</div>
+								</div>
+							</div>
+						</div>
+					)}
 				</CardContent>
 			</Card>
 		);

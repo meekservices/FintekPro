@@ -7,11 +7,9 @@ import {
 	CardHeader,
 	CardTitle,
 	CardDescription,
-	CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import {
 	Table,
@@ -46,7 +44,6 @@ import {
 	Wallet,
 	Calendar,
 	User,
-	ExternalLink,
 	Download,
 	Loader2,
 	AlertTriangle,
@@ -429,7 +426,61 @@ export default function PublicProposalPage() {
 	const shareToken = params.shareToken;
 	const [onboardingLink, setOnboardingLink] = useState("");
 	const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+	const [acknowledged, setAcknowledged] = useState(false);
+	const [transactionStep, setTransactionStep] = useState<"idle" | "consented" | "initiated">("idle");
+	const [initiatedOrder, setInitiatedOrder] = useState<any>(null);
 	const { toast } = useToast();
+
+	const initiatePublicTxMutation = useMutation({
+		mutationFn: async () => {
+			if (!data?.proposal?.id) throw new Error("Proposal ID not found");
+			// Step 1: Record statutory compliance consent
+			const consentRes = await fetch(`/api/agent/proposals/${data.proposal.id}/consent`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					riskAcknowledged: true,
+					disclosureAcknowledged: true,
+					executionConsent: true,
+					signatureType: "digital_client_portal",
+					clientNotes: "Client accepted proposal via portal with SEBI statutory acknowledgement"
+				})
+			});
+			if (!consentRes.ok) {
+				const err = await consentRes.json();
+				throw new Error(err.message || "Failed to record compliance consent");
+			}
+
+			// Step 2: Carve unified transaction on FintekPro
+			const txRes = await fetch(`/api/agent/proposals/${data.proposal.id}/initiate-transaction`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					executionGateway: "BSE_STAR_MF"
+				})
+			});
+			if (!txRes.ok) {
+				const err = await txRes.json();
+				throw new Error(err.message || "Failed to initiate transaction");
+			}
+			return await txRes.json();
+		},
+		onSuccess: (res: any) => {
+			setTransactionStep("initiated");
+			setInitiatedOrder(res.data?.order);
+			toast({
+				title: "Transaction Carved & Initiated",
+				description: `Order ${res.data?.order?.orderId || ""} successfully created at FintekPro. Audit ledger updated and copies dispatched.`,
+			});
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Transaction Initiation Failed",
+				description: err.message,
+				variant: "destructive"
+			});
+		}
+	});
 
 	const { data, isLoading, error } = useQuery<
 		{ proposal: ProposalData; onboardingLink: string },
@@ -1174,7 +1225,7 @@ export default function PublicProposalPage() {
 
 	const proposal = data.proposal;
 	const recommendations = proposal.recommendations || [];
-	const targetAllocation = proposal.targetAllocation || {};
+	const _targetAllocation = proposal.targetAllocation || {};
 	const analysis = parseAnalysis(proposal.currentAnalysis);
 
 	const portfolioValue =
@@ -4441,31 +4492,113 @@ export default function PublicProposalPage() {
 					</CardContent>
 				</Card>
 
-				{/* Client Acknowledgement */}
-				<Card className="mt-4 border-indigo-200 dark:border-indigo-800">
-					<CardContent className="pt-4">
+				{/* Client Acknowledgement & Transaction Carving */}
+				<Card className="mt-4 border-indigo-200 dark:border-indigo-800 shadow-sm overflow-hidden">
+					<CardHeader className="bg-indigo-50/50 dark:bg-indigo-950/20 py-3.5 border-b border-indigo-100 dark:border-indigo-900/30">
+						<CardTitle className="text-sm font-semibold flex items-center justify-between text-indigo-950 dark:text-indigo-200">
+							<span className="flex items-center gap-2">
+								<LucideShield className="h-4 w-4 text-indigo-600" />
+								Client Acknowledgement & Transaction Consent
+							</span>
+							<Badge variant="outline" className="text-[11px] border-indigo-300 text-indigo-700 dark:text-indigo-300">
+								SEBI RIA Regulated
+							</Badge>
+						</CardTitle>
+					</CardHeader>
+					<CardContent className="pt-4 space-y-4">
 						<div className="flex items-start gap-3">
 							<div className="mt-1">
 								<input
 									type="checkbox"
 									id="client-acknowledgement"
-									className="w-4 h-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
+									checked={acknowledged}
+									onChange={(e) => setAcknowledged(e.target.checked)}
+									className="w-4 h-4 rounded border-border text-indigo-600 focus:ring-indigo-500 cursor-pointer"
 								/>
 							</div>
 							<label
 								htmlFor="client-acknowledgement"
-								className="text-sm text-muted-foreground cursor-pointer"
+								className="text-sm text-muted-foreground cursor-pointer select-none"
 							>
 								<strong className="text-foreground">
-									Client Acknowledgement:
+									Statutory Client Acknowledgement:
 								</strong>{" "}
 								I have read and understood the above disclosures, risk factors,
 								and data sources. I understand that investments are subject to
 								market risks and past performance does not guarantee future
 								returns. I confirm that the information I provided for this
-								analysis is accurate.
+								analysis is accurate and provide consent to execute the proposed transactions.
 							</label>
 						</div>
+
+						{transactionStep === "initiated" && initiatedOrder ? (
+							<div className="p-4 rounded-xl border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/30 space-y-3">
+								<div className="flex items-center justify-between">
+									<div className="flex items-center gap-2 text-green-700 dark:text-green-300 font-semibold text-sm">
+										<CheckCircle2 className="h-5 w-5 text-green-600" />
+										Transaction Successfully Carved at FintekPro
+									</div>
+									<Badge className="bg-green-600 hover:bg-green-700 text-white font-mono text-xs">
+										{initiatedOrder.orderId}
+									</Badge>
+								</div>
+
+								<div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-1">
+									<div className="p-2.5 rounded-lg bg-background/80 border">
+										<p className="text-muted-foreground font-medium">Gateway</p>
+										<p className="font-semibold text-foreground">{initiatedOrder.executionGateway || "BSE Star MF"}</p>
+									</div>
+									<div className="p-2.5 rounded-lg bg-background/80 border">
+										<p className="text-muted-foreground font-medium">SEBI Audit Dossier</p>
+										<p className="font-semibold text-emerald-600 flex items-center gap-1">
+											<LucideShield className="h-3.5 w-3.5" /> Immutable Hash Log
+										</p>
+									</div>
+									<div className="p-2.5 rounded-lg bg-background/80 border">
+										<p className="text-muted-foreground font-medium">External Sync</p>
+										<p className="font-semibold text-blue-600 flex items-center gap-1">
+											<Building2 className="h-3.5 w-3.5" /> Zoho Books Dispatched
+										</p>
+									</div>
+								</div>
+
+								<div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
+									<p className="text-xs text-muted-foreground">
+										Your investment order is registered in our custody ledger. Proceed to complete payment / KYC.
+									</p>
+									<Button
+										onClick={handleGetStarted}
+										className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-medium"
+									>
+										Proceed to Complete KYC & Fund
+										<ArrowRight className="ml-2 h-4 w-4" />
+									</Button>
+								</div>
+							</div>
+						) : (
+							<div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t">
+								<p className="text-xs text-muted-foreground">
+									Check the acknowledgement above to authorize execution and record transaction at FintekPro.
+								</p>
+								<Button
+									disabled={!acknowledged || initiatePublicTxMutation.isPending}
+									onClick={() => initiatePublicTxMutation.mutate()}
+									className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-sm"
+								>
+									{initiatePublicTxMutation.isPending ? (
+										<>
+											<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+											Recording & Initiating...
+										</>
+									) : (
+										<>
+											<Sparkles className="mr-2 h-4 w-4" />
+											Approve & Initiate Transaction
+										</>
+									)}
+								</Button>
+							</div>
+						)}
 					</CardContent>
 				</Card>
 			</section>

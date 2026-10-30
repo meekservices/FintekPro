@@ -1,4 +1,3 @@
-import { MarketChart } from "@/components/dashboard/market-chart";
 import { PortfolioSummary } from "@/components/dashboard/portfolio-summary";
 import { MarketMovers } from "@/components/dashboard/market-movers";
 import { MarketNews } from "@/components/dashboard/market-news";
@@ -12,18 +11,13 @@ import {
 	TrendingUp,
 	Shield as LucideShield,
 	Database,
-	Banknote,
-	BarChart3,
 	Coins,
 	Building2,
 	CreditCard,
-	PiggyBank,
-	FileText,
 	Building,
 	Briefcase,
 	Target,
 	PieChart,
-	Landmark,
 	Receipt,
 	Activity,
 	Zap,
@@ -36,8 +30,6 @@ import {
 	Cpu,
 	Phone,
 	Mail,
-	PlayCircle,
-	Star,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -114,7 +106,7 @@ export default function Home() {
 	});
 
 	// Calculate total value from actual holdings
-	const totalValue = Array.isArray(holdings)
+	const _totalValue = Array.isArray(holdings)
 		? holdings.reduce((sum: number, holding: any) => {
 				return sum + (holding.currentValue || 0);
 			}, 0)
@@ -403,7 +395,7 @@ export default function Home() {
 			</div>
 
 			{/* Hero Section with Enhanced Design */}
-			<section className="relative bg-gradient-to-r from-blue-900 via-blue-800 to-purple-900 text-foreground py-20 overflow-hidden">
+			<section className="relative bg-gradient-to-r from-blue-900 via-blue-800 to-purple-900 text-white py-20 overflow-hidden">
 				{/* Animated background elements */}
 				<div className="absolute inset-0 opacity-10">
 					<div className="absolute top-20 left-10 w-72 h-72 rounded-full bg-card/20 animate-pulse" />
@@ -437,7 +429,7 @@ export default function Home() {
 								<Badge className="bg-yellow-500 text-yellow-900 dark:text-yellow-100 text-sm px-4 py-2 font-semibold">
 									🚀 Your Complete Financial Platform
 								</Badge>
-								<h1 className="text-5xl lg:text-6xl font-bold leading-tight">
+								<h1 className="text-5xl lg:text-6xl font-bold leading-tight text-white">
 									Build Wealth with
 									<span className="bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent block">
 										Smart Investments
@@ -455,7 +447,7 @@ export default function Home() {
 								<Link href="/wealth-management" className="w-full sm:w-auto">
 									<Button
 										size="lg"
-										className="w-full sm:w-auto bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-foreground font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-xl shadow-2xl transform hover:scale-105 transition-all"
+										className="w-full sm:w-auto bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-slate-950 font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-xl shadow-2xl transform hover:scale-105 transition-all"
 									>
 										<Target className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
 										<span className="text-sm sm:text-base">
@@ -464,14 +456,16 @@ export default function Home() {
 										<ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
 									</Button>
 								</Link>
-								<Button
-									size="lg"
-									variant="outline"
-									className="w-full sm:w-auto border-2 border-white/30 text-foreground hover:bg-card/10 font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-xl backdrop-blur-sm"
-								>
-									<PlayCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-									<span className="text-sm sm:text-base">Watch Demo</span>
-								</Button>
+								<Link href="/markets" className="w-full sm:w-auto">
+									<Button
+										size="lg"
+										variant="outline"
+										className="w-full sm:w-auto border-2 border-white/40 text-white hover:bg-white/10 font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-xl backdrop-blur-sm"
+									>
+										<Activity className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+										<span className="text-sm sm:text-base">Market Overview</span>
+									</Button>
+								</Link>
 							</div>
 
 							{/* Platform Stats */}
@@ -481,7 +475,7 @@ export default function Home() {
 										<div className="flex items-center justify-center mb-2">
 											<stat.icon className="w-6 h-6 text-yellow-400" />
 										</div>
-										<div className="text-2xl font-bold text-foreground">
+										<div className="text-2xl font-bold text-white">
 											{stat.value}
 										</div>
 										<div className="text-sm text-blue-200">{stat.label}</div>
@@ -812,10 +806,10 @@ export default function Home() {
 			</section>
 
 			{/* Live Market Data Section */}
-			<section className="py-20 bg-gradient-to-r from-gray-900 to-blue-900 text-foreground">
+			<section className="py-20 bg-gradient-to-r from-gray-900 to-blue-900 text-white">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="text-center mb-12">
-						<h2 className="text-4xl font-bold mb-4">
+						<h2 className="text-4xl font-bold mb-4 text-white">
 							Live Market Intelligence
 						</h2>
 						<p className="text-xl text-blue-200">
@@ -836,7 +830,7 @@ export default function Home() {
 						<Link href="/markets">
 							<Button
 								size="lg"
-								className="bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-foreground font-semibold px-8 py-4 rounded-xl"
+								className="bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-slate-950 font-bold px-8 py-4 rounded-xl shadow-lg"
 							>
 								<Activity className="w-5 h-5 mr-2" />
 								Explore Full Market Data
