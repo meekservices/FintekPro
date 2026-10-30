@@ -53,7 +53,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, getStoredSessionId } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { calculateIpoListingGain } from "@shared/calculations";
@@ -768,8 +768,15 @@ function safeNum(v: unknown): number {
 	return Number.isFinite(n) ? n : 0;
 }
 
+function downloadPickNote(pickId: number) {
+	const sid = getStoredSessionId();
+	const url = sid ? `/api/picks/${pickId}/download-note?sid=${encodeURIComponent(sid)}` : `/api/picks/${pickId}/download-note`;
+	window.open(url, "_blank");
+}
+
 export default function AgentPicksPage() {
 	const { toast } = useToast();
+
 	const [todayCategoryFilter, setTodayCategoryFilter] = useState<string>("all");
 	const [liveCategoryFilter, setLiveCategoryFilter] = useState<string>("all");
 	const [historyCategoryFilter, setHistoryCategoryFilter] =
@@ -3355,7 +3362,7 @@ export default function AgentPicksPage() {
 												size="sm"
 												className="h-8 gap-1.5 text-xs bg-white/80 dark:bg-zinc-900/80 hover:bg-white border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200"
 												onClick={() => {
-													window.open(`/api/picks/${topPickOfDay.id}/download-note`, "_blank");
+													downloadPickNote(topPickOfDay.id);
 												}}
 											>
 												<FileText className="h-3.5 w-3.5 text-amber-600" />
@@ -6736,7 +6743,7 @@ export default function AgentPicksPage() {
 										variant="outline"
 										className="w-full bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 text-amber-900 dark:text-amber-200"
 										onClick={() => {
-											window.open(`/api/picks/${selectedPick.id}/download-note`, "_blank");
+											downloadPickNote(selectedPick.id);
 										}}
 									>
 										<FileText className="h-4 w-4 mr-2 text-amber-600" />
@@ -9532,7 +9539,7 @@ function PickCard({
 													className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/40"
 													onClick={(e) => {
 														e.stopPropagation();
-														window.open(`/api/picks/${pick.id}/download-note`, "_blank");
+														downloadPickNote(pick.id);
 													}}
 												>
 													<FileText className="h-4 w-4" />

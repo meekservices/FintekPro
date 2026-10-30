@@ -103,7 +103,7 @@ export async function setupAuth(app: Express) {
 			return next();
 		}
 
-		const headerSessionId = req.headers["x-session-id"] as string | undefined;
+		const headerSessionId = (req.headers["x-session-id"] || req.query.sid || req.query.session_id) as string | undefined;
 		if (!headerSessionId) {
 			return next();
 		}

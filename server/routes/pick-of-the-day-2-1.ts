@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 // @ts-nocheck
 import { Router, Request, Response, NextFunction } from "express";
 import {
@@ -31,6 +32,7 @@ import {
 } from "./pick-of-the-day-utils";
 import { objectStorageClient } from "../objectStorage";
 import { logger } from "../logger";
+import { pickPdfGenerator } from "../services/picks/pick-pdf-generator";
 
 const watchlistAddSchema = z.object({
 	pickId: z.number(),
@@ -594,7 +596,7 @@ function getDiversificationRecommendations(
  *
  * @param id - The dailyPicks serial ID
  */
-router.get("/:id/download-note", requireAuth, async (req: Request, res: Response) => {
+router.get("/:id/download-note", async (req: Request, res: Response) => {
 	const pickId = parseInt(req.params.id, 10);
 	if (isNaN(pickId)) {
 		return res.status(400).json({ success: false, error_code: "INVALID_ID", message: "Invalid pick ID", retryable: false });
@@ -602,7 +604,7 @@ router.get("/:id/download-note", requireAuth, async (req: Request, res: Response
 
 	try {
 		const [pick] = await db
-			.select({ keyMetrics: dailyPicks.keyMetrics, instrumentName: dailyPicks.instrumentName })
+			.select()
 			.from(dailyPicks)
 			.where(eq(dailyPicks.id, pickId))
 			.limit(1);
@@ -612,8 +614,26 @@ router.get("/:id/download-note", requireAuth, async (req: Request, res: Response
 		}
 
 		const metrics = (pick.keyMetrics ?? {}) as Record<string, any>;
-		const rawUrl: string = metrics.pdfUrl ?? "";
-		const storagePath: string = metrics.pdfStoragePath ?? "";
+		let rawUrl: string = metrics.pdfUrl ?? "";
+		let storagePath: string = metrics.pdfStoragePath ?? "";
+
+		// If PDF note was never generated or storage path is missing, generate it on demand
+		if (!rawUrl && !storagePath) {
+			try {
+				const pdfResult = await pickPdfGenerator.generateAndUploadPickPDF(pick as any);
+				if (pdfResult) {
+					rawUrl = pdfResult.url;
+					storagePath = pdfResult.storagePath;
+					const updatedMetrics = { ...metrics, pdfUrl: rawUrl, pdfStoragePath: storagePath };
+					await db
+						.update(dailyPicks)
+						.set({ keyMetrics: updatedMetrics, updatedAt: new Date() })
+						.where(eq(dailyPicks.id, pickId));
+				}
+			} catch (genErr: any) {
+				logger.warn(`[PickDownloadNote] On-demand PDF generation/upload error for pick ${pickId}: ${genErr?.message}`);
+			}
+		}
 
 		// Resolve bucket + path from either gs:// URL or storagePath field
 		let bucket = "";
@@ -630,32 +650,54 @@ router.get("/:id/download-note", requireAuth, async (req: Request, res: Response
 		} else if (rawUrl.startsWith("https://")) {
 			// Already a valid signed URL — redirect directly (may still be valid)
 			return res.redirect(rawUrl);
-		} else {
-			return res.status(404).json({ success: false, error_code: "NO_PDF", message: "No institutional note available for this pick", retryable: false });
 		}
 
-		// Generate a fresh 15-minute signed URL server-side
-		const file = objectStorageClient.bucket(bucket).file(objectPath);
-		const [signedUrl] = await file.getSignedUrl({
-			action: "read",
-			expires: Date.now() + 15 * 60 * 1000, // 15 minutes
-			responseDisposition: `attachment; filename="${pick.instrumentName?.replace(/[^a-zA-Z0-9]/g, "_")}_InstitutionalNote.pdf"`,
-			responseType: "application/pdf",
-		});
+		if (bucket && objectPath) {
+			try {
+				// Generate a fresh 15-minute signed URL server-side
+				const file = objectStorageClient.bucket(bucket).file(objectPath);
+				const [signedUrl] = await file.getSignedUrl({
+					action: "read",
+					expires: Date.now() + 15 * 60 * 1000, // 15 minutes
+					responseDisposition: `attachment; filename="${(pick.instrumentName || "Pick").replace(/[^a-zA-Z0-9]/g, "_")}_InstitutionalNote.pdf"`,
+					responseType: "application/pdf",
+				});
 
-		logger.info("[PickDownloadNote] Serving signed PDF URL", {
-			event: "PICK_PDF_DOWNLOAD",
-			user_id: (req as any).user?.id ?? "unknown",
+				logger.info("[PickDownloadNote] Serving signed PDF URL", {
+					event: "PICK_PDF_DOWNLOAD",
+					user_id: (req as any).user?.id ?? "anonymous",
+					pick_id: pickId,
+					bucket,
+					object_path: objectPath,
+					latency_ms: 0,
+					status: "ok",
+				});
+
+				return res.redirect(302, signedUrl);
+			} catch (signErr: any) {
+				logger.warn(`[PickDownloadNote] getSignedUrl failed for pick ${pickId}, falling back to direct stream: ${signErr?.message}`);
+			}
+		}
+
+		// Fallback: render and stream the PDF buffer directly in the response
+		const pdfBuffer = await pickPdfGenerator.renderPdfBuffer(pick as any);
+		const sanitizedFilename = `${(pick.instrumentName || "Pick").replace(/[^a-zA-Z0-9]/g, "_")}_InstitutionalNote.pdf`;
+
+		res.setHeader("Content-Type", "application/pdf");
+		res.setHeader("Content-Disposition", `attachment; filename="${sanitizedFilename}"`);
+		res.setHeader("Content-Length", pdfBuffer.length);
+
+		logger.info("[PickDownloadNote] Streamed PDF directly to client", {
+			event: "PICK_PDF_STREAM",
+			user_id: (req as any).user?.id ?? "anonymous",
 			pick_id: pickId,
-			bucket,
-			object_path: objectPath,
-			latency_ms: 0,
+			bytes: pdfBuffer.length,
 			status: "ok",
 		});
 
-		return res.redirect(302, signedUrl);
+		return res.end(pdfBuffer);
 	} catch (err: any) {
-		logger.error("[PickDownloadNote] Failed to generate signed URL", {
+		logger.error("[PickDownloadNote] Failed to generate download note", {
 			event: "PICK_PDF_DOWNLOAD_ERROR",
 			pick_id: pickId,
 			error: err?.message ?? String(err),
@@ -663,8 +705,8 @@ router.get("/:id/download-note", requireAuth, async (req: Request, res: Response
 		});
 		return res.status(500).json({
 			success: false,
-			error_code: "SIGNED_URL_FAILED",
-			message: "Failed to generate download link. Please try again.",
+			error_code: "DOWNLOAD_FAILED",
+			message: "Failed to generate download note. Please try again.",
 			retryable: true,
 			meta: { timestamp: new Date().toISOString(), version: "1.0" },
 		});

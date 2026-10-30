@@ -112,7 +112,7 @@ export class PickPdfGeneratorService {
 	/**
 	 * Renders an executive single-page A4 PDF using PDFKit.
 	 */
-	private async renderPdfBuffer(pick: DailyPickData): Promise<Buffer> {
+	public async renderPdfBuffer(pick: DailyPickData): Promise<Buffer> {
 		return new Promise((resolve, reject) => {
 			const doc = new PDFDocument({
 				size: "A4",
