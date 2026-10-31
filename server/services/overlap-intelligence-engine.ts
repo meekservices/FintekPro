@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { db } from "../db";
 import { mfSchemeStockHoldings, mutualFunds } from "@shared/schema";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 interface PortfolioFund {
 	mfIsin: string;
@@ -141,7 +141,16 @@ export class OverlapIntelligenceEngine {
 		const holdings = await db
 			.select()
 			.from(mfSchemeStockHoldings)
-			.where(inArray(mfSchemeStockHoldings.mfIsin, fundIsins));
+			.where(
+				and(
+					inArray(mfSchemeStockHoldings.mfIsin, fundIsins),
+					sql`${mfSchemeStockHoldings.holdingDate} = (
+						SELECT MAX(h2.holding_date)
+						FROM mf_scheme_stock_holdings h2
+						WHERE h2.mf_isin = ${mfSchemeStockHoldings.mfIsin}
+					)`
+				)
+			);
 
 		// Calculate stock exposures with look-through analysis
 		const stockExposures = this.calculateStockExposures(holdings, funds);
@@ -314,7 +323,16 @@ export class OverlapIntelligenceEngine {
 		const candidateHoldings = await db
 			.select()
 			.from(mfSchemeStockHoldings)
-			.where(eq(mfSchemeStockHoldings.mfIsin, candidateFundIsin));
+			.where(
+				and(
+					eq(mfSchemeStockHoldings.mfIsin, candidateFundIsin),
+					sql`${mfSchemeStockHoldings.holdingDate} = (
+						SELECT MAX(h2.holding_date)
+						FROM mf_scheme_stock_holdings h2
+						WHERE h2.mf_isin = ${mfSchemeStockHoldings.mfIsin}
+					)`
+				)
+			);
 
 		if (!candidateHoldings.length) {
 			return {
@@ -331,7 +349,16 @@ export class OverlapIntelligenceEngine {
 		const existingHoldings = await db
 			.select()
 			.from(mfSchemeStockHoldings)
-			.where(inArray(mfSchemeStockHoldings.mfIsin, existingIsins));
+			.where(
+				and(
+					inArray(mfSchemeStockHoldings.mfIsin, existingIsins),
+					sql`${mfSchemeStockHoldings.holdingDate} = (
+						SELECT MAX(h2.holding_date)
+						FROM mf_scheme_stock_holdings h2
+						WHERE h2.mf_isin = ${mfSchemeStockHoldings.mfIsin}
+					)`
+				)
+			);
 
 		// Calculate existing stock exposures
 		const existingExposures = new Map<string, number>();
@@ -391,7 +418,16 @@ export class OverlapIntelligenceEngine {
 		const allHoldings = await db
 			.select()
 			.from(mfSchemeStockHoldings)
-			.where(inArray(mfSchemeStockHoldings.mfIsin, fundIsins));
+			.where(
+				and(
+					inArray(mfSchemeStockHoldings.mfIsin, fundIsins),
+					sql`${mfSchemeStockHoldings.holdingDate} = (
+						SELECT MAX(h2.holding_date)
+						FROM mf_scheme_stock_holdings h2
+						WHERE h2.mf_isin = ${mfSchemeStockHoldings.mfIsin}
+					)`
+				)
+			);
 
 		// Group holdings by fund
 		const holdingsByFund = new Map<string, Set<string>>();

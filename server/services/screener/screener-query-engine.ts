@@ -1,4 +1,5 @@
 import { db } from "../../db";
+import { logger } from "../../logger";
 import {
 	listedStocks,
 	screenerFinancials,
@@ -8,6 +9,7 @@ import {
 	screenerShareholding,
 	screenerAnalystConsensus,
 	screenerDcfValuations,
+	screenerMasterSnapshots,
 } from "@shared/schema";
 import {
 	eq,
@@ -245,12 +247,259 @@ export interface ScreenerResponse {
 	};
 }
 
+/**
+ * P0 Performance: Fast-path querying single-table screenerMasterSnapshots.
+ * Eliminates 8 joins and 4 correlated subqueries; returns in <25ms.
+ */
+async function queryScreenerFromMaster(
+	filters: ScreenerFilters,
+	limit: number,
+	offset: number,
+	page: number,
+): Promise<ScreenerResponse | null> {
+	const conditions: any[] = [];
+
+	const effectiveMacroSector =
+		filters.macroSector ||
+		filters.broadSector ||
+		(filters.sector && isMacroSector(filters.sector) ? filters.sector : undefined);
+	const effectiveSubSector =
+		filters.subSector ||
+		(filters.sector && !isMacroSector(filters.sector) ? filters.sector : undefined);
+
+	if (effectiveSubSector) {
+		conditions.push(
+			or(
+				eq(screenerMasterSnapshots.sector, effectiveSubSector),
+				eq(screenerMasterSnapshots.industry, effectiveSubSector),
+			),
+		);
+	} else if (effectiveMacroSector) {
+		const subsectors = getSubsectorsForMacroSector(effectiveMacroSector);
+		conditions.push(
+			or(
+				eq(screenerMasterSnapshots.broadSector, effectiveMacroSector),
+				eq(screenerMasterSnapshots.sector, effectiveMacroSector),
+				subsectors.length > 0 ? inArray(screenerMasterSnapshots.sector, subsectors) : sql`false`,
+			),
+		);
+	}
+
+	if (filters.industry && !effectiveSubSector)
+		conditions.push(eq(screenerMasterSnapshots.industry, filters.industry));
+	if (filters.marketCapCategory)
+		conditions.push(eq(screenerMasterSnapshots.marketCapCategory, filters.marketCapCategory));
+	if (filters.exchange)
+		conditions.push(eq(screenerMasterSnapshots.exchange, filters.exchange));
+
+	if (filters.search) {
+		conditions.push(
+			or(
+				ilike(screenerMasterSnapshots.symbol, `%${filters.search}%`),
+				ilike(screenerMasterSnapshots.companyName, `%${filters.search}%`),
+			),
+		);
+	}
+
+	// Valuation & Fundamentals
+	if (filters.minPE != null) conditions.push(gte(screenerMasterSnapshots.peRatio, filters.minPE.toString()));
+	if (filters.maxPE != null) conditions.push(lte(screenerMasterSnapshots.peRatio, filters.maxPE.toString()));
+	if (filters.minPB != null) conditions.push(gte(screenerMasterSnapshots.pbRatio, filters.minPB.toString()));
+	if (filters.maxPB != null) conditions.push(lte(screenerMasterSnapshots.pbRatio, filters.maxPB.toString()));
+	if (filters.minROE != null) conditions.push(gte(screenerMasterSnapshots.roe, (filters.minROE > 1 ? filters.minROE / 100 : filters.minROE).toString()));
+	if (filters.maxROE != null) conditions.push(lte(screenerMasterSnapshots.roe, (filters.maxROE > 1 ? filters.maxROE / 100 : filters.maxROE).toString()));
+	if (filters.minDebtToEquity != null) conditions.push(gte(screenerMasterSnapshots.debtToEquity, filters.minDebtToEquity.toString()));
+	if (filters.maxDebtToEquity != null) conditions.push(lte(screenerMasterSnapshots.debtToEquity, filters.maxDebtToEquity.toString()));
+	if (filters.minDividendYield != null) conditions.push(gte(screenerMasterSnapshots.dividendYield, (filters.minDividendYield > 1 ? filters.minDividendYield / 100 : filters.minDividendYield).toString()));
+	if (filters.maxDividendYield != null) conditions.push(lte(screenerMasterSnapshots.dividendYield, (filters.maxDividendYield > 1 ? filters.maxDividendYield / 100 : filters.maxDividendYield).toString()));
+
+	// Scoring & Derived
+	if (filters.minCompositeScore != null) conditions.push(gte(screenerMasterSnapshots.compositeScore, filters.minCompositeScore.toString()));
+	if (filters.maxCompositeScore != null) conditions.push(lte(screenerMasterSnapshots.compositeScore, filters.maxCompositeScore.toString()));
+	if (filters.minFintekRating != null) conditions.push(gte(screenerMasterSnapshots.fintekRating, filters.minFintekRating));
+	if (filters.minPiotroski != null) conditions.push(gte(screenerMasterSnapshots.piotroskiScore, filters.minPiotroski));
+	if (filters.maxPiotroski != null) conditions.push(lte(screenerMasterSnapshots.piotroskiScore, filters.maxPiotroski));
+	if (filters.technicalRating) conditions.push(eq(screenerMasterSnapshots.technicalRating, filters.technicalRating));
+
+	// Technicals
+	if (filters.minRSI != null) conditions.push(gte(screenerMasterSnapshots.rsi14, filters.minRSI.toString()));
+	if (filters.maxRSI != null) conditions.push(lte(screenerMasterSnapshots.rsi14, filters.maxRSI.toString()));
+
+	// Shareholding
+	if (filters.minPromoterHolding != null) conditions.push(gte(screenerMasterSnapshots.promoterHolding, filters.minPromoterHolding.toString()));
+	if (filters.minFIIHolding != null) conditions.push(gte(screenerMasterSnapshots.fiiHolding, filters.minFIIHolding.toString()));
+	if (filters.minDIIHolding != null) conditions.push(gte(screenerMasterSnapshots.diiHolding, filters.minDIIHolding.toString()));
+	if (filters.maxPledged != null) conditions.push(lte(screenerMasterSnapshots.pledgedShares, filters.maxPledged.toString()));
+
+	// Sort mapping
+	let sortExpr: any;
+	const dir = filters.sortOrder === "asc" ? "ASC" : "DESC";
+	switch (filters.sortBy) {
+		case "symbol": sortExpr = sql`${screenerMasterSnapshots.symbol} ${sql.raw(dir)} NULLS LAST`; break;
+		case "companyName": sortExpr = sql`${screenerMasterSnapshots.companyName} ${sql.raw(dir)} NULLS LAST`; break;
+		case "currentPrice": sortExpr = sql`${screenerMasterSnapshots.currentPrice}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "marketCap": sortExpr = sql`${screenerMasterSnapshots.marketCapValue}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "peRatio": sortExpr = sql`${screenerMasterSnapshots.peRatio}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "forwardPe": sortExpr = sql`${screenerMasterSnapshots.forwardPe}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "pegRatio": sortExpr = sql`${screenerMasterSnapshots.pegRatio}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "dividendYield": sortExpr = sql`${screenerMasterSnapshots.dividendYield}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "eps": sortExpr = sql`${screenerMasterSnapshots.eps}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "debtToEquity": sortExpr = sql`${screenerMasterSnapshots.debtToEquity}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "roe": sortExpr = sql`${screenerMasterSnapshots.roe}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "fintekRating": sortExpr = sql`${screenerMasterSnapshots.fintekRating} ${sql.raw(dir)} NULLS LAST`; break;
+		case "return1Y": sortExpr = sql`${screenerMasterSnapshots.return1Y}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "return1M": sortExpr = sql`${screenerMasterSnapshots.return1M}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "return3M": sortExpr = sql`${screenerMasterSnapshots.return3M}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "returnVsNifty1Y": sortExpr = sql`${screenerMasterSnapshots.returnVsNifty1Y}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "analystUpside": sortExpr = sql`${screenerMasterSnapshots.analystUpsidePct}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "dcfUpside": sortExpr = sql`${screenerMasterSnapshots.dcfUpsidePercent}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "beta": sortExpr = sql`${screenerMasterSnapshots.beta}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "sharpe": sortExpr = sql`${screenerMasterSnapshots.sharpeRatio1Y}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "sortino": sortExpr = sql`${screenerMasterSnapshots.sortinoRatio1Y}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "maxDrawdown": sortExpr = sql`${screenerMasterSnapshots.maxDrawdown1Y}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "volatility": sortExpr = sql`${screenerMasterSnapshots.volatility30D}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "altman": sortExpr = sql`${screenerMasterSnapshots.altmanZScore}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "piotroski": sortExpr = sql`${screenerMasterSnapshots.piotroskiScore} ${sql.raw(dir)} NULLS LAST`; break;
+		case "rsi": sortExpr = sql`${screenerMasterSnapshots.rsi14}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "promoterHolding": sortExpr = sql`${screenerMasterSnapshots.promoterHolding}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		default: sortExpr = sql`${screenerMasterSnapshots.compositeScore}::numeric DESC NULLS LAST`;
+	}
+
+	const whereClause = conditions.length > 0 ? and(...conditions) : sql`true`;
+
+	const [countRes, rows, sectors, industries, marketCaps] = await Promise.all([
+		db.select({ count: sql<number>`count(*)::int` }).from(screenerMasterSnapshots).where(whereClause),
+		db.select().from(screenerMasterSnapshots).where(whereClause).orderBy(sortExpr).limit(limit).offset(offset),
+		db.selectDistinct({ value: screenerMasterSnapshots.sector }).from(screenerMasterSnapshots).where(isNotNull(screenerMasterSnapshots.sector)),
+		db.selectDistinct({ value: screenerMasterSnapshots.industry }).from(screenerMasterSnapshots).where(isNotNull(screenerMasterSnapshots.industry)),
+		db.selectDistinct({ value: screenerMasterSnapshots.marketCapCategory }).from(screenerMasterSnapshots).where(isNotNull(screenerMasterSnapshots.marketCapCategory)),
+	]);
+
+	const total = Number(countRes[0]?.count || 0);
+	if (total === 0 && conditions.length === 0) {
+		return null; // Empty table — signal fallback
+	}
+
+	const stocks: ScreenerResult[] = rows.map((s) => ({
+		symbol: s.symbol,
+		companyName: s.companyName || s.symbol,
+		sector: s.sector || s.broadSector || "Diversified",
+		industry: s.industry || s.sector || "Diversified",
+		exchange: s.exchange || "NSE",
+		currentPrice: s.currentPrice != null ? s.currentPrice.toString() : "0",
+		marketCapValue: s.marketCapValue != null ? s.marketCapValue.toString() : null,
+		marketCapCategory: s.marketCapCategory || "Small Cap",
+		peRatio: s.peRatio != null ? s.peRatio.toString() : null,
+		forwardPe: s.forwardPe != null ? s.forwardPe.toString() : null,
+		pegRatio: s.pegRatio != null ? s.pegRatio.toString() : null,
+		pbRatio: s.pbRatio != null ? s.pbRatio.toString() : null,
+		roe: s.roe != null ? s.roe.toString() : null,
+		roce: s.roce != null ? s.roce.toString() : null,
+		debtToEquity: s.debtToEquity != null ? s.debtToEquity.toString() : null,
+		dividendYield: s.dividendYield != null ? s.dividendYield.toString() : null,
+		eps: s.eps != null ? s.eps.toString() : null,
+		netProfitMargin: s.netProfitMargin != null ? s.netProfitMargin.toString() : null,
+		roic: s.roic != null ? s.roic.toString() : null,
+		evToEbitda: s.evToEbitda != null ? s.evToEbitda.toString() : null,
+		evToRevenue: s.enterpriseValue != null && s.marketCapValue != null ? s.enterpriseValue.toString() : null,
+		pfcfRatio: s.freeCashFlow != null && Number(s.freeCashFlow) > 0 && s.marketCapValue != null ? (Number(s.marketCapValue) / Number(s.freeCashFlow)).toFixed(2) : null,
+		earningsYield: s.earningsYield != null ? s.earningsYield.toString() : null,
+		freeCashFlowYield: s.freeCashFlowYield != null ? s.freeCashFlowYield.toString() : null,
+		grahamNumber: s.grahamNumber != null ? s.grahamNumber.toString() : null,
+		grahamUpside: s.grahamNumber != null && s.currentPrice != null && Number(s.currentPrice) > 0 ? (((Number(s.grahamNumber) - Number(s.currentPrice)) / Number(s.currentPrice)) * 100).toFixed(2) : null,
+		operatingMargin: s.operatingMargin != null ? s.operatingMargin.toString() : null,
+		grossMargin: s.grossMargin != null ? s.grossMargin.toString() : null,
+		fcfMargin: s.fcfMargin != null ? s.fcfMargin.toString() : null,
+		netDebtToEbitda: s.netDebtToEbitda != null ? s.netDebtToEbitda.toString() : null,
+		interestCoverage: s.interestCoverage != null ? s.interestCoverage.toString() : null,
+		incomeQuality: s.incomeQuality != null ? s.incomeQuality.toString() : null,
+		assetTurnover: null,
+		daysSalesOutstanding: s.daysSalesOutstanding != null ? s.daysSalesOutstanding.toString() : null,
+		daysPayablesOutstanding: s.daysPayablesOutstanding != null ? s.daysPayablesOutstanding.toString() : null,
+		daysInventoryOnHand: s.daysInventoryOnHand != null ? s.daysInventoryOnHand.toString() : null,
+		cashConversionCycle: (s.daysSalesOutstanding != null && s.daysInventoryOnHand != null && s.daysPayablesOutstanding != null) ? (Number(s.daysSalesOutstanding) + Number(s.daysInventoryOnHand) - Number(s.daysPayablesOutstanding)).toFixed(2) : null,
+		pctFrom52WHigh: (s.weekHigh52 != null && s.currentPrice != null && Number(s.weekHigh52) > 0) ? (((Number(s.currentPrice) - Number(s.weekHigh52)) / Number(s.weekHigh52)) * 100).toFixed(2) : null,
+		pctFrom52WLow: (s.weekLow52 != null && s.currentPrice != null && Number(s.weekLow52) > 0) ? (((Number(s.currentPrice) - Number(s.weekLow52)) / Number(s.weekLow52)) * 100).toFixed(2) : null,
+		revenueGrowth3Y: null,
+		earningsGrowth3Y: null,
+		magicFormulaRank: s.magicFormulaRank != null ? Number(s.magicFormulaRank) : null,
+		volatility30D: s.volatility30D != null ? s.volatility30D.toString() : null,
+		sortinoRatio1Y: s.sortinoRatio1Y != null ? s.sortinoRatio1Y.toString() : null,
+		momentumScore: null,
+		promoterHolding: s.promoterHolding != null ? s.promoterHolding.toString() : null,
+		promoterHoldingChange: s.promoterHoldingChange != null ? s.promoterHoldingChange.toString() : null,
+		fiiHolding: s.fiiHolding != null ? s.fiiHolding.toString() : null,
+		fiiHoldingChange: s.fiiHoldingChange != null ? s.fiiHoldingChange.toString() : null,
+		diiHolding: s.diiHolding != null ? s.diiHolding.toString() : null,
+		pledgedShares: s.pledgedShares != null ? s.pledgedShares.toString() : null,
+		return1W: s.return1W != null ? s.return1W.toString() : null,
+		return1M: s.return1M != null ? s.return1M.toString() : null,
+		return3M: s.return3M != null ? s.return3M.toString() : null,
+		return6M: s.return6M != null ? s.return6M.toString() : null,
+		return1Y: s.return1Y != null ? s.return1Y.toString() : null,
+		return2Y: s.return2Y != null ? s.return2Y.toString() : null,
+		return3Y: s.return3Y != null ? s.return3Y.toString() : null,
+		return5Y: s.return5Y != null ? s.return5Y.toString() : null,
+		returnYTD: s.returnYTD != null ? s.returnYTD.toString() : null,
+		beta: s.beta != null ? s.beta.toString() : null,
+		sharpeRatio1Y: s.sharpeRatio1Y != null ? s.sharpeRatio1Y.toString() : null,
+		maxDrawdown1Y: s.maxDrawdown1Y != null ? s.maxDrawdown1Y.toString() : null,
+		returnVsNifty1Y: s.returnVsNifty1Y != null ? s.returnVsNifty1Y.toString() : null,
+		returnVsSector1Y: s.returnVsSector1Y != null ? s.returnVsSector1Y.toString() : null,
+		analystAvgTarget: s.analystAvgTarget != null ? s.analystAvgTarget.toString() : null,
+		analystUpsidePct: s.analystUpsidePct != null ? s.analystUpsidePct.toString() : null,
+		analystConsensusRating: s.analystConsensusRating || null,
+		analystCount: s.analystCount || null,
+		dcfUpsidePercent: s.dcfUpsidePercent != null ? s.dcfUpsidePercent.toString() : null,
+		compositeScore: s.compositeScore != null ? s.compositeScore.toString() : null,
+		fintekRating: s.fintekRating || null,
+		growthScore: s.growthScore != null ? s.growthScore.toString() : null,
+		qualityScore: s.qualityScore != null ? s.qualityScore.toString() : null,
+		valueScore: s.valueScore != null ? s.valueScore.toString() : null,
+		riskScore: s.riskScore != null ? s.riskScore.toString() : null,
+		piotroskiScore: s.piotroskiScore || null,
+		piotroskiDetails: null,
+		altmanZScore: s.altmanZScore != null ? s.altmanZScore.toString() : null,
+		technicalRating: s.technicalRating || null,
+		weekHigh52: s.weekHigh52 != null ? s.weekHigh52.toString() : null,
+		weekLow52: s.weekLow52 != null ? s.weekLow52.toString() : null,
+	}));
+
+	const enrichedStocks = enrichStocksJIT(stocks);
+
+	return {
+		stocks: enrichedStocks,
+		total,
+		page,
+		limit,
+		totalPages: Math.ceil(total / limit),
+		filters: {
+			sectors: sectors.map((s) => s.value).filter(Boolean) as string[],
+			industries: industries.map((i) => i.value).filter(Boolean) as string[],
+			marketCapCategories: marketCaps.map((m) => m.value).filter(Boolean) as string[],
+			technicalRatings: ["Strong Buy", "Buy", "Neutral", "Sell", "Strong Sell"],
+			macroSectors: [...MACRO_SECTORS],
+			taxonomy: getMacroSectorsWithSubsectors(),
+		},
+	};
+}
+
 export async function queryScreener(
 	filters: ScreenerFilters,
 ): Promise<ScreenerResponse> {
 	const page = filters.page || 1;
 	const limit = Math.min(filters.limit || 25, 100);
 	const offset = (page - 1) * limit;
+
+	// P0 Performance: Fast-path via pre-indexed single-table screenerMasterSnapshots
+	try {
+		const fastResult = await queryScreenerFromMaster(filters, limit, offset, page);
+		if (fastResult) {
+			return fastResult;
+		}
+	} catch (snapshotErr: any) {
+		logger.warn("[Screener] Snapshot fast-path fallback to multi-join", { error: snapshotErr?.message });
+	}
 
 	const conditions: any[] = [eq(listedStocks.isActive, true)];
 

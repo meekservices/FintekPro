@@ -167,7 +167,15 @@ class UnifiedStockPriceService {
         previous_close    = COALESCE(${price.previousClose ?? null}, previous_close),
         day_change_percent= COALESCE(${price.changePercent ?? null}, day_change_percent),
         last_updated      = NOW()
-      WHERE symbol = ${sym}
+      WHERE symbol = ${sym};
+
+      UPDATE screener_master_snapshots
+      SET
+        current_price       = ${price.price},
+        previous_close      = COALESCE(${price.previousClose ?? null}, previous_close),
+        day_change_percent  = COALESCE(${price.changePercent ?? null}, day_change_percent),
+        snapshot_updated_at = NOW()
+      WHERE symbol = ${sym};
     `)
 			.then(() => {
 				this.metrics.dbWritebacks++;
