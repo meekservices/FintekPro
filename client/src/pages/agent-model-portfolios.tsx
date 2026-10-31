@@ -4853,16 +4853,16 @@ export default function AgentModelPortfoliosPage() {
         // Metrics: DB value if computed by scheduler, else fall back to curated static values.
         // BUG-4 fix: use ?? not || — || discards valid falsy numbers (e.g. CAGR 0.29% → 0 is falsy)
         // which caused near-zero return portfolios (Banking BFSI) to silently show static values.
-        cagr1Y: p.cagr1Y != null ? Number(p.cagr1Y) : undefined,  // P3: no static fallback
-        cagr3Y: p.cagr3Y != null ? Number(p.cagr3Y) : (staticP?.cagr3Y ?? 0),
-        cagr5Y: p.cagr5Y != null ? Number(p.cagr5Y) : (staticP?.cagr5Y ?? 0),
-        benchmarkCagr1Y: p.benchmarkCagr1Y != null ? Number(p.benchmarkCagr1Y) : (staticP?.benchmarkCagr1Y ?? 0),
+        cagr1Y: (p.cagr1Y ?? p.cagr_1y) != null ? Number(p.cagr1Y ?? p.cagr_1y) : undefined,  // P3: no static fallback
+        cagr3Y: (p.cagr3Y ?? p.cagr_3y) != null ? Number(p.cagr3Y ?? p.cagr_3y) : (staticP?.cagr3Y ?? 0),
+        cagr5Y: (p.cagr5Y ?? p.cagr_5y) != null ? Number(p.cagr5Y ?? p.cagr_5y) : (staticP?.cagr5Y ?? 0),
+        benchmarkCagr1Y: (p.benchmarkCagr1Y ?? p.benchmark_cagr_1y) != null ? Number(p.benchmarkCagr1Y ?? p.benchmark_cagr_1y) : (staticP?.benchmarkCagr1Y ?? 0),
         riskMetrics: {
-          sharpeRatio: p.sharpeRatio != null ? Number(p.sharpeRatio) : (staticP?.riskMetrics?.sharpeRatio ?? 0),
-          maxDrawdown: p.maxDrawdown  != null ? Number(p.maxDrawdown)  : (staticP?.riskMetrics?.maxDrawdown  ?? 0),
-          volatility:  p.volatility   != null ? Number(p.volatility)   : (staticP?.riskMetrics?.volatility   ?? 0),
-          beta:        p.beta         != null ? Number(p.beta)         : (staticP?.riskMetrics?.beta         ?? 1),
-          alpha:       p.alpha        != null ? Number(p.alpha)        : (staticP?.riskMetrics?.alpha        ?? 0),
+          sharpeRatio: (p.sharpeRatio ?? p.sharpe_ratio) != null ? Number(p.sharpeRatio ?? p.sharpe_ratio) : (staticP?.riskMetrics?.sharpeRatio ?? 0),
+          maxDrawdown: (p.maxDrawdown  ?? p.max_drawdown)  != null ? Number(p.maxDrawdown  ?? p.max_drawdown)  : (staticP?.riskMetrics?.maxDrawdown  ?? 0),
+          volatility:  (p.volatility   ?? p.volatility)   != null ? Number(p.volatility)   : (staticP?.riskMetrics?.volatility   ?? 0),
+          beta:        (p.beta         ?? p.beta)         != null ? Number(p.beta)         : (staticP?.riskMetrics?.beta         ?? 1),
+          alpha:       (p.alpha        ?? p.alpha)        != null ? Number(p.alpha)        : (staticP?.riskMetrics?.alpha        ?? 0),
         },
         allocation: (Array.isArray(p.allocation) && p.allocation.length > 0 ? p.allocation : staticP?.allocation ?? []).map((a: any) => ({
           category: a.label ?? a.category ?? a.type ?? "Other",
@@ -4950,37 +4950,37 @@ export default function AgentModelPortfoliosPage() {
         // Always check both camelCase (manual mappings) and snake_case (ORM default).
         portfolioCode: p.portfolioCode ?? p.portfolio_code ?? staticP?.portfolioCode ?? undefined,
         inceptionDate: p.inceptionDate ?? p.inception_date ?? staticP?.inceptionDate ?? undefined,
-        twrr1Y:  p.twrr1Y  != null ? Number(p.twrr1Y)  : staticP?.twrr1Y  ?? undefined,
-        twrr3Y:  p.twrr3Y  != null ? Number(p.twrr3Y)  : staticP?.twrr3Y  ?? undefined,
-        blendedBenchmarkReturn: p.blendedBenchmarkReturn != null ? Number(p.blendedBenchmarkReturn) : staticP?.blendedBenchmarkReturn ?? undefined,
-        driftThreshold:         p.driftThreshold        != null ? Number(p.driftThreshold)         : staticP?.driftThreshold         ?? 5,
-        maxDrawdownThreshold:   p.maxDrawdownThreshold  != null ? Number(p.maxDrawdownThreshold)   : staticP?.maxDrawdownThreshold   ?? 20,
-        conflictDisclosure: p.conflictDisclosure ?? staticP?.conflictDisclosure ?? undefined,
+        twrr1Y:  (p.twrr1Y ?? p.twrr_1y) != null ? Number(p.twrr1Y ?? p.twrr_1y) : staticP?.twrr1Y ?? undefined,
+        twrr3Y:  (p.twrr3Y ?? p.twrr_3y) != null ? Number(p.twrr3Y ?? p.twrr_3y) : staticP?.twrr3Y ?? undefined,
+        blendedBenchmarkReturn: (p.blendedBenchmarkReturn ?? p.blended_benchmark_return) != null ? Number(p.blendedBenchmarkReturn ?? p.blended_benchmark_return) : staticP?.blendedBenchmarkReturn ?? undefined,
+        driftThreshold:         (p.driftThreshold ?? p.drift_threshold) != null ? Number(p.driftThreshold ?? p.drift_threshold) : staticP?.driftThreshold ?? 5,
+        maxDrawdownThreshold:   (p.maxDrawdownThreshold ?? p.max_drawdown_threshold) != null ? Number(p.maxDrawdownThreshold ?? p.max_drawdown_threshold) : staticP?.maxDrawdownThreshold ?? 20,
+        conflictDisclosure: p.conflictDisclosure ?? p.conflict_disclosure ?? staticP?.conflictDisclosure ?? undefined,
         // ── Bug A fix: period-return fields were never mapped from the API response.
         // These 8 fields power the 1M/3M/6M/YTD/SI pill badges on each card.
         // Without this mapping the nightly TWRR values stored in model_portfolios
         // were fetched by the DB but then silently dropped → "Period returns computing…" forever.
         // Rule: use ?? not || — 0.00% is a valid return, not a missing value.
-        return1m:                p.return1m                != null ? Number(p.return1m)                : (staticP?.return1m                ?? undefined),
-        return3m:                p.return3m                != null ? Number(p.return3m)                : (staticP?.return3m                ?? undefined),
-        return6m:                p.return6m                != null ? Number(p.return6m)                : (staticP?.return6m                ?? undefined),
-        returnYtd:               p.returnYtd               != null ? Number(p.returnYtd)               : (staticP?.returnYtd               ?? undefined),
-        cagr2y:                  p.cagr2y                  != null ? Number(p.cagr2y)                  : (staticP?.cagr2y                  ?? undefined),
-        cagr3y:                  p.cagr3y                  != null ? Number(p.cagr3y)                  : (staticP?.cagr3y                  ?? undefined),
-        returnSinceInception:    p.returnSinceInception    != null ? Number(p.returnSinceInception)    : (staticP?.returnSinceInception    ?? undefined),
-        benchmarkSinceInception: p.benchmarkSinceInception != null ? Number(p.benchmarkSinceInception) : (staticP?.benchmarkSinceInception ?? undefined),
-        periodsComputedAt:       p.periodsComputedAt       ?? staticP?.periodsComputedAt               ?? null,
+        return1m:                (p.return1m ?? p.return_1m) != null ? Number(p.return1m ?? p.return_1m) : (staticP?.return1m ?? undefined),
+        return3m:                (p.return3m ?? p.return_3m) != null ? Number(p.return3m ?? p.return_3m) : (staticP?.return3m ?? undefined),
+        return6m:                (p.return6m ?? p.return_6m) != null ? Number(p.return6m ?? p.return_6m) : (staticP?.return6m ?? undefined),
+        returnYtd:               (p.returnYtd ?? p.return_ytd) != null ? Number(p.returnYtd ?? p.return_ytd) : (staticP?.returnYtd ?? undefined),
+        cagr2y:                  (p.cagr2y ?? p.cagr_2y) != null ? Number(p.cagr2y ?? p.cagr_2y) : (staticP?.cagr2y ?? undefined),
+        cagr3y:                  (p.cagr3y ?? p.cagr_3y ?? p.cagr3Y) != null ? Number(p.cagr3y ?? p.cagr_3y ?? p.cagr3Y) : (staticP?.cagr3y ?? undefined),
+        returnSinceInception:    (p.returnSinceInception ?? p.return_since_inception) != null ? Number(p.returnSinceInception ?? p.return_since_inception) : (staticP?.returnSinceInception ?? undefined),
+        benchmarkSinceInception: (p.benchmarkSinceInception ?? p.benchmark_since_inception) != null ? Number(p.benchmarkSinceInception ?? p.benchmark_since_inception) : (staticP?.benchmarkSinceInception ?? undefined),
+        periodsComputedAt:       p.periodsComputedAt ?? p.periods_computed_at ?? staticP?.periodsComputedAt ?? null,
         // ── Phase F.2b: income/distribution yield for dividend-heavy & REIT/InvIT portfolios
-        portfolioDividendYield:  p.portfolioDividendYield  != null ? Number(p.portfolioDividendYield)  : null,
+        portfolioDividendYield:  (p.portfolioDividendYield ?? p.portfolio_dividend_yield) != null ? Number(p.portfolioDividendYield ?? p.portfolio_dividend_yield) : null,
         // ── Fix F1/F5: Portfolio maturity + circuit breaker flags from nightly quant engine
-        isEstablishing:       p.isEstablishing       ?? p.is_establishing        ?? false,
+        isEstablishing:       p.isEstablishing ?? p.is_establishing ?? false,
         circuitBreakerTripped: p.circuitBreakerTripped ?? p.circuit_breaker_tripped ?? false,
         // ── SEBI Institutional Tiering & Compliance (FASP-AI v3.1) ───────────────
         portfolioTier: p.portfolioTier ?? p.portfolio_tier ?? (Number(p.minInvestment ?? p.min_investment ?? 0) >= 10000000 ? "uhni_aif" : Number(p.minInvestment ?? p.min_investment ?? 0) >= 5000000 ? "hni_pms" : "retail_mf"),
         vehicleType: p.vehicleType ?? p.vehicle_type ?? (Number(p.minInvestment ?? p.min_investment ?? 0) >= 10000000 ? "AIF_MULTI_ASSET" : Number(p.minInvestment ?? p.min_investment ?? 0) >= 5000000 ? "PMS_MULTI_ASSET" : "MUTUAL_FUND"),
         sebiRegulatoryRegime: p.sebiRegulatoryRegime ?? p.sebi_regulatory_regime ?? undefined,
         sebiRegulationRef: p.sebiRegulationRef ?? p.sebi_regulation_ref ?? undefined,
-        statutoryMinInvestment: p.statutoryMinInvestment != null ? Number(p.statutoryMinInvestment) : undefined,
+        statutoryMinInvestment: (p.statutoryMinInvestment ?? p.statutory_min_investment) != null ? Number(p.statutoryMinInvestment ?? p.statutory_min_investment) : undefined,
         executionRoute: p.executionRoute ?? p.execution_route ?? undefined,
         custodyStructure: p.custodyStructure ?? p.custody_structure ?? undefined,
       };

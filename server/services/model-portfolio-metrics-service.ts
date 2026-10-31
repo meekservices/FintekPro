@@ -2218,6 +2218,7 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 }> {
 	const t0 = Date.now();
 	let processed = 0, updated = 0, skipped = 0;
+	const mfNavCache = new Map<string, Array<{ date: string; nav: number }>>();
 
 	try {
 		const portfolios = await db.execute(sql`
@@ -2435,56 +2436,142 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 					continue; // skip the MF path below
 				}
 
+				// ── 4. Multi-Holding Weighted Mutual Fund Path ────────────────────────
+				// Instead of proxying the entire portfolio via only the single largest scheme,
+				// compute a true weighted composite return across all constituent funds.
 				mfHoldings.sort((a: any, b: any) => Number(b.weight ?? 0) - Number(a.weight ?? 0));
-				const primaryScheme: string = String(mfHoldings[0].amfiSchemeCode ?? mfHoldings[0].schemeCode);
+				const targetMfHoldings = mfHoldings.slice(0, 10);
+				const totalMfWeight = targetMfHoldings.reduce((sum: number, h: any) => sum + Number(h.weight ?? 0), 0) || 100;
 
-				// Fetch daily NAV
-				const navResp = await fetch(`https://api.mfapi.in/mf/${primaryScheme}`);
-				if (!navResp.ok) { skipped++; continue; }
-				const navJson = await navResp.json() as { data: Array<{ date: string; nav: string }> };
-				const navs = navJson.data
-					.map((d) => ({ date: d.date.split("-").reverse().join("-"), nav: parseFloat(d.nav) }))
-					.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-				
-				if (navs.length < 2) { skipped++; continue; }
-
-				// ── 4. Compute period returns from daily NAV ────────────────────────
-				const latestNAV = navs[navs.length - 1].nav;
-				const latestDateStr = navs[navs.length - 1].date;
-				const now = new Date(latestDateStr);
-
-				/** NAV on or before a given YYYY-MM-DD date string (linear scan, navs is sorted asc). */
-				const navAtOrBefore = (iso: string): number | null => {
-					let best: number | null = null;
-					for (const e of navs) { if (e.date <= iso) best = e.nav; else break; }
-					return best;
+				type MfHoldingResult = {
+					wFrac: number;
+					schemeCode: string;
+					r1m: number | null;
+					r3m: number | null;
+					r6m: number | null;
+					rYtd: number | null;
+					cagr2y: number | null;
+					cagr3y: number | null;
+					rSI: number | null;
 				};
-				/** Return % between two NAVs; null if startNAV is absent/zero. */
-				const ret = (startNAV: number | null): number | null =>
-					startNAV && startNAV > 0 ? Math.round(((latestNAV / startNAV) - 1) * 10000) / 100 : null;
-				/** Annualise a cumulative return over `yrs` years. */
-				const ann = (total: number | null, yrs: number): number | null =>
-					total !== null ? Math.round((Math.pow(1 + total / 100, 1 / yrs) - 1) * 10000) / 100 : null;
 
-				const daysAgo = (d: number) => { const t = new Date(now); t.setDate(t.getDate() - d); return t.toISOString().slice(0, 10); };
-				const yearStart = `${now.getFullYear()}-01-01`;
+				const holdingResults = await Promise.allSettled<MfHoldingResult>(
+					targetMfHoldings.map(async (h: any): Promise<MfHoldingResult> => {
+						const schemeCode = String(h.amfiSchemeCode ?? h.schemeCode);
+						const wFrac = Number(h.weight ?? 0) / totalMfWeight;
 
-				const return1m  = ret(navAtOrBefore(daysAgo(30)));
-				const return3m  = ret(navAtOrBefore(daysAgo(91)));
-				const return6m  = ret(navAtOrBefore(daysAgo(182)));
-				const returnYtd = ret(navAtOrBefore(yearStart));
-				const cagr2y    = ann(ret(navAtOrBefore(daysAgo(730))), 2);
-				const cagr3y    = ann(ret(navAtOrBefore(daysAgo(1095))), 3);
+						let navs = mfNavCache.get(schemeCode);
+						if (!navs) {
+							try {
+								const navResp = await fetch(`https://api.mfapi.in/mf/${schemeCode}`);
+								if (navResp.ok) {
+									const navJson = (await navResp.json()) as { data: Array<{ date: string; nav: string }> };
+									navs = (navJson.data ?? [])
+										.map((d) => ({ date: d.date.split("-").reverse().join("-"), nav: parseFloat(d.nav) }))
+										.filter((d) => !isNaN(d.nav) && d.nav > 0)
+										.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+									if (navs.length >= 2) {
+										mfNavCache.set(schemeCode, navs);
+									}
+								}
+							} catch {
+								/* non-fatal: holding fetch failed */
+							}
+						}
 
-				// Since inception: use stored inception_date or first NAV date
-				const inceptionIso: string = port.inception_date
-					? new Date(port.inception_date).toISOString().slice(0, 10)
-					: navs[0].date;
-				const returnSinceInception = ret(navAtOrBefore(inceptionIso));
+						if (!navs || navs.length < 2) {
+							return { wFrac: 0, schemeCode, r1m: null, r3m: null, r6m: null, rYtd: null, cagr2y: null, cagr3y: null, rSI: null };
+						}
+
+						const latestNAV = navs[navs.length - 1].nav;
+						const latestDateStr = navs[navs.length - 1].date;
+						const nowMf = new Date(latestDateStr);
+
+						const navAtOrBefore = (iso: string): number | null => {
+							let best: number | null = null;
+							for (const e of navs!) {
+								if (e.date <= iso) best = e.nav;
+								else break;
+							}
+							return best;
+						};
+
+						const ret = (startNAV: number | null): number | null =>
+							startNAV && startNAV > 0 ? ((latestNAV / startNAV) - 1) * 100 : null;
+
+						const ann = (total: number | null, yrs: number): number | null =>
+							total !== null && total > -100 ? (Math.pow(1 + total / 100, 1 / yrs) - 1) * 100 : null;
+
+						const daysAgo = (d: number) => {
+							const t = new Date(nowMf);
+							t.setDate(t.getDate() - d);
+							return t.toISOString().slice(0, 10);
+						};
+						const yearStart = `${nowMf.getFullYear()}-01-01`;
+
+						const r1m = ret(navAtOrBefore(daysAgo(30)));
+						const r3m = ret(navAtOrBefore(daysAgo(91)));
+						const r6m = ret(navAtOrBefore(daysAgo(182)));
+						const rYtd = ret(navAtOrBefore(yearStart));
+						const cagr2y = ann(ret(navAtOrBefore(daysAgo(730))), 2);
+						const cagr3y = ann(ret(navAtOrBefore(daysAgo(1095))), 3);
+
+						const inceptionIso = port.inception_date
+							? new Date(port.inception_date).toISOString().slice(0, 10)
+							: navs[0].date;
+						const rSI = ret(navAtOrBefore(inceptionIso));
+
+						return {
+							wFrac,
+							schemeCode,
+							r1m,
+							r3m,
+							r6m,
+							rYtd,
+							cagr2y,
+							cagr3y,
+							rSI,
+						};
+					})
+				);
+
+				let w1m = 0, cov1m = 0;
+				let w3m = 0, cov3m = 0;
+				let w6m = 0, cov6m = 0;
+				let wYtd = 0, covYtd = 0;
+				let w2y = 0, cov2y = 0;
+				let w3y = 0, cov3y = 0;
+				let wSI = 0, covSI = 0;
+
+				for (const res of holdingResults) {
+					if (res.status !== "fulfilled") continue;
+					const h = res.value;
+					if (h.wFrac <= 0) continue;
+					if (h.r1m != null) { w1m += h.r1m * h.wFrac; cov1m += h.wFrac; }
+					if (h.r3m != null) { w3m += h.r3m * h.wFrac; cov3m += h.wFrac; }
+					if (h.r6m != null) { w6m += h.r6m * h.wFrac; cov6m += h.wFrac; }
+					if (h.rYtd != null) { wYtd += h.rYtd * h.wFrac; covYtd += h.wFrac; }
+					if (h.cagr2y != null) { w2y += h.cagr2y * h.wFrac; cov2y += h.wFrac; }
+					if (h.cagr3y != null) { w3y += h.cagr3y * h.wFrac; cov3y += h.wFrac; }
+					if (h.rSI != null) { wSI += h.rSI * h.wFrac; covSI += h.wFrac; }
+				}
+
+				if (cov1m < 0.20) { skipped++; continue; }
+
+				const return1m = cov1m > 0 ? Math.round((w1m / cov1m) * 100) / 100 : null;
+				const return3m = cov3m > 0 ? Math.round((w3m / cov3m) * 100) / 100 : null;
+				const return6m = cov6m > 0 ? Math.round((w6m / cov6m) * 100) / 100 : null;
+				const returnYtd = covYtd > 0 ? Math.round((wYtd / covYtd) * 100) / 100 : null;
+				const cagr2y = cov2y > 0 ? Math.round((w2y / cov2y) * 100) / 100 : null;
+				const cagr3y = cov3y > 0 ? Math.round((w3y / cov3y) * 100) / 100 : null;
+				const returnSinceInception = covSI > 0 ? Math.round((wSI / covSI) * 100) / 100 : null;
 
 				// Benchmark SI: synthetic flat-rate using stored benchmark_cagr_1y
 				const benchCagr1y = Number(port.benchmark_cagr_1y ?? 0) || 8;
-				const inceptionYrs = (now.getTime() - new Date(inceptionIso).getTime()) / (365.25 * 86400000);
+				const inceptionIso = port.inception_date
+					? new Date(port.inception_date).toISOString().slice(0, 10)
+					: "2024-01-01";
+				const inceptionYrs = (Date.now() - new Date(inceptionIso).getTime()) / (365.25 * 86400000);
 				const benchmarkSinceInception = inceptionYrs > 0
 					? Math.round((Math.pow(1 + benchCagr1y / 100, inceptionYrs) - 1) * 10000) / 100
 					: null;
@@ -2507,11 +2594,12 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 				`);
 
 				updated++;
-				logger.info("[PortfolioTWRR] period returns computed", {
+				logger.info("[PortfolioTWRR] multi-holding weighted period returns computed", {
 					event: "PORTFOLIO_TWRR_PERIODS_UPDATED",
 					user_id: "system",
 					portfolio_id: port.id,
-					primary_scheme: primaryScheme,
+					holdings_count: targetMfHoldings.length,
+					coverage_1m: Math.round(cov1m * 100),
 					return_1m: return1m,
 					return_3m: return3m,
 					return_6m: return6m,
@@ -2519,7 +2607,6 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 					cagr_2y: cagr2y,
 					cagr_3y: cagr3y,
 					return_since_inception: returnSinceInception,
-					nav_bars_used: navs.length,
 					status: "success",
 					latency_ms: Date.now() - t0,
 				});
