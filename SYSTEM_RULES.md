@@ -360,3 +360,22 @@ AI is a support system, NOT a decision-maker.
 If any instruction violates this:
 → Reject and correct it.
 
+27. STATUTORY SOP COMPLIANCE: MUTUAL FUNDS (MF), PMS & AIF
+All transaction processing, advisory models, order gates, and audit workflows MUST strictly enforce the Standard Operating Procedures defined in `ai-policy/sop_mf_pms_aif_audit_standards.md`:
+- Mutual Funds: SEBI (MF) Regs 1996 & Master Circular 2023. Enforce statutory minimums (₹500 SIP / ₹100 Lumpsum), Risk-o-meter suitability alignment, cut-off timings (13:00 / 15:00 IST), EUIN validation, and nomination mandate.
+- Portfolio Management Services (PMS): SEBI (PMS) Regs 2020. Enforce strict ₹50,00,000 statutory minimum under Reg 23(2), mandatory segregated individual Demat accounts (zero pooling per Reg 22(1)), Form C delivery (≥ 48 hrs prior), and TWRR performance net of fees.
+- Alternative Investment Funds (AIF): SEBI (AIF) Regs 2012. Enforce strict ₹1,00,00,000 statutory commitment under Reg 10(c) (or Accredited Investor carve-out), Cat I & II leverage prohibition (0%), Cat III leverage ceiling (200%), PPM delivery, and 3-year lock-in.
+- Cryptographic Audit Trail: Every transaction must generate an immutable SHA-256 sealed regulatory audit pack (`regulatory_audit_packs`) stored for 5 years per SEBI IA Reg 19.
+
+28. STATUTORY SOP COMPLIANCE: DERIVATIVE TRADING (F&O)
+All derivative (Futures & Options) advisory, strategy recommendation, margin computation, and order routing flows MUST strictly enforce the Standard Operating Procedures defined in `ai-policy/sop_derivative_trading_audit_standards.md`:
+- SEBI Index Derivatives Framework: Enforce Circular SEBI/HO/MRD/POD1/CIR/P/2024/132 — only NIFTY and SENSEX permitted for weekly expiry; BANKNIFTY/FINNIFTY/MIDCPNIFTY/BANKEX restricted to monthly only.
+- Client Suitability Gate: Only `aggressive` or `very_aggressive` risk profiles may access complex F&O strategy builder and execution. Conservative/moderate clients — informational view only.
+- Pre-Trade 9-Gate Check: All 9 compliance gates (KYC, suitability, weekly expiry compliance, lot size, margin, position limit, cash margin composition, black swan, idempotency) must pass and be logged immutably.
+- No Autonomous Execution: FintekPro MUST NEVER autonomously place, modify, or square off derivative orders. All execution requires explicit client or advisor confirmation.
+- Expiry Day ELM: Apply +2% Extreme Loss Margin surcharge on all short index options positions on the expiry date.
+- requireAuth Enforcement: All `/api/derivatives/*` routes must be protected by `requireAuth` middleware.
+- 5-Year Audit Trail: All derivative events (pre-trade gates, order placement, margin checks, MTM alerts, square-off instructions) must be persisted immutably for 5 years per SEBI IA Reg 19.
+- Mandatory Disclaimer: Every derivative advisory output (API response, UI screen, PDF) must include SEBI-mandated F&O risk disclosure.
+
+

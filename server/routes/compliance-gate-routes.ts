@@ -319,6 +319,51 @@ export function registerComplianceGateRoutes(app: Express): void {
 	});
 
 	/**
+	 * POST /api/compliance/mf/audit
+	 *
+	 * Audits a proposed Mutual Fund transaction against SEBI (Mutual Funds) Regulations, 1996 and AMFI norms.
+	 */
+	app.post("/api/compliance/mf/audit", requireAuth, async (req: Request, res: Response) => {
+		try {
+			const userId = (req as any).user?.id as string;
+			const { mfComplianceService } = await import(
+				"../services/mf-compliance-service"
+			);
+			const report = await mfComplianceService.auditMfCompliance({
+				userId,
+				investmentAmount: Number(req.body.investmentAmount || 0),
+				actionType: req.body.actionType || "lumpsum",
+				schemeCode: req.body.schemeCode || "GENERIC_MF",
+				schemeName: req.body.schemeName || "Mutual Fund Scheme",
+				category: req.body.category,
+				schemeRiskLevel: req.body.schemeRiskLevel,
+				euin: req.body.euin,
+				isExecutionOnly: req.body.isExecutionOnly,
+				hasNominee: req.body.hasNominee,
+				nomineeOptOut: req.body.nomineeOptOut,
+				suitabilityWarningAcknowledged: req.body.suitabilityWarningAcknowledged,
+				orderPlacementTime: req.body.orderPlacementTime,
+			});
+			return res.status(200).json({
+				success: true,
+				data: report,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: report.meta.engineVersion,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[ComplianceGate] MF audit error", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "MF_AUDIT_FAILED",
+				message: err?.message || "Failed to audit MF compliance",
+				meta: { timestamp: new Date().toISOString(), version: "1.0" },
+			});
+		}
+	});
+
+	/**
 	 * POST /api/compliance/pms/audit
 	 *
 	 * Audits a proposed PMS transaction against SEBI (Portfolio Managers) Regulations, 2020.

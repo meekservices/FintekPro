@@ -9,6 +9,7 @@ import {
 } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 import crypto from "crypto";
+import { logger } from "../logger";
 
 export class ComplianceAuditPackService {
 	/**
@@ -18,12 +19,18 @@ export class ComplianceAuditPackService {
 	 */
 	static async generateAuditPack(
 		userId: string,
-		packType: "account_opening" | "order_placement" | "risk_update",
+		packType:
+			| "account_opening"
+			| "order_placement"
+			| "risk_update"
+			| "mf_transaction"
+			| "pms_investment"
+			| "aif_commitment",
 		transactionId?: string,
 		orderSnapshot?: any,
 	): Promise<RegulatoryAuditPack | null> {
 		try {
-			console.log(
+			logger.info(
 				`[ComplianceAuditPack] Generating ${packType} pack for user ${userId}`,
 			);
 
@@ -100,10 +107,10 @@ export class ComplianceAuditPackService {
 				})
 				.returning();
 
-			console.log(`[ComplianceAuditPack] Successfully created pack ${pack.id}`);
+			logger.info(`[ComplianceAuditPack] Successfully created pack ${pack.id}`);
 			return pack;
 		} catch (error: any) {
-			console.error("[ComplianceAuditPack] Generation failed:", error.message);
+			logger.error("[ComplianceAuditPack] Generation failed:", { error: error.message });
 			return null;
 		}
 	}

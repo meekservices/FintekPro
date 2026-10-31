@@ -702,6 +702,209 @@ const retailPortfolios = [
         { rank: 8, name: "CCIL Triparty Repo (TREPS) Yield", symbol: "TREPS-LIQ", assetClass: "debt", category: "Money Market", weight: 15.0, currentReturn: 6.6 },
       ],
     },
+    {
+      id: "sif-derivative-algo-strategy",
+      name: "FintekPro SIF Derivative Algo Trading Strategy",
+      tagline:
+        "Algo-driven NIFTY F&O systematic trading with covered calls, index spreads, cash-futures arbitrage, and sovereign collateral under SEBI SIF framework — FASP-AI-v3.1-ALGO",
+      riskProfile: "aggressive",
+      assetClass: "derivatives",
+      subCategory: "Systematic F&O Algo Trading (SIF)",
+      minInvestment: "1000000", // ₹10 Lakhs — SEBI SIF statutory minimum
+      timeHorizon: "1-3 Years",
+      benchmarkName: "NIFTY 50 TRI",
+      portfolioTier: "affluent_sif",
+      vehicleType: "SIF_NEW_ASSET_CLASS",
+      sebiRegulatoryRegime:
+        "SEBI (Mutual Funds) (Amendment) Regulations, 2024 — New Asset Class Framework / SEBI Index Derivatives Circular SEBI/HO/MRD/POD1/CIR/P/2024/132",
+      sebiRegulationRef:
+        "SEBI MF Amendment Regulations 2024 / SIF Framework / Circular 2024/132",
+      statutoryMinInvestment: "1000000",
+      executionRoute: "upstox_pms",
+      custodyStructure: "TRUSTEE_AMC_UNITS",
+      allowedAssetClasses: [
+        "derivatives_fno",
+        "direct_equity",
+        "arbitrage",
+        "liquid_buffer",
+        "sovereign_debt",
+      ],
+      accreditationRequired: false,
+      lockInPeriodMonths: 0,
+      highlight: "Algo-Driven F&O SIF — FASP-AI-v3.1-ALGO (Min ₹10 Lakhs)",
+      icon: "⚡📊",
+      portfolioCode: "FP-SIF-ALGO-01",
+      /**
+       * algoConfig is NOT in the generic INSERT SQL; it is applied via a
+       * dedicated UPDATE step in seedInstitutionalModelPortfolios() below.
+       * All values conform to ModelPortfolioAlgoConfig (FASP-AI v3.1-ALGO).
+       */
+      algoConfig: {
+        rebalanceThresholdPct: 3,
+        maxTradeAmount: 200000,
+        autoExecute: true,
+        executionChannel: "ALGO_AUTO",
+        executionMode: "UPSTOX_LIVE",
+        slippageTolerancePct: 0.5,
+        orderType: "limit",
+        autoSyncOrders: true,
+        allowedAssetClasses: [
+          "derivatives_fno",
+          "direct_equity",
+          "arbitrage",
+          "liquid_buffer",
+        ],
+      },
+      allocation: [
+        {
+          category: "index_options",
+          label: "NIFTY Bull/Bear Spreads & Iron Condor",
+          weight: 30,
+          color: "#EF4444",
+          icon: "📊",
+        },
+        {
+          category: "covered_call",
+          label: "Covered Call Writing on Nifty 50 Stocks",
+          weight: 25,
+          color: "#3B82F6",
+          icon: "📝",
+        },
+        {
+          category: "arbitrage",
+          label: "Cash-Futures Equity Arbitrage Pairs",
+          weight: 20,
+          color: "#8B5CF6",
+          icon: "⚖️",
+        },
+        {
+          category: "liquid_buffer",
+          label: "Sovereign T-Bills & TREPS Collateral (≥50% cash margin)",
+          weight: 25,
+          color: "#10B981",
+          icon: "🏛️",
+        },
+      ],
+      // Weights MUST sum to 100. Verified: 12+10+8+7.5+7+6.5+7+7+6+18+11 = 100.0
+      holdings: [
+        {
+          rank: 1,
+          name: "NIFTY 50 Index — Bull Call Spread (Monthly)",
+          symbol: "NIFTY",
+          assetClass: "derivatives",
+          category: "Index Options",
+          weight: 12.0,
+          currentReturn: 9.8,
+          note: "Buy ATM call + Sell OTM call; max loss = net premium; SEBI Circular 2024/132 compliant — monthly expiry only",
+        },
+        {
+          rank: 2,
+          name: "NIFTY 50 Index — Iron Condor (Monthly)",
+          symbol: "NIFTY",
+          assetClass: "derivatives",
+          category: "Index Options",
+          weight: 10.0,
+          currentReturn: 8.5,
+          note: "Short OTM strangle + long further OTM wings; capped risk; ELM surcharge applied on expiry day",
+        },
+        {
+          rank: 3,
+          name: "NIFTY 50 Index — Protective Put Hedge",
+          symbol: "NIFTY",
+          assetClass: "derivatives",
+          category: "Hedge",
+          weight: 8.0,
+          currentReturn: 5.5,
+          note: "Portfolio insurance via long ATM put; cost = hedge premium; SEBI 2024/132 monthly only",
+        },
+        {
+          rank: 4,
+          name: "Reliance Industries — Covered Call Writing",
+          symbol: "RELIANCE",
+          assetClass: "equity",
+          category: "Stock+CE",
+          weight: 7.5,
+          isin: "INE002A01018",
+          currentReturn: 16.5,
+          note: "Long equity + short OTM call for yield enhancement; F&O lot = 250",
+        },
+        {
+          rank: 5,
+          name: "HDFC Bank — Covered Call Writing",
+          symbol: "HDFCBANK",
+          assetClass: "equity",
+          category: "Stock+CE",
+          weight: 7.0,
+          isin: "INE040A01034",
+          currentReturn: 12.8,
+          note: "Long equity + short OTM call for yield enhancement",
+        },
+        {
+          rank: 6,
+          name: "Infosys — Covered Call Writing",
+          symbol: "INFY",
+          assetClass: "equity",
+          category: "Stock+CE",
+          weight: 6.5,
+          isin: "INE009A01021",
+          currentReturn: 15.2,
+          note: "Long equity + short OTM call for yield enhancement",
+        },
+        {
+          rank: 7,
+          name: "Reliance Cash-Futures Arbitrage",
+          symbol: "RELIANCE-ARB",
+          assetClass: "arbitrage",
+          category: "Arbitrage",
+          weight: 7.0,
+          isin: "INE002A01018",
+          currentReturn: 7.1,
+          note: "Long spot + short futures; delta-neutral; settled at expiry",
+        },
+        {
+          rank: 8,
+          name: "HDFC Bank Cash-Futures Arbitrage",
+          symbol: "HDFCBANK-ARB",
+          assetClass: "arbitrage",
+          category: "Arbitrage",
+          weight: 7.0,
+          isin: "INE040A01034",
+          currentReturn: 7.0,
+          note: "Long spot + short futures; delta-neutral; settled at expiry",
+        },
+        {
+          rank: 9,
+          name: "Infosys Cash-Futures Arbitrage",
+          symbol: "INFY-ARB",
+          assetClass: "arbitrage",
+          category: "Arbitrage",
+          weight: 6.0,
+          isin: "INE009A01021",
+          currentReturn: 7.2,
+          note: "Long spot + short futures; delta-neutral; settled at expiry",
+        },
+        {
+          rank: 10,
+          name: "91-Day Sovereign T-Bills (SEBI Cash Margin ≥50%)",
+          symbol: "TBILL-91D",
+          assetClass: "debt",
+          category: "Sovereign Debt",
+          weight: 18.0,
+          currentReturn: 6.85,
+          note: "Mandatory ≥50% cash/cash-equivalent margin per SEBI Circular 2024/132; RBI primary market issuance",
+        },
+        {
+          rank: 11,
+          name: "CCIL Triparty Repo (TREPS) Liquid Collateral",
+          symbol: "TREPS-LIQ",
+          assetClass: "debt",
+          category: "Money Market",
+          weight: 11.0,
+          currentReturn: 6.6,
+          note: "Overnight collateral buffer; CCIL guaranteed settlement; supports intraday margin calls",
+        },
+      ],
+    },
   ];
 
 export const allPortfoliosToSeed = [...retailPortfolios, ...affluentSifPortfolios, ...hniPmsPortfolios, ...uhniAifPortfolios];
@@ -749,6 +952,24 @@ export async function seedInstitutionalModelPortfolios(): Promise<{ seeded: numb
         `);
       }
 
+      // Apply algo trading fields for portfolios that declare an algoConfig.
+      // These columns are not in the generic INSERT above (pre-existing pattern).
+      if ((item as any).algoConfig) {
+        await db.execute(sql`
+          UPDATE model_portfolios
+          SET algo_trading_enabled = true,
+              algo_config = ${JSON.stringify((item as any).algoConfig)}::jsonb,
+              last_algo_status = 'ENABLED',
+              updated_at = ${now}
+          WHERE id = ${item.id}
+        `);
+        logger.info("[SEBI Tier Service] Algo trading config applied (INSERT path)", {
+          event: "ALGO_CONFIG_SEEDED",
+          portfolioId: item.id,
+          engineVersion: "FASP-AI-v3.1-ALGO",
+        });
+      }
+
       seeded++;
     } else {
       // Update existing record with institutional tiering attributes
@@ -778,6 +999,23 @@ export async function seedInstitutionalModelPortfolios(): Promise<{ seeded: numb
               total_holdings = ${(item as any).holdings.length}
           WHERE id = ${item.id} AND (holdings IS NULL OR jsonb_array_length(holdings) = 0 OR ${item.id.startsWith("sif-") || item.id === "hni-multi-asset-alpha-pms" || item.id === "hni-focused-leaders-pms" || item.id === "uhni-private-tech-disruptors-aif"})
         `);
+      }
+
+      // Keep algo trading config in sync for existing records too.
+      if ((item as any).algoConfig) {
+        await db.execute(sql`
+          UPDATE model_portfolios
+          SET algo_trading_enabled = true,
+              algo_config = ${JSON.stringify((item as any).algoConfig)}::jsonb,
+              last_algo_status = 'ENABLED',
+              updated_at = ${now}
+          WHERE id = ${item.id}
+        `);
+        logger.info("[SEBI Tier Service] Algo trading config applied (UPDATE path)", {
+          event: "ALGO_CONFIG_UPDATED",
+          portfolioId: item.id,
+          engineVersion: "FASP-AI-v3.1-ALGO",
+        });
       }
 
       updated++;

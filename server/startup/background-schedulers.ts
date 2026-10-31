@@ -1179,7 +1179,39 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			};
 			scheduleNightlyQuantRun();
 
-			console.log("[PortfolioIntel] 🧠 Portfolio Intelligence Engine active (daily regime + weekly momentum + calendar rebalance + drift refresh + NAV history + nightly quant scorer)");
+			// ── Phase 5h: Periodic Algo Trading & Drift Rebalance Sweep ───────────
+			// Sweeps all model portfolios with algo_trading_enabled = true.
+			// Reconciles pending Upstox orders and executes systematic drift rebalances
+			// per FASP-AI-v3.1-ALGO engine specifications.
+			const scheduleAlgoTradingSweep = () => {
+				const SWEEP_INTERVAL_MS = 15 * 60 * 1000; // Every 15 minutes
+				const runAlgoSweep = async () => {
+					try {
+						const { modelPortfolioAlgoService } = await import(
+							"../services/model-portfolio-algo-service"
+						);
+						const sweepRes = await modelPortfolioAlgoService.runAlgoTradingBatchSweep();
+						if (sweepRes.swept > 0) {
+							console.log(
+								`[AlgoEngine] ⚡ Algo batch sweep complete: ${sweepRes.swept} swept, ` +
+								`${sweepRes.executed} executed, ${sweepRes.reconciledPending} reconciled, ` +
+								`${sweepRes.errors} errors`
+							);
+						}
+					} catch (err: any) {
+						console.warn("[AlgoEngine] Periodic algo sweep failed (non-fatal):", err?.message);
+					}
+				};
+
+				// Initial run after 30s warmup, then repeat every 15 mins
+				setTimeout(() => {
+					runAlgoSweep();
+					setInterval(runAlgoSweep, SWEEP_INTERVAL_MS);
+				}, 30000);
+			};
+			scheduleAlgoTradingSweep();
+
+			console.log("[PortfolioIntel] 🧠 Portfolio Intelligence Engine active (daily regime + weekly momentum + calendar rebalance + drift refresh + NAV history + nightly quant scorer + 15m algo sweep)");
 		});
 
 		// ── Phase 6: Audit & Compliance Cleanup ──────────────────────────────────

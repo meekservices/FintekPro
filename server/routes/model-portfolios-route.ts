@@ -55,7 +55,7 @@ import {
 import { getInstrument } from "../data/instrument-registry";
 import { lookupByISIN, lookupByNSESymbol } from "../services/isin-registry-service";
 import { unifiedStockPriceService } from "../services/unified-stock-price-service";
-import { modelPortfolioAlgoService } from "../services/model-portfolio-algo-service";
+import { modelPortfolioAlgoService, ALGO_ENGINE_VERSION } from "../services/model-portfolio-algo-service";
 import { calculateIntegerShareAllocation } from "../services/model-portfolio-share-sizing";
 import { stockIntersectionAnalysisService } from "../services/stock-intersection-analysis-service";
 import { portfolioXrayEngine } from "../services/portfolio/portfolio-xray-engine";
@@ -3892,7 +3892,7 @@ modelPortfoliosRouter.get("/", async (req: Request, res: Response) => {
     if (featured === "true") {
       conditions.push(eq(modelPortfolios.isFeatured, true));
     }
-    if (tier && typeof tier === "string" && ["retail_mf", "hni_pms", "uhni_aif"].includes(tier)) {
+    if (tier && typeof tier === "string" && ["retail_mf", "affluent_sif", "hni_pms", "uhni_aif"].includes(tier)) {
       conditions.push(eq(modelPortfolios.portfolioTier, tier));
     }
 
@@ -6468,7 +6468,7 @@ modelPortfoliosRouter.get("/algo-trading/status", async (_req: Request, res: Res
       data,
       meta: {
         timestamp: new Date().toISOString(),
-        version: "FASP-AI-v3.0-ALGO",
+        version: ALGO_ENGINE_VERSION,
         latency_ms: Date.now() - t0,
         total: data.length,
         enabledCount: data.filter((p) => p.algoTradingEnabled).length,
@@ -6498,7 +6498,7 @@ modelPortfoliosRouter.post("/algo-trading/sweep", async (req: Request, res: Resp
       data: sweepResult,
       meta: {
         timestamp: new Date().toISOString(),
-        version: "FASP-AI-v3.0-ALGO",
+        version: ALGO_ENGINE_VERSION,
         latency_ms: Date.now() - t0,
       },
     });
@@ -6538,7 +6538,7 @@ modelPortfoliosRouter.post("/:id/algo-trading/enable", async (req: Request, res:
       },
       meta: {
         timestamp: new Date().toISOString(),
-        version: "FASP-AI-v3.0-ALGO",
+        version: ALGO_ENGINE_VERSION,
         latency_ms: Date.now() - t0,
       },
     });
@@ -6578,7 +6578,7 @@ modelPortfoliosRouter.post("/:id/algo-trading/disable", async (req: Request, res
       },
       meta: {
         timestamp: new Date().toISOString(),
-        version: "FASP-AI-v3.0-ALGO",
+        version: ALGO_ENGINE_VERSION,
         latency_ms: Date.now() - t0,
       },
     });
@@ -6627,7 +6627,7 @@ modelPortfoliosRouter.post("/:id/algo-trading/execute", async (req: Request, res
       data: executionResult,
       meta: {
         timestamp: new Date().toISOString(),
-        version: "FASP-AI-v3.0-ALGO",
+        version: ALGO_ENGINE_VERSION,
         latency_ms: Date.now() - t0,
       },
     });
@@ -6661,7 +6661,7 @@ modelPortfoliosRouter.post("/:id/algo-trading/sync-orders", async (req: Request,
       data: syncResult,
       meta: {
         timestamp: new Date().toISOString(),
-        version: "FASP-AI-v3.0-ALGO",
+        version: ALGO_ENGINE_VERSION,
         latency_ms: Date.now() - t0,
       },
     });
@@ -6694,7 +6694,7 @@ modelPortfoliosRouter.post("/transactions/:identifier/sync-order", async (req: R
       data: result,
       meta: {
         timestamp: new Date().toISOString(),
-        version: "FASP-AI-v3.0-ALGO",
+        version: ALGO_ENGINE_VERSION,
         latency_ms: Date.now() - t0,
       },
     });
@@ -6739,7 +6739,7 @@ modelPortfoliosRouter.get("/:id/algo-trading/transactions", async (req: Request,
         total,
         totalPages: Math.ceil(total / limit),
         timestamp: new Date().toISOString(),
-        version: "FASP-AI-v3.0-ALGO",
+        version: ALGO_ENGINE_VERSION,
         latency_ms: Date.now() - t0,
       },
     });

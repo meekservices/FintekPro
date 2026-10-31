@@ -18,6 +18,7 @@ import { type Express, type Request, type Response, type NextFunction } from "ex
 import { isAuthenticated } from "../auth-setup";
 import { aifComplianceService } from "../services/aif-compliance-service";
 import { aifExecutionService, AIF_CATEGORIES } from "../aif-execution-service";
+import { ComplianceAuditPackService } from "../services/compliance-audit-pack-service";
 import { db } from "../db";
 import { aifMaster, userProfiles } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
@@ -242,6 +243,22 @@ export function registerAifRoutes(app: Express): void {
 					meta: { timestamp: new Date().toISOString(), version: "1.0" },
 				});
 			}
+
+			// Generate cryptographically sealed Regulatory Audit Pack for statutory inspections (SEBI Reg 10 / Reg 19)
+			await ComplianceAuditPackService.generateAuditPack(
+				userId,
+				"aif_commitment",
+				orderId,
+				{
+					orderId,
+					investmentAmount,
+					paidAmount,
+					fundName,
+					aifCategory,
+					executionResult,
+					timestamp: new Date().toISOString(),
+				},
+			).catch((e: any) => logger.warn("[AIF] Failed to seal audit pack:", { error: e.message }));
 
 			return res.status(200).json({
 				success: true,
