@@ -1,5 +1,6 @@
 import { db } from "../../db";
 import { sql } from "drizzle-orm";
+import { logger } from "../../logger";
 
 const snapshotCache = new Map<
 	string,
@@ -177,6 +178,17 @@ export async function getEnrichedStockSnapshot(
 	const cached = snapshotCache.get(upperSymbol);
 	if (cached && cached.expiresAt > Date.now()) {
 		return cached.data;
+	}
+
+	// ── Master snapshot fast-path (1 indexed row from screener_master_snapshots vs 11 joins) ──
+	try {
+		const masterMap = await getEnrichedStockSnapshotsFromMaster([upperSymbol]);
+		const masterData = masterMap.get(upperSymbol);
+		if (masterData) {
+			return masterData;
+		}
+	} catch {
+		// Non-fatal — fall through to legacy multi-query approach below
 	}
 
 	try {
@@ -538,9 +550,8 @@ export async function getEnrichedStockSnapshot(
 		});
 		return snapshot;
 	} catch (error: any) {
-		console.error(
-			`[EnrichedStockData] Error fetching snapshot for ${symbol}:`,
-			error.message,
+		logger.error(
+			`[EnrichedStockData] Error fetching snapshot for ${symbol}: ${error?.message}`,
 		);
 		return null;
 	}

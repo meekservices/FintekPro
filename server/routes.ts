@@ -155,6 +155,8 @@ import { registerRevenueSheetRoutes } from "./routes/revenue-sheet-routes";
 import { registerLoanCommissionRoutes } from "./routes/loan-commission-routes";
 import { registerPartnerHierarchyRoutes } from "./routes/partner/hierarchy-routes";
 import { registerPartnerAgentManagementRoutes } from "./routes/partner/agent-management-routes";
+import { registerTeamDesignationRoutes } from "./routes/team-designation-routes";
+import { registerStaffProductEligibilityRoutes } from "./routes/staff-product-eligibility-routes";
 import { registerMasterAgentApprovalRoutes } from "./routes/master-agent-approval-routes";
 import { registerEligibilityMatrixRoutes } from "./routes/eligibility-matrix-routes";
 import { registerInvestmentIdeasRoutes } from "./routes/investment-ideas";
@@ -531,6 +533,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	registerLoanCommissionRoutes(app); // /api/loan-commission/*
 	registerPartnerHierarchyRoutes(app); // /api/partner/hierarchy/*
 	registerPartnerAgentManagementRoutes(app); // /api/partner/agents/* — partner manages agents (with/without EUIN)
+	registerTeamDesignationRoutes(app); // /api/team/* — team & designation management with candidate eligibility & IRIS alignment
+	registerStaffProductEligibilityRoutes(app); // /api/staff-product-governance/* — multivendor portal products statutory governance
 	registerMasterAgentApprovalRoutes(app);     // /api/master-agent/pending-transactions/* — master agent approval queue
 	registerEligibilityMatrixRoutes(app); // /api/eligibility-matrix/*
 	registerInvestmentIdeasRoutes(app); // /api/investment-alerts/*

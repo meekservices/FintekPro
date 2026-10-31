@@ -8,6 +8,7 @@ export type KycTier = 'basic' | 'enhanced' | 'accredited_investor';
 
 export type ProductCategory = 
   | 'mutual_funds'
+  | 'sif'
   | 'equity_cash'
   | 'equity_derivatives'
   | 'currency_derivatives'
@@ -193,6 +194,22 @@ export const PRODUCT_ELIGIBILITY_MATRIX: ProductEligibilityRule[] = [
     minNetWorth: 75000000, // ₹7.5 Crore
     regulatoryNotes: 'Accredited Investor status required. Minimum investment ₹50 lakh.',
     sebiGuideline: 'SEBI (Portfolio Managers) Regulations, 2020'
+  },
+  
+  // Specified Investment Funds (SIF / New Asset Class) - Enhanced KYC
+  {
+    productCode: 'sif',
+    productName: 'Specified Investment Funds (SIF / New Asset Class)',
+    minKycTier: 'enhanced',
+    requiresVideoKyc: true,
+    requiresPanVerified: true,
+    requiresAadhaarVerified: true,
+    requiresBankVerified: true,
+    requiresIncomeProof: true,
+    minAnnualIncome: 1000000, // ₹10 Lakhs annual income
+    minNetWorth: 5000000, // ₹50 Lakhs net worth recommended
+    regulatoryNotes: 'Governed by SEBI (Mutual Funds) (Amendment) Regulations, 2024 / SIF Master Framework. Statutory minimum ticket floor is ₹10,00,000 (Ten Lakhs). Video KYC, verified PAN, and suitability profiling mandatory.',
+    sebiGuideline: 'SEBI MF Amendment Regulations 2024 / SIF Master Framework'
   },
   
   // Insurance - Basic KYC

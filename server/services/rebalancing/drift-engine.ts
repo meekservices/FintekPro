@@ -95,6 +95,7 @@ export class DriftEngine {
 					.filter((dm) => dm.targetPercent > 0)
 					.map((dm) => ({
 						category: dm.category,
+						instrumentType: dm.category,
 						returns: [] as number[],
 						currentWeight: dm.currentPercent / 100,
 					})),

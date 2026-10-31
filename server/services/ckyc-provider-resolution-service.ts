@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 // @ts-nocheck
 /**
  * CKYC Provider Resolution Service
@@ -469,16 +470,20 @@ export class CkycProviderResolutionService {
 		providerCode: CkycProviderCode,
 		status: "healthy" | "degraded" | "unhealthy",
 		isSystemAction: boolean = true,
+		cachedProvider?: typeof ckycProviderConfig.$inferSelect,
 	): Promise<void> {
-		const provider = await db
-			.select()
-			.from(ckycProviderConfig)
-			.where(eq(ckycProviderConfig.providerCode, providerCode))
-			.limit(1);
+		let currentProvider = cachedProvider;
+		if (!currentProvider) {
+			const provider = await db
+				.select()
+				.from(ckycProviderConfig)
+				.where(eq(ckycProviderConfig.providerCode, providerCode))
+				.limit(1);
 
-		if (provider.length === 0) return;
+			if (provider.length === 0) return;
+			currentProvider = provider[0];
+		}
 
-		const currentProvider = provider[0];
 		const previousStatus = currentProvider.healthStatus;
 
 		// Update health status
@@ -923,34 +928,34 @@ export class CkycProviderResolutionService {
 	> {
 		const { getAdapter } = await import("./ckyc-provider-adapter");
 		const providers = await this.getAllProviders();
-		const results: Array<{
-			provider: string;
-			healthy: boolean;
-			latencyMs?: number;
-		}> = [];
 
-		for (const provider of providers) {
-			try {
-				const adapter = await getAdapter(provider.providerCode);
-				const health = await adapter.checkHealth();
+		// Run provider health checks in parallel to eliminate sequential round-trip latency
+		const results = await Promise.all(
+			providers.map(async (provider) => {
+				try {
+					const adapter = await getAdapter(provider.providerCode);
+					const health = await adapter.checkHealth();
 
-				await this.updateProviderHealth(
-					provider.providerCode as CkycProviderCode,
-					health.healthy ? "healthy" : "unhealthy",
-				);
+					await this.updateProviderHealth(
+						provider.providerCode as CkycProviderCode,
+						health.healthy ? "healthy" : "unhealthy",
+						true,
+						provider,
+					);
 
-				results.push({
-					provider: provider.providerCode,
-					healthy: health.healthy,
-					latencyMs: health.latencyMs,
-				});
-			} catch (error: any) {
-				results.push({
-					provider: provider.providerCode,
-					healthy: false,
-				});
-			}
-		}
+					return {
+						provider: provider.providerCode,
+						healthy: health.healthy,
+						latencyMs: health.latencyMs,
+					};
+				} catch {
+					return {
+						provider: provider.providerCode,
+						healthy: false,
+					};
+				}
+			}),
+		);
 
 		return results;
 	}

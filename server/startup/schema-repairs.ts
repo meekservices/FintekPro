@@ -3694,9 +3694,47 @@ export async function ensureSharedRouteTables(): Promise<void> {
         UNIQUE (partner_user_id, agent_user_id)
       )
     `);
+    await migDb.execute(migSql`
+      ALTER TABLE partner_team_members 
+      ADD COLUMN IF NOT EXISTS designation VARCHAR(100) DEFAULT 'agent',
+      ADD COLUMN IF NOT EXISTS designation_title VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS euin_number VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS can_execute_transactions BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS eligibility_score INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS eligibility_status VARCHAR(50) DEFAULT 'ELIGIBLE',
+      ADD COLUMN IF NOT EXISTS iris_sync_status VARCHAR(50) DEFAULT 'PENDING',
+      ADD COLUMN IF NOT EXISTS iris_entity_id VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS branch_id VARCHAR(100)
+    `);
     console.log("  ✅ partner_team_members: ready");
   } catch (e: any) {
     console.warn("  ⚠️  partner_team_members (non-fatal):", e.message?.slice(0, 80));
+  }
+
+  // ── staff_vendor_product_authorizations ─────────────────────────────────────
+  try {
+    await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS staff_vendor_product_authorizations (
+        id                   VARCHAR(100) PRIMARY KEY,
+        staff_id             VARCHAR(255) NOT NULL,
+        vendor_code          VARCHAR(50) NOT NULL,
+        product_category     VARCHAR(50) NOT NULL,
+        access_level         VARCHAR(30) NOT NULL,
+        is_active            BOOLEAN NOT NULL DEFAULT TRUE,
+        verified_credentials JSONB NOT NULL DEFAULT '{}',
+        regulatory_basis     TEXT NOT NULL,
+        granted_by           VARCHAR(255) NOT NULL,
+        granted_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        expires_at           TIMESTAMPTZ,
+        updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (staff_id, vendor_code, product_category)
+      );
+      CREATE INDEX IF NOT EXISTS idx_staff_vendor_auth_staff_id ON staff_vendor_product_authorizations(staff_id);
+      CREATE INDEX IF NOT EXISTS idx_staff_vendor_auth_active ON staff_vendor_product_authorizations(is_active);
+    `);
+    console.log("  ✅ staff_vendor_product_authorizations: ready");
+  } catch (e: any) {
+    console.warn("  ⚠️  staff_vendor_product_authorizations (non-fatal):", e.message?.slice(0, 80));
   }
 
   // ── partner_agent_invitations ───────────────────────────────────────────────

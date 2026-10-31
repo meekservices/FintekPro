@@ -153,49 +153,50 @@ export class ProThematicScreenerService {
 
     const timestamp = new Date();
 
-    // Idempotent upsert of ranked constituents
-    let rank = 1;
-    for (const c of rawCandidates) {
+    // High-performance batch upsert of ranked constituents (eliminates N+1 loop)
+    const rowsToInsert = rawCandidates.map((c, idx) => ({
+      categorySlug: slug,
+      symbol: c.symbol,
+      isin: c.isin || null,
+      companyName: c.companyName,
+      sector: c.sector || "General",
+      marketCapCategory: normalizeMarketCap(c.marketCapCategory),
+      rank: idx + 1,
+      primaryMetricLabel: c.primaryMetricLabel,
+      primaryMetricValue: c.primaryMetricValue,
+      secondaryMetricLabel: c.secondaryMetricLabel || null,
+      secondaryMetricValue: c.secondaryMetricValue || null,
+      targetPrice: c.targetPrice ? String(c.targetPrice) : null,
+      upsidePercent: c.upsidePercent ? String(c.upsidePercent) : null,
+      fScore: c.fScore ?? null,
+      themeBadge: c.themeBadge || null,
+      technicalSignal: c.technicalSignal || null,
+      engineVersion: this.ENGINE_VERSION,
+      calculationTimestamp: timestamp,
+    }));
+
+    if (rowsToInsert.length > 0) {
       await db
         .insert(proThematicConstituents)
-        .values({
-          categorySlug: slug,
-          symbol: c.symbol,
-          isin: c.isin || null,
-          companyName: c.companyName,
-          sector: c.sector || "General",
-          marketCapCategory: normalizeMarketCap(c.marketCapCategory),
-          rank: rank++,
-          primaryMetricLabel: c.primaryMetricLabel,
-          primaryMetricValue: c.primaryMetricValue,
-          secondaryMetricLabel: c.secondaryMetricLabel || null,
-          secondaryMetricValue: c.secondaryMetricValue || null,
-          targetPrice: c.targetPrice ? String(c.targetPrice) : null,
-          upsidePercent: c.upsidePercent ? String(c.upsidePercent) : null,
-          fScore: c.fScore ?? null,
-          themeBadge: c.themeBadge || null,
-          technicalSignal: c.technicalSignal || null,
-          engineVersion: this.ENGINE_VERSION,
-          calculationTimestamp: timestamp,
-        })
+        .values(rowsToInsert)
         .onConflictDoUpdate({
           target: [proThematicConstituents.categorySlug, proThematicConstituents.symbol],
           set: {
-            companyName: c.companyName,
-            sector: c.sector || "General",
-            marketCapCategory: normalizeMarketCap(c.marketCapCategory),
-            rank: rank - 1,
-            primaryMetricLabel: c.primaryMetricLabel,
-            primaryMetricValue: c.primaryMetricValue,
-            secondaryMetricLabel: c.secondaryMetricLabel || null,
-            secondaryMetricValue: c.secondaryMetricValue || null,
-            targetPrice: c.targetPrice ? String(c.targetPrice) : null,
-            upsidePercent: c.upsidePercent ? String(c.upsidePercent) : null,
-            fScore: c.fScore ?? null,
-            themeBadge: c.themeBadge || null,
-            technicalSignal: c.technicalSignal || null,
-            engineVersion: this.ENGINE_VERSION,
-            calculationTimestamp: timestamp,
+            companyName: sql`excluded.company_name`,
+            sector: sql`excluded.sector`,
+            marketCapCategory: sql`excluded.market_cap_category`,
+            rank: sql`excluded.rank`,
+            primaryMetricLabel: sql`excluded.primary_metric_label`,
+            primaryMetricValue: sql`excluded.primary_metric_value`,
+            secondaryMetricLabel: sql`excluded.secondary_metric_label`,
+            secondaryMetricValue: sql`excluded.secondary_metric_value`,
+            targetPrice: sql`excluded.target_price`,
+            upsidePercent: sql`excluded.upside_percent`,
+            fScore: sql`excluded.f_score`,
+            themeBadge: sql`excluded.theme_badge`,
+            technicalSignal: sql`excluded.technical_signal`,
+            engineVersion: sql`excluded.engine_version`,
+            calculationTimestamp: sql`excluded.calculation_timestamp`,
           },
         });
     }

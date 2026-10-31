@@ -23,6 +23,14 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import {
 	Users,
 	UserPlus,
@@ -43,6 +51,12 @@ import {
 	Loader2,
 	AlertCircle,
 	Info,
+	CheckCircle2,
+	Award,
+	Building2,
+	Briefcase,
+	Layers,
+	ShieldAlert,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -143,6 +157,7 @@ function MyTeamTab() {
 					<TableHeader>
 						<TableRow>
 							<TableHead>Partner</TableHead>
+							<TableHead>Designation & Authority</TableHead>
 							<TableHead>Status</TableHead>
 							<TableHead>KYC</TableHead>
 							<TableHead>SM Assigned</TableHead>
@@ -173,6 +188,59 @@ function MyTeamTab() {
 													ARN: {member.arn_number}
 												</p>
 											)}
+										</div>
+									</TableCell>
+									<TableCell>
+										<div className="space-y-1">
+											<p className="text-sm font-semibold text-foreground">
+												{member.designation_title ||
+													(member.designation
+														? member.designation
+																.split("_")
+																.map(
+																	(w: string) =>
+																		w.charAt(0).toUpperCase() + w.slice(1),
+																)
+																.join(" ")
+														: "Relationship Manager")}
+											</p>
+											<div className="flex flex-wrap items-center gap-1">
+												{member.can_execute_transactions ? (
+													<Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-0 text-[10px] font-medium">
+														<CheckCircle2 className="h-2.5 w-2.5 mr-1" /> MF & SIF Executing
+													</Badge>
+												) : (
+													<Badge
+														variant="outline"
+														className="text-amber-700 border-amber-300 dark:text-amber-400 text-[10px]"
+													>
+														<Clock className="h-2.5 w-2.5 mr-1" /> Advisory Only
+													</Badge>
+												)}
+												{member.euin_number && (
+													<Badge
+														variant="outline"
+														className="text-blue-700 border-blue-300 dark:text-blue-400 text-[10px]"
+													>
+														EUIN: {member.euin_number}
+													</Badge>
+												)}
+												{member.iris_sync_status === "synced" ? (
+													<Badge
+														variant="outline"
+														className="text-sky-700 border-sky-300 dark:text-sky-400 text-[10px]"
+													>
+														IRIS Synced
+													</Badge>
+												) : (
+													<Badge
+														variant="outline"
+														className="text-muted-foreground text-[10px]"
+													>
+														IRIS Pending
+													</Badge>
+												)}
+											</div>
 										</div>
 									</TableCell>
 									<TableCell>
@@ -257,7 +325,7 @@ function MyTeamTab() {
 										key={`smrm-${member.agent_user_id}`}
 										className="bg-muted/30"
 									>
-										<TableCell colSpan={7}>
+										<TableCell colSpan={8}>
 											<div className="p-3 space-y-3">
 												<p className="text-sm font-medium text-foreground">
 													Assign SM / RM for {member.first_name}{" "}
@@ -903,6 +971,644 @@ function CommissionSplitsTab() {
 	);
 }
 
+// ── Product Governance Tab ───────────────────────────────────────────────────
+function ProductGovernanceTab() {
+	const { toast } = useToast();
+	const [activeSubView, setActiveSubView] = useState<"matrix" | "tester">("matrix");
+
+	// Simulator Form State
+	const [candidateName, setCandidateName] = useState("Aakash Sharma");
+	const [designation, setDesignation] = useState("relationship_manager");
+	const [experienceYears, setExperienceYears] = useState("3");
+	const [hasEuin, setHasEuin] = useState(true);
+	const [euinNumber, setEuinNumber] = useState("E382910");
+	const [hasPosp, setHasPosp] = useState(false);
+	const [pospNumber, setPospNumber] = useState("");
+	const [hasDsa, setHasDsa] = useState(false);
+	const [dsaCode, setDsaCode] = useState("");
+	const [certNismVa, setCertNismVa] = useState(true);
+	const [certNismViii, setCertNismViii] = useState(false);
+	const [certNismXa, setCertNismXa] = useState(false);
+	const [certNismXxia, setCertNismXxia] = useState(false);
+	const [isKycDone, setIsKycDone] = useState(true);
+	const [evaluationResult, setEvaluationResult] = useState<any>(null);
+
+	// Query product matrix
+	const { data: matrixResponse, isLoading: isMatrixLoading } = useQuery<{
+		success: boolean;
+		data: any[];
+		meta?: any;
+	}>({
+		queryKey: ["/api/staff-product-governance/matrix"],
+	});
+
+	const products: any[] = matrixResponse?.data || [];
+
+	// Evaluate Candidate Mutation
+	const evaluateMutation = useMutation({
+		mutationFn: async () => {
+			const certs: string[] = [];
+			if (certNismVa) certs.push("NISM_SERIES_VA");
+			if (certNismViii) certs.push("NISM_SERIES_VIII");
+			if (certNismXa) certs.push("NISM_SERIES_XA");
+			if (certNismXxia) certs.push("NISM_SERIES_XXIA");
+
+			const payload = {
+				candidateId: `cand-${Date.now()}`,
+				candidateName,
+				designation,
+				experienceYears: Number(experienceYears) || 0,
+				hasEuin,
+				euinNumber: hasEuin ? euinNumber : undefined,
+				hasPosp,
+				pospCertificateNumber: hasPosp ? pospNumber : undefined,
+				hasDsa,
+				dsaRegistrationCode: hasDsa ? dsaCode : undefined,
+				certifications: certs,
+				empanelmentStatus: isKycDone ? "approved" : "pending",
+			};
+
+			return await apiRequest(
+				"POST",
+				"/api/staff-product-governance/evaluate",
+				payload,
+			);
+		},
+		onSuccess: (res: any) => {
+			setEvaluationResult(res.data);
+			toast({
+				title: "Eligibility Evaluated",
+				description: `Candidate scored ${res.data?.candidateScore}/100 across 11 product lines.`,
+			});
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Evaluation Failed",
+				description: err?.message || "Failed to evaluate candidate eligibility",
+				variant: "destructive",
+			});
+		},
+	});
+
+	const getAccessBadge = (level: string) => {
+		switch (level) {
+			case "FULL_MANAGEMENT":
+				return (
+					<Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-0 font-medium text-xs">
+						<CheckCircle2 className="h-3 w-3 mr-1" /> Full Management & Execution
+					</Badge>
+				);
+			case "READ_ONLY":
+				return (
+					<Badge
+						variant="outline"
+						className="text-amber-700 border-amber-300 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 text-xs font-medium"
+					>
+						<Clock className="h-3 w-3 mr-1" /> Advisory & Factsheets Only
+					</Badge>
+				);
+			default:
+				return (
+					<Badge
+						variant="outline"
+						className="text-red-700 border-red-300 dark:text-red-400 bg-red-50 dark:bg-red-950/40 text-xs font-medium"
+					>
+						<XCircle className="h-3 w-3 mr-1" /> Blocked (Regulatory Gate)
+					</Badge>
+				);
+		}
+	};
+
+	const getRegulatorBadge = (regulator: string) => {
+		switch (regulator) {
+			case "SEBI":
+				return (
+					<Badge className="bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-0 text-[10px] font-bold">
+						SEBI
+					</Badge>
+				);
+			case "IRDAI":
+				return (
+					<Badge className="bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-0 text-[10px] font-bold">
+						IRDAI
+					</Badge>
+				);
+			case "RBI":
+				return (
+					<Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-0 text-[10px] font-bold">
+						RBI
+					</Badge>
+				);
+			case "PFRDA":
+				return (
+					<Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-0 text-[10px] font-bold">
+						PFRDA
+					</Badge>
+				);
+			default:
+				return <Badge variant="outline">{regulator}</Badge>;
+		}
+	};
+
+	return (
+		<div className="space-y-6">
+			{/* Top Overview Banner */}
+			<div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950/40 dark:via-indigo-950/40 dark:to-purple-950/40 border border-blue-200 dark:border-blue-900 rounded-xl p-5 shadow-sm space-y-3">
+				<div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+					<div className="space-y-1">
+						<div className="flex items-center gap-2">
+							<ShieldCheck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+							<h3 className="text-base font-bold text-foreground">
+								Multi-Vendor Regulatory Product Governance
+							</h3>
+							<Badge className="bg-blue-600 text-white text-[10px]">
+								GCR v1.0 Statutory
+							</Badge>
+						</div>
+						<p className="text-xs text-muted-foreground leading-relaxed max-w-3xl">
+							FintekPro strictly enforces regulatory parameters across four primary statutory bodies (<strong>SEBI</strong>, <strong>RBI</strong>, <strong>IRDAI</strong>, <strong>PFRDA</strong>). Staff authorization determines execution and advisory capabilities across connected multi-vendor portals including <strong>KFintech IRIS</strong>, <strong>CAMS</strong>, <strong>BSE StAR MF</strong>, and Direct AMC portals.
+						</p>
+					</div>
+					<div className="flex items-center gap-2 flex-shrink-0">
+						<Button
+							size="sm"
+							variant={activeSubView === "matrix" ? "default" : "outline"}
+							onClick={() => setActiveSubView("matrix")}
+							className="text-xs h-8"
+						>
+							<Layers className="h-3.5 w-3.5 mr-1" /> Product Matrix ({products.length || 11})
+						</Button>
+						<Button
+							size="sm"
+							variant={activeSubView === "tester" ? "default" : "outline"}
+							onClick={() => setActiveSubView("tester")}
+							className="text-xs h-8"
+						>
+							<UserCheck className="h-3.5 w-3.5 mr-1" /> Candidate Validator
+						</Button>
+					</div>
+				</div>
+
+				{/* SIF Highlight Card */}
+				<div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-3">
+					<div className="flex items-start gap-2.5">
+						<Award className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+						<div>
+							<div className="flex items-center gap-2">
+								<span className="font-semibold text-xs text-amber-900 dark:text-amber-200">
+									Specialised Investment Funds (SIF) — SEBI New Asset Class 2024
+								</span>
+								<Badge className="bg-amber-600 text-white text-[10px] py-0 px-1.5">
+									₹10,00,000 Floor
+								</Badge>
+							</div>
+							<p className="text-[11px] text-amber-800/90 dark:text-amber-300/80 mt-0.5">
+								Statutory minimum ticket floor ₹10 Lakh. Full execution requires verified AMFI EUIN, minimum 2 years wealth distribution experience, Enhanced KYC (C-KYC + Video KYC), and NISM Series V-A, X-A, or XXI-A certifications.
+							</p>
+						</div>
+					</div>
+					<Badge variant="outline" className="text-amber-700 border-amber-300 dark:text-amber-300 text-[10px] self-start md:self-center shrink-0">
+						SEBI MF Amendment 2024
+					</Badge>
+				</div>
+			</div>
+
+			{/* Sub-view: Product Matrix */}
+			{activeSubView === "matrix" && (
+				<Card>
+					<CardHeader className="pb-3">
+						<div className="flex items-center justify-between">
+							<div>
+								<CardTitle className="text-base flex items-center gap-2">
+									<Building2 className="h-4 w-4 text-primary" /> Statutory Multi-Vendor Product Catalog
+								</CardTitle>
+								<CardDescription className="text-xs">
+									Regulatory parameters, ticket sizes, mandatory certifications, and vendor integrations for FintekPro staff.
+								</CardDescription>
+							</div>
+						</div>
+					</CardHeader>
+					<CardContent>
+						{isMatrixLoading ? (
+							<div className="flex items-center justify-center py-12">
+								<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+							</div>
+						) : (
+							<div className="overflow-x-auto">
+								<Table>
+									<TableHeader>
+										<TableRow>
+											<TableHead>Product Line</TableHead>
+											<TableHead>Regulator & Framework</TableHead>
+											<TableHead>Ticket Floor</TableHead>
+											<TableHead>KYC Protocol</TableHead>
+											<TableHead>Mandatory Clearance</TableHead>
+											<TableHead>Supported Vendors</TableHead>
+										</TableRow>
+									</TableHeader>
+									<TableBody>
+										{products.map((p: any) => (
+											<TableRow key={p.category}>
+												<TableCell>
+													<div>
+														<p className="font-semibold text-sm text-foreground">
+															{p.name}
+														</p>
+														<p className="text-[11px] text-muted-foreground line-clamp-1">
+															{p.description}
+														</p>
+													</div>
+												</TableCell>
+												<TableCell>
+													<div className="space-y-1">
+														<div className="flex items-center gap-1.5">
+															{getRegulatorBadge(p.primaryRegulator)}
+														</div>
+														<p className="text-[11px] text-muted-foreground line-clamp-1 max-w-[200px]" title={p.regulatoryFramework}>
+															{p.regulatoryFramework}
+														</p>
+													</div>
+												</TableCell>
+												<TableCell>
+													<span className="font-semibold text-xs text-foreground">
+														{p.statutoryMinTicketInr > 0
+															? formatCurrency(p.statutoryMinTicketInr)
+															: "None (₹0)"}
+													</span>
+													{p.category === "sif" && (
+														<p className="text-[10px] text-amber-600 font-medium">Statutory Floor</p>
+													)}
+												</TableCell>
+												<TableCell>
+													<p className="text-xs text-foreground font-medium">
+														{p.kycRequirement}
+													</p>
+												</TableCell>
+												<TableCell>
+													<div className="flex flex-wrap gap-1 max-w-[220px]">
+														{p.requiresEuin && (
+															<Badge variant="outline" className="text-[10px] py-0 px-1 border-blue-300 text-blue-700">
+																EUIN
+															</Badge>
+														)}
+														{p.requiresPosp && (
+															<Badge variant="outline" className="text-[10px] py-0 px-1 border-purple-300 text-purple-700">
+																IRDAI POSP
+															</Badge>
+														)}
+														{p.requiresDsa && (
+															<Badge variant="outline" className="text-[10px] py-0 px-1 border-emerald-300 text-emerald-700">
+																Bank DSA
+															</Badge>
+														)}
+														{p.mandatoryCertifications?.map((c: string) => (
+															<Badge key={c} variant="secondary" className="text-[10px] py-0 px-1">
+																{c.replace("NISM_SERIES_", "NISM ")}
+															</Badge>
+														))}
+														{p.minExperienceYears > 0 && (
+															<Badge variant="outline" className="text-[10px] py-0 px-1 border-gray-300">
+																≥{p.minExperienceYears}y Exp
+															</Badge>
+														)}
+													</div>
+												</TableCell>
+												<TableCell>
+													<div className="flex flex-wrap gap-1 max-w-[180px]">
+														{p.supportedVendors?.map((v: string) => (
+															<span
+																key={v}
+																className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
+															>
+																{v}
+															</span>
+														))}
+													</div>
+												</TableCell>
+											</TableRow>
+										))}
+									</TableBody>
+								</Table>
+							</div>
+						)}
+					</CardContent>
+				</Card>
+			)}
+
+			{/* Sub-view: Candidate Validator */}
+			{activeSubView === "tester" && (
+				<div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+					{/* Left: Input Form */}
+					<Card className="lg:col-span-5">
+						<CardHeader className="pb-3">
+							<CardTitle className="text-base flex items-center gap-2">
+								<Briefcase className="h-4 w-4 text-primary" /> Candidate / Staff Credentials
+							</CardTitle>
+							<CardDescription className="text-xs">
+								Configure candidate credentials to simulate access governance across all 11 multi-vendor products.
+							</CardDescription>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							<div className="space-y-1">
+								<Label className="text-xs">Candidate / Staff Name</Label>
+								<Input
+									value={candidateName}
+									onChange={(e) => setCandidateName(e.target.value)}
+									placeholder="e.g. Aakash Sharma"
+									className="h-8 text-sm"
+								/>
+							</div>
+
+							<div className="grid grid-cols-2 gap-3">
+								<div className="space-y-1">
+									<Label className="text-xs">Designation / Role</Label>
+									<Select value={designation} onValueChange={setDesignation}>
+										<SelectTrigger className="h-8 text-xs">
+											<SelectValue placeholder="Select role" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="relationship_manager">Relationship Manager</SelectItem>
+											<SelectItem value="senior_rm">Senior RM</SelectItem>
+											<SelectItem value="branch_manager">Branch Manager</SelectItem>
+											<SelectItem value="sub_broker">Sub-Broker</SelectItem>
+											<SelectItem value="investment_advisor">Investment Advisor</SelectItem>
+											<SelectItem value="lead_associate">Lead Associate</SelectItem>
+											<SelectItem value="field_executive">Field Executive</SelectItem>
+											<SelectItem value="compliance_officer">Compliance Officer</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+								<div className="space-y-1">
+									<Label className="text-xs">Experience (Years)</Label>
+									<Input
+										type="number"
+										value={experienceYears}
+										onChange={(e) => setExperienceYears(e.target.value)}
+										min="0"
+										max="40"
+										className="h-8 text-sm"
+									/>
+								</div>
+							</div>
+
+							<div className="pt-2 border-t space-y-3">
+								<Label className="text-xs font-semibold text-foreground">
+									Statutory Credentials & Licenses
+								</Label>
+
+								<div className="space-y-2">
+									<div className="flex items-center justify-between">
+										<div className="flex items-center space-x-2">
+											<Checkbox
+												id="euinCheck"
+												checked={hasEuin}
+												onCheckedChange={(c) => setHasEuin(!!c)}
+											/>
+											<Label htmlFor="euinCheck" className="text-xs cursor-pointer">
+												AMFI EUIN (Mutual Funds & SIF)
+											</Label>
+										</div>
+										{hasEuin && (
+											<Input
+												value={euinNumber}
+												onChange={(e) => setEuinNumber(e.target.value)}
+												placeholder="EUIN (e.g. E382910)"
+												className="h-7 w-32 text-xs"
+											/>
+										)}
+									</div>
+
+									<div className="flex items-center justify-between">
+										<div className="flex items-center space-x-2">
+											<Checkbox
+												id="pospCheck"
+												checked={hasPosp}
+												onCheckedChange={(c) => setHasPosp(!!c)}
+											/>
+											<Label htmlFor="pospCheck" className="text-xs cursor-pointer">
+												IRDAI POSP License (Insurance)
+											</Label>
+										</div>
+										{hasPosp && (
+											<Input
+												value={pospNumber}
+												onChange={(e) => setPospNumber(e.target.value)}
+												placeholder="POSP Reg No."
+												className="h-7 w-32 text-xs"
+											/>
+										)}
+									</div>
+
+									<div className="flex items-center justify-between">
+										<div className="flex items-center space-x-2">
+											<Checkbox
+												id="dsaCheck"
+												checked={hasDsa}
+												onCheckedChange={(c) => setHasDsa(!!c)}
+											/>
+											<Label htmlFor="dsaCheck" className="text-xs cursor-pointer">
+												Lending DSA Registration (Loans)
+											</Label>
+										</div>
+										{hasDsa && (
+											<Input
+												value={dsaCode}
+												onChange={(e) => setDsaCode(e.target.value)}
+												placeholder="DSA Code"
+												className="h-7 w-32 text-xs"
+											/>
+										)}
+									</div>
+								</div>
+							</div>
+
+							<div className="pt-2 border-t space-y-2">
+								<Label className="text-xs font-semibold text-foreground">
+									NISM Certifications
+								</Label>
+								<div className="grid grid-cols-2 gap-2">
+									<div className="flex items-center space-x-2">
+										<Checkbox
+											id="nismVa"
+											checked={certNismVa}
+											onCheckedChange={(c) => setCertNismVa(!!c)}
+										/>
+										<Label htmlFor="nismVa" className="text-xs cursor-pointer">
+											NISM Series V-A (MF)
+										</Label>
+									</div>
+									<div className="flex items-center space-x-2">
+										<Checkbox
+											id="nismViii"
+											checked={certNismViii}
+											onCheckedChange={(c) => setCertNismViii(!!c)}
+										/>
+										<Label htmlFor="nismViii" className="text-xs cursor-pointer">
+											NISM Series VIII (F&O)
+										</Label>
+									</div>
+									<div className="flex items-center space-x-2">
+										<Checkbox
+											id="nismXa"
+											checked={certNismXa}
+											onCheckedChange={(c) => setCertNismXa(!!c)}
+										/>
+										<Label htmlFor="nismXa" className="text-xs cursor-pointer">
+											NISM Series X-A (RIA 1)
+										</Label>
+									</div>
+									<div className="flex items-center space-x-2">
+										<Checkbox
+											id="nismXxia"
+											checked={certNismXxia}
+											onCheckedChange={(c) => setCertNismXxia(!!c)}
+										/>
+										<Label htmlFor="nismXxia" className="text-xs cursor-pointer">
+											NISM XXI-A (PMS/SIF)
+										</Label>
+									</div>
+								</div>
+							</div>
+
+							<div className="pt-2 border-t flex items-center space-x-2">
+								<Checkbox
+									id="kycCheck"
+									checked={isKycDone}
+									onCheckedChange={(c) => setIsKycDone(!!c)}
+								/>
+								<Label htmlFor="kycCheck" className="text-xs cursor-pointer">
+									C-KYC & Empanelment Background Verified
+								</Label>
+							</div>
+
+							<Button
+								className="w-full text-xs h-9"
+								onClick={() => evaluateMutation.mutate()}
+								disabled={evaluateMutation.isPending}
+							>
+								{evaluateMutation.isPending ? (
+									<Loader2 className="h-4 w-4 mr-2 animate-spin" />
+								) : (
+									<ShieldCheck className="h-4 w-4 mr-2" />
+								)}
+								Evaluate Regulatory Clearance
+							</Button>
+						</CardContent>
+					</Card>
+
+					{/* Right: Evaluation Output */}
+					<Card className="lg:col-span-7">
+						<CardHeader className="pb-3">
+							<div className="flex items-center justify-between">
+								<div>
+									<CardTitle className="text-base flex items-center gap-2">
+										<UserCheck className="h-4 w-4 text-primary" /> Evaluation Audit & Product Clearance
+									</CardTitle>
+									<CardDescription className="text-xs">
+										Statutory authorization matrix for candidate across all 11 product lines.
+									</CardDescription>
+								</div>
+								{evaluationResult && (
+									<div className="text-right">
+										<span className="text-xs font-semibold text-muted-foreground">Score: </span>
+										<Badge className="bg-primary text-white font-bold text-xs">
+											{evaluationResult.candidateScore}/100
+										</Badge>
+									</div>
+								)}
+							</div>
+						</CardHeader>
+						<CardContent>
+							{!evaluationResult ? (
+								<div className="text-center py-16 text-muted-foreground space-y-2">
+									<ShieldAlert className="h-10 w-10 mx-auto opacity-30 text-primary" />
+									<p className="font-medium text-sm">No evaluation performed yet</p>
+									<p className="text-xs max-w-sm mx-auto">
+										Adjust candidate credentials on the left and click "Evaluate Regulatory Clearance" to verify multi-vendor product authorization.
+									</p>
+								</div>
+							) : (
+								<div className="space-y-4">
+									{/* Candidate Summary */}
+									<div className="p-3 bg-muted/40 rounded-lg text-xs flex flex-wrap items-center justify-between gap-2 border">
+										<div>
+											<p className="font-semibold text-foreground">{candidateName}</p>
+											<p className="text-muted-foreground capitalize">
+												Role: {designation.replace(/_/g, " ")} • Exp: {experienceYears} yrs
+											</p>
+										</div>
+										<div className="flex gap-1.5 flex-wrap">
+											{evaluationResult.candidateScore >= 70 ? (
+												<Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-0 text-xs">
+													Eligible for Core Products
+												</Badge>
+											) : (
+												<Badge variant="outline" className="text-amber-700 border-amber-300 text-xs">
+													Advisory & Provisional
+												</Badge>
+											)}
+										</div>
+									</div>
+
+									{/* Product Authorizations Table */}
+									<div className="overflow-x-auto">
+										<Table>
+											<TableHeader>
+												<TableRow>
+													<TableHead>Product</TableHead>
+													<TableHead>Regulator</TableHead>
+													<TableHead>Access Clearance</TableHead>
+													<TableHead>Regulatory Notes & Actions</TableHead>
+												</TableRow>
+											</TableHeader>
+											<TableBody>
+												{evaluationResult.authorizations?.map((auth: any) => (
+													<TableRow key={auth.category}>
+														<TableCell>
+															<div className="space-y-0.5">
+																<p className="font-semibold text-xs text-foreground">
+																	{auth.productName}
+																</p>
+																{auth.category === "sif" && (
+																	<Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-0 text-[9px] py-0 px-1">
+																		₹10L Floor
+																	</Badge>
+																)}
+															</div>
+														</TableCell>
+														<TableCell>
+															{getRegulatorBadge(auth.primaryRegulator)}
+														</TableCell>
+														<TableCell>
+															{getAccessBadge(auth.accessLevel)}
+														</TableCell>
+														<TableCell>
+															<div className="space-y-0.5 max-w-[240px]">
+																<p className="text-[11px] text-muted-foreground leading-snug">
+																	{auth.reason}
+																</p>
+																{auth.missingRequirements?.length > 0 && (
+																	<p className="text-[10px] text-amber-600 font-medium">
+																		Missing: {auth.missingRequirements.join(", ")}
+																	</p>
+																)}
+															</div>
+														</TableCell>
+													</TableRow>
+												))}
+											</TableBody>
+										</Table>
+									</div>
+								</div>
+							)}
+						</CardContent>
+					</Card>
+				</div>
+			)}
+		</div>
+	);
+}
+
 // ── Main Page ────────────────────────────────────────────────────────────────
 export default function PartnerTeamManagement() {
 	const [location] = useLocation();
@@ -976,7 +1682,7 @@ export default function PartnerTeamManagement() {
 			</div>
 
 			<Tabs value={activeTab} onValueChange={setActiveTab}>
-				<TabsList className="grid grid-cols-4 w-full max-w-2xl">
+				<TabsList className="grid grid-cols-5 w-full max-w-3xl">
 					<TabsTrigger value="team" className="flex items-center gap-1.5">
 						<Users className="h-3.5 w-3.5" /> My Team
 						{(team as any[]).length > 0 && (
@@ -1002,6 +1708,9 @@ export default function PartnerTeamManagement() {
 					<TabsTrigger value="splits" className="flex items-center gap-1.5">
 						<Percent className="h-3.5 w-3.5" /> Commission Splits
 					</TabsTrigger>
+					<TabsTrigger value="governance" className="flex items-center gap-1.5">
+						<ShieldCheck className="h-3.5 w-3.5" /> Product Governance
+					</TabsTrigger>
 				</TabsList>
 
 				<TabsContent value="team" className="mt-4">
@@ -1015,6 +1724,9 @@ export default function PartnerTeamManagement() {
 				</TabsContent>
 				<TabsContent value="splits" className="mt-4">
 					<CommissionSplitsTab />
+				</TabsContent>
+				<TabsContent value="governance" className="mt-4">
+					<ProductGovernanceTab />
 				</TabsContent>
 			</Tabs>
 		</div>

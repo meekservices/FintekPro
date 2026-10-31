@@ -1,5 +1,6 @@
 import { db } from "../../db";
-import { quantRunLog, strategicTargetWeights } from "@shared/schema";
+import { goldenPrices, quantRunLog, strategicTargetWeights } from "@shared/schema";
+import { and, asc, eq, gte, or } from "drizzle-orm";
 import { logger } from "../../logger";
 
 /**
@@ -737,6 +738,77 @@ class MVOEngine {
 		return weights.map((w) => w / sum);
 	}
 
+	/**
+	 * Ingests empirical historical returns from golden_prices for assets that have
+	 * fewer than 20 returns, replacing synthetic return generation with real market covariance.
+	 * Utilizes indexed scans on idx_golden_prices_asset_date_desc and idx_golden_prices_symbol_date_price.
+	 */
+	async enrichEmpiricalReturns(
+		assetsData: AssetData[],
+		lookbackDays: number = 250,
+	): Promise<void> {
+		const assetsNeedingReturns = assetsData.filter(
+			(a) => !a.returns || a.returns.length < 20,
+		);
+		if (assetsNeedingReturns.length === 0) return;
+
+		const daysSpan = Math.ceil(lookbackDays * 1.5) + 30;
+		const cutoff = new Date(Date.now() - daysSpan * 86_400_000);
+		const cutoffStr = cutoff.toISOString().split("T")[0];
+
+		await Promise.allSettled(
+			assetsNeedingReturns.map(async (asset) => {
+				try {
+					const targetCategory = asset.category.toLowerCase();
+					const targetClass =
+						asset.instrumentType?.toLowerCase() || targetCategory;
+
+					// Query golden_prices: match by exact symbol, asset class, or instrument type
+					const rows = await db
+						.select({
+							price: goldenPrices.price,
+							priceDate: goldenPrices.priceDate,
+						})
+						.from(goldenPrices)
+						.where(
+							and(
+								or(
+									eq(goldenPrices.symbol, asset.category),
+									eq(goldenPrices.assetClass, targetCategory),
+									eq(goldenPrices.assetClass, targetClass),
+								),
+								gte(goldenPrices.priceDate, cutoffStr),
+							),
+						)
+						.orderBy(asc(goldenPrices.priceDate))
+						.limit(lookbackDays + 40);
+
+					if (rows.length >= 20) {
+						const prices = rows.map((r) => Number.parseFloat(r.price));
+						const empiricalReturns: number[] = [];
+						for (let i = 1; i < prices.length; i++) {
+							const prev = prices[i - 1];
+							const curr = prices[i];
+							if (prev > 0) {
+								empiricalReturns.push((curr - prev) / prev);
+							}
+						}
+						if (empiricalReturns.length >= 20) {
+							asset.returns = empiricalReturns;
+							logger.info(
+								`[MVO] Ingested ${empiricalReturns.length} empirical returns for ${asset.category} from golden_prices`,
+							);
+						}
+					}
+				} catch (err: any) {
+					logger.warn(
+						`[MVO] Empirical price resolution skipped for ${asset.category}: ${err?.message}`,
+					);
+				}
+			}),
+		);
+	}
+
 	async run(
 		assetsData: AssetData[],
 		config: Partial<MVOConfig> = {},
@@ -750,6 +822,11 @@ class MVOEngine {
 		const categories = assetsData.map((a) => a.category);
 
 		try {
+			await this.enrichEmpiricalReturns(
+				assetsData,
+				fullConfig.covarianceLookbackDays,
+			);
+
 			const covarianceMatrix = this.computeCovarianceMatrix(
 				assetsData,
 				fullConfig,
