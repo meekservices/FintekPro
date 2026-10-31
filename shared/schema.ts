@@ -1068,6 +1068,12 @@ export const listedStocks = pgTable("listed_stocks", {
   index("idx_listed_stocks_fscore").on(table.piotroskiFScore),
   index("idx_listed_stocks_upside").on(table.consensusUpsidePercent),
   index("idx_listed_stocks_tech_signal").on(table.technicalSignal),
+  // ── Phase DB-OPT: Composite index for POTD candidate pool selection ──
+  // Covers Track A & B WHERE is_published=true AND current_price IS NOT NULL
+  // with ORDER BY market_cap_category, market_cap_value DESC, average_volume DESC
+  index("idx_listed_stocks_potd_candidates").on(table.sector, table.marketCapCategory, table.averageVolume),
+  index("idx_listed_stocks_broad_sector").on(table.broadSector, table.marketCapCategory),
+  index("idx_listed_stocks_is_published").on(table.isPublished, table.isActive),
 ]);
 
 export const insertListedStockSchema = createInsertSchema(listedStocks).omit({

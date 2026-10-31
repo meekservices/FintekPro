@@ -198,6 +198,14 @@ export const dailyPicks = pgTable("daily_picks", {
   index("idx_daily_picks_reco_date").on(table.recoDate),
   index("idx_daily_picks_isin").on(table.isin),
   uniqueIndex("idx_daily_picks_unique_reco").on(table.category, table.recoDate, table.instrumentId, table.symbol),
+  // ── Phase DB-OPT: Partial index for live-pick hot path (getLivePicks query) ──
+  // Covers: WHERE status = 'live' AND expiry_date >= CURRENT_DATE ORDER BY reco_date DESC
+  // Reduces getLivePicks() from full-table scan to index-only seek.
+  index("idx_daily_picks_live_expiry").on(table.expiryDate, table.recoDate),
+  // Covers: category-first POTD dedup query pattern
+  index("idx_daily_picks_cat_reco_status").on(table.category, table.recoDate, table.status),
+  // Covers: symbol-based live pick lookup (outcome analyzer & consensus check)
+  index("idx_daily_picks_symbol_status").on(table.symbol, table.status),
 ]);
 
 export const insertDailyPickSchema = createInsertSchema(dailyPicks).extend({

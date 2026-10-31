@@ -566,3 +566,191 @@ export async function getEnrichedStockSnapshots(
 
 	return results;
 }
+
+
+/**
+ * getEnrichedStockSnapshotsFromMaster
+ *
+ * High-performance batch alternative to getEnrichedStockSnapshots().
+ * Reads all snapshot data in ONE SQL query from screener_master_snapshots
+ * instead of the existing 11-query-per-symbol N+1 pattern.
+ *
+ * @performance  1 roundtrip for up to 500 symbols vs. 550+ roundtrips previously.
+ * @fallback     Falls back to getEnrichedStockSnapshots() if master table has no data.
+ * @param symbols  Array of NSE/BSE tickers
+ * @returns        Map<UPPER_SYMBOL, EnrichedStockSnapshot>
+ */
+export async function getEnrichedStockSnapshotsFromMaster(
+  symbols: string[],
+): Promise<Map<string, EnrichedStockSnapshot>> {
+  if (!symbols.length) return new Map();
+
+  const upperSymbols = Array.from(new Set(symbols.map((s) => s.toUpperCase().trim()).filter(Boolean)));
+
+  // ── Check in-memory cache first ─────────────────────────────────────────
+  const results = new Map<string, EnrichedStockSnapshot>();
+  const cacheMisses: string[] = [];
+
+  for (const sym of upperSymbols) {
+    const cached = snapshotCache.get(sym);
+    if (cached && cached.expiresAt > Date.now()) {
+      results.set(sym, cached.data);
+    } else {
+      cacheMisses.push(sym);
+    }
+  }
+
+  if (cacheMisses.length === 0) return results;
+
+  // ── Single bulk query from master snapshot table ─────────────────────────
+  try {
+    const masterRows = await db.execute(
+      sql`SELECT * FROM screener_master_snapshots WHERE symbol = ANY(${sql.raw(
+        `ARRAY[${cacheMisses.map((s) => `'${s.replace(/'/g, "''")}'`).join(",")}]`
+      )})`
+    ).catch(() => ({ rows: [] }));
+
+    const masterMap = new Map<string, any>();
+    for (const row of ((masterRows as any).rows ?? [])) {
+      if (row.symbol) masterMap.set(row.symbol as string, row);
+    }
+
+    for (const sym of cacheMisses) {
+      const m = masterMap.get(sym);
+      if (!m) continue;
+
+      const techIndicators: Record<string, number> = {};
+      const rsiNum = safeNum(m.rsi_14);
+      const sma50Num = safeNum(m.sma_50);
+      const sma200Num = safeNum(m.sma_200);
+      const ema20Num = safeNum(m.ema_20);
+      const macdNum = safeNum(m.macd);
+      const adxNum = safeNum(m.adx);
+      if (rsiNum !== null) techIndicators["rsi"] = rsiNum;
+      if (sma50Num !== null) techIndicators["sma50"] = sma50Num;
+      if (sma200Num !== null) techIndicators["sma200"] = sma200Num;
+      if (ema20Num !== null) techIndicators["ema20"] = ema20Num;
+      if (macdNum !== null) techIndicators["macd"] = macdNum;
+      if (adxNum !== null) techIndicators["adx"] = adxNum;
+
+      const snapshot: EnrichedStockSnapshot = {
+        symbol: sym,
+        fetchedAt: new Date().toISOString(),
+
+        fundamentals: {
+          peRatio: safeNum(m.pe_ratio),
+          pbRatio: safeNum(m.pb_ratio),
+          roe: safeNum(m.roe),
+          roa: safeNum(m.roa),
+          roic: safeNum(m.roic),
+          debtToEquity: safeNum(m.debt_to_equity),
+          currentRatio: safeNum(m.current_ratio),
+          dividendYield: safeNum(m.dividend_yield),
+          eps: safeNum(m.eps),
+          evToEbitda: safeNum(m.ev_to_ebitda),
+          grahamNumber: safeNum(m.graham_number),
+          marketCap: safeNum(m.market_cap),
+          enterpriseValue: safeNum(m.enterprise_value),
+          freeCashFlowYield: safeNum(m.free_cash_flow_yield),
+          earningsYield: safeNum(m.earnings_yield),
+          payoutRatio: null,
+          revenuePerShare: null,
+          bookValuePerShare: safeNum(m.book_value),
+          operatingCashFlowPerShare: null,
+          freeCashFlowPerShare: null,
+          interestCoverage: safeNum(m.interest_coverage),
+        },
+
+        growth: {
+          revenueGrowth: safeNum(m.revenue_growth),
+          netIncomeGrowth: null,
+          epsGrowth: safeNum(m.earnings_growth),
+          epsDilutedGrowth: null,
+          freeCashFlowGrowth: null,
+          operatingIncomeGrowth: null,
+          grossProfitGrowth: null,
+          dividendGrowth: null,
+          bookValueGrowth: null,
+          threeYRevenueGrowthPerShare: null,
+          fiveYRevenueGrowthPerShare: null,
+        },
+
+        technicals: m.rsi_14 != null
+          ? {
+              rsi: rsiNum,
+              sma50: sma50Num,
+              sma200: sma200Num,
+              ema20: ema20Num,
+              macd: macdNum,
+              adx: adxNum,
+              indicators: techIndicators,
+            }
+          : null,
+
+        dcf: m.dcf_upside_percent != null
+          ? {
+              dcfValue: null,
+              stockPrice: null,
+              upsidePercent: safeNum(m.dcf_upside_percent),
+            }
+          : null,
+        companyRating: null,
+        analystTargets: m.analyst_avg_target != null
+          ? {
+              count: m.analyst_count ? Number(m.analyst_count) : 0,
+              avgPriceTarget: safeNum(m.analyst_avg_target),
+              latestTargets: [],
+            }
+          : null,
+        analystGrades: null,
+        institutional: null,
+        insiderTrades: null,
+        news: null,
+        sectorPerformance: null,
+
+        derivedMetrics: {
+          growthScore: safeNum(m.growth_score),
+          qualityScore: safeNum(m.quality_score),
+          valueScore: safeNum(m.value_score),
+          riskScore: safeNum(m.risk_score),
+          compositeScore: safeNum(m.composite_score),
+          fintekRating: safeNum(m.fintek_rating),
+        },
+
+        performance: {
+          return1W: safeNum(m.return_1w),
+          return1M: safeNum(m.return_1m),
+          return3M: safeNum(m.return_3m),
+          return6M: safeNum(m.return_6m),
+          return1Y: safeNum(m.return_1y),
+          return2Y: safeNum(m.return_2y),
+          return3Y: safeNum(m.return_3y),
+          return5Y: safeNum(m.return_5y),
+          returnYTD: safeNum(m.return_ytd),
+          returnVsNifty1Y: safeNum(m.return_vs_nifty_1y),
+          beta: safeNum(m.beta),
+          sharpeRatio1Y: safeNum(m.sharpe_ratio_1y),
+          maxDrawdown1Y: safeNum(m.max_drawdown_1y),
+        },
+      };
+
+      // Populate in-memory cache
+      snapshotCache.set(sym, { data: snapshot, expiresAt: Date.now() + CACHE_TTL_MS });
+      results.set(sym, snapshot);
+    }
+
+    // For any symbols not found in master table, fall back to the legacy per-symbol fetch
+    const notInMaster = cacheMisses.filter((s) => !results.has(s));
+    if (notInMaster.length > 0) {
+      const fallbackMap = await getEnrichedStockSnapshots(notInMaster);
+      fallbackMap.forEach((v, k) => {
+        results.set(k, v);
+      });
+    }
+
+    return results;
+  } catch {
+    // Non-fatal: fall back to legacy N+1 fetch
+    return getEnrichedStockSnapshots(upperSymbols);
+  }
+}

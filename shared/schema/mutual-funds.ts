@@ -1029,6 +1029,11 @@ export const goldenPrices = pgTable("golden_prices", {
   index("idx_golden_prices_symbol").on(table.symbol),
   index("idx_golden_prices_asset_class").on(table.assetClass),
   index("idx_golden_prices_flagged").on(table.isFlagged),
+  // ── Phase DB-OPT: Composite for time-series lookups (RSI, DMA, returns, quant engines) ──
+  // Covers: WHERE symbol = X AND price_date >= cutoff ORDER BY price_date DESC
+  index("idx_golden_prices_symbol_date_price").on(table.symbol, table.priceDate, table.price),
+  // Covers: asset class + date range scans for MVO covariance matrix
+  index("idx_golden_prices_asset_date_desc").on(table.assetClass, table.priceDate),
 ]);
 
 export type GoldenPrice = typeof goldenPrices.$inferSelect;

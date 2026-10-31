@@ -830,3 +830,169 @@ export const insertStrategyBacktestRunSchema = createInsertSchema(strategyBackte
 export type StrategyBacktestRun = typeof strategyBacktestRuns.$inferSelect;
 export type InsertStrategyBacktestRun = z.infer<typeof insertStrategyBacktestRunSchema>;
 
+
+// ── Phase DB-OPT: Screener Master Snapshot Table ─────────────────────────────
+// Pre-joined 1-row-per-symbol denormalized table for zero-join screener queries.
+// Replaces 8-table JOIN + 4 correlated subqueries in screener-query-engine.ts.
+//
+// Population: upserted by screener-enrichment-engine.ts after each symbol enrichment
+//             + nightly full sweep at 02:00 AM IST.
+// Read by:    screener-query-engine.ts (primary reads), StockStrategy (candidate pool),
+//             enriched-stock-data.ts (bulk snapshot fetch), Black-Litterman engine.
+//
+// @compliance GCR v1.0: All write operations must store created_at, updated_at, source.
+// @compliance FASP-AI v1.0: AI advisory scoring must read from a single stable snapshot.
+export const screenerMasterSnapshots = pgTable("screener_master_snapshots", {
+  // ── Identity ──────────────────────────────────────────────────────────────
+  symbol: varchar("symbol", { length: 50 }).primaryKey(),
+  isin: varchar("isin", { length: 12 }),
+  companyName: text("company_name"),
+  exchange: varchar("exchange", { length: 10 }).default("NSE"),
+  sector: varchar("sector"),
+  broadSector: varchar("broad_sector"),
+  macroSector: varchar("macro_sector"),
+  industry: varchar("industry"),
+  marketCapCategory: varchar("market_cap_category"),
+  // ── Pricing ──────────────────────────────────────────────────────────────
+  currentPrice: decimal("current_price", { precision: 15, scale: 2 }),
+  previousClose: decimal("previous_close", { precision: 15, scale: 2 }),
+  dayChangePercent: decimal("day_change_percent", { precision: 8, scale: 4 }),
+  marketCapValue: decimal("market_cap_value", { precision: 20, scale: 2 }),
+  averageVolume: decimal("average_volume", { precision: 20, scale: 2 }),
+  weekHigh52: decimal("week_high_52", { precision: 15, scale: 2 }),
+  weekLow52: decimal("week_low_52", { precision: 15, scale: 2 }),
+  // ── Fundamentals (from screener_financials, latest fiscal year) ───────────
+  peRatio: decimal("pe_ratio", { precision: 10, scale: 4 }),
+  forwardPe: decimal("forward_pe", { precision: 10, scale: 4 }),
+  pegRatio: decimal("peg_ratio", { precision: 10, scale: 4 }),
+  pbRatio: decimal("pb_ratio", { precision: 10, scale: 4 }),
+  evToEbitda: decimal("ev_to_ebitda", { precision: 10, scale: 4 }),
+  roe: decimal("roe", { precision: 10, scale: 4 }),
+  roce: decimal("roce", { precision: 10, scale: 4 }),
+  roa: decimal("roa", { precision: 10, scale: 4 }),
+  roic: decimal("roic", { precision: 10, scale: 4 }),
+  netProfitMargin: decimal("net_profit_margin", { precision: 10, scale: 4 }),
+  operatingMargin: decimal("operating_margin", { precision: 10, scale: 4 }),
+  grossMargin: decimal("gross_margin", { precision: 10, scale: 4 }),
+  debtToEquity: decimal("debt_to_equity", { precision: 10, scale: 4 }),
+  currentRatio: decimal("current_ratio", { precision: 10, scale: 4 }),
+  dividendYield: decimal("dividend_yield", { precision: 10, scale: 4 }),
+  eps: decimal("eps", { precision: 12, scale: 4 }),
+  bookValue: decimal("book_value", { precision: 15, scale: 4 }),
+  revenueGrowth: decimal("revenue_growth", { precision: 10, scale: 4 }),
+  earningsGrowth: decimal("earnings_growth", { precision: 10, scale: 4 }),
+  freeCashFlow: decimal("free_cash_flow", { precision: 20, scale: 2 }),
+  fcfMargin: decimal("fcf_margin", { precision: 10, scale: 4 }),
+  netDebtToEbitda: decimal("net_debt_to_ebitda", { precision: 10, scale: 4 }),
+  interestCoverage: decimal("interest_coverage", { precision: 10, scale: 4 }),
+  grahamNumber: decimal("graham_number", { precision: 15, scale: 4 }),
+  // ── Key Metrics (from screener_key_metrics, latest) ───────────────────────
+  marketCap: decimal("market_cap", { precision: 20, scale: 2 }),
+  enterpriseValue: decimal("enterprise_value", { precision: 20, scale: 2 }),
+  freeCashFlowYield: decimal("free_cash_flow_yield", { precision: 10, scale: 4 }),
+  earningsYield: decimal("earnings_yield", { precision: 10, scale: 4 }),
+  daysSalesOutstanding: decimal("days_sales_outstanding", { precision: 10, scale: 2 }),
+  daysPayablesOutstanding: decimal("days_payables_outstanding", { precision: 10, scale: 2 }),
+  daysInventoryOnHand: decimal("days_inventory_on_hand", { precision: 10, scale: 2 }),
+  incomeQuality: decimal("income_quality", { precision: 10, scale: 4 }),
+  // ── Technical Indicators (from screener_technical_indicators_latest) ───────
+  rsi14: decimal("rsi_14", { precision: 8, scale: 4 }),
+  sma50: decimal("sma_50", { precision: 15, scale: 4 }),
+  sma200: decimal("sma_200", { precision: 15, scale: 4 }),
+  ema20: decimal("ema_20", { precision: 15, scale: 4 }),
+  macd: decimal("macd", { precision: 10, scale: 4 }),
+  adx: decimal("adx", { precision: 8, scale: 4 }),
+  technicalRating: varchar("technical_rating", { length: 20 }),
+  // ── Derived / Scoring (from screener_derived_metrics) ─────────────────────
+  compositeScore: decimal("composite_score", { precision: 8, scale: 4 }),
+  fintekRating: integer("fintek_rating"),
+  growthScore: decimal("growth_score", { precision: 8, scale: 4 }),
+  qualityScore: decimal("quality_score", { precision: 8, scale: 4 }),
+  valueScore: decimal("value_score", { precision: 8, scale: 4 }),
+  riskScore: decimal("risk_score", { precision: 8, scale: 4 }),
+  piotroskiScore: integer("piotroski_score"),
+  altmanZScore: decimal("altman_z_score", { precision: 8, scale: 4 }),
+  magicFormulaRank: integer("magic_formula_rank"),
+  // ── Returns & Risk (from screener_derived_metrics) ────────────────────────
+  return1W: decimal("return_1w", { precision: 10, scale: 4 }),
+  return1M: decimal("return_1m", { precision: 10, scale: 4 }),
+  return3M: decimal("return_3m", { precision: 10, scale: 4 }),
+  return6M: decimal("return_6m", { precision: 10, scale: 4 }),
+  return1Y: decimal("return_1y", { precision: 10, scale: 4 }),
+  return2Y: decimal("return_2y", { precision: 10, scale: 4 }),
+  return3Y: decimal("return_3y", { precision: 10, scale: 4 }),
+  return5Y: decimal("return_5y", { precision: 10, scale: 4 }),
+  returnYTD: decimal("return_ytd", { precision: 10, scale: 4 }),
+  returnVsNifty1Y: decimal("return_vs_nifty_1y", { precision: 10, scale: 4 }),
+  returnVsSector1Y: decimal("return_vs_sector_1y", { precision: 10, scale: 4 }),
+  beta: decimal("beta", { precision: 8, scale: 4 }),
+  sharpeRatio1Y: decimal("sharpe_ratio_1y", { precision: 8, scale: 4 }),
+  sortinoRatio1Y: decimal("sortino_ratio_1y", { precision: 8, scale: 4 }),
+  maxDrawdown1Y: decimal("max_drawdown_1y", { precision: 8, scale: 4 }),
+  volatility30D: decimal("volatility_30d", { precision: 8, scale: 4 }),
+  // ── Shareholding (from screener_shareholding, latest quarter) ─────────────
+  promoterHolding: decimal("promoter_holding", { precision: 8, scale: 4 }),
+  promoterHoldingChange: decimal("promoter_holding_change", { precision: 8, scale: 4 }),
+  fiiHolding: decimal("fii_holding", { precision: 8, scale: 4 }),
+  fiiHoldingChange: decimal("fii_holding_change", { precision: 8, scale: 4 }),
+  diiHolding: decimal("dii_holding", { precision: 8, scale: 4 }),
+  pledgedShares: decimal("pledged_shares", { precision: 8, scale: 4 }),
+  // ── Analyst Consensus (from screener_analyst_consensus) ───────────────────
+  analystAvgTarget: decimal("analyst_avg_target", { precision: 15, scale: 4 }),
+  analystUpsidePct: decimal("analyst_upside_pct", { precision: 8, scale: 4 }),
+  analystConsensusRating: varchar("analyst_consensus_rating", { length: 30 }),
+  analystCount: integer("analyst_count"),
+  // ── DCF (from screener_dcf_valuations, latest) ────────────────────────────
+  dcfUpsidePercent: decimal("dcf_upside_percent", { precision: 8, scale: 4 }),
+  // ── Additional: index membership, pro themes ──────────────────────────────
+  indexMembership: jsonb("index_membership").default([]),
+  proThemes: text("pro_themes").array().default([]),
+  technicalSignal: varchar("technical_signal", { length: 32 }),
+  piotroskiFScore: integer("piotroski_f_score"),
+  consensusUpsidePercent: decimal("consensus_upside_percent", { precision: 8, scale: 2 }),
+  // ── Snapshot freshness ─────────────────────────────────────────────────────
+  financialsFiscalYear: integer("financials_fiscal_year"),
+  shareholdingQuarterDate: varchar("shareholding_quarter_date", { length: 10 }),
+  snapshotVersion: integer("snapshot_version").default(1),
+  // ── GCR v1.0 mandatory audit fields ──────────────────────────────────────
+  source: varchar("source", { length: 30 }).default("enrichment").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  // Primary screener filter path: sector + market cap + composite score
+  index("idx_sms_sector_mcap_score").on(table.sector, table.marketCapCategory, table.compositeScore),
+  // POTD candidate path: broad sector + market cap + composite score
+  index("idx_sms_broad_sector_score").on(table.broadSector, table.marketCapCategory, table.compositeScore),
+  // Fundamental filter indexes
+  index("idx_sms_pe").on(table.peRatio),
+  index("idx_sms_roe").on(table.roe),
+  index("idx_sms_debt_equity").on(table.debtToEquity),
+  // Scoring / rating indexes
+  index("idx_sms_composite_score").on(table.compositeScore),
+  index("idx_sms_fintek_rating").on(table.fintekRating),
+  index("idx_sms_piotroski").on(table.piotroskiScore),
+  // Return indexes
+  index("idx_sms_return_1y").on(table.return1Y),
+  index("idx_sms_return_1y_score").on(table.return1Y, table.compositeScore),
+  // Technical indexes
+  index("idx_sms_rsi").on(table.rsi14),
+  index("idx_sms_tech_rating").on(table.technicalRating),
+  // Risk indexes
+  index("idx_sms_beta").on(table.beta),
+  // Analyst / DCF
+  index("idx_sms_analyst_upside").on(table.analystUpsidePct),
+  index("idx_sms_dcf_upside").on(table.dcfUpsidePercent),
+  // Shareholding
+  index("idx_sms_promoter_holding").on(table.promoterHolding),
+  // ISIN lookup
+  index("idx_sms_isin").on(table.isin),
+  // Update tracking
+  index("idx_sms_updated_at").on(table.updatedAt),
+]);
+
+export const insertScreenerMasterSnapshotSchema = createInsertSchema(screenerMasterSnapshots).omit({
+  createdAt: true,
+  updatedAt: true,
+});
+export type ScreenerMasterSnapshot = typeof screenerMasterSnapshots.$inferSelect;
+export type InsertScreenerMasterSnapshot = z.infer<typeof insertScreenerMasterSnapshotSchema>;

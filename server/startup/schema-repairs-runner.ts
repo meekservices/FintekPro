@@ -15,6 +15,7 @@ import {
   runVwapColumnRepair,
   runProspectLeadsDedupRepair,
   runFnOContractFlagRepair,
+  runDbEfficiencyIndexesAndSnapshotsRepair,
 } from "./schema-repairs";
 
 async function main() {
@@ -359,6 +360,31 @@ async function main() {
     await pickOfTheDayService.invalidatePicksCache();
   } catch (cacheErr: any) {
     console.warn("Phase Q (POTD cache purge) non-fatal error:", cacheErr?.message);
+  }
+
+  // ── Phase Q-2 — Screener Master Snapshot Table & DB Efficiency Indexes ─────
+  console.log("Phase Q-2 — ensuring screener_master_snapshots table and composite performance indexes...");
+  try {
+    await runDbEfficiencyIndexesAndSnapshotsRepair();
+  } catch (idxErr: any) {
+    console.warn("Phase Q-2 (DB efficiency indexes) non-fatal error:", idxErr?.message);
+  }
+
+  // ── Phase R — Screener Master Snapshot Rebuild ──────────────────────────────
+  // Rebuilds screener_master_snapshots for all active symbols.
+  // This pre-joins 8 screener sub-tables into 1 denormalized snapshot per symbol,
+  // enabling zero-join screener queries and single-batch POTD candidate scoring.
+  // Non-fatal: a failure here degrades performance but does not block startup.
+  console.log("Phase R — rebuilding screener master snapshots...");
+  try {
+    const { screenerMasterSnapshotService } = await import("../services/screener/screener-master-snapshot-service");
+    const snapResult = await screenerMasterSnapshotService.rebuildFullSnapshot();
+    console.log(`  ✅ [Phase R] Master snapshots rebuilt: ${snapResult.succeeded}/${snapResult.total} succeeded, ${snapResult.failed} failed.`);
+    if (snapResult.failedSymbols.length > 0) {
+      console.warn(`  ⚠️ [Phase R] Failed symbols: ${snapResult.failedSymbols.slice(0, 10).join(", ")}${snapResult.failedSymbols.length > 10 ? "..." : ""}`);
+    }
+  } catch (snapErr: any) {
+    console.warn("Phase R (screener master snapshot rebuild) non-fatal error:", snapErr?.message?.slice(0, 100));
   }
 
   console.log("FintekPro schema repair job complete.");

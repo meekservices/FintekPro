@@ -19,6 +19,7 @@ import {
 
 import {
 	getEnrichedStockSnapshots,
+	getEnrichedStockSnapshotsFromMaster,
 	EnrichedStockSnapshot,
 } from "../screener/enriched-stock-data";
 import { FinancialMetricsCalculator } from "../financial-metrics-calculator";
@@ -1076,7 +1077,10 @@ export class StockStrategy extends BaseStrategy {
 			.filter(Boolean) as string[];
 		let enrichedSnapshots: Map<string, EnrichedStockSnapshot> = new Map();
 		try {
-			enrichedSnapshots = await getEnrichedStockSnapshots(symbols);
+			// DB-OPT Phase: Use master snapshot bulk fetch (1 query for all candidates)
+			// instead of N+1 per-symbol fetching (11 queries × N symbols).
+			// Falls back to legacy getEnrichedStockSnapshots() automatically if master table is empty.
+			enrichedSnapshots = await getEnrichedStockSnapshotsFromMaster(symbols);
 		} catch {
 			/* non-fatal — scoring degrades gracefully */
 		}

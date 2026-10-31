@@ -5905,4 +5905,162 @@ export async function repairCorruptModelPortfolioCAGRs(dbInstance?: any): Promis
   return { calibratedCount, clampedCount };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MIGRATION: Screener Master Snapshot Table & DB Efficiency Indexes
+// Idempotent: safe to run on every startup.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function runDbEfficiencyIndexesAndSnapshotsRepair(poolInstance?: any): Promise<void> {
+  try {
+    const { pool: defaultPool } = await import("../db");
+    const migPool = poolInstance || defaultPool;
+
+    console.log("  ⚡ [DB-Efficiency] Ensuring screener_master_snapshots table and performance indexes...");
+
+    await migPool.query(`
+      CREATE TABLE IF NOT EXISTS screener_master_snapshots (
+        symbol                     VARCHAR(50) PRIMARY KEY,
+        isin                       VARCHAR(12),
+        company_name               TEXT,
+        exchange                   VARCHAR(10) DEFAULT 'NSE',
+        sector                     VARCHAR(255),
+        broad_sector               VARCHAR(255),
+        macro_sector               VARCHAR(255),
+        industry                   VARCHAR(255),
+        market_cap_category        VARCHAR(50),
+        current_price              DECIMAL(15, 2),
+        previous_close             DECIMAL(15, 2),
+        day_change_percent         DECIMAL(8, 4),
+        market_cap_value           DECIMAL(20, 2),
+        average_volume             DECIMAL(20, 2),
+        week_high_52               DECIMAL(15, 2),
+        week_low_52                DECIMAL(15, 2),
+        pe_ratio                   DECIMAL(10, 4),
+        forward_pe                 DECIMAL(10, 4),
+        peg_ratio                  DECIMAL(10, 4),
+        pb_ratio                   DECIMAL(10, 4),
+        ev_to_ebitda               DECIMAL(10, 4),
+        roe                        DECIMAL(10, 4),
+        roce                       DECIMAL(10, 4),
+        roa                        DECIMAL(10, 4),
+        roic                       DECIMAL(10, 4),
+        net_profit_margin          DECIMAL(10, 4),
+        operating_margin           DECIMAL(10, 4),
+        gross_margin               DECIMAL(10, 4),
+        debt_to_equity             DECIMAL(10, 4),
+        current_ratio              DECIMAL(10, 4),
+        dividend_yield             DECIMAL(10, 4),
+        eps                        DECIMAL(12, 4),
+        book_value                 DECIMAL(15, 4),
+        revenue_growth             DECIMAL(10, 4),
+        earnings_growth            DECIMAL(10, 4),
+        free_cash_flow             DECIMAL(20, 2),
+        fcf_margin                 DECIMAL(10, 4),
+        net_debt_to_ebitda         DECIMAL(10, 4),
+        interest_coverage          DECIMAL(10, 4),
+        graham_number              DECIMAL(15, 4),
+        market_cap                 DECIMAL(20, 2),
+        enterprise_value           DECIMAL(20, 2),
+        free_cash_flow_yield       DECIMAL(10, 4),
+        earnings_yield             DECIMAL(10, 4),
+        days_sales_outstanding     DECIMAL(10, 2),
+        days_payables_outstanding  DECIMAL(10, 2),
+        days_inventory_on_hand     DECIMAL(10, 2),
+        income_quality             DECIMAL(10, 4),
+        rsi_14                     DECIMAL(8, 4),
+        sma_50                     DECIMAL(15, 4),
+        sma_200                    DECIMAL(15, 4),
+        ema_20                     DECIMAL(15, 4),
+        macd                       DECIMAL(10, 4),
+        adx                        DECIMAL(8, 4),
+        technical_rating           VARCHAR(20),
+        composite_score            DECIMAL(8, 4),
+        fintek_rating              INTEGER,
+        growth_score               DECIMAL(8, 4),
+        quality_score              DECIMAL(8, 4),
+        value_score                DECIMAL(8, 4),
+        risk_score                 DECIMAL(8, 4),
+        piotroski_score            INTEGER,
+        altman_z_score             DECIMAL(8, 4),
+        magic_formula_rank         INTEGER,
+        return_1w                  DECIMAL(10, 4),
+        return_1m                  DECIMAL(10, 4),
+        return_3m                  DECIMAL(10, 4),
+        return_6m                  DECIMAL(10, 4),
+        return_1y                  DECIMAL(10, 4),
+        return_2y                  DECIMAL(10, 4),
+        return_3y                  DECIMAL(10, 4),
+        return_5y                  DECIMAL(10, 4),
+        return_ytd                 DECIMAL(10, 4),
+        return_vs_nifty_1y         DECIMAL(10, 4),
+        return_vs_sector_1y        DECIMAL(10, 4),
+        beta                       DECIMAL(8, 4),
+        sharpe_ratio_1y            DECIMAL(8, 4),
+        sortino_ratio_1y           DECIMAL(8, 4),
+        max_drawdown_1y            DECIMAL(8, 4),
+        volatility_30d             DECIMAL(8, 4),
+        promoter_holding           DECIMAL(8, 4),
+        promoter_holding_change    DECIMAL(8, 4),
+        fii_holding                DECIMAL(8, 4),
+        fii_holding_change         DECIMAL(8, 4),
+        dii_holding                DECIMAL(8, 4),
+        pledged_shares             DECIMAL(8, 4),
+        shareholding_quarter_date  VARCHAR(10),
+        analyst_avg_target         DECIMAL(15, 4),
+        analyst_upside_pct         DECIMAL(8, 4),
+        analyst_consensus_rating   VARCHAR(30),
+        analyst_count              INTEGER,
+        dcf_upside_percent         DECIMAL(8, 4),
+        index_membership           JSONB DEFAULT '[]'::jsonb,
+        pro_themes                 TEXT[] DEFAULT ARRAY[]::text[],
+        technical_signal           VARCHAR(32),
+        piotroski_f_score          INTEGER,
+        consensus_upside_percent   DECIMAL(8, 2),
+        financials_fiscal_year     INTEGER,
+        snapshot_version           INTEGER DEFAULT 1,
+        source                     VARCHAR(30) DEFAULT 'enrichment' NOT NULL,
+        created_at                 TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+        updated_at                 TIMESTAMPTZ DEFAULT NOW() NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_sms_sector_mcap_score ON screener_master_snapshots (sector, market_cap_category, composite_score);
+      CREATE INDEX IF NOT EXISTS idx_sms_broad_sector_score ON screener_master_snapshots (broad_sector, market_cap_category, composite_score);
+      CREATE INDEX IF NOT EXISTS idx_sms_pe ON screener_master_snapshots (pe_ratio);
+      CREATE INDEX IF NOT EXISTS idx_sms_roe ON screener_master_snapshots (roe);
+      CREATE INDEX IF NOT EXISTS idx_sms_debt_equity ON screener_master_snapshots (debt_to_equity);
+      CREATE INDEX IF NOT EXISTS idx_sms_composite_score ON screener_master_snapshots (composite_score);
+      CREATE INDEX IF NOT EXISTS idx_sms_fintek_rating ON screener_master_snapshots (fintek_rating);
+      CREATE INDEX IF NOT EXISTS idx_sms_piotroski ON screener_master_snapshots (piotroski_score);
+      CREATE INDEX IF NOT EXISTS idx_sms_return_1y ON screener_master_snapshots (return_1y);
+      CREATE INDEX IF NOT EXISTS idx_sms_return_1y_score ON screener_master_snapshots (return_1y, composite_score);
+      CREATE INDEX IF NOT EXISTS idx_sms_rsi ON screener_master_snapshots (rsi_14);
+      CREATE INDEX IF NOT EXISTS idx_sms_tech_rating ON screener_master_snapshots (technical_rating);
+      CREATE INDEX IF NOT EXISTS idx_sms_beta ON screener_master_snapshots (beta);
+      CREATE INDEX IF NOT EXISTS idx_sms_analyst_upside ON screener_master_snapshots (analyst_upside_pct);
+      CREATE INDEX IF NOT EXISTS idx_sms_dcf_upside ON screener_master_snapshots (dcf_upside_percent);
+      CREATE INDEX IF NOT EXISTS idx_sms_promoter_holding ON screener_master_snapshots (promoter_holding);
+      CREATE INDEX IF NOT EXISTS idx_sms_isin ON screener_master_snapshots (isin);
+      CREATE INDEX IF NOT EXISTS idx_sms_updated_at ON screener_master_snapshots (updated_at);
+
+      -- POTD Hot Path & Category Dedup Indexes
+      CREATE INDEX IF NOT EXISTS idx_daily_picks_live_expiry ON daily_picks (expiry_date, reco_date DESC);
+      CREATE INDEX IF NOT EXISTS idx_daily_picks_cat_reco_status ON daily_picks (category, reco_date, status);
+      CREATE INDEX IF NOT EXISTS idx_daily_picks_symbol_status ON daily_picks (symbol, status);
+
+      -- Golden Prices Time-Series Indexes (RSI, returns, quant covariance)
+      CREATE INDEX IF NOT EXISTS idx_golden_prices_symbol_date_price ON golden_prices (symbol, price_date, price);
+      CREATE INDEX IF NOT EXISTS idx_golden_prices_asset_date_desc ON golden_prices (asset_class, price_date);
+
+      -- Listed Stocks POTD Candidate Selection Indexes
+      CREATE INDEX IF NOT EXISTS idx_listed_stocks_potd_candidates ON listed_stocks (sector, market_cap_category, average_volume);
+      CREATE INDEX IF NOT EXISTS idx_listed_stocks_broad_sector ON listed_stocks (broad_sector, market_cap_category);
+      CREATE INDEX IF NOT EXISTS idx_listed_stocks_is_published ON listed_stocks (is_published, is_active);
+    `);
+
+    console.log("  ✅ [DB-Efficiency] screener_master_snapshots table and composite performance indexes ensured");
+  } catch (err: any) {
+    console.warn("  ⚠️ [DB-Efficiency] Non-fatal migration error:", err?.message?.slice(0, 120));
+  }
+}
+
+
 
