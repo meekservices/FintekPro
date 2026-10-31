@@ -79,3 +79,55 @@ describe("AMC Research & House Consensus Service", () => {
 		expect(fallback.commodityRadar.crudeOilBreakevenStatus.brentUsd).toBe(117.0);
 	});
 });
+
+describe("AMC Master Registry & 52 AMC Coverage", () => {
+	it("verifies master directory covers all 52 registered AMCs across SEBI & IFSCA", async () => {
+		const { ALL_52_AMCS, getAmcDirectory, getAmcProfileByCode } = await import("../services/amc-master-directory");
+		expect(ALL_52_AMCS.length).toBe(52);
+
+		const mega = getAmcDirectory({ tier: "mega_institutional" });
+		expect(mega.length).toBe(10);
+
+		const pillars = getAmcDirectory({ tier: "established_pillar" });
+		expect(pillars.length).toBe(14);
+
+		const boutiques = getAmcDirectory({ tier: "alpha_boutique" });
+		expect(boutiques.length).toBe(16);
+
+		const fintech = getAmcDirectory({ tier: "fintech_passive" });
+		expect(fintech.length).toBe(6);
+
+		const giftCity = getAmcDirectory({ tier: "gift_city_ifsc" });
+		expect(giftCity.length).toBe(6);
+
+		// Verify GIFT City AMCs
+		const hdfcIfsc = getAmcProfileByCode("GIFT_HDFC_IFSC");
+		expect(hdfcIfsc).toBeDefined();
+		expect(hdfcIfsc?.rta).toBe("IFSCA");
+		expect(hdfcIfsc?.flagshipScheme?.category).toBe("GIFT City (IFSC)");
+
+		const kotakIfsc = getAmcProfileByCode("GIFT_KOTAK_IFSC");
+		expect(kotakIfsc).toBeDefined();
+		expect(kotakIfsc?.rta).toBe("IFSCA");
+
+		// Search verification
+		const searchResults = getAmcDirectory({ search: "Quant" });
+		expect(searchResults.length).toBeGreaterThanOrEqual(1);
+	});
+
+	it("guarantees amcKnowledgeHubService returns insights for all 52 AMCs with complete metadata", async () => {
+		const { amcKnowledgeHubService } = await import("../services/amc-knowledge-hub-service");
+		const insights = amcKnowledgeHubService.getAmcStrategistInsights();
+		expect(insights.length).toBe(52);
+
+		const giftInsights = amcKnowledgeHubService.getAmcStrategistInsights({ tier: "gift_city_ifsc" });
+		expect(giftInsights.length).toBe(6);
+		giftInsights.forEach((i) => {
+			expect(i.tier).toBe("gift_city_ifsc");
+			expect(i.rta).toBe("IFSCA");
+			expect(i.sectorCalls).toBeDefined();
+			expect(i.macroIndicators).toBeDefined();
+			expect(i.advisoryTipForPartners).toBeDefined();
+		});
+	});
+});

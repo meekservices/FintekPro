@@ -160,26 +160,28 @@ export class KnowledgeHubService {
 				}
 			}
 
-			// Dynamic live commodity benchmarks query (Brent Crude, Gold, Silver, Copper, Natural Gas)
-			try {
-				const { commodityMarketService } = await import("./commodity-market-service");
-				const commRes = await commodityMarketService.getCommodityBenchmarks();
-				if (commRes.success && commRes.data) {
-					commodityRadar = commRes.data;
+			if (!commodityRadar) {
+				try {
+					const { commodityMarketService } = await import("./commodity-market-service");
+					const commRes = await commodityMarketService.getCommodityBenchmarks();
+					if (commRes.success && commRes.data) {
+						commodityRadar = commRes.data;
+					}
+				} catch (err: any) {
+					console.warn("[KnowledgeHubService] Dynamic commodity radar fetch failed:", err?.message);
 				}
-			} catch (err: any) {
-				console.warn("[KnowledgeHubService] Dynamic commodity radar fetch failed:", err?.message);
 			}
 
-			// Dynamic multi-exchange data query (GIFT Nifty, BSE market breadth, circuits, VIX)
-			try {
-				const { multiExchangeMarketService } = await import("./multi-exchange-market-service");
-				const meRes = await multiExchangeMarketService.getMultiExchangeSnapshot();
-				if (meRes.success && meRes.data) {
-					multiExchangeData = meRes.data;
+			if (!multiExchangeData) {
+				try {
+					const { multiExchangeMarketService } = await import("./multi-exchange-market-service");
+					const meRes = await multiExchangeMarketService.getMultiExchangeSnapshot();
+					if (meRes.success && meRes.data) {
+						multiExchangeData = meRes.data;
+					}
+				} catch (err: any) {
+					console.warn("[KnowledgeHubService] Dynamic multi-exchange fetch failed:", err?.message);
 				}
-			} catch (err: any) {
-				console.warn("[KnowledgeHubService] Dynamic multi-exchange fetch failed:", err?.message);
 			}
 
 			if (!amcConsensus) {

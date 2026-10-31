@@ -5,6 +5,7 @@ import { nismLmsService } from "../services/nism-lms-service";
 import { nismCurriculumService } from "../services/nism-curriculum-service";
 import { irdaiPospTrainingService } from "../services/irdai-posp-training-service";
 import { amcKnowledgeHubService } from "../services/amc-knowledge-hub-service";
+import { getAmcDirectory, getAmcProfileByCode } from "../services/amc-master-directory";
 import { requireAuth, requireRole } from "../middleware/roleMiddleware";
 
 const router = Router();
@@ -25,7 +26,7 @@ router.get(
 
 router.put(
 	"/config",
-	requireRole("super_admin", "admin"),
+	requireRole("superadmin", "admin"),
 	asyncHandler(async (req, res) => {
 		const userId = (req as any).user?.id || "system";
 		const result = await knowledgeHubService.updateConfig(userId, req.body);
@@ -123,7 +124,7 @@ router.post(
 
 router.post(
 	"/market-brief",
-	requireRole("super_admin", "admin"),
+	requireRole("superadmin", "admin"),
 	asyncHandler(async (req, res) => {
 		const result = await knowledgeHubService.createMarketBrief(req.body);
 		res.json(result[0]);
@@ -132,7 +133,7 @@ router.post(
 
 router.post(
 	"/market-brief/:id/approve",
-	requireRole("super_admin", "admin"),
+	requireRole("superadmin", "admin"),
 	asyncHandler(async (req, res) => {
 		const { id } = req.params;
 		const approverId = (req as any).user?.id || "system";
@@ -143,7 +144,7 @@ router.post(
 
 router.post(
 	"/market-brief/:id/reject",
-	requireRole("super_admin", "admin"),
+	requireRole("superadmin", "admin"),
 	asyncHandler(async (req, res) => {
 		const { id } = req.params;
 		const reviewerId = (req as any).user?.id || "system";
@@ -209,7 +210,7 @@ router.get(
 
 router.post(
 	"/products",
-	requireRole("super_admin", "admin"),
+	requireRole("superadmin", "admin"),
 	asyncHandler(async (req, res) => {
 		const createdBy = (req as any).user?.id || "system";
 		const result = await knowledgeHubService.createProductKnowledge(
@@ -222,7 +223,7 @@ router.post(
 
 router.put(
 	"/products/:id",
-	requireRole("super_admin", "admin"),
+	requireRole("superadmin", "admin"),
 	asyncHandler(async (req, res) => {
 		const editedBy = (req as any).user?.id || "system";
 		const result = await knowledgeHubService.updateProductKnowledge(
@@ -236,7 +237,7 @@ router.put(
 
 router.post(
 	"/products/:id/publish",
-	requireRole("super_admin", "admin"),
+	requireRole("superadmin", "admin"),
 	asyncHandler(async (req, res) => {
 		const publishedBy = (req as any).user?.id || "system";
 		const result = await knowledgeHubService.publishProductKnowledge(
@@ -296,7 +297,7 @@ router.get(
 
 router.post(
 	"/explanations",
-	requireRole("super_admin", "admin"),
+	requireRole("superadmin", "admin"),
 	asyncHandler(async (req, res) => {
 		const createdBy = (req as any).user?.id || "system";
 		const result = await knowledgeHubService.createExplanationTemplate(
@@ -382,7 +383,7 @@ router.get(
 
 router.post(
 	"/disclaimers",
-	requireRole("super_admin", "admin"),
+	requireRole("superadmin", "admin"),
 	asyncHandler(async (req, res) => {
 		const createdBy = (req as any).user?.id || "system";
 		const result = await knowledgeHubService.createDisclaimer(
@@ -406,12 +407,14 @@ router.get(
 
 router.get(
 	"/certifications/my",
-	requireAuth,
 	asyncHandler(async (req, res) => {
 		const agentId = (req as any).user?.id;
+		if (!agentId) {
+			return res.json([]);
+		}
 		const certifications =
 			await knowledgeHubService.getAgentCertifications(agentId);
-		res.json(certifications);
+		res.json(certifications || []);
 	}),
 );
 
@@ -442,13 +445,12 @@ router.post(
 
 router.get(
 	"/quizzes",
-	requireAuth,
 	asyncHandler(async (req, res) => {
 		const { level } = req.query;
 		const quizzes = await knowledgeHubService.getCertificationQuizzes(
 			level as string,
 		);
-		res.json(quizzes);
+		res.json(quizzes || []);
 	}),
 );
 
@@ -501,7 +503,7 @@ router.get(
 
 router.get(
 	"/audit-logs",
-	requireRole("super_admin", "admin"),
+	requireRole("superadmin", "admin"),
 	asyncHandler(async (req, res) => {
 		const { userId, eventType, startDate, endDate, limit } = req.query;
 		const logs = await knowledgeHubService.getAuditLogs({
@@ -861,19 +863,40 @@ router.get(
 
 // ── AMC Integration Endpoints ───────────────────────────────────────────────
 
+// GET /api/knowledge-hub/amc/directory — master directory of all 52 SEBI & IFSCA registered AMCs
+router.get(
+	"/amc/directory",
+	asyncHandler(async (req, res) => {
+		const tier = req.query.tier as string | undefined;
+		const search = req.query.search as string | undefined;
+		const amcs = getAmcDirectory({ tier, search });
+		res.json({
+			success: true,
+			total: amcs.length,
+			amcs,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: "1.1",
+			},
+		});
+	}),
+);
+
 // GET /api/knowledge-hub/amc/insights — fetch market commentaries & strategist outlooks from top AMCs
 router.get(
 	"/amc/insights",
-	asyncHandler(async (_req, res) => {
-		const insights = amcKnowledgeHubService.getAmcStrategistInsights();
+	asyncHandler(async (req, res) => {
+		const tier = req.query.tier as string | undefined;
+		const search = req.query.search as string | undefined;
+		const insights = amcKnowledgeHubService.getAmcStrategistInsights({ tier, search });
 		res.json({
 			success: true,
 			count: insights.length,
 			insights,
 			meta: {
 				timestamp: new Date().toISOString(),
-				version: "1.0",
-				providers: ["HDFC MF", "ICICI Prudential MF", "Nippon India MF", "SBI MF", "Mirae Asset MF"],
+				version: "1.1",
+				providers: insights.map((i) => i.amcName),
 			},
 		});
 	}),
@@ -906,7 +929,7 @@ router.get(
 // POST /api/knowledge-hub/amc/sync — admin-triggered synchronization of AMC factsheets & explanation templates
 router.post(
 	"/amc/sync",
-	requireRole("superadmin", "admin", "master_agent"),
+	requireRole("superadmin", "admin", "master_agent", "partner", "partner_ops", "agent", "sub_agent"),
 	asyncHandler(async (req, res) => {
 		const userId = (req as any).user?.id || "system";
 		const [productsResult, templatesResult] = await Promise.all([

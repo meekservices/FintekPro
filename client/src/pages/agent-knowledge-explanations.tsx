@@ -43,25 +43,34 @@ import { apiRequest } from "@/lib/queryClient";
 
 interface ExplanationTemplate {
 	id: string;
-	topic: string;
+	title?: string;
+	topic?: string;
 	category: string;
-	expertVersion: string;
-	simplifiedVersion: string;
-	keyPoints: string[];
+	whatIsHappening?: string;
+	whyItMatters?: string;
+	clientImpact?: string;
+	risks?: string;
+	whatIsNotClaimed?: string;
+	technicalVersion?: string;
+	expertVersion?: string;
+	simpleVersion?: string;
+	simplifiedVersion?: string;
+	keyPoints?: string[];
 	commonQuestions?: string[];
-	usageCount: number;
-	version: number;
-	status: string;
+	applicableProducts?: string[];
+	applicableScenarios?: string[];
+	usageCount?: number;
+	version?: number;
+	status?: string;
 }
 
 const categoryOptions = [
 	{ value: "all", label: "All Categories" },
-	{ value: "mutual_funds", label: "Mutual Funds" },
-	{ value: "stocks", label: "Stocks" },
-	{ value: "bonds", label: "Bonds" },
-	{ value: "tax", label: "Tax Planning" },
-	{ value: "risk", label: "Risk Management" },
-	{ value: "general", label: "General" },
+	{ value: "product_explanation", label: "Product & Concept Explanations" },
+	{ value: "market_movement", label: "Market Volatility & SIPs" },
+	{ value: "suitability_rationale", label: "Asset Allocation & Suitability" },
+	{ value: "risk_disclosure", label: "Taxation & Risk Disclosures" },
+	{ value: "alternatives_rejected", label: "Alternatives & Rebuttals" },
 ];
 
 export default function AgentKnowledgeExplanations() {
@@ -115,11 +124,17 @@ export default function AgentKnowledgeExplanations() {
 		},
 	});
 
-	const filteredTemplates = templates?.filter(
-		(t) =>
-			t.topic.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			t.expertVersion.toLowerCase().includes(searchTerm.toLowerCase()),
-	);
+	const filteredTemplates = templates?.filter((t) => {
+		const title = t.title || t.topic || "";
+		const expert = t.technicalVersion || t.expertVersion || t.whatIsHappening || "";
+		const simple = t.simpleVersion || t.simplifiedVersion || t.whyItMatters || "";
+		const search = searchTerm.toLowerCase();
+		return (
+			title.toLowerCase().includes(search) ||
+			expert.toLowerCase().includes(search) ||
+			simple.toLowerCase().includes(search)
+		);
+	});
 
 	const copyToClipboard = async (text: string, templateId: string) => {
 		await navigator.clipboard.writeText(text);
@@ -202,58 +217,64 @@ export default function AgentKnowledgeExplanations() {
 				</div>
 			) : filteredTemplates && filteredTemplates.length > 0 ? (
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-					{filteredTemplates.map((template) => (
-						<Card
-							key={template.id}
-							className="bg-background border-border hover:border-border transition-colors"
-							data-testid={`card-template-${template.id}`}
-						>
-							<CardHeader className="pb-2">
-								<div className="flex items-start justify-between">
-									<CardTitle className="text-foreground text-lg">
-										{template.topic}
-									</CardTitle>
-									<Badge variant="outline" className="text-xs border-border">
-										{template.category}
-									</Badge>
-								</div>
-							</CardHeader>
-							<CardContent>
-								<p className="text-muted-foreground text-sm line-clamp-3 mb-4">
-									{template.simplifiedVersion}
-								</p>
-								<div className="flex items-center justify-between">
-									<div className="flex items-center gap-2 text-xs text-muted-foreground">
-										<MessageSquare className="h-3 w-3" />
-										Used {template.usageCount} times
+					{filteredTemplates.map((template) => {
+						const title = template.title || template.topic || "Untitled Explanation";
+						const simpleText = template.simpleVersion || template.simplifiedVersion || template.whyItMatters || "";
+						const categoryLabel = (template.category || "General").replace(/_/g, " ");
+
+						return (
+							<Card
+								key={template.id}
+								className="bg-background border-border hover:border-emerald-500/40 transition-colors"
+								data-testid={`card-template-${template.id}`}
+							>
+								<CardHeader className="pb-2">
+									<div className="flex items-start justify-between gap-2">
+										<CardTitle className="text-foreground text-base font-semibold leading-snug">
+											{title}
+										</CardTitle>
+										<Badge variant="outline" className="text-[10px] shrink-0 uppercase tracking-wider font-semibold border-border">
+											{categoryLabel}
+										</Badge>
 									</div>
-									<div className="flex gap-2">
-										<Button
-											variant="outline"
-											size="sm"
-											className="border-border"
-											onClick={() => setSelectedTemplate(template)}
-										>
-											View Full
-										</Button>
-										<Button
-											size="sm"
-											className="bg-emerald-600 hover:bg-emerald-700"
-											onClick={() =>
-												copyToClipboard(template.simplifiedVersion, template.id)
-											}
-										>
-											{copiedId === template.id ? (
-												<Check className="h-4 w-4" />
-											) : (
-												<Copy className="h-4 w-4" />
-											)}
-										</Button>
+								</CardHeader>
+								<CardContent>
+									<p className="text-muted-foreground text-sm line-clamp-3 mb-4 leading-relaxed">
+										{simpleText}
+									</p>
+									<div className="flex items-center justify-between">
+										<div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+											<MessageSquare className="h-3 w-3" />
+											Used {template.usageCount || 0} times
+										</div>
+										<div className="flex gap-2">
+											<Button
+												variant="outline"
+												size="sm"
+												className="border-border text-xs h-8"
+												onClick={() => setSelectedTemplate(template)}
+											>
+												View Full
+											</Button>
+											<Button
+												size="sm"
+												className="bg-emerald-600 hover:bg-emerald-700 h-8 px-2.5"
+												onClick={() =>
+													copyToClipboard(simpleText, template.id)
+												}
+											>
+												{copiedId === template.id ? (
+													<Check className="h-4 w-4" />
+												) : (
+													<Copy className="h-4 w-4" />
+												)}
+											</Button>
+										</div>
 									</div>
-								</div>
-							</CardContent>
-						</Card>
-					))}
+								</CardContent>
+							</Card>
+						);
+					})}
 				</div>
 			) : (
 				<Card className="bg-background border-border">
@@ -276,103 +297,146 @@ export default function AgentKnowledgeExplanations() {
 				onOpenChange={() => setSelectedTemplate(null)}
 			>
 				<DialogContent className="max-w-4xl lg:max-w-5xl max-h-[92vh] bg-background border-border">
-					{selectedTemplate && (
-						<>
-							<DialogHeader className="pb-3 border-b border-border/50">
-								<DialogTitle className="text-foreground text-xl">
-									{selectedTemplate.topic}
-								</DialogTitle>
-								<DialogDescription className="text-muted-foreground">
-									{selectedTemplate.category} • v{selectedTemplate.version}
-								</DialogDescription>
-							</DialogHeader>
-							<ScrollArea className="max-h-[70vh]">
-								<div className="space-y-6 pt-2">
-									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-										<div>
-											<h4 className="text-sm font-semibold text-amber-400 mb-2 flex items-center gap-2">
-												<Sparkles className="h-4 w-4" />
-												Simplified Version (Client Pitch & WhatsApp)
-											</h4>
-											<div className="p-4 bg-card rounded-xl border border-border/70 relative h-[calc(100%-2rem)] flex flex-col justify-between">
-												<p className="text-foreground text-sm leading-relaxed pr-8">
-													{selectedTemplate.simplifiedVersion}
-												</p>
-												<Button
-													size="sm"
-													variant="ghost"
-													className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
-													onClick={() =>
-														copyToClipboard(
-															selectedTemplate.simplifiedVersion,
-															selectedTemplate.id,
-														)
-													}
-												>
-													{copiedId === selectedTemplate.id ? (
-														<Check className="h-4 w-4 text-emerald-500" />
-													) : (
-														<Copy className="h-4 w-4" />
-													)}
-												</Button>
-											</div>
-										</div>
+					{selectedTemplate && (() => {
+						const title = selectedTemplate.title || selectedTemplate.topic || "Untitled Explanation";
+						const simpleText = selectedTemplate.simpleVersion || selectedTemplate.simplifiedVersion || selectedTemplate.whyItMatters || "";
+						const expertText = selectedTemplate.technicalVersion || selectedTemplate.expertVersion || selectedTemplate.whatIsHappening || "";
+						const categoryLabel = (selectedTemplate.category || "General").replace(/_/g, " ");
+						const points = selectedTemplate.keyPoints || [
+							selectedTemplate.whatIsHappening && `What is Happening: ${selectedTemplate.whatIsHappening}`,
+							selectedTemplate.whyItMatters && `Why it Matters: ${selectedTemplate.whyItMatters}`,
+							selectedTemplate.clientImpact && `Client Impact: ${selectedTemplate.clientImpact}`,
+						].filter(Boolean) as string[];
 
-										<div>
-											<h4 className="text-sm font-semibold text-blue-400 mb-2 flex items-center gap-2">
-												<BookOpen className="h-4 w-4" />
-												Expert Version (Technical SEBI Definition)
-											</h4>
-											<div className="p-4 bg-card/60 rounded-xl border border-border/70 h-[calc(100%-2rem)]">
-												<p className="text-muted-foreground text-sm leading-relaxed">
-													{selectedTemplate.expertVersion}
-												</p>
-											</div>
-										</div>
+						return (
+							<>
+								<DialogHeader className="pb-3 border-b border-border/50">
+									<div className="flex items-center justify-between gap-3 pr-6">
+										<DialogTitle className="text-foreground text-xl font-bold">
+											{title}
+										</DialogTitle>
+										<Badge variant="outline" className="text-xs uppercase tracking-wider font-semibold">
+											{categoryLabel}
+										</Badge>
 									</div>
-
-									{selectedTemplate.keyPoints.length > 0 && (
-										<div>
-											<h4 className="text-sm font-medium text-muted-foreground mb-2">
-												Key Points
-											</h4>
-											<ul className="space-y-1">
-												{selectedTemplate.keyPoints.map((point, idx) => (
-													<li
-														key={idx}
-														className="text-muted-foreground text-sm flex items-start gap-2"
-													>
-														<span className="text-emerald-500 mt-1">•</span>
-														{point}
-													</li>
-												))}
-											</ul>
-										</div>
-									)}
-
-									{selectedTemplate.commonQuestions &&
-										selectedTemplate.commonQuestions.length > 0 && (
+									<DialogDescription className="text-muted-foreground">
+										FASP-AI Client Advisory Playbook • v{selectedTemplate.version || 1}
+									</DialogDescription>
+								</DialogHeader>
+								<ScrollArea className="max-h-[70vh] pr-2">
+									<div className="space-y-6 pt-2">
+										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 											<div>
-												<h4 className="text-sm font-medium text-muted-foreground mb-2">
-													Common Questions
+												<h4 className="text-sm font-semibold text-amber-500 mb-2 flex items-center gap-2">
+													<Sparkles className="h-4 w-4" />
+													Simplified Version (Client Pitch & WhatsApp)
 												</h4>
-												<ul className="space-y-1">
-													{selectedTemplate.commonQuestions.map((q, idx) => (
+												<div className="p-4 bg-card rounded-xl border border-border/70 relative h-[calc(100%-2rem)] flex flex-col justify-between">
+													<p className="text-foreground text-sm leading-relaxed pr-8 whitespace-pre-line">
+														{simpleText}
+													</p>
+													<Button
+														size="sm"
+														variant="ghost"
+														className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
+														onClick={() =>
+															copyToClipboard(
+																simpleText,
+																selectedTemplate.id,
+															)
+														}
+													>
+														{copiedId === selectedTemplate.id ? (
+															<Check className="h-4 w-4 text-emerald-500" />
+														) : (
+															<Copy className="h-4 w-4" />
+														)}
+													</Button>
+												</div>
+											</div>
+
+											<div>
+												<h4 className="text-sm font-semibold text-blue-500 mb-2 flex items-center gap-2">
+													<BookOpen className="h-4 w-4" />
+													Expert Version (Technical SEBI Definition)
+												</h4>
+												<div className="p-4 bg-card/60 rounded-xl border border-border/70 h-[calc(100%-2rem)]">
+													<p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-line">
+														{expertText}
+													</p>
+												</div>
+											</div>
+										</div>
+
+										{/* Risks & Safe Harbor Disclosure */}
+										{(selectedTemplate.risks || selectedTemplate.whatIsNotClaimed) && (
+											<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+												{selectedTemplate.risks && (
+													<div className="p-3.5 rounded-lg bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 space-y-1">
+														<span className="text-[11px] font-bold uppercase tracking-wider text-rose-900 dark:text-rose-300">
+															Key Risks & Constraints
+														</span>
+														<p className="text-xs text-rose-950 dark:text-rose-100 font-medium leading-relaxed">
+															{selectedTemplate.risks}
+														</p>
+													</div>
+												)}
+												{selectedTemplate.whatIsNotClaimed && (
+													<div className="p-3.5 rounded-lg bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 space-y-1">
+														<span className="text-[11px] font-bold uppercase tracking-wider text-amber-900 dark:text-amber-300">
+															SEBI Safe-Harbor (What is Not Claimed)
+														</span>
+														<p className="text-xs text-amber-950 dark:text-amber-100 font-medium leading-relaxed">
+															{selectedTemplate.whatIsNotClaimed}
+														</p>
+													</div>
+												)}
+											</div>
+										)}
+
+										{points.length > 0 && (
+											<div>
+												<h4 className="text-sm font-medium text-foreground mb-2">
+													Key Discussion Points
+												</h4>
+												<ul className="space-y-1.5">
+													{points.map((point, idx) => (
 														<li
 															key={idx}
-															className="text-muted-foreground text-sm flex items-start gap-2"
+															className="text-muted-foreground text-xs sm:text-sm flex items-start gap-2"
 														>
-															<span className="text-blue-500">Q:</span>
-															{q}
+															<span className="text-emerald-500 mt-1 shrink-0">•</span>
+															<span>{point}</span>
 														</li>
 													))}
 												</ul>
 											</div>
 										)}
-								</div>
-							</ScrollArea>
-						</>
-					)}
+
+										{selectedTemplate.commonQuestions &&
+											selectedTemplate.commonQuestions.length > 0 && (
+												<div>
+													<h4 className="text-sm font-medium text-foreground mb-2">
+														Common Client Questions
+													</h4>
+													<ul className="space-y-1.5">
+														{selectedTemplate.commonQuestions.map((q, idx) => (
+															<li
+																key={idx}
+																className="text-muted-foreground text-xs sm:text-sm flex items-start gap-2"
+															>
+																<span className="text-blue-500 font-bold shrink-0">Q:</span>
+																<span>{q}</span>
+															</li>
+														))}
+													</ul>
+												</div>
+											)}
+									</div>
+								</ScrollArea>
+							</>
+						);
+					})()}
 				</DialogContent>
 			</Dialog>
 

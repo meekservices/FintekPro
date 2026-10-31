@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
 	FileCheck,
@@ -72,11 +72,12 @@ interface ProductKnowledge {
 const productTypeOptions = [
 	{ value: "all", label: "All Products" },
 	{ value: "mutual_fund", label: "Mutual Funds" },
+	{ value: "gift_city", label: "GIFT City (IFSC) Funds" },
+	{ value: "pms", label: "PMS (Portfolio Management)" },
+	{ value: "aif", label: "AIF (Alternative Investment)" },
+	{ value: "etf", label: "ETFs & Passives" },
 	{ value: "stock", label: "Stocks" },
 	{ value: "bond", label: "Bonds & NCDs" },
-	{ value: "etf", label: "ETFs" },
-	{ value: "aif", label: "AIF" },
-	{ value: "pms", label: "PMS" },
 	{ value: "insurance", label: "Insurance" },
 ];
 
@@ -119,7 +120,10 @@ export default function AgentKnowledgeProducts() {
 				bonds_ncds: "bond",
 				bonds: "bond",
 				bond: "bond",
-				global_etfs: "etf",
+				gift_city: "gift_city",
+				giftcity: "gift_city",
+				ifsc: "gift_city",
+				global_etfs: "gift_city",
 				etfs: "etf",
 				etf: "etf",
 				aif_pms: "aif",
@@ -139,6 +143,7 @@ export default function AgentKnowledgeProducts() {
 			setProductType(target);
 		}
 	}, []);
+	const queryClient = useQueryClient();
 	const [riskProfile, setRiskProfile] = useState("all");
 	const [selectedProduct, setSelectedProduct] =
 		useState<ProductKnowledge | null>(null);
@@ -230,10 +235,17 @@ export default function AgentKnowledgeProducts() {
 			setIsSyncingAmc(true);
 			const res = await fetch("/api/knowledge-hub/amc/sync", { method: "POST" });
 			const data = await res.json();
-			if (data.success) {
+			if (res.ok && data.success) {
 				toast({
 					title: "AMC Ingestion Complete ✓",
 					description: `Synced ${data.products?.syncedCount || 0} AMC scheme factsheets and ${data.templates?.syncedCount || 0} concept templates into Knowledge Hub.`,
+				});
+				queryClient.invalidateQueries({ queryKey: ["/api/knowledge-hub/products"] });
+			} else {
+				toast({
+					title: "Sync Failed",
+					description: data.message || data.error || "Could not sync AMC feeds.",
+					variant: "destructive",
 				});
 			}
 		} catch (err: any) {

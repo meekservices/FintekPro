@@ -22,15 +22,25 @@ import {
 import { eq, ilike, or } from "drizzle-orm";
 import { logger } from "../logger";
 import axios from "axios";
+import {
+	ALL_52_AMCS,
+	getAmcDirectory,
+	getAmcProfileByCode,
+	type AmcMasterRecord,
+} from "./amc-master-directory";
 
 export interface AmcStrategistInsight {
 	id: string;
 	amcName: string;
 	amcCode: string;
+	shortName?: string;
+	tier?: "mega_institutional" | "established_pillar" | "alpha_boutique" | "fintech_passive" | "gift_city_ifsc";
+	rta?: "CAMS" | "KFintech" | "IFSCA" | "In-house";
+	aumBand?: string;
 	title: string;
 	author: string;
 	authorDesignation: string;
-	category: "equity_outlook" | "debt_outlook" | "asset_allocation" | "macro_strategy";
+	category: "equity_outlook" | "debt_outlook" | "asset_allocation" | "macro_strategy" | "thematic_call";
 	keyTakeaways: string[];
 	sectorCalls: {
 		overweight: string[];
@@ -46,6 +56,12 @@ export interface AmcStrategistInsight {
 	advisoryTipForPartners: string;
 	publishedDate: string;
 	sourceUrl?: string;
+	flagshipScheme?: {
+		name: string;
+		category: string;
+		subCategory: string;
+		benchmark: string;
+	};
 }
 
 export interface AmcSchemeFactsheet {
@@ -82,149 +98,29 @@ export class AmcKnowledgeHubService {
 	 * Curated top AMC strategist & fund manager insights
 	 * Updated monthly from official AMC disclosures and monthly fact sheets
 	 */
-	getAmcStrategistInsights(): AmcStrategistInsight[] {
-		return [
-			{
-				id: "amc-hdfc-equity-outlook",
-				amcName: "HDFC Mutual Fund",
-				amcCode: "HDFC_MF",
-				title: "HDFC MF Investment Outlook: Corporate Earnings & Capex Continuity",
-				author: "Chirag Setalvad",
-				authorDesignation: "Head - Equities, HDFC AMC",
-				category: "equity_outlook",
-				keyTakeaways: [
-					"Indian corporate balance sheets remain at multi-decade low leverage ratios (<0.4x D/E), providing high earnings durability.",
-					"Large-cap valuations trade near 10-year historical averages, whereas selective small-caps require strict earnings delivery verification.",
-					"Domestic private capex cycle broadening from power & renewables to automotive and industrials.",
-				],
-				sectorCalls: {
-					overweight: ["Banking & Financial Services", "Power & Capital Goods", "Healthcare & Pharma"],
-					neutral: ["Information Technology", "Automobile"],
-					underweight: ["Commodity Cyclicals", "High-Beta Consumer Discretionary"],
-				},
-				macroIndicators: {
-					gdpGrowthEstimate: "6.8% - 7.0% for FY26",
-					rbiRateStance: "Neutral with calibrated liquidity easing",
-					tenYearGsecOutlook: "Rangebound between 6.65% and 6.85%",
-					crudeImpact: "Brent below $75/bbl provides healthy macro cushion for India's current account.",
-				},
-				advisoryTipForPartners:
-					"Guide clients with >5 year horizons toward Large & Mid Cap or Flexi Cap strategies; avoid aggressive lump sums in single-sector momentum themes.",
-				publishedDate: new Date().toISOString().split("T")[0],
-			},
-			{
-				id: "amc-icici-baf-valuation-model",
-				amcName: "ICICI Prudential Mutual Fund",
-				amcCode: "ICICIPRU_MF",
-				title: "In-House Valuation Model & Dynamic Asset Allocation Stance",
-				author: "S Naren",
-				authorDesignation: "ED & Chief Investment Officer, ICICI Prudential AMC",
-				category: "asset_allocation",
-				keyTakeaways: [
-					"In-house Price-to-Book (P/B) and Dividend Yield Model indicates equity markets in 'fair-to-mildly elevated' zone.",
-					"Balanced Advantage Fund (BAF) model maintains 60-65% net equity exposure with 35-40% in debt and derivative arbitrage.",
-					"Multi-Asset Allocation strategy provides optimal risk-adjusted ballast by actively blending domestic equity, fixed income, and gold.",
-				],
-				sectorCalls: {
-					overweight: ["Large-Cap Financials", "Telecom", "Electric Utilities"],
-					neutral: ["IT Services", "Metals"],
-					underweight: ["Unprofitable Consumer Tech", "Overleveraged Real Estate"],
-				},
-				macroIndicators: {
-					gdpGrowthEstimate: "6.7% Real GDP Growth",
-					rbiRateStance: "Accommodative bias on durable inflation prints",
-					tenYearGsecOutlook: "Yields attractive for 3-5 year duration lock-in",
-					crudeImpact: "Supportive for Indian macros and fiscal deficit glide path.",
-				},
-				advisoryTipForPartners:
-					"For conservative-to-moderate clients or retirees, position Balanced Advantage / Multi-Asset funds to curb drawdowns without sacrificing long-term equity compounding.",
-				publishedDate: new Date().toISOString().split("T")[0],
-			},
-			{
-				id: "amc-nippon-fixed-income-strategy",
-				amcName: "Nippon India Mutual Fund",
-				amcCode: "NIPPON_MF",
-				title: "Fixed Income Outlook: Sovereign Yield Curve & Duration Opportunities",
-				author: "Amit Tripathi",
-				authorDesignation: "Chief Investment Officer - Fixed Income, Nippon India AMC",
-				category: "debt_outlook",
-				keyTakeaways: [
-					"Headline 10Y Indian Government Bond (G-Sec) yield at ~6.75% offers compelling real yields (>2.5% over CPI inflation).",
-					"Foreign Portfolio Investor (FPI) sovereign index inclusions (J.P. Morgan GBI-EM & Bloomberg Index) continuing to absorb supply.",
-					"High credit quality Banking & PSU debt and Corporate Bond funds offer superior risk-reward over low-rated credit.",
-				],
-				sectorCalls: {
-					overweight: ["AAA Public Sector Undertakings", "Sovereign G-Sec (5-7Y duration)", "TREPS / Overnight"],
-					neutral: ["State Development Loans (SDLs)"],
-					underweight: ["Below-AA NBFC Papers"],
-				},
-				macroIndicators: {
-					gdpGrowthEstimate: "6.8% FY26",
-					rbiRateStance: "Easing stance; liquidity conditions in surplus",
-					tenYearGsecOutlook: "Expected to trend towards 6.60% over 12 months",
-					crudeImpact: "Subdued imported inflation aiding debt markets.",
-				},
-				advisoryTipForPartners:
-					"Encourage conservative corporate treasuries and retirees to lock in 3-5 year High Quality Corporate Bond or Target Maturity G-Sec funds before yield curves flatten.",
-				publishedDate: new Date().toISOString().split("T")[0],
-			},
-			{
-				id: "amc-sbi-domestic-sip-resilience",
-				amcName: "SBI Mutual Fund",
-				amcCode: "SBI_MF",
-				title: "SBI MF Macro Lens: Retail SIP Phenomenon & Structural Wealth Creation",
-				author: "D P Singh",
-				authorDesignation: "Deputy MD & Joint CEO, SBI Funds Management",
-				category: "macro_strategy",
-				keyTakeaways: [
-					"Indian mutual fund SIP monthly book sustaining over ₹26,000 Crores per month, acting as a structural anchor against global volatility.",
-					"Financialization of domestic household savings continues to accelerate with increasing participation from B-30 (Beyond Top 30) cities.",
-					"Long-term Systematic Transfer Plans (STPs) recommended for allocating large liquidity tranches over 6-12 months.",
-				],
-				sectorCalls: {
-					overweight: ["Infrastructure & Defense", "Domestic Consumption", "Private Banks"],
-					neutral: ["Energy & Petrochemicals"],
-					underweight: ["Export-Heavy IT Services"],
-				},
-				macroIndicators: {
-					gdpGrowthEstimate: "7.0% FY26",
-					rbiRateStance: "Neutral with growth focus",
-					tenYearGsecOutlook: "Consolidating 6.70%-6.80%",
-					crudeImpact: "Manageable within budgetary parameters.",
-				},
-				advisoryTipForPartners:
-					"Demonstrate the power of 10-year SIP step-ups (+10% annually) to young wealth builder clients to showcase exponential corpus compounding.",
-				publishedDate: new Date().toISOString().split("T")[0],
-			},
-			{
-				id: "amc-mirae-active-growth-focus",
-				amcName: "Mirae Asset Mutual Fund",
-				amcCode: "MIRAE_MF",
-				title: "Mirae Asset Strategy: Bottom-Up Stock Picking in High-RoE Leaders",
-				author: "Neelesh Surana",
-				authorDesignation: "Chief Investment Officer, Mirae Asset Investment Managers",
-				category: "equity_outlook",
-				keyTakeaways: [
-					"Focus remains strictly on high Return on Equity (RoE > 18%) businesses with sustained pricing power and clean governance.",
-					"Mid-cap segment offers robust secular compounders, but stock selection must be anchored to free-cash-flow yield.",
-					"Hybrid strategies (Aggressive Hybrid & BAF) provide great entry points for first-time mutual fund investors.",
-				],
-				sectorCalls: {
-					overweight: ["Consumer Discretionary", "Financial Services", "Industrial Manufacturing"],
-					neutral: ["Pharma & Chemicals"],
-					underweight: ["Government Controlled Commodities"],
-				},
-				macroIndicators: {
-					gdpGrowthEstimate: "6.9% FY26",
-					rbiRateStance: "Data-dependent",
-					tenYearGsecOutlook: "Stable 6.75%",
-					crudeImpact: "Neutral",
-				},
-				advisoryTipForPartners:
-					"Emphasize 5-year rolling returns rather than point-to-point trailing returns when reviewing client portfolios.",
-				publishedDate: new Date().toISOString().split("T")[0],
-			},
-		];
+	getAmcStrategistInsights(filters?: { tier?: string; search?: string }): AmcStrategistInsight[] {
+		const amcs = getAmcDirectory(filters);
+		const today = new Date().toISOString().split("T")[0];
+
+		return amcs.map((rec) => ({
+			id: `amc-${rec.amcCode.toLowerCase().replace(/_/g, "-")}`,
+			amcName: rec.amcName,
+			amcCode: rec.amcCode,
+			shortName: rec.shortName,
+			tier: rec.tier,
+			rta: rec.rta,
+			aumBand: rec.aumBand,
+			title: rec.title,
+			author: rec.leadStrategist,
+			authorDesignation: rec.strategistRole,
+			category: rec.category,
+			keyTakeaways: rec.keyTakeaways,
+			sectorCalls: rec.sectorCalls,
+			macroIndicators: rec.macroIndicators,
+			advisoryTipForPartners: rec.advisoryTipForPartners,
+			flagshipScheme: rec.flagshipScheme,
+			publishedDate: today,
+		}));
 	}
 
 	/**
@@ -433,6 +329,575 @@ export class AmcKnowledgeHubService {
 				taxImplication: "Debt taxation: Taxed at investor's marginal income tax slab rate under Section 50AA.",
 				suitability: "Essential liquidity buffer and emergency reserve with T+1 redemption cycle.",
 			},
+			{
+				schemeCode: "119828",
+				schemeName: "Kotak Emerging Equity Fund - Growth",
+				amcName: "Kotak Mahindra Mutual Fund",
+				category: "Equity",
+				subCategory: "Mid Cap Fund",
+				nav: 124.85,
+				navDate: new Date().toISOString().split("T")[0],
+				expenseRatio: 1.48,
+				aumCrores: 52400,
+				riskLevel: "Very High",
+				benchmarkIndex: "NIFTY Midcap 150 TRI",
+				returns: { returns1y: 31.4, returns3y: 25.8, returns5y: 24.2 },
+				topHoldings: [
+					{ company: "Supreme Industries Ltd", weightPercent: 4.8, sector: "Industrial Products" },
+					{ company: "Cummins India Ltd", weightPercent: 4.5, sector: "Capital Goods" },
+					{ company: "Schaeffler India Ltd", weightPercent: 4.1, sector: "Auto Ancillaries" },
+					{ company: "Solar Industries India", weightPercent: 3.9, sector: "Chemicals & Explosives" },
+					{ company: "Persistent Systems Ltd", weightPercent: 3.6, sector: "Information Technology" },
+				],
+				sectorAllocation: [
+					{ sector: "Industrial Manufacturing", weightPercent: 24.5 },
+					{ sector: "Consumer Discretionary", weightPercent: 18.2 },
+					{ sector: "Financial Services", weightPercent: 16.4 },
+					{ sector: "Chemicals & Materials", weightPercent: 12.8 },
+					{ sector: "Information Technology", weightPercent: 9.6 },
+				],
+				fundManagers: ["Pankaj Tibrewal", "Harsha Upadhyaya"],
+				minSipAmount: 500,
+				minLumpsumAmount: 1000,
+				exitLoad: "1% if redeemed within 1 year; Nil after 1 year.",
+				taxImplication: "Equity taxation: 12.5% LTCG (>₹1.25L) after 12 months, 20% STCG.",
+				suitability: "Targeted at aggressive wealth compounders looking for mid-sized market champions expanding into large-caps.",
+			},
+			{
+				schemeCode: "125354",
+				schemeName: "Axis Small Cap Fund - Growth",
+				amcName: "Axis Mutual Fund",
+				category: "Equity",
+				subCategory: "Small Cap Fund",
+				nav: 108.62,
+				navDate: new Date().toISOString().split("T")[0],
+				expenseRatio: 1.58,
+				aumCrores: 24800,
+				riskLevel: "Very High",
+				benchmarkIndex: "NIFTY Smallcap 250 TRI",
+				returns: { returns1y: 32.8, returns3y: 24.6, returns5y: 26.4 },
+				topHoldings: [
+					{ company: "Narayana Hrudayalaya Ltd", weightPercent: 4.2, sector: "Healthcare" },
+					{ company: "Brigade Enterprises Ltd", weightPercent: 3.9, sector: "Real Estate" },
+					{ company: "Birlasoft Ltd", weightPercent: 3.7, sector: "Information Technology" },
+					{ company: "Krishna Institute of Medical Sciences", weightPercent: 3.5, sector: "Healthcare" },
+					{ company: "Cholamandalam Financial Holdings", weightPercent: 3.2, sector: "Financials" },
+				],
+				sectorAllocation: [
+					{ sector: "Healthcare Services", weightPercent: 18.4 },
+					{ sector: "Financial Services", weightPercent: 16.8 },
+					{ sector: "Information Technology", weightPercent: 14.2 },
+					{ sector: "Capital Goods", weightPercent: 13.5 },
+					{ sector: "Consumer Discretionary", weightPercent: 11.9 },
+				],
+				fundManagers: ["Shreyash Devalkar", "Mayank Hyanki"],
+				minSipAmount: 500,
+				minLumpsumAmount: 5000,
+				exitLoad: "1% if redeemed within 12 months; Nil thereafter.",
+				taxImplication: "Equity taxation: 12.5% LTCG (>₹1.25L) after 12 months, 20% STCG.",
+				suitability: "High alpha vehicle for long-term investors (>7 years) comfortable with cyclical small-cap drawdowns.",
+			},
+			{
+				schemeCode: "119533",
+				schemeName: "Aditya Birla Sun Life Frontline Equity Fund - Growth",
+				amcName: "Aditya Birla Sun Life Mutual Fund",
+				category: "Equity",
+				subCategory: "Large Cap Fund",
+				nav: 542.18,
+				navDate: new Date().toISOString().split("T")[0],
+				expenseRatio: 1.62,
+				aumCrores: 27900,
+				riskLevel: "Very High",
+				benchmarkIndex: "NIFTY 100 TRI",
+				returns: { returns1y: 23.8, returns3y: 18.4, returns5y: 17.6 },
+				topHoldings: [
+					{ company: "ICICI Bank Ltd", weightPercent: 8.8, sector: "Financial Services" },
+					{ company: "HDFC Bank Ltd", weightPercent: 8.4, sector: "Financial Services" },
+					{ company: "Infosys Ltd", weightPercent: 6.9, sector: "Information Technology" },
+					{ company: "Reliance Industries Ltd", weightPercent: 6.5, sector: "Energy" },
+					{ company: "Larsen & Toubro Ltd", weightPercent: 5.2, sector: "Capital Goods" },
+				],
+				sectorAllocation: [
+					{ sector: "Financial Services", weightPercent: 32.4 },
+					{ sector: "Information Technology", weightPercent: 12.8 },
+					{ sector: "Oil, Gas & Consumables", weightPercent: 9.8 },
+					{ sector: "Automobile & Ancillary", weightPercent: 8.6 },
+					{ sector: "Capital Goods", weightPercent: 7.9 },
+				],
+				fundManagers: ["Mahesh Patil", "Dhaval Joshi"],
+				minSipAmount: 100,
+				minLumpsumAmount: 1000,
+				exitLoad: "1% if redeemed within 365 days; Nil thereafter.",
+				taxImplication: "Equity taxation: 12.5% LTCG (>₹1.25L) after 12 months, 20% STCG.",
+				suitability: "Core large-cap building block delivering index-beating compounding across corporate leaders.",
+			},
+			{
+				schemeCode: "135799",
+				schemeName: "Tata Digital India Fund - Growth",
+				amcName: "Tata Mutual Fund",
+				category: "Equity",
+				subCategory: "Sectoral / Thematic - Technology",
+				nav: 52.88,
+				navDate: new Date().toISOString().split("T")[0],
+				expenseRatio: 1.74,
+				aumCrores: 11400,
+				riskLevel: "Very High",
+				benchmarkIndex: "BSE TeCK TRI",
+				returns: { returns1y: 28.4, returns3y: 15.2, returns5y: 21.8 },
+				topHoldings: [
+					{ company: "Tata Consultancy Services Ltd", weightPercent: 14.8, sector: "IT Services" },
+					{ company: "Infosys Ltd", weightPercent: 13.9, sector: "IT Services" },
+					{ company: "HCL Technologies Ltd", weightPercent: 9.8, sector: "IT Services" },
+					{ company: "Bharti Airtel Ltd", weightPercent: 8.5, sector: "Telecommunication" },
+					{ company: "Tech Mahindra Ltd", weightPercent: 6.8, sector: "IT Services" },
+				],
+				sectorAllocation: [
+					{ sector: "IT Software & Consulting", weightPercent: 68.4 },
+					{ sector: "Telecommunication Services", weightPercent: 14.8 },
+					{ sector: "Internet Platforms & SaaS", weightPercent: 11.2 },
+					{ sector: "Cash & Equivalents", weightPercent: 5.6 },
+				],
+				fundManagers: ["Meeta Shetty"],
+				minSipAmount: 150,
+				minLumpsumAmount: 5000,
+				exitLoad: "0.25% if redeemed within 30 days; Nil after 30 days.",
+				taxImplication: "Equity taxation: 12.5% LTCG (>₹1.25L), 20% STCG.",
+				suitability: "Thematic high-beta fund capitalizing on cloud migration, cyber defense, and enterprise AI modernization.",
+			},
+			{
+				schemeCode: "145552",
+				schemeName: "DSP Healthcare Fund - Growth",
+				amcName: "DSP Mutual Fund",
+				category: "Equity",
+				subCategory: "Sectoral / Thematic - Healthcare",
+				nav: 38.64,
+				navDate: new Date().toISOString().split("T")[0],
+				expenseRatio: 1.82,
+				aumCrores: 3650,
+				riskLevel: "Very High",
+				benchmarkIndex: "BSE Healthcare TRI",
+				returns: { returns1y: 42.6, returns3y: 22.8, returns5y: 23.4 },
+				topHoldings: [
+					{ company: "Sun Pharmaceutical Industries", weightPercent: 12.4, sector: "Pharmaceuticals" },
+					{ company: "Cipla Ltd", weightPercent: 9.8, sector: "Pharmaceuticals" },
+					{ company: "Dr. Reddy's Laboratories", weightPercent: 8.2, sector: "Pharmaceuticals" },
+					{ company: "Max Healthcare Institute", weightPercent: 7.5, sector: "Hospitals" },
+					{ company: "Lupin Ltd", weightPercent: 6.4, sector: "Pharmaceuticals" },
+				],
+				sectorAllocation: [
+					{ sector: "Formulations & Generic Pharma", weightPercent: 58.2 },
+					{ sector: "Hospital & Diagnostic Chains", weightPercent: 24.6 },
+					{ sector: "Active Pharma Ingredients (API)", weightPercent: 12.4 },
+					{ sector: "Cash & Equivalents", weightPercent: 4.8 },
+				],
+				fundManagers: ["Chirag Dagli"],
+				minSipAmount: 100,
+				minLumpsumAmount: 100,
+				exitLoad: "1% if redeemed within 12 months; Nil thereafter.",
+				taxImplication: "Equity taxation: 12.5% LTCG (>₹1.25L), 20% STCG.",
+				suitability: "Defensive growth theme benefiting from rising domestic healthcare spend, hospital bed expansion, and US generic price stabilization.",
+			},
+			{
+				schemeCode: "118834",
+				schemeName: "Mirae Asset Large & Midcap Fund - Growth",
+				amcName: "Mirae Asset Mutual Fund",
+				category: "Equity",
+				subCategory: "Large & Mid Cap Fund",
+				nav: 148.92,
+				navDate: new Date().toISOString().split("T")[0],
+				expenseRatio: 1.49,
+				aumCrores: 38600,
+				riskLevel: "Very High",
+				benchmarkIndex: "NIFTY LargeMidcap 250 TRI",
+				returns: { returns1y: 27.8, returns3y: 21.2, returns5y: 20.6 },
+				topHoldings: [
+					{ company: "HDFC Bank Ltd", weightPercent: 6.8, sector: "Financial Services" },
+					{ company: "ICICI Bank Ltd", weightPercent: 5.9, sector: "Financial Services" },
+					{ company: "Reliance Industries Ltd", weightPercent: 4.8, sector: "Energy" },
+					{ company: "Federal Bank Ltd", weightPercent: 3.8, sector: "Financial Services" },
+					{ company: "Bharat Electronics Ltd", weightPercent: 3.5, sector: "Defense" },
+				],
+				sectorAllocation: [
+					{ sector: "Financial Services", weightPercent: 28.6 },
+					{ sector: "Consumer Discretionary", weightPercent: 14.8 },
+					{ sector: "Information Technology", weightPercent: 11.2 },
+					{ sector: "Healthcare", weightPercent: 9.8 },
+					{ sector: "Energy & Utilities", weightPercent: 8.4 },
+				],
+				fundManagers: ["Neelesh Surana", "Ankit Jain"],
+				minSipAmount: 500,
+				minLumpsumAmount: 1000,
+				exitLoad: "1% if redeemed within 1 year; Nil thereafter.",
+				taxImplication: "Equity taxation: 12.5% LTCG (>₹1.25L), 20% STCG.",
+				suitability: "Combines large-cap corporate stability with mid-cap earnings acceleration for 5+ year wealth creators.",
+			},
+			{
+				schemeCode: "148901",
+				schemeName: "HDFC International (IFSC) Global Semiconductor & AI Fund",
+				amcName: "HDFC AMC International (IFSC)",
+				category: "GIFT City (IFSC)",
+				subCategory: "Global Feeder / Outbound Fund",
+				nav: 12.45,
+				navDate: new Date().toISOString().split("T")[0],
+				expenseRatio: 0.85,
+				aumCrores: 4200,
+				riskLevel: "Very High",
+				benchmarkIndex: "NYSE Semiconductor Index (USD)",
+				returns: { returns1y: 48.2, returns3y: 28.5, returns5y: 29.8 },
+				topHoldings: [
+					{ company: "NVIDIA Corp (USD)", weightPercent: 12.5, sector: "Semiconductors" },
+					{ company: "Taiwan Semiconductor Manufacturing Co (TSMC)", weightPercent: 10.8, sector: "Foundry & Chips" },
+					{ company: "Broadcom Inc (USD)", weightPercent: 8.4, sector: "Networking Silicon" },
+					{ company: "ASML Holding NV", weightPercent: 7.6, sector: "Lithography Systems" },
+					{ company: "Qualcomm Inc", weightPercent: 6.2, sector: "Mobile & Edge Silicon" },
+				],
+				sectorAllocation: [
+					{ sector: "AI Hardware & GPU Accelerators", weightPercent: 44.5 },
+					{ sector: "Fabless Chip Designers", weightPercent: 28.2 },
+					{ sector: "Semiconductor Capital Equipment", weightPercent: 18.5 },
+					{ sector: "Cash / US T-Bills", weightPercent: 8.8 },
+				],
+				fundManagers: ["Rahul Baijal (GIFT City Desk)"],
+				minSipAmount: 100,
+				minLumpsumAmount: 1000,
+				exitLoad: "1% if redeemed within 180 days; Nil thereafter.",
+				taxImplication: "IFSCA Regulated: Invested in USD via RBI LRS ($250,000/year). Zero GST and zero capital gains tax in GIFT City IFSC.",
+				suitability: "Direct dollar-denominated exposure to the global semiconductor and AI revolution without currency repatriation friction.",
+			},
+			{
+				schemeCode: "149202",
+				schemeName: "Kotak India Inbound Opportunities Fund (IFSC AIF Cat III)",
+				amcName: "Kotak Mahindra Asset Management (GIFT City)",
+				category: "GIFT City (IFSC)",
+				subCategory: "Inbound FPI / Category III AIF",
+				nav: 118.50,
+				navDate: new Date().toISOString().split("T")[0],
+				expenseRatio: 1.25,
+				aumCrores: 6800,
+				riskLevel: "Very High",
+				benchmarkIndex: "NIFTY 500 TRI (USD Hedged)",
+				returns: { returns1y: 26.8, returns3y: 22.4, returns5y: 21.2 },
+				topHoldings: [
+					{ company: "HDFC Bank Ltd", weightPercent: 8.2, sector: "Financial Services" },
+					{ company: "Larsen & Toubro Ltd", weightPercent: 6.5, sector: "Infrastructure" },
+					{ company: "Tata Consultancy Services", weightPercent: 5.8, sector: "IT Services" },
+					{ company: "Bharti Airtel Ltd", weightPercent: 5.2, sector: "Telecom" },
+					{ company: "Reliance Industries Ltd", weightPercent: 4.9, sector: "Energy" },
+				],
+				sectorAllocation: [
+					{ sector: "Banking & Financial Services", weightPercent: 31.4 },
+					{ sector: "Capital Goods & Defense", weightPercent: 18.6 },
+					{ sector: "Technology & Software", weightPercent: 14.2 },
+					{ sector: "Consumer Discretionary", weightPercent: 12.5 },
+					{ sector: "USD Cash & Hedging", weightPercent: 23.3 },
+				],
+				fundManagers: ["Nilesh Shah (Advisory)", "Devender Singhal (GIFT Desk)"],
+				minSipAmount: 10000,
+				minLumpsumAmount: 150000,
+				exitLoad: "2% if redeemed within 1 year; 1% within 2 years; Nil thereafter.",
+				taxImplication: "Section 47(viiab) of Indian Income Tax Act: 0% capital gains tax for non-resident and foreign investors in IFSC.",
+				suitability: "Institutional vehicle for NRIs, foreign family offices, and FPIs to participate in India's growth tax-free via GIFT City.",
+			},
+			{
+				schemeCode: "150110",
+				schemeName: "ICICI Prudential PMS PIPE & Focused Growth Strategy",
+				amcName: "ICICI Prudential Asset Management (PMS)",
+				category: "PMS",
+				subCategory: "Discretionary Portfolio Management Services",
+				nav: 245.80,
+				navDate: new Date().toISOString().split("T")[0],
+				expenseRatio: 2.0,
+				aumCrores: 8400,
+				riskLevel: "Very High",
+				benchmarkIndex: "S&P BSE 500 TRI",
+				returns: { returns1y: 34.6, returns3y: 27.2, returns5y: 25.8 },
+				topHoldings: [
+					{ company: "Trent Ltd", weightPercent: 9.2, sector: "Retail Discretionary" },
+					{ company: "Zomato Ltd", weightPercent: 8.5, sector: "Consumer Internet" },
+					{ company: "Bharat Electronics Ltd", weightPercent: 7.8, sector: "Defense Electronics" },
+					{ company: "Federal Bank Ltd", weightPercent: 7.1, sector: "Banking" },
+					{ company: "Kajaria Ceramics Ltd", weightPercent: 6.4, sector: "Building Products" },
+				],
+				sectorAllocation: [
+					{ sector: "Retail & Consumer Discretionary", weightPercent: 32.5 },
+					{ sector: "Defense & Capital Goods", weightPercent: 26.4 },
+					{ sector: "Financial Services", weightPercent: 22.8 },
+					{ sector: "Cash / Liquid Mutual Funds", weightPercent: 18.3 },
+				],
+				fundManagers: ["Anand Shah", "Sankaran Naren (Advisory)"],
+				minSipAmount: 100000,
+				minLumpsumAmount: 5000000,
+				exitLoad: "3% in Year 1, 2% in Year 2, 1% in Year 3; Nil thereafter.",
+				taxImplication: "Pass-through taxation: Direct equity capital gains (12.5% LTCG, 20% STCG) held directly in client's individual Demat account.",
+				suitability: "High conviction concentrated equity alpha (15-20 stocks) for HNIs with ₹50L+ minimum deployment seeking bespoke management.",
+			},
+			{
+				schemeCode: "151220",
+				schemeName: "Nippon India AIF Category II Performing Credit Fund",
+				amcName: "Nippon India Asset Management (AIF)",
+				category: "AIF",
+				subCategory: "Private Credit & Senior Secured Debt",
+				nav: 1250.0,
+				navDate: new Date().toISOString().split("T")[0],
+				expenseRatio: 1.75,
+				aumCrores: 3500,
+				riskLevel: "Moderate to High",
+				benchmarkIndex: "CRISIL Composite Credit Risk Index",
+				returns: { returns1y: 13.8, returns3y: 13.2, returns5y: 12.9 },
+				topHoldings: [
+					{ company: "Clean Energy Transmission SPV Senior Secured Debentures", weightPercent: 12.5, sector: "Renewable Infrastructure" },
+					{ company: "Tier-1 Auto Ancillary Expansion Loan (1.5x Asset Cover)", weightPercent: 11.2, sector: "Automotive" },
+					{ company: "Specialty Chemicals Capex Structured NCD", weightPercent: 9.8, sector: "Chemicals" },
+					{ company: "Healthcare Diagnostics Secured Working Capital", weightPercent: 8.5, sector: "Pharma & Diagnostics" },
+					{ company: "Sovereign T-Bills & Collateralized Cash", weightPercent: 14.2, sector: "Sovereign" },
+				],
+				sectorAllocation: [
+					{ sector: "Senior Secured Corporate Debt (1.5x-2x Cover)", weightPercent: 62.4 },
+					{ sector: "Structured Infrastructure Mezzanine", weightPercent: 23.4 },
+					{ sector: "Cash & Overnight Clearing", weightPercent: 14.2 },
+				],
+				fundManagers: ["Amit Tripathi", "Arup Mukherjee"],
+				minSipAmount: 500000,
+				minLumpsumAmount: 10000000,
+				exitLoad: "Closed-ended 4-year tenure with quarterly coupon distributions.",
+				taxImplication: "Category II AIF pass-through status: Interest taxed at investor's slab rate; capital gains taxed at applicable asset class rates.",
+				suitability: "Designed for family offices and ultra-HNIs seeking predictable 12-14% gross yield uncorrelated with public equity volatility.",
+			},
+			{
+				schemeCode: "100033",
+				schemeName: "Nippon India ETF Nifty 50 BeES",
+				amcName: "Nippon India Mutual Fund",
+				category: "ETF",
+				subCategory: "Exchange Traded Fund (Equity Benchmark)",
+				nav: 268.42,
+				navDate: new Date().toISOString().split("T")[0],
+				expenseRatio: 0.04,
+				aumCrores: 34200,
+				riskLevel: "Very High",
+				benchmarkIndex: "Nifty 50 TRI",
+				returns: { returns1y: 22.8, returns3y: 17.5, returns5y: 16.8 },
+				topHoldings: [
+					{ company: "HDFC Bank Ltd", weightPercent: 11.2, sector: "Financial Services" },
+					{ company: "Reliance Industries Ltd", weightPercent: 9.4, sector: "Energy" },
+					{ company: "ICICI Bank Ltd", weightPercent: 7.9, sector: "Financial Services" },
+					{ company: "Infosys Ltd", weightPercent: 5.8, sector: "IT" },
+					{ company: "Larsen & Toubro Ltd", weightPercent: 4.6, sector: "Construction" },
+				],
+				sectorAllocation: [
+					{ sector: "Financial Services", weightPercent: 33.5 },
+					{ sector: "Information Technology", weightPercent: 13.2 },
+					{ sector: "Oil, Gas & Consumables", weightPercent: 11.4 },
+					{ sector: "Automobiles", weightPercent: 8.6 },
+					{ sector: "Fast Moving Consumer Goods", weightPercent: 8.2 },
+				],
+				fundManagers: ["Vishal Jain"],
+				minSipAmount: 500,
+				minLumpsumAmount: 500,
+				exitLoad: "Nil on stock exchange trading.",
+				taxImplication: "Listed equity taxation: 12.5% LTCG (>₹1.25L), 20% STCG.",
+				suitability: "Ultra low cost (0.04% TER) foundational building block for passive index allocation via stock exchange Demat.",
+			},
+			{
+				schemeCode: "120716",
+				schemeName: "UTI Nifty 50 Index Fund - Growth",
+				amcName: "UTI Mutual Fund",
+				category: "Equity",
+				subCategory: "Index Fund (Large Cap)",
+				nav: 172.48,
+				navDate: new Date().toISOString().split("T")[0],
+				expenseRatio: 0.18,
+				aumCrores: 18450,
+				riskLevel: "Very High",
+				benchmarkIndex: "NIFTY 50 TRI",
+				returns: { returns1y: 22.8, returns3y: 17.6, returns5y: 16.9 },
+				topHoldings: [
+					{ company: "HDFC Bank Ltd", weightPercent: 11.4, sector: "Financial Services" },
+					{ company: "Reliance Industries Ltd", weightPercent: 9.2, sector: "Energy" },
+					{ company: "ICICI Bank Ltd", weightPercent: 8.1, sector: "Financial Services" },
+					{ company: "Infosys Ltd", weightPercent: 5.9, sector: "IT Services" },
+					{ company: "Larsen & Toubro Ltd", weightPercent: 4.5, sector: "Infrastructure" },
+				],
+				sectorAllocation: [
+					{ sector: "Financial Services", weightPercent: 33.4 },
+					{ sector: "Information Technology", weightPercent: 13.5 },
+					{ sector: "Oil & Gas", weightPercent: 11.2 },
+					{ sector: "Automobiles", weightPercent: 8.4 },
+					{ sector: "Consumer Goods", weightPercent: 8.1 },
+				],
+				fundManagers: ["Sharwan Kumar Goyal"],
+				minSipAmount: 500,
+				minLumpsumAmount: 5000,
+				exitLoad: "Nil",
+				taxImplication: "Equity taxation: 12.5% LTCG (>₹1.25L), 20% STCG.",
+				suitability: "Low-cost, zero-manager-bias foundation for long-term passive equity wealth creation.",
+			},
+			{
+				schemeCode: "118742",
+				schemeName: "Bandhan Sterling Value Fund - Growth",
+				amcName: "Bandhan Mutual Fund",
+				category: "Equity",
+				subCategory: "Value Fund",
+				nav: 142.80,
+				navDate: new Date().toISOString().split("T")[0],
+				expenseRatio: 1.54,
+				aumCrores: 12800,
+				riskLevel: "Very High",
+				benchmarkIndex: "S&P BSE 500 TRI",
+				returns: { returns1y: 33.2, returns3y: 24.8, returns5y: 23.5 },
+				topHoldings: [
+					{ company: "ICICI Bank Ltd", weightPercent: 5.8, sector: "Financial Services" },
+					{ company: "Jindal Steel & Power Ltd", weightPercent: 4.6, sector: "Metals" },
+					{ company: "Axis Bank Ltd", weightPercent: 4.2, sector: "Financial Services" },
+					{ company: "Bosch Ltd", weightPercent: 3.9, sector: "Auto Ancillary" },
+					{ company: "Cipla Ltd", weightPercent: 3.5, sector: "Healthcare" },
+				],
+				sectorAllocation: [
+					{ sector: "Financial Services", weightPercent: 24.8 },
+					{ sector: "Automobile & Ancillary", weightPercent: 16.2 },
+					{ sector: "Metals & Mining", weightPercent: 12.5 },
+					{ sector: "Healthcare", weightPercent: 11.4 },
+					{ sector: "Capital Goods", weightPercent: 10.8 },
+				],
+				fundManagers: ["Daylynn Pinto"],
+				minSipAmount: 100,
+				minLumpsumAmount: 1000,
+				exitLoad: "1% within 365 days; Nil thereafter.",
+				taxImplication: "Equity taxation: 12.5% LTCG (>₹1.25L), 20% STCG.",
+				suitability: "Contrarian value fund seeking unappreciated, cash-flow generative companies poised for cyclic recovery.",
+			},
+			{
+				schemeCode: "148560",
+				schemeName: "Edelweiss Bharat Bond ETF - April 2033",
+				amcName: "Edelweiss Mutual Fund",
+				category: "Debt",
+				subCategory: "Target Maturity Gilt / AAA PSU Bond",
+				nav: 1248.60,
+				navDate: new Date().toISOString().split("T")[0],
+				expenseRatio: 0.0005,
+				aumCrores: 16900,
+				riskLevel: "Moderate",
+				benchmarkIndex: "Nifty Bharat Bond Index - April 2033",
+				returns: { returns1y: 8.42, returns3y: 7.25, returns5y: 7.15 },
+				topHoldings: [
+					{ company: "Power Finance Corporation Ltd (AAA)", weightPercent: 15.2, sector: "PSU Financials" },
+					{ company: "REC Ltd (AAA)", weightPercent: 14.8, sector: "PSU Financials" },
+					{ company: "National Highways Authority of India (AAA)", weightPercent: 12.5, sector: "Sovereign Infrastructure" },
+					{ company: "NTPC Ltd (AAA)", weightPercent: 11.4, sector: "Power" },
+					{ company: "Nuclear Power Corporation of India (AAA)", weightPercent: 9.8, sector: "Power" },
+				],
+				sectorAllocation: [
+					{ sector: "AAA Rated Central Public Sector Enterprises", weightPercent: 88.5 },
+					{ sector: "Sovereign Treasury Bills & Clearing", weightPercent: 11.5 },
+				],
+				fundManagers: ["Dhawal Dalal", "Rahul Dedhia"],
+				minSipAmount: 1000,
+				minLumpsumAmount: 1000,
+				exitLoad: "Nil on exchange trading.",
+				taxImplication: "Debt taxation under Section 50AA: Taxed at investor's marginal income tax slab rate.",
+				suitability: "Rock-solid credit safety with transparent maturity yield (~7.35% YTM) for 7-10 year capital preservation.",
+			},
+			{
+				schemeCode: "127042",
+				schemeName: "Motilal Oswal Midcap Fund - Growth",
+				amcName: "Motilal Oswal Mutual Fund",
+				category: "Equity",
+				subCategory: "Mid Cap Fund",
+				nav: 114.65,
+				navDate: new Date().toISOString().split("T")[0],
+				expenseRatio: 1.56,
+				aumCrores: 21800,
+				riskLevel: "Very High",
+				benchmarkIndex: "NIFTY Midcap 150 TRI",
+				returns: { returns1y: 46.8, returns3y: 34.2, returns5y: 28.6 },
+				topHoldings: [
+					{ company: "Trent Ltd", weightPercent: 9.8, sector: "Retail Discretionary" },
+					{ company: "Polycab India Ltd", weightPercent: 6.8, sector: "Cables & Wires" },
+					{ company: "Persistent Systems Ltd", weightPercent: 6.2, sector: "IT Services" },
+					{ company: "Kalyan Jewellers India", weightPercent: 5.6, sector: "Consumer Retail" },
+					{ company: "BSE Ltd", weightPercent: 5.1, sector: "Capital Markets" },
+				],
+				sectorAllocation: [
+					{ sector: "Consumer Discretionary", weightPercent: 31.4 },
+					{ sector: "Capital Goods & Electricals", weightPercent: 22.8 },
+					{ sector: "Information Technology", weightPercent: 16.5 },
+					{ sector: "Financial Services", weightPercent: 14.2 },
+					{ sector: "Cash / Overnight", weightPercent: 15.1 },
+				],
+				fundManagers: ["Niket Shah"],
+				minSipAmount: 500,
+				minLumpsumAmount: 500,
+				exitLoad: "1% if redeemed within 1 year; Nil thereafter.",
+				taxImplication: "Equity taxation: 12.5% LTCG (>₹1.25L), 20% STCG.",
+				suitability: "High-conviction QGLP focused fund for aggressive investors looking for market-dominating mid-cap compounders.",
+			},
+			{
+				schemeCode: "100388",
+				schemeName: "Franklin India Prima Fund - Growth",
+				amcName: "Franklin Templeton Mutual Fund",
+				category: "Equity",
+				subCategory: "Mid Cap Fund",
+				nav: 2480.45,
+				navDate: new Date().toISOString().split("T")[0],
+				expenseRatio: 1.64,
+				aumCrores: 13400,
+				riskLevel: "Very High",
+				benchmarkIndex: "NIFTY Midcap 150 TRI",
+				returns: { returns1y: 31.8, returns3y: 24.2, returns5y: 22.6 },
+				topHoldings: [
+					{ company: "Federal Bank Ltd", weightPercent: 4.8, sector: "Financial Services" },
+					{ company: "Crompton Greaves Consumer", weightPercent: 4.2, sector: "Consumer Durables" },
+					{ company: "Max Financial Services", weightPercent: 3.9, sector: "Insurance" },
+					{ company: "Deepak Nitrite Ltd", weightPercent: 3.6, sector: "Chemicals" },
+					{ company: "Voltas Ltd", weightPercent: 3.4, sector: "Consumer Durables" },
+				],
+				sectorAllocation: [
+					{ sector: "Financial Services", weightPercent: 21.4 },
+					{ sector: "Consumer Durables", weightPercent: 18.5 },
+					{ sector: "Chemicals & Materials", weightPercent: 14.2 },
+					{ sector: "Capital Goods", weightPercent: 13.8 },
+					{ sector: "Healthcare", weightPercent: 11.2 },
+				],
+				fundManagers: ["Janakiraman Rengaraju", "Akhil Kalluri"],
+				minSipAmount: 500,
+				minLumpsumAmount: 5000,
+				exitLoad: "1% within 1 year; Nil thereafter.",
+				taxImplication: "Equity taxation: 12.5% LTCG (>₹1.25L), 20% STCG.",
+				suitability: "India's pioneer mid-cap fund (incepted 1993) with 30+ year track record of identifying future large caps.",
+			},
+			{
+				schemeCode: "100122",
+				schemeName: "Quant Active Fund - Growth",
+				amcName: "Quant Mutual Fund",
+				category: "Equity",
+				subCategory: "Multi Cap Fund",
+				nav: 692.40,
+				navDate: new Date().toISOString().split("T")[0],
+				expenseRatio: 1.72,
+				aumCrores: 15200,
+				riskLevel: "Very High",
+				benchmarkIndex: "NIFTY 500 Multicap 50:25:25 TRI",
+				returns: { returns1y: 38.6, returns3y: 28.4, returns5y: 29.2 },
+				topHoldings: [
+					{ company: "Reliance Industries Ltd", weightPercent: 8.5, sector: "Energy" },
+					{ company: "HDFC Bank Ltd", weightPercent: 7.2, sector: "Financial Services" },
+					{ company: "Jio Financial Services", weightPercent: 6.4, sector: "Financials" },
+					{ company: "Tata Power Co Ltd", weightPercent: 5.6, sector: "Power" },
+					{ company: "Steel Authority of India (SAIL)", weightPercent: 4.8, sector: "Metals" },
+				],
+				sectorAllocation: [
+					{ sector: "Energy & Petrochemicals", weightPercent: 22.4 },
+					{ sector: "Financial Services", weightPercent: 19.8 },
+					{ sector: "Metals & Mining", weightPercent: 15.6 },
+					{ sector: "Power Transmission", weightPercent: 12.8 },
+					{ sector: "Cash & Derivatives Arbitrage", weightPercent: 18.2 },
+				],
+				fundManagers: ["Sandeep Tandon", "Sanjeev Sharma"],
+				minSipAmount: 1000,
+				minLumpsumAmount: 5000,
+				exitLoad: "1% if redeemed within 15 days; Nil thereafter.",
+				taxImplication: "Equity taxation: 12.5% LTCG (>₹1.25L), 20% STCG.",
+				suitability: "High alpha multi-cap fund utilizing predictive cross-asset VLRT analytics with dynamic sector rotation.",
+			},
 		];
 	}
 
@@ -456,8 +921,23 @@ export class AmcKnowledgeHubService {
 					)
 					.limit(1);
 
+				const isGiftCity = scheme.category.toLowerCase().includes("gift") || scheme.category.toLowerCase().includes("ifsc");
+				const isPms = scheme.category.toLowerCase().includes("pms");
+				const isAif = scheme.category.toLowerCase().includes("aif");
+				const isEtf = scheme.category.toLowerCase().includes("etf");
+
+				const mappedProductType = isGiftCity
+					? "gift_city"
+					: isPms
+						? "pms"
+						: isAif
+							? "aif"
+							: isEtf
+								? "etf"
+								: "mutual_fund";
+
 				const productPayload = {
-					productType: "mutual_fund",
+					productType: mappedProductType,
 					productCategory: scheme.category.toLowerCase(),
 					productSubCategory: scheme.subCategory,
 					title: scheme.schemeName,
@@ -627,6 +1107,46 @@ The ₹8 difference (0.8%) is locked in with **zero directional market risk**.
 				suggestedUseCases: ["Parking idle business surplus", "Tax-efficient short-term savings", "STP source fund"],
 				targetAudience: "HNIs, Corporate Treasuries, High Tax Bracket Professionals",
 			},
+			{
+				category: "product_explanation",
+				title: "GIFT City (IFSC) Global Inbound & Outbound Funds: Regulatory Architecture & Tax Privileges",
+				description:
+					"How Indian AMCs operate dollar-denominated funds in GIFT City IFSC under unified IFSCA regulations.",
+				content: `### What is GIFT City IFSC?
+Gujarat International Finance Tec-City (GIFT City) is India's premier International Financial Services Centre (IFSC), governed independently by the International Financial Services Centres Authority (IFSCA) under IFSCA (Fund Management) Regulations, 2022.
+
+### 1. Inbound Strategies (Foreign Capital into India):
+- Non-resident Indians (NRIs), offshore family offices, and foreign institutions invest into Indian equities and debt through Category I/II/III AIFs registered in GIFT City.
+- **Tax Privilege**: Under Section 47(viiab) of the Indian Income Tax Act, transfer of capital assets / securities listed on IFSC exchanges by non-residents is exempt from capital gains tax. Zero STT, zero CTT, zero GST.
+
+### 2. Outbound Strategies (Indian Capital into Global Markets):
+- Resident Indians can invest up to **$250,000 USD per financial year** under the RBI's Liberalized Remittance Scheme (LRS) or corporate OPI routes into GIFT City dollar funds.
+- Provides access to US Tech Giants, Global Semiconductor clusters, and US Treasuries without foreign custodian conversion friction.
+
+### Advisor Suitability
+Recommended for HNI and corporate clients seeking USD portfolio diversification, estate planning, and tax-efficient foreign asset compounding.`,
+				suggestedUseCases: ["LRS Dollar asset accumulation", "NRI tax-free inbound investing", "Global tech diversification"],
+				targetAudience: "HNIs, Family Offices, Non-Resident Indians (NRIs)",
+			},
+			{
+				category: "product_explanation",
+				title: "Portfolio Management Services (PMS) vs. Mutual Funds: Concentrated Alpha",
+				description:
+					"Why high-net-worth investors utilize SEBI-regulated PMS (₹50 Lakhs minimum) for concentrated, non-diluted alpha.",
+				content: `### What is Portfolio Management Services (PMS)?
+A SEBI-regulated investment vehicle where a professional portfolio manager manages a discretionary equity or debt portfolio tailored specifically for affluent investors. Regulated under SEBI (Portfolio Managers) Regulations, 2020.
+
+### Key Structural Differences from Mutual Funds:
+1. **Minimum Investment**: Statutory threshold is **₹50 Lakhs** (compared to ₹100 for mutual fund SIPs).
+2. **Direct Demat Ownership**: Securities are held directly in the client's individual Demat account (not pooled into an AMC trust unit like mutual funds).
+3. **Concentration & Agility**: Holds 15-25 high-conviction companies, avoiding the diversification dilution typical of large mutual funds (which often hold 60-100 stocks).
+4. **Pass-Through Taxation**: Capital gains and dividend income pass directly to the client's PAN and are taxed at prevailing listed equity rates (12.5% LTCG, 20% STCG).
+
+### Advisor Suitability
+Targeted strictly at Accredited Investors, Ultra-HNIs, and business owners who have already maxed out core mutual fund SIPs and seek aggressive, benchmark-beating alpha.`,
+				suggestedUseCases: ["Concentrated alpha compounding", "High conviction micro/small cap plays", "Bespoke HNI wealth mandates"],
+				targetAudience: "Ultra-HNIs, CXOs, Business Promoters (Min Net Worth ₹5+ Cr)",
+			},
 		];
 
 		let syncedCount = 0;
@@ -641,10 +1161,15 @@ The ₹8 difference (0.8%) is locked in with **zero directional market risk**.
 				const payload = {
 					category: t.category,
 					title: t.title,
-					description: t.description,
-					content: t.content,
-					suggestedUseCases: t.suggestedUseCases,
-					targetAudience: t.targetAudience,
+					whatIsHappening: t.description,
+					whyItMatters: t.content.split("\n\n")[0] || t.description,
+					clientImpact: t.suggestedUseCases ? `Recommended for: ${t.suggestedUseCases.join(", ")}` : "High client suitability for portfolio diversification",
+					risks: "Market volatility, equity drawdown during recessions, and interest rate cycle shifts.",
+					whatIsNotClaimed: "Does not guarantee fixed returns or capital protection under SEBI mutual fund guidelines.",
+					technicalVersion: t.content,
+					simpleVersion: t.description,
+					applicableProducts: ["mutual_fund", "hybrid", "etf"],
+					applicableScenarios: t.suggestedUseCases || ["portfolio_review"],
 					status: "active",
 					updatedAt: new Date(),
 				};
