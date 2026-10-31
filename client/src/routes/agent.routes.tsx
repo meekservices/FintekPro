@@ -46,6 +46,7 @@ import {
 	AgentTreasuryPage,
 	AgentTaxCasesPage,
 	AgentKnowledgeHub,
+	AgentKnowledgeAmcIntelligence,
 	AgentKnowledgeMarketBrief,
 	FestivalGreetingPreview,
 	AgentKnowledgeProducts,
@@ -434,6 +435,24 @@ export function AgentRoutes() {
 					<AgentLayout>
 						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
 							<AgentKnowledgeHub />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
+			<Route path="/agent/knowledge-hub/amc-intelligence">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AgentKnowledgeAmcIntelligence />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
+			<Route path="/agent/knowledge-hub/amcs">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AgentKnowledgeAmcIntelligence />
 						</Suspense>
 					</AgentLayout>
 				)}

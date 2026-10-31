@@ -44,7 +44,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 
@@ -431,50 +430,6 @@ export default function AgentKnowledgeHub() {
 	const [flashcardCategory, setFlashcardCategory] = useState("all");
 	const [currentCardIndex, setCurrentCardIndex] = useState(0);
 	const [isCardFlipped, setIsCardFlipped] = useState(false);
-	const [showAmcModal, setShowAmcModal] = useState(false);
-	const [selectedAmcCode, setSelectedAmcCode] = useState<string>("HDFC_MF");
-	const [amcSearchQuery, setAmcSearchQuery] = useState("");
-	const [selectedAmcTier, setSelectedAmcTier] = useState<string>("all");
-
-	const { data: amcInsightsData } = useQuery<{
-		success: boolean;
-		count: number;
-		insights: Array<{
-			id: string;
-			amcName: string;
-			amcCode: string;
-			shortName?: string;
-			tier?: "mega_institutional" | "established_pillar" | "alpha_boutique" | "fintech_passive" | "gift_city_ifsc";
-			rta?: string;
-			aumBand?: string;
-			title: string;
-			author: string;
-			authorDesignation: string;
-			category: string;
-			keyTakeaways: string[];
-			sectorCalls: {
-				overweight: string[];
-				neutral: string[];
-				underweight: string[];
-			};
-			macroIndicators: {
-				gdpGrowthEstimate: string;
-				rbiRateStance: string;
-				tenYearGsecOutlook: string;
-				crudeImpact: string;
-			};
-			advisoryTipForPartners: string;
-			publishedDate: string;
-			flagshipScheme?: {
-				name: string;
-				category: string;
-				subCategory: string;
-				benchmark: string;
-			};
-		}>;
-	}>({
-		queryKey: ["/api/knowledge-hub/amc/insights"],
-	});
 
 	const [selectedAssetClassId, setSelectedAssetClassId] = useState<string | null>(() => {
 		if (typeof window === "undefined") return null;
@@ -544,10 +499,9 @@ export default function AgentKnowledgeHub() {
 		},
 		{
 			title: "AMC Strategist Insights",
-			description: "Monthly CIO outlooks, sector calls & duration stance",
+			description: "Monthly CIO outlooks, sector calls & duration stance across all 52 AMCs",
 			icon: Building2,
-			href: "#",
-			onClick: () => setShowAmcModal(true),
+			href: "/agent/knowledge-hub/amc-intelligence",
 			color: "text-purple-500",
 			bgColor: "bg-purple-500/10",
 		},
@@ -626,15 +580,16 @@ export default function AgentKnowledgeHub() {
 					</p>
 				</div>
 				<div className="flex items-center gap-2 flex-wrap">
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => setShowAmcModal(true)}
-						className="border-purple-300 dark:border-purple-600 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/30 gap-1.5 font-medium"
-					>
-						<Building2 className="h-4 w-4" />
-						AMC Insights & Outlooks
-					</Button>
+					<Link href="/agent/knowledge-hub/amc-intelligence">
+						<Button
+							variant="outline"
+							size="sm"
+							className="border-purple-300 dark:border-purple-600 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/30 gap-1.5 font-medium"
+						>
+							<Building2 className="h-4 w-4" />
+							AMC Insights & Outlooks (52 AMCs)
+						</Button>
+					</Link>
 					<Button
 						variant="outline"
 						size="sm"
@@ -765,14 +720,6 @@ export default function AgentKnowledgeHub() {
 							</CardContent>
 						</Card>
 					);
-
-					if (link.onClick) {
-						return (
-							<button type="button" key={link.title} onClick={link.onClick} className="h-full w-full text-left bg-transparent border-0 p-0 cursor-pointer">
-								{cardContent}
-							</button>
-						);
-					}
 
 					return (
 						<Link key={link.href} href={link.href}>
@@ -1400,280 +1347,6 @@ export default function AgentKnowledgeHub() {
 							</>
 						);
 					})()}
-				</DialogContent>
-			</Dialog>
-
-			{/* AMC Strategist Insights & CIO Perspectives Modal */}
-			<Dialog open={showAmcModal} onOpenChange={setShowAmcModal}>
-				<DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-6 bg-card border-border">
-					<DialogHeader>
-						<div className="flex items-center gap-2">
-							<Badge className="bg-purple-100 text-purple-900 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-300 dark:border-purple-700 text-xs font-semibold">
-								<Building2 className="h-3 w-3 mr-1 text-purple-700 dark:text-purple-400" />
-								Institutional Feeds
-							</Badge>
-							<span className="text-xs text-muted-foreground">Updated Monthly from AMC Disclosures</span>
-						</div>
-						<DialogTitle className="text-xl font-bold text-foreground flex items-center gap-2">
-							AMC Strategist Intelligence & CIO Perspectives
-						</DialogTitle>
-						<DialogDescription className="text-sm text-muted-foreground">
-							Direct macro views, equity valuation calls, and duration playbooks from India's top fund houses to support client discussions.
-						</DialogDescription>
-					</DialogHeader>
-
-					{amcInsightsData?.insights && amcInsightsData.insights.length > 0 ? (() => {
-						const filteredAmcInsights = amcInsightsData.insights.filter((insight) => {
-							const matchesTier = selectedAmcTier === "all" || insight.tier === selectedAmcTier;
-							if (!matchesTier) return false;
-							if (!amcSearchQuery.trim()) return true;
-							const q = amcSearchQuery.toLowerCase().trim();
-							return (
-								insight.amcName.toLowerCase().includes(q) ||
-								(insight.shortName && insight.shortName.toLowerCase().includes(q)) ||
-								insight.author.toLowerCase().includes(q) ||
-								insight.title.toLowerCase().includes(q) ||
-								(insight.aumBand && insight.aumBand.toLowerCase().includes(q))
-							);
-						});
-
-						const activeInsight =
-							filteredAmcInsights.find((i) => i.amcCode === selectedAmcCode) ||
-							filteredAmcInsights[0] ||
-							amcInsightsData.insights[0];
-
-						return (
-							<div className="flex-1 flex flex-col min-h-0 mt-2">
-								{/* Search and Tier Filter Bar */}
-								<div className="flex flex-col sm:flex-row gap-2 mb-3">
-									<div className="relative flex-1">
-										<Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-										<Input
-											type="search"
-											placeholder="Search 52 AMCs by fund house, CIO, or tier..."
-											value={amcSearchQuery}
-											onChange={(e) => setAmcSearchQuery(e.target.value)}
-											className="pl-8 h-8 text-xs bg-muted/30 border-border"
-										/>
-									</div>
-									<div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
-										{[
-											{ key: "all", label: "All (52)" },
-											{ key: "mega_institutional", label: "Mega (10)" },
-											{ key: "established_pillar", label: "Pillars (14)" },
-											{ key: "alpha_boutique", label: "Boutiques (16)" },
-											{ key: "fintech_passive", label: "Fintech (6)" },
-											{ key: "gift_city_ifsc", label: "GIFT City (6)" },
-										].map((t) => (
-											<Button
-												key={t.key}
-												variant={selectedAmcTier === t.key ? "default" : "outline"}
-												size="sm"
-												onClick={() => setSelectedAmcTier(t.key)}
-												className="h-8 px-2.5 text-[11px] whitespace-nowrap"
-											>
-												{t.label}
-											</Button>
-										))}
-									</div>
-								</div>
-
-								{filteredAmcInsights.length > 0 ? (
-									<Tabs
-										value={activeInsight.amcCode}
-										onValueChange={setSelectedAmcCode}
-										className="flex-1 flex flex-col min-h-0"
-									>
-										<div className="overflow-x-auto pb-1 mb-3">
-											<TabsList className="flex w-max min-w-full bg-muted/40 p-1 gap-1">
-												{filteredAmcInsights.map((insight) => (
-													<TabsTrigger
-														key={insight.amcCode}
-														value={insight.amcCode}
-														className="text-xs py-1.5 px-3 shrink-0 whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground font-medium"
-													>
-														{insight.shortName || insight.amcName.replace(" Mutual Fund", "")}
-													</TabsTrigger>
-												))}
-											</TabsList>
-										</div>
-
-										<ScrollArea className="flex-1 pr-3">
-											<div className="space-y-4 pb-4">
-												{/* Header Summary */}
-												<div className="p-4 rounded-xl bg-muted/30 border border-border">
-													<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-														<div>
-															<div className="flex flex-wrap items-center gap-1.5 mb-2">
-																<Badge variant="outline" className="text-xs bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-200 border-blue-300 dark:border-blue-700 font-semibold uppercase tracking-wider text-[10px] px-2 py-0.5">
-																	{activeInsight.category.replace(/_/g, " ")}
-																</Badge>
-																{activeInsight.tier && (
-																	<Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-purple-100 dark:bg-purple-950 text-purple-900 dark:text-purple-200 border border-purple-300 dark:border-purple-800">
-																		{activeInsight.tier.replace(/_/g, " ")}
-																	</Badge>
-																)}
-																{activeInsight.rta && (
-																	<Badge variant="outline" className="text-[10px] font-medium px-2 py-0.5 text-muted-foreground border-border">
-																		RTA: {activeInsight.rta}
-																	</Badge>
-																)}
-																{activeInsight.aumBand && (
-																	<Badge variant="outline" className="text-[10px] font-semibold px-2 py-0.5 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800">
-																		{activeInsight.aumBand}
-																	</Badge>
-																)}
-															</div>
-															<h3 className="text-base font-semibold text-foreground">
-																{activeInsight.title}
-															</h3>
-															<p className="text-xs text-muted-foreground mt-0.5">
-																By <span className="font-medium text-foreground">{activeInsight.author}</span> ({activeInsight.authorDesignation}) • Published {activeInsight.publishedDate}
-															</p>
-														</div>
-														<Link href={`/agent/knowledge-hub/products`}>
-															<Button size="sm" variant="outline" className="text-xs border-border shrink-0">
-																View Scheme Factsheets
-																<ChevronRight className="h-3.5 w-3.5 ml-1" />
-															</Button>
-														</Link>
-													</div>
-												</div>
-
-												{/* Key Strategic Takeaways */}
-												<div>
-													<h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-														<Sparkles className="h-3.5 w-3.5 text-amber-500" />
-														Key Strategic Takeaways
-													</h4>
-													<div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-														{activeInsight.keyTakeaways.map((takeaway, idx) => (
-															<div
-																key={idx}
-																className={`flex items-start gap-2.5 p-3 rounded-lg bg-card border border-border text-xs text-foreground font-medium shadow-xs ${
-																	activeInsight.keyTakeaways.length % 2 !== 0 && idx === activeInsight.keyTakeaways.length - 1 ? "md:col-span-2" : ""
-																}`}
-															>
-																<CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-																<span className="leading-relaxed">{takeaway}</span>
-															</div>
-														))}
-													</div>
-												</div>
-
-												{/* Sector Allocation Calls */}
-												<div>
-													<h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-														<Layers className="h-3.5 w-3.5 text-blue-500" />
-														Tactical Sector Calls
-													</h4>
-													<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-														{/* Overweight */}
-														<div className="p-3 rounded-xl bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 shadow-xs">
-															<div className="flex items-center gap-1.5 mb-2">
-																<Badge className="bg-emerald-100 text-emerald-900 dark:bg-emerald-900/80 dark:text-emerald-200 border border-emerald-400 dark:border-emerald-700 text-[10px] font-bold">
-																	OVERWEIGHT
-																</Badge>
-															</div>
-															<ul className="space-y-1.5 text-xs text-foreground font-medium">
-																{activeInsight.sectorCalls.overweight.map((sec, i) => (
-																	<li key={i} className="flex items-center gap-1.5">
-																		<span className="w-1.5 h-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400 shrink-0" />
-																		{sec}
-																	</li>
-																))}
-															</ul>
-														</div>
-
-														{/* Neutral */}
-														<div className="p-3 rounded-xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 shadow-xs">
-															<div className="flex items-center gap-1.5 mb-2">
-																<Badge className="bg-amber-100 text-amber-900 dark:bg-amber-900/80 dark:text-amber-200 border border-amber-400 dark:border-amber-700 text-[10px] font-bold">
-																	NEUTRAL
-																</Badge>
-															</div>
-															<ul className="space-y-1.5 text-xs text-foreground font-medium">
-																{activeInsight.sectorCalls.neutral.map((sec, i) => (
-																	<li key={i} className="flex items-center gap-1.5">
-																		<span className="w-1.5 h-1.5 rounded-full bg-amber-600 dark:bg-amber-400 shrink-0" />
-																		{sec}
-																	</li>
-																))}
-															</ul>
-														</div>
-
-														{/* Underweight */}
-														<div className="p-3 rounded-xl bg-rose-50/90 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 shadow-xs">
-															<div className="flex items-center gap-1.5 mb-2">
-																<Badge className="bg-rose-100 text-rose-900 dark:bg-rose-900/80 dark:text-rose-200 border border-rose-400 dark:border-rose-700 text-[10px] font-bold">
-																	UNDERWEIGHT
-																</Badge>
-															</div>
-															<ul className="space-y-1.5 text-xs text-foreground font-medium">
-																{activeInsight.sectorCalls.underweight.map((sec, i) => (
-																	<li key={i} className="flex items-center gap-1.5">
-																		<span className="w-1.5 h-1.5 rounded-full bg-rose-600 dark:bg-rose-400 shrink-0" />
-																		{sec}
-																	</li>
-																))}
-															</ul>
-														</div>
-													</div>
-												</div>
-
-												{/* Macro Indicators */}
-												<div>
-													<h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-														<TrendingUp className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
-														Macro & Rate Projections
-													</h4>
-													<div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-														<div className="p-2.5 rounded-lg bg-card border border-border shadow-xs">
-															<p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">GDP Growth</p>
-															<p className="text-xs font-bold text-foreground mt-0.5">{activeInsight.macroIndicators.gdpGrowthEstimate}</p>
-														</div>
-														<div className="p-2.5 rounded-lg bg-card border border-border shadow-xs">
-															<p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">RBI Stance</p>
-															<p className="text-xs font-bold text-foreground mt-0.5">{activeInsight.macroIndicators.rbiRateStance}</p>
-														</div>
-														<div className="p-2.5 rounded-lg bg-card border border-border shadow-xs">
-															<p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">10Y G-Sec</p>
-															<p className="text-xs font-bold text-foreground mt-0.5">{activeInsight.macroIndicators.tenYearGsecOutlook}</p>
-														</div>
-														<div className="p-2.5 rounded-lg bg-card border border-border shadow-xs">
-															<p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Crude & FX</p>
-															<p className="text-xs font-bold text-foreground mt-0.5">{activeInsight.macroIndicators.crudeImpact}</p>
-														</div>
-													</div>
-												</div>
-
-												{/* Partner Advisory Tip */}
-												<div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/70 border-l-4 border-l-emerald-600 border border-slate-300 dark:border-slate-800 shadow-sm">
-													<div className="flex items-center gap-2 mb-1.5">
-														<Lightbulb className="h-4 w-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
-														<p className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-															Partner Client Advisory Takeaway
-														</p>
-													</div>
-													<p className="text-xs text-slate-800 dark:text-slate-200 font-medium leading-relaxed pl-6">
-														{activeInsight.advisoryTipForPartners}
-													</p>
-												</div>
-											</div>
-										</ScrollArea>
-									</Tabs>
-								) : (
-									<div className="py-12 text-center text-sm text-muted-foreground">
-										No AMCs found matching your filter or search query.
-									</div>
-								)}
-							</div>
-						);
-					})() : (
-						<div className="py-8 text-center text-sm text-muted-foreground">
-							Loading AMC Strategist insights...
-						</div>
-					)}
 				</DialogContent>
 			</Dialog>
 		</div>

@@ -382,6 +382,9 @@ export const AgentTaxCasesPage = lazyWithRetry(
 export const AgentKnowledgeHub = lazyWithRetry(
 	() => import("@/pages/agent-knowledge-hub"),
 );
+export const AgentKnowledgeAmcIntelligence = lazyWithRetry(
+	() => import("@/pages/agent-knowledge-amc-intelligence"),
+);
 export const AgentKnowledgeMarketBrief = lazyWithRetry(
 	() => import("@/pages/agent-knowledge-market-brief"),
 );
