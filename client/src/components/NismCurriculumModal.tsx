@@ -229,9 +229,9 @@ export function NismCurriculumModal({
 				<div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
 					{/* Left: Chapter Index Sidebar */}
 					<div className="w-full md:w-80 border-b md:border-b-0 md:border-r border-border/60 bg-card/30 flex flex-col shrink-0">
-						<div className="p-2.5 bg-muted/30 border-b border-border/40 text-[11px] font-semibold text-muted-foreground flex justify-between items-center">
+						<div className="p-2.5 bg-muted/40 border-b border-border/60 text-[11px] font-semibold text-muted-foreground flex justify-between items-center">
 							<span>SYLLABUS CHAPTERS ({filteredChapters.length})</span>
-							<span className="text-[10px] text-amber-400">Total 22 Chapters</span>
+							<span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold">Total 22 Chapters</span>
 						</div>
 						<ScrollArea className="flex-1 p-2">
 							<div className="space-y-1">
@@ -244,19 +244,19 @@ export function NismCurriculumModal({
 											onClick={() => setActiveChapterNumber(ch.chapterNumber)}
 											className={`w-full text-left p-2 rounded-md transition-all text-xs flex flex-col gap-1 border ${
 												isSelected
-													? "bg-amber-500/15 border-amber-500/40 text-foreground font-medium shadow-sm"
-													: "hover:bg-muted/50 border-transparent text-muted-foreground"
+													? "bg-amber-100/70 dark:bg-amber-500/15 border-amber-400 dark:border-amber-500/40 text-foreground font-semibold shadow-xs"
+													: "hover:bg-muted/50 border-transparent text-muted-foreground hover:text-foreground font-medium"
 											}`}
 										>
 											<div className="flex items-center justify-between gap-1">
-												<span className="font-mono text-[10px] font-semibold text-amber-400">
+												<span className="font-mono text-[10px] font-bold text-amber-700 dark:text-amber-400">
 													CH {ch.chapterNumber}
 												</span>
-												<span className="text-[9px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground border border-border/40">
+												<span className="text-[9px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground border border-border/50 font-mono font-medium">
 													{ch.weightage}
 												</span>
 											</div>
-											<span className="line-clamp-2 leading-snug">{ch.title}</span>
+											<span className="line-clamp-2 leading-snug text-foreground">{ch.title}</span>
 										</button>
 									);
 								})}
@@ -314,7 +314,7 @@ export function NismCurriculumModal({
 									{/* Key Formulas Section (if applicable) */}
 									{activeChapter.formulas && activeChapter.formulas.length > 0 && (
 										<div className="space-y-3 pt-2">
-											<h3 className="text-sm font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
+											<h3 className="text-sm font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
 												<Calculator className="h-4 w-4" />
 												Key Formulas & Calculations
 											</h3>
@@ -322,17 +322,17 @@ export function NismCurriculumModal({
 												{activeChapter.formulas.map((f, idx) => (
 													<div
 														key={idx}
-														className="p-3.5 rounded-lg bg-blue-950/20 border border-blue-500/30 space-y-1.5"
+														className="p-3.5 rounded-lg bg-blue-50/90 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-500/40 space-y-1.5 shadow-xs"
 													>
 														<div className="flex items-center justify-between">
-															<span className="font-semibold text-xs text-blue-300">
+															<span className="font-bold text-xs text-blue-950 dark:text-blue-200">
 																{f.name}
 															</span>
 														</div>
-														<div className="font-mono text-xs sm:text-sm p-2 rounded bg-black/40 text-amber-300 border border-blue-500/20">
+														<div className="font-mono text-xs sm:text-sm p-2 rounded bg-slate-900 text-amber-300 border border-slate-700 dark:border-blue-500/30 shadow-inner">
 															{f.formula}
 														</div>
-														<p className="text-[11px] text-muted-foreground">
+														<p className="text-[11px] text-slate-700 dark:text-slate-300 font-medium">
 															{f.explanation}
 														</p>
 													</div>
@@ -343,7 +343,7 @@ export function NismCurriculumModal({
 
 									{/* High-Yield Examination Tips */}
 									<div className="space-y-3 pt-2">
-										<h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+										<h3 className="text-sm font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
 											<Sparkles className="h-4 w-4" />
 											High-Yield NISM Exam Tips & Gotchas
 										</h3>
@@ -351,9 +351,9 @@ export function NismCurriculumModal({
 											{activeChapter.highYieldTips.map((tip, idx) => (
 												<div
 													key={idx}
-													className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/30 text-xs sm:text-sm flex items-start gap-2.5 leading-relaxed text-emerald-200"
+													className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 text-xs sm:text-sm flex items-start gap-2.5 leading-relaxed text-emerald-950 dark:text-emerald-100 font-medium shadow-xs"
 												>
-													<AlertCircle className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+													<AlertCircle className="h-4 w-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
 													<span>{tip}</span>
 												</div>
 											))}

@@ -2598,14 +2598,14 @@ export default function AgentKnowledgeCertifications() {
 																	let optContainerClass = "border border-border/50 hover:bg-muted/30 bg-muted/10";
 																	if (isRemarkActive) {
 																		if (isThisOptionCorrect) {
-																			optContainerClass = "bg-emerald-500/15 border-2 border-emerald-500 text-emerald-200 font-medium shadow-sm";
+																			optContainerClass = "bg-emerald-500/15 border-2 border-emerald-500 text-emerald-950 dark:text-emerald-100 font-semibold shadow-xs";
 																		} else if (isSelected && !isThisOptionCorrect) {
-																			optContainerClass = "bg-rose-500/15 border-2 border-rose-500 text-rose-200 font-medium shadow-sm";
+																			optContainerClass = "bg-rose-500/15 border-2 border-rose-500 text-rose-950 dark:text-rose-100 font-semibold shadow-xs";
 																		} else {
 																			optContainerClass = "opacity-50 border-border/30 hover:opacity-80";
 																		}
 																	} else if (isSelected) {
-																		optContainerClass = "bg-amber-500/15 border border-amber-500/50 text-amber-200 font-medium";
+																		optContainerClass = "bg-amber-500/15 border border-amber-500/50 text-amber-950 dark:text-amber-100 font-semibold";
 																	}
 
 																	return (

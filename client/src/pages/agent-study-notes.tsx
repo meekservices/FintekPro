@@ -247,7 +247,7 @@ export default function AgentStudyNotesPage() {
 								<SelectContent>
 									{SUPPORTED_COURSES.map((c) => (
 										<SelectItem key={c.id} value={c.id} className="text-xs">
-											<span className="font-bold text-amber-500 mr-1.5">
+											<span className="font-bold text-amber-700 dark:text-amber-400 mr-1.5">
 												{c.seriesCode}:
 											</span>
 											<span>{c.title}</span>
@@ -258,7 +258,7 @@ export default function AgentStudyNotesPage() {
 
 							<Badge
 								variant="outline"
-								className="hidden lg:inline-flex border-emerald-500/50 bg-emerald-500/10 text-emerald-400 text-[11px] px-2 py-0.5"
+								className="hidden lg:inline-flex border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-semibold text-[11px] px-2.5 py-0.5"
 							>
 								Official SEBI Blueprint
 							</Badge>
@@ -366,9 +366,9 @@ export default function AgentStudyNotesPage() {
 					</div>
 
 					{/* Chapter Counter & Progress */}
-					<div className="px-3.5 py-2 bg-muted/30 border-b border-border/40 text-[11px] font-semibold text-muted-foreground flex justify-between items-center">
+					<div className="px-3.5 py-2 bg-muted/40 border-b border-border text-[11px] font-semibold text-muted-foreground flex justify-between items-center">
 						<span>SYLLABUS CHAPTERS ({filteredChapters.length})</span>
-						<span className="text-[10px] text-amber-500 font-mono">
+						<span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold font-mono">
 							{completedChapters.size}/{allChapters.length} Reviewed
 						</span>
 					</div>
@@ -387,24 +387,24 @@ export default function AgentStudyNotesPage() {
 										onClick={() => handleSelectChapter(ch.chapterNumber)}
 										className={`w-full text-left p-2.5 rounded-lg transition-all text-xs flex flex-col gap-1 border ${
 											isSelected
-												? "bg-amber-500/15 border-amber-500/50 text-foreground font-medium shadow-sm ring-1 ring-amber-500/30"
-												: "hover:bg-muted/50 border-transparent text-muted-foreground hover:text-foreground"
+												? "bg-amber-100/70 dark:bg-amber-500/15 border-amber-400 dark:border-amber-500/50 text-foreground font-semibold shadow-xs"
+												: "hover:bg-muted/50 border-transparent text-muted-foreground hover:text-foreground font-medium"
 										}`}
 									>
 										<div className="flex items-center justify-between gap-1.5">
 											<div className="flex items-center gap-1.5">
-												<span className="font-mono text-[10px] font-bold text-amber-400">
+												<span className="font-mono text-[10px] font-bold text-amber-700 dark:text-amber-400">
 													CH {ch.chapterNumber}
 												</span>
 												{isDone && (
-													<CheckCircle2 className="h-3 w-3 text-emerald-400 inline" />
+													<CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400 inline" />
 												)}
 											</div>
-											<span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border/40 font-mono">
+											<span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border/50 font-mono font-medium">
 												{ch.weightage}
 											</span>
 										</div>
-										<span className="line-clamp-2 leading-snug text-xs">
+										<span className="line-clamp-2 leading-snug text-xs text-foreground">
 											{ch.title}
 										</span>
 									</button>
@@ -471,9 +471,9 @@ export default function AgentStudyNotesPage() {
 
 								{/* Core Concepts */}
 								<div className="space-y-4">
-									<div className="flex items-center gap-2 border-b border-border/40 pb-2">
-										<Layers className="h-5 w-5 text-amber-400" />
-										<h2 className="text-base sm:text-lg font-bold uppercase tracking-wider text-amber-400">
+									<div className="flex items-center gap-2 border-b border-border/60 pb-2">
+										<Layers className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+										<h2 className="text-base sm:text-lg font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
 											Core Concepts Tested in Official Exam
 										</h2>
 									</div>
@@ -481,10 +481,10 @@ export default function AgentStudyNotesPage() {
 										{activeChapter.keyConcepts.map((concept, idx) => (
 											<div
 												key={idx}
-												className="p-4 rounded-xl bg-card/70 border border-border/70 text-xs sm:text-sm flex items-start gap-3 leading-relaxed text-foreground shadow-sm hover:border-amber-500/40 transition-colors"
+												className="p-4 rounded-xl bg-card border border-border text-xs sm:text-sm flex items-start gap-3 leading-relaxed text-foreground font-medium shadow-xs hover:border-amber-500/40 transition-colors"
 											>
-												<CheckCircle className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-												<span>{concept}</span>
+												<CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+												<span className="leading-relaxed">{concept}</span>
 											</div>
 										))}
 									</div>
@@ -493,9 +493,9 @@ export default function AgentStudyNotesPage() {
 								{/* Key Formulas Section */}
 								{activeChapter.formulas && activeChapter.formulas.length > 0 && (
 									<div className="space-y-4 pt-2">
-										<div className="flex items-center gap-2 border-b border-border/40 pb-2">
-											<Calculator className="h-5 w-5 text-blue-400" />
-											<h2 className="text-base sm:text-lg font-bold uppercase tracking-wider text-blue-400">
+										<div className="flex items-center gap-2 border-b border-border/60 pb-2">
+											<Calculator className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+											<h2 className="text-base sm:text-lg font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400">
 												Key Formulas & Calculations
 											</h2>
 										</div>
@@ -503,17 +503,17 @@ export default function AgentStudyNotesPage() {
 											{activeChapter.formulas.map((f, idx) => (
 												<div
 													key={idx}
-													className="p-4 rounded-xl bg-blue-950/20 border border-blue-500/30 space-y-2 shadow-sm"
+													className="p-4 rounded-xl bg-blue-50/90 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-500/40 space-y-2 shadow-xs"
 												>
 													<div className="flex items-center justify-between">
-														<span className="font-bold text-sm text-blue-300">
+														<span className="font-bold text-sm text-blue-950 dark:text-blue-200">
 															{f.name}
 														</span>
 													</div>
-													<div className="font-mono text-xs sm:text-sm p-3 rounded-lg bg-black/50 text-amber-300 border border-blue-500/25 overflow-x-auto">
+													<div className="font-mono text-xs sm:text-sm p-3 rounded-lg bg-slate-900 text-amber-300 border border-slate-700 dark:border-blue-500/30 overflow-x-auto shadow-inner">
 														{f.formula}
 													</div>
-													<p className="text-xs text-muted-foreground leading-relaxed">
+													<p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
 														{f.explanation}
 													</p>
 												</div>
@@ -524,9 +524,9 @@ export default function AgentStudyNotesPage() {
 
 								{/* High-Yield Examination Tips */}
 								<div className="space-y-4 pt-2">
-									<div className="flex items-center gap-2 border-b border-border/40 pb-2">
-										<Sparkles className="h-5 w-5 text-emerald-400" />
-										<h2 className="text-base sm:text-lg font-bold uppercase tracking-wider text-emerald-400">
+									<div className="flex items-center gap-2 border-b border-border/60 pb-2">
+										<Sparkles className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
+										<h2 className="text-base sm:text-lg font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
 											High-Yield NISM Exam Tips & Gotchas
 										</h2>
 									</div>
@@ -534,10 +534,10 @@ export default function AgentStudyNotesPage() {
 										{activeChapter.highYieldTips.map((tip, idx) => (
 											<div
 												key={idx}
-												className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-500/30 text-xs sm:text-sm flex items-start gap-3 leading-relaxed text-emerald-200 shadow-sm"
+												className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 text-xs sm:text-sm flex items-start gap-3 leading-relaxed text-emerald-950 dark:text-emerald-100 font-medium shadow-xs"
 											>
-												<AlertCircle className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-												<span>{tip}</span>
+												<AlertCircle className="h-4 w-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
+												<span className="leading-relaxed">{tip}</span>
 											</div>
 										))}
 									</div>
