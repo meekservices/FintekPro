@@ -867,7 +867,55 @@ async function get1YReturn(schemeCode: number): Promise<number | null> {
  *  For MF/fund holdings (no symbol or AMFI schemeCode):
  *    → Existing mfapi.in NAV-based 1Y return pipeline unchanged.
  */
+function resolveHoldingScreenerUrl(h: any): string {
+  const symbol = (h.symbol ?? "").toUpperCase().trim();
+  const name = (h.name ?? "").trim();
+  const cat = (h.category ?? "").toLowerCase();
+  const type = (h.type ?? "").toLowerCase();
+
+  // 1. Direct Equities / Stocks
+  if (type === "equity" && symbol && !cat.includes("mf") && !cat.includes("fund") && !cat.includes("etf")) {
+    return `/agent/screener?type=stock&search=${encodeURIComponent(symbol)}`;
+  }
+
+  // 2. ETFs (Index, Gold, Sectoral, Defence, etc.)
+  if (cat.includes("etf") || type === "etf" || name.toUpperCase().includes("ETF") || name.toUpperCase().includes("BEES")) {
+    const q = symbol || name;
+    return `/agent/screener?type=etf&search=${encodeURIComponent(q)}`;
+  }
+
+  // 3. REITs & InvITs
+  if (cat.includes("reit") || type === "reit" || name.toUpperCase().includes("REIT")) {
+    return `/agent/screener?type=reit_invit&category=reit&search=${encodeURIComponent(symbol || name)}`;
+  }
+  if (cat.includes("invit") || type === "invit" || name.toUpperCase().includes("INVIT")) {
+    return `/agent/screener?type=reit_invit&category=invit&search=${encodeURIComponent(symbol || name)}`;
+  }
+
+  // 4. Specialised Investment Funds (SIF)
+  if (cat === "sif" || type === "sif" || name.toUpperCase().includes("SIF")) {
+    return `/agent/screener?type=sif&search=${encodeURIComponent(name)}`;
+  }
+
+  // 5. Fixed Income / Bonds / G-Secs / SGB
+  if (type === "bond" || cat.includes("bond") || cat.includes("gilt") || cat.includes("g-sec") || cat.includes("sgb")) {
+    return `/agent/screener?type=bond&search=${encodeURIComponent(name)}`;
+  }
+
+  // 6. Mutual Funds (Equity, Debt, Hybrid, ELSS, Liquid, etc.)
+  return `/agent/screener?type=mutual_fund&search=${encodeURIComponent(name)}`;
+}
+
+/** Enriches a single holding with live 1Y return and screener deeplink. */
 async function enrichHolding(h: any): Promise<any> {
+  const result = await enrichHoldingInternal(h);
+  return {
+    ...result,
+    screenerUrl: resolveHoldingScreenerUrl(result),
+  };
+}
+
+async function enrichHoldingInternal(h: any): Promise<any> {
   const symbol: string | undefined = h.symbol;
   const name: string = h.name ?? "";
   const typeStr = (h.type ?? "").toLowerCase();

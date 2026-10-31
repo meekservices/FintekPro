@@ -104,7 +104,8 @@ type ScreenerType =
 	| "unlisted"
 	| "reit_invit"
 	| "smallcase"
-	| "index";
+	| "index"
+	| "sif";
 type ViewMode = "table" | "cards";
 
 const FALLBACK_US_STOCKS = [
@@ -607,7 +608,14 @@ const SCORE_COLORS: Record<string, string> = {
 
 export default function AgentScreener() {
 	const { toast } = useToast();
-	const [screenerType, setScreenerType] = useState<ScreenerType>("stock");
+	const [screenerType, setScreenerType] = useState<ScreenerType>(() => {
+		const params = new URLSearchParams(window.location.search);
+		const t = params.get("type");
+		if (t && ["stock", "mutual_fund", "smallcase", "index", "bond", "reit_invit", "unlisted", "etf", "global_stock", "sif"].includes(t)) {
+			return t as ScreenerType;
+		}
+		return "stock";
+	});
 	const [criteria, setCriteria] = useState<ScreenerCriteria[]>([
 		{ field: "", operator: ">=", value: "" },
 	]);
@@ -623,7 +631,7 @@ export default function AgentScreener() {
 	const [dbSearch, setDbSearch] = useState(() => {
 		const params = new URLSearchParams(window.location.search);
 		return (
-			params.get("symbol") || params.get("isin") || params.get("search") || ""
+			params.get("symbol") || params.get("isin") || params.get("search") || params.get("q") || ""
 		);
 	});
 	const [dbSector, setDbSector] = useState("");
@@ -642,7 +650,10 @@ export default function AgentScreener() {
 	const dbLimit = 25;
 
 	// ── MF filter state ───────────────────────────────────────────────────────
-	const [mfCategory, setMfCategory] = useState("");
+	const [mfCategory, setMfCategory] = useState(() => {
+		const params = new URLSearchParams(window.location.search);
+		return params.get("category") || "";
+	});
 	const [mfFundHouse, setMfFundHouse] = useState("");
 	const [mfRiskLevel, setMfRiskLevel] = useState("");
 	const [mfMinReturn1y, setMfMinReturn1y] = useState("");
@@ -652,36 +663,58 @@ export default function AgentScreener() {
 	const [mfMinSharpe, setMfMinSharpe] = useState("");
 	const [mfMinAlpha, setMfMinAlpha] = useState("");
 	const [mfMaxBeta, setMfMaxBeta] = useState("");
-	const [mfSearch, setMfSearch] = useState("");
+	const [mfSearch, setMfSearch] = useState(() => {
+		const params = new URLSearchParams(window.location.search);
+		return params.get("search") || params.get("q") || params.get("symbol") || "";
+	});
 	const [mfPage, setMfPage] = useState(1);
 	const [mfSortBy, setMfSortBy] = useState("returns1y");
 	const [mfSortOrder, setMfSortOrder] = useState<"asc" | "desc">("desc");
 
 	// ── Bond filter state ─────────────────────────────────────────────────────
-	const [bondType, setBondType] = useState("all");
+	const [bondType, setBondType] = useState(() => {
+		const params = new URLSearchParams(window.location.search);
+		return params.get("bondType") || "all";
+	});
 	const [bondMinYield, setBondMinYield] = useState("");
 	const [bondMaxMaturityYears, setBondMaxMaturityYears] = useState("");
 	const [bondMinRating, setBondMinRating] = useState("");
 	const [bondTaxStatus, setBondTaxStatus] = useState("all");
+	const [bondSearch, setBondSearch] = useState(() => {
+		const params = new URLSearchParams(window.location.search);
+		return params.get("search") || params.get("q") || "";
+	});
 	const [bondPage, setBondPage] = useState(1);
 
 	// ── ETF filter state ──────────────────────────────────────────────────────
 	const [etfCategory, setEtfCategory] = useState("all");
-	const [etfSearch, setEtfSearch] = useState("");
+	const [etfSearch, setEtfSearch] = useState(() => {
+		const params = new URLSearchParams(window.location.search);
+		return params.get("search") || params.get("q") || params.get("symbol") || "";
+	});
 	const [etfPage, setEtfPage] = useState(1);
 
 	// ── Unlisted filter state ──────────────────────────────────────────────────
 	const [unlistedStage, setUnlistedStage] = useState("all");
 	const [unlistedSector, setUnlistedSector] = useState("");
-	const [unlistedSearch, setUnlistedSearch] = useState("");
+	const [unlistedSearch, setUnlistedSearch] = useState(() => {
+		const params = new URLSearchParams(window.location.search);
+		return params.get("search") || params.get("q") || "";
+	});
 	const [unlistedPage, setUnlistedPage] = useState(1);
 	const [unlistedSortBy, setUnlistedSortBy] = useState("name");
 	const [unlistedSortOrder, setUnlistedSortOrder] = useState<"asc" | "desc">("asc");
 
 	// ── REIT & InvIT filter state ──────────────────────────────────────────────
-	const [reitCategory, setReitCategory] = useState("all");
+	const [reitCategory, setReitCategory] = useState(() => {
+		const params = new URLSearchParams(window.location.search);
+		return params.get("category") || "all";
+	});
 	const [reitMinYield, setReitMinYield] = useState("");
-	const [reitSearch, setReitSearch] = useState("");
+	const [reitSearch, setReitSearch] = useState(() => {
+		const params = new URLSearchParams(window.location.search);
+		return params.get("search") || params.get("q") || params.get("symbol") || "";
+	});
 	const [reitPage, setReitPage] = useState(1);
 	const [reitSortBy, setReitSortBy] = useState("distributionYield");
 	const [reitSortOrder, setReitSortOrder] = useState<"asc" | "desc">("desc");
@@ -696,6 +729,51 @@ export default function AgentScreener() {
 	const [indexSearch, setIndexSearch] = useState("");
 	const [indexCategory, setIndexCategory] = useState("all");
 	const [indexPage, setIndexPage] = useState(1);
+
+	// ── SIF (Specialised Investment Funds — SEBI 2025) filter state ───────────
+	const [sifStrategy, setSifStrategy] = useState("all");
+	const [sifAmc, setSifAmc] = useState("all");
+	const [sifMinReturn, setSifMinReturn] = useState("");
+	const [sifSearch, setSifSearch] = useState(() => {
+		const params = new URLSearchParams(window.location.search);
+		return params.get("search") || params.get("q") || "";
+	});
+	const [sifPage, setSifPage] = useState(1);
+	const [sifSortBy, setSifSortBy] = useState("targetReturn");
+	const [sifSortOrder, setSifSortOrder] = useState<"asc" | "desc">("desc");
+
+	// Reactive URL synchronization for deep-linking from Model Portfolios & external tools
+	useEffect(() => {
+		const handleUrlParams = () => {
+			const p = new URLSearchParams(window.location.search);
+			const t = p.get("type");
+			if (t && ["stock", "mutual_fund", "smallcase", "index", "bond", "reit_invit", "unlisted", "etf", "global_stock", "sif"].includes(t)) {
+				setScreenerType(t as ScreenerType);
+			}
+			const q = p.get("search") || p.get("q") || p.get("symbol") || p.get("isin") || "";
+			if (q) {
+				setDbSearch(q);
+				setMfSearch(q);
+				setEtfSearch(q);
+				setBondSearch(q);
+				setReitSearch(q);
+				setSifSearch(q);
+				setUnlistedSearch(q);
+				setSmallcaseSearch(q);
+				setIndexSearch(q);
+			}
+			const cat = p.get("category");
+			if (cat) {
+				if (t === "reit_invit") setReitCategory(cat);
+				if (t === "mutual_fund") setMfCategory(cat);
+			}
+			const bt = p.get("bondType");
+			if (bt) setBondType(bt);
+		};
+		handleUrlParams();
+		window.addEventListener("popstate", handleUrlParams);
+		return () => window.removeEventListener("popstate", handleUrlParams);
+	}, []);
 
 	// ── Instrument AI Copilot Chat state ──────────────────────────────────────
 	const [activeChatInstrument, setActiveChatInstrument] = useState<ChatInstrumentTarget | null>(null);
@@ -792,6 +870,7 @@ export default function AgentScreener() {
 		} else if (screenerType === "bond") {
 			p.set("page", String(bondPage));
 			p.set("bondType", bondType);
+			if (bondSearch)             p.set("q", bondSearch);
 			if (bondMinYield)           p.set("minYield", bondMinYield);
 			if (bondMaxMaturityYears)   p.set("maxMaturityYears", bondMaxMaturityYears);
 			if (bondMinRating)          p.set("minRating", bondMinRating);
@@ -823,6 +902,14 @@ export default function AgentScreener() {
 			p.set("page", String(indexPage));
 			if (indexSearch)                              p.set("q", indexSearch);
 			if (indexCategory && indexCategory !== "all") p.set("category", indexCategory);
+		} else if (screenerType === "sif") {
+			p.set("page", String(sifPage));
+			p.set("sortBy", sifSortBy);
+			p.set("sortOrder", sifSortOrder);
+			if (sifSearch)                                p.set("q", sifSearch);
+			if (sifStrategy && sifStrategy !== "all")     p.set("strategy", sifStrategy);
+			if (sifAmc && sifAmc !== "all")               p.set("amc", sifAmc);
+			if (sifMinReturn)                             p.set("minReturn", sifMinReturn);
 		}
 		return p.toString();
 	};
@@ -832,12 +919,13 @@ export default function AgentScreener() {
 			"/api/screener/instruments",
 			screenerType, mfPage, mfCategory, mfFundHouse, mfRiskLevel, mfSearch,
 			mfMinReturn1y, mfMinReturn3y, mfMaxExpenseRatio, mfMinAum, mfMinSharpe, mfMinAlpha, mfMaxBeta, mfSortBy, mfSortOrder,
-			bondPage, bondType, bondMinYield, bondMaxMaturityYears, bondMinRating, bondTaxStatus,
+			bondPage, bondType, bondMinYield, bondMaxMaturityYears, bondMinRating, bondTaxStatus, bondSearch,
 			etfPage, etfCategory, etfSearch,
 			unlistedPage, unlistedStage, unlistedSector, unlistedSearch, unlistedSortBy, unlistedSortOrder,
 			reitPage, reitCategory, reitMinYield, reitSearch, reitSortBy, reitSortOrder,
 			smallcasePage, smallcaseSearch, smallcaseRisk, smallcaseSector,
 			indexPage, indexSearch, indexCategory,
+			sifPage, sifStrategy, sifAmc, sifMinReturn, sifSearch, sifSortBy, sifSortOrder,
 		],
 		enabled: isNonStockType,
 		queryFn: () =>
@@ -1439,6 +1527,8 @@ export default function AgentScreener() {
 							? "Smallcase Thematic Baskets"
 							: screenerType === "index"
 							? "Benchmark & Sectoral Indices"
+							: screenerType === "sif"
+							? "Specialised Investment Funds (SIF)"
 							: "Multi-Asset Screener"}
 					</h1>
 					<p className="text-xs text-muted-foreground mt-0.5">
@@ -1458,6 +1548,8 @@ export default function AgentScreener() {
 							? "Model portfolios & curated thematic stock baskets managed by SEBI registered research analysts"
 							: screenerType === "index"
 							? "Track broad market benchmarks, sectoral indices, and strategic smart-beta indicators"
+							: screenerType === "sif"
+							? "Screen SEBI April 2025 Specialised Investment Funds (₹10L min ticket, Long-Short & Absolute Return alpha)"
 							: "Screen ETFs by category, NAV, tracking error & liquidity"}
 					</p>
 				</div>
@@ -1494,6 +1586,7 @@ export default function AgentScreener() {
 									 screenerType === "reit_invit" ? "REITs & InvITs Screener" :
 									 screenerType === "smallcase" ? "Smallcase Thematic Screener" :
 									 screenerType === "index" ? "Indices & Benchmarks Screener" :
+									 screenerType === "sif" ? "Specialised Investment Funds (SIF)" :
 									 "Stock Screener"}
 								</CardTitle>
 								<CardDescription className="text-xs mt-0.5">
@@ -1513,6 +1606,8 @@ export default function AgentScreener() {
 										? "Curated model portfolios, asset-allocation strategies, and sector baskets"
 										: screenerType === "index"
 										? "NSE & BSE market benchmarks, sectoral leaders, and valuation indicators"
+										: screenerType === "sif"
+										? "SEBI April 2025 Framework for Specialised Investment Funds (₹10L ticket, long-short alpha)"
 										: "Screen ETFs by category, NAV & tracking error"}
 								</CardDescription>
 							</div>
@@ -1540,12 +1635,13 @@ export default function AgentScreener() {
 						{([
 							{ type: "stock" as ScreenerType, label: "Stocks", icon: <BarChart3 className="h-3.5 w-3.5" />, color: "text-blue-600 dark:text-blue-400", activeBg: "bg-blue-600 dark:bg-blue-500" },
 							{ type: "mutual_fund" as ScreenerType, label: "Mutual Funds", icon: <PieChart className="h-3.5 w-3.5" />, color: "text-purple-600 dark:text-purple-400", activeBg: "bg-purple-600 dark:bg-purple-500" },
+							{ type: "etf" as ScreenerType, label: "ETFs", icon: <Layers className="h-3.5 w-3.5" />, color: "text-emerald-600 dark:text-emerald-400", activeBg: "bg-emerald-600 dark:bg-emerald-500" },
+							{ type: "reit_invit" as ScreenerType, label: "REITs & InvITs", icon: <Building2 className="h-3.5 w-3.5" />, color: "text-cyan-600 dark:text-cyan-400", activeBg: "bg-cyan-600 dark:bg-cyan-500" },
+							{ type: "bond" as ScreenerType, label: "Bonds & FD", icon: <Landmark className="h-3.5 w-3.5" />, color: "text-amber-600 dark:text-amber-400", activeBg: "bg-amber-600 dark:bg-amber-500" },
+							{ type: "sif" as ScreenerType, label: "SIF (Alt Assets)", icon: <Target className="h-3.5 w-3.5" />, color: "text-rose-600 dark:text-rose-400", activeBg: "bg-rose-600 dark:bg-rose-500" },
 							{ type: "smallcase" as ScreenerType, label: "Smallcases", icon: <Zap className="h-3.5 w-3.5" />, color: "text-indigo-600 dark:text-indigo-400", activeBg: "bg-indigo-600 dark:bg-indigo-500" },
 							{ type: "index" as ScreenerType, label: "Indices", icon: <Activity className="h-3.5 w-3.5" />, color: "text-teal-600 dark:text-teal-400", activeBg: "bg-teal-600 dark:bg-teal-500" },
-							{ type: "bond" as ScreenerType, label: "Bonds & FD", icon: <Landmark className="h-3.5 w-3.5" />, color: "text-amber-600 dark:text-amber-400", activeBg: "bg-amber-600 dark:bg-amber-500" },
-							{ type: "reit_invit" as ScreenerType, label: "REITs & InvITs", icon: <Building2 className="h-3.5 w-3.5" />, color: "text-cyan-600 dark:text-cyan-400", activeBg: "bg-cyan-600 dark:bg-cyan-500" },
 							{ type: "unlisted" as ScreenerType, label: "Unlisted & Pre-IPO", icon: <Briefcase className="h-3.5 w-3.5" />, color: "text-violet-600 dark:text-violet-400", activeBg: "bg-violet-600 dark:bg-violet-500" },
-							{ type: "etf" as ScreenerType, label: "ETFs", icon: <Layers className="h-3.5 w-3.5" />, color: "text-emerald-600 dark:text-emerald-400", activeBg: "bg-emerald-600 dark:bg-emerald-500" },
 						] as const).map(({ type, label, icon, color, activeBg }) => (
 							<button
 								key={type}
@@ -1583,6 +1679,28 @@ export default function AgentScreener() {
 							<Sparkles className="h-3 w-3 text-amber-500" />
 							Thematic Presets:
 						</span>
+						<button
+							type="button"
+							onClick={() => {
+								setScreenerType("stock");
+								setDbSearch("RELIANCE, BAJFINANCE, TITAN, PERSISTENT");
+								setDbPage(1);
+							}}
+							className="text-[11px] px-2.5 py-1 rounded-md bg-amber-500/15 hover:bg-amber-500/25 font-semibold text-amber-700 dark:text-amber-300 whitespace-nowrap transition-colors border border-amber-500/40"
+						>
+							⭐ Model Portfolio Core
+						</button>
+						<button
+							type="button"
+							onClick={() => {
+								setScreenerType("sif");
+								setSifStrategy("all");
+								setSifPage(1);
+							}}
+							className="text-[11px] px-2.5 py-1 rounded-md bg-rose-500/15 hover:bg-rose-500/25 font-semibold text-rose-700 dark:text-rose-300 whitespace-nowrap transition-colors border border-rose-500/40"
+						>
+							⚡ SIF Long-Short Alpha
+						</button>
 						<button
 							type="button"
 							onClick={() => {
@@ -1718,7 +1836,16 @@ export default function AgentScreener() {
 														{(instrumentData?.data ?? []).map((f: any, i: number) => (
 															<tr key={f.id ?? f.schemeCode} className="hover:bg-muted/30 transition-colors">
 																<td className="py-2 px-3 text-xs text-muted-foreground">{(mfPage-1)*25+i+1}</td>
-																<td className="py-2 px-3 text-xs font-medium max-w-[200px] truncate" title={f.schemeName}>{f.schemeName}</td>
+																<td className="py-2 px-3 text-xs font-medium max-w-[240px]">
+																	<div className="flex items-center gap-1.5 flex-wrap">
+																		<span className="truncate" title={f.schemeName}>{f.schemeName}</span>
+																		{Array.isArray(f.modelPortfolios) && f.modelPortfolios.length > 0 && (
+																			<span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 rounded text-[9px] font-semibold border border-amber-500/30" title={`Held in Model Portfolio: ${f.modelPortfolios.join(', ')}`}>
+																				⭐ {f.modelPortfolios[0]}
+																			</span>
+																		)}
+																	</div>
+																</td>
 																<td className="py-2 px-3 text-xs"><span className="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-[10px]">{f.category ?? "—"}</span></td>
 																<td className="py-2 px-3 text-xs"><span className={`px-1.5 py-0.5 rounded text-[10px] ${
 																	f.riskLevel?.includes("High") ? "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400" :
@@ -1771,7 +1898,8 @@ export default function AgentScreener() {
 								{/* ── Bond Screener ─────────────────────────────────────────────── */}
 								{screenerType === "bond" && (
 									<div className="space-y-3">
-										<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+										<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+											<Input placeholder="Search bond or ISIN..." className="h-7 text-xs" value={bondSearch} onChange={(e) => { setBondSearch(e.target.value); setBondPage(1); }} />
 											<select className="h-7 text-xs border rounded-md px-2 bg-background" value={bondType} onChange={(e) => { setBondType(e.target.value); setBondPage(1); }}>
 												<option value="all">All Bonds</option><option value="govt">G-Sec / SDL</option><option value="corporate">Corporate</option>
 											</select>
@@ -1811,7 +1939,17 @@ export default function AgentScreener() {
 														{(instrumentData?.data ?? []).map((b: any, i: number) => (
 															<tr key={b.id ?? b.isin} className="hover:bg-muted/30 transition-colors">
 																<td className="py-2 px-3 text-xs text-muted-foreground">{(bondPage-1)*25+i+1}</td>
-																<td className="py-2 px-3 text-xs font-medium max-w-[220px]"><div className="truncate" title={b.name}>{b.name}</div><div className="text-[10px] text-muted-foreground">{b.issuer}</div></td>
+																<td className="py-2 px-3 text-xs font-medium max-w-[240px]">
+																	<div className="flex items-center gap-1.5 flex-wrap">
+																		<span className="truncate" title={b.name}>{b.name}</span>
+																		{Array.isArray(b.modelPortfolios) && b.modelPortfolios.length > 0 && (
+																			<span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 rounded text-[9px] font-semibold border border-amber-500/30" title={`Held in Model Portfolio: ${b.modelPortfolios.join(', ')}`}>
+																				⭐ {b.modelPortfolios[0]}
+																			</span>
+																		)}
+																	</div>
+																	<div className="text-[10px] text-muted-foreground">{b.issuer}</div>
+																</td>
 																<td className="py-2 px-3 text-xs"><span className={`px-1.5 py-0.5 rounded text-[10px] ${b.bondType === "govt" ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" : "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300"}`}>{b.bondType === "govt" ? "G-Sec" : "Corporate"}</span></td>
 																<td className="py-2 px-3 text-right font-mono text-xs font-semibold text-emerald-600 dark:text-emerald-400">{b.yieldToMaturity ? `${Number(b.yieldToMaturity).toFixed(2)}%` : "—"}</td>
 																<td className="py-2 px-3 text-right font-mono text-xs">{b.couponRate ? `${Number(b.couponRate).toFixed(2)}%` : "—"}</td>
@@ -1854,7 +1992,7 @@ export default function AgentScreener() {
 								{screenerType === "etf" && (
 									<div className="space-y-3">
 										<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-											<Input placeholder="Search ETF..." className="h-7 text-xs" value={etfSearch} onChange={(e) => { setEtfSearch(e.target.value); setEtfPage(1); }} />
+											<Input placeholder="Search ETF, name or ISIN..." className="h-7 text-xs" value={etfSearch} onChange={(e) => { setEtfSearch(e.target.value); setEtfPage(1); }} />
 											<select className="h-7 text-xs border rounded-md px-2 bg-background" value={etfCategory} onChange={(e) => { setEtfCategory(e.target.value); setEtfPage(1); }}>
 												<option value="all">All ETFs</option><option value="nifty">Nifty ETFs</option><option value="gold">Gold ETFs</option><option value="international">International</option>
 											</select>
@@ -1883,7 +2021,16 @@ export default function AgentScreener() {
 														)}
 														{(instrumentData?.data ?? []).map((e: any) => (
 															<tr key={e.id ?? e.symbol} className="hover:bg-muted/30 transition-colors">
-																<td className="py-2 px-3 text-xs font-mono font-semibold">{e.symbol}</td>
+																<td className="py-2 px-3 text-xs font-mono font-semibold">
+																	<div className="flex items-center gap-1.5 flex-wrap">
+																		<span>{e.symbol}</span>
+																		{Array.isArray(e.modelPortfolios) && e.modelPortfolios.length > 0 && (
+																			<span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 rounded text-[9px] font-semibold border border-amber-500/30 font-sans" title={`Held in Model Portfolio: ${e.modelPortfolios.join(', ')}`}>
+																				⭐ {e.modelPortfolios[0]}
+																			</span>
+																		)}
+																	</div>
+																</td>
 																<td className="py-2 px-3 text-xs max-w-[240px] truncate" title={e.companyName}>{e.companyName}</td>
 																<td className="py-2 px-3 text-xs text-muted-foreground">{e.exchange ?? "NSE"}</td>
 																<td className="py-2 px-3 text-right font-mono text-xs">{e.currentPrice ? `₹${Number(e.currentPrice).toFixed(2)}` : "—"}</td>
@@ -2018,8 +2165,15 @@ export default function AgentScreener() {
 															return (
 																<tr key={r.id ?? r.symbol} className="hover:bg-muted/30 transition-colors">
 																	<td className="py-2 px-3 text-xs text-muted-foreground">{(reitPage - 1) * 25 + i + 1}</td>
-																	<td className="py-2 px-3 text-xs font-medium max-w-[220px]">
-																		<div className="font-semibold text-foreground truncate" title={r.name}>{r.name}</div>
+																	<td className="py-2 px-3 text-xs font-medium max-w-[240px]">
+																		<div className="flex items-center gap-1.5 flex-wrap">
+																			<span className="font-semibold text-foreground truncate" title={r.name}>{r.name}</span>
+																			{Array.isArray(r.modelPortfolios) && r.modelPortfolios.length > 0 && (
+																				<span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 rounded text-[9px] font-semibold border border-amber-500/30" title={`Held in Model Portfolio: ${r.modelPortfolios.join(', ')}`}>
+																					⭐ {r.modelPortfolios[0]}
+																				</span>
+																			)}
+																		</div>
 																		<div className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
 																			<span>{r.symbol}</span>
 																			{r.sponsor && <span>• {r.sponsor}</span>}
@@ -2027,11 +2181,11 @@ export default function AgentScreener() {
 																	</td>
 																	<td className="py-2 px-3 text-xs">
 																		<span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-																			r.category === "REIT"
+																			(r.trustType === "REIT" || r.category === "REIT")
 																				? "bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20"
 																				: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
 																		}`}>
-																			{r.category}
+																			{r.trustType || r.category || "Trust"}
 																		</span>
 																	</td>
 																	<td className="py-2 px-3 text-right font-mono text-xs font-medium">
@@ -2816,6 +2970,225 @@ export default function AgentScreener() {
 									</div>
 								)}
 
+								{/* ── SIF (Specialised Investment Funds) Screener ─────────────── */}
+								{screenerType === "sif" && (
+									<div className="space-y-3">
+										<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+											<Input
+												placeholder="Search SIF fund or code..."
+												className="h-7 text-xs"
+												value={sifSearch}
+												onChange={(e) => { setSifSearch(e.target.value); setSifPage(1); }}
+											/>
+											<select
+												className="h-7 text-xs border rounded-md px-2 bg-background"
+												value={sifStrategy}
+												onChange={(e) => { setSifStrategy(e.target.value); setSifPage(1); }}
+											>
+												<option value="all">All Strategies</option>
+												<option value="Long-Short Equity">Long-Short Equity</option>
+												<option value="Inverted Yield Curve Arbitrage">Inverted Yield Arbitrage</option>
+												<option value="Systematic Alpha">Systematic Alpha</option>
+												<option value="Private Credit Opportunities">Private Credit</option>
+												<option value="Commodity & Currency Macro">Commodity & Macro</option>
+												<option value="Structured Momentum">Structured Momentum</option>
+											</select>
+											<select
+												className="h-7 text-xs border rounded-md px-2 bg-background"
+												value={sifAmc}
+												onChange={(e) => { setSifAmc(e.target.value); setSifPage(1); }}
+											>
+												<option value="all">All AMCs</option>
+												<option value="ICICI Prudential">ICICI Prudential</option>
+												<option value="SBI Funds Management">SBI Funds</option>
+												<option value="Kotak Mahindra">Kotak Mahindra</option>
+												<option value="Mirae Asset">Mirae Asset</option>
+												<option value="Nippon India">Nippon India</option>
+												<option value="HDFC Asset Management">HDFC AMC</option>
+												<option value="Axis Asset Management">Axis AMC</option>
+												<option value="Tata Asset Management">Tata AMC</option>
+											</select>
+											<Input
+												placeholder="Min Target % (e.g. 15)"
+												type="number"
+												step="0.5"
+												className="h-7 text-xs"
+												value={sifMinReturn}
+												onChange={(e) => { setSifMinReturn(e.target.value); setSifPage(1); }}
+											/>
+											<select
+												className="h-7 text-xs border rounded-md px-2 bg-background"
+												value={sifSortBy}
+												onChange={(e) => { setSifSortBy(e.target.value); }}
+											>
+												<option value="targetReturn">Sort: Target Return</option>
+												<option value="sharpeRatio">Sort: Sharpe Ratio</option>
+												<option value="volatility">Sort: Volatility (Low to High)</option>
+												<option value="name">Sort: Fund Name</option>
+											</select>
+										</div>
+
+										<div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-muted-foreground gap-2">
+											<div className="flex items-center gap-2">
+												<span className="font-semibold text-foreground">{instrumentData?.meta?.total ?? 0} Specialised Investment Funds</span>
+												<Badge variant="outline" className="text-[10px] py-0 px-2 h-5 bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30">
+													SEBI Apr 2025 Mandate · ₹10L Min Ticket
+												</Badge>
+											</div>
+											<div className="flex gap-2">
+												<Button
+													variant="outline"
+													size="sm"
+													className="h-6 text-[10px]"
+													disabled={sifPage <= 1}
+													onClick={() => setSifPage((p) => Math.max(1, p - 1))}
+												>
+													<ChevronLeft className="h-3 w-3 mr-0.5" />Prev
+												</Button>
+												<Button
+													variant="outline"
+													size="sm"
+													className="h-6 text-[10px]"
+													disabled={(instrumentData?.data?.length ?? 0) < 25}
+													onClick={() => setSifPage((p) => p + 1)}
+												>
+													Next<ChevronRight className="h-3 w-3 ml-0.5" />
+												</Button>
+											</div>
+										</div>
+
+										{instrumentLoading ? (
+											<div className="flex items-center justify-center py-10">
+												<Loader2 className="h-5 w-5 animate-spin text-primary" />
+												<span className="ml-2 text-sm text-muted-foreground">Loading SIF universe...</span>
+											</div>
+										) : (
+										<div className="border rounded-lg [overflow:clip]">
+											<div className="overflow-x-auto">
+												<table className="w-full text-sm">
+													<thead className="bg-card text-muted-foreground sticky top-0 z-10 border-b shadow-sm">
+														<tr>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider w-8">#</th>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider min-w-[220px]">Fund Name & AMC</th>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">Strategy</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setSifSortBy("targetReturn"); setSifSortOrder((o) => o === "desc" ? "asc" : "desc"); }}>
+																Target Ret % {sifSortBy === "targetReturn" && (sifSortOrder === "desc" ? "↓" : "↑")}
+															</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">1Y Ret %</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setSifSortBy("sharpeRatio"); setSifSortOrder((o) => o === "desc" ? "asc" : "desc"); }}>
+																Sharpe {sifSortBy === "sharpeRatio" && (sifSortOrder === "desc" ? "↓" : "↑")}
+															</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setSifSortBy("volatility"); setSifSortOrder((o) => o === "desc" ? "asc" : "desc"); }}>
+																Vol (σ) {sifSortBy === "volatility" && (sifSortOrder === "desc" ? "↓" : "↑")}
+															</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Min Ticket</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Lock-in</th>
+															<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider">Status</th>
+															<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider w-20">Action</th>
+														</tr>
+													</thead>
+													<tbody className="divide-y">
+														{(instrumentData?.data ?? []).length === 0 && !instrumentLoading && (
+															<tr>
+																<td colSpan={11} className="py-12 text-center text-muted-foreground text-sm">
+																	No Specialised Investment Funds match the selected filters.
+																</td>
+															</tr>
+														)}
+														{(instrumentData?.data ?? []).map((s: any, i: number) => (
+															<tr key={s.id ?? s.code} className="hover:bg-muted/30 transition-colors">
+																<td className="py-2 px-3 text-xs text-muted-foreground">{(sifPage - 1) * 25 + i + 1}</td>
+																<td className="py-2 px-3 text-xs font-medium max-w-[240px]">
+																	<div className="flex items-center gap-1.5 flex-wrap">
+																		<span className="font-semibold text-foreground truncate" title={s.name}>{s.name}</span>
+																		{Array.isArray(s.modelPortfolios) && s.modelPortfolios.length > 0 && (
+																			<span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 rounded text-[9px] font-semibold border border-amber-500/30" title={`Held in Model Portfolio: ${s.modelPortfolios.join(', ')}`}>
+																				⭐ {s.modelPortfolios[0]}
+																			</span>
+																		)}
+																	</div>
+																	<div className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
+																		<span className="font-mono text-[9px]">{s.code}</span>
+																		<span>• {s.amc}</span>
+																	</div>
+																</td>
+																<td className="py-2 px-3 text-xs">
+																	<span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border border-rose-500/20">
+																		{s.strategy}
+																	</span>
+																</td>
+																<td className="py-2 px-3 text-right font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
+																	{s.targetReturnAnnualized ? `${Number(s.targetReturnAnnualized).toFixed(1)}%` : "—"}
+																</td>
+																<td className="py-2 px-3 text-right font-mono text-xs text-foreground">
+																	{s.returns1y ? `${Number(s.returns1y).toFixed(1)}%` : "—"}
+																</td>
+																<td className="py-2 px-3 text-right font-mono text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+																	{s.sharpeRatio != null ? Number(s.sharpeRatio).toFixed(2) : "—"}
+																</td>
+																<td className="py-2 px-3 text-right font-mono text-xs text-muted-foreground">
+																	{s.volatility != null ? `${Number(s.volatility).toFixed(1)}%` : "—"}
+																</td>
+																<td className="py-2 px-3 text-right font-mono text-xs">
+																	{s.minInvestment ? `₹${(Number(s.minInvestment) / 100000).toFixed(0)}L` : "₹10L"}
+																</td>
+																<td className="py-2 px-3 text-right text-xs text-muted-foreground">
+																	{s.lockInMonths ? `${s.lockInMonths} mo` : "Open"}
+																</td>
+																<td className="py-2 px-3 text-center text-xs">
+																	<span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+																		s.status === "Open for Subscription"
+																			? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+																			: s.status?.includes("Upcoming")
+																			? "bg-blue-500/15 text-blue-700 dark:text-blue-300"
+																			: "bg-muted text-muted-foreground"
+																	}`}>
+																		{s.status ?? "Open"}
+																	</span>
+																</td>
+																<td className="py-2 px-3 text-center text-xs">
+																	<div className="flex items-center justify-center gap-1">
+																		<Button
+																			variant="ghost"
+																			size="sm"
+																			className="h-6 w-6 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+																			title="Chat with AI"
+																			onClick={() => handleOpenChat({
+																				id: s.id ?? s.code,
+																				name: s.name,
+																				symbol: s.code,
+																				assetType: "sif",
+																				sector: s.strategy,
+																				currentPrice: s.minInvestment,
+																				cagr3y: s.targetReturnAnnualized,
+																			})}
+																		>
+																			<Bot className="h-3.5 w-3.5" />
+																		</Button>
+																		<Button
+																			variant="outline"
+																			size="sm"
+																			className="h-6 px-2 text-[10px] hover:bg-primary/10 hover:text-primary transition-colors"
+																			onClick={() => handleAddToProposal(s, "SIF Alternative")}
+																		>
+																			<Plus className="h-3 w-3 mr-1" />
+																			Proposal
+																		</Button>
+																	</div>
+																</td>
+															</tr>
+														))}
+													</tbody>
+												</table>
+											</div>
+										</div>
+										)}
+										<p className="text-[10px] text-muted-foreground text-center py-1">
+											⚠️ {instrumentData?.meta?.disclaimer ?? "Specialised Investment Funds (SIF) are governed by SEBI April 2025 Framework with a minimum ₹10 Lakhs commitment. Strategies may utilize unhedged derivatives and structured credit."}
+										</p>
+									</div>
+								)}
+
 								{/* ── Stock Screener (existing) ─────────────────────────────────── */}
 								{screenerType === "stock" && (
 								<div className="space-y-3">
@@ -3319,13 +3692,22 @@ export default function AgentScreener() {
 																				>
 																					{stock.companyName}
 																				</div>
-																				<div className="flex items-center gap-1.5 mt-0.5">
+																				<div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
 																					<Badge
 																						variant="outline"
 																						className="font-mono text-[10px] py-0 px-1 h-4"
 																					>
 																						{stock.symbol}
 																					</Badge>
+																					{Array.isArray(stock.modelPortfolios) && stock.modelPortfolios.length > 0 && (
+																						<Badge
+																							variant="outline"
+																							className="text-[9px] py-0 px-1 h-4 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 font-medium font-sans"
+																							title={`Held in Model Portfolio: ${stock.modelPortfolios.join(', ')}`}
+																						>
+																							⭐ {stock.modelPortfolios[0]}
+																						</Badge>
+																					)}
 																					{stock.sector && (
 																						<span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
 																							{stock.sector}

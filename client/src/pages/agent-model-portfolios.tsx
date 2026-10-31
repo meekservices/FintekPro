@@ -6857,14 +6857,14 @@ export default function AgentModelPortfoliosPage() {
                               {h.rank}
                             </div>
                             <div className="flex-1 min-w-0">
-                              {isStock ? (
+                              {screenerUrl ? (
                                 <a
                                   href={screenerUrl}
                                   className="text-xs font-semibold truncate block text-indigo-700 dark:text-indigo-300 hover:underline cursor-pointer"
-                                  title={`View ${h.symbol} in screener`}
+                                  title={`Research ${h.name} in Screener`}
                                 >
                                   {h.name}
-                                  <span className="ml-1 text-[9px] text-indigo-400">↗</span>
+                                  <span className="ml-1 text-[9px] text-indigo-400 font-bold">↗</span>
                                 </a>
                               ) : (
                                 <p className="text-xs font-semibold truncate">{h.name}</p>
@@ -6921,9 +6921,9 @@ export default function AgentModelPortfoliosPage() {
                     </div>
                     {enrichedHoldings && (
                       <p className="text-[9px] text-muted-foreground text-right mt-1">
-                        📊 Stocks: screener_derived_metrics · Funds: mfapi.in NAV
+                        📊 Live Multi-Asset Research Integration
                         {" · "}
-                        <span className="text-indigo-500">↗ Click stock name to open in Screener</span>
+                        <span className="text-indigo-500 font-medium">↗ Click any holding (Stock, Fund, ETF, REIT, SIF) to research in Screener</span>
                       </p>
                     )}
 

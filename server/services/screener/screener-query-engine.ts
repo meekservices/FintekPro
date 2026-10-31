@@ -36,6 +36,7 @@ import {
 	getSubsectorsForMacroSector,
 	getMacroSectorsWithSubsectors,
 } from "@shared/sector-taxonomy";
+import { getModelPortfolioBadges } from "../screener-curated-data";
 
 export interface ScreenerFilters {
 	// ── Universe filters ────────────────────────────────────────────────────────
@@ -297,6 +298,7 @@ async function queryScreenerFromMaster(
 			or(
 				ilike(screenerMasterSnapshots.symbol, `%${filters.search}%`),
 				ilike(screenerMasterSnapshots.companyName, `%${filters.search}%`),
+				ilike(screenerMasterSnapshots.isin, `%${filters.search}%`),
 			),
 		);
 	}
@@ -465,7 +467,10 @@ async function queryScreenerFromMaster(
 		weekLow52: s.weekLow52 != null ? s.weekLow52.toString() : null,
 	}));
 
-	const enrichedStocks = enrichStocksJIT(stocks);
+	const enrichedStocks = enrichStocksJIT(stocks).map((s) => ({
+		...s,
+		modelPortfolios: getModelPortfolioBadges(s.symbol || (s as any).isin),
+	}));
 
 	return {
 		stocks: enrichedStocks,
@@ -538,6 +543,7 @@ export async function queryScreener(
 			or(
 				ilike(listedStocks.symbol, `%${filters.search}%`),
 				ilike(listedStocks.companyName, `%${filters.search}%`),
+				ilike(listedStocks.isin, `%${filters.search}%`),
 			),
 		);
 	}
@@ -1129,7 +1135,10 @@ export async function queryScreener(
 		}
 	}
 
-	const enrichedStocks = enrichStocksJIT(uniqueStocks as ScreenerResult[]);
+	const enrichedStocks = enrichStocksJIT(uniqueStocks as ScreenerResult[]).map((s) => ({
+		...s,
+		modelPortfolios: getModelPortfolioBadges(s.symbol || (s as any).isin),
+	}));
 
 	return {
 		stocks: enrichedStocks,

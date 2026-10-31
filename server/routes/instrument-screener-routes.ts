@@ -32,10 +32,19 @@ import { and, eq, gte, lte, ilike, sql, desc, asc, or, getTableColumns } from "d
 import { logger } from "../logger";
 import { instrumentAiChatService } from "../services/instrument-ai-chat-service";
 import { MACRO_SECTORS, getMacroSectorsWithSubsectors } from "@shared/sector-taxonomy";
-import { CURATED_SMALLCASES, CURATED_INDICES } from "../services/screener-curated-data";
+import {
+  CURATED_SMALLCASES,
+  CURATED_INDICES,
+  CURATED_SIF_FUNDS,
+  CURATED_REITS_INVITS,
+  CURATED_BENCHMARK_BONDS,
+  CURATED_TOP_ETFS,
+  getModelPortfolioBadges,
+} from "../services/screener-curated-data";
 import { IRIS_PRODUCT_REGISTRY } from "../services/iris/irisProductRegistry";
 import { multiAssetPerformanceService } from "../services/multi-asset-performance-service";
 import { multiVendorInstrumentMasterService } from "../services/multi-vendor-instrument-master-service";
+import { queryScreener } from "../services/screener/screener-query-engine";
 
 export const instrumentScreenerRouter = Router();
 
@@ -57,6 +66,8 @@ const DISCLAIMERS: Record<string, string> = {
     "Smallcase thematic baskets are model equity portfolios and do not guarantee returns. Equity holdings are subject to market volatility. Rebalance suggestions require investor approval.",
   index:
     "Index levels and performance reflect underlying benchmark components. Index investing involves market risk and tracking errors. Past trends do not ensure future direction.",
+  sif:
+    "Specialised Investment Funds (SIF) are alternative investment structures governed by SEBI's April 2025 regulatory framework with a ₹10,00,000 minimum investment threshold. Investment involves market and derivative hedging risk.",
 };
 
 // ─── Bond rating hierarchy (for minRating filter) ────────────────────────────
@@ -172,7 +183,19 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
 
       if (fundHouse) conditions.push(ilike(mutualFunds.fundHouse, `%${fundHouse}%`));
       if (riskLevel) conditions.push(ilike(mutualFunds.riskLevel, `%${riskLevel}%`));
-      if (q) conditions.push(ilike(mutualFunds.schemeName, `%${q}%`));
+      if (q) {
+        const queryStr = `%${q.trim()}%`;
+        conditions.push(
+          or(
+            ilike(mutualFunds.schemeName, queryStr),
+            ilike(mutualFunds.isin, queryStr),
+            ilike(mutualFunds.isinGrowth, queryStr),
+            ilike(mutualFunds.fundHouse, queryStr),
+            ilike(mutualFunds.category, queryStr),
+            sql`CAST(${mutualFunds.schemeCode} AS TEXT) ILIKE ${queryStr}`
+          ) as ReturnType<typeof eq>
+        );
+      }
       if (minReturn1y) conditions.push(gte(sql`COALESCE(${mutualFunds.returns1y}, ${mutualFundMetrics.return1y})::numeric`, minReturn1y as any));
       if (minReturn3y) conditions.push(gte(sql`COALESCE(${mutualFunds.returns3y}, ${mutualFundMetrics.return3y})::numeric`, minReturn3y as any));
       if (minReturn5y) conditions.push(gte(sql`COALESCE(${mutualFunds.returns5y}, ${mutualFundMetrics.return5y})::numeric`, minReturn5y as any));
@@ -295,6 +318,7 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
       const sipRegistry = IRIS_PRODUCT_REGISTRY.SIP;
       const fundsWithTransact = funds.map((f) => ({
         ...f,
+        modelPortfolios: getModelPortfolioBadges(f.schemeName || f.isin || f.isinGrowth),
         transact: {
           // IRIS MF order identifiers
           exchange: "BSE",                              // MF orders via BSE StarMF platform
@@ -385,7 +409,7 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
               minCoupon ? gte(governmentSecurities.couponRate, minCoupon)      : undefined,
               maxMaturityDate ? lte(governmentSecurities.maturityDate, maxMaturityDate) : undefined,
               taxStatus === "taxfree" ? eq(governmentSecurities.taxStatus, "taxfree") : undefined,
-              q ? ilike(governmentSecurities.securityName, `%${q}%`) : undefined,
+              q ? (or(ilike(governmentSecurities.securityName, `%${q}%`), ilike(governmentSecurities.isin, `%${q}%`), ilike(governmentSecurities.issuer, `%${q}%`)) as ReturnType<typeof eq>) : undefined,
             ].filter(Boolean) as ReturnType<typeof eq>[]
           )
         );
@@ -422,7 +446,7 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
               minCoupon ? gte(corporateBonds.couponRate, minCoupon)      : undefined,
               maxMaturityDate ? lte(corporateBonds.maturityDate, maxMaturityDate) : undefined,
               taxStatus === "taxfree" ? eq(corporateBonds.taxStatus, "taxfree") : undefined,
-              q ? ilike(corporateBonds.bondName, `%${q}%`) : undefined,
+              q ? (or(ilike(corporateBonds.bondName, `%${q}%`), ilike(corporateBonds.isin, `%${q}%`), ilike(corporateBonds.issuer, `%${q}%`)) as ReturnType<typeof eq>) : undefined,
             ].filter(Boolean) as ReturnType<typeof eq>[]
           )
         );
@@ -435,83 +459,80 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
       } else {
         const [govt, corp] = await Promise.all([govtQuery, corpQuery]);
         bonds = [...govt, ...corp];
-        // Filter by rating if provided
-        if (ratingWhitelist) {
-          bonds = (bonds as { creditRating: string | null }[]).filter(
-            (b) => b.creditRating && ratingWhitelist.includes(b.creditRating.toUpperCase())
+      }
+
+      // Fallback to curated benchmark & corporate bonds if DB is empty or has no matches
+      if (bonds.length === 0) {
+        let fallbackBonds = [...CURATED_BENCHMARK_BONDS];
+        if (bondType !== "all") {
+          fallbackBonds = fallbackBonds.filter((b) => b.bondType === bondType);
+        }
+        if (taxStatus === "taxfree") {
+          fallbackBonds = fallbackBonds.filter((b) => b.taxStatus === "taxfree");
+        }
+        if (minYield) {
+          fallbackBonds = fallbackBonds.filter((b) => b.yieldToMaturity >= parseFloat(minYield));
+        }
+        if (q) {
+          const qUpper = q.toUpperCase();
+          fallbackBonds = fallbackBonds.filter(
+            (b) => b.name.toUpperCase().includes(qUpper) || b.isin.toUpperCase().includes(qUpper) || b.issuer.toUpperCase().includes(qUpper)
           );
         }
-        // Sort by YTM desc by default
-        bonds.sort((a: any, b: any) =>
-          sortOrder === "asc"
-            ? parseFloat(a.yieldToMaturity ?? "0") - parseFloat(b.yieldToMaturity ?? "0")
-            : parseFloat(b.yieldToMaturity ?? "0") - parseFloat(a.yieldToMaturity ?? "0")
-        );
-        const total = bonds.length;
-        bonds = bonds.slice(offset, offset + limitNum);
-
-        // Build transact block for IRIS bond desk order placement
-        const bondRegistry = IRIS_PRODUCT_REGISTRY.BOND;
-        bonds = (bonds as any[]).map((b) => ({
-          ...b,
-          transact: {
-            isin: b.isin,
-            exchange: b.dataSource?.includes("bse") ? "BSE" : "NSE",
-            executionApi: "iris",
-            orderType: "bond_purchase",
-            fintekproRoute: bondRegistry.fintekproRoute,
-            requiredFields: bondRegistry.requiredFields,
-            requiresAdvisorApproval: bondRegistry.requiresAdvisorApproval,
-            requiresDisclaimer: bondRegistry.requiresDisclaimer,
-          },
-        }));
-
-        // eslint-disable-next-line no-console
-        console.info(JSON.stringify({
-          event: "SCREENER_BOND_QUERY",
-          user_id: (req as any).user?.id ?? null,
-          latency_ms: Date.now() - start,
-          status: "success",
-          count: bonds.length,
-        }));
-
-        return res.json({
-          success: true,
-          type: "bond",
-          data: bonds,
-          meta: {
-            timestamp: new Date().toISOString(),
-            engine_version: ENGINE_VERSION,
-            page: pageNum,
-            limit: limitNum,
-            total,
-            disclaimer: DISCLAIMERS.bond,
-          },
-        });
+        bonds = fallbackBonds;
       }
+
+      // Filter by rating if provided
+      if (ratingWhitelist) {
+        bonds = (bonds as { creditRating: string | null }[]).filter(
+          (b) => b.creditRating && ratingWhitelist.includes(b.creditRating.toUpperCase())
+        );
+      }
+      // Sort by YTM desc by default
+      bonds.sort((a: any, b: any) =>
+        sortOrder === "asc"
+          ? parseFloat(a.yieldToMaturity ?? "0") - parseFloat(b.yieldToMaturity ?? "0")
+          : parseFloat(b.yieldToMaturity ?? "0") - parseFloat(a.yieldToMaturity ?? "0")
+      );
+      const total = bonds.length;
+      bonds = bonds.slice(offset, offset + limitNum);
+
+      // Build transact block for IRIS bond desk order placement
+      const bondRegistry = IRIS_PRODUCT_REGISTRY.BOND;
+      const enrichedBonds = (bonds as any[]).map((b) => ({
+        ...b,
+        modelPortfolios: getModelPortfolioBadges(b.name || b.isin),
+        transact: {
+          isin: b.isin,
+          exchange: b.dataSource?.includes("bse") ? "BSE" : "NSE",
+          executionApi: "iris",
+          orderType: "bond_purchase",
+          fintekproRoute: bondRegistry.fintekproRoute,
+          requiredFields: bondRegistry.requiredFields,
+          requiresAdvisorApproval: bondRegistry.requiresAdvisorApproval,
+          requiresDisclaimer: bondRegistry.requiresDisclaimer,
+        },
+      }));
+
+      // eslint-disable-next-line no-console
+      console.info(JSON.stringify({
+        event: "SCREENER_BOND_QUERY",
+        user_id: (req as any).user?.id ?? null,
+        latency_ms: Date.now() - start,
+        status: "success",
+        count: enrichedBonds.length,
+      }));
 
       return res.json({
         success: true,
         type: "bond",
-        data: (bonds as any[]).map((b) => ({
-          ...b,
-          transact: {
-            isin: b.isin,
-            exchange: b.dataSource?.includes("bse") ? "BSE" : "NSE",
-            executionApi: "iris",
-            orderType: "bond_purchase",
-            fintekproRoute: IRIS_PRODUCT_REGISTRY.BOND.fintekproRoute,
-            requiredFields: IRIS_PRODUCT_REGISTRY.BOND.requiredFields,
-            requiresAdvisorApproval: IRIS_PRODUCT_REGISTRY.BOND.requiresAdvisorApproval,
-            requiresDisclaimer: IRIS_PRODUCT_REGISTRY.BOND.requiresDisclaimer,
-          },
-        })),
+        data: enrichedBonds,
         meta: {
           timestamp: new Date().toISOString(),
           engine_version: ENGINE_VERSION,
           page: pageNum,
           limit: limitNum,
-          total: bonds.length,
+          total,
           disclaimer: DISCLAIMERS.bond,
         },
       });
@@ -535,6 +556,7 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
       if (q) etfConditions.push(or(
         ilike(listedStocks.companyName, `%${q}%`),
         ilike(listedStocks.symbol, `%${q}%`),
+        ilike(listedStocks.isin, `%${q}%`),
       ) as ReturnType<typeof eq>);
 
       if (etfCategory === "gold") etfConditions.push(
@@ -587,7 +609,7 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
         sortBy === "marketCap"    ? listedStocks.marketCap :
         listedStocks.symbol;
 
-      const [etfs, etfCount] = await Promise.all([
+      const [dbEtfs, etfCount] = await Promise.all([
         db.select({
           id:           listedStocks.id,
           symbol:       listedStocks.symbol,
@@ -614,12 +636,31 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
           .where(and(...etfConditions)),
       ]);
 
+      let etfs = dbEtfs;
+      let totalEtfs = Number(etfCount[0]?.count ?? 0);
+
+      if (etfs.length === 0) {
+        let fallbackEtfs = [...CURATED_TOP_ETFS];
+        if (etfCategory && etfCategory !== "all") {
+          fallbackEtfs = fallbackEtfs.filter((e) => e.etfCategory === etfCategory);
+        }
+        if (q) {
+          const qUpper = q.toUpperCase();
+          fallbackEtfs = fallbackEtfs.filter(
+            (e) => e.companyName.toUpperCase().includes(qUpper) || e.symbol.toUpperCase().includes(qUpper) || e.isin.toUpperCase().includes(qUpper)
+          );
+        }
+        etfs = fallbackEtfs as any[];
+        totalEtfs = fallbackEtfs.length;
+      }
+
       // Build transact block for IRIS equity order placement
       const etfRegistry = IRIS_PRODUCT_REGISTRY.ETF;
       const etfsWithTransact = etfs.map((e) => {
         const isIndian = !e.country || e.country === "IN";
         return {
           ...e,
+          modelPortfolios: getModelPortfolioBadges(e.symbol || e.companyName || e.isin),
           transact: {
             isin: e.isin,
             exchange: e.exchange ?? "NSE",
@@ -647,7 +688,7 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
           engine_version: ENGINE_VERSION,
           page: pageNum,
           limit: limitNum,
-          total: Number(etfCount[0]?.count ?? 0),
+          total: totalEtfs,
           disclaimer: DISCLAIMERS.etf,
         },
       });
@@ -750,7 +791,9 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
           reitConditions.push(or(
             ilike(reits.name, `%${trustSearch}%`),
             ilike(reits.symbol, `%${trustSearch}%`),
-            ilike(reits.sector, `%${trustSearch}%`)
+            ilike(reits.sector, `%${trustSearch}%`),
+            ilike(reits.sponsor, `%${trustSearch}%`),
+            ilike(reits.isinCode, `%${trustSearch}%`)
           )!);
         }
 
@@ -775,11 +818,12 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
           aiSignal: reits.aiSignal,
           aiConfidence: reits.aiConfidence,
           amfiCapCategory: reits.amfiCapCategory,
+          isin: reits.isinCode,
         })
         .from(reits)
         .where(reitConditions.length > 0 ? and(...reitConditions) : undefined);
 
-        items.push(...reitList.map(r => ({ ...r, trustType: "REIT" })));
+        items.push(...reitList.map(r => ({ ...r, trustType: "REIT", category: "REIT" })));
       }
 
       if (trustCategory === "all" || trustCategory === "invit") {
@@ -789,7 +833,9 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
           invitConditions.push(or(
             ilike(invits.name, `%${trustSearch}%`),
             ilike(invits.symbol, `%${trustSearch}%`),
-            ilike(invits.sector, `%${trustSearch}%`)
+            ilike(invits.sector, `%${trustSearch}%`),
+            ilike(invits.sponsor, `%${trustSearch}%`),
+            ilike(invits.isinCode, `%${trustSearch}%`)
           )!);
         }
 
@@ -812,30 +858,61 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
           riskLevel: invits.riskLevel,
           aiSignal: invits.aiSignal,
           aiConfidence: invits.aiConfidence,
+          isin: invits.isinCode,
         })
         .from(invits)
         .where(invitConditions.length > 0 ? and(...invitConditions) : undefined);
 
-        items.push(...invitList.map(i => ({ ...i, trustType: "InvIT" })));
+        items.push(...invitList.map(i => ({ ...i, trustType: "InvIT", category: "InvIT" })));
       }
+
+      // Fallback to curated listed REITs and InvITs if DB has no results
+      if (items.length === 0) {
+        let fallbackTrusts = [...CURATED_REITS_INVITS];
+        if (trustCategory && trustCategory !== "all") {
+          fallbackTrusts = fallbackTrusts.filter((t) => t.trustType.toLowerCase() === trustCategory.toLowerCase());
+        }
+        if (minYield) {
+          fallbackTrusts = fallbackTrusts.filter((t) => t.distributionYield >= parseFloat(minYield));
+        }
+        if (trustSearch) {
+          const qUpper = trustSearch.toUpperCase();
+          fallbackTrusts = fallbackTrusts.filter(
+            (t) =>
+              t.name.toUpperCase().includes(qUpper) ||
+              t.symbol.toUpperCase().includes(qUpper) ||
+              t.sponsor.toUpperCase().includes(qUpper) ||
+              t.isin.toUpperCase().includes(qUpper)
+          );
+        }
+        items.push(...fallbackTrusts);
+      }
+
+      // Enrich with model portfolio presence
+      const enrichedItems = items.map((t) => ({
+        ...t,
+        category: t.trustType ?? t.category ?? "Trust",
+        trustType: t.trustType ?? t.category ?? "Trust",
+        modelPortfolios: getModelPortfolioBadges(t.symbol || t.name || t.isin),
+      }));
 
       // Sort
       if (sortBy === "distributionYield") {
-        items.sort((a, b) => sortOrder === "asc"
+        enrichedItems.sort((a, b) => sortOrder === "asc"
           ? (Number(a.distributionYield) || 0) - (Number(b.distributionYield) || 0)
           : (Number(b.distributionYield) || 0) - (Number(a.distributionYield) || 0)
         );
       } else if (sortBy === "currentPrice") {
-        items.sort((a, b) => sortOrder === "asc"
+        enrichedItems.sort((a, b) => sortOrder === "asc"
           ? (Number(a.currentPrice) || 0) - (Number(b.currentPrice) || 0)
           : (Number(b.currentPrice) || 0) - (Number(a.currentPrice) || 0)
         );
       } else {
-        items.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        enrichedItems.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
       }
 
-      const total = items.length;
-      const paginatedData = items.slice(offset, offset + limitNum);
+      const total = enrichedItems.length;
+      const paginatedData = enrichedItems.slice(offset, offset + limitNum);
 
       return res.json({
         success: true,
@@ -964,11 +1041,134 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
       });
     }
 
+    // ── Specialised Investment Funds (SIF) — SEBI April 2025 ─────────────────
+    if (type === "sif") {
+      let items = [...CURATED_SIF_FUNDS];
+      const { strategy, amc, minReturn } = req.query as Record<string, string>;
+
+      if (strategy && strategy !== "all") {
+        items = items.filter((s) => s.strategy.toLowerCase().includes(strategy.toLowerCase()));
+      }
+      if (amc && amc !== "all") {
+        items = items.filter((s) => s.amc.toLowerCase().includes(amc.toLowerCase()));
+      }
+      if (minReturn) {
+        items = items.filter((s) => s.targetReturn >= parseFloat(minReturn));
+      }
+      if (q) {
+        const query = q.toLowerCase();
+        items = items.filter(
+          (s) =>
+            s.name.toLowerCase().includes(query) ||
+            s.amc.toLowerCase().includes(query) ||
+            s.strategy.toLowerCase().includes(query) ||
+            (s.isin && s.isin.toLowerCase().includes(query)) ||
+            s.portfolioPresence.some((p) => p.toLowerCase().includes(query))
+        );
+      }
+
+      if (sortBy === "targetReturn") {
+        items.sort((a, b) => sortOrder === "asc" ? a.targetReturn - b.targetReturn : b.targetReturn - a.targetReturn);
+      } else if (sortBy === "sharpeRatio") {
+        items.sort((a, b) => sortOrder === "asc" ? a.sharpeRatio - b.sharpeRatio : b.sharpeRatio - a.sharpeRatio);
+      } else if (sortBy === "volatility") {
+        items.sort((a, b) => sortOrder === "asc" ? a.volatility - b.volatility : b.volatility - a.volatility);
+      } else {
+        items.sort((a, b) => a.name.localeCompare(b.name));
+      }
+
+      const total = items.length;
+      const paginatedData = items.slice(offset, offset + limitNum).map((s) => ({
+        ...s,
+        modelPortfolios: s.portfolioPresence,
+        transact: {
+          executionApi: "iris",
+          orderType: "sif_purchase",
+          isin: s.isin,
+          minimumTicket: s.minInvestment,
+          requiresAdvisorApproval: true,
+          requiresDisclaimer: true,
+          regulatoryRef: "SEBI/HO/IMD/IMD-POD-1/P/CIR/2025/SIF",
+        },
+      }));
+
+      return res.json({
+        success: true,
+        type: "sif",
+        data: paginatedData,
+        meta: {
+          timestamp: new Date().toISOString(),
+          engine_version: ENGINE_VERSION,
+          page: pageNum,
+          limit: limitNum,
+          total,
+          disclaimer: DISCLAIMERS.sif,
+        },
+      });
+    }
+
+    // ── Direct Equities / Stocks ─────────────────────────────────────────────
+    if (type === "stock") {
+      const {
+        sector,
+        macroSector,
+        subSector,
+        industry,
+        marketCapCategory,
+        exchange,
+        minPE,
+        maxPE,
+        minROE,
+        maxDebtToEquity,
+        minFintekRating,
+        minCompositeScore,
+      } = req.query as Record<string, string>;
+
+      const stockResult = await queryScreener({
+        search: q,
+        sector,
+        macroSector,
+        subSector,
+        industry,
+        marketCapCategory,
+        exchange,
+        sortBy,
+        sortOrder: sortOrder as "asc" | "desc",
+        page: pageNum,
+        limit: limitNum,
+        minPE: minPE ? parseFloat(minPE) : undefined,
+        maxPE: maxPE ? parseFloat(maxPE) : undefined,
+        minROE: minROE ? parseFloat(minROE) : undefined,
+        maxDebtToEquity: maxDebtToEquity ? parseFloat(maxDebtToEquity) : undefined,
+        minFintekRating: minFintekRating ? parseInt(minFintekRating, 10) : undefined,
+        minCompositeScore: minCompositeScore ? parseFloat(minCompositeScore) : undefined,
+      });
+
+      const enrichedStockList = (stockResult.stocks || []).map((s: any) => ({
+        ...s,
+        modelPortfolios: getModelPortfolioBadges(s.symbol || s.isin),
+      }));
+
+      return res.json({
+        success: true,
+        type: "stock",
+        data: enrichedStockList,
+        meta: {
+          timestamp: new Date().toISOString(),
+          engine_version: ENGINE_VERSION,
+          page: pageNum,
+          limit: limitNum,
+          total: stockResult.total,
+          disclaimer: DISCLAIMERS.stock,
+        },
+      });
+    }
+
     // ── Unknown type ──────────────────────────────────────────────────────────
     return res.status(400).json({
       success: false,
       error_code: "INVALID_INSTRUMENT_TYPE",
-      message: `Invalid type '${type}'. Valid: mutual_fund | bond | etf | stock | unlisted | reit_invit | smallcase | index`,
+      message: `Invalid type '${type}'. Valid: mutual_fund | bond | etf | stock | unlisted | reit_invit | smallcase | index | sif`,
       retryable: false,
       meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
     });
@@ -1073,13 +1273,22 @@ instrumentScreenerRouter.get("/instruments/filters", async (_req: Request, res: 
           { key: "q", label: "Search", type: "text" },
         ],
       },
+      sif: {
+        sortFields: ["targetReturn", "sharpeRatio", "volatility", "name"],
+        filters: [
+          { key: "strategy", label: "Strategy", type: "select", options: ["all", "Equity Long-Short", "Hybrid Long-Short", "Dynamic Asset Allocation", "Multi-Strategy"] },
+          { key: "amc", label: "Fund House", type: "text" },
+          { key: "minReturn", label: "Min Target Return (%)", type: "number" },
+          { key: "q", label: "Search", type: "text" },
+        ],
+      },
     },
     meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
   });
 });
 
 // ─── GET /api/screener/instruments/:id ───────────────────────────────────────
-/** Unified instrument detail — resolves by scheme code (MF), ISIN (Bond), symbol (ETF/REIT), or id (Unlisted). */
+/** Unified instrument detail — resolves by scheme code (MF), ISIN (Bond), symbol (ETF/REIT), or id (Unlisted/SIF). */
 instrumentScreenerRouter.get("/instruments/:id", async (req: Request, res: Response) => {
   const start = Date.now();
   const { id } = req.params;
@@ -1177,7 +1386,13 @@ instrumentScreenerRouter.get("/instruments/:id", async (req: Request, res: Respo
       return res.json({ success: true, type: "index", data: idx, meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, disclaimer: DISCLAIMERS.index } });
     }
 
-    return res.status(400).json({ success: false, error_code: "INVALID_TYPE", message: "Valid types: mutual_fund | bond | etf | unlisted | reit_invit | smallcase | index" });
+    if (type === "sif") {
+      const sif = CURATED_SIF_FUNDS.find((s) => s.id === id || s.isin?.toUpperCase() === id.toUpperCase() || s.name.toLowerCase() === id.toLowerCase());
+      if (!sif) return res.status(404).json({ success: false, error_code: "NOT_FOUND", message: `SIF fund '${id}' not found`, retryable: false });
+      return res.json({ success: true, type: "sif", data: sif, meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, disclaimer: DISCLAIMERS.sif } });
+    }
+
+    return res.status(400).json({ success: false, error_code: "INVALID_TYPE", message: "Valid types: mutual_fund | bond | etf | stock | unlisted | reit_invit | smallcase | index | sif" });
 
   } catch (err: any) {
     logger.error("Instrument detail error", { event: "INSTRUMENT_DETAIL_ERROR", id, type, message: err.message, latency_ms: Date.now() - start });
