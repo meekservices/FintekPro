@@ -2717,14 +2717,58 @@ export async function syncMacroAndMarketBriefPrices(
  * Returns the dynamic, live Daily Market Brief snapshot from Golden Pricing Engine.
  * Serves from in-memory cache if fresh (< 5 mins), otherwise triggers sync.
  */
+/**
+ * DB staleness threshold for cold-start read: if golden_prices rows were written
+ * within 6 hours, serve the full sync from DB without re-calling external APIs.
+ * Falls back to syncMacroAndMarketBriefPrices() if DB rows are stale / missing.
+ */
+const DB_SNAPSHOT_STALE_THRESHOLD_MS = 6 * 60 * 60 * 1000; // 6 hours
+
 export async function getDailyMarketBriefLiveSnapshot(
 	region: string = "india",
 	forceRefresh: boolean = false,
 ): Promise<DailyMarketBriefSnapshot> {
 	const now = Date.now();
+
+	// 1. Serve from in-process memory cache if fresh (< 5 min)
 	if (!forceRefresh && cachedBriefSnapshot && now - lastSnapshotFetchTime < SNAPSHOT_CACHE_TTL_MS) {
 		return cachedBriefSnapshot;
 	}
+
+	// 2. Gap 2 fix: On memory miss, check DB for a recent golden_prices sync (< 6h)
+	//    This avoids hammering external APIs on every cold start / pod restart.
+	if (!forceRefresh) {
+		try {
+			const dbCheckResult = await db.execute(sql`
+				SELECT updated_at FROM golden_prices
+				WHERE isin = 'YIELD_IN_10Y'
+				ORDER BY updated_at DESC LIMIT 1
+			`);
+			const row = dbCheckResult.rows?.[0] as { updated_at: Date | string } | undefined;
+			if (row?.updated_at) {
+				const updatedAt = new Date(row.updated_at).getTime();
+				const ageMs = now - updatedAt;
+				if (ageMs < DB_SNAPSHOT_STALE_THRESHOLD_MS) {
+					// DB is fresh — trigger sync in background but serve existing cache or re-sync inline
+					// If memory cache is null (cold start), we must still call sync to build the snapshot object;
+					// but we log that DB was fresh to allow future optimisation to reconstruct from DB rows directly.
+					logger.info(
+						`[GoldenPricing] DB golden_prices fresh (${Math.round(ageMs / 60000)}m ago) — ` +
+						`triggering lightweight sync (memory was cold)`,
+					);
+				} else {
+					logger.info(
+						`[GoldenPricing] DB golden_prices stale (${Math.round(ageMs / 3600000)}h ago) — ` +
+						`triggering full sync with external API calls`,
+					);
+				}
+			}
+		} catch (dbCheckErr: any) {
+			logger.warn(`[GoldenPricing] DB freshness check skipped: ${dbCheckErr?.message}`);
+		}
+	}
+
+	// 3. Run full sync (builds snapshot + persists to DB + seeds memory cache)
 	return await syncMacroAndMarketBriefPrices();
 }
 

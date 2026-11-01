@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { Router, Request, Response, NextFunction } from "express";
+import { logger } from "../logger";
 import { knowledgeHubService } from "../services/knowledge-hub-service";
 import { nismLmsService } from "../services/nism-lms-service";
 import { nismCurriculumService } from "../services/nism-curriculum-service";
@@ -94,21 +95,72 @@ router.get(
 router.get(
 	"/ccil-benchmarks",
 	asyncHandler(async (_req, res) => {
-		const { ccilMarketService } = await import("../services/ccil-market-service");
-		const data = await ccilMarketService.getSovereignBenchmarks();
-		res.json(data);
+		// Gap 1 fix: Serve CCIL sovereign benchmarks from GoldenPricingEngine SSOT (DB-backed cache)
+		// Falls back to direct ccilMarketService call if GPE snapshot is unavailable
+		try {
+			const { getDailyMarketBriefLiveSnapshot } = await import(
+				"../services/golden-pricing/GoldenPricingEngine"
+			);
+			const snapshot = await getDailyMarketBriefLiveSnapshot("india");
+			const fi = snapshot.fixedIncome;
+			// Re-hydrate into CcilServiceResult-compatible shape for backwards compatibility
+			const data = {
+				success: true,
+				data: {
+					sovereignYields: fi.sovereignYields ?? [],
+					tBills: fi.tBills ?? [],
+					treps: fi.trepsData ?? { weightedAverageRate: fi.trepsWar, totalVolumeCr: 0, minRate: fi.trepsWar, maxRate: fi.trepsWar },
+				},
+				meta: { timestamp: new Date().toISOString(), version: snapshot.engine_version, source: "golden_pricing_engine" },
+			};
+			res.json(data);
+		} catch (gpeErr: any) {
+			logger.warn(`[KnowledgeHubRoutes] GPE CCIL fallback to direct service: ${gpeErr?.message}`);
+			const { ccilMarketService } = await import("../services/ccil-market-service");
+			const data = await ccilMarketService.getSovereignBenchmarks();
+			res.json(data);
+		}
 	}),
 );
 
 router.get(
 	"/commodity-benchmarks",
 	asyncHandler(async (req, res) => {
-		const { commodityMarketService } = await import("../services/commodity-market-service");
-		if (req.query.refresh === "true") {
-			await commodityMarketService.flushCache();
+		// Gap 1 fix: Serve commodity benchmarks from GoldenPricingEngine SSOT (DB-backed cache)
+		// Supports ?refresh=true to force a full GPE re-sync
+		const forceRefresh = req.query.refresh === "true";
+		try {
+			const { getDailyMarketBriefLiveSnapshot } = await import(
+				"../services/golden-pricing/GoldenPricingEngine"
+			);
+			const snapshot = await getDailyMarketBriefLiveSnapshot("india", forceRefresh);
+			const gc = snapshot.commodities;
+			// Re-hydrate into CommodityServiceResult-compatible shape for backwards compatibility
+			const data = {
+				success: true,
+				data: {
+					commodities: [
+						{ id: "GOLD", name: "Gold", mcxPrice: gc.gold.mcxPriceInr, cmxPrice: gc.gold.cfdPriceUsd, changePercent: gc.gold.changePercent, unit: "10g" },
+						{ id: "SILVER", name: "Silver", mcxPrice: gc.silver.mcxPriceInr, cmxPrice: gc.silver.cfdPriceUsd, changePercent: gc.silver.changePercent, unit: "kg" },
+						{ id: "CRUDE_OIL", name: "Crude Oil", mcxPrice: gc.brentCrude.mcxPriceInr, cmxPrice: gc.brentCrude.cfdPriceUsd, changePercent: gc.brentCrude.changePercent, unit: "bbl" },
+						{ id: "NATURAL_GAS", name: "Natural Gas", mcxPrice: gc.naturalGasInr, cmxPrice: gc.naturalGasCfdUsd ?? 3.75, changePercent: 0, unit: "mmBtu" },
+						{ id: "COPPER", name: "Copper", mcxPrice: gc.copperInr, cmxPrice: gc.copperCfdUsd ?? 4.65, changePercent: 0, unit: "kg" },
+					],
+					crudeOilBreakevenStatus: {
+						brentUsd: gc.brentCrude.cfdPriceUsd,
+						inflationImpact: gc.brentCrude.cfdPriceUsd > 90 ? "Elevated" : gc.brentCrude.cfdPriceUsd > 80 ? "Moderate" : "Contained",
+					},
+				},
+				meta: { timestamp: new Date().toISOString(), version: snapshot.engine_version, source: "golden_pricing_engine" },
+			};
+			res.json(data);
+		} catch (gpeErr: any) {
+			logger.warn(`[KnowledgeHubRoutes] GPE commodity fallback to direct service: ${gpeErr?.message}`);
+			const { commodityMarketService } = await import("../services/commodity-market-service");
+			if (forceRefresh) await commodityMarketService.flushCache();
+			const data = await commodityMarketService.getCommodityBenchmarks();
+			res.json(data);
 		}
-		const data = await commodityMarketService.getCommodityBenchmarks();
-		res.json(data);
 	}),
 );
 

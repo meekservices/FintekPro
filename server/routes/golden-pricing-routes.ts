@@ -5,6 +5,7 @@
  *
  * GET  /api/pricing/stats                     → daily run statistics
  * GET  /api/pricing/flagged                   → list flagged prices (deviation > 20%) with pagination
+ * GET  /api/pricing/snapshot                  → live DailyMarketBriefSnapshot (SSOT) for internal consumers
  * POST /api/pricing/batch                     → batch lookup (array of ISINs)
  * POST /api/pricing/price-now                 → price a single instrument on demand with explainability
  * POST /api/pricing/override                  → manual price override (admin, SEBI audit)
@@ -749,6 +750,45 @@ goldenPricingRouter.get("/:isin/history", async (req: Request, res: Response): P
 				timestamp: new Date().toISOString(),
 				version: GOLDEN_PRICING_ENGINE_VERSION,
 			},
+		});
+	}
+});
+
+// ── GET /api/pricing/snapshot — live DailyMarketBriefSnapshot from GPE ──────
+// Gap 3 fix: Exposes the SSOT Golden Pricing Engine snapshot to internal consumers.
+// Supports ?region=india|global and ?refresh=true to force re-sync.
+// Complies with FintekPro GCR v1.0: { success, data, meta: { timestamp, version } }
+goldenPricingRouter.get("/snapshot", async (req: Request, res: Response): Promise<void> => {
+	const t0 = Date.now();
+	const region = (req.query.region as string) ?? "india";
+	const forceRefresh = req.query.refresh === "true";
+
+	try {
+		const { getDailyMarketBriefLiveSnapshot } = await import(
+			"../services/golden-pricing/GoldenPricingEngine"
+		);
+		const snapshot = await getDailyMarketBriefLiveSnapshot(region, forceRefresh);
+		res.json({
+			success: true,
+			data: snapshot,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: GOLDEN_PRICING_ENGINE_VERSION,
+				latency_ms: Date.now() - t0,
+				region,
+				source: "golden_pricing_engine",
+			},
+		});
+	} catch (err: any) {
+		logger.error(`[GoldenPricingRoutes] /snapshot error: ${err?.message}`, { event: "GPE_SNAPSHOT_ERROR", latency_ms: Date.now() - t0, status: "error" });
+		res.status(500).json({
+			success: false,
+			error: {
+				error_code: "GPE_SNAPSHOT_UNAVAILABLE",
+				message: "Golden Pricing Engine snapshot is temporarily unavailable. Please retry.",
+				retryable: true,
+			},
+			meta: { timestamp: new Date().toISOString(), version: GOLDEN_PRICING_ENGINE_VERSION },
 		});
 	}
 });
