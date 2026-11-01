@@ -397,6 +397,43 @@ export class KnowledgeHubService {
 			brief.marketSnapshot = `Indian equity benchmarks traded with ${nifty.changePercent >= 0 ? "positive" : "defensive"} momentum today. Frontline index Nifty 50 ${niftyDir} ${niftyPts}, while the 30-share BSE Sensex consolidated, ${sensexDir} ${sensexPts}.${bankStr} The benchmark 10-year Indian Government Bond (G-Sec) yield traded at ${gsecRate}%, backed by CCIL sovereign clearing, offering a +${realYield}% real yield cushion over CPI inflation (${cpiRate}% YoY). Money market liquidity remained balanced with CCIL TREPS overnight weighted average rate (WAR) printing at ${trepsRate}%. Domestic institutional inflows (DIIs) provided strong underlying liquidity support through ongoing mutual fund SIP commitments (~₹26,000+ Cr monthly run-rate).`;
 		}
 
+		// ── US: Dynamic narrative rewrite using live GoldenPricingEngine snapshot ──
+		if (region === "us" && goldenSnapshot) {
+			const sp500Live = goldenSnapshot.indices?.global?.find((i: any) => i.symbol === "SPX") || { price: 5750, changePercent: 0.75 };
+			const ndxLive = goldenSnapshot.indices?.global?.find((i: any) => i.symbol === "NDX") || { price: 20100, changePercent: 1.1 };
+			const dowLive = goldenSnapshot.indices?.global?.find((i: any) => i.symbol === "DJI") || { price: 42800, changePercent: 0.45 };
+			const us10YLive = goldenSnapshot.fixedIncome?.us10YTreasury ?? 4.58;
+			const us2YLive = goldenSnapshot.fixedIncome?.us2YTreasury ?? 4.35;
+			const dxyLive = goldenSnapshot.currencies?.dxy ?? 107.2;
+			const usdInrLive = goldenSnapshot.currencies?.usdInr ?? 84.5;
+			const spreadBps = Math.round((us10YLive - us2YLive) * 100);
+			const spDir = sp500Live.changePercent >= 0 ? "positive" : "defensive";
+			brief.marketSnapshot = `US equity benchmarks traded with ${spDir} bias. S&P 500 at ${sp500Live.price.toLocaleString("en-US")} (${sp500Live.changePercent >= 0 ? "+" : ""}${sp500Live.changePercent.toFixed(2)}%), Nasdaq-100 at ${ndxLive.price.toLocaleString("en-US")} (${ndxLive.changePercent >= 0 ? "+" : ""}${ndxLive.changePercent.toFixed(2)}%), Dow Jones at ${dowLive.price.toLocaleString("en-US")}. The 10-Year US Treasury yield consolidated near ${us10YLive}%, with the 10Y–2Y spread at ${spreadBps >= 0 ? "+" : ""}${spreadBps} bps indicating ${spreadBps >= 0 ? "normal" : "inverted"} curve conditions. US Dollar Index (DXY) traded at ${dxyLive.toFixed(2)}, while the USD/INR reference rate stood at ₹${usdInrLive.toFixed(2)}, supporting RBI LRS overseas investment allocations.`;
+			brief.whatChanged = `1. Megacap Tech & Benchmark Indices: S&P 500 at ${sp500Live.price.toLocaleString("en-US")} (${sp500Live.changePercent >= 0 ? "+" : ""}${sp500Live.changePercent.toFixed(2)}%), Nasdaq-100 at ${ndxLive.price.toLocaleString("en-US")} — driven by enterprise AI hyperscaler capex and resilient corporate balance sheets.\n2. Treasury Yields & FOMC Stance: US 10-Year Treasury at ${us10YLive}%; 2-Year at ${us2YLive}% (10Y–2Y spread: ${spreadBps >= 0 ? "+" : ""}${spreadBps} bps, ${spreadBps >= 0 ? "constructive" : "inverted"} term premium).\n3. Currency & Cross-Border LRS Dynamics: USD/INR at ₹${usdInrLive.toFixed(2)}, DXY at ${dxyLive.toFixed(2)}, supporting ongoing dollar portfolio diversification for India-domiciled investors under RBI LRS.`;
+			brief.keyRisks = `FOMC interest rate guidance path, US Dollar Index (DXY ${dxyLive.toFixed(2)}) movements, commercial real estate refinancing stress, and trade policy tariff negotiations impacting global supply chains.`;
+		}
+
+		// ── Global: Dynamic narrative rewrite using live GoldenPricingEngine snapshot ──
+		if (region === "global" && goldenSnapshot) {
+			const dxyLive = goldenSnapshot.currencies?.dxy ?? 107.2;
+			const dxyChgLive = goldenSnapshot.currencies?.dxyChangePercent ?? 0.12;
+			const us10YLive = goldenSnapshot.fixedIncome?.us10YTreasury ?? 4.58;
+			const bundLive = goldenSnapshot.fixedIncome?.bund10YYield ?? 2.65;
+			const giltLive = goldenSnapshot.fixedIncome?.gilt10YYield ?? 4.65;
+			const jgbLive = goldenSnapshot.fixedIncome?.jgb10YYield ?? 1.55;
+			const eurUsdLive = goldenSnapshot.currencies?.eurInr
+				? parseFloat((goldenSnapshot.currencies.eurInr / (goldenSnapshot.currencies?.usdInr ?? 84.5)).toFixed(4))
+				: 1.045;
+			const usdJpyLive = goldenSnapshot.currencies?.jpyInr
+				? parseFloat((1 / (goldenSnapshot.currencies.jpyInr / (goldenSnapshot.currencies?.usdInr ?? 84.5))).toFixed(2))
+				: 154.2;
+			const sp500Live = goldenSnapshot.indices?.global?.find((i: any) => i.symbol === "SPX") || { price: 5750, changePercent: 0.75 };
+			const n225Live = goldenSnapshot.indices?.global?.find((i: any) => i.symbol === "N225") || { price: 39800, changePercent: 0.95 };
+			brief.marketSnapshot = `Global equity benchmarks traded with constructive risk sentiment across Asian and European sessions, led by technology and semiconductor supply chain momentum. The US Dollar Index (DXY) traded at ${dxyLive.toFixed(2)} (${dxyChgLive >= 0 ? "+" : ""}${dxyChgLive.toFixed(2)}%), anchoring cross-border emerging market capital flows. Benchmark 10-year sovereign yields: UST ${us10YLive}%, German Bund ${bundLive.toFixed(2)}%, UK Gilt ${giltLive.toFixed(2)}%, Japan JGB ${jgbLive.toFixed(2)}%. EUR/USD at ${eurUsdLive.toFixed(4)}, USD/JPY at ${usdJpyLive.toFixed(2)}.`;
+			brief.whatChanged = `1. Cross-Asset Transmission: US Dollar Index (DXY) at ${dxyLive.toFixed(2)} (${dxyChgLive >= 0 ? "+" : ""}${dxyChgLive.toFixed(2)}%), stabilizing cross-border emerging market foreign exchange flows.\n2. Asian & European Momentum: Tokyo Nikkei 225 at ${n225Live.price.toLocaleString("en-US")}; S&P 500 at ${sp500Live.price.toLocaleString("en-US")}. Frankfurt DAX and London FTSE trading near record valuations.\n3. Sovereign Bond Spreads: 10-Year US Treasury at ${us10YLive}%, German 10Y Bund at ${bundLive.toFixed(2)}%, UK 10Y Gilt at ${giltLive.toFixed(2)}%, Japan JGB at ${jgbLive.toFixed(2)}%.`;
+			brief.keyRisks = `Global geopolitical developments, shifting trade tariff policies, currency volatility (DXY ${dxyLive.toFixed(2)}, USD/JPY ${usdJpyLive.toFixed(2)}, EUR/USD ${eurUsdLive.toFixed(4)}), and divergence in central bank monetary easing cycles (Fed vs ECB vs BoJ).`;
+		}
+
 		const gsecYieldStr = ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent
 			? `${ccilFixedIncome.sovereignYields[0].yieldPercent}%`
 			: `${goldenSnapshot?.fixedIncome?.gsec10YYield ?? 6.79}%`;
