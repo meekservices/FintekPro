@@ -1293,25 +1293,45 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 				return next.getTime() - now.getTime();
 			};
 
-			const runRefresh = async () => {
+			const runRefresh = async (batch = 100) => {
 				try {
 					const { FinancialMetricsRefreshService } = await import(
 						"../services/financial-metrics-refresh-service"
 					);
 					const svc = new FinancialMetricsRefreshService();
-					console.log("[MetricsRefresh] 🔄 Starting nightly stockFinancialMetrics refresh (batch=100)...");
-					const result = await svc.refreshAllStockMetrics(100);
+					console.log(`[MetricsRefresh] 🔄 Starting stockFinancialMetrics refresh (batch=${batch})...`);
+					const result = await svc.refreshAllStockMetrics(batch);
 					console.log(`[MetricsRefresh] ✅ Done: ${result.success} success, ${result.failed} failed`);
 				} catch (err) {
-					console.warn("[MetricsRefresh] ⚠️ Nightly refresh failed (non-fatal):", err);
+					console.warn("[MetricsRefresh] ⚠️ Refresh failed (non-fatal):", err);
 				}
 			};
 
+			// Startup check: if stock_financial_metrics is empty or minimally populated,
+			// trigger warm-up for top stocks 15s after startup so AI & quant models have data immediately.
+			setTimeout(async () => {
+				try {
+					const { db } = await import("../db");
+					const { stockFinancialMetrics } = await import("../../shared/schema");
+					const { sql } = await import("drizzle-orm");
+					const countRes = await db.select({ count: sql<number>`count(*)::int` }).from(stockFinancialMetrics);
+					const count = Number(countRes[0]?.count ?? 0);
+					if (count < 10) {
+						console.log(`[MetricsRefresh] 🚀 Initial startup warmup: stockFinancialMetrics has ${count} records. Populating top 50 stocks...`);
+						void runRefresh(50);
+					} else {
+						console.log(`[MetricsRefresh] ℹ️ stockFinancialMetrics table has ${count} records. Ready for AI & quant models.`);
+					}
+				} catch (err: any) {
+					console.warn("[MetricsRefresh] ⚠️ Startup table check failed (non-fatal):", err?.message);
+				}
+			}, 15_000);
+
 			// First run: at next 10:30 PM IST
 			setTimeout(() => {
-				void runRefresh();
+				void runRefresh(100);
 				// Then nightly thereafter
-				setInterval(() => { void runRefresh(); }, 24 * 60 * 60 * 1000);
+				setInterval(() => { void runRefresh(100); }, 24 * 60 * 60 * 1000);
 			}, msUntilNext1700UTC());
 
 			console.log(
@@ -1511,6 +1531,25 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 					console.warn("[ScreenerSnapshotCron] ⚠️ Snapshot rebuild failed (non-fatal):", err?.message);
 				}
 			};
+
+			// Startup check: if screener_master_snapshots has 0 records, trigger initial rebuild after 30s
+			setTimeout(async () => {
+				try {
+					const { db } = await import("../db");
+					const { screenerMasterSnapshots } = await import("../../shared/schema");
+					const { sql } = await import("drizzle-orm");
+					const countRes = await db.select({ count: sql<number>`count(*)::int` }).from(screenerMasterSnapshots);
+					const count = Number(countRes[0]?.count ?? 0);
+					if (count < 10) {
+						console.log(`[ScreenerSnapshotCron] 🚀 Initial warmup: screener_master_snapshots has ${count} records. Populating snapshot...`);
+						void runRebuild();
+					} else {
+						console.log(`[ScreenerSnapshotCron] ℹ️ screener_master_snapshots has ${count} records. Ready for AI & screener queries.`);
+					}
+				} catch (err: any) {
+					console.warn("[ScreenerSnapshotCron] ⚠️ Startup table check failed (non-fatal):", err?.message);
+				}
+			}, 30_000);
 
 			setTimeout(() => {
 				void runRebuild();

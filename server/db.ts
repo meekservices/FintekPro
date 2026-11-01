@@ -34,18 +34,14 @@ const port = 5432;
 // 1. Initial Load of DATABASE_URL
 const dbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
 
-// FIX-3: Pool sizing for Cloud Run autoscale on db-f1-micro (max 25 connections).
-// Sizing for Cloud Run on db-f1-micro (25 max connections total).
-// max:4 per pod — two revisions = 8 connections, safely within 25 total.
-// min:0 — don't hold idle connections warm.
-// allowExitOnIdle: true — connections drain immediately on SIGTERM (fast switchover).
-// idleTimeoutMillis:10s — kills warm idle connections quickly after 10s of inactivity.
-// connectionTimeoutMillis:10s — allows grace period for concurrent bursts.
+// Sizing scaled for Cloud SQL db-custom-2-7680 (100 max connections total).
+// max: 10 per pod — accommodates autoscale bursts (up to 6-8 pods = 60-80 connections, well within 100 limit).
+// Workers / enrichment get 6 to balance throughput without exhausting primary pool.
 const defaultMax =
 	process.env.IS_WORKER === "true" ||
 	process.env.SERVICE_NAME?.includes("enrichment")
-		? 3
-		: 4;
+		? 6
+		: 10;
 
 const POOL_CONFIG: any = {
 	max: process.env.DB_POOL_MAX
@@ -152,6 +148,34 @@ pool.on("error", (err) => {
 // Initialize Drizzle
 export const db = drizzle(pool, { schema });
 
+// ── Read Replica Routing ──────────────────────────────────────────────────────
+// High-read workloads (screener, AI portfolio analytics, backtesting) can route
+// to a dedicated Cloud SQL Read Replica via READ_DATABASE_URL or REPLICA_DATABASE_URL.
+// If no replica is configured, transparently falls back to the primary pool/db.
+const replicaUrl = process.env.READ_DATABASE_URL || process.env.REPLICA_DATABASE_URL;
+let replicaPoolInstance: InstanceType<typeof Pool> | null = null;
+let replicaDbInstance: ReturnType<typeof drizzle> | null = null;
+
+if (replicaUrl) {
+	replicaPoolInstance = new Pool({
+		connectionString: replicaUrl,
+		max: process.env.DB_READ_POOL_MAX ? parseInt(process.env.DB_READ_POOL_MAX, 10) : 10,
+		min: 0,
+		idleTimeoutMillis: 10_000,
+		connectionTimeoutMillis: isTest ? 1_000 : 10_000,
+		allowExitOnIdle: true,
+		statement_timeout: 30_000,
+	});
+	replicaPoolInstance.on("error", (err) => {
+		console.warn("[DB] ⚠️ Read-replica pool error (auto-recovering):", err?.message || err);
+	});
+	replicaDbInstance = drizzle(replicaPoolInstance, { schema });
+	console.log("[DB] 📖 Dedicated Read-Replica DB initialized via READ_DATABASE_URL");
+}
+
+export const readDb = replicaDbInstance || db;
+export const readPool = replicaPoolInstance || pool;
+
 // Export connection tester
 export const testConnection = async () => {
 	const client = await pool.connect();
@@ -173,6 +197,9 @@ export async function closePool(): Promise<void> {
 	_poolClosing = true;
 	try {
 		await pool.end();
+		if (replicaPoolInstance) {
+			await replicaPoolInstance.end();
+		}
 		console.log("[DB Pool] Pool closed gracefully");
 	} catch (err) {
 		if (!((err as Error)?.message || "").includes("end on the pool")) {
