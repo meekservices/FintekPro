@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 /**
  * SEBI-Aligned Risk Profiling API Routes
  * Provides endpoints for:
@@ -11,6 +12,7 @@
 import { Router } from "express";
 import { sebiRiskScoringService } from "../services/sebi-risk-scoring-service";
 import { requireAdmin, requireAuth } from "../middleware/roleMiddleware";
+import { wrapAdvisoryResponse } from "../utils/fasp-ai-response";
 
 const router = Router();
 
@@ -149,7 +151,7 @@ router.post("/ai/analyze", requireAdmin, async (req, res) => {
 			triggerType,
 			triggerDetails || {},
 		);
-		res.json({ success: true, data: recommendation });
+		res.json({ success: true, data: wrapAdvisoryResponse(recommendation, { model_version: "sebi-risk-scoring-service-v1", factors_considered: ["portfolio_composition", "risk_questionnaire", "market_regime", "investment_horizon"] }) });
 	} catch (error: any) {
 		console.error("Error in AI analysis:", error);
 		res.status(500).json({ success: false, error: "AI analysis failed" });
@@ -170,7 +172,7 @@ router.get("/ai/recommendations/my", requireAuth, async (req, res) => {
 		}
 		const recommendations =
 			await sebiRiskScoringService.getPendingRecommendations(user.id);
-		res.json({ success: true, data: recommendations });
+		res.json({ success: true, data: wrapAdvisoryResponse(recommendations, { model_version: "sebi-risk-scoring-service-v1" }) });
 	} catch (error: any) {
 		console.error("Error fetching recommendations:", error);
 		res
@@ -188,7 +190,7 @@ router.get("/ai/recommendations/:userId", requireAdmin, async (req, res) => {
 		const { userId } = req.params;
 		const recommendations =
 			await sebiRiskScoringService.getPendingRecommendations(userId);
-		res.json({ success: true, data: recommendations });
+		res.json({ success: true, data: wrapAdvisoryResponse(recommendations, { model_version: "sebi-risk-scoring-service-v1" }) });
 	} catch (error: any) {
 		console.error("Error fetching recommendations:", error);
 		res

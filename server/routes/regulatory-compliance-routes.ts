@@ -331,31 +331,140 @@ router.get("/mfa/status", (req: Request, res: Response): void => {
 router.post(
 	"/mfa/verify-totp",
 	async (req: Request, res: Response): Promise<void> => {
-		// Placeholder — actual TOTP verify should check against stored totp_secret
-		// WebAuthn assertion is handled by existing webauthn-routes.ts
-		// On success, both should call markMFAVerified(req)
+		/**
+		 * TOTP verification — RFC 6238 (30-second HMAC-SHA1 time-based OTP).
+		 * Uses Node.js built-in `crypto` — no external dependency required.
+		 * Validates ±1 time step (±30 s) to tolerate clock skew.
+		 *
+		 * Prerequisite: user must have completed TOTP setup and have
+		 * `users.totp_secret` (Base32) stored. On success calls markMFAVerified(req).
+		 * WebAuthn assertion is handled separately by webauthn-routes.ts.
+		 */
 		try {
-			if (!(req as AuthRequest).user?.id) {
+			const userId = (req as AuthRequest).user?.id;
+			if (!userId) {
 				res.status(401).json({ message: "Unauthorized" });
 				return;
 			}
-			const { code } = req.body;
-			if (!code) {
+
+			const codeRaw: unknown = req.body?.code;
+			if (!codeRaw || typeof codeRaw !== "string") {
 				res.status(400).json({ message: "TOTP code required" });
 				return;
 			}
+			// Normalise: strip spaces, ensure 6 digits
+			const code = codeRaw.replace(/\s/g, "").padStart(6, "0");
+			if (!/^\d{6}$/.test(code)) {
+				res.status(400).json({ message: "TOTP code must be exactly 6 digits" });
+				return;
+			}
 
-			// TODO: Validate TOTP code against user's stored TOTP secret
-			// import * as OTPAuth from 'otpauth'; const totp = new OTPAuth.TOTP(...);
-			// const delta = totp.validate({ token: code });
-			// For now, return not-implemented with instruction
-			res.status(501).json({
-				message:
-					"TOTP not yet configured. Please use WebAuthn/passkey authentication.",
-				webauthnEndpoint: "/api/auth/webauthn/authenticate",
+			// Fetch stored Base32 TOTP secret from DB
+			const userRows = await db
+				.select({ twoFactorSecret: schema.users.twoFactorSecret })
+				.from(schema.users)
+				.where(eq(schema.users.id, userId))
+				.limit(1);
+
+			const totpSecret: string | null = (userRows[0] as any)?.twoFactorSecret ?? null;
+
+			if (!totpSecret) {
+				res.status(404).json({
+					success: false,
+					error_code: "TOTP_NOT_CONFIGURED",
+					message: "TOTP authenticator not configured. Please set up an authenticator app first, or use WebAuthn/passkey authentication.",
+					webauthnEndpoint: "/api/auth/webauthn/authenticate",
+					setupEndpoint: "/api/regulatory/mfa/setup-totp",
+					retryable: false,
+				});
+				return;
+			}
+
+			// RFC 6238 TOTP — pure Node.js crypto, no external lib
+			const crypto = await import("crypto");
+
+			/** Decode Base32 string to Buffer */
+			function base32Decode(input: string): Buffer {
+				const alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+				const clean = input.toUpperCase().replace(/=+$/, "");
+				let bits = 0; let value = 0;
+				const out: number[] = [];
+				for (const ch of clean) {
+					const idx = alpha.indexOf(ch);
+					if (idx < 0) continue;
+					value = (value << 5) | idx;
+					bits += 5;
+					if (bits >= 8) { out.push((value >>> (bits - 8)) & 0xff); bits -= 8; }
+				}
+				return Buffer.from(out);
+			}
+
+			/** Generate 6-digit OTP for a given 30-second counter */
+			function generateTOTP(secretB32: string, counter: number): string {
+				const key = base32Decode(secretB32);
+				const buf = Buffer.alloc(8);
+				buf.writeBigInt64BE(BigInt(counter));
+				const hmac = crypto.createHmac("sha1", key).update(buf).digest();
+				const offset = hmac[hmac.length - 1] & 0x0f;
+				const otp =
+					((hmac[offset] & 0x7f) << 24) |
+					(hmac[offset + 1] << 16) |
+					(hmac[offset + 2] << 8) |
+					hmac[offset + 3];
+				return String(otp % 1_000_000).padStart(6, "0");
+			}
+
+			// Check current step and ±1 step for clock skew tolerance
+			const nowStep = Math.floor(Date.now() / 1000 / 30);
+			const valid = [-1, 0, 1].some(
+				(delta) => generateTOTP(totpSecret, nowStep + delta) === code,
+			);
+
+			if (!valid) {
+				logger.warn("[MFA] TOTP verification failed — invalid or expired code", {
+					event: "MFA_TOTP_FAILED",
+					user_id: userId,
+					latency_ms: 0,
+					status: "failure",
+				});
+				res.status(401).json({
+					success: false,
+					error_code: "TOTP_INVALID",
+					message: "Invalid or expired TOTP code. Please try again.",
+					retryable: true,
+				});
+				return;
+			}
+
+			// Mark MFA verified for this session
+			markMFAVerified(req);
+
+			logger.info("[MFA] TOTP verification succeeded", {
+				event: "MFA_TOTP_VERIFIED",
+				user_id: userId,
+				latency_ms: 0,
+				status: "success",
 			});
-		} catch (err) {
-			res.status(500).json({ message: "TOTP verification failed" });
+
+			res.json({
+				success: true,
+				message: "MFA verified successfully",
+				meta: { timestamp: new Date().toISOString(), version: "1.0" },
+			});
+		} catch (err: unknown) {
+			logger.warn("[MFA] TOTP verification error", {
+				event: "MFA_TOTP_ERROR",
+				user_id: (req as AuthRequest).user?.id ?? "unknown",
+				error: (err as Error).message,
+				latency_ms: 0,
+				status: "error",
+			});
+			res.status(500).json({
+				success: false,
+				error_code: "MFA_INTERNAL_ERROR",
+				message: "TOTP verification failed. Please try again.",
+				retryable: true,
+			});
 		}
 	},
 );

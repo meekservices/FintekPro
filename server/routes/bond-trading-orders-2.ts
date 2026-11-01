@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 import { Express } from "express";
 import { db } from "../db";
 import { requireAdmin } from "../middleware/roleMiddleware";
@@ -100,19 +101,46 @@ export function registerBondTradingOrderPart2Routes(app: Express): void {
 							return res.status(401).json({ error: "Authentication required" });
 						}
 
+						// GCR Security: Zod-validate all order fields before reaching BSE Direct API
+						const bseOrderSchema = z.object({
+							symbol: z.string().min(1).max(50),
+							orderType: z.enum(["buy", "sell"]),
+							quantity: z.number().positive().max(1_000_000),
+							price: z.number().nonnegative(),
+							segment: z.enum(["equity", "derivatives", "currency", "commodity"]),
+							orderCategory: z.enum(["market", "limit", "stop_loss"]),
+							productType: z.enum(["delivery", "intraday", "margin"]),
+							validity: z.enum(["day", "ioc", "gtc"]).default("day"),
+							clientCode: z.string().max(32).optional(),
+							stopLossPrice: z.number().nonnegative().optional(),
+						});
+						const parseResult = bseOrderSchema.safeParse(req.body);
+						if (!parseResult.success) {
+							return res.status(400).json({
+								status: "error",
+								error_code: "INVALID_ORDER_INPUT",
+								message: "Order validation failed",
+								details: parseResult.error.issues.map((i) => ({
+									field: i.path.join("."),
+									message: i.message,
+								})),
+								retryable: false,
+							});
+						}
+						const vb = parseResult.data;
+
 						const orderRequest = {
 							userId: userId,
-							clientCode:
-								req.body.clientCode || `CLI-${userId.substring(0, 8)}`,
-							segment: req.body.segment, // 'equity', 'derivatives', 'currency', 'commodity'
-							symbol: req.body.symbol,
-							orderType: req.body.orderType, // 'buy' or 'sell'
-							quantity: req.body.quantity,
-							orderCategory: req.body.orderCategory, // 'market', 'limit', 'stop_loss'
-							price: req.body.price,
-							stopLossPrice: req.body.stopLossPrice,
-							productType: req.body.productType, // 'delivery', 'intraday', 'margin'
-							validity: req.body.validity, // 'day', 'ioc', 'gtc'
+							clientCode: vb.clientCode || `CLI-${userId.substring(0, 8)}`,
+							segment: vb.segment,
+							symbol: vb.symbol.toUpperCase(),
+							orderType: vb.orderType,
+							quantity: vb.quantity,
+							orderCategory: vb.orderCategory,
+							price: vb.price,
+							stopLossPrice: vb.stopLossPrice,
+							productType: vb.productType,
+							validity: vb.validity,
 						};
 
 						const response = await bseDirectApi.placeDirectOrder(orderRequest);

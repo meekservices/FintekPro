@@ -1,5 +1,7 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 import { Express, Request } from "express";
+import { wrapAdvisoryResponse } from "../utils/fasp-ai-response";
 import { storage } from "../storage";
 import { yieldTrackerService } from "../yield-tracker-service";
 import { smartInvestmentService } from "../smart-investment-service";
@@ -89,7 +91,7 @@ export function registerInvestmentIdeasRoutes(app: Express): void {
 				riskLevel: "low",
 			});
 
-			res.json({ recommendations });
+			res.json(wrapAdvisoryResponse({ recommendations }, { model_version: "smart-investment-service-v1" }));
 		} catch (error) {
 			console.error("Error generating investment ideas:", error);
 			complianceMonitor.logEvent({
@@ -524,7 +526,7 @@ export function registerInvestmentIdeasRoutes(app: Express): void {
 				riskLevel: "low",
 			});
 
-			res.json({ recommendations });
+			res.json(wrapAdvisoryResponse({ recommendations }, { model_version: "smart-investment-service-v1" }));
 		} catch (error) {
 			console.error("Error fetching popular recommendations:", error);
 			complianceMonitor.logEvent({
