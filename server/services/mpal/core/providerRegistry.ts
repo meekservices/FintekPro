@@ -29,6 +29,7 @@ import { alpacaAdapter } from "../adapters/alpacaAdapter";
 import { iiflAdapter } from "../adapters/iiflAdapter";
 import { irisAdapter } from "../adapters/irisAdapter";
 import { upstoxAdapter } from "../adapters/upstoxAdapter";
+import { dhanAdapter } from "../adapters/dhanAdapter";
 import { m2pAdapter } from "../adapters/bankAdapters/m2pAdapter";
 import { setuAdapter } from "../adapters/bankAdapters/setuAdapter";
 import { directBankAdapter } from "../adapters/bankAdapters/directBankAdapter";
@@ -52,6 +53,8 @@ export class ProviderRegistry {
 		this.brokers.set(iiflAdapter.brokerId, iiflAdapter);
 		// UPSTOX → Indian equities & F&O (configured when UPSTOX_ACCESS_TOKEN or trading token set)
 		this.brokers.set(upstoxAdapter.brokerId, upstoxAdapter);
+		// DHAN → Indian equities, F&O & MCX Commodities (configured when DHAN_CLIENT_ID or DHAN_ACCESS_TOKEN set)
+		this.brokers.set(dhanAdapter.brokerId, dhanAdapter);
 		// IRIS → MF / NFO / FD / PMS / AIF (configured only when IRIS_API_KEY set)
 		this.brokers.set(irisAdapter.brokerId, irisAdapter);
 

@@ -26,6 +26,7 @@ import {
 import { BaseBroker } from "../core/BaseBroker";
 import { logger } from "../../../logger";
 import { upstoxMarketDataService, toNseKey } from "../../upstox-market-data-service";
+import { orderAuditHook } from "../../order-audit-hook";
 
 const LIVE_BASE_URL = "https://api.upstox.com/v2";
 const SANDBOX_BASE_URL = "https://sandbox.upstox.com/v2";
@@ -196,15 +197,17 @@ export class UpstoxAdapter extends BaseBroker {
     const product = (order.meta?.product as string) || "D"; // 'D' = Delivery, 'I' = Intraday
     const validity = order.timeInForce === "ioc" ? "IOC" : "DAY";
 
-    // Symbol to instrument token format: NSE_EQ|{ISIN}
-    const isinOrSym = toNseKey(order.symbol);
+    // Dynamic resolution of symbol to official Upstox instrument token: NSE_EQ|{ISIN}
+    const exchange = (order.meta?.exchange as "NSE" | "BSE") || "NSE";
+    const isinOrSym = await upstoxMarketDataService.resolveInstrumentKey(order.symbol, exchange);
+    const internalTag = order.idempotencyKey || `fp-${Date.now()}`;
 
     const payload = {
       quantity: qty,
       product,
       validity,
       price,
-      tag: order.idempotencyKey || `fp-${Date.now()}`,
+      tag: internalTag,
       instrument_token: isinOrSym,
       order_type: orderType,
       transaction_type: transactionType,
@@ -219,6 +222,32 @@ export class UpstoxAdapter extends BaseBroker {
       (order.meta?.token as string);
 
     const activeClient = this.getClient(customToken);
+
+    // SEBI Immutable Pre-Order Audit Hook
+    await orderAuditHook.logOrderEvent({
+      userId: order.userId || "system",
+      userRole: "client",
+      orderId: internalTag,
+      productType: "equity",
+      action: "PLACED",
+      newState: {
+        symbol: order.symbol,
+        instrumentToken: isinOrSym,
+        quantity: qty,
+        orderType,
+        transactionType,
+        price,
+        product,
+        exchange,
+      },
+      channel: (order.meta?.channel as any) || "web",
+      additionalMetadata: {
+        brokerId: this.brokerId,
+        isSandbox: this.isSandbox(),
+      },
+    }).catch((auditErr) => {
+      logger.warn(`[UpstoxAdapter] Pre-order audit log non-fatal warning: ${auditErr?.message}`);
+    });
 
     logger.info(`[UpstoxAdapter] Submitting order`, {
       event: "UPSTOX_ORDER_SUBMIT",
@@ -236,6 +265,27 @@ export class UpstoxAdapter extends BaseBroker {
       const resData = resp.data?.data;
       const orderId = resData?.order_id || resData?.order_ids?.[0] || `UP-${Date.now()}`;
 
+      // SEBI Immutable Post-Order Confirmed Audit Hook
+      await orderAuditHook.logOrderEvent({
+        userId: order.userId || "system",
+        userRole: "client",
+        orderId: internalTag,
+        productType: "equity",
+        action: "CONFIRMED",
+        newState: {
+          brokerOrderId: orderId,
+          status: "submitted",
+          filledPrice: price,
+        },
+        channel: (order.meta?.channel as any) || "web",
+        additionalMetadata: {
+          brokerOrderId: orderId,
+          brokerTimestamp: new Date().toISOString(),
+        },
+      }).catch((auditErr) => {
+        logger.warn(`[UpstoxAdapter] Post-order confirmed audit log non-fatal warning: ${auditErr?.message}`);
+      });
+
       return {
         internalOrderId: order.idempotencyKey,
         brokerOrderId: orderId,
@@ -249,6 +299,25 @@ export class UpstoxAdapter extends BaseBroker {
       const errCode = err?.response?.data?.errors?.[0]?.errorCode || err?.response?.status;
       const errMsg = err?.response?.data?.errors?.[0]?.message || err?.message || "Order placement failed";
       
+      // SEBI Immutable Order Rejected Audit Hook
+      await orderAuditHook.logOrderEvent({
+        userId: order.userId || "system",
+        userRole: "client",
+        orderId: internalTag,
+        productType: "equity",
+        action: "REJECTED",
+        newState: {
+          errorCode: String(errCode),
+          errorMessage: errMsg,
+        },
+        channel: (order.meta?.channel as any) || "web",
+        additionalMetadata: {
+          brokerId: this.brokerId,
+        },
+      }).catch((auditErr) => {
+        logger.warn(`[UpstoxAdapter] Order rejected audit log non-fatal warning: ${auditErr?.message}`);
+      });
+
       logger.error(`[UpstoxAdapter] Order rejected`, {
         event: "UPSTOX_ORDER_FAILED",
         error_code: errCode,

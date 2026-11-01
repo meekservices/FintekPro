@@ -6,6 +6,7 @@ import {
 	verifyAlpacaWebhookSignature,
 } from "../services/alpaca/core/alpacaWebhookHandler";
 import { upstoxWebhookHandler } from "../services/upstox-webhook-handler";
+import { dhanWebhookHandler } from "../services/dhan-webhook-handler";
 
 const router = Router();
 
@@ -173,6 +174,48 @@ router.post("/upstox", async (req: Request, res: Response) => {
 		return res.status(200).json({
 			success: false,
 			message: "Upstox postback recorded with internal warning",
+			error: error.message,
+		});
+	}
+});
+
+// ─── Dhan Postback Webhook ──────────────────────────────────────────────────
+/**
+ * POST /api/webhooks/dhan
+ *
+ * Receives real-time asynchronous order fill & lifecycle postbacks from DhanHQ.
+ * Configured in Dhan Developer App console as Webhook / Postback URL.
+ */
+router.post("/dhan", async (req: Request, res: Response) => {
+	const t0 = Date.now();
+	try {
+		const payload = req.body;
+		logger.info("[Webhook] Received Dhan postback event", {
+			event: "DHAN_WEBHOOK_RECEIVED",
+			orderId: payload?.orderId || payload?.data?.orderId,
+			status: payload?.orderStatus || payload?.data?.orderStatus,
+		});
+
+		const result = await dhanWebhookHandler.handlePostback(payload);
+
+		// Dhan requires an immediate 200 HTTP response
+		return res.status(200).json({
+			success: true,
+			data: result,
+			meta: {
+				timestamp: new Date().toISOString(),
+				latency_ms: Date.now() - t0,
+			},
+		});
+	} catch (error: any) {
+		logger.error("[Webhook] Failed to process Dhan webhook", {
+			event: "DHAN_WEBHOOK_ERROR",
+			error: error.message,
+			latency_ms: Date.now() - t0,
+		});
+		return res.status(200).json({
+			success: false,
+			message: "Dhan postback recorded with internal warning",
 			error: error.message,
 		});
 	}

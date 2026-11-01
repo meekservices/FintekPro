@@ -1,8 +1,10 @@
+/* eslint-disable no-console */
 import yahooFinance from "yahoo-finance2";
 import { pool } from "../db";
 import { callPython } from "../clients/python-client";
 import { distributedCache } from "../utils/distributed-cache";
 import { upstoxMarketDataService } from "./upstox-market-data-service";
+import { batchGetAuthoritativePrices } from "./golden-pricing/GoldenPricingEngine";
 
 interface Stock {
 	symbol: string;
@@ -104,36 +106,36 @@ const INDIAN_STOCKS = [
 const FALLBACK_DATA: MarketMoversData = {
 	gainers: [
 		{
-			symbol: "ITC",
-			name: "ITC Limited",
-			price: 266.0,
-			change: 11.0,
-			changePercent: 4.31,
-			previousClose: 255.0,
+			symbol: "INFY",
+			name: "Infosys Limited",
+			price: 1185.0,
+			change: 38.5,
+			changePercent: 3.36,
+			previousClose: 1146.5,
+		},
+		{
+			symbol: "CIPLA",
+			name: "Cipla Limited",
+			price: 1378.9,
+			change: 20.9,
+			changePercent: 1.54,
+			previousClose: 1358.0,
 		},
 		{
 			symbol: "TCS",
 			name: "Tata Consultancy Services",
-			price: 2156.0,
-			change: 80.0,
-			changePercent: 3.85,
-			previousClose: 2076.0,
+			price: 2502.6,
+			change: 24.6,
+			changePercent: 0.99,
+			previousClose: 2478.0,
 		},
 		{
-			symbol: "INFY",
-			name: "Infosys Limited",
-			price: 1023.4,
-			change: 26.4,
-			changePercent: 2.65,
-			previousClose: 997.0,
-		},
-		{
-			symbol: "WIPRO",
-			name: "Wipro Limited",
-			price: 162.57,
-			change: 4.19,
-			changePercent: 2.65,
-			previousClose: 158.38,
+			symbol: "ITC",
+			name: "ITC Limited",
+			price: 265.6,
+			change: 0.6,
+			changePercent: 0.23,
+			previousClose: 265.0,
 		},
 		{
 			symbol: "LT",
@@ -146,28 +148,20 @@ const FALLBACK_DATA: MarketMoversData = {
 	],
 	losers: [
 		{
-			symbol: "RELIANCE",
-			name: "Reliance Industries",
-			price: 1170.3,
-			change: -7.7,
-			changePercent: -0.65,
-			previousClose: 1178.0,
-		},
-		{
 			symbol: "JSWSTEEL",
 			name: "JSW Steel Limited",
-			price: 1168.0,
-			change: -7.2,
-			changePercent: -0.61,
-			previousClose: 1175.2,
+			price: 1246.0,
+			change: -9.4,
+			changePercent: -0.75,
+			previousClose: 1255.4,
 		},
 		{
-			symbol: "CIPLA",
-			name: "Cipla Limited",
-			price: 1301.0,
-			change: -5.8,
-			changePercent: -0.44,
-			previousClose: 1306.8,
+			symbol: "RELIANCE",
+			name: "Reliance Industries",
+			price: 1164.9,
+			change: -2.5,
+			changePercent: -0.21,
+			previousClose: 1167.4,
 		},
 		{
 			symbol: "BAJFINANCE",
@@ -1428,13 +1422,80 @@ class MarketMoversCache {
 			"BEL",
 			"BAJAJFINSV",
 		];
+
+		// Route through Golden Pricing Engine as the Single Source of Truth (SSOT)
+		// Benefits: Ultra-low latency memory cache (<0.05ms), request coalescing, circuit validation, multi-source fallback
+		const queries = symbols.map((sym) => ({
+			symbol: sym,
+			exchange: "NSE" as const,
+			maxAgeSeconds: 60,
+		}));
+
+		const stockQuotes: Stock[] = [];
+		const seenSymbols = new Set<string>();
+
+		try {
+			const goldenResults = await batchGetAuthoritativePrices(queries);
+			if (goldenResults && Object.keys(goldenResults).length >= 5) {
+				for (const [sym, g] of Object.entries(goldenResults)) {
+					const cleanSymbol = sym.toUpperCase().replace(/\.NS$/, "");
+					if (seenSymbols.has(cleanSymbol)) continue;
+					seenSymbols.add(cleanSymbol);
+
+					const stockMeta = INDIAN_STOCKS.find(
+						(s) => s.symbol.replace(/\.NS$/, "") === cleanSymbol,
+					);
+					const name = stockMeta?.name || cleanSymbol;
+					const price = g.price;
+					const meta = (g.metadata || {}) as any;
+					const changePercent =
+						typeof meta.changePercent === "number"
+							? meta.changePercent
+							: typeof g.deviationPct === "number"
+								? g.deviationPct
+								: 0;
+					const prevClose =
+						typeof meta.previousClose === "number" && meta.previousClose > 0
+							? meta.previousClose
+							: changePercent !== 0
+								? price / (1 + changePercent / 100)
+								: price;
+					const change =
+						typeof meta.change === "number"
+							? meta.change
+							: price - prevClose;
+
+					if (price > 0) {
+						stockQuotes.push({
+							symbol: cleanSymbol,
+							name,
+							price,
+							change: Math.round(change * 100) / 100,
+							changePercent: Math.round(changePercent * 100) / 100,
+							previousClose: Math.round(prevClose * 100) / 100,
+						});
+					}
+				}
+
+				if (stockQuotes.length >= 5) {
+					this.metrics.providers.upstox.lastLatency = Date.now() - startTime;
+					this.metrics.providers.upstox.successCount++;
+					this.metrics.providers.upstox.lastSuccess = Date.now();
+					return stockQuotes;
+				}
+			}
+		} catch (goldenErr: any) {
+			console.warn(
+				"⚠️ [MarketMoversCache] Golden Pricing batch resolution failed, falling back to direct Upstox:",
+				goldenErr?.message || goldenErr,
+			);
+		}
+
+		// Direct Upstox API fallback if Golden Pricing batch returned insufficient items
 		const res = await upstoxMarketDataService.getBatchQuotes(symbols, "NSE");
 		if (!res.success || !res.data || res.data.size === 0) {
 			throw new Error(res.error?.message || "No quote data returned from Upstox");
 		}
-
-		const stockQuotes: Stock[] = [];
-		const seenSymbols = new Set<string>();
 
 		for (const [sym, q] of res.data.entries()) {
 			if (sym.startsWith("INE") || sym.includes("|")) continue;

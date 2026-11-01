@@ -84,16 +84,16 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     name: "Gold 24K",
     category: "Precious Metals",
     mcxSymbol: "GOLD",
-    mcxPrice: 143703,
+    mcxPrice: 78450,
     mcxUnit: "₹ / 10g",
     mcxChangePercent: 0.65,
     cmxSymbol: "GC=F (COMEX / Global CFD)",
-    cmxPrice: 4055.6,
+    cmxPrice: 2742.5,
     cmxUnit: "$ / oz",
     cmxChangePercent: 0.58,
     trend: "Bullish",
     macroImplication:
-      "Central bank accumulation & global de-escalation hedges sustaining gold demand. Positive for Sovereign Gold Bonds (SGB) and Gold ETFs.",
+      "Central bank accumulation & global hedge sustaining bullion demand. Import duty rationalization to 6% maintains balanced domestic price parity.",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
   {
@@ -101,11 +101,11 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     name: "Silver",
     category: "Precious Metals",
     mcxSymbol: "SILVER",
-    mcxPrice: 193207,
+    mcxPrice: 94200,
     mcxUnit: "₹ / 1kg",
     mcxChangePercent: 1.15,
     cmxSymbol: "SI=F (COMEX / Global CFD)",
-    cmxPrice: 53.31,
+    cmxPrice: 33.4,
     cmxUnit: "$ / oz",
     cmxChangePercent: 1.05,
     trend: "Bullish",
@@ -115,19 +115,19 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
   },
   {
     id: "CRUDE_OIL",
-    name: "Brent Crude Oil (NYMEX)",
+    name: "Brent Crude Oil (NYMEX / ICE CFD)",
     category: "Energy",
     mcxSymbol: "CRUDEOIL",
-    mcxPrice: 10355,
+    mcxPrice: 9417,
     mcxUnit: "₹ / bbl",
-    mcxChangePercent: 1.85,
-    cmxSymbol: "NYMEX Brent Futures (BZ=F)",
-    cmxPrice: 117.0,
+    mcxChangePercent: 2.15,
+    cmxSymbol: "BZ=F (ICE Brent Futures / CFD)",
+    cmxPrice: 112.0,
     cmxUnit: "$ / bbl",
-    cmxChangePercent: 1.95,
+    cmxChangePercent: 2.37,
     trend: "Bullish",
     macroImplication:
-      "Brent crude on NYMEX at $117.00/bbl poses acute macroeconomic headwinds for India. Escalates imported inflation, widens the Current Account Deficit (CAD), and compresses operating margins for paints, tyre manufacturers, airlines, and auto ancillaries, while expanding realisations for domestic upstream E&P explorers (ONGC, Oil India).",
+      "Brent crude CFD at $112.00/bbl (Day Range: $111.03–$114.29) trades significantly above India's comfort threshold (<$80/bbl), creating imported inflation headwinds and margin pressure for paints, tyres, airlines, and auto ancillaries, while expanding realizations for domestic upstream E&P producers (ONGC, Oil India).",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
   {
@@ -135,11 +135,11 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     name: "Natural Gas",
     category: "Energy",
     mcxSymbol: "NATURALGAS",
-    mcxPrice: 268.5,
+    mcxPrice: 231.2,
     mcxUnit: "₹ / mmBtu",
     mcxChangePercent: -0.85,
     cmxSymbol: "NG=F (NYMEX Henry Hub)",
-    cmxPrice: 3.03,
+    cmxPrice: 2.75,
     cmxUnit: "$ / mmBtu",
     cmxChangePercent: -0.9,
     trend: "Neutral",
@@ -152,11 +152,11 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     name: "Copper (Dr. Copper)",
     category: "Base Metals",
     mcxSymbol: "COPPER",
-    mcxPrice: 858.0,
+    mcxPrice: 845.0,
     mcxUnit: "₹ / kg",
     mcxChangePercent: 0.42,
     cmxSymbol: "HG=F (COMEX Copper)",
-    cmxPrice: 6.65,
+    cmxPrice: 4.35,
     cmxUnit: "$ / lb",
     cmxChangePercent: 0.38,
     trend: "Bullish",
@@ -192,9 +192,9 @@ export class CommodityMarketService {
     try {
       const cached = await distributedCache.getJson<CommodityMarketSnapshot>(CACHE_KEY);
       if (cached && cached.commodities && cached.commodities.length > 0) {
-        // Ensure cached snapshot is not holding legacy 2024 pricing
+        // Ensure cached snapshot holds valid benchmark pricing
         const cachedGold = cached.commodities.find((c) => c.id === "GOLD");
-        if (cachedGold && cachedGold.mcxPrice >= 100000) {
+        if (cachedGold && cachedGold.mcxPrice >= 60000 && cachedGold.mcxPrice <= 120000) {
           return {
             success: true,
             data: cached,
@@ -362,21 +362,25 @@ export class CommodityMarketService {
           let updatedMcxChange = updatedCmxChange;
 
           if (base.id === "GOLD") {
-            // Gold baseline ₹1,43,703 / 10g (with intraday CFD delta)
-            updatedMcxPrice = Math.round(base.mcxPrice * (1 + updatedCmxChange / 100));
+            // Gold COMEX to MCX import parity: 1 oz = 31.1035g
+            // 10g = (cmxPrice / 31.1035) * 10 * 84.08 * 1.06 (customs duty)
+            const parityMcx = Math.round((updatedCmxPrice / 31.1035) * 10 * 84.08 * 1.06);
+            updatedMcxPrice = parityMcx >= 60000 && parityMcx <= 120000 ? parityMcx : Math.round(base.mcxPrice * (1 + updatedCmxChange / 100));
           } else if (base.id === "SILVER") {
-            // Silver baseline ₹1,93,207 / 1kg (with intraday CFD delta)
-            updatedMcxPrice = Math.round(base.mcxPrice * (1 + updatedCmxChange / 100));
+            // Silver COMEX to MCX import parity: 1 oz = 31.1035g -> 1kg = 32.1507 oz
+            // 1kg = cmxPrice * 32.1507 * 84.08 * 1.06 (customs duty)
+            const parityMcx = Math.round(updatedCmxPrice * 32.1507 * 84.08 * 1.06);
+            updatedMcxPrice = parityMcx >= 70000 && parityMcx <= 150000 ? parityMcx : Math.round(base.mcxPrice * (1 + updatedCmxChange / 100));
           } else if (base.id === "CRUDE_OIL") {
-            // NYMEX Brent Crude Oil benchmark is $117.00/bbl
-            if (updatedCmxPrice < 116.0) {
-              updatedCmxPrice = 117.00;
-            }
-            updatedMcxPrice = Math.round(updatedCmxPrice * 88.5);
+            // Brent Crude: 1 bbl in INR = cmxPrice * USD/INR
+            updatedMcxPrice = Math.round(updatedCmxPrice * 84.08);
           } else if (base.id === "NATURAL_GAS") {
-            updatedMcxPrice = Number((base.mcxPrice * (1 + updatedCmxChange / 100)).toFixed(1));
+            // Henry Hub to MCX natural gas contract in INR
+            updatedMcxPrice = Number((updatedCmxPrice * 84.08).toFixed(1));
           } else if (base.id === "COPPER") {
-            updatedMcxPrice = Number((base.mcxPrice * (1 + updatedCmxChange / 100)).toFixed(1));
+            // 1 lb = 0.453592 kg -> price per kg = (cmxPrice / 0.453592) * 84.08 * 1.05 (duty/freight)
+            const parityMcx = Number(((updatedCmxPrice / 0.453592) * 84.08 * 1.05).toFixed(1));
+            updatedMcxPrice = parityMcx >= 600 && parityMcx <= 1200 ? parityMcx : Number((base.mcxPrice * (1 + updatedCmxChange / 100)).toFixed(1));
           }
 
           const computedTrend: "Bullish" | "Neutral" | "Bearish" =
@@ -429,7 +433,7 @@ export class CommodityMarketService {
       if (!rows || rows.length === 0) return null;
 
       const items: CommodityItem[] = [];
-      const usdInrRate = 86.85;
+      const usdInrRate = 84.08;
 
       for (const base of BASELINE_COMMODITIES) {
         const matchingRows = rows.filter(
@@ -478,9 +482,8 @@ export class CommodityMarketService {
               } else {
                 if (base.id === "CRUDE_OIL" && price >= 2500 && price <= 25000) {
                   updatedMcxPrice = price;
-                  // Brent Crude international reference is benchmarked in USD ($110+/bbl).
                   const derivedUsd = Number((price / usdInrRate).toFixed(2));
-                  if (derivedUsd >= 100.0) {
+                  if (derivedUsd >= 40.0 && derivedUsd <= 150.0) {
                     updatedCmxPrice = derivedUsd;
                   }
                 } else if (base.id === "GOLD" && price >= 40000 && price <= 250000) {
@@ -502,11 +505,11 @@ export class CommodityMarketService {
           }
 
           if (base.id === "CRUDE_OIL") {
-            if (updatedCmxPrice < 117.0) {
-              updatedCmxPrice = base.cmxPrice; // 117.00 NYMEX Brent benchmark
+            if (!updatedCmxPrice || updatedCmxPrice <= 0) {
+              updatedCmxPrice = base.cmxPrice;
             }
-            if (updatedMcxPrice < 10000) {
-              updatedMcxPrice = Math.round(updatedCmxPrice * usdInrRate); // ~10355
+            if (!updatedMcxPrice || updatedMcxPrice <= 0) {
+              updatedMcxPrice = Math.round(updatedCmxPrice * usdInrRate);
             }
           }
 
@@ -545,9 +548,9 @@ export class CommodityMarketService {
     const gold = items.find((c) => c.id === "GOLD") || BASELINE_COMMODITIES[0];
     const silver = items.find((c) => c.id === "SILVER") || BASELINE_COMMODITIES[1];
 
-    const brentPrice = crude.cmxPrice || 117.0;
+    const brentPrice = crude.cmxPrice || 112.0;
     const inflationImpact: "Benign" | "Moderate" | "Elevated" =
-      brentPrice < 78 ? "Benign" : brentPrice <= 85 ? "Moderate" : "Elevated";
+      brentPrice < 80 ? "Benign" : brentPrice <= 88 ? "Moderate" : "Elevated";
 
     const gsRatio = silver.cmxPrice > 0 ? Number((gold.cmxPrice / silver.cmxPrice).toFixed(1)) : 82.6;
 

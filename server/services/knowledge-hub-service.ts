@@ -105,21 +105,34 @@ export class KnowledgeHubService {
 	}
 
 	getDefaultTopMovers(region: string = "india") {
-		return region === "india"
-			? [
-					{ name: "ITC Limited", symbol: "ITC", price: 266.0, change: 4.31, direction: "up" as const, currency: "INR" },
-					{ name: "Tata Consultancy Services", symbol: "TCS", price: 2156.0, change: 3.85, direction: "up" as const, currency: "INR" },
-					{ name: "Infosys Limited", symbol: "INFY", price: 1023.4, change: 2.65, direction: "up" as const, currency: "INR" },
-					{ name: "Reliance Industries", symbol: "RELIANCE", price: 1170.3, change: -0.65, direction: "down" as const, currency: "INR" },
-					{ name: "JSW Steel Limited", symbol: "JSWSTEEL", price: 1168.0, change: -0.61, direction: "down" as const, currency: "INR" },
-					{ name: "Cipla Limited", symbol: "CIPLA", price: 1301.0, change: -0.44, direction: "down" as const, currency: "INR" },
-				]
-			: [
-					{ name: "Apple Inc", symbol: "AAPL", price: 230.15, change: 1.15, direction: "up" as const, currency: "USD" },
-					{ name: "Microsoft Corp", symbol: "MSFT", price: 425.20, change: 0.95, direction: "up" as const, currency: "USD" },
-					{ name: "NVIDIA Corp", symbol: "NVDA", price: 122.50, change: 2.45, direction: "up" as const, currency: "USD" },
-					{ name: "Tesla Inc", symbol: "TSLA", price: 215.30, change: -1.20, direction: "down" as const, currency: "USD" },
-				];
+		if (region === "india") {
+			return [
+				{ name: "Infosys Limited", symbol: "INFY", price: 1885.5, change: 1.36, direction: "up" as const, currency: "INR" },
+				{ name: "Cipla Limited", symbol: "CIPLA", price: 1560.0, change: 1.54, direction: "up" as const, currency: "INR" },
+				{ name: "Tata Consultancy Services", symbol: "TCS", price: 4120.0, change: 0.99, direction: "up" as const, currency: "INR" },
+				{ name: "ITC Limited", symbol: "ITC", price: 472.5, change: 0.45, direction: "up" as const, currency: "INR" },
+				{ name: "Reliance Industries", symbol: "RELIANCE", price: 1285.0, change: -0.21, direction: "down" as const, currency: "INR" },
+				{ name: "JSW Steel Limited", symbol: "JSWSTEEL", price: 985.0, change: -0.75, direction: "down" as const, currency: "INR" },
+			];
+		}
+		if (region === "global") {
+			return [
+				{ name: "S&P 500 Index (SPX)", symbol: "SPX", price: 5864.5, change: 0.75, direction: "up" as const, currency: "USD" },
+				{ name: "Nasdaq 100 Index (NDX)", symbol: "NDX", price: 20380.0, change: 1.12, direction: "up" as const, currency: "USD" },
+				{ name: "Nikkei 225 (Tokyo)", symbol: "N225", price: 38950.0, change: 0.95, direction: "up" as const, currency: "JPY" },
+				{ name: "FTSE 100 (London)", symbol: "UKX", price: 8245.0, change: -0.32, direction: "down" as const, currency: "GBP" },
+				{ name: "DAX 40 (Frankfurt)", symbol: "DAX", price: 19480.0, change: 0.45, direction: "up" as const, currency: "EUR" },
+				{ name: "Hang Seng (Hong Kong)", symbol: "HSI", price: 20590.0, change: -0.88, direction: "down" as const, currency: "HKD" },
+			];
+		}
+		return [
+			{ name: "Apple Inc", symbol: "AAPL", price: 230.15, change: 1.15, direction: "up" as const, currency: "USD" },
+			{ name: "Microsoft Corp", symbol: "MSFT", price: 425.20, change: 0.95, direction: "up" as const, currency: "USD" },
+			{ name: "NVIDIA Corp", symbol: "NVDA", price: 138.50, change: 2.45, direction: "up" as const, currency: "USD" },
+			{ name: "Alphabet Inc", symbol: "GOOGL", price: 178.20, change: 0.85, direction: "up" as const, currency: "USD" },
+			{ name: "Amazon.com Inc", symbol: "AMZN", price: 192.40, change: 1.35, direction: "up" as const, currency: "USD" },
+			{ name: "Tesla Inc", symbol: "TSLA", price: 218.30, change: -1.20, direction: "down" as const, currency: "USD" },
+		];
 	}
 
 	/**
@@ -142,13 +155,55 @@ export class KnowledgeHubService {
 			topMovers = topMovers || this.getDefaultTopMovers(region);
 		}
 
+		// Pull live Single Source of Truth snapshot from Golden Pricing Engine
+		let goldenSnapshot: any = null;
+		try {
+			const { goldenPricingEngine } = await import("./golden-pricing/GoldenPricingEngine");
+			goldenSnapshot = await goldenPricingEngine.getDailyMarketBriefLiveSnapshot(region);
+		} catch (err: any) {
+			console.warn("[KnowledgeHubService] GoldenPricingEngine brief snapshot fallback:", err?.message);
+		}
+
 		let ccilFixedIncome: any = brief.ccilFixedIncome || null;
 		let commodityRadar: any = brief.commodityRadar || null;
 		let multiExchangeData: any = brief.multiExchangeData || null;
 		let amcConsensus: any = brief.amcConsensus || null;
 
 		if (isIndia) {
-			if (!ccilFixedIncome) {
+			if (!ccilFixedIncome && goldenSnapshot?.fixedIncome) {
+				const gfi = goldenSnapshot.fixedIncome;
+				ccilFixedIncome = {
+					fbilMiborOvernight: 6.5,
+					systemicLiquidityCr: -35000,
+					liquidityStatus: "Balanced",
+					treps: gfi.trepsData || {
+						weightedAverageRate: gfi.trepsWar,
+						totalVolumeCr: 485200,
+						minRate: 6.25,
+						maxRate: 6.55,
+						marketCondition: "BALANCED",
+					},
+					sovereignYields: gfi.sovereignYields || [
+						{ tenor: "10Y", securityName: "7.10% GS 2034 (10Y Benchmark)", yieldPercent: gfi.gsec10YYield, changeBps: -1.5, cleanPrice: 101.85 },
+						{ tenor: "5Y", securityName: "7.04% GS 2029 (5Y Benchmark)", yieldPercent: gfi.gsec5YYield, changeBps: -1.0, cleanPrice: 101.42 },
+						{ tenor: "2Y", securityName: "6.85% GS 2026 (2Y Sovereign)", yieldPercent: 6.51, changeBps: -0.8, cleanPrice: 100.55 },
+					],
+					tBills: gfi.tBills || [
+						{ tenor: "91D", cutoffYield: 6.54, changeBps: -1.2 },
+						{ tenor: "182D", cutoffYield: 6.61, changeBps: -0.5 },
+						{ tenor: "364D", cutoffYield: 6.65, changeBps: -0.2 },
+					],
+					yieldCurveAnalysis: {
+						tenor10Y_minus_2Y_bps: 28,
+						slope: "Normal Upward",
+						realYield10Y: gfi.realYield10Y,
+						cpiInflationAssumed: goldenSnapshot.macroIndicators?.indiaCpiInflation?.value ?? 5.49,
+						commentary: `Sovereign yield curve reflects normal upward slope. Real yield of +${gfi.realYield10Y}% over CPI inflation offers attractive carry.`,
+					},
+					sdlSpreadBps: 38,
+					source: "CCIL Sovereign Clearing & Golden Pricing Engine",
+				};
+			} else if (!ccilFixedIncome) {
 				try {
 					const { ccilMarketService } = await import("./ccil-market-service");
 					const ccilRes = await ccilMarketService.getSovereignBenchmarks();
@@ -160,7 +215,94 @@ export class KnowledgeHubService {
 				}
 			}
 
-			if (!commodityRadar) {
+			if (!commodityRadar && goldenSnapshot?.commodities) {
+				const gc = goldenSnapshot.commodities;
+				commodityRadar = {
+					commodities: [
+						{
+							id: "GOLD",
+							name: "Gold 24K",
+							category: "Precious Metals",
+							mcxSymbol: "GOLD",
+							mcxPrice: gc.goldMcxInr,
+							mcxUnit: "₹ / 10g",
+							mcxChangePercent: 0.65,
+							cmxSymbol: "GC=F (COMEX Gold)",
+							cmxPrice: gc.goldComexUsd,
+							cmxUnit: "$ / oz",
+							cmxChangePercent: 0.58,
+							trend: "Bullish",
+							macroImplication: "Central bank reserves diversification and geopolitical hedge sustaining bullion demand.",
+						},
+						{
+							id: "SILVER",
+							name: "Silver",
+							category: "Precious Metals",
+							mcxSymbol: "SILVER",
+							mcxPrice: gc.silverMcxInr,
+							mcxUnit: "₹ / 1kg",
+							mcxChangePercent: 1.15,
+							cmxSymbol: "SI=F (COMEX Silver)",
+							cmxPrice: gc.silverComexUsd,
+							cmxUnit: "$ / oz",
+							cmxChangePercent: 1.05,
+							trend: "Bullish",
+							macroImplication: "Driven by dual tailwinds from solar PV manufacturing and monetary investor demand.",
+						},
+						{
+							id: "CRUDE_OIL",
+							name: "Crude Oil (Brent)",
+							category: "Energy",
+							mcxSymbol: "CRUDEOIL",
+							mcxPrice: Math.round(gc.brentCrudeUsd * (goldenSnapshot.currencies?.usdInr ?? 84.08)),
+							mcxUnit: "₹ / bbl",
+							mcxChangePercent: -0.65,
+							cmxSymbol: "BZ=F (ICE Brent)",
+							cmxPrice: gc.brentCrudeUsd,
+							cmxUnit: "$ / bbl",
+							cmxChangePercent: -0.72,
+							trend: "Neutral",
+							macroImplication:
+								gc.brentCrudeUsd <= 80
+									? `Brent crude at $${gc.brentCrudeUsd.toFixed(2)}/bbl remains within India's comfort threshold (<$80), keeping imported inflation pressures benign.`
+									: `Brent crude at $${gc.brentCrudeUsd.toFixed(2)}/bbl tests India's comfort threshold (<$80), increasing imported inflation pressures.`,
+						},
+						{
+							id: "NATURAL_GAS",
+							name: "Natural Gas",
+							category: "Energy",
+							mcxSymbol: "NATGAS",
+							mcxPrice: gc.naturalGasInr,
+							mcxUnit: "₹ / mmBtu",
+							mcxChangePercent: -0.85,
+							cmxSymbol: "NG=F (NYMEX)",
+							cmxPrice: 2.75,
+							cmxUnit: "$ / mmBtu",
+							cmxChangePercent: -0.9,
+							trend: "Neutral",
+							macroImplication: "Comfortable global storage levels easing industrial input costs.",
+						},
+						{
+							id: "COPPER",
+							name: "Copper (Dr. Copper)",
+							category: "Base Metals",
+							mcxSymbol: "COPPER",
+							mcxPrice: gc.copperInr,
+							mcxUnit: "₹ / kg",
+							mcxChangePercent: 0.42,
+							cmxSymbol: "HG=F (COMEX)",
+							cmxPrice: 4.35,
+							cmxUnit: "$ / lb",
+							cmxChangePercent: 0.38,
+							trend: "Bullish",
+							macroImplication: "Electrification, AI datacenter grid infrastructure, and EV demand underpin long-term supply deficit.",
+						},
+					],
+					crudeOilBreakevenStatus: gc.crudeOilBreakevenStatus,
+					goldSilverRatio: Math.round((gc.goldComexUsd / gc.silverComexUsd) * 10) / 10,
+					source: "MCX India & COMEX / Golden Pricing Engine",
+				};
+			} else if (!commodityRadar) {
 				try {
 					const { commodityMarketService } = await import("./commodity-market-service");
 					const commRes = await commodityMarketService.getCommodityBenchmarks();
@@ -197,37 +339,29 @@ export class KnowledgeHubService {
 			}
 		}
 
-		// If Indian brief has default placeholder snapshot, try to enrich with today's live indices and CCIL G-Sec
-		if (isIndia && (!brief.marketSnapshot || brief.marketSnapshot.includes("Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows"))) {
-			try {
-				const { indianApiService } = await import("./indian-api-service");
-				const idxRes = await indianApiService.getIndices();
-				if (idxRes.success && idxRes.data && idxRes.data.length > 0) {
-					const nifty = idxRes.data.find((i) => i.name.toUpperCase().includes("NIFTY 50"));
-					const sensex = idxRes.data.find((i) => i.name.toUpperCase().includes("SENSEX"));
-					const bankNifty = idxRes.data.find((i) => i.name.toUpperCase().includes("BANK"));
-					if (nifty && sensex) {
-						const niftyDir = nifty.netChange >= 0 ? "advanced" : "shed";
-						const sensexDir = sensex.netChange >= 0 ? "gaining" : "declining";
-						const niftyPts = `${Math.abs(nifty.netChange).toFixed(1)} pts (${nifty.percentChange >= 0 ? "+" : ""}${nifty.percentChange.toFixed(2)}%) to close at ${nifty.price.toLocaleString("en-IN")}`;
-						const sensexPts = `${Math.abs(sensex.netChange).toFixed(1)} pts (${sensex.percentChange >= 0 ? "+" : ""}${sensex.percentChange.toFixed(2)}%) to ${sensex.price.toLocaleString("en-IN")}`;
-						const bankStr = bankNifty ? ` Nifty Bank traded at ${bankNifty.price.toLocaleString("en-IN")} (${bankNifty.percentChange >= 0 ? "+" : ""}${bankNifty.percentChange.toFixed(2)}%).` : "";
+		// Dynamically enrich marketSnapshot with live Golden Pricing Engine data
+		if (isIndia && goldenSnapshot) {
+			const nifty = goldenSnapshot.indices.indian.find((i: any) => i.symbol === "NIFTY50") || { price: 23053.1, changePercent: 0.51 };
+			const sensex = goldenSnapshot.indices.indian.find((i: any) => i.symbol === "SENSEX") || { price: 74459.53, changePercent: 0.42 };
+			const bankNifty = goldenSnapshot.indices.indian.find((i: any) => i.symbol === "BANKNIFTY");
+			const gsecRate = goldenSnapshot.fixedIncome.gsec10YYield;
+			const trepsRate = goldenSnapshot.fixedIncome.trepsWar;
+			const cpiRate = goldenSnapshot.macroIndicators.indiaCpiInflation.value;
+			const realYield = goldenSnapshot.fixedIncome.realYield10Y;
 
-						const gsecRate = ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? 6.79;
-						const trepsRate = ccilFixedIncome?.treps?.weightedAverageRate ?? 6.42;
+			const niftyDir = nifty.changePercent >= 0 ? "advanced" : "shed";
+			const sensexDir = sensex.changePercent >= 0 ? "gaining" : "declining";
+			const niftyPts = `${Math.abs(nifty.changePercent).toFixed(2)}% to close at ${nifty.price.toLocaleString("en-IN")}`;
+			const sensexPts = `${Math.abs(sensex.changePercent).toFixed(2)}% to ${sensex.price.toLocaleString("en-IN")}`;
+			const bankStr = bankNifty ? ` Nifty Bank traded at ${bankNifty.price.toLocaleString("en-IN")} (${bankNifty.changePercent >= 0 ? "+" : ""}${bankNifty.changePercent.toFixed(2)}%).` : "";
 
-						brief.marketSnapshot = `Indian equity benchmarks traded with ${nifty.netChange >= 0 ? "positive" : "defensive"} momentum today. Frontline index Nifty 50 ${niftyDir} ${niftyPts}, while the 30-share BSE Sensex consolidated, ${sensexDir} ${sensexPts}.${bankStr} The benchmark 10-year Indian Government Bond (G-Sec) yield traded at ${gsecRate}%, backed by CCIL sovereign clearing, offering a +${(gsecRate - 4.2).toFixed(2)}% real yield cushion over CPI inflation. Money market liquidity remained balanced with CCIL TREPS overnight weighted average rate (WAR) printing at ${trepsRate}%. Domestic institutional inflows (DIIs) provided strong underlying liquidity support through ongoing mutual fund SIP commitments (~₹26,000+ Cr monthly run-rate).`;
-					}
-				}
-			} catch (err: any) {
-				console.warn("[KnowledgeHubService] Live index enrichment failed:", err?.message);
-			}
+			brief.marketSnapshot = `Indian equity benchmarks traded with ${nifty.changePercent >= 0 ? "positive" : "defensive"} momentum today. Frontline index Nifty 50 ${niftyDir} ${niftyPts}, while the 30-share BSE Sensex consolidated, ${sensexDir} ${sensexPts}.${bankStr} The benchmark 10-year Indian Government Bond (G-Sec) yield traded at ${gsecRate}%, backed by CCIL sovereign clearing, offering a +${realYield}% real yield cushion over CPI inflation (${cpiRate}% YoY). Money market liquidity remained balanced with CCIL TREPS overnight weighted average rate (WAR) printing at ${trepsRate}%. Domestic institutional inflows (DIIs) provided strong underlying liquidity support through ongoing mutual fund SIP commitments (~₹26,000+ Cr monthly run-rate).`;
 		}
 
 		const gsecYieldStr = ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent
 			? `${ccilFixedIncome.sovereignYields[0].yieldPercent}%`
 			: "6.79%";
-		const brentPriceNum = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? 117.0;
+		const brentPriceNum = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? 112.0;
 		const brentStr = `$${brentPriceNum}/bbl`;
 		const goldStr = commodityRadar?.commodities?.[0]?.mcxPrice
 			? `₹${commodityRadar.commodities[0].mcxPrice.toLocaleString("en-IN")}/10g`
@@ -338,11 +472,11 @@ export class KnowledgeHubService {
 		}
 
 		const formattedMovers = (topMovers || []).map((m: any) => {
+			if (m.currency) {
+				return m;
+			}
 			const isUs =
-				m.currency === "USD" ||
-				m.currency === "$" ||
 				region === "us" ||
-				region === "global" ||
 				(m.symbol &&
 					["AAPL", "MSFT", "NVDA", "TSLA", "GOOGL", "GOOG", "AMZN", "META", "BRK.A", "BRK.B", "LLY", "JPM", "V"].includes(
 						m.symbol.toUpperCase(),
@@ -353,13 +487,43 @@ export class KnowledgeHubService {
 			};
 		});
 
+		const defaultUsFixedIncome = region === "us"
+			? {
+					tenYearTreasury: 4.18,
+					twoYearTreasury: 3.98,
+					tenYearMinusTwoYearBps: 20,
+					fedFundsTargetRate: "4.75% – 5.00%",
+					thirtyYearMortgageAvg: 6.55,
+					yieldCurveSlope: "Normal Upward (+20 bps)",
+					commentary: "US 10-Year Treasury yield consolidates near 4.18% as markets price in orderly FOMC rate adjustments. 10Y-2Y term spread indicates constructive macro conditions.",
+					source: "Federal Reserve (FRED) & US Treasury",
+				}
+			: null;
+
+		const defaultGlobalMacroDesk = region === "global"
+			? {
+					dxyIndex: 103.85,
+					dxyChangePercent: -0.15,
+					bund10YYield: 2.32,
+					gilt10YYield: 4.24,
+					jgb10YYield: 0.95,
+					eurUsd: 1.085,
+					usdJpy: 151.8,
+					commentary: "Global macro transmission: Rangebound US Dollar Index (DXY 103.85) anchors cross-border liquidity. European Bunds and UK Gilts track disinflation trends.",
+					source: "Bank for International Settlements (BIS) & Global FX Desks",
+				}
+			: null;
+
 		return {
 			...brief,
 			topMovers: formattedMovers,
 			ccilFixedIncome,
+			usFixedIncome: brief.usFixedIncome || defaultUsFixedIncome,
+			globalMacroDesk: brief.globalMacroDesk || defaultGlobalMacroDesk,
 			commodityRadar,
 			multiExchangeData,
 			amcConsensus,
+			macroIndicators: brief.macroIndicators || goldenSnapshot?.macroIndicators || null,
 			sectorHighlights: brief.sectorHighlights || sectorHighlights,
 			agentTips: brief.agentTips || agentTips,
 			sources: brief.sources || sources,
@@ -376,6 +540,8 @@ export class KnowledgeHubService {
 
 		const region = brief.region || "india";
 		const isIndia = region === "india";
+		const brentPriceNum = brief.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? 112.0;
+		const isElevatedCrude = brentPriceNum > 85;
 
 		const topMovers = brief.topMovers || this.getDefaultTopMovers(region);
 
@@ -393,8 +559,8 @@ export class KnowledgeHubService {
 					},
 					{
 						sector: "Commodities & Energy (MCX / CMX)",
-						trend: "Elevated Input Pressure",
-						outlook: "Brent Crude on NYMEX at $117.00/bbl above India comfort band; MCX Gold at ₹78,450/10g.",
+						trend: isElevatedCrude ? "Elevated Input Pressure" : "Benign Comfort Band",
+						outlook: `Brent Crude at $${brentPriceNum}/bbl (${isElevatedCrude ? "above" : "within"} India comfort band <$80); MCX Gold at ₹78,450/10g.`,
 					},
 					{
 						sector: "Information Technology (Nifty IT)",
@@ -441,11 +607,11 @@ export class KnowledgeHubService {
 				];
 
 		const formattedMovers = (topMovers || []).map((m: any) => {
+			if (m.currency) {
+				return m;
+			}
 			const isUs =
-				m.currency === "USD" ||
-				m.currency === "$" ||
 				region === "us" ||
-				region === "global" ||
 				(m.symbol &&
 					["AAPL", "MSFT", "NVDA", "TSLA", "GOOGL", "GOOG", "AMZN", "META", "BRK.A", "BRK.B", "LLY", "JPM", "V"].includes(
 						m.symbol.toUpperCase(),
@@ -480,6 +646,33 @@ export class KnowledgeHubService {
 					},
 					sdlSpreadBps: 38,
 					source: "CCIL (The Clearing Corporation of India Limited) & FBIL",
+				}
+			: null;
+
+		const defaultUsFixedIncome = region === "us"
+			? {
+					tenYearTreasury: 4.18,
+					twoYearTreasury: 3.98,
+					tenYearMinusTwoYearBps: 20,
+					fedFundsTargetRate: "4.75% – 5.00%",
+					thirtyYearMortgageAvg: 6.55,
+					yieldCurveSlope: "Normal Upward (+20 bps)",
+					commentary: "US 10-Year Treasury yield consolidates near 4.18% as markets price in orderly FOMC rate adjustments. 10Y-2Y term spread indicates constructive macro conditions.",
+					source: "Federal Reserve (FRED) & US Treasury",
+				}
+			: null;
+
+		const defaultGlobalMacroDesk = region === "global"
+			? {
+					dxyIndex: 103.85,
+					dxyChangePercent: -0.15,
+					bund10YYield: 2.32,
+					gilt10YYield: 4.24,
+					jgb10YYield: 0.95,
+					eurUsd: 1.085,
+					usdJpy: 151.8,
+					commentary: "Global macro transmission: Rangebound US Dollar Index (DXY 103.85) anchors cross-border liquidity. European Bunds and UK Gilts track disinflation trends.",
+					source: "Bank for International Settlements (BIS) & Global FX Desks",
 				}
 			: null;
 
@@ -522,19 +715,19 @@ export class KnowledgeHubService {
 						},
 						{
 							id: "CRUDE_OIL",
-							name: "Brent Crude Oil (NYMEX)",
+							name: "Brent Crude Oil (NYMEX / ICE)",
 							category: "Energy",
 							mcxSymbol: "CRUDEOIL",
-							mcxPrice: 10355,
+							mcxPrice: 9417,
 							mcxUnit: "₹ / bbl",
-							mcxChangePercent: 1.85,
-							cmxSymbol: "NYMEX Brent Futures (BZ=F)",
-							cmxPrice: 117.0,
+							mcxChangePercent: 2.15,
+							cmxSymbol: "BZ=F (ICE Brent Futures / CFD)",
+							cmxPrice: 112.0,
 							cmxUnit: "$ / bbl",
-							cmxChangePercent: 1.95,
+							cmxChangePercent: 2.37,
 							trend: "Bullish",
 							macroImplication:
-								"Brent crude on NYMEX at $117.00/bbl poses acute macroeconomic headwinds for India. Escalates imported inflation, widens CAD, and compresses margins for paints, tyres, airlines, and auto ancillaries.",
+								"Brent crude CFD at $112.00/bbl trades significantly above India's comfort threshold (<$80/bbl), creating imported inflation headwinds and margin pressure for paints, tyres, airlines, and auto ancillaries.",
 							lastUpdated: new Date().toISOString().split("T")[0],
 						},
 						{
@@ -542,11 +735,11 @@ export class KnowledgeHubService {
 							name: "Natural Gas",
 							category: "Energy",
 							mcxSymbol: "NATURALGAS",
-							mcxPrice: 268.5,
+							mcxPrice: 231.2,
 							mcxUnit: "₹ / mmBtu",
 							mcxChangePercent: -0.85,
 							cmxSymbol: "NG=F (NYMEX Henry Hub)",
-							cmxPrice: 3.03,
+							cmxPrice: 2.75,
 							cmxUnit: "$ / mmBtu",
 							cmxChangePercent: -0.9,
 							trend: "Neutral",
@@ -559,11 +752,11 @@ export class KnowledgeHubService {
 							name: "Copper (Dr. Copper)",
 							category: "Base Metals",
 							mcxSymbol: "COPPER",
-							mcxPrice: 858,
+							mcxPrice: 845,
 							mcxUnit: "₹ / kg",
 							mcxChangePercent: 0.42,
 							cmxSymbol: "HG=F (COMEX Copper)",
-							cmxPrice: 6.65,
+							cmxPrice: 4.35,
 							cmxUnit: "$ / lb",
 							cmxChangePercent: 0.38,
 							trend: "Bullish",
@@ -573,11 +766,11 @@ export class KnowledgeHubService {
 						},
 					],
 					crudeOilBreakevenStatus: {
-						brentUsd: 117.0,
+						brentUsd: 112.0,
 						indiaComfortBandMaxUsd: 80,
 						inflationImpact: "Elevated",
 						commentary:
-							"Brent crude on NYMEX at $117.00/bbl remains significantly above India's comfort threshold ($80/bbl). Elevated crude prices widen the Current Account Deficit (CAD), fuel imported inflation, and pressure operating margins for paint, auto, tyre, and chemical sectors.",
+							"Brent crude CFD at $112.00/bbl remains significantly above India's comfort threshold (<$80/bbl). Elevated crude prices widen the Current Account Deficit (CAD), fuel imported inflation, and pressure operating margins for paint, auto, tyre, and chemical sectors.",
 					},
 					goldSilverRatio: 82.1,
 					asOfDate: new Date().toISOString().split("T")[0],
@@ -705,24 +898,29 @@ export class KnowledgeHubService {
 				}
 			: null;
 
-		const brentPriceNum = (brief.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? defaultCommodityRadar?.crudeOilBreakevenStatus?.brentUsd) ?? 117.0;
-		const brentStr = `$${brentPriceNum}/bbl`;
-		const isElevatedCrude = brentPriceNum > 85;
+		const finalBrentNum = (brief.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? defaultCommodityRadar?.crudeOilBreakevenStatus?.brentUsd) ?? brentPriceNum;
+		const brentStr = `$${finalBrentNum}/bbl`;
+		const isElevatedFinal = finalBrentNum > 85;
 
 		if (brief.marketSnapshot && typeof brief.marketSnapshot === "string") {
 			brief.marketSnapshot = brief.marketSnapshot
 				.replace(/Brent crude traded at \$[0-9.]+\/bbl/g, `Brent crude traded at ${brentStr}`)
 				.replace(/\$74\.8\/bbl/g, brentStr)
 				.replace(/\$74\.8/g, `$${brentPriceNum}`)
-				.replace(/in the domestic comfort band/g, "with elevated pricing monitored closely for imported inflation risks")
-				.replace(/within India's comfort threshold \(<\$80\/bbl\)/g, "elevated above India's comfort threshold ($80/bbl)");
+				.replace(/\$117\.00\/bbl/g, brentStr)
+				.replace(/\$117\/bbl/g, brentStr);
 		}
 
 		if (brief.whatChanged && typeof brief.whatChanged === "string") {
+			const crudeStatus = isElevatedCrude
+				? `Brent crude traded firm at ${brentStr}, remaining above India's $80 comfort threshold and creating imported inflation headwinds.`
+				: `Brent crude traded at ${brentStr}, comfortably within India's $80 comfort threshold and keeping imported inflation pressures benign.`;
+
 			brief.whatChanged = brief.whatChanged
-				.replace(/Brent crude traded firm at \$[0-9.]+\/bbl/g, `Brent crude traded firm at ${brentStr}`)
-				.replace(/Brent crude consolidated at \$[0-9.]+\/bbl[^\n]+/g, `Brent crude traded firm at ${brentStr}, remaining above India's $80 comfort threshold and creating imported inflation headwinds.`)
+				.replace(/Brent crude traded firm at \$[0-9.]+\/bbl[^\n]+/g, crudeStatus)
+				.replace(/Brent crude consolidated at \$[0-9.]+\/bbl[^\n]+/g, crudeStatus)
 				.replace(/\$74\.8\/bbl/g, brentStr)
+				.replace(/\$117\.00\/bbl/g, brentStr)
 				.replace(/\$74\.8/g, `$${brentPriceNum}`);
 		}
 
@@ -744,6 +942,8 @@ export class KnowledgeHubService {
 			...brief,
 			topMovers: formattedMovers,
 			ccilFixedIncome: brief.ccilFixedIncome || defaultCcil,
+			usFixedIncome: brief.usFixedIncome || defaultUsFixedIncome,
+			globalMacroDesk: brief.globalMacroDesk || defaultGlobalMacroDesk,
 			commodityRadar: brief.commodityRadar || defaultCommodityRadar,
 			multiExchangeData: brief.multiExchangeData || defaultMultiExchange,
 			amcConsensus: brief.amcConsensus || defaultAmcConsensus,
@@ -903,23 +1103,33 @@ export class KnowledgeHubService {
 
 		const marketSnapshot = isIndia
 			? "Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at 6.79%, backed by CCIL sovereign clearing, offering attractive +2.59% real yield spreads. CCIL TREPS overnight funding rate printed at 6.42%, reflecting balanced systemic money market liquidity. Brent crude traded at $117.00/bbl, with elevated energy levels monitored closely for imported inflation risks."
-			: "US equities traded higher with the S&P 500 and Nasdaq supported by megacap technology earnings and steady labor market prints. 10-year Treasury yields consolidated as markets digested central bank policy commentary.";
+			: region === "global"
+				? "Global equity benchmarks traded with constructive risk sentiment across Asian and European sessions, led by technology and semiconductor supply chain momentum. The US Dollar Index (DXY) consolidated near 103.85, while benchmark 10-year sovereign bond yields traded orderly across G7 economies with positive disinflation expectations."
+				: "US equities traded higher with the S&P 500 and Nasdaq supported by megacap technology earnings and steady labor market prints. 10-year Treasury yields consolidated as markets digested central bank policy commentary.";
 
 		const whatChanged = isIndia
 			? "1. RBI Macro & Sovereign Debt Desk: Systemic liquidity remained comfortable under RBI operations, with CCIL 10-Year Benchmark G-Sec yield trading at 6.79% and CCIL TREPS overnight weighted average rate at 6.42%.\n2. Commodity Radar: Brent crude traded firm at $117.00/bbl, remaining above India's $80 comfort threshold and creating imported inflation headwinds. MCX Gold traded firm at ₹78,450/10g on steady safe-haven and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows."
-			: "1. Macro prints: Inflation gauges met consensus expectations, supporting orderly equity valuation multiples.\n2. Earnings momentum: Enterprise AI infrastructure providers reported strong order book expansions.";
+			: region === "global"
+				? "1. Cross-Asset Transmission: US Dollar Index (DXY) consolidated at 103.85, stabilizing cross-border emerging market foreign exchange flows.\n2. Asian & European Momentum: Tokyo Nikkei 225 advanced on resilient corporate earnings; Frankfurt DAX and London FTSE hovered near record territory.\n3. Sovereign Bond Spreads: 10-Year US Treasury yield held steady at 4.18%, German 10Y Bund traded at 2.32%, and UK 10Y Gilt printed at 4.24%."
+				: "1. Macro prints: Inflation gauges met consensus expectations, supporting orderly equity valuation multiples.\n2. Earnings momentum: Enterprise AI infrastructure providers reported strong order book expansions.";
 
 		const keyRisks = isIndia
 			? "Elevated crude oil volatility (Brent currently at $117.00/bbl), US Dollar Index (DXY) movements, and shifting foreign institutional (FPI) derivative positions."
-			: "Interest rate trajectory, commercial real estate refinancing, and geopolitical trade developments.";
+			: region === "global"
+				? "Global geopolitical developments, shifting trade tariff policies, currency volatility (USD/JPY, EUR/USD), and divergence in central bank monetary easing cycles (Fed vs ECB vs BoJ)."
+				: "Interest rate trajectory, commercial real estate refinancing, and geopolitical trade developments.";
 
 		const opportunityAreas = isIndia
 			? "1. Target Maturity Debt Funds & Banking PSU Debt: Lock in yields before systemic rate cuts.\n2. Multi-Asset & Balanced Advantage Funds: Dynamic asset allocation across equities, CCIL sovereign bonds, and MCX Gold to cushion volatility.\n3. Large-Cap Equity SIPs: Disciplined long-term wealth compounding."
-			: "1. Global Megacap ETFs: Dollar-denominated growth assets.\n2. Short-duration high-grade corporate bonds.";
+			: region === "global"
+				? "1. Globally Diversified Developed Market ETFs (MSCI World): Geographically unconstrained core compounders.\n2. Multi-Currency Hedged Fixed Income: Capitalize on developed market sovereign yields.\n3. Strategic Bullion Allocations: Gold and silver exposure as sovereign debt debasement hedges."
+				: "1. Global Megacap ETFs: Dollar-denominated growth assets.\n2. Short-duration high-grade corporate bonds.";
 
 		const portfolioImpact = isIndia
 			? "Remind clients that market fluctuations are natural during benchmark consolidation. Guide conservative investors towards multi-asset funds to smooth portfolio volatility while capturing upside."
-			: "Encourage clients to maintain 10–15% international asset diversification to hedge domestic currency risk.";
+			: region === "global"
+				? "Counsel clients on the compounding resilience of international geographic diversification (10–15% portfolio allocation) to insulate domestic wealth against single-country macroeconomic and currency shocks."
+				: "Encourage clients to maintain 10–15% international asset diversification to hedge domestic currency risk.";
 
 		return this.formatBriefForClientSync({
 			id: `mb-fallback-${date}-${region}`,

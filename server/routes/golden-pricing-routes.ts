@@ -26,6 +26,7 @@ import {
 	getGoldenPrice,
 	getLatestGoldenPrice,
 	batchGetGoldenPrices,
+	getExecutionPriceQuote,
 	GOLDEN_PRICING_ENGINE_VERSION,
 	type AssetClass,
 	type GoldenPriceRow,
@@ -357,6 +358,66 @@ goldenPricingRouter.post("/price-now", async (req: Request, res: Response): Prom
 			error: {
 				error_code: "PRICING_EXECUTION_ERROR",
 				message: msg,
+				retryable: true,
+			},
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: GOLDEN_PRICING_ENGINE_VERSION,
+			},
+		});
+	}
+});
+
+// ── POST /api/pricing/execution-quote — Live DMA Pre-Trade Execution Quote ──
+goldenPricingRouter.post("/execution-quote", async (req: Request, res: Response): Promise<void> => {
+	const t0 = Date.now();
+	const { symbol, exchange = "NSE", orderSide = "BUY", requestedQty, limitPrice } = req.body;
+
+	if (!symbol) {
+		res.status(400).json({
+			success: false,
+			error: {
+				error_code: "MISSING_SYMBOL",
+				message: "symbol is required for execution quote",
+				retryable: false,
+			},
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: GOLDEN_PRICING_ENGINE_VERSION,
+			},
+		});
+		return;
+	}
+
+	try {
+		const quote = await getExecutionPriceQuote({
+			symbol,
+			exchange: exchange === "BSE" ? "BSE" : "NSE",
+			orderSide,
+			requestedQty: requestedQty ? Number(requestedQty) : undefined,
+			limitPrice: limitPrice ? Number(limitPrice) : undefined,
+		});
+
+		res.json({
+			success: true,
+			data: quote,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: GOLDEN_PRICING_ENGINE_VERSION,
+				latency_ms: Date.now() - t0,
+			},
+		});
+	} catch (err: any) {
+		logger.error("[GoldenPricingRoutes] Execution quote error", {
+			event: "EXECUTION_QUOTE_ERROR",
+			symbol,
+			error: err?.message || err,
+		});
+		res.status(500).json({
+			success: false,
+			error: {
+				error_code: "EXECUTION_QUOTE_FAILED",
+				message: err?.message || "Failed to generate execution quote",
 				retryable: true,
 			},
 			meta: {

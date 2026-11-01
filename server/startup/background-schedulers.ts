@@ -1429,6 +1429,120 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			sipRenewalScheduler.start();
 		});
 
+		// ─── Golden Source Pricing Engine Daily Run (9:00 PM IST / 15:30 UTC) ─────
+		runStartupTask("Golden Source Pricing Engine Daily Run", async () => {
+			const msUntilNext1530UTC = (): number => {
+				const now = new Date();
+				const next = new Date();
+				next.setUTCHours(15, 30, 0, 0); // 9:00 PM IST
+				if (next <= now) next.setTime(next.getTime() + 24 * 60 * 60 * 1000);
+				return next.getTime() - now.getTime();
+			};
+
+			const runPricing = async () => {
+				const dayOfWeek = new Date().getDay(); // 0 = Sun, 6 = Sat
+				if (dayOfWeek === 0 || dayOfWeek === 6) {
+					console.log("[GoldenPricingCron] 🏖️ Weekend — skipping EOD pricing run");
+					return;
+				}
+				try {
+					console.log("[GoldenPricingCron] 🔄 Starting daily Golden Pricing run (all asset classes)...");
+					const { runDailyGoldenPricing } = await import(
+						"../services/golden-pricing/GoldenPricingEngine"
+					);
+					const result = await runDailyGoldenPricing();
+					console.log(
+						`[GoldenPricingCron] ✅ Run complete: ${result.succeeded}/${result.processed} priced, ` +
+							`${result.flagged} flagged, ${result.failed} failed in ${result.durationMs}ms`,
+					);
+				} catch (err: any) {
+					console.error("[GoldenPricingCron] ⚠️ Daily run failed (non-fatal):", err?.message);
+				}
+			};
+
+			setTimeout(() => {
+				void runPricing();
+				setInterval(() => { void runPricing(); }, 24 * 60 * 60 * 1000);
+			}, msUntilNext1530UTC());
+
+			console.log(
+				`[GoldenPricingCron] 📊 Daily Golden Pricing scheduled — next run in ${Math.round(msUntilNext1530UTC() / 60000)} min (9:00 PM IST)`,
+			);
+		});
+
+		// ─── Commodity Benchmark Price Sync Scheduler (Every 6 Hours) ────────────
+		runStartupTask("Commodity Price Sync Scheduler", async () => {
+			const { commodityPriceSyncScheduler } = await import(
+				"../services/commodity-price-sync-scheduler"
+			);
+			commodityPriceSyncScheduler.start();
+			console.log("[CommoditySync] 🔄 Commodity benchmark sync scheduler started (every 6h)");
+		});
+
+		// ─── AIF & PMS NAV Sync Schedulers ────────────────────────────────────────
+		runStartupTask("AIF & PMS NAV Sync Schedulers", async () => {
+			const { aifNavSyncScheduler } = await import("../services/aif-nav-sync-scheduler");
+			const { pmsNavSyncScheduler } = await import("../services/pms-nav-sync-scheduler");
+			aifNavSyncScheduler.start();
+			pmsNavSyncScheduler.start();
+			console.log("[AIF/PMS Sync] 📊 AIF and PMS NAV sync schedulers started");
+		});
+
+		// ─── Screener Master Snapshot Rebuild (Nightly 02:00 AM IST / 20:30 UTC) ──
+		runStartupTask("Screener Master Snapshot Rebuilder", async () => {
+			const msUntilNext2030UTC = (): number => {
+				const now = new Date();
+				const next = new Date();
+				next.setUTCHours(20, 30, 0, 0); // 02:00 AM IST
+				if (next <= now) next.setTime(next.getTime() + 24 * 60 * 60 * 1000);
+				return next.getTime() - now.getTime();
+			};
+
+			const runRebuild = async () => {
+				const t0 = Date.now();
+				try {
+					console.log("[ScreenerSnapshotCron] 🔄 Starting nightly screener_master_snapshots rebuild...");
+					const { screenerMasterSnapshotService } = await import(
+						"../services/screener/screener-master-snapshot-service"
+					);
+					const snapResult = await screenerMasterSnapshotService.rebuildFullSnapshot();
+					console.log(`[ScreenerSnapshotCron] ✅ Rebuilt snapshots: ${snapResult.succeeded}/${snapResult.total} in ${Date.now() - t0}ms`);
+				} catch (err: any) {
+					console.warn("[ScreenerSnapshotCron] ⚠️ Snapshot rebuild failed (non-fatal):", err?.message);
+				}
+			};
+
+			setTimeout(() => {
+				void runRebuild();
+				setInterval(() => { void runRebuild(); }, 24 * 60 * 60 * 1000);
+			}, msUntilNext2030UTC());
+
+			console.log(
+				`[ScreenerSnapshotCron] 📊 Nightly screener snapshot rebuild scheduled — next run in ${Math.round(msUntilNext2030UTC() / 60000)} min (02:00 AM IST)`,
+			);
+		});
+
+		// ─── Instrument Master Sync (Nightly 02:00 AM IST + Boot Check) ───────────
+		runStartupTask("Instrument Master Nightly Sync", async () => {
+			const { scheduleInstrumentMasterSync } = await import(
+				"../jobs/instrument-master-sync"
+			);
+			await scheduleInstrumentMasterSync();
+		});
+
+		// ─── Domain Operations Crons (Orders, Compliance, Unlisted, IRIS CAS) ────
+		runStartupTask("Domain Operations & Compliance Crons", async () => {
+			const { initializeOrderOpsCrons } = await import("../cron-order-ops");
+			const { initializeComplianceCrons } = await import("../cron-compliance");
+			const { initializeIrisSyncCrons } = await import("../cron-iris-sync");
+			const { initializeUnlistedCrons } = await import("../cron-unlisted");
+			initializeOrderOpsCrons();
+			initializeComplianceCrons();
+			initializeIrisSyncCrons();
+			initializeUnlistedCrons();
+			console.log("[DomainCrons] ✅ Order ops, compliance, IRIS CAS, and unlisted crons active");
+		});
+
 		console.log(
 			"✅ [Schedulers] All background services initialized. Portal is self-operating.",
 		);

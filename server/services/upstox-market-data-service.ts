@@ -465,6 +465,18 @@ class UpstoxMarketDataService {
         SYMBOL_TO_ISIN[upper] = stock.isin;
         return `${exchange}_EQ|${stock.isin}`;
       }
+
+      // Check isin_registry
+      const { isinRegistry } = await import("@shared/schema");
+      const [isinRec] = await db
+        .select({ isin: isinRegistry.isin })
+        .from(isinRegistry)
+        .where(eq(isinRegistry.nseSymbol, upper))
+        .limit(1);
+      if (isinRec?.isin) {
+        SYMBOL_TO_ISIN[upper] = isinRec.isin;
+        return `${exchange}_EQ|${isinRec.isin}`;
+      }
     } catch {
       // Non-fatal fallback
     }

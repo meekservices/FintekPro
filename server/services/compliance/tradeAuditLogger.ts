@@ -1,17 +1,14 @@
-import { logger } from "../../../logger";
-import { db } from "../../../db";
-import { sql } from "drizzle-orm";
-// Assuming alpaca_trade_logs schema will be exported from shared/schema/users.ts later.
-// We will mock the table insertion logic for the time being.
+import { logger } from "../../logger";
+import { auditLogService } from "../audit-log-service";
 
 export class TradeAuditLogger {
 	/**
 	 * Logs an immutable record of every trade attempt (success or failure)
-	 * Ensures SEC/FINRA/SEBI compliance mirroring
+	 * Ensures SEC/FINRA/SEBI compliance mirroring with cryptographic hash chain in immutable_audit_logs.
 	 */
 	async logTrade(payload: {
 		userId: string;
-		alpacaAccountId: string;
+		alpacaAccountId?: string;
 		symbol: string;
 		side: "buy" | "sell";
 		qty: number;
@@ -19,34 +16,47 @@ export class TradeAuditLogger {
 		status: "success" | "failed" | "rejected" | "queued";
 		providerOrderId?: string;
 		errorMessage?: string;
+		broker?: string;
 	}) {
 		logger.info(
 			`[TradeAuditLogger] Logging trade event for ${payload.userId}: ${payload.status}`,
+			{
+				event: "TRADE_AUDIT_LOG",
+				user_id: payload.userId,
+				symbol: payload.symbol,
+				status: payload.status,
+			},
 		);
 
 		try {
-			// In a real execution, this connects directly to the DB
-			// await db.insert(alpacaTradeLogs).values({
-			//   userId: payload.userId,
-			//   alpacaAccountId: payload.alpacaAccountId,
-			//   symbol: payload.symbol,
-			//   side: payload.side,
-			//   quantity: payload.qty,
-			//   notional: payload.notional,
-			//   status: payload.status,
-			//   providerOrderId: payload.providerOrderId,
-			//   errorMessage: payload.errorMessage,
-			//   timestamp: new Date()
-			// });
-			logger.info(
-				`[TradeAuditLogger] (Mock) Inserted log into alpaca_trade_logs`,
+			await auditLogService.log(
+				"TRADE_EXECUTION",
+				`ORDER_${payload.status.toUpperCase()}`,
+				{
+					userId: payload.userId,
+					userRole: "client",
+					entityType: "trade_order",
+					entityId: payload.providerOrderId || `${payload.symbol}-${Date.now()}`,
+					newState: {
+						symbol: payload.symbol,
+						side: payload.side,
+						quantity: payload.qty,
+						notional: payload.notional,
+						status: payload.status,
+						providerOrderId: payload.providerOrderId,
+						errorMessage: payload.errorMessage,
+					},
+					metadata: {
+						networkState: payload.broker || (payload.alpacaAccountId ? "ALPACA" : "UPSTOX"),
+						idempotencyKey: payload.providerOrderId,
+					},
+				},
 			);
 		} catch (error) {
 			logger.error(
-				`[TradeAuditLogger] CRITICAL: Failed to write to audit log!`,
+				`[TradeAuditLogger] CRITICAL: Failed to write to immutable audit log!`,
 				error,
 			);
-			// Depending on strictness, we might throw here to halt execution if auditing fails.
 		}
 	}
 
@@ -59,7 +69,23 @@ export class TradeAuditLogger {
 		logger.warn(
 			`[TradeAuditLogger] ADMIN OVERRIDE by ${adminId} on ${targetUserId}. Action: ${action}. Reason: ${reason}`,
 		);
-		// Log to a specialized admin_audit_logs table
+		try {
+			await auditLogService.log(
+				"ADMIN_OVERRIDE",
+				action,
+				{
+					userId: adminId,
+					userRole: "admin",
+					entityType: "user_account",
+					entityId: targetUserId,
+					metadata: {
+						requestPath: reason,
+					},
+				},
+			);
+		} catch (error) {
+			logger.error(`[TradeAuditLogger] Failed to log admin override!`, error);
+		}
 	}
 }
 

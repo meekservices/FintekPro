@@ -190,6 +190,7 @@ import { exploriumWebhookRouter } from "./routes/explorium-webhook-routes"; // /
 import { webhookRoutes } from "./routes/webhook-routes"; // /api/webhooks/upstox, /api/webhooks/alpaca, /api/webhooks/iris
 import { vendorInfraRoutes } from "./routes/vendor-infra-routes"; // /api/infra/vendors, /api/infra/vendors/probe
 import { upstoxOAuthRouter } from "./routes/upstox-oauth-routes"; // /api/upstox/oauth/*, /api/upstox/partner/*
+import { dhanOAuthRouter } from "./routes/dhan-oauth-routes"; // /api/dhan/oauth/*, /api/dhan/partner/*
 import { agentGeoCoverageRouter } from "./routes/agent-geo-coverage-routes"; // /api/agent/geo-coverage
 // Director phone enrichment is CredHive-only — no external phone provider needed.
 // EasyLeadz webhook route is deprecated (kept as dead file for historical reference).
@@ -621,6 +622,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	app.use("/api/webhooks", exploriumWebhookRouter);
 	app.use("/api/webhooks", webhookRoutes); // /api/webhooks/upstox, /api/webhooks/alpaca, /api/webhooks/iris
 	app.use("/api/upstox", upstoxOAuthRouter); // /api/upstox/oauth/*, /api/upstox/partner/*
+	app.use("/api/dhan", dhanOAuthRouter); // /api/dhan/oauth/*, /api/dhan/partner/*
 	app.use("/api/infra", vendorInfraRoutes); // /api/infra/vendors, /api/infra/vendors/probe
 
 	// ── Phone Enrichment & Calling ─────────────────────────────────────────────

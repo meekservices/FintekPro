@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 import { auditLogService } from "./audit-log-service";
 import { Request } from "express";
 import { createHash } from "crypto";
@@ -6,6 +7,7 @@ import { createHash } from "crypto";
 export type OrderProductType =
 	| "mutual_fund"
 	| "bond"
+	| "equity"
 	| "us_equity"
 	| "unlisted_stock"
 	| "ipo"
