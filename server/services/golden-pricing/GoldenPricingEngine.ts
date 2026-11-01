@@ -2217,6 +2217,25 @@ export async function syncMacroAndMarketBriefPrices(
 	let commData: any = null;
 	let ccilData: any = null;
 
+	// 1a. Fire MCX persist in background so DB is always up to date (non-blocking)
+	try {
+		const { upstoxMarketDataService } = await import("../upstox-market-data-service");
+		if (upstoxMarketDataService.isReady()) {
+			// Run with persistToDb: true to update mcx_commodity_quotes + commodities master table
+			upstoxMarketDataService.getMCXCommodityQuotes({ persistToDb: true }).then((mcxRes) => {
+				if (mcxRes.success && mcxRes.data) {
+					logger.info(
+						`[GoldenPricing] MCX DB persist: ${Object.keys(mcxRes.data).length} commodity quotes written to golden_prices + mcx_commodity_quotes`,
+					);
+				}
+			}).catch((mcxErr: any) => {
+				logger.warn(`[GoldenPricing] MCX background persist warning: ${mcxErr?.message || mcxErr}`);
+			});
+		}
+	} catch (mcxInitErr: any) {
+		logger.debug(`[GoldenPricing] MCX import/init warning: ${mcxInitErr?.message}`);
+	}
+
 	try {
 		const { indianApiService } = await import("../indian-api-service");
 		const res = await indianApiService.getIndices();

@@ -417,16 +417,17 @@ class CommodityPriceSyncScheduler {
 		try {
 			const { upstoxMarketDataService } = await import("./upstox-market-data-service");
 			if (upstoxMarketDataService.isReady()) {
-				const mcxQuotes = await upstoxMarketDataService.getMCXCommodityQuotes({ persistToDb: false });
+				const mcxResult = await upstoxMarketDataService.getMCXCommodityQuotes({ persistToDb: true });
+				const mcxQuotes = mcxResult.success ? (mcxResult.data ?? {}) : {};
 				for (const [key, q] of Object.entries(mcxQuotes)) {
 					const sym = key.toUpperCase();
-					if (byId.has(sym) && q?.last_price && q.last_price > 0) {
+					if (byId.has(sym) && q?.price && q.price > 0) {
 						priced.set(sym, {
 							symbol: sym,
-							price: q.last_price,
-							high: q.high_price,
-							low: q.low_price,
-							changePercent: q.change_percent,
+							price: q.price,
+							high: q.highPrice,
+							low: q.lowPrice,
+							changePercent: q.changePercent,
 							source: "upstox_mcx",
 						});
 					}

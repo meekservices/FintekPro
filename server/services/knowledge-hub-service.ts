@@ -315,7 +315,7 @@ export class KnowledgeHubService {
 							mcxUnit: "₹ / mmBtu",
 							mcxChangePercent: -0.85,
 							cmxSymbol: "NG=F (NYMEX)",
-							cmxPrice: 2.75,
+							cmxPrice: gc.naturalGasUsd ?? 2.75,
 							cmxUnit: "$ / mmBtu",
 							cmxChangePercent: -0.9,
 							trend: "Neutral",
@@ -330,7 +330,7 @@ export class KnowledgeHubService {
 							mcxUnit: "₹ / kg",
 							mcxChangePercent: 0.42,
 							cmxSymbol: "HG=F (COMEX)",
-							cmxPrice: 4.35,
+							cmxPrice: gc.copperComexUsd ?? 4.35,
 							cmxUnit: "$ / lb",
 							cmxChangePercent: 0.38,
 							trend: "Bullish",
@@ -399,13 +399,19 @@ export class KnowledgeHubService {
 
 		const gsecYieldStr = ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent
 			? `${ccilFixedIncome.sovereignYields[0].yieldPercent}%`
-			: "6.79%";
-		const brentPriceNum = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? 112.0;
+			: `${goldenSnapshot?.fixedIncome?.gsec10YYield ?? 6.79}%`;
+		const brentPriceNum = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? goldenSnapshot?.commodities?.brentCrudeUsd ?? 112.0;
+		const wtiPriceNum = goldenSnapshot?.commodities?.wtiCrudeUsd ?? 108.0;
 		const brentStr = `$${brentPriceNum}/bbl`;
 		const goldStr = commodityRadar?.commodities?.[0]?.mcxPrice
 			? `₹${commodityRadar.commodities[0].mcxPrice.toLocaleString("en-IN")}/10g`
-			: "₹78,450/10g";
+			: `₹${(goldenSnapshot?.commodities?.goldMcxInr ?? 138419).toLocaleString("en-IN")}/10g`;
+		const comexGoldUsd = commodityRadar?.commodities?.find((c: any) => c.id === "GOLD")?.cmxPrice ?? goldenSnapshot?.commodities?.goldComexUsd ?? 3885.5;
 		const isElevatedCrude = brentPriceNum > 85;
+		// US fixed income dynamic values for sector highlights
+		const liveUs10Y = goldenSnapshot?.fixedIncome?.us10YTreasury ?? 4.18;
+		const liveUs2Y = goldenSnapshot?.fixedIncome?.us2YTreasury ?? 3.98;
+		const usTreasSpread = Math.round((liveUs10Y - liveUs2Y) * 100);
 
 		const sectorHighlights = isIndia
 			? [
@@ -528,13 +534,13 @@ export class KnowledgeHubService {
 
 		const defaultUsFixedIncome = region === "us"
 			? {
-					tenYearTreasury: 4.18,
-					twoYearTreasury: 3.98,
-					tenYearMinusTwoYearBps: 20,
-					fedFundsTargetRate: "4.75% – 5.00%",
+					tenYearTreasury: liveUs10Y,
+					twoYearTreasury: liveUs2Y,
+					tenYearMinusTwoYearBps: usTreasSpread,
+					fedFundsTargetRate: goldenSnapshot?.macroIndicators?.usFedFundsRate?.value != null ? `${goldenSnapshot.macroIndicators.usFedFundsRate.value}%` : "4.75% – 5.00%",
 					thirtyYearMortgageAvg: 6.55,
-					yieldCurveSlope: "Normal Upward (+20 bps)",
-					commentary: "US 10-Year Treasury yield consolidates near 4.18% as markets price in orderly FOMC rate adjustments. 10Y-2Y term spread indicates constructive macro conditions.",
+					yieldCurveSlope: usTreasSpread >= 0 ? `Normal Upward (+${usTreasSpread} bps)` : `Inverted (${usTreasSpread} bps)`,
+					commentary: `US 10-Year Treasury at ${liveUs10Y}% (${usTreasSpread >= 0 ? "+" : ""}${usTreasSpread} bps over 2Y). FOMC easing cycle adjustments expected as markets price in orderly rate adjustments. 10Y-2Y term spread indicates constructive macro conditions.`,
 					source: "Federal Reserve (FRED) & US Treasury",
 				}
 			: null;
@@ -548,7 +554,7 @@ export class KnowledgeHubService {
 					jgb10YYield: 0.95,
 					eurUsd: 1.085,
 					usdJpy: 151.8,
-					commentary: "Global macro transmission: Rangebound US Dollar Index (DXY 103.85) anchors cross-border liquidity. European Bunds and UK Gilts track disinflation trends.",
+					commentary: `Global macro transmission: US Dollar Index (DXY ${(goldenSnapshot?.currencies?.dxy ?? 103.85).toFixed(2)}) anchors cross-border liquidity. European Bunds and UK Gilts track disinflation trends.`,
 					source: "Bank for International Settlements (BIS) & Global FX Desks",
 				}
 			: null;
@@ -778,7 +784,7 @@ export class KnowledgeHubService {
 							mcxUnit: "₹ / mmBtu",
 							mcxChangePercent: -0.85,
 							cmxSymbol: "NG=F (NYMEX Henry Hub)",
-							cmxPrice: 2.75,
+							cmxPrice: 3.75,
 							cmxUnit: "$ / mmBtu",
 							cmxChangePercent: -0.9,
 							trend: "Neutral",
@@ -795,7 +801,7 @@ export class KnowledgeHubService {
 							mcxUnit: "₹ / kg",
 							mcxChangePercent: 0.42,
 							cmxSymbol: "HG=F (COMEX Copper)",
-							cmxPrice: 4.35,
+							cmxPrice: 4.65,
 							cmxUnit: "$ / lb",
 							cmxChangePercent: 0.38,
 							trend: "Bullish",
@@ -1137,8 +1143,8 @@ export class KnowledgeHubService {
 					tenYearMinusTwoYearBps: Math.round((us10Y - us2Y) * 100),
 					fedFundsTargetRate: "4.75% – 5.00%",
 					thirtyYearMortgageAvg: 6.55,
-					yieldCurveSlope: "Normal Upward (+20 bps)",
-					commentary: `US 10-Year Treasury yield consolidates near ${us10Y}% as markets price in orderly FOMC rate adjustments. 10Y-2Y term spread indicates constructive macro conditions.`,
+					yieldCurveSlope: Math.round((us10Y - us2Y) * 100) >= 0 ? `Normal Upward (+${Math.round((us10Y - us2Y) * 100)} bps)` : `Inverted (${Math.round((us10Y - us2Y) * 100)} bps)`,
+					commentary: `US 10-Year Treasury at ${us10Y}% (${Math.round((us10Y - us2Y) * 100) >= 0 ? "+" : ""}${Math.round((us10Y - us2Y) * 100)} bps over 2Y). FOMC easing cycle adjustments expected. as markets price in orderly FOMC rate adjustments. 10Y-2Y term spread indicates constructive macro conditions.`,
 					source: "Federal Reserve (FRED) & US Treasury",
 				}
 			: null;

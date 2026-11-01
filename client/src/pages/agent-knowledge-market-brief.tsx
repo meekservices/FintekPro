@@ -328,7 +328,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 			? "Global equity benchmarks traded with constructive risk sentiment across Asian and European sessions, led by technology and semiconductor supply chain resilience. The US Dollar Index (DXY) consolidated near 103.85, while benchmark 10-year sovereign bond yields traded orderly across G7 economies."
 			: "US equities traded higher with the S&P 500 and Nasdaq supported by megacap technology earnings and steady labor market prints. 10-year Treasury yields consolidated as markets digested central bank policy commentary.",
 		whatChanged: isIndia
-			? "1. Sovereign Debt & Money Markets: CCIL 10-Year Benchmark G-Sec yield traded at 6.79%; CCIL TREPS overnight repo volume remained healthy with weighted average rate at 6.42%.\n2. Commodity Radar: Brent crude CFD traded firm at $112.00/bbl (MCX: ₹9,417/bbl), remaining above India's $80 comfort threshold and creating imported inflation headwinds. MCX Gold traded firm at ₹78,450/10g (CFD: $2,742.50/oz) on steady safe-haven and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows."
+			? "1. Sovereign Debt & Money Markets: CCIL 10-Year Benchmark G-Sec yield traded at 6.79%; CCIL TREPS overnight repo volume remained healthy with weighted average rate at 6.42%.\n2. Commodity Radar: Brent crude CFD traded firm at $112.00/bbl (MCX: ₹9,417/bbl), remaining above India's $80 comfort threshold and creating imported inflation headwinds. MCX Gold traded firm at ₹1,38,419/10g (COMEX: $3,885.50/oz) on steady safe-haven and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows."
 			: isGlobal
 			? "1. Cross-Asset Transmission: US Dollar Index (DXY) consolidated at 103.85, anchoring foreign exchange volatility and stabilizing emerging market capital flows.\n2. Asian & European Session Momentum: Tokyo Nikkei 225 advanced on exporter earnings; London FTSE and Frankfurt DAX traded near record valuations.\n3. Sovereign Yield Spreads: 10-Year US Treasury yield held steady at 4.18%, German 10Y Bund traded at 2.32%, and UK 10Y Gilt hovered at 4.24%."
 			: "1. Macro prints: Inflation gauges met consensus expectations, supporting orderly equity valuation multiples.\n2. Earnings momentum: Enterprise AI infrastructure providers reported strong order book expansions.",
@@ -423,11 +423,11 @@ function getClientFallbackBrief(region: string): MarketBrief {
 							name: "Gold 24K",
 							category: "Precious Metals",
 							mcxSymbol: "GOLD",
-							mcxPrice: 78450,
+							mcxPrice: 138419,
 							mcxUnit: "₹ / 10g",
 							mcxChangePercent: 0.65,
 							cmxSymbol: "GC=F (COMEX Gold)",
-							cmxPrice: 2742.5,
+							cmxPrice: 3885.5,
 							cmxUnit: "$ / oz",
 							cmxChangePercent: 0.58,
 							trend: "Bullish",
@@ -438,11 +438,11 @@ function getClientFallbackBrief(region: string): MarketBrief {
 							name: "Silver",
 							category: "Precious Metals",
 							mcxSymbol: "SILVER",
-							mcxPrice: 94200,
+							mcxPrice: 164500,
 							mcxUnit: "₹ / 1kg",
 							mcxChangePercent: 1.15,
 							cmxSymbol: "SI=F (COMEX Silver)",
-							cmxPrice: 33.4,
+							cmxPrice: 48.50,
 							cmxUnit: "$ / oz",
 							cmxChangePercent: 1.05,
 							trend: "Bullish",
@@ -499,7 +499,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 						inflationImpact: "Elevated",
 						commentary: "Brent crude CFD at $112.00/bbl surges above India's macroeconomic comfort band (<$80), increasing imported inflation and CAD pressure.",
 					},
-					goldSilverRatio: 82.1,
+					goldSilverRatio: 80.1,
 					source: "MCX India & CMX / COMEX",
 				}
 			: undefined,
@@ -518,7 +518,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					{
 						sector: "Commodities & Energy (MCX / CMX)",
 						trend: "Elevated Input Pressure",
-						outlook: "Brent Crude CFD at $112.00/bbl (above India comfort band <$80); MCX Gold at ₹78,450/10g.",
+						outlook: "Brent Crude CFD at $112.00/bbl (above India comfort band <$80); MCX Gold at ₹1,38,419/10g.",
 					},
 					{
 						sector: "Information Technology (Nifty IT)",
@@ -1288,11 +1288,11 @@ export default function AgentKnowledgeMarketBrief() {
 									</div>
 									<div className="flex flex-col items-end">
 										<span className="font-mono font-bold text-sm text-foreground">
-											${(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "GOLD")?.cmxPrice ?? 2742.5).toLocaleString("en-US", { minimumFractionDigits: 2 })}/oz
+											${(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "GOLD")?.cmxPrice ?? 3885.5).toLocaleString("en-US", { minimumFractionDigits: 2 })}/oz
 											<Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0 border-blue-400 text-blue-700 dark:text-blue-300">CFD</Badge>
 										</span>
 										<span className="font-mono text-xs text-muted-foreground">
-											₹{(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "GOLD")?.mcxPrice ?? 78450).toLocaleString("en-IN")}/10g
+											₹{(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "GOLD")?.mcxPrice ?? 138419).toLocaleString("en-IN")}/10g
 											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-400 text-emerald-700 dark:text-emerald-300">MCX</Badge>
 										</span>
 									</div>
@@ -1308,11 +1308,11 @@ export default function AgentKnowledgeMarketBrief() {
 									</div>
 									<div className="flex flex-col items-end">
 										<span className="font-mono font-bold text-sm text-foreground">
-											${(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "SILVER")?.cmxPrice ?? 33.4).toFixed(2)}/oz
+											${(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "SILVER")?.cmxPrice ?? 48.5).toFixed(2)}/oz
 											<Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0 border-blue-400 text-blue-700 dark:text-blue-300">CFD</Badge>
 										</span>
 										<span className="font-mono text-xs text-muted-foreground">
-											₹{(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "SILVER")?.mcxPrice ?? 94200).toLocaleString("en-IN")}/kg
+											₹{(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "SILVER")?.mcxPrice ?? 164500).toLocaleString("en-IN")}/kg
 											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-400 text-emerald-700 dark:text-emerald-300">MCX</Badge>
 										</span>
 									</div>
