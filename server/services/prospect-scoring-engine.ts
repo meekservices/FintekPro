@@ -17,6 +17,7 @@ import { prospectLeads, prospectScoreHistory } from "@shared/schema";
 import { eq, isNotNull, avg, sql } from "drizzle-orm";
 import { credhiveAdapter } from "./vendor-adapters/credhive.adapter";
 import { credhiveService } from "./credhive-service";
+import { logger } from "../logger";
 
 const SCORING_VERSION = "v1.1";
 
@@ -76,14 +77,14 @@ async function fetchDirectorCompanies(
 									holdingPercent: null,
 								});
 							}
-						} catch {
-							// non-fatal
+						} catch (err: unknown) {
+							logger.error("DIRECTOR_COMPANY_ENRICH_FAILED", { event: "DIRECTOR_COMPANY_ENRICH_FAILED", error_code: "UNHANDLED_ERROR", retryable: false, error: err instanceof Error ? err.message : String(err) });
 						}
 					}
 				}
 			}
-		} catch {
-			// CredHive unavailable — fall through to stored directors
+		} catch (err: unknown) {
+			logger.error("CREDHIVE_DIRECTORS_FETCH_FAILED", { event: "CREDHIVE_DIRECTORS_FETCH_FAILED", error_code: "UNHANDLED_ERROR", retryable: false, error: err instanceof Error ? err.message : String(err) });
 		}
 	}
 
@@ -282,8 +283,8 @@ export async function enrichAndScoreProspect(
 					(lead as any).address = rawAddr;
 				}
 			}
-		} catch {
-			// Non-fatal — continue scoring even if address backfill fails
+		} catch (err: unknown) {
+			logger.error("ADDRESS_BACKFILL_FAILED", { event: "ADDRESS_BACKFILL_FAILED", error_code: "UNHANDLED_ERROR", retryable: false, error: err instanceof Error ? err.message : String(err) });
 		}
 	}
 

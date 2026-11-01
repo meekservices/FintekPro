@@ -2463,7 +2463,7 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 						let navs = mfNavCache.get(schemeCode);
 						if (!navs) {
 							try {
-								const navResp = await fetch(`https://api.mfapi.in/mf/${schemeCode}`);
+								const navResp = await fetch(`https://api.mfapi.in/mf/${schemeCode}`, { signal: AbortSignal.timeout(10_000) });
 								if (navResp.ok) {
 									const navJson = (await navResp.json()) as { data: Array<{ date: string; nav: string }> };
 									navs = (navJson.data ?? [])

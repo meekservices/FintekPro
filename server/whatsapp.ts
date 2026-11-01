@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import pkg from "whatsapp-web.js";
 const { Client, LocalAuth } = pkg;
 import type { Message } from "whatsapp-web.js";
@@ -9,6 +10,7 @@ import { storage } from "./storage";
 import { randomUUID } from "crypto";
 import { twilioWhatsAppService } from "./services/twilio-whatsapp-service";
 import { whatsappDispatcher } from "./services/whatsapp-dispatcher";
+import { logger } from "./logger";
 
 function resolveChromiumPath(): string | undefined {
 	// 1. Explicit env override
@@ -24,9 +26,13 @@ function resolveChromiumPath(): string | undefined {
 			try {
 				accessSync(ep, constants.X_OK);
 				return ep;
-			} catch {}
+			} catch (err: unknown) {
+				logger.error("CHROMIUM_ACCESS_CHECK_FAILED", { event: "CHROMIUM_ACCESS_CHECK_FAILED", error_code: "UNHANDLED_ERROR", retryable: false, error: err instanceof Error ? err.message : String(err) });
+			}
 		}
-	} catch {}
+	} catch (err: unknown) {
+		logger.error("PUPPETEER_REQUIRE_FAILED", { event: "PUPPETEER_REQUIRE_FAILED", error_code: "UNHANDLED_ERROR", retryable: false, error: err instanceof Error ? err.message : String(err) });
+	}
 
 	// 3. Common puppeteer cache paths across environments
 	const home = process.env.HOME || "/root";
@@ -39,7 +45,9 @@ function resolveChromiumPath(): string | undefined {
 		try {
 			accessSync(p, constants.X_OK);
 			return p;
-		} catch {}
+		} catch (err: unknown) {
+			logger.error("PUPPETEER_CACHE_PATH_CHECK_FAILED", { event: "PUPPETEER_CACHE_PATH_CHECK_FAILED", error_code: "UNHANDLED_ERROR", retryable: false, error: err instanceof Error ? err.message : String(err) });
+		}
 	}
 
 	// 4. Dynamic PATH lookup
@@ -55,7 +63,9 @@ function resolveChromiumPath(): string | undefined {
 				.toString()
 				.trim();
 			if (found) return found;
-		} catch {}
+		} catch (err: unknown) {
+			logger.error("WHICH_CHROMIUM_FAILED", { event: "WHICH_CHROMIUM_FAILED", error_code: "UNHANDLED_ERROR", retryable: false, error: err instanceof Error ? err.message : String(err) });
+		}
 	}
 
 	// 5. System static paths
@@ -70,7 +80,9 @@ function resolveChromiumPath(): string | undefined {
 		try {
 			accessSync(p, constants.X_OK);
 			return p;
-		} catch {}
+		} catch (err: unknown) {
+			logger.error("STATIC_CHROMIUM_PATH_CHECK_FAILED", { event: "STATIC_CHROMIUM_PATH_CHECK_FAILED", error_code: "UNHANDLED_ERROR", retryable: false, error: err instanceof Error ? err.message : String(err) });
+		}
 	}
 
 	return undefined;

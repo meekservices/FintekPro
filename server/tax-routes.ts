@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 import { Router, Request, Response, NextFunction } from "express";
 import { createHash } from "crypto";
 import { storage } from "./storage";
@@ -9,6 +10,7 @@ import { emailService } from "./email-service";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
 import { irisKfintechService } from "./services/iris-kfintech-service";
+import { logger } from "./logger";
 
 const upload = multer({
 	storage: multer.memoryStorage(),
@@ -5390,7 +5392,9 @@ router.post(
 					holdingDays = Math.floor(
 						(sd.getTime() - bd.getTime()) / (1000 * 60 * 60 * 24),
 					);
-				} catch {}
+				} catch (err: unknown) {
+					logger.error("HOLDING_DAYS_CALC_FAILED", { event: "HOLDING_DAYS_CALC_FAILED", error_code: "UNHANDLED_ERROR", retryable: false, error: err instanceof Error ? err.message : String(err) });
+				}
 
 				const isLTCG = holdingDays > 365;
 				if (isLTCG) totalLTCG += gain;
@@ -5772,7 +5776,9 @@ router.get(
 						},
 					});
 				}
-			} catch {}
+			} catch (err: unknown) {
+				logger.error("IFSC_LOOKUP_FAILED", { event: "IFSC_LOOKUP_FAILED", error_code: "UNHANDLED_ERROR", retryable: false, error: err instanceof Error ? err.message : String(err) });
+			}
 
 			const bankCode = code.substring(0, 4);
 			res.json({

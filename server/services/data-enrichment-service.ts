@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 /**
  * Data Enrichment Orchestrator Service
  * Handles multi-source financial data enrichment with:
@@ -718,7 +719,7 @@ class DataEnrichmentService {
 			if (resolvedScripcode) {
 				try {
 					const financialsUrl = `${baseUrl}/FinancialResults/w?scripcode=${resolvedScripcode}`;
-					const financialsResponse = await fetch(financialsUrl, { headers });
+					const financialsResponse = await fetch(financialsUrl, { headers, signal: AbortSignal.timeout(10_000) });
 					if (financialsResponse.ok) {
 						const financialsData = await financialsResponse.json();
 						if (

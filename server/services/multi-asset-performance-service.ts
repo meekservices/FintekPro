@@ -237,7 +237,7 @@ class MultiAssetPerformanceService {
 
 				// Attempt online fetch from mfapi.in if missing in local DB
 				try {
-					const resp = await fetch(`https://api.mfapi.in/mf/${inst.symbol}`);
+					const resp = await fetch(`https://api.mfapi.in/mf/${inst.symbol}`, { signal: AbortSignal.timeout(10_000) });
 					const json = await resp.json();
 					if (json?.data && Array.isArray(json.data)) {
 						const points = json.data

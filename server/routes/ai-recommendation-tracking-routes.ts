@@ -1,7 +1,9 @@
+/* eslint-disable no-console */
 import { Router, Request, Response } from "express";
 import { aiRecommendationTrackingService } from "../services/ai-recommendation-tracking-service";
 import { insertAiRecommendationTrackingSchema } from "../../shared/schema";
 import { z } from "zod";
+import { wrapAdvisoryResponse } from "../utils/fasp-ai-response";
 
 const router = Router();
 
@@ -35,7 +37,7 @@ router.get("/", async (req: Request, res: Response) => {
 				limit: limit ? Number.parseInt(limit as string) : undefined,
 				offset: offset ? Number.parseInt(offset as string) : undefined,
 			});
-		res.json(recommendations);
+		res.json(wrapAdvisoryResponse(recommendations));
 	} catch (error) {
 		console.error("Error fetching recommendations:", error);
 		res.status(500).json({ error: "Failed to fetch recommendations" });
@@ -46,7 +48,7 @@ router.get("/pending", async (req: Request, res: Response) => {
 	try {
 		const recommendations =
 			await aiRecommendationTrackingService.getPendingRecommendations();
-		res.json(recommendations);
+		res.json(wrapAdvisoryResponse(recommendations));
 	} catch (error) {
 		console.error("Error fetching pending recommendations:", error);
 		res.status(500).json({ error: "Failed to fetch pending recommendations" });
@@ -121,7 +123,7 @@ router.get("/top-performing", async (req: Request, res: Response) => {
 			await aiRecommendationTrackingService.getTopPerformingRecommendations(
 				limit,
 			);
-		res.json(recommendations);
+		res.json(wrapAdvisoryResponse(recommendations));
 	} catch (error) {
 		console.error("Error fetching top performing:", error);
 		res
@@ -139,7 +141,7 @@ router.get("/worst-performing", async (req: Request, res: Response) => {
 			await aiRecommendationTrackingService.getWorstPerformingRecommendations(
 				limit,
 			);
-		res.json(recommendations);
+		res.json(wrapAdvisoryResponse(recommendations));
 	} catch (error) {
 		console.error("Error fetching worst performing:", error);
 		res
@@ -155,7 +157,7 @@ router.get("/:id", async (req: Request, res: Response) => {
 		if (!recommendation) {
 			return res.status(404).json({ error: "Recommendation not found" });
 		}
-		res.json(recommendation);
+		res.json(wrapAdvisoryResponse(recommendation));
 	} catch (error) {
 		console.error("Error fetching recommendation:", error);
 		res.status(500).json({ error: "Failed to fetch recommendation" });
@@ -191,7 +193,7 @@ router.patch("/:id/resolve", async (req: Request, res: Response) => {
 		if (!recommendation) {
 			return res.status(404).json({ error: "Recommendation not found" });
 		}
-		res.json(recommendation);
+		res.json(wrapAdvisoryResponse(recommendation));
 	} catch (error) {
 		console.error("Error resolving recommendation:", error);
 		res.status(500).json({ error: "Failed to resolve recommendation" });

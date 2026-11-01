@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Router, Request, Response } from "express";
 import { storage } from "../storage";
 import multer from "multer";
@@ -27,6 +28,7 @@ import { assertLotsNotDropped } from "../services/holding-transformer";
 import { requireAuth, requireRole } from "../middleware/roleMiddleware";
 import { prospectReadinessService } from "../services/prospect-readiness-service";
 import { portfolioAnalyticsDataService } from "../services/portfolio-analytics-data-service";
+import { wrapAdvisoryResponse } from "../utils/fasp-ai-response";
 import {
 	enrichAndScoreProspect,
 	bulkScoreProspects,
@@ -835,7 +837,7 @@ router.post(
 			const updatedRec = updatedRecs.find(
 				(r) => r.productName === productName || r.id === recommendationId,
 			);
-			res.json({ success: true, recommendation: updatedRec });
+			res.json(wrapAdvisoryResponse({ success: true, recommendation: updatedRec }));
 		} catch (error: any) {
 			console.error("[Agent Wizard] Error applying override:", error);
 			res.status(500).json({ success: false, message: error.message });

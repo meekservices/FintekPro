@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Router } from "express";
 import { db } from "../db";
 import {
@@ -12,6 +13,7 @@ import {
 	generateRecommendationRationale,
 	RecommendationProductData,
 } from "../services/recommendation-products-service";
+import { wrapAdvisoryResponse } from "../utils/fasp-ai-response";
 
 const router = Router();
 
@@ -89,7 +91,7 @@ router.get("/by-category", async (req, res) => {
 			Date.now() - cacheTimestamp < CACHE_TTL &&
 			recommendationCache.has(cacheKey)
 		) {
-			return res.json(recommendationCache.get(cacheKey));
+			return res.json(wrapAdvisoryResponse(recommendationCache.get(cacheKey)));
 		}
 
 		const products = await db
@@ -111,7 +113,7 @@ router.get("/by-category", async (req, res) => {
 		recommendationCache.set(cacheKey, products);
 		cacheTimestamp = Date.now();
 
-		res.json(products);
+		res.json(wrapAdvisoryResponse(products));
 	} catch (error: any) {
 		console.error(
 			"[RecommendationProducts] Error fetching by category:",
@@ -130,7 +132,7 @@ router.get("/all-active", async (req, res) => {
 			Date.now() - cacheTimestamp < CACHE_TTL &&
 			recommendationCache.has(cacheKey)
 		) {
-			return res.json(recommendationCache.get(cacheKey));
+			return res.json(wrapAdvisoryResponse(recommendationCache.get(cacheKey)));
 		}
 
 		const products = await db
@@ -158,7 +160,7 @@ router.get("/all-active", async (req, res) => {
 		recommendationCache.set(cacheKey, grouped as any);
 		cacheTimestamp = Date.now();
 
-		res.json(grouped);
+		res.json(wrapAdvisoryResponse(grouped));
 	} catch (error: any) {
 		console.error("[RecommendationProducts] Error fetching all active:", error);
 		res.status(500).json({ error: error.message });
@@ -830,7 +832,7 @@ publicRouter.get("/by-category", async (req, res) => {
 			Date.now() - cacheTimestamp < CACHE_TTL &&
 			recommendationCache.has(cacheKey)
 		) {
-			return res.json(recommendationCache.get(cacheKey));
+			return res.json(wrapAdvisoryResponse(recommendationCache.get(cacheKey)));
 		}
 
 		const products = await db
@@ -851,7 +853,7 @@ publicRouter.get("/by-category", async (req, res) => {
 		recommendationCache.set(cacheKey, products);
 		cacheTimestamp = Date.now();
 
-		res.json(products);
+		res.json(wrapAdvisoryResponse(products));
 	} catch (error: any) {
 		console.error(
 			"[RecommendationProducts] Error fetching by category:",
@@ -869,7 +871,7 @@ publicRouter.get("/all-active", async (req, res) => {
 			Date.now() - cacheTimestamp < CACHE_TTL &&
 			recommendationCache.has(cacheKey)
 		) {
-			return res.json(recommendationCache.get(cacheKey));
+			return res.json(wrapAdvisoryResponse(recommendationCache.get(cacheKey)));
 		}
 
 		const products = await db
@@ -895,7 +897,7 @@ publicRouter.get("/all-active", async (req, res) => {
 		recommendationCache.set(cacheKey, grouped as any);
 		cacheTimestamp = Date.now();
 
-		res.json(grouped);
+		res.json(wrapAdvisoryResponse(grouped));
 	} catch (error: any) {
 		console.error("[RecommendationProducts] Error fetching all active:", error);
 		res.status(500).json({ error: error.message });

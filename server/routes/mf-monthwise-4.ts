@@ -22,6 +22,7 @@ import { marketingService } from "../marketing-automation";
 import { requireAdmin } from "../middleware/roleMiddleware";
 import { portfolioIntelligence } from "../portfolio-intelligence";
 import { amfiService } from "../amfi-service";
+import { wrapAdvisoryResponse } from "../utils/fasp-ai-response";
 
 export function registerMFMonthwiPart4Routes(app: Express): void {
 	app.post("/api/ai/market-insight", async (req, res) => {
@@ -292,7 +293,7 @@ export function registerMFMonthwiPart4Routes(app: Express): void {
 			const { userId } = req.params;
 			const recommendations =
 				await portfolioIntelligence.getRebalancingRecommendations(userId);
-			res.json(recommendations);
+			res.json(wrapAdvisoryResponse(recommendations));
 		} catch (error) {
 			console.error("Error getting rebalancing recommendations:", error);
 			res

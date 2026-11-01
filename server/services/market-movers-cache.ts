@@ -224,7 +224,7 @@ class FinnhubProvider {
 
 		try {
 			const url = `${this.baseUrl}/quote?symbol=${encodeURIComponent(symbol)}&token=${this.apiKey}`;
-			const response = await fetch(url);
+			const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
 
 			if (!response.ok) {
 				if (response.status === 429) {

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { db } from "../db";
 import { currencyRates } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
@@ -48,7 +49,7 @@ export class CurrencyExchangeService {
 			? `https://v6.exchangerate-api.com/v6/${apiKey}/latest/${baseCurrency}`
 			: `https://api.exchangerate-api.com/v4/latest/${baseCurrency}`;
 
-		const response = await fetch(url);
+		const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
 
 		if (!response.ok) {
 			throw new Error(`Failed to fetch exchange rates: ${response.statusText}`);

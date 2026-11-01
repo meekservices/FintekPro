@@ -68,6 +68,7 @@ async function vrsPost<T>(
 			method: "POST",
 			headers: getHeaders(apiVersion) as Record<string, string>,
 			body: JSON.stringify(body),
+			signal: AbortSignal.timeout(10_000),
 		});
 		const data = await res.json();
 		if (!res.ok) {
@@ -358,6 +359,7 @@ export async function checkFaceLiveness(params: {
 				"x-api-version": "2024-12-01",
 			},
 			body: formData,
+			signal: AbortSignal.timeout(10_000),
 		});
 		const data = await res.json();
 		return res.ok
@@ -412,6 +414,7 @@ export async function matchFaces(params: {
 				"x-api-version": "2024-12-01",
 			},
 			body: formData,
+			signal: AbortSignal.timeout(10_000),
 		});
 		const data = await res.json();
 		return res.ok

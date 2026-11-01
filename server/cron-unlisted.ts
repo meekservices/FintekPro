@@ -25,6 +25,7 @@ import { db } from "./db";
 import { users, unlistedCompanies } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { isProductionEnvironment } from "./utils/enrichment-guard";
+import { logger } from "./logger";
 
 export function initializeUnlistedCrons(): void {
 	// ── STEP 0: Force-expire daily_picks for CONFIRMED-LISTED companies ──────────
@@ -458,7 +459,9 @@ export function initializeUnlistedCrons(): void {
 					const service = new PriceSuggestionService(storage);
 					await service.calculateSuggestedPrice(company.id);
 					refreshed++;
-				} catch {}
+				} catch (err: unknown) {
+					logger.error("PRICE_SUGGESTION_CALC_FAILED", { event: "PRICE_SUGGESTION_CALC_FAILED", error_code: "UNHANDLED_ERROR", retryable: false, error: err instanceof Error ? err.message : String(err) });
+				}
 			}
 			console.log(
 				`[CRON] Price suggestions refreshed for ${refreshed} companies`,

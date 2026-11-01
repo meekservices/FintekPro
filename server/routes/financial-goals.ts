@@ -1,5 +1,7 @@
+/* eslint-disable no-console */
 import { Express } from "express";
 import { storage } from "../storage";
+import { wrapAdvisoryResponse } from "../utils/fasp-ai-response";
 
 export function registerFinancialGoalsRoutes(app: Express): void {
 	app.get("/api/financial-goals", async (req, res) => {
@@ -98,7 +100,7 @@ export function registerFinancialGoalsRoutes(app: Express): void {
 			const { goalId } = req.params;
 			const recommendations =
 				await storage.generateGoalBasedRecommendations(goalId);
-			res.json(recommendations);
+			res.json(wrapAdvisoryResponse(recommendations));
 		} catch (error) {
 			console.error("Error generating goal-based recommendations:", error);
 			res.status(500).json({ error: "Failed to generate recommendations" });
@@ -123,7 +125,7 @@ export function registerFinancialGoalsRoutes(app: Express): void {
 						goals,
 					);
 
-				res.json(recommendations);
+				res.json(wrapAdvisoryResponse(recommendations));
 			} catch (error) {
 				console.error("Error generating rebalance recommendations:", error);
 				res

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Auto-Population API Routes
  *
@@ -16,6 +17,7 @@ import { kycVault, users } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { encryptionService } from "./encryption-service";
 import { tokenizationService } from "./services/tokenization-service";
+import { logger } from "./logger";
 
 const router = Router();
 
@@ -673,7 +675,9 @@ async function verifyPanOwnership(
 		try {
 			storedPan =
 				encryptionService.decrypt(userRecord.panNumber) || userRecord.panNumber;
-		} catch {}
+		} catch (err: unknown) {
+			logger.error("PAN_DECRYPT_FAILED", { event: "PAN_DECRYPT_FAILED", error_code: "UNHANDLED_ERROR", retryable: false, error: err instanceof Error ? err.message : String(err) });
+		}
 
 		const normalizedProvidedPan = providedPan.toUpperCase().trim();
 		const normalizedStoredPan = storedPan.toUpperCase().trim();

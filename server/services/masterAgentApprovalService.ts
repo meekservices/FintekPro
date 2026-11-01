@@ -473,8 +473,8 @@ export async function approvePendingTransaction(
     return { success: false, pendingTransactionId: pendingTxId, message: "You are not the assigned approver for this transaction" };
   }
 
-  // Mark as approved immediately (prevents double-execution)
-  await db.update(pendingTransactions)
+  // Mark as approved immediately (prevents double-execution via optimistic lock on status)
+  const updateResult = await db.update(pendingTransactions)
     .set({
       status:           "approved",
       approvedByUserId,
@@ -482,7 +482,23 @@ export async function approvePendingTransaction(
       approvalNotes:    approvalNotes ?? null,
       updatedAt:        new Date(),
     })
-    .where(eq(pendingTransactions.id, pendingTxId));
+    .where(and(
+      eq(pendingTransactions.id, pendingTxId),
+      eq(pendingTransactions.status, "pending"),  // race guard: only update if still pending
+    ))
+    .returning({ id: pendingTransactions.id });
+
+  if (!updateResult.length) {
+    // Another concurrent request already approved this transaction
+    logger.warn("PENDING_TX_CONCURRENT_APPROVAL_BLOCKED", {
+      event:        "PENDING_TX_CONCURRENT_APPROVAL_BLOCKED",
+      pending_tx:   pendingTxId,
+      user_id:      approvedByUserId,
+      error_code:   "CONCURRENT_APPROVAL",
+      retryable:    false,
+    });
+    return { success: false, pendingTransactionId: pendingTxId, message: "Transaction was already approved by a concurrent request" };
+  }
 
   // Forward to IRIS using approver's EUIN
   let irisOrderId: string | undefined;
@@ -497,15 +513,23 @@ export async function approvePendingTransaction(
         pendingTransactionRef: pendingTxId,
       };
 
-      const result = await irisKfintechService.placeOrder(enrichedPayload) as any;
-      irisOrderId  = result?.orderId ?? result?.order_id ?? undefined;
+      const result = await irisKfintechService.placeOrder(enrichedPayload) as Record<string, unknown>;
+      irisOrderId  = (result?.orderId ?? result?.order_id) as string | undefined;
       irisResponse = result;
+
+      logger.info("ORDER_PLACED_IRIS", {
+        event:       "ORDER_PLACED_IRIS",
+        user_id:     approvedByUserId,
+        order_id:    irisOrderId,
+        pending_tx:  pendingTxId,
+        status:      "success",
+      });
 
       await db.update(pendingTransactions)
         .set({
           status:      "executed",
           irisOrderId: irisOrderId ?? null,
-          irisResponse: irisResponse as any,
+          irisResponse: irisResponse as Record<string, unknown>,
           executedAt:  new Date(),
           updatedAt:   new Date(),
         })

@@ -21,6 +21,7 @@
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { errorTrackingService } from "../services/error-tracking-service";
+import { logger } from "../logger";
 
 // ── Circuit breaker state ──────────────────────────────────────────────────
 const CIRCUIT_OPEN_THRESHOLD = 5; // consecutive failures before opening
@@ -57,7 +58,9 @@ function logPythonBodyErrorOnce(path: string, message: string): void {
 				metadata: { path, message },
 			},
 		})
-		.catch(() => {});
+		.catch((err: unknown) => {
+			logger.error("PYTHON_BODY_ERROR_INGEST_FAILED", { event: "PYTHON_BODY_ERROR_INGEST_FAILED", error_code: "UNHANDLED_ERROR", retryable: false, error: err instanceof Error ? err.message : String(err) });
+		});
 }
 
 // ── Health tracking state ──────────────────────────────────────────────────
@@ -116,7 +119,9 @@ function recordFailure(status?: number): void {
 				metadata: { status, circuitFailures, consecutiveFailures },
 			},
 		})
-		.catch(() => {});
+		.catch((err: unknown) => {
+			logger.error("PYTHON_CALL_FAILED_INGEST_FAILED", { event: "PYTHON_CALL_FAILED_INGEST_FAILED", error_code: "UNHANDLED_ERROR", retryable: false, error: err instanceof Error ? err.message : String(err) });
+		});
 
 	if (circuitFailures >= CIRCUIT_OPEN_THRESHOLD) {
 		const wasOpen = circuitOpenUntil > 0;
