@@ -2710,6 +2710,63 @@ export async function syncMacroAndMarketBriefPrices(
 		`[GoldenPricing] Synced ${itemsToPersist.length} macro, index, and commodity prices into golden_prices for ${today}`,
 	);
 
+	// ── Upsert macro_regime_snapshots ─────────────────────────────────────────
+	// Classify regime from live data and persist snapshot for POTD + AI engines.
+	// Non-blocking: failure does not affect the return value.
+	try {
+		const { macroRegimeSnapshots } = await import("../../../shared/schema");
+		const { sql: drizzleSql } = await import("drizzle-orm");
+
+		// Classify DXY regime
+		const dxyBand = dxy > 105 ? "strong" : dxy > 98 ? "neutral" : "weak";
+		// Classify crude regime
+		const crudeRegime = brentCfdUsd > 100 ? "crisis" : brentCfdUsd > 80 ? "elevated" : "comfort";
+		// Classify yield curve
+		const yieldCurveSlope = (us10Y - us2Y) < 0 ? "inverted" : (us10Y - us2Y) < 20 ? "flat" : "normal";
+		const tenMinusTwoBps = Math.round((us10Y - us2Y) * 100);
+		// Classify overall regime label
+		let regimeLabel = "risk_on";
+		if (dxyBand === "strong" && crudeRegime !== "comfort") regimeLabel = "risk_off";
+		else if (crudeRegime === "crisis" && (us10Y - us2Y) < 0) regimeLabel = "stagflation";
+		else if (dxyBand === "weak" && crudeRegime === "comfort" && yieldCurveSlope === "normal") regimeLabel = "goldilocks";
+
+		await db
+			.insert(macroRegimeSnapshots)
+			.values({
+				snapshotDate: today,
+				dxyIndex: dxy ? String(dxy) : null,
+				dxyBand,
+				us10YTreasury: us10Y ? String(us10Y) : null,
+				yieldCurveSlope,
+				tenMinusTwoBps,
+				gsec10YYield: gsec10Y ? String(gsec10Y) : null,
+				brentCrudeUsd: brentCfdUsd ? String(brentCfdUsd) : null,
+				crudeRegime,
+				usdInr: usdInr ? String(usdInr) : null,
+				regimeLabel,
+				source: "gpe",
+				engineVersion: GOLDEN_PRICING_ENGINE_VERSION,
+			})
+			.onConflictDoUpdate({
+				target: [macroRegimeSnapshots.snapshotDate],
+				set: {
+					dxyIndex: drizzleSql`EXCLUDED.dxy_index`,
+					dxyBand: drizzleSql`EXCLUDED.dxy_band`,
+					us10YTreasury: drizzleSql`EXCLUDED.us_10y_treasury`,
+					yieldCurveSlope: drizzleSql`EXCLUDED.yield_curve_slope`,
+					tenMinusTwoBps: drizzleSql`EXCLUDED.ten_minus_two_bps`,
+					gsec10YYield: drizzleSql`EXCLUDED.gsec_10y_yield`,
+					brentCrudeUsd: drizzleSql`EXCLUDED.brent_crude_usd`,
+					crudeRegime: drizzleSql`EXCLUDED.crude_regime`,
+					usdInr: drizzleSql`EXCLUDED.usd_inr`,
+					regimeLabel: drizzleSql`EXCLUDED.regime_label`,
+				},
+			});
+		logger.info(`[GoldenPricing] macro_regime_snapshots upserted for ${today}: regime=${regimeLabel}`);
+	} catch (macroErr: any) {
+		logger.warn(`[GoldenPricing] macro_regime_snapshots upsert skipped: ${macroErr?.message}`);
+	}
+
 	return snapshot;
 }
 

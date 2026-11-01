@@ -739,9 +739,16 @@ class MVOEngine {
 	}
 
 	/**
-	 * Ingests empirical historical returns from golden_prices for assets that have
-	 * fewer than 20 returns, replacing synthetic return generation with real market covariance.
-	 * Utilizes indexed scans on idx_golden_prices_asset_date_desc and idx_golden_prices_symbol_date_price.
+	 * Ingests empirical historical returns for assets that have fewer than 20 returns.
+	 *
+	 * Priority:
+	 *   1. asset_returns_history table (pre-computed nightly, 3yr+ lookback) — PREFERRED.
+	 *      Populated by asset-returns-backfill-service.ts @ 22:30 IST.
+	 *   2. golden_prices direct query (fallback when backfill table is empty / new ISIN).
+	 *      Limited to ~14 days initially; improves as nightly job populates history.
+	 *
+	 * Utilizes indexed scans on idx_asset_returns_isin_date and
+	 * idx_golden_prices_asset_date_desc for efficient retrieval.
 	 */
 	async enrichEmpiricalReturns(
 		assetsData: AssetData[],
@@ -763,7 +770,43 @@ class MVOEngine {
 					const targetClass =
 						asset.instrumentType?.toLowerCase() || targetCategory;
 
-					// Query golden_prices: match by exact symbol, asset class, or instrument type
+					// ── Tier 1: asset_returns_history (pre-computed nightly, 3yr+ lookback) ──
+					// Uses idx_asset_returns_isin_date for O(log n) retrieval.
+					// Falls through if table is empty (new deployment / new ISIN).
+					let empiricalReturns: number[] = [];
+					try {
+						const { assetReturnsHistory } = await import("../../../shared/schema");
+						const artRows = await db
+							.select({ dailyReturn: assetReturnsHistory.dailyReturn })
+							.from(assetReturnsHistory)
+							.where(
+								and(
+									or(
+										eq(assetReturnsHistory.symbol, asset.category),
+										eq(assetReturnsHistory.assetClass, targetCategory),
+										eq(assetReturnsHistory.assetClass, targetClass),
+									),
+									gte(assetReturnsHistory.returnDate, cutoffStr),
+								),
+							)
+							.orderBy(asc(assetReturnsHistory.returnDate))
+							.limit(lookbackDays + 40);
+
+						if (artRows.length >= 20) {
+							empiricalReturns = artRows.map((r) => Number.parseFloat(r.dailyReturn));
+							asset.returns = empiricalReturns;
+							logger.info(
+								`[MVO] Ingested ${empiricalReturns.length} returns for ${asset.category} from asset_returns_history`,
+							);
+							return; // Done — no need to fall through to golden_prices
+						}
+					} catch {
+						// asset_returns_history not yet available — fall through to golden_prices
+					}
+
+					// ── Tier 2: golden_prices direct query (fallback) ──────────────────────
+					// Only used when asset_returns_history has < 20 rows for this asset.
+					// Limited to ~14 days on fresh deploy; improves as nightly backfill runs.
 					const rows = await db
 						.select({
 							price: goldenPrices.price,
@@ -785,7 +828,6 @@ class MVOEngine {
 
 					if (rows.length >= 20) {
 						const prices = rows.map((r) => Number.parseFloat(r.price));
-						const empiricalReturns: number[] = [];
 						for (let i = 1; i < prices.length; i++) {
 							const prev = prices[i - 1];
 							const curr = prices[i];
@@ -796,7 +838,7 @@ class MVOEngine {
 						if (empiricalReturns.length >= 20) {
 							asset.returns = empiricalReturns;
 							logger.info(
-								`[MVO] Ingested ${empiricalReturns.length} empirical returns for ${asset.category} from golden_prices`,
+								`[MVO] Ingested ${empiricalReturns.length} returns for ${asset.category} from golden_prices (fallback)`,
 							);
 						}
 					}

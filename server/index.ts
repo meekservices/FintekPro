@@ -327,6 +327,14 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 				const { ensureScreenerHistoricalColumns } = await import("./startup/schema-repairs");
 				await ensureScreenerHistoricalColumns();
 
+				logBootProgress("Step 2e-5 (bg): ensuring engine gap-fix tables (asset_returns_history, macro_regime_snapshots, etc.)...");
+				try {
+					const { ensureEngineGapFixTables } = await import("./startup/schema-repairs");
+					await ensureEngineGapFixTables();
+				} catch (gapErr: any) {
+					logger.warn("[Boot] ensureEngineGapFixTables non-fatal:", { error: gapErr?.message });
+				}
+
 
 					// ── Instrument Master Sync — single source of truth ─────────────
 					// Upserts from mutual_funds, listed_stocks, bond_catalog, reits,

@@ -190,6 +190,14 @@ export const dailyPicks = pgTable("daily_picks", {
   scoringBreakdown: jsonb("scoring_breakdown"),
   riskScore: integer("risk_score"),
 
+  // ── FASP-AI v1.0 compliance fields ──────────────────────────────────────────
+  // Required: every AI advisory output must expose engine_version,
+  // calculation_timestamp, confidence_score, and macro context (GCR §AI Advisory).
+  engineVersion: varchar("engine_version", { length: 20 }),          // e.g. "POTD-v2.1"
+  calculationTimestamp: timestamp("calculation_timestamp"),            // when pick was scored
+  entryPriceGolden: decimal("entry_price_golden", { precision: 20, scale: 6 }), // GPE price at reco time
+  macroRegimeId: integer("macro_regime_id"),                          // FK → macro_regime_snapshots.id (no .references() to avoid circular dep across schema files)
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
@@ -661,6 +669,12 @@ export const aiRecommendationTracking = pgTable("ai_recommendation_tracking", {
   aiModel: varchar("ai_model", { length: 100 }).default("gemini-1.5-flash"),
   reasoning: text("reasoning"), // AI's justification for the recommendation
   
+  // ── FASP-AI v1.0 compliance additions ───────────────────────────────────────
+  // GCR §AI Advisory: every output must include factors_considered, model_version, macro context.
+  factorsConsidered: jsonb("factors_considered"),         // structured factors fed to model
+  modelVersion: varchar("model_version", { length: 30 }), // e.g. "FASP-AI-v1.0"
+  macroRegimeId: integer("macro_regime_id"),              // FK → macro_regime_snapshots.id (cross-file, no .references())
+
   // Outcome Tracking
   status: varchar("status", { length: 20 }).default("pending"), // pending, hit_target, missed_target, stopped_out, expired
   currentPrice: numeric("current_price", { precision: 12, scale: 2 }),

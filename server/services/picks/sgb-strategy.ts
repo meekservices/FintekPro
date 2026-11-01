@@ -110,8 +110,10 @@ export class SGBStrategy extends BaseStrategy {
 	}
 
 	/**
-	 * Fetches the live gold price from the commodity_prices table.
-	 * The SGB's current NAV tracks gold spot price — instrumentId is not used here.
+	 * Fetches the live gold price.
+	 * Tier 0: GPE authoritative benchmarks (reads golden_prices internally).
+	 * Tier 1: Direct golden_prices query (SSOT fallback — no commodity_prices).
+	 * Tier 2: Yahoo Finance GC=F conversion.
 	 *
 	 * @param _instrumentId - Not used; SGB price derived from gold spot
 	 * @returns Gold spot price in INR, or null if unavailable
@@ -127,22 +129,28 @@ export class SGBStrategy extends BaseStrategy {
 			}
 		} catch { /* proceed to DB */ }
 
+		// Tier 1: Direct golden_prices query (SSOT — no commodity_prices)
 		try {
-			const result = await db.execute(sql`
-        SELECT price AS current_price FROM commodity_prices
-        WHERE symbol = 'GOLD'
-        ORDER BY last_updated DESC
-        LIMIT 1
-      `);
-			// line 78: Drizzle returns Record<string, unknown> — cast via unknown to GoldPriceRow
-			const goldRow = (result.rows?.[0] ??
-				null) as unknown as GoldPriceRow | null;
-			return goldRow?.current_price != null
-				? Number.parseFloat(String(goldRow.current_price))
-				: null;
-		} catch {
-			return null;
-		}
+			const { goldenPrices } = await import("../../../shared/schema");
+			const { desc, or, eq, and } = await import("drizzle-orm");
+			const gpRows = await db.select({ price: goldenPrices.price })
+				.from(goldenPrices)
+				.where(and(
+					or(
+						eq(goldenPrices.symbol, "MCX_GOLD"),
+						eq(goldenPrices.symbol, "COMEX_GOLD"),
+					),
+					eq(goldenPrices.assetClass, "commodity"),
+				))
+				.orderBy(desc(goldenPrices.priceDate))
+				.limit(1);
+			if (gpRows.length > 0 && gpRows[0].price) {
+				const goldPriceRaw = Number.parseFloat(gpRows[0].price);
+				if (goldPriceRaw > 40000) return Math.round((goldPriceRaw / 10) * 10) / 10;
+			}
+		} catch { /* non-fatal */ }
+
+		return null;
 	}
 
 	/**
@@ -164,23 +172,29 @@ export class SGBStrategy extends BaseStrategy {
 			}
 		} catch { /* proceed to DB / Yahoo */ }
 
-		// Tier 1: MCX Gold spot from commodity_prices table
+		// Tier 1: Direct golden_prices query as SSOT fallback (replaces commodity_prices)
 		if (!goldPrice) {
 			try {
-				const result = await db.execute(sql`
-        SELECT price AS current_price, last_updated FROM commodity_prices
-        WHERE symbol = 'GOLD'
-        ORDER BY last_updated DESC
-        LIMIT 1
-      `);
-				const row = (result.rows?.[0] ?? null) as unknown as { current_price?: string | number | null; last_updated?: string } | null;
-				if (row?.current_price != null) {
-					const priceVal = Number.parseFloat(String(row.current_price));
-					// Accept DB price only if it's reasonable (gold in INR > 4000/g) and fresh (< 7 days)
-					const updatedAt = row.last_updated ? new Date(row.last_updated) : null;
-					const ageHours = updatedAt ? (Date.now() - updatedAt.getTime()) / 3600000 : 999;
-					if (priceVal > 4000 && ageHours < 168) {
-						goldPrice = priceVal;
+				const { goldenPrices } = await import("../../../shared/schema");
+				const { desc, or, eq, and } = await import("drizzle-orm");
+				const gpRows = await db.select({ price: goldenPrices.price, priceDate: goldenPrices.priceDate })
+					.from(goldenPrices)
+					.where(and(
+						or(
+							eq(goldenPrices.symbol, "MCX_GOLD"),
+							eq(goldenPrices.symbol, "COMEX_GOLD"),
+						),
+						eq(goldenPrices.assetClass, "commodity"),
+					))
+					.orderBy(desc(goldenPrices.priceDate))
+					.limit(1);
+				if (gpRows.length > 0 && gpRows[0].price) {
+					const priceVal = Number.parseFloat(gpRows[0].price);
+					// Accept DB price only if reasonable (gold in INR > 40000/10g) and within 7 days
+					const priceDate = gpRows[0].priceDate ? new Date(gpRows[0].priceDate) : null;
+					const ageHours = priceDate ? (Date.now() - priceDate.getTime()) / 3600000 : 999;
+					if (priceVal > 40000 && ageHours < 168) {
+						goldPrice = Math.round((priceVal / 10) * 10) / 10;
 					}
 				}
 			} catch { /* non-fatal */ }
@@ -201,12 +215,13 @@ export class SGBStrategy extends BaseStrategy {
 				if (goldUsdOz && Number.isFinite(goldUsdOz) && goldUsdOz > 1000) {
 					// Convert: USD/troy-oz → INR/gram (1 troy oz = 31.1035 g)
 					goldPrice = Math.round((goldUsdOz * usdInr / 31.1035) * 10) / 10;
-					// Persist to commodity_prices for next time
+					// Persist to golden_prices (SSOT) for next lookup — no commodity_prices writes
+					const today = new Date().toISOString().split("T")[0];
 					db.execute(sql`
-						INSERT INTO commodity_prices (symbol, current_price, last_updated)
-						VALUES ('GOLD', ${String(goldPrice)}, NOW())
-						ON CONFLICT (symbol) DO UPDATE
-						SET current_price = EXCLUDED.current_price, last_updated = NOW()
+						INSERT INTO golden_prices (isin, symbol, asset_class, price, price_date, source, confidence_score, created_at, updated_at)
+						VALUES ('COMEX_GOLD_USD', 'COMEX_GOLD', 'commodity', ${String(goldPrice)}, ${today}, 'yahoo_finance', 60, NOW(), NOW())
+						ON CONFLICT (isin, price_date) DO UPDATE
+						SET price = EXCLUDED.price, updated_at = NOW(), confidence_score = EXCLUDED.confidence_score
 					`).catch(() => {});
 				}
 			} catch { /* Yahoo Finance unavailable */ }

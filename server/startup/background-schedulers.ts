@@ -1003,6 +1003,42 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			};
 			scheduleDriftRefresh();
 
+			// ── Daily: Asset Returns Backfill — 22:30 IST = 17:00 UTC ─────────────
+			// Pre-computes daily returns per ISIN from golden_prices + MF NAV history
+			// into asset_returns_history (3yr+ lookback).
+			// MUST run AFTER GPE nightly sync (21:00 IST) so today's prices are in DB.
+			// Powers MVO engine covariance estimation with real market data.
+			const scheduleAssetReturnsBackfill = () => {
+				const DAILY_MS_ARB = 24 * 60 * 60 * 1000;
+				const nowA = new Date();
+				const nextA = new Date();
+				nextA.setUTCHours(17, 0, 0, 0); // 22:30 IST = 17:00 UTC
+				if (nextA <= nowA) nextA.setTime(nextA.getTime() + DAILY_MS_ARB);
+
+				setTimeout(async () => {
+					const runBackfill = async () => {
+						try {
+							console.log("[AssetReturnsBackfill] 📊 Nightly backfill starting...");
+							const { runAssetReturnsBackfill } = await import(
+								"../services/asset-returns-backfill-service"
+							);
+							const result = await runAssetReturnsBackfill();
+							console.log(
+								`[AssetReturnsBackfill] ✅ Complete: ` +
+								`gpe_rows=${result.rowsFromGoldenPrices}, ` +
+								`mf_rows=${result.rowsFromMfNav}, ` +
+								`latency=${result.latencyMs}ms`,
+							);
+						} catch (err) {
+							console.error("[AssetReturnsBackfill] Backfill failed:", err);
+						}
+					};
+					await runBackfill();
+					setInterval(runBackfill, DAILY_MS_ARB);
+				}, Math.max(nextA.getTime() - nowA.getTime(), 1000));
+			};
+			scheduleAssetReturnsBackfill();
+
 			// ── Daily: Balanced Portfolio Performance Monitor (SOP-BAL v1.0) ─────
 			// Monitors all hybrid / multi-asset / goal_based portfolios for:
 			//   - SEBI asset-allocation band compliance (equity %, debt %)

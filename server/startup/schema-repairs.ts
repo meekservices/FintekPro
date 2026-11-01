@@ -6436,3 +6436,116 @@ export async function runDbEfficiencyIndexesAndSnapshotsRepair(poolInstance?: an
 
 
 
+
+/**
+ * ensureEngineGapFixTables
+ *
+ * Purpose: Creates all new tables and additive columns introduced by the DB
+ *   Architecture Gap Fix (November 2026). Idempotent — safe to run on every boot.
+ *
+ * Tables created:
+ *   - asset_returns_history       (MVO 3yr+ return time-series)
+ *   - macro_regime_snapshots      (GPE nightly macro classification)
+ *   - golden_prices_intraday      (tick-level intraday price cache)
+ *   - benchmark_correlation_matrix (MVO weekly cached covariance)
+ *
+ * Columns added (IF NOT EXISTS — additive only):
+ *   - daily_picks: engine_version, calculation_timestamp, entry_price_golden, macro_regime_id
+ *   - ai_recommendation_tracking: factors_considered, model_version, macro_regime_id
+ *
+ * GCR v1.0: structured logs, error format { error_code, message, retryable }
+ * Drizzle ORM not used here (raw DDL is acceptable for CREATE TABLE IF NOT EXISTS per codebase pattern).
+ */
+export async function ensureEngineGapFixTables(poolInstance?: any): Promise<void> {
+  const pool = poolInstance ?? (await import("../db")).pool;
+  try {
+    await pool.query(`
+      -- ── asset_returns_history ───────────────────────────────────────────────
+      CREATE TABLE IF NOT EXISTS asset_returns_history (
+        id               BIGSERIAL PRIMARY KEY,
+        isin             VARCHAR(20)     NOT NULL,
+        symbol           VARCHAR(50),
+        asset_class      VARCHAR(30)     NOT NULL,
+        return_date      DATE            NOT NULL,
+        daily_return     DECIMAL(12, 8)  NOT NULL,
+        price            DECIMAL(20, 6),
+        previous_price   DECIMAL(20, 6),
+        source           VARCHAR(50),
+        created_at       TIMESTAMP       NOT NULL DEFAULT NOW(),
+        CONSTRAINT uq_asset_returns_isin_date UNIQUE (isin, return_date)
+      );
+      CREATE INDEX IF NOT EXISTS idx_asset_returns_isin_date      ON asset_returns_history (isin, return_date);
+      CREATE INDEX IF NOT EXISTS idx_asset_returns_date_desc      ON asset_returns_history (isin, return_date DESC);
+      CREATE INDEX IF NOT EXISTS idx_asset_returns_asset_class    ON asset_returns_history (asset_class, return_date);
+
+      -- ── macro_regime_snapshots ──────────────────────────────────────────────
+      CREATE TABLE IF NOT EXISTS macro_regime_snapshots (
+        id                    SERIAL PRIMARY KEY,
+        snapshot_date         DATE            NOT NULL,
+        dxy_index             DECIMAL(10, 4),
+        dxy_band              VARCHAR(20),
+        us_10y_treasury       DECIMAL(8, 4),
+        yield_curve_slope     VARCHAR(20),
+        ten_minus_two_bps     INTEGER,
+        gsec_10y_yield        DECIMAL(8, 4),
+        india_cpi_inflation   DECIMAL(6, 2),
+        usd_inr               DECIMAL(10, 4),
+        brent_crude_usd       DECIMAL(10, 4),
+        crude_regime          VARCHAR(20),
+        regime_label          VARCHAR(50),
+        source                VARCHAR(20)     DEFAULT 'gpe',
+        engine_version        VARCHAR(20)     DEFAULT 'GPE-v1.0',
+        created_at            TIMESTAMP       NOT NULL DEFAULT NOW(),
+        CONSTRAINT uq_macro_regime_date UNIQUE (snapshot_date)
+      );
+      CREATE INDEX IF NOT EXISTS idx_macro_regime_label   ON macro_regime_snapshots (regime_label);
+      CREATE INDEX IF NOT EXISTS idx_macro_regime_created ON macro_regime_snapshots (created_at);
+
+      -- ── golden_prices_intraday ──────────────────────────────────────────────
+      CREATE TABLE IF NOT EXISTS golden_prices_intraday (
+        id              BIGSERIAL PRIMARY KEY,
+        isin            VARCHAR(20)    NOT NULL,
+        symbol          VARCHAR(50),
+        tick_ts         TIMESTAMPTZ    NOT NULL,
+        price           DECIMAL(20, 6) NOT NULL,
+        change_percent  DECIMAL(10, 4),
+        volume          BIGINT,
+        source          VARCHAR(50)    NOT NULL,
+        asset_class     VARCHAR(30),
+        created_at      TIMESTAMP      NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_golden_intraday_isin_ts   ON golden_prices_intraday (isin, tick_ts);
+      CREATE INDEX IF NOT EXISTS idx_golden_intraday_symbol_ts ON golden_prices_intraday (symbol, tick_ts);
+
+      -- ── benchmark_correlation_matrix ────────────────────────────────────────
+      CREATE TABLE IF NOT EXISTS benchmark_correlation_matrix (
+        id              SERIAL PRIMARY KEY,
+        computed_at     TIMESTAMP      NOT NULL DEFAULT NOW(),
+        lookback_days   INTEGER        NOT NULL DEFAULT 252,
+        matrix_json     JSONB          NOT NULL,
+        asset_isins     TEXT[],
+        valid_until     TIMESTAMP,
+        engine_version  VARCHAR(30)    DEFAULT 'MVO-v1.0',
+        source          VARCHAR(20)    DEFAULT 'cron',
+        created_at      TIMESTAMP      NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_corr_matrix_computed    ON benchmark_correlation_matrix (computed_at);
+      CREATE INDEX IF NOT EXISTS idx_corr_matrix_valid_until ON benchmark_correlation_matrix (valid_until);
+
+      -- ── daily_picks: FASP-AI additive columns ──────────────────────────────
+      ALTER TABLE daily_picks ADD COLUMN IF NOT EXISTS engine_version        VARCHAR(20);
+      ALTER TABLE daily_picks ADD COLUMN IF NOT EXISTS calculation_timestamp TIMESTAMP;
+      ALTER TABLE daily_picks ADD COLUMN IF NOT EXISTS entry_price_golden    DECIMAL(20, 6);
+      ALTER TABLE daily_picks ADD COLUMN IF NOT EXISTS macro_regime_id       INTEGER;
+
+      -- ── ai_recommendation_tracking: FASP-AI additive columns ──────────────
+      ALTER TABLE ai_recommendation_tracking ADD COLUMN IF NOT EXISTS factors_considered JSONB;
+      ALTER TABLE ai_recommendation_tracking ADD COLUMN IF NOT EXISTS model_version      VARCHAR(30);
+      ALTER TABLE ai_recommendation_tracking ADD COLUMN IF NOT EXISTS macro_regime_id    INTEGER;
+    `);
+
+    console.log("  ✅ [GapFix] Engine gap-fix tables and columns ensured: asset_returns_history, macro_regime_snapshots, golden_prices_intraday, benchmark_correlation_matrix, daily_picks FASP-AI cols, ai_recommendation_tracking FASP-AI cols");
+  } catch (err: any) {
+    console.warn("  ⚠️ [GapFix] Non-fatal migration error:", err?.message?.slice(0, 200));
+  }
+}
