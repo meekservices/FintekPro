@@ -1,6 +1,10 @@
 // @ts-nocheck
 import { storage } from "./storage";
 import type { YieldTracker, InsertYieldTracker } from "@shared/schema";
+import { db } from "./db";
+import { goldenPrices } from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
+import { logger } from "./logger";
 
 export interface YieldMetrics {
 	totalReturn: number;
@@ -89,6 +93,19 @@ export class YieldTrackerService {
 	}
 
 	// Update tracker with latest market data
+	/**
+	 * P2-B fix: Update yield_tracker.currentValue using golden_prices SSOT.
+	 *
+	 * Purpose  : The caller-supplied `currentPrice` may come from a client form or
+	 *            stale API. We validate it against the most recent golden_prices row
+	 *            for the tracker's symbol/ISIN. If golden_prices has a fresher price
+	 *            (updated within 24h), we use that instead to ensure MTM accuracy.
+	 *            The caller price is used only as a last-resort fallback.
+	 *
+	 * Inputs   : trackerId (yield_tracker PK), currentPrice (caller-supplied), marketData
+	 * Outputs  : Updated YieldTracker with accurate currentValue = units × livePrice
+	 * Edge cases: If golden_prices has no row OR row is >24h old, falls through to callerPrice.
+	 */
 	static async updateTrackerPrice(
 		trackerId: string,
 		currentPrice: number,
@@ -97,7 +114,42 @@ export class YieldTrackerService {
 		const tracker = await storage.getYieldTracker(trackerId);
 		if (!tracker) return undefined;
 
-		const currentValue = Number(tracker.unitsHeld || 0) * currentPrice;
+		// ── P2-B: golden_prices SSOT validation ──────────────────────────────────
+		let livePrice = currentPrice;
+		try {
+			const symbol = tracker.symbol;
+			if (symbol) {
+				const gpRows = await db
+					.select({ price: goldenPrices.price, updatedAt: goldenPrices.updatedAt })
+					.from(goldenPrices)
+					.where(eq(goldenPrices.symbol, symbol))
+					.orderBy(desc(goldenPrices.updatedAt))
+					.limit(1);
+				const gpRow = gpRows[0];
+				if (gpRow?.price && gpRow?.updatedAt) {
+					const ageMs = Date.now() - new Date(gpRow.updatedAt).getTime();
+					const gpPrice = Number.parseFloat(gpRow.price);
+					if (gpPrice > 0 && ageMs < 24 * 60 * 60 * 1000) {
+						// golden_prices is fresh (<24h) — use it as authoritative price
+						livePrice = gpPrice;
+						logger.info(`[YieldTracker] P2-B: using golden_prices ₹${gpPrice} for ${symbol} (age ${Math.round(ageMs / 60000)}m)`, {
+							event: "YIELD_TRACKER_GP_PRICE_USED",
+							symbol,
+							gp_price: gpPrice,
+							caller_price: currentPrice,
+							age_ms: ageMs,
+							latency_ms: 0,
+							status: "ok",
+						});
+					}
+				}
+			}
+		} catch (gpErr: any) {
+			logger.warn(`[YieldTracker] P2-B golden_prices lookup failed, using caller price: ${gpErr?.message}`);
+		}
+		// ── end P2-B ──────────────────────────────────────────────────────────────
+
+		const currentValue = Number(tracker.unitsHeld || 0) * livePrice;
 		const totalInvestmentNum = Number(tracker.totalInvestment || 1);
 		const totalDividendsNum = Number(tracker.totalDividends || 0);
 		const totalInterestNum = Number(tracker.totalInterest || 0);
@@ -113,11 +165,11 @@ export class YieldTrackerService {
 		const priceHistory = [...(tracker.priceHistory || [])];
 		priceHistory.push({
 			date: new Date().toISOString(),
-			price: currentPrice,
+			price: livePrice,
 			volume: marketData.volume || 0,
-			change: currentPrice - Number(tracker.currentPrice || 0),
+			change: livePrice - Number(tracker.currentPrice || 0),
 			changePercent:
-				((currentPrice - Number(tracker.currentPrice || 0)) /
+				((livePrice - Number(tracker.currentPrice || 0)) /
 					(Number(tracker.currentPrice) || 1)) *
 				100,
 		});
@@ -128,7 +180,7 @@ export class YieldTrackerService {
 		}
 
 		const updates: Partial<YieldTracker> = {
-			currentPrice: currentPrice.toString(),
+			currentPrice: livePrice.toString(),
 			currentValue: currentValue.toString(),
 			totalReturn: totalReturn.toString(),
 			priceHistory,

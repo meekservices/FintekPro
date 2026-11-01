@@ -194,11 +194,27 @@ export class KnowledgeHubService {
 			topMovers = topMovers || this.getDefaultTopMovers(region);
 		}
 
-		// Pull live Single Source of Truth snapshot from Golden Pricing Engine
+		// Pull live Single Source of Truth snapshot from Golden Pricing Engine.
+		// P1-C: During NSE market hours (09:15–15:30 IST, Mon–Fri), force a fresh
+		// GPE sync so the brief indices reflect intraday live prices rather than the
+		// previous night's closing snapshot stored in golden_prices.
 		let goldenSnapshot: any = null;
 		try {
 			const { goldenPricingEngine } = await import("./golden-pricing/GoldenPricingEngine");
-			goldenSnapshot = await goldenPricingEngine.getDailyMarketBriefLiveSnapshot(region);
+			const nowUtcMs = Date.now();
+			const nowUtcH = new Date(nowUtcMs).getUTCHours();
+			const nowUtcM = new Date(nowUtcMs).getUTCMinutes();
+			const nowDayOfWeek = new Date(nowUtcMs).getUTCDay(); // 0=Sun, 6=Sat
+			const utcMinutes = nowUtcH * 60 + nowUtcM;
+			// NSE market window: 09:15–15:30 IST = 03:45–10:00 UTC; Mon–Fri only
+			const isNseMarketHours =
+				nowDayOfWeek >= 1 && nowDayOfWeek <= 5 &&
+				utcMinutes >= 225 && utcMinutes <= 600; // 3h45m–10h00m UTC
+			// Force refresh during market hours so live index prices flow through
+			goldenSnapshot = await goldenPricingEngine.getDailyMarketBriefLiveSnapshot(region, isNseMarketHours);
+			if (isNseMarketHours) {
+				console.info(`[KnowledgeHubService] P1-C: NSE market hours — forced GPE refresh for live indices (UTC ${nowUtcH}:${String(nowUtcM).padStart(2, "0")})`);
+			}
 		} catch (err: any) {
 			console.warn("[KnowledgeHubService] GoldenPricingEngine brief snapshot fallback:", err?.message);
 		}

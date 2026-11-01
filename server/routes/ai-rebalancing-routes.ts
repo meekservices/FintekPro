@@ -10,11 +10,78 @@ import {
 	externalHoldings,
 	financialGoals,
 	clientRiskProfiles,
+	goldenPrices,
 } from "@shared/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "../middleware/roleMiddleware";
 import { nanoid } from "nanoid";
 import { autonomousRebalancePlanner } from "../services/rebalancing";
+import { logger } from "../logger";
+
+/**
+ * P2-B fix: Batch-fetch live prices from golden_prices for a list of ISINs/symbols.
+ * Returns a Map<isin|symbol → livePrice>.
+ * Used by rebalancing to replace stale `avgPrice × 1.1` proxy with SSOT price.
+ *
+ * @param keys - Array of { isin?: string; symbol?: string } objects from portfolio holdings
+ * @returns Map keyed by isin (preferred) or symbol with latest golden_prices value
+ */
+async function batchFetchGoldenPrices(
+	keys: Array<{ isin?: string | null; symbol?: string | null }>,
+): Promise<Map<string, number>> {
+	const priceMap = new Map<string, number>();
+	try {
+		const isins = keys.map((k) => k.isin).filter(Boolean) as string[];
+		const symbols = keys.map((k) => k.symbol).filter(Boolean) as string[];
+		if (isins.length === 0 && symbols.length === 0) return priceMap;
+
+		// Fetch by ISIN first (most precise), then by symbol for anything not covered
+		if (isins.length > 0) {
+			const isinRows = await db
+				.select({ isin: goldenPrices.isin, symbol: goldenPrices.symbol, price: goldenPrices.price })
+				.from(goldenPrices)
+				.where(inArray(goldenPrices.isin, isins))
+				.orderBy(desc(goldenPrices.priceDate))
+				.limit(isins.length * 3);
+
+			for (const r of isinRows) {
+				const price = r.price ? Number.parseFloat(r.price) : null;
+				if (!price || price <= 0) continue;
+				if (r.isin && !priceMap.has(r.isin)) priceMap.set(r.isin, price);
+				if (r.symbol && !priceMap.has(r.symbol)) priceMap.set(r.symbol, price);
+			}
+		}
+
+		// Second pass: symbol-only lookup for ISINs not in golden_prices, or symbol-only holdings
+		const uncoveredSymbols = symbols.filter((s) => !priceMap.has(s));
+		if (uncoveredSymbols.length > 0) {
+			const symRows = await db
+				.select({ symbol: goldenPrices.symbol, price: goldenPrices.price })
+				.from(goldenPrices)
+				.where(inArray(goldenPrices.symbol, uncoveredSymbols))
+				.orderBy(desc(goldenPrices.priceDate))
+				.limit(uncoveredSymbols.length * 3);
+
+			for (const r of symRows) {
+				const price = r.price ? Number.parseFloat(r.price) : null;
+				if (price && price > 0 && r.symbol && !priceMap.has(r.symbol)) {
+					priceMap.set(r.symbol, price);
+				}
+			}
+		}
+
+		logger.info("[Rebalance] P2-B golden_prices batch fetch", {
+			event: "REBALANCE_GP_BATCH_FETCH",
+			keys_requested: keys.length,
+			prices_found: priceMap.size,
+			latency_ms: 0,
+			status: "ok",
+		});
+	} catch (err: any) {
+		logger.warn(`[Rebalance] P2-B golden_prices batch fetch failed (using fallback): ${err?.message}`);
+	}
+	return priceMap;
+}
 
 const router = Router();
 
@@ -184,10 +251,23 @@ router.post(
 						.select()
 						.from(portfolioHoldings)
 						.where(eq(portfolioHoldings.portfolioId, portfolio.id));
+
+					// P2-B fix: Batch-fetch live prices from golden_prices SSOT.
+					// Replaces stale `avgPrice × quantity × 1.1` proxy with
+					// `livePrice × quantity` for accurate rebalancing drift computation.
+					const gpPriceMap = await batchFetchGoldenPrices(
+						portHoldings.map((h) => ({ isin: (h as any).isin, symbol: h.symbol })),
+					);
+
 					for (const h of portHoldings) {
-						const avgPrice = Number.parseFloat(h.avgPrice?.toString() || "0");
 						const quantity = Number.parseFloat(h.quantity?.toString() || "0");
-						const currentValue = avgPrice * quantity * 1.1;
+						const avgPrice = Number.parseFloat(h.avgPrice?.toString() || "0");
+						// Tier 1: golden_prices live price; Tier 2: avgPrice × 1.1 fallback
+						const gpKey = (h as any).isin || h.symbol || "";
+						const livePrice = gpPriceMap.get(gpKey) ?? gpPriceMap.get(h.symbol || "") ?? null;
+						const currentValue = livePrice
+							? livePrice * quantity
+							: avgPrice * quantity * 1.1; // fallback: cost-basis + 10% appreciation estimate
 						holdings.push({
 							symbol: h.symbol || "",
 							assetType: h.assetType || "Other",
@@ -214,7 +294,7 @@ router.post(
 							});
 						}
 					} catch (e) {
-						console.log("[Rebalance] No external holdings");
+						logger.info("[Rebalance] No external holdings");
 					}
 				}
 			}
@@ -228,7 +308,7 @@ router.post(
 					.limit(1);
 				riskProfile = profile;
 			} catch (e: any) {
-				console.warn(
+				logger.warn(
 					"[AI Rebalancing] Failed to load risk profile:",
 					e?.message,
 				);
@@ -314,7 +394,7 @@ router.post(
 				},
 			});
 		} catch (error: any) {
-			console.error("[RebalanceProposal] Error:", error);
+			logger.error("[RebalanceProposal] Error:", error);
 			if (error instanceof z.ZodError) {
 				return res
 					.status(400)
@@ -377,7 +457,7 @@ router.post(
 						riskProfile: (g.riskProfile as any) || "moderate",
 					}));
 				} catch (e) {
-					console.log("[GoalProposal] No goals found");
+					logger.info("[GoalProposal] No goals found");
 				}
 			}
 
@@ -390,7 +470,7 @@ router.post(
 					.limit(1);
 				riskProfile = profile;
 			} catch (e: any) {
-				console.warn(
+				logger.warn(
 					"[AI Rebalancing] Failed to load risk profile:",
 					e?.message,
 				);
@@ -520,7 +600,7 @@ router.post(
 				},
 			});
 		} catch (error: any) {
-			console.error("[GoalProposal] Error:", error);
+			logger.error("[GoalProposal] Error:", error);
 			if (error instanceof z.ZodError) {
 				return res
 					.status(400)
@@ -589,7 +669,7 @@ router.post(
 					.limit(1);
 				riskProfile = profile;
 			} catch (e: any) {
-				console.warn(
+				logger.warn(
 					"[AI Rebalancing] Failed to load risk profile:",
 					e?.message,
 				);
@@ -702,7 +782,7 @@ router.post(
 				},
 			});
 		} catch (error: any) {
-			console.error("[RetirementProposal] Error:", error);
+			logger.error("[RetirementProposal] Error:", error);
 			if (error instanceof z.ZodError) {
 				return res
 					.status(400)

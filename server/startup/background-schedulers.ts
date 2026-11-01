@@ -1039,6 +1039,36 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			};
 			scheduleAssetReturnsBackfill();
 
+			// ── Daily: Global Portfolio Positions Value Refresh — 22:45 IST = 17:15 UTC ──
+			// P2-B fix: Refreshes global_portfolio_positions.current_value and
+			// current_value_inr from golden_prices SSOT. Runs 15 min after Asset Returns
+			// Backfill so latest prices are guaranteed to be in golden_prices already.
+			const scheduleGlobalPositionsRefresh = () => {
+				const DAILY_MS_GPR = 24 * 60 * 60 * 1000;
+				const nowG = new Date();
+				const nextG = new Date();
+				nextG.setUTCHours(17, 15, 0, 0); // 22:45 IST = 17:15 UTC
+				if (nextG <= nowG) nextG.setTime(nextG.getTime() + DAILY_MS_GPR);
+
+				setTimeout(async () => {
+					const runRefresh = async () => {
+						try {
+							console.log("[GlobalPositionsRefresh] 🌐 Nightly global positions value refresh starting...");
+							const { runGlobalPositionsValueRefresh } = await import(
+								"../services/global-positions-value-refresh"
+							);
+							await runGlobalPositionsValueRefresh();
+							console.log("[GlobalPositionsRefresh] ✅ Global positions current_value refreshed from golden_prices");
+						} catch (err) {
+							console.error("[GlobalPositionsRefresh] Refresh failed:", err);
+						}
+					};
+					await runRefresh();
+					setInterval(runRefresh, DAILY_MS_GPR);
+				}, Math.max(nextG.getTime() - nowG.getTime(), 1000));
+			};
+			scheduleGlobalPositionsRefresh();
+
 			// ── Daily: Balanced Portfolio Performance Monitor (SOP-BAL v1.0) ─────
 			// Monitors all hybrid / multi-asset / goal_based portfolios for:
 			//   - SEBI asset-allocation band compliance (equity %, debt %)
