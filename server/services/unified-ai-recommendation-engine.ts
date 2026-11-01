@@ -678,6 +678,35 @@ class UnifiedAIRecommendationEngine {
 				adjConf = Math.min(95, adjConf + 5);
 		}
 
+		// ── Macro-aware scoring adjustments (from GoldenPricingEngine DB snapshot) ─
+		// Applied when macroContext is present in rawData. Uses live rates from
+		// golden_prices to contextualise the AI score with the current macro regime.
+		const mc2 = product.rawData?.macroContext;
+		if (mc2 && product.category === "stocks") {
+			// 1. Rate sensitivity: high G-Sec yield raises cost-of-capital risk for
+			//    high-PE growth sectors (IT, consumer). Cheap value sectors are resilient.
+			if (mc2.gsec10Y != null && mc2.gsec10Y > 7.2) {
+				if (["information_technology", "fmcg_consumer"].includes(product.sector?.toLowerCase() ?? "")) {
+					adjRisk = Math.min(100, adjRisk + 8);    // elevated discount rate = higher risk for growth
+					adjConf = Math.max(20, adjConf - 5);
+				} else if (["banking_finance"].includes(product.sector?.toLowerCase() ?? "")) {
+					adjReturn = Math.min(100, adjReturn + 5); // banks benefit from high rates (NIM expansion)
+				}
+			}
+			// 2. INR weakness: IT exporters benefit from USD/INR > 84; OMCs hurt by crude > $85
+			if (mc2.usdInr != null && mc2.usdInr > 84) {
+				if (["information_technology"].includes(product.sector?.toLowerCase() ?? "")) {
+					adjReturn = Math.min(100, adjReturn + 5); // IT earns in USD — INR weakness is tailwind
+				}
+			}
+			// 3. Elevated crude: adds risk for oil-importing sectors
+			if (mc2.brentUsd != null && mc2.brentUsd > 85) {
+				if (["auto_infra", "fmcg_consumer"].includes(product.sector?.toLowerCase() ?? "")) {
+					adjRisk = Math.min(100, adjRisk + 6);     // elevated input cost risk
+				}
+			}
+		}
+
 		// For mutual funds: incorporate DB percentile rank from mutual_fund_metrics
 		let mfRankNote = "";
 		if (product.category === "mutual_funds" && product.id) {
@@ -938,6 +967,21 @@ Valuation:
 				prompt += `\nTechnicals: RSI=${enriched.technicals.RSI ?? "N/A"}, SMA50=${enriched.technicals.SMA50 ?? "N/A"}, SMA200=${enriched.technicals.SMA200 ?? "N/A"}`;
 			}
 			prompt += "\n";
+		}
+
+		// ── Macro Context (from GoldenPricingEngine DB snapshot) ────────────────
+		const mc = product.rawData?.macroContext;
+		if (mc) {
+			prompt += `\nIndia Macro Environment (live from GoldenPricingEngine):`;
+			if (mc.gsec10Y != null)   prompt += `\n- India 10Y G-Sec Yield: ${mc.gsec10Y}% (risk-free rate benchmark)`;
+			if (mc.indiaCpi != null)  prompt += `\n- India CPI Inflation: ${mc.indiaCpi}% YoY (real yield = gsec - cpi)`;
+			if (mc.usdInr != null)    prompt += `\n- USD/INR FX Rate: ${mc.usdInr} (affects IT exports, OMC imports)`;
+			if (mc.brentUsd != null)  prompt += `\n- Brent Crude: $${mc.brentUsd}/bbl (${mc.brentUsd > 85 ? "above India $80 comfort band — imported inflation risk" : "within India macro comfort band"})`;
+			if (mc.goldMcxInr != null) prompt += `\n- MCX Gold: ₹${mc.goldMcxInr}/10g (safe-haven demand signal)`;
+			if (mc.niftyLevel != null) prompt += `\n- Nifty 50: ${mc.niftyLevel.toLocaleString("en-IN")} (market benchmark level)`;
+			if (mc.usFedRate != null) prompt += `\n- US Fed Funds Rate: ${mc.usFedRate}% (global liquidity anchor)`;
+			if (mc.us10Y != null)     prompt += `\n- US 10Y Treasury: ${mc.us10Y}% (FII cost-of-capital benchmark)`;
+			prompt += "\nUse this macro context to assess sector tailwinds/headwinds and rate sensitivity.\n";
 		}
 
 		if (clientProfile) {

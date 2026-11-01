@@ -39,6 +39,35 @@ import { getFinancialData } from "../../modules/research/dataService";
 import { momentumSignal } from "../../modules/research/technicalEngine";
 import { priceToTargetUpside } from "../../modules/research/valuationEngine";
 import { unifiedInstrumentConsensusService } from "../unified-instrument-consensus-service";
+import type { DailyMarketBriefSnapshot } from "../golden-pricing/GoldenPricingEngine";
+
+// ── Macro context cache for AI grounding ─────────────────────────────────────
+// Fetched once per generate() run from getDailyMarketBriefLiveSnapshot().
+// Shared across all getAIAlphaBoost() calls in the same POTD batch to avoid
+// repeated external API calls. TTL matches the GPE in-memory snapshot (5 min).
+let _macroContextCache: {
+	data: DailyMarketBriefSnapshot | null;
+	ts: number;
+} = { data: null, ts: 0 };
+const MACRO_CONTEXT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min — matches GPE snapshot TTL
+
+/**
+ * Fetches or returns cached macro market context from GoldenPricingEngine.
+ * Zero external API calls when in-process cache is fresh.
+ */
+async function getMacroContext(): Promise<DailyMarketBriefSnapshot | null> {
+	if (_macroContextCache.data && Date.now() - _macroContextCache.ts < MACRO_CONTEXT_CACHE_TTL_MS) {
+		return _macroContextCache.data;
+	}
+	try {
+		const { getDailyMarketBriefLiveSnapshot } = await import("../golden-pricing/GoldenPricingEngine");
+		const snap = await getDailyMarketBriefLiveSnapshot("india");
+		_macroContextCache = { data: snap, ts: Date.now() };
+		return snap;
+	} catch {
+		return null; // non-fatal — AI boost proceeds without macro context
+	}
+}
 
 
 const financialMetricsCalculator = new FinancialMetricsCalculator();
@@ -1197,14 +1226,15 @@ export class StockStrategy extends BaseStrategy {
 		if (scored.length === 0) return null;
 
 		// ── Targeted AI Alpha Boost on Top 5 Quant Leaders ──────────────────────
-		// Instead of firing 50 external AI evaluations per sector, evaluate only the
-		// top 5 quantitative candidates. Eliminates 90% of AI calls while ensuring
-		// the sector winner receives full AI conviction weighting.
+		// Fetch macro context ONCE per sector pass (in-process 5-min cache — zero
+		// extra external API calls). Passed into each AI alpha call so the model
+		// is grounded in the live macro environment (G-Sec yield, FX, crude, CPI).
+		const sectorMacroCtx = await getMacroContext();
 		const topFive = scored.slice(0, 5);
 		await Promise.allSettled(
 			topFive.map(async (candidate) => {
 				if (!candidate.stock.symbol) return;
-				const boost = await this.getAIAlphaBoost(candidate.stock, candidate.enriched);
+				const boost = await this.getAIAlphaBoost(candidate.stock, candidate.enriched, sectorMacroCtx);
 				candidate.score += boost;
 			}),
 		);
@@ -1916,6 +1946,7 @@ export class StockStrategy extends BaseStrategy {
 	private async getAIAlphaBoost(
 		stock: any,
 		enriched?: EnrichedStockSnapshot | null,
+		macroCtx?: DailyMarketBriefSnapshot | null,
 	): Promise<number> {
 		const symbol: string = stock.symbol || "";
 		if (!symbol) return 0;
@@ -1948,6 +1979,9 @@ export class StockStrategy extends BaseStrategy {
 				: undefined;
 
 			// Build a ProductData object for the unified engine's analyzeProduct method
+			// ── Fetch macro context (0 extra API calls — uses in-process cache) ────
+			const resolvedMacro = macroCtx ?? await getMacroContext();
+
 			const productData = {
 				id: stock.id || symbol,
 				name: stock.companyName || symbol,
@@ -1971,6 +2005,20 @@ export class StockStrategy extends BaseStrategy {
 					volatility: stock.volatility
 						? Number.parseFloat(stock.volatility)
 						: undefined,
+					// ── Macro grounding context (from golden_prices via GPE) ──────────
+					// Passed to AI prompt so the model knows the macro environment it
+					// is making a stock recommendation in. Zero extra API calls.
+					macroContext: resolvedMacro ? {
+						regime:        "india",
+						gsec10Y:       resolvedMacro.fixedIncome?.gsec10YYield,
+						usdInr:        resolvedMacro.currencies?.usdInr,
+						indiaCpi:      resolvedMacro.macroIndicators?.indiaCpiInflation?.value,
+						brentUsd:      resolvedMacro.commodities?.brentCrudeUsd,
+						goldMcxInr:    resolvedMacro.commodities?.goldMcxInr,
+						niftyLevel:    resolvedMacro.indices?.indian?.find((i) => i.symbol === "NIFTY50")?.price,
+						usFedRate:     resolvedMacro.macroIndicators?.usFedFundsRate?.value,
+						us10Y:         resolvedMacro.fixedIncome?.us10YTreasury,
+					} : undefined,
 				},
 			};
 
