@@ -1212,7 +1212,7 @@ class UpstoxMarketDataService {
 
   private _mapLtp(
     symbol: string,
-    exchange: "NSE" | "BSE",
+    exchange: "NSE" | "BSE" | "MCX",
     raw: any
   ): UpstoxQuote {
     return {
@@ -1231,7 +1231,7 @@ class UpstoxMarketDataService {
 
   private _mapFullQuote(
     symbol: string,
-    exchange: "NSE" | "BSE",
+    exchange: "NSE" | "BSE" | "MCX",
     raw: any
   ): UpstoxQuote {
     const lastPrice = Number(raw.last_price ?? 0);

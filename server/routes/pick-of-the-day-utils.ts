@@ -241,8 +241,9 @@ export async function getLiveInstrumentPrice(
 				if (bondIsin) {
 					try {
 						const { getLatestGoldenPrice } = await import("../services/golden-pricing/GoldenPricingEngine");
-						const gpPrice = await getLatestGoldenPrice(bondIsin);
-						if (gpPrice && gpPrice > 0) {
+						const gpRow = await getLatestGoldenPrice(bondIsin);
+						const gpPrice = gpRow?.price ? Number.parseFloat(gpRow.price) : 0;
+						if (gpPrice > 0) {
 							pick.priceDataSource = "Golden Pricing (Bond ISIN)";
 							pick.dataFreshness = "live";
 							return gpPrice;

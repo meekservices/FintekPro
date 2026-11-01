@@ -341,7 +341,8 @@ function buildServiceDashboard(isProduction: boolean): ServiceStatus[] {
 		},
 		{
 			name: "FRED St. Louis (Commodities)",
-			status: has("FRED_API_KEY") ? "✅ OK" : "⬜ OPTIONAL (CSV active)",
+			status: has("FRED_API_KEY") ? "✅ OK" : "⬜ OPTIONAL",
+			degraded: has("FRED_API_KEY") ? undefined : "Public CSV feed active",
 		},
 		{
 			name: "BSE Direct",

@@ -438,15 +438,15 @@ class CommodityPriceSyncScheduler {
 
 		try {
 			const { fredCommodityService } = await import("./fred-commodity-service");
-			const fredData = await fredCommodityService.getCommoditySpotBenchmarks();
-			if (fredData.brent?.price && byId.has("BRENT")) {
-				priced.set("BRENT", { symbol: "BRENT", price: fredData.brent.price, source: "fred_stlouis" });
+			const fredData = await fredCommodityService.getCommodityAndMacroSnapshot();
+			if (fredData.brentCrude?.price && byId.has("BRENT")) {
+				priced.set("BRENT", { symbol: "BRENT", price: fredData.brentCrude.price, source: "fred_stlouis" });
 			}
-			if (fredData.brent?.price && byId.has("BRENT_CRUDE")) {
-				priced.set("BRENT_CRUDE", { symbol: "BRENT_CRUDE", price: fredData.brent.price, source: "fred_stlouis" });
+			if (fredData.brentCrude?.price && byId.has("BRENT_CRUDE")) {
+				priced.set("BRENT_CRUDE", { symbol: "BRENT_CRUDE", price: fredData.brentCrude.price, source: "fred_stlouis" });
 			}
-			if (fredData.wti?.price && byId.has("CRUDE_OIL") && !priced.has("CRUDE_OIL")) {
-				priced.set("CRUDE_OIL", { symbol: "CRUDE_OIL", price: fredData.wti.price, source: "fred_stlouis" });
+			if (fredData.wtiCrude?.price && byId.has("CRUDE_OIL") && !priced.has("CRUDE_OIL")) {
+				priced.set("CRUDE_OIL", { symbol: "CRUDE_OIL", price: fredData.wtiCrude.price, source: "fred_stlouis" });
 			}
 			if (fredData.naturalGas?.price && byId.has("NATURAL_GAS") && !priced.has("NATURAL_GAS")) {
 				priced.set("NATURAL_GAS", { symbol: "NATURAL_GAS", price: fredData.naturalGas.price, source: "fred_stlouis" });
@@ -457,16 +457,18 @@ class CommodityPriceSyncScheduler {
 
 		try {
 			const { ncdexMarketService } = await import("./ncdex-market-service");
-			const agriBench = await ncdexMarketService.getNcdexAgriBenchmarks();
-			for (const item of agriBench.items) {
-				const sym = item.id.toUpperCase();
-				if (byId.has(sym)) {
-					priced.set(sym, {
-						symbol: sym,
-						price: item.price,
-						changePercent: item.changePercent,
-						source: "ncdex_bhavcopy",
-					});
+			const agriRes = await ncdexMarketService.getAgriculturalBenchmarks({ persistToDb: false });
+			if (agriRes.success && agriRes.data?.commodities) {
+				for (const item of agriRes.data.commodities) {
+					const sym = item.id.toUpperCase();
+					if (byId.has(sym)) {
+						priced.set(sym, {
+							symbol: sym,
+							price: item.price,
+							changePercent: item.changePercent,
+							source: "ncdex_bhavcopy",
+						});
+					}
 				}
 			}
 		} catch (err: any) {

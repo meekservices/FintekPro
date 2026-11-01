@@ -2074,7 +2074,7 @@ export default function AgentScreener() {
 								{/* ── Commodity Screener ────────────────────────────────────────── */}
 								{screenerType === "commodity" && (
 									<div className="space-y-3">
-										{isInstrumentsLoading ? (
+										{instrumentLoading ? (
 											<div className="space-y-2">
 												{[...Array(6)].map((_, i) => (
 													<Skeleton key={i} className="h-10 w-full" />
