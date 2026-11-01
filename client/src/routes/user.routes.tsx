@@ -538,6 +538,20 @@ export function UserProtectedRoutes() {
 						</Suspense>
 					)}
 				</Route>
+				<Route path="/partner/register">
+					{() => (
+						<Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+							<PartnerRegister />
+						</Suspense>
+					)}
+				</Route>
+				<Route path="/partner-register">
+					{() => (
+						<Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+							<PartnerRegister />
+						</Suspense>
+					)}
+				</Route>
 				<Route path="/investment-dashboard" component={InvestmentDashboard} />
 				<Route path="/ib-trading" component={IBTradingPage} />
 				<Route path="/store" component={StorePage} />

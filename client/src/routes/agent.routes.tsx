@@ -102,6 +102,7 @@ import {
 	KYCProductEligibility,
 	NetWorthPage,
 	PartnerApplication,
+	PartnerRegister,
 	AgentExternalPortfolios,
 	AlpacaMarketExplorer,
 	AgentFieldView,
@@ -142,6 +143,32 @@ export function AgentRoutes() {
 			<Route path="/agent/login" component={AuthPage} />
 			{/* Public proposal preview - accessible on all subdomains */}
 			<Route path="/proposal/:shareToken" component={PublicProposalPage} />
+			<Route path="/partner/register">
+				{() => (
+					<Suspense
+						fallback={
+							<div className="min-h-screen bg-indigo-950 flex items-center justify-center">
+								<div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-500" />
+							</div>
+						}
+					>
+						<PartnerRegister />
+					</Suspense>
+				)}
+			</Route>
+			<Route path="/partner-register">
+				{() => (
+					<Suspense
+						fallback={
+							<div className="min-h-screen bg-indigo-950 flex items-center justify-center">
+								<div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-500" />
+							</div>
+						}
+					>
+						<PartnerRegister />
+					</Suspense>
+				)}
+			</Route>
 			<Route path="/agent/advisor-profile">
 				{() => (
 					<AgentLayout>

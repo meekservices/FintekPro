@@ -42,6 +42,7 @@ import {
 	PublicProposalPage,
 	OnboardingPage,
 	CARegistration,
+	PartnerRegister,
 	ManualKYCPage,
 	KYCProductEligibility,
 	VideoKYC,
@@ -115,6 +116,8 @@ function Router() {
 					<Route path="/proposal/:shareToken" component={PublicProposalPage} />
 					<Route path="/onboarding" component={OnboardingPage} />
 					<Route path="/ca-registration" component={CARegistration} />
+					<Route path="/partner/register" component={PartnerRegister} />
+					<Route path="/partner-register" component={PartnerRegister} />
 					<Route path="/manual-kyc" component={ManualKYCPage} />
 					<Route path="/kyc-dashboard">
 						<Redirect to="/profile?tab=kyc-dashboard" />
