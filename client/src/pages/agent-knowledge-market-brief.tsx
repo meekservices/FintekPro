@@ -111,6 +111,7 @@ interface MarketBrief {
 		jgb10YYield: number;
 		eurUsd: number;
 		usdJpy: number;
+		usdInr?: number;
 		commentary: string;
 		source: string;
 	};
@@ -323,14 +324,14 @@ function getClientFallbackBrief(region: string): MarketBrief {
 		date: today,
 		region,
 		marketSnapshot: isIndia
-			? "Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at 6.79%, backed by CCIL sovereign clearing, offering attractive +2.59% real yield spreads. CCIL TREPS overnight funding rate printed at 6.42%, reflecting balanced systemic money market liquidity. Brent crude CFD traded at $112.00/bbl (MCX: ₹9,417/bbl), with elevated energy pricing monitored closely for imported inflation risks."
+			? "Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at 6.79%, backed by CCIL sovereign clearing. CCIL TREPS overnight funding rate printed at 6.42%, reflecting balanced systemic money market liquidity. Brent crude within comfort band, MCX Gold on steady safe-haven demand."
 			: isGlobal
-			? "Global equity benchmarks traded with constructive risk sentiment across Asian and European sessions, led by technology and semiconductor supply chain resilience. The US Dollar Index (DXY) consolidated near 103.85, while benchmark 10-year sovereign bond yields traded orderly across G7 economies."
+			? "Global equity benchmarks traded with constructive risk sentiment across Asian and European sessions, led by technology and semiconductor supply chain resilience. The US Dollar Index (DXY) traded orderly, while benchmark 10-year sovereign bond yields traded across G7 economies with positive disinflation expectations."
 			: "US equities traded higher with the S&P 500 and Nasdaq supported by megacap technology earnings and steady labor market prints. 10-year Treasury yields consolidated as markets digested central bank policy commentary.",
 		whatChanged: isIndia
-			? "1. Sovereign Debt & Money Markets: CCIL 10-Year Benchmark G-Sec yield traded at 6.79%; CCIL TREPS overnight repo volume remained healthy with weighted average rate at 6.42%.\n2. Commodity Radar: Brent crude CFD traded firm at $112.00/bbl (MCX: ₹9,417/bbl), remaining above India's $80 comfort threshold and creating imported inflation headwinds. MCX Gold traded firm at ₹1,38,419/10g (COMEX: $3,885.50/oz) on steady safe-haven and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows."
+			? "1. Sovereign Debt & Money Markets: CCIL 10-Year Benchmark G-Sec yield traded at 6.79%; CCIL TREPS overnight repo volume remained healthy with weighted average rate at 6.42%.\n2. Commodity Radar: Brent crude CFD within monitored range. MCX Gold traded firm at ₹1,38,419/10g (COMEX: $3,885.50/oz) on steady safe-haven and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows."
 			: isGlobal
-			? "1. Cross-Asset Transmission: US Dollar Index (DXY) consolidated at 103.85, anchoring foreign exchange volatility and stabilizing emerging market capital flows.\n2. Asian & European Session Momentum: Tokyo Nikkei 225 advanced on exporter earnings; London FTSE and Frankfurt DAX traded near record valuations.\n3. Sovereign Yield Spreads: 10-Year US Treasury yield held steady at 4.18%, German 10Y Bund traded at 2.32%, and UK 10Y Gilt hovered at 4.24%."
+			? "1. Cross-Asset Transmission: US Dollar Index (DXY) stabilizing cross-border emerging market capital flows.\n2. Asian & European Session Momentum: Tokyo Nikkei 225 advanced on exporter earnings; London FTSE and Frankfurt DAX traded near record valuations.\n3. Sovereign Yield Spreads: 10-Year US Treasury, German Bund, and UK Gilt yields traded orderly across G7 economies."
 			: "1. Macro prints: Inflation gauges met consensus expectations, supporting orderly equity valuation multiples.\n2. Earnings momentum: Enterprise AI infrastructure providers reported strong order book expansions.",
 		topMovers: isIndia
 			? [
@@ -343,20 +344,20 @@ function getClientFallbackBrief(region: string): MarketBrief {
 				]
 			: isGlobal
 			? [
-					{ name: "S&P 500 Index (SPX)", symbol: "SPX", price: 5864.5, change: 0.75, direction: "up", currency: "USD" },
-					{ name: "Nasdaq 100 Index (NDX)", symbol: "NDX", price: 20380.0, change: 1.12, direction: "up", currency: "USD" },
-					{ name: "Nikkei 225 (Tokyo)", symbol: "N225", price: 38950.0, change: 0.95, direction: "up", currency: "JPY" },
+					{ name: "S&P 500 Index (SPX)", symbol: "SPX", price: 5750.0, change: 0.75, direction: "up", currency: "USD" },
+					{ name: "Nasdaq 100 Index (NDX)", symbol: "NDX", price: 20100.0, change: 1.12, direction: "up", currency: "USD" },
+					{ name: "Nikkei 225 (Tokyo)", symbol: "N225", price: 39800.0, change: 0.95, direction: "up", currency: "JPY" },
 					{ name: "FTSE 100 (London)", symbol: "UKX", price: 8245.0, change: -0.32, direction: "down", currency: "GBP" },
 					{ name: "DAX 40 (Frankfurt)", symbol: "DAX", price: 19480.0, change: 0.45, direction: "up", currency: "EUR" },
 					{ name: "Hang Seng (Hong Kong)", symbol: "HSI", price: 20590.0, change: -0.88, direction: "down", currency: "HKD" },
 				]
 			: [
-					{ name: "Apple Inc", symbol: "AAPL", price: 230.15, change: 1.15, direction: "up", currency: "USD" },
-					{ name: "Microsoft Corp", symbol: "MSFT", price: 425.20, change: 0.95, direction: "up", currency: "USD" },
-					{ name: "NVIDIA Corp", symbol: "NVDA", price: 138.50, change: 2.45, direction: "up", currency: "USD" },
-					{ name: "Alphabet Inc", symbol: "GOOGL", price: 178.20, change: 0.85, direction: "up", currency: "USD" },
-					{ name: "Amazon.com Inc", symbol: "AMZN", price: 192.40, change: 1.35, direction: "up", currency: "USD" },
-					{ name: "Tesla Inc", symbol: "TSLA", price: 218.30, change: -1.20, direction: "down", currency: "USD" },
+					{ name: "Apple Inc", symbol: "AAPL", price: 225.50, change: 1.15, direction: "up", currency: "USD" },
+					{ name: "Microsoft Corp", symbol: "MSFT", price: 430.00, change: 0.95, direction: "up", currency: "USD" },
+					{ name: "NVIDIA Corp", symbol: "NVDA", price: 145.00, change: 2.45, direction: "up", currency: "USD" },
+					{ name: "Alphabet Inc", symbol: "GOOGL", price: 175.00, change: 0.85, direction: "up", currency: "USD" },
+					{ name: "Amazon.com Inc", symbol: "AMZN", price: 205.00, change: 1.35, direction: "up", currency: "USD" },
+					{ name: "Tesla Inc", symbol: "TSLA", price: 340.00, change: -1.20, direction: "down", currency: "USD" },
 				],
 		ccilFixedIncome: isIndia
 			? {
@@ -392,26 +393,27 @@ function getClientFallbackBrief(region: string): MarketBrief {
 			: undefined,
 		usFixedIncome: region === "us"
 			? {
-					tenYearTreasury: 4.18,
-					twoYearTreasury: 3.98,
-					tenYearMinusTwoYearBps: 20,
-					fedFundsTargetRate: "4.75% – 5.00%",
+					tenYearTreasury: 4.58,
+					twoYearTreasury: 4.35,
+					tenYearMinusTwoYearBps: 23,
+					fedFundsTargetRate: "4.25% – 4.50%",
 					thirtyYearMortgageAvg: 6.55,
-					yieldCurveSlope: "Normal Upward (+20 bps)",
-					commentary: "US 10-Year Treasury yield consolidates near 4.18% as markets price in orderly FOMC rate adjustments. 10Y-2Y term spread indicates constructive macro conditions.",
+					yieldCurveSlope: "Normal Upward (+23 bps)",
+					commentary: "US 10-Year Treasury yield consolidates near 4.58% as markets price in orderly FOMC rate adjustments. 10Y-2Y term spread indicates constructive macro conditions.",
 					source: "Federal Reserve (FRED) & US Treasury",
 				}
 			: undefined,
 		globalMacroDesk: isGlobal
 			? {
-					dxyIndex: 103.85,
-					dxyChangePercent: -0.15,
-					bund10YYield: 2.32,
-					gilt10YYield: 4.24,
-					jgb10YYield: 0.95,
-					eurUsd: 1.085,
-					usdJpy: 151.8,
-					commentary: "Global macro transmission: Rangebound US Dollar Index (DXY 103.85) anchors cross-border liquidity. European Bunds and UK Gilts track disinflation trends.",
+					dxyIndex: 107.2,
+					dxyChangePercent: 0.12,
+					bund10YYield: 2.65,
+					gilt10YYield: 4.65,
+					jgb10YYield: 1.55,
+					eurUsd: 1.045,
+					usdJpy: 154.2,
+					usdInr: 84.5,
+					commentary: "Global macro transmission: US Dollar Index (DXY 107.2) anchors cross-border liquidity. European Bunds and UK Gilts track global rate cycle.",
 					source: "Bank for International Settlements (BIS) & Global FX Desks",
 				}
 			: undefined,
@@ -453,15 +455,15 @@ function getClientFallbackBrief(region: string): MarketBrief {
 							name: "Crude Oil (Brent)",
 							category: "Energy",
 							mcxSymbol: "CRUDEOIL",
-							mcxPrice: 9417,
+							mcxPrice: 6170,
 							mcxUnit: "₹ / bbl",
 							mcxChangePercent: 2.15,
 							cmxSymbol: "BZ=F (ICE Brent Futures / CFD)",
-							cmxPrice: 112.0,
+							cmxPrice: 73.0,
 							cmxUnit: "$ / bbl",
 							cmxChangePercent: 2.37,
 							trend: "Bullish",
-							macroImplication: "Brent crude CFD at $112.00/bbl (Day Range: $111.03–$114.29) trades significantly above India's comfort threshold (<$80), driving imported inflation and margin pressure.",
+							macroImplication: "Brent crude CFD within monitored range. India's $80 comfort threshold serves as the key gauge for imported inflation and margin pressure.",
 						},
 						{
 							id: "NATURAL_GAS",
@@ -495,9 +497,9 @@ function getClientFallbackBrief(region: string): MarketBrief {
 						},
 					],
 					crudeOilBreakevenStatus: {
-						brentUsd: 112.0,
+						brentUsd: 73.0,
 						inflationImpact: "Elevated",
-						commentary: "Brent crude CFD at $112.00/bbl surges above India's macroeconomic comfort band (<$80), increasing imported inflation and CAD pressure.",
+						commentary: "Brent crude CFD within monitored range. India's macroeconomic comfort band (<$80) is the key imported inflation trigger.",
 					},
 					goldSilverRatio: 80.1,
 					source: "MCX India & CMX / COMEX",
@@ -518,7 +520,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					{
 						sector: "Commodities & Energy (MCX / CMX)",
 						trend: "Elevated Input Pressure",
-						outlook: "Brent Crude CFD at $112.00/bbl (above India comfort band <$80); MCX Gold at ₹1,38,419/10g.",
+						outlook: "Brent Crude CFD within India comfort band monitoring; MCX Gold at ₹1,38,419/10g.",
 					},
 					{
 						sector: "Information Technology (Nifty IT)",
@@ -563,7 +565,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					{
 						sector: "Fixed Income / US Treasuries",
 						trend: "Yield Consolidation",
-						outlook: "10-year US Treasury hovering at 4.18% anticipating monetary policy adjustments.",
+						outlook: "10-year US Treasury hovering at 4.58% anticipating orderly FOMC monetary policy adjustments.",
 					},
 					{
 						sector: "Healthcare & Pharmaceuticals",
@@ -577,7 +579,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					},
 				],
 		keyRisks: isIndia
-			? "Elevated energy pricing (Brent CFD currently at $112.00/bbl), US Dollar Index (DXY) movements, global trade tariff negotiations, and shifting foreign institutional (FPI) derivative positions."
+			? "Commodity price volatility (Brent CFD monitored vs India comfort band), US Dollar Index (DXY) movements, global trade tariff negotiations, and shifting foreign institutional (FPI) derivative positions."
 			: isGlobal
 			? "Global geopolitical developments, shifting trade tariff policies, currency volatility (USD/JPY, EUR/USD), and divergence in central bank monetary easing cycles (Fed vs ECB vs BoJ)."
 			: "Interest rate trajectory, commercial real estate refinancing, and geopolitical trade developments.",
@@ -847,10 +849,10 @@ export default function AgentKnowledgeMarketBrief() {
 		const brief: MarketBrief = { ...rawBrief };
 		if (brief.keyRisks && typeof brief.keyRisks === "string") {
 			const liveBrent = brief.commodityRadar?.crudeOilBreakevenStatus?.brentUsd;
-			const brentDisplay = liveBrent ? `$${liveBrent}/bbl` : "$112.00/bbl";
+			const brentDisplay = liveBrent ? `$${liveBrent}/bbl` : "$73.00/bbl";
 			let cleaned = brief.keyRisks
 				.replace(/\$74\.8\/bbl/g, brentDisplay)
-				.replace(/74\.8/g, liveBrent ? `${liveBrent}` : "112.00")
+				.replace(/74\.8/g, liveBrent ? `${liveBrent}` : "73.00")
 				.replace(/~\$74[–-](\$?)78\/bbl/g, brentDisplay)
 				.replace(/\$74[–-](\$?)78\/bbl/g, brentDisplay)
 				.replace(/Brent currently at \$[0-9.]+\/bbl/g, `Brent currently at ${brentDisplay}`)
@@ -1238,7 +1240,7 @@ export default function AgentKnowledgeMarketBrief() {
 										Brent Crude (CFD)
 									</span>
 									<span className="text-sm font-bold text-amber-600 dark:text-amber-400">
-										${briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? 112.0}/bbl
+										${briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? 73.0}/bbl
 									</span>
 									<span className="text-[10px] text-amber-600 dark:text-amber-400">
 										{briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.inflationImpact === "Elevated" ? "Import Headwind" : "Comfort Band (<$80)"}
@@ -1250,7 +1252,7 @@ export default function AgentKnowledgeMarketBrief() {
 										USD / INR (FBIL)
 									</span>
 									<span className="text-sm font-bold text-foreground font-mono">
-										₹84.08
+										₹{((briefToDisplay.globalMacroDesk as any)?.usdInr ?? 84.5).toFixed(2)}
 									</span>
 									<span className="text-[10px] text-emerald-600 dark:text-emerald-400">Steady Reserve FX</span>
 								</div>
@@ -1268,11 +1270,11 @@ export default function AgentKnowledgeMarketBrief() {
 									</div>
 									<div className="flex flex-col items-end">
 										<span className="font-mono font-bold text-sm text-foreground">
-											${briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? 112.0}/bbl
+											${briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? 73.0}/bbl
 											<Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0 border-blue-400 text-blue-700 dark:text-blue-300">CFD</Badge>
 										</span>
 										<span className="font-mono text-xs text-muted-foreground">
-											₹{(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "CRUDE_OIL")?.mcxPrice ?? 9417).toLocaleString("en-IN")}/bbl
+											₹{(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "CRUDE_OIL")?.mcxPrice ?? 6170).toLocaleString("en-IN")}/bbl
 											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-400 text-emerald-700 dark:text-emerald-300">MCX</Badge>
 										</span>
 									</div>
@@ -1631,7 +1633,7 @@ export default function AgentKnowledgeMarketBrief() {
 											<span className="text-xs text-muted-foreground font-medium">10Y Benchmark Treasury</span>
 											<div className="mt-1 flex items-baseline gap-2">
 												<span className="text-xl font-bold font-mono text-foreground">
-													{safeNum(briefToDisplay.usFixedIncome.tenYearTreasury, 4.18)}%
+													{safeNum(briefToDisplay.usFixedIncome.tenYearTreasury, 4.58)}%
 												</span>
 											</div>
 											<p className="text-[11px] text-muted-foreground mt-1">Sovereign 10Y Reference</p>
@@ -1641,7 +1643,7 @@ export default function AgentKnowledgeMarketBrief() {
 											<span className="text-xs text-muted-foreground font-medium">2Y Treasury Yield</span>
 											<div className="mt-1 flex items-baseline gap-2">
 												<span className="text-xl font-bold font-mono text-foreground">
-													{safeNum(briefToDisplay.usFixedIncome.twoYearTreasury, 3.98)}%
+													{safeNum(briefToDisplay.usFixedIncome.twoYearTreasury, 4.35)}%
 												</span>
 											</div>
 											<p className="text-[11px] text-muted-foreground mt-1">Short-End Policy Proxy</p>
@@ -1710,11 +1712,11 @@ export default function AgentKnowledgeMarketBrief() {
 											<span className="text-xs text-muted-foreground font-medium">US Dollar Index (DXY)</span>
 											<div className="mt-1 flex items-baseline gap-2">
 												<span className="text-xl font-bold font-mono text-foreground">
-													{safeNum(briefToDisplay.globalMacroDesk.dxyIndex, 103.85)}
+													{safeNum(briefToDisplay.globalMacroDesk.dxyIndex, 107.2)}
 												</span>
 												<span className="text-xs font-mono font-semibold text-emerald-600 dark:text-emerald-400">
 													{safeNum(briefToDisplay.globalMacroDesk.dxyChangePercent) >= 0 ? "+" : ""}
-													{safeNum(briefToDisplay.globalMacroDesk.dxyChangePercent, -0.15)}%
+													{safeNum(briefToDisplay.globalMacroDesk.dxyChangePercent, 0.12)}%
 												</span>
 											</div>
 											<p className="text-[11px] text-muted-foreground mt-1">Cross-Border FX Anchor</p>
@@ -1724,7 +1726,7 @@ export default function AgentKnowledgeMarketBrief() {
 											<span className="text-xs text-muted-foreground font-medium">Germany 10Y Bund</span>
 											<div className="mt-1 flex items-baseline gap-2">
 												<span className="text-xl font-bold font-mono text-foreground">
-													{safeNum(briefToDisplay.globalMacroDesk.bund10YYield, 2.32)}%
+													{safeNum(briefToDisplay.globalMacroDesk.bund10YYield, 2.65)}%
 												</span>
 											</div>
 											<p className="text-[11px] text-muted-foreground mt-1">Eurozone Sovereign Anchor</p>
@@ -1734,10 +1736,10 @@ export default function AgentKnowledgeMarketBrief() {
 											<span className="text-xs text-muted-foreground font-medium">UK 10Y Gilt / Japan JGB</span>
 											<div className="mt-1 flex items-baseline gap-2">
 												<span className="text-xl font-bold font-mono text-foreground">
-													{safeNum(briefToDisplay.globalMacroDesk.gilt10YYield, 4.24)}%
+													{safeNum(briefToDisplay.globalMacroDesk.gilt10YYield, 4.65)}%
 												</span>
 												<span className="text-xs text-muted-foreground font-mono">
-													JGB: {safeNum(briefToDisplay.globalMacroDesk.jgb10YYield, 0.95)}%
+													JGB: {safeNum(briefToDisplay.globalMacroDesk.jgb10YYield, 1.55)}%
 												</span>
 											</div>
 											<p className="text-[11px] text-muted-foreground mt-1">G7 Sovereign Benchmarks</p>
@@ -1798,7 +1800,7 @@ export default function AgentKnowledgeMarketBrief() {
 												}`}
 											>
 												Crude Inflation: {briefToDisplay.commodityRadar.crudeOilBreakevenStatus.inflationImpact} ($
-												{safeNum(briefToDisplay.commodityRadar.crudeOilBreakevenStatus.brentUsd, 112.0)}/bbl)
+												{safeNum(briefToDisplay.commodityRadar.crudeOilBreakevenStatus.brentUsd, 73.0)}/bbl)
 											</Badge>
 										)}
 									</div>
