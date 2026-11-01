@@ -222,7 +222,7 @@ export default function LandingPage() {
 								Log In
 							</Button>
 							<Button
-								onClick={() => setLocation("/auth")}
+								onClick={() => setLocation("/auth?mode=register")}
 								className="text-sm font-medium shadow-lg shadow-primary/20 rounded-full px-6"
 							>
 								Get Started <ArrowRight className="w-4 h-4 ml-2" />
@@ -302,7 +302,7 @@ export default function LandingPage() {
 							<Button
 								onClick={() => {
 									setMobileMenuOpen(false);
-									setLocation("/auth");
+									setLocation("/auth?mode=register");
 								}}
 								className="w-full rounded-full"
 							>
@@ -337,7 +337,7 @@ export default function LandingPage() {
 
 					<div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto sm:max-w-none">
 						<Button
-							onClick={() => setLocation("/auth")}
+							onClick={() => setLocation("/auth?mode=register")}
 							size="lg"
 							className="w-full sm:w-auto text-base h-13 px-8 rounded-full shadow-xl shadow-primary/25 hover:scale-105 transition-all duration-300"
 						>
@@ -831,7 +831,7 @@ export default function LandingPage() {
 						Services LLP for institutional-grade portfolio oversight.
 					</p>
 					<Button
-						onClick={() => setLocation("/auth")}
+						onClick={() => setLocation("/auth?mode=register")}
 						size="lg"
 						className="text-base h-13 px-10 rounded-full shadow-2xl shadow-primary/30 hover:scale-105 transition-all"
 					>

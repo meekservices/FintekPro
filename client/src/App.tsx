@@ -110,6 +110,9 @@ function Router() {
 					{/* Public routes - no authentication or profile completion required */}
 					<Route path="/" component={LandingPage} />
 					<Route path="/auth" component={AuthPage} />
+					<Route path="/register">
+						<Redirect to="/auth?mode=register" />
+					</Route>
 					<Route path="/excel-addin" component={ExcelAddin} />
 					<Route path="/profile" component={Profile} />
 					<Route path="/profile/p/:code" component={PublicProfilePage} />
