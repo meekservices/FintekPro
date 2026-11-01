@@ -1715,19 +1715,25 @@ export class PickOfTheDayService {
 	}
 
 	async generateRationale(params: RationaleParams): Promise<string> {
-		// Retry AI call with exponential backoff (max 3 attempts: 1s, 2s, 4s)
-		// Falls back to rule-based rationale if all attempts fail (e.g. Gemini rate-limit at 9 AM IST)
-		const MAX_ATTEMPTS = 3;
+		// Retry AI call with exponential backoff (max 2 attempts with 4.5s deadline)
+		// Falls back to rule-based rationale if attempts fail or timeout (ensures lightning-fast daily pick generation)
+		const MAX_ATTEMPTS = 2;
 		for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
 			try {
 				const prompt = this.buildRationalePrompt(params);
 				const category = params.category || "stocks";
-				const { result } = await unifiedAIRecommendationEngine.runPrompt<string>({
+				const runPromptPromise = unifiedAIRecommendationEngine.runPrompt<string>({
 					prompt,
 					category,
 					responseParser: (text: string) => text,
 					fallback: () => this.generateFallbackRationale(params),
 				});
+				const { result } = await Promise.race([
+					runPromptPromise,
+					new Promise<{ result: string; modelUsed: any; cacheHit: boolean }>((_, reject) =>
+						setTimeout(() => reject(new Error("AI rationale generation timeout (4500ms)")), 4500),
+					),
+				]);
 				const rawResult = result || this.generateFallbackRationale(params);
 				const resultStr =
 					typeof rawResult === "string" ? rawResult : JSON.stringify(rawResult);
@@ -1741,8 +1747,8 @@ export class PickOfTheDayService {
 					);
 					return this.generateFallbackRationale(params);
 				}
-				// Exponential backoff: 1s, 2s, 4s
-				const delayMs = Math.pow(2, attempt - 1) * 1000;
+				// 1.5s delay before retry
+				const delayMs = 1500;
 				logger.warn(
 					`[PickOfTheDay] AI rationale attempt ${attempt} failed, retrying in ${delayMs}ms`,
 					{ event: "AI_RATIONALE_RETRY", attempt, delayMs, error: error instanceof Error ? error.message : String(error), retryable: true },

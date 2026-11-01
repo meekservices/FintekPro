@@ -447,6 +447,7 @@ export async function callPython<T = any>(
 	method: "GET" | "POST" = "GET",
 	body?: unknown,
 	userForToken?: any,
+	timeoutMs = 8000,
 ): Promise<T | null> {
 	const baseUrl = getBaseUrl();
 	if (!baseUrl) return null;
@@ -460,7 +461,7 @@ export async function callPython<T = any>(
 		const res = await fetchWithToken(user, url, {
 			method,
 			body: body !== undefined ? JSON.stringify(body) : undefined,
-			signal: AbortSignal.timeout(30_000),
+			signal: AbortSignal.timeout(timeoutMs),
 		});
 
 		if (!res.ok) {

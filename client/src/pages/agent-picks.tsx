@@ -200,6 +200,9 @@ type PicksApiResponse = {
 	isFallback?: boolean;
 	fallbackDate?: string;
 	message?: string;
+	isTradingDay?: boolean;
+	marketStatus?: "OPEN" | "CLOSED";
+	isWeekendOrHoliday?: boolean;
 };
 
 type StatsApiResponse = {
@@ -3413,11 +3416,22 @@ export default function AgentPicksPage() {
 											id="refresh-missing-picks-btn"
 											variant={isFallback ? "default" : "outline"}
 											size="sm"
-											onClick={() => catchupMutation.mutate()}
+											onClick={() => {
+												if (todayData?.isWeekendOrHoliday || todayData?.isTradingDay === false) {
+													toast({
+														title: "Markets Closed Today",
+														description: "NSE/BSE markets are closed on weekends and holidays. Daily picks are generated on trading days before 9:00 AM IST.",
+													});
+													return;
+												}
+												catchupMutation.mutate();
+											}}
 											disabled={catchupMutation.isPending}
 											className={`shrink-0 gap-2 ${
 												isFallback
-													? "bg-indigo-600 hover:bg-indigo-700 text-white"
+													? todayData?.isWeekendOrHoliday || todayData?.isTradingDay === false
+														? "bg-slate-700 hover:bg-slate-800 text-white"
+														: "bg-indigo-600 hover:bg-indigo-700 text-white"
 													: "text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40"
 											}`}
 										>
@@ -3427,7 +3441,9 @@ export default function AgentPicksPage() {
 											{catchupMutation.isPending
 												? "Generating..."
 												: isFallback
-													? `Generate Today's Picks`
+													? todayData?.isWeekendOrHoliday || todayData?.isTradingDay === false
+														? "Market Closed"
+														: `Generate Today's Picks`
 													: "Fill Missing Picks"}
 										</Button>
 									)}
@@ -4111,7 +4127,7 @@ export default function AgentPicksPage() {
 
 									{/* Results area */}
 									<div className="space-y-6">
-										{(generateAIMutation.isPending || quickAILoading) && (
+										{(generateAIMutation.isPending || (quickAILoading && aiRecommendations.length === 0)) && (
 											<Card>
 												<CardContent className="py-12 text-center">
 													<RefreshCw className="h-8 w-8 animate-spin mx-auto text-primary mb-4" />
@@ -5056,25 +5072,42 @@ export default function AgentPicksPage() {
 
 								{/* ── Fallback picks banner ── */}
 								{isFallback && (
-									<div className="flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-4 py-3 text-sm">
-										<span className="text-xl shrink-0">⚠️</span>
-										<div className="flex-1 min-w-0">
-											<p className="font-semibold text-amber-800 dark:text-amber-300">
-												Showing picks from {fallbackDate} — today's picks haven't been generated yet
-											</p>
-											<p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-												Click "Generate Now" to get fresh AI picks for today
-											</p>
+									todayData?.isWeekendOrHoliday || todayData?.isTradingDay === false ? (
+										<div className="flex items-center gap-3 rounded-xl border border-blue-300 bg-blue-50/70 dark:bg-blue-950/30 dark:border-blue-800 px-4 py-3 text-sm">
+											<span className="text-xl shrink-0">🏛️</span>
+											<div className="flex-1 min-w-0">
+												<p className="font-semibold text-blue-900 dark:text-blue-300">
+													Markets Closed Today — Showing Latest Active Picks from {fallbackDate}
+												</p>
+												<p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">
+													NSE/BSE equity markets are closed on weekends and holidays. Today's live prices and picks reflect the most recent active trading session.
+												</p>
+											</div>
+											<div className="shrink-0 px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700">
+												Market Closed
+											</div>
 										</div>
-										<button
-											onClick={() => catchupMutation.mutate()}
-											disabled={catchupMutation.isPending}
-											className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-60 transition-colors"
-										>
-											<RefreshCw className={`h-3.5 w-3.5 ${catchupMutation.isPending ? "animate-spin" : ""}`} />
-											{catchupMutation.isPending ? "Generating..." : "Generate Now"}
-										</button>
-									</div>
+									) : (
+										<div className="flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-4 py-3 text-sm">
+											<span className="text-xl shrink-0">⚠️</span>
+											<div className="flex-1 min-w-0">
+												<p className="font-semibold text-amber-800 dark:text-amber-300">
+													Showing picks from {fallbackDate} — today's picks haven't been generated yet
+												</p>
+												<p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+													Click "Generate Now" to get fresh AI picks for today
+												</p>
+											</div>
+											<button
+												onClick={() => catchupMutation.mutate()}
+												disabled={catchupMutation.isPending}
+												className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-60 transition-colors"
+											>
+												<RefreshCw className={`h-3.5 w-3.5 ${catchupMutation.isPending ? "animate-spin" : ""}`} />
+												{catchupMutation.isPending ? "Generating..." : "Generate Now"}
+											</button>
+										</div>
+									)
 								)}
 
 										{filteredTodayPicks.length > 0 &&

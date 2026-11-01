@@ -27,6 +27,7 @@ import { abTestingService } from "./ab-testing-service";
 import { nanoid } from "nanoid";
 import { getEnrichedStockSnapshot } from "./screener/enriched-stock-data";
 import { callPython } from "../clients/python-client";
+import { telemetryBus } from "./engine-telemetry-bus";
 import { db } from "../db";
 import { mutualFundMetrics } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
@@ -281,7 +282,7 @@ const CATEGORY_CONFIG: Record<
 
 class UnifiedAIRecommendationEngine {
 	private _regimeCache: {
-		data: { regime: string; signal_score: number; confidence: number };
+		data: { regime: string; signal_score: number; confidence: number } | null;
 		fetchedAt: number;
 	} | null = null;
 
@@ -318,9 +319,12 @@ class UnifiedAIRecommendationEngine {
 		}
 
 		let enrichedProduct = product;
-		if (product.category === "stocks" && product.ticker) {
+		if (product.category === "stocks" && product.ticker && !product.rawData?.enrichedFMP) {
 			try {
-				const snapshot = await getEnrichedStockSnapshot(product.ticker);
+				const snapshot = await Promise.race([
+					getEnrichedStockSnapshot(product.ticker),
+					new Promise<null>((r) => setTimeout(() => r(null), 2000)),
+				]);
 				if (snapshot) {
 					enrichedProduct = {
 						...product,
@@ -545,10 +549,27 @@ class UnifiedAIRecommendationEngine {
 		) {
 			return this._regimeCache.data;
 		}
+
+		// Fast path 1: Check shared in-memory EngineTelemetryBus (0ms latency, cross-engine aligned)
+		const sharedRegime = telemetryBus.getLatestRegime();
+		if (sharedRegime && sharedRegime !== "unknown") {
+			const busData = {
+				regime: sharedRegime,
+				signal_score: 50,
+				confidence: 75,
+			};
+			this._regimeCache = { data: busData, fetchedAt: Date.now() };
+			return busData;
+		}
+
 		try {
-			const result = await callPython<any>("/api/regime/detect", "POST", {
-				lookback_days: 90,
-			});
+			const result = await callPython<any>(
+				"/api/regime/detect",
+				"POST",
+				{ lookback_days: 90 },
+				undefined,
+				3000, // 3-second fast timeout
+			);
 			if (result?.regime) {
 				this._regimeCache = {
 					data: {
@@ -561,8 +582,13 @@ class UnifiedAIRecommendationEngine {
 				return this._regimeCache.data;
 			}
 		} catch {
-			// sidecar unavailable — fall through
+			// sidecar unavailable — fall through and cache null for 2 minutes to prevent repeated hangs
 		}
+
+		this._regimeCache = {
+			data: null,
+			fetchedAt: Date.now() - (TTL_MS - 2 * 60 * 1000), // recheck in 2 min instead of 5
+		};
 		return null;
 	}
 

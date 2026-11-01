@@ -367,6 +367,7 @@ async function runConcurrent<T>(
 
 /** Cached flag: undefined = unchecked, true = has rows, false = empty table */
 let _metricsTableHasData: boolean | undefined;
+let _metricsTableCheckedAt = 0;
 
 // ── Phase 3: Weight override cache ─────────────────────────────────────────────
 // Reads pick_scoring_weight_overrides from adminSettings (written by outcome-analyzer).
@@ -442,16 +443,16 @@ export class StockStrategy extends BaseStrategy {
 					const km = p.keyMetrics as Record<string, any> | null;
 					if (km?.broadSector) rawSectors.add(String(km.broadSector));
 				}
-				// Cap: exclude at most 3 sectors so at least 2 remain fresh
-				const SECTOR_EXCLUSION_CAP = 3;
+				// Cap: exclude at most 1 sector (from yesterday) so at least 4 sectors always remain active
+				const SECTOR_EXCLUSION_CAP = 1;
 				for (const s of rawSectors) {
 					if (recentBroadSectors.size >= SECTOR_EXCLUSION_CAP) break;
 					recentBroadSectors.add(s);
 				}
 				if (recentBroadSectors.size > 0) {
 					logger.info(
-						`[StockStrategy] BUG-2 fix: excluding ${recentBroadSectors.size} recently-used broad sectors ` +
-						`(cap ${SECTOR_EXCLUSION_CAP}, 3-day window): ${[...recentBroadSectors].join(", ")}`,
+						`[StockStrategy] De-prioritizing ${recentBroadSectors.size} recently-used broad sector(s) ` +
+						`(cap ${SECTOR_EXCLUSION_CAP}): ${[...recentBroadSectors].join(", ")}`,
 					);
 				}
 			} catch {
@@ -532,6 +533,37 @@ export class StockStrategy extends BaseStrategy {
 					logger.warn(
 						`[StockStrategy] Failed to pick for sector ${broadSector.label}: ${sectorErr instanceof Error ? sectorErr.message : String(sectorErr)}`,
 					);
+				}
+			}
+
+			// If fewer than 3 picks generated, backfill from previously skipped sectors
+			if (results.length < 3 && recentBroadSectors.size > 0) {
+				logger.info(
+					`[StockStrategy] Backfill trigger: only ${results.length} picks generated. Evaluating previously de-duplicated sector(s)...`,
+				);
+				for (const broadSector of orderedSectors) {
+					if (results.length >= 5) break;
+					if (results.some((r) => (r.keyMetrics as any)?.broadSector === broadSector.id)) continue;
+					try {
+						const pick = await this.pickBestForSector(
+							broadSector,
+							context,
+							usedIds,
+							fiiSignal,
+							results.length,
+							shortTermCount,
+							mediumTermCount,
+							intradayCount,
+							ultraShortCount,
+						);
+						if (pick) {
+							results.push(pick);
+							if (pick.instrumentId) usedIds.add(pick.instrumentId);
+							if (pick.symbol) usedIds.add(pick.symbol.toUpperCase());
+						}
+					} catch (backfillErr: any) {
+						logger.warn(`[StockStrategy] Backfill error for ${broadSector.label}:`, backfillErr?.message);
+					}
 				}
 			}
 
@@ -1108,19 +1140,7 @@ export class StockStrategy extends BaseStrategy {
 			}
 		}
 
-		// Score all candidates, pick the top scorer
-		// ── Fix 2: Pre-warm AI alpha cache in parallel ──────────────────────────
-		await Promise.allSettled(
-			eligibleStocks
-				.filter((s) => s.symbol)
-				.map((s) =>
-					this.getAIAlphaBoost(
-						s,
-						s.symbol ? enrichedSnapshots.get(s.symbol.toUpperCase()) || null : null,
-					),
-				),
-		);
-
+		// Score all candidates using fast multi-factor quantitative ranking
 		// BUG-4 fix: Pre-fetch RSI from golden_prices for ALL candidates in parallel
 		// so score() receives a unified RSI value instead of fetching it per-stock
 		// inconsistently from two different sources (enriched.technicals vs golden_prices).
@@ -1144,6 +1164,7 @@ export class StockStrategy extends BaseStrategy {
 			/* non-fatal — defaults to empty map */
 		}
 
+		// Initial pass: fast quantitative scoring without external AI boost (runs in <5ms)
 		const scoringTasks = eligibleStocks.map((stock) => async () => {
 			const symUpper = stock.symbol ? stock.symbol.toUpperCase() : "";
 			const thematicInfo = symUpper ? (thematicMap.get(symUpper) ?? null) : null;
@@ -1166,6 +1187,7 @@ export class StockStrategy extends BaseStrategy {
 					rsiVal,
 					thematicInfo,
 					isEarlyBreakout,
+					false, // fast quant-only pass
 				),
 			};
 		});
@@ -1173,6 +1195,21 @@ export class StockStrategy extends BaseStrategy {
 			(a, b) => b.score - a.score,
 		);
 		if (scored.length === 0) return null;
+
+		// ── Targeted AI Alpha Boost on Top 5 Quant Leaders ──────────────────────
+		// Instead of firing 50 external AI evaluations per sector, evaluate only the
+		// top 5 quantitative candidates. Eliminates 90% of AI calls while ensuring
+		// the sector winner receives full AI conviction weighting.
+		const topFive = scored.slice(0, 5);
+		await Promise.allSettled(
+			topFive.map(async (candidate) => {
+				if (!candidate.stock.symbol) return;
+				const boost = await this.getAIAlphaBoost(candidate.stock, candidate.enriched);
+				candidate.score += boost;
+			}),
+		);
+		topFive.sort((a, b) => b.score - a.score);
+		scored.splice(0, topFive.length, ...topFive);
 
 		// ── Institutional Candidate Selection Loop with Cross-Engine Consensus Guard ──
 		// Previously, scored[0] was selected unconditionally, even if it had a "Weak"
@@ -1490,6 +1527,8 @@ export class StockStrategy extends BaseStrategy {
 		thematicInfo?: ThematicSynergyInfo | null,
 		/** Optional pre-computed Stage-2 Early Breakout flag */
 		isEarlyBreakoutFlag?: boolean | null,
+		/** Whether to evaluate AI Alpha Boost (defaults to true; set to false for fast initial batch quant ranking) */
+		includeAiBoost = true,
 	): Promise<number> {
 		let score = 0;
 		const rsiForScore = rsiOverride ?? enriched?.technicals?.rsi ?? null;
@@ -1739,7 +1778,7 @@ export class StockStrategy extends BaseStrategy {
 		// Queries the unified AI recommendation engine for additional conviction.
 		// Adds up to +20 points based on AI-assessed signal strength.
 		// Non-fatal: if AI is unavailable, pick generation continues with quant score only.
-		if (stock.symbol) {
+		if (includeAiBoost && stock.symbol) {
 			const aiBoost = await this.getAIAlphaBoost(stock, enriched);
 			score += aiBoost;
 		}
@@ -1935,8 +1974,15 @@ export class StockStrategy extends BaseStrategy {
 				},
 			};
 
-			const analysis =
-				await unifiedAIRecommendationEngine.analyzeProduct(productData);
+			const analysis = await Promise.race([
+				unifiedAIRecommendationEngine.analyzeProduct(productData),
+				new Promise<null>((r) => setTimeout(() => r(null), 2500)),
+			]);
+
+			if (!analysis) {
+				_aiAlphaCache.set(symbol, { score: 0, ts: Date.now() });
+				return 0;
+			}
 
 			// Map the overall score (0-100) to a boost (0-20 pts).
 			// Only apply a meaningful boost for buy-rated, high-confidence picks.
@@ -1985,16 +2031,19 @@ export class StockStrategy extends BaseStrategy {
 			// (±75pts of 120pt scale) were permanently dead zeros.
 			// New behaviour: table-empty resets after 1 hour so it re-checks on the next
 			// generation run (FinancialMetricsRefreshService may have populated it by then).
-			if (_metricsTableHasData === false) {
-				// Allow re-check after 1 hour (set to undefined so next call re-queries)
-				setTimeout(() => { _metricsTableHasData = undefined; }, 60 * 60 * 1000);
+			if (_metricsTableHasData === false && Date.now() - _metricsTableCheckedAt < 60 * 60 * 1000) {
 				return {};
 			}
-			if (_metricsTableHasData === undefined) {
-				const [{ value }] = await db
-					.select({ value: count() })
-					.from(stockFinancialMetrics);
-				_metricsTableHasData = (value ?? 0) > 0;
+			if (_metricsTableHasData === undefined || Date.now() - _metricsTableCheckedAt >= 60 * 60 * 1000) {
+				_metricsTableCheckedAt = Date.now();
+				try {
+					const [{ value }] = await db
+						.select({ value: count() })
+						.from(stockFinancialMetrics);
+					_metricsTableHasData = (value ?? 0) > 0;
+				} catch {
+					_metricsTableHasData = false;
+				}
 				if (!_metricsTableHasData) {
 					logger.warn(
 						"[StockStrategy] BUG-3: stockFinancialMetrics table is EMPTY — " +

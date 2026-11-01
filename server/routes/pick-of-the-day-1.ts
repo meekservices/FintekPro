@@ -152,11 +152,18 @@ router.get("/today", async (req, res) => {
 		const fallbackDate =
 			isFallback && picks.length > 0 ? picks[0].recoDate : undefined;
 
+		const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+		const todayIST = new Date(Date.now() + IST_OFFSET_MS)
+			.toISOString()
+			.split("T")[0];
+		const isMarketTradingDay = marketHolidayService.isTradingDay(todayIST, "NSE");
+
 		res.json({
 			success: true,
-			date: new Date(Date.now() + 5.5 * 60 * 60 * 1000)
-				.toISOString()
-				.split("T")[0],
+			date: todayIST,
+			isTradingDay: isMarketTradingDay,
+			marketStatus: isMarketTradingDay ? "OPEN" : "CLOSED",
+			isWeekendOrHoliday: !isMarketTradingDay,
 			// Role-adaptive depth: admin/agent see full scoring; retail sees headline rationale
 			picks: formatPicksForRole(picks as any, (req as any).user?.role),
 			categoryLastUpdated,
@@ -169,7 +176,9 @@ router.get("/today", async (req, res) => {
 				picks.length === 0
 					? "No picks generated yet. Picks will be auto-generated daily at 9:00 AM IST."
 					: isFallback
-						? `Showing most recent picks from ${fallbackDate}. Today's picks will be generated shortly.`
+						? !isMarketTradingDay
+							? `Markets are closed today (${new Date().toLocaleDateString("en-IN", { weekday: "long" })}). Showing latest active market picks from ${fallbackDate}.`
+							: `Showing most recent picks from ${fallbackDate}. Today's picks will be generated shortly.`
 						: undefined,
 			meta: {
 				timestamp: new Date().toISOString(),

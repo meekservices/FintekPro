@@ -17,6 +17,7 @@ import {
 import { financialMetricsCalculator } from "./financial-metrics-calculator";
 import {
 	getEnrichedStockSnapshot,
+	getEnrichedStockSnapshotsFromMaster,
 	type EnrichedStockSnapshot,
 } from "./screener/enriched-stock-data";
 import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
@@ -180,7 +181,7 @@ class AIStockRecommendationService {
 		string,
 		{ recommendations: StockRecommendation[]; timestamp: Date }
 	>();
-	private readonly CACHE_TTL_MS = 15 * 60 * 1000;
+	private readonly CACHE_TTL_MS = 30 * 60 * 1000;
 	private readonly BUDGET_2024_STCG_RATE = 20;
 	private readonly BUDGET_2024_LTCG_RATE = 12.5;
 	private readonly LTCG_EXEMPTION_LIMIT = 125000;
@@ -903,141 +904,136 @@ class AIStockRecommendationService {
 	}
 
 	private async enhanceWithLiveData(stocks: any[]): Promise<any[]> {
+		if (!stocks || stocks.length === 0) return [];
 		try {
-			const yahooFinance = (await import("yahoo-finance2")).default;
+			const symbols = stocks
+				.map((s) => s.symbol?.toUpperCase()?.trim())
+				.filter(Boolean) as string[];
 
-			const enhancedStocks = await Promise.all(
-				stocks.map(async (stock) => {
-					// Enrich fundamentals and historical returns using multi-tier engine
-					await this.enrichStockFundamentalsAndReturns(stock);
+			// 1. Single bulk database fetch for master snapshots (eliminates 100 individual N+1 DB queries)
+			let snapshotsMap = new Map<string, EnrichedStockSnapshot>();
+			try {
+				snapshotsMap = await getEnrichedStockSnapshotsFromMaster(symbols);
+			} catch (snapshotErr: any) {
+				logger.warn("[AI Recommendations] Master snapshots bulk query fallback:", snapshotErr?.message);
+			}
 
-					let enrichedSnapshot: EnrichedStockSnapshot | null = null;
-					try {
-						enrichedSnapshot = await getEnrichedStockSnapshot(stock.symbol);
-					} catch (err) {
-						// Optional FMP snapshot
+			// 2. Single batch live quote fetch from Upstox (eliminates 100 individual HTTP calls)
+			let quotesMap = new Map<string, any>();
+			if (upstoxMarketDataService.isReady()) {
+				try {
+					const bRes = await upstoxMarketDataService.getBatchQuotes(symbols, "NSE");
+					if (bRes.success && bRes.data) {
+						quotesMap = bRes.data;
 					}
+				} catch (upstoxErr: any) {
+					logger.warn("[AI Recommendations] Upstox batch quotes fallback:", upstoxErr?.message);
+				}
+			}
 
-					const ef = enrichedSnapshot?.fundamentals;
-					const eg = enrichedSnapshot?.growth;
-					const et = enrichedSnapshot?.technicals;
-					const ed = enrichedSnapshot?.dcf;
-					const er = enrichedSnapshot?.companyRating;
-					const cachedFundamentals =
-						this.FUNDAMENTALS_CACHE[stock.symbol] || {};
+			// 3. In-memory fast synchronous enrichment
+			return stocks.map((stock) => {
+				const sym = stock.symbol?.toUpperCase();
+				const enrichedSnapshot = sym ? snapshotsMap.get(sym) || null : null;
+				const quote = sym ? quotesMap.get(sym) || null : null;
 
-					const enrichedBase: any = {};
-					if (ef) {
-						enrichedBase.peRatio =
-							ef.peRatio ?? stock.peRatio ?? cachedFundamentals.peRatio;
-						enrichedBase.pbRatio =
-							ef.pbRatio ?? stock.pbRatio ?? cachedFundamentals.pbRatio;
-						enrichedBase.roe = ef.roe ?? stock.roe ?? cachedFundamentals.roe;
-						enrichedBase.roic = ef.roic ?? cachedFundamentals.roic;
-						enrichedBase.debtToEquity =
-							ef.debtToEquity ??
-							stock.debtToEquity ??
-							cachedFundamentals.debtToEquity;
-						enrichedBase.currentRatio =
-							ef.currentRatio ??
-							stock.currentRatio ??
-							cachedFundamentals.currentRatio;
-						enrichedBase.dividendYield =
-							ef.dividendYield ??
-							stock.dividendYield ??
-							cachedFundamentals.dividendYield;
-						enrichedBase.evToEbitda =
-							ef.evToEbitda ?? cachedFundamentals.evToEbitda;
-					} else {
-						enrichedBase.peRatio = stock.peRatio || cachedFundamentals.peRatio;
-						enrichedBase.pbRatio = stock.pbRatio || cachedFundamentals.pbRatio;
-						enrichedBase.roe = stock.roe || cachedFundamentals.roe;
-						enrichedBase.dividendYield =
-							stock.dividendYield || cachedFundamentals.dividendYield;
-						enrichedBase.debtToEquity = stock.debtToEquity || cachedFundamentals.debtToEquity;
-						enrichedBase.currentRatio = stock.currentRatio || cachedFundamentals.currentRatio;
-					}
-					enrichedBase.roce = stock.roce || cachedFundamentals.roce;
-					enrichedBase.eps = stock.eps;
+				const ef = enrichedSnapshot?.fundamentals;
+				const eg = enrichedSnapshot?.growth;
+				const et = enrichedSnapshot?.technicals;
+				const ed = enrichedSnapshot?.dcf;
+				const er = enrichedSnapshot?.companyRating;
+				const cachedFundamentals =
+					(sym ? this.FUNDAMENTALS_CACHE[sym] : null) || {};
 
-					if (eg) {
-						enrichedBase.revenueGrowth = eg.revenueGrowth;
-						enrichedBase.epsGrowth = eg.epsGrowth;
-						enrichedBase.fcfGrowth = eg.freeCashFlowGrowth;
-					}
+				const enrichedBase: any = {};
+				if (ef) {
+					enrichedBase.peRatio =
+						ef.peRatio ?? stock.peRatio ?? cachedFundamentals.peRatio;
+					enrichedBase.pbRatio =
+						ef.pbRatio ?? stock.pbRatio ?? cachedFundamentals.pbRatio;
+					enrichedBase.roe = ef.roe ?? stock.roe ?? cachedFundamentals.roe;
+					enrichedBase.roic = ef.roic ?? cachedFundamentals.roic;
+					enrichedBase.debtToEquity =
+						ef.debtToEquity ??
+						stock.debtToEquity ??
+						cachedFundamentals.debtToEquity;
+					enrichedBase.currentRatio =
+						ef.currentRatio ??
+						stock.currentRatio ??
+						cachedFundamentals.currentRatio;
+					enrichedBase.dividendYield =
+						ef.dividendYield ??
+						stock.dividendYield ??
+						cachedFundamentals.dividendYield;
+					enrichedBase.evToEbitda =
+						ef.evToEbitda ?? cachedFundamentals.evToEbitda;
+				} else {
+					enrichedBase.peRatio = stock.peRatio || cachedFundamentals.peRatio;
+					enrichedBase.pbRatio = stock.pbRatio || cachedFundamentals.pbRatio;
+					enrichedBase.roe = stock.roe || cachedFundamentals.roe;
+					enrichedBase.dividendYield =
+						stock.dividendYield || cachedFundamentals.dividendYield;
+					enrichedBase.debtToEquity = stock.debtToEquity || cachedFundamentals.debtToEquity;
+					enrichedBase.currentRatio = stock.currentRatio || cachedFundamentals.currentRatio;
+				}
+				enrichedBase.roce = stock.roce || cachedFundamentals.roce;
+				enrichedBase.eps = stock.eps;
 
-					if (et) {
-						enrichedBase.enrichedRsi = et.rsi;
-						enrichedBase.enrichedSma50 = et.sma50;
-						enrichedBase.enrichedSma200 = et.sma200;
-						enrichedBase.enrichedEma20 = et.ema20;
-						enrichedBase.enrichedMacd = et.macd;
-					}
+				if (eg) {
+					enrichedBase.revenueGrowth = eg.revenueGrowth;
+					enrichedBase.epsGrowth = eg.epsGrowth;
+					enrichedBase.fcfGrowth = eg.freeCashFlowGrowth;
+				}
 
-					if (ed) {
-						enrichedBase.dcfValue = ed.dcfValue;
-						enrichedBase.dcfUpside = ed.upsidePercent;
-					}
+				if (et) {
+					enrichedBase.enrichedRsi = et.rsi;
+					enrichedBase.enrichedSma50 = et.sma50;
+					enrichedBase.enrichedSma200 = et.sma200;
+					enrichedBase.enrichedEma20 = et.ema20;
+					enrichedBase.enrichedMacd = et.macd;
+				}
 
-					if (er) {
-						enrichedBase.fmpRating = er.rating;
-						enrichedBase.ratingScore = er.ratingScore;
-					}
+				if (ed) {
+					enrichedBase.dcfValue = ed.dcfValue;
+					enrichedBase.dcfUpside = ed.upsidePercent;
+				}
 
-					try {
-						const quote = await unifiedStockPriceService.getPrice(stock.symbol, "NSE");
-						let livePrice = quote?.price && quote.price > 0 ? quote.price : stock.currentPrice;
-						if (String(stock.symbol ?? "").toUpperCase() === "SERVICE" && (!livePrice || Number(livePrice) < 60)) {
-							livePrice = 69.15;
-						}
+				if (er) {
+					enrichedBase.fmpRating = er.rating;
+					enrichedBase.ratingScore = er.ratingScore;
+				}
 
-						return {
-							...stock,
-							...enrichedBase,
-							enrichedSnapshot,
-							liveData: {
-								currentPrice: livePrice,
-								previousClose: quote?.previousClose,
-								dayChange: quote?.change,
-								dayChangePercent: quote?.changePercent,
-								weekHigh52: quote?.high,
-								weekLow52: quote?.low,
-								movingAvg50: enrichedBase.enrichedSma50,
-								movingAvg200: enrichedBase.enrichedSma200,
-								volume: quote?.volume,
-								peRatio: enrichedBase.peRatio,
-								pbRatio: enrichedBase.pbRatio,
-								eps: enrichedBase.eps || stock.eps,
-								dividendYield: enrichedBase.dividendYield,
-								roe: enrichedBase.roe || stock.roe || cachedFundamentals.roe,
-								roce:
-									enrichedBase.roce || stock.roce || cachedFundamentals.roce,
-							},
-						};
-					} catch (err) {
-						return {
-							...stock,
-							...enrichedBase,
-							enrichedSnapshot,
-							liveData: {
-								currentPrice: stock.currentPrice,
-								movingAvg50: enrichedBase.enrichedSma50,
-								movingAvg200: enrichedBase.enrichedSma200,
-								peRatio: enrichedBase.peRatio,
-								pbRatio: enrichedBase.pbRatio,
-								roe: enrichedBase.roe,
-								roce: enrichedBase.roce,
-								eps: enrichedBase.eps || stock.eps,
-								dividendYield: enrichedBase.dividendYield,
-							},
-						};
-					}
-				}),
-			);
+				let livePrice = quote?.last_price && quote.last_price > 0 ? quote.last_price : stock.currentPrice;
+				if (sym === "SERVICE" && (!livePrice || Number(livePrice) < 60)) {
+					livePrice = 69.15;
+				}
 
-			return enhancedStocks;
+				return {
+					...stock,
+					...enrichedBase,
+					enrichedSnapshot,
+					liveData: {
+						currentPrice: livePrice,
+						previousClose: quote?.ohlc?.close ?? quote?.previousClose,
+						dayChange: quote?.change,
+						dayChangePercent: quote?.change_percent ?? quote?.dayChangePercent,
+						weekHigh52: quote?.week_52_high ?? quote?.weekHigh52,
+						weekLow52: quote?.week_52_low ?? quote?.weekLow52,
+						movingAvg50: enrichedBase.enrichedSma50,
+						movingAvg200: enrichedBase.enrichedSma200,
+						volume: quote?.volume,
+						peRatio: enrichedBase.peRatio,
+						pbRatio: enrichedBase.pbRatio,
+						eps: enrichedBase.eps || stock.eps,
+						dividendYield: enrichedBase.dividendYield,
+						roe: enrichedBase.roe || stock.roe || cachedFundamentals.roe,
+						roce:
+							enrichedBase.roce || stock.roce || cachedFundamentals.roce,
+					},
+				};
+			});
 		} catch (error) {
-			logger.error("Error fetching live data:", error);
+			logger.error("Error enhancing live data in batch:", error);
 			return stocks;
 		}
 	}
@@ -1505,36 +1501,38 @@ class AIStockRecommendationService {
 		scoredStocks: ScoredStock[],
 		filters: StockRecommendationFilters,
 	): Promise<StockRecommendation[]> {
-		const recommendations: StockRecommendation[] = [];
-		const batchSize = 5;
+		const targetCount = Math.min(scoredStocks.length, filters.maxResults || 10);
+		const topCandidates = scoredStocks.slice(0, targetCount);
 
-		for (let i = 0; i < scoredStocks.length; i += batchSize) {
-			const batch = scoredStocks.slice(i, i + batchSize);
-			const batchRecommendations = await Promise.all(
-				batch.map(async (scored) => {
-					try {
-						const aiAnalysis = await this.getGeminiAnalysis(scored, filters);
-						return this.buildAIRecommendation(
-							scored,
-							aiAnalysis,
-							filters.timeHorizon || "medium_term",
-						);
-					} catch (error) {
-						logger.warn(
-							`AI analysis failed for ${scored.stock.symbol}, using rule-based: ${(error as Error)?.message || String(error)}`,
-						);
-						return this.buildRuleBasedRecommendation(
-							scored,
-							filters.timeHorizon || "medium_term",
-							filters.riskLevel || "moderate",
-						);
-					}
-				}),
-			);
-			recommendations.push(...batchRecommendations);
-		}
+		// Run AI evaluations concurrently with a strict 4-second timeout per candidate
+		const results = await Promise.all(
+			topCandidates.map(async (scored) => {
+				try {
+					const aiAnalysis = await Promise.race([
+						this.getGeminiAnalysis(scored, filters),
+						new Promise<null>((_, reject) =>
+							setTimeout(() => reject(new Error("AI analysis timeout (4000ms)")), 4000),
+						),
+					]);
+					return this.buildAIRecommendation(
+						scored,
+						aiAnalysis,
+						filters.timeHorizon || "medium_term",
+					);
+				} catch (error) {
+					logger.warn(
+						`[FASP-AI] AI synthesis fast fallback for ${scored.stock.symbol}: ${(error as Error)?.message || String(error)}`,
+					);
+					return this.buildRuleBasedRecommendation(
+						scored,
+						filters.timeHorizon || "medium_term",
+						filters.riskLevel || "moderate",
+					);
+				}
+			}),
+		);
 
-		return recommendations;
+		return results;
 	}
 
 	private async getGeminiAnalysis(
