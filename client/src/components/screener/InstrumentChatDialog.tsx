@@ -29,7 +29,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
 	Bot,
 	User,
@@ -134,6 +133,29 @@ export function InstrumentChatDialog({
 					"Is now a good entry point for systematic SIP?",
 					"What are key support and resistance levels?",
 				];
+			case "commodity":
+				return [
+					"What are the primary macro demand-supply drivers for this commodity?",
+					"How effective is this as an inflation and currency depreciation hedge?",
+					"Should an investor gain exposure via Gold/Silver ETFs, SGBs, or physical?",
+					"What is the historical correlation with domestic and global equities?",
+				];
+			case "us_stock":
+			case "global_stock":
+				return [
+					"What are the global competitive moats and technological leadership factors?",
+					"How do currency movements (USD/INR) impact real returns under LRS?",
+					"What are the tax implications under RBI Liberalised Remittance Scheme?",
+					"Compare valuation multiples (P/E, EV/EBITDA) with 5-year historical medians",
+				];
+			case "debt":
+			case "bond":
+				return [
+					"Explain the credit rating, default risk, and sovereign guarantee status",
+					"What is the duration risk and yield-to-maturity (YTM) vs bank FDs?",
+					"What are the tax efficiency and capital gains rules for this debt security?",
+					"How will future RBI interest rate cuts impact bond price appreciation?",
+				];
 			case "stock":
 				return [
 					"Explain investment thesis, moat, and valuation",
@@ -147,12 +169,6 @@ export function InstrumentChatDialog({
 					"Is the expense ratio justified against benchmark?",
 					"How has the scheme performed during market downturns?",
 					"Recommend ideal investment horizon and risk profile",
-				];
-			case "bond":
-				return [
-					"Analyze credit quality, safety, and issuer rating",
-					"What is the effective post-tax yield to maturity?",
-					"How will interest rate shifts affect duration risk?",
 				];
 			default:
 				return [
@@ -173,6 +189,12 @@ export function InstrumentChatDialog({
 					? "Thematic Smallcase Basket"
 					: instType === "index"
 					? "Market Benchmark Index"
+					: instType === "commodity"
+					? "Commodity Benchmark"
+					: instType === "us_stock" || instType === "global_stock"
+					? "US & Global Equity"
+					: instType === "debt" || instType === "bond"
+					? "Debt & Fixed Income Instrument"
 					: instType === "stock"
 					? "Listed Equity"
 					: instType.toUpperCase();

@@ -64,7 +64,10 @@ class BlackLittermanEngine {
 			sgb: ["gold", "commodities"],
 			etfs: ["equity", "index", "equity_largecap"],
 			reits_invits: ["reit", "real_estate", "alternatives"],
-			global_stocks: ["international", "equity_us", "equity_global"],
+			global_stocks: ["international", "equity_us", "equity_global", "us_stocks"],
+			us_stocks: ["international", "equity_us", "equity_global", "global_stocks"],
+			commodities: ["gold", "sgb", "silver", "energy", "commodities"],
+			debt_instrument: ["debt", "bonds", "gsec", "fixed_income"],
 		};
 
 		const candidateAliases = aliases[lower] ?? [];

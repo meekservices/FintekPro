@@ -118,6 +118,15 @@ export class SGBStrategy extends BaseStrategy {
 	 */
 	// line 73: Promise<number | null> — required by BaseStrategy interface
 	async getLivePrice(_instrumentId: string): Promise<number | null> {
+		// Tier 0: Authoritative Gold benchmark from Golden Pricing Engine
+		try {
+			const { goldenPricingEngine } = await import("../golden-pricing/GoldenPricingEngine");
+			const bench = await goldenPricingEngine.getAuthoritativeCommodityBenchmarks();
+			if (bench?.gold?.mcxPriceInr && bench.gold.mcxPriceInr > 40000) {
+				return Math.round((bench.gold.mcxPriceInr / 10) * 10) / 10;
+			}
+		} catch { /* proceed to DB */ }
+
 		try {
 			const result = await db.execute(sql`
         SELECT price AS current_price FROM commodity_prices
@@ -144,26 +153,38 @@ export class SGBStrategy extends BaseStrategy {
 	private async buildSyntheticSgbPick(
 		context: StrategyContext,
 	): Promise<DailyPickData | null> {
-		// Tier 1: MCX Gold spot from commodity_prices table
 		let goldPrice: number | null = null;
+
+		// Tier 0: Authoritative Gold benchmark from Golden Pricing Engine (MCX & COMEX)
 		try {
-			const result = await db.execute(sql`
+			const { goldenPricingEngine } = await import("../golden-pricing/GoldenPricingEngine");
+			const bench = await goldenPricingEngine.getAuthoritativeCommodityBenchmarks();
+			if (bench?.gold?.mcxPriceInr && bench.gold.mcxPriceInr > 40000) {
+				goldPrice = Math.round((bench.gold.mcxPriceInr / 10) * 10) / 10;
+			}
+		} catch { /* proceed to DB / Yahoo */ }
+
+		// Tier 1: MCX Gold spot from commodity_prices table
+		if (!goldPrice) {
+			try {
+				const result = await db.execute(sql`
         SELECT price AS current_price, last_updated FROM commodity_prices
         WHERE symbol = 'GOLD'
         ORDER BY last_updated DESC
         LIMIT 1
       `);
-			const row = (result.rows?.[0] ?? null) as unknown as { current_price?: string | number | null; last_updated?: string } | null;
-			if (row?.current_price != null) {
-				const priceVal = Number.parseFloat(String(row.current_price));
-				// Accept DB price only if it's reasonable (gold in INR > 4000/g) and fresh (< 7 days)
-				const updatedAt = row.last_updated ? new Date(row.last_updated) : null;
-				const ageHours = updatedAt ? (Date.now() - updatedAt.getTime()) / 3600000 : 999;
-				if (priceVal > 4000 && ageHours < 168) {
-					goldPrice = priceVal;
+				const row = (result.rows?.[0] ?? null) as unknown as { current_price?: string | number | null; last_updated?: string } | null;
+				if (row?.current_price != null) {
+					const priceVal = Number.parseFloat(String(row.current_price));
+					// Accept DB price only if it's reasonable (gold in INR > 4000/g) and fresh (< 7 days)
+					const updatedAt = row.last_updated ? new Date(row.last_updated) : null;
+					const ageHours = updatedAt ? (Date.now() - updatedAt.getTime()) / 3600000 : 999;
+					if (priceVal > 4000 && ageHours < 168) {
+						goldPrice = priceVal;
+					}
 				}
-			}
-		} catch { /* non-fatal */ }
+			} catch { /* non-fatal */ }
+		}
 
 		// Tier 2: Yahoo Finance GC=F (gold futures in USD) converted to INR
 		if (!goldPrice) {

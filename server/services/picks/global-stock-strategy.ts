@@ -260,31 +260,34 @@ export class GlobalStockStrategy extends BaseStrategy {
 			const topScore = scored[0].score;
 			const stockSymbol: string = topStock.symbol || "";
 
-			// ── Live price refresh via Yahoo Finance (free, no key required) ────────
-			// Overrides the stale DB price with an actual market quote.
-			// US stocks: use symbol directly (e.g. TSM, NVDA)
-			// Updates global_instruments in background for the next request.
+			// ── Live price refresh via Golden Pricing Engine (Alpaca -> Alpha Vantage -> Yahoo Finance -> Golden Cache) ────────
 			let livePrice: number | null = null;
+			let liveChangePercent: number | null = null;
 			if (stockSymbol && topStock.market === "us") {
 				try {
-					const yahooFinance = (await import("yahoo-finance2")).default;
-					const quotePromise = (yahooFinance as any).quote(stockSymbol);
-					const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 3000));
-					const q = await Promise.race([quotePromise, timeoutPromise]).catch(() => null) as any;
-					const yPrice = q?.regularMarketPrice ?? q?.ask ?? q?.bid;
-					if (yPrice && Number.isFinite(Number(yPrice)) && Number(yPrice) > 0) {
-						livePrice = Math.round(Number(yPrice) * 100) / 100;
-						// Persist back to DB (fire-and-forget)
+					const { fetchUSStockPrice, getDailyMarketBriefLiveSnapshot } = await import("../golden-pricing/GoldenPricingEngine");
+					const uRes = await fetchUSStockPrice(stockSymbol);
+					if (uRes?.price && uRes.price > 0) {
+						livePrice = uRes.price;
+						liveChangePercent = uRes.changePercent ?? null;
+						// Persist back to DB global_instruments (fire-and-forget)
+						const briefSnapshot = await getDailyMarketBriefLiveSnapshot("us").catch(() => null);
+						const fxRate = briefSnapshot?.currencies?.usdInr ?? 84.08;
+						const priceInr = Number.parseFloat((livePrice * fxRate).toFixed(2));
 						if (topStock.id) {
 							db.execute(sql`
 								UPDATE global_instruments
-								SET last_price = ${String(livePrice)}, last_updated = NOW()
+								SET last_price = ${String(livePrice)},
+								    last_price_inr = ${priceInr},
+								    price_change_percent = ${liveChangePercent},
+								    source = ${uRes.source},
+								    last_updated = NOW()
 								WHERE id = ${topStock.id}
 							`).catch(() => {});
 						}
 					}
 				} catch {
-					// Yahoo Finance unavailable — fall through to DB/fallback price
+					// Fall through to DB/fallback price
 				}
 			}
 

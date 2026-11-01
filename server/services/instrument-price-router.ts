@@ -28,8 +28,10 @@ import {
   bondCatalog,
   listedStocks,
   aifMaster,
+  globalInstruments,
+  commodities,
 } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -40,7 +42,9 @@ export type InstrumentType =
   | "aif"            // IRIS → aif_master.nav
   | "pms"            // PMS nav → aif_master (pms_master as fallback)
   | "etf"            // NSE ETF → listed_stocks.currentPrice
-  | "global_equity"; // NYSE/NASDAQ → listed_stocks.currentPrice
+  | "global_equity"  // NYSE/NASDAQ → listed_stocks.currentPrice / global_instruments
+  | "us_stock"       // US Equity (Alpaca/Yahoo) → global_instruments.lastPrice
+  | "commodity";     // MCX/CFD → commodities.currentPrice & priceInr/priceUsd
 
 export interface InstrumentPriceUpdate {
   /** The canonical instrument type */
@@ -49,9 +53,10 @@ export interface InstrumentPriceUpdate {
   /**
    * Canonical identifier:
    *  - mutual_fund: AMFI schemeCode  (e.g. "120503")
-   *  - equity/etf/global_equity: NSE/BSE symbol (e.g. "RELIANCE", "AAPL")
+   *  - equity/etf/global_equity/us_stock: NSE/BSE/US symbol (e.g. "RELIANCE", "AAPL")
    *  - bond: ISIN (e.g. "INE001A01036")
    *  - aif/pms: aif_master.id (UUID)
+   *  - commodity: symbol (e.g. "GOLD", "CRUDE_OIL")
    */
   identifier: string;
 
@@ -63,7 +68,7 @@ export interface InstrumentPriceUpdate {
 
   /**
    * Data source for audit trail.
-   * One of: "amfi" | "nse" | "bse" | "fmp" | "iris" | "manual" | "exchange"
+   * One of: "amfi" | "nse" | "bse" | "alpaca" | "yahoo" | "fmp" | "mcx" | "iris" | "manual" | "exchange"
    */
   source: string;
 
@@ -72,6 +77,9 @@ export interface InstrumentPriceUpdate {
 
   /** Optional: day change percent (pre-calculated by provider) */
   dayChangePercent?: number;
+
+  /** Optional extra metadata (e.g. fxRate, priceInr, priceUsd, bid, ask) */
+  metadata?: Record<string, unknown>;
 }
 
 export interface PriceUpdateResult {
@@ -168,10 +176,9 @@ export async function updateInstrumentPrice(
         break;
       }
 
-      // ── Equities: domestic + ETF + global ────────────────────────────────
+      // ── Equities: domestic + ETF ────────────────────────────────────────
       case "equity":
-      case "etf":
-      case "global_equity": {
+      case "etf": {
         const setPayload: Record<string, unknown> = {
           currentPrice: priceStr,
           lastUpdated: now,
@@ -195,6 +202,89 @@ export async function updateInstrumentPrice(
           .where(eq(listedStocks.symbol, update.identifier))
           .returning({ id: listedStocks.id });
         rowsAffected = eqResult.length;
+        break;
+      }
+
+      // ── US & Global Stocks (Alpaca / Yahoo / Global Instruments) ─────────
+      case "us_stock":
+      case "global_equity": {
+        const fxRate = typeof update.metadata?.fxRate === "number" ? update.metadata.fxRate : 84.08;
+        const priceInr = typeof update.metadata?.priceInr === "number"
+          ? update.metadata.priceInr.toFixed(2)
+          : (update.price * fxRate).toFixed(2);
+
+        const setPayload: Record<string, unknown> = {
+          lastPrice: priceStr,
+          lastPriceInr: priceInr,
+          source: update.source,
+          lastUpdated: now,
+          updatedAt: now,
+        };
+        if (update.dayChangePercent != null) {
+          setPayload.priceChangePercent = update.dayChangePercent.toFixed(4);
+        }
+        if (typeof update.metadata?.bid === "number") {
+          setPayload.bidPrice = update.metadata.bid.toString();
+        }
+        if (typeof update.metadata?.ask === "number") {
+          setPayload.askPrice = update.metadata.ask.toString();
+        }
+
+        const giResult = await db
+          .update(globalInstruments)
+          .set(setPayload as any)
+          .where(
+            or(
+              eq(globalInstruments.symbol, update.identifier),
+              eq(globalInstruments.isin, update.identifier),
+            ),
+          )
+          .returning({ id: globalInstruments.id });
+        rowsAffected = giResult.length;
+
+        // Also update listed_stocks if tracked there as well
+        if (update.instrumentType === "global_equity" || rowsAffected === 0) {
+          const lsResult = await db
+            .update(listedStocks)
+            .set({
+              currentPrice: priceStr,
+              lastUpdated: now,
+              dataSource: update.source,
+              ...(update.dayChangePercent != null ? { dayChangePercent: update.dayChangePercent.toFixed(4) } : {}),
+            } as any)
+            .where(eq(listedStocks.symbol, update.identifier))
+            .returning({ id: listedStocks.id });
+          if (rowsAffected === 0) rowsAffected = lsResult.length;
+        }
+        break;
+      }
+
+      // ── Commodities (MCX / COMEX / CFD) ───────────────────────────────────
+      case "commodity": {
+        const priceInr = typeof update.metadata?.priceInr === "number"
+          ? update.metadata.priceInr.toString()
+          : priceStr;
+        const priceUsd = typeof update.metadata?.priceUsd === "number"
+          ? update.metadata.priceUsd.toString()
+          : (update.price / 84.08).toFixed(4);
+
+        const setPayload: Record<string, unknown> = {
+          currentPrice: priceStr,
+          priceInr,
+          priceUsd,
+          source: update.source,
+          lastUpdated: now,
+        };
+        if (update.dayChangePercent != null) {
+          setPayload.dayChangePercent = update.dayChangePercent.toFixed(4);
+        }
+
+        const commResult = await db
+          .update(commodities)
+          .set(setPayload as any)
+          .where(eq(commodities.symbol, update.identifier))
+          .returning({ id: commodities.id });
+        rowsAffected = commResult.length;
         break;
       }
 
@@ -243,6 +333,15 @@ export async function updateInstrumentPrice(
 
     const latency_ms = Date.now() - t0;
     structuredLog("success", update, latency_ms, { rowsAffected });
+
+    // Invalidate Golden Pricing memory cache so consumers immediately see refreshed price
+    try {
+      const { invalidateCache } = await import("./golden-pricing/GoldenPricingEngine");
+      invalidateCache(update.identifier);
+    } catch {
+      // non-fatal
+    }
+
     return { success: true, rowsAffected, latency_ms };
 
   } catch (err: unknown) {

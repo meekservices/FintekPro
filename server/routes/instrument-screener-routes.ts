@@ -27,6 +27,8 @@ import {
   invits,
   marketIndices,
   agentBaskets,
+  globalInstruments,
+  commodities,
 } from "@shared/schema";
 import { and, eq, gte, lte, ilike, sql, desc, asc, or, getTableColumns } from "drizzle-orm";
 import { logger } from "../logger";
@@ -39,6 +41,8 @@ import {
   CURATED_REITS_INVITS,
   CURATED_BENCHMARK_BONDS,
   CURATED_TOP_ETFS,
+  CURATED_US_STOCKS,
+  CURATED_COMMODITIES,
   getModelPortfolioBadges,
 } from "../services/screener-curated-data";
 import { IRIS_PRODUCT_REGISTRY } from "../services/iris/irisProductRegistry";
@@ -54,10 +58,16 @@ const DISCLAIMERS: Record<string, string> = {
     "Mutual Fund investments are subject to market risks. Read all scheme-related documents carefully before investing. Past performance is not indicative of future returns.",
   bond:
     "Bond investments carry credit risk and interest rate risk. Credit ratings are indicative and may change. SEBI-registered Investment Advisors must disclose conflicts of interest. Not a solicitation to invest.",
+  debt:
+    "Debt securities (G-Sec, T-Bills, SDL, Corporate Bonds) carry credit risk, duration risk, and interest rate sensitivity. Sovereign securities carry zero credit risk.",
   etf:
     "ETFs are subject to market risk. NAV may fluctuate. Past performance is not indicative of future returns.",
   stock:
     "Equity investments are subject to market risk. Past performance is not indicative of future returns.",
+  us_stock:
+    "US & Global equity investments are subject to currency risk (USD/INR) and market fluctuations. Subject to RBI Liberalised Remittance Scheme (LRS) limits ($250,000/FY) and SEBI investment guidelines. Past performance is not indicative of future returns.",
+  commodity:
+    "Commodity spot and derivatives investments are subject to global macroeconomic volatility, geopolitical tensions, and supply chain disruptions. AI sentiment is for decision support only.",
   unlisted:
     "Unlisted and Pre-IPO securities are illiquid and carry high investment risk including loss of capital. Fair values are indicative based on audited DRHP/financial filings. Not a public offer. Regulatory disclosures apply.",
   reit_invit:
@@ -363,8 +373,8 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
       });
     }
 
-    // ── Bonds (G-Secs + Corporate) ─────────────────────────────────────────
-    if (type === "bond") {
+    // ── Bonds & Debt Instruments (G-Secs, T-Bills, SDLs, Corporate Bonds) ────
+    if (type === "bond" || type === "debt" || type === "debt_instrument") {
       const minRatingIdx = minRating
         ? BOND_RATING_HIERARCHY.indexOf(minRating.toUpperCase())
         : -1;
@@ -525,7 +535,7 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
 
       return res.json({
         success: true,
-        type: "bond",
+        type: type === "debt" || type === "debt_instrument" ? "debt" : "bond",
         data: enrichedBonds,
         meta: {
           timestamp: new Date().toISOString(),
@@ -533,7 +543,7 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
           page: pageNum,
           limit: limitNum,
           total,
-          disclaimer: DISCLAIMERS.bond,
+          disclaimer: DISCLAIMERS[type] || DISCLAIMERS.bond,
         },
       });
     }
@@ -1164,11 +1174,299 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
       });
     }
 
+    // ── US Stocks & Global Equities ──────────────────────────────────────────
+    if (type === "us_stock" || type === "global_stock") {
+      const {
+        exchange: exchParam,
+        sector: secParam,
+        marketCapCategory: mcapParam,
+        minPE: minPEParam,
+        maxPE: maxPEParam,
+        minDividendYield: minDivParam,
+      } = req.query as Record<string, string>;
+
+      const conditions: any[] = [
+        eq(globalInstruments.isActive, true),
+      ];
+
+      if (exchParam && exchParam !== "all" && exchParam !== "ALL") {
+        conditions.push(eq(globalInstruments.exchange, exchParam.toUpperCase()));
+      }
+      if (secParam && secParam !== "all") {
+        conditions.push(ilike(globalInstruments.sector, `%${secParam}%`));
+      }
+      if (mcapParam && mcapParam !== "all") {
+        conditions.push(eq(globalInstruments.marketCapCategory, mcapParam.toLowerCase()));
+      }
+      if (minPEParam) {
+        conditions.push(gte(globalInstruments.peRatio, minPEParam));
+      }
+      if (maxPEParam) {
+        conditions.push(lte(globalInstruments.peRatio, maxPEParam));
+      }
+      if (minDivParam) {
+        conditions.push(gte(globalInstruments.dividendYield, minDivParam));
+      }
+      if (q) {
+        conditions.push(
+          or(
+            ilike(globalInstruments.symbol, `%${q}%`),
+            ilike(globalInstruments.name, `%${q}%`),
+            ilike(globalInstruments.sector, `%${q}%`)
+          )
+        );
+      }
+
+      let usStocksList: any[] = [];
+      let total = 0;
+
+      try {
+        const rows = await db
+          .select()
+          .from(globalInstruments)
+          .where(and(...conditions))
+          .orderBy(desc(globalInstruments.marketCap))
+          .limit(limitNum)
+          .offset((pageNum - 1) * limitNum);
+
+        const [cnt] = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(globalInstruments)
+          .where(and(...conditions));
+
+        usStocksList = rows;
+        total = Number(cnt?.count ?? 0);
+      } catch (e: any) {
+        logger.warn("Failed querying global_instruments from DB, falling back to curated", { error: e.message });
+      }
+
+      // Fallback to CURATED_US_STOCKS if table empty or DB query returned 0
+      if (usStocksList.length === 0) {
+        let filtered = [...CURATED_US_STOCKS];
+        if (exchParam && exchParam !== "all" && exchParam !== "ALL") {
+          filtered = filtered.filter((s) => s.exchange.toUpperCase() === exchParam.toUpperCase());
+        }
+        if (secParam && secParam !== "all") {
+          filtered = filtered.filter((s) => s.sector.toLowerCase().includes(secParam.toLowerCase()));
+        }
+        if (mcapParam && mcapParam !== "all") {
+          filtered = filtered.filter((s) => s.marketCapCategory === mcapParam.toLowerCase());
+        }
+        if (minPEParam) {
+          filtered = filtered.filter((s) => s.peRatio >= parseFloat(minPEParam));
+        }
+        if (maxPEParam) {
+          filtered = filtered.filter((s) => s.peRatio <= parseFloat(maxPEParam));
+        }
+        if (minDivParam) {
+          filtered = filtered.filter((s) => s.dividendYield >= parseFloat(minDivParam));
+        }
+        if (q) {
+          const lq = q.toLowerCase();
+          filtered = filtered.filter((s) => s.symbol.toLowerCase().includes(lq) || s.name.toLowerCase().includes(lq));
+        }
+        total = filtered.length;
+        usStocksList = filtered.slice((pageNum - 1) * limitNum, pageNum * limitNum);
+      }
+
+      const enrichedUsStocks = usStocksList.map((s) => ({
+        ...s,
+        modelPortfolios: getModelPortfolioBadges(s.symbol || s.name),
+      }));
+
+      // Overlay refreshed prices from Golden Pricing Engine live US snapshot
+      try {
+        const { getDailyMarketBriefLiveSnapshot } = await import("../services/golden-pricing/GoldenPricingEngine");
+        const usSnap = await getDailyMarketBriefLiveSnapshot("us");
+        if (usSnap?.usStocks && usSnap.usStocks.length > 0) {
+          const usMap = new Map(usSnap.usStocks.map((s) => [s.symbol.toUpperCase(), s]));
+          for (const item of enrichedUsStocks) {
+            const live = usMap.get(item.symbol?.toUpperCase());
+            if (live?.price && live.price > 0) {
+              item.lastPrice = live.price;
+              item.lastPriceInr = live.priceInr;
+              if (live.changePercent != null) item.priceChangePercent = live.changePercent;
+            }
+          }
+        }
+      } catch {
+        /* non-fatal */
+      }
+
+      return res.json({
+        success: true,
+        type: "us_stock",
+        data: enrichedUsStocks,
+        meta: {
+          timestamp: new Date().toISOString(),
+          engine_version: ENGINE_VERSION,
+          page: pageNum,
+          limit: limitNum,
+          total,
+          disclaimer: DISCLAIMERS.us_stock,
+        },
+      });
+    }
+
+    // ── Commodities ─────────────────────────────────────────────────────────
+    if (type === "commodity" || type === "commodities") {
+      const {
+        commodityType: commTypeParam,
+        subType: subTypeParam,
+        inflationHedge: infParam,
+        safeHaven: safeParam,
+      } = req.query as Record<string, string>;
+
+      const conditions: any[] = [
+        eq(commodities.isPublished, true),
+      ];
+
+      if (commTypeParam && commTypeParam !== "all") {
+        conditions.push(eq(commodities.commodityType, commTypeParam));
+      }
+      if (subTypeParam && subTypeParam !== "all") {
+        conditions.push(eq(commodities.subType, subTypeParam));
+      }
+      if (infParam === "true") {
+        conditions.push(eq(commodities.inflationHedge, true));
+      }
+      if (safeParam === "true") {
+        conditions.push(eq(commodities.safeHaven, true));
+      }
+      if (q) {
+        conditions.push(
+          or(
+            ilike(commodities.symbol, `%${q}%`),
+            ilike(commodities.name, `%${q}%`),
+            ilike(commodities.commodityType, `%${q}%`)
+          )
+        );
+      }
+
+      let commList: any[] = [];
+      let total = 0;
+
+      try {
+        const rows = await db
+          .select()
+          .from(commodities)
+          .where(and(...conditions))
+          .orderBy(desc(commodities.currentPrice))
+          .limit(limitNum)
+          .offset((pageNum - 1) * limitNum);
+
+        const [cnt] = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(commodities)
+          .where(and(...conditions));
+
+        commList = rows;
+        total = Number(cnt?.count ?? 0);
+      } catch (e: any) {
+        logger.warn("Failed querying commodities from DB, falling back to curated", { error: e.message });
+      }
+
+      // Fallback to CURATED_COMMODITIES if table empty or DB query returned 0
+      if (commList.length === 0) {
+        let filtered = [...CURATED_COMMODITIES];
+        if (commTypeParam && commTypeParam !== "all") {
+          filtered = filtered.filter((c) => c.commodityType === commTypeParam);
+        }
+        if (subTypeParam && subTypeParam !== "all") {
+          filtered = filtered.filter((c) => c.subType === subTypeParam);
+        }
+        if (infParam === "true") {
+          filtered = filtered.filter((c) => c.inflationHedge);
+        }
+        if (safeParam === "true") {
+          filtered = filtered.filter((c) => c.safeHaven);
+        }
+        if (q) {
+          const lq = q.toLowerCase();
+          filtered = filtered.filter((c) => c.symbol.toLowerCase().includes(lq) || c.name.toLowerCase().includes(lq));
+        }
+        total = filtered.length;
+        commList = filtered.slice((pageNum - 1) * limitNum, pageNum * limitNum);
+      }
+
+      const enrichedCommList = commList.map((c) => ({
+        ...c,
+        modelPortfolios: getModelPortfolioBadges(c.symbol || c.name),
+      }));
+
+      // Overlay refreshed prices from Golden Pricing Engine live commodity benchmarks
+      try {
+        const { getDailyMarketBriefLiveSnapshot } = await import("../services/golden-pricing/GoldenPricingEngine");
+        const snap = await getDailyMarketBriefLiveSnapshot("india");
+        if (snap?.commodities) {
+          const c = snap.commodities;
+          for (const item of enrichedCommList) {
+            const sym = item.symbol?.toUpperCase();
+            if (sym === "GOLD") {
+              if (c.gold?.mcxPriceInr) item.priceInr = c.gold.mcxPriceInr;
+              if (c.gold?.cfdPriceUsd) {
+                item.priceUsd = c.gold.cfdPriceUsd;
+                item.currentPrice = c.gold.mcxPriceInr || c.gold.cfdPriceUsd;
+              }
+              if (c.gold?.changePercent) item.dayChangePercent = c.gold.changePercent;
+            } else if (sym === "SILVER") {
+              if (c.silver?.mcxPriceInr) item.priceInr = c.silver.mcxPriceInr;
+              if (c.silver?.cfdPriceUsd) {
+                item.priceUsd = c.silver.cfdPriceUsd;
+                item.currentPrice = c.silver.mcxPriceInr || c.silver.cfdPriceUsd;
+              }
+              if (c.silver?.changePercent) item.dayChangePercent = c.silver.changePercent;
+            } else if (sym === "CRUDE_OIL" || sym === "BRENT" || sym === "BRENT_CRUDE") {
+              if (c.brentCrude?.mcxPriceInr) item.priceInr = c.brentCrude.mcxPriceInr;
+              if (c.brentCrude?.cfdPriceUsd) {
+                item.priceUsd = c.brentCrude.cfdPriceUsd;
+                item.currentPrice = c.brentCrude.cfdPriceUsd;
+              }
+              if (c.brentCrude?.changePercent) item.dayChangePercent = c.brentCrude.changePercent;
+            } else if (sym === "COPPER") {
+              if (c.copperInr) item.priceInr = c.copperInr;
+              if (c.copperCfdUsd) item.priceUsd = c.copperCfdUsd;
+              if (c.copperInr || c.copperCfdUsd) item.currentPrice = c.copperInr || c.copperCfdUsd;
+            } else if (sym === "NATURAL_GAS") {
+              if (c.naturalGasInr) item.priceInr = c.naturalGasInr;
+              if (c.naturalGasCfdUsd) item.priceUsd = c.naturalGasCfdUsd;
+              if (c.naturalGasInr || c.naturalGasCfdUsd) item.currentPrice = c.naturalGasInr || c.naturalGasCfdUsd;
+            } else if (c.agricultural) {
+              const agriMatch = c.agricultural.find(
+                (a) => a.id.toUpperCase() === sym || a.tradingSymbol.toUpperCase() === sym,
+              );
+              if (agriMatch?.price) {
+                item.currentPrice = agriMatch.price;
+                item.priceInr = agriMatch.price;
+                if (agriMatch.changePercent) item.dayChangePercent = agriMatch.changePercent;
+              }
+            }
+          }
+        }
+      } catch {
+        /* non-fatal */
+      }
+
+      return res.json({
+        success: true,
+        type: "commodity",
+        data: enrichedCommList,
+        meta: {
+          timestamp: new Date().toISOString(),
+          engine_version: ENGINE_VERSION,
+          page: pageNum,
+          limit: limitNum,
+          total,
+          disclaimer: DISCLAIMERS.commodity,
+        },
+      });
+    }
+
     // ── Unknown type ──────────────────────────────────────────────────────────
     return res.status(400).json({
       success: false,
       error_code: "INVALID_INSTRUMENT_TYPE",
-      message: `Invalid type '${type}'. Valid: mutual_fund | bond | etf | stock | unlisted | reit_invit | smallcase | index | sif`,
+      message: `Invalid type '${type}'. Valid: mutual_fund | bond | debt | etf | stock | us_stock | commodity | unlisted | reit_invit | smallcase | index | sif`,
       retryable: false,
       meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
     });
@@ -1221,13 +1519,47 @@ instrumentScreenerRouter.get("/instruments/filters", async (_req: Request, res: 
       bond: {
         sortFields: ["yieldToMaturity", "couponRate", "maturityDate", "creditRating"],
         filters: [
-          { key: "bondType",         label: "Bond Type",         type: "select", options: ["all", "govt", "corporate"] },
+          { key: "bondType",         label: "Bond/Debt Type",    type: "select", options: ["all", "govt", "corporate", "tbill", "sdl", "psu", "taxfree"] },
           { key: "minYield",         label: "Min YTM (%)",       type: "number" },
           { key: "maxYield",         label: "Max YTM (%)",       type: "number" },
           { key: "minCoupon",        label: "Min Coupon (%)",    type: "number" },
           { key: "minRating",        label: "Min Rating",        type: "select", options: ["BBB", "A", "AA", "AA+", "AAA"] },
           { key: "maxMaturityYears", label: "Matures Within (years)", type: "number" },
           { key: "taxStatus",        label: "Tax Status",        type: "select", options: ["all", "taxfree", "taxable"] },
+        ],
+      },
+      debt: {
+        sortFields: ["yieldToMaturity", "couponRate", "maturityDate", "creditRating"],
+        filters: [
+          { key: "bondType",         label: "Debt Category",     type: "select", options: ["all", "govt", "corporate", "tbill", "sdl", "psu", "taxfree"] },
+          { key: "minYield",         label: "Min YTM (%)",       type: "number" },
+          { key: "maxYield",         label: "Max YTM (%)",       type: "number" },
+          { key: "minCoupon",        label: "Min Coupon (%)",    type: "number" },
+          { key: "minRating",        label: "Min Credit Rating", type: "select", options: ["SOVEREIGN", "AAA", "AA+", "AA", "A"] },
+          { key: "maxMaturityYears", label: "Maturity Horizon",  type: "number" },
+          { key: "taxStatus",        label: "Tax Exemption",     type: "select", options: ["all", "taxfree", "taxable"] },
+        ],
+      },
+      us_stock: {
+        sortFields: ["marketCap", "peRatio", "dividendYield", "lastPrice", "returns1Y", "returns1M"],
+        filters: [
+          { key: "exchange",          label: "Exchange",          type: "select", options: ["ALL", "NASDAQ", "NYSE"] },
+          { key: "sector",            label: "Sector",            type: "select", options: ["all", "Information Technology", "Communication Services", "Consumer Discretionary", "Financials", "Healthcare", "Broad Market"] },
+          { key: "marketCapCategory", label: "Market Cap Tier",   type: "select", options: ["all", "mega", "large", "mid"] },
+          { key: "minPE",             label: "Min P/E Ratio",     type: "number" },
+          { key: "maxPE",             label: "Max P/E Ratio",     type: "number" },
+          { key: "minDividendYield",  label: "Min Div Yield (%)", type: "number" },
+          { key: "q",                 label: "Search Ticker/Name",type: "text" },
+        ],
+      },
+      commodity: {
+        sortFields: ["currentPrice", "priceInr", "returns1y", "returns1m", "dayChangePercent"],
+        filters: [
+          { key: "commodityType", label: "Category",           type: "select", options: ["all", "precious_metal", "energy", "industrial_metal", "agricultural"] },
+          { key: "subType",       label: "Sub-Type",           type: "select", options: ["all", "gold", "silver", "crude_oil", "natural_gas", "copper", "aluminium", "zinc", "cotton", "wheat"] },
+          { key: "inflationHedge",label: "Inflation Hedge Only",type: "boolean" },
+          { key: "safeHaven",     label: "Safe Haven Assets",  type: "boolean" },
+          { key: "q",             label: "Search Commodity",   type: "text" },
         ],
       },
       etf: {
@@ -1337,14 +1669,19 @@ instrumentScreenerRouter.get("/instruments/:id", async (req: Request, res: Respo
       return res.json({ success: true, type: "mutual_fund", data: fund, meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, disclaimer: DISCLAIMERS.mutual_fund } });
     }
 
-    if (type === "bond") {
-      const [govt] = await db.select().from(governmentSecurities).where(eq(governmentSecurities.isin, id)).limit(1);
-      if (govt) return res.json({ success: true, type: "bond", bondType: "govt", data: govt, meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, disclaimer: DISCLAIMERS.bond } });
+    if (type === "bond" || type === "debt" || type === "debt_instrument") {
+      const [govt] = await db.select().from(governmentSecurities).where(or(eq(governmentSecurities.isin, id), eq(governmentSecurities.id, id))).limit(1);
+      if (govt) return res.json({ success: true, type: type === "debt" ? "debt" : "bond", bondType: "govt", data: govt, meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, disclaimer: DISCLAIMERS[type] || DISCLAIMERS.bond } });
 
-      const [corp] = await db.select().from(corporateBonds).where(eq(corporateBonds.isin, id)).limit(1);
-      if (corp) return res.json({ success: true, type: "bond", bondType: "corporate", data: corp, meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, disclaimer: DISCLAIMERS.bond } });
+      const [corp] = await db.select().from(corporateBonds).where(or(eq(corporateBonds.isin, id), eq(corporateBonds.id, id))).limit(1);
+      if (corp) return res.json({ success: true, type: type === "debt" ? "debt" : "bond", bondType: "corporate", data: corp, meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, disclaimer: DISCLAIMERS[type] || DISCLAIMERS.bond } });
 
-      return res.status(404).json({ success: false, error_code: "NOT_FOUND", message: `Bond '${id}' not found`, retryable: false });
+      const curatedBond = CURATED_BENCHMARK_BONDS.find((b) => b.isin?.toUpperCase() === id.toUpperCase() || b.id === id);
+      if (curatedBond) {
+        return res.json({ success: true, type: type === "debt" ? "debt" : "bond", data: curatedBond, meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, disclaimer: DISCLAIMERS[type] || DISCLAIMERS.bond } });
+      }
+
+      return res.status(404).json({ success: false, error_code: "NOT_FOUND", message: `Debt/Bond '${id}' not found`, retryable: false });
     }
 
     if (type === "etf") {
@@ -1392,7 +1729,107 @@ instrumentScreenerRouter.get("/instruments/:id", async (req: Request, res: Respo
       return res.json({ success: true, type: "sif", data: sif, meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, disclaimer: DISCLAIMERS.sif } });
     }
 
-    return res.status(400).json({ success: false, error_code: "INVALID_TYPE", message: "Valid types: mutual_fund | bond | etf | stock | unlisted | reit_invit | smallcase | index | sif" });
+    if (type === "us_stock" || type === "global_stock") {
+      const [stock] = await db
+        .select()
+        .from(globalInstruments)
+        .where(or(eq(globalInstruments.symbol, id.toUpperCase()), eq(globalInstruments.id, id)))
+        .limit(1);
+
+      if (stock) {
+        const stockData: any = {
+          ...stock,
+          modelPortfolios: getModelPortfolioBadges(stock.symbol || stock.name),
+        };
+        try {
+          const { fetchUSStockPrice } = await import("../services/golden-pricing/GoldenPricingEngine");
+          const live = await fetchUSStockPrice(stock.symbol || id);
+          if (live?.price && live.price > 0) {
+            stockData.lastPrice = live.price;
+            stockData.lastPriceInr = Number((live.price * 84.08).toFixed(2));
+          }
+        } catch {}
+
+        return res.json({
+          success: true,
+          type: "us_stock",
+          data: stockData,
+          meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, disclaimer: DISCLAIMERS.us_stock },
+        });
+      }
+
+      const curated = CURATED_US_STOCKS.find((u) => u.symbol.toUpperCase() === id.toUpperCase() || u.id === id);
+      if (curated) {
+        return res.json({
+          success: true,
+          type: "us_stock",
+          data: curated,
+          meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, disclaimer: DISCLAIMERS.us_stock },
+        });
+      }
+
+      return res.status(404).json({ success: false, error_code: "NOT_FOUND", message: `US Stock '${id}' not found`, retryable: false });
+    }
+
+    if (type === "commodity" || type === "commodities") {
+      const [comm] = await db
+        .select()
+        .from(commodities)
+        .where(or(eq(commodities.symbol, id.toUpperCase()), eq(commodities.id, id)))
+        .limit(1);
+
+      if (comm) {
+        const commData: any = {
+          ...comm,
+          modelPortfolios: getModelPortfolioBadges(comm.symbol || comm.name),
+        };
+        try {
+          const { getDailyMarketBriefLiveSnapshot } = await import("../services/golden-pricing/GoldenPricingEngine");
+          const snap = await getDailyMarketBriefLiveSnapshot("india");
+          const sym = (comm.symbol || id).toUpperCase();
+          if (sym === "GOLD" && snap?.commodities?.gold) {
+            if (snap.commodities.gold.mcxPriceInr) commData.priceInr = snap.commodities.gold.mcxPriceInr;
+            if (snap.commodities.gold.cfdPriceUsd) {
+              commData.priceUsd = snap.commodities.gold.cfdPriceUsd;
+              commData.currentPrice = snap.commodities.gold.mcxPriceInr || snap.commodities.gold.cfdPriceUsd;
+            }
+          } else if (sym === "SILVER" && snap?.commodities?.silver) {
+            if (snap.commodities.silver.mcxPriceInr) commData.priceInr = snap.commodities.silver.mcxPriceInr;
+            if (snap.commodities.silver.cfdPriceUsd) {
+              commData.priceUsd = snap.commodities.silver.cfdPriceUsd;
+              commData.currentPrice = snap.commodities.silver.mcxPriceInr || snap.commodities.silver.cfdPriceUsd;
+            }
+          } else if ((sym === "CRUDE_OIL" || sym === "BRENT") && snap?.commodities?.brentCrude) {
+            if (snap.commodities.brentCrude.mcxPriceInr) commData.priceInr = snap.commodities.brentCrude.mcxPriceInr;
+            if (snap.commodities.brentCrude.cfdPriceUsd) {
+              commData.priceUsd = snap.commodities.brentCrude.cfdPriceUsd;
+              commData.currentPrice = snap.commodities.brentCrude.cfdPriceUsd;
+            }
+          }
+        } catch {}
+
+        return res.json({
+          success: true,
+          type: "commodity",
+          data: commData,
+          meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, disclaimer: DISCLAIMERS.commodity },
+        });
+      }
+
+      const curated = CURATED_COMMODITIES.find((c) => c.symbol.toUpperCase() === id.toUpperCase() || c.id === id);
+      if (curated) {
+        return res.json({
+          success: true,
+          type: "commodity",
+          data: curated,
+          meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, disclaimer: DISCLAIMERS.commodity },
+        });
+      }
+
+      return res.status(404).json({ success: false, error_code: "NOT_FOUND", message: `Commodity '${id}' not found`, retryable: false });
+    }
+
+    return res.status(400).json({ success: false, error_code: "INVALID_TYPE", message: "Valid types: mutual_fund | bond | debt | etf | stock | us_stock | commodity | unlisted | reit_invit | smallcase | index | sif" });
 
   } catch (err: any) {
     logger.error("Instrument detail error", { event: "INSTRUMENT_DETAIL_ERROR", id, type, message: err.message, latency_ms: Date.now() - start });

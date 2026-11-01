@@ -44,6 +44,12 @@ export interface CommodityItem {
 
 export interface CommodityMarketSnapshot {
   commodities: CommodityItem[];
+  agriculturalCommodities?: any[];
+  agriInflationIndex?: {
+    status: "Deflationary" | "Benign" | "Elevated";
+    averageChangePercent: number;
+    commentary: string;
+  };
   crudeOilBreakevenStatus: {
     brentUsd: number;
     indiaComfortBandMaxUsd: number; // $75-$80/bbl
@@ -84,16 +90,16 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     name: "Gold 24K",
     category: "Precious Metals",
     mcxSymbol: "GOLD",
-    mcxPrice: 78450,
+    mcxPrice: 138419,
     mcxUnit: "₹ / 10g",
-    mcxChangePercent: 0.65,
+    mcxChangePercent: -0.05,
     cmxSymbol: "GC=F (COMEX / Global CFD)",
-    cmxPrice: 2742.5,
+    cmxPrice: 3885.5,
     cmxUnit: "$ / oz",
-    cmxChangePercent: 0.58,
+    cmxChangePercent: -0.12,
     trend: "Bullish",
     macroImplication:
-      "Central bank accumulation & global hedge sustaining bullion demand. Import duty rationalization to 6% maintains balanced domestic price parity.",
+      "Central bank accumulation & sovereign reserves sustaining bullion demand globally. Domestic 10g contract hovering near ₹1,38,400 with robust liquidity.",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
   {
@@ -101,13 +107,13 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     name: "Silver",
     category: "Precious Metals",
     mcxSymbol: "SILVER",
-    mcxPrice: 94200,
+    mcxPrice: 164500,
     mcxUnit: "₹ / 1kg",
-    mcxChangePercent: 1.15,
+    mcxChangePercent: 0.45,
     cmxSymbol: "SI=F (COMEX / Global CFD)",
-    cmxPrice: 33.4,
+    cmxPrice: 48.5,
     cmxUnit: "$ / oz",
-    cmxChangePercent: 1.05,
+    cmxChangePercent: 0.38,
     trend: "Bullish",
     macroImplication:
       "Dual tailwinds from monetary demand and booming industrial consumption in solar PV panel manufacturing and EV power electronics.",
@@ -194,7 +200,7 @@ export class CommodityMarketService {
       if (cached && cached.commodities && cached.commodities.length > 0) {
         // Ensure cached snapshot holds valid benchmark pricing
         const cachedGold = cached.commodities.find((c) => c.id === "GOLD");
-        if (cachedGold && cachedGold.mcxPrice >= 60000 && cachedGold.mcxPrice <= 120000) {
+        if (cachedGold && cachedGold.mcxPrice >= 70000 && cachedGold.mcxPrice <= 250000) {
           return {
             success: true,
             data: cached,
@@ -295,6 +301,22 @@ export class CommodityMarketService {
       ? `Energy Radar: Brent Crude traded at $${data.crudeOilBreakevenStatus.brentUsd}/bbl (MCX Crude: ₹${crude.mcxPrice.toLocaleString("en-IN")}/bbl). Elevated crude levels (> $80 threshold) create imported inflation headwinds for India and squeeze margins for paint, tyre, aviation, and auto ancillary companies, while supporting upstream E&P producers (ONGC, Oil India).`
       : `Energy Radar: Brent Crude traded at $${data.crudeOilBreakevenStatus.brentUsd}/bbl (MCX Crude: ₹${crude.mcxPrice.toLocaleString("en-IN")}/bbl). Current levels represent a ${data.crudeOilBreakevenStatus.inflationImpact.toLowerCase()} inflation environment for India, aiding paint, chemical, and lubricant margins.`;
 
+    let agriBullet =
+      "Agri Radar (NCDEX): Agricultural price indices remain balanced, supporting raw material cost stability for FMCG and dairy processors.";
+    try {
+      const { ncdexMarketService } = await import("./ncdex-market-service");
+      const agriRes = await ncdexMarketService.getAgriculturalBenchmarks();
+      if (agriRes.success && agriRes.data?.commodities) {
+        const jeera = agriRes.data.commodities.find((c) => c.id === "JEERA");
+        const turmeric = agriRes.data.commodities.find((c) => c.id === "TURMERIC");
+        const cocudakl = agriRes.data.commodities.find((c) => c.id === "COCUDAKL");
+        const guarseed = agriRes.data.commodities.find((c) => c.id === "GUARSEED");
+        agriBullet = `Agri Radar (NCDEX): Jeera printed at ₹${jeera?.price.toLocaleString("en-IN")}/qtl, Turmeric at ₹${turmeric?.price.toLocaleString("en-IN")}/qtl, Cottonseed Oilcake at ₹${cocudakl?.price.toLocaleString("en-IN")}/qtl, and Guar Seed at ₹${guarseed?.price.toLocaleString("en-IN")}/qtl. ${agriRes.data.agriInflationIndex.commentary}`;
+      }
+    } catch {
+      /* non-fatal */
+    }
+
     return {
       headline,
       bulletPoints: [
@@ -302,6 +324,7 @@ export class CommodityMarketService {
         `Precious Metals: MCX Gold printed at ₹${gold.mcxPrice.toLocaleString("en-IN")}/10g (COMEX: $${gold.cmxPrice}/oz), while MCX Silver traded at ₹${silver.mcxPrice.toLocaleString("en-IN")}/kg (COMEX: $${silver.cmxPrice}/oz). Strong retail & industrial photovoltaic demand persists.`,
         `Base Metals Barometer: MCX Copper held firm at ₹${copper.mcxPrice.toLocaleString("en-IN")}/kg (COMEX: $${copper.cmxPrice}/lb), confirming robust domestic grid transmission and automotive capex allocations.`,
         `Gold/Silver Ratio: Standing at ${data.goldSilverRatio.toFixed(1)}, signaling balanced asset allocation opportunities across multi-asset funds and physical gold ETFs.`,
+        agriBullet,
       ],
       brentCrudeUsd: data.crudeOilBreakevenStatus.brentUsd,
       goldMcxInr: gold.mcxPrice,
@@ -313,11 +336,27 @@ export class CommodityMarketService {
   // ── Private Helpers ────────────────────────────────────────────────────────
 
   /**
-   * Fetches real-time market quotes directly from authoritative market quote feeds (COMEX / ICE / NYMEX charts)
-   * and computes domestic landed MCX rates using active USD/INR parity and import tariffs.
+   * Fetches real-time market quotes directly from authoritative market quote feeds:
+   *   - Tier 0: Licensed domestic MCX data via Upstox API v2/v3
+   *   - Tier 1: Authoritative global benchmark feeds (COMEX / ICE / NYMEX charts)
+   *   - Tier 2: Federal Reserve Bank of St. Louis (FRED) spot series
    */
   private async fetchLiveQuotes(): Promise<CommodityItem[] | null> {
     try {
+      // Tier 0: Direct licensed MCX live quotes from Upstox
+      let upstoxMcxQuotes: Record<string, any> = {};
+      try {
+        const { upstoxMarketDataService } = await import("./upstox-market-data-service");
+        if (upstoxMarketDataService.isReady()) {
+          const mcxRes = await upstoxMarketDataService.getMCXCommodityQuotes({ persistToDb: true });
+          if (mcxRes.success && mcxRes.data) {
+            upstoxMcxQuotes = mcxRes.data;
+          }
+        }
+      } catch (upstoxErr: any) {
+        logger.debug("[CommodityMarketService] Upstox MCX fetch notice:", upstoxErr?.message);
+      }
+
       const symbolsToFetch = [
         { id: "GOLD", ticker: "GC=F" },
         { id: "SILVER", ticker: "SI=F" },
@@ -353,34 +392,32 @@ export class CommodityMarketService {
         const foundIdx = symbolsToFetch.findIndex((s) => s.id === base.id);
         const matchResult = foundIdx !== -1 ? quotes[foundIdx] : null;
         const liveQuote = matchResult && matchResult.status === "fulfilled" ? matchResult.value : null;
+        const mcxLive = upstoxMcxQuotes[base.id];
+
+        let updatedMcxPrice = mcxLive?.price && mcxLive.price > 0 ? mcxLive.price : base.mcxPrice;
+        let updatedMcxChange = mcxLive?.changePercent !== undefined ? mcxLive.changePercent : base.mcxChangePercent;
 
         if (liveQuote) {
           let updatedCmxPrice = Number(liveQuote.price.toFixed(2));
           let updatedCmxChange = Number(liveQuote.changePercent.toFixed(2));
 
-          let updatedMcxPrice = base.mcxPrice;
-          let updatedMcxChange = updatedCmxChange;
-
-          if (base.id === "GOLD") {
-            // Gold COMEX to MCX import parity: 1 oz = 31.1035g
-            // 10g = (cmxPrice / 31.1035) * 10 * 84.08 * 1.06 (customs duty)
-            const parityMcx = Math.round((updatedCmxPrice / 31.1035) * 10 * 84.08 * 1.06);
-            updatedMcxPrice = parityMcx >= 60000 && parityMcx <= 120000 ? parityMcx : Math.round(base.mcxPrice * (1 + updatedCmxChange / 100));
-          } else if (base.id === "SILVER") {
-            // Silver COMEX to MCX import parity: 1 oz = 31.1035g -> 1kg = 32.1507 oz
-            // 1kg = cmxPrice * 32.1507 * 84.08 * 1.06 (customs duty)
-            const parityMcx = Math.round(updatedCmxPrice * 32.1507 * 84.08 * 1.06);
-            updatedMcxPrice = parityMcx >= 70000 && parityMcx <= 150000 ? parityMcx : Math.round(base.mcxPrice * (1 + updatedCmxChange / 100));
-          } else if (base.id === "CRUDE_OIL") {
-            // Brent Crude: 1 bbl in INR = cmxPrice * USD/INR
-            updatedMcxPrice = Math.round(updatedCmxPrice * 84.08);
-          } else if (base.id === "NATURAL_GAS") {
-            // Henry Hub to MCX natural gas contract in INR
-            updatedMcxPrice = Number((updatedCmxPrice * 84.08).toFixed(1));
-          } else if (base.id === "COPPER") {
-            // 1 lb = 0.453592 kg -> price per kg = (cmxPrice / 0.453592) * 84.08 * 1.05 (duty/freight)
-            const parityMcx = Number(((updatedCmxPrice / 0.453592) * 84.08 * 1.05).toFixed(1));
-            updatedMcxPrice = parityMcx >= 600 && parityMcx <= 1200 ? parityMcx : Number((base.mcxPrice * (1 + updatedCmxChange / 100)).toFixed(1));
+          // If no direct Upstox MCX quote was available, compute parity
+          if (!mcxLive || !mcxLive.price) {
+            if (base.id === "GOLD") {
+              const parityMcx = Math.round((updatedCmxPrice / 31.1035) * 10 * 84.08 * 1.06);
+              updatedMcxPrice = parityMcx >= 70000 && parityMcx <= 250000 ? parityMcx : Math.round(base.mcxPrice * (1 + updatedCmxChange / 100));
+            } else if (base.id === "SILVER") {
+              const parityMcx = Math.round(updatedCmxPrice * 32.1507 * 84.08 * 1.06);
+              updatedMcxPrice = parityMcx >= 70000 && parityMcx <= 300000 ? parityMcx : Math.round(base.mcxPrice * (1 + updatedCmxChange / 100));
+            } else if (base.id === "CRUDE_OIL") {
+              updatedMcxPrice = Math.round(updatedCmxPrice * 84.08);
+            } else if (base.id === "NATURAL_GAS") {
+              updatedMcxPrice = Number((updatedCmxPrice * 84.08).toFixed(1));
+            } else if (base.id === "COPPER") {
+              const parityMcx = Number(((updatedCmxPrice / 0.453592) * 84.08 * 1.05).toFixed(1));
+              updatedMcxPrice = parityMcx >= 600 && parityMcx <= 1500 ? parityMcx : Number((base.mcxPrice * (1 + updatedCmxChange / 100)).toFixed(1));
+            }
+            updatedMcxChange = updatedCmxChange;
           }
 
           const computedTrend: "Bullish" | "Neutral" | "Bearish" =
@@ -402,7 +439,45 @@ export class CommodityMarketService {
             lastUpdated: today,
           });
         } else {
-          items.push({ ...base, lastUpdated: today });
+          // Tier 2: Check FRED official spot benchmarks (Federal Reserve Bank of St. Louis)
+          let fredPrice: number | null = null;
+          try {
+            const { fredCommodityService } = await import("./fred-commodity-service");
+            if (base.id === "CRUDE_OIL") {
+              const brentObs = await fredCommodityService.getSeriesObservation("BRENT_CRUDE");
+              if (brentObs?.value && brentObs.value > 0) fredPrice = brentObs.value;
+            } else if (base.id === "NATURAL_GAS") {
+              const gasObs = await fredCommodityService.getSeriesObservation("NATURAL_GAS");
+              if (gasObs?.value && gasObs.value > 0) fredPrice = gasObs.value;
+            }
+          } catch {
+            /* non-fatal fallback */
+          }
+
+          if (fredPrice) {
+            if (!mcxLive || !mcxLive.price) {
+              if (base.id === "CRUDE_OIL") {
+                updatedMcxPrice = Math.round(fredPrice * 84.08);
+              } else if (base.id === "NATURAL_GAS") {
+                updatedMcxPrice = Number((fredPrice * 84.08).toFixed(1));
+              }
+            }
+            items.push({
+              ...base,
+              cmxPrice: fredPrice,
+              mcxPrice: updatedMcxPrice,
+              mcxChangePercent: updatedMcxChange,
+              cmxSymbol: `${base.cmxSymbol} (FRED)`,
+              lastUpdated: today,
+            });
+          } else {
+            items.push({
+              ...base,
+              mcxPrice: updatedMcxPrice,
+              mcxChangePercent: updatedMcxChange,
+              lastUpdated: today,
+            });
+          }
         }
       }
 

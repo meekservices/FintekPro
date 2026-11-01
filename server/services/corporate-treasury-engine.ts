@@ -264,6 +264,49 @@ const PRODUCT_YIELDS: Record<
 };
 
 class CorporateTreasuryEngine {
+	constructor() {
+		// Asynchronously prime live CCIL sovereign yields
+		void this.syncLiveSovereignYields();
+	}
+
+	async syncLiveSovereignYields(): Promise<void> {
+		try {
+			const { ccilMarketService } = await import("./ccil-market-service");
+			const benchmarks = await ccilMarketService.getSovereignBenchmarks();
+			if (benchmarks.success && benchmarks.data) {
+				const gsec10Y = benchmarks.data.sovereignYields?.[0]?.yieldPercent;
+				const gsec5Y = benchmarks.data.sovereignYields?.[1]?.yieldPercent;
+				const trepsWar = benchmarks.data.treps?.weightedAverageRate;
+				const tb91D = benchmarks.data.tBills?.[0]?.cutoffYield;
+
+				if (gsec10Y && gsec10Y > 0) PRODUCT_YIELDS.g_sec.yield = gsec10Y;
+				if (trepsWar && trepsWar > 0) {
+					PRODUCT_YIELDS.overnight_funds.yield = trepsWar;
+					PRODUCT_YIELDS.liquid_funds.yield = Number.parseFloat((trepsWar + 0.15).toFixed(2));
+				}
+				if (tb91D && tb91D > 0) PRODUCT_YIELDS.treasury_bills.yield = tb91D;
+				if (gsec5Y && gsec5Y > 0) PRODUCT_YIELDS.sdl.yield = Number.parseFloat((gsec5Y + 0.38).toFixed(2));
+			}
+
+			// Also sync live benchmarks via Golden Pricing Engine snapshot
+			try {
+				const { getDailyMarketBriefLiveSnapshot } = await import("./golden-pricing/GoldenPricingEngine");
+				const snap = await getDailyMarketBriefLiveSnapshot("india");
+				if (snap?.fixedIncome) {
+					if (!PRODUCT_YIELDS.g_sec.yield && snap.fixedIncome.gsec10YYield > 0) {
+						PRODUCT_YIELDS.g_sec.yield = snap.fixedIncome.gsec10YYield;
+					}
+					if (!PRODUCT_YIELDS.overnight_funds.yield && snap.fixedIncome.trepsWar > 0) {
+						PRODUCT_YIELDS.overnight_funds.yield = snap.fixedIncome.trepsWar;
+						PRODUCT_YIELDS.liquid_funds.yield = Number.parseFloat((snap.fixedIncome.trepsWar + 0.15).toFixed(2));
+					}
+				}
+			} catch {}
+		} catch {
+			/* non-fatal fallback to defaults */
+		}
+	}
+
 	analyzeTreasury(input: TreasuryInput): TreasuryAnalysis {
 		const bucketAllocations = this.allocateToBuckets(input);
 		const productRecommendations = this.generateProductRecommendations(

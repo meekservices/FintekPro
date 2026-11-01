@@ -413,6 +413,66 @@ class CommodityPriceSyncScheduler {
 			.map((c) => c.symbol?.toUpperCase())
 			.filter(Boolean) as string[];
 
+		// ── Tier 0: Upstox MCX & FRED & NCDEX (Licensed / Official Feeds) ─────────
+		try {
+			const { upstoxMarketDataService } = await import("./upstox-market-data-service");
+			if (upstoxMarketDataService.isReady()) {
+				const mcxQuotes = await upstoxMarketDataService.getMCXCommodityQuotes({ persistToDb: false });
+				for (const [key, q] of Object.entries(mcxQuotes)) {
+					const sym = key.toUpperCase();
+					if (byId.has(sym) && q?.last_price && q.last_price > 0) {
+						priced.set(sym, {
+							symbol: sym,
+							price: q.last_price,
+							high: q.high_price,
+							low: q.low_price,
+							changePercent: q.change_percent,
+							source: "upstox_mcx",
+						});
+					}
+				}
+			}
+		} catch (err: any) {
+			console.warn("[CommoditySync] Upstox MCX Tier 0 pass skipped:", err?.message);
+		}
+
+		try {
+			const { fredCommodityService } = await import("./fred-commodity-service");
+			const fredData = await fredCommodityService.getCommoditySpotBenchmarks();
+			if (fredData.brent?.price && byId.has("BRENT")) {
+				priced.set("BRENT", { symbol: "BRENT", price: fredData.brent.price, source: "fred_stlouis" });
+			}
+			if (fredData.brent?.price && byId.has("BRENT_CRUDE")) {
+				priced.set("BRENT_CRUDE", { symbol: "BRENT_CRUDE", price: fredData.brent.price, source: "fred_stlouis" });
+			}
+			if (fredData.wti?.price && byId.has("CRUDE_OIL") && !priced.has("CRUDE_OIL")) {
+				priced.set("CRUDE_OIL", { symbol: "CRUDE_OIL", price: fredData.wti.price, source: "fred_stlouis" });
+			}
+			if (fredData.naturalGas?.price && byId.has("NATURAL_GAS") && !priced.has("NATURAL_GAS")) {
+				priced.set("NATURAL_GAS", { symbol: "NATURAL_GAS", price: fredData.naturalGas.price, source: "fred_stlouis" });
+			}
+		} catch (err: any) {
+			console.warn("[CommoditySync] FRED Tier 0 pass skipped:", err?.message);
+		}
+
+		try {
+			const { ncdexMarketService } = await import("./ncdex-market-service");
+			const agriBench = await ncdexMarketService.getNcdexAgriBenchmarks();
+			for (const item of agriBench.items) {
+				const sym = item.id.toUpperCase();
+				if (byId.has(sym)) {
+					priced.set(sym, {
+						symbol: sym,
+						price: item.price,
+						changePercent: item.changePercent,
+						source: "ncdex_bhavcopy",
+					});
+				}
+			}
+		} catch (err: any) {
+			console.warn("[CommoditySync] NCDEX Tier 0 pass skipped:", err?.message);
+		}
+
 		// ── Tier 1: Alpha Vantage for precious metals + energy ─────────────────
 		const avSymbols = allSymbols.filter((s) => this.AV_SYMBOLS.has(s));
 		if (avSymbols.length && process.env.ALPHA_VANTAGE_API_KEY) {

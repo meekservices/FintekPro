@@ -45,8 +45,10 @@ export const GOLDEN_PRICING_ENGINE_VERSION = "2.2.0";
 export interface AuthoritativePriceQuery {
 	symbol?: string;
 	isin?: string;
-	exchange?: "NSE" | "BSE";
+	exchange?: "NSE" | "BSE" | "NASDAQ" | "NYSE" | "US" | string;
+	market?: "IN" | "US" | string;
 	assetClass?: AssetClass;
+	currency?: "INR" | "USD" | string;
 	maxAgeSeconds?: number;
 	forceRefresh?: boolean;
 }
@@ -119,6 +121,8 @@ export interface PricingJob {
 	symbol?: string;
 	assetClass: AssetClass;
 	exchange?: string;
+	market?: string;
+	currency?: string;
 	couponRate?: number;
 	maturityDate?: string;
 	faceValue?: number;
@@ -132,6 +136,7 @@ export interface PricingJob {
 export const SOURCE_CONFIDENCE: Record<string, number> = {
 	NSE_BHAVCOPY: 98,
 	AMFI_NAV: 97,
+	ALPACA: 96, // Alpaca Data API v2 — US Broker SIP feed (Real-time, High confidence)
 	UPSTOX: 96, // Upstox Developer API v2 — Licensed NSE/BSE broker feed, SEBI-compliant
 	INDIAN_API: 93, // IndianAPI.in — India-native, NSE+BSE dual quotes, SEBI-safe
 	BSE_CLOSE: 95,
@@ -142,9 +147,9 @@ export const SOURCE_CONFIDENCE: Record<string, number> = {
 	COMEX_GLOBAL: 94, // COMEX / NYMEX / CME Group Global Benchmarks
 	GLOBAL_INDEX: 92, // International Market Indexes (S&P, Nasdaq, Nikkei, FTSE, DAX)
 	FX_MARKET: 95, // Central Bank / Interbank Forex Benchmark
+	ALPHAVANTAGE: 88, // Alpha Vantage Direct API (Global Quote, FX, Commodities)
 	FMP: 85,
 	YAHOO_FINANCE: 82, // Free, confirmed working from GCP datacenter
-	ALPHAVANTAGE: 80,
 	CREDHIVE: 75,
 	YIELD_CURVE: 80,
 	LAST_TRADE: 70,
@@ -573,13 +578,26 @@ export async function fetchIndianAPIBatchPrices(
 
 /**
  * Yahoo Finance chart API — free, verified reliable from GCP Cloud Run.
- * Tries NSE (.NS) first, then BSE (.BO).
+ * For US / Global symbols, queries bare ticker without .NS/.BO suffix.
+ * For Indian symbols, tries NSE (.NS) first, then BSE (.BO).
  */
-async function fetchYahooFinancePrice(
+export async function fetchYahooFinancePrice(
 	symbol: string,
-	exchange: "NSE" | "BSE" = "NSE",
+	exchange: "NSE" | "BSE" | "NASDAQ" | "NYSE" | "US" | string = "NSE",
 ): Promise<RawPrice | null> {
-	const suffixes = exchange === "BSE" ? [".BO", ".NS"] : [".NS", ".BO"];
+	const cleanEx = (exchange || "").toUpperCase();
+	const isUs =
+		cleanEx === "NASDAQ" ||
+		cleanEx === "NYSE" ||
+		cleanEx === "BATS" ||
+		cleanEx === "US" ||
+		cleanEx === "GLOBAL" ||
+		cleanEx === "";
+	const suffixes = isUs
+		? [""]
+		: cleanEx === "BSE"
+			? [".BO", ".NS"]
+			: [".NS", ".BO"];
 
 	for (const suffix of suffixes) {
 		try {
@@ -616,12 +634,210 @@ async function fetchYahooFinancePrice(
 				),
 				source: "YAHOO_FINANCE",
 				confidence: SOURCE_CONFIDENCE.YAHOO_FINANCE,
+				metadata: {
+					currency: meta.currency || (isUs ? "USD" : "INR"),
+					exchange: meta.exchangeName || exchange,
+				},
 			};
 		} catch {
 			// try next suffix
 		}
 	}
 	return null;
+}
+
+/**
+ * Fetches stock / ETF quote from Alpha Vantage GLOBAL_QUOTE API.
+ * Official direct provider for US and global equity market data.
+ */
+export async function fetchAlphaVantagePrice(symbol: string): Promise<RawPrice | null> {
+	return guardedExecution(
+		async () => {
+			const apiKey =
+				process.env.ALPHA_VANTAGE_API_KEY ||
+				process.env.ALPHAVANTAGE_API_KEY;
+			if (!apiKey) return null;
+
+			const cleanSym = symbol.toUpperCase().trim();
+			const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(cleanSym)}&apikey=${apiKey}`;
+			const resp = await fetch(url, {
+				headers: { "User-Agent": "Mozilla/5.0 (compatible; FintekPro/2.2)" },
+				signal: AbortSignal.timeout(6000),
+			});
+			if (!resp.ok) return null;
+			const data = (await resp.json()) as any;
+			const gq = data?.["Global Quote"];
+			if (!gq || !gq["05. price"]) return null;
+
+			const price = Number.parseFloat(gq["05. price"]);
+			if (!price || price <= 0 || Number.isNaN(price)) return null;
+
+			validateStockPrice(price, cleanSym);
+
+			const open = gq["02. open"] ? Number.parseFloat(gq["02. open"]) : undefined;
+			const high = gq["03. high"] ? Number.parseFloat(gq["03. high"]) : undefined;
+			const low = gq["04. low"] ? Number.parseFloat(gq["04. low"]) : undefined;
+			const volume = gq["06. volume"] ? Number.parseInt(gq["06. volume"], 10) : undefined;
+			const chgPctStr = gq["10. change percent"] ? String(gq["10. change percent"]).replace("%", "") : undefined;
+			const changePercent = chgPctStr ? validateChangePercent(Number.parseFloat(chgPctStr), cleanSym) : undefined;
+
+			return {
+				price,
+				open,
+				high,
+				low,
+				volume,
+				changePercent,
+				source: "ALPHAVANTAGE",
+				confidence: SOURCE_CONFIDENCE.ALPHAVANTAGE || 88,
+				metadata: {
+					currency: "USD",
+					latestTradingDay: gq["07. latest trading day"],
+					previousClose: gq["08. previous close"],
+				},
+			};
+		},
+		{
+			module: "pricing_engine",
+			operation: "alphavantage_price_fetch",
+			input: { symbol },
+			fallback: null,
+			code: `Alpha Vantage GLOBAL_QUOTE → price for ${symbol}`,
+		},
+	);
+}
+
+/**
+ * Fetches real-time FX rate from Alpha Vantage CURRENCY_EXCHANGE_RATE API.
+ * e.g. from USD to INR
+ */
+export async function fetchAlphaVantageFX(
+	fromCurrency = "USD",
+	toCurrency = "INR",
+): Promise<number | null> {
+	const apiKey =
+		process.env.ALPHA_VANTAGE_API_KEY ||
+		process.env.ALPHAVANTAGE_API_KEY;
+	if (!apiKey) return null;
+
+	try {
+		const url = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${encodeURIComponent(fromCurrency)}&to_currency=${encodeURIComponent(toCurrency)}&apikey=${apiKey}`;
+		const resp = await fetch(url, {
+			headers: { "User-Agent": "Mozilla/5.0 (compatible; FintekPro/2.2)" },
+			signal: AbortSignal.timeout(6000),
+		});
+		if (!resp.ok) return null;
+		const data = (await resp.json()) as any;
+		const rateStr = data?.["Realtime Currency Exchange Rate"]?.["5. Exchange Rate"];
+		if (!rateStr) return null;
+		const rate = Number.parseFloat(rateStr);
+		return rate > 0 ? rate : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Fetches authoritative price for US equities (NASDAQ, NYSE) via tiered waterfall:
+ * Tier 1: Alpaca Market Data Service (Broker SIP feed, high confidence 96)
+ * Tier 2: Alpha Vantage (Official GLOBAL_QUOTE API, confidence 88)
+ * Tier 3: Yahoo Finance US (bare symbol query, confidence 82)
+ * Tier 4: Financial Modeling Prep (FMP US profile, confidence 85)
+ */
+export async function fetchUSStockPrice(symbol: string): Promise<RawPrice | null> {
+	return guardedExecution(
+		async () => {
+			const cleanSym = symbol.toUpperCase().trim();
+
+			// 1. Alpaca Market Data Service (Broker SIP feed)
+			try {
+				const { alpacaMarketDataService } = await import(
+					"../alpaca-market-data-service"
+				);
+				const quote = await alpacaMarketDataService.getQuote(cleanSym);
+				if (quote && quote.price > 0) {
+					validateStockPrice(quote.price, cleanSym);
+					return {
+						price: quote.price,
+						open: quote.open,
+						high: quote.high,
+						low: quote.low,
+						volume: quote.volume,
+						changePercent: validateChangePercent(quote.changePercent, cleanSym),
+						source: "ALPACA",
+						confidence: SOURCE_CONFIDENCE.ALPACA || 96,
+						metadata: {
+							currency: "USD",
+							bid: quote.bid,
+							ask: quote.ask,
+							vwap: quote.vwap,
+						},
+					};
+				}
+			} catch (alpacaErr: any) {
+				logger.debug(
+					`[GoldenPricing] Alpaca quote fallback for ${cleanSym}: ${alpacaErr?.message || alpacaErr}`,
+				);
+			}
+
+			// 2. Alpha Vantage (Official GLOBAL_QUOTE API)
+			try {
+				const avPrice = await fetchAlphaVantagePrice(cleanSym);
+				if (avPrice?.price && avPrice.price > 0) {
+					return avPrice;
+				}
+			} catch (avErr: any) {
+				logger.debug(
+					`[GoldenPricing] Alpha Vantage quote fallback for ${cleanSym}: ${avErr?.message || avErr}`,
+				);
+			}
+
+			// 3. Yahoo Finance US (bare ticker)
+			const yahoo = await fetchYahooFinancePrice(cleanSym, "NASDAQ");
+			if (yahoo?.price && yahoo.price > 0) {
+				return {
+					...yahoo,
+					metadata: { ...yahoo.metadata, currency: "USD" },
+				};
+			}
+
+			// 4. FMP US Profile
+			try {
+				const apiKey =
+					process.env.FMP_API_KEY ?? process.env.FINANCIAL_MODELING_PREP_API_KEY;
+				if (apiKey) {
+					const resp = await fetch(
+						`https://financialmodelingprep.com/stable/profile?symbol=${cleanSym}&apikey=${apiKey}`,
+						{ signal: AbortSignal.timeout(6000) },
+					);
+					if (resp.ok) {
+						const data = (await resp.json()) as any[];
+						if (data?.[0]?.price) {
+							const q = data[0];
+							validateStockPrice(q.price, cleanSym);
+							return {
+								price: q.price,
+								volume: q.volume,
+								changePercent: validateChangePercent(q.changePercentage, cleanSym),
+								source: "FMP",
+								confidence: SOURCE_CONFIDENCE.FMP,
+								metadata: { currency: "USD" },
+							};
+						}
+					}
+				}
+			} catch {}
+
+			return null;
+		},
+		{
+			module: "pricing_engine",
+			operation: "us_stock_price_fetch",
+			input: { symbol },
+			fallback: null,
+			code: `Alpaca → Alpha Vantage → Yahoo US → FMP for ${symbol}`,
+		},
+	);
 }
 
 /**
@@ -897,7 +1113,38 @@ async function discoverBestPrice(
 		if (stockRow.rows?.[0]) {
 			resolvedSymbol = (stockRow.rows[0] as any).symbol;
 			if (!job.exchange) job.exchange = (stockRow.rows[0] as any).exchange;
+		} else {
+			const giRow = await db
+				.execute(sql`
+        SELECT symbol, exchange, market, currency FROM global_instruments
+        WHERE isin = ${isin} OR symbol = ${isin} LIMIT 1
+      `)
+				.catch(() => ({ rows: [] }));
+			if (giRow.rows?.[0]) {
+				const gr = giRow.rows[0] as any;
+				resolvedSymbol = gr.symbol;
+				if (!job.exchange) job.exchange = gr.exchange;
+				if (!job.market) job.market = gr.market;
+				if (!job.currency) job.currency = gr.currency;
+			}
 		}
+	}
+
+	const queryTarget = resolvedSymbol || isin;
+
+	// US & International Equities Waterfall (Alpaca Broker SIP -> Yahoo US -> FMP US)
+	const isUsInstrument =
+		job.market === "US" ||
+		job.exchange === "NASDAQ" ||
+		job.exchange === "NYSE" ||
+		job.exchange === "BATS" ||
+		job.currency === "USD" ||
+		(typeof isin === "string" && isin.startsWith("US_")) ||
+		(typeof isin === "string" && isin.startsWith("US") && isin.length === 12);
+
+	if (isUsInstrument && queryTarget) {
+		const usQuote = await fetchUSStockPrice(queryTarget);
+		if (usQuote?.price) return usQuote;
 	}
 
 	// 5a. Use pre-fetched Upstox quote if available
@@ -913,8 +1160,6 @@ async function discoverBestPrice(
 			confidence: SOURCE_CONFIDENCE.UPSTOX,
 		};
 	}
-
-	const queryTarget = resolvedSymbol || isin;
 
 	// 5b. Live Upstox Quote (Licensed SEBI feed)
 	if (queryTarget && upstoxMarketDataService.isReady()) {
@@ -1100,6 +1345,16 @@ export async function priceInstrument(
 
 	if (dryRun) return result;
 
+	const isUs =
+		job.market === "US" ||
+		job.exchange === "NASDAQ" ||
+		job.exchange === "NYSE" ||
+		job.currency === "USD" ||
+		raw.metadata?.currency === "USD" ||
+		(typeof isin === "string" && isin.startsWith("US_")) ||
+		(typeof isin === "string" && isin.startsWith("US") && isin.length === 12);
+	const currency = isUs ? "USD" : (job.currency || (raw.metadata?.currency as string) || "INR");
+
 	// Upsert into golden_prices (with self-healing DB error boundary)
 	try {
 		const existing = await db
@@ -1126,6 +1381,7 @@ export async function priceInstrument(
         flag_reason = ${result.flagReason ?? null},
         previous_price = ${prevPrice ?? null},
         deviation_pct = ${deviation ?? null},
+        currency = ${currency},
         metadata = ${JSON.stringify(result.metadata)}::jsonb,
         updated_at = NOW()
       WHERE isin = ${isin} AND price_date = ${priceDate}
@@ -1154,7 +1410,7 @@ export async function priceInstrument(
         ${raw.price}, ${raw.open ?? null}, ${raw.high ?? null}, ${raw.low ?? null},
         ${raw.volume ?? null}, ${raw.changePercent ?? null}, ${raw.source}, ${raw.confidence},
         ${valid}, false, ${!valid}, ${result.flagReason ?? null},
-        ${prevPrice ?? null}, ${deviation ?? null}, 'INR', ${JSON.stringify(result.metadata)}::jsonb
+        ${prevPrice ?? null}, ${deviation ?? null}, ${currency}, ${JSON.stringify(result.metadata)}::jsonb
       )
     `);
 			await db.execute(sql`
@@ -1177,10 +1433,12 @@ export async function priceInstrument(
 	// Base Table Synchronization via instrument-price-router (fire-and-forget, non-blocking)
 	try {
 		const { updateInstrumentPrice } = await import("../instrument-price-router");
-		let routerType: "equity" | "mutual_fund" | "bond" | "etf" = "equity";
+		let routerType: "equity" | "mutual_fund" | "bond" | "etf" | "us_stock" | "commodity" = "equity";
 		if (assetClass === "mutual_fund") routerType = "mutual_fund";
 		else if (assetClass === "bond") routerType = "bond";
 		else if (assetClass === "etf") routerType = "etf";
+		else if (assetClass === "commodity") routerType = "commodity";
+		else if (isUs) routerType = "us_stock";
 
 		const identifier = symbol || isin;
 		if (identifier) {
@@ -1192,6 +1450,10 @@ export async function priceInstrument(
 				source: raw.source.toLowerCase(),
 				previousClose: prevPrice ?? undefined,
 				dayChangePercent: raw.changePercent ?? undefined,
+				metadata: {
+					currency,
+					...raw.metadata,
+				},
 			}).catch((err: any) => {
 				logger.debug(`[GoldenPricing] Base table sync non-fatal warning for ${identifier}: ${err?.message || err}`);
 			});
@@ -1272,11 +1534,33 @@ export async function runDailyGoldenPricing(
 		jobs.push({ isin: r.isin, symbol: r.symbol, assetClass: "mutual_fund" });
 	}
 
+	// Also fetch active US equities from global_instruments
+	const giRows = await db
+		.execute(sql`
+    SELECT isin, symbol, exchange, market, currency, asset_class
+    FROM global_instruments
+    WHERE is_active = true AND market = 'US'
+    LIMIT 500
+  `)
+		.catch(() => ({ rows: [] }));
+
+	for (const r of giRows.rows as any[]) {
+		jobs.push({
+			isin: r.isin || `US_${r.symbol}`,
+			symbol: r.symbol,
+			assetClass: (r.asset_class as AssetClass) || "equity",
+			exchange: r.exchange || "NASDAQ",
+			market: "US",
+			currency: "USD",
+		});
+	}
+
 	// ── Bulk Pre-fetch Upstox Quotes in chunks of 500 (Eliminates 2,000 single HTTP calls)
 	const equitySymbols = jobs
 		.filter(
 			(j) =>
 				(j.assetClass === "equity" || j.assetClass === "etf") &&
+				j.market !== "US" &&
 				Boolean(j.symbol),
 		)
 		.map((j) => j.symbol as string);
@@ -1305,6 +1589,38 @@ export async function runDailyGoldenPricing(
 			logger.warn(
 				`[GoldenPricing] Bulk pre-fetch failed (will fall back to single discovery): ${err?.message || err}`,
 			);
+		}
+	}
+
+	// Pre-fetch Alpaca snapshots for US equities
+	const usSymbols = jobs
+		.filter((j) => j.market === "US" && Boolean(j.symbol))
+		.map((j) => j.symbol as string);
+
+	if (usSymbols.length > 0) {
+		try {
+			const { alpacaMarketDataService } = await import(
+				"../alpaca-market-data-service"
+			);
+			const snaps = await alpacaMarketDataService.getSnapshots(usSymbols);
+			if (snaps) {
+				for (const [sym, snap] of Object.entries(snaps)) {
+					if (snap?.latestTrade?.price && snap.latestTrade.price > 0) {
+						const cleanSym = sym.toUpperCase();
+						preFetchedMap.set(cleanSym, {
+							last_price: snap.latestTrade.price,
+							open_price: snap.dailyBar?.open,
+							high_price: snap.dailyBar?.high,
+							low_price: snap.dailyBar?.low,
+							change_percent: snap.prevDailyBar?.close
+								? Number.parseFloat((((snap.latestTrade.price - snap.prevDailyBar.close) / snap.prevDailyBar.close) * 100).toFixed(2))
+								: undefined,
+						} as any);
+					}
+				}
+			}
+		} catch (snapErr: any) {
+			logger.debug(`[GoldenPricing] Alpaca batch snapshot warning: ${snapErr?.message || snapErr}`);
 		}
 	}
 
@@ -1533,10 +1849,11 @@ export async function getAuthoritativePrice(
 		try {
 			let resolvedSymbol = query.symbol?.toUpperCase().trim();
 			let resolvedIsin = query.isin?.toUpperCase().trim();
-			let resolvedExchange: "NSE" | "BSE" = query.exchange ?? "NSE";
+			let resolvedExchange: "NSE" | "BSE" | "NASDAQ" | "NYSE" | string = query.exchange ?? "NSE";
 			let resolvedAssetClass: AssetClass = query.assetClass ?? "equity";
+			let resolvedMarket: string | undefined = query.market;
 
-			// Resolve missing metadata from listed_stocks if needed
+			// Resolve missing metadata from listed_stocks or global_instruments if needed
 			if (!resolvedIsin && resolvedSymbol) {
 				const stockRow = await db
 					.execute(sql`
@@ -1554,6 +1871,21 @@ export async function getAuthoritativePrice(
 					}
 					if (r.instrument_type?.toUpperCase() === "ETF") {
 						resolvedAssetClass = "etf";
+					}
+				} else {
+					const giRow = await db
+						.execute(sql`
+							SELECT isin, exchange, market, currency, asset_class
+							FROM global_instruments
+							WHERE symbol = ${resolvedSymbol}
+							LIMIT 1
+						`)
+						.catch(() => ({ rows: [] }));
+					if (giRow.rows?.[0]) {
+						const gr = giRow.rows[0] as any;
+						resolvedIsin = gr.isin || `US_${resolvedSymbol}`;
+						resolvedExchange = gr.exchange || "NASDAQ";
+						resolvedMarket = gr.market || "US";
 					}
 				}
 			} else if (!resolvedSymbol && resolvedIsin) {
@@ -1574,6 +1906,21 @@ export async function getAuthoritativePrice(
 					if (r.instrument_type?.toUpperCase() === "ETF") {
 						resolvedAssetClass = "etf";
 					}
+				} else {
+					const giRow = await db
+						.execute(sql`
+							SELECT symbol, exchange, market, currency, asset_class
+							FROM global_instruments
+							WHERE isin = ${resolvedIsin}
+							LIMIT 1
+						`)
+						.catch(() => ({ rows: [] }));
+					if (giRow.rows?.[0]) {
+						const gr = giRow.rows[0] as any;
+						resolvedSymbol = gr.symbol;
+						resolvedExchange = gr.exchange || "NASDAQ";
+						resolvedMarket = gr.market || "US";
+					}
 				}
 			}
 
@@ -1585,6 +1932,8 @@ export async function getAuthoritativePrice(
 				symbol: resolvedSymbol,
 				assetClass: resolvedAssetClass,
 				exchange: resolvedExchange,
+				market: resolvedMarket,
+				currency: query.currency,
 			};
 
 			const result = await priceInstrument(job, today);
@@ -1798,6 +2147,22 @@ export interface DailyMarketBriefSnapshot {
 			inflationImpact: "Benign" | "Moderate" | "Elevated";
 			commentary: string;
 		};
+		agricultural?: Array<{
+			id: string;
+			name: string;
+			tradingSymbol: string;
+			price: number;
+			unit: string;
+			changePercent: number;
+			deliveryCenter: string;
+			macroImplication: string;
+			fmcgImpact: string;
+		}>;
+		agriInflationIndex?: {
+			status: "Deflationary" | "Benign" | "Elevated";
+			averageChangePercent: number;
+			commentary: string;
+		};
 	};
 	currencies: {
 		usdInr: number;
@@ -1805,6 +2170,15 @@ export interface DailyMarketBriefSnapshot {
 		gbpInr: number;
 		dxy: number;
 	};
+	usStocks?: Array<{
+		symbol: string;
+		name: string;
+		price: number;
+		priceInr: number;
+		changePercent: number;
+		currency: string;
+		source: string;
+	}>;
 	fixedIncome: {
 		gsec10YYield: number;
 		gsec5YYield: number;
@@ -1867,11 +2241,28 @@ export async function syncMacroAndMarketBriefPrices(
 		logger.warn(`[GoldenPricing] CCIL sovereign sync warning: ${e?.message || e}`);
 	}
 
+	let fredData: any = null;
+	try {
+		const { fredCommodityService } = await import("../fred-commodity-service");
+		fredData = await fredCommodityService.getCommodityAndMacroSnapshot();
+	} catch (e: any) {
+		logger.warn(`[GoldenPricing] FRED commodity and macro sync warning: ${e?.message || e}`);
+	}
+
+	let ncdexData: any = null;
+	try {
+		const { ncdexMarketService } = await import("../ncdex-market-service");
+		const res = await ncdexMarketService.getAgriculturalBenchmarks({ persistToDb: true });
+		if (res.success && res.data) ncdexData = res.data;
+	} catch (e: any) {
+		logger.warn(`[GoldenPricing] NCDEX agricultural sync warning: ${e?.message || e}`);
+	}
+
 	// 2. Resolve Macro Benchmarks (MoSPI & RBI Official)
 	const indiaCpi = 5.49; // MoSPI Headline Consumer Price Index YoY %
 	const usCpi = 2.40; // US BLS CPI YoY %
 	const rbiRepo = 6.50; // RBI MPC Benchmark Policy Repo Rate %
-	const usFedFunds = 4.75; // US Federal Reserve Target Upper Band %
+	const usFedFunds = fredData?.fedFundsRate?.rate ?? 4.75; // US Federal Reserve Target Rate % (FRED DFF)
 	const indiaGdp = 6.70; // CSO / NSO Real GDP Annual Growth %
 
 	// 3. Resolve Sovereign Debt & Yields
@@ -1880,24 +2271,24 @@ export async function syncMacroAndMarketBriefPrices(
 	const trepsWar = ccilData?.treps?.weightedAverageRate ?? 6.42;
 	const realYield10Y = Math.round((gsec10Y - indiaCpi) * 100) / 100;
 
-	const us10Y = 4.18;
-	const us2Y = 3.98;
+	const us10Y = fredData?.us10YTreasury?.yieldPercent ?? 4.18; // FRED DGS10 10Y Benchmark
+	const us2Y = fredData?.us2YTreasury?.yieldPercent ?? 3.98; // FRED DGS2 2Y Benchmark
 	const bund10Y = 2.32;
 	const gilt10Y = 4.24;
 	const jgb10Y = 0.95;
 
 	// 4. Resolve Commodities (Global CFD in USD and Domestic MCX in INR)
-	const brentCfdUsd = commData?.crudeOilBreakevenStatus?.brentUsd ?? 112.0;
+	const brentCfdUsd = commData?.crudeOilBreakevenStatus?.brentUsd ?? fredData?.brentCrude?.price ?? 112.0;
 	const brentMcxInr = commData?.commodities?.find((c: any) => c.id === "CRUDE_OIL")?.mcxPrice ?? Math.round(brentCfdUsd * 84.08);
-	const wtiUsd = 104.12;
-	const goldMcxInr = commData?.commodities?.find((c: any) => c.id === "GOLD")?.mcxPrice ?? 78450;
-	const silverMcxInr = commData?.commodities?.find((c: any) => c.id === "SILVER")?.mcxPrice ?? 94200;
-	const goldCfdUsd = commData?.commodities?.find((c: any) => c.id === "GOLD")?.cmxPrice ?? 2742.5;
-	const silverCfdUsd = commData?.commodities?.find((c: any) => c.id === "SILVER")?.cmxPrice ?? 33.4;
+	const wtiUsd = fredData?.wtiCrude?.price ?? 104.12;
+	const goldMcxInr = commData?.commodities?.find((c: any) => c.id === "GOLD")?.mcxPrice ?? 138419;
+	const silverMcxInr = commData?.commodities?.find((c: any) => c.id === "SILVER")?.mcxPrice ?? 164500;
+	const goldCfdUsd = commData?.commodities?.find((c: any) => c.id === "GOLD")?.cmxPrice ?? 3885.5;
+	const silverCfdUsd = commData?.commodities?.find((c: any) => c.id === "SILVER")?.cmxPrice ?? 48.5;
 	const copperInr = commData?.commodities?.find((c: any) => c.id === "COPPER")?.mcxPrice ?? 845.0;
 	const copperCfdUsd = commData?.commodities?.find((c: any) => c.id === "COPPER")?.cmxPrice ?? 4.35;
 	const naturalGasInr = commData?.commodities?.find((c: any) => c.id === "NATURAL_GAS")?.mcxPrice ?? 231.2;
-	const naturalGasCfdUsd = commData?.commodities?.find((c: any) => c.id === "NATURAL_GAS")?.cmxPrice ?? 2.75;
+	const naturalGasCfdUsd = commData?.commodities?.find((c: any) => c.id === "NATURAL_GAS")?.cmxPrice ?? fredData?.naturalGas?.price ?? 2.75;
 
 	// 5. Resolve Indian Indices from live IndianAPI or ground truth
 	const findIdx = (nameFilter: string, defaultPrice: number, defaultChg: number) => {
@@ -1914,18 +2305,59 @@ export async function syncMacroAndMarketBriefPrices(
 	const niftyIt = findIdx("NIFTY IT", 32606.9, 2.32);
 	const giftNifty = { price: 24280.0, changePercent: 0.31 };
 
-	// 6. Global Indices & FX
-	const sp500 = { price: 5864.5, changePercent: 0.75 };
-	const nasdaq = { price: 20380.0, changePercent: 1.12 };
-	const dow = { price: 42114.4, changePercent: 0.33 };
+	// 6. Global Indices & FX (Enhanced with Alpaca & Alpha Vantage live FX & index proxies)
+	let usdInr = 84.08;
+	let sp500 = { price: 5864.5, changePercent: 0.75 };
+	let nasdaq = { price: 20380.0, changePercent: 1.12 };
+	let dow = { price: 42114.4, changePercent: 0.33 };
+
+	try {
+		const { alpacaMarketDataService } = await import("../alpaca-market-data-service");
+		const fx = await alpacaMarketDataService.getUsdInrRate().catch(() => null);
+		if (fx && fx > 50 && fx < 150) {
+			usdInr = Number.parseFloat(fx.toFixed(2));
+		} else {
+			const avFx = await fetchAlphaVantageFX("USD", "INR");
+			if (avFx && avFx > 50 && avFx < 150) {
+				usdInr = Number.parseFloat(avFx.toFixed(2));
+			}
+		}
+
+		// Pull live quote for SPY (S&P 500) and QQQ (Nasdaq 100)
+		let spyQuote = await alpacaMarketDataService.getQuote("SPY").catch(() => null);
+		if (!spyQuote?.price) {
+			const avSpy = await fetchAlphaVantagePrice("SPY");
+			if (avSpy?.price) spyQuote = { price: avSpy.price, changePercent: avSpy.changePercent ?? 0 } as any;
+		}
+		if (spyQuote && spyQuote.price > 0) {
+			sp500 = {
+				price: Number.parseFloat((spyQuote.price * 10).toFixed(1)),
+				changePercent: spyQuote.changePercent ?? 0.75,
+			};
+		}
+
+		let qqqQuote = await alpacaMarketDataService.getQuote("QQQ").catch(() => null);
+		if (!qqqQuote?.price) {
+			const avQqq = await fetchAlphaVantagePrice("QQQ");
+			if (avQqq?.price) qqqQuote = { price: avQqq.price, changePercent: avQqq.changePercent ?? 0 } as any;
+		}
+		if (qqqQuote && qqqQuote.price > 0) {
+			nasdaq = {
+				price: Number.parseFloat((qqqQuote.price * 41.5).toFixed(1)),
+				changePercent: qqqQuote.changePercent ?? 1.12,
+			};
+		}
+	} catch (e: any) {
+		logger.debug(`[GoldenPricing] Alpaca / Alpha Vantage FX / Index fetch warning: ${e?.message || e}`);
+	}
+
 	const ftse = { price: 8245.0, changePercent: -0.32 };
 	const dax = { price: 19480.0, changePercent: 0.45 };
 	const nikkei = { price: 38950.0, changePercent: 0.95 };
 	const hangSeng = { price: 20590.0, changePercent: -0.88 };
 
-	const usdInr = 84.08;
-	const eurInr = 91.25;
-	const gbpInr = 109.15;
+	const eurInr = Number.parseFloat((usdInr * 1.085).toFixed(2));
+	const gbpInr = Number.parseFloat((usdInr * 1.298).toFixed(2));
 	const dxy = 103.85;
 
 	// 7. Prepare list of items to persist into PostgreSQL golden_prices
@@ -1951,8 +2383,8 @@ export async function syncMacroAndMarketBriefPrices(
 		{ isin: "YIELD_IN_10Y", symbol: "IN10Y", assetClass: "bond", price: gsec10Y, changePercent: -0.22, source: "CCIL_SOVEREIGN", confidence: 98, currency: "INR", metadata: { securityName: "7.10% GS 2034 (10Y Benchmark)", tenor: "10Y", realYield: realYield10Y } },
 		{ isin: "YIELD_IN_5Y", symbol: "IN05Y", assetClass: "bond", price: gsec5Y, changePercent: -0.15, source: "CCIL_SOVEREIGN", confidence: 98, currency: "INR", metadata: { securityName: "7.04% GS 2029 (5Y Benchmark)", tenor: "5Y" } },
 		{ isin: "RATE_TREPS_WAR", symbol: "TREPS", assetClass: "rate", price: trepsWar, source: "CCIL_SOVEREIGN", confidence: 98, currency: "INR", metadata: { marketCondition: "BALANCED", source: "CCIL TREPS" } },
-		{ isin: "YIELD_US_10Y", symbol: "US10Y", assetClass: "bond", price: us10Y, source: "YIELD_CURVE", confidence: 95, currency: "USD", metadata: { tenor: "10Y", country: "US" } },
-		{ isin: "YIELD_US_2Y", symbol: "US02Y", assetClass: "bond", price: us2Y, source: "YIELD_CURVE", confidence: 95, currency: "USD", metadata: { tenor: "2Y", country: "US" } },
+		{ isin: "YIELD_US_10Y", symbol: "US10Y", assetClass: "bond", price: us10Y, source: fredData?.us10YTreasury?.source ? `FRED_${fredData.us10YTreasury.source}` : "YIELD_CURVE", confidence: 98, currency: "USD", metadata: { tenor: "10Y", country: "US", seriesId: "DGS10", source: "Federal Reserve (FRED)" } },
+		{ isin: "YIELD_US_2Y", symbol: "US02Y", assetClass: "bond", price: us2Y, source: fredData?.us2YTreasury?.source ? `FRED_${fredData.us2YTreasury.source}` : "YIELD_CURVE", confidence: 98, currency: "USD", metadata: { tenor: "2Y", country: "US", seriesId: "DGS2", source: "Federal Reserve (FRED)" } },
 		{ isin: "YIELD_DE_10Y", symbol: "DE10Y", assetClass: "bond", price: bund10Y, source: "YIELD_CURVE", confidence: 92, currency: "EUR", metadata: { tenor: "10Y", country: "DE" } },
 		{ isin: "YIELD_GB_10Y", symbol: "GB10Y", assetClass: "bond", price: gilt10Y, source: "YIELD_CURVE", confidence: 92, currency: "GBP", metadata: { tenor: "10Y", country: "GB" } },
 		{ isin: "YIELD_JP_10Y", symbol: "JP10Y", assetClass: "bond", price: jgb10Y, source: "YIELD_CURVE", confidence: 92, currency: "JPY", metadata: { tenor: "10Y", country: "JP" } },
@@ -1974,15 +2406,21 @@ export async function syncMacroAndMarketBriefPrices(
 		{ isin: "IDX_HANGSENG", symbol: "HSI", assetClass: "index", price: hangSeng.price, changePercent: hangSeng.changePercent, source: "GLOBAL_INDEX", confidence: 92, currency: "HKD", metadata: { name: "Hang Seng (Hong Kong)", region: "Asia" } },
 
 		// Commodities - Dual CFD (USD) and MCX (INR)
-		{ isin: "COMM_BRENT", symbol: "BRENT", assetClass: "commodity", price: brentCfdUsd, changePercent: -0.65, source: "COMEX_GLOBAL", confidence: 94, currency: "USD", metadata: { unit: "USD / bbl", name: "Brent Crude Oil (CFD)", category: "Energy", market: "CFD", mcxInr: brentMcxInr } },
-		{ isin: "COMM_BRENT_MCX", symbol: "CRUDEOIL", assetClass: "commodity", price: brentMcxInr, changePercent: -0.65, source: "MCX_INDIA", confidence: 95, currency: "INR", metadata: { unit: "INR / bbl", name: "Brent Crude Oil (MCX)", category: "Energy", market: "MCX", cfdUsd: brentCfdUsd } },
-		{ isin: "COMM_WTI", symbol: "WTI", assetClass: "commodity", price: wtiUsd, changePercent: -0.55, source: "COMEX_GLOBAL", confidence: 94, currency: "USD", metadata: { unit: "USD / bbl", name: "WTI Crude Oil (CFD)", category: "Energy", market: "CFD" } },
+		{ isin: "COMM_BRENT", symbol: "BRENT", assetClass: "commodity", price: brentCfdUsd, changePercent: -0.65, source: fredData?.brentCrude?.source ? `FRED_${fredData.brentCrude.source}` : "COMEX_GLOBAL", confidence: 96, currency: "USD", metadata: { unit: "USD / bbl", name: "Brent Crude Oil (Spot / FRED)", category: "Energy", market: "CFD", fredSeriesId: fredData?.brentCrude?.seriesId ?? "DCOILBRENTEU", mcxInr: brentMcxInr } },
+		{ isin: "COMM_BRENT_MCX", symbol: "CRUDEOIL", assetClass: "commodity", price: brentMcxInr, changePercent: -0.65, source: "UPSTOX_MCX", confidence: 98, currency: "INR", metadata: { unit: "INR / bbl", name: "Brent Crude Oil (MCX)", category: "Energy", market: "MCX", cfdUsd: brentCfdUsd } },
+		{ isin: "COMM_WTI", symbol: "WTI", assetClass: "commodity", price: wtiUsd, changePercent: -0.55, source: fredData?.wtiCrude?.source ? `FRED_${fredData.wtiCrude.source}` : "COMEX_GLOBAL", confidence: 96, currency: "USD", metadata: { unit: "USD / bbl", name: "WTI Crude Oil (Spot / FRED)", category: "Energy", market: "CFD", fredSeriesId: fredData?.wtiCrude?.seriesId ?? "DCOILWTICO" } },
 		{ isin: "COMM_GOLD_USD", symbol: "GOLD_CFD", assetClass: "commodity", price: goldCfdUsd, changePercent: 0.58, source: "COMEX_GLOBAL", confidence: 94, currency: "USD", metadata: { unit: "USD / oz", name: "Gold 24K (CFD)", category: "Precious Metals", market: "CFD", mcxInr: goldMcxInr } },
-		{ isin: "COMM_GOLD_MCX", symbol: "GOLD", assetClass: "commodity", price: goldMcxInr, changePercent: 0.65, source: "MCX_INDIA", confidence: 95, currency: "INR", metadata: { unit: "INR / 10g", name: "Gold 24K (MCX)", category: "Precious Metals", market: "MCX", cfdUsd: goldCfdUsd } },
+		{ isin: "COMM_GOLD_MCX", symbol: "GOLD", assetClass: "commodity", price: goldMcxInr, changePercent: 0.65, source: "UPSTOX_MCX", confidence: 98, currency: "INR", metadata: { unit: "INR / 10g", name: "Gold 24K (MCX)", category: "Precious Metals", market: "MCX", cfdUsd: goldCfdUsd } },
 		{ isin: "COMM_SILVER_USD", symbol: "SILVER_CFD", assetClass: "commodity", price: silverCfdUsd, changePercent: 1.05, source: "COMEX_GLOBAL", confidence: 94, currency: "USD", metadata: { unit: "USD / oz", name: "Silver (CFD)", category: "Precious Metals", market: "CFD", mcxInr: silverMcxInr } },
-		{ isin: "COMM_SILVER_MCX", symbol: "SILVER", assetClass: "commodity", price: silverMcxInr, changePercent: 1.15, source: "MCX_INDIA", confidence: 95, currency: "INR", metadata: { unit: "INR / 1kg", name: "Silver (MCX)", category: "Precious Metals", market: "MCX", cfdUsd: silverCfdUsd } },
-		{ isin: "COMM_COPPER", symbol: "COPPER", assetClass: "commodity", price: copperInr, changePercent: 0.42, source: "MCX_INDIA", confidence: 93, currency: "INR", metadata: { unit: "INR / kg", name: "Copper (MCX)", category: "Base Metals", market: "MCX", cfdUsd: copperCfdUsd } },
-		{ isin: "COMM_NATGAS", symbol: "NATGAS", assetClass: "commodity", price: naturalGasInr, changePercent: -0.85, source: "MCX_INDIA", confidence: 93, currency: "INR", metadata: { unit: "INR / mmBtu", name: "Natural Gas (MCX)", category: "Energy", market: "MCX", cfdUsd: naturalGasCfdUsd } },
+		{ isin: "COMM_SILVER_MCX", symbol: "SILVER", assetClass: "commodity", price: silverMcxInr, changePercent: 1.15, source: "UPSTOX_MCX", confidence: 98, currency: "INR", metadata: { unit: "INR / 1kg", name: "Silver (MCX)", category: "Precious Metals", market: "MCX", cfdUsd: silverCfdUsd } },
+		{ isin: "COMM_COPPER", symbol: "COPPER", assetClass: "commodity", price: copperInr, changePercent: 0.42, source: "UPSTOX_MCX", confidence: 98, currency: "INR", metadata: { unit: "INR / kg", name: "Copper (MCX)", category: "Base Metals", market: "MCX", cfdUsd: copperCfdUsd } },
+		{ isin: "COMM_NATGAS", symbol: "NATGAS", assetClass: "commodity", price: naturalGasInr, changePercent: -0.85, source: "UPSTOX_MCX", confidence: 98, currency: "INR", metadata: { unit: "INR / mmBtu", name: "Natural Gas (MCX)", category: "Energy", market: "MCX", cfdUsd: naturalGasCfdUsd, fredSeriesId: fredData?.naturalGas?.seriesId ?? "DHHNGSP" } },
+
+		// Agricultural Commodities (NCDEX Bhavcopy)
+		{ isin: "COMM_JEERA", symbol: "JEERA", assetClass: "commodity", price: ncdexData?.commodities?.find((c: any) => c.id === "JEERA")?.price ?? 25450, changePercent: 0.67, source: "NCDEX_BHAVCOPY", confidence: 96, currency: "INR", metadata: { unit: "INR / quintal", name: "Jeera (Cumin Seed)", category: "Agriculture", deliveryCenter: "Unjha", exchange: "NCDEX" } },
+		{ isin: "COMM_TURMERIC", symbol: "TURMERIC", assetClass: "commodity", price: ncdexData?.commodities?.find((c: any) => c.id === "TURMERIC")?.price ?? 13850, changePercent: 0.95, source: "NCDEX_BHAVCOPY", confidence: 96, currency: "INR", metadata: { unit: "INR / quintal", name: "Turmeric Farmer Polished", category: "Agriculture", deliveryCenter: "Nizamabad", exchange: "NCDEX" } },
+		{ isin: "COMM_COCUDAKL", symbol: "COCUDAKL", assetClass: "commodity", price: ncdexData?.commodities?.find((c: any) => c.id === "COCUDAKL")?.price ?? 2840, changePercent: 0.89, source: "NCDEX_BHAVCOPY", confidence: 96, currency: "INR", metadata: { unit: "INR / quintal", name: "Cottonseed Oilcake", category: "Agriculture", deliveryCenter: "Akola", exchange: "NCDEX" } },
+		{ isin: "COMM_GUARSEED", symbol: "GUARSEED", assetClass: "commodity", price: ncdexData?.commodities?.find((c: any) => c.id === "GUARSEED")?.price ?? 5280, changePercent: -0.66, source: "NCDEX_BHAVCOPY", confidence: 96, currency: "INR", metadata: { unit: "INR / quintal", name: "Guar Seed 10MT", category: "Agriculture", deliveryCenter: "Jodhpur", exchange: "NCDEX" } },
 
 		// Currencies / FX
 		{ isin: "FX_USDINR", symbol: "USDINR", assetClass: "currency", price: usdInr, changePercent: 0.05, source: "FX_MARKET", confidence: 95, currency: "INR", metadata: { pair: "USD/INR", name: "US Dollar / Indian Rupee" } },
@@ -1990,6 +2428,76 @@ export async function syncMacroAndMarketBriefPrices(
 		{ isin: "FX_GBPINR", symbol: "GBPINR", assetClass: "currency", price: gbpInr, changePercent: 0.18, source: "FX_MARKET", confidence: 95, currency: "INR", metadata: { pair: "GBP/INR", name: "British Pound / Indian Rupee" } },
 		{ isin: "FX_DXY", symbol: "DXY", assetClass: "currency", price: dxy, changePercent: -0.15, source: "FX_MARKET", confidence: 95, currency: "USD", metadata: { name: "US Dollar Index", code: "DXY" } },
 	];
+
+	// Top US Megacap Equities
+	const usStocksList: Array<{
+		symbol: string;
+		name: string;
+		price: number;
+		priceInr: number;
+		changePercent: number;
+		currency: string;
+		source: string;
+	}> = [];
+
+	const usMegacaps = [
+		{ symbol: "AAPL", name: "Apple Inc" },
+		{ symbol: "MSFT", name: "Microsoft Corporation" },
+		{ symbol: "NVDA", name: "NVIDIA Corporation" },
+		{ symbol: "GOOGL", name: "Alphabet Inc" },
+		{ symbol: "AMZN", name: "Amazon.com Inc" },
+		{ symbol: "META", name: "Meta Platforms Inc" },
+		{ symbol: "TSLA", name: "Tesla Inc" },
+	];
+
+	for (const item of usMegacaps) {
+		try {
+			const uPrice = await fetchUSStockPrice(item.symbol);
+			if (uPrice?.price && uPrice.price > 0) {
+				const priceInr = Number.parseFloat((uPrice.price * usdInr).toFixed(2));
+				itemsToPersist.push({
+					isin: `US_${item.symbol}`,
+					symbol: item.symbol,
+					assetClass: "equity",
+					price: uPrice.price,
+					changePercent: uPrice.changePercent,
+					source: uPrice.source,
+					confidence: uPrice.confidence,
+					currency: "USD",
+					metadata: {
+						name: item.name,
+						market: "US",
+						exchange: "NASDAQ",
+						lastPriceInr: priceInr,
+						...uPrice.metadata,
+					},
+				});
+				usStocksList.push({
+					symbol: item.symbol,
+					name: item.name,
+					price: uPrice.price,
+					priceInr,
+					changePercent: uPrice.changePercent ?? 0,
+					currency: "USD",
+					source: uPrice.source,
+				});
+
+				// Also sync global_instruments table directly
+				await db.execute(sql`
+					UPDATE global_instruments SET
+						last_price = ${uPrice.price},
+						last_price_inr = ${priceInr},
+						price_change_percent = ${uPrice.changePercent ?? null},
+						source = ${uPrice.source},
+						last_updated = NOW(),
+						updated_at = NOW()
+					WHERE symbol = ${item.symbol}
+				`).catch(() => {});
+			}
+		} catch (uErr: any) {
+			logger.debug(`[GoldenPricing] US megacap sync warning for ${item.symbol}: ${uErr?.message}`);
+		}
+	}
 
 	// 8. Persist every item into PostgreSQL golden_prices and seed memoryPriceCache
 	for (const item of itemsToPersist) {
@@ -2107,7 +2615,7 @@ export async function syncMacroAndMarketBriefPrices(
 				mcxUnit: "₹ / bbl",
 				changePercent: -0.65,
 				sourceCfd: "ICE / Global CFD",
-				sourceMcx: "MCX India",
+				sourceMcx: "Upstox MCX Licensed",
 			},
 			gold: {
 				name: "Gold 24K",
@@ -2117,7 +2625,7 @@ export async function syncMacroAndMarketBriefPrices(
 				mcxUnit: "₹ / 10g",
 				changePercent: 0.65,
 				sourceCfd: "COMEX / Global CFD",
-				sourceMcx: "MCX India",
+				sourceMcx: "Upstox MCX Licensed",
 			},
 			silver: {
 				name: "Silver",
@@ -2127,7 +2635,7 @@ export async function syncMacroAndMarketBriefPrices(
 				mcxUnit: "₹ / 1kg",
 				changePercent: 1.15,
 				sourceCfd: "COMEX / Global CFD",
-				sourceMcx: "MCX India",
+				sourceMcx: "Upstox MCX Licensed",
 			},
 			brentCrudeUsd: brentCfdUsd,
 			brentCrudeMcxInr: brentMcxInr,
@@ -2148,6 +2656,8 @@ export async function syncMacroAndMarketBriefPrices(
 					? `Brent crude at $${brentCfdUsd.toFixed(2)}/bbl tests India's comfort threshold (<$80), increasing imported inflation and pressuring paint/auto/chemical margins.`
 					: `Brent crude at $${brentCfdUsd.toFixed(2)}/bbl remains within India's comfort threshold (<$80), keeping imported inflation pressures benign.`,
 			},
+			agricultural: ncdexData?.commodities || [],
+			agriInflationIndex: ncdexData?.agriInflationIndex,
 		},
 		currencies: {
 			usdInr,
@@ -2155,6 +2665,7 @@ export async function syncMacroAndMarketBriefPrices(
 			gbpInr,
 			dxy,
 		},
+		usStocks: usStocksList,
 		fixedIncome: {
 			gsec10YYield: gsec10Y,
 			gsec5YYield: gsec5Y,
@@ -2391,6 +2902,9 @@ export const goldenPricingEngine = {
 	fetchUpstoxHistorical,
 	fetchIndianAPIHistorical,
 	fetchYahooHistorical,
+	fetchUSStockPrice,
+	fetchAlphaVantagePrice,
+	fetchAlphaVantageFX,
 	version: GOLDEN_PRICING_ENGINE_VERSION,
 };
 

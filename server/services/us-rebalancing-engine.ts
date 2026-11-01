@@ -203,7 +203,16 @@ class UsRebalancingEngine {
 		];
 
 		try {
-			const fxRate = await polygonMarketService.getUsdInrRate();
+			let fxRate = await polygonMarketService.getUsdInrRate().catch(() => 84.08);
+			if (!fxRate || fxRate < 50 || fxRate > 150) {
+				try {
+					const { getDailyMarketBriefLiveSnapshot } = await import("./golden-pricing/GoldenPricingEngine");
+					const snap = await getDailyMarketBriefLiveSnapshot("us");
+					fxRate = snap.currencies.usdInr;
+				} catch {
+					fxRate = 84.08;
+				}
+			}
 
 			if (deviations.usEquity < -3) {
 				const targetIncrease =
@@ -217,7 +226,16 @@ class UsRebalancingEngine {
 				const quotes = await polygonMarketService.getMultipleQuotes(symbols);
 
 				for (const stock of stocksToConsider.slice(0, 3)) {
-					const quote = quotes.get(stock.symbol);
+					let quote = quotes.get(stock.symbol);
+					if (!quote?.price || quote.price <= 0) {
+						try {
+							const { fetchUSStockPrice } = await import("./golden-pricing/GoldenPricingEngine");
+							const fallback = await fetchUSStockPrice(stock.symbol);
+							if (fallback?.price && fallback.price > 0) {
+								quote = { price: fallback.price } as any;
+							}
+						} catch {}
+					}
 					const currentHolding = holdings.get(stock.symbol);
 
 					if (quote && quote.price > 0) {

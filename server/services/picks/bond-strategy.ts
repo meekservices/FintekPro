@@ -37,8 +37,8 @@ async function fetchFBILYield(): Promise<number | null> {
 }
 
 /**
- * Returns the current India 10Y G-Sec yield in percent.
- * Triggers a background refresh daily. Non-fatal — defaults to 7.1% on failure.
+ * Returns the current India 10Y G-Sec yield in percent from authoritative CCIL sovereign benchmarks.
+ * Triggers a background refresh daily. Non-fatal — defaults to 6.79% on failure.
  */
 function getGSec10YYield(): number {
 	if (
@@ -50,10 +50,22 @@ function getGSec10YYield(): number {
 	// Background refresh — non-blocking
 	void (async () => {
 		try {
-			// Primary: FBIL benchmark API
+			// Priority 1: CCIL Sovereign Benchmark Service / Golden Pricing Engine
+			try {
+				const { ccilMarketService } = await import("../ccil-market-service");
+				const res = await ccilMarketService.getSovereignBenchmarks();
+				const yield10Y = res?.data?.sovereignYields?.[0]?.yieldPercent;
+				if (yield10Y && yield10Y > 4 && yield10Y < 16) {
+					_gSecYieldCache = { value: yield10Y, ts: Date.now() };
+					logger.info(`[BondStrategy] G-Sec 10Y refreshed (CCIL Sovereign): ${yield10Y}%`);
+					return;
+				}
+			} catch {}
+
+			// Priority 2: FBIL benchmark API
 			let yield10Y = await fetchFBILYield();
 
-			// Secondary: Yahoo Finance (IN10Y.NS — India 10Y Government Bond)
+			// Priority 3: Yahoo Finance (IN10Y.NS — India 10Y Government Bond)
 			if (yield10Y === null) {
 				const url = "https://query1.finance.yahoo.com/v8/finance/chart/IN10Y.NS?range=1d&interval=1d";
 				const res = await fetch(url, {
@@ -79,7 +91,7 @@ function getGSec10YYield(): number {
 			// Non-fatal — cache retains previous value or defaults below
 		}
 	})();
-	return _gSecYieldCache.value ?? 7.1; // fallback: RBI repo 6.5% + ~60bps term premium
+	return _gSecYieldCache.value ?? 6.79; // CCIL 7.10% GS 2034 10Y benchmark yield
 }
 
 

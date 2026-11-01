@@ -492,6 +492,32 @@ export function initializeEnrichmentCrons(
 	);
 	delay += STAGGER;
 
+	// Pre-Market Golden Pricing & Macro Refresh (Mon-Fri 8:30 AM IST)
+	staggeredStart(
+		"Pre-Market Golden Pricing Refresh",
+		() => {
+			cron.schedule(
+				"30 8 * * 1-5",
+				async () => {
+					logger.info("[GoldenPricing] Starting pre-market macro and brief price sync...");
+					try {
+						const { getDailyMarketBriefLiveSnapshot } = await import(
+							"./services/golden-pricing/GoldenPricingEngine"
+						);
+						await getDailyMarketBriefLiveSnapshot("india", true);
+						await getDailyMarketBriefLiveSnapshot("us", true);
+						logger.info("[GoldenPricing] Pre-market live snapshots primed (India & US)");
+					} catch (err: any) {
+						logger.warn("[GoldenPricing] Pre-market snapshot priming failed (non-fatal):", err?.message);
+					}
+				},
+				{ timezone: "Asia/Kolkata" },
+			);
+		},
+		delay,
+	);
+	delay += STAGGER;
+
 	// Weekly stale-price cleanup (Sunday 8 PM IST)
 	staggeredStart(
 		"Golden Price Stale Marker",

@@ -23,7 +23,6 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -32,9 +31,6 @@ import {
 	Save,
 	Play,
 	TrendingUp,
-	TrendingDown,
-	Percent,
-	IndianRupee,
 	ArrowUpDown,
 	ArrowUp,
 	ArrowDown,
@@ -54,16 +50,12 @@ import {
 	Eye,
 	X,
 	SlidersHorizontal,
-	Download,
 	LayoutGrid,
 	List,
 	Info,
 	Building2,
 	Sparkles,
-	Settings,
 	Clock,
-	AlertTriangle,
-	CheckCircle2,
 	Calculator,
 	Landmark,
 	Layers,
@@ -71,11 +63,11 @@ import {
 	BarChart2,
 	Users,
 	Briefcase,
-	Cpu,
 	Plus,
 	Bot,
+	Coins,
 } from "lucide-react";
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -99,8 +91,11 @@ type ScreenerType =
 	| "mutual_fund"
 	| "stock"
 	| "bond"
+	| "debt"
 	| "etf"
 	| "global_stock"
+	| "us_stock"
+	| "commodity"
 	| "unlisted"
 	| "reit_invit"
 	| "smallcase"
@@ -522,7 +517,7 @@ function MarketCapBadge({ category }: { category: string | null }) {
 	);
 }
 
-function DistributionBar({
+function _DistributionBar({
 	data,
 	colorMap,
 }: {
@@ -582,7 +577,7 @@ const MARKET_CAP_COLORS: Record<string, string> = {
 	Unknown: "bg-gray-400",
 };
 
-const MARKET_CAP_LABELS: Record<string, string> = {
+const _MARKET_CAP_LABELS: Record<string, string> = {
 	mega:  "Mega Cap",
 	large: "Large Cap",
 	mid:   "Mid Cap",
@@ -654,12 +649,12 @@ export default function AgentScreener() {
 		const params = new URLSearchParams(window.location.search);
 		return params.get("category") || "";
 	});
-	const [mfFundHouse, setMfFundHouse] = useState("");
+	const [mfFundHouse, _setMfFundHouse] = useState("");
 	const [mfRiskLevel, setMfRiskLevel] = useState("");
 	const [mfMinReturn1y, setMfMinReturn1y] = useState("");
 	const [mfMinReturn3y, setMfMinReturn3y] = useState("");
 	const [mfMaxExpenseRatio, setMfMaxExpenseRatio] = useState("");
-	const [mfMinAum, setMfMinAum] = useState("");
+	const [mfMinAum, _setMfMinAum] = useState("");
 	const [mfMinSharpe, setMfMinSharpe] = useState("");
 	const [mfMinAlpha, setMfMinAlpha] = useState("");
 	const [mfMaxBeta, setMfMaxBeta] = useState("");
@@ -703,7 +698,7 @@ export default function AgentScreener() {
 	});
 	const [unlistedPage, setUnlistedPage] = useState(1);
 	const [unlistedSortBy, setUnlistedSortBy] = useState("name");
-	const [unlistedSortOrder, setUnlistedSortOrder] = useState<"asc" | "desc">("asc");
+	const [unlistedSortOrder, _setUnlistedSortOrder] = useState<"asc" | "desc">("asc");
 
 	// ── REIT & InvIT filter state ──────────────────────────────────────────────
 	const [reitCategory, setReitCategory] = useState(() => {
@@ -910,6 +905,16 @@ export default function AgentScreener() {
 			if (sifStrategy && sifStrategy !== "all")     p.set("strategy", sifStrategy);
 			if (sifAmc && sifAmc !== "all")               p.set("amc", sifAmc);
 			if (sifMinReturn)                             p.set("minReturn", sifMinReturn);
+		} else if (screenerType === "commodity") {
+			p.set("page", "1");
+			p.set("limit", "25");
+		} else if (screenerType === "us_stock") {
+			p.set("page", "1");
+			p.set("limit", "25");
+		} else if (screenerType === "debt") {
+			p.set("page", String(bondPage));
+			p.set("bondType", bondType);
+			if (bondSearch) p.set("q", bondSearch);
 		}
 		return p.toString();
 	};
@@ -1637,7 +1642,8 @@ export default function AgentScreener() {
 							{ type: "mutual_fund" as ScreenerType, label: "Mutual Funds", icon: <PieChart className="h-3.5 w-3.5" />, color: "text-purple-600 dark:text-purple-400", activeBg: "bg-purple-600 dark:bg-purple-500" },
 							{ type: "etf" as ScreenerType, label: "ETFs", icon: <Layers className="h-3.5 w-3.5" />, color: "text-emerald-600 dark:text-emerald-400", activeBg: "bg-emerald-600 dark:bg-emerald-500" },
 							{ type: "reit_invit" as ScreenerType, label: "REITs & InvITs", icon: <Building2 className="h-3.5 w-3.5" />, color: "text-cyan-600 dark:text-cyan-400", activeBg: "bg-cyan-600 dark:bg-cyan-500" },
-							{ type: "bond" as ScreenerType, label: "Bonds & FD", icon: <Landmark className="h-3.5 w-3.5" />, color: "text-amber-600 dark:text-amber-400", activeBg: "bg-amber-600 dark:bg-amber-500" },
+							{ type: "bond" as ScreenerType, label: "Debt & Bonds", icon: <Landmark className="h-3.5 w-3.5" />, color: "text-amber-600 dark:text-amber-400", activeBg: "bg-amber-600 dark:bg-amber-500" },
+							{ type: "commodity" as ScreenerType, label: "Commodities", icon: <Coins className="h-3.5 w-3.5" />, color: "text-yellow-600 dark:text-yellow-400", activeBg: "bg-yellow-600 dark:bg-yellow-500" },
 							{ type: "sif" as ScreenerType, label: "SIF (Alt Assets)", icon: <Target className="h-3.5 w-3.5" />, color: "text-rose-600 dark:text-rose-400", activeBg: "bg-rose-600 dark:bg-rose-500" },
 							{ type: "smallcase" as ScreenerType, label: "Smallcases", icon: <Zap className="h-3.5 w-3.5" />, color: "text-indigo-600 dark:text-indigo-400", activeBg: "bg-indigo-600 dark:bg-indigo-500" },
 							{ type: "index" as ScreenerType, label: "Indices", icon: <Activity className="h-3.5 w-3.5" />, color: "text-teal-600 dark:text-teal-400", activeBg: "bg-teal-600 dark:bg-teal-500" },
@@ -2065,6 +2071,127 @@ export default function AgentScreener() {
 									</div>
 								)}
 
+								{/* ── Commodity Screener ────────────────────────────────────────── */}
+								{screenerType === "commodity" && (
+									<div className="space-y-3">
+										{isInstrumentsLoading ? (
+											<div className="space-y-2">
+												{[...Array(6)].map((_, i) => (
+													<Skeleton key={i} className="h-10 w-full" />
+												))}
+											</div>
+										) : (
+											<div className="rounded-md border overflow-hidden">
+												<div className="overflow-x-auto">
+													<table className="w-full text-xs">
+														<thead className="bg-muted/50 border-b">
+															<tr>
+																<th className="text-left px-3 py-2 font-medium">Commodity</th>
+																<th className="text-left px-2 py-2 font-medium">Category</th>
+																<th className="text-right px-2 py-2 font-medium">Spot Price (USD)</th>
+																<th className="text-right px-2 py-2 font-medium">INR Benchmark</th>
+																<th className="text-right px-2 py-2 font-medium">24h Change</th>
+																<th className="text-right px-2 py-2 font-medium">1Y Return</th>
+																<th className="text-center px-2 py-2 font-medium">Attributes</th>
+																<th className="text-center px-2 py-2 font-medium">AI Sentiment</th>
+																<th className="text-center px-2 py-2 font-medium">Model Portfolios</th>
+																<th className="text-center px-2 py-2 font-medium">Action</th>
+															</tr>
+														</thead>
+														<tbody className="divide-y divide-border/50">
+															{(instrumentData?.data ?? []).map((c: any) => (
+																<tr key={c.id || c.symbol} className="hover:bg-muted/30 transition-colors">
+																	<td className="px-3 py-2">
+																		<div className="font-semibold text-foreground">{c.name}</div>
+																		<div className="text-[10px] text-muted-foreground flex items-center gap-1">
+																			<span className="font-mono font-medium text-amber-600 dark:text-amber-400">{c.symbol}</span>
+																			<span>• {c.unit}</span>
+																		</div>
+																	</td>
+																	<td className="px-2 py-2">
+																		<span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground capitalize">
+																			{c.commodityType?.replace(/_/g, " ")}
+																		</span>
+																	</td>
+																	<td className="px-2 py-2 text-right font-mono font-medium">
+																		${Number(c.currentPrice || c.priceUsd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+																	</td>
+																	<td className="px-2 py-2 text-right font-mono font-semibold text-foreground">
+																		₹{Number(c.priceInr || (c.currentPrice * 84.5)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+																	</td>
+																	<td className={`px-2 py-2 text-right font-mono font-medium ${Number(c.dayChangePercent || 0) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+																		{Number(c.dayChangePercent || 0) >= 0 ? "+" : ""}{Number(c.dayChangePercent || 0).toFixed(2)}%
+																	</td>
+																	<td className={`px-2 py-2 text-right font-mono ${Number(c.returns1y || 0) >= 0 ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-rose-600 dark:text-rose-400"}`}>
+																		{c.returns1y != null ? `${Number(c.returns1y) >= 0 ? "+" : ""}${Number(c.returns1y).toFixed(1)}%` : "—"}
+																	</td>
+																	<td className="px-2 py-2 text-center">
+																		<div className="flex items-center justify-center gap-1">
+																			{c.inflationHedge && (
+																				<span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30" title="Inflation Hedge">
+																					🛡️ Hedge
+																				</span>
+																			)}
+																			{c.safeHaven && (
+																				<span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30" title="Safe Haven Asset">
+																					⭐ Haven
+																				</span>
+																			)}
+																		</div>
+																	</td>
+																	<td className="px-2 py-2 text-center">
+																		<span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${
+																			c.aiSentiment === "bullish"
+																				? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
+																				: c.aiSentiment === "bearish"
+																				? "bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30"
+																				: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/30"
+																		}`}>
+																			{c.aiSentiment || "neutral"} ({c.aiConfidence || 75}%)
+																		</span>
+																	</td>
+																	<td className="px-2 py-2 text-center">
+																		<div className="flex flex-wrap justify-center gap-1">
+																			{(c.modelPortfolios ?? []).length > 0 ? (
+																				(c.modelPortfolios as string[]).slice(0, 2).map((mp, idx) => (
+																					<span key={idx} className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-700 dark:text-purple-300 font-medium">
+																						{mp}
+																					</span>
+																				))
+																			) : (
+																				<span className="text-[10px] text-muted-foreground">—</span>
+																			)}
+																		</div>
+																	</td>
+																	<td className="px-2 py-2 text-center">
+																		<Button
+																			variant="ghost"
+																			size="sm"
+																			className="h-6 w-6 p-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950/40"
+																			title="Chat with AI"
+																			onClick={() => handleOpenChat({
+																				id: String(c.id ?? c.symbol),
+																				name: c.name,
+																				symbol: c.symbol,
+																				assetType: "commodity",
+																				sector: c.commodityType,
+																				currentPrice: c.currentPrice,
+																			})}
+																		>
+																			<Bot className="h-3.5 w-3.5" />
+																		</Button>
+																	</td>
+																</tr>
+															))}
+														</tbody>
+													</table>
+												</div>
+											</div>
+										)}
+										<p className="text-[10px] text-muted-foreground text-center py-1">⚠️ {instrumentData?.meta?.disclaimer ?? "Commodity spot and derivatives investments are subject to global macroeconomic volatility. Not a solicitation to invest."}</p>
+									</div>
+								)}
+
 								{/* ── REITs & InvITs Screener ──────────────────────────────────── */}
 								{screenerType === "reit_invit" && (
 									<div className="space-y-3">
@@ -2195,7 +2322,7 @@ export default function AgentScreener() {
 																		{r.nav ? `₹${Number(r.nav).toFixed(2)}` : "—"}
 																	</td>
 																	<td className={`py-2 px-3 text-right font-mono text-xs ${premDisc > 0 ? "text-amber-600 dark:text-amber-400" : premDisc < 0 ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
-																		{!isNaN(premDisc) && r.premiumToNav !== null ? `${premDisc > 0 ? "+" : ""}${premDisc.toFixed(1)}%` : "—"}
+																		{!Number.isNaN(premDisc) && r.premiumToNav !== null ? `${premDisc > 0 ? "+" : ""}${premDisc.toFixed(1)}%` : "—"}
 																	</td>
 																	<td className="py-2 px-3 text-right font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
 																		{yieldVal ? `${yieldVal.toFixed(2)}%` : "—"}
@@ -3527,7 +3654,7 @@ export default function AgentScreener() {
 												className="w-12 h-5 text-center text-[10px] border border-border rounded bg-background px-1 focus:outline-none focus:ring-1 focus:ring-primary"
 												onKeyDown={(e) => {
 													if (e.key === "Enter") {
-														const v = Number.parseInt((e.target as HTMLInputElement).value);
+														const v = Number.parseInt((e.target as HTMLInputElement).value, 10);
 														if (!Number.isNaN(v) && v >= 1 && v <= (dbScreenerData?.totalPages || 1)) setDbPage(v);
 														(e.target as HTMLInputElement).value = "";
 													}
@@ -4640,7 +4767,7 @@ export default function AgentScreener() {
 										<>
 											<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
 												{dbScreenerData.stocks.map(
-													(stock: any, index: number) => (
+													(stock: any, _index: number) => (
 														<Card
 															key={stock.symbol}
 															className="hover:shadow-md transition-shadow cursor-pointer"

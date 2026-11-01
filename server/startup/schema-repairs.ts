@@ -110,6 +110,216 @@ export async function runStartupSchemaRepairs() {
 			`ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS forward_pe NUMERIC(10, 2)`,
 			`ALTER TABLE mf_monthwise_performance ADD COLUMN IF NOT EXISTS start_date DATE`,
 			`ALTER TABLE mf_monthwise_performance ADD COLUMN IF NOT EXISTS end_date DATE`,
+			`CREATE TABLE IF NOT EXISTS global_instruments (
+				id VARCHAR(255) PRIMARY KEY DEFAULT gen_random_uuid(),
+				symbol VARCHAR(20) NOT NULL,
+				name VARCHAR(255) NOT NULL,
+				asset_class VARCHAR(30) NOT NULL DEFAULT 'stock',
+				exchange VARCHAR(20) NOT NULL DEFAULT 'NASDAQ',
+				market VARCHAR(10) NOT NULL DEFAULT 'US',
+				currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+				isin VARCHAR(12),
+				cusip VARCHAR(9),
+				sedol VARCHAR(7),
+				sector VARCHAR(100),
+				industry VARCHAR(100),
+				market_cap NUMERIC,
+				market_cap_category VARCHAR(20),
+				dividend_yield NUMERIC,
+				expense_ratio NUMERIC,
+				aum NUMERIC,
+				maturity_date DATE,
+				coupon_rate NUMERIC,
+				credit_rating VARCHAR(10),
+				yield_to_maturity NUMERIC,
+				domicile VARCHAR(50),
+				is_active BOOLEAN DEFAULT TRUE,
+				lrs_eligible BOOLEAN DEFAULT TRUE,
+				fatca_compliant BOOLEAN DEFAULT TRUE,
+				last_price NUMERIC,
+				last_price_inr NUMERIC,
+				price_change_percent NUMERIC,
+				week_52_high NUMERIC,
+				week_52_low NUMERIC,
+				avg_volume NUMERIC,
+				beta NUMERIC,
+				pe_ratio NUMERIC,
+				pb_ratio NUMERIC,
+				eps_growth NUMERIC,
+				returns_1m NUMERIC,
+				returns_3m NUMERIC,
+				returns_1y NUMERIC,
+				returns_3y NUMERIC,
+				returns_5y NUMERIC,
+				data_source VARCHAR(50) DEFAULT 'alpaca',
+				api_symbol VARCHAR(30),
+				is_tradeable BOOLEAN DEFAULT TRUE,
+				lot_size INTEGER DEFAULT 1,
+				trading_api_provider VARCHAR(30) DEFAULT 'alpaca',
+				bid_price NUMERIC,
+				ask_price NUMERIC,
+				trading_hours VARCHAR(100) DEFAULT '09:30-16:00 ET',
+				api_config JSONB DEFAULT '{}'::jsonb,
+				source VARCHAR(50) DEFAULT 'system',
+				last_updated TIMESTAMPTZ DEFAULT NOW(),
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			)`,
+			`ALTER TABLE global_instruments ADD COLUMN IF NOT EXISTS source VARCHAR(50) DEFAULT 'system'`,
+			`ALTER TABLE global_instruments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`,
+			`CREATE UNIQUE INDEX IF NOT EXISTS uq_gi_symbol_market ON global_instruments (symbol, market)`,
+			`CREATE INDEX IF NOT EXISTS idx_gi_symbol ON global_instruments (symbol)`,
+			`CREATE INDEX IF NOT EXISTS idx_gi_asset_class ON global_instruments (asset_class)`,
+			`CREATE INDEX IF NOT EXISTS idx_gi_exchange ON global_instruments (exchange)`,
+			`CREATE TABLE IF NOT EXISTS commodities (
+				id VARCHAR(255) PRIMARY KEY DEFAULT gen_random_uuid(),
+				symbol VARCHAR(20) NOT NULL UNIQUE,
+				name VARCHAR(200) NOT NULL,
+				commodity_type VARCHAR(50) NOT NULL,
+				sub_type VARCHAR(50),
+				current_price DECIMAL(15, 4),
+				price_inr DECIMAL(15, 4),
+				price_usd DECIMAL(15, 4),
+				previous_close DECIMAL(15, 4),
+				day_change DECIMAL(10, 4),
+				day_change_percent DECIMAL(8, 4),
+				week_high DECIMAL(15, 4),
+				week_low DECIMAL(15, 4),
+				year_high DECIMAL(15, 4),
+				year_low DECIMAL(15, 4),
+				unit VARCHAR(20) DEFAULT 'gram',
+				currency VARCHAR(5) DEFAULT 'INR',
+				has_etf BOOLEAN DEFAULT FALSE,
+				has_sgb BOOLEAN DEFAULT FALSE,
+				has_physical BOOLEAN DEFAULT FALSE,
+				has_futures BOOLEAN DEFAULT FALSE,
+				returns_1w DECIMAL(8, 4),
+				returns_1m DECIMAL(8, 4),
+				returns_3m DECIMAL(8, 4),
+				returns_6m DECIMAL(8, 4),
+				returns_1y DECIMAL(8, 4),
+				returns_3y DECIMAL(8, 4),
+				returns_5y DECIMAL(8, 4),
+				volatility DECIMAL(8, 4),
+				beta DECIMAL(8, 4),
+				sharpe_ratio DECIMAL(8, 4),
+				global_demand VARCHAR(20),
+				supply_outlook VARCHAR(20),
+				inflation_hedge BOOLEAN DEFAULT FALSE,
+				safe_haven BOOLEAN DEFAULT FALSE,
+				is_published BOOLEAN DEFAULT TRUE,
+				min_investment DECIMAL(15, 2) DEFAULT 1000,
+				ai_sentiment VARCHAR(20),
+				ai_confidence DECIMAL(5, 2),
+				ai_rationale TEXT,
+				data_source VARCHAR(50) DEFAULT 'mcx',
+				source VARCHAR(50) DEFAULT 'system',
+				last_updated TIMESTAMPTZ DEFAULT NOW(),
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			)`,
+			`ALTER TABLE commodities ADD COLUMN IF NOT EXISTS price_inr DECIMAL(15, 4)`,
+			`ALTER TABLE commodities ADD COLUMN IF NOT EXISTS price_usd DECIMAL(15, 4)`,
+			`ALTER TABLE commodities ADD COLUMN IF NOT EXISTS source VARCHAR(50) DEFAULT 'system'`,
+			`ALTER TABLE commodities ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`,
+			`ALTER TABLE commodities ADD COLUMN IF NOT EXISTS mcx_instrument_key VARCHAR(50)`,
+			`ALTER TABLE commodities ADD COLUMN IF NOT EXISTS mcx_trading_symbol VARCHAR(100)`,
+			`ALTER TABLE commodities ADD COLUMN IF NOT EXISTS mcx_lot_size INTEGER`,
+			`ALTER TABLE commodities ADD COLUMN IF NOT EXISTS mcx_expiry_date VARCHAR(30)`,
+			`CREATE TABLE IF NOT EXISTS mcx_commodity_quotes (
+				id SERIAL PRIMARY KEY,
+				commodity_symbol VARCHAR(50) NOT NULL,
+				instrument_key VARCHAR(50) NOT NULL,
+				trading_symbol VARCHAR(100) NOT NULL,
+				exchange VARCHAR(20) NOT NULL DEFAULT 'MCX',
+				expiry_date VARCHAR(30),
+				price DECIMAL(20, 4) NOT NULL,
+				open_price DECIMAL(20, 4),
+				high_price DECIMAL(20, 4),
+				low_price DECIMAL(20, 4),
+				previous_close DECIMAL(20, 4),
+				change DECIMAL(20, 4),
+				change_percent DECIMAL(10, 4),
+				volume DECIMAL(20, 0),
+				open_interest DECIMAL(20, 0),
+				unit VARCHAR(30) DEFAULT 'INR',
+				lot_size INTEGER,
+				source VARCHAR(50) NOT NULL DEFAULT 'UPSTOX',
+				cfd_price_usd DECIMAL(15, 4),
+				cfd_source VARCHAR(50),
+				is_active BOOLEAN NOT NULL DEFAULT TRUE,
+				metadata JSONB,
+				synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			)`,
+			`CREATE UNIQUE INDEX IF NOT EXISTS uq_mcx_commodity_symbol_instrument ON mcx_commodity_quotes (commodity_symbol, instrument_key)`,
+			`CREATE INDEX IF NOT EXISTS idx_mcx_quotes_symbol ON mcx_commodity_quotes (commodity_symbol)`,
+			`CREATE INDEX IF NOT EXISTS idx_mcx_quotes_instrument_key ON mcx_commodity_quotes (instrument_key)`,
+			`CREATE INDEX IF NOT EXISTS idx_mcx_quotes_synced_at ON mcx_commodity_quotes (synced_at)`,
+			`CREATE INDEX IF NOT EXISTS idx_commodities_type ON commodities (commodity_type)`,
+			`CREATE TABLE IF NOT EXISTS government_securities (
+				id VARCHAR(255) PRIMARY KEY DEFAULT gen_random_uuid(),
+				isin VARCHAR(50) NOT NULL UNIQUE,
+				security_name TEXT NOT NULL,
+				security_type VARCHAR(50) NOT NULL,
+				issuer VARCHAR(255) NOT NULL,
+				auction_date DATE,
+				auction_number VARCHAR(100),
+				notified_amount DECIMAL(15, 2),
+				ncb_reserved_amount DECIMAL(15, 2),
+				face_value DECIMAL(15, 2) DEFAULT 100,
+				coupon_rate DECIMAL(8, 4),
+				issue_date DATE,
+				maturity_date DATE NOT NULL,
+				tenor_years DECIMAL(5, 2),
+				issue_price DECIMAL(15, 4),
+				current_price DECIMAL(15, 4),
+				yield_to_maturity DECIMAL(8, 4),
+				trading_status VARCHAR(50) DEFAULT 'active',
+				minimum_investment DECIMAL(15, 2) DEFAULT 10000,
+				duration DECIMAL(8, 4),
+				modified_duration DECIMAL(8, 4),
+				credit_rating VARCHAR(50) DEFAULT 'AAA',
+				tax_status VARCHAR(50) DEFAULT 'taxable',
+				data_source VARCHAR(50) DEFAULT 'nse_ncb',
+				last_updated TIMESTAMPTZ DEFAULT NOW(),
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			)`,
+			`CREATE TABLE IF NOT EXISTS corporate_bonds (
+				id VARCHAR(255) PRIMARY KEY DEFAULT gen_random_uuid(),
+				isin VARCHAR(50) NOT NULL UNIQUE,
+				security_code VARCHAR(100),
+				bond_name TEXT NOT NULL,
+				issuer VARCHAR(255) NOT NULL,
+				bond_type VARCHAR(50) NOT NULL,
+				face_value DECIMAL(15, 2) DEFAULT 1000,
+				coupon_type VARCHAR(50) NOT NULL DEFAULT 'FIXED',
+				coupon_rate DECIMAL(8, 4),
+				coupon_frequency VARCHAR(50) DEFAULT 'ANNUAL',
+				issue_date DATE,
+				maturity_date DATE NOT NULL,
+				tenor_years DECIMAL(5, 2),
+				issue_price DECIMAL(15, 4),
+				current_price DECIMAL(15, 4),
+				yield_to_maturity DECIMAL(8, 4),
+				yield_to_call DECIMAL(8, 4),
+				trading_status VARCHAR(50) DEFAULT 'active',
+				minimum_lot_size INTEGER DEFAULT 1,
+				minimum_investment DECIMAL(15, 2) DEFAULT 10000,
+				is_callable BOOLEAN DEFAULT FALSE,
+				is_puttable BOOLEAN DEFAULT FALSE,
+				secured BOOLEAN DEFAULT TRUE,
+				security_type VARCHAR(50),
+				credit_rating VARCHAR(50),
+				rating_agency VARCHAR(50),
+				modified_duration DECIMAL(8, 4),
+				issuer_sector VARCHAR(100),
+				tax_status VARCHAR(50) DEFAULT 'taxable',
+				data_source VARCHAR(50) DEFAULT 'bse_bond',
+				last_updated TIMESTAMPTZ DEFAULT NOW(),
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			)`,
 			`CREATE TABLE IF NOT EXISTS model_portfolio_holdings (
 				id              SERIAL PRIMARY KEY,
 				portfolio_id    VARCHAR(255) NOT NULL,
@@ -146,6 +356,115 @@ export async function runStartupSchemaRepairs() {
 			try {
 				await migPool.query(patchSql);
 			} catch { /* non-fatal */ }
+		}
+
+		// ── Seed / Sync Multi-Asset Master Data (US Stocks, Commodities, Debt Instruments) ──
+		try {
+			// 1. Seed US Stocks Universe
+			await migPool.query(`
+				INSERT INTO global_instruments (
+					symbol, name, asset_class, exchange, market, currency, sector, industry,
+					market_cap, market_cap_category, pe_ratio, dividend_yield, last_price,
+					last_price_inr, price_change_percent, week_52_high, week_52_low,
+					returns_1m, returns_1y, returns_3y, returns_5y, lrs_eligible, is_tradeable,
+					trading_hours, data_source, source, updated_at
+				) VALUES
+				('AAPL', 'Apple Inc.', 'stock', 'NASDAQ', 'US', 'USD', 'Information Technology', 'Consumer Electronics', 3520, 'mega', 34.2, 0.52, 232.50, 19646.25, 1.15, 237.23, 164.08, 3.4, 32.4, 65.2, 245.8, true, true, '09:30-16:00 ET', 'alpaca', 'system', NOW()),
+				('MSFT', 'Microsoft Corporation', 'stock', 'NASDAQ', 'US', 'USD', 'Information Technology', 'Software & Cloud', 3240, 'mega', 35.8, 0.78, 430.15, 36347.68, 0.85, 468.35, 339.65, 2.1, 28.1, 52.4, 218.6, true, true, '09:30-16:00 ET', 'alpaca', 'system', NOW()),
+				('NVDA', 'NVIDIA Corporation', 'stock', 'NASDAQ', 'US', 'USD', 'Information Technology', 'Semiconductors & AI', 3410, 'mega', 52.6, 0.08, 138.25, 11682.13, 2.45, 140.76, 39.23, 14.2, 185.4, 420.5, 1280.4, true, true, '09:30-16:00 ET', 'alpaca', 'system', NOW()),
+				('GOOGL', 'Alphabet Inc. (Google)', 'stock', 'NASDAQ', 'US', 'USD', 'Communication Services', 'Internet Content & Search', 2120, 'mega', 23.4, 0.45, 172.60, 14584.70, 0.65, 191.75, 120.21, 4.8, 26.5, 38.9, 148.2, true, true, '09:30-16:00 ET', 'alpaca', 'system', NOW()),
+				('AMZN', 'Amazon.com Inc.', 'stock', 'NASDAQ', 'US', 'USD', 'Consumer Discretionary', 'Broadline Retail & Cloud', 2010, 'mega', 42.1, 0.00, 192.80, 16291.60, 1.20, 201.20, 118.35, 5.2, 41.2, 34.1, 115.4, true, true, '09:30-16:00 ET', 'alpaca', 'system', NOW()),
+				('META', 'Meta Platforms Inc.', 'stock', 'NASDAQ', 'US', 'USD', 'Communication Services', 'Social Media & Advertising', 1480, 'mega', 28.3, 0.35, 585.40, 49466.30, 1.80, 602.95, 279.40, 7.5, 88.5, 112.4, 184.2, true, true, '09:30-16:00 ET', 'alpaca', 'system', NOW()),
+				('TSLA', 'Tesla Inc.', 'stock', 'NASDAQ', 'US', 'USD', 'Consumer Discretionary', 'Automobile & Clean Energy', 818, 'large', 68.5, 0.00, 255.60, 21598.20, 3.10, 271.00, 138.80, 12.8, 22.4, 18.5, 340.6, true, true, '09:30-16:00 ET', 'alpaca', 'system', NOW()),
+				('BRK.B', 'Berkshire Hathaway Inc.', 'stock', 'NYSE', 'US', 'USD', 'Financials', 'Multi-Sector Holdings & Insurance', 985, 'mega', 21.2, 0.00, 452.10, 38202.45, 0.40, 484.75, 343.85, 1.5, 27.8, 48.2, 112.5, true, true, '09:30-16:00 ET', 'alpaca', 'system', NOW()),
+				('JPM', 'JPMorgan Chase & Co.', 'stock', 'NYSE', 'US', 'USD', 'Financials', 'Diversified Banking', 642, 'large', 12.8, 2.22, 224.50, 18970.25, 0.75, 230.50, 136.20, 3.2, 48.2, 42.1, 88.4, true, true, '09:30-16:00 ET', 'alpaca', 'system', NOW()),
+				('V', 'Visa Inc.', 'stock', 'NYSE', 'US', 'USD', 'Financials', 'Transaction Processing', 582, 'large', 30.1, 0.82, 286.40, 24200.80, 0.35, 293.07, 227.68, 2.4, 18.4, 32.6, 62.4, true, true, '09:30-16:00 ET', 'alpaca', 'system', NOW()),
+				('SPY', 'SPDR S&P 500 ETF Trust', 'etf', 'NYSE', 'US', 'USD', 'Broad Market', 'Large Cap Blend Index', 565, 'mega', 27.5, 1.24, 582.30, 49204.35, 0.55, 587.85, 410.07, 2.8, 24.6, 38.5, 96.2, true, true, '09:30-16:00 ET', 'alpaca', 'system', NOW()),
+				('QQQ', 'Invesco QQQ Trust (NASDAQ-100)', 'etf', 'NASDAQ', 'US', 'USD', 'Information Technology', 'Tech Large Cap Growth', 294, 'large', 32.4, 0.58, 495.20, 41844.40, 1.10, 503.52, 342.35, 4.2, 31.2, 44.8, 142.6, true, true, '09:30-16:00 ET', 'alpaca', 'system', NOW())
+				ON CONFLICT (symbol, market) DO UPDATE SET
+					last_price = EXCLUDED.last_price,
+					last_price_inr = EXCLUDED.last_price_inr,
+					price_change_percent = EXCLUDED.price_change_percent,
+					pe_ratio = EXCLUDED.pe_ratio,
+					updated_at = NOW();
+			`);
+			console.log("  ✅ [MultiAssetUpgrade] US Stocks (global_instruments) seeded successfully");
+
+			// 2. Seed Commodities Universe
+			await migPool.query(`
+				INSERT INTO commodities (
+					symbol, name, commodity_type, sub_type, current_price, price_inr, price_usd,
+					previous_close, day_change, day_change_percent, week_high, week_low,
+					year_high, year_low, unit, currency, has_etf, has_sgb, has_futures,
+					returns_1w, returns_1m, returns_3m, returns_1y, volatility,
+					inflation_hedge, safe_haven, is_published, ai_sentiment, ai_confidence,
+					ai_rationale, data_source, source, updated_at
+				) VALUES
+				('GOLD', 'Gold COMEX / MCX Bullion', 'precious_metal', 'gold', 2745.50, 78850.00, 2745.50, 2714.20, 31.30, 1.15, 2758.40, 2690.10, 2758.40, 1930.20, '10g', 'USD', true, true, true, 1.45, 4.80, 14.20, 34.20, 14.2, true, true, true, 'bullish', 92, 'Sovereign accumulation and macro hedges sustain upward momentum.', 'mcx', 'system', NOW()),
+				('SILVER', 'Silver COMEX / MCX Bullion', 'precious_metal', 'silver', 33.80, 94500.00, 33.80, 33.18, 0.62, 1.85, 34.85, 31.20, 34.85, 20.80, 'kg', 'USD', true, false, true, 2.10, 6.40, 18.50, 42.10, 24.5, true, true, true, 'bullish', 88, 'Photovoltaic and semiconductor demand accelerating industrial deficits.', 'mcx', 'system', NOW()),
+				('PLATINUM', 'Platinum NYMEX', 'precious_metal', 'platinum', 1025.00, 28400.00, 1025.00, 1018.40, 6.60, 0.65, 1045.00, 985.00, 1105.00, 870.00, '10g', 'USD', false, false, true, 0.80, 3.20, 5.40, 11.80, 19.8, true, false, true, 'neutral', 75, 'Automotive catalyst substitution steady.', 'nymex', 'system', NOW()),
+				('CRUDE_OIL', 'Brent Crude Oil Futures (ICE/NYMEX)', 'energy', 'crude_oil', 74.50, 6295.25, 74.50, 74.84, -0.34, -0.45, 76.20, 71.40, 92.40, 68.50, 'barrel', 'USD', false, false, true, -0.80, 1.20, -5.40, -8.50, 28.4, true, false, true, 'neutral', 75, 'Geopolitical risk balanced by non-OPEC+ supply expansion.', 'ice', 'system', NOW()),
+				('WTI_CRUDE', 'WTI Crude Oil Futures (NYMEX)', 'energy', 'crude_oil', 70.80, 5982.60, 70.80, 71.17, -0.37, -0.52, 72.80, 67.90, 87.60, 65.20, 'barrel', 'USD', false, false, true, -0.90, 1.10, -6.20, -9.20, 29.1, true, false, true, 'neutral', 72, 'US shale production buffering baseline demand.', 'nymex', 'system', NOW()),
+				('NATURAL_GAS', 'Natural Gas (Henry Hub / MCX)', 'energy', 'natural_gas', 2.85, 240.80, 2.85, 2.79, 0.06, 2.15, 2.95, 2.55, 3.65, 1.58, 'MMBtu', 'USD', false, false, true, 4.20, 12.50, 22.40, -14.20, 44.2, false, false, true, 'bullish', 80, 'Winter heating demand and US LNG export expansions support baseline.', 'mcx', 'system', NOW()),
+				('COPPER', 'Copper COMEX / MCX High Grade', 'industrial_metal', 'copper', 4.38, 845.00, 4.38, 4.34, 0.04, 0.82, 4.52, 4.25, 5.18, 3.62, 'kg', 'USD', false, false, true, 1.10, 3.80, 6.20, 18.40, 21.2, true, false, true, 'bullish', 89, 'Electrification, grid renewal, and AI data center power demand surging.', 'mcx', 'system', NOW()),
+				('ALUMINIUM', 'Aluminium LME / MCX Primary', 'industrial_metal', 'aluminium', 2620.00, 242.00, 2620.00, 2608.00, 12.00, 0.45, 2680.00, 2540.00, 2750.00, 2120.00, 'kg', 'USD', false, false, true, 0.80, 4.20, 9.50, 15.20, 18.5, true, false, true, 'bullish', 82, 'Smelter capacity curbs and energy costs firming global prices.', 'mcx', 'system', NOW()),
+				('ZINC', 'Zinc LME / MCX', 'industrial_metal', 'zinc', 3120.00, 282.00, 3120.00, 3086.00, 34.00, 1.10, 3180.00, 2950.00, 3250.00, 2380.00, 'kg', 'USD', false, false, true, 1.50, 6.80, 14.20, 22.40, 22.8, false, false, true, 'neutral', 74, 'Mine concentrate bottlenecks providing near-term firmness.', 'mcx', 'system', NOW()),
+				('COTTON', 'Cotton MCX / ICE 29mm', 'agricultural', 'cotton', 58400.00, 58400.00, 691.00, 58200.00, 200.00, 0.35, 59200.00, 57500.00, 64500.00, 55200.00, 'candy', 'INR', false, false, true, 0.40, 1.50, -2.10, -4.50, 16.5, false, false, true, 'neutral', 71, 'Domestic spinning operations stable with export parity balanced.', 'mcx', 'system', NOW()),
+				('WHEAT', 'Wheat Milling Quality (NCDEX / CBOT)', 'agricultural', 'wheat', 2850.00, 2850.00, 33.72, 2857.00, -7.00, -0.25, 2920.00, 2780.00, 3150.00, 2450.00, 'quintal', 'INR', false, false, true, -0.30, 2.40, 5.80, -6.80, 20.4, false, false, true, 'neutral', 70, 'Open market sale buffers domestic food security.', 'ncdex', 'system', NOW())
+				ON CONFLICT (symbol) DO UPDATE SET
+					current_price = EXCLUDED.current_price,
+					price_inr = EXCLUDED.price_inr,
+					price_usd = EXCLUDED.price_usd,
+					day_change = EXCLUDED.day_change,
+					day_change_percent = EXCLUDED.day_change_percent,
+					updated_at = NOW();
+			`);
+			console.log("  ✅ [MultiAssetUpgrade] Commodities seeded successfully");
+
+			// 3. Seed Government Securities & Debt Instruments
+			await migPool.query(`
+				INSERT INTO government_securities (
+					isin, security_name, security_type, issuer, coupon_rate, yield_to_maturity,
+					maturity_date, tenor_years, current_price, face_value, credit_rating,
+					tax_status, minimum_investment, trading_status, data_source
+				) VALUES
+				('IN0020230085', '7.18% GS 2033 (10Y Benchmark G-Sec)', 'gsec', 'Government of India', 7.18, 6.98, '2033-08-14', 7.8, 101.20, 100, 'SOVEREIGN', 'taxable', 10000, 'active', 'nse_ncb'),
+				('IN0020220011', '7.26% GS 2032 Sovereign Bond', 'gsec', 'Government of India', 7.26, 7.02, '2032-02-06', 6.3, 101.40, 100, 'SOVEREIGN', 'taxable', 10000, 'active', 'nse_ncb'),
+				('IN0020230010', '7.06% GS 2028 5-Year Benchmark', 'gsec', 'Government of India', 7.06, 6.92, '2028-04-10', 2.5, 100.30, 100, 'SOVEREIGN', 'taxable', 10000, 'active', 'nse_ncb'),
+				('IN0091D24001', '91-Day Treasury Bill (T-Bill)', 'tbill', 'Government of India', 0.00, 6.55, '2026-06-30', 0.25, 98.39, 100, 'SOVEREIGN', 'taxable', 10000, 'active', 'rbi_cims'),
+				('IN00182D2401', '182-Day Treasury Bill (T-Bill)', 'tbill', 'Government of India', 0.00, 6.72, '2026-09-30', 0.50, 96.75, 100, 'SOVEREIGN', 'taxable', 10000, 'active', 'rbi_cims'),
+				('IN00364D2401', '364-Day Treasury Bill (T-Bill)', 'tbill', 'Government of India', 0.00, 6.85, '2027-03-31', 1.00, 93.59, 100, 'SOVEREIGN', 'taxable', 10000, 'active', 'rbi_cims'),
+				('IN2220230198', '7.65% Maharashtra SDL 2034', 'sdl', 'Government of Maharashtra', 7.65, 7.52, '2034-03-15', 8.4, 100.80, 100, 'SOVEREIGN', 'taxable', 10000, 'active', 'nse_ncb'),
+				('IN3120230081', '7.72% Tamil Nadu SDL 2033', 'sdl', 'Government of Tamil Nadu', 7.72, 7.58, '2033-11-25', 7.8, 100.95, 100, 'SOVEREIGN', 'taxable', 10000, 'active', 'nse_ncb'),
+				('IN0020200057', 'Sovereign Gold Bond 2026-27 Series', 'sgb', 'Reserve Bank of India', 2.50, 8.20, '2027-02-28', 1.3, 7250.00, 5100, 'SOVEREIGN', 'taxfree', 7250, 'active', 'rbi')
+				ON CONFLICT (isin) DO UPDATE SET
+					current_price = EXCLUDED.current_price,
+					yield_to_maturity = EXCLUDED.yield_to_maturity,
+					last_updated = NOW();
+			`);
+			console.log("  ✅ [MultiAssetUpgrade] Government Securities & SDLs seeded successfully");
+
+			// 4. Seed Corporate Bonds & PSUs
+			await migPool.query(`
+				INSERT INTO corporate_bonds (
+					isin, bond_name, issuer, bond_type, coupon_rate, yield_to_maturity,
+					maturity_date, tenor_years, current_price, face_value, credit_rating,
+					tax_status, minimum_investment, security_type, trading_status, data_source
+				) VALUES
+				('INE020B08DF5', 'REC Limited 7.50% 2028 Bond', 'REC Limited', 'corporate', 7.50, 7.55, '2028-11-20', 3.1, 99.85, 100000, 'AAA', 'taxable', 100000, 'corporate_bond', 'active', 'bse_bond'),
+				('INE134E08MB6', 'Power Finance Corp 7.58% 2029', 'Power Finance Corporation', 'corporate', 7.58, 7.62, '2029-06-15', 3.6, 99.90, 100000, 'AAA', 'taxable', 100000, 'corporate_bond', 'active', 'bse_bond'),
+				('INE040A08435', 'HDFC Bank 7.70% Senior Bond 2027', 'HDFC Bank Ltd.', 'corporate', 7.70, 7.72, '2027-09-24', 1.9, 100.10, 100000, 'AAA', 'taxable', 100000, 'corporate_bond', 'active', 'bse_bond'),
+				('INE261F08CW1', 'NABARD 7.60% 2031 AAA Bond', 'NABARD', 'corporate', 7.60, 7.55, '2031-05-18', 5.4, 100.20, 100000, 'AAA', 'taxable', 100000, 'psu_bond', 'active', 'bse_bond'),
+				('INE906B07DF8', 'NHAI 8.30% Tax-Free Infra Bond 2027', 'National Highways Authority of India', 'corporate', 8.30, 5.25, '2027-01-25', 1.2, 105.20, 1000, 'AAA', 'taxfree', 10000, 'tax_free_bond', 'active', 'bse_bond'),
+				('INE053F07925', 'IRFC 8.00% Tax-Free Railway Bond 2030', 'Indian Railway Finance Corp', 'corporate', 8.00, 5.30, '2030-03-22', 4.1, 110.50, 1000, 'AAA', 'taxfree', 10000, 'tax_free_bond', 'active', 'bse_bond')
+				ON CONFLICT (isin) DO UPDATE SET
+					current_price = EXCLUDED.current_price,
+					yield_to_maturity = EXCLUDED.yield_to_maturity,
+					last_updated = NOW();
+			`);
+			console.log("  ✅ [MultiAssetUpgrade] Corporate Bonds & PSUs seeded successfully");
+		} catch (seedErr: any) {
+			console.warn("  ⚠️ [MultiAssetUpgrade] Seed note:", seedErr?.message?.slice(0, 100));
 		}
 
 		// ── GCR v1.0 / Model Portfolio Repair: Purge phantom duplicate 'conservative-income-mf' ──
@@ -442,6 +761,13 @@ export async function runStartupSchemaRepairs() {
 			await migPool.query(`
 				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS multi_exchange_data jsonb;
 				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS amc_consensus jsonb;
+				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS top_movers jsonb;
+				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS ccil_fixed_income jsonb;
+				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS commodity_radar jsonb;
+				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS us_fixed_income jsonb;
+				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS global_macro_desk jsonb;
+				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS macro_indicators jsonb;
+				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS sector_highlights jsonb;
 
 				UPDATE market_briefs
 				SET market_snapshot = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(market_snapshot, '$74.8/bbl', '$117.00/bbl'), '$111.45/bbl', '$117.00/bbl'), '$111.26/bbl', '$117.00/bbl'), '$113.37/bbl', '$117.00/bbl'), '$114.20/bbl', '$117.00/bbl'),

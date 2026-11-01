@@ -179,6 +179,11 @@ function collectIssues(isProduction: boolean): EnvIssue[] {
 			"FMP_API_KEY not set. Stock fundamentals, DCF valuation, and income statements will be unavailable.");
 	}
 
+	if (!has("FRED_API_KEY")) {
+		// Non-blocking notice since zero-key CSV graph stream is available
+		// as automatic secondary provider for spot commodities and US yields
+	}
+
 	// ── §7. EXCHANGE CONNECTORS ───────────────────────────────────────────────
 
 	if (!hasAll("BSE_MEMBER_ID", "BSE_USER_ID", "BSE_PASSWORD")) {
@@ -333,6 +338,10 @@ function buildServiceDashboard(isProduction: boolean): ServiceStatus[] {
 		{
 			name: "Alpha Vantage",
 			status: hasAny("ALPHA_VANTAGE_API_KEY", "ALPHAVANTAGE_API_KEY") ? "✅ OK" : "⬜ OPTIONAL",
+		},
+		{
+			name: "FRED St. Louis (Commodities)",
+			status: has("FRED_API_KEY") ? "✅ OK" : "⬜ OPTIONAL (CSV active)",
 		},
 		{
 			name: "BSE Direct",

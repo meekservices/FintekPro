@@ -3605,6 +3605,8 @@ export const commodities = pgTable("commodities", {
   
   // Pricing
   currentPrice: decimal("current_price", { precision: 15, scale: 4 }),
+  priceInr: decimal("price_inr", { precision: 15, scale: 4 }),
+  priceUsd: decimal("price_usd", { precision: 15, scale: 4 }),
   previousClose: decimal("previous_close", { precision: 15, scale: 4 }),
   dayChange: decimal("day_change", { precision: 10, scale: 4 }),
   dayChangePercent: decimal("day_change_percent", { precision: 8, scale: 4 }),
@@ -3652,19 +3654,65 @@ export const commodities = pgTable("commodities", {
   aiConfidence: decimal("ai_confidence", { precision: 5, scale: 2 }),
   aiRationale: text("ai_rationale"),
   
+  // MCX specific metadata
+  mcxInstrumentKey: varchar("mcx_instrument_key", { length: 50 }),
+  mcxTradingSymbol: varchar("mcx_trading_symbol", { length: 100 }),
+  mcxLotSize: integer("mcx_lot_size"),
+  mcxExpiryDate: varchar("mcx_expiry_date", { length: 30 }),
+
   // Metadata
   dataSource: varchar("data_source").default("mcx"),
+  source: varchar("source", { length: 50 }).default("system"),
   lastUpdated: timestamp("last_updated").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_commodities_type").on(table.commodityType),
   index("idx_commodities_published").on(table.isPublished),
+  uniqueIndex("uq_commodities_symbol").on(table.symbol),
 ]);
 
 export type Commodity = typeof commodities.$inferSelect;
 export type InsertCommodity = typeof commodities.$inferInsert;
 
 export const insertCommoditySchema = createInsertSchema(commodities).omit({ id: true, createdAt: true, lastUpdated: true });
+
+// ── MCX Commodity Quotes — Real-time & Historical MCX (Multi Commodity Exchange of India) ──
+export const mcxCommodityQuotes = pgTable("mcx_commodity_quotes", {
+  id: serial("id").primaryKey(),
+  commoditySymbol: varchar("commodity_symbol", { length: 50 }).notNull(), // 'GOLD', 'SILVER', 'CRUDE_OIL', 'NATURAL_GAS', 'COPPER'
+  instrumentKey: varchar("instrument_key", { length: 50 }).notNull(), // e.g. 'MCX_FO|573422'
+  tradingSymbol: varchar("trading_symbol", { length: 100 }).notNull(), // e.g. 'CRUDEOIL FUT 19 NOV 26'
+  exchange: varchar("exchange", { length: 20 }).default("MCX").notNull(),
+  expiryDate: varchar("expiry_date", { length: 30 }),
+  price: decimal("price", { precision: 20, scale: 4 }).notNull(),
+  openPrice: decimal("open_price", { precision: 20, scale: 4 }),
+  highPrice: decimal("high_price", { precision: 20, scale: 4 }),
+  lowPrice: decimal("low_price", { precision: 20, scale: 4 }),
+  previousClose: decimal("previous_close", { precision: 20, scale: 4 }),
+  change: decimal("change", { precision: 20, scale: 4 }),
+  changePercent: decimal("change_percent", { precision: 10, scale: 4 }),
+  volume: decimal("volume", { precision: 20, scale: 0 }),
+  openInterest: decimal("open_interest", { precision: 20, scale: 0 }),
+  unit: varchar("unit", { length: 30 }).default("INR"),
+  lotSize: integer("lot_size"),
+  source: varchar("source", { length: 50 }).default("UPSTOX").notNull(),
+  cfdPriceUsd: decimal("cfd_price_usd", { precision: 15, scale: 4 }),
+  cfdSource: varchar("cfd_source", { length: 50 }),
+  isActive: boolean("is_active").default(true).notNull(),
+  metadata: jsonb("metadata"),
+  syncedAt: timestamp("synced_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("uq_mcx_commodity_symbol_instrument").on(table.commoditySymbol, table.instrumentKey),
+  index("idx_mcx_quotes_symbol").on(table.commoditySymbol),
+  index("idx_mcx_quotes_instrument_key").on(table.instrumentKey),
+  index("idx_mcx_quotes_synced_at").on(table.syncedAt),
+]);
+
+export type McxCommodityQuote = typeof mcxCommodityQuotes.$inferSelect;
+export type InsertMcxCommodityQuote = typeof mcxCommodityQuotes.$inferInsert;
 
 
 
@@ -7786,6 +7834,13 @@ export const marketBriefs = pgTable("market_briefs", {
   // Multi-Exchange & AMC Intelligence Layer
   multiExchangeData: jsonb("multi_exchange_data"),
   amcConsensus: jsonb("amc_consensus"),
+  topMovers: jsonb("top_movers"),
+  ccilFixedIncome: jsonb("ccil_fixed_income"),
+  commodityRadar: jsonb("commodity_radar"),
+  usFixedIncome: jsonb("us_fixed_income"),
+  globalMacroDesk: jsonb("global_macro_desk"),
+  macroIndicators: jsonb("macro_indicators"),
+  sectorHighlights: jsonb("sector_highlights"),
   
   // Approval Workflow
   status: varchar("status", { length: 20 }).default("draft").notNull(), // draft, pending_review, approved, published, rejected
@@ -8435,9 +8490,12 @@ export const globalInstruments = pgTable("global_instruments", {
   askPrice: numeric("ask_price"),
   tradingHours: varchar("trading_hours", { length: 100 }), // e.g., "09:30-16:00 ET"
   apiConfig: jsonb("api_config").default({}), // Additional API-specific configuration
+  source: varchar("source", { length: 50 }).default("system"),
   lastUpdated: timestamp("last_updated").defaultNow(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
+  uniqueIndex("uq_gi_symbol_market").on(table.symbol, table.market),
   index("idx_gi_symbol").on(table.symbol),
   index("idx_gi_asset_class").on(table.assetClass),
   index("idx_gi_market").on(table.market),
@@ -11047,6 +11105,42 @@ export type EnrichmentRetryQueueEntry = typeof enrichmentRetryQueue.$inferSelect
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── SEBI Taxonomy Versions — version-controlled circular references ──
+
+// ── Golden Source Pricing Engine — Single Source of Truth for all instruments & benchmarks ──
+export const goldenPrices = pgTable("golden_prices", {
+  id: serial("id").primaryKey(),
+  isin: varchar("isin", { length: 20 }).notNull(),
+  symbol: varchar("symbol", { length: 50 }),
+  priceDate: date("price_date").notNull(),
+  assetClass: varchar("asset_class", { length: 30 }).default("equity").notNull(),
+  price: decimal("price", { precision: 20, scale: 6 }).notNull(),
+  openPrice: decimal("open_price", { precision: 20, scale: 6 }),
+  highPrice: decimal("high_price", { precision: 20, scale: 6 }),
+  lowPrice: decimal("low_price", { precision: 20, scale: 6 }),
+  volume: decimal("volume", { precision: 20, scale: 0 }),
+  changePercent: decimal("change_percent", { precision: 10, scale: 4 }),
+  source: varchar("source", { length: 50 }).notNull(),
+  confidenceScore: integer("confidence_score").default(50).notNull(),
+  isValidated: boolean("is_validated").default(false).notNull(),
+  isStale: boolean("is_stale").default(false).notNull(),
+  isFlagged: boolean("is_flagged").default(false).notNull(),
+  flagReason: text("flag_reason"),
+  previousPrice: decimal("previous_price", { precision: 20, scale: 6 }),
+  deviationPct: decimal("deviation_pct", { precision: 10, scale: 4 }),
+  currency: varchar("currency", { length: 10 }).default("INR"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("idx_golden_prices_isin_date").on(table.isin, table.priceDate),
+  index("idx_golden_prices_date").on(table.priceDate),
+  index("idx_golden_prices_symbol").on(table.symbol),
+  index("idx_golden_prices_asset_class").on(table.assetClass),
+  index("idx_golden_prices_flagged").on(table.isFlagged),
+]);
+
+export type GoldenPrice = typeof goldenPrices.$inferSelect;
+export type InsertGoldenPrice = typeof goldenPrices.$inferInsert;
 
 // ── Price Audit Log — immutable record of every change / override ──
 export const priceAuditLog = pgTable("price_audit_log", {

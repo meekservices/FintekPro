@@ -27,6 +27,12 @@ const ENGINE_VERSION = "FASP-AI-v3.0";
 const DISCLAIMERS: Record<string, string> = {
 	stock:
 		"Equity investments are subject to market risk. Past performance is not indicative of future returns. AI analysis is for decision support only and does not constitute registered financial advice.",
+	us_stock:
+		"US & Global equity investments are subject to currency risk (USD/INR) and market fluctuations. Subject to RBI Liberalised Remittance Scheme (LRS) limits ($250,000/FY) and SEBI investment guidelines. Past performance is not indicative of future returns.",
+	commodity:
+		"Commodity spot and derivatives investments are subject to global macroeconomic volatility, geopolitical tensions, and supply chain disruptions. AI sentiment is for decision support only.",
+	debt:
+		"Debt securities (G-Sec, T-Bills, SDL, Corporate Bonds) carry credit risk, duration risk, and interest rate sensitivity. Sovereign securities carry zero credit risk.",
 	mutual_fund:
 		"Mutual Fund investments are subject to market risks. Read all scheme-related documents carefully before investing. Past performance is not indicative of future returns.",
 	bond:
@@ -41,18 +47,24 @@ const DISCLAIMERS: Record<string, string> = {
 		"Smallcase thematic baskets are model equity portfolios and do not guarantee returns. Equity holdings are subject to market volatility. Rebalance suggestions require investor approval.",
 	index:
 		"Index levels and performance reflect underlying benchmark components. Index investing involves market risk and tracking errors. Past trends do not ensure future direction.",
+	sif:
+		"Specialised Investment Funds (SIF) are alternative investment structures governed by SEBI's April 2025 regulatory framework with a ₹10,00,000 minimum investment threshold. Investment involves market and derivative hedging risk.",
 };
 
 export interface InstrumentChatContext {
 	instrumentType:
 		| "stock"
+		| "us_stock"
+		| "commodity"
+		| "debt"
 		| "mutual_fund"
 		| "bond"
 		| "etf"
 		| "unlisted"
 		| "reit_invit"
 		| "smallcase"
-		| "index";
+		| "index"
+		| "sif";
 	symbolOrId: string;
 	name: string;
 	context?: Record<string, any>;

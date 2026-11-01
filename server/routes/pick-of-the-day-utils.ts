@@ -155,11 +155,30 @@ export async function getLiveInstrumentPrice(
 				if (dbPrice && dbPrice > 0) {
 					// Guard against contaminated Grasim price in DB for Granules
 					if (sym?.toUpperCase() === "GRANULES" && dbPrice > 2000) {
-						logger.warn("[POTD] Stored DB price for GRANULES is contaminated (>2000), falling back to Yahoo Finance");
+						logger.warn("[POTD] Stored DB price for GRANULES is contaminated (>2000), falling back to Golden Pricing");
 					} else {
 						return dbPrice;
 					}
 				}
+
+				// Stale or missing in DB — consult Golden Pricing Engine (Upstox -> Bhavcopy -> IndianAPI -> Yahoo)
+				const symbolForGp = sym?.toUpperCase() === "GRANULES" ? "GRANULES" : (row[0]?.symbol || pick.symbol);
+				if (symbolForGp) {
+					try {
+						const { goldenPricingEngine } = await import("../services/golden-pricing/GoldenPricingEngine");
+						const gpRes = await goldenPricingEngine.getAuthoritativePrice({
+							isin: dbIsin || pick.isin,
+							symbol: symbolForGp,
+							assetClass: "equity",
+						});
+						if (gpRes?.price && gpRes.price > 0) {
+							pick.priceDataSource = gpRes.source || "Golden Pricing Engine";
+							pick.dataFreshness = "live";
+							return gpRes.price;
+						}
+					} catch {}
+				}
+
 				// DB price missing/zero — try Yahoo Finance live feed (.NS for NSE)
 				const symbolForYf = sym?.toUpperCase() === "GRANULES" ? "GRANULES" : (row[0]?.symbol || pick.symbol);
 				if (symbolForYf) {
@@ -210,11 +229,27 @@ export async function getLiveInstrumentPrice(
 			}
 			case "bonds": {
 				const row = await db
-					.select({ cleanPrice: bondCatalog.cleanPrice })
+					.select({ cleanPrice: bondCatalog.cleanPrice, isin: bondCatalog.isin })
 					.from(bondCatalog)
 					.where(eq(bondCatalog.id, pick.instrumentId))
 					.limit(1);
-				return row[0]?.cleanPrice ? Number.parseFloat(row[0].cleanPrice) : null;
+				const clean = row[0]?.cleanPrice ? Number.parseFloat(row[0].cleanPrice) : null;
+				if (clean && clean > 0) return clean;
+
+				// Try golden prices for bond by ISIN
+				const bondIsin = pick.isin || row[0]?.isin;
+				if (bondIsin) {
+					try {
+						const { getLatestGoldenPrice } = await import("../services/golden-pricing/GoldenPricingEngine");
+						const gpPrice = await getLatestGoldenPrice(bondIsin);
+						if (gpPrice && gpPrice > 0) {
+							pick.priceDataSource = "Golden Pricing (Bond ISIN)";
+							pick.dataFreshness = "live";
+							return gpPrice;
+						}
+					} catch {}
+				}
+				return null;
 			}
 			case "unlisted": {
 				const row = await db
@@ -280,12 +315,28 @@ export async function getLiveInstrumentPrice(
 				let row: any[] = [];
 				try {
 					row = await db
-						.select({ lastPrice: globalInstruments.lastPrice })
+						.select({ lastPrice: globalInstruments.lastPrice, symbol: globalInstruments.symbol })
 						.from(globalInstruments)
 						.where(eq(globalInstruments.id, pick.instrumentId))
 						.limit(1);
 				} catch {}
-				return row[0]?.lastPrice ? Number.parseFloat(row[0].lastPrice) : null;
+				const dbPrice = row[0]?.lastPrice ? Number.parseFloat(row[0].lastPrice) : null;
+				if (dbPrice && dbPrice > 0) return dbPrice;
+
+				// Stale or missing — resolve through Golden Pricing Engine (Alpaca -> Alpha Vantage -> Yahoo Finance)
+				const sym = pick.symbol || row[0]?.symbol;
+				if (sym) {
+					try {
+						const { fetchUSStockPrice } = await import("../services/golden-pricing/GoldenPricingEngine");
+						const uRes = await fetchUSStockPrice(sym);
+						if (uRes?.price && uRes.price > 0) {
+							pick.priceDataSource = uRes.source;
+							pick.dataFreshness = "live";
+							return uRes.price;
+						}
+					} catch {}
+				}
+				return null;
 			}
 			case "reits_invits": {
 				const queryTarget = pick.isin || pick.symbol;
@@ -330,6 +381,17 @@ export async function getLiveInstrumentPrice(
 				return null;
 			}
 			case "sgb": {
+				// Priority 0: Authoritative Gold benchmark from Golden Pricing Engine (MCX & COMEX)
+				try {
+					const { goldenPricingEngine } = await import("../services/golden-pricing/GoldenPricingEngine");
+					const bench = await goldenPricingEngine.getAuthoritativeCommodityBenchmarks();
+					if (bench?.gold?.mcxPriceInr && bench.gold.mcxPriceInr > 40000) {
+						pick.priceDataSource = "MCX India (Golden Engine)";
+						pick.dataFreshness = "live";
+						return Math.round((bench.gold.mcxPriceInr / 10) * 10) / 10;
+					}
+				} catch {}
+
 				let goldResult: any = null;
 				try {
 					goldResult = await db.execute(sql`

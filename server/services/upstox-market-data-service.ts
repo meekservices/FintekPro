@@ -46,7 +46,7 @@ import { opsAlertService } from "./ops-alert-service";
 
 export interface UpstoxQuote {
   symbol: string;
-  exchange: "NSE" | "BSE";
+  exchange: "NSE" | "BSE" | "MCX";
   isin?: string;
   last_price: number;
   previous_close?: number;
@@ -60,6 +60,27 @@ export interface UpstoxQuote {
   timestamp: number;
   data_source: "UPSTOX";
   engine_version: string;
+}
+
+export interface UpstoxMCXQuote {
+  commoditySymbol: "GOLD" | "SILVER" | "CRUDE_OIL" | "NATURAL_GAS" | "COPPER";
+  instrumentKey: string;
+  tradingSymbol: string;
+  exchange: "MCX";
+  expiryDate?: string;
+  price: number;
+  openPrice?: number;
+  highPrice?: number;
+  lowPrice?: number;
+  previousClose?: number;
+  change?: number;
+  changePercent?: number;
+  volume?: number;
+  openInterest?: number;
+  unit: string;
+  lotSize?: number;
+  timestamp: string;
+  dataSource: "UPSTOX";
 }
 
 export interface UpstoxHistoricalCandle {
@@ -444,10 +465,10 @@ class UpstoxMarketDataService {
    */
   async resolveInstrumentKey(
     symbolOrIsin: string,
-    exchange: "NSE" | "BSE" = "NSE"
+    exchange: "NSE" | "BSE" | "MCX" = "NSE"
   ): Promise<string> {
     const upper = symbolOrIsin.toUpperCase();
-    if (upper.startsWith("NSE_") || upper.startsWith("BSE_")) return upper;
+    if (upper.startsWith("NSE_") || upper.startsWith("BSE_") || upper.startsWith("MCX_")) return upper;
     if (/^IN[A-Z0-9]{10}$/.test(upper)) return `${exchange}_EQ|${upper}`;
     if (SYMBOL_TO_ISIN[upper]) return `${exchange}_EQ|${SYMBOL_TO_ISIN[upper]}`;
 
@@ -523,7 +544,7 @@ class UpstoxMarketDataService {
    */
   async getLTP(
     symbol: string,
-    exchange: "NSE" | "BSE" = "NSE"
+    exchange: "NSE" | "BSE" | "MCX" = "NSE"
   ): Promise<UpstoxServiceResult<UpstoxQuote>> {
     const t0 = Date.now();
     if (!this.isReady()) return this._inactive<UpstoxQuote>();
@@ -848,6 +869,229 @@ class UpstoxMarketDataService {
       return {
         success: true,
         data: result,
+        meta: this._meta(t0),
+      };
+    }, t0);
+  }
+
+  // ── MCX Commodity Market Quotes ─────────────────────────────────────────────
+
+  /**
+   * Fetches real-time native quotes for core MCX commodities (Gold, Silver, Crude Oil, Natural Gas, Copper),
+   * persists them into PostgreSQL `mcx_commodity_quotes` and updates the `commodities` master table.
+   *
+   * @param options.persistToDb Whether to persist/upsert into PostgreSQL tables (default: true)
+   */
+  async getMCXCommodityQuotes(
+    options: { persistToDb?: boolean } = { persistToDb: true }
+  ): Promise<UpstoxServiceResult<Record<string, UpstoxMCXQuote>>> {
+    const t0 = Date.now();
+    if (!this.isReady()) return this._inactive<Record<string, UpstoxMCXQuote>>();
+
+    const COMMODITIES_CONFIG = [
+      { id: "CRUDE_OIL" as const, query: "CRUDEOIL", defaultKey: "MCX_FO|573422", unit: "₹ / bbl", name: "Crude Oil" },
+      { id: "GOLD" as const, query: "GOLD", defaultKey: "MCX_FO|495213", unit: "₹ / 10g", name: "Gold 24K" },
+      { id: "SILVER" as const, query: "SILVER", defaultKey: "MCX_FO|495214", unit: "₹ / 1kg", name: "Silver" },
+      { id: "NATURAL_GAS" as const, query: "NATURALGAS", defaultKey: "MCX_FO|574319", unit: "₹ / mmBtu", name: "Natural Gas" },
+      { id: "COPPER" as const, query: "COPPER", defaultKey: "MCX_FO|578634", unit: "₹ / kg", name: "Copper" },
+    ];
+
+    return this._withRetry<Record<string, UpstoxMCXQuote>>(async () => {
+      // 1. Resolve active near-month contract keys
+      const resolvedContracts: Array<{
+        id: "CRUDE_OIL" | "GOLD" | "SILVER" | "NATURAL_GAS" | "COPPER";
+        key: string;
+        tradingSymbol: string;
+        unit: string;
+        name: string;
+        expiry?: string;
+        lotSize?: number;
+      }> = [];
+
+      for (const config of COMMODITIES_CONFIG) {
+        let activeKey = config.defaultKey;
+        let tradingSymbol = `${config.query} FUT`;
+        let expiry: string | undefined;
+        let lotSize: number | undefined;
+
+        try {
+          const searchRes = await this.client!.get("/instruments/search", {
+            params: { query: config.query, exchanges: "MCX" },
+          });
+          const futs = (searchRes.data?.data || []).filter(
+            (x: any) =>
+              x.instrument_type === "FUT" &&
+              (x.name === config.query ||
+                x.underlying_symbol === config.query ||
+                (config.id === "CRUDE_OIL" && x.name === "CRUDE OIL"))
+          );
+          if (futs.length > 0) {
+            // Sort by earliest expiry to pick near-month active contract
+            futs.sort((a: any, b: any) => new Date(a.expiry || 0).getTime() - new Date(b.expiry || 0).getTime());
+            const nearest = futs[0];
+            activeKey = nearest.instrument_key || activeKey;
+            tradingSymbol = nearest.trading_symbol || tradingSymbol;
+            expiry = nearest.expiry;
+            lotSize = nearest.lot_size ? Number(nearest.lot_size) : undefined;
+          }
+        } catch {
+          // Fall back to default key
+        }
+
+        resolvedContracts.push({
+          id: config.id,
+          key: activeKey,
+          tradingSymbol,
+          unit: config.unit,
+          name: config.name,
+          expiry,
+          lotSize,
+        });
+      }
+
+      const keysParam = resolvedContracts.map((c) => c.key).join(",");
+
+      // 2. Fetch full quotes with OHLC and depth
+      const quoteRes = await this.client!.get("/market-quote/quotes", {
+        params: { instrument_key: keysParam },
+      });
+      const quoteData = (quoteRes.data?.data ?? {}) as Record<string, any>;
+
+      const results: Record<string, UpstoxMCXQuote> = {};
+      const nowIso = new Date().toISOString();
+
+      for (const contract of resolvedContracts) {
+        // Upstox keys in response can be "MCX_FO|{token}" or "MCX_FO:{trading_symbol_sanitized}"
+        const matched = Object.entries(quoteData).find(
+          ([k, val]: [string, any]) =>
+            k === contract.key ||
+            val?.instrument_token === contract.key ||
+            k.includes(contract.tradingSymbol.replace(/\s+/g, ""))
+        );
+
+        const raw = matched ? matched[1] : null;
+        if (!raw && !quoteData[contract.key]) continue;
+
+        const dataObj = raw ?? quoteData[contract.key];
+        const lastPrice = Number(dataObj.last_price || dataObj.ohlc?.close || 0);
+        if (lastPrice <= 0) continue;
+
+        const ohlc = dataObj.ohlc || {};
+        const prevClose = ohlc.close ? Number(ohlc.close) : undefined;
+        const openPrice = ohlc.open ? Number(ohlc.open) : undefined;
+        const highPrice = ohlc.high ? Number(ohlc.high) : undefined;
+        const lowPrice = ohlc.low ? Number(ohlc.low) : undefined;
+        const change = prevClose ? Number((lastPrice - prevClose).toFixed(2)) : undefined;
+        const changePercent = prevClose ? Number((((lastPrice - prevClose) / prevClose) * 100).toFixed(2)) : 0;
+        const volume = dataObj.volume ? Number(dataObj.volume) : undefined;
+        const openInterest = dataObj.oi ? Number(dataObj.oi) : undefined;
+
+        const quoteItem: UpstoxMCXQuote = {
+          commoditySymbol: contract.id,
+          instrumentKey: contract.key,
+          tradingSymbol: contract.tradingSymbol,
+          exchange: "MCX",
+          expiryDate: contract.expiry,
+          price: lastPrice,
+          openPrice,
+          highPrice,
+          lowPrice,
+          previousClose: prevClose,
+          change,
+          changePercent,
+          volume,
+          openInterest,
+          unit: contract.unit,
+          lotSize: contract.lotSize,
+          timestamp: nowIso,
+          dataSource: "UPSTOX",
+        };
+
+        results[contract.id] = quoteItem;
+      }
+
+      // 3. Persist to PostgreSQL tables if requested
+      if (options.persistToDb && Object.keys(results).length > 0) {
+        try {
+          const { db } = await import("../db");
+          const { mcxCommodityQuotes, commodities } = await import("@shared/schema");
+          const { sql } = await import("drizzle-orm");
+
+          for (const item of Object.values(results)) {
+            // Upsert into mcx_commodity_quotes
+            await db
+              .insert(mcxCommodityQuotes)
+              .values({
+                commoditySymbol: item.commoditySymbol,
+                instrumentKey: item.instrumentKey,
+                tradingSymbol: item.tradingSymbol,
+                exchange: "MCX",
+                expiryDate: item.expiryDate,
+                price: item.price.toString(),
+                openPrice: item.openPrice?.toString(),
+                highPrice: item.highPrice?.toString(),
+                lowPrice: item.lowPrice?.toString(),
+                previousClose: item.previousClose?.toString(),
+                change: item.change?.toString(),
+                changePercent: item.changePercent?.toString(),
+                volume: item.volume?.toString(),
+                openInterest: item.openInterest?.toString(),
+                unit: item.unit,
+                lotSize: item.lotSize,
+                source: "UPSTOX",
+                isActive: true,
+                metadata: { tradingSymbol: item.tradingSymbol, engineVersion: ENGINE_VERSION },
+                syncedAt: new Date(),
+                updatedAt: new Date(),
+              })
+              .onConflictDoUpdate({
+                target: [mcxCommodityQuotes.commoditySymbol, mcxCommodityQuotes.instrumentKey],
+                set: {
+                  price: item.price.toString(),
+                  openPrice: item.openPrice?.toString(),
+                  highPrice: item.highPrice?.toString(),
+                  lowPrice: item.lowPrice?.toString(),
+                  previousClose: item.previousClose?.toString(),
+                  change: item.change?.toString(),
+                  changePercent: item.changePercent?.toString(),
+                  volume: item.volume?.toString(),
+                  openInterest: item.openInterest?.toString(),
+                  unit: item.unit,
+                  lotSize: item.lotSize,
+                  syncedAt: new Date(),
+                  updatedAt: new Date(),
+                },
+              });
+
+            // Update master commodities table
+            await db
+              .update(commodities)
+              .set({
+                currentPrice: item.price.toString(),
+                priceInr: item.price.toString(),
+                previousClose: item.previousClose?.toString(),
+                dayChange: item.change?.toString(),
+                dayChangePercent: item.changePercent?.toString(),
+                mcxInstrumentKey: item.instrumentKey,
+                mcxTradingSymbol: item.tradingSymbol,
+                mcxLotSize: item.lotSize,
+                mcxExpiryDate: item.expiryDate,
+                dataSource: "upstox_mcx",
+                lastUpdated: new Date(),
+                updatedAt: new Date(),
+              })
+              .where(sql`symbol = ${item.commoditySymbol} OR symbol = ${item.commoditySymbol.replace("_", "")}`);
+          }
+
+          logger.info(`[Upstox] Successfully persisted ${Object.keys(results).length} MCX commodity quotes to PostgreSQL`);
+        } catch (dbErr: any) {
+          logger.warn(`[Upstox] Failed persisting MCX commodity quotes to DB: ${dbErr?.message}`);
+        }
+      }
+
+      return {
+        success: true,
+        data: results,
         meta: this._meta(t0),
       };
     }, t0);
