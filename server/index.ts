@@ -700,6 +700,20 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 		app.use("/api/xai", aiLimiter);
 		app.use("/api/xai", aiAlphaEngineRoutes.default);
 
+		// FASP-AI v1.0: Apply aiLimiter to all advisory route prefixes
+		// (investment ideas, goals, SEBI risk profiling, recommendation products)
+		app.use(
+			[
+				"/api/investment-alerts",
+				"/api/goals",
+				"/api/sebi-risk-profiling",
+				"/api/recommendation-products",
+				"/api/ai-recommendation-tracking",
+				"/api/ai-mf",
+			],
+			aiLimiter,
+		);
+
 		// Pick of the Day Routes
 		logBootProgress("Step 7: Registering Pick of the Day Routes...");
 		const picksRoutes = await import("./routes/pick-of-the-day");

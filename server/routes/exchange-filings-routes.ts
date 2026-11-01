@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 /**
  * Exchange Filings API Routes
  *
@@ -16,6 +17,7 @@ import { xbrlParserService } from "../services/xbrl-parser-service";
 import { filingSchedulerService } from "../services/filing-scheduler-service";
 import { db } from "../db";
 import { sql } from "drizzle-orm";
+import { requireAdmin } from "../middleware/roleMiddleware";
 
 const router = Router();
 
@@ -106,7 +108,7 @@ router.get("/sources", async (_req, res) => {
 	}
 });
 
-router.post("/fetch", async (req, res) => {
+router.post("/fetch", requireAdmin, async (req, res) => {
 	try {
 		const { exchange, symbol, fromDate, toDate } = req.body;
 
@@ -323,7 +325,7 @@ router.get("/:filingId/view-original", async (req, res) => {
 	}
 });
 
-router.post("/:filingId/process", async (req, res) => {
+router.post("/:filingId/process", requireAdmin, async (req, res) => {
 	try {
 		const { filingId } = req.params;
 
@@ -399,7 +401,7 @@ router.post("/:filingId/process", async (req, res) => {
 	}
 });
 
-router.post("/:filingId/metrics/:metricId/approve", async (req, res) => {
+router.post("/:filingId/metrics/:metricId/approve", requireAdmin, async (req, res) => {
 	try {
 		const { filingId, metricId } = req.params;
 		const { approvedBy, justification } = req.body;
@@ -468,7 +470,7 @@ router.post("/:filingId/metrics/:metricId/approve", async (req, res) => {
 	}
 });
 
-router.post("/:filingId/metrics/:metricId/override", async (req, res) => {
+router.post("/:filingId/metrics/:metricId/override", requireAdmin, async (req, res) => {
 	try {
 		const { filingId, metricId } = req.params;
 		const { newValue, overrideBy, reason } = req.body;
@@ -568,7 +570,7 @@ router.get("/scheduler/jobs", async (_req, res) => {
 	}
 });
 
-router.post("/scheduler/jobs/:jobId/run", async (req, res) => {
+router.post("/scheduler/jobs/:jobId/run", requireAdmin, async (req, res) => {
 	try {
 		const { jobId } = req.params;
 
@@ -594,7 +596,7 @@ router.post("/scheduler/jobs/:jobId/run", async (req, res) => {
 	}
 });
 
-router.post("/scheduler/jobs/:jobId/enable", async (req, res) => {
+router.post("/scheduler/jobs/:jobId/enable", requireAdmin, async (req, res) => {
 	try {
 		const { jobId } = req.params;
 		const success = await filingSchedulerService.enableJob(jobId);
@@ -609,7 +611,7 @@ router.post("/scheduler/jobs/:jobId/enable", async (req, res) => {
 	}
 });
 
-router.post("/scheduler/jobs/:jobId/disable", async (req, res) => {
+router.post("/scheduler/jobs/:jobId/disable", requireAdmin, async (req, res) => {
 	try {
 		const { jobId } = req.params;
 		const success = await filingSchedulerService.disableJob(jobId);

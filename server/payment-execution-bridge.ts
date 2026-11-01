@@ -2,6 +2,12 @@
 /**
  * Payment-to-Execution Bridge Service
  *
+ * FASP-AI v1.0 GUARDRAIL: This bridge is a Decision Support System only.
+ * MF execution (BSE Star) is wired; Bond / Equity / IPO / FD / Loan stubs
+ * return "pending_manual_processing" status — they require human advisor or
+ * operations-desk confirmation before any real execution occurs.
+ * user_confirmation_required: true on all stub responses.
+ *
  * Orchestrates order execution after successful payment confirmation
  * - Listens to payment gateway callbacks
  * - Updates order status upon payment success
@@ -13,6 +19,7 @@ import { orderManagementService } from "./order-management-service";
 import { db } from "./db";
 import { unifiedOrders } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { logger } from "./logger";
 
 export interface PaymentCallbackData {
 	orderId: string;
@@ -366,7 +373,7 @@ class PaymentExecutionBridge {
 	 * Execute Mutual Fund order via BSE Star API
 	 */
 	private async executeMutualFundOrder(order: any): Promise<ExecutionResult> {
-		const { id: orderId, metadata } = order;
+		const { id: orderId, userId, metadata } = order;
 
 		try {
 			// Update to processing
@@ -395,9 +402,14 @@ class PaymentExecutionBridge {
 				actorType: "system",
 			});
 
-			console.log(
-				`[PaymentBridge] Mutual fund order ${orderId} executed successfully`,
-			);
+			logger.info(`[PaymentBridge] Mutual fund order ${orderId} executed successfully`, {
+				event: "MF_ORDER_EXECUTED",
+				user_id: userId,
+				latency_ms: 0,
+				status: "success",
+				order_id: orderId,
+				external_order_id: externalOrderId,
+			});
 
 			return {
 				success: true,
@@ -532,13 +544,23 @@ class PaymentExecutionBridge {
 	 * Execute Bond order
 	 */
 	private async executeBondOrder(order: any): Promise<ExecutionResult> {
-		const { id: orderId } = order;
+		const { id: orderId, userId } = order;
 
-		// TODO: Implement bond execution
+		// FASP-AI GUARDRAIL: Bond execution requires ops-desk confirmation.
+		// user_confirmation_required: true — no autonomous execution.
+		// TODO: Integrate with bond execution API (e.g., RBI Retail Direct / BSE Star bond module)
+		logger.info("[PaymentBridge] Bond order queued for manual processing", {
+			event: "BOND_ORDER_QUEUED",
+			user_id: userId || "unknown",
+			order_id: orderId,
+			user_confirmation_required: true,
+			latency_ms: 0,
+			status: "pending",
+		});
 		await orderManagementService.updateOrderStatus({
 			orderId,
 			status: "pending_manual_processing",
-			notes: "Bond order requires manual processing",
+			notes: "Bond order requires ops-desk confirmation and manual processing (FASP-AI guardrail)",
 			actorId: "system",
 			actorType: "system",
 		});
@@ -547,7 +569,7 @@ class PaymentExecutionBridge {
 			success: true,
 			orderId,
 			executionStatus: "pending",
-			message: "Bond order queued for processing",
+			message: "Bond order queued for processing — advisor confirmation required",
 		};
 	}
 
@@ -555,13 +577,23 @@ class PaymentExecutionBridge {
 	 * Execute Equity order
 	 */
 	private async executeEquityOrder(order: any): Promise<ExecutionResult> {
-		const { id: orderId } = order;
+		const { id: orderId, userId } = order;
 
-		// TODO: Implement equity execution
+		// FASP-AI GUARDRAIL: Equity execution requires ops-desk confirmation.
+		// user_confirmation_required: true — no autonomous execution.
+		// TODO: Integrate with NSE/BSE equity execution API (e.g., BSE Star MF / SEBI-registered broker bridge)
+		logger.info("[PaymentBridge] Equity order queued for manual processing", {
+			event: "EQUITY_ORDER_QUEUED",
+			user_id: userId || "unknown",
+			order_id: orderId,
+			user_confirmation_required: true,
+			latency_ms: 0,
+			status: "pending",
+		});
 		await orderManagementService.updateOrderStatus({
 			orderId,
 			status: "pending_manual_processing",
-			notes: "Equity order requires manual processing",
+			notes: "Equity order requires ops-desk confirmation and manual processing (FASP-AI guardrail)",
 			actorId: "system",
 			actorType: "system",
 		});
@@ -570,7 +602,7 @@ class PaymentExecutionBridge {
 			success: true,
 			orderId,
 			executionStatus: "pending",
-			message: "Equity order queued for processing",
+			message: "Equity order queued for processing — advisor confirmation required",
 		};
 	}
 
@@ -578,13 +610,23 @@ class PaymentExecutionBridge {
 	 * Execute IPO application
 	 */
 	private async executeIPOOrder(order: any): Promise<ExecutionResult> {
-		const { id: orderId } = order;
+		const { id: orderId, userId } = order;
 
-		// TODO: Implement IPO execution
+		// FASP-AI GUARDRAIL: IPO application requires investor confirmation.
+		// user_confirmation_required: true — no autonomous execution.
+		// TODO: Integrate with BSE/NSE ASBA UPI mandate API
+		logger.info("[PaymentBridge] IPO application queued for manual processing", {
+			event: "IPO_ORDER_QUEUED",
+			user_id: userId || "unknown",
+			order_id: orderId,
+			user_confirmation_required: true,
+			latency_ms: 0,
+			status: "pending",
+		});
 		await orderManagementService.updateOrderStatus({
 			orderId,
 			status: "pending_manual_processing",
-			notes: "IPO application requires manual processing",
+			notes: "IPO application requires investor confirmation and ASBA processing (FASP-AI guardrail)",
 			actorId: "system",
 			actorType: "system",
 		});
@@ -593,7 +635,7 @@ class PaymentExecutionBridge {
 			success: true,
 			orderId,
 			executionStatus: "pending",
-			message: "IPO application queued for processing",
+			message: "IPO application queued for processing — investor confirmation required",
 		};
 	}
 
@@ -601,13 +643,23 @@ class PaymentExecutionBridge {
 	 * Execute FD order
 	 */
 	private async executeFDOrder(order: any): Promise<ExecutionResult> {
-		const { id: orderId } = order;
+		const { id: orderId, userId } = order;
 
-		// TODO: Implement FD execution
+		// FASP-AI GUARDRAIL: FD placement requires bank partner API integration.
+		// user_confirmation_required: true — no autonomous execution.
+		// TODO: Integrate with bank FD partner API (e.g., Scripbox/BankBazaar FD API)
+		logger.info("[PaymentBridge] FD order queued for manual processing", {
+			event: "FD_ORDER_QUEUED",
+			user_id: userId || "unknown",
+			order_id: orderId,
+			user_confirmation_required: true,
+			latency_ms: 0,
+			status: "pending",
+		});
 		await orderManagementService.updateOrderStatus({
 			orderId,
 			status: "pending_manual_processing",
-			notes: "FD order requires manual processing",
+			notes: "FD order requires bank partner confirmation and manual processing (FASP-AI guardrail)",
 			actorId: "system",
 			actorType: "system",
 		});
@@ -616,7 +668,7 @@ class PaymentExecutionBridge {
 			success: true,
 			orderId,
 			executionStatus: "pending",
-			message: "FD order queued for processing",
+			message: "FD order queued for processing — bank confirmation required",
 		};
 	}
 
@@ -624,13 +676,23 @@ class PaymentExecutionBridge {
 	 * Execute Loan application
 	 */
 	private async executeLoanOrder(order: any): Promise<ExecutionResult> {
-		const { id: orderId } = order;
+		const { id: orderId, userId } = order;
 
-		// TODO: Implement loan execution
+		// FASP-AI GUARDRAIL: Loan disbursement requires NBFC/bank partner API integration.
+		// user_confirmation_required: true — no autonomous execution.
+		// TODO: Integrate with lending partner API (e.g., Finbox, Lendingkart, or bank NBFC partner)
+		logger.info("[PaymentBridge] Loan application queued for manual processing", {
+			event: "LOAN_ORDER_QUEUED",
+			user_id: userId || "unknown",
+			order_id: orderId,
+			user_confirmation_required: true,
+			latency_ms: 0,
+			status: "pending",
+		});
 		await orderManagementService.updateOrderStatus({
 			orderId,
 			status: "pending_manual_processing",
-			notes: "Loan application requires manual processing",
+			notes: "Loan application requires NBFC/bank partner confirmation and manual processing (FASP-AI guardrail)",
 			actorId: "system",
 			actorType: "system",
 		});
@@ -639,7 +701,7 @@ class PaymentExecutionBridge {
 			success: true,
 			orderId,
 			executionStatus: "pending",
-			message: "Loan application queued for processing",
+			message: "Loan application queued for processing — lender confirmation required",
 		};
 	}
 }

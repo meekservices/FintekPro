@@ -177,7 +177,13 @@ export const auditTrailMiddleware = (
 			userAgent,
 			outcome: outcome as "success" | "failure",
 			riskLevel: determineRiskLevel(req.path, req.method),
-		}).catch(() => {});
+		}).catch((auditErr: Error) => {
+			// Non-fatal: log the failure without crashing the request pipeline.
+			// Use a direct stderr write to avoid circular dependency on the logger.
+			process.stderr.write(
+				`[AuditTrail] WARN: audit log write failed — ${auditErr.message}\n`,
+			);
+		});
 	});
 
 	next();

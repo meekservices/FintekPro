@@ -138,7 +138,15 @@ export async function detectRegime(forceRefresh = false): Promise<RegimeResult> 
     };
 
     // 4. Persist to ai_regime_history
-    await aiRegimeDetectionEngine.persistRegime(ai).catch(() => {});
+    await aiRegimeDetectionEngine.persistRegime(ai).catch((persistErr: Error) => {
+      logger.warn("[MarketRegime] persistRegime failed (non-fatal)", {
+        event: "REGIME_PERSIST_FAILED",
+        user_id: "system",
+        error: persistErr.message,
+        latency_ms: 0,
+        status: "warn",
+      });
+    });
 
     logger.info("[MarketRegime] Detected", {
       event: "REGIME_DETECTED",
