@@ -13,6 +13,14 @@ export async function runStartupSchemaRepairs() {
 
 		console.log("🛠️ Running schema migrations/repairs...");
 
+		// ── Enable vector extension (pgvector) for semantic AI search ────────
+		try {
+			await migPool.query(`CREATE EXTENSION IF NOT EXISTS vector;`);
+			console.log("  ✅ [pgvector] vector extension ensured in database");
+		} catch (vErr: any) {
+			console.warn("  ⚠️ [pgvector] vector extension note:", vErr?.message || vErr);
+		}
+
 		// ── CRITICAL FAST-PATH: model_portfolios period return columns ────────
 		// These columns are referenced by the Drizzle ORM schema on every
 		// GET /api/model-portfolios call. They must exist before routes serve.
