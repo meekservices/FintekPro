@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+// Infrastructure file: console is intentional for Cloud Run structured log output.
 import { db } from "../db";
 import * as schema from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -371,6 +373,17 @@ export class FinancialMetricsCalculator {
 		return score;
 	}
 
+	/**
+	 * Sanitize a computed numeric value for DB insertion.
+	 * Returns null for NaN, Infinity, or -Infinity — all of which
+	 * Postgres rejects as invalid input for NUMERIC / DECIMAL columns.
+	 */
+	private sanitize(v: number | null | undefined): number | null {
+		if (v == null) return null;
+		if (!Number.isFinite(v)) return null;
+		return v;
+	}
+
 	calculateAltmanZScore(data: FinancialData): number | null {
 		if (!data.totalAssets || data.totalAssets <= 0) return null;
 		if (!data.marketCap) return null;
@@ -382,13 +395,14 @@ export class FinancialMetricsCalculator {
 		const totalLiabilities = data.totalLiabilities || 0;
 		const revenue = data.revenue || 0;
 
+		// Guard against division-by-zero producing Infinity (rejected by Postgres NUMERIC)
 		const A = workingCapital / data.totalAssets;
 		const B = retainedEarnings / data.totalAssets;
 		const C = ebit / data.totalAssets;
-		const D = data.marketCap / totalLiabilities;
+		const D = totalLiabilities > 0 ? data.marketCap / totalLiabilities : 0;
 		const E = revenue / data.totalAssets;
 
-		return 1.2 * A + 1.4 * B + 3.3 * C + 0.6 * D + 1.0 * E;
+		return this.sanitize(1.2 * A + 1.4 * B + 3.3 * C + 0.6 * D + 1.0 * E);
 	}
 
 	calculateAccrualRatio(
@@ -480,7 +494,7 @@ export class FinancialMetricsCalculator {
 		);
 		const payableDays = this.calculateDaysOutstanding(payablesTurnover || 0);
 
-		return {
+		const result: Partial<schema.InsertStockFinancialMetrics> = {
 			// Valuation
 			trailingPe: this.calculateTrailingPE(price, current.eps || 0)?.toString(),
 			forwardPe: epsEstimate
@@ -691,6 +705,29 @@ export class FinancialMetricsCalculator {
 			marketCap: current.marketCap?.toString(),
 			sharesOutstanding: current.sharesOutstanding?.toString(),
 		};
+
+		// ── Safety sweep ────────────────────────────────────────────────────────
+		// Postgres NUMERIC rejects "NaN", "Infinity", "-Infinity".
+		// Drizzle passes string values to pg driver as-is, so we must null-out
+		// any non-finite string before the INSERT hits the wire.
+		// We also guard the raw numeric fields (piotroskiFScore) for NaN.
+		const UNSAFE = new Set(["NaN", "Infinity", "-Infinity"]);
+		const sanitizeMetrics = (
+			m: Partial<schema.InsertStockFinancialMetrics>,
+		): Partial<schema.InsertStockFinancialMetrics> => {
+			const out: Record<string, unknown> = {};
+			for (const [k, v] of Object.entries(m)) {
+				if (typeof v === "string" && UNSAFE.has(v)) {
+					out[k] = undefined;
+				} else if (typeof v === "number" && !Number.isFinite(v)) {
+					out[k] = undefined;
+				} else {
+					out[k] = v;
+				}
+			}
+			return out as Partial<schema.InsertStockFinancialMetrics>;
+		};
+		return sanitizeMetrics(result);
 	}
 
 	// === MUTUAL FUND METRICS ===

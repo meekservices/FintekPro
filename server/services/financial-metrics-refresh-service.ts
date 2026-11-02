@@ -100,6 +100,8 @@ export class FinancialMetricsRefreshService {
 			console.error(
 				`[FinancialMetricsRefresh] Error refreshing metrics for ${stockId}:`,
 				error,
+				// Surface the underlying Postgres error (hidden behind Drizzle's "Failed query" wrapper)
+				(error as any)?.cause ?? (error as any)?.original ?? '',
 			);
 			return false;
 		}
@@ -718,7 +720,7 @@ export class FinancialMetricsRefreshService {
 				isin,
 				fiscalYear,
 				...metrics,
-				dataSource: "credhive",
+				dataSource: (metrics as any).dataSource ?? "financial_metrics_refresh",
 				dataQuality: "complete",
 			});
 		}

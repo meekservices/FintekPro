@@ -171,10 +171,10 @@ class UnifiedStockPriceService {
 
       UPDATE screener_master_snapshots
       SET
-        current_price       = ${price.price},
-        previous_close      = COALESCE(${price.previousClose ?? null}, previous_close),
-        day_change_percent  = COALESCE(${price.changePercent ?? null}, day_change_percent),
-        snapshot_updated_at = NOW()
+        current_price      = ${price.price},
+        previous_close     = COALESCE(${price.previousClose ?? null}, previous_close),
+        day_change_percent = COALESCE(${price.changePercent ?? null}, day_change_percent),
+        updated_at         = NOW()
       WHERE symbol = ${sym};
     `)
 			.then(() => {
