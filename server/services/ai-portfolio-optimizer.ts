@@ -75,6 +75,12 @@ export interface OptimizedBasket {
 	regime: string;
 	optimizationMethod: string;
 	timestamp: string;
+	/** H-04: Engine version for auditability and explainability */
+	engine_version?: string;
+	/** H-03: Indicates whether returns used are historical or synthetic estimates */
+	data_quality?: "historical" | "synthetic";
+	/** H-03: Human-readable warning when synthetic data was used */
+	data_quality_warning?: string;
 	constraints: {
 		maxWeightPerAsset: number;
 		minWeightPerAsset: number;
@@ -114,7 +120,7 @@ export class AIPortfolioOptimizer {
 			maxWeightPerAsset: config?.maxWeightPerAsset ?? 0.25,
 			minWeightPerAsset: config?.minWeightPerAsset ?? 0.02,
 			maxPerAssetClass: config?.maxPerAssetClass ?? 0.4,
-			riskFreeRate: config?.riskFreeRate ?? 0.065,
+			riskFreeRate: config?.riskFreeRate ?? (await getRiskFreeRate()),
 			targetPositions: config?.targetPositions ?? 10,
 			regime: config?.regime ?? "normal",
 			includeAlternatives: config?.includeAlternatives ?? true,
@@ -207,17 +213,23 @@ export class AIPortfolioOptimizer {
 
 		// Optimization: Reuse returnSeries fetched during metrics computation
 		const returnSeriesArr: number[][] = [];
+		// H-03: Track which assets use synthetic returns (no pre-fetched returnSeries in candidate)
+		const syntheticAssetIds: string[] = [];
 		for (const c of selected) {
 			if (c.returnSeries) {
 				returnSeriesArr.push(c.returnSeries);
 			} else {
 				const series = await this.fetchReturnSeries(c.assetId, c.assetClass);
 				returnSeriesArr.push(series);
+				syntheticAssetIds.push(c.assetId);
 			}
 		}
 
 		const covMatrix =
 			aiAnalyticsEngine.computeCovarianceMatrix(returnSeriesArr);
+
+		// H-03: Track data quality — if any selected asset fell back to synthetic returns
+		const usedSynthetic = syntheticAssetIds.length > 0;
 
 		const optimizedWeights = this.optimizeWeights(selected, covMatrix, cfg);
 		const portfolioMetrics = this.computePortfolioMetrics(
@@ -267,6 +279,11 @@ export class AIPortfolioOptimizer {
 			regime: cfg.regime,
 			optimizationMethod: "max-sharpe-gradient-ascent",
 			timestamp: new Date().toISOString(),
+			engine_version: "mvo-optimizer-v1.0",
+			data_quality: usedSynthetic ? "synthetic" : "historical",
+			data_quality_warning: usedSynthetic
+				? `${syntheticAssetIds.length} asset(s) used synthetic return estimates due to missing historical data. Results may be less reliable.`
+				: undefined,
 			constraints: {
 				maxWeightPerAsset: cfg.maxWeightPerAsset,
 				minWeightPerAsset: cfg.minWeightPerAsset,
@@ -449,7 +466,14 @@ export class AIPortfolioOptimizer {
 								}
 							}
 						} catch (candleErr: any) {
-							// Silent fall-through to synthetic
+							// H-03: Log synthetic fall-through so data_quality field reflects true data source
+							logger.warn("[AIPortfolioOptimizer] Candle fetch failed — using synthetic returns", {
+								event: "SYNTHETIC_RETURN_FALLBACK",
+								user_id: "system",
+								symbol,
+								error: candleErr instanceof Error ? candleErr.message : String(candleErr),
+								status: "warn",
+							});
 						}
 					}
 				}

@@ -2291,6 +2291,10 @@ Provide a JSON response with:
 		recommendation: "strong_buy" | "buy" | "hold" | "sell" | "strong_sell";
 		keyInsights: string[];
 		urgentActions: string[];
+		/** M-05: FASP-AI v1.0 — engine traceability */
+		engine_version: string;
+		calculation_timestamp: string;
+		disclaimer: string;
 	} {
 		const insights: string[] = [];
 		const urgentActions: string[] = [];
@@ -2541,6 +2545,12 @@ Provide a JSON response with:
 			recommendation,
 			keyInsights: insights.slice(0, 5),
 			urgentActions: urgentActions.slice(0, 3),
+			// M-05: FASP-AI v1.0 — engine traceability and mandatory disclaimer
+			engine_version: "profit-score-engine-v1.0",
+			calculation_timestamp: new Date().toISOString(),
+			disclaimer:
+				"AI-generated score for decision support only. Not a solicitation to buy/sell. " +
+				"Consult a SEBI-registered investment advisor. Past performance ≠ future results.",
 		};
 	}
 
