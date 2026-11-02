@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 // @ts-nocheck
 import { db } from "../db";
 import * as schema from "@shared/schema";
@@ -127,42 +128,44 @@ export class FinancialMetricsRefreshService {
 
 		try {
 			// Fetch from company_financials table if available
-			const companyFinancials = await db.query.companyFinancials?.findFirst({
-				where: eq(schema.companyFinancials.cin, stock.cin || ""),
-				orderBy: [desc(schema.companyFinancials.fiscalYear)],
+			// NOTE: companyFinancials.companyId links to unlistedCompanies — listed stocks won't
+			// have a match, so this will return null gracefully and fall through to Finnhub/basic.
+			const companyFinancialsRecord = await db.query.companyFinancials?.findFirst({
+				where: eq(schema.companyFinancials.companyId, stock.cin || ""),
+				orderBy: [desc(schema.companyFinancials.financialYear)],
 			});
 
-			if (companyFinancials) {
+			if (companyFinancialsRecord) {
 				return {
 					revenue: Number.parseFloat(
-						companyFinancials.revenue?.toString() || "0",
+						companyFinancialsRecord.revenue?.toString() || "0",
 					),
 					ebitda: Number.parseFloat(
-						companyFinancials.ebitda?.toString() || "0",
+						companyFinancialsRecord.ebitda?.toString() || "0",
 					),
 					ebit:
-						Number.parseFloat(companyFinancials.ebitda?.toString() || "0") *
+						Number.parseFloat(companyFinancialsRecord.ebitda?.toString() || "0") *
 						0.85,
 					netIncome: Number.parseFloat(
-						companyFinancials.pat?.toString() || "0",
+						companyFinancialsRecord.pat?.toString() || "0",
 					),
 					totalAssets: Number.parseFloat(
-						companyFinancials.totalAssets?.toString() || "0",
+						companyFinancialsRecord.totalAssets?.toString() || "0",
 					),
 					totalLiabilities: Number.parseFloat(
-						companyFinancials.totalLiabilities?.toString() || "0",
+						companyFinancialsRecord.totalLiabilities?.toString() || "0",
 					),
 					totalEquity: Number.parseFloat(
-						companyFinancials.netWorth?.toString() || "0",
+						companyFinancialsRecord.networth?.toString() || "0",
 					),
 					totalDebt: Number.parseFloat(
-						companyFinancials.borrowings?.toString() || "0",
+						companyFinancialsRecord.totalDebt?.toString() || "0",
 					),
 					cash:
-						Number.parseFloat(companyFinancials.reserves?.toString() || "0") *
+						Number.parseFloat(companyFinancialsRecord.reserves?.toString() || "0") *
 						0.1,
 					operatingCashFlow: Number.parseFloat(
-						companyFinancials.operatingCashFlow?.toString() || "0",
+						companyFinancialsRecord.operatingCashFlow?.toString() || "0",
 					),
 					currentPrice: Number.parseFloat(
 						stock.currentPrice?.toString() || "0",

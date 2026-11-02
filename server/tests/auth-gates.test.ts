@@ -129,3 +129,4 @@ describe("Auth Gates — requireAuth middleware", () => {
     });
   });
 });
+

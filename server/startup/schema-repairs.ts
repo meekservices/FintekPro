@@ -4936,6 +4936,21 @@ export async function ensureSharedRouteTables(): Promise<void> {
     console.warn("  ⚠️  Fix SFM-1 stock_financial_metrics (non-fatal):", e.message?.slice(0, 200));
   }
 
+  // ── Fix SFM-2: Add peg_ratio_null_reason column (schema drift) ───────────────
+  // The Drizzle schema defines pegRatioNullReason but the column was never added
+  // to the existing production table, causing ALL SELECT queries on
+  // stock_financial_metrics to fail with "column does not exist" → FinancialMetricsRefresh
+  // 0/50 success → StockStrategy scores degrade → POTD generates no listed_stock picks.
+  try {
+    await migDb.execute(migSql`
+      ALTER TABLE stock_financial_metrics
+        ADD COLUMN IF NOT EXISTS peg_ratio_null_reason VARCHAR(32)
+    `);
+    console.log("  ✅ Fix SFM-2: peg_ratio_null_reason column added to stock_financial_metrics");
+  } catch (e: any) {
+    console.warn("  ⚠️  Fix SFM-2 peg_ratio_null_reason (non-fatal):", e.message?.slice(0, 200));
+  }
+
   // ── Fix SEBI-1: REIT/InvIT SEBI classification columns (Nov 28, 2025 circular) ────────────────
   // Per SEBI/HO/IMD/IMD-I/DOF5/P/CIR/2025/177 (effective Jan 1, 2026):
   //   - REITs → equity-related instruments; AMFI classifies by market cap (Large/Mid/Small Cap)

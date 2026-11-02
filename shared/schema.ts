@@ -9683,6 +9683,8 @@ export const stockFinancialMetrics = pgTable("stock_financial_metrics", {
   
   // === DIVIDEND METRICS ===
   dividendYield: decimal("dividend_yield", { precision: 10, scale: 4 }),
+  dividendYieldPct: decimal("dividend_yield_pct", { precision: 8, scale: 4 }),  // pct form (e.g. 2.50 = 2.50%)
+  dividendPerShare: decimal("dividend_per_share", { precision: 12, scale: 4 }), // DPS in INR
   dividendPayoutRatio: decimal("dividend_payout_ratio", { precision: 10, scale: 4 }),
   dividendCoverRatio: decimal("dividend_cover_ratio", { precision: 10, scale: 4 }),
   dividendGrowthRate: decimal("dividend_growth_rate", { precision: 10, scale: 4 }),
