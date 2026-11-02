@@ -4941,11 +4941,12 @@ export async function ensureSharedRouteTables(): Promise<void> {
   // to the existing production table, causing ALL SELECT queries on
   // stock_financial_metrics to fail with "column does not exist" → FinancialMetricsRefresh
   // 0/50 success → StockStrategy scores degrade → POTD generates no listed_stock picks.
+  // NOTE: migDb.execute(migSql`...`) silently fails for DDL; import pool inline.
   try {
-    await migDb.execute(migSql`
-      ALTER TABLE stock_financial_metrics
-        ADD COLUMN IF NOT EXISTS peg_ratio_null_reason VARCHAR(32)
-    `);
+    const { pool: sfm2Pool } = await import("../db");
+    await sfm2Pool.query(
+      `ALTER TABLE stock_financial_metrics ADD COLUMN IF NOT EXISTS peg_ratio_null_reason VARCHAR(32)`
+    );
     console.log("  ✅ Fix SFM-2: peg_ratio_null_reason column added to stock_financial_metrics");
   } catch (e: any) {
     console.warn("  ⚠️  Fix SFM-2 peg_ratio_null_reason (non-fatal):", e.message?.slice(0, 200));
