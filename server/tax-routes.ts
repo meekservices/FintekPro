@@ -609,7 +609,7 @@ router.get("/pan-context", async (req: Request, res: Response) => {
 
 		res.json(panContext);
 	} catch (error) {
-		console.error("Error fetching PAN context:", error);
+		logger.error("Error fetching PAN context", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({ error: "Failed to fetch PAN context" });
 	}
 });
@@ -1058,7 +1058,7 @@ router.get("/itr/prefill/:pan/:assessmentYear", async (req: Request, res: Respon
 			return res.status(503).json({ success: false, error: "IRIS_NOT_CONFIGURED", message: "Pre-filled ITR data requires IRIS KFintech ERI credentials." });
 		}
 		const result = await irisKfintechService.getPrefillData(req.params.pan, req.params.assessmentYear);
-		console.log(`[Tax Route] /itr/prefill → IRIS success (PAN: ${req.params.pan.slice(0, 5)}*****)`); 
+		logger.info("[Tax Route] /itr/prefill → IRIS success", { pan: `${req.params.pan.slice(0, 5)}*****` });
 		res.json({ ...result, _provider: "iris" });
 	} catch (error) {
 		console.error("[Tax Route] /itr/prefill error:", error);
@@ -1762,7 +1762,7 @@ router.post("/itr/verify/send-otp", async (req: Request, res: Response) => {
 			message: "OTP sent successfully",
 		});
 	} catch (error) {
-		console.error("Error sending OTP:", error);
+		logger.error("Error sending OTP", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({ error: "Failed to send OTP" });
 	}
 });

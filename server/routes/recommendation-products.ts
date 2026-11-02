@@ -31,8 +31,10 @@ function invalidateCache() {
 router.get("/", requireAdmin, async (req, res) => {
 	try {
 		const { productType, riskProfile, isActive, search } = req.query;
+		const page = Math.max(1, parseInt(req.query.page as string) || 1);
+		const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+		const offset = (page - 1) * limit;
 
-		const query = db.select().from(recommendationProducts);
 		const conditions = [];
 
 		if (productType && productType !== "all") {
@@ -58,16 +60,34 @@ router.get("/", requireAdmin, async (req, res) => {
 			);
 		}
 
-		const products = await db
-			.select()
-			.from(recommendationProducts)
-			.where(conditions.length > 0 ? and(...conditions) : undefined)
-			.orderBy(
-				desc(recommendationProducts.priority),
-				asc(recommendationProducts.name),
-			);
+		const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-		res.json(products);
+		const [items, [{ count }]] = await Promise.all([
+			db
+				.select()
+				.from(recommendationProducts)
+				.where(whereClause)
+				.orderBy(
+					desc(recommendationProducts.priority),
+					asc(recommendationProducts.name),
+				)
+				.limit(limit)
+				.offset(offset),
+			db.select({ count: sql<number>`count(*)` }).from(recommendationProducts).where(whereClause),
+		]);
+
+		res.json({
+			success: true,
+			data: items,
+			meta: {
+				page,
+				limit,
+				total: Number(count),
+				totalPages: Math.ceil(Number(count) / limit),
+				timestamp: new Date().toISOString(),
+				version: "1.0",
+			},
+		});
 	} catch (error: any) {
 		console.error("[RecommendationProducts] Error fetching products:", error);
 		res.status(500).json({ error: error.message });

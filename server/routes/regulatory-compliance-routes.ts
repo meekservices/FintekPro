@@ -319,6 +319,41 @@ router.get(
 
 // ─── MFA Status Routes (GAP-2) ─────────────────────────────────────────────
 
+// Module-level TOTP helpers (used by both verify-totp and confirm-totp)
+import cryptoModule from "crypto";
+
+/** Decode Base32 string to Buffer (RFC 4648) */
+function base32DecodeToBuffer(input: string): Buffer {
+	const alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+	const clean = input.toUpperCase().replace(/=+$/, "");
+	let bits = 0; let value = 0;
+	const out: number[] = [];
+	for (const ch of clean) {
+		const idx = alpha.indexOf(ch);
+		if (idx < 0) continue;
+		value = (value << 5) | idx;
+		bits += 5;
+		if (bits >= 8) { out.push((value >>> (bits - 8)) & 0xff); bits -= 8; }
+	}
+	return Buffer.from(out);
+}
+
+/** Generate 6-digit RFC 6238 TOTP for a given 30-second counter */
+function generateTOTP(secretB32: string, counter: number): string {
+	const key = base32DecodeToBuffer(secretB32);
+	const buf = Buffer.alloc(8);
+	buf.writeBigInt64BE(BigInt(counter));
+	const hmac = cryptoModule.createHmac("sha1", key).update(buf).digest();
+	const offset = hmac[hmac.length - 1] & 0x0f;
+	const otp =
+		((hmac[offset] & 0x7f) << 24) |
+		(hmac[offset + 1] << 16) |
+		(hmac[offset + 2] << 8) |
+		hmac[offset + 3];
+	return String(otp % 1_000_000).padStart(6, "0");
+}
+
+
 router.get("/mfa/status", (req: Request, res: Response): void => {
 	if (!(req as AuthRequest).user?.id) {
 		res.status(401).json({ message: "Unauthorized" });
@@ -465,6 +500,179 @@ router.post(
 				message: "TOTP verification failed. Please try again.",
 				retryable: true,
 			});
+		}
+	},
+);
+
+// ─── TOTP Setup Routes (C5) ─────────────────────────────────────────────────
+
+/**
+ * POST /mfa/setup-totp
+ * Generates a new TOTP secret and returns a QR code URI for the authenticator app.
+ * Does NOT enable 2FA yet — user must confirm with their first code via /mfa/confirm-totp.
+ *
+ * Stores the pending secret in users.twoFactorSecret with twoFactorEnabled=false.
+ * Returns: { otpauthUri, secret } — frontend renders as QR code.
+ */
+router.post(
+	"/mfa/setup-totp",
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const userId = (req as AuthRequest).user?.id;
+			if (!userId) {
+				res.status(401).json({ success: false, error_code: "UNAUTHORIZED", message: "Authentication required", retryable: false });
+				return;
+			}
+
+			// Generate a cryptographically random 20-byte (160-bit) secret
+			const { randomBytes } = await import("crypto");
+			const secretBytes = randomBytes(20);
+
+			// Encode to Base32 (RFC 4648) — required by Google Authenticator / Authy
+			const BASE32_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+			let base32Secret = "";
+			let buffer = 0;
+			let bitsLeft = 0;
+			for (const byte of secretBytes) {
+				buffer = (buffer << 8) | byte;
+				bitsLeft += 8;
+				while (bitsLeft >= 5) {
+					bitsLeft -= 5;
+					base32Secret += BASE32_CHARS[(buffer >> bitsLeft) & 0x1f];
+				}
+			}
+
+			// Store the pending secret (twoFactorEnabled stays false until confirmed)
+			await db
+				.update(schema.users)
+				.set({ twoFactorSecret: base32Secret, updatedAt: new Date() } as Partial<typeof schema.users.$inferInsert>)
+				.where(eq(schema.users.id, userId));
+
+			// Fetch user email for the otpauth URI
+			const [user] = await db
+				.select({ email: schema.users.email })
+				.from(schema.users)
+				.where(eq(schema.users.id, userId))
+				.limit(1);
+
+			const issuer = "FintekPro";
+			const account = encodeURIComponent(user?.email ?? userId);
+			const otpauthUri = `otpauth://totp/${issuer}:${account}?secret=${base32Secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
+
+			logger.info("MFA_TOTP_SETUP_INITIATED", {
+				event:      "MFA_TOTP_SETUP_INITIATED",
+				user_id:    userId,
+				latency_ms: 0,
+				status:     "pending",
+			});
+
+			res.json({
+				success: true,
+				data: {
+					otpauthUri,
+					secret: base32Secret,
+					note: "Scan the QR code in your authenticator app, then confirm setup with /mfa/confirm-totp",
+				},
+				meta: { timestamp: new Date().toISOString(), version: "1.0" },
+			});
+		} catch (err: unknown) {
+			logger.error("MFA_TOTP_SETUP_FAILED", {
+				event:      "MFA_TOTP_SETUP_FAILED",
+				user_id:    (req as AuthRequest).user?.id ?? "unknown",
+				error_code: "TOTP_SETUP_ERROR",
+				retryable:  true,
+				error:      err instanceof Error ? err.message : String(err),
+			});
+			res.status(500).json({ success: false, error_code: "TOTP_SETUP_ERROR", message: "TOTP setup failed. Please try again.", retryable: true });
+		}
+	},
+);
+
+/**
+ * POST /mfa/confirm-totp
+ * Confirms TOTP setup by validating the first code from the authenticator app.
+ * On success, sets users.twoFactorEnabled = true.
+ *
+ * Body: { code: string } — 6-digit TOTP code
+ */
+router.post(
+	"/mfa/confirm-totp",
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const userId = (req as AuthRequest).user?.id;
+			if (!userId) {
+				res.status(401).json({ success: false, error_code: "UNAUTHORIZED", message: "Authentication required", retryable: false });
+				return;
+			}
+
+			const confirmSchema = z.object({ code: z.string().length(6).regex(/^\d{6}$/, "Code must be 6 digits") });
+			const parseResult = confirmSchema.safeParse(req.body);
+			if (!parseResult.success) {
+				res.status(400).json({
+					success: false,
+					error_code: "INVALID_TOTP_CODE",
+					message: "A 6-digit numeric code is required",
+					details: parseResult.error.issues,
+					retryable: false,
+				});
+				return;
+			}
+			const { code } = parseResult.data;
+
+			// Fetch the pending secret
+			const [userRow] = await db
+				.select({ twoFactorSecret: schema.users.twoFactorSecret, twoFactorEnabled: (schema.users as any).twoFactorEnabled })
+				.from(schema.users)
+				.where(eq(schema.users.id, userId))
+				.limit(1);
+
+			const totpSecret: string | null = userRow?.twoFactorSecret ?? null;
+			if (!totpSecret) {
+				res.status(404).json({
+					success: false,
+					error_code: "TOTP_NOT_SETUP",
+					message: "TOTP has not been set up. Call /mfa/setup-totp first.",
+					setupEndpoint: "/api/regulatory/mfa/setup-totp",
+					retryable: false,
+				});
+				return;
+			}
+
+			// Validate the code (reuse the same generateTOTP helper from verify-totp)
+			const nowStep = Math.floor(Date.now() / 1000 / 30);
+			const valid = [-1, 0, 1].some((delta) => generateTOTP(totpSecret, nowStep + delta) === code);
+
+			if (!valid) {
+				logger.warn("MFA_TOTP_CONFIRM_FAILED", {
+					event: "MFA_TOTP_CONFIRM_FAILED", user_id: userId, error_code: "INVALID_CODE", retryable: true,
+				});
+				res.status(401).json({ success: false, error_code: "TOTP_INVALID", message: "Invalid TOTP code. Please try again.", retryable: true });
+				return;
+			}
+
+			// Enable TOTP 2FA
+			await db
+				.update(schema.users)
+				.set({ twoFactorEnabled: true, updatedAt: new Date() } as Partial<typeof schema.users.$inferInsert>)
+				.where(eq(schema.users.id, userId));
+
+			logger.info("MFA_TOTP_ENABLED", {
+				event: "MFA_TOTP_ENABLED", user_id: userId, latency_ms: 0, status: "success",
+			});
+
+			res.json({
+				success: true,
+				data: { twoFactorEnabled: true },
+				message: "TOTP two-factor authentication has been enabled on your account.",
+				meta: { timestamp: new Date().toISOString(), version: "1.0" },
+			});
+		} catch (err: unknown) {
+			logger.error("MFA_TOTP_CONFIRM_ERROR", {
+				event: "MFA_TOTP_CONFIRM_ERROR", user_id: (req as AuthRequest).user?.id ?? "unknown",
+				error_code: "TOTP_CONFIRM_ERROR", retryable: true,
+				error: err instanceof Error ? err.message : String(err),
+			});
+			res.status(500).json({ success: false, error_code: "TOTP_CONFIRM_ERROR", message: "TOTP confirmation failed.", retryable: true });
 		}
 	},
 );

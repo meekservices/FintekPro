@@ -70,7 +70,7 @@ export class SipRenewalScheduler {
 
       // Query IRIS SIP Maturity Calendar for next 30 days
       const maturityData: any = await irisKfintechService
-        .getSipMaturityCalendar({ days: 30 })
+        .getSipMaturityCalendar({ days: "30" })
         .catch((err) => {
           logger.warn("SIP_MATURITY_FETCH_WARNING", {
             event: "SIP_MATURITY_FETCH_WARNING",

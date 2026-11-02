@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Bond Catalog Caching Service
  *
@@ -16,6 +17,7 @@ import { nseNcbApi } from "./nseNcbApi";
 import { bseBondApi } from "./bseBondApi";
 import { eq, inArray } from "drizzle-orm";
 import { updateInstrumentPrice } from "./services/instrument-price-router";
+import { logger } from "./logger";
 
 export interface BondRefreshResult {
 	gsec: { count: number; error?: string };
@@ -568,7 +570,7 @@ export class BondCatalogService {
 					await db.insert(governmentSecurities).values(securityData);
 				}
 
-				console.log(`✅ Refreshed government security ${isin}`);
+				logger.info("Refreshed government security", { isin });
 				return;
 			}
 

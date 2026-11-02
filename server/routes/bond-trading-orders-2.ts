@@ -241,33 +241,33 @@ export function registerBondTradingOrderPart2Routes(app: Express): void {
 					return res.status(401).json({ error: "Authentication required" });
 				}
 
+				const page = Math.max(1, parseInt(req.query.page as string) || 1);
+				const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+				const offset = (page - 1) * limit;
 				const bondType = req.query.bondType as string;
 				const orderStatus = req.query.status as string;
 
-				const query = db
-					.select()
-					.from(bondOrders)
-					.where(eq(bondOrders.userId, userId));
+				const whereConditions = [eq(bondOrders.userId, userId)];
+				if (bondType) whereConditions.push(eq(bondOrders.bondType, bondType));
+				if (orderStatus) whereConditions.push(eq(bondOrders.orderStatus, orderStatus));
+				const whereClause = whereConditions.length > 1 ? and(...whereConditions) : whereConditions[0];
 
-				const orders = await query;
-
-				// Filter by bond type if specified
-				let filteredOrders = orders;
-				if (bondType) {
-					filteredOrders = filteredOrders.filter(
-						(o) => o.bondType === bondType,
-					);
-				}
-				if (orderStatus) {
-					filteredOrders = filteredOrders.filter(
-						(o) => o.orderStatus === orderStatus,
-					);
-				}
+				const [items, [{ count }]] = await Promise.all([
+					db.select().from(bondOrders).where(whereClause).orderBy(desc(bondOrders.createdAt)).limit(limit).offset(offset),
+					db.select({ count: sql<number>`count(*)` }).from(bondOrders).where(whereClause),
+				]);
 
 				res.json({
-					status: "success",
-					data: filteredOrders,
-					count: filteredOrders.length,
+					success: true,
+					data: items,
+					meta: {
+						page,
+						limit,
+						total: Number(count),
+						totalPages: Math.ceil(Number(count) / limit),
+						timestamp: new Date().toISOString(),
+						version: "1.0",
+					},
 				});
 			} catch (error) {
 				console.error("Error fetching bond orders:", error);
@@ -442,33 +442,33 @@ export function registerBondTradingOrderPart2Routes(app: Express): void {
 					return res.status(401).json({ error: "Authentication required" });
 				}
 
+				const page = Math.max(1, parseInt(req.query.page as string) || 1);
+				const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+				const offset = (page - 1) * limit;
 				const bondType = req.query.bondType as string;
 				const portfolioId = req.query.portfolioId as string;
 
-				const query = db
-					.select()
-					.from(bondHoldings)
-					.where(eq(bondHoldings.userId, userId));
+				const whereConditions = [eq(bondHoldings.userId, userId)];
+				if (bondType) whereConditions.push(eq(bondHoldings.bondType, bondType));
+				if (portfolioId) whereConditions.push(eq(bondHoldings.portfolioId, portfolioId));
+				const whereClause = whereConditions.length > 1 ? and(...whereConditions) : whereConditions[0];
 
-				const holdings = await query;
-
-				// Filter by bond type if specified
-				let filteredHoldings = holdings;
-				if (bondType) {
-					filteredHoldings = filteredHoldings.filter(
-						(h) => h.bondType === bondType,
-					);
-				}
-				if (portfolioId) {
-					filteredHoldings = filteredHoldings.filter(
-						(h) => h.portfolioId === portfolioId,
-					);
-				}
+				const [items, [{ count }]] = await Promise.all([
+					db.select().from(bondHoldings).where(whereClause).orderBy(desc(bondHoldings.purchaseDate)).limit(limit).offset(offset),
+					db.select({ count: sql<number>`count(*)` }).from(bondHoldings).where(whereClause),
+				]);
 
 				res.json({
-					status: "success",
-					data: filteredHoldings,
-					count: filteredHoldings.length,
+					success: true,
+					data: items,
+					meta: {
+						page,
+						limit,
+						total: Number(count),
+						totalPages: Math.ceil(Number(count) / limit),
+						timestamp: new Date().toISOString(),
+						version: "1.0",
+					},
 				});
 			} catch (error) {
 				console.error("Error fetching bond holdings:", error);

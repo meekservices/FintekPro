@@ -7348,24 +7348,30 @@ export class DatabaseStorage implements IStorage {
 					continue;
 				}
 
-				const ckycResult = await db
-					.update(schema.ckycRecords)
-					.set({
-						status: "verified",
-						updatedAt: new Date(),
-					})
-					.where(eq(schema.ckycRecords.id, subId))
-					.returning();
+				const ckycResult = await db.transaction(async (tx) => {
+					const result = await tx
+						.update(schema.ckycRecords)
+						.set({
+							status: "verified",
+							updatedAt: new Date(),
+						})
+						.where(eq(schema.ckycRecords.id, subId))
+						.returning();
+
+					if (result.length > 0) {
+						await tx.insert(schema.ckycStatusHistory).values({
+							ckycRecordId: subId,
+							previousStatus: result[0].status,
+							newStatus: "verified",
+							changedBy: approverId,
+							reason: notes || "Bulk approval",
+							changedAt: new Date(),
+						});
+					}
+					return result;
+				});
 
 				if (ckycResult.length > 0) {
-					await db.insert(schema.ckycStatusHistory).values({
-						ckycRecordId: subId,
-						previousStatus: ckycResult[0].status,
-						newStatus: "verified",
-						changedBy: approverId,
-						reason: notes || "Bulk approval",
-						changedAt: new Date(),
-					});
 					success++;
 				} else {
 					failed++;
@@ -7400,24 +7406,30 @@ export class DatabaseStorage implements IStorage {
 					continue;
 				}
 
-				const ckycResult = await db
-					.update(schema.ckycRecords)
-					.set({
-						status: "rejected",
-						updatedAt: new Date(),
-					})
-					.where(eq(schema.ckycRecords.id, subId))
-					.returning();
+				const ckycResult = await db.transaction(async (tx) => {
+					const result = await tx
+						.update(schema.ckycRecords)
+						.set({
+							status: "rejected",
+							updatedAt: new Date(),
+						})
+						.where(eq(schema.ckycRecords.id, subId))
+						.returning();
+
+					if (result.length > 0) {
+						await tx.insert(schema.ckycStatusHistory).values({
+							ckycRecordId: subId,
+							previousStatus: result[0].status,
+							newStatus: "rejected",
+							changedBy: rejectorId,
+							reason,
+							changedAt: new Date(),
+						});
+					}
+					return result;
+				});
 
 				if (ckycResult.length > 0) {
-					await db.insert(schema.ckycStatusHistory).values({
-						ckycRecordId: subId,
-						previousStatus: ckycResult[0].status,
-						newStatus: "rejected",
-						changedBy: rejectorId,
-						reason,
-						changedAt: new Date(),
-					});
 					success++;
 				} else {
 					failed++;

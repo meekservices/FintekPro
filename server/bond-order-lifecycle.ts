@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { db } from "./db";
 import {
 	bondOrders,
@@ -111,49 +112,53 @@ export async function createBondOrder(params: {
 	const settlementDateStr = expectedSettlementDate.toISOString().split("T")[0];
 	const tradeDateStr = orderDate.toISOString().split("T")[0];
 
-	// Create order record using actual schema columns
-	const [order] = await db
-		.insert(bondOrders)
-		.values({
-			orderNumber,
-			userId: params.userId,
-			isin: params.isin,
-			bondName: params.bondName,
-			bondType: params.bondType,
-			orderType: "buy",
-			orderCategory: "market",
-			quantity: params.quantity,
-			faceValue: params.faceValue.toString(),
-			totalFaceValue: (params.faceValue * params.quantity).toString(),
-			orderPrice: params.pricePerUnit.toString(),
-			grossAmount: params.totalAmount.toString(),
-			netAmount: params.totalAmount.toString(),
-			orderStatus: "pending",
-			paymentStatus: "pending",
-			paymentMethod: params.paymentMethod,
-			dematAccountNumber: params.dematAccountNumber || null,
-			orderDate: orderDate,
-			settlementDate: settlementDateStr,
-		})
-		.returning();
+	// Create order + settlement atomically — partial write would leave DB in corrupt state
+	const { order } = await db.transaction(async (tx) => {
+		const [newOrder] = await tx
+			.insert(bondOrders)
+			.values({
+				orderNumber,
+				userId: params.userId,
+				isin: params.isin,
+				bondName: params.bondName,
+				bondType: params.bondType,
+				orderType: "buy",
+				orderCategory: "market",
+				quantity: params.quantity,
+				faceValue: params.faceValue.toString(),
+				totalFaceValue: (params.faceValue * params.quantity).toString(),
+				orderPrice: params.pricePerUnit.toString(),
+				grossAmount: params.totalAmount.toString(),
+				netAmount: params.totalAmount.toString(),
+				orderStatus: "pending",
+				paymentStatus: "pending",
+				paymentMethod: params.paymentMethod,
+				dematAccountNumber: params.dematAccountNumber || null,
+				orderDate: orderDate,
+				settlementDate: settlementDateStr,
+			})
+			.returning();
 
-	// Create settlement tracking record
-	await db.insert(fixedIncomeSettlements).values({
-		userId: params.userId,
-		orderId: order.id,
-		isin: params.isin,
-		securityName: params.bondName,
-		settlementType: "regular",
-		settlementCycle: settlementCycle,
-		quantity: params.quantity,
-		settlementValue: params.totalAmount.toString(),
-		depository: (params.depository || "nsdl").toLowerCase(),
-		dpId: params.dpId || "",
-		clientId: params.clientId || "",
-		dematAccountNumber: params.dematAccountNumber || "",
-		tradeDate: tradeDateStr,
-		expectedSettlementDate: settlementDateStr,
-		settlementStatus: "pending",
+		// Create settlement tracking record — must succeed with the order
+		await tx.insert(fixedIncomeSettlements).values({
+			userId: params.userId,
+			orderId: newOrder.id,
+			isin: params.isin,
+			securityName: params.bondName,
+			settlementType: "regular",
+			settlementCycle: settlementCycle,
+			quantity: params.quantity,
+			settlementValue: params.totalAmount.toString(),
+			depository: (params.depository || "nsdl").toLowerCase(),
+			dpId: params.dpId || "",
+			clientId: params.clientId || "",
+			dematAccountNumber: params.dematAccountNumber || "",
+			tradeDate: tradeDateStr,
+			expectedSettlementDate: settlementDateStr,
+			settlementStatus: "pending",
+		});
+
+		return { order: newOrder };
 	});
 
 	console.log(
@@ -203,24 +208,21 @@ export async function confirmPayment(
 	orderId: string,
 	paymentReference: string,
 ): Promise<void> {
-	await updateOrderStatus(
-		orderId,
-		"confirmed",
-		"Payment confirmed, awaiting settlement",
-		{
-			paymentReference,
-			confirmedAt: new Date(),
-		},
-	);
+	// Atomically update bondOrders + fixedIncomeSettlements for payment confirmation
+	await db.transaction(async (tx) => {
+		await tx
+			.update(bondOrders)
+			.set({ orderStatus: "confirmed", lastUpdated: new Date() })
+			.where(eq(bondOrders.id, orderId));
 
-	// Update settlement record
-	await db
-		.update(fixedIncomeSettlements)
-		.set({
-			settlementStatus: "processing",
-			updatedAt: new Date(),
-		})
-		.where(eq(fixedIncomeSettlements.orderId, orderId));
+		await tx
+			.update(fixedIncomeSettlements)
+			.set({
+				settlementStatus: "processing",
+				updatedAt: new Date(),
+			})
+			.where(eq(fixedIncomeSettlements.orderId, orderId));
+	});
 }
 
 /**
@@ -234,19 +236,21 @@ export async function processAllotment(
 		allotmentPrice: number;
 	},
 ): Promise<void> {
-	await updateOrderStatus(orderId, "allotted", "Units allotted by exchange", {
-		...allotmentDetails,
-		allottedAt: new Date(),
-	});
+	// Atomically update bondOrders + fixedIncomeSettlements for allotment
+	await db.transaction(async (tx) => {
+		await tx
+			.update(bondOrders)
+			.set({ orderStatus: "allotted", lastUpdated: new Date() })
+			.where(eq(bondOrders.id, orderId));
 
-	// Update settlement record status
-	await db
-		.update(fixedIncomeSettlements)
-		.set({
-			settlementStatus: "in_transit",
-			updatedAt: new Date(),
-		})
-		.where(eq(fixedIncomeSettlements.orderId, orderId));
+		await tx
+			.update(fixedIncomeSettlements)
+			.set({
+				settlementStatus: "in_transit",
+				updatedAt: new Date(),
+			})
+			.where(eq(fixedIncomeSettlements.orderId, orderId));
+	});
 }
 
 /**
@@ -261,65 +265,63 @@ export async function creditToDemat(
 		depositoryReference: string;
 	},
 ): Promise<void> {
-	await updateOrderStatus(
-		orderId,
-		"credited",
-		"Units credited to Demat account",
-		{
-			...creditDetails,
-			creditedAt: new Date(),
-		},
-	);
-
 	const now = new Date();
 	const settlementDateStr = now.toISOString().split("T")[0];
 
-	// Update settlement record
-	await db
-		.update(fixedIncomeSettlements)
-		.set({
-			settlementStatus: "credited",
-			actualSettlementDate: settlementDateStr,
-			depositoryTransactionId: creditDetails.transactionId,
-			depositoryRefNumber: creditDetails.depositoryReference,
-			updatedAt: now,
-		})
-		.where(eq(fixedIncomeSettlements.orderId, orderId));
-
-	// Create/update holding record
+	// Fetch order first (outside tx — read-only, no atomicity needed)
 	const [order] = await db
 		.select()
 		.from(bondOrders)
 		.where(eq(bondOrders.id, orderId));
-	if (order) {
-		const purchaseDateStr = order.orderDate
-			? new Date(order.orderDate).toISOString().split("T")[0]
-			: now.toISOString().split("T")[0];
-		const maturityDateStr =
-			order.settlementDate ||
-			new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-				.toISOString()
-				.split("T")[0];
 
-		await db.insert(bondHoldings).values({
-			userId: order.userId,
-			isin: order.isin,
-			bondName: order.bondName || "",
-			bondType: order.bondType || "corporate",
-			issuer: "Unknown", // Will be updated from bond catalog
-			quantity: creditDetails.creditedQuantity,
-			faceValue: order.faceValue || "1000",
-			totalFaceValue: order.totalFaceValue || "1000",
-			purchaseDate: purchaseDateStr,
-			purchasePrice: order.orderPrice || "0",
-			totalInvestedAmount: order.netAmount || "0",
-			maturityDate: maturityDateStr,
-			dematAccountNumber: creditDetails.dematAccountNumber,
-			holdingStatus: "active",
-		});
+	// Atomically update bondOrders + fixedIncomeSettlements + insert bondHoldings
+	await db.transaction(async (tx) => {
+		await tx
+			.update(bondOrders)
+			.set({ orderStatus: "credited", lastUpdated: now })
+			.where(eq(bondOrders.id, orderId));
 
-		console.log(`[Bond Order] Created holding for order ${orderId}`);
-	}
+		// Update settlement record
+		await tx
+			.update(fixedIncomeSettlements)
+			.set({
+				settlementStatus: "credited",
+				actualSettlementDate: settlementDateStr,
+				depositoryTransactionId: creditDetails.transactionId,
+				depositoryRefNumber: creditDetails.depositoryReference,
+				updatedAt: now,
+			})
+			.where(eq(fixedIncomeSettlements.orderId, orderId));
+
+		// Create holding record atomically with the settlement update
+		if (order) {
+			const purchaseDateStr = order.orderDate
+				? new Date(order.orderDate).toISOString().split("T")[0]
+				: now.toISOString().split("T")[0];
+			const maturityDateStr =
+				order.settlementDate ||
+				new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+					.toISOString()
+					.split("T")[0];
+
+			await tx.insert(bondHoldings).values({
+				userId: order.userId,
+				isin: order.isin,
+				bondName: order.bondName || "",
+				bondType: order.bondType || "corporate",
+				issuer: "Unknown", // Will be updated from bond catalog
+				quantity: creditDetails.creditedQuantity,
+				faceValue: order.faceValue || "1000",
+				totalFaceValue: order.totalFaceValue || "1000",
+				purchaseDate: purchaseDateStr,
+				purchasePrice: order.orderPrice || "0",
+				totalInvestedAmount: order.netAmount || "0",
+				maturityDate: maturityDateStr,
+				dematAccountNumber: creditDetails.dematAccountNumber,
+				holdingStatus: "active",
+			});
+		}
+	});
 }
 
 /**

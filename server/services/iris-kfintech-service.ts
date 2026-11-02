@@ -6,6 +6,55 @@ import { logger } from "../logger";
 
 const IRIS_BASE_URL = "https://iris-api.kfintech.com/v2";
 
+// ─── H5: Typed payloads for the financial order / transaction path ─────────────
+
+/** Payload for MF purchase order (IRIS /sif/transactions/purchase) */
+export interface IrisOrderPayload {
+	pan?: string;
+	folio?: string;
+	schemeCode?: string;
+	amount?: number;
+	transactionMode?: string;
+	bankAccountNumber?: string;
+	bankIfsc?: string;
+	mandateId?: string;
+	[key: string]: unknown; // allow optional IRIS-specific extensions
+}
+
+/** Payload for MF redemption (IRIS /sif/transactions/redemption) */
+export interface IrisRedemptionPayload {
+	pan?: string;
+	folio?: string;
+	schemeCode?: string;
+	units?: number;
+	amount?: number;
+	redeemAll?: boolean;
+	[key: string]: unknown;
+}
+
+/** Payload for SIP registration / cancel / pause and STP */
+export interface IrisSipPayload {
+	pan?: string;
+	schemeCode?: string;
+	amount?: number;
+	frequency?: "monthly" | "weekly" | "quarterly";
+	sipDate?: number | string;
+	mandateId?: string;
+	[key: string]: unknown;
+}
+
+/** Generic API-query params (report endpoints, filter params) — must be string values for URLSearchParams compatibility */
+export type IrisQueryParams = Record<string, string>;
+
+/** Payload for investment validation */
+export interface IrisValidatePayload {
+	pan?: string;
+	schemeCode?: string;
+	amount?: number;
+	transactionType?: "purchase" | "redemption" | "sip";
+	[key: string]: unknown;
+}
+
 interface IrisToken {
 	token: string;
 	expiresAt: number;
@@ -49,11 +98,14 @@ class IrisKfintechService {
 	 */
 	private async saveTokenToDb(token: string, expiresAt: number): Promise<void> {
 		try {
-			await db.delete(irisSessions);
-			await db.insert(irisSessions).values({
-				token,
-				expiresAt: new Date(expiresAt),
-				refreshedAt: new Date(),
+			// Atomically replace the session token — delete + insert must not leave a gap
+			await db.transaction(async (tx) => {
+				await tx.delete(irisSessions);
+				await tx.insert(irisSessions).values({
+					token,
+					expiresAt: new Date(expiresAt),
+					refreshedAt: new Date(),
+				});
 			});
 		} catch (err: any) {
 			logger.warn("[IRIS] Token DB save failed (non-fatal)", {
@@ -256,7 +308,7 @@ class IrisKfintechService {
 	async call<T = any>(
 		endpoint: string,
 		method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" = "GET",
-		body?: any,
+		body?: Record<string, unknown>,
 	): Promise<T> {
 		const authed = await this.ensureAuth();
 		if (!authed) throw new Error("IRIS authentication failed");
@@ -311,7 +363,7 @@ class IrisKfintechService {
 	async getUniqueInvestors() {
 		return this.call("/user/dashboard/unique-investors");
 	}
-	async getInflowOutflow(params?: any) {
+	async getInflowOutflow(params?: IrisQueryParams) {
 		return this.call(
 			`/user/dashboard/inflow-outflow${params ? "?" + new URLSearchParams(params).toString() : ""}`,
 		);
@@ -367,7 +419,7 @@ class IrisKfintechService {
 	async getInvestmentDetails(pan: string) {
 		return this.call(`/user/investors/${pan}/investments`);
 	}
-	async getTransactionDetails(pan: string, params?: any) {
+	async getTransactionDetails(pan: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/investors/${pan}/transactions${qs}`);
 	}
@@ -389,7 +441,7 @@ class IrisKfintechService {
 	async sendEkycMail(pan: string) {
 		return this.call(`/user/investors/${pan}/send-ekyc-mail`, "POST");
 	}
-	async sendReminderMail(pan: string, body?: any) {
+	async sendReminderMail(pan: string, body?: Record<string, unknown>) {
 		return this.call(`/user/investors/${pan}/send-reminder`, "POST", body);
 	}
 
@@ -424,22 +476,22 @@ class IrisKfintechService {
 			`/sif/transactions/direct-pay-status?pan=${pan}&accountNo=${bankAccountNo}`,
 		);
 	}
-	async validateInvestment(body: any) {
+	async validateInvestment(body: IrisValidatePayload) {
 		return this.call("/sif/transactions/validate", "POST", body);
 	}
-	async placeOrder(body: any) {
+	async placeOrder(body: IrisOrderPayload) {
 		return this.call("/sif/transactions/purchase", "POST", {
 			...body,
 			partnerCode: "FINTEKPRO",
 		});
 	}
-	async placeRedemption(body: any) {
+	async placeRedemption(body: IrisRedemptionPayload) {
 		return this.call("/sif/transactions/redemption", "POST", body);
 	}
-	async cancelSip(body: any) {
+	async cancelSip(body: IrisSipPayload) {
 		return this.call("/sif/transactions/sip/cancel", "POST", body);
 	}
-	async pauseSip(body: any) {
+	async pauseSip(body: IrisSipPayload) {
 		return this.call("/sif/transactions/sip/pause", "POST", body);
 	}
 	async cancelOrder(orderId: string) {
@@ -470,30 +522,30 @@ class IrisKfintechService {
 	}
 
 	// ─── Reports ──────────────────────────────────────────────────────────────────
-	async getCgStatement(pan: string, params?: any) {
+	async getCgStatement(pan: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/reports/capital-gains/${pan}${qs}`);
 	}
-	async getClientStatement(pan: string, params?: any) {
+	async getClientStatement(pan: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/reports/client-statement/${pan}${qs}`);
 	}
-	async getTransactionStatement(pan: string, params?: any) {
+	async getTransactionStatement(pan: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/reports/transaction-statement/${pan}${qs}`);
 	}
-	async getPortfolioReport(pan: string, params?: any) {
+	async getPortfolioReport(pan: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/reports/portfolio-summary/${pan}${qs}`);
 	}
 	// STP (Systematic Transfer Plan)
-	async registerStp(body: any) {
+	async registerStp(body: IrisSipPayload) {
 		return this.call("/sif/transactions/stp/register", "POST", body);
 	}
-	async cancelStp(body: any) {
+	async cancelStp(body: IrisSipPayload) {
 		return this.call("/sif/transactions/stp/cancel", "POST", body);
 	}
-	async pauseStp(body: any) {
+	async pauseStp(body: IrisSipPayload) {
 		return this.call("/sif/transactions/stp/pause", "POST", body);
 	}
 
@@ -549,7 +601,7 @@ class IrisKfintechService {
 			body,
 		);
 	}
-	async getFdMaturityList(params?: any) {
+	async getFdMaturityList(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/fixed-deposit/maturity${qs}`);
 	}
@@ -577,7 +629,7 @@ class IrisKfintechService {
 	async getNpsFundValues(pran: string) {
 		return this.call(`/nps/subscriber/${pran}/fund-values`);
 	}
-	async getNpsTransactions(pran: string, params?: any) {
+	async getNpsTransactions(pran: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/nps/subscriber/${pran}/transactions${qs}`);
 	}
@@ -602,7 +654,7 @@ class IrisKfintechService {
 	async getFatcaDetails(pan: string) {
 		return this.call(`/sif/non-financial/${pan}/fatca`);
 	}
-	async getDividendHistory(pan: string, params?: any) {
+	async getDividendHistory(pan: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/investors/${pan}/dividend-history${qs}`);
 	}
@@ -662,14 +714,14 @@ class IrisKfintechService {
 	// ─── Business Hierarchy ───────────────────────────────────────────────────────
 
 	// Sub-Broker / Agent lifecycle
-	async listSubBrokers(params?: any) {
+	async listSubBrokers(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/hierarchy/sub-brokers${qs}`);
 	}
 	async getSubBrokerDetails(euinCode: string) {
 		return this.call(`/user/hierarchy/sub-brokers/${euinCode}`);
 	}
-	async getSubBrokerAum(euinCode: string, params?: any) {
+	async getSubBrokerAum(euinCode: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/hierarchy/sub-brokers/${euinCode}/aum${qs}`);
 	}
@@ -695,14 +747,14 @@ class IrisKfintechService {
 	/**
 	 * Fetch all investor clients mapped to a specific sub-broker/agent.
 	 */
-	async getSubBrokerClients(euinCode: string, params?: any) {
+	async getSubBrokerClients(euinCode: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/hierarchy/sub-brokers/${euinCode}/clients${qs}`);
 	}
 	/**
 	 * Fetch transaction orders placed by clients of a specific sub-broker.
 	 */
-	async getSubBrokerOrders(euinCode: string, params?: any) {
+	async getSubBrokerOrders(euinCode: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/hierarchy/sub-brokers/${euinCode}/orders${qs}`);
 	}
@@ -711,7 +763,7 @@ class IrisKfintechService {
 	/**
 	 * List all employees (RIA staff, ARN holders) in the distributor hierarchy.
 	 */
-	async listEmployees(params?: any) {
+	async listEmployees(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/hierarchy/employees${qs}`);
 	}
@@ -746,7 +798,7 @@ class IrisKfintechService {
 	 * List all relationship managers in the distributor hierarchy.
 	 * Returns RM profiles, assigned client counts, AUM.
 	 */
-	async listRelationshipManagers(params?: any) {
+	async listRelationshipManagers(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/hierarchy/rms${qs}`);
 	}
@@ -772,14 +824,14 @@ class IrisKfintechService {
 	/**
 	 * Get all clients currently assigned to an RM.
 	 */
-	async getRmClients(rmId: string, params?: any) {
+	async getRmClients(rmId: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/hierarchy/rms/${rmId}/clients${qs}`);
 	}
 	/**
 	 * Get AUM breakdown for a specific RM.
 	 */
-	async getRmAum(rmId: string, params?: any) {
+	async getRmAum(rmId: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/hierarchy/rms/${rmId}/aum${qs}`);
 	}
@@ -795,7 +847,7 @@ class IrisKfintechService {
 	/**
 	 * List all branches in the distributor's network.
 	 */
-	async listBranches(params?: any) {
+	async listBranches(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/hierarchy/branches${qs}`);
 	}
@@ -827,7 +879,7 @@ class IrisKfintechService {
 	/**
 	 * Get AUM and investor count breakdown for a branch.
 	 */
-	async getBranchAum(branchId: string, params?: any) {
+	async getBranchAum(branchId: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/hierarchy/branches/${branchId}/aum${qs}`);
 	}
@@ -836,7 +888,7 @@ class IrisKfintechService {
 	/**
 	 * Get list of all EUINs registered under the distributor.
 	 */
-	async listEuins(params?: any) {
+	async listEuins(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/hierarchy/euins${qs}`);
 	}
@@ -884,39 +936,39 @@ class IrisKfintechService {
 	/**
 	 * Get total commission earned by the distributor across all AMCs.
 	 */
-	async getPartnerCommission(params?: any) {
+	async getPartnerCommission(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/partner/commission${qs}`);
 	}
 	/**
 	 * Get partner-level analytics — AUM trend, investor growth, SIP count over time.
 	 */
-	async getPartnerAnalytics(params?: any) {
+	async getPartnerAnalytics(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/partner/analytics${qs}`);
 	}
 	/**
 	 * Get partner's GST and TDS statements for accounting.
 	 */
-	async getPartnerGstStatement(params?: any) {
+	async getPartnerGstStatement(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/partner/gst-statement${qs}`);
 	}
 
 	// Bulk Reports
-	async getBulkCapitalGains(params?: any) {
+	async getBulkCapitalGains(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/reports/bulk/capital-gains${qs}`);
 	}
-	async getSipMaturityCalendar(params?: any) {
+	async getSipMaturityCalendar(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/reports/sip-maturity-calendar${qs}`);
 	}
-	async getDividendTracker(params?: any) {
+	async getDividendTracker(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/reports/dividend-tracker${qs}`);
 	}
-	async getBulkPortfolioReport(params?: any) {
+	async getBulkPortfolioReport(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/reports/bulk/portfolio${qs}`);
 	}
@@ -936,7 +988,7 @@ class IrisKfintechService {
 	}
 
 	// ─── Order / Transaction Status ───────────────────────────────────────────────
-	async listOrdersByPan(pan: string, params?: any) {
+	async listOrdersByPan(pan: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(
 			`/sif/transactions/orders?pan=${encodeURIComponent(pan)}${qs ? "&" + qs.slice(1) : ""}`,
@@ -1029,7 +1081,7 @@ class IrisKfintechService {
 	async getFolioDetails(pan: string, folioNo: string) {
 		return this.call(`/user/investors/${pan}/folios/${folioNo}`);
 	}
-	async getFolioTransactions(pan: string, folioNo: string, params?: any) {
+	async getFolioTransactions(pan: string, folioNo: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(
 			`/user/investors/${pan}/folios/${folioNo}/transactions${qs}`,
@@ -1040,24 +1092,24 @@ class IrisKfintechService {
 	async getInvestorPortalLink(pan: string) {
 		return this.call(`/user/investors/${pan}/portal-link`);
 	}
-	async sendPortalLinkToInvestor(pan: string, body?: any) {
+	async sendPortalLinkToInvestor(pan: string, body?: Record<string, unknown>) {
 		return this.call(`/user/investors/${pan}/portal-link/send`, "POST", body);
 	}
 
 	// ─── Phase 2: Commission Statements ──────────────────────────────────────────
-	async getCommissionStatement(params?: any) {
+	async getCommissionStatement(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/reports/commission${qs}`);
 	}
-	async getTrailCommission(params?: any) {
+	async getTrailCommission(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/reports/trail-commission${qs}`);
 	}
-	async getCommissionSummary(params?: any) {
+	async getCommissionSummary(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/reports/commission/summary${qs}`);
 	}
-	async getAmcWiseCommission(params?: any) {
+	async getAmcWiseCommission(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/reports/commission/amc-wise${qs}`);
 	}
@@ -1079,7 +1131,7 @@ class IrisKfintechService {
 			body,
 		);
 	}
-	async listOnboardingApplications(params?: any) {
+	async listOnboardingApplications(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/onboarding/applications${qs}`);
 	}
@@ -1088,7 +1140,7 @@ class IrisKfintechService {
 	}
 
 	// ─── Phase 2: CAS Statement ──────────────────────────────────────────────────
-	async getCasStatement(pan: string, params?: any) {
+	async getCasStatement(pan: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/reports/cas/${pan}${qs}`);
 	}
@@ -1097,11 +1149,11 @@ class IrisKfintechService {
 	}
 
 	// ─── Phase 2: XIRR & Returns Analytics ──────────────────────────────────────
-	async getInvestorXirr(pan: string, params?: any) {
+	async getInvestorXirr(pan: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/analytics/xirr/${pan}${qs}`);
 	}
-	async getInvestorReturns(pan: string, params?: any) {
+	async getInvestorReturns(pan: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/analytics/returns/${pan}${qs}`);
 	}
@@ -1113,7 +1165,7 @@ class IrisKfintechService {
 	}
 
 	// ─── Phase 3: Scheme NAV History ─────────────────────────────────────────────
-	async getSchemeNavHistory(schemeCode: string, params?: any) {
+	async getSchemeNavHistory(schemeCode: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/sif/schemes/${schemeCode}/nav-history${qs}`);
 	}
@@ -1125,7 +1177,7 @@ class IrisKfintechService {
 	async getSchemePerformance(schemeCode: string) {
 		return this.call(`/sif/schemes/${schemeCode}/performance`);
 	}
-	async getTopPerformingSchemes(params?: any) {
+	async getTopPerformingSchemes(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/sif/schemes/top-performers${qs}`);
 	}
@@ -1152,7 +1204,7 @@ class IrisKfintechService {
 			`/sif/subcategories${category ? "?category=" + encodeURIComponent(category) : ""}`,
 		);
 	}
-	async getSchemesByCategory(category: string, params?: any) {
+	async getSchemesByCategory(category: string, params?: IrisQueryParams) {
 		const qs = params ? "&" + new URLSearchParams(params).toString() : "";
 		return this.call(
 			`/sif/schemes?category=${encodeURIComponent(category)}${qs}`,
@@ -1176,7 +1228,7 @@ class IrisKfintechService {
 	}
 
 	// ─── Phase 3: Application / Order Tracking ───────────────────────────────────
-	async listApplications(params?: any) {
+	async listApplications(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/applications${qs}`);
 	}
@@ -1202,15 +1254,15 @@ class IrisKfintechService {
 	}
 
 	// ─── Phase 3: Compliance / AML Reports ───────────────────────────────────────
-	async getComplianceReport(params?: any) {
+	async getComplianceReport(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/reports/compliance${qs}`);
 	}
-	async getPmlaReport(params?: any) {
+	async getPmlaReport(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/reports/pmla${qs}`);
 	}
-	async getAmlReport(params?: any) {
+	async getAmlReport(params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/reports/aml${qs}`);
 	}
@@ -1393,7 +1445,7 @@ class IrisKfintechService {
 	}
 
 	// ─── Analytics: SIP XIRR ──────────────────────────────────────────────────────
-	async getSipXirr(pan: string, params?: any) {
+	async getSipXirr(pan: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/analytics/sip-returns/${encodeURIComponent(pan)}${qs}`);
 	}
@@ -1411,7 +1463,7 @@ class IrisKfintechService {
 	}
 
 	// ─── Scheme Intelligence: Benchmark Comparison ───────────────────────────────
-	async getSchemeBenchmarkComparison(schemeCode: string, params?: any) {
+	async getSchemeBenchmarkComparison(schemeCode: string, params?: IrisQueryParams) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(
 			`/sif/schemes/${encodeURIComponent(schemeCode)}/benchmark${qs}`,

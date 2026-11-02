@@ -276,31 +276,36 @@ export class OrderManagementService {
 			updates.cancelledAt = new Date();
 		}
 
-		// Update the order
-		const [updatedOrder] = await db
-			.update(unifiedOrders)
-			.set(updates)
-			.where(eq(unifiedOrders.id, request.orderId))
-			.returning();
+		// Atomically update order + insert lifecycle event — partial write leaves audit trail corrupt
+		const updatedOrder = await db.transaction(async (tx) => {
+			const [updated] = await tx
+				.update(unifiedOrders)
+				.set(updates)
+				.where(eq(unifiedOrders.id, request.orderId))
+				.returning();
 
-		// Create lifecycle event
-		const newState = {
-			status: updatedOrder.status,
-			paymentStatus: updatedOrder.paymentStatus,
-			kycStatus: updatedOrder.kycStatus,
-			executionStatus: updatedOrder.executionStatus,
-			settlementStatus: updatedOrder.settlementStatus,
-		};
+			// Create lifecycle event inside the same transaction
+			const newState = {
+				status: updated.status,
+				paymentStatus: updated.paymentStatus,
+				kycStatus: updated.kycStatus,
+				executionStatus: updated.executionStatus,
+				settlementStatus: updated.settlementStatus,
+			};
 
-		await this.addLifecycleEvent({
-			orderId: request.orderId,
-			eventType: "status_change",
-			eventName: this.getEventName(previousState, newState),
-			eventDescription: request.notes,
-			previousState,
-			newState,
-			actorId: request.actorId,
-			actorType: request.actorType || "system",
+			await tx.insert(orderLifecycleEvents).values({
+				orderId: request.orderId,
+				eventType: "status_change",
+				eventName: this.getEventName(previousState, newState),
+				eventDescription: request.notes,
+				previousState,
+				newState,
+				actorId: request.actorId,
+				actorType: request.actorType || "system",
+				isSystemGenerated: (request.actorType || "system") === "system",
+			});
+
+			return updated;
 		});
 
 		return updatedOrder;

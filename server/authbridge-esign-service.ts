@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * TruthScreen Aadhaar eSign (DSC) Service
  * (Previously named "AuthBridge" — same company, same service.)
@@ -24,6 +25,7 @@ import { db } from "./db";
 import { esignRequests, esignCertificates } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { logger } from "./logger";
 
 // eSign Request Types
 interface ESignInitiateRequest {
@@ -559,7 +561,7 @@ class AuthBridgeESignService {
 				message: response.data.message || "OTP resent successfully",
 			};
 		} catch (error) {
-			console.error("[TruthScreen eSign] Resend OTP error:", error);
+			logger.error("[TruthScreen eSign] Resend OTP error", { error: error instanceof Error ? error.message : String(error) });
 			if (error instanceof AppError) throw error;
 			throw new AppError("Failed to resend OTP", 500, "ESIGN_RESEND_FAILED");
 		}

@@ -2474,26 +2474,39 @@ export function registerIrisKfintechRoutes(app: Express): void {
 				const { irisFdProducts } = await import("@shared/schema");
 				const { sql, and, gte, eq } = await import("drizzle-orm");
 
+				const page = Math.max(1, parseInt(req.query.page as string) || 1);
+				const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+				const offset = (page - 1) * limit;
+
 				const conditions: any[] = [];
 				if (req.query.category) conditions.push(eq(irisFdProducts.category, req.query.category as string));
 				if (req.query.rating)   conditions.push(eq(irisFdProducts.creditRating, req.query.rating as string));
 				if (req.query.minRate)  conditions.push(gte(irisFdProducts.interestRate, req.query.minRate as string));
 
-				const rows = await db
-					.select()
-					.from(irisFdProducts)
-					.where(conditions.length > 0 ? and(...conditions) : undefined)
-					.orderBy(sql`interest_rate DESC NULLS LAST`)
-					.limit(200);
+				const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+				const [rows, [{ count }]] = await Promise.all([
+					db
+						.select()
+						.from(irisFdProducts)
+						.where(whereClause)
+						.orderBy(sql`interest_rate DESC NULLS LAST`)
+						.limit(limit)
+						.offset(offset),
+					db.select({ count: sql<number>`count(*)` }).from(irisFdProducts).where(whereClause),
+				]);
 
 				res.json({
 					success: true,
 					data: rows,
 					meta: {
-						total: rows.length,
+						page,
+						limit,
+						total: Number(count),
+						totalPages: Math.ceil(Number(count) / limit),
 						source: "iris_fd_products",
 						timestamp: new Date().toISOString(),
-						version: "FASP-AI-v3.0",
+						version: "1.0",
 						latency_ms: Date.now() - t0,
 					},
 				});
@@ -2561,21 +2574,33 @@ export function registerIrisKfintechRoutes(app: Express): void {
 				const { irisPmsAifProducts } = await import("@shared/schema");
 				const { eq, sql } = await import("drizzle-orm");
 
-				const rows = await db
-					.select()
-					.from(irisPmsAifProducts)
-					.where(eq(irisPmsAifProducts.productType, "pms"))
-					.orderBy(sql`return_3y DESC NULLS LAST`)
-					.limit(200);
+				const page = Math.max(1, parseInt(req.query.page as string) || 1);
+				const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+				const offset = (page - 1) * limit;
+				const whereClause = eq(irisPmsAifProducts.productType, "pms");
+
+				const [rows, [{ count }]] = await Promise.all([
+					db
+						.select()
+						.from(irisPmsAifProducts)
+						.where(whereClause)
+						.orderBy(sql`return_3y DESC NULLS LAST`)
+						.limit(limit)
+						.offset(offset),
+					db.select({ count: sql<number>`count(*)` }).from(irisPmsAifProducts).where(whereClause),
+				]);
 
 				res.json({
 					success: true,
 					data: rows,
 					meta: {
-						total: rows.length,
+						page,
+						limit,
+						total: Number(count),
+						totalPages: Math.ceil(Number(count) / limit),
 						source: "iris_pms_aif_products",
 						timestamp: new Date().toISOString(),
-						version: "FASP-AI-v3.0",
+						version: "1.0",
 						latency_ms: Date.now() - t0,
 					},
 				});

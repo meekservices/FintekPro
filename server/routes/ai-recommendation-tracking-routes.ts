@@ -1,8 +1,11 @@
 /* eslint-disable no-console */
 import { Router, Request, Response } from "express";
+import { db } from "../db";
+import { aiRecommendationTracking } from "../../shared/schema";
 import { aiRecommendationTrackingService } from "../services/ai-recommendation-tracking-service";
 import { insertAiRecommendationTrackingSchema } from "../../shared/schema";
 import { z } from "zod";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { wrapAdvisoryResponse } from "../utils/fasp-ai-response";
 
 const router = Router();
@@ -27,17 +30,35 @@ router.post("/", async (req: Request, res: Response) => {
 
 router.get("/", async (req: Request, res: Response) => {
 	try {
-		const { status, assetType, sector, source, limit, offset } = req.query;
-		const recommendations =
-			await aiRecommendationTrackingService.getAllRecommendations({
-				status: status as string,
-				assetType: assetType as string,
-				sector: sector as string,
-				source: source as string,
-				limit: limit ? Number.parseInt(limit as string) : undefined,
-				offset: offset ? Number.parseInt(offset as string) : undefined,
-			});
-		res.json(wrapAdvisoryResponse(recommendations));
+		const { status, assetType, sector, source } = req.query;
+		const page = Math.max(1, parseInt(req.query.page as string) || 1);
+		const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+		const offset = (page - 1) * limit;
+
+		const conditions = [];
+		if (status) conditions.push(eq(aiRecommendationTracking.status, status as string));
+		if (assetType) conditions.push(eq(aiRecommendationTracking.assetType, assetType as string));
+		if (sector) conditions.push(eq(aiRecommendationTracking.sector, sector as string));
+		if (source) conditions.push(eq(aiRecommendationTracking.source, source as string));
+		const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+		const [items, [{ count }]] = await Promise.all([
+			db.select().from(aiRecommendationTracking).where(whereClause).orderBy(desc(aiRecommendationTracking.createdAt)).limit(limit).offset(offset),
+			db.select({ count: sql<number>`count(*)` }).from(aiRecommendationTracking).where(whereClause),
+		]);
+
+		res.json({
+			success: true,
+			data: items.map((r) => wrapAdvisoryResponse(r)),
+			meta: {
+				page,
+				limit,
+				total: Number(count),
+				totalPages: Math.ceil(Number(count) / limit),
+				timestamp: new Date().toISOString(),
+				version: "1.0",
+			},
+		});
 	} catch (error) {
 		console.error("Error fetching recommendations:", error);
 		res.status(500).json({ error: "Failed to fetch recommendations" });
@@ -46,9 +67,28 @@ router.get("/", async (req: Request, res: Response) => {
 
 router.get("/pending", async (req: Request, res: Response) => {
 	try {
-		const recommendations =
-			await aiRecommendationTrackingService.getPendingRecommendations();
-		res.json(wrapAdvisoryResponse(recommendations));
+		const page = Math.max(1, parseInt(req.query.page as string) || 1);
+		const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+		const offset = (page - 1) * limit;
+		const whereClause = eq(aiRecommendationTracking.status, "pending");
+
+		const [items, [{ count }]] = await Promise.all([
+			db.select().from(aiRecommendationTracking).where(whereClause).orderBy(aiRecommendationTracking.expiryDate).limit(limit).offset(offset),
+			db.select({ count: sql<number>`count(*)` }).from(aiRecommendationTracking).where(whereClause),
+		]);
+
+		res.json({
+			success: true,
+			data: items.map((r) => wrapAdvisoryResponse(r)),
+			meta: {
+				page,
+				limit,
+				total: Number(count),
+				totalPages: Math.ceil(Number(count) / limit),
+				timestamp: new Date().toISOString(),
+				version: "1.0",
+			},
+		});
 	} catch (error) {
 		console.error("Error fetching pending recommendations:", error);
 		res.status(500).json({ error: "Failed to fetch pending recommendations" });

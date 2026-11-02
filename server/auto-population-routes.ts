@@ -695,7 +695,7 @@ async function verifyPanOwnership(
 
 		return { valid: true };
 	} catch (error: any) {
-		console.error("[SECURITY] PAN verification error:", error);
+		logger.error("[SECURITY] PAN verification error", { error: error instanceof Error ? error.message : String(error) });
 		return { valid: false, error: "Failed to verify PAN ownership" };
 	}
 }
