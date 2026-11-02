@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Router } from "express";
 import { aiInvestmentService } from "../services/ai-investment-service";
 import { db } from "../db";
@@ -17,6 +18,7 @@ import { z } from "zod";
 import multer from "multer";
 import { prospectPortfolioSyncService } from "../services/prospect-portfolio-sync-service";
 import { requireRole } from "../middleware/roleMiddleware";
+import { requireAuth } from "../middleware/auth";
 import { unifiedPortfolioImportService } from "../services/unified-portfolio-import-service";
 
 const router = Router();
@@ -90,7 +92,7 @@ const csvUploadSchema = z.object({
 	clientId: z.string(),
 });
 
-router.get("/portfolio/:clientId", async (req, res) => {
+router.get("/portfolio/:clientId", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 
@@ -282,7 +284,7 @@ router.get("/portfolio/:clientId", async (req, res) => {
 	}
 });
 
-router.post("/portfolio/manual-entry", async (req, res) => {
+router.post("/portfolio/manual-entry", requireAuth, async (req, res) => {
 	try {
 		const validatedData = manualEntrySchema.parse(req.body);
 		const { clientId, holdings } = validatedData;
@@ -378,6 +380,7 @@ router.post("/portfolio/manual-entry", async (req, res) => {
 
 router.post(
 	"/portfolio/upload-csv",
+	requireAuth,
 	upload.single("file"),
 	async (req, res) => {
 		try {
@@ -504,7 +507,7 @@ router.post(
 	},
 );
 
-router.put("/portfolio/update/:holdingId", async (req, res) => {
+router.put("/portfolio/update/:holdingId", requireAuth, async (req, res) => {
 	try {
 		const { holdingId } = req.params;
 		const {
@@ -601,7 +604,7 @@ router.put("/portfolio/update/:holdingId", async (req, res) => {
 	}
 });
 
-router.delete("/portfolio/holding/:holdingId", async (req, res) => {
+router.delete("/portfolio/holding/:holdingId", requireAuth, async (req, res) => {
 	try {
 		const { holdingId } = req.params;
 		const { clientId } = req.query;
@@ -639,7 +642,7 @@ router.delete("/portfolio/holding/:holdingId", async (req, res) => {
 	}
 });
 
-router.post("/ai/portfolio/analyze", async (req, res) => {
+router.post("/ai/portfolio/analyze", requireAuth, async (req, res) => {
 	try {
 		const { clientId, portfolioId } = req.body;
 
@@ -669,7 +672,7 @@ router.post("/ai/portfolio/analyze", async (req, res) => {
 	}
 });
 
-router.post("/ai/portfolio/alerts", async (req, res) => {
+router.post("/ai/portfolio/alerts", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.body;
 
@@ -696,7 +699,7 @@ router.post("/ai/portfolio/alerts", async (req, res) => {
 	}
 });
 
-router.get("/ai/alerts/:clientId", async (req, res) => {
+router.get("/ai/alerts/:clientId", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 		const { status } = req.query;
@@ -720,7 +723,7 @@ router.get("/ai/alerts/:clientId", async (req, res) => {
 	}
 });
 
-router.post("/ai/stocks/profit-picks", async (req, res) => {
+router.post("/ai/stocks/profit-picks", requireAuth, async (req, res) => {
 	try {
 		const { clientId, count, timeHorizon, riskLevel } = req.body;
 
@@ -751,7 +754,7 @@ router.post("/ai/stocks/profit-picks", async (req, res) => {
 	}
 });
 
-router.get("/ai/stocks/profit-picks/:clientId", async (req, res) => {
+router.get("/ai/stocks/profit-picks/:clientId", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 		const { status } = req.query;
@@ -775,7 +778,7 @@ router.get("/ai/stocks/profit-picks/:clientId", async (req, res) => {
 	}
 });
 
-router.post("/ai/stocks/buy-signals", async (req, res) => {
+router.post("/ai/stocks/buy-signals", requireAuth, async (req, res) => {
 	try {
 		const { clientId, count = 5 } = req.body;
 
@@ -807,7 +810,7 @@ router.post("/ai/stocks/buy-signals", async (req, res) => {
 	}
 });
 
-router.post("/ai/agent/talking-points", async (req, res) => {
+router.post("/ai/agent/talking-points", requireAuth, async (req, res) => {
 	try {
 		const { clientId, analysisId } = req.body;
 
@@ -840,7 +843,7 @@ router.post("/ai/agent/talking-points", async (req, res) => {
 	}
 });
 
-router.get("/ai/talking-points/:clientId", async (req, res) => {
+router.get("/ai/talking-points/:clientId", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 
@@ -864,7 +867,7 @@ router.get("/ai/talking-points/:clientId", async (req, res) => {
 	}
 });
 
-router.put("/ai/profit-pick/:pickId/approve", async (req, res) => {
+router.put("/ai/profit-pick/:pickId/approve", requireAuth, async (req, res) => {
 	try {
 		const { pickId } = req.params;
 		const { agentId, targetPrice, quantity, notes } = req.body;

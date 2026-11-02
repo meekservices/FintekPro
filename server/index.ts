@@ -78,7 +78,7 @@ function registerSPACatchAll(expressApp: Express) {
 	expressApp.use(express.static(distPath));
 
 	// Catch-all route for SPA navigation
-	expressApp.get("*", (req, res, next) => {
+	expressApp.get("/{*path}", (req, res, next) => {
 		// Skip API routes
 		if (req.path.startsWith("/api")) return next();
 
@@ -717,6 +717,7 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 		// Pick of the Day Routes
 		logBootProgress("Step 7: Registering Pick of the Day Routes...");
 		const picksRoutes = await import("./routes/pick-of-the-day");
+		app.use("/api/picks", aiLimiter); // FASP-AI v1.0: rate-limit AI advisory picks
 		app.use("/api/picks", picksRoutes.default);
 
 		// Unified Instrument Consensus Service (Zero Redis, PostgreSQL-backed)

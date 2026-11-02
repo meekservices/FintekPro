@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { aiLimiter } from "./middleware/rate-limiter";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { logger } from "./logger";
@@ -408,6 +409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	app.use("/api/compliance", complianceRoutes);
 	app.use("/api/aml", amlRoutes);
 	app.use("/api/fixed-income", orderStatusRoutes);
+	app.use("/api/ai-investment", aiLimiter); // FASP-AI v1.0: rate-limit AI investment advisory
 	app.use("/api/ai-investment", aiInvestmentRoutes);
 	app.use("/api/ai/copilot", treasuryCopilotRoutes);
 	app.use("/api/treasury", treasuryRoutes);
@@ -454,6 +456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	app.use("/api/admin", policyStatusRouter); // /status is router path, so prefix is /api/admin
 	app.use(aiGovernanceRouter); // router already has full /api/admin/ai/... paths
 	registerAdminPanelRoutes(app);
+	app.use("/api/ai-stock-recommendations", aiLimiter); // FASP-AI v1.0: rate-limit AI stock advisory
 	registerAIStockRecommendationRoutes(app);
 
 	// Research Note routes (/api/research-note/search, /preview, etc.)

@@ -127,7 +127,7 @@ export async function generateBiSummary(
 		summary,
 		dataSource: "cloud_sql",
 		generatedBy: adminUserId,
-		modelVersion: "gemini-2.0-flash",
+		modelVersion: "gemini-2.5-flash",
 		confidenceScore: 0.95,
 		auditId: randomUUID(),
 		source: "ai",

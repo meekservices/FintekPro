@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 // @ts-nocheck
 import { Express } from "express";
 import { storage } from "../storage";
@@ -723,7 +724,7 @@ export function registerAIFPMSSystemPart1Routes(app: Express): void {
 		}
 	});
 
-	app.get("/api/system/code/analysis/:filePath(*)", async (req, res) => {
+	app.get(["/api/system/code/analysis/:filePath", "/api/system/code/analysis/*filePath"], async (req, res) => {
 		try {
 			const filePath = req.params.filePath;
 			const analysis = await errorMonitor.analyzeCodeErrors(filePath);

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
@@ -53,7 +54,7 @@ export function registerSPACatchAll(app: Express) {
 	const distPath = path.resolve(process.cwd(), "dist", "public");
 	const publicPath = path.resolve(process.cwd(), "public");
 
-	app.use("*", (req, res) => {
+	app.use("/{*path}", (req, res) => {
 		// Skip API routes - they should have been handled or 404ed already
 		if (req.path.startsWith("/api/")) {
 			return res

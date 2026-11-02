@@ -1792,7 +1792,7 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 		const targetPrice = params.targetPrice ?? 0;
 		const upside =
 			currentPrice > 0 ? Math.round((targetPrice / currentPrice - 1) * 100) : 0;
-		return `${params.name} is selected as today's top pick based on strong fundamentals and a compelling target upside of ${upside}%. The technical outlook remains positive with favorable risk-reward indicators.`;
+		return `${params.name} is selected as today's top pick based on strong fundamentals and a potential upside of ${upside}% from current levels. The technical outlook remains positive with favorable risk-reward indicators.`;
 	}
 
 	private extractRationaleText(raw: unknown): string {

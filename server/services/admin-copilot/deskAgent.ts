@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * deskAgent.ts — Zoho Desk Intelligence Agent (Phase 2 — LIVE)
  *
@@ -105,7 +106,7 @@ export async function syncDeskTickets(
 			slaBreachRiskPct: classification.slaBreachRiskPct,
 			draftResponse: classification.draftResponse,
 			confidenceScore: classification.confidence,
-			modelVersion: "gemini-2.0-flash",
+			modelVersion: "gemini-2.5-flash",
 			approvalStatus: "draft" as const,
 			syncedAt: new Date(),
 			source: "ai" as const,
@@ -475,7 +476,7 @@ async function flagTicketAsHighRisk(
 		entityType: "zoho_desk_ticket",
 		status: "open",
 		confidenceScore: 0.9,
-		modelVersion: "gemini-2.0-flash",
+		modelVersion: "gemini-2.5-flash",
 		source: "ai",
 	});
 

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * crmAgent.ts — Zoho CRM Intelligence Agent (Phase 2 — LIVE)
  *
@@ -80,7 +81,7 @@ export async function syncCrmLeads(
 				.values({
 					...baseData,
 					approvalStatus: "draft",
-					modelVersion: "gemini-2.0-flash",
+					modelVersion: "gemini-2.5-flash",
 				})
 				.returning();
 			actionId = inserted.id;

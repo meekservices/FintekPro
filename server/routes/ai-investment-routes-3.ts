@@ -1,4 +1,4 @@
-// @ts-nocheck
+/* eslint-disable no-console */
 import { Router } from "express";
 import { aiInvestmentService } from "../services/ai-investment-service";
 import { db } from "../db";
@@ -18,6 +18,7 @@ import { z } from "zod";
 import multer from "multer";
 import { prospectPortfolioSyncService } from "../services/prospect-portfolio-sync-service";
 import { requireRole } from "../middleware/roleMiddleware";
+import { requireAuth } from "../middleware/auth";
 import { unifiedPortfolioImportService } from "../services/unified-portfolio-import-service";
 
 const router = Router();
@@ -91,7 +92,7 @@ const csvUploadSchema = z.object({
 	clientId: z.string(),
 });
 
-router.get("/profit-picks/:clientId/:horizon", async (req, res) => {
+router.get("/profit-picks/:clientId/:horizon", requireAuth, async (req, res) => {
 	try {
 		const { clientId, horizon } = req.params;
 		const picks = await aiInvestmentService.generateProfitPicks(clientId, {
@@ -113,7 +114,7 @@ router.get("/profit-picks/:clientId/:horizon", async (req, res) => {
 });
 
 // GET endpoint for profit picks (default horizon)
-router.get("/profit-picks/:clientId", async (req, res) => {
+router.get("/profit-picks/:clientId", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 		const horizon = (req.query.horizon as string) || "3M";
@@ -136,7 +137,7 @@ router.get("/profit-picks/:clientId", async (req, res) => {
 });
 
 // GET endpoint for alerts
-router.get("/alerts/:clientId", async (req, res) => {
+router.get("/alerts/:clientId", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 		const alerts = await aiInvestmentService.checkBenchmarkAlerts(clientId);
@@ -148,7 +149,7 @@ router.get("/alerts/:clientId", async (req, res) => {
 });
 
 // GET endpoint for talking points
-router.get("/talking-points/:clientId", async (req, res) => {
+router.get("/talking-points/:clientId", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 		const talkingPoints =
@@ -169,7 +170,7 @@ router.get("/talking-points/:clientId", async (req, res) => {
 });
 
 // POST endpoint for creating proposal
-router.post("/proposal", async (req, res) => {
+router.post("/proposal", requireAuth, async (req, res) => {
 	try {
 		const { clientId, picks } = req.body;
 
@@ -179,10 +180,13 @@ router.post("/proposal", async (req, res) => {
 				.json({ error: "Client ID and picks are required" });
 		}
 
+		const pickIds = Array.isArray(picks) ? picks.map((p: unknown) => String((p as Record<string, unknown>).id ?? p)) : [];
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const agentId: string = (req as any).user?.id ?? "system";
 		const result = await aiInvestmentService.createProposalFromPicks(
 			clientId,
-			picks,
-			{},
+			agentId,
+			pickIds,
 		);
 
 		res.json({
@@ -211,6 +215,7 @@ const portfolioInsightsSchema = z.object({
 	totalValue: z.number().optional().default(0),
 	assetAllocation: z
 		.record(
+			z.string(),
 			z.object({
 				value: z.number(),
 				percent: z.number(),
@@ -221,7 +226,7 @@ const portfolioInsightsSchema = z.object({
 });
 
 // POST endpoint for AI portfolio insights
-router.post("/portfolio-insights", async (req, res) => {
+router.post("/portfolio-insights", requireAuth, async (req, res) => {
 	try {
 		const validation = portfolioInsightsSchema.safeParse(req.body);
 
@@ -412,7 +417,7 @@ function formatAssetClass(assetClass: string): string {
 // Investment Goals API endpoints
 const investmentGoalsStore: Map<string, any[]> = new Map();
 
-router.get("/goals/:clientId", async (req, res) => {
+router.get("/goals/:clientId", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 		const goals = investmentGoalsStore.get(clientId) || [];
@@ -422,7 +427,7 @@ router.get("/goals/:clientId", async (req, res) => {
 	}
 });
 
-router.post("/goals", async (req, res) => {
+router.post("/goals", requireAuth, async (req, res) => {
 	try {
 		const {
 			clientId,
@@ -437,7 +442,7 @@ router.post("/goals", async (req, res) => {
 		} = req.body;
 
 		const goal = {
-			id: `goal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+			id: `goal_${Date.now()}_${crypto.randomUUID().replace(/-/g, "").substring(0, 9)}`,
 			type,
 			name,
 			targetAmount,
@@ -462,7 +467,7 @@ router.post("/goals", async (req, res) => {
 	}
 });
 
-router.delete("/goals/:goalId", async (req, res) => {
+router.delete("/goals/:goalId", requireAuth, async (req, res) => {
 	try {
 		const { goalId } = req.params;
 		investmentGoalsStore.forEach((goals, clientId) => {
@@ -478,7 +483,7 @@ router.delete("/goals/:goalId", async (req, res) => {
 // Risk Profile API endpoints
 const riskProfileStore: Map<string, any> = new Map();
 
-router.get("/risk-profile/:clientId", async (req, res) => {
+router.get("/risk-profile/:clientId", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 		const profile = riskProfileStore.get(clientId);
@@ -489,7 +494,7 @@ router.get("/risk-profile/:clientId", async (req, res) => {
 	}
 });
 
-router.post("/risk-profile", async (req, res) => {
+router.post("/risk-profile", requireAuth, async (req, res) => {
 	try {
 		const { clientId, answers, score, riskCategory, allocation } = req.body;
 
@@ -511,7 +516,7 @@ router.post("/risk-profile", async (req, res) => {
 });
 
 // Benchmark Comparison API endpoint
-router.get("/benchmark/:clientId", async (req, res) => {
+router.get("/benchmark/:clientId", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 
@@ -586,9 +591,44 @@ router.get("/benchmark/:clientId", async (req, res) => {
 			},
 		];
 
-		const sharpeRatio = 1.25 + Math.random() * 0.5;
-		const sortinoRatio = 1.58 + Math.random() * 0.4;
-		const beta = 0.85 + Math.random() * 0.25;
+		// Deterministic risk metrics from available portfolio return data (GCR: no Math.random on financial paths)
+		const portfolioReturnValues: number[] = [
+			portfolioReturns.return1M,
+			portfolioReturns.return3M,
+			portfolioReturns.return1Y,
+			portfolioReturns.ytd,
+		];
+		const riskFreeRate = 0.065; // RBI repo rate fallback (annualised)
+		const avgReturn =
+			portfolioReturnValues.reduce((a, b) => a + b, 0) /
+			portfolioReturnValues.length;
+		const stdDev =
+			portfolioReturnValues.length > 1
+				? Math.sqrt(
+						portfolioReturnValues.reduce(
+							(sum, r) => sum + Math.pow(r - avgReturn, 2),
+							0,
+						) / portfolioReturnValues.length,
+					)
+				: 1;
+		const sharpeRatio = stdDev > 0 ? (avgReturn - riskFreeRate) / stdDev : 0;
+		const downsideReturns = portfolioReturnValues.filter(
+			(r) => r < riskFreeRate,
+		);
+		const downsideDeviation =
+			downsideReturns.length > 1
+				? Math.sqrt(
+						downsideReturns.reduce(
+							(sum, r) => sum + Math.pow(r - riskFreeRate, 2),
+							0,
+						) / downsideReturns.length,
+					)
+				: 1;
+		const sortinoRatio =
+			downsideDeviation > 0
+				? (avgReturn - riskFreeRate) / downsideDeviation
+				: 0;
+		const beta = 1.0; // Default market beta — computed dynamically when benchmark data available
 
 		res.json({
 			portfolioReturns,

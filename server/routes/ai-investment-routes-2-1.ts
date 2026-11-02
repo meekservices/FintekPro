@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Router } from "express";
 import { aiInvestmentService } from "../services/ai-investment-service";
 import { db } from "../db";
@@ -17,6 +18,7 @@ import { z } from "zod";
 import multer from "multer";
 import { prospectPortfolioSyncService } from "../services/prospect-portfolio-sync-service";
 import { requireRole } from "../middleware/roleMiddleware";
+import { requireAuth } from "../middleware/auth";
 import { unifiedPortfolioImportService } from "../services/unified-portfolio-import-service";
 
 const router = Router();
@@ -90,7 +92,7 @@ const csvUploadSchema = z.object({
 	clientId: z.string(),
 });
 
-router.put("/ai/alert/:alertId/action", async (req, res) => {
+router.put("/ai/alert/:alertId/action", requireAuth, async (req, res) => {
 	try {
 		const { alertId } = req.params;
 		const { action, notes, agentId } = req.body;
@@ -127,7 +129,7 @@ router.put("/ai/alert/:alertId/action", async (req, res) => {
 	}
 });
 
-router.post("/proposals/from-ai-stocks", async (req, res) => {
+router.post("/proposals/from-ai-stocks", requireAuth, async (req, res) => {
 	try {
 		const { clientId, agentId, pickIds, title } = req.body;
 
@@ -160,7 +162,7 @@ router.post("/proposals/from-ai-stocks", async (req, res) => {
 	}
 });
 
-router.get("/ai/analysis/:clientId", async (req, res) => {
+router.get("/ai/analysis/:clientId", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 
@@ -185,7 +187,7 @@ router.get("/ai/analysis/:clientId", async (req, res) => {
 	}
 });
 
-router.get("/ai/analysis/detail/:analysisId", async (req, res) => {
+router.get("/ai/analysis/detail/:analysisId", requireAuth, async (req, res) => {
 	try {
 		const { analysisId } = req.params;
 
@@ -220,7 +222,7 @@ router.get("/ai/analysis/detail/:analysisId", async (req, res) => {
 // ============================================
 
 // POST endpoint for adding holdings
-router.post("/portfolio/:clientId/holdings", async (req, res) => {
+router.post("/portfolio/:clientId/holdings", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 		const { symbol, name, quantity, averagePrice, assetType, purchaseDate } =
@@ -298,6 +300,7 @@ router.post("/portfolio/:clientId/holdings", async (req, res) => {
 // POST endpoint for file upload (CSV, Excel) - for PDF/HTML use /prospects/:prospectId/portfolio/upload
 router.post(
 	"/portfolio/:clientId/upload",
+	requireAuth,
 	upload.single("file"),
 	async (req, res) => {
 		try {
@@ -413,7 +416,7 @@ router.post(
 );
 
 // POST endpoint for bulk import (paste from Excel)
-router.post("/portfolio/:clientId/bulk-import", async (req, res) => {
+router.post("/portfolio/:clientId/bulk-import", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 		const { holdings, skipValidation } = req.body;

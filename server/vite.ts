@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { type Express } from "express";
 import fs from "fs";
 import path from "path";
@@ -52,7 +53,7 @@ export async function setupVite(app: Express, server: Server) {
 	});
 
 	app.use(vite.middlewares);
-	app.use("*", async (req, res, next) => {
+	app.use("/{*path}", async (req, res, next) => {
 		const url = req.originalUrl;
 
 		try {

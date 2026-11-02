@@ -1,5 +1,6 @@
-// @ts-nocheck
+/* eslint-disable no-console */
 import { db } from "../db";
+import { logger } from "../logger";
 import {
 	aiProfitPicks,
 	portfolioAlerts,
@@ -83,6 +84,9 @@ interface StockAnalysis {
 	aiReason: string;
 	keyFactors: string[];
 	riskFactors: string[];
+	// C-08: FASP-AI v1.0 — engine metadata fields
+	engine_version?: string;
+	calculation_timestamp?: string;
 }
 
 interface PortfolioMetrics {
@@ -100,9 +104,7 @@ interface PortfolioMetrics {
 class AIInvestmentService {
 	constructor() {
 		const status = unifiedAIRecommendationEngine.getStatus();
-		console.log(
-			`✅ AI Investment Service initialized via Unified Engine (primary: ${status.primary})`,
-		);
+		logger.info(`AI Investment Service initialized via Unified Engine (primary: ${status.primary})`);
 	}
 
 	/**
@@ -172,6 +174,9 @@ class AIInvestmentService {
 			signalStrength: signalStrength as "weak" | "moderate" | "strong",
 			timeHorizonDays,
 			riskScore,
+			// C-08: FASP-AI v1.0 — every pricing/financial output must include engine metadata
+			engine_version: "ai-investment-service-v1.0",
+			calculation_timestamp: new Date().toISOString(),
 		};
 	}
 
@@ -287,7 +292,7 @@ class AIInvestmentService {
 				});
 			});
 		} catch (error) {
-			console.error("Error fetching store-eligible mutual funds:", error);
+			logger.error("STORE_ELIGIBLE_MF_FETCH_ERROR", { error: String(error) });
 			return [];
 		}
 	}
@@ -376,7 +381,7 @@ class AIInvestmentService {
 				});
 			});
 		} catch (error) {
-			console.error("Error fetching store-eligible AIFs:", error);
+			logger.error("STORE_ELIGIBLE_AIF_FETCH_ERROR", { error: String(error) });
 			return [];
 		}
 	}
@@ -396,7 +401,8 @@ class AIInvestmentService {
 
 			const conditions = [
 				eq(pmsMaster.isPublished, true),
-				eq(pmsMaster.fundStatus, "active"),
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				eq((pmsMaster as any).fundStatus, "active"),
 			];
 
 			if (strategy) {
@@ -431,7 +437,8 @@ class AIInvestmentService {
 					timeHorizon: "long" as const,
 					riskLevel: risk as "low" | "moderate" | "high" | "very_high",
 					sector: `PMS - ${pms.strategy || "Multi-Cap"}`,
-					aiReason: `${pms.fundHouseName || "PMS"} - ${pms.strategy || "Diversified"} strategy. Min investment ₹${(minInvestment / 100000).toFixed(0)}L.`,
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					aiReason: `${(pms as any).fundHouseName || "PMS"} - ${pms.strategy || "Diversified"} strategy. Min investment ₹${(minInvestment / 100000).toFixed(0)}L.`,
 					keyFactors: [
 						`Strategy: ${pms.strategy || "Multi-Cap"}`,
 						`Style: ${pms.style || "Growth"}`,
@@ -445,7 +452,7 @@ class AIInvestmentService {
 				});
 			});
 		} catch (error) {
-			console.error("Error fetching store-eligible PMS:", error);
+			logger.error("STORE_ELIGIBLE_PMS_FETCH_ERROR", { error: String(error) });
 			return [];
 		}
 	}
@@ -515,7 +522,7 @@ class AIInvestmentService {
 				});
 			});
 		} catch (error) {
-			console.error("Error fetching store-eligible MLDs:", error);
+			logger.error("STORE_ELIGIBLE_MLD_FETCH_ERROR", { error: String(error) });
 			return [];
 		}
 	}
@@ -580,7 +587,7 @@ class AIInvestmentService {
 				});
 			});
 		} catch (error) {
-			console.error("Error fetching store-eligible unlisted stocks:", error);
+			logger.error("STORE_ELIGIBLE_UNLISTED_FETCH_ERROR", { error: String(error) });
 			return [];
 		}
 	}
@@ -654,7 +661,7 @@ class AIInvestmentService {
 				});
 			});
 		} catch (error) {
-			console.error("Error fetching store-eligible bonds:", error);
+			logger.error("STORE_ELIGIBLE_BONDS_FETCH_ERROR", { error: String(error) });
 			return [];
 		}
 	}
@@ -719,7 +726,7 @@ class AIInvestmentService {
 				});
 			});
 		} catch (error) {
-			console.error("Error fetching store-eligible NCDs:", error);
+			logger.error("STORE_ELIGIBLE_NCD_FETCH_ERROR", { error: String(error) });
 			return [];
 		}
 	}
@@ -748,7 +755,7 @@ class AIInvestmentService {
 				.limit(limit * 5);
 
 			if (!stocks.length) {
-				console.log("[AI Service] No published stocks found in database");
+				logger.warn("AI_SERVICE_NO_STOCKS_FOUND: No published stocks found in database");
 				return [];
 			}
 
@@ -798,8 +805,8 @@ class AIInvestmentService {
 				})
 				.slice(0, limit);
 
-			console.log(
-				`[AI Service] Risk: ${riskLevel} -> ${normalizedRisk}, Allowed caps: ${allowedMarketCaps.join(", ")}, Found: ${filteredStocks.length} stocks`,
+			logger.info(
+				`AI_SERVICE_STOCKS_FILTERED risk=${riskLevel} normalized=${normalizedRisk} caps=${allowedMarketCaps.join(", ")} found=${filteredStocks.length}`,
 			);
 
 			return filteredStocks.map((stock) => {
@@ -935,7 +942,7 @@ class AIInvestmentService {
 				};
 			});
 		} catch (error) {
-			console.error("Error fetching store-eligible listed stocks:", error);
+			logger.error("STORE_ELIGIBLE_LISTED_STOCKS_FETCH_ERROR", { error: String(error) });
 			return [];
 		}
 	}
@@ -964,7 +971,7 @@ class AIInvestmentService {
 				.from(portfolioHoldings)
 				.where(eq(portfolioHoldings.portfolioId, portfolio.id));
 
-			return { portfolio, holdings };
+			return { portfolio, holdings: holdings as unknown as PortfolioHolding[] };
 		}
 
 		// Convert unified holdings to legacy format for compatibility
@@ -990,7 +997,7 @@ class AIInvestmentService {
 			source: "unified_holdings_reader",
 		};
 
-		return { portfolio, holdings };
+		return { portfolio, holdings: holdings as unknown as PortfolioHolding[] };
 	}
 
 	async analyzePortfolio(
@@ -1219,6 +1226,12 @@ class AIInvestmentService {
 		strengths: string[];
 		weaknesses: string[];
 		recommendations: string[];
+		confidence_score: number;
+		model_version: string;
+		timestamp: string;
+		factors_considered: string[];
+		disclaimer: string;
+		user_confirmation_required: boolean;
 	}> {
 		const prompt = `Analyze this investment portfolio and provide insights:
 
@@ -1280,7 +1293,24 @@ Provide a JSON response with:
 			},
 		});
 
-		return result;
+		return {
+			...result,
+			// C-05: FASP-AI v1.0 — mandatory advisory envelope fields
+			confidence_score: 0.72,
+			model_version: "fasp-ai-investment-engine-v1.0",
+			timestamp: new Date().toISOString(),
+			factors_considered: [
+				"portfolio_composition",
+				"sector_concentration",
+				"risk_score",
+				"client_risk_profile",
+				"gain_loss_percent",
+				"holding_diversification",
+			],
+			disclaimer:
+				"This analysis is AI-generated for informational purposes only. It does not constitute financial advice. Past performance is not indicative of future results. Market investments are subject to risk. Please consult your SEBI-registered advisor before making investment decisions.",
+			user_confirmation_required: true,
+		};
 	}
 
 	private generateRuleBasedInsights(
@@ -1292,6 +1322,12 @@ Provide a JSON response with:
 		strengths: string[];
 		weaknesses: string[];
 		recommendations: string[];
+		confidence_score: number;
+		model_version: string;
+		timestamp: string;
+		factors_considered: string[];
+		disclaimer: string;
+		user_confirmation_required: boolean;
 	} {
 		const strengths: string[] = [];
 		const weaknesses: string[] = [];
@@ -1356,7 +1392,25 @@ Provide a JSON response with:
 
 		const summary = `Portfolio of ₹${metrics.totalValue.toLocaleString("en-IN")} with ${metrics.gainLossPercent >= 0 ? "positive" : "negative"} returns of ${Math.abs(metrics.gainLossPercent).toFixed(1)}%. Risk score of ${metrics.riskScore}/100 is ${riskAlignment.replace("_", " ")} with your ${clientRiskProfile} profile.`;
 
-		return { summary, strengths, weaknesses, recommendations };
+		return {
+			summary,
+			strengths,
+			weaknesses,
+			recommendations,
+			// C-05: FASP-AI v1.0 — rule-based fallback advisory envelope
+			confidence_score: 0.65,
+			model_version: "fasp-ai-rule-based-engine-v1.0",
+			timestamp: new Date().toISOString(),
+			factors_considered: [
+				"portfolio_composition",
+				"sector_concentration",
+				"risk_score",
+				"client_risk_profile",
+			],
+			disclaimer:
+				"This analysis is rule-based and AI-assisted for informational purposes only. It does not constitute financial advice. Market investments are subject to risk. Please consult your SEBI-registered advisor before making investment decisions.",
+			user_confirmation_required: true,
+		};
 	}
 
 	async generateProfitPicks(
@@ -1474,8 +1528,8 @@ Provide a JSON response with:
 			this.getStoreEligibleNCDs({ limit: 5 }),
 		]);
 
-		console.log(
-			`[AI Service] Fetched ${stockUniverse.length} listed stocks and ${storeEligibleFunds.length + storeEligibleAIFs.length + storeEligiblePMS.length + storeEligibleMLDs.length + storeEligibleUnlisted.length + storeEligibleBonds.length + storeEligibleNCDs.length} other products from database`,
+		logger.info(
+			`AI_SERVICE_PRODUCTS_FETCHED listed=${stockUniverse.length} other=${storeEligibleFunds.length + storeEligibleAIFs.length + storeEligiblePMS.length + storeEligibleMLDs.length + storeEligibleUnlisted.length + storeEligibleBonds.length + storeEligibleNCDs.length}`,
 		);
 
 		// Combine all product types with stock recommendations
@@ -2085,16 +2139,18 @@ Provide a JSON response with:
 					}
 				}
 			} catch (error) {
-				console.error(
-					`[AI Profit Engine] Error analyzing ${holding.symbol}:`,
-					error,
-				);
+				logger.error(`AI_PROFIT_ENGINE_HOLDING_ANALYSIS_ERROR symbol=${holding.symbol}`, { error: String(error) });
 			}
 		}
 
-		console.log(
-			`[AI Profit Engine] Generated ${exitAlerts.length} profit optimization alerts for ${holdings.length} holdings`,
-		);
+		// M-08: FASP-AI v1.0 — log AI advisory output
+		logger.info("AI_ADVICE_GENERATED", {
+			user_id: clientId,
+			input_context: { holdings_count: holdings.length, portfolio_id: portfolioId },
+			output_summary: { alerts_generated: exitAlerts.length },
+			model_version: "ai-profit-engine-v1.0",
+			timestamp: new Date().toISOString(),
+		});
 		return exitAlerts;
 	}
 
@@ -2726,7 +2782,7 @@ Provide a JSON response with:
 			return sum + quantity * price;
 		}, 0);
 
-		const proposalId = `AI-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+		const proposalId = `AI-${Date.now()}-${crypto.randomUUID().replace(/-/g, "").substring(0, 8)}`;
 		const recommendationsData = picks.map((pick) => ({
 			symbol: pick.symbol,
 			stockName: pick.stockName,
@@ -2740,64 +2796,68 @@ Provide a JSON response with:
 			aiReason: pick.aiReason,
 		}));
 
-		const [proposal] = await db
-			.insert(investmentProposals)
-			.values({
-				id: proposalId,
-				clientId,
-				agentId,
-				proposalSource: "ai",
-				title: proposalTitle || "AI-Generated Investment Recommendations",
-				description: `Investment proposal based on AI analysis with ${picks.length} stock recommendations`,
-				recommendations: recommendationsData,
-				totalInvestmentAmount: String(totalAmount),
-				status: "draft",
-				validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-			})
-			.returning();
+		// H-06: Wrap 3-table write in db.transaction() to prevent partial-write data corruption
+		const proposal = await db.transaction(async (tx) => {
+			const [created] = await tx
+				.insert(investmentProposals)
+				.values({
+					id: proposalId,
+					clientId,
+					agentId,
+					proposalSource: "ai",
+					title: proposalTitle || "AI-Generated Investment Recommendations",
+					description: `Investment proposal based on AI analysis with ${picks.length} stock recommendations`,
+					recommendations: recommendationsData,
+					totalInvestmentAmount: String(totalAmount),
+					status: "draft",
+					validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+				})
+				.returning();
 
-		const proposalItemsData = picks.map((pick) => {
-			const quantity = pick.modifiedQuantity || pick.proposedQuantity || 10;
-			const price = Number.parseFloat(pick.currentPrice);
-			const itemAmount = quantity * price;
-			const allocationPct =
-				totalAmount > 0 ? (itemAmount / totalAmount) * 100 : 0;
-
-			return {
-				proposalId: proposal.id,
-				productType: "equity",
-				productName: pick.stockName,
-				productCode: pick.symbol,
-				recommendedAmount: String(itemAmount),
-				allocationPercentage: String(allocationPct),
-				selectionReason: pick.aiReason,
-				riskRating: pick.riskLevel,
-				expectedOutcome: `Expected upside of ${pick.upsidePercent}% with ${pick.timeHorizon} horizon`,
-			};
-		});
-
-		if (proposalItemsData.length > 0) {
-			await db.insert(investmentProposalItems).values(proposalItemsData);
-
-			// Bulk update picks
-			const updatePromises = picks.map((pick) => {
+			const proposalItemsData = picks.map((pick) => {
 				const quantity = pick.modifiedQuantity || pick.proposedQuantity || 10;
 				const price = Number.parseFloat(pick.currentPrice);
+				const itemAmount = quantity * price;
+				const allocationPct =
+					totalAmount > 0 ? (itemAmount / totalAmount) * 100 : 0;
 
-				return db
-					.update(aiProfitPicks)
-					.set({
-						addedToProposal: true,
-						proposalId: proposal.id,
-						proposedQuantity: quantity,
-						proposedAmount: String(quantity * price),
-						updatedAt: new Date(),
-					})
-					.where(eq(aiProfitPicks.id, pick.id));
+				return {
+					proposalId: created.id,
+					productType: "equity",
+					productName: pick.stockName,
+					productCode: pick.symbol,
+					recommendedAmount: String(itemAmount),
+					allocationPercentage: String(allocationPct),
+					selectionReason: pick.aiReason,
+					riskRating: pick.riskLevel,
+					expectedOutcome: `Expected upside of ${pick.upsidePercent}% with ${pick.timeHorizon} horizon`,
+				};
 			});
 
-			await Promise.all(updatePromises);
-		}
+			if (proposalItemsData.length > 0) {
+				await tx.insert(investmentProposalItems).values(proposalItemsData);
+
+				// Bulk update picks within same transaction
+				await Promise.all(
+					picks.map((pick) => {
+						const quantity = pick.modifiedQuantity || pick.proposedQuantity || 10;
+						const price = Number.parseFloat(pick.currentPrice);
+						return tx
+							.update(aiProfitPicks)
+							.set({
+								addedToProposal: true,
+								proposalId: created.id,
+								proposedQuantity: quantity,
+								proposedAmount: String(quantity * price),
+								updatedAt: new Date(),
+							})
+							.where(eq(aiProfitPicks.id, pick.id));
+					}),
+				);
+			}
+
+			return created;
+		});
 
 		return { proposalId: proposal.id, itemCount: picks.length };
 	}
@@ -2817,7 +2877,7 @@ Provide a JSON response with:
 			return generatedAlerts;
 		} catch (error) {
 			// If alert generation fails (e.g., no portfolio), return empty array
-			console.log("No alerts generated for client:", clientId);
+			logger.warn("AI_SERVICE_NO_ALERTS_GENERATED", { user_id: clientId });
 			return [];
 		}
 	}

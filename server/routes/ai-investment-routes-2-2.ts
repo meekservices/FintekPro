@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Router } from "express";
 import { aiInvestmentService } from "../services/ai-investment-service";
 import { db } from "../db";
@@ -17,6 +18,7 @@ import { z } from "zod";
 import multer from "multer";
 import { prospectPortfolioSyncService } from "../services/prospect-portfolio-sync-service";
 import { requireRole } from "../middleware/roleMiddleware";
+import { requireAuth } from "../middleware/auth";
 import { unifiedPortfolioImportService } from "../services/unified-portfolio-import-service";
 
 const router = Router();
@@ -92,6 +94,7 @@ const csvUploadSchema = z.object({
 
 router.post(
 	"/portfolio/preview-pdf",
+	requireAuth,
 	upload.single("file"),
 	async (req, res) => {
 		try {
@@ -162,7 +165,7 @@ router.post(
 );
 
 // POST endpoint for importing previewed CAS holdings
-router.post("/portfolio/:clientId/import-previewed", async (req, res) => {
+router.post("/portfolio/:clientId/import-previewed", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 		const { holdings } = req.body;
@@ -297,6 +300,7 @@ router.post("/portfolio/:clientId/import-previewed", async (req, res) => {
 // POST endpoint for CAS PDF upload (direct without preview)
 router.post(
 	"/portfolio/:clientId/upload-cas",
+	requireAuth,
 	upload.single("file"),
 	async (req, res) => {
 		try {
@@ -470,7 +474,7 @@ router.post(
 );
 
 // POST endpoint for server-side Excel paste validation with ISIN lookup
-router.post("/portfolio/validate-paste", async (req, res) => {
+router.post("/portfolio/validate-paste", requireAuth, async (req, res) => {
 	try {
 		const { text } = req.body;
 
@@ -551,7 +555,7 @@ const importHistoryStore: Record<
 > = {};
 
 // POST endpoint to record import history
-router.post("/portfolio/:clientId/import-history", async (req, res) => {
+router.post("/portfolio/:clientId/import-history", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 		const {
@@ -598,7 +602,7 @@ router.post("/portfolio/:clientId/import-history", async (req, res) => {
 });
 
 // GET endpoint to retrieve import history for a client
-router.get("/portfolio/:clientId/import-history", async (req, res) => {
+router.get("/portfolio/:clientId/import-history", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 		const history = importHistoryStore[clientId] || [];
@@ -617,7 +621,7 @@ router.get("/portfolio/:clientId/import-history", async (req, res) => {
 });
 
 // GET endpoint for portfolio analysis
-router.get("/analyze/:clientId", async (req, res) => {
+router.get("/analyze/:clientId", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 		const analysis = await aiInvestmentService.analyzePortfolio(clientId);

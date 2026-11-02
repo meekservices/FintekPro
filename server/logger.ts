@@ -93,7 +93,7 @@ export async function auditLog(entry: AuditEntry): Promise<string> {
 		await db.insert(aiAuditLogs).values({
 			...entry,
 			id: auditId,
-			modelVersion: entry.modelVersion ?? "gemini-2.0-flash",
+			modelVersion: entry.modelVersion ?? "gemini-2.5-flash",
 			source: entry.source ?? "api",
 			status: entry.status ?? "success",
 		});
