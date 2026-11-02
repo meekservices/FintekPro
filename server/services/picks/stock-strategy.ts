@@ -1103,23 +1103,16 @@ export class StockStrategy extends BaseStrategy {
 		// ── Fix 6: Earnings calendar exclusion (3-day forward) ──────────────────
 		// Stocks with a board meeting (quarterly results) in the next 3 days carry
 		// 3x normal binary event risk. Exclude them from this run's candidate pool.
-		// The filter is async + parallel; any individual NSE API failure means that
-		// stock is kept in the pool (non-fatal: we never drop to zero candidates
-		// due to a broken API call).
+		// Run with bounded concurrency (5 at a time) to avoid flooding memory & APIs.
 		let eligibleStocks = freshStocks;
 		try {
-			const earningsFlags = await Promise.allSettled(
-				freshStocks.map((s) =>
-					s.symbol
-						? hasEarningsInNextNDays(s.symbol)
-						: Promise.resolve(false),
-				),
-			);
-			const beforeCount = freshStocks.length;
-			eligibleStocks = freshStocks.filter((_, i) => {
-				const result = earningsFlags[i];
-				return result.status === "fulfilled" ? !result.value : true;
+			const earningsTasks = freshStocks.map((s) => async () => {
+				if (!s.symbol) return false;
+				return await hasEarningsInNextNDays(s.symbol);
 			});
+			const earningsResults = await runConcurrent(earningsTasks, 5);
+			const beforeCount = freshStocks.length;
+			eligibleStocks = freshStocks.filter((_, i) => !earningsResults[i]);
 			const excluded = beforeCount - eligibleStocks.length;
 			if (excluded > 0) {
 				logger.info(
@@ -1174,16 +1167,14 @@ export class StockStrategy extends BaseStrategy {
 		// so score() receives a unified RSI value instead of fetching it per-stock
 		// inconsistently from two different sources (enriched.technicals vs golden_prices).
 		const rsiMap = new Map<string, number | null>();
-		await Promise.allSettled(
-			eligibleStocks
-				.filter((s) => s.symbol)
-				.map(async (s) => {
-					const enriched = s.symbol ? enrichedSnapshots.get(s.symbol.toUpperCase()) || null : null;
-					// Use screener RSI if available; fall back to golden_prices RSI
-					const rsi = enriched?.technicals?.rsi ?? await this.fetchRsiFromGoldenPrices(s);
-					rsiMap.set(s.symbol!, rsi);
-				}),
-		);
+		const rsiTasks = eligibleStocks
+			.filter((s) => s.symbol)
+			.map((s) => async () => {
+				const enriched = s.symbol ? enrichedSnapshots.get(s.symbol.toUpperCase()) || null : null;
+				const rsi = enriched?.technicals?.rsi ?? await this.fetchRsiFromGoldenPrices(s);
+				rsiMap.set(s.symbol!, rsi);
+			});
+		await runConcurrent(rsiTasks, 5);
 
 		// ── Cross-Engine Synergy: Pre-warm Pro Thematic Screener map ───────────
 		let thematicMap = new Map<string, ThematicSynergyInfo>();
