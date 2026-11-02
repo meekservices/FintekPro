@@ -32,6 +32,7 @@ import { eq, and, desc, sql, or, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import crypto from "crypto";
 import { wrapAdvisoryResponse } from "../utils/fasp-ai-response";
+import { errorResponse } from "../utils/error-response";
 const logAgentAction = async (..._args: any[]) => {};
 const calculateAge = (_dob: any) => 30;
 const calculateAssetAllocation = (..._args: any[]) => ({});
@@ -425,7 +426,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 				);
 				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
-				res.status(500).json({ error: error.message });
+				res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 			}
 		},
 	);
@@ -442,7 +443,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 				);
 				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
-				res.status(500).json({ error: error.message });
+				res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 			}
 		},
 	);
@@ -476,7 +477,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 				);
 				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
-				res.status(500).json({ error: error.message });
+				res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 			}
 		},
 	);
@@ -490,7 +491,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 				const result = await ProposalOrchestrator.getLockedStrategy(proposalId);
 				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
-				res.status(500).json({ error: error.message });
+				res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 			}
 		},
 	);
@@ -509,7 +510,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 					);
 				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
-				res.status(500).json({ error: error.message });
+				res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 			}
 		},
 	);
@@ -531,7 +532,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 				);
 				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
-				res.status(500).json({ error: error.message });
+				res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 			}
 		},
 	);
@@ -556,7 +557,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 					);
 				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
-				res.status(500).json({ error: error.message });
+				res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 			}
 		},
 	);
@@ -579,7 +580,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 					);
 				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
-				res.status(500).json({ error: error.message });
+				res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 			}
 		},
 	);
@@ -597,7 +598,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 					await ProposalFlowGatekeeper.validateStrategyIntegrity(proposalId);
 				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
-				res.status(500).json({ error: error.message });
+				res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 			}
 		},
 	);
@@ -629,7 +630,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 					);
 				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
-				res.status(500).json({ error: error.message });
+				res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 			}
 		},
 	);

@@ -22,6 +22,7 @@ import {
 	ncdPublicIssues,
 	listedStocks,
 	prospectClients,
+	adminSettings,
 } from "@shared/schema";
 import {
 	unifiedHoldingsReaderService,
@@ -2080,7 +2081,8 @@ Provide a JSON response with:
 				// ═══════════════════════════════════════════════════════════════
 				// 13. SECTOR ROTATION SIGNAL
 				// ═══════════════════════════════════════════════════════════════
-				const weakSectors = ["Real Estate", "Metals", "PSU Banks"];
+				// M-01: Read weak sectors from adminSettings DB key "weak_sectors" (fallback to static list)
+				const weakSectors = await getWeakSectors();
 				if (
 					sector &&
 					weakSectors.some((ws) =>
@@ -2911,6 +2913,31 @@ Provide a JSON response with:
 			return [];
 		}
 	}
+}
+
+/**
+ * M-01: Reads weak sectors from adminSettings key "weak_sectors".
+ * Falls back to static list if DB read fails or key is missing.
+ * @returns Array of sector name strings
+ */
+async function getWeakSectors(): Promise<string[]> {
+  const FALLBACK = ["Real Estate", "Metals", "PSU Banks"];
+  try {
+    const row = await db
+      .select({ value: adminSettings.value })
+      .from(adminSettings)
+      .where(eq(adminSettings.key, "weak_sectors"))
+      .limit(1);
+    if (row.length > 0 && row[0].value) {
+      const parsed = JSON.parse(String(row[0].value));
+      if (Array.isArray(parsed) && parsed.every((s) => typeof s === "string")) {
+        return parsed;
+      }
+    }
+  } catch {
+    // Fall through to static list
+  }
+  return FALLBACK;
 }
 
 export const aiInvestmentService = new AIInvestmentService();

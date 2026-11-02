@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import axios from "axios";
 import { db } from "../db";
 import { listedStocks } from "@shared/schema";
@@ -1787,7 +1788,7 @@ class ExchangeStockService {
 
 			// Mirror into screener_stocks
 			await db.execute(sql`
-        INSERT INTO listed_stocks (symbol, company_name, exchange, isin, sector, industry, market_cap_category, country, currency, is_active, current_price, market_cap_value, data_source, created_at, updated_at)
+        INSERT INTO listed_stocks (symbol, company_name, exchange, isin, sector, industry, market_cap_category, country, currency, is_active, current_price, market_cap_value, data_source, created_at, last_updated)
         VALUES (
           ${stockData.symbol},
           ${stockData.companyName},
@@ -1806,8 +1807,8 @@ class ExchangeStockService {
           company_name = EXCLUDED.company_name,
           current_price = EXCLUDED.current_price,
           market_cap_value = EXCLUDED.market_cap_value,
-          sector = COALESCE(EXCLUDED.sector, screener_stocks.sector),
-          updated_at = NOW()
+          sector = COALESCE(EXCLUDED.sector, listed_stocks.sector),
+          last_updated = NOW()
       `);
 
    // eslint-disable-next-line no-console

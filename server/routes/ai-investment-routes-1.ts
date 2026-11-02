@@ -21,6 +21,8 @@ import { requireRole } from "../middleware/roleMiddleware";
 import { requireAuth } from "../middleware/auth";
 import { unifiedPortfolioImportService } from "../services/unified-portfolio-import-service";
 import { wrapAdvisoryResponse } from "../utils/fasp-ai-response";
+import { resolveClientType } from "../utils/client-resolver";
+import { errorResponse } from "../utils/error-response";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -48,54 +50,6 @@ function getLTCGThreshold(assetCategory: string | null | undefined): number {
 	return 365; // 1 year — equity, ETF, REIT, hybrid-equity
 }
 
-// Helper to resolve clientId to prospect or user and return appropriate portfolio lookup
-async function resolveClientType(clientId: string): Promise<{
-	isProspect: boolean;
-	isUser: boolean;
-	prospect: any | null;
-	user: any | null;
-	portfolioWhereClause: ReturnType<typeof eq>;
-	getPortfolioCreateValues: (name: string, source?: string) => any;
-}> {
-	const [prospect] = await db
-		.select()
-		.from(prospectClients)
-		.where(eq(prospectClients.id, clientId))
-		.limit(1);
-
-	const [user] = await db
-		.select()
-		.from(users)
-		.where(eq(users.id, clientId))
-		.limit(1);
-
-	const isProspect = !!prospect;
-	const isUser = !!user;
-
-	return {
-		isProspect,
-		isUser,
-		prospect,
-		user,
-		portfolioWhereClause: isProspect
-			? eq(portfolios.prospectId, clientId)
-			: eq(portfolios.userId, clientId),
-		getPortfolioCreateValues: (name: string, source?: string) =>
-			isProspect
-				? {
-						prospectId: clientId,
-						name: `${prospect?.name || "Prospect"}'s ${name}`,
-						isDefault: true,
-						source: (source as any) || "manual",
-						isVerified: false,
-					}
-				: {
-						userId: clientId,
-						name,
-						isDefault: true,
-					},
-	};
-}
 
 const manualEntrySchema = z.object({
 	clientId: z.string(),

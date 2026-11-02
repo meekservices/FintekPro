@@ -21,58 +21,11 @@ import { requireRole } from "../middleware/roleMiddleware";
 import { requireAuth } from "../middleware/auth";
 import { unifiedPortfolioImportService } from "../services/unified-portfolio-import-service";
 import { wrapAdvisoryResponse } from "../utils/fasp-ai-response";
+import { resolveClientType } from "../utils/client-resolver";
+import { errorResponse } from "../utils/error-response";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
-
-// Helper to resolve clientId to prospect or user and return appropriate portfolio lookup
-async function resolveClientType(clientId: string): Promise<{
-	isProspect: boolean;
-	isUser: boolean;
-	prospect: any | null;
-	user: any | null;
-	portfolioWhereClause: ReturnType<typeof eq>;
-	getPortfolioCreateValues: (name: string, source?: string) => any;
-}> {
-	const [prospect] = await db
-		.select()
-		.from(prospectClients)
-		.where(eq(prospectClients.id, clientId))
-		.limit(1);
-
-	const [user] = await db
-		.select()
-		.from(users)
-		.where(eq(users.id, clientId))
-		.limit(1);
-
-	const isProspect = !!prospect;
-	const isUser = !!user;
-
-	return {
-		isProspect,
-		isUser,
-		prospect,
-		user,
-		portfolioWhereClause: isProspect
-			? eq(portfolios.prospectId, clientId)
-			: eq(portfolios.userId, clientId),
-		getPortfolioCreateValues: (name: string, source?: string) =>
-			isProspect
-				? {
-						prospectId: clientId,
-						name: `${prospect?.name || "Prospect"}'s ${name}`,
-						isDefault: true,
-						source: (source as any) || "manual",
-						isVerified: false,
-					}
-				: {
-						userId: clientId,
-						name,
-						isDefault: true,
-					},
-	};
-}
 
 const manualEntrySchema = z.object({
 	clientId: z.string(),
@@ -294,7 +247,7 @@ router.post("/portfolio/:clientId/holdings", requireAuth, async (req, res) => {
 		res.json({ success: true, holding: inserted });
 	} catch (error) {
 		console.error("Error adding holding:", error);
-		res.status(500).json({ error: "Failed to add holding" });
+		res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 	}
 });
 
@@ -411,7 +364,7 @@ router.post(
 			res.json({ success: true, count });
 		} catch (error) {
 			console.error("Error uploading file:", error);
-			res.status(500).json({ error: "Failed to process file" });
+			res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 		}
 	},
 );
@@ -546,7 +499,7 @@ router.post("/portfolio/:clientId/bulk-import", requireAuth, async (req, res) =>
 		}));
 	} catch (error) {
 		console.error("Error bulk importing holdings:", error);
-		res.status(500).json({ error: "Failed to import holdings" });
+		res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 	}
 });
 

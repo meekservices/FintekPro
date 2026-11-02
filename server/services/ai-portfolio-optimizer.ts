@@ -490,6 +490,20 @@ export class AIPortfolioOptimizer {
 		return results;
 	}
 
+	/**
+	 * U-02: Estimate the condition number of a symmetric matrix using ratio of max/min diagonal.
+	 * A condition number > 1e8 indicates near-singularity — apply ridge regularization.
+	 * @param matrix - Square symmetric covariance matrix
+	 * @returns Approximate condition number
+	 */
+	private estimateConditionNumber(matrix: number[][]): number {
+		const diag = matrix.map((row, i) => row[i] ?? 0);
+		const maxD = Math.max(...diag);
+		const minD = Math.min(...diag.filter((d) => d > 0));
+		if (!isFinite(minD) || minD === 0) return Infinity;
+		return maxD / minD;
+	}
+
 	optimizeWeights(
 		candidates: AssetCandidate[],
 		covMatrix: number[][],
@@ -510,6 +524,21 @@ export class AIPortfolioOptimizer {
 		const delta = 0.001;
 
 		let weights = new Array(n).fill(1 / n);
+
+		// U-02: Covariance matrix condition guard — apply ridge regularization if near-singular
+		const conditionNumber = this.estimateConditionNumber(covMatrix);
+		if (conditionNumber > 1e8) {
+			logger.warn("[AIPortfolioOptimizer] Near-singular covariance matrix — applying ridge regularization", {
+				event: "COV_MATRIX_RIDGE_REGULARIZATION",
+				user_id: "system",
+				condition_number: conditionNumber,
+				status: "warn",
+			});
+			const epsilon = 1e-4;
+			for (let i = 0; i < n; i++) {
+				if (covMatrix[i]) covMatrix[i][i] = (covMatrix[i][i] ?? 0) + epsilon;
+			}
+		}
 
 		let prevSharpe = this.portfolioSharpe(
 			weights,

@@ -503,7 +503,7 @@ export async function runStartupSchemaRepairs() {
 			`);
 			const sabtnlStockRes = await migPool.query(`
 				UPDATE listed_stocks
-				SET company_name = 'Aqylon Nexus Ltd', updated_at = NOW()
+				SET company_name = 'Aqylon Nexus Ltd', last_updated = NOW()
 				WHERE (symbol = 'SABTNL' OR isin = 'INE416A01044' OR company_name ILIKE '%Adhikari%')
 				  AND company_name != 'Aqylon Nexus Ltd';
 			`);
@@ -539,7 +539,7 @@ export async function runStartupSchemaRepairs() {
 				UPDATE listed_stocks
 				SET isin = 'INE101D01020',
 				    current_price = 836.00,
-				    updated_at = NOW()
+				    last_updated = NOW()
 				WHERE symbol = 'GRANULES' AND (current_price > 2000 OR isin != 'INE101D01020' OR isin IS NULL);
 			`);
 			if ((granulesPicksRes.rowCount ?? 0) > 0 || (granulesStockRes.rowCount ?? 0) > 0) {

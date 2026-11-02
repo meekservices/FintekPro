@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * @file enrichment-service.ts
  * @description Screener data enrichment pipeline — fetches and persists stock profiles,
@@ -393,7 +394,7 @@ export async function enrichKeyMetrics(
         `);
 				// Phase 2f: write freshness timestamp
 				await db.execute(sql`
-          UPDATE listed_stocks SET last_key_metrics_sync = NOW(), updated_at = NOW()
+          UPDATE listed_stocks SET last_key_metrics_sync = NOW(), last_updated = NOW()
           WHERE symbol = ${stock.symbol}
         `);
 				console.log(`[Enrichment] KeyMetrics: ${stock.symbol} ROIC=${k.roic} Graham=${k.grahamNumber}`);
@@ -839,7 +840,7 @@ export async function seedFromListedStocks(
 
 	try {
 		const result = await db.execute(sql`
-      INSERT INTO listed_stocks (symbol, company_name, exchange, isin, sector, industry, market_cap_category, country, currency, is_active, current_price, market_cap_value, data_source, created_at, updated_at)
+      INSERT INTO listed_stocks (symbol, company_name, exchange, isin, sector, industry, market_cap_category, country, currency, is_active, current_price, market_cap_value, data_source, created_at, last_updated)
       SELECT 
         ls.symbol,
         ls.company_name,
@@ -947,7 +948,7 @@ export async function seedUnlistedToScreener(
 
 	try {
 		const result = await db.execute(sql`
-      INSERT INTO listed_stocks (symbol, company_name, exchange, isin, sector, industry, market_cap_category, country, currency, is_active, current_price, data_source, created_at, updated_at)
+      INSERT INTO listed_stocks (symbol, company_name, exchange, isin, sector, industry, market_cap_category, country, currency, is_active, current_price, data_source, created_at, last_updated)
       SELECT 
         COALESCE(uc.cin, uc.id::text),
         uc.name,

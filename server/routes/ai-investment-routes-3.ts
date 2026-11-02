@@ -22,58 +22,11 @@ import { requireAuth } from "../middleware/auth";
 import { logger } from "../logger";
 import { unifiedPortfolioImportService } from "../services/unified-portfolio-import-service";
 import { wrapAdvisoryResponse } from "../utils/fasp-ai-response";
+import { resolveClientType } from "../utils/client-resolver";
+import { errorResponse } from "../utils/error-response";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
-
-// Helper to resolve clientId to prospect or user and return appropriate portfolio lookup
-async function resolveClientType(clientId: string): Promise<{
-	isProspect: boolean;
-	isUser: boolean;
-	prospect: any | null;
-	user: any | null;
-	portfolioWhereClause: ReturnType<typeof eq>;
-	getPortfolioCreateValues: (name: string, source?: string) => any;
-}> {
-	const [prospect] = await db
-		.select()
-		.from(prospectClients)
-		.where(eq(prospectClients.id, clientId))
-		.limit(1);
-
-	const [user] = await db
-		.select()
-		.from(users)
-		.where(eq(users.id, clientId))
-		.limit(1);
-
-	const isProspect = !!prospect;
-	const isUser = !!user;
-
-	return {
-		isProspect,
-		isUser,
-		prospect,
-		user,
-		portfolioWhereClause: isProspect
-			? eq(portfolios.prospectId, clientId)
-			: eq(portfolios.userId, clientId),
-		getPortfolioCreateValues: (name: string, source?: string) =>
-			isProspect
-				? {
-						prospectId: clientId,
-						name: `${prospect?.name || "Prospect"}'s ${name}`,
-						isDefault: true,
-						source: (source as any) || "manual",
-						isVerified: false,
-					}
-				: {
-						userId: clientId,
-						name,
-						isDefault: true,
-					},
-	};
-}
 
 const manualEntrySchema = z.object({
 	clientId: z.string(),
@@ -111,7 +64,7 @@ router.get("/profit-picks/:clientId/:horizon", requireAuth, async (req, res) => 
 		) {
 			return res.json([]);
 		}
-		res.status(500).json({ error: "Failed to generate profit picks" });
+		res.status(500).json(errorResponse("INTERNAL_ERROR", "Failed to generate profit picks", true));
 	}
 });
 
@@ -134,7 +87,7 @@ router.get("/profit-picks/:clientId", requireAuth, async (req, res) => {
 		) {
 			return res.json([]);
 		}
-		res.status(500).json({ error: "Failed to generate profit picks" });
+		res.status(500).json(errorResponse("INTERNAL_ERROR", "Failed to generate profit picks", true));
 	}
 });
 
@@ -146,7 +99,7 @@ router.get("/alerts/:clientId", requireAuth, async (req, res) => {
 		res.json(wrapAdvisoryResponse(alerts || []));
 	} catch (error) {
 		console.error("Error fetching alerts:", error);
-		res.status(500).json({ error: "Failed to fetch alerts" });
+		res.status(500).json(errorResponse("INTERNAL_ERROR", "Failed to fetch alerts", true));
 	}
 });
 
@@ -167,7 +120,7 @@ router.get("/talking-points/:clientId", requireAuth, async (req, res) => {
 		) {
 			return res.json([]);
 		}
-		res.status(500).json({ error: "Failed to generate talking points" });
+		res.status(500).json(errorResponse("INTERNAL_ERROR", "Failed to generate talking points", true));
 	}
 });
 
@@ -197,7 +150,7 @@ router.post("/proposal", requireAuth, async (req, res) => {
 		}));
 	} catch (error) {
 		console.error("Error creating proposal:", error);
-		res.status(500).json({ error: "Failed to create proposal" });
+		res.status(500).json(errorResponse("INTERNAL_ERROR", "Failed to create proposal", true));
 	}
 });
 
@@ -250,7 +203,7 @@ router.post("/portfolio-insights", requireAuth, async (req, res) => {
 		res.json(wrapAdvisoryResponse({ insights }));
 	} catch (error) {
 		console.error("Error generating portfolio insights:", error);
-		res.status(500).json({ error: "Failed to generate portfolio insights" });
+		res.status(500).json(errorResponse("INTERNAL_ERROR", "Failed to generate portfolio insights", true));
 	}
 });
 
@@ -425,7 +378,7 @@ router.get("/goals/:clientId", requireAuth, async (req, res) => {
 		const goals = investmentGoalsStore.get(clientId) || [];
 		res.json(wrapAdvisoryResponse(goals));
 	} catch (error: any) {
-		res.status(500).json({ error: error.message });
+		res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 	}
 });
 
@@ -466,7 +419,7 @@ router.post("/goals", requireAuth, async (req, res) => {
 
 		res.json(wrapAdvisoryResponse(goal));
 	} catch (error: any) {
-		res.status(500).json({ error: error.message });
+		res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 	}
 });
 
@@ -479,7 +432,7 @@ router.delete("/goals/:goalId", requireAuth, async (req, res) => {
 		});
 		res.json({ success: true });
 	} catch (error: any) {
-		res.status(500).json({ error: error.message });
+		res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 	}
 });
 
@@ -493,7 +446,7 @@ router.get("/risk-profile/:clientId", requireAuth, async (req, res) => {
 		// Return null with 200 instead of 404 - no profile yet is not an error
 		res.json(wrapAdvisoryResponse(profile || null));
 	} catch (error: any) {
-		res.status(500).json({ error: error.message });
+		res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 	}
 });
 
@@ -515,7 +468,7 @@ router.post("/risk-profile", requireAuth, async (req, res) => {
 		logger.warn("IN_MEMORY_STORE_WRITE", { store: "riskProfileStore", clientId, event: "profile_upserted" });
 		res.json(wrapAdvisoryResponse(profile));
 	} catch (error: any) {
-		res.status(500).json({ error: error.message });
+		res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 	}
 });
 
@@ -642,7 +595,7 @@ router.get("/benchmark/:clientId", requireAuth, async (req, res) => {
 			beta,
 		}));
 	} catch (error: any) {
-		res.status(500).json({ error: error.message });
+		res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 	}
 });
 
@@ -660,7 +613,7 @@ router.post(
 			}));
 		} catch (error: any) {
 			console.error("Error migrating portfolios:", error);
-			res.status(500).json({ error: error.message });
+			res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 		}
 	},
 );
@@ -683,7 +636,7 @@ router.post(
 			}));
 		} catch (error: any) {
 			console.error("Error migrating portfolio:", error);
-			res.status(500).json({ error: error.message });
+			res.status(500).json(errorResponse("INTERNAL_ERROR", error instanceof Error ? error.message : String(error), true));
 		}
 	},
 );
