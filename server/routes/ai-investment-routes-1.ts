@@ -685,16 +685,23 @@ router.get("/ai/alerts/:clientId", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 		const { status } = req.query;
+		const page = Math.max(1, parseInt(String(req.query.page ?? "1")));
+		const limit = Math.min(parseInt(String(req.query.limit ?? "20")), 100);
+		const offset = (page - 1) * limit;
 
-		const alerts = await aiInvestmentService.getClientAlerts(
+		const allAlerts = await aiInvestmentService.getClientAlerts(
 			clientId,
 			status as string | undefined,
 		);
+
+		const total = allAlerts.length;
+		const alerts = allAlerts.slice(offset, offset + limit);
 
 		res.json(wrapAdvisoryResponse({
 			success: true,
 			alerts,
 			count: alerts.length,
+			meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
 		}));
 	} catch (error) {
 		console.error("Error fetching alerts:", error);
@@ -740,16 +747,23 @@ router.get("/ai/stocks/profit-picks/:clientId", requireAuth, async (req, res) =>
 	try {
 		const { clientId } = req.params;
 		const { status } = req.query;
+		const page = Math.max(1, parseInt(String(req.query.page ?? "1")));
+		const limit = Math.min(parseInt(String(req.query.limit ?? "20")), 100);
+		const offset = (page - 1) * limit;
 
-		const picks = await aiInvestmentService.getClientProfitPicks(
+		const allPicks = await aiInvestmentService.getClientProfitPicks(
 			clientId,
 			status as string | undefined,
 		);
+
+		const total = allPicks.length;
+		const picks = allPicks.slice(offset, offset + limit);
 
 		res.json(wrapAdvisoryResponse({
 			success: true,
 			picks,
 			count: picks.length,
+			meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
 		}));
 	} catch (error) {
 		console.error("Error fetching profit picks:", error);
@@ -828,17 +842,24 @@ router.post("/ai/agent/talking-points", requireAuth, async (req, res) => {
 router.get("/ai/talking-points/:clientId", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
+		const page = Math.max(1, parseInt(String(req.query.page ?? "1")));
+		const limit = Math.min(parseInt(String(req.query.limit ?? "20")), 100);
+		const offset = (page - 1) * limit;
 
-		const talkingPoints = await db
+		const allPoints = await db
 			.select()
 			.from(aiTalkingPoints)
 			.where(eq(aiTalkingPoints.clientId, clientId))
 			.orderBy(aiTalkingPoints.sequenceOrder);
 
+		const total = allPoints.length;
+		const talkingPoints = allPoints.slice(offset, offset + limit);
+
 		res.json(wrapAdvisoryResponse({
 			success: true,
 			talkingPoints,
 			count: talkingPoints.length,
+			meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
 		}));
 	} catch (error) {
 		console.error("Error fetching talking points:", error);

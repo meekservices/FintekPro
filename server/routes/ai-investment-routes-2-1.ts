@@ -13,7 +13,7 @@ import {
 	prospectClients,
 	users,
 } from "@shared/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, count } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
 import { prospectPortfolioSyncService } from "../services/prospect-portfolio-sync-service";
@@ -119,18 +119,31 @@ router.post("/proposals/from-ai-stocks", requireAuth, async (req, res) => {
 router.get("/ai/analysis/:clientId", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
+		const page = Math.max(1, parseInt(String(req.query.page ?? "1")));
+		const limit = Math.min(parseInt(String(req.query.limit ?? "10")), 100);
+		const offset = (page - 1) * limit;
 
-		const analyses = await db
-			.select()
-			.from(aiPortfolioAnalysis)
-			.where(eq(aiPortfolioAnalysis.clientId, clientId))
-			.orderBy(desc(aiPortfolioAnalysis.createdAt))
-			.limit(10);
+		const [countRow, analyses] = await Promise.all([
+			db
+				.select({ total: count() })
+				.from(aiPortfolioAnalysis)
+				.where(eq(aiPortfolioAnalysis.clientId, clientId)),
+			db
+				.select()
+				.from(aiPortfolioAnalysis)
+				.where(eq(aiPortfolioAnalysis.clientId, clientId))
+				.orderBy(desc(aiPortfolioAnalysis.createdAt))
+				.limit(limit)
+				.offset(offset),
+		]);
+
+		const total = countRow[0]?.total ?? 0;
 
 		res.json(wrapAdvisoryResponse({
 			success: true,
 			analyses,
 			count: analyses.length,
+			meta: { page, limit, total, totalPages: Math.ceil(Number(total) / limit) },
 		}));
 	} catch (error) {
 		console.error("Error fetching analyses:", error);

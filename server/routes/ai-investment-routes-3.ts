@@ -50,10 +50,21 @@ const csvUploadSchema = z.object({
 router.get("/profit-picks/:clientId/:horizon", requireAuth, async (req, res) => {
 	try {
 		const { clientId, horizon } = req.params;
-		const picks = await aiInvestmentService.generateProfitPicks(clientId, {
+		const page = Math.max(1, parseInt(String(req.query.page ?? "1")));
+		const limit = Math.min(parseInt(String(req.query.limit ?? "20")), 100);
+		const offset = (page - 1) * limit;
+
+		const allPicks = await aiInvestmentService.generateProfitPicks(clientId, {
 			timeHorizon: horizon,
 		});
-		res.json(wrapAdvisoryResponse(picks || []));
+		const picks = (allPicks || []).slice(offset, offset + limit);
+		const total = (allPicks || []).length;
+		res.json(wrapAdvisoryResponse({
+			success: true,
+			picks,
+			count: picks.length,
+			meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+		}));
 	} catch (error: any) {
 		console.error("Error generating profit picks:", error);
 		// Return empty array for database errors instead of 500
@@ -73,10 +84,21 @@ router.get("/profit-picks/:clientId", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 		const horizon = (req.query.horizon as string) || "3M";
-		const picks = await aiInvestmentService.generateProfitPicks(clientId, {
+		const page = Math.max(1, parseInt(String(req.query.page ?? "1")));
+		const limit = Math.min(parseInt(String(req.query.limit ?? "20")), 100);
+		const offset = (page - 1) * limit;
+
+		const allPicks = await aiInvestmentService.generateProfitPicks(clientId, {
 			timeHorizon: horizon,
 		});
-		res.json(wrapAdvisoryResponse(picks || []));
+		const picks = (allPicks || []).slice(offset, offset + limit);
+		const total = (allPicks || []).length;
+		res.json(wrapAdvisoryResponse({
+			success: true,
+			picks,
+			count: picks.length,
+			meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+		}));
 	} catch (error: any) {
 		console.error("Error generating profit picks:", error);
 		// Return empty array for database errors instead of 500
@@ -95,8 +117,19 @@ router.get("/profit-picks/:clientId", requireAuth, async (req, res) => {
 router.get("/alerts/:clientId", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
-		const alerts = await aiInvestmentService.checkBenchmarkAlerts(clientId);
-		res.json(wrapAdvisoryResponse(alerts || []));
+		const page = Math.max(1, parseInt(String(req.query.page ?? "1")));
+		const limit = Math.min(parseInt(String(req.query.limit ?? "20")), 100);
+		const offset = (page - 1) * limit;
+
+		const allAlerts = await aiInvestmentService.checkBenchmarkAlerts(clientId);
+		const alerts = (allAlerts || []).slice(offset, offset + limit);
+		const total = (allAlerts || []).length;
+		res.json(wrapAdvisoryResponse({
+			success: true,
+			alerts,
+			count: alerts.length,
+			meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+		}));
 	} catch (error) {
 		console.error("Error fetching alerts:", error);
 		res.status(500).json(errorResponse("INTERNAL_ERROR", "Failed to fetch alerts", true));
