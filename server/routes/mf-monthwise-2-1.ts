@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 import { Express } from "express";
 import { randomInt } from "crypto";
 import { storage } from "../storage";
@@ -11,7 +12,7 @@ import { marketingService } from "../marketing-automation";
 import { whatsappService } from "../whatsapp";
 
 export function registerMFMonthwiPart2Part1Routes(app: Express): void {
-	app.get("/api/cams/schemes/:schemeCode?", async (req, res) => {
+	app.get(["/api/cams/schemes", "/api/cams/schemes/:schemeCode"], async (req, res) => {
 		try {
 			const { schemeCode } = req.params;
 

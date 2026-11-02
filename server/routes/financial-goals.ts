@@ -136,7 +136,7 @@ export function registerFinancialGoalsRoutes(app: Express): void {
 	);
 
 	// PAN Name Verification API endpoint
-	app.get("/api/pan/verify-name/:panNumber?", async (req, res) => {
+	app.get(["/api/pan/verify-name", "/api/pan/verify-name/:panNumber"], async (req, res) => {
 		try {
 			const { panNumber } = req.params;
 

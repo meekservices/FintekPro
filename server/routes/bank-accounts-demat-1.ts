@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 import { Express } from "express";
 import { storage } from "../storage";
 import { db } from "../db";
@@ -45,7 +46,7 @@ export function registerBankAccountsDemaPart1Routes(app: Express): void {
 	});
 
 	// MF Central API - Proposals Management
-	app.get("/api/proposals/:portfolioId?", async (req: any, res) => {
+	app.get(["/api/proposals", "/api/proposals/:portfolioId"], async (req: any, res) => {
 		try {
 			// Use development bypass for demo purposes
 			const isDevelopment =
