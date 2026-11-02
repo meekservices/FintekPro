@@ -2143,6 +2143,26 @@ Provide a JSON response with:
 			}
 		}
 
+		// C-06: FASP-AI v1.0 — append SEBI disclaimer to all exit alert aiInsight fields
+		const FASP_DISCLAIMER = " | ⚠️ AI-generated signal. Not financial advice. Consult your SEBI-registered advisor before acting.";
+		const MODEL_VERSION = "ai-profit-engine-v1.0";
+		for (const alert of exitAlerts) {
+			if (alert.aiInsight) {
+				alert.aiInsight = alert.aiInsight + FASP_DISCLAIMER;
+			} else {
+				alert.aiInsight = FASP_DISCLAIMER.trim();
+			}
+			// Add model version and timestamp to aiRecommendation field if empty
+			if (!alert.aiRecommendation) {
+				alert.aiRecommendation = JSON.stringify({
+					model_version: MODEL_VERSION,
+					calculation_timestamp: new Date().toISOString(),
+					user_confirmation_required: true,
+					disclaimer: "This alert is AI-generated for informational purposes only. Past performance does not guarantee future results. Subject to market risks.",
+				});
+			}
+		}
+
 		// M-08: FASP-AI v1.0 — log AI advisory output
 		logger.info("AI_ADVICE_GENERATED", {
 			user_id: clientId,

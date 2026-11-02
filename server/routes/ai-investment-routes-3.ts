@@ -21,6 +21,7 @@ import { requireRole } from "../middleware/roleMiddleware";
 import { requireAuth } from "../middleware/auth";
 import { logger } from "../logger";
 import { unifiedPortfolioImportService } from "../services/unified-portfolio-import-service";
+import { wrapAdvisoryResponse } from "../utils/fasp-ai-response";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -99,7 +100,7 @@ router.get("/profit-picks/:clientId/:horizon", requireAuth, async (req, res) => 
 		const picks = await aiInvestmentService.generateProfitPicks(clientId, {
 			timeHorizon: horizon,
 		});
-		res.json(picks || []);
+		res.json(wrapAdvisoryResponse(picks || []));
 	} catch (error: any) {
 		console.error("Error generating profit picks:", error);
 		// Return empty array for database errors instead of 500
@@ -122,7 +123,7 @@ router.get("/profit-picks/:clientId", requireAuth, async (req, res) => {
 		const picks = await aiInvestmentService.generateProfitPicks(clientId, {
 			timeHorizon: horizon,
 		});
-		res.json(picks || []);
+		res.json(wrapAdvisoryResponse(picks || []));
 	} catch (error: any) {
 		console.error("Error generating profit picks:", error);
 		// Return empty array for database errors instead of 500
@@ -142,7 +143,7 @@ router.get("/alerts/:clientId", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 		const alerts = await aiInvestmentService.checkBenchmarkAlerts(clientId);
-		res.json(alerts || []);
+		res.json(wrapAdvisoryResponse(alerts || []));
 	} catch (error) {
 		console.error("Error fetching alerts:", error);
 		res.status(500).json({ error: "Failed to fetch alerts" });
@@ -155,7 +156,7 @@ router.get("/talking-points/:clientId", requireAuth, async (req, res) => {
 		const { clientId } = req.params;
 		const talkingPoints =
 			await aiInvestmentService.generateTalkingPoints(clientId);
-		res.json(talkingPoints || []);
+		res.json(wrapAdvisoryResponse(talkingPoints || []));
 	} catch (error: any) {
 		console.error("Error generating talking points:", error);
 		// Return empty array for database/schema errors instead of 500
@@ -190,10 +191,10 @@ router.post("/proposal", requireAuth, async (req, res) => {
 			pickIds,
 		);
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			proposalId: result?.proposalId || "PROP-" + Date.now(),
 			itemCount: picks.length,
-		});
+		}));
 	} catch (error) {
 		console.error("Error creating proposal:", error);
 		res.status(500).json({ error: "Failed to create proposal" });
@@ -246,7 +247,7 @@ router.post("/portfolio-insights", requireAuth, async (req, res) => {
 			assetAllocation,
 		);
 
-		res.json({ insights });
+		res.json(wrapAdvisoryResponse({ insights }));
 	} catch (error) {
 		console.error("Error generating portfolio insights:", error);
 		res.status(500).json({ error: "Failed to generate portfolio insights" });
@@ -422,7 +423,7 @@ router.get("/goals/:clientId", requireAuth, async (req, res) => {
 	try {
 		const { clientId } = req.params;
 		const goals = investmentGoalsStore.get(clientId) || [];
-		res.json(goals);
+		res.json(wrapAdvisoryResponse(goals));
 	} catch (error: any) {
 		res.status(500).json({ error: error.message });
 	}
@@ -463,7 +464,7 @@ router.post("/goals", requireAuth, async (req, res) => {
 		investmentGoalsStore.set(clientId, existingGoals);
 		logger.warn("IN_MEMORY_STORE_WRITE", { store: "investmentGoalsStore", clientId, event: "goal_added" });
 
-		res.json(goal);
+		res.json(wrapAdvisoryResponse(goal));
 	} catch (error: any) {
 		res.status(500).json({ error: error.message });
 	}
@@ -490,7 +491,7 @@ router.get("/risk-profile/:clientId", requireAuth, async (req, res) => {
 		const { clientId } = req.params;
 		const profile = riskProfileStore.get(clientId);
 		// Return null with 200 instead of 404 - no profile yet is not an error
-		res.json(profile || null);
+		res.json(wrapAdvisoryResponse(profile || null));
 	} catch (error: any) {
 		res.status(500).json({ error: error.message });
 	}
@@ -512,7 +513,7 @@ router.post("/risk-profile", requireAuth, async (req, res) => {
 
 		riskProfileStore.set(clientId, profile);
 		logger.warn("IN_MEMORY_STORE_WRITE", { store: "riskProfileStore", clientId, event: "profile_upserted" });
-		res.json(profile);
+		res.json(wrapAdvisoryResponse(profile));
 	} catch (error: any) {
 		res.status(500).json({ error: error.message });
 	}
@@ -633,13 +634,13 @@ router.get("/benchmark/:clientId", requireAuth, async (req, res) => {
 				: 0;
 		const beta = 1.0; // Default market beta — computed dynamically when benchmark data available
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			portfolioReturns,
 			benchmarks,
 			sharpeRatio,
 			sortinoRatio,
 			beta,
-		});
+		}));
 	} catch (error: any) {
 		res.status(500).json({ error: error.message });
 	}
@@ -652,11 +653,11 @@ router.post(
 	async (req, res) => {
 		try {
 			const result = await prospectPortfolioSyncService.migrateAllProspects();
-			res.json({
+			res.json(wrapAdvisoryResponse({
 				success: true,
 				message: `Migration complete: ${result.migrated} prospects migrated out of ${result.total}`,
 				...result,
-			});
+			}));
 		} catch (error: any) {
 			console.error("Error migrating portfolios:", error);
 			res.status(500).json({ error: error.message });
@@ -675,11 +676,11 @@ router.post(
 				await prospectPortfolioSyncService.migrateToCurrentPortfolio(
 					prospectId,
 				);
-			res.json({
+			res.json(wrapAdvisoryResponse({
 				success: true,
 				message: `Migrated ${result.migrated} holdings`,
 				holdings: result.holdings,
-			});
+			}));
 		} catch (error: any) {
 			console.error("Error migrating portfolio:", error);
 			res.status(500).json({ error: error.message });

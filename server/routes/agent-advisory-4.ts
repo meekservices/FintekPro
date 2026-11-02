@@ -31,6 +31,7 @@ import {
 import { eq, and, desc, sql, or, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import crypto from "crypto";
+import { wrapAdvisoryResponse } from "../utils/fasp-ai-response";
 const logAgentAction = async (..._args: any[]) => {};
 const calculateAge = (_dob: any) => 30;
 const calculateAssetAllocation = (..._args: any[]) => ({});
@@ -220,7 +221,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 					},
 				});
 
-				res.json({
+				res.json(wrapAdvisoryResponse({
 					success: true,
 					user_confirmation_required: true,
 					workflowId: populationResult.workflowId,
@@ -235,7 +236,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 					},
 					sourceResults: populationResult.sourceResults,
 					aiAnalysis,
-				});
+				}));
 			} catch (error: any) {
 				console.error("Error in agent auto-fetch portfolio:", error);
 				res
@@ -373,7 +374,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 					),
 				]);
 
-				res.json({
+				res.json(wrapAdvisoryResponse({
 					success: true,
 					hasHoldings: true,
 					portfolioSummary: {
@@ -388,7 +389,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 						proposal,
 						generatedAt: new Date().toISOString(),
 					},
-				});
+				}));
 			} catch (error: any) {
 				console.error("Error getting portfolio analysis:", error);
 				res
@@ -422,7 +423,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 					mode,
 					agentId || "system",
 				);
-				res.json(result);
+				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
 				res.status(500).json({ error: error.message });
 			}
@@ -439,7 +440,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 					proposalId,
 					"system",
 				);
-				res.json(result);
+				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
 				res.status(500).json({ error: error.message });
 			}
@@ -473,7 +474,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 					allocation,
 					agentId || "system",
 				);
-				res.json(result);
+				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
 				res.status(500).json({ error: error.message });
 			}
@@ -487,7 +488,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 			try {
 				const { proposalId } = req.params;
 				const result = await ProposalOrchestrator.getLockedStrategy(proposalId);
-				res.json(result);
+				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
 				res.status(500).json({ error: error.message });
 			}
@@ -506,7 +507,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 						proposalId,
 						agentId || "system",
 					);
-				res.json(result);
+				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
 				res.status(500).json({ error: error.message });
 			}
@@ -528,7 +529,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 					oldHoldings,
 					agentId || "system",
 				);
-				res.json(result);
+				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
 				res.status(500).json({ error: error.message });
 			}
@@ -553,7 +554,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 						oldAllocation,
 						agentId || "system",
 					);
-				res.json(result);
+				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
 				res.status(500).json({ error: error.message });
 			}
@@ -576,7 +577,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 						proposedAllocation,
 						agentId || "system",
 					);
-				res.json(result);
+				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
 				res.status(500).json({ error: error.message });
 			}
@@ -594,7 +595,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 				);
 				const result =
 					await ProposalFlowGatekeeper.validateStrategyIntegrity(proposalId);
-				res.json(result);
+				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
 				res.status(500).json({ error: error.message });
 			}
@@ -626,7 +627,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 						agentId || "system",
 						changeReason || "Allocation modified",
 					);
-				res.json(result);
+				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {
 				res.status(500).json({ error: error.message });
 			}
@@ -641,7 +642,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 			try {
 				const { proposalId } = req.params;
 				const result = await ProposalOrchestrator.analyzeProposalOverlap(proposalId);
-				res.json({ success: true, data: result });
+				res.json(wrapAdvisoryResponse({ success: true, data: result }));
 			} catch (error: any) {
 				res.status(500).json({ success: false, error: error.message });
 			}
@@ -660,7 +661,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 					proposalId,
 					options,
 				);
-				res.json({ success: true, data: result });
+				res.json(wrapAdvisoryResponse({ success: true, data: result }));
 			} catch (error: any) {
 				res.status(500).json({ success: false, error: error.message });
 			}
@@ -679,7 +680,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 					proposalId,
 					options,
 				);
-				res.json({ success: true, data: result });
+				res.json(wrapAdvisoryResponse({ success: true, data: result }));
 			} catch (error: any) {
 				res.status(500).json({ success: false, error: error.message });
 			}

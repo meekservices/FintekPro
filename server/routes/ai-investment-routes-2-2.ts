@@ -21,6 +21,7 @@ import { prospectPortfolioSyncService } from "../services/prospect-portfolio-syn
 import { requireRole } from "../middleware/roleMiddleware";
 import { requireAuth } from "../middleware/auth";
 import { unifiedPortfolioImportService } from "../services/unified-portfolio-import-service";
+import { wrapAdvisoryResponse } from "../utils/fasp-ai-response";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -115,7 +116,7 @@ router.post(
 			const parsingMetrics = (result as any).parsingMetrics;
 			const holdingLots = (result as any).holdingLots;
 
-			res.json({
+			res.json(wrapAdvisoryResponse({
 				success: result.success,
 				holdings: result.holdings.map((h: any) => ({
 					id: h.id || crypto.randomUUID(),
@@ -157,7 +158,7 @@ router.post(
 				needsManualReview:
 					result.parsingStatus === "needs_review" ||
 					(result.confidenceScore || 0) < 0.7,
-			});
+			}));
 		} catch (error: any) {
 			console.error("Error previewing PDF:", error);
 			res.status(500).json({ error: error.message || "Failed to parse PDF" });
@@ -213,12 +214,12 @@ router.post("/portfolio/:clientId/import-previewed", requireAuth, async (req, re
 				0,
 			);
 
-			return res.json({
+			return res.json(wrapAdvisoryResponse({
 				success: true,
 				imported: updatedHoldings.length,
 				totalValue,
 				source: "currentPortfolio",
-			});
+			}));
 		}
 
 		// For registered users: write to portfolioHoldings table
@@ -284,12 +285,12 @@ router.post("/portfolio/:clientId/import-previewed", requireAuth, async (req, re
 			.set({ totalValue: totalValue.toString(), updatedAt: new Date() })
 			.where(eq(portfolios.id, portfolio.id));
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			imported,
 			portfolioId: portfolio.id,
 			totalValue,
-		});
+		}));
 	} catch (error: any) {
 		console.error("Error importing previewed holdings:", error);
 		res
@@ -454,7 +455,7 @@ router.post(
 				.set({ totalValue: totalValue.toString(), updatedAt: new Date() })
 				.where(eq(portfolios.id, portfolio.id));
 
-			res.json({
+			res.json(wrapAdvisoryResponse({
 				success: true,
 				imported,
 				totalValue,
@@ -466,7 +467,7 @@ router.post(
 				holdingLots: holdingLots,
 				warnings: result.errors,
 				needsManualReview: result.parsingStatus === "needs_review",
-			});
+			}));
 		} catch (error: any) {
 			console.error("Error uploading CAS PDF:", error);
 			res.status(500).json({ error: error.message || "Failed to process PDF" });
@@ -500,7 +501,7 @@ router.post("/portfolio/validate-paste", requireAuth, async (req, res) => {
 		}
 
 		// Return enriched holdings with ISIN status
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			holdings: result.holdings.map((h: any) => ({
 				id: h.id || crypto.randomUUID(),
@@ -529,7 +530,7 @@ router.post("/portfolio/validate-paste", requireAuth, async (req, res) => {
 			totalUnmatched: result.holdings.filter((h: any) => !h.isin && !h.symbol)
 				.length,
 			errors: result.errors,
-		});
+		}));
 	} catch (error: any) {
 		console.error("Error validating paste data:", error);
 		res
@@ -609,11 +610,11 @@ router.get("/portfolio/:clientId/import-history", requireAuth, async (req, res) 
 		const { clientId } = req.params;
 		const history = importHistoryStore[clientId] || [];
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			history,
 			count: history.length,
-		});
+		}));
 	} catch (error: any) {
 		console.error("Error fetching import history:", error);
 		res
@@ -628,7 +629,7 @@ router.get("/analyze/:clientId", requireAuth, async (req, res) => {
 		const { clientId } = req.params;
 		const analysis = await aiInvestmentService.analyzePortfolio(clientId);
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			totalValue: analysis?.totalValue || 0,
 			totalGainLoss: analysis?.totalGainLoss || 0,
 			totalGainLossPercent: analysis?.totalGainLossPercent || 0,
@@ -642,7 +643,7 @@ router.get("/analyze/:clientId", requireAuth, async (req, res) => {
 			topHoldings: (analysis as any)?.topHoldings || [],
 			riskScore: analysis?.riskScore || 50,
 			diversificationScore: (analysis as any)?.diversificationScore || 50,
-		});
+		}));
 	} catch (error: any) {
 		console.error("Error analyzing portfolio:", error);
 		// Return empty analysis for missing portfolios instead of 500 error
@@ -650,7 +651,7 @@ router.get("/analyze/:clientId", requireAuth, async (req, res) => {
 			error.message?.includes("not found") ||
 			error.message?.includes("No portfolio")
 		) {
-			return res.json({
+			return res.json(wrapAdvisoryResponse({
 				totalValue: 0,
 				totalGainLoss: 0,
 				totalGainLossPercent: 0,
@@ -660,7 +661,7 @@ router.get("/analyze/:clientId", requireAuth, async (req, res) => {
 				riskScore: 50,
 				diversificationScore: 50,
 				message: "No portfolio data available. Add holdings to see analysis.",
-			});
+			}));
 		}
 		res.status(500).json({ error: "Failed to analyze portfolio" });
 	}

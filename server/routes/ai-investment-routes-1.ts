@@ -20,9 +20,33 @@ import { prospectPortfolioSyncService } from "../services/prospect-portfolio-syn
 import { requireRole } from "../middleware/roleMiddleware";
 import { requireAuth } from "../middleware/auth";
 import { unifiedPortfolioImportService } from "../services/unified-portfolio-import-service";
+import { wrapAdvisoryResponse } from "../utils/fasp-ai-response";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
+
+/**
+ * Returns the LTCG holding period threshold in days for an asset category.
+ * - Equity / ETF / REIT / Hybrid-equity: 365 days (1 year)
+ * - Debt MF / FoF / International fund: 1095 days (3 years, per Finance Act 2023)
+ * @param assetCategory - The asset category string from the holding record
+ * @returns Threshold in days (365 or 1095)
+ */
+function getLTCGThreshold(assetCategory: string | null | undefined): number {
+	const cat = (assetCategory || "").toLowerCase();
+	if (
+		cat.includes("debt") ||
+		cat.includes("fof") ||
+		cat.includes("international") ||
+		cat.includes("overseas") ||
+		cat.includes("gilt") ||
+		cat.includes("liquid") ||
+		cat.includes("money market")
+	) {
+		return 1095; // 3 years — Finance Act 2023
+	}
+	return 365; // 1 year — equity, ETF, REIT, hybrid-equity
+}
 
 // Helper to resolve clientId to prospect or user and return appropriate portfolio lookup
 async function resolveClientType(clientId: string): Promise<{
@@ -142,9 +166,11 @@ router.get("/portfolio/:clientId", requireAuth, async (req, res) => {
 								(Date.now() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24),
 							)
 						: null;
-					const isLTCG = holdingDays !== null && holdingDays > 365;
+					// H-10: Use asset-category-aware LTCG threshold (Finance Act 2023)
+					const ltcgThreshold = getLTCGThreshold(holding.category ?? null);
+					const isLTCG = holdingDays !== null && holdingDays > ltcgThreshold;
 					const daysToLTCG =
-						holdingDays !== null && !isLTCG ? 365 - holdingDays : 0;
+						holdingDays !== null && !isLTCG ? ltcgThreshold - holdingDays : 0;
 
 					return {
 						id: holding.id,
@@ -162,7 +188,7 @@ router.get("/portfolio/:clientId", requireAuth, async (req, res) => {
 						holdingDays,
 						taxType: holdingDays !== null ? (isLTCG ? "LTCG" : "STCG") : null,
 						daysToLTCG,
-						exitLoadApplicable: holdingDays !== null && holdingDays < 365,
+						exitLoadApplicable: holdingDays !== null && holdingDays < ltcgThreshold,
 					};
 				}),
 			);
@@ -236,9 +262,11 @@ router.get("/portfolio/:clientId", requireAuth, async (req, res) => {
 							(Date.now() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24),
 						)
 					: null;
-				const isLTCG = holdingDays !== null && holdingDays > 365;
+				// H-10: Use asset-category-aware LTCG threshold (Finance Act 2023)
+				const ltcgThreshold = getLTCGThreshold(holding.assetClass ?? holding.assetType ?? null);
+				const isLTCG = holdingDays !== null && holdingDays > ltcgThreshold;
 				const daysToLTCG =
-					holdingDays !== null && !isLTCG ? 365 - holdingDays : 0;
+					holdingDays !== null && !isLTCG ? ltcgThreshold - holdingDays : 0;
 
 				return {
 					id: holding.id,
@@ -256,7 +284,7 @@ router.get("/portfolio/:clientId", requireAuth, async (req, res) => {
 					holdingDays,
 					taxType: holdingDays !== null ? (isLTCG ? "LTCG" : "STCG") : null,
 					daysToLTCG,
-					exitLoadApplicable: holdingDays !== null && holdingDays < 365,
+					exitLoadApplicable: holdingDays !== null && holdingDays < ltcgThreshold,
 				};
 			}),
 		);
@@ -266,7 +294,7 @@ router.get("/portfolio/:clientId", requireAuth, async (req, res) => {
 			0,
 		);
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			id: portfolio.id,
 			clientId,
 			name: portfolio.name,
@@ -274,7 +302,7 @@ router.get("/portfolio/:clientId", requireAuth, async (req, res) => {
 			holdings: holdingsWithMarketData,
 			lastUpdated:
 				portfolio.updatedAt?.toISOString() || new Date().toISOString(),
-		});
+		}));
 	} catch (error) {
 		console.error("Error fetching portfolio:", error);
 		res.status(500).json({
@@ -362,12 +390,12 @@ router.post("/portfolio/manual-entry", requireAuth, async (req, res) => {
 			insertedHoldings.push(inserted);
 		}
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			message: `Added ${insertedHoldings.length} holdings to portfolio`,
 			portfolioId: portfolio.id,
 			holdings: insertedHoldings,
-		});
+		}));
 	} catch (error) {
 		console.error("Error adding manual entries:", error);
 		res.status(500).json({
@@ -489,14 +517,14 @@ router.post(
 				insertedHoldings.push(inserted);
 			}
 
-			res.json({
+			res.json(wrapAdvisoryResponse({
 				success: true,
 				message: `Uploaded ${insertedHoldings.length} holdings`,
 				portfolioId: portfolio.id,
 				holdingsAdded: insertedHoldings.length,
 				errors:
 					importResult.errors?.length > 0 ? importResult.errors : undefined,
-			});
+			}));
 		} catch (error) {
 			console.error("Error uploading CSV:", error);
 			res.status(500).json({
@@ -591,10 +619,10 @@ router.put("/portfolio/update/:holdingId", requireAuth, async (req, res) => {
 			});
 		}
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			holding: updated,
-		});
+		}));
 	} catch (error) {
 		console.error("Error updating holding:", error);
 		res.status(500).json({
@@ -629,10 +657,10 @@ router.delete("/portfolio/holding/:holdingId", requireAuth, async (req, res) => 
 			.delete(portfolioHoldings)
 			.where(eq(portfolioHoldings.id, holdingId));
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			message: "Holding deleted",
-		});
+		}));
 	} catch (error) {
 		console.error("Error deleting holding:", error);
 		res.status(500).json({
@@ -658,10 +686,10 @@ router.post("/ai/portfolio/analyze", requireAuth, async (req, res) => {
 			portfolioId,
 		);
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			analysis,
-		});
+		}));
 	} catch (error) {
 		console.error("Error analyzing portfolio:", error);
 		res.status(500).json({
@@ -685,11 +713,11 @@ router.post("/ai/portfolio/alerts", requireAuth, async (req, res) => {
 
 		const alerts = await aiInvestmentService.generateAlerts(clientId);
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			alerts,
 			count: alerts.length,
-		});
+		}));
 	} catch (error) {
 		console.error("Error generating alerts:", error);
 		res.status(500).json({
@@ -709,11 +737,11 @@ router.get("/ai/alerts/:clientId", requireAuth, async (req, res) => {
 			status as string | undefined,
 		);
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			alerts,
 			count: alerts.length,
-		});
+		}));
 	} catch (error) {
 		console.error("Error fetching alerts:", error);
 		res.status(500).json({
@@ -740,11 +768,11 @@ router.post("/ai/stocks/profit-picks", requireAuth, async (req, res) => {
 			riskLevel,
 		});
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			picks,
 			count: picks.length,
-		});
+		}));
 	} catch (error) {
 		console.error("Error generating profit picks:", error);
 		res.status(500).json({
@@ -764,11 +792,11 @@ router.get("/ai/stocks/profit-picks/:clientId", requireAuth, async (req, res) =>
 			status as string | undefined,
 		);
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			picks,
 			count: picks.length,
-		});
+		}));
 	} catch (error) {
 		console.error("Error fetching profit picks:", error);
 		res.status(500).json({
@@ -796,11 +824,11 @@ router.post("/ai/stocks/buy-signals", requireAuth, async (req, res) => {
 
 		const buySignals = picks.filter((p) => p.signalType === "buy");
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			signals: buySignals,
 			count: buySignals.length,
-		});
+		}));
 	} catch (error) {
 		console.error("Error generating buy signals:", error);
 		res.status(500).json({
@@ -826,11 +854,11 @@ router.post("/ai/agent/talking-points", requireAuth, async (req, res) => {
 			analysisId,
 		);
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			talkingPoints,
 			count: talkingPoints.length,
-		});
+		}));
 	} catch (error) {
 		console.error("Error generating talking points:", error);
 		res.status(500).json({
@@ -853,11 +881,11 @@ router.get("/ai/talking-points/:clientId", requireAuth, async (req, res) => {
 			.where(eq(aiTalkingPoints.clientId, clientId))
 			.orderBy(aiTalkingPoints.sequenceOrder);
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			talkingPoints,
 			count: talkingPoints.length,
-		});
+		}));
 	} catch (error) {
 		console.error("Error fetching talking points:", error);
 		res.status(500).json({
@@ -889,10 +917,10 @@ router.put("/ai/profit-pick/:pickId/approve", requireAuth, async (req, res) => {
 			},
 		);
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			pick: updated,
-		});
+		}));
 	} catch (error) {
 		console.error("Error approving profit pick:", error);
 		res.status(500).json({

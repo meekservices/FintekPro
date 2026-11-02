@@ -20,6 +20,7 @@ import { prospectPortfolioSyncService } from "../services/prospect-portfolio-syn
 import { requireRole } from "../middleware/roleMiddleware";
 import { requireAuth } from "../middleware/auth";
 import { unifiedPortfolioImportService } from "../services/unified-portfolio-import-service";
+import { wrapAdvisoryResponse } from "../utils/fasp-ai-response";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -116,10 +117,10 @@ router.put("/ai/alert/:alertId/action", requireAuth, async (req, res) => {
 			.where(eq(portfolioAlerts.id, alertId))
 			.returning();
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			alert: updated,
-		});
+		}));
 	} catch (error) {
 		console.error("Error updating alert:", error);
 		res.status(500).json({
@@ -147,11 +148,11 @@ router.post("/proposals/from-ai-stocks", requireAuth, async (req, res) => {
 			title,
 		);
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			...result,
 			message: `Created proposal with ${result.itemCount} items`,
-		});
+		}));
 	} catch (error) {
 		console.error("Error creating proposal from AI stocks:", error);
 		res.status(500).json({
@@ -173,11 +174,11 @@ router.get("/ai/analysis/:clientId", requireAuth, async (req, res) => {
 			.orderBy(desc(aiPortfolioAnalysis.createdAt))
 			.limit(10);
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			analyses,
 			count: analyses.length,
-		});
+		}));
 	} catch (error) {
 		console.error("Error fetching analyses:", error);
 		res.status(500).json({
@@ -204,10 +205,10 @@ router.get("/ai/analysis/detail/:analysisId", requireAuth, async (req, res) => {
 			});
 		}
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			analysis,
-		});
+		}));
 	} catch (error) {
 		console.error("Error fetching analysis:", error);
 		res.status(500).json({
@@ -534,7 +535,7 @@ router.post("/portfolio/:clientId/bulk-import", requireAuth, async (req, res) =>
 			imported++;
 		}
 
-		res.json({
+		res.json(wrapAdvisoryResponse({
 			success: true,
 			imported,
 			skipped: invalidCount,
@@ -542,7 +543,7 @@ router.post("/portfolio/:clientId/bulk-import", requireAuth, async (req, res) =>
 				missingPriceCount > 0
 					? [`${missingPriceCount} holdings imported with price = 0`]
 					: [],
-		});
+		}));
 	} catch (error) {
 		console.error("Error bulk importing holdings:", error);
 		res.status(500).json({ error: "Failed to import holdings" });
