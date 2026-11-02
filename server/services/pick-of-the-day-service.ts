@@ -258,6 +258,10 @@ export class PickOfTheDayService {
 
 	constructor() {
 		this.strategies = new Map();
+	}
+
+	private initStrategies(): void {
+		if (this.strategies.size > 0) return;
 		this.strategies.set("listed_stocks", new StockStrategy());
 		this.strategies.set("mutual_funds", new MutualFundStrategy());
 		this.strategies.set("unlisted", new UnlistedStrategy());
@@ -272,6 +276,7 @@ export class PickOfTheDayService {
 	}
 
 	private getStrategy(category: PickCategory): IPickStrategy {
+		this.initStrategies();
 		const strategy = this.strategies.get(category);
 		if (!strategy)
 			throw new Error(`No strategy found for category: ${category}`);

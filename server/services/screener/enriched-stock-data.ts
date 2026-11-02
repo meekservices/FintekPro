@@ -750,18 +750,171 @@ export async function getEnrichedStockSnapshotsFromMaster(
       results.set(sym, snapshot);
     }
 
-    // For any symbols not found in master table, fall back to the legacy per-symbol fetch
+    // For any symbols not found in master table, fall back to the fast bulk join fetch
     const notInMaster = cacheMisses.filter((s) => !results.has(s));
     if (notInMaster.length > 0) {
-      const fallbackMap = await getEnrichedStockSnapshots(notInMaster);
+      const fallbackMap = await getBulkFallbackSnapshots(notInMaster);
       fallbackMap.forEach((v, k) => {
         results.set(k, v);
       });
     }
 
     return results;
-  } catch {
-    // Non-fatal: fall back to legacy N+1 fetch
-    return getEnrichedStockSnapshots(upperSymbols);
+  } catch (err: any) {
+    logger.warn(`[getEnrichedStockSnapshotsFromMaster] Master table read failed (${err.message}), falling back to bulk join query`);
+    return getBulkFallbackSnapshots(upperSymbols);
   }
+}
+
+/**
+ * Fast bulk fallback for symbols missing in screener_master_snapshots.
+ * Reads listed_stocks + screener_financials + screener_derived_metrics in a SINGLE join query.
+ * Replaces the legacy 11-query-per-symbol N+1 loop that saturates the connection pool.
+ */
+async function getBulkFallbackSnapshots(symbols: string[]): Promise<Map<string, EnrichedStockSnapshot>> {
+  const results = new Map<string, EnrichedStockSnapshot>();
+  if (!symbols.length) return results;
+
+  try {
+    const symbolListSql = sql.raw(`ARRAY[${symbols.map((s) => `'${s.replace(/'/g, "''")}'`).join(",")}]`);
+    const rowsRes = await db.execute(sql`
+      SELECT 
+        ls.symbol,
+        ls.company_name,
+        ls.current_price,
+        ls.pe_ratio,
+        ls.pb_ratio,
+        ls.roe,
+        ls.roce,
+        ls.dividend_yield,
+        ls.market_cap_value,
+        ls.eps,
+        ls.week_high_52,
+        ls.week_low_52,
+        ls.day_change_percent,
+        ls.beta as ls_beta,
+        sf.revenue,
+        sf.net_income,
+        sf.operating_cash_flow,
+        sf.free_cash_flow,
+        sf.debt_to_equity,
+        sf.interest_coverage,
+        sf.revenue_growth,
+        sf.earnings_growth,
+        dm.growth_score,
+        dm.quality_score,
+        dm.value_score,
+        dm.risk_score,
+        dm.composite_score,
+        dm.fintek_rating,
+        dm.momentum_score,
+        dm.piotroski_score,
+        dm.altman_z_score,
+        dm.return_1w,
+        dm.return_1m,
+        dm.return_3m,
+        dm.return_6m,
+        dm.return_1y,
+        dm.return_2y,
+        dm.return_3y,
+        dm.return_5y,
+        dm.return_ytd,
+        dm.return_vs_nifty_1y,
+        dm.sharpe_ratio_1y,
+        dm.max_drawdown_1y,
+        dm.beta as dm_beta
+      FROM listed_stocks ls
+      LEFT JOIN LATERAL (
+        SELECT * FROM screener_financials sf 
+        WHERE sf.symbol = ls.symbol 
+        ORDER BY fiscal_year DESC LIMIT 1
+      ) sf ON true
+      LEFT JOIN screener_derived_metrics dm ON dm.symbol = ls.symbol
+      WHERE ls.symbol = ANY(${symbolListSql})
+    `);
+
+    const rows = (rowsRes as any).rows || [];
+    for (const r of rows) {
+      const sym = String(r.symbol).toUpperCase();
+      const snapshot: EnrichedStockSnapshot = {
+        symbol: sym,
+        fetchedAt: new Date().toISOString(),
+        fundamentals: {
+          peRatio: safeNum(r.pe_ratio),
+          pbRatio: safeNum(r.pb_ratio),
+          roe: safeNum(r.roe),
+          roa: null,
+          roic: safeNum(r.roce),
+          debtToEquity: safeNum(r.debt_to_equity),
+          currentRatio: null,
+          dividendYield: safeNum(r.dividend_yield),
+          eps: safeNum(r.eps),
+          evToEbitda: null,
+          grahamNumber: null,
+          marketCap: safeNum(r.market_cap_value),
+          enterpriseValue: null,
+          freeCashFlowYield: null,
+          earningsYield: null,
+          payoutRatio: null,
+          revenuePerShare: null,
+          bookValuePerShare: null,
+          operatingCashFlowPerShare: null,
+          freeCashFlowPerShare: null,
+          interestCoverage: safeNum(r.interest_coverage),
+        },
+        growth: {
+          revenueGrowth: safeNum(r.revenue_growth),
+          netIncomeGrowth: safeNum(r.earnings_growth),
+          epsGrowth: safeNum(r.earnings_growth),
+          epsDilutedGrowth: null,
+          freeCashFlowGrowth: null,
+          operatingIncomeGrowth: null,
+          grossProfitGrowth: null,
+          dividendGrowth: null,
+          bookValueGrowth: null,
+          threeYRevenueGrowthPerShare: null,
+          fiveYRevenueGrowthPerShare: null,
+        },
+        technicals: null,
+        dcf: null,
+        companyRating: null,
+        analystTargets: null,
+        analystGrades: null,
+        institutional: null,
+        insiderTrades: null,
+        news: null,
+        sectorPerformance: null,
+        derivedMetrics: {
+          growthScore: safeNum(r.growth_score),
+          qualityScore: safeNum(r.quality_score),
+          valueScore: safeNum(r.value_score),
+          riskScore: safeNum(r.risk_score),
+          compositeScore: safeNum(r.composite_score),
+          fintekRating: safeNum(r.fintek_rating),
+        },
+        performance: {
+          return1W: safeNum(r.return_1w),
+          return1M: safeNum(r.return_1m),
+          return3M: safeNum(r.return_3m),
+          return6M: safeNum(r.return_6m),
+          return1Y: safeNum(r.return_1y),
+          return2Y: safeNum(r.return_2y),
+          return3Y: safeNum(r.return_3y),
+          return5Y: safeNum(r.return_5y),
+          returnYTD: safeNum(r.return_ytd),
+          returnVsNifty1Y: safeNum(r.return_vs_nifty_1y),
+          beta: safeNum(r.dm_beta ?? r.ls_beta),
+          sharpeRatio1Y: safeNum(r.sharpe_ratio_1y),
+          maxDrawdown1Y: safeNum(r.max_drawdown_1y),
+        },
+      };
+
+      snapshotCache.set(sym, { data: snapshot, expiresAt: Date.now() + CACHE_TTL_MS });
+      results.set(sym, snapshot);
+    }
+  } catch (err: any) {
+    logger.warn(`[getBulkFallbackSnapshots] bulk query failed: ${err.message}`);
+  }
+
+  return results;
 }

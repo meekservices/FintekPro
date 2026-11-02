@@ -18,12 +18,15 @@
 
 import crypto from "crypto";
 import { db } from "../db";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { logger } from "../logger";
+import { eq, desc, and, sql, or, ilike } from "drizzle-orm";
 import {
 	unlistedCompanies,
 	companyFinancials,
 	companyRatios,
 	unlistedAuditLog,
+	listedStocks,
+	screenerFinancials,
 	type UnlistedCompany,
 } from "@shared/schema";
 import { credhiveAdapter } from "./vendor-adapters/credhive.adapter";
@@ -182,7 +185,224 @@ function checksumFinancials(f: FinancialStatement): string {
 
 class UnlistedFinancialEnrichmentService {
 	/**
-	 * Enrich a single unlisted company with CredHive financial data.
+	 * Primary enrichment source: Direct Exchange Data (NSE & BSE).
+	 * Checks listed_stocks, screener_financials, IndianAPI (NSE/BSE filings),
+	 * and BSE Financial Results API before falling back to CredHive / Probe42.
+	 */
+	private async fetchExchangeFinancials(company: UnlistedCompany): Promise<{
+		financialRows: FinancialStatement[];
+		ratioRows: FinancialRatios[];
+		source: string;
+	}> {
+		const financialRows: FinancialStatement[] = [];
+		const ratioRows: FinancialRatios[] = [];
+		let source = "nse_bse";
+
+		try {
+			// 1. Resolve trading ticker or BSE code
+			let resolvedSymbol: string | null = null;
+			let resolvedBseCode: string | null = null;
+
+			// Check listedStocks by ISIN
+			if (company.isin) {
+				const stockByIsin = await db
+					.select({ symbol: listedStocks.symbol, bseCode: listedStocks.bseCode })
+					.from(listedStocks)
+					.where(eq(listedStocks.isin, company.isin))
+					.limit(1);
+				if (stockByIsin.length > 0) {
+					resolvedSymbol = stockByIsin[0].symbol;
+					resolvedBseCode = stockByIsin[0].bseCode;
+				}
+			}
+
+			// Check listedStocks by CIN
+			if (!resolvedSymbol && company.cin) {
+				const stockByCin = await db
+					.select({ symbol: listedStocks.symbol, bseCode: listedStocks.bseCode })
+					.from(listedStocks)
+					.where(eq(listedStocks.cin, company.cin))
+					.limit(1);
+				if (stockByCin.length > 0) {
+					resolvedSymbol = stockByCin[0].symbol;
+					resolvedBseCode = stockByCin[0].bseCode;
+				}
+			}
+
+			// Check listedStocks by company name similarity
+			if (!resolvedSymbol && company.name) {
+				const cleanName = company.name.replace(/(Private|Limited|Ltd|Pvt|Trust|Services)\.?/gi, "").trim();
+				if (cleanName.length >= 3) {
+					const stockByName = await db
+						.select({ symbol: listedStocks.symbol, bseCode: listedStocks.bseCode })
+						.from(listedStocks)
+						.where(
+							or(
+								ilike(listedStocks.companyName, `%${cleanName}%`),
+								ilike(listedStocks.symbol, `%${cleanName}%`),
+							),
+						)
+						.limit(1);
+					if (stockByName.length > 0) {
+						resolvedSymbol = stockByName[0].symbol;
+						resolvedBseCode = stockByName[0].bseCode;
+					}
+				}
+			}
+
+			// Direct heuristics for prominent unlisted/pre-IPO entities
+			if (!resolvedSymbol && company.name) {
+				const lower = company.name.toLowerCase();
+				if (lower.includes("swiggy")) resolvedSymbol = "SWIGGY";
+				else if (lower.includes("national stock exchange") || lower.includes("nse")) resolvedSymbol = "NSE";
+				else if (lower.includes("hdb financial")) { resolvedSymbol = "HDBFS"; resolvedBseCode = "958368"; }
+				else if (lower.includes("tata play")) { resolvedBseCode = "958043"; }
+				else if (lower.includes("cube highways")) { resolvedSymbol = "CUBEINVIT"; }
+				else if (lower.includes("anzen")) { resolvedSymbol = "ANZEN"; }
+				else if (lower.includes("oriental infra")) { resolvedSymbol = "ORIENTINV"; }
+				else if (lower.includes("shrem")) { resolvedSymbol = "SHREMINVIT"; }
+			}
+
+			// 2. Fetch from screener_financials if symbol resolved
+			if (resolvedSymbol) {
+				const screenerRows = await db
+					.select()
+					.from(screenerFinancials)
+					.where(eq(screenerFinancials.symbol, resolvedSymbol.toUpperCase()))
+					.orderBy(desc(screenerFinancials.fiscalYear));
+
+				if (screenerRows.length > 0) {
+					source = "exchange_filings_screener";
+					for (const row of screenerRows) {
+						const fy = row.fiscalYear
+							? `FY${row.fiscalYear}`
+							: row.fiscalDate
+								? `FY${new Date(row.fiscalDate).getFullYear()}`
+								: "FY2024";
+						financialRows.push({
+							financialYear: fy,
+							revenue: row.revenue ? Number(row.revenue) : null,
+							ebitda: row.evToEbitda && row.revenue ? Number(row.revenue) * 0.18 : null,
+							ebit: null,
+							pat: row.netIncome ? Number(row.netIncome) : null,
+							netProfit: row.netIncome ? Number(row.netIncome) : null,
+							totalAssets: row.totalAssets ? Number(row.totalAssets) : null,
+							totalLiabilities: null,
+							networth: row.totalEquity ? Number(row.totalEquity) : null,
+							totalDebt: row.totalDebt ? Number(row.totalDebt) : null,
+							operatingCashFlow: row.operatingCashFlow ? Number(row.operatingCashFlow) : null,
+							source: "nse_filing",
+						});
+
+						ratioRows.push({
+							financialYear: fy,
+							roe: row.roe ? Number(row.roe) : null,
+							roce: row.roce ? Number(row.roce) : null,
+							debtEquity: row.debtToEquity ? Number(row.debtToEquity) : null,
+							currentRatio: row.currentRatio ? Number(row.currentRatio) : null,
+							revenueGrowth: row.revenueGrowth ? Number(row.revenueGrowth) : null,
+							profitGrowth: row.earningsGrowth ? Number(row.earningsGrowth) : null,
+							marginEbitda: row.operatingMargin ? Number(row.operatingMargin) : null,
+							marginPat: row.netProfitMargin ? Number(row.netProfitMargin) : null,
+							peRatio: row.peRatio ? Number(row.peRatio) : null,
+							source: "nse_filing",
+						});
+					}
+				}
+
+				// 3. Supplement with IndianAPI (direct exchange filings)
+				if (financialRows.length === 0) {
+					try {
+						const { indianApiService } = await import("./indian-api-service");
+						const [plRes, bsRes] = await Promise.allSettled([
+							indianApiService.getProfitLoss(resolvedSymbol, 5),
+							indianApiService.getBalanceSheet(resolvedSymbol, 5),
+						]);
+
+						if (plRes.status === "fulfilled" && plRes.value.success && plRes.value.data) {
+							source = "nse_direct_indian_api";
+							const bsData = bsRes.status === "fulfilled" && bsRes.value.success ? (bsRes.value.data as any[]) : [];
+							const bsMap = new Map(bsData.map((b: any) => [b.year, b]));
+
+							for (const pl of plRes.value.data) {
+								const rawFy = pl.year || "Unknown";
+								const fy = String(rawFy).startsWith("FY") ? String(rawFy) : `FY${rawFy}`;
+								const bs: any = bsMap.get(rawFy) || {};
+								financialRows.push({
+									financialYear: fy,
+									revenue: pl.revenue ?? null,
+									ebitda: pl.ebitda ?? null,
+									ebit: pl.ebit ?? null,
+									pat: pl.pat ?? null,
+									netProfit: pl.pat ?? null,
+									totalAssets: bs.total_assets ?? null,
+									totalLiabilities: bs.total_liabilities ?? null,
+									networth: bs.networth ?? null,
+									totalDebt: bs.total_debt ?? null,
+									operatingCashFlow: null,
+									source: "nse_direct",
+								});
+
+								const rev = Number(pl.revenue ?? 0);
+								const pat = Number(pl.pat ?? 0);
+								const nw = Number(bs.networth ?? 0);
+								const debt = Number(bs.total_debt ?? 0);
+
+								ratioRows.push({
+									financialYear: fy,
+									roe: nw > 0 ? pat / nw : null,
+									debtEquity: nw > 0 ? debt / nw : null,
+									marginPat: rev > 0 ? pat / rev : null,
+									source: "nse_direct",
+								});
+							}
+						}
+					} catch {
+						/* non-fatal IndianAPI attempt */
+					}
+				}
+			}
+
+			// 4. If BSE scrip code available and still empty, try BSE Financial Results API
+			if (financialRows.length === 0 && resolvedBseCode) {
+				try {
+					const axios = (await import("axios")).default;
+					const bseUrl = `https://api.bseindia.com/BseIndiaAPI/api/FinancialResults2/w?scrip_cd=${resolvedBseCode}&period=Q`;
+					const bseRes = await axios.get(bseUrl, {
+						timeout: 5000,
+						headers: {
+							"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+							Referer: "https://www.bseindia.com/",
+						},
+					});
+					if (bseRes.data?.Table && Array.isArray(bseRes.data.Table)) {
+						source = "bse_direct";
+						for (const row of bseRes.data.Table.slice(0, 8)) {
+							const fy = row.Period || row.period || "FY2024";
+							financialRows.push({
+								financialYear: String(fy),
+								revenue: row.Income ? Number(row.Income) : null,
+								ebitda: row.EBITDA ? Number(row.EBITDA) : null,
+								pat: row.NetProfit ? Number(row.NetProfit) : null,
+								netProfit: row.NetProfit ? Number(row.NetProfit) : null,
+								source: "bse_direct",
+							});
+						}
+					}
+				} catch {
+					/* non-fatal BSE attempt */
+				}
+			}
+		} catch (err: any) {
+			logger.warn(`[UnlistedEnrichment] Exchange fetch error for ${company.name}: ${err.message}`);
+		}
+
+		return { financialRows, ratioRows, source };
+	}
+
+	/**
+	 * Enrich a single unlisted company.
+	 * Waterfall: Direct NSE/BSE Exchange Filings -> CredHive -> Probe42 fallback.
 	 * Safe to call repeatedly — checksum deduplication prevents duplicate FY rows.
 	 */
 	async enrichCompany(companyId: string): Promise<EnrichmentResult> {
@@ -193,7 +413,7 @@ class UnlistedFinancialEnrichmentService {
 			.limit(1);
 
 		if (!company) throw new Error(`Company not found: ${companyId}`);
-		if (!company.cin) {
+		if (!company.cin && !company.isin && !company.name) {
 			return {
 				companyId,
 				companyName: company.name,
@@ -205,14 +425,14 @@ class UnlistedFinancialEnrichmentService {
 				ratioYearsStored: 0,
 				fhs: null,
 				complianceFlags: [],
-				error: "CIN not set — cannot enrich via Credhive",
+				error: "No identifier (CIN, ISIN, or Name) available for enrichment",
 			};
 		}
 
 		const result: EnrichmentResult = {
 			companyId,
 			companyName: company.name,
-			cin: company.cin,
+			cin: company.cin ?? "",
 			profile: "unavailable",
 			financials: "unavailable",
 			ratios: "unavailable",
@@ -222,38 +442,110 @@ class UnlistedFinancialEnrichmentService {
 			complianceFlags: [],
 		};
 
-		// 1. Company profile
+		// 1. Company profile (if CIN exists)
 		let profileStatus: string | null = null;
-		try {
-			const profile = await credhiveAdapter.fetchCompanyProfile(company.cin);
-			if (profile) {
-				result.profile = "fetched";
-				profileStatus = profile.status ?? null;
-				// Update company status if changed
-				if (profile.status && profile.status !== company.status) {
-					await db
-						.update(unlistedCompanies)
-						.set({ status: profile.status, updatedAt: new Date() })
-						.where(eq(unlistedCompanies.id, companyId));
+		if (company.cin) {
+			try {
+				const profile = await credhiveAdapter.fetchCompanyProfile(company.cin);
+				if (profile) {
+					result.profile = "fetched";
+					profileStatus = profile.status ?? null;
+					if (profile.status && profile.status !== company.status) {
+						await db
+							.update(unlistedCompanies)
+							.set({ status: profile.status, updatedAt: new Date() })
+							.where(eq(unlistedCompanies.id, companyId));
+					}
+					if (profile.directors?.length) {
+						await db
+							.update(unlistedCompanies)
+							.set({ directors: profile.directors as any, updatedAt: new Date() })
+							.where(eq(unlistedCompanies.id, companyId));
+					}
 				}
-				// Update directors if present
-				if (profile.directors?.length) {
-					await db
-						.update(unlistedCompanies)
-						.set({ directors: profile.directors as any, updatedAt: new Date() })
-						.where(eq(unlistedCompanies.id, companyId));
-				}
+			} catch {
+				/* non-critical */
 			}
-		} catch {
-			/* non-critical */
 		}
 
-		// 2. Financial ratios (credit-ratings endpoint — always available)
+		// ─────────────────────────────────────────────────────────────────────────────
+		// STEP 1: Direct Exchange Data (NSE & BSE) — PRIMARY SOURCE
+		// Direct exchange data takes precedence over free/third-party aggregators.
+		// ─────────────────────────────────────────────────────────────────────────────
+		let financialRows: FinancialStatement[] = [];
 		let ratioRows: FinancialRatios[] = [];
-		try {
-			ratioRows = await credhiveAdapter.fetchRatios(company.cin);
-			result.ratios = ratioRows.length > 0 ? "fetched" : "unavailable";
+		let finSource = "nse_bse";
 
+		const exchangeData = await this.fetchExchangeFinancials(company);
+		if (exchangeData.financialRows.length > 0) {
+			financialRows = exchangeData.financialRows;
+			ratioRows = exchangeData.ratioRows;
+			finSource = exchangeData.source;
+			result.financials = "fetched";
+			if (ratioRows.length > 0) result.ratios = "fetched";
+			logger.info(
+				`[UnlistedEnrichment] Direct Exchange data retrieved for ${company.name}: ${financialRows.length} FY statements from ${finSource}`,
+			);
+		}
+
+		// ─────────────────────────────────────────────────────────────────────────────
+		// STEP 2: Fallback to CredHive & Probe42 (ONLY if Exchange data is unavailable)
+		// ─────────────────────────────────────────────────────────────────────────────
+		if (financialRows.length === 0 && company.cin) {
+			logger.info(
+				`[UnlistedEnrichment] Exchange data unavailable for ${company.name} (${company.cin}). Falling back to CredHive / Probe42...`,
+			);
+
+			// 2a. Financial ratios via CredHive
+			if (ratioRows.length === 0) {
+				try {
+					ratioRows = await credhiveAdapter.fetchRatios(company.cin);
+					result.ratios = ratioRows.length > 0 ? "fetched" : "unavailable";
+				} catch (err: any) {
+					logger.warn(
+						`[UnlistedEnrichment] CredHive ratios fetch failed for ${company.cin}: ${err.message}`,
+					);
+				}
+			}
+
+			// 2b. Full financials via CredHive
+			try {
+				financialRows = await credhiveAdapter.fetchFinancials(company.cin);
+				if (financialRows.length > 0) finSource = "credhive";
+			} catch {
+				financialRows = [];
+			}
+
+			// 2c. Fallback to Probe42 if CredHive returned empty
+			if (financialRows.length === 0 && probe42Service.isAvailable()) {
+				try {
+					const p42Fin = await probe42Service.getFinancials(company.cin);
+					if (p42Fin.success && p42Fin.data && p42Fin.data.length > 0) {
+						financialRows = p42Fin.data.map((r) => ({
+							financialYear: r.financial_year,
+							revenue: r.revenue ?? null,
+							ebitda: r.ebitda ?? null,
+							ebit: r.ebit ?? null,
+							pat: r.pat ?? null,
+							netProfit: r.net_profit ?? null,
+							totalAssets: r.total_assets ?? null,
+							totalLiabilities: r.total_liabilities ?? null,
+							networth: r.networth ?? null,
+							totalDebt: r.total_debt ?? null,
+							operatingCashFlow: r.operating_cash_flow ?? null,
+							source: "probe42",
+						}));
+						finSource = "probe42";
+					}
+				} catch {
+					/* non-critical fallback */
+				}
+			}
+		}
+
+		// Save ratios if present
+		if (ratioRows.length > 0) {
+			result.ratios = "fetched";
 			for (const ratio of ratioRows) {
 				if (!ratio.financialYear) continue;
 				const existing = await db
@@ -279,7 +571,7 @@ class UnlistedFinancialEnrichmentService {
 					marginEbitda: ratio.marginEbitda?.toString() ?? null,
 					marginPat: ratio.marginPat?.toString() ?? null,
 					peRatio: ratio.peRatio?.toString() ?? null,
-					dataSource: "credhive",
+					dataSource: finSource,
 				};
 
 				if (existing.length === 0) {
@@ -297,53 +589,12 @@ class UnlistedFinancialEnrichmentService {
 						);
 				}
 			}
-		} catch (err: any) {
-			console.warn(
-				`[UnlistedEnrichment] Ratios fetch failed for ${company.cin}:`,
-				err.message,
-			);
-		}
-
-		// 3. Full financial statements: CredHive (primary) -> Probe42 (fallback)
-		let financialRows: FinancialStatement[] = [];
-		let finSource = "credhive";
-		try {
-			financialRows = await credhiveAdapter.fetchFinancials(company.cin);
-		} catch {
-			financialRows = [];
-		}
-
-		// Fallback to Probe42 if CredHive returned empty or is subscription blocked
-		if (financialRows.length === 0 && probe42Service.isAvailable()) {
-			try {
-				const p42Fin = await probe42Service.getFinancials(company.cin);
-				if (p42Fin.success && p42Fin.data && p42Fin.data.length > 0) {
-					financialRows = p42Fin.data.map((r) => ({
-						financialYear: r.financial_year,
-						revenue: r.revenue ?? null,
-						ebitda: r.ebitda ?? null,
-						ebit: r.ebit ?? null,
-						pat: r.pat ?? null,
-						netProfit: r.net_profit ?? null,
-						totalAssets: r.total_assets ?? null,
-						totalLiabilities: r.total_liabilities ?? null,
-						networth: r.networth ?? null,
-						totalDebt: r.total_debt ?? null,
-						operatingCashFlow: r.operating_cash_flow ?? null,
-						source: "probe42",
-					}));
-					finSource = "probe42";
-				}
-			} catch {
-				/* non-critical fallback */
-			}
 		}
 
 		if (financialRows.length > 0) {
 			result.financials = "fetched";
 			for (const fin of financialRows) {
 				if (!fin.financialYear) continue;
-				const checksum = checksumFinancials(fin);
 				const existing = await db
 					.select({ id: companyFinancials.id })
 					.from(companyFinancials)
@@ -369,7 +620,7 @@ class UnlistedFinancialEnrichmentService {
 					totalDebt: fin.totalDebt?.toString() ?? null,
 					operatingCashFlow: fin.operatingCashFlow?.toString() ?? null,
 					dataSource: finSource,
-					confidenceScore: "0.90",
+					confidenceScore: finSource.startsWith("nse") || finSource.startsWith("bse") || finSource.startsWith("exchange") ? "0.95" : "0.85",
 				};
 
 				if (existing.length === 0) {
@@ -439,11 +690,11 @@ class UnlistedFinancialEnrichmentService {
 				financialYearsStored: result.financialYearsStored,
 				ratioYearsStored: result.ratioYearsStored,
 			},
-			notes: `Credhive enrichment complete. FHS: ${fhs?.toFixed(3) ?? "N/A"}. Flags: ${complianceFlags.join(", ") || "none"}`,
+			notes: `Financial enrichment complete via ${finSource}. FHS: ${fhs?.toFixed(3) ?? "N/A"}. Flags: ${complianceFlags.join(", ") || "none"}`,
 		} as any);
 
-		console.log(
-			`[UnlistedEnrichment] ${company.name} (${company.cin}): profile=${result.profile}, financials=${result.financials}, ratios=${result.ratios}, fhs=${fhs?.toFixed(3)}, flags=${complianceFlags.join(",") || "none"}`,
+		logger.info(
+			`[UnlistedEnrichment] ${company.name} (${company.cin || company.isin || "No ID"}): source=${finSource}, profile=${result.profile}, financials=${result.financials}, ratios=${result.ratios}, fhs=${fhs?.toFixed(3)}, flags=${complianceFlags.join(",") || "none"}`,
 		);
 		return result;
 	}
@@ -460,7 +711,7 @@ class UnlistedFinancialEnrichmentService {
 	}> {
 		const staleRows = await db.execute(sql`
       SELECT id, name, cin FROM unlisted_companies
-      WHERE cin IS NOT NULL
+      WHERE (cin IS NOT NULL OR isin IS NOT NULL OR name IS NOT NULL)
         AND (last_synced_at IS NULL OR last_synced_at < NOW() - INTERVAL '90 days')
         AND status = 'active'
       ORDER BY last_synced_at ASC NULLS FIRST

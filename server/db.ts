@@ -75,11 +75,11 @@ if (dbUrl) {
 				`[DB] 🔧 Cloud SQL socket mode: user=${POOL_CONFIG.user} db=${POOL_CONFIG.database} socket=${POOL_CONFIG.host}`,
 			);
 		} else {
-			// Local development with cloud-sql-proxy on TCP 127.0.0.1:5432
-			POOL_CONFIG.host = "127.0.0.1";
-			POOL_CONFIG.port = 5432;
+			// Local development with cloud-sql-proxy on TCP 127.0.0.1:5432 (or DB_PORT)
+			POOL_CONFIG.host = process.env.DB_HOST || "127.0.0.1";
+			POOL_CONFIG.port = process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 5432;
 			console.log(
-				`[DB] 📡 Local Cloud SQL Proxy mode: user=${POOL_CONFIG.user} db=${POOL_CONFIG.database} host=127.0.0.1:5432`,
+				`[DB] 📡 Local Cloud SQL Proxy mode: user=${POOL_CONFIG.user} db=${POOL_CONFIG.database} host=${POOL_CONFIG.host}:${POOL_CONFIG.port}`,
 			);
 		}
 	} else {

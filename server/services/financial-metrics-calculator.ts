@@ -708,17 +708,44 @@ export class FinancialMetricsCalculator {
 
 		// ── Safety sweep ────────────────────────────────────────────────────────
 		// Postgres NUMERIC rejects "NaN", "Infinity", "-Infinity".
-		// Drizzle passes string values to pg driver as-is, so we must null-out
-		// any non-finite string before the INSERT hits the wire.
-		// We also guard the raw numeric fields (piotroskiFScore) for NaN.
+		// Also enforce scale limits for columns with precision 10, scale 4:
+		// (max integer part is 999,999; absolute value must be < 1,000,000).
+		// If EV/EBITDA, P/S, P/FCF, EV/Sales exceed 999,999 (e.g. from unit mismatches
+		// or tiny denominators), set them to undefined so Postgres doesn't throw 22003.
 		const UNSAFE = new Set(["NaN", "Infinity", "-Infinity"]);
+		const RATIO_MAX = 999999;
+		const RATIO_FIELDS = new Set([
+			"trailingPe", "forwardPe", "pegRatio", "priceToBook", "priceToSales",
+			"priceToFreeCashFlow", "evToEbitda", "evToSales", "evToEbit", "earningsYield",
+			"grossMargin", "operatingMargin", "netMargin", "ebitdaMargin", "fcfMargin",
+			"roe", "roa", "roce", "roic", "revenueGrowthYoy", "epsGrowthYoy", "netIncomeGrowthYoy",
+			"ebitdaGrowthYoy", "bookValueGrowthYoy", "ocfGrowthYoy", "fcfGrowthYoy",
+			"revenueCagr3y", "revenueCagr5y", "epsCagr3y", "epsCagr5y", "patCagr3y", "patCagr5y",
+			"debtToEquity", "debtToAssets", "interestCoverage", "currentRatio", "quickRatio",
+			"cashRatio", "netDebtToEbitda", "assetTurnover", "inventoryTurnover", "receivablesTurnover",
+			"payablesTurnover", "workingCapitalTurnover", "altmanZScore", "beneishMScore",
+			"accrualRatio", "earningsQuality", "dividendYield", "dividendPayoutRatio",
+			"dividendCoverRatio", "dividendGrowthRate"
+		]);
+
 		const sanitizeMetrics = (
 			m: Partial<schema.InsertStockFinancialMetrics>,
 		): Partial<schema.InsertStockFinancialMetrics> => {
 			const out: Record<string, unknown> = {};
 			for (const [k, v] of Object.entries(m)) {
-				if (typeof v === "string" && UNSAFE.has(v)) {
-					out[k] = undefined;
+				if (typeof v === "string") {
+					if (UNSAFE.has(v)) {
+						out[k] = undefined;
+					} else if (RATIO_FIELDS.has(k)) {
+						const num = Number(v);
+						if (!Number.isFinite(num) || Math.abs(num) >= RATIO_MAX) {
+							out[k] = undefined;
+						} else {
+							out[k] = v;
+						}
+					} else {
+						out[k] = v;
+					}
 				} else if (typeof v === "number" && !Number.isFinite(v)) {
 					out[k] = undefined;
 				} else {

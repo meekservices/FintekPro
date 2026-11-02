@@ -217,14 +217,14 @@ async function hasEarningsInNextNDays(
 	try {
 		// Lightweight NSE board-meetings check using the exported NseIndiaProvider instance
 		const { nseIndiaProviderInstance } = await import("../market-movers-cache");
-		const report = await nseIndiaProviderInstance.fetchCorporateReports(symbol);
+		const boardMeetings = await nseIndiaProviderInstance.fetchBoardMeetings(symbol);
 		const today = new Date();
 		const cutoff = new Date(today);
 		cutoff.setDate(cutoff.getDate() + daysAhead);
 		const todayStr = today.toISOString().split("T")[0];
 		const cutoffStr = cutoff.toISOString().split("T")[0];
 
-		const hasEarnings = report.boardMeetings.some((m: any) => {
+		const hasEarnings = boardMeetings.some((m: any) => {
 			const mtgDate = m.meetingDate ?? "";
 			const purpose = (m.purpose ?? "").toLowerCase();
 			// Match only results / financial results meetings — not AGMs or dividend meetings
@@ -952,7 +952,7 @@ export class StockStrategy extends BaseStrategy {
 				sql`COALESCE(CAST(${listedStocks.marketCapValue} AS DECIMAL), 0) DESC`,
 				sql`COALESCE(CAST(${listedStocks.averageVolume} AS DECIMAL), 0) DESC`
 			)
-			.limit(30);
+			.limit(15);
 
 		const trackBPromise = db
 			.select()
@@ -975,7 +975,7 @@ export class StockStrategy extends BaseStrategy {
 				sql`COALESCE(CAST(${listedStocks.returns1M} AS DECIMAL), 0) DESC`,
 				sql`COALESCE(CAST(${listedStocks.averageVolume} AS DECIMAL), 0) DESC`
 			)
-			.limit(20);
+			.limit(10);
 
 		const [trackARows, trackBRows] = await Promise.all([trackAPromise, trackBPromise]);
 
@@ -988,6 +988,7 @@ export class StockStrategy extends BaseStrategy {
 		}
 
 		let stocks = mergedCandidates;
+		logger.info(`[StockStrategy] ${broadSector.label}: Track A (${trackARows.length}) + Track B (${trackBRows.length}) merged to ${stocks.length} candidates`);
 
 		// Fallback to listedStocks if listedStocks has no sector data
 		if (stocks.length === 0) {
@@ -1105,6 +1106,7 @@ export class StockStrategy extends BaseStrategy {
 		// 3x normal binary event risk. Exclude them from this run's candidate pool.
 		// Run with bounded concurrency (5 at a time) to avoid flooding memory & APIs.
 		let eligibleStocks = freshStocks;
+		logger.info(`[StockStrategy] ${broadSector.label}: checking earnings for ${freshStocks.length} candidates`);
 		try {
 			const earningsTasks = freshStocks.map((s) => async () => {
 				if (!s.symbol) return false;
@@ -1124,6 +1126,7 @@ export class StockStrategy extends BaseStrategy {
 		} catch {
 			eligibleStocks = freshStocks; // non-fatal fallback
 		}
+		logger.info(`[StockStrategy] ${broadSector.label}: ${eligibleStocks.length} eligible candidates remaining after earnings check`);
 
 		// Fetch enriched snapshots for scoring
 		const symbols = eligibleStocks

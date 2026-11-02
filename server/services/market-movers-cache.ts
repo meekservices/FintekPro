@@ -382,6 +382,44 @@ class IndianAPIMarketProvider {
 	}
 
 	/**
+	 * Lightweight board-meetings fetch for earnings calendar exclusion.
+	 * Only calls indianApiService.getCorporateActions() — avoids heavy announcements & P&L calls.
+	 */
+	async fetchBoardMeetings(symbol: string): Promise<Array<{ meetingDate?: string; purpose?: string }>> {
+		try {
+			const { indianApiService } = await import("./indian-api-service");
+			const sym = symbol.toUpperCase().trim();
+			const res = await indianApiService.getCorporateActions(sym);
+			if (res.success && res.data) {
+				return (res.data.board_meetings ?? []).slice(0, 20).map((m: any) => {
+					let rawDate = "";
+					let rawPurpose = "";
+					if (Array.isArray(m)) {
+						rawDate = String(m[0] ?? "");
+						rawPurpose = String(m[1] ?? "");
+					} else if (m && typeof m === "object") {
+						rawDate = String(m.meeting_date ?? m.date ?? "");
+						rawPurpose = String(m.purpose ?? m.agenda ?? "");
+					}
+					// Normalize DD-MM-YYYY to YYYY-MM-DD for lexical comparison
+					let isoDate = rawDate;
+					if (/^\d{2}-\d{2}-\d{4}$/.test(rawDate)) {
+						const [dd, mm, yyyy] = rawDate.split("-");
+						isoDate = `${yyyy}-${mm}-${dd}`;
+					}
+					return {
+						meetingDate: isoDate,
+						purpose: rawPurpose,
+					};
+				});
+			}
+			return [];
+		} catch {
+			return [];
+		}
+	}
+
+	/**
 	 * Fetch corporate reports from IndianAPI.
 	 * Replaces NseIndiaProvider.fetchCorporateReports() which scraped
 	 * nseindia.com/api/corporates/* — 403 from Cloud Run.
