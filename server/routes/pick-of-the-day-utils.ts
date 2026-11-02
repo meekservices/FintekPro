@@ -193,7 +193,7 @@ export async function getLiveInstrumentPrice(
 							db.update(listedStocks)
 								.set({ currentPrice: String(lp) })
 								.where(eq(listedStocks.id, pick.instrumentId))
-								.catch(() => {});
+								.catch((err) => logger.warn('[PickUtils] DB price write-back failed', { error: String(err) }));
 							return lp;
 						}
 					} catch { /* Yahoo Finance unavailable */ }
@@ -525,7 +525,7 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 						UPDATE daily_picks
 						SET instrument_name = 'Aqylon Nexus Ltd', updated_at = NOW()
 						WHERE id = ${pick.id}
-					`).catch(() => {});
+					`).catch((err) => logger.warn('[PickUtils] DB write-back failed', { error: String(err) }));
 				}
 			}
 		}
@@ -539,7 +539,7 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 						UPDATE daily_picks
 						SET isin = 'INE101D01020', updated_at = NOW()
 						WHERE id = ${pick.id}
-					`).catch(() => {});
+					`).catch((err) => logger.warn('[PickUtils] DB write-back failed', { error: String(err) }));
 				}
 			}
 			const curP = Number(pick.currentPrice);
@@ -562,7 +562,7 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 						    status = 'live',
 						    updated_at = NOW()
 						WHERE id = ${pick.id}
-					`).catch(() => {});
+					`).catch((err) => logger.warn('[PickUtils] DB write-back failed', { error: String(err) }));
 				}
 			}
 		}
@@ -791,7 +791,7 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 					}
 					pick.keyMetrics = km;
 					if (metricsUpdated && pick.id) {
-						db.update(dailyPicks).set({ keyMetrics: km, updatedAt: new Date() }).where(eq(dailyPicks.id, pick.id)).catch(() => {});
+						db.update(dailyPicks).set({ keyMetrics: km, updatedAt: new Date() }).where(eq(dailyPicks.id, pick.id)).catch((err) => logger.warn('[PickUtils] DB write-back failed', { error: String(err) }));
 					}
 				} catch (err) {
 					logger.warn(`[PickEnrich] Secondary enrichment failed for ${pick.symbol}:`, { error: String(err) });

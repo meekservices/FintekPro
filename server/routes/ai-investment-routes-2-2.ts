@@ -2,6 +2,7 @@
 import { Router } from "express";
 import { aiInvestmentService } from "../services/ai-investment-service";
 import { db } from "../db";
+import { logger } from "../logger";
 import {
 	portfolios,
 	portfolioHoldings,
@@ -591,6 +592,7 @@ router.post("/portfolio/:clientId/import-history", requireAuth, async (req, res)
 		if (importHistoryStore[clientId].length > 10) {
 			importHistoryStore[clientId] = importHistoryStore[clientId].slice(0, 10);
 		}
+		logger.warn("IN_MEMORY_STORE_WRITE", { store: "importHistoryStore", clientId, event: "import_recorded" });
 
 		res.json({ success: true, entry: historyEntry });
 	} catch (error: any) {

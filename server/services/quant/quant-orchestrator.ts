@@ -1,5 +1,6 @@
 // GCR-compliant: strict typing enforced — @ts-nocheck removed (Audit C-E1)
 import { db } from "../../db";
+import { logger } from "../../logger";
 import {
 	quantGovernancePolicy,
 	quantRunLog,
@@ -101,7 +102,7 @@ class QuantOrchestrator {
 			!policy.useBlackLitterman &&
 			!policy.useAiDriftPrediction
 		) {
-			console.log("[QuantOrch] All quant features disabled for", riskProfile);
+			logger.info("[QuantOrch] All quant features disabled", { riskProfile });
 			result.fallbackUsed = true;
 			result.totalRunTimeMs = Date.now() - startTime;
 			return result;
@@ -123,9 +124,7 @@ class QuantOrchestrator {
 		};
 
 		if (isBlackSwan) {
-			console.warn(
-				`🛑 [QuantOrch] Systemic Resilience Trigger: 10σ Black Swan active. Transition constraints widened.`,
-			);
+			logger.warn("[QuantOrch] Systemic Resilience Trigger: 10σ Black Swan active. Transition constraints widened.", {});
 		}
 
 		let blPosteriorReturns: number[] | undefined;
@@ -153,9 +152,7 @@ class QuantOrchestrator {
 						tc,
 					);
 				} else {
-					console.log(
-						"[QuantOrch] MVO computed by Python sidecar (scipy SLSQP)",
-					);
+					logger.info("[QuantOrch] MVO computed by Python sidecar (scipy SLSQP)", {});
 				}
 
 				result.mvoResult = mvoResult;
@@ -166,15 +163,13 @@ class QuantOrchestrator {
 
 				const mvoTimeMs = Date.now() - mvoStart;
 				if (mvoTimeMs > 2000) {
-					console.warn(`[QuantOrch] MVO exceeded 2s target: ${mvoTimeMs}ms`);
+					logger.warn("[QuantOrch] MVO exceeded 2s target", { latency_ms: mvoTimeMs });
 				}
 
 				const tm = mvoResult.transitionMetrics;
-				console.log(
-					`[QuantOrch] MVO transition complete: Sharpe=${mvoResult.sharpeRatio.toFixed(3)}, Vol=${(mvoResult.portfolioVolatility * 100).toFixed(1)}%, Turnover=${tm ? (tm.turnover * 100).toFixed(1) : "?"}%, Gamma=${tm?.gammaUsed.toFixed(1) || "?"}`,
-				);
+				logger.info("[QuantOrch] MVO transition complete", { sharpe: mvoResult.sharpeRatio, vol: mvoResult.portfolioVolatility, turnover: tm?.turnover });
 			} catch (error: any) {
-				console.error("[QuantOrch] MVO failed, using fallback:", error.message);
+				logger.error("[QuantOrch] MVO failed, using fallback", { error: error.message });
 				result.fallbackUsed = true;
 				await this.logFallback(portfolioId, "MVO_TRANSITION", error.message);
 			}
@@ -209,7 +204,7 @@ class QuantOrchestrator {
 							portfolioId,
 						);
 					} else {
-						console.log("[QuantOrch] BL computed by Python sidecar (numpy)");
+						logger.info("[QuantOrch] BL computed by Python sidecar (numpy)", {});
 					}
 
 					result.blResult = blResult;
@@ -218,9 +213,7 @@ class QuantOrchestrator {
 
 					blPosteriorReturns = blResult.posteriorReturns;
 
-					console.log(
-						"[QuantOrch] BL overlay computed. Re-running transition optimizer with posterior returns...",
-					);
+					logger.info("[QuantOrch] BL overlay computed. Re-running transition optimizer with posterior returns.", {});
 
 					const mvoConfig2 = {
 						riskAversion: policy.riskAversion,
@@ -255,38 +248,24 @@ class QuantOrchestrator {
 						result.usedTransitionOptimizer = true;
 
 						const tm = blConstrainedResult.transitionMetrics;
-						console.log(
-							`[QuantOrch] BL+Transition complete: Sharpe=${blConstrainedResult.sharpeRatio.toFixed(3)}, Turnover=${tm ? (tm.turnover * 100).toFixed(1) : "?"}%`,
-						);
+						logger.info("[QuantOrch] BL+Transition complete", { sharpe: blConstrainedResult.sharpeRatio, turnover: tm?.turnover });
 
 						await this.logTransition(portfolioId, blConstrainedResult);
 					} catch (blMvoError: any) {
-						console.error(
-							"[QuantOrch] BL+Transition re-optimization failed, using BL weights:",
-							blMvoError.message,
-						);
+						logger.error("[QuantOrch] BL+Transition re-optimization failed, using BL weights", { error: blMvoError.message });
 						result.optimizedWeights = { ...blResult.posteriorWeights };
 					}
 
-					console.log(
-						"[QuantOrch] BL active tilts:",
-						Object.entries(blResult.tacticalTilts)
-							.filter(([_, t]) => Math.abs(t) > 0.001)
-							.map(([c, t]) => `${c}:${(t * 100).toFixed(1)}%`)
-							.join(", "),
-					);
+					logger.info("[QuantOrch] BL active tilts", { tilts: Object.entries(blResult.tacticalTilts).filter(([_, t]) => Math.abs(t) > 0.001).map(([c, t]) => `${c}:${(t * 100).toFixed(1)}%`).join(", ") });
 				} else {
-					console.log("[QuantOrch] BL skipped: no views available");
+					logger.info("[QuantOrch] BL skipped: no views available", {});
 
 					if (result.mvoResult) {
 						await this.logTransition(portfolioId, result.mvoResult);
 					}
 				}
 			} catch (error: any) {
-				console.error(
-					"[QuantOrch] BL failed, using MVO weights:",
-					error.message,
-				);
+				logger.error("[QuantOrch] BL failed, using MVO weights", { error: error.message });
 				await this.logFallback(portfolioId, "BLACK_LITTERMAN", error.message);
 
 				if (result.mvoResult) {
@@ -312,9 +291,7 @@ class QuantOrchestrator {
 						portfolioId,
 					);
 				} else {
-					console.log(
-						"[QuantOrch] Drift prediction computed by Python sidecar (scipy.stats)",
-					);
+					logger.info("[QuantOrch] Drift prediction computed by Python sidecar (scipy.stats)", {});
 				}
 
 				result.driftResult = driftResult;
@@ -325,13 +302,10 @@ class QuantOrchestrator {
 				result.modelVersions.push(driftResult.modelVersion);
 
 				if (driftResult.recommendPreemptiveRebalance) {
-					console.log(
-						"[QuantOrch] PREEMPTIVE REBALANCE recommended. High-risk categories:",
-						driftResult.highRiskCategories.join(", "),
-					);
+					logger.warn("[QuantOrch] PREEMPTIVE REBALANCE recommended", { highRiskCategories: driftResult.highRiskCategories });
 				}
 			} catch (error: any) {
-				console.error("[QuantOrch] Drift prediction failed:", error.message);
+				logger.error("[QuantOrch] Drift prediction failed", { error: error.message });
 				await this.logFallback(
 					portfolioId,
 					"AI_DRIFT_PREDICTION",
@@ -343,9 +317,7 @@ class QuantOrchestrator {
 		result.totalRunTimeMs = Date.now() - startTime;
 
 		if (result.totalRunTimeMs > 2000) {
-			console.warn(
-				`[QuantOrch] Total quant pipeline exceeded 2s: ${result.totalRunTimeMs}ms`,
-			);
+			logger.warn("[QuantOrch] Total quant pipeline exceeded 2s target", { latency_ms: result.totalRunTimeMs });
 		}
 
 		try {
@@ -367,12 +339,10 @@ class QuantOrchestrator {
 				governancePolicyId: policy.id,
 			});
 		} catch (e) {
-			console.warn("[QuantOrch] Failed to log orchestrator run:", e);
+			logger.warn("[QuantOrch] Failed to log orchestrator run", { error: String(e) });
 		}
 
-		console.log(
-			`[QuantOrch] Pipeline complete in ${result.totalRunTimeMs}ms. Models: ${result.modelVersions.join(", ") || "none (fallback)"}`,
-		);
+		logger.info("[QuantOrch] Pipeline complete", { latency_ms: result.totalRunTimeMs, models: result.modelVersions });
 
 		return result;
 	}
@@ -595,7 +565,7 @@ class QuantOrchestrator {
 				modelVersion: mvoResult.modelVersion,
 			});
 		} catch (e) {
-			console.warn("[QuantOrch] Failed to log transition:", e);
+			logger.warn("[QuantOrch] Failed to log transition", { error: String(e) });
 		}
 	}
 
@@ -609,7 +579,7 @@ class QuantOrchestrator {
 
 			if (rows[0]) return rows[0];
 		} catch (e) {
-			console.warn("[QuantOrch] Failed to load governance policy:", e);
+			logger.warn("[QuantOrch] Failed to load governance policy", { error: String(e) });
 		}
 
 		return {
@@ -647,10 +617,7 @@ class QuantOrchestrator {
 				fallbackUsed: true,
 			});
 		} catch (reportErr: any) {
-			console.warn(
-				"[QuantOrchestrator] Failed to record fallback status:",
-				reportErr?.message,
-			);
+			logger.warn("[QuantOrchestrator] Failed to record fallback status", { error: reportErr?.message });
 		}
 	}
 }

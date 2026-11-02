@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Express, Request, Response, NextFunction } from "express";
 import { requireAgentPortal } from "../middleware/roleMiddleware";
 import multer from "multer";
@@ -221,6 +222,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 
 				res.json({
 					success: true,
+					user_confirmation_required: true,
 					workflowId: populationResult.workflowId,
 					status: populationResult.status,
 					summary: {

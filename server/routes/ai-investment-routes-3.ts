@@ -19,6 +19,7 @@ import multer from "multer";
 import { prospectPortfolioSyncService } from "../services/prospect-portfolio-sync-service";
 import { requireRole } from "../middleware/roleMiddleware";
 import { requireAuth } from "../middleware/auth";
+import { logger } from "../logger";
 import { unifiedPortfolioImportService } from "../services/unified-portfolio-import-service";
 
 const router = Router();
@@ -460,6 +461,7 @@ router.post("/goals", requireAuth, async (req, res) => {
 		const existingGoals = investmentGoalsStore.get(clientId) || [];
 		existingGoals.push(goal);
 		investmentGoalsStore.set(clientId, existingGoals);
+		logger.warn("IN_MEMORY_STORE_WRITE", { store: "investmentGoalsStore", clientId, event: "goal_added" });
 
 		res.json(goal);
 	} catch (error: any) {
@@ -509,6 +511,7 @@ router.post("/risk-profile", requireAuth, async (req, res) => {
 		};
 
 		riskProfileStore.set(clientId, profile);
+		logger.warn("IN_MEMORY_STORE_WRITE", { store: "riskProfileStore", clientId, event: "profile_upserted" });
 		res.json(profile);
 	} catch (error: any) {
 		res.status(500).json({ error: error.message });

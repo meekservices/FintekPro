@@ -1818,8 +1818,12 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 					parsed.analysis ??
 					null;
 				const rationaleStr = (rationaleValue !== null ? String(rationaleValue) : text).trim();
-				// Store structured advisory note keyed by rationale text
+				// Store structured advisory note keyed by rationale text (M-06: LRU cap at 500)
 				if (parsed.buyThesis || parsed.keyRisks || parsed.catalysts) {
+					if (_structuredRationaleCache.size >= 500) {
+						const firstKey = _structuredRationaleCache.keys().next().value;
+						if (firstKey !== undefined) _structuredRationaleCache.delete(firstKey);
+					}
 					_structuredRationaleCache.set(rationaleStr, {
 						buyThesis: parsed.buyThesis ?? rationaleStr,
 						keyRisks: Array.isArray(parsed.keyRisks) ? parsed.keyRisks : [],
