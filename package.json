@@ -220,7 +220,6 @@
     "micromatch": "4.0.8",
     "braces": "3.0.3",
     "ip": "2.0.1",
-    "path-to-regexp": "0.1.13",
     "body-parser": "1.20.6",
     "cookie": "0.7.0",
     "send": "0.19.0",
