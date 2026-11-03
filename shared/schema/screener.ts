@@ -74,6 +74,14 @@ export const screenerFinancials = pgTable("screener_financials", {
   operatingCashFlow: decimal("operating_cash_flow", { precision: 20, scale: 2 }),
   freeCashFlow: decimal("free_cash_flow", { precision: 20, scale: 2 }),
   capitalExpenditure: decimal("capital_expenditure", { precision: 20, scale: 2 }),
+  plHistory: jsonb("pl_history"),
+  bsHistory: jsonb("bs_history"),
+  cfHistory: jsonb("cf_history"),
+  ratiosHistory: jsonb("ratios_history"),
+  quarterlyHistory: jsonb("quarterly_history"),
+  pros: jsonb("pros"),
+  cons: jsonb("cons"),
+  companyDescription: text("company_description"),
   // NOTE: return1y–5y removed (Phase 2b) — static values, never reliable.
   // All returns live in screener_derived_metrics, computed from OHLCV nightly.
   lastUpdated: timestamp("last_updated").defaultNow(),

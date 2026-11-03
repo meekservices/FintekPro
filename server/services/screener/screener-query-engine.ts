@@ -18,7 +18,6 @@ import {
 	lte,
 	sql,
 	desc,
-	asc,
 	or,
 	ilike,
 	isNotNull,
@@ -1412,6 +1411,78 @@ export async function getStockDetail(symbol: string) {
 		}
 	}
 
+	// Ensure latest financials row exposes pros & cons (algorithmic fallback if empty)
+	if (financials.length > 0) {
+		const latest = financials[0] as any;
+		if (!latest.pros || (Array.isArray(latest.pros) && latest.pros.length === 0)) {
+			const { generateProsAndCons } = await import("./pros-cons-generator");
+			const { pros, cons } = generateProsAndCons({
+				roe: latest.roe ? parseFloat(latest.roe) : undefined,
+				roce: latest.roce ? parseFloat(latest.roce) : undefined,
+				pe: latest.peRatio ? parseFloat(latest.peRatio) : undefined,
+				pb: latest.pbRatio ? parseFloat(latest.pbRatio) : undefined,
+				debtToEquity: latest.debtToEquity ? parseFloat(latest.debtToEquity) : undefined,
+				dividendYield: latest.dividendYield ? parseFloat(latest.dividendYield) : undefined,
+				interestCoverage: latest.interestCoverage ? parseFloat(latest.interestCoverage) : undefined,
+				netIncome: latest.netIncome ? parseFloat(latest.netIncome) : undefined,
+				operatingCashFlow: latest.operatingCashFlow ? parseFloat(latest.operatingCashFlow) : undefined,
+				existingPros: latest.pros,
+				existingCons: latest.cons,
+			});
+			latest.pros = pros;
+			latest.cons = cons;
+		}
+	}
+
+	// Enrich with Corporate Actions, Board Meetings, and Announcements
+	let corporateActions: { dividends: any[]; splits: any[]; bonus: any[]; rights: any[] } = {
+		dividends: [],
+		splits: [],
+		bonus: [],
+		rights: [],
+	};
+	let boardMeetings: Array<{ meetingDate: string; purpose: string }> = [];
+	let announcements: Array<{ title: string; link: string; date: string }> = [];
+
+	try {
+		const { indianApiService } = await import("../indian-api-service");
+		const [corpRes, annRes] = await Promise.allSettled([
+			indianApiService.getCorporateActions(symbol),
+			indianApiService.getRecentAnnouncements(symbol),
+		]);
+
+		if (corpRes.status === "fulfilled" && corpRes.value.success && corpRes.value.data) {
+			const d = corpRes.value.data;
+			corporateActions = {
+				dividends: d.dividends || [],
+				splits: d.splits || [],
+				bonus: d.bonus || [],
+				rights: d.rights || [],
+			};
+			if (Array.isArray(d.board_meetings)) {
+				boardMeetings = d.board_meetings.slice(0, 25).map((m: any) => {
+					if (Array.isArray(m)) {
+						return { meetingDate: String(m[0] ?? ""), purpose: String(m[1] ?? "") };
+					}
+					return {
+						meetingDate: String(m.meeting_date ?? m.date ?? ""),
+						purpose: String(m.purpose ?? m.agenda ?? ""),
+					};
+				});
+			}
+		}
+
+		if (annRes.status === "fulfilled" && annRes.value.success && Array.isArray(annRes.value.data)) {
+			announcements = annRes.value.data.slice(0, 15).map((a: any) => ({
+				title: a.title || a.subject || a.headline || "",
+				link: a.link || a.attachment_url || a.url || "",
+				date: a.date || a.announced_date || "",
+			}));
+		}
+	} catch {
+		// Non-blocking fallback
+	}
+
 	return {
 		stock,
 		financials,
@@ -1420,6 +1491,9 @@ export async function getStockDetail(symbol: string) {
 		shareholding,
 		analystConsensus: analystRecord,
 		dcfValuation: dcfRecord,
+		corporateActions,
+		boardMeetings,
+		announcements,
 	};
 }
 

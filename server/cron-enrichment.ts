@@ -1000,6 +1000,32 @@ async function runScreenerEnrichmentBatch(
 					}
 				}
 				if (hasData) {
+					const { generateProsAndCons } = await import("./services/screener/pros-cons-generator");
+					const { pros: finalPros, cons: finalCons } = generateProsAndCons({
+						roe: s.roe,
+						roce: s.roce,
+						pe: s.pe,
+						pb: s.pb,
+						debtToEquity: s.debtToEquity,
+						dividendYield: s.dividendYield,
+						salesCagr3Y: s.salesCagr3Y,
+						salesCagr5Y: s.salesCagr5Y,
+						profitCagr3Y: s.profitCagr3Y,
+						profitCagr5Y: s.profitCagr5Y,
+						operatingCashFlow: s.operatingCashFlow,
+						netIncome: s.netIncome,
+						existingPros: s.pros,
+						existingCons: s.cons,
+					});
+
+					const plJson = s.plHistory ? JSON.stringify(s.plHistory) : null;
+					const bsJson = s.bsHistory ? JSON.stringify(s.bsHistory) : null;
+					const cfJson = s.cfHistory ? JSON.stringify(s.cfHistory) : null;
+					const ratJson = s.ratiosHistory ? JSON.stringify(s.ratiosHistory) : null;
+					const qtrJson = s.quarterlyHistory ? JSON.stringify(s.quarterlyHistory) : null;
+					const prosJson = JSON.stringify(finalPros);
+					const consJson = JSON.stringify(finalCons);
+
 					const updRes = await dbConn.execute(sqlTag`
             UPDATE screener_financials SET
               roe              = COALESCE(${s.roe}, roe),
@@ -1014,6 +1040,14 @@ async function runScreenerEnrichmentBatch(
               operating_margin = COALESCE(${s.operatingMargin}, operating_margin),
               operating_cash_flow = COALESCE(${s.operatingCashFlow}, operating_cash_flow),
               free_cash_flow   = COALESCE(${s.freeCashFlow}, free_cash_flow),
+              pl_history       = COALESCE(${plJson}::jsonb, pl_history),
+              bs_history       = COALESCE(${bsJson}::jsonb, bs_history),
+              cf_history       = COALESCE(${cfJson}::jsonb, cf_history),
+              ratios_history   = COALESCE(${ratJson}::jsonb, ratios_history),
+              quarterly_history = COALESCE(${qtrJson}::jsonb, quarterly_history),
+              pros             = COALESCE(${prosJson}::jsonb, pros),
+              cons             = COALESCE(${consJson}::jsonb, cons),
+              company_description = COALESCE(${s.companyDescription ?? null}, company_description),
               last_updated     = NOW()
             WHERE id = (
               SELECT id FROM screener_financials
@@ -1032,12 +1066,16 @@ async function runScreenerEnrichmentBatch(
                 roe, roce, dividend_yield, book_value,
                 revenue_growth, earnings_growth, debt_to_equity,
                 revenue, net_income, operating_margin, operating_cash_flow, free_cash_flow,
+                pl_history, bs_history, cf_history, ratios_history, quarterly_history,
+                pros, cons, company_description,
                 last_updated
               ) VALUES (
                 ${sym}, 'annual', ${curYear},
                 ${s.roe}, ${s.roce}, ${s.dividendYield}, ${s.bookValue},
                 ${s.revenueGrowth}, ${s.earningsGrowth}, ${s.debtToEquity},
                 ${s.revenue}, ${s.netIncome}, ${s.operatingMargin}, ${s.operatingCashFlow}, ${s.freeCashFlow},
+                ${plJson}::jsonb, ${bsJson}::jsonb, ${cfJson}::jsonb, ${ratJson}::jsonb, ${qtrJson}::jsonb,
+                ${prosJson}::jsonb, ${consJson}::jsonb, ${s.companyDescription ?? null},
                 NOW()
               )
             `)
@@ -1047,6 +1085,11 @@ async function runScreenerEnrichmentBatch(
             UPDATE listed_stocks SET enrichment_status = 'complete', last_enriched_at = NOW()
             WHERE symbol = ${sym}
           `);
+
+					// Re-sync master snapshot for this symbol
+					const { screenerMasterSnapshotService } = await import("./services/screener/screener-master-snapshot-service");
+					await screenerMasterSnapshotService.upsertSnapshot(sym).catch(() => {});
+
 					done++;
 				} else {
 					await dbConn.execute(sqlTag`
