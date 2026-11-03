@@ -78,23 +78,44 @@ export class AmcResearchService {
 			"Nippon Life India Asset Management",
 		];
 
+		let niftyPrice = 24785;
+		let gsecYield = 6.79;
+		let brentUsd = 74.80;
+		try {
+			const { goldenPricingEngine } = await import("./golden-pricing/GoldenPricingEngine");
+			const goldenSnapshot = await goldenPricingEngine.getDailyMarketBriefLiveSnapshot("india");
+			if (goldenSnapshot) {
+				const liveNifty = goldenSnapshot.indices?.indian?.find((i: any) => i.symbol === "NIFTY50" || i.symbol === "IDX_NIFTY_50");
+				if (liveNifty?.price) niftyPrice = liveNifty.price;
+				if (goldenSnapshot.fixedIncome?.gsec10YYield) gsecYield = goldenSnapshot.fixedIncome.gsec10YYield;
+				if (goldenSnapshot.commodities?.brentCrudeUsd) brentUsd = goldenSnapshot.commodities.brentCrudeUsd;
+			}
+		} catch {
+			// Non-fatal fallback
+		}
+
+		// Nifty 50 forward multiples derived from live index price and consensus forward earnings
+		const consensusForwardEps = 1148; // FY26E consensus EPS
+		const niftyForwardPE = Number((niftyPrice / consensusForwardEps).toFixed(1));
+		const priceToBook = Number((niftyPrice / 6440).toFixed(2));
+		const valuationStatus: AmcValuationContext["valuationStatus"] =
+			niftyForwardPE > 22.5 ? "Elevated / Rich" : niftyForwardPE > 20.5 ? "Moderate Premium" : "Fair Valuation";
+
 		const valuationContext: AmcValuationContext = {
-			niftyForwardPE: 21.6,
+			niftyForwardPE,
 			tenYearHistoricalAvgPE: 20.2,
-			trailingPE: 23.2,
-			priceToBook: 3.45,
+			trailingPE: Number((niftyPrice / 1068).toFixed(1)),
+			priceToBook,
 			tenYearAvgPB: 3.12,
-			valuationStatus: "Moderate Premium",
-			commentary:
-				"Frontline large-caps (Nifty 50) trade at a manageable +7% premium to 10-year mean forward P/E, justified by resilient return on equity (RoE ~15.5%) and strong banking asset quality. Broader small-cap valuations remain elevated.",
+			valuationStatus,
+			commentary: `Frontline large-caps (Nifty 50 at ${niftyPrice.toLocaleString("en-IN")}) trade at ${niftyForwardPE}x forward P/E, representing a manageable spread over 10-year mean (20.2x), supported by double-digit corporate PAT growth.`,
 		};
 
 		const fixedIncomeStance: AmcFixedIncomeStance = {
 			recommendedDurationBand: "3 to 5 Years",
 			recommendedCategory: "Target Maturity Gilt Funds, Banking & PSU Debt, and Corporate Bond Funds",
 			sovereignCurveStance: "Neutral / Lock-in Carry",
-			rationale:
-				"With the 10-Year Benchmark G-Sec yield at 6.79% and real yields at +2.59% over CPI inflation, fund managers recommend locking in duration in the 3–5 year segment to capture carry while mitigating duration risk from heavy state loan (SDL) supply.",
+			rationale: `With the 10-Year Benchmark G-Sec yield at ${gsecYield.toFixed(2)}% and real yields attractive over CPI inflation, fund managers recommend locking in duration in the 3–5 year segment to capture carry while mitigating duration risk from state loan supply.`,
 		};
 
 		const thematicRotations: AmcThematicRotation[] = [
@@ -127,8 +148,8 @@ export class AmcResearchService {
 		const advisorTalkingPoints = [
 			"Counsel investors against stopping SIPs: Systematic domestic inflows (~₹26,000+ Cr monthly) provide a powerful structural floor against foreign institutional outflows.",
 			"Tilt fresh equity allocations toward large-cap and multi-asset funds where risk-adjusted margin of safety is superior to overstretched small-cap baskets.",
-			"Deploy surplus liquid cash into 3–5 year Target Maturity Gilt funds to lock in attractive ~6.8% sovereign yields before the global/domestic rate cut cycle takes hold.",
-			"Highlight Brent crude ($114+/bbl) as a macro risk factor that rewards energy upstream explorers (ONGC) but pressures margins of paint and tyre manufacturers.",
+			`Deploy surplus liquid cash into 3–5 year Target Maturity Gilt funds to lock in attractive ~${gsecYield.toFixed(2)}% sovereign yields before systemic rate cuts.`,
+			`Brent crude at $${brentUsd.toFixed(2)}/bbl remains monitored against India's comfort threshold (<$80/bbl).`,
 		];
 
 		const data: AmcConsensusSummary = {

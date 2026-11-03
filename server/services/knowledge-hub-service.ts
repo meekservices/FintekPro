@@ -654,7 +654,7 @@ export class KnowledgeHubService {
 
 		const region = brief.region || "india";
 		const isIndia = region === "india";
-		const brentPriceNum = brief.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? brief.globalMacroDesk?.wtiCrudeUsd ?? 73.0;
+		const brentPriceNum = brief.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? brief.globalMacroDesk?.wtiCrudeUsd ?? 74.80;
 		const isElevatedCrude = brentPriceNum > 85;
 
 		const topMovers = brief.topMovers || this.getDefaultTopMovers(region);
@@ -1136,7 +1136,7 @@ export class KnowledgeHubService {
 
 		const gsecYieldStr = ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? goldenSnapshot?.fixedIncome?.gsec10YYield ?? 6.79;
 		const trepsRateStr = ccilFixedIncome?.treps?.weightedAverageRate ?? goldenSnapshot?.fixedIncome?.trepsWar ?? 6.42;
-		const brentPriceNum = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? goldenSnapshot?.commodities?.brentCrudeUsd ?? 114.2;
+		const brentPriceNum = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? goldenSnapshot?.commodities?.brentCrudeUsd ?? 74.80;
 		const brentStr = `$${brentPriceNum}/bbl`;
 		const goldStr = commodityRadar?.commodities?.[0]?.mcxPrice
 			? `₹${commodityRadar.commodities[0].mcxPrice.toLocaleString("en-IN")}/10g`

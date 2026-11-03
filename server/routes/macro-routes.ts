@@ -19,10 +19,11 @@ export function registerMacroRoutes(app: Express): void {
 	 * GET /api/macro/global-radar
 	 * Returns real-time 5-pillar composite report with Global Tailwind Score (0-100) and Macro Bias.
 	 */
-	app.get("/api/macro/global-radar", async (_req: Request, res: Response) => {
+	app.get("/api/macro/global-radar", async (req: Request, res: Response) => {
 		const t0 = Date.now();
+		const forceRefresh = req.query.refresh === "true" || req.query.forceRefresh === "true";
 		try {
-			const report = await globalMacroTransmissionService.getGlobalMacroReport();
+			const report = await globalMacroTransmissionService.getGlobalMacroReport(forceRefresh);
 			return res.status(200).json({
 				success: true,
 				data: report,

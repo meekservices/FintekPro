@@ -554,6 +554,36 @@ export function initializeEnrichmentCrons(
 	);
 	delay += STAGGER;
 
+	// Intraday Periodic Golden Pricing & Market Breadth Refresh (Mon-Fri every 30 min, 9:30 AM - 3:30 PM IST)
+	staggeredStart(
+		"Intraday Golden Pricing & Breadth Refresh",
+		() => {
+			cron.schedule(
+				"*/30 9-15 * * 1-5",
+				async () => {
+					logger.info("[GoldenPricing] Running intraday periodic macro & breadth refresh...");
+					try {
+						const { getDailyMarketBriefLiveSnapshot } = await import(
+							"./services/golden-pricing/GoldenPricingEngine"
+						);
+						await getDailyMarketBriefLiveSnapshot("india", true);
+
+						const { marketBreadthService } = await import(
+							"./services/macro/market-breadth-service"
+						);
+						await marketBreadthService.computeAndPersistBreadth();
+						logger.info("[GoldenPricing] Intraday periodic sync completed and persisted to DB");
+					} catch (err: any) {
+						logger.warn("[GoldenPricing] Intraday periodic sync warning:", err?.message);
+					}
+				},
+				{ timezone: "Asia/Kolkata" },
+			);
+		},
+		delay,
+	);
+	delay += STAGGER;
+
 	// Weekly stale-price cleanup (Sunday 8 PM IST)
 	staggeredStart(
 		"Golden Price Stale Marker",

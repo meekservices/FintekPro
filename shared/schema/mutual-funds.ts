@@ -986,6 +986,37 @@ export const mfOverlapMatrix = pgTable("mf_overlap_matrix", {
 export type MfOverlapMatrix = typeof mfOverlapMatrix.$inferSelect;
 export type InsertMfOverlapMatrix = typeof mfOverlapMatrix.$inferInsert;
 
+// ── MF AMC Portfolio Deltas — tracking "What's In & What's Out" across all AMCs ──
+export const mfAmcPortfolioDeltas = pgTable("mf_amc_portfolio_deltas", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  schemeCode: varchar("scheme_code", { length: 50 }).notNull(),
+  mfIsin: varchar("mf_isin", { length: 20 }).notNull(),
+  amcName: varchar("amc_name", { length: 150 }).notNull(),
+  stockSymbol: varchar("stock_symbol", { length: 30 }).notNull(),
+  stockIsin: varchar("stock_isin", { length: 20 }),
+  stockName: text("stock_name"),
+  sector: varchar("sector", { length: 100 }),
+  deltaType: varchar("delta_type", { length: 30 }).notNull(), // NEW_ENTRY | COMPLETE_EXIT | INCREASED | TRIMMED | UNCHANGED
+  previousWeight: decimal("previous_weight", { precision: 8, scale: 4 }).default("0"),
+  currentWeight: decimal("current_weight", { precision: 8, scale: 4 }).default("0"),
+  weightChangePercent: decimal("weight_change_percent", { precision: 8, scale: 4 }).notNull(),
+  previousQuantity: decimal("previous_quantity", { precision: 18, scale: 4 }),
+  currentQuantity: decimal("current_quantity", { precision: 18, scale: 4 }),
+  quantityChangePercent: decimal("quantity_change_percent", { precision: 8, scale: 4 }),
+  asOfDate: date("as_of_date").notNull(),
+  previousAsOfDate: date("previous_as_of_date").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_mf_delta_as_of_date").on(table.asOfDate),
+  index("idx_mf_delta_amc").on(table.amcName),
+  index("idx_mf_delta_stock").on(table.stockSymbol),
+  index("idx_mf_delta_type").on(table.deltaType),
+  uniqueIndex("idx_mf_delta_unique_scheme_stock_date").on(table.schemeCode, table.stockSymbol, table.asOfDate),
+]);
+
+export type MfAmcPortfolioDelta = typeof mfAmcPortfolioDeltas.$inferSelect;
+export type InsertMfAmcPortfolioDelta = typeof mfAmcPortfolioDeltas.$inferInsert;
+
 // ── MF Compliance State Log — audit trail for all compliance state transitions ──
 
 

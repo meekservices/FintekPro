@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
 	TrendingUp,
@@ -774,6 +774,9 @@ export default function AgentKnowledgeMarketBrief() {
 		return () => clearInterval(timer);
 	}, [refreshInterval]);
 
+	const queryClient = useQueryClient();
+	const [isSyncingAll, setIsSyncingAll] = useState(false);
+
 	const {
 		data: todaysBrief,
 		isLoading: todayLoading,
@@ -873,10 +876,10 @@ export default function AgentKnowledgeMarketBrief() {
 		const brief: MarketBrief = { ...rawBrief };
 		if (brief.keyRisks && typeof brief.keyRisks === "string") {
 			const liveBrent = brief.commodityRadar?.crudeOilBreakevenStatus?.brentUsd;
-			const brentDisplay = liveBrent ? `$${liveBrent}/bbl` : "$73.00/bbl";
+			const brentDisplay = liveBrent ? `$${liveBrent}/bbl` : "$74.80/bbl";
 			let cleaned = brief.keyRisks
 				.replace(/\$74\.8\/bbl/g, brentDisplay)
-				.replace(/74\.8/g, liveBrent ? `${liveBrent}` : "73.00")
+				.replace(/74\.8/g, liveBrent ? `${liveBrent}` : "74.80")
 				.replace(/~\$74[–-](\$?)78\/bbl/g, brentDisplay)
 				.replace(/\$74[–-](\$?)78\/bbl/g, brentDisplay)
 				.replace(/Brent currently at \$[0-9.]+\/bbl/g, `Brent currently at ${brentDisplay}`)
@@ -1069,17 +1072,33 @@ export default function AgentKnowledgeMarketBrief() {
 						))}
 					</div>
 
-					{/* Instant Sync Button */}
+					{/* Instant Simultaneous Sync Button */}
 					<Button
 						variant="outline"
 						size="sm"
-						onClick={() => refetch()}
-						disabled={isFetching}
+						onClick={async () => {
+							setIsSyncingAll(true);
+							try {
+								await fetch(`/api/knowledge-hub/market-brief/today?region=${selectedRegion}&refresh=true&t=${Date.now()}`);
+								await fetch(`/api/macro/global-radar?refresh=true&t=${Date.now()}`);
+								await Promise.all([
+									refetch(),
+									queryClient.invalidateQueries({ queryKey: ["/api/macro/global-radar"] }),
+									queryClient.invalidateQueries({ queryKey: ["/api/knowledge-hub/market-brief/today", selectedRegion] }),
+								]);
+							} catch (e) {
+								console.warn("Simultaneous sync warning:", e);
+								await refetch();
+							} finally {
+								setIsSyncingAll(false);
+							}
+						}}
+						disabled={isFetching || isSyncingAll}
 						className="h-8 gap-1.5 border-border font-medium shadow-xs"
-						title="Force instant sync with market data servers"
+						title="Force instant synchronized sync with Golden Pricing Engine & market data servers"
 					>
-						<RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin text-primary" : ""}`} />
-						<span>{isFetching ? "Syncing..." : "Sync Now"}</span>
+						<RefreshCw className={`h-3.5 w-3.5 ${(isFetching || isSyncingAll) ? "animate-spin text-primary" : ""}`} />
+						<span>{(isFetching || isSyncingAll) ? "Syncing..." : "Sync Now"}</span>
 					</Button>
 
 					{/* Share / Copy Button */}

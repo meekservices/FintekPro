@@ -184,6 +184,7 @@ import { registerPortfolioCompareAISIPRoutes } from "./routes/portfolio-compare-
 import stockIntersectionRouter from "./routes/stock-intersection";
 import { registerAgentAdvisoryPart4Routes } from "./routes/agent-advisory-4";
 import overlapIntelligenceRouter from "./routes/overlap-intelligence"; // /api/portfolio/intelligence, /simulate-impact, /optimize-sip, /goal-based-score
+import amcPortfolioDeltaRouter from "./routes/amc-portfolio-delta-routes"; // /api/mutual-funds/amc-deltas/*
 import { modelPortfoliosRouter } from "./routes/model-portfolios-route"; // /api/model-portfolios — engine audit Fix #6
 import { sifRouter } from "./routes/sif-routes"; // /api/sif/* — Specified Investment Funds (New Asset Class)
 import { agentLeadInboxRouter } from "./routes/agent-lead-inbox"; // /api/agent/leads
@@ -584,6 +585,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 	// Portfolio Intelligence: /api/portfolio/intelligence, /simulate-impact, /optimize-sip, /goal-based-score
 	app.use("/api/portfolio", overlapIntelligenceRouter);
+
+	// AMC Portfolio Deltas ("What's In & What's Out"): /api/mutual-funds/amc-deltas/*
+	app.use("/api/mutual-funds/amc-deltas", amcPortfolioDeltaRouter);
 
 	// Model Portfolios: /api/model-portfolios, /api/model-portfolios/:id (engine audit Fix #6)
 	app.use("/api/model-portfolios", modelPortfoliosRouter);

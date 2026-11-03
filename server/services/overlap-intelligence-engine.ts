@@ -55,9 +55,31 @@ interface ReplaceFundSuggestion {
 	reason: string;
 	overlapWith: string;
 	overlapPercentage: number;
+	containmentPercentage?: number;
+	asymmetricWarning?: string | null;
 	metricsComparison: string;
 	suggestedAction: "SWITCH" | "REDUCE" | "REVIEW";
 	alternatives: AlternativeFund[];
+}
+
+export interface PairwiseOverlapDetail {
+	fundA: { isin: string; name: string; category?: string };
+	fundB: { isin: string; name: string; category?: string };
+	minimumIntersectionOverlap: number;
+	containmentAinB: number;
+	containmentBinA: number;
+	commonStocksCount: number;
+	topCommonStocks: Array<{
+		symbol: string;
+		name: string;
+		weightInA: number;
+		weightInB: number;
+		overlapWeight: number;
+	}>;
+	isThematicOrSectoral: boolean;
+	sebiThreshold: number;
+	isBreached: boolean;
+	asymmetricWarning?: string | null;
 }
 
 interface AlternativeFund {
@@ -93,6 +115,8 @@ interface OverlapIntelligenceResult {
 	replaceFundSuggestions: ReplaceFundSuggestion[];
 	advisorTalkingPoints: AdvisorTalkingPoint[];
 	overlapSafeRecommendations?: any[];
+	pairwiseOverlapMatrix?: PairwiseOverlapDetail[];
+	sebiBreachesCount?: number;
 }
 
 export class OverlapIntelligenceEngine {
@@ -403,8 +427,8 @@ export class OverlapIntelligenceEngine {
 	}
 
 	/**
-	 * BE-12: Replace Fund Detection Engine
-	 * Identifies redundant funds due to high overlap
+	 * BE-12: Replace Fund Detection Engine (Enhanced v2.0)
+	 * Identifies redundant funds due to high minimum-weight overlap or asymmetric containment
 	 */
 	async detectReplacementCandidates(
 		funds: PortfolioFund[],
@@ -412,9 +436,72 @@ export class OverlapIntelligenceEngine {
 		if (funds.length < 2) return [];
 
 		const suggestions: ReplaceFundSuggestion[] = [];
-		const fundIsins = funds.map((f) => f.mfIsin).filter(Boolean);
+		const pairwise = await this.calculateDetailedPairwiseOverlap(funds);
 
-		// Get all holdings
+		for (const pair of pairwise) {
+			const minOverlap = pair.minimumIntersectionOverlap;
+			const maxContainment = Math.max(pair.containmentAinB, pair.containmentBinA);
+
+			// Trigger replacement if minimum-weight overlap >= 40% OR asymmetric containment >= 75%
+			if (minOverlap >= 40 || maxContainment >= 75) {
+				const fundA = funds.find((f) => f.mfIsin === pair.fundA.isin)!;
+				const fundB = funds.find((f) => f.mfIsin === pair.fundB.isin)!;
+				if (!fundA || !fundB) continue;
+
+				// If asymmetric containment is extreme (e.g. A is >75% inside B), replace A
+				let fundToReplace: PortfolioFund;
+				let keepFund: PortfolioFund;
+				let asymmetricReason: string | null = null;
+
+				if (pair.containmentAinB >= 75 && pair.containmentAinB > pair.containmentBinA) {
+					fundToReplace = fundA;
+					keepFund = fundB;
+					asymmetricReason = `${fundA.name} is ${pair.containmentAinB.toFixed(1)}% contained within ${fundB.name} (paying redundant fees for overlapping holdings).`;
+				} else if (pair.containmentBinA >= 75 && pair.containmentBinA > pair.containmentAinB) {
+					fundToReplace = fundB;
+					keepFund = fundA;
+					asymmetricReason = `${fundB.name} is ${pair.containmentBinA.toFixed(1)}% contained within ${fundA.name} (paying redundant fees for overlapping holdings).`;
+				} else {
+					fundToReplace = this.determineFundToReplace(fundA, fundB);
+					keepFund = fundToReplace === fundA ? fundB : fundA;
+				}
+
+				// Avoid duplicate suggestions for the same fund
+				if (!suggestions.some((s) => s.fundIsin === fundToReplace.mfIsin)) {
+					suggestions.push({
+						fundToReplace: fundToReplace.name,
+						fundIsin: fundToReplace.mfIsin,
+						reason: asymmetricReason || `High portfolio overlap with ${keepFund.name} (${minOverlap.toFixed(1)}% weight overlap)`,
+						overlapWith: keepFund.name,
+						overlapPercentage: minOverlap,
+						containmentPercentage: maxContainment,
+						asymmetricWarning: asymmetricReason,
+						metricsComparison: this.generateMetricsComparison(
+							fundToReplace,
+							keepFund,
+						),
+						suggestedAction: "SWITCH",
+						alternatives: [], // Will be filled by BE-13
+					});
+				}
+			}
+		}
+
+		return suggestions;
+	}
+
+	/**
+	 * Computes detailed pairwise stock overlap, minimum intersection, and asymmetric containment
+	 * across all schemes in the portfolio with SEBI 2026 circular regulatory breach flags.
+	 */
+	async calculateDetailedPairwiseOverlap(
+		funds: PortfolioFund[],
+	): Promise<PairwiseOverlapDetail[]> {
+		if (funds.length < 2) return [];
+
+		const fundIsins = funds.map((f) => f.mfIsin).filter(Boolean);
+		if (!fundIsins.length) return [];
+
 		const allHoldings = await db
 			.select()
 			.from(mfSchemeStockHoldings)
@@ -429,58 +516,110 @@ export class OverlapIntelligenceEngine {
 				)
 			);
 
-		// Group holdings by fund
-		const holdingsByFund = new Map<string, Set<string>>();
-		for (const holding of allHoldings) {
-			if (!holdingsByFund.has(holding.mfIsin)) {
-				holdingsByFund.set(holding.mfIsin, new Set());
+		// Map of fundIsin -> Map of stockSymbol -> { weight, name }
+		const holdingsMap = new Map<string, Map<string, { weight: number; name: string }>>();
+		for (const h of allHoldings) {
+			let fundStocks = holdingsMap.get(h.mfIsin);
+			if (!fundStocks) {
+				fundStocks = new Map();
+				holdingsMap.set(h.mfIsin, fundStocks);
 			}
-			holdingsByFund.get(holding.mfIsin)!.add(holding.stockSymbol);
+			const wt = Number.parseFloat(String(h.holdingPercentage || "0"));
+			fundStocks.set(h.stockSymbol.toUpperCase(), {
+				weight: wt,
+				name: h.stockName || h.stockSymbol,
+			});
 		}
 
-		// Compare each pair of funds
+		const results: PairwiseOverlapDetail[] = [];
+
 		for (let i = 0; i < funds.length; i++) {
 			for (let j = i + 1; j < funds.length; j++) {
 				const fundA = funds[i];
 				const fundB = funds[j];
 
-				const holdingsA = holdingsByFund.get(fundA.mfIsin) || new Set();
-				const holdingsB = holdingsByFund.get(fundB.mfIsin) || new Set();
+				const stocksA = holdingsMap.get(fundA.mfIsin) || new Map();
+				const stocksB = holdingsMap.get(fundB.mfIsin) || new Map();
 
-				if (holdingsA.size === 0 || holdingsB.size === 0) continue;
+				if (stocksA.size === 0 || stocksB.size === 0) continue;
 
-				// Calculate overlap
-				const intersection = new Set(
-					[...holdingsA].filter((x) => holdingsB.has(x)),
-				);
-				const overlapPctA = (intersection.size / holdingsA.size) * 100;
-				const overlapPctB = (intersection.size / holdingsB.size) * 100;
-				const maxOverlap = Math.max(overlapPctA, overlapPctB);
+				let totalWeightA = 0;
+				for (const s of Array.from(stocksA.values())) totalWeightA += s.weight;
+				if (totalWeightA === 0) totalWeightA = 100;
 
-				// If overlap >= 40%, suggest replacement
-				if (maxOverlap >= 40) {
-					// Determine which fund to replace based on metrics
-					const fundToReplace = this.determineFundToReplace(fundA, fundB);
-					const keepFund = fundToReplace === fundA ? fundB : fundA;
+				let totalWeightB = 0;
+				for (const s of Array.from(stocksB.values())) totalWeightB += s.weight;
+				if (totalWeightB === 0) totalWeightB = 100;
 
-					suggestions.push({
-						fundToReplace: fundToReplace.name,
-						fundIsin: fundToReplace.mfIsin,
-						reason: `High overlap with ${keepFund.name} (${maxOverlap.toFixed(0)}%)`,
-						overlapWith: keepFund.name,
-						overlapPercentage: maxOverlap,
-						metricsComparison: this.generateMetricsComparison(
-							fundToReplace,
-							keepFund,
-						),
-						suggestedAction: "SWITCH",
-						alternatives: [], // Will be filled by BE-13
-					});
+				let minOverlapSum = 0;
+				let sharedWeightAinB = 0;
+				let sharedWeightBinA = 0;
+				const commonStocks: Array<{
+					symbol: string;
+					name: string;
+					weightInA: number;
+					weightInB: number;
+					overlapWeight: number;
+				}> = [];
+
+				for (const [sym, itemA] of Array.from(stocksA.entries())) {
+					const itemB = stocksB.get(sym);
+					if (itemB) {
+						const minWt = Math.min(itemA.weight, itemB.weight);
+						minOverlapSum += minWt;
+						sharedWeightAinB += itemA.weight;
+						sharedWeightBinA += itemB.weight;
+						commonStocks.push({
+							symbol: sym,
+							name: itemA.name,
+							weightInA: itemA.weight,
+							weightInB: itemB.weight,
+							overlapWeight: minWt,
+						});
+					}
 				}
+
+				commonStocks.sort((a, b) => b.overlapWeight - a.overlapWeight);
+
+				const containmentAinB = Number(((sharedWeightAinB / totalWeightA) * 100).toFixed(2));
+				const containmentBinA = Number(((sharedWeightBinA / totalWeightB) * 100).toFixed(2));
+				const minOverlap = Number(minOverlapSum.toFixed(2));
+
+				const catA = (fundA.category || "").toLowerCase();
+				const catB = (fundB.category || "").toLowerCase();
+				const isThematicOrSectoral =
+					catA.includes("thematic") ||
+					catA.includes("sectoral") ||
+					catB.includes("thematic") ||
+					catB.includes("sectoral");
+
+				const sebiThreshold = isThematicOrSectoral ? 50 : 60;
+				const isBreached = minOverlap > sebiThreshold;
+
+				let asymmetricWarning: string | null = null;
+				if (containmentAinB >= 75) {
+					asymmetricWarning = `${fundA.name} is ${containmentAinB}% contained within ${fundB.name}`;
+				} else if (containmentBinA >= 75) {
+					asymmetricWarning = `${fundB.name} is ${containmentBinA}% contained within ${fundA.name}`;
+				}
+
+				results.push({
+					fundA: { isin: fundA.mfIsin, name: fundA.name, category: fundA.category },
+					fundB: { isin: fundB.mfIsin, name: fundB.name, category: fundB.category },
+					minimumIntersectionOverlap: minOverlap,
+					containmentAinB,
+					containmentBinA,
+					commonStocksCount: commonStocks.length,
+					topCommonStocks: commonStocks.slice(0, 10),
+					isThematicOrSectoral,
+					sebiThreshold,
+					isBreached,
+					asymmetricWarning,
+				});
 			}
 		}
 
-		return suggestions;
+		return results.sort((a, b) => b.minimumIntersectionOverlap - a.minimumIntersectionOverlap);
 	}
 
 	private determineFundToReplace(
@@ -801,6 +940,10 @@ export class OverlapIntelligenceEngine {
 		const diversificationScore =
 			await this.calculateDiversificationScore(funds);
 
+		// Calculate detailed pairwise overlap matrix with asymmetric containment and SEBI thresholds
+		const pairwiseOverlapMatrix = await this.calculateDetailedPairwiseOverlap(funds);
+		const sebiBreachesCount = pairwiseOverlapMatrix.filter((p) => p.isBreached).length;
+
 		// Detect replacement candidates
 		const replaceSuggestions = await this.detectReplacementCandidates(funds);
 
@@ -826,6 +969,8 @@ export class OverlapIntelligenceEngine {
 			diversificationScore,
 			replaceFundSuggestions: replaceSuggestions,
 			advisorTalkingPoints,
+			pairwiseOverlapMatrix,
+			sebiBreachesCount,
 		};
 
 		this.cache.set(cacheKey, { data: result, timestamp: Date.now() });

@@ -105,6 +105,7 @@ interface StressTestResponse {
 
 export function GlobalMacroRadarWidget() {
 	const [activeScenario, setActiveScenario] = useState<"OIL_SPIKE_95" | "DOLLAR_SURGE_106" | "US_YIELD_SPIKE_475">("OIL_SPIKE_95");
+	const [isRefreshing, setIsRefreshing] = useState(false);
 
 	// ── 1. Fetch Live Global Macro Report ──
 	const { data, isLoading, isError, refetch, isFetching } = useQuery<{ success: boolean; data: GlobalMacroReport }>({
@@ -116,6 +117,18 @@ export function GlobalMacroRadarWidget() {
 		},
 		refetchInterval: 5 * 60 * 1000, // 5 min auto refresh
 	});
+
+	const handleSync = async () => {
+		setIsRefreshing(true);
+		try {
+			await fetch("/api/macro/global-radar?refresh=true");
+			await refetch();
+		} catch (err) {
+			console.warn("Macro radar refresh error:", err);
+		} finally {
+			setIsRefreshing(false);
+		}
+	};
 
 	// ── 2. Interactive Stress Test Mutation ──
 	const stressMutation = useMutation<{ success: boolean; data: StressTestResponse }, Error, string>({
@@ -217,10 +230,10 @@ export function GlobalMacroRadarWidget() {
 							size="sm"
 							variant="outline"
 							className="h-8 gap-1.5 text-xs"
-							onClick={() => refetch()}
-							disabled={isFetching}
+							onClick={handleSync}
+							disabled={isFetching || isRefreshing}
 						>
-							<RefreshCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin")} />
+							<RefreshCw className={cn("h-3.5 w-3.5", (isFetching || isRefreshing) && "animate-spin")} />
 							Sync
 						</Button>
 					</div>
@@ -298,7 +311,7 @@ export function GlobalMacroRadarWidget() {
 						<div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
 							<span className="flex items-center gap-1.5">
 								<Activity className="h-3.5 w-3.5 text-blue-500" />
-								Forex Rate
+								Forex Rate (FBIL)
 							</span>
 							<Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-blue-500/10 text-blue-600 border-blue-500/20">
 								Orderly
@@ -308,7 +321,7 @@ export function GlobalMacroRadarWidget() {
 							₹{report.macroRegimeSummary.usdInrRate.toFixed(2)}
 						</div>
 						<div className="text-[11px] text-muted-foreground">
-							USD / INR Exchange Rate
+							USD / INR FBIL Reference Rate
 						</div>
 					</div>
 				</div>

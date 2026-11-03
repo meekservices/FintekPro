@@ -115,23 +115,33 @@ export class GlobalMacroTransmissionService {
 	/**
 	 * Computes the unified Global Macro Transmission Composite Report across all 5 pillars.
 	 */
-	public async getGlobalMacroReport(): Promise<GlobalMacroReport> {
+	public async getGlobalMacroReport(forceRefresh = false): Promise<GlobalMacroReport> {
 		const t0 = Date.now();
 
-		// Check cache first
-		try {
-			const cached = await distributedCache.getJson<GlobalMacroReport>(CACHE_KEY);
-			if (cached) {
-				return {
-					...cached,
-					meta: { ...cached.meta, cached: true },
-				};
+		// Check cache first unless forced refresh is requested
+		if (!forceRefresh) {
+			try {
+				const cached = await distributedCache.getJson<GlobalMacroReport>(CACHE_KEY);
+				if (cached) {
+					return {
+						...cached,
+						meta: { ...cached.meta, cached: true },
+					};
+				}
+			} catch {
+				// Proceed to compute
 			}
-		} catch {
-			// Proceed to compute
 		}
 
-		// ── Step 1: Parallel Ingestion of Underlying Feeds ──
+		// ── Step 1: Parallel Ingestion of Underlying Feeds & Golden Pricing Snapshot ──
+		let goldenSnapshot: any = null;
+		try {
+			const { goldenPricingEngine } = await import("../golden-pricing/GoldenPricingEngine");
+			goldenSnapshot = await goldenPricingEngine.getDailyMarketBriefLiveSnapshot("india");
+		} catch (gErr: any) {
+			logger.warn("[GlobalMacroTransmissionService] GoldenPricing snapshot fallback:", { error: gErr?.message });
+		}
+
 		const [commodityRes, ccilRes, fiiRes, exchangeRates] = await Promise.allSettled([
 			commodityMarketService.getCommodityBenchmarks(),
 			ccilMarketService.getSovereignBenchmarks(),
@@ -154,16 +164,22 @@ export class GlobalMacroTransmissionService {
 				? fiiRes.value.data
 				: { fii: { buy: 0, sell: 0, net: 0 }, dii: { buy: 0, sell: 0, net: 0 } };
 
-		const usdInr =
-			exchangeRates.status === "fulfilled" && exchangeRates.value?.INR
+		// Authoritative Anchor: GPE FBIL reference rate (86.85 benchmark), validated within realistic India bounds
+		const rawUsdInr =
+			goldenSnapshot?.currencies?.usdInr ??
+			(exchangeRates.status === "fulfilled" && exchangeRates.value?.INR
 				? Number(exchangeRates.value.INR)
-				: 86.85;
+				: 86.85);
+		const usdInr = rawUsdInr >= 80.0 && rawUsdInr <= 92.0 ? rawUsdInr : 86.85;
 
 		// ── Step 2: Pillar 1 — Energy & Commodities Transmission (Weight: 25%) ──
+		// Authoritative Anchor: GPE Brent Crude CFD price matching Golden Pricing Engine
 		const brentPrice =
+			goldenSnapshot?.commodities?.brentCrude?.cfdPriceUsd ??
+			goldenSnapshot?.commodities?.brentCrudeUsd ??
 			commodityData?.crudeOilBreakevenStatus?.brentUsd ??
 			commodityData?.commodities.find((c) => c.id === "CRUDE_OIL")?.cmxPrice ??
-			117.0;
+			74.80;
 
 		let pillar1Score = 75;
 		let p1Status: PillarScore["status"] = "FAVORABLE";
@@ -215,14 +231,17 @@ export class GlobalMacroTransmissionService {
 			weight: 0.2,
 			status: p2Status,
 			keyMetric: "USD / INR & DXY Index",
-			observedValue: `₹${usdInr.toFixed(2)} (DXY ~${dxyEstimate.toFixed(1)})`,
+			observedValue: `₹${usdInr.toFixed(2)} (FBIL Anchor)`,
 			benchmarkThreshold: "DXY < 103.5 (Orderly FX)",
-			details: `USD/INR trading at ₹${usdInr.toFixed(2)}. Dollar index stability supports orderly foreign institutional allocations without sharp currency erosion.`,
+			details: `USD/INR trading at ₹${usdInr.toFixed(2)} (FBIL reference rate). Dollar index stability supports orderly foreign institutional allocations without sharp currency erosion.`,
 		};
 
 		// ── Step 4: Pillar 3 — Sovereign Yield Spread & Carry Buffer (Weight: 20%) ──
-		const gsecYield = ccilData?.sovereignYields?.find((y) => y.tenor === "10Y")?.yieldPercent ?? 6.79;
-		const us10YBenchmark = 4.20; // Standard US Treasury baseline
+		const gsecYield =
+			goldenSnapshot?.fixedIncome?.gsec10YYield ??
+			ccilData?.sovereignYields?.find((y) => y.tenor === "10Y")?.yieldPercent ??
+			6.79;
+		const us10YBenchmark = goldenSnapshot?.fixedIncome?.us10YTreasury ?? 4.20; // Standard US Treasury baseline
 		const spreadBps = Math.round((gsecYield - us10YBenchmark) * 100);
 
 		let pillar3Score = 75;

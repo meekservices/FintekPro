@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { overlapIntelligenceEngine } from "../services/overlap-intelligence-engine";
+import { logger } from "../logger";
 import { z } from "zod";
 import * as schema from "@shared/schema";
 
@@ -37,7 +38,32 @@ router.post("/intelligence", async (req: Request, res: Response) => {
 			await overlapIntelligenceEngine.analyzePortfolioIntelligence(funds);
 		res.json({ success: true, data: result });
 	} catch (error: any) {
-		console.error("[OverlapIntelligence] Error:", error);
+		logger.error("[OverlapIntelligence] Error:", error);
+		res.status(400).json({ success: false, error: error.message });
+	}
+});
+
+/**
+ * POST /api/portfolio/pairwise-overlap
+ * Enhanced pairwise look-through overlap, asymmetric containment, and SEBI regulatory breaches
+ */
+router.post("/pairwise-overlap", async (req: Request, res: Response) => {
+	try {
+		const { funds } = portfolioSchema.parse(req.body);
+		const result =
+			await overlapIntelligenceEngine.calculateDetailedPairwiseOverlap(funds);
+		res.json({
+			success: true,
+			data: result,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: "2.0.0",
+				totalPairs: result.length,
+				breachesCount: result.filter((p: any) => p.isBreached).length,
+			},
+		});
+	} catch (error: any) {
+		logger.error("[PairwiseOverlap] Error:", error);
 		res.status(400).json({ success: false, error: error.message });
 	}
 });
@@ -53,7 +79,7 @@ router.post("/diversification-score", async (req: Request, res: Response) => {
 			await overlapIntelligenceEngine.calculateDiversificationScore(funds);
 		res.json({ success: true, data: result });
 	} catch (error: any) {
-		console.error("[DiversificationScore] Error:", error);
+		logger.error("[DiversificationScore] Error:", error);
 		res.status(400).json({ success: false, error: error.message });
 	}
 });
@@ -75,7 +101,7 @@ router.post("/overlap-risk", async (req: Request, res: Response) => {
 		);
 		res.json({ success: true, data: result });
 	} catch (error: any) {
-		console.error("[OverlapRisk] Error:", error);
+		logger.error("[OverlapRisk] Error:", error);
 		res.status(400).json({ success: false, error: error.message });
 	}
 });
@@ -91,7 +117,7 @@ router.post("/replace-suggestions", async (req: Request, res: Response) => {
 			await overlapIntelligenceEngine.detectReplacementCandidates(funds);
 		res.json({ success: true, data: result });
 	} catch (error: any) {
-		console.error("[ReplaceSuggestions] Error:", error);
+		logger.error("[ReplaceSuggestions] Error:", error);
 		res.status(400).json({ success: false, error: error.message });
 	}
 });
@@ -115,7 +141,7 @@ router.post("/find-alternatives", async (req: Request, res: Response) => {
 		);
 		res.json({ success: true, data: result });
 	} catch (error: any) {
-		console.error("[FindAlternatives] Error:", error);
+		logger.error("[FindAlternatives] Error:", error);
 		res.status(400).json({ success: false, error: error.message });
 	}
 });
@@ -138,7 +164,7 @@ router.post("/simulate-impact", async (req: Request, res: Response) => {
 			);
 		res.json({ success: true, data: result });
 	} catch (error: any) {
-		console.error("[SimulateImpact] Error:", error);
+		logger.error("[SimulateImpact] Error:", error);
 		res.status(400).json({ success: false, error: error.message });
 	}
 });
@@ -171,7 +197,7 @@ router.post("/recommend", async (req: Request, res: Response) => {
 			},
 		});
 	} catch (error: any) {
-		console.error("[PortfolioRecommend] Error:", error);
+		logger.error("[PortfolioRecommend] Error:", error);
 		res.status(400).json({ success: false, error: error.message });
 	}
 });
@@ -197,7 +223,7 @@ router.post("/optimize-sip", async (req: Request, res: Response) => {
 		);
 		res.json({ success: true, data: result });
 	} catch (error: any) {
-		console.error("[OptimizeSIP] Error:", error);
+		logger.error("[OptimizeSIP] Error:", error);
 		res.status(400).json({ success: false, error: error.message });
 	}
 });
@@ -225,7 +251,7 @@ router.post("/goal-based-score", async (req: Request, res: Response) => {
 			);
 		res.json({ success: true, data: result });
 	} catch (error: any) {
-		console.error("[GoalBasedScore] Error:", error);
+		logger.error("[GoalBasedScore] Error:", error);
 		res.status(400).json({ success: false, error: error.message });
 	}
 });
@@ -249,7 +275,7 @@ router.post("/sebi-narratives", async (req: Request, res: Response) => {
 		);
 		res.json({ success: true, data: { narratives, diversificationScore } });
 	} catch (error: any) {
-		console.error("[SEBINarratives] Error:", error);
+		logger.error("[SEBINarratives] Error:", error);
 		res.status(400).json({ success: false, error: error.message });
 	}
 });
@@ -275,7 +301,7 @@ router.post("/sebi-narrative", async (req: Request, res: Response) => {
 			overlapIntelligenceEngine.generateSEBICompliantNarratives(context);
 		res.json({ success: true, data: result });
 	} catch (error: any) {
-		console.error("[SEBINarrative] Error:", error);
+		logger.error("[SEBINarrative] Error:", error);
 		res.status(400).json({ success: false, error: error.message });
 	}
 });

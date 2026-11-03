@@ -93,9 +93,22 @@ export class MultiExchangeMarketService {
 		const calculationTimestamp = new Date().toISOString();
 		const asOfDate = dateStr || calculationTimestamp.split("T")[0];
 
-		// Try to pull live indices from existing Indian API service or memory caches
-		let _bseSensexPrice = 81224;
-		let niftyPrice = 24785;
+		// 1. Fetch Golden Pricing Engine snapshot for unified live benchmark indices
+		let goldenSnapshot: any = null;
+		try {
+			const { goldenPricingEngine } = await import("./golden-pricing/GoldenPricingEngine");
+			goldenSnapshot = await goldenPricingEngine.getDailyMarketBriefLiveSnapshot("india");
+		} catch (gErr: any) {
+			logger.warn("[MultiExchangeMarketService] GoldenPricingEngine lookup fallback:", { message: gErr?.message });
+		}
+
+		// Try to pull live indices from GPE, Indian API service, or memory caches
+		const gpeNifty = goldenSnapshot?.indices?.indian?.find((i: any) => i.symbol === "NIFTY50" || i.symbol === "IDX_NIFTY_50");
+		const gpeSensex = goldenSnapshot?.indices?.indian?.find((i: any) => i.symbol === "SENSEX" || i.symbol === "IDX_SENSEX");
+		const gpeGift = goldenSnapshot?.indices?.indian?.find((i: any) => i.symbol === "GIFTNIFTY" || i.symbol === "IDX_GIFT_NIFTY" || i.name?.toUpperCase().includes("GIFT"));
+
+		let _bseSensexPrice = gpeSensex?.price || 81224;
+		let niftyPrice = gpeNifty?.price || 24785;
 		let indiaVix = 13.85;
 
 		if (process.env.NODE_ENV !== "test") {
@@ -118,34 +131,75 @@ export class MultiExchangeMarketService {
 			}
 		}
 
-		// BSE Market Breadth baseline (reflecting balanced equity market participation)
-		const bseBreadth: BseMarketBreadth = {
+		// 2. BSE Market Breadth — live from marketBreadthService (database-backed)
+		let bseBreadth: BseMarketBreadth = {
 			advances: 2185,
 			declines: 1740,
 			unchanged: 145,
 			advanceDeclineRatio: 1.26,
 			upperCircuits: 342,
 			lowerCircuits: 188,
-			totalMarketCapLakhCr: 468.5, // ~₹468.5 Lakh Cr total listed equity market capitalization
+			totalMarketCapLakhCr: 468.5,
 			sentiment: "Bullish Breadth",
 		};
 
-		// GIFT Nifty early session settlement (GIFT City IFSC)
-		const giftNiftyPrice = niftyPrice + 38; // +38 pts early lead indication
+		try {
+			const { marketBreadthService } = await import("./macro/market-breadth-service");
+			const liveBreadth = await marketBreadthService.getLatestBreadth();
+			if (liveBreadth && liveBreadth.advances > 0) {
+				bseBreadth = {
+					advances: liveBreadth.advances,
+					declines: liveBreadth.declines,
+					unchanged: liveBreadth.unchanged,
+					advanceDeclineRatio: liveBreadth.advanceDeclineRatio,
+					upperCircuits: Math.round(liveBreadth.advances * 0.12),
+					lowerCircuits: Math.round(liveBreadth.declines * 0.08),
+					totalMarketCapLakhCr: 468.5,
+					sentiment:
+						liveBreadth.breadthRegime === "BROAD_ADVANCE"
+							? "Bullish Breadth"
+							: liveBreadth.breadthRegime === "BROAD_DECLINE"
+								? "Defensive Breadth"
+								: "Neutral Breadth",
+				};
+			}
+		} catch (bErr: any) {
+			logger.warn("[MultiExchangeMarketService] Market breadth service fallback:", { message: bErr?.message });
+		}
+
+		// 3. GIFT Nifty early session settlement (GIFT City IFSC) from GPE or Nifty spread
+		const giftNiftyPrice = gpeGift?.price || (niftyPrice + 38);
+		const giftNiftyChange = gpeGift?.changePercent !== undefined ? Number((giftNiftyPrice * (gpeGift.changePercent / 100)).toFixed(1)) : +42.5;
+		const giftNiftyPct = gpeGift?.changePercent !== undefined ? gpeGift.changePercent : +0.17;
 		const giftNifty: GiftNiftyIndicator = {
 			exchange: "NSE IX (GIFT City IFSC)",
 			symbol: "GIFT_NIFTY",
 			lastPrice: giftNiftyPrice,
-			netChange: +42.5,
-			percentChange: +0.17,
-			spreadOverNiftyBps: 15,
-			openingBias: "Gap Up",
+			netChange: giftNiftyChange,
+			percentChange: giftNiftyPct,
+			spreadOverNiftyBps: Math.round(((giftNiftyPrice - niftyPrice) / (niftyPrice || 1)) * 10000),
+			openingBias: giftNiftyPct > 0.15 ? "Gap Up" : giftNiftyPct < -0.15 ? "Gap Down" : "Flat / Rangebound",
 			asOfSession: "Early Morning (06:30–09:00 IST)",
 		};
 
-		// Institutional Cash Flow Provisional Figures (NSE + BSE clearing)
-		const fiiNetInflowCr = -1850; // Foreign institutional outflow
-		const diiNetInflowCr = +3120; // Domestic institutional inflow
+		// 4. Institutional Cash Flow Provisional Figures (Live from IndianAPI or GPE)
+		let fiiNetInflowCr = -1850;
+		let diiNetInflowCr = +3120;
+		try {
+			const { indianApiService } = await import("./indian-api-service");
+			const fiiRes = await indianApiService.getLatestFIIDII();
+			if (fiiRes?.success && fiiRes.data) {
+				if (typeof fiiRes.data.fii?.net === "number" && fiiRes.data.fii.net !== 0) {
+					fiiNetInflowCr = fiiRes.data.fii.net;
+				}
+				if (typeof fiiRes.data.dii?.net === "number" && fiiRes.data.dii.net !== 0) {
+					diiNetInflowCr = fiiRes.data.dii.net;
+				}
+			}
+		} catch (fiiErr: any) {
+			logger.warn("[MultiExchangeMarketService] Live FII/DII lookup fallback:", { message: fiiErr?.message });
+		}
+
 		const netCombinedInflowCr = fiiNetInflowCr + diiNetInflowCr;
 		const monthlyMfSipRunRateCr = 26425; // ₹26,425+ Cr monthly mutual fund SIP inflows
 
@@ -155,21 +209,39 @@ export class MultiExchangeMarketService {
 			netCombinedInflowCr,
 			monthlyMfSipRunRateCr,
 			absorptionRatio: Number((diiNetInflowCr / Math.abs(fiiNetInflowCr || 1)).toFixed(2)),
-			liquidityRegime: "DII Inflows Absorb FPI Selling",
+			liquidityRegime:
+				diiNetInflowCr > 0 && fiiNetInflowCr < 0
+					? "DII Inflows Absorb FPI Selling"
+					: diiNetInflowCr > 0 && fiiNetInflowCr >= 0
+						? "Dual Institutional Rally"
+						: "Risk-Off Outflows",
 			asOfDate,
 		};
 
-		// NCDEX Agricultural Inflation Pulse
+		// 5. NCDEX Agricultural Inflation Pulse (from GPE commodity radar when available)
+		const agriCommodities = goldenSnapshot?.commodities?.agricultural;
 		const ncdexAgriPulse: NcdexAgriPulse = {
 			exchange: "NCDEX",
-			staplesIndexChangePct: -0.45, // Softening agri staples
-			foodInflationBias: "Benign (<4.5%)",
-			keyCommodityDrivers: [
-				{ name: "Turmeric (Nizamabad)", symbol: "TMCFGRNZM", trend: "Stable", inflationWeight: "Moderate" },
-				{ name: "Jeera (Unjha)", symbol: "JEERAUNJHA", trend: "Soft", inflationWeight: "Low" },
-				{ name: "Chana / Gram", symbol: "CHANA", trend: "Stable", inflationWeight: "High (Protein Basket)" },
-				{ name: "Soybean", symbol: "SYBEANIDR", trend: "Soft", inflationWeight: "Edible Oil Basket" },
-			],
+			staplesIndexChangePct: goldenSnapshot?.commodities?.agriInflationIndex?.averageChangePercent ?? -0.45,
+			foodInflationBias:
+				goldenSnapshot?.commodities?.agriInflationIndex?.status === "Elevated"
+					? "Elevated (>5.5%)"
+					: goldenSnapshot?.commodities?.agriInflationIndex?.status === "Deflationary"
+						? "Benign (<4.5%)"
+						: "Moderate (4.5%–5.5%)",
+			keyCommodityDrivers: Array.isArray(agriCommodities) && agriCommodities.length > 0
+				? agriCommodities.map((c: any) => ({
+						name: c.name,
+						symbol: c.tradingSymbol || c.id,
+						trend: (c.changePercent > 0.5 ? "Firm" : c.changePercent < -0.5 ? "Soft" : "Stable") as "Firm" | "Soft" | "Stable",
+						inflationWeight: c.fmcgImpact || "Moderate",
+					}))
+				: [
+						{ name: "Turmeric (Nizamabad)", symbol: "TMCFGRNZM", trend: "Stable", inflationWeight: "Moderate" },
+						{ name: "Jeera (Unjha)", symbol: "JEERAUNJHA", trend: "Soft", inflationWeight: "Low" },
+						{ name: "Chana / Gram", symbol: "CHANA", trend: "Stable", inflationWeight: "High (Protein Basket)" },
+						{ name: "Soybean", symbol: "SYBEANIDR", trend: "Soft", inflationWeight: "Edible Oil Basket" },
+					],
 		};
 
 		// Volatility Pulse (India VIX vs Cboe VIX)

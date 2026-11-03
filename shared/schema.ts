@@ -162,7 +162,10 @@ import {
   InsertMutualFundAmc,
   insertMutualFundSchema,
   MutualFund,
-  InsertMutualFund
+  InsertMutualFund,
+  mfAmcPortfolioDeltas,
+  MfAmcPortfolioDelta,
+  InsertMfAmcPortfolioDelta
 } from './schema/mutual-funds.ts';
 import { usBrokerAccounts } from './schema/orders.ts';
 import { mcaCharges, mcaIngestionLogs, insertMcaDirectorsSchema, mcaDataSources, insertMcaWalletPaymentSchema, insertMcaDataSourcesSchema, mcaDirectors, mcaDirectPayments, insertMcaChargesSchema, insertMcaRiskScoresSchema, mcaWalletPayments, insertMcaDirectPaymentSchema, mcaRiskScores, insertMcaIngestionLogsSchema } from './schema/mca.ts';
