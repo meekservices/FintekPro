@@ -124,6 +124,8 @@ export interface ScreenerResult {
 	currentPrice: string | null;
 	marketCapValue: string | null;
 	marketCapCategory: string | null;
+	volume?: string | null;
+	dayChangePercent?: string | null;
 
 	// Fundamentals
 	peRatio: string | null;
@@ -227,6 +229,8 @@ export interface ScreenerResult {
 	altmanZScore: string | null;
 	technicalRating: string | null;
 	stockRegime: string | null;
+	pvaClassification?: string | null;
+	pvaScore?: number | null;
 
 	// 52W Range
 	weekHigh52: string | null;
@@ -470,10 +474,37 @@ async function queryScreenerFromMaster(
 		weekLow52: s.weekLow52 != null ? s.weekLow52.toString() : null,
 	}));
 
-	const enrichedStocks = enrichStocksJIT(stocks).map((s) => ({
-		...s,
-		modelPortfolios: getModelPortfolioBadges(s.symbol || (s as any).isin),
-	}));
+	const enrichedStocks = enrichStocksJIT(stocks).map((s) => {
+		const curVol = s.volume ? parseFloat(s.volume) : 0;
+		const avgVol = (s as any).averageVolume ? parseFloat((s as any).averageVolume) : 0;
+		const dayChg = s.dayChangePercent ? parseFloat(s.dayChangePercent) : 0;
+		let pvaClassification: string | null = (s as any).pvaClassification || null;
+		let pvaScore: number | null = (s as any).pvaScore || null;
+
+		if (!pvaClassification && avgVol > 0 && curVol > 0) {
+			const rvol = curVol / avgVol;
+			if (rvol >= 1.4 && dayChg >= 0.5) {
+				pvaClassification = "INSTITUTIONAL_ACCUMULATION";
+				pvaScore = Math.min(95, Math.round(75 + (rvol - 1) * 8));
+			} else if (rvol >= 1.4 && dayChg <= -0.5) {
+				pvaClassification = "INSTITUTIONAL_DISTRIBUTION";
+				pvaScore = Math.max(15, Math.round(30 - (rvol - 1) * 8));
+			} else if (rvol <= 0.65 && dayChg >= 0.5) {
+				pvaClassification = "EXHAUSTION_RALLY";
+				pvaScore = 40;
+			} else if (rvol <= 0.70 && dayChg >= -2.0 && dayChg <= 0.2) {
+				pvaClassification = "ABSORPTION_PULLBACK";
+				pvaScore = 70;
+			}
+		}
+
+		return {
+			...s,
+			pvaClassification,
+			pvaScore,
+			modelPortfolios: getModelPortfolioBadges(s.symbol || (s as any).isin),
+		};
+	});
 
 	return {
 		stocks: enrichedStocks,

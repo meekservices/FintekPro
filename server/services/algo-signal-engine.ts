@@ -21,6 +21,7 @@ import { eq, and, inArray, lt, desc, sql } from "drizzle-orm";
 import { alpacaMarketDataService } from "./alpaca-market-data-service";
 import { auditLog } from "../middleware/audit-trail";
 import { logger } from "../logger";
+import { analyzePriceVolumeAction } from "./quant/price-volume-engine";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,8 @@ export interface SignalFactors {
 	smaScore: number; // -1 to +1
 	rsiScore: number; // -1 to +1
 	momentumScore: number; // -1 to +1
+	pvaClassification?: string;
+	pvaScore?: number;
 }
 
 export interface SignalResult {
@@ -395,9 +398,18 @@ class AlgoSignalEngine {
 			rsiScore = +(1 - rsi14 / 30).toFixed(3); // oversold → buy
 		else if (rsi14 > 70) rsiScore = -((rsi14 - 70) / 30).toFixed(3); // overbought → sell
 
-		// Momentum + Volume confirmation
+		// Momentum + Price Volume Action (PVA) Wyckoff confirmation
 		const momentumRaw = Math.max(-1, Math.min(1, momentum20d / 15)); // 15% → ±1
-		const volBoost = volumeRatio > 1.3 ? 1.2 : volumeRatio < 0.7 ? 0.8 : 1.0;
+		const pvaResult = analyzePriceVolumeAction(
+			symbol,
+			bars.map((b) => ({
+				high: b.h,
+				low: b.l,
+				close: b.c,
+				volume: b.v,
+			})),
+		);
+		const volBoost = pvaResult.quantBoostFactor;
 		const momentumScore = +(momentumRaw * volBoost).toFixed(3);
 
 		// ── Composite confidence ─────────────────────────────────────────────────
@@ -460,6 +472,8 @@ class AlgoSignalEngine {
 			smaScore: +smaScore.toFixed(3),
 			rsiScore: +rsiScore.toFixed(3),
 			momentumScore: +momentumScore.toFixed(3),
+			pvaClassification: pvaResult.classification,
+			pvaScore: pvaResult.pvaScore,
 		};
 
 		return {

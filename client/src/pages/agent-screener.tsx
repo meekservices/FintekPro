@@ -3896,6 +3896,33 @@ export default function AgentScreener() {
 																								: "🛡️ Base"}
 																						</Badge>
 																					)}
+																					{stock.pvaClassification && (
+																						<Badge
+																							variant="outline"
+																							className={`text-[9px] py-0 px-1 h-4 font-sans font-medium ${
+																								stock.pvaClassification === "INSTITUTIONAL_ACCUMULATION"
+																									? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40"
+																									: stock.pvaClassification === "INSTITUTIONAL_DISTRIBUTION"
+																									? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40"
+																									: stock.pvaClassification === "ABSORPTION_PULLBACK"
+																									? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/40"
+																									: stock.pvaClassification === "VOLUME_CLIMAX_REVERSAL"
+																									? "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/40"
+																									: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30"
+																							}`}
+																							title={`Price Volume Action: ${stock.pvaClassification.replace(/_/g, " ")}`}
+																						>
+																							{stock.pvaClassification === "INSTITUTIONAL_ACCUMULATION"
+																								? "🔥 Accumulation"
+																								: stock.pvaClassification === "INSTITUTIONAL_DISTRIBUTION"
+																								? "🔻 Distribution"
+																								: stock.pvaClassification === "ABSORPTION_PULLBACK"
+																								? "🛡️ Absorption"
+																								: stock.pvaClassification === "VOLUME_CLIMAX_REVERSAL"
+																								? "⚡ Climax"
+																								: "PVA Active"}
+																						</Badge>
+																					)}
 																					{stock.sector && (
 																						<span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
 																							{stock.sector}

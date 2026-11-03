@@ -1936,6 +1936,42 @@ export class StockStrategy extends BaseStrategy {
 			// Non-blocking fallback
 		}
 
+		// ── Upgrade #14: Price Volume Action (PVA) Wyckoff Institutional Accumulation ──
+		// Evaluates relative volume surge (RVOL) alongside price direction:
+		// - Price Up with Volume Surge (>= 1.4x) = Institutional Accumulation (+12 pts)
+		// - Price Down with Volume Surge (>= 1.4x) = Institutional Distribution (-14 pts)
+		// - Price Up with Low Volume (<= 0.65x) = Exhaustion Rally (-6 pts)
+		// - Price Pullback (-2% to 0.2%) with Dry Volume (<= 0.70x) = Healthy Absorption (+8 pts)
+		const curVol = stock.volume ? Number.parseFloat(stock.volume) : null;
+		const avgVolForPva = stock.averageVolume ? Number.parseFloat(stock.averageVolume) : null;
+		if (curVol && avgVolForPva && avgVolForPva > 0 && dayChangePct !== null) {
+			const rvol = curVol / avgVolForPva;
+			if (rvol >= 1.4 && dayChangePct >= 0.5) {
+				score += rvol >= 2.0 ? 12 : 8; // Institutional accumulation breakout
+			} else if (rvol >= 1.4 && dayChangePct <= -0.5) {
+				score -= rvol >= 2.0 ? 14 : 10; // Institutional distribution breakdown
+			} else if (rvol <= 0.65 && dayChangePct >= 0.8) {
+				score -= 6; // Exhaustion rally on drying volume (retail trap)
+			} else if (rvol <= 0.70 && dayChangePct >= -2.0 && dayChangePct <= 0.2) {
+				score += 8; // Low-volume absorption pullback in uptrend
+			}
+		}
+
+		// ── Upgrade #15: Volatility Contraction Pattern (VCP) Squeeze Alpha ─────
+		// Tight bases near 52-week highs precede institutional explosive breakouts.
+		// If trading within 12% of 52W high with narrow daily consolidation, reward setup (+8 pts).
+		if (weekHigh52 && curPrice && weekHigh52 > 0) {
+			const proximity52w = ((weekHigh52 - curPrice) / weekHigh52) * 100;
+			const highDay = (stock as any).dayHigh ? Number.parseFloat((stock as any).dayHigh) : null;
+			const lowDay = (stock as any).dayLow ? Number.parseFloat((stock as any).dayLow) : null;
+			if (highDay && lowDay && curPrice > 0 && proximity52w <= 12) {
+				const daySpreadPct = ((highDay - lowDay) / curPrice) * 100;
+				if (daySpreadPct < 1.8) {
+					score += 8; // Tight daily coiling right under 52W high
+				}
+			}
+		}
+
 		// ── Fix 2: Market-regime-aware score multipliers ──────────────────────────
 		// Adjust signal weights based on current market regime from detectRegime().
 		// BEAR/HIGH_VOL: boost defensive characteristics, penalise high-beta momentum.

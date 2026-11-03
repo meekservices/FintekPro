@@ -39,3 +39,14 @@ export function momentumSignal(
 	const pos = ((price - fiftyTwoWeekLow) / range) * 100;
 	return Math.min(100, Math.max(0, pos));
 }
+
+// Re-export core Price Volume Action engine
+export {
+	analyzePriceVolumeAction,
+	PVA_ENGINE_VERSION,
+	type PvaBarInput,
+	type PvaAnalysisResult,
+	type PvaClassification,
+	type PvaIntermediateSteps,
+} from "../../services/quant/price-volume-engine";
+
