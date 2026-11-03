@@ -48,6 +48,16 @@ router.get(
 	"/market-brief/today",
 	asyncHandler(async (req, res) => {
 		const region = (req.query.region as string) || "india";
+		const forceRefresh = req.query.forceRefresh === "true" || req.query.refresh === "true";
+		if (forceRefresh) {
+			try {
+				const { goldenPricingEngine } = await import("../services/golden-pricing/GoldenPricingEngine");
+				await goldenPricingEngine.getDailyMarketBriefLiveSnapshot(region, true);
+				await knowledgeHubService.generateAndPublishDailyBrief(region);
+			} catch (rfErr: any) {
+				logger.warn(`[KnowledgeHubRoutes] Market brief force refresh notice: ${rfErr?.message}`);
+			}
+		}
 		const brief = await knowledgeHubService.getTodaysBrief(region);
 
 		if (brief && (req as any).user) {
@@ -67,6 +77,32 @@ router.get(
 		res.json(
 			brief || knowledgeHubService.getFallbackDailyBrief(region),
 		);
+	}),
+);
+
+router.get(
+	"/fbil-benchmarks",
+	asyncHandler(async (req, res) => {
+		const forceRefresh = req.query.refresh === "true" || req.query.forceRefresh === "true";
+		try {
+			const { fbilMarketService } = await import("../services/fbil-market-service");
+			const result = await fbilMarketService.getFbilBenchmarks(forceRefresh);
+			res.json(result);
+		} catch (fbilErr: any) {
+			logger.warn(`[KnowledgeHubRoutes] FBIL benchmarks fetch warning: ${fbilErr?.message}`);
+			res.status(500).json({ success: false, message: "FBIL benchmarks temporarily unavailable" });
+		}
+	}),
+);
+
+router.post(
+	"/macro/backfill-history",
+	asyncHandler(async (_req, res) => {
+		const { macroHistoricalBackfillService } = await import(
+			"../services/macro/macro-historical-backfill-service"
+		);
+		const report = await macroHistoricalBackfillService.runTenYearMacroBackfill();
+		res.json(report);
 	}),
 );
 

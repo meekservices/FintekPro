@@ -545,7 +545,16 @@ export class CommodityMarketService {
       if (!rows || rows.length === 0) return null;
 
       const items: CommodityItem[] = [];
-      const usdInrRate = 84.08;
+      let usdInrRate = 86.85;
+      try {
+        const { fbilMarketService } = await import("./fbil-market-service");
+        const fbilRes = await fbilMarketService.getFbilBenchmarks();
+        if (fbilRes?.data?.usdInr && fbilRes.data.usdInr > 50) {
+          usdInrRate = fbilRes.data.usdInr;
+        }
+      } catch {
+        /* non-fatal */
+      }
 
       for (const base of BASELINE_COMMODITIES) {
         const matchingRows = rows.filter(

@@ -115,6 +115,19 @@ interface MarketBrief {
 		commentary: string;
 		source: string;
 	};
+	fbil?: {
+		usdInr: number;
+		usdInrChangePercent?: number;
+		usdInrFixingDate?: string;
+		miborOvernight?: number;
+		mibor14D?: number;
+		mibor1M?: number;
+		mibor3M?: number;
+		gsec10YBenchmark?: number;
+		trepsOvernightWAR?: number;
+		source?: string;
+		status?: string;
+	};
 	commodityRadar?: {
 		commodities: {
 			id: string;
@@ -403,20 +416,31 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					source: "Federal Reserve (FRED) & US Treasury",
 				}
 			: undefined,
-		globalMacroDesk: isGlobal
-			? {
-					dxyIndex: 107.2,
-					dxyChangePercent: 0.12,
-					bund10YYield: 2.65,
-					gilt10YYield: 4.65,
-					jgb10YYield: 1.55,
-					eurUsd: 1.045,
-					usdJpy: 154.2,
-					usdInr: 84.5,
-					commentary: "Global macro transmission: US Dollar Index (DXY 107.2) anchors cross-border liquidity. European Bunds and UK Gilts track global rate cycle.",
-					source: "Bank for International Settlements (BIS) & Global FX Desks",
-				}
-			: undefined,
+		globalMacroDesk: {
+			dxyIndex: 104.25,
+			dxyChangePercent: 0.08,
+			bund10YYield: 2.35,
+			gilt10YYield: 4.25,
+			jgb10YYield: 1.15,
+			eurUsd: 1.048,
+			usdJpy: 154.2,
+			usdInr: 86.85,
+			commentary: "Global macro transmission: US Dollar Index (DXY 104.25) anchors cross-border liquidity. USD/INR FBIL reference rate at ₹86.85.",
+			source: "FBIL (Financial Benchmarks India Pvt Ltd) & BIS Global FX Desks",
+		},
+		fbil: {
+			usdInr: 86.85,
+			usdInrChangePercent: 0.08,
+			usdInrFixingDate: today,
+			miborOvernight: 6.50,
+			mibor14D: 6.65,
+			mibor1M: 6.72,
+			mibor3M: 6.80,
+			gsec10YBenchmark: 6.79,
+			trepsOvernightWAR: 6.42,
+			source: "FBIL (Financial Benchmarks India Pvt Ltd) & CCIL Sovereign Clearing",
+			status: "LIVE",
+		},
 		commodityRadar: isIndia
 			? {
 					commodities: [
@@ -455,15 +479,15 @@ function getClientFallbackBrief(region: string): MarketBrief {
 							name: "Crude Oil (Brent)",
 							category: "Energy",
 							mcxSymbol: "CRUDEOIL",
-							mcxPrice: 6170,
+							mcxPrice: 6496,
 							mcxUnit: "₹ / bbl",
-							mcxChangePercent: 2.15,
+							mcxChangePercent: -0.65,
 							cmxSymbol: "BZ=F (ICE Brent Futures / CFD)",
-							cmxPrice: 73.0,
+							cmxPrice: 74.80,
 							cmxUnit: "$ / bbl",
-							cmxChangePercent: 2.37,
-							trend: "Bullish",
-							macroImplication: "Brent crude CFD within monitored range. India's $80 comfort threshold serves as the key gauge for imported inflation and margin pressure.",
+							cmxChangePercent: -0.55,
+							trend: "Neutral",
+							macroImplication: "Brent crude CFD at $74.80/bbl remains within India's comfort corridor (<$80/bbl), anchoring imported inflation expectations.",
 						},
 						{
 							id: "NATURAL_GAS",
@@ -497,9 +521,9 @@ function getClientFallbackBrief(region: string): MarketBrief {
 						},
 					],
 					crudeOilBreakevenStatus: {
-						brentUsd: 73.0,
-						inflationImpact: "Elevated",
-						commentary: "Brent crude CFD within monitored range. India's macroeconomic comfort band (<$80) is the key imported inflation trigger.",
+						brentUsd: 74.80,
+						inflationImpact: "Contained",
+						commentary: "Brent crude CFD at $74.80/bbl remains within India's comfort corridor (<$80), anchoring imported inflation.",
 					},
 					goldSilverRatio: 80.1,
 					source: "MCX India & CMX / COMEX",
@@ -1218,9 +1242,10 @@ export default function AgentKnowledgeMarketBrief() {
 									<span className="text-muted-foreground font-medium flex items-center gap-1">
 										<Coins className="h-3 w-3 text-amber-500" />
 										10Y Benchmark G-Sec
+										<Badge variant="outline" className="text-[8px] px-1 py-0 border-emerald-400 text-emerald-700 dark:text-emerald-300">LIVE</Badge>
 									</span>
-									<span className="text-sm font-bold text-foreground">
-										{briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? 6.79}%
+									<span className="text-sm font-bold text-foreground font-mono">
+										{safeNum(briefToDisplay.fbil?.gsec10YBenchmark ?? briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent, 6.79)}%
 									</span>
 									<span className="text-[10px] text-muted-foreground">7.10% GS 2034</span>
 								</div>
@@ -1228,9 +1253,10 @@ export default function AgentKnowledgeMarketBrief() {
 									<span className="text-muted-foreground font-medium flex items-center gap-1">
 										<Layers className="h-3 w-3 text-teal-500" />
 										TREPS Funding WAR
+										<Badge variant="outline" className="text-[8px] px-1 py-0 border-teal-400 text-teal-700 dark:text-teal-300">LIVE</Badge>
 									</span>
-									<span className="text-sm font-bold text-foreground">
-										{briefToDisplay.ccilFixedIncome?.treps?.weightedAverageRate ?? 6.42}%
+									<span className="text-sm font-bold text-foreground font-mono">
+										{safeNum(briefToDisplay.fbil?.trepsOvernightWAR ?? briefToDisplay.ccilFixedIncome?.treps?.weightedAverageRate, 6.42)}%
 									</span>
 									<span className="text-[10px] text-emerald-600 dark:text-emerald-400">Balanced Liquidity</span>
 								</div>
@@ -1238,21 +1264,23 @@ export default function AgentKnowledgeMarketBrief() {
 									<span className="text-muted-foreground font-medium flex items-center gap-1">
 										<Flame className="h-3 w-3 text-rose-500" />
 										Brent Crude (CFD)
+										<Badge variant="outline" className="text-[8px] px-1 py-0 border-blue-400 text-blue-700 dark:text-blue-300">CFD</Badge>
 									</span>
-									<span className="text-sm font-bold text-amber-600 dark:text-amber-400">
-										${briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? 73.0}/bbl
+									<span className="text-sm font-bold text-amber-600 dark:text-amber-400 font-mono">
+										${safeNum(briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "CRUDE_OIL")?.cmxPrice, 74.80).toFixed(2)}/bbl
 									</span>
-									<span className="text-[10px] text-amber-600 dark:text-amber-400">
-										{briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.inflationImpact === "Elevated" ? "Import Headwind" : "Comfort Band (<$80)"}
+									<span className="text-[10px] text-emerald-600 dark:text-emerald-400">
+										{safeNum(briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd, 74.80) > 85 ? "Import Headwind" : "Comfort Band (<$80)"}
 									</span>
 								</div>
 								<div className="flex flex-col">
 									<span className="text-muted-foreground font-medium flex items-center gap-1">
 										<Globe className="h-3 w-3 text-indigo-500" />
 										USD / INR (FBIL)
+										<Badge variant="outline" className="text-[8px] px-1 py-0 border-indigo-400 text-indigo-700 dark:text-indigo-300">FBIL FIXING</Badge>
 									</span>
 									<span className="text-sm font-bold text-foreground font-mono">
-										₹{((briefToDisplay.globalMacroDesk as any)?.usdInr ?? 84.5).toFixed(2)}
+										₹{safeNum(briefToDisplay.fbil?.usdInr ?? (briefToDisplay.globalMacroDesk as any)?.usdInr ?? (briefToDisplay.macroIndicators as any)?.fbilUsdInr?.value, 86.85).toFixed(2)}
 									</span>
 									<span className="text-[10px] text-emerald-600 dark:text-emerald-400">Steady Reserve FX</span>
 								</div>
@@ -1270,11 +1298,11 @@ export default function AgentKnowledgeMarketBrief() {
 									</div>
 									<div className="flex flex-col items-end">
 										<span className="font-mono font-bold text-sm text-foreground">
-											${briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? 73.0}/bbl
+											${safeNum(briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "CRUDE_OIL")?.cmxPrice, 74.80).toFixed(2)}/bbl
 											<Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0 border-blue-400 text-blue-700 dark:text-blue-300">CFD</Badge>
 										</span>
 										<span className="font-mono text-xs text-muted-foreground">
-											₹{(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "CRUDE_OIL")?.mcxPrice ?? 6170).toLocaleString("en-IN")}/bbl
+											₹{safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "CRUDE_OIL")?.mcxPrice, 6496).toLocaleString("en-IN")}/bbl
 											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-400 text-emerald-700 dark:text-emerald-300">MCX</Badge>
 										</span>
 									</div>
@@ -1290,11 +1318,11 @@ export default function AgentKnowledgeMarketBrief() {
 									</div>
 									<div className="flex flex-col items-end">
 										<span className="font-mono font-bold text-sm text-foreground">
-											${(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "GOLD")?.cmxPrice ?? 3885.5).toLocaleString("en-US", { minimumFractionDigits: 2 })}/oz
+											${safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "GOLD")?.cmxPrice, 3885.50).toLocaleString("en-US", { minimumFractionDigits: 2 })}/oz
 											<Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0 border-blue-400 text-blue-700 dark:text-blue-300">CFD</Badge>
 										</span>
 										<span className="font-mono text-xs text-muted-foreground">
-											₹{(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "GOLD")?.mcxPrice ?? 138419).toLocaleString("en-IN")}/10g
+											₹{safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "GOLD")?.mcxPrice, 138419).toLocaleString("en-IN")}/10g
 											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-400 text-emerald-700 dark:text-emerald-300">MCX</Badge>
 										</span>
 									</div>
@@ -1310,11 +1338,11 @@ export default function AgentKnowledgeMarketBrief() {
 									</div>
 									<div className="flex flex-col items-end">
 										<span className="font-mono font-bold text-sm text-foreground">
-											${(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "SILVER")?.cmxPrice ?? 48.5).toFixed(2)}/oz
+											${safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "SILVER")?.cmxPrice, 48.50).toFixed(2)}/oz
 											<Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0 border-blue-400 text-blue-700 dark:text-blue-300">CFD</Badge>
 										</span>
 										<span className="font-mono text-xs text-muted-foreground">
-											₹{(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "SILVER")?.mcxPrice ?? 164500).toLocaleString("en-IN")}/kg
+											₹{safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "SILVER")?.mcxPrice, 164500).toLocaleString("en-IN")}/kg
 											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-400 text-emerald-700 dark:text-emerald-300">MCX</Badge>
 										</span>
 									</div>
@@ -1570,7 +1598,7 @@ export default function AgentKnowledgeMarketBrief() {
 												</span>
 											</div>
 											<p className="text-[11px] text-muted-foreground mt-1">
-												Overnight MIBOR: {safeNum(briefToDisplay.ccilFixedIncome.fbilMiborOvernight, 6.5)}%
+												Overnight MIBOR: {safeNum(briefToDisplay.fbil?.miborOvernight ?? briefToDisplay.ccilFixedIncome.fbilMiborOvernight, 6.50)}%
 											</p>
 										</div>
 

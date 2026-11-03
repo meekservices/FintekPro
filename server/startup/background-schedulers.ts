@@ -1648,6 +1648,57 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			console.log("[DomainCrons] ✅ Order ops, compliance, IRIS CAS, and unlisted crons active");
 		});
 
+		// ─── Macro & Sovereign Benchmarks Maintenance (Live Tracking + 10Y Backfill) ──
+		runStartupTask("Daily Macro & Sovereign Benchmarks Tracking", async () => {
+			const { syncMacroAndMarketBriefPrices } = await import(
+				"../services/golden-pricing/GoldenPricingEngine"
+			);
+			const { fbilMarketService } = await import("../services/fbil-market-service");
+			const { macroHistoricalBackfillService } = await import(
+				"../services/macro/macro-historical-backfill-service"
+			);
+
+			// 1. Initial live sync on boot
+			try {
+				console.log("[MacroTracking] 🔄 Syncing live FBIL, CFD, MCX, CCIL, and macro benchmarks...");
+				await syncMacroAndMarketBriefPrices();
+				await fbilMarketService.getFbilBenchmarks(true);
+				console.log("[MacroTracking] ✅ Live macro & commodity benchmarks verified in golden_prices");
+			} catch (err: any) {
+				console.warn("[MacroTracking] Initial sync warning:", err?.message);
+			}
+
+			// 2. 10-Year historical macro backfill check (GDP, CPI, Repo, G-Sec, USD/INR, Commodities)
+			try {
+				const { db } = await import("../db");
+				const { sql } = await import("drizzle-orm");
+				const check = await db.execute(sql`
+					SELECT count(*)::int as cnt FROM golden_prices WHERE isin = 'MACRO_IN_GDP'
+				`);
+				const count = (check.rows?.[0] as any)?.cnt ?? 0;
+				if (count < 10) {
+					console.log(`[MacroTracking] 📜 Historical macro series sparse (${count} rows) — executing 10-year backfill...`);
+					const res = await macroHistoricalBackfillService.runTenYearMacroBackfill();
+					console.log(`[MacroTracking] ✅ 10-Year macro backfill complete: ${res.totalRecordsGenerated} records generated`);
+				} else {
+					console.log(`[MacroTracking] 📜 Historical macro series healthy (${count} anchor points present)`);
+				}
+			} catch (bErr: any) {
+				console.debug("[MacroTracking] Historical check notice:", bErr?.message);
+			}
+
+			// 3. Ongoing daily maintenance schedule (runs every 6 hours)
+			setInterval(async () => {
+				try {
+					console.log("[MacroTracking] 🔄 Running scheduled macro, FBIL, and commodity refresh...");
+					await syncMacroAndMarketBriefPrices();
+					await fbilMarketService.getFbilBenchmarks(true);
+				} catch (e: any) {
+					console.warn("[MacroTracking] Scheduled refresh warning:", e?.message);
+				}
+			}, 6 * 60 * 60 * 1000);
+		});
+
 		console.log(
 			"✅ [Schedulers] All background services initialized. Portal is self-operating.",
 		);

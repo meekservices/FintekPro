@@ -130,6 +130,7 @@ router.get("/api/screener/stocks", async (req, res) => {
 			minFintekRating: pi("minFintekRating"),
 			minPiotroski: pi("minPiotroski"), maxPiotroski: pi("maxPiotroski"),
 			technicalRating: f.technicalRating as string,
+			stockRegime: f.stockRegime as string,
 			// Returns (all computed from OHLCV — never static)
 			minReturn1W: p("minReturn1W"), maxReturn1W: p("maxReturn1W"),
 			minReturn1M: p("minReturn1M"), maxReturn1M: p("maxReturn1M"),

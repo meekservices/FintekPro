@@ -2277,7 +2277,16 @@ export async function syncMacroAndMarketBriefPrices(
 		logger.warn(`[GoldenPricing] NCDEX agricultural sync warning: ${e?.message || e}`);
 	}
 
-	// 2. Resolve Macro Benchmarks (MoSPI & RBI Official)
+	// 2. Resolve Macro Benchmarks (MoSPI, RBI, & FBIL Official)
+	let fbilData: any = null;
+	try {
+		const { fbilMarketService } = await import("../fbil-market-service");
+		const fbilRes = await fbilMarketService.getFbilBenchmarks();
+		if (fbilRes?.success && fbilRes.data) fbilData = fbilRes.data;
+	} catch (fErr: any) {
+		logger.debug(`[GoldenPricing] FBIL benchmark sync notice: ${fErr?.message}`);
+	}
+
 	const indiaCpi = 5.49; // MoSPI Headline Consumer Price Index YoY %
 	const usCpi = 2.40; // US BLS CPI YoY %
 	const rbiRepo = 6.50; // RBI MPC Benchmark Policy Repo Rate %
@@ -2285,9 +2294,10 @@ export async function syncMacroAndMarketBriefPrices(
 	const indiaGdp = 6.70; // CSO / NSO Real GDP Annual Growth %
 
 	// 3. Resolve Sovereign Debt & Yields
-	const gsec10Y = ccilData?.sovereignYields?.[0]?.yieldPercent ?? 6.79;
-	const gsec5Y = ccilData?.sovereignYields?.[1]?.yieldPercent ?? 6.64;
-	const trepsWar = ccilData?.treps?.weightedAverageRate ?? 6.42;
+	const gsec10Y = fbilData?.gsec10YYield ?? ccilData?.sovereignYields?.[0]?.yieldPercent ?? 6.79;
+	const gsec5Y = fbilData?.gsec5YYield ?? ccilData?.sovereignYields?.[1]?.yieldPercent ?? 6.64;
+	const trepsWar = fbilData?.trepsOvernightWAR ?? ccilData?.treps?.weightedAverageRate ?? 6.42;
+	const fbilMibor = fbilData?.miborOvernight ?? 6.50;
 	const realYield10Y = Math.round((gsec10Y - indiaCpi) * 100) / 100;
 
 	const us10Y = fredData?.us10YTreasury?.yieldPercent ?? 4.18; // FRED DGS10 10Y Benchmark
@@ -2297,9 +2307,9 @@ export async function syncMacroAndMarketBriefPrices(
 	const jgb10Y = 0.95;
 
 	// 4. Resolve Commodities (Global CFD in USD and Domestic MCX in INR)
-	const brentCfdUsd = commData?.crudeOilBreakevenStatus?.brentUsd ?? fredData?.brentCrude?.price ?? 112.0;
-	const brentMcxInr = commData?.commodities?.find((c: any) => c.id === "CRUDE_OIL")?.mcxPrice ?? Math.round(brentCfdUsd * 84.08);
-	const wtiUsd = fredData?.wtiCrude?.price ?? 104.12;
+	const brentCfdUsd = commData?.crudeOilBreakevenStatus?.brentUsd ?? fredData?.brentCrude?.price ?? 74.80;
+	const brentMcxInr = commData?.commodities?.find((c: any) => c.id === "CRUDE_OIL")?.mcxPrice ?? Math.round(brentCfdUsd * (fbilData?.usdInr ?? 86.85));
+	const wtiUsd = fredData?.wtiCrude?.price ?? 70.85;
 	const goldMcxInr = commData?.commodities?.find((c: any) => c.id === "GOLD")?.mcxPrice ?? 138419;
 	const silverMcxInr = commData?.commodities?.find((c: any) => c.id === "SILVER")?.mcxPrice ?? 164500;
 	const goldCfdUsd = commData?.commodities?.find((c: any) => c.id === "GOLD")?.cmxPrice ?? 3885.5;
@@ -2325,7 +2335,7 @@ export async function syncMacroAndMarketBriefPrices(
 	const giftNifty = { price: 24280.0, changePercent: 0.31 };
 
 	// 6. Global Indices & FX (Enhanced with Alpaca & Alpha Vantage live FX & index proxies)
-	let usdInr = 84.08;
+	let usdInr = fbilData?.usdInr ?? 86.85;
 	let sp500 = { price: 5864.5, changePercent: 0.75 };
 	let nasdaq = { price: 20380.0, changePercent: 1.12 };
 	let dow = { price: 42114.4, changePercent: 0.33 };
@@ -2402,6 +2412,7 @@ export async function syncMacroAndMarketBriefPrices(
 		{ isin: "YIELD_IN_10Y", symbol: "IN10Y", assetClass: "bond", price: gsec10Y, changePercent: -0.22, source: "CCIL_SOVEREIGN", confidence: 98, currency: "INR", metadata: { securityName: "7.10% GS 2034 (10Y Benchmark)", tenor: "10Y", realYield: realYield10Y } },
 		{ isin: "YIELD_IN_5Y", symbol: "IN05Y", assetClass: "bond", price: gsec5Y, changePercent: -0.15, source: "CCIL_SOVEREIGN", confidence: 98, currency: "INR", metadata: { securityName: "7.04% GS 2029 (5Y Benchmark)", tenor: "5Y" } },
 		{ isin: "RATE_TREPS_WAR", symbol: "TREPS", assetClass: "rate", price: trepsWar, source: "CCIL_SOVEREIGN", confidence: 98, currency: "INR", metadata: { marketCondition: "BALANCED", source: "CCIL TREPS" } },
+		{ isin: "RATE_FBIL_MIBOR", symbol: "MIBOR", assetClass: "rate", price: fbilMibor, source: "FBIL_MIBOR", confidence: 99, currency: "INR", metadata: { tenor: "OVERNIGHT", source: "FBIL Overnight MIBOR" } },
 		{ isin: "YIELD_US_10Y", symbol: "US10Y", assetClass: "bond", price: us10Y, source: fredData?.us10YTreasury?.source ? `FRED_${fredData.us10YTreasury.source}` : "YIELD_CURVE", confidence: 98, currency: "USD", metadata: { tenor: "10Y", country: "US", seriesId: "DGS10", source: "Federal Reserve (FRED)" } },
 		{ isin: "YIELD_US_2Y", symbol: "US02Y", assetClass: "bond", price: us2Y, source: fredData?.us2YTreasury?.source ? `FRED_${fredData.us2YTreasury.source}` : "YIELD_CURVE", confidence: 98, currency: "USD", metadata: { tenor: "2Y", country: "US", seriesId: "DGS2", source: "Federal Reserve (FRED)" } },
 		{ isin: "YIELD_DE_10Y", symbol: "DE10Y", assetClass: "bond", price: bund10Y, source: "YIELD_CURVE", confidence: 92, currency: "EUR", metadata: { tenor: "10Y", country: "DE" } },
