@@ -68,6 +68,7 @@ export interface ReportData {
 	salesCagr5Y: number | null;
 	profitCagr3Y: number | null;
 	profitCagr5Y: number | null;
+	marqueeBrokerageViews?: any;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

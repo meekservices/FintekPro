@@ -633,6 +633,7 @@ export default function AgentScreener() {
 	const [dbMacroSector, setDbMacroSector] = useState("");
 	const [dbSubSector, setDbSubSector] = useState("");
 	const [dbMarketCap, setDbMarketCap] = useState("");
+	const [dbStockRegime, setDbStockRegime] = useState("");
 	const [dbMinPE, setDbMinPE] = useState("");
 	const [dbMaxPE, setDbMaxPE] = useState("");
 	const [dbMinROE, setDbMinROE] = useState("");
@@ -788,6 +789,7 @@ export default function AgentScreener() {
 		if (dbSubSector) params.set("subSector", dbSubSector);
 		else if (dbSector) params.set("sector", dbSector);
 		if (dbMarketCap) params.set("marketCapCategory", dbMarketCap);
+		if (dbStockRegime) params.set("stockRegime", dbStockRegime);
 		if (dbMinPE) params.set("minPE", dbMinPE);
 		if (dbMaxPE) params.set("maxPE", dbMaxPE);
 		if (dbMinROE) params.set("minROE", dbMinROE);
@@ -810,6 +812,7 @@ export default function AgentScreener() {
 			dbSubSector,
 			dbSector,
 			dbMarketCap,
+			dbStockRegime,
 			dbMinPE,
 			dbMaxPE,
 			dbMinROE,
@@ -1480,6 +1483,7 @@ export default function AgentScreener() {
 		setDbSubSector("");
 		setDbSector("");
 		setDbMarketCap("");
+		setDbStockRegime("");
 		setDbMinPE("");
 		setDbMaxPE("");
 		setDbMinROE("");
@@ -1502,6 +1506,7 @@ export default function AgentScreener() {
 		dbSubSector,
 		dbSector,
 		dbMarketCap,
+		dbStockRegime,
 		dbMinPE,
 		dbMaxPE,
 		dbMinROE,
@@ -3464,6 +3469,30 @@ export default function AgentScreener() {
 													</SelectContent>
 												</Select>
 											</div>
+											<div className="w-36">
+												<Label className="text-[10px] text-muted-foreground mb-0.5 block">
+													Micro-Regime
+												</Label>
+												<Select
+													value={dbStockRegime}
+													onValueChange={(v) => {
+														setDbStockRegime(v === "all" ? "" : v);
+														setDbPage(1);
+													}}
+												>
+													<SelectTrigger className="h-7 text-xs">
+														<SelectValue placeholder="All Regimes" />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="all">All Regimes</SelectItem>
+														<SelectItem value="BULLISH_TRENDING">🚀 Bullish Trending</SelectItem>
+														<SelectItem value="EARLY_STAGE_BREAKOUT">⚡ Early Breakout</SelectItem>
+														<SelectItem value="CONSOLIDATION_BASE">🛡️ Consolidation Base</SelectItem>
+														<SelectItem value="HIGH_VOLATILITY_CHOP">⚠️ Volatility Chop</SelectItem>
+														<SelectItem value="BEARISH_DOWNTREND">🔻 Bearish Downtrend</SelectItem>
+													</SelectContent>
+												</Select>
+											</div>
 											<div className="w-20">
 												<Label className="text-[10px] text-muted-foreground mb-0.5 block">
 													Min P/E
@@ -3601,6 +3630,11 @@ export default function AgentScreener() {
 										{dbMarketCap && (
 											<button type="button" onClick={() => { setDbMarketCap(""); setDbPage(1); }} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 text-[10px] hover:bg-violet-500/20 transition-colors">
 												Cap: {dbMarketCap} <span className="text-[9px] opacity-70">✕</span>
+											</button>
+										)}
+										{dbStockRegime && (
+											<button type="button" onClick={() => { setDbStockRegime(""); setDbPage(1); }} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 text-[10px] hover:bg-cyan-500/20 transition-colors">
+												Regime: {dbStockRegime.replace(/_/g, " ")} <span className="text-[9px] opacity-70">✕</span>
 											</button>
 										)}
 										{dbMinPE && (
@@ -3833,6 +3867,33 @@ export default function AgentScreener() {
 																							title={`Held in Model Portfolio: ${stock.modelPortfolios.join(', ')}`}
 																						>
 																							⭐ {stock.modelPortfolios[0]}
+																						</Badge>
+																					)}
+																					{stock.stockRegime && (
+																						<Badge
+																							variant="outline"
+																							className={`text-[9px] py-0 px-1 h-4 font-sans font-medium ${
+																								stock.stockRegime === "BULLISH_TRENDING"
+																									? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+																									: stock.stockRegime === "EARLY_STAGE_BREAKOUT"
+																									? "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/30"
+																									: stock.stockRegime === "BEARISH_DOWNTREND"
+																									? "bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/30"
+																									: stock.stockRegime === "HIGH_VOLATILITY_CHOP"
+																									? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30"
+																									: "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30"
+																							}`}
+																							title={`Micro-Regime: ${stock.stockRegime}`}
+																						>
+																							{stock.stockRegime === "BULLISH_TRENDING"
+																								? "🚀 Trending"
+																								: stock.stockRegime === "EARLY_STAGE_BREAKOUT"
+																								? "⚡ Breakout"
+																								: stock.stockRegime === "BEARISH_DOWNTREND"
+																								? "🔻 Downtrend"
+																								: stock.stockRegime === "HIGH_VOLATILITY_CHOP"
+																								? "⚠️ Chop"
+																								: "🛡️ Base"}
 																						</Badge>
 																					)}
 																					{stock.sector && (
@@ -4115,6 +4176,7 @@ export default function AgentScreener() {
 																								Loading details...
 																							</div>
 																						) : stockDetail ? (
+																							<>
 																								<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
 																								<div className="space-y-3">
 																									<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -4658,11 +4720,111 @@ export default function AgentScreener() {
 																									)}
 																								</div>
 																							</div>
-																						) : (
-																							<p className="text-sm text-muted-foreground">
-																								Could not load details
-																							</p>
-																						)}
+
+																							{stockDetail.marqueeBrokerageViews && (
+																								<div className="mt-4 border rounded-lg bg-card/70 p-3.5 space-y-3 shadow-xs">
+																									<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2">
+																										<div className="flex items-center gap-2 flex-wrap">
+																											<Landmark className="h-4 w-4 text-primary" />
+																											<span className="font-semibold text-xs tracking-tight text-foreground">
+																												Marquee Institutional Desk Views & Quoting Reference
+																											</span>
+																											<Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
+																												Reference Only
+																											</Badge>
+																											{stockDetail.stockRegime && (
+																												<Badge
+																													variant="outline"
+																													className={`text-[9px] px-1.5 py-0 font-medium ${
+																														stockDetail.stockRegime === "BULLISH_TRENDING"
+																															? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+																															: stockDetail.stockRegime === "EARLY_STAGE_BREAKOUT"
+																															? "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/30"
+																															: stockDetail.stockRegime === "BEARISH_DOWNTREND"
+																															? "bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/30"
+																															: stockDetail.stockRegime === "HIGH_VOLATILITY_CHOP"
+																															? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30"
+																															: "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30"
+																													}`}
+																												>
+																													Micro-Regime: {stockDetail.stockRegime.replace(/_/g, " ")}
+																												</Badge>
+																											)}
+																										</div>
+																										{stockDetail.marqueeBrokerageViews.totalAnalysts ? (
+																											<div className="flex items-center gap-2 text-xs">
+																												<span className="text-muted-foreground">
+																													Street Consensus ({stockDetail.marqueeBrokerageViews.totalAnalysts} Analysts):
+																												</span>
+																												<span className="font-mono font-semibold text-foreground">
+																													Mean ₹{Number(stockDetail.marqueeBrokerageViews.targetMean || 0).toLocaleString()}
+																												</span>
+																												{stockDetail.marqueeBrokerageViews.targetHigh && (
+																													<span className="text-muted-foreground font-mono text-[11px]">
+																														[Low ₹{Number(stockDetail.marqueeBrokerageViews.targetLow || 0).toLocaleString()} – High ₹{Number(stockDetail.marqueeBrokerageViews.targetHigh || 0).toLocaleString()}]
+																													</span>
+																												)}
+																											</div>
+																										) : null}
+																									</div>
+
+																									{stockDetail.marqueeBrokerageViews.quotingSummary && (
+																										<div className="bg-muted/40 rounded-md p-2.5 text-xs text-muted-foreground italic border-l-2 border-primary">
+																											"{stockDetail.marqueeBrokerageViews.quotingSummary}"
+																										</div>
+																									)}
+
+																									{Array.isArray(stockDetail.marqueeBrokerageViews.marqueeViews) && stockDetail.marqueeBrokerageViews.marqueeViews.length > 0 && (
+																										<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
+																											{stockDetail.marqueeBrokerageViews.marqueeViews.slice(0, 6).map((mv: any, idx: number) => (
+																												<div key={idx} className="p-2.5 rounded-md border bg-background/50 hover:bg-muted/20 transition-colors text-xs space-y-1">
+																													<div className="flex items-center justify-between">
+																														<span className="font-semibold text-foreground">{mv.firm}</span>
+																														<Badge variant="outline" className={`text-[9px] px-1 py-0 ${mv.tier === "GLOBAL_BULGE_BRACKET" ? "border-violet-500/30 text-violet-600 dark:text-violet-400 bg-violet-500/10" : "border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/10"}`}>
+																															{mv.tier === "GLOBAL_BULGE_BRACKET" ? "Bulge Bracket" : "Domestic Tier-1"}
+																														</Badge>
+																													</div>
+																													<div className="flex items-center justify-between text-[11px]">
+																														{mv.targetPrice ? (
+																															<span className="font-mono font-medium text-foreground">
+																																Target: ₹{Number(mv.targetPrice).toLocaleString()}
+																															</span>
+																														) : (
+																															<span className="text-muted-foreground">Rating: {mv.rating || "Covered"}</span>
+																														)}
+																														{mv.upsidePercent !== null && mv.upsidePercent !== undefined && (
+																															<span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+																																+{mv.upsidePercent}%
+																															</span>
+																														)}
+																													</div>
+																													<p className="text-[10px] text-muted-foreground line-clamp-2" title={mv.headline}>
+																														{mv.headline}
+																													</p>
+																													<div className="flex items-center justify-between text-[9px] text-muted-foreground/70 pt-0.5">
+																														<span>{mv.source || "Research Note"}</span>
+																														<span>{mv.publishedDate}</span>
+																													</div>
+																												</div>
+																											))}
+																										</div>
+																									)}
+
+																									<div className="text-[10px] text-muted-foreground/70 flex items-center gap-1.5 pt-1">
+																										<Info className="h-3 w-3 shrink-0" />
+																										<span>
+																											{stockDetail.marqueeBrokerageViews.disclaimer ||
+																												"Institutional brokerage views are curated from public research notes for reference, benchmarking, and quotation only. FintekPro engines independently evaluate intrinsic value."}
+																										</span>
+																									</div>
+																								</div>
+																							)}
+																						</>
+																					) : (
+																						<p className="text-sm text-muted-foreground">
+																							Could not load details
+																						</p>
+																					)}
 																					</div>
 																				</td>
 																			</tr>

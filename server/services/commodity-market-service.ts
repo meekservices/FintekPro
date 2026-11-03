@@ -357,6 +357,18 @@ export class CommodityMarketService {
         logger.debug("[CommodityMarketService] Upstox MCX fetch notice:", upstoxErr?.message);
       }
 
+      // Resolve live USD/INR rate for commodity parity conversion
+      let usdInrRate = 86.85;
+      try {
+        const { fbilMarketService } = await import("./fbil-market-service");
+        const fbilRes = await fbilMarketService.getFbilBenchmarks();
+        if (fbilRes?.data?.usdInr && fbilRes.data.usdInr > 50) {
+          usdInrRate = fbilRes.data.usdInr;
+        }
+      } catch (fErr: any) {
+        logger.debug("[CommodityMarketService] FBIL USD/INR rate check notice:", fErr?.message);
+      }
+
       const symbolsToFetch = [
         { id: "GOLD", ticker: "GC=F" },
         { id: "SILVER", ticker: "SI=F" },
@@ -365,23 +377,48 @@ export class CommodityMarketService {
         { id: "COPPER", ticker: "HG=F" },
       ];
 
+      // Multi-tier quote resolution: yahoo-finance2 primary, raw fetch fallback
       const quotes = await Promise.allSettled(
         symbolsToFetch.map(async ({ id, ticker }) => {
-          const res = await fetch(
-            `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=5d`,
-            {
-              headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) FintekPro/2.5" },
-              signal: AbortSignal.timeout(5000),
+          // Tier 1: Try yahoo-finance2 library (handles crumb & cookie rotation)
+          try {
+            const yahooFinance = (await import("yahoo-finance2")).default;
+            yahooFinance.suppressNotices(["yahooSurvey"]);
+            const q = await yahooFinance.quote(ticker);
+            const price = q?.regularMarketPrice;
+            const prev = q?.regularMarketPreviousClose ?? price;
+            if (typeof price === "number" && price > 0) {
+              const changePercent = typeof prev === "number" && prev > 0 ? ((price - prev) / prev) * 100 : (q?.regularMarketChangePercent ?? 0);
+              return { id, price, changePercent };
             }
-          );
-          if (!res.ok) return null;
-          const json = await res.json();
-          const meta = json?.chart?.result?.[0]?.meta;
-          const price = meta?.regularMarketPrice;
-          const prev = meta?.chartPreviousClose ?? meta?.previousClose;
-          if (typeof price !== "number" || price <= 0) return null;
-          const changePercent = typeof prev === "number" && prev > 0 ? ((price - prev) / prev) * 100 : 0;
-          return { id, price, changePercent };
+          } catch (yfErr: any) {
+            logger.debug(`[CommodityMarketService] yahoo-finance2 for ${ticker} failed: ${yfErr?.message}`);
+          }
+
+          // Tier 2: Direct HTTP fetch fallback
+          try {
+            const res = await fetch(
+              `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=5d`,
+              {
+                headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) FintekPro/2.5" },
+                signal: AbortSignal.timeout(5000),
+              }
+            );
+            if (res.ok) {
+              const json = await res.json();
+              const meta = json?.chart?.result?.[0]?.meta;
+              const price = meta?.regularMarketPrice;
+              const prev = meta?.chartPreviousClose ?? meta?.previousClose;
+              if (typeof price === "number" && price > 0) {
+                const changePercent = typeof prev === "number" && prev > 0 ? ((price - prev) / prev) * 100 : 0;
+                return { id, price, changePercent };
+              }
+            }
+          } catch (fErr: any) {
+            logger.debug(`[CommodityMarketService] HTTP chart fetch for ${ticker} failed: ${fErr?.message}`);
+          }
+
+          return null;
         })
       );
 
@@ -404,17 +441,17 @@ export class CommodityMarketService {
           // If no direct Upstox MCX quote was available, compute parity
           if (!mcxLive || !mcxLive.price) {
             if (base.id === "GOLD") {
-              const parityMcx = Math.round((updatedCmxPrice / 31.1035) * 10 * 84.08 * 1.06);
+              const parityMcx = Math.round((updatedCmxPrice / 31.1035) * 10 * usdInrRate * 1.06);
               updatedMcxPrice = parityMcx >= 70000 && parityMcx <= 250000 ? parityMcx : Math.round(base.mcxPrice * (1 + updatedCmxChange / 100));
             } else if (base.id === "SILVER") {
-              const parityMcx = Math.round(updatedCmxPrice * 32.1507 * 84.08 * 1.06);
+              const parityMcx = Math.round(updatedCmxPrice * 32.1507 * usdInrRate * 1.06);
               updatedMcxPrice = parityMcx >= 70000 && parityMcx <= 300000 ? parityMcx : Math.round(base.mcxPrice * (1 + updatedCmxChange / 100));
             } else if (base.id === "CRUDE_OIL") {
-              updatedMcxPrice = Math.round(updatedCmxPrice * 84.08);
+              updatedMcxPrice = Math.round(updatedCmxPrice * usdInrRate);
             } else if (base.id === "NATURAL_GAS") {
-              updatedMcxPrice = Number((updatedCmxPrice * 84.08).toFixed(1));
+              updatedMcxPrice = Number((updatedCmxPrice * usdInrRate).toFixed(1));
             } else if (base.id === "COPPER") {
-              const parityMcx = Number(((updatedCmxPrice / 0.453592) * 84.08 * 1.05).toFixed(1));
+              const parityMcx = Number(((updatedCmxPrice / 0.453592) * usdInrRate * 1.05).toFixed(1));
               updatedMcxPrice = parityMcx >= 600 && parityMcx <= 1500 ? parityMcx : Number((base.mcxPrice * (1 + updatedCmxChange / 100)).toFixed(1));
             }
             updatedMcxChange = updatedCmxChange;
@@ -457,9 +494,9 @@ export class CommodityMarketService {
           if (fredPrice) {
             if (!mcxLive || !mcxLive.price) {
               if (base.id === "CRUDE_OIL") {
-                updatedMcxPrice = Math.round(fredPrice * 84.08);
+                updatedMcxPrice = Math.round(fredPrice * usdInrRate);
               } else if (base.id === "NATURAL_GAS") {
-                updatedMcxPrice = Number((fredPrice * 84.08).toFixed(1));
+                updatedMcxPrice = Number((fredPrice * usdInrRate).toFixed(1));
               }
             }
             items.push({

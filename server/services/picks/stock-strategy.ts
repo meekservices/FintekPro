@@ -1385,6 +1385,19 @@ export class StockStrategy extends BaseStrategy {
 				rationale += ` • Technical Setup: Stage-2 Early Breakout near 52-week high with momentum acceleration`;
 			}
 
+			// Cross-Engine Synergy: Marquee Brokerage Quoting Reference
+			let marqueeRefSummary: string | null = null;
+			try {
+				const { marqueeBrokerageService } = await import("../screener/marquee-brokerage-service");
+				const mRef = await marqueeBrokerageService.getMarqueeReference(topStock.symbol, currentPrice);
+				if (mRef?.quotingSummary) {
+					marqueeRefSummary = mRef.quotingSummary;
+					rationale += ` • Institutional Peer View: ${mRef.quotingSummary}`;
+				}
+			} catch {
+				// Non-blocking fallback
+			}
+
 			const exchange = topStock.nseCode
 				? "NSE"
 				: topStock.bseCode
@@ -1465,6 +1478,8 @@ export class StockStrategy extends BaseStrategy {
 						: "Weak",
 					atr14Pct: atrPct,
 					rewardToRiskRatio: Math.round(rrRatio * 100) / 100,
+					stockRegime: (topStock as any).stockRegime ?? (topEnriched as any)?.stockRegime ?? "CONSOLIDATION_BASE",
+					marqueeQuotingSummary: marqueeRefSummary,
 					scoreBreakdown: (() => {
 						try {
 							const _bsid = mapToBroadSector(topStock.sector ?? "");
@@ -2755,11 +2770,23 @@ export class StockStrategy extends BaseStrategy {
 		// Template rationale — no AI needed
 		const pe = top.peRatio ? ` P/E ${Number.parseFloat(top.peRatio).toFixed(1)}x,` : "";
 		const ret1y = top.returns1Y ? ` +${Number.parseFloat(top.returns1Y).toFixed(1)}% 1Y return,` : "";
-		const rationale =
+		let rationale =
 			`${top.companyName || top.symbol} (${top.sector || "Equity"}) shows quant-positive signals:${pe}${ret1y}` +
 			` analyst rating: ${top.analystRating || "not rated"}. Entry at ₹${currentPrice.toFixed(2)},` +
 			` target ₹${targetPrice.toFixed(2)} (+${(targetPct * 100).toFixed(1)}%), stop-loss ₹${stoplossPrice.toFixed(2)}.` +
 			` Market risk applies. This is a quantitative signal — please validate with your advisor.`;
+
+		let fallbackMarqueeSummary: string | null = null;
+		try {
+			const { marqueeBrokerageService } = await import("../screener/marquee-brokerage-service");
+			const mRef = await marqueeBrokerageService.getMarqueeReference(top.symbol, currentPrice);
+			if (mRef?.quotingSummary) {
+				fallbackMarqueeSummary = mRef.quotingSummary;
+				rationale += ` • Institutional Peer View: ${mRef.quotingSummary}`;
+			}
+		} catch {
+			// Non-blocking fallback
+		}
 
 		const exchange = top.nseCode ? "NSE" : top.bseCode ? "BSE" : "NSE";
 		const broadSector = mapToBroadSector(top.sector);
@@ -2808,6 +2835,8 @@ export class StockStrategy extends BaseStrategy {
 					: "Weak",
 				atr14Pct: atrPctFb,
 				rewardToRiskRatio: Math.round(rrRatio * 100) / 100,
+				stockRegime: (top as any).stockRegime ?? (topFallbackEnriched as any)?.stockRegime ?? "CONSOLIDATION_BASE",
+				marqueeQuotingSummary: fallbackMarqueeSummary,
 			},
 		};
 	}

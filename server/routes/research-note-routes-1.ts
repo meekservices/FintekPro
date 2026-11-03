@@ -572,6 +572,18 @@ export async function buildReportData(
 		shareholding?.pledgedPct ?? null,
 	);
 
+	// Marquee Brokerage Views & Quoting Reference
+	let marqueeBrokerageViews: any = null;
+	try {
+		const { marqueeBrokerageService } = await import("../services/screener/marquee-brokerage-service");
+		marqueeBrokerageViews = await marqueeBrokerageService.getMarqueeReference(nseSymbol, financials.currentPrice);
+		if (marqueeBrokerageViews?.quotingSummary) {
+			thesis.push(`Institutional Consensus: ${marqueeBrokerageViews.quotingSummary}`);
+		}
+	} catch {
+		// Non-blocking fallback
+	}
+
 	// Data quality metadata for audit trail
 	const dataQuality = {
 		price: {
@@ -637,6 +649,7 @@ export async function buildReportData(
 		salesCagr5Y: screenerData?.salesCagr5Y ?? null,
 		profitCagr3Y: screenerData?.profitCagr3Y ?? null,
 		profitCagr5Y: screenerData?.profitCagr5Y ?? null,
+		marqueeBrokerageViews,
 		keyPoints: {
 			pros: screenerData?.pros ?? [],
 			cons: screenerData?.cons ?? [],
@@ -729,6 +742,7 @@ router.post("/preview", async (req: Request, res: Response) => {
 			salesCagr5Y: data.salesCagr5Y,
 			profitCagr3Y: data.profitCagr3Y,
 			profitCagr5Y: data.profitCagr5Y,
+			marqueeBrokerageViews: data.marqueeBrokerageViews,
 			keyPoints: (data as any).keyPoints ?? { pros: [], cons: [] },
 		});
 	} catch (err: any) {
