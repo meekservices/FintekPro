@@ -1848,6 +1848,38 @@ export class StockStrategy extends BaseStrategy {
 			}
 		}
 
+		// ── Upgrade #11: F&O Derivative Buildup & Open Interest Signal ─────────
+		// Incorporates institutional smart-money signals from NSE Futures & Options:
+		// - Long Buildup (Price ↑, OI ↑) = fresh institutional accumulation (+10 pts)
+		// - Short Buildup (Price ↓, OI ↑) = aggressive institutional shorting (-15 pts)
+		// - Short Covering (Price ↑, OI ↓) = short squeeze rally (+4 pts)
+		// - Long Unwinding (Price ↓, OI ↓) = long liquidation (-8 pts)
+		// - PCR >= 1.25 = strong put writing support (+6 pts)
+		// - PCR <= 0.60 = heavy call writing resistance (-6 pts)
+		try {
+			const { fnoAnalysisEngine } = await import("../derivatives/fno-buildup-engine");
+			const fno = await fnoAnalysisEngine.getFnoSummary(stock.symbol);
+			if (fno && fno.isFnoEligible) {
+				if (fno.buildup === "LONG_BUILDUP") {
+					score += 10;
+				} else if (fno.buildup === "SHORT_BUILDUP") {
+					score -= 15;
+				} else if (fno.buildup === "SHORT_COVERING") {
+					score += 4;
+				} else if (fno.buildup === "LONG_UNWINDING") {
+					score -= 8;
+				}
+
+				if (fno.pcr >= 1.25) {
+					score += 6;
+				} else if (fno.pcr <= 0.60) {
+					score -= 6;
+				}
+			}
+		} catch {
+			// Non-blocking fallback
+		}
+
 		// ── Fix 2: Market-regime-aware score multipliers ──────────────────────────
 		// Adjust signal weights based on current market regime from detectRegime().
 		// BEAR/HIGH_VOL: boost defensive characteristics, penalise high-beta momentum.

@@ -1434,7 +1434,7 @@ export async function getStockDetail(symbol: string) {
 		}
 	}
 
-	// Enrich with Corporate Actions, Board Meetings, and Announcements
+	// Enrich with Corporate Actions, Board Meetings, Announcements, and F&O Derivatives
 	let corporateActions: { dividends: any[]; splits: any[]; bonus: any[]; rights: any[] } = {
 		dividends: [],
 		splits: [],
@@ -1443,12 +1443,15 @@ export async function getStockDetail(symbol: string) {
 	};
 	let boardMeetings: Array<{ meetingDate: string; purpose: string }> = [];
 	let announcements: Array<{ title: string; link: string; date: string }> = [];
+	let derivatives: any = null;
 
 	try {
 		const { indianApiService } = await import("../indian-api-service");
-		const [corpRes, annRes] = await Promise.allSettled([
+		const { fnoAnalysisEngine } = await import("../derivatives/fno-buildup-engine");
+		const [corpRes, annRes, fnoRes] = await Promise.allSettled([
 			indianApiService.getCorporateActions(symbol),
 			indianApiService.getRecentAnnouncements(symbol),
+			fnoAnalysisEngine.getFnoSummary(symbol),
 		]);
 
 		if (corpRes.status === "fulfilled" && corpRes.value.success && corpRes.value.data) {
@@ -1479,6 +1482,27 @@ export async function getStockDetail(symbol: string) {
 				date: a.date || a.announced_date || "",
 			}));
 		}
+
+		if (fnoRes.status === "fulfilled" && fnoRes.value) {
+			derivatives = fnoRes.value;
+		}
+	} catch {
+		// Non-blocking fallback
+	}
+
+	// Relative Valuation & Industry Peer Comparison
+	let relativeValuation: any = null;
+	try {
+		const { sectorBenchmarkService } = await import("./sector-benchmark-service");
+		const pe = stock.peRatio ? parseFloat(stock.peRatio) : null;
+		const roe = stock.roe ? parseFloat(stock.roe) : null;
+		relativeValuation = await sectorBenchmarkService.getRelativeValuationAndPeers(
+			stock.symbol,
+			stock.sector,
+			stock.industry,
+			pe,
+			roe,
+		);
 	} catch {
 		// Non-blocking fallback
 	}
@@ -1494,6 +1518,8 @@ export async function getStockDetail(symbol: string) {
 		corporateActions,
 		boardMeetings,
 		announcements,
+		derivatives,
+		relativeValuation,
 	};
 }
 

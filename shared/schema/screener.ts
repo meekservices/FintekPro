@@ -1004,3 +1004,25 @@ export const insertScreenerMasterSnapshotSchema = createInsertSchema(screenerMas
 });
 export type ScreenerMasterSnapshot = typeof screenerMasterSnapshots.$inferSelect;
 export type InsertScreenerMasterSnapshot = z.infer<typeof insertScreenerMasterSnapshotSchema>;
+
+// ── Sector & Industry Benchmarks Table (Phase 4) ──────────────────────────
+export const screenerSectorBenchmarks = pgTable("screener_sector_benchmarks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sector: varchar("sector").notNull(),
+  industry: varchar("industry").notNull(),
+  stockCount: integer("stock_count").default(0),
+  medianPe: decimal("median_pe", { precision: 10, scale: 2 }),
+  medianPb: decimal("median_pb", { precision: 10, scale: 2 }),
+  medianRoe: decimal("median_roe", { precision: 10, scale: 4 }),
+  medianRoce: decimal("median_roce", { precision: 10, scale: 4 }),
+  medianDebtToEquity: decimal("median_debt_to_equity", { precision: 10, scale: 4 }),
+  medianDividendYield: decimal("median_dividend_yield", { precision: 10, scale: 4 }),
+  medianOperatingMargin: decimal("median_operating_margin", { precision: 10, scale: 4 }),
+  medianNetMargin: decimal("median_net_margin", { precision: 10, scale: 4 }),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_sector_industry_benchmark").on(table.sector, table.industry),
+  index("idx_sector_benchmarks_sector").on(table.sector),
+]);
+
+export type ScreenerSectorBenchmark = typeof screenerSectorBenchmarks.$inferSelect;

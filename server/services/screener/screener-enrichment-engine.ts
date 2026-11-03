@@ -17,7 +17,7 @@
  */
 
 import { db } from "../../db";
-import { sql, eq } from "drizzle-orm";
+import { sql, eq, desc } from "drizzle-orm";
 import { screenerPriceHistory } from "@shared/schema";
 import { logger } from "../../logger";
 import { computeAllIndicators, type OHLCVBar } from "./technical-calculator";
@@ -285,12 +285,15 @@ export async function computeTechnicalSnapshotForSymbol(symbol: string): Promise
 			})
 			.from(screenerPriceHistory)
 			.where(eq(screenerPriceHistory.symbol, symbol))
-			.orderBy(screenerPriceHistory.date) // Ascending order for calculator
+			.orderBy(desc(screenerPriceHistory.date)) // Most recent 250 daily bars
 			.limit(250);
 
 		if (!rawRows || rawRows.length < 14) {
 			return false; // Not enough history to compute indicators
 		}
+
+		// Reverse to ascending chronological order (oldest -> newest) for indicator rolling calculations
+		rawRows.reverse();
 
 		const bars: OHLCVBar[] = rawRows.map((r) => ({
 			date: r.date,
@@ -517,7 +520,7 @@ export async function bootstrapScreenerMetrics(options: {
 						last_updated = NOW()
 				`);
 				dcfInserted++;
-			} catch (err: any) {
+			} catch {
 				// Non-fatal
 			}
 
@@ -545,7 +548,7 @@ export async function bootstrapScreenerMetrics(options: {
 						last_updated = NOW()
 				`);
 				analystInserted++;
-			} catch (err: any) {
+			} catch {
 				// Non-fatal
 			}
 
@@ -564,7 +567,7 @@ export async function bootstrapScreenerMetrics(options: {
 						WHERE symbol = ${row.symbol}
 					`);
 					forwardPeUpdated++;
-				} catch (err: any) {
+				} catch {
 					// Non-fatal
 				}
 			}

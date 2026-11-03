@@ -111,19 +111,29 @@ export async function detectRegime(forceRefresh = false): Promise<RegimeResult> 
   // 3. Call AIRegimeDetectionEngine (authoritative)
   let result: RegimeResult;
   try {
-    const [aiResult, nseData] = await Promise.allSettled([
+    const [aiResult, nseData, fnoData] = await Promise.allSettled([
       aiRegimeDetectionEngine.detectCurrentRegime(),
       getNSEMarketBreadth(),
+      (async () => {
+        const { fnoAnalysisEngine } = await import("./derivatives/fno-buildup-engine");
+        return fnoAnalysisEngine.getFnoSummary("NIFTY");
+      })(),
     ]);
 
     const ai = aiResult.status === "fulfilled" ? aiResult.value : null;
     const nse = nseData.status === "fulfilled" ? nseData.value : null;
+    const fno = fnoData.status === "fulfilled" ? fnoData.value : null;
 
     if (!ai) throw new Error("AIRegimeDetectionEngine returned null");
 
     // Blend NSE live breadth with AI breadth estimate
     const breadthScore = nse?.advanceDeclineRatio ?? ai.marketData.advanceDeclineRatio;
     const pctAbove50DMA = nse?.pctAbove50DMAProxy ?? ai.marketData.pctAbove50DMA;
+
+    const signals = ai.signals.map(s => `${s.name}: ${s.description}`);
+    if (fno) {
+      signals.push(`NIFTY F&O Sentiment: ${fno.buildup} (PCR: ${fno.pcr}, MaxPain: ${fno.maxPainStrike}, Support: ${fno.primarySupportStrike}, Resist: ${fno.primaryResistanceStrike})`);
+    }
 
     result = {
       regime: toMarketRegime(ai.regimeLabel),
@@ -132,7 +142,7 @@ export async function detectRegime(forceRefresh = false): Promise<RegimeResult> 
       breadthScore,
       vixProxy: ai.marketData.indiaVix,
       pctAbove50DMA,
-      signals: ai.signals.map(s => `${s.name}: ${s.description}`),
+      signals,
       source: "ai_regime_engine",
       timestamp: ts,
     };
