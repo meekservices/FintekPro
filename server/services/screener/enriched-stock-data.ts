@@ -160,6 +160,8 @@ export interface EnrichedStockSnapshot {
 		sharpeRatio1Y:   number | null;
 		maxDrawdown1Y:   number | null;
 	} | null;
+
+	stockRegime?: string | null;
 }
 
 function safeNum(val: any): number | null {
@@ -743,6 +745,7 @@ export async function getEnrichedStockSnapshotsFromMaster(
           sharpeRatio1Y: safeNum(m.sharpe_ratio_1y),
           maxDrawdown1Y: safeNum(m.max_drawdown_1y),
         },
+        stockRegime: m.stock_regime || "CONSOLIDATION_BASE",
       };
 
       // Populate in-memory cache

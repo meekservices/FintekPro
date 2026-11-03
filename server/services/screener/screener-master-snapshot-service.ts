@@ -270,7 +270,8 @@ export class ScreenerMasterSnapshotService {
         ),
         ti AS (
           SELECT
-            symbol, rsi_14, sma_50, sma_200, NULL::numeric AS ema_20, macd, adx, technical_rating AS ti_tech_rating
+            symbol, close, rsi_14, sma_50, sma_200, NULL::numeric AS ema_20, macd, adx,
+            pct_from_52w_high, bollinger_pct_b, technical_rating AS ti_tech_rating
           FROM screener_technical_indicators_latest
           WHERE symbol = ANY(${symbolListSql})
         ),
@@ -315,7 +316,7 @@ export class ScreenerMasterSnapshotService {
         dii_holding, pledged_shares, shareholding_quarter_date,
         analyst_avg_target, analyst_upside_pct, analyst_consensus_rating, analyst_count,
         dcf_upside_percent,
-        index_membership, pro_themes, technical_signal, piotroski_f_score,
+        index_membership, pro_themes, technical_signal, stock_regime, piotroski_f_score,
         consensus_upside_percent,
         financials_fiscal_year, snapshot_version,
         source, created_at, updated_at
@@ -396,6 +397,24 @@ export class ScreenerMasterSnapshotService {
         COALESCE(ls.index_membership, '[]'::jsonb),
         COALESCE(ls.pro_themes, ARRAY[]::text[]),
         ls.technical_signal,
+        CASE
+          WHEN COALESCE(ti.close, ls.current_price::numeric) > ti.sma_50
+            AND ti.sma_50 > ti.sma_200
+            AND COALESCE(ti.adx, 20) >= 25
+            THEN 'BULLISH_TRENDING'
+          WHEN COALESCE(ti.close, ls.current_price::numeric) > ti.sma_50
+            AND COALESCE(ti.pct_from_52w_high, -100) > -5.0
+            AND COALESCE(ls.day_change_percent::numeric, 0) > 1.0
+            THEN 'EARLY_STAGE_BREAKOUT'
+          WHEN COALESCE(ti.close, ls.current_price::numeric) < ti.sma_50
+            AND ti.sma_50 < ti.sma_200
+            AND COALESCE(ti.adx, 20) >= 25
+            THEN 'BEARISH_DOWNTREND'
+          WHEN (ti.bollinger_pct_b > 1.0 OR ti.bollinger_pct_b < 0.0)
+            OR COALESCE(ti.adx, 20) < 18
+            THEN 'HIGH_VOLATILITY_CHOP'
+          ELSE 'CONSOLIDATION_BASE'
+        END AS stock_regime,
         ls.piotroski_f_score,
         ls.consensus_upside_percent::numeric,
         fin.fiscal_year,
@@ -505,6 +524,7 @@ export class ScreenerMasterSnapshotService {
         index_membership = EXCLUDED.index_membership,
         pro_themes = EXCLUDED.pro_themes,
         technical_signal = EXCLUDED.technical_signal,
+        stock_regime = EXCLUDED.stock_regime,
         piotroski_f_score = EXCLUDED.piotroski_f_score,
         consensus_upside_percent = EXCLUDED.consensus_upside_percent,
         financials_fiscal_year = EXCLUDED.financials_fiscal_year,
@@ -580,7 +600,9 @@ export class ScreenerMasterSnapshotService {
           LIMIT 1
         ),
         ti AS (
-          SELECT rsi_14, sma_50, sma_200, NULL::numeric AS ema_20, macd, adx, technical_rating AS ti_tech_rating
+          SELECT
+            close, rsi_14, sma_50, sma_200, NULL::numeric AS ema_20, macd, adx,
+            pct_from_52w_high, bollinger_pct_b, technical_rating AS ti_tech_rating
           FROM screener_technical_indicators_latest
           WHERE symbol = ${symbol}
           LIMIT 1
@@ -628,7 +650,7 @@ export class ScreenerMasterSnapshotService {
         dii_holding, pledged_shares, shareholding_quarter_date,
         analyst_avg_target, analyst_upside_pct, analyst_consensus_rating, analyst_count,
         dcf_upside_percent,
-        index_membership, pro_themes, technical_signal, piotroski_f_score,
+        index_membership, pro_themes, technical_signal, stock_regime, piotroski_f_score,
         consensus_upside_percent,
         financials_fiscal_year, snapshot_version,
         source, created_at, updated_at
@@ -708,6 +730,24 @@ export class ScreenerMasterSnapshotService {
         COALESCE(ls.index_membership, '[]'::jsonb),
         COALESCE(ls.pro_themes, ARRAY[]::text[]),
         ls.technical_signal,
+        CASE
+          WHEN COALESCE(ti.close, ls.current_price::numeric) > ti.sma_50
+            AND ti.sma_50 > ti.sma_200
+            AND COALESCE(ti.adx, 20) >= 25
+            THEN 'BULLISH_TRENDING'
+          WHEN COALESCE(ti.close, ls.current_price::numeric) > ti.sma_50
+            AND COALESCE(ti.pct_from_52w_high, -100) > -5.0
+            AND COALESCE(ls.day_change_percent::numeric, 0) > 1.0
+            THEN 'EARLY_STAGE_BREAKOUT'
+          WHEN COALESCE(ti.close, ls.current_price::numeric) < ti.sma_50
+            AND ti.sma_50 < ti.sma_200
+            AND COALESCE(ti.adx, 20) >= 25
+            THEN 'BEARISH_DOWNTREND'
+          WHEN (ti.bollinger_pct_b > 1.0 OR ti.bollinger_pct_b < 0.0)
+            OR COALESCE(ti.adx, 20) < 18
+            THEN 'HIGH_VOLATILITY_CHOP'
+          ELSE 'CONSOLIDATION_BASE'
+        END AS stock_regime,
         ls.piotroski_f_score,
         ls.consensus_upside_percent,
         fin.fiscal_year,
@@ -816,6 +856,7 @@ export class ScreenerMasterSnapshotService {
         index_membership = EXCLUDED.index_membership,
         pro_themes = EXCLUDED.pro_themes,
         technical_signal = EXCLUDED.technical_signal,
+        stock_regime = EXCLUDED.stock_regime,
         piotroski_f_score = EXCLUDED.piotroski_f_score,
         consensus_upside_percent = EXCLUDED.consensus_upside_percent,
         financials_fiscal_year = EXCLUDED.financials_fiscal_year,

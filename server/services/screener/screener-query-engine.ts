@@ -97,6 +97,7 @@ export interface ScreenerFilters {
 	// ── Technical filters (from screener_technical_indicators) ───────────────
 	minRSI?: number;           // e.g. minRSI=30 maxRSI=50 → RSI in buy zone
 	maxRSI?: number;
+	stockRegime?: string;      // BULLISH_TRENDING | EARLY_STAGE_BREAKOUT | CONSOLIDATION_BASE | BEARISH_DOWNTREND | HIGH_VOLATILITY_CHOP
 
 	// ── Shareholding filters (from screener_shareholding) ────────────────────
 	minPromoterHolding?: number;  // % e.g. 50 = 50%
@@ -225,6 +226,7 @@ export interface ScreenerResult {
 	piotroskiDetails: unknown | null;
 	altmanZScore: string | null;
 	technicalRating: string | null;
+	stockRegime: string | null;
 
 	// 52W Range
 	weekHigh52: string | null;
@@ -321,6 +323,7 @@ async function queryScreenerFromMaster(
 	if (filters.minPiotroski != null) conditions.push(gte(screenerMasterSnapshots.piotroskiScore, filters.minPiotroski));
 	if (filters.maxPiotroski != null) conditions.push(lte(screenerMasterSnapshots.piotroskiScore, filters.maxPiotroski));
 	if (filters.technicalRating) conditions.push(eq(screenerMasterSnapshots.technicalRating, filters.technicalRating));
+	if (filters.stockRegime) conditions.push(eq(screenerMasterSnapshots.stockRegime, filters.stockRegime));
 
 	// Technicals
 	if (filters.minRSI != null) conditions.push(gte(screenerMasterSnapshots.rsi14, filters.minRSI.toString()));
@@ -462,6 +465,7 @@ async function queryScreenerFromMaster(
 		piotroskiDetails: null,
 		altmanZScore: s.altmanZScore != null ? s.altmanZScore.toString() : null,
 		technicalRating: s.technicalRating || null,
+		stockRegime: s.stockRegime || "CONSOLIDATION_BASE",
 		weekHigh52: s.weekHigh52 != null ? s.weekHigh52.toString() : null,
 		weekLow52: s.weekLow52 != null ? s.weekLow52.toString() : null,
 	}));
@@ -1324,7 +1328,7 @@ export async function getStockDetail(symbol: string) {
 
 	if (!stock) return null;
 
-	const [financials, derived, technical, shareholding, analystConsensus, dcfValuation] = await Promise.all([
+	const [financials, derived, technical, shareholding, analystConsensus, dcfValuation, masterSnapshot] = await Promise.all([
 		db.select().from(screenerFinancials)
 			.where(eq(screenerFinancials.symbol, symbol))
 			.orderBy(desc(screenerFinancials.fiscalYear))
@@ -1345,6 +1349,10 @@ export async function getStockDetail(symbol: string) {
 		db.select().from(screenerDcfValuations)
 			.where(eq(screenerDcfValuations.symbol, symbol))
 			.orderBy(desc(screenerDcfValuations.date))
+			.limit(1),
+		db.select({ stockRegime: screenerMasterSnapshots.stockRegime })
+			.from(screenerMasterSnapshots)
+			.where(eq(screenerMasterSnapshots.symbol, symbol))
 			.limit(1),
 	]);
 
@@ -1507,6 +1515,15 @@ export async function getStockDetail(symbol: string) {
 		// Non-blocking fallback
 	}
 
+	// Marquee Institutional Brokerage Views & Quoting Reference
+	let marqueeBrokerageViews: any = null;
+	try {
+		const { marqueeBrokerageService } = await import("./marquee-brokerage-service");
+		marqueeBrokerageViews = await marqueeBrokerageService.getMarqueeReference(stock.symbol, currentPrice);
+	} catch {
+		// Non-blocking fallback
+	}
+
 	return {
 		stock,
 		financials,
@@ -1520,6 +1537,8 @@ export async function getStockDetail(symbol: string) {
 		announcements,
 		derivatives,
 		relativeValuation,
+		stockRegime: masterSnapshot[0]?.stockRegime || "CONSOLIDATION_BASE",
+		marqueeBrokerageViews,
 	};
 }
 

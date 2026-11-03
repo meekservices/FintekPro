@@ -48,6 +48,9 @@ import {
 	getExtendedEnrichmentProgress,
 } from "../services/screener/priority-enrichment-scheduler";
 import { exchangeStockService } from "../services/exchange-stock-service";
+import { marketBreadthService } from "../services/macro/market-breadth-service";
+import { fiiFlowService } from "../services/macro/fii-flow-service";
+import { marqueeBrokerageService } from "../services/screener/marquee-brokerage-service";
 import { computePivotLevels } from "../services/screener/technical-calculator";
 import {
 	getShareholdingForSymbol,
@@ -325,6 +328,55 @@ router.get("/api/screener/distribution", async (req, res) => {
 router.post("/api/screener/distribution/bust", async (_req, res) => {
 	invalidateDistributionCache();
 	res.json({ success: true, message: "Distribution cache invalidated" });
+});
+
+// ── Market Breadth & Institutional FII/DII Flows ─────────────────────────────
+router.get("/api/market-breadth/latest", async (_req, res) => {
+	try {
+		const breadth = await marketBreadthService.getLatestBreadth();
+		res.json({ success: true, data: breadth });
+	} catch (err: any) {
+		res.status(500).json({ success: false, error: err?.message || "Failed to fetch market breadth" });
+	}
+});
+
+router.post("/api/market-breadth/compute", async (_req, res) => {
+	try {
+		const breadth = await marketBreadthService.computeAndPersistBreadth();
+		res.json({ success: true, data: breadth });
+	} catch (err: any) {
+		res.status(500).json({ success: false, error: err?.message || "Failed to compute market breadth" });
+	}
+});
+
+router.get("/api/fii-dii/summary", async (_req, res) => {
+	try {
+		const flow = await fiiFlowService.getLatestFlow();
+		res.json({ success: true, data: flow });
+	} catch (err: any) {
+		res.status(500).json({ success: false, error: err?.message || "Failed to fetch FII/DII flow summary" });
+	}
+});
+
+router.post("/api/fii-dii/sync", async (_req, res) => {
+	try {
+		const flow = await fiiFlowService.syncAndPersistDailyFlow();
+		res.json({ success: true, data: flow });
+	} catch (err: any) {
+		res.status(500).json({ success: false, error: err?.message || "Failed to sync FII/DII flow" });
+	}
+});
+
+// ── Marquee Institutional Brokerage Views & Quoting Reference ─────────────────
+router.get("/api/screener/stocks/:symbol/brokerage-views", async (req, res) => {
+	try {
+		const symbol = req.params.symbol?.toUpperCase();
+		const currentPrice = req.query.currentPrice ? parseFloat(req.query.currentPrice as string) : undefined;
+		const reference = await marqueeBrokerageService.getMarqueeReference(symbol, currentPrice);
+		res.json({ success: true, data: reference });
+	} catch (err: any) {
+		res.status(500).json({ success: false, error: err?.message || "Failed to fetch brokerage views" });
+	}
 });
 
 router.get("/api/screener/admin/enrichment-progress", async (req, res) => {

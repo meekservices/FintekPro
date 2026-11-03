@@ -438,6 +438,42 @@ export function initializeEnrichmentCrons(
 	);
 	delay += STAGGER;
 
+	// ── Market Breadth & FII/DII Institutional Flows ─────────────────────────────
+	staggeredStart(
+		"Market Breadth & FII Flow Sync",
+		() => {
+			// Daily 6:30 PM IST (13:00 UTC) weekdays — after Bhavcopy & Institutional settlement
+			cron.schedule("0 13 * * 1-5", async () => {
+				logger.info(
+					"[CRON] Starting EOD market breadth & FII flow ingestion (6:30 PM IST)...",
+				);
+				try {
+					const { marketBreadthService } = await import(
+						"./services/macro/market-breadth-service"
+					);
+					const { fiiFlowService } = await import(
+						"./services/macro/fii-flow-service"
+					);
+					await Promise.allSettled([
+						marketBreadthService.computeAndPersistBreadth(),
+						fiiFlowService.syncAndPersistDailyFlow(),
+					]);
+					logger.info("[CRON] EOD market breadth & FII flow ingestion completed");
+				} catch (error: any) {
+					logger.error(
+						"[CRON] EOD market breadth & FII flow ingestion failed:",
+						error.message,
+					);
+				}
+			});
+			logger.info(
+				"📊 [MarketBreadth] Daily market breadth & FII flow ingestion scheduled (6:30 PM IST)",
+			);
+		},
+		delay,
+	);
+	delay += STAGGER;
+
 	// ── NSE/BSE stock sync ──────────────────────────────────────────────────────
 	stockSyncScheduler.initialize();
 	logger.info("📊 [StockSync] NSE/BSE sync scheduler initialized");

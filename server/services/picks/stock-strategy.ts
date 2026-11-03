@@ -1880,6 +1880,47 @@ export class StockStrategy extends BaseStrategy {
 			// Non-blocking fallback
 		}
 
+		// ── Upgrade #12: Stock Micro-Regime Dynamic Adjustment ───────────────────
+		// Classifies individual price action & trend health independent of macro index:
+		// - BULLISH_TRENDING (Close > 50-SMA > 200-SMA, ADX >= 25): +10 pts
+		// - EARLY_STAGE_BREAKOUT (Close > 50-SMA, near 52W high, day gain > 1%): +12 pts
+		// - CONSOLIDATION_BASE (Low volatility base / accumulation): +4 pts
+		// - HIGH_VOLATILITY_CHOP (Bollinger breach / ADX < 18): -8 pts (whipsaw risk)
+		// - BEARISH_DOWNTREND (Close < 50-SMA < 200-SMA, ADX >= 25): -15 pts (severe headwind)
+		const stockRegime = stock.stockRegime ?? (enriched as any)?.stockRegime ?? null;
+		if (stockRegime) {
+			if (stockRegime === "BULLISH_TRENDING") score += 10;
+			else if (stockRegime === "EARLY_STAGE_BREAKOUT") score += 12;
+			else if (stockRegime === "CONSOLIDATION_BASE") score += 4;
+			else if (stockRegime === "HIGH_VOLATILITY_CHOP") score -= 8;
+			else if (stockRegime === "BEARISH_DOWNTREND") score -= 15;
+		}
+
+		// ── Upgrade #13: Advance/Decline Market Breadth Adjustment ───────────────
+		// Reads current market-wide health (A/D ratio & % above 50-DMA):
+		// - Broad Advance / Breadth Thrust: institutional buying wave -> reward breakout & trending (+6 pts)
+		// - Broad Decline / Distribution: defensive safety premium (+8 pts for defensive/low-beta; -10 pts for high-beta)
+		try {
+			const { marketBreadthService } = await import("../macro/market-breadth-service");
+			const breadth = await marketBreadthService.getLatestBreadth();
+			if (breadth) {
+				if (breadth.breadthThrustSignal || breadth.breadthRegime === "BROAD_ADVANCE") {
+					if (stockRegime === "BULLISH_TRENDING" || stockRegime === "EARLY_STAGE_BREAKOUT") {
+						score += 6;
+					}
+				} else if (breadth.breadthRegime === "BROAD_DECLINE") {
+					const beta = enriched?.performance?.beta ?? (stock.beta ? Number.parseFloat(stock.beta) : null);
+					if (beta !== null && beta > 1.3) {
+						score -= 10; // penalize high beta when market breadth is collapsing
+					} else if (beta !== null && beta < 0.8) {
+						score += 8;  // reward low beta safe havens
+					}
+				}
+			}
+		} catch {
+			// Non-blocking fallback
+		}
+
 		// ── Fix 2: Market-regime-aware score multipliers ──────────────────────────
 		// Adjust signal weights based on current market regime from detectRegime().
 		// BEAR/HIGH_VOL: boost defensive characteristics, penalise high-beta momentum.

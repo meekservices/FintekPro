@@ -956,6 +956,7 @@ export const screenerMasterSnapshots = pgTable("screener_master_snapshots", {
   indexMembership: jsonb("index_membership").default([]),
   proThemes: text("pro_themes").array().default([]),
   technicalSignal: varchar("technical_signal", { length: 32 }),
+  stockRegime: varchar("stock_regime", { length: 30 }).default("CONSOLIDATION_BASE"),
   piotroskiFScore: integer("piotroski_f_score"),
   consensusUpsidePercent: decimal("consensus_upside_percent", { precision: 8, scale: 2 }),
   // ── Snapshot freshness ─────────────────────────────────────────────────────
@@ -985,6 +986,7 @@ export const screenerMasterSnapshots = pgTable("screener_master_snapshots", {
   // Technical indexes
   index("idx_sms_rsi").on(table.rsi14),
   index("idx_sms_tech_rating").on(table.technicalRating),
+  index("idx_sms_stock_regime").on(table.stockRegime),
   // Risk indexes
   index("idx_sms_beta").on(table.beta),
   // Analyst / DCF
@@ -1026,3 +1028,41 @@ export const screenerSectorBenchmarks = pgTable("screener_sector_benchmarks", {
 ]);
 
 export type ScreenerSectorBenchmark = typeof screenerSectorBenchmarks.$inferSelect;
+
+// ── Market Breadth History Table (Phase 1) ──────────────────────────────────
+export const marketBreadthHistory = pgTable("market_breadth_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: date("date").notNull().unique(),
+  advances: integer("advances").notNull(),
+  declines: integer("declines").notNull(),
+  unchanged: integer("unchanged").notNull().default(0),
+  advanceDeclineRatio: decimal("advance_decline_ratio", { precision: 8, scale: 2 }).notNull(),
+  pctAbove50Dma: decimal("pct_above_50_dma", { precision: 6, scale: 2 }).notNull(),
+  pctAbove200Dma: decimal("pct_above_200_dma", { precision: 6, scale: 2 }).notNull(),
+  breadthThrustSignal: boolean("breadth_thrust_signal").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_breadth_date").on(table.date),
+]);
+export type MarketBreadthHistory = typeof marketBreadthHistory.$inferSelect;
+
+// ── FII / DII Daily Flows Table (Phase 1) ───────────────────────────────────
+export const fiiDiiDailyFlows = pgTable("fii_dii_daily_flows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: date("date").notNull().unique(),
+  fiiBuyCr: decimal("fii_buy_cr", { precision: 15, scale: 2 }),
+  fiiSellCr: decimal("fii_sell_cr", { precision: 15, scale: 2 }),
+  fiiNetCr: decimal("fii_net_cr", { precision: 15, scale: 2 }).notNull(),
+  diiBuyCr: decimal("dii_buy_cr", { precision: 15, scale: 2 }),
+  diiSellCr: decimal("dii_sell_cr", { precision: 15, scale: 2 }),
+  diiNetCr: decimal("dii_net_cr", { precision: 15, scale: 2 }).notNull(),
+  effectiveFlowCr: decimal("effective_flow_cr", { precision: 15, scale: 2 }).notNull(),
+  sentiment: varchar("sentiment", { length: 20 }).notNull(), // 'RISK_ON' | 'RISK_OFF' | 'NEUTRAL'
+  topFavoredSector: varchar("top_favored_sector"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_fii_dii_date").on(table.date),
+  index("idx_fii_dii_sentiment").on(table.sentiment),
+]);
+export type FiiDiiDailyFlow = typeof fiiDiiDailyFlows.$inferSelect;
+
