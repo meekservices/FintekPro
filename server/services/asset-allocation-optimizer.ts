@@ -8,6 +8,8 @@
  * - Client segment-specific constraints
  */
 
+import { benchmarkCorrelationService } from "./quant/benchmark-correlation-service";
+
 export interface AssetClass {
 	type: string;
 	name: string;
@@ -593,13 +595,16 @@ class AssetAllocationOptimizer {
 				const w2 = weights[j] / 100;
 				const sigma1 = asset1.volatility / 100;
 				const sigma2 = asset2.volatility / 100;
-				const correlation =
-					CORRELATION_MATRIX[type1]?.[type2] ?? (type1 === type2 ? 1 : 0);
+				const correlation = this.getCorrelation(type1, type2);
 				variance += w1 * w2 * sigma1 * sigma2 * correlation;
 			}
 		}
 
 		return variance;
+	}
+
+	private getCorrelation(type1: string, type2: string): number {
+		return benchmarkCorrelationService.getCorrelation(type1, type2);
 	}
 
 	private calculatePortfolioReturn(weights: number[]): number {
@@ -974,8 +979,7 @@ class AssetAllocationOptimizer {
 				let varianceGrad = 0;
 				for (let j = 0; j < n; j++) {
 					const asset2 = ASSET_CLASSES[j];
-					const correlation =
-						CORRELATION_MATRIX[asset.type]?.[asset2.type] ?? 0;
+					const correlation = this.getCorrelation(asset.type, asset2.type);
 					varianceGrad +=
 						(weights[j] / 100) *
 						(asset.volatility / 100) *
@@ -1043,8 +1047,7 @@ class AssetAllocationOptimizer {
 					let varianceGrad = 0;
 					for (let j = 0; j < n; j++) {
 						const asset2 = ASSET_CLASSES[j];
-						const correlation =
-							CORRELATION_MATRIX[asset.type]?.[asset2.type] ?? 0;
+						const correlation = this.getCorrelation(asset.type, asset2.type);
 						varianceGrad +=
 							(weights[j] / 100) *
 							(asset.volatility / 100) *

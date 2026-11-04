@@ -355,7 +355,7 @@ export const SYMBOL_TO_ISIN: Record<string, string> = {
 
 export const toNseKey = (symbol: string): string => {
   const upper = symbol.toUpperCase();
-  if (upper.startsWith("NSE_") || upper.startsWith("BSE_")) return upper;
+  if (upper.startsWith("NSE_") || upper.startsWith("BSE_") || upper.startsWith("MCX_")) return upper;
   if (/^IN[A-Z0-9]{10}$/.test(upper)) return `NSE_EQ|${upper}`;
   const isin = SYMBOL_TO_ISIN[upper] || upper;
   return `NSE_EQ|${isin}`;
@@ -363,10 +363,30 @@ export const toNseKey = (symbol: string): string => {
 
 export const toBseKey = (symbol: string): string => {
   const upper = symbol.toUpperCase();
-  if (upper.startsWith("NSE_") || upper.startsWith("BSE_")) return upper;
+  if (upper.startsWith("NSE_") || upper.startsWith("BSE_") || upper.startsWith("MCX_")) return upper;
   if (/^IN[A-Z0-9]{10}$/.test(upper)) return `BSE_EQ|${upper}`;
   const isin = SYMBOL_TO_ISIN[upper] || upper;
   return `BSE_EQ|${isin}`;
+};
+
+export const MCX_SYMBOL_TO_KEY: Record<string, string> = {
+  GOLD: "MCX_FO|495213",
+  SILVER: "MCX_FO|495214",
+  CRUDEOIL: "MCX_FO|573422",
+  CRUDE_OIL: "MCX_FO|573422",
+  BRENT: "MCX_FO|573422",
+  BRENT_CRUDE: "MCX_FO|573422",
+  NATURALGAS: "MCX_FO|574319",
+  NATURAL_GAS: "MCX_FO|574319",
+  COPPER: "MCX_FO|578634",
+  ALUMINIUM: "MCX_FO|578635",
+  ZINC: "MCX_FO|578636",
+};
+
+export const toMcxKey = (symbol: string): string => {
+  const upper = symbol.toUpperCase().replace(/\s+/g, "");
+  if (upper.startsWith("MCX_FO|") || upper.startsWith("MCX_")) return upper;
+  return MCX_SYMBOL_TO_KEY[upper] || `MCX_FO|${upper}`;
 };
 
 // ── Service Class ──────────────────────────────────────────────────────────────
@@ -547,6 +567,7 @@ class UpstoxMarketDataService {
   ): Promise<string> {
     const upper = symbolOrIsin.toUpperCase();
     if (upper.startsWith("NSE_") || upper.startsWith("BSE_") || upper.startsWith("MCX_")) return upper;
+    if (exchange === "MCX" || MCX_SYMBOL_TO_KEY[upper]) return toMcxKey(upper);
     if (DERIVATIVE_UNDERLYING_MAP[upper]) return DERIVATIVE_UNDERLYING_MAP[upper];
     if (/^IN[A-Z0-9]{10}$/.test(upper)) return `${exchange}_EQ|${upper}`;
     if (SYMBOL_TO_ISIN[upper]) return `${exchange}_EQ|${SYMBOL_TO_ISIN[upper]}`;
@@ -830,23 +851,28 @@ class UpstoxMarketDataService {
   /**
    * Get historical OHLCV candles for a symbol.
    *
-   * @param symbol    NSE ticker e.g. "RELIANCE"
+   * @param symbol    NSE/BSE ticker e.g. "RELIANCE" or MCX symbol e.g. "GOLD", "CRUDEOIL"
    * @param interval  "1minute" | "30minute" | "day" | "week" | "month"
    * @param fromDate  "YYYY-MM-DD"
    * @param toDate    "YYYY-MM-DD"
-   * @param exchange  "NSE" (default) or "BSE"
+   * @param exchange  "NSE" (default), "BSE", or "MCX"
    */
   async getHistoricalData(
     symbol: string,
     interval: "1minute" | "30minute" | "day" | "week" | "month",
     fromDate: string,
     toDate: string,
-    exchange: "NSE" | "BSE" = "NSE"
+    exchange: "NSE" | "BSE" | "MCX" = "NSE"
   ): Promise<UpstoxServiceResult<UpstoxHistoricalCandle[]>> {
     const t0 = Date.now();
     if (!this.isReady()) return this._inactive<UpstoxHistoricalCandle[]>();
 
-    const key = exchange === "BSE" ? toBseKey(symbol) : toNseKey(symbol);
+    const key =
+      exchange === "MCX"
+        ? toMcxKey(symbol)
+        : exchange === "BSE"
+        ? toBseKey(symbol)
+        : toNseKey(symbol);
     const encodedKey = encodeURIComponent(key);
 
     return this._withRetry<UpstoxHistoricalCandle[]>(async () => {

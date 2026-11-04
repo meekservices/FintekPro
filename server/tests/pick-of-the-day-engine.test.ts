@@ -382,11 +382,9 @@ describe("Pick of the Day Engine - Unit Tests & Upgrades", () => {
 				highlightText: "Piotroski F-Score 8/9 • Thematic Leader (#1) • Technical Breakout / Turning Bullish",
 			};
 
-			// Warm up cache so any asynchronous external AI signals are identical across runs
-			await testStockStrat.score(mockStock, null, null, null, null, { scoreBonus: 0, themeBadges: [], highlightText: "" });
-
-			const baseScore = await testStockStrat.score(mockStock, null, null, null, null, { scoreBonus: 0, themeBadges: [], highlightText: "" });
-			const boostedScore = await testStockStrat.score(mockStock, null, null, null, null, mockThematicLeader);
+			// Fast quant pass for cross-engine synergy evaluation (no external AI boost wait)
+			const baseScore = await testStockStrat.score(mockStock, null, null, null, null, { scoreBonus: 0, themeBadges: [], highlightText: "" }, null, false);
+			const boostedScore = await testStockStrat.score(mockStock, null, null, null, null, mockThematicLeader, null, false);
 
 			expect(boostedScore - baseScore).toBe(24);
 		});
@@ -411,8 +409,8 @@ describe("Pick of the Day Engine - Unit Tests & Upgrades", () => {
 				highlightText: "Technical Breakdown / Turning Bearish",
 			};
 
-			const baseScore = await testStockStrat.score(mockStock, null, null, null, null, { scoreBonus: 0, themeBadges: [], highlightText: "" });
-			const penalizedScore = await testStockStrat.score(mockStock, null, null, null, null, mockBearishConstituent);
+			const baseScore = await testStockStrat.score(mockStock, null, null, null, null, { scoreBonus: 0, themeBadges: [], highlightText: "" }, null, false);
+			const penalizedScore = await testStockStrat.score(mockStock, null, null, null, null, mockBearishConstituent, null, false);
 
 			expect(penalizedScore).toBe(Math.max(0, baseScore - 12));
 		});

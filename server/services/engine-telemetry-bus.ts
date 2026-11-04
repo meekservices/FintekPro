@@ -86,6 +86,27 @@ class EngineTelemetryBus {
   private readonly _meta = new Map<string, { name: string; category: EngineCategory }>();
   private _latestRegime = "unknown";
 
+  constructor() {
+    this._seedCoreEngines();
+  }
+
+  private _seedCoreEngines(): void {
+    const coreEngines: Array<{ id: string; name: string; category: EngineCategory }> = [
+      { id: "pick-of-the-day", name: "Pick of the Day Engine", category: "Alpha Generation" },
+      { id: "pro-thematic-screener", name: "Pro Thematic Screener", category: "Alpha Generation" },
+      { id: "model-portfolio-optimizer", name: "Model Portfolio Quant Optimizer", category: "Portfolio" },
+      { id: "model-portfolio-quant", name: "Model Portfolio Quant Engine", category: "Portfolio" },
+      { id: "global-macro-transmission", name: "Global Macro Transmission Engine", category: "Risk & Regime" },
+      { id: "ai-regime-detection", name: "Market Regime Detection Engine", category: "Risk & Regime" },
+      { id: "upstox-golden-pricing", name: "Upstox Golden Market Data", category: "Data Quality" },
+      { id: "scorer-calibration", name: "Scorer Calibration Service", category: "AI Orchestration" },
+      { id: "pick-outcome-analyzer", name: "Pick Outcome Analyzer", category: "AI Orchestration" },
+    ];
+    for (const eng of coreEngines) {
+      this._meta.set(eng.id, { name: eng.name, category: eng.category });
+    }
+  }
+
   /**
    * Report engine telemetry. Fire-and-forget — never throws.
    * Call after each generation/update cycle.
@@ -161,9 +182,9 @@ class EngineTelemetryBus {
       (Date.now() - new Date(last.reportedAt).getTime()) / 3_600_000;
 
     let health: EngineHealthStatus["health"];
-    if (hoursSinceLastReport > 26 || errorRate > 0.5) {
+    if (hoursSinceLastReport > 72 || errorRate > 0.5) {
       health = "critical";
-    } else if (avgQualityScore < 50 || errorRate > 0.25 || hoursSinceLastReport > 13) {
+    } else if (avgQualityScore < 50 || errorRate > 0.25 || hoursSinceLastReport > 36) {
       health = "degraded";
     } else {
       health = "healthy";

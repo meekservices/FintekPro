@@ -6436,6 +6436,7 @@ export async function runDbEfficiencyIndexesAndSnapshotsRepair(poolInstance?: an
 
       -- Golden Prices Time-Series Indexes (RSI, returns, quant covariance)
       CREATE INDEX IF NOT EXISTS idx_golden_prices_symbol_date_price ON golden_prices (symbol, price_date, price);
+      CREATE INDEX IF NOT EXISTS idx_golden_prices_isin_date_desc_price ON golden_prices (isin, price_date DESC, price);
       CREATE INDEX IF NOT EXISTS idx_golden_prices_asset_date_desc ON golden_prices (asset_class, price_date);
 
       -- Listed Stocks POTD Candidate Selection Indexes
@@ -6532,6 +6533,7 @@ export async function ensureEngineGapFixTables(poolInstance?: any): Promise<void
       );
       CREATE INDEX IF NOT EXISTS idx_golden_intraday_isin_ts   ON golden_prices_intraday (isin, tick_ts);
       CREATE INDEX IF NOT EXISTS idx_golden_intraday_symbol_ts ON golden_prices_intraday (symbol, tick_ts);
+      CREATE INDEX IF NOT EXISTS idx_golden_intraday_tick_ts   ON golden_prices_intraday (tick_ts);
 
       -- ── benchmark_correlation_matrix ────────────────────────────────────────
       CREATE TABLE IF NOT EXISTS benchmark_correlation_matrix (
@@ -6626,9 +6628,98 @@ export async function ensureEngineGapFixTables(poolInstance?: any): Promise<void
       );
       CREATE INDEX IF NOT EXISTS idx_brokerage_consensus_symbol ON brokerage_consensus_history (symbol);
       CREATE INDEX IF NOT EXISTS idx_brokerage_consensus_date   ON brokerage_consensus_history (snapshot_date);
+
+      -- ── price_audit_log (SEBI Compliance audit trail for golden price changes) ───
+      CREATE TABLE IF NOT EXISTS price_audit_log (
+        id               SERIAL PRIMARY KEY,
+        isin             VARCHAR(20)     NOT NULL,
+        price_date       DATE            NOT NULL,
+        old_price        DECIMAL(20, 6),
+        new_price        DECIMAL(20, 6)  NOT NULL,
+        old_source       VARCHAR(50),
+        new_source       VARCHAR(50)     NOT NULL,
+        change_reason    TEXT            NOT NULL,
+        changed_by       VARCHAR(100)    NOT NULL DEFAULT 'system',
+        confidence_score INTEGER,
+        metadata         JSONB,
+        created_at       TIMESTAMP       NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_price_audit_isin    ON price_audit_log (isin);
+      CREATE INDEX IF NOT EXISTS idx_price_audit_date    ON price_audit_log (price_date);
+      CREATE INDEX IF NOT EXISTS idx_price_audit_created ON price_audit_log (created_at);
+
+      -- ── corporate_actions & price_adjustments ─────────────────────────────
+      CREATE TABLE IF NOT EXISTS corporate_actions (
+        id                          SERIAL PRIMARY KEY,
+        isin                        VARCHAR(20)     NOT NULL,
+        symbol                      VARCHAR(50),
+        action_type                 VARCHAR(50)     NOT NULL,
+        ex_date                     DATE            NOT NULL,
+        record_date                 DATE,
+        pay_date                    DATE,
+        ratio                       VARCHAR(30),
+        adjustment_factor           DECIMAL(15, 8),
+        dividend_amount             DECIMAL(15, 4),
+        purpose                     TEXT,
+        is_applied_to_golden_prices BOOLEAN         DEFAULT false,
+        applied_at                  TIMESTAMP,
+        source                      VARCHAR(50)     DEFAULT 'NSE',
+        raw_data                    JSONB,
+        created_at                  TIMESTAMP       NOT NULL DEFAULT NOW(),
+        updated_at                  TIMESTAMP       NOT NULL DEFAULT NOW(),
+        CONSTRAINT uq_corp_actions_isin_ex_type UNIQUE (isin, ex_date, action_type)
+      );
+      CREATE INDEX IF NOT EXISTS idx_corp_actions_isin    ON corporate_actions (isin);
+      CREATE INDEX IF NOT EXISTS idx_corp_actions_ex_date ON corporate_actions (ex_date);
+      CREATE INDEX IF NOT EXISTS idx_corp_actions_type    ON corporate_actions (action_type);
+
+      CREATE TABLE IF NOT EXISTS price_adjustments (
+        id                  SERIAL PRIMARY KEY,
+        corporate_action_id INTEGER,
+        isin                VARCHAR(20)     NOT NULL,
+        price_date          DATE            NOT NULL,
+        original_price      DECIMAL(20, 6)  NOT NULL,
+        adjusted_price      DECIMAL(20, 6)  NOT NULL,
+        adjustment_factor   DECIMAL(15, 8)  NOT NULL,
+        applied_at          TIMESTAMP       NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_price_adj_isin        ON price_adjustments (isin);
+      CREATE INDEX IF NOT EXISTS idx_price_adj_corp_action ON price_adjustments (corporate_action_id);
+      CREATE INDEX IF NOT EXISTS idx_price_adj_date        ON price_adjustments (price_date);
+
+      -- ── admin_ai_audit_logs (Admin Copilot universal audit trail) ──────────
+      CREATE TABLE IF NOT EXISTS admin_ai_audit_logs (
+        id                   VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id              VARCHAR,
+        user_role            VARCHAR,
+        agent_type           VARCHAR NOT NULL,
+        agent_action         VARCHAR NOT NULL,
+        entity_id            VARCHAR,
+        entity_type          VARCHAR,
+        input_context        JSONB,
+        output_summary       TEXT,
+        confidence_score     REAL,
+        model_version        VARCHAR DEFAULT 'gemini-2.0-flash',
+        approval_status      VARCHAR,
+        approving_admin      VARCHAR,
+        external_api_called  BOOLEAN DEFAULT false,
+        external_service     VARCHAR,
+        external_call_status VARCHAR,
+        external_call_ms     INTEGER,
+        latency_ms           INTEGER,
+        status               VARCHAR DEFAULT 'success',
+        error_code           VARCHAR,
+        error_message        TEXT,
+        retryable            BOOLEAN DEFAULT false,
+        source               VARCHAR DEFAULT 'api',
+        timestamp            TIMESTAMP DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_admin_ai_audit_user_id   ON admin_ai_audit_logs (user_id);
+      CREATE INDEX IF NOT EXISTS idx_admin_ai_audit_agent     ON admin_ai_audit_logs (agent_type, agent_action);
+      CREATE INDEX IF NOT EXISTS idx_admin_ai_audit_timestamp ON admin_ai_audit_logs (timestamp);
     `);
 
-    console.log("  ✅ [GapFix] Engine gap-fix tables and columns ensured: asset_returns_history, macro_regime_snapshots, golden_prices_intraday, benchmark_correlation_matrix, marquee brokerage tables (brokerage_firms, brokerage_coverage_calls, brokerage_consensus_history)");
+    console.log("  ✅ [GapFix] Engine gap-fix tables and columns ensured: asset_returns_history, macro_regime_snapshots, golden_prices_intraday, benchmark_correlation_matrix, price_audit_log, corporate_actions, price_adjustments, admin_ai_audit_logs, marquee brokerage tables (brokerage_firms, brokerage_coverage_calls, brokerage_consensus_history)");
   } catch (err: any) {
     console.warn("  ⚠️ [GapFix] Non-fatal migration error:", err?.message?.slice(0, 200));
   }

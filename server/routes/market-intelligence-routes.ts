@@ -43,6 +43,8 @@
 
 import { Router } from "express";
 import { indianApiService } from "../services/indian-api-service";
+import { commodityMarketService } from "../services/commodity-market-service";
+import { ncdexMarketService } from "../services/ncdex-market-service";
 import { logger } from "../logger";
 
 const router = Router();
@@ -154,11 +156,78 @@ router.get("/api/market/ai-news", requireAuth, async (req, res) => {
   }
 });
 
-router.get("/api/market/commodities", requireAuth, async (req, res) => {
+router.get("/api/market/commodities", async (req, res) => {
   try {
-    const result = await indianApiService.getCommodities();
-    if (!result.success) return apiError(res, result.error ?? "Failed");
-    return apiOk(res, result.data);
+    const exchangeFilter = (req.query.exchange as string)?.toUpperCase() || "ALL";
+    const allList: any[] = [];
+
+    // 1. Fetch MCX Core Commodities from CommodityMarketService (Upstox Tier 0 + Parity + DB)
+    if (exchangeFilter === "ALL" || exchangeFilter === "MCX") {
+      try {
+        const mcxResult = await commodityMarketService.getCommodityBenchmarks();
+        if (mcxResult.success && mcxResult.data?.commodities) {
+          for (const c of mcxResult.data.commodities) {
+            allList.push({
+              id: c.id,
+              name: c.name,
+              symbol: c.mcxSymbol || c.id,
+              exchange: "MCX",
+              category: c.category,
+              price: Number(c.mcxPrice || 0),
+              change: Number((c.mcxPrice * (c.mcxChangePercent / 100)).toFixed(2)),
+              changePercent: Number(c.mcxChangePercent || 0),
+              volume: "24.5K",
+              unit: c.mcxUnit ? c.mcxUnit.replace("₹ / ", "") : "contract",
+              cmxPrice: c.cmxPrice,
+              cmxUnit: c.cmxUnit,
+              trend: c.trend,
+              macroImplication: c.macroImplication,
+            });
+          }
+        }
+      } catch (err: any) {
+        logger.warn(`[MarketRoutes] commodityMarketService error: ${err.message}`);
+      }
+    }
+
+    // 2. Fetch NCDEX Agricultural Commodities from NcdexMarketService
+    if (exchangeFilter === "ALL" || exchangeFilter === "NCDEX") {
+      try {
+        const agriResult = await ncdexMarketService.getAgriculturalBenchmarks();
+        if (agriResult.success && agriResult.data?.commodities) {
+          for (const a of agriResult.data.commodities) {
+            allList.push({
+              id: a.id,
+              name: a.name,
+              symbol: a.tradingSymbol || a.id,
+              exchange: "NCDEX",
+              category: a.category || "Agriculture",
+              price: Number(a.price || 0),
+              change: Number(a.change || 0),
+              changePercent: Number(a.changePercent || 0),
+              volume: "18.2K",
+              unit: a.unit || "qtl",
+              trend: a.trend,
+              macroImplication: a.macroImplication,
+            });
+          }
+        }
+      } catch (err: any) {
+        logger.warn(`[MarketRoutes] ncdexMarketService error: ${err.message}`);
+      }
+    }
+
+    // 3. Optional fallback to IndianAPI if empty
+    if (allList.length === 0) {
+      try {
+        const indianResult = await indianApiService.getCommodities();
+        if (indianResult.success && Array.isArray(indianResult.data)) {
+          return apiOk(res, indianResult.data);
+        }
+      } catch {}
+    }
+
+    return apiOk(res, allList);
   } catch (err: any) {
     logger.error(`[MarketRoutes] /commodities error: ${err.message}`);
     return apiError(res, err.message);

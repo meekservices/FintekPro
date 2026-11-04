@@ -97,6 +97,7 @@ import {
 	Crosshair,
 	BellRing,
 	ShieldCheck,
+	MessageSquare,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -385,6 +386,13 @@ export function EnhancedNavigation() {
 					href: "/ai-stock-picks",
 					icon: Star,
 					description: "AI picks across all products",
+					badge: "AI",
+				},
+				{
+					name: "AI Copilot Chat",
+					href: "/chat",
+					icon: MessageSquare,
+					description: "Conversational portfolio & market copilot",
 					badge: "AI",
 				},
 			],

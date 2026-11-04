@@ -22,6 +22,8 @@ export class CurrencyExchangeService {
 		"CAD",
 		"SGD",
 		"AED",
+		"SEK",
+		"CHF",
 	];
 	private refreshInterval: NodeJS.Timeout | null = null;
 	private quotaDay: string = "";

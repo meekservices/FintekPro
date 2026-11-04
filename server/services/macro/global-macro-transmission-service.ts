@@ -86,6 +86,8 @@ export interface GlobalMacroReport {
 		sovereignSpreadBps: number;
 		sovereignSpreadStatus: string;
 		usdInrRate: number;
+		dxyIndex?: number;
+		dxyBand?: string;
 		fiiDiiFlowSentiment: string;
 		giftNiftyBias: string;
 	};
@@ -234,17 +236,32 @@ export class GlobalMacroTransmissionService {
 		};
 
 		// ── Step 3: Pillar 2 — Currency & Dollar Index Transmission (Weight: 20%) ──
-		const dxyEstimate = usdInr > 87.0 ? 104.5 : usdInr > 86.0 ? 103.2 : 101.8;
+		let dxyPrice = 104.25;
+		let dxyBand = "neutral";
+		try {
+			const { dollarIndexService } = await import("./dollar-index-service");
+			const dxySnap = await dollarIndexService.getDollarIndexSnapshot(forceRefresh);
+			dxyPrice = historicalPrices["FX_DXY"] ?? historicalPrices["DXY_INDEX"] ?? goldenSnapshot?.currencies?.dxy ?? dxySnap.price;
+			dxyBand = dxySnap.regime.band;
+		} catch (dErr: any) {
+			logger.warn("[GlobalMacroTransmissionService] DollarIndex snapshot fallback:", { error: dErr?.message });
+			dxyPrice = historicalPrices["FX_DXY"] ?? historicalPrices["DXY_INDEX"] ?? goldenSnapshot?.currencies?.dxy ?? (usdInr > 87.0 ? 104.5 : usdInr > 86.0 ? 103.2 : 101.8);
+			dxyBand = dxyPrice > 105.0 ? "strong" : dxyPrice > 98.0 ? "neutral" : "weak";
+		}
+
 		let pillar2Score = 70;
 		let p2Status: PillarScore["status"] = "NEUTRAL";
-		if (dxyEstimate < 102.5) {
-			pillar2Score = 85;
+		if (dxyPrice < 98.0) {
+			pillar2Score = 90;
 			p2Status = "FAVORABLE";
-		} else if (dxyEstimate <= 104.0) {
-			pillar2Score = 68;
+		} else if (dxyPrice <= 104.0) {
+			pillar2Score = 72;
 			p2Status = "NEUTRAL";
+		} else if (dxyPrice <= 106.0) {
+			pillar2Score = 52;
+			p2Status = "CAUTION";
 		} else {
-			pillar2Score = 40;
+			pillar2Score = 32;
 			p2Status = "UNFAVORABLE";
 		}
 
@@ -254,10 +271,10 @@ export class GlobalMacroTransmissionService {
 			score: pillar2Score,
 			weight: 0.2,
 			status: p2Status,
-			keyMetric: "USD / INR & DXY Index",
-			observedValue: `₹${usdInr.toFixed(2)} (FBIL Anchor)`,
-			benchmarkThreshold: "DXY < 103.5 (Orderly FX)",
-			details: `USD/INR trading at ₹${usdInr.toFixed(2)} (FBIL reference rate). Dollar index stability supports orderly foreign institutional allocations without sharp currency erosion.`,
+			keyMetric: "DXY Index & USD/INR",
+			observedValue: `DXY ${dxyPrice.toFixed(2)} | ₹${usdInr.toFixed(2)}`,
+			benchmarkThreshold: "DXY < 104.0 (Orderly FX)",
+			details: `US Dollar Index (DXY) trading at ${dxyPrice.toFixed(2)} (${dxyBand.toUpperCase()} regime). USD/INR at ₹${usdInr.toFixed(2)} (FBIL reference rate). ${dxyPrice <= 104.0 ? "Orderly dollar dynamics support stable foreign capital allocations." : "Elevated dollar index exerts depreciation pressure on emerging market currencies."}`,
 		};
 
 		// ── Step 4: Pillar 3 — Sovereign Yield Spread & Carry Buffer (Weight: 20%) ──
@@ -437,6 +454,8 @@ export class GlobalMacroTransmissionService {
 				sovereignSpreadBps: spreadBps,
 				sovereignSpreadStatus: spreadBps >= 250 ? "Healthy Carry Buffer" : "Compressed",
 				usdInrRate: usdInr,
+				dxyIndex: dxyPrice,
+				dxyBand,
 				fiiDiiFlowSentiment: fiiNetCr >= 0 ? "FII Net Buyer" : "DII SIP Absorption Active",
 				giftNiftyBias: "Positive (+0.25% to +0.40%)",
 			},

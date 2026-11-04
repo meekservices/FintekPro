@@ -1699,6 +1699,42 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			}, 6 * 60 * 60 * 1000);
 		});
 
+		// ─── Phase 1: Intraday Golden Prices 5-Day Rolling Purge ─────────────────
+		runStartupTask("Intraday Golden Prices Rolling Purge", async () => {
+			const { intradayPurgeService } = await import(
+				"../services/golden-pricing/intraday-purge-service"
+			);
+			intradayPurgeService.startPurgeScheduler();
+			console.log("[IntradayPurge] 🧹 5-day rolling purge scheduler for golden_prices_intraday active");
+		});
+
+		// ─── Phase 2: MVO Weekly Benchmark Correlation Matrix Scheduler ──────────
+		runStartupTask("Weekly Benchmark Correlation Matrix Scheduler", async () => {
+			const { benchmarkCorrelationService } = await import(
+				"../services/quant/benchmark-correlation-service"
+			);
+			benchmarkCorrelationService.startWeeklyScheduler();
+			console.log("[BenchmarkCorrelation] 📊 Weekly multi-asset correlation scheduler active (MVO acceleration)");
+		});
+
+		// ─── Phase 3: Corporate Actions Backward Adjustment Worker ───────────────
+		runStartupTask("Corporate Actions Backward Adjustment Worker", async () => {
+			const { corporateActionsAdjustmentWorker } = await import(
+				"../services/golden-pricing/corporate-actions-adjustment-worker"
+			);
+			corporateActionsAdjustmentWorker.startDailyScheduler();
+			console.log("[CorpActionsWorker] 📈 Daily corporate action split/bonus adjustment worker active");
+		});
+
+		// ─── Automated NSE Corporate Actions Ingestion Crawler ───────────────────
+		runStartupTask("NSE Automated Corporate Actions Ingestion", async () => {
+			const { nseCorporateActionsIngestionService } = await import(
+				"../services/golden-pricing/nse-corporate-actions-ingestion-service"
+			);
+			nseCorporateActionsIngestionService.startDailyScheduler();
+			console.log("[NseCorpActions] 🚀 Automated daily NSE corporate actions crawler active (feeding adjustment worker)");
+		});
+
 		console.log(
 			"✅ [Schedulers] All background services initialized. Portal is self-operating.",
 		);

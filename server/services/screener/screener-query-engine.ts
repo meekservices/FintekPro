@@ -100,6 +100,7 @@ export interface ScreenerFilters {
 	minRSI?: number;           // e.g. minRSI=30 maxRSI=50 → RSI in buy zone
 	maxRSI?: number;
 	stockRegime?: string;      // BULLISH_TRENDING | EARLY_STAGE_BREAKOUT | CONSOLIDATION_BASE | BEARISH_DOWNTREND | HIGH_VOLATILITY_CHOP
+	pvaClassification?: string; // INSTITUTIONAL_ACCUMULATION | INSTITUTIONAL_DISTRIBUTION | ABSORPTION_PULLBACK | EXHAUSTION_RALLY | VOLUME_CLIMAX_REVERSAL | VOLUME_CONTRACTION_DRYUP
 
 	// ── Shareholding filters (from screener_shareholding) ────────────────────
 	minPromoterHolding?: number;  // % e.g. 50 = 50%
@@ -516,12 +517,19 @@ async function queryScreenerFromMaster(
 		};
 	});
 
+	let resultStocks = enrichedStocks;
+	if (filters.pvaClassification && filters.pvaClassification !== "all") {
+		resultStocks = enrichedStocks.filter((s) => s.pvaClassification === filters.pvaClassification);
+	}
+
+	const finalTotal = filters.pvaClassification && filters.pvaClassification !== "all" ? resultStocks.length : total;
+
 	return {
-		stocks: enrichedStocks,
-		total,
+		stocks: resultStocks,
+		total: finalTotal,
 		page,
 		limit,
-		totalPages: Math.ceil(total / limit),
+		totalPages: Math.ceil(finalTotal / limit),
 		filters: {
 			sectors: sectors.map((s) => s.value).filter(Boolean) as string[],
 			industries: industries.map((i) => i.value).filter(Boolean) as string[],
@@ -1179,17 +1187,51 @@ export async function queryScreener(
 		}
 	}
 
-	const enrichedStocks = enrichStocksJIT(uniqueStocks as ScreenerResult[]).map((s) => ({
-		...s,
-		modelPortfolios: getModelPortfolioBadges(s.symbol || (s as any).isin),
-	}));
+	const enrichedStocks = enrichStocksJIT(uniqueStocks as ScreenerResult[]).map((s) => {
+		const curVol = s.volume ? parseFloat(s.volume) : 0;
+		const avgVol = (s as any).averageVolume ? parseFloat((s as any).averageVolume) : 0;
+		const dayChg = s.dayChangePercent ? parseFloat(s.dayChangePercent) : 0;
+		let pvaClassification: string | null = (s as any).pvaClassification || null;
+		let pvaScore: number | null = (s as any).pvaScore || null;
+
+		if (!pvaClassification && avgVol > 0 && curVol > 0) {
+			const rvol = curVol / avgVol;
+			if (rvol >= 1.4 && dayChg >= 0.5) {
+				pvaClassification = "INSTITUTIONAL_ACCUMULATION";
+				pvaScore = Math.min(95, Math.round(75 + (rvol - 1) * 8));
+			} else if (rvol >= 1.4 && dayChg <= -0.5) {
+				pvaClassification = "INSTITUTIONAL_DISTRIBUTION";
+				pvaScore = Math.max(15, Math.round(30 - (rvol - 1) * 8));
+			} else if (rvol <= 0.65 && dayChg >= 0.5) {
+				pvaClassification = "EXHAUSTION_RALLY";
+				pvaScore = 40;
+			} else if (rvol <= 0.70 && dayChg >= -2.0 && dayChg <= 0.2) {
+				pvaClassification = "ABSORPTION_PULLBACK";
+				pvaScore = 70;
+			}
+		}
+
+		return {
+			...s,
+			pvaClassification,
+			pvaScore,
+			modelPortfolios: getModelPortfolioBadges(s.symbol || (s as any).isin),
+		};
+	});
+
+	let resultStocks = enrichedStocks;
+	if (filters.pvaClassification && filters.pvaClassification !== "all") {
+		resultStocks = enrichedStocks.filter((s) => s.pvaClassification === filters.pvaClassification);
+	}
+
+	const finalTotal = filters.pvaClassification && filters.pvaClassification !== "all" ? resultStocks.length : total;
 
 	return {
-		stocks: enrichedStocks,
-		total,
+		stocks: resultStocks,
+		total: finalTotal,
 		page,
 		limit,
-		totalPages: Math.ceil(total / limit),
+		totalPages: Math.ceil(finalTotal / limit),
 		filters: {
 			sectors: sectors.map((s) => s.value).filter(Boolean) as string[],
 			industries: industries.map((i) => i.value).filter(Boolean) as string[],

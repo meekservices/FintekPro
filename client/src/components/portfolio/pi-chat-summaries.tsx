@@ -220,7 +220,7 @@ export function PiChatSummaries({ portfolioId }: PiChatSummariesProps) {
 													Recommendations
 												</div>
 												<ul className="space-y-1">
-													{summary.recommendations.map((rec, idx) => (
+													{summary.recommendations.map((rec: string, idx: number) => (
 														<li
 															key={idx}
 															className="text-xs text-muted-foreground flex items-start"

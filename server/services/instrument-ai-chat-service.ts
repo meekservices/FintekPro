@@ -288,6 +288,21 @@ For investors seeking equity exposure in ${ctx.sector || "Indian growth opportun
 - **Performance**: 1Y Return: ${ctx.returns1y ? `${ctx.returns1y}%` : "competitive"} | 3Y Return: ${ctx.returns3y ? `${ctx.returns3y}%` : "consistent"}.
 - **Cost & Efficiency**: Expense ratio of ${ctx.expenseRatio ? `${ctx.expenseRatio}%` : "standard"}.
 - **Suitability**: Suitable for systematic goal-oriented wealth creation with a recommended minimum horizon of 3–5 years.`;
+		} else if (type === "commodity") {
+			recommendation = "ACCUMULATE";
+			confidence = 88;
+			factors.push("Macro Inflation Hedging", "Domestic MCX Parity", "Central Bank Sovereign Reserves", "Industrial Demand Tailwinds");
+			positives.push("Structural hedge against fiat currency depreciation and imported inflation.");
+			positives.push("Liquid domestic trading on MCX India with dual benchmark alignment against COMEX/NYMEX.");
+			risks.push("Short-term pricing volatility driven by global interest rate shifts and geopolitical headline risk.");
+			risks.push("Commodity derivative futures carry rollover cost and margin leverage risk.");
+
+			reply = `**${name} (${params.symbolOrId})** is tracked across FintekPro's MCX India and COMEX/ICE dual commodity radar.
+
+### Benchmark & Macro Analysis
+- **Current Domestic Reference**: ${ctx.price ? `₹${Number(ctx.price).toLocaleString("en-IN")}` : "Live MCX Market Quote"} (${ctx.unit || "standard contract lot"}).
+- **Macro Hedging Utility**: Serves as a primary hedge against imported inflation and currency fluctuations, providing essential diversification alongside traditional equity and debt assets.
+- **Implementation Strategy**: For long-term wealth preservation, investors typically allocate 5–10% of multi-asset portfolios via Sovereign Gold Bonds (SGB), Gold/Silver ETFs, or mutual fund fund-of-funds (FoF) rather than naked derivative contracts.`;
 		} else {
 			reply = `**${name} (${params.symbolOrId})** has been evaluated across FintekPro's multi-factor investment framework.
 

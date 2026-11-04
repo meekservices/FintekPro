@@ -13,6 +13,7 @@ import {
 	Shield as LucideShield,
 	Store,
 	ShoppingCart,
+	Bot,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/use-cart";
@@ -129,6 +130,22 @@ export function Header() {
 								<span className="hidden sm:inline">Store</span>
 							</Button>
 						</Link>
+
+						{/* AI Copilot Chat Button */}
+						{isAuthenticated && (
+							<Link href="/chat">
+								<Button
+									variant="outline"
+									size="sm"
+									className="border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 whitespace-nowrap"
+									title="AI Decision Support Copilot"
+									data-testid="header-ai-chat-button"
+								>
+									<Bot className="h-4 w-4 sm:mr-1.5 text-indigo-600 dark:text-indigo-400" />
+									<span className="hidden sm:inline">AI Copilot</span>
+								</Button>
+							</Link>
+						)}
 
 						{/* Cart Button */}
 						{isAuthenticated && (

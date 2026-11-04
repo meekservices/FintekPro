@@ -411,11 +411,26 @@ export function registerMarketDataPart1Routes(app: Express): void {
 					: Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
 				const toTs = to ? queryInt(to, 0) : Math.floor(Date.now() / 1000);
 
+				const rawUpper = symbol.toUpperCase();
+				const isMcx =
+					rawUpper.startsWith("MCX_") ||
+					rawUpper.startsWith("MCX:") ||
+					["GOLD", "SILVER", "CRUDEOIL", "CRUDE_OIL", "BRENT", "BRENT_CRUDE", "NATURALGAS", "NATURAL_GAS", "COPPER", "ALUMINIUM", "ZINC"].includes(
+						rawUpper.replace(/^MCX[:_]/, ""),
+					);
+				const exchange: "NSE" | "BSE" | "MCX" = isMcx
+					? "MCX"
+					: rawUpper.endsWith(".BO")
+					? "BSE"
+					: "NSE";
+				const cleanSym = rawUpper
+					.replace(/\.NS$/, "")
+					.replace(/\.BO$/, "")
+					.replace(/^MCX[:_]/, "");
+
 				// Priority 1: Upstox Historical OHLCV Candles (SEBI licensed feed)
 				if (upstoxMarketDataService.isReady()) {
 					try {
-						const cleanSym = symbol.toUpperCase().replace(/\.NS$/, "").replace(/\.BO$/, "");
-						const exchange = symbol.toUpperCase().endsWith(".BO") ? "BSE" : "NSE";
 						const fromDateStr = new Date(fromTs * 1000).toISOString().split("T")[0];
 						const toDateStr = new Date(toTs * 1000).toISOString().split("T")[0];
 						const interval =
@@ -480,9 +495,23 @@ export function registerMarketDataPart1Routes(app: Express): void {
 
 				// Priority 3: Try Yahoo Finance Fallback (simulated candles from chart endpoint)
 				try {
+					const COMMODITY_YAHOO_MAP: Record<string, string> = {
+						GOLD: "GC=F",
+						SILVER: "SI=F",
+						CRUDEOIL: "CL=F",
+						CRUDE_OIL: "CL=F",
+						BRENT: "BZ=F",
+						BRENT_CRUDE: "BZ=F",
+						NATURALGAS: "NG=F",
+						NATURAL_GAS: "NG=F",
+						COPPER: "HG=F",
+					};
+					const targetSym = isMcx
+						? COMMODITY_YAHOO_MAP[cleanSym] || cleanSym
+						: symbol.toUpperCase();
 					const interval = resolution === "D" ? "1d" : "1h";
 					const yahooResponse = await fetch(
-						`https://query1.finance.yahoo.com/v8/finance/chart/${symbol.toUpperCase()}?period1=${fromTs}&period2=${toTs}&interval=${interval}`,
+						`https://query1.finance.yahoo.com/v8/finance/chart/${targetSym}?period1=${fromTs}&period2=${toTs}&interval=${interval}`,
 					);
 					const yahooData = (await yahooResponse.json()) as any;
 					const result = yahooData.chart?.result?.[0];

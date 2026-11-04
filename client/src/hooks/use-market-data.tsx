@@ -108,9 +108,9 @@ export function useMarketNews() {
 	});
 }
 
-export function useStockCandles(symbol: string, resolution: string = "D") {
+export function useStockCandles(symbol: string, resolution: string = "D", days: number = 365) {
 	const to = Math.floor(Date.now() / 1000);
-	const from = to - 30 * 24 * 60 * 60; // 30 days ago
+	const from = to - days * 24 * 60 * 60;
 
 	return useQuery<CandleData>({
 		queryKey: ["/api/market/candles", symbol, resolution, from, to],

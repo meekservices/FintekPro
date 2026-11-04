@@ -402,7 +402,7 @@ export const aiComplianceAlerts = pgTable("ai_compliance_alerts", {
 // ─────────────────────────────────────────────────────────────────────────────
 // UNIVERSAL — Immutable Audit Log (INSERT ONLY — NEVER UPDATE)
 // ─────────────────────────────────────────────────────────────────────────────
-export const aiAuditLogs = pgTable("ai_audit_logs", {
+export const adminAiAuditLogs = pgTable("admin_ai_audit_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
 
   // Who
@@ -448,6 +448,9 @@ export const aiAuditLogs = pgTable("ai_audit_logs", {
   timestamp: timestamp("timestamp").defaultNow(),
   // NOTE: This table is INSERT-ONLY — no updatedAt
 });
+
+// Alias for backward compatibility within Admin Copilot modules
+export const aiAuditLogs = adminAiAuditLogs;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODULE 8 — Zoho Books Finance Agent
@@ -743,9 +746,10 @@ export const insertAiProposalDraftSchema = createInsertSchema(aiProposalDrafts).
 export const insertAiAdminApprovalSchema = createInsertSchema(aiAdminApprovals).omit({
   id: true, createdAt: true,
 });
-export const insertAiAuditLogSchema = createInsertSchema(aiAuditLogs).omit({
+export const insertAdminAiAuditLogSchema = createInsertSchema(adminAiAuditLogs).omit({
   id: true, timestamp: true,
 });
+export const insertAiAuditLogSchema = insertAdminAiAuditLogSchema;
 export const insertAiInvoiceDraftSchema = createInsertSchema(aiInvoiceDrafts).omit({
   id: true, generatedAt: true, createdAt: true, updatedAt: true,
 });
@@ -768,7 +772,8 @@ export type AiProposalDraft         = typeof aiProposalDrafts.$inferSelect;
 export type AiBiReport              = typeof aiBiReports.$inferSelect;
 export type AiAdminApproval         = typeof aiAdminApprovals.$inferSelect;
 export type AiComplianceAlert       = typeof aiComplianceAlerts.$inferSelect;
-export type AiAuditLog              = typeof aiAuditLogs.$inferSelect;
+export type AdminAiAuditLog         = typeof adminAiAuditLogs.$inferSelect;
+export type AiAuditLog              = AdminAiAuditLog;
 export type AiBooksFinanceAction    = typeof aiBooksFinanceActions.$inferSelect;
 export type AiInvoiceDraft          = typeof aiInvoiceDrafts.$inferSelect;
 export type AiPayoutSuggestion      = typeof aiPayoutSuggestions.$inferSelect;

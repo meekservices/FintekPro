@@ -19,7 +19,7 @@
  */
 
 import { Router, type Request, type Response } from "express";
-import { db } from "../db";
+import { db, pool } from "../db";
 import { sql } from "drizzle-orm";
 import {
 	priceInstrument,
@@ -32,6 +32,7 @@ import {
 	type AssetClass,
 	type GoldenPriceRow,
 } from "../services/golden-pricing/GoldenPricingEngine";
+import { nseCorporateActionsIngestionService } from "../services/golden-pricing/nse-corporate-actions-ingestion-service";
 import { logger } from "../logger";
 
 export const goldenPricingRouter = Router();
@@ -789,6 +790,140 @@ goldenPricingRouter.get("/snapshot", async (req: Request, res: Response): Promis
 				retryable: true,
 			},
 			meta: { timestamp: new Date().toISOString(), version: GOLDEN_PRICING_ENGINE_VERSION },
+		});
+	}
+});
+
+// ── POST /api/pricing/corporate-actions/sync — Trigger Automated NSE Ingestion ──
+goldenPricingRouter.post("/corporate-actions/sync", async (req: Request, res: Response): Promise<void> => {
+	const t0 = Date.now();
+	try {
+		logger.info("[GoldenPricingRoutes] Triggering automated NSE corporate actions ingestion", {
+			event: "MANUAL_CORP_ACTIONS_SYNC_TRIGGERED",
+		});
+
+		const result = await nseCorporateActionsIngestionService.ingestAndTriggerAdjustments();
+		res.json({
+			success: result.success,
+			data: result,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: GOLDEN_PRICING_ENGINE_VERSION,
+				latency_ms: Date.now() - t0,
+			},
+		});
+	} catch (err: any) {
+		logger.error("[GoldenPricingRoutes] Corporate actions sync failed", {
+			event: "CORP_ACTIONS_SYNC_ERROR",
+			error: err?.message,
+			latency_ms: Date.now() - t0,
+		});
+
+		res.status(500).json({
+			success: false,
+			error: {
+				error_code: "CORP_ACTIONS_SYNC_FAILED",
+				message: err?.message || "Failed to sync corporate actions",
+				retryable: true,
+			},
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: GOLDEN_PRICING_ENGINE_VERSION,
+			},
+		});
+	}
+});
+
+// ── GET /api/pricing/corporate-actions — List Corporate Actions ─────────────
+goldenPricingRouter.get("/corporate-actions", async (req: Request, res: Response): Promise<void> => {
+	const t0 = Date.now();
+	const page = Math.max(1, parseInt((req.query.page as string) || "1", 10));
+	const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || "50", 10)));
+	const offset = (page - 1) * limit;
+
+	try {
+		const countRes = await pool.query("SELECT COUNT(*)::int as total FROM corporate_actions");
+		const total = countRes.rows[0]?.total ?? 0;
+
+		const listRes = await pool.query(
+			`SELECT id, isin, symbol, action_type, ex_date, record_date, ratio, adjustment_factor,
+			        dividend_amount, purpose, source, is_applied_to_golden_prices, applied_at, created_at
+			 FROM corporate_actions
+			 ORDER BY ex_date DESC, id DESC
+			 LIMIT $1 OFFSET $2`,
+			[limit, offset],
+		);
+
+		res.json({
+			success: true,
+			data: listRes.rows,
+			pagination: {
+				page,
+				limit,
+				total,
+				totalPages: Math.ceil(total / limit),
+			},
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: GOLDEN_PRICING_ENGINE_VERSION,
+				latency_ms: Date.now() - t0,
+			},
+		});
+	} catch (err: any) {
+		res.status(500).json({
+			success: false,
+			error: {
+				error_code: "CORP_ACTIONS_FETCH_ERROR",
+				message: err?.message || "Failed to fetch corporate actions",
+				retryable: true,
+			},
+		});
+	}
+});
+
+// ── GET /api/pricing/corporate-actions/adjustments — List Price Adjustments ─
+goldenPricingRouter.get("/corporate-actions/adjustments", async (req: Request, res: Response): Promise<void> => {
+	const t0 = Date.now();
+	const page = Math.max(1, parseInt((req.query.page as string) || "1", 10));
+	const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || "50", 10)));
+	const offset = (page - 1) * limit;
+
+	try {
+		const countRes = await pool.query("SELECT COUNT(*)::int as total FROM price_adjustments");
+		const total = countRes.rows[0]?.total ?? 0;
+
+		const listRes = await pool.query(
+			`SELECT id, corporate_action_id, isin, price_date, original_price, adjusted_price,
+			        adjustment_factor, applied_at
+			 FROM price_adjustments
+			 ORDER BY applied_at DESC, id DESC
+			 LIMIT $1 OFFSET $2`,
+			[limit, offset],
+		);
+
+		res.json({
+			success: true,
+			data: listRes.rows,
+			pagination: {
+				page,
+				limit,
+				total,
+				totalPages: Math.ceil(total / limit),
+			},
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: GOLDEN_PRICING_ENGINE_VERSION,
+				latency_ms: Date.now() - t0,
+			},
+		});
+	} catch (err: any) {
+		res.status(500).json({
+			success: false,
+			error: {
+				error_code: "PRICE_ADJUSTMENTS_FETCH_ERROR",
+				message: err?.message || "Failed to fetch price adjustments",
+				retryable: true,
+			},
 		});
 	}
 });

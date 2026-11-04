@@ -118,7 +118,8 @@ export function InstrumentChatDialog({
 	// Generate initial suggestions based on asset type
 	const getInitialSuggestions = (inst: ChatInstrumentTarget | null) => {
 		if (!inst) return [];
-		switch (inst.type) {
+		const rawType = (inst.type || inst.assetType || "").toLowerCase();
+		switch (rawType) {
 			case "smallcase":
 				return [
 					"Analyze this thematic basket and its rationale",

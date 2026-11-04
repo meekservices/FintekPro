@@ -605,6 +605,7 @@ export const insertGoalBenchmarkMappingSchema = createInsertSchema(goalBenchmark
   updatedAt: true,
 });
 export type GoalBenchmarkMapping = typeof goalBenchmarkMapping.$inferSelect;
+export type GoalBenchmarkMappingRow = GoalBenchmarkMapping;
 export type InsertGoalBenchmarkMapping = typeof goalBenchmarkMapping.$inferInsert;
 
 export const insertGoalProgressSnapshotSchema = createInsertSchema(goalProgressSnapshots).extend({

@@ -4,6 +4,7 @@ export * from "./schema/commissions.ts";
 export * from "./schema/banking.ts";
 export * from "./schema/crm.ts";
 export * from "./schema/telephony.ts";
+export * from "./schema/pricing.ts";
 import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, uniqueIndex, integer, date, bigint, numeric, serial, uuid, real, bigserial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -194,6 +195,9 @@ import {
   externalHoldings, 
   watchlists, 
   comprehensiveHoldings,
+  piChatSummaries,
+  commodityPrices,
+  rebalancingSuggestions,
   PortfolioComparison,
   InsertPortfolioComparison
 } from './schema/portfolio.ts';
@@ -551,45 +555,7 @@ export const auditTrail = pgTable("audit_trail", {
 // EPF Holdings table for tracking Employee Provident Fund data
 
 
-// Pi Chat Asset Summaries
-export const piChatSummaries = pgTable("pi_chat_summaries", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
-  assetClass: text("asset_class").notNull(),
-  summary: text("summary").notNull(),
-  insights: jsonb("insights"), // key metrics, risks, opportunities
-  recommendations: text("recommendations").array(),
-  lastAnalyzed: timestamp("last_analyzed").defaultNow(),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Commodity Tracking
-export const commodityPrices = pgTable("commodity_prices", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  symbol: text("symbol").notNull().unique(),
-  name: text("name").notNull(),
-  category: text("category").notNull(), // precious_metals, energy, agricultural, industrial
-  price: decimal("price", { precision: 15, scale: 4 }).notNull(),
-  priceUnit: text("price_unit").notNull(), // per_ounce, per_barrel, per_ton
-  change: decimal("change", { precision: 15, scale: 4 }),
-  changePercent: decimal("change_percent", { precision: 8, scale: 4 }),
-  lastUpdated: timestamp("last_updated").defaultNow(),
-});
-
-// Enhanced Rebalancing Suggestions
-export const rebalancingSuggestions = pgTable("rebalancing_suggestions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
-  suggestionType: text("suggestion_type").notNull(), // yield_optimization, risk_reduction, diversification
-  priority: text("priority").notNull(), // high, medium, low
-  title: text("title").notNull(),
-  description: text("description").notNull(),
-  actions: jsonb("actions"), // array of specific actions to take
-  expectedImpact: jsonb("expected_impact"), // yield, risk, diversification improvements
-  confidenceScore: decimal("confidence_score", { precision: 3, scale: 1 }),
-  implementationSteps: text("implementation_steps").array(),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+// Note: piChatSummaries, commodityPrices, rebalancingSuggestions re-exported from ./schema/portfolio.ts
 
 // User Activity Tracking
 export const userActivities = pgTable("user_activities", {
@@ -3678,42 +3644,7 @@ export type InsertCommodity = typeof commodities.$inferInsert;
 
 export const insertCommoditySchema = createInsertSchema(commodities).omit({ id: true, createdAt: true, lastUpdated: true });
 
-// ── MCX Commodity Quotes — Real-time & Historical MCX (Multi Commodity Exchange of India) ──
-export const mcxCommodityQuotes = pgTable("mcx_commodity_quotes", {
-  id: serial("id").primaryKey(),
-  commoditySymbol: varchar("commodity_symbol", { length: 50 }).notNull(), // 'GOLD', 'SILVER', 'CRUDE_OIL', 'NATURAL_GAS', 'COPPER'
-  instrumentKey: varchar("instrument_key", { length: 50 }).notNull(), // e.g. 'MCX_FO|573422'
-  tradingSymbol: varchar("trading_symbol", { length: 100 }).notNull(), // e.g. 'CRUDEOIL FUT 19 NOV 26'
-  exchange: varchar("exchange", { length: 20 }).default("MCX").notNull(),
-  expiryDate: varchar("expiry_date", { length: 30 }),
-  price: decimal("price", { precision: 20, scale: 4 }).notNull(),
-  openPrice: decimal("open_price", { precision: 20, scale: 4 }),
-  highPrice: decimal("high_price", { precision: 20, scale: 4 }),
-  lowPrice: decimal("low_price", { precision: 20, scale: 4 }),
-  previousClose: decimal("previous_close", { precision: 20, scale: 4 }),
-  change: decimal("change", { precision: 20, scale: 4 }),
-  changePercent: decimal("change_percent", { precision: 10, scale: 4 }),
-  volume: decimal("volume", { precision: 20, scale: 0 }),
-  openInterest: decimal("open_interest", { precision: 20, scale: 0 }),
-  unit: varchar("unit", { length: 30 }).default("INR"),
-  lotSize: integer("lot_size"),
-  source: varchar("source", { length: 50 }).default("UPSTOX").notNull(),
-  cfdPriceUsd: decimal("cfd_price_usd", { precision: 15, scale: 4 }),
-  cfdSource: varchar("cfd_source", { length: 50 }),
-  isActive: boolean("is_active").default(true).notNull(),
-  metadata: jsonb("metadata"),
-  syncedAt: timestamp("synced_at").defaultNow().notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => [
-  uniqueIndex("uq_mcx_commodity_symbol_instrument").on(table.commoditySymbol, table.instrumentKey),
-  index("idx_mcx_quotes_symbol").on(table.commoditySymbol),
-  index("idx_mcx_quotes_instrument_key").on(table.instrumentKey),
-  index("idx_mcx_quotes_synced_at").on(table.syncedAt),
-]);
-
-export type McxCommodityQuote = typeof mcxCommodityQuotes.$inferSelect;
-export type InsertMcxCommodityQuote = typeof mcxCommodityQuotes.$inferInsert;
+// Note: mcxCommodityQuotes, McxCommodityQuote, InsertMcxCommodityQuote re-exported from ./schema/pricing.ts
 
 
 
@@ -7090,46 +7021,7 @@ export type InsertDocumentTrackedChange = z.infer<typeof insertDocumentTrackedCh
 export type DocumentComment = typeof documentComments.$inferSelect;
 export type InsertDocumentComment = z.infer<typeof insertDocumentCommentSchema>;
 
-// SEBI Clause Checklist Master
-export const sebiClauseChecklist = pgTable("sebi_clause_checklist", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  // Clause Identity
-  clauseCode: varchar("clause_code", { length: 50 }).unique().notNull(),
-  clauseCategory: varchar("clause_category", { length: 100 }).notNull(),
-  clauseTitle: varchar("clause_title", { length: 500 }).notNull(),
-  clauseDescription: text("clause_description"),
-  
-  // Applicability
-  isMandatory: boolean("is_mandatory").default(true),
-  isConditional: boolean("is_conditional").default(false),
-  conditionDescription: text("condition_description"),
-  applicableEntityTypes: text("applicable_entity_types").array(), // vendor, partner, agent, etc.
-  applicableAgreementTypes: text("applicable_agreement_types").array(),
-  
-  // Risk & Compliance
-  riskWeight: integer("risk_weight").default(1), // 1-10 importance
-  regulatoryReference: varchar("regulatory_reference", { length: 255 }), // SEBI circular/guideline reference
-  
-  // Template
-  suggestedClauseText: text("suggested_clause_text"),
-  
-  // Status
-  isActive: boolean("is_active").default(true),
-  effectiveFrom: date("effective_from"),
-  effectiveTo: date("effective_to"),
-  
-  // Timestamps
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_sebi_checklist_category").on(table.clauseCategory),
-  index("idx_sebi_checklist_mandatory").on(table.isMandatory),
-]);
-
-export const insertSebiClauseChecklistSchema = createInsertSchema(sebiClauseChecklist).omit({ id: true, createdAt: true, updatedAt: true });
-export type SebiClauseChecklist = typeof sebiClauseChecklist.$inferSelect;
-export type InsertSebiClauseChecklist = z.infer<typeof insertSebiClauseChecklistSchema>;
+// Note: sebiClauseChecklist, insertSebiClauseChecklistSchema, SebiClauseChecklist, InsertSebiClauseChecklist re-exported from ./schema/documents.ts
 
 // Document Checklist Runs (Per Document Compliance Check)
 export type DocumentChecklistRun = typeof documentChecklistRuns.$inferSelect;
@@ -11109,139 +11001,8 @@ export type EnrichmentRetryQueueEntry = typeof enrichmentRetryQueue.$inferSelect
 
 // ── SEBI Taxonomy Versions — version-controlled circular references ──
 
-// ── Golden Source Pricing Engine — Single Source of Truth for all instruments & benchmarks ──
-export const goldenPrices = pgTable("golden_prices", {
-  id: serial("id").primaryKey(),
-  isin: varchar("isin", { length: 20 }).notNull(),
-  symbol: varchar("symbol", { length: 50 }),
-  priceDate: date("price_date").notNull(),
-  assetClass: varchar("asset_class", { length: 30 }).default("equity").notNull(),
-  price: decimal("price", { precision: 20, scale: 6 }).notNull(),
-  openPrice: decimal("open_price", { precision: 20, scale: 6 }),
-  highPrice: decimal("high_price", { precision: 20, scale: 6 }),
-  lowPrice: decimal("low_price", { precision: 20, scale: 6 }),
-  volume: decimal("volume", { precision: 20, scale: 0 }),
-  changePercent: decimal("change_percent", { precision: 10, scale: 4 }),
-  source: varchar("source", { length: 50 }).notNull(),
-  confidenceScore: integer("confidence_score").default(50).notNull(),
-  isValidated: boolean("is_validated").default(false).notNull(),
-  isStale: boolean("is_stale").default(false).notNull(),
-  isFlagged: boolean("is_flagged").default(false).notNull(),
-  flagReason: text("flag_reason"),
-  previousPrice: decimal("previous_price", { precision: 20, scale: 6 }),
-  deviationPct: decimal("deviation_pct", { precision: 10, scale: 4 }),
-  currency: varchar("currency", { length: 10 }).default("INR"),
-  metadata: jsonb("metadata"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => [
-  uniqueIndex("idx_golden_prices_isin_date").on(table.isin, table.priceDate),
-  index("idx_golden_prices_date").on(table.priceDate),
-  index("idx_golden_prices_symbol").on(table.symbol),
-  index("idx_golden_prices_asset_class").on(table.assetClass),
-  index("idx_golden_prices_flagged").on(table.isFlagged),
-]);
-
-export type GoldenPrice = typeof goldenPrices.$inferSelect;
-export type InsertGoldenPrice = typeof goldenPrices.$inferInsert;
-
-// ── Price Audit Log — immutable record of every change / override ──
-export const priceAuditLog = pgTable("price_audit_log", {
-  id: serial("id").primaryKey(),
-  isin: varchar("isin", { length: 20 }).notNull(),
-  priceDate: date("price_date").notNull(),
-  oldPrice: decimal("old_price", { precision: 20, scale: 6 }),
-  newPrice: decimal("new_price", { precision: 20, scale: 6 }).notNull(),
-  oldSource: varchar("old_source", { length: 50 }),
-  newSource: varchar("new_source", { length: 50 }).notNull(),
-  changeReason: text("change_reason").notNull(),
-  changedBy: varchar("changed_by", { length: 100 }).notNull().default("system"),
-  confidenceScore: integer("confidence_score"),
-  metadata: jsonb("metadata"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => [
-  index("idx_price_audit_isin").on(table.isin),
-  index("idx_price_audit_date").on(table.priceDate),
-  index("idx_price_audit_created").on(table.createdAt),
-]);
-
-export type PriceAuditEntry = typeof priceAuditLog.$inferSelect;
-export type InsertPriceAuditEntry = typeof priceAuditLog.$inferInsert;
-
-// ── Corporate Actions Engine ──────────────────────────────────────────────────
-// Tracks splits, bonus issues, dividends, rights, mergers.
-// Drives split-adjusted price corrections in golden_prices time-series.
-export const corporateActions = pgTable("corporate_actions", {
-  id: serial("id").primaryKey(),
-  isin: varchar("isin", { length: 20 }).notNull(),
-  symbol: varchar("symbol", { length: 50 }),
-  actionType: varchar("action_type", { length: 50 }).notNull(), // SPLIT, BONUS, DIVIDEND, RIGHTS, MERGER, DEMERGER, BUYBACK
-  exDate: date("ex_date").notNull(),
-  recordDate: date("record_date"),
-  payDate: date("pay_date"),
-  ratio: varchar("ratio", { length: 30 }), // e.g. "2:1" for 2-for-1 split
-  adjustmentFactor: decimal("adjustment_factor", { precision: 15, scale: 8 }), // e.g. 0.5 for 2:1 split; multiply historical prices by this
-  dividendAmount: decimal("dividend_amount", { precision: 15, scale: 4 }), // per share amount for cash dividends
-  purpose: text("purpose"), // raw text from NSE (e.g. "SPLIT RS 10/- TO RS 5/-")
-  isAppliedToGoldenPrices: boolean("is_applied_to_golden_prices").default(false),
-  appliedAt: timestamp("applied_at"),
-  source: varchar("source", { length: 50 }).default("NSE"),
-  rawData: jsonb("raw_data"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => [
-  index("idx_corp_actions_isin").on(table.isin),
-  index("idx_corp_actions_ex_date").on(table.exDate),
-  index("idx_corp_actions_type").on(table.actionType),
-  index("idx_corp_actions_applied").on(table.isAppliedToGoldenPrices),
-  uniqueIndex("idx_corp_actions_isin_ex_type").on(table.isin, table.exDate, table.actionType),
-]);
-
-export type CorporateAction = typeof corporateActions.$inferSelect;
-export type InsertCorporateAction = typeof corporateActions.$inferInsert;
-export const insertCorporateActionSchema = createInsertSchema(corporateActions).omit({ id: true, createdAt: true, updatedAt: true });
-
-// ── Price Adjustments Log — immutable audit of every split/bonus adjustment ──
-// Records the original vs adjusted price for each golden_prices row touched.
-export const priceAdjustments = pgTable("price_adjustments", {
-  id: serial("id").primaryKey(),
-  corporateActionId: integer("corporate_action_id").notNull(),
-  isin: varchar("isin", { length: 20 }).notNull(),
-  priceDate: date("price_date").notNull(),
-  originalPrice: decimal("original_price", { precision: 20, scale: 6 }).notNull(),
-  adjustedPrice: decimal("adjusted_price", { precision: 20, scale: 6 }).notNull(),
-  adjustmentFactor: decimal("adjustment_factor", { precision: 15, scale: 8 }).notNull(),
-  appliedAt: timestamp("applied_at").defaultNow().notNull(),
-}, (table) => [
-  index("idx_price_adj_isin").on(table.isin),
-  index("idx_price_adj_corp_action").on(table.corporateActionId),
-  index("idx_price_adj_date").on(table.priceDate),
-]);
-
-export type PriceAdjustment = typeof priceAdjustments.$inferSelect;
-export type InsertPriceAdjustment = typeof priceAdjustments.$inferInsert;
-export const insertPriceAdjustmentSchema = createInsertSchema(priceAdjustments).omit({ id: true, appliedAt: true });
-
-// ── Symbol Mapping Engine — multi-provider identifier translation ─────────────
-// Maps ISIN to provider-specific symbols: NSE symbol, BSE scrip code,
-// Bloomberg ticker, Probe42 ID, Reuters RIC, AMFI scheme code, etc.
-// Single source of truth for cross-provider symbol resolution.
-export const symbolMapping = pgTable("symbol_mapping", {
-  id: serial("id").primaryKey(),
-  isin: varchar("isin", { length: 20 }).notNull(),
-  provider: varchar("provider", { length: 50 }).notNull(), // NSE, BSE, BLOOMBERG, PROBE42, REUTERS, SCREENER, AMFI, FMP
-  providerSymbol: varchar("provider_symbol", { length: 100 }).notNull(),
-  providerName: text("provider_name"), // human-readable company/fund name from that provider
-  isPrimary: boolean("is_primary").default(false), // true = preferred identifier for this provider
-  isActive: boolean("is_active").default(true),
-  lastVerifiedAt: timestamp("last_verified_at").defaultNow(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => [
-  index("idx_symbol_mapping_isin").on(table.isin),
-  index("idx_symbol_mapping_provider").on(table.provider),
-  index("idx_symbol_mapping_symbol").on(table.providerSymbol),
-  uniqueIndex("idx_symbol_mapping_isin_provider").on(table.isin, table.provider),
-]);
+// Note: goldenPrices, priceAuditLog, corporateActions, priceAdjustments re-exported from ./schema/pricing.ts
+// Note: symbolMapping re-exported from ./schema/portfolio.ts
 
 
 // ── Credit Ratings Layer — full history of rating changes per ISIN ───────────
@@ -11520,118 +11281,7 @@ export type InsertAlgoSignal = typeof algoSignals.$inferInsert;
 //        golden_prices_intraday, benchmark_correlation_matrix
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── asset_returns_history ─────────────────────────────────────────────────────
-// CRITICAL for MVO engine: stores pre-computed daily log-returns per ISIN.
-// Populated nightly by asset-returns-backfill-service.ts (22:30 IST).
-// Replaces the 14-day golden_prices scan in mvo-engine.enrichEmpiricalReturns()
-// with a proper 3-year time series (252+ trading days) for covariance estimation.
-// Includes MF NAVs mapped from mf_nav_history / historical_nav_data.
-export const assetReturnsHistory = pgTable("asset_returns_history", {
-  id: bigserial("id", { mode: "number" }).primaryKey(),
-  isin: varchar("isin", { length: 20 }).notNull(),
-  symbol: varchar("symbol", { length: 50 }),
-  assetClass: varchar("asset_class", { length: 30 }).notNull(), // equity|debt|gold|commodity|reit|international
-  returnDate: date("return_date").notNull(),
-  dailyReturn: decimal("daily_return", { precision: 12, scale: 8 }).notNull(), // ln(P_t/P_{t-1}) for log-return
-  price: decimal("price", { precision: 20, scale: 6 }),
-  previousPrice: decimal("previous_price", { precision: 20, scale: 6 }),
-  source: varchar("source", { length: 50 }), // golden_prices|mf_nav_history|historical_nav_data
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => [
-  uniqueIndex("idx_asset_returns_isin_date").on(table.isin, table.returnDate),
-  index("idx_asset_returns_date_desc").on(table.isin, table.returnDate),
-  index("idx_asset_returns_asset_class").on(table.assetClass, table.returnDate),
-]);
-export type AssetReturnsHistory = typeof assetReturnsHistory.$inferSelect;
-export type InsertAssetReturnsHistory = typeof assetReturnsHistory.$inferInsert;
-export const insertAssetReturnsHistorySchema = createInsertSchema(assetReturnsHistory).omit({ id: true, createdAt: true });
-
-// ── macro_regime_snapshots ────────────────────────────────────────────────────
-// Nightly macro regime classification derived from GPE live data.
-// Consumed by: POTD (daily_picks.macro_regime_id FK), AI Recommendation Engine,
-// and eventually risk engine for regime-aware asset allocation.
-// Populated by GoldenPricingEngine.syncMacroAndMarketBriefPrices() after each sync.
-export const macroRegimeSnapshots = pgTable("macro_regime_snapshots", {
-  id: serial("id").primaryKey(),
-  snapshotDate: date("snapshot_date").notNull(),
-
-  // US macro indicators
-  dxyIndex: decimal("dxy_index", { precision: 10, scale: 4 }),
-  dxyBand: varchar("dxy_band", { length: 20 }), // 'weak'|'neutral'|'strong'
-  us10YTreasury: decimal("us_10y_treasury", { precision: 8, scale: 4 }),
-  yieldCurveSlope: varchar("yield_curve_slope", { length: 20 }), // 'normal'|'inverted'|'flat'
-  tenMinusTwoBps: integer("ten_minus_two_bps"),
-
-  // India macro indicators
-  gsec10YYield: decimal("gsec_10y_yield", { precision: 8, scale: 4 }),
-  indiaCpiInflation: decimal("india_cpi_inflation", { precision: 6, scale: 2 }),
-  usdInr: decimal("usd_inr", { precision: 10, scale: 4 }),
-
-  // Commodity
-  brentCrudeUsd: decimal("brent_crude_usd", { precision: 10, scale: 4 }),
-  crudeRegime: varchar("crude_regime", { length: 20 }), // 'comfort'|'elevated'|'crisis'
-
-  // Composite regime label
-  regimeLabel: varchar("regime_label", { length: 50 }), // 'risk_on'|'risk_off'|'stagflation'|'goldilocks'
-
-  // GCR compliance
-  source: varchar("source", { length: 20 }).default("gpe"), // gpe|manual|cron
-  engineVersion: varchar("engine_version", { length: 20 }).default("GPE-v1.0"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => [
-  uniqueIndex("idx_macro_regime_date").on(table.snapshotDate),
-  index("idx_macro_regime_label").on(table.regimeLabel),
-  index("idx_macro_regime_created").on(table.createdAt),
-]);
-export type MacroRegimeSnapshot = typeof macroRegimeSnapshots.$inferSelect;
-export type InsertMacroRegimeSnapshot = typeof macroRegimeSnapshots.$inferInsert;
-export const insertMacroRegimeSnapshotSchema = createInsertSchema(macroRegimeSnapshots).omit({ id: true, createdAt: true });
-
-// ── golden_prices_intraday ────────────────────────────────────────────────────
-// Tick-level intraday price cache written by GPE during NSE market hours (09:15–15:30 IST).
-// Used by Daily Brief formatBriefForClient() to serve live India marketSnapshot prices
-// during market hours, falling back to golden_prices EOD after hours.
-// Rows older than 5 days are purged nightly to keep the table lean.
-export const goldenPricesIntraday = pgTable("golden_prices_intraday", {
-  id: bigserial("id", { mode: "number" }).primaryKey(),
-  isin: varchar("isin", { length: 20 }).notNull(),
-  symbol: varchar("symbol", { length: 50 }),
-  tickTs: timestamp("tick_ts", { withTimezone: true }).notNull(),
-  price: decimal("price", { precision: 20, scale: 6 }).notNull(),
-  changePercent: decimal("change_percent", { precision: 10, scale: 4 }),
-  volume: bigint("volume", { mode: "number" }),
-  source: varchar("source", { length: 50 }).notNull(), // upstox|indianapi|yahoo|fmp
-  assetClass: varchar("asset_class", { length: 30 }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => [
-  index("idx_golden_intraday_isin_ts").on(table.isin, table.tickTs),
-  index("idx_golden_intraday_symbol_ts").on(table.symbol, table.tickTs),
-]);
-export type GoldenPriceIntraday = typeof goldenPricesIntraday.$inferSelect;
-export type InsertGoldenPriceIntraday = typeof goldenPricesIntraday.$inferInsert;
-export const insertGoldenPriceIntradaySchema = createInsertSchema(goldenPricesIntraday).omit({ id: true, createdAt: true });
-
-// ── benchmark_correlation_matrix ──────────────────────────────────────────────
-// Cached covariance/correlation matrix for MVO engine — recomputed weekly from
-// asset_returns_history (252-day lookback). Prevents O(n²) recomputation on
-// every MVO run; instead mvo-engine reads the latest valid row if < 7 days old.
-export const benchmarkCorrelationMatrix = pgTable("benchmark_correlation_matrix", {
-  id: serial("id").primaryKey(),
-  computedAt: timestamp("computed_at").defaultNow().notNull(),
-  lookbackDays: integer("lookback_days").notNull().default(252),
-  matrixJson: jsonb("matrix_json").notNull(), // { "ISIN_A": { "ISIN_B": 0.72, ... }, ... }
-  assetIsins: text("asset_isins").array(),    // ordered list of ISINs in the matrix
-  validUntil: timestamp("valid_until"),       // computedAt + 7 days; mvo-engine checks this
-  engineVersion: varchar("engine_version", { length: 30 }).default("MVO-v1.0"),
-  source: varchar("source", { length: 20 }).default("cron"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => [
-  index("idx_corr_matrix_computed").on(table.computedAt),
-  index("idx_corr_matrix_valid_until").on(table.validUntil),
-]);
-export type BenchmarkCorrelationMatrix = typeof benchmarkCorrelationMatrix.$inferSelect;
-export type InsertBenchmarkCorrelationMatrix = typeof benchmarkCorrelationMatrix.$inferInsert;
-export const insertBenchmarkCorrelationMatrixSchema = createInsertSchema(benchmarkCorrelationMatrix).omit({ id: true, createdAt: true });
+// Note: assetReturnsHistory, macroRegimeSnapshots, goldenPricesIntraday, benchmarkCorrelationMatrix re-exported from ./schema/pricing.ts
 
 // Auto-added domain exports
 export * from "./schema/agents.ts";
@@ -11746,34 +11396,7 @@ export const insertIrisLasLoanSchema = createInsertSchema(irisLasLoans).omit({
 export type IrisLasLoan = typeof irisLasLoans.$inferSelect;
 export type InsertIrisLasLoan = typeof irisLasLoans.$inferInsert;
 
-// ── Goal Benchmark Mapping ─────────────────────────────────────────────────
-// Used by GoalBenchmarkMapper service (proposal-builder) to select the right
-// benchmark index for each goal type + risk profile + investment horizon combo.
-// Table is also seeded via schema-repairs.ts ON CONFLICT DO NOTHING.
-export const goalBenchmarkMapping = pgTable('goal_benchmark_mapping', {
-  id:                 uuid('id').primaryKey().defaultRandom(),
-  goalType:           varchar('goal_type',           { length: 50 }).notNull(),
-  riskProfile:        varchar('risk_profile',         { length: 30 }).notNull(),
-  benchmarkIndex:     varchar('benchmark_index',      { length: 100 }),
-  benchmarkCode:      varchar('benchmark_code',       { length: 50 }).notNull(),
-  benchmarkName:      varchar('benchmark_name',       { length: 200 }).notNull(),
-  benchmarkRationale: text('benchmark_rationale'),
-  horizonYearsMin:    integer('horizon_years_min'),
-  horizonYearsMax:    integer('horizon_years_max'),
-  isDefault:          boolean('is_default').default(true),
-  isActive:           boolean('is_active').default(true),
-  overriddenBy:       varchar('overridden_by'),
-  overriddenAt:       timestamp('overridden_at'),
-  description:        text('description'),
-  createdAt:          timestamp('created_at').defaultNow(),
-  updatedAt:          timestamp('updated_at').defaultNow(),
-});
-
-export const insertGoalBenchmarkMappingSchema = createInsertSchema(goalBenchmarkMapping).omit({
-  id: true, createdAt: true, updatedAt: true,
-});
-export type GoalBenchmarkMappingRow = typeof goalBenchmarkMapping.$inferSelect;
-export type InsertGoalBenchmarkMapping = typeof goalBenchmarkMapping.$inferInsert;
+// Note: goalBenchmarkMapping, insertGoalBenchmarkMappingSchema, GoalBenchmarkMappingRow, InsertGoalBenchmarkMapping re-exported from ./schema/advisory.ts
 
 // ─── FASP-AI v2.0 — Advisory Outputs & Audit Trail ───────────────────────────
 // Immutable record of every AI advisory output. Replaces scattered FASP-AI-v1.0

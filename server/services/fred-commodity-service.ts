@@ -76,6 +76,13 @@ export interface FredCommoditySnapshot {
 		seriesId: string;
 		source: string;
 	};
+	dollarIndex?: {
+		price: number;
+		unit: string;
+		date: string;
+		seriesId: string;
+		source: string;
+	};
 	meta: {
 		engine_version: string;
 		calculation_timestamp: string;
@@ -94,6 +101,7 @@ export const FRED_SERIES = {
 	US_10Y: { id: "DGS10", name: "10-Year Treasury Constant Maturity Rate", unit: "%", category: "treasury" as const, fallback: 4.58 },
 	US_2Y: { id: "DGS2", name: "2-Year Treasury Constant Maturity Rate", unit: "%", category: "treasury" as const, fallback: 4.35 },
 	FED_FUNDS: { id: "DFF", name: "Federal Funds Effective Rate", unit: "%", category: "rate" as const, fallback: 4.38 },
+	DOLLAR_INDEX: { id: "DTWEXBGS", name: "Trade Weighted U.S. Dollar Index: Broad, Goods and Services", unit: "Index", category: "rate" as const, fallback: 104.25 },
 };
 
 class FredCommodityService {
@@ -265,13 +273,14 @@ class FredCommodityService {
 			};
 		}
 
-		const [brent, wti, natgas, us10Y, us2Y, fedFunds] = await Promise.all([
+		const [brent, wti, natgas, us10Y, us2Y, fedFunds, dollarIndex] = await Promise.all([
 			this.getSeriesObservation("BRENT_CRUDE", forceRefresh),
 			this.getSeriesObservation("WTI_CRUDE", forceRefresh),
 			this.getSeriesObservation("NATURAL_GAS", forceRefresh),
 			this.getSeriesObservation("US_10Y", forceRefresh),
 			this.getSeriesObservation("US_2Y", forceRefresh),
 			this.getSeriesObservation("FED_FUNDS", forceRefresh),
+			this.getSeriesObservation("DOLLAR_INDEX", forceRefresh),
 		]);
 
 		const asOfDate = brent.date || new Date().toISOString().split("T")[0];
@@ -321,6 +330,13 @@ class FredCommodityService {
 				date: fedFunds.date,
 				seriesId: fedFunds.seriesId,
 				source: fedFunds.source,
+			},
+			dollarIndex: {
+				price: dollarIndex.value,
+				unit: dollarIndex.unit,
+				date: dollarIndex.date,
+				seriesId: dollarIndex.seriesId,
+				source: dollarIndex.source,
 			},
 			meta: {
 				engine_version: ENGINE_VERSION,

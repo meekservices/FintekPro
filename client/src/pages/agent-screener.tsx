@@ -90,6 +90,7 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { MarketChart } from "@/components/dashboard/market-chart";
 
 type ScreenerType =
 	| "mutual_fund"
@@ -638,6 +639,7 @@ export default function AgentScreener() {
 	const [dbSubSector, setDbSubSector] = useState("");
 	const [dbMarketCap, setDbMarketCap] = useState("");
 	const [dbStockRegime, setDbStockRegime] = useState("");
+	const [dbPvaClassification, setDbPvaClassification] = useState("");
 	const [dbMinPE, setDbMinPE] = useState("");
 	const [dbMaxPE, setDbMaxPE] = useState("");
 	const [dbMinROE, setDbMinROE] = useState("");
@@ -796,6 +798,7 @@ export default function AgentScreener() {
 		else if (dbSector) params.set("sector", dbSector);
 		if (dbMarketCap) params.set("marketCapCategory", dbMarketCap);
 		if (dbStockRegime) params.set("stockRegime", dbStockRegime);
+		if (dbPvaClassification) params.set("pvaClassification", dbPvaClassification);
 		if (dbMinPE) params.set("minPE", dbMinPE);
 		if (dbMaxPE) params.set("maxPE", dbMaxPE);
 		if (dbMinROE) params.set("minROE", dbMinROE);
@@ -887,6 +890,7 @@ export default function AgentScreener() {
 			dbSector,
 			dbMarketCap,
 			dbStockRegime,
+			dbPvaClassification,
 			dbMinPE,
 			dbMaxPE,
 			dbMinROE,
@@ -1558,6 +1562,7 @@ export default function AgentScreener() {
 		setDbSector("");
 		setDbMarketCap("");
 		setDbStockRegime("");
+		setDbPvaClassification("");
 		setDbMinPE("");
 		setDbMaxPE("");
 		setDbMinROE("");
@@ -1581,6 +1586,7 @@ export default function AgentScreener() {
 		dbSector,
 		dbMarketCap,
 		dbStockRegime,
+		dbPvaClassification,
 		dbMinPE,
 		dbMaxPE,
 		dbMinROE,
@@ -2204,7 +2210,7 @@ export default function AgentScreener() {
 																		${Number(c.currentPrice || c.priceUsd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
 																	</td>
 																	<td className="px-2 py-2 text-right font-mono font-semibold text-foreground">
-																		₹{Number(c.priceInr || (c.currentPrice * 84.5)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+																		₹{Number(c.priceInr || (c.priceUsd ? c.priceUsd * 86.85 : c.currentPrice)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
 																	</td>
 																	<td className={`px-2 py-2 text-right font-mono font-medium ${Number(c.dayChangePercent || 0) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
 																		{Number(c.dayChangePercent || 0) >= 0 ? "+" : ""}{Number(c.dayChangePercent || 0).toFixed(2)}%
@@ -3498,6 +3504,87 @@ export default function AgentScreener() {
 									</div>
 								</div>
 
+								{/* ── PVA (Price Volume Action) Quick-Filter Chips Bar ───────────────── */}
+								<div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none flex-nowrap sm:flex-wrap">
+									<span className="text-[11px] font-semibold text-muted-foreground mr-1 flex items-center gap-1 whitespace-nowrap">
+										<Activity className="h-3 w-3 text-primary" />
+										PVA Signal:
+									</span>
+									{[
+										{ id: "", label: "All Stocks", icon: "🌐" },
+										{
+											id: "INSTITUTIONAL_ACCUMULATION",
+											label: "Accumulation",
+											icon: "🔥",
+											activeColor: "bg-emerald-600 text-white border-emerald-700 shadow-xs",
+											inactiveColor: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20",
+											hint: "Institutional Accumulation: Surge volume (>1.4x 20DMA) + breakout closing near highs",
+										},
+										{
+											id: "ABSORPTION_PULLBACK",
+											label: "Absorption",
+											icon: "🛡️",
+											activeColor: "bg-blue-600 text-white border-blue-700 shadow-xs",
+											inactiveColor: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30 hover:bg-blue-500/20",
+											hint: "Absorption Pullback: Healthy consolidation on drying volume (<0.7x 20DMA)",
+										},
+										{
+											id: "VOLUME_CLIMAX_REVERSAL",
+											label: "Climax Reversal",
+											icon: "⚡",
+											activeColor: "bg-purple-600 text-white border-purple-700 shadow-xs",
+											inactiveColor: "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30 hover:bg-purple-500/20",
+											hint: "Volume Climax: Massive volume rejection wick indicating institutional absorption",
+										},
+										{
+											id: "VOLUME_CONTRACTION_DRYUP",
+											label: "Dry-up (VCP)",
+											icon: "🔍",
+											activeColor: "bg-cyan-600 text-white border-cyan-700 shadow-xs",
+											inactiveColor: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/20",
+											hint: "Volume Contraction: Volatility and volume dry-up ready for immediate breakout",
+										},
+										{
+											id: "INSTITUTIONAL_DISTRIBUTION",
+											label: "Distribution",
+											icon: "🔻",
+											activeColor: "bg-rose-600 text-white border-rose-700 shadow-xs",
+											inactiveColor: "bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30 hover:bg-rose-500/20",
+											hint: "Institutional Distribution: Heavy volume breakdown closing near lows",
+										},
+										{
+											id: "EXHAUSTION_RALLY",
+											label: "Exhaustion Rally",
+											icon: "⚠️",
+											activeColor: "bg-amber-600 text-white border-amber-700 shadow-xs",
+											inactiveColor: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/20",
+											hint: "Exhaustion Rally: Price climbing on drying volume (<0.65x 20DMA)",
+										},
+									].map((chip) => {
+										const isSelected = dbPvaClassification === chip.id;
+										return (
+											<button
+												key={chip.id || "all"}
+												type="button"
+												onClick={() => {
+													setDbPvaClassification(chip.id);
+													setDbPage(1);
+												}}
+												title={chip.hint || "View all instruments without PVA filter"}
+												className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full border transition-all cursor-pointer font-medium whitespace-nowrap ${
+													isSelected
+														? chip.activeColor || "bg-primary text-primary-foreground border-primary"
+														: chip.inactiveColor || "bg-background text-muted-foreground border-border hover:bg-muted"
+												}`}
+											>
+												<span>{chip.icon}</span>
+												<span>{chip.label}</span>
+												{isSelected && <span className="text-[10px] ml-0.5">●</span>}
+											</button>
+										);
+									})}
+								</div>
+
 								{showFilters && (
 									<div className="bg-muted/30 rounded-lg p-3 border space-y-2.5">
 										<div className="flex flex-wrap items-end gap-2">
@@ -3605,6 +3692,31 @@ export default function AgentScreener() {
 														<SelectItem value="CONSOLIDATION_BASE">🛡️ Consolidation Base</SelectItem>
 														<SelectItem value="HIGH_VOLATILITY_CHOP">⚠️ Volatility Chop</SelectItem>
 														<SelectItem value="BEARISH_DOWNTREND">🔻 Bearish Downtrend</SelectItem>
+													</SelectContent>
+												</Select>
+											</div>
+											<div className="w-36">
+												<Label className="text-[10px] text-muted-foreground mb-0.5 block">
+													PVA Signal
+												</Label>
+												<Select
+													value={dbPvaClassification}
+													onValueChange={(v) => {
+														setDbPvaClassification(v === "all" ? "" : v);
+														setDbPage(1);
+													}}
+												>
+													<SelectTrigger className="h-7 text-xs">
+														<SelectValue placeholder="All Signals" />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="all">All Signals</SelectItem>
+														<SelectItem value="INSTITUTIONAL_ACCUMULATION">🔥 Accumulation</SelectItem>
+														<SelectItem value="ABSORPTION_PULLBACK">🛡️ Absorption</SelectItem>
+														<SelectItem value="VOLUME_CLIMAX_REVERSAL">⚡ Climax Reversal</SelectItem>
+														<SelectItem value="VOLUME_CONTRACTION_DRYUP">🔍 Volume Dry-up</SelectItem>
+														<SelectItem value="INSTITUTIONAL_DISTRIBUTION">🔻 Distribution</SelectItem>
+														<SelectItem value="EXHAUSTION_RALLY">⚠️ Exhaustion</SelectItem>
 													</SelectContent>
 												</Select>
 											</div>
@@ -3750,6 +3862,11 @@ export default function AgentScreener() {
 										{dbStockRegime && (
 											<button type="button" onClick={() => { setDbStockRegime(""); setDbPage(1); }} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 text-[10px] hover:bg-cyan-500/20 transition-colors">
 												Regime: {dbStockRegime.replace(/_/g, " ")} <span className="text-[9px] opacity-70">✕</span>
+											</button>
+										)}
+										{dbPvaClassification && (
+											<button type="button" onClick={() => { setDbPvaClassification(""); setDbPage(1); }} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] hover:bg-primary/20 transition-colors font-medium">
+												PVA: {dbPvaClassification.replace(/_/g, " ")} <span className="text-[9px] opacity-70">✕</span>
 											</button>
 										)}
 										{dbMinPE && (
@@ -4868,6 +4985,15 @@ export default function AgentScreener() {
 																										</p>
 																									)}
 																								</div>
+																							</div>
+
+																							{/* Price & Volume Chart */}
+																							<div className="mt-4">
+																								<MarketChart
+																									symbol={stock.symbol}
+																									title={`${stock.companyName} (${stock.symbol})`}
+																									height={300}
+																								/>
 																							</div>
 
 																							{stockDetail.marqueeBrokerageViews && (
