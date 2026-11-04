@@ -92,6 +92,84 @@ export interface UpstoxHistoricalCandle {
   volume: number;
 }
 
+export interface UpstoxOptionContractItem {
+  instrument_key: string;
+  tradingsymbol: string;
+  name: string;
+  expiry: string;
+  strike_price: number;
+  underlying_key: string;
+  underlying_symbol: string;
+  instrument_type: string;
+  lot_size: number;
+  tick_size: number;
+}
+
+export interface UpstoxOptionChainItem {
+  strike_price: number;
+  pcr?: number;
+  underlying_key?: string;
+  underlying_spot_price?: number;
+  call_options?: {
+    instrument_key?: string;
+    market_data?: {
+      ltp?: number;
+      volume?: number;
+      oi?: number;
+      prev_oi?: number;
+      close_price?: number;
+      bid_price?: number;
+      bid_qty?: number;
+      ask_price?: number;
+      ask_qty?: number;
+    };
+    option_greeks?: {
+      delta?: number;
+      gamma?: number;
+      theta?: number;
+      vega?: number;
+      rho?: number;
+      iv?: number;
+      pop?: number;
+    };
+  };
+  put_options?: {
+    instrument_key?: string;
+    market_data?: {
+      ltp?: number;
+      volume?: number;
+      oi?: number;
+      prev_oi?: number;
+      close_price?: number;
+      bid_price?: number;
+      bid_qty?: number;
+      ask_price?: number;
+      ask_qty?: number;
+    };
+    option_greeks?: {
+      delta?: number;
+      gamma?: number;
+      theta?: number;
+      vega?: number;
+      rho?: number;
+      iv?: number;
+      pop?: number;
+    };
+  };
+}
+
+export const DERIVATIVE_UNDERLYING_MAP: Record<string, string> = {
+  NIFTY: "NSE_INDEX|Nifty 50",
+  "NIFTY 50": "NSE_INDEX|Nifty 50",
+  BANKNIFTY: "NSE_INDEX|Nifty Bank",
+  "NIFTY BANK": "NSE_INDEX|Nifty Bank",
+  FINNIFTY: "NSE_INDEX|Nifty Fin Service",
+  "NIFTY FIN SERVICE": "NSE_INDEX|Nifty Fin Service",
+  MIDCPNIFTY: "NSE_INDEX|NIFTY MID SELECT",
+  SENSEX: "BSE_INDEX|SENSEX",
+  BANKEX: "BSE_INDEX|BANKEX",
+};
+
 export interface UpstoxServiceResult<T> {
   success: boolean;
   data?: T;
@@ -469,8 +547,26 @@ class UpstoxMarketDataService {
   ): Promise<string> {
     const upper = symbolOrIsin.toUpperCase();
     if (upper.startsWith("NSE_") || upper.startsWith("BSE_") || upper.startsWith("MCX_")) return upper;
+    if (DERIVATIVE_UNDERLYING_MAP[upper]) return DERIVATIVE_UNDERLYING_MAP[upper];
     if (/^IN[A-Z0-9]{10}$/.test(upper)) return `${exchange}_EQ|${upper}`;
     if (SYMBOL_TO_ISIN[upper]) return `${exchange}_EQ|${SYMBOL_TO_ISIN[upper]}`;
+
+    // Fast check for derivative contracts (e.g., NIFTY26MAR24000CE)
+    if (upper.includes("CE") || upper.includes("PE") || upper.includes("FUT")) {
+      try {
+        const { db } = await import("../db");
+        const { derivativeContracts } = await import("@shared/schema");
+        const { eq } = await import("drizzle-orm");
+        const [contract] = await db
+          .select({ instrumentKey: derivativeContracts.instrumentKey })
+          .from(derivativeContracts)
+          .where(eq(derivativeContracts.tradingsymbol, upper))
+          .limit(1);
+        if (contract?.instrumentKey) return contract.instrumentKey;
+      } catch {
+        // Non-fatal
+      }
+    }
 
     // Lazy load from DB if not yet cached
     try {
@@ -1206,6 +1302,199 @@ class UpstoxMarketDataService {
         meta: this._meta(t0),
       };
     }, t0);
+  }
+
+  /**
+   * Fetches tradable option contracts / expiries for an underlying index or equity from Upstox.
+   * Endpoint: GET /v2/option/contract
+   */
+  async getOptionContracts(
+    symbolOrKey: string
+  ): Promise<UpstoxServiceResult<UpstoxOptionContractItem[]>> {
+    const t0 = Date.now();
+    if (!this.isReady()) return this._inactive<UpstoxOptionContractItem[]>();
+
+    const instrumentKey = await this.resolveInstrumentKey(symbolOrKey);
+
+    return this._withRetry<UpstoxOptionContractItem[]>(async () => {
+      const res = await this.client!.get("/option/contract", {
+        params: { instrument_key: instrumentKey },
+      });
+      const rawList = (res.data?.data ?? []) as any[];
+
+      const contracts: UpstoxOptionContractItem[] = rawList.map((c) => ({
+        instrument_key: c.instrument_key,
+        tradingsymbol: c.trading_symbol || c.tradingsymbol,
+        name: c.name || symbolOrKey,
+        expiry: c.expiry,
+        strike_price: Number(c.strike_price ?? 0),
+        underlying_key: c.underlying_key || instrumentKey,
+        underlying_symbol: symbolOrKey.toUpperCase(),
+        instrument_type: c.instrument_type || "OPTIDX",
+        lot_size: Number(c.lot_size ?? 1),
+        tick_size: Number(c.tick_size ?? 0.05),
+      }));
+
+      return {
+        success: true,
+        data: contracts,
+        meta: this._meta(t0),
+      };
+    }, t0);
+  }
+
+  /**
+   * Fetches real-time Option Chain with Greeks (Delta, Gamma, Theta, Vega, IV) and OI from Upstox API v2.
+   * Endpoint: GET /v2/option/chain
+   */
+  async getOptionChain(
+    symbolOrKey: string,
+    expiryDate?: string
+  ): Promise<UpstoxServiceResult<UpstoxOptionChainItem[]>> {
+    const t0 = Date.now();
+    if (!this.isReady()) return this._inactive<UpstoxOptionChainItem[]>();
+
+    const instrumentKey = await this.resolveInstrumentKey(symbolOrKey);
+
+    return this._withRetry<UpstoxOptionChainItem[]>(async () => {
+      const params: Record<string, string> = { instrument_key: instrumentKey };
+      if (expiryDate) {
+        params.expiry_date = expiryDate;
+      }
+
+      const res = await this.client!.get("/option/chain", { params });
+      const rawChain = (res.data?.data ?? []) as any[];
+
+      const chain: UpstoxOptionChainItem[] = rawChain.map((row) => ({
+        strike_price: Number(row.strike_price ?? 0),
+        pcr: row.pcr !== undefined ? Number(row.pcr) : undefined,
+        underlying_key: row.underlying_key || instrumentKey,
+        underlying_spot_price:
+          row.underlying_spot_price !== undefined
+            ? Number(row.underlying_spot_price)
+            : undefined,
+        call_options: row.call_options
+          ? {
+              instrument_key: row.call_options.instrument_key,
+              market_data: {
+                ltp: Number(row.call_options.market_data?.ltp ?? 0),
+                volume: Number(row.call_options.market_data?.volume ?? 0),
+                oi: Number(row.call_options.market_data?.oi ?? 0),
+                prev_oi: Number(row.call_options.market_data?.prev_oi ?? 0),
+                close_price: Number(row.call_options.market_data?.close_price ?? 0),
+                bid_price: Number(row.call_options.market_data?.bid_price ?? 0),
+                bid_qty: Number(row.call_options.market_data?.bid_qty ?? 0),
+                ask_price: Number(row.call_options.market_data?.ask_price ?? 0),
+                ask_qty: Number(row.call_options.market_data?.ask_qty ?? 0),
+              },
+              option_greeks: row.call_options.option_greeks
+                ? {
+                    delta: Number(row.call_options.option_greeks.delta ?? 0),
+                    gamma: Number(row.call_options.option_greeks.gamma ?? 0),
+                    theta: Number(row.call_options.option_greeks.theta ?? 0),
+                    vega: Number(row.call_options.option_greeks.vega ?? 0),
+                    rho: Number(row.call_options.option_greeks.rho ?? 0),
+                    iv: Number(row.call_options.option_greeks.iv ?? 0),
+                    pop: Number(row.call_options.option_greeks.pop ?? 0),
+                  }
+                : undefined,
+            }
+          : undefined,
+        put_options: row.put_options
+          ? {
+              instrument_key: row.put_options.instrument_key,
+              market_data: {
+                ltp: Number(row.put_options.market_data?.ltp ?? 0),
+                volume: Number(row.put_options.market_data?.volume ?? 0),
+                oi: Number(row.put_options.market_data?.oi ?? 0),
+                prev_oi: Number(row.put_options.market_data?.prev_oi ?? 0),
+                close_price: Number(row.put_options.market_data?.close_price ?? 0),
+                bid_price: Number(row.put_options.market_data?.bid_price ?? 0),
+                bid_qty: Number(row.put_options.market_data?.bid_qty ?? 0),
+                ask_price: Number(row.put_options.market_data?.ask_price ?? 0),
+                ask_qty: Number(row.put_options.market_data?.ask_qty ?? 0),
+              },
+              option_greeks: row.put_options.option_greeks
+                ? {
+                    delta: Number(row.put_options.option_greeks.delta ?? 0),
+                    gamma: Number(row.put_options.option_greeks.gamma ?? 0),
+                    theta: Number(row.put_options.option_greeks.theta ?? 0),
+                    vega: Number(row.put_options.option_greeks.vega ?? 0),
+                    rho: Number(row.put_options.option_greeks.rho ?? 0),
+                    iv: Number(row.put_options.option_greeks.iv ?? 0),
+                    pop: Number(row.put_options.option_greeks.pop ?? 0),
+                  }
+                : undefined,
+            }
+          : undefined,
+      }));
+
+      return {
+        success: true,
+        data: chain,
+        meta: this._meta(t0),
+      };
+    }, t0);
+  }
+
+  /**
+   * Syncs and persists active F&O derivative contracts into PostgreSQL `derivative_contracts` table.
+   * Useful for instrument search, auto-complete, and trade routing.
+   */
+  async syncDerivativeContracts(
+    symbols: string[] = ["NIFTY", "BANKNIFTY", "FINNIFTY", "SENSEX", "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK"]
+  ): Promise<{ synced: number; failed: number }> {
+    let synced = 0;
+    let failed = 0;
+
+    for (const sym of symbols) {
+      try {
+        const contractsRes = await this.getOptionContracts(sym);
+        if (contractsRes.success && contractsRes.data && contractsRes.data.length > 0) {
+          const { db } = await import("../db");
+          const { derivativeContracts } = await import("@shared/schema");
+          const { sql } = await import("drizzle-orm");
+
+          for (const c of contractsRes.data) {
+            await db
+              .insert(derivativeContracts)
+              .values({
+                instrumentKey: c.instrument_key,
+                exchange: c.instrument_key.startsWith("BSE") ? "BSE_FO" : "NSE_FO",
+                tradingsymbol: c.tradingsymbol,
+                name: c.name || sym,
+                underlyingKey: c.underlying_key,
+                underlyingSymbol: sym.toUpperCase(),
+                instrumentType: c.instrument_type,
+                strikePrice: c.strike_price.toString(),
+                optionType: c.tradingsymbol.endsWith("CE") ? "CE" : c.tradingsymbol.endsWith("PE") ? "PE" : null,
+                expiryDate: c.expiry,
+                lotSize: c.lot_size,
+                tickSize: c.tick_size.toString(),
+                isActive: true,
+                source: "upstox",
+              })
+              .onConflictDoUpdate({
+                target: [derivativeContracts.instrumentKey],
+                set: {
+                  tradingsymbol: sql`EXCLUDED.tradingsymbol`,
+                  strikePrice: sql`EXCLUDED.strike_price`,
+                  lotSize: sql`EXCLUDED.lot_size`,
+                  isActive: true,
+                  updatedAt: sql`NOW()`,
+                },
+              });
+            synced++;
+          }
+        }
+      } catch (err: any) {
+        failed++;
+        logger.warn(`Failed to sync derivative contracts for ${sym}: ${err?.message}`);
+      }
+    }
+
+    logger.info(`Derivative contracts sync completed: ${synced} synced, ${failed} failed`);
+    return { synced, failed };
   }
 
   // ── Private Helpers ────────────────────────────────────────────────────────

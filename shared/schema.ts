@@ -1,13 +1,11 @@
 
-import { pickCategoryEnum, pickStatusEnum, leadProcessingModeEnum, leadStatusEnum, pddStatusEnum, payoutClaimStatusEnum, masterDsaClaimStatusEnum, commissionPlanStatusEnum, payoutModeEnum, passthroughRuleEnum } from './schema/enums.ts';
-
 export * from "./schema/enums.ts";
 export * from "./schema/commissions.ts";
 export * from "./schema/banking.ts";
 export * from "./schema/crm.ts";
 export * from "./schema/telephony.ts";
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, uniqueIndex, integer, date, bigint, numeric, pgEnum, serial, uuid, real, bigserial } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, uniqueIndex, integer, date, bigint, numeric, serial, uuid, real, bigserial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users, userBankAccounts, userProfiles, userDematAccounts, alpacaAccounts, alpacaOrders, alpacaPositions, alpacaTradeLogs, insertAlpacaAccountSchema, insertAlpacaOrderSchema, insertAlpacaPositionSchema, insertAlpacaTradeLogSchema } from './schema/users.ts';
@@ -12679,4 +12677,7 @@ export * from "./schema/telephony";
 
 // Multi-Vendor Instrument Mappings, Historical Time-Series & Performance Analytics
 export * from "./schema/instruments";
+
+// Derivative Contracts & F&O Positions Schema
+export * from "./schema/derivatives";
 

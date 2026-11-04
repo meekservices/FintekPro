@@ -19,6 +19,7 @@
  */
 
 import { callPython } from "../clients/python-client";
+import { upstoxMarketDataService } from "./upstox-market-data-service";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -503,7 +504,19 @@ class DerivativesService {
 		const cached = this.spotCache.get(upper);
 		if (cached && Date.now() - cached.ts < this.SPOT_TTL) return cached.price;
 
-		// Tier 2: Python/yfinance (Tier 1 NSE is wired into option chain directly)
+		// Tier 1: Upstox licensed live quote (SEBI-grade real-time feed)
+		try {
+			const quoteRes = await upstoxMarketDataService.getQuote(upper);
+			if (quoteRes.success && quoteRes.data?.last_price && quoteRes.data.last_price > 0) {
+				const price = quoteRes.data.last_price;
+				this.spotCache.set(upper, { price, ts: Date.now() });
+				return price;
+			}
+		} catch {
+			/* Fall through to Tier 2 */
+		}
+
+		// Tier 2: Python/yfinance
 		const pyPrices = await this.fetchPythonNseSpot([upper]);
 		if (pyPrices.has(upper)) {
 			const price = pyPrices.get(upper)!;
@@ -521,11 +534,74 @@ class DerivativesService {
 		symbols: string[];
 		lotSizes: Record<string, number>;
 	}> {
-		return { symbols: NSE_SYMBOLS, lotSizes: LOT_SIZES };
+		const combinedLotSizes: Record<string, number> = { ...LOT_SIZES };
+		const dynamicSymbols = new Set<string>(NSE_SYMBOLS);
+
+		try {
+			const { db } = await import("../db");
+			const { derivativeContracts } = await import("@shared/schema");
+			const { eq } = await import("drizzle-orm");
+			const dbContracts = await db
+				.selectDistinct({
+					symbol: derivativeContracts.underlyingSymbol,
+					lotSize: derivativeContracts.lotSize,
+				})
+				.from(derivativeContracts)
+				.where(eq(derivativeContracts.isActive, true))
+				.limit(100);
+
+			for (const row of dbContracts) {
+				if (row.symbol) {
+					dynamicSymbols.add(row.symbol.toUpperCase());
+					if (row.lotSize && !combinedLotSizes[row.symbol.toUpperCase()]) {
+						combinedLotSizes[row.symbol.toUpperCase()] = row.lotSize;
+					}
+				}
+			}
+		} catch {
+			// Fallback to static list if DB query fails
+		}
+
+		return {
+			symbols: Array.from(dynamicSymbols).sort(),
+			lotSizes: combinedLotSizes,
+		};
 	}
 
 	async getExpiryDates(symbol: string): Promise<string[]> {
-		// Try NSE first
+		const upper = symbol.toUpperCase();
+
+		// Tier 1: Upstox option contracts
+		try {
+			const contractsRes = await upstoxMarketDataService.getOptionContracts(upper);
+			if (contractsRes.success && contractsRes.data && contractsRes.data.length > 0) {
+				const expiries = Array.from(
+					new Set(contractsRes.data.map((c) => c.expiry).filter(Boolean))
+				).sort();
+				if (expiries.length > 0) return expiries;
+			}
+		} catch {
+			/* fall through */
+		}
+
+		// Check DB derivative contracts
+		try {
+			const { db } = await import("../db");
+			const { derivativeContracts } = await import("@shared/schema");
+			const { eq } = await import("drizzle-orm");
+			const rows = await db
+				.selectDistinct({ expiry: derivativeContracts.expiryDate })
+				.from(derivativeContracts)
+				.where(eq(derivativeContracts.underlyingSymbol, upper))
+				.limit(20);
+			if (rows.length > 0) {
+				return rows.map((r) => r.expiry).sort();
+			}
+		} catch {
+			/* fall through */
+		}
+
+		// Tier 2: Try NSE AJAX endpoint
 		try {
 			const nseData = await this.fetchNSEOptionChain(symbol);
 			if (nseData?.records?.expiryDates?.length) {
@@ -567,7 +643,97 @@ class DerivativesService {
 		const cached = this.getCached<OptionsChain>(cacheKey);
 		if (cached) return cached;
 
-		// ── Tier 1: NSE real option chain ─────────────────────────────────────
+		// ── Tier 1: Upstox Licensed Option Chain (SEBI-grade real-time feed) ──
+		try {
+			const upstoxRes = await upstoxMarketDataService.getOptionChain(symbol, expiryDate);
+			if (upstoxRes.success && upstoxRes.data && upstoxRes.data.length > 0) {
+				const chainData = upstoxRes.data;
+				const underlying =
+					chainData[0]?.underlying_spot_price || (await this.getSpotPrice(symbol));
+				const strikePrices = [
+					...new Set<number>(chainData.map((r) => r.strike_price)),
+				].sort((a, b) => a - b);
+
+				const calls: OptionData[] = [];
+				const puts: OptionData[] = [];
+
+				for (const row of chainData) {
+					if (row.call_options) {
+						const ce = row.call_options;
+						calls.push({
+							strikePrice: row.strike_price,
+							expiryDate: expiryDate || "",
+							optionType: "CE",
+							openInterest: ce.market_data?.oi || 0,
+							changeinOpenInterest:
+								(ce.market_data?.oi || 0) - (ce.market_data?.prev_oi || 0),
+							totalTradedVolume: ce.market_data?.volume || 0,
+							impliedVolatility: ce.option_greeks?.iv || 0,
+							lastPrice: ce.market_data?.ltp || 0,
+							change:
+								(ce.market_data?.ltp || 0) - (ce.market_data?.close_price || 0),
+							pChange: ce.market_data?.close_price
+								? (((ce.market_data.ltp || 0) - ce.market_data.close_price) /
+										ce.market_data.close_price) *
+									100
+								: 0,
+							totalBuyQuantity: ce.market_data?.bid_qty || 0,
+							totalSellQuantity: ce.market_data?.ask_qty || 0,
+							bidQty: ce.market_data?.bid_qty || 0,
+							bidPrice: ce.market_data?.bid_price || 0,
+							askQty: ce.market_data?.ask_qty || 0,
+							askPrice: ce.market_data?.ask_price || 0,
+							underlyingValue: underlying,
+						});
+					}
+					if (row.put_options) {
+						const pe = row.put_options;
+						puts.push({
+							strikePrice: row.strike_price,
+							expiryDate: expiryDate || "",
+							optionType: "PE",
+							openInterest: pe.market_data?.oi || 0,
+							changeinOpenInterest:
+								(pe.market_data?.oi || 0) - (pe.market_data?.prev_oi || 0),
+							totalTradedVolume: pe.market_data?.volume || 0,
+							impliedVolatility: pe.option_greeks?.iv || 0,
+							lastPrice: pe.market_data?.ltp || 0,
+							change:
+								(pe.market_data?.ltp || 0) - (pe.market_data?.close_price || 0),
+							pChange: pe.market_data?.close_price
+								? (((pe.market_data.ltp || 0) - pe.market_data.close_price) /
+										pe.market_data.close_price) *
+									100
+								: 0,
+							totalBuyQuantity: pe.market_data?.bid_qty || 0,
+							totalSellQuantity: pe.market_data?.ask_qty || 0,
+							bidQty: pe.market_data?.bid_qty || 0,
+							bidPrice: pe.market_data?.bid_price || 0,
+							askQty: pe.market_data?.ask_qty || 0,
+							askPrice: pe.market_data?.ask_price || 0,
+							underlyingValue: underlying,
+						});
+					}
+				}
+
+				const expiries = await this.getExpiryDates(symbol);
+				const chain: OptionsChain = {
+					symbol: symbol.toUpperCase(),
+					underlyingValue: underlying,
+					expiryDates: expiries.length > 0 ? expiries : expiryDate ? [expiryDate] : [],
+					strikePrices,
+					options: { calls, puts },
+					timestamp: new Date().toISOString(),
+					dataSource: "nse",
+				};
+				this.setCached(cacheKey, chain);
+				return chain;
+			}
+		} catch {
+			/* Fall through to Tier 2 */
+		}
+
+		// ── Tier 2: NSE real option chain ─────────────────────────────────────
 		try {
 			const nseData = await this.fetchNSEOptionChain(symbol, expiryDate);
 			if (nseData?.records?.data?.length) {
@@ -664,7 +830,7 @@ class DerivativesService {
 			/* fall through */
 		}
 
-		// ── Tier 2/3: Black-Scholes with real spot price ───────────────────────
+		// ── Tier 3: Black-Scholes with real spot price ───────────────────────
 		return this.buildSyntheticChain(symbol, expiryDate);
 	}
 

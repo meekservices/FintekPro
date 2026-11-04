@@ -32,3 +32,4 @@ export * from "./zoho";
 export * from "./advisory";
 export * from "./admin-copilot";
 export * from "./instruments";
+export * from "./derivatives";

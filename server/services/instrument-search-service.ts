@@ -3,16 +3,17 @@ import {
 	mutualFunds,
 	listedStocks,
 	corporateBonds,
-	governmentSecurities,
+	derivativeContracts,
 } from "@shared/schema";
 import { sql, or, ilike } from "drizzle-orm";
+import { logger } from "../logger";
 
 export interface InstrumentSearchResult {
 	id: string;
 	name: string;
 	symbol?: string;
 	isin?: string;
-	assetType: "EQUITY" | "MUTUAL_FUND" | "BOND" | "ETF" | "GOVERNMENT_SECURITY";
+	assetType: "EQUITY" | "MUTUAL_FUND" | "BOND" | "ETF" | "GOVERNMENT_SECURITY" | "DERIVATIVE";
 	category?: string;
 	subCategory?: string;
 	currentPrice?: number;
@@ -45,13 +46,14 @@ class InstrumentSearchService {
 		const results: InstrumentSearchResult[] = [];
 
 		try {
-			const [mfResults, stockResults, bondResults] = await Promise.all([
+			const [mfResults, stockResults, bondResults, derivativeResults] = await Promise.all([
 				this.searchMutualFunds(searchTerm, isIsinSearch, limit),
 				this.searchStocks(searchTerm, isIsinSearch, limit),
 				this.searchBonds(searchTerm, isIsinSearch, limit),
+				this.searchDerivatives(searchTerm, limit),
 			]);
 
-			results.push(...mfResults, ...stockResults, ...bondResults);
+			results.push(...mfResults, ...stockResults, ...bondResults, ...derivativeResults);
 
 			results.sort((a, b) => {
 				if (isIsinSearch) {
@@ -63,7 +65,7 @@ class InstrumentSearchService {
 
 			return results.slice(0, limit);
 		} catch (error) {
-			console.error("[InstrumentSearch] Error searching instruments:", error);
+			logger.error("[InstrumentSearch] Error searching instruments:", { error });
 			return [];
 		}
 	}
@@ -162,7 +164,7 @@ class InstrumentSearchService {
 				};
 			});
 		} catch (error) {
-			console.error("[InstrumentSearch] Error searching mutual funds:", error);
+			logger.error("[InstrumentSearch] Error searching mutual funds:", { error });
 			return [];
 		}
 	}
@@ -228,7 +230,7 @@ class InstrumentSearchService {
 				};
 			});
 		} catch (error) {
-			console.error("[InstrumentSearch] Error searching stocks:", error);
+			logger.error("[InstrumentSearch] Error searching stocks:", { error });
 			return [];
 		}
 	}
@@ -290,7 +292,63 @@ class InstrumentSearchService {
 				};
 			});
 		} catch (error) {
-			console.error("[InstrumentSearch] Error searching bonds:", error);
+			logger.error("[InstrumentSearch] Error searching bonds:", { error });
+			return [];
+		}
+	}
+
+	private async searchDerivatives(
+		searchTerm: string,
+		limit: number,
+	): Promise<InstrumentSearchResult[]> {
+		try {
+			const rows = await db
+				.select()
+				.from(derivativeContracts)
+				.where(
+					or(
+						ilike(derivativeContracts.tradingsymbol, `%${searchTerm}%`),
+						ilike(derivativeContracts.underlyingSymbol, `%${searchTerm}%`),
+						ilike(derivativeContracts.name, `%${searchTerm}%`),
+						ilike(derivativeContracts.instrumentKey, `%${searchTerm}%`)
+					)
+				)
+				.limit(limit);
+
+			return rows.map((contract) => {
+				const isExactSymbol = contract.tradingsymbol.toUpperCase() === searchTerm;
+				const isExactUnderlying = contract.underlyingSymbol.toUpperCase() === searchTerm;
+
+				let matchScore = 70;
+				let matchField: "isin" | "symbol" | "name" = "name";
+
+				if (isExactSymbol) {
+					matchScore = 95;
+					matchField = "symbol";
+				} else if (contract.tradingsymbol.toUpperCase().startsWith(searchTerm)) {
+					matchScore = 85;
+					matchField = "symbol";
+				} else if (isExactUnderlying) {
+					matchScore = 80;
+					matchField = "name";
+				}
+
+				return {
+					id: contract.id,
+					name: `${contract.tradingsymbol} (${contract.instrumentType})`,
+					symbol: contract.tradingsymbol,
+					isin: contract.instrumentKey,
+					assetType: "DERIVATIVE" as const,
+					category: contract.instrumentType,
+					subCategory: `Expiry: ${contract.expiryDate} | Lot: ${contract.lotSize}`,
+					currentPrice: contract.strikePrice ? Number.parseFloat(contract.strikePrice) : undefined,
+					exchange: contract.exchange,
+					matchScore,
+					matchField,
+				};
+			});
+		} catch (error) {
+			logger.error("[InstrumentSearch] Error searching derivative contracts:", { error });
 			return [];
 		}
 	}

@@ -131,7 +131,33 @@ async function syncMld(): Promise<number> {
   `);
 }
 
-/** Orchestrates all 6 asset-class syncs and returns row counts. */
+async function syncDerivatives(): Promise<number> {
+  return runUpsert("derivative_contracts", sql`
+    INSERT INTO instrument_master
+      (isin, symbol, name, asset_class, sub_type, category, issuer,
+       last_price, price_updated_at, is_active, source, created_at, updated_at)
+    SELECT
+      dc.instrument_key AS isin,
+      dc.tradingsymbol AS symbol,
+      dc.tradingsymbol || ' (' || dc.instrument_type || ')' AS name,
+      'derivative' AS asset_class,
+      dc.instrument_type AS sub_type,
+      'Expiry: ' || dc.expiry_date::text || ' | Lot: ' || dc.lot_size::text AS category,
+      dc.name AS issuer,
+      dc.strike_price::text AS last_price,
+      dc.updated_at AS price_updated_at,
+      dc.is_active,
+      COALESCE(dc.source, 'upstox') AS source,
+      NOW(), NOW()
+    FROM derivative_contracts dc WHERE dc.instrument_key IS NOT NULL AND dc.tradingsymbol IS NOT NULL
+    ON CONFLICT (isin) DO UPDATE SET
+      name=EXCLUDED.name, sub_type=EXCLUDED.sub_type, category=EXCLUDED.category,
+      last_price=EXCLUDED.last_price, price_updated_at=EXCLUDED.price_updated_at,
+      is_active=EXCLUDED.is_active, updated_at=NOW()
+  `);
+}
+
+/** Orchestrates all 7 asset-class syncs and returns row counts. */
 export async function syncInstrumentMaster() {
   const start = Date.now();
   logger.info("instrument_master sync started", { event: "INSTRUMENT_MASTER_SYNC_START" });
@@ -141,7 +167,7 @@ export async function syncInstrumentMaster() {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_instrument_master_isin ON instrument_master (isin)
   `).catch(() => {/* already exists */});
 
-  const r = { mutualFunds: 0, stocks: 0, bonds: 0, reits: 0, aif: 0, mld: 0, total: 0, durationMs: 0 };
+  const r = { mutualFunds: 0, stocks: 0, bonds: 0, reits: 0, aif: 0, mld: 0, derivatives: 0, total: 0, durationMs: 0 };
 
   const run = async (key: keyof Omit<typeof r, "total"|"durationMs">, fn: () => Promise<number>) => {
     try { r[key] = await fn(); }
@@ -156,8 +182,9 @@ export async function syncInstrumentMaster() {
   await run("reits", syncReits);
   await run("aif", syncAif);
   await run("mld", syncMld);
+  await run("derivatives", syncDerivatives);
 
-  r.total = r.mutualFunds + r.stocks + r.bonds + r.reits + r.aif + r.mld;
+  r.total = r.mutualFunds + r.stocks + r.bonds + r.reits + r.aif + r.mld + r.derivatives;
   r.durationMs = Date.now() - start;
 
   logger.info(
