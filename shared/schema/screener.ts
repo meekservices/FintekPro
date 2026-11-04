@@ -1066,3 +1066,84 @@ export const fiiDiiDailyFlows = pgTable("fii_dii_daily_flows", {
 ]);
 export type FiiDiiDailyFlow = typeof fiiDiiDailyFlows.$inferSelect;
 
+// ── Marquee Institutional Brokerage Coverage & Consensus ────────────────────
+export const brokerageFirms = pgTable("brokerage_firms", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 150 }).notNull().unique(),
+  code: varchar("code", { length: 50 }).notNull().unique(),
+  tier: varchar("tier", { length: 50 }).notNull(), // 'GLOBAL_BULGE_BRACKET' | 'DOMESTIC_TIER_1'
+  country: varchar("country", { length: 50 }).default("INDIA"),
+  logoUrl: text("logo_url"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_brokerage_firms_code").on(table.code),
+  index("idx_brokerage_firms_tier").on(table.tier),
+]);
+
+export type BrokerageFirm = typeof brokerageFirms.$inferSelect;
+export type InsertBrokerageFirm = typeof brokerageFirms.$inferInsert;
+
+export const brokerageCoverageCalls = pgTable("brokerage_coverage_calls", {
+  id: serial("id").primaryKey(),
+  symbol: varchar("symbol", { length: 50 }).notNull(),
+  brokerageId: integer("brokerage_id"),
+  brokerageName: varchar("brokerage_name", { length: 150 }).notNull(),
+  tier: varchar("tier", { length: 50 }).default("DOMESTIC_TIER_1").notNull(),
+  rating: varchar("rating", { length: 50 }).notNull(), // 'BUY' | 'ACCUMULATE' | 'HOLD' | 'REDUCE' | 'SELL' | 'OVERWEIGHT' | 'UNDERWEIGHT' | 'NEUTRAL'
+  action: varchar("action", { length: 50 }).default("MAINTAIN"), // 'INITIATE' | 'UPGRADE' | 'DOWNGRADE' | 'MAINTAIN' | 'REITERATE'
+  targetPrice: decimal("target_price", { precision: 15, scale: 2 }),
+  previousTargetPrice: decimal("previous_target_price", { precision: 15, scale: 2 }),
+  priceAtCall: decimal("price_at_call", { precision: 15, scale: 2 }),
+  upsidePercent: decimal("upside_percent", { precision: 8, scale: 2 }),
+  headline: text("headline").notNull(),
+  quoteSnippet: text("quote_snippet"),
+  keyTakeaways: text("key_takeaways"),
+  publishedDate: timestamp("published_date").notNull(),
+  source: varchar("source", { length: 100 }).default("Institutional Research"),
+  sourceUrl: text("source_url"),
+  rawPayload: jsonb("raw_payload"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_brokerage_calls_symbol").on(table.symbol),
+  index("idx_brokerage_calls_name").on(table.brokerageName),
+  index("idx_brokerage_calls_rating").on(table.rating),
+  index("idx_brokerage_calls_pubdate").on(table.publishedDate),
+  index("idx_brokerage_calls_sym_date").on(table.symbol, table.publishedDate),
+]);
+
+export type BrokerageCoverageCall = typeof brokerageCoverageCalls.$inferSelect;
+export type InsertBrokerageCoverageCall = typeof brokerageCoverageCalls.$inferInsert;
+
+export const brokerageConsensusHistory = pgTable("brokerage_consensus_history", {
+  id: serial("id").primaryKey(),
+  symbol: varchar("symbol", { length: 50 }).notNull(),
+  snapshotDate: date("snapshot_date").notNull(),
+  currentPrice: decimal("current_price", { precision: 15, scale: 2 }),
+  targetMean: decimal("target_mean", { precision: 15, scale: 2 }),
+  targetMedian: decimal("target_median", { precision: 15, scale: 2 }),
+  targetHigh: decimal("target_high", { precision: 15, scale: 2 }),
+  targetLow: decimal("target_low", { precision: 15, scale: 2 }),
+  consensusUpsidePercent: decimal("consensus_upside_percent", { precision: 8, scale: 2 }),
+  consensusRating: varchar("consensus_rating", { length: 50 }).default("HOLD"),
+  totalAnalysts: integer("total_analysts").default(0),
+  buyCount: integer("buy_count").default(0),
+  holdCount: integer("hold_count").default(0),
+  sellCount: integer("sell_count").default(0),
+  bulgeBracketCount: integer("bulge_bracket_count").default(0),
+  domesticTier1Count: integer("domestic_tier1_count").default(0),
+  quotingSummary: text("quoting_summary"),
+  source: varchar("source", { length: 50 }).default("FINTEKPRO_CONSENSUS"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("uq_brokerage_consensus_symbol_date").on(table.symbol, table.snapshotDate),
+  index("idx_brokerage_consensus_symbol").on(table.symbol),
+  index("idx_brokerage_consensus_date").on(table.snapshotDate),
+]);
+
+export type BrokerageConsensusHistory = typeof brokerageConsensusHistory.$inferSelect;
+export type InsertBrokerageConsensusHistory = typeof brokerageConsensusHistory.$inferInsert;
+
+

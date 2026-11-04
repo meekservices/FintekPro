@@ -397,8 +397,8 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					yieldCurveAnalysis: {
 						tenor10Y_minus_2Y_bps: 28,
 						slope: "Normal Upward",
-						realYield10Y: 2.59,
-						commentary: "Sovereign yield curve reflects normal upward slope (+28 bps 10Y–2Y spread). Real yield of +2.59% offers attractive carry.",
+						realYield10Y: 1.30,
+						commentary: "Sovereign yield curve reflects normal upward slope (+28 bps 10Y–2Y spread). Real yield of +1.30% over CPI provides attractive carry.",
 					},
 					sdlSpreadBps: 38,
 					source: "CCIL (The Clearing Corporation of India Limited) & FBIL",
@@ -539,7 +539,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					{
 						sector: "Fixed Income & CCIL Sovereign Debt",
 						trend: "Stable / Attractive",
-						outlook: "10-Year Benchmark G-Sec yield consolidated at 6.79% (Real Yield: +2.59%). CCIL TREPS WAR steady at 6.42%.",
+						outlook: "10-Year Benchmark G-Sec yield consolidated at 6.79% (Real Yield: +1.30%). CCIL TREPS WAR steady at 6.42%.",
 					},
 					{
 						sector: "Commodities & Energy (MCX / CMX)",
@@ -711,7 +711,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 						recommendedDurationBand: "3 to 5 Years",
 						recommendedCategory: "Target Maturity Gilt & Corporate Bond Funds",
 						sovereignCurveStance: "Neutral to Long Duration",
-						rationale: "With 10Y benchmark G-Sec yielding 6.79% and real yields at +2.59%, intermediate duration captures attractive carry with capital appreciation upside upon systemic policy rate easing.",
+						rationale: "With 10Y benchmark G-Sec yielding 6.79% and real yields at +1.30%, intermediate duration captures attractive carry with capital appreciation upside upon systemic policy rate easing.",
 					},
 					thematicRotations: [
 						{
@@ -1156,7 +1156,7 @@ export default function AgentKnowledgeMarketBrief() {
 			</div>
 
 			{/* FintekPro Global Macro Transmission Engine Radar Cockpit */}
-			<GlobalMacroRadarWidget />
+			<GlobalMacroRadarWidget asOfDate={selectedBriefId ? briefToDisplay.date : undefined} />
 
 			{/* Active Historical Archive Banner */}
 			{selectedBriefId && (
@@ -1569,7 +1569,10 @@ export default function AgentKnowledgeMarketBrief() {
 											<div className="flex items-center justify-between">
 												<span className="text-xs text-muted-foreground font-medium">10Y Benchmark G-Sec</span>
 												<Badge className="text-[10px] bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800 font-semibold">
-													Real: +{safeNum(briefToDisplay.ccilFixedIncome.yieldCurveAnalysis?.realYield10Y, 2.59)}%
+													Real: +{safeNum(
+														briefToDisplay.ccilFixedIncome.yieldCurveAnalysis?.realYield10Y,
+														parseFloat(((briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? 6.79) - (briefToDisplay.macroIndicators?.indiaCpiInflation?.value ?? 5.49)).toFixed(2))
+													)}%
 												</Badge>
 											</div>
 											<div className="mt-1 flex items-baseline gap-2">
@@ -1700,7 +1703,7 @@ export default function AgentKnowledgeMarketBrief() {
 											<span className="text-xs text-muted-foreground font-medium">10Y–2Y Term Spread</span>
 											<div className="mt-1 flex items-baseline gap-2">
 												<span className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
-													+{safeNum(briefToDisplay.usFixedIncome.tenYearMinusTwoYearBps, 20)} bps
+													+{safeNum(briefToDisplay.usFixedIncome.tenYearMinusTwoYearBps, 23)} bps
 												</span>
 											</div>
 											<p className="text-[11px] text-muted-foreground mt-1">{briefToDisplay.usFixedIncome.yieldCurveSlope}</p>
@@ -1759,7 +1762,7 @@ export default function AgentKnowledgeMarketBrief() {
 											<span className="text-xs text-muted-foreground font-medium">US Dollar Index (DXY)</span>
 											<div className="mt-1 flex items-baseline gap-2">
 												<span className="text-xl font-bold font-mono text-foreground">
-													{safeNum(briefToDisplay.globalMacroDesk.dxyIndex, 107.2)}
+													{safeNum(briefToDisplay.globalMacroDesk.dxyIndex, 104.25)}
 												</span>
 												<span className="text-xs font-mono font-semibold text-emerald-600 dark:text-emerald-400">
 													{safeNum(briefToDisplay.globalMacroDesk.dxyChangePercent) >= 0 ? "+" : ""}
@@ -1773,7 +1776,7 @@ export default function AgentKnowledgeMarketBrief() {
 											<span className="text-xs text-muted-foreground font-medium">Germany 10Y Bund</span>
 											<div className="mt-1 flex items-baseline gap-2">
 												<span className="text-xl font-bold font-mono text-foreground">
-													{safeNum(briefToDisplay.globalMacroDesk.bund10YYield, 2.65)}%
+													{safeNum(briefToDisplay.globalMacroDesk.bund10YYield, 2.35)}%
 												</span>
 											</div>
 											<p className="text-[11px] text-muted-foreground mt-1">Eurozone Sovereign Anchor</p>
@@ -1783,10 +1786,10 @@ export default function AgentKnowledgeMarketBrief() {
 											<span className="text-xs text-muted-foreground font-medium">UK 10Y Gilt / Japan JGB</span>
 											<div className="mt-1 flex items-baseline gap-2">
 												<span className="text-xl font-bold font-mono text-foreground">
-													{safeNum(briefToDisplay.globalMacroDesk.gilt10YYield, 4.65)}%
+													{safeNum(briefToDisplay.globalMacroDesk.gilt10YYield, 4.25)}%
 												</span>
 												<span className="text-xs text-muted-foreground font-mono">
-													JGB: {safeNum(briefToDisplay.globalMacroDesk.jgb10YYield, 1.55)}%
+													JGB: {safeNum(briefToDisplay.globalMacroDesk.jgb10YYield, 1.15)}%
 												</span>
 											</div>
 											<p className="text-[11px] text-muted-foreground mt-1">G7 Sovereign Benchmarks</p>
@@ -1796,10 +1799,10 @@ export default function AgentKnowledgeMarketBrief() {
 											<span className="text-xs text-muted-foreground font-medium">EUR/USD & USD/JPY</span>
 											<div className="mt-1 flex items-baseline gap-2">
 												<span className="text-sm font-bold font-mono text-foreground">
-													€{safeNum(briefToDisplay.globalMacroDesk.eurUsd, 1.085)}
+													€{safeNum(briefToDisplay.globalMacroDesk.eurUsd, 1.048)}
 												</span>
 												<span className="text-xs text-muted-foreground font-mono">
-													¥{safeNum(briefToDisplay.globalMacroDesk.usdJpy, 151.8)}
+													¥{safeNum(briefToDisplay.globalMacroDesk.usdJpy, 154.2)}
 												</span>
 											</div>
 											<p className="text-[11px] text-muted-foreground mt-1">Major FX Liquidity Pairs</p>
@@ -1847,7 +1850,7 @@ export default function AgentKnowledgeMarketBrief() {
 												}`}
 											>
 												Crude Inflation: {briefToDisplay.commodityRadar.crudeOilBreakevenStatus.inflationImpact} ($
-												{safeNum(briefToDisplay.commodityRadar.crudeOilBreakevenStatus.brentUsd, 73.0)}/bbl)
+												{safeNum(briefToDisplay.commodityRadar.crudeOilBreakevenStatus.brentUsd, 74.8)}/bbl)
 											</Badge>
 										)}
 									</div>

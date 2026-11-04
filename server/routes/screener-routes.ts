@@ -482,10 +482,37 @@ router.get("/api/screener/stocks/:symbol/brokerage-views", async (req, res) => {
 	try {
 		const symbol = req.params.symbol?.toUpperCase();
 		const currentPrice = req.query.currentPrice ? parseFloat(req.query.currentPrice as string) : undefined;
-		const reference = await marqueeBrokerageService.getMarqueeReference(symbol, currentPrice);
-		res.json({ success: true, data: reference });
+		const fintekValuation = req.query.fintekValuation ? parseFloat(req.query.fintekValuation as string) : undefined;
+		const reference = await marqueeBrokerageService.getMarqueeReference(symbol, currentPrice, fintekValuation);
+		res.json({
+			success: true,
+			data: reference,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: "MARQUEE-v2.0",
+			},
+		});
 	} catch (err: any) {
 		res.status(500).json({ success: false, error: err?.message || "Failed to fetch brokerage views" });
+	}
+});
+
+router.get("/api/screener/brokerage/top-calls", async (req, res) => {
+	try {
+		const tier = req.query.tier as "GLOBAL_BULGE_BRACKET" | "DOMESTIC_TIER_1" | undefined;
+		const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 20, 1), 100);
+		const calls = await marqueeBrokerageService.getTopBrokerageCalls({ tier, limit });
+		res.json({
+			success: true,
+			data: calls,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: "MARQUEE-v2.0",
+				total: calls.length,
+			},
+		});
+	} catch (err: any) {
+		res.status(500).json({ success: false, error: err?.message || "Failed to fetch top brokerage calls" });
 	}
 });
 

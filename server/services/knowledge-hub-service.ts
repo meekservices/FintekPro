@@ -901,7 +901,7 @@ export class KnowledgeHubService {
 						commentary:
 							`Brent crude CFD at $${brentPriceNum}/bbl ${brentPriceNum > 80 ? "above India's comfort threshold (<$80/bbl) — widening CAD and pressuring paint, auto, tyre, chemical margins" : "within India's comfort band (<$80/bbl) — easing imported inflation and supporting downstream margins"}.`,
 					},
-					goldSilverRatio: 82.1,
+					goldSilverRatio: 80.1,
 					asOfDate: new Date().toISOString().split("T")[0],
 					source: "MCX India & CMX / COMEX Benchmarks",
 					engineVersion: "commodity-market-service@1.0.0",

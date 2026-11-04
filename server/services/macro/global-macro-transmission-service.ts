@@ -114,14 +114,17 @@ export class GlobalMacroTransmissionService {
 
 	/**
 	 * Computes the unified Global Macro Transmission Composite Report across all 5 pillars.
+	 * Supports optional dateStr for audit-safe historical day-end reconstruction.
 	 */
-	public async getGlobalMacroReport(forceRefresh = false): Promise<GlobalMacroReport> {
+	public async getGlobalMacroReport(forceRefresh = false, dateStr?: string): Promise<GlobalMacroReport> {
 		const t0 = Date.now();
+		const isHistorical = Boolean(dateStr && dateStr !== new Date().toISOString().split("T")[0]);
+		const cacheKey = isHistorical ? `${CACHE_KEY}:${dateStr}` : CACHE_KEY;
 
 		// Check cache first unless forced refresh is requested
 		if (!forceRefresh) {
 			try {
-				const cached = await distributedCache.getJson<GlobalMacroReport>(CACHE_KEY);
+				const cached = await distributedCache.getJson<GlobalMacroReport>(cacheKey);
 				if (cached) {
 					return {
 						...cached,
@@ -133,13 +136,31 @@ export class GlobalMacroTransmissionService {
 			}
 		}
 
-		// ── Step 1: Parallel Ingestion of Underlying Feeds & Golden Pricing Snapshot ──
+		// ── Step 1: Ingestion of Underlying Feeds & Golden Pricing Snapshot ──
 		let goldenSnapshot: any = null;
 		try {
 			const { goldenPricingEngine } = await import("../golden-pricing/GoldenPricingEngine");
 			goldenSnapshot = await goldenPricingEngine.getDailyMarketBriefLiveSnapshot("india");
 		} catch (gErr: any) {
 			logger.warn("[GlobalMacroTransmissionService] GoldenPricing snapshot fallback:", { error: gErr?.message });
+		}
+
+		// Historical audit-safe price reconstruction from PostgreSQL golden_prices if dateStr is specified
+		let historicalPrices: Record<string, number> = {};
+		if (isHistorical && dateStr) {
+			try {
+				const { db } = await import("../../db");
+				const { sql } = await import("drizzle-orm");
+				const histRows = await db.execute(sql`
+					SELECT isin, price FROM golden_prices
+					WHERE price_date = ${dateStr}::date
+				`);
+				for (const r of (histRows.rows as any[])) {
+					historicalPrices[r.isin] = Number(r.price);
+				}
+			} catch (dbErr: any) {
+				logger.warn("[GlobalMacroTransmissionService] Historical golden_prices lookup warning:", { error: dbErr?.message });
+			}
 		}
 
 		const [commodityRes, ccilRes, fiiRes, exchangeRates] = await Promise.allSettled([
@@ -166,6 +187,7 @@ export class GlobalMacroTransmissionService {
 
 		// Authoritative Anchor: GPE FBIL reference rate (86.85 benchmark), validated within realistic India bounds
 		const rawUsdInr =
+			historicalPrices["FX_USD_INR"] ??
 			goldenSnapshot?.currencies?.usdInr ??
 			(exchangeRates.status === "fulfilled" && exchangeRates.value?.INR
 				? Number(exchangeRates.value.INR)
@@ -175,6 +197,8 @@ export class GlobalMacroTransmissionService {
 		// ── Step 2: Pillar 1 — Energy & Commodities Transmission (Weight: 25%) ──
 		// Authoritative Anchor: GPE Brent Crude CFD price matching Golden Pricing Engine
 		const brentPrice =
+			historicalPrices["COMM_BRENT"] ??
+			historicalPrices["ICE_BRENT_USD"] ??
 			goldenSnapshot?.commodities?.brentCrude?.cfdPriceUsd ??
 			goldenSnapshot?.commodities?.brentCrudeUsd ??
 			commodityData?.crudeOilBreakevenStatus?.brentUsd ??
@@ -238,10 +262,14 @@ export class GlobalMacroTransmissionService {
 
 		// ── Step 4: Pillar 3 — Sovereign Yield Spread & Carry Buffer (Weight: 20%) ──
 		const gsecYield =
+			historicalPrices["YIELD_IN_10Y"] ??
 			goldenSnapshot?.fixedIncome?.gsec10YYield ??
 			ccilData?.sovereignYields?.find((y) => y.tenor === "10Y")?.yieldPercent ??
 			6.79;
-		const us10YBenchmark = goldenSnapshot?.fixedIncome?.us10YTreasury ?? 4.20; // Standard US Treasury baseline
+		const us10YBenchmark =
+			historicalPrices["YIELD_US_10Y"] ??
+			goldenSnapshot?.fixedIncome?.us10YTreasury ??
+			4.20; // Standard US Treasury baseline
 		const spreadBps = Math.round((gsecYield - us10YBenchmark) * 100);
 
 		let pillar3Score = 75;
@@ -257,7 +285,12 @@ export class GlobalMacroTransmissionService {
 			p3Status = "UNFAVORABLE";
 		}
 
-		const realYield10Y = ccilData?.yieldCurveAnalysis?.realYield10Y ?? (gsecYield - 4.2);
+		// Real Yield over Domestic CPI: Nominal 10Y G-Sec Yield minus Domestic CPI Inflation Rate
+		const indiaCpi =
+			historicalPrices["MACRO_IN_CPI"] ??
+			goldenSnapshot?.macroIndicators?.indiaCpiInflation?.value ??
+			5.49;
+		const realYield10Y = Math.round((gsecYield - indiaCpi) * 100) / 100;
 		const pillar3: PillarScore = {
 			pillarId: "P3_SOVEREIGN_SPREAD",
 			name: "Sovereign Yield Spread (G-Sec vs US 10Y)",

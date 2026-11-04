@@ -41,6 +41,7 @@ import {
 	XCircle,
 	ListChecks,
 	ExternalLink,
+	Landmark,
 } from "lucide-react";
 
 export interface IpoDetails {
@@ -262,6 +263,7 @@ interface PreviewData {
 	profitCagr3Y: number | null;
 	profitCagr5Y: number | null;
 	keyPoints?: { pros: string[]; cons: string[] };
+	marqueeBrokerageViews?: any;
 	// Unlisted-specific
 	isUnlisted?: boolean;
 	cin?: string;
@@ -2733,6 +2735,108 @@ export default function ResearchNoteGenerator() {
 							</div>
 						</CardContent>
 					</Card>
+
+					{/* Marquee Institutional Brokerage Views & Street Consensus */}
+					{d.marqueeBrokerageViews && (
+						<Card className="border-primary/20 bg-card/60 shadow-xs">
+							<CardHeader className="pb-2">
+								<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+									<div className="flex items-center gap-2">
+										<Landmark className="h-4 w-4 text-primary" />
+										<CardTitle className="text-sm font-semibold">
+											Marquee Institutional Desk Views & Street Consensus
+										</CardTitle>
+										<Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
+											Dalal Street Consensus
+										</Badge>
+									</div>
+									{d.marqueeBrokerageViews.totalAnalysts ? (
+										<div className="flex items-center gap-2 text-xs">
+											<span className="text-muted-foreground">
+												Street Consensus ({d.marqueeBrokerageViews.totalAnalysts} Analysts):
+											</span>
+											<span className="font-mono font-bold text-foreground">
+												Mean ₹{Number(d.marqueeBrokerageViews.targetMean || 0).toLocaleString("en-IN")}
+											</span>
+											{d.marqueeBrokerageViews.consensusUpsidePercent != null && (
+												<Badge
+													variant="outline"
+													className={`text-[10px] font-mono ${
+														d.marqueeBrokerageViews.consensusUpsidePercent >= 0
+															? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+															: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
+													}`}
+												>
+													{d.marqueeBrokerageViews.consensusUpsidePercent >= 0 ? "+" : ""}
+													{d.marqueeBrokerageViews.consensusUpsidePercent}%
+												</Badge>
+											)}
+										</div>
+									) : null}
+								</div>
+								{d.marqueeBrokerageViews.targetHigh && d.marqueeBrokerageViews.targetLow && (
+									<p className="text-[11px] text-muted-foreground font-mono">
+										Range: Low ₹{Number(d.marqueeBrokerageViews.targetLow).toLocaleString("en-IN")} — High ₹{Number(d.marqueeBrokerageViews.targetHigh).toLocaleString("en-IN")}
+									</p>
+								)}
+							</CardHeader>
+							<CardContent className="space-y-3">
+								{d.marqueeBrokerageViews.quotingSummary && (
+									<div className="bg-muted/40 rounded-md p-2.5 text-xs text-muted-foreground italic border-l-2 border-primary">
+										"{d.marqueeBrokerageViews.quotingSummary}"
+									</div>
+								)}
+
+								{Array.isArray(d.marqueeBrokerageViews.marqueeViews) && d.marqueeBrokerageViews.marqueeViews.length > 0 && (
+									<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
+										{d.marqueeBrokerageViews.marqueeViews.slice(0, 6).map((mv: any, idx: number) => (
+											<div key={idx} className="p-2.5 rounded-md border bg-background/50 hover:bg-muted/20 transition-colors text-xs space-y-1.5">
+												<div className="flex items-center justify-between">
+													<span className="font-semibold text-foreground">{mv.firm}</span>
+													<Badge
+														variant="outline"
+														className={`text-[9px] px-1.5 py-0 ${
+															mv.tier === "GLOBAL_BULGE_BRACKET"
+																? "border-violet-500/30 text-violet-600 dark:text-violet-400 bg-violet-500/10"
+																: "border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/10"
+														}`}
+													>
+														{mv.tier === "GLOBAL_BULGE_BRACKET" ? "Bulge Bracket" : "Domestic Tier-1"}
+													</Badge>
+												</div>
+												<div className="flex items-center justify-between text-[11px]">
+													{mv.targetPrice ? (
+														<span className="font-mono font-medium text-foreground">
+															Target: ₹{Number(mv.targetPrice).toLocaleString("en-IN")}
+														</span>
+													) : (
+														<span className="text-muted-foreground">Rating: {mv.rating || "Covered"}</span>
+													)}
+													{mv.upsidePercent !== null && mv.upsidePercent !== undefined && (
+														<span className={`font-mono font-semibold ${mv.upsidePercent >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+															{mv.upsidePercent >= 0 ? "+" : ""}{mv.upsidePercent}%
+														</span>
+													)}
+												</div>
+												<p className="text-[10px] text-muted-foreground line-clamp-2" title={mv.headline}>
+													{mv.headline}
+												</p>
+												<div className="flex items-center justify-between text-[9px] text-muted-foreground/70 pt-0.5">
+													<span>{mv.source || "Research Note"}</span>
+													<span>{mv.publishedDate}</span>
+												</div>
+											</div>
+										))}
+									</div>
+								)}
+
+								<p className="text-[10px] text-muted-foreground/70 pt-1">
+									{d.marqueeBrokerageViews.disclaimer ||
+										"Institutional views and price targets are curated from public disclosures and media research notes for analytical reference and quotation only."}
+								</p>
+							</CardContent>
+						</Card>
+					)}
 
 					{/* Screener.in Key Points */}
 					{d.keyPoints &&

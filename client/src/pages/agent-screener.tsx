@@ -4881,6 +4881,20 @@ export default function AgentScreener() {
 																											<Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
 																												Reference Only
 																											</Badge>
+																											{stockDetail.marqueeBrokerageViews.consensusRating && (
+																												<Badge
+																													variant="outline"
+																													className={`text-[9px] px-1.5 py-0 font-semibold ${
+																														stockDetail.marqueeBrokerageViews.consensusRating.includes("BUY")
+																															? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+																															: stockDetail.marqueeBrokerageViews.consensusRating.includes("SELL")
+																															? "bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/30"
+																															: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30"
+																													}`}
+																												>
+																													Consensus: {stockDetail.marqueeBrokerageViews.consensusRating}
+																												</Badge>
+																											)}
 																											{stockDetail.stockRegime && (
 																												<Badge
 																													variant="outline"
@@ -4901,14 +4915,27 @@ export default function AgentScreener() {
 																											)}
 																										</div>
 																										{stockDetail.marqueeBrokerageViews.totalAnalysts ? (
-																											<div className="flex items-center gap-2 text-xs">
+																											<div className="flex items-center gap-2 text-xs flex-wrap">
 																												<span className="text-muted-foreground">
 																													Street Consensus ({stockDetail.marqueeBrokerageViews.totalAnalysts} Analysts):
 																												</span>
-																												<span className="font-mono font-semibold text-foreground">
+																												<span className="font-mono font-bold text-foreground">
 																													Mean ₹{Number(stockDetail.marqueeBrokerageViews.targetMean || 0).toLocaleString()}
 																												</span>
-																												{stockDetail.marqueeBrokerageViews.targetHigh && (
+																												{stockDetail.marqueeBrokerageViews.consensusUpsidePercent != null && (
+																													<Badge
+																														variant="outline"
+																														className={`text-[10px] font-mono px-1.5 py-0 ${
+																															stockDetail.marqueeBrokerageViews.consensusUpsidePercent >= 0
+																																? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+																																: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
+																														}`}
+																													>
+																														{stockDetail.marqueeBrokerageViews.consensusUpsidePercent >= 0 ? "+" : ""}
+																														{stockDetail.marqueeBrokerageViews.consensusUpsidePercent}%
+																													</Badge>
+																												)}
+																												{stockDetail.marqueeBrokerageViews.targetHigh && stockDetail.marqueeBrokerageViews.targetLow && (
 																													<span className="text-muted-foreground font-mono text-[11px]">
 																														[Low ₹{Number(stockDetail.marqueeBrokerageViews.targetLow || 0).toLocaleString()} – High ₹{Number(stockDetail.marqueeBrokerageViews.targetHigh || 0).toLocaleString()}]
 																													</span>
@@ -4916,6 +4943,31 @@ export default function AgentScreener() {
 																											</div>
 																										) : null}
 																									</div>
+
+																									{/* Target Range Visual Meter */}
+																									{stockDetail.marqueeBrokerageViews.targetLow && stockDetail.marqueeBrokerageViews.targetHigh && stockDetail.marqueeBrokerageViews.targetMean && (
+																										<div className="bg-muted/20 border rounded-md p-2.5 space-y-1.5 text-xs">
+																											<div className="flex justify-between items-center text-[10px] text-muted-foreground">
+																												<span>Street Range</span>
+																												<span className="font-mono">
+																													Low: ₹{Number(stockDetail.marqueeBrokerageViews.targetLow).toLocaleString()} | Mean: ₹{Number(stockDetail.marqueeBrokerageViews.targetMean).toLocaleString()} | High: ₹{Number(stockDetail.marqueeBrokerageViews.targetHigh).toLocaleString()}
+																												</span>
+																											</div>
+																											<div className="w-full bg-muted/60 h-2 rounded-full relative overflow-hidden flex items-center">
+																												<div className="absolute inset-y-0 bg-primary/20 rounded-full w-full" />
+																												{stockDetail.current_price && stockDetail.marqueeBrokerageViews.targetLow && stockDetail.marqueeBrokerageViews.targetHigh && (
+																													<div
+																														className="absolute top-0 bottom-0 bg-primary rounded-full"
+																														style={{
+																															left: `${Math.max(0, Math.min(100, ((stockDetail.current_price - stockDetail.marqueeBrokerageViews.targetLow) / Math.max(1, (stockDetail.marqueeBrokerageViews.targetHigh - stockDetail.marqueeBrokerageViews.targetLow))) * 100))}%`,
+																															width: "4px",
+																														}}
+																														title={`Current Price: ₹${stockDetail.current_price}`}
+																													/>
+																												)}
+																											</div>
+																										</div>
+																									)}
 
 																									{stockDetail.marqueeBrokerageViews.quotingSummary && (
 																										<div className="bg-muted/40 rounded-md p-2.5 text-xs text-muted-foreground italic border-l-2 border-primary">
@@ -4926,12 +4978,28 @@ export default function AgentScreener() {
 																									{Array.isArray(stockDetail.marqueeBrokerageViews.marqueeViews) && stockDetail.marqueeBrokerageViews.marqueeViews.length > 0 && (
 																										<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
 																											{stockDetail.marqueeBrokerageViews.marqueeViews.slice(0, 6).map((mv: any, idx: number) => (
-																												<div key={idx} className="p-2.5 rounded-md border bg-background/50 hover:bg-muted/20 transition-colors text-xs space-y-1">
+																												<div key={idx} className="p-2.5 rounded-md border bg-background/50 hover:bg-muted/20 transition-colors text-xs space-y-1.5">
 																													<div className="flex items-center justify-between">
 																														<span className="font-semibold text-foreground">{mv.firm}</span>
-																														<Badge variant="outline" className={`text-[9px] px-1 py-0 ${mv.tier === "GLOBAL_BULGE_BRACKET" ? "border-violet-500/30 text-violet-600 dark:text-violet-400 bg-violet-500/10" : "border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/10"}`}>
-																															{mv.tier === "GLOBAL_BULGE_BRACKET" ? "Bulge Bracket" : "Domestic Tier-1"}
-																														</Badge>
+																														<div className="flex items-center gap-1">
+																															{mv.action && mv.action !== "MAINTAIN" && (
+																																<Badge
+																																	variant="outline"
+																																	className={`text-[8px] px-1 py-0 ${
+																																		mv.action === "UPGRADE"
+																																			? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+																																			: mv.action === "DOWNGRADE"
+																																			? "bg-red-500/10 text-red-600 border-red-500/30"
+																																			: "bg-blue-500/10 text-blue-600 border-blue-500/30"
+																																	}`}
+																																>
+																																	{mv.action}
+																																</Badge>
+																															)}
+																															<Badge variant="outline" className={`text-[9px] px-1 py-0 ${mv.tier === "GLOBAL_BULGE_BRACKET" ? "border-violet-500/30 text-violet-600 dark:text-violet-400 bg-violet-500/10" : "border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/10"}`}>
+																																{mv.tier === "GLOBAL_BULGE_BRACKET" ? "Bulge Bracket" : "Domestic Tier-1"}
+																															</Badge>
+																														</div>
 																													</div>
 																													<div className="flex items-center justify-between text-[11px]">
 																														{mv.targetPrice ? (
@@ -4942,8 +5010,8 @@ export default function AgentScreener() {
 																															<span className="text-muted-foreground">Rating: {mv.rating || "Covered"}</span>
 																														)}
 																														{mv.upsidePercent !== null && mv.upsidePercent !== undefined && (
-																															<span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-																																+{mv.upsidePercent}%
+																															<span className={`font-mono font-semibold ${mv.upsidePercent >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+																																{mv.upsidePercent >= 0 ? "+" : ""}{mv.upsidePercent}%
 																															</span>
 																														)}
 																													</div>

@@ -174,10 +174,10 @@ const BASELINE_CCIL_DATA: CcilMoneyMarketSnapshot = {
   yieldCurveAnalysis: {
     tenor10Y_minus_2Y_bps: 28, // 6.79 - 6.51 = 28 bps
     slope: "Normal Upward",
-    realYield10Y: 2.59, // 6.79 - 4.20
-    cpiInflationAssumed: 4.20,
+    realYield10Y: 1.30, // 6.79 - 5.49 (India CPI Inflation)
+    cpiInflationAssumed: 5.49,
     commentary:
-      "Sovereign yield curve reflects normal upward slope (+28 bps 10Y–2Y spread). Benchmark 10Y real yield at +2.59% offers compelling carry and duration opportunities for gilt funds ahead of anticipated monetary easing.",
+      "Sovereign yield curve reflects normal upward slope (+28 bps 10Y–2Y spread). Benchmark 10Y real yield at +1.30% over CPI provides attractive carry, while sovereign spread of +259 bps over US 10Y UST anchors domestic debt ballast.",
   },
   sdlSpreadBps: 38, // State Development Loans offering ~7.17% (38 bps over 10Y G-Sec)
   asOfDate: new Date().toISOString().split("T")[0],

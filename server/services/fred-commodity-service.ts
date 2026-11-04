@@ -88,12 +88,12 @@ const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour cache (FRED publishes daily serie
 
 // Known official Federal Reserve Economic Data series IDs
 export const FRED_SERIES = {
-	BRENT_CRUDE: { id: "DCOILBRENTEU", name: "Crude Oil Prices: Brent - Europe", unit: "USD / bbl", category: "energy" as const, fallback: 112.0 },
-	WTI_CRUDE: { id: "DCOILWTICO", name: "Crude Oil Prices: West Texas Intermediate (WTI)", unit: "USD / bbl", category: "energy" as const, fallback: 104.12 },
+	BRENT_CRUDE: { id: "DCOILBRENTEU", name: "Crude Oil Prices: Brent - Europe", unit: "USD / bbl", category: "energy" as const, fallback: 74.80 },
+	WTI_CRUDE: { id: "DCOILWTICO", name: "Crude Oil Prices: West Texas Intermediate (WTI)", unit: "USD / bbl", category: "energy" as const, fallback: 70.85 },
 	NATURAL_GAS: { id: "DHHNGSP", name: "Henry Hub Natural Gas Spot Price", unit: "USD / mmBtu", category: "energy" as const, fallback: 2.75 },
-	US_10Y: { id: "DGS10", name: "10-Year Treasury Constant Maturity Rate", unit: "%", category: "treasury" as const, fallback: 4.18 },
-	US_2Y: { id: "DGS2", name: "2-Year Treasury Constant Maturity Rate", unit: "%", category: "treasury" as const, fallback: 3.98 },
-	FED_FUNDS: { id: "DFF", name: "Federal Funds Effective Rate", unit: "%", category: "rate" as const, fallback: 4.75 },
+	US_10Y: { id: "DGS10", name: "10-Year Treasury Constant Maturity Rate", unit: "%", category: "treasury" as const, fallback: 4.58 },
+	US_2Y: { id: "DGS2", name: "2-Year Treasury Constant Maturity Rate", unit: "%", category: "treasury" as const, fallback: 4.35 },
+	FED_FUNDS: { id: "DFF", name: "Federal Funds Effective Rate", unit: "%", category: "rate" as const, fallback: 4.38 },
 };
 
 class FredCommodityService {

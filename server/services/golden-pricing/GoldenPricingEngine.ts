@@ -2208,6 +2208,7 @@ const SNAPSHOT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
  */
 export async function syncMacroAndMarketBriefPrices(
 	priceDate?: string,
+	forceRefresh: boolean = false,
 ): Promise<DailyMarketBriefSnapshot> {
 	const today = priceDate ?? new Date().toISOString().slice(0, 10);
 	const timestamp = new Date().toISOString();
@@ -2263,7 +2264,7 @@ export async function syncMacroAndMarketBriefPrices(
 	let fredData: any = null;
 	try {
 		const { fredCommodityService } = await import("../fred-commodity-service");
-		fredData = await fredCommodityService.getCommodityAndMacroSnapshot();
+		fredData = await fredCommodityService.getCommodityAndMacroSnapshot(forceRefresh);
 	} catch (e: any) {
 		logger.warn(`[GoldenPricing] FRED commodity and macro sync warning: ${e?.message || e}`);
 	}
@@ -2290,7 +2291,7 @@ export async function syncMacroAndMarketBriefPrices(
 	const indiaCpi = 5.49; // MoSPI Headline Consumer Price Index YoY %
 	const usCpi = 2.40; // US BLS CPI YoY %
 	const rbiRepo = 6.50; // RBI MPC Benchmark Policy Repo Rate %
-	const usFedFunds = fredData?.fedFundsRate?.rate ?? 4.75; // US Federal Reserve Target Rate % (FRED DFF)
+	const usFedFunds = fredData?.fedFundsRate?.rate ?? 4.38; // US Federal Reserve Target Rate % (FRED DFF)
 	const indiaGdp = 6.70; // CSO / NSO Real GDP Annual Growth %
 
 	// 3. Resolve Sovereign Debt & Yields
@@ -2300,8 +2301,8 @@ export async function syncMacroAndMarketBriefPrices(
 	const fbilMibor = fbilData?.miborOvernight ?? 6.50;
 	const realYield10Y = Math.round((gsec10Y - indiaCpi) * 100) / 100;
 
-	const us10Y = fredData?.us10YTreasury?.yieldPercent ?? 4.18; // FRED DGS10 10Y Benchmark
-	const us2Y = fredData?.us2YTreasury?.yieldPercent ?? 3.98; // FRED DGS2 2Y Benchmark
+	const us10Y = fredData?.us10YTreasury?.yieldPercent ?? 4.58; // FRED DGS10 10Y Benchmark
+	const us2Y = fredData?.us2YTreasury?.yieldPercent ?? 4.35; // FRED DGS2 2Y Benchmark
 	const bund10Y = 2.32;
 	const gilt10Y = 4.24;
 	const jgb10Y = 0.95;
@@ -2846,7 +2847,7 @@ export async function getDailyMarketBriefLiveSnapshot(
 	}
 
 	// 3. Run full sync (builds snapshot + persists to DB + seeds memory cache)
-	return await syncMacroAndMarketBriefPrices();
+	return await syncMacroAndMarketBriefPrices(undefined, forceRefresh);
 }
 
 /**

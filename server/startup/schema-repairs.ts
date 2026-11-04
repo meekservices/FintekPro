@@ -6558,9 +6558,77 @@ export async function ensureEngineGapFixTables(poolInstance?: any): Promise<void
       ALTER TABLE ai_recommendation_tracking ADD COLUMN IF NOT EXISTS factors_considered JSONB;
       ALTER TABLE ai_recommendation_tracking ADD COLUMN IF NOT EXISTS model_version      VARCHAR(30);
       ALTER TABLE ai_recommendation_tracking ADD COLUMN IF NOT EXISTS macro_regime_id    INTEGER;
+
+      -- ── Marquee Institutional Brokerage Tables (GCR v1.0 & FASP-AI v1.0) ───
+      CREATE TABLE IF NOT EXISTS brokerage_firms (
+        id            SERIAL PRIMARY KEY,
+        name          VARCHAR(150) NOT NULL UNIQUE,
+        code          VARCHAR(50)  NOT NULL UNIQUE,
+        tier          VARCHAR(50)  NOT NULL,
+        country       VARCHAR(50)  DEFAULT 'INDIA',
+        logo_url      TEXT,
+        is_active     BOOLEAN      NOT NULL DEFAULT true,
+        created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+        updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_brokerage_firms_code ON brokerage_firms (code);
+      CREATE INDEX IF NOT EXISTS idx_brokerage_firms_tier ON brokerage_firms (tier);
+
+      CREATE TABLE IF NOT EXISTS brokerage_coverage_calls (
+        id                    SERIAL PRIMARY KEY,
+        symbol                VARCHAR(50)  NOT NULL,
+        brokerage_id          INTEGER      REFERENCES brokerage_firms(id),
+        brokerage_name        VARCHAR(150) NOT NULL,
+        tier                  VARCHAR(50)  NOT NULL DEFAULT 'DOMESTIC_TIER_1',
+        rating                VARCHAR(50)  NOT NULL,
+        action                VARCHAR(50)  DEFAULT 'MAINTAIN',
+        target_price          DECIMAL(15, 2),
+        previous_target_price DECIMAL(15, 2),
+        price_at_call         DECIMAL(15, 2),
+        upside_percent        DECIMAL(8, 2),
+        headline              TEXT         NOT NULL,
+        quote_snippet         TEXT,
+        key_takeaways         TEXT,
+        published_date        TIMESTAMPTZ  NOT NULL,
+        source                VARCHAR(100) DEFAULT 'Institutional Research',
+        source_url            TEXT,
+        raw_payload           JSONB,
+        created_at            TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+        updated_at            TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_brokerage_calls_symbol   ON brokerage_coverage_calls (symbol);
+      CREATE INDEX IF NOT EXISTS idx_brokerage_calls_name     ON brokerage_coverage_calls (brokerage_name);
+      CREATE INDEX IF NOT EXISTS idx_brokerage_calls_rating   ON brokerage_coverage_calls (rating);
+      CREATE INDEX IF NOT EXISTS idx_brokerage_calls_pubdate  ON brokerage_coverage_calls (published_date);
+      CREATE INDEX IF NOT EXISTS idx_brokerage_calls_sym_date ON brokerage_coverage_calls (symbol, published_date);
+
+      CREATE TABLE IF NOT EXISTS brokerage_consensus_history (
+        id                       SERIAL PRIMARY KEY,
+        symbol                   VARCHAR(50) NOT NULL,
+        snapshot_date            DATE        NOT NULL,
+        current_price            DECIMAL(15, 2),
+        target_mean              DECIMAL(15, 2),
+        target_median            DECIMAL(15, 2),
+        target_high              DECIMAL(15, 2),
+        target_low               DECIMAL(15, 2),
+        consensus_upside_percent DECIMAL(8, 2),
+        consensus_rating         VARCHAR(50) DEFAULT 'HOLD',
+        total_analysts           INTEGER     DEFAULT 0,
+        buy_count                INTEGER     DEFAULT 0,
+        hold_count               INTEGER     DEFAULT 0,
+        sell_count               INTEGER     DEFAULT 0,
+        bulge_bracket_count      INTEGER     DEFAULT 0,
+        domestic_tier1_count     INTEGER     DEFAULT 0,
+        quoting_summary          TEXT,
+        source                   VARCHAR(50) DEFAULT 'FINTEKPRO_CONSENSUS',
+        created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT uq_brokerage_consensus_symbol_date UNIQUE (symbol, snapshot_date)
+      );
+      CREATE INDEX IF NOT EXISTS idx_brokerage_consensus_symbol ON brokerage_consensus_history (symbol);
+      CREATE INDEX IF NOT EXISTS idx_brokerage_consensus_date   ON brokerage_consensus_history (snapshot_date);
     `);
 
-    console.log("  ✅ [GapFix] Engine gap-fix tables and columns ensured: asset_returns_history, macro_regime_snapshots, golden_prices_intraday, benchmark_correlation_matrix, daily_picks FASP-AI cols, ai_recommendation_tracking FASP-AI cols");
+    console.log("  ✅ [GapFix] Engine gap-fix tables and columns ensured: asset_returns_history, macro_regime_snapshots, golden_prices_intraday, benchmark_correlation_matrix, marquee brokerage tables (brokerage_firms, brokerage_coverage_calls, brokerage_consensus_history)");
   } catch (err: any) {
     console.warn("  ⚠️ [GapFix] Non-fatal migration error:", err?.message?.slice(0, 200));
   }

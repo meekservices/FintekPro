@@ -3071,6 +3071,78 @@ export async function generatePDF(data: ReportData): Promise<Buffer> {
 		});
 		y3 += 52;
 
+		// ── Marquee Institutional Brokerage Views & Street Consensus ─────────────
+		if (data.marqueeBrokerageViews && (data.marqueeBrokerageViews.totalAnalysts > 0 || (Array.isArray(data.marqueeBrokerageViews.marqueeViews) && data.marqueeBrokerageViews.marqueeViews.length > 0))) {
+			const mv = data.marqueeBrokerageViews;
+			if (y3 + 90 > doc.page.height - 70) {
+				doc.addPage();
+				doc.rect(0, 0, W, 30).fill("#0f3460");
+				doc.fillColor("#FFFFFF").fontSize(11).font("Helvetica-Bold").text("FintekPro Research", 45, 9);
+				doc.fillColor("#94A3B8").fontSize(9).font("Helvetica").text(`${data.companyName} — Institutional Coverage`, 170, 10);
+				y3 = 45;
+			}
+
+			doc
+				.fillColor("#0f3460")
+				.fontSize(12)
+				.font("Helvetica-Bold")
+				.text("Marquee Institutional Desk Views & Street Consensus", 45, y3);
+			y3 += 16;
+
+			// Consensus Summary Box
+			doc.rect(45, y3, PW, 32).fill("#F8FAFC").stroke("#CBD5E1");
+			doc
+				.fillColor("#1E293B")
+				.fontSize(9)
+				.font("Helvetica-Bold")
+				.text(`Street Consensus: ${mv.consensusRating || "HOLD"}  (${mv.totalAnalysts || mv.marqueeViews?.length || 0} Analysts)`, 52, y3 + 6);
+
+			const targetStr = mv.targetMean ? `Mean TP: ₹${Number(mv.targetMean).toLocaleString("en-IN")}` : "";
+			const upsideStr = mv.consensusUpsidePercent != null ? ` (${mv.consensusUpsidePercent >= 0 ? "+" : ""}${mv.consensusUpsidePercent}%)` : "";
+			doc
+				.fillColor("#16A34A")
+				.fontSize(9)
+				.font("Helvetica-Bold")
+				.text(`${targetStr}${upsideStr}`, 45 + PW - 190, y3 + 6, { width: 180, align: "right" });
+
+			const quote = mv.quotingSummary ? `"${mv.quotingSummary.slice(0, 150)}..."` : "";
+			doc
+				.fillColor("#64748B")
+				.fontSize(7.5)
+				.font("Helvetica-Oblique")
+				.text(quote, 52, y3 + 19, { width: PW - 14 });
+			y3 += 38;
+
+			// Top marquee calls
+			if (Array.isArray(mv.marqueeViews) && mv.marqueeViews.length > 0) {
+				const topViews = mv.marqueeViews.slice(0, 3);
+				const colW = PW / topViews.length;
+				topViews.forEach((call: any, idx: number) => {
+					const cx = 45 + idx * colW;
+					doc.rect(cx, y3, colW - 4, 34).fill("#FFFFFF").stroke("#E2E8F0");
+					doc
+						.fillColor("#0F172A")
+						.fontSize(8)
+						.font("Helvetica-Bold")
+						.text(call.firm, cx + 4, y3 + 4, { width: colW - 8 });
+					const callDetail = call.targetPrice
+						? `TP: ₹${Number(call.targetPrice).toLocaleString("en-IN")}`
+						: `Rating: ${call.rating || "Covered"}`;
+					doc
+						.fillColor("#1E40AF")
+						.fontSize(7.5)
+						.font("Helvetica")
+						.text(callDetail, cx + 4, y3 + 14, { width: colW - 8 });
+					doc
+						.fillColor("#64748B")
+						.fontSize(7)
+						.font("Helvetica")
+						.text(call.headline?.slice(0, 42) || "", cx + 4, y3 + 23, { width: colW - 8 });
+				});
+				y3 += 40;
+			}
+		}
+
 		doc
 			.moveTo(45, y3)
 			.lineTo(W - 45, y3)
@@ -3348,6 +3420,27 @@ export async function generateOnePager(data: ReportData): Promise<Buffer> {
 				.text(`1Y Return: ${signStr(f.returns1Y)}`, W - 130, y);
 		}
 		y += 18;
+
+		// Marquee Consensus snippet for One Pager
+		if (data.marqueeBrokerageViews && data.marqueeBrokerageViews.quotingSummary) {
+			doc
+				.fillColor("#0f3460")
+				.fontSize(8)
+				.font("Helvetica-Bold")
+				.text("Street Consensus:", 40, y);
+			doc
+				.fillColor("#374151")
+				.fontSize(7.5)
+				.font("Helvetica")
+				.text(
+					data.marqueeBrokerageViews.quotingSummary.slice(0, 130) +
+						(data.marqueeBrokerageViews.quotingSummary.length > 130 ? "..." : ""),
+					120,
+					y,
+					{ width: PW - 85 },
+				);
+			y += 16;
+		}
 
 		// Footer
 		const fY = doc.page.height - 38;
