@@ -66,7 +66,11 @@ import {
 	Plus,
 	Bot,
 	Coins,
+	Server,
+	Download,
 } from "lucide-react";
+import { ScreenerInQuerySection } from "@/components/screener/ScreenerInQuerySection";
+import { ScreenerProsConsBox } from "@/components/screener/ScreenerProsConsBox";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -643,7 +647,8 @@ export default function AgentScreener() {
 	const [dbSortBy, setDbSortBy] = useState("compositeScore");
 	const [dbSortOrder, setDbSortOrder] = useState<"asc" | "desc">("desc");
 	const [dbPage, setDbPage] = useState(1);
-	const dbLimit = 25;
+	const [dbLimit, setDbLimit] = useState(50);
+	const [screenerInQuery, setScreenerInQuery] = useState("");
 
 	// ── MF filter state ───────────────────────────────────────────────────────
 	const [mfCategory, setMfCategory] = useState(() => {
@@ -784,6 +789,7 @@ export default function AgentScreener() {
 		const params = new URLSearchParams();
 		params.set("page", String(dbPage));
 		params.set("limit", String(dbLimit));
+		if (screenerInQuery) params.set("query", screenerInQuery);
 		if (dbSearch) params.set("search", dbSearch);
 		if (dbMacroSector) params.set("macroSector", dbMacroSector);
 		if (dbSubSector) params.set("subSector", dbSubSector);
@@ -801,12 +807,80 @@ export default function AgentScreener() {
 		return params.toString();
 	};
 
+	const handleExportCsv = () => {
+		const stocks = dbScreenerData?.stocks || [];
+		if (!stocks.length) {
+			toast({ title: "No data to export", description: "Run a screen with results first." });
+			return;
+		}
+
+		const headers = [
+			"Symbol",
+			"Company Name",
+			"Current Price (₹)",
+			"Market Cap (Cr)",
+			"Category",
+			"P/E",
+			"P/B",
+			"ROCE (%)",
+			"ROE (%)",
+			"Debt/Equity",
+			"Net Profit Margin (%)",
+			"Operating Margin (%)",
+			"Free Cash Flow (Cr)",
+			"Promoter Holding (%)",
+			"FII Holding (%)",
+			"DII Holding (%)",
+			"Pledged Shares (%)",
+			"Piotroski Score",
+			"Altman Z-Score",
+			"1Y Return (%)",
+			"FintekPro Score"
+		];
+
+		const rows = stocks.map((s: any) => [
+			s.symbol,
+			`"${(s.companyName || "").replace(/"/g, '""')}"`,
+			s.currentPrice || "",
+			s.marketCapValue ? (Number(s.marketCapValue) / 10000000).toFixed(2) : "",
+			s.marketCapCategory || "",
+			s.peRatio || "",
+			s.pbRatio || "",
+			s.roce ? (Number(s.roce) > 1 ? Number(s.roce) : Number(s.roce) * 100).toFixed(2) : "",
+			s.roe ? (Number(s.roe) > 1 ? Number(s.roe) : Number(s.roe) * 100).toFixed(2) : "",
+			s.debtToEquity || "",
+			s.netProfitMargin || "",
+			s.operatingMargin ? (Number(s.operatingMargin) <= 1 ? (Number(s.operatingMargin) * 100).toFixed(2) : s.operatingMargin) : "",
+			s.freeCashFlow || "",
+			s.promoterHolding || "",
+			s.fiiHolding || "",
+			s.diiHolding || "",
+			s.pledgedShares || "",
+			s.piotroskiScore ?? "",
+			s.altmanZScore || "",
+			s.return1Y ? (Number(s.return1Y) * 100).toFixed(2) : "",
+			s.compositeScore || ""
+		]);
+
+		const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r: any) => r.join(","))].join("\n");
+		const encodedUri = encodeURI(csvContent);
+		const link = document.createElement("a");
+		link.setAttribute("href", encodedUri);
+		link.setAttribute("download", `fintekpro_screener_${new Date().toISOString().split("T")[0]}.csv`);
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		toast({ title: "CSV Exported", description: `Exported ${stocks.length} stocks successfully.` });
+	};
+
 	const isNonStockType = screenerType !== "stock" && screenerType !== "global_stock";
 
 	const { data: dbScreenerData, isLoading: dbLoading } = useQuery<any>({
 		queryKey: [
 			"/api/screener/stocks",
 			dbPage,
+			dbLimit,
+			screenerInQuery,
 			dbSearch,
 			dbMacroSector,
 			dbSubSector,
@@ -1628,6 +1702,10 @@ export default function AgentScreener() {
 									<Database className="h-3.5 w-3.5 mr-1" />
 									Screener
 								</TabsTrigger>
+								<TabsTrigger value="screener-in" className="text-xs px-3 h-7 font-medium text-primary">
+									<Sparkles className="h-3.5 w-3.5 mr-1" />
+									Screener.in Query
+								</TabsTrigger>
 								<TabsTrigger value="builder" className="text-xs px-3 h-7">
 									<SlidersHorizontal className="h-3.5 w-3.5 mr-1" />
 									Custom
@@ -1635,6 +1713,10 @@ export default function AgentScreener() {
 								<TabsTrigger value="saved" className="text-xs px-3 h-7">
 									<Save className="h-3.5 w-3.5 mr-1" />
 									Saved
+								</TabsTrigger>
+								<TabsTrigger value="admin" className="text-xs px-3 h-7">
+									<Server className="h-3.5 w-3.5 mr-1 text-cyan-600 dark:text-cyan-400" />
+									Data Hub & AI
 								</TabsTrigger>
 							</TabsList>
 						</div>
@@ -3324,6 +3406,21 @@ export default function AgentScreener() {
 								{/* ── Stock Screener (existing) ─────────────────────────────────── */}
 								{screenerType === "stock" && (
 								<div className="space-y-3">
+									{/* Screener.in Natural Language Query Bar & Presets */}
+									<ScreenerInQuerySection
+										query={screenerInQuery}
+										onQueryChange={(q) => {
+											setScreenerInQuery(q);
+										}}
+										onRunQuery={(q) => {
+											setScreenerInQuery(q);
+											setDbPage(1);
+										}}
+										onExportCsv={handleExportCsv}
+										totalMatches={dbScreenerData?.total}
+										isLoading={dbLoading}
+									/>
+
 								<div className="flex items-center justify-between">
 									<Button
 										variant={showFilters ? "secondary" : "outline"}
@@ -3340,6 +3437,24 @@ export default function AgentScreener() {
 										)}
 									</Button>
 									<div className="flex items-center gap-2">
+										{/* Page limit selector */}
+										<div className="flex items-center gap-1 text-xs text-muted-foreground mr-1">
+											<span className="text-[11px]">Show:</span>
+											<select
+												className="h-7 text-xs border rounded px-1.5 bg-background font-mono"
+												value={dbLimit}
+												onChange={(e) => {
+													setDbLimit(Number(e.target.value));
+													setDbPage(1);
+												}}
+											>
+												<option value={25}>25</option>
+												<option value={50}>50</option>
+												<option value={100}>100</option>
+												<option value={250}>250</option>
+												<option value={500}>500</option>
+											</select>
+										</div>
 										<div className="relative w-60">
 											<Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
 											<Input
@@ -4204,6 +4319,13 @@ export default function AgentScreener() {
 																							</div>
 																						) : stockDetail ? (
 																							<>
+																								{/* Screener.in Pros & Cons Box */}
+																								<ScreenerProsConsBox
+																									pros={stockDetail.financials?.[0]?.pros}
+																									cons={stockDetail.financials?.[0]?.cons}
+																									companyName={stock.companyName}
+																								/>
+
 																								<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
 																								<div className="space-y-3">
 																									<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -5375,6 +5497,92 @@ export default function AgentScreener() {
 									</div>
 								)}
 							</div>
+						</CardContent>
+					</TabsContent>
+
+					<TabsContent value="screener-in" className="m-0">
+						<CardContent className="pt-4 px-4 space-y-4">
+							<ScreenerInQuerySection
+								query={screenerInQuery}
+								onQueryChange={(q) => {
+									setScreenerInQuery(q);
+								}}
+								onRunQuery={(q) => {
+									setScreenerInQuery(q);
+									setDbPage(1);
+								}}
+								onExportCsv={handleExportCsv}
+								totalMatches={dbScreenerData?.total}
+								isLoading={dbLoading}
+							/>
+
+							{/* Live Query Results Table */}
+							{dbLoading ? (
+								<div className="flex items-center justify-center py-12 gap-2 text-sm text-muted-foreground">
+									<Loader2 className="h-5 w-5 animate-spin text-primary" />
+									Running Screener.in Query against full universe...
+								</div>
+							) : dbScreenerData?.stocks?.length ? (
+								<div className="space-y-2">
+									<div className="flex items-center justify-between text-xs text-muted-foreground">
+										<span className="font-semibold text-foreground">
+											Found {dbScreenerData.total} matching instruments (showing page {dbPage} of {dbScreenerData.totalPages})
+										</span>
+										<Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleExportCsv}>
+											<Download className="h-3.5 w-3.5 mr-1" />
+											Export {dbScreenerData.stocks.length} to CSV
+										</Button>
+									</div>
+									<div className="border rounded-lg overflow-x-auto">
+										<table className="w-full text-xs">
+											<thead className="bg-muted/50 border-b">
+												<tr>
+													<th className="py-2.5 px-3 text-left">#</th>
+													<th className="py-2.5 px-3 text-left">Company</th>
+													<th className="py-2.5 px-3 text-right">Price</th>
+													<th className="py-2.5 px-3 text-right">Mkt Cap</th>
+													<th className="py-2.5 px-3 text-right">P/E</th>
+													<th className="py-2.5 px-3 text-right">P/B</th>
+													<th className="py-2.5 px-3 text-right">ROCE</th>
+													<th className="py-2.5 px-3 text-right">ROE</th>
+													<th className="py-2.5 px-3 text-right">D/E</th>
+													<th className="py-2.5 px-3 text-right">Promoter</th>
+													<th className="py-2.5 px-3 text-right">FII</th>
+													<th className="py-2.5 px-3 text-right">Score</th>
+												</tr>
+											</thead>
+											<tbody>
+												{dbScreenerData.stocks.map((stock: any, idx: number) => (
+													<tr key={stock.symbol} className="border-b hover:bg-muted/30">
+														<td className="py-2 px-3 text-muted-foreground font-mono">
+															{(dbPage - 1) * dbLimit + idx + 1}
+														</td>
+														<td className="py-2 px-3">
+															<div className="font-semibold text-foreground">{stock.companyName}</div>
+															<div className="text-[10px] text-muted-foreground font-mono">{stock.symbol}</div>
+														</td>
+														<td className="py-2 px-3 text-right font-mono font-medium">₹{stock.currentPrice}</td>
+														<td className="py-2 px-3 text-right font-mono">{formatMarketCap(stock.marketCapValue)}</td>
+														<td className="py-2 px-3 text-right font-mono">{formatNum(stock.peRatio)}</td>
+														<td className="py-2 px-3 text-right font-mono">{formatNum(stock.pbRatio)}</td>
+														<td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400 font-semibold">{formatRoe(stock.roce)}</td>
+														<td className="py-2 px-3 text-right font-mono">{formatRoe(stock.roe)}</td>
+														<td className="py-2 px-3 text-right font-mono">{formatNum(stock.debtToEquity)}</td>
+														<td className="py-2 px-3 text-right font-mono">{stock.promoterHolding ? `${Number(stock.promoterHolding).toFixed(1)}%` : "-"}</td>
+														<td className="py-2 px-3 text-right font-mono">{stock.fiiHolding ? `${Number(stock.fiiHolding).toFixed(1)}%` : "-"}</td>
+														<td className="py-2 px-3 text-right font-mono font-bold text-primary">{stock.compositeScore ? Number(stock.compositeScore).toFixed(0) : "-"}</td>
+													</tr>
+												))}
+											</tbody>
+										</table>
+									</div>
+								</div>
+							) : (
+								<div className="text-center py-12 text-muted-foreground text-xs space-y-1">
+									<div className="font-semibold text-foreground text-sm">No stocks match your query criteria</div>
+									<div>Try adjusting operators or threshold numbers (e.g. lower ROCE or raise P/E).</div>
+								</div>
+							)}
 						</CardContent>
 					</TabsContent>
 

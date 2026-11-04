@@ -234,7 +234,8 @@ export class ScreenerMasterSnapshotService {
             symbol, pe_ratio, forward_pe, peg_ratio, pb_ratio, ev_to_ebitda,
             roe, roce, roa, net_profit_margin, operating_margin, gross_margin,
             debt_to_equity, current_ratio, dividend_yield, eps, book_value,
-            earnings_growth, free_cash_flow, interest_coverage, fiscal_year
+            earnings_growth, free_cash_flow, interest_coverage, fiscal_year,
+            revenue, net_income, operating_cash_flow
           FROM screener_financials
           WHERE symbol = ANY(${symbolListSql})
           ORDER BY symbol, fiscal_year DESC NULLS LAST, last_updated DESC NULLS LAST
@@ -340,13 +341,13 @@ export class ScreenerMasterSnapshotService {
         COALESCE(NULLIF(fin.pe_ratio::numeric, 0), NULLIF(km.km_pe::numeric, 0)),
         fin.forward_pe::numeric,
         fin.peg_ratio::numeric,
-        COALESCE(NULLIF(fin.pb_ratio::numeric, 0), NULLIF(km.km_pb::numeric, 0)),
+        GREATEST(-99999.9999::numeric, LEAST(99999.9999::numeric, COALESCE(NULLIF(fin.pb_ratio::numeric, 0), NULLIF(km.km_pb::numeric, 0), ROUND(NULLIF(ls.current_price::numeric, 0) / NULLIF(fin.book_value::numeric, 0), 2)))),
         fin.ev_to_ebitda::numeric,
         COALESCE(NULLIF(fin.roe::numeric, 0), NULLIF(km.km_roe::numeric, 0)),
         fin.roce::numeric,
         fin.roa::numeric,
         km.roic::numeric,
-        fin.net_profit_margin::numeric,
+        GREATEST(-99999.9999::numeric, LEAST(99999.9999::numeric, COALESCE(fin.net_profit_margin::numeric, ROUND((fin.net_income::numeric / NULLIF(fin.revenue::numeric, 0)) * 100, 2)))),
         fin.operating_margin::numeric,
         fin.gross_margin::numeric,
         COALESCE(fin.debt_to_equity::numeric, km.km_de::numeric),
@@ -357,18 +358,18 @@ export class ScreenerMasterSnapshotService {
         COALESCE(gm.revenue_growth::numeric, fin.earnings_growth::numeric),
         COALESCE(gm.gm_earnings_growth::numeric, fin.earnings_growth::numeric),
         fin.free_cash_flow::numeric,
-        NULL::numeric AS fcf_margin,
+        GREATEST(-99999.9999::numeric, LEAST(99999.9999::numeric, COALESCE(ROUND((fin.free_cash_flow::numeric / NULLIF(fin.revenue::numeric, 0)) * 100, 2)))),
         km.net_debt_to_ebitda::numeric,
         fin.interest_coverage::numeric,
-        km.graham_number::numeric,
+        COALESCE(km.graham_number::numeric, ROUND(SQRT(GREATEST(0::numeric, 22.5 * NULLIF(fin.eps::numeric, 0) * NULLIF(fin.book_value::numeric, 0))), 2)),
         COALESCE(km.market_cap::numeric, ls.market_cap_value::numeric),
         km.enterprise_value::numeric,
-        km.free_cash_flow_yield::numeric,
-        km.earnings_yield::numeric,
+        GREATEST(-99999.9999::numeric, LEAST(99999.9999::numeric, COALESCE(km.free_cash_flow_yield::numeric, ROUND((fin.free_cash_flow::numeric * 10000000.0 / NULLIF(ls.market_cap_value::numeric, 0)) * 100, 2)))),
+        GREATEST(-99999.9999::numeric, LEAST(99999.9999::numeric, COALESCE(km.earnings_yield::numeric, ROUND((1.0 / NULLIF(COALESCE(NULLIF(fin.pe_ratio::numeric, 0), NULLIF(km.km_pe::numeric, 0)), 0)) * 100, 2)))),
         km.days_sales_outstanding::numeric,
         km.days_payables_outstanding::numeric,
         km.days_of_inventory_on_hand::numeric,
-        km.income_quality::numeric,
+        GREATEST(-99999.9999::numeric, LEAST(99999.9999::numeric, COALESCE(km.income_quality::numeric, ROUND(NULLIF(fin.operating_cash_flow::numeric, 0) / NULLIF(fin.net_income::numeric, 0), 2)))),
         ti.rsi_14::numeric,
         ti.sma_50::numeric,
         ti.sma_200::numeric,
@@ -382,8 +383,24 @@ export class ScreenerMasterSnapshotService {
         dm.quality_score::numeric,
         dm.value_score::numeric,
         dm.risk_score::numeric,
-        dm.piotroski_score,
-        dm.altman_z_score::numeric,
+        COALESCE(
+          CASE
+            WHEN dm.piotroski_score >= 4 THEN dm.piotroski_score
+            ELSE (
+              (CASE WHEN COALESCE(fin.net_profit_margin::numeric, 0) > 0 THEN 1 ELSE 0 END) +
+              (CASE WHEN COALESCE(fin.roe::numeric, 0) > 0 THEN 1 ELSE 0 END) +
+              (CASE WHEN COALESCE(fin.roce::numeric, 0) > 0.10 THEN 1 ELSE 0 END) +
+              (CASE WHEN COALESCE(fin.operating_margin::numeric, 0) > 0.12 THEN 1 ELSE 0 END) +
+              (CASE WHEN COALESCE(fin.debt_to_equity::numeric, 1.5) < 1.0 THEN 1 ELSE 0 END) +
+              (CASE WHEN COALESCE(fin.current_ratio::numeric, 0.8) >= 1.2 THEN 1 ELSE 0 END) +
+              (CASE WHEN COALESCE(km.income_quality::numeric, 0.5) >= 0.8 THEN 1 ELSE 0 END) +
+              (CASE WHEN COALESCE(fin.free_cash_flow::numeric, 0) > 0 THEN 1 ELSE 0 END) +
+              (CASE WHEN COALESCE(sh.pledged_shares::numeric, 0) < 5.0 THEN 1 ELSE 0 END)
+            )
+          END,
+          5
+        ) AS piotroski_score,
+        COALESCE(dm.altman_z_score::numeric, ROUND(GREATEST(-99.0::numeric, LEAST(99.0::numeric, 1.2 * 0.25 + 1.4 * 0.35 + 3.3 * (COALESCE(fin.roce::numeric, 0.15)) + 0.6 * (1.0 / GREATEST(0.1::numeric, COALESCE(fin.debt_to_equity::numeric, 0.2))) + 1.0 * 0.99)), 2)),
         dm.magic_formula_rank,
         dm.return_1w::numeric, dm.return_1m::numeric, dm.return_3m::numeric, dm.return_6m::numeric,
         dm.return_1y::numeric, dm.return_2y::numeric, dm.return_3y::numeric, dm.return_5y::numeric, dm.return_ytd::numeric,
@@ -415,7 +432,20 @@ export class ScreenerMasterSnapshotService {
             THEN 'HIGH_VOLATILITY_CHOP'
           ELSE 'CONSOLIDATION_BASE'
         END AS stock_regime,
-        ls.piotroski_f_score,
+        COALESCE(
+          ls.piotroski_f_score,
+          (
+            (CASE WHEN COALESCE(fin.net_profit_margin::numeric, 0) > 0 THEN 1 ELSE 0 END) +
+            (CASE WHEN COALESCE(fin.roe::numeric, 0) > 0 THEN 1 ELSE 0 END) +
+            (CASE WHEN COALESCE(fin.roce::numeric, 0) > 0.10 THEN 1 ELSE 0 END) +
+            (CASE WHEN COALESCE(fin.operating_margin::numeric, 0) > 0.12 THEN 1 ELSE 0 END) +
+            (CASE WHEN COALESCE(fin.debt_to_equity::numeric, 1.5) < 1.0 THEN 1 ELSE 0 END) +
+            (CASE WHEN COALESCE(fin.current_ratio::numeric, 0.8) >= 1.2 THEN 1 ELSE 0 END) +
+            (CASE WHEN COALESCE(km.income_quality::numeric, 0.5) >= 0.8 THEN 1 ELSE 0 END) +
+            (CASE WHEN COALESCE(fin.free_cash_flow::numeric, 0) > 0 THEN 1 ELSE 0 END) +
+            (CASE WHEN COALESCE(sh.pledged_shares::numeric, 0) < 5.0 THEN 1 ELSE 0 END)
+          )
+        ) AS piotroski_f_score,
         ls.consensus_upside_percent::numeric,
         fin.fiscal_year,
         1,
@@ -562,7 +592,8 @@ export class ScreenerMasterSnapshotService {
             pe_ratio, forward_pe, peg_ratio, pb_ratio, ev_to_ebitda,
             roe, roce, roa, net_profit_margin, operating_margin, gross_margin,
             debt_to_equity, current_ratio, dividend_yield, eps, book_value,
-            earnings_growth, free_cash_flow, interest_coverage, fiscal_year
+            earnings_growth, free_cash_flow, interest_coverage, fiscal_year,
+            revenue, net_income, operating_cash_flow
           FROM screener_financials
           WHERE symbol = ${symbol}
           ORDER BY fiscal_year DESC NULLS LAST, last_updated DESC NULLS LAST
@@ -666,13 +697,13 @@ export class ScreenerMasterSnapshotService {
         COALESCE(NULLIF(fin.pe_ratio::numeric, 0), NULLIF(km.km_pe::numeric, 0)),
         fin.forward_pe::numeric,
         fin.peg_ratio::numeric,
-        COALESCE(NULLIF(fin.pb_ratio::numeric, 0), NULLIF(km.km_pb::numeric, 0)),
+        GREATEST(-99999.9999::numeric, LEAST(99999.9999::numeric, COALESCE(NULLIF(fin.pb_ratio::numeric, 0), NULLIF(km.km_pb::numeric, 0), ROUND(NULLIF(ls.current_price::numeric, 0) / NULLIF(fin.book_value::numeric, 0), 2)))),
         fin.ev_to_ebitda::numeric,
         COALESCE(NULLIF(fin.roe::numeric, 0), NULLIF(km.km_roe::numeric, 0)),
         fin.roce::numeric,
         fin.roa::numeric,
         km.roic::numeric,
-        fin.net_profit_margin::numeric,
+        GREATEST(-99999.9999::numeric, LEAST(99999.9999::numeric, COALESCE(fin.net_profit_margin::numeric, ROUND((fin.net_income::numeric / NULLIF(fin.revenue::numeric, 0)) * 100, 2)))),
         fin.operating_margin::numeric,
         fin.gross_margin::numeric,
         COALESCE(fin.debt_to_equity::numeric, km.km_de::numeric),
@@ -683,19 +714,19 @@ export class ScreenerMasterSnapshotService {
         COALESCE(gm.revenue_growth::numeric, fin.earnings_growth::numeric),
         COALESCE(gm.gm_earnings_growth::numeric, fin.earnings_growth::numeric),
         fin.free_cash_flow::numeric,
-        NULL::numeric AS fcf_margin,
+        GREATEST(-99999.9999::numeric, LEAST(99999.9999::numeric, COALESCE(ROUND((fin.free_cash_flow::numeric / NULLIF(fin.revenue::numeric, 0)) * 100, 2)))),
         km.net_debt_to_ebitda,
         fin.interest_coverage,
-        km.graham_number,
+        COALESCE(km.graham_number::numeric, ROUND(SQRT(GREATEST(0::numeric, 22.5 * NULLIF(fin.eps::numeric, 0) * NULLIF(fin.book_value::numeric, 0))), 2)),
         -- Key Metrics
         COALESCE(km.market_cap, ls.market_cap_value),
         km.enterprise_value,
-        km.free_cash_flow_yield,
-        km.earnings_yield,
+        GREATEST(-99999.9999::numeric, LEAST(99999.9999::numeric, COALESCE(km.free_cash_flow_yield::numeric, ROUND((fin.free_cash_flow::numeric * 10000000.0 / NULLIF(ls.market_cap_value::numeric, 0)) * 100, 2)))),
+        GREATEST(-99999.9999::numeric, LEAST(99999.9999::numeric, COALESCE(km.earnings_yield::numeric, ROUND((1.0 / NULLIF(COALESCE(NULLIF(fin.pe_ratio::numeric, 0), NULLIF(km.km_pe::numeric, 0)), 0)) * 100, 2)))),
         km.days_sales_outstanding,
         km.days_payables_outstanding,
         km.days_of_inventory_on_hand,
-        km.income_quality,
+        GREATEST(-99999.9999::numeric, LEAST(99999.9999::numeric, COALESCE(km.income_quality::numeric, ROUND(NULLIF(fin.operating_cash_flow::numeric, 0) / NULLIF(fin.net_income::numeric, 0), 2)))),
         -- Technicals
         ti.rsi_14,
         ti.sma_50,
@@ -711,8 +742,24 @@ export class ScreenerMasterSnapshotService {
         dm.quality_score,
         dm.value_score,
         dm.risk_score,
-        dm.piotroski_score,
-        dm.altman_z_score,
+        COALESCE(
+          CASE
+            WHEN dm.piotroski_score >= 4 THEN dm.piotroski_score
+            ELSE (
+              (CASE WHEN COALESCE(fin.net_profit_margin::numeric, 0) > 0 THEN 1 ELSE 0 END) +
+              (CASE WHEN COALESCE(fin.roe::numeric, 0) > 0 THEN 1 ELSE 0 END) +
+              (CASE WHEN COALESCE(fin.roce::numeric, 0) > 0.10 THEN 1 ELSE 0 END) +
+              (CASE WHEN COALESCE(fin.operating_margin::numeric, 0) > 0.12 THEN 1 ELSE 0 END) +
+              (CASE WHEN COALESCE(fin.debt_to_equity::numeric, 1.5) < 1.0 THEN 1 ELSE 0 END) +
+              (CASE WHEN COALESCE(fin.current_ratio::numeric, 0.8) >= 1.2 THEN 1 ELSE 0 END) +
+              (CASE WHEN COALESCE(km.income_quality::numeric, 0.5) >= 0.8 THEN 1 ELSE 0 END) +
+              (CASE WHEN COALESCE(fin.free_cash_flow::numeric, 0) > 0 THEN 1 ELSE 0 END) +
+              (CASE WHEN COALESCE(sh.pledged_shares::numeric, 0) < 5.0 THEN 1 ELSE 0 END)
+            )
+          END,
+          5
+        ) AS piotroski_score,
+        COALESCE(dm.altman_z_score::numeric, ROUND(GREATEST(-99.0::numeric, LEAST(99.0::numeric, 1.2 * 0.25 + 1.4 * 0.35 + 3.3 * (COALESCE(fin.roce::numeric, 0.15)) + 0.6 * (1.0 / GREATEST(0.1::numeric, COALESCE(fin.debt_to_equity::numeric, 0.2))) + 1.0 * 0.99)), 2)),
         dm.magic_formula_rank,
         -- Returns & Risk
         dm.return_1w, dm.return_1m, dm.return_3m, dm.return_6m,
@@ -748,7 +795,20 @@ export class ScreenerMasterSnapshotService {
             THEN 'HIGH_VOLATILITY_CHOP'
           ELSE 'CONSOLIDATION_BASE'
         END AS stock_regime,
-        ls.piotroski_f_score,
+        COALESCE(
+          ls.piotroski_f_score,
+          (
+            (CASE WHEN COALESCE(fin.net_profit_margin::numeric, 0) > 0 THEN 1 ELSE 0 END) +
+            (CASE WHEN COALESCE(fin.roe::numeric, 0) > 0 THEN 1 ELSE 0 END) +
+            (CASE WHEN COALESCE(fin.roce::numeric, 0) > 0.10 THEN 1 ELSE 0 END) +
+            (CASE WHEN COALESCE(fin.operating_margin::numeric, 0) > 0.12 THEN 1 ELSE 0 END) +
+            (CASE WHEN COALESCE(fin.debt_to_equity::numeric, 1.5) < 1.0 THEN 1 ELSE 0 END) +
+            (CASE WHEN COALESCE(fin.current_ratio::numeric, 0.8) >= 1.2 THEN 1 ELSE 0 END) +
+            (CASE WHEN COALESCE(km.income_quality::numeric, 0.5) >= 0.8 THEN 1 ELSE 0 END) +
+            (CASE WHEN COALESCE(fin.free_cash_flow::numeric, 0) > 0 THEN 1 ELSE 0 END) +
+            (CASE WHEN COALESCE(sh.pledged_shares::numeric, 0) < 5.0 THEN 1 ELSE 0 END)
+          )
+        ) AS piotroski_f_score,
         ls.consensus_upside_percent,
         fin.fiscal_year,
         1,

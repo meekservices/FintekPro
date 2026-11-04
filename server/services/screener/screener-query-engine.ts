@@ -36,8 +36,10 @@ import {
 	getMacroSectorsWithSubsectors,
 } from "@shared/sector-taxonomy";
 import { getModelPortfolioBadges } from "../screener-curated-data";
+import { parseScreenerQuery } from "./screener-in-query-parser";
 
 export interface ScreenerFilters {
+	query?: string; // Natural Screener.in syntax query (e.g. "Market Capitalization > 500 AND P/E < 25 AND ROCE > 15%")
 	// ── Universe filters ────────────────────────────────────────────────────────
 	sector?: string;
 	macroSector?: string;
@@ -306,6 +308,14 @@ async function queryScreenerFromMaster(
 				ilike(screenerMasterSnapshots.isin, `%${filters.search}%`),
 			),
 		);
+	}
+
+	// Screener.in Natural Language Query Condition
+	if (filters.query && filters.query.trim()) {
+		const parsed = parseScreenerQuery(filters.query);
+		if (parsed.success && parsed.sqlCondition) {
+			conditions.push(parsed.sqlCondition);
+		}
 	}
 
 	// Valuation & Fundamentals

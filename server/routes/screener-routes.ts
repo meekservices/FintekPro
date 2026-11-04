@@ -103,6 +103,7 @@ router.get("/api/screener/stocks", async (req, res) => {
 		const pi = (k: string) => f[k] ? Number.parseInt(f[k] as string) : undefined;
 
 		const filters: ScreenerFilters = {
+			query: (f.query || f.screenerQuery) as string,
 			// Universe
 			sector: f.sector as string,
 			macroSector: (f.macroSector || f.broadSector) as string,
@@ -329,6 +330,114 @@ router.get("/api/screener/distribution", async (req, res) => {
 router.post("/api/screener/distribution/bust", async (_req, res) => {
 	invalidateDistributionCache();
 	res.json({ success: true, message: "Distribution cache invalidated" });
+});
+
+// ── Screener.in Natural Language Query Engine Endpoints ──────────────────────
+router.get("/api/screener/query/fields", async (_req, res) => {
+	try {
+		const { getSupportedScreenerFields } = await import("../services/screener/screener-in-query-parser");
+		const fields = getSupportedScreenerFields();
+		res.json({ success: true, data: fields });
+	} catch (err: any) {
+		res.status(500).json({ success: false, error: err?.message || "Failed to get screener fields" });
+	}
+});
+
+router.post("/api/screener/query/validate", async (req, res) => {
+	try {
+		const { query } = req.body;
+		const { parseScreenerQuery } = await import("../services/screener/screener-in-query-parser");
+		const result = parseScreenerQuery(query || "");
+		res.json({ success: result.success, clauses: result.clauses, error: result.error });
+	} catch (err: any) {
+		res.status(500).json({ success: false, error: err?.message || "Failed to validate query" });
+	}
+});
+
+router.get("/api/screener/presets", (_req, res) => {
+	const presets = [
+		{
+			id: "garp",
+			title: "Growth at Reasonable Price (GARP)",
+			description: "Strong 3-year growth compounders trading at reasonable P/E and low PEG",
+			category: "Growth & Value",
+			query: "Market Capitalization > 1000 AND Price to Earning < 30 AND ROCE > 18% AND Sales Growth 3Y > 15%",
+			badge: "Classic GARP",
+		},
+		{
+			id: "low-pe-high-roce",
+			title: "Low P/E with High ROCE",
+			description: "Classic high capital efficiency bargains with low debt",
+			category: "Value",
+			query: "Price to Earning < 20 AND ROCE > 20% AND Debt to Equity < 0.5 AND Current Price > 50",
+			badge: "Deep Value",
+		},
+		{
+			id: "debt-free-champions",
+			title: "Debt Free / Low Debt Champions",
+			description: "Zero debt or almost debt free balance sheets generating solid returns",
+			category: "Quality",
+			query: "Debt to Equity < 0.1 AND ROCE > 15% AND Return on Equity > 15% AND Market Capitalization > 500",
+			badge: "Safe Balance Sheet",
+		},
+		{
+			id: "piotroski-high-quality",
+			title: "Piotroski High Quality (Score 7-9)",
+			description: "Top forensic financial health and operational turnaround strength",
+			category: "Forensic Quality",
+			query: "Piotroski Score >= 7 AND Return on Equity > 12% AND Market Capitalization > 1000",
+			badge: "Institutional Quality",
+		},
+		{
+			id: "magic-formula",
+			title: "Joel Greenblatt Magic Formula",
+			description: "Top ranked stocks by combined high return on capital and high earnings yield",
+			category: "Formula Investing",
+			query: "Magic Formula Rank <= 250 AND ROCE > 15% AND Market Capitalization > 1000",
+			badge: "Magic Formula",
+		},
+		{
+			id: "high-dividend-fcf",
+			title: "High Dividend Yield with Cash Flow",
+			description: "Generous dividend yield backed by sound debt profile and profitability",
+			category: "Income",
+			query: "Dividend Yield > 3% AND Debt to Equity < 0.8 AND Return on Equity > 12%",
+			badge: "Income Compounder",
+		},
+		{
+			id: "cash-rich-bargains",
+			title: "Cash Rich Deep Value",
+			description: "Companies generating high free cash flow relative to market cap",
+			category: "Cash Flow",
+			query: "Free Cash Flow Yield > 4% AND Price to Book < 3.5 AND Debt to Equity < 0.4",
+			badge: "Cash Cows",
+		},
+		{
+			id: "institutional-accumulation",
+			title: "Institutional Accumulation",
+			description: "Heavy FII & DII backing with pristine governance and FintekPro score",
+			category: "Institutional",
+			query: "FII Holding > 12% AND DII Holding > 10% AND FintekPro Score > 70 AND Pledged Shares < 5%",
+			badge: "FII + DII Inflow",
+		},
+		{
+			id: "momentum-52w-high",
+			title: "52-Week High Breakouts with Strong Fundamentals",
+			description: "Trading near 52-week highs with bullish RSI and positive return",
+			category: "Momentum",
+			query: "% from 52W High > -8 AND RSI > 50 AND ROCE > 15% AND 1Y Return > 15%",
+			badge: "Breakout",
+		},
+		{
+			id: "deep-discount-graham",
+			title: "Benjamin Graham Deep Value",
+			description: "Trading at discount to Graham Intrinsic Value with positive earnings",
+			category: "Value",
+			query: "Graham Number > 100 AND Price to Book < 2.5 AND Debt to Equity < 0.5 AND Current Ratio > 1.2",
+			badge: "Graham Bargain",
+		},
+	];
+	res.json({ success: true, data: presets });
 });
 
 // ── Market Breadth & Institutional FII/DII Flows ─────────────────────────────
