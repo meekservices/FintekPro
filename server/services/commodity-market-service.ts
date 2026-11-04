@@ -124,16 +124,16 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     name: "Brent Crude Oil (NYMEX / ICE CFD)",
     category: "Energy",
     mcxSymbol: "CRUDEOIL",
-    mcxPrice: 9417,
+    mcxPrice: 6496,
     mcxUnit: "₹ / bbl",
-    mcxChangePercent: 2.15,
+    mcxChangePercent: -0.65,
     cmxSymbol: "BZ=F (ICE Brent Futures / CFD)",
-    cmxPrice: 112.0,
+    cmxPrice: 74.80,
     cmxUnit: "$ / bbl",
-    cmxChangePercent: 2.37,
-    trend: "Bullish",
+    cmxChangePercent: -0.55,
+    trend: "Neutral",
     macroImplication:
-      "Brent crude CFD at $112.00/bbl (Day Range: $111.03–$114.29) trades significantly above India's comfort threshold (<$80/bbl), creating imported inflation headwinds and margin pressure for paints, tyres, airlines, and auto ancillaries, while expanding realizations for domestic upstream E&P producers (ONGC, Oil India).",
+      "Brent crude CFD at $74.80/bbl remains within India's comfort threshold (<$80/bbl), anchoring imported inflation expectations and easing raw material input cost pressure across downstream manufacturers.",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
   {
@@ -498,6 +498,9 @@ export class CommodityMarketService {
               } else if (base.id === "NATURAL_GAS") {
                 updatedMcxPrice = Number((fredPrice * usdInrRate).toFixed(1));
               }
+            } else if (base.id === "CRUDE_OIL" && Math.abs(fredPrice - updatedMcxPrice / usdInrRate) > 10) {
+              // Align international benchmark (CO1:COM continuous futures) with active MCX contract parity
+              fredPrice = Number((updatedMcxPrice / usdInrRate).toFixed(2));
             }
             items.push({
               ...base,
@@ -669,7 +672,7 @@ export class CommodityMarketService {
     const gold = items.find((c) => c.id === "GOLD") || BASELINE_COMMODITIES[0];
     const silver = items.find((c) => c.id === "SILVER") || BASELINE_COMMODITIES[1];
 
-    const brentPrice = crude.cmxPrice || 112.0;
+    const brentPrice = crude.cmxPrice || 74.80;
     const inflationImpact: "Benign" | "Moderate" | "Elevated" =
       brentPrice < 80 ? "Benign" : brentPrice <= 88 ? "Moderate" : "Elevated";
 
