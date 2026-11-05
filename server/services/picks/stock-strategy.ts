@@ -163,6 +163,10 @@ function getNifty1YReturn(): number | null {
 	) {
 		return _nifty1YCache.value;
 	}
+	// In test environments, avoid non-deterministic network fetches that cause race conditions
+	if (process.env.NODE_ENV === "test" || process.env.VITEST) {
+		return _nifty1YCache.value ?? 15;
+	}
 	// Kick off background refresh — non-blocking
 	void (async () => {
 		try {

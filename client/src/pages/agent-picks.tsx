@@ -319,97 +319,12 @@ type AIStockRecommendation = {
 	engineVersion?: string;
 };
 
-/**
- * computeGuardedPortfolioWeights - FASP-AI v3.0 Quantitative Allocation Guardrails
- * 1. Single asset concentration cap (max 30% per stock if basket has >= 4 assets)
- * 2. Sector concentration cap (max 40% per sector per APRE §5.2 if basket has >= 2 sectors)
- * 3. Pure deterministic normalization to exact 100.00%
- * 4. Graceful handling of edge-cases (0 confidence, empty basket)
- */
-function computeGuardedPortfolioWeights(
-	stocks: AIStockRecommendation[],
-): Record<string, number> {
-	if (!stocks || stocks.length === 0) return {};
-	const n = stocks.length;
-	const rawWeights = stocks.map((s) => Math.max(10, Number(s.confidence) || 70));
-	const sumRaw = rawWeights.reduce((a, b) => a + b, 0) || 1;
-	let normalized = rawWeights.map((w) => (w / sumRaw) * 100);
-
-	// Guardrail 1: Single asset concentration cap (max 30% per stock)
-	if (n >= 4) {
-		const MAX_WEIGHT = 30;
-		let excess = 0;
-		normalized = normalized.map((w) => {
-			if (w > MAX_WEIGHT) {
-				excess += w - MAX_WEIGHT;
-				return MAX_WEIGHT;
-			}
-			return w;
-		});
-		const uncappedIndices = normalized
-			.map((w, idx) => (w < MAX_WEIGHT ? idx : -1))
-			.filter((idx) => idx !== -1);
-		if (uncappedIndices.length > 0 && excess > 0) {
-			const boost = excess / uncappedIndices.length;
-			uncappedIndices.forEach((idx) => {
-				normalized[idx] += boost;
-			});
-		}
-	}
-
-	// Guardrail 2: Sector Concentration Cap (max 40% per sector per APRE §5.2)
-	const uniqueSectors = new Set(stocks.map((s) => s.sector || "General"));
-	if (n >= 4 && uniqueSectors.size > 1) {
-		const MAX_SECTOR_WEIGHT = 40;
-		const sectorTotals: Record<string, number> = {};
-		stocks.forEach((s, idx) => {
-			const sec = s.sector || "General";
-			sectorTotals[sec] = (sectorTotals[sec] || 0) + normalized[idx];
-		});
-
-		let sectorExcess = 0;
-		const cappedSectors = new Set<string>();
-		for (const [sec, total] of Object.entries(sectorTotals)) {
-			if (total > MAX_SECTOR_WEIGHT) {
-				sectorExcess += total - MAX_SECTOR_WEIGHT;
-				cappedSectors.add(sec);
-				const scale = MAX_SECTOR_WEIGHT / total;
-				stocks.forEach((s, idx) => {
-					if ((s.sector || "General") === sec) {
-						normalized[idx] *= scale;
-					}
-				});
-			}
-		}
-
-		if (sectorExcess > 0) {
-			const nonCappedIndices = stocks
-				.map((s, idx) => (!cappedSectors.has(s.sector || "General") ? idx : -1))
-				.filter((idx) => idx !== -1);
-			if (nonCappedIndices.length > 0) {
-				const boost = sectorExcess / nonCappedIndices.length;
-				nonCappedIndices.forEach((idx) => {
-					normalized[idx] += boost;
-				});
-			}
-		}
-	}
-
-	// Final exact 100% deterministic sum
-	const finalSum = normalized.reduce((a, b) => a + b, 0) || 1;
-	const weightMap: Record<string, number> = {};
-	let runningTotal = 0;
-	stocks.forEach((s, idx) => {
-		if (idx === n - 1) {
-			weightMap[s.id] = parseFloat((100 - runningTotal).toFixed(2));
-		} else {
-			const val = parseFloat(((normalized[idx] / finalSum) * 100).toFixed(2));
-			weightMap[s.id] = val;
-			runningTotal += val;
-		}
-	});
-	return weightMap;
-}
+import {
+	getRiskGuardLimits,
+	computeGuardedPortfolioWeights,
+	type RiskGuardLimits,
+} from "@shared/portfolio-guardrails";
+export { getRiskGuardLimits, computeGuardedPortfolioWeights, type RiskGuardLimits };
 
 // ── UI config maps ────────────────────────────────────────────────────────────
 
@@ -879,7 +794,7 @@ export default function AgentPicksPage() {
 		if (!aiRecommendations.length) return;
 		setSavingModelPortfolio(true);
 		try {
-			const guardedWeights = computeGuardedPortfolioWeights(aiRecommendations);
+			const guardedWeights = computeGuardedPortfolioWeights(aiRecommendations, stockRiskLevel);
 			const formattedStocks = aiRecommendations.map((stock: AIStockRecommendation) => ({
 				symbol: stock.symbol,
 				companyName: stock.companyName,
@@ -4139,7 +4054,8 @@ export default function AgentPicksPage() {
 										)}
 
 										{aiRecommendations.length > 0 && (() => {
-											const guardedWeights = computeGuardedPortfolioWeights(aiRecommendations);
+											const guardedWeights = computeGuardedPortfolioWeights(aiRecommendations, stockRiskLevel);
+											const guardLimits = getRiskGuardLimits(stockRiskLevel, aiRecommendations.length);
 
 											return (
 											<div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -4226,20 +4142,32 @@ export default function AgentPicksPage() {
 													</div>
 												</div>
 
-												{/* FASP-AI Decision Support System Banner */}
+												{/* FASP-AI Decision Support System Banner with Active Guardrail Chips */}
 												<div className="flex items-start gap-3 p-3.5 bg-primary/5 border border-primary/20 rounded-xl text-xs">
 													<LucideShield className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-													<div className="flex-1 space-y-1">
-														<div className="flex items-center gap-2">
+													<div className="flex-1 space-y-1.5">
+														<div className="flex items-center gap-2 flex-wrap">
 															<span className="font-semibold text-foreground">
 																FASP-AI v3.0 Decision Support Engine
 															</span>
 															<Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 border-primary/30 text-primary">
 																Deterministic Quants
 															</Badge>
+															<Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4 font-normal">
+																Max Stock: {guardLimits.maxSingleWeight}%
+															</Badge>
+															<Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4 font-normal">
+																Max Sector: {guardLimits.maxSectorWeight}%
+															</Badge>
+															<Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4 font-normal">
+																Min Holding: {guardLimits.minFloor}%
+															</Badge>
+															<Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800">
+																✓ 100.00% Guarded
+															</Badge>
 														</div>
 														<p className="text-muted-foreground leading-relaxed">
-															Model portfolio weights are generated as algorithmic guidance only. Per SEBI IA regulations, 
+															Model portfolio weights are generated as algorithmic guidance only per APRE §5.2 concentration rules. Per SEBI IA regulations, 
 															target estimates are non-binding and do not guarantee returns. Final execution requires client authorization or RIA/CA confirmation.
 														</p>
 													</div>
@@ -7598,11 +7526,18 @@ export default function AgentPicksPage() {
 						<div className="space-y-2">
 							<div className="flex items-center justify-between text-xs font-semibold">
 								<span>Guarded Asset Allocations</span>
-								<span className="text-muted-foreground text-[11px] font-normal">Max 30% Stock | Max 40% Sector</span>
+								{(() => {
+									const limits = getRiskGuardLimits(stockRiskLevel, aiRecommendations.length);
+									return (
+										<span className="text-muted-foreground text-[11px] font-normal">
+											Max {limits.maxSingleWeight}% Stock | Max {limits.maxSectorWeight}% Sector | Min {limits.minFloor}% Floor
+										</span>
+									);
+								})()}
 							</div>
 							<ScrollArea className="h-44 border rounded-md p-2 bg-background">
 								{(() => {
-									const weights = computeGuardedPortfolioWeights(aiRecommendations);
+									const weights = computeGuardedPortfolioWeights(aiRecommendations, stockRiskLevel);
 									return (
 										<div className="space-y-1.5">
 											{aiRecommendations.map((stock: AIStockRecommendation) => (
@@ -9478,19 +9413,33 @@ function PickCard({
 													  (pick.confidenceScore ? `AI Confidence: ${pick.confidenceScore}%\n` : "") +
 													  `\n⚠️ _High risk. Illiquid. Not listed on any exchange. Subject to SEBI regulations. This is NOT investment advice._\n` +
 													  `\n_Powered by FintekPro AI_`
-													:
-														`📊 *${pick.instrumentName}${pick.symbol ? ` (${pick.symbol})` : ""}*\n` +
-														`Category: ${categoryLabels[pick.category] || pick.category}\n` +
-														`Entry: ${cur}${pick.recoPrice.toLocaleString()}\n` +
-														`Target: ${cur}${pick.targetPrice.toLocaleString()} (+${upside}%)\n` +
-														`Stoploss: ${cur}${pick.stoplossPrice.toLocaleString()} (-${downside}%)\n` +
-														(pick.timeHorizon
-															? `Horizon: ${horizonConfig[pick.timeHorizon]?.label || pick.timeHorizon}\n`
-															: "") +
-														(pick.confidenceScore
-															? `AI Confidence: ${pick.confidenceScore}%\n`
-															: "") +
-														`\n_Powered by FintekPro AI_`;
+													: (() => {
+														const isDeriv = pick.category === "derivatives";
+														const dm = pick.keyMetrics as any;
+														const legsFormatted = Array.isArray(dm?.legs)
+															? dm.legs.map((l: any) => `${String(l.action).toUpperCase()} ${l.quantity ?? 1}x ${l.type} @${l.strikePrice} (₹${l.premium})`).join(" | ")
+															: null;
+														const derivDetails = isDeriv && legsFormatted
+															? `Strategy Type: ${dm?.strategyType || (dm?.isCreditStrategy ? 'SELLER' : 'BUYER')}\n` +
+															  `Legs: ${legsFormatted}\n` +
+															  (dm?.maxProfit ? `Max Profit: ${dm.maxProfit === 'Unlimited' ? '∞' : `₹${Number(dm.maxProfit).toLocaleString()}`}\n` : '') +
+															  (dm?.maxLoss ? `Max Loss: ₹${Number(dm.maxLoss).toLocaleString()}\n` : '')
+															: "";
+
+														return `📊 *${pick.instrumentName}${pick.symbol ? ` (${pick.symbol})` : ""}*\n` +
+															`Category: ${categoryLabels[pick.category] || pick.category}\n` +
+															`Entry: ${cur}${pick.recoPrice.toLocaleString()}\n` +
+															`Target: ${cur}${pick.targetPrice.toLocaleString()} (${dm?.isCreditStrategy ? 'Profit Target' : `+${upside}%`})\n` +
+															`Stoploss: ${cur}${pick.stoplossPrice.toLocaleString()} (${dm?.isCreditStrategy ? 'Stop Level' : `-${downside}%`})\n` +
+															derivDetails +
+															(pick.timeHorizon
+																? `Horizon: ${horizonConfig[pick.timeHorizon]?.label || pick.timeHorizon}\n`
+																: "") +
+															(pick.confidenceScore
+																? `AI Confidence: ${pick.confidenceScore}%\n`
+																: "") +
+															`\n_Powered by FintekPro AI_`;
+													})();
 													navigator.clipboard.writeText(msg);
 												}}
 											>

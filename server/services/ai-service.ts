@@ -20,7 +20,7 @@ const groq = process.env.GROQ_API_KEY
 			apiKey: process.env.GROQ_API_KEY,
 		})
 	: null;
-const GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile";
+const GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b";
 
 // Gemini (Google AI) — cheap + reliable. Get key: https://aistudio.google.com/apikey
 const geminiApiKey = process.env.GEMINI_API_KEY;
@@ -70,7 +70,10 @@ export type AIModel =
 	| "gemini-2.5-flash-lite" // Ultra-cheap fast fallback (2.5 family)
 	| "gemini-2.0-flash" // Full Flash — still available
 	// ── Groq (free tier, OpenAI-compatible) ─────────────────────────────────
-	| "llama-3.3-70b-versatile"                      // Groq flagship — best quality free
+	| "openai/gpt-oss-120b"                          // Groq flagship reasoning model
+	| "openai/gpt-oss-20b"                           // Groq fast reasoning model
+	| "qwen/qwen3.8-27b"                             // Groq ultra-fast Qwen model
+	| "llama-3.3-70b-versatile"                      // Groq legacy mapping
 	| "llama-3.1-8b-instant"                          // Bulk processing (if enabled)
 	| "groq/compound"                                 // Groq auto-router
 	| "groq/compound-mini"                            // Groq auto-router — lightweight tasks
@@ -218,15 +221,15 @@ export class AIService {
 	setDefaultProvider(provider: AIProvider) {
 		this._defaultProvider = provider;
 		const defaultModels: Partial<Record<AIProvider, AIModel>> = {
-			gemini: "gemini-2.5-flash",
-			groq: "llama-3.3-70b-versatile",
+			gemini: "gemini-2.5-flash-lite",
+			groq: "openai/gpt-oss-120b",
 			cerebras: "llama-3.3-70b",
 			cloudflare: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
 			anthropic: "claude-3-5-haiku-20241022",
 			openai: "gpt-4o-mini",
 			"openai-direct": "gpt-4o",
 		};
-		this._defaultModel = defaultModels[provider] ?? "llama-3.3-70b-versatile";
+		this._defaultModel = defaultModels[provider] ?? "openai/gpt-oss-120b";
 		logger.info(`[AIService] Default provider switched to: ${provider} (model: ${this._defaultModel})`, {
 			event: "AI_PROVIDER_SWITCHED", provider, model: this._defaultModel, status: "success",
 		});
@@ -363,19 +366,21 @@ export class AIService {
 		//   SPEED chain (OPTIMIZED): Cerebras 8b → Groq 70b → Cerebras 70b → Gemini → Cloudflare
 		//   QUALITY chain (SUPERIOR/STANDARD): Groq 70b → Cerebras 70b → Gemini → Cloudflare
 		const speedFallbackChain: { provider: AIProvider; model: AIModel }[] = [
-			{ provider: "cerebras", model: "llama3.1-8b" },
-			{ provider: "groq", model: "llama-3.3-70b-versatile" },
-			{ provider: "cerebras", model: "llama-3.3-70b" },
+			{ provider: "groq", model: "openai/gpt-oss-20b" },
+			{ provider: "groq", model: "openai/gpt-oss-120b" },
 			{ provider: "gemini", model: "gemini-2.5-flash-lite" },
+			{ provider: "cerebras", model: "llama3.1-8b" },
+			{ provider: "cerebras", model: "llama-3.3-70b" },
 			{ provider: "gemini", model: "gemini-2.5-flash" },
 			{ provider: "cloudflare", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast" },
 		];
 
 		const qualityFallbackChain: { provider: AIProvider; model: AIModel }[] = [
-			{ provider: "groq", model: "llama-3.3-70b-versatile" },
-			{ provider: "cerebras", model: "llama-3.3-70b" },
-			{ provider: "gemini", model: "gemini-2.5-flash" },
+			{ provider: "groq", model: "openai/gpt-oss-120b" },
 			{ provider: "gemini", model: "gemini-2.5-flash-lite" },
+			{ provider: "groq", model: "openai/gpt-oss-20b" },
+			{ provider: "gemini", model: "gemini-2.5-flash" },
+			{ provider: "cerebras", model: "llama-3.3-70b" },
 			{ provider: "cloudflare", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast" },
 		];
 
@@ -802,15 +807,41 @@ export class AIService {
 			throw new Error(`Model '${model}' is a Gemini model — cannot be served by Groq`);
 		}
 		// Fallback nonexistent or deprecated models to verified GROQ_DEFAULT_MODEL
-		const validGroqModels = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "groq/compound", "groq/compound-mini"];
-		const groqModel = validGroqModels.includes(model) ? model : GROQ_DEFAULT_MODEL;
-		const response = await groq.chat.completions.create({
-			model: groqModel,
-			messages,
-			temperature,
-			max_tokens: maxTokens,
-			stream: false,
-		});
+		const validGroqModels = [
+			"openai/gpt-oss-120b",
+			"openai/gpt-oss-20b",
+			"qwen/qwen3.8-27b",
+			"llama-3.3-70b-versatile",
+			"llama-3.1-8b-instant",
+			"groq/compound",
+			"groq/compound-mini",
+		];
+		// Map deprecated llama-3.3-70b-versatile directly to high-capacity openai/gpt-oss-120b
+		let targetModel = model === "llama-3.3-70b-versatile" ? "openai/gpt-oss-120b" : model;
+		const groqModel = validGroqModels.includes(targetModel) ? targetModel : GROQ_DEFAULT_MODEL;
+		let response;
+		try {
+			response = await groq.chat.completions.create({
+				model: groqModel,
+				messages,
+				temperature,
+				max_tokens: maxTokens,
+				stream: false,
+			});
+		} catch (groqErr: any) {
+			if (groqModel !== "openai/gpt-oss-120b" && (groqErr?.status === 404 || groqErr?.message?.includes("does not exist"))) {
+				logger.warn(`[AIService] Groq model ${groqModel} 404, falling back to openai/gpt-oss-120b`);
+				response = await groq.chat.completions.create({
+					model: "openai/gpt-oss-120b",
+					messages,
+					temperature,
+					max_tokens: maxTokens,
+					stream: false,
+				});
+			} else {
+				throw groqErr;
+			}
+		}
 		const content = response.choices[0]?.message?.content || "";
 		const usage: AIUsageMetrics = {
 			provider: "groq",
@@ -1042,19 +1073,31 @@ export class AIService {
 		const prompt = userMessages.map((m) => m.content).join("\n\n");
 		const fullPrompt = systemMessage ? `${systemMessage}\n\n${prompt}` : prompt;
 
-		const geminiModel = model.includes("gemini") ? model : "gemini-2.5-flash";
+		const geminiModel = model.includes("gemini") ? model : "gemini-2.5-flash-lite";
 
-		// Updated for @google/genai SDK structure
-		const response = await gemini.models.generateContent({
-			model: geminiModel,
-			config: {
-				temperature,
-				maxOutputTokens: maxTokens,
-				responseMimeType: options.json ? "application/json" : "text/plain",
-				thinkingConfig: { thinkingBudget: 0 }, // Disable thinking mode — prevents thoughtSignature tokens in JSON responses
-			},
-			contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
-		});
+		let response;
+		try {
+			response = await gemini.models.generateContent({
+				model: geminiModel,
+				config: {
+					temperature,
+					maxOutputTokens: maxTokens,
+					responseMimeType: options.json ? "application/json" : "text/plain",
+					thinkingConfig: { thinkingBudget: 0 }, // Disable thinking mode — prevents thoughtSignature tokens in JSON responses
+				},
+				contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
+			});
+		} catch (geminiErr: any) {
+			if (geminiModel !== "gemini-2.5-flash-lite" && (
+				geminiErr?.status === 429 ||
+				geminiErr?.message?.includes("429") ||
+				geminiErr?.message?.includes("Resource has been exhausted")
+			)) {
+				logger.warn(`[AIService] Gemini ${geminiModel} 429 quota exhausted, falling back to gemini-2.5-flash-lite`);
+				return this.chatWithGemini(messages, "gemini-2.5-flash-lite", temperature, maxTokens, options);
+			}
+			throw geminiErr;
+		}
 
 		const content = response.text || "";
 		const usage: AIUsageMetrics = {

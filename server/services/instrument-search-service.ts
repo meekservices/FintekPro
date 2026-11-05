@@ -246,7 +246,8 @@ class InstrumentSearchService {
 			const bonds = await db
 				.select({
 					id: corporateBonds.id,
-					issuerName: corporateBonds.issuerName,
+					name: corporateBonds.bondName,
+					issuer: corporateBonds.issuer,
 					isin: corporateBonds.isin,
 					faceValue: corporateBonds.faceValue,
 					couponRate: corporateBonds.couponRate,
@@ -256,8 +257,9 @@ class InstrumentSearchService {
 				.from(corporateBonds)
 				.where(
 					or(
-						ilike(corporateBonds.issuerName, searchPattern),
-						sql`${corporateBonds.isin} ILIKE ${searchPattern}`,
+						ilike(corporateBonds.bondName, searchPattern),
+						ilike(corporateBonds.issuer, searchPattern),
+						ilike(corporateBonds.isin, searchPattern),
 					),
 				)
 				.limit(limit);
@@ -270,14 +272,14 @@ class InstrumentSearchService {
 					matchField = "isin";
 					matchScore = bond.isin.toUpperCase() === searchTerm ? 100 : 90;
 				} else {
-					matchScore = bond.issuerName?.toUpperCase().startsWith(searchTerm)
+					matchScore = (bond.name?.toUpperCase().startsWith(searchTerm) || bond.issuer?.toUpperCase().startsWith(searchTerm))
 						? 80
 						: 65;
 				}
 
 				return {
 					id: bond.id,
-					name: bond.issuerName || "",
+					name: bond.name || bond.issuer || "",
 					isin: bond.isin || undefined,
 					assetType: "BOND" as const,
 					category: bond.creditRating || undefined,
@@ -292,7 +294,7 @@ class InstrumentSearchService {
 				};
 			});
 		} catch (error) {
-			logger.error("[InstrumentSearch] Error searching bonds:", { error });
+			logger.error("[InstrumentSearch] Error searching bonds:", { error: (error as any)?.message || String(error) });
 			return [];
 		}
 	}

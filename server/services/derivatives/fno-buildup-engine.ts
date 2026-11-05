@@ -13,7 +13,7 @@
 import { derivativesService } from "../derivatives-service";
 import { logger } from "../../logger";
 
-export const FNO_ENGINE_VERSION = "2.1.0";
+export const FNO_ENGINE_VERSION = "2.2.0";
 
 export type FnoBuildupType =
   | "LONG_BUILDUP"
@@ -123,6 +123,9 @@ export class FnoAnalysisEngine {
    */
   async getFnoSummary(symbol: string): Promise<FnoSummary | null> {
     const sym = symbol.toUpperCase().trim();
+    if (!derivativesService.isSymbolFnoEligible(sym)) {
+      return null;
+    }
     const cacheKey = `fno_summary_${sym}`;
     const cached = _cache.get(cacheKey);
 
@@ -144,19 +147,19 @@ export class FnoAnalysisEngine {
         }),
       ]);
 
-      if (!oiAnalysis || futuresArr.length === 0) {
+      if (!oiAnalysis) {
         return null;
       }
 
-      const nearFut = futuresArr[0];
-      const spotPrice = oiAnalysis.spotPrice || nearFut.underlyingValue || 0;
-      const futPrice = nearFut.lastPrice || spotPrice;
-      const futBasis = nearFut.basis ?? (futPrice - spotPrice);
-      const futBasisPct = nearFut.basisPct ?? (spotPrice > 0 ? (futBasis / spotPrice) * 100 : 0);
+      const nearFut = futuresArr[0] as typeof futuresArr[0] | undefined;
+      const spotPrice = oiAnalysis.spotPrice || nearFut?.underlyingValue || 0;
+      const futPrice = nearFut?.lastPrice || spotPrice;
+      const futBasis = nearFut?.basis ?? (futPrice - spotPrice);
+      const futBasisPct = nearFut?.basisPct ?? (spotPrice > 0 ? (futBasis / spotPrice) * 100 : 0);
 
-      const priceChangePct = nearFut.pChange || 0;
-      const openInterest = nearFut.openInterest || 0;
-      const oiChange = nearFut.changeinOpenInterest || 0;
+      const priceChangePct = nearFut?.pChange || 0;
+      const openInterest = nearFut?.openInterest || (oiAnalysis.callOI + oiAnalysis.putOI);
+      const oiChange = nearFut?.changeinOpenInterest || 0;
       const prevOI = openInterest - oiChange;
       const oiChangePct = prevOI > 0 ? (oiChange / prevOI) * 100 : 0;
 

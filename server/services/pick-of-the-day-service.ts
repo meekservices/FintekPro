@@ -1744,11 +1744,17 @@ export class PickOfTheDayService {
 					typeof rawResult === "string" ? rawResult : JSON.stringify(rawResult);
 				return this.extractRationaleText(resultStr);
 			} catch (error) {
-				const isLastAttempt = attempt === MAX_ATTEMPTS;
+				const errorMsg = error instanceof Error ? error.message : String(error);
+				const isNonRetryable = 
+					errorMsg.includes("429") ||
+					errorMsg.includes("Resource has been exhausted") ||
+					errorMsg.includes("All providers failed") ||
+					errorMsg.includes("404");
+				const isLastAttempt = attempt === MAX_ATTEMPTS || isNonRetryable;
 				if (isLastAttempt) {
 					logger.warn(
-						`[PickOfTheDay] AI rationale failed after ${MAX_ATTEMPTS} attempts — using rule-based fallback`,
-						{ event: "AI_RATIONALE_FALLBACK", attempt, error: error instanceof Error ? error.message : String(error), retryable: false },
+						`[PickOfTheDay] AI rationale failed (${errorMsg}) — using rule-based fallback`,
+						{ event: "AI_RATIONALE_FALLBACK", attempt, error: errorMsg, retryable: false },
 					);
 					return this.generateFallbackRationale(params);
 				}
@@ -1756,7 +1762,7 @@ export class PickOfTheDayService {
 				const delayMs = 1500;
 				logger.warn(
 					`[PickOfTheDay] AI rationale attempt ${attempt} failed, retrying in ${delayMs}ms`,
-					{ event: "AI_RATIONALE_RETRY", attempt, delayMs, error: error instanceof Error ? error.message : String(error), retryable: true },
+					{ event: "AI_RATIONALE_RETRY", attempt, delayMs, error: errorMsg, retryable: true },
 				);
 				await new Promise((r) => setTimeout(r, delayMs));
 			}
@@ -1768,8 +1774,12 @@ export class PickOfTheDayService {
 	private buildRationalePrompt(params: RationaleParams): string {
 		const currentPrice = params.currentPrice ?? 0;
 		const targetPrice = params.targetPrice ?? 0;
-		const upside =
-			currentPrice > 0 ? Math.round((targetPrice / currentPrice - 1) * 100) : 0;
+		const isCredit = (params.metrics as any)?.isCreditStrategy === true ||
+			(params.category === "derivatives" && targetPrice < currentPrice && currentPrice > 0);
+		const upside = isCredit
+			? Math.round(((currentPrice - targetPrice) / currentPrice) * 100)
+			: (currentPrice > 0 ? Math.round((targetPrice / currentPrice - 1) * 100) : 0);
+		const targetLabel = isCredit ? `${upside}% profit target on theta/premium decay` : `${upside}% upside`;
 
 		return `Generate a structured investment rationale for today's pick.
 Return ONLY valid JSON — no markdown, no extra text.
@@ -1777,7 +1787,7 @@ Return ONLY valid JSON — no markdown, no extra text.
 Product: ${params.name}
 Category: ${params.category}
 Current Price: ₹${currentPrice}
-Target Price: ₹${targetPrice} (${upside}% upside)
+Target Price: ₹${targetPrice} (${targetLabel})
 Metrics: ${JSON.stringify(params.metrics || {})}
 
 Respond with this exact JSON schema:
@@ -1795,8 +1805,22 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 	private generateFallbackRationale(params: RationaleParams): string {
 		const currentPrice = params.currentPrice ?? 0;
 		const targetPrice = params.targetPrice ?? 0;
-		const upside =
-			currentPrice > 0 ? Math.round((targetPrice / currentPrice - 1) * 100) : 0;
+		const isCredit = (params.metrics as any)?.isCreditStrategy === true ||
+			(params.category === "derivatives" && targetPrice < currentPrice && currentPrice > 0);
+		const upside = isCredit
+			? Math.round(((currentPrice - targetPrice) / currentPrice) * 100)
+			: (currentPrice > 0 ? Math.round((targetPrice / currentPrice - 1) * 100) : 0);
+
+		if (params.category === "derivatives") {
+			const legs = (params.metrics as any)?.legs;
+			const legsSummary = Array.isArray(legs)
+				? legs.map((l: any) => `${String(l.action).toUpperCase()} ${l.quantity ?? 1}x ${l.type} @${l.strikePrice}`).join(" | ")
+				: "";
+			const stratType = isCredit ? "Option Seller (Credit Strategy)" : "Option Buyer (Debit Strategy)";
+			const legsText = legsSummary ? ` Strategy Legs: ${legsSummary}.` : "";
+			return `${params.name} is selected under institutional ${stratType} framework based on implied volatility alignment (${(params.metrics as any)?.iv ?? 18}%) and favorable risk-reward.${legsText} Target profit is ${upside}% with systematic stop-loss and predefined risk boundaries.`;
+		}
+
 		return `${params.name} is selected as today's top pick based on strong fundamentals and a potential upside of ${upside}% from current levels. The technical outlook remains positive with favorable risk-reward indicators.`;
 	}
 

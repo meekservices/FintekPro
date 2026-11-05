@@ -6435,6 +6435,7 @@ export async function runDbEfficiencyIndexesAndSnapshotsRepair(poolInstance?: an
       CREATE INDEX IF NOT EXISTS idx_daily_picks_symbol_status ON daily_picks (symbol, status);
 
       -- Golden Prices Time-Series Indexes (RSI, returns, quant covariance)
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_golden_prices_isin_date ON golden_prices (isin, price_date);
       CREATE INDEX IF NOT EXISTS idx_golden_prices_symbol_date_price ON golden_prices (symbol, price_date, price);
       CREATE INDEX IF NOT EXISTS idx_golden_prices_isin_date_desc_price ON golden_prices (isin, price_date DESC, price);
       CREATE INDEX IF NOT EXISTS idx_golden_prices_asset_date_desc ON golden_prices (asset_class, price_date);
@@ -6443,9 +6444,37 @@ export async function runDbEfficiencyIndexesAndSnapshotsRepair(poolInstance?: an
       CREATE INDEX IF NOT EXISTS idx_listed_stocks_potd_candidates ON listed_stocks (sector, market_cap_category, average_volume);
       CREATE INDEX IF NOT EXISTS idx_listed_stocks_broad_sector ON listed_stocks (broad_sector, market_cap_category);
       CREATE INDEX IF NOT EXISTS idx_listed_stocks_is_published ON listed_stocks (is_published, is_active);
+
+      -- Derivative Contracts (F&O Instrument Master)
+      CREATE TABLE IF NOT EXISTS derivative_contracts (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        instrument_key VARCHAR(100) NOT NULL,
+        exchange VARCHAR(20) NOT NULL DEFAULT 'NSE_FO',
+        exchange_token VARCHAR(50),
+        tradingsymbol VARCHAR(100) NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        underlying_key VARCHAR(100),
+        underlying_symbol VARCHAR(50) NOT NULL,
+        instrument_type VARCHAR(30) NOT NULL,
+        strike_price NUMERIC(15, 4),
+        option_type VARCHAR(10),
+        expiry_date DATE NOT NULL,
+        lot_size INTEGER NOT NULL DEFAULT 1,
+        tick_size NUMERIC(10, 4) DEFAULT 0.05,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        metadata JSONB DEFAULT '{}'::jsonb,
+        source VARCHAR(50) NOT NULL DEFAULT 'upstox',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_dc_instrument_key_unique ON derivative_contracts (instrument_key);
+      CREATE INDEX IF NOT EXISTS idx_dc_underlying_expiry ON derivative_contracts (underlying_symbol, expiry_date);
+      CREATE INDEX IF NOT EXISTS idx_dc_tradingsymbol ON derivative_contracts (tradingsymbol);
+      CREATE INDEX IF NOT EXISTS idx_dc_instrument_type ON derivative_contracts (instrument_type);
+      CREATE INDEX IF NOT EXISTS idx_dc_expiry ON derivative_contracts (expiry_date);
     `);
 
-    console.log("  ✅ [DB-Efficiency] screener_master_snapshots table and composite performance indexes ensured");
+    console.log("  ✅ [DB-Efficiency] screener_master_snapshots, derivative_contracts, and composite performance indexes ensured");
   } catch (err: any) {
     console.warn("  ⚠️ [DB-Efficiency] Non-fatal migration error:", err?.message?.slice(0, 120));
   }

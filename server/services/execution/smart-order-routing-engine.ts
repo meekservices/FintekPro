@@ -11,7 +11,15 @@
  * - JSDoc documentation on all exported functions.
  */
 
-export const SOR_ENGINE_VERSION = "1.0.0";
+export const SOR_ENGINE_VERSION = "1.1.0";
+
+/**
+ * Aligns price to standard Indian exchange tick size (NSE & BSE minimum price variation ₹0.05).
+ */
+export function alignToTick(price: number, tick = 0.05): number {
+	if (price <= 0) return 0.05;
+	return +(Math.round(price / tick) * tick).toFixed(2);
+}
 
 export interface DepthLevel {
 	price: number;
@@ -192,17 +200,19 @@ export function generateSmartRoutingPlan(
 				sliceNumber: i + 1,
 				quantity: qty,
 				targetExchange: selectedExchange,
-				estimatedLimitPrice: side === "BUY" ? +(fillWap * 1.002).toFixed(2) : +(fillWap * 0.998).toFixed(2),
+				estimatedLimitPrice: side === "BUY" ? alignToTick(fillWap * 1.002) : alignToTick(fillWap * 0.998),
 				delaySecondsFromStart: i * 180, // 3-minute intervals (TWAP participation)
 				suggestedOrderType: "LIMIT",
 			});
 		}
 	} else {
+		const selectedBestAsk = selectedExchange === "BSE" && bseBestAsk ? bseBestAsk : nseBestAsk;
+		const selectedBestBid = selectedExchange === "BSE" && bseBestBid ? bseBestBid : nseBestBid;
 		recommendedSlices.push({
 			sliceNumber: 1,
 			quantity,
 			targetExchange: selectedExchange,
-			estimatedLimitPrice: side === "BUY" ? nseBestAsk : nseBestBid,
+			estimatedLimitPrice: side === "BUY" ? alignToTick(selectedBestAsk) : alignToTick(selectedBestBid),
 			delaySecondsFromStart: 0,
 			suggestedOrderType: "LIMIT",
 		});

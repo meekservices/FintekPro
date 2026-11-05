@@ -67,6 +67,7 @@ import {
   SEBI_TIER_CONFIGS,
   type PortfolioTier,
 } from "../services/model-portfolio-tier-service";
+import { checkRiskBudget } from "../services/portfolio-risk-guard";
 
 export const modelPortfoliosRouter = Router();
 
@@ -6898,6 +6899,19 @@ modelPortfoliosRouter.post("/from-ai-strategy", async (req: Request, res: Respon
     const portfolioId = `ai-strategy-${Date.now()}`;
     const portfolioName = name?.trim() || `AI Strategy (${stocks.slice(0, 3).map((s: any) => s.symbol).join(", ")}${stocks.length > 3 ? "..." : ""})`;
 
+    // Run FASP-AI Risk Budget Guardrail verification
+    const riskReport = checkRiskBudget(
+      portfolioId,
+      riskProfile,
+      holdings.map((h) => ({
+        name: h.name,
+        weight: h.weight,
+        sector: h.sector,
+        type: h.type,
+        currentReturn: h.currentReturn,
+      })),
+    );
+
     await db.insert(modelPortfolios).values({
       id: portfolioId,
       portfolioCode: finalCode,
@@ -6913,7 +6927,7 @@ modelPortfoliosRouter.post("/from-ai-strategy", async (req: Request, res: Respon
       rebalancingFrequency: "quarterly",
       rebalancingMode: "drift_triggered",
       totalHoldings: holdings.length,
-      highlight: highlight || `Top ${holdings.length} AI stock picks with FASP-AI concentration guardrails`,
+      highlight: highlight || `Top ${holdings.length} AI stock picks | FASP-AI Risk Score: ${riskReport.riskScore}/100 | Beta: ${riskReport.metrics.weightedBeta}`,
       icon: "🤖",
       isPublished: true,
       isFeatured: false,
@@ -6933,6 +6947,9 @@ modelPortfoliosRouter.post("/from-ai-strategy", async (req: Request, res: Respon
       portfolioId,
       portfolioCode: finalCode,
       holdingsCount: holdings.length,
+      riskScore: riskReport.riskScore,
+      hardBreachesCount: riskReport.hardBreaches.length,
+      softWarningsCount: riskReport.softWarnings.length,
       latency_ms: Date.now() - t0,
       status: "success",
     });
@@ -6945,11 +6962,12 @@ modelPortfoliosRouter.post("/from-ai-strategy", async (req: Request, res: Respon
         name: portfolioName,
         totalHoldings: holdings.length,
         holdings,
+        riskReport,
       },
       meta: {
         timestamp: new Date().toISOString(),
         version: "FASP-AI-v3.0",
-        message: "Model portfolio created successfully from AI strategy basket.",
+        message: "Model portfolio created successfully from AI strategy basket with FASP-AI risk audit.",
       },
     });
   } catch (err: any) {

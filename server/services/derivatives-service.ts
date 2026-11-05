@@ -568,6 +568,14 @@ class DerivativesService {
 		};
 	}
 
+	/**
+	 * Checks whether a given symbol is an official exchange-traded F&O underlying.
+	 */
+	isSymbolFnoEligible(symbol: string): boolean {
+		const sym = symbol.toUpperCase().trim();
+		return NSE_SYMBOLS.includes(sym) || NSE_INDICES.has(sym);
+	}
+
 	async getExpiryDates(symbol: string): Promise<string[]> {
 		const upper = symbol.toUpperCase();
 
@@ -849,25 +857,25 @@ class DerivativesService {
 		const totalPutOI = puts.reduce((sum, p) => sum + p.openInterest, 0);
 		const pcr = totalCallOI > 0 ? totalPutOI / totalCallOI : 1;
 
-		// Max pain: strike where total option buyers lose most
+		// Max pain: strike where total intrinsic payout to option buyers is minimized (option sellers pocket maximum value)
 		const allStrikes = [
 			...new Set([...calls, ...puts].map((o) => o.strikePrice)),
 		].sort((a, b) => a - b);
 		let maxPainStrike = allStrikes[0] || spotPrice;
-		let maxPainLoss = Number.NEGATIVE_INFINITY;
+		let minTotalPayout = Number.POSITIVE_INFINITY;
 
 		for (const strike of allStrikes) {
-			const callLoss = calls.reduce(
-				(s, c) => s + c.openInterest * Math.max(0, c.strikePrice - strike),
+			const callPayout = calls.reduce(
+				(s, c) => s + c.openInterest * Math.max(0, strike - c.strikePrice),
 				0,
 			);
-			const putLoss = puts.reduce(
-				(s, p) => s + p.openInterest * Math.max(0, strike - p.strikePrice),
+			const putPayout = puts.reduce(
+				(s, p) => s + p.openInterest * Math.max(0, p.strikePrice - strike),
 				0,
 			);
-			const totalLoss = callLoss + putLoss;
-			if (totalLoss > maxPainLoss) {
-				maxPainLoss = totalLoss;
+			const totalPayout = callPayout + putPayout;
+			if (totalPayout < minTotalPayout) {
+				minTotalPayout = totalPayout;
 				maxPainStrike = strike;
 			}
 		}
