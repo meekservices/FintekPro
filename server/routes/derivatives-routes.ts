@@ -863,7 +863,7 @@ router.post(
 			});
 		} catch (error: unknown) {
 			logger.error("[Derivatives] Error executing Long-Short basket:", errorMessage(error));
-			res.status(500).json({ success: false, error: "Failed to execute Long-Short basket" });
+			res.status(500).json({ success: false, error: "Failed to execute Long-Short basket", details: errorMessage(error) });
 		}
 	}
 );

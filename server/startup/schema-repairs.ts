@@ -6472,6 +6472,32 @@ export async function runDbEfficiencyIndexesAndSnapshotsRepair(poolInstance?: an
       CREATE INDEX IF NOT EXISTS idx_dc_tradingsymbol ON derivative_contracts (tradingsymbol);
       CREATE INDEX IF NOT EXISTS idx_dc_instrument_type ON derivative_contracts (instrument_type);
       CREATE INDEX IF NOT EXISTS idx_dc_expiry ON derivative_contracts (expiry_date);
+
+      -- Derivative Positions (User / Portfolio F&O Positions & Execution Audit)
+      CREATE TABLE IF NOT EXISTS derivative_positions (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id VARCHAR(50) NOT NULL,
+        instrument_key VARCHAR(100) NOT NULL,
+        tradingsymbol VARCHAR(100) NOT NULL,
+        underlying_symbol VARCHAR(50) NOT NULL,
+        exchange VARCHAR(20) NOT NULL DEFAULT 'NSE_FO',
+        product VARCHAR(10) NOT NULL DEFAULT 'I',
+        side VARCHAR(10) NOT NULL,
+        quantity INTEGER NOT NULL,
+        average_price NUMERIC(15, 4) NOT NULL,
+        current_price NUMERIC(15, 4),
+        unrealized_pnl NUMERIC(15, 4),
+        realized_pnl NUMERIC(15, 4),
+        status VARCHAR(30) NOT NULL DEFAULT 'OPEN',
+        idempotency_key VARCHAR(100),
+        source VARCHAR(50) NOT NULL DEFAULT 'upstox',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_dp_user_status ON derivative_positions (user_id, status);
+      CREATE INDEX IF NOT EXISTS idx_dp_instrument_key ON derivative_positions (instrument_key);
+      CREATE INDEX IF NOT EXISTS idx_dp_idempotency_key ON derivative_positions (idempotency_key);
+      CREATE INDEX IF NOT EXISTS idx_dp_created_at ON derivative_positions (created_at);
     `);
 
     console.log("  ✅ [DB-Efficiency] screener_master_snapshots, derivative_contracts, and composite performance indexes ensured");

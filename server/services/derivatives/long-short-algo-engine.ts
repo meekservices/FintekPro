@@ -16,6 +16,7 @@ import { upstoxMarketDataService } from "../upstox-market-data-service";
 import { db } from "../../db";
 import { derivativePositions } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 
 export type LongShortStrategyType =
 	| "PAIRS_TRADING"
@@ -503,6 +504,7 @@ class LongShortAlgoEngine {
 			const [position] = await db
 				.insert(derivativePositions)
 				.values({
+					id: randomUUID(),
 					userId,
 					instrumentKey: `NSE_FO|${leg.tradingsymbol}`,
 					tradingsymbol: leg.tradingsymbol,
