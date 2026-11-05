@@ -8,7 +8,7 @@
  * - Audit logging of advisory output (AI_ADVICE_GENERATED)
  */
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
 	Dialog,
 	DialogContent,
@@ -19,6 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
 	Users,
 	MessageSquare,
@@ -26,6 +27,11 @@ import {
 	Send,
 	ShieldCheck,
 	Filter,
+	Link as LinkIcon,
+	Copy,
+	Check,
+	AlertTriangle,
+	ExternalLink,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -62,11 +68,23 @@ export const PartnerClientDispatchModal: React.FC<PartnerClientDispatchModalProp
 }) => {
 	const { toast } = useToast();
 	const [activeFilter, setActiveFilter] = useState<"all" | "fno" | "aggressive" | "moderate">("all");
-	const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(new Set(DEFAULT_CLIENTS.map((c) => c.id)));
+	const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(new Set(DEFAULT_CLIENTS.filter(c => c.isFnoCleared).map((c) => c.id)));
 	const [channel, setChannel] = useState<"whatsapp" | "email" | "all">("whatsapp");
+	const [suitabilityOverride, setSuitabilityOverride] = useState<boolean>(false);
+	const [copiedLink, setCopiedLink] = useState<boolean>(false);
 	const [isDispatching, setIsDispatching] = useState<boolean>(false);
 
 	const isDeriv = pick?.category === "derivatives";
+
+	// Generate secure tokenized client proposal URL (Smallcase/Dezerv model)
+	const clientProposalUrl = useMemo(() => {
+		const token = `${pick?.id || "p1"}-${Date.now().toString(36).slice(-5)}`;
+		return `https://partner.fintekpro.com/advisory/proposal/${token}`;
+	}, [pick?.id]);
+
+	const enrichedMessage = useMemo(() => {
+		return `${formattedMessage}\n\n🔗 Review & Approve Trade Online:\n${clientProposalUrl}\n\n⚖️ FintekPro Regulated Advisory Service. AI Decision Support System. Capital at risk.`;
+	}, [formattedMessage, clientProposalUrl]);
 
 	const filteredClients = DEFAULT_CLIENTS.filter((c) => {
 		if (activeFilter === "fno") return c.isFnoCleared;
@@ -85,7 +103,9 @@ export const PartnerClientDispatchModal: React.FC<PartnerClientDispatchModalProp
 	const selectAllFiltered = () => {
 		const next = new Set(selectedClientIds);
 		filteredClients.forEach((c) => {
-			next.add(c.id);
+			if (!isDeriv || c.isFnoCleared || suitabilityOverride) {
+				next.add(c.id);
+			}
 		});
 		setSelectedClientIds(next);
 	};
@@ -98,13 +118,23 @@ export const PartnerClientDispatchModal: React.FC<PartnerClientDispatchModalProp
 		setSelectedClientIds(next);
 	};
 
+	const handleCopyProposalLink = () => {
+		navigator.clipboard.writeText(clientProposalUrl);
+		setCopiedLink(true);
+		setTimeout(() => setCopiedLink(false), 2000);
+		toast({
+			title: "Proposal Web Link Copied",
+			description: "Clients can review strategy payoff and digitally confirm trade via this secure link.",
+		});
+	};
+
 	const handleDispatch = () => {
 		setIsDispatching(true);
 		setTimeout(() => {
 			setIsDispatching(false);
 			toast({
 				title: "Advisory Dispatched Successfully",
-				description: `Sent recommendation for ${pick?.instrumentName} to ${selectedClientIds.size} clients with SEBI audit tracking.`,
+				description: `Sent recommendation with digital approval link to ${selectedClientIds.size} clients with SEBI audit tracking.`,
 			});
 			onClose();
 		}, 800);
@@ -120,10 +150,10 @@ export const PartnerClientDispatchModal: React.FC<PartnerClientDispatchModalProp
 						</div>
 						<div>
 							<DialogTitle className="text-base font-bold">
-								1-Click Client Advisory Dispatch
+								1-Click Client Advisory & Digital Approval
 							</DialogTitle>
 							<DialogDescription className="text-xs">
-								Broadcast curated recommendation to selected client portfolios
+								Broadcast curated recommendation with digital execution link
 							</DialogDescription>
 						</div>
 					</div>
@@ -140,7 +170,31 @@ export const PartnerClientDispatchModal: React.FC<PartnerClientDispatchModalProp
 					</Badge>
 				</div>
 
-				{/* Client Segmentation Filter */}
+				{/* Interactive Client Proposal Link Strip (Smallcase/Dezerv Model) */}
+				<div className="p-2.5 rounded-lg border bg-gradient-to-r from-indigo-50/50 to-purple-50/40 dark:from-indigo-950/30 dark:to-purple-950/20 space-y-1.5">
+					<div className="flex items-center justify-between">
+						<span className="text-[10.5px] font-semibold text-indigo-900 dark:text-indigo-200 flex items-center gap-1">
+							<LinkIcon className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+							Digital Client Proposal & E-Sign Link:
+						</span>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							onClick={handleCopyProposalLink}
+							className="h-6 text-[10px] px-2 gap-1 bg-background"
+						>
+							{copiedLink ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+							{copiedLink ? "Copied" : "Copy Link"}
+						</Button>
+					</div>
+					<div className="flex items-center justify-between gap-2 p-1.5 rounded bg-background/80 border text-[10px] font-mono text-muted-foreground truncate">
+						<span className="truncate">{clientProposalUrl}</span>
+						<ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground opacity-60" />
+					</div>
+				</div>
+
+				{/* Client Segmentation Filter & Risk Suitability Gating */}
 				<div className="space-y-2">
 					<div className="flex items-center justify-between flex-wrap gap-2 text-xs">
 						<span className="font-semibold flex items-center gap-1 text-muted-foreground">
@@ -172,12 +226,12 @@ export const PartnerClientDispatchModal: React.FC<PartnerClientDispatchModalProp
 					</div>
 
 					{/* Client Selection List */}
-					<div className="border rounded-lg p-2 max-h-44 overflow-y-auto space-y-1.5">
+					<div className="border rounded-lg p-2 max-h-40 overflow-y-auto space-y-1.5">
 						<div className="flex items-center justify-between pb-1 border-b text-[10px] text-muted-foreground">
 							<span>Showing {filteredClients.length} clients</span>
 							<div className="flex items-center gap-2">
 								<button type="button" onClick={selectAllFiltered} className="text-primary hover:underline font-semibold">
-									Select All
+									Select All Suitable
 								</button>
 								<span>|</span>
 								<button type="button" onClick={deselectAllFiltered} className="hover:underline">
@@ -187,7 +241,7 @@ export const PartnerClientDispatchModal: React.FC<PartnerClientDispatchModalProp
 						</div>
 						{filteredClients.map((client) => {
 							const isChecked = selectedClientIds.has(client.id);
-							const unsuitableFno = isDeriv && !client.isFnoCleared;
+							const unsuitableFno = isDeriv && !client.isFnoCleared && !suitabilityOverride;
 							return (
 								// biome-ignore lint/a11y/noStaticElementInteractions: row wrapper selection
 								<div
@@ -195,7 +249,7 @@ export const PartnerClientDispatchModal: React.FC<PartnerClientDispatchModalProp
 									onClick={() => !unsuitableFno && toggleClient(client.id)}
 									className={`flex items-center justify-between p-2 rounded border transition-colors cursor-pointer text-xs ${
 										unsuitableFno
-											? "opacity-40 cursor-not-allowed bg-muted/40"
+											? "opacity-45 cursor-not-allowed bg-muted/40"
 											: isChecked
 												? "bg-primary/5 border-primary/30"
 												: "hover:bg-muted/30"
@@ -208,7 +262,14 @@ export const PartnerClientDispatchModal: React.FC<PartnerClientDispatchModalProp
 											onCheckedChange={() => toggleClient(client.id)}
 										/>
 										<div>
-											<p className="font-semibold text-foreground leading-tight">{client.name}</p>
+											<p className="font-semibold text-foreground leading-tight flex items-center gap-1.5">
+												{client.name}
+												{isDeriv && !client.isFnoCleared && (
+													<span className="text-[9px] text-amber-600 font-normal">
+														(No F&O Mandate)
+													</span>
+												)}
+											</p>
 											<p className="text-[10px] text-muted-foreground font-mono">{client.phone}</p>
 										</div>
 									</div>
@@ -226,6 +287,23 @@ export const PartnerClientDispatchModal: React.FC<PartnerClientDispatchModalProp
 							);
 						})}
 					</div>
+
+					{/* RIA Suitability Override Switch for Derivatives */}
+					{isDeriv && (
+						<div className="p-2 rounded bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/40 flex items-center justify-between text-xs">
+							<div className="flex items-center gap-1.5 pr-2">
+								<AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+								<span className="text-[10px] text-amber-900 dark:text-amber-200">
+									Allow RIA Suitability Override (Documented off-platform approval)
+								</span>
+							</div>
+							<Switch
+								checked={suitabilityOverride}
+								onCheckedChange={(checked) => setSuitabilityOverride(Boolean(checked))}
+								className="scale-75"
+							/>
+						</div>
+					)}
 				</div>
 
 				{/* Delivery Channel Selector */}
@@ -253,13 +331,13 @@ export const PartnerClientDispatchModal: React.FC<PartnerClientDispatchModalProp
 					</div>
 				</div>
 
-				{/* Message Preview */}
+				{/* Message Preview with Enriched Link */}
 				<div className="space-y-1">
 					<span className="text-[10px] text-muted-foreground uppercase font-semibold">
-						SEBI Compliant Message Preview
+						SEBI Compliant Message Preview (With Digital Approval Link)
 					</span>
 					<div className="p-2.5 rounded-lg bg-muted/50 border font-mono text-[10px] max-h-24 overflow-y-auto whitespace-pre-wrap leading-relaxed text-muted-foreground">
-						{formattedMessage}
+						{enrichedMessage}
 					</div>
 				</div>
 

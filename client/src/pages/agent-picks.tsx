@@ -678,6 +678,9 @@ export interface DerivativeEconomics {
 	maxLoss: number | "Unlimited";
 	breakeven: number[] | number | null;
 	marginRequired: number;
+	grossMargin?: number;
+	hedgeBenefit?: number;
+	hedgeBenefitPct?: number;
 	isCredit: boolean;
 	netPremium: number;
 	totalNetPremium: number;
@@ -888,16 +891,29 @@ export function computeDerivativeEconomics(
 		}
 	}
 
+	const finalMargin =
+		marginRequired > 0
+			? marginRequired
+			: isCredit
+				? Math.round(curSpot * lotSize * 0.15)
+				: totalNetPremium;
+
+	const hasBothLegs = !allBuy && !allSell;
+	const grossMargin = hasBothLegs
+		? Math.round(curSpot * lotSize * 0.16)
+		: finalMargin;
+	const hedgeBenefit = hasBothLegs ? Math.max(0, grossMargin - finalMargin) : 0;
+	const hedgeBenefitPct =
+		grossMargin > 0 ? Math.round((hedgeBenefit / grossMargin) * 100) : 0;
+
 	return {
 		maxProfit,
 		maxLoss,
 		breakeven,
-		marginRequired:
-			marginRequired > 0
-				? marginRequired
-				: isCredit
-					? Math.round(curSpot * lotSize * 0.15)
-					: totalNetPremium,
+		marginRequired: finalMargin,
+		grossMargin,
+		hedgeBenefit,
+		hedgeBenefitPct,
 		isCredit,
 		netPremium: netPremUnit,
 		totalNetPremium,
@@ -7417,6 +7433,11 @@ export default function AgentPicksPage() {
 														? `+₹${Math.abs(Number(economics.theta)).toFixed(1)}/day`
 														: `₹${Number(economics.marginRequired).toLocaleString("en-IN")}`}
 												</p>
+												{economics.hedgeBenefit != null && economics.hedgeBenefit > 0 && (
+													<span className="text-[9.5px] text-purple-600 dark:text-purple-400 font-semibold block">
+														Hedge: -₹{economics.hedgeBenefit.toLocaleString("en-IN")} ({economics.hedgeBenefitPct}%)
+													</span>
+												)}
 											</div>
 										</div>
 
@@ -7434,6 +7455,8 @@ export default function AgentPicksPage() {
 													maxLoss={economics.maxLoss}
 													breakeven={economics.breakeven ?? undefined}
 													marginRequired={economics.marginRequired}
+													daysToExpiry={Number(km.dte || km.daysToExpiry || 7)}
+													impliedVolatility={Number(km.iv || km.impliedVolatility || 0.14)}
 												/>
 											</div>
 										)}
@@ -9248,6 +9271,11 @@ function PicksTable({
 															? `+₹${Math.abs(Number(economics.theta)).toFixed(1)}/day`
 															: `₹${Number(economics.marginRequired).toLocaleString("en-IN")}`}
 													</p>
+													{economics.hedgeBenefit != null && economics.hedgeBenefit > 0 && (
+														<span className="text-[9.5px] text-purple-600 dark:text-purple-400 font-semibold block">
+															Hedge: -₹{economics.hedgeBenefit.toLocaleString("en-IN")} ({economics.hedgeBenefitPct}%)
+														</span>
+													)}
 												</div>
 											</div>
 
@@ -9264,6 +9292,8 @@ function PicksTable({
 													maxLoss={economics.maxLoss}
 													breakeven={economics.breakeven ?? undefined}
 													marginRequired={economics.marginRequired}
+													daysToExpiry={Number((pick.keyMetrics as any)?.dte || (pick.keyMetrics as any)?.daysToExpiry || 7)}
+													impliedVolatility={Number((pick.keyMetrics as any)?.iv || (pick.keyMetrics as any)?.impliedVolatility || 0.14)}
 												/>
 											</div>
 										</td>
@@ -10667,6 +10697,11 @@ function PickCard({
 													? `+₹${Math.abs(Number(economics.theta)).toFixed(1)}/day`
 													: `₹${Number(economics.marginRequired).toLocaleString("en-IN")}`}
 											</p>
+											{economics.hedgeBenefit != null && economics.hedgeBenefit > 0 && (
+												<span className="text-[9.5px] text-purple-600 dark:text-purple-400 font-semibold block">
+													Hedge: -₹{economics.hedgeBenefit.toLocaleString("en-IN")} ({economics.hedgeBenefitPct}%)
+												</span>
+											)}
 										</div>
 									</div>
 
@@ -10684,6 +10719,8 @@ function PickCard({
 												maxLoss={economics.maxLoss}
 												breakeven={economics.breakeven ?? undefined}
 												marginRequired={economics.marginRequired}
+												daysToExpiry={Number(km.dte || km.daysToExpiry || 7)}
+												impliedVolatility={Number(km.iv || km.impliedVolatility || 0.14)}
 											/>
 										</div>
 									)}

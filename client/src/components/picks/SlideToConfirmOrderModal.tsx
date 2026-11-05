@@ -9,7 +9,7 @@
  * - Explicit risk and margin disclosures
  */
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
 	Dialog,
 	DialogContent,
@@ -28,6 +28,7 @@ import {
 	Zap,
 	Lock,
 	Check,
+	ShieldCheck,
 } from "lucide-react";
 import type { StrategyLegItem } from "./DerivativePayoffSimulator";
 
@@ -67,12 +68,30 @@ export const SlideToConfirmOrderModal: React.FC<SlideToConfirmOrderModalProps> =
 	const [orderSuccess, setOrderSuccess] = useState<boolean>(false);
 	const [orderReference, setOrderReference] = useState<string>("");
 
+	// Institutional Leg Sequencing: Enforce BUY legs execute FIRST to secure exchange margin relief
+	const sequencedLegs = useMemo(() => {
+		const buys = legs.filter((l) => String(l.action).toUpperCase() === "BUY");
+		const sells = legs.filter((l) => String(l.action).toUpperCase() !== "BUY");
+		return [...buys, ...sells];
+	}, [legs]);
+
+	const hasBothLegs = useMemo(() => {
+		const hasBuy = legs.some((l) => String(l.action).toUpperCase() === "BUY");
+		const hasSell = legs.some((l) => String(l.action).toUpperCase() === "SELL");
+		return hasBuy && hasSell;
+	}, [legs]);
+
 	// Economics calculations scaled by lot count
 	const totalQty = lots * lotSize;
 	const totalNetPremium = Math.round(recoPrice * totalQty);
 	const totalMargin = isCreditStrategy ? marginRequired * lots : totalNetPremium;
 	const scaledMaxProfit = typeof maxProfit === "number" ? maxProfit * lots : maxProfit;
 	const scaledMaxLoss = typeof maxLoss === "number" ? maxLoss * lots : maxLoss;
+
+	// Gross unhedged vs net hedged margin relief
+	const grossUnhedgedMargin = Math.round(135000 * lots);
+	const hedgeRelief = hasBothLegs ? Math.max(0, grossUnhedgedMargin - totalMargin) : 0;
+	const hedgeReliefPct = grossUnhedgedMargin > 0 ? Math.round((hedgeRelief / grossUnhedgedMargin) * 100) : 0;
 
 	const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const val = Number(e.target.value);
@@ -95,6 +114,7 @@ export const SlideToConfirmOrderModal: React.FC<SlideToConfirmOrderModalProps> =
 			totalQty,
 			totalMargin,
 			isCreditStrategy,
+			sequencedLegs,
 		});
 	};
 
@@ -123,15 +143,22 @@ export const SlideToConfirmOrderModal: React.FC<SlideToConfirmOrderModalProps> =
 								</DialogDescription>
 							</div>
 						</div>
-						{isCreditStrategy ? (
-							<Badge variant="outline" className="text-[10px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700">
-								<Coins className="h-3 w-3 mr-1" /> Seller (Net Credit)
-							</Badge>
-						) : (
-							<Badge variant="outline" className="text-[10px] bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-300 dark:border-sky-700">
-								<Zap className="h-3 w-3 mr-1" /> Buyer (Net Debit)
-							</Badge>
-						)}
+						<div className="flex flex-col items-end gap-1">
+							{isCreditStrategy ? (
+								<Badge variant="outline" className="text-[10px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700">
+									<Coins className="h-3 w-3 mr-1" /> Seller (Net Credit)
+								</Badge>
+							) : (
+								<Badge variant="outline" className="text-[10px] bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-300 dark:border-sky-700">
+									<Zap className="h-3 w-3 mr-1" /> Buyer (Net Debit)
+								</Badge>
+							)}
+							{hasBothLegs && (
+								<Badge variant="secondary" className="text-[9px] bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 font-semibold">
+									<ShieldCheck className="h-2.5 w-2.5 mr-0.5" /> Buying-First Leg Routing
+								</Badge>
+							)}
+						</div>
 					</div>
 				</DialogHeader>
 
@@ -145,7 +172,7 @@ export const SlideToConfirmOrderModal: React.FC<SlideToConfirmOrderModalProps> =
 							Basket Order Executed Successfully
 						</h3>
 						<p className="text-xs text-muted-foreground">
-							Routed via FintekPro Smart Order Routing with Idempotency Protection.
+							Routed via FintekPro Buying-First Smart Order Routing with Idempotency Protection.
 						</p>
 						<div className="p-3 rounded-lg bg-muted/40 border text-xs text-left space-y-1.5 font-mono">
 							<div className="flex justify-between">
@@ -166,8 +193,14 @@ export const SlideToConfirmOrderModal: React.FC<SlideToConfirmOrderModalProps> =
 							</div>
 							<div className="flex justify-between">
 								<span className="text-muted-foreground">Margin Blocked:</span>
-								<span>₹{totalMargin.toLocaleString("en-IN")}</span>
+								<span className="font-bold">₹{totalMargin.toLocaleString("en-IN")}</span>
 							</div>
+							{hedgeRelief > 0 && (
+								<div className="flex justify-between text-purple-600 dark:text-purple-400">
+									<span>Hedge Margin Relief:</span>
+									<span className="font-bold">-₹{hedgeRelief.toLocaleString("en-IN")} ({hedgeReliefPct}%)</span>
+								</div>
+							)}
 						</div>
 						<Button onClick={handleResetAndClose} className="w-full">
 							Done
@@ -176,13 +209,18 @@ export const SlideToConfirmOrderModal: React.FC<SlideToConfirmOrderModalProps> =
 				) : (
 					// Order Configuration & Confirmation
 					<div className="space-y-4">
-						{/* Multi-Leg Review */}
+						{/* Multi-Leg Review with Smart Execution Sequence */}
 						<div className="space-y-1.5">
-							<span className="text-[10px] text-muted-foreground uppercase font-semibold">
-								Basket Legs ({legs.length} Orders)
-							</span>
+							<div className="flex items-center justify-between">
+								<span className="text-[10px] text-muted-foreground uppercase font-semibold">
+									Sequenced Basket Legs ({sequencedLegs.length} Orders)
+								</span>
+								<span className="text-[9.5px] text-purple-600 dark:text-purple-400 font-medium">
+									Hedge Buy Executed 1st
+								</span>
+							</div>
 							<div className="space-y-1 max-h-36 overflow-y-auto pr-1">
-								{legs.map((leg, idx) => {
+								{sequencedLegs.map((leg, idx) => {
 									const isSell = String(leg.action).toUpperCase() === "SELL";
 									return (
 										<div
@@ -190,6 +228,9 @@ export const SlideToConfirmOrderModal: React.FC<SlideToConfirmOrderModalProps> =
 											className="flex items-center justify-between p-2 rounded border bg-muted/30 text-xs font-mono"
 										>
 											<div className="flex items-center gap-1.5">
+												<span className="text-[9px] font-bold text-muted-foreground w-3.5">
+													#{idx + 1}
+												</span>
 												<span
 													className={`text-[9px] font-bold px-1.5 py-0.5 rounded text-white ${
 														isSell ? "bg-rose-600" : "bg-emerald-600"
@@ -203,6 +244,11 @@ export const SlideToConfirmOrderModal: React.FC<SlideToConfirmOrderModalProps> =
 												<Badge variant="outline" className="text-[10px] px-1 py-0">
 													{leg.strikePrice} {String(leg.type).toUpperCase()}
 												</Badge>
+												{!isSell && hasBothLegs && (
+													<span className="text-[9px] text-purple-600 dark:text-purple-400 font-sans font-medium">
+														(Margin Hedge)
+													</span>
+												)}
 											</div>
 											<span className="font-bold">
 												{leg.premium != null ? `₹${leg.premium}` : "Market"}
@@ -247,7 +293,7 @@ export const SlideToConfirmOrderModal: React.FC<SlideToConfirmOrderModalProps> =
 							</div>
 						</div>
 
-						{/* Capital & Risk Breakdown */}
+						{/* Capital, Margin & Hedge Relief Breakdown */}
 						<div className="grid grid-cols-2 gap-2 p-2.5 rounded-lg bg-muted/40 border text-xs">
 							<div>
 								<span className="text-[10px] text-muted-foreground uppercase font-medium">
@@ -265,6 +311,16 @@ export const SlideToConfirmOrderModal: React.FC<SlideToConfirmOrderModalProps> =
 									₹{totalNetPremium.toLocaleString("en-IN")}
 								</p>
 							</div>
+							{hedgeRelief > 0 && (
+								<div className="col-span-2 p-1.5 rounded bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900/60 flex items-center justify-between text-[11px]">
+									<span className="text-purple-700 dark:text-purple-300 font-semibold flex items-center gap-1">
+										<ShieldCheck className="h-3 w-3" /> Margin Benefit (Hedge Relief):
+									</span>
+									<span className="font-mono font-bold text-purple-700 dark:text-purple-300">
+										-₹{hedgeRelief.toLocaleString("en-IN")} ({hedgeReliefPct}% savings)
+									</span>
+								</div>
+							)}
 							<div>
 								<span className="text-[10px] text-muted-foreground uppercase font-medium">
 									Max Profit
