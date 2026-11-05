@@ -482,3 +482,11 @@ export function calculateTrendSmoothness(input: TrendSmoothnessInput, customTime
 		explanation,
 	};
 }
+
+// ── Convenient Aliases ────────────────────────────────────────────────────────
+export const calculateVcp = calculateVcpPattern;
+export const calculateMansfieldRelativeStrength = calculateMansfieldRs;
+export const calculateDeliveryVolumeSpike = calculateDeliveryConviction;
+export type MansfieldInput = MansfieldRsInput;
+export type DeliveryVolumeInput = DeliveryConvictionInput;
+

@@ -801,6 +801,17 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 		const algoTradingRoutes = await import("./routes/algo-trading-routes");
 		app.use("/api/us-trading/algo", algoTradingRoutes.default);
 
+		// Quant Alpha Engine & Tail-Risk Stress Testing Gateway (GCR v1.0 + FASP-AI v1.0)
+		logBootProgress("Step 9c: Registering FintekPro Quant Alpha & Derivative Routes...");
+		const [quantRoutes, quantAdminRoutes, derivativesRoutes] = await Promise.all([
+			import("./routes/quant-routes"),
+			import("./routes/quant-admin-routes"),
+			import("./routes/derivatives-routes"),
+		]);
+		app.use("/api/quant", quantRoutes.default);
+		app.use("/api/admin/quant", quantAdminRoutes.default);
+		app.use("/api/derivatives", derivativesRoutes.default);
+
 		// ── FINALIZATION ─────────────────────────────────────────────────────────
 
 		// Boot audit event

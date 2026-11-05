@@ -1735,6 +1735,15 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			console.log("[NseCorpActions] 🚀 Automated daily NSE corporate actions crawler active (feeding adjustment worker)");
 		});
 
+		// ─── Automated Overnight Quant Factor Screening Scheduler ────────────────
+		runStartupTask("Nightly Quant Factor Screening Scheduler", async () => {
+			const { nightlyFactorScreeningScheduler } = await import(
+				"../services/quant/nightly-factor-screening-scheduler"
+			);
+			nightlyFactorScreeningScheduler.start();
+			console.log("[QuantFactorScreen] 🔬 Automated nightly VCP, Mansfield RS & Delivery screening scheduler active");
+		});
+
 		console.log(
 			"✅ [Schedulers] All background services initialized. Portal is self-operating.",
 		);

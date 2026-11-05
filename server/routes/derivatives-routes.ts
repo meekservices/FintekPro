@@ -4,6 +4,7 @@ import {
 	SEBI_FNO_FRAMEWORK_2026,
 	validateWeeklyExpiryEligibility,
 } from "../services/derivatives-service";
+import { longShortAlgoEngine } from "../services/derivatives/long-short-algo-engine";
 import { upstoxMarketDataService } from "../services/upstox-market-data-service";
 import { db } from "../db";
 import { derivativeContracts, derivativePositions } from "@shared/schema";
@@ -743,6 +744,126 @@ router.post(
 		} catch (error: unknown) {
 			logger.error("[Derivatives] Error syncing contracts:", errorMessage(error));
 			res.status(500).json({ error: "Failed to sync derivative contracts" });
+		}
+	}
+);
+
+/**
+ * GET /api/derivatives/algo/signals
+ * Returns quantitative Long-Short signals (Statistical Arbitrage, Beta Hedged, Volatility Spreads).
+ * Complies with FASP-AI v1.0 DSS: Decision Support Only.
+ */
+router.get("/algo/signals", async (_req: Request, res: Response): Promise<void> => {
+	const t0 = Date.now();
+	try {
+		const signals = await longShortAlgoEngine.getActiveSignals();
+		res.json({
+			success: true,
+			data: signals,
+			meta: {
+				count: signals.length,
+				timestamp: new Date().toISOString(),
+				version: "GPE-LS-v1.0",
+				latency_ms: Date.now() - t0,
+			},
+		});
+	} catch (error: unknown) {
+		logger.error("[Derivatives] Error fetching Long-Short algo signals:", errorMessage(error));
+		res.status(500).json({ error: "Failed to fetch Long-Short signals" });
+	}
+});
+
+/**
+ * POST /api/derivatives/algo/stage-basket
+ * Stages an atomic multi-leg Long-Short basket with BUY-first leg sequencing.
+ */
+router.post(
+	"/algo/stage-basket",
+	async (
+		req: Request<
+			any,
+			any,
+			{
+				signalId: string;
+				lots?: number;
+				clientRiskProfile?: string;
+				isFnoCleared?: boolean;
+			}
+		>,
+		res: Response
+	): Promise<void> => {
+		try {
+			const { signalId, lots = 1, clientRiskProfile = "aggressive", isFnoCleared = true } = req.body;
+			if (!signalId) {
+				res.status(400).json({ success: false, error: "Missing required signalId parameter" });
+				return;
+			}
+
+			const stagedBasket = await longShortAlgoEngine.stageBasket({
+				signalId,
+				lots,
+				clientRiskProfile,
+				isFnoCleared,
+			});
+
+			res.json({
+				success: true,
+				message: `Staged Long-Short basket for ${stagedBasket.pairName} with ${stagedBasket.sequencedLegs.length} legs.`,
+				data: stagedBasket,
+				meta: { timestamp: new Date().toISOString() },
+			});
+		} catch (error: unknown) {
+			const msg = errorMessage(error);
+			if (msg.includes("SUITABILITY_GATE_FAILED")) {
+				res.status(403).json({ success: false, error_code: "SUITABILITY_GATE_FAILED", message: msg });
+				return;
+			}
+			logger.error("[Derivatives] Error staging Long-Short basket:", msg);
+			res.status(500).json({ success: false, error: msg });
+		}
+	}
+);
+
+/**
+ * POST /api/derivatives/algo/execute-basket
+ * Idempotently executes a staged Long-Short basket following explicit human confirmation.
+ */
+router.post(
+	"/algo/execute-basket",
+	async (
+		req: Request<
+			any,
+			any,
+			{
+				basket: any;
+				confirmedVia: "CLIENT_1CLICK_AUTH" | "ADVISOR_PORTAL_SIGN_OFF";
+			}
+		>,
+		res: Response
+	): Promise<void> => {
+		try {
+			const { basket, confirmedVia = "CLIENT_1CLICK_AUTH" } = req.body;
+			if (!basket || !basket.basketId || !basket.sequencedLegs) {
+				res.status(400).json({ success: false, error: "Invalid basket payload for execution" });
+				return;
+			}
+
+			const userId = (req.user as any)?.id || "demo-user";
+			const result = await longShortAlgoEngine.executeBasket({
+				basket,
+				userId,
+				confirmedVia,
+			});
+
+			res.json({
+				success: true,
+				message: `Long-Short basket ${basket.basketId} executed successfully across ${result.executedOrders.length} legs.`,
+				data: result,
+				meta: { timestamp: new Date().toISOString() },
+			});
+		} catch (error: unknown) {
+			logger.error("[Derivatives] Error executing Long-Short basket:", errorMessage(error));
+			res.status(500).json({ success: false, error: "Failed to execute Long-Short basket" });
 		}
 	}
 );

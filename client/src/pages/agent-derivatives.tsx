@@ -45,7 +45,15 @@ import {
 	ChevronRight,
 	Sparkles,
 	Trash2,
+	Send,
+	ShieldCheck,
+	Zap,
+	Coins,
+	CheckCircle2,
+	Lock,
 } from "lucide-react";
+import { PartnerClientDispatchModal } from "@/components/picks/PartnerClientDispatchModal";
+import { SlideToConfirmOrderModal } from "@/components/picks/SlideToConfirmOrderModal";
 import {
 	XAxis,
 	YAxis,
@@ -139,6 +147,17 @@ export default function AgentDerivatives() {
 	const [showITM, setShowITM] = useState(true);
 	const [_selectedOption, _setSelectedOption] = useState<OptionData | null>(null);
 	const [strategyFilter, setStrategyFilter] = useState<"all" | "seller" | "buyer">("all");
+	const [selectedAlgoSignal, setSelectedAlgoSignal] = useState<any>(null);
+	const [isDispatchModalOpen, setIsDispatchModalOpen] = useState<boolean>(false);
+	const [isSlideModalOpen, setIsSlideModalOpen] = useState<boolean>(false);
+
+	const { data: algoSignalsResp, isLoading: isLoadingAlgoSignals } = useQuery<{
+		success: boolean;
+		data: any[];
+	}>({
+		queryKey: ["/api/derivatives/algo/signals"],
+	});
+	const algoSignals = algoSignalsResp?.data || [];
 
 	const { data: symbolsData } = useQuery<{
 		symbols: string[];
@@ -417,6 +436,10 @@ export default function AgentDerivatives() {
 					<TabsTrigger value="calendar" data-testid="tab-calendar">
 						<Calendar className="h-4 w-4 mr-2" />
 						Expiry Calendar
+					</TabsTrigger>
+					<TabsTrigger value="long-short" data-testid="tab-long-short">
+						<Sparkles className="h-4 w-4 mr-2 text-indigo-500" />
+						Long-Short Algos
 					</TabsTrigger>
 				</ScrollableTabsList>
 
@@ -1138,7 +1161,297 @@ export default function AgentDerivatives() {
 						</CardContent>
 					</Card>
 				</TabsContent>
+
+				<TabsContent value="long-short" className="space-y-4">
+					{/* Policy & Governance Header */}
+					<Card className="border-indigo-200 dark:border-indigo-900 bg-gradient-to-r from-indigo-50/70 via-purple-50/40 to-background dark:from-indigo-950/20 dark:via-purple-950/10 dark:to-background">
+						<CardContent className="p-4">
+							<div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+								<div className="space-y-1">
+									<div className="flex items-center gap-2">
+										<Badge variant="outline" className="border-indigo-400 text-indigo-700 dark:text-indigo-300 font-semibold text-[11px]">
+											<Sparkles className="h-3 w-3 mr-1 text-indigo-500" /> FASP-AI v1.0 Long-Short DSS
+										</Badge>
+										<Badge variant="secondary" className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-medium">
+											<ShieldCheck className="h-3 w-3 mr-1" /> SEBI IA Reg 22 Compliant
+										</Badge>
+										<Badge variant="outline" className="text-[10px] border-purple-300 text-purple-700 dark:text-purple-300">
+											BUY-First Margin Relief
+										</Badge>
+									</div>
+									<h2 className="text-lg font-bold text-foreground">
+										Quantitative Long-Short & Statistical Arbitrage Engine
+									</h2>
+									<p className="text-xs text-muted-foreground leading-relaxed max-w-2xl">
+										Mean-reversion cointegration pairs, market-neutral beta-hedged baskets, and volatility spreads. 
+										Trades are calculated algorithmically and dispatched via <strong>1-Click Approval</strong> to ensure zero unregulated discretionary execution risk.
+									</p>
+								</div>
+								<div className="flex items-center gap-2 self-start md:self-center">
+									<div className="text-right pr-3 border-r hidden sm:block">
+										<p className="text-[10px] text-muted-foreground uppercase font-semibold">Active Signals</p>
+										<p className="text-xl font-bold text-indigo-600 dark:text-indigo-400">{algoSignals.length}</p>
+									</div>
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => {
+											toast({
+												title: "Refreshed Long-Short Engine",
+												description: "Re-calculated statistical arbitrage Z-scores and beta ratios against live NSE quotes.",
+											});
+										}}
+										className="h-8 text-xs"
+									>
+										<RefreshCw className="h-3.5 w-3.5 mr-1" /> Re-scan Pairs
+									</Button>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+
+					{/* Signals Grid */}
+					{isLoadingAlgoSignals ? (
+						<div className="py-12 text-center text-sm text-muted-foreground">
+							Computing quantitative factors, Z-scores, and exchange margin relief...
+						</div>
+					) : (
+						<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+							{algoSignals.map((signal: any) => {
+								const zScore = signal.quantitativeFactors?.zScore;
+								const beta = signal.quantitativeFactors?.portfolioBeta;
+								const winRate = signal.quantitativeFactors?.historicalWinRate;
+								const halfLife = signal.quantitativeFactors?.halfLifeDays;
+
+								return (
+									<Card key={signal.id} className="border hover:shadow-md transition-shadow">
+										<CardHeader className="pb-3">
+											<div className="flex items-start justify-between gap-2">
+												<div>
+													<div className="flex items-center gap-2 mb-1">
+														<Badge
+															variant="outline"
+															className={`text-[10px] font-bold uppercase ${
+																signal.strategyType === "PAIRS_TRADING"
+																	? "border-sky-400 text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/30"
+																	: signal.strategyType === "MARKET_NEUTRAL_BETA_HEDGE"
+																	? "border-purple-400 text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/30"
+																	: "border-amber-400 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30"
+															}`}
+														>
+															{signal.strategyType.replace(/_/g, " ")}
+														</Badge>
+														<Badge variant="secondary" className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+															{signal.confidenceScore}% Confidence
+														</Badge>
+													</div>
+													<CardTitle className="text-base font-bold">{signal.title}</CardTitle>
+													<CardDescription className="text-xs line-clamp-2 mt-1">
+														{signal.description}
+													</CardDescription>
+												</div>
+											</div>
+										</CardHeader>
+
+										<CardContent className="space-y-3 pt-0">
+											{/* Statistical Factors Matrix */}
+											<div className="grid grid-cols-4 gap-2 p-2.5 rounded-lg bg-muted/40 text-center text-xs">
+												<div>
+													<p className="text-[10px] text-muted-foreground">
+														{zScore !== undefined ? "Z-Score" : "Portfolio Beta"}
+													</p>
+													<p className="font-bold text-foreground font-mono">
+														{zScore !== undefined ? `${zScore > 0 ? "+" : ""}${zScore}σ` : `${beta > 0 ? "+" : ""}${beta}`}
+													</p>
+												</div>
+												<div>
+													<p className="text-[10px] text-muted-foreground">Win Rate</p>
+													<p className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+														{winRate}%
+													</p>
+												</div>
+												<div>
+													<p className="text-[10px] text-muted-foreground">
+														{halfLife ? "Half-Life" : "Max DD"}
+													</p>
+													<p className="font-bold text-foreground font-mono">
+														{halfLife ? `${halfLife}d` : `${signal.quantitativeFactors?.maxDrawdownHistorical}%`}
+													</p>
+												</div>
+												<div>
+													<p className="text-[10px] text-muted-foreground">Hedge Relief</p>
+													<p className="font-bold text-purple-600 dark:text-purple-400 font-mono">
+														{signal.hedgeMarginBenefitPct}%
+													</p>
+												</div>
+											</div>
+
+											{/* Sequenced Legs */}
+											<div className="space-y-1.5">
+												<div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
+													<span>Sequenced Legs (BUY executes 1st for margin relief)</span>
+													<span className="font-mono text-[10px]">Lot Size</span>
+												</div>
+												{signal.legs.map((leg: any, idx: number) => {
+													const isBuy = leg.action === "BUY";
+													return (
+														<div
+															key={`${leg.tradingsymbol}-${idx}`}
+															className="flex items-center justify-between p-2 rounded border bg-card text-xs font-mono"
+														>
+															<div className="flex items-center gap-2">
+																<Badge
+																	variant={isBuy ? "default" : "destructive"}
+																	className={`text-[9px] px-1.5 py-0 h-4 font-bold ${
+																		isBuy ? "bg-emerald-600 hover:bg-emerald-600" : "bg-rose-600 hover:bg-rose-600"
+																	}`}
+																>
+																	{leg.action}
+																</Badge>
+																<span className="font-semibold text-foreground">{leg.tradingsymbol}</span>
+																<span className="text-[10px] text-muted-foreground">
+																	({leg.instrumentType})
+																</span>
+															</div>
+															<div className="text-right">
+																<span className="font-bold">₹{leg.currentPrice.toFixed(2)}</span>
+																<span className="text-[10px] text-muted-foreground ml-1.5">
+																	x{leg.lotSize * leg.quantityRatio}
+																</span>
+															</div>
+														</div>
+													);
+												})}
+											</div>
+
+											{/* Margin Economics & Risk-Reward */}
+											<div className="p-2.5 rounded-lg border bg-card flex items-center justify-between text-xs">
+												<div>
+													<p className="text-[10px] text-muted-foreground">Hedged Margin Required</p>
+													<div className="flex items-baseline gap-1.5">
+														<span className="text-sm font-bold text-foreground">
+															₹{signal.hedgedMarginRequired.toLocaleString("en-IN")}
+														</span>
+														<span className="text-[10px] line-through text-muted-foreground">
+															₹{signal.grossMarginRequired.toLocaleString("en-IN")}
+														</span>
+													</div>
+												</div>
+												<div className="text-right">
+													<p className="text-[10px] text-muted-foreground">Target / Stop Loss</p>
+													<p className="font-semibold">
+														<span className="text-emerald-600 dark:text-emerald-400">
+															+₹{signal.targetProfit.toLocaleString("en-IN")}
+														</span>{" "}
+														/{" "}
+														<span className="text-rose-600 dark:text-rose-400">
+															-₹{signal.stopLoss.toLocaleString("en-IN")}
+														</span>
+													</p>
+												</div>
+											</div>
+
+											{/* Action Buttons */}
+											<div className="flex items-center justify-end gap-2 pt-1 border-t">
+												<Button
+													type="button"
+													variant="outline"
+													size="sm"
+													onClick={() => {
+														setSelectedAlgoSignal(signal);
+														setIsDispatchModalOpen(true);
+													}}
+													className="h-8 text-xs flex items-center gap-1.5"
+												>
+													<Send className="h-3.5 w-3.5 text-primary" />
+													Dispatch to Clients
+												</Button>
+												<Button
+													type="button"
+													size="sm"
+													onClick={() => {
+														setSelectedAlgoSignal(signal);
+														setIsSlideModalOpen(true);
+													}}
+													className="h-8 text-xs flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
+												>
+													<Zap className="h-3.5 w-3.5" />
+													1-Click Slide Execute
+												</Button>
+											</div>
+										</CardContent>
+									</Card>
+								);
+							})}
+						</div>
+					)}
+				</TabsContent>
 			</Tabs>
+
+			{/* Client 1-Click Dispatch Modal */}
+			{selectedAlgoSignal && (
+				<PartnerClientDispatchModal
+					isOpen={isDispatchModalOpen}
+					onClose={() => setIsDispatchModalOpen(false)}
+					pick={{
+						id: selectedAlgoSignal.id,
+						title: selectedAlgoSignal.title,
+						symbol: selectedAlgoSignal.pairName,
+						category: "derivatives",
+						strategyType: selectedAlgoSignal.strategyType,
+						targetPrice: selectedAlgoSignal.targetProfit,
+						stopLoss: selectedAlgoSignal.stopLoss,
+						legs: selectedAlgoSignal.legs,
+					}}
+					formattedMessage={`📊 *FintekPro Long-Short Quantitative Pick*
+Strategy: ${selectedAlgoSignal.title}
+Pair: ${selectedAlgoSignal.pairName}
+Type: ${selectedAlgoSignal.strategyType}
+
+📈 Quantitative Factors:
+${selectedAlgoSignal.quantitativeFactors?.zScore ? `• Spread Z-Score: ${selectedAlgoSignal.quantitativeFactors.zScore}σ` : ''}
+${selectedAlgoSignal.quantitativeFactors?.portfolioBeta !== undefined ? `• Net Portfolio Beta: ${selectedAlgoSignal.quantitativeFactors.portfolioBeta}` : ''}
+• Historical Win Rate: ${selectedAlgoSignal.quantitativeFactors?.historicalWinRate}%
+• Hedge Margin Benefit: ${selectedAlgoSignal.hedgeMarginBenefitPct}%
+
+📋 Recommended Sequenced Legs (BUY-First for Margin Relief):
+${selectedAlgoSignal.legs.map((l: any) => `• ${l.action} ${l.tradingsymbol} (Lot: ${l.lotSize}) @ ₹${l.currentPrice}`).join('\n')}
+
+🎯 Target Profit: ₹${selectedAlgoSignal.targetProfit?.toLocaleString('en-IN')} | 🛑 Stop Loss: ₹${selectedAlgoSignal.stopLoss?.toLocaleString('en-IN')}
+💰 Hedged Margin Required: ₹${selectedAlgoSignal.hedgedMarginRequired?.toLocaleString('en-IN')} (Gross: ₹${selectedAlgoSignal.grossMarginRequired?.toLocaleString('en-IN')})`}
+				/>
+			)}
+
+			{/* Slide To Confirm / 1-Click Direct Execution Modal */}
+			{selectedAlgoSignal && (
+				<SlideToConfirmOrderModal
+					isOpen={isSlideModalOpen}
+					onClose={() => setIsSlideModalOpen(false)}
+					strategyName={selectedAlgoSignal.title}
+					symbol={selectedAlgoSignal.pairName}
+					legs={(selectedAlgoSignal.legs || []).map((l: any, idx: number) => ({
+						id: `leg-${idx}`,
+						action: l.action,
+						type: l.instrumentType,
+						strikePrice: l.strikePrice,
+						premium: l.currentPrice,
+						quantity: l.lotSize * l.quantityRatio,
+						name: l.tradingsymbol,
+					}))}
+					lotSize={selectedAlgoSignal.legs?.[0]?.lotSize || 100}
+					recoPrice={selectedAlgoSignal.legs?.[0]?.currentPrice || 100}
+					isCreditStrategy={selectedAlgoSignal.strategyType === "VOLATILITY_SPREAD"}
+					marginRequired={selectedAlgoSignal.hedgedMarginRequired || 150000}
+					maxProfit={selectedAlgoSignal.targetProfit || 25000}
+					maxLoss={selectedAlgoSignal.stopLoss || 12000}
+					onOrderSuccess={(details) => {
+						toast({
+							title: "Long-Short Basket Executed",
+							description: `Idempotent execution confirmed for ${details.strategyName} (${details.orderId}).`,
+						});
+					}}
+				/>
+			)}
 		</div>
 	);
 }

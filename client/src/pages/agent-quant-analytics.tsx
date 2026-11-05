@@ -21,6 +21,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import PythonServiceUnavailable from "@/components/PythonServiceUnavailable";
 import {
@@ -35,6 +36,12 @@ import {
 	RefreshCw,
 	TrendingDown,
 	Info,
+	ShieldAlert,
+	Sparkles,
+	CheckCircle2,
+	Zap,
+	ShieldCheck,
+	Activity,
 } from "lucide-react";
 import {
 	LineChart,
@@ -116,6 +123,12 @@ export default function AgentQuantAnalytics() {
 					<TabsTrigger value="mvo-optimizer" className="gap-2">
 						<PieChart className="h-4 w-4" /> MVO Optimizer
 					</TabsTrigger>
+					<TabsTrigger value="tail-risk-stress" className="gap-2">
+						<ShieldAlert className="h-4 w-4 text-rose-500" /> Tail Risk & Macro Stress
+					</TabsTrigger>
+					<TabsTrigger value="quant-factors" className="gap-2">
+						<Sparkles className="h-4 w-4 text-indigo-500" /> Advanced Quant Factors
+					</TabsTrigger>
 				</ScrollableTabsList>
 
 				<TabsContent value="portfolio-xirr">
@@ -135,6 +148,12 @@ export default function AgentQuantAnalytics() {
 				</TabsContent>
 				<TabsContent value="mvo-optimizer">
 					<MVOTab />
+				</TabsContent>
+				<TabsContent value="tail-risk-stress">
+					<TailRiskStressTab />
+				</TabsContent>
+				<TabsContent value="quant-factors">
+					<QuantFactorsTab />
 				</TabsContent>
 			</Tabs>
 		</div>
@@ -1032,6 +1051,566 @@ function MVOTab() {
 					)}
 				</CardContent>
 			</Card>
+		</div>
+	);
+}
+
+// ─── 7. Tail Risk & Macro Stress Testing Tab ──────────────────────────────────
+
+function TailRiskStressTab() {
+	const { toast } = useToast();
+	const [selectedPreset, setSelectedPreset] = useState<string>("balanced");
+	const [stressData, setStressData] = useState<any>(null);
+
+	const presets: Record<string, { name: string; description: string; assets: any[] }> = {
+		balanced: {
+			name: "All-Weather Multi-Asset (60/30/10)",
+			description: "60% Bluechip Equity, 30% Sovereign Debt, 10% Gold ETF",
+			assets: [
+				{ symbol: "HDFCBANK", assetClass: "BANKING", weight: 0.25, beta: 1.05 },
+				{ symbol: "TCS", assetClass: "IT", weight: 0.20, beta: 0.85 },
+				{ symbol: "RELIANCE", assetClass: "LARGE_CAP", weight: 0.15, beta: 1.10 },
+				{ symbol: "GSEC10Y", assetClass: "DEBT", weight: 0.30, beta: 0.12 },
+				{ symbol: "GOLDBEES", assetClass: "GOLD", weight: 0.10, beta: 0.02 },
+			],
+		},
+		aggressive: {
+			name: "High-Alpha Mid & Small Cap Equity",
+			description: "80% Mid/Small Cap Growth, 20% Large Cap Leaders",
+			assets: [
+				{ symbol: "LTIM", assetClass: "MID_CAP", weight: 0.30, beta: 1.25 },
+				{ symbol: "POLYCAB", assetClass: "MID_CAP", weight: 0.25, beta: 1.30 },
+				{ symbol: "TATASTEEL", assetClass: "SMALL_CAP", weight: 0.25, beta: 1.45 },
+				{ symbol: "ICICIBANK", assetClass: "BANKING", weight: 0.20, beta: 1.10 },
+			],
+		},
+		conservative: {
+			name: "Capital Preservation & Income",
+			description: "20% Large Cap Dividend, 65% Corporate Bonds/T-Bills, 15% Gold",
+			assets: [
+				{ symbol: "INFY", assetClass: "IT", weight: 0.20, beta: 0.80 },
+				{ symbol: "CORP_BOND", assetClass: "DEBT", weight: 0.65, beta: 0.10 },
+				{ symbol: "GOLDBEES", assetClass: "GOLD", weight: 0.15, beta: 0.02 },
+			],
+		},
+	};
+
+	const stressMutation = useMutation({
+		mutationFn: async (assets: any[]) => {
+			const res = await apiRequest("POST", "/api/quant/stress-test", { assets });
+			return res.json();
+		},
+		onSuccess: (resp) => {
+			setStressData(resp.data);
+			toast({
+				title: "Tail-Risk Stress Test Evaluated",
+				description: `Portfolio Robustness: ${resp.data.portfolioRobustnessScore}/100 across ${resp.data.stressTestScenarios.length} historical crises.`,
+			});
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Stress Test Failed",
+				description: err.message,
+				variant: "destructive",
+			});
+		},
+	});
+
+	const handleRunStress = (presetKey: string) => {
+		setSelectedPreset(presetKey);
+		stressMutation.mutate(presets[presetKey].assets);
+	};
+
+	return (
+		<div className="space-y-6">
+			{/* Overview Banner */}
+			<Card className="border-rose-200 dark:border-rose-950 bg-gradient-to-r from-rose-50/70 via-background to-background dark:from-rose-950/20 dark:via-background dark:to-background">
+				<CardContent className="p-4">
+					<div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+						<div className="space-y-1">
+							<div className="flex items-center gap-2">
+								<Badge variant="outline" className="border-rose-400 text-rose-700 dark:text-rose-300 font-semibold text-[11px]">
+									<ShieldAlert className="h-3 w-3 mr-1 text-rose-500" /> Tail-Risk & CVaR Engine
+								</Badge>
+								<Badge variant="secondary" className="text-[10px] bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 font-medium">
+									Fat-Tailed Expected Shortfall (Cornish-Fisher)
+								</Badge>
+							</div>
+							<h2 className="text-lg font-bold text-foreground">
+								Institutional Macro Stress Testing & Tail-Risk Analytics
+							</h2>
+							<p className="text-xs text-muted-foreground leading-relaxed max-w-2xl">
+								Simulate extreme systemic tail events, evaluate Parametric & Historical Value at Risk (VaR), 
+								and stress-test multi-asset portfolios against historic Indian market crashes (COVID 2020, 2008 GFC, 2013 Taper Tantrum).
+							</p>
+						</div>
+						<div className="flex items-center gap-2">
+							<Button
+								type="button"
+								size="sm"
+								disabled={stressMutation.isPending}
+								onClick={() => handleRunStress(selectedPreset)}
+								className="h-8 text-xs bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1.5"
+							>
+								{stressMutation.isPending ? (
+									<Loader2 className="h-3.5 w-3.5 animate-spin" />
+								) : (
+									<Activity className="h-3.5 w-3.5" />
+								)}
+								Run Stress Test
+							</Button>
+						</div>
+					</div>
+				</CardContent>
+			</Card>
+
+			{/* Portfolio Preset Selector */}
+			<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+				{Object.entries(presets).map(([key, preset]) => {
+					const isSelected = selectedPreset === key;
+					return (
+						// biome-ignore lint/a11y/noStaticElementInteractions: preset selection
+						<div
+							key={key}
+							onClick={() => handleRunStress(key)}
+							className={`p-3.5 rounded-lg border cursor-pointer transition-all ${
+								isSelected
+									? "border-rose-500 bg-rose-50/40 dark:bg-rose-950/20 shadow-sm"
+									: "hover:bg-muted/40"
+							}`}
+						>
+							<div className="flex items-center justify-between mb-1">
+								<p className="font-semibold text-xs text-foreground">{preset.name}</p>
+								{isSelected && <Badge className="text-[9px] bg-rose-600">Active</Badge>}
+							</div>
+							<p className="text-[11px] text-muted-foreground">{preset.description}</p>
+							<div className="flex items-center gap-1.5 mt-2 text-[10px] text-muted-foreground font-mono">
+								{preset.assets.map((a) => (
+									<span key={a.symbol} className="px-1.5 py-0.5 rounded bg-muted">
+										{a.symbol} ({Math.round(a.weight * 100)}%)
+									</span>
+								))}
+							</div>
+						</div>
+					);
+				})}
+			</div>
+
+			{/* Results Display */}
+			{stressData && (
+				<div className="space-y-4">
+					{/* Key Metrics Cards */}
+					<div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+						<Card className="p-3 bg-card text-center">
+							<p className="text-[10px] text-muted-foreground uppercase font-semibold">95% Daily VaR</p>
+							<p className="text-xl font-bold text-foreground font-mono mt-1">
+								-{stressData.varMetrics?.confidence95_dailyVaRPct}%
+							</p>
+							<p className="text-[9px] text-muted-foreground mt-0.5">Parametric (Normal)</p>
+						</Card>
+						<Card className="p-3 bg-card text-center">
+							<p className="text-[10px] text-muted-foreground uppercase font-semibold">95% Monthly VaR</p>
+							<p className="text-xl font-bold text-foreground font-mono mt-1">
+								-{stressData.varMetrics?.confidence95_monthlyVaRPct}%
+							</p>
+							<p className="text-[9px] text-muted-foreground mt-0.5">21-Day Horizon</p>
+						</Card>
+						<Card className="p-3 bg-card text-center border-rose-200 dark:border-rose-900">
+							<p className="text-[10px] text-rose-600 dark:text-rose-400 uppercase font-semibold">95% CVaR (Expected Shortfall)</p>
+							<p className="text-xl font-bold text-rose-600 dark:text-rose-400 font-mono mt-1">
+								-{stressData.varMetrics?.cvar95_expectedShortfallPct}%
+							</p>
+							<p className="text-[9px] text-muted-foreground mt-0.5">Fat-Tailed Loss</p>
+						</Card>
+						<Card className="p-3 bg-card text-center border-rose-300 dark:border-rose-800">
+							<p className="text-[10px] text-rose-700 dark:text-rose-300 uppercase font-semibold">99% Extreme CVaR</p>
+							<p className="text-xl font-bold text-rose-700 dark:text-rose-300 font-mono mt-1">
+								-{stressData.varMetrics?.cvar99_expectedShortfallPct}%
+							</p>
+							<p className="text-[9px] text-muted-foreground mt-0.5">Black Swan Tail</p>
+						</Card>
+						<Card className="p-3 bg-card text-center col-span-2 md:col-span-1 border-indigo-200 dark:border-indigo-900">
+							<p className="text-[10px] text-muted-foreground uppercase font-semibold">Robustness Score</p>
+							<p className="text-xl font-bold text-indigo-600 dark:text-indigo-400 font-mono mt-1">
+								{stressData.portfolioRobustnessScore}/100
+							</p>
+							<Badge variant="outline" className="text-[9px] mt-0.5 border-indigo-300 text-indigo-700 dark:text-indigo-300">
+								{stressData.riskClassification}
+							</Badge>
+						</Card>
+					</div>
+
+					{/* Historic Crisis Scenarios Simulation */}
+					<Card>
+						<CardHeader className="pb-3">
+							<CardTitle className="text-sm font-bold flex items-center gap-2">
+								<AlertTriangle className="h-4 w-4 text-amber-500" />
+								Simulated Portfolio Drawdown in Historical Crises
+							</CardTitle>
+							<CardDescription className="text-xs">
+								Evaluates how this specific asset mix and weighted beta ({stressData.intermediate_steps?.weightedBeta}) would have performed during past Indian market shocks.
+							</CardDescription>
+						</CardHeader>
+						<CardContent className="pt-0">
+							<div className="space-y-3">
+								{stressData.stressTestScenarios?.map((scenario: any) => {
+									const isSevere = scenario.estimatedPortfolioDrawdownPct < -30;
+									return (
+										<div
+											key={scenario.scenarioId}
+											className="p-3 rounded-lg border bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+										>
+											<div className="space-y-0.5">
+												<div className="flex items-center gap-2">
+													<p className="font-bold text-foreground">{scenario.scenarioName}</p>
+													<Badge variant="secondary" className="text-[9px]">
+														{scenario.historicalPeriod}
+													</Badge>
+												</div>
+												<p className="text-[11px] text-muted-foreground">{scenario.description}</p>
+											</div>
+											<div className="flex items-center gap-4 text-right self-end sm:self-center">
+												<div>
+													<p className="text-[10px] text-muted-foreground">Broad Market Shock</p>
+													<p className="font-bold font-mono text-muted-foreground">
+														{scenario.broadMarketShockPct}%
+													</p>
+												</div>
+												<div>
+													<p className="text-[10px] text-muted-foreground">Simulated Portfolio Impact</p>
+													<p
+														className={`font-bold font-mono text-sm ${
+															isSevere
+																? "text-rose-600 dark:text-rose-400"
+																: "text-amber-600 dark:text-amber-400"
+														}`}
+													>
+														{scenario.estimatedPortfolioDrawdownPct}%
+													</p>
+												</div>
+											</div>
+										</div>
+									);
+								})}
+							</div>
+
+							{/* Recommendations */}
+							{stressData.recommendations?.length > 0 && (
+								<div className="mt-4 p-3 rounded-lg bg-muted/40 border text-xs space-y-1">
+									<p className="font-semibold text-foreground flex items-center gap-1.5">
+										<ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+										Risk Mitigation Recommendations (FASP-AI v1.0 DSS):
+									</p>
+									<ul className="list-disc list-inside text-muted-foreground space-y-0.5 pl-1">
+										{stressData.recommendations.map((rec: string, i: number) => (
+											<li key={i}>{rec}</li>
+										))}
+									</ul>
+								</div>
+							)}
+						</CardContent>
+					</Card>
+				</div>
+			)}
+		</div>
+	);
+}
+
+// ─── 8. Advanced Quant Factors Tab ────────────────────────────────────────────
+
+function QuantFactorsTab() {
+	const { toast } = useToast();
+	const [selectedStock, setSelectedStock] = useState<string>("HDFCBANK");
+
+	// Load screened picks from nightly scheduler
+	const { data: screenerData, isLoading: isLoadingScreener, refetch: refetchScreener } = useQuery<{
+		success: boolean;
+		data: any[];
+		meta: any;
+	}>({
+		queryKey: ["/api/quant/screener/results"],
+	});
+
+	const scanMutation = useMutation({
+		mutationFn: async () => {
+			const res = await apiRequest("POST", "/api/quant/screener/run", {});
+			return res.json();
+		},
+		onSuccess: (resp) => {
+			toast({
+				title: "Overnight Factor Screener Triggered",
+				description: resp.message,
+			});
+			refetchScreener();
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Screening Failed",
+				description: err.message,
+				variant: "destructive",
+			});
+		},
+	});
+
+	const picks = screenerData?.data || [];
+	const currentPick = picks.find((p) => p.symbol === selectedStock) || picks[0];
+
+	return (
+		<div className="space-y-6">
+			{/* Overview Banner */}
+			<Card className="border-indigo-200 dark:border-indigo-950 bg-gradient-to-r from-indigo-50/70 via-background to-background dark:from-indigo-950/20 dark:via-background dark:to-background">
+				<CardContent className="p-4">
+					<div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+						<div className="space-y-1">
+							<div className="flex items-center gap-2">
+								<Badge variant="outline" className="border-indigo-400 text-indigo-700 dark:text-indigo-300 font-semibold text-[11px]">
+									<Sparkles className="h-3 w-3 mr-1 text-indigo-500" /> Multi-Factor Alpha Model
+								</Badge>
+								<Badge variant="secondary" className="text-[10px] bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 font-medium">
+									Minervini VCP + Mansfield RS + Delivery Spike
+								</Badge>
+							</div>
+							<h2 className="text-lg font-bold text-foreground">
+								Institutional Stock Alpha Screener & Factor Radar
+							</h2>
+							<p className="text-xs text-muted-foreground leading-relaxed max-w-2xl">
+								Screening Indian large and mid-caps for Volatility Contraction (VCP), Mansfield Relative Strength against Nifty 50, 
+								institutional delivery volume accumulation, and log-price trend smoothness.
+							</p>
+						</div>
+						<div className="flex items-center gap-2">
+							<Button
+								type="button"
+								size="sm"
+								variant="outline"
+								disabled={scanMutation.isPending}
+								onClick={() => scanMutation.mutate()}
+								className="h-8 text-xs flex items-center gap-1.5"
+							>
+								{scanMutation.isPending ? (
+									<Loader2 className="h-3.5 w-3.5 animate-spin" />
+								) : (
+									<RefreshCw className="h-3.5 w-3.5" />
+								)}
+								Re-scan Universe Now
+							</Button>
+						</div>
+					</div>
+				</CardContent>
+			</Card>
+
+			{/* Main Screened Universe Table */}
+			{isLoadingScreener ? (
+				<div className="py-12 text-center text-sm text-muted-foreground">
+					Loading nightly screened factor metrics...
+				</div>
+			) : (
+				<div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+					{/* Left: Screened Stocks List */}
+					<Card className="lg:col-span-2">
+						<CardHeader className="pb-3">
+							<div className="flex items-center justify-between">
+								<CardTitle className="text-sm font-bold">
+									Screened Securities Universe ({picks.length})
+								</CardTitle>
+								<span className="text-[10px] text-muted-foreground">
+									Sorted by Composite Alpha Score
+								</span>
+							</div>
+						</CardHeader>
+						<CardContent className="pt-0">
+							<div className="border rounded-lg overflow-hidden max-h-[500px] overflow-y-auto">
+								<table className="w-full text-xs">
+									<thead className="bg-muted/50 border-b text-[10px] text-muted-foreground">
+										<tr>
+											<th className="p-2.5 text-left font-semibold">Security</th>
+											<th className="p-2.5 text-center font-semibold">Alpha Score</th>
+											<th className="p-2.5 text-center font-semibold">VCP Ratio</th>
+											<th className="p-2.5 text-center font-semibold">Mansfield RS</th>
+											<th className="p-2.5 text-center font-semibold">Trend R²</th>
+											<th className="p-2.5 text-right font-semibold">Action</th>
+										</tr>
+									</thead>
+									<tbody className="divide-y">
+										{picks.map((pick: any) => {
+											const isSelected = selectedStock === pick.symbol;
+											const isTopAlpha = pick.compositeAlphaScore >= 75;
+											return (
+												<tr
+													key={pick.symbol}
+													onClick={() => setSelectedStock(pick.symbol)}
+													className={`cursor-pointer transition-colors ${
+														isSelected ? "bg-indigo-50/50 dark:bg-indigo-950/20 font-semibold" : "hover:bg-muted/30"
+													}`}
+												>
+													<td className="p-2.5">
+														<div className="flex items-center gap-2">
+															<div>
+																<p className="font-bold text-foreground leading-tight">{pick.symbol}</p>
+																<p className="text-[10px] text-muted-foreground">{pick.companyName}</p>
+															</div>
+															{pick.isPriorityPick && (
+																<Badge variant="outline" className="text-[9px] border-emerald-300 text-emerald-700 dark:text-emerald-300 px-1 py-0">
+																	Top Pick
+																</Badge>
+															)}
+														</div>
+													</td>
+													<td className="p-2.5 text-center font-mono">
+														<span
+															className={`font-bold ${
+																isTopAlpha ? "text-indigo-600 dark:text-indigo-400" : "text-foreground"
+															}`}
+														>
+															{pick.compositeAlphaScore}/100
+														</span>
+													</td>
+													<td className="p-2.5 text-center font-mono">
+														<span
+															className={
+																pick.vcp?.compressionRatio < 0.95
+																	? "text-emerald-600 font-bold"
+																	: "text-muted-foreground"
+															}
+														>
+															{pick.vcp?.compressionRatio?.toFixed(2)}
+														</span>
+													</td>
+													<td className="p-2.5 text-center font-mono">
+														<span
+															className={
+																pick.mansfield?.currentRsScore > 0
+																	? "text-emerald-600 font-bold"
+																	: "text-rose-600 font-bold"
+															}
+														>
+															{pick.mansfield?.currentRsScore > 0 ? "+" : ""}
+															{pick.mansfield?.currentRsScore}%
+														</span>
+													</td>
+													<td className="p-2.5 text-center font-mono text-muted-foreground">
+														{pick.trendSmoothness?.rSquared?.toFixed(2)}
+													</td>
+													<td className="p-2.5 text-right">
+														<Button
+															type="button"
+															variant="ghost"
+															size="sm"
+															onClick={() => setSelectedStock(pick.symbol)}
+															className="h-6 px-2 text-[10px]"
+														>
+															Inspect
+														</Button>
+													</td>
+												</tr>
+											);
+										})}
+									</tbody>
+								</table>
+							</div>
+						</CardContent>
+					</Card>
+
+					{/* Right: Selected Stock Factor Radar */}
+					{currentPick && (
+						<Card className="border-indigo-200 dark:border-indigo-900">
+							<CardHeader className="pb-3">
+								<div className="flex items-center justify-between">
+									<div>
+										<CardTitle className="text-base font-bold">{currentPick.symbol}</CardTitle>
+										<CardDescription className="text-xs">{currentPick.companyName}</CardDescription>
+									</div>
+									<div className="text-right">
+										<p className="text-[10px] text-muted-foreground uppercase font-semibold">Alpha Score</p>
+										<p className="text-xl font-bold text-indigo-600 dark:text-indigo-400 font-mono">
+											{currentPick.compositeAlphaScore}/100
+										</p>
+									</div>
+								</div>
+							</CardHeader>
+							<CardContent className="space-y-3 pt-0 text-xs">
+								{/* VCP Breakdown */}
+								<div className="p-2.5 rounded-lg border bg-card space-y-1">
+									<div className="flex items-center justify-between">
+										<span className="font-semibold text-foreground flex items-center gap-1">
+											<Zap className="h-3 w-3 text-amber-500" /> Minervini VCP Setup
+										</span>
+										<Badge variant="outline" className="text-[9px]">
+											{currentPick.vcp?.stage?.replace(/_/g, " ")}
+										</Badge>
+									</div>
+									<p className="text-[11px] text-muted-foreground leading-relaxed">
+										{currentPick.vcp?.explanation}
+									</p>
+									<div className="flex items-center gap-3 pt-1 text-[10px] text-muted-foreground font-mono">
+										<span>ATR(5): ₹{currentPick.vcp?.atr5}</span>
+										<span>ATR(20): ₹{currentPick.vcp?.atr20}</span>
+										<span>Ratio: {currentPick.vcp?.compressionRatio}</span>
+									</div>
+								</div>
+
+								{/* Mansfield RS Breakdown */}
+								<div className="p-2.5 rounded-lg border bg-card space-y-1">
+									<div className="flex items-center justify-between">
+										<span className="font-semibold text-foreground flex items-center gap-1">
+											<TrendingUp className="h-3 w-3 text-emerald-500" /> Mansfield Relative Strength
+										</span>
+										<Badge
+											variant="secondary"
+											className={`text-[9px] ${
+												currentPick.mansfield?.currentRsScore > 0
+													? "text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40"
+													: "text-rose-700 bg-rose-50 dark:bg-rose-950/40"
+											}`}
+										>
+											{currentPick.mansfield?.rsTrend?.replace(/_/g, " ")}
+										</Badge>
+									</div>
+									<p className="text-[11px] text-muted-foreground leading-relaxed">
+										{currentPick.mansfield?.explanation}
+									</p>
+								</div>
+
+								{/* Institutional Delivery Breakdown */}
+								{currentPick.delivery && (
+									<div className="p-2.5 rounded-lg border bg-card space-y-1">
+										<div className="flex items-center justify-between">
+											<span className="font-semibold text-foreground flex items-center gap-1">
+												<CheckCircle2 className="h-3 w-3 text-purple-500" /> Institutional Delivery
+											</span>
+											<Badge variant="outline" className="text-[9px]">
+												{currentPick.delivery.grade?.replace(/_/g, " ")}
+											</Badge>
+										</div>
+										<p className="text-[11px] text-muted-foreground leading-relaxed">
+											{currentPick.delivery.explanation}
+										</p>
+										<div className="flex items-center gap-3 pt-1 text-[10px] text-muted-foreground font-mono">
+											<span>Delivery %: {currentPick.delivery.deliveryPct}%</span>
+											<span>Volume Ratio: {currentPick.delivery.deliveryVolumeRatio}x</span>
+										</div>
+									</div>
+								)}
+
+								{/* Trend Smoothness Breakdown */}
+								<div className="p-2.5 rounded-lg border bg-card space-y-1">
+									<div className="flex items-center justify-between">
+										<span className="font-semibold text-foreground flex items-center gap-1">
+											<Activity className="h-3 w-3 text-sky-500" /> Trend Quality (R²)
+										</span>
+										<Badge variant="outline" className="text-[9px]">
+											{currentPick.trendSmoothness?.grade?.replace(/_/g, " ")}
+										</Badge>
+									</div>
+									<p className="text-[11px] text-muted-foreground leading-relaxed">
+										{currentPick.trendSmoothness?.explanation}
+									</p>
+								</div>
+							</CardContent>
+						</Card>
+					)}
+				</div>
+			)}
 		</div>
 	);
 }
