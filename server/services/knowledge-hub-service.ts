@@ -1136,22 +1136,23 @@ export class KnowledgeHubService {
 
 		const gsecYieldStr = ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? goldenSnapshot?.fixedIncome?.gsec10YYield ?? 6.79;
 		const trepsRateStr = ccilFixedIncome?.treps?.weightedAverageRate ?? goldenSnapshot?.fixedIncome?.trepsWar ?? 6.42;
-		const brentPriceNum = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? goldenSnapshot?.commodities?.brentCrudeUsd ?? 74.80;
-		const brentStr = `$${brentPriceNum}/bbl`;
+		const brentPriceNum = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? goldenSnapshot?.commodities?.brentCrudeUsd ?? 96.09;
+		const brentMcxSpotNum = commodityRadar?.commodities?.find((c: any) => c.id === "CRUDE_OIL")?.mcxPrice ?? 9115;
+		const brentStr = `$${brentPriceNum}/bbl (MCX Spot: ₹${brentMcxSpotNum.toLocaleString("en-IN")}/bbl)`;
 		const goldStr = commodityRadar?.commodities?.[0]?.mcxPrice
 			? `₹${commodityRadar.commodities[0].mcxPrice.toLocaleString("en-IN")}/10g`
-			: `₹${(goldenSnapshot?.commodities?.goldMcxInr ?? 78450).toLocaleString("en-IN")}/10g`;
+			: `₹${(goldenSnapshot?.commodities?.goldMcxInr ?? 141255).toLocaleString("en-IN")}/10g`;
 		const isElevatedB = Number(brentPriceNum) > 85;
 
-		const sp500 = goldenSnapshot?.indices?.global?.find((i: any) => i.symbol === "SPX") || { price: 5750, changePercent: 0.75 };
-		const nasdaq = goldenSnapshot?.indices?.global?.find((i: any) => i.symbol === "NDX") || { price: 20100.0, changePercent: 1.12 };
+		const sp500 = goldenSnapshot?.indices?.global?.find((i: any) => i.symbol === "SPX") || { price: 5864.5, changePercent: 0.75 };
+		const nasdaq = goldenSnapshot?.indices?.global?.find((i: any) => i.symbol === "NDX") || { price: 20380.0, changePercent: 1.12 };
 		const dow = goldenSnapshot?.indices?.global?.find((i: any) => i.symbol === "DJI") || { price: 42114.4, changePercent: 0.33 };
-		const usdInr = goldenSnapshot?.currencies?.usdInr ?? 84.5;
+		const usdInr = goldenSnapshot?.currencies?.usdInr ?? 94.8606;
 		const us10Y = goldenSnapshot?.fixedIncome?.us10YTreasury ?? 4.58;
 		const us2Y = goldenSnapshot?.fixedIncome?.us2YTreasury ?? 3.98;
 
 		let marketSnapshot = isIndia
-			? `Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at ${gsecYieldStr}%, backed by CCIL sovereign clearing, offering attractive +${(gsecYieldStr - 4.2).toFixed(2)}% real yield spreads. CCIL TREPS overnight funding rate printed at ${trepsRateStr}%, reflecting balanced systemic money market liquidity. Brent crude traded at ${brentStr}${isElevatedB ? ", remaining elevated above India's $80 comfort threshold and keeping imported inflation risks active" : " in the domestic comfort band"}.`
+			? `Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at ${gsecYieldStr}%, backed by CCIL sovereign clearing, offering attractive +${(gsecYieldStr - 5.49).toFixed(2)}% real yield over CPI (5.49%). CCIL TREPS overnight funding rate printed at ${trepsRateStr}%, reflecting balanced systemic money market liquidity. Brent crude traded at ${brentStr}${isElevatedB ? ", remaining elevated above India's $80 comfort threshold and keeping imported inflation risks active" : " in the domestic comfort band"}.`
 			: `US equity benchmarks traded with ${sp500.changePercent >= 0 ? "constructive" : "measured"} momentum today. The S&P 500 Index stood at ${sp500.price.toLocaleString("en-US")} (${sp500.changePercent >= 0 ? "+" : ""}${sp500.changePercent}%), while the tech-heavy Nasdaq 100 traded at ${nasdaq.price.toLocaleString("en-US")} (${nasdaq.changePercent >= 0 ? "+" : ""}${nasdaq.changePercent}%), driven by hyperscaler AI datacenter capex and megacap earnings resilience. The Dow Jones Industrial Average consolidated at ${dow.price.toLocaleString("en-US")} (${dow.changePercent >= 0 ? "+" : ""}${dow.changePercent}%). In fixed income, the benchmark 10-year US Treasury yield stood at ${us10Y}%, maintaining an upward term spread over the 2-Year Treasury (${us2Y}%). The USD/INR conversion rate hovered at ₹${usdInr}, providing strong wealth preservation and currency translation tailwinds for Indian investors allocating overseas via RBI LRS.`;
 
 		// Fetch live Indian indices for realistic market snapshot
@@ -1170,7 +1171,7 @@ export class KnowledgeHubService {
 						const sensexPts = `${Math.abs(sensex.netChange).toFixed(1)} pts (${sensex.percentChange >= 0 ? "+" : ""}${sensex.percentChange.toFixed(2)}%) to ${sensex.price.toLocaleString("en-IN")}`;
 						const bankStr = bankNifty ? ` Nifty Bank traded at ${bankNifty.price.toLocaleString("en-IN")} (${bankNifty.percentChange >= 0 ? "+" : ""}${bankNifty.percentChange.toFixed(2)}%).` : "";
 
-						marketSnapshot = `Indian equity benchmarks traded with ${nifty.netChange >= 0 ? "positive" : "defensive"} momentum today. Frontline index Nifty 50 ${niftyDir} ${niftyPts}, while the 30-share BSE Sensex consolidated, ${sensexDir} ${sensexPts}.${bankStr} The benchmark 10-year Indian Government Bond (G-Sec) yield hovered near ${gsecYieldStr}%, backed by CCIL sovereign clearing, offering resilient real yield spreads (+${(gsecYieldStr - 4.2).toFixed(2)}% over CPI). CCIL TREPS overnight weighted average rate printed at ${trepsRateStr}%, signaling comfortable money market liquidity. Brent crude traded at ${brentStr}, anchoring imported inflation expectations. Domestic institutional inflows (DIIs) provided strong underlying liquidity support through ongoing mutual fund SIP commitments (~₹26,000+ Cr monthly run-rate).`;
+						marketSnapshot = `Indian equity benchmarks traded with ${nifty.netChange >= 0 ? "positive" : "defensive"} momentum today. Frontline index Nifty 50 ${niftyDir} ${niftyPts}, while the 30-share BSE Sensex consolidated, ${sensexDir} ${sensexPts}.${bankStr} The benchmark 10-year Indian Government Bond (G-Sec) yield hovered near ${gsecYieldStr}%, backed by CCIL sovereign clearing, offering resilient real yield spreads (+${(gsecYieldStr - 5.49).toFixed(2)}% over CPI). CCIL TREPS overnight weighted average rate printed at ${trepsRateStr}%, signaling comfortable money market liquidity. Brent crude traded at ${brentStr}, anchoring imported inflation expectations. Domestic institutional inflows (DIIs) provided strong underlying liquidity support through ongoing mutual fund SIP commitments (~₹26,000+ Cr monthly run-rate).`;
 					}
 				}
 			} catch (idxErr: any) {
@@ -1309,16 +1310,16 @@ export class KnowledgeHubService {
 
 		const gsecYieldStr = "6.79";
 		const trepsRateStr = "6.42";
-		const brentPriceNum = 74.8;
-		const brentStr = "$74.80/bbl";
-		const goldStr = "₹1,38,419/10g";
-		const usdInr = 86.85;
-		const us10Y = 4.38;
-		const us2Y = 4.15;
+		const brentPriceNum = 96.09;
+		const brentStr = "$96.09/bbl (MCX Spot: ₹9,115/bbl)";
+		const goldStr = "₹1,41,255/10g";
+		const usdInr = 94.8606;
+		const us10Y = 4.58;
+		const us2Y = 4.35;
 		const sp500 = { price: 5864.5, changePercent: 0.75 };
 		const nasdaq = { price: 20380.0, changePercent: 1.12 };
 		const goldenSnapshot: any = {
-			currencies: { dxy: 104.25, usdInr: 86.85 },
+			currencies: { dxy: 104.25, usdInr: 94.8606 },
 			macroIndicators: { indiaCpiInflation: { value: 5.49 } },
 			fixedIncome: { bund10YYield: 2.35, gilt10YYield: 4.25 },
 		};

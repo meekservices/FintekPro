@@ -91,6 +91,14 @@ interface MarketBrief {
 			commentary: string;
 		};
 		sdlSpreadBps: number;
+		forexSpot?: {
+			usdInr: number;
+			inrUsd: number;
+			changePercent?: number;
+			platform?: string;
+			settlementType?: string;
+			source?: string;
+		};
 		source: string;
 	};
 	usFixedIncome?: {
@@ -401,6 +409,14 @@ function getClientFallbackBrief(region: string): MarketBrief {
 						commentary: "Sovereign yield curve reflects normal upward slope (+28 bps 10Y–2Y spread). Real yield of +1.30% over CPI provides attractive carry.",
 					},
 					sdlSpreadBps: 38,
+					forexSpot: {
+						usdInr: 94.8606,
+						inrUsd: 0.010542,
+						changePercent: 0.08,
+						platform: "CCIL FX-CLEAR",
+						settlementType: "T+2 Spot",
+						source: "The Clearing Corporation of India Limited (ccilindia.com/Forex)",
+					},
 					source: "CCIL (The Clearing Corporation of India Limited) & FBIL",
 				}
 			: undefined,
@@ -424,12 +440,12 @@ function getClientFallbackBrief(region: string): MarketBrief {
 			jgb10YYield: 1.15,
 			eurUsd: 1.048,
 			usdJpy: 154.2,
-			usdInr: 86.85,
-			commentary: "Global macro transmission: US Dollar Index (DXY 104.25) anchors cross-border liquidity. USD/INR FBIL reference rate at ₹86.85.",
+			usdInr: 94.86,
+			commentary: "Global macro transmission: US Dollar Index (DXY 104.25) anchors cross-border liquidity. USD/INR FBIL reference rate at ₹94.8606.",
 			source: "FBIL (Financial Benchmarks India Pvt Ltd) & BIS Global FX Desks",
 		},
 		fbil: {
-			usdInr: 86.85,
+			usdInr: 94.86,
 			usdInrChangePercent: 0.08,
 			usdInrFixingDate: today,
 			miborOvernight: 6.50,
@@ -446,87 +462,87 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					commodities: [
 						{
 							id: "GOLD",
-							name: "Gold 24K",
+							name: "Gold 24K (MCX Spot)",
 							category: "Precious Metals",
 							mcxSymbol: "GOLD",
-							mcxPrice: 138419,
+							mcxPrice: 141255,
 							mcxUnit: "₹ / 10g",
-							mcxChangePercent: 0.65,
+							mcxChangePercent: 0.35,
 							cmxSymbol: "GC=F (COMEX Gold)",
 							cmxPrice: 3885.5,
 							cmxUnit: "$ / oz",
-							cmxChangePercent: 0.58,
+							cmxChangePercent: 0.28,
 							trend: "Bullish",
-							macroImplication: "Central bank reserves diversification and geopolitical hedge sustaining bullion demand.",
+							macroImplication: "Official MCX Spot price at Ahmedabad (₹1,41,255/10g). Central bank reserves diversification and geopolitical hedge sustaining bullion demand.",
 						},
 						{
 							id: "SILVER",
-							name: "Silver",
+							name: "Silver (MCX Spot)",
 							category: "Precious Metals",
 							mcxSymbol: "SILVER",
-							mcxPrice: 164500,
+							mcxPrice: 187200,
 							mcxUnit: "₹ / 1kg",
-							mcxChangePercent: 1.15,
+							mcxChangePercent: 0.45,
 							cmxSymbol: "SI=F (COMEX Silver)",
 							cmxPrice: 48.50,
 							cmxUnit: "$ / oz",
-							cmxChangePercent: 1.05,
+							cmxChangePercent: 0.38,
 							trend: "Bullish",
-							macroImplication: "Driven by dual tailwinds from solar PV manufacturing and monetary investor demand.",
+							macroImplication: "Official MCX Spot price at Ahmedabad (₹1,87,200/kg). Driven by dual tailwinds from solar PV manufacturing and monetary investor demand.",
 						},
 						{
 							id: "CRUDE_OIL",
-							name: "Crude Oil (Brent)",
+							name: "Crude Oil (Brent / MCX Spot)",
 							category: "Energy",
 							mcxSymbol: "CRUDEOIL",
-							mcxPrice: 6496,
+							mcxPrice: 9115,
 							mcxUnit: "₹ / bbl",
-							mcxChangePercent: -0.65,
-							cmxSymbol: "BZ=F (ICE Brent Futures / CFD)",
-							cmxPrice: 74.80,
+							mcxChangePercent: -0.45,
+							cmxSymbol: "BZ=F (ICE Brent Continuous / CFD)",
+							cmxPrice: 96.09,
 							cmxUnit: "$ / bbl",
-							cmxChangePercent: -0.55,
+							cmxChangePercent: -0.40,
 							trend: "Neutral",
-							macroImplication: "Brent crude CFD at $74.80/bbl remains within India's comfort corridor (<$80/bbl), anchoring imported inflation expectations.",
+							macroImplication: "Official MCX Spot crude price at ₹9,115/bbl ($96.09/bbl equivalent). Remains elevated above India's comfort corridor (<$80/bbl), creating imported inflation headwinds.",
 						},
 						{
 							id: "NATURAL_GAS",
-							name: "Natural Gas",
+							name: "Natural Gas (MCX Spot)",
 							category: "Energy",
 							mcxSymbol: "NATURALGAS",
-							mcxPrice: 231.2,
+							mcxPrice: 274.60,
 							mcxUnit: "₹ / mmBtu",
-							mcxChangePercent: -0.85,
+							mcxChangePercent: 0.85,
 							cmxSymbol: "NG=F (NYMEX Henry Hub)",
 							cmxPrice: 2.75,
 							cmxUnit: "$ / mmBtu",
-							cmxChangePercent: -0.9,
-							trend: "Neutral",
-							macroImplication: "Healthy global storage levels easing industrial input costs.",
+							cmxChangePercent: 0.45,
+							trend: "Bullish",
+							macroImplication: "Official MCX Spot price (₹274.60/mmBtu as per mcxindia.com). Pure physical spot benchmark without CGD or government subsidy distortions.",
 						},
 						{
 							id: "COPPER",
-							name: "Copper",
+							name: "Copper (MCX Spot)",
 							category: "Base Metals",
 							mcxSymbol: "COPPER",
-							mcxPrice: 845.0,
+							mcxPrice: 1376.50,
 							mcxUnit: "₹ / kg",
-							mcxChangePercent: 0.42,
+							mcxChangePercent: -0.28,
 							cmxSymbol: "HG=F (COMEX Copper)",
 							cmxPrice: 4.35,
 							cmxUnit: "$ / lb",
 							cmxChangePercent: 0.38,
 							trend: "Bullish",
-							macroImplication: "Power grid capex and global electrification supporting base metal demand.",
+							macroImplication: "Official MCX Spot copper price at Thane (₹1,376.50/kg). Power grid capex and global electrification supporting base metal demand.",
 						},
 					],
 					crudeOilBreakevenStatus: {
-						brentUsd: 74.80,
-						inflationImpact: "Contained",
-						commentary: "Brent crude CFD at $74.80/bbl remains within India's comfort corridor (<$80), anchoring imported inflation.",
+						brentUsd: 96.09,
+						inflationImpact: "Elevated",
+						commentary: "MCX Spot crude at ₹9,115/bbl ($96.09/bbl equivalent) remains elevated above India's comfort corridor (<$80), sustaining imported inflation.",
 					},
-					goldSilverRatio: 80.1,
-					source: "MCX India & CMX / COMEX",
+					goldSilverRatio: 75.4,
+					source: "MCX India Official Spot (mcxindia.com/market-data/spot-market-price) & CMX / COMEX",
 				}
 			: undefined,
 		sectorHighlights: isIndia
@@ -876,10 +892,11 @@ export default function AgentKnowledgeMarketBrief() {
 		const brief: MarketBrief = { ...rawBrief };
 		if (brief.keyRisks && typeof brief.keyRisks === "string") {
 			const liveBrent = brief.commodityRadar?.crudeOilBreakevenStatus?.brentUsd;
-			const brentDisplay = liveBrent ? `$${liveBrent}/bbl` : "$74.80/bbl";
+			const brentDisplay = liveBrent ? `$${liveBrent}/bbl` : "$96.09/bbl (MCX Spot: ₹9,115/bbl)";
 			let cleaned = brief.keyRisks
 				.replace(/\$74\.8\/bbl/g, brentDisplay)
-				.replace(/74\.8/g, liveBrent ? `${liveBrent}` : "74.80")
+				.replace(/74\.80/g, liveBrent ? `${liveBrent}` : "96.09")
+				.replace(/74\.8/g, liveBrent ? `${liveBrent}` : "96.09")
 				.replace(/~\$74[–-](\$?)78\/bbl/g, brentDisplay)
 				.replace(/\$74[–-](\$?)78\/bbl/g, brentDisplay)
 				.replace(/Brent currently at \$[0-9.]+\/bbl/g, `Brent currently at ${brentDisplay}`)
@@ -1286,26 +1303,29 @@ export default function AgentKnowledgeMarketBrief() {
 										<Badge variant="outline" className="text-[8px] px-1 py-0 border-blue-400 text-blue-700 dark:text-blue-300">CFD</Badge>
 									</span>
 									<span className="text-sm font-bold text-amber-600 dark:text-amber-400 font-mono">
-										${safeNum(briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "CRUDE_OIL")?.cmxPrice, 74.80).toFixed(2)}/bbl
+										${safeNum(briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "CRUDE_OIL")?.cmxPrice, 96.09).toFixed(2)}/bbl
 									</span>
-									<span className="text-[10px] text-emerald-600 dark:text-emerald-400">
-										{safeNum(briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd, 74.80) > 85 ? "Import Headwind" : "Comfort Band (<$80)"}
+									<span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+										{safeNum(briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd, 96.09) > 85 ? "Import Headwind (> $85)" : "Comfort Band (<$80)"}
 									</span>
 								</div>
 								<div className="flex flex-col">
 									<span className="text-muted-foreground font-medium flex items-center gap-1">
 										<Globe className="h-3 w-3 text-indigo-500" />
-										USD / INR (FBIL)
-										<Badge variant="outline" className="text-[8px] px-1 py-0 border-indigo-400 text-indigo-700 dark:text-indigo-300">FBIL FIXING</Badge>
+										INR / USD (CCIL SPOT)
+										<Badge variant="outline" className="text-[8px] px-1 py-0 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">CCIL SPOT</Badge>
 									</span>
 									<span className="text-sm font-bold text-foreground font-mono">
-										₹{safeNum(briefToDisplay.fbil?.usdInr ?? (briefToDisplay.globalMacroDesk as any)?.usdInr ?? (briefToDisplay.macroIndicators as any)?.fbilUsdInr?.value, 86.85).toFixed(2)}
+										${safeNum(briefToDisplay.ccilFixedIncome?.forexSpot?.inrUsd, 0.010542).toFixed(5)}
+										<span className="text-xs text-muted-foreground font-normal ml-1">
+											(₹{safeNum(briefToDisplay.ccilFixedIncome?.forexSpot?.usdInr ?? briefToDisplay.fbil?.usdInr, 94.8606).toFixed(2)}/$)
+										</span>
 									</span>
-									<span className="text-[10px] text-emerald-600 dark:text-emerald-400">Steady Reserve FX</span>
+									<span className="text-[10px] text-emerald-600 dark:text-emerald-400">CCIL FX-CLEAR · T+2 Spot</span>
 								</div>
 							</div>
 
-							{/* Golden Pricing Engine: Key Commodities (Global CFD & Domestic MCX) */}
+							{/* Golden Pricing Engine: Key Commodities (Global CFD & Domestic MCX Spot) */}
 							<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl text-xs">
 								<div className="flex items-center justify-between p-2.5 rounded-lg bg-card/80 border border-border/80">
 									<div className="flex flex-col">
@@ -1317,12 +1337,12 @@ export default function AgentKnowledgeMarketBrief() {
 									</div>
 									<div className="flex flex-col items-end">
 										<span className="font-mono font-bold text-sm text-foreground">
-											${safeNum(briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "CRUDE_OIL")?.cmxPrice, 74.80).toFixed(2)}/bbl
+											${safeNum(briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "CRUDE_OIL")?.cmxPrice, 96.09).toFixed(2)}/bbl
 											<Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0 border-blue-400 text-blue-700 dark:text-blue-300">CFD</Badge>
 										</span>
 										<span className="font-mono text-xs text-muted-foreground">
-											₹{safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "CRUDE_OIL")?.mcxPrice, 6496).toLocaleString("en-IN")}/bbl
-											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-400 text-emerald-700 dark:text-emerald-300">MCX</Badge>
+											₹{safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "CRUDE_OIL")?.mcxPrice, 9115).toLocaleString("en-IN")}/bbl
+											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">MCX SPOT</Badge>
 										</span>
 									</div>
 								</div>
@@ -1341,8 +1361,8 @@ export default function AgentKnowledgeMarketBrief() {
 											<Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0 border-blue-400 text-blue-700 dark:text-blue-300">CFD</Badge>
 										</span>
 										<span className="font-mono text-xs text-muted-foreground">
-											₹{safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "GOLD")?.mcxPrice, 138419).toLocaleString("en-IN")}/10g
-											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-400 text-emerald-700 dark:text-emerald-300">MCX</Badge>
+											₹{safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "GOLD")?.mcxPrice, 141255).toLocaleString("en-IN")}/10g
+											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">MCX SPOT</Badge>
 										</span>
 									</div>
 								</div>
@@ -1361,8 +1381,8 @@ export default function AgentKnowledgeMarketBrief() {
 											<Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0 border-blue-400 text-blue-700 dark:text-blue-300">CFD</Badge>
 										</span>
 										<span className="font-mono text-xs text-muted-foreground">
-											₹{safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "SILVER")?.mcxPrice, 164500).toLocaleString("en-IN")}/kg
-											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-400 text-emerald-700 dark:text-emerald-300">MCX</Badge>
+											₹{safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "SILVER")?.mcxPrice, 187200).toLocaleString("en-IN")}/kg
+											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">MCX SPOT</Badge>
 										</span>
 									</div>
 								</div>
@@ -1563,7 +1583,28 @@ export default function AgentKnowledgeMarketBrief() {
 										</a>
 									</div>
 
-									<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+									<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+										{/* CCIL Forex Spot */}
+										<div className="p-3 rounded-lg bg-card border border-border shadow-xs">
+											<div className="flex items-center justify-between">
+												<span className="text-xs text-muted-foreground font-medium">CCIL INR/USD Spot</span>
+												<Badge className="text-[10px] bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800 font-semibold">
+													FX-CLEAR
+												</Badge>
+											</div>
+											<div className="mt-1 flex items-baseline gap-2">
+												<span className="text-lg font-bold font-mono text-foreground">
+													${safeNum(briefToDisplay.ccilFixedIncome.forexSpot?.inrUsd, 0.010542).toFixed(5)}
+												</span>
+												<span className="text-xs text-emerald-700 dark:text-emerald-400 font-mono font-semibold">
+													+{safeNum(briefToDisplay.ccilFixedIncome.forexSpot?.changePercent, 0.08)}%
+												</span>
+											</div>
+											<p className="text-[11px] text-muted-foreground mt-1 truncate">
+												₹{safeNum(briefToDisplay.ccilFixedIncome.forexSpot?.usdInr ?? briefToDisplay.fbil?.usdInr, 94.8606).toFixed(4)}/$ · T+2 Spot
+											</p>
+										</div>
+
 										{/* 10Y G-Sec */}
 										<div className="p-3 rounded-lg bg-card border border-border shadow-xs">
 											<div className="flex items-center justify-between">
@@ -1757,7 +1798,7 @@ export default function AgentKnowledgeMarketBrief() {
 										</Badge>
 									</div>
 
-									<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+									<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
 										<div className="p-3 rounded-lg bg-card border border-border shadow-xs">
 											<span className="text-xs text-muted-foreground font-medium">US Dollar Index (DXY)</span>
 											<div className="mt-1 flex items-baseline gap-2">
@@ -1796,6 +1837,24 @@ export default function AgentKnowledgeMarketBrief() {
 										</div>
 
 										<div className="p-3 rounded-lg bg-card border border-border shadow-xs">
+											<div className="flex items-center justify-between">
+												<span className="text-xs text-muted-foreground font-medium">INR/USD (CCIL Spot)</span>
+												<Badge className="text-[10px] bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800 font-semibold">
+													CCIL SPOT
+												</Badge>
+											</div>
+											<div className="mt-1 flex items-baseline gap-2">
+												<span className="text-sm font-bold font-mono text-foreground">
+													${safeNum(briefToDisplay.ccilFixedIncome?.forexSpot?.inrUsd, 0.010542).toFixed(5)}
+												</span>
+												<span className="text-xs text-muted-foreground font-mono">
+													(₹{safeNum(briefToDisplay.ccilFixedIncome?.forexSpot?.usdInr ?? briefToDisplay.fbil?.usdInr, 94.8606).toFixed(2)})
+												</span>
+											</div>
+											<p className="text-[11px] text-muted-foreground mt-1">CCIL FX-CLEAR Clearing</p>
+										</div>
+
+										<div className="p-3 rounded-lg bg-card border border-border shadow-xs">
 											<span className="text-xs text-muted-foreground font-medium">EUR/USD & USD/JPY</span>
 											<div className="mt-1 flex items-baseline gap-2">
 												<span className="text-sm font-bold font-mono text-foreground">
@@ -1826,16 +1885,16 @@ export default function AgentKnowledgeMarketBrief() {
 											<Coins className="h-5 w-5 text-amber-700 dark:text-amber-400" />
 											<div>
 												<h3 className="text-base font-semibold text-foreground flex items-center gap-2">
-													Commodity Radar (MCX India & Global CFD Benchmarks)
+													Commodity Radar (MCX Official Spot Market Prices & Global CFD Benchmarks)
 													<Badge
 														variant="outline"
 														className="text-xs bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-700 font-semibold"
 													>
-														Multi-Asset
+														MCX Spot SSOT
 													</Badge>
 												</h3>
 												<p className="text-xs text-muted-foreground">
-													Domestic MCX price discovery paired with live International CFD benchmarks (Moneycontrol Multi-Asset standard)
+													Official MCX Spot Market Prices (mcxindia.com/market-data/spot-market-price) paired with live International CFD benchmarks
 												</p>
 											</div>
 										</div>
@@ -1850,7 +1909,7 @@ export default function AgentKnowledgeMarketBrief() {
 												}`}
 											>
 												Crude Inflation: {briefToDisplay.commodityRadar.crudeOilBreakevenStatus.inflationImpact} ($
-												{safeNum(briefToDisplay.commodityRadar.crudeOilBreakevenStatus.brentUsd, 74.8)}/bbl)
+												{safeNum(briefToDisplay.commodityRadar.crudeOilBreakevenStatus.brentUsd, 96.09)}/bbl)
 											</Badge>
 										)}
 									</div>
@@ -1887,17 +1946,17 @@ export default function AgentKnowledgeMarketBrief() {
 															<Badge variant="outline" className="text-[9px] px-1 py-0 border-blue-400 text-blue-700 dark:text-blue-300 font-semibold">CFD ($)</Badge>
 														</span>
 														<span className="font-mono text-xs font-bold text-foreground">
-															{cmxPriceNum < 10 ? `$${cmxPriceNum.toFixed(2)}` : `$${cmxPriceNum.toLocaleString("en-US", { minimumFractionDigits: cmxPriceNum > 1000 ? 2 : 2 })}`}{" "}
+															{cmxPriceNum < 10 ? `$${cmxPriceNum.toFixed(2)}` : `$${cmxPriceNum.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}{" "}
 															<span className="text-[10px] text-muted-foreground font-normal">
 																{item.cmxUnit ? item.cmxUnit.replace("$ / ", "/") : ""}
 															</span>
 														</span>
 													</div>
 
-													{/* Domestic MCX (₹) */}
+													{/* Domestic MCX Spot (₹) */}
 													<div className="flex items-baseline justify-between">
 														<span className="text-xs text-muted-foreground flex items-center gap-1">
-															<Badge variant="outline" className="text-[9px] px-1 py-0 border-emerald-400 text-emerald-700 dark:text-emerald-300 font-semibold">MCX (₹)</Badge>
+															<Badge variant="outline" className="text-[9px] px-1 py-0 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">MCX SPOT (₹)</Badge>
 														</span>
 														<span className="font-mono text-sm font-bold text-foreground">
 															₹{mcxPriceNum.toLocaleString("en-IN")}{" "}

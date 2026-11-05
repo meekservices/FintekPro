@@ -68,7 +68,7 @@ const CACHE_TTL_SECONDS = 900; // 15 minutes
 
 // Institutional baseline for resilience when external endpoints are unreachable
 const BASELINE_FBIL_DATA: FbilBenchmarkData = {
-	usdInr: 86.85,
+	usdInr: 94.8606,
 	usdInrChangePercent: 0.08,
 	usdInrFixingDate: new Date().toISOString().split("T")[0],
 	miborOvernight: 6.50,
@@ -96,11 +96,11 @@ const BASELINE_FBIL_DATA: FbilBenchmarkData = {
 	isLive: true,
 	status: "OFFICIAL_FIXING",
 	// Official Cross-Currency Reference Rates (FBIL Version 6 | Sept 15, 2026)
-	eurInr: 91.0188, // EUR/USD (1.0480) * USD/INR (86.85) (4 decimals)
-	gbpInr: 109.2573, // GBP/USD (1.2580) * USD/INR (86.85) (4 decimals)
-	jpyInr: 56.32, // (USD/INR / USD/JPY 154.2) * 100 (per 100 JPY, 2 decimals)
-	aedInr: 23.6487, // USD/INR / 3.6725 (4 decimals)
-	rubInr: 0.8817, // USD/INR / 98.50 (RBI Authorized Version 6, 4 decimals)
+	eurInr: 99.4139, // EUR/USD (1.0480) * USD/INR (94.8606) (4 decimals)
+	gbpInr: 119.3346, // GBP/USD (1.2580) * USD/INR (94.8606) (4 decimals)
+	jpyInr: 61.52, // (USD/INR / USD/JPY 154.2) * 100 (per 100 JPY, 2 decimals)
+	aedInr: 25.8299, // USD/INR / 3.6725 (4 decimals)
+	rubInr: 0.9631, // USD/INR / 98.50 (RBI Authorized Version 6, 4 decimals)
 	methodologyVersion: "FBIL Reference Rates Methodology Version 6 (September 15, 2026)",
 	fixingWindow: "11:30 - 12:30 IST (USD, EUR, GBP, JPY, AED, IDR) | 13:30 - 14:30 IST (RUB)",
 	publicationTime: "13:00 IST (Core Currencies) | 15:00 IST (RUB/INR)",

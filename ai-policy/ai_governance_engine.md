@@ -88,7 +88,9 @@ regulatory violations
 Cross-check AI claims with:
 DCF engine
 comps engine
+Canonical financial models
 ❌ If AI says “undervalued” but DCF disagrees → MODIFY
+❌ If AI invents or uses synthetic or "cooked-up" formulas → BLOCK (Zero-synthetic formula mandate)
 
 3.4 Risk Engine
 Adds:
@@ -215,6 +217,7 @@ missing data
 ❌ Skipping audit logs
 ❌ Hardcoded compliance logic
 ❌ Non-deterministic validation
+❌ Synthetic or cooked-up financial formulas (canonical peer-reviewed or statutory math only)
 
 13. FINAL EXECUTION DIRECTIVE
 You are building FintekPro AI Advisory Governance Engine.

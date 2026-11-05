@@ -36,6 +36,16 @@ This policy defines non-negotiable rules governing data acquisition, ingestion, 
 
 ---
 
+### Rule 1B: Strict Ban on Synthetic, Cooked-Up, or Fabricated Formulas (Canonical Math Mandate)
+- **Zero Cooked-Up Formulas**: The invention, generation, or application of synthetic, ad-hoc, or "cooked up" mathematical formulas, heuristic shortcuts, or arbitrary weightings is **strictly prohibited** across all services, analytical models, pricing engines, and AI advisory outputs.
+- **Canonical & Statutory Authority**: Every formula implemented or recommended MUST be backed by:
+  1. **Canonical Quantitative Economics**: Peer-reviewed finance literature (e.g. Black-Scholes-Merton for options, Markowitz mean-variance optimization, standard Discounted Cash Flow with explicitly derived WACC, standard XIRR/CAGR/TWRR, Macaulay/Modified Duration).
+  2. **Statutory & Regulatory Frameworks**: Prescribed circulars and formulas from SEBI, RBI, AMFI, CBDT / Income Tax Act 1961, or official Exchange bylaws.
+- **Fail-Closed on Missing Inputs**: If an input parameter required by a canonical formula is missing or cannot be validated, the engine must **fail gracefully** with a structured error rather than substituting a synthetic or cooked-up approximation to make numbers appear plausible.
+- **Explainability Requirement**: Every computed output must expose its exact mathematical equation and canonical citation in the explainability layer.
+
+---
+
 ### Rule 2: Mandatory Source Provenance & Lineage Metadata
 Every pricing and financial metric output from controllers, background workers, or analytical engines must include complete provenance metadata:
 

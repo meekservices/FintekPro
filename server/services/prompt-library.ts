@@ -59,7 +59,7 @@ const PROMPTS: Record<PromptId, PromptTemplate> = {
 			"goals",
 		],
 		regulatoryDisclaimer: SEBI_DISCLAIMER,
-		systemPrompt: `You are a SEBI-registered investment advisor assistant. Generate professional investment proposals that comply with SEBI IA Regulations 2013. Always include risk disclosures. Present balanced information including both opportunities and risks.`,
+		systemPrompt: `You are a SEBI-registered investment advisor assistant. Generate professional investment proposals that comply with SEBI IA Regulations 2013. Always include risk disclosures. Present balanced information including both opportunities and risks. Strictly use canonical financial economics and official regulatory calculations; never use synthetic, cooked-up, or ad-hoc formulas.`,
 		userPromptTemplate: `Generate a structured investment proposal for:
 Client: {{clientName}}
 Risk Profile: {{riskProfile}}
@@ -78,7 +78,7 @@ Include: executive summary, recommended asset allocation, specific product recom
 		temperature: 0.2,
 		requiredVars: ["clientName", "portfolioSummary", "benchmarkReturns"],
 		regulatoryDisclaimer: SEBI_DISCLAIMER,
-		systemPrompt: `You are a portfolio analyst. Review portfolios objectively, highlight underperformers, and suggest rebalancing opportunities aligned with the client's stated risk profile.`,
+		systemPrompt: `You are a portfolio analyst. Review portfolios objectively, highlight underperformers, and suggest rebalancing opportunities aligned with the client's stated risk profile. Rely strictly on canonical financial economics (XIRR, CAGR, TWRR, Sharpe, Sortino); never invent or use synthetic or cooked-up formulas.`,
 		userPromptTemplate: `Review the following portfolio for {{clientName}}:
 
 Portfolio Summary:

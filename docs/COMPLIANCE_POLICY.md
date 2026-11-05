@@ -21,13 +21,25 @@ The **FintekPro Regulatory Compliance Policy** establishes enforceable operation
 7. **RBI Foreign Exchange Management Act, 1999 (FEMA)** & Liberalised Remittance Scheme (LRS).
 8. **Digital Personal Data Protection Act, 2023 (DPDP Act)** and SEBI Cybersecurity Framework.
 
-### 1.1 Category-Specific Operating Policies (SOPs)
+### 1.1 Category-Specific & Multi-Regulator Operating Procedures (SOPs)
 
-Because Mutual Funds, SIFs, PMS, and AIFs operate under fundamentally different custody architectures and statutory parameters, operational execution is governed by dedicated Standard Operating Policies:
-- **Mutual Funds & SIF Operating Policy**: [`SOP_MUTUAL_FUNDS.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_MUTUAL_FUNDS.md) (Pooled AMC trust units, universal fund realization NAV cut-offs, SEBI SIF ₹10L framework, liquidity stress testing, anti-cash drag guardrails).
+Because product classes and regulatory jurisdictions operate under distinct statutory rules, operational execution across FintekPro is governed by dedicated Standard Operating Procedures:
+
+#### A. Product & Asset Class Operational SOPs
+- **Financial Product Distribution Master Policy**: [`DISTRIBUTION_POLICY.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/DISTRIBUTION_POLICY.md) (Commercial distribution of Regular Plans, corporate bonds/OBPP, insurance, fixed deposits; SEBI IA Reg 22 Chinese wall, 100% trail payouts, pre-trade TER disclosures, zero-rebating, zero-commission-bias AI).
+- **Financial Product Distribution Desk SOP**: [`SOP_FINANCIAL_PRODUCT_DISTRIBUTION.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_FINANCIAL_PRODUCT_DISTRIBUTION.md) (Partner & sub-broker NISM-V-A onboarding, AMFI active ARN checks, advisory vs distribution segregation pre-trade gate, trail reconciliation, TDS 194H, SCORES redressal).
+- **Mutual Funds & SIF Operating Policy**: [`SOP_MUTUAL_FUNDS.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_MUTUAL_FUNDS.md) (Pooled AMC trust units, universal fund realization NAV cut-offs, SEBI SIF ₹10L framework, liquidity stress testing, EOP Category 1/2 governance, anti-cash drag guardrails).
 - **Balanced Portfolio Monitoring Policy**: [`SOP_BALANCED_PORTFOLIO_MONITORING.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_BALANCED_PORTFOLIO_MONITORING.md) (Daily equity/debt band monitoring, blended benchmark deviation alerts, SEBI categorization compliance, Sharpe/drawdown breach detection, `monitorBalancedPortfolios()` cron enforcement).
-- **PMS Operating Policy**: [`SOP_PMS_OPERATIONS.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_PMS_OPERATIONS.md) (Statutory ₹50 Lakhs floor, segregated client demat custody via Upstox, APMI standardized TWRR audits, High-Water Mark performance fees, ADTV slippage limits).
-- **AIF Operating Policy**: [`SOP_AIF_OPERATIONS.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_AIF_OPERATIONS.md) (Statutory ₹1 Crore floor, Accredited Investor certification, mandatory NSDL/CDSL unit dematerialization, direct plan fee unbundling, 4-tier distribution waterfall).
+- **PMS Operating Policy**: [`SOP_PMS_OPERATIONS.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_PMS_OPERATIONS.md) (Statutory ₹50 Lakhs floor, segregated client demat custody via Upstox, APMI standardized TWRR audits, mandatory 48-hr Form C disclosure delivery, High-Water Mark performance fees, ADTV slippage limits).
+- **AIF Operating Policy**: [`SOP_AIF_OPERATIONS.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_AIF_OPERATIONS.md) (Statutory ₹1 Crore floor, Accredited Investor certification, mandatory NSDL/CDSL unit dematerialization, leverage ceilings [0% Cat I/II, 200% Cat III], direct plan fee unbundling, 4-tier distribution waterfall).
+- **Derivative Trading Compliance SOP**: [`sop_derivative_trading_audit_standards.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/ai-policy/sop_derivative_trading_audit_standards.md) (SEBI index derivatives framework, weekly expiry restrictions, +2% expiry day ELM surcharge, 9-gate pre-trade compliance, canonical Black-76 Greeks).
+
+#### B. Regulatory & Technological Infrastructure SOPs
+- **AI Advisory Governance & Model Risk SOP**: [`SOP_AI_ADVISORY_AND_MODEL_GOVERNANCE.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_AI_ADVISORY_AND_MODEL_GOVERNANCE.md) (SEBI AI/ML intermediary circular, model inventory Tiers 1–3, legal non-delegation, retail backtest marketing ban, 3.5σ drift fallback, Global Kill-Switch SOP).
+- **DPDP Data Privacy & LLM Sanitization SOP**: [`SOP_DPDP_DATA_PRIVACY_AND_LLM_FIREWALL.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_DPDP_DATA_PRIVACY_AND_LLM_FIREWALL.md) (DPDP Act 2023, pre-prompt PII firewall stripping Aadhaar/PAN/Bank details before external LLMs, Zero Data Retention, client right to human review, MeitY AI watermarking).
+- **RBI Digital Lending & MRM SOP**: [`SOP_RBI_DIGITAL_LENDING_AND_MRM.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_RBI_DIGITAL_LENDING_AND_MRM.md) (RBI Digital Lending Guidelines, strict device privacy banning contact/SMS harvesting, KFS generation, 3-day cooling-off window, direct borrower-to-RE loan disbursals, statutory LTV caps).
+- **AML, PMLA & Sanctions Screening SOP**: [`SOP_AML_PMLA_AND_SANCTIONS_SCREENING.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_AML_PMLA_AND_SANCTIONS_SCREENING.md) (FIU-IND, automated AML anomaly detection, daily MHA UAPA / UNSC / PEP screening, human Principal Officer review before STR/CTR filings).
+- **CERT-In Cyber Incident & Time Sync SOP**: [`SOP_CERTIN_CYBER_INCIDENT_AND_TIME_SYNC.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_CERTIN_CYBER_INCIDENT_AND_TIME_SYNC.md) (Mandatory 6-hour incident reporting window to CERT-In and SEBI, NPL/NIC NTP server time sync within ±50ms, 5–7 year sovereign in-country log retention).
 
 ---
 
@@ -95,18 +107,28 @@ Implemented via [`audit-trail.ts`](file:///Users/sangrammohanty/Documents/GitHub
 
 ---
 
-## 6. AI Advisory System Governance (FASP-AI v1.0)
+## 6. AI Advisory System Governance (FASP-AI v1.0 & Multi-Regulator Framework)
 
-1. **AI as Decision Support System (DSS) Only**:
+Operates under the master **FintekPro Multi-Regulator AI Compliance Framework (MR-AICF v1.0)** ([`multi_regulator_ai_compliance_policy.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/ai-policy/multi_regulator_ai_compliance_policy.md)):
+
+1. **AI as Decision Support System (DSS) Only (SEBI & RBI Mandate)**:
    - AI algorithms are decision-support tools. AI **never executes transactions autonomously**.
-   - All trade triggers, portfolio allocations, and tax rebalances require human confirmation (client OTP or RIA digital approval).
-2. **Explainability Layer**:
+   - Fiduciary legal accountability cannot be outsourced to AI models. All trade triggers, portfolio allocations, and tax rebalances require human confirmation (client OTP or RIA digital approval).
+2. **Explainability & Canonical Math Layer**:
    - Every algorithmic recommendation must expose: inputs utilized, quantitative models applied, and intermediate factors considered.
-3. **No Deterministic Profit Claims**:
+   - **Zero Synthetic Formulas**: Banned from using "cooked-up" or ad-hoc mathematical heuristics. All equations must derive from peer-reviewed literature or statutory circulars.
+3. **No Deterministic Profit Claims & Algorithmic Marketing Compliance**:
    - AI outputs must never promise returns (*"guaranteed 12%"*, *"risk-free investment"*).
-   - Recommendations must state downside volatility ranges, drawdown risks, and historical benchmark contexts.
-4. **Model Versioning & Audit Immutability**:
+   - Strict ban on advertising simulated or backtested AI win-rates to retail clients; all performance must be net of fees and benchmarked against official TRI indices.
+4. **Model Versioning, Registry & Audit Immutability**:
    - Every AI-generated report must carry `model_version`, `engine_version`, and UTC `calculation_timestamp`.
+   - Mandatory AI Model Registry categorized into regulatory risk tiers (Tier 1 Advisory, Tier 2 Analytical, Tier 3 Operational).
+5. **DPDP Act 2023 & LLM Privacy Boundary**:
+   - Zero raw PII (Aadhaar, PAN, Bank/Demat numbers) transmitted in prompts to third-party foundation models (Gemini, Groq, Anthropic).
+   - Right of clients to contest automated advice and request human advisor review.
+   - MeitY standardized visual watermarking on all AI-generated reports: `[AI-Assisted Advisory • Decision Support Only]`.
+6. **CERT-In Time Synchronization**:
+   - Clocks synchronized with official IST (NPL/NIC NTP servers); 6-hour mandatory reporting window for cyber incidents or AI governance bypasses.
 
 ---
 

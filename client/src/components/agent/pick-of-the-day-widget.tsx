@@ -163,12 +163,12 @@ export default function PickOfTheDayWidget() {
 							pick.status === "live" && isExpired
 								? "expired"
 								: pick.status;
+						const isCredit = (pick.keyMetrics as any)?.isCreditStrategy === true;
 						const upside =
 							pick.targetPrice && pick.recoPrice
-								? (
-										((pick.targetPrice - pick.recoPrice) / pick.recoPrice) *
-										100
-									).toFixed(1)
+								? (isCredit
+										? (((pick.recoPrice - pick.targetPrice) / pick.recoPrice) * 100).toFixed(1)
+										: (((pick.targetPrice - pick.recoPrice) / pick.recoPrice) * 100).toFixed(1))
 								: "0.0";
 						const effectiveLtp =
 							pick.currentPrice && pick.currentPrice > 0
@@ -176,10 +176,9 @@ export default function PickOfTheDayWidget() {
 								: (pick.recoPrice || 0);
 						const currentReturn =
 							pick.recoPrice && pick.recoPrice > 0
-								? (
-										((effectiveLtp - pick.recoPrice) / pick.recoPrice) *
-										100
-									).toFixed(1)
+								? (isCredit
+										? (((pick.recoPrice - effectiveLtp) / pick.recoPrice) * 100).toFixed(1)
+										: (((effectiveLtp - pick.recoPrice) / pick.recoPrice) * 100).toFixed(1))
 								: "0.0";
 
 						const suggestedAllocation =
@@ -255,24 +254,26 @@ export default function PickOfTheDayWidget() {
 												);
 											}
 											if (pick.currentPrice && pick.recoPrice && pick.recoPrice > 0) {
-												const diffPct = ((pick.currentPrice - pick.recoPrice) / pick.recoPrice) * 100;
+												const diffPct = isCredit
+													? ((pick.recoPrice - pick.currentPrice) / pick.recoPrice) * 100
+													: ((pick.currentPrice - pick.recoPrice) / pick.recoPrice) * 100;
 												if (Math.abs(diffPct) <= 1.5) {
 													return (
 														<span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700 dark:text-blue-300 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 mb-1 w-fit">
-															<Target className="h-2.5 w-2.5" /> In Buy Zone (±1.5%)
+															<Target className="h-2.5 w-2.5" /> In Entry Zone (±1.5%)
 														</span>
 													);
 												}
 												if (diffPct > 1.5) {
 													return (
 														<span className="inline-flex items-center gap-1 text-[10px] font-medium text-purple-700 dark:text-purple-300 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20 mb-1 w-fit">
-															<TrendingUp className="h-2.5 w-2.5" /> Run-Up (+{diffPct.toFixed(1)}%)
+															<TrendingUp className="h-2.5 w-2.5" /> {isCredit ? `Decay Gain (+${diffPct.toFixed(1)}%)` : `Run-Up (+${diffPct.toFixed(1)}%)`}
 														</span>
 													);
 												}
 												return (
 													<span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 mb-1 w-fit">
-														<TrendingDown className="h-2.5 w-2.5" /> Entry Dip ({diffPct.toFixed(1)}%)
+														<TrendingDown className="h-2.5 w-2.5" /> {isCredit ? `Premium Surge (${diffPct.toFixed(1)}%)` : `Entry Dip (${diffPct.toFixed(1)}%)`}
 													</span>
 												);
 											}

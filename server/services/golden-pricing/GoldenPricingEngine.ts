@@ -2318,17 +2318,17 @@ export async function syncMacroAndMarketBriefPrices(
 	const gilt10Y = 4.24;
 	const jgb10Y = 0.95;
 
-	// 4. Resolve Commodities (Global CFD in USD and Domestic MCX in INR)
-	const brentCfdUsd = commData?.crudeOilBreakevenStatus?.brentUsd ?? fredData?.brentCrude?.price ?? 74.80;
-	const brentMcxInr = commData?.commodities?.find((c: any) => c.id === "CRUDE_OIL")?.mcxPrice ?? Math.round(brentCfdUsd * (fbilData?.usdInr ?? 86.85));
-	const wtiUsd = fredData?.wtiCrude?.price ?? 70.85;
-	const goldMcxInr = commData?.commodities?.find((c: any) => c.id === "GOLD")?.mcxPrice ?? 138419;
-	const silverMcxInr = commData?.commodities?.find((c: any) => c.id === "SILVER")?.mcxPrice ?? 164500;
+	// 4. Resolve Commodities (Global CFD in USD and Domestic MCX Official Spot in INR)
+	const brentCfdUsd = commData?.crudeOilBreakevenStatus?.brentUsd ?? fredData?.brentCrude?.price ?? 96.09;
+	const brentMcxInr = commData?.commodities?.find((c: any) => c.id === "CRUDE_OIL")?.mcxPrice ?? 9115;
+	const wtiUsd = fredData?.wtiCrude?.price ?? 91.85;
+	const goldMcxInr = commData?.commodities?.find((c: any) => c.id === "GOLD")?.mcxPrice ?? 141255;
+	const silverMcxInr = commData?.commodities?.find((c: any) => c.id === "SILVER")?.mcxPrice ?? 187200;
 	const goldCfdUsd = commData?.commodities?.find((c: any) => c.id === "GOLD")?.cmxPrice ?? 3885.5;
 	const silverCfdUsd = commData?.commodities?.find((c: any) => c.id === "SILVER")?.cmxPrice ?? 48.5;
-	const copperInr = commData?.commodities?.find((c: any) => c.id === "COPPER")?.mcxPrice ?? 845.0;
+	const copperInr = commData?.commodities?.find((c: any) => c.id === "COPPER")?.mcxPrice ?? 1376.50;
 	const copperCfdUsd = commData?.commodities?.find((c: any) => c.id === "COPPER")?.cmxPrice ?? 4.35;
-	const naturalGasInr = commData?.commodities?.find((c: any) => c.id === "NATURAL_GAS")?.mcxPrice ?? 231.2;
+	const naturalGasInr = commData?.commodities?.find((c: any) => c.id === "NATURAL_GAS")?.mcxPrice ?? 274.60;
 	const naturalGasCfdUsd = commData?.commodities?.find((c: any) => c.id === "NATURAL_GAS")?.cmxPrice ?? fredData?.naturalGas?.price ?? 2.75;
 
 	// 5. Resolve Indian Indices from live IndianAPI or ground truth
@@ -2340,14 +2340,14 @@ export async function syncMacroAndMarketBriefPrices(
 		return { price: defaultPrice, changePercent: defaultChg };
 	};
 
-	const nifty = findIdx("NIFTY 50", 23053.1, 0.51);
-	const sensex = findIdx("SENSEX", 74459.53, 0.42);
-	const bankNifty = findIdx("BANK", 54686.95, -0.41);
-	const niftyIt = findIdx("NIFTY IT", 32606.9, 2.32);
-	const giftNifty = { price: 24280.0, changePercent: 0.31 };
+	const nifty = findIdx("NIFTY 50", 23960.60, 0.63);
+	const sensex = findIdx("SENSEX", 77301.40, 0.50);
+	const bankNifty = findIdx("BANK", 55913.60, 0.67);
+	const niftyIt = findIdx("NIFTY IT", 34250.0, 1.15);
+	const giftNifty = { price: 24020.0, changePercent: 0.25 };
 
 	// 6. Global Indices & FX (Enhanced with Alpaca & Alpha Vantage live FX & index proxies)
-	let usdInr = fbilData?.usdInr ?? 86.85;
+	let usdInr = fbilData?.usdInr ?? 94.8606;
 	let sp500 = { price: 5864.5, changePercent: 0.75 };
 	let nasdaq = { price: 20380.0, changePercent: 1.12 };
 	let dow = { price: 42114.4, changePercent: 0.33 };
@@ -2974,75 +2974,75 @@ async function buildSnapshotFromDBRows(): Promise<DailyMarketBriefSnapshot | nul
 		},
 		indices: {
 			indian: [
-				{ name: "Nifty 50", symbol: "NIFTY50", price: getPrice("IDX_NIFTY_50", 23053), changePercent: getChg("IDX_NIFTY_50", 0.51), isin: "IDX_NIFTY_50", exchange: "NSE" },
-				{ name: "BSE Sensex", symbol: "SENSEX", price: getPrice("IDX_SENSEX", 74459), changePercent: getChg("IDX_SENSEX", 0.42), isin: "IDX_SENSEX", exchange: "BSE" },
-				{ name: "Nifty Bank", symbol: "BANKNIFTY", price: getPrice("IDX_BANKNIFTY", 49200), changePercent: getChg("IDX_BANKNIFTY", 0.3), isin: "IDX_BANKNIFTY", exchange: "NSE" },
-				{ name: "Nifty IT", symbol: "NIFTYIT", price: getPrice("IDX_NIFTY_IT", 36800), changePercent: getChg("IDX_NIFTY_IT", 0.2), isin: "IDX_NIFTY_IT", exchange: "NSE" },
-				{ name: "GIFT Nifty", symbol: "GIFTNIFTY", price: getPrice("IDX_GIFT_NIFTY", 23100), changePercent: getChg("IDX_GIFT_NIFTY", 0.5), isin: "IDX_GIFT_NIFTY", exchange: "NSE_IX" },
+				{ name: "Nifty 50", symbol: "NIFTY50", price: getPrice("IDX_NIFTY_50", 23960.60), changePercent: getChg("IDX_NIFTY_50", 0.63), isin: "IDX_NIFTY_50", exchange: "NSE" },
+				{ name: "BSE Sensex", symbol: "SENSEX", price: getPrice("IDX_SENSEX", 77301.40), changePercent: getChg("IDX_SENSEX", 0.50), isin: "IDX_SENSEX", exchange: "BSE" },
+				{ name: "Nifty Bank", symbol: "BANKNIFTY", price: getPrice("IDX_BANKNIFTY", 55913.60), changePercent: getChg("IDX_BANKNIFTY", 0.67), isin: "IDX_BANKNIFTY", exchange: "NSE" },
+				{ name: "Nifty IT", symbol: "NIFTYIT", price: getPrice("IDX_NIFTY_IT", 34250.0), changePercent: getChg("IDX_NIFTY_IT", 1.15), isin: "IDX_NIFTY_IT", exchange: "NSE" },
+				{ name: "GIFT Nifty", symbol: "GIFTNIFTY", price: getPrice("IDX_GIFT_NIFTY", 24020.0), changePercent: getChg("IDX_GIFT_NIFTY", 0.25), isin: "IDX_GIFT_NIFTY", exchange: "NSE_IX" },
 			],
 			global: [
-				{ name: "S&P 500 Index (SPX)", symbol: "SPX", price: getPrice("IDX_SP500", 5308), changePercent: getChg("IDX_SP500", 0.2), currency: "USD", isin: "IDX_SP500", region: "us" },
-				{ name: "Nasdaq 100 Index (NDX)", symbol: "NDX", price: getPrice("IDX_NASDAQ", 18700), changePercent: getChg("IDX_NASDAQ", 0.3), currency: "USD", isin: "IDX_NASDAQ", region: "us" },
-				{ name: "Dow Jones (DJI)", symbol: "DJI", price: getPrice("IDX_DOW", 39100), changePercent: getChg("IDX_DOW", 0.1), currency: "USD", isin: "IDX_DOW", region: "us" },
-				{ name: "FTSE 100 (London)", symbol: "UKX", price: getPrice("IDX_FTSE100", 8200), changePercent: getChg("IDX_FTSE100", 0.15), currency: "GBP", isin: "IDX_FTSE100", region: "europe" },
-				{ name: "DAX 40 (Frankfurt)", symbol: "DAX", price: getPrice("IDX_DAX40", 18500), changePercent: getChg("IDX_DAX40", 0.2), currency: "EUR", isin: "IDX_DAX40", region: "europe" },
-				{ name: "Nikkei 225 (Tokyo)", symbol: "N225", price: getPrice("IDX_NIKKEI225", 38900), changePercent: getChg("IDX_NIKKEI225", 0.35), currency: "JPY", isin: "IDX_NIKKEI225", region: "asia" },
-				{ name: "Hang Seng (Hong Kong)", symbol: "HSI", price: getPrice("IDX_HANGSENG", 17800), changePercent: getChg("IDX_HANGSENG", 0.1), currency: "HKD", isin: "IDX_HANGSENG", region: "asia" },
+				{ name: "S&P 500 Index (SPX)", symbol: "SPX", price: getPrice("IDX_SP500", 5864.5), changePercent: getChg("IDX_SP500", 0.75), currency: "USD", isin: "IDX_SP500", region: "us" },
+				{ name: "Nasdaq 100 Index (NDX)", symbol: "NDX", price: getPrice("IDX_NASDAQ", 20380.0), changePercent: getChg("IDX_NASDAQ", 1.12), currency: "USD", isin: "IDX_NASDAQ", region: "us" },
+				{ name: "Dow Jones (DJI)", symbol: "DJI", price: getPrice("IDX_DOW", 42114.4), changePercent: getChg("IDX_DOW", 0.33), currency: "USD", isin: "IDX_DOW", region: "us" },
+				{ name: "FTSE 100 (London)", symbol: "UKX", price: getPrice("IDX_FTSE100", 8245.0), changePercent: getChg("IDX_FTSE100", -0.32), currency: "GBP", isin: "IDX_FTSE100", region: "europe" },
+				{ name: "DAX 40 (Frankfurt)", symbol: "DAX", price: getPrice("IDX_DAX40", 19480.0), changePercent: getChg("IDX_DAX40", 0.45), currency: "EUR", isin: "IDX_DAX40", region: "europe" },
+				{ name: "Nikkei 225 (Tokyo)", symbol: "N225", price: getPrice("IDX_NIKKEI225", 38950.0), changePercent: getChg("IDX_NIKKEI225", 0.95), currency: "JPY", isin: "IDX_NIKKEI225", region: "asia" },
+				{ name: "Hang Seng (Hong Kong)", symbol: "HSI", price: getPrice("IDX_HANGSENG", 20590.0), changePercent: getChg("IDX_HANGSENG", -0.88), currency: "HKD", isin: "IDX_HANGSENG", region: "asia" },
 			],
 		},
 		commodities: {
 			brentCrude: {
-				name: "Brent Crude Oil",
-				cfdPriceUsd: getPrice("ICE_BRENT_USD", 78.5),
+				name: "Crude Oil (Brent / MCX Spot)",
+				cfdPriceUsd: getPrice("ICE_BRENT_USD", 96.09),
 				cfdUnit: "$ / bbl",
-				mcxPriceInr: getPrice("MCX_CRUDEOIL", 6600),
+				mcxPriceInr: getPrice("MCX_CRUDEOIL", 9115),
 				mcxUnit: "₹ / bbl",
-				changePercent: getChg("ICE_BRENT_USD", -0.65),
+				changePercent: getChg("ICE_BRENT_USD", -0.45),
 				sourceCfd: "ICE / DB cache",
-				sourceMcx: "MCX / DB cache",
+				sourceMcx: "MCX Spot / DB cache",
 			},
 			gold: {
-				name: "Gold 24K",
-				cfdPriceUsd: getPrice("COMEX_GOLD_USD", 2320),
+				name: "Gold 24K (MCX Spot)",
+				cfdPriceUsd: getPrice("COMEX_GOLD_USD", 3885.50),
 				cfdUnit: "$ / oz",
-				mcxPriceInr: getPrice("MCX_GOLD", 72000),
+				mcxPriceInr: getPrice("MCX_GOLD", 141255),
 				mcxUnit: "₹ / 10g",
-				changePercent: getChg("COMEX_GOLD_USD", 0.65),
+				changePercent: getChg("COMEX_GOLD_USD", 0.35),
 				sourceCfd: "COMEX / DB cache",
-				sourceMcx: "MCX / DB cache",
+				sourceMcx: "MCX Spot (Ahmedabad) / DB cache",
 			},
 			silver: {
-				name: "Silver",
-				cfdPriceUsd: getPrice("COMEX_SILVER_USD", 27.5),
+				name: "Silver (MCX Spot)",
+				cfdPriceUsd: getPrice("COMEX_SILVER_USD", 48.50),
 				cfdUnit: "$ / oz",
-				mcxPriceInr: getPrice("MCX_SILVER", 88000),
+				mcxPriceInr: getPrice("MCX_SILVER", 187200),
 				mcxUnit: "₹ / 1kg",
-				changePercent: getChg("COMEX_SILVER_USD", 1.15),
+				changePercent: getChg("COMEX_SILVER_USD", 0.45),
 				sourceCfd: "COMEX / DB cache",
-				sourceMcx: "MCX / DB cache",
+				sourceMcx: "MCX Spot (Ahmedabad) / DB cache",
 			},
-			brentCrudeUsd: getPrice("ICE_BRENT_USD", 78.5),
-			brentCrudeMcxInr: getPrice("MCX_CRUDEOIL", 6600),
-			wtiCrudeUsd: getPrice("ICE_BRENT_USD", 78.5) - 2,
-			goldMcxInr: getPrice("MCX_GOLD", 72000),
-			silverMcxInr: getPrice("MCX_SILVER", 88000),
-			goldComexUsd: getPrice("COMEX_GOLD_USD", 2320),
-			silverComexUsd: getPrice("COMEX_SILVER_USD", 27.5),
-			copperInr: getPrice("MCX_COPPER", 850),
-			naturalGasInr: getPrice("MCX_NATGAS", 220),
+			brentCrudeUsd: getPrice("ICE_BRENT_USD", 96.09),
+			brentCrudeMcxInr: getPrice("MCX_CRUDEOIL", 9115),
+			wtiCrudeUsd: getPrice("ICE_BRENT_USD", 96.09) - 4,
+			goldMcxInr: getPrice("MCX_GOLD", 141255),
+			silverMcxInr: getPrice("MCX_SILVER", 187200),
+			goldComexUsd: getPrice("COMEX_GOLD_USD", 3885.50),
+			silverComexUsd: getPrice("COMEX_SILVER_USD", 48.50),
+			copperInr: getPrice("MCX_COPPER", 1376.50),
+			naturalGasInr: getPrice("MCX_NATGAS", 274.60),
 			crudeOilBreakevenStatus: {
-				brentUsd: getPrice("ICE_BRENT_USD", 78.5),
+				brentUsd: getPrice("ICE_BRENT_USD", 96.09),
 				comfortBandMax: 80,
-				inflationImpact: getPrice("ICE_BRENT_USD", 78.5) <= 80 ? "Benign" : getPrice("ICE_BRENT_USD", 78.5) <= 90 ? "Moderate" : "Elevated",
-				commentary: `Brent at $${getPrice("ICE_BRENT_USD", 78.5).toFixed(1)}/bbl — DB cache`,
+				inflationImpact: getPrice("ICE_BRENT_USD", 96.09) <= 80 ? "Benign" : getPrice("ICE_BRENT_USD", 96.09) <= 88 ? "Moderate" : "Elevated",
+				commentary: `Brent at $${getPrice("ICE_BRENT_USD", 96.09).toFixed(2)}/bbl (MCX Spot: ₹${getPrice("MCX_CRUDEOIL", 9115).toLocaleString("en-IN")}/bbl) — DB cache`,
 			},
 		},
 		currencies: {
-			usdInr: getPrice("FX_USD_INR", 84.1),
-			eurInr: getPrice("FX_EUR_INR", 91.5),
-			gbpInr: getPrice("FX_GBP_INR", 106.5),
-			eurUsd: getPrice("FX_EUR_USD", 1.088),
-			usdJpy: getPrice("FX_USD_JPY", 149.5),
+			usdInr: getPrice("FX_USD_INR", 94.8606),
+			eurInr: getPrice("FX_EUR_INR", 99.4139),
+			gbpInr: getPrice("FX_GBP_INR", 119.3346),
+			eurUsd: getPrice("FX_EUR_USD", 1.048),
+			usdJpy: getPrice("FX_USD_JPY", 154.2),
 			gbpUsd: 0,
 			usdCny: 0,
 			usdSgd: 0,

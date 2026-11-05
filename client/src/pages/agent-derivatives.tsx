@@ -44,14 +44,9 @@ import {
 	RefreshCw,
 	ChevronRight,
 	Sparkles,
-	ArrowUpDown,
-	Info,
-	Plus,
 	Trash2,
 } from "lucide-react";
 import {
-	LineChart,
-	Line,
 	XAxis,
 	YAxis,
 	CartesianGrid,
@@ -130,6 +125,8 @@ interface PopularStrategy {
 	name: string;
 	description: string;
 	outlook: "bullish" | "bearish" | "neutral" | "volatile";
+	archetype?: "seller" | "buyer";
+	isCredit?: boolean;
 	legs: Omit<StrategyLeg, "id" | "quantity" | "strikePrice" | "premium">[];
 	riskReward: string;
 }
@@ -140,7 +137,8 @@ export default function AgentDerivatives() {
 	const [selectedExpiry, setSelectedExpiry] = useState<string>("");
 	const [strategyLegs, setStrategyLegs] = useState<StrategyLeg[]>([]);
 	const [showITM, setShowITM] = useState(true);
-	const [selectedOption, setSelectedOption] = useState<OptionData | null>(null);
+	const [_selectedOption, _setSelectedOption] = useState<OptionData | null>(null);
+	const [strategyFilter, setStrategyFilter] = useState<"all" | "seller" | "buyer">("all");
 
 	const { data: symbolsData } = useQuery<{
 		symbols: string[];
@@ -787,7 +785,7 @@ export default function AgentDerivatives() {
 																onChange={(e) =>
 																	updateLegQuantity(
 																		leg.id,
-																		Number.parseInt(e.target.value) || 1,
+																		Number.parseInt(e.target.value, 10) || 1,
 																	)
 																}
 																className="w-16 h-8"
@@ -825,40 +823,114 @@ export default function AgentDerivatives() {
 
 						<Card>
 							<CardHeader>
-								<CardTitle>Popular Strategies</CardTitle>
-								<CardDescription>Pre-built option strategies</CardDescription>
+								<div className="flex items-center justify-between flex-wrap gap-2">
+									<div>
+										<CardTitle>Popular Strategies</CardTitle>
+										<CardDescription>Pre-built institutional option strategies</CardDescription>
+									</div>
+									<div className="flex items-center gap-1 bg-muted p-0.5 rounded-lg text-xs">
+										<button
+											type="button"
+											onClick={() => setStrategyFilter("all")}
+											className={`px-2 py-1 rounded-md transition-colors ${
+												strategyFilter === "all"
+													? "bg-background text-foreground font-semibold shadow-sm"
+													: "text-muted-foreground hover:text-foreground"
+											}`}
+										>
+											All ({strategiesData?.strategies.length ?? 0})
+										</button>
+										<button
+											type="button"
+											onClick={() => setStrategyFilter("seller")}
+											className={`px-2 py-1 rounded-md transition-colors ${
+												strategyFilter === "seller"
+													? "bg-background text-emerald-700 dark:text-emerald-400 font-semibold shadow-sm"
+													: "text-muted-foreground hover:text-foreground"
+											}`}
+										>
+											Sellers (Credit)
+										</button>
+										<button
+											type="button"
+											onClick={() => setStrategyFilter("buyer")}
+											className={`px-2 py-1 rounded-md transition-colors ${
+												strategyFilter === "buyer"
+													? "bg-background text-sky-700 dark:text-sky-400 font-semibold shadow-sm"
+													: "text-muted-foreground hover:text-foreground"
+											}`}
+										>
+											Buyers (Debit)
+										</button>
+									</div>
+								</div>
 							</CardHeader>
 							<CardContent>
-								<div className="space-y-2">
-									{strategiesData?.strategies.slice(0, 6).map((strategy) => (
-										<div
-											key={strategy.name}
-											className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 cursor-pointer"
-										>
-											<div>
-												<p className="font-medium">{strategy.name}</p>
-												<p className="text-xs text-muted-foreground">
-													{strategy.description}
-												</p>
-											</div>
-											<div className="flex items-center gap-2">
-												<Badge
-													variant={
-														strategy.outlook === "bullish"
-															? "default"
-															: strategy.outlook === "bearish"
-																? "destructive"
-																: strategy.outlook === "volatile"
-																	? "secondary"
-																	: "outline"
+								<div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
+									{strategiesData?.strategies
+										.filter((s) => {
+											if (strategyFilter === "seller") return s.archetype === "seller" || s.isCredit;
+											if (strategyFilter === "buyer") return s.archetype === "buyer" || !s.isCredit;
+											return true;
+										})
+										.map((strategy) => (
+											<button
+												type="button"
+												key={strategy.name}
+												onClick={() => {
+													// Load strategy legs into builder
+													if (strategy.legs && selectedExpiry) {
+														const atm = optionsChain?.underlyingValue || 25000;
+														const newLegs: StrategyLeg[] = strategy.legs.map((leg, idx) => ({
+															id: `leg-${Date.now()}-${idx}`,
+															type: leg.type as "call" | "put",
+															action: leg.action as "buy" | "sell",
+															strikePrice: Math.round(atm / 50) * 50 + (idx * 50),
+															expiryDate: selectedExpiry,
+															quantity: 1,
+															premium: 50,
+														}));
+														setStrategyLegs(newLegs);
 													}
-												>
-													{strategy.outlook}
-												</Badge>
-												<ChevronRight className="h-4 w-4" />
-											</div>
-										</div>
-									))}
+												}}
+												className="w-full text-left flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors"
+											>
+												<div className="space-y-0.5">
+													<div className="flex items-center gap-1.5 flex-wrap">
+														<p className="font-medium text-sm text-foreground">{strategy.name}</p>
+														{strategy.isCredit || strategy.archetype === "seller" ? (
+															<Badge variant="outline" className="text-[9px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800">
+																Credit / Seller
+															</Badge>
+														) : (
+															<Badge variant="outline" className="text-[9px] bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-300 dark:border-sky-800">
+																Debit / Buyer
+															</Badge>
+														)}
+													</div>
+													<p className="text-xs text-muted-foreground">
+														{strategy.description}
+													</p>
+												</div>
+												<div className="flex items-center gap-2 shrink-0">
+													<Badge
+														variant={
+															strategy.outlook === "bullish"
+																? "default"
+																: strategy.outlook === "bearish"
+																	? "destructive"
+																	: strategy.outlook === "volatile"
+																		? "secondary"
+																		: "outline"
+														}
+														className="capitalize text-xs"
+													>
+														{strategy.outlook}
+													</Badge>
+													<ChevronRight className="h-4 w-4 text-muted-foreground" />
+												</div>
+											</button>
+										))}
 								</div>
 							</CardContent>
 						</Card>
@@ -1125,7 +1197,7 @@ function GreeksCalculator({
 						<Input
 							type="number"
 							value={days}
-							onChange={(e) => setDays(Number.parseInt(e.target.value) || 1)}
+							onChange={(e) => setDays(Number.parseInt(e.target.value, 10) || 1)}
 							min={1}
 							data-testid="input-days"
 						/>

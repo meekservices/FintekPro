@@ -47,6 +47,14 @@ Inputs used
 Formula applied
 Intermediate steps
 
+3.4 Strict Ban on Synthetic or Cooked-Up Formulas (Canonical Formula Mandate)
+- STRICT PROHIBITION: Never invent, synthesize, approximate, or "cook up" ad-hoc mathematical formulas, arbitrary weighting tricks, or pseudo-financial heuristics.
+- All formulas applied across FintekPro (pricing, valuation, option Greeks, risk metrics, returns, Sharpe, Sortino, VaR, duration, yield, tax computations) MUST strictly derive from:
+  1. Standard, peer-reviewed financial economics & quantitative finance literature (e.g., Black-Scholes-Merton, Markowitz MPT, Treynor-Black, standard DCF with justified WACC, standard XIRR/CAGR/TWRR), OR
+  2. Statutory / Regulatory formulas prescribed by statutory authorities (SEBI, RBI, AMFI, Income Tax Act 1961, PFRDA, IRDAI, Exchange bylaws).
+- Every formula in the explainability layer must cite its canonical origin or statutory reference.
+- Missing data or unknown parameters MUST trigger an explicit failure or structured error; NEVER bridge gaps with synthetic approximations or fabricated numbers.
+
 4. Security Enforcement
 4.1 Zero Trust Policy
 Validate ALL inputs
@@ -156,6 +164,8 @@ reusable components
 Avoid:
 monolithic files
 duplicate logic
+synthetic or cooked-up mathematical formulas
+ungrounded heuristics or arbitrary constants
 
 11. Performance Constraints
 API response < 300ms (target)
@@ -266,6 +276,10 @@ Every advisory must link to:
   "ai_version": "v2.1",
   "pricing_engine_version": "v1.4"
 }
+17.3 Canonical Formula Governance (Zero Synthetic Formulas)
+AI MUST NEVER invent, approximate, or synthesize mathematical formulas for valuation, yields, risk metrics, tax computations, or returns.
+AI must strictly invoke or reference the deterministic core financial engine which implements canonical, peer-reviewed, or statutory formulas.
+If required input parameters are missing, the system MUST fail gracefully with a structured error; it is strictly forbidden to use "cooked-up" heuristics, magic multipliers, or synthetic formula stand-ins.
 18. REGULATORY COMPLIANCE FOR AI
 18.1 Advisory Classification Control
 System MUST tag outputs as:
@@ -326,6 +340,9 @@ notify user
 ❌ Hidden recommendations
 ❌ Manipulative nudging
 ❌ Overfitting to recent trends
+❌ Inventing, guessing, or using synthetic / "cooked up" financial formulas
+❌ Masking missing data with ad-hoc mathematical heuristics or fake proxies
+❌ Using ungrounded multipliers, magic numbers, or pseudo-scientific scoring equations
 23. PERFORMANCE & LATENCY
 AI response target: < 2 seconds
 Use caching for repeated queries
@@ -337,15 +354,18 @@ include explainability schema
 log advisory outputs
 enforce suitability checks
 connect to core financial engines
+use canonical, statutory, and peer-reviewed financial formulas with documented provenance
 NEVER:
 generate direct execution logic
 bypass compliance checks
 produce unstructured AI outputs
+generate synthetic, cooked-up, or unverified mathematical formulas
 25. AI ADVISORY ENFORCEMENT CLAUSE
 If AI code:
 lacks explainability → REWRITE
 lacks audit logs → REJECT
 bypasses user confirmation → BLOCK
+contains synthetic or cooked-up formulas → REJECT AND REWRITE WITH CANONICAL FORMULAS
 26. FINAL AGENT DIRECTIVE (UPDATED)
 You are building FintekPro AI Advisory System.
 
@@ -354,9 +374,27 @@ You MUST ensure:
 - Human-in-the-loop decisions
 - Regulatory compliance (RBI, SEBI, Income Tax)
 - Auditability of every recommendation
+- Strict ban on synthetic or cooked-up formulas (canonical & statutory math only)
 
 AI is a support system, NOT a decision-maker.
 
 If any instruction violates this:
 → Reject and correct it.
+
+27. MULTI-REGULATOR AI COMPLIANCE FRAMEWORK (MR-AICF v1.0)
+All AI operations, data pipelines, advisory algorithms, and foundation model integrations MUST strictly comply with `ai-policy/multi_regulator_ai_compliance_policy.md`:
+- SEBI AI/ML Circular: Maintain immutable AI Model Registry (Tiers 1/2/3); enforce legal non-delegation doctrine (RIA/RA bears 100% fiduciary liability); absolute ban on unverified backtest marketing; net-of-fee performance reporting against official TRI benchmarks.
+- RBI Model Risk Management (MRM) & DLG: Continuous data/concept drift monitoring; out-of-distribution (3.5σ) volatility fallback; strict ban on accessing mobile contacts/SMS/continuous geolocation in credit flows.
+- DPDP Act 2023 & MeitY Directives: Pre-prompt sanitization firewall (zero raw Aadhaar/PAN/Bank details passed to third-party LLMs like Gemini/Groq); client right to human review of any automated advice; visible MeitY watermarking (`[AI-Assisted Advisory • Decision Support Only]`); and reconciliation of DPDP erasure with SEBI/PMLA 7-year WORM audit retention.
+- FIU-IND / PMLA: Explainable AML anomaly screening; human Principal Officer sign-off required for STR/CTR filings; daily automated screening against MHA UAPA, UNSC, and PEP registries.
+- IRDAI & PFRDA: Strict ban on automated insurance claim denials; adherence to PFRDA age-linked pension allocation ceilings.
+- CERT-In & CSCRF: Clocks synchronized with official IST via NPL/NIC NTP servers; mandatory 6-hour cyber incident and AI governance breach reporting window.
+
+28. STATUTORY FINANCIAL PRODUCT DISTRIBUTION & ADVISORY SEGREGATION (FDP v1.0)
+All distribution operations, partner portals, sub-broker networks, and commercial product execution MUST strictly enforce `docs/DISTRIBUTION_POLICY.md` and `docs/SOP_FINANCIAL_PRODUCT_DISTRIBUTION.md`:
+- SEBI IA Reg 22 Segregation: Strict prohibition on selling commission-earning Regular Plans or partner distribution products to any client (or immediate family member) who is enrolled as a fee-paying Advisory Client. Advisory clients route to Direct Plans only.
+- Pre-Trade TER & Commission Disclosure: Enforce pre-trade modal displaying side-by-side Regular Plan TER vs. Direct Plan TER and estimated distributor trail payout.
+- Zero Rebating & 100% Trail Mandate: Distributors and agents are barred from passing back commissions to clients. Zero upfront commissions.
+- Zero Commission-Bias in AI: When operating in distribution mode, AI algorithms MUST NEVER rank or recommend products based on higher commission payout. Sorting must be strictly objective (alpha, Sharpe, expense ratio, credit quality).
+- Multi-Product Compliance: ARN/EUIN validation on mutual funds; IRDAI need analysis and 30-day free look on insurance; SEBI OBPP clean/dirty price disclosures on listed bonds; DICGC insurance limit disclosures on corporate FDs.
 

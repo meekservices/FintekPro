@@ -86,10 +86,16 @@ AIFs are structured as **privately pooled investment trusts or Limited Liability
 1. **Uncalled Commitment Cash Drag Elimination**:
    - Investor capital called but pending final disbursement into unlisted portfolio companies is automatically swept into **Sovereign T-Bills or Tri-Party Repo (TREPS)** yielding 6.75%–7.05% p.a.
    - Prevents unallocated cash from dragging down the fund's gross IRR.
-2. **Valuation Governance & Ind AS 113 Standards**:
+2. **Statutory Leverage Ceilings (SEBI AIF Regulations)**:
+   - **Category I & II AIFs**: Leverage and borrowing are **strictly prohibited (0%)**, except temporary borrowing to meet operational expenses not exceeding 10% of investable funds for up to 30 days (max 4 times a year).
+   - **Category III AIFs**: Total gross exposure through debt or derivatives is strictly capped at **200% of Net Asset Value (2x leverage)**. The portfolio risk guard monitors real-time margin utilization and alerts upon breach of 180% NAV.
+3. **Valuation Governance & Ind AS 113 Standards**:
    - Portfolio valuation conducted quarterly by IBBI-registered independent valuers following the International Private Equity and Venture Capital Valuation (IPEV) and Ind AS 113 fair value hierarchy.
-3. **Co-Investment Vehicle (CIV) Parity**:
+   - **AI Boundary**: AI algorithms may generate scenario stress tests or cash-flow forecasts, but **cannot unilaterally re-value illiquid assets** or substitute official IBBI valuation reports.
+4. **Co-Investment Vehicle (CIV) Parity**:
    - Co-investment opportunities offered to select anchor investors must follow pro-rata rights and identical terms, preventing preferential pricing or cherry-picking.
+5. **Human Investment Committee Mandate**:
+   - AI algorithms are strictly decision-support systems. Capital call generation, term sheet sign-offs, and distributions require human Investment Committee (IC) and Trustee approval. Automated drawdown execution is strictly prohibited.
 
 ---
 

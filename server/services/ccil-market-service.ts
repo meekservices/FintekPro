@@ -69,6 +69,14 @@ export interface CcilMoneyMarketSnapshot {
     commentary: string;
   };
   sdlSpreadBps: number; // SDL spread over 10Y G-Sec (~35-45 bps)
+  forexSpot?: {
+    usdInr: number; // e.g. 94.8606
+    inrUsd: number; // e.g. 0.010542 (1 / usdInr)
+    changePercent: number; // e.g. +0.08%
+    platform: "CCIL FX-CLEAR";
+    settlementType: "T+2 Spot";
+    source: "The Clearing Corporation of India Limited (ccilindia.com/Forex)";
+  };
   asOfDate: string;
   source: string;
   engineVersion: string;
@@ -180,6 +188,14 @@ const BASELINE_CCIL_DATA: CcilMoneyMarketSnapshot = {
       "Sovereign yield curve reflects normal upward slope (+28 bps 10Y–2Y spread). Benchmark 10Y real yield at +1.30% over CPI provides attractive carry, while sovereign spread of +259 bps over US 10Y UST anchors domestic debt ballast.",
   },
   sdlSpreadBps: 38, // State Development Loans offering ~7.17% (38 bps over 10Y G-Sec)
+  forexSpot: {
+    usdInr: 94.8606,
+    inrUsd: 0.010542, // 1 / 94.8606 (CCIL FX-CLEAR spot reciprocal)
+    changePercent: 0.08,
+    platform: "CCIL FX-CLEAR",
+    settlementType: "T+2 Spot",
+    source: "The Clearing Corporation of India Limited (ccilindia.com/Forex)",
+  },
   asOfDate: new Date().toISOString().split("T")[0],
   source: "CCIL (The Clearing Corporation of India Limited) & FBIL Money Market Clearing",
   engineVersion: ENGINE_VERSION,

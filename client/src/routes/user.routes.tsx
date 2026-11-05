@@ -627,6 +627,7 @@ export function UserProtectedRoutes() {
 				<Route path="/ai-proposals" component={AIProposalsPage} />
 				<Route path="/ai-proposal-review" component={AIProposalReviewPage} />
 				<Route path="/ai-stock-picks" component={AIStockPicks} />
+				<Route path="/picks" component={AgentPicks} />
 				<Route path="/goals" component={GoalsPage} />
 				<Route path="/referral-program" component={ReferralProgram} />
 				<Route path="/scheduled-reports" component={ScheduledReports} />

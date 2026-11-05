@@ -177,6 +177,10 @@ During market hours, the system must monitor:
 4. **Vega Risk Alert** — if implied volatility changes > 5% (absolute), show impact on open positions
 5. **Drawdown Monitor** — if strategy MTM loss > **50% of max risk** defined at inception → generate `DERIVATIVE_RISK_ALERT` and notify advisor
 
+#### Canonical Greeks Computation Protocol (Zero Synthetic Math)
+All option Greeks ($\Delta, \Gamma, \Theta, \mathcal{V}, \rho$) and theoretical fair values must strictly be computed using canonical **Black-76** (for index/stock futures options) or **Black-Scholes-Merton** (with continuous dividend yield), parameterized by live licensed exchange quotes, actual exchange-published implied volatility (IV), and official FBIL risk-free yields ($R_f$).
+- Cooked-up delta estimations, synthetic Greek shortcuts, and linear heuristics are strictly prohibited across all advisory and margin screens.
+
 #### Margin Call Protocol
 
 | Margin Status | Action |

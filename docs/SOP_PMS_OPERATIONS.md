@@ -51,8 +51,11 @@ Unlike Mutual Funds, PMS operates strictly on a **segregated client custody arch
 
 ## 5. SEBI Disclosure Document (Form C) & Onboarding
 
-1. **Mandatory Client Acknowledgment**:
-   - Prior to account activation or agreement execution, the client must be furnished with the latest **SEBI Disclosure Document (Form C)** detailing the Portfolio Manager's disciplinary history, audited performance track record, conflict of interest disclosures, and comprehensive fee matrix.
+1. **Mandatory 48-Hour Prior Delivery**:
+   - In strict compliance with SEBI (Portfolio Managers) Regulations, 2020, the client must be furnished with the latest **SEBI Disclosure Document (Form C)** at least **48 hours prior** to entering into the client-manager agreement.
+   - The platform timestamp records delivery; agreement signing UI remains locked until 48 hours have elapsed.
+2. **Mandatory Client Acknowledgment**:
+   - The Disclosure Document details the Portfolio Manager's disciplinary history, audited performance track record, conflict of interest disclosures, and comprehensive fee matrix.
    - Client digital signature (Aadhaar e-Sign) and timestamped confirmation are logged in the audit trail.
 
 ---
@@ -62,8 +65,9 @@ Unlike Mutual Funds, PMS operates strictly on a **segregated client custody arch
 1. **Time-Weighted Rate of Return (TWRR)**:
    - In compliance with SEBI circular `SEBI/HO/IMD/DF1/CIR/P/2020/26` and Association of Portfolio Managers in India (APMI) reporting standards, all portfolio performance is calculated strictly on a **daily Time-Weighted Rate of Return (TWRR)** basis.
    - Eliminates distortions caused by large capital contributions or withdrawals.
-2. **Monthly APMI Benchmarking**:
-   - Portfolio performance is reconciled monthly against standard APMI peer benchmarks (NSE Multi Asset Index 1, BSE 200 TRI, Nifty 500 TRI) and reported net of all fees and expenses.
+2. **Monthly APMI Benchmarking & Net-of-Fee Reporting**:
+   - Portfolio performance is reconciled monthly against standard APMI peer benchmarks (NSE Multi Asset Index 1, BSE 200 TRI, Nifty 500 TRI) and reported **strictly net of all fees, custody charges, audit costs, and brokerage slippage**.
+   - Model backtests cannot be presented as live PMS track records.
 
 ---
 
@@ -76,6 +80,9 @@ Unlike Mutual Funds, PMS operates strictly on a **segregated client custody arch
    - Investments in securities of associates or related-party group entities of the Portfolio Manager are capped at **15% to 25%** of portfolio value and require prior written client consent under SEBI PMS Reg 24.
 3. **Slippage & Market Impact Controls**:
    - Slice-order algorithms restrict individual execution legs to **$\le 5\%$ of the Average Daily Trading Volume (ADTV)**, minimizing market impact and trade friction.
+4. **AI Decision Support Boundary**:
+   - AI algorithms (factor scoring, drift rebalancing, tax-loss harvesting) operate strictly as **Decision Support Systems**.
+   - The registered human Portfolio Manager (Principal Officer) retains non-delegable statutory fiduciary responsibility and must review and cryptographically authorize all batch orders before exchange transmission. Autonomous algorithmic trading is barred.
 
 ---
 

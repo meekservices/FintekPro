@@ -56,6 +56,7 @@ Target 99.9% availability for key AI Infrastructure endpoints.
 ❌ Recursive looping of AI models.
 ❌ Reverse-engineering FintekPro's proprietary quant models via high-volume probing.
 ❌ Sub-licensing API access to non-verified fourth-party entities.
+❌ Deploying or serving synthetic or cooked-up formulas disguised as institutional quantitative analytics.
 
 8. FAILSAFE DESIGN
 8.1 System-Wide Kill Switch

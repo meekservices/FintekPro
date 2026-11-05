@@ -35,6 +35,12 @@ Mutual funds operate on a **pooled investment trust architecture** wherein inves
    - When executing under Mutual Fund Distributor (MFD) status, orders are tagged with the authorized ARN (`ARN-...`) and valid EUIN (`E...`).
    - Platform must present automated pre-execution commission disclosures comparing Regular Plan TER vs. Direct Plan TER per SEBI Circular `SEBI/HO/IMD/DF2/CIR/P/2018/137`.
 
+3. **Execution-Only Platforms (EOP) Governance (SEBI Circular 2023/86)**:
+   - When functioning as a digital platform routing Direct Plan transactions:
+     - **Category 1 EOP**: Operates as an agent of AMCs; registered with AMFI. Flat transaction fees billed to AMCs; zero fee charged to investor.
+     - **Category 2 EOP**: Operates as an agent of investors; registered as Stock Broker/Trading Member with Stock Exchanges. Transaction fees directly billed to investor with explicit pre-trade confirmation.
+   - Platform displays explicit EOP categorization disclosures before trade authorization.
+
 ---
 
 ## 4. Order Execution, Cut-Off Timings & Universal NAV Realization (SEBI Circular 2020/175)
@@ -42,12 +48,19 @@ Mutual funds operate on a **pooled investment trust architecture** wherein inves
 Order routing enforces strict cut-off adherence in accordance with unified SEBI NAV realization rules:
 
 | Category | Cut-Off Time (IST) | Universal NAV Realization Rule |
-| :--- | :---: | :--- |
+| :--- | :--- :--- | :--- |
 | **Liquid & Overnight Funds** | **1:30 PM** | Lower of: Historical day NAV / Day of fund realization in AMC bank account |
 | **Equity & Debt Funds (All Ticket Sizes)** | **3:00 PM** | Closing NAV of the business day on which investor funds are credited to the AMC collection account prior to cut-off |
 | **Redemptions & Switches** | **3:00 PM** (Equity) / **1:30 PM** (Liquid) | Closing NAV of the transaction submission day |
 
 *Platform Rule*: Any payment confirmation or fund credit received after cut-off time is automatically timestamped for T+1 business day processing.
+
+### 4.1 Two-Factor Authentication (2FA) for Redemptions (SEBI Mandate)
+- Redemptions, systematic withdrawal plans (SWP), and switch transactions require mandatory **Two-Factor Authentication (2FA)** via dynamic OTP sent to the investor's verified mobile number and email ID registered with the KRA/RTA.
+- Automated or bot-driven redemption requests are strictly blocked.
+
+### 4.2 Mandatory Nomination Opt-In / Opt-Out Verification
+- Under SEBI Master Circular guidelines, every mutual fund folio creation must record explicit **Nomination details (up to 3 nominees with percentage allocation summing to 100%)** or a formal signed **Nomination Opt-Out Declaration**. Folio opening without nomination verification is blocked at the onboarding gate.
 
 ---
 
@@ -95,6 +108,10 @@ Order routing enforces strict cut-off adherence in accordance with unified SEBI 
    - Holdings exhibiting trailing alpha $< -8\%$ across 3 consecutive quarters trigger automated tactical replacement recommendations.
 3. **Tax-Friction Optimization Gate**:
    - Prior to generating rebalancing proposals, the rebalance optimizer verifies that the projected net alpha gain exceeds the capital gains tax friction (STCG 20%, LTCG 12.5% per Union Budget 2024).
+4. **AI Recommendation & Rebalancing Guardrail (FASP-AI v3.1)**:
+   - All AI-recommended mutual fund swaps or model baskets must expose the complete explainability schema: inputs used, rolling returns vs category average, canonical Sharpe/Sortino ratios, expense ratio differential, and downside capture.
+   - Zero synthetic formulas permitted; strictly canonical peer-reviewed math.
+   - All proposed rebalances require explicit human investor or RIA authorization before submission to RTA / exchange order routing engines.
 
 ---
 

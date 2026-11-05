@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, PieChart, TrendingUp, ShoppingCart, User } from "lucide-react";
+import { Home, PieChart, TrendingUp, ShoppingCart, User, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/use-cart";
@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 
 const navItems = [
 	{ href: "/", icon: Home, label: "Home" },
+	{ href: "/picks", icon: Sparkles, label: "Ideas", highlightDot: true },
 	{ href: "/portfolio", icon: PieChart, label: "Portfolio", matchPrefix: true },
 	{ href: "/markets", icon: TrendingUp, label: "Markets" },
 	{ href: "/unified-cart", icon: ShoppingCart, label: "Cart", showBadge: true },
@@ -56,7 +57,7 @@ export function MobileBottomNav() {
 
 					return (
 						<Link key={item.href} href={item.href}>
-							<div className="relative flex flex-col items-center justify-center min-w-[60px] py-1">
+							<div className="relative flex flex-col items-center justify-center min-w-[48px] py-1">
 								<div className="relative">
 									<Icon
 										className={cn(
@@ -64,6 +65,12 @@ export function MobileBottomNav() {
 											isActive ? "text-primary" : "text-muted-foreground",
 										)}
 									/>
+									{item.highlightDot && !isActive && (
+										<span className="absolute -top-1 -right-1 flex h-2 w-2">
+											<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+											<span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+										</span>
+									)}
 									{item.showBadge && cartItemCount > 0 && (
 										<Badge
 											variant="destructive"

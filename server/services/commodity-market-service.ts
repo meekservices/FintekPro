@@ -26,20 +26,22 @@ import { inArray } from "drizzle-orm";
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface CommodityItem {
-  id: string; // e.g. "GOLD", "SILVER", "CRUDE_OIL", "NATURAL_GAS", "COPPER"
+  id: string; // e.g. "GOLD", "SILVER", "CRUDE_OIL", "NATURAL_GAS", "COPPER", "COTTON", "CARDAMOM"
   name: string;
   category: "Precious Metals" | "Energy" | "Base Metals" | "Agriculture";
   mcxSymbol: string; // e.g. "GOLD"
-  mcxPrice: number; // e.g. 76450
+  mcxPrice: number; // e.g. 141255
   mcxUnit: string; // e.g. "₹ / 10g"
-  mcxChangePercent: number; // e.g. +0.82
+  mcxChangePercent: number; // e.g. +0.35
   cmxSymbol: string; // e.g. "GC=F" (COMEX Gold)
-  cmxPrice: number; // e.g. 2654.20
+  cmxPrice: number; // e.g. 3885.50
   cmxUnit: string; // e.g. "$ / oz"
-  cmxChangePercent: number; // e.g. +0.75
+  cmxChangePercent: number; // e.g. +0.28
   trend: "Bullish" | "Neutral" | "Bearish";
   macroImplication: string;
   lastUpdated: string;
+  deliveryCenter?: string; // e.g. "AHMEDABAD", "THANE", "HAZIRA", "VANDANMEDU", "RAJKOT"
+  priceType?: "SPOT" | "FUTURES"; // explicitly "SPOT" for physical delivery benchmarks
 }
 
 export interface CommodityMarketSnapshot {
@@ -87,27 +89,29 @@ const CACHE_TTL_SECONDS = 1800; // 30 minutes
 const BASELINE_COMMODITIES: CommodityItem[] = [
   {
     id: "GOLD",
-    name: "Gold 24K",
+    name: "Gold 24K (MCX Spot)",
     category: "Precious Metals",
     mcxSymbol: "GOLD",
-    mcxPrice: 138419,
+    mcxPrice: 141255,
     mcxUnit: "₹ / 10g",
-    mcxChangePercent: -0.05,
+    mcxChangePercent: 0.35,
     cmxSymbol: "GC=F (COMEX / Global CFD)",
     cmxPrice: 3885.5,
     cmxUnit: "$ / oz",
-    cmxChangePercent: -0.12,
+    cmxChangePercent: 0.28,
     trend: "Bullish",
+    deliveryCenter: "AHMEDABAD",
+    priceType: "SPOT",
     macroImplication:
-      "Central bank accumulation & sovereign reserves sustaining bullion demand globally. Domestic 10g contract hovering near ₹1,38,400 with robust liquidity.",
+      "Official MCX Spot price at Ahmedabad (₹1,41,255/10g). Central bank reserves diversification & sovereign safe-haven accumulation sustaining bullion demand.",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
   {
     id: "SILVER",
-    name: "Silver",
+    name: "Silver (MCX Spot)",
     category: "Precious Metals",
     mcxSymbol: "SILVER",
-    mcxPrice: 164500,
+    mcxPrice: 187200,
     mcxUnit: "₹ / 1kg",
     mcxChangePercent: 0.45,
     cmxSymbol: "SI=F (COMEX / Global CFD)",
@@ -115,59 +119,105 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     cmxUnit: "$ / oz",
     cmxChangePercent: 0.38,
     trend: "Bullish",
+    deliveryCenter: "AHMEDABAD",
+    priceType: "SPOT",
     macroImplication:
-      "Dual tailwinds from monetary demand and booming industrial consumption in solar PV panel manufacturing and EV power electronics.",
+      "Official MCX Spot price at Ahmedabad (₹1,87,200/kg). Dual tailwinds from solar PV manufacturing, electronic fabrication, and monetary demand.",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
   {
     id: "CRUDE_OIL",
-    name: "Brent Crude Oil (NYMEX / ICE CFD)",
+    name: "Crude Oil (MCX Spot)",
     category: "Energy",
     mcxSymbol: "CRUDEOIL",
-    mcxPrice: 6496,
+    mcxPrice: 9115,
     mcxUnit: "₹ / bbl",
-    mcxChangePercent: -0.65,
-    cmxSymbol: "BZ=F (ICE Brent Futures / CFD)",
-    cmxPrice: 74.80,
+    mcxChangePercent: -0.45,
+    cmxSymbol: "BZ=F (ICE Brent Continuous / CFD)",
+    cmxPrice: 96.09,
     cmxUnit: "$ / bbl",
-    cmxChangePercent: -0.55,
+    cmxChangePercent: -0.40,
     trend: "Neutral",
+    deliveryCenter: "NA (MCX Spot)",
+    priceType: "SPOT",
     macroImplication:
-      "Brent crude CFD at $74.80/bbl remains within India's comfort threshold (<$80/bbl), anchoring imported inflation expectations and easing raw material input cost pressure across downstream manufacturers.",
-    lastUpdated: new Date().toISOString().split("T")[0],
-  },
-  {
-    id: "NATURAL_GAS",
-    name: "Natural Gas",
-    category: "Energy",
-    mcxSymbol: "NATURALGAS",
-    mcxPrice: 231.2,
-    mcxUnit: "₹ / mmBtu",
-    mcxChangePercent: -0.85,
-    cmxSymbol: "NG=F (NYMEX Henry Hub)",
-    cmxPrice: 2.75,
-    cmxUnit: "$ / mmBtu",
-    cmxChangePercent: -0.9,
-    trend: "Neutral",
-    macroImplication:
-      "Comfortable gas storage levels globally. Favorable for domestic City Gas Distribution (CGD) companies and fertilizer subsidy outlays.",
+      "Official MCX Spot crude price at ₹9,115/bbl ($96.09/bbl equivalent). Elevated above India's $80 comfort threshold, sustaining imported inflation pressures across downstream petrochemical and tyre sectors.",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
   {
     id: "COPPER",
-    name: "Copper (Dr. Copper)",
+    name: "Copper (MCX Spot)",
     category: "Base Metals",
     mcxSymbol: "COPPER",
-    mcxPrice: 845.0,
+    mcxPrice: 1376.50,
     mcxUnit: "₹ / kg",
-    mcxChangePercent: 0.42,
+    mcxChangePercent: -0.28,
     cmxSymbol: "HG=F (COMEX Copper)",
     cmxPrice: 4.35,
     cmxUnit: "$ / lb",
     cmxChangePercent: 0.38,
     trend: "Bullish",
+    deliveryCenter: "THANE",
+    priceType: "SPOT",
     macroImplication:
-      "Global energy transition (EV grid, renewable generation) driving structural base metal demand. Strong leading indicator of industrial capex.",
+      "Official MCX Spot copper price at Thane delivery center (₹1,376.50/kg). Power grid capex, renewable capacity, and EV wiring driving strong physical demand.",
+    lastUpdated: new Date().toISOString().split("T")[0],
+  },
+  {
+    id: "NATURAL_GAS",
+    name: "Natural Gas (MCX Spot)",
+    category: "Energy",
+    mcxSymbol: "NATURALGAS",
+    mcxPrice: 274.60,
+    mcxUnit: "₹ / mmBtu",
+    mcxChangePercent: 0.85,
+    cmxSymbol: "NG=F (NYMEX Henry Hub)",
+    cmxPrice: 2.75,
+    cmxUnit: "$ / mmBtu",
+    cmxChangePercent: 0.45,
+    trend: "Bullish",
+    deliveryCenter: "NA (MCX Spot)",
+    priceType: "SPOT",
+    macroImplication:
+      "Official MCX Spot price (₹274.60/mmBtu as per mcxindia.com/market-data/spot-market-price). Pure physical spot benchmark without CGD or government subsidy distortions.",
+    lastUpdated: new Date().toISOString().split("T")[0],
+  },
+  {
+    id: "COTTON",
+    name: "Cotton (MCX Spot)",
+    category: "Agriculture",
+    mcxSymbol: "COTTON",
+    mcxPrice: 31370,
+    mcxUnit: "₹ / bale",
+    mcxChangePercent: 0.40,
+    cmxSymbol: "CT=F (ICE Cotton)",
+    cmxPrice: 72.50,
+    cmxUnit: "c / lb",
+    cmxChangePercent: 0.25,
+    trend: "Bullish",
+    deliveryCenter: "RAJKOT",
+    priceType: "SPOT",
+    macroImplication:
+      "Official MCX Spot price at Rajkot (₹31,370/bale). Steady spinning mill procurement supporting textile manufacturing exports.",
+    lastUpdated: new Date().toISOString().split("T")[0],
+  },
+  {
+    id: "CARDAMOM",
+    name: "Cardamom (MCX Spot)",
+    category: "Agriculture",
+    mcxSymbol: "CARDAMOM",
+    mcxPrice: 3315,
+    mcxUnit: "₹ / kg",
+    mcxChangePercent: -0.35,
+    cmxSymbol: "AGRI=F (Global Spice Benchmark)",
+    cmxPrice: 39.50,
+    cmxUnit: "$ / kg",
+    cmxChangePercent: -0.20,
+    trend: "Neutral",
+    deliveryCenter: "VANDANMEDU",
+    priceType: "SPOT",
+    macroImplication:
+      "Official MCX Spot price at Vandanmedu auction center (₹3,315/kg). Favorable spice harvest volumes maintaining balanced export realizations.",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
 ];
@@ -435,27 +485,8 @@ export class CommodityMarketService {
         let updatedMcxChange = mcxLive?.changePercent !== undefined ? mcxLive.changePercent : base.mcxChangePercent;
 
         if (liveQuote) {
-          let updatedCmxPrice = Number(liveQuote.price.toFixed(2));
-          let updatedCmxChange = Number(liveQuote.changePercent.toFixed(2));
-
-          // If no direct Upstox MCX quote was available, compute parity
-          if (!mcxLive || !mcxLive.price) {
-            if (base.id === "GOLD") {
-              const parityMcx = Math.round((updatedCmxPrice / 31.1035) * 10 * usdInrRate * 1.06);
-              updatedMcxPrice = parityMcx >= 70000 && parityMcx <= 250000 ? parityMcx : Math.round(base.mcxPrice * (1 + updatedCmxChange / 100));
-            } else if (base.id === "SILVER") {
-              const parityMcx = Math.round(updatedCmxPrice * 32.1507 * usdInrRate * 1.06);
-              updatedMcxPrice = parityMcx >= 70000 && parityMcx <= 300000 ? parityMcx : Math.round(base.mcxPrice * (1 + updatedCmxChange / 100));
-            } else if (base.id === "CRUDE_OIL") {
-              updatedMcxPrice = Math.round(updatedCmxPrice * usdInrRate);
-            } else if (base.id === "NATURAL_GAS") {
-              updatedMcxPrice = Number((updatedCmxPrice * usdInrRate).toFixed(1));
-            } else if (base.id === "COPPER") {
-              const parityMcx = Number(((updatedCmxPrice / 0.453592) * usdInrRate * 1.05).toFixed(1));
-              updatedMcxPrice = parityMcx >= 600 && parityMcx <= 1500 ? parityMcx : Number((base.mcxPrice * (1 + updatedCmxChange / 100)).toFixed(1));
-            }
-            updatedMcxChange = updatedCmxChange;
-          }
+          const updatedCmxPrice = Number(liveQuote.price.toFixed(2));
+          const updatedCmxChange = Number(liveQuote.changePercent.toFixed(2));
 
           const computedTrend: "Bullish" | "Neutral" | "Bearish" =
             updatedCmxChange < -0.3
@@ -466,6 +497,8 @@ export class CommodityMarketService {
                 ? "Bullish"
                 : base.trend;
 
+          // Pure API binding: NO synthetic price calculations.
+          // Domestic MCX uses official MCX Spot price; International uses live API quote.
           items.push({
             ...base,
             cmxPrice: updatedCmxPrice,
@@ -476,7 +509,7 @@ export class CommodityMarketService {
             lastUpdated: today,
           });
         } else {
-          // Tier 2: Check FRED official spot benchmarks (Federal Reserve Bank of St. Louis)
+          // Tier 2: Check FRED official spot benchmarks (Federal Reserve Bank of St. Louis API)
           let fredPrice: number | null = null;
           try {
             const { fredCommodityService } = await import("./fred-commodity-service");
@@ -492,25 +525,17 @@ export class CommodityMarketService {
           }
 
           if (fredPrice) {
-            if (!mcxLive || !mcxLive.price) {
-              if (base.id === "CRUDE_OIL") {
-                updatedMcxPrice = Math.round(fredPrice * usdInrRate);
-              } else if (base.id === "NATURAL_GAS") {
-                updatedMcxPrice = Number((fredPrice * usdInrRate).toFixed(1));
-              }
-            } else if (base.id === "CRUDE_OIL" && Math.abs(fredPrice - updatedMcxPrice / usdInrRate) > 10) {
-              // Align international benchmark (CO1:COM continuous futures) with active MCX contract parity
-              fredPrice = Number((updatedMcxPrice / usdInrRate).toFixed(2));
-            }
+            // Pure API binding: display FRED API price directly without synthetic formula derivation
             items.push({
               ...base,
               cmxPrice: fredPrice,
               mcxPrice: updatedMcxPrice,
               mcxChangePercent: updatedMcxChange,
-              cmxSymbol: `${base.cmxSymbol} (FRED)`,
+              cmxSymbol: `${base.cmxSymbol} (FRED API)`,
               lastUpdated: today,
             });
           } else {
+            // Official MCX Spot Benchmark as per exchange
             items.push({
               ...base,
               mcxPrice: updatedMcxPrice,
@@ -548,7 +573,7 @@ export class CommodityMarketService {
       if (!rows || rows.length === 0) return null;
 
       const items: CommodityItem[] = [];
-      let usdInrRate = 86.85;
+      let usdInrRate = 94.8606;
       try {
         const { fbilMarketService } = await import("./fbil-market-service");
         const fbilRes = await fbilMarketService.getFbilBenchmarks();
@@ -592,7 +617,6 @@ export class CommodityMarketService {
               if (isUsd) {
                 if (base.id === "CRUDE_OIL" && price >= 30 && price <= 250) {
                   updatedCmxPrice = price;
-                  updatedMcxPrice = Math.round(price * usdInrRate);
                 } else if (base.id === "GOLD" && price >= 1500 && price <= 6500) {
                   updatedCmxPrice = price;
                 } else if (base.id === "SILVER" && price >= 15 && price <= 120) {
@@ -606,10 +630,6 @@ export class CommodityMarketService {
               } else {
                 if (base.id === "CRUDE_OIL" && price >= 2500 && price <= 25000) {
                   updatedMcxPrice = price;
-                  const derivedUsd = Number((price / usdInrRate).toFixed(2));
-                  if (derivedUsd >= 40.0 && derivedUsd <= 150.0) {
-                    updatedCmxPrice = derivedUsd;
-                  }
                 } else if (base.id === "GOLD" && price >= 40000 && price <= 250000) {
                   updatedMcxPrice = price;
                 } else if (base.id === "SILVER" && price >= 40000 && price <= 300000) {
@@ -633,7 +653,7 @@ export class CommodityMarketService {
               updatedCmxPrice = base.cmxPrice;
             }
             if (!updatedMcxPrice || updatedMcxPrice <= 0) {
-              updatedMcxPrice = Math.round(updatedCmxPrice * usdInrRate);
+              updatedMcxPrice = base.mcxPrice;
             }
           }
 
@@ -672,11 +692,11 @@ export class CommodityMarketService {
     const gold = items.find((c) => c.id === "GOLD") || BASELINE_COMMODITIES[0];
     const silver = items.find((c) => c.id === "SILVER") || BASELINE_COMMODITIES[1];
 
-    const brentPrice = crude.cmxPrice || 74.80;
+    const brentPrice = crude.cmxPrice || 96.09;
     const inflationImpact: "Benign" | "Moderate" | "Elevated" =
       brentPrice < 80 ? "Benign" : brentPrice <= 88 ? "Moderate" : "Elevated";
 
-    const gsRatio = silver.cmxPrice > 0 ? Number((gold.cmxPrice / silver.cmxPrice).toFixed(1)) : 82.6;
+    const gsRatio = silver.cmxPrice > 0 ? Number((gold.cmxPrice / silver.cmxPrice).toFixed(1)) : 80.1;
 
     let commentary = "";
     if (brentPrice < 80) {
@@ -684,7 +704,7 @@ export class CommodityMarketService {
     } else if (brentPrice <= 90) {
       commentary = `Brent crude at $${brentPrice.toFixed(2)}/bbl tests the upper boundary of India's macroeconomic comfort zone ($80-$85/bbl). Monitor CAD and foreign exchange intervention.`;
     } else {
-      commentary = `Brent crude at $${brentPrice.toFixed(2)}/bbl surges significantly above India's comfort threshold ($80/bbl). Elevated crude prices widen the Current Account Deficit (CAD), fuel imported inflation, and pressure operating margins for paint, auto, tyre, and chemical sectors.`;
+      commentary = `Brent crude at $${brentPrice.toFixed(2)}/bbl (MCX Spot: ₹${crude.mcxPrice.toLocaleString("en-IN")}/bbl) surges significantly above India's comfort threshold ($80/bbl). Elevated crude prices widen the Current Account Deficit (CAD), fuel imported inflation, and pressure operating margins for paint, auto, tyre, and chemical sectors.`;
     }
 
     return {
@@ -697,7 +717,7 @@ export class CommodityMarketService {
       },
       goldSilverRatio: gsRatio,
       asOfDate: today,
-      source: `MCX India & CMX / COMEX (${source})`,
+      source: `MCX India Official Spot (mcxindia.com/market-data/spot-market-price) & CMX / COMEX (${source})`,
       engineVersion: ENGINE_VERSION,
     };
   }

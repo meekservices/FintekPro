@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
 	SectorBarSegment,
 	SectorDot,
@@ -83,7 +83,6 @@ import {
 	Share2,
 	Mail,
 	MessageSquare,
-	Plus,
 	Bell,
 	BrainCircuit,
 	Timer,
@@ -113,6 +112,7 @@ import {
 	ChevronDown,
 	Rocket,
 	ShieldCheck,
+	Layers,
 } from "lucide-react";
 import {
 	LineChart,
@@ -125,10 +125,13 @@ import {
 	ReferenceLine,
 } from "recharts";
 
+import { DerivativePayoffSimulator } from "@/components/picks/DerivativePayoffSimulator";
+import { SlideToConfirmOrderModal } from "@/components/picks/SlideToConfirmOrderModal";
+import { PartnerClientDispatchModal } from "@/components/picks/PartnerClientDispatchModal";
+
 import type { ComponentType } from "react";
 import {
 	getRegulatoryStageConfig,
-	normalizeRegulatoryStage,
 	REGULATORY_STAGES,
 	REGULATORY_LIFECYCLE_STEPS,
 	type RegulatoryStage,
@@ -696,6 +699,7 @@ export default function AgentPicksPage() {
 	const { toast } = useToast();
 
 	const [todayCategoryFilter, setTodayCategoryFilter] = useState<string>("all");
+	const [curatedThemeFilter, setCuratedThemeFilter] = useState<string>("all");
 	const [liveCategoryFilter, setLiveCategoryFilter] = useState<string>("all");
 	const [historyCategoryFilter, setHistoryCategoryFilter] =
 		useState<string>("all");
@@ -1573,7 +1577,7 @@ export default function AgentPicksPage() {
 
 		// Helper to extract subscription numbers
 		const parseSub = (val: any) => {
-			if (typeof val === "number" && !isNaN(val)) return val;
+			if (typeof val === "number" && !Number.isNaN(val)) return val;
 			if (typeof val === "string") {
 				const m = val.match(/(\d+(?:\.\d+)?)/);
 				return m ? parseFloat(m[1]) : undefined;
@@ -2073,6 +2077,22 @@ export default function AgentPicksPage() {
 		if (todayHorizonFilter !== "all" && normalizePickHorizon(p.timeHorizon) !== todayHorizonFilter) {
 			return false;
 		}
+		// Curated Theme Quick-Filters
+		if (curatedThemeFilter === "high_conviction" && (p.confidenceScore == null || p.confidenceScore < 80)) {
+			return false;
+		}
+		if (curatedThemeFilter === "option_sellers" && (p.category !== "derivatives" || (p.keyMetrics as any)?.isCreditStrategy !== true)) {
+			return false;
+		}
+		if (curatedThemeFilter === "directional_fo" && (p.category !== "derivatives" || (p.keyMetrics as any)?.isCreditStrategy === true)) {
+			return false;
+		}
+		if (curatedThemeFilter === "thematic_fscore" && (p.category !== "listed_stocks" || !(p.keyMetrics as any)?.thematicLeader)) {
+			return false;
+		}
+		if (curatedThemeFilter === "pre_ipo" && !isPreIpoPick(p)) {
+			return false;
+		}
 		return true;
 	});
 
@@ -2279,7 +2299,7 @@ export default function AgentPicksPage() {
 			maximumFractionDigits: 2,
 		})}`;
 	};
-	const formatCurrencyCompact = formatExactStockPrice;
+	const _formatCurrencyCompact = formatExactStockPrice;
 
 	const formatPercentValue = (
 		value: number | string | undefined | null,
@@ -2386,11 +2406,12 @@ export default function AgentPicksPage() {
 				const cur = getCurrencySymbol(p.category);
 				const _rec = safeNum(p.recoPrice);
 				const _ltp = safeNum(p.currentPrice) > 0 ? safeNum(p.currentPrice) : _rec;
+				const isCredit = (p.keyMetrics as any)?.isCreditStrategy === true;
 				const up = p.targetPrice && _rec
-					? `${(((p.targetPrice - _rec) / _rec) * 100).toFixed(1)}%` : "—";
+					? `${((isCredit ? ((_rec - p.targetPrice) / _rec) : ((p.targetPrice - _rec) / _rec)) * 100).toFixed(1)}%` : "—";
 				const ret = p.returnPct != null
 					? `${safeNum(p.returnPct) >= 0 ? "+" : ""}${safeNum(p.returnPct).toFixed(1)}%`
-					: _rec > 0 ? `${(((_ltp - _rec) / _rec) * 100).toFixed(1)}%` : "—";
+					: _rec > 0 ? `${((isCredit ? ((_rec - _ltp) / _rec) : ((_ltp - _rec) / _rec)) * 100).toFixed(1)}%` : "—";
 				return [
 					i + 1,
 					p.instrumentName || "—",
@@ -3489,6 +3510,34 @@ export default function AgentPicksPage() {
 									})}
 								</div>
 							)}
+
+							{/* Curated Theme Quick-Filter Strip */}
+							<div className="flex items-center gap-1.5 mb-3 pb-2.5 border-b overflow-x-auto scrollbar-none text-xs">
+								<span className="text-[11px] font-semibold text-muted-foreground uppercase mr-1 shrink-0 flex items-center gap-1">
+									<Sparkles className="h-3 w-3 text-amber-500" /> Focus:
+								</span>
+								{[
+									{ key: "all", label: "All Opportunities" },
+									{ key: "high_conviction", label: "🚀 High Conviction (≥80%)" },
+									{ key: "option_sellers", label: "💰 Option Sellers (Income)" },
+									{ key: "directional_fo", label: "📈 Directional F&O" },
+									{ key: "thematic_fscore", label: "🏛️ Thematic & F-Score Leaders" },
+									{ key: "pre_ipo", label: "💎 Pre-IPO Pipeline" },
+								].map((chip) => (
+									<button
+										key={chip.key}
+										type="button"
+										onClick={() => setCuratedThemeFilter(chip.key)}
+										className={`px-2.5 py-1 rounded-full text-[11px] font-medium shrink-0 transition-all ${
+											curatedThemeFilter === chip.key
+												? "bg-primary text-primary-foreground font-semibold shadow-sm"
+												: "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/40"
+										}`}
+									>
+										{chip.label}
+									</button>
+								))}
+							</div>
 
 							{/* Time Horizon Filter */}
 							<div className="flex items-center gap-1.5 mb-4 pb-3 border-b flex-wrap">
@@ -6548,7 +6597,7 @@ export default function AgentPicksPage() {
 													const formattedVal = (() => {
 														if (val === null || val === undefined) return "N/A";
 														const num = Number(val);
-														if (typeof val === "number" || (!isNaN(num) && typeof val === "string" && val.trim() !== "")) {
+														if (typeof val === "number" || (!Number.isNaN(num) && typeof val === "string" && val.trim() !== "")) {
 															const lk = key.toLowerCase();
 															if (lk.includes("percent") || lk.includes("return") || lk.includes("cagr") || lk.includes("margin") || lk === "roe" || lk === "roce" || lk === "volatility") {
 																return `${num >= 0 && (lk.includes("return") || lk.includes("alpha")) ? "+" : ""}${num.toFixed(1)}%`;
@@ -7784,13 +7833,20 @@ function PicksTable({
 						const _tgt = safeNum(pick.targetPrice);
 						const _rec = safeNum(pick.recoPrice);
 						const _cur = safeNum(pick.currentPrice ?? pick.recoPrice);
+						const isCredit = (pick.keyMetrics as any)?.isCreditStrategy === true;
 						const upsidePct: number | null =
-							_tgt && _rec ? ((_tgt - _rec) / _rec) * 100 : null;
+							_tgt && _rec
+								? isCredit
+									? ((_rec - _tgt) / _rec) * 100
+									: ((_tgt - _rec) / _rec) * 100
+								: null;
 						const returnPct: number | null =
 							pick.returnPct != null
 								? safeNum(pick.returnPct)
 								: pick.currentPrice && _rec
-									? ((_cur - _rec) / _rec) * 100
+									? isCredit
+										? ((_rec - _cur) / _rec) * 100
+										: ((_cur - _rec) / _rec) * 100
 									: null;
 						const isPreIpo = isPreIpoPick(pick);
 						const isUnlisted = pick.category === "unlisted" || isPreIpo;
@@ -8394,6 +8450,9 @@ function PickCard({
 	onSelectToggle,
 }: PickCardProps) {
 	const [localBudget, setLocalBudget] = useState("100000");
+	const { toast } = useToast();
+	const [isBasketModalOpen, setIsBasketModalOpen] = useState(false);
+	const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
 	const suggestedAllocation = pick.keyMetrics?.suggestedAllocation || 5;
 	const isPreIpo = isPreIpoPick(pick);
 	const Icon = categoryIcons[isPreIpo ? "pre_ipo" : pick.category] || TrendingUp;
@@ -8411,14 +8470,68 @@ function PickCard({
 	const _sl2 = safeNum(pick.stoplossPrice);
 	const _cur2 = safeNum(pick.currentPrice);
 	const effectiveLtp2 = _cur2 > 0 ? _cur2 : _rec2;
+	const isCredit = (pick.keyMetrics as any)?.isCreditStrategy === true;
 	const upside =
-		_tgt2 && _rec2 ? (((_tgt2 - _rec2) / _rec2) * 100).toFixed(1) : "0.0";
+		_tgt2 && _rec2
+			? (isCredit
+					? (((_rec2 - _tgt2) / _rec2) * 100).toFixed(1)
+					: (((_tgt2 - _rec2) / _rec2) * 100).toFixed(1))
+			: "0.0";
 	const downside =
-		_sl2 && _rec2 ? (((_rec2 - _sl2) / _rec2) * 100).toFixed(1) : "0.0";
+		_sl2 && _rec2
+			? (isCredit
+					? (((_sl2 - _rec2) / _rec2) * 100).toFixed(1)
+					: (((_rec2 - _sl2) / _rec2) * 100).toFixed(1))
+			: "0.0";
 	const currentReturn =
 		_rec2 > 0
-			? (((effectiveLtp2 - _rec2) / _rec2) * 100).toFixed(1)
+			? (isCredit
+					? (((_rec2 - effectiveLtp2) / _rec2) * 100).toFixed(1)
+					: (((effectiveLtp2 - _rec2) / _rec2) * 100).toFixed(1))
 			: "0.0";
+
+	const whatsappFormattedMsg = useMemo(() => {
+		const cur = getCurrencySymbol(pick.category);
+		const gmp = (pick.keyMetrics as any)?.gmpPercentage;
+		const ipoDateStr = (pick.keyMetrics as any)?.expectedIpoDate
+			? new Date((pick.keyMetrics as any).expectedIpoDate).toLocaleDateString("en-IN")
+			: null;
+		if (isPreIpo) {
+			return `🚀 *Pre-IPO: ${pick.instrumentName}*\n` +
+				`OTC Entry Price: ${cur}${pick.recoPrice.toLocaleString()}\n` +
+				`IPO/Fair Value Target: ${cur}${pick.targetPrice.toLocaleString()} (+${upside}%)\n` +
+				(gmp != null ? `GMP: +${gmp}%\n` : "") +
+				(ipoDateStr ? `Expected IPO Date: ${ipoDateStr}\n` : "") +
+				(pick.confidenceScore ? `AI Confidence: ${pick.confidenceScore}%\n` : "") +
+				`\n⚠️ _High risk. Illiquid. Not listed on any exchange. Subject to SEBI regulations. This is NOT investment advice._\n` +
+				`\n_Powered by FintekPro AI_`;
+		}
+		const isDeriv = pick.category === "derivatives";
+		const dm = pick.keyMetrics as any;
+		const legsFormatted = Array.isArray(dm?.legs)
+			? dm.legs.map((l: any) => `${String(l.action).toUpperCase()} ${l.quantity ?? 1}x ${l.type} @${l.strikePrice} (₹${l.premium})`).join(" | ")
+			: null;
+		const derivDetails = isDeriv && legsFormatted
+			? `Strategy Type: ${dm?.strategyType || (dm?.isCreditStrategy ? 'SELLER' : 'BUYER')}\n` +
+			  `Legs: ${legsFormatted}\n` +
+			  (dm?.maxProfit ? `Max Profit: ${dm.maxProfit === 'Unlimited' ? '∞' : `₹${Number(dm.maxProfit).toLocaleString()}`}\n` : '') +
+			  (dm?.maxLoss ? `Max Loss: ₹${Number(dm.maxLoss).toLocaleString()}\n` : '')
+			: "";
+
+		return `📊 *${pick.instrumentName}${pick.symbol ? ` (${pick.symbol})` : ""}*\n` +
+			`Category: ${categoryLabels[pick.category] || pick.category}\n` +
+			`Entry: ${cur}${pick.recoPrice.toLocaleString()}\n` +
+			`Target: ${cur}${pick.targetPrice.toLocaleString()} (${dm?.isCreditStrategy ? 'Profit Target' : `+${upside}%`})\n` +
+			`Stoploss: ${cur}${pick.stoplossPrice.toLocaleString()} (${dm?.isCreditStrategy ? 'Stop Level' : `-${downside}%`})\n` +
+			derivDetails +
+			(pick.timeHorizon
+				? `Horizon: ${horizonConfig[pick.timeHorizon]?.label || pick.timeHorizon}\n`
+				: "") +
+			(pick.confidenceScore
+				? `AI Confidence: ${pick.confidenceScore}%\n`
+				: "") +
+			`\n_Powered by FintekPro AI_`;
+	}, [pick, isPreIpo, upside, downside]);
 
 	if (compact) {
 		return (
@@ -8734,24 +8847,42 @@ function PickCard({
 											Series: {pick.keyMetrics.seriesCode}
 										</span>
 									)}
-									{pick.category === "derivatives" &&
-										pick.keyMetrics?.strategy && (
-											<span className="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 px-1.5 py-0.5 rounded font-medium">
-												{pick.keyMetrics.strategy}
-											</span>
-										)}
-									{pick.category === "derivatives" &&
-										pick.keyMetrics?.expiry && (
-											<span className="text-xs bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 px-1.5 py-0.5 rounded">
-												Exp:{" "}
-												{new Date(
-													pick.keyMetrics.expiry as string,
-												).toLocaleDateString("en-IN", {
-													day: "numeric",
-													month: "short",
-												})}
-											</span>
-										)}
+									{pick.category === "derivatives" && (
+										<div className="flex items-center gap-1.5 flex-wrap">
+											{pick.keyMetrics?.strategy && (
+												<span className="text-xs bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200 px-2 py-0.5 rounded font-semibold border border-indigo-200 dark:border-indigo-800">
+													{pick.keyMetrics.strategy}
+												</span>
+											)}
+											{pick.keyMetrics?.isCreditStrategy ? (
+												<span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded font-bold border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
+													<Coins className="h-3 w-3" />
+													Option Seller (Net Credit)
+												</span>
+											) : (
+												<span className="text-[10px] bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 px-2 py-0.5 rounded font-bold border border-sky-300 dark:border-sky-800 flex items-center gap-1">
+													<Zap className="h-3 w-3" />
+													Option Buyer (Net Debit)
+												</span>
+											)}
+											{pick.keyMetrics?.lotSize && (
+												<span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted/60 border font-mono">
+													Lot: {pick.keyMetrics.lotSize}
+												</span>
+											)}
+											{pick.keyMetrics?.expiry && (
+												<span className="text-xs bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 px-1.5 py-0.5 rounded font-medium">
+													Exp:{" "}
+													{new Date(
+														pick.keyMetrics.expiry as string,
+													).toLocaleDateString("en-IN", {
+														day: "numeric",
+														month: "short",
+													})}
+												</span>
+											)}
+										</div>
+									)}
 								</div>
 							</div>
 							<div className="flex items-center gap-1.5 shrink-0 self-start">
@@ -8926,19 +9057,20 @@ function PickCard({
 								const sl = pick.stoplossPrice;
 								const tgt = pick.targetPrice;
 								const cur = effectiveLtp2;
-								const range = tgt - sl;
+								const isCreditStrat = (pick.keyMetrics as any)?.isCreditStrategy === true;
+								const range = isCreditStrat ? sl - tgt : tgt - sl;
 								const pct =
 									range > 0
-										? Math.min(100, Math.max(0, ((cur - sl) / range) * 100))
+										? Math.min(100, Math.max(0, isCreditStrat ? ((sl - cur) / range) * 100 : ((cur - sl) / range) * 100))
 										: 50;
 								const entryPct =
 									range > 0
 										? Math.min(
 												100,
-												Math.max(0, ((pick.recoPrice - sl) / range) * 100),
+												Math.max(0, isCreditStrat ? ((sl - pick.recoPrice) / range) * 100 : ((pick.recoPrice - sl) / range) * 100),
 											)
 										: 50;
-								const isProfit = cur >= pick.recoPrice;
+								const isProfit = isCreditStrat ? cur <= pick.recoPrice : cur >= pick.recoPrice;
 								return (
 									<div className="mt-3">
 										<div className="flex justify-between text-[10px] text-muted-foreground mb-1">
@@ -9063,68 +9195,276 @@ function PickCard({
 								</div>
 							</div>
 
-						{/* Inline Sizing Calculator — adapted for Pre-IPO (lot size / ticket size) */}
-						<div
-							className={`mt-3.5 p-3 rounded-lg border border-dashed ${isPreIpo ? "bg-purple-50/30 dark:bg-purple-950/10 border-purple-200 dark:border-purple-800" : "bg-muted/20"}`}
-						>
-							<div className="flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
-								<div className="flex items-center gap-2">
-									<Calculator className="h-3.5 w-3.5 text-primary animate-pulse" />
-									<span className="text-xs font-bold text-foreground">
-										{isPreIpo ? "Pre-IPO Ticket Calculator" : "Sizing Calculator"}
-									</span>
-								</div>
-								<div className="flex items-center gap-1.5">
-									<span className="text-[9px] text-muted-foreground uppercase font-bold">
-										{isPreIpo ? "Investment:" : "Budget:"}
-									</span>
-									<input
-										type="number"
-										value={localBudget}
-										onChange={(e) => setLocalBudget(e.target.value)}
-										onClick={(e) => e.stopPropagation()}
-										className="h-6 w-24 px-1.5 py-0.5 text-right text-xs rounded border bg-background text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary"
-										placeholder={isPreIpo ? "50,00,000" : "1,00,000"}
-									/>
-								</div>
-							</div>
-							<div className="grid grid-cols-2 gap-4 mt-2.5 pt-2 border-t border-muted">
-								<div>
-									<div className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">
-										{isPreIpo ? `Allocation (${suggestedAllocation}%)` : `Target Size (${suggestedAllocation}%)`}
+						{/* Derivative Multi-Leg Strategy & Payoff Architecture */}
+						{pick.category === "derivatives" && pick.keyMetrics && (
+							<div className="mt-3.5 p-3 rounded-lg border bg-gradient-to-br from-indigo-50/40 via-background to-purple-50/30 dark:from-indigo-950/20 dark:via-background dark:to-purple-950/20 border-indigo-200/80 dark:border-indigo-900/60 space-y-2.5">
+								<div className="flex items-center justify-between gap-2 flex-wrap">
+									<div className="flex items-center gap-1.5">
+										<Layers className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+										<span className="text-xs font-bold uppercase tracking-wider text-indigo-900 dark:text-indigo-200">
+											Strategy Legs & Payoff Architecture
+										</span>
 									</div>
-									<div className="font-bold text-xs sm:text-sm text-primary">
-										{formatPrice(
-											Math.round(
-												Number(localBudget || 0) * (suggestedAllocation / 100),
-											),
-											pick.category,
+									<div className="flex items-center gap-2">
+										{(pick.keyMetrics as any)?.isCreditStrategy ? (
+											<Badge variant="outline" className="text-[10px] bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700 font-bold">
+												Net Credit: ₹{(pick.keyMetrics as any)?.netPremium ?? pick.recoPrice} / share
+											</Badge>
+										) : (
+											<Badge variant="outline" className="text-[10px] bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-400 border-sky-300 dark:border-sky-700 font-bold">
+												Net Debit: ₹{(pick.keyMetrics as any)?.netPremium ?? pick.recoPrice} / share
+											</Badge>
 										)}
 									</div>
 								</div>
-								<div className="text-right">
-									<div className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">
-										{isPreIpo ? "Approx. Shares (OTC Lot)" : "Approx. Shares/Units"}
+
+								{/* Multi-Leg Pills Grid */}
+								{Array.isArray((pick.keyMetrics as any)?.legs) && (
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+										{(pick.keyMetrics as any).legs.map((leg: any, idx: number) => {
+											const isSell = String(leg.action).toUpperCase() === "SELL";
+											return (
+												<div
+													key={idx}
+													className={`flex items-center justify-between p-2 rounded-md border text-xs font-mono ${
+														isSell
+															? "bg-rose-50/60 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/60 text-rose-950 dark:text-rose-200"
+															: "bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/60 text-emerald-950 dark:text-emerald-200"
+													}`}
+												>
+													<div className="flex items-center gap-1.5">
+														<span
+															className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+																isSell
+																	? "bg-rose-600 text-white"
+																	: "bg-emerald-600 text-white"
+															}`}
+														>
+															{isSell ? "SELL" : "BUY"}
+														</span>
+														<span className="font-semibold text-foreground">
+															{leg.quantity ?? 1}x
+														</span>
+														<Badge
+															variant="outline"
+															className={`text-[10px] font-bold px-1 py-0 ${
+																String(leg.type).toUpperCase() === "CE"
+																	? "border-blue-400 text-blue-700 dark:text-blue-300 bg-blue-50/50 dark:bg-blue-950/30"
+																	: "border-amber-400 text-amber-700 dark:text-amber-300 bg-amber-50/50 dark:bg-amber-950/30"
+															}`}
+														>
+															{leg.strikePrice ? `${leg.strikePrice} ` : ""}
+															{String(leg.type).toUpperCase()}
+														</Badge>
+													</div>
+													<div className="text-right">
+														<span className="text-[11px] font-bold">
+															{leg.premium != null ? `₹${leg.premium}` : "Market"}
+														</span>
+													</div>
+												</div>
+											);
+										})}
 									</div>
-									<div className="font-bold text-xs sm:text-sm text-foreground">
-										{pick.recoPrice > 0
-											? Math.floor(
-													(Number(localBudget || 0) *
-														(suggestedAllocation / 100)) /
-														pick.recoPrice,
-												).toLocaleString()
-											: "—"}
+								)}
+
+								{/* Analytical Economics Strip */}
+								<div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-indigo-100 dark:border-indigo-900/40 text-[11px]">
+									<div>
+										<span className="text-[10px] text-muted-foreground uppercase font-medium">Max Profit</span>
+										<p className="font-bold text-emerald-600 dark:text-emerald-400">
+											{(pick.keyMetrics as any)?.maxProfit === "Unlimited"
+												? "∞ Unlimited"
+												: (pick.keyMetrics as any)?.maxProfit != null
+													? `₹${Number((pick.keyMetrics as any).maxProfit).toLocaleString("en-IN")}`
+													: "—"}
+										</p>
 									</div>
+									<div>
+										<span className="text-[10px] text-muted-foreground uppercase font-medium">Max Loss</span>
+										<p className="font-bold text-rose-600 dark:text-rose-400">
+											{(pick.keyMetrics as any)?.maxLoss === "Unlimited"
+												? "∞ Unlimited"
+												: (pick.keyMetrics as any)?.maxLoss != null
+													? `₹${Number((pick.keyMetrics as any).maxLoss).toLocaleString("en-IN")}`
+													: "—"}
+										</p>
+									</div>
+									<div>
+										<span className="text-[10px] text-muted-foreground uppercase font-medium">Breakeven</span>
+										<p className="font-bold text-foreground">
+											{Array.isArray((pick.keyMetrics as any)?.breakeven)
+												? (pick.keyMetrics as any).breakeven.map((b: number) => `₹${b.toLocaleString("en-IN")}`).join(" – ")
+												: (pick.keyMetrics as any)?.breakeven != null
+													? `₹${(pick.keyMetrics as any).breakeven}`
+													: "—"}
+										</p>
+									</div>
+									<div>
+										<span className="text-[10px] text-muted-foreground uppercase font-medium">
+											{(pick.keyMetrics as any)?.isCreditStrategy ? "Daily Theta Decay" : "SPAN Margin"}
+										</span>
+										<p className="font-bold text-primary">
+											{(pick.keyMetrics as any)?.isCreditStrategy && (pick.keyMetrics as any)?.greeks?.theta != null
+												? `+₹${Math.abs(Number((pick.keyMetrics as any).greeks.theta)).toFixed(1)}/day`
+												: (pick.keyMetrics as any)?.marginRequired != null
+													? `₹${Number((pick.keyMetrics as any).marginRequired).toLocaleString("en-IN")}`
+													: "—"}
+										</p>
+									</div>
+								</div>
+
+								{/* Interactive Expiry Payoff Simulator */}
+								{Array.isArray((pick.keyMetrics as any)?.legs) && (
+									<div className="pt-1.5">
+										<DerivativePayoffSimulator
+											symbol={pick.symbol || "NIFTY"}
+											currentSpot={effectiveLtp2}
+											legs={(pick.keyMetrics as any).legs}
+											lotSize={Number((pick.keyMetrics as any).lotSize || 65)}
+											isCreditStrategy={(pick.keyMetrics as any).isCreditStrategy}
+											netPremium={Number((pick.keyMetrics as any).netPremium || pick.recoPrice)}
+											maxProfit={(pick.keyMetrics as any).maxProfit}
+											maxLoss={(pick.keyMetrics as any).maxLoss}
+											breakeven={(pick.keyMetrics as any).breakeven}
+											marginRequired={Number((pick.keyMetrics as any).marginRequired)}
+										/>
+									</div>
+								)}
+
+								{/* 1-Tap Basket Order Execution CTA */}
+								<div className="pt-1">
+									<Button
+										type="button"
+										size="sm"
+										onClick={(e) => {
+											e.stopPropagation();
+											setIsBasketModalOpen(true);
+										}}
+										className="w-full h-8 text-xs font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white flex items-center justify-center gap-1.5 shadow-sm"
+									>
+										<Layers className="h-3.5 w-3.5" />
+										Execute {(pick.keyMetrics as any).strategy || "Multi-Leg"} Basket ({Array.isArray((pick.keyMetrics as any).legs) ? (pick.keyMetrics as any).legs.length : 2} Legs)
+									</Button>
 								</div>
 							</div>
-							{/* Pre-IPO: min ticket size guard */}
-							{isPreIpo && (pick.keyMetrics as any)?.minTicketSize && Number(localBudget) > 0 && Number(localBudget) * (suggestedAllocation / 100) < Number((pick.keyMetrics as any).minTicketSize) && (
-								<div className="mt-2 flex items-center gap-1.5 text-[10px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-2 py-1">
-									<AlertTriangle className="h-3 w-3 shrink-0" />
-									Allocation below min. ticket size of ₹{Number((pick.keyMetrics as any).minTicketSize).toLocaleString("en-IN")}. Increase budget.
+						)}
+
+						{/* Inline Sizing Calculator — adapted for Pre-IPO & Derivatives (lots / ticket size) */}
+						{(() => {
+							const isDeriv = pick.category === "derivatives";
+							const km = pick.keyMetrics as any;
+							const lotSize = Number(km?.lotSize || 1);
+							const isCreditStrat = km?.isCreditStrategy === true;
+							const allocatedAmt = Math.round(Number(localBudget || 0) * (suggestedAllocation / 100));
+
+							// Sizing cost per lot:
+							// For option seller, cost is SPAN margin required per lot.
+							// For option buyer, cost is net premium * lotSize.
+							const costPerLot = isDeriv
+								? (isCreditStrat
+									? Number(km?.marginRequired || (pick.recoPrice * lotSize * 3))
+									: Math.max(1, (pick.recoPrice || 1) * lotSize))
+								: (pick.recoPrice || 1);
+
+							const approxLots = isDeriv && costPerLot > 0
+								? Math.floor(allocatedAmt / costPerLot)
+								: 0;
+
+							return (
+								<div
+									className={`mt-3.5 p-3 rounded-lg border border-dashed ${
+										isPreIpo
+											? "bg-purple-50/30 dark:bg-purple-950/10 border-purple-200 dark:border-purple-800"
+											: isDeriv
+												? "bg-indigo-50/30 dark:bg-indigo-950/10 border-indigo-200 dark:border-indigo-800"
+												: "bg-muted/20"
+									}`}
+								>
+									<div className="flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
+										<div className="flex items-center gap-2">
+											<Calculator className="h-3.5 w-3.5 text-primary animate-pulse" />
+											<span className="text-xs font-bold text-foreground">
+												{isPreIpo
+													? "Pre-IPO Ticket Calculator"
+													: isDeriv
+														? "Derivatives Lot & Margin Calculator"
+														: "Sizing Calculator"}
+											</span>
+										</div>
+										<div className="flex items-center gap-1.5">
+											<span className="text-[9px] text-muted-foreground uppercase font-bold">
+												{isPreIpo ? "Investment:" : "Budget:"}
+											</span>
+											<input
+												type="number"
+												value={localBudget}
+												onChange={(e) => setLocalBudget(e.target.value)}
+												onClick={(e) => e.stopPropagation()}
+												className="h-6 w-24 px-1.5 py-0.5 text-right text-xs rounded border bg-background text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary"
+												placeholder={isPreIpo ? "50,00,000" : isDeriv ? "2,00,000" : "1,00,000"}
+											/>
+										</div>
+									</div>
+									<div className="grid grid-cols-2 gap-4 mt-2.5 pt-2 border-t border-muted">
+										<div>
+											<div className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">
+												{isPreIpo
+													? `Allocation (${suggestedAllocation}%)`
+													: isDeriv
+														? `Allocated Capital (${suggestedAllocation}%)`
+														: `Target Size (${suggestedAllocation}%)`}
+											</div>
+											<div className="font-bold text-xs sm:text-sm text-primary">
+												{formatPrice(allocatedAmt, pick.category)}
+											</div>
+											{isDeriv && (
+												<div className="text-[9px] text-muted-foreground mt-0.5">
+													{isCreditStrat
+														? `Margin/Lot: ₹${costPerLot.toLocaleString("en-IN")}`
+														: `Premium/Lot: ₹${costPerLot.toLocaleString("en-IN")}`}
+												</div>
+											)}
+										</div>
+										<div className="text-right">
+											<div className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">
+												{isPreIpo
+													? "Approx. Shares (OTC Lot)"
+													: isDeriv
+														? `Tradeable Lots (Lot: ${lotSize})`
+														: "Approx. Shares/Units"}
+											</div>
+											<div className="font-bold text-xs sm:text-sm text-foreground">
+												{isDeriv
+													? `${approxLots} Lots (${(approxLots * lotSize).toLocaleString()} Qty)`
+													: pick.recoPrice > 0
+														? Math.floor(allocatedAmt / pick.recoPrice).toLocaleString()
+														: "—"}
+											</div>
+											{isDeriv && km?.maxProfit != null && km.maxProfit !== "Unlimited" && approxLots > 0 && (
+												<div className="text-[9px] text-emerald-600 dark:text-emerald-400 mt-0.5 font-semibold">
+													Max Profit: ₹{(approxLots * Number(km.maxProfit)).toLocaleString("en-IN")}
+												</div>
+											)}
+										</div>
+									</div>
+									{/* Pre-IPO: min ticket size guard */}
+									{isPreIpo && km?.minTicketSize && Number(localBudget) > 0 && allocatedAmt < Number(km.minTicketSize) && (
+										<div className="mt-2 flex items-center gap-1.5 text-[10px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-2 py-1">
+											<AlertTriangle className="h-3 w-3 shrink-0" />
+											Allocation below min. ticket size of ₹{Number(km.minTicketSize).toLocaleString("en-IN")}. Increase budget.
+										</div>
+									)}
+									{/* Derivatives: min lot capital guard */}
+									{isDeriv && costPerLot > 0 && approxLots === 0 && Number(localBudget) > 0 && (
+										<div className="mt-2 flex items-center gap-1.5 text-[10px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-2 py-1">
+											<AlertTriangle className="h-3 w-3 shrink-0" />
+											Capital ₹{allocatedAmt.toLocaleString("en-IN")} is below the ₹{costPerLot.toLocaleString("en-IN")} required for 1 lot. Increase budget.
+										</div>
+									)}
 								</div>
-							)}
-						</div>
+							);
+						})()}
 
 						{/* #7 Structured Rationale */}
 						{pick.rationale &&
@@ -9399,48 +9739,11 @@ function PickCard({
 												className="h-8 w-8 p-0"
 												onClick={(e) => {
 													e.stopPropagation();
-													const cur = getCurrencySymbol(pick.category);
-													const gmp = (pick.keyMetrics as any)?.gmpPercentage;
-												const ipoDateStr = (pick.keyMetrics as any)?.expectedIpoDate
-													? new Date((pick.keyMetrics as any).expectedIpoDate).toLocaleDateString("en-IN")
-													: null;
-												const msg = isPreIpo
-													? `🚀 *Pre-IPO: ${pick.instrumentName}*\n` +
-													  `OTC Entry Price: ${cur}${pick.recoPrice.toLocaleString()}\n` +
-													  `IPO/Fair Value Target: ${cur}${pick.targetPrice.toLocaleString()} (+${upside}%)\n` +
-													  (gmp != null ? `GMP: +${gmp}%\n` : "") +
-													  (ipoDateStr ? `Expected IPO Date: ${ipoDateStr}\n` : "") +
-													  (pick.confidenceScore ? `AI Confidence: ${pick.confidenceScore}%\n` : "") +
-													  `\n⚠️ _High risk. Illiquid. Not listed on any exchange. Subject to SEBI regulations. This is NOT investment advice._\n` +
-													  `\n_Powered by FintekPro AI_`
-													: (() => {
-														const isDeriv = pick.category === "derivatives";
-														const dm = pick.keyMetrics as any;
-														const legsFormatted = Array.isArray(dm?.legs)
-															? dm.legs.map((l: any) => `${String(l.action).toUpperCase()} ${l.quantity ?? 1}x ${l.type} @${l.strikePrice} (₹${l.premium})`).join(" | ")
-															: null;
-														const derivDetails = isDeriv && legsFormatted
-															? `Strategy Type: ${dm?.strategyType || (dm?.isCreditStrategy ? 'SELLER' : 'BUYER')}\n` +
-															  `Legs: ${legsFormatted}\n` +
-															  (dm?.maxProfit ? `Max Profit: ${dm.maxProfit === 'Unlimited' ? '∞' : `₹${Number(dm.maxProfit).toLocaleString()}`}\n` : '') +
-															  (dm?.maxLoss ? `Max Loss: ₹${Number(dm.maxLoss).toLocaleString()}\n` : '')
-															: "";
-
-														return `📊 *${pick.instrumentName}${pick.symbol ? ` (${pick.symbol})` : ""}*\n` +
-															`Category: ${categoryLabels[pick.category] || pick.category}\n` +
-															`Entry: ${cur}${pick.recoPrice.toLocaleString()}\n` +
-															`Target: ${cur}${pick.targetPrice.toLocaleString()} (${dm?.isCreditStrategy ? 'Profit Target' : `+${upside}%`})\n` +
-															`Stoploss: ${cur}${pick.stoplossPrice.toLocaleString()} (${dm?.isCreditStrategy ? 'Stop Level' : `-${downside}%`})\n` +
-															derivDetails +
-															(pick.timeHorizon
-																? `Horizon: ${horizonConfig[pick.timeHorizon]?.label || pick.timeHorizon}\n`
-																: "") +
-															(pick.confidenceScore
-																? `AI Confidence: ${pick.confidenceScore}%\n`
-																: "") +
-															`\n_Powered by FintekPro AI_`;
-													})();
-													navigator.clipboard.writeText(msg);
+													navigator.clipboard.writeText(whatsappFormattedMsg);
+													toast({
+														title: "Copied to Clipboard",
+														description: "Advisory summary copied for WhatsApp / Client messaging.",
+													});
 												}}
 											>
 												<Copy className="h-4 w-4" />
@@ -9532,28 +9835,55 @@ function PickCard({
 									</TooltipProvider>
 								)}
 
-								{onShareClients && (
-									<TooltipProvider>
-										<Tooltip>
-											<TooltipTrigger asChild>
-												<Button
-													variant="ghost"
-													size="sm"
-													className="h-8 w-8 p-0 text-primary"
-													onClick={() => onShareClients(pick)}
-												>
-													<Users className="h-4 w-4" />
-												</Button>
-											</TooltipTrigger>
-											<TooltipContent>Share with Clients</TooltipContent>
-										</Tooltip>
-									</TooltipProvider>
-								)}
+								<TooltipProvider>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Button
+												variant="ghost"
+												size="sm"
+												className="h-8 w-8 p-0 text-primary hover:bg-primary/10"
+												onClick={(e) => {
+													e.stopPropagation();
+													onShareClients?.(pick);
+													setIsDispatchModalOpen(true);
+												}}
+											>
+												<Users className="h-4 w-4" />
+											</Button>
+										</TooltipTrigger>
+										<TooltipContent>1-Click Dispatch to Clients</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
 							</div>
 						</div>
 					</div>
 				</div>
 			</CardContent>
+
+			{/* Slide to Confirm Basket Modal */}
+			{pick.category === "derivatives" && Array.isArray((pick.keyMetrics as any)?.legs) && (
+				<SlideToConfirmOrderModal
+					isOpen={isBasketModalOpen}
+					onClose={() => setIsBasketModalOpen(false)}
+					strategyName={(pick.keyMetrics as any).strategy || pick.instrumentName}
+					symbol={pick.symbol || "NIFTY"}
+					legs={(pick.keyMetrics as any).legs}
+					lotSize={Number((pick.keyMetrics as any).lotSize || 65)}
+					recoPrice={pick.recoPrice}
+					isCreditStrategy={(pick.keyMetrics as any).isCreditStrategy === true}
+					marginRequired={Number((pick.keyMetrics as any).marginRequired)}
+					maxProfit={(pick.keyMetrics as any).maxProfit}
+					maxLoss={(pick.keyMetrics as any).maxLoss}
+				/>
+			)}
+
+			{/* 1-Click Client Advisory Dispatch Modal */}
+			<PartnerClientDispatchModal
+				isOpen={isDispatchModalOpen}
+				onClose={() => setIsDispatchModalOpen(false)}
+				pick={pick}
+				formattedMessage={whatsappFormattedMsg}
+			/>
 		</Card>
 	);
 }

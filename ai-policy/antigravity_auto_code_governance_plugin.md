@@ -165,6 +165,7 @@ Every financial mutation must be idempotent, ledgered, and reversible.
 | `FIN_003` | Order execution without pre-validation suitability check | `critical` |
 | `FIN_004` | Missing `try/catch` around payment gateway integration | `high` |
 | `FIN_005` | Hardcoded tax rates or fee percentages | `high` |
+| `FIN_006` | Synthetic, cooked-up, or unverified ad-hoc financial formula without canonical peer-reviewed or statutory citation | `critical` |
 
 #### C. Security Rules
 Zero tolerance for secrets, unvalidated inputs, or authentication bypass.
@@ -190,6 +191,7 @@ AI outputs must never directly trigger financial execution. Explainability is ma
 | `AI_004` | Missing `rationale` or `explainability` field in AI recommendation output | `high` |
 | `AI_005` | AI governance `aiGovernanceEngine.validateAndResolve()` bypassed | `critical` |
 | `AI_006` | AI model version not logged before inference | `medium` |
+| `AI_007` | AI-synthesized mathematical formula, ad-hoc heuristic, or improvised calculation | `critical` |
 
 #### E. Audit Rules
 Every meaningful system event must produce a structured, traceable log entry.
