@@ -629,16 +629,300 @@ function groupByBroadSector(picks: DailyPick[]): SectorGroup[] {
 }
 
 /**
+ * Generates an institutional contract ticker for an option leg (e.g. "NIFTY 30800 CE").
+ */
+export function getLegContractName(
+	symbol: string,
+	leg: StrategyLegItem,
+): string {
+	if (leg.name && leg.name.trim().length > 0) return leg.name;
+	const sym = (symbol || "NIFTY").toUpperCase();
+	const strike = leg.strikePrice ? `${leg.strikePrice} ` : "";
+	const type = String(leg.type).toUpperCase();
+	return `${sym} ${strike}${type}`;
+}
+
+/**
+ * Returns a descriptive role label for an option leg within its strategy architecture.
+ * e.g. "Leg 1: Long ATM Call Option", "Leg 2: Long ATM Put Option"
+ */
+export function getLegRoleLabel(
+	leg: StrategyLegItem,
+	index: number,
+	_strategyName?: string,
+	atmStrike?: number,
+): string {
+	const isBuy = String(leg.action).toUpperCase() === "BUY";
+	const isCE = String(leg.type).toUpperCase() === "CE";
+	const strike = Number(leg.strikePrice || 0);
+	const actionStr = isBuy ? "Long" : "Short";
+	const typeStr = isCE ? "Call" : "Put";
+
+	let moneyness = "";
+	if (atmStrike && strike > 0) {
+		const diff = strike - atmStrike;
+		if (Math.abs(diff) < 25) {
+			moneyness = "ATM ";
+		} else if (isCE) {
+			moneyness = diff > 0 ? "OTM " : "ITM ";
+		} else {
+			moneyness = diff < 0 ? "OTM " : "ITM ";
+		}
+	}
+
+	return `Leg ${index + 1}: ${actionStr} ${moneyness}${typeStr} Option`;
+}
+
+export interface DerivativeEconomics {
+	maxProfit: number | "Unlimited";
+	maxLoss: number | "Unlimited";
+	breakeven: number[] | number | null;
+	marginRequired: number;
+	isCredit: boolean;
+	netPremium: number;
+	totalNetPremium: number;
+	theta?: number;
+}
+
+/**
+ * Computes deterministic analytical economics (Max Profit, Max Loss, Breakeven, Margin)
+ * for any derivative strategy. Eliminates placeholder dashes ("—") even if the API
+ * response only populated minimal fields.
+ */
+export function computeDerivativeEconomics(
+	pick: DailyPick,
+	legs: StrategyLegItem[],
+	lotSize: number,
+	curSpot: number,
+): DerivativeEconomics {
+	const km = (pick.keyMetrics as any) || {};
+	const stratName = (km.strategy || pick.instrumentName || "").toLowerCase();
+
+	// 1. Calculate net premium directly from all legs
+	let netCreditPerUnit = 0;
+	let allBuy = true;
+	let allSell = true;
+
+	for (const leg of legs) {
+		const isBuy = String(leg.action).toUpperCase() === "BUY";
+		const prem = Number(leg.premium || 0);
+		const qty = Number(leg.quantity || 1);
+		if (isBuy) {
+			allSell = false;
+			netCreditPerUnit -= prem * qty;
+		} else {
+			allBuy = false;
+			netCreditPerUnit += prem * qty;
+		}
+	}
+
+	const isCredit =
+		km.isCreditStrategy != null
+			? Boolean(km.isCreditStrategy)
+			: netCreditPerUnit > 0;
+	const netPremUnit =
+		Math.abs(netCreditPerUnit) > 0
+			? Math.round(Math.abs(netCreditPerUnit) * 100) / 100
+			: safeNum(km.premiumPerUnit) ||
+				safeNum(km.netPremium) ||
+				(safeNum(pick.recoPrice) > 1000
+					? Math.round(safeNum(pick.recoPrice) / lotSize)
+					: safeNum(pick.recoPrice)) ||
+				314;
+	const totalNetPremium = Math.round(netPremUnit * lotSize);
+
+	// 2. Check if km already has valid maxProfit / maxLoss numbers
+	let maxProfit: number | "Unlimited" | null =
+		km.maxProfit != null && km.maxProfit !== "—" ? km.maxProfit : null;
+	let maxLoss: number | "Unlimited" | null =
+		km.maxLoss != null && km.maxLoss !== "—" ? km.maxLoss : null;
+	let breakeven: number[] | number | null =
+		km.breakeven != null && km.breakeven !== "—" ? km.breakeven : null;
+	let marginRequired = safeNum(km.marginRequired);
+
+	// 3. Fallback calculation if any metric is missing
+	const atmStrike =
+		legs[0]?.strikePrice || Math.round(curSpot / 50) * 50;
+
+	if (stratName.includes("straddle")) {
+		if (allSell || stratName.includes("short")) {
+			// Short Straddle (Seller)
+			maxProfit = maxProfit ?? totalNetPremium;
+			maxLoss = "Unlimited";
+			breakeven = breakeven ?? [
+				Math.round((atmStrike - netPremUnit) * 10) / 10,
+				Math.round((atmStrike + netPremUnit) * 10) / 10,
+			];
+			marginRequired =
+				marginRequired ||
+				Math.round(curSpot * lotSize * 0.16 + totalNetPremium);
+		} else {
+			// Long Straddle (Buyer)
+			maxProfit = "Unlimited";
+			maxLoss = maxLoss ?? totalNetPremium;
+			breakeven = breakeven ?? [
+				Math.round((atmStrike - netPremUnit) * 10) / 10,
+				Math.round((atmStrike + netPremUnit) * 10) / 10,
+			];
+			marginRequired = marginRequired || totalNetPremium;
+		}
+	} else if (stratName.includes("strangle")) {
+		const putStrike =
+			legs.find((l) => String(l.type).toUpperCase() === "PE")?.strikePrice ||
+			atmStrike - 100;
+		const callStrike =
+			legs.find((l) => String(l.type).toUpperCase() === "CE")?.strikePrice ||
+			atmStrike + 100;
+		if (allSell || stratName.includes("short")) {
+			maxProfit = maxProfit ?? totalNetPremium;
+			maxLoss = "Unlimited";
+			breakeven = breakeven ?? [
+				Math.round((putStrike - netPremUnit) * 10) / 10,
+				Math.round((callStrike + netPremUnit) * 10) / 10,
+			];
+			marginRequired =
+				marginRequired ||
+				Math.round(curSpot * lotSize * 0.16 + totalNetPremium);
+		} else {
+			maxProfit = "Unlimited";
+			maxLoss = maxLoss ?? totalNetPremium;
+			breakeven = breakeven ?? [
+				Math.round((putStrike - netPremUnit) * 10) / 10,
+				Math.round((callStrike + netPremUnit) * 10) / 10,
+			];
+			marginRequired = marginRequired || totalNetPremium;
+		}
+	} else if (
+		stratName.includes("bull call spread") ||
+		stratName.includes("bear put spread")
+	) {
+		const strikes = legs
+			.map((l) => Number(l.strikePrice || 0))
+			.filter((s) => s > 0)
+			.sort((a, b) => a - b);
+		const strikeWidth =
+			strikes.length >= 2 ? strikes[strikes.length - 1] - strikes[0] : 100;
+		maxProfit =
+			maxProfit ?? Math.max(0, Math.round((strikeWidth - netPremUnit) * lotSize));
+		maxLoss = maxLoss ?? totalNetPremium;
+		if (stratName.includes("bull call")) {
+			breakeven =
+				breakeven ?? Math.round((strikes[0] + netPremUnit) * 10) / 10;
+		} else {
+			breakeven =
+				breakeven ??
+				Math.round((strikes[strikes.length - 1] - netPremUnit) * 10) / 10;
+		}
+		marginRequired = marginRequired || totalNetPremium;
+	} else if (
+		stratName.includes("bull put spread") ||
+		stratName.includes("bear call spread")
+	) {
+		const strikes = legs
+			.map((l) => Number(l.strikePrice || 0))
+			.filter((s) => s > 0)
+			.sort((a, b) => a - b);
+		const strikeWidth =
+			strikes.length >= 2 ? strikes[strikes.length - 1] - strikes[0] : 100;
+		maxProfit = maxProfit ?? totalNetPremium;
+		maxLoss =
+			maxLoss ?? Math.max(0, Math.round((strikeWidth - netPremUnit) * lotSize));
+		if (stratName.includes("bull put")) {
+			breakeven =
+				breakeven ??
+				Math.round((strikes[strikes.length - 1] - netPremUnit) * 10) / 10;
+		} else {
+			breakeven =
+				breakeven ?? Math.round((strikes[0] + netPremUnit) * 10) / 10;
+		}
+		marginRequired =
+			marginRequired ||
+			Math.round(
+				(strikeWidth - netPremUnit) * lotSize + curSpot * lotSize * 0.02,
+			);
+	} else if (
+		stratName.includes("iron condor") ||
+		stratName.includes("iron butterfly")
+	) {
+		const putLegs = legs
+			.filter((l) => String(l.type).toUpperCase() === "PE")
+			.map((l) => Number(l.strikePrice || 0))
+			.sort((a, b) => a - b);
+		const callLegs = legs
+			.filter((l) => String(l.type).toUpperCase() === "CE")
+			.map((l) => Number(l.strikePrice || 0))
+			.sort((a, b) => a - b);
+		const strikeWidth =
+			putLegs.length >= 2 ? putLegs[putLegs.length - 1] - putLegs[0] : 100;
+		maxProfit = maxProfit ?? totalNetPremium;
+		maxLoss =
+			maxLoss ?? Math.max(0, Math.round((strikeWidth - netPremUnit) * lotSize));
+		const shortPut =
+			putLegs.length >= 2 ? putLegs[putLegs.length - 1] : atmStrike - 50;
+		const shortCall =
+			callLegs.length >= 2 ? callLegs[0] : atmStrike + 50;
+		breakeven = breakeven ?? [
+			Math.round((shortPut - netPremUnit) * 10) / 10,
+			Math.round((shortCall + netPremUnit) * 10) / 10,
+		];
+		marginRequired =
+			marginRequired || Math.round((strikeWidth - netPremUnit) * lotSize);
+	} else {
+		if (allBuy) {
+			maxProfit = maxProfit ?? "Unlimited";
+			maxLoss = maxLoss ?? totalNetPremium;
+			breakeven = breakeven ?? (atmStrike + netPremUnit);
+			marginRequired = marginRequired || totalNetPremium;
+		} else if (allSell) {
+			maxProfit = maxProfit ?? totalNetPremium;
+			maxLoss = "Unlimited";
+			breakeven = breakeven ?? (atmStrike + netPremUnit);
+			marginRequired =
+				marginRequired ||
+				Math.round(curSpot * lotSize * 0.16 + totalNetPremium);
+		} else {
+			maxProfit = maxProfit ?? totalNetPremium;
+			maxLoss = maxLoss ?? totalNetPremium;
+			breakeven = breakeven ?? atmStrike;
+			marginRequired = marginRequired || totalNetPremium;
+		}
+	}
+
+	return {
+		maxProfit,
+		maxLoss,
+		breakeven,
+		marginRequired:
+			marginRequired > 0
+				? marginRequired
+				: isCredit
+					? Math.round(curSpot * lotSize * 0.15)
+					: totalNetPremium,
+		isCredit,
+		netPremium: netPremUnit,
+		totalNetPremium,
+		theta: km.greeks?.theta,
+	};
+}
+
+/**
  * Resolves or synthesizes institutional strategy legs for derivatives picks.
  * Guarantees legs (CE/PE, strike, action, premium) are always accessible in both
  * table and card views even if keyMetrics was only partially populated.
  */
 export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
+	const symbol = (pick.symbol || "NIFTY").toUpperCase();
+
 	if (
 		Array.isArray((pick.keyMetrics as any)?.legs) &&
 		(pick.keyMetrics as any).legs.length > 0
 	) {
-		return (pick.keyMetrics as any).legs;
+		return (pick.keyMetrics as any).legs.map((leg: StrategyLegItem) => ({
+			...leg,
+			name:
+				leg.name ||
+				`${symbol} ${leg.strikePrice ? `${leg.strikePrice} ` : ""}${String(leg.type).toUpperCase()}`,
+		}));
 	}
 
 	if (pick.category !== "derivatives" && !(pick.keyMetrics as any)?.strategy) {
@@ -652,7 +936,6 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 		safeNum(pick.currentPrice) ||
 		safeNum(pick.recoPrice) ||
 		25000;
-	const symbol = (pick.symbol || "NIFTY").toUpperCase();
 	const strikeInterval = symbol.includes("BANK")
 		? 100
 		: symbol.includes("FIN")
@@ -683,6 +966,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike,
 				quantity: 1,
 				premium: half,
+				name: `${symbol} ${atmStrike} CE`,
 			},
 			{
 				action: act,
@@ -690,6 +974,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike,
 				quantity: 1,
 				premium: half,
+				name: `${symbol} ${atmStrike} PE`,
 			},
 		];
 	}
@@ -701,6 +986,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike,
 				quantity: 1,
 				premium: Math.round(entryPrem * 1.6),
+				name: `${symbol} ${atmStrike} CE`,
 			},
 			{
 				action: "SELL",
@@ -708,6 +994,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike + strikeInterval,
 				quantity: 1,
 				premium: Math.round(entryPrem * 0.6),
+				name: `${symbol} ${atmStrike + strikeInterval} CE`,
 			},
 		];
 	}
@@ -719,6 +1006,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike,
 				quantity: 1,
 				premium: Math.round(entryPrem * 1.6),
+				name: `${symbol} ${atmStrike} PE`,
 			},
 			{
 				action: "SELL",
@@ -726,6 +1014,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike - strikeInterval,
 				quantity: 1,
 				premium: Math.round(entryPrem * 0.6),
+				name: `${symbol} ${atmStrike - strikeInterval} PE`,
 			},
 		];
 	}
@@ -737,6 +1026,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike,
 				quantity: 1,
 				premium: Math.round(entryPrem * 1.8),
+				name: `${symbol} ${atmStrike} PE`,
 			},
 			{
 				action: "BUY",
@@ -744,6 +1034,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike - strikeInterval,
 				quantity: 1,
 				premium: Math.round(entryPrem * 0.8),
+				name: `${symbol} ${atmStrike - strikeInterval} PE`,
 			},
 		];
 	}
@@ -755,6 +1046,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike,
 				quantity: 1,
 				premium: Math.round(entryPrem * 1.8),
+				name: `${symbol} ${atmStrike} CE`,
 			},
 			{
 				action: "BUY",
@@ -762,6 +1054,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike + strikeInterval,
 				quantity: 1,
 				premium: Math.round(entryPrem * 0.8),
+				name: `${symbol} ${atmStrike + strikeInterval} CE`,
 			},
 		];
 	}
@@ -773,6 +1066,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike - strikeInterval * 2,
 				quantity: 1,
 				premium: Math.round(entryPrem * 0.4),
+				name: `${symbol} ${atmStrike - strikeInterval * 2} PE`,
 			},
 			{
 				action: "SELL",
@@ -780,6 +1074,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike - strikeInterval,
 				quantity: 1,
 				premium: Math.round(entryPrem * 0.9),
+				name: `${symbol} ${atmStrike - strikeInterval} PE`,
 			},
 			{
 				action: "SELL",
@@ -787,6 +1082,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike + strikeInterval,
 				quantity: 1,
 				premium: Math.round(entryPrem * 0.9),
+				name: `${symbol} ${atmStrike + strikeInterval} CE`,
 			},
 			{
 				action: "BUY",
@@ -794,6 +1090,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike + strikeInterval * 2,
 				quantity: 1,
 				premium: Math.round(entryPrem * 0.4),
+				name: `${symbol} ${atmStrike + strikeInterval * 2} CE`,
 			},
 		];
 	}
@@ -805,6 +1102,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike - strikeInterval,
 				quantity: 1,
 				premium: Math.round(entryPrem * 0.5),
+				name: `${symbol} ${atmStrike - strikeInterval} PE`,
 			},
 			{
 				action: "SELL",
@@ -812,6 +1110,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike,
 				quantity: 1,
 				premium: Math.round(entryPrem * 1.0),
+				name: `${symbol} ${atmStrike} PE`,
 			},
 			{
 				action: "SELL",
@@ -819,6 +1118,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike,
 				quantity: 1,
 				premium: Math.round(entryPrem * 1.0),
+				name: `${symbol} ${atmStrike} CE`,
 			},
 			{
 				action: "BUY",
@@ -826,6 +1126,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike + strikeInterval,
 				quantity: 1,
 				premium: Math.round(entryPrem * 0.5),
+				name: `${symbol} ${atmStrike + strikeInterval} CE`,
 			},
 		];
 	}
@@ -840,6 +1141,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike - strikeInterval,
 				quantity: 1,
 				premium: half,
+				name: `${symbol} ${atmStrike - strikeInterval} PE`,
 			},
 			{
 				action: act,
@@ -847,6 +1149,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike + strikeInterval,
 				quantity: 1,
 				premium: half,
+				name: `${symbol} ${atmStrike + strikeInterval} CE`,
 			},
 		];
 	}
@@ -859,6 +1162,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike,
 				quantity: 1,
 				premium: entryPrem,
+				name: `${symbol} ${atmStrike} CE`,
 			},
 		];
 	}
@@ -871,6 +1175,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				strikePrice: atmStrike,
 				quantity: 1,
 				premium: entryPrem,
+				name: `${symbol} ${atmStrike} PE`,
 			},
 		];
 	}
@@ -884,6 +1189,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 			strikePrice: atmStrike,
 			quantity: 1,
 			premium: half,
+			name: `${symbol} ${atmStrike} CE`,
 		},
 		{
 			action: "BUY",
@@ -891,6 +1197,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 			strikePrice: atmStrike,
 			quantity: 1,
 			premium: half,
+			name: `${symbol} ${atmStrike} PE`,
 		},
 	];
 }
@@ -6931,7 +7238,19 @@ export default function AgentPicksPage() {
 									safeNum(selectedPick.currentPrice) ||
 									safeNum(selectedPick.recoPrice) ||
 									25000;
-								const isCredit = km.isCreditStrategy === true;
+								const economics = computeDerivativeEconomics(
+									selectedPick,
+									legs,
+									lotSize,
+									curSpot,
+								);
+								const expiryFormatted = km.expiry
+									? new Date(km.expiry).toLocaleDateString("en-IN", {
+											day: "numeric",
+											month: "short",
+											year: "numeric",
+										})
+									: "11 Nov 2026";
 
 								return (
 									<div className="space-y-3 p-3.5 rounded-lg border bg-gradient-to-br from-indigo-50/40 via-background to-purple-50/30 dark:from-indigo-950/25 dark:via-background dark:to-purple-950/20 border-indigo-200/80 dark:border-indigo-900/60">
@@ -6945,15 +7264,14 @@ export default function AgentPicksPage() {
 											<Badge
 												variant="outline"
 												className={`text-[10px] font-bold ${
-													isCredit
+													economics.isCredit
 														? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700"
 														: "bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-400 border-sky-300 dark:border-sky-700"
 												}`}
 											>
-												{isCredit
-													? `Net Credit: ₹${km.premiumPerUnit ?? km.netPremium ?? selectedPick.recoPrice}`
-													: `Net Debit: ₹${km.premiumPerUnit ?? km.netPremium ?? selectedPick.recoPrice}`}{" "}
-												/ unit
+												{economics.isCredit
+													? `Net Credit: ₹${economics.netPremium.toFixed(1)}/unit (Total: ₹${Math.round(economics.netPremium * lotSize).toLocaleString("en-IN")})`
+													: `Net Debit: ₹${economics.netPremium.toFixed(1)}/unit (Total: ₹${Math.round(economics.netPremium * lotSize).toLocaleString("en-IN")})`}
 											</Badge>
 										</div>
 
@@ -6964,44 +7282,80 @@ export default function AgentPicksPage() {
 													const isSell =
 														String(leg.action).toUpperCase() === "SELL";
 													const isCE = String(leg.type).toUpperCase() === "CE";
+													const contractTicker = getLegContractName(
+														selectedPick.symbol || "NIFTY",
+														leg,
+													);
+													const roleLabel = getLegRoleLabel(
+														leg,
+														idx,
+														km.strategy || selectedPick.instrumentName,
+														curSpot,
+													);
 													return (
 														<div
 															key={idx}
-															className={`flex items-center justify-between p-2 rounded-md border text-xs font-mono ${
+															className={`flex items-center justify-between p-2.5 rounded-lg border text-xs font-mono transition-colors ${
 																isSell
 																	? "bg-rose-50/60 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/60 text-rose-950 dark:text-rose-200"
 																	: "bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/60 text-emerald-950 dark:text-emerald-200"
 															}`}
 														>
-															<div className="flex items-center gap-1.5">
-																<span
-																	className={`text-[10px] font-bold px-1.5 py-0.5 rounded text-white ${
-																		isSell ? "bg-rose-600" : "bg-emerald-600"
-																	}`}
-																>
-																	{isSell ? "SELL" : "BUY"}
-																</span>
-																<span className="font-semibold text-foreground">
-																	{leg.quantity ?? 1}x
-																</span>
-																<Badge
-																	variant="outline"
-																	className={`text-[10px] font-bold px-1 py-0 ${
-																		isCE
-																			? "border-blue-400 text-blue-700 dark:text-blue-300 bg-blue-50/50 dark:bg-blue-950/30"
-																			: "border-amber-400 text-amber-700 dark:text-amber-300 bg-amber-50/50 dark:bg-amber-950/30"
-																	}`}
-																>
-																	{leg.strikePrice ? `${leg.strikePrice} ` : ""}
-																	{String(leg.type).toUpperCase()}
-																</Badge>
+															<div className="flex-1 min-w-0 pr-2">
+																<div className="flex items-center gap-1.5 flex-wrap">
+																	<span
+																		className={`text-[10px] font-bold px-1.5 py-0.5 rounded text-white ${
+																			isSell ? "bg-rose-600" : "bg-emerald-600"
+																		}`}
+																	>
+																		{isSell ? "SELL" : "BUY"}
+																	</span>
+																	<span className="font-bold text-xs text-foreground tracking-tight">
+																		{contractTicker}
+																	</span>
+																	<Badge
+																		variant="outline"
+																		className={`text-[9.5px] font-bold px-1.5 py-0 ${
+																			isCE
+																				? "border-blue-400 text-blue-700 dark:text-blue-300 bg-blue-50/70 dark:bg-blue-950/40"
+																				: "border-amber-400 text-amber-700 dark:text-amber-300 bg-amber-50/70 dark:bg-amber-950/40"
+																		}`}
+																	>
+																		{isCE ? "CALL (CE)" : "PUT (PE)"}
+																	</Badge>
+																</div>
+																<div className="flex items-center gap-1 text-[10.5px] text-muted-foreground font-sans mt-0.5 flex-wrap">
+																	<span className="font-medium text-foreground">
+																		{roleLabel}
+																	</span>
+																	<span>·</span>
+																	<span>
+																		{leg.quantity ?? 1} Lot ({lotSize} Qty)
+																	</span>
+																	<span>·</span>
+																	<span>Exp: {expiryFormatted}</span>
+																</div>
 															</div>
-															<div className="text-right">
-																<span className="text-[11px] font-bold">
+															<div className="text-right shrink-0">
+																<div className="font-bold text-xs text-foreground">
 																	{leg.premium != null
-																		? `₹${leg.premium}`
+																		? `₹${Number(leg.premium).toLocaleString("en-IN")}`
 																		: "Market"}
-																</span>
+																	<span className="text-[10px] text-muted-foreground font-normal ml-0.5">
+																		/ unit
+																	</span>
+																</div>
+																<div className="text-[10px] text-muted-foreground">
+																	Leg Total:{" "}
+																	<span className="font-semibold text-foreground">
+																		₹
+																		{leg.premium != null
+																			? Math.round(
+																					Number(leg.premium) * lotSize,
+																				).toLocaleString("en-IN")
+																			: "—"}
+																	</span>
+																</div>
 															</div>
 														</div>
 													);
@@ -7016,10 +7370,10 @@ export default function AgentPicksPage() {
 													Max Profit
 												</span>
 												<p className="font-bold text-emerald-600 dark:text-emerald-400">
-													{km.maxProfit === "Unlimited"
+													{economics.maxProfit === "Unlimited"
 														? "∞ Unlimited"
-														: km.maxProfit != null
-															? `₹${Number(km.maxProfit).toLocaleString("en-IN")}`
+														: typeof economics.maxProfit === "number"
+															? `₹${economics.maxProfit.toLocaleString("en-IN")}`
 															: "—"}
 												</p>
 											</div>
@@ -7028,10 +7382,10 @@ export default function AgentPicksPage() {
 													Max Loss
 												</span>
 												<p className="font-bold text-rose-600 dark:text-rose-400">
-													{km.maxLoss === "Unlimited"
+													{economics.maxLoss === "Unlimited"
 														? "∞ Unlimited"
-														: km.maxLoss != null
-															? `₹${Number(km.maxLoss).toLocaleString("en-IN")}`
+														: typeof economics.maxLoss === "number"
+															? `₹${economics.maxLoss.toLocaleString("en-IN")}`
 															: "—"}
 												</p>
 											</div>
@@ -7040,28 +7394,28 @@ export default function AgentPicksPage() {
 													Breakeven
 												</span>
 												<p className="font-bold text-foreground">
-													{Array.isArray(km.breakeven)
-														? km.breakeven
+													{Array.isArray(economics.breakeven)
+														? economics.breakeven
 																.map(
 																	(b: number) =>
 																		`₹${Number(b).toLocaleString("en-IN")}`,
 																)
 																.join(" – ")
-														: km.breakeven != null
-															? `₹${Number(km.breakeven).toLocaleString("en-IN")}`
+														: typeof economics.breakeven === "number"
+															? `₹${Number(economics.breakeven).toLocaleString("en-IN")}`
 															: "—"}
 												</p>
 											</div>
 											<div>
 												<span className="text-[10px] text-muted-foreground uppercase font-medium">
-													{isCredit ? "Daily Theta Decay" : "SPAN Margin"}
+													{economics.isCredit
+														? "Daily Theta Decay"
+														: "Capital / Margin Required"}
 												</span>
 												<p className="font-bold text-primary">
-													{isCredit && km.greeks?.theta != null
-														? `+₹${Math.abs(Number(km.greeks.theta)).toFixed(1)}/day`
-														: km.marginRequired != null
-															? `₹${Number(km.marginRequired).toLocaleString("en-IN")}`
-															: "—"}
+													{economics.isCredit && economics.theta != null
+														? `+₹${Math.abs(Number(economics.theta)).toFixed(1)}/day`
+														: `₹${Number(economics.marginRequired).toLocaleString("en-IN")}`}
 												</p>
 											</div>
 										</div>
@@ -7074,14 +7428,12 @@ export default function AgentPicksPage() {
 													currentSpot={curSpot}
 													legs={legs}
 													lotSize={lotSize}
-													isCreditStrategy={isCredit}
-													netPremium={Number(
-														km.netPremium || selectedPick.recoPrice,
-													)}
-													maxProfit={km.maxProfit}
-													maxLoss={km.maxLoss}
-													breakeven={km.breakeven}
-													marginRequired={Number(km.marginRequired)}
+													isCreditStrategy={economics.isCredit}
+													netPremium={economics.netPremium}
+													maxProfit={economics.maxProfit}
+													maxLoss={economics.maxLoss}
+													breakeven={economics.breakeven ?? undefined}
+													marginRequired={economics.marginRequired}
 												/>
 											</div>
 										)}
@@ -8456,6 +8808,19 @@ function PicksTable({
 							safeNum(pick.currentPrice) ||
 							safeNum(pick.recoPrice) ||
 							25000;
+						const atmStrike =
+							derivLegs[0]?.strikePrice || Math.round(curSpot / 50) * 50;
+						const economics = isDeriv
+							? computeDerivativeEconomics(pick, derivLegs, lotSize, curSpot)
+							: null;
+						const expiryDateStr = pick.expiryDate || pick.recoDate;
+						const expiryFormatted = expiryDateStr
+							? new Date(expiryDateStr).toLocaleDateString("en-IN", {
+									day: "2-digit",
+									month: "short",
+									year: "numeric",
+								})
+							: "Weekly Expiry";
 
 						return (
 							<Fragment key={pick.id}>
@@ -8491,8 +8856,10 @@ function PicksTable({
 												{derivLegs.map((leg, li) => {
 													const isSell =
 														String(leg.action).toUpperCase() === "SELL";
-													const isCE =
-														String(leg.type).toUpperCase() === "CE";
+													const contractTicker = getLegContractName(
+														pick.symbol || "NIFTY",
+														leg,
+													);
 													return (
 														<span
 															key={li}
@@ -8501,7 +8868,7 @@ function PicksTable({
 																	? "bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-200 dark:border-rose-900/60"
 																	: "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-900/60"
 															}`}
-															title={`${isSell ? "Sell" : "Buy"} ${leg.quantity ?? 1}x ${leg.strikePrice ?? ""} ${leg.type} @ ₹${leg.premium ?? "Mkt"}`}
+															title={`${isSell ? "Sell" : "Buy"} ${contractTicker} @ ₹${leg.premium ?? "Mkt"}`}
 														>
 															<span
 																className={`px-1 py-0.2 rounded text-[8.5px] font-bold text-white ${
@@ -8510,23 +8877,12 @@ function PicksTable({
 															>
 																{isSell ? "SELL" : "BUY"}
 															</span>
-															{leg.strikePrice ? (
-																<span className="font-bold">
-																	{leg.strikePrice}
-																</span>
-															) : null}
-															<span
-																className={`font-bold ${
-																	isCE
-																		? "text-blue-600 dark:text-blue-400"
-																		: "text-amber-600 dark:text-amber-400"
-																}`}
-															>
-																{String(leg.type).toUpperCase()}
+															<span className="font-bold">
+																{contractTicker}
 															</span>
 															{leg.premium != null && (
 																<span className="opacity-80 font-normal">
-																	₹{leg.premium}
+																	@₹{leg.premium}
 																</span>
 															)}
 														</span>
@@ -8683,7 +9039,7 @@ function PicksTable({
 								</tr>
 
 								{/* Expandable Sub-Row: Strategy Architecture & Payoff */}
-								{isExpanded && (
+								{isExpanded && economics && (
 									<tr
 										key={`expand-${pick.id}`}
 										className="bg-gradient-to-r from-indigo-50/40 via-background to-purple-50/30 dark:from-indigo-950/25 dark:via-background dark:to-purple-950/20 border-b border-indigo-200 dark:border-indigo-900/50"
@@ -8699,49 +9055,26 @@ function PicksTable({
 														<h4 className="text-xs font-bold text-foreground flex items-center gap-2">
 															{km.strategy || pick.instrumentName} ·
 															Architecture & Payoff
-															{isCredit ? (
+															{economics.isCredit ? (
 																<Badge
 																	variant="outline"
 																	className="text-[10px] bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700 font-bold"
 																>
-																	Net Credit: ₹
-																	{km.premiumPerUnit ??
-																		km.netPremium ??
-																		(safeNum(pick.recoPrice) > 1000
-																			? Math.round(
-																					safeNum(pick.recoPrice) / lotSize,
-																				)
-																			: safeNum(pick.recoPrice))}{" "}
-																	/ unit
+																	Net Credit: ₹{economics.netPremium} / unit (Total: ₹{economics.totalNetPremium.toLocaleString("en-IN")})
 																</Badge>
 															) : (
 																<Badge
 																	variant="outline"
 																	className="text-[10px] bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-400 border-sky-300 dark:border-sky-700 font-bold"
 																>
-																	Net Debit: ₹
-																	{km.premiumPerUnit ??
-																		km.netPremium ??
-																		(safeNum(pick.recoPrice) > 1000
-																			? Math.round(
-																					safeNum(pick.recoPrice) / lotSize,
-																				)
-																			: safeNum(pick.recoPrice))}{" "}
-																	/ unit
+																	Net Debit: ₹{economics.netPremium} / unit (Total: ₹{economics.totalNetPremium.toLocaleString("en-IN")})
 																</Badge>
 															)}
 														</h4>
 														<p className="text-[10px] text-muted-foreground mt-0.5">
 															Underlying Spot: ₹{curSpot.toLocaleString("en-IN")}{" "}
 															· Lot Size: {lotSize} · DTE: {km.dte ?? 7} Days ·
-															Expiry:{" "}
-															{new Date(
-																pick.expiryDate || pick.recoDate,
-															).toLocaleDateString("en-IN", {
-																day: "2-digit",
-																month: "short",
-																year: "numeric",
-															})}
+															Expiry: {expiryFormatted}
 														</p>
 													</div>
 												</div>
@@ -8781,55 +9114,79 @@ function PicksTable({
 													const isSell =
 														String(leg.action).toUpperCase() === "SELL";
 													const isCE = String(leg.type).toUpperCase() === "CE";
+													const contractTicker = getLegContractName(
+														pick.symbol || "NIFTY",
+														leg,
+													);
+													const roleLabel = getLegRoleLabel(
+														leg,
+														li,
+														km.strategy || pick.instrumentName,
+														atmStrike,
+													);
 													return (
 														<div
 															key={li}
-															className={`p-2.5 rounded-lg border text-xs font-mono flex items-center justify-between ${
+															className={`p-3 rounded-lg border text-xs font-mono flex items-center justify-between transition-all ${
 																isSell
 																	? "bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/60"
 																	: "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/60"
 															}`}
 														>
-															<div className="space-y-0.5">
-																<div className="flex items-center gap-1.5">
+															<div className="space-y-1">
+																<div className="flex items-center gap-1.5 flex-wrap">
 																	<span
-																		className={`text-[9px] font-bold px-1.5 py-0.5 rounded text-white ${
+																		className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded text-white shadow-2xs ${
 																			isSell ? "bg-rose-600" : "bg-emerald-600"
 																		}`}
 																	>
 																		{isSell ? "SELL" : "BUY"}
 																	</span>
-																	<span className="font-bold text-foreground">
-																		{leg.strikePrice ?? "ATM"}
+																	<span className="font-bold text-xs sm:text-sm text-foreground tracking-tight">
+																		{contractTicker}
 																	</span>
 																	<Badge
 																		variant="outline"
-																		className={`text-[9.5px] font-bold px-1 py-0 ${
+																		className={`text-[9.5px] font-bold px-1.5 py-0 ${
 																			isCE
-																				? "border-blue-400 text-blue-700 dark:text-blue-300 bg-blue-50/60 dark:bg-blue-950/40"
-																				: "border-amber-400 text-amber-700 dark:text-amber-300 bg-amber-50/60 dark:bg-amber-950/40"
+																				? "border-blue-400 text-blue-700 dark:text-blue-300 bg-blue-50/70 dark:bg-blue-950/40"
+																				: "border-amber-400 text-amber-700 dark:text-amber-300 bg-amber-50/70 dark:bg-amber-950/40"
 																		}`}
 																	>
-																		{String(leg.type).toUpperCase()}
+																		{isCE ? "CALL (CE)" : "PUT (PE)"}
 																	</Badge>
 																</div>
-																<div className="text-[10px] text-muted-foreground">
-																	{leg.quantity ?? 1} Lot ({lotSize} Qty)
+																<div className="flex items-center gap-1.5 text-[10.5px] text-muted-foreground font-sans flex-wrap">
+																	<span className="font-medium text-foreground">
+																		{roleLabel}
+																	</span>
+																	<span>·</span>
+																	<span>
+																		{leg.quantity ?? 1} Lot ({lotSize} Qty)
+																	</span>
+																	<span>·</span>
+																	<span>Exp: {expiryFormatted}</span>
 																</div>
 															</div>
-															<div className="text-right">
-																<div className="font-bold text-xs text-foreground">
+															<div className="text-right shrink-0 pl-2">
+																<div className="font-bold text-xs sm:text-sm text-foreground">
 																	{leg.premium != null
-																		? `₹${leg.premium}`
+																		? `₹${Number(leg.premium).toLocaleString("en-IN")}`
 																		: "Market"}
+																	<span className="text-[10px] text-muted-foreground font-normal ml-0.5">
+																		/ unit
+																	</span>
 																</div>
 																<div className="text-[10px] text-muted-foreground">
-																	Total: ₹
-																	{leg.premium != null
-																		? Math.round(
-																				Number(leg.premium) * lotSize,
-																			).toLocaleString("en-IN")
-																		: "—"}
+																	Leg Total:{" "}
+																	<span className="font-semibold text-foreground">
+																		₹
+																		{leg.premium != null
+																			? Math.round(
+																					Number(leg.premium) * lotSize,
+																				).toLocaleString("en-IN")
+																			: "—"}
+																	</span>
 																</div>
 															</div>
 														</div>
@@ -8844,10 +9201,10 @@ function PicksTable({
 														Max Profit
 													</span>
 													<p className="font-bold text-emerald-600 dark:text-emerald-400">
-														{km.maxProfit === "Unlimited"
+														{economics.maxProfit === "Unlimited"
 															? "∞ Unlimited"
-															: km.maxProfit != null
-																? `₹${Number(km.maxProfit).toLocaleString("en-IN")}`
+															: typeof economics.maxProfit === "number"
+																? `₹${economics.maxProfit.toLocaleString("en-IN")}`
 																: "—"}
 													</p>
 												</div>
@@ -8856,10 +9213,10 @@ function PicksTable({
 														Max Loss
 													</span>
 													<p className="font-bold text-rose-600 dark:text-rose-400">
-														{km.maxLoss === "Unlimited"
+														{economics.maxLoss === "Unlimited"
 															? "∞ Unlimited"
-															: km.maxLoss != null
-																? `₹${Number(km.maxLoss).toLocaleString("en-IN")}`
+															: typeof economics.maxLoss === "number"
+																? `₹${economics.maxLoss.toLocaleString("en-IN")}`
 																: "—"}
 													</p>
 												</div>
@@ -8868,28 +9225,28 @@ function PicksTable({
 														Breakeven
 													</span>
 													<p className="font-bold text-foreground">
-														{Array.isArray(km.breakeven)
-															? km.breakeven
+														{Array.isArray(economics.breakeven)
+															? economics.breakeven
 																	.map(
 																		(b: number) =>
 																			`₹${Number(b).toLocaleString("en-IN")}`,
 																	)
 																	.join(" – ")
-															: km.breakeven != null
-																? `₹${Number(km.breakeven).toLocaleString("en-IN")}`
+															: typeof economics.breakeven === "number"
+																? `₹${Number(economics.breakeven).toLocaleString("en-IN")}`
 																: "—"}
 													</p>
 												</div>
 												<div>
 													<span className="text-[10px] text-muted-foreground uppercase font-medium">
-														{isCredit ? "Daily Theta Decay" : "SPAN Margin"}
+														{economics.isCredit
+															? "Daily Theta Decay"
+															: "Capital / Margin Required"}
 													</span>
 													<p className="font-bold text-primary">
-														{isCredit && km.greeks?.theta != null
-															? `+₹${Math.abs(Number(km.greeks.theta)).toFixed(1)}/day`
-															: km.marginRequired != null
-																? `₹${Number(km.marginRequired).toLocaleString("en-IN")}`
-																: "—"}
+														{economics.isCredit && economics.theta != null
+															? `+₹${Math.abs(Number(economics.theta)).toFixed(1)}/day`
+															: `₹${Number(economics.marginRequired).toLocaleString("en-IN")}`}
 													</p>
 												</div>
 											</div>
@@ -8901,12 +9258,12 @@ function PicksTable({
 													currentSpot={curSpot}
 													legs={derivLegs}
 													lotSize={lotSize}
-													isCreditStrategy={isCredit}
-													netPremium={Number(km.netPremium || pick.recoPrice)}
-													maxProfit={km.maxProfit}
-													maxLoss={km.maxLoss}
-													breakeven={km.breakeven}
-													marginRequired={Number(km.marginRequired)}
+													isCreditStrategy={economics.isCredit}
+													netPremium={economics.netPremium}
+													maxProfit={economics.maxProfit}
+													maxLoss={economics.maxLoss}
+													breakeven={economics.breakeven ?? undefined}
+													marginRequired={economics.marginRequired}
 												/>
 											</div>
 										</td>
@@ -10135,159 +10492,220 @@ function PickCard({
 							</div>
 
 						{/* Derivative Multi-Leg Strategy & Payoff Architecture */}
-						{isDeriv && (
-							<div className="mt-3.5 p-3 rounded-lg border bg-gradient-to-br from-indigo-50/40 via-background to-purple-50/30 dark:from-indigo-950/20 dark:via-background dark:to-purple-950/20 border-indigo-200/80 dark:border-indigo-900/60 space-y-2.5">
-								<div className="flex items-center justify-between gap-2 flex-wrap">
-									<div className="flex items-center gap-1.5">
-										<Layers className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-										<span className="text-xs font-bold uppercase tracking-wider text-indigo-900 dark:text-indigo-200">
-											Strategy Legs & Payoff Architecture
-										</span>
-									</div>
-									<div className="flex items-center gap-2">
-										{(pick.keyMetrics as any)?.isCreditStrategy ? (
-											<Badge variant="outline" className="text-[10px] bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700 font-bold">
-												Net Credit: ₹{(pick.keyMetrics as any)?.netPremium ?? pick.recoPrice} / share
-											</Badge>
-										) : (
-											<Badge variant="outline" className="text-[10px] bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-400 border-sky-300 dark:border-sky-700 font-bold">
-												Net Debit: ₹{(pick.keyMetrics as any)?.netPremium ?? pick.recoPrice} / share
-											</Badge>
-										)}
-									</div>
-								</div>
+						{isDeriv && (() => {
+							const km = (pick.keyMetrics as any) || {};
+							const lotSize = Number(
+								km.lotSize || (pick.symbol?.toUpperCase().includes("BANK") ? 15 : 65),
+							);
+							const curSpot =
+								safeNum(km.spotPrice) ||
+								safeNum(effectiveLtp2) ||
+								safeNum(pick.currentPrice) ||
+								safeNum(pick.recoPrice) ||
+								25000;
+							const economics = computeDerivativeEconomics(
+								pick,
+								derivLegs,
+								lotSize,
+								curSpot,
+							);
+							const expiryFormatted = km.expiry
+								? new Date(km.expiry).toLocaleDateString("en-IN", {
+										day: "numeric",
+										month: "short",
+										year: "numeric",
+									})
+								: "11 Nov 2026";
 
-								{/* Multi-Leg Pills Grid */}
-								{derivLegs.length > 0 && (
-									<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-										{derivLegs.map((leg: any, idx: number) => {
-											const isSell = String(leg.action).toUpperCase() === "SELL";
-											return (
-												<div
-													key={idx}
-													className={`flex items-center justify-between p-2 rounded-md border text-xs font-mono ${
-														isSell
-															? "bg-rose-50/60 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/60 text-rose-950 dark:text-rose-200"
-															: "bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/60 text-emerald-950 dark:text-emerald-200"
-													}`}
-												>
-													<div className="flex items-center gap-1.5">
-														<span
-															className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-																isSell
-																	? "bg-rose-600 text-white"
-																	: "bg-emerald-600 text-white"
-															}`}
-														>
-															{isSell ? "SELL" : "BUY"}
-														</span>
-														<span className="font-semibold text-foreground">
-															{leg.quantity ?? 1}x
-														</span>
-														<Badge
-															variant="outline"
-															className={`text-[10px] font-bold px-1 py-0 ${
-																String(leg.type).toUpperCase() === "CE"
-																	? "border-blue-400 text-blue-700 dark:text-blue-300 bg-blue-50/50 dark:bg-blue-950/30"
-																	: "border-amber-400 text-amber-700 dark:text-amber-300 bg-amber-50/50 dark:bg-amber-950/30"
-															}`}
-														>
-															{leg.strikePrice ? `${leg.strikePrice} ` : ""}
-															{String(leg.type).toUpperCase()}
-														</Badge>
+							return (
+								<div className="mt-3.5 p-3 rounded-lg border bg-gradient-to-br from-indigo-50/40 via-background to-purple-50/30 dark:from-indigo-950/20 dark:via-background dark:to-purple-950/20 border-indigo-200/80 dark:border-indigo-900/60 space-y-2.5">
+									<div className="flex items-center justify-between gap-2 flex-wrap">
+										<div className="flex items-center gap-1.5">
+											<Layers className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+											<span className="text-xs font-bold uppercase tracking-wider text-indigo-900 dark:text-indigo-200">
+												Strategy Legs & Payoff Architecture
+											</span>
+										</div>
+										<Badge
+											variant="outline"
+											className={`text-[10px] font-bold ${
+												economics.isCredit
+													? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700"
+													: "bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-400 border-sky-300 dark:border-sky-700"
+											}`}
+										>
+											{economics.isCredit
+												? `Net Credit: ₹${economics.netPremium.toFixed(1)}/unit (Total: ₹${Math.round(economics.netPremium * lotSize).toLocaleString("en-IN")})`
+												: `Net Debit: ₹${economics.netPremium.toFixed(1)}/unit (Total: ₹${Math.round(economics.netPremium * lotSize).toLocaleString("en-IN")})`}
+										</Badge>
+									</div>
+
+									{/* Multi-Leg Pills Grid */}
+									{derivLegs.length > 0 && (
+										<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+											{derivLegs.map((leg: any, idx: number) => {
+												const isSell = String(leg.action).toUpperCase() === "SELL";
+												const isCE = String(leg.type).toUpperCase() === "CE";
+												const contractTicker = getLegContractName(pick.symbol || "NIFTY", leg);
+												const roleLabel = getLegRoleLabel(
+													leg,
+													idx,
+													km.strategy || pick.instrumentName,
+													curSpot,
+												);
+												return (
+													<div
+														key={idx}
+														className={`flex items-center justify-between p-2.5 rounded-lg border text-xs font-mono transition-colors ${
+															isSell
+																? "bg-rose-50/60 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/60 text-rose-950 dark:text-rose-200"
+																: "bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/60 text-emerald-950 dark:text-emerald-200"
+														}`}
+													>
+														<div className="flex-1 min-w-0 pr-2">
+															<div className="flex items-center gap-1.5 flex-wrap">
+																<span
+																	className={`text-[10px] font-bold px-1.5 py-0.5 rounded text-white ${
+																		isSell ? "bg-rose-600" : "bg-emerald-600"
+																	}`}
+																>
+																	{isSell ? "SELL" : "BUY"}
+																</span>
+																<span className="font-bold text-xs text-foreground tracking-tight">
+																	{contractTicker}
+																</span>
+																<Badge
+																	variant="outline"
+																	className={`text-[9.5px] font-bold px-1.5 py-0 ${
+																		isCE
+																			? "border-blue-400 text-blue-700 dark:text-blue-300 bg-blue-50/70 dark:bg-blue-950/40"
+																			: "border-amber-400 text-amber-700 dark:text-amber-300 bg-amber-50/70 dark:bg-amber-950/40"
+																	}`}
+																>
+																	{isCE ? "CALL (CE)" : "PUT (PE)"}
+																</Badge>
+															</div>
+															<div className="flex items-center gap-1 text-[10.5px] text-muted-foreground font-sans mt-0.5 flex-wrap">
+																<span className="font-medium text-foreground">
+																	{roleLabel}
+																</span>
+																<span>·</span>
+																<span>
+																	{leg.quantity ?? 1} Lot ({lotSize} Qty)
+																</span>
+																<span>·</span>
+																<span>Exp: {expiryFormatted}</span>
+															</div>
+														</div>
+														<div className="text-right shrink-0">
+															<div className="font-bold text-xs text-foreground">
+																{leg.premium != null
+																	? `₹${Number(leg.premium).toLocaleString("en-IN")}`
+																	: "Market"}
+																<span className="text-[10px] text-muted-foreground font-normal ml-0.5">
+																	/ unit
+																</span>
+															</div>
+															<div className="text-[10px] text-muted-foreground">
+																Leg Total:{" "}
+																<span className="font-semibold text-foreground">
+																	₹
+																	{leg.premium != null
+																		? Math.round(
+																				Number(leg.premium) * lotSize,
+																			).toLocaleString("en-IN")
+																		: "—"}
+																</span>
+															</div>
+														</div>
 													</div>
-													<div className="text-right">
-														<span className="text-[11px] font-bold">
-															{leg.premium != null ? `₹${leg.premium}` : "Market"}
-														</span>
-													</div>
-												</div>
-											);
-										})}
-									</div>
-								)}
+												);
+											})}
+										</div>
+									)}
 
-								{/* Analytical Economics Strip */}
-								<div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-indigo-100 dark:border-indigo-900/40 text-[11px]">
-									<div>
-										<span className="text-[10px] text-muted-foreground uppercase font-medium">Max Profit</span>
-										<p className="font-bold text-emerald-600 dark:text-emerald-400">
-											{(pick.keyMetrics as any)?.maxProfit === "Unlimited"
-												? "∞ Unlimited"
-												: (pick.keyMetrics as any)?.maxProfit != null
-													? `₹${Number((pick.keyMetrics as any).maxProfit).toLocaleString("en-IN")}`
-													: "—"}
-										</p>
+									{/* Analytical Economics Strip */}
+									<div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-indigo-100 dark:border-indigo-900/40 text-[11px]">
+										<div>
+											<span className="text-[10px] text-muted-foreground uppercase font-medium">Max Profit</span>
+											<p className="font-bold text-emerald-600 dark:text-emerald-400">
+												{economics.maxProfit === "Unlimited"
+													? "∞ Unlimited"
+													: typeof economics.maxProfit === "number"
+														? `₹${economics.maxProfit.toLocaleString("en-IN")}`
+														: "—"}
+											</p>
+										</div>
+										<div>
+											<span className="text-[10px] text-muted-foreground uppercase font-medium">Max Loss</span>
+											<p className="font-bold text-rose-600 dark:text-rose-400">
+												{economics.maxLoss === "Unlimited"
+													? "∞ Unlimited"
+													: typeof economics.maxLoss === "number"
+														? `₹${economics.maxLoss.toLocaleString("en-IN")}`
+														: "—"}
+											</p>
+										</div>
+										<div>
+											<span className="text-[10px] text-muted-foreground uppercase font-medium">Breakeven</span>
+											<p className="font-bold text-foreground">
+												{Array.isArray(economics.breakeven)
+													? economics.breakeven
+															.map((b: number) => `₹${Number(b).toLocaleString("en-IN")}`)
+															.join(" – ")
+													: typeof economics.breakeven === "number"
+														? `₹${Number(economics.breakeven).toLocaleString("en-IN")}`
+														: "—"}
+											</p>
+										</div>
+										<div>
+											<span className="text-[10px] text-muted-foreground uppercase font-medium">
+												{economics.isCredit ? "Daily Theta Decay" : "Capital / Margin Required"}
+											</span>
+											<p className="font-bold text-primary">
+												{economics.isCredit && economics.theta != null
+													? `+₹${Math.abs(Number(economics.theta)).toFixed(1)}/day`
+													: `₹${Number(economics.marginRequired).toLocaleString("en-IN")}`}
+											</p>
+										</div>
 									</div>
-									<div>
-										<span className="text-[10px] text-muted-foreground uppercase font-medium">Max Loss</span>
-										<p className="font-bold text-rose-600 dark:text-rose-400">
-											{(pick.keyMetrics as any)?.maxLoss === "Unlimited"
-												? "∞ Unlimited"
-												: (pick.keyMetrics as any)?.maxLoss != null
-													? `₹${Number((pick.keyMetrics as any).maxLoss).toLocaleString("en-IN")}`
-													: "—"}
-										</p>
-									</div>
-									<div>
-										<span className="text-[10px] text-muted-foreground uppercase font-medium">Breakeven</span>
-										<p className="font-bold text-foreground">
-											{Array.isArray((pick.keyMetrics as any)?.breakeven)
-												? (pick.keyMetrics as any).breakeven.map((b: number) => `₹${b.toLocaleString("en-IN")}`).join(" – ")
-												: (pick.keyMetrics as any)?.breakeven != null
-													? `₹${(pick.keyMetrics as any).breakeven}`
-													: "—"}
-										</p>
-									</div>
-									<div>
-										<span className="text-[10px] text-muted-foreground uppercase font-medium">
-											{(pick.keyMetrics as any)?.isCreditStrategy ? "Daily Theta Decay" : "SPAN Margin"}
-										</span>
-										<p className="font-bold text-primary">
-											{(pick.keyMetrics as any)?.isCreditStrategy && (pick.keyMetrics as any)?.greeks?.theta != null
-												? `+₹${Math.abs(Number((pick.keyMetrics as any).greeks.theta)).toFixed(1)}/day`
-												: (pick.keyMetrics as any)?.marginRequired != null
-													? `₹${Number((pick.keyMetrics as any).marginRequired).toLocaleString("en-IN")}`
-													: "—"}
-										</p>
+
+									{/* Interactive Expiry Payoff Simulator */}
+									{derivLegs.length > 0 && (
+										<div className="pt-1.5">
+											<DerivativePayoffSimulator
+												symbol={pick.symbol || "NIFTY"}
+												currentSpot={curSpot}
+												legs={derivLegs}
+												lotSize={lotSize}
+												isCreditStrategy={economics.isCredit}
+												netPremium={economics.netPremium}
+												maxProfit={economics.maxProfit}
+												maxLoss={economics.maxLoss}
+												breakeven={economics.breakeven ?? undefined}
+												marginRequired={economics.marginRequired}
+											/>
+										</div>
+									)}
+
+									{/* 1-Tap Basket Order Execution CTA */}
+									<div className="pt-1">
+										<Button
+											type="button"
+											size="sm"
+											onClick={(e) => {
+												e.stopPropagation();
+												setIsBasketModalOpen(true);
+											}}
+											className="w-full h-8 text-xs font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white flex items-center justify-center gap-1.5 shadow-sm"
+										>
+											<Layers className="h-3.5 w-3.5" />
+											Execute {km.strategy || "Multi-Leg"} Basket ({derivLegs.length} Legs)
+										</Button>
 									</div>
 								</div>
-
-								{/* Interactive Expiry Payoff Simulator */}
-								{derivLegs.length > 0 && (
-									<div className="pt-1.5">
-										<DerivativePayoffSimulator
-											symbol={pick.symbol || "NIFTY"}
-											currentSpot={effectiveLtp2}
-											legs={derivLegs}
-											lotSize={Number((pick.keyMetrics as any)?.lotSize || 65)}
-											isCreditStrategy={(pick.keyMetrics as any)?.isCreditStrategy}
-											netPremium={Number((pick.keyMetrics as any)?.netPremium || pick.recoPrice)}
-											maxProfit={(pick.keyMetrics as any)?.maxProfit}
-											maxLoss={(pick.keyMetrics as any)?.maxLoss}
-											breakeven={(pick.keyMetrics as any)?.breakeven}
-											marginRequired={Number((pick.keyMetrics as any)?.marginRequired)}
-										/>
-									</div>
-								)}
-
-								{/* 1-Tap Basket Order Execution CTA */}
-								<div className="pt-1">
-									<Button
-										type="button"
-										size="sm"
-										onClick={(e) => {
-											e.stopPropagation();
-											setIsBasketModalOpen(true);
-										}}
-										className="w-full h-8 text-xs font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white flex items-center justify-center gap-1.5 shadow-sm"
-									>
-										<Layers className="h-3.5 w-3.5" />
-										Execute {(pick.keyMetrics as any)?.strategy || "Multi-Leg"} Basket ({derivLegs.length} Legs)
-									</Button>
-								</div>
-							</div>
-						)}
+							);
+						})()}
 
 						{/* Inline Sizing Calculator — adapted for Pre-IPO & Derivatives (lots / ticket size) */}
 						{(() => {

@@ -188,9 +188,9 @@ export const DerivativePayoffSimulator: React.FC<DerivativePayoffSimulatorProps>
 				<div className="p-3 pt-1 space-y-3 border-t border-indigo-100 dark:border-indigo-900/40">
 					{/* Interactive Price Scrubber */}
 					<div className="p-2.5 rounded-md bg-muted/40 border space-y-2">
-						<div className="flex items-center justify-between flex-wrap gap-1">
-							<div className="flex items-center gap-1.5">
-								<Sliders className="h-3.5 w-3.5 text-primary" />
+						<div className="flex items-center justify-between flex-wrap gap-2 min-w-0">
+							<div className="flex items-center gap-1.5 flex-wrap min-w-0">
+								<Sliders className="h-3.5 w-3.5 text-primary shrink-0" />
 								<span className="text-[11px] font-semibold text-foreground">
 									Simulated {symbol} Price at Expiry:
 								</span>
@@ -201,7 +201,7 @@ export const DerivativePayoffSimulator: React.FC<DerivativePayoffSimulatorProps>
 									({Number(simDiffPct) >= 0 ? "+" : ""}{simDiffPct}%)
 								</span>
 							</div>
-							<div className="flex items-center gap-1.5">
+							<div className="flex items-center gap-1.5 flex-wrap shrink-0">
 								<span className="text-[10px] text-muted-foreground uppercase font-semibold">
 									Simulated P&L:
 								</span>
@@ -211,9 +211,9 @@ export const DerivativePayoffSimulator: React.FC<DerivativePayoffSimulatorProps>
 									}`}
 								>
 									{currentSimPnl >= 0 ? (
-										<TrendingUp className="h-3 w-3" />
+										<TrendingUp className="h-3 w-3 shrink-0" />
 									) : (
-										<TrendingDown className="h-3 w-3" />
+										<TrendingDown className="h-3 w-3 shrink-0" />
 									)}
 									{currentSimPnl >= 0 ? "+" : ""}₹{currentSimPnl.toLocaleString("en-IN")}
 									<span className="text-[10px] font-normal ml-0.5">
