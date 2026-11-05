@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import {
 	SectorBarSegment,
 	SectorDot,
@@ -125,7 +125,10 @@ import {
 	ReferenceLine,
 } from "recharts";
 
-import { DerivativePayoffSimulator } from "@/components/picks/DerivativePayoffSimulator";
+import {
+	DerivativePayoffSimulator,
+	type StrategyLegItem,
+} from "@/components/picks/DerivativePayoffSimulator";
 import { SlideToConfirmOrderModal } from "@/components/picks/SlideToConfirmOrderModal";
 import { PartnerClientDispatchModal } from "@/components/picks/PartnerClientDispatchModal";
 
@@ -625,6 +628,347 @@ function groupByBroadSector(picks: DailyPick[]): SectorGroup[] {
 	return result;
 }
 
+/**
+ * Resolves or synthesizes institutional strategy legs for derivatives picks.
+ * Guarantees legs (CE/PE, strike, action, premium) are always accessible in both
+ * table and card views even if keyMetrics was only partially populated.
+ */
+export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
+	if (
+		Array.isArray((pick.keyMetrics as any)?.legs) &&
+		(pick.keyMetrics as any).legs.length > 0
+	) {
+		return (pick.keyMetrics as any).legs;
+	}
+
+	if (pick.category !== "derivatives" && !(pick.keyMetrics as any)?.strategy) {
+		return [];
+	}
+
+	const stratName =
+		(pick.keyMetrics as any)?.strategy || pick.instrumentName || "";
+	const spot =
+		safeNum((pick.keyMetrics as any)?.spotPrice) ||
+		safeNum(pick.currentPrice) ||
+		safeNum(pick.recoPrice) ||
+		25000;
+	const symbol = (pick.symbol || "NIFTY").toUpperCase();
+	const strikeInterval = symbol.includes("BANK")
+		? 100
+		: symbol.includes("FIN")
+			? 50
+			: symbol.includes("MIDCP")
+				? 25
+				: symbol.includes("SENSEX")
+					? 100
+					: 50;
+	const atmStrike = Math.round(spot / strikeInterval) * strikeInterval;
+	const lotSize = Number(
+		(pick.keyMetrics as any)?.lotSize || (symbol.includes("BANK") ? 15 : 65),
+	);
+	const rawReco = safeNum(pick.recoPrice);
+	const entryPrem =
+		safeNum((pick.keyMetrics as any)?.premiumPerUnit) ||
+		(rawReco > 0 ? (rawReco > 1000 ? Math.round(rawReco / lotSize) : rawReco) : 220);
+
+	const lower = stratName.toLowerCase();
+	if (lower.includes("straddle")) {
+		const isLong = !lower.includes("short");
+		const act = isLong ? "BUY" : "SELL";
+		const half = Math.round((entryPrem / 2) * 10) / 10 || 110;
+		return [
+			{
+				action: act,
+				type: "CE",
+				strikePrice: atmStrike,
+				quantity: 1,
+				premium: half,
+			},
+			{
+				action: act,
+				type: "PE",
+				strikePrice: atmStrike,
+				quantity: 1,
+				premium: half,
+			},
+		];
+	}
+	if (lower.includes("bull call spread")) {
+		return [
+			{
+				action: "BUY",
+				type: "CE",
+				strikePrice: atmStrike,
+				quantity: 1,
+				premium: Math.round(entryPrem * 1.6),
+			},
+			{
+				action: "SELL",
+				type: "CE",
+				strikePrice: atmStrike + strikeInterval,
+				quantity: 1,
+				premium: Math.round(entryPrem * 0.6),
+			},
+		];
+	}
+	if (lower.includes("bear put spread")) {
+		return [
+			{
+				action: "BUY",
+				type: "PE",
+				strikePrice: atmStrike,
+				quantity: 1,
+				premium: Math.round(entryPrem * 1.6),
+			},
+			{
+				action: "SELL",
+				type: "PE",
+				strikePrice: atmStrike - strikeInterval,
+				quantity: 1,
+				premium: Math.round(entryPrem * 0.6),
+			},
+		];
+	}
+	if (lower.includes("bull put spread")) {
+		return [
+			{
+				action: "SELL",
+				type: "PE",
+				strikePrice: atmStrike,
+				quantity: 1,
+				premium: Math.round(entryPrem * 1.8),
+			},
+			{
+				action: "BUY",
+				type: "PE",
+				strikePrice: atmStrike - strikeInterval,
+				quantity: 1,
+				premium: Math.round(entryPrem * 0.8),
+			},
+		];
+	}
+	if (lower.includes("bear call spread")) {
+		return [
+			{
+				action: "SELL",
+				type: "CE",
+				strikePrice: atmStrike,
+				quantity: 1,
+				premium: Math.round(entryPrem * 1.8),
+			},
+			{
+				action: "BUY",
+				type: "CE",
+				strikePrice: atmStrike + strikeInterval,
+				quantity: 1,
+				premium: Math.round(entryPrem * 0.8),
+			},
+		];
+	}
+	if (lower.includes("iron condor")) {
+		return [
+			{
+				action: "BUY",
+				type: "PE",
+				strikePrice: atmStrike - strikeInterval * 2,
+				quantity: 1,
+				premium: Math.round(entryPrem * 0.4),
+			},
+			{
+				action: "SELL",
+				type: "PE",
+				strikePrice: atmStrike - strikeInterval,
+				quantity: 1,
+				premium: Math.round(entryPrem * 0.9),
+			},
+			{
+				action: "SELL",
+				type: "CE",
+				strikePrice: atmStrike + strikeInterval,
+				quantity: 1,
+				premium: Math.round(entryPrem * 0.9),
+			},
+			{
+				action: "BUY",
+				type: "CE",
+				strikePrice: atmStrike + strikeInterval * 2,
+				quantity: 1,
+				premium: Math.round(entryPrem * 0.4),
+			},
+		];
+	}
+	if (lower.includes("iron butterfly")) {
+		return [
+			{
+				action: "BUY",
+				type: "PE",
+				strikePrice: atmStrike - strikeInterval,
+				quantity: 1,
+				premium: Math.round(entryPrem * 0.5),
+			},
+			{
+				action: "SELL",
+				type: "PE",
+				strikePrice: atmStrike,
+				quantity: 1,
+				premium: Math.round(entryPrem * 1.0),
+			},
+			{
+				action: "SELL",
+				type: "CE",
+				strikePrice: atmStrike,
+				quantity: 1,
+				premium: Math.round(entryPrem * 1.0),
+			},
+			{
+				action: "BUY",
+				type: "CE",
+				strikePrice: atmStrike + strikeInterval,
+				quantity: 1,
+				premium: Math.round(entryPrem * 0.5),
+			},
+		];
+	}
+	if (lower.includes("strangle")) {
+		const isLong = !lower.includes("short");
+		const act = isLong ? "BUY" : "SELL";
+		const half = Math.round((entryPrem / 2) * 10) / 10 || 80;
+		return [
+			{
+				action: act,
+				type: "PE",
+				strikePrice: atmStrike - strikeInterval,
+				quantity: 1,
+				premium: half,
+			},
+			{
+				action: act,
+				type: "CE",
+				strikePrice: atmStrike + strikeInterval,
+				quantity: 1,
+				premium: half,
+			},
+		];
+	}
+	if (lower.includes("call")) {
+		const act = lower.includes("short") ? "SELL" : "BUY";
+		return [
+			{
+				action: act,
+				type: "CE",
+				strikePrice: atmStrike,
+				quantity: 1,
+				premium: entryPrem,
+			},
+		];
+	}
+	if (lower.includes("put")) {
+		const act = lower.includes("short") ? "SELL" : "BUY";
+		return [
+			{
+				action: act,
+				type: "PE",
+				strikePrice: atmStrike,
+				quantity: 1,
+				premium: entryPrem,
+			},
+		];
+	}
+
+	// Default fallback: 2-leg ATM structure
+	const half = Math.round((entryPrem / 2) * 10) / 10 || 110;
+	return [
+		{
+			action: "BUY",
+			type: "CE",
+			strikePrice: atmStrike,
+			quantity: 1,
+			premium: half,
+		},
+		{
+			action: "BUY",
+			type: "PE",
+			strikePrice: atmStrike,
+			quantity: 1,
+			premium: half,
+		},
+	];
+}
+
+/**
+ * Standardized client advisory and WhatsApp broadcast dispatch message formatter.
+ */
+export function buildWhatsappFormattedMessage(pick: DailyPick): string {
+	const cur = getCurrencySymbol(pick.category);
+	const km = (pick.keyMetrics as any) || {};
+	const gmp = km.gmpPercentage;
+	const ipoDateStr = km.expectedIpoDate
+		? new Date(km.expectedIpoDate).toLocaleDateString("en-IN")
+		: null;
+	const _rec = safeNum(pick.recoPrice);
+	const _tgt = safeNum(pick.targetPrice);
+	const _sl = safeNum(pick.stoplossPrice);
+	const upside =
+		_tgt && _rec ? (((_tgt - _rec) / _rec) * 100).toFixed(1) : "0.0";
+	const downside =
+		_sl && _rec ? (((_rec - _sl) / _rec) * 100).toFixed(1) : "0.0";
+
+	if (isPreIpoPick(pick)) {
+		return (
+			`🚀 *Pre-IPO: ${pick.instrumentName}*\n` +
+			`OTC Entry Price: ${cur}${_rec.toLocaleString("en-IN")}\n` +
+			`IPO/Fair Value Target: ${cur}${_tgt.toLocaleString("en-IN")} (+${upside}%)\n` +
+			(gmp != null ? `GMP: +${gmp}%\n` : "") +
+			(ipoDateStr ? `Expected IPO Date: ${ipoDateStr}\n` : "") +
+			(pick.confidenceScore
+				? `AI Confidence: ${pick.confidenceScore}%\n`
+				: "") +
+			`\n⚠️ _High risk. Illiquid. Not listed on any exchange. Subject to SEBI regulations. This is NOT investment advice._\n` +
+			`\n_Powered by FintekPro AI_`
+		);
+	}
+
+	const isDeriv =
+		pick.category === "derivatives" || Boolean(km.strategy);
+	const legs = isDeriv ? extractDerivativeLegs(pick) : [];
+	const legsFormatted =
+		legs.length > 0
+			? legs
+					.map(
+						(l) =>
+							`${String(l.action).toUpperCase()} ${l.quantity ?? 1}x ${l.type} @${l.strikePrice ?? "ATM"} (₹${l.premium ?? "Mkt"})`,
+					)
+					.join(" | ")
+			: null;
+	const derivDetails =
+		isDeriv && legsFormatted
+			? `Strategy Type: ${km.strategyType || (km.isCreditStrategy ? "SELLER" : "BUYER")}\n` +
+				`Legs: ${legsFormatted}\n` +
+				(km.maxProfit
+					? `Max Profit: ${km.maxProfit === "Unlimited" ? "∞" : `₹${Number(km.maxProfit).toLocaleString("en-IN")}`}\n`
+					: "") +
+				(km.maxLoss
+					? `Max Loss: ${km.maxLoss === "Unlimited" ? "∞" : `₹${Number(km.maxLoss).toLocaleString("en-IN")}`}\n`
+					: "")
+			: "";
+
+	return (
+		`📊 *${pick.instrumentName}${pick.symbol ? ` (${pick.symbol})` : ""}*\n` +
+		`Category: ${categoryLabels[pick.category] || pick.category}\n` +
+		`Entry: ${cur}${_rec.toLocaleString("en-IN")}\n` +
+		`Target: ${cur}${_tgt.toLocaleString("en-IN")} (${km.isCreditStrategy ? "Profit Target" : `+${upside}%`})\n` +
+		`Stoploss: ${cur}${_sl.toLocaleString("en-IN")} (${km.isCreditStrategy ? "Stop Level" : `-${downside}%`})\n` +
+		derivDetails +
+		(pick.timeHorizon
+			? `Horizon: ${horizonConfig[pick.timeHorizon]?.label || pick.timeHorizon}\n`
+			: "") +
+		(pick.confidenceScore
+			? `AI Confidence: ${pick.confidenceScore}%\n`
+			: "") +
+		`\n_Powered by FintekPro AI_`
+	);
+}
+
 const marketFilters = [
 	{ key: "all", label: "All Markets" },
 	{ key: "us", label: "US Stocks" },
@@ -743,6 +1087,8 @@ export default function AgentPicksPage() {
 	const [selectedAIStock, setSelectedAIStock] =
 		useState<AIStockRecommendation | null>(null);
 	const [selectedPick, setSelectedPick] = useState<DailyPick | null>(null);
+	const [sheetBasketModalPick, setSheetBasketModalPick] = useState<DailyPick | null>(null);
+	const [sheetDispatchModalPick, setSheetDispatchModalPick] = useState<DailyPick | null>(null);
 	const [explanationOpen, setExplanationOpen] = useState(false);
 	const [explainingPickId, setExplanationPickId] = useState<number | null>(
 		null,
@@ -6568,6 +6914,204 @@ export default function AgentPicksPage() {
 									) : null;
 								})()}
 
+							{/* Derivative Strategy Legs & Payoff Architecture in Sheet */}
+							{(() => {
+								const isDeriv =
+									selectedPick.category === "derivatives" ||
+									Boolean((selectedPick.keyMetrics as any)?.strategy);
+								if (!isDeriv) return null;
+								const legs = extractDerivativeLegs(selectedPick);
+								const km = (selectedPick.keyMetrics as any) || {};
+								const lotSize = Number(
+									km.lotSize ||
+										(selectedPick.symbol?.toUpperCase().includes("BANK") ? 15 : 65),
+								);
+								const curSpot =
+									safeNum(km.spotPrice) ||
+									safeNum(selectedPick.currentPrice) ||
+									safeNum(selectedPick.recoPrice) ||
+									25000;
+								const isCredit = km.isCreditStrategy === true;
+
+								return (
+									<div className="space-y-3 p-3.5 rounded-lg border bg-gradient-to-br from-indigo-50/40 via-background to-purple-50/30 dark:from-indigo-950/25 dark:via-background dark:to-purple-950/20 border-indigo-200/80 dark:border-indigo-900/60">
+										<div className="flex items-center justify-between gap-2 flex-wrap">
+											<div className="flex items-center gap-1.5">
+												<Layers className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+												<span className="text-xs font-bold uppercase tracking-wider text-indigo-900 dark:text-indigo-200">
+													Strategy Legs & Payoff Architecture
+												</span>
+											</div>
+											<Badge
+												variant="outline"
+												className={`text-[10px] font-bold ${
+													isCredit
+														? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700"
+														: "bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-400 border-sky-300 dark:border-sky-700"
+												}`}
+											>
+												{isCredit
+													? `Net Credit: ₹${km.premiumPerUnit ?? km.netPremium ?? selectedPick.recoPrice}`
+													: `Net Debit: ₹${km.premiumPerUnit ?? km.netPremium ?? selectedPick.recoPrice}`}{" "}
+												/ unit
+											</Badge>
+										</div>
+
+										{/* Multi-Leg Pills Grid */}
+										{legs.length > 0 && (
+											<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+												{legs.map((leg, idx) => {
+													const isSell =
+														String(leg.action).toUpperCase() === "SELL";
+													const isCE = String(leg.type).toUpperCase() === "CE";
+													return (
+														<div
+															key={idx}
+															className={`flex items-center justify-between p-2 rounded-md border text-xs font-mono ${
+																isSell
+																	? "bg-rose-50/60 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/60 text-rose-950 dark:text-rose-200"
+																	: "bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/60 text-emerald-950 dark:text-emerald-200"
+															}`}
+														>
+															<div className="flex items-center gap-1.5">
+																<span
+																	className={`text-[10px] font-bold px-1.5 py-0.5 rounded text-white ${
+																		isSell ? "bg-rose-600" : "bg-emerald-600"
+																	}`}
+																>
+																	{isSell ? "SELL" : "BUY"}
+																</span>
+																<span className="font-semibold text-foreground">
+																	{leg.quantity ?? 1}x
+																</span>
+																<Badge
+																	variant="outline"
+																	className={`text-[10px] font-bold px-1 py-0 ${
+																		isCE
+																			? "border-blue-400 text-blue-700 dark:text-blue-300 bg-blue-50/50 dark:bg-blue-950/30"
+																			: "border-amber-400 text-amber-700 dark:text-amber-300 bg-amber-50/50 dark:bg-amber-950/30"
+																	}`}
+																>
+																	{leg.strikePrice ? `${leg.strikePrice} ` : ""}
+																	{String(leg.type).toUpperCase()}
+																</Badge>
+															</div>
+															<div className="text-right">
+																<span className="text-[11px] font-bold">
+																	{leg.premium != null
+																		? `₹${leg.premium}`
+																		: "Market"}
+																</span>
+															</div>
+														</div>
+													);
+												})}
+											</div>
+										)}
+
+										{/* Analytical Economics Strip */}
+										<div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-indigo-100 dark:border-indigo-900/40 text-[11px]">
+											<div>
+												<span className="text-[10px] text-muted-foreground uppercase font-medium">
+													Max Profit
+												</span>
+												<p className="font-bold text-emerald-600 dark:text-emerald-400">
+													{km.maxProfit === "Unlimited"
+														? "∞ Unlimited"
+														: km.maxProfit != null
+															? `₹${Number(km.maxProfit).toLocaleString("en-IN")}`
+															: "—"}
+												</p>
+											</div>
+											<div>
+												<span className="text-[10px] text-muted-foreground uppercase font-medium">
+													Max Loss
+												</span>
+												<p className="font-bold text-rose-600 dark:text-rose-400">
+													{km.maxLoss === "Unlimited"
+														? "∞ Unlimited"
+														: km.maxLoss != null
+															? `₹${Number(km.maxLoss).toLocaleString("en-IN")}`
+															: "—"}
+												</p>
+											</div>
+											<div>
+												<span className="text-[10px] text-muted-foreground uppercase font-medium">
+													Breakeven
+												</span>
+												<p className="font-bold text-foreground">
+													{Array.isArray(km.breakeven)
+														? km.breakeven
+																.map(
+																	(b: number) =>
+																		`₹${Number(b).toLocaleString("en-IN")}`,
+																)
+																.join(" – ")
+														: km.breakeven != null
+															? `₹${Number(km.breakeven).toLocaleString("en-IN")}`
+															: "—"}
+												</p>
+											</div>
+											<div>
+												<span className="text-[10px] text-muted-foreground uppercase font-medium">
+													{isCredit ? "Daily Theta Decay" : "SPAN Margin"}
+												</span>
+												<p className="font-bold text-primary">
+													{isCredit && km.greeks?.theta != null
+														? `+₹${Math.abs(Number(km.greeks.theta)).toFixed(1)}/day`
+														: km.marginRequired != null
+															? `₹${Number(km.marginRequired).toLocaleString("en-IN")}`
+															: "—"}
+												</p>
+											</div>
+										</div>
+
+										{/* Interactive Expiry Payoff Simulator */}
+										{legs.length > 0 && (
+											<div className="pt-1.5">
+												<DerivativePayoffSimulator
+													symbol={selectedPick.symbol || "NIFTY"}
+													currentSpot={curSpot}
+													legs={legs}
+													lotSize={lotSize}
+													isCreditStrategy={isCredit}
+													netPremium={Number(
+														km.netPremium || selectedPick.recoPrice,
+													)}
+													maxProfit={km.maxProfit}
+													maxLoss={km.maxLoss}
+													breakeven={km.breakeven}
+													marginRequired={Number(km.marginRequired)}
+												/>
+											</div>
+										)}
+
+										{/* 1-Tap Basket Order Execution & Dispatch CTAs */}
+										<div className="pt-1 flex items-center gap-2">
+											<Button
+												type="button"
+												size="sm"
+												variant="outline"
+												onClick={() => setSheetDispatchModalPick(selectedPick)}
+												className="flex-1 h-8 text-xs gap-1"
+											>
+												<Share2 className="h-3.5 w-3.5" />
+												Dispatch Advisory
+											</Button>
+											<Button
+												type="button"
+												size="sm"
+												onClick={() => setSheetBasketModalPick(selectedPick)}
+												className="flex-1 h-8 text-xs font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white gap-1.5 shadow-sm"
+											>
+												<Zap className="h-3.5 w-3.5" />
+												Execute Basket ({legs.length} Legs)
+											</Button>
+										</div>
+									</div>
+								);
+							})()}
+
 							{/* Key Metrics */}
 							{selectedPick.keyMetrics &&
 								Object.keys(selectedPick.keyMetrics).length > 0 && (
@@ -6847,6 +7391,45 @@ export default function AgentPicksPage() {
 						</div>
 					</SheetContent>
 				</Sheet>
+			)}
+
+			{/* Slide to Confirm Basket Modal for Sheet View */}
+			{sheetBasketModalPick && (
+				<SlideToConfirmOrderModal
+					isOpen={!!sheetBasketModalPick}
+					onClose={() => setSheetBasketModalPick(null)}
+					strategyName={
+						(sheetBasketModalPick.keyMetrics as any)?.strategy ||
+						sheetBasketModalPick.instrumentName
+					}
+					symbol={sheetBasketModalPick.symbol || "NIFTY"}
+					legs={extractDerivativeLegs(sheetBasketModalPick)}
+					lotSize={Number(
+						(sheetBasketModalPick.keyMetrics as any)?.lotSize ||
+							(sheetBasketModalPick.symbol?.toUpperCase().includes("BANK")
+								? 15
+								: 65),
+					)}
+					recoPrice={sheetBasketModalPick.recoPrice}
+					isCreditStrategy={
+						(sheetBasketModalPick.keyMetrics as any)?.isCreditStrategy === true
+					}
+					marginRequired={Number(
+						(sheetBasketModalPick.keyMetrics as any)?.marginRequired,
+					)}
+					maxProfit={(sheetBasketModalPick.keyMetrics as any)?.maxProfit}
+					maxLoss={(sheetBasketModalPick.keyMetrics as any)?.maxLoss}
+				/>
+			)}
+
+			{/* 1-Click Client Advisory Dispatch Modal for Sheet View */}
+			{sheetDispatchModalPick && (
+				<PartnerClientDispatchModal
+					isOpen={!!sheetDispatchModalPick}
+					onClose={() => setSheetDispatchModalPick(null)}
+					pick={sheetDispatchModalPick}
+					formattedMessage={buildWhatsappFormattedMessage(sheetDispatchModalPick)}
+				/>
 			)}
 
 			{/* XAI Explanation Dialog */}
@@ -7677,10 +8260,13 @@ interface PicksTableProps {
 function PicksTable({
 	picks,
 	onRowClick,
-	showReturn = false,
+	showReturn: _showReturn = false,
 }: PicksTableProps) {
 	const [sortCol, setSortCol] = useState<string>("recoDate");
 	const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+	const [expandedPickId, setExpandedPickId] = useState<number | null>(null);
+	const [basketModalPick, setBasketModalPick] = useState<DailyPick | null>(null);
+	const [dispatchModalPick, setDispatchModalPick] = useState<DailyPick | null>(null);
 
 	const handleSort = (col: string) => {
 		if (sortCol === col) {
@@ -7855,134 +8441,521 @@ function PicksTable({
 						const horizon = pick.timeHorizon
 							? horizonConfig[pick.timeHorizon]
 							: null;
+						const isDeriv =
+							pick.category === "derivatives" ||
+							Boolean((pick.keyMetrics as any)?.strategy);
+						const derivLegs = isDeriv ? extractDerivativeLegs(pick) : [];
+						const isExpanded = isDeriv && expandedPickId === pick.id;
+						const km = (pick.keyMetrics as any) || {};
+						const lotSize = Number(
+							km.lotSize ||
+								(pick.symbol?.toUpperCase().includes("BANK") ? 15 : 65),
+						);
+						const curSpot =
+							safeNum(km.spotPrice) ||
+							safeNum(pick.currentPrice) ||
+							safeNum(pick.recoPrice) ||
+							25000;
 
 						return (
-							<tr
-								key={pick.id}
-								onClick={() => onRowClick?.(pick)}
-								className={`border-t transition-colors ${onRowClick ? "cursor-pointer hover:bg-accent/40" : ""} ${idx % 2 === 0 ? "" : "bg-muted/20"}`}
-							>
-								<td className="px-3 py-2.5 text-muted-foreground text-xs">
-									{idx + 1}
-								</td>
-								<td className="px-3 py-2.5 max-w-[200px]">
-									<div className="font-semibold text-foreground truncate leading-tight">
-										{pick.instrumentName}
-									</div>
-									{pick.symbol && (
-										<div className="text-[10px] text-muted-foreground">
-											{pick.symbol}
-											{pick.exchange ? ` · ${pick.exchange}` : ""}
+							<Fragment key={pick.id}>
+								<tr
+									onClick={() => onRowClick?.(pick)}
+									className={`border-t transition-colors ${onRowClick ? "cursor-pointer hover:bg-accent/40" : ""} ${idx % 2 === 0 ? "" : "bg-muted/20"}`}
+								>
+									<td className="px-3 py-2.5 text-muted-foreground text-xs">
+										{idx + 1}
+									</td>
+									<td className="px-3 py-2.5 min-w-[210px] max-w-[340px]">
+										<div className="font-semibold text-foreground truncate leading-tight flex items-center gap-1.5">
+											<span className="truncate">{pick.instrumentName}</span>
+											{isDeriv && derivLegs.length > 0 && (
+												<Badge
+													variant="outline"
+													className="text-[9px] px-1 py-0 h-4 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 font-bold shrink-0"
+												>
+													{derivLegs.length} Legs
+												</Badge>
+											)}
 										</div>
-									)}
-								</td>
-								<td className="px-3 py-2.5 whitespace-nowrap">
-									{stageInfo ? (
-										<TooltipProvider>
-											<Tooltip>
-												<TooltipTrigger asChild>
-													<span
-														className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border cursor-help ${stageInfo.badgeBg} ${stageInfo.badgeText} ${stageInfo.badgeBorder}`}
-													>
-														<span className={`w-1.5 h-1.5 rounded-full ${stageInfo.dotColor}`} />
-														{stageInfo.badgeLabel}
-													</span>
-												</TooltipTrigger>
-												<TooltipContent className="text-xs max-w-[240px]">
-													<p className="font-semibold">{stageInfo.label}</p>
-													<p className="text-[11px] text-muted-foreground mt-0.5">{stageInfo.actOrRegulation}</p>
-													<p className="text-[10px] text-muted-foreground mt-1">{stageInfo.description}</p>
-												</TooltipContent>
-											</Tooltip>
-										</TooltipProvider>
-									) : (
-										<Badge variant="outline" className="text-[10px] px-1.5 py-0">
-											{catLabel}
-										</Badge>
-									)}
-								</td>
-								<td className="px-3 py-2.5 whitespace-nowrap">
-									<span
-										className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${status.color}`}
-									>
-										{status.label}
-									</span>
-								</td>
-								<td className="px-3 py-2.5 text-right font-mono text-xs whitespace-nowrap">
-									{formatPrice(pick.recoPrice, pick.category)}
-								</td>
-								<td className="px-3 py-2.5 text-right font-mono text-xs whitespace-nowrap font-bold text-blue-600 dark:text-blue-400">
-									{formatPrice(_cur, pick.category)}
-								</td>
-								<td className="px-3 py-2.5 text-right font-mono text-xs whitespace-nowrap text-emerald-600 dark:text-emerald-400">
-									{formatPrice(pick.targetPrice, pick.category)}
-								</td>
-								<td className="px-3 py-2.5 text-right font-mono text-xs whitespace-nowrap text-red-500 dark:text-red-400">
-									{formatPrice(pick.stoplossPrice, pick.category)}
-								</td>
-								<td className="px-3 py-2.5 text-right whitespace-nowrap">
-									{upsidePct !== null ? (
+										{pick.symbol && (
+											<div className="text-[10px] text-muted-foreground">
+												{pick.symbol}
+												{pick.exchange ? ` · ${pick.exchange}` : ""}
+											</div>
+										)}
+
+										{/* Derivative Strategy Legs Pills inline under symbol */}
+										{isDeriv && derivLegs.length > 0 && (
+											<div className="mt-1.5 flex flex-wrap items-center gap-1">
+												{derivLegs.map((leg, li) => {
+													const isSell =
+														String(leg.action).toUpperCase() === "SELL";
+													const isCE =
+														String(leg.type).toUpperCase() === "CE";
+													return (
+														<span
+															key={li}
+															className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-mono font-semibold border shadow-2xs ${
+																isSell
+																	? "bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-200 dark:border-rose-900/60"
+																	: "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-900/60"
+															}`}
+															title={`${isSell ? "Sell" : "Buy"} ${leg.quantity ?? 1}x ${leg.strikePrice ?? ""} ${leg.type} @ ₹${leg.premium ?? "Mkt"}`}
+														>
+															<span
+																className={`px-1 py-0.2 rounded text-[8.5px] font-bold text-white ${
+																	isSell ? "bg-rose-600" : "bg-emerald-600"
+																}`}
+															>
+																{isSell ? "SELL" : "BUY"}
+															</span>
+															{leg.strikePrice ? (
+																<span className="font-bold">
+																	{leg.strikePrice}
+																</span>
+															) : null}
+															<span
+																className={`font-bold ${
+																	isCE
+																		? "text-blue-600 dark:text-blue-400"
+																		: "text-amber-600 dark:text-amber-400"
+																}`}
+															>
+																{String(leg.type).toUpperCase()}
+															</span>
+															{leg.premium != null && (
+																<span className="opacity-80 font-normal">
+																	₹{leg.premium}
+																</span>
+															)}
+														</span>
+													);
+												})}
+												<button
+													type="button"
+													onClick={(e) => {
+														e.stopPropagation();
+														setExpandedPickId(
+															expandedPickId === pick.id ? null : pick.id,
+														);
+													}}
+													className="inline-flex items-center gap-0.5 text-[9.5px] font-semibold text-primary hover:underline px-1.5 py-0.5 rounded hover:bg-primary/10 transition-colors ml-0.5"
+												>
+													<Layers className="h-2.5 w-2.5" />
+													{isExpanded ? "Hide Payoff" : "View Legs & Payoff"}
+													{isExpanded ? (
+														<ChevronUp className="h-2.5 w-2.5 ml-0.5" />
+													) : (
+														<ChevronDown className="h-2.5 w-2.5 ml-0.5" />
+													)}
+												</button>
+											</div>
+										)}
+									</td>
+									<td className="px-3 py-2.5 whitespace-nowrap">
+										{stageInfo ? (
+											<TooltipProvider>
+												<Tooltip>
+													<TooltipTrigger asChild>
+														<span
+															className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border cursor-help ${stageInfo.badgeBg} ${stageInfo.badgeText} ${stageInfo.badgeBorder}`}
+														>
+															<span
+																className={`w-1.5 h-1.5 rounded-full ${stageInfo.dotColor}`}
+															/>
+															{stageInfo.badgeLabel}
+														</span>
+													</TooltipTrigger>
+													<TooltipContent className="text-xs max-w-[240px]">
+														<p className="font-semibold">{stageInfo.label}</p>
+														<p className="text-[11px] text-muted-foreground mt-0.5">
+															{stageInfo.actOrRegulation}
+														</p>
+														<p className="text-[10px] text-muted-foreground mt-1">
+															{stageInfo.description}
+														</p>
+													</TooltipContent>
+												</Tooltip>
+											</TooltipProvider>
+										) : (
+											<Badge
+												variant="outline"
+												className="text-[10px] px-1.5 py-0"
+											>
+												{catLabel}
+											</Badge>
+										)}
+									</td>
+									<td className="px-3 py-2.5 whitespace-nowrap">
 										<span
-											className={`text-xs font-semibold ${upsidePct >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}
+											className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${status.color}`}
 										>
-											{upsidePct >= 0 ? "+" : ""}
-											{upsidePct.toFixed(1)}%
+											{status.label}
 										</span>
-									) : (
-										"—"
-									)}
-								</td>
-								<td className="px-3 py-2.5 text-right whitespace-nowrap">
-									{returnPct !== null ? (
-										<span
-											className={`text-xs font-semibold ${returnPct >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}
-										>
-											{returnPct >= 0 ? "+" : ""}
-											{returnPct.toFixed(1)}%
-										</span>
-									) : (
-										"—"
-									)}
-								</td>
-								<td className="px-3 py-2.5 text-right whitespace-nowrap">
-									{pick.confidenceScore !== undefined ? (() => {
-										const raw = Number(pick.confidenceScore);
-										const clamped = raw > 100 ? Math.min(100, Math.round(raw / 100)) : Math.min(100, Math.max(0, raw));
-										return (
-											<span className={`text-xs font-semibold ${getConfidenceColor(clamped)}`}>
-												{clamped}%
+									</td>
+									<td className="px-3 py-2.5 text-right font-mono text-xs whitespace-nowrap">
+										{formatPrice(pick.recoPrice, pick.category)}
+									</td>
+									<td className="px-3 py-2.5 text-right font-mono text-xs whitespace-nowrap font-bold text-blue-600 dark:text-blue-400">
+										{formatPrice(_cur, pick.category)}
+									</td>
+									<td className="px-3 py-2.5 text-right font-mono text-xs whitespace-nowrap text-emerald-600 dark:text-emerald-400">
+										{formatPrice(pick.targetPrice, pick.category)}
+									</td>
+									<td className="px-3 py-2.5 text-right font-mono text-xs whitespace-nowrap text-red-500 dark:text-red-400">
+										{formatPrice(pick.stoplossPrice, pick.category)}
+									</td>
+									<td className="px-3 py-2.5 text-right whitespace-nowrap">
+										{upsidePct !== null ? (
+											<span
+												className={`text-xs font-semibold ${upsidePct >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}
+											>
+												{upsidePct >= 0 ? "+" : ""}
+												{upsidePct.toFixed(1)}%
 											</span>
-										);
-									})() : "—"}
-								</td>
-								{/* Risk Level */}
-								<td className="px-3 py-2.5 whitespace-nowrap">
-									{pick.riskLevel ? (
-										<span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${riskColors[pick.riskLevel] ?? "bg-muted text-muted-foreground"}`}>
-											{pick.riskLevel.charAt(0).toUpperCase() + pick.riskLevel.slice(1)}
-										</span>
-									) : "—"}
-								</td>
-								{/* Time Horizon */}
-								<td className="px-3 py-2.5 whitespace-nowrap">
-									{horizon ? (
-										<span className={`inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${horizon.color}`}>
-											{horizon.icon} {horizon.label}
-										</span>
-									) : "—"}
-								</td>
-								<td className="px-3 py-2.5 whitespace-nowrap text-xs text-muted-foreground">
-									{new Date(pick.recoDate).toLocaleDateString("en-IN", {
-										day: "2-digit",
-										month: "short",
-										year: "2-digit",
-									})}
-								</td>
-							</tr>
+										) : (
+											"—"
+										)}
+									</td>
+									<td className="px-3 py-2.5 text-right whitespace-nowrap">
+										{returnPct !== null ? (
+											<span
+												className={`text-xs font-semibold ${returnPct >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}
+											>
+												{returnPct >= 0 ? "+" : ""}
+												{returnPct.toFixed(1)}%
+											</span>
+										) : (
+											"—"
+										)}
+									</td>
+									<td className="px-3 py-2.5 text-right whitespace-nowrap">
+										{pick.confidenceScore !== undefined
+											? (() => {
+													const raw = Number(pick.confidenceScore);
+													const clamped =
+														raw > 100
+															? Math.min(100, Math.round(raw / 100))
+															: Math.min(100, Math.max(0, raw));
+													return (
+														<span
+															className={`text-xs font-semibold ${getConfidenceColor(clamped)}`}
+														>
+															{clamped}%
+														</span>
+													);
+												})()
+											: "—"}
+									</td>
+									{/* Risk Level */}
+									<td className="px-3 py-2.5 whitespace-nowrap">
+										{pick.riskLevel ? (
+											<span
+												className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${riskColors[pick.riskLevel] ?? "bg-muted text-muted-foreground"}`}
+											>
+												{pick.riskLevel.charAt(0).toUpperCase() +
+													pick.riskLevel.slice(1)}
+											</span>
+										) : (
+											"—"
+										)}
+									</td>
+									{/* Time Horizon */}
+									<td className="px-3 py-2.5 whitespace-nowrap">
+										{horizon ? (
+											<span
+												className={`inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${horizon.color}`}
+											>
+												{horizon.icon} {horizon.label}
+											</span>
+										) : (
+											"—"
+										)}
+									</td>
+									<td className="px-3 py-2.5 whitespace-nowrap text-xs text-muted-foreground">
+										{new Date(pick.recoDate).toLocaleDateString("en-IN", {
+											day: "2-digit",
+											month: "short",
+											year: "2-digit",
+										})}
+									</td>
+								</tr>
+
+								{/* Expandable Sub-Row: Strategy Architecture & Payoff */}
+								{isExpanded && (
+									<tr
+										key={`expand-${pick.id}`}
+										className="bg-gradient-to-r from-indigo-50/40 via-background to-purple-50/30 dark:from-indigo-950/25 dark:via-background dark:to-purple-950/20 border-b border-indigo-200 dark:border-indigo-900/50"
+									>
+										<td colSpan={14} className="p-3.5 space-y-3">
+											{/* Drawer Top Header & Strategy Metrics */}
+											<div className="flex items-center justify-between gap-3 flex-wrap border-b border-indigo-100 dark:border-indigo-900/40 pb-2.5">
+												<div className="flex items-center gap-2">
+													<div className="p-1.5 rounded-md bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
+														<Layers className="h-4 w-4" />
+													</div>
+													<div>
+														<h4 className="text-xs font-bold text-foreground flex items-center gap-2">
+															{km.strategy || pick.instrumentName} ·
+															Architecture & Payoff
+															{isCredit ? (
+																<Badge
+																	variant="outline"
+																	className="text-[10px] bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700 font-bold"
+																>
+																	Net Credit: ₹
+																	{km.premiumPerUnit ??
+																		km.netPremium ??
+																		(safeNum(pick.recoPrice) > 1000
+																			? Math.round(
+																					safeNum(pick.recoPrice) / lotSize,
+																				)
+																			: safeNum(pick.recoPrice))}{" "}
+																	/ unit
+																</Badge>
+															) : (
+																<Badge
+																	variant="outline"
+																	className="text-[10px] bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-400 border-sky-300 dark:border-sky-700 font-bold"
+																>
+																	Net Debit: ₹
+																	{km.premiumPerUnit ??
+																		km.netPremium ??
+																		(safeNum(pick.recoPrice) > 1000
+																			? Math.round(
+																					safeNum(pick.recoPrice) / lotSize,
+																				)
+																			: safeNum(pick.recoPrice))}{" "}
+																	/ unit
+																</Badge>
+															)}
+														</h4>
+														<p className="text-[10px] text-muted-foreground mt-0.5">
+															Underlying Spot: ₹{curSpot.toLocaleString("en-IN")}{" "}
+															· Lot Size: {lotSize} · DTE: {km.dte ?? 7} Days ·
+															Expiry:{" "}
+															{new Date(
+																pick.expiryDate || pick.recoDate,
+															).toLocaleDateString("en-IN", {
+																day: "2-digit",
+																month: "short",
+																year: "numeric",
+															})}
+														</p>
+													</div>
+												</div>
+
+												<div className="flex items-center gap-2">
+													<Button
+														type="button"
+														size="sm"
+														variant="outline"
+														onClick={(e) => {
+															e.stopPropagation();
+															setDispatchModalPick(pick);
+														}}
+														className="h-7 text-[11px] gap-1"
+													>
+														<Share2 className="h-3 w-3" />
+														Dispatch Advisory
+													</Button>
+													<Button
+														type="button"
+														size="sm"
+														onClick={(e) => {
+															e.stopPropagation();
+															setBasketModalPick(pick);
+														}}
+														className="h-7 text-[11px] font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white gap-1 shadow-xs"
+													>
+														<Zap className="h-3 w-3" />
+														Execute Basket ({derivLegs.length} Legs)
+													</Button>
+												</div>
+											</div>
+
+											{/* Strategy Legs Detail Cards */}
+											<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
+												{derivLegs.map((leg, li) => {
+													const isSell =
+														String(leg.action).toUpperCase() === "SELL";
+													const isCE = String(leg.type).toUpperCase() === "CE";
+													return (
+														<div
+															key={li}
+															className={`p-2.5 rounded-lg border text-xs font-mono flex items-center justify-between ${
+																isSell
+																	? "bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/60"
+																	: "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/60"
+															}`}
+														>
+															<div className="space-y-0.5">
+																<div className="flex items-center gap-1.5">
+																	<span
+																		className={`text-[9px] font-bold px-1.5 py-0.5 rounded text-white ${
+																			isSell ? "bg-rose-600" : "bg-emerald-600"
+																		}`}
+																	>
+																		{isSell ? "SELL" : "BUY"}
+																	</span>
+																	<span className="font-bold text-foreground">
+																		{leg.strikePrice ?? "ATM"}
+																	</span>
+																	<Badge
+																		variant="outline"
+																		className={`text-[9.5px] font-bold px-1 py-0 ${
+																			isCE
+																				? "border-blue-400 text-blue-700 dark:text-blue-300 bg-blue-50/60 dark:bg-blue-950/40"
+																				: "border-amber-400 text-amber-700 dark:text-amber-300 bg-amber-50/60 dark:bg-amber-950/40"
+																		}`}
+																	>
+																		{String(leg.type).toUpperCase()}
+																	</Badge>
+																</div>
+																<div className="text-[10px] text-muted-foreground">
+																	{leg.quantity ?? 1} Lot ({lotSize} Qty)
+																</div>
+															</div>
+															<div className="text-right">
+																<div className="font-bold text-xs text-foreground">
+																	{leg.premium != null
+																		? `₹${leg.premium}`
+																		: "Market"}
+																</div>
+																<div className="text-[10px] text-muted-foreground">
+																	Total: ₹
+																	{leg.premium != null
+																		? Math.round(
+																				Number(leg.premium) * lotSize,
+																			).toLocaleString("en-IN")
+																		: "—"}
+																</div>
+															</div>
+														</div>
+													);
+												})}
+											</div>
+
+											{/* Analytical Economics Strip: Max Profit / Max Loss / Breakeven / Margin */}
+											<div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-2.5 rounded-lg bg-card/80 border text-xs">
+												<div>
+													<span className="text-[10px] text-muted-foreground uppercase font-medium">
+														Max Profit
+													</span>
+													<p className="font-bold text-emerald-600 dark:text-emerald-400">
+														{km.maxProfit === "Unlimited"
+															? "∞ Unlimited"
+															: km.maxProfit != null
+																? `₹${Number(km.maxProfit).toLocaleString("en-IN")}`
+																: "—"}
+													</p>
+												</div>
+												<div>
+													<span className="text-[10px] text-muted-foreground uppercase font-medium">
+														Max Loss
+													</span>
+													<p className="font-bold text-rose-600 dark:text-rose-400">
+														{km.maxLoss === "Unlimited"
+															? "∞ Unlimited"
+															: km.maxLoss != null
+																? `₹${Number(km.maxLoss).toLocaleString("en-IN")}`
+																: "—"}
+													</p>
+												</div>
+												<div>
+													<span className="text-[10px] text-muted-foreground uppercase font-medium">
+														Breakeven
+													</span>
+													<p className="font-bold text-foreground">
+														{Array.isArray(km.breakeven)
+															? km.breakeven
+																	.map(
+																		(b: number) =>
+																			`₹${Number(b).toLocaleString("en-IN")}`,
+																	)
+																	.join(" – ")
+															: km.breakeven != null
+																? `₹${Number(km.breakeven).toLocaleString("en-IN")}`
+																: "—"}
+													</p>
+												</div>
+												<div>
+													<span className="text-[10px] text-muted-foreground uppercase font-medium">
+														{isCredit ? "Daily Theta Decay" : "SPAN Margin"}
+													</span>
+													<p className="font-bold text-primary">
+														{isCredit && km.greeks?.theta != null
+															? `+₹${Math.abs(Number(km.greeks.theta)).toFixed(1)}/day`
+															: km.marginRequired != null
+																? `₹${Number(km.marginRequired).toLocaleString("en-IN")}`
+																: "—"}
+													</p>
+												</div>
+											</div>
+
+											{/* Interactive Expiry Payoff Simulator */}
+											<div className="pt-1">
+												<DerivativePayoffSimulator
+													symbol={pick.symbol || "NIFTY"}
+													currentSpot={curSpot}
+													legs={derivLegs}
+													lotSize={lotSize}
+													isCreditStrategy={isCredit}
+													netPremium={Number(km.netPremium || pick.recoPrice)}
+													maxProfit={km.maxProfit}
+													maxLoss={km.maxLoss}
+													breakeven={km.breakeven}
+													marginRequired={Number(km.marginRequired)}
+												/>
+											</div>
+										</td>
+									</tr>
+								)}
+							</Fragment>
 						);
 					})}
 				</tbody>
 			</table>
+
+			{/* Slide to Confirm Basket Modal for Table View */}
+			{basketModalPick && (
+				<SlideToConfirmOrderModal
+					isOpen={!!basketModalPick}
+					onClose={() => setBasketModalPick(null)}
+					strategyName={
+						(basketModalPick.keyMetrics as any)?.strategy ||
+						basketModalPick.instrumentName
+					}
+					symbol={basketModalPick.symbol || "NIFTY"}
+					legs={extractDerivativeLegs(basketModalPick)}
+					lotSize={Number(
+						(basketModalPick.keyMetrics as any)?.lotSize ||
+							(basketModalPick.symbol?.toUpperCase().includes("BANK")
+								? 15
+								: 65),
+					)}
+					recoPrice={basketModalPick.recoPrice}
+					isCreditStrategy={
+						(basketModalPick.keyMetrics as any)?.isCreditStrategy === true
+					}
+					marginRequired={Number(
+						(basketModalPick.keyMetrics as any)?.marginRequired,
+					)}
+					maxProfit={(basketModalPick.keyMetrics as any)?.maxProfit}
+					maxLoss={(basketModalPick.keyMetrics as any)?.maxLoss}
+				/>
+			)}
+
+			{/* 1-Click Client Advisory Dispatch Modal for Table View */}
+			{dispatchModalPick && (
+				<PartnerClientDispatchModal
+					isOpen={!!dispatchModalPick}
+					onClose={() => setDispatchModalPick(null)}
+					pick={dispatchModalPick}
+					formattedMessage={buildWhatsappFormattedMessage(dispatchModalPick)}
+				/>
+			)}
 		</div>
 	);
 }
@@ -8445,7 +9418,7 @@ function PickCard({
 	onShareWhatsApp,
 	onShareClients,
 	onClick,
-	onExplain,
+	onExplain: _onExplain,
 	isSelected = false,
 	onSelectToggle,
 }: PickCardProps) {
@@ -8455,6 +9428,10 @@ function PickCard({
 	const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
 	const suggestedAllocation = pick.keyMetrics?.suggestedAllocation || 5;
 	const isPreIpo = isPreIpoPick(pick);
+	const isDeriv =
+		pick.category === "derivatives" ||
+		Boolean((pick.keyMetrics as any)?.strategy);
+	const derivLegs = isDeriv ? extractDerivativeLegs(pick) : [];
 	const Icon = categoryIcons[isPreIpo ? "pre_ipo" : pick.category] || TrendingUp;
 	const isExpiredByDate =
 		pick.status === "live" &&
@@ -8490,48 +9467,10 @@ function PickCard({
 					: (((effectiveLtp2 - _rec2) / _rec2) * 100).toFixed(1))
 			: "0.0";
 
-	const whatsappFormattedMsg = useMemo(() => {
-		const cur = getCurrencySymbol(pick.category);
-		const gmp = (pick.keyMetrics as any)?.gmpPercentage;
-		const ipoDateStr = (pick.keyMetrics as any)?.expectedIpoDate
-			? new Date((pick.keyMetrics as any).expectedIpoDate).toLocaleDateString("en-IN")
-			: null;
-		if (isPreIpo) {
-			return `🚀 *Pre-IPO: ${pick.instrumentName}*\n` +
-				`OTC Entry Price: ${cur}${pick.recoPrice.toLocaleString()}\n` +
-				`IPO/Fair Value Target: ${cur}${pick.targetPrice.toLocaleString()} (+${upside}%)\n` +
-				(gmp != null ? `GMP: +${gmp}%\n` : "") +
-				(ipoDateStr ? `Expected IPO Date: ${ipoDateStr}\n` : "") +
-				(pick.confidenceScore ? `AI Confidence: ${pick.confidenceScore}%\n` : "") +
-				`\n⚠️ _High risk. Illiquid. Not listed on any exchange. Subject to SEBI regulations. This is NOT investment advice._\n` +
-				`\n_Powered by FintekPro AI_`;
-		}
-		const isDeriv = pick.category === "derivatives";
-		const dm = pick.keyMetrics as any;
-		const legsFormatted = Array.isArray(dm?.legs)
-			? dm.legs.map((l: any) => `${String(l.action).toUpperCase()} ${l.quantity ?? 1}x ${l.type} @${l.strikePrice} (₹${l.premium})`).join(" | ")
-			: null;
-		const derivDetails = isDeriv && legsFormatted
-			? `Strategy Type: ${dm?.strategyType || (dm?.isCreditStrategy ? 'SELLER' : 'BUYER')}\n` +
-			  `Legs: ${legsFormatted}\n` +
-			  (dm?.maxProfit ? `Max Profit: ${dm.maxProfit === 'Unlimited' ? '∞' : `₹${Number(dm.maxProfit).toLocaleString()}`}\n` : '') +
-			  (dm?.maxLoss ? `Max Loss: ₹${Number(dm.maxLoss).toLocaleString()}\n` : '')
-			: "";
-
-		return `📊 *${pick.instrumentName}${pick.symbol ? ` (${pick.symbol})` : ""}*\n` +
-			`Category: ${categoryLabels[pick.category] || pick.category}\n` +
-			`Entry: ${cur}${pick.recoPrice.toLocaleString()}\n` +
-			`Target: ${cur}${pick.targetPrice.toLocaleString()} (${dm?.isCreditStrategy ? 'Profit Target' : `+${upside}%`})\n` +
-			`Stoploss: ${cur}${pick.stoplossPrice.toLocaleString()} (${dm?.isCreditStrategy ? 'Stop Level' : `-${downside}%`})\n` +
-			derivDetails +
-			(pick.timeHorizon
-				? `Horizon: ${horizonConfig[pick.timeHorizon]?.label || pick.timeHorizon}\n`
-				: "") +
-			(pick.confidenceScore
-				? `AI Confidence: ${pick.confidenceScore}%\n`
-				: "") +
-			`\n_Powered by FintekPro AI_`;
-	}, [pick, isPreIpo, upside, downside]);
+	const whatsappFormattedMsg = useMemo(
+		() => buildWhatsappFormattedMessage(pick),
+		[pick],
+	);
 
 	if (compact) {
 		return (
@@ -9196,7 +10135,7 @@ function PickCard({
 							</div>
 
 						{/* Derivative Multi-Leg Strategy & Payoff Architecture */}
-						{pick.category === "derivatives" && pick.keyMetrics && (
+						{isDeriv && (
 							<div className="mt-3.5 p-3 rounded-lg border bg-gradient-to-br from-indigo-50/40 via-background to-purple-50/30 dark:from-indigo-950/20 dark:via-background dark:to-purple-950/20 border-indigo-200/80 dark:border-indigo-900/60 space-y-2.5">
 								<div className="flex items-center justify-between gap-2 flex-wrap">
 									<div className="flex items-center gap-1.5">
@@ -9219,9 +10158,9 @@ function PickCard({
 								</div>
 
 								{/* Multi-Leg Pills Grid */}
-								{Array.isArray((pick.keyMetrics as any)?.legs) && (
+								{derivLegs.length > 0 && (
 									<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-										{(pick.keyMetrics as any).legs.map((leg: any, idx: number) => {
+										{derivLegs.map((leg: any, idx: number) => {
 											const isSell = String(leg.action).toUpperCase() === "SELL";
 											return (
 												<div
@@ -9315,19 +10254,19 @@ function PickCard({
 								</div>
 
 								{/* Interactive Expiry Payoff Simulator */}
-								{Array.isArray((pick.keyMetrics as any)?.legs) && (
+								{derivLegs.length > 0 && (
 									<div className="pt-1.5">
 										<DerivativePayoffSimulator
 											symbol={pick.symbol || "NIFTY"}
 											currentSpot={effectiveLtp2}
-											legs={(pick.keyMetrics as any).legs}
-											lotSize={Number((pick.keyMetrics as any).lotSize || 65)}
-											isCreditStrategy={(pick.keyMetrics as any).isCreditStrategy}
-											netPremium={Number((pick.keyMetrics as any).netPremium || pick.recoPrice)}
-											maxProfit={(pick.keyMetrics as any).maxProfit}
-											maxLoss={(pick.keyMetrics as any).maxLoss}
-											breakeven={(pick.keyMetrics as any).breakeven}
-											marginRequired={Number((pick.keyMetrics as any).marginRequired)}
+											legs={derivLegs}
+											lotSize={Number((pick.keyMetrics as any)?.lotSize || 65)}
+											isCreditStrategy={(pick.keyMetrics as any)?.isCreditStrategy}
+											netPremium={Number((pick.keyMetrics as any)?.netPremium || pick.recoPrice)}
+											maxProfit={(pick.keyMetrics as any)?.maxProfit}
+											maxLoss={(pick.keyMetrics as any)?.maxLoss}
+											breakeven={(pick.keyMetrics as any)?.breakeven}
+											marginRequired={Number((pick.keyMetrics as any)?.marginRequired)}
 										/>
 									</div>
 								)}
@@ -9344,7 +10283,7 @@ function PickCard({
 										className="w-full h-8 text-xs font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white flex items-center justify-center gap-1.5 shadow-sm"
 									>
 										<Layers className="h-3.5 w-3.5" />
-										Execute {(pick.keyMetrics as any).strategy || "Multi-Leg"} Basket ({Array.isArray((pick.keyMetrics as any).legs) ? (pick.keyMetrics as any).legs.length : 2} Legs)
+										Execute {(pick.keyMetrics as any)?.strategy || "Multi-Leg"} Basket ({derivLegs.length} Legs)
 									</Button>
 								</div>
 							</div>
@@ -9861,19 +10800,21 @@ function PickCard({
 			</CardContent>
 
 			{/* Slide to Confirm Basket Modal */}
-			{pick.category === "derivatives" && Array.isArray((pick.keyMetrics as any)?.legs) && (
+			{isDeriv && derivLegs.length > 0 && (
 				<SlideToConfirmOrderModal
 					isOpen={isBasketModalOpen}
 					onClose={() => setIsBasketModalOpen(false)}
-					strategyName={(pick.keyMetrics as any).strategy || pick.instrumentName}
+					strategyName={
+						(pick.keyMetrics as any)?.strategy || pick.instrumentName
+					}
 					symbol={pick.symbol || "NIFTY"}
-					legs={(pick.keyMetrics as any).legs}
-					lotSize={Number((pick.keyMetrics as any).lotSize || 65)}
+					legs={derivLegs}
+					lotSize={Number((pick.keyMetrics as any)?.lotSize || 65)}
 					recoPrice={pick.recoPrice}
-					isCreditStrategy={(pick.keyMetrics as any).isCreditStrategy === true}
-					marginRequired={Number((pick.keyMetrics as any).marginRequired)}
-					maxProfit={(pick.keyMetrics as any).maxProfit}
-					maxLoss={(pick.keyMetrics as any).maxLoss}
+					isCreditStrategy={(pick.keyMetrics as any)?.isCreditStrategy === true}
+					marginRequired={Number((pick.keyMetrics as any)?.marginRequired)}
+					maxProfit={(pick.keyMetrics as any)?.maxProfit}
+					maxLoss={(pick.keyMetrics as any)?.maxLoss}
 				/>
 			)}
 
