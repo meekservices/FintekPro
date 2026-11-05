@@ -384,7 +384,24 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
 								variant="ghost"
 								size="icon"
 								asChild
-								className="text-indigo-300 hover:text-foreground"
+								className="text-indigo-300 hover:text-emerald-400"
+								data-testid="button-partner-advisor-portal"
+								title="Advisor / Wealth Portal"
+							>
+								<a
+									href="https://partner.fintekpro.com"
+									title="Advisor / Wealth Portal"
+									aria-label="Advisor / Wealth Portal"
+								>
+									<Briefcase className="h-5 w-5" />
+									<span className="sr-only">Advisor / Wealth Portal</span>
+								</a>
+							</Button>
+							<Button
+								variant="ghost"
+								size="icon"
+								asChild
+								className="text-indigo-300 hover:text-blue-400"
 								data-testid="button-partner-client-portal"
 								title="Client Portal"
 							>
@@ -397,6 +414,25 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
 									<span className="sr-only">Client Portal</span>
 								</a>
 							</Button>
+							{user?.roles?.some((r: string) => r === "admin" || r === "super_admin") && (
+								<Button
+									variant="ghost"
+									size="icon"
+									asChild
+									className="text-indigo-300 hover:text-orange-400"
+									data-testid="button-partner-admin-portal"
+									title="Admin Panel"
+								>
+									<a
+										href="https://admin.fintekpro.com"
+										title="Admin Panel"
+										aria-label="Admin Panel"
+									>
+										<ShieldCheck className="h-5 w-5" />
+										<span className="sr-only">Admin Panel</span>
+									</a>
+								</Button>
+							)}
 							<Button
 								variant="ghost"
 								size="icon"
@@ -415,8 +451,10 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
 			<div className="flex min-h-0">
 				{/* Mobile backdrop overlay */}
 				{sidebarOpen && (
-					<div
-						className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+					<button
+						type="button"
+						aria-label="Close sidebar"
+						className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden border-none p-0 cursor-pointer"
 						onClick={() => setSidebarOpen(false)}
 					/>
 				)}

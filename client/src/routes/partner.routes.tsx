@@ -81,6 +81,7 @@ export function PartnerRoutes() {
 				)}
 			</Route>
 			<Route path="/proposal/:shareToken" component={PublicProposalPage} />
+			<Route path="/advisory/proposal/:shareToken" component={PublicProposalPage} />
 			<Route path="/">
 				{() => (
 					<PartnerShell>
