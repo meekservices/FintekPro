@@ -143,6 +143,7 @@ export function AgentRoutes() {
 			<Route path="/agent/login" component={AuthPage} />
 			{/* Public proposal preview - accessible on all subdomains */}
 			<Route path="/proposal/:shareToken" component={PublicProposalPage} />
+			<Route path="/advisory/proposal/:shareToken" component={PublicProposalPage} />
 			<Route path="/partner/register">
 				{() => (
 					<Suspense

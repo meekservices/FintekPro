@@ -1237,6 +1237,17 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 												<span className="text-sm">Client Portal</span>
 											</a>
 										</DropdownMenuItem>
+										{actualUser?.roles?.some((r: string) => r === "admin" || r === "super_admin") && (
+											<DropdownMenuItem asChild>
+												<a
+													href="https://admin.fintekpro.com"
+													className="flex items-center gap-2.5 px-3 py-2 cursor-pointer text-orange-500 font-medium"
+												>
+													<LucideShield className="h-4 w-4" />
+													<span className="text-sm">Admin Panel</span>
+												</a>
+											</DropdownMenuItem>
+										)}
 										<DropdownMenuItem asChild>
 											<Link
 												href="/agent/kyc"
@@ -1350,8 +1361,10 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 
 			<div className="flex flex-1 overflow-hidden relative min-h-0">
 				{sidebarOpen && (
-					<div
-						className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+					<button
+						type="button"
+						aria-label="Close sidebar"
+						className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden border-none p-0 cursor-pointer"
 						onClick={() => setSidebarOpen(false)}
 					/>
 				)}

@@ -117,6 +117,7 @@ function Router() {
 					<Route path="/profile" component={Profile} />
 					<Route path="/profile/p/:code" component={PublicProfilePage} />
 					<Route path="/proposal/:shareToken" component={PublicProposalPage} />
+					<Route path="/advisory/proposal/:shareToken" component={PublicProposalPage} />
 					<Route path="/onboarding" component={OnboardingPage} />
 					<Route path="/ca-registration" component={CARegistration} />
 					<Route path="/partner/register" component={PartnerRegister} />

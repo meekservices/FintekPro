@@ -79,7 +79,10 @@ export const PartnerClientDispatchModal: React.FC<PartnerClientDispatchModalProp
 	// Generate secure tokenized client proposal URL (Smallcase/Dezerv model)
 	const clientProposalUrl = useMemo(() => {
 		const token = `${pick?.id || "p1"}-${Date.now().toString(36).slice(-5)}`;
-		return `https://partner.fintekpro.com/advisory/proposal/${token}`;
+		const baseOrigin = typeof window !== "undefined" && window.location.origin.includes("fintekpro.com")
+			? window.location.origin
+			: "https://partner.fintekpro.com";
+		return `${baseOrigin}/proposal/${token}`;
 	}, [pick?.id]);
 
 	const enrichedMessage = useMemo(() => {
