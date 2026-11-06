@@ -2070,6 +2070,46 @@ crypto_status VARCHAR,
 				e?.message?.slice(0, 120),
 			);
 		}
+		try {
+			await migDb.execute(
+				migSql`ALTER TABLE instrument_master ADD COLUMN IF NOT EXISTS source VARCHAR(50)`,
+			);
+		} catch (e: any) {
+			console.warn(
+				"[Migration] instrument_master source:",
+				e?.message?.slice(0, 120),
+			);
+		}
+		try {
+			await migDb.execute(
+				migSql`ALTER TABLE instrument_master ADD COLUMN IF NOT EXISTS country VARCHAR(10) DEFAULT 'IN'`,
+			);
+		} catch (e: any) {
+			console.warn(
+				"[Migration] instrument_master country:",
+				e?.message?.slice(0, 120),
+			);
+		}
+		try {
+			await migDb.execute(
+				migSql`ALTER TABLE instrument_master ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'INR'`,
+			);
+		} catch (e: any) {
+			console.warn(
+				"[Migration] instrument_master currency:",
+				e?.message?.slice(0, 120),
+			);
+		}
+		try {
+			await migDb.execute(
+				migSql`ALTER TABLE instrument_master ADD COLUMN IF NOT EXISTS price_updated_at TIMESTAMPTZ`,
+			);
+		} catch (e: any) {
+			console.warn(
+				"[Migration] instrument_master price_updated_at:",
+				e?.message?.slice(0, 120),
+			);
+		}
 		console.log("✅ instrument_master last_price column verified");
 
 		// ── 33. goal_benchmark_mapping — ProposalBuilder missing table ────────────

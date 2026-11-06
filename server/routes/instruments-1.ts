@@ -1154,10 +1154,124 @@ router.get("/api/instruments/:isin", async (req: Request, res: Response, next) =
 			return next();
 		}
 
-		const [instrument] = await db
+		let [instrument] = await db
 			.select()
 			.from(instrumentMaster)
 			.where(eq(instrumentMaster.isin, isin.toUpperCase()));
+
+		// Fallback resolution if not yet indexed in instrument_master
+		if (!instrument) {
+			const upperIsin = isin.toUpperCase();
+			if (upperIsin.startsWith("FD-")) {
+				const prodId = upperIsin.replace(/^FD-/, "");
+				const [fd] = await db
+					.select()
+					.from(irisFdProducts)
+					.where(or(eq(irisFdProducts.irisProductId, prodId), ilike(irisFdProducts.irisProductId, `%${prodId}%`)))
+					.limit(1);
+				if (fd) {
+					instrument = {
+						id: fd.id,
+						isin: `FD-${fd.irisProductId}`,
+						symbol: fd.productCode || fd.irisProductId,
+						name: fd.productName,
+						shortName: fd.productCode || fd.productName,
+						assetClass: "fixed_deposit",
+						subType: fd.category || "corporate",
+						category: "Fixed Deposit",
+						issuer: fd.issuerName,
+						lastPrice: fd.interestRate ? String(fd.interestRate) : null,
+						currency: "INR",
+						riskLevel: fd.creditRating || null,
+						priceUpdatedAt: null,
+						isActive: true,
+						source: "iris",
+					} as any;
+				}
+			} else if (upperIsin.startsWith("NPS-")) {
+				const fundCode = upperIsin.replace(/^NPS-/, "");
+				const [nps] = await db
+					.select()
+					.from(irisNpsFunds)
+					.where(or(eq(irisNpsFunds.irisFundCode, fundCode), ilike(irisNpsFunds.irisFundCode, `%${fundCode}%`)))
+					.limit(1);
+				if (nps) {
+					instrument = {
+						id: nps.id,
+						isin: `NPS-${nps.irisFundCode}`,
+						symbol: nps.irisFundCode,
+						name: nps.shortName || `${nps.fundManagerName} (Tier ${nps.tier})`,
+						shortName: nps.shortName || nps.fundManagerName,
+						assetClass: "nps",
+						subType: `Tier ${nps.tier}`,
+						category: nps.schemeType || "NPS",
+						issuer: nps.fundManagerName,
+						lastPrice: nps.return1y ? String(nps.return1y) : null,
+						currency: "INR",
+						riskLevel: null,
+						priceUpdatedAt: null,
+						isActive: true,
+						source: "iris",
+					} as any;
+				}
+			} else if (upperIsin.startsWith("PMS-")) {
+				const prodId = upperIsin.replace(/^PMS-/, "");
+				const [p] = await db
+					.select()
+					.from(irisPmsAifProducts)
+					.where(or(eq(irisPmsAifProducts.irisProductId, prodId), ilike(irisPmsAifProducts.irisProductId, `%${prodId}%`)))
+					.limit(1);
+				if (p) {
+					const isSif =
+						p.productType?.toLowerCase() === "sif" ||
+						p.sebiCategory?.toUpperCase().includes("SIF") ||
+						p.strategyName?.toUpperCase().includes("SIF");
+					instrument = {
+						id: p.id,
+						isin: `PMS-${p.irisProductId}`,
+						symbol: p.irisProductId,
+						name: p.strategyName,
+						shortName: p.strategyName,
+						assetClass: isSif ? "sif" : (p.productType === "aif" ? "aif" : "pms"),
+						subType: p.sebiCategory || p.productType,
+						category: p.strategyType || (isSif ? "SIF" : p.productType.toUpperCase()),
+						issuer: p.fundHouse || null,
+						lastPrice: p.minInvestment ? String(p.minInvestment) : null,
+						currency: "INR",
+						riskLevel: null,
+						priceUpdatedAt: null,
+						isActive: true,
+						source: "iris",
+					} as any;
+				}
+			} else if (upperIsin.startsWith("US-")) {
+				const symbol = upperIsin.replace(/^US-/, "");
+				const [gi] = await db
+					.select()
+					.from(globalInstruments)
+					.where(or(eq(globalInstruments.symbol, symbol), eq(globalInstruments.isin, isin)))
+					.limit(1);
+				if (gi) {
+					instrument = {
+						id: gi.id,
+						isin: gi.isin || `US-${gi.symbol}`,
+						symbol: gi.symbol,
+						name: gi.name,
+						shortName: gi.symbol,
+						assetClass: gi.assetClass === "etf" ? "etf" : "us_equity",
+						subType: gi.exchange || "US",
+						category: gi.sector || "US Equity",
+						issuer: gi.exchange || "NASDAQ",
+						lastPrice: gi.lastPrice ? String(gi.lastPrice) : null,
+						currency: gi.currency || "USD",
+						riskLevel: null,
+						priceUpdatedAt: null,
+						isActive: true,
+						source: "alpaca",
+					} as any;
+				}
+			}
+		}
 
 		if (!instrument) {
 			return res.status(404).json({ error: "Instrument not found", isin });

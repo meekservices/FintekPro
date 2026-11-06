@@ -204,6 +204,7 @@ export const instrumentMaster = pgTable("instrument_master", {
   isConvertible: boolean("is_convertible").default(false),
   isSecured: boolean("is_secured").default(false),
   hasEquityFlag: boolean("has_equity_flag").default(false),
+  source: varchar("source"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
