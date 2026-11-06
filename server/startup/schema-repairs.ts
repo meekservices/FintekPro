@@ -2050,6 +2050,26 @@ crypto_status VARCHAR,
 				e?.message?.slice(0, 120),
 			);
 		}
+		try {
+			await migDb.execute(
+				migSql`ALTER TABLE instrument_master ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE`,
+			);
+		} catch (e: any) {
+			console.warn(
+				"[Migration] instrument_master is_active:",
+				e?.message?.slice(0, 120),
+			);
+		}
+		try {
+			await migDb.execute(
+				migSql`CREATE INDEX IF NOT EXISTS idx_instrument_master_is_active ON instrument_master(is_active)`,
+			);
+		} catch (e: any) {
+			console.warn(
+				"[Migration] instrument_master is_active index:",
+				e?.message?.slice(0, 120),
+			);
+		}
 		console.log("✅ instrument_master last_price column verified");
 
 		// ── 33. goal_benchmark_mapping — ProposalBuilder missing table ────────────

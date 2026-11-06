@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 import { Router } from "express";
 import { db } from "../db";
 import {
@@ -359,7 +360,10 @@ router.get("/products/search", async (req, res) => {
 				.from(instrumentMaster)
 				.where(
 					and(
-						eq(instrumentMaster.isActive, true),
+						or(
+							eq(instrumentMaster.isActive, true),
+							sql`${instrumentMaster.isActive} IS NULL`,
+						),
 						or(
 							...assetClasses.map((ac) => eq(instrumentMaster.assetClass, ac)),
 						),

@@ -970,7 +970,12 @@ router.get("/api/instruments/stats", async (req: Request, res: Response) => {
 				count: sql<number>`count(*)::int`,
 			})
 			.from(instrumentMaster)
-			.where(eq(instrumentMaster.isActive, true))
+			.where(
+				or(
+					eq(instrumentMaster.isActive, true),
+					sql`${instrumentMaster.isActive} IS NULL`,
+				),
+			)
 			.groupBy(instrumentMaster.assetClass);
 
 		const total = stats.reduce((sum, s) => sum + s.count, 0);

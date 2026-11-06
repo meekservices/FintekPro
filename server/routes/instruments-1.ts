@@ -626,7 +626,15 @@ router.get("/api/instruments/search", async (req: Request, res: Response) => {
 				priceUpdatedAt: instrumentMaster.priceUpdatedAt,
 			})
 			.from(instrumentMaster)
-			.where(and(whereConditions, eq(instrumentMaster.isActive, true)))
+			.where(
+				and(
+					whereConditions,
+					or(
+						eq(instrumentMaster.isActive, true),
+						sql`${instrumentMaster.isActive} IS NULL`,
+					),
+				),
+			)
 			.orderBy(instrumentMaster.name)
 			.limit(maxResults);
 
@@ -998,10 +1006,24 @@ router.get("/api/instruments/search", async (req: Request, res: Response) => {
 	}
 });
 
+// Reserved sub-paths under /api/instruments that must not be treated as ISINs
+const RESERVED_INSTRUMENT_SUBPATHS = new Set([
+	"search",
+	"stats",
+	"sync",
+	"sync-master",
+	"prices",
+	"unified",
+	"unified-search",
+]);
+
 // Get instrument by ISIN
-router.get("/api/instruments/:isin", async (req: Request, res: Response) => {
+router.get("/api/instruments/:isin", async (req: Request, res: Response, next) => {
 	try {
 		const { isin } = req.params;
+		if (RESERVED_INSTRUMENT_SUBPATHS.has(isin.toLowerCase())) {
+			return next();
+		}
 
 		const [instrument] = await db
 			.select()

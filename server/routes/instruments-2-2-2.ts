@@ -1197,7 +1197,10 @@ router.get(
 							ilike(instrumentMaster.symbol, searchPattern),
 							ilike(instrumentMaster.shortName, searchPattern),
 						),
-						eq(instrumentMaster.isActive, true),
+						or(
+							eq(instrumentMaster.isActive, true),
+							sql`${instrumentMaster.isActive} IS NULL`,
+						),
 					),
 				)
 				.limit(maxResults);
