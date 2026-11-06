@@ -945,3 +945,4 @@ export const TOP_FIXED_DEPOSITS: CuratedFixedDeposit[] = [
     fdType: "Cumulative Deposit",
   },
 ];
+
