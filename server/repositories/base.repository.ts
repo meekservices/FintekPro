@@ -50,3 +50,4 @@ export abstract class BaseRepository {
 		}
 	}
 }
+

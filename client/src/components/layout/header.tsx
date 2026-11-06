@@ -1,14 +1,11 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import fintekproLogo from "@assets/fintekpro_main_1772539048013.png";
 import { PortalLogo } from "@/components/portal/PortalLogo";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
 	Menu,
 	User as UserIcon,
-	HelpCircle,
 	LogOut,
 	Shield as LucideShield,
 	Store,
@@ -18,8 +15,6 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/use-cart";
 import { useUnifiedCartCount } from "@/contexts/UnifiedCartContext";
-import { type User } from "@shared/schema";
-import { apiRequest, queryClient } from "@/lib/queryClient";
 import { MobileNavCards } from "./MobileNavCards";
 
 export function Header() {
@@ -149,7 +144,7 @@ export function Header() {
 
 						{/* Cart Button */}
 						{isAuthenticated && (
-							<Link href="/cart">
+							<Link href="/unified-cart">
 								<Button
 									variant="outline"
 									size="sm"

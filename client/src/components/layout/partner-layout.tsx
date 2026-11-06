@@ -1,6 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
-import fintekproLogo from "@assets/fintekpro_partners_1772539048013.png";
 import { PortalLogo } from "@/components/portal/PortalLogo";
 import { Button } from "@/components/ui/button";
 import { getPortalQueryParams } from "@/hooks/useSubdomain";
@@ -13,7 +12,6 @@ import {
 	Settings,
 	Users,
 	HelpCircle,
-	BarChart3,
 	UserCheck,
 	Wallet,
 	ChevronDown,
@@ -22,11 +20,7 @@ import {
 	GitBranch,
 	Receipt,
 	UserCircle,
-	FileText,
-	Calculator,
 	Briefcase,
-	ClipboardList,
-	Building2,
 	TrendingUp,
 	LineChart,
 	DollarSign,
@@ -41,6 +35,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { MobileBottomNav } from "./mobile-bottom-nav";
 
 interface PartnerLayoutProps {
 	children: React.ReactNode;
@@ -582,10 +577,12 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
 					)}
 				</aside>
 
-				<main className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto px-3 py-4 sm:p-6">
+				<main className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto px-3 py-4 sm:p-6 pb-20 md:pb-6">
 					<div className="w-full max-w-7xl mx-auto">{children}</div>
 				</main>
 			</div>
+
+			<MobileBottomNav />
 		</div>
 	);
 }

@@ -9,7 +9,6 @@ import {
 	PopoverTrigger,
 } from "@/components/ui/popover";
 import {
-	Command,
 	CommandDialog,
 	CommandEmpty,
 	CommandGroup,
@@ -59,7 +58,6 @@ import {
 	Trophy,
 	GraduationCap,
 	BookOpen,
-	Lightbulb,
 	Shield as LucideShield,
 	FileCheck,
 	Star,
@@ -81,17 +79,19 @@ import {
 	UserCog,
 	CircleCheck,
 	FileEdit,
-	Info,
 	AlertTriangle,
 	Coins,
 	LayoutGrid,
 	Store,
 	PieChart,
+	ShoppingCart,
 } from "lucide-react";
-import { useState, useEffect, useCallback, useMemo, memo } from "react";
+import { useState, useEffect, useCallback, useMemo, } from "react";
 import { cn } from "@/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useCart } from "@/hooks/use-cart";
+import { MobileBottomNav } from "./mobile-bottom-nav";
 import {
 	usePushNotifications,
 	type AgentNotification,
@@ -535,49 +535,10 @@ const agentNavCategories: NavCategory[] = [
 
 const allNavItems = agentNavCategories.flatMap((cat) => cat.items);
 
-const mobileNavItems = [
-	{ title: "Home", href: "/agent", icon: Home },
-	{ title: "Clients", href: "/agent/clients", icon: Users },
-	{ title: "Leads", href: "/agent/leads", icon: Target },
-	{ title: "Proposals", href: "/agent/proposals", icon: FileText },
-	{ title: "More", href: "/agent/settings", icon: Settings },
-];
-
-const MobileBottomNav = memo(function MobileBottomNav({
-	location,
-}: { location: string }) {
-	const [, navigate] = useLocation();
-	return (
-		<nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-slate-900/95 backdrop-blur-md border-t border-border/50 safe-area-bottom">
-			<div className="flex items-center justify-around h-14">
-				{mobileNavItems.map((item) => {
-					const Icon = item.icon;
-					const isActive =
-						location === item.href ||
-						(item.href !== "/agent" && location.startsWith(item.href));
-					return (
-						<button
-							key={item.href}
-							onClick={() => navigate(item.href)}
-							className={cn(
-								"flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors",
-								isActive
-									? "text-emerald-400"
-									: "text-muted-foreground active:text-foreground",
-							)}
-						>
-							<Icon className="h-5 w-5" />
-							<span className="text-[10px] font-medium">{item.title}</span>
-						</button>
-					);
-				})}
-			</div>
-		</nav>
-	);
-});
-
 export function AgentLayout({ children }: AgentLayoutProps) {
 	const { user, isLoading } = useAuth();
+	const { totalItems: cartTotalItems } = useCart();
+	const cartItemCount = cartTotalItems || 0;
 	const [location, navigate] = useLocation();
 	const [sidebarOpen, setSidebarOpen] = useState(() => {
 		if (typeof window !== "undefined") {
@@ -1099,6 +1060,40 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 							</kbd>
 						</Button>
 
+						{/* Quick-action Store button for Partner */}
+						<Link href="/agent/store">
+							<Button
+								variant="outline"
+								size="sm"
+								className="hidden sm:inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 font-medium text-xs transition-colors"
+								data-testid="header-agent-store-button"
+							>
+								<Store className="h-4 w-4 text-emerald-400" />
+								<span>Store</span>
+								<Badge className="h-4 px-1 py-0 text-[8px] bg-emerald-500 text-slate-950 font-bold border-0">
+									DISTRIBUTION
+								</Badge>
+							</Button>
+						</Link>
+
+						{/* Quick-action Proposal Staging Basket */}
+						{cartItemCount > 0 && (
+							<Link href="/agent/store">
+								<Button
+									variant="default"
+									size="sm"
+									className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium text-xs shadow-md shadow-blue-500/20 active:scale-95 transition-all"
+									data-testid="header-agent-proposal-basket"
+								>
+									<ShoppingCart className="h-4 w-4" />
+									<span className="hidden md:inline">Proposal Basket</span>
+									<Badge className="h-4 px-1.5 py-0 text-[9px] bg-white text-blue-700 font-bold border-0 ml-0.5">
+										{cartItemCount}
+									</Badge>
+								</Button>
+							</Link>
+						)}
+
 						<Popover
 							open={notificationsOpen}
 							onOpenChange={setNotificationsOpen}
@@ -1432,7 +1427,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 				</main>
 			</div>
 
-			<MobileBottomNav location={location} />
+			<MobileBottomNav />
 		</div>
 	);
 }
