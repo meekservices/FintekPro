@@ -263,6 +263,27 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 					const { runFASPAIv3Migrations, applyPhaseB_HoldingsUniqueIndex } = await import("./startup/schema-repairs");
 					await runFASPAIv3Migrations();
 
+					// ── Phase C-1 & C-2: Ensure core caches, ISIN Equalizer, and Multi-Vendor catalogs ──
+					// Runs early before heavy data migrations so all catalog tables (IRIS FDs, NPS, SIF)
+					// and multi-vendor mappings are ready immediately.
+					logBootProgress("Step 2c-1 (bg): financial_instruments_cache bond & multi-vendor columns...");
+					const { applyFinancialInstrumentsCacheColumns, ensureAssetMetadataCacheTable, createISINRegistryTable, ensureMultiVendorInstrumentMasterColumns, ensureIrisCatalogTables, ensureStrategyBacktestRunsTable } = await import("./startup/schema-repairs");
+					await applyFinancialInstrumentsCacheColumns();
+					await ensureAssetMetadataCacheTable();
+					await createISINRegistryTable();
+					await ensureMultiVendorInstrumentMasterColumns();
+					await ensureIrisCatalogTables();
+					await ensureStrategyBacktestRunsTable();
+
+					// ── Instrument Master Sync — multi-vendor single source of truth ─────────────
+					logBootProgress("Step 2c-2 (bg): Scheduling and starting instrument_master multi-vendor sync...");
+					const { scheduleInstrumentMasterSync } = await import(
+						"./jobs/instrument-master-sync"
+					);
+					scheduleInstrumentMasterSync().catch((e: Error) =>
+						logger.warn("[Boot] instrument-master-sync schedule failed (non-fatal)", { error: e.message })
+					);
+
 					// Phase B — unique index + auto-migrate JSONB holdings → relational table
 					logBootProgress("Step 2d (bg): Phase B — model_portfolio_holdings migration...");
 					await applyPhaseB_HoldingsUniqueIndex();
@@ -270,7 +291,10 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 						"./services/model-portfolio-holdings-service"
 					);
 					await ensureHoldingsRelationalTablePopulated();
-					await migrateHoldingsToRelationalTable();
+					// Run holdings row migration in background without blocking remaining boot steps
+					migrateHoldingsToRelationalTable().catch((mErr) => {
+						logger.warn("[Boot] migrateHoldingsToRelationalTable non-fatal:", { error: mErr?.message });
+					});
 
 					// Phase C — ISIN + schemeCode resolver + sub_category + benchmarkSchemeCode
 					// Idempotent: safe to run every startup. Resolver fires in background via setImmediate.
@@ -288,33 +312,7 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 					const { ensureSharedRouteTables } = await import("./startup/schema-repairs");
 					await ensureSharedRouteTables();
 
-					// ── Phase C-1: financial_instruments_cache bond columns ──────────
-					// yield_percent, coupon_rate, maturity_date were defined in the
-					// Drizzle schema but not applied to the live table, causing
-					// "column does not exist" errors in debt/MF instrument saves.
-					logBootProgress("Step 2e-1 (bg): financial_instruments_cache bond columns...");
-					const { applyFinancialInstrumentsCacheColumns } = await import("./startup/schema-repairs");
-					await applyFinancialInstrumentsCacheColumns();
-
-					// ── Phase C-2: asset_metadata_cache table ──────────────────────
-					// HistoricalNav queries this table via Drizzle ORM to fetch scheme
-					// metadata. The Drizzle schema defines it but no migration ever
-					// created it in production, causing query failures.
-					logBootProgress("Step 2e-1b (bg): ensuring asset_metadata_cache table...");
-					const { ensureAssetMetadataCacheTable } = await import("./startup/schema-repairs");
-					await ensureAssetMetadataCacheTable();
-
-				// ── ISIN Equalizer — isin_registry table ─────────────────────
-				// Creates the isin_registry table on first boot (idempotent).
-				// enrichHolding uses this for DB-first ISIN resolution (Step 0a).
-				// Non-fatal: falls back to in-memory instrument-registry if missing.
-				logBootProgress("Step 2e-2 (bg): ISIN Equalizer — creating isin_registry table...");
-				const { createISINRegistryTable, ensureMultiVendorInstrumentMasterColumns, ensureStrategyBacktestRunsTable } = await import("./startup/schema-repairs");
-				await createISINRegistryTable();
-				await ensureMultiVendorInstrumentMasterColumns();
-				await ensureStrategyBacktestRunsTable();
-
-				// ── Screener 5-Year Financials Sync for NSE ──────────────────
+					// ── Screener 5-Year Financials Sync for NSE ──────────────────
 				logBootProgress("Step 2e-3 (bg): Syncing Screener 5-year financials for NSE...");
 				const { repairNSEConsolidatedFinancials } = await import("./startup/schema-repairs");
 				await repairNSEConsolidatedFinancials();
@@ -334,19 +332,6 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 				} catch (gapErr: any) {
 					logger.warn("[Boot] ensureEngineGapFixTables non-fatal:", { error: gapErr?.message });
 				}
-
-
-					// ── Instrument Master Sync — single source of truth ─────────────
-					// Upserts from mutual_funds, listed_stocks, bond_catalog, reits,
-					// aif_master, mld_master into instrument_master.
-					// Fires immediately if empty (boot seed), then nightly at 02:00 IST.
-					logBootProgress("Step 2f (bg): Scheduling instrument_master sync...");
-					const { scheduleInstrumentMasterSync } = await import(
-						"./jobs/instrument-master-sync"
-					);
-					scheduleInstrumentMasterSync().catch((e: Error) =>
-						logger.warn("[Boot] instrument-master-sync schedule failed (non-fatal)", { error: e.message })
-					);
 
 					// ── Knowledge Hub Master Seed (Asset Class Insights, Products, Templates)
 					logBootProgress("Step 2f-2 (bg): Seeding default Knowledge Hub assets...");

@@ -792,10 +792,14 @@ router.post("/api/instruments/sync", async (req: Request, res: Response) => {
 router.post("/api/instruments/sync-master", async (req: Request, res: Response) => {
 	try {
 		const user = req.user as any;
-		if (
-			!user ||
-			!["admin", "superadmin"].some((r) => user.roles?.includes(r))
-		) {
+		const adminKey = req.headers["x-admin-key"] || req.headers["x-cron-key"];
+		const isAuthorizedKey =
+			(process.env.CRON_SECRET && adminKey === process.env.CRON_SECRET) ||
+			(process.env.INTERNAL_API_KEY && adminKey === process.env.INTERNAL_API_KEY);
+		const isAdminUser =
+			user && ["admin", "superadmin"].some((r) => user.roles?.includes(r));
+
+		if (!isAdminUser && !isAuthorizedKey) {
 			return res.status(403).json({ error: "Admin access required" });
 		}
 
