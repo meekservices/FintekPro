@@ -16,12 +16,22 @@ import {
   SOVEREIGN_GOLD_BONDS,
   BENCHMARK_INDICES,
 } from "../data/upstox-commodities-catalog";
+import {
+  TOP_INDIAN_EQUITIES,
+  TOP_FIXED_INCOME_SECURITIES,
+  TOP_NPS_PENSION_SCHEMES,
+  TOP_SIF_SCHEMES,
+  TOP_CURATED_MUTUAL_FUNDS,
+  TOP_FIXED_DEPOSITS,
+} from "../data/store-instruments-catalog";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 async function runUpsert(label: string, query: ReturnType<typeof sql>): Promise<number> {
   const result = await db.execute(query);
-  return (result as any).rowCount ?? 0;
+  const rowCount = (result as any).rowCount ?? 0;
+  logger.debug(`[MasterSync] Upserted ${rowCount} rows for ${label}`);
+  return rowCount;
 }
 
 async function syncMutualFunds(): Promise<number> {
@@ -596,7 +606,274 @@ async function syncVendorMappings(): Promise<number> {
     }
   }
 
+  // 10. IRIS Mutual Funds Mapping (from mutual_funds table)
+  mapped += await runUpsert("ivm_iris_mf", sql`
+    INSERT INTO instrument_vendor_mappings
+      (isin, vendor, vendor_symbol, vendor_instrument_token, feed_role, is_active, sync_status, source, created_at, updated_at)
+    SELECT
+      COALESCE(mf.isin, 'MF' || mf.scheme_code), 'iris', COALESCE(mf.fund_house, 'KFintech'), mf.scheme_code::text, 'PRIMARY_QUOTE', true, 'synced', 'iris_sync', NOW(), NOW()
+    FROM mutual_funds mf
+    WHERE mf.scheme_code IS NOT NULL
+    ON CONFLICT (vendor, vendor_instrument_token) DO UPDATE SET
+      isin=EXCLUDED.isin, vendor_symbol=EXCLUDED.vendor_symbol, updated_at=NOW()
+  `);
+
+  // 11. IRIS PMS & SIF Mapping
+  mapped += await runUpsert("ivm_iris_pms_sif", sql`
+    INSERT INTO instrument_vendor_mappings
+      (isin, vendor, vendor_symbol, vendor_instrument_token, feed_role, is_active, sync_status, source, created_at, updated_at)
+    SELECT
+      'PMS-' || ipa.iris_product_id, 'iris', ipa.strategy_name, ipa.iris_product_id, 'PRIMARY_QUOTE', true, 'synced', 'iris_sync', NOW(), NOW()
+    FROM iris_pms_aif_products ipa
+    WHERE ipa.iris_product_id IS NOT NULL
+    ON CONFLICT (vendor, vendor_instrument_token) DO UPDATE SET
+      isin=EXCLUDED.isin, vendor_symbol=EXCLUDED.vendor_symbol, updated_at=NOW()
+  `);
+
+  // 12. Curated Equities (NIFTY 50 Bluechips via Upstox)
+  for (const eq of TOP_INDIAN_EQUITIES) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_vendor_mappings
+          (isin, vendor, vendor_symbol, vendor_instrument_token, feed_role, is_active, sync_status, source, created_at, updated_at)
+        VALUES (
+          ${eq.isin}, 'upstox', ${eq.symbol}, ${eq.upstoxInstrumentKey}, 'PRIMARY_QUOTE', true, 'synced', 'upstox_sync', NOW(), NOW()
+        )
+        ON CONFLICT (vendor, vendor_instrument_token) DO UPDATE SET
+          isin=EXCLUDED.isin, vendor_symbol=EXCLUDED.vendor_symbol, updated_at=NOW()
+      `);
+      mapped++;
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  // 13. Curated Fixed Income & Sovereign G-Secs via Upstox
+  for (const bond of TOP_FIXED_INCOME_SECURITIES) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_vendor_mappings
+          (isin, vendor, vendor_symbol, vendor_instrument_token, feed_role, is_active, sync_status, source, created_at, updated_at)
+        VALUES (
+          ${bond.isin}, 'upstox', ${bond.id}, ${bond.isin}, 'PRIMARY_QUOTE', true, 'synced', 'upstox_sync', NOW(), NOW()
+        )
+        ON CONFLICT (vendor, vendor_instrument_token) DO UPDATE SET
+          isin=EXCLUDED.isin, vendor_symbol=EXCLUDED.vendor_symbol, updated_at=NOW()
+      `);
+      mapped++;
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  // 14. Curated NPS Schemes via IRIS
+  for (const nps of TOP_NPS_PENSION_SCHEMES) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_vendor_mappings
+          (isin, vendor, vendor_symbol, vendor_instrument_token, feed_role, is_active, sync_status, source, created_at, updated_at)
+        VALUES (
+          ${nps.id}, 'iris', ${nps.pfmCode}, ${nps.pfmCode}, 'PRIMARY_QUOTE', true, 'synced', 'iris_sync', NOW(), NOW()
+        )
+        ON CONFLICT (vendor, vendor_instrument_token) DO UPDATE SET
+          isin=EXCLUDED.isin, vendor_symbol=EXCLUDED.vendor_symbol, updated_at=NOW()
+      `);
+      mapped++;
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  // 15. Curated SIF Schemes via IRIS
+  for (const sif of TOP_SIF_SCHEMES) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_vendor_mappings
+          (isin, vendor, vendor_symbol, vendor_instrument_token, feed_role, is_active, sync_status, source, created_at, updated_at)
+        VALUES (
+          ${sif.id}, 'iris', ${sif.fundHouse}, ${sif.id}, 'PRIMARY_QUOTE', true, 'synced', 'iris_sync', NOW(), NOW()
+        )
+        ON CONFLICT (vendor, vendor_instrument_token) DO UPDATE SET
+          isin=EXCLUDED.isin, vendor_symbol=EXCLUDED.vendor_symbol, updated_at=NOW()
+      `);
+      mapped++;
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  // 16. Curated Mutual Funds via IRIS
+  for (const mf of TOP_CURATED_MUTUAL_FUNDS) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_vendor_mappings
+          (isin, vendor, vendor_symbol, vendor_instrument_token, feed_role, is_active, sync_status, source, created_at, updated_at)
+        VALUES (
+          ${mf.isin}, 'iris', ${mf.amcName}, ${mf.schemeCode}, 'PRIMARY_QUOTE', true, 'synced', 'iris_sync', NOW(), NOW()
+        )
+        ON CONFLICT (vendor, vendor_instrument_token) DO UPDATE SET
+          isin=EXCLUDED.isin, vendor_symbol=EXCLUDED.vendor_symbol, updated_at=NOW()
+      `);
+      mapped++;
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  // 17. Curated Corporate Fixed Deposits via IRIS
+  for (const fd of TOP_FIXED_DEPOSITS) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_vendor_mappings
+          (isin, vendor, vendor_symbol, vendor_instrument_token, feed_role, is_active, sync_status, source, created_at, updated_at)
+        VALUES (
+          ${fd.id}, 'iris', ${fd.issuer}, ${fd.id}, 'PRIMARY_QUOTE', true, 'synced', 'iris_sync', NOW(), NOW()
+        )
+        ON CONFLICT (vendor, vendor_instrument_token) DO UPDATE SET
+          isin=EXCLUDED.isin, vendor_symbol=EXCLUDED.vendor_symbol, updated_at=NOW()
+      `);
+      mapped++;
+    } catch {
+      // Non-fatal
+    }
+  }
+
   return mapped;
+}
+
+/** Syncs canonical store catalog products into instrument_master */
+async function syncCuratedStoreProducts(): Promise<number> {
+  let count = 0;
+
+  // 1. Curated Equities
+  for (const eq of TOP_INDIAN_EQUITIES) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_master
+          (isin, symbol, name, short_name, asset_class, sub_type, category, issuer,
+           exchange, country, currency, last_price, price_updated_at, is_active, source, created_at, updated_at)
+        VALUES (
+          ${eq.isin}, ${eq.symbol}, ${eq.name}, ${eq.symbol}, 'equity',
+          'Large Cap', ${eq.sector}, ${eq.name},
+          ${eq.exchange}, 'IN', 'INR', ${String(eq.price)}, NOW(), true, 'upstox', NOW(), NOW()
+        )
+        ON CONFLICT (isin) DO UPDATE SET
+          symbol=EXCLUDED.symbol, name=EXCLUDED.name, last_price=EXCLUDED.last_price,
+          is_active=true, updated_at=NOW()
+      `);
+      count++;
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  // 2. Curated Fixed Income
+  for (const bond of TOP_FIXED_INCOME_SECURITIES) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_master
+          (isin, symbol, name, short_name, asset_class, sub_type, category, issuer,
+           exchange, country, currency, coupon, last_price, price_updated_at, is_active, source, created_at, updated_at)
+        VALUES (
+          ${bond.isin}, ${bond.id}, ${bond.name}, ${bond.name.slice(0, 50)}, 'bond',
+          ${bond.securityType}, 'Fixed Income', ${bond.issuer},
+          'NSE', 'IN', 'INR', ${String(bond.couponRate)}, ${String(bond.yieldToMaturity)}, NOW(), true, 'upstox', NOW(), NOW()
+        )
+        ON CONFLICT (isin) DO UPDATE SET
+          name=EXCLUDED.name, coupon=EXCLUDED.coupon, last_price=EXCLUDED.last_price,
+          is_active=true, updated_at=NOW()
+      `);
+      count++;
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  // 3. Curated NPS Schemes
+  for (const nps of TOP_NPS_PENSION_SCHEMES) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_master
+          (isin, symbol, name, short_name, asset_class, sub_type, category, issuer,
+           country, currency, last_price, price_updated_at, is_active, source, created_at, updated_at)
+        VALUES (
+          ${nps.id}, ${nps.pfmCode}, ${nps.name}, ${nps.shortName}, 'nps',
+          ${nps.tier}, ${nps.assetClass}, ${nps.manager},
+          'IN', 'INR', ${String(nps.return1y)}, NOW(), true, 'iris', NOW(), NOW()
+        )
+        ON CONFLICT (isin) DO UPDATE SET
+          name=EXCLUDED.name, last_price=EXCLUDED.last_price, is_active=true, updated_at=NOW()
+      `);
+      count++;
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  // 4. Curated SIF Schemes
+  for (const sif of TOP_SIF_SCHEMES) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_master
+          (isin, symbol, name, short_name, asset_class, sub_type, category, issuer,
+           country, currency, last_price, price_updated_at, is_active, source, created_at, updated_at)
+        VALUES (
+          ${sif.id}, ${sif.id}, ${sif.name}, ${sif.name.slice(0, 50)}, 'sif',
+          ${sif.sebiCategory}, 'Specialised Investment Fund', ${sif.fundHouse},
+          'IN', 'INR', ${String(sif.expectedReturns)}, NOW(), true, 'iris', NOW(), NOW()
+        )
+        ON CONFLICT (isin) DO UPDATE SET
+          name=EXCLUDED.name, last_price=EXCLUDED.last_price, is_active=true, updated_at=NOW()
+      `);
+      count++;
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  // 5. Curated Mutual Funds
+  for (const mf of TOP_CURATED_MUTUAL_FUNDS) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_master
+          (isin, symbol, name, short_name, asset_class, sub_type, category, issuer,
+           country, currency, last_price, price_updated_at, is_active, source, created_at, updated_at)
+        VALUES (
+          ${mf.isin}, ${mf.schemeCode}, ${mf.name}, ${mf.name.slice(0, 50)}, 'mutual_fund',
+          ${mf.category}, ${mf.subCategory}, ${mf.amcName},
+          'IN', 'INR', ${String(mf.return1y)}, NOW(), true, 'iris', NOW(), NOW()
+        )
+        ON CONFLICT (isin) DO UPDATE SET
+          name=EXCLUDED.name, last_price=EXCLUDED.last_price, is_active=true, updated_at=NOW()
+      `);
+      count++;
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  // 6. Curated Corporate Fixed Deposits
+  for (const fd of TOP_FIXED_DEPOSITS) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_master
+          (isin, symbol, name, short_name, asset_class, sub_type, category, issuer,
+           country, currency, coupon, last_price, price_updated_at, is_active, source, created_at, updated_at)
+        VALUES (
+          ${fd.id}, ${fd.id}, ${fd.issuer + " Fixed Deposit"}, ${fd.issuer}, 'fixed_deposit',
+          ${fd.fdType}, 'Fixed Deposit', ${fd.issuer},
+          'IN', 'INR', ${String(fd.interestRate)}, ${String(fd.interestRate)}, NOW(), true, 'iris', NOW(), NOW()
+        )
+        ON CONFLICT (isin) DO UPDATE SET
+          name=EXCLUDED.name, coupon=EXCLUDED.coupon, last_price=EXCLUDED.last_price, is_active=true, updated_at=NOW()
+      `);
+      count++;
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  return count;
 }
 
 /** Orchestrates all asset-class syncs and returns row counts. */
@@ -624,6 +901,7 @@ export async function syncInstrumentMaster() {
     upstoxEtfs: 0,
     commodities: 0,
     governmentSecurities: 0,
+    curatedStore: 0,
     vendorMappings: 0,
     total: 0,
     durationMs: 0,
@@ -650,6 +928,7 @@ export async function syncInstrumentMaster() {
   await run("upstoxEtfs", syncUpstoxEtfs);
   await run("commodities", syncCommodities);
   await run("governmentSecurities", syncGovernmentSecurities);
+  await run("curatedStore", syncCuratedStoreProducts);
   await run("vendorMappings", syncVendorMappings);
 
   r.total =
@@ -666,7 +945,8 @@ export async function syncInstrumentMaster() {
     r.irisPmsAif +
     r.upstoxEtfs +
     r.commodities +
-    r.governmentSecurities;
+    r.governmentSecurities +
+    r.curatedStore;
   r.durationMs = Date.now() - start;
 
   logger.info(

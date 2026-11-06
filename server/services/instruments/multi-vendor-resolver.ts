@@ -16,7 +16,7 @@ import {
   type InstrumentVendorMapping,
   type InsertInstrumentVendorMapping,
 } from "@shared/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { logger } from "../../logger";
 import { upstoxMarketDataService } from "../upstox-market-data-service";
 import { UPSTOX_ETFS_CATALOG } from "../../data/upstox-etfs-catalog";
@@ -82,6 +82,21 @@ export class MultiVendorInstrumentResolver {
     us_equity: [
       { vendor: "alpaca", priority: 1, timeoutMs: 3500, maxRetries: 2 },
       { vendor: "fmp", priority: 2, timeoutMs: 4000, maxRetries: 2 },
+    ],
+    nps: [
+      { vendor: "iris", priority: 1, timeoutMs: 4000, maxRetries: 2 },
+    ],
+    sif: [
+      { vendor: "iris", priority: 1, timeoutMs: 4000, maxRetries: 2 },
+    ],
+    fixed_deposit: [
+      { vendor: "iris", priority: 1, timeoutMs: 4000, maxRetries: 2 },
+    ],
+    aif: [
+      { vendor: "iris", priority: 1, timeoutMs: 4000, maxRetries: 2 },
+    ],
+    pms: [
+      { vendor: "iris", priority: 1, timeoutMs: 4000, maxRetries: 2 },
     ],
   };
 
@@ -228,7 +243,7 @@ export class MultiVendorInstrumentResolver {
         .limit(1);
 
       return mapping?.token || null;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -254,7 +269,7 @@ export class MultiVendorInstrumentResolver {
         .limit(1);
 
       return mapping?.isin || null;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -371,7 +386,7 @@ export class MultiVendorInstrumentResolver {
       .where(eq(instrumentMaster.isin, isin))
       .limit(1);
 
-    if (inst && inst.lastPrice) {
+    if (inst?.lastPrice) {
       return {
         isin,
         symbol: inst.symbol || isin,
@@ -398,7 +413,7 @@ export class MultiVendorInstrumentResolver {
     // 1. Upstox for Listed Indian Equities & ETFs (Priority 1 licensed feed)
     if (vendor === "upstox" && upstoxMarketDataService.isReady()) {
       const lookupKey = mapping?.vendorSymbol || mapping?.vendorInstrumentToken || isin;
-      const isMcx = isin.startsWith("COMMODITY-") || isin.startsWith("MCX") || (mapping?.vendorInstrumentToken && mapping.vendorInstrumentToken.startsWith("MCX"));
+      const isMcx = isin.startsWith("COMMODITY-") || isin.startsWith("MCX") || (mapping?.vendorInstrumentToken?.startsWith("MCX"));
       const exchange = (mapping as any)?.exchange === "BSE" ? "BSE" : (isMcx ? "MCX" : "NSE");
       const upstoxRes = await upstoxMarketDataService.getQuote(lookupKey, exchange);
       if (upstoxRes.success && upstoxRes.data && upstoxRes.data.last_price > 0) {
