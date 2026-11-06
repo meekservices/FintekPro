@@ -24,6 +24,7 @@ import {
   UPSTOX_COMMODITIES_CATALOG,
   SOVEREIGN_GOLD_BONDS,
 } from "../../data/upstox-commodities-catalog";
+import { TOP_US_EQUITIES } from "../../data/store-instruments-catalog";
 
 export interface ResolvedQuote {
   isin: string;
@@ -209,6 +210,24 @@ export class MultiVendorInstrumentResolver {
         } as any];
       }
 
+      const cleanUs = upper.replace(/^US-/, "");
+      const usEq = TOP_US_EQUITIES.find((u) => u.isin.toUpperCase() === upper || u.symbol.toUpperCase() === cleanUs);
+      if (usEq) {
+        return [{
+          id: `ivm-alpaca-${usEq.symbol.toLowerCase()}`,
+          isin: usEq.isin,
+          vendor: "alpaca",
+          vendorSymbol: usEq.symbol,
+          vendorInstrumentToken: usEq.symbol,
+          feedRole: "PRIMARY_QUOTE",
+          isActive: true,
+          syncStatus: "synced",
+          source: "catalog",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as any];
+      }
+
       return [];
     } catch (error: any) {
       logger.error("Error resolving vendor mappings for ISIN", {
@@ -338,7 +357,10 @@ export class MultiVendorInstrumentResolver {
     assetClass: string = "equity"
   ): Promise<ResolvedQuote | null> {
     const startTime = Date.now();
-    const routingChain = this.routingMatrix[assetClass] || this.routingMatrix.equity;
+    const isUs = isin.toUpperCase().startsWith("US-") || isin.toUpperCase().endsWith(":US");
+    const routingChain = isUs
+      ? this.routingMatrix.us_equity
+      : (this.routingMatrix[assetClass] || this.routingMatrix.equity);
 
     // Check available vendor mappings for this instrument
     const mappings = await this.getVendorMappings(isin);
@@ -346,7 +368,7 @@ export class MultiVendorInstrumentResolver {
 
     for (const route of routingChain) {
       const mapping = mappingsByVendor.get(route.vendor);
-      if (!mapping && route.vendor !== "amfi" && route.vendor !== "nse" && route.vendor !== "upstox") {
+      if (!mapping && route.vendor !== "amfi" && route.vendor !== "nse" && route.vendor !== "upstox" && route.vendor !== "alpaca") {
         // Vendor not mapped for this ISIN, continue to next fallback
         continue;
       }
