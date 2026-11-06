@@ -1,5 +1,4 @@
 import { logger } from "../../../logger";
-import { User, UserProfile } from "../../../../shared/schema";
 import { toAlpacaAscii, cleanAlphanumeric } from "../../../utils/string-utils";
 
 export class AlpacaKycMapper {
@@ -36,6 +35,49 @@ export class AlpacaKycMapper {
 		// Capture dynamic funding source from profile if available, otherwise fallback to employment_income
 		const fundingSource = profile.fundingSource || "employment_income";
 
+		const isIndianResident =
+			profile.countryOfResidence === "India" ||
+			profile.countryOfResidence === "IND" ||
+			!profile.countryOfResidence;
+
+		// RBI FEMA & LRS Rule: Resident Indians remitting funds under LRS cannot engage in
+		// margin trading, leveraged short-selling, or crypto speculation. Cash accounts only.
+		const enabledAssets = isIndianResident
+			? ["us_equity"]
+			: ["us_equity", "us_option", "crypto"];
+
+		const standardAgreements = [
+			{
+				agreement: "account_agreement",
+				signed_at: new Date().toISOString(),
+				ip_address: ipAddress,
+				revision: "1.0",
+			},
+			{
+				agreement: "customer_agreement",
+				signed_at: new Date().toISOString(),
+				ip_address: ipAddress,
+				revision: "1.0",
+			},
+		];
+
+		if (!isIndianResident) {
+			standardAgreements.push(
+				{
+					agreement: "margin_agreement",
+					signed_at: new Date().toISOString(),
+					ip_address: ipAddress,
+					revision: "1.0",
+				},
+				{
+					agreement: "crypto_agreement",
+					signed_at: new Date().toISOString(),
+					ip_address: ipAddress,
+					revision: "1.0",
+				},
+			);
+		}
+
 		// Sanitize all text fields to ASCII 32-126
 		const payload: any = {
 			account_type: accountType,
@@ -46,23 +88,23 @@ export class AlpacaKycMapper {
 				city: toAlpacaAscii(profile.city),
 				state: toAlpacaAscii(profile.state),
 				postal_code: cleanAlphanumeric(profile.pincode),
-				country: profile.countryOfResidence === "India" ? "IND" : "USA",
+				country: isIndianResident ? "IND" : "USA",
 			},
 			identity: {
 				given_name: toAlpacaAscii(profile.firstName),
 				family_name: toAlpacaAscii(profile.lastName),
 				date_of_birth: profile.dateOfBirth,
 				tax_id: taxId,
-				tax_id_type:
-					profile.countryOfResidence === "India" ? "IND_PAN" : "USA_SSN",
+				tax_id_type: isIndianResident ? "IND_PAN" : "USA_SSN",
 				country_of_citizenship:
-					profile.countryOfCitizenship === "India" ? "IND" : "USA",
+					profile.countryOfCitizenship === "India" || isIndianResident
+						? "IND"
+						: "USA",
 				country_of_birth:
-					profile.countryOfBirth === "India"
+					profile.countryOfBirth === "India" || isIndianResident
 						? "IND"
 						: profile.countryOfBirth || "IND",
-				country_of_tax_residence:
-					profile.countryOfResidence === "India" ? "IND" : "USA",
+				country_of_tax_residence: isIndianResident ? "IND" : "USA",
 				funding_source: [fundingSource],
 				annual_income: profile.annualIncome
 					? profile.annualIncome.toString()
@@ -89,33 +131,8 @@ export class AlpacaKycMapper {
 				marital_status: profile.maritalStatus || "single",
 				number_of_dependents: profile.numberOfDependents || 0,
 			},
-			enabled_assets: ["us_equity", "us_option", "crypto"],
-			agreements: [
-				{
-					agreement: "margin_agreement",
-					signed_at: new Date().toISOString(),
-					ip_address: ipAddress,
-					revision: "1.0",
-				},
-				{
-					agreement: "account_agreement",
-					signed_at: new Date().toISOString(),
-					ip_address: ipAddress,
-					revision: "1.0",
-				},
-				{
-					agreement: "customer_agreement",
-					signed_at: new Date().toISOString(),
-					ip_address: ipAddress,
-					revision: "1.0",
-				},
-				{
-					agreement: "crypto_agreement",
-					signed_at: new Date().toISOString(),
-					ip_address: ipAddress,
-					revision: "1.0",
-				},
-			],
+			enabled_assets: enabledAssets,
+			agreements: standardAgreements,
 			documents: [],
 			trusted_contact: {
 				given_name: "FintekPro",

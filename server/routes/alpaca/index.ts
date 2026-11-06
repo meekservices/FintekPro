@@ -66,7 +66,7 @@ router.get("/market/bars/:symbol", async (req, res) => {
 			timeframe as BarTimeframe,
 			start as string,
 			end as string,
-			Number.parseInt(limit as string),
+			Number.parseInt(limit as string, 10),
 		);
 		const bars = barsMap.get(req.params.symbol.toUpperCase()) || [];
 		res.json({ success: true, data: bars });
@@ -86,7 +86,7 @@ router.get("/market/search", async (req, res) => {
 	try {
 		const results = await alpacaMarketDataService.searchSymbols(
 			q as string,
-			Number.parseInt(limit as string),
+			Number.parseInt(limit as string, 10),
 		);
 		res.json({ success: true, data: results });
 	} catch (error: any) {
@@ -98,7 +98,7 @@ router.get("/market/search", async (req, res) => {
  * Get market connectivity and feed status
  * GET /api/alpaca/market/status
  */
-router.get("/market/status", async (req, res) => {
+router.get("/market/status", async (_req, res) => {
 	try {
 		const wsStatus = alpacaWsStreamingService.getStatus();
 		const apiStatus = alpacaMarketDataService.testConnection();
@@ -114,7 +114,7 @@ router.get("/market/status", async (req, res) => {
  */
 router.get("/market/best-buys", async (req, res) => {
 	const riskProfile = (req.query.riskProfile as string) || "moderate";
-	const limit = Number.parseInt(req.query.limit as string) || 12;
+	const limit = Number.parseInt(req.query.limit as string, 10) || 12;
 	const validProfiles = ["conservative", "moderate", "aggressive"];
 	if (!validProfiles.includes(riskProfile)) {
 		return res
@@ -248,6 +248,34 @@ router.post("/funding/deposit", async (req, res) => {
 		res.json({ success: true, data: transfer });
 	} catch (error: any) {
 		res.status(400).json({ success: false, message: error.message });
+	}
+});
+
+/**
+ * Get RBI LRS SWIFT wire transfer instructions for Indian resident funding
+ * GET /api/alpaca/funding/wire-instructions
+ */
+router.get("/funding/wire-instructions", async (req, res) => {
+	const userId = (req as any).user?.id;
+	if (!userId) {
+		return res
+			.status(401)
+			.json({ success: false, message: "Authentication required" });
+	}
+
+	try {
+		const wireInfo = await alpacaFundingService.getLrsWireInstructions(userId);
+		res.json({
+			success: true,
+			data: wireInfo,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: "1.0",
+				regulatoryScheme: "RBI_LRS",
+			},
+		});
+	} catch (error: any) {
+		res.status(500).json({ success: false, message: error.message });
 	}
 });
 
