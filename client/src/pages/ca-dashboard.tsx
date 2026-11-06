@@ -47,15 +47,10 @@ import {
 	Briefcase,
 	Calendar,
 	CheckCircle2,
-	Clock,
-	FileText,
 	IndianRupee,
 	Star,
 	TrendingUp,
-	User,
 	Users,
-	AlertCircle,
-	Play,
 	Eye,
 	MessageSquare,
 	Upload,
@@ -68,7 +63,17 @@ import {
 	Copy,
 	Link2,
 	CheckCircle,
+	Scale,
+	Receipt,
+	Building2,
 } from "lucide-react";
+import { CaseWorkspaceDrawer } from "@/components/ca/case-workspace-drawer";
+import { CACertificationsPanel } from "@/components/ca/ca-certifications-panel";
+import { CANoticeResolutionPanel } from "@/components/ca/ca-notice-resolution-panel";
+import { CAAdvanceTaxPanel } from "@/components/ca/ca-advance-tax-panel";
+import { CAGstPanel } from "@/components/ca/ca-gst-panel";
+import { CAMsmePanel } from "@/components/ca/ca-msme-panel";
+import { CAComplianceRadarPanel } from "@/components/ca/ca-compliance-radar-panel";
 
 interface DashboardStats {
 	activeCases: number;
@@ -181,6 +186,16 @@ export default function CADashboard() {
 	const [inviteMobile, setInviteMobile] = useState("");
 	const [inviteLink, setInviteLink] = useState("");
 	const linkRef = useRef<HTMLInputElement>(null);
+
+	const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+	const [workspaceOpen, setWorkspaceOpen] = useState<boolean>(false);
+	const [workspaceTab, setWorkspaceTab] = useState<string>("computation");
+
+	const openCaseWorkspace = (caseId: string, tab: string = "computation") => {
+		setSelectedCaseId(caseId);
+		setWorkspaceTab(tab);
+		setWorkspaceOpen(true);
+	};
 
 	const { data: caPartnerData } = useQuery<{
 		success: boolean;
@@ -415,6 +430,30 @@ export default function CADashboard() {
 							<Users className="h-4 w-4 mr-2" />
 							My Clients
 						</TabsTrigger>
+						<TabsTrigger value="certifications" data-testid="tab-certifications">
+							<Award className="h-4 w-4 mr-2" />
+							Certificates & UDIN
+						</TabsTrigger>
+						<TabsTrigger value="notices" data-testid="tab-notices">
+							<Scale className="h-4 w-4 mr-2" />
+							Notice Resolution
+						</TabsTrigger>
+						<TabsTrigger value="advance_tax" data-testid="tab-advance-tax">
+							<Calendar className="h-4 w-4 mr-2" />
+							Advance Tax
+						</TabsTrigger>
+						<TabsTrigger value="gst" data-testid="tab-gst">
+							<Receipt className="h-4 w-4 mr-2" />
+							GST Hub (2B)
+						</TabsTrigger>
+						<TabsTrigger value="msme" data-testid="tab-msme">
+							<Building2 className="h-4 w-4 mr-2" />
+							MSME § 43B(h)
+						</TabsTrigger>
+						<TabsTrigger value="radar" data-testid="tab-radar">
+							<Calendar className="h-4 w-4 mr-2" />
+							Compliance Radar
+						</TabsTrigger>
 					</ScrollableTabsList>
 
 					<TabsContent value="overview" className="mt-6 space-y-6">
@@ -535,6 +574,7 @@ export default function CADashboard() {
 															variant="ghost"
 															size="sm"
 															data-testid={`button-view-case-${caseItem.id}`}
+															onClick={() => openCaseWorkspace(caseItem.id, "computation")}
 														>
 															<Eye className="h-4 w-4" />
 														</Button>
@@ -711,6 +751,7 @@ export default function CADashboard() {
 																size="icon"
 																title="View Details"
 																data-testid={`button-view-${caseItem.id}`}
+																onClick={() => openCaseWorkspace(caseItem.id, "computation")}
 															>
 																<Eye className="h-4 w-4" />
 															</Button>
@@ -719,6 +760,7 @@ export default function CADashboard() {
 																size="icon"
 																title="Messages"
 																data-testid={`button-message-${caseItem.id}`}
+																onClick={() => openCaseWorkspace(caseItem.id, "queries")}
 															>
 																<MessageSquare className="h-4 w-4" />
 															</Button>
@@ -727,6 +769,7 @@ export default function CADashboard() {
 																size="icon"
 																title="Upload Document"
 																data-testid={`button-upload-${caseItem.id}`}
+																onClick={() => openCaseWorkspace(caseItem.id, "documents")}
 															>
 																<Upload className="h-4 w-4" />
 															</Button>
@@ -1234,8 +1277,43 @@ export default function CADashboard() {
 							</Card>
 						)}
 					</TabsContent>
+
+					<TabsContent value="certifications" className="mt-6">
+						<CACertificationsPanel partnerId={partnerId} caProfile={dashboardData?.profile} />
+					</TabsContent>
+
+					<TabsContent value="notices" className="mt-6">
+						<CANoticeResolutionPanel caProfile={dashboardData?.profile} />
+					</TabsContent>
+
+					<TabsContent value="advance_tax" className="mt-6">
+						<CAAdvanceTaxPanel />
+					</TabsContent>
+
+					<TabsContent value="gst" className="mt-6">
+						<CAGstPanel />
+					</TabsContent>
+
+					<TabsContent value="msme" className="mt-6">
+						<CAMsmePanel />
+					</TabsContent>
+
+					<TabsContent value="radar" className="mt-6">
+						<CAComplianceRadarPanel />
+					</TabsContent>
 				</Tabs>
 			</div>
+
+			<CaseWorkspaceDrawer
+				caseId={selectedCaseId}
+				isOpen={workspaceOpen}
+				onClose={() => setWorkspaceOpen(false)}
+				initialTab={workspaceTab}
+				onCaseUpdated={() => {
+					qc.invalidateQueries({ queryKey: [`/api/ca/cases/${partnerId}`] });
+					qc.invalidateQueries({ queryKey: [`/api/ca/dashboard/${partnerId}`] });
+				}}
+			/>
 		</div>
 	);
 }

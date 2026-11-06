@@ -1,6 +1,7 @@
+import { logger } from "../logger";
 import { db } from "../db";
-import { eq, and, sql, gte, lte, inArray, desc, asc } from "drizzle-orm";
-import { partners, agentItrCases, caProfiles } from "@shared/schema";
+import { eq, and, inArray } from "drizzle-orm";
+import { partners, agentItrCases, users } from "@shared/schema";
 
 interface CAAssignmentCriteria {
 	caseType: "itr" | "gst" | "audit" | "form15" | "tax_notice" | "company_law";
@@ -182,7 +183,7 @@ export class CAAssignmentService {
 
 			return { success: true, message: "CA assigned successfully" };
 		} catch (error) {
-			console.error("Error assigning CA:", error);
+			logger.error("Error assigning CA:", error);
 			return { success: false, message: "Failed to assign CA" };
 		}
 	}
@@ -290,7 +291,7 @@ export class CAAssignmentService {
 
 			return { success: true };
 		} catch (error) {
-			console.error("Error marking case completed:", error);
+			logger.error("Error marking case completed:", error);
 			return { success: false };
 		}
 	}
@@ -321,7 +322,10 @@ export class CAAssignmentService {
 			.where(eq(partners.id, caPartnerId));
 	}
 
-	async getCADashboardStats(caPartnerId: string): Promise<{
+	async getCADashboardStats(
+		caPartnerId: string,
+		caUserId?: string,
+	): Promise<{
 		activeCases: number;
 		completedCases: number;
 		pendingCases: number;
@@ -336,19 +340,80 @@ export class CAAssignmentService {
 			.where(eq(partners.id, caPartnerId))
 			.limit(1);
 
+		const userIds: string[] = [];
+		if (caUserId) userIds.push(caUserId);
+		if (caPartnerId) userIds.push(caPartnerId);
+		if (ca?.contactEmail) {
+			const [user] = await db
+				.select({ id: users.id })
+				.from(users)
+				.where(eq(users.email, ca.contactEmail))
+				.limit(1);
+			if (user?.id && !userIds.includes(user.id)) {
+				userIds.push(user.id);
+			}
+		}
+
+		let activeCases = ca?.caCurrentActiveCases || 0;
+		let completedCases = ca?.caCompletedCases || 0;
+		let pendingCases = 0;
+		let totalEarnings = Number.parseFloat(ca?.totalCommissionsEarned || "0");
+		let thisMonthEarnings = 0;
+		const casesByType: Record<string, number> = {
+			itr: 0,
+			gst: 0,
+			audit: 0,
+			form15: 0,
+		};
+
+		if (userIds.length > 0) {
+			const userCases = await db
+				.select()
+				.from(agentItrCases)
+				.where(inArray(agentItrCases.caId, userIds));
+
+			if (userCases.length > 0) {
+				const startOfMonth = new Date();
+				startOfMonth.setDate(1);
+				startOfMonth.setHours(0, 0, 0, 0);
+
+				activeCases = 0;
+				completedCases = 0;
+				pendingCases = 0;
+
+				for (const c of userCases) {
+					const fee = Number.parseFloat(String(c.caFee || c.totalFee || "0"));
+					if (["completed", "filed", "acknowledged"].includes(c.status)) {
+						completedCases++;
+						totalEarnings += fee;
+						if (c.completedAt && new Date(c.completedAt) >= startOfMonth) {
+							thisMonthEarnings += fee;
+						}
+					} else {
+						activeCases++;
+						if (["documents_pending", "under_review"].includes(c.status)) {
+							pendingCases++;
+						}
+					}
+
+					const typeKey = (c.sourceProduct || "itr").toLowerCase();
+					if (casesByType[typeKey] !== undefined) {
+						casesByType[typeKey]++;
+					} else {
+						casesByType.itr++;
+					}
+				}
+			}
+		}
+
 		return {
-			activeCases: ca?.caCurrentActiveCases || 0,
-			completedCases: ca?.caCompletedCases || 0,
-			pendingCases: 0,
+			activeCases,
+			completedCases,
+			pendingCases,
 			avgRating: Number.parseFloat(ca?.caAverageRating || "5.0"),
-			totalEarnings: Number.parseFloat(ca?.totalCommissionsEarned || "0"),
-			thisMonthEarnings: 0,
-			casesByType: {
-				itr: 0,
-				gst: 0,
-				audit: 0,
-				form15: 0,
-			},
+			totalEarnings,
+			thisMonthEarnings,
+			casesByType,
 		};
 	}
 }

@@ -1,8 +1,22 @@
+import { logger } from "../logger";
+import { taxAmendmentService } from "../services/tax-amendment-service";
 import { Router, Request, Response } from "express";
 import { db } from "../db";
 import { eq, and, sql, desc, ilike, or, inArray } from "drizzle-orm";
 import { partners, caProfiles, agentItrCases, users } from "@shared/schema";
 import { caAssignmentService } from "../services/ca-assignment-service";
+import { caCaseService } from "../services/ca-case-service";
+import { caReconciliationService } from "../services/ca-reconciliation-service";
+import { caCertificationService } from "../services/ca-certification-service";
+import { caItdParserService } from "../services/ca-itd-parser-service";
+import { caAdvanceTaxService } from "../services/ca-advance-tax-service";
+import { caScheduleFaService } from "../services/ca-schedule-fa-service";
+import { caDscService } from "../services/ca-dsc-service";
+import { caClientApprovalService } from "../services/ca-client-approval-service";
+import { caNoticeResolutionService } from "../services/ca-notice-resolution-service";
+import { caGstReconciliationService } from "../services/ca-gst-reconciliation-service";
+import { caMsmeAuditService } from "../services/ca-msme-audit-service";
+import { caComplianceCalendarService } from "../services/ca-compliance-calendar-service";
 import { verifyICAIMembership } from "../services/icai-verification-service";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -164,7 +178,7 @@ router.post("/register", async (req: Request, res: Response): Promise<void> => {
 			partnerId: newPartner.id,
 		});
 	} catch (error: unknown) {
-		console.error("CA registration error:", error);
+		logger.error("CA registration error:", error);
 		if (error instanceof z.ZodError) {
 			res.status(400).json({
 				success: false,
@@ -229,7 +243,7 @@ router.get(
 				},
 			});
 		} catch (error: unknown) {
-			console.error("Error fetching CA profile:", error);
+			logger.error("Error fetching CA profile:", error);
 			res.status(500).json({
 				success: false,
 				error: "Failed to fetch CA profile",
@@ -275,7 +289,7 @@ router.get(
 				candidates,
 			});
 		} catch (error: unknown) {
-			console.error("Error fetching available CAs:", error);
+			logger.error("Error fetching available CAs:", error);
 			res.status(500).json({
 				success: false,
 				error: "Failed to fetch available CAs",
@@ -313,7 +327,7 @@ router.post(
 				error: "Missing required parameters",
 			});
 		} catch (error: unknown) {
-			console.error("Error assigning CA:", error);
+			logger.error("Error assigning CA:", error);
 			res.status(500).json({
 				success: false,
 				error: "Failed to assign CA",
@@ -330,8 +344,9 @@ router.get(
 	async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { partnerId } = req.params;
+			const user = (req as AuthRequest).user;
 
-			const stats = await caAssignmentService.getCADashboardStats(partnerId);
+			const stats = await caAssignmentService.getCADashboardStats(partnerId, user?.id);
 
 			const [caProfile] = await db
 				.select()
@@ -370,7 +385,7 @@ router.get(
 				stats,
 			});
 		} catch (error: unknown) {
-			console.error("Error fetching CA dashboard:", error);
+			logger.error("Error fetching CA dashboard:", error);
 			res.status(500).json({
 				success: false,
 				error: "Failed to fetch dashboard data",
@@ -384,20 +399,309 @@ router.get(
 	requireAuth,
 	injectRoleInfo,
 	requirePartnerPortal,
-	async (_req: Request, res: Response): Promise<void> => {
+	async (req: Request, res: Response): Promise<void> => {
 		try {
+			const { partnerId } = req.params;
+			const { status } = req.query;
+			const user = (req as AuthRequest).user;
+
+			const cases = await caCaseService.getCasesForCA(
+				partnerId,
+				user?.id,
+				status as string | undefined,
+			);
+
 			res.json({
 				success: true,
-				cases: [],
-				message:
-					"Cases endpoint - integration with agentItrCases pending CA ID field mapping",
+				cases,
+				total: cases.length,
 			});
 		} catch (error: unknown) {
-			console.error("Error fetching CA cases:", error);
+			logger.error("Error fetching CA cases:", error);
 			res.status(500).json({
 				success: false,
 				error: "Failed to fetch cases",
 			});
+		}
+	},
+);
+
+router.get(
+	"/cases/detail/:caseId",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { caseId } = req.params;
+			const caseDetail = await caCaseService.getCaseDetails(caseId);
+
+			if (!caseDetail) {
+				res.status(404).json({
+					success: false,
+					error: "Case not found",
+				});
+				return;
+			}
+
+			res.json({
+				success: true,
+				data: caseDetail,
+			});
+		} catch (error: unknown) {
+			logger.error("Error fetching case detail:", error);
+			res.status(500).json({
+				success: false,
+				error: "Failed to fetch case detail",
+			});
+		}
+	},
+);
+
+router.patch(
+	"/cases/:caseId/status",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { caseId } = req.params;
+			const { status, subStatus, notes } = req.body;
+			const user = (req as AuthRequest).user;
+
+			if (!status) {
+				res.status(400).json({
+					success: false,
+					error: "Status is required",
+				});
+				return;
+			}
+
+			const result = await caCaseService.updateCaseStatus(caseId, {
+				status,
+				subStatus,
+				notes,
+				updatedBy: user?.email || user?.id || "CA Partner",
+			});
+
+			res.json(result);
+		} catch (error: unknown) {
+			logger.error("Error updating case status:", error);
+			res.status(500).json({
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to update case status",
+			});
+		}
+	},
+);
+
+router.patch(
+	"/cases/:caseId/computation",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { caseId } = req.params;
+			const computationInput = req.body;
+
+			const result = await caCaseService.updateComputation(caseId, computationInput);
+			res.json(result);
+		} catch (error: unknown) {
+			logger.error("Error updating case computation:", error);
+			res.status(500).json({
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to update computation",
+			});
+		}
+	},
+);
+
+router.post(
+	"/cases/:caseId/queries",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { caseId } = req.params;
+			const { query } = req.body;
+			const user = (req as AuthRequest).user;
+
+			if (!query?.trim()) {
+				res.status(400).json({ success: false, error: "Query cannot be empty" });
+				return;
+			}
+
+			const result = await caCaseService.addClientQuery(caseId, {
+				query,
+				askedBy: user?.email || user?.id || "CA",
+			});
+			res.json(result);
+		} catch (error: unknown) {
+			logger.error("Error adding client query:", error);
+			res.status(500).json({ success: false, error: "Failed to add query" });
+		}
+	},
+);
+
+router.patch(
+	"/cases/:caseId/queries/:queryIndex/resolve",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { caseId, queryIndex } = req.params;
+			const { response } = req.body;
+
+			if (!response?.trim()) {
+				res.status(400).json({ success: false, error: "Response cannot be empty" });
+				return;
+			}
+
+			const result = await caCaseService.resolveClientQuery(
+				caseId,
+				Number.parseInt(queryIndex),
+				response,
+			);
+			res.json(result);
+		} catch (error: unknown) {
+			logger.error("Error resolving query:", error);
+			res.status(500).json({ success: false, error: "Failed to resolve query" });
+		}
+	},
+);
+
+router.patch(
+	"/cases/:caseId/documents",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { caseId } = req.params;
+			const { documentsRequired, documentsReceived, documentsMissing } = req.body;
+
+			const result = await caCaseService.updateDocuments(caseId, {
+				documentsRequired,
+				documentsReceived,
+				documentsMissing,
+			});
+			res.json(result);
+		} catch (error: unknown) {
+			logger.error("Error updating documents:", error);
+			res.status(500).json({ success: false, error: "Failed to update documents" });
+		}
+	},
+);
+
+router.post(
+	"/reconciliation/run",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { caseId, aisData, form26asData } = req.body;
+			if (!caseId) {
+				res.status(400).json({ success: false, error: "Case ID is required" });
+				return;
+			}
+
+			const report = await caReconciliationService.reconcileCase(
+				caseId,
+				aisData || {},
+				form26asData || {},
+			);
+
+			res.json({
+				success: true,
+				report,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: "RECON_AIS_V1.0",
+				},
+			});
+		} catch (error: unknown) {
+			logger.error("Error running reconciliation:", error);
+			res.status(500).json({
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to run reconciliation",
+			});
+		}
+	},
+);
+
+router.post(
+	"/certification/udin/validate",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { udin, membershipNumber } = req.body;
+			if (!udin) {
+				res.status(400).json({ success: false, error: "UDIN is required" });
+				return;
+			}
+
+			const result = caCertificationService.validateUDINFormat(udin, membershipNumber);
+			res.json({ success: true, result });
+		} catch (error: unknown) {
+			res.status(500).json({ success: false, error: "Failed to validate UDIN" });
+		}
+	},
+);
+
+router.post(
+	"/certification/15cb/draft",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const draft = await caCertificationService.draftForm15CB(req.body);
+			res.json({ success: true, draft });
+		} catch (error: unknown) {
+			res.status(500).json({
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to draft Form 15CB",
+			});
+		}
+	},
+);
+
+router.post(
+	"/certification/networth/generate",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const cert = await caCertificationService.generateNetWorthCertificate(req.body);
+			res.json(cert);
+		} catch (error: unknown) {
+			res.status(500).json({
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to generate Net Worth Certificate",
+			});
+		}
+	},
+);
+
+router.get(
+	"/certification/history/:partnerId",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { partnerId } = req.params;
+			const history = await caCertificationService.getCertificationHistory(partnerId);
+			res.json({ success: true, history });
+		} catch (error: unknown) {
+			res.status(500).json({ success: false, error: "Failed to fetch certification history" });
 		}
 	},
 );
@@ -435,7 +739,7 @@ router.patch(
 				message: "Availability updated",
 			});
 		} catch (error: unknown) {
-			console.error("Error updating availability:", error);
+			logger.error("Error updating availability:", error);
 			res.status(500).json({
 				success: false,
 				error: "Failed to update availability",
@@ -465,7 +769,7 @@ router.post(
 
 			res.json(result);
 		} catch (error: unknown) {
-			console.error("Error completing case:", error);
+			logger.error("Error completing case:", error);
 			res.status(500).json({
 				success: false,
 				error: "Failed to complete case",
@@ -510,7 +814,7 @@ router.get(
 				})),
 			});
 		} catch (error: unknown) {
-			console.error("Error fetching pending verifications:", error);
+			logger.error("Error fetching pending verifications:", error);
 			res.status(500).json({
 				success: false,
 				error: "Failed to fetch pending verifications",
@@ -553,7 +857,7 @@ router.post(
 				message: `CA ${action === "approve" ? "approved" : "rejected"} successfully`,
 			});
 		} catch (error: unknown) {
-			console.error("Error verifying CA:", error);
+			logger.error("Error verifying CA:", error);
 			res.status(500).json({
 				success: false,
 				error: "Failed to verify CA",
@@ -629,7 +933,7 @@ router.get(
 				},
 			});
 		} catch (error: unknown) {
-			console.error("Error fetching CAs:", error);
+			logger.error("Error fetching CAs:", error);
 			res.status(500).json({
 				success: false,
 				error: "Failed to fetch CAs",
@@ -691,7 +995,7 @@ router.get(
 				},
 			});
 		} catch (error: unknown) {
-			console.error("Error fetching CA performance:", error);
+			logger.error("Error fetching CA performance:", error);
 			res.status(500).json({
 				success: false,
 				error: "Failed to fetch performance data",
@@ -794,7 +1098,7 @@ router.post(
 			});
 		} catch (error: unknown) {
 			const msg = error instanceof Error ? error.message : String(error);
-			console.error("[ICAI] Admin verify-icai error:", msg);
+			logger.error("[ICAI] Admin verify-icai error:", msg);
 			res.status(500).json({ success: false, error: msg });
 		}
 	},
@@ -879,7 +1183,7 @@ router.post(
 				error: result.error,
 			});
 		} catch (error: unknown) {
-			console.error("[ICAI] Self-check error:", error);
+			logger.error("[ICAI] Self-check error:", error);
 			res
 				.status(500)
 				.json({
@@ -944,7 +1248,7 @@ router.get(
 			});
 		} catch (error: unknown) {
 			const msg = error instanceof Error ? error.message : String(error);
-			console.error("[ICAI] Status check error:", msg);
+			logger.error("[ICAI] Status check error:", msg);
 			res.status(500).json({ success: false, error: msg });
 		}
 	},
@@ -1034,7 +1338,7 @@ router.get(
 				totalCases: clientCases.length,
 			});
 		} catch (error: unknown) {
-			console.error("Error fetching CA clients:", error);
+			logger.error("Error fetching CA clients:", error);
 			res
 				.status(500)
 				.json({ success: false, error: "Failed to fetch clients" });
@@ -1093,7 +1397,7 @@ router.get(
 				isPubliclyListed: entry.isPubliclyListed,
 			});
 		} catch (error: unknown) {
-			console.error("Error fetching CA referral stats:", error);
+			logger.error("Error fetching CA referral stats:", error);
 			res
 				.status(500)
 				.json({ success: false, error: "Failed to fetch referral stats" });
@@ -1130,7 +1434,7 @@ router.post(
 				message: "Referral code redeemed successfully",
 			});
 		} catch (error: unknown) {
-			console.error("Error redeeming referral code:", error);
+			logger.error("Error redeeming referral code:", error);
 			res.status(500).json({ success: false, error: "Failed to redeem code" });
 		}
 	},
@@ -1208,10 +1512,424 @@ router.post(
 				},
 			});
 		} catch (error: unknown) {
-			console.error("Error generating CA client invite:", error);
+			logger.error("Error generating CA client invite:", error);
 			res
 				.status(500)
 				.json({ success: false, error: "Failed to generate invite" });
+		}
+	},
+);
+
+// --- ADVANCED CA TOOLS & PRACTICE UPGRADES ---
+
+router.post(
+	"/tools/itd-json/parse",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { rawJson, caseId } = req.body;
+			if (!rawJson) {
+				res.status(400).json({ success: false, error: "Raw JSON payload is required" });
+				return;
+			}
+
+			const parsed = caItdParserService.parseJson(rawJson);
+
+			let appliedCase = null;
+			if (caseId) {
+				appliedCase = await caItdParserService.applyToCase(caseId, parsed);
+			}
+
+			res.json({
+				success: true,
+				parsed,
+				applied: !!appliedCase,
+			});
+		} catch (error: unknown) {
+			logger.error("Error parsing ITD pre-fill JSON:", error);
+			res.status(500).json({
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to parse ITD JSON",
+			});
+		}
+	},
+);
+
+router.post(
+	"/tools/advance-tax/calculate",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const report = caAdvanceTaxService.calculateSchedule(req.body);
+			res.json({ success: true, report });
+		} catch (error: unknown) {
+			logger.error("Error calculating advance tax:", error);
+			res.status(500).json({
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to calculate advance tax",
+			});
+		}
+	},
+);
+
+router.post(
+	"/tools/schedule-fa/generate",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const report = caScheduleFaService.generateReport(req.body);
+			res.json({ success: true, report });
+		} catch (error: unknown) {
+			logger.error("Error generating Schedule FA:", error);
+			res.status(500).json({
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to generate Schedule FA",
+			});
+		}
+	},
+);
+
+router.get(
+	"/tools/dsc/list/:partnerId",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { partnerId } = req.params;
+			const tokens = caDscService.listTokens(partnerId);
+			res.json({ success: true, tokens });
+		} catch (error: unknown) {
+			logger.error("Error listing DSC tokens:", error);
+			res.status(500).json({ success: false, error: "Failed to list DSC tokens" });
+		}
+	},
+);
+
+router.post(
+	"/tools/dsc/register",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { partnerId, token } = req.body;
+			if (!token || !partnerId) {
+				res.status(400).json({ success: false, error: "Partner ID and token details required" });
+				return;
+			}
+			const created = caDscService.registerToken(partnerId, token);
+			res.json({ success: true, token: created });
+		} catch (error: unknown) {
+			logger.error("Error registering DSC token:", error);
+			res.status(500).json({ success: false, error: "Failed to register DSC token" });
+		}
+	},
+);
+
+router.post(
+	"/tools/client-approval/request",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { caseId, caPartnerId } = req.body;
+			if (!caseId || !caPartnerId) {
+				res.status(400).json({ success: false, error: "Case ID and CA Partner ID required" });
+				return;
+			}
+
+			const protocol = req.headers["x-forwarded-proto"] || "https";
+			const host = req.headers["x-forwarded-host"] || req.headers.host || "fintekpro.com";
+			const baseUrl = `${protocol}://${host}`;
+
+			const sheet = await caClientApprovalService.generateApprovalSheet(caseId, caPartnerId, baseUrl);
+			res.json({ success: true, sheet });
+		} catch (error: unknown) {
+			logger.error("Error generating client approval sheet:", error);
+			res.status(500).json({
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to generate approval sheet",
+			});
+		}
+	},
+);
+
+router.post(
+	"/tools/client-approval/verify/:token",
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { token } = req.params;
+			const result = await caClientApprovalService.verifyApproval(token);
+			res.json(result);
+		} catch (error: unknown) {
+			logger.error("Error verifying client approval:", error);
+			res.status(500).json({
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to verify approval",
+			});
+		}
+	},
+);
+
+// --- INCOME TAX NOTICE RESOLUTION & LITIGATION HUB ---
+
+router.post(
+	"/notices/validate",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const result = caNoticeResolutionService.validateNoticeAndDin(req.body);
+			res.json({ success: true, result });
+		} catch (error: unknown) {
+			res.status(500).json({ success: false, error: "Failed to validate notice DIN" });
+		}
+	},
+);
+
+router.post(
+	"/notices/reconcile",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const report = await caNoticeResolutionService.reconcileNoticeDiscrepancy(req.body);
+			res.json({ success: true, report });
+		} catch (error: unknown) {
+			res.status(500).json({
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to reconcile notice",
+			});
+		}
+	},
+);
+
+router.post(
+	"/notices/rebuttal",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { notice, clientName, clientPan, caFirmName, caName, icaiNumber } = req.body;
+			if (!notice || !clientName) {
+				res.status(400).json({ success: false, error: "Notice details and client name required" });
+				return;
+			}
+
+			const draft = caNoticeResolutionService.generateRebuttal(
+				notice,
+				clientName,
+				clientPan || "PAN_ON_FILE",
+				caFirmName || "Chartered Accountants",
+				caName || "Authorized Representative",
+				icaiNumber,
+			);
+			res.json({ success: true, draft });
+		} catch (error: unknown) {
+			res.status(500).json({
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to draft rebuttal",
+			});
+		}
+	},
+);
+
+router.post(
+	"/notices/appeal",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { notice, clientName } = req.body;
+			const draft = caNoticeResolutionService.draftCitAppeal(notice, clientName || "Appellant");
+			res.json({ success: true, draft });
+		} catch (error: unknown) {
+			res.status(500).json({
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to draft appeal",
+			});
+		}
+	},
+);
+
+// --- GST 360°, MSME § 43B(h), & MASTER COMPLIANCE CALENDAR ---
+
+router.post(
+	"/gst/reconcile-2b",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { returnPeriod, purchaseInvoices, gstr2bInvoices } = req.body;
+			if (!returnPeriod || !purchaseInvoices || !gstr2bInvoices) {
+				res.status(400).json({ success: false, error: "Return period, purchase invoices, and GSTR-2B invoices required" });
+				return;
+			}
+
+			const report = caGstReconciliationService.reconcile(
+				returnPeriod,
+				purchaseInvoices,
+				gstr2bInvoices,
+			);
+			res.json({ success: true, report });
+		} catch (error: unknown) {
+			res.status(500).json({
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to reconcile GSTR-2B",
+			});
+		}
+	},
+);
+
+router.post(
+	"/msme/audit-43bh",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { financialYear, payables } = req.body;
+			if (!financialYear || !payables) {
+				res.status(400).json({ success: false, error: "Financial year and payables list required" });
+				return;
+			}
+
+			const report = caMsmeAuditService.auditPayables(financialYear, payables);
+			res.json({ success: true, report });
+		} catch (error: unknown) {
+			res.status(500).json({
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to audit MSME payables",
+			});
+		}
+	},
+);
+
+router.get(
+	"/calendar/deadlines",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { year, month } = req.query;
+			const y = year ? Number.parseInt(year as string) : undefined;
+			const m = month ? Number.parseInt(month as string) : undefined;
+
+			const deadlines = caComplianceCalendarService.getDeadlines(y, m);
+			res.json({ success: true, deadlines });
+		} catch (error: unknown) {
+			res.status(500).json({ success: false, error: "Failed to fetch compliance calendar" });
+		}
+	},
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAX AMENDMENT MANAGEMENT & DYNAMIC PATCHING ENDPOINTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+router.get(
+	"/tax-amendments",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { assessmentYear, category, status } = req.query;
+			const amendments = taxAmendmentService.listAmendments({
+				assessmentYear: assessmentYear as string,
+				category: category as any,
+				status: status as any,
+			});
+			res.json({ success: true, count: amendments.length, amendments });
+		} catch (error: unknown) {
+			logger.error("Error fetching tax amendments:", { error });
+			res.status(500).json({ success: false, error: "Failed to fetch tax amendments" });
+		}
+	},
+);
+
+router.get(
+	"/tax-amendments/capital-gains-rule",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { assetClass, transactionDate } = req.query;
+			if (!assetClass || !transactionDate) {
+				res.status(400).json({ success: false, error: "assetClass and transactionDate are required" });
+				return;
+			}
+			const rule = taxAmendmentService.resolveCapitalGainsRule({
+				assetClass: assetClass as any,
+				transactionDate: transactionDate as string,
+			});
+			res.json({ success: true, rule });
+		} catch (error: unknown) {
+			logger.error("Error resolving capital gains rule:", { error });
+			res.status(500).json({ success: false, error: "Failed to resolve capital gains rule" });
+		}
+	},
+);
+
+router.post(
+	"/tax-amendments/simulate",
+	requireAuth,
+	injectRoleInfo,
+	requirePartnerPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { amendmentId, sampleIncome, sampleCapitalGains } = req.body;
+			if (!amendmentId || sampleIncome === undefined) {
+				res.status(400).json({ success: false, error: "amendmentId and sampleIncome are required" });
+				return;
+			}
+			const simulation = taxAmendmentService.simulateAmendmentImpact({
+				amendmentId,
+				sampleIncome,
+				sampleCapitalGains,
+			});
+			res.json({ success: true, simulation });
+		} catch (error: unknown) {
+			logger.error("Error simulating tax amendment:", { error });
+			res.status(500).json({
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to simulate tax amendment",
+			});
+		}
+	},
+);
+
+router.post(
+	"/tax-amendments/ingest",
+	requireAuth,
+	injectRoleInfo,
+	requireAdminPortal,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const patchInput = req.body;
+			const result = taxAmendmentService.ingestAmendment(patchInput);
+			res.status(201).json(result);
+		} catch (error: unknown) {
+			logger.error("Error ingesting tax amendment patch:", { error });
+			res.status(400).json({
+				success: false,
+				error: error instanceof Error ? error.message : "Failed to ingest tax amendment patch",
+			});
 		}
 	},
 );
