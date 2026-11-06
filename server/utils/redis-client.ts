@@ -26,6 +26,9 @@ let _lastFailedAt: number  = 0;   // epoch ms of last connect failure
 let _connecting            = false;
 
 export async function getSharedRedis(): Promise<any> {
+  // Fast path: if no REDIS_URL is configured, immediately return null with zero overhead
+  if (!process.env.REDIS_URL) return null;
+
   // Already connected and open
   if (_client?.isOpen) return _client;
 
@@ -37,8 +40,6 @@ export async function getSharedRedis(): Promise<any> {
   // If already connecting (e.g. background warm-up in progress), don't queue — return null
   // The circuit breaker will trip after the in-flight connect resolves, protecting future calls
   if (_connecting) return null;
-
-  if (!process.env.REDIS_URL) return null;
 
   _connecting = true;
   try {

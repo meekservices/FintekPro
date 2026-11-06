@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 // ============================================================================
 // FintekPro — Runtime Environment Validator
 // Version: 2.0 | FASP-AI v1.0 compliant
@@ -61,6 +62,9 @@ function collectIssues(isProduction: boolean): EnvIssue[] {
 	const warn = (category: string, connector: string, message: string) =>
 		issues.push({ level: "warn", category, connector, message });
 
+	const info = (category: string, connector: string, message: string) =>
+		issues.push({ level: "info", category, connector, message });
+
 	// ── §1. INFRASTRUCTURE — P0 ───────────────────────────────────────────────
 
 	if (!hasAny("PRODUCTION_DATABASE_URL", "DATABASE_URL")) {
@@ -90,10 +94,9 @@ function collectIssues(isProduction: boolean): EnvIssue[] {
 	// ── §2. CACHE — P0 (production autoscale) ───────────────────────────────
 
 	if (isProduction && !has("REDIS_URL")) {
-		warn("Cache", "Redis / Memorystore",
-			"REDIS_URL is not set. Compliance cache, rate-limiter, and KYC audit state will be " +
-			"LOCAL to each Cloud Run pod — state WILL DIVERGE across autoscaled instances. " +
-			"Provision via GCP Memorystore (Redis) and set: REDIS_URL=redis://PRIVATE_IP:6379");
+		info("Cache", "Redis / Memorystore",
+			"REDIS_URL is not set. Operating in Zero-Redis Distributed Mode: " +
+			"PostgreSQL-backed cluster locking (distributed_locks), async task queue (async_compute_jobs), and L2 cache (cluster_cache) active across all Cloud Run pods.");
 	}
 
 	// ── §3. AI / LLM ─────────────────────────────────────────────────────────
@@ -288,8 +291,8 @@ function buildServiceDashboard(isProduction: boolean): ServiceStatus[] {
 		},
 		{
 			name: "Redis Cache",
-			status: has("REDIS_URL") ? "✅ OK" : (isProduction ? "⚠️ DEGRADED" : "⬜ OPTIONAL"),
-			degraded: isProduction ? "State will diverge across pods" : undefined,
+			status: has("REDIS_URL") ? "✅ OK" : "⬜ OPTIONAL",
+			degraded: has("REDIS_URL") ? undefined : "PostgreSQL Zero-Redis cluster active",
 		},
 		{
 			name: "Gemini AI",

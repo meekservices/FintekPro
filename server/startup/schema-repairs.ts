@@ -3952,6 +3952,61 @@ export async function ensureSharedRouteTables(): Promise<void> {
   const { db: migDb } = await import("../db");
   const { sql: migSql } = await import("drizzle-orm");
 
+  // ── Zero-Redis Architecture: distributed_locks ──────────────────────────────
+  try {
+    await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS distributed_locks (
+        lock_key    VARCHAR(255) PRIMARY KEY,
+        token       VARCHAR(255) NOT NULL,
+        acquired_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        expires_at  TIMESTAMPTZ NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_distributed_locks_expires_at ON distributed_locks (expires_at);
+    `);
+    console.log("  ✅ distributed_locks (Zero-Redis): ready");
+  } catch (e: any) {
+    console.warn("  ⚠️  distributed_locks (non-fatal):", e.message?.slice(0, 80));
+  }
+
+  // ── Zero-Redis Architecture: async_compute_jobs ─────────────────────────────
+  try {
+    await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS async_compute_jobs (
+        id              VARCHAR(255) PRIMARY KEY,
+        task_type       VARCHAR(100) NOT NULL,
+        status          VARCHAR(50) NOT NULL,
+        progress        INTEGER NOT NULL DEFAULT 0,
+        payload         JSONB NOT NULL,
+        result          JSONB,
+        error           TEXT,
+        idempotency_key VARCHAR(255),
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        started_at      TIMESTAMPTZ,
+        completed_at    TIMESTAMPTZ
+      );
+      CREATE INDEX IF NOT EXISTS idx_async_compute_jobs_idempotency ON async_compute_jobs(idempotency_key) WHERE idempotency_key IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_async_compute_jobs_status ON async_compute_jobs(status);
+    `);
+    console.log("  ✅ async_compute_jobs (Zero-Redis): ready");
+  } catch (e: any) {
+    console.warn("  ⚠️  async_compute_jobs (non-fatal):", e.message?.slice(0, 80));
+  }
+
+  // ── Zero-Redis Architecture: cluster_cache ──────────────────────────────────
+  try {
+    await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS cluster_cache (
+        key        VARCHAR(255) PRIMARY KEY,
+        value      TEXT NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_cluster_cache_expires_at ON cluster_cache (expires_at);
+    `);
+    console.log("  ✅ cluster_cache (Zero-Redis): ready");
+  } catch (e: any) {
+    console.warn("  ⚠️  cluster_cache (non-fatal):", e.message?.slice(0, 80));
+  }
+
   // ── agent_notifications ─────────────────────────────────────────────────────
   try {
     await migDb.execute(migSql`
