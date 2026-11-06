@@ -94,7 +94,7 @@ interface Product {
 	isNew?: boolean;
 	badge?: string;
 	/** Which live provider sourced this product (undefined = DB-seeded) */
-	providerSource?: "IRIS" | "ALPACA";
+	providerSource?: "IRIS" | "ALPACA" | "UPSTOX";
 	/** The provider's own identifier (schemeCode, ticker symbol, product ID) */
 	providerProductId?: string;
 }
@@ -660,6 +660,14 @@ export default function StorePage() {
 
 		/** Provider source badge rendered inside the card header */
 		const ProviderBadge = () => {
+			if (product.providerSource === "UPSTOX") {
+				return (
+					<Badge className="bg-purple-600 text-white text-[10px] px-2 py-0.5 font-semibold tracking-wide flex items-center gap-1">
+						<Zap className="h-2.5 w-2.5" />
+						Upstox Live
+					</Badge>
+				);
+			}
 			if (product.providerSource === "IRIS") {
 				return (
 					<Badge className="bg-indigo-600 text-white text-[10px] px-2 py-0.5 font-semibold tracking-wide">
@@ -864,6 +872,7 @@ export default function StorePage() {
 									</SelectTrigger>
 									<SelectContent>
 										<SelectItem value="all">All Providers</SelectItem>
+										<SelectItem value="UPSTOX">Upstox (NSE/BSE/MCX)</SelectItem>
 										<SelectItem value="IRIS">IRIS KFintech</SelectItem>
 										<SelectItem value="ALPACA">Alpaca (US)</SelectItem>
 										<SelectItem value="DB">FintekPro Curated</SelectItem>
@@ -1098,9 +1107,9 @@ export default function StorePage() {
 									{getCurrentCategorySubcategories().length > 0 && (
 										<div className="flex flex-wrap gap-4 p-4 bg-muted/50 rounded-lg">
 											<div className="flex-1 min-w-[200px]">
-												<label className="text-sm font-medium text-muted-foreground mb-1 block">
+												<span className="text-sm font-medium text-muted-foreground mb-1 block">
 													Loan Type
-												</label>
+												</span>
 												<Select
 													value={selectedSubcategory}
 													onValueChange={setSelectedSubcategory}
@@ -1119,9 +1128,9 @@ export default function StorePage() {
 												</Select>
 											</div>
 											<div className="flex-1 min-w-[200px]">
-												<label className="text-sm font-medium text-muted-foreground mb-1 block">
+												<span className="text-sm font-medium text-muted-foreground mb-1 block">
 													Bank / Financier
-												</label>
+												</span>
 												<Select
 													value={selectedProvider}
 													onValueChange={setSelectedProvider}

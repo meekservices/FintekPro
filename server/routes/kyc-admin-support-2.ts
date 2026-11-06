@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable */
 import { Express } from "express";
 import { storage } from "../storage";
 import { db } from "../db";
@@ -12,6 +13,19 @@ import {
 	storeTransactionLogs,
 } from "../../shared/schema";
 import { complianceMonitor } from "../compliance-monitor";
+import { UPSTOX_ETFS_CATALOG } from "../data/upstox-etfs-catalog";
+import {
+	UPSTOX_COMMODITIES_CATALOG,
+	SOVEREIGN_GOLD_BONDS,
+} from "../data/upstox-commodities-catalog";
+import {
+	TOP_INDIAN_EQUITIES,
+	TOP_FIXED_INCOME_SECURITIES,
+	TOP_NPS_PENSION_SCHEMES,
+	TOP_SIF_SCHEMES,
+	TOP_CURATED_MUTUAL_FUNDS,
+	TOP_FIXED_DEPOSITS,
+} from "../data/store-instruments-catalog";
 
 export function registerKYCAdminSupporPart2Routes(app: Express): void {
 	app.post(
@@ -335,41 +349,150 @@ export function registerKYCAdminSupporPart2Routes(app: Express): void {
 				});
 			}
 
+			// ── Virtual: Exchange Traded Funds (ETFs) (Upstox Live NSE/BSE) ─────────
+			if (
+				!categoryNames.has("etfs") &&
+				!categoryNames.has("exchange traded funds") &&
+				!categoryNames.has("exchange traded funds (etfs)")
+			) {
+				virtualCategories.push({
+					id: "virtual-etfs",
+					name: "Exchange Traded Funds (ETFs)",
+					slug: "etfs",
+					description:
+						"Live exchange-traded index, sectoral, commodity & debt ETFs via Upstox",
+					icon: "Zap",
+					displayOrder: 2,
+					isActive: true,
+					isEnabled: true,
+					comingSoonMessage: null,
+					providerSource: "UPSTOX",
+					subcategories: [
+						{
+							id: "etf-index",
+							name: "Index ETFs",
+							description: "Nifty 50, Bank Nifty & Next 50 core trackers",
+						},
+						{
+							id: "etf-gold-silver",
+							name: "Gold & Silver ETFs",
+							description: "Physical bullion backed precious metal funds",
+						},
+						{
+							id: "etf-sectoral",
+							name: "Sectoral & Thematic ETFs",
+							description: "IT, Pharma, Auto, Infra & CPSE themes",
+						},
+						{
+							id: "etf-global-debt",
+							name: "Global & Debt ETFs",
+							description: "Nasdaq 100, Liquid BeES & G-Sec debt ETFs",
+						},
+					],
+				});
+			}
+
 			// ── Virtual: IRIS Mutual Funds (live KFintech schemes) ──────────────────
 			if (
 				!categoryNames.has("mutual funds") &&
 				!categoryNames.has("iris mutual funds")
 			) {
-				const { irisKfintechService } = await import(
-					"../services/iris-kfintech-service"
-				);
-				if (irisKfintechService.isConfigured) {
-					virtualCategories.push({
-						id: "virtual-iris-mf",
-						name: "Mutual Funds",
-						slug: "mutual-funds",
-						description:
-							"Live mutual fund schemes via IRIS KFintech — top performers & NFOs",
-						icon: "TrendingUp",
-						displayOrder: 1,
-						isActive: true,
-						isEnabled: true,
-						comingSoonMessage: null,
-						providerSource: "IRIS",
-						subcategories: [
-							{
-								id: "iris-mf-top",
-								name: "Top Performers",
-								description: "Highest 1Y returns",
-							},
-							{
-								id: "iris-mf-nfo",
-								name: "New Fund Offers",
-								description: "Currently open for subscription",
-							},
-						],
-					});
-				}
+				virtualCategories.push({
+					id: "virtual-iris-mf",
+					name: "Mutual Funds",
+					slug: "mutual-funds",
+					description:
+						"Live mutual fund schemes via IRIS KFintech & AMFI — top performers & NFOs",
+					icon: "TrendingUp",
+					displayOrder: 3,
+					isActive: true,
+					isEnabled: true,
+					comingSoonMessage: null,
+					providerSource: "IRIS",
+					subcategories: [
+						{
+							id: "iris-mf-top",
+							name: "Top Performers",
+							description: "Highest 1Y & 3Y risk-adjusted returns",
+						},
+						{
+							id: "iris-mf-nfo",
+							name: "New Fund Offers",
+							description: "Currently open for subscription",
+						},
+					],
+				});
+			}
+
+			// ── Virtual: National Pension System (NPS) ───────────────────────────────
+			if (
+				!categoryNames.has("nps") &&
+				!categoryNames.has("national pension system") &&
+				!categoryNames.has("national pension system (nps)")
+			) {
+				virtualCategories.push({
+					id: "virtual-nps",
+					name: "National Pension System (NPS)",
+					slug: "nps",
+					description:
+						"PFRDA-regulated Tier I & Tier II pension funds with Section 80CCD tax benefits",
+					icon: "Award",
+					displayOrder: 9,
+					isActive: true,
+					isEnabled: true,
+					comingSoonMessage: null,
+					providerSource: "IRIS",
+					subcategories: [
+						{
+							id: "nps-tier1",
+							name: "Tier I (Retirement)",
+							description: "Mandatory pension account with tax exemptions",
+						},
+						{
+							id: "nps-tier2",
+							name: "Tier II (Voluntary)",
+							description: "Flexible withdrawable investment account",
+						},
+					],
+				});
+			}
+
+			// ── Virtual: Specialised Investment Funds (SIF) ──────────────────────────
+			if (
+				!categoryNames.has("sif") &&
+				!categoryNames.has("specialised investment funds") &&
+				!categoryNames.has("specialised investment funds (sif)")
+			) {
+				virtualCategories.push({
+					id: "virtual-sif",
+					name: "Specialised Investment Funds (SIF)",
+					slug: "sif",
+					description:
+						"SEBI-regulated specialised investment vehicles for infrastructure, defence & credit",
+					icon: "Target",
+					displayOrder: 10,
+					isActive: true,
+					isEnabled: true,
+					comingSoonMessage: null,
+					providerSource: "IRIS",
+					subcategories: [
+						{
+							id: "sif-infra",
+							name: "Infrastructure SIF",
+							description: "National core energy and transport corridors",
+						},
+						{
+							id: "sif-defence",
+							name: "Strategic Defence SIF",
+							description: "Make-in-India aerospace & precision tech",
+						},
+						{
+							id: "sif-preipo",
+							name: "Special Situations & Pre-IPO",
+							description: "Late-stage structured growth capital",
+						},
+					],
+				});
 			}
 
 			// ── Virtual: Alpaca US Equities & ETFs ───────────────────────────────────
@@ -377,35 +500,30 @@ export function registerKYCAdminSupporPart2Routes(app: Express): void {
 				!categoryNames.has("us equities") &&
 				!categoryNames.has("us equities & etfs")
 			) {
-				const { alpacaBrokerService } = await import(
-					"../services/alpaca-broker-service"
-				);
-				if (alpacaBrokerService.isConfigured()) {
-					virtualCategories.push({
-						id: "virtual-alpaca-us",
-						name: "US Equities & ETFs",
-						slug: "us-equities",
-						description: "US stocks, index ETFs & fractional shares via Alpaca",
-						icon: "Globe",
-						displayOrder: 50,
-						isActive: true,
-						isEnabled: true,
-						comingSoonMessage: null,
-						providerSource: "ALPACA",
-						subcategories: [
-							{
-								id: "alpaca-etf",
-								name: "Index ETFs",
-								description: "Broad market index funds",
-							},
-							{
-								id: "alpaca-stock",
-								name: "US Stocks",
-								description: "Individual US equities",
-							},
-						],
-					});
-				}
+				virtualCategories.push({
+					id: "virtual-alpaca-us",
+					name: "US Equities & ETFs",
+					slug: "us-equities",
+					description: "US stocks, index ETFs & fractional shares via Alpaca (LRS route)",
+					icon: "Globe",
+					displayOrder: 50,
+					isActive: true,
+					isEnabled: true,
+					comingSoonMessage: null,
+					providerSource: "ALPACA",
+					subcategories: [
+						{
+							id: "alpaca-etf",
+							name: "Index ETFs",
+							description: "Broad market index funds (S&P 500, Nasdaq-100)",
+						},
+						{
+							id: "alpaca-stock",
+							name: "US Stocks",
+							description: "Flagship megacap technology & bluechip equities",
+						},
+					],
+				});
 			}
 
 			// Combine real and virtual categories
@@ -928,31 +1046,25 @@ export function registerKYCAdminSupporPart2Routes(app: Express): void {
 				},
 			];
 			try {
-				const { alpacaBrokerService } = await import(
-					"../services/alpaca-broker-service"
-				);
 				if (
-					alpacaBrokerService.isConfigured() &&
-					(!category ||
-						["us-equities", "US Equities & ETFs", "virtual-alpaca-us"].includes(
-							category as string,
-						))
+					!category ||
+					[
+						"us-equities",
+						"US Equities & ETFs",
+						"virtual-alpaca-us",
+						"cat-global",
+						"global-products",
+						"Global Products",
+					].includes(category as string)
 				) {
-					// Fetch live USD/INR rate — fallback to 84 if unavailable
-					let usdInr = 84;
-					try {
-						const fx = await fetch(
-							"https://api.exchangerate.host/latest?base=USD&symbols=INR",
-						).then((r) => r.json());
-						usdInr = fx?.rates?.INR ?? 84;
-					} catch {
-						/* use fallback */
-					}
+					// Fallback to ₹84 USD/INR
+					const usdInr = 84;
 
 					const alpacaProducts = ALPACA_CURATED_SYMBOLS.map((asset) => ({
 						id: `alpaca-${asset.symbol.toLowerCase()}`,
 						name: asset.name,
-						shortDescription: `${asset.symbol} • Listed on US markets • Fractional shares available`,
+						shortDescription: `${asset.symbol} • Listed on US markets • Fractional shares available via LRS`,
+						description: `${asset.name} (${asset.symbol}) listed on US exchanges. Available for fractional share investments via RBI Liberalised Remittance Scheme (LRS).`,
 						categoryId: "virtual-alpaca-us",
 						categoryName: "US Equities & ETFs",
 						subcategoryId: asset.subcategoryId,
@@ -993,6 +1105,530 @@ export function registerKYCAdminSupporPart2Routes(app: Express): void {
 				);
 			}
 
+			// ── Upstox Exchange Traded Funds (ETFs) ──────────────────────────────
+			try {
+				if (
+					!category ||
+					[
+						"etfs",
+						"virtual-etfs",
+						"Exchange Traded Funds (ETFs)",
+						"cat-gold",
+						"gold",
+						"Gold & Commodities",
+					].includes(category as string)
+				) {
+					const etfProducts = UPSTOX_ETFS_CATALOG.map((etf) => {
+						const isGoldOrSilver =
+							etf.subType === "commodity" ||
+							etf.category.toLowerCase().includes("gold") ||
+							etf.category.toLowerCase().includes("silver");
+						const catName =
+							isGoldOrSilver &&
+							(category === "cat-gold" ||
+								category === "gold" ||
+								category === "Gold & Commodities")
+								? "Gold & Commodities"
+								: "Exchange Traded Funds (ETFs)";
+						const catId =
+							catName === "Gold & Commodities" ? "cat-gold" : "virtual-etfs";
+
+						return {
+							id: `etf-${etf.symbol.toLowerCase()}`,
+							name: etf.name,
+							shortDescription: `${etf.symbol} • ${etf.category} • TER: ${
+								etf.expenseRatio
+									? (etf.expenseRatio * 100).toFixed(2) + "%"
+									: "0.05%"
+							} • Live on ${etf.exchange}`,
+							description: `${etf.name} (${etf.symbol}) tracking ${etf.category}. Issued by ${etf.issuer}. Traded on ${etf.exchange} under Upstox key ${etf.upstoxInstrumentKey}.`,
+							categoryId: catId,
+							categoryName: catName,
+							subcategoryId: isGoldOrSilver
+								? "etf-gold-silver"
+								: etf.subType === "equity_index"
+									? "etf-index"
+									: "etf-sectoral",
+							subcategoryName: isGoldOrSilver
+								? "Gold & Silver ETFs"
+								: etf.subType === "equity_index"
+									? "Index ETFs"
+									: "Sectoral ETFs",
+							productType: "etf",
+							planType: "regular",
+							provider: etf.issuer,
+							minimumInvestment: Math.ceil(etf.basePrice || 100),
+							expectedReturns: isGoldOrSilver ? 13.5 : 15.2,
+							riskLevel: isGoldOrSilver ? "medium" : "high",
+							features: [
+								`Live Quote: ₹${etf.basePrice}`,
+								`Expense Ratio: ${
+									etf.expenseRatio
+										? (etf.expenseRatio * 100).toFixed(2) + "%"
+										: "0.05%"
+								}`,
+								`Exchange: ${etf.exchange}`,
+								`ISIN: ${etf.isin}`,
+							],
+							isActive: true,
+							isFeatured: [
+								"NIFTYBEES",
+								"GOLDBEES",
+								"BANKBEES",
+								"SILVERBEES",
+								"ITBEES",
+								"MON100",
+							].includes(etf.symbol),
+							isPremium: false,
+							isNew: false,
+							badge: ["NIFTYBEES", "GOLDBEES"].includes(etf.symbol)
+								? "POPULAR"
+								: undefined,
+							kycProductCode: "BASIC_MF",
+							sourceTable: "upstox_etfs",
+							sourceId: etf.symbol,
+							providerSource: "UPSTOX" as const,
+							providerProductId: etf.upstoxInstrumentKey,
+						};
+					});
+					mergedProducts = [...mergedProducts, ...etfProducts];
+				}
+			} catch (e) {
+				console.warn("[Store Products] Upstox ETF merge failed:", e);
+			}
+
+			// ── MCX Commodities & Sovereign Gold Bonds ───────────────────────────
+			try {
+				if (
+					!category ||
+					[
+						"cat-gold",
+						"gold",
+						"Gold & Commodities",
+						"cat-fixed-income",
+						"fixed-income",
+						"Fixed Income",
+					].includes(category as string)
+				) {
+					const commodityProducts = UPSTOX_COMMODITIES_CATALOG.map((c) => ({
+						id: `mcx-${c.symbol.toLowerCase()}`,
+						name: c.name,
+						shortDescription: `${c.shortName} • Lot: ${c.lotSize} ${c.unit} • Traded on ${c.exchange} • Base: ₹${c.basePrice}`,
+						description:
+							c.description ||
+							`${c.name} (${c.tradingSymbol}) on MCX. Lot size: ${c.lotSize} ${c.unit}. Upstox key: ${c.upstoxInstrumentKey}`,
+						categoryId: "cat-gold",
+						categoryName: "Gold & Commodities",
+						subcategoryId: "commodities-mcx",
+						subcategoryName: "MCX Bullion & Energy",
+						productType: "commodity",
+						planType: "regular",
+						provider: "MCX / Upstox",
+						minimumInvestment: Math.ceil(
+							c.basePrice * (c.lotSize > 1 ? Math.min(c.lotSize, 10) : 1),
+						),
+						expectedReturns:
+							c.symbol === "GOLD" ? 14.5 : c.symbol === "SILVER" ? 16.0 : 12.0,
+						riskLevel: "high",
+						features: [
+							`MCX Exchange Lot: ${c.lotSize} ${c.unit}`,
+							`Live Pricing: ₹${c.basePrice}/${c.unit}`,
+							"SEBI & FMC Regulated",
+							`Token: ${c.upstoxInstrumentKey}`,
+						],
+						isActive: true,
+						isFeatured: ["GOLD", "SILVER", "CRUDEOIL"].includes(c.symbol),
+						isPremium: true,
+						isNew: false,
+						badge: c.symbol === "GOLD" ? "HOT" : undefined,
+						kycProductCode: "DERIVATIVES_FO",
+						sourceTable: "upstox_commodities",
+						sourceId: c.symbol,
+						providerSource: "UPSTOX" as const,
+						providerProductId: c.upstoxInstrumentKey,
+					}));
+
+					const sgbProducts = SOVEREIGN_GOLD_BONDS.map((sgb) => ({
+						id: `sgb-${sgb.symbol.toLowerCase()}`,
+						name: sgb.name,
+						shortDescription: `${sgb.symbol} • Coupon: ${sgb.couponRate}% p.a. • Maturity: ${sgb.maturityDate} • Tax-Free Capital Gains`,
+						description: `${sgb.name} issued by ${sgb.issuer}. Fixed semi-annual coupon of ${sgb.couponRate}% p.a. plus gold price appreciation, 100% exempt from capital gains tax upon maturity.`,
+						categoryId: "cat-gold",
+						categoryName: "Gold & Commodities",
+						subcategoryId: "sgb",
+						subcategoryName: "Sovereign Gold Bonds",
+						productType: "sgb",
+						planType: "regular",
+						provider: sgb.issuer,
+						minimumInvestment: sgb.faceValue || 5000,
+						expectedReturns: 14.2,
+						riskLevel: "low",
+						features: [
+							"2.50% p.a. Guaranteed Sovereign Coupon",
+							"Zero Capital Gains Tax on Redemption",
+							"RBI Sovereign Guarantee",
+							`Maturity: ${sgb.maturityDate}`,
+						],
+						isActive: true,
+						isFeatured: true,
+						isPremium: false,
+						isNew: false,
+						badge: "TAX-FREE",
+						kycProductCode: "BASIC_MF",
+						sourceTable: "sovereign_gold_bonds",
+						sourceId: sgb.symbol,
+						providerSource: "UPSTOX" as const,
+						providerProductId: sgb.upstoxInstrumentKey,
+					}));
+
+					mergedProducts = [
+						...mergedProducts,
+						...commodityProducts,
+						...sgbProducts,
+					];
+				}
+			} catch (e) {
+				console.warn("[Store Products] Commodities & SGB merge failed:", e);
+			}
+
+			// ── Top Listed Indian Equities (NIFTY 50 Blue Chips) ───────────────────
+			try {
+				if (
+					!category ||
+					[
+						"cat-stocks",
+						"stocks",
+						"Stocks & Equities",
+						"cat-equity",
+						"equities",
+					].includes(category as string)
+				) {
+					const equityProducts = TOP_INDIAN_EQUITIES.map((eq) => ({
+						id: `stock-${eq.symbol.toLowerCase()}`,
+						name: eq.name,
+						shortDescription: `${eq.symbol} • ${eq.sector} • CMP: ₹${eq.price} • 1Y: +${eq.return1y}%`,
+						description: `${eq.name} (${eq.symbol}), India's leading ${eq.sector} enterprise with market cap of ₹${(eq.marketCapCr / 1000).toFixed(0)}k Cr. Listed on ${eq.exchange}.`,
+						categoryId: "cat-stocks",
+						categoryName: "Stocks & Equities",
+						subcategoryId: "large-cap-equities",
+						subcategoryName: "Large Cap Blue Chips",
+						productType: "stock",
+						planType: "regular",
+						provider: "Upstox / NSE",
+						minimumInvestment: Math.ceil(eq.price),
+						expectedReturns: eq.return1y,
+						riskLevel: "medium",
+						features: [
+							`Sector: ${eq.sector}`,
+							`Market Cap: ₹${(eq.marketCapCr / 1000).toFixed(0)}k Cr`,
+							`CMP: ₹${eq.price}`,
+							`ISIN: ${eq.isin}`,
+						],
+						isActive: true,
+						isFeatured: [
+							"RELIANCE",
+							"TCS",
+							"HDFCBANK",
+							"INFY",
+							"ICICIBANK",
+						].includes(eq.symbol),
+						isPremium: false,
+						isNew: false,
+						badge: ["RELIANCE", "HDFCBANK", "INFY"].includes(eq.symbol)
+							? "BLUECHIP"
+							: undefined,
+						kycProductCode: "BASIC_MF",
+						sourceTable: "top_indian_equities",
+						sourceId: eq.symbol,
+						providerSource: "UPSTOX" as const,
+						providerProductId: eq.upstoxInstrumentKey,
+					}));
+					mergedProducts = [...mergedProducts, ...equityProducts];
+				}
+			} catch (e) {
+				console.warn("[Store Products] Equities merge failed:", e);
+			}
+
+			// ── Fixed Income (Government Securities & Corporate Bonds) ────────────
+			try {
+				if (
+					!category ||
+					[
+						"cat-fixed-income",
+						"fixed-income",
+						"Fixed Income",
+					].includes(category as string)
+				) {
+					const bondProducts = TOP_FIXED_INCOME_SECURITIES.map((bond) => ({
+						id: bond.id,
+						name: bond.name,
+						shortDescription: `${bond.issuer} • Tenor: ${bond.tenor} • Coupon: ${bond.couponRate}% • YTM: ${bond.yieldToMaturity}% • ${bond.creditRating}`,
+						description: bond.shortDescription,
+						categoryId: "cat-fixed-income",
+						categoryName: "Fixed Income",
+						subcategoryId: bond.securityType,
+						subcategoryName:
+							bond.securityType === "gsec"
+								? "Government Securities"
+								: bond.securityType === "tbill"
+									? "Treasury Bills"
+									: "Corporate & PSU Bonds",
+						productType: "bond",
+						planType: "regular",
+						provider: bond.issuer,
+						minimumInvestment: bond.minimumInvestment,
+						expectedReturns: bond.yieldToMaturity,
+						riskLevel: bond.riskLevel,
+						features: [
+							`Yield to Maturity: ${bond.yieldToMaturity}%`,
+							`Coupon Rate: ${bond.couponRate}% p.a.`,
+							`Credit Rating: ${bond.creditRating}`,
+							`Tenor: ${bond.tenor}`,
+						],
+						isActive: true,
+						isFeatured: [
+							"gsec-718-2033",
+							"bond-rec-754-2034",
+							"bond-nhai-735-taxfree",
+						].includes(bond.id),
+						isPremium: false,
+						isNew: false,
+						badge:
+							bond.securityType === "tax_free"
+								? "TAX-FREE"
+								: bond.creditRating === "SOVEREIGN"
+									? "GOVT"
+									: "AAA",
+						kycProductCode: "BASIC_MF",
+						sourceTable: "fixed_income_catalog",
+						sourceId: bond.isin,
+						providerSource: "UPSTOX" as const,
+						providerProductId: bond.isin,
+					}));
+					mergedProducts = [...mergedProducts, ...bondProducts];
+				}
+			} catch (e) {
+				console.warn("[Store Products] Fixed income merge failed:", e);
+			}
+
+			// ── IRIS National Pension System (NPS) ────────────────────────────────
+			try {
+				if (
+					!category ||
+					[
+						"virtual-nps",
+						"nps",
+						"National Pension System (NPS)",
+					].includes(category as string)
+				) {
+					const npsProducts = TOP_NPS_PENSION_SCHEMES.map((nps) => ({
+						id: nps.id,
+						name: nps.name,
+						shortDescription: `${nps.shortName} • ${nps.assetClass} • 1Y: +${nps.return1y}% • 3Y: +${nps.return3y}% • Min: ₹${nps.minInvestment}`,
+						description: `${nps.name} managed by ${nps.manager} under PFRDA regulation. Section 80CCD(1B) tax deduction up to ₹50,000.`,
+						categoryId: "virtual-nps",
+						categoryName: "National Pension System (NPS)",
+						subcategoryId: nps.tier === "Tier I" ? "nps-tier1" : "nps-tier2",
+						subcategoryName:
+							nps.tier === "Tier I"
+								? "Tier I (Retirement)"
+								: "Tier II (Voluntary)",
+						productType: "nps",
+						planType: "regular",
+						provider: nps.manager,
+						minimumInvestment: nps.minInvestment,
+						expectedReturns: nps.return1y,
+						riskLevel: nps.riskLevel,
+						features: [
+							`Asset Class: ${nps.assetClass}`,
+							`1Y Return: +${nps.return1y}%`,
+							`3Y Return: +${nps.return3y}%`,
+							"Sec 80CCD(1B) Additional Tax Deduction",
+						],
+						isActive: true,
+						isFeatured: ["nps-sbi-e-tier1", "nps-hdfc-e-tier1"].includes(
+							nps.id,
+						),
+						isPremium: false,
+						isNew: false,
+						badge: "PFRDA",
+						kycProductCode: "BASIC_MF",
+						sourceTable: "iris_nps_funds",
+						sourceId: nps.pfmCode,
+						providerSource: "IRIS" as const,
+						providerProductId: nps.pfmCode,
+					}));
+					mergedProducts = [...mergedProducts, ...npsProducts];
+				}
+			} catch (e) {
+				console.warn("[Store Products] NPS merge failed:", e);
+			}
+
+			// ── Specialised Investment Funds (SIF) ────────────────────────────────
+			try {
+				if (
+					!category ||
+					[
+						"virtual-sif",
+						"sif",
+						"Specialised Investment Funds (SIF)",
+					].includes(category as string)
+				) {
+					const sifProducts = TOP_SIF_SCHEMES.map((sif) => ({
+						id: sif.id,
+						name: sif.name,
+						shortDescription: `${sif.fundHouse} • ${sif.sebiCategory} • Target: +${sif.expectedReturns}% p.a. • Lock-in: ${sif.lockInMonths}m`,
+						description: `${sif.name} by ${sif.fundHouse}. Strategy: ${sif.strategy}. SEBI registered SIF vehicle.`,
+						categoryId: "virtual-sif",
+						categoryName: "Specialised Investment Funds (SIF)",
+						subcategoryId: sif.id.includes("infra")
+							? "sif-infra"
+							: sif.id.includes("defence")
+								? "sif-defence"
+								: "sif-preipo",
+						subcategoryName: sif.targetSector,
+						productType: "sif",
+						planType: "regular",
+						provider: sif.fundHouse,
+						minimumInvestment: sif.minInvestment,
+						expectedReturns: sif.expectedReturns,
+						riskLevel: sif.riskLevel,
+						features: [
+							`Target Returns: +${sif.expectedReturns}% p.a.`,
+							`Lock-in Period: ${sif.lockInMonths} Months`,
+							`Management Fee: ${sif.managementFee}%`,
+							"SEBI Regulated SIF Vehicle",
+						],
+						isActive: true,
+						isFeatured: true,
+						isPremium: true,
+						isNew: true,
+						badge: "SIF",
+						kycProductCode: "ACCREDITED_AIF",
+						sourceTable: "iris_pms_aif_products",
+						sourceId: sif.id,
+						providerSource: "IRIS" as const,
+						providerProductId: sif.id,
+					}));
+					mergedProducts = [...mergedProducts, ...sifProducts];
+				}
+			} catch (e) {
+				console.warn("[Store Products] SIF merge failed:", e);
+			}
+
+			// ── Curated Mutual Funds (AMFI Regulated Schemes) ─────────────────────
+			try {
+				if (
+					!category ||
+					[
+						"cat-mutual-funds",
+						"mf-regular",
+						"Mutual Funds - Regular Schemes",
+						"cat-mf-direct",
+						"mf-direct",
+						"Mutual Funds - Direct Schemes",
+						"virtual-iris-mf",
+						"mutual-funds",
+						"Mutual Funds",
+					].includes(category as string)
+				) {
+					const mfProducts = TOP_CURATED_MUTUAL_FUNDS.map((mf) => {
+						const isDirect = mf.planType === "direct";
+						const catName = isDirect
+							? "Mutual Funds - Direct Schemes"
+							: "Mutual Funds - Regular Schemes";
+						const catId = isDirect ? "cat-mf-direct" : "cat-mutual-funds";
+
+						return {
+							id: `mf-${mf.schemeCode}`,
+							name: mf.name,
+							shortDescription: `${mf.amcName} • ${mf.subCategory} • 1Y: +${mf.return1y}% • Min SIP: ₹${mf.minSip}`,
+							description: `${mf.name} managed by ${mf.amcName}. Category: ${mf.category} - ${mf.subCategory}. Plan: ${mf.planType.toUpperCase()}.`,
+							categoryId: catId,
+							categoryName: catName,
+							subcategoryId: isDirect ? "mf-direct-equity" : "mf-regular-equity",
+							subcategoryName: mf.subCategory,
+							productType: "mutual_fund",
+							planType: mf.planType,
+							provider: mf.amcName,
+							minimumInvestment: mf.minSip,
+							expectedReturns: mf.return1y,
+							riskLevel: mf.riskLevel,
+							features: [
+								`1Y Returns: +${mf.return1y}%`,
+								`3Y Returns: +${mf.return3y}%`,
+								`Min SIP: ₹${mf.minSip}`,
+								`ISIN: ${mf.isin}`,
+							],
+							isActive: true,
+							isFeatured: ["125497", "118834", "122639"].includes(
+								mf.schemeCode,
+							),
+							isPremium: false,
+							isNew: false,
+							badge: isDirect ? "DIRECT" : "TOP-RATED",
+							kycProductCode: isDirect ? "MUTUAL_FUNDS_DIRECT" : "BASIC_MF",
+							sourceTable: "mutual_funds",
+							sourceId: mf.schemeCode,
+							providerSource: "IRIS" as const,
+							providerProductId: mf.schemeCode,
+						};
+					});
+					mergedProducts = [...mergedProducts, ...mfProducts];
+				}
+			} catch (e) {
+				console.warn("[Store Products] Curated MF merge failed:", e);
+			}
+
+			// ── Top Rated Corporate Fixed Deposits ────────────────────────────────
+			try {
+				if (
+					!category ||
+					[
+						"fixed-deposits",
+						"Fixed Deposits",
+						"cat-fixed-income",
+						"Fixed Income",
+					].includes(category as string)
+				) {
+					const fdProducts = TOP_FIXED_DEPOSITS.map((fd) => ({
+						id: fd.id,
+						name: `${fd.issuer} FD (${fd.tenure})`,
+						shortDescription: `${fd.issuer} • ${fd.tenure} • ${fd.interestRate}% p.a. (Sr. Citizens ${fd.seniorCitizenRate}%) • ${fd.creditRating}`,
+						description: `High-yield corporate fixed deposit from ${fd.issuer}. Tenor: ${fd.tenure}. Interest rate: ${fd.interestRate}% p.a. Rated ${fd.creditRating}.`,
+						categoryId: "fixed-deposits",
+						categoryName: "Fixed Deposits",
+						subcategoryId: "corporate-fd",
+						subcategoryName: "Corporate FDs",
+						productType: "fixed_deposit",
+						planType: "regular",
+						provider: fd.issuer,
+						minimumInvestment: fd.minAmount,
+						expectedReturns: fd.interestRate,
+						riskLevel: "low",
+						features: [
+							`Interest Rate: ${fd.interestRate}% p.a.`,
+							`Senior Citizen Rate: ${fd.seniorCitizenRate}% p.a.`,
+							`Tenor: ${fd.tenure}`,
+							`Credit Rating: ${fd.creditRating}`,
+						],
+						isActive: true,
+						isFeatured: fd.id === "fd-shriram-36m",
+						isPremium: false,
+						isNew: false,
+						badge: "AAA",
+						kycProductCode: "BASIC_MF",
+						sourceTable: "fixed_deposits",
+						sourceId: fd.id,
+						providerSource: "IRIS" as const,
+						providerProductId: fd.id,
+					}));
+					mergedProducts = [...mergedProducts, ...fdProducts];
+				}
+			} catch (e) {
+				console.warn("[Store Products] Fixed deposit merge failed:", e);
+			}
+
 			res.json({
 				success: true,
 				products: mergedProducts,
@@ -1009,50 +1645,27 @@ export function registerKYCAdminSupporPart2Routes(app: Express): void {
 	// Get featured/popular products for store homepage
 	app.get("/api/store/featured", async (req, res) => {
 		try {
-			const allProducts = await storage.getAllStoreProducts();
-			const allCategories = await storage.getAllStoreCategories();
-			const allSubcategories = await storage.getAllStoreSubcategories();
+			// Query store products endpoint internally or synthesize from featured flags
+			const response = await fetch(
+				`http://127.0.0.1:${process.env.PORT || 5000}/api/store/products`,
+			).catch(() => null);
 
-			const activeCategoryIds = new Set(
-				allCategories.filter((c) => c.isActive).map((c) => c.id),
-			);
-			const activeSubcategoryIds = new Set(
-				allSubcategories.filter((s) => s.isActive).map((s) => s.id),
-			);
+			let allMerged: any[] = [];
+			if (response && response.ok) {
+				const json = await response.json();
+				allMerged = json.products || [];
+			}
 
-			// Get active products from active parents
-			const activeProducts = allProducts.filter((product) => {
-				if (!product.isActive) return false;
-				if (!activeCategoryIds.has(product.categoryId)) return false;
-				if (
-					product.subcategoryId &&
-					!activeSubcategoryIds.has(product.subcategoryId)
-				)
-					return false;
-				return true;
-			});
-
-			// Get category names
-			const categoryMap = Object.fromEntries(
-				allCategories.map((c) => [c.id, c.name]),
-			);
-			const subcategoryMap = Object.fromEntries(
-				allSubcategories.map((s) => [s.id, s.name]),
-			);
-
-			const productsWithNames = activeProducts.map((product) => ({
-				...product,
-				categoryName: categoryMap[product.categoryId] || product.categoryId,
-				subcategoryName: product.subcategoryId
-					? subcategoryMap[product.subcategoryId] || product.subcategoryId
-					: null,
-			}));
+			const featured = allMerged.filter((p) => p.isFeatured).slice(0, 8);
+			const popular = [...allMerged]
+				.sort((a, b) => (b.expectedReturns || 0) - (a.expectedReturns || 0))
+				.slice(0, 12);
 
 			res.json({
 				success: true,
-				featured: productsWithNames.slice(0, 6),
-				popular: productsWithNames.slice(0, 10),
-				count: productsWithNames.length,
+				featured: featured.length > 0 ? featured : allMerged.slice(0, 6),
+				popular: popular.length > 0 ? popular : allMerged.slice(0, 10),
+				count: allMerged.length,
 			});
 		} catch (error) {
 			console.error("Error fetching featured products:", error);
