@@ -394,6 +394,81 @@ export class MultiVendorInstrumentResolver {
       }
     }
 
+    // 4. Alpaca for US Equities & ETFs
+    if (vendor === "alpaca") {
+      const symbol = mapping?.vendorSymbol || mapping?.vendorInstrumentToken || isin.replace(/^US-/, "");
+      try {
+        const { alpacaMarketDataService } = await import("../alpaca-market-data-service");
+        if (alpacaMarketDataService.isConfigured()) {
+          const q = await alpacaMarketDataService.getQuote(symbol);
+          if (q && q.price > 0) {
+            return {
+              isin,
+              symbol,
+              name: mapping?.vendorSymbol || symbol,
+              price: q.price,
+              change: q.change,
+              changePercent: q.changePercent,
+              open: q.open,
+              high: q.high,
+              low: q.low,
+              volume: q.volume,
+              vendorUsed: "alpaca",
+              isFallback: false,
+              timestamp: new Date().toISOString(),
+              cached: false,
+            };
+          }
+        }
+      } catch (err: any) {
+        logger.warn("[MultiVendorResolver] Alpaca quote fetch error", {
+          event: "ALPACA_QUOTE_ERROR",
+          symbol,
+          error: err?.message,
+        });
+      }
+    }
+
+    // 5. IRIS Fixed Deposits & NPS
+    if (vendor === "iris" && isin.startsWith("FD-")) {
+      try {
+        const { irisFdProducts } = await import("@shared/schema");
+        const { or } = await import("drizzle-orm");
+        const fdId = mapping?.vendorInstrumentToken || isin.replace(/^FD-/, "");
+        const [fd] = await db
+          .select({
+            id: irisFdProducts.id,
+            productName: irisFdProducts.productName,
+            productCode: irisFdProducts.productCode,
+            irisProductId: irisFdProducts.irisProductId,
+            interestRate: irisFdProducts.interestRate,
+            updatedAt: irisFdProducts.updatedAt,
+          })
+          .from(irisFdProducts)
+          .where(or(eq(irisFdProducts.irisProductId, fdId), eq(irisFdProducts.id, fdId)))
+          .limit(1);
+
+        if (fd) {
+          return {
+            isin,
+            symbol: fd.productCode || fd.irisProductId,
+            name: fd.productName,
+            price: fd.interestRate ? Number(fd.interestRate) : 0,
+            vendorUsed: "iris_fd",
+            isFallback: false,
+            timestamp: fd.updatedAt?.toISOString() || new Date().toISOString(),
+            cached: true,
+          };
+        }
+      } catch (err: any) {
+        logger.warn("[MultiVendorResolver] IRIS FD quote lookup failed", {
+          event: "IRIS_FD_LOOKUP_ERROR",
+          isin,
+          error: err?.message,
+        });
+      }
+    }
+
     return null;
   }
 }

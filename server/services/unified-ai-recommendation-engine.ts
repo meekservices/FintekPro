@@ -45,7 +45,11 @@ export type ProductCategory =
 	| "commodities"
 	| "reits"
 	| "derivatives"
-	| "unlisted";
+	| "unlisted"
+	| "global_stocks"
+	| "fixed_deposits"
+	| "nps"
+	| "sif";
 
 export type RiskProfile =
 	| "conservative"
@@ -273,6 +277,34 @@ const CATEGORY_CONFIG: Record<
 		typicalHorizon: "long",
 		riskMultiplier: 1.8,
 		cacheTtlMinutes: 240,
+	},
+	global_stocks: {
+		displayName: "US Equities & ETFs (Alpaca)",
+		defaultKyc: "enhanced",
+		typicalHorizon: "long",
+		riskMultiplier: 1.1,
+		cacheTtlMinutes: 30,
+	},
+	fixed_deposits: {
+		displayName: "Fixed Deposits (IRIS)",
+		defaultKyc: "basic",
+		typicalHorizon: "medium",
+		riskMultiplier: 0.2,
+		cacheTtlMinutes: 240,
+	},
+	nps: {
+		displayName: "NPS Pension Funds (IRIS)",
+		defaultKyc: "basic",
+		typicalHorizon: "long",
+		riskMultiplier: 0.6,
+		cacheTtlMinutes: 240,
+	},
+	sif: {
+		displayName: "Specified Investment Funds (SIF / New Asset Class)",
+		defaultKyc: "enhanced",
+		typicalHorizon: "long",
+		riskMultiplier: 1.2,
+		cacheTtlMinutes: 120,
 	},
 };
 

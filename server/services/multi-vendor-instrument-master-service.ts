@@ -182,7 +182,24 @@ export class MultiVendorInstrumentMasterService {
         cacheRow = rows[0];
       }
 
-      if (!isinRow && !cacheRow) {
+      // 3. Query canonical instrument_master if not in isin_registry or financial_instruments_cache
+      let masterRow: any;
+      if (!isinRow && !cacheRow && (symbolClean || isinClean)) {
+        const { instrumentMaster } = await import("@shared/schema");
+        const rows = await db
+          .select()
+          .from(instrumentMaster)
+          .where(
+            or(
+              isinClean ? eq(instrumentMaster.isin, isinClean) : undefined,
+              symbolClean ? eq(instrumentMaster.symbol, symbolClean) : undefined,
+            ),
+          )
+          .limit(1);
+        masterRow = rows[0];
+      }
+
+      if (!isinRow && !cacheRow && !masterRow) {
         // Fallback: Synthesize deterministic profile if symbol exists
         if (symbolClean) {
           const profile = this.synthesizeDefaultProfile(symbolClean, params.instrumentType);
@@ -194,7 +211,7 @@ export class MultiVendorInstrumentMasterService {
       }
 
       // Build composite profile
-      const profile = this.buildProfile(isinRow, cacheRow, params);
+      const profile = this.buildProfile(isinRow, cacheRow, params, masterRow);
       cacheSet(cacheKey, profile);
       return profile;
     } catch (err) {
@@ -262,11 +279,12 @@ export class MultiVendorInstrumentMasterService {
         };
       case "fd":
       case "nps":
+      case "sif":
         return {
           assetClass: normalized,
-          executionVendors: ["IRIS"],
-          pricingVendors: ["IRIS"],
-          lendingVendors: ["NONE" as any],
+          executionVendors: ["IRIS", "BSE_STAR_MF"],
+          pricingVendors: ["IRIS", "AMFI"],
+          lendingVendors: ["IRIS"],
         };
       default:
         return {
@@ -361,11 +379,12 @@ export class MultiVendorInstrumentMasterService {
     isinRow?: ISINRegistryRecord,
     cacheRow?: FinancialInstrumentsCache,
     requestParams?: { instrumentType?: string; symbol?: string },
+    masterRow?: any,
   ): MultiVendorInstrumentProfile {
-    const isin = isinRow?.isin || cacheRow?.isin || undefined;
-    const symbol = isinRow?.nseSymbol || cacheRow?.symbol || requestParams?.symbol || "UNKNOWN";
-    const canonicalName = isinRow?.canonicalName || cacheRow?.name || symbol;
-    const rawType = (isinRow?.instrumentType || cacheRow?.instrumentType || requestParams?.instrumentType || "stock").toLowerCase();
+    const isin = isinRow?.isin || cacheRow?.isin || masterRow?.isin || undefined;
+    const symbol = isinRow?.nseSymbol || cacheRow?.symbol || masterRow?.symbol || requestParams?.symbol || "UNKNOWN";
+    const canonicalName = isinRow?.canonicalName || cacheRow?.name || masterRow?.name || symbol;
+    const rawType = (isinRow?.instrumentType || cacheRow?.instrumentType || masterRow?.assetClass || requestParams?.instrumentType || "stock").toLowerCase();
 
     let instrumentType: MultiVendorInstrumentProfile["instrumentType"] = "stock";
     if (rawType.includes("mutual_fund") || rawType === "mf") instrumentType = "mutual_fund";
@@ -374,11 +393,12 @@ export class MultiVendorInstrumentMasterService {
     else if (rawType.includes("index")) instrumentType = "index";
     else if (rawType.includes("smallcase")) instrumentType = "smallcase";
     else if (rawType.includes("us_") || rawType.includes("alpaca")) instrumentType = "us_stock";
-    else if (rawType.includes("fd")) instrumentType = "fd";
+    else if (rawType.includes("fd") || rawType.includes("fixed_deposit")) instrumentType = "fd";
     else if (rawType.includes("nps")) instrumentType = "nps";
+    else if (rawType.includes("sif")) instrumentType = "mutual_fund";
 
-    const country = isinRow?.country || cacheRow?.country || "IN";
-    const currency = isinRow?.currency || cacheRow?.currency || "INR";
+    const country = isinRow?.country || cacheRow?.country || masterRow?.country || "IN";
+    const currency = isinRow?.currency || cacheRow?.currency || masterRow?.currency || "INR";
 
     // Supported Vendors List
     const supportedList: VendorType[] = [];

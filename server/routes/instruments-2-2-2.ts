@@ -1334,6 +1334,13 @@ function mapAssetClass(assetClass?: string | null): string {
 	if (lc.includes("mutual") || lc === "mf") return "MUTUAL_FUND";
 	if (lc.includes("bond") || lc === "debt") return "BOND";
 	if (lc.includes("etf")) return "ETF";
+	if (lc.includes("us_") || lc.includes("global")) return "US_EQUITY";
+	if (lc.includes("fd") || lc.includes("deposit")) return "FIXED_DEPOSIT";
+	if (lc.includes("nps")) return "NPS";
+	if (lc.includes("derivative") || lc.includes("option") || lc.includes("future")) return "DERIVATIVE";
+	if (lc.includes("sif")) return "SIF";
+	if (lc.includes("aif")) return "AIF";
+	if (lc.includes("pms")) return "PMS";
 	if (lc.includes("equity") || lc.includes("stock")) return "EQUITY";
 	return "EQUITY";
 }

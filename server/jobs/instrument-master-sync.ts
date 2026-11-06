@@ -28,6 +28,7 @@ async function syncMutualFunds(): Promise<number> {
       mf.scheme_code::text, mf.scheme_name,
       CASE 
         WHEN (mf.category ILIKE '%ETF%' OR mf.scheme_name ILIKE '%ETF%') AND mf.scheme_name NOT ILIKE '%FOF%' THEN 'etf'
+        WHEN mf.category ILIKE '%SIF%' OR mf.scheme_name ILIKE '%SIF%' OR mf.scheme_name ILIKE '%Specialised Investment%' OR mf.scheme_name ILIKE '%Specialized Investment%' THEN 'sif'
         ELSE 'mutual_fund'
       END AS asset_class,
       mf.plan_type,
@@ -157,7 +158,203 @@ async function syncDerivatives(): Promise<number> {
   `);
 }
 
-/** Orchestrates all 7 asset-class syncs and returns row counts. */
+/** Syncs US Equities & ETFs from global_instruments (Alpaca Data/Broker source) */
+async function syncGlobalInstruments(): Promise<number> {
+  return runUpsert("global_instruments", sql`
+    INSERT INTO instrument_master
+      (isin, symbol, name, asset_class, sub_type, category, issuer,
+       country, currency, last_price, price_updated_at, is_active, source, created_at, updated_at)
+    SELECT
+      COALESCE(gi.isin, 'US-' || gi.symbol) AS isin,
+      gi.symbol,
+      gi.name,
+      CASE WHEN LOWER(gi.asset_class) = 'etf' THEN 'etf' ELSE 'us_equity' END AS asset_class,
+      gi.market_cap_category AS sub_type,
+      COALESCE(gi.sector, 'US Equity') AS category,
+      COALESCE(gi.exchange, 'NASDAQ') AS issuer,
+      COALESCE(gi.market, 'US') AS country,
+      COALESCE(gi.currency, 'USD') AS currency,
+      gi.last_price::text,
+      COALESCE(gi.last_updated, NOW()),
+      COALESCE(gi.is_active, true),
+      COALESCE(gi.trading_api_provider, gi.data_source, 'alpaca') AS source,
+      NOW(), NOW()
+    FROM global_instruments gi WHERE gi.symbol IS NOT NULL AND gi.name IS NOT NULL
+    ON CONFLICT (isin) DO UPDATE SET
+      symbol=EXCLUDED.symbol, name=EXCLUDED.name,
+      asset_class=EXCLUDED.asset_class, sub_type=EXCLUDED.sub_type,
+      category=EXCLUDED.category, issuer=EXCLUDED.issuer,
+      country=EXCLUDED.country, currency=EXCLUDED.currency,
+      last_price=EXCLUDED.last_price, price_updated_at=EXCLUDED.price_updated_at,
+      is_active=EXCLUDED.is_active, source=EXCLUDED.source, updated_at=NOW()
+  `);
+}
+
+/** Syncs Corporate & Bank Fixed Deposits from KFintech IRIS */
+async function syncIrisFixedDeposits(): Promise<number> {
+  return runUpsert("iris_fd_products", sql`
+    INSERT INTO instrument_master
+      (isin, symbol, name, asset_class, sub_type, category, issuer,
+       country, currency, last_price, price_updated_at, is_active, source, created_at, updated_at)
+    SELECT
+      'FD-' || ifd.iris_product_id AS isin,
+      COALESCE(ifd.product_code, ifd.iris_product_id) AS symbol,
+      ifd.product_name AS name,
+      'fixed_deposit' AS asset_class,
+      ifd.category AS sub_type,
+      'Fixed Deposit' AS category,
+      ifd.issuer_name AS issuer,
+      'IN' AS country,
+      'INR' AS currency,
+      ifd.interest_rate::text AS last_price,
+      ifd.updated_at AS price_updated_at,
+      true AS is_active,
+      'iris' AS source,
+      NOW(), NOW()
+    FROM iris_fd_products ifd WHERE ifd.iris_product_id IS NOT NULL AND ifd.product_name IS NOT NULL
+    ON CONFLICT (isin) DO UPDATE SET
+      symbol=EXCLUDED.symbol, name=EXCLUDED.name,
+      asset_class=EXCLUDED.asset_class, sub_type=EXCLUDED.sub_type,
+      category=EXCLUDED.category, issuer=EXCLUDED.issuer,
+      last_price=EXCLUDED.last_price, price_updated_at=EXCLUDED.price_updated_at,
+      is_active=EXCLUDED.is_active, source=EXCLUDED.source, updated_at=NOW()
+  `);
+}
+
+/** Syncs NPS (National Pension System) Funds from KFintech IRIS */
+async function syncIrisNps(): Promise<number> {
+  return runUpsert("iris_nps_funds", sql`
+    INSERT INTO instrument_master
+      (isin, symbol, name, asset_class, sub_type, category, issuer,
+       country, currency, last_price, price_updated_at, is_active, source, created_at, updated_at)
+    SELECT
+      'NPS-' || inf.iris_fund_code AS isin,
+      inf.iris_fund_code AS symbol,
+      inf.fund_manager_name || ' (Tier ' || inf.tier || ')' AS name,
+      'nps' AS asset_class,
+      inf.tier AS sub_type,
+      COALESCE(inf.scheme_type, 'NPS') AS category,
+      inf.fund_manager_name AS issuer,
+      'IN' AS country,
+      'INR' AS currency,
+      inf.return_1y::text AS last_price,
+      inf.updated_at AS price_updated_at,
+      true AS is_active,
+      'iris' AS source,
+      NOW(), NOW()
+    FROM iris_nps_funds inf WHERE inf.iris_fund_code IS NOT NULL AND inf.fund_manager_name IS NOT NULL
+    ON CONFLICT (isin) DO UPDATE SET
+      symbol=EXCLUDED.symbol, name=EXCLUDED.name,
+      asset_class=EXCLUDED.asset_class, sub_type=EXCLUDED.sub_type,
+      category=EXCLUDED.category, issuer=EXCLUDED.issuer,
+      last_price=EXCLUDED.last_price, price_updated_at=EXCLUDED.price_updated_at,
+      is_active=EXCLUDED.is_active, source=EXCLUDED.source, updated_at=NOW()
+  `);
+}
+
+/** Syncs PMS & AIF products from KFintech IRIS */
+async function syncIrisPmsAif(): Promise<number> {
+  return runUpsert("iris_pms_aif_products", sql`
+    INSERT INTO instrument_master
+      (isin, symbol, name, asset_class, sub_type, category, issuer,
+       country, currency, last_price, price_updated_at, is_active, source, created_at, updated_at)
+    SELECT
+      'PMS-' || ipa.iris_product_id AS isin,
+      ipa.iris_product_id AS symbol,
+      ipa.strategy_name AS name,
+      CASE 
+        WHEN LOWER(ipa.product_type) = 'sif' OR ipa.sebi_category ILIKE '%SIF%' OR ipa.strategy_name ILIKE '%SIF%' THEN 'sif'
+        WHEN LOWER(ipa.product_type) = 'aif' THEN 'aif' 
+        ELSE 'pms' 
+      END AS asset_class,
+      ipa.sebi_category AS sub_type,
+      ipa.strategy_type AS category,
+      ipa.fund_house AS issuer,
+      'IN' AS country,
+      'INR' AS currency,
+      ipa.min_investment::text AS last_price,
+      NOW() AS price_updated_at,
+      true AS is_active,
+      'iris' AS source,
+      NOW(), NOW()
+    FROM iris_pms_aif_products ipa WHERE ipa.iris_product_id IS NOT NULL AND ipa.strategy_name IS NOT NULL
+    ON CONFLICT (isin) DO UPDATE SET
+      symbol=EXCLUDED.symbol, name=EXCLUDED.name,
+      asset_class=EXCLUDED.asset_class, sub_type=EXCLUDED.sub_type,
+      category=EXCLUDED.category, issuer=EXCLUDED.issuer,
+      last_price=EXCLUDED.last_price, is_active=EXCLUDED.is_active,
+      source=EXCLUDED.source, updated_at=NOW()
+  `);
+}
+
+/** Auto-populates instrument_vendor_mappings for Upstox, IRIS, and Alpaca */
+async function syncVendorMappings(): Promise<number> {
+  let mapped = 0;
+
+  // 1. Upstox Listed Stocks Mapping (from listed_stocks with upstox_instrument_key)
+  mapped += await runUpsert("ivm_upstox_stocks", sql`
+    INSERT INTO instrument_vendor_mappings
+      (isin, vendor, vendor_symbol, vendor_instrument_token, feed_role, is_active, sync_status, source, created_at, updated_at)
+    SELECT
+      ls.isin, 'upstox', ls.symbol, ls.upstox_instrument_key, 'PRIMARY_QUOTE', true, 'synced', 'upstox_sync', NOW(), NOW()
+    FROM listed_stocks ls
+    WHERE ls.isin IS NOT NULL AND ls.upstox_instrument_key IS NOT NULL
+    ON CONFLICT (vendor, vendor_instrument_token) DO UPDATE SET
+      isin=EXCLUDED.isin, vendor_symbol=EXCLUDED.vendor_symbol, updated_at=NOW()
+  `);
+
+  // 2. Upstox Derivatives Mapping
+  mapped += await runUpsert("ivm_upstox_derivatives", sql`
+    INSERT INTO instrument_vendor_mappings
+      (isin, vendor, vendor_symbol, vendor_instrument_token, feed_role, is_active, sync_status, source, created_at, updated_at)
+    SELECT
+      dc.instrument_key, 'upstox', dc.tradingsymbol, dc.instrument_key, 'PRIMARY_QUOTE', true, 'synced', 'upstox_sync', NOW(), NOW()
+    FROM derivative_contracts dc
+    WHERE dc.instrument_key IS NOT NULL
+    ON CONFLICT (vendor, vendor_instrument_token) DO UPDATE SET
+      isin=EXCLUDED.isin, vendor_symbol=EXCLUDED.vendor_symbol, updated_at=NOW()
+  `);
+
+  // 3. Alpaca US Stocks Mapping
+  mapped += await runUpsert("ivm_alpaca_stocks", sql`
+    INSERT INTO instrument_vendor_mappings
+      (isin, vendor, vendor_symbol, vendor_instrument_token, feed_role, is_active, sync_status, source, created_at, updated_at)
+    SELECT
+      COALESCE(gi.isin, 'US-' || gi.symbol), 'alpaca', gi.symbol, gi.symbol, 'PRIMARY_QUOTE', true, 'synced', 'alpaca_sync', NOW(), NOW()
+    FROM global_instruments gi
+    WHERE gi.symbol IS NOT NULL
+    ON CONFLICT (vendor, vendor_instrument_token) DO UPDATE SET
+      isin=EXCLUDED.isin, vendor_symbol=EXCLUDED.vendor_symbol, updated_at=NOW()
+  `);
+
+  // 4. IRIS Fixed Deposit Mapping
+  mapped += await runUpsert("ivm_iris_fd", sql`
+    INSERT INTO instrument_vendor_mappings
+      (isin, vendor, vendor_symbol, vendor_instrument_token, feed_role, is_active, sync_status, source, created_at, updated_at)
+    SELECT
+      'FD-' || ifd.iris_product_id, 'iris', ifd.product_code, ifd.iris_product_id, 'PRIMARY_QUOTE', true, 'synced', 'iris_sync', NOW(), NOW()
+    FROM iris_fd_products ifd
+    WHERE ifd.iris_product_id IS NOT NULL
+    ON CONFLICT (vendor, vendor_instrument_token) DO UPDATE SET
+      isin=EXCLUDED.isin, vendor_symbol=EXCLUDED.vendor_symbol, updated_at=NOW()
+  `);
+
+  // 5. IRIS NPS Mapping
+  mapped += await runUpsert("ivm_iris_nps", sql`
+    INSERT INTO instrument_vendor_mappings
+      (isin, vendor, vendor_symbol, vendor_instrument_token, feed_role, is_active, sync_status, source, created_at, updated_at)
+    SELECT
+      'NPS-' || inf.iris_fund_code, 'iris', inf.pfm_code, inf.iris_fund_code, 'PRIMARY_QUOTE', true, 'synced', 'iris_sync', NOW(), NOW()
+    FROM iris_nps_funds inf
+    WHERE inf.iris_fund_code IS NOT NULL
+    ON CONFLICT (vendor, vendor_instrument_token) DO UPDATE SET
+      isin=EXCLUDED.isin, vendor_symbol=EXCLUDED.vendor_symbol, updated_at=NOW()
+  `);
+
+  return mapped;
+}
+
+/** Orchestrates all asset-class syncs and returns row counts. */
 export async function syncInstrumentMaster() {
   const start = Date.now();
   logger.info("instrument_master sync started", { event: "INSTRUMENT_MASTER_SYNC_START" });
@@ -167,7 +364,22 @@ export async function syncInstrumentMaster() {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_instrument_master_isin ON instrument_master (isin)
   `).catch(() => {/* already exists */});
 
-  const r = { mutualFunds: 0, stocks: 0, bonds: 0, reits: 0, aif: 0, mld: 0, derivatives: 0, total: 0, durationMs: 0 };
+  const r = {
+    mutualFunds: 0,
+    stocks: 0,
+    bonds: 0,
+    reits: 0,
+    aif: 0,
+    mld: 0,
+    derivatives: 0,
+    globalStocks: 0,
+    irisFd: 0,
+    irisNps: 0,
+    irisPmsAif: 0,
+    vendorMappings: 0,
+    total: 0,
+    durationMs: 0,
+  };
 
   const run = async (key: keyof Omit<typeof r, "total"|"durationMs">, fn: () => Promise<number>) => {
     try { r[key] = await fn(); }
@@ -183,12 +395,28 @@ export async function syncInstrumentMaster() {
   await run("aif", syncAif);
   await run("mld", syncMld);
   await run("derivatives", syncDerivatives);
+  await run("globalStocks", syncGlobalInstruments);
+  await run("irisFd", syncIrisFixedDeposits);
+  await run("irisNps", syncIrisNps);
+  await run("irisPmsAif", syncIrisPmsAif);
+  await run("vendorMappings", syncVendorMappings);
 
-  r.total = r.mutualFunds + r.stocks + r.bonds + r.reits + r.aif + r.mld + r.derivatives;
+  r.total =
+    r.mutualFunds +
+    r.stocks +
+    r.bonds +
+    r.reits +
+    r.aif +
+    r.mld +
+    r.derivatives +
+    r.globalStocks +
+    r.irisFd +
+    r.irisNps +
+    r.irisPmsAif;
   r.durationMs = Date.now() - start;
 
   logger.info(
-    `instrument_master sync complete: ${r.total} rows in ${r.durationMs}ms`,
+    `instrument_master sync complete: ${r.total} rows (${r.vendorMappings} vendor mappings) in ${r.durationMs}ms`,
     { event: "INSTRUMENT_MASTER_SYNC_COMPLETE", ...r }
   );
   return r;

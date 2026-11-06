@@ -788,6 +788,38 @@ router.post("/api/instruments/sync", async (req: Request, res: Response) => {
 	}
 });
 
+// POST /api/instruments/sync-master — Unified multi-vendor master sync (Upstox, IRIS, Alpaca, AMFI, NSE/BSE)
+router.post("/api/instruments/sync-master", async (req: Request, res: Response) => {
+	try {
+		const user = req.user as any;
+		if (
+			!user ||
+			!["admin", "superadmin"].some((r) => user.roles?.includes(r))
+		) {
+			return res.status(403).json({ error: "Admin access required" });
+		}
+
+		const { syncInstrumentMaster } = await import("../jobs/instrument-master-sync");
+		const syncStats = await syncInstrumentMaster();
+
+		res.json({
+			success: true,
+			data: syncStats,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: "FASP-AI-v3.0",
+			},
+		});
+	} catch (error: any) {
+		// eslint-disable-next-line no-console
+		console.error("Master sync error:", error);
+		res.status(500).json({
+			success: false,
+			error: error.message || "Failed to sync instrument master",
+		});
+	}
+});
+
 // Sync ALL NSE listed stocks from NSE India API
 
 export default router;
