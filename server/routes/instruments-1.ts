@@ -1165,7 +1165,16 @@ router.get("/api/instruments/:isin", async (req: Request, res: Response, next) =
 			if (upperIsin.startsWith("FD-")) {
 				const prodId = upperIsin.replace(/^FD-/, "");
 				const [fd] = await db
-					.select()
+					.select({
+						id: irisFdProducts.id,
+						irisProductId: irisFdProducts.irisProductId,
+						productName: irisFdProducts.productName,
+						productCode: irisFdProducts.productCode,
+						issuerName: irisFdProducts.issuerName,
+						category: irisFdProducts.category,
+						interestRate: irisFdProducts.interestRate,
+						creditRating: irisFdProducts.creditRating,
+					})
 					.from(irisFdProducts)
 					.where(or(eq(irisFdProducts.irisProductId, prodId), ilike(irisFdProducts.irisProductId, `%${prodId}%`)))
 					.limit(1);
@@ -1191,7 +1200,15 @@ router.get("/api/instruments/:isin", async (req: Request, res: Response, next) =
 			} else if (upperIsin.startsWith("NPS-")) {
 				const fundCode = upperIsin.replace(/^NPS-/, "");
 				const [nps] = await db
-					.select()
+					.select({
+						id: irisNpsFunds.id,
+						irisFundCode: irisNpsFunds.irisFundCode,
+						fundManagerName: irisNpsFunds.fundManagerName,
+						shortName: irisNpsFunds.shortName,
+						tier: irisNpsFunds.tier,
+						schemeType: irisNpsFunds.schemeType,
+						return1y: irisNpsFunds.return1y,
+					})
 					.from(irisNpsFunds)
 					.where(or(eq(irisNpsFunds.irisFundCode, fundCode), ilike(irisNpsFunds.irisFundCode, `%${fundCode}%`)))
 					.limit(1);
@@ -1217,7 +1234,16 @@ router.get("/api/instruments/:isin", async (req: Request, res: Response, next) =
 			} else if (upperIsin.startsWith("PMS-")) {
 				const prodId = upperIsin.replace(/^PMS-/, "");
 				const [p] = await db
-					.select()
+					.select({
+						id: irisPmsAifProducts.id,
+						irisProductId: irisPmsAifProducts.irisProductId,
+						productType: irisPmsAifProducts.productType,
+						strategyName: irisPmsAifProducts.strategyName,
+						fundHouse: irisPmsAifProducts.fundHouse,
+						sebiCategory: irisPmsAifProducts.sebiCategory,
+						strategyType: irisPmsAifProducts.strategyType,
+						minInvestment: irisPmsAifProducts.minInvestment,
+					})
 					.from(irisPmsAifProducts)
 					.where(or(eq(irisPmsAifProducts.irisProductId, prodId), ilike(irisPmsAifProducts.irisProductId, `%${prodId}%`)))
 					.limit(1);
@@ -1247,7 +1273,17 @@ router.get("/api/instruments/:isin", async (req: Request, res: Response, next) =
 			} else if (upperIsin.startsWith("US-")) {
 				const symbol = upperIsin.replace(/^US-/, "");
 				const [gi] = await db
-					.select()
+					.select({
+						id: globalInstruments.id,
+						isin: globalInstruments.isin,
+						symbol: globalInstruments.symbol,
+						name: globalInstruments.name,
+						assetClass: globalInstruments.assetClass,
+						exchange: globalInstruments.exchange,
+						sector: globalInstruments.sector,
+						lastPrice: globalInstruments.lastPrice,
+						currency: globalInstruments.currency,
+					})
 					.from(globalInstruments)
 					.where(or(eq(globalInstruments.symbol, symbol), eq(globalInstruments.isin, isin)))
 					.limit(1);

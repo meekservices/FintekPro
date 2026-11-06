@@ -5616,9 +5616,11 @@ export async function ensureIrisCatalogTables(): Promise<void> {
         brochure_url TEXT,
         raw_data JSONB,
         source VARCHAR(20) DEFAULT 'iris_kfintech',
+        seeded_at TIMESTAMPTZ DEFAULT NOW(),
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
+      ALTER TABLE iris_fd_products ADD COLUMN IF NOT EXISTS seeded_at TIMESTAMPTZ DEFAULT NOW();
 
       CREATE TABLE IF NOT EXISTS iris_nps_funds (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
