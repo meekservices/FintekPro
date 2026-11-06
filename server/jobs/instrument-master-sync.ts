@@ -428,14 +428,11 @@ export async function scheduleInstrumentMasterSync(): Promise<void> {
     const res = await db.execute(sql`SELECT COUNT(*)::int AS cnt FROM instrument_master`);
     const count = Number((res as any).rows?.[0]?.cnt ?? 0);
 
-    if (count === 0) {
-      logger.info("instrument_master empty — running boot sync", { event: "IM_EMPTY_BOOT_SYNC" });
-      syncInstrumentMaster().catch((e: Error) =>
-        logger.error("instrument_master boot sync failed", { event: "IM_BOOT_SYNC_ERROR", error: String(e.message) })
-      );
-    } else {
-      logger.info(`instrument_master has ${count} rows — boot sync skipped`, { event: "IM_ALREADY_SEEDED", count });
-    }
+    logger.info(`instrument_master has ${count} rows — running background sync for new vendors`, { event: "IM_STARTUP_BACKGROUND_SYNC", count });
+    // Run async sync on boot to pick up new vendor sources (IRIS FDs, NPS, SIF, Alpaca)
+    syncInstrumentMaster().catch((e: Error) =>
+      logger.error("instrument_master startup sync failed", { event: "IM_BOOT_SYNC_ERROR", error: String(e.message) })
+    );
 
     // Nightly at 02:00 IST = 20:30 UTC
     const now = new Date();

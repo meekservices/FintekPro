@@ -12,6 +12,8 @@ import {
 	listedStocks,
 	globalInstruments,
 	irisFdProducts,
+	irisNpsFunds,
+	irisPmsAifProducts,
 } from "@shared/schema";
 import { eq, ilike, or, and, sql, desc, inArray } from "drizzle-orm";
 import { unifiedStockPriceService } from "../services/unified-stock-price-service";
@@ -936,6 +938,7 @@ router.get("/api/instruments/search", async (req: Request, res: Response) => {
 							ilike(irisFdProducts.productName, searchTerm),
 							ilike(irisFdProducts.issuerName, searchTerm),
 							ilike(irisFdProducts.productCode, searchTerm),
+							ilike(irisFdProducts.irisProductId, searchTerm),
 						),
 					)
 					.orderBy(irisFdProducts.productName)
@@ -964,6 +967,124 @@ router.get("/api/instruments/search", async (req: Request, res: Response) => {
 				}
 			} catch (fdErr: any) {
 				logger.warn({ event: "fd_search_fallback_error", error: String(fdErr?.message || fdErr) }, "FD search fallback non-fatal error");
+			}
+		}
+
+		// Fallback: search iris_nps_funds for National Pension System (IRIS)
+		const shouldSearchNps =
+			!assetClassStr || assetClassStr === "nps";
+		if (shouldSearchNps && instruments.length < maxResults) {
+			try {
+				const remainingSlots = maxResults - instruments.length;
+				const npsResults = await db
+					.select({
+						id: irisNpsFunds.id,
+						irisFundCode: irisNpsFunds.irisFundCode,
+						fundManagerName: irisNpsFunds.fundManagerName,
+						shortName: irisNpsFunds.shortName,
+						tier: irisNpsFunds.tier,
+						schemeType: irisNpsFunds.schemeType,
+						return1y: irisNpsFunds.return1y,
+					})
+					.from(irisNpsFunds)
+					.where(
+						or(
+							ilike(irisNpsFunds.fundManagerName, searchTerm),
+							ilike(irisNpsFunds.shortName, searchTerm),
+							ilike(irisNpsFunds.irisFundCode, searchTerm),
+						),
+					)
+					.orderBy(irisNpsFunds.fundManagerName)
+					.limit(remainingSlots + 10);
+
+				for (const nps of npsResults) {
+					if (instruments.length >= maxResults) break;
+					const npsIsin = `NPS-${nps.irisFundCode}`;
+					if (existingIsins.has(npsIsin)) continue;
+					instruments.push({
+						id: nps.id,
+						isin: npsIsin,
+						symbol: nps.irisFundCode,
+						name: nps.shortName || `${nps.fundManagerName} (Tier ${nps.tier})`,
+						shortName: nps.shortName || nps.fundManagerName,
+						assetClass: "nps",
+						subType: `Tier ${nps.tier}`,
+						category: nps.schemeType || "NPS",
+						issuer: nps.fundManagerName,
+						lastPrice: nps.return1y ? String(nps.return1y) : null,
+						currency: "INR",
+						riskLevel: null,
+						priceUpdatedAt: null,
+					});
+					existingIsins.add(npsIsin);
+				}
+			} catch (npsErr: any) {
+				logger.warn({ event: "nps_search_fallback_error", error: String(npsErr?.message || npsErr) }, "NPS search fallback non-fatal error");
+			}
+		}
+
+		// Fallback: search iris_pms_aif_products for PMS, AIF, and SIF (IRIS)
+		const shouldSearchPmsAif =
+			!assetClassStr || assetClassStr === "pms" || assetClassStr === "aif" || assetClassStr === "sif";
+		if (shouldSearchPmsAif && instruments.length < maxResults) {
+			try {
+				const remainingSlots = maxResults - instruments.length;
+				const pmsAifResults = await db
+					.select({
+						id: irisPmsAifProducts.id,
+						irisProductId: irisPmsAifProducts.irisProductId,
+						productType: irisPmsAifProducts.productType,
+						strategyName: irisPmsAifProducts.strategyName,
+						fundHouse: irisPmsAifProducts.fundHouse,
+						sebiCategory: irisPmsAifProducts.sebiCategory,
+						strategyType: irisPmsAifProducts.strategyType,
+						minInvestment: irisPmsAifProducts.minInvestment,
+					})
+					.from(irisPmsAifProducts)
+					.where(
+						or(
+							ilike(irisPmsAifProducts.strategyName, searchTerm),
+							ilike(irisPmsAifProducts.fundHouse, searchTerm),
+							ilike(irisPmsAifProducts.sebiCategory, searchTerm),
+							ilike(irisPmsAifProducts.irisProductId, searchTerm),
+						),
+					)
+					.orderBy(irisPmsAifProducts.strategyName)
+					.limit(remainingSlots + 10);
+
+				for (const p of pmsAifResults) {
+					if (instruments.length >= maxResults) break;
+					const pIsin = `PMS-${p.irisProductId}`;
+					if (existingIsins.has(pIsin)) continue;
+					const isSif =
+						p.productType?.toLowerCase() === "sif" ||
+						p.sebiCategory?.toUpperCase().includes("SIF") ||
+						p.strategyName?.toUpperCase().includes("SIF");
+					const resolvedAssetClass = isSif
+						? "sif"
+						: p.productType === "aif"
+							? "aif"
+							: "pms";
+
+					instruments.push({
+						id: p.id,
+						isin: pIsin,
+						symbol: p.irisProductId,
+						name: p.strategyName,
+						shortName: p.strategyName,
+						assetClass: resolvedAssetClass,
+						subType: p.sebiCategory || p.productType,
+						category: p.strategyType || (isSif ? "SIF" : p.productType.toUpperCase()),
+						issuer: p.fundHouse || null,
+						lastPrice: p.minInvestment ? String(p.minInvestment) : null,
+						currency: "INR",
+						riskLevel: null,
+						priceUpdatedAt: null,
+					});
+					existingIsins.add(pIsin);
+				}
+			} catch (pmsErr: any) {
+				logger.warn({ event: "pms_aif_search_fallback_error", error: String(pmsErr?.message || pmsErr) }, "PMS/AIF/SIF search fallback non-fatal error");
 			}
 		}
 

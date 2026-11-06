@@ -71,7 +71,7 @@ import adminAgentPayoutRouter from "./routes/admin-agent-payout-routes";
 import adminDatabaseRouter from "./routes/admin-database";
 import adminGlobalInstrumentsRouter from "./routes/admin-global-instruments";
 import adminInstrumentLifecycleRouter from "./routes/admin-instrument-lifecycle";
-import instrumentsRouter from "./routes/instruments-1"; // /api/instruments/search, /price/:isin
+import instrumentsRouter from "./routes/instruments"; // /api/instruments/* (search, stats, sync-master, prices, isin lookup)
 import instrumentsV2Router from "./routes/instruments-v2"; // /api/v2/instruments/*, /api/v2/advisory/* (GCR v1.0 + FASP-AI v1.0)
 import unifiedInstrumentsRouter from "./routes/unified-instruments-routes"; // /api/instruments/unified
 import schemeGovernanceRouter from "./routes/scheme-governance-routes"; // /api/scheme-governance/*
