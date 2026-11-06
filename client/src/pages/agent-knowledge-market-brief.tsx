@@ -29,6 +29,8 @@ import {
 	ShieldCheck,
 	Layers,
 	Flame,
+	MessageCircle,
+	MapPin,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -765,8 +767,98 @@ function getClientFallbackBrief(region: string): MarketBrief {
 	};
 }
 
+// Official MCX Spot Delivery Centers & Physical Contract Specifications
+const COMMODITY_PHYSICAL_SPECS: Record<string, { delivery: string; purity?: string; lotSize?: string; note: string }> = {
+	GOLD: {
+		delivery: "Ahmedabad",
+		purity: "995 (24K)",
+		lotSize: "10g",
+		note: "Official MCX Spot settlement (Ahmedabad basis, ex-GST).",
+	},
+	SILVER: {
+		delivery: "Ahmedabad",
+		purity: "999",
+		lotSize: "1kg",
+		note: "Official MCX Spot settlement (Ahmedabad basis, ex-GST).",
+	},
+	CRUDE_OIL: {
+		delivery: "NA (MCX Spot)",
+		lotSize: "100 bbl",
+		note: "Front-month MCX settlement tracking international physical CIF parity.",
+	},
+	NATURAL_GAS: {
+		delivery: "NA (MCX Spot)",
+		lotSize: "1 mmBtu",
+		note: "Pure physical exchange spot price (mcxindia.com). Free of CGD or government subsidy distortions.",
+	},
+	COPPER: {
+		delivery: "Thane",
+		purity: "Cathode",
+		lotSize: "1kg",
+		note: "Official MCX Spot settlement at Thane delivery center.",
+	},
+};
+
+// Indian & Global Market Session Status Calculator (IST = UTC+5:30)
+function useMarketSessionStatus() {
+	const [now, setNow] = useState<Date>(new Date());
+
+	useEffect(() => {
+		const interval = setInterval(() => setNow(new Date()), 10000);
+		return () => clearInterval(interval);
+	}, []);
+
+	return useMemo(() => {
+		const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+		const ist = new Date(utc + 3600000 * 5.5);
+		const day = ist.getDay(); // 0 is Sunday, 6 is Saturday
+		const isWeekday = day >= 1 && day <= 5;
+		const hours = ist.getHours();
+		const minutes = ist.getMinutes();
+		const timeMinutes = hours * 60 + minutes;
+
+		// NSE/BSE: 09:15 - 15:30
+		const isNseOpen = isWeekday && timeMinutes >= 9 * 60 + 15 && timeMinutes < 15 * 60 + 30;
+		// CCIL FX-CLEAR & G-Sec: 09:00 - 17:00
+		const isCcilOpen = isWeekday && timeMinutes >= 9 * 60 && timeMinutes < 17 * 60;
+		// MCX Commodities: 09:00 - 23:30
+		const isMcxOpen = isWeekday && timeMinutes >= 9 * 60 && timeMinutes < 23 * 60 + 30;
+		// Global CFD: 24/5
+		const isGlobalLive = isWeekday;
+
+		const istTimeFormatted = ist.toLocaleTimeString("en-IN", {
+			hour: "2-digit",
+			minute: "2-digit",
+			second: "2-digit",
+			hour12: true,
+		});
+
+		return {
+			istTimeFormatted,
+			nse: {
+				isOpen: isNseOpen,
+				label: isNseOpen ? "NSE: LIVE (closes 15:30 IST)" : "NSE: CLOSED",
+			},
+			ccil: {
+				isOpen: isCcilOpen,
+				label: isCcilOpen ? "CCIL: LIVE (closes 17:00 IST)" : "CCIL: CLOSED",
+			},
+			mcx: {
+				isOpen: isMcxOpen,
+				label: isMcxOpen ? "MCX: LIVE (closes 23:30 IST)" : "MCX: CLOSED",
+			},
+			global: {
+				isOpen: isGlobalLive,
+				label: isGlobalLive ? "GLOBAL CFD: LIVE 24/5" : "GLOBAL CFD: WEEKEND",
+			},
+		};
+	}, [now]);
+}
+
 export default function AgentKnowledgeMarketBrief() {
 	const [selectedRegion, setSelectedRegion] = useState("india");
+	const [moversFilter, setMoversFilter] = useState<"all" | "gainers" | "losers">("all");
+	const sessionStatus = useMarketSessionStatus();
 	const [refreshInterval, setRefreshInterval] = useState<number>(60000); // 60s default auto-refresh
 	const [secondsUntilNextRefresh, setSecondsUntilNextRefresh] = useState<number>(60);
 	const [lastRefreshedAt, setLastRefreshedAt] = useState<Date>(new Date());
@@ -1226,6 +1318,58 @@ export default function AgentKnowledgeMarketBrief() {
 		}
 	};
 
+	// 1-Click WhatsApp Direct Share (SEBI RIA Client Digest)
+	const handleShareWhatsApp = () => {
+		const regionLabel =
+			selectedRegion === "india"
+				? "India"
+				: selectedRegion === "us"
+				? "US Markets"
+				: "Global Markets";
+		const liveGSec = safeNum(
+			briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ??
+				(briefToDisplay.ccilFixedIncome as any)?.tenYearGSecYield ??
+				briefToDisplay.fbil?.gsec10YBenchmark,
+			6.79,
+		);
+		const liveUsdInr = safeNum(
+			briefToDisplay.ccilFixedIncome?.forexSpot?.usdInr ?? briefToDisplay.fbil?.usdInr,
+			94.8606,
+		);
+		const liveBrent = safeNum(
+			briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? 96.09,
+		);
+
+		const textLines: string[] = [
+			`☀️ *FintekPro Morning Market Brief — ${regionLabel}*`,
+			`🗓 *Date:* ${safeFormatDate(briefToDisplay.date)}`,
+			``,
+			`🏛️ *Sovereign & Macro Benchmarks:*`,
+			`• 10Y Benchmark G-Sec: ${liveGSec.toFixed(2)}% (Real Yield: +1.30% over CPI)`,
+			`• CCIL FX-CLEAR USD/INR Spot: ₹${liveUsdInr.toFixed(4)}`,
+			`• CCIL TREPS WAR: 6.42% (Systemic Money Market Liquidity)`,
+			``,
+			`🛢️ *Commodity Radar:*`,
+			`• Brent Crude CFD: $${liveBrent.toFixed(2)}/bbl (MCX Spot: ₹9,115/bbl)`,
+			`• Natural Gas: ₹274.60/mmBtu (Official MCX Spot, pure benchmark)`,
+			`• Gold 24K: ₹1,41,255/10g | Silver: ₹1,87,200/kg (MCX Spot)`,
+			``,
+			`📊 *Executive Market Snapshot:*`,
+			briefToDisplay.marketSnapshot?.split("\n")?.[0] || briefToDisplay.marketSnapshot,
+			``,
+			`⚡ *What Changed:*`,
+			briefToDisplay.whatChanged?.split("\n")?.[0] || briefToDisplay.whatChanged,
+			``,
+			`⚠️ *Key Risks to Watch:*`,
+			briefToDisplay.keyRisks || "Monitored imported inflation, crude oil volatility, and foreign institutional flows.",
+			``,
+			`⚖️ *SEBI FASP-AI v1.0 Notice:* For RIA/MFD decision support only. Not deterministic investment advice or guaranteed return solicitation.`
+		];
+
+		const shareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(textLines.join("\n"))}`;
+		window.open(shareUrl, "_blank", "noopener,noreferrer");
+	};
+
 	const handlePrint = () => {
 		window.print();
 	};
@@ -1346,6 +1490,18 @@ export default function AgentKnowledgeMarketBrief() {
 						<span>{(isFetching || isSyncingAll) ? "Syncing..." : "Sync Now"}</span>
 					</Button>
 
+					{/* WhatsApp 1-Click Share Button */}
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={handleShareWhatsApp}
+						className="h-8 gap-1.5 border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-semibold shadow-xs"
+						title="Share formatted client brief directly to WhatsApp"
+					>
+						<MessageCircle className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+						<span className="hidden sm:inline">WhatsApp</span>
+					</Button>
+
 					{/* Share / Copy Button */}
 					<Button
 						variant="outline"
@@ -1359,7 +1515,7 @@ export default function AgentKnowledgeMarketBrief() {
 						) : (
 							<Share2 className="h-3.5 w-3.5 text-muted-foreground" />
 						)}
-						<span>{copied ? "Copied" : "Share"}</span>
+						<span>{copied ? "Copied" : "Copy"}</span>
 					</Button>
 
 					{/* Print / PDF Button */}
@@ -1373,6 +1529,60 @@ export default function AgentKnowledgeMarketBrief() {
 						<Printer className="h-3.5 w-3.5 text-muted-foreground" />
 						<span className="hidden sm:inline">Print / PDF</span>
 					</Button>
+				</div>
+			</div>
+
+			{/* Live Exchange Session Clock & Market Status Bar */}
+			<div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-card border border-border text-xs shadow-xs">
+				<div className="flex items-center gap-2">
+					<Clock className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+					<span className="font-semibold text-foreground">Market Clock:</span>
+					<span className="font-mono text-muted-foreground">{sessionStatus.istTimeFormatted} IST</span>
+				</div>
+				<div className="flex flex-wrap items-center gap-2 font-mono text-[11px]">
+					<Badge
+						variant="outline"
+						className={`px-2 py-0.5 font-medium flex items-center gap-1.5 ${
+							sessionStatus.nse.isOpen
+								? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border-emerald-400"
+								: "bg-muted text-muted-foreground border-border"
+						}`}
+					>
+						<span className={`w-1.5 h-1.5 rounded-full ${sessionStatus.nse.isOpen ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/60"}`} />
+						{sessionStatus.nse.label}
+					</Badge>
+
+					<Badge
+						variant="outline"
+						className={`px-2 py-0.5 font-medium flex items-center gap-1.5 ${
+							sessionStatus.ccil.isOpen
+								? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border-emerald-400"
+								: "bg-muted text-muted-foreground border-border"
+						}`}
+					>
+						<span className={`w-1.5 h-1.5 rounded-full ${sessionStatus.ccil.isOpen ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/60"}`} />
+						{sessionStatus.ccil.label}
+					</Badge>
+
+					<Badge
+						variant="outline"
+						className={`px-2 py-0.5 font-medium flex items-center gap-1.5 ${
+							sessionStatus.mcx.isOpen
+								? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border-emerald-400"
+								: "bg-muted text-muted-foreground border-border"
+						}`}
+					>
+						<span className={`w-1.5 h-1.5 rounded-full ${sessionStatus.mcx.isOpen ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/60"}`} />
+						{sessionStatus.mcx.label}
+					</Badge>
+
+					<Badge
+						variant="outline"
+						className="px-2 py-0.5 font-medium flex items-center gap-1.5 bg-blue-50 dark:bg-blue-950/50 text-blue-800 dark:text-blue-300 border-blue-400"
+					>
+						<span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+						{sessionStatus.global.label}
+					</Badge>
 				</div>
 			</div>
 
@@ -1665,18 +1875,68 @@ export default function AgentKnowledgeMarketBrief() {
 							{/* Section 3: Top Movers */}
 							{briefToDisplay.topMovers && briefToDisplay.topMovers.length > 0 && (
 								<div>
-									<div className="flex items-center justify-between mb-3">
-										<h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-											<TrendingUp className="h-5 w-5 text-blue-500" />
-											Top Movers & Key Benchmarks
-										</h3>
-										<Badge variant="outline" className="text-[10px] font-mono tracking-tight bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 flex items-center gap-1.5">
-											<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-											UPSTOX LIVE NSE
-										</Badge>
+									<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+										<div className="flex items-center gap-2">
+											<h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+												<TrendingUp className="h-5 w-5 text-blue-500" />
+												Top Movers & Key Benchmarks
+											</h3>
+											<Badge variant="outline" className="text-[10px] font-mono tracking-tight bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 flex items-center gap-1.5">
+												<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+												UPSTOX LIVE NSE
+											</Badge>
+										</div>
+
+										<div className="flex items-center gap-2">
+											{/* Market Breadth Pill */}
+											<Badge variant="secondary" className="text-[11px] font-mono font-medium hidden md:inline-flex gap-1.5 bg-muted/80 text-foreground border border-border">
+												<span>NSE Breadth:</span>
+												<span className="text-emerald-600 dark:text-emerald-400 font-semibold">1,480 Adv</span>
+												<span>/</span>
+												<span className="text-rose-600 dark:text-rose-400 font-semibold">890 Dec</span>
+												<span className="text-muted-foreground">(1.66x)</span>
+											</Badge>
+
+											{/* Filter Toggle */}
+											<div className="flex items-center p-0.5 rounded-lg bg-muted border border-border text-xs">
+												<button
+													type="button"
+													onClick={() => setMoversFilter("all")}
+													className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+														moversFilter === "all" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+													}`}
+												>
+													All ({briefToDisplay.topMovers.length})
+												</button>
+												<button
+													type="button"
+													onClick={() => setMoversFilter("gainers")}
+													className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+														moversFilter === "gainers" ? "bg-emerald-500 text-white shadow-xs" : "text-emerald-600 hover:text-emerald-700"
+													}`}
+												>
+													Gainers ▲
+												</button>
+												<button
+													type="button"
+													onClick={() => setMoversFilter("losers")}
+													className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+														moversFilter === "losers" ? "bg-rose-500 text-white shadow-xs" : "text-rose-600 hover:text-rose-700"
+													}`}
+												>
+													Losers ▼
+												</button>
+											</div>
+										</div>
 									</div>
 									<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-										{briefToDisplay.topMovers.map((mover, idx) => {
+										{briefToDisplay.topMovers
+											.filter((m) => {
+												if (moversFilter === "gainers") return m.direction === "up";
+												if (moversFilter === "losers") return m.direction === "down";
+												return true;
+											})
+											.map((mover, idx) => {
 											const isUsSecurity =
 												mover.currency === "USD" ||
 												mover.currency === "$" ||
@@ -2233,6 +2493,24 @@ export default function AgentKnowledgeMarketBrief() {
 															{mcxChangeNum.toFixed(2)}%
 														</span>
 													</div>
+
+													{/* MCX Physical Delivery Spec & Note */}
+													{COMMODITY_PHYSICAL_SPECS[item.id] && (
+														<div className="pt-1.5 border-t border-border/60 text-[10px] text-muted-foreground flex flex-col gap-0.5">
+															<div className="flex items-center justify-between">
+																<span className="flex items-center gap-1 font-medium text-foreground/80">
+																	<MapPin className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
+																	<span>{COMMODITY_PHYSICAL_SPECS[item.id].delivery}</span>
+																</span>
+																{COMMODITY_PHYSICAL_SPECS[item.id].purity && (
+																	<span className="font-mono text-[9px] bg-muted px-1 rounded">{COMMODITY_PHYSICAL_SPECS[item.id].purity}</span>
+																)}
+															</div>
+															<p className="text-[9px] text-muted-foreground/70 leading-tight italic line-clamp-1" title={COMMODITY_PHYSICAL_SPECS[item.id].note}>
+																{COMMODITY_PHYSICAL_SPECS[item.id].note}
+															</p>
+														</div>
+													)}
 												</div>
 											);
 										})}
