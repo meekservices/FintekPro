@@ -33,8 +33,8 @@ export const UPSTOX_ETFS_CATALOG: UpstoxETFDefinition[] = [
   // ── Broad Market Equity / Core Index ETFs ────────────────────────────────────
   {
     symbol: "NIFTYBEES",
-    isin: "INE669E01016",
-    upstoxInstrumentKey: "NSE_EQ|INE669E01016",
+    isin: "INF204KB14I2",
+    upstoxInstrumentKey: "NSE_EQ|INF204KB14I2",
     name: "Nippon India ETF Nifty BeES",
     shortName: "Nifty BeES",
     category: "Large Cap (Nifty 50)",
@@ -447,8 +447,8 @@ export const UPSTOX_ETFS_CATALOG: UpstoxETFDefinition[] = [
   // ── Commodity ETFs (Gold & Silver) ───────────────────────────────────────────
   {
     symbol: "GOLDBEES",
-    isin: "INE088B01024",
-    upstoxInstrumentKey: "NSE_EQ|INE088B01024",
+    isin: "INF204KB17I5",
+    upstoxInstrumentKey: "NSE_EQ|INF204KB17I5",
     name: "Nippon India ETF Gold BeES",
     shortName: "Gold BeES",
     category: "Precious Metals (Gold)",
