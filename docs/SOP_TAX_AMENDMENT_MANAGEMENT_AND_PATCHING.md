@@ -93,3 +93,4 @@ To prevent retrospective contamination of historical cases, all calculation engi
 - **Zero Hardcoded Ad-Hoc Adjustments**: Modifying tax slabs or rates directly inside controller route handlers or UI components is strictly prohibited.
 - **Zero LLM Hallucinated Rates**: Generative AI tools must never compute statutory tax liability or invent tax relief provisions; all computations must be executed by the deterministic `taxAmendmentService` and `indianTaxCalculator`.
 - **No Unversioned Overwrites**: Existing statutory rules for older Assessment Years must never be overwritten; new rules must be appended with distinct effective date windows.
+
