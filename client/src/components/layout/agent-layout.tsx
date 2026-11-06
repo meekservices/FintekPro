@@ -85,6 +85,8 @@ import {
 	AlertTriangle,
 	Coins,
 	LayoutGrid,
+	Store,
+	PieChart,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -228,9 +230,23 @@ const agentNavCategories: NavCategory[] = [
 		],
 	},
 	{
-		title: "Proposals",
+		title: "Proposals & Distribution",
 		icon: FileText,
 		items: [
+			{
+				title: "Product Store",
+				href: "/agent/store",
+				icon: Store,
+				description: "Multi-asset product distribution & proposal staging",
+				badge: "STORE",
+			},
+			{
+				title: "Financial Planning",
+				href: "/agent/financial-planning",
+				icon: Target,
+				description: "Goal simulation, SIP solver & proposal fulfillment",
+				badge: "NEW",
+			},
 			{
 				title: "Create Proposal",
 				href: "/agent/proposal-builder",
@@ -285,6 +301,26 @@ const agentNavCategories: NavCategory[] = [
 		title: "Investments & Products",
 		icon: TrendingUp,
 		items: [
+			{
+				title: "Product Store",
+				href: "/agent/store",
+				icon: Store,
+				description: "Multi-asset distribution catalog & basket staging",
+				badge: "STORE",
+			},
+			{
+				title: "Financial Planning",
+				href: "/agent/financial-planning",
+				icon: Target,
+				description: "Goal simulation, SIP solver & proposal fulfillment",
+				badge: "NEW",
+			},
+			{
+				title: "Asset Allocation",
+				href: "/agent/asset-allocation",
+				icon: PieChart,
+				description: "Strategic & tactical model portfolios",
+			},
 			{
 				title: "IRIS Hub",
 				href: "/agent/iris",
@@ -419,6 +455,12 @@ const agentNavCategories: NavCategory[] = [
 				icon: LayoutGrid,
 				description: "Curated multi-asset investment templates",
 				badge: "NEW",
+			},
+			{
+				title: "Asset Allocation",
+				href: "/agent/asset-allocation",
+				icon: PieChart,
+				description: "Strategic & tactical asset allocation matrix",
 			},
 			{
 				title: "Research Lists",

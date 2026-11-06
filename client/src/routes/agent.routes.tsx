@@ -107,6 +107,8 @@ import {
 	AlpacaMarketExplorer,
 	AgentFieldView,
 	AgentModelPortfolios,
+	AgentStorePage,
+	AgentFinancialPlanningPage,
 	ReitInvitPage,
 } from "@/routes/lazy-pages";
 
@@ -968,6 +970,42 @@ export function AgentRoutes() {
 					<AgentLayout>
 						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
 							<AgentIrisHub />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
+			<Route path="/agent/store">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AgentStorePage />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
+			<Route path="/agent/financial-planning">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AgentFinancialPlanningPage />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
+			<Route path="/agent/planning">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AgentFinancialPlanningPage />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
+			<Route path="/agent/asset-allocation">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AgentModelPortfolios />
 						</Suspense>
 					</AgentLayout>
 				)}

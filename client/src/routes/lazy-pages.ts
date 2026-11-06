@@ -74,6 +74,12 @@ export const AgentModelPortfolios = lazyWithRetry(
 );
 export const IBTradingPage = lazyWithRetry(() => import("@/pages/ib-trading"));
 export const StorePage = lazyWithRetry(() => import("@/pages/store"));
+export const AgentStorePage = lazyWithRetry(
+	() => import("@/pages/agent-store"),
+);
+export const AgentFinancialPlanningPage = lazyWithRetry(
+	() => import("@/pages/agent-financial-planning"),
+);
 export const GiftCity = lazyWithRetry(() => import("@/pages/gift-city"));
 export const Cart = lazyWithRetry(() => import("@/pages/cart"));
 export const Orders = lazyWithRetry(() => import("@/pages/orders"));
