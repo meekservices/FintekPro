@@ -80,7 +80,7 @@ export class AmcResearchService {
 
 		let niftyPrice = 24785;
 		let gsecYield = 6.79;
-		let brentUsd = 74.80;
+		let brentUsd = 96.09;
 		try {
 			const { goldenPricingEngine } = await import("./golden-pricing/GoldenPricingEngine");
 			const goldenSnapshot = await goldenPricingEngine.getDailyMarketBriefLiveSnapshot("india");

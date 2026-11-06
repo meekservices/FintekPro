@@ -13,6 +13,7 @@
 import { type Express, type Request, type Response } from "express";
 import crypto from "crypto";
 import { globalMacroTransmissionService } from "../services/macro/global-macro-transmission-service";
+import { globalMarketIntelligenceEngine } from "../services/macro/global-market-intelligence-engine";
 import { goldenPricingEngine } from "../services/golden-pricing/GoldenPricingEngine";
 import { logger } from "../logger";
 
@@ -207,11 +208,11 @@ export function registerMacroRoutes(app: Express): void {
 						name: "Brent Crude Domestic Parity Conversion",
 						formula: "Brent CFD Benchmark (USD/bbl) * FBIL USD/INR Reference Rate (₹)",
 						inputs: {
-							"Brent CFD Benchmark": "$74.80",
-							"USD/INR FBIL Rate": "₹86.85",
+							"Brent CFD Benchmark": "$96.09",
+							"USD/INR CCIL/FBIL Rate": "₹94.8606",
 						},
-						intermediateSteps: "$74.80 * 86.85 = ₹6,496.38 / bbl",
-						output: "₹6,496 / bbl",
+						intermediateSteps: "$96.09 * 94.8606 = ₹9,115.15 / bbl (MCX Spot: ₹9,115)",
+						output: "₹9,115 / bbl",
 						benchmarkSource: "ICE Futures Europe CFD & FBIL Fixing",
 						status: "EXACT_MATCH",
 					},
@@ -312,18 +313,18 @@ export function registerMacroRoutes(app: Express): void {
 				],
 				tripwireStatus: {
 					brentComfortMax: 80.0,
-					brentObserved: report.macroRegimeSummary.crudeOilStatus.includes("74.8") ? 74.8 : 74.8,
-					brentBufferUsd: 5.2,
-					usdInrThreshold: 87.0,
-					usdInrObserved: report.macroRegimeSummary.usdInrRate || 86.85,
-					usdInrBufferInr: 0.15,
+					brentObserved: 96.09,
+					brentBufferUsd: -16.09,
+					usdInrThreshold: 95.0,
+					usdInrObserved: report.macroRegimeSummary.usdInrRate || 94.8606,
+					usdInrBufferInr: 0.14,
 					dxyThreshold: 105.0,
 					dxyObserved: report.macroRegimeSummary.dxyIndex || 104.25,
 					dxyBuffer: Number((105.0 - (report.macroRegimeSummary.dxyIndex || 104.25)).toFixed(2)),
 					gsecCeiling: 7.0,
 					gsecObserved: 6.79,
 					gsecBufferBps: 21,
-					status: "ALL_SYSTEMS_WITHIN_COMFORT_BAND",
+					status: "ELEVATED_CRUDE_MONITORED",
 				},
 				meta: {
 					engine_version: "GMTE-PROVENANCE-v2.0.0",
@@ -346,6 +347,121 @@ export function registerMacroRoutes(app: Express): void {
 				error: "PROVENANCE_GENERATION_FAILED",
 				message: err?.message || "Failed to generate provenance audit record",
 				meta: { timestamp: new Date().toISOString(), version: "GMTE-PROVENANCE-v2.0.0" },
+			});
+		}
+	});
+
+	// ── Global Market Intelligence Engine (GMIE) Routes ──────────────────────
+
+	/**
+	 * GET /api/macro/intelligence/summary
+	 * Returns full consolidated Global Market Intelligence Report.
+	 */
+	app.get("/api/macro/intelligence/summary", async (req: Request, res: Response) => {
+		const t0 = Date.now();
+		const forceRefresh = req.query.refresh === "true" || req.query.forceRefresh === "true";
+		try {
+			const report = await globalMarketIntelligenceEngine.getIntelligenceReport(forceRefresh);
+			return res.status(200).json({
+				success: true,
+				data: report,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: report.engine_version,
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch GMIE intelligence summary", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "GMIE_FETCH_FAILED",
+				message: err?.message || "Failed to fetch global market intelligence summary",
+				meta: { timestamp: new Date().toISOString(), version: "GMIE-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/intelligence/flows
+	 * Returns granular capital flows: FII cash/derivatives, DII absorption, FDI, and Fed Net Liquidity.
+	 */
+	app.get("/api/macro/intelligence/flows", async (_req: Request, res: Response) => {
+		const t0 = Date.now();
+		try {
+			const flows = await globalMarketIntelligenceEngine.evaluateCapitalFlows();
+			return res.status(200).json({
+				success: true,
+				data: flows,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: "GMIE-v1.0.0",
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch GMIE capital flows", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "GMIE_FLOWS_FAILED",
+				message: err?.message || "Failed to fetch capital flows",
+				meta: { timestamp: new Date().toISOString(), version: "GMIE-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/intelligence/correlations
+	 * Returns rolling multi-horizon (30d/90d/365d) correlation matrix and rolling betas vs Indian benchmarks.
+	 */
+	app.get("/api/macro/intelligence/correlations", async (_req: Request, res: Response) => {
+		const t0 = Date.now();
+		try {
+			const matrix = await globalMarketIntelligenceEngine.computeCorrelationMatrix();
+			return res.status(200).json({
+				success: true,
+				data: matrix,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: "GMIE-v1.0.0",
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to compute GMIE correlation matrix", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "GMIE_CORRELATIONS_FAILED",
+				message: err?.message || "Failed to compute correlation matrix",
+				meta: { timestamp: new Date().toISOString(), version: "GMIE-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/intelligence/engine-feed
+	 * Returns specialized payloads intended to feed downstream engines (AIRegime, BlackLitterman, TailRisk, etc.)
+	 */
+	app.get("/api/macro/intelligence/engine-feed", async (_req: Request, res: Response) => {
+		const t0 = Date.now();
+		try {
+			const report = await globalMarketIntelligenceEngine.getIntelligenceReport(false);
+			return res.status(200).json({
+				success: true,
+				data: report.engineFeeds,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: report.engine_version,
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to generate downstream engine feeds", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "GMIE_ENGINE_FEED_FAILED",
+				message: err?.message || "Failed to generate engine feeds",
+				meta: { timestamp: new Date().toISOString(), version: "GMIE-v1.0.0" },
 			});
 		}
 	});

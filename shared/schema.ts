@@ -12304,3 +12304,4 @@ export * from "./schema/instruments";
 // Derivative Contracts & F&O Positions Schema
 export * from "./schema/derivatives";
 
+export * from "./schema/macro-intelligence";

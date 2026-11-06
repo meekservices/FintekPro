@@ -28,6 +28,7 @@ import {
 } from "../../clients/python-client";
 // H-E2: Use upgraded market-regime-detector (Redis + AI signals + NSE breadth)
 import { detectRegime as detectMarketRegime } from "../market-regime-detector";
+import { globalMarketIntelligenceEngine } from "../macro/global-market-intelligence-engine";
 
 export interface QuantInput {
 	assetsData: AssetData[];
@@ -182,6 +183,32 @@ class QuantOrchestrator {
 				if (potdPicks && potdPicks.length > 0) {
 					const potdViews = blackLittermanEngine.convertPotdToViews(potdPicks);
 					views.push(...potdViews);
+				}
+
+				// ── Synergy Upgrade 2: Ingest top-down macro cross-asset views from GMIE ──
+				try {
+					const gmieReport = await globalMarketIntelligenceEngine.getIntelligenceReport(false);
+					if (gmieReport?.engineFeeds?.blackLittermanFeed?.viewsVectorQ) {
+						const macroViews: ViewSignal[] = gmieReport.engineFeeds.blackLittermanFeed.viewsVectorQ.map(
+							(v) => ({
+								category: v.asset,
+								direction:
+									v.expectedExcessReturnPct > 9.0
+										? ("BULLISH" as const)
+										: v.expectedExcessReturnPct < 7.0
+											? ("BEARISH" as const)
+											: ("NEUTRAL" as const),
+								magnitude: Math.min(0.25, Math.max(0.01, Math.abs(v.expectedExcessReturnPct / 100))),
+								confidence: v.confidence,
+								source: "REGIME" as const,
+							})
+						);
+						views.push(...macroViews);
+					}
+				} catch (gmieErr: any) {
+					logger.warn("[QuantOrch] GMIE macro views skipped; continuing with bottom-up views", {
+						error: gmieErr?.message,
+					});
 				}
 
 				if (views.length > 0) {

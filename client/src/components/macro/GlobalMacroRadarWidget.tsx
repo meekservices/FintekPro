@@ -293,115 +293,163 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 				</div>
 
 				{/* ── Macro Risk Tripwire Buffer Strip ── */}
-				<div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 text-xs">
-					<div className="flex items-center gap-2">
-						<div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-						<div>
-							<div className="text-[10px] text-muted-foreground uppercase font-semibold">Brent Comfort Buffer</div>
-							<div className="font-mono font-bold text-foreground">+$5.20/bbl <span className="text-[10px] text-emerald-600 font-normal">(&lt;$80 Cap)</span></div>
+				{(() => {
+					const brentStr = String(report.pillars?.[0]?.observedValue || "$96.09/bbl");
+					const brentMatch = brentStr.match(/\$([0-9.]+)/);
+					const brentVal = brentMatch ? parseFloat(brentMatch[1]) : 96.09;
+					const brentBuffer = 80 - brentVal;
+					const isBrentElevated = brentVal > 80;
+
+					const usdInrVal = report.macroRegimeSummary.usdInrRate || 94.86;
+					const inrUsdVal = usdInrVal > 0 ? (1 / usdInrVal).toFixed(5) : "0.01054";
+
+					return (
+						<div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 text-xs">
+							<div className="flex items-center gap-2">
+								<div className={cn("h-2 w-2 rounded-full", isBrentElevated ? "bg-rose-500 animate-pulse" : "bg-emerald-500")} />
+								<div>
+									<div className="text-[10px] text-muted-foreground uppercase font-semibold">Brent Comfort Buffer</div>
+									<div className={cn("font-mono font-bold", isBrentElevated ? "text-rose-600 dark:text-rose-400" : "text-foreground")}>
+										{brentBuffer >= 0 ? `+$${brentBuffer.toFixed(2)}/bbl` : `-$${Math.abs(brentBuffer).toFixed(2)}/bbl`}{" "}
+										<span className={cn("text-[10px] font-normal", isBrentElevated ? "text-rose-500" : "text-emerald-600")}>
+											{isBrentElevated ? "(Elevated >$80)" : "(<$80 Comfort)"}
+										</span>
+									</div>
+								</div>
+							</div>
+							<div className="flex items-center gap-2">
+								<div className="h-2 w-2 rounded-full bg-indigo-500" />
+								<div>
+									<div className="text-[10px] text-muted-foreground uppercase font-semibold">USD/INR CCIL / FBIL</div>
+									<div className="font-mono font-bold text-foreground">
+										₹{usdInrVal.toFixed(2)}{" "}
+										<span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-normal">
+											(${inrUsdVal})
+										</span>
+									</div>
+								</div>
+							</div>
+							<div className="flex items-center gap-2">
+								<div className="h-2 w-2 rounded-full bg-teal-500" />
+								<div>
+									<div className="text-[10px] text-muted-foreground uppercase font-semibold">Sovereign 10Y Spread</div>
+									<div className="font-mono font-bold text-teal-600">
+										+{report.macroRegimeSummary.sovereignSpreadBps} bps{" "}
+										<span className="text-[10px] text-muted-foreground font-normal">vs US 10Y</span>
+									</div>
+								</div>
+							</div>
+							<div className="flex items-center gap-2">
+								<div className="h-2 w-2 rounded-full bg-emerald-500" />
+								<div>
+									<div className="text-[10px] text-muted-foreground uppercase font-semibold">10Y Sovereign Real Carry</div>
+									<div className="font-mono font-bold text-emerald-600">
+										+1.30% <span className="text-[10px] text-muted-foreground font-normal">over CPI</span>
+									</div>
+								</div>
+							</div>
 						</div>
-					</div>
-					<div className="flex items-center gap-2">
-						<div className="h-2 w-2 rounded-full bg-emerald-500" />
-						<div>
-							<div className="text-[10px] text-muted-foreground uppercase font-semibold">USD/INR Fixing Buffer</div>
-							<div className="font-mono font-bold text-foreground">+₹0.15 <span className="text-[10px] text-emerald-600 font-normal">(&lt;₹87.00)</span></div>
-						</div>
-					</div>
-					<div className="flex items-center gap-2">
-						<div className="h-2 w-2 rounded-full bg-teal-500" />
-						<div>
-							<div className="text-[10px] text-muted-foreground uppercase font-semibold">Sovereign 10Y Spread</div>
-							<div className="font-mono font-bold text-teal-600">+259 bps <span className="text-[10px] text-muted-foreground font-normal">vs US UST</span></div>
-						</div>
-					</div>
-					<div className="flex items-center gap-2">
-						<div className="h-2 w-2 rounded-full bg-emerald-500" />
-						<div>
-							<div className="text-[10px] text-muted-foreground uppercase font-semibold">10Y Sovereign Real Carry</div>
-							<div className="font-mono font-bold text-emerald-600">+1.30% <span className="text-[10px] text-muted-foreground font-normal">over CPI</span></div>
-						</div>
-					</div>
-				</div>
+					);
+				})()}
 
 				{/* ── 4 Top-Level Metric Gauges ── */}
-				<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-					{/* Gauge 1: Brent Crude */}
-					<div className="p-3.5 rounded-xl bg-card border border-border/60 shadow-xs space-y-1.5">
-						<div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
-							<span className="flex items-center gap-1.5">
-								<Flame className="h-3.5 w-3.5 text-amber-500" />
-								Brent Crude
-							</span>
-							<Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
-								Comfort Band
-							</Badge>
-						</div>
-						<div className="text-lg font-bold text-foreground">
-							{report.pillars[0]?.observedValue}
-						</div>
-						<div className="text-[11px] text-muted-foreground">
-							Threshold: {report.pillars[0]?.benchmarkThreshold}
-						</div>
-					</div>
+				{(() => {
+					const brentStr = String(report.pillars?.[0]?.observedValue || "$96.09/bbl");
+					const brentMatch = brentStr.match(/\$([0-9.]+)/);
+					const brentVal = brentMatch ? parseFloat(brentMatch[1]) : 96.09;
+					const usdInrVal = report.macroRegimeSummary.usdInrRate || 94.86;
+					const inrUsdVal = usdInrVal > 0 ? (1 / usdInrVal).toFixed(5) : "0.01054";
 
-					{/* Gauge 2: Sovereign Spread */}
-					<div className="p-3.5 rounded-xl bg-card border border-border/60 shadow-xs space-y-1.5">
-						<div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
-							<span className="flex items-center gap-1.5">
-								<ShieldCheck className="h-3.5 w-3.5 text-teal-500" />
-								Sovereign Spread
-							</span>
-							<Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-teal-500/10 text-teal-600 border-teal-500/20">
-								Carry Buffer
-							</Badge>
-						</div>
-						<div className="text-lg font-bold text-foreground">
-							+{report.macroRegimeSummary.sovereignSpreadBps} bps
-						</div>
-						<div className="text-[11px] text-muted-foreground">
-							CCIL 10Y vs US 10Y UST
-						</div>
-					</div>
+					return (
+						<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+							{/* Gauge 1: Brent Crude */}
+							<div className="p-3.5 rounded-xl bg-card border border-border/60 shadow-xs space-y-1.5">
+								<div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
+									<span className="flex items-center gap-1.5">
+										<Flame className="h-3.5 w-3.5 text-amber-500" />
+										Brent Crude
+									</span>
+									<Badge
+										variant="outline"
+										className={cn(
+											"text-[10px] py-0 px-1.5",
+											brentVal > 85
+												? "bg-rose-500/10 text-rose-600 border-rose-500/20"
+												: brentVal > 80
+												? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+												: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+										)}
+									>
+										{brentVal > 85 ? "Import Headwind" : brentVal > 80 ? "Monitored Band" : "Comfort Band"}
+									</Badge>
+								</div>
+								<div className="text-lg font-bold text-foreground">
+									{report.pillars[0]?.observedValue}
+								</div>
+								<div className="text-[11px] text-muted-foreground">
+									Threshold: {report.pillars[0]?.benchmarkThreshold}
+								</div>
+							</div>
 
-					{/* Gauge 3: Institutional Flow */}
-					<div className="p-3.5 rounded-xl bg-card border border-border/60 shadow-xs space-y-1.5">
-						<div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
-							<span className="flex items-center gap-1.5">
-								<Coins className="h-3.5 w-3.5 text-indigo-500" />
-								Liquidity Pulse
-							</span>
-							<Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-indigo-500/10 text-indigo-600 border-indigo-500/20">
-								DII Support
-							</Badge>
-						</div>
-						<div className="text-lg font-bold text-foreground">
-							{report.macroRegimeSummary.fiiDiiFlowSentiment}
-						</div>
-						<div className="text-[11px] text-muted-foreground">
-							~₹26k+ Cr Monthly SIP Run-rate
-						</div>
-					</div>
+							{/* Gauge 2: Sovereign Spread */}
+							<div className="p-3.5 rounded-xl bg-card border border-border/60 shadow-xs space-y-1.5">
+								<div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
+									<span className="flex items-center gap-1.5">
+										<ShieldCheck className="h-3.5 w-3.5 text-teal-500" />
+										Sovereign Spread
+									</span>
+									<Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-teal-500/10 text-teal-600 border-teal-500/20">
+										Carry Buffer
+									</Badge>
+								</div>
+								<div className="text-lg font-bold text-foreground">
+									+{report.macroRegimeSummary.sovereignSpreadBps} bps
+								</div>
+								<div className="text-[11px] text-muted-foreground">
+									CCIL 10Y vs US 10Y UST
+								</div>
+							</div>
 
-					{/* Gauge 4: USD / INR Rate */}
-					<div className="p-3.5 rounded-xl bg-card border border-border/60 shadow-xs space-y-1.5">
-						<div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
-							<span className="flex items-center gap-1.5">
-								<Activity className="h-3.5 w-3.5 text-blue-500" />
-								Forex Rate (FBIL)
-							</span>
-							<Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-blue-500/10 text-blue-600 border-blue-500/20">
-								Orderly
-							</Badge>
+							{/* Gauge 3: Institutional Flow */}
+							<div className="p-3.5 rounded-xl bg-card border border-border/60 shadow-xs space-y-1.5">
+								<div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
+									<span className="flex items-center gap-1.5">
+										<Coins className="h-3.5 w-3.5 text-indigo-500" />
+										Liquidity Pulse
+									</span>
+									<Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-indigo-500/10 text-indigo-600 border-indigo-500/20">
+										DII Support
+									</Badge>
+								</div>
+								<div className="text-lg font-bold text-foreground">
+									{report.macroRegimeSummary.fiiDiiFlowSentiment}
+								</div>
+								<div className="text-[11px] text-muted-foreground">
+									~₹26k+ Cr Monthly SIP Run-rate
+								</div>
+							</div>
+
+							{/* Gauge 4: USD / INR Rate */}
+							<div className="p-3.5 rounded-xl bg-card border border-border/60 shadow-xs space-y-1.5">
+								<div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
+									<span className="flex items-center gap-1.5">
+										<Activity className="h-3.5 w-3.5 text-blue-500" />
+										Forex Rate (CCIL / FBIL)
+									</span>
+									<Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-bold">
+										CCIL SPOT
+									</Badge>
+								</div>
+								<div className="text-lg font-bold text-foreground">
+									₹{usdInrVal.toFixed(2)}
+								</div>
+								<div className="text-[11px] text-muted-foreground">
+									CCIL FX-CLEAR · T+2 (${inrUsdVal})
+								</div>
+							</div>
 						</div>
-						<div className="text-lg font-bold text-foreground">
-							₹{report.macroRegimeSummary.usdInrRate.toFixed(2)}
-						</div>
-						<div className="text-[11px] text-muted-foreground">
-							USD / INR FBIL Reference Rate
-						</div>
-					</div>
-				</div>
+					);
+				})()}
 
 				{/* ── Tabs: Pillars Breakdown, Sector Matrix, Stress Testing ── */}
 				<Tabs defaultValue="pillars" className="w-full">

@@ -34,3 +34,4 @@ export * from "./admin-copilot";
 export * from "./instruments";
 export * from "./derivatives";
 export * from "./pricing";
+export * from "./macro-intelligence";

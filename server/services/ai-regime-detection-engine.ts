@@ -3,6 +3,7 @@ import { aiRegimeHistory, aiPriceHistory, listedStocks } from "@shared/schema";
 import { eq, desc, sql, gte, lte, and, asc } from "drizzle-orm";
 import { aiAnalyticsEngine } from "./ai-analytics-engine";
 import { telemetryBus } from "./engine-telemetry-bus";
+import { globalMarketIntelligenceEngine } from "./macro/global-market-intelligence-engine";
 import { logger } from "../logger";
 
 export type RegimeLabel = "bull" | "bear" | "sideways" | "high_vol";
@@ -198,6 +199,43 @@ export class AIRegimeDetectionEngine {
 				regime: breadthRegime,
 				description: breadthDescription,
 			});
+
+			// ── Synergy Upgrade 1: Global Market Intelligence Engine (GMIE) Feed ─
+			try {
+				const gmieReport = await globalMarketIntelligenceEngine.getIntelligenceReport(false);
+				if (gmieReport) {
+					let macroRegime: RegimeLabel = "sideways";
+					let macroDesc = "Neutral global macro and capital flow balance";
+
+					if (
+						gmieReport.macroRegime === "GLOBAL_RISK_ON" ||
+						(gmieReport.macroRegime === "DOMESTIC_DECOUPLING" &&
+							gmieReport.capitalFlows.diiAbsorptionRatio >= 1.2)
+					) {
+						macroRegime = "bull";
+						macroDesc = `Global risk-on / resilient DII absorption (IAR: ${gmieReport.capitalFlows.diiAbsorptionRatio}x, IDI: ${gmieReport.indiaDecouplingScore}σ)`;
+					} else if (
+						gmieReport.macroRegime === "LIQUIDITY_CONTRACTION" ||
+						(gmieReport.macroRegime === "GLOBAL_RISK_OFF" &&
+							gmieReport.capitalFlows.diiAbsorptionRatio < 0.9)
+					) {
+						macroRegime = "bear";
+						macroDesc = `Global liquidity contraction / capital flight pressure (IAR: ${gmieReport.capitalFlows.diiAbsorptionRatio}x)`;
+					}
+
+					signals.push({
+						name: "Global Macro & Capital Flows",
+						value: gmieReport.indiaDecouplingScore,
+						weight: 0.15,
+						regime: macroRegime,
+						description: macroDesc,
+					});
+				}
+			} catch (gmieErr: any) {
+				logger.warn("[AIRegime] GMIE signal injection unavailable, relying on domestic cues", {
+					error: gmieErr?.message,
+				});
+			}
 
 			const scores: Record<RegimeLabel, number> = {
 				bull: 0,

@@ -169,7 +169,7 @@ export class GlobalMacroTransmissionService {
 			commodityMarketService.getCommodityBenchmarks(),
 			ccilMarketService.getSovereignBenchmarks(),
 			indianApiService.getLatestFIIDII(),
-			this.currencyService.fetchExchangeRates("USD").catch(() => ({ INR: 86.85 })),
+			this.currencyService.fetchExchangeRates("USD").catch(() => ({ INR: 94.8606 })),
 		]);
 
 		const commodityData: CommodityMarketSnapshot | undefined =
@@ -187,14 +187,14 @@ export class GlobalMacroTransmissionService {
 				? fiiRes.value.data
 				: { fii: { buy: 0, sell: 0, net: 0 }, dii: { buy: 0, sell: 0, net: 0 } };
 
-		// Authoritative Anchor: GPE FBIL reference rate (86.85 benchmark), validated within realistic India bounds
+		// Authoritative Anchor: CCIL FX-CLEAR & FBIL reference rate (94.8606 benchmark)
 		const rawUsdInr =
 			historicalPrices["FX_USD_INR"] ??
 			goldenSnapshot?.currencies?.usdInr ??
 			(exchangeRates.status === "fulfilled" && exchangeRates.value?.INR
 				? Number(exchangeRates.value.INR)
-				: 86.85);
-		const usdInr = rawUsdInr >= 80.0 && rawUsdInr <= 92.0 ? rawUsdInr : 86.85;
+				: 94.8606);
+		const usdInr = rawUsdInr >= 70.0 && rawUsdInr <= 110.0 ? rawUsdInr : 94.8606;
 
 		// ── Step 2: Pillar 1 — Energy & Commodities Transmission (Weight: 25%) ──
 		// Authoritative Anchor: GPE Brent Crude CFD price matching Golden Pricing Engine
@@ -205,7 +205,7 @@ export class GlobalMacroTransmissionService {
 			goldenSnapshot?.commodities?.brentCrudeUsd ??
 			commodityData?.crudeOilBreakevenStatus?.brentUsd ??
 			commodityData?.commodities.find((c) => c.id === "CRUDE_OIL")?.cmxPrice ??
-			74.80;
+			96.09;
 
 		let pillar1Score = 75;
 		let p1Status: PillarScore["status"] = "FAVORABLE";
@@ -286,7 +286,7 @@ export class GlobalMacroTransmissionService {
 		const us10YBenchmark =
 			historicalPrices["YIELD_US_10Y"] ??
 			goldenSnapshot?.fixedIncome?.us10YTreasury ??
-			4.20; // Standard US Treasury baseline
+			4.58; // Standard US Treasury baseline
 		const spreadBps = Math.round((gsecYield - us10YBenchmark) * 100);
 
 		let pillar3Score = 75;
@@ -450,7 +450,7 @@ export class GlobalMacroTransmissionService {
 			pillars,
 			sectorImpactMatrix,
 			macroRegimeSummary: {
-				crudeOilStatus: brentPrice <= 80 ? "Comfortable (<$80)" : "Elevated (>$80)",
+				crudeOilStatus: brentPrice <= 80 ? "Comfortable (<$80)" : brentPrice <= 85 ? "Monitored Band ($80-$85)" : "Elevated Headwind (>$85)",
 				sovereignSpreadBps: spreadBps,
 				sovereignSpreadStatus: spreadBps >= 250 ? "Healthy Carry Buffer" : "Compressed",
 				usdInrRate: usdInr,
