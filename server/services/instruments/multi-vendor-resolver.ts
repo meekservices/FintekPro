@@ -19,6 +19,11 @@ import {
 import { eq, and, desc, sql } from "drizzle-orm";
 import { logger } from "../../logger";
 import { upstoxMarketDataService } from "../upstox-market-data-service";
+import { UPSTOX_ETFS_CATALOG } from "../../data/upstox-etfs-catalog";
+import {
+  UPSTOX_COMMODITIES_CATALOG,
+  SOVEREIGN_GOLD_BONDS,
+} from "../../data/upstox-commodities-catalog";
 
 export interface ResolvedQuote {
   isin: string;
@@ -67,6 +72,13 @@ export class MultiVendorInstrumentResolver {
       { vendor: "upstox", priority: 1, timeoutMs: 3000, maxRetries: 2 },
       { vendor: "nse", priority: 2, timeoutMs: 4000, maxRetries: 2 },
     ],
+    commodity: [
+      { vendor: "upstox", priority: 1, timeoutMs: 3000, maxRetries: 2 },
+    ],
+    sgb: [
+      { vendor: "upstox", priority: 1, timeoutMs: 3000, maxRetries: 2 },
+      { vendor: "nse", priority: 2, timeoutMs: 4000, maxRetries: 2 },
+    ],
     us_equity: [
       { vendor: "alpaca", priority: 1, timeoutMs: 3500, maxRetries: 2 },
       { vendor: "fmp", priority: 2, timeoutMs: 4000, maxRetries: 2 },
@@ -99,15 +111,90 @@ export class MultiVendorInstrumentResolver {
         )
         .orderBy(desc(instrumentVendorMappings.feedRole));
 
-      logger.info("Resolved vendor mappings for ISIN", {
-        event: "VENDOR_MAPPINGS_RESOLVED",
-        isin,
-        count: mappings.length,
-        latency_ms: Date.now() - startTime,
-        status: "success",
-      });
+      if (mappings.length > 0) {
+        logger.info("Resolved vendor mappings for ISIN", {
+          event: "VENDOR_MAPPINGS_RESOLVED",
+          isin,
+          count: mappings.length,
+          latency_ms: Date.now() - startTime,
+          status: "success",
+        });
+        return mappings;
+      }
 
-      return mappings;
+      // Check by vendorSymbol in case symbol was provided instead of ISIN
+      const symbolMappings = await db
+        .select()
+        .from(instrumentVendorMappings)
+        .where(
+          and(
+            eq(instrumentVendorMappings.vendorSymbol, isin.toUpperCase()),
+            eq(instrumentVendorMappings.isActive, true)
+          )
+        )
+        .orderBy(desc(instrumentVendorMappings.feedRole));
+
+      if (symbolMappings.length > 0) {
+        return symbolMappings;
+      }
+
+      // In-memory catalog fallbacks for Upstox ETFs, Commodities, and SGBs
+      const upper = isin.toUpperCase();
+      const etf = UPSTOX_ETFS_CATALOG.find((e) => e.isin.toUpperCase() === upper || e.symbol.toUpperCase() === upper);
+      if (etf) {
+        return [{
+          id: `ivm-etf-${etf.symbol.toLowerCase()}`,
+          isin: etf.isin,
+          vendor: "upstox",
+          vendorSymbol: etf.symbol,
+          vendorInstrumentToken: etf.upstoxInstrumentKey,
+          feedRole: "PRIMARY_QUOTE",
+          isActive: true,
+          syncStatus: "synced",
+          source: "catalog",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as any];
+      }
+
+      const cleanComm = upper.replace(/^COMMODITY-/, "").replace(/^MCX-/, "");
+      const comm = UPSTOX_COMMODITIES_CATALOG.find(
+        (c) => c.isin.toUpperCase() === upper || c.symbol.toUpperCase() === cleanComm || c.symbol.replace(/_/g, "") === cleanComm
+      );
+      if (comm) {
+        return [{
+          id: `ivm-comm-${comm.symbol.toLowerCase()}`,
+          isin: comm.isin,
+          vendor: "upstox",
+          vendorSymbol: comm.symbol,
+          vendorInstrumentToken: comm.upstoxInstrumentKey,
+          feedRole: "PRIMARY_QUOTE",
+          isActive: true,
+          syncStatus: "synced",
+          source: "catalog",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as any];
+      }
+
+      const sgb = SOVEREIGN_GOLD_BONDS.find((s) => s.isin.toUpperCase() === upper || s.symbol.toUpperCase() === upper);
+      if (sgb) {
+        return [{
+          id: `ivm-sgb-${sgb.symbol.toLowerCase()}`,
+          isin: sgb.isin,
+          vendor: "upstox",
+          vendorSymbol: sgb.symbol,
+          vendorInstrumentToken: sgb.upstoxInstrumentKey,
+          feedRole: "PRIMARY_QUOTE",
+          isActive: true,
+          syncStatus: "synced",
+          source: "catalog",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as any];
+      }
+
+      return [];
     } catch (error: any) {
       logger.error("Error resolving vendor mappings for ISIN", {
         event: "VENDOR_MAPPINGS_RESOLVE_ERROR",
@@ -311,7 +398,8 @@ export class MultiVendorInstrumentResolver {
     // 1. Upstox for Listed Indian Equities & ETFs (Priority 1 licensed feed)
     if (vendor === "upstox" && upstoxMarketDataService.isReady()) {
       const lookupKey = mapping?.vendorSymbol || mapping?.vendorInstrumentToken || isin;
-      const exchange = (mapping as any)?.exchange === "BSE" ? "BSE" : "NSE";
+      const isMcx = isin.startsWith("COMMODITY-") || isin.startsWith("MCX") || (mapping?.vendorInstrumentToken && mapping.vendorInstrumentToken.startsWith("MCX"));
+      const exchange = (mapping as any)?.exchange === "BSE" ? "BSE" : (isMcx ? "MCX" : "NSE");
       const upstoxRes = await upstoxMarketDataService.getQuote(lookupKey, exchange);
       if (upstoxRes.success && upstoxRes.data && upstoxRes.data.last_price > 0) {
         const q = upstoxRes.data;

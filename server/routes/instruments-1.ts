@@ -14,9 +14,17 @@ import {
 	irisFdProducts,
 	irisNpsFunds,
 	irisPmsAifProducts,
+	commodities,
+	mcxCommodityQuotes,
 } from "@shared/schema";
 import { eq, ilike, or, and, sql, desc, inArray } from "drizzle-orm";
 import { unifiedStockPriceService } from "../services/unified-stock-price-service";
+import { UPSTOX_ETFS_CATALOG } from "../data/upstox-etfs-catalog";
+import {
+	UPSTOX_COMMODITIES_CATALOG,
+	SOVEREIGN_GOLD_BONDS,
+	BENCHMARK_INDICES,
+} from "../data/upstox-commodities-catalog";
 
 const router = Router();
 
@@ -644,6 +652,101 @@ router.get("/api/instruments/search", async (req: Request, res: Response) => {
 			instruments.map((i) => i.isin).filter(Boolean),
 		);
 		const assetClassStr = assetClass ? String(assetClass) : "";
+
+		// Guaranteed Upstox ETFs catalog matching (handles NIFTYBEES, GOLDBEES, BANKBEES, ITBEES, etc.)
+		if ((!assetClassStr || assetClassStr === "etf") && instruments.length < maxResults) {
+			const qLower = String(q).toLowerCase();
+			const matchedEtfs = UPSTOX_ETFS_CATALOG.filter(
+				(e) =>
+					e.symbol.toLowerCase().includes(qLower) ||
+					e.name.toLowerCase().includes(qLower) ||
+					e.shortName.toLowerCase().includes(qLower) ||
+					e.isin.toLowerCase().includes(qLower)
+			);
+			for (const etf of matchedEtfs) {
+				if (instruments.length >= maxResults) break;
+				if (existingIsins.has(etf.isin)) continue;
+				instruments.push({
+					id: `etf-${etf.symbol.toLowerCase()}`,
+					isin: etf.isin,
+					symbol: etf.symbol,
+					name: etf.name,
+					shortName: etf.shortName,
+					assetClass: "etf",
+					subType: etf.subType,
+					category: etf.category,
+					issuer: etf.issuer,
+					lastPrice: String(etf.basePrice),
+					currency: etf.currency,
+					riskLevel: "Moderate",
+					priceUpdatedAt: new Date(),
+				});
+				existingIsins.add(etf.isin);
+			}
+		}
+
+		// Guaranteed MCX Commodities catalog matching (handles GOLD, SILVER, CRUDEOIL, COPPER, etc.)
+		if ((!assetClassStr || assetClassStr === "commodity") && instruments.length < maxResults) {
+			const qLower = String(q).toLowerCase();
+			const matchedComms = UPSTOX_COMMODITIES_CATALOG.filter(
+				(c) =>
+					c.symbol.toLowerCase().includes(qLower) ||
+					c.name.toLowerCase().includes(qLower) ||
+					c.shortName.toLowerCase().includes(qLower) ||
+					c.isin.toLowerCase().includes(qLower)
+			);
+			for (const comm of matchedComms) {
+				if (instruments.length >= maxResults) break;
+				if (existingIsins.has(comm.isin)) continue;
+				instruments.push({
+					id: `comm-${comm.symbol.toLowerCase()}`,
+					isin: comm.isin,
+					symbol: comm.symbol,
+					name: comm.name,
+					shortName: comm.shortName,
+					assetClass: "commodity",
+					subType: comm.subType,
+					category: comm.commodityType,
+					issuer: "MCX",
+					lastPrice: String(comm.basePrice),
+					currency: comm.currency,
+					riskLevel: "High",
+					priceUpdatedAt: new Date(),
+				});
+				existingIsins.add(comm.isin);
+			}
+		}
+
+		// Guaranteed Sovereign Gold Bonds catalog matching (handles SGB, Sovereign Gold, etc.)
+		if ((!assetClassStr || assetClassStr === "sgb" || assetClassStr === "bond") && instruments.length < maxResults) {
+			const qLower = String(q).toLowerCase();
+			const matchedSgbs = SOVEREIGN_GOLD_BONDS.filter(
+				(s) =>
+					s.symbol.toLowerCase().includes(qLower) ||
+					s.name.toLowerCase().includes(qLower) ||
+					s.isin.toLowerCase().includes(qLower)
+			);
+			for (const sgb of matchedSgbs) {
+				if (instruments.length >= maxResults) break;
+				if (existingIsins.has(sgb.isin)) continue;
+				instruments.push({
+					id: `sgb-${sgb.symbol.toLowerCase()}`,
+					isin: sgb.isin,
+					symbol: sgb.symbol,
+					name: sgb.name,
+					shortName: sgb.series,
+					assetClass: "sgb",
+					subType: "sgb",
+					category: "Sovereign Gold Bond",
+					issuer: sgb.issuer,
+					lastPrice: String(sgb.basePrice),
+					currency: "INR",
+					riskLevel: "Low",
+					priceUpdatedAt: new Date(),
+				});
+				existingIsins.add(sgb.isin);
+			}
+		}
 
 		// Fallback: search mutualFunds table for mutual funds
 		if (
@@ -1305,6 +1408,86 @@ router.get("/api/instruments/:isin", async (req: Request, res: Response, next) =
 						isActive: true,
 						source: "alpaca",
 					} as any;
+				}
+			} else {
+				// 1. Check Upstox ETFs catalog by symbol or ISIN
+				const matchedEtf = UPSTOX_ETFS_CATALOG.find(
+					(e) => e.isin.toUpperCase() === upperIsin || e.symbol.toUpperCase() === upperIsin
+				);
+				if (matchedEtf) {
+					instrument = {
+						id: `etf-${matchedEtf.symbol.toLowerCase()}`,
+						isin: matchedEtf.isin,
+						symbol: matchedEtf.symbol,
+						name: matchedEtf.name,
+						shortName: matchedEtf.shortName,
+						assetClass: "etf",
+						subType: matchedEtf.subType,
+						category: matchedEtf.category,
+						issuer: matchedEtf.issuer,
+						lastPrice: String(matchedEtf.basePrice),
+						currency: matchedEtf.currency,
+						riskLevel: "Moderate",
+						priceUpdatedAt: new Date(),
+						isActive: true,
+						source: "upstox",
+					} as any;
+				}
+
+				// 2. Check MCX Commodities by symbol, COMMODITY-*, MCX-*
+				if (!instrument) {
+					const cleanComm = upperIsin.replace(/^COMMODITY-/, "").replace(/^MCX-/, "");
+					const matchedComm = UPSTOX_COMMODITIES_CATALOG.find(
+						(c) =>
+							c.isin.toUpperCase() === upperIsin ||
+							c.symbol.toUpperCase() === cleanComm ||
+							c.symbol.replace(/_/g, "") === cleanComm
+					);
+					if (matchedComm) {
+						instrument = {
+							id: `comm-${matchedComm.symbol.toLowerCase()}`,
+							isin: matchedComm.isin,
+							symbol: matchedComm.symbol,
+							name: matchedComm.name,
+							shortName: matchedComm.shortName,
+							assetClass: "commodity",
+							subType: matchedComm.subType,
+							category: matchedComm.commodityType,
+							issuer: "MCX",
+							lastPrice: String(matchedComm.basePrice),
+							currency: matchedComm.currency,
+							riskLevel: "High",
+							priceUpdatedAt: new Date(),
+							isActive: true,
+							source: "upstox",
+						} as any;
+					}
+				}
+
+				// 3. Check Sovereign Gold Bonds by symbol or ISIN
+				if (!instrument) {
+					const matchedSgb = SOVEREIGN_GOLD_BONDS.find(
+						(s) => s.isin.toUpperCase() === upperIsin || s.symbol.toUpperCase() === upperIsin
+					);
+					if (matchedSgb) {
+						instrument = {
+							id: `sgb-${matchedSgb.symbol.toLowerCase()}`,
+							isin: matchedSgb.isin,
+							symbol: matchedSgb.symbol,
+							name: matchedSgb.name,
+							shortName: matchedSgb.series,
+							assetClass: "sgb",
+							subType: "sgb",
+							category: "Sovereign Gold Bond",
+							issuer: matchedSgb.issuer,
+							lastPrice: String(matchedSgb.basePrice),
+							currency: "INR",
+							riskLevel: "Low",
+							priceUpdatedAt: new Date(),
+							isActive: true,
+							source: "upstox",
+						} as any;
+					}
 				}
 			}
 		}

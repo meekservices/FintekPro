@@ -41,6 +41,12 @@
 import axios, { type AxiosInstance } from "axios";
 import { logger } from "../logger";
 import { opsAlertService } from "./ops-alert-service";
+import { UPSTOX_ETFS_CATALOG } from "../data/upstox-etfs-catalog";
+import {
+  UPSTOX_COMMODITIES_CATALOG,
+  SOVEREIGN_GOLD_BONDS,
+  BENCHMARK_INDICES,
+} from "../data/upstox-commodities-catalog";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -353,6 +359,22 @@ export const SYMBOL_TO_ISIN: Record<string, string> = {
   PGINVIT: "INE0G2723012",
 };
 
+// Auto-seed ETF and Sovereign Gold Bond mappings from canonical catalogs
+for (const etf of UPSTOX_ETFS_CATALOG) {
+  SYMBOL_TO_ISIN[etf.symbol.toUpperCase()] = etf.isin;
+  // Also index the scheme ISIN directly
+  if (etf.isin) {
+    SYMBOL_TO_ISIN[etf.isin.toUpperCase()] = etf.isin;
+  }
+}
+
+for (const sgb of SOVEREIGN_GOLD_BONDS) {
+  SYMBOL_TO_ISIN[sgb.symbol.toUpperCase()] = sgb.isin;
+  if (sgb.isin) {
+    SYMBOL_TO_ISIN[sgb.isin.toUpperCase()] = sgb.isin;
+  }
+}
+
 export const toNseKey = (symbol: string): string => {
   const upper = symbol.toUpperCase();
   if (upper.startsWith("NSE_") || upper.startsWith("BSE_") || upper.startsWith("MCX_")) return upper;
@@ -381,11 +403,22 @@ export const MCX_SYMBOL_TO_KEY: Record<string, string> = {
   COPPER: "MCX_FO|578634",
   ALUMINIUM: "MCX_FO|578635",
   ZINC: "MCX_FO|578636",
+  LEAD: "MCX_FO|578637",
+  NICKEL: "MCX_FO|578638",
+  COTTON: "MCX_FO|578639",
+  MENTHAOIL: "MCX_FO|578640",
 };
 
+// Auto-seed commodities from UPSTOX_COMMODITIES_CATALOG
+for (const comm of UPSTOX_COMMODITIES_CATALOG) {
+  MCX_SYMBOL_TO_KEY[comm.symbol.toUpperCase()] = comm.upstoxInstrumentKey;
+  MCX_SYMBOL_TO_KEY[comm.isin.toUpperCase()] = comm.upstoxInstrumentKey;
+  MCX_SYMBOL_TO_KEY[comm.symbol.replace(/_/g, "").toUpperCase()] = comm.upstoxInstrumentKey;
+}
+
 export const toMcxKey = (symbol: string): string => {
-  const upper = symbol.toUpperCase().replace(/\s+/g, "");
-  if (upper.startsWith("MCX_FO|") || upper.startsWith("MCX_")) return upper;
+  const upper = symbol.toUpperCase().replace(/\s+/g, "").replace(/^COMMODITY-/, "").replace(/^MCX-/, "");
+  if (symbol.toUpperCase().startsWith("MCX_FO|") || symbol.toUpperCase().startsWith("MCX_")) return symbol.toUpperCase();
   return MCX_SYMBOL_TO_KEY[upper] || `MCX_FO|${upper}`;
 };
 
@@ -567,7 +600,9 @@ class UpstoxMarketDataService {
   ): Promise<string> {
     const upper = symbolOrIsin.toUpperCase();
     if (upper.startsWith("NSE_") || upper.startsWith("BSE_") || upper.startsWith("MCX_")) return upper;
-    if (exchange === "MCX" || MCX_SYMBOL_TO_KEY[upper]) return toMcxKey(upper);
+    if (exchange === "MCX" || upper.startsWith("COMMODITY-") || upper.startsWith("MCX-") || MCX_SYMBOL_TO_KEY[upper]) {
+      return toMcxKey(upper);
+    }
     if (DERIVATIVE_UNDERLYING_MAP[upper]) return DERIVATIVE_UNDERLYING_MAP[upper];
     if (/^IN[A-Z0-9]{10}$/.test(upper)) return `${exchange}_EQ|${upper}`;
     if (SYMBOL_TO_ISIN[upper]) return `${exchange}_EQ|${SYMBOL_TO_ISIN[upper]}`;
@@ -806,7 +841,7 @@ class UpstoxMarketDataService {
    */
   async getFullQuote(
     symbolOrIsin: string,
-    exchange: "NSE" | "BSE" = "NSE"
+    exchange: "NSE" | "BSE" | "MCX" = "NSE"
   ): Promise<UpstoxServiceResult<UpstoxQuote>> {
     const t0 = Date.now();
     if (!this.isReady()) return this._inactive<UpstoxQuote>();
@@ -841,7 +876,7 @@ class UpstoxMarketDataService {
    */
   async getQuote(
     symbol: string,
-    exchange: "NSE" | "BSE" = "NSE"
+    exchange: "NSE" | "BSE" | "MCX" = "NSE"
   ): Promise<UpstoxServiceResult<UpstoxQuote>> {
     return this.getFullQuote(symbol, exchange);
   }

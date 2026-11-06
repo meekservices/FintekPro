@@ -49,7 +49,8 @@ export type ProductCategory =
 	| "global_stocks"
 	| "fixed_deposits"
 	| "nps"
-	| "sif";
+	| "sif"
+	| "etfs";
 
 export type RiskProfile =
 	| "conservative"
@@ -305,6 +306,13 @@ const CATEGORY_CONFIG: Record<
 		typicalHorizon: "long",
 		riskMultiplier: 1.2,
 		cacheTtlMinutes: 120,
+	},
+	etfs: {
+		displayName: "Exchange Traded Funds (ETFs)",
+		defaultKyc: "basic",
+		typicalHorizon: "medium",
+		riskMultiplier: 0.9,
+		cacheTtlMinutes: 30,
 	},
 };
 

@@ -59,7 +59,7 @@ router.get("/api/v2/instruments/:isin/mappings", async (req: Request, res: Respo
   const startTime = Date.now();
   const { isin } = req.params;
 
-  if (!isin || isin.length < 5) {
+  if (!isin || isin.trim().length < 2) {
     return errorResponse(res, 400, "INVALID_ISIN", "A valid ISIN or symbol is required", false);
   }
 

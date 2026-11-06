@@ -10,6 +10,12 @@
 import { db } from "../db";
 import { logger } from "../logger";
 import { sql } from "drizzle-orm";
+import { UPSTOX_ETFS_CATALOG } from "../data/upstox-etfs-catalog";
+import {
+  UPSTOX_COMMODITIES_CATALOG,
+  SOVEREIGN_GOLD_BONDS,
+  BENCHMARK_INDICES,
+} from "../data/upstox-commodities-catalog";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -287,6 +293,173 @@ async function syncIrisPmsAif(): Promise<number> {
   `);
 }
 
+/** Syncs exchange-traded ETFs from Upstox canonical catalog */
+async function syncUpstoxEtfs(): Promise<number> {
+  let count = 0;
+  for (const etf of UPSTOX_ETFS_CATALOG) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_master
+          (isin, symbol, name, short_name, asset_class, sub_type, category, issuer,
+           exchange, country, currency, last_price, price_updated_at, is_active, source, created_at, updated_at)
+        VALUES (
+          ${etf.isin}, ${etf.symbol}, ${etf.name}, ${etf.shortName}, 'etf',
+          ${etf.subType}, ${etf.category}, ${etf.issuer},
+          ${etf.exchange}, 'IN', 'INR', ${String(etf.basePrice)}, NOW(), true, 'upstox', NOW(), NOW()
+        )
+        ON CONFLICT (isin) DO UPDATE SET
+          symbol=EXCLUDED.symbol,
+          name=EXCLUDED.name,
+          short_name=EXCLUDED.short_name,
+          asset_class='etf',
+          sub_type=EXCLUDED.sub_type,
+          category=EXCLUDED.category,
+          issuer=EXCLUDED.issuer,
+          exchange=EXCLUDED.exchange,
+          last_price=COALESCE(instrument_master.last_price, EXCLUDED.last_price),
+          source='upstox',
+          is_active=true,
+          updated_at=NOW()
+      `);
+      count++;
+    } catch (e: any) {
+      logger.warn(`Failed to sync ETF ${etf.symbol}: ${e?.message}`);
+    }
+  }
+  return count;
+}
+
+/** Syncs MCX Commodities from catalog and commodities table */
+async function syncCommodities(): Promise<number> {
+  let count = 0;
+  // 1. Seed canonical MCX commodities from UPSTOX_COMMODITIES_CATALOG
+  for (const comm of UPSTOX_COMMODITIES_CATALOG) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_master
+          (isin, symbol, name, short_name, asset_class, sub_type, category, issuer,
+           exchange, country, currency, last_price, price_updated_at, is_active, source, created_at, updated_at)
+        VALUES (
+          ${comm.isin}, ${comm.symbol}, ${comm.name}, ${comm.shortName}, 'commodity',
+          ${comm.subType}, ${comm.commodityType}, 'MCX',
+          ${comm.exchange}, 'IN', 'INR', ${String(comm.basePrice)}, NOW(), true, 'upstox', NOW(), NOW()
+        )
+        ON CONFLICT (isin) DO UPDATE SET
+          symbol=EXCLUDED.symbol,
+          name=EXCLUDED.name,
+          short_name=EXCLUDED.short_name,
+          asset_class='commodity',
+          sub_type=EXCLUDED.sub_type,
+          category=EXCLUDED.category,
+          issuer=EXCLUDED.issuer,
+          exchange=EXCLUDED.exchange,
+          last_price=COALESCE(instrument_master.last_price, EXCLUDED.last_price),
+          source='upstox',
+          is_active=true,
+          updated_at=NOW()
+      `);
+      count++;
+    } catch (e: any) {
+      logger.warn(`Failed to sync commodity ${comm.symbol}: ${e?.message}`);
+    }
+  }
+
+  // 2. Also sync any additional live records from commodities table
+  const tableCount = await runUpsert("commodities_table", sql`
+    INSERT INTO instrument_master
+      (isin, symbol, name, asset_class, sub_type, category, issuer,
+       exchange, country, currency, last_price, price_updated_at, is_active, source, created_at, updated_at)
+    SELECT
+      'COMMODITY-' || c.symbol AS isin,
+      c.symbol, c.name, 'commodity', c.sub_type, c.commodity_type, 'MCX',
+      'MCX', 'IN', 'INR', COALESCE(c.current_price, c.price_inr)::text, c.last_updated,
+      COALESCE(c.is_published, true), 'upstox', NOW(), NOW()
+    FROM commodities c WHERE c.symbol IS NOT NULL AND c.name IS NOT NULL
+    ON CONFLICT (isin) DO UPDATE SET
+      symbol=EXCLUDED.symbol, name=EXCLUDED.name,
+      asset_class='commodity', sub_type=EXCLUDED.sub_type, category=EXCLUDED.category,
+      last_price=COALESCE(EXCLUDED.last_price, instrument_master.last_price),
+      source='upstox', is_active=true, updated_at=NOW()
+  `);
+
+  return count + tableCount;
+}
+
+/** Syncs Sovereign Gold Bonds and Government Securities */
+async function syncGovernmentSecurities(): Promise<number> {
+  let count = 0;
+  // 1. Seed canonical SGBs from catalog
+  for (const sgb of SOVEREIGN_GOLD_BONDS) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_master
+          (isin, symbol, name, short_name, asset_class, sub_type, category, issuer,
+           exchange, country, currency, coupon, face_value, last_price, price_updated_at,
+           is_gold_linked, is_active, source, created_at, updated_at)
+        VALUES (
+          ${sgb.isin}, ${sgb.symbol}, ${sgb.name}, ${sgb.series}, 'sgb',
+          'sgb', 'Sovereign Gold Bond', ${sgb.issuer},
+          'NSE', 'IN', 'INR', ${String(sgb.couponRate)}, ${String(sgb.faceValue)}, ${String(sgb.basePrice)},
+          NOW(), true, true, 'upstox', NOW(), NOW()
+        )
+        ON CONFLICT (isin) DO UPDATE SET
+          symbol=EXCLUDED.symbol,
+          name=EXCLUDED.name,
+          short_name=EXCLUDED.short_name,
+          asset_class='sgb',
+          category='Sovereign Gold Bond',
+          issuer=EXCLUDED.issuer,
+          coupon=EXCLUDED.coupon,
+          last_price=COALESCE(instrument_master.last_price, EXCLUDED.last_price),
+          is_gold_linked=true,
+          source='upstox',
+          is_active=true,
+          updated_at=NOW()
+      `);
+      count++;
+    } catch (e: any) {
+      logger.warn(`Failed to sync SGB ${sgb.symbol}: ${e?.message}`);
+    }
+  }
+
+  // 2. Also sync from government_securities table
+  const gsecCount = await runUpsert("government_securities", sql`
+    INSERT INTO instrument_master
+      (isin, symbol, name, asset_class, sub_type, category, issuer,
+       exchange, country, currency, coupon, face_value, last_price, price_updated_at,
+       is_gold_linked, is_active, source, created_at, updated_at)
+    SELECT
+      gs.isin, gs.isin, gs.security_name,
+      CASE WHEN LOWER(gs.security_type) = 'sgb' THEN 'sgb' ELSE 'bond' END,
+      gs.security_type,
+      CASE 
+        WHEN LOWER(gs.security_type) = 'sgb' THEN 'Sovereign Gold Bond'
+        WHEN LOWER(gs.security_type) = 'tbill' THEN 'Treasury Bill'
+        WHEN LOWER(gs.security_type) = 'sdl' THEN 'State Development Loan'
+        ELSE 'Government Security'
+      END,
+      gs.issuer, 'NSE', 'IN', 'INR',
+      gs.coupon_rate::text, gs.face_value::text, gs.current_price::text, NOW(),
+      (LOWER(gs.security_type) = 'sgb'),
+      true, 'upstox', NOW(), NOW()
+    FROM government_securities gs WHERE gs.isin IS NOT NULL AND gs.security_name IS NOT NULL
+    ON CONFLICT (isin) DO UPDATE SET
+      name=EXCLUDED.name,
+      asset_class=EXCLUDED.asset_class,
+      sub_type=EXCLUDED.sub_type,
+      category=EXCLUDED.category,
+      issuer=EXCLUDED.issuer,
+      coupon=EXCLUDED.coupon,
+      last_price=COALESCE(EXCLUDED.last_price, instrument_master.last_price),
+      is_gold_linked=EXCLUDED.is_gold_linked,
+      source='upstox',
+      is_active=true,
+      updated_at=NOW()
+  `);
+
+  return count + gsecCount;
+}
+
 /** Auto-populates instrument_vendor_mappings for Upstox, IRIS, and Alpaca */
 async function syncVendorMappings(): Promise<number> {
   let mapped = 0;
@@ -351,6 +524,78 @@ async function syncVendorMappings(): Promise<number> {
       isin=EXCLUDED.isin, vendor_symbol=EXCLUDED.vendor_symbol, updated_at=NOW()
   `);
 
+  // 6. Upstox ETFs Mapping
+  for (const etf of UPSTOX_ETFS_CATALOG) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_vendor_mappings
+          (isin, vendor, vendor_symbol, vendor_instrument_token, feed_role, is_active, sync_status, source, created_at, updated_at)
+        VALUES (
+          ${etf.isin}, 'upstox', ${etf.symbol}, ${etf.upstoxInstrumentKey}, 'PRIMARY_QUOTE', true, 'synced', 'upstox_sync', NOW(), NOW()
+        )
+        ON CONFLICT (vendor, vendor_instrument_token) DO UPDATE SET
+          isin=EXCLUDED.isin, vendor_symbol=EXCLUDED.vendor_symbol, updated_at=NOW()
+      `);
+      mapped++;
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  // 7. Upstox Commodities Mapping
+  for (const comm of UPSTOX_COMMODITIES_CATALOG) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_vendor_mappings
+          (isin, vendor, vendor_symbol, vendor_instrument_token, feed_role, is_active, sync_status, source, created_at, updated_at)
+        VALUES (
+          ${comm.isin}, 'upstox', ${comm.symbol}, ${comm.upstoxInstrumentKey}, 'PRIMARY_QUOTE', true, 'synced', 'upstox_sync', NOW(), NOW()
+        )
+        ON CONFLICT (vendor, vendor_instrument_token) DO UPDATE SET
+          isin=EXCLUDED.isin, vendor_symbol=EXCLUDED.vendor_symbol, updated_at=NOW()
+      `);
+      mapped++;
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  // 8. Upstox Sovereign Gold Bonds Mapping
+  for (const sgb of SOVEREIGN_GOLD_BONDS) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_vendor_mappings
+          (isin, vendor, vendor_symbol, vendor_instrument_token, feed_role, is_active, sync_status, source, created_at, updated_at)
+        VALUES (
+          ${sgb.isin}, 'upstox', ${sgb.symbol}, ${sgb.upstoxInstrumentKey}, 'PRIMARY_QUOTE', true, 'synced', 'upstox_sync', NOW(), NOW()
+        )
+        ON CONFLICT (vendor, vendor_instrument_token) DO UPDATE SET
+          isin=EXCLUDED.isin, vendor_symbol=EXCLUDED.vendor_symbol, updated_at=NOW()
+      `);
+      mapped++;
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  // 9. Upstox Major Indices Mapping
+  for (const idx of BENCHMARK_INDICES) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_vendor_mappings
+          (isin, vendor, vendor_symbol, vendor_instrument_token, feed_role, is_active, sync_status, source, created_at, updated_at)
+        VALUES (
+          ${idx.instrumentKey}, 'upstox', ${idx.symbol}, ${idx.instrumentKey}, 'PRIMARY_QUOTE', true, 'synced', 'upstox_sync', NOW(), NOW()
+        )
+        ON CONFLICT (vendor, vendor_instrument_token) DO UPDATE SET
+          isin=EXCLUDED.isin, vendor_symbol=EXCLUDED.vendor_symbol, updated_at=NOW()
+      `);
+      mapped++;
+    } catch {
+      // Non-fatal
+    }
+  }
+
   return mapped;
 }
 
@@ -376,6 +621,9 @@ export async function syncInstrumentMaster() {
     irisFd: 0,
     irisNps: 0,
     irisPmsAif: 0,
+    upstoxEtfs: 0,
+    commodities: 0,
+    governmentSecurities: 0,
     vendorMappings: 0,
     total: 0,
     durationMs: 0,
@@ -399,6 +647,9 @@ export async function syncInstrumentMaster() {
   await run("irisFd", syncIrisFixedDeposits);
   await run("irisNps", syncIrisNps);
   await run("irisPmsAif", syncIrisPmsAif);
+  await run("upstoxEtfs", syncUpstoxEtfs);
+  await run("commodities", syncCommodities);
+  await run("governmentSecurities", syncGovernmentSecurities);
   await run("vendorMappings", syncVendorMappings);
 
   r.total =
@@ -412,7 +663,10 @@ export async function syncInstrumentMaster() {
     r.globalStocks +
     r.irisFd +
     r.irisNps +
-    r.irisPmsAif;
+    r.irisPmsAif +
+    r.upstoxEtfs +
+    r.commodities +
+    r.governmentSecurities;
   r.durationMs = Date.now() - start;
 
   logger.info(
