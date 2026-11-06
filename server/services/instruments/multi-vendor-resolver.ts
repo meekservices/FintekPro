@@ -502,26 +502,25 @@ export class MultiVendorInstrumentResolver {
       const symbol = mapping?.vendorSymbol || mapping?.vendorInstrumentToken || isin.replace(/^US-/, "");
       try {
         const { alpacaMarketDataService } = await import("../alpaca-market-data-service");
-        if (alpacaMarketDataService.isConfigured()) {
-          const q = await alpacaMarketDataService.getQuote(symbol);
-          if (q && q.price > 0) {
-            return {
-              isin,
-              symbol,
-              name: mapping?.vendorSymbol || symbol,
-              price: q.price,
-              change: q.change,
-              changePercent: q.changePercent,
-              open: q.open,
-              high: q.high,
-              low: q.low,
-              volume: q.volume,
-              vendorUsed: "alpaca",
-              isFallback: false,
-              timestamp: new Date().toISOString(),
-              cached: false,
-            };
-          }
+        const q = await alpacaMarketDataService.getQuote(symbol);
+        if (q && q.price > 0) {
+          const isConfigured = alpacaMarketDataService.isConfigured();
+          return {
+            isin,
+            symbol,
+            name: mapping?.vendorSymbol || symbol,
+            price: q.price,
+            change: q.change,
+            changePercent: q.changePercent,
+            open: q.open,
+            high: q.high,
+            low: q.low,
+            volume: q.volume,
+            vendorUsed: isConfigured ? "alpaca" : "alpaca_fallback",
+            isFallback: !isConfigured,
+            timestamp: new Date().toISOString(),
+            cached: false,
+          };
         }
       } catch (err: any) {
         logger.warn("[MultiVendorResolver] Alpaca quote fetch error", {

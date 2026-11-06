@@ -23,6 +23,7 @@ import {
   TOP_SIF_SCHEMES,
   TOP_CURATED_MUTUAL_FUNDS,
   TOP_FIXED_DEPOSITS,
+  TOP_US_EQUITIES,
 } from "../data/store-instruments-catalog";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -738,6 +739,24 @@ async function syncVendorMappings(): Promise<number> {
     }
   }
 
+  // 18. Curated US Equities & ETFs via Alpaca
+  for (const us of TOP_US_EQUITIES) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_vendor_mappings
+          (isin, vendor, vendor_symbol, vendor_instrument_token, feed_role, is_active, sync_status, source, created_at, updated_at)
+        VALUES (
+          ${us.isin}, 'alpaca', ${us.symbol}, ${us.symbol}, 'PRIMARY_QUOTE', true, 'synced', 'alpaca_sync', NOW(), NOW()
+        )
+        ON CONFLICT (vendor, vendor_instrument_token) DO UPDATE SET
+          isin=EXCLUDED.isin, vendor_symbol=EXCLUDED.vendor_symbol, updated_at=NOW()
+      `);
+      mapped++;
+    } catch {
+      // Non-fatal
+    }
+  }
+
   return mapped;
 }
 
@@ -866,6 +885,31 @@ async function syncCuratedStoreProducts(): Promise<number> {
         )
         ON CONFLICT (isin) DO UPDATE SET
           name=EXCLUDED.name, coupon=EXCLUDED.coupon, last_price=EXCLUDED.last_price, is_active=true, updated_at=NOW()
+      `);
+      count++;
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  // 7. Curated US Equities & ETFs
+  for (const us of TOP_US_EQUITIES) {
+    try {
+      await db.execute(sql`
+        INSERT INTO instrument_master
+          (isin, symbol, name, short_name, asset_class, sub_type, category, issuer,
+           country, currency, last_price, price_updated_at, is_active, source, created_at, updated_at)
+        VALUES (
+          ${us.isin}, ${us.symbol}, ${us.name}, ${us.symbol}, ${us.category === "US ETF" ? "etf" : "us_equity"},
+          ${us.subType}, ${us.category}, ${us.name},
+          'US', 'USD', '0', NOW(), true, 'alpaca', NOW(), NOW()
+        )
+        ON CONFLICT (isin) DO UPDATE SET
+          symbol=EXCLUDED.symbol, name=EXCLUDED.name,
+          asset_class=EXCLUDED.asset_class, sub_type=EXCLUDED.sub_type,
+          category=EXCLUDED.category, issuer=EXCLUDED.issuer,
+          country='US', currency='USD', source='alpaca',
+          is_active=true, updated_at=NOW()
       `);
       count++;
     } catch {

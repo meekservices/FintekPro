@@ -25,6 +25,7 @@ import {
 	TOP_SIF_SCHEMES,
 	TOP_CURATED_MUTUAL_FUNDS,
 	TOP_FIXED_DEPOSITS,
+	TOP_US_EQUITIES,
 } from "../data/store-instruments-catalog";
 
 export function registerKYCAdminSupporPart2Routes(app: Express): void {
@@ -1627,6 +1628,56 @@ export function registerKYCAdminSupporPart2Routes(app: Express): void {
 				}
 			} catch (e) {
 				console.warn("[Store Products] Fixed deposit merge failed:", e);
+			}
+
+			// ── Curated US Equities & ETFs (Alpaca Broker API) ───────────────────
+			try {
+				if (
+					!category ||
+					[
+						"cat-global-stocks",
+						"global-stocks",
+						"us-stocks",
+						"us-equities",
+						"US Stocks & ETFs",
+					].includes(category as string)
+				) {
+					const usProducts = TOP_US_EQUITIES.map((us) => ({
+						id: `us-${us.symbol.toLowerCase()}`,
+						name: us.name,
+						shortDescription: `${us.symbol} • ${us.category} • Target Return: +${us.expectedReturns}%`,
+						description: `${us.name} (${us.symbol}), US listed ${us.category.toLowerCase()}. Powered by Alpaca Broker API under RBI Liberalised Remittance Scheme (LRS).`,
+						categoryId: "cat-global-stocks",
+						categoryName: "US Stocks & ETFs",
+						subcategoryId: us.category === "US ETF" ? "us-etf" : "us-equity",
+						subcategoryName: us.category,
+						productType: us.category === "US ETF" ? "etf" : "us_equity",
+						planType: "regular",
+						provider: "Alpaca / US Markets",
+						minimumInvestment: us.minUsd,
+						expectedReturns: us.expectedReturns,
+						riskLevel: us.category === "US ETF" ? "medium" : "high",
+						features: [
+							`Symbol: ${us.symbol}`,
+							`Type: ${us.category}`,
+							"Currency: USD (RBI LRS Compliant)",
+							"Fractional Shares Supported",
+						],
+						isActive: true,
+						isFeatured: ["SPY", "QQQ", "AAPL", "NVDA"].includes(us.symbol),
+						isPremium: false,
+						isNew: true,
+						badge: us.category === "US ETF" ? "US-ETF" : "ALPACA",
+						kycProductCode: "LRS_GLOBAL_EQUITY",
+						sourceTable: "top_us_equities",
+						sourceId: us.symbol,
+						providerSource: "ALPACA" as const,
+						providerProductId: us.symbol,
+					}));
+					mergedProducts = [...mergedProducts, ...usProducts];
+				}
+			} catch (e) {
+				console.warn("[Store Products] US equities merge failed:", e);
 			}
 
 			res.json({

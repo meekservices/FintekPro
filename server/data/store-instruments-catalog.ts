@@ -946,3 +946,33 @@ export const TOP_FIXED_DEPOSITS: CuratedFixedDeposit[] = [
   },
 ];
 
+// ── Curated US Equities & ETFs (Alpaca Broker API) ─────────────────────────────
+export interface CuratedUsEquity {
+  symbol: string;
+  isin: string;
+  name: string;
+  category: "US Equity" | "US ETF";
+  subType: "mega_cap" | "large_cap" | "broad_index" | "tech_index";
+  expectedReturns: number;
+  minUsd: number;
+}
+
+export const TOP_US_EQUITIES: CuratedUsEquity[] = [
+  { symbol: "SPY", isin: "US-SPY", name: "SPDR S&P 500 ETF Trust", category: "US ETF", subType: "broad_index", expectedReturns: 14.2, minUsd: 1 },
+  { symbol: "QQQ", isin: "US-QQQ", name: "Invesco QQQ (NASDAQ-100)", category: "US ETF", subType: "tech_index", expectedReturns: 18.5, minUsd: 1 },
+  { symbol: "VTI", isin: "US-VTI", name: "Vanguard Total Stock Market ETF", category: "US ETF", subType: "broad_index", expectedReturns: 13.8, minUsd: 1 },
+  { symbol: "VOO", isin: "US-VOO", name: "Vanguard S&P 500 ETF", category: "US ETF", subType: "broad_index", expectedReturns: 14.0, minUsd: 1 },
+  { symbol: "IVV", isin: "US-IVV", name: "iShares Core S&P 500 ETF", category: "US ETF", subType: "broad_index", expectedReturns: 14.1, minUsd: 1 },
+  { symbol: "VEA", isin: "US-VEA", name: "Vanguard FTSE Developed ETF", category: "US ETF", subType: "broad_index", expectedReturns: 9.3, minUsd: 1 },
+  { symbol: "GLD", isin: "US-GLD", name: "SPDR Gold Shares ETF", category: "US ETF", subType: "broad_index", expectedReturns: 8.5, minUsd: 1 },
+  { symbol: "ARKK", isin: "US-ARKK", name: "ARK Innovation ETF", category: "US ETF", subType: "tech_index", expectedReturns: 12.0, minUsd: 1 },
+  { symbol: "AAPL", isin: "US-AAPL", name: "Apple Inc.", category: "US Equity", subType: "mega_cap", expectedReturns: 22.3, minUsd: 1 },
+  { symbol: "MSFT", isin: "US-MSFT", name: "Microsoft Corporation", category: "US Equity", subType: "mega_cap", expectedReturns: 25.1, minUsd: 1 },
+  { symbol: "GOOGL", isin: "US-GOOGL", name: "Alphabet Inc. (Google)", category: "US Equity", subType: "mega_cap", expectedReturns: 19.8, minUsd: 1 },
+  { symbol: "AMZN", isin: "US-AMZN", name: "Amazon.com Inc.", category: "US Equity", subType: "mega_cap", expectedReturns: 21.0, minUsd: 1 },
+  { symbol: "NVDA", isin: "US-NVDA", name: "NVIDIA Corporation", category: "US Equity", subType: "mega_cap", expectedReturns: 65.0, minUsd: 1 },
+  { symbol: "META", isin: "US-META", name: "Meta Platforms Inc.", category: "US Equity", subType: "mega_cap", expectedReturns: 38.0, minUsd: 1 },
+  { symbol: "TSLA", isin: "US-TSLA", name: "Tesla Inc.", category: "US Equity", subType: "mega_cap", expectedReturns: 18.0, minUsd: 1 },
+  { symbol: "BRKA", isin: "US-BRKA", name: "Berkshire Hathaway Inc.", category: "US Equity", subType: "mega_cap", expectedReturns: 12.0, minUsd: 1 },
+];
+
