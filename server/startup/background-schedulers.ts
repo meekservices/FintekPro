@@ -21,7 +21,7 @@ import { opsAlertService } from "../services/ops-alert-service";
 import { upstoxMarketDataService } from "../services/upstox-market-data-service";
 import { indianApiService } from "../services/indian-api-service";
 import { unifiedStockPriceService } from "../services/unified-stock-price-service";
-
+import { withDistributedLock } from "../utils/distributed-lock";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER
@@ -34,6 +34,21 @@ async function runStartupTask(name: string, task: () => Promise<void>) {
 		console.log(`✅ [Scheduler] Ready:    ${name}`);
 	} catch (error) {
 		console.error(`❌ [Scheduler] Failed:   ${name}`, error);
+	}
+}
+
+/**
+ * Runs a periodic cron task guarded by a cluster-wide distributed lock.
+ * Across autoscaled Cloud Run pods, only one pod will acquire the lock and execute.
+ */
+async function runWithClusterLock(
+	lockKey: string,
+	ttlSeconds: number,
+	task: () => Promise<void>,
+) {
+	const { executed } = await withDistributedLock(lockKey, ttlSeconds, task);
+	if (!executed) {
+		console.log(`🔒 [Scheduler] Contested lock '${lockKey}' active on another instance — skipping`);
 	}
 }
 
@@ -142,14 +157,16 @@ async function autoPublishAllInstruments() {
 
 	// Re-run every 24h so newly synced instruments go live without admin action
 	setInterval(async () => {
-		for (const { label, query } of tasks) {
-			try {
-				await db.execute(query);
-			} catch {
-				// Silent — non-critical periodic task
+		await runWithClusterLock("cron:auto-publish-all", 3600, async () => {
+			for (const { label, query } of tasks) {
+				try {
+					await db.execute(query);
+				} catch {
+					// Silent — non-critical periodic task
+				}
 			}
-		}
-		console.log("[AutoPublish] Periodic instrument publish check complete");
+			console.log("[AutoPublish] Periodic instrument publish check complete");
+		});
 	}, TWENTY_FOUR_HOURS_MS);
 }
 
@@ -270,11 +287,15 @@ function scheduleDailyNormalization() {
 
 	// Fire once at the next 20:00 UTC, then repeat every 24h
 	setTimeout(() => {
-		console.log("[Scheduler] Daily market cap normalization triggered (1:30 AM IST)");
-		void normalizeMarketCapCategories();
-		setInterval(() => {
+		void runWithClusterLock("cron:daily-mcap-norm", 7200, async () => {
 			console.log("[Scheduler] Daily market cap normalization triggered (1:30 AM IST)");
-			void normalizeMarketCapCategories();
+			await normalizeMarketCapCategories();
+		});
+		setInterval(() => {
+			void runWithClusterLock("cron:daily-mcap-norm", 7200, async () => {
+				console.log("[Scheduler] Daily market cap normalization triggered (1:30 AM IST)");
+				await normalizeMarketCapCategories();
+			});
 		}, TWENTY_FOUR_H_MS);
 	}, msUntilNext2000UTC());
 

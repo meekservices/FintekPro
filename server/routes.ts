@@ -48,6 +48,7 @@ import complianceRoutes from "./compliance-routes";
 import amlRoutes from "./aml-routes";
 import orderStatusRoutes from "./routes/fixed-income-status-routes";
 import aiInvestmentRoutes from "./routes/ai-investment-routes";
+import { taskQueueRouter } from "./routes/task-queue-routes";
 import { registerAIStockRecommendationRoutes } from "./routes/ai-stock-recommendation-routes";
 import engineHealthRoutes from "./routes/engine-health-check";
 import engineLearningRoutes from "./routes/engine-learning-routes";
@@ -631,6 +632,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	app.use("/api/upstox", upstoxOAuthRouter); // /api/upstox/oauth/*, /api/upstox/partner/*
 	app.use("/api/dhan", dhanOAuthRouter); // /api/dhan/oauth/*, /api/dhan/partner/*
 	app.use("/api/infra", vendorInfraRoutes); // /api/infra/vendors, /api/infra/vendors/probe
+	app.use("/api/queue", taskQueueRouter); // /api/queue/jobs/:jobId, /api/queue/simulate-quant (Async Worker Engine)
 
 	// ── Phone Enrichment & Calling ─────────────────────────────────────────────
 	// Director contact enrichment is handled in-process by DirectorContactService
