@@ -859,53 +859,57 @@ router.get("/api/instruments/search", async (req: Request, res: Response) => {
 		const shouldSearchGlobal =
 			!assetClassStr || assetClassStr === "us_equity" || assetClassStr === "us_stock" || assetClassStr === "stock";
 		if (shouldSearchGlobal && instruments.length < maxResults) {
-			const remainingSlots = maxResults - instruments.length;
-			const globalResults = await db
-				.select({
-					id: globalInstruments.id,
-					symbol: globalInstruments.symbol,
-					isin: globalInstruments.isin,
-					name: globalInstruments.name,
-					assetClass: globalInstruments.assetClass,
-					sector: globalInstruments.sector,
-					exchange: globalInstruments.exchange,
-					lastPrice: globalInstruments.lastPrice,
-					currency: globalInstruments.currency,
-				})
-				.from(globalInstruments)
-				.where(
-					and(
-						eq(globalInstruments.isActive, true),
-						or(
-							ilike(globalInstruments.name, searchTerm),
-							ilike(globalInstruments.symbol, searchTerm),
-							ilike(globalInstruments.isin, searchTerm),
+			try {
+				const remainingSlots = maxResults - instruments.length;
+				const globalResults = await db
+					.select({
+						id: globalInstruments.id,
+						symbol: globalInstruments.symbol,
+						isin: globalInstruments.isin,
+						name: globalInstruments.name,
+						assetClass: globalInstruments.assetClass,
+						sector: globalInstruments.sector,
+						exchange: globalInstruments.exchange,
+						lastPrice: globalInstruments.lastPrice,
+						currency: globalInstruments.currency,
+					})
+					.from(globalInstruments)
+					.where(
+						and(
+							eq(globalInstruments.isActive, true),
+							or(
+								ilike(globalInstruments.name, searchTerm),
+								ilike(globalInstruments.symbol, searchTerm),
+								ilike(globalInstruments.isin, searchTerm),
+							),
 						),
-					),
-				)
-				.orderBy(globalInstruments.name)
-				.limit(remainingSlots + 10);
+					)
+					.orderBy(globalInstruments.name)
+					.limit(remainingSlots + 10);
 
-			for (const gi of globalResults) {
-				if (instruments.length >= maxResults) break;
-				const giIsin = gi.isin || `US-${gi.symbol}`;
-				if (existingIsins.has(giIsin)) continue;
-				instruments.push({
-					id: gi.id,
-					isin: giIsin,
-					symbol: gi.symbol,
-					name: gi.name,
-					shortName: gi.symbol,
-					assetClass: gi.assetClass === "etf" ? "etf" : "us_equity",
-					subType: gi.exchange || "US",
-					category: gi.sector || "US Equity",
-					issuer: gi.exchange || "NASDAQ",
-					lastPrice: gi.lastPrice ? String(gi.lastPrice) : null,
-					currency: gi.currency || "USD",
-					riskLevel: null,
-					priceUpdatedAt: null,
-				});
-				existingIsins.add(giIsin);
+				for (const gi of globalResults) {
+					if (instruments.length >= maxResults) break;
+					const giIsin = gi.isin || `US-${gi.symbol}`;
+					if (existingIsins.has(giIsin)) continue;
+					instruments.push({
+						id: gi.id,
+						isin: giIsin,
+						symbol: gi.symbol,
+						name: gi.name,
+						shortName: gi.symbol,
+						assetClass: gi.assetClass === "etf" ? "etf" : "us_equity",
+						subType: gi.exchange || "US",
+						category: gi.sector || "US Equity",
+						issuer: gi.exchange || "NASDAQ",
+						lastPrice: gi.lastPrice ? String(gi.lastPrice) : null,
+						currency: gi.currency || "USD",
+						riskLevel: null,
+						priceUpdatedAt: null,
+					});
+					existingIsins.add(giIsin);
+				}
+			} catch (gErr: any) {
+				logger.warn({ event: "global_search_fallback_error", error: String(gErr?.message || gErr) }, "Global search fallback non-fatal error");
 			}
 		}
 
@@ -913,49 +917,53 @@ router.get("/api/instruments/search", async (req: Request, res: Response) => {
 		const shouldSearchFd =
 			!assetClassStr || assetClassStr === "fixed_deposit" || assetClassStr === "fd";
 		if (shouldSearchFd && instruments.length < maxResults) {
-			const remainingSlots = maxResults - instruments.length;
-			const fdResults = await db
-				.select({
-					id: irisFdProducts.id,
-					irisProductId: irisFdProducts.irisProductId,
-					productName: irisFdProducts.productName,
-					productCode: irisFdProducts.productCode,
-					issuerName: irisFdProducts.issuerName,
-					category: irisFdProducts.category,
-					interestRate: irisFdProducts.interestRate,
-					creditRating: irisFdProducts.creditRating,
-				})
-				.from(irisFdProducts)
-				.where(
-					or(
-						ilike(irisFdProducts.productName, searchTerm),
-						ilike(irisFdProducts.issuerName, searchTerm),
-						ilike(irisFdProducts.productCode, searchTerm),
-					),
-				)
-				.orderBy(irisFdProducts.productName)
-				.limit(remainingSlots + 10);
+			try {
+				const remainingSlots = maxResults - instruments.length;
+				const fdResults = await db
+					.select({
+						id: irisFdProducts.id,
+						irisProductId: irisFdProducts.irisProductId,
+						productName: irisFdProducts.productName,
+						productCode: irisFdProducts.productCode,
+						issuerName: irisFdProducts.issuerName,
+						category: irisFdProducts.category,
+						interestRate: irisFdProducts.interestRate,
+						creditRating: irisFdProducts.creditRating,
+					})
+					.from(irisFdProducts)
+					.where(
+						or(
+							ilike(irisFdProducts.productName, searchTerm),
+							ilike(irisFdProducts.issuerName, searchTerm),
+							ilike(irisFdProducts.productCode, searchTerm),
+						),
+					)
+					.orderBy(irisFdProducts.productName)
+					.limit(remainingSlots + 10);
 
-			for (const fd of fdResults) {
-				if (instruments.length >= maxResults) break;
-				const fdIsin = `FD-${fd.irisProductId}`;
-				if (existingIsins.has(fdIsin)) continue;
-				instruments.push({
-					id: fd.id,
-					isin: fdIsin,
-					symbol: fd.productCode || fd.irisProductId,
-					name: fd.productName,
-					shortName: fd.productCode || fd.productName,
-					assetClass: "fixed_deposit",
-					subType: fd.category || "corporate",
-					category: "Fixed Deposit",
-					issuer: fd.issuerName,
-					lastPrice: fd.interestRate ? String(fd.interestRate) : null,
-					currency: "INR",
-					riskLevel: fd.creditRating || null,
-					priceUpdatedAt: null,
-				});
-				existingIsins.add(fdIsin);
+				for (const fd of fdResults) {
+					if (instruments.length >= maxResults) break;
+					const fdIsin = `FD-${fd.irisProductId}`;
+					if (existingIsins.has(fdIsin)) continue;
+					instruments.push({
+						id: fd.id,
+						isin: fdIsin,
+						symbol: fd.productCode || fd.irisProductId,
+						name: fd.productName,
+						shortName: fd.productCode || fd.productName,
+						assetClass: "fixed_deposit",
+						subType: fd.category || "corporate",
+						category: "Fixed Deposit",
+						issuer: fd.issuerName,
+						lastPrice: fd.interestRate ? String(fd.interestRate) : null,
+						currency: "INR",
+						riskLevel: fd.creditRating || null,
+						priceUpdatedAt: null,
+					});
+					existingIsins.add(fdIsin);
+				}
+			} catch (fdErr: any) {
+				logger.warn({ event: "fd_search_fallback_error", error: String(fdErr?.message || fdErr) }, "FD search fallback non-fatal error");
 			}
 		}
 

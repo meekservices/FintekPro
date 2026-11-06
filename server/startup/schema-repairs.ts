@@ -5545,8 +5545,127 @@ export async function ensureMultiVendorInstrumentMasterColumns(): Promise<void> 
         ADD COLUMN IF NOT EXISTS las_ltv_percent DECIMAL(5,2);
     `);
     console.log("  ✅ [Multi-Vendor Instrument Master] financial_instruments_cache multi-vendor columns ensured");
+
+    await ensureIrisCatalogTables();
   } catch (err: any) {
     console.warn("  ⚠️  [Multi-Vendor Instrument Master] schema repair (non-fatal):", err?.message?.slice(0, 100));
+  }
+}
+
+export async function ensureIrisCatalogTables(): Promise<void> {
+  try {
+    const { pool: migPool } = await import("../db");
+    await migPool.query(`
+      CREATE TABLE IF NOT EXISTS iris_fd_products (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        iris_product_id VARCHAR(100) NOT NULL UNIQUE,
+        issuer_name TEXT NOT NULL,
+        product_name TEXT NOT NULL,
+        product_code VARCHAR(50),
+        category VARCHAR(50),
+        interest_rate DECIMAL(8, 4),
+        tenure_months INTEGER,
+        min_investment DECIMAL(15, 2),
+        max_investment DECIMAL(15, 2),
+        lock_in_months INTEGER DEFAULT 0,
+        is_cumulative BOOLEAN DEFAULT TRUE,
+        payout_frequency VARCHAR(30),
+        credit_rating VARCHAR(20),
+        rating_agency VARCHAR(30),
+        senior_citizen_rate_extra DECIMAL(5, 4),
+        brochure_url TEXT,
+        raw_data JSONB,
+        source VARCHAR(20) DEFAULT 'iris_kfintech',
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS iris_nps_funds (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        iris_fund_code VARCHAR(100) NOT NULL UNIQUE,
+        fund_manager_name TEXT NOT NULL,
+        short_name VARCHAR(50),
+        tier VARCHAR(5) NOT NULL,
+        scheme_type VARCHAR(10) DEFAULT 'NPS',
+        equity_pct DECIMAL(6, 4),
+        corporate_bond_pct DECIMAL(6, 4),
+        govt_sec_pct DECIMAL(6, 4),
+        alternate_pct DECIMAL(6, 4),
+        return_1y DECIMAL(8, 4),
+        return_3y DECIMAL(8, 4),
+        return_5y DECIMAL(8, 4),
+        pfm_code VARCHAR(20),
+        raw_data JSONB,
+        source VARCHAR(20) DEFAULT 'iris_kfintech',
+        seeded_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS iris_pms_aif_products (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        iris_product_id VARCHAR(100) NOT NULL UNIQUE,
+        product_type VARCHAR(10) NOT NULL,
+        strategy_name TEXT NOT NULL,
+        fund_house TEXT,
+        sebi_category VARCHAR(80),
+        strategy_type VARCHAR(50),
+        min_investment DECIMAL(15, 2),
+        aum DECIMAL(20, 2),
+        lock_in_months INTEGER,
+        management_fee DECIMAL(6, 4),
+        performance_fee DECIMAL(6, 4),
+        hurdle_rate DECIMAL(6, 4),
+        high_water_mark_nav DECIMAL(12, 4),
+        is_demat_mandatory BOOLEAN DEFAULT TRUE,
+        return_1y DECIMAL(8, 4),
+        return_3y DECIMAL(8, 4),
+        return_since_inception DECIMAL(8, 4),
+        sharpe_ratio DECIMAL(8, 4),
+        risk_level VARCHAR(20),
+        sebi_reg_no VARCHAR(50),
+        raw_data JSONB,
+        source VARCHAR(20) DEFAULT 'iris_kfintech',
+        seeded_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      INSERT INTO iris_fd_products (iris_product_id, issuer_name, product_name, product_code, category, interest_rate, tenure_months, min_investment, credit_rating, rating_agency)
+      VALUES
+        ('IRIS-FD-BAJAJ-36M', 'Bajaj Finance Ltd', 'Bajaj Finance Digital Fixed Deposit 36M', 'BAJAJ_FD_36M', 'corporate', 8.60, 36, 15000, 'AAA', 'CRISIL'),
+        ('IRIS-FD-SHRIRAM-36M', 'Shriram Finance Ltd', 'Shriram Unnati Fixed Deposit 36M', 'SHRIRAM_FD_36M', 'corporate', 8.80, 36, 10000, 'AA+', 'CRISIL'),
+        ('IRIS-FD-MAHINDRA-33M', 'Mahindra & Mahindra Financial Services', 'Mahindra Samruddhi Fixed Deposit 33M', 'MAHINDRA_FD_33M', 'corporate', 8.25, 33, 10000, 'AAA', 'CRISIL'),
+        ('IRIS-FD-HDFC-36M', 'HDFC Bank Ltd', 'HDFC Bank Regular Fixed Deposit 36M', 'HDFC_FD_36M', 'bank', 7.40, 36, 5000, 'AAA', 'CARE'),
+        ('IRIS-FD-ICICI-36M', 'ICICI Bank Ltd', 'ICICI Bank Golden Fixed Deposit 36M', 'ICICI_FD_36M', 'bank', 7.25, 36, 10000, 'AAA', 'ICRA')
+      ON CONFLICT (iris_product_id) DO UPDATE SET
+        interest_rate = EXCLUDED.interest_rate,
+        updated_at = NOW();
+
+      INSERT INTO iris_nps_funds (iris_fund_code, fund_manager_name, short_name, tier, scheme_type, equity_pct, corporate_bond_pct, govt_sec_pct, return_1y, return_3y, return_5y, pfm_code)
+      VALUES
+        ('IRIS-NPS-SBI-E', 'SBI Pension Funds Pvt Ltd', 'SBI Pension Fund Scheme E Tier I', 'I', 'NPS', 0.75, 0.15, 0.10, 18.25, 16.40, 14.80, 'PFM001'),
+        ('IRIS-NPS-HDFC-E', 'HDFC Pension Management Co Ltd', 'HDFC Pension Fund Scheme E Tier I', 'I', 'NPS', 0.75, 0.15, 0.10, 19.10, 17.20, 15.30, 'PFM002'),
+        ('IRIS-NPS-ICICI-E', 'ICICI Prudential Pension Funds Management Co', 'ICICI Pru Pension Fund Scheme E Tier I', 'I', 'NPS', 0.75, 0.15, 0.10, 18.80, 16.90, 15.10, 'PFM003'),
+        ('IRIS-NPS-KOTAK-E', 'Kotak Mahindra Pension Fund Ltd', 'Kotak Pension Fund Scheme E Tier I', 'I', 'NPS', 0.75, 0.15, 0.10, 18.50, 16.60, 14.90, 'PFM004'),
+        ('IRIS-NPS-UTI-E', 'UTI Retirement Solutions Ltd', 'UTI Pension Fund Scheme E Tier I', 'I', 'NPS', 0.75, 0.15, 0.10, 17.90, 15.80, 14.20, 'PFM005')
+      ON CONFLICT (iris_fund_code) DO UPDATE SET
+        return_1y = EXCLUDED.return_1y,
+        updated_at = NOW();
+
+      INSERT INTO iris_pms_aif_products (iris_product_id, product_type, strategy_name, fund_house, sebi_category, strategy_type, min_investment, aum, management_fee, performance_fee, hurdle_rate, return_1y, return_3y)
+      VALUES
+        ('IRIS-PMS-WHITEOAK-01', 'pms', 'White Oak India Pioneers Equity Portfolio', 'White Oak Capital Management', 'Portfolio Management Services', 'multi_cap', 5000000, 8500000000, 2.00, 15.00, 10.00, 24.50, 21.20),
+        ('IRIS-PMS-ASK-IEP', 'pms', 'ASK Indian Entrepreneur Portfolio', 'ASK Investment Managers Ltd', 'Portfolio Management Services', 'large_mid_cap', 5000000, 14200000000, 2.25, 10.00, 10.00, 21.80, 19.40),
+        ('IRIS-AIF-ICICI-ALPHA', 'aif', 'ICICI Prudential Alpha Opportunities Fund', 'ICICI Prudential AMC', 'Category III AIF', 'long_short', 10000000, 5200000000, 1.75, 20.00, 12.00, 22.40, 18.90),
+        ('IRIS-SIF-360ONE-DYN', 'aif', '360 ONE Dynamic Absolute Return SIF', '360 ONE Asset Management', 'Category III AIF - SIF', 'long_short', 1000000, 3100000000, 1.50, 15.00, 10.00, 19.80, 17.50)
+      ON CONFLICT (iris_product_id) DO UPDATE SET
+        return_1y = EXCLUDED.return_1y,
+        updated_at = NOW();
+    `);
+    console.log("  ✅ [IRIS Catalog] iris_fd_products, iris_nps_funds, iris_pms_aif_products tables and seed ensured");
+  } catch (err: any) {
+    console.warn("  ⚠️  [IRIS Catalog] schema repair error (non-fatal):", err?.message?.slice(0, 120));
   }
 }
 
