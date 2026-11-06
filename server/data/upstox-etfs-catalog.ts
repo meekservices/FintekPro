@@ -702,3 +702,4 @@ export const UPSTOX_ETFS_CATALOG: UpstoxETFDefinition[] = [
     expenseRatio: 0.50,
   },
 ];
+

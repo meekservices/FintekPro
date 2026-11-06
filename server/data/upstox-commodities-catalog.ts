@@ -380,3 +380,4 @@ export const BENCHMARK_INDICES: BenchmarkIndexDefinition[] = [
     category: "broad_market",
   },
 ];
+
