@@ -416,4 +416,12 @@ All distribution operations, partner portals, sub-broker networks, and commercia
 - Zero Commission-Bias in AI: When operating in distribution mode, AI algorithms MUST NEVER rank or recommend products based on higher commission payout. Sorting must be strictly objective (alpha, Sharpe, expense ratio, credit quality).
 - Multi-Product Compliance: ARN/EUIN validation on mutual funds; IRDAI need analysis and 30-day free look on insurance; SEBI OBPP clean/dirty price disclosures on listed bonds; DICGC insurance limit disclosures on corporate FDs.
 
+31. FRONTEND THEME & DESIGN TOKEN INTEGRITY (GCR UI v1.0)
+All frontend pages, portals, widgets, and layout shells MUST adhere to the Universal Theme Standard:
+- Zero Hardcoded Palette Shells: Never use static dark or light classes (`bg-slate-900`, `bg-black`, static dark gradients) on layout headers, sidebars, or page root containers. Always use semantic Tailwind tokens (`bg-background`, `bg-card`, `border-border`) with reactive `dark:` classes.
+- Saturated Badge Contrast Mandate: Never use `text-foreground` on solid saturated colored badges (blue, green, purple, red). Use explicit `text-white` on solid fills or theme-tinted pairs (`bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300`).
+- Card Definition: Avoid borderless cards (`border-0`). Use `border border-border/80 bg-card text-card-foreground shadow-sm` so cards remain defined across both modes.
+- Header Theme Toggle: All portal layout headers (`AppLayout`, `AgentLayout`, `TopNavLayout`) must include `<ThemeToggle />` in the top action bar.
+- Pre-Merge Dual-Theme Verification: Every newly authored or modified screen must be visually validated in both Light and Dark themes.
+
 

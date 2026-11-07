@@ -649,7 +649,7 @@ export default function StorePage() {
 			case "HOT":
 				return "bg-red-500 text-white";
 			case "PREMIUM":
-				return "bg-gradient-to-r from-yellow-400 to-orange-500 text-foreground";
+				return "bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium";
 			default:
 				return "bg-blue-500 text-white";
 		}
@@ -689,7 +689,7 @@ export default function StorePage() {
 		return (
 			<Card
 				key={product.id}
-				className={`group hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50 dark:from-card dark:to-background overflow-hidden ${isLocked ? "opacity-60" : ""}`}
+				className={`group hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border border-border/80 bg-card text-card-foreground overflow-hidden ${isLocked ? "opacity-60" : ""}`}
 				data-testid={`product-card-${product.id}`}
 			>
 				<div className="absolute inset-0 bg-gradient-to-r from-finance-blue/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -711,7 +711,7 @@ export default function StorePage() {
 								</Badge>
 							)}
 							{product.isFeatured && (
-								<Badge className="bg-gradient-to-r from-finance-blue to-blue-600 text-foreground text-xs">
+								<Badge className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs shadow-sm">
 									<Star className="h-3 w-3 mr-1" />
 									Featured
 								</Badge>
@@ -722,7 +722,7 @@ export default function StorePage() {
 								</Badge>
 							)}
 							{product.isPremium && (
-								<Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-foreground">
+								<Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs shadow-sm font-medium">
 									<Crown className="h-3 w-3 mr-1" />
 									Premium
 								</Badge>
@@ -815,28 +815,30 @@ export default function StorePage() {
 	};
 
 	return (
-		<div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-background dark:to-blue-900 p-6">
+		<div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/25 to-slate-100/40 dark:from-background dark:via-background dark:to-blue-950/20 p-4 md:p-6">
 			{/* Hero Section */}
 			<div className="mb-8">
-				<div className="flex items-center gap-4 mb-6">
-					<div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-finance-blue to-blue-600 rounded-2xl shadow-lg">
-						<StoreIcon className="h-8 w-8 text-foreground" />
+				<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+					<div className="flex items-center gap-4">
+						<div className="flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-md text-white flex-shrink-0">
+							<StoreIcon className="h-7 w-7 sm:h-8 sm:w-8 text-white" />
+						</div>
+						<div>
+							<h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground mb-1">
+								FintekPro Marketplace
+							</h1>
+							<p className="text-sm sm:text-base text-muted-foreground">
+								Curated financial products • Expert recommendations • Trusted
+								providers
+							</p>
+						</div>
 					</div>
-					<div>
-						<h1 className="text-4xl font-bold text-foreground mb-2">
-							FintekPro Marketplace
-						</h1>
-						<p className="text-lg text-muted-foreground">
-							Curated financial products • Expert recommendations • Trusted
-							providers
-						</p>
-					</div>
-					<div className="ml-auto">
+					<div className="flex items-center gap-3 self-start sm:self-auto">
 						{isLoadingProducts ? (
 							<Skeleton className="h-10 w-48" />
 						) : (
-							<Badge className="bg-gradient-to-r from-green-500 to-emerald-600 text-foreground px-4 py-2 text-sm">
-								<Sparkles className="h-4 w-4 mr-2" />
+							<Badge className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-3.5 py-1.5 text-xs sm:text-sm font-medium shadow-sm">
+								<Sparkles className="h-4 w-4 mr-1.5" />
 								{products.length} Products Available
 							</Badge>
 						)}
@@ -846,8 +848,8 @@ export default function StorePage() {
 
 			<div className="max-w-7xl mx-auto space-y-10">
 				{/* Search and Filters */}
-				<Card className="shadow-lg border-0">
-					<CardContent className="p-6">
+				<Card className="shadow-sm border border-border/80 bg-card text-card-foreground">
+					<CardContent className="p-4 sm:p-6">
 						<div className="flex flex-col md:flex-row gap-4">
 							<div className="flex-1 relative">
 								<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -948,8 +950,8 @@ export default function StorePage() {
 				<div className="space-y-6">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-3">
-							<div className="w-10 h-10 bg-gradient-to-r from-finance-blue to-blue-600 rounded-lg flex items-center justify-center">
-								<Star className="h-5 w-5 text-foreground" />
+							<div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm flex-shrink-0">
+								<Star className="h-5 w-5 text-white" />
 							</div>
 							<div>
 								<h2 className="text-2xl font-bold text-foreground">
@@ -962,7 +964,7 @@ export default function StorePage() {
 						</div>
 						<Badge
 							variant="outline"
-							className="text-finance-blue border-finance-blue"
+							className="text-blue-600 dark:text-blue-400 border-blue-500/30"
 						>
 							{getFilteredProducts(featuredProducts).length} Products
 						</Badge>
@@ -978,8 +980,8 @@ export default function StorePage() {
 				<div className="space-y-6">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-3">
-							<div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
-								<TrendingUp className="h-5 w-5 text-foreground" />
+							<div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center text-white shadow-sm flex-shrink-0">
+								<TrendingUp className="h-5 w-5 text-white" />
 							</div>
 							<div>
 								<h2 className="text-2xl font-bold text-foreground">
@@ -992,7 +994,7 @@ export default function StorePage() {
 						</div>
 						<Badge
 							variant="outline"
-							className="text-green-600 border-green-600"
+							className="text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
 						>
 							{getFilteredProducts(topPerformingProducts).length} Products
 						</Badge>
@@ -1010,8 +1012,8 @@ export default function StorePage() {
 						<div className="space-y-6">
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-3">
-									<div className="w-10 h-10 bg-gradient-to-r from-red-500 to-orange-600 rounded-lg flex items-center justify-center">
-										<Flame className="h-5 w-5 text-foreground" />
+									<div className="w-10 h-10 bg-gradient-to-r from-rose-500 to-orange-500 rounded-lg flex items-center justify-center text-white shadow-sm flex-shrink-0">
+										<Flame className="h-5 w-5 text-white" />
 									</div>
 									<div>
 										<h2 className="text-2xl font-bold text-foreground">
@@ -1024,7 +1026,7 @@ export default function StorePage() {
 								</div>
 								<Badge
 									variant="outline"
-									className="text-red-600 border-red-600"
+									className="text-rose-600 dark:text-rose-400 border-rose-500/30"
 								>
 									{getFilteredProducts(hotDealsProducts).length} Products
 								</Badge>
@@ -1040,8 +1042,8 @@ export default function StorePage() {
 				{/* Browse by Category Section with Tabs */}
 				<div className="space-y-6">
 					<div className="flex items-center gap-3">
-						<div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
-							<Package className="h-5 w-5 text-foreground" />
+						<div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm flex-shrink-0">
+							<Package className="h-5 w-5 text-white" />
 						</div>
 						<div>
 							<h2 className="text-2xl font-bold text-foreground">

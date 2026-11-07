@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
 import { PortalLogo } from "@/components/portal/PortalLogo";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -1011,7 +1012,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 				isLoading={pushLoading}
 			/>
 
-			<header className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800 border-b border-border z-50 shadow-lg shadow-black/20 backdrop-blur supports-[backdrop-filter]:bg-slate-900/95 flex-shrink-0">
+			<header className="bg-background/95 dark:bg-gradient-to-r dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border-b border-border z-50 shadow-sm dark:shadow-lg dark:shadow-black/20 backdrop-blur supports-[backdrop-filter]:bg-background/80 dark:supports-[backdrop-filter]:bg-slate-900/95 flex-shrink-0 transition-colors">
 				<div className="flex items-center justify-between px-2 sm:px-4 py-1.5 sm:py-2.5">
 					<div className="flex items-center gap-2 sm:gap-4">
 						<Button
@@ -1065,12 +1066,12 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 							<Button
 								variant="outline"
 								size="sm"
-								className="hidden sm:inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 font-medium text-xs transition-colors"
+								className="hidden sm:inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border-emerald-500/30 bg-emerald-50/80 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 font-medium text-xs transition-colors"
 								data-testid="header-agent-store-button"
 							>
-								<Store className="h-4 w-4 text-emerald-400" />
+								<Store className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
 								<span>Store</span>
-								<Badge className="h-4 px-1 py-0 text-[8px] bg-emerald-500 text-slate-950 font-bold border-0">
+								<Badge className="h-4 px-1 py-0 text-[8px] bg-emerald-600 dark:bg-emerald-500 text-white dark:text-slate-950 font-bold border-0">
 									DISTRIBUTION
 								</Badge>
 							</Button>
@@ -1093,6 +1094,9 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 								</Button>
 							</Link>
 						)}
+
+						{/* Quick theme toggle */}
+						<ThemeToggle />
 
 						<Popover
 							open={notificationsOpen}

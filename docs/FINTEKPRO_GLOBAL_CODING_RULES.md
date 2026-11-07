@@ -69,3 +69,13 @@ Before proposing any new cloud resource, tier upgrade, or external API consumpti
 - **Prohibition on Return Guarantees**: AI must NEVER promise financial returns or use deterministic profit language.
 - **Suitability Grounding**: Every recommendation must be strictly grounded in the client's `risk_profile`, `investment_horizon`, and `user_segment`.
 
+---
+
+## 7. Frontend Theme & Design Token Standards (GCR UI v1.0)
+
+- **Zero Hardcoded Palette Shells**: Layout headers, sidebars, cards, and root containers must never use static dark or light classes (`bg-slate-900`, `bg-gray-900`, `bg-black`, static dark gradients). Always use semantic tokens: `bg-background`, `bg-card`, `bg-secondary/30`, `border-border` with reactive `dark:` modifiers.
+- **Saturated Badge Contrast Mandate**: Never apply `text-foreground` over saturated colored backgrounds (e.g. `bg-blue-600`, `bg-emerald-600`, `bg-purple-600`). Use explicit `text-white` on solid saturated fills, or theme-tinted pairs (`bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300`).
+- **Card Contrast**: Avoid borderless cards (`border-0`). Use `border border-border/80 bg-card text-card-foreground shadow-sm` to maintain clarity and visual hierarchy across both modes.
+- **Universal Header Theme Controls**: All portal layouts (`AppLayout`, `AgentLayout`, `TopNavLayout`) must expose `<ThemeToggle />` in the primary top header.
+- **Dual-Theme Verification Gate**: All new pages, components, and widgets must be validated in both Light and Dark themes before merge and deployment.
+

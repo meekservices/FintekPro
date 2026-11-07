@@ -4,6 +4,7 @@ import { FloatingChatWidget } from "@/components/FloatingChatWidget";
 import { GuidedTour } from "@/components/onboarding/guided-tour";
 import { KycUpgradeBanner } from "@/components/KycUpgradeBanner";
 import { GlobalSearch } from "@/components/GlobalSearch";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { MobileBottomNav } from "./mobile-bottom-nav";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation } from "wouter";
@@ -169,6 +170,9 @@ export function AppLayout({ children }: AppLayoutProps) {
 							</div>
 
 							<div className="flex items-center gap-2">
+								{/* Quick theme toggle */}
+								<ThemeToggle />
+
 								{/* Notification bell with triggered-alert badge */}
 								<button
 									className="relative p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
