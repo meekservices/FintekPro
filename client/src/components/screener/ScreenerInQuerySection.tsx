@@ -180,12 +180,15 @@ export const ScreenerInQuerySection: React.FC<Props> = ({
     let err: string | undefined;
 
     for (const raw of rawClauses) {
-      const match = raw.match(/^([a-zA-Z0-9_\s/%-]+?)\s*(>=|<=|>|<|!=|=)\s*([0-9.,-]+)\s*(cr|crore|%|x)?$/i);
+      const match = raw.match(/^([a-zA-Z0-9_\s/%-]+?)\s*(>=|<=|>|<|!=|=|≥|≤)\s*([0-9.,-]+)\s*(cr|crore|%|x)?$/i);
       if (match) {
+        let op = match[2];
+        if (op === "≥") op = ">=";
+        if (op === "≤") op = "<=";
         parsed.push({
           raw,
           field: match[1].trim(),
-          operator: match[2],
+          operator: op,
           value: parseFloat(match[3].replace(/,/g, "")),
         });
       } else {

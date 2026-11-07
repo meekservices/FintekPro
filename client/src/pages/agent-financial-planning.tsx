@@ -460,23 +460,23 @@ export default function AgentFinancialPlanningPage() {
 	};
 
 	return (
-		<div className="min-h-screen bg-slate-900 text-slate-100 p-4 md:p-8 space-y-8">
+		<div className="space-y-6">
 			{/* Header Banner */}
-			<div className="rounded-2xl bg-gradient-to-r from-indigo-900/60 via-blue-900/40 to-slate-900 border border-indigo-500/30 p-6 md:p-8 shadow-2xl relative overflow-hidden">
+			<div className="rounded-2xl bg-gradient-to-r from-indigo-50/80 via-blue-50/50 to-background dark:from-indigo-950/60 dark:via-blue-950/40 dark:to-slate-900 border border-indigo-200/80 dark:border-indigo-500/30 p-6 md:p-8 shadow-sm dark:shadow-2xl relative overflow-hidden">
 				<div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
 					<div className="space-y-2">
 						<div className="flex items-center gap-2">
-							<Badge className="bg-indigo-500/20 text-indigo-300 border-indigo-500/30">
+							<Badge className="bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/30">
 								<Target className="w-3.5 h-3.5 mr-1" /> Financial Planning Workbench
 							</Badge>
-							<Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
+							<Badge className="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30">
 								<Calculator className="w-3.5 h-3.5 mr-1" /> Deterministic Math Engine
 							</Badge>
 						</div>
-						<h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
+						<h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground flex items-center gap-3">
 							Client Goal Simulator & Fulfillment
 						</h1>
-						<p className="text-slate-300 max-w-2xl text-sm md:text-base">
+						<p className="text-muted-foreground max-w-2xl text-sm md:text-base">
 							Model inflation-adjusted goal targets, calculate exact monthly SIP requirements, and fulfill allocations with live store products.
 						</p>
 					</div>
@@ -484,10 +484,10 @@ export default function AgentFinancialPlanningPage() {
 					<div className="flex items-center gap-3">
 						<Button
 							variant="outline"
-							className="border-blue-500/40 bg-blue-950/40 text-blue-200 hover:bg-blue-900/60"
+							className="border-blue-300 dark:border-blue-500/40 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-200 hover:bg-blue-100 dark:hover:bg-blue-900/60"
 							onClick={() => setLocation("/agent/store")}
 						>
-							<StoreIcon className="w-4 h-4 mr-2 text-blue-400" /> Browse Store
+							<StoreIcon className="w-4 h-4 mr-2 text-blue-500 dark:text-blue-400" /> Browse Store
 						</Button>
 						<Button
 							className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-lg shadow-indigo-600/30"
@@ -515,12 +515,12 @@ export default function AgentFinancialPlanningPage() {
 							onClick={() => handleSelectGoal(g.id)}
 							className={`text-left p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between ${
 								isSelected
-									? "bg-indigo-950/60 border-indigo-500 ring-2 ring-indigo-500/30 shadow-lg"
-									: "bg-slate-800/60 border-slate-700/60 hover:bg-slate-800 hover:border-slate-600"
+									? "bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 ring-2 ring-indigo-500/30 shadow-md"
+									: "bg-card border-border hover:bg-accent hover:border-border"
 							}`}
 						>
 							<div className="flex items-center justify-between w-full mb-3">
-								<div className={`p-2.5 rounded-lg ${isSelected ? "bg-indigo-600 text-white" : "bg-slate-700 text-slate-300"}`}>
+								<div className={`p-2.5 rounded-lg ${isSelected ? "bg-indigo-600 text-white" : "bg-muted text-muted-foreground"}`}>
 									<Icon className="w-5 h-5" />
 								</div>
 								{isSelected && (
@@ -530,8 +530,8 @@ export default function AgentFinancialPlanningPage() {
 								)}
 							</div>
 							<div>
-								<p className="font-bold text-white text-sm">{g.title}</p>
-								<p className="text-xs text-slate-400 mt-1 line-clamp-2">{g.description}</p>
+								<p className="font-bold text-foreground text-sm">{g.title}</p>
+								<p className="text-xs text-muted-foreground mt-1 line-clamp-2">{g.description}</p>
 							</div>
 						</button>
 					);
@@ -542,31 +542,31 @@ export default function AgentFinancialPlanningPage() {
 			<div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 				{/* Left Column: Parameter Controls (5 cols) */}
 				<div className="lg:col-span-5 space-y-6">
-					<Card className="bg-slate-800/80 border-slate-700">
+					<Card className="bg-card border-border">
 						<CardHeader className="pb-4">
-							<CardTitle className="text-lg font-bold text-white flex items-center gap-2">
-								<Calculator className="w-4 h-4 text-indigo-400" /> Goal Parameters
+							<CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+								<Calculator className="w-4 h-4 text-indigo-500 dark:text-indigo-400" /> Goal Parameters
 							</CardTitle>
-							<CardDescription className="text-xs text-slate-400">
+							<CardDescription className="text-xs text-muted-foreground">
 								Adjust inputs to simulate future value and monthly funding requirements.
 							</CardDescription>
 						</CardHeader>
 						<CardContent className="space-y-5">
 							{/* Client Identity */}
 							<div className="space-y-2">
-								<Label className="text-xs text-slate-300">Client / Prospect Name</Label>
+								<Label className="text-xs text-foreground">Client / Prospect Name</Label>
 								<Input
 									value={clientName}
 									onChange={(e) => setClientName(e.target.value)}
-									className="bg-slate-900 border-slate-700 text-white text-xs"
+									className="bg-background border-input text-foreground text-xs"
 								/>
 							</div>
 
 							{/* Target Horizon */}
 							<div className="space-y-2">
 								<div className="flex justify-between text-xs">
-									<Label className="text-slate-300">Investment Horizon</Label>
-									<span className="font-bold text-indigo-400">{horizonYears} Years</span>
+									<Label className="text-foreground">Investment Horizon</Label>
+									<span className="font-bold text-indigo-600 dark:text-indigo-400">{horizonYears} Years</span>
 								</div>
 								<Slider
 									value={[horizonYears]}
@@ -640,16 +640,16 @@ export default function AgentFinancialPlanningPage() {
 							</div>
 
 							{/* Risk Profile Selection */}
-							<div className="space-y-2 pt-2 border-t border-slate-700">
-								<Label className="text-xs text-slate-300">Client Risk Profile</Label>
+							<div className="space-y-2 pt-2 border-t border-border">
+								<Label className="text-xs text-foreground">Client Risk Profile</Label>
 								<Select
 									value={selectedRiskProfile}
 									onValueChange={(val: any) => setSelectedRiskProfile(val)}
 								>
-									<SelectTrigger className="bg-slate-900 border-slate-700 text-white text-xs">
+									<SelectTrigger className="bg-background border-input text-foreground text-xs">
 										<SelectValue />
 									</SelectTrigger>
-									<SelectContent className="bg-slate-900 border-slate-700 text-white">
+									<SelectContent>
 										<SelectItem value="conservative">Conservative (Capital Safety)</SelectItem>
 										<SelectItem value="moderate">Moderate (Balanced Growth)</SelectItem>
 										<SelectItem value="aggressive">Aggressive (Maximum Alpha)</SelectItem>
@@ -663,53 +663,53 @@ export default function AgentFinancialPlanningPage() {
 				{/* Right Column: Computed Results & Fulfillment (7 cols) */}
 				<div className="lg:col-span-7 space-y-6">
 					{/* Key Computed Metrics Card */}
-					<Card className="bg-gradient-to-br from-slate-800 to-indigo-950/40 border-indigo-500/30">
+					<Card className="bg-card border-border shadow-sm">
 						<CardHeader className="pb-2">
-							<CardTitle className="text-lg font-bold text-white flex items-center justify-between">
+							<CardTitle className="text-lg font-bold text-foreground flex items-center justify-between">
 								<span>Target Calculation Summary</span>
-								<Badge className="bg-indigo-500/20 text-indigo-300 border-indigo-500/40">
+								<Badge className="bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/40">
 									In {horizonYears} Years
 								</Badge>
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="space-y-6">
 							<div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2">
-								<div className="p-3 rounded-xl bg-slate-900/70 border border-slate-750">
-									<p className="text-[11px] text-slate-400">Future Inflated Cost</p>
-									<p className="text-lg font-bold text-white mt-1">
+								<div className="p-3 rounded-xl bg-muted/40 border border-border">
+									<p className="text-[11px] text-muted-foreground">Future Inflated Cost</p>
+									<p className="text-lg font-bold text-foreground mt-1">
 										₹{mathResults.futureGoalValue.toLocaleString("en-IN")}
 									</p>
-									<p className="text-[10px] text-slate-400 mt-0.5">at {inflationRate}% inflation</p>
+									<p className="text-[10px] text-muted-foreground mt-0.5">at {inflationRate}% inflation</p>
 								</div>
 
-								<div className="p-3 rounded-xl bg-slate-900/70 border border-slate-750">
-									<p className="text-[11px] text-slate-400">Existing Corpus Value</p>
-									<p className="text-lg font-bold text-emerald-400 mt-1">
+								<div className="p-3 rounded-xl bg-muted/40 border border-border">
+									<p className="text-[11px] text-muted-foreground">Existing Corpus Value</p>
+									<p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-1">
 										₹{mathResults.futureCorpusValue.toLocaleString("en-IN")}
 									</p>
-									<p className="text-[10px] text-slate-400 mt-0.5">at {expectedCagr}% CAGR</p>
+									<p className="text-[10px] text-muted-foreground mt-0.5">at {expectedCagr}% CAGR</p>
 								</div>
 
-								<div className="p-3 rounded-xl bg-slate-900/70 border border-slate-750 col-span-2 md:col-span-1">
-									<p className="text-[11px] text-slate-400">Net Corpus Deficit</p>
-									<p className="text-lg font-bold text-amber-400 mt-1">
+								<div className="p-3 rounded-xl bg-muted/40 border border-border col-span-2 md:col-span-1">
+									<p className="text-[11px] text-muted-foreground">Net Corpus Deficit</p>
+									<p className="text-lg font-bold text-amber-600 dark:text-amber-400 mt-1">
 										₹{mathResults.netDeficit.toLocaleString("en-IN")}
 									</p>
-									<p className="text-[10px] text-slate-400 mt-0.5">funding gap to bridge</p>
+									<p className="text-[10px] text-muted-foreground mt-0.5">funding gap to bridge</p>
 								</div>
 							</div>
 
 							{/* Hero SIP Callout */}
-							<div className="p-5 rounded-2xl bg-gradient-to-r from-blue-600/20 to-indigo-600/30 border border-blue-500/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+							<div className="p-5 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border border-blue-200 dark:border-blue-500/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
 								<div>
-									<p className="text-xs uppercase font-bold tracking-wider text-blue-300">
+									<p className="text-xs uppercase font-bold tracking-wider text-blue-600 dark:text-blue-300">
 										Required Monthly SIP
 									</p>
-									<p className="text-3xl font-extrabold text-white mt-1">
+									<p className="text-3xl font-extrabold text-foreground mt-1">
 										₹{mathResults.requiredMonthlySip.toLocaleString("en-IN")}{" "}
-										<span className="text-sm font-normal text-slate-300">/ month</span>
+										<span className="text-sm font-normal text-muted-foreground">/ month</span>
 									</p>
-									<p className="text-xs text-slate-300 mt-1">
+									<p className="text-xs text-muted-foreground mt-1">
 										Or a one-time lumpsum investment of ₹{mathResults.requiredLumpsumToday.toLocaleString("en-IN")} today.
 									</p>
 								</div>
@@ -727,18 +727,18 @@ export default function AgentFinancialPlanningPage() {
 					</Card>
 
 					{/* Asset Allocation Split */}
-					<Card className="bg-slate-800/80 border-slate-700">
+					<Card className="bg-card border-border">
 						<CardHeader className="pb-3">
-							<CardTitle className="text-base font-bold text-white flex items-center gap-2">
-								<PieChart className="w-4 h-4 text-indigo-400" /> Recommended Asset Allocation Split
+							<CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+								<PieChart className="w-4 h-4 text-indigo-500 dark:text-indigo-400" /> Recommended Asset Allocation Split
 							</CardTitle>
-							<CardDescription className="text-xs text-slate-400">
+							<CardDescription className="text-xs text-muted-foreground">
 								Strategically tailored for a {horizonYears}-year horizon with {selectedRiskProfile} risk appetite.
 							</CardDescription>
 						</CardHeader>
 						<CardContent className="space-y-4">
 							{/* Multi-color Progress Bar */}
-							<div className="h-4 w-full rounded-full bg-slate-900 flex overflow-hidden">
+							<div className="h-4 w-full rounded-full bg-muted flex overflow-hidden">
 								<div style={{ width: `${assetAllocation.equity}%` }} className="bg-blue-500 h-full" title={`Equity ${assetAllocation.equity}%`} />
 								<div style={{ width: `${assetAllocation.debt}%` }} className="bg-emerald-500 h-full" title={`Debt ${assetAllocation.debt}%`} />
 								<div style={{ width: `${assetAllocation.gold}%` }} className="bg-amber-500 h-full" title={`Gold ${assetAllocation.gold}%`} />
@@ -748,50 +748,50 @@ export default function AgentFinancialPlanningPage() {
 							</div>
 
 							<div className="grid grid-cols-3 gap-3 pt-2">
-								<div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-750">
+								<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
 									<div className="flex items-center gap-1.5">
 										<div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-										<span className="text-xs text-slate-300 font-semibold">Equity ({assetAllocation.equity}%)</span>
+										<span className="text-xs text-foreground font-semibold">Equity ({assetAllocation.equity}%)</span>
 									</div>
-									<p className="text-sm font-bold text-white mt-1">₹{assetAllocation.equitySip.toLocaleString("en-IN")}/mo</p>
+									<p className="text-sm font-bold text-foreground mt-1">₹{assetAllocation.equitySip.toLocaleString("en-IN")}/mo</p>
 								</div>
 
-								<div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-750">
+								<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
 									<div className="flex items-center gap-1.5">
 										<div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-										<span className="text-xs text-slate-300 font-semibold">Debt ({assetAllocation.debt}%)</span>
+										<span className="text-xs text-foreground font-semibold">Debt ({assetAllocation.debt}%)</span>
 									</div>
-									<p className="text-sm font-bold text-white mt-1">₹{assetAllocation.debtSip.toLocaleString("en-IN")}/mo</p>
+									<p className="text-sm font-bold text-foreground mt-1">₹{assetAllocation.debtSip.toLocaleString("en-IN")}/mo</p>
 								</div>
 
-								<div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-750">
+								<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
 									<div className="flex items-center gap-1.5">
 										<div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-										<span className="text-xs text-slate-300 font-semibold">Gold ({assetAllocation.gold}%)</span>
+										<span className="text-xs text-foreground font-semibold">Gold ({assetAllocation.gold}%)</span>
 									</div>
-									<p className="text-sm font-bold text-white mt-1">₹{assetAllocation.goldSip.toLocaleString("en-IN")}/mo</p>
+									<p className="text-sm font-bold text-foreground mt-1">₹{assetAllocation.goldSip.toLocaleString("en-IN")}/mo</p>
 								</div>
 							</div>
 						</CardContent>
 					</Card>
 
 					{/* Recommended Store Products for Fulfillment */}
-					<Card className="bg-slate-800/80 border-slate-700">
+					<Card className="bg-card border-border">
 						<CardHeader className="pb-3">
 							<div className="flex items-center justify-between">
-								<CardTitle className="text-base font-bold text-white flex items-center gap-2">
-									<StoreIcon className="w-4 h-4 text-blue-400" /> Store Fulfillment Products
+								<CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+									<StoreIcon className="w-4 h-4 text-blue-500 dark:text-blue-400" /> Store Fulfillment Products
 								</CardTitle>
 								<Button
 									variant="ghost"
 									size="sm"
-									className="text-xs text-blue-400 hover:text-blue-300"
+									className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700"
 									onClick={() => setLocation("/agent/store")}
 								>
 									Explore Full Store <ChevronRight className="w-3.5 h-3.5 ml-1" />
 								</Button>
 							</div>
-							<CardDescription className="text-xs text-slate-400">
+							<CardDescription className="text-xs text-muted-foreground">
 								Live curated instruments matching each asset class bucket in this plan.
 							</CardDescription>
 						</CardHeader>
@@ -799,24 +799,24 @@ export default function AgentFinancialPlanningPage() {
 							{recommendedProducts.map((prod, idx) => (
 								<div
 									key={prod.id || idx}
-									className="p-3 rounded-xl bg-slate-900/80 border border-slate-750 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+									className="p-3 rounded-xl bg-muted/40 border border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
 								>
 									<div className="space-y-1">
 										<div className="flex items-center gap-2">
-											<Badge variant="secondary" className="bg-slate-800 text-slate-300 text-[10px]">
+											<Badge variant="secondary" className="text-[10px]">
 												{prod.allocationRole}
 											</Badge>
-											<span className="text-xs font-semibold text-emerald-400">
+											<span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
 												{prod.expectedReturns}% Expected
 											</span>
 										</div>
-										<p className="text-sm font-bold text-white">{prod.name}</p>
-										<p className="text-xs text-slate-400">{prod.provider}</p>
+										<p className="text-sm font-bold text-foreground">{prod.name}</p>
+										<p className="text-xs text-muted-foreground">{prod.provider}</p>
 									</div>
 
 									<div className="text-right shrink-0">
-										<p className="text-xs text-slate-400">Suggested SIP</p>
-										<p className="text-sm font-extrabold text-blue-400">
+										<p className="text-xs text-muted-foreground">Suggested SIP</p>
+										<p className="text-sm font-extrabold text-blue-600 dark:text-blue-400">
 											₹{(prod.monthlyAmount || 5000).toLocaleString("en-IN")}/mo
 										</p>
 									</div>
@@ -829,13 +829,13 @@ export default function AgentFinancialPlanningPage() {
 
 			{/* Proposal Dispatch Dialog */}
 			<Dialog open={isDispatchModalOpen} onOpenChange={setIsDispatchModalOpen}>
-				<DialogContent className="max-w-xl bg-slate-900 border-slate-700 text-white">
+				<DialogContent className="max-w-xl bg-card border-border text-foreground">
 					<DialogHeader>
-						<DialogTitle className="flex items-center gap-2 text-xl font-bold">
-							<Send className="w-5 h-5 text-indigo-400" />
+						<DialogTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
+							<Send className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
 							{generatedProposalUrl ? "Client Proposal Ready" : "Dispatch Goal Proposal"}
 						</DialogTitle>
-						<DialogDescription className="text-slate-400 text-sm">
+						<DialogDescription className="text-muted-foreground text-sm">
 							{generatedProposalUrl
 								? "Your goal plan has been packaged into an interactive client proposal."
 								: "Package this financial plan into an institutional client proposal."}
@@ -844,30 +844,30 @@ export default function AgentFinancialPlanningPage() {
 
 					{generatedProposalUrl ? (
 						<div className="space-y-6 py-4">
-							<div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/40 flex items-start gap-3">
-								<CheckCircle2 className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
+							<div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-500/40 flex items-start gap-3">
+								<CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
 								<div>
-									<p className="text-sm font-semibold text-emerald-300">
+									<p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
 										Proposal Published Successfully
 									</p>
-									<p className="text-xs text-emerald-400/80">
+									<p className="text-xs text-emerald-700 dark:text-emerald-400/80">
 										Includes retirement milestone projections, inflation adjustments, and store fulfillment products.
 									</p>
 								</div>
 							</div>
 
 							<div className="space-y-2">
-								<p className="text-xs text-slate-400 font-medium">Shareable Client Link:</p>
+								<p className="text-xs text-muted-foreground font-medium">Shareable Client Link:</p>
 								<div className="flex items-center gap-2">
 									<Input
 										readOnly
 										value={generatedProposalUrl}
-										className="bg-slate-950 border-slate-700 text-blue-300 text-xs font-mono select-all"
+										className="bg-muted border-input text-foreground text-xs font-mono select-all"
 									/>
 									<Button
 										variant="outline"
 										size="sm"
-										className="border-slate-700 text-slate-200 shrink-0"
+										className="shrink-0"
 										onClick={() => copyToClipboard(generatedProposalUrl)}
 									>
 										<Copy className="w-4 h-4 mr-1" /> Copy
@@ -889,7 +889,7 @@ export default function AgentFinancialPlanningPage() {
 								</Button>
 								<Button
 									variant="outline"
-									className="border-slate-700 text-slate-200 text-xs"
+									className="text-xs"
 									onClick={() => window.open(generatedProposalUrl, "_blank")}
 								>
 									<ExternalLink className="w-3.5 h-3.5 mr-1.5" /> Open Preview
@@ -898,22 +898,22 @@ export default function AgentFinancialPlanningPage() {
 						</div>
 					) : (
 						<div className="space-y-4 py-2">
-							<div className="p-3 rounded-lg bg-slate-800/80 border border-slate-700 space-y-2 text-xs">
+							<div className="p-3 rounded-lg bg-muted/40 border border-border space-y-2 text-xs">
 								<div className="flex justify-between">
-									<span className="text-slate-400">Target Goal:</span>
-									<span className="font-semibold text-white">
+									<span className="text-muted-foreground">Target Goal:</span>
+									<span className="font-semibold text-foreground">
 										{GOAL_CONFIGS.find((g) => g.id === activeGoal)?.title}
 									</span>
 								</div>
 								<div className="flex justify-between">
-									<span className="text-slate-400">Target Inflated Corpus:</span>
-									<span className="font-semibold text-white">
+									<span className="text-muted-foreground">Target Inflated Corpus:</span>
+									<span className="font-semibold text-foreground">
 										₹{mathResults.futureGoalValue.toLocaleString("en-IN")}
 									</span>
 								</div>
 								<div className="flex justify-between">
-									<span className="text-slate-400">Required Monthly SIP:</span>
-									<span className="font-bold text-emerald-400">
+									<span className="text-muted-foreground">Required Monthly SIP:</span>
+									<span className="font-bold text-emerald-600 dark:text-emerald-400">
 										₹{mathResults.requiredMonthlySip.toLocaleString("en-IN")}/mo
 									</span>
 								</div>
@@ -921,7 +921,7 @@ export default function AgentFinancialPlanningPage() {
 
 							{clientsData?.length ? (
 								<div className="space-y-1">
-									<Label className="text-xs text-slate-300">Select Existing Client</Label>
+									<Label className="text-xs text-foreground">Select Existing Client</Label>
 									<Select
 										onValueChange={(cid) => {
 											const found = clientsData.find((c: any) => c.id === cid);
@@ -932,10 +932,10 @@ export default function AgentFinancialPlanningPage() {
 											}
 										}}
 									>
-										<SelectTrigger className="bg-slate-800 border-slate-700 text-white text-xs">
+										<SelectTrigger className="bg-background border-input text-foreground text-xs">
 											<SelectValue placeholder="Pick a client or edit below..." />
 										</SelectTrigger>
-										<SelectContent className="bg-slate-900 border-slate-700 text-white">
+										<SelectContent>
 											{clientsData.map((c: any) => (
 												<SelectItem key={c.id} value={c.id}>
 													{c.firstName} {c.lastName} ({c.email || c.phone})
@@ -947,36 +947,36 @@ export default function AgentFinancialPlanningPage() {
 							) : null}
 
 							<div className="space-y-1">
-								<Label className="text-xs text-slate-300">Client Full Name *</Label>
+								<Label className="text-xs text-foreground">Client Full Name *</Label>
 								<Input
 									value={clientName}
 									onChange={(e) => setClientName(e.target.value)}
-									className="bg-slate-800 border-slate-700 text-white text-xs"
+									className="bg-background border-input text-foreground text-xs"
 								/>
 							</div>
 
 							<div className="grid grid-cols-2 gap-3">
 								<div className="space-y-1">
-									<Label className="text-xs text-slate-300">Client Email</Label>
+									<Label className="text-xs text-foreground">Client Email</Label>
 									<Input
 										value={clientEmail}
 										onChange={(e) => setClientEmail(e.target.value)}
-										className="bg-slate-800 border-slate-700 text-white text-xs"
+										className="bg-background border-input text-foreground text-xs"
 									/>
 								</div>
 								<div className="space-y-1">
-									<Label className="text-xs text-slate-300">Client Mobile</Label>
+									<Label className="text-xs text-foreground">Client Mobile</Label>
 									<Input
 										value={clientPhone}
 										onChange={(e) => setClientPhone(e.target.value)}
-										className="bg-slate-800 border-slate-700 text-white text-xs"
+										className="bg-background border-input text-foreground text-xs"
 									/>
 								</div>
 							</div>
 						</div>
 					)}
 
-					<DialogFooter className="border-t border-slate-800 pt-3">
+					<DialogFooter className="border-t border-border pt-3">
 						{generatedProposalUrl ? (
 							<Button
 								className="w-full bg-indigo-600 hover:bg-indigo-500 text-white"
@@ -988,7 +988,6 @@ export default function AgentFinancialPlanningPage() {
 							<div className="flex items-center justify-end gap-2 w-full">
 								<Button
 									variant="ghost"
-									className="text-slate-400"
 									onClick={() => setIsDispatchModalOpen(false)}
 								>
 									Cancel

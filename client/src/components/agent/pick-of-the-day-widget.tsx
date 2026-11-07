@@ -306,11 +306,27 @@ export default function PickOfTheDayWidget() {
 												<LucideShield className="h-3 w-3 text-red-600 dark:text-red-400" />
 												SL {formatPrice(pick.stoplossPrice, pick.category)}
 											</span>
-											{Boolean(pick.keyMetrics?.rewardToRiskRatio) && (
-												<span className="text-[10px] px-1.5 py-0.5 rounded bg-muted font-mono font-medium">
-													R:R {pick.keyMetrics?.rewardToRiskRatio}:1
-												</span>
-											)}
+											{(() => {
+												const r = Number(pick.recoPrice) || 0;
+												const t = Number(pick.targetPrice) || 0;
+												const s = Number(pick.stoplossPrice) || 0;
+												if (r > 0 && t > r && s > 0 && r > s) {
+													const rr = ((t - r) / (r - s)).toFixed(1);
+													return (
+														<span className="text-[10px] px-1.5 py-0.5 rounded bg-muted font-mono font-medium text-emerald-600 dark:text-emerald-400">
+															1:{rr} R/R
+														</span>
+													);
+												}
+												if (pick.keyMetrics?.rewardToRiskRatio) {
+													return (
+														<span className="text-[10px] px-1.5 py-0.5 rounded bg-muted font-mono font-medium">
+															R:R {pick.keyMetrics.rewardToRiskRatio}:1
+														</span>
+													);
+												}
+												return null;
+											})()}
 										</div>
 										<p className="text-xs text-muted-foreground mt-1 line-clamp-2">
 											{pick.rationale}

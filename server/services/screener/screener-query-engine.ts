@@ -37,6 +37,7 @@ import {
 } from "@shared/sector-taxonomy";
 import { getModelPortfolioBadges } from "../screener-curated-data";
 import { parseScreenerQuery } from "./screener-in-query-parser";
+import { SmartBackfillService } from "./smart-backfill-service";
 
 export interface ScreenerFilters {
 	query?: string; // Natural Screener.in syntax query (e.g. "Market Capitalization > 500 AND P/E < 25 AND ROCE > 15%")
@@ -246,6 +247,8 @@ export interface ScreenerResponse {
 	page: number;
 	limit: number;
 	totalPages: number;
+	queryError?: string;
+	parsedClauses?: Array<{ raw: string; field: string; operator: string; value: number; unit?: string }>;
 	filters: {
 		sectors: string[];
 		industries: string[];
@@ -312,10 +315,32 @@ async function queryScreenerFromMaster(
 	}
 
 	// Screener.in Natural Language Query Condition
+	let parsedClauses: Array<{ raw: string; field: string; operator: string; value: number; unit?: string }> | undefined;
 	if (filters.query && filters.query.trim()) {
-		const parsed = parseScreenerQuery(filters.query);
-		if (parsed.success && parsed.sqlCondition) {
-			conditions.push(parsed.sqlCondition);
+		const parsed = parseScreenerQuery(filters.query, "snapshot");
+		if (parsed.success) {
+			if (parsed.sqlCondition) {
+				conditions.push(parsed.sqlCondition);
+			}
+			parsedClauses = parsed.clauses;
+		} else {
+			logger.warn("[Screener] Query parse error", { error: parsed.error, query: filters.query });
+			return {
+				stocks: [],
+				total: 0,
+				page,
+				limit,
+				totalPages: 0,
+				queryError: parsed.error,
+				filters: {
+					sectors: [],
+					industries: [],
+					marketCapCategories: [],
+					technicalRatings: ["Strong Buy", "Buy", "Neutral", "Sell", "Strong Sell"],
+					macroSectors: [...MACRO_SECTORS],
+					taxonomy: getMacroSectorsWithSubsectors(),
+				},
+			};
 		}
 	}
 
@@ -439,8 +464,8 @@ async function queryScreenerFromMaster(
 		cashConversionCycle: (s.daysSalesOutstanding != null && s.daysInventoryOnHand != null && s.daysPayablesOutstanding != null) ? (Number(s.daysSalesOutstanding) + Number(s.daysInventoryOnHand) - Number(s.daysPayablesOutstanding)).toFixed(2) : null,
 		pctFrom52WHigh: (s.weekHigh52 != null && s.currentPrice != null && Number(s.weekHigh52) > 0) ? (((Number(s.currentPrice) - Number(s.weekHigh52)) / Number(s.weekHigh52)) * 100).toFixed(2) : null,
 		pctFrom52WLow: (s.weekLow52 != null && s.currentPrice != null && Number(s.weekLow52) > 0) ? (((Number(s.currentPrice) - Number(s.weekLow52)) / Number(s.weekLow52)) * 100).toFixed(2) : null,
-		revenueGrowth3Y: null,
-		earningsGrowth3Y: null,
+		revenueGrowth3Y: s.revenueGrowth != null ? s.revenueGrowth.toString() : null,
+		earningsGrowth3Y: s.earningsGrowth != null ? s.earningsGrowth.toString() : null,
 		magicFormulaRank: s.magicFormulaRank != null ? Number(s.magicFormulaRank) : null,
 		volatility30D: s.volatility30D != null ? s.volatility30D.toString() : null,
 		sortinoRatio1Y: s.sortinoRatio1Y != null ? s.sortinoRatio1Y.toString() : null,
@@ -530,6 +555,7 @@ async function queryScreenerFromMaster(
 		page,
 		limit,
 		totalPages: Math.ceil(finalTotal / limit),
+		parsedClauses,
 		filters: {
 			sectors: sectors.map((s) => s.value).filter(Boolean) as string[],
 			industries: industries.map((i) => i.value).filter(Boolean) as string[],
@@ -559,6 +585,35 @@ export async function queryScreener(
 	}
 
 	const conditions: any[] = [eq(listedStocks.isActive, true)];
+
+	let multijoinParsedClauses: Array<{ raw: string; field: string; operator: string; value: number; unit?: string }> | undefined;
+	if (filters.query && filters.query.trim()) {
+		const parsed = parseScreenerQuery(filters.query, "multijoin");
+		if (parsed.success) {
+			if (parsed.sqlCondition) {
+				conditions.push(parsed.sqlCondition);
+			}
+			multijoinParsedClauses = parsed.clauses;
+		} else {
+			logger.warn("[Screener] Fallback multi-join query parse error", { error: parsed.error, query: filters.query });
+			return {
+				stocks: [],
+				total: 0,
+				page,
+				limit,
+				totalPages: 0,
+				queryError: parsed.error,
+				filters: {
+					sectors: [],
+					industries: [],
+					marketCapCategories: [],
+					technicalRatings: ["Strong Buy", "Buy", "Neutral", "Sell", "Strong Sell"],
+					macroSectors: [...MACRO_SECTORS],
+					taxonomy: getMacroSectorsWithSubsectors(),
+				},
+			};
+		}
+	}
 
 	const effectiveMacroSector = filters.macroSector || filters.broadSector || (filters.sector && isMacroSector(filters.sector) ? filters.sector : undefined);
 	const effectiveSubSector = filters.subSector || (filters.sector && !isMacroSector(filters.sector) ? filters.sector : undefined);
@@ -1232,6 +1287,7 @@ export async function queryScreener(
 		page,
 		limit,
 		totalPages: Math.ceil(finalTotal / limit),
+		parsedClauses: multijoinParsedClauses,
 		filters: {
 			sectors: sectors.map((s) => s.value).filter(Boolean) as string[],
 			industries: industries.map((i) => i.value).filter(Boolean) as string[],
@@ -1331,9 +1387,13 @@ function enrichStocksJIT(stocks: ScreenerResult[]): ScreenerResult[] {
 		});
 	}
 
-	// Fire-and-forget asynchronous background persistence
+	// Fire-and-forget asynchronous background persistence & master snapshot synchronization
 	if (pendingPersist.length > 0) {
-		persistJitBatchAsync(pendingPersist).catch(() => {});
+		persistJitBatchAsync(pendingPersist)
+			.then(() => {
+				SmartBackfillService.triggerBatchBackfill(pendingPersist.map((p) => p.symbol));
+			})
+			.catch(() => {});
 	}
 
 	return stocks;
@@ -1607,10 +1667,31 @@ export async function getStockDetail(symbol: string) {
 		// Non-blocking fallback
 	}
 
+	// Smart Read-Through Backfill: JIT in-memory fallback for current request + background DB persistence
+	let derivedRecord = derived[0] || null;
+	const missingFields: string[] = [];
+
+	if (!derivedRecord) {
+		derivedRecord = SmartBackfillService.deriveJitFallbackMetrics(stock, financials, dcfRecord) as any;
+		missingFields.push("derived");
+	}
+
+	if (!technical[0]) {
+		missingFields.push("technicals");
+	}
+
+	if (!masterSnapshot[0]) {
+		missingFields.push("masterSnapshot");
+	}
+
+	if (missingFields.length > 0) {
+		SmartBackfillService.triggerAsyncBackfill(symbol, missingFields);
+	}
+
 	return {
 		stock,
 		financials,
-		derivedMetrics: derived[0] || null,
+		derivedMetrics: derivedRecord,
 		technical: technical[0] || null,
 		shareholding,
 		analystConsensus: analystRecord,

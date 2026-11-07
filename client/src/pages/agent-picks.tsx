@@ -131,6 +131,11 @@ import {
 } from "@/components/picks/DerivativePayoffSimulator";
 import { SlideToConfirmOrderModal } from "@/components/picks/SlideToConfirmOrderModal";
 import { PartnerClientDispatchModal } from "@/components/picks/PartnerClientDispatchModal";
+import { MacroRegimeBanner, type MacroRegimeData } from "@/components/picks/MacroRegimeBanner";
+import { PickRiskRewardGauge } from "@/components/picks/PickRiskRewardGauge";
+import { DerivativePayoffRibbon } from "@/components/picks/DerivativePayoffRibbon";
+import { FaspExplainabilityModal } from "@/components/picks/FaspExplainabilityModal";
+import { PickBasketComposer } from "@/components/picks/PickBasketComposer";
 
 import type { ComponentType } from "react";
 import {
@@ -209,6 +214,7 @@ type PicksApiResponse = {
 	isTradingDay?: boolean;
 	marketStatus?: "OPEN" | "CLOSED";
 	isWeekendOrHoliday?: boolean;
+	macroRegime?: MacroRegimeData;
 };
 
 type StatsApiResponse = {
@@ -1416,6 +1422,7 @@ export default function AgentPicksPage() {
 	const [explainingPickId, setExplanationPickId] = useState<number | null>(
 		null,
 	);
+	const [faspModalPick, setFaspModalPick] = useState<DailyPick | null>(null);
 	const [, navigate] = useLocation();
 	const [selectedPickIds, setSelectedPickIds] = useState<Set<number>>(
 		new Set(),
@@ -3278,6 +3285,13 @@ export default function AgentPicksPage() {
 					</div>
 				)}
 			</div>
+
+			{/* Macro Climate & Regime HUD Ribbon */}
+			<MacroRegimeBanner
+				macroData={todayData?.macroRegime}
+				todayCounts={todayCounts}
+				totalPicksCount={todayPicks.length}
+			/>
 
 			{Object.keys(categoryLastUpdated).length > 0 && (
 				<div className="flex flex-wrap gap-2">
@@ -5913,6 +5927,7 @@ export default function AgentPicksPage() {
 																				}
 																				onShareClients={handleShareWithClients}
 																				onClick={setSelectedPick}
+																				onFaspExplain={(p) => setFaspModalPick(p)}
 																				onExplain={(id) => {
 																					setExplanationPickId(id);
 																					setExplanationOpen(true);
@@ -6166,6 +6181,7 @@ export default function AgentPicksPage() {
 																			}
 																			onShareClients={handleShareWithClients}
 																			onClick={setSelectedPick}
+																			onFaspExplain={(p) => setFaspModalPick(p)}
 																		/>
 																	))}
 																</div>
@@ -6198,6 +6214,7 @@ export default function AgentPicksPage() {
 																}
 																onShareClients={handleShareWithClients}
 																onClick={setSelectedPick}
+																onFaspExplain={(p) => setFaspModalPick(p)}
 															/>
 														))}
 													</div>
@@ -6290,6 +6307,7 @@ export default function AgentPicksPage() {
 													onShareWhatsApp={(id) => handleShare(id, "whatsapp")}
 													onShareClients={handleShareWithClients}
 													onClick={setSelectedPick}
+													onFaspExplain={(p) => setFaspModalPick(p)}
 												/>
 											))}
 										</div>
@@ -6505,6 +6523,7 @@ export default function AgentPicksPage() {
 											onShareWhatsApp={(id) => handleShare(id, "whatsapp")}
 											onShareClients={handleShareWithClients}
 											onClick={setSelectedPick}
+											onFaspExplain={(p) => setFaspModalPick(p)}
 										/>
 									))}
 								</div>
@@ -8605,6 +8624,28 @@ export default function AgentPicksPage() {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			{/* Floating Advisor Basket Composer Dock */}
+			<PickBasketComposer
+				selectedPicks={todayPicks.filter((p) => selectedPickIds.has(p.id))}
+				onClearSelection={() => setSelectedPickIds(new Set())}
+				onSlideOrderOpen={(picks) => {
+					if (picks.length > 0) setSheetBasketModalPick(picks[0]);
+				}}
+				onDispatchOpen={(picks) => {
+					if (picks.length > 0) {
+						setShareClientsPick(picks[0]);
+						setShareClientsDialogOpen(true);
+					}
+				}}
+			/>
+
+			{/* FASP-AI Algorithmic Explainability Modal */}
+			<FaspExplainabilityModal
+				isOpen={Boolean(faspModalPick)}
+				onClose={() => setFaspModalPick(null)}
+				pick={faspModalPick}
+			/>
 		</div>
 	);
 }
@@ -8621,6 +8662,7 @@ interface PickCardProps {
 	onShareClients?: (pick: DailyPick) => void;
 	onClick?: (pick: DailyPick) => void;
 	onExplain?: (pickId: number) => void;
+	onFaspExplain?: (pick: DailyPick) => void;
 	isSelected?: boolean;
 	onSelectToggle?: (pickId: number) => void;
 }
@@ -9806,6 +9848,7 @@ function PickCard({
 	onShareClients,
 	onClick,
 	onExplain: _onExplain,
+	onFaspExplain,
 	isSelected = false,
 	onSelectToggle,
 }: PickCardProps) {
@@ -10333,115 +10376,30 @@ function PickCard({
 						</div>
 
 
-						{/* #2 Risk/Reward badge — hidden for Pre-IPO (illiquid; no tradeable stoploss) */}
-						{!isPreIpo && Number.parseFloat(upside) > 0 &&
-							Number.parseFloat(downside) > 0 && (
-								<div className="flex items-center gap-2 mt-3">
-									<TooltipProvider>
-										<Tooltip>
-											<TooltipTrigger asChild>
-												<Badge
-													variant="outline"
-													className={`text-[10px] font-bold cursor-help ${Number.parseFloat(upside) / Number.parseFloat(downside) >= 2 ? "border-green-400 text-green-700 dark:text-green-400" : Number.parseFloat(upside) / Number.parseFloat(downside) >= 1 ? "border-amber-400 text-amber-700 dark:text-amber-400" : "border-muted-foreground text-muted-foreground"}`}
-												>
-													{(
-														Number.parseFloat(upside) /
-														Number.parseFloat(downside)
-													).toFixed(1)}
-													x R/R
-												</Badge>
-											</TooltipTrigger>
-											<TooltipContent className="text-xs space-y-1">
-												<p className="font-semibold">Risk / Reward Ratio</p>
-												<p>
-													Upside potential:{" "}
-													<span className="text-green-600 font-medium">
-														+{upside}%
-													</span>
-												</p>
-												<p>
-													Downside risk:{" "}
-													<span className="text-red-600 font-medium">
-														-{downside}%
-													</span>
-												</p>
-												<p className="text-muted-foreground pt-1">
-													Ratio ≥2x is generally favourable
-												</p>
-											</TooltipContent>
-										</Tooltip>
-									</TooltipProvider>
-								</div>
-							)}
+						{/* FASP-AI Risk/Reward Ratio & Visual Dynamic Gauge */}
+						{!isPreIpo && pick.recoPrice && pick.targetPrice && pick.stoplossPrice ? (
+							<div className="mt-3">
+								<PickRiskRewardGauge
+									recoPrice={pick.recoPrice}
+									currentPrice={effectiveLtp2}
+									targetPrice={pick.targetPrice}
+									stoplossPrice={pick.stoplossPrice}
+									category={pick.category}
+									keyMetrics={pick.keyMetrics}
+									confidenceScore={pick.confidenceScore}
+								/>
+							</div>
+						) : null}
 
-
-						{/* #4 Visual price level gauge — hidden for Pre-IPO (illiquid; no exchange price tracking) */}
-						{!isPreIpo && effectiveLtp2 > 0 &&
-							pick.stoplossPrice &&
-							pick.targetPrice &&
-							(() => {
-								const sl = pick.stoplossPrice;
-								const tgt = pick.targetPrice;
-								const cur = effectiveLtp2;
-								const isCreditStrat = (pick.keyMetrics as any)?.isCreditStrategy === true;
-								const range = isCreditStrat ? sl - tgt : tgt - sl;
-								const pct =
-									range > 0
-										? Math.min(100, Math.max(0, isCreditStrat ? ((sl - cur) / range) * 100 : ((cur - sl) / range) * 100))
-										: 50;
-								const entryPct =
-									range > 0
-										? Math.min(
-												100,
-												Math.max(0, isCreditStrat ? ((sl - pick.recoPrice) / range) * 100 : ((pick.recoPrice - sl) / range) * 100),
-											)
-										: 50;
-								const isProfit = isCreditStrat ? cur <= pick.recoPrice : cur >= pick.recoPrice;
-								return (
-									<div className="mt-3">
-										<div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-											<span className="text-red-500 font-mono">
-												SL {formatPrice(sl, pick.category)}
-											</span>
-											<span className="font-bold text-xs text-blue-600 dark:text-blue-400 font-mono">
-												LTP {formatPrice(cur, pick.category)}
-											</span>
-											<span className="text-green-600 font-mono">
-												TGT {formatPrice(tgt, pick.category)}
-											</span>
-										</div>
-										<div className="relative h-2 rounded-full bg-gradient-to-r from-red-200 via-muted to-green-200 dark:from-red-900/50 dark:to-green-900/50">
-											<svg
-												className="absolute inset-0 w-full h-full overflow-visible"
-												viewBox="0 0 100 8"
-												preserveAspectRatio="none"
-											>
-												<rect
-													x={entryPct - 0.5}
-													y="-2"
-													width="1"
-													height="12"
-													rx="0.5"
-													className="fill-muted-foreground/50"
-												/>
-												<circle
-													cx={pct}
-													cy="4"
-													r="6"
-													className={`stroke-background stroke-[1.5] ${isProfit ? "fill-green-500" : "fill-red-500"}`}
-												/>
-											</svg>
-										</div>
-										<div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
-											<span>-{downside}%</span>
-											<span className="text-[9px] text-muted-foreground/60">
-												entry mark ↑
-											</span>
-											<span>+{upside}%</span>
-										</div>
-									</div>
-								);
-							})()}
+						{/* F&O Inline Strategy Payoff & Greeks Ribbon */}
+						{isDeriv && (
+							<DerivativePayoffRibbon
+								pick={pick}
+								onOpenSimulator={() => {
+									if (onClick) onClick(pick);
+								}}
+							/>
+						)}
 
 						<div className="mt-3 p-2.5 rounded bg-muted/40 border">
 							<div className="flex items-center justify-between">
@@ -11123,6 +11081,31 @@ function PickCard({
 							</div>
 
 							<div className="flex items-center gap-1">
+								{/* FASP-AI Explainability Button */}
+								<TooltipProvider>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Button
+												variant="ghost"
+												size="sm"
+												className="h-8 text-xs px-2 gap-1 text-primary hover:bg-primary/10"
+												onClick={(e) => {
+													e.stopPropagation();
+													if (onFaspExplain) {
+														onFaspExplain(pick);
+													} else if (_onExplain) {
+														_onExplain(pick.id);
+													}
+												}}
+											>
+												<Brain className="h-3.5 w-3.5" />
+												<span className="hidden sm:inline">FASP-AI</span>
+											</Button>
+										</TooltipTrigger>
+										<TooltipContent>View FASP-AI explainability & regulatory audit</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
+
 								{/* #9 Quick Copy (WhatsApp-ready) */}
 								<TooltipProvider>
 									<Tooltip>

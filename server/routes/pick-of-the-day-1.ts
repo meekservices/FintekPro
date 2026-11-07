@@ -19,6 +19,7 @@ import {
 	investmentProposals,
 	investmentProposalItems,
 	userNotifications,
+	macroRegimeSnapshots,
 } from "@shared/schema";
 import { eq, like, or, sql, desc, and, count } from "drizzle-orm";
 import nodemailer from "nodemailer";
@@ -158,12 +159,66 @@ router.get("/today", async (req, res) => {
 			.split("T")[0];
 		const isMarketTradingDay = marketHolidayService.isTradingDay(todayIST, "NSE");
 
+		// Fetch latest Macro Regime Snapshot for HUD
+		let macroRegime: Record<string, any> = {
+			regimeLabel: "risk_on",
+			dxyBand: "neutral",
+			dxyIndex: 102.4,
+			crudeRegime: "comfort",
+			brentCrudeUsd: 74.2,
+			yieldCurveSlope: "normal",
+			tenMinusTwoBps: 18,
+			gsec10YYield: 6.82,
+			usdInr: 84.15,
+			aiPosture: "Alpha Momentum + Disciplined Risk",
+			postureSummary: "Constructive macro environment. Engine favors high-conviction momentum leaders, selective F&O hedging, and growth compounders.",
+		};
+
+		try {
+			const [latestMacro] = await db
+				.select()
+				.from(macroRegimeSnapshots)
+				.orderBy(desc(macroRegimeSnapshots.snapshotDate))
+				.limit(1);
+
+			if (latestMacro) {
+				const lbl = latestMacro.regimeLabel || "risk_on";
+				macroRegime = {
+					snapshotDate: latestMacro.snapshotDate,
+					regimeLabel: lbl,
+					dxyBand: latestMacro.dxyBand || "neutral",
+					dxyIndex: latestMacro.dxyIndex ? Number(latestMacro.dxyIndex) : 102.4,
+					crudeRegime: latestMacro.crudeRegime || "comfort",
+					brentCrudeUsd: latestMacro.brentCrudeUsd ? Number(latestMacro.brentCrudeUsd) : 74.2,
+					yieldCurveSlope: latestMacro.yieldCurveSlope || "normal",
+					tenMinusTwoBps: latestMacro.tenMinusTwoBps ?? 18,
+					gsec10YYield: latestMacro.gsec10YYield ? Number(latestMacro.gsec10YYield) : 6.82,
+					usdInr: latestMacro.usdInr ? Number(latestMacro.usdInr) : 84.15,
+					aiPosture: lbl === "risk_on"
+						? "Alpha Momentum + High Beta"
+						: lbl === "risk_off"
+						? "Defensive Yield + Capital Preservation"
+						: lbl === "goldilocks"
+						? "Broad-Based Growth + High Quality"
+						: "Systematic Hedging + Option Selling",
+					postureSummary: lbl === "risk_on"
+						? "Constructive macro tailwinds. POTD prioritizes breakout leaders and growth compounders."
+						: lbl === "risk_off"
+						? "Macro caution indicated. Engine tilts allocation toward sovereign gold, fixed income, and low-beta value."
+						: "Balanced regime. F&O seller income strategies paired with dividend aristocrats.",
+				};
+			}
+		} catch (macroErr) {
+			logger.warn(`[API/Picks] Non-fatal error loading macro regime snapshot: ${macroErr instanceof Error ? macroErr.message : String(macroErr)}`);
+		}
+
 		res.json({
 			success: true,
 			date: todayIST,
 			isTradingDay: isMarketTradingDay,
 			marketStatus: isMarketTradingDay ? "OPEN" : "CLOSED",
 			isWeekendOrHoliday: !isMarketTradingDay,
+			macroRegime,
 			// Role-adaptive depth: admin/agent see full scoring; retail sees headline rationale
 			picks: formatPicksForRole(picks as any, (req as any).user?.role),
 			categoryLastUpdated,
@@ -193,6 +248,89 @@ router.get("/today", async (req, res) => {
 			error_code: "FETCH_TODAY_PICKS_FAILED",
 			message: "Failed to fetch today's picks",
 			retryable: true,
+		});
+	}
+});
+
+router.get("/macro-regime", async (req, res) => {
+	try {
+		const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+		const todayIST = new Date(Date.now() + IST_OFFSET_MS)
+			.toISOString()
+			.split("T")[0];
+		const isMarketTradingDay = marketHolidayService.isTradingDay(todayIST, "NSE");
+
+		let macroRegime: Record<string, any> = {
+			snapshotDate: todayIST,
+			regimeLabel: "risk_on",
+			dxyBand: "neutral",
+			dxyIndex: 102.4,
+			crudeRegime: "comfort",
+			brentCrudeUsd: 74.2,
+			yieldCurveSlope: "normal",
+			tenMinusTwoBps: 18,
+			gsec10YYield: 6.82,
+			usdInr: 84.15,
+			isTradingDay: isMarketTradingDay,
+			marketStatus: isMarketTradingDay ? "OPEN" : "CLOSED",
+			aiPosture: "Alpha Momentum + Disciplined Risk",
+			postureSummary: "Constructive macro environment. Engine favors high-conviction momentum leaders, selective F&O hedging, and growth compounders.",
+		};
+
+		try {
+			const [latestMacro] = await db
+				.select()
+				.from(macroRegimeSnapshots)
+				.orderBy(desc(macroRegimeSnapshots.snapshotDate))
+				.limit(1);
+
+			if (latestMacro) {
+				const lbl = latestMacro.regimeLabel || "risk_on";
+				macroRegime = {
+					snapshotDate: latestMacro.snapshotDate,
+					regimeLabel: lbl,
+					dxyBand: latestMacro.dxyBand || "neutral",
+					dxyIndex: latestMacro.dxyIndex ? Number(latestMacro.dxyIndex) : 102.4,
+					crudeRegime: latestMacro.crudeRegime || "comfort",
+					brentCrudeUsd: latestMacro.brentCrudeUsd ? Number(latestMacro.brentCrudeUsd) : 74.2,
+					yieldCurveSlope: latestMacro.yieldCurveSlope || "normal",
+					tenMinusTwoBps: latestMacro.tenMinusTwoBps ?? 18,
+					gsec10YYield: latestMacro.gsec10YYield ? Number(latestMacro.gsec10YYield) : 6.82,
+					usdInr: latestMacro.usdInr ? Number(latestMacro.usdInr) : 84.15,
+					isTradingDay: isMarketTradingDay,
+					marketStatus: isMarketTradingDay ? "OPEN" : "CLOSED",
+					aiPosture: lbl === "risk_on"
+						? "Alpha Momentum + High Beta"
+						: lbl === "risk_off"
+						? "Defensive Yield + Capital Preservation"
+						: lbl === "goldilocks"
+						? "Broad-Based Growth + High Quality"
+						: "Systematic Hedging + Option Selling",
+					postureSummary: lbl === "risk_on"
+						? "Constructive macro tailwinds. POTD prioritizes breakout leaders and growth compounders."
+						: lbl === "risk_off"
+						? "Macro caution indicated. Engine tilts allocation toward sovereign gold, fixed income, and low-beta value."
+						: "Balanced regime. F&O seller income strategies paired with dividend aristocrats.",
+				};
+			}
+		} catch (err) {
+			logger.warn(`[API/Picks] Non-fatal error in /macro-regime route: ${String(err)}`);
+		}
+
+		res.json({
+			success: true,
+			data: macroRegime,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: "POTD-Macro-v2.1",
+			},
+		});
+	} catch (error) {
+		logger.error("[API] Error in /macro-regime:", error);
+		res.status(500).json({
+			success: false,
+			error_code: "FETCH_MACRO_REGIME_FAILED",
+			message: "Failed to fetch macro regime",
 		});
 	}
 });

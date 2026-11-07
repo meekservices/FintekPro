@@ -68,6 +68,7 @@ import {
 	Coins,
 	Server,
 	Download,
+	AlertCircle,
 } from "lucide-react";
 import { ScreenerInQuerySection } from "@/components/screener/ScreenerInQuerySection";
 import { ScreenerProsConsBox } from "@/components/screener/ScreenerProsConsBox";
@@ -3427,6 +3428,16 @@ export default function AgentScreener() {
 										isLoading={dbLoading}
 									/>
 
+									{dbScreenerData?.queryError && (
+										<div className="p-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2">
+											<AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+											<div>
+												<span className="font-semibold">Query Parse Notice: </span>
+												<span>{dbScreenerData.queryError}</span>
+											</div>
+										</div>
+									)}
+
 								<div className="flex items-center justify-between">
 									<Button
 										variant={showFilters ? "secondary" : "outline"}
@@ -4223,8 +4234,8 @@ export default function AgentScreener() {
 																					? "text-emerald-500 dark:text-emerald-500"
 																					: ""
 																			}`}>
-																				{stock.dividendYield
-																					? `${(Number.parseFloat(stock.dividendYield) * 100).toFixed(2)}%`
+																				{stock.dividendYield != null && stock.dividendYield !== ""
+																					? formatPercent(stock.dividendYield, 100)
 																					: "-"}
 																			</td>
 																			<td className={`py-2.5 px-3 text-right font-mono text-xs ${
@@ -4272,13 +4283,13 @@ export default function AgentScreener() {
 																						: "text-muted-foreground"
 																				}`}
 																			>
-																				{stock.returnVsNifty1Y
+																				{stock.returnVsNifty1Y != null && stock.returnVsNifty1Y !== "" && !Number.isNaN(Number.parseFloat(stock.returnVsNifty1Y))
 																					? `${Number.parseFloat(stock.returnVsNifty1Y) > 0 ? "+" : ""}${(Number.parseFloat(stock.returnVsNifty1Y) * 100).toFixed(1)}%`
 																					: "-"}
 																			</td>
 																			{/* Beta */}
 																			<td className="py-2.5 px-3 text-right font-mono text-xs">
-																				{stock.beta ? Number.parseFloat(stock.beta).toFixed(2) : "-"}
+																				{formatNum(stock.beta)}
 																			</td>
 																			{/* Sharpe 1Y */}
 																			<td
@@ -4288,7 +4299,7 @@ export default function AgentScreener() {
 																						: ""
 																				}`}
 																			>
-																				{stock.sharpeRatio1Y ? Number.parseFloat(stock.sharpeRatio1Y).toFixed(2) : "-"}
+																				{formatNum(stock.sharpeRatio1Y)}
 																			</td>
 																			{/* Sortino 1Y */}
 																			<td
@@ -4298,7 +4309,7 @@ export default function AgentScreener() {
 																						: ""
 																				}`}
 																			>
-																				{stock.sortinoRatio1Y ? Number.parseFloat(stock.sortinoRatio1Y).toFixed(2) : "-"}
+																				{formatNum(stock.sortinoRatio1Y)}
 																			</td>
 																			{/* Phase 4b: Analyst consensus upside % with Rating Badge */}
 																			<td className="py-2.5 px-3 text-right font-mono text-xs">
@@ -4758,7 +4769,7 @@ export default function AgentScreener() {
 																									</div>
 																								</div>
 																								{/* Phase 5: Advanced Valuation */}
-																								{(stock.roic ?? stock.evToEbitda ?? stock.pfcfRatio ?? stock.grahamNumber) && (
+																								{Boolean(stock.roic || stock.evToEbitda || stock.evToRevenue || stock.pfcfRatio || stock.earningsYield || stock.freeCashFlowYield || stock.grahamNumber || stock.magicFormulaRank != null) && (
 																									<div className="space-y-3">
 																										<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
 																											<Target className="h-3.5 w-3.5" />
@@ -4797,7 +4808,7 @@ export default function AgentScreener() {
 																								)}
 
 																								{/* Phase 5: Efficiency */}
-																								{(stock.assetTurnover ?? stock.cashConversionCycle ?? stock.daysSalesOutstanding) && (
+																								{Boolean(stock.fcfMargin || stock.operatingMargin || stock.assetTurnover || stock.incomeQuality || stock.daysSalesOutstanding || stock.daysInventoryOnHand || stock.daysPayablesOutstanding || stock.cashConversionCycle) && (
 																									<div className="space-y-3">
 																										<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
 																											<BarChart2 className="h-3.5 w-3.5" />
@@ -4817,7 +4828,7 @@ export default function AgentScreener() {
 																								)}
 
 																								{/* Phase 5: Ownership */}
-																								{(stock.promoterHolding ?? stock.fiiHolding ?? stock.pledgedShares) && (
+																								{Boolean(stock.promoterHolding != null || stock.fiiHolding != null || stock.diiHolding != null || stock.pledgedShares != null) && (
 																									<div className="space-y-3">
 																										<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
 																											<Users className="h-3.5 w-3.5" />
@@ -5081,16 +5092,22 @@ export default function AgentScreener() {
 																											</div>
 																											<div className="w-full bg-muted/60 h-2 rounded-full relative overflow-hidden flex items-center">
 																												<div className="absolute inset-y-0 bg-primary/20 rounded-full w-full" />
-																												{stockDetail.current_price && stockDetail.marqueeBrokerageViews.targetLow && stockDetail.marqueeBrokerageViews.targetHigh && (
-																													<div
-																														className="absolute top-0 bottom-0 bg-primary rounded-full"
-																														style={{
-																															left: `${Math.max(0, Math.min(100, ((stockDetail.current_price - stockDetail.marqueeBrokerageViews.targetLow) / Math.max(1, (stockDetail.marqueeBrokerageViews.targetHigh - stockDetail.marqueeBrokerageViews.targetLow))) * 100))}%`,
-																															width: "4px",
-																														}}
-																														title={`Current Price: ₹${stockDetail.current_price}`}
-																													/>
-																												)}
+																												{(() => {
+																													const curPrice = Number(stockDetail.stock?.currentPrice || stock.currentPrice || 0);
+																													const targetLow = Number(stockDetail.marqueeBrokerageViews.targetLow || 0);
+																													const targetHigh = Number(stockDetail.marqueeBrokerageViews.targetHigh || 0);
+																													if (curPrice > 0 && targetHigh > targetLow) {
+																														const leftPct = Math.max(0, Math.min(100, ((curPrice - targetLow) / (targetHigh - targetLow)) * 100));
+																														return (
+																															<div
+																																className="absolute top-0 bottom-0 bg-primary rounded-full shadow-xs"
+																																style={{ left: `${leftPct}%`, width: "4px" }}
+																																title={`Current Price: ₹${curPrice}`}
+																															/>
+																														);
+																													}
+																													return null;
+																												})()}
 																											</div>
 																										</div>
 																									)}
@@ -5755,20 +5772,28 @@ export default function AgentScreener() {
 															<div className="font-semibold text-foreground">{stock.companyName}</div>
 															<div className="text-[10px] text-muted-foreground font-mono">{stock.symbol}</div>
 														</td>
-														<td className="py-2 px-3 text-right font-mono font-medium">₹{stock.currentPrice}</td>
+														<td className="py-2 px-3 text-right font-mono font-medium">{formatCurrency(stock.currentPrice)}</td>
 														<td className="py-2 px-3 text-right font-mono">{formatMarketCap(stock.marketCapValue)}</td>
 														<td className="py-2 px-3 text-right font-mono">{formatNum(stock.peRatio)}</td>
 														<td className="py-2 px-3 text-right font-mono">{formatNum(stock.pbRatio)}</td>
 														<td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400 font-semibold">{formatRoe(stock.roce)}</td>
 														<td className="py-2 px-3 text-right font-mono">{formatRoe(stock.roe)}</td>
 														<td className="py-2 px-3 text-right font-mono">{formatNum(stock.debtToEquity)}</td>
-														<td className="py-2 px-3 text-right font-mono">{stock.promoterHolding ? `${Number(stock.promoterHolding).toFixed(1)}%` : "-"}</td>
-														<td className="py-2 px-3 text-right font-mono">{stock.fiiHolding ? `${Number(stock.fiiHolding).toFixed(1)}%` : "-"}</td>
-														<td className="py-2 px-3 text-right font-mono font-bold text-primary">{stock.compositeScore ? Number(stock.compositeScore).toFixed(0) : "-"}</td>
+														<td className="py-2 px-3 text-right font-mono">{formatPercent(stock.promoterHolding)}</td>
+														<td className="py-2 px-3 text-right font-mono">{formatPercent(stock.fiiHolding)}</td>
+														<td className="py-2 px-3 text-right font-mono font-bold text-primary">{formatNum(stock.compositeScore, 0)}</td>
 													</tr>
 												))}
 											</tbody>
 										</table>
+									</div>
+								</div>
+							) : dbScreenerData?.queryError ? (
+								<div className="p-4 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2">
+									<AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+									<div>
+										<div className="font-semibold text-sm">Query Parsing Notice</div>
+										<div className="mt-0.5">{dbScreenerData.queryError}</div>
 									</div>
 								</div>
 							) : (

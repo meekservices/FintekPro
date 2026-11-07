@@ -199,6 +199,20 @@ export default function AgentStorePage() {
 		return Array.from(set).sort();
 	}, [products]);
 
+	// Available Categories (merge from API and loaded products)
+	const availableCategories = useMemo(() => {
+		const set = new Set<string>();
+		if (categoriesData?.categories?.length) {
+			for (const cat of categoriesData.categories) {
+				if (cat.name) set.add(cat.name);
+			}
+		}
+		for (const p of products) {
+			if (p.category && p.category !== "General") set.add(p.category);
+		}
+		return Array.from(set).sort();
+	}, [categoriesData, products]);
+
 	// Filtered Products
 	const filteredProducts = useMemo(() => {
 		return products.filter((p) => {
@@ -209,11 +223,44 @@ export default function AgentStorePage() {
 				const matchCategory = p.category.toLowerCase().includes(term);
 				if (!matchName && !matchProvider && !matchCategory) return false;
 			}
-			if (selectedCategory !== "all" && p.category !== selectedCategory) {
-				return false;
+			if (selectedCategory !== "all") {
+				const sel = selectedCategory.toLowerCase().trim();
+				const pCat = (p.category || "").toLowerCase().trim();
+				const pSub = (p.subcategory || "").toLowerCase().trim();
+				const pType = (p.productType || "").toLowerCase().trim();
+				const pName = (p.name || "").toLowerCase().trim();
+
+				const matchesCat =
+					pCat === sel ||
+					pCat.includes(sel) ||
+					sel.includes(pCat) ||
+					pSub.includes(sel) ||
+					sel.includes(pSub) ||
+					(sel.includes("pms") &&
+						(pCat.includes("pms") ||
+							pSub.includes("pms") ||
+							pType.includes("pms") ||
+							pName.includes("pms") ||
+							pCat.includes("portfolio management"))) ||
+					(sel.includes("aif") &&
+						(pCat.includes("aif") ||
+							pSub.includes("aif") ||
+							pType.includes("aif") ||
+							pName.includes("aif") ||
+							pCat.includes("alternative investment")));
+
+				if (!matchesCat) return false;
 			}
-			if (selectedRisk !== "all" && p.riskLevel.toLowerCase() !== selectedRisk.toLowerCase()) {
-				return false;
+			if (selectedRisk !== "all") {
+				const pRisk = (p.riskLevel || "").toLowerCase();
+				const sRisk = selectedRisk.toLowerCase();
+				const matchesRisk =
+					pRisk.includes(sRisk) ||
+					sRisk.includes(pRisk) ||
+					(sRisk === "medium" && (pRisk.includes("mod") || pRisk.includes("med"))) ||
+					(sRisk === "low" && (pRisk.includes("low") || pRisk.includes("cap"))) ||
+					(sRisk.includes("high") && pRisk.includes("high"));
+				if (!matchesRisk) return false;
 			}
 			if (selectedProvider !== "all" && p.provider !== selectedProvider) {
 				return false;
@@ -398,25 +445,25 @@ export default function AgentStorePage() {
 	const isLoading = isLoadingStoreProducts || isLoadingLegacyProducts;
 
 	return (
-		<div className="min-h-screen bg-slate-900 text-slate-100 p-4 md:p-8 space-y-8">
+		<div className="space-y-6">
 			{/* Header Banner */}
-			<div className="rounded-2xl bg-gradient-to-r from-blue-900/60 via-indigo-900/40 to-slate-900 border border-blue-500/30 p-6 md:p-8 shadow-2xl relative overflow-hidden">
-				<div className="absolute right-0 top-0 bottom-0 w-1/3 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-500/10 via-transparent to-transparent pointer-events-none" />
+			<div className="rounded-2xl bg-gradient-to-r from-blue-50/80 via-indigo-50/50 to-background dark:from-blue-950/60 dark:via-indigo-950/40 dark:to-slate-900 border border-blue-200/80 dark:border-blue-500/30 p-6 md:p-8 shadow-sm dark:shadow-2xl relative overflow-hidden">
+				<div className="absolute right-0 top-0 bottom-0 w-1/3 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-500/5 dark:from-blue-500/10 via-transparent to-transparent pointer-events-none" />
 
 				<div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
 					<div className="space-y-2">
 						<div className="flex items-center gap-2">
-							<Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30">
+							<Badge className="bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30">
 								<StoreIcon className="w-3.5 h-3.5 mr-1" /> Partner Distribution Hub
 							</Badge>
-							<Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
+							<Badge className="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30">
 								<ShieldCheck className="w-3.5 h-3.5 mr-1" /> SEBI Regulated Architecture
 							</Badge>
 						</div>
-						<h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
+						<h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground flex items-center gap-3">
 							Financial Products Store
 						</h1>
-						<p className="text-slate-300 max-w-2xl text-sm md:text-base">
+						<p className="text-muted-foreground max-w-2xl text-sm md:text-base">
 							Multi-asset institutional distribution engine. Select products, stage custom allocation baskets, and dispatch turnkey proposals directly to your clients.
 						</p>
 					</div>
@@ -424,17 +471,17 @@ export default function AgentStorePage() {
 					<div className="flex flex-wrap items-center gap-3">
 						<Button
 							variant="outline"
-							className="border-blue-500/40 bg-blue-950/40 text-blue-200 hover:bg-blue-900/60"
+							className="border-blue-300 dark:border-blue-500/40 bg-blue-50/60 dark:bg-blue-950/40 text-blue-700 dark:text-blue-200 hover:bg-blue-100 dark:hover:bg-blue-900/60"
 							onClick={() => setLocation("/agent/financial-planning")}
 						>
-							<Target className="w-4 h-4 mr-2 text-blue-400" /> Financial Planning
+							<Target className="w-4 h-4 mr-2 text-blue-500 dark:text-blue-400" /> Financial Planning
 						</Button>
 						<Button
 							variant="outline"
-							className="border-indigo-500/40 bg-indigo-950/40 text-indigo-200 hover:bg-indigo-900/60"
+							className="border-indigo-300 dark:border-indigo-500/40 bg-indigo-50/60 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-900/60"
 							onClick={() => setLocation("/agent/model-portfolios")}
 						>
-							<PieChart className="w-4 h-4 mr-2 text-indigo-400" /> Asset Allocation
+							<PieChart className="w-4 h-4 mr-2 text-indigo-500 dark:text-indigo-400" /> Asset Allocation
 						</Button>
 						<Button
 							className="bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/30 font-medium"
@@ -447,48 +494,48 @@ export default function AgentStorePage() {
 				</div>
 
 				{/* Quick Stats Grid */}
-				<div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-800">
+				<div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-border">
 					<div>
-						<p className="text-xs text-slate-400">Catalog Size</p>
-						<p className="text-xl font-bold text-white">{products.length} Products</p>
+						<p className="text-xs text-muted-foreground">Catalog Size</p>
+						<p className="text-xl font-bold text-foreground">{products.length} Products</p>
 					</div>
 					<div>
-						<p className="text-xs text-slate-400">Asset Classes</p>
-						<p className="text-xl font-bold text-white">7 Multi-Asset Categories</p>
+						<p className="text-xs text-muted-foreground">Asset Classes</p>
+						<p className="text-xl font-bold text-foreground">7 Multi-Asset Categories</p>
 					</div>
 					<div>
-						<p className="text-xs text-slate-400">Staged in Basket</p>
-						<p className="text-xl font-bold text-blue-400">₹{trayMetrics.totalAmount.toLocaleString("en-IN")}</p>
+						<p className="text-xs text-muted-foreground">Staged in Basket</p>
+						<p className="text-xl font-bold text-blue-600 dark:text-blue-400">₹{trayMetrics.totalAmount.toLocaleString("en-IN")}</p>
 					</div>
 					<div>
-						<p className="text-xs text-slate-400">Advisory Execution</p>
-						<p className="text-xl font-bold text-emerald-400">Smallcase / Dezerv Model</p>
+						<p className="text-xs text-muted-foreground">Advisory Execution</p>
+						<p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">Smallcase / Dezerv Model</p>
 					</div>
 				</div>
 			</div>
 
 			{/* Search & Filter Toolbar */}
-			<div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700/60">
+			<div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-card p-4 rounded-xl border border-border shadow-sm">
 				<div className="relative md:col-span-1">
-					<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+					<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
 					<Input
 						placeholder="Search product, AMC, ticker..."
 						value={searchTerm}
 						onChange={(e) => setSearchTerm(e.target.value)}
-						className="pl-9 bg-slate-900/80 border-slate-700 text-white placeholder:text-slate-500"
+						className="pl-9 bg-background border-input text-foreground placeholder:text-muted-foreground"
 					/>
 				</div>
 
 				<div>
 					<Select value={selectedCategory} onValueChange={setSelectedCategory}>
-						<SelectTrigger className="bg-slate-900/80 border-slate-700 text-white">
+						<SelectTrigger className="bg-background border-input text-foreground">
 							<SelectValue placeholder="All Categories" />
 						</SelectTrigger>
-						<SelectContent className="bg-slate-900 border-slate-700 text-white">
+						<SelectContent className="max-h-60">
 							<SelectItem value="all">All Categories</SelectItem>
-							{categoriesData?.categories?.map((cat) => (
-								<SelectItem key={cat.id} value={cat.name}>
-									{cat.name}
+							{availableCategories.map((catName) => (
+								<SelectItem key={catName} value={catName}>
+									{catName}
 								</SelectItem>
 							))}
 						</SelectContent>
@@ -497,10 +544,10 @@ export default function AgentStorePage() {
 
 				<div>
 					<Select value={selectedRisk} onValueChange={setSelectedRisk}>
-						<SelectTrigger className="bg-slate-900/80 border-slate-700 text-white">
+						<SelectTrigger className="bg-background border-input text-foreground">
 							<SelectValue placeholder="Risk Appetite" />
 						</SelectTrigger>
-						<SelectContent className="bg-slate-900 border-slate-700 text-white">
+						<SelectContent>
 							<SelectItem value="all">All Risk Levels</SelectItem>
 							<SelectItem value="low">Low Risk (Capital Preservation)</SelectItem>
 							<SelectItem value="medium">Medium / Moderate</SelectItem>
@@ -512,10 +559,10 @@ export default function AgentStorePage() {
 
 				<div>
 					<Select value={selectedProvider} onValueChange={setSelectedProvider}>
-						<SelectTrigger className="bg-slate-900/80 border-slate-700 text-white">
+						<SelectTrigger className="bg-background border-input text-foreground">
 							<SelectValue placeholder="All Providers / AMCs" />
 						</SelectTrigger>
-						<SelectContent className="bg-slate-900 border-slate-700 text-white max-h-60">
+						<SelectContent className="max-h-60">
 							<SelectItem value="all">All AMCs & Issuers</SelectItem>
 							{providers.map((prv) => (
 								<SelectItem key={prv} value={prv}>
@@ -531,17 +578,17 @@ export default function AgentStorePage() {
 			{isLoading ? (
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 					{[1, 2, 3, 4, 5, 6].map((i) => (
-						<div key={i} className="h-64 rounded-xl bg-slate-800/40 animate-pulse border border-slate-700/50" />
+						<div key={i} className="h-64 rounded-xl bg-muted/60 animate-pulse border border-border" />
 					))}
 				</div>
 			) : filteredProducts.length === 0 ? (
-				<div className="text-center py-16 bg-slate-800/30 rounded-2xl border border-slate-700">
-					<StoreIcon className="w-12 h-12 mx-auto text-slate-500 mb-3" />
-					<h3 className="text-lg font-semibold text-white">No Products Found</h3>
-					<p className="text-slate-400 text-sm mt-1">Try clearing filters or search terms.</p>
+				<div className="text-center py-16 bg-card rounded-2xl border border-border shadow-sm">
+					<StoreIcon className="w-12 h-12 mx-auto text-muted-foreground mb-3 opacity-60" />
+					<h3 className="text-lg font-semibold text-foreground">No Products Found</h3>
+					<p className="text-muted-foreground text-sm mt-1">Try clearing filters or search terms.</p>
 					<Button
 						variant="outline"
-						className="mt-4 border-slate-700 text-slate-300"
+						className="mt-4"
 						onClick={() => {
 							setSearchTerm("");
 							setSelectedCategory("all");
@@ -560,25 +607,25 @@ export default function AgentStorePage() {
 						return (
 							<Card
 								key={product.id}
-								className={`flex flex-col justify-between bg-slate-800/70 border transition-all duration-200 hover:shadow-xl hover:border-blue-500/50 ${
-									isStaged ? "border-blue-500/80 bg-blue-950/20 ring-1 ring-blue-500/40" : "border-slate-700/70"
+								className={`flex flex-col justify-between bg-card text-card-foreground border transition-all duration-200 hover:shadow-xl hover:border-blue-500/50 ${
+									isStaged ? "border-blue-500/80 bg-blue-50/40 dark:bg-blue-950/20 ring-1 ring-blue-500/40" : "border-border"
 								}`}
 							>
 								<CardHeader className="space-y-3 pb-3">
 									<div className="flex items-start justify-between gap-2">
 										<Badge
 											variant="secondary"
-											className="bg-slate-700/70 text-slate-200 text-xs font-normal"
+											className="bg-secondary text-secondary-foreground text-xs font-normal"
 										>
 											{product.category}
 										</Badge>
 										<Badge
 											className={`text-xs ${
 												product.riskLevel.toLowerCase().includes("high")
-													? "bg-amber-500/20 text-amber-300 border-amber-500/30"
+													? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30"
 													: product.riskLevel.toLowerCase().includes("low")
-														? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-														: "bg-blue-500/20 text-blue-300 border-blue-500/30"
+														? "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30"
+														: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/30"
 											}`}
 										>
 											{product.riskLevel} Risk
@@ -586,17 +633,17 @@ export default function AgentStorePage() {
 									</div>
 
 									<div>
-										<CardTitle className="text-lg font-bold text-white leading-snug line-clamp-1">
+										<CardTitle className="text-lg font-bold text-foreground leading-snug line-clamp-1">
 											{product.name}
 										</CardTitle>
-										<CardDescription className="text-xs text-slate-400 flex items-center gap-1 mt-1">
-											<Building2 className="w-3.5 h-3.5 text-slate-400" />
+										<CardDescription className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+											<Building2 className="w-3.5 h-3.5 text-muted-foreground" />
 											{product.provider}
 										</CardDescription>
 									</div>
 
 									{product.shortDescription && (
-										<p className="text-xs text-slate-300 line-clamp-2">
+										<p className="text-xs text-muted-foreground line-clamp-2">
 											{product.shortDescription}
 										</p>
 									)}
@@ -604,17 +651,17 @@ export default function AgentStorePage() {
 
 								<CardContent className="space-y-4 pt-0">
 									{/* Financial Metrics */}
-									<div className="grid grid-cols-2 gap-2 bg-slate-900/60 p-3 rounded-lg border border-slate-750">
+									<div className="grid grid-cols-2 gap-2 bg-muted/50 p-3 rounded-lg border border-border">
 										<div>
-											<p className="text-[11px] text-slate-400">Expected Returns / CAGR</p>
-											<p className="text-base font-bold text-emerald-400 flex items-center">
+											<p className="text-[11px] text-muted-foreground">Expected Returns / CAGR</p>
+											<p className="text-base font-bold text-emerald-600 dark:text-emerald-400 flex items-center">
 												<TrendingUp className="w-4 h-4 mr-1 inline" />
 												{product.expectedReturns}%
 											</p>
 										</div>
 										<div>
-											<p className="text-[11px] text-slate-400">Min. Investment</p>
-											<p className="text-base font-semibold text-white">
+											<p className="text-[11px] text-muted-foreground">Min. Investment</p>
+											<p className="text-base font-semibold text-foreground">
 												₹{product.minimumInvestment.toLocaleString("en-IN")}
 											</p>
 										</div>
@@ -635,14 +682,14 @@ export default function AgentStorePage() {
 											size="sm"
 											className={`h-9 px-3 text-xs ${
 												isStaged
-													? "bg-blue-500/20 text-blue-300 border-blue-500/40"
-													: "border-slate-700 text-slate-300 hover:bg-slate-700"
+													? "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/40"
+													: ""
 											}`}
 											onClick={() => toggleStageProduct(product)}
 										>
 											{isStaged ? (
 												<>
-													<Check className="w-3.5 h-3.5 mr-1 text-emerald-400" /> Staged
+													<Check className="w-3.5 h-3.5 mr-1 text-emerald-600 dark:text-emerald-400" /> Staged
 												</>
 											) : (
 												<>
@@ -681,35 +728,35 @@ export default function AgentStorePage() {
 
 			{/* Staged Basket Drawer Modal */}
 			<Dialog open={isTrayOpen} onOpenChange={setIsTrayOpen}>
-				<DialogContent className="max-w-2xl bg-slate-900 border-slate-700 text-white">
+				<DialogContent className="max-w-2xl bg-card border-border text-foreground">
 					<DialogHeader>
-						<DialogTitle className="flex items-center gap-2 text-xl font-bold">
-							<ShoppingBag className="w-5 h-5 text-blue-400" />
+						<DialogTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
+							<ShoppingBag className="w-5 h-5 text-blue-500" />
 							Advisor Proposal Staging Tray
 						</DialogTitle>
-						<DialogDescription className="text-slate-400 text-sm">
+						<DialogDescription className="text-muted-foreground text-sm">
 							Review and adjust allocation across your staged products before packaging into an institutional client proposal.
 						</DialogDescription>
 					</DialogHeader>
 
 					<div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
 						{stagedProducts.length === 0 ? (
-							<div className="text-center py-8 text-slate-400">
-								<ShoppingBag className="w-8 h-8 mx-auto text-slate-600 mb-2" />
+							<div className="text-center py-8 text-muted-foreground">
+								<ShoppingBag className="w-8 h-8 mx-auto text-muted-foreground mb-2 opacity-50" />
 								No products staged yet. Click "+ Stage" on any product card.
 							</div>
 						) : (
 							stagedProducts.map((item, idx) => (
 								<div
 									key={item.id}
-									className="flex items-center justify-between p-3 rounded-lg bg-slate-800/80 border border-slate-700 gap-3"
+									className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-border gap-3"
 								>
 									<div className="flex-1 min-w-0">
-										<p className="text-sm font-semibold text-white truncate">{item.name}</p>
-										<p className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+										<p className="text-sm font-semibold text-foreground truncate">{item.name}</p>
+										<p className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
 											<span>{item.category}</span>
 											<span>•</span>
-											<span className="text-emerald-400 font-medium">Exp: {item.expectedReturns}%</span>
+											<span className="text-emerald-600 dark:text-emerald-400 font-medium">Exp: {item.expectedReturns}%</span>
 										</p>
 									</div>
 
@@ -724,14 +771,14 @@ export default function AgentStorePage() {
 														prev.map((p, i) => (i === idx ? { ...p, recommendedAmount: val } : p)),
 													);
 												}}
-												className="h-8 text-xs bg-slate-900 border-slate-700 text-white"
+												className="h-8 text-xs bg-background border-input text-foreground"
 											/>
 										</div>
 
 										<Button
 											variant="ghost"
 											size="sm"
-											className="h-8 w-8 p-0 text-slate-400 hover:text-red-400"
+											className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
 											onClick={() => toggleStageProduct(item)}
 										>
 											<Trash2 className="w-4 h-4" />
@@ -742,14 +789,14 @@ export default function AgentStorePage() {
 						)}
 
 						{stagedProducts.length > 0 && (
-							<div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700 space-y-2">
+							<div className="p-4 rounded-xl bg-muted/50 border border-border space-y-2">
 								<div className="flex justify-between text-sm">
-									<span className="text-slate-400">Total Basket Value:</span>
-									<span className="font-bold text-white text-base">
+									<span className="text-muted-foreground">Total Basket Value:</span>
+									<span className="font-bold text-foreground text-base">
 										₹{trayMetrics.totalAmount.toLocaleString("en-IN")}
 									</span>
 								</div>
-								<div className="flex justify-between text-xs text-slate-400">
+								<div className="flex justify-between text-xs text-muted-foreground">
 									<span>Products Staged:</span>
 									<span>{trayMetrics.count}</span>
 								</div>
@@ -757,13 +804,12 @@ export default function AgentStorePage() {
 						)}
 					</div>
 
-					<DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4 border-t border-slate-800">
+					<DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4 border-t border-border">
 						<Button
 							variant="outline"
-							className="border-slate-700 text-slate-300"
 							onClick={() => setLocation("/agent/financial-planning")}
 						>
-							<Target className="w-4 h-4 mr-2 text-blue-400" />
+							<Target className="w-4 h-4 mr-2 text-blue-500" />
 							Send to Financial Plan
 						</Button>
 						<Button
@@ -783,13 +829,13 @@ export default function AgentStorePage() {
 
 			{/* Proposal Dispatch Dialog */}
 			<Dialog open={dispatchModalOpen} onOpenChange={setDispatchModalOpen}>
-				<DialogContent className="max-w-xl bg-slate-900 border-slate-700 text-white">
+				<DialogContent className="max-w-xl bg-card border-border text-foreground">
 					<DialogHeader>
-						<DialogTitle className="flex items-center gap-2 text-xl font-bold">
-							<Send className="w-5 h-5 text-blue-400" />
+						<DialogTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
+							<Send className="w-5 h-5 text-blue-500" />
 							{createdProposalUrl ? "Client Proposal Ready" : "Dispatch to Client Proposal"}
 						</DialogTitle>
-						<DialogDescription className="text-slate-400 text-sm">
+						<DialogDescription className="text-muted-foreground text-sm">
 							{createdProposalUrl
 								? "Proposal successfully generated. Share this secure tokenized link with the client."
 								: "Package store product(s) into a formal investment proposal with regulatory suitability."}
@@ -798,30 +844,30 @@ export default function AgentStorePage() {
 
 					{createdProposalUrl ? (
 						<div className="space-y-6 py-4">
-							<div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/40 flex items-start gap-3">
-								<CheckCircle2 className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
+							<div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-500/40 flex items-start gap-3">
+								<CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
 								<div className="space-y-1">
-									<p className="text-sm font-semibold text-emerald-300">
+									<p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
 										Proposal Published Online
 									</p>
-									<p className="text-xs text-emerald-400/80">
+									<p className="text-xs text-emerald-700 dark:text-emerald-400/80">
 										Client can view terms, examine risk disclosures, and approve investment with 1-click OTP/e-sign.
 									</p>
 								</div>
 							</div>
 
 							<div className="space-y-2">
-								<p className="text-xs text-slate-400 font-medium">Shareable Client Link:</p>
+								<p className="text-xs text-muted-foreground font-medium">Shareable Client Link:</p>
 								<div className="flex items-center gap-2">
 									<Input
 										readOnly
 										value={createdProposalUrl}
-										className="bg-slate-950 border-slate-700 text-blue-300 text-xs font-mono select-all"
+										className="bg-muted border-input text-foreground text-xs font-mono select-all"
 									/>
 									<Button
 										variant="outline"
 										size="sm"
-										className="border-slate-700 text-slate-200 shrink-0"
+										className="shrink-0"
 										onClick={() => copyToClipboard(createdProposalUrl)}
 									>
 										<Copy className="w-4 h-4 mr-1" /> Copy
@@ -843,7 +889,7 @@ export default function AgentStorePage() {
 								</Button>
 								<Button
 									variant="outline"
-									className="border-slate-700 text-slate-200 text-xs"
+									className="text-xs"
 									onClick={() => window.open(createdProposalUrl, "_blank")}
 								>
 									<ExternalLink className="w-3.5 h-3.5 mr-1.5" /> Open Preview
@@ -854,12 +900,12 @@ export default function AgentStorePage() {
 						<div className="space-y-4 py-2">
 							{/* Client Selection */}
 							<div className="space-y-2">
-								<Label className="text-xs font-medium text-slate-300">Assign to Client / Prospect</Label>
+								<Label className="text-xs font-medium text-foreground">Assign to Client / Prospect</Label>
 								<Select value={selectedClientId} onValueChange={handleClientSelect}>
-									<SelectTrigger className="bg-slate-800 border-slate-700 text-white">
+									<SelectTrigger className="bg-background border-input text-foreground">
 										<SelectValue placeholder="Select Client" />
 									</SelectTrigger>
-									<SelectContent className="bg-slate-900 border-slate-700 text-white">
+									<SelectContent className="max-h-60">
 										<SelectItem value="prospect">+ New Prospect / Custom Client</SelectItem>
 										{clientsData?.map((c: any) => (
 											<SelectItem key={c.id} value={c.id}>
@@ -872,61 +918,61 @@ export default function AgentStorePage() {
 
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 								<div className="space-y-1">
-									<Label className="text-xs font-medium text-slate-300">Client Full Name *</Label>
+									<Label className="text-xs font-medium text-foreground">Client Full Name *</Label>
 									<Input
 										placeholder="e.g. Rahul Sharma"
 										value={clientName}
 										onChange={(e) => setClientName(e.target.value)}
-										className="bg-slate-800 border-slate-700 text-white text-xs"
+										className="bg-background border-input text-foreground text-xs"
 									/>
 								</div>
 								<div className="space-y-1">
-									<Label className="text-xs font-medium text-slate-300">Client Mobile</Label>
+									<Label className="text-xs font-medium text-foreground">Client Mobile</Label>
 									<Input
 										placeholder="+91 98200 00000"
 										value={clientPhone}
 										onChange={(e) => setClientPhone(e.target.value)}
-										className="bg-slate-800 border-slate-700 text-white text-xs"
+										className="bg-background border-input text-foreground text-xs"
 									/>
 								</div>
 							</div>
 
 							<div className="space-y-1">
-								<Label className="text-xs font-medium text-slate-300">Proposal Title</Label>
+								<Label className="text-xs font-medium text-foreground">Proposal Title</Label>
 								<Input
 									placeholder="e.g. Balanced Wealth Accumulation Strategy"
 									value={proposalTitle}
 									onChange={(e) => setProposalTitle(e.target.value)}
-									className="bg-slate-800 border-slate-700 text-white text-xs"
+									className="bg-background border-input text-foreground text-xs"
 								/>
 							</div>
 
 							{dispatchMode === "single" && activeDispatchProduct && (
-								<div className="p-3 rounded-lg bg-slate-800/80 border border-slate-700 space-y-3">
+								<div className="p-3 rounded-lg bg-muted/40 border border-border space-y-3">
 									<div className="flex justify-between items-center text-xs">
-										<span className="text-slate-400">Product:</span>
-										<span className="font-semibold text-white">{activeDispatchProduct.name}</span>
+										<span className="text-muted-foreground">Product:</span>
+										<span className="font-semibold text-foreground">{activeDispatchProduct.name}</span>
 									</div>
 									<div className="grid grid-cols-2 gap-3">
 										<div>
-											<Label className="text-[11px] text-slate-400">Recommended Amount (₹)</Label>
+											<Label className="text-[11px] text-muted-foreground">Recommended Amount (₹)</Label>
 											<Input
 												type="number"
 												value={recommendedAmount}
 												onChange={(e) => setRecommendedAmount(Number(e.target.value) || 0)}
-												className="h-8 text-xs bg-slate-900 border-slate-700 text-white mt-1"
+												className="h-8 text-xs bg-background border-input text-foreground mt-1"
 											/>
 										</div>
 										<div>
-											<Label className="text-[11px] text-slate-400">Investment Strategy</Label>
+											<Label className="text-[11px] text-muted-foreground">Investment Strategy</Label>
 											<Select
 												value={investmentType}
 												onValueChange={(v: "lumpsum" | "sip") => setInvestmentType(v)}
 											>
-												<SelectTrigger className="h-8 text-xs bg-slate-900 border-slate-700 text-white mt-1">
+												<SelectTrigger className="h-8 text-xs bg-background border-input text-foreground mt-1">
 													<SelectValue />
 												</SelectTrigger>
-												<SelectContent className="bg-slate-900 border-slate-700 text-white">
+												<SelectContent>
 													<SelectItem value="lumpsum">One-Time Lumpsum</SelectItem>
 													<SelectItem value="sip">Monthly SIP</SelectItem>
 												</SelectContent>
@@ -937,18 +983,18 @@ export default function AgentStorePage() {
 							)}
 
 							<div className="space-y-1">
-								<Label className="text-xs font-medium text-slate-300">Advisor Rationale & Notes</Label>
+								<Label className="text-xs font-medium text-foreground">Advisor Rationale & Notes</Label>
 								<Textarea
 									placeholder="Explain suitability and rationale for this allocation..."
 									value={proposalNotes}
 									onChange={(e) => setProposalNotes(e.target.value)}
-									className="bg-slate-800 border-slate-700 text-white text-xs resize-none h-20"
+									className="bg-background border-input text-foreground text-xs resize-none h-20"
 								/>
 							</div>
 						</div>
 					)}
 
-					<DialogFooter className="border-t border-slate-800 pt-3">
+					<DialogFooter className="border-t border-border pt-3">
 						{createdProposalUrl ? (
 							<Button
 								className="w-full bg-blue-600 hover:bg-blue-500 text-white"
@@ -960,7 +1006,6 @@ export default function AgentStorePage() {
 							<div className="flex items-center justify-end gap-2 w-full">
 								<Button
 									variant="ghost"
-									className="text-slate-400"
 									onClick={() => setDispatchModalOpen(false)}
 								>
 									Cancel
