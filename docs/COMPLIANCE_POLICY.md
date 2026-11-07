@@ -40,6 +40,7 @@ Because product classes and regulatory jurisdictions operate under distinct stat
 - **RBI Digital Lending & MRM SOP**: [`SOP_RBI_DIGITAL_LENDING_AND_MRM.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_RBI_DIGITAL_LENDING_AND_MRM.md) (RBI Digital Lending Guidelines, strict device privacy banning contact/SMS harvesting, KFS generation, 3-day cooling-off window, direct borrower-to-RE loan disbursals, statutory LTV caps).
 - **AML, PMLA & Sanctions Screening SOP**: [`SOP_AML_PMLA_AND_SANCTIONS_SCREENING.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_AML_PMLA_AND_SANCTIONS_SCREENING.md) (FIU-IND, automated AML anomaly detection, daily MHA UAPA / UNSC / PEP screening, human Principal Officer review before STR/CTR filings).
 - **CERT-In Cyber Incident & Time Sync SOP**: [`SOP_CERTIN_CYBER_INCIDENT_AND_TIME_SYNC.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_CERTIN_CYBER_INCIDENT_AND_TIME_SYNC.md) (Mandatory 6-hour incident reporting window to CERT-In and SEBI, NPL/NIC NTP server time sync within ±50ms, 5–7 year sovereign in-country log retention).
+- **Third-Party Partner & Broker API Governance SOP**: [`SOP_PARTNER_BROKER_AND_API_INTEGRATIONS.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_PARTNER_BROKER_AND_API_INTEGRATIONS.md) (Standard operating procedures for Upstox API v2, KFintech IRIS Hub, Alpaca Broker API, and Smallcase Gateway: token lifecycles, circuit breakers, self-healing fallbacks, FEMA LRS cash accounts, and CERT-In/SEBI audit logging).
 
 ---
 
