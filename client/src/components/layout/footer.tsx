@@ -1,10 +1,12 @@
 import { Link } from "wouter";
 import fintekproLogo from "@assets/fintekpro_main_1772539048013.png";
 import {
-	Facebook,
-	Twitter,
-	Linkedin,
-	Instagram,
+	FaFacebook as Facebook,
+	FaTwitter as Twitter,
+	FaLinkedin as Linkedin,
+	FaInstagram as Instagram,
+} from "react-icons/fa";
+import {
 	Home,
 	UserCheck,
 	Briefcase,

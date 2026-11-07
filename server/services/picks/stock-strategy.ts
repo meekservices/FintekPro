@@ -2025,6 +2025,17 @@ export class StockStrategy extends BaseStrategy {
 			}
 		} catch { /* non-fatal */ }
 
+		// ── Cross-Engine Synergy: Institutional Flow & Promoter Pledge Footprint ───
+		// Severe governance penalty: high promoter pledging increases margin call liquidation risk
+		try {
+			const pledgePct = (enriched as any)?.shareholding?.promoterPledgePct != null
+				? Number((enriched as any).shareholding.promoterPledgePct)
+				: (stock.promoterPledgePct != null ? Number(stock.promoterPledgePct) : 0);
+			if (pledgePct > 25) {
+				score = Math.max(0, score - 15);
+			}
+		} catch { /* non-fatal */ }
+
 		// ── Phase 3: Apply adaptive weight-override multipliers (Surgical) ───
 		// Weight overrides are auto-written by pick-outcome-analyzer when a signal
 		// has lift < 0.7 on ≥30 closed picks (FASP-AI v3.0 defensive-only rule).

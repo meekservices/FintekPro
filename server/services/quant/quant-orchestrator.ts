@@ -29,6 +29,12 @@ import {
 // H-E2: Use upgraded market-regime-detector (Redis + AI signals + NSE breadth)
 import { detectRegime as detectMarketRegime } from "../market-regime-detector";
 import { globalMarketIntelligenceEngine } from "../macro/global-market-intelligence-engine";
+import {
+	calculateTailRiskAndStress,
+	type TailRiskAnalysisResult,
+	type PortfolioAssetInput,
+} from "./tail-risk-stress-engine";
+import { telemetryBus } from "../engine-telemetry-bus";
 
 export interface QuantInput {
 	assetsData: AssetData[];
@@ -56,10 +62,12 @@ export interface QuantOutput {
 	mvoResult: MVOResult | null;
 	blResult: BLResult | null;
 	driftResult: DriftPredictionResult | null;
+	tailRiskResult?: TailRiskAnalysisResult | null;
 	usedMvo: boolean;
 	usedBl: boolean;
 	usedDriftPrediction: boolean;
 	usedTransitionOptimizer: boolean;
+	usedTailRiskStress?: boolean;
 	fallbackUsed: boolean;
 	totalRunTimeMs: number;
 	modelVersions: string[];
@@ -341,11 +349,75 @@ class QuantOrchestrator {
 			}
 		}
 
+		// ── Synergy Upgrade 3: Tail-Risk, CVaR & Macro Stress-Testing Validation ──
+		if (Object.keys(result.optimizedWeights).length > 0) {
+			try {
+				const stressAssets: PortfolioAssetInput[] = Object.entries(result.optimizedWeights).map(
+					([sym, weight]) => {
+						const assetInfo = assetsData.find((a) => a.category === sym);
+						let assetClass: PortfolioAssetInput["assetClass"] = "LARGE_CAP";
+						const cat = (assetInfo?.category || sym || "").toUpperCase();
+						if (cat.includes("MID")) assetClass = "MID_CAP";
+						else if (cat.includes("SMALL")) assetClass = "SMALL_CAP";
+						else if (cat.includes("BANK")) assetClass = "BANKING";
+						else if (cat.includes("IT") || cat.includes("TECH")) assetClass = "IT";
+						else if (cat.includes("PHARMA") || cat.includes("HEALTH")) assetClass = "PHARMA";
+						else if (cat.includes("AUTO")) assetClass = "AUTO";
+						else if (cat.includes("DEBT") || cat.includes("BOND") || cat.includes("FIXED")) assetClass = "DEBT";
+						else if (cat.includes("GOLD") || cat.includes("COMMODITY")) assetClass = "GOLD";
+
+						return {
+							symbol: sym,
+							assetClass,
+							weight,
+							beta: (assetInfo as any)?.beta ?? (assetClass === "DEBT" ? 0.1 : assetClass === "GOLD" ? -0.1 : 1.0),
+							historicalDailyReturns: assetInfo?.returns,
+						};
+					}
+				);
+
+				const tailRisk = calculateTailRiskAndStress(stressAssets);
+				result.tailRiskResult = tailRisk;
+				result.usedTailRiskStress = true;
+				result.modelVersions.push(`tail-risk-stress@${tailRisk.engine_version}`);
+
+				if (tailRisk.riskClassification === "CRITICAL_FAT_TAIL" || tailRisk.varMetrics.cvar95_expectedShortfallPct > 25) {
+					logger.warn("[QuantOrch] Elevated tail risk detected by TailRiskStressEngine", {
+						cvar95: tailRisk.varMetrics.cvar95_expectedShortfallPct,
+						robustnessScore: tailRisk.portfolioRobustnessScore,
+					});
+					result.highRiskCategories.push("ELEVATED_TAIL_RISK_CVAR");
+				}
+			} catch (stressErr: any) {
+				logger.warn("[QuantOrch] Tail risk stress validation non-fatal warning", {
+					error: stressErr?.message,
+				});
+			}
+		}
+
 		result.totalRunTimeMs = Date.now() - startTime;
 
 		if (result.totalRunTimeMs > 2000) {
 			logger.warn("[QuantOrch] Total quant pipeline exceeded 2s target", { latency_ms: result.totalRunTimeMs });
 		}
+
+		// Operational Telemetry Bus Reporting
+		telemetryBus.report({
+			engineId: "quant-orchestrator",
+			engineName: "Quant & MVO Portfolio Orchestrator",
+			category: "Portfolio",
+			reportedAt: new Date().toISOString(),
+			latencyMs: result.totalRunTimeMs,
+			qualityScore: result.fallbackUsed ? 75 : 98,
+			itemsProcessed: Object.keys(result.optimizedWeights).length,
+			errorCount: result.fallbackUsed ? 1 : 0,
+			meta: {
+				usedMvo: result.usedMvo,
+				usedBl: result.usedBl,
+				usedTailRiskStress: result.usedTailRiskStress,
+				portfolioRobustnessScore: result.tailRiskResult?.portfolioRobustnessScore,
+			},
+		});
 
 		try {
 			await db.insert(quantRunLog).values({

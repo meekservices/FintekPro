@@ -333,7 +333,7 @@ export default function PickOfTheDayWidget() {
 										</p>
 									</div>
 									<div
-										className={`w-2 h-2 rounded-full shrink-0 mt-1 ${statusColors[effectiveStatus]}`}
+										className={`w-2 h-2 rounded-full shrink-0 mt-1 ${statusColors[effectiveStatus] || "bg-muted"}`}
 									/>
 								</div>
 

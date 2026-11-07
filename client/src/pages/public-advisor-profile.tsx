@@ -7,8 +7,6 @@ import {
 	Clock,
 	IndianRupee,
 	Globe,
-	Linkedin,
-	Twitter,
 	Phone,
 	Mail,
 	MapPin,
@@ -18,6 +16,7 @@ import {
 	TrendingUp,
 	Building2,
 } from "lucide-react";
+import { FaLinkedin as Linkedin, FaTwitter as Twitter } from "react-icons/fa";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";

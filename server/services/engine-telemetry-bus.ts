@@ -94,13 +94,23 @@ class EngineTelemetryBus {
     const coreEngines: Array<{ id: string; name: string; category: EngineCategory }> = [
       { id: "pick-of-the-day", name: "Pick of the Day Engine", category: "Alpha Generation" },
       { id: "pro-thematic-screener", name: "Pro Thematic Screener", category: "Alpha Generation" },
+      { id: "fast-analytical-engine", name: "Fast Analytical In-Memory Engine", category: "Alpha Generation" },
+      { id: "institutional-flow", name: "Institutional Ownership & Flow Engine", category: "Alpha Generation" },
+      { id: "exit-strategy-engine", name: "Algorithmic Trailing Exit Engine", category: "Alpha Generation" },
       { id: "model-portfolio-optimizer", name: "Model Portfolio Quant Optimizer", category: "Portfolio" },
       { id: "model-portfolio-quant", name: "Model Portfolio Quant Engine", category: "Portfolio" },
+      { id: "quant-orchestrator", name: "Quant & MVO Portfolio Orchestrator", category: "Portfolio" },
+      { id: "tax-loss-harvesting", name: "Tax-Loss Harvesting Engine", category: "Portfolio" },
       { id: "global-macro-transmission", name: "Global Macro Transmission Engine", category: "Risk & Regime" },
       { id: "ai-regime-detection", name: "Market Regime Detection Engine", category: "Risk & Regime" },
+      { id: "global-market-intelligence", name: "Global Market Intelligence Engine", category: "Risk & Regime" },
+      { id: "tail-risk-stress", name: "Tail-Risk & Macro Stress Engine", category: "Risk & Regime" },
       { id: "upstox-golden-pricing", name: "Upstox Golden Market Data", category: "Data Quality" },
+      { id: "multi-exchange-market", name: "Multi-Exchange Market Service", category: "Data Quality" },
+      { id: "market-brief-engine", name: "Daily Market Brief Engine", category: "AI Orchestration" },
       { id: "scorer-calibration", name: "Scorer Calibration Service", category: "AI Orchestration" },
       { id: "pick-outcome-analyzer", name: "Pick Outcome Analyzer", category: "AI Orchestration" },
+      { id: "smart-order-routing", name: "Smart Order Routing Engine", category: "Transaction" },
     ];
     for (const eng of coreEngines) {
       this._meta.set(eng.id, { name: eng.name, category: eng.category });

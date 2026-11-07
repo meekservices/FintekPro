@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { aiRegimeHistory, aiPriceHistory, listedStocks } from "@shared/schema";
-import { eq, desc, sql, gte, lte, and, asc } from "drizzle-orm";
+import { eq, desc, sql, gte, and, asc } from "drizzle-orm";
 import { aiAnalyticsEngine } from "./ai-analytics-engine";
 import { telemetryBus } from "./engine-telemetry-bus";
 import { globalMarketIntelligenceEngine } from "./macro/global-market-intelligence-engine";
@@ -554,6 +554,24 @@ export class AIRegimeDetectionEngine {
 		pctAbove50DMA: number;
 		pctAbove200DMA: number;
 	}> {
+		// ── Cross-Engine Synergy: Ingest live multi-exchange market breadth ──
+		try {
+			const { multiExchangeMarketService } = await import("./multi-exchange-market-service");
+			const snap = await multiExchangeMarketService.getMultiExchangeSnapshot();
+			if (snap?.success && snap.data?.bseBreadth && snap.data.bseBreadth.advances > 0) {
+				const bb = snap.data.bseBreadth;
+				return {
+					advances: bb.advances,
+					declines: bb.declines,
+					ratio: bb.advanceDeclineRatio,
+					pctAbove50DMA: bb.pctAbove50Dma ?? 50,
+					pctAbove200DMA: bb.pctAbove200Dma ?? 50,
+				};
+			}
+		} catch {
+			/* non-fatal fallback to DB */
+		}
+
 		try {
 			const stocks = await db
 				.select({
@@ -605,7 +623,6 @@ export class AIRegimeDetectionEngine {
 				}
 			}
 
-			const totalStocks = Math.max(advances + declines, 1);
 			const ratio =
 				declines > 0 ? advances / declines : advances > 0 ? 2.0 : 1.0;
 			const pctAbove50DMA =

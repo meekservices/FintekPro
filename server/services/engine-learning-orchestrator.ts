@@ -229,8 +229,29 @@ class EngineLearningOrchestrator {
       if (s.engineId === "model-portfolio-optimizer") {
         activeCalibrations.push("Alpha Recovery & Holding Drag Calibration Active");
       }
+      if (s.engineId === "quant-orchestrator") {
+        activeCalibrations.push("MVO & Tail-Risk Stress CVaR Validation Active");
+      }
       if (s.engineId === "global-macro-transmission") {
         activeCalibrations.push("Cross-Border Transmission Channels & Global Shock Simulation Active");
+      }
+      if (s.engineId === "fast-analytical-engine") {
+        activeCalibrations.push("Sub-10ms In-Memory Vectorized Query Scan Active");
+      }
+      if (s.engineId === "institutional-flow") {
+        activeCalibrations.push("Block/Bulk Deal & Promoter Pledge Footprint Surveillance Active");
+      }
+      if (s.engineId === "smart-order-routing") {
+        activeCalibrations.push("Multi-Exchange TWAP Best-Execution Routing Active");
+      }
+      if (s.engineId === "tail-risk-stress") {
+        activeCalibrations.push("Cornish-Fisher Fat-Tailed 95/99% CVaR Calibration Active");
+      }
+      if (s.engineId === "multi-exchange-market") {
+        activeCalibrations.push("BSE Breadth & GIFT Nifty Spread Parity Active");
+      }
+      if (s.engineId === "market-brief-engine") {
+        activeCalibrations.push("Zero-Redis In-Process SWR Cache Parity Active");
       }
 
       if (s.health === "degraded") {
@@ -256,10 +277,22 @@ class EngineLearningOrchestrator {
     const registeredCoreEngines: Array<{ id: string; name: string; category: string; defaultCalibration?: string }> = [
       { id: "pick-of-the-day", name: "Pick of the Day Engine", category: "Alpha Generation", defaultCalibration: `Scorer Threshold: ${currentScorerThreshold} pts` },
       { id: "pro-thematic-screener", name: "Pro Thematic Screener", category: "Alpha Generation", defaultCalibration: "Constituent Momentum & F-Score Efficacy Tracked" },
+      { id: "fast-analytical-engine", name: "Fast Analytical In-Memory Engine", category: "Alpha Generation", defaultCalibration: "Sub-10ms In-Memory Vectorized Query Scan Active" },
+      { id: "institutional-flow", name: "Institutional Ownership & Flow Engine", category: "Alpha Generation", defaultCalibration: "Block/Bulk Deal & Promoter Pledge Footprint Surveillance Active" },
+      { id: "exit-strategy-engine", name: "Algorithmic Trailing Exit Engine", category: "Alpha Generation", defaultCalibration: "Chandelier Volatility Trailing Stops Active" },
       { id: "model-portfolio-optimizer", name: "Model Portfolio Quant Optimizer", category: "Portfolio", defaultCalibration: "Alpha Recovery & Holding Drag Calibration Active" },
+      { id: "quant-orchestrator", name: "Quant & MVO Portfolio Orchestrator", category: "Portfolio", defaultCalibration: "MVO & Tail-Risk Stress CVaR Validation Active" },
+      { id: "tax-loss-harvesting", name: "Tax-Loss Harvesting Engine", category: "Portfolio", defaultCalibration: "Budget 2024 LTCG/STCG Offset Active" },
       { id: "global-macro-transmission", name: "Global Macro Transmission Engine", category: "Risk & Regime", defaultCalibration: "Cross-Border Transmission Channels & Global Shock Simulation Active" },
       { id: "ai-regime-detection", name: "Market Regime Detection Engine", category: "Risk & Regime", defaultCalibration: "Black Swan 10σ Volatility Detection Active" },
+      { id: "global-market-intelligence", name: "Global Market Intelligence Engine", category: "Risk & Regime", defaultCalibration: "Cross-Border Capital Flow & Decoupling Matrix Active" },
+      { id: "tail-risk-stress", name: "Tail-Risk & Macro Stress Engine", category: "Risk & Regime", defaultCalibration: "Cornish-Fisher Fat-Tailed 95/99% CVaR Calibration Active" },
       { id: "upstox-golden-pricing", name: "Upstox Golden Market Data", category: "Data Quality", defaultCalibration: "Live Tick Freshness & Golden Price Resolution Active" },
+      { id: "multi-exchange-market", name: "Multi-Exchange Market Service", category: "Data Quality", defaultCalibration: "BSE Breadth & GIFT Nifty Spread Parity Active" },
+      { id: "market-brief-engine", name: "Daily Market Brief Engine", category: "AI Orchestration", defaultCalibration: "Zero-Redis In-Process SWR Cache Parity Active" },
+      { id: "scorer-calibration", name: "Scorer Calibration Service", category: "AI Orchestration", defaultCalibration: "Hit-Rate Statistical Lift Scorer Tuning Active" },
+      { id: "pick-outcome-analyzer", name: "Pick Outcome Analyzer", category: "AI Orchestration", defaultCalibration: "Signal Efficacy & Holding Period Tracking Active" },
+      { id: "smart-order-routing", name: "Smart Order Routing Engine", category: "Transaction", defaultCalibration: "Multi-Exchange TWAP Best-Execution Routing Active" },
     ];
 
     for (const core of registeredCoreEngines) {
@@ -323,6 +356,8 @@ class EngineLearningOrchestrator {
     calibrationResult?: any;
     thematicConstituentsEvaluated?: number;
     macroTransmissionStatus?: string;
+    fastAnalyticalSnapshotSize?: number;
+    liquidityRegimeStatus?: string;
     driftDetections: number;
     meta: {
       timestamp: string;
@@ -406,7 +441,31 @@ class EngineLearningOrchestrator {
         logger.warn("[EngineLearningOrchestrator] GMTE transmission audit non-fatal warning", { error: err?.message });
       }
 
-      // ── Step 5: Detect Cross-Engine Drift ───────────────────────────────────
+      // ── Step 5: Audit Fast Analytical Engine In-Memory Snapshot ────────────
+      let fastAnalyticalCount = 0;
+      try {
+        const { fastAnalyticalEngine } = await import("./screener/fast-analytical-engine");
+        fastAnalyticalCount = fastAnalyticalEngine.getSnapshotSize();
+        logger.info("[EngineLearningOrchestrator] Fast Analytical in-memory snapshot audited", {
+          snapshotSize: fastAnalyticalCount,
+        });
+      } catch (err: any) {
+        logger.warn("[EngineLearningOrchestrator] Fast analytical engine audit non-fatal", { error: err?.message });
+      }
+
+      // ── Step 6: Audit Multi-Exchange Liquidity Absorption ──────────────────
+      let liquidityRegimeSummary = "Neutral";
+      try {
+        const { multiExchangeMarketService } = await import("./multi-exchange-market-service");
+        const multiSnap = await multiExchangeMarketService.getMultiExchangeSnapshot();
+        if (multiSnap?.success && multiSnap.data) {
+          liquidityRegimeSummary = multiSnap.data.institutionalFlows.liquidityRegime;
+        }
+      } catch (err: any) {
+        logger.warn("[EngineLearningOrchestrator] Multi-exchange audit non-fatal", { error: err?.message });
+      }
+
+      // ── Step 7: Detect Cross-Engine Drift ───────────────────────────────────
       const allStatuses = telemetryBus.getAllStatuses();
       let newDriftCount = 0;
 
@@ -445,6 +504,8 @@ class EngineLearningOrchestrator {
         calibrationResult,
         thematicConstituentsEvaluated: thematicConstituentsCount,
         macroTransmissionStatus: macroSummary,
+        fastAnalyticalSnapshotSize: fastAnalyticalCount,
+        liquidityRegimeStatus: liquidityRegimeSummary,
         driftDetections: newDriftCount,
         meta: {
           timestamp: this.lastCycleAt,

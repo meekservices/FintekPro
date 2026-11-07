@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Algo Trading Signal Routes
  *
@@ -12,7 +11,7 @@
  * GET  /performance          — signal accuracy stats for user
  */
 
-import { Router, Response } from "express";
+import { Router, Request, Response } from "express";
 import { z } from "zod";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import {
@@ -24,7 +23,6 @@ import { requireAuth } from "../middleware/auth";
 import { db } from "../db";
 import { algoSignals } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
-import type { AuthRequest } from "../types/broker-types";
 import { logger } from "../logger";
 import { auditLog } from "../middleware/audit-trail";
 
@@ -36,7 +34,7 @@ const generateLimiter = rateLimit({
 	windowMs: 60_000,
 	max: 5,
 	keyGenerator: (req) =>
-		(req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req.ip ?? ""),
+		req.user?.id?.toString() || ipKeyGenerator(req.ip ?? ""),
 	message: {
 		success: false,
 		error: "Max 5 signal generations/minute.",
@@ -48,7 +46,7 @@ const actionLimiter = rateLimit({
 	windowMs: 60_000,
 	max: 60,
 	keyGenerator: (req) =>
-		(req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req.ip ?? ""),
+		req.user?.id?.toString() || ipKeyGenerator(req.ip ?? ""),
 	message: {
 		success: false,
 		error: "Too many actions. Slow down.",
@@ -72,7 +70,7 @@ const approveSchema = z.object({
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getUserId(req: AuthRequest): number {
+function getUserId(req: Request): number {
 	const id = req.user?.id;
 	if (!id) throw new Error("Unauthenticated");
 	return typeof id === "string" ? Number.parseInt(id, 10) : id;
@@ -87,7 +85,7 @@ function getUserId(req: AuthRequest): number {
 router.post(
 	"/signals/generate",
 	generateLimiter,
-	async (req: AuthRequest, res: Response): Promise<void> => {
+	async (req: Request, res: Response): Promise<void> => {
 		try {
 			const parsed = generateSchema.safeParse(req.body);
 			if (!parsed.success) {
@@ -119,11 +117,12 @@ router.post(
 						"Signals are for informational purposes only. Not financial advice.",
 				},
 			});
-		} catch (err: any) {
-			logger.error("[AlgoRoutes] generate error", { error: err.message });
+		} catch (err: unknown) {
+			const message = err instanceof Error ? err.message : String(err);
+			logger.error("[AlgoRoutes] generate error", { error: message });
 			res
 				.status(500)
-				.json({ success: false, error: err.message, retryable: false });
+				.json({ success: false, error: message, retryable: false });
 		}
 	},
 );
@@ -136,7 +135,7 @@ router.post(
 router.get(
 	"/signals",
 	actionLimiter,
-	async (req: AuthRequest, res: Response): Promise<void> => {
+	async (req: Request, res: Response): Promise<void> => {
 		try {
 			const userId = getUserId(req);
 			const limit = Math.min(
@@ -163,8 +162,9 @@ router.get(
 					version: "1.0",
 				},
 			});
-		} catch (err: any) {
-			res.status(500).json({ success: false, error: err.message });
+		} catch (err: unknown) {
+			const message = err instanceof Error ? err.message : String(err);
+			res.status(500).json({ success: false, error: message });
 		}
 	},
 );
@@ -176,7 +176,7 @@ router.get(
 router.get(
 	"/signals/:id",
 	actionLimiter,
-	async (req: AuthRequest, res: Response): Promise<void> => {
+	async (req: Request, res: Response): Promise<void> => {
 		try {
 			const userId = getUserId(req);
 			const signalId = Number.parseInt(req.params.id, 10);
@@ -203,8 +203,9 @@ router.get(
 				data: signal,
 				meta: { timestamp: new Date().toISOString(), version: "1.0" },
 			});
-		} catch (err: any) {
-			res.status(500).json({ success: false, error: err.message });
+		} catch (err: unknown) {
+			const message = err instanceof Error ? err.message : String(err);
+			res.status(500).json({ success: false, error: message });
 		}
 	},
 );
@@ -219,7 +220,7 @@ router.get(
 router.post(
 	"/signals/:id/approve",
 	actionLimiter,
-	async (req: AuthRequest, res: Response): Promise<void> => {
+	async (req: Request, res: Response): Promise<void> => {
 		try {
 			const userId = getUserId(req);
 			const signalId = Number.parseInt(req.params.id, 10);
@@ -245,9 +246,10 @@ router.post(
 				data: updated,
 				meta: { timestamp: new Date().toISOString(), version: "1.0" },
 			});
-		} catch (err: any) {
-			const status = err.message.includes("not found") ? 404 : 500;
-			res.status(status).json({ success: false, error: err.message });
+		} catch (err: unknown) {
+			const message = err instanceof Error ? err.message : String(err);
+			const status = message.includes("not found") ? 404 : 500;
+			res.status(status).json({ success: false, error: message });
 		}
 	},
 );
@@ -259,7 +261,7 @@ router.post(
 router.post(
 	"/signals/:id/reject",
 	actionLimiter,
-	async (req: AuthRequest, res: Response): Promise<void> => {
+	async (req: Request, res: Response): Promise<void> => {
 		try {
 			const userId = getUserId(req);
 			const signalId = Number.parseInt(req.params.id, 10);
@@ -274,9 +276,10 @@ router.post(
 				data: updated,
 				meta: { timestamp: new Date().toISOString(), version: "1.0" },
 			});
-		} catch (err: any) {
-			const status = err.message.includes("not found") ? 404 : 500;
-			res.status(status).json({ success: false, error: err.message });
+		} catch (err: unknown) {
+			const message = err instanceof Error ? err.message : String(err);
+			const status = message.includes("not found") ? 404 : 500;
+			res.status(status).json({ success: false, error: message });
 		}
 	},
 );
@@ -288,7 +291,7 @@ router.post(
 router.get(
 	"/performance",
 	actionLimiter,
-	async (req: AuthRequest, res: Response): Promise<void> => {
+	async (req: Request, res: Response): Promise<void> => {
 		try {
 			const userId = getUserId(req);
 			const performance = await algoSignalEngine.getPerformance(userId);
@@ -297,8 +300,9 @@ router.get(
 				data: performance,
 				meta: { timestamp: new Date().toISOString(), version: "1.0" },
 			});
-		} catch (err: any) {
-			res.status(500).json({ success: false, error: err.message });
+		} catch (err: unknown) {
+			const message = err instanceof Error ? err.message : String(err);
+			res.status(500).json({ success: false, error: message });
 		}
 	},
 );
@@ -309,7 +313,7 @@ const backtestLimiter = rateLimit({
 	windowMs: 60_000,
 	max: 3, // Alpaca historical data calls are expensive — cap at 3/min
 	keyGenerator: (req) =>
-		(req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req.ip ?? ""),
+		req.user?.id?.toString() || ipKeyGenerator(req.ip ?? ""),
 	message: {
 		success: false,
 		error: "Max 3 backtests/minute. Alpaca data rate-limited.",
@@ -369,7 +373,7 @@ const backtestSchema = z
 router.post(
 	"/backtest",
 	backtestLimiter,
-	async (req: AuthRequest, res: Response): Promise<void> => {
+	async (req: Request, res: Response): Promise<void> => {
 		const startMs = Date.now();
 		try {
 			const userId = getUserId(req);
@@ -394,7 +398,7 @@ router.post(
 			// Audit log — backtest runs are logged for governance
 			await auditLog({
 				action: "algo_backtest_run",
-				category: "trading",
+				category: "transaction",
 				outcome: "success",
 				riskLevel: "low",
 				details: {
@@ -423,11 +427,12 @@ router.post(
 					latency_ms: Date.now() - startMs,
 				},
 			});
-		} catch (err: any) {
-			logger.error("[AlgoRoutes] backtest error", { error: err.message });
-			res.status(err.message.includes("Insufficient") ? 422 : 500).json({
+		} catch (err: unknown) {
+			const message = err instanceof Error ? err.message : String(err);
+			logger.error("[AlgoRoutes] backtest error", { error: message });
+			res.status(message.includes("Insufficient") ? 422 : 500).json({
 				success: false,
-				error: err.message,
+				error: message,
 				retryable: false,
 			});
 		}

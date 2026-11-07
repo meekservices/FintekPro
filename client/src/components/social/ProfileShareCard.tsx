@@ -17,9 +17,9 @@ import {
 	Copy,
 	ExternalLink,
 	MessageCircle,
-	Twitter,
 	Check,
 } from "lucide-react";
+import { FaTwitter as Twitter } from "react-icons/fa";
 
 export function ProfileShareCard() {
 	const { toast } = useToast();

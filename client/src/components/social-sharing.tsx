@@ -13,9 +13,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import {
 	Share2,
-	Twitter,
-	Linkedin,
-	Facebook,
 	MessageSquare,
 	Copy,
 	Award,
@@ -23,6 +20,11 @@ import {
 	Target,
 	BookOpen,
 } from "lucide-react";
+import {
+	FaTwitter as Twitter,
+	FaLinkedin as Linkedin,
+	FaFacebook as Facebook,
+} from "react-icons/fa";
 import { apiRequest } from "@/lib/queryClient";
 
 interface Achievement {

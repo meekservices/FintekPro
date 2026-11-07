@@ -28,8 +28,6 @@ import {
 	CheckCircle,
 	Camera,
 	Globe,
-	Linkedin,
-	Twitter,
 	Phone,
 	Mail,
 	MapPin,
@@ -50,6 +48,7 @@ import {
 	Clock,
 	Sparkles,
 } from "lucide-react";
+import { FaLinkedin as Linkedin, FaTwitter as Twitter } from "react-icons/fa";
 
 const SPECIALISATION_OPTIONS = [
 	"Mutual Funds",
