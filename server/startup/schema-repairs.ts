@@ -775,6 +775,15 @@ export async function runStartupSchemaRepairs() {
 				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS global_macro_desk jsonb;
 				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS macro_indicators jsonb;
 				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS sector_highlights jsonb;
+				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS disclaimer_version_id varchar;
+				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS previous_version_id varchar;
+				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS rejection_reason text;
+				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS reviewed_by varchar;
+				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS reviewed_at timestamp;
+				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS approved_by varchar;
+				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS approved_at timestamp;
+				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS generated_at timestamp DEFAULT NOW();
+				ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS published_at timestamp;
 
 				UPDATE market_briefs
 				SET market_snapshot = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(market_snapshot, '$74.8/bbl', '$117.00/bbl'), '$111.45/bbl', '$117.00/bbl'), '$111.26/bbl', '$117.00/bbl'), '$113.37/bbl', '$117.00/bbl'), '$114.20/bbl', '$117.00/bbl'),
@@ -791,8 +800,7 @@ export async function runStartupSchemaRepairs() {
 				   OR key_risks ILIKE '%74.8%';
 
 				DELETE FROM market_briefs
-				WHERE "date"::text = CURRENT_DATE::text 
-				   OR "date"::text = '2026-10-30'
+				WHERE "date"::text = '2026-10-30'
 				   OR "date"::text = '2026-10-29'
 				   OR what_changed ILIKE '%111.%' 
 				   OR market_snapshot ILIKE '%111.%'

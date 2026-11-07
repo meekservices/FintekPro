@@ -191,6 +191,25 @@ export const NCDEX_BASELINE_COMMODITIES: NcdexCommodityItem[] = [
     fmcgImpact: "Input feedstock for oleochemical producers (Jayant Agro-Organics, Fairchem Organics).",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
+  {
+    id: "CHANA",
+    name: "Chana (Desi Chickpeas)",
+    tradingSymbol: "CHANA",
+    deliveryCenter: "Bikaner / Delhi Mandi",
+    category: "Grains & Pulses",
+    price: 5850,
+    unit: "₹ / quintal",
+    previousClose: 5840,
+    change: 10,
+    changePercent: 0.17,
+    openInterest: 12400,
+    volume: 5200,
+    trend: "Neutral",
+    macroImplication:
+      "Buffer stock liquidation by NAFED and steady rabi arrivals stabilizing wholesale pulses inflation.",
+    fmcgImpact: "Anchor protein basket indicator; directly dictates retail besan and dal pricing.",
+    lastUpdated: new Date().toISOString().split("T")[0],
+  },
 ];
 
 // ── Service Implementation ─────────────────────────────────────────────────────

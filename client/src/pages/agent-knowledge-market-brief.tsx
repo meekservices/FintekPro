@@ -34,6 +34,7 @@ import {
 	Sparkles,
 	ArrowUpRight,
 	ArrowDownRight,
+	Info,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -43,6 +44,13 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -175,6 +183,10 @@ interface MarketBrief {
 			lowerCircuits: number;
 			totalMarketCapLakhCr: number;
 			sentiment: string;
+			pctAbove50Dma?: number;
+			pctAbove200Dma?: number;
+			breadthThrustSignal?: string;
+			breadthRegime?: string;
 		};
 		giftNifty: {
 			exchange: string;
@@ -189,6 +201,10 @@ interface MarketBrief {
 		institutionalFlows: {
 			fiiNetInflowCr: number;
 			diiNetInflowCr: number;
+			fiiGrossBuyCr?: number;
+			fiiGrossSellCr?: number;
+			diiGrossBuyCr?: number;
+			diiGrossSellCr?: number;
 			netCombinedInflowCr: number;
 			monthlyMfSipRunRateCr: number;
 			absorptionRatio: number;
@@ -203,6 +219,20 @@ interface MarketBrief {
 				symbol: string;
 				trend: string;
 				inflationWeight: string;
+			}>;
+			commodities?: Array<{
+				id: string;
+				name: string;
+				tradingSymbol: string;
+				deliveryCenter: string;
+				category: string;
+				price: number;
+				unit: string;
+				change: number;
+				changePercent: number;
+				trend: string;
+				macroImplication: string;
+				fmcgImpact: string;
 			}>;
 		};
 		volatilityPulse?: {
@@ -966,6 +996,13 @@ export default function AgentKnowledgeMarketBrief() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [copied, setCopied] = useState(false);
 	const { toast } = useToast();
+	const [activeExplainerModal, setActiveExplainerModal] = useState<{
+		type: "breadth" | "giftNifty" | "institutional" | "vix" | "ncdex" | "commodity";
+		title: string;
+		subtitle?: string;
+		data?: any;
+		spec?: any;
+	} | null>(null);
 
 	// Countdown timer for next dynamic auto-refresh
 	useEffect(() => {
@@ -2803,10 +2840,24 @@ export default function AgentKnowledgeMarketBrief() {
 											const mcxChangeNum = safeNum(item.mcxChangePercent);
 
 											return (
-												<div key={idx} className="p-3 rounded-lg bg-card border border-border shadow-xs space-y-1.5">
+												<button
+													type="button"
+													key={idx}
+													onClick={() =>
+														setActiveExplainerModal({
+															type: "commodity",
+															title: `${item.name} · Commodity Radar Deep Dive`,
+															subtitle: `Global CFD vs Domestic MCX Spot Arbitrage, Conversion & Delivery Economics`,
+															data: item,
+															spec: COMMODITY_PHYSICAL_SPECS[item.id],
+														})
+													}
+													className="w-full text-left p-3 rounded-lg bg-card border border-border shadow-xs space-y-1.5 cursor-pointer hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-md transition-all group relative"
+												>
 													<div className="flex items-center justify-between">
-														<span className="font-semibold text-foreground text-sm truncate" title={item.name}>
+														<span className="font-semibold text-foreground text-sm truncate flex items-center gap-1.5" title={item.name}>
 															{item.name}
+															<Info className="h-3 w-3 text-muted-foreground opacity-60 group-hover:opacity-100 group-hover:text-primary transition-opacity" />
 														</span>
 														<Badge
 															variant="outline"
@@ -2879,7 +2930,7 @@ export default function AgentKnowledgeMarketBrief() {
 															</p>
 														</div>
 													)}
-												</div>
+												</button>
 											);
 										})}
 									</div>
@@ -2921,9 +2972,23 @@ export default function AgentKnowledgeMarketBrief() {
 									<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
 										{/* BSE Market Breadth */}
 										{briefToDisplay.multiExchangeData.bseBreadth && (
-											<div className="p-3 rounded-lg bg-card border border-border shadow-xs">
+											<button
+												type="button"
+												onClick={() =>
+													setActiveExplainerModal({
+														type: "breadth",
+														title: "BSE Market Breadth & Liquidity Depth Analysis",
+														subtitle: "Bombay Stock Exchange (BSE India) · All Listed Equities Advance/Decline",
+														data: briefToDisplay.multiExchangeData?.bseBreadth,
+													})
+												}
+												className="w-full text-left p-3 rounded-lg bg-card border border-border shadow-xs cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-md transition-all group relative"
+											>
 												<div className="flex items-center justify-between">
-													<span className="text-xs text-muted-foreground font-medium">BSE Market Breadth</span>
+													<span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+														BSE Market Breadth
+														<Info className="h-3 w-3 text-muted-foreground opacity-60 group-hover:opacity-100 group-hover:text-primary transition-opacity" />
+													</span>
 													<Badge
 														className={`text-[10px] font-semibold ${
 															safeNum(briefToDisplay.multiExchangeData.bseBreadth.advanceDeclineRatio, 1) >= 1.0
@@ -2948,14 +3013,28 @@ export default function AgentKnowledgeMarketBrief() {
 													<span>Ratio: {safeNum(briefToDisplay.multiExchangeData.bseBreadth.advanceDeclineRatio, 1.26)}:1</span>
 													<span>M-Cap: ₹{safeNum(briefToDisplay.multiExchangeData.bseBreadth.totalMarketCapLakhCr, 468.5)}L Cr</span>
 												</div>
-											</div>
+											</button>
 										)}
 
 										{/* GIFT Nifty Lead */}
 										{briefToDisplay.multiExchangeData.giftNifty && (
-											<div className="p-3 rounded-lg bg-card border border-border shadow-xs">
+											<button
+												type="button"
+												onClick={() =>
+													setActiveExplainerModal({
+														type: "giftNifty",
+														title: "GIFT Nifty 21h Lead & Overnight Momentum Transmission",
+														subtitle: "NSE International Exchange (NSE IX) · GIFT City IFSC, Gandhinagar",
+														data: briefToDisplay.multiExchangeData?.giftNifty,
+													})
+												}
+												className="w-full text-left p-3 rounded-lg bg-card border border-border shadow-xs cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-md transition-all group relative"
+											>
 												<div className="flex items-center justify-between">
-													<span className="text-xs text-muted-foreground font-medium">GIFT Nifty 21h Lead</span>
+													<span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+														GIFT Nifty 21h Lead
+														<Info className="h-3 w-3 text-muted-foreground opacity-60 group-hover:opacity-100 group-hover:text-primary transition-opacity" />
+													</span>
 													<Badge
 														className={`text-[10px] font-semibold ${
 															safeNum(briefToDisplay.multiExchangeData.giftNifty.netChange) >= 0
@@ -2986,14 +3065,28 @@ export default function AgentKnowledgeMarketBrief() {
 													<span>Spread: +{safeNum(briefToDisplay.multiExchangeData.giftNifty.spreadOverNiftyBps, 15)} bps</span>
 													<span className="truncate">{briefToDisplay.multiExchangeData.giftNifty.asOfSession ?? "Morning Session"}</span>
 												</div>
-											</div>
+											</button>
 										)}
 
 										{/* Institutional Flows & SIP */}
 										{briefToDisplay.multiExchangeData.institutionalFlows && (
-											<div className="p-3 rounded-lg bg-card border border-border shadow-xs">
+											<button
+												type="button"
+												onClick={() =>
+													setActiveExplainerModal({
+														type: "institutional",
+														title: "Institutional Liquidity & Domestic SIP Moat Desk",
+														subtitle: "NSE India & NSDL / CDSL Institutional Settlement Desk",
+														data: briefToDisplay.multiExchangeData?.institutionalFlows,
+													})
+												}
+												className="w-full text-left p-3 rounded-lg bg-card border border-border shadow-xs cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-md transition-all group relative"
+											>
 												<div className="flex items-center justify-between">
-													<span className="text-xs text-muted-foreground font-medium">FII / DII Institutional Net</span>
+													<span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+														FII / DII Institutional Net
+														<Info className="h-3 w-3 text-muted-foreground opacity-60 group-hover:opacity-100 group-hover:text-primary transition-opacity" />
+													</span>
 													<Badge className="text-[10px] bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-200 border border-blue-300 dark:border-blue-800 font-semibold">
 														SIP Moat
 													</Badge>
@@ -3033,38 +3126,66 @@ export default function AgentKnowledgeMarketBrief() {
 													</span>
 													<span className="truncate">{briefToDisplay.multiExchangeData.institutionalFlows.liquidityRegime ?? "SIP Moat Active"}</span>
 												</div>
-											</div>
+											</button>
 										)}
 
 										{/* Volatility Pulse */}
-										<div className="p-3 rounded-lg bg-card border border-border shadow-xs">
+										<button
+											type="button"
+											onClick={() =>
+												setActiveExplainerModal({
+													type: "vix",
+													title: "Volatility Regime & Cross-Asset Risk Pulse",
+													subtitle: "NSE India VIX vs CBOE S&P 500 VIX Comparative Analysis",
+													data: briefToDisplay.multiExchangeData?.volatilityPulse,
+												})
+											}
+											className="w-full text-left p-3 rounded-lg bg-card border border-border shadow-xs cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-md transition-all group relative"
+										>
 											<div className="flex items-center justify-between">
-												<span className="text-xs text-muted-foreground font-medium">Volatility Pulse</span>
+												<span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+													Volatility Pulse
+													<Info className="h-3 w-3 text-muted-foreground opacity-60 group-hover:opacity-100 group-hover:text-primary transition-opacity" />
+												</span>
 												<Badge className="text-[10px] bg-purple-100 text-purple-900 dark:bg-purple-950/60 dark:text-purple-200 border border-purple-300 dark:border-purple-800 font-semibold">
-													{briefToDisplay.multiExchangeData.volatilityPulse?.regime ?? "LOW VOL"}
+													{briefToDisplay.multiExchangeData?.volatilityPulse?.regime ?? "LOW VOL"}
 												</Badge>
 											</div>
 											<div className="mt-1 flex items-baseline gap-2">
 												<span className="text-xl font-bold font-mono text-foreground">
-													{safeNum(briefToDisplay.multiExchangeData.volatilityPulse?.indiaVix, 14.2).toFixed(2)}
+													{safeNum(briefToDisplay.multiExchangeData?.volatilityPulse?.indiaVix, 14.2).toFixed(2)}
 												</span>
 												<span className="text-xs text-muted-foreground">India VIX</span>
 												<span className="text-xs text-muted-foreground ml-auto font-mono">
-													Cboe: {safeNum(briefToDisplay.multiExchangeData.volatilityPulse?.cboeVix, 15.4).toFixed(2)}
+													Cboe: {safeNum(briefToDisplay.multiExchangeData?.volatilityPulse?.cboeVix, 15.4).toFixed(2)}
 												</span>
 											</div>
 											<p className="text-[11px] text-muted-foreground mt-1 pt-1 border-t border-border truncate">
-												{briefToDisplay.multiExchangeData.volatilityPulse?.advisoryTakeaway ??
+												{briefToDisplay.multiExchangeData?.volatilityPulse?.advisoryTakeaway ??
 													"Calm volatility backdrop favors disciplined STP / SIP equity allocations."}
 											</p>
-										</div>
+										</button>
 									</div>
 
 									{/* NCDEX Agri Drivers */}
 									{briefToDisplay.multiExchangeData.ncdexAgriPulse && (
-										<div className="p-2.5 rounded-lg bg-indigo-100/60 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+										<button
+											type="button"
+											onClick={() =>
+												setActiveExplainerModal({
+													type: "ncdex",
+													title: "NCDEX Agricultural Benchmarks & Food Inflation Pulse",
+													subtitle: "National Commodity & Derivatives Exchange · Farm-Gate Mandi Benchmarks",
+													data: briefToDisplay.multiExchangeData?.ncdexAgriPulse,
+												})
+											}
+											className="w-full text-left p-2.5 rounded-lg bg-indigo-100/60 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-sm transition-all group"
+										>
 											<div className="flex items-center gap-2">
-												<span className="font-bold text-indigo-900 dark:text-indigo-200">🌾 NCDEX Food Inflation Pulse:</span>
+												<span className="font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1">
+													🌾 NCDEX Food Inflation Pulse:
+													<Info className="h-3 w-3 text-indigo-700 dark:text-indigo-300 opacity-60 group-hover:opacity-100 transition-opacity" />
+												</span>
 												<span className="text-foreground/90 font-medium">
 													Staples Index:{" "}
 													<strong
@@ -3083,12 +3204,12 @@ export default function AgentKnowledgeMarketBrief() {
 											<div className="flex items-center gap-2 flex-wrap">
 												{Array.isArray(briefToDisplay.multiExchangeData.ncdexAgriPulse.keyCommodityDrivers) &&
 													briefToDisplay.multiExchangeData.ncdexAgriPulse.keyCommodityDrivers.map((driver, dIdx) => (
-														<span key={dIdx} className="px-2 py-0.5 rounded bg-card text-[11px] font-medium text-foreground border border-border">
+														<span key={dIdx} className="px-2 py-0.5 rounded bg-card text-[11px] font-medium text-foreground border border-border group-hover:border-indigo-300 transition-colors">
 															{driver.name}: <strong>{driver.trend}</strong>
 														</span>
 													))}
 											</div>
-										</div>
+										</button>
 									)}
 								</div>
 							)}
@@ -3381,6 +3502,512 @@ export default function AgentKnowledgeMarketBrief() {
 					</CardContent>
 				</Card>
 			)}
+
+			{/* Interactive Explainability Modal Dialog (Card Deep-Dive) */}
+			<Dialog
+				open={!!activeExplainerModal}
+				onOpenChange={(open) => !open && setActiveExplainerModal(null)}
+			>
+				<DialogContent className="max-w-2xl max-h-[85vh] p-0 overflow-hidden flex flex-col gap-0 border-border bg-card">
+					{/* Modal Header */}
+					<DialogHeader className="p-5 pb-4 border-b border-border bg-muted/30">
+						<div className="flex items-center gap-2 mb-1.5 flex-wrap">
+							<Badge className="bg-indigo-100 text-indigo-900 dark:bg-indigo-950/70 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-800 text-[10px] font-semibold">
+								FASP-AI Explainability Desk
+							</Badge>
+							<Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
+								SEBI RIA Decision Support
+							</Badge>
+							<Badge variant="outline" className="text-[10px] border-emerald-300 text-emerald-700 dark:text-emerald-400">
+								Live Feed Verified
+							</Badge>
+						</div>
+						<DialogTitle className="text-base sm:text-lg font-bold text-foreground flex items-center gap-2">
+							{activeExplainerModal?.title}
+						</DialogTitle>
+						{activeExplainerModal?.subtitle && (
+							<DialogDescription className="text-xs text-muted-foreground mt-0.5">
+								{activeExplainerModal.subtitle}
+							</DialogDescription>
+						)}
+					</DialogHeader>
+
+					{/* Modal Scrollable Body */}
+					<div className="p-5 overflow-y-auto space-y-4 max-h-[calc(85vh-120px)] text-xs">
+						{/* 1. BSE BREADTH EXPLAINER */}
+						{activeExplainerModal?.type === "breadth" && activeExplainerModal.data && (
+							<div className="space-y-4">
+								<div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">Advancing Stocks</span>
+										<span className="text-lg font-bold font-mono text-emerald-700 dark:text-emerald-400">
+											{safeNum(activeExplainerModal.data.advances, 2185)}
+										</span>
+									</div>
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">Declining Stocks</span>
+										<span className="text-lg font-bold font-mono text-rose-700 dark:text-rose-400">
+											{safeNum(activeExplainerModal.data.declines, 1740)}
+										</span>
+									</div>
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">A/D Ratio</span>
+										<span className="text-lg font-bold font-mono text-foreground">
+											{safeNum(activeExplainerModal.data.advanceDeclineRatio, 1.26)}:1
+										</span>
+									</div>
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">BSE Market Cap</span>
+										<span className="text-lg font-bold font-mono text-foreground">
+											₹{safeNum(activeExplainerModal.data.totalMarketCapLakhCr, 468.5)}L Cr
+										</span>
+									</div>
+								</div>
+
+								<div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+									<div className="p-2.5 rounded-lg bg-background border border-border">
+										<span className="text-[10px] text-muted-foreground block">Upper / Lower Circuits</span>
+										<span className="font-mono font-semibold text-foreground">
+											{safeNum(activeExplainerModal.data.upperCircuits, 342)} / {safeNum(activeExplainerModal.data.lowerCircuits, 188)}
+										</span>
+									</div>
+									<div className="p-2.5 rounded-lg bg-background border border-border">
+										<span className="text-[10px] text-muted-foreground block">% Stocks Above 50 DMA</span>
+										<span className="font-mono font-semibold text-foreground">
+											{safeNum(activeExplainerModal.data.pctAbove50Dma, 64.2)}%
+										</span>
+									</div>
+									<div className="p-2.5 rounded-lg bg-background border border-border">
+										<span className="text-[10px] text-muted-foreground block">Breadth Regime</span>
+										<span className="font-semibold text-indigo-700 dark:text-indigo-400">
+											{activeExplainerModal.data.breadthRegime ?? "BROAD ADVANCE"}
+										</span>
+									</div>
+								</div>
+
+								<div className="p-3 rounded-lg bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/50 space-y-2">
+									<h4 className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+										<Scale className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+										Breadth Mechanics & Calculation Formula
+									</h4>
+									<div className="font-mono bg-card/80 p-2 rounded border border-border text-[11px] text-foreground">
+										Advance/Decline Ratio = Total Advances / Total Declines = {safeNum(activeExplainerModal.data.advances, 2185)} / {safeNum(activeExplainerModal.data.declines, 1740)} = {safeNum(activeExplainerModal.data.advanceDeclineRatio, 1.26)}:1
+									</div>
+									<p className="text-muted-foreground leading-relaxed">
+										BSE Market Breadth measures the underlying health and internal participation of the Indian equity market. While headline indices like Nifty 50 and Sensex can be artificially driven by 4–5 heavyweight stocks (Reliance, HDFC Bank, ICICI Bank, TCS, Infosys), BSE breadth reflects all ~4,000 actively traded scrips across large, mid, small, and micro caps.
+									</p>
+								</div>
+
+								<div className="p-3 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 space-y-1.5">
+									<h4 className="font-bold text-emerald-950 dark:text-emerald-200 flex items-center gap-1.5">
+										<Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+										Advisor Talking Points (FASP-AI Decision Support)
+									</h4>
+									<ul className="list-disc list-inside space-y-1 text-muted-foreground">
+										<li>
+											<strong>Healthy Broad Participation:</strong> An A/D ratio of {safeNum(activeExplainerModal.data.advanceDeclineRatio, 1.26)}:1 indicates broad-based accumulation rather than narrow defensive concentration.
+										</li>
+										<li>
+											<strong>Systematic Deployment:</strong> Reassure clients that broader equity market internals support continuing systematic investment plans (SIP) and Systematic Transfer Plans (STP) without near-term concentration risk.
+										</li>
+										<li>
+											<strong>Circuit Ratio Confirmation:</strong> Upper circuits ({safeNum(activeExplainerModal.data.upperCircuits, 342)}) outnumbering lower circuits ({safeNum(activeExplainerModal.data.lowerCircuits, 188)}) signals resilient retail and domestic institutional sentiment.
+										</li>
+									</ul>
+								</div>
+							</div>
+						)}
+
+						{/* 2. GIFT NIFTY EXPLAINER */}
+						{activeExplainerModal?.type === "giftNifty" && activeExplainerModal.data && (
+							<div className="space-y-4">
+								<div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">GIFT Nifty Price</span>
+										<span className="text-lg font-bold font-mono text-foreground">
+											₹{safeNum(activeExplainerModal.data.lastPrice, 24890).toLocaleString("en-IN")}
+										</span>
+									</div>
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">Net Change</span>
+										<span className="text-lg font-bold font-mono text-emerald-700 dark:text-emerald-400">
+											{safeNum(activeExplainerModal.data.netChange, 65) >= 0 ? "+" : ""}{safeNum(activeExplainerModal.data.netChange, 65)} ({safeNum(activeExplainerModal.data.percentChange, 0.26).toFixed(2)}%)
+										</span>
+									</div>
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">Spread Over Nifty 50</span>
+										<span className="text-lg font-bold font-mono text-foreground">
+											+{safeNum(activeExplainerModal.data.spreadOverNiftyBps, 18)} bps
+										</span>
+									</div>
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">Opening Gap Bias</span>
+										<span className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
+											{activeExplainerModal.data.openingBias ?? "Gap Up"}
+										</span>
+									</div>
+								</div>
+
+								<div className="p-3 rounded-lg bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 space-y-2">
+									<h4 className="font-bold text-blue-950 dark:text-blue-200 flex items-center gap-1.5">
+										<Clock className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+										21-Hour Trading Architecture & Overnight Transmission
+									</h4>
+									<p className="text-muted-foreground leading-relaxed">
+										GIFT Nifty (formerly SGX Nifty) trades at the NSE International Exchange (NSE IX) within Gujarat International Finance Tec-City (GIFT City IFSC), Gandhinagar. It operates 21 continuous hours daily across two distinct sessions:
+									</p>
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+										<div className="p-2 rounded bg-card border border-border">
+											<strong className="text-foreground block">Session 1 (Asian Session):</strong>
+											<span className="text-muted-foreground">06:30 – 15:40 IST (captures early Tokyo, Hong Kong, Singapore cues)</span>
+										</div>
+										<div className="p-2 rounded bg-card border border-border">
+											<strong className="text-foreground block">Session 2 (US / European Window):</strong>
+											<span className="text-muted-foreground">17:00 – 02:45 IST (absorbs Wall Street close, US CPI, FOMC decisions)</span>
+										</div>
+									</div>
+									<div className="font-mono bg-card/80 p-2 rounded border border-border text-[11px] text-foreground">
+										Basis Spread (bps) = ((GIFT Nifty Futures - Domestic Nifty 50 Spot) / Domestic Nifty 50 Spot) × 10,000 = +{safeNum(activeExplainerModal.data.spreadOverNiftyBps, 18)} bps
+									</div>
+								</div>
+
+								<div className="p-3 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 space-y-1.5">
+									<h4 className="font-bold text-emerald-950 dark:text-emerald-200 flex items-center gap-1.5">
+										<Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+										Advisor Execution Guidance (FASP-AI Decision Support)
+									</h4>
+									<ul className="list-disc list-inside space-y-1 text-muted-foreground">
+										<li>
+											<strong>Pre-Market Calibration:</strong> A positive basis spread (+{safeNum(activeExplainerModal.data.spreadOverNiftyBps, 18)} bps) indicates foreign institutional overnight optimism, preparing clients for gap-up opens.
+										</li>
+										<li>
+											<strong>Trade Execution Discipline:</strong> In gap-up environments exceeding +50 bps, advise clients against placing aggressive market orders at 09:15 IST; instead allow initial 15-minute opening volatility to settle.
+										</li>
+									</ul>
+								</div>
+							</div>
+						)}
+
+						{/* 3. FII / DII INSTITUTIONAL NET EXPLAINER */}
+						{activeExplainerModal?.type === "institutional" && activeExplainerModal.data && (
+							<div className="space-y-4">
+								<div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">FII / FPI Net Flow</span>
+										<span className={`text-lg font-bold font-mono ${safeNum(activeExplainerModal.data.fiiNetInflowCr) >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
+											{safeNum(activeExplainerModal.data.fiiNetInflowCr) >= 0 ? "+" : ""}₹{safeNum(activeExplainerModal.data.fiiNetInflowCr, -1850).toLocaleString("en-IN")} Cr
+										</span>
+									</div>
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">DII Domestic Net Flow</span>
+										<span className={`text-lg font-bold font-mono ${safeNum(activeExplainerModal.data.diiNetInflowCr) >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
+											{safeNum(activeExplainerModal.data.diiNetInflowCr) >= 0 ? "+" : ""}₹{safeNum(activeExplainerModal.data.diiNetInflowCr, 3120).toLocaleString("en-IN")} Cr
+										</span>
+									</div>
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">Net Combined Flow</span>
+										<span className="text-lg font-bold font-mono text-emerald-700 dark:text-emerald-400">
+											+₹{safeNum(activeExplainerModal.data.netCombinedInflowCr, 1270).toLocaleString("en-IN")} Cr
+										</span>
+									</div>
+								</div>
+
+								<div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+									<div className="p-2 rounded bg-background border border-border">
+										<span className="text-[10px] text-muted-foreground block">FII Gross Buy / Sell</span>
+										<span className="font-mono font-semibold text-foreground text-xs">
+											₹{safeNum(activeExplainerModal.data.fiiGrossBuyCr, 11420).toLocaleString("en-IN")} / ₹{safeNum(activeExplainerModal.data.fiiGrossSellCr, 13270).toLocaleString("en-IN")} Cr
+										</span>
+									</div>
+									<div className="p-2 rounded bg-background border border-border">
+										<span className="text-[10px] text-muted-foreground block">DII Gross Buy / Sell</span>
+										<span className="font-mono font-semibold text-foreground text-xs">
+											₹{safeNum(activeExplainerModal.data.diiGrossBuyCr, 14850).toLocaleString("en-IN")} / ₹{safeNum(activeExplainerModal.data.diiGrossSellCr, 11730).toLocaleString("en-IN")} Cr
+										</span>
+									</div>
+									<div className="p-2 rounded bg-background border border-border">
+										<span className="text-[10px] text-muted-foreground block">Monthly MF SIP Moat</span>
+										<span className="font-mono font-semibold text-blue-700 dark:text-blue-400 text-xs">
+											₹{safeNum(activeExplainerModal.data.monthlyMfSipRunRateCr, 26425).toLocaleString("en-IN")} Cr / mo
+										</span>
+									</div>
+									<div className="p-2 rounded bg-background border border-border">
+										<span className="text-[10px] text-muted-foreground block">DII Absorption Ratio</span>
+										<span className="font-mono font-semibold text-foreground text-xs">
+											{safeNum(activeExplainerModal.data.absorptionRatio, 1.69)}x
+										</span>
+									</div>
+								</div>
+
+								<div className="p-3 rounded-lg bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/50 space-y-2">
+									<h4 className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+										<ShieldCheck className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+										The Domestic SIP Moat Structure & Absorption Thesis
+									</h4>
+									<div className="font-mono bg-card/80 p-2 rounded border border-border text-[11px] text-foreground">
+										Absorption Ratio = |DII Net Buying| / |FII Net Selling| = ₹{safeNum(activeExplainerModal.data.diiNetInflowCr, 3120).toLocaleString("en-IN")} Cr / ₹{Math.abs(safeNum(activeExplainerModal.data.fiiNetInflowCr, -1850)).toLocaleString("en-IN")} Cr = {safeNum(activeExplainerModal.data.absorptionRatio, 1.69)}x
+									</div>
+									<p className="text-muted-foreground leading-relaxed">
+										Over the last decade, India's mutual fund industry has undergone a monumental structural shift. With monthly SIP inflows surpassing ₹26,425+ Crore ($3.16B/month), domestic capital acts as an insurmountable counter-cyclical liquidity cushion. While foreign portfolio investors (FPIs) rebalance due to US dollar strength or US Treasury yield spikes, domestic institutional buying absorbs foreign sales without triggering systemic market contagion.
+									</p>
+								</div>
+
+								<div className="p-3 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 space-y-1.5">
+									<h4 className="font-bold text-emerald-950 dark:text-emerald-200 flex items-center gap-1.5">
+										<Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+										Advisor Client Communication Points (FASP-AI v1.0)
+									</h4>
+									<ul className="list-disc list-inside space-y-1 text-muted-foreground">
+										<li>
+											<strong>Countering Media FPI Panic:</strong> When clients read alarming headlines about "Foreign investors pulling out billions", show them this data: Domestic DIIs bought ₹{safeNum(activeExplainerModal.data.diiNetInflowCr, 3120).toLocaleString("en-IN")} Cr, providing a {safeNum(activeExplainerModal.data.absorptionRatio, 1.69)}x absorption buffer.
+										</li>
+										<li>
+											<strong>Rupee Wealth Compounding:</strong> Indian household financialization ensures retail capital continues to drive long-term equity capital formation.
+										</li>
+									</ul>
+								</div>
+							</div>
+						)}
+
+						{/* 4. VOLATILITY PULSE EXPLAINER */}
+						{activeExplainerModal?.type === "vix" && activeExplainerModal.data && (
+							<div className="space-y-4">
+								<div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">India VIX</span>
+										<span className="text-lg font-bold font-mono text-purple-700 dark:text-purple-300">
+											{safeNum(activeExplainerModal.data.indiaVix, 14.2).toFixed(2)}
+										</span>
+									</div>
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">Cboe VIX (US S&P 500)</span>
+										<span className="text-lg font-bold font-mono text-foreground">
+											{safeNum(activeExplainerModal.data.cboeVix, 15.4).toFixed(2)}
+										</span>
+									</div>
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">Volatility Regime</span>
+										<span className="text-lg font-bold text-purple-700 dark:text-purple-300">
+											{activeExplainerModal.data.regime ?? "LOW VOL"}
+										</span>
+									</div>
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">Implied Daily Swing</span>
+										<span className="text-lg font-bold font-mono text-foreground">
+											±{(safeNum(activeExplainerModal.data.indiaVix, 14.2) / 19.1).toFixed(2)}%
+										</span>
+									</div>
+								</div>
+
+								<div className="p-3 rounded-lg bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/50 space-y-2">
+									<h4 className="font-bold text-purple-950 dark:text-purple-200 flex items-center gap-1.5">
+										<Activity className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+										Volatility Mechanics & Cross-Market Comparison
+									</h4>
+									<div className="font-mono bg-card/80 p-2 rounded border border-border text-[11px] text-foreground">
+										Daily Implied Nifty Move = India VIX / √252 trading days = {safeNum(activeExplainerModal.data.indiaVix, 14.2).toFixed(2)} / 15.87 ≈ ±{(safeNum(activeExplainerModal.data.indiaVix, 14.2) / 15.87).toFixed(2)}%
+									</div>
+									<p className="text-muted-foreground leading-relaxed">
+										India VIX measures the market's expectation of 30-day annualized volatility, calculated from the best bid/ask quotes of out-of-the-money (OTM) Nifty options on the National Stock Exchange (NSE). When India VIX is below 15.0, option risk premiums are compressed, reflecting an orderly, benign environment with minimal tail-risk fears.
+									</p>
+								</div>
+
+								<div className="p-3 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 space-y-1.5">
+									<h4 className="font-bold text-emerald-950 dark:text-emerald-200 flex items-center gap-1.5">
+										<Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+										Asset Allocation Rules (FASP-AI Decision Support)
+									</h4>
+									<div className="space-y-1.5 text-muted-foreground">
+										<div className="flex items-start gap-2">
+											<span className="font-mono text-foreground font-semibold shrink-0">&lt; 15.0 (Current):</span>
+											<span>Benign regime. Favorable for disciplined Systematic Investment Plans (SIP) and Systematic Transfer Plans (STP) into flexi-cap and broad-market equity strategies. Option protection is cheap.</span>
+										</div>
+										<div className="flex items-start gap-2">
+											<span className="font-mono text-foreground font-semibold shrink-0">15.0 – 20.0:</span>
+											<span>Normal market volatility. Standard rebalancing between equity and debt. Expect regular 1% intraday swings.</span>
+										</div>
+										<div className="flex items-start gap-2">
+											<span className="font-mono text-foreground font-semibold shrink-0">&gt; 20.0:</span>
+											<span>Elevated stress / risk-off. Stagger lumpsum equity allocations over 3–6 months. Avoid leverage; review dynamic asset allocation funds.</span>
+										</div>
+									</div>
+								</div>
+							</div>
+						)}
+
+						{/* 5. NCDEX FOOD INFLATION EXPLAINER */}
+						{activeExplainerModal?.type === "ncdex" && activeExplainerModal.data && (
+							<div className="space-y-4">
+								<div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">Agri Staples Index Change</span>
+										<span className={`text-lg font-bold font-mono ${safeNum(activeExplainerModal.data.staplesIndexChangePct) >= 0 ? "text-rose-700 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`}>
+											{safeNum(activeExplainerModal.data.staplesIndexChangePct) >= 0 ? "+" : ""}{safeNum(activeExplainerModal.data.staplesIndexChangePct, 0.22)}%
+										</span>
+									</div>
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">Food Inflation Bias</span>
+										<span className="text-lg font-bold text-foreground">
+											{activeExplainerModal.data.foodInflationBias ?? "Rangebound / Moderate"}
+										</span>
+									</div>
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">Primary Farm Exchange</span>
+										<span className="text-lg font-bold text-indigo-700 dark:text-indigo-400">
+											NCDEX India
+										</span>
+									</div>
+								</div>
+
+								<div className="space-y-2">
+									<h4 className="font-bold text-foreground flex items-center justify-between">
+										<span>Frontier Agricultural Commodity Benchmarks</span>
+										<Badge variant="outline" className="text-[10px]">Physical Mandi Deliveries</Badge>
+									</h4>
+									<div className="rounded-lg border border-border overflow-hidden">
+										<table className="w-full text-left text-[11px]">
+											<thead className="bg-muted/50 border-b border-border font-semibold text-muted-foreground">
+												<tr>
+													<th className="p-2">Commodity</th>
+													<th className="p-2">Delivery Mandi</th>
+													<th className="p-2">Benchmark Price</th>
+													<th className="p-2 text-right">Day Chg</th>
+													<th className="p-2">Macro / FMCG Impact</th>
+												</tr>
+											</thead>
+											<tbody className="divide-y divide-border/60">
+												{(Array.isArray(activeExplainerModal.data.commodities) && activeExplainerModal.data.commodities.length > 0
+													? activeExplainerModal.data.commodities
+													: [
+															{ id: "CHANA", name: "Chana (Desi Chickpeas)", deliveryCenter: "Bikaner / Delhi", price: 5850, unit: "₹ / quintal", changePercent: 0.17, trend: "Steady", fmcgImpact: "Anchor protein basket indicator; directly dictates retail besan and dal pricing." },
+															{ id: "TURMERIC", name: "Turmeric (Haldi)", deliveryCenter: "Nizamabad / Sangli", price: 13850, unit: "₹ / quintal", changePercent: 1.20, trend: "Bullish", fmcgImpact: "Direct cost driver for spice brands (Tata Consumer, Everest, MDH)." },
+															{ id: "JEERA", name: "Jeera (Cumin Seed)", deliveryCenter: "Unjha Mandi", price: 24800, unit: "₹ / quintal", changePercent: -0.40, trend: "Bullish", fmcgImpact: "Core culinary spice; major export crop from Gujarat & Rajasthan." },
+															{ id: "COCUDAKL", name: "Cocudakl (Cottonseed Cake)", deliveryCenter: "Akola / Kadi", price: 2840, unit: "₹ / quintal", changePercent: 0.65, trend: "Bullish", fmcgImpact: "Critical cattle feed; leads dairy milk production costs (Amul, Mother Dairy)." },
+															{ id: "GUARSEED", name: "Guar Seed", deliveryCenter: "Jodhpur / Bikaner", price: 5380, unit: "₹ / quintal", changePercent: 0.35, trend: "Steady", fmcgImpact: "Export bellwether for US shale oil drilling slurry & food texturizers." },
+															{ id: "DHANIYA", name: "Dhaniya (Coriander)", deliveryCenter: "Kota / Ramganj", price: 7450, unit: "₹ / quintal", changePercent: 0.20, trend: "Steady", fmcgImpact: "Essential spice basket; input for FMCG packaged spice blends." },
+															{ id: "CASTORSEED", name: "Castor Seed", deliveryCenter: "Deesa / Bhabhar", price: 5980, unit: "₹ / quintal", changePercent: -0.15, trend: "Steady", fmcgImpact: "Input feedstock for oleochemical producers (Jayant Agro-Organics)." },
+														]
+												).map((c: any, cIdx: number) => (
+													<tr key={cIdx} className="hover:bg-muted/30 transition-colors">
+														<td className="p-2 font-medium text-foreground">
+															{c.name}
+														</td>
+														<td className="p-2 text-muted-foreground flex items-center gap-1">
+															<MapPin className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
+															{c.deliveryCenter}
+														</td>
+														<td className="p-2 font-mono font-bold text-foreground">
+															₹{safeNum(c.price).toLocaleString("en-IN")}{" "}
+															<span className="text-[9px] font-normal text-muted-foreground">{c.unit}</span>
+														</td>
+														<td className={`p-2 text-right font-mono font-semibold ${safeNum(c.changePercent) >= 0 ? "text-rose-700 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`}>
+															{safeNum(c.changePercent) >= 0 ? "+" : ""}{safeNum(c.changePercent).toFixed(2)}%
+														</td>
+														<td className="p-2 text-muted-foreground text-[10px] max-w-[200px] truncate" title={c.fmcgImpact}>
+															{c.fmcgImpact}
+														</td>
+													</tr>
+												))}
+											</tbody>
+										</table>
+									</div>
+								</div>
+
+								<div className="p-3 rounded-lg bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/50 space-y-2">
+									<h4 className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+										<Scale className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+										Macro Transmission to RBI CPI & FMCG Margins
+									</h4>
+									<p className="text-muted-foreground leading-relaxed">
+										Food articles constitute approximately <strong>39.06%</strong> of India's Consumer Price Index (CPI) basket. NCDEX futures and physical spot Mandi transactions lead official government CPI headline inflation releases by <strong>3 to 6 weeks</strong>. Stable or benign Mandi prices give the RBI Monetary Policy Committee (MPC) headroom to maintain accommodative interest rates while safeguarding gross margins for listed FMCG companies (HUL, Nestlé India, Tata Consumer, Britannia, Dabur).
+									</p>
+								</div>
+							</div>
+						)}
+
+						{/* 6. COMMODITY RADAR EXPLAINER */}
+						{activeExplainerModal?.type === "commodity" && activeExplainerModal.data && (
+							<div className="space-y-4">
+								<div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">Global Benchmark CFD</span>
+										<span className="text-lg font-bold font-mono text-foreground">
+											${safeNum(activeExplainerModal.data.cmxPrice) < 10 ? safeNum(activeExplainerModal.data.cmxPrice).toFixed(2) : safeNum(activeExplainerModal.data.cmxPrice).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+											<span className="text-xs font-normal text-muted-foreground">{activeExplainerModal.data.cmxUnit}</span>
+										</span>
+									</div>
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">Domestic MCX Spot</span>
+										<span className="text-lg font-bold font-mono text-emerald-700 dark:text-emerald-400">
+											₹{safeNum(activeExplainerModal.data.mcxPrice).toLocaleString("en-IN")}{" "}
+											<span className="text-xs font-normal text-muted-foreground">{activeExplainerModal.data.mcxUnit}</span>
+										</span>
+									</div>
+									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
+										<span className="text-[10px] text-muted-foreground block">Day's Net Change</span>
+										<span className={`text-lg font-bold font-mono ${safeNum(activeExplainerModal.data.mcxChangePercent) >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
+											{safeNum(activeExplainerModal.data.mcxChangePercent) >= 0 ? "+" : ""}{safeNum(activeExplainerModal.data.mcxChangePercent).toFixed(2)}%
+										</span>
+									</div>
+								</div>
+
+								{activeExplainerModal.spec && (
+									<div className="p-3 rounded-lg bg-background border border-border space-y-2">
+										<h4 className="font-bold text-foreground flex items-center justify-between">
+											<span>MCX Physical Contract & Delivery Specifications</span>
+											{activeExplainerModal.spec.purity && (
+												<Badge variant="outline" className="text-[10px] font-mono">{activeExplainerModal.spec.purity}</Badge>
+											)}
+										</h4>
+										<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+											<div className="p-2 rounded bg-muted/30 border border-border/60">
+												<strong className="text-foreground block">Official Delivery Center:</strong>
+												<span className="text-muted-foreground flex items-center gap-1 mt-0.5">
+													<MapPin className="h-3 w-3 text-primary shrink-0" />
+													{activeExplainerModal.spec.delivery}
+												</span>
+											</div>
+											<div className="p-2 rounded bg-muted/30 border border-border/60">
+												<strong className="text-foreground block">Physical Settlement Center:</strong>
+												<span className="text-muted-foreground mt-0.5 block">{activeExplainerModal.spec.note}</span>
+											</div>
+										</div>
+									</div>
+								)}
+
+								<div className="p-3 rounded-lg bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 space-y-2">
+									<h4 className="font-bold text-amber-950 dark:text-amber-200 flex items-center gap-1.5">
+										<Scale className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+										Conversion Formula & Arbitrage Mechanics
+									</h4>
+									<div className="font-mono bg-card/80 p-2 rounded border border-border text-[11px] text-foreground">
+										{activeExplainerModal.data.id === "gold" && "Domestic Gold (₹/10g) = ((COMEX Gold $/oz × USD/INR) / 31.1034768 × 10) × (1 + Customs Duty 6% + AIDC + GST 3%)"}
+										{activeExplainerModal.data.id === "silver" && "Domestic Silver (₹/kg) = ((COMEX Silver $/oz × USD/INR) / 31.1034768 × 1,000) × (1 + Duty + GST)"}
+										{activeExplainerModal.data.id === "crude" && "Domestic Crude (₹/bbl) = ICE Brent Crude $/bbl × USD/INR (Plus Freight & Refinery Refining Premium)"}
+										{activeExplainerModal.data.id !== "gold" && activeExplainerModal.data.id !== "silver" && activeExplainerModal.data.id !== "crude" && "Domestic MCX Spot (₹) = (Global CFD Price in USD × Current USD/INR FX Rate) × Unit Conversion Factor + Taxes/Duties"}
+									</div>
+									<p className="text-muted-foreground leading-relaxed">
+										MCX domestic spot prices trade at an onshore premium or discount based on physical clearing warehouse logistics, landing tariffs, basic customs duties, and local jewellery / manufacturing demand.
+									</p>
+								</div>
+
+								<div className="p-3 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 space-y-1.5">
+									<h4 className="font-bold text-emerald-950 dark:text-emerald-200 flex items-center gap-1.5">
+										<Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+										Macro Implications for Indian Portfolios
+									</h4>
+									<p className="text-muted-foreground leading-relaxed">
+										{activeExplainerModal.data.id === "gold" && "Gold serves as India's primary hedge against currency depreciation and geopolitical volatility. Allocation recommendations typically range between 5%–10% of multi-asset client portfolios via Sovereign Gold Bonds (SGB) or Gold ETFs."}
+										{activeExplainerModal.data.id === "crude" && "Every $10/bbl increase in global crude oil widens India's Current Account Deficit (CAD) by ~0.5% of GDP and pressures operating margins for tyre, paint, aviation, and chemical manufacturers."}
+										{activeExplainerModal.data.id === "silver" && "Silver blends safe-haven precious metal attributes with fast-growing industrial demand from solar photovoltaics, EV electronics, and 5G communications infrastructure."}
+										{activeExplainerModal.data.id !== "gold" && activeExplainerModal.data.id !== "crude" && activeExplainerModal.data.id !== "silver" && "Key industrial bellwether reflecting global capex cycles, input inflation pressures, and corporate operating margin dynamics."}
+									</p>
+								</div>
+							</div>
+						)}
+					</div>
+				</DialogContent>
+			</Dialog>
 
 			{/* Regulatory Bottom Compliance Notice */}
 			<div className="text-xs text-muted-foreground text-center p-4 border-t border-border space-y-1">

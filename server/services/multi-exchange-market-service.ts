@@ -24,6 +24,10 @@ export interface BseMarketBreadth {
 	lowerCircuits: number;
 	totalMarketCapLakhCr: number;
 	sentiment: "Bullish Breadth" | "Neutral Breadth" | "Defensive Breadth";
+	pctAbove50Dma?: number;
+	pctAbove200Dma?: number;
+	breadthThrustSignal?: string;
+	breadthRegime?: string;
 }
 
 export interface GiftNiftyIndicator {
@@ -40,6 +44,10 @@ export interface GiftNiftyIndicator {
 export interface InstitutionalCashFlows {
 	fiiNetInflowCr: number;
 	diiNetInflowCr: number;
+	fiiGrossBuyCr?: number;
+	fiiGrossSellCr?: number;
+	diiGrossBuyCr?: number;
+	diiGrossSellCr?: number;
 	netCombinedInflowCr: number;
 	monthlyMfSipRunRateCr: number;
 	absorptionRatio: number;
@@ -48,14 +56,28 @@ export interface InstitutionalCashFlows {
 }
 
 export interface NcdexAgriPulse {
-	exchange: "NCDEX";
+	exchange: string;
 	staplesIndexChangePct: number;
-	foodInflationBias: "Benign (<4.5%)" | "Moderate (4.5%–5.5%)" | "Elevated (>5.5%)";
+	foodInflationBias: string;
 	keyCommodityDrivers: Array<{
 		name: string;
 		symbol: string;
-		trend: "Firm" | "Soft" | "Stable";
+		trend: "Bullish" | "Cooling" | "Steady" | "Firm" | "Soft" | "Stable";
 		inflationWeight: string;
+	}>;
+	commodities?: Array<{
+		id: string;
+		name: string;
+		tradingSymbol: string;
+		deliveryCenter: string;
+		category: string;
+		price: number;
+		unit: string;
+		change: number;
+		changePercent: number;
+		trend: string;
+		macroImplication: string;
+		fmcgImpact: string;
 	}>;
 }
 
@@ -141,6 +163,10 @@ export class MultiExchangeMarketService {
 			lowerCircuits: 188,
 			totalMarketCapLakhCr: 468.5,
 			sentiment: "Bullish Breadth",
+			pctAbove50Dma: 64.2,
+			pctAbove200Dma: 71.5,
+			breadthThrustSignal: "Active Thrust / Broad Participation",
+			breadthRegime: "BROAD_ADVANCE",
 		};
 
 		try {
@@ -161,6 +187,10 @@ export class MultiExchangeMarketService {
 							: liveBreadth.breadthRegime === "BROAD_DECLINE"
 								? "Defensive Breadth"
 								: "Neutral Breadth",
+					pctAbove50Dma: liveBreadth.pctAbove50Dma,
+					pctAbove200Dma: liveBreadth.pctAbove200Dma,
+					breadthThrustSignal: liveBreadth.breadthThrustSignal ? "Active Thrust / Broad Participation" : "Normal Internal Momentum",
+					breadthRegime: liveBreadth.breadthRegime,
 				};
 			}
 		} catch (bErr: any) {
@@ -185,15 +215,24 @@ export class MultiExchangeMarketService {
 		// 4. Institutional Cash Flow Provisional Figures (Live from IndianAPI or GPE)
 		let fiiNetInflowCr = -1850;
 		let diiNetInflowCr = +3120;
+		let fiiGrossBuyCr: number | undefined = 11420;
+		let fiiGrossSellCr: number | undefined = 13270;
+		let diiGrossBuyCr: number | undefined = 14850;
+		let diiGrossSellCr: number | undefined = 11730;
+
 		try {
 			const { indianApiService } = await import("./indian-api-service");
 			const fiiRes = await indianApiService.getLatestFIIDII();
 			if (fiiRes?.success && fiiRes.data) {
 				if (typeof fiiRes.data.fii?.net === "number" && fiiRes.data.fii.net !== 0) {
 					fiiNetInflowCr = fiiRes.data.fii.net;
+					if (fiiRes.data.fii.buy) fiiGrossBuyCr = fiiRes.data.fii.buy;
+					if (fiiRes.data.fii.sell) fiiGrossSellCr = fiiRes.data.fii.sell;
 				}
 				if (typeof fiiRes.data.dii?.net === "number" && fiiRes.data.dii.net !== 0) {
 					diiNetInflowCr = fiiRes.data.dii.net;
+					if (fiiRes.data.dii.buy) diiGrossBuyCr = fiiRes.data.dii.buy;
+					if (fiiRes.data.dii.sell) diiGrossSellCr = fiiRes.data.dii.sell;
 				}
 			}
 		} catch (fiiErr: any) {
@@ -222,6 +261,10 @@ export class MultiExchangeMarketService {
 		const institutionalFlows: InstitutionalCashFlows = {
 			fiiNetInflowCr,
 			diiNetInflowCr,
+			fiiGrossBuyCr,
+			fiiGrossSellCr,
+			diiGrossBuyCr,
+			diiGrossSellCr,
 			netCombinedInflowCr,
 			monthlyMfSipRunRateCr,
 			absorptionRatio,
@@ -229,31 +272,69 @@ export class MultiExchangeMarketService {
 			asOfDate,
 		};
 
-		// 5. NCDEX Agricultural Inflation Pulse (from GPE commodity radar when available)
-		const agriCommodities = goldenSnapshot?.commodities?.agricultural;
-		const ncdexAgriPulse: NcdexAgriPulse = {
+		// 5. NCDEX Agricultural Inflation Pulse (Dynamic from NcdexMarketService)
+		let ncdexAgriPulse: NcdexAgriPulse = {
 			exchange: "NCDEX",
-			staplesIndexChangePct: goldenSnapshot?.commodities?.agriInflationIndex?.averageChangePercent ?? -0.45,
-			foodInflationBias:
-				goldenSnapshot?.commodities?.agriInflationIndex?.status === "Elevated"
-					? "Elevated (>5.5%)"
-					: goldenSnapshot?.commodities?.agriInflationIndex?.status === "Deflationary"
-						? "Benign (<4.5%)"
-						: "Moderate (4.5%–5.5%)",
-			keyCommodityDrivers: Array.isArray(agriCommodities) && agriCommodities.length > 0
-				? agriCommodities.map((c: any) => ({
-						name: c.name,
-						symbol: c.tradingSymbol || c.id,
-						trend: (c.changePercent > 0.5 ? "Firm" : c.changePercent < -0.5 ? "Soft" : "Stable") as "Firm" | "Soft" | "Stable",
-						inflationWeight: c.fmcgImpact || "Moderate",
-					}))
-				: [
-						{ name: "Turmeric (Nizamabad)", symbol: "TMCFGRNZM", trend: "Stable", inflationWeight: "Moderate" },
-						{ name: "Jeera (Unjha)", symbol: "JEERAUNJHA", trend: "Soft", inflationWeight: "Low" },
-						{ name: "Chana / Gram", symbol: "CHANA", trend: "Stable", inflationWeight: "High (Protein Basket)" },
-						{ name: "Soybean", symbol: "SYBEANIDR", trend: "Soft", inflationWeight: "Edible Oil Basket" },
-					],
+			staplesIndexChangePct: 0.22,
+			foodInflationBias: "Rangebound / Moderate",
+			keyCommodityDrivers: [
+				{ name: "Chana", symbol: "CHANA", trend: "Steady", inflationWeight: "High (Protein Basket)" },
+				{ name: "Turmeric", symbol: "TMCFGRNZM", trend: "Bullish", inflationWeight: "Moderate" },
+				{ name: "Jeera", symbol: "JEERAUNJHA", trend: "Bullish", inflationWeight: "Moderate" },
+				{ name: "Cocudakl", symbol: "COCUDAKL", trend: "Bullish", inflationWeight: "High (Dairy Feed)" },
+			],
 		};
+
+		try {
+			const { ncdexMarketService, NCDEX_BASELINE_COMMODITIES } = await import("./ncdex-market-service");
+			const agriRes = await ncdexMarketService.getAgriculturalBenchmarks({ persistToDb: false });
+			const comms = (agriRes.success && agriRes.data?.commodities && agriRes.data.commodities.length > 0)
+				? agriRes.data.commodities
+				: NCDEX_BASELINE_COMMODITIES;
+
+			const avgChg = agriRes.data?.agriInflationIndex?.averageChangePercent ?? 0.22;
+			const bias =
+				avgChg > 1.0
+					? "Elevated (>5.5%)"
+					: avgChg < -0.5
+						? "Deflationary / Benign (<4.5%)"
+						: "Rangebound / Moderate";
+
+			const prioritySymbols = ["CHANA", "TURMERIC", "JEERA", "COCUDAKL", "GUARSEED", "DHANIYA", "CASTORSEED"];
+			const sortedDrivers = [...comms].sort((a, b) => {
+				const idxA = prioritySymbols.indexOf(a.id);
+				const idxB = prioritySymbols.indexOf(b.id);
+				return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
+			});
+
+			ncdexAgriPulse = {
+				exchange: "NCDEX",
+				staplesIndexChangePct: avgChg,
+				foodInflationBias: bias,
+				keyCommodityDrivers: sortedDrivers.slice(0, 4).map((c) => ({
+					name: c.id === "COCUDAKL" ? "Cocudakl" : c.id === "GUARSEED" ? "Guar Seed" : c.name.split(" (")[0].replace(" Farmer Polished", ""),
+					symbol: c.tradingSymbol || c.id,
+					trend: (c.changePercent > 0.5 ? "Bullish" : c.changePercent < -0.5 ? "Cooling" : "Steady") as "Bullish" | "Cooling" | "Steady",
+					inflationWeight: c.fmcgImpact || "Moderate",
+				})),
+				commodities: sortedDrivers.map((c) => ({
+					id: c.id,
+					name: c.name,
+					tradingSymbol: c.tradingSymbol,
+					deliveryCenter: c.deliveryCenter,
+					category: c.category,
+					price: c.price,
+					unit: c.unit,
+					change: c.change,
+					changePercent: c.changePercent,
+					trend: c.trend,
+					macroImplication: c.macroImplication,
+					fmcgImpact: c.fmcgImpact,
+				})),
+			};
+		} catch (agriErr: any) {
+			logger.warn("[MultiExchangeMarketService] NCDEX live agri pulse fallback:", { message: agriErr?.message });
+		}
 
 		// Volatility Pulse (India VIX vs Cboe VIX)
 		const cboeVix = 15.4;
