@@ -13,12 +13,19 @@ export async function runStartupSchemaRepairs() {
 
 		console.log("🛠️ Running schema migrations/repairs...");
 
-		// ── Enable vector extension (pgvector) for semantic AI search ────────
+		// ── Enable extensions (pgvector & pg_trgm for fast autocomplete/search) ──
 		try {
 			await migPool.query(`CREATE EXTENSION IF NOT EXISTS vector;`);
 			console.log("  ✅ [pgvector] vector extension ensured in database");
 		} catch (vErr: any) {
 			console.warn("  ⚠️ [pgvector] vector extension note:", vErr?.message || vErr);
+		}
+
+		try {
+			await migPool.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
+			console.log("  ✅ [pg_trgm] pg_trgm extension ensured in database");
+		} catch (tErr: any) {
+			console.warn("  ⚠️ [pg_trgm] pg_trgm extension note:", tErr?.message || tErr);
 		}
 
 		// ── CRITICAL FAST-PATH: model_portfolios period return columns ────────
@@ -2110,6 +2117,18 @@ crypto_status VARCHAR,
 				e?.message?.slice(0, 120),
 			);
 		}
+
+		// ── GIN Trigram Indexes for high-speed autocomplete & search (pg_trgm) ──
+		try {
+			await migPool.query(`CREATE INDEX IF NOT EXISTS idx_im_symbol_trgm ON instrument_master USING gin (symbol gin_trgm_ops);`);
+			await migPool.query(`CREATE INDEX IF NOT EXISTS idx_im_name_trgm ON instrument_master USING gin (name gin_trgm_ops);`);
+			await migPool.query(`CREATE INDEX IF NOT EXISTS idx_im_isin_trgm ON instrument_master USING gin (isin gin_trgm_ops);`);
+			await migPool.query(`CREATE INDEX IF NOT EXISTS idx_im_short_name_trgm ON instrument_master USING gin (short_name gin_trgm_ops);`);
+			console.log("  ✅ [pg_trgm] GIN trigram indexes verified on instrument_master");
+		} catch (trgmIdxErr: any) {
+			console.warn("  ⚠️ [pg_trgm] GIN trigram indexes note:", trgmIdxErr?.message || trgmIdxErr);
+		}
+
 		console.log("✅ instrument_master last_price column verified");
 
 		// ── 33. goal_benchmark_mapping — ProposalBuilder missing table ────────────

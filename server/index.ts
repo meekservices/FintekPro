@@ -224,7 +224,37 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 		// querying tables that depend on migration-added columns.
 		if (process.env.RUN_STARTUP_MIGRATIONS === "true") {
 			const migrationWork = (async () => {
+				let lockClient: any = null;
 				try {
+					// ── Distributed Advisory Lock (Key: 9823412039) ──────────────────
+					// Guarantees only one Cloud Run pod runs DDL migrations during autoscale
+					const { pool } = await import("./db");
+					try {
+						lockClient = await pool.connect();
+						const lockRes = await lockClient.query(
+							"SELECT pg_try_advisory_lock(9823412039) AS acquired;",
+						);
+						if (!lockRes?.rows?.[0]?.acquired) {
+							logBootProgress(
+								"Step 2 (bg): 🔒 Startup migrations currently running on another pod — skipping concurrent DDL execution.",
+							);
+							lockClient.release();
+							lockClient = null;
+							return;
+						}
+						logBootProgress(
+							"Step 2 (bg): 🔓 Acquired startup migration advisory lock (9823412039)...",
+						);
+					} catch (lockErr: any) {
+						logBootProgress(
+							`Step 2 (bg): ⚠️ Advisory lock probe note: ${lockErr?.message || lockErr}`,
+						);
+						if (lockClient) {
+							lockClient.release();
+							lockClient = null;
+						}
+					}
+
 					logBootProgress("Step 2 (bg): Checking schema migrations...");
 					const { runStartupSchemaRepairs } = await import(
 						"./startup/schema-repairs"
@@ -354,6 +384,18 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 					logBootProgress("Step 2 (bg): All schema migrations complete.");
 				} catch (migErr: any) {
 					logger.warn("[Boot] Background migration error (non-fatal):", { error: migErr?.message });
+				} finally {
+					if (lockClient) {
+						try {
+							await lockClient.query("SELECT pg_advisory_unlock(9823412039);");
+							logBootProgress("Step 2 (bg): 🔓 Released startup migration advisory lock.");
+						} catch (_unlockErr) {
+							// Non-fatal
+						} finally {
+							lockClient.release();
+							lockClient = null;
+						}
+					}
 				}
 			})();
 			migrationWork.then(() => markSchemaReady()).catch(() => markSchemaReady());

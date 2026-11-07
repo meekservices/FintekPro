@@ -237,3 +237,4 @@ This Standard Operating Procedure is reviewed and re-certified on a **semi-annua
 
 *Document Approved by*: FintekPro Legal, Regulatory & Technology Council  
 *Distribution*: Engineering, Product, Compliance, Operations, and RIA Advisory Desks  
+
