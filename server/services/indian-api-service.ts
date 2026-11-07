@@ -1570,12 +1570,117 @@ class IndianAPIService {
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
-	// FII/DII (Mr. Chartist — unchanged)
+	// FII/DII (Official NSE India Live Feed with Fallback)
 	// ═══════════════════════════════════════════════════════════════════════════
+
+	private nseCookies = "";
+	private nseCookieExpires = 0;
+
+	private async getNseSessionHeaders(): Promise<Record<string, string>> {
+		const userAgent =
+			"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
+		if (this.nseCookies && this.nseCookieExpires > Date.now()) {
+			return {
+				"User-Agent": userAgent,
+				Accept: "application/json, text/plain, */*",
+				"Accept-Language": "en-US,en;q=0.9",
+				Referer: "https://www.nseindia.com/",
+				Cookie: this.nseCookies,
+			};
+		}
+
+		try {
+			const homeResp = await fetch("https://www.nseindia.com", {
+				signal: AbortSignal.timeout(5000),
+				headers: {
+					"User-Agent": userAgent,
+					Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+					"Accept-Language": "en-US,en;q=0.9",
+				},
+			});
+			const raw = homeResp.headers.get("set-cookie") || "";
+			this.nseCookies = raw
+				.split(",")
+				.map((c) => c.split(";")[0].trim())
+				.filter(Boolean)
+				.join("; ");
+			this.nseCookieExpires = Date.now() + 10 * 60 * 1000; // 10 minutes cache
+		} catch {
+			// ignore cookie fetch errors; callers proceed with existing headers
+		}
+
+		return {
+			"User-Agent": userAgent,
+			Accept: "application/json, text/plain, */*",
+			"Accept-Language": "en-US,en;q=0.9",
+			Referer: "https://www.nseindia.com/",
+			Cookie: this.nseCookies,
+		};
+	}
+
+	private async fetchFromNse(): Promise<IndianAPIFIIDII | null> {
+		try {
+			const headers = await this.getNseSessionHeaders();
+			const resp = await fetch("https://www.nseindia.com/api/fiidiiTradeReact", {
+				signal: AbortSignal.timeout(8000),
+				headers,
+			});
+			if (!resp.ok) return null;
+			const data = await resp.json();
+			if (!Array.isArray(data) || data.length === 0) return null;
+
+			const diiItem = data.find(
+				(d: any) => d.category?.toUpperCase() === "DII" || d.category?.includes("DII")
+			);
+			const fiiItem = data.find(
+				(d: any) =>
+					d.category?.toUpperCase().includes("FII") || d.category?.toUpperCase().includes("FPI")
+			);
+
+			if (!diiItem && !fiiItem) return null;
+
+			let dateStr = new Date().toISOString().split("T")[0];
+			const rawDate = fiiItem?.date || diiItem?.date;
+			if (rawDate) {
+				const d = new Date(rawDate);
+				if (!isNaN(d.getTime())) {
+					dateStr = d.toISOString().split("T")[0];
+				}
+			}
+
+			return {
+				date: dateStr,
+				fii: {
+					buy: Number(fiiItem?.buyValue || 0),
+					sell: Number(fiiItem?.sellValue || 0),
+					net: Number(fiiItem?.netValue || 0),
+				},
+				dii: {
+					buy: Number(diiItem?.buyValue || 0),
+					sell: Number(diiItem?.sellValue || 0),
+					net: Number(diiItem?.netValue || 0),
+				},
+			};
+		} catch (e: any) {
+			logger.warn("[IndianAPI] Direct NSE fiidiiTradeReact warning:", { error: e?.message });
+			return null;
+		}
+	}
 
 	async getLatestFIIDII(): Promise<IndianAPIResult<IndianAPIFIIDII>> {
 		const key = requestDedupeService.createKey("indian_api", "fiidii", "latest");
 		return requestDedupeService.dedupe(key, async () => {
+			// 1. Primary: Official NSE India live feed with session cookies
+			try {
+				const nseData = await this.fetchFromNse();
+				if (nseData) {
+					return this.makeResult<IndianAPIFIIDII>(nseData);
+				}
+			} catch (nseErr: any) {
+				logger.warn("[IndianAPI] NSE FII/DII primary fetch error:", { error: nseErr?.message });
+			}
+
+			// 2. Secondary fallback: mrClient
 			try {
 				const r = await this.mrClient.get("/api/data");
 				const raw = r.data;

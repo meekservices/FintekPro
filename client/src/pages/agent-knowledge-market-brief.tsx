@@ -2103,8 +2103,8 @@ export default function AgentKnowledgeMarketBrief() {
 												</div>
 												<div className="flex justify-between">
 													<span className="text-muted-foreground">DII Cash Net:</span>
-													<span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-														+₹{gmieData.capitalFlows.diiCashNetCr.toLocaleString("en-IN")} Cr
+													<span className={`font-mono font-semibold ${gmieData.capitalFlows.diiCashNetCr >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+														{gmieData.capitalFlows.diiCashNetCr >= 0 ? "+" : ""}₹{gmieData.capitalFlows.diiCashNetCr.toLocaleString("en-IN")} Cr
 													</span>
 												</div>
 											</div>

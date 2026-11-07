@@ -74,42 +74,50 @@ export class FiiFlowService {
         isoDate = date;
       }
 
-      // Upsert into fii_dii_daily_flows
-      await db.execute(sql`
-        INSERT INTO fii_dii_daily_flows (
-          date, fii_buy_cr, fii_sell_cr, fii_net_cr,
-          dii_buy_cr, dii_sell_cr, dii_net_cr,
-          effective_flow_cr, sentiment, top_favored_sector,
-          created_at
-        ) VALUES (
-          ${isoDate}::date, ${fiiBuy}, ${fiiSell}, ${fiiNet},
-          ${diiBuy}, ${diiSell}, ${diiNet},
-          ${effectiveFlow}, ${sentiment}, ${topSector},
-          NOW()
-        )
-        ON CONFLICT (date) DO UPDATE SET
-          fii_buy_cr = EXCLUDED.fii_buy_cr,
-          fii_sell_cr = EXCLUDED.fii_sell_cr,
-          fii_net_cr = EXCLUDED.fii_net_cr,
-          dii_buy_cr = EXCLUDED.dii_buy_cr,
-          dii_sell_cr = EXCLUDED.dii_sell_cr,
-          dii_net_cr = EXCLUDED.dii_net_cr,
-          effective_flow_cr = EXCLUDED.effective_flow_cr,
-          sentiment = EXCLUDED.sentiment,
-          top_favored_sector = EXCLUDED.top_favored_sector;
-      `);
+      let cum5D = 0;
 
-      // Cumulative 5-day flow
-      const cumRes = await db.execute(sql`
-        SELECT COALESCE(SUM(fii_net_cr::numeric + dii_net_cr::numeric), 0) AS cum_5d
-        FROM (
-          SELECT fii_net_cr, dii_net_cr
-          FROM fii_dii_daily_flows
-          ORDER BY date DESC
-          LIMIT 5
-        ) sub
-      `);
-      const cum5D = parseFloat((cumRes.rows[0] as any)?.cum_5d || "0");
+      // Try persisting to DB and calculating 5-day cumulative, with graceful fallback
+      try {
+        await db.execute(sql`
+          INSERT INTO fii_dii_daily_flows (
+            date, fii_buy_cr, fii_sell_cr, fii_net_cr,
+            dii_buy_cr, dii_sell_cr, dii_net_cr,
+            effective_flow_cr, sentiment, top_favored_sector,
+            created_at
+          ) VALUES (
+            ${isoDate}::date, ${fiiBuy}, ${fiiSell}, ${fiiNet},
+            ${diiBuy}, ${diiSell}, ${diiNet},
+            ${effectiveFlow}, ${sentiment}, ${topSector},
+            NOW()
+          )
+          ON CONFLICT (date) DO UPDATE SET
+            fii_buy_cr = EXCLUDED.fii_buy_cr,
+            fii_sell_cr = EXCLUDED.fii_sell_cr,
+            fii_net_cr = EXCLUDED.fii_net_cr,
+            dii_buy_cr = EXCLUDED.dii_buy_cr,
+            dii_sell_cr = EXCLUDED.dii_sell_cr,
+            dii_net_cr = EXCLUDED.dii_net_cr,
+            effective_flow_cr = EXCLUDED.effective_flow_cr,
+            sentiment = EXCLUDED.sentiment,
+            top_favored_sector = EXCLUDED.top_favored_sector;
+        `);
+
+        const cumRes = await db.execute(sql`
+          SELECT COALESCE(SUM(fii_net_cr::numeric + dii_net_cr::numeric), 0) AS cum_5d
+          FROM (
+            SELECT fii_net_cr, dii_net_cr
+            FROM fii_dii_daily_flows
+            ORDER BY date DESC
+            LIMIT 5
+          ) sub
+        `);
+        cum5D = parseFloat((cumRes.rows[0] as any)?.cum_5d || "0");
+      } catch (dbErr: any) {
+        logger.warn("[FiiFlowService] Non-critical DB persist error for FII/DII; continuing with memory cache", {
+          error: dbErr?.message,
+        });
+        cum5D = fiiNet + diiNet;
+      }
 
       const summary: FiiDiiSummary = {
         date: isoDate,

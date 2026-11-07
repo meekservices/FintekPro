@@ -43,7 +43,7 @@ export interface InstitutionalCashFlows {
 	netCombinedInflowCr: number;
 	monthlyMfSipRunRateCr: number;
 	absorptionRatio: number;
-	liquidityRegime: "DII Inflows Absorb FPI Selling" | "Dual Institutional Rally" | "Risk-Off Outflows";
+	liquidityRegime: "DII Inflows Absorb FPI Selling" | "Dual Institutional Rally" | "Risk-Off Outflows" | "FII Inflows Absorb DII Selling";
 	asOfDate: string;
 }
 
@@ -203,18 +203,29 @@ export class MultiExchangeMarketService {
 		const netCombinedInflowCr = fiiNetInflowCr + diiNetInflowCr;
 		const monthlyMfSipRunRateCr = 26425; // ₹26,425+ Cr monthly mutual fund SIP inflows
 
+		let absorptionRatio = 1.0;
+		let liquidityRegime: InstitutionalCashFlows["liquidityRegime"] = "DII Inflows Absorb FPI Selling";
+
+		if (fiiNetInflowCr < 0) {
+			absorptionRatio = Number((Math.abs(diiNetInflowCr) / Math.max(1, Math.abs(fiiNetInflowCr))).toFixed(2));
+			liquidityRegime = diiNetInflowCr > 0 ? "DII Inflows Absorb FPI Selling" : "Risk-Off Outflows";
+		} else if (fiiNetInflowCr >= 0 && diiNetInflowCr < 0) {
+			absorptionRatio = Number((Math.abs(fiiNetInflowCr) / Math.max(1, Math.abs(diiNetInflowCr))).toFixed(2));
+			liquidityRegime = "FII Inflows Absorb DII Selling";
+		} else if (fiiNetInflowCr >= 0 && diiNetInflowCr >= 0) {
+			absorptionRatio = Number(((fiiNetInflowCr + diiNetInflowCr) / Math.max(1, fiiNetInflowCr)).toFixed(2));
+			liquidityRegime = "Dual Institutional Rally";
+		} else {
+			liquidityRegime = "Risk-Off Outflows";
+		}
+
 		const institutionalFlows: InstitutionalCashFlows = {
 			fiiNetInflowCr,
 			diiNetInflowCr,
 			netCombinedInflowCr,
 			monthlyMfSipRunRateCr,
-			absorptionRatio: Number((diiNetInflowCr / Math.abs(fiiNetInflowCr || 1)).toFixed(2)),
-			liquidityRegime:
-				diiNetInflowCr > 0 && fiiNetInflowCr < 0
-					? "DII Inflows Absorb FPI Selling"
-					: diiNetInflowCr > 0 && fiiNetInflowCr >= 0
-						? "Dual Institutional Rally"
-						: "Risk-Off Outflows",
+			absorptionRatio,
+			liquidityRegime,
 			asOfDate,
 		};
 
