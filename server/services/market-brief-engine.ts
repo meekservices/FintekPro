@@ -363,6 +363,32 @@ class InProcessMarketSnapshotStore {
 			/* non-fatal */
 		}
 
+		// 3. Try Commodity Market Service for authoritative live MCX / COMEX quotes
+		try {
+			const { commodityMarketService } = await import("./commodity-market-service");
+			const commRes = await commodityMarketService.getCommodityBenchmarks();
+			if (commRes.success && commRes.data?.commodities) {
+				const gold = commRes.data.commodities.find((c) => c.id === "GOLD");
+				const silver = commRes.data.commodities.find((c) => c.id === "SILVER");
+				const crude = commRes.data.commodities.find((c) => c.id === "CRUDE_OIL");
+				const gas = commRes.data.commodities.find((c) => c.id === "NATURAL_GAS");
+				const copper = commRes.data.commodities.find((c) => c.id === "COPPER");
+
+				if (gold?.mcxPrice) base.commodities.goldMcxPrice = gold.mcxPrice;
+				if (gold?.cmxPrice) base.commodities.goldComexPrice = gold.cmxPrice;
+				if (silver?.mcxPrice) base.commodities.silverMcxPrice = silver.mcxPrice;
+				if (silver?.cmxPrice) base.commodities.silverComexPrice = silver.cmxPrice;
+				if (crude?.cmxPrice) base.commodities.brentUsd = crude.cmxPrice;
+				if (crude?.mcxPrice) base.commodities.brentMcxInr = crude.mcxPrice;
+				if (gas?.mcxPrice) base.commodities.naturalGasMcxPrice = gas.mcxPrice;
+				if (gas?.cmxPrice) base.commodities.naturalGasHenryHubUsd = gas.cmxPrice;
+				if (copper?.mcxPrice) base.commodities.copperMcxPrice = copper.mcxPrice;
+				if (copper?.cmxPrice) base.commodities.copperComexUsd = copper.cmxPrice;
+			}
+		} catch {
+			/* non-fatal */
+		}
+
 		this.snapshotCache.set(region, {
 			snapshot: base,
 			fetchedAt: Date.now(),

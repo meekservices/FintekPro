@@ -250,7 +250,8 @@ export class KnowledgeHubService {
 		const liveUsdInr = goldenSnapshot?.currencies?.usdInr ?? (brief.fbil as any)?.usdInr ?? (brief.globalMacroDesk as any)?.usdInr ?? 94.8606;
 
 		if (isIndia) {
-			if (!ccilFixedIncome && goldenSnapshot?.fixedIncome) {
+			// 1. Fixed Income: enrich with latest live GPE or CCIL benchmarks
+			if (goldenSnapshot?.fixedIncome) {
 				const gfi = goldenSnapshot.fixedIncome;
 				ccilFixedIncome = {
 					fbilMiborOvernight: 6.5,
@@ -291,7 +292,7 @@ export class KnowledgeHubService {
 					},
 					source: "CCIL Sovereign Clearing & Golden Pricing Engine",
 				};
-			} else if (!ccilFixedIncome) {
+			} else {
 				try {
 					const { ccilMarketService } = await import("./ccil-market-service");
 					const ccilRes = await ccilMarketService.getSovereignBenchmarks();
@@ -301,6 +302,17 @@ export class KnowledgeHubService {
 				} catch (err: any) {
 					console.warn("[KnowledgeHubService] CCIL sovereign fetch failed:", err?.message);
 				}
+			}
+
+			// 2. Commodity Radar: ALWAYS fetch latest live quotes (commodityMarketService + GPE)
+			try {
+				const { commodityMarketService } = await import("./commodity-market-service");
+				const commRes = await commodityMarketService.getCommodityBenchmarks();
+				if (commRes.success && commRes.data) {
+					commodityRadar = commRes.data;
+				}
+			} catch (err: any) {
+				console.warn("[KnowledgeHubService] Dynamic commodity radar fetch failed:", err?.message);
 			}
 
 			if (!commodityRadar && goldenSnapshot?.commodities) {
@@ -390,39 +402,33 @@ export class KnowledgeHubService {
 					goldSilverRatio: Math.round((gc.goldComexUsd / gc.silverComexUsd) * 10) / 10,
 					source: "MCX India & COMEX / Golden Pricing Engine",
 				};
-			} else if (!commodityRadar) {
-				try {
-					const { commodityMarketService } = await import("./commodity-market-service");
-					const commRes = await commodityMarketService.getCommodityBenchmarks();
-					if (commRes.success && commRes.data) {
-						commodityRadar = commRes.data;
-					}
-				} catch (err: any) {
-					console.warn("[KnowledgeHubService] Dynamic commodity radar fetch failed:", err?.message);
+			}
+
+			// 3. Multi-Exchange Desk: ALWAYS fetch fresh live multi-exchange snapshot (NSE live FII/DII, BSE breadth, GIFT Nifty, VIX, NCDEX)
+			try {
+				const { multiExchangeMarketService } = await import("./multi-exchange-market-service");
+				const meRes = await multiExchangeMarketService.getMultiExchangeSnapshot();
+				if (meRes.success && meRes.data) {
+					multiExchangeData = { ...(brief.multiExchangeData || {}), ...meRes.data };
+				}
+			} catch (err: any) {
+				console.warn("[KnowledgeHubService] Dynamic multi-exchange fetch failed:", err?.message);
+				if (!multiExchangeData) {
+					multiExchangeData = brief.multiExchangeData || null;
 				}
 			}
 
-			if (!multiExchangeData) {
-				try {
-					const { multiExchangeMarketService } = await import("./multi-exchange-market-service");
-					const meRes = await multiExchangeMarketService.getMultiExchangeSnapshot();
-					if (meRes.success && meRes.data) {
-						multiExchangeData = meRes.data;
-					}
-				} catch (err: any) {
-					console.warn("[KnowledgeHubService] Dynamic multi-exchange fetch failed:", err?.message);
+			// 4. AMC Consensus Desk: ALWAYS ensure fresh consensus stance
+			try {
+				const { amcResearchService } = await import("./amc-research-service");
+				const amcRes = await amcResearchService.getAmcConsensus();
+				if (amcRes.success && amcRes.data) {
+					amcConsensus = amcRes.data;
 				}
-			}
-
-			if (!amcConsensus) {
-				try {
-					const { amcResearchService } = await import("./amc-research-service");
-					const amcRes = await amcResearchService.getAmcConsensus();
-					if (amcRes.success && amcRes.data) {
-						amcConsensus = amcRes.data;
-					}
-				} catch (err: any) {
-					console.warn("[KnowledgeHubService] AMC consensus fetch failed:", err?.message);
+			} catch (err: any) {
+				console.warn("[KnowledgeHubService] AMC consensus fetch failed:", err?.message);
+				if (!amcConsensus) {
+					amcConsensus = brief.amcConsensus || null;
 				}
 			}
 		}
@@ -1007,12 +1013,12 @@ export class KnowledgeHubService {
 						asOfSession: "Early Asian Session (06:30 - 15:40 IST)",
 					},
 					institutionalFlows: {
-						fiiNetInflowCr: -1420,
-						diiNetInflowCr: 2850,
-						netCombinedInflowCr: 1430,
+						fiiNetInflowCr: -1850,
+						diiNetInflowCr: 3120,
+						netCombinedInflowCr: 1270,
 						monthlyMfSipRunRateCr: 26425,
-						absorptionRatio: 2.01,
-						liquidityRegime: "Domestic SIP Moat Absorbing FII Outflows",
+						absorptionRatio: 1.69,
+						liquidityRegime: "DII Inflows Absorb FPI Selling",
 					},
 					ncdexAgriPulse: {
 						exchange: "NCDEX India",
