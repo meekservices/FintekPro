@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import cron from "node-cron";
 import { exchangeStockService } from "./exchange-stock-service";
 
@@ -20,8 +21,20 @@ class StockSyncScheduler {
 				try {
 					await exchangeStockService.syncNSEStocks({ topOnly: false });
 					console.log("[Stock Sync Scheduler] NSE full sync completed");
-				} catch (error) {
+				} catch (error: any) {
 					console.error("[Stock Sync Scheduler] NSE sync failed:", error);
+					try {
+						const { opsAlertService } = await import("./ops-alert-service");
+						await opsAlertService.fire({
+							code: "NSE_STOCK_SYNC_FAILED",
+							severity: "WARNING",
+							title: "NSE Stock Sync Delayed",
+							message: `NSE daily full stock sync failed: ${error?.message || error}. Stale cache fallback active.`,
+							action: "Check exchange API connectivity or retry sync via admin dashboard.",
+						});
+					} catch {
+						// Non-fatal
+					}
 				}
 			},
 			{
@@ -39,8 +52,20 @@ class StockSyncScheduler {
 				try {
 					await exchangeStockService.syncBSEStocks({ topOnly: false });
 					console.log("[Stock Sync Scheduler] BSE full sync completed");
-				} catch (error) {
+				} catch (error: any) {
 					console.error("[Stock Sync Scheduler] BSE sync failed:", error);
+					try {
+						const { opsAlertService } = await import("./ops-alert-service");
+						await opsAlertService.fire({
+							code: "BSE_STOCK_SYNC_FAILED",
+							severity: "WARNING",
+							title: "BSE Stock Sync Delayed",
+							message: `BSE daily full stock sync failed: ${error?.message || error}. Stale cache fallback active.`,
+							action: "Check exchange API connectivity or retry sync via admin dashboard.",
+						});
+					} catch {
+						// Non-fatal
+					}
 				}
 			},
 			{

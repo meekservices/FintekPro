@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 /**
  * AMFI NAV Scheduler
  *
@@ -49,6 +50,18 @@ class AmfiNavScheduler {
 						"[AMFI NAV Scheduler] Scheduled sync failed:",
 						error.message,
 					);
+					try {
+						const { opsAlertService } = await import("./ops-alert-service");
+						await opsAlertService.fire({
+							code: "AMFI_EOD_NAV_DELAYED",
+							severity: "WARNING",
+							title: "AMFI EOD NAV Sync Delayed",
+							message: `AMFI official NAV ingestion failed: ${error.message}. Engines will continue using previous verified NAVs.`,
+							action: "Check official AMFI portal status or trigger manual re-sync.",
+						});
+					} catch {
+						// Non-fatal
+					}
 				}
 			},
 			{

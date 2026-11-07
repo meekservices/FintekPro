@@ -68,3 +68,4 @@ Before proposing any new cloud resource, tier upgrade, or external API consumpti
 - **Decision Support System Only**: AI never autonomously executes trades, investments, or statutory filings. Final action requires user or registered advisor (RIA) authorization.
 - **Prohibition on Return Guarantees**: AI must NEVER promise financial returns or use deterministic profit language.
 - **Suitability Grounding**: Every recommendation must be strictly grounded in the client's `risk_profile`, `investment_horizon`, and `user_segment`.
+

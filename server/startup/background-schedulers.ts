@@ -135,6 +135,28 @@ async function autoPublishAllInstruments() {
           AND CAST(last_price AS DECIMAL) > 0
       `,
 		},
+		{
+			// aif_master: uses fund_status, is_published
+			label: "aif_master",
+			query: sql`
+        UPDATE aif_master
+        SET is_published = true, updated_at = NOW()
+        WHERE is_published = false
+          AND fund_status = 'active'
+          AND name IS NOT NULL
+      `,
+		},
+		{
+			// pms_master: uses status, is_published
+			label: "pms_master",
+			query: sql`
+        UPDATE pms_master
+        SET is_published = true, updated_at = NOW()
+        WHERE is_published = false
+          AND status = 'active'
+          AND name IS NOT NULL
+      `,
+		},
 	];
 
 	console.log(
