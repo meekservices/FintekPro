@@ -17,11 +17,14 @@ import {
 	bondOrders,
 	bondHoldings,
 	insertBondOrderSchema,
+	userProfiles,
+	userDematAccounts,
 } from "@shared/schema";
 import { eq, desc, sql, and, or, gte, lte, inArray } from "drizzle-orm";
 import { isProductionEnvironment } from "../utils/enrichment-guard";
 import { auditLogArchivalService } from "../services/audit-log-archival";
 import { bondOrderNotificationService } from "../services/bond-order-notification-service";
+import { logger } from "../logger";
 
 export function registerBondTradingOrderPart1Routes(app: Express): void {
 	app.get("/api/bonds/trading/gsec/auctions", async (req, res) => {
@@ -33,7 +36,7 @@ export function registerBondTradingOrderPart1Routes(app: Express): void {
 				count: auctions.length,
 			});
 		} catch (error: any) {
-			console.warn(
+			logger.warn(
 				`[NSE] NCB auctions fetch failed: ${error?.message || "Unknown error"}`,
 			);
 			res.status(500).json({
@@ -61,7 +64,7 @@ export function registerBondTradingOrderPart1Routes(app: Express): void {
 				data: gsec,
 			});
 		} catch (error) {
-			console.error("Error fetching G-Sec details:", error);
+			logger.error("Error fetching G-Sec details:", error);
 			res.status(500).json({
 				status: "error",
 				error: "Failed to fetch G-Sec details",
@@ -80,14 +83,46 @@ export function registerBondTradingOrderPart1Routes(app: Express): void {
 					return res.status(401).json({ error: "Authentication required" });
 				}
 
+				// Verify PAN and Demat from database (Statutory OBPP & RBI Non-Competitive Bidding compliance)
+				const [userProfile] = await db
+					.select()
+					.from(userProfiles)
+					.where(eq(userProfiles.userId, userId))
+					.limit(1);
+
+				const userDematList = await db
+					.select()
+					.from(userDematAccounts)
+					.where(and(eq(userDematAccounts.userId, userId), eq(userDematAccounts.isVerified, true)))
+					.limit(1);
+
+				const verifiedPan = userProfile?.panNumber || req.body.panNumber;
+				const verifiedDemat = userDematList[0]?.dematAccountNumber || req.body.dematAccountNumber;
+
+				if (!verifiedPan) {
+					return res.status(400).json({
+						status: "error",
+						error: "VERIFIED_PAN_REQUIRED",
+						message: "A verified PAN is mandatory to place G-Sec bids per RBI/SEBI regulations.",
+					});
+				}
+
+				if (!verifiedDemat) {
+					return res.status(400).json({
+						status: "error",
+						error: "VERIFIED_DEMAT_REQUIRED",
+						message: "A verified Demat account is mandatory for settlement of G-Sec allocations.",
+					});
+				}
+
 				const orderRequest = {
 					userId: userId,
 					clientCode: req.body.clientCode || `CLI-${userId.substring(0, 8)}`,
 					isin: req.body.isin,
 					auctionNumber: req.body.auctionNumber,
 					bidAmount: req.body.bidAmount,
-					panNumber: req.body.panNumber,
-					dematAccountNumber: req.body.dematAccountNumber,
+					panNumber: verifiedPan,
+					dematAccountNumber: verifiedDemat,
 				};
 
 				const response = await nseNcbApi.placeNCBOrder(orderRequest);
@@ -133,7 +168,7 @@ export function registerBondTradingOrderPart1Routes(app: Express): void {
 							settlementDate: bondOrder[0].settlementDate,
 						})
 						.catch((err) =>
-							console.error(
+							logger.error(
 								"[Bond Notification] Order confirmation error:",
 								err,
 							),
@@ -151,7 +186,7 @@ export function registerBondTradingOrderPart1Routes(app: Express): void {
 					});
 				}
 			} catch (error) {
-				console.error("Error placing NCB order:", error);
+				logger.error("Error placing NCB order:", error);
 				res.status(500).json({
 					status: "error",
 					error: "Failed to place NCB order",
@@ -183,7 +218,7 @@ export function registerBondTradingOrderPart1Routes(app: Express): void {
 				count: bonds.length,
 			});
 		} catch (error) {
-			console.error("Error fetching corporate bonds:", error);
+			logger.error("Error fetching corporate bonds:", error);
 			res.status(500).json({
 				status: "error",
 				error: "Failed to fetch corporate bonds",
@@ -209,7 +244,7 @@ export function registerBondTradingOrderPart1Routes(app: Express): void {
 				data: bond,
 			});
 		} catch (error) {
-			console.error("Error fetching corporate bond details:", error);
+			logger.error("Error fetching corporate bond details:", error);
 			res.status(500).json({
 				status: "error",
 				error: "Failed to fetch corporate bond details",
@@ -228,6 +263,23 @@ export function registerBondTradingOrderPart1Routes(app: Express): void {
 					return res.status(401).json({ error: "Authentication required" });
 				}
 
+				// Verify Demat account from database
+				const userDematList = await db
+					.select()
+					.from(userDematAccounts)
+					.where(and(eq(userDematAccounts.userId, userId), eq(userDematAccounts.isVerified, true)))
+					.limit(1);
+
+				const verifiedDemat = userDematList[0]?.dematAccountNumber || req.body.dematAccountNumber;
+
+				if (!verifiedDemat) {
+					return res.status(400).json({
+						status: "error",
+						error: "VERIFIED_DEMAT_REQUIRED",
+						message: "A verified Demat account is mandatory for settlement of corporate bond orders.",
+					});
+				}
+
 				const orderRequest = {
 					userId: userId,
 					clientCode: req.body.clientCode || `CLI-${userId.substring(0, 8)}`,
@@ -237,7 +289,7 @@ export function registerBondTradingOrderPart1Routes(app: Express): void {
 					quantity: req.body.quantity,
 					orderCategory: req.body.orderCategory, // 'market' or 'limit'
 					limitPrice: req.body.limitPrice,
-					dematAccountNumber: req.body.dematAccountNumber,
+					dematAccountNumber: verifiedDemat,
 				};
 
 				const response = await bseBondApi.placeBondOrder(orderRequest);
@@ -299,7 +351,7 @@ export function registerBondTradingOrderPart1Routes(app: Express): void {
 							settlementDate: bondOrder[0].settlementDate,
 						})
 						.catch((err) =>
-							console.error(
+							logger.error(
 								"[Bond Notification] Order confirmation error:",
 								err,
 							),
@@ -311,7 +363,7 @@ export function registerBondTradingOrderPart1Routes(app: Express): void {
 					});
 				}
 			} catch (error) {
-				console.error("Error placing corporate bond order:", error);
+				logger.error("Error placing corporate bond order:", error);
 				res.status(500).json({
 					status: "error",
 					error: "Failed to place corporate bond order",
@@ -358,7 +410,7 @@ export function registerBondTradingOrderPart1Routes(app: Express): void {
 				data: taxFreeBonds,
 			});
 		} catch (error: any) {
-			console.error("Error fetching tax-free bonds for trading:", error);
+			logger.error("Error fetching tax-free bonds for trading:", error);
 			res.json({ success: true, data: [] });
 		}
 	});
@@ -399,7 +451,7 @@ export function registerBondTradingOrderPart1Routes(app: Express): void {
 				data: ncds,
 			});
 		} catch (error: any) {
-			console.error("Error fetching NCDs for trading:", error);
+			logger.error("Error fetching NCDs for trading:", error);
 			res.json({ success: true, data: [] });
 		}
 	});

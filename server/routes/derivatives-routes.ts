@@ -10,6 +10,8 @@ import { db } from "../db";
 import { derivativeContracts, derivativePositions } from "@shared/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { logger } from "../logger";
+import { requireAuth } from "../middleware/auth";
+import { riskEngine } from "../services/compliance/riskEngine";
 
 // Interface for StrategyLeg imported from service or redefined here if needed
 interface StrategyLeg {
@@ -614,6 +616,7 @@ router.post(
  */
 router.post(
 	"/order/execute",
+	requireAuth,
 	async (
 		req: Request<
 			any,
@@ -633,6 +636,18 @@ router.post(
 	): Promise<void> => {
 		const t0 = Date.now();
 		try {
+			// Check Global Kill Switch
+			const killSwitch = riskEngine.getGlobalKillSwitchStatus();
+			if (killSwitch.active) {
+				res.status(503).json({
+					success: false,
+					error: "GLOBAL_KILL_SWITCH_ACTIVE",
+					message: `Derivative order execution halted: ${killSwitch.reason}`,
+					meta: { killSwitch },
+				});
+				return;
+			}
+
 			const {
 				symbol,
 				tradingsymbol,
@@ -644,7 +659,11 @@ router.post(
 				idempotencyKey = `fp-der-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
 			} = req.body;
 
-			const userId = (req.user as any)?.id || "demo-user";
+			const userId = (req.user as any)?.id;
+			if (!userId) {
+				res.status(401).json({ success: false, error: "Authentication required" });
+				return;
+			}
 
 			if (!symbol || !tradingsymbol || !quantity || !side || !price) {
 				res.status(400).json({
@@ -779,6 +798,7 @@ router.get("/algo/signals", async (_req: Request, res: Response): Promise<void> 
  */
 router.post(
 	"/algo/stage-basket",
+	requireAuth,
 	async (
 		req: Request<
 			any,
@@ -793,6 +813,17 @@ router.post(
 		res: Response
 	): Promise<void> => {
 		try {
+			const killSwitch = riskEngine.getGlobalKillSwitchStatus();
+			if (killSwitch.active) {
+				res.status(503).json({
+					success: false,
+					error: "GLOBAL_KILL_SWITCH_ACTIVE",
+					message: `Algo staging halted: ${killSwitch.reason}`,
+					meta: { killSwitch },
+				});
+				return;
+			}
+
 			const { signalId, lots = 1, clientRiskProfile = "aggressive", isFnoCleared = true } = req.body;
 			if (!signalId) {
 				res.status(400).json({ success: false, error: "Missing required signalId parameter" });
@@ -830,6 +861,7 @@ router.post(
  */
 router.post(
 	"/algo/execute-basket",
+	requireAuth,
 	async (
 		req: Request<
 			any,
@@ -842,13 +874,28 @@ router.post(
 		res: Response
 	): Promise<void> => {
 		try {
+			const killSwitch = riskEngine.getGlobalKillSwitchStatus();
+			if (killSwitch.active) {
+				res.status(503).json({
+					success: false,
+					error: "GLOBAL_KILL_SWITCH_ACTIVE",
+					message: `Algo basket execution halted: ${killSwitch.reason}`,
+					meta: { killSwitch },
+				});
+				return;
+			}
+
 			const { basket, confirmedVia = "CLIENT_1CLICK_AUTH" } = req.body;
 			if (!basket || !basket.basketId || !basket.sequencedLegs) {
 				res.status(400).json({ success: false, error: "Invalid basket payload for execution" });
 				return;
 			}
 
-			const userId = (req.user as any)?.id || "demo-user";
+			const userId = (req.user as any)?.id;
+			if (!userId) {
+				res.status(401).json({ success: false, error: "Authentication required" });
+				return;
+			}
 			const result = await longShortAlgoEngine.executeBasket({
 				basket,
 				userId,

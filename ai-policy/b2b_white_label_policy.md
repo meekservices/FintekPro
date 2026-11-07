@@ -57,6 +57,10 @@ Target 99.9% availability for key AI Infrastructure endpoints.
 ❌ Reverse-engineering FintekPro's proprietary quant models via high-volume probing.
 ❌ Sub-licensing API access to non-verified fourth-party entities.
 ❌ Deploying or serving synthetic or cooked-up formulas disguised as institutional quantitative analytics.
+❌ Exposing or referencing third-party competitor/consumer brand names (e.g., Smallcase, Dezerv, Zerodha, Groww) in user-facing UI, metric cards, titles, or advisory execution terminology.
+
+7.1 BRAND NEUTRALITY & TERMINOLOGY
+All tenant portals, advisory execution engines, and proposal dispatchers MUST use SEBI-compliant generic wealthtech terms (e.g., `Non-Discretionary Gateway`, `Client-Authorized Model`, `Curated Basket Execution`) to preserve tenant white-label integrity.
 
 8. FAILSAFE DESIGN
 8.1 System-Wide Kill Switch

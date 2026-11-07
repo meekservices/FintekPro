@@ -514,6 +514,85 @@ async function checkSchemeRules(
 	return { gate: GATE, gateName: GATE_NAME, passed: true, retryable: false };
 }
 
+/**
+ * Gate 7: Advisory vs Distribution Segregation (SEBI IA Reg 22)
+ * Active Advisory Clients (those with active advisory subscription or advisory tag)
+ * are legally barred from purchasing commission-bearing Regular Plans.
+ * They must route strictly to Direct Plans with 0% distributor commission.
+ */
+async function checkAdvisoryDistributionSegregation(
+	userId: string,
+	transactionType: TransactionType,
+	payload?: Record<string, unknown>,
+): Promise<ComplianceGateResult> {
+	const GATE = 7;
+	const GATE_NAME = "Advisory vs Distribution Segregation (SEBI Reg 22)";
+
+	if (transactionType !== "MF") {
+		return { gate: GATE, gateName: GATE_NAME, passed: true, retryable: false };
+	}
+
+	try {
+		const [userRow] = await db
+			.select({
+				clientType: schema.users.clientType,
+			})
+			.from(schema.users)
+			.where(eq(schema.users.id, userId))
+			.limit(1);
+
+		const activeSubscription = await db
+			.select({ id: schema.advisorySubscriptions.id })
+			.from(schema.advisorySubscriptions)
+			.where(
+				and(
+					eq(schema.advisorySubscriptions.userId, userId),
+					eq(schema.advisorySubscriptions.status, "active"),
+				),
+			)
+			.limit(1);
+
+		const isAdvisoryClient =
+			userRow?.clientType === "advisory" || activeSubscription.length > 0;
+
+		if (isAdvisoryClient) {
+			const schemeName = String(
+				payload?.schemeName || payload?.scheme_name || payload?.scheme || "",
+			);
+			const isRegular =
+				payload?.isRegularPlan === true ||
+				payload?.planType === "regular" ||
+				payload?.plan_type === "regular" ||
+				schemeName.toLowerCase().includes("regular");
+
+			if (isRegular) {
+				return {
+					gate: GATE,
+					gateName: GATE_NAME,
+					passed: false,
+					retryable: false,
+					errorCode: "SEBI_IA_REG22_SEGREGATION_BREACH",
+					message:
+						"Under SEBI (Investment Advisers) Regulations, 2013 Regulation 22, Advisory Clients are legally barred from purchasing commission-bearing Regular Plans. Transactions for advisory clients must route strictly to Direct Plans with zero distributor commission.",
+					remediationUrl: "/mutual-funds?plan=direct",
+				};
+			}
+		}
+
+		return { gate: GATE, gateName: GATE_NAME, passed: true, retryable: false };
+	} catch (err) {
+		logger.error("[ComplianceGate] Advisory segregation check failed", { userId, err });
+		return {
+			gate: GATE,
+			gateName: GATE_NAME,
+			passed: false,
+			retryable: true,
+			errorCode: "SEGREGATION_CHECK_FAILED",
+			message: "Unable to verify advisory segregation status. Please retry shortly.",
+		};
+	}
+}
+
 // ─── Full Pipeline ────────────────────────────────────────────────────────────
 
 /**
@@ -676,13 +755,14 @@ export async function runComplianceChecks(
 	gates.push(g6);
 	if (!g6.passed) return { passed: false, gates, failingGate: g6 };
 
-	// Gate 7: Client compliance clear
-	gates.push({
-		gate: 7,
-		gateName: "Client Compliance Clear",
-		passed: true,
-		retryable: false,
-	});
+	// Gate 7: Advisory vs Distribution Segregation (SEBI IA Reg 22)
+	const g7 = await checkAdvisoryDistributionSegregation(
+		userId,
+		transactionType,
+		payload,
+	);
+	gates.push(g7);
+	if (!g7.passed) return { passed: false, gates, failingGate: g7 };
 
 	// Gate 8: EUIN Verification — routes no-EUIN actors to Master Agent approval queue
 	// Skip for admin/superadmin/master_agent who always have authority to execute

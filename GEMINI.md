@@ -81,6 +81,14 @@ The primary active project is **FintekPro** — a financial-grade platform servi
 - Never deploy from `FintekPro_Deploy/` manually — it may be stale
 - The deploy script submits to Cloud Build in project `fintekpro`, region `asia-south1`, service `fintekpro-app`
 
+### White-Labeling & Brand Neutrality Policy (NON-NEGOTIABLE)
+
+- FintekPro is an institutional, multi-tenant B2B white-labeled wealthtech and distribution platform.
+- **NEVER** expose or hardcode third-party consumer or competitor brand names (e.g., Smallcase, Dezerv, Zerodha, Groww, INDmoney, Scripbox, etc.) in user-facing UI text, metric cards, titles, marketing copy, or advisory labels unless specifically contracted or authorized.
+- Always use SEBI-compliant, institutional, and generic wealthtech terminology:
+  - For curated baskets / client-approved link execution: use `Non-Discretionary Gateway`, `Client-Authorized Model`, `Curated Basket Execution`, or `Model Portfolio Gateway`.
+  - Maintain absolute brand neutrality across all client portals, partner distribution hubs, proposal dispatchers, and execution layers.
+
 ### Enforcement
 
 If any generated code violates these rules:

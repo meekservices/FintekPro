@@ -76,7 +76,7 @@ export const PartnerClientDispatchModal: React.FC<PartnerClientDispatchModalProp
 
 	const isDeriv = pick?.category === "derivatives";
 
-	// Generate secure tokenized client proposal URL (Smallcase/Dezerv model)
+	// Generate secure tokenized client proposal URL (Non-Discretionary Client Authorization Model)
 	const clientProposalUrl = useMemo(() => {
 		const token = `${pick?.id || "p1"}-${Date.now().toString(36).slice(-5)}`;
 		const baseOrigin = typeof window !== "undefined" && window.location.origin.includes("fintekpro.com")
@@ -173,7 +173,7 @@ export const PartnerClientDispatchModal: React.FC<PartnerClientDispatchModalProp
 					</Badge>
 				</div>
 
-				{/* Interactive Client Proposal Link Strip (Smallcase/Dezerv Model) */}
+				{/* Interactive Client Proposal Link Strip (Non-Discretionary Execution Model) */}
 				<div className="p-2.5 rounded-lg border bg-gradient-to-r from-indigo-50/50 to-purple-50/40 dark:from-indigo-950/30 dark:to-purple-950/20 space-y-1.5">
 					<div className="flex items-center justify-between">
 						<span className="text-[10.5px] font-semibold text-indigo-900 dark:text-indigo-200 flex items-center gap-1">

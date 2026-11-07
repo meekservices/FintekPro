@@ -26,6 +26,7 @@ import { db } from "../db";
 import { complianceAuditTrail } from "@shared/schema";
 import { nanoid } from "nanoid";
 import crypto from "crypto";
+import { logger } from "../logger";
 
 // ==================== RBI PURPOSE CODES ====================
 
@@ -551,10 +552,8 @@ class FEMAComplianceService {
 	private adCertificates: Map<string, ADCertificate> = new Map();
 
 	constructor() {
-		console.log("✅ FEMA Compliance Service initialized");
-		console.log(`   LRS Limit: $${this.LRS_LIMIT_USD.toLocaleString()}/FY`);
-		console.log(
-			`   TCS Threshold: ₹${this.TCS_THRESHOLD_INR.toLocaleString()}`,
+		logger.info(
+			`[FEMA] Service initialized (LRS Limit: $${this.LRS_LIMIT_USD.toLocaleString()}/FY, TCS Threshold: ₹${this.TCS_THRESHOLD_INR.toLocaleString()})`,
 		);
 	}
 
@@ -623,7 +622,32 @@ class FEMAComplianceService {
 		financialYear?: string,
 	): Promise<LRSLimitStatus> {
 		const fy = financialYear || this.getCurrentFinancialYear();
-		const userTransactions = this.transactions.get(userId) || [];
+		let userTransactions = this.transactions.get(userId) || [];
+
+		// Rehydrate LRS transactions from immutable PostgreSQL compliance_audit_trail if memory is cold
+		if (userTransactions.length === 0) {
+			try {
+				const { and, eq } = await import("drizzle-orm");
+				const dbRows = await db
+					.select()
+					.from(complianceAuditTrail)
+					.where(
+						and(
+							eq(complianceAuditTrail.userId, userId),
+							eq(complianceAuditTrail.action, "fema_lrs_transaction_create"),
+						),
+					);
+				if (dbRows.length > 0) {
+					userTransactions = dbRows
+						.map((row) => row.newValue as unknown as LRSTransaction)
+						.filter(Boolean);
+					this.transactions.set(userId, userTransactions);
+				}
+			} catch (dbErr) {
+				logger.error("[FEMA] Failed to restore LRS transactions from DB:", dbErr);
+			}
+		}
+
 		const fyTransactions = userTransactions.filter(
 			(t) => t.financialYear === fy && t.status === "remitted",
 		);
@@ -1082,7 +1106,7 @@ class FEMAComplianceService {
 				},
 			});
 		} catch (error) {
-			console.error(`[FEMA Audit] Failed to log ${type} audit:`, error);
+			logger.error(`[FEMA Audit] Failed to log ${type} audit:`, error);
 		}
 	}
 

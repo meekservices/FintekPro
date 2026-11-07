@@ -19,6 +19,7 @@ import {
 	algoBacktestEngine,
 	RiskProfile,
 } from "../services/algo-signal-engine";
+import { riskEngine } from "../services/compliance/riskEngine";
 import { requireAuth } from "../middleware/auth";
 import { db } from "../db";
 import { algoSignals } from "@shared/schema";
@@ -87,6 +88,17 @@ router.post(
 	generateLimiter,
 	async (req: Request, res: Response): Promise<void> => {
 		try {
+			const killSwitch = riskEngine.getGlobalKillSwitchStatus();
+			if (killSwitch.active) {
+				res.status(503).json({
+					success: false,
+					error: "GLOBAL_KILL_SWITCH_ACTIVE",
+					message: `Automated signal generation is temporarily halted: ${killSwitch.reason}`,
+					meta: { killSwitch },
+				});
+				return;
+			}
+
 			const parsed = generateSchema.safeParse(req.body);
 			if (!parsed.success) {
 				res
@@ -222,6 +234,17 @@ router.post(
 	actionLimiter,
 	async (req: Request, res: Response): Promise<void> => {
 		try {
+			const killSwitch = riskEngine.getGlobalKillSwitchStatus();
+			if (killSwitch.active) {
+				res.status(503).json({
+					success: false,
+					error: "GLOBAL_KILL_SWITCH_ACTIVE",
+					message: `Algo execution approval is temporarily halted: ${killSwitch.reason}`,
+					meta: { killSwitch },
+				});
+				return;
+			}
+
 			const userId = getUserId(req);
 			const signalId = Number.parseInt(req.params.id, 10);
 			if (Number.isNaN(signalId)) {
@@ -438,5 +461,68 @@ router.post(
 		}
 	},
 );
+
+/**
+ * GET /kill-switch
+ * Returns current status of Global Algo Emergency Kill Switch.
+ */
+router.get("/kill-switch", async (_req: Request, res: Response): Promise<void> => {
+	res.json({
+		success: true,
+		data: riskEngine.getGlobalKillSwitchStatus(),
+		meta: { timestamp: new Date().toISOString() },
+	});
+});
+
+/**
+ * POST /kill-switch/activate
+ * Activates Global Algo Emergency Kill Switch across platforms.
+ */
+router.post("/kill-switch/activate", async (req: Request, res: Response): Promise<void> => {
+	const user = req.user as any;
+	const userRoles = user?.roles || (user?.role ? [user.role] : []);
+	const isAuthorized = userRoles.some((r: string) => ["admin", "superadmin", "compliance"].includes(r));
+
+	if (!isAuthorized) {
+		res.status(403).json({ success: false, error: "Only admin or compliance roles can activate Global Kill Switch" });
+		return;
+	}
+
+	const reason = req.body?.reason || "Emergency volatility / anomaly intervention";
+	const activatedBy = user?.id || "admin";
+	const status = riskEngine.activateGlobalKillSwitch(reason, activatedBy);
+
+	res.json({
+		success: true,
+		message: "Global Algo Emergency Kill Switch activated successfully",
+		data: status,
+		meta: { timestamp: new Date().toISOString() },
+	});
+});
+
+/**
+ * POST /kill-switch/deactivate
+ * Deactivates Global Algo Emergency Kill Switch.
+ */
+router.post("/kill-switch/deactivate", async (req: Request, res: Response): Promise<void> => {
+	const user = req.user as any;
+	const userRoles = user?.roles || (user?.role ? [user.role] : []);
+	const isAuthorized = userRoles.some((r: string) => ["admin", "superadmin", "compliance"].includes(r));
+
+	if (!isAuthorized) {
+		res.status(403).json({ success: false, error: "Only admin or compliance roles can deactivate Global Kill Switch" });
+		return;
+	}
+
+	const deactivatedBy = user?.id || "admin";
+	const status = riskEngine.deactivateGlobalKillSwitch(deactivatedBy);
+
+	res.json({
+		success: true,
+		message: "Global Algo Emergency Kill Switch deactivated successfully",
+		data: status,
+		meta: { timestamp: new Date().toISOString() },
+	});
+});
 
 export default router;

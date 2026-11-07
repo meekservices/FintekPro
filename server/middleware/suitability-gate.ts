@@ -94,13 +94,18 @@ export async function checkSuitability(
 
 		return { suitable: true, userRiskLevel };
 	} catch (err) {
-		logger.error("[SuitabilityGate] Check failed, failing open", {
+		logger.error("[SuitabilityGate] Check failed, failing closed", {
 			userId,
 			productRiskLevel,
 			err,
 		});
-		// Fail open with warning — don't block genuine investors on system errors
-		return { suitable: true, userRiskLevel: "low" };
+		// Zero-Trust & SEBI Reg 17: Fail closed on system or database error to protect investor capital
+		return {
+			suitable: false,
+			userRiskLevel: "low",
+			reason:
+				"Unable to verify risk suitability at this moment. Transaction blocked per SEBI Regulation 17 safety protocol. Please retry shortly.",
+		};
 	}
 }
 

@@ -509,7 +509,7 @@ export default function AgentStorePage() {
 					</div>
 					<div>
 						<p className="text-xs text-muted-foreground">Advisory Execution</p>
-						<p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">Smallcase / Dezerv Model</p>
+						<p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">Non-Discretionary Gateway</p>
 					</div>
 				</div>
 			</div>

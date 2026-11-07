@@ -10,6 +10,9 @@
  */
 
 import { nanoid } from "nanoid";
+import { db } from "../db";
+import { complianceAuditTrail } from "@shared/schema";
+import { logger } from "../logger";
 
 // ==================== TYPES ====================
 
@@ -197,6 +200,34 @@ export class InvestmentAdvisoryComplianceEngine {
 		};
 
 		auditLogs.set(auditId, auditLog);
+
+		// Persist immutably to PostgreSQL compliance_audit_trail (SEBI Reg 19 5-to-7-year audit requirement)
+		db.insert(complianceAuditTrail)
+			.values({
+				userId: params.clientId,
+				action: "investment_recommendation_created",
+				fieldChanged: "recommendation",
+				entityId: auditId,
+				entityType: "investment_advisory",
+				performedBy: params.advisorId,
+				performedByRole: "advisor",
+				newValue: auditLog as any,
+				riskImpact: "medium",
+				complianceImpact: "sebi_reg17",
+				metadata: {
+					recommendationType: params.recommendationType,
+					suitabilityScore: params.suitabilityScore,
+					retentionExpiry: auditLog.retentionExpiry.toISOString(),
+					service: "InvestmentAdvisoryComplianceEngine",
+				},
+			})
+			.catch((err) => {
+				logger.error(
+					"[InvestmentAdvisoryCompliance] Failed to persist recommendation audit trail:",
+					err,
+				);
+			});
+
 		return auditLog;
 	}
 
@@ -206,9 +237,9 @@ export class InvestmentAdvisoryComplianceEngine {
 	private generateMandatoryDisclosures(): RecommendationAuditLog["disclosures"] {
 		return {
 			conflictOfInterest:
-				"FintekPro may receive commissions from product providers. This potential conflict has been disclosed as per SEBI (Investment Advisers) Regulations, 2013.",
+				"FintekPro operates strictly as a fee-based SEBI Registered Investment Adviser (RIA). We do not accept commissions, brokerages, or manufacturer incentives on advisory accounts (SEBI IA Reg 22).",
 			commissionDisclosure:
-				"Commission structure: Trail commission of 0.5-1% p.a. on assets under advice. Upfront commissions disclosed in product-specific documentation.",
+				"Advisory accounts route exclusively to Direct Plans (0% distribution commission). Advisory fees are billed directly to the client as per agreed fee schedule compliant with SEBI fee caps.",
 			riskDisclosure:
 				"Investment in securities market is subject to market risks. Past performance is not indicative of future returns. Read all scheme related documents carefully before investing.",
 			pastPerformanceDisclaimer:
@@ -254,6 +285,35 @@ export class InvestmentAdvisoryComplianceEngine {
 		};
 
 		consentRecords.set(consentId, consent);
+
+		// Persist consent immutably to PostgreSQL compliance_audit_trail (DPDP & SEBI compliance)
+		db.insert(complianceAuditTrail)
+			.values({
+				userId: params.clientId,
+				action: "client_consent_recorded",
+				fieldChanged: params.consentType,
+				entityId: consentId,
+				entityType: "client_consent",
+				performedBy: params.clientId,
+				performedByRole: "client",
+				newValue: consent as any,
+				ipAddress: params.ipAddress,
+				userAgent: params.deviceInfo,
+				riskImpact: "low",
+				complianceImpact: "dpdp_and_sebi",
+				metadata: {
+					consentType: params.consentType,
+					regulatoryReference: consent.regulatoryReference,
+					service: "InvestmentAdvisoryComplianceEngine",
+				},
+			})
+			.catch((err) => {
+				logger.error(
+					"[InvestmentAdvisoryCompliance] Failed to persist consent record:",
+					err,
+				);
+			});
+
 		return consent;
 	}
 
@@ -323,6 +383,33 @@ export class InvestmentAdvisoryComplianceEngine {
 		};
 
 		suitabilityDeclarations.set(declarationId, declaration);
+
+		// Persist immutably to PostgreSQL compliance_audit_trail (SEBI Reg 17 compliance)
+		db.insert(complianceAuditTrail)
+			.values({
+				userId: params.clientId,
+				action: "suitability_declaration_created",
+				fieldChanged: "suitability",
+				entityId: declarationId,
+				entityType: "suitability_declaration",
+				performedBy: params.advisorId,
+				performedByRole: "advisor",
+				newValue: declaration as any,
+				riskImpact: "high",
+				complianceImpact: "sebi_reg17",
+				metadata: {
+					proposalId: params.proposalId,
+					regulatoryReference: declaration.regulatoryReference,
+					service: "InvestmentAdvisoryComplianceEngine",
+				},
+			})
+			.catch((err) => {
+				logger.error(
+					"[InvestmentAdvisoryCompliance] Failed to persist suitability declaration:",
+					err,
+				);
+			});
+
 		return declaration;
 	}
 
