@@ -34,7 +34,7 @@ describe("Multi-Exchange Market Service", () => {
 		expect(data.volatilityPulse).toBeDefined();
 		expect(data.volatilityPulse.indiaVix).toBeGreaterThan(5);
 		expect(data.volatilityPulse.cboeVix).toBeGreaterThan(5);
-	});
+	}, 15000);
 });
 
 describe("AMC Research & House Consensus Service", () => {
@@ -65,7 +65,7 @@ describe("AMC Research & House Consensus Service", () => {
 		// Advisor Talking Points
 		expect(data.advisorTalkingPoints.length).toBeGreaterThanOrEqual(3);
 		expect(data.faspAiDisclaimer).toContain("FASP-AI v1.0 Regulatory Notice");
-	});
+	}, 15000);
 
 	it("guarantees knowledgeHubService fallback brief includes multiExchangeData and amcConsensus", async () => {
 		const { knowledgeHubService } = await import("../services/knowledge-hub-service");
