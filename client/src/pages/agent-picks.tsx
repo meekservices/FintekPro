@@ -341,6 +341,7 @@ export { getRiskGuardLimits, computeGuardedPortfolioWeights, type RiskGuardLimit
 // ── UI config maps ────────────────────────────────────────────────────────────
 
 const categoryIcons: Record<string, ComponentType<{ className?: string }>> = {
+	portfolio: Brain,
 	listed_stocks: TrendingUp,
 	mutual_funds: BarChart3,
 	bonds: Landmark,
@@ -356,6 +357,7 @@ const categoryIcons: Record<string, ComponentType<{ className?: string }>> = {
 };
 
 const categoryLabels: Record<string, string> = {
+	portfolio: "Portfolio",
 	listed_stocks: "Stocks",
 	mutual_funds: "Mutual Funds",
 	bonds: "Bonds",
@@ -552,6 +554,7 @@ const getConfidenceDot = (score: number): string => {
 
 const allCategories = [
 	{ key: "all", label: "All", icon: Sparkles },
+	{ key: "portfolio", label: "Portfolio", icon: Brain, isAI: true },
 	{ key: "listed_stocks", label: "Stocks", icon: TrendingUp },
 	{ key: "mutual_funds", label: "Mutual Funds", icon: BarChart3 },
 	{ key: "bonds", label: "Bonds", icon: Landmark },
@@ -2839,7 +2842,11 @@ export default function AgentPicksPage() {
 	const nonExpiredLivePicks = livePicks.filter((p) => !isPickExpired(p));
 
 	const getCategoryCounts = (picks: DailyPick[], supplementPicks?: DailyPick[]) => {
-		const counts: Record<string, number> = { all: picks.length };
+		// Include Portfolio with AI badge as a 1st-class product category (+1 makes total 18)
+		const counts: Record<string, number> = {
+			all: picks.length + 1,
+			portfolio: 1,
+		};
 		picks.forEach((p) => {
 			// Strict mutual exclusivity: each pick increments EXACTLY ONE category counter.
 			if (isIpoPick(p)) {
@@ -4105,12 +4112,14 @@ export default function AgentPicksPage() {
 						<CardContent>
 							{/* #3 + #11 Category Filter — horizontal scroll + hit rates */}
 							<div className="flex gap-2 mb-4 pb-4 border-b overflow-x-auto scrollbar-none">
-								{allCategories.map(({ key, label, icon: Icon }) => {
+								{allCategories.map((catItem) => {
+									const { key, label, icon: Icon } = catItem;
+									const isAI = (catItem as any).isAI === true;
 									const count = todayCounts[key] || 0;
 									const isActive = todayCategoryFilter === key;
 									// Show all tabs (consistent with Live Recommendations) — zero-count tabs show empty state
 									const catStats =
-										key !== "all" ? stats?.byCategory?.[key] : null;
+										key !== "all" && key !== "portfolio" ? stats?.byCategory?.[key] : null;
 									return (
 										<Button
 											key={key}
@@ -4118,31 +4127,47 @@ export default function AgentPicksPage() {
 											size="sm"
 											onClick={() => setTodayCategoryFilter(key)}
 											className={`flex items-center gap-1.5 shrink-0 transition-all ${
-												key === "ipo" && !isActive
-													? "border-emerald-400 dark:border-emerald-600 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950"
-													: key === "pre_ipo" && !isActive
-														? "border-violet-400 dark:border-violet-600 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950"
-														: key === "unlisted" && !isActive
-															? "border-slate-400 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-950"
-															: count === 0 && key !== "all" && !isActive
-																? "opacity-40 cursor-not-allowed"
-																: ""
+												isAI && !isActive
+													? "border-primary/50 text-primary hover:bg-primary/10 bg-primary/5 shadow-xs font-semibold"
+													: isAI && isActive
+														? "bg-primary text-primary-foreground font-bold shadow-xs"
+														: key === "ipo" && !isActive
+															? "border-emerald-400 dark:border-emerald-600 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+															: key === "pre_ipo" && !isActive
+																? "border-violet-400 dark:border-violet-600 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950"
+																: key === "unlisted" && !isActive
+																	? "border-slate-400 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-950"
+																	: count === 0 && key !== "all" && !isActive
+																		? "opacity-40 cursor-not-allowed"
+																		: ""
 											}`}
 											title={
-												key === "ipo"
-													? "Live Public IPOs — open offerings with GMP and calculated listing gains"
-													: key === "pre_ipo"
-														? "Pre-IPO Pipeline — DRHP filed or formal Pre-IPO funding stage (SEBI ICDR)"
-														: key === "unlisted"
-															? "Unlisted OTC Equities — private companies traded via off-market demat transfers"
-															: count === 0 && key !== "all"
-																? "No picks available today"
-																: undefined
+												isAI
+													? "AI Portfolio Strategy: Gemini-powered multi-asset model portfolio generator"
+													: key === "ipo"
+														? "Live Public IPOs — open offerings with GMP and calculated listing gains"
+														: key === "pre_ipo"
+															? "Pre-IPO Pipeline — DRHP filed or formal Pre-IPO funding stage (SEBI ICDR)"
+															: key === "unlisted"
+																? "Unlisted OTC Equities — private companies traded via off-market demat transfers"
+																: count === 0 && key !== "all"
+																	? "No picks available today"
+																	: undefined
 											}
 										>
 											<Icon className="h-3.5 w-3.5" />
 											{label}
-											{count > 0 && (
+											{isAI && (
+												<Badge
+													variant={isActive ? "secondary" : "default"}
+													className={`ml-1 text-[9px] px-1.5 py-0 font-bold uppercase tracking-wider ${
+														isActive ? "bg-background text-primary" : "bg-primary text-primary-foreground"
+													}`}
+												>
+													AI
+												</Badge>
+											)}
+											{count > 0 && !isAI && (
 												<Badge
 													variant={isActive ? "secondary" : "outline"}
 													className="ml-1 text-[10px] px-1.5"
@@ -4194,74 +4219,78 @@ export default function AgentPicksPage() {
 								</div>
 							)}
 
-							{/* Curated Theme Quick-Filter Strip */}
-							<div className="flex items-center gap-1.5 mb-3 pb-2.5 border-b overflow-x-auto scrollbar-none text-xs">
-								<span className="text-[11px] font-semibold text-muted-foreground uppercase mr-1 shrink-0 flex items-center gap-1">
-									<Sparkles className="h-3 w-3 text-amber-500" /> Focus:
-								</span>
-								{[
-									{ key: "all", label: "All Opportunities" },
-									{ key: "high_conviction", label: "🚀 High Conviction (≥80%)" },
-									{ key: "option_sellers", label: "💰 Option Sellers (Income)" },
-									{ key: "directional_fo", label: "📈 Directional F&O" },
-									{ key: "thematic_fscore", label: "🏛️ Thematic & F-Score Leaders" },
-									{ key: "pre_ipo", label: "💎 Pre-IPO Pipeline" },
-								].map((chip) => (
-									<button
-										key={chip.key}
-										type="button"
-										onClick={() => setCuratedThemeFilter(chip.key)}
-										className={`px-2.5 py-1 rounded-full text-[11px] font-medium shrink-0 transition-all ${
-											curatedThemeFilter === chip.key
-												? "bg-primary text-primary-foreground font-semibold shadow-sm"
-												: "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/40"
-										}`}
-									>
-										{chip.label}
-									</button>
-								))}
-							</div>
-
-							{/* Time Horizon Filter */}
-							<div className="flex items-center gap-1.5 mb-4 pb-3 border-b flex-wrap">
-								<span className="text-xs font-medium text-muted-foreground mr-1 flex items-center gap-1">
-									<Timer className="h-3 w-3" />
-									Horizon:
-								</span>
-								{[
-									{ key: "all", label: "All Horizons" },
-									{ key: "intraday", label: "Intraday", icon: "⚡", color: "text-red-600 dark:text-red-400" },
-									{ key: "ultra_short_term", label: "Ultra Short (1-7D)", icon: "🚀", color: "text-amber-600 dark:text-amber-400" },
-									{ key: "short_term", label: "Short Term (1-3M)", icon: "📈", color: "text-blue-600 dark:text-blue-400" },
-									{ key: "medium_term", label: "Medium Term (3-12M)", icon: "📊", color: "text-purple-600 dark:text-purple-400" },
-									{ key: "long_term", label: "Long Term (1Y+)", icon: "🎯", color: "text-emerald-600 dark:text-emerald-400" },
-								].map(({ key, label, icon, color }) => {
-									const isActive = todayHorizonFilter === key;
-									const count = key === "all"
-										? nonExpiredTodayPicks.filter(p => todayCategoryFilter === "all" || p.category === todayCategoryFilter).length
-										: nonExpiredTodayPicks.filter(p => (todayCategoryFilter === "all" || p.category === todayCategoryFilter) && normalizePickHorizon(p.timeHorizon) === key).length;
-									return (
-										<Button
-											key={key}
-											variant={isActive ? "secondary" : "ghost"}
-											size="sm"
-											onClick={() => setTodayHorizonFilter(key)}
-											className={`h-7 px-2.5 text-xs font-medium ${isActive ? "bg-accent font-semibold" : "text-muted-foreground"}`}
+							{/* Curated Theme Quick-Filter Strip — hidden on Portfolio & Mutual Funds tabs to eliminate clutter */}
+							{todayCategoryFilter !== "portfolio" && todayCategoryFilter !== "mutual_funds" && (
+								<div className="flex items-center gap-1.5 mb-3 pb-2.5 border-b overflow-x-auto scrollbar-none text-xs">
+									<span className="text-[11px] font-semibold text-muted-foreground uppercase mr-1 shrink-0 flex items-center gap-1">
+										<Sparkles className="h-3 w-3 text-amber-500" /> Focus:
+									</span>
+									{[
+										{ key: "all", label: "All Opportunities" },
+										{ key: "high_conviction", label: "🚀 High Conviction (≥80%)" },
+										{ key: "option_sellers", label: "💰 Option Sellers (Income)" },
+										{ key: "directional_fo", label: "📈 Directional F&O" },
+										{ key: "thematic_fscore", label: "🏛️ Thematic & F-Score Leaders" },
+										{ key: "pre_ipo", label: "💎 Pre-IPO Pipeline" },
+									].map((chip) => (
+										<button
+											key={chip.key}
+											type="button"
+											onClick={() => setCuratedThemeFilter(chip.key)}
+											className={`px-2.5 py-1 rounded-full text-[11px] font-medium shrink-0 transition-all ${
+												curatedThemeFilter === chip.key
+													? "bg-primary text-primary-foreground font-semibold shadow-sm"
+													: "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/40"
+											}`}
 										>
-											{icon && <span className="mr-1">{icon}</span>}
-											<span className={isActive && color ? color : ""}>{label}</span>
-											{count > 0 && (
-												<Badge
-													variant={isActive ? "default" : "outline"}
-													className="ml-1 text-[9px] px-1 py-0 h-4"
-												>
-													{count}
-												</Badge>
-											)}
-										</Button>
-									);
-								})}
-							</div>
+											{chip.label}
+										</button>
+									))}
+								</div>
+							)}
+
+							{/* Time Horizon Filter — hidden on Portfolio & Mutual Funds tabs to eliminate clutter */}
+							{todayCategoryFilter !== "portfolio" && todayCategoryFilter !== "mutual_funds" && (
+								<div className="flex items-center gap-1.5 mb-4 pb-3 border-b flex-wrap">
+									<span className="text-xs font-medium text-muted-foreground mr-1 flex items-center gap-1">
+										<Timer className="h-3 w-3" />
+										Horizon:
+									</span>
+									{[
+										{ key: "all", label: "All Horizons" },
+										{ key: "intraday", label: "Intraday", icon: "⚡", color: "text-red-600 dark:text-red-400" },
+										{ key: "ultra_short_term", label: "Ultra Short (1-7D)", icon: "🚀", color: "text-amber-600 dark:text-amber-400" },
+										{ key: "short_term", label: "Short Term (1-3M)", icon: "📈", color: "text-blue-600 dark:text-blue-400" },
+										{ key: "medium_term", label: "Medium Term (3-12M)", icon: "📊", color: "text-purple-600 dark:text-purple-400" },
+										{ key: "long_term", label: "Long Term (1Y+)", icon: "🎯", color: "text-emerald-600 dark:text-emerald-400" },
+									].map(({ key, label, icon, color }) => {
+										const isActive = todayHorizonFilter === key;
+										const count = key === "all"
+											? nonExpiredTodayPicks.filter(p => todayCategoryFilter === "all" || p.category === todayCategoryFilter).length
+											: nonExpiredTodayPicks.filter(p => (todayCategoryFilter === "all" || p.category === todayCategoryFilter) && normalizePickHorizon(p.timeHorizon) === key).length;
+										return (
+											<Button
+												key={key}
+												variant={isActive ? "secondary" : "ghost"}
+												size="sm"
+												onClick={() => setTodayHorizonFilter(key)}
+												className={`h-7 px-2.5 text-xs font-medium ${isActive ? "bg-accent font-semibold" : "text-muted-foreground"}`}
+											>
+												{icon && <span className="mr-1">{icon}</span>}
+												<span className={isActive && color ? color : ""}>{label}</span>
+												{count > 0 && (
+													<Badge
+														variant={isActive ? "default" : "outline"}
+														className="ml-1 text-[9px] px-1 py-0 h-4"
+													>
+														{count}
+													</Badge>
+												)}
+											</Button>
+										);
+									})}
+								</div>
+							)}
 
 							{loadingToday ? (
 								<div className="space-y-4">
@@ -4653,9 +4682,9 @@ export default function AgentPicksPage() {
 										)}
 									</div>
 								</div>
-							) : todayCategoryFilter === "listed_stocks" ? (
+							) : todayCategoryFilter === "portfolio" ? (
 								<div className="space-y-4">
-									{/* ── Stocks AI Filters — Horizontal Bar ── */}
+									{/* ── Portfolio AI Filters — Horizontal Bar ── */}
 									<Card className="p-4">
 										<div className="flex flex-wrap items-end gap-3">
 											{/* Header */}
@@ -4798,13 +4827,18 @@ export default function AgentPicksPage() {
 																<Brain className="h-5 w-5 text-primary" />
 															</div>
 															<h3 className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-																AI Portfolio Strategy
+																Portfolio
 															</h3>
+															<Badge
+																className="text-xs flex items-center gap-1 bg-primary text-primary-foreground font-bold px-2 py-0.5"
+															>
+																<Sparkles className="h-3 w-3" />
+																AI
+															</Badge>
 															<Badge
 																variant="outline"
 																className="text-xs flex items-center gap-1 border-primary/20 bg-primary/5 text-primary"
 															>
-																<Sparkles className="h-3 w-3" />
 																Gemini Powered
 															</Badge>
 														</div>
@@ -5730,232 +5764,25 @@ export default function AgentPicksPage() {
 											</Card>
 										)}
 
-								{/* ── Fallback picks banner ── */}
-								{isFallback && (
-									todayData?.isWeekendOrHoliday || todayData?.isTradingDay === false ? (
-										<div className="flex items-center gap-3 rounded-xl border border-blue-300 bg-blue-50/70 dark:bg-blue-950/30 dark:border-blue-800 px-4 py-3 text-sm">
-											<span className="text-xl shrink-0">🏛️</span>
-											<div className="flex-1 min-w-0">
-												<p className="font-semibold text-blue-900 dark:text-blue-300">
-													Markets Closed Today — Showing Latest Active Picks from {fallbackDate}
-												</p>
-												<p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">
-													NSE/BSE equity markets are closed on weekends and holidays. Today's live prices and picks reflect the most recent active trading session.
-												</p>
-											</div>
-											<div className="shrink-0 px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700">
-												Market Closed
-											</div>
-										</div>
-									) : (
-										<div className="flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-4 py-3 text-sm">
-											<span className="text-xl shrink-0">⚠️</span>
-											<div className="flex-1 min-w-0">
-												<p className="font-semibold text-amber-800 dark:text-amber-300">
-													Showing picks from {fallbackDate} — today's picks haven't been generated yet
-												</p>
-												<p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-													Click "Generate Now" to get fresh AI picks for today
-												</p>
-											</div>
-											<button
-												onClick={() => catchupMutation.mutate()}
-												disabled={catchupMutation.isPending}
-												className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-60 transition-colors"
-											>
-												<RefreshCw className={`h-3.5 w-3.5 ${catchupMutation.isPending ? "animate-spin" : ""}`} />
-												{catchupMutation.isPending ? "Generating..." : "Generate Now"}
-											</button>
-										</div>
-									)
-								)}
-
-										{filteredTodayPicks.length > 0 &&
-											(() => {
-												const sectorGroups =
-													groupByBroadSector(filteredTodayPicks);
-												const hasSectorData = sectorGroups.some(
-													(g) => g.sector !== null,
-												);
-
-												return (
-													<div className="space-y-2">
-														<div className="flex items-center gap-2 mb-2">
-															<TrendingUp className="h-5 w-5 text-primary" />
-															<h3 className="font-semibold">
-																Today's Stock Picks
-															</h3>
-															{hasSectorData && (
-																<span className="flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
-																	<span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-																	{sectorGroups.filter((g) => g.sector).length}{" "}
-																	Sectors
-																</span>
-															)}
-															<div className="ml-auto flex items-center gap-1 border rounded-lg p-0.5">
-																<button
-																	onClick={() => toggleViewMode("grid")}
-																	className={`p-1.5 rounded-md transition-colors ${viewMode === "grid" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
-																	title="Card view"
-																>
-																	<LayoutGrid className="h-3.5 w-3.5" />
-																</button>
-																<button
-																	onClick={() => toggleViewMode("table")}
-																	className={`p-1.5 rounded-md transition-colors ${viewMode === "table" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
-																	title="Table view"
-																>
-																	<Table2 className="h-3.5 w-3.5" />
-																</button>
-															</div>
-														</div>
-
-														{/* Sector Allocation Bar */}
-														{hasSectorData && sectorGroups.length >= 2 && (
-															<div className="bg-card border rounded-xl p-4 shadow-sm mb-4">
-																<h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide flex items-center gap-1.5">
-																	<PieChart className="h-3 w-3" /> Sector
-																	Allocation
-																</h4>
-																<div className="flex h-2.5 rounded-full overflow-hidden gap-0.5 mb-3">
-																	{sectorGroups
-																		.filter((g) => g.sector)
-																		.map((g) => (
-																			<TooltipProvider key={g.sector!.id}>
-																				<Tooltip>
-																					<TooltipTrigger asChild>
-																						<SectorBarSegment
-																							color={g.sector!.color}
-																							flex={g.picks.length}
-																							className="h-full rounded-sm transition-all hover:opacity-80 cursor-default"
-																						/>
-																					</TooltipTrigger>
-																					<TooltipContent>
-																						<div className="font-medium">
-																							{g.sector!.icon} {g.sector!.label}
-																						</div>
-																						<div className="text-xs text-muted-foreground">
-																							{g.picks
-																								.map((p) => p.symbol)
-																								.join(", ")}
-																						</div>
-																					</TooltipContent>
-																				</Tooltip>
-																			</TooltipProvider>
-																		))}
-																</div>
-																<div className="flex flex-wrap gap-3">
-																	{sectorGroups
-																		.filter((g) => g.sector)
-																		.map((g) => (
-																			<div
-																				key={g.sector!.id}
-																				className="flex items-center gap-1.5 text-xs"
-																			>
-																				<SectorDot
-																					color={g.sector!.color}
-																					className="w-2 h-2 rounded-full"
-																				/>
-																				<span>
-																					{g.sector!.icon} {g.sector!.label}
-																				</span>
-																				<span className="text-muted-foreground">
-																					·{" "}
-																					{g.picks
-																						.map((p) => p.symbol)
-																						.join(", ")}
-																				</span>
-																			</div>
-																		))}
-																</div>
-															</div>
-														)}
-
-														{/* Per-sector grouped cards OR table — respects global viewMode toggle */}
-														{viewMode === "table" ? (
-															<PicksTable
-																picks={filteredTodayPicks}
-																onRowClick={setSelectedPick}
-															/>
-														) : (
-															sectorGroups.map((group, gi) => (
-																<div
-																	key={group.sector?.id ?? "other"}
-																	className="space-y-3"
-																>
-																	{group.sector ? (
-																		<SectorHeader
-																			color={group.sector.color}
-																			className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-white text-sm font-semibold"
-																		>
-																			<span>{group.sector.icon}</span>
-																			<span>{group.sector.label}</span>
-																			<span className="ml-auto opacity-80 text-xs font-normal">
-																				{group.picks.length} pick
-																				{group.picks.length > 1 ? "s" : ""}
-																			</span>
-																		</SectorHeader>
-																	) : (
-																		<div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted text-sm font-semibold text-muted-foreground">
-																			<TrendingUp className="h-4 w-4" />
-																			<span>Other Sectors</span>
-																		</div>
-																	)}
-																	<div className="grid gap-4 grid-cols-1">
-																		{group.picks.map((pick, index) => (
-																			<PickCard
-																				key={`today-sector-${pick.id}-${gi}-${index}`}
-																				pick={pick}
-																				isWatchlisted={watchlistPickIds.has(
-																					pick.id,
-																				)}
-																				isSelected={selectedPickIds.has(
-																					pick.id,
-																				)}
-																				onSelectToggle={handleSelectToggle}
-																				onAddToWatchlist={(id) =>
-																					addToWatchlistMutation.mutate(id)
-																				}
-																				onRemoveFromWatchlist={(id) =>
-																					removeFromWatchlistMutation.mutate(id)
-																				}
-																				onShareEmail={(id) =>
-																					handleShare(id, "email")
-																				}
-																				onShareWhatsApp={(id) =>
-																					handleShare(id, "whatsapp")
-																				}
-																				onShareClients={handleShareWithClients}
-																				onClick={setSelectedPick}
-																				onFaspExplain={(p) => setFaspModalPick(p)}
-																				onExplain={(id) => {
-																					setExplanationPickId(id);
-																					setExplanationOpen(true);
-																				}}
-																			/>
-																		))}
-																	</div>
-																</div>
-															))
-														)}
-													</div>
-												);
-											})()}
-
 										{!generateAIMutation.isPending &&
 											!quickAILoading &&
-											aiRecommendations.length === 0 &&
-											filteredTodayPicks.length === 0 && (
+											aiRecommendations.length === 0 && (
 												<Card>
-													<CardContent className="py-12 text-center">
-														<Brain className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+													<CardContent className="py-16 text-center">
+														<Brain className="h-12 w-12 mx-auto text-primary/60 mb-4 animate-pulse" />
 														<h3 className="text-lg font-semibold mb-2">
-															No Stock Picks Yet
+															Ready to Build AI Portfolio Strategy
 														</h3>
-														<p className="text-muted-foreground mb-4">
-															Configure your preferences and click "Generate
-															Picks" to get AI-powered stock recommendations.
+														<p className="text-muted-foreground mb-4 max-w-md mx-auto text-sm">
+															Adjust your risk preferences, time horizon, and target investment allocation above, then click <strong>Generate Picks</strong> to construct a Gemini-powered model portfolio with institutional risk guardrails.
 														</p>
+														<Button
+															onClick={handleGenerateAIStocks}
+															className="gap-2"
+														>
+															<Sparkles className="h-4 w-4" />
+															Generate Portfolio
+														</Button>
 													</CardContent>
 												</Card>
 											)}
