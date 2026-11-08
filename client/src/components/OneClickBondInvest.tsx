@@ -31,6 +31,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useUnifiedCart } from "@/contexts/UnifiedCartContext";
 import { useOrderGuard } from "@/hooks/use-order-guard";
 import { OrderBlocker } from "@/components/OrderBlocker";
+import { formatCurrencyExact, formatIndianNumber } from "@/lib/format";
 
 interface BondData {
 	isin: string;
@@ -489,20 +490,19 @@ export function OneClickBondInvest({
 								<div className="space-y-2">
 									<div className="flex justify-between text-sm">
 										<span className="text-muted-foreground">
-											Order Amount ({quantity} × ₹
-											{currentPrice.toLocaleString()})
+											Order Amount ({quantity} × {formatCurrencyExact(currentPrice)})
 										</span>
 										<span className="font-medium">
-											₹{fees.principal.toLocaleString()}
+											{formatCurrencyExact(fees.principal)}
 										</span>
 									</div>
 									<div className="flex justify-between text-sm">
 										<span className="text-muted-foreground">Brokerage</span>
-										<span>₹{fees.brokerage.toFixed(2)}</span>
+										<span>{formatCurrencyExact(fees.brokerage)}</span>
 									</div>
 									<div className="flex justify-between text-sm">
 										<span className="text-muted-foreground">Platform Fee</span>
-										<span>₹{fees.platformFee.toFixed(2)}</span>
+										<span>{formatCurrencyExact(fees.platformFee)}</span>
 									</div>
 									<div className="flex justify-between text-sm">
 										<span className="text-muted-foreground flex items-center gap-1">
@@ -519,18 +519,18 @@ export function OneClickBondInvest({
 										<span
 											className={fees.stampDutyExempt ? "text-green-600" : ""}
 										>
-											₹{fees.stampDuty.toFixed(2)}
+											{formatCurrencyExact(fees.stampDuty)}
 										</span>
 									</div>
 									<div className="flex justify-between text-sm">
 										<span className="text-muted-foreground">GST (18%)</span>
-										<span>₹{fees.gst.toFixed(2)}</span>
+										<span>{formatCurrencyExact(fees.gst)}</span>
 									</div>
 									<Separator />
 									<div className="flex justify-between font-semibold text-lg">
 										<span>Total Payable</span>
 										<span className="text-blue-600">
-											₹{fees.grandTotal.toLocaleString()}
+											{formatCurrencyExact(fees.grandTotal)}
 										</span>
 									</div>
 								</div>

@@ -255,7 +255,7 @@ export async function apiRequest(
 ): Promise<any> {
 	let url: string;
 	let method: string = "GET";
-	let body: any = undefined;
+	let body: any ;
 	let headers: Record<string, string> = {};
 	let otherOptions: RequestInit = {};
 
@@ -499,6 +499,7 @@ export const queryClient = new QueryClient({
 		queries: {
 			queryFn: getQueryFn({ on401: "throw" }),
 			refetchInterval: false,
+			refetchIntervalInBackground: false,
 			refetchOnWindowFocus: false,
 			staleTime: 5 * 60 * 1000,
 			gcTime: 15 * 60 * 1000,

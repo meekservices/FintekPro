@@ -77,12 +77,28 @@ export default defineConfig({
           // "owning" a shared module, which is the root cause of circular chunk
           // loading (chunk-portfolio ↔ chunk-admin etc.) and TDZ runtime crashes.
           //
-          // Feature-specific component dirs are excluded so they stay collocated
-          // with their page chunk and don't create false cycles via chunk-shared.
-          if (
-            id.includes("/client/src/components/agent/")
-          ) return undefined; // let Vite place these naturally with their page chunk
+          // ── Heavy domain component directories (isolated to avoid monolithic shared chunk) ──
+          if (id.includes("/client/src/components/dashboard/")) return "chunk-dashboard";
+          if (id.includes("/client/src/components/us-trading/")) return "chunk-us-trading";
+          if (id.includes("/client/src/components/portfolio/") || id.includes("/client/src/components/portfolio-sync/")) return "chunk-portfolio-comp";
+          if (id.includes("/client/src/components/proposal-builder/") || id.includes("/client/src/components/proposal/")) return "chunk-proposals";
+          if (id.includes("/client/src/components/wealth/") || id.includes("/client/src/components/recommendations/")) return "chunk-wealth";
+          if (id.includes("/client/src/components/loan/")) return "chunk-loans";
+          if (id.includes("/client/src/components/ca/")) return "chunk-ca";
+          if (id.includes("/client/src/components/picks/") || id.includes("/client/src/components/screener/")) return "chunk-picks";
+          if (id.includes("/client/src/components/research/") || id.includes("/client/src/components/macro/")) return "chunk-research";
+          if (id.includes("/client/src/components/store/")) return "chunk-store";
+          if (id.includes("/client/src/components/regulatory/")) return "chunk-regulatory";
+          if (id.includes("/client/src/components/admin/")) return "chunk-admin-comp";
 
+          // Feature components collocated with page chunks to prevent circular dependencies
+          if (
+            id.includes("/client/src/components/agent/") ||
+            id.includes("/client/src/components/kyc/") ||
+            id.includes("/client/src/components/esign/")
+          ) return undefined;
+
+          // ── True shared primitives & utilities ──
           if (
             id.includes("/client/src/components/") ||
             id.includes("/client/src/hooks/") ||
@@ -91,39 +107,68 @@ export default defineConfig({
 
           // ── App service chunks — only downloaded when the user visits that section ──
 
-          // Admin sub-chunks (was one 2.3 MB chunk — now 4 smaller chunks)
-          if (id.includes("/pages/admin-kyc") || id.includes("/pages/admin-aadhaar") || id.includes("/pages/admin-ckyc") || id.includes("/pages/admin-pan-config")) {
+          // Admin sub-chunks (splitting admin into focused domain bundles)
+          if (
+            id.includes("/pages/admin-kyc") || id.includes("/pages/admin-aadhaar") ||
+            id.includes("/pages/admin-ckyc") || id.includes("/pages/admin-pan-config") ||
+            id.includes("/pages/admin/ckyc") || id.includes("/pages/admin/kyc") ||
+            id.includes("/pages/admin/compliance") || id.includes("/pages/admin/audit") ||
+            id.includes("/pages/admin/approval") || id.includes("/pages/admin/agent-oversight")
+          ) {
             return "admin-kyc";
           }
-          if (id.includes("/pages/admin-loan") || id.includes("/pages/admin-dlm")) {
+          if (
+            id.includes("/pages/admin-loan") || id.includes("/pages/admin-dlm") ||
+            id.includes("/pages/admin/loan") || id.includes("/pages/admin/dlm")
+          ) {
             return "admin-loans";
           }
           if (
             id.includes("/pages/admin-payout") || id.includes("/pages/admin-mf-") ||
             id.includes("/pages/admin-ai-") || id.includes("/pages/admin-api-usage") ||
             id.includes("/pages/admin-zoho") || id.includes("/pages/admin-data-") ||
-            id.includes("/pages/admin-mapping") || id.includes("/pages/admin-master-dsa")
+            id.includes("/pages/admin-mapping") || id.includes("/pages/admin-master-dsa") ||
+            id.includes("/pages/admin/commission") || id.includes("/pages/admin/payout") ||
+            id.includes("/pages/admin/agent-payouts") || id.includes("/pages/admin/revenue") ||
+            id.includes("/pages/admin/earnings") || id.includes("/pages/admin/gst")
           ) {
             return "admin-fin";
+          }
+          if (
+            id.includes("/pages/admin/broker") || id.includes("/pages/admin/alpaca") ||
+            id.includes("/pages/admin/multibroker") || id.includes("/pages/admin/bond") ||
+            id.includes("/pages/admin/FixedIncome") || id.includes("/pages/admin/Unlisted") ||
+            id.includes("/pages/admin/gift-city") || id.includes("/pages/admin/aif-seed")
+          ) {
+            return "admin-markets";
+          }
+          if (
+            id.includes("/pages/admin/api") || id.includes("/pages/admin/bulk") ||
+            id.includes("/pages/admin/system") || id.includes("/pages/admin/notification") ||
+            id.includes("/pages/admin/sms") || id.includes("/pages/admin/activity") ||
+            id.includes("/pages/admin/client")
+          ) {
+            return "admin-ops";
           }
           if (id.includes("/pages/admin")) {
             return "chunk-admin";
           }
 
-          // Agent sub-chunks (was one 2.6 MB chunk — now 5 smaller chunks)
+          // Agent sub-chunks (splitting agent into focused domain bundles)
           if (
             id.includes("/pages/agent-crm-") || id.includes("/pages/agent-bulk-") ||
             id.includes("/pages/agent-lead-") || id.includes("/pages/agent-meetings") ||
             id.includes("/pages/agent-calendar") || id.includes("/pages/agent-tasks") ||
             id.includes("/pages/agent-tracker") || id.includes("/pages/agent-market-alerts") ||
-            id.includes("/pages/agent-zoho-crm")
+            id.includes("/pages/agent-zoho-crm") || id.includes("/pages/agent-clients")
           ) {
             return "agent-crm";
           }
           if (
             id.includes("/pages/agent-knowledge-") || id.includes("/pages/agent-training") ||
             id.includes("/pages/agent-leaderboard") || id.includes("/pages/agent-performance") ||
-            id.includes("/pages/agent-sample-report") || id.includes("/pages/agent-demo-")
+            id.includes("/pages/agent-sample-report") || id.includes("/pages/agent-demo-") ||
+            id.includes("/pages/agent-practice-test") || id.includes("/pages/agent-study-notes")
           ) {
             return "agent-knowledge";
           }
@@ -137,15 +182,38 @@ export default defineConfig({
             return "agent-advisory";
           }
           if (
+            id.includes("/pages/agent-model-portfolios") || id.includes("/pages/agent-portfolio-") ||
+            id.includes("/pages/agent-financial-planning") || id.includes("/pages/agent-external-portfolios") ||
+            id.includes("/pages/agent-investment-baskets") || id.includes("/pages/agent-sip-health")
+          ) {
+            return "agent-wealth";
+          }
+          if (
+            id.includes("/pages/agent-proposals") || id.includes("/pages/agent-prospect-") ||
+            id.includes("/pages/agent-deal-matcher") || id.includes("/pages/agent-recommendation-control")
+          ) {
+            return "agent-proposals";
+          }
+          if (
+            id.includes("/pages/agent-commission-") || id.includes("/pages/agent-payout-") ||
+            id.includes("/pages/agent-revenue-") || id.includes("/pages/agent-treasury")
+          ) {
+            return "agent-fin";
+          }
+          if (
             id.includes("/pages/agent-kyc-") || id.includes("/pages/agent-esign") ||
             id.includes("/pages/agent-client-onboarding") || id.includes("/pages/agent-client-acquisition")
           ) {
             return "agent-kyc";
           }
           if (
-            id.includes("/pages/agent") ||
             id.includes("/pages/partner") ||
-            id.includes("/pages/distribution-partner") ||
+            id.includes("/pages/distribution-partner")
+          ) {
+            return "chunk-partner";
+          }
+          if (
+            id.includes("/pages/agent") ||
             id.includes("/pages/field-agent")
           ) return "chunk-agent";
 

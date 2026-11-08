@@ -10850,34 +10850,89 @@ export class DatabaseStorage implements IStorage {
 	}
 
 	async createTaxSession(session: InsertTaxSession): Promise<TaxSession> {
-		throw new Error("Method not implemented: createTaxSession");
+		const [result] = await this.db
+			.insert(schema.taxSessions)
+			.values(session as any)
+			.returning();
+		return result;
 	}
 
 	async getTaxSessions(userId: string): Promise<TaxSession[]> {
-		throw new Error("Method not implemented: getTaxSessions");
+		try {
+			return await this.db
+				.select()
+				.from(schema.taxSessions)
+				.where(eq(schema.taxSessions.userId, userId))
+				.orderBy(desc(schema.taxSessions.createdAt));
+		} catch (error) {
+			console.error("Error fetching tax sessions:", error);
+			return [];
+		}
 	}
 
 	async getTaxSession(id: string): Promise<TaxSession | undefined> {
-		throw new Error("Method not implemented: getTaxSession");
+		try {
+			const [result] = await this.db
+				.select()
+				.from(schema.taxSessions)
+				.where(eq(schema.taxSessions.id, id));
+			return result;
+		} catch (error) {
+			console.error("Error fetching tax session:", error);
+			return undefined;
+		}
 	}
 
 	async getTaxSessionByPanAndYear(
 		userId: string,
-		panNumber: string,
+		_panNumber: string,
 		assessmentYear: string,
 	): Promise<TaxSession | undefined> {
-		throw new Error("Method not implemented: getTaxSessionByPanAndYear");
+		try {
+			const [result] = await this.db
+				.select()
+				.from(schema.taxSessions)
+				.where(
+					and(
+						eq(schema.taxSessions.userId, userId),
+						eq(schema.taxSessions.assessmentYear, assessmentYear),
+					),
+				)
+				.orderBy(desc(schema.taxSessions.createdAt));
+			return result;
+		} catch (error) {
+			console.error("Error fetching tax session by pan/year:", error);
+			return undefined;
+		}
 	}
 
 	async updateTaxSession(
 		id: string,
 		updates: Partial<TaxSession>,
 	): Promise<TaxSession | undefined> {
-		throw new Error("Method not implemented: updateTaxSession");
+		try {
+			const [result] = await this.db
+				.update(schema.taxSessions)
+				.set({ ...updates, updatedAt: new Date() })
+				.where(eq(schema.taxSessions.id, id))
+				.returning();
+			return result;
+		} catch (error) {
+			console.error("Error updating tax session:", error);
+			return undefined;
+		}
 	}
 
 	async deleteTaxSession(id: string): Promise<boolean> {
-		throw new Error("Method not implemented: deleteTaxSession");
+		try {
+			await this.db
+				.delete(schema.taxSessions)
+				.where(eq(schema.taxSessions.id, id));
+			return true;
+		} catch (error) {
+			console.error("Error deleting tax session:", error);
+			return false;
+		}
 	}
 
 	async updateTaxSessionStatus(
@@ -10885,32 +10940,86 @@ export class DatabaseStorage implements IStorage {
 		status: string,
 		currentStep?: number,
 	): Promise<TaxSession | undefined> {
-		throw new Error("Method not implemented: updateTaxSessionStatus");
+		try {
+			const updateData: any = { status, updatedAt: new Date() };
+			if (currentStep !== undefined) {
+				updateData.currentStep = currentStep;
+			}
+			const [result] = await this.db
+				.update(schema.taxSessions)
+				.set(updateData)
+				.where(eq(schema.taxSessions.id, id))
+				.returning();
+			return result;
+		} catch (error) {
+			console.error("Error updating tax session status:", error);
+			return undefined;
+		}
 	}
 
 	async getTaxDataSources(sessionId: string): Promise<TaxDataSource[]> {
-		throw new Error("Method not implemented: getTaxDataSources");
+		try {
+			return await this.db
+				.select()
+				.from(schema.taxDataSources)
+				.where(eq(schema.taxDataSources.sessionId, sessionId))
+				.orderBy(asc(schema.taxDataSources.name));
+		} catch (error) {
+			console.error("Error fetching tax data sources:", error);
+			return [];
+		}
 	}
 
 	async getTaxDataSource(id: string): Promise<TaxDataSource | undefined> {
-		throw new Error("Method not implemented: getTaxDataSource");
+		try {
+			const [result] = await this.db
+				.select()
+				.from(schema.taxDataSources)
+				.where(eq(schema.taxDataSources.id, id));
+			return result;
+		} catch (error) {
+			console.error("Error fetching tax data source:", error);
+			return undefined;
+		}
 	}
 
 	async createTaxDataSource(
 		dataSource: InsertTaxDataSource,
 	): Promise<TaxDataSource> {
-		throw new Error("Method not implemented: createTaxDataSource");
+		const [result] = await this.db
+			.insert(schema.taxDataSources)
+			.values(dataSource as any)
+			.returning();
+		return result;
 	}
 
 	async updateTaxDataSource(
 		id: string,
 		updates: Partial<TaxDataSource>,
 	): Promise<TaxDataSource | undefined> {
-		throw new Error("Method not implemented: updateTaxDataSource");
+		try {
+			const [result] = await this.db
+				.update(schema.taxDataSources)
+				.set({ ...updates, updatedAt: new Date() })
+				.where(eq(schema.taxDataSources.id, id))
+				.returning();
+			return result;
+		} catch (error) {
+			console.error("Error updating tax data source:", error);
+			return undefined;
+		}
 	}
 
 	async deleteTaxDataSource(id: string): Promise<boolean> {
-		throw new Error("Method not implemented: deleteTaxDataSource");
+		try {
+			await this.db
+				.delete(schema.taxDataSources)
+				.where(eq(schema.taxDataSources.id, id));
+			return true;
+		} catch (error) {
+			console.error("Error deleting tax data source:", error);
+			return false;
+		}
 	}
 
 	async updateDataSourceStatus(
@@ -10919,24 +11028,67 @@ export class DatabaseStorage implements IStorage {
 		recordsCount?: number,
 		lastSync?: Date,
 	): Promise<TaxDataSource | undefined> {
-		throw new Error("Method not implemented: updateDataSourceStatus");
+		try {
+			const updateData: any = { status, updatedAt: new Date() };
+			if (recordsCount !== undefined) {
+				updateData.recordsCount = recordsCount;
+			}
+			if (lastSync !== undefined) {
+				updateData.lastSync = lastSync;
+			}
+			const [result] = await this.db
+				.update(schema.taxDataSources)
+				.set(updateData)
+				.where(eq(schema.taxDataSources.id, id))
+				.returning();
+			return result;
+		} catch (error) {
+			console.error("Error updating tax data source status:", error);
+			return undefined;
+		}
 	}
 
 	async getValidationIssues(
 		sessionId: string,
 		severity?: string,
 	): Promise<ValidationIssue[]> {
-		throw new Error("Method not implemented: getValidationIssues");
+		try {
+			const conditions = [eq(schema.validationIssues.sessionId, sessionId)];
+			if (severity) {
+				conditions.push(eq(schema.validationIssues.severity, severity));
+			}
+			return await this.db
+				.select()
+				.from(schema.validationIssues)
+				.where(and(...conditions))
+				.orderBy(desc(schema.validationIssues.createdAt));
+		} catch (error) {
+			console.error("Error fetching validation issues:", error);
+			return [];
+		}
 	}
 
 	async getValidationIssue(id: string): Promise<ValidationIssue | undefined> {
-		throw new Error("Method not implemented: getValidationIssue");
+		try {
+			const [result] = await this.db
+				.select()
+				.from(schema.validationIssues)
+				.where(eq(schema.validationIssues.id, id));
+			return result;
+		} catch (error) {
+			console.error("Error fetching validation issue:", error);
+			return undefined;
+		}
 	}
 
 	async createValidationIssue(
 		issue: InsertValidationIssue,
 	): Promise<ValidationIssue> {
-		throw new Error("Method not implemented: createValidationIssue");
+		const [result] = await this.db
+			.insert(schema.validationIssues)
+			.values(issue as any)
+			.returning();
+		return result;
 	}
 
 	async updateValidationIssue(

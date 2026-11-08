@@ -144,6 +144,26 @@ async function run(): Promise<void> {
 			logger.warn(`[${JOB_NAME}] Phase E failed (non-fatal)`, { error: String(err) });
 		}
 
+		// Phase F: Quant Pre-Warming & Fleet Synergy (Covariance Matrix & Thematic Synergy Map)
+		logger.info(`[${JOB_NAME}] Phase F: Pre-warming Quant Covariance & Pro Thematic Synergy Map`);
+		try {
+			const { proThematicScreenerService } = await import(
+				"../server/services/pro-thematic-screener-service"
+			);
+			const thematicMap = await proThematicScreenerService.getThematicSynergyMap();
+			logger.info(`[${JOB_NAME}] Phase F1: Pro Thematic Synergy Map pre-warmed`, {
+				constituentsCount: thematicMap.size,
+			});
+
+			const { quantOrchestrator } = await import(
+				"../server/services/quant/quant-orchestrator"
+			);
+			await quantOrchestrator.prewarmCovarianceCache();
+			logger.info(`[${JOB_NAME}] Phase F2: Quant Covariance cache pre-warmed`);
+		} catch (err) {
+			logger.warn(`[${JOB_NAME}] Phase F failed (non-fatal)`, { error: String(err) });
+		}
+
 		const latencyMs = Date.now() - START_TIME;
 		logger.info(`[${JOB_NAME}] Job completed successfully`, {
 			event: "JOB_COMPLETE",

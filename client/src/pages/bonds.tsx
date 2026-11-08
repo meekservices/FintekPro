@@ -754,9 +754,9 @@ function GovernmentSecurities() {
 
 										<div className="space-y-4 mt-4">
 											<div>
-												<label className="text-sm font-medium">
+												<Label className="text-sm font-medium">
 													Bid Amount (₹)
-												</label>
+												</Label>
 												<Input
 													type="number"
 													placeholder={`Min: ${bond.minimumBidAmount}`}
@@ -1112,10 +1112,7 @@ function CorporateBonds() {
 									</div>
 								</div>
 
-								<div
-									className="flex flex-col gap-2"
-									onClick={(e) => e.stopPropagation()}
-								>
+								<div className="flex flex-col gap-2">
 									<OneClickBondInvest bond={bond} size="sm" />
 									<Dialog
 										open={selectedBond?.isin === bond.isin}
@@ -1161,9 +1158,9 @@ function CorporateBonds() {
 
 											<div className="space-y-4 mt-4">
 												<div>
-													<label className="text-sm font-medium">
+													<Label className="text-sm font-medium">
 														Quantity
-													</label>
+													</Label>
 													<Input
 														type="number"
 														placeholder="Number of bonds"
@@ -1177,9 +1174,9 @@ function CorporateBonds() {
 												</div>
 
 												<div>
-													<label className="text-sm font-medium">
+													<Label className="text-sm font-medium">
 														Limit Price (₹)
-													</label>
+													</Label>
 													<Input
 														type="number"
 														placeholder={`Last: ${bond.lastPrice}`}
@@ -1580,7 +1577,7 @@ function NCDBonds() {
 
 										<div className="space-y-4 mt-4">
 											<div>
-												<label className="text-sm font-medium">Quantity</label>
+												<Label className="text-sm font-medium">Quantity</Label>
 												<Input
 													type="number"
 													placeholder="Number of NCDs"
@@ -1594,9 +1591,9 @@ function NCDBonds() {
 											</div>
 
 											<div>
-												<label className="text-sm font-medium">
+												<Label className="text-sm font-medium">
 													Limit Price (₹)
-												</label>
+												</Label>
 												<Input
 													type="number"
 													placeholder={`Last: ${bond.lastPrice}`}
@@ -1978,7 +1975,7 @@ function TaxFreeBonds() {
 
 										<div className="space-y-4 mt-4">
 											<div>
-												<label className="text-sm font-medium">Quantity</label>
+												<Label className="text-sm font-medium">Quantity</Label>
 												<Input
 													type="number"
 													placeholder="Number of bonds"
@@ -1992,9 +1989,9 @@ function TaxFreeBonds() {
 											</div>
 
 											<div>
-												<label className="text-sm font-medium">
+												<Label className="text-sm font-medium">
 													Limit Price (₹)
-												</label>
+												</Label>
 												<Input
 													type="number"
 													placeholder={`Last: ${bond.lastPrice}`}
@@ -3624,7 +3621,7 @@ export default function Bonds() {
 						Bonds & NCDs
 					</h1>
 					<p className="text-muted-foreground text-lg">
-						Fixed income investments with guaranteed returns
+						Fixed income investments with predictable coupon returns
 					</p>
 				</div>
 
@@ -3746,9 +3743,9 @@ export default function Bonds() {
 								</CardHeader>
 								<CardContent className="space-y-4">
 									<div>
-										<label className="text-sm font-medium text-muted-foreground mb-2 block">
+										<Label className="text-sm font-medium text-muted-foreground mb-2 block">
 											Investment Amount (₹)
-										</label>
+										</Label>
 										<Input
 											type="number"
 											placeholder="1,00,000"
@@ -3758,9 +3755,9 @@ export default function Bonds() {
 										/>
 									</div>
 									<div>
-										<label className="text-sm font-medium text-muted-foreground mb-2 block">
+										<Label className="text-sm font-medium text-muted-foreground mb-2 block">
 											Annual Yield (%)
-										</label>
+										</Label>
 										<Input
 											type="number"
 											placeholder="8.5"
@@ -3770,9 +3767,9 @@ export default function Bonds() {
 										/>
 									</div>
 									<div>
-										<label className="text-sm font-medium text-muted-foreground mb-2 block">
+										<Label className="text-sm font-medium text-muted-foreground mb-2 block">
 											Tenure (Years)
-										</label>
+										</Label>
 										<Input
 											type="number"
 											placeholder="5"

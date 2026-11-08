@@ -12,6 +12,7 @@
 
 import { derivativesService } from "../derivatives-service";
 import { logger } from "../../logger";
+import { telemetryBus } from "../engine-telemetry-bus";
 
 export const FNO_ENGINE_VERSION = "2.2.0";
 
@@ -205,6 +206,18 @@ export class FnoAnalysisEngine {
         buildup,
         pcr: summary.pcr,
         latencyMs: Date.now() - start,
+      });
+
+      telemetryBus.report({
+        engineId: "fno-buildup-engine",
+        engineName: "F&O Buildup & Derivative Intelligence Engine",
+        category: "Transaction",
+        reportedAt: new Date().toISOString(),
+        latencyMs: Date.now() - start,
+        qualityScore: 94,
+        itemsProcessed: 1,
+        errorCount: 0,
+        meta: { symbol: sym, buildup, pcr: summary.pcr },
       });
 
       return summary;

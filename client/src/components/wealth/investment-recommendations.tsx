@@ -35,6 +35,7 @@ import {
 	Users,
 	Coins,
 } from "lucide-react";
+import { formatCurrency } from "@/lib/format";
 
 interface InvestmentRecommendationsProps {
 	portfolioId?: string;
@@ -134,15 +135,6 @@ export function InvestmentRecommendations({
 	};
 
 	const getCurrentAllocation = () => getAllocationModels()[selectedRiskProfile];
-
-	const formatCurrency = (amount: number) => {
-		return new Intl.NumberFormat("en-IN", {
-			style: "currency",
-			currency: "INR",
-			minimumFractionDigits: 0,
-			maximumFractionDigits: 0,
-		}).format(amount);
-	};
 
 	const getRiskColor = (risk: string) => {
 		switch (risk.toLowerCase()) {

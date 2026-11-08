@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
+import { formatCurrency } from "@/lib/format";
 import {
 	Target,
 	TrendingUp,
@@ -100,15 +101,6 @@ export function RetirementPlanning() {
 		plan.inflationRate,
 		plan.expectedReturn,
 	]);
-
-	const formatCurrency = (amount: number) => {
-		return new Intl.NumberFormat("en-IN", {
-			style: "currency",
-			currency: "INR",
-			minimumFractionDigits: 0,
-			maximumFractionDigits: 0,
-		}).format(amount);
-	};
 
 	const getInvestmentRecommendations = () => {
 		const yearsToRetirement = plan.retirementAge - plan.currentAge;

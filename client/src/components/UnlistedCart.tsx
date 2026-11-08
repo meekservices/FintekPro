@@ -31,6 +31,7 @@ import {
 	Package,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { formatCurrency } from "@/lib/format";
 
 interface CartItem {
 	id: string;
@@ -162,16 +163,6 @@ export function UnlistedCart() {
 	const handleQuantityChange = (item: CartItem, delta: number) => {
 		const newQuantity = Math.max(1, item.quantity + delta);
 		updateMutation.mutate({ id: item.id, quantity: newQuantity });
-	};
-
-	const formatCurrency = (value: number | string | undefined) => {
-		if (!value) return "₹0";
-		const num = typeof value === "string" ? Number.parseFloat(value) : value;
-		return new Intl.NumberFormat("en-IN", {
-			style: "currency",
-			currency: "INR",
-			maximumFractionDigits: 0,
-		}).format(num);
 	};
 
 	if (isLoading) {

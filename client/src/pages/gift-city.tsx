@@ -217,7 +217,7 @@ const giftCityProducts: GiftCityProduct[] = [
 		id: "structured-2",
 		name: "GIFT City Commodity Linked Note",
 		description:
-			"Structured note linked to basket of commodities providing inflation hedge with guaranteed returns",
+			"Structured note linked to basket of commodities providing inflation hedge with defined payoff structures",
 		category: "Structured Products",
 		minimumInvestment: 500000,
 		currency: "USD",

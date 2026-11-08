@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 /**
  * KYC Reuse Token Service
  *
@@ -71,11 +72,13 @@ class KYCReuseTokenService {
 			process.env.ENCRYPTION_MASTER_KEY || process.env.JWT_SECRET || "";
 
 		if (!this.JWT_SECRET) {
+			if (process.env.NODE_ENV === "production") {
+				throw new Error(
+					"CRITICAL SECURITY CONFIGURATION ERROR: JWT_SECRET or ENCRYPTION_MASTER_KEY must be configured in production for KYCReuseTokenService.",
+				);
+			}
 			console.warn(
-				"⚠️ JWT_SECRET or ENCRYPTION_MASTER_KEY not set! KYC Reuse Token service will be crippled.",
-			);
-			console.warn(
-				"   This is UNSAFE for production but allowed for diagnostic boot.",
+				"⚠️  [DEV ONLY] JWT_SECRET or ENCRYPTION_MASTER_KEY not set. Using dev diagnostic secret.",
 			);
 			this.JWT_SECRET = "diagnostic-only-unsafe-secret";
 		}

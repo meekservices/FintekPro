@@ -719,6 +719,32 @@ class QuantOrchestrator {
 			logger.warn("[QuantOrchestrator] Failed to record fallback status", { error: reportErr?.message });
 		}
 	}
+
+	/**
+	 * Pre-warms the Python MVO/Covariance microservice and local caches.
+	 * Eliminates cold-start latency spikes for user requests.
+	 */
+	public async prewarmCovarianceCache(): Promise<boolean> {
+		if (!isPythonServiceConfigured()) {
+			return false;
+		}
+		try {
+			const dummyAssets = [
+				{ category: "LARGE_CAP", expectedReturn: 0.12, volatility: 0.15 },
+				{ category: "MID_CAP", expectedReturn: 0.15, volatility: 0.18 },
+				{ category: "DEBT", expectedReturn: 0.07, volatility: 0.04 },
+				{ category: "GOLD", expectedReturn: 0.09, volatility: 0.11 },
+			];
+			const res = await callPython<any>("/api/quant/mvo", "POST", {
+				assets: dummyAssets,
+				config: { solverTolerance: 1e-6 },
+			});
+			return !!res && !res.error;
+		} catch (err: any) {
+			logger.warn("[QuantOrchestrator] Covariance prewarm ping non-fatal error", { error: err?.message });
+			return false;
+		}
+	}
 }
 
 export const quantOrchestrator = new QuantOrchestrator();

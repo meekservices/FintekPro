@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Request, Response } from "express";
 
 // Insurance Marketplace API Service - Comprehensive Multi-Vendor Platform
@@ -216,7 +217,7 @@ export class InsuranceMarketplaceAPI {
 							coverage: finalCoverage * 0.7,
 							monthlyPremium: Math.round((premium / 12) * 2.2),
 							features: [
-								"Guaranteed returns",
+								"Guaranteed maturity payouts",
 								"Maturity benefits",
 								"Bonus allocation",
 							],

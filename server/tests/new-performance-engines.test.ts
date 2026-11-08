@@ -31,6 +31,7 @@ import {
 import {
 	calculateTailRiskAndStress,
 	TAIL_RISK_ENGINE_VERSION,
+	STANDARD_MACRO_SCENARIOS,
 	type PortfolioAssetInput,
 } from "../services/quant/tail-risk-stress-engine";
 
@@ -192,7 +193,7 @@ describe("FintekPro Performance Enhancement Engines Suite", () => {
 			expect(result.engine_version).toBe(TAIL_RISK_ENGINE_VERSION);
 			expect(result.varMetrics.confidence95_dailyVaRPct).toBeGreaterThan(0);
 			expect(result.varMetrics.cvar95_expectedShortfallPct).toBeGreaterThan(result.varMetrics.confidence95_dailyVaRPct);
-			expect(result.stressTestScenarios.length).toBe(4);
+			expect(result.stressTestScenarios.length).toBe(STANDARD_MACRO_SCENARIOS.length);
 		});
 
 		it("runs COVID-2020 stress test and measures defensive gold/debt buffer", () => {

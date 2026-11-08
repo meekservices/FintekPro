@@ -43,6 +43,19 @@ async function run(): Promise<void> {
 	});
 
 	try {
+		// Pre-warm Pro Thematic Screener synergy map before generating picks (0ms cache lookup)
+		try {
+			const { proThematicScreenerService } = await import(
+				"../server/services/pro-thematic-screener-service"
+			);
+			const thematicMap = await proThematicScreenerService.getThematicSynergyMap();
+			logger.info(`[${JOB_NAME}] Thematic synergy map pre-warmed for POTD generation`, {
+				constituentsCount: thematicMap.size,
+			});
+		} catch (themeErr) {
+			logger.warn(`[${JOB_NAME}] Thematic synergy map pre-warm skipped (non-fatal)`, { error: String(themeErr) });
+		}
+
 		// Import service dynamically to ensure clean process boot
 		const { pickOfTheDayService } = await import(
 			"../server/services/pick-of-the-day-service"

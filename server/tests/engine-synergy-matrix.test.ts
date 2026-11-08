@@ -57,12 +57,14 @@ describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 				"scorer-calibration",
 				"pick-outcome-analyzer",
 				"smart-order-routing",
+				"long-short-algo",
+				"fno-buildup-engine",
 			];
 
 			for (const id of expectedEngines) {
 				expect(engineIds).toContain(id);
 			}
-			expect(statuses.length).toBeGreaterThanOrEqual(21);
+			expect(statuses.length).toBeGreaterThanOrEqual(23);
 		});
 
 		it("computes unified composite alpha quality across registered engines", () => {

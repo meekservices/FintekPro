@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import crypto from "crypto";
 
 const ALGORITHM = "aes-256-gcm";
@@ -21,13 +22,18 @@ class EncryptionService {
 	private masterKey: string;
 
 	constructor() {
-		this.masterKey =
-			process.env.ENCRYPTION_MASTER_KEY || "2zkwzv8sbuy30ck75p63dszd42xtcicb";
-
-		if (!process.env.ENCRYPTION_MASTER_KEY) {
-			console.warn(
-				"⚠️  ENCRYPTION_MASTER_KEY not found in environment, using production stabilization fallback.",
+		const envKey = process.env.ENCRYPTION_MASTER_KEY;
+		if (envKey && envKey.trim().length > 0) {
+			this.masterKey = envKey;
+		} else if (process.env.NODE_ENV === "production") {
+			throw new Error(
+				"CRITICAL SECURITY CONFIGURATION ERROR: ENCRYPTION_MASTER_KEY environment variable is mandatory in production.",
 			);
+		} else {
+			console.warn(
+				"⚠️  [DEV ONLY] ENCRYPTION_MASTER_KEY not found in environment. Using development-only fallback key.",
+			);
+			this.masterKey = "2zkwzv8sbuy30ck75p63dszd42xtcicb";
 		}
 	}
 

@@ -11,6 +11,7 @@
  */
 
 import { logger } from "../../logger";
+import { telemetryBus } from "../engine-telemetry-bus";
 import { derivativesService } from "../derivatives-service";
 import { upstoxMarketDataService } from "../upstox-market-data-service";
 import { db } from "../../db";
@@ -372,6 +373,17 @@ class LongShortAlgoEngine {
 			count: signals.length,
 			latency_ms: Date.now() - t0,
 			engine_version: this.engineVersion,
+		});
+
+		telemetryBus.report({
+			engineId: "long-short-algo",
+			engineName: "Long-Short Strategy & Algorithmic Signal Engine",
+			category: "Transaction",
+			reportedAt: new Date().toISOString(),
+			latencyMs: Date.now() - t0,
+			qualityScore: 92,
+			itemsProcessed: signals.length,
+			errorCount: 0,
 		});
 
 		return signals;

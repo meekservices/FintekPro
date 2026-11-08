@@ -116,6 +116,8 @@ class EngineTelemetryBus {
       { id: "scorer-calibration", name: "Scorer Calibration Service", category: "AI Orchestration" },
       { id: "pick-outcome-analyzer", name: "Pick Outcome Analyzer", category: "AI Orchestration" },
       { id: "smart-order-routing", name: "Smart Order Routing Engine", category: "Transaction" },
+      { id: "long-short-algo", name: "Long-Short Strategy & Algorithmic Signal Engine", category: "Transaction" },
+      { id: "fno-buildup-engine", name: "F&O Buildup & Derivative Intelligence Engine", category: "Transaction" },
     ];
     for (const eng of coreEngines) {
       this._meta.set(eng.id, { name: eng.name, category: eng.category });

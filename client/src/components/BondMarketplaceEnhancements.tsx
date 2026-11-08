@@ -34,6 +34,7 @@ import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { formatCurrencyExact, formatPercent } from "@/lib/format";
 import {
 	Shield as LucideShield,
 	TrendingUp,
@@ -211,10 +212,11 @@ export function EligibilityBadge({
 		<TooltipProvider>
 			<Tooltip>
 				<TooltipTrigger asChild>
-					<span
+					<button
+						type="button"
 						onClick={onUpgradeClick}
 						data-testid="upgrade-kyc-badge"
-						className="cursor-pointer"
+						className="cursor-pointer bg-transparent border-0 p-0 text-left"
 					>
 						<Badge
 							className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 flex items-center gap-1 hover:bg-amber-200 dark:bg-amber-800/30 transition-colors"
@@ -223,7 +225,7 @@ export function EligibilityBadge({
 							<Lock className="h-3 w-3" />
 							Upgrade KYC
 						</Badge>
-					</span>
+					</button>
 				</TooltipTrigger>
 				<TooltipContent>
 					<p>Requires {kycTierRequired} KYC tier to invest</p>
@@ -339,23 +341,23 @@ export function NetYieldDisplay({
 							<div className="space-y-2 text-xs">
 								<div className="flex justify-between">
 									<span>Gross Yield:</span>
-									<span className="font-medium">{grossYield.toFixed(2)}%</span>
+									<span className="font-medium">{(grossYield ?? 0).toFixed(2)}%</span>
 								</div>
 								<div className="flex justify-between text-muted-foreground">
 									<span>Brokerage:</span>
-									<span>-₹{feeBreakdown.brokerage.toFixed(2)}</span>
+									<span>-{formatCurrencyExact(feeBreakdown?.brokerage ?? 0)}</span>
 								</div>
 								<div className="flex justify-between text-muted-foreground">
 									<span>Platform Fee:</span>
-									<span>-₹{feeBreakdown.platformFee.toFixed(2)}</span>
+									<span>-{formatCurrencyExact(feeBreakdown?.platformFee ?? 0)}</span>
 								</div>
 								<div className="flex justify-between text-muted-foreground">
 									<span>GST:</span>
-									<span>-₹{feeBreakdown.gst.toFixed(2)}</span>
+									<span>-{formatCurrencyExact(feeBreakdown?.gst ?? 0)}</span>
 								</div>
 								<div className="border-t pt-1 flex justify-between font-medium">
 									<span>Net Yield:</span>
-									<span className="text-green-600">{netYield.toFixed(2)}%</span>
+									<span className="text-green-600">{(netYield ?? 0).toFixed(2)}%</span>
 								</div>
 							</div>
 						</TooltipContent>
@@ -365,16 +367,16 @@ export function NetYieldDisplay({
 
 			<div className="flex items-baseline gap-2">
 				<span className="text-2xl font-bold text-green-600 dark:text-green-400">
-					{netYield.toFixed(2)}%
+					{(netYield ?? 0).toFixed(2)}%
 				</span>
 				<span className="text-sm text-muted-foreground line-through">
-					{grossYield.toFixed(2)}%
+					{(grossYield ?? 0).toFixed(2)}%
 				</span>
 				<Badge
 					variant="outline"
 					className="text-xs bg-red-50 dark:bg-red-950/30 text-red-600 border-red-200 dark:border-red-800"
 				>
-					-{yieldImpact.toFixed(2)}% fees
+					-{Math.abs(yieldImpact ?? 0).toFixed(2)}% fees
 				</Badge>
 			</div>
 		</div>
@@ -1165,12 +1167,12 @@ export function BondComparisonTable({
 		{
 			label: "Years to Maturity",
 			key: "yearsToMaturity",
-			format: (v: number) => (v ? `${v.toFixed(1)} yrs` : "-"),
+			format: (v: number) => (v != null && Number.isFinite(v) ? `${v.toFixed(1)} yrs` : "-"),
 		},
 		{
 			label: "Min Investment",
 			key: "minInvestment",
-			format: (v: number) => `₹${v.toLocaleString()}`,
+			format: (v: number) => (v != null ? formatCurrencyExact(v, 0) : "-"),
 		},
 		{
 			label: "Face Value",

@@ -13,6 +13,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { FeeBreakdown } from "@/hooks/use-fee-breakdown";
+import { formatCurrencyExact } from "@/lib/format";
 
 interface CalculatedFee {
 	feeCode: string;
@@ -110,12 +111,12 @@ export function FeeBreakdownCard({
 			<div className="text-sm space-y-1" data-testid="fee-breakdown-compact">
 				<div className="flex justify-between text-muted-foreground">
 					<span>Fees & Charges</span>
-					<span>₹{summary.subtotal.toFixed(2)}</span>
+					<span>{formatCurrencyExact(summary?.subtotal)}</span>
 				</div>
-				{summary.totalGst > 0 && (
+				{(summary?.totalGst ?? 0) > 0 && (
 					<div className="flex justify-between text-muted-foreground">
 						<span>GST (18%)</span>
-						<span>₹{summary.totalGst.toFixed(2)}</span>
+						<span>{formatCurrencyExact(summary?.totalGst)}</span>
 					</div>
 				)}
 			</div>
@@ -142,7 +143,7 @@ export function FeeBreakdownCard({
 					</div>
 					<div className="flex items-center gap-2">
 						<span className="font-semibold">
-							₹{summary.grandTotal.toFixed(2)}
+							{formatCurrencyExact(summary?.grandTotal)}
 						</span>
 						{isOpen ? (
 							<ChevronUp className="h-4 w-4" />
@@ -155,7 +156,7 @@ export function FeeBreakdownCard({
 				<CollapsibleContent className="space-y-3 pt-2">
 					{Object.entries(categoryGroups).map(([category, categoryFees]) => {
 						const categoryTotal = categoryFees.reduce(
-							(sum, f) => sum + f.netAmount,
+							(sum, f) => sum + (f.netAmount ?? 0),
 							0,
 						);
 						if (categoryTotal === 0) return null;
@@ -167,7 +168,7 @@ export function FeeBreakdownCard({
 								</div>
 								{categoryFees.map(
 									(fee) =>
-										fee.netAmount > 0 && (
+										(fee.netAmount ?? 0) > 0 && (
 											<div
 												key={fee.feeCode}
 												className="flex justify-between text-sm pl-2"
@@ -193,9 +194,9 @@ export function FeeBreakdownCard({
 															</TooltipTrigger>
 															<TooltipContent>
 																<p>Rate: {fee.rateApplied}</p>
-																{fee.gstAmount > 0 && (
+																{(fee.gstAmount ?? 0) > 0 && (
 																	<p>
-																		Includes GST: ₹{fee.gstAmount.toFixed(2)}
+																		Includes GST: {formatCurrencyExact(fee.gstAmount)}
 																	</p>
 																)}
 																{fee.sourceProductType &&
@@ -220,7 +221,7 @@ export function FeeBreakdownCard({
 													)}
 												</div>
 												<span className="whitespace-nowrap">
-													₹{fee.netAmount.toFixed(2)}
+													{formatCurrencyExact(fee.netAmount)}
 												</span>
 											</div>
 										),
@@ -232,18 +233,18 @@ export function FeeBreakdownCard({
 					<div className="border-t pt-2 space-y-1">
 						<div className="flex justify-between text-sm">
 							<span>Subtotal (excl. GST)</span>
-							<span>₹{summary.subtotal.toFixed(2)}</span>
+							<span>{formatCurrencyExact(summary?.subtotal)}</span>
 						</div>
-						{summary.totalGst > 0 && (
+						{(summary?.totalGst ?? 0) > 0 && (
 							<div className="flex justify-between text-sm">
 								<span>GST</span>
-								<span>₹{summary.totalGst.toFixed(2)}</span>
+								<span>{formatCurrencyExact(summary?.totalGst)}</span>
 							</div>
 						)}
-						{summary.totalWaivers > 0 && (
+						{(summary?.totalWaivers ?? 0) > 0 && (
 							<div className="flex justify-between text-sm text-green-600">
 								<span>Waivers Applied</span>
-								<span>-₹{summary.totalWaivers.toFixed(2)}</span>
+								<span>-{formatCurrencyExact(summary?.totalWaivers)}</span>
 							</div>
 						)}
 					</div>

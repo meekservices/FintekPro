@@ -46,6 +46,7 @@ import {
 	Briefcase,
 	Pencil,
 } from "lucide-react";
+import { formatCurrency } from "@/lib/format";
 
 interface FinancialGoal {
 	id: string;
@@ -282,15 +283,6 @@ export function GoalPlanning() {
 		}
 
 		return [...baseRecommendations, ...premiumRecommendations].slice(0, 6); // Limit to 6 recommendations
-	};
-
-	const formatCurrency = (amount: number) => {
-		return new Intl.NumberFormat("en-IN", {
-			style: "currency",
-			currency: "INR",
-			minimumFractionDigits: 0,
-			maximumFractionDigits: 0,
-		}).format(amount);
 	};
 
 	const handleAddGoal = async () => {

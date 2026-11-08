@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { format, differenceInDays, isPast } from "date-fns";
+import { formatCurrency } from "@/lib/format";
 
 interface AdvanceTaxDue {
 	quarter: string;
@@ -97,14 +98,6 @@ export function AdvanceTaxWidget({
 		0,
 	);
 	const progressPercent = (totalPaid / totalDue) * 100;
-
-	const formatCurrency = (value: number) => {
-		return new Intl.NumberFormat("en-IN", {
-			style: "currency",
-			currency: "INR",
-			maximumFractionDigits: 0,
-		}).format(value);
-	};
 
 	const getStatusColor = (status: string) => {
 		switch (status) {

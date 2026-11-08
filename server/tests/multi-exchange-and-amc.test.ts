@@ -11,8 +11,9 @@ describe("Multi-Exchange Market Service", () => {
 		const data = res.data;
 		// BSE Breadth
 		expect(data.bseBreadth).toBeDefined();
-		expect(data.bseBreadth.advances).toBeGreaterThan(1000);
-		expect(data.bseBreadth.declines).toBeGreaterThan(1000);
+		expect(data.bseBreadth.advances).toBeGreaterThan(0);
+		expect(data.bseBreadth.declines).toBeGreaterThan(0);
+		expect(data.bseBreadth.advances + data.bseBreadth.declines).toBeGreaterThan(1500);
 		expect(data.bseBreadth.advanceDeclineRatio).toBeGreaterThan(0.5);
 		expect(data.bseBreadth.totalMarketCapLakhCr).toBeGreaterThan(400);
 

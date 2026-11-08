@@ -176,7 +176,7 @@ describe("FintekPro Institutional Engines Suite (GCR v1.0 + FASP-AI v3.0)", () =
 			expect(res.varMetrics.cvar99_expectedShortfallPct).toBeGreaterThan(res.varMetrics.confidence99_dailyVaRPct);
 		});
 
-		it("runs all 4 standard historical macro crash scenarios", () => {
+		it("runs all 7 standard and forward GMIE macro crash scenarios", () => {
 			const res = calculateTailRiskAndStress(samplePortfolio);
 
 			expect(res.stressTestScenarios.length).toBe(STANDARD_MACRO_SCENARIOS.length);
@@ -185,6 +185,9 @@ describe("FintekPro Institutional Engines Suite (GCR v1.0 + FASP-AI v3.0)", () =
 				"GFC_2008_LIQUIDITY_FREEZE",
 				"RATES_INFLATION_2022",
 				"OIL_SPIKE_120",
+				"GMIE_CRUDE_SURGE_115",
+				"GMIE_FII_CAPITAL_EXODUS",
+				"GMIE_FED_LIQUIDITY_CONTRACTION",
 			]);
 
 			// Gold and Debt should act as hedging assets during COVID 2020 crash

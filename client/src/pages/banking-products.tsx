@@ -43,7 +43,7 @@ export default function BankingProducts() {
 			id: "fixed-deposits",
 			name: "Fixed Deposits",
 			icon: Landmark,
-			description: "Guaranteed returns with flexible tenures",
+			description: "Fixed interest returns with flexible tenures (DICGC insured up to ₹5L)",
 			color: "green",
 			avgRate: "6.5% - 8.5%",
 		},
