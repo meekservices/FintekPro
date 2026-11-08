@@ -102,13 +102,74 @@ export class FastAnalyticalEngine {
 	}
 
 	/**
-	 * Automatically warms or refreshes the in-memory fast snapshot from listed_stocks.
+	 * Automatically warms or refreshes the in-memory fast snapshot.
+	 * Prioritizes pre-computed metrics from screener_master_snapshots (1 indexed query);
+	 * gracefully falls back to listed_stocks if master snapshots are empty.
 	 */
 	public async warmFromDatabase(): Promise<number> {
 		try {
 			const { db } = await import("../../db");
-			const { listedStocks } = await import("@shared/schema");
-			const { eq } = await import("drizzle-orm");
+			const { screenerMasterSnapshots, listedStocks } = await import("@shared/schema");
+			const { eq, sql } = await import("drizzle-orm");
+
+			// Tier 1: Pull from high-fidelity screener_master_snapshots
+			try {
+				const masterRows = await db
+					.select({
+						symbol: screenerMasterSnapshots.symbol,
+						companyName: screenerMasterSnapshots.companyName,
+						sector: screenerMasterSnapshots.sector,
+						marketCapValue: screenerMasterSnapshots.marketCapValue,
+						currentPrice: screenerMasterSnapshots.currentPrice,
+						dayChangePercent: screenerMasterSnapshots.dayChangePercent,
+						peRatio: screenerMasterSnapshots.peRatio,
+						pbRatio: screenerMasterSnapshots.pbRatio,
+						roe: screenerMasterSnapshots.roe,
+						roce: screenerMasterSnapshots.roce,
+						debtToEquity: screenerMasterSnapshots.debtToEquity,
+						rsi14: screenerMasterSnapshots.rsi14,
+						compositeScore: screenerMasterSnapshots.compositeScore,
+						piotroskiScore: screenerMasterSnapshots.piotroskiScore,
+						altmanZScore: screenerMasterSnapshots.altmanZScore,
+						stockRegime: screenerMasterSnapshots.stockRegime,
+					})
+					.from(screenerMasterSnapshots)
+					.where(sql`${screenerMasterSnapshots.currentPrice} IS NOT NULL AND ${screenerMasterSnapshots.currentPrice} > 0`)
+					.limit(5000);
+
+				if (masterRows && masterRows.length > 0) {
+					const records: FastStockRecord[] = masterRows.map((r) => {
+						const price = Number(r.currentPrice) || 0;
+						return {
+							symbol: r.symbol,
+							companyName: r.companyName || r.symbol,
+							sector: r.sector || "General",
+							marketCapValue: Number(r.marketCapValue) || (price * 10_000_000),
+							currentPrice: price,
+							dayChangePercent: Number(r.dayChangePercent) || 0,
+							peRatio: r.peRatio != null ? Number(r.peRatio) : null,
+							pbRatio: r.pbRatio != null ? Number(r.pbRatio) : null,
+							roe: r.roe != null ? Number(r.roe) : null,
+							roce: r.roce != null ? Number(r.roce) : null,
+							debtToEquity: r.debtToEquity != null ? Number(r.debtToEquity) : null,
+							rsi14: r.rsi14 != null ? Number(r.rsi14) : null,
+							volumeBuzz20d: null,
+							deliveryPct: null,
+							piotroskiScore: r.piotroskiScore != null ? Number(r.piotroskiScore) : null,
+							altmanZScore: r.altmanZScore != null ? Number(r.altmanZScore) : null,
+							compositeScore: r.compositeScore != null ? Number(r.compositeScore) : null,
+							stockRegime: r.stockRegime || "NEUTRAL",
+						};
+					});
+					this.loadSnapshot(records);
+					logger.info("[FastAnalyticalEngine] Ingested real snapshot from screener_master_snapshots", { count: records.length });
+					return records.length;
+				}
+			} catch (snapshotErr: any) {
+				logger.warn("[FastAnalyticalEngine] Master snapshot query error, falling back to listed_stocks", { error: snapshotErr?.message });
+			}
+
+			// Tier 2 Fallback: listed_stocks if screener_master_snapshots is unpopulated
 			const rows = await db
 				.select({
 					symbol: listedStocks.symbol,
@@ -150,7 +211,7 @@ export class FastAnalyticalEngine {
 					};
 				});
 				this.loadSnapshot(records);
-				logger.info("[FastAnalyticalEngine] In-memory snapshot pre-warmed", { count: records.length });
+				logger.info("[FastAnalyticalEngine] In-memory snapshot pre-warmed from listed_stocks", { count: records.length });
 				return records.length;
 			}
 		} catch (err: any) {

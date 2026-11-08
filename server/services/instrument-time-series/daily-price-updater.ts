@@ -8,6 +8,7 @@ import {
 import { eq, and, sql, isNull, lte, or } from "drizzle-orm";
 import { getProviderRegistry } from "../screener/data-provider-registry";
 import { updateInstrumentPrice } from "../instrument-price-router";
+import { logger } from "../../logger";
 
 interface DailyUpdateResult {
 	processed: number;
@@ -117,98 +118,141 @@ export async function runDailyPriceUpdate(): Promise<DailyUpdateResult> {
 			),
 		);
 
-	console.log(
+	logger.info(
 		`[DailyPriceUpdater] Found ${instruments.length} instruments needing update`,
 	);
 
-	for (const instrument of instruments) {
-		try {
-			const { result: quote } = await registry.getQuote(
-				`${instrument.symbol}.NS`,
-			);
-			result.apiCalls++;
+	// Fast batch path via Upstox (up to 200-500 symbols per single HTTP call)
+	const { upstoxMarketDataService } = await import("../upstox-market-data-service");
+	const isUpstoxReady = upstoxMarketDataService.isReady();
 
-			if (!quote || !quote.price) {
-				result.skipped++;
-				continue;
+	const BATCH_SIZE = 200;
+	for (let i = 0; i < instruments.length; i += BATCH_SIZE) {
+		const batch = instruments.slice(i, i + BATCH_SIZE);
+		const symbols = batch.map((inst) => inst.symbol).filter(Boolean) as string[];
+
+		let quoteMap = new Map<string, any>();
+		if (isUpstoxReady && symbols.length > 0) {
+			try {
+				const batchRes = await upstoxMarketDataService.getBatchQuotes(symbols, "NSE");
+				result.apiCalls++;
+				if (batchRes.success && batchRes.data) {
+					quoteMap = batchRes.data;
+				}
+			} catch (err: any) {
+				logger.warn("[DailyPriceUpdater] Upstox batch chunk failed, falling back to registry:", { error: err?.message });
 			}
+		}
 
-			await db.execute(sql`
-        INSERT INTO instrument_prices (instrument_id, price_date, close_price, volume, change_percent, source)
-        VALUES (${instrument.id}, ${yesterdayStr}::date, ${quote.price}, ${quote.volume || 0}, ${quote.changePercent || 0}, 'daily')
-        ON CONFLICT (instrument_id, price_date) DO NOTHING
-      `);
+		for (const instrument of batch) {
+			try {
+				if (!instrument.symbol) continue;
+				const upperSym = instrument.symbol.toUpperCase();
+				let price: number | null = null;
+				let volume = 0;
+				let change: number | undefined;
+				let changePercent: number | undefined;
 
-			await db
-				.update(listedStocks)
-				.set({
-					lastDailyUpdate: sql`${yesterdayStr}::date`,
-					currentPrice: quote.price.toString(),
-					dayChange: quote.change?.toString(),
-					dayChangePercent: quote.changePercent?.toString(),
-				})
-				.where(eq(listedStocks.id, instrument.id));
+				const upstoxQuote = quoteMap.get(upperSym);
+				if (upstoxQuote && upstoxQuote.last_price) {
+					price = upstoxQuote.last_price;
+					volume = upstoxQuote.volume || 0;
+					change = upstoxQuote.change;
+					changePercent = upstoxQuote.change_percent;
+				} else {
+					// Fallback to registry single quote
+					const { result: quote } = await registry.getQuote(`${instrument.symbol}.NS`);
+					result.apiCalls++;
+					if (quote && quote.price) {
+						price = quote.price;
+						volume = quote.volume || 0;
+						change = quote.change;
+						changePercent = quote.changePercent;
+					}
+				}
 
-			// Canonical price router — emits PRICE_UPDATED log for observability
-			await updateInstrumentPrice({
-				instrumentType: "equity",
-				identifier: instrument.symbol,
-				price: quote.price,
-				priceDate: yesterdayStr,
-				source: "exchange",
-				dayChangePercent: quote.changePercent,
-			});
+				if (!price) {
+					result.skipped++;
+					continue;
+				}
 
-			await logJob(
-				"DAILY_UPDATE",
-				instrument.id,
-				instrument.symbol,
-				"SUCCESS",
-				null,
-				1,
-			);
+				await db.execute(sql`
+					INSERT INTO instrument_prices (instrument_id, price_date, close_price, volume, change_percent, source)
+					VALUES (${instrument.id}, ${yesterdayStr}::date, ${price}, ${volume}, ${changePercent || 0}, 'daily')
+					ON CONFLICT (instrument_id, price_date) DO NOTHING
+				`);
 
-			const retryEntry = await db
-				.select()
-				.from(enrichmentRetryQueue)
-				.where(
-					and(
-						eq(enrichmentRetryQueue.instrumentId, instrument.id),
-						eq(enrichmentRetryQueue.jobType, "DAILY_UPDATE"),
-						isNull(enrichmentRetryQueue.resolvedAt),
-					),
-				)
-				.limit(1);
-
-			if (retryEntry.length > 0) {
 				await db
-					.update(enrichmentRetryQueue)
-					.set({ resolvedAt: new Date() })
-					.where(eq(enrichmentRetryQueue.id, retryEntry[0].id));
-			}
+					.update(listedStocks)
+					.set({
+						lastDailyUpdate: sql`${yesterdayStr}::date`,
+						currentPrice: price.toString(),
+						dayChange: change?.toString(),
+						dayChangePercent: changePercent?.toString(),
+					})
+					.where(eq(listedStocks.id, instrument.id));
 
-			result.processed++;
-		} catch (err: any) {
-			result.errors++;
-			await logJob(
-				"DAILY_UPDATE",
-				instrument.id,
-				instrument.symbol,
-				"FAILED",
-				err.message,
-			);
-			await pushToRetryQueue(
-				instrument.id,
-				instrument.symbol,
-				"DAILY_UPDATE",
-				err.message,
-			);
+				// Canonical price router — emits PRICE_UPDATED log for observability
+				await updateInstrumentPrice({
+					instrumentType: "equity",
+					identifier: instrument.symbol,
+					price: price,
+					priceDate: yesterdayStr,
+					source: "exchange",
+					dayChangePercent: changePercent,
+				});
+
+				await logJob(
+					"DAILY_UPDATE",
+					instrument.id,
+					instrument.symbol,
+					"SUCCESS",
+					null,
+					1,
+				);
+
+				const retryEntry = await db
+					.select()
+					.from(enrichmentRetryQueue)
+					.where(
+						and(
+							eq(enrichmentRetryQueue.instrumentId, instrument.id),
+							eq(enrichmentRetryQueue.jobType, "DAILY_UPDATE"),
+							isNull(enrichmentRetryQueue.resolvedAt),
+						),
+					)
+					.limit(1);
+
+				if (retryEntry.length > 0) {
+					await db
+						.update(enrichmentRetryQueue)
+						.set({ resolvedAt: new Date() })
+						.where(eq(enrichmentRetryQueue.id, retryEntry[0].id));
+				}
+
+				result.processed++;
+			} catch (err: any) {
+				result.errors++;
+				await logJob(
+					"DAILY_UPDATE",
+					instrument.id,
+					instrument.symbol,
+					"FAILED",
+					err.message,
+				);
+				await pushToRetryQueue(
+					instrument.id,
+					instrument.symbol || "",
+					"DAILY_UPDATE",
+					err.message,
+				);
+			}
 		}
 	}
 
 	await processRetryQueue("DAILY_UPDATE", result, registry);
 
-	console.log(
+	logger.info(
 		`[DailyPriceUpdater] Complete: ${result.processed} updated, ${result.skipped} skipped, ${result.errors} errors, ${result.retried} retries`,
 	);
 	await logJob(

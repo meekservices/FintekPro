@@ -432,6 +432,10 @@ class UpstoxMarketDataService {
   /** Tracks the first moment an AUTH_EXPIRED error was detected this process lifetime. */
   private tokenExpiredAt: number | null = null;
 
+  /** 2-Tier Caching & In-Flight Deduplication for high performance */
+  private quoteCache = new Map<string, { quote: UpstoxQuote; expiresAt: number }>();
+  private inFlightQuotes = new Map<string, Promise<UpstoxServiceResult<UpstoxQuote>>>();
+
   /** Exponential backoff delays (ms): 400ms → 800ms → 1600ms */
   private readonly RETRY_DELAYS = [400, 800, 1600];
 
@@ -684,8 +688,87 @@ class UpstoxMarketDataService {
 
   // ── Single LTP ─────────────────────────────────────────────────────────────
 
+  // ── 2-Tier Caching & In-Flight Helpers ─────────────────────────────────────
+
+  /**
+   * Dynamic cache TTL:
+   * 15 seconds during live market hours (9:15 to 15:30 IST, weekdays),
+   * 1 hour off-market.
+   */
+  private _getCacheTTL(): number {
+    const now = new Date();
+    // Convert to IST (UTC + 5:30)
+    const istTime = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+    const day = istTime.getUTCDay();
+    const hours = istTime.getUTCHours();
+    const minutes = istTime.getUTCMinutes();
+    const currentMinute = hours * 60 + minutes;
+    const marketOpen = 9 * 60 + 15;
+    const marketClose = 15 * 60 + 30;
+
+    const isMarketHours =
+      day >= 1 && day <= 5 && currentMinute >= marketOpen && currentMinute <= marketClose;
+    return isMarketHours ? 15_000 : 3_600_000;
+  }
+
+  private async _getCachedQuote(
+    symbolOrIsin: string,
+    exchange: "NSE" | "BSE" | "MCX"
+  ): Promise<UpstoxQuote | null> {
+    const key = `${exchange}:${symbolOrIsin.toUpperCase()}`;
+    const now = Date.now();
+    // Tier 0: In-memory
+    const mem = this.quoteCache.get(key);
+    if (mem && mem.expiresAt > now) {
+      return mem.quote;
+    }
+
+    // Tier 1: Shared Redis
+    try {
+      const { getSharedRedis } = await import("../utils/redis-client");
+      const redis = await getSharedRedis();
+      if (redis) {
+        const val = await redis.get(`quote:${key}`);
+        if (val) {
+          const parsed = JSON.parse(val) as UpstoxQuote;
+          this.quoteCache.set(key, {
+            quote: parsed,
+            expiresAt: now + Math.min(this._getCacheTTL(), 30_000),
+          });
+          return parsed;
+        }
+      }
+    } catch {
+      // Non-fatal fallback
+    }
+    return null;
+  }
+
+  private async _setCachedQuote(
+    symbolOrIsin: string,
+    exchange: "NSE" | "BSE" | "MCX",
+    quote: UpstoxQuote
+  ): Promise<void> {
+    const key = `${exchange}:${symbolOrIsin.toUpperCase()}`;
+    const ttlMs = this._getCacheTTL();
+    this.quoteCache.set(key, { quote, expiresAt: Date.now() + ttlMs });
+
+    // Asynchronously write to Redis
+    try {
+      const { getSharedRedis } = await import("../utils/redis-client");
+      const redis = await getSharedRedis();
+      if (redis) {
+        const ttlSec = Math.max(5, Math.round(ttlMs / 1000));
+        await redis.setEx(`quote:${key}`, ttlSec, JSON.stringify(quote));
+      }
+    } catch {
+      // Non-fatal
+    }
+  }
+
   /**
    * Get Last Traded Price for a single symbol.
+   * Leverages 2-tier caching (In-Memory + Shared Redis).
    *
    * @param symbol   NSE/BSE ticker e.g. "RELIANCE"
    * @param exchange "NSE" (default) or "BSE"
@@ -702,9 +785,19 @@ class UpstoxMarketDataService {
     const t0 = Date.now();
     if (!this.isReady()) return this._inactive<UpstoxQuote>();
 
+    // Fast path: check 2-tier cache
+    const cached = await this._getCachedQuote(symbol, exchange);
+    if (cached) {
+      return {
+        success: true,
+        data: cached,
+        meta: this._meta(t0),
+      };
+    }
+
     let key = await this.resolveInstrumentKey(symbol, exchange);
 
-    return this._withRetry<UpstoxQuote>(async () => {
+    const result = await this._withRetry<UpstoxQuote>(async () => {
       let res = await this.client!.get("/market-quote/ltp", {
         params: { instrument_key: key },
       });
@@ -756,6 +849,11 @@ class UpstoxMarketDataService {
         meta: this._meta(t0),
       };
     }, t0);
+
+    if (result.success && result.data) {
+      void this._setCachedQuote(symbol, exchange, result.data);
+    }
+    return result;
   }
 
   // ── Batch Quotes (up to 500 symbols) ───────────────────────────────────────
@@ -813,12 +911,19 @@ class UpstoxMarketDataService {
         if (sym && q?.last_price) {
           const mapped = this._mapFullQuote(sym, exchange, q);
           resultMap.set(sym.toUpperCase(), mapped);
+          void this._setCachedQuote(sym.toUpperCase(), exchange, mapped);
           if (q.instrument_token) {
             const tokenIsin = q.instrument_token.split("|")[1];
-            if (tokenIsin) resultMap.set(tokenIsin.toUpperCase(), mapped);
+            if (tokenIsin) {
+              resultMap.set(tokenIsin.toUpperCase(), mapped);
+              void this._setCachedQuote(tokenIsin.toUpperCase(), exchange, mapped);
+            }
           }
           const tokenKey = resKey.split("|")[1] || resKey.split(":")[1];
-          if (tokenKey) resultMap.set(tokenKey.toUpperCase(), mapped);
+          if (tokenKey) {
+            resultMap.set(tokenKey.toUpperCase(), mapped);
+            void this._setCachedQuote(tokenKey.toUpperCase(), exchange, mapped);
+          }
         }
       }
 
@@ -828,7 +933,9 @@ class UpstoxMarketDataService {
         if (!resultMap.has(upper)) {
           const mappedIsin = SYMBOL_TO_ISIN[upper];
           if (mappedIsin && resultMap.has(mappedIsin)) {
-            resultMap.set(upper, resultMap.get(mappedIsin)!);
+            const mapped = resultMap.get(mappedIsin)!;
+            resultMap.set(upper, mapped);
+            void this._setCachedQuote(upper, exchange, mapped);
           }
         }
       }
@@ -839,6 +946,7 @@ class UpstoxMarketDataService {
 
   /**
    * Get full OHLC quote (open, high, low, close, volume) for a single ticker or ISIN.
+   * Leverages 2-tier caching (In-Memory + Shared Redis) and in-flight deduplication.
    */
   async getFullQuote(
     symbolOrIsin: string,
@@ -847,9 +955,25 @@ class UpstoxMarketDataService {
     const t0 = Date.now();
     if (!this.isReady()) return this._inactive<UpstoxQuote>();
 
+    // Fast path: check 2-tier cache
+    const cached = await this._getCachedQuote(symbolOrIsin, exchange);
+    if (cached) {
+      return {
+        success: true,
+        data: cached,
+        meta: this._meta(t0),
+      };
+    }
+
+    // In-flight deduplication
+    const inflightKey = `${exchange}:${symbolOrIsin.toUpperCase()}`;
+    if (this.inFlightQuotes.has(inflightKey)) {
+      return this.inFlightQuotes.get(inflightKey)!;
+    }
+
     const key = await this.resolveInstrumentKey(symbolOrIsin, exchange);
 
-    return this._withRetry<UpstoxQuote>(async () => {
+    const fetchPromise = this._withRetry<UpstoxQuote>(async () => {
       const res = await this.client!.get("/market-quote/quotes", {
         params: { instrument_key: key },
       });
@@ -869,7 +993,17 @@ class UpstoxMarketDataService {
         data: this._mapFullQuote(raw.symbol ?? symbolOrIsin, exchange, raw),
         meta: this._meta(t0),
       };
-    }, t0);
+    }, t0).then((result) => {
+      if (result.success && result.data) {
+        void this._setCachedQuote(symbolOrIsin, exchange, result.data);
+      }
+      return result;
+    }).finally(() => {
+      this.inFlightQuotes.delete(inflightKey);
+    });
+
+    this.inFlightQuotes.set(inflightKey, fetchPromise);
+    return fetchPromise;
   }
 
   /**

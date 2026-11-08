@@ -28,11 +28,35 @@ interface AMFIRecord {
 let _navCache: Map<string, AMFIRecord> | null = null;
 let _navCacheTime = 0;
 
-/** Fetch & parse AMFI NAVAll.txt. Cached 6h. */
+/** Fetch & parse AMFI NAVAll.txt. Cached 6h (in-memory + shared Redis). */
 export async function fetchAMFINavMap(): Promise<Map<string, AMFIRecord>> {
   if (_navCache && Date.now() - _navCacheTime < CACHE_TTL_MS) return _navCache;
 
   const t0 = Date.now();
+
+  // Tier 1: Check Shared Redis across Cloud Run instances
+  try {
+    const { getSharedRedis } = await import("../utils/redis-client");
+    const redis = await getSharedRedis();
+    if (redis) {
+      const cachedStr = await redis.get("amfi:nav:master");
+      if (cachedStr) {
+        const entries = JSON.parse(cachedStr) as [string, AMFIRecord][];
+        const map = new Map<string, AMFIRecord>(entries);
+        _navCache = map;
+        _navCacheTime = Date.now();
+        logger.info("AMFI_NAV_FETCH_REDIS_HIT", {
+          event: "AMFI_NAV_FETCH_REDIS_HIT",
+          mapSize: map.size,
+          latency_ms: Date.now() - t0,
+        });
+        return map;
+      }
+    }
+  } catch {
+    // Non-fatal, fall through to direct AMFI download
+  }
+
   logger.info("AMFI_NAV_FETCH_START", {event: "AMFI_NAV_FETCH_START", url: AMFI_NAV_URL});
 
   let text: string;
@@ -69,6 +93,19 @@ export async function fetchAMFINavMap(): Promise<Map<string, AMFIRecord>> {
   logger.info("AMFI_NAV_FETCH_COMPLETE", {event: "AMFI_NAV_FETCH_COMPLETE", parsed, mapSize: map.size, latency_ms: Date.now() - t0});
   _navCache = map;
   _navCacheTime = Date.now();
+
+  // Asynchronously populate Redis with 6h TTL
+  try {
+    const { getSharedRedis } = await import("../utils/redis-client");
+    const redis = await getSharedRedis();
+    if (redis) {
+      const entries = Array.from(map.entries());
+      void redis.setEx("amfi:nav:master", 6 * 3600, JSON.stringify(entries));
+    }
+  } catch {
+    // Non-fatal
+  }
+
   return map;
 }
 
