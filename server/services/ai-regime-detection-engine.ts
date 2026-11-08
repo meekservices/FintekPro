@@ -460,7 +460,76 @@ export class AIRegimeDetectionEngine {
 			const cutoff = new Date();
 			cutoff.setDate(cutoff.getDate() - Math.ceil(days * 1.5));
 			const cutoffStr = cutoff.toISOString().split("T")[0];
+			const todayStr = new Date().toISOString().split("T")[0];
 
+			// ── Tier 1: market_index_nav (official benchmark table) ─────────────
+			try {
+				const indexNavRows = await db.execute(sql`
+					SELECT min.nav_date::text as date, min.close_value as close
+					FROM market_index_nav min
+					JOIN market_indices mi ON mi.id = min.index_id
+					WHERE mi.index_code IN ('NIFTY50', 'NIFTY 50', '^NSEI')
+						AND min.nav_date >= ${cutoffStr}::date
+						AND min.close_value IS NOT NULL
+					ORDER BY min.nav_date ASC
+					LIMIT ${days}
+				`);
+				const inRows = (indexNavRows as any).rows || indexNavRows;
+				if (inRows && inRows.length >= 10) {
+					return inRows.map((r: any) => ({
+						date: r.date,
+						close: Number.parseFloat(r.close),
+					}));
+				}
+			} catch {
+				/* fall through to Tier 2 */
+			}
+
+			// ── Tier 2: golden_prices (authoritative pricing engine table) ─────
+			try {
+				const goldenRows = await db.execute(sql`
+					SELECT price_date as date, price as close
+					FROM golden_prices
+					WHERE symbol IN ('NIFTY50', 'NIFTY 50', 'NIFTY', '^NSEI', 'NSE_INDEX|Nifty 50')
+						AND price_date >= ${cutoffStr}
+						AND price IS NOT NULL
+					ORDER BY price_date ASC
+					LIMIT ${days}
+				`);
+				const gpRows = (goldenRows as any).rows || goldenRows;
+				if (gpRows && gpRows.length >= 10) {
+					return gpRows.map((r: any) => ({
+						date: r.date,
+						close: Number.parseFloat(r.close),
+					}));
+				}
+			} catch {
+				/* fall through to Tier 3 */
+			}
+
+			// ── Tier 3: Upstox Developer API (licensed live historical candles) ─
+			try {
+				const { upstoxMarketDataService } = await import("./upstox-market-data-service");
+				if (upstoxMarketDataService.isReady()) {
+					const upstoxRes = await upstoxMarketDataService.getHistoricalData(
+						"NIFTY 50",
+						"day",
+						cutoffStr,
+						todayStr,
+						"NSE",
+					);
+					if (upstoxRes.success && Array.isArray(upstoxRes.data) && upstoxRes.data.length >= 10) {
+						return upstoxRes.data.map((c) => ({
+							date: c.timestamp.split("T")[0],
+							close: c.close,
+						}));
+					}
+				}
+			} catch {
+				/* fall through to Tier 4 */
+			}
+
+			// ── Tier 4: ai_price_history & screener_price_history ──────────────
 			const aiPrices = await db
 				.select({
 					priceDate: aiPriceHistory.priceDate,
@@ -501,6 +570,7 @@ export class AIRegimeDetectionEngine {
 				}));
 			}
 
+			// ── Tier 5 Fallback: Deterministic PRNG seeded by day-of-year ───────
 			return this.generateSyntheticNiftyPrices(days);
 		} catch (error) {
 			logger.error("[RegimeDetection] Error fetching Nifty prices:", error instanceof Error ? error : new Error(String(error)));

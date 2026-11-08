@@ -366,6 +366,26 @@ export async function getSharedNseHeaders(): Promise<Record<string, string>> {
 async function fetchFromNSE(
 	nseSymbol: string,
 ): Promise<Partial<FinancialData>> {
+	// Tier 0: Check Upstox licensed market data (zero Cloud Run IP blocks, sub-ms cache)
+	try {
+		const { upstoxMarketDataService } = await import("../../services/upstox-market-data-service");
+		if (upstoxMarketDataService.isReady()) {
+			const quoteRes = await upstoxMarketDataService.getFullQuote(nseSymbol, "NSE");
+			if (quoteRes.success && quoteRes.data && quoteRes.data.last_price > 0) {
+				const q = quoteRes.data;
+				return {
+					price: q.last_price,
+					previousClose: q.previous_close || null,
+					fiftyTwoWeekHigh: q.high_price || null,
+					fiftyTwoWeekLow: q.low_price || null,
+					currency: "INR",
+				};
+			}
+		}
+	} catch {
+		// Non-fatal, proceed to official NSE HTTP fetch below
+	}
+
 	await refreshNseCookies();
 	const url = `https://www.nseindia.com/api/quote-equity?symbol=${encodeURIComponent(nseSymbol.toUpperCase())}`;
 	const res = await fetch(url, {
