@@ -1288,39 +1288,122 @@ export class DatabaseStorage implements IStorage {
 	}
 
 	async createRiskProfile(profile: any): Promise<any> {
-		return profile;
+		try {
+			const [created] = await db
+				.insert(schema.riskProfiles)
+				.values(profile)
+				.returning();
+			return created;
+		} catch (error) {
+			console.error("[Storage] Error creating risk profile:", error);
+			throw error;
+		}
 	}
 
 	async updateRiskProfile(id: string, profile: any): Promise<any> {
-		return profile;
+		try {
+			const [updated] = await db
+				.update(schema.riskProfiles)
+				.set({ ...profile, updatedAt: new Date() })
+				.where(eq(schema.riskProfiles.id, id))
+				.returning();
+			return updated;
+		} catch (error) {
+			console.error("[Storage] Error updating risk profile:", error);
+			throw error;
+		}
 	}
 
 	async getRiskProfile(userId: string): Promise<any | undefined> {
-		return undefined;
+		try {
+			const [profile] = await db
+				.select()
+				.from(schema.riskProfiles)
+				.where(eq(schema.riskProfiles.userId, userId))
+				.orderBy(desc(schema.riskProfiles.createdAt))
+				.limit(1);
+			return profile;
+		} catch (error) {
+			console.error("[Storage] Error fetching risk profile:", error);
+			return undefined;
+		}
 	}
 
 	async getAllRiskProfiles(): Promise<any[]> {
-		return [];
+		try {
+			return await db
+				.select()
+				.from(schema.riskProfiles)
+				.orderBy(desc(schema.riskProfiles.createdAt));
+		} catch (error) {
+			console.error("[Storage] Error fetching all risk profiles:", error);
+			return [];
+		}
 	}
 
 	async deleteRiskProfile(id: string): Promise<void> {
-		// Implementation
+		try {
+			await db.delete(schema.riskProfiles).where(eq(schema.riskProfiles.id, id));
+		} catch (error) {
+			console.error("[Storage] Error deleting risk profile:", error);
+			throw error;
+		}
 	}
 
 	async createRiskAssessmentQuestion(question: any): Promise<any> {
-		return question;
+		try {
+			const [created] = await db
+				.insert(schema.riskAssessmentQuestions)
+				.values(question)
+				.returning();
+			return created;
+		} catch (error) {
+			console.error("[Storage] Error creating risk question:", error);
+			throw error;
+		}
 	}
 
 	async updateRiskAssessmentQuestion(id: string, question: any): Promise<any> {
-		return question;
+		try {
+			const [updated] = await db
+				.update(schema.riskAssessmentQuestions)
+				.set(question)
+				.where(eq(schema.riskAssessmentQuestions.id, id))
+				.returning();
+			return updated;
+		} catch (error) {
+			console.error("[Storage] Error updating risk question:", error);
+			throw error;
+		}
 	}
 
 	async getRiskAssessmentQuestions(): Promise<any[]> {
-		return [];
+		try {
+			const questions = await db
+				.select()
+				.from(schema.riskAssessmentQuestions)
+				.where(eq(schema.riskAssessmentQuestions.isActive, true));
+			if (questions.length > 0) {
+				return questions;
+			}
+			const { SEBI_RISK_QUESTIONS } = await import("./startup/risk-questions-seeds");
+			return SEBI_RISK_QUESTIONS;
+		} catch (error) {
+			console.warn("[Storage] Error fetching risk assessment questions from DB, returning defaults:", error);
+			const { SEBI_RISK_QUESTIONS } = await import("./startup/risk-questions-seeds");
+			return SEBI_RISK_QUESTIONS;
+		}
 	}
 
 	async deleteRiskAssessmentQuestion(id: string): Promise<void> {
-		// Implementation
+		try {
+			await db
+				.delete(schema.riskAssessmentQuestions)
+				.where(eq(schema.riskAssessmentQuestions.id, id));
+		} catch (error) {
+			console.error("[Storage] Error deleting risk question:", error);
+			throw error;
+		}
 	}
 
 	async createCapitalGainsReport(

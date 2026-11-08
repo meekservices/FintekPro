@@ -836,6 +836,7 @@ export async function runStartupSchemaRepairs() {
 			} catch { /* column or table exists */ }
 		}
 		try {
+			await migPool.query(`CREATE UNIQUE INDEX IF NOT EXISTS "uidx_listed_stocks_symbol" ON listed_stocks("symbol")`);
 			await migPool.query(`CREATE INDEX IF NOT EXISTS "idx_listed_stocks_upstox_key" ON listed_stocks("upstox_instrument_key")`);
 			await migPool.query(`CREATE INDEX IF NOT EXISTS "idx_listed_stocks_fscore" ON listed_stocks("piotroski_f_score")`);
 			await migPool.query(`CREATE INDEX IF NOT EXISTS "idx_listed_stocks_upside" ON listed_stocks("consensus_upside_percent")`);
@@ -5357,10 +5358,19 @@ export async function applyFinancialInstrumentsCacheColumns(): Promise<void> {
         ADD COLUMN IF NOT EXISTS volatility          DECIMAL(10, 4),
         ADD COLUMN IF NOT EXISTS sharpe_ratio        DECIMAL(10, 4),
         ADD COLUMN IF NOT EXISTS beta                DECIMAL(10, 4),
+        ADD COLUMN IF NOT EXISTS market_cap          DECIMAL(20, 2),
+        ADD COLUMN IF NOT EXISTS pe_ratio            DECIMAL(10, 2),
+        ADD COLUMN IF NOT EXISTS dividend_yield      DECIMAL(10, 4),
         ADD COLUMN IF NOT EXISTS secondary_source    VARCHAR(100),
         ADD COLUMN IF NOT EXISTS confidence_score    INTEGER DEFAULT 100,
         ADD COLUMN IF NOT EXISTS is_verified         BOOLEAN DEFAULT FALSE,
         ADD COLUMN IF NOT EXISTS verification_notes  TEXT,
+        ADD COLUMN IF NOT EXISTS primary_vendor      VARCHAR(50) DEFAULT 'DIRECT',
+        ADD COLUMN IF NOT EXISTS supported_vendors   JSONB DEFAULT '[]',
+        ADD COLUMN IF NOT EXISTS vendor_product_map  JSONB DEFAULT '{}',
+        ADD COLUMN IF NOT EXISTS las_eligible        BOOLEAN DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS las_vendor          VARCHAR(50) DEFAULT 'NONE',
+        ADD COLUMN IF NOT EXISTS las_ltv_percent     DECIMAL(5, 2),
         ADD COLUMN IF NOT EXISTS price_updated_at    TIMESTAMPTZ;
     `);
     console.log("  ✅ financial_instruments_cache: all missing columns ensured (Phase 1 + 2)");

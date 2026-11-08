@@ -203,6 +203,10 @@ export interface DailyPickData {
 	statusUpdatedAt?: Date | string;
 	scoringBreakdown?: ScoreBreakdown;
 	riskScore?: number;
+	engineVersion?: string;
+	calculationTimestamp?: Date;
+	scoringVersion?: string;
+	entryPriceGolden?: string | number;
 }
 
 export function calculateSuggestedAllocation(
@@ -528,6 +532,21 @@ export class PickOfTheDayService {
 						? ((recoP - targetP) / recoP) * 100
 						: (recoP > 0 ? ((targetP - recoP) / recoP) * 100 : 99);
 
+					// ── Guardrail 0: Boundary Invariant Gate ─────────────────────────
+					// For Long positions: stoplossPrice MUST be strictly less than currentPrice,
+					// and currentPrice MUST be strictly less than targetPrice.
+					// If bounds are inverted (e.g. SL >= Target or SL >= CMP), reject candidate.
+					const stoplossP = Number(pick.stoplossPrice ?? 0);
+					if (!isCreditStrategy) {
+						if (targetP <= stoplossP || (stoplossP > 0 && stoplossP >= currentP) || (targetP > 0 && targetP <= currentP)) {
+							logger.warn(
+								`[PickOfTheDay] ⚠️ Invariant Violation for ${pick.instrumentName}: SL(₹${stoplossP}) >= Target(₹${targetP}) or inverted relative to CMP(₹${currentP}). Rejecting pick.`,
+								{ instrument: pick.instrumentName, currentPrice: currentP, targetPrice: targetP, stoplossPrice: stoplossP, category },
+							);
+							continue;
+						}
+					}
+
 					// ── Guardrail 1: Target Already Achieved Gate ──────────────────────
 					// Never publish a BUY recommendation if current market price is already at or above target
 					if (!isCreditStrategy && targetP > 0 && currentP >= targetP) {
@@ -539,7 +558,6 @@ export class PickOfTheDayService {
 					}
 
 					// ── Guardrail 2: Stop Loss Already Breached Gate ───────────────────
-					const stoplossP = Number(pick.stoplossPrice ?? 0);
 					if (stoplossP > 0 && currentP <= stoplossP) {
 						logger.warn(
 							`[PickOfTheDay] Current price has already breached stop loss for ${pick.instrumentName} (LTP: ₹${currentP} <= StopLoss: ₹${stoplossP}). Rejecting candidate.`,
@@ -1044,6 +1062,10 @@ export class PickOfTheDayService {
 								stoplossPrice = Math.round(halfProfitSL * 100) / 100;
 								stoplossAdjusted = true;
 							}
+							// Safety Invariant: Trailing stop for credit strategy must remain above target
+							if (stoplossPrice <= targetPrice * 1.01) {
+								stoplossPrice = Math.round(targetPrice * 1.01 * 100) / 100;
+							}
 						} else {
 							// Tier 1: At 4% gain, move SL to breakeven (recoPrice - 0.5% breathing room)
 							if (returnPct >= 4.0 && stoplossPrice < recoPrice * 0.995) {
@@ -1055,6 +1077,10 @@ export class PickOfTheDayService {
 							if (returnPct >= 8.0 && stoplossPrice < halfGainSL) {
 								stoplossPrice = Math.round(halfGainSL * 100) / 100;
 								stoplossAdjusted = true;
+							}
+							// Safety Invariant: Trailing stop for long positions must never cross target
+							if (stoplossPrice >= targetPrice * 0.99) {
+								stoplossPrice = Math.round(targetPrice * 0.99 * 100) / 100;
 							}
 						}
 
@@ -1936,6 +1962,11 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 					timeHorizon: this.normaliseHorizon(pick.timeHorizon),
 					confidenceScore: pick.confidenceScore ?? 70,
 					sectorCategory: pick.sectorCategory ?? null,
+					scoringVersion: pick.scoringVersion ?? "1.0.0",
+					scoringBreakdown: pick.scoringBreakdown ?? (pick.keyMetrics as any)?.scoreBreakdown ?? (pick.keyMetrics as any)?.scoringBreakdown ?? null,
+					riskScore: pick.riskScore ?? null,
+					engineVersion: pick.engineVersion ?? "FASP-AI-v2.0",
+					calculationTimestamp: pick.calculationTimestamp ?? new Date(),
 					updatedAt: new Date(),
 				})
 				.where(eq(dailyPicks.id, existing[0].id));
@@ -1966,6 +1997,12 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 				timeHorizon: this.normaliseHorizon(pick.timeHorizon),
 				confidenceScore: pick.confidenceScore ?? 70,
 				sectorCategory: pick.sectorCategory ?? null,
+				scoringVersion: pick.scoringVersion ?? "1.0.0",
+				scoringBreakdown: pick.scoringBreakdown ?? (pick.keyMetrics as any)?.scoreBreakdown ?? (pick.keyMetrics as any)?.scoringBreakdown ?? null,
+				riskScore: pick.riskScore ?? null,
+				engineVersion: pick.engineVersion ?? "FASP-AI-v2.0",
+				calculationTimestamp: pick.calculationTimestamp ?? new Date(),
+				entryPriceGolden: (pick.entryPriceGolden ?? pick.recoPrice).toString(),
 				generatedBy: "ai",
 				updatedAt: new Date(),
 			})

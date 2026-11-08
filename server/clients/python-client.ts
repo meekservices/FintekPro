@@ -8,7 +8,7 @@
  *
  * Two usage modes:
  *  1. proxyToPython(req, res, path) — HTTP proxy pass-through for Express routes
- *  2. callPython<T>(user, path, method?, body?) — direct programmatic call from Node.js services
+ *  2. callPython<T>(path, method?, body?, user?) — direct programmatic call from Node.js services
  *     Returns null on any error so callers can fall back gracefully.
  *
  * Circuit breaker:

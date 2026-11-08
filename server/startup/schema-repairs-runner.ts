@@ -229,7 +229,7 @@ async function main() {
     const maxCodeRes = await phFDb.execute(phFSql`
       SELECT MAX(CAST(SUBSTRING(portfolio_code FROM 4) AS INTEGER)) AS max_num
       FROM model_portfolios
-      WHERE portfolio_code IS NOT NULL AND portfolio_code LIKE 'FP-%'
+      WHERE portfolio_code IS NOT NULL AND portfolio_code ~ '^FP-[0-9]+$'
     `);
     const startNum = ((maxCodeRes as any).rows?.[0]?.max_num ?? 0) + 1;
 
@@ -385,6 +385,15 @@ async function main() {
     }
   } catch (snapErr: any) {
     console.warn("Phase R (screener master snapshot rebuild) non-fatal error:", snapErr?.message?.slice(0, 100));
+  }
+
+  // ── Phase S: Ensure SEBI Risk Assessment Questions ─────────────────────────
+  console.log("Phase S — ensuring SEBI Risk Assessment Questions...");
+  try {
+    const { seedRiskAssessmentQuestions } = await import("./risk-questions-seeds");
+    await seedRiskAssessmentQuestions();
+  } catch (rqErr: any) {
+    console.warn("Phase S (risk assessment questions) non-fatal error:", rqErr?.message);
   }
 
   console.log("FintekPro schema repair job complete.");

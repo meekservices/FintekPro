@@ -1319,6 +1319,14 @@ export class StockStrategy extends BaseStrategy {
 			const stoplossPrice =
 				Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
 
+			// Invariant Check: Long positions require SL < CMP < Target and SL < Target
+			if (stoplossPrice >= currentPrice || targetPrice <= currentPrice || stoplossPrice >= targetPrice) {
+				logger.warn(
+					`[StockStrategy] ${topStock.symbol}: Inverted price bounds (CMP: ${currentPrice}, SL: ${stoplossPrice}, Target: ${targetPrice}). Discarding candidate.`,
+				);
+				continue;
+			}
+
 			// Gate 3: Cross-Engine Consensus Verification (Research Note Desk Alignment)
 			// A BUY pick must NEVER be issued for a stock that carries an active SELL / STRONG SELL rating.
 			const consensusCheck = await this.verifyResearchConsensus(
@@ -2789,6 +2797,14 @@ export class StockStrategy extends BaseStrategy {
 		const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
 		const stoplossPrice =
 			Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
+
+		// Invariant Check: Long positions require SL < CMP < Target and SL < Target
+		if (stoplossPrice >= currentPrice || targetPrice <= currentPrice || stoplossPrice >= targetPrice) {
+			logger.warn(
+				`[StockStrategy/fallback] ${top.symbol}: Inverted price bounds (CMP: ${currentPrice}, SL: ${stoplossPrice}, Target: ${targetPrice}). Returning null.`,
+			);
+			return null;
+		}
 
 		// Upside guard: 1.5% for intraday, 5% for positional swing
 		const remainingUpside = (targetPrice - currentPrice) / currentPrice;
