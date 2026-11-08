@@ -23,6 +23,7 @@ import { twoTierCacheService } from "./two-tier-cache-service";
 import { mfSchemeHoldingsService } from "./mf-scheme-holdings-service";
 import { monteCarloGoalSimulator } from "./monte-carlo-goal-simulator";
 import { taxLossHarvestingScanner } from "./tax-loss-harvesting-scanner";
+import { portfolioBacktestService } from "./portfolio-backtest-service";
 
 export type AllocationMode = "AI_DRIVEN" | "MANUAL";
 
@@ -1855,13 +1856,18 @@ export class ProposalOrchestrator {
 
 	static async runFairBacktest(
 		proposalId: string,
-		oldHoldings: { assetClass: string; weight: number; startDate?: string }[],
+		oldHoldings: { assetClass: string; weight: number; startDate?: string; symbol?: string; name?: string }[],
 		agentId: string,
+		options: any = {}
 	): Promise<{
 		delta: BacktestDelta;
 		oldMetrics: any;
 		proposedMetrics: any;
 		commonPeriod: { start: string; end: string };
+		comparisonCurve?: any[];
+		yearByYearComparison?: any[];
+		disclaimers?: string[];
+		engineVersion?: string;
 	}> {
 		const strategy = await ProposalOrchestrator.getLockedStrategy(proposalId);
 		if (!strategy.locked || !strategy.snapshot) {
@@ -1869,74 +1875,26 @@ export class ProposalOrchestrator {
 		}
 
 		// L1/L2 cache check
-		const cacheKey = `proposal:backtest:${proposalId}:${strategy.versionNumber}`;
+		const cacheKey = `proposal:backtest:${proposalId}:${strategy.versionNumber}:${options?.mode || "lumpsum"}:${options?.period || "3Y"}`;
 		const cached = await twoTierCacheService.get<{
 			delta: BacktestDelta;
 			oldMetrics: any;
 			proposedMetrics: any;
 			commonPeriod: { start: string; end: string };
+			comparisonCurve?: any[];
+			yearByYearComparison?: any[];
+			disclaimers?: string[];
+			engineVersion?: string;
 		}>(cacheKey);
 		if (cached) return cached;
 
-		const proposedAllocation = strategy.snapshot.assetAllocation;
-		const commonStartDate =
-			ProposalOrchestrator.computeCommonStartDate(oldHoldings);
-		const commonEndDate = new Date().toISOString().split("T")[0];
-
-		const oldMetrics = ProposalOrchestrator.simulatePortfolioMetrics(
-			oldHoldings,
-			commonStartDate,
-			commonEndDate,
-		);
-		const proposedHoldings = proposedAllocation.map((a) => ({
-			assetClass: a.assetClass,
-			weight: a.weight,
-		}));
-		const proposedMetrics = ProposalOrchestrator.simulatePortfolioMetrics(
-			proposedHoldings,
-			commonStartDate,
-			commonEndDate,
-		);
-
-		const delta: BacktestDelta = {
-			cagrDifference: Math.round((proposedMetrics.cagr - oldMetrics.cagr) * 100) / 100,
-			volatilityDifference: Math.round((proposedMetrics.volatility - oldMetrics.volatility) * 100) / 100,
-			maxDrawdownDifference: Math.round((proposedMetrics.maxDrawdown - oldMetrics.maxDrawdown) * 100) / 100,
-			sharpeImprovement: Math.round((proposedMetrics.sharpeRatio - oldMetrics.sharpeRatio) * 1000) / 1000,
-		};
-
-		const snapshotHash = createHash("sha256")
-			.update(
-				JSON.stringify({
-					oldHoldings,
-					proposedAllocation,
-					commonStartDate,
-					commonEndDate,
-				}),
-			)
-			.digest("hex");
-
-		await db.insert(proposalBacktestResults).values({
+		// Execute via the universal backtest engine
+		const comparisonReport = await portfolioBacktestService.runProposalFairComparison(
 			proposalId,
-			versionNumber: strategy.versionNumber,
-			includesBacktest: true,
-			commonStartDate,
-			commonEndDate,
-			oldPortfolioMetrics: oldMetrics,
-			proposedPortfolioMetrics: proposedMetrics,
-			deltaSummary: delta,
-			backtestSnapshotHash: snapshotHash,
-			assumptions: {
-				rebalanceFrequency: "annual",
-				tacticalReallocation: false,
-				aiReweighting: false,
-				periodOptimization: false,
-				dataSource: "SIMULATED_ASSET_CLASS_AVERAGES",
-				riskFreeRate: 6.0,
-				disclaimer:
-					"Backtest uses historical asset class averages, not individual fund returns. Actual results may vary.",
-			},
-		});
+			oldHoldings,
+			agentId,
+			options
+		);
 
 		await logSystemAction({
 			agentId,
@@ -1944,16 +1902,26 @@ export class ProposalOrchestrator {
 			proposalId,
 			actionCategory: "proposal",
 			actionType: "backtest_comparison_completed",
-			actionDescription: `Fair backtest completed: CAGR delta ${delta.cagrDifference > 0 ? "+" : ""}${delta.cagrDifference.toFixed(2)}%, Sharpe improvement ${delta.sharpeImprovement.toFixed(3)}`,
-			previousState: { oldMetrics },
-			newState: { proposedMetrics, delta, snapshotHash },
+			actionDescription: `Fair backtest completed: CAGR delta ${comparisonReport.delta.cagrDifference > 0 ? "+" : ""}${comparisonReport.delta.cagrDifference.toFixed(2)}%, Sharpe improvement ${comparisonReport.delta.sharpeImprovement.toFixed(3)}`,
+			previousState: { oldMetrics: comparisonReport.currentPortfolio.metrics },
+			newState: { proposedMetrics: comparisonReport.proposedPortfolio.metrics, delta: comparisonReport.delta },
 		});
 
 		const result = {
-			delta,
-			oldMetrics,
-			proposedMetrics,
-			commonPeriod: { start: commonStartDate, end: commonEndDate },
+			delta: comparisonReport.delta,
+			oldMetrics: {
+				...comparisonReport.currentPortfolio.metrics,
+				growthOf10L: comparisonReport.currentPortfolio.growthOf10L,
+			},
+			proposedMetrics: {
+				...comparisonReport.proposedPortfolio.metrics,
+				growthOf10L: comparisonReport.proposedPortfolio.growthOf10L,
+			},
+			commonPeriod: comparisonReport.commonPeriod,
+			comparisonCurve: comparisonReport.comparisonCurve,
+			yearByYearComparison: comparisonReport.yearByYearComparison,
+			disclaimers: comparisonReport.disclaimers,
+			engineVersion: comparisonReport.engineVersion,
 		};
 
 		// Cache for 24 hours

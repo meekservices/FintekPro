@@ -26,8 +26,10 @@ import {
 	PieChart,
 	FileText,
 	Send,
+	FlaskConical,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { PortfolioBacktestModal } from "@/components/wealth/PortfolioBacktestModal";
 
 interface ProposalItem {
 	id: string;
@@ -53,6 +55,7 @@ interface ProposalsProps {
 
 export function Proposals({ portfolioId }: ProposalsProps) {
 	const [selectedProposals, setSelectedProposals] = useState<string[]>([]);
+	const [showBacktest, setShowBacktest] = useState(false);
 	const queryClient = useQueryClient();
 
 	// Fetch investment proposals
@@ -295,13 +298,26 @@ export function Proposals({ portfolioId }: ProposalsProps) {
 			{pendingProposals.length > 0 && (
 				<Card data-testid="card-pending-proposals">
 					<CardHeader>
-						<CardTitle className="flex items-center gap-2">
-							<Clock className="w-5 h-5 text-orange-600" />
-							Pending Investment Proposals
-						</CardTitle>
-						<CardDescription>
-							Review and execute these AI-recommended investments
-						</CardDescription>
+						<div className="flex items-center justify-between">
+							<div>
+								<CardTitle className="flex items-center gap-2">
+									<Clock className="w-5 h-5 text-orange-600" />
+									Pending Investment Proposals
+								</CardTitle>
+								<CardDescription>
+									Review and execute these AI-recommended investments
+								</CardDescription>
+							</div>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setShowBacktest(true)}
+								className="border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+							>
+								<FlaskConical className="w-3.5 h-3.5 mr-1.5 text-indigo-600" />
+								Backtest Strategy
+							</Button>
+						</div>
 					</CardHeader>
 					<CardContent className="space-y-4">
 						{pendingProposals.map((proposal, index) => (
@@ -459,6 +475,21 @@ export function Proposals({ portfolioId }: ProposalsProps) {
 					</CardContent>
 				</Card>
 			)}
+
+			{/* Universal Proposals Backtesting Modal */}
+			<PortfolioBacktestModal
+				open={showBacktest}
+				onOpenChange={setShowBacktest}
+				portfolioName="Pending Proposals Portfolio"
+				customConstituents={pendingProposals.map((p) => ({
+					symbol: p.schemeCode || p.schemeName,
+					schemeCode: p.schemeCode,
+					name: p.schemeName,
+					weight: (p.amount / (totalPendingAmount || 1)) * 100 || 10,
+					type: "mutual_fund",
+				}))}
+				initialBenchmark="NIFTY50"
+			/>
 		</div>
 	);
 }

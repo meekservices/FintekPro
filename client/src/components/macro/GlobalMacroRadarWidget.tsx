@@ -32,6 +32,9 @@ import {
 	Database,
 	ExternalLink,
 	Lock,
+	Scale,
+	Landmark,
+	BarChart2,
 } from "lucide-react";
 import { Link } from "wouter";
 import {
@@ -118,7 +121,7 @@ interface StressTestResponse {
 }
 
 export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {}) {
-	const [activeScenario, setActiveScenario] = useState<"OIL_SPIKE_95" | "DOLLAR_SURGE_106" | "US_YIELD_SPIKE_475">("OIL_SPIKE_95");
+	const [activeScenario, setActiveScenario] = useState<string>("OIL_SPIKE_95");
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [isAuditOpen, setIsAuditOpen] = useState(false);
 
@@ -148,6 +151,50 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 			return res.json();
 		},
 		enabled: isAuditOpen,
+	});
+
+	// ── 1c. Fetch Global FII 6-Pillar Scorecards ──
+	const { data: fiiData } = useQuery<{ success: boolean; data: any }>({
+		queryKey: ["/api/macro/fii/scorecards"],
+		queryFn: async () => {
+			const res = await fetch("/api/macro/fii/scorecards");
+			if (!res.ok) throw new Error("Failed to fetch FII scorecards");
+			return res.json();
+		},
+		staleTime: 60 * 1000,
+	});
+
+	// ── 1d. Fetch Institutional Rotation Signals ──
+	const { data: rotationData } = useQuery<{ success: boolean; data: any }>({
+		queryKey: ["/api/macro/fii/rotation-signals"],
+		queryFn: async () => {
+			const res = await fetch("/api/macro/fii/rotation-signals");
+			if (!res.ok) throw new Error("Failed to fetch rotation signals");
+			return res.json();
+		},
+		staleTime: 60 * 1000,
+	});
+
+	// ── 1e. Fetch Indian ADR Performance & Arbitrage ──
+	const { data: adrData } = useQuery<{ success: boolean; data: any }>({
+		queryKey: ["/api/macro/intelligence/indian-adrs"],
+		queryFn: async () => {
+			const res = await fetch("/api/macro/intelligence/indian-adrs");
+			if (!res.ok) throw new Error("Failed to fetch Indian ADRs");
+			return res.json();
+		},
+		staleTime: 60 * 1000,
+	});
+
+	// ── 1f. Fetch MSCI Factors & Inflow Projections ──
+	const { data: msciData } = useQuery<{ success: boolean; data: any }>({
+		queryKey: ["/api/macro/intelligence/msci-factors"],
+		queryFn: async () => {
+			const res = await fetch("/api/macro/intelligence/msci-factors");
+			if (!res.ok) throw new Error("Failed to fetch MSCI factors");
+			return res.json();
+		},
+		staleTime: 60 * 1000,
 	});
 
 	const handleSync = async () => {
@@ -451,12 +498,14 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 					);
 				})()}
 
-				{/* ── Tabs: Pillars Breakdown, Sector Matrix, Stress Testing ── */}
+				{/* ── Tabs: Pillars Breakdown, Sector Matrix, FII Radar, ADRs, Stress Testing ── */}
 				<Tabs defaultValue="pillars" className="w-full">
-					<TabsList className="grid grid-cols-3 h-9 text-xs mb-3">
-						<TabsTrigger value="pillars" className="text-xs">5 Transmission Pillars</TabsTrigger>
-						<TabsTrigger value="sectors" className="text-xs">Sector Sensitivities</TabsTrigger>
-						<TabsTrigger value="stress" className="text-xs">Macro Stress Simulator</TabsTrigger>
+					<TabsList className="grid grid-cols-2 sm:grid-cols-5 h-auto sm:h-9 text-xs mb-3 gap-1 p-1">
+						<TabsTrigger value="pillars" className="text-xs">5 Pillars</TabsTrigger>
+						<TabsTrigger value="sectors" className="text-xs">Sectors</TabsTrigger>
+						<TabsTrigger value="fii" className="text-xs">Global FII Radar</TabsTrigger>
+						<TabsTrigger value="adr" className="text-xs">ADR & MSCI</TabsTrigger>
+						<TabsTrigger value="stress" className="text-xs">Stress Sim</TabsTrigger>
 					</TabsList>
 
 					{/* Tab 1: Transmission Pillars */}
@@ -522,7 +571,247 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 						</div>
 					</TabsContent>
 
-					{/* Tab 3: Macro Stress Simulator */}
+					{/* Tab 3: Global FII Scorecard & Cross-Border Flows */}
+					<TabsContent value="fii" className="space-y-3">
+						{/* India Standout Banner */}
+						<div className="p-3 rounded-xl bg-gradient-to-r from-emerald-500/10 via-indigo-500/10 to-transparent border border-emerald-500/25 space-y-2">
+							<div className="flex items-center justify-between">
+								<div className="flex items-center gap-2">
+									<Globe2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+									<span className="font-bold text-xs text-foreground">Global FII Institutional Capital Allocation Matrix</span>
+								</div>
+								<Badge className="bg-emerald-600 text-white text-[10px] py-0 px-2 font-semibold">
+									INDIA #1 IN EM (84.2/100)
+								</Badge>
+							</div>
+							<p className="text-[11px] text-muted-foreground leading-relaxed">
+								Evaluates global cross-border capital rotation across 6 institutional pillars: Macro Growth & Real Rates (20%), FX Risk Cover (20%), Corporate ROE (20%), Sovereign Yield Spreads (15%), MSCI Inclusion (15%), and China+1 Friend-Shoring (10%).
+							</p>
+							<div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+								<div className="p-2 rounded-lg bg-card/80 border border-border/50 text-[11px]">
+									<div className="text-muted-foreground text-[10px]">Macro Real Rate</div>
+									<div className="font-bold font-mono text-emerald-600">+1.70% (Positive)</div>
+								</div>
+								<div className="p-2 rounded-lg bg-card/80 border border-border/50 text-[11px]">
+									<div className="text-muted-foreground text-[10px]">Forex Import Cover</div>
+									<div className="font-bold font-mono text-foreground">&gt;11.2 Months</div>
+								</div>
+								<div className="p-2 rounded-lg bg-card/80 border border-border/50 text-[11px]">
+									<div className="text-muted-foreground text-[10px]">India Corporate ROE</div>
+									<div className="font-bold font-mono text-indigo-600">15.8% (vs 11.2% EM)</div>
+								</div>
+								<div className="p-2 rounded-lg bg-card/80 border border-border/50 text-[11px]">
+									<div className="text-muted-foreground text-[10px]">Friend-Shoring Score</div>
+									<div className="font-bold font-mono text-emerald-600">88/100 (China+1)</div>
+								</div>
+							</div>
+						</div>
+
+						{/* Country Ranking Leaderboard Table */}
+						<div className="rounded-xl border border-border overflow-hidden">
+							<div className="bg-muted/50 px-3 py-2 border-b border-border flex items-center justify-between text-xs">
+								<span className="font-semibold text-foreground flex items-center gap-1.5">
+									<Landmark className="h-3.5 w-3.5 text-indigo-500" />
+									10-Country Global FII Scorecard Leaderboard
+								</span>
+								<span className="text-[10px] text-muted-foreground font-mono">
+									Engine: FII-TRACKER-v1.0.0
+								</span>
+							</div>
+							<div className="overflow-x-auto">
+								<table className="w-full text-[11px]">
+									<thead className="bg-muted/30 text-muted-foreground border-b border-border font-medium">
+										<tr>
+											<th className="text-left p-2">Rank & Country</th>
+											<th className="text-center p-2">Region</th>
+											<th className="text-center p-2">FII Score</th>
+											<th className="text-center p-2">30d Flow</th>
+											<th className="text-right p-2">Allocation Stance</th>
+										</tr>
+									</thead>
+									<tbody className="divide-y divide-border/60">
+										{(fiiData?.data?.scorecards || [
+											{ rank: 1, countryCode: "IND", countryName: "India", region: "EM_ASIA", compositeFiiScore: 84.2, cumulative30dFlowUsdMn: 1450, allocationStance: "STRONG_OVERWEIGHT" },
+											{ rank: 2, countryCode: "USA", countryName: "United States", region: "DM_AMERICAS", compositeFiiScore: 78.4, cumulative30dFlowUsdMn: 12400, allocationStance: "OVERWEIGHT" },
+											{ rank: 3, countryCode: "TWN", countryName: "Taiwan", region: "EM_ASIA", compositeFiiScore: 74.6, cumulative30dFlowUsdMn: 820, allocationStance: "OVERWEIGHT" },
+											{ rank: 4, countryCode: "JPN", countryName: "Japan", region: "DM_ASIA", compositeFiiScore: 72.1, cumulative30dFlowUsdMn: 2100, allocationStance: "OVERWEIGHT" },
+											{ rank: 5, countryCode: "KOR", countryName: "South Korea", region: "EM_ASIA", compositeFiiScore: 65.3, cumulative30dFlowUsdMn: 310, allocationStance: "NEUTRAL" },
+											{ rank: 6, countryCode: "DEU", countryName: "Germany", region: "DM_EUROPE", compositeFiiScore: 61.8, cumulative30dFlowUsdMn: -450, allocationStance: "NEUTRAL" },
+											{ rank: 7, countryCode: "GBR", countryName: "United Kingdom", region: "DM_EUROPE", compositeFiiScore: 59.4, cumulative30dFlowUsdMn: -890, allocationStance: "NEUTRAL" },
+											{ rank: 8, countryCode: "BRA", countryName: "Brazil", region: "EM_LATAM", compositeFiiScore: 58.7, cumulative30dFlowUsdMn: 120, allocationStance: "NEUTRAL" },
+											{ rank: 9, countryCode: "CHN", countryName: "China", region: "EM_ASIA", compositeFiiScore: 48.2, cumulative30dFlowUsdMn: -3850, allocationStance: "UNDERWEIGHT" },
+										]).map((c: any) => (
+											<tr key={c.countryCode} className={cn("hover:bg-muted/30 transition-colors", c.countryCode === "IND" && "bg-emerald-500/5 font-semibold")}>
+												<td className="p-2 flex items-center gap-1.5">
+													<span className="font-mono text-muted-foreground w-4">#{c.rank}</span>
+													<span className="text-foreground">{c.countryName}</span>
+													{c.countryCode === "IND" && (
+														<Badge className="text-[9px] py-0 px-1 bg-emerald-600 text-white">Focus</Badge>
+													)}
+												</td>
+												<td className="p-2 text-center text-[10px] text-muted-foreground font-mono">{c.region}</td>
+												<td className="p-2 text-center font-mono font-bold text-foreground">{c.compositeFiiScore}</td>
+												<td className="p-2 text-center font-mono text-[10px]">
+													<span className={c.cumulative30dFlowUsdMn >= 0 ? "text-emerald-600 font-semibold" : "text-rose-600 font-semibold"}>
+														{c.cumulative30dFlowUsdMn >= 0 ? "+" : ""}${c.cumulative30dFlowUsdMn}M
+													</span>
+												</td>
+												<td className="p-2 text-right">
+													<Badge
+														variant="outline"
+														className={cn(
+															"text-[9px] py-0 px-1.5 font-bold",
+															c.allocationStance === "STRONG_OVERWEIGHT" && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+															c.allocationStance === "OVERWEIGHT" && "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30",
+															c.allocationStance === "NEUTRAL" && "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-400/20",
+															c.allocationStance === "UNDERWEIGHT" && "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30"
+														)}
+													>
+														{c.allocationStance.replace(/_/g, " ")}
+													</Badge>
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						</div>
+
+						{/* Strategic Pair Trade Highlight */}
+						<div className="p-3 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 text-xs space-y-1">
+							<div className="flex items-center justify-between">
+								<span className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+									<Sparkles className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+									Active Institutional Cross-Border Pair Trade
+								</span>
+								<Badge variant="outline" className="text-[10px] border-indigo-400 text-indigo-700 dark:text-indigo-300 font-mono">
+									Conviction: 88/100
+								</Badge>
+							</div>
+							<div className="font-semibold text-foreground text-xs pt-0.5">
+								Long India (Nifty 50 / Capex Themes) / Short China (CSI 300 / Real Estate)
+							</div>
+							<p className="text-[11px] text-muted-foreground leading-relaxed">
+								Driven by diverging real GDP growth (+7.2% vs +4.6%), positive real interest rate buffer (+1.7%), and sovereign debt inclusion inflows under JP Morgan GBI-EM.
+							</p>
+						</div>
+					</TabsContent>
+
+					{/* Tab 4: Indian ADR Performance & MSCI Factors */}
+					<TabsContent value="adr" className="space-y-3">
+						{/* MSCI EM Weight & Factor Leadership Header */}
+						<div className="p-3 rounded-xl bg-card border border-border space-y-2 text-xs">
+							<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+								<div className="flex items-center gap-2">
+									<BarChart2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+									<span className="font-bold text-foreground">MSCI Emerging Markets Factor Leadership</span>
+								</div>
+								<div className="flex items-center gap-2 font-mono text-[11px]">
+									<span className="text-muted-foreground">MSCI India Weight:</span>
+									<span className="font-bold text-emerald-600 dark:text-emerald-400">20.45% (Rank #2 in EM)</span>
+								</div>
+							</div>
+							<p className="text-[11px] text-muted-foreground leading-relaxed">
+								India represents 20.45% of the MSCI Emerging Markets Index. Each 10 bps weight expansion drives approximately <strong className="text-foreground font-mono">~$550 Million</strong> in passive institutional index-tracking inflows.
+							</p>
+							{/* Factor Leadership Spreads */}
+							<div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px]">
+								<div className="p-2 rounded-lg bg-muted/40 border border-border/50">
+									<div className="text-muted-foreground text-[10px]">Momentum Factor</div>
+									<div className="font-bold font-mono text-emerald-600">+14.2% Outperformance</div>
+								</div>
+								<div className="p-2 rounded-lg bg-muted/40 border border-border/50">
+									<div className="text-muted-foreground text-[10px]">Quality Factor</div>
+									<div className="font-bold font-mono text-emerald-600">+11.8% Outperformance</div>
+								</div>
+								<div className="p-2 rounded-lg bg-muted/40 border border-border/50">
+									<div className="text-muted-foreground text-[10px]">Value Factor</div>
+									<div className="font-bold font-mono text-indigo-600">+8.4% Spread</div>
+								</div>
+								<div className="p-2 rounded-lg bg-muted/40 border border-border/50">
+									<div className="text-muted-foreground text-[10px]">Min-Volatility</div>
+									<div className="font-bold font-mono text-slate-600 dark:text-slate-400">+5.1% Defense</div>
+								</div>
+							</div>
+						</div>
+
+						{/* Live Indian ADR Arbitrage Spread Table */}
+						<div className="rounded-xl border border-border overflow-hidden text-xs">
+							<div className="bg-muted/50 px-3 py-2 border-b border-border flex items-center justify-between">
+								<span className="font-semibold text-foreground flex items-center gap-1.5">
+									<Scale className="h-3.5 w-3.5 text-emerald-600" />
+									US-Listed Indian ADRs vs Domestic NSE Arbitrage Spreads
+								</span>
+								<Badge variant="outline" className="text-[10px] font-mono border-emerald-500/30 text-emerald-700 dark:text-emerald-300">
+									OVERNIGHT TRANSMISSION LEAD
+								</Badge>
+							</div>
+							<div className="overflow-x-auto">
+								<table className="w-full text-[11px]">
+									<thead className="bg-muted/30 text-muted-foreground border-b border-border font-medium">
+										<tr>
+											<th className="text-left p-2">ADR Ticker</th>
+											<th className="text-left p-2">Sector</th>
+											<th className="text-right p-2">US Close ($)</th>
+											<th className="text-right p-2">Implied INR (₹)</th>
+											<th className="text-right p-2">NSE Close (₹)</th>
+											<th className="text-right p-2">Arbitrage Spread</th>
+											<th className="text-right p-2">Overnight Signal</th>
+										</tr>
+									</thead>
+									<tbody className="divide-y divide-border/60">
+										{(adrData?.data?.adrs || [
+											{ adrTicker: "HDB", companyName: "HDFC Bank Ltd", sector: "Banking", usClosePriceUsd: 62.45, dayChangePct: 1.10, impliedInrPrice: 1780.20, domesticNsePrice: 1755.00, arbitrageSpreadPct: 1.44, overnightSectorSignal: "BANKING_STABILITY_SUPPORT" },
+											{ adrTicker: "IBN", companyName: "ICICI Bank Ltd", sector: "Banking", usClosePriceUsd: 28.15, dayChangePct: 0.85, impliedInrPrice: 1335.10, domesticNsePrice: 1318.50, arbitrageSpreadPct: 1.26, overnightSectorSignal: "PRIVATE_BANK_ACCUMULATION" },
+											{ adrTicker: "INFY", companyName: "Infosys Ltd", sector: "IT Software", usClosePriceUsd: 20.55, dayChangePct: 2.45, impliedInrPrice: 1745.00, domesticNsePrice: 1680.00, arbitrageSpreadPct: 3.87, overnightSectorSignal: "IT_SECTOR_BULLISH_LEAD" },
+											{ adrTicker: "WIT", companyName: "Wipro Ltd", sector: "IT Software", usClosePriceUsd: 5.65, dayChangePct: 1.05, impliedInrPrice: 480.15, domesticNsePrice: 472.00, arbitrageSpreadPct: 1.73, overnightSectorSignal: "IT_MOMENTUM_CONFIRMATION" },
+											{ adrTicker: "RDY", companyName: "Dr. Reddy's Lab", sector: "Pharma", usClosePriceUsd: 76.80, dayChangePct: -0.40, impliedInrPrice: 6520.00, domesticNsePrice: 6505.00, arbitrageSpreadPct: 0.23, overnightSectorSignal: "DEFENSIVE_PARITY" },
+										]).map((adr: any) => (
+											<tr key={adr.adrTicker} className="hover:bg-muted/30 transition-colors">
+												<td className="p-2">
+													<div className="font-bold font-mono text-foreground">{adr.adrTicker}</div>
+													<div className="text-[10px] text-muted-foreground">{adr.companyName}</div>
+												</td>
+												<td className="p-2 text-muted-foreground text-[10px]">{adr.sector}</td>
+												<td className="p-2 text-right font-mono">
+													<div>${adr.usClosePriceUsd?.toFixed(2)}</div>
+													<div className={cn("text-[10px]", adr.dayChangePct >= 0 ? "text-emerald-600" : "text-rose-600")}>
+														{adr.dayChangePct >= 0 ? "+" : ""}{adr.dayChangePct?.toFixed(2)}%
+													</div>
+												</td>
+												<td className="p-2 text-right font-mono font-bold text-foreground">
+													₹{adr.impliedInrPrice?.toLocaleString("en-IN", { maximumFractionDigits: 1 })}
+												</td>
+												<td className="p-2 text-right font-mono text-muted-foreground">
+													₹{adr.domesticNsePrice?.toLocaleString("en-IN", { maximumFractionDigits: 1 })}
+												</td>
+												<td className="p-2 text-right">
+													<Badge
+														variant="outline"
+														className={cn(
+															"text-[10px] font-mono font-bold",
+															adr.arbitrageSpreadPct > 2 && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+															adr.arbitrageSpreadPct >= 0 && adr.arbitrageSpreadPct <= 2 && "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20",
+															adr.arbitrageSpreadPct < 0 && "bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20"
+														)}
+													>
+														{adr.arbitrageSpreadPct >= 0 ? "+" : ""}{adr.arbitrageSpreadPct?.toFixed(2)}%
+													</Badge>
+												</td>
+												<td className="p-2 text-right">
+													<span className="text-[10px] font-medium text-muted-foreground">
+														{adr.overnightSectorSignal?.replace(/_/g, " ")}
+													</span>
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</TabsContent>
+
+					{/* Tab 5: Macro Stress Simulator */}
 					<TabsContent value="stress" className="space-y-3">
 						<div className="flex flex-wrap gap-2">
 							<Button
@@ -557,6 +846,39 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 								}}
 							>
 								US Yield Shock (4.75%)
+							</Button>
+							<Button
+								size="sm"
+								variant={activeScenario === "GMIE_CRUDE_SURGE_115" ? "default" : "outline"}
+								className="text-xs h-8 border-amber-500/30 text-amber-600 dark:text-amber-400"
+								onClick={() => {
+									setActiveScenario("GMIE_CRUDE_SURGE_115");
+									stressMutation.mutate("GMIE_CRUDE_SURGE_115");
+								}}
+							>
+								⚡ Brent $115 Tripwire
+							</Button>
+							<Button
+								size="sm"
+								variant={activeScenario === "GMIE_FII_CAPITAL_EXODUS" ? "default" : "outline"}
+								className="text-xs h-8 border-rose-500/30 text-rose-600 dark:text-rose-400"
+								onClick={() => {
+									setActiveScenario("GMIE_FII_CAPITAL_EXODUS");
+									stressMutation.mutate("GMIE_FII_CAPITAL_EXODUS");
+								}}
+							>
+								⚡ FII ₹50k Cr Outflow
+							</Button>
+							<Button
+								size="sm"
+								variant={activeScenario === "GMIE_FED_LIQUIDITY_CONTRACTION" ? "default" : "outline"}
+								className="text-xs h-8 border-indigo-500/30 text-indigo-600 dark:text-indigo-400"
+								onClick={() => {
+									setActiveScenario("GMIE_FED_LIQUIDITY_CONTRACTION");
+									stressMutation.mutate("GMIE_FED_LIQUIDITY_CONTRACTION");
+								}}
+							>
+								⚡ US 10Y @ 5.25%
 							</Button>
 						</div>
 

@@ -28,6 +28,11 @@ import { fiiFlowService, FiiDiiSummary } from "./fii-flow-service";
 import { multiExchangeMarketService } from "../multi-exchange-market-service";
 import { globalMacroTransmissionService } from "./global-macro-transmission-service";
 import {
+  msciFactorService,
+  type MsciGlobalCountryReport,
+  type IndianAdrPerformance,
+} from "./msci-factor-service";
+import {
   globalMarketIndices,
   globalCapitalFlows,
   marketCorrelationMatrix,
@@ -116,6 +121,8 @@ export interface ComprehensiveIntelligenceReport {
   capitalFlows: CapitalFlowsSnapshot;
   overnightTransmission: OvernightTransmission;
   correlationMatrix: MarketCorrelationItem[];
+  msciAnalysis?: MsciGlobalCountryReport;
+  indianAdrs?: IndianAdrPerformance[];
   engineFeeds: DownstreamEngineFeeds;
   meta: {
     dataSource: string;
@@ -162,6 +169,14 @@ export class GlobalMarketIntelligenceEngine {
       // 6. Generate Downstream Engine Feeds
       const engineFeeds = this.buildEngineFeeds(macroRegime, decoupling, flows, correlationMatrix);
 
+      // 7. Ingest MSCI Factor Attribution & Country Market Report
+      let msciReport: MsciGlobalCountryReport | undefined;
+      try {
+        msciReport = await msciFactorService.getGlobalCountryReport(forceRefresh);
+      } catch (msciErr: any) {
+        logger.warn("[GMIE] MSCI Factor report fetch skipped", { error: msciErr?.message });
+      }
+
       const latencyMs = Date.now() - t0;
       const timestamp = new Date().toISOString();
 
@@ -173,9 +188,11 @@ export class GlobalMarketIntelligenceEngine {
         capitalFlows: flows,
         overnightTransmission: transmission,
         correlationMatrix,
+        msciAnalysis: msciReport,
+        indianAdrs: msciReport?.indianAdrs,
         engineFeeds,
         meta: {
-          dataSource: "FintekPro Hybrid (NSDL, NSE, RBI, CCIL, FRED, MultiExchange)",
+          dataSource: "FintekPro Hybrid (NSDL, NSE, RBI, CCIL, FRED, MultiExchange, MSCI Research)",
           cacheExpiresAt: new Date(Date.now() + CACHE_TTL_MS).toISOString(),
           executionLatencyMs: latencyMs,
         },
@@ -289,15 +306,32 @@ export class GlobalMarketIntelligenceEngine {
     }
 
     let bias: "GAP_UP" | "GAP_DOWN" | "FLAT" = "FLAT";
-    if (giftSpread > 20 || (nasdaqChangePct > 0.5 && brentChangePct < 0)) {
+    let adrBonus = 0;
+
+    try {
+      const adrs = msciFactorService.getIndianAdrPerformances();
+      const adrComposite = msciFactorService.computeAdrComposite(adrs);
+      if (adrComposite.compositeSentiment === "STRONG_FOREIGN_DEMAND") {
+        adrBonus = 12;
+      } else if (adrComposite.compositeSentiment === "FOREIGN_SELLING") {
+        adrBonus = -12;
+      }
+    } catch {
+      // Graceful fallback
+    }
+
+    if (giftSpread > 20 || (nasdaqChangePct > 0.5 && brentChangePct < 0) || adrBonus > 0) {
       bias = "GAP_UP";
-    } else if (giftSpread < -20 || (brentChangePct > 1.5 && dxyChangePct > 0.4)) {
+    } else if (giftSpread < -20 || (brentChangePct > 1.5 && dxyChangePct > 0.4) || adrBonus < 0) {
       bias = "GAP_DOWN";
     }
 
     const probabilityScore = Math.min(
       95,
-      Math.max(55, Math.round(60 + Math.abs(giftSpread) * 0.8 + Math.abs(nasdaqChangePct) * 10))
+      Math.max(
+        55,
+        Math.round(60 + Math.abs(giftSpread) * 0.8 + Math.abs(nasdaqChangePct) * 10 + Math.abs(adrBonus) * 0.5)
+      )
     );
 
     return {

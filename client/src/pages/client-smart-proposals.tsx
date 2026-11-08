@@ -55,7 +55,9 @@ import {
 	Zap,
 	Eye,
 	ChevronRight,
+	FlaskConical,
 } from "lucide-react";
+import { PortfolioBacktestModal } from "@/components/wealth/PortfolioBacktestModal";
 
 interface PortfolioHolding {
 	id: string;
@@ -110,6 +112,7 @@ export default function ClientSmartProposals() {
 		[],
 	);
 	const [isAnalyzing, setIsAnalyzing] = useState(false);
+	const [showBacktestModal, setShowBacktestModal] = useState(false);
 	const [showAddDialog, setShowAddDialog] = useState(false);
 	const [newHolding, setNewHolding] = useState({
 		productType: "mutual_fund",
@@ -814,20 +817,31 @@ export default function ClientSmartProposals() {
 												{formatCurrency(totalSelectedAmount)}
 											</p>
 										</div>
-										<Button
-											size="lg"
-											onClick={() => addToCartMutation.mutate()}
-											disabled={addToCartMutation.isPending}
-											className="bg-gradient-to-r from-purple-600 to-indigo-600"
-											data-testid="button-add-to-cart"
-										>
-											{addToCartMutation.isPending ? (
-												<Loader2 className="w-4 h-4 mr-2 animate-spin" />
-											) : (
-												<ShoppingCart className="w-4 h-4 mr-2" />
-											)}
-											Add to Cart & Proceed
-										</Button>
+										<div className="flex items-center gap-3">
+											<Button
+												size="lg"
+												variant="outline"
+												onClick={() => setShowBacktestModal(true)}
+												className="border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+											>
+												<FlaskConical className="w-4 h-4 mr-2 text-indigo-600" />
+												Backtest Proposal
+											</Button>
+											<Button
+												size="lg"
+												onClick={() => addToCartMutation.mutate()}
+												disabled={addToCartMutation.isPending}
+												className="bg-gradient-to-r from-purple-600 to-indigo-600"
+												data-testid="button-add-to-cart"
+											>
+												{addToCartMutation.isPending ? (
+													<Loader2 className="w-4 h-4 mr-2 animate-spin" />
+												) : (
+													<ShoppingCart className="w-4 h-4 mr-2" />
+												)}
+												Add to Cart & Proceed
+											</Button>
+										</div>
 									</div>
 								</div>
 							)}
@@ -934,6 +948,20 @@ export default function ClientSmartProposals() {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			{/* Backtesting Simulation Modal for Proposed Allocations */}
+			<PortfolioBacktestModal
+				open={showBacktestModal}
+				onOpenChange={setShowBacktestModal}
+				portfolioName="AI Smart Proposed Portfolio"
+				customConstituents={selectedRecommendations.map((r) => ({
+					symbol: r.productName,
+					name: r.productName,
+					weight: totalSelectedAmount > 0 ? (r.amount / totalSelectedAmount) * 100 : 0,
+					type: r.productType,
+				}))}
+				initialBenchmark="NIFTY50"
+			/>
 		</div>
 	);
 }

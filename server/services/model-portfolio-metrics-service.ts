@@ -30,6 +30,7 @@ import { fetchIndianAPIHistorical, fetchYahooHistorical } from "./golden-pricing
 import { retryWithBackoff } from "../utils/retry-with-backoff";
 import { FaspGroundingService } from "./fasp-grounding-service";
 import { bigQueryTimeSeriesService } from "./bigquery-timeseries-service";
+import { upstoxMarketDataService } from "./upstox-market-data-service";
 
 /**
  * GCR §3.2: Version must be bumped whenever algorithm or threshold changes.
@@ -2268,19 +2269,48 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 					const totalWeight = stockHoldings.reduce((s: number, h: any) => s + Number(h.weight), 0);
 
 					// Fetch all 5 holdings in PARALLEL — reduces per-portfolio wall-clock from ~7.5s to ~1.5s.
-					// Source hierarchy: IndianAPI.in (93) primary → Yahoo Finance (82) fallback.
-					// IndianAPI provides NSE+BSE native data; Yahoo is a free public fallback.
+					// Source hierarchy: Upstox API v2 (licensed, instant) → IndianAPI.in (93) → Yahoo Finance (82) fallback.
 					type HoldingResult = { wFrac: number; r1m: number|null; r3m: number|null; r6m: number|null; rYtd: number|null };
 					const holdingResults = await Promise.allSettled<HoldingResult>(
 						stockHoldings.map(async (h: any): Promise<HoldingResult> => {
 							const sym = String(h.symbol).toUpperCase().replace(/\.NS$|\.BO$/i, "");
-							// IndiaAPI primary (conf=93) — returns [] if key absent/403
-							let navData = indiaApiAvailable
-								? await fetchIndianAPIHistorical(sym, "1y")
-								: [];
-							const usedSource = navData.length >= 5 ? "INDIAN_API" : "YAHOO_FINANCE";
-							// Yahoo Finance fallback (conf=82) — free, no key, works from Cloud Run
-							if (navData.length < 5) navData = await fetchYahooHistorical(sym, "1y");
+							let navData: { date: string; close: number }[] = [];
+							let usedSource = "NONE";
+
+							// 1. Upstox Licensed Market Data (Primary if connected)
+							if (upstoxMarketDataService.isReady()) {
+								try {
+									const toDate = new Date().toISOString().slice(0, 10);
+									const fromDate = new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10);
+									const upstoxRes = await upstoxMarketDataService.getHistoricalData(sym, "day", fromDate, toDate, "NSE");
+									if (upstoxRes.success && upstoxRes.data && upstoxRes.data.length >= 5) {
+										navData = upstoxRes.data
+											.map((c) => ({
+												date: c.timestamp ? c.timestamp.slice(0, 10) : "",
+												close: c.close,
+											}))
+											.filter((c) => c.date && c.close > 0)
+											.sort((a, b) => a.date.localeCompare(b.date));
+										if (navData.length >= 5) {
+											usedSource = "UPSTOX";
+										}
+									}
+								} catch {
+									/* fall through to IndianAPI */
+								}
+							}
+
+							// 2. IndiaAPI secondary (conf=93) — returns [] if key absent/403
+							if (navData.length < 5 && indiaApiAvailable) {
+								navData = await fetchIndianAPIHistorical(sym, "1y");
+								if (navData.length >= 5) usedSource = "INDIAN_API";
+							}
+
+							// 3. Yahoo Finance fallback (conf=82) — free, works from Cloud Run
+							if (navData.length < 5) {
+								navData = await fetchYahooHistorical(sym, "1y");
+								if (navData.length >= 5) usedSource = "YAHOO_FINANCE";
+							}
 							logger.info("[PortfolioTWRR] historical nav fetch", {
 								event: "PORTFOLIO_TWRR_STOCK_NAV_FETCH",
 								user_id: "system",

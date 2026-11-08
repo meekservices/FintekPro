@@ -386,11 +386,12 @@ export async function computeAndStorePortfolioNavHistory(
       }
     }
 
-    // 3. Upsert all months
+    // 3. Upsert all months in a single batch (reduces DB roundtrips from N to 1 per portfolio)
     const inceptionNav   = navRows[0]?.portfolio_nav  ?? 1000;
     const inceptionBench = navRows[0]?.benchmark_nav  ?? 1000;
     let written = 0;
 
+    const valueTuples = [];
     for (let i = 0; i < navRows.length; i++) {
       const row     = navRows[i];
       const prevRow = i > 0 ? navRows[i - 1] : null;
@@ -408,17 +409,20 @@ export async function computeAndStorePortfolioNavHistory(
       const hadRebal    = rebalMonths.has(monthKey) || row.had_rebalance;
       const rebalTrigger = rebalTriggers.get(monthKey) ?? row.rebalance_trigger ?? null;
 
+      valueTuples.push(sql`(${pid}, ${monthKey}, ${row.portfolio_nav},
+        ${Number(monthlyReturn.toFixed(4))}, ${Number(absoluteReturn.toFixed(4))},
+        ${Number(benchReturn.toFixed(4))}, ${Number(benchCumReturn.toFixed(4))},
+        ${hadRebal}, ${rebalTrigger},
+        'cron', 'FASP-AI-v3.0', NOW())`);
+    }
+
+    if (valueTuples.length > 0) {
       await db.execute(sql`
         INSERT INTO model_portfolio_nav_history
           (portfolio_id, month_start, nav, monthly_return, absolute_return,
            benchmark_return, benchmark_cum_return, had_rebalance_event, rebalance_trigger,
            source, engine_version, updated_at)
-        VALUES
-          (${pid}, ${monthKey}, ${row.portfolio_nav},
-           ${Number(monthlyReturn.toFixed(4))}, ${Number(absoluteReturn.toFixed(4))},
-           ${Number(benchReturn.toFixed(4))}, ${Number(benchCumReturn.toFixed(4))},
-           ${hadRebal}, ${rebalTrigger},
-           'cron', 'FASP-AI-v3.0', NOW())
+        VALUES ${sql.join(valueTuples, sql`, `)}
         ON CONFLICT (portfolio_id, month_start) DO UPDATE
           SET nav                  = EXCLUDED.nav,
               monthly_return       = EXCLUDED.monthly_return,
@@ -430,7 +434,7 @@ export async function computeAndStorePortfolioNavHistory(
               engine_version       = EXCLUDED.engine_version,
               updated_at           = NOW()
       `);
-      written++;
+      written = valueTuples.length;
     }
 
     // 4. Calculate summary trailing metrics and update model_portfolios table
@@ -488,7 +492,7 @@ export async function computeAndStorePortfolioNavHistory(
           return_ytd                = ${returnYtd != null ? Number(returnYtd.toFixed(2)) : null},
           cagr_1y                   = COALESCE(${cagr1y != null ? Number(cagr1y.toFixed(2)) : null}, cagr_1y),
           twrr_1y                   = COALESCE(${cagr1y != null ? Number(cagr1y.toFixed(2)) : null}, twrr_1y),
-          benchmark_cagr_1y         = COALESCE(${benchCagr1y != null ? Number(benchCagr1y.toFixed(2)) : null}, benchmark_cagr_1y),
+          benchmark_cagr_1y         = COALESCE(NULLIF(benchmark_cagr_1y, 0), ${benchCagr1y != null ? Number(benchCagr1y.toFixed(2)) : null}),
           cagr_2y                   = ${cagr2y != null ? Number(cagr2y.toFixed(2)) : null},
           cagr_3y                   = COALESCE(${cagr3y != null ? Number(cagr3y.toFixed(2)) : null}, cagr_3y),
           return_since_inception    = ${returnSinceInception != null ? Number(returnSinceInception.toFixed(2)) : null},

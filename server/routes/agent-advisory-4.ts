@@ -521,7 +521,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 		async (req: Request, res: Response) => {
 			try {
 				const { proposalId } = req.params;
-				const { oldHoldings, agentId } = req.body;
+				const { oldHoldings, agentId, mode, initialAmount, monthlySipAmount, period, rebalanceFrequency, benchmarkCode } = req.body;
 				if (!oldHoldings || !Array.isArray(oldHoldings)) {
 					return res.status(400).json({ error: "oldHoldings array required" });
 				}
@@ -529,6 +529,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
 					proposalId,
 					oldHoldings,
 					agentId || "system",
+					{ mode, initialAmount, monthlySipAmount, period, rebalanceFrequency, benchmarkCode }
 				);
 				res.json(wrapAdvisoryResponse(result));
 			} catch (error: any) {

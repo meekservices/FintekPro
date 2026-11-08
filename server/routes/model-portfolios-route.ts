@@ -68,6 +68,7 @@ import {
   type PortfolioTier,
 } from "../services/model-portfolio-tier-service";
 import { checkRiskBudget } from "../services/portfolio-risk-guard";
+import { portfolioBacktestService } from "../services/portfolio-backtest-service";
 
 export const modelPortfoliosRouter = Router();
 
@@ -7180,6 +7181,159 @@ modelPortfoliosRouter.get("/:id/unit-statement", async (req: Request, res: Respo
       success: false,
       error_code: "STATEMENT_GENERATION_FAILED",
       message: err.message,
+    });
+  }
+});
+
+// ── Model Portfolio Backtesting Infrastructure ─────────────────────────────────
+
+/**
+ * POST /api/model-portfolios/:id/backtest
+ * Executes multi-asset quant backtest for a model portfolio across custom period, mode & rebalancing.
+ */
+modelPortfoliosRouter.post("/:id/backtest", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const {
+      period,
+      mode,
+      initialAmount,
+      monthlySipAmount,
+      rebalanceFrequency,
+      benchmarkCode,
+      startDate,
+      endDate,
+      forceRefresh,
+    } = req.body || {};
+
+    const report = await portfolioBacktestService.runModelPortfolioBacktest(id, {
+      period,
+      mode,
+      initialAmount: initialAmount ? Number(initialAmount) : undefined,
+      monthlySipAmount: monthlySipAmount ? Number(monthlySipAmount) : undefined,
+      rebalanceFrequency,
+      benchmarkCode,
+      startDate,
+      endDate,
+      forceRefresh: Boolean(forceRefresh),
+      userId: (req as any).user?.id,
+    });
+
+    return res.json({
+      success: true,
+      data: report,
+      meta: {
+        engine_version: report.engineVersion,
+        calculation_timestamp: report.calculationTimestamp,
+      },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] Backtest failed", { error: err.message, portfolioId: req.params.id });
+    return res.status(500).json({
+      success: false,
+      error_code: "BACKTEST_FAILED",
+      message: err.message || "Failed to execute model portfolio backtest",
+      retryable: true,
+    });
+  }
+});
+
+/**
+ * GET /api/model-portfolios/:id/backtest
+ * Returns cached or default 3Y lumpsum backtest for a model portfolio.
+ */
+modelPortfoliosRouter.get("/:id/backtest", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const period = (req.query.period as any) || "3Y";
+    const mode = (req.query.mode as any) || "lumpsum";
+    const benchmarkCode = (req.query.benchmarkCode as any) || "NIFTY50";
+
+    const report = await portfolioBacktestService.runModelPortfolioBacktest(id, {
+      period,
+      mode,
+      benchmarkCode,
+      userId: (req as any).user?.id,
+    });
+
+    return res.json({
+      success: true,
+      data: report,
+      meta: {
+        engine_version: report.engineVersion,
+        calculation_timestamp: report.calculationTimestamp,
+      },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] Backtest fetch failed", { error: err.message, portfolioId: req.params.id });
+    return res.status(500).json({
+      success: false,
+      error_code: "BACKTEST_FETCH_FAILED",
+      message: err.message || "Failed to fetch model portfolio backtest",
+      retryable: true,
+    });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/backtest-custom
+ * Allows advisors to backtest arbitrary model portfolio constituents and weights on the fly.
+ */
+modelPortfoliosRouter.post("/backtest-custom", async (req: Request, res: Response) => {
+  try {
+    const {
+      strategyName,
+      constituents,
+      period,
+      mode,
+      initialAmount,
+      monthlySipAmount,
+      rebalanceFrequency,
+      benchmarkCode,
+      startDate,
+      endDate,
+    } = req.body || {};
+
+    if (!constituents || !Array.isArray(constituents) || constituents.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error_code: "INVALID_CONSTITUENTS",
+        message: "A non-empty constituents array is required",
+        retryable: false,
+      });
+    }
+
+    const report = await portfolioBacktestService.executeBacktest(
+      strategyName || "Custom Model Portfolio",
+      constituents,
+      {
+        period,
+        mode,
+        initialAmount: initialAmount ? Number(initialAmount) : undefined,
+        monthlySipAmount: monthlySipAmount ? Number(monthlySipAmount) : undefined,
+        rebalanceFrequency,
+        benchmarkCode,
+        startDate,
+        endDate,
+        userId: (req as any).user?.id,
+      }
+    );
+
+    return res.json({
+      success: true,
+      data: report,
+      meta: {
+        engine_version: report.engineVersion,
+        calculation_timestamp: report.calculationTimestamp,
+      },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] Custom backtest failed", { error: err.message });
+    return res.status(500).json({
+      success: false,
+      error_code: "CUSTOM_BACKTEST_FAILED",
+      message: err.message || "Failed to execute custom backtest",
+      retryable: true,
     });
   }
 });

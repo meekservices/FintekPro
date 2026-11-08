@@ -117,11 +117,166 @@ export const globalIntelligenceSignals = pgTable(
   ]
 );
 
+// ── 5. MSCI Index Factors & Emerging Market Valuation Spreads ────────────────
+export const msciIndexFactors = pgTable(
+  "msci_index_factors",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    indexCode: varchar("index_code", { length: 50 }).notNull().unique(), // e.g. 'MSCI_EM', 'MSCI_INDIA', 'MSCI_CHINA', 'MSCI_INDIA_MOMENTUM', etc.
+    indexName: varchar("index_name", { length: 150 }).notNull(),
+    category: varchar("category", { length: 50 }).notNull(), // 'BENCHMARK', 'COUNTRY', 'FACTOR'
+    weightInEmPct: numeric("weight_in_em_pct", { precision: 6, scale: 3 }), // e.g. 20.450 for India in MSCI EM
+    peRatio: numeric("pe_ratio", { precision: 8, scale: 2 }),
+    forwardPe: numeric("forward_pe", { precision: 8, scale: 2 }),
+    pbRatio: numeric("pb_ratio", { precision: 8, scale: 2 }),
+    dividendYield: numeric("dividend_yield", { precision: 6, scale: 3 }),
+    return1M: numeric("return_1m", { precision: 8, scale: 4 }),
+    return3M: numeric("return_3m", { precision: 8, scale: 4 }),
+    return1Y: numeric("return_1y", { precision: 8, scale: 4 }),
+    returnYtd: numeric("return_ytd", { precision: 8, scale: 4 }),
+    indiaPremiumPct: numeric("india_premium_pct", { precision: 8, scale: 2 }), // Valuation premium vs MSCI EM (+78.5%)
+    factorLeadershipRank: numeric("factor_leadership_rank", { precision: 4, scale: 0 }),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_msci_category").on(table.category),
+    index("idx_msci_code").on(table.indexCode),
+  ]
+);
+
+// ── 6. Global Country Market Profiles & Macro Drivers ────────────────────────
+export const countryMarketProfiles = pgTable(
+  "country_market_profiles",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    countryCode: varchar("country_code", { length: 10 }).notNull().unique(), // 'US', 'IN', 'CN', 'JP', 'DE', 'GB', 'TW', 'KR', 'BR'
+    countryName: varchar("country_name", { length: 100 }).notNull(),
+    region: varchar("region", { length: 50 }).notNull(), // 'NORTH_AMERICA', 'EUROPE', 'ASIA_PACIFIC', 'EMERGING_MARKETS'
+    benchmarkIndex: varchar("benchmark_index", { length: 100 }).notNull(),
+    localCurrency: varchar("local_currency", { length: 10 }).default("USD"),
+    lastClose: numeric("last_close", { precision: 18, scale: 4 }).notNull(),
+    changePct1D: numeric("change_pct_1d", { precision: 8, scale: 4 }),
+    changePct1M: numeric("change_pct_1m", { precision: 8, scale: 4 }),
+    changePctYtd: numeric("change_pct_ytd", { precision: 8, scale: 4 }),
+    peRatio: numeric("pe_ratio", { precision: 8, scale: 2 }),
+    sovereignYield10Y: numeric("sovereign_yield_10y", { precision: 6, scale: 3 }),
+    centralBankPolicyRate: numeric("central_bank_policy_rate", { precision: 6, scale: 3 }),
+    correlationWithNifty90D: numeric("correlation_with_nifty_90d", { precision: 6, scale: 4 }),
+    rollingBetaVsNifty: numeric("rolling_beta_vs_nifty", { precision: 6, scale: 4 }),
+    macroStatus: varchar("macro_status", { length: 50 }).notNull(), // 'EXPANSION', 'DECELERATION', 'STIMULUS_PIVOT', 'DEFENSIVE'
+    capitalFlowSentiment: varchar("capital_flow_sentiment", { length: 50 }).notNull(), // 'OVERWEIGHT_INFLOW', 'NEUTRAL', 'UNDERWEIGHT_OUTFLOW'
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_cmp_region").on(table.region),
+    index("idx_cmp_country_code").on(table.countryCode),
+  ]
+);
+
+// ── 7. Indian ADR Performance & Arbitrage Tracker ────────────────────────────
+export const indianAdrTracking = pgTable(
+  "indian_adr_tracking",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    symbol: varchar("symbol", { length: 20 }).notNull().unique(), // 'HDB', 'IBN', 'INFY', 'WIT', 'RDY', 'MMYT', 'SIFY'
+    companyName: varchar("company_name", { length: 150 }).notNull(),
+    exchange: varchar("exchange", { length: 20 }).notNull(), // 'NYSE', 'NASDAQ'
+    underlyingNseSymbol: varchar("underlying_nse_symbol", { length: 50 }).notNull(), // 'HDFCBANK', 'ICICIBANK', 'INFY', etc.
+    sector: varchar("sector", { length: 50 }).notNull(), // 'Banking', 'IT Services', 'Pharma', 'Consumer Tech'
+    adrRatio: numeric("adr_ratio", { precision: 6, scale: 2 }).notNull(), // Underlying shares per ADR (e.g. 1.0 or 2.0)
+    adrPriceUsd: numeric("adr_price_usd", { precision: 12, scale: 4 }).notNull(),
+    changePct1D: numeric("change_pct_1d", { precision: 8, scale: 4 }),
+    changePct1M: numeric("change_pct_1m", { precision: 8, scale: 4 }),
+    nseClosePriceInr: numeric("nse_close_price_inr", { precision: 14, scale: 2 }).notNull(),
+    impliedInrPrice: numeric("implied_inr_price", { precision: 14, scale: 2 }).notNull(),
+    premiumDiscountPct: numeric("premium_discount_pct", { precision: 8, scale: 4 }).notNull(), // (Implied - NSE) / NSE * 100
+    overnightSectorSignal: varchar("overnight_sector_signal", { length: 30 }).notNull(), // 'BULLISH_LEAD', 'BEARISH_LEAD', 'NEUTRAL'
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_adr_symbol").on(table.symbol),
+    index("idx_adr_sector").on(table.sector),
+  ]
+);
+
+// ── 8. Global FII Country Scorecards (Institutional Allocation Pillars) ─────
+export const globalFiiCountryScorecards = pgTable(
+  "global_fii_country_scorecards",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    countryCode: varchar("country_code", { length: 10 }).notNull().unique(), // 'IN', 'US', 'CN', 'JP', 'DE', 'TW', 'KR', 'BR', 'VN'
+    countryName: varchar("country_name", { length: 100 }).notNull(),
+    region: varchar("region", { length: 50 }).notNull(),
+    macroGrowthScore: numeric("macro_growth_score", { precision: 6, scale: 2 }).notNull(), // 0-100
+    fxRiskScore: numeric("fx_risk_score", { precision: 6, scale: 2 }).notNull(), // 0-100
+    valuationAttractivenessScore: numeric("valuation_score", { precision: 6, scale: 2 }).notNull(), // 0-100
+    liquidityPolicyScore: numeric("liquidity_policy_score", { precision: 6, scale: 2 }).notNull(), // 0-100
+    marketAccessibilityScore: numeric("market_accessibility_score", { precision: 6, scale: 2 }).notNull(), // 0-100
+    geopoliticalStabilityScore: numeric("geopolitical_score", { precision: 6, scale: 2 }).notNull(), // 0-100
+    compositeFiiScore: numeric("composite_fii_score", { precision: 6, scale: 2 }).notNull(), // 0-100 weighted
+    fiiAllocationStance: varchar("fii_allocation_stance", { length: 50 }).notNull(), // 'STRONG_OVERWEIGHT', 'MODERATE_OVERWEIGHT', 'NEUTRAL', 'UNDERWEIGHT', 'TACTICAL_AVOID'
+    projectedFiiFlowTrend: varchar("projected_flow_trend", { length: 50 }).notNull(), // 'NET_ACCELERATING_INFLOW', 'STEADY_ACCUMULATION', 'CHOPPY_NEUTRAL', 'ROTATIONAL_OUTFLOW', 'AGGRESSIVE_SELLING'
+    keyDrivers: jsonb("key_drivers").notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_fii_sc_country").on(table.countryCode),
+    index("idx_fii_sc_stance").on(table.fiiAllocationStance),
+  ]
+);
+
+// ── 9. Global FII Cross-Border Realized Flows Time-Series ────────────────────
+export const globalFiiCrossBorderFlows = pgTable(
+  "global_fii_cross_border_flows",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    flowDate: date("flow_date").notNull(),
+    countryCode: varchar("country_code", { length: 10 }).notNull(),
+    equityNetFlowUsdMn: numeric("equity_net_flow_usd_mn", { precision: 14, scale: 2 }).notNull(),
+    debtNetFlowUsdMn: numeric("debt_net_flow_usd_mn", { precision: 14, scale: 2 }).notNull(),
+    totalNetFlowUsdMn: numeric("total_net_flow_usd_mn", { precision: 14, scale: 2 }).notNull(),
+    trailing30dCumulativeUsdMn: numeric("trailing_30d_cumulative_usd_mn", { precision: 16, scale: 2 }).notNull(),
+    foreignOwnershipPctOfMcap: numeric("foreign_ownership_pct_of_mcap", { precision: 6, scale: 2 }),
+    source: varchar("source", { length: 50 }).notNull(), // 'NSDL_SEBI', 'EPFR_PROXY', 'IIF_FLOWS', 'EXCHANGE_OFFICIAL'
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("idx_gfcf_date_country").on(table.flowDate, table.countryCode),
+    index("idx_gfcf_country").on(table.countryCode),
+    index("idx_gfcf_date").on(table.flowDate),
+  ]
+);
+
+// ── 10. Global FII Allocation Signals & Inter-Engine Handoffs ────────────────
+export const globalFiiAllocationSignals = pgTable(
+  "global_fii_allocation_signals",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    signalDate: date("signal_date").notNull(),
+    leadingInflowDestinations: jsonb("leading_inflow_destinations").notNull(), // ['IN', 'US', 'TW']
+    leadingOutflowDestinations: jsonb("leading_outflow_destinations").notNull(), // ['DE', 'KR']
+    tacticalRotationNarrative: text("tactical_rotation_narrative").notNull(),
+    indiaFiiStatus: jsonb("india_fii_status").notNull(),
+    crossCountryPairTrades: jsonb("cross_country_pair_trades").notNull(),
+    explainability: jsonb("explainability").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_gfas_date").on(table.signalDate),
+  ]
+);
+
 // ── Zod Schemas ─────────────────────────────────────────────────────────────
 export const insertGlobalMarketIndexSchema = createInsertSchema(globalMarketIndices);
 export const insertGlobalCapitalFlowSchema = createInsertSchema(globalCapitalFlows);
 export const insertMarketCorrelationSchema = createInsertSchema(marketCorrelationMatrix);
 export const insertGlobalIntelligenceSignalSchema = createInsertSchema(globalIntelligenceSignals);
+export const insertMsciIndexFactorSchema = createInsertSchema(msciIndexFactors);
+export const insertCountryMarketProfileSchema = createInsertSchema(countryMarketProfiles);
+export const insertIndianAdrTrackingSchema = createInsertSchema(indianAdrTracking);
+export const insertGlobalFiiCountryScorecardSchema = createInsertSchema(globalFiiCountryScorecards);
+export const insertGlobalFiiCrossBorderFlowSchema = createInsertSchema(globalFiiCrossBorderFlows);
+export const insertGlobalFiiAllocationSignalSchema = createInsertSchema(globalFiiAllocationSignals);
 
 // ── Types ───────────────────────────────────────────────────────────────────
 export type GlobalMarketIndex = typeof globalMarketIndices.$inferSelect;
@@ -135,3 +290,21 @@ export type InsertMarketCorrelationRecord = typeof marketCorrelationMatrix.$infe
 
 export type GlobalIntelligenceSignal = typeof globalIntelligenceSignals.$inferSelect;
 export type InsertGlobalIntelligenceSignal = typeof globalIntelligenceSignals.$inferInsert;
+
+export type MsciIndexFactor = typeof msciIndexFactors.$inferSelect;
+export type InsertMsciIndexFactor = typeof msciIndexFactors.$inferInsert;
+
+export type CountryMarketProfile = typeof countryMarketProfiles.$inferSelect;
+export type InsertCountryMarketProfile = typeof countryMarketProfiles.$inferInsert;
+
+export type IndianAdrRecord = typeof indianAdrTracking.$inferSelect;
+export type InsertIndianAdrRecord = typeof indianAdrTracking.$inferInsert;
+
+export type GlobalFiiCountryScorecard = typeof globalFiiCountryScorecards.$inferSelect;
+export type InsertGlobalFiiCountryScorecard = typeof globalFiiCountryScorecards.$inferInsert;
+
+export type GlobalFiiCrossBorderFlow = typeof globalFiiCrossBorderFlows.$inferSelect;
+export type InsertGlobalFiiCrossBorderFlow = typeof globalFiiCrossBorderFlows.$inferInsert;
+
+export type GlobalFiiAllocationSignal = typeof globalFiiAllocationSignals.$inferSelect;
+export type InsertGlobalFiiAllocationSignal = typeof globalFiiAllocationSignals.$inferInsert;

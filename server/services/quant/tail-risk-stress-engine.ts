@@ -11,7 +11,7 @@
  * - JSDoc documentation on all exported functions.
  */
 
-export const TAIL_RISK_ENGINE_VERSION = "1.0.0";
+export const TAIL_RISK_ENGINE_VERSION = "1.1.0";
 
 export interface PortfolioAssetInput {
 	symbol: string;
@@ -28,6 +28,7 @@ export interface MacroScenarioDefinition {
 	broadMarketShockPct: number; // e.g. -38% for Nifty 50
 	sectorShocks: Record<string, number>;
 	description: string;
+	category?: "HISTORICAL_CRASH" | "GMIE_FORWARD_TRIPWIRE";
 }
 
 export const STANDARD_MACRO_SCENARIOS: MacroScenarioDefinition[] = [
@@ -35,6 +36,7 @@ export const STANDARD_MACRO_SCENARIOS: MacroScenarioDefinition[] = [
 		id: "COVID_2020_CRASH",
 		name: "2020 COVID Flash Crash",
 		historicalPeriod: "Feb–March 2020",
+		category: "HISTORICAL_CRASH",
 		broadMarketShockPct: -38.0,
 		sectorShocks: {
 			LARGE_CAP: -35.0,
@@ -53,6 +55,7 @@ export const STANDARD_MACRO_SCENARIOS: MacroScenarioDefinition[] = [
 		id: "GFC_2008_LIQUIDITY_FREEZE",
 		name: "2008 Global Financial Crisis",
 		historicalPeriod: "Jan–Oct 2008",
+		category: "HISTORICAL_CRASH",
 		broadMarketShockPct: -52.0,
 		sectorShocks: {
 			LARGE_CAP: -48.0,
@@ -71,6 +74,7 @@ export const STANDARD_MACRO_SCENARIOS: MacroScenarioDefinition[] = [
 		id: "RATES_INFLATION_2022",
 		name: "2022 Global Rate-Hike & Tech De-Rating",
 		historicalPeriod: "Jan–June 2022",
+		category: "HISTORICAL_CRASH",
 		broadMarketShockPct: -15.0,
 		sectorShocks: {
 			LARGE_CAP: -12.0,
@@ -88,7 +92,8 @@ export const STANDARD_MACRO_SCENARIOS: MacroScenarioDefinition[] = [
 	{
 		id: "OIL_SPIKE_120",
 		name: "Brent Crude $120+ Geopolitical Shock",
-		historicalPeriod: "Simulated Scenario",
+		historicalPeriod: "Simulated Shock",
+		category: "HISTORICAL_CRASH",
 		broadMarketShockPct: -12.5,
 		sectorShocks: {
 			LARGE_CAP: -10.0,
@@ -102,6 +107,64 @@ export const STANDARD_MACRO_SCENARIOS: MacroScenarioDefinition[] = [
 			GOLD: 12.0,
 		},
 		description: "Crude oil surge worsens Indian CAD and inflation, hits Auto/Paints margins, gold acts as safe haven.",
+	},
+	// ─── Forward-Looking GMIE Macro Tripwire Scenarios (Tier 3 Synergy Upgrade) ───
+	{
+		id: "GMIE_CRUDE_SURGE_115",
+		name: "GMIE Tripwire: Brent $115 & INR ₹92 Shock",
+		historicalPeriod: "Forward Synthetic Tripwire",
+		category: "GMIE_FORWARD_TRIPWIRE",
+		broadMarketShockPct: -14.0,
+		sectorShocks: {
+			LARGE_CAP: -12.0,
+			MID_CAP: -18.0,
+			SMALL_CAP: -22.0,
+			BANKING: -15.0,
+			IT: -6.0,
+			PHARMA: -5.0,
+			AUTO: -20.0,
+			DEBT: -3.5,
+			GOLD: 14.5,
+		},
+		description: "Severe crude surge expands Indian Current Account Deficit, stresses OMC/Auto margins while Bullion & IT buffer.",
+	},
+	{
+		id: "GMIE_FII_CAPITAL_EXODUS",
+		name: "GMIE Tripwire: FII ₹50k Cr Outflow Panic",
+		historicalPeriod: "Forward Synthetic Tripwire",
+		category: "GMIE_FORWARD_TRIPWIRE",
+		broadMarketShockPct: -18.5,
+		sectorShocks: {
+			LARGE_CAP: -19.5,
+			MID_CAP: -17.0,
+			SMALL_CAP: -16.0,
+			BANKING: -24.0,
+			IT: -15.0,
+			PHARMA: -9.0,
+			AUTO: -18.0,
+			DEBT: -2.0,
+			GOLD: 8.0,
+		},
+		description: "Aggressive global foreign institutional liquidation testing domestic institutional absorption ratio (IAR).",
+	},
+	{
+		id: "GMIE_FED_LIQUIDITY_CONTRACTION",
+		name: "GMIE Tripwire: US 10Y Yield 5.25% Shock",
+		historicalPeriod: "Forward Synthetic Tripwire",
+		category: "GMIE_FORWARD_TRIPWIRE",
+		broadMarketShockPct: -16.0,
+		sectorShocks: {
+			LARGE_CAP: -14.0,
+			MID_CAP: -20.0,
+			SMALL_CAP: -25.0,
+			BANKING: -12.0,
+			IT: -26.0,
+			PHARMA: -11.0,
+			AUTO: -14.0,
+			DEBT: -6.0,
+			GOLD: 5.5,
+		},
+		description: "Global risk-off rate shock drives aggressive valuation de-rating in high multiple equities and EM debt spreads.",
 	},
 ];
 
@@ -153,6 +216,7 @@ export interface TailRiskAnalysisResult {
 export function calculateTailRiskAndStress(
 	assets: PortfolioAssetInput[],
 	customTimestamp?: string,
+	additionalScenarios?: MacroScenarioDefinition[],
 ): TailRiskAnalysisResult {
 	const timestamp = customTimestamp || new Date().toISOString();
 
@@ -214,11 +278,15 @@ export function calculateTailRiskAndStress(
 	const cvar95 = +(var95Daily * tailThicknessMultiplier).toFixed(2);
 	const cvar99 = +(var99Daily * tailThicknessMultiplier * 1.15).toFixed(2);
 
-	// 3. Run Historical Macro Crash Stress Testing
+	// 3. Run Historical & GMIE Forward Tripwire Macro Stress Testing
+	const scenarios = additionalScenarios && additionalScenarios.length > 0
+		? [...STANDARD_MACRO_SCENARIOS, ...additionalScenarios]
+		: STANDARD_MACRO_SCENARIOS;
+
 	const stressResults: ScenarioImpactResult[] = [];
 	let totalStressLossPctSum = 0;
 
-	for (const scenario of STANDARD_MACRO_SCENARIOS) {
+	for (const scenario of scenarios) {
 		let portfolioDrawdown = 0;
 		const vulnerable: string[] = [];
 		const hedging: string[] = [];
@@ -259,7 +327,7 @@ export function calculateTailRiskAndStress(
 
 	// 4. Portfolio Robustness Scoring (0 - 100)
 	// Base: 100 minus penalty for excessive drawdown and lack of hedging
-	const avgDrawdown = totalStressLossPctSum / STANDARD_MACRO_SCENARIOS.length;
+	const avgDrawdown = totalStressLossPctSum / scenarios.length;
 	let robustnessScore = Math.round(100 - avgDrawdown * 1.8 + (debtGoldPct >= 20 ? 10 : 0));
 	robustnessScore = Math.min(100, Math.max(10, robustnessScore));
 
@@ -297,10 +365,10 @@ export function calculateTailRiskAndStress(
 		inputs_used: {
 			assetsCount: assets.length,
 			totalWeight: +totalWeight.toFixed(2),
-			scenariosTested: STANDARD_MACRO_SCENARIOS.length,
+			scenariosTested: scenarios.length,
 		},
 		formula_applied:
-			"CVaR_ES = E[Loss | Loss > VaR_alpha] | Cornish-Fisher Kurtosis Expansion | Matrix Stress Testing across 4 Historical Crises",
+			"CVaR_ES = E[Loss | Loss > VaR_alpha] | Cornish-Fisher Kurtosis Expansion | Matrix Stress Testing across Historical & GMIE Forward Tripwire Crises",
 		intermediate_steps: {
 			weightedBeta,
 			equityAllocationPct: equityPct,

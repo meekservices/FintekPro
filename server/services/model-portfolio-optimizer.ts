@@ -97,6 +97,7 @@ export interface HoldingCandidate {
   return_3y: number | null;
   sharpe: number | null;
   beta: number | null;
+  alpha?: number | null;
   isin: string | null;
   compositeScore: number;
   improvementVsCurrent: number;
@@ -436,7 +437,7 @@ export async function generateOptimizationSuggestions(
       const sectorRows = await db.execute(sql`
         SELECT symbol, sector, market_cap_category
         FROM listed_stocks
-        WHERE symbol = ANY(${allDragSymbols})
+        WHERE symbol IN (${sql.join(allDragSymbols.map((s) => sql`${s}`), sql`, `)})
       `).catch(() => ({ rows: [] }));
       for (const row of (sectorRows as any).rows ?? []) {
         sectorMap.set(String(row.symbol).toUpperCase(), {
@@ -449,7 +450,7 @@ export async function generateOptimizationSuggestions(
     }
   }
 
-  // ── Pre-fetch screener candidates: one query per unique sector ───────────────
+  // ── Pre-fetch screener candidates: parallel query per unique sector ─────────
   // benchFloor and symbol exclusion vary per drag holding → applied as in-memory
   // post-filters after retrieving a sector's top-20 candidates.
   const uniqueSectors = [
@@ -457,33 +458,37 @@ export async function generateOptimizationSuggestions(
   ] as string[];
 
   const candidatesBySector = new Map<string, any[]>();
-  for (const sector of uniqueSectors) {
-    try {
-      const rows = await db.execute(sql`
-        SELECT
-          sdm.symbol, ss.name, sdm.sector,
-          sdm.return_1y, sdm.return_3y,
-          sdm.sharpe_ratio_1y, sdm.beta, sdm.alpha_vs_nifty,
-          ss.isin, ss.market_cap_category
-        FROM screener_derived_metrics sdm
-        LEFT JOIN screener_stocks ss ON ss.symbol = sdm.symbol
-        WHERE sdm.sector = ${sector}
-          AND sdm.alpha_vs_nifty > 0
-          AND sdm.sharpe_ratio_1y > 0
-          AND (sdm.beta IS NULL OR sdm.beta BETWEEN 0.3 AND 2.0)
-          AND sdm.return_1y IS NOT NULL
-        ORDER BY (
-          COALESCE(sdm.return_1y, 0) * 100 * 0.40 +
-          LEAST(10, COALESCE(sdm.sharpe_ratio_1y, 0.5) * 10) * 0.25 +
-          LEAST(8, GREATEST(-8, COALESCE(sdm.alpha_vs_nifty, 0) * 2)) * 0.20 -
-          ABS(COALESCE(sdm.beta, 1.0) - 1.0) * 10 * 0.10
-        ) DESC
-        LIMIT 20
-      `).catch(() => ({ rows: [] }));
-      candidatesBySector.set(sector, (rows as any).rows ?? []);
-    } catch (err) {
-      logger.warn(`[Optimizer] Candidate pre-fetch failed for sector '${sector}'`, err as Error);
-    }
+  if (uniqueSectors.length > 0) {
+    await Promise.all(
+      uniqueSectors.map(async (sector) => {
+        try {
+          const rows = await db.execute(sql`
+            SELECT
+              sdm.symbol, ss.name, sdm.sector,
+              sdm.return_1y, sdm.return_3y,
+              sdm.sharpe_ratio_1y, sdm.beta, sdm.alpha_vs_nifty,
+              ss.isin, ss.market_cap_category
+            FROM screener_derived_metrics sdm
+            LEFT JOIN screener_stocks ss ON ss.symbol = sdm.symbol
+            WHERE sdm.sector = ${sector}
+              AND sdm.alpha_vs_nifty > 0
+              AND sdm.sharpe_ratio_1y > 0
+              AND (sdm.beta IS NULL OR sdm.beta BETWEEN 0.3 AND 2.0)
+              AND sdm.return_1y IS NOT NULL
+            ORDER BY (
+              COALESCE(sdm.return_1y, 0) * 100 * 0.40 +
+              LEAST(10, COALESCE(sdm.sharpe_ratio_1y, 0.5) * 10) * 0.25 +
+              LEAST(8, GREATEST(-8, COALESCE(sdm.alpha_vs_nifty, 0) * 100 * 2)) * 0.20 -
+              ABS(COALESCE(sdm.beta, 1.0) - 1.0) * 10 * 0.10
+            ) DESC
+            LIMIT 20
+          `).catch(() => ({ rows: [] }));
+          candidatesBySector.set(sector, (rows as any).rows ?? []);
+        } catch (err) {
+          logger.warn(`[Optimizer] Candidate pre-fetch failed for sector '${sector}'`, err as Error);
+        }
+      })
+    );
   }
 
   // ── Engine Synergy: Pre-fetch active high-conviction daily picks (confidence >= 75%) ──
@@ -522,6 +527,9 @@ export async function generateOptimizationSuggestions(
   } catch (err) {
     logger.warn("[Optimizer] Thematic screener synergy map pre-fetch skipped", err as Error);
   }
+
+  // Cache MF candidates by category to eliminate redundant DB lookups across portfolios
+  const mfCandidatesByCategory = new Map<string, any[]>();
 
   for (const analysis of targets) {
     // E1: benchmark return as a fraction — all candidates must beat this floor
@@ -588,6 +596,7 @@ export async function generateOptimizationSuggestions(
                 return_3y: r.return_3y != null ? Math.round(Number(r.return_3y) * 10000) / 100 : null,
                 sharpe,
                 beta,
+                alpha,
                 isin: r.isin ?? null,
                 compositeScore: Math.round(score * 100) / 100,
                 improvementVsCurrent: Math.round((r1y - (drag.currentReturn ?? 0)) * 100) / 100,
@@ -601,6 +610,7 @@ export async function generateOptimizationSuggestions(
                 .filter((p) => !sector || (p.sector && p.sector.toLowerCase() === sector.toLowerCase()) || p.confidence >= 85);
               for (const p of potdCandidates.slice(0, 3 - alternatives.length)) {
                 const upside = p.targetUpside || 15;
+                const estAlpha = Math.max(0, Math.round((upside - analysis.benchmarkCagr1Y) * 100) / 100);
                 alternatives.push({
                   symbol: p.symbol,
                   name: p.name ?? p.symbol,
@@ -609,6 +619,7 @@ export async function generateOptimizationSuggestions(
                   return_3y: null,
                   sharpe: 1.2,
                   beta: 1.0,
+                  alpha: estAlpha,
                   isin: p.isin ?? null,
                   compositeScore: Math.round((p.confidence / 10 + upside * 0.2) * 100) / 100,
                   improvementVsCurrent: Math.round((upside - (drag.currentReturn ?? 0)) * 100) / 100,
@@ -623,6 +634,7 @@ export async function generateOptimizationSuggestions(
                 .sort((a, b) => b.scoreBonus - a.scoreBonus);
               for (const t of thematicCandidates.slice(0, 3 - alternatives.length)) {
                 const bonusReturn = 20.0;
+                const estAlpha = Math.max(0, Math.round((bonusReturn - analysis.benchmarkCagr1Y) * 100) / 100);
                 alternatives.push({
                   symbol: t.symbol,
                   name: t.symbol,
@@ -631,6 +643,7 @@ export async function generateOptimizationSuggestions(
                   return_3y: null,
                   sharpe: 1.3,
                   beta: 1.0,
+                  alpha: estAlpha,
                   isin: null,
                   compositeScore: Math.round((10 + t.scoreBonus * 0.3) * 100) / 100,
                   improvementVsCurrent: Math.round((bonusReturn - (drag.currentReturn ?? 0)) * 100) / 100,
@@ -679,36 +692,46 @@ export async function generateOptimizationSuggestions(
           if (cat.length < 2) {
             factors.push("mf_category_unresolvable:manual_review");
           } else {
-            // E4: Query live mutual_funds master joined with metrics
+            // E4: Query live mutual_funds master joined with metrics (with category caching)
             const benchFloorPct = analysis.benchmarkCagr1Y;
-            const mfRows = await db.execute(sql`
-              SELECT 
-                mf.scheme_name as name, 
-                mf.isin, 
-                mfm.return_1y, 
-                mfm.return_3y, 
-                mfm.expense_ratio,
-                mfm.sharpe_ratio, 
-                mfm.aum as aum_cr, 
-                mf.category as sebi_category
-              FROM mutual_funds mf
-              INNER JOIN mutual_fund_metrics mfm ON mfm.scheme_code = mf.scheme_code
-              WHERE (mf.scheme_name ILIKE ${"%" + cat + "%"} OR mf.category ILIKE ${"%" + cat + "%"})
-                AND mfm.return_1y IS NOT NULL
-                AND mfm.return_1y > 0
-                AND (mfm.expense_ratio IS NULL OR mfm.expense_ratio < 2.2)
-              ORDER BY (
-                COALESCE(mfm.return_1y, 0) * 0.50 +
-                COALESCE(mfm.return_3y, 0) * 0.30 +
-                LEAST(10, COALESCE(mfm.sharpe_ratio, 0.5) * 10) * 0.20
-              ) DESC
-              LIMIT 5
-            `).catch(() => ({ rows: [] }));
+            let mfRawRows: any[] = mfCandidatesByCategory.get(cat) ?? [];
+            if (mfRawRows.length === 0) {
+              const queryRes = await db.execute(sql`
+                SELECT 
+                  mf.scheme_name as name, 
+                  mf.isin, 
+                  mfm.return_1y, 
+                  mfm.return_3y, 
+                  mfm.expense_ratio,
+                  mfm.sharpe_ratio, 
+                  mfm.aum as aum_cr, 
+                  mf.category as sebi_category
+                FROM mutual_funds mf
+                INNER JOIN mutual_fund_metrics mfm ON mfm.scheme_code = mf.scheme_code
+                WHERE (mf.scheme_name ILIKE ${"%" + cat + "%"} OR mf.category ILIKE ${"%" + cat + "%"})
+                  AND mfm.return_1y IS NOT NULL
+                  AND mfm.return_1y > 0
+                  AND (mfm.expense_ratio IS NULL OR mfm.expense_ratio < 2.2)
+                ORDER BY (
+                  COALESCE(mfm.return_1y, 0) * 0.50 +
+                  COALESCE(mfm.return_3y, 0) * 0.30 +
+                  LEAST(10, COALESCE(mfm.sharpe_ratio, 0.5) * 10) * 0.20
+                ) DESC
+                LIMIT 10
+              `).catch(() => ({ rows: [] }));
+              mfRawRows = (queryRes as any).rows ?? [];
+              mfCandidatesByCategory.set(cat, mfRawRows);
+            }
 
-            alternatives = ((mfRows as any).rows ?? []).map((r: any) => {
+            const validMfRows = mfRawRows.filter((r: any) =>
+              benchFloorPct <= 0 || Number(r.return_1y) >= benchFloorPct
+            );
+
+            alternatives = (validMfRows.length > 0 ? validMfRows : mfRawRows).slice(0, 5).map((r: any) => {
               const r1y = Math.round(Number(r.return_1y) * 100) / 100;
               const r3y = r.return_3y != null ? Math.round(Number(r.return_3y) * 100) / 100 : null;
               const sharpe = r.sharpe_ratio != null ? Math.round(Number(r.sharpe_ratio) * 100) / 100 : null;
+              const mfAlpha = Math.round((r1y - analysis.benchmarkCagr1Y) * 100) / 100;
               return {
                 symbol: r.isin ?? r.name?.substring(0, 10) ?? "MF",
                 name: r.name,
@@ -717,8 +740,9 @@ export async function generateOptimizationSuggestions(
                 return_3y: r3y,
                 sharpe,
                 beta: null,
+                alpha: mfAlpha,
                 isin: r.isin ?? null,
-                compositeScore: Math.round(compositeScore(r1y, sharpe, null) * 100) / 100,
+                compositeScore: Math.round(compositeScore(r1y, sharpe, null, mfAlpha) * 100) / 100,
                 improvementVsCurrent: Math.round((r1y - (drag.currentReturn ?? 0)) * 100) / 100,
               };
             });
@@ -761,7 +785,7 @@ export async function generateOptimizationSuggestions(
         : "hold";
 
       if (recommendation === "replace" && drag.symbol) {
-        const bestAlpha = (best as any)?.alpha ?? null;
+        const bestAlpha = best?.alpha ?? (best as any)?.alpha ?? null;
         if (bestAlpha === null || bestAlpha <= 0) {
           recommendation = "reduce_weight";
           factors.push("E6:best_candidate_alpha_unverified_or_non_positive");

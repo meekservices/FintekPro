@@ -14,6 +14,7 @@ import {
 import { eq, and, or, desc, sql, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { complianceMonitor } from "../compliance-monitor";
+import { portfolioBacktestService } from "../services/portfolio-backtest-service";
 
 const router = Router();
 
@@ -605,6 +606,87 @@ router.get("/by-category/:category", async (req: Request, res: Response) => {
 			error,
 		);
 		res.status(500).json({ error: "Failed to fetch category proposals" });
+	}
+});
+
+// ── Proposal Backtesting Infrastructure ─────────────────────────────────────
+router.post("/:id/backtest", async (req: Request, res: Response) => {
+	try {
+		const { id } = req.params;
+		const {
+			period,
+			mode,
+			initialAmount,
+			monthlySipAmount,
+			rebalanceFrequency,
+			benchmarkCode,
+			startDate,
+			endDate,
+			forceRefresh,
+		} = req.body || {};
+
+		const report = await portfolioBacktestService.runProposalBacktest(id, {
+			period,
+			mode,
+			initialAmount: initialAmount ? Number(initialAmount) : undefined,
+			monthlySipAmount: monthlySipAmount ? Number(monthlySipAmount) : undefined,
+			rebalanceFrequency,
+			benchmarkCode,
+			startDate,
+			endDate,
+			forceRefresh: Boolean(forceRefresh),
+			userId: (req as any).user?.id,
+		});
+
+		res.json({
+			success: true,
+			data: report,
+			meta: {
+				engine_version: report.engineVersion,
+				calculation_timestamp: report.calculationTimestamp,
+			},
+		});
+	} catch (error: any) {
+		console.error("[Unified Proposals] Backtest execution error:", error);
+		res.status(500).json({
+			success: false,
+			error_code: "BACKTEST_FAILED",
+			message: error.message || "Failed to execute backtest for proposal",
+			retryable: true,
+		});
+	}
+});
+
+router.get("/:id/backtest", async (req: Request, res: Response) => {
+	try {
+		const { id } = req.params;
+		const period = (req.query.period as any) || "3Y";
+		const mode = (req.query.mode as any) || "lumpsum";
+		const benchmarkCode = (req.query.benchmarkCode as any) || "NIFTY50";
+
+		const report = await portfolioBacktestService.runProposalBacktest(id, {
+			period,
+			mode,
+			benchmarkCode,
+			userId: (req as any).user?.id,
+		});
+
+		res.json({
+			success: true,
+			data: report,
+			meta: {
+				engine_version: report.engineVersion,
+				calculation_timestamp: report.calculationTimestamp,
+			},
+		});
+	} catch (error: any) {
+		console.error("[Unified Proposals] Backtest fetch error:", error);
+		res.status(500).json({
+			success: false,
+			error_code: "BACKTEST_FETCH_FAILED",
+			message: error.message || "Failed to retrieve backtest for proposal",
+			retryable: true,
+		});
 	}
 });
 

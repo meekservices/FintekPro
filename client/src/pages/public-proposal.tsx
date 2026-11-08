@@ -50,7 +50,9 @@ import {
 	Lightbulb,
 	Award,
 	AlertCircle,
+	FlaskConical,
 } from "lucide-react";
+import { PortfolioBacktestModal } from "@/components/wealth/PortfolioBacktestModal";
 
 function formatIndianCurrency(val: number | string | null | undefined): string {
 	if (val === null || val === undefined) return "N/A";
@@ -429,6 +431,7 @@ export default function PublicProposalPage() {
 	const [acknowledged, setAcknowledged] = useState(false);
 	const [transactionStep, setTransactionStep] = useState<"idle" | "consented" | "initiated">("idle");
 	const [initiatedOrder, setInitiatedOrder] = useState<any>(null);
+	const [showBacktestModal, setShowBacktestModal] = useState(false);
 	const { toast } = useToast();
 
 	const initiatePublicTxMutation = useMutation({
@@ -1245,6 +1248,15 @@ export default function PublicProposalPage() {
 						<span className="font-bold text-xl text-foreground">FintekPro</span>
 					</div>
 					<div className="flex items-center gap-2">
+						<Button
+							variant="outline"
+							onClick={() => setShowBacktestModal(true)}
+							className="border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+							data-testid="btn-backtest-header"
+						>
+							<FlaskConical className="w-4 h-4 mr-2 text-indigo-600" />
+							Backtest
+						</Button>
 						<Button
 							variant="outline"
 							onClick={generatePDF}
@@ -4623,6 +4635,15 @@ export default function PublicProposalPage() {
 					</p>
 				</div>
 			</footer>
+
+			{/* Universal Proposal Backtesting Modal */}
+			<PortfolioBacktestModal
+				open={showBacktestModal}
+				onOpenChange={setShowBacktestModal}
+				proposalId={data?.proposal?.id}
+				portfolioName={data?.proposal?.proposalTitle || "Proposal Portfolio"}
+				initialBenchmark="NIFTY50"
+			/>
 		</div>
 	);
 }

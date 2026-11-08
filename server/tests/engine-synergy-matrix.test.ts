@@ -31,7 +31,7 @@ import {
 describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 	// ─── 1. Telemetry Fleet Registration & Alpha Signal ───────────────────────────
 	describe("1. Telemetry Fleet Synergy & Alpha Signal", () => {
-		it("registers all 19 core engines across all six functional categories", () => {
+		it("registers all 21+ core engines across all functional categories", () => {
 			const statuses = telemetryBus.getAllStatuses();
 			const engineIds = statuses.map((s) => s.engineId);
 
@@ -48,6 +48,8 @@ describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 				"global-macro-transmission",
 				"ai-regime-detection",
 				"global-market-intelligence",
+				"global-fii-tracker",
+				"msci-factor-engine",
 				"tail-risk-stress",
 				"upstox-golden-pricing",
 				"multi-exchange-market",
@@ -60,7 +62,7 @@ describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 			for (const id of expectedEngines) {
 				expect(engineIds).toContain(id);
 			}
-			expect(statuses.length).toBeGreaterThanOrEqual(19);
+			expect(statuses.length).toBeGreaterThanOrEqual(21);
 		});
 
 		it("computes unified composite alpha quality across registered engines", () => {
@@ -137,7 +139,7 @@ describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 			expect(stressResult.varMetrics.cvar99_expectedShortfallPct).toBeGreaterThan(
 				stressResult.varMetrics.cvar95_expectedShortfallPct,
 			);
-			expect(stressResult.stressTestScenarios.length).toBeGreaterThanOrEqual(4);
+			expect(stressResult.stressTestScenarios.length).toBeGreaterThanOrEqual(7);
 			expect(stressResult.portfolioRobustnessScore).toBeGreaterThanOrEqual(50);
 		});
 	});

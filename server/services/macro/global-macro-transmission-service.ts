@@ -56,7 +56,7 @@ export interface SectorSensitivity {
 }
 
 export interface StressScenarioResult {
-	scenarioId: "OIL_SPIKE_95" | "DOLLAR_SURGE_106" | "US_YIELD_SPIKE_475";
+	scenarioId: string;
 	scenarioName: string;
 	scenarioDescription: string;
 	estimatedPortfolioDrawdownPct: number;
@@ -520,7 +520,7 @@ export class GlobalMacroTransmissionService {
 	 */
 	public async simulatePortfolioStress(
 		holdings: Array<{ symbol?: string; name: string; weight: number; assetClass?: string; sector?: string }>,
-		scenario: "OIL_SPIKE_95" | "DOLLAR_SURGE_106" | "US_YIELD_SPIKE_475" = "OIL_SPIKE_95"
+		scenario: string = "OIL_SPIKE_95"
 	): Promise<StressScenarioResult> {
 		const totalWeight = holdings.reduce((sum, h) => sum + (Number(h.weight) || 0), 0) || 100;
 
@@ -528,7 +528,131 @@ export class GlobalMacroTransmissionService {
 		const resilientHoldings: StressScenarioResult["resilientHoldings"] = [];
 		let weightedDrawdown = 0;
 
-		if (scenario === "OIL_SPIKE_95") {
+		if (scenario === "GMIE_CRUDE_SURGE_115") {
+			for (const h of holdings) {
+				const s = (h.sector || "").toLowerCase();
+				const n = (h.name || "").toLowerCase();
+				const normalizedWeight = (Number(h.weight) || 0) / totalWeight;
+
+				if (s.includes("paint") || s.includes("tyre") || s.includes("aviation") || s.includes("auto")) {
+					const drop = -14.5;
+					weightedDrawdown += drop * normalizedWeight;
+					vulnerableHoldings.push({
+						symbol: h.symbol || h.name,
+						name: h.name,
+						estimatedImpactPct: drop,
+						reason: "Severe raw material cost expansion & margin compression under $115/bbl crude.",
+					});
+				} else if (s.includes("oil") || s.includes("energy") || n.includes("ongc")) {
+					const gain = +11.0;
+					weightedDrawdown += gain * normalizedWeight;
+					resilientHoldings.push({
+						symbol: h.symbol || h.name,
+						name: h.name,
+						estimatedImpactPct: gain,
+						reason: "Upstream exploration realizations surge with crude past $115/bbl.",
+					});
+				} else if ((h.assetClass || "").toLowerCase() === "gold" || n.includes("gold")) {
+					const gain = +12.5;
+					weightedDrawdown += gain * normalizedWeight;
+					resilientHoldings.push({
+						symbol: h.symbol || h.name,
+						name: h.name,
+						estimatedImpactPct: gain,
+						reason: "Gold acts as the primary global stagflation & geopolitical conflict hedge.",
+					});
+				} else {
+					const baseline = -4.5;
+					weightedDrawdown += baseline * normalizedWeight;
+				}
+			}
+
+			return {
+				scenarioId: scenario,
+				scenarioName: "GMIE Tripwire: Brent Crude $115 & INR ₹92 Shock",
+				scenarioDescription: "Simulates severe crude surge driving Indian Current Account Deficit expansion and imported inflation.",
+				estimatedPortfolioDrawdownPct: Number(weightedDrawdown.toFixed(2)),
+				vulnerableHoldings: vulnerableHoldings.slice(0, 5),
+				resilientHoldings: resilientHoldings.slice(0, 5),
+				suggestedHedgingAction: "Allocate 15% to Sovereign Gold Bonds & Multi-Asset Allocation funds to absorb crude inflation shock.",
+			};
+		} else if (scenario === "GMIE_FII_CAPITAL_EXODUS") {
+			for (const h of holdings) {
+				const s = (h.sector || "").toLowerCase();
+				const normalizedWeight = (Number(h.weight) || 0) / totalWeight;
+
+				if (s.includes("bank") || s.includes("finance")) {
+					const drop = -18.0;
+					weightedDrawdown += drop * normalizedWeight;
+					vulnerableHoldings.push({
+						symbol: h.symbol || h.name,
+						name: h.name,
+						estimatedImpactPct: drop,
+						reason: "High FII ownership concentration triggers heavy institutional liquidity offloading.",
+					});
+				} else if (s.includes("pharma") || s.includes("fmcg")) {
+					const drop = -3.5;
+					weightedDrawdown += drop * normalizedWeight;
+					resilientHoldings.push({
+						symbol: h.symbol || h.name,
+						name: h.name,
+						estimatedImpactPct: drop,
+						reason: "Domestic consumption and inelastic demand provide defensive shock absorption.",
+					});
+				} else {
+					const baseline = -9.0;
+					weightedDrawdown += baseline * normalizedWeight;
+				}
+			}
+
+			return {
+				scenarioId: scenario,
+				scenarioName: "GMIE Tripwire: FII ₹50,000 Cr Outflow Panic",
+				scenarioDescription: "Simulates aggressive global institutional liquidation testing domestic institutional absorption (IAR).",
+				estimatedPortfolioDrawdownPct: Number(weightedDrawdown.toFixed(2)),
+				vulnerableHoldings: vulnerableHoldings.slice(0, 5),
+				resilientHoldings: resilientHoldings.slice(0, 5),
+				suggestedHedgingAction: "Tilt towards DII-favored domestic cyclicals, Pharma, and Short-Duration Arbitrage.",
+			};
+		} else if (scenario === "GMIE_FED_LIQUIDITY_CONTRACTION") {
+			for (const h of holdings) {
+				const s = (h.sector || "").toLowerCase();
+				const normalizedWeight = (Number(h.weight) || 0) / totalWeight;
+
+				if (s.includes("it") || s.includes("tech")) {
+					const drop = -16.5;
+					weightedDrawdown += drop * normalizedWeight;
+					vulnerableHoldings.push({
+						symbol: h.symbol || h.name,
+						name: h.name,
+						estimatedImpactPct: drop,
+						reason: "Discount rate shock compresses high-P/E software valuations despite dollar gains.",
+					});
+				} else if ((h.assetClass || "").toLowerCase() === "debt") {
+					const drop = -4.0;
+					weightedDrawdown += drop * normalizedWeight;
+					vulnerableHoldings.push({
+						symbol: h.symbol || h.name,
+						name: h.name,
+						estimatedImpactPct: drop,
+						reason: "US 10Y yield @ 5.25% compresses sovereign EM spread to historic lows.",
+					});
+				} else {
+					const baseline = -6.5;
+					weightedDrawdown += baseline * normalizedWeight;
+				}
+			}
+
+			return {
+				scenarioId: scenario,
+				scenarioName: "GMIE Tripwire: US 10Y Yield 5.25% Shock",
+				scenarioDescription: "Global risk-off rate shock drives aggressive valuation de-rating in high multiple equities and EM debt.",
+				estimatedPortfolioDrawdownPct: Number(weightedDrawdown.toFixed(2)),
+				vulnerableHoldings: vulnerableHoldings.slice(0, 5),
+				resilientHoldings: resilientHoldings.slice(0, 5),
+				suggestedHedgingAction: "Shorten portfolio duration and allocate to low-beta, high-dividend defensive compounders.",
+			};
+		} else if (scenario === "OIL_SPIKE_95") {
 			for (const h of holdings) {
 				const s = (h.sector || "").toLowerCase();
 				const n = (h.name || "").toLowerCase();

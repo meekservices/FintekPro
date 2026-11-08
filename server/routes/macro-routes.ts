@@ -14,6 +14,8 @@ import { type Express, type Request, type Response } from "express";
 import crypto from "crypto";
 import { globalMacroTransmissionService } from "../services/macro/global-macro-transmission-service";
 import { globalMarketIntelligenceEngine } from "../services/macro/global-market-intelligence-engine";
+import { msciFactorService } from "../services/macro/msci-factor-service";
+import { globalFiiTrackerEngine } from "../services/macro/global-fii-tracker-engine";
 import { goldenPricingEngine } from "../services/golden-pricing/GoldenPricingEngine";
 import { logger } from "../logger";
 
@@ -462,6 +464,268 @@ export function registerMacroRoutes(app: Express): void {
 				error: "GMIE_ENGINE_FEED_FAILED",
 				message: err?.message || "Failed to generate engine feeds",
 				meta: { timestamp: new Date().toISOString(), version: "GMIE-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/intelligence/msci-factors
+	 * Returns MSCI factor attributions (Momentum, Quality, Value, Min-Vol),
+	 * India weight in MSCI EM, valuation premium over China/EM, and passive rebalancing estimates.
+	 */
+	app.get("/api/macro/intelligence/msci-factors", async (req: Request, res: Response) => {
+		const t0 = Date.now();
+		const forceRefresh = req.query.refresh === "true";
+		try {
+			const report = await msciFactorService.getGlobalCountryReport(forceRefresh);
+			return res.status(200).json({
+				success: true,
+				data: {
+					indiaMsciProfile: report.indiaMsciProfile,
+					msciRebalancing: report.msciRebalancing,
+					factorAttribution: report.factorAttribution,
+				},
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: report.engine_version,
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch MSCI factor report", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "MSCI_FACTOR_FETCH_FAILED",
+				message: err?.message || "Failed to fetch MSCI factor report",
+				meta: { timestamp: new Date().toISOString(), version: "MSCI-COUNTRY-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/intelligence/country-markets
+	 * Returns global country market profiles across US, China, Japan, Germany, UK, Taiwan, Korea, and Brazil.
+	 */
+	app.get("/api/macro/intelligence/country-markets", async (_req: Request, res: Response) => {
+		const t0 = Date.now();
+		try {
+			const countryMarkets = msciFactorService.getCountryMarketProfiles();
+			return res.status(200).json({
+				success: true,
+				data: countryMarkets,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: "MSCI-COUNTRY-v1.0.0",
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch country market profiles", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "COUNTRY_MARKETS_FETCH_FAILED",
+				message: err?.message || "Failed to fetch country market profiles",
+				meta: { timestamp: new Date().toISOString(), version: "MSCI-COUNTRY-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/intelligence/indian-adrs
+	 * Returns performance of Indian ADRs traded on US exchanges (HDB, IBN, INFY, WIT, RDY, MMYT),
+	 * including implied INR prices, arbitrage premium/discount, and overnight sector signals.
+	 */
+	app.get("/api/macro/intelligence/indian-adrs", async (_req: Request, res: Response) => {
+		const t0 = Date.now();
+		try {
+			const adrs = msciFactorService.getIndianAdrPerformances();
+			const composite = msciFactorService.computeAdrComposite(adrs);
+			return res.status(200).json({
+				success: true,
+				data: {
+					adrs,
+					composite,
+				},
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: "MSCI-COUNTRY-v1.0.0",
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch Indian ADR report", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "INDIAN_ADR_FETCH_FAILED",
+				message: err?.message || "Failed to fetch Indian ADR report",
+				meta: { timestamp: new Date().toISOString(), version: "MSCI-COUNTRY-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/intelligence/msci-country-summary
+	 * Consolidated snapshot uniting MSCI factors, country market profiles, and Indian ADR metrics.
+	 */
+	app.get("/api/macro/intelligence/msci-country-summary", async (req: Request, res: Response) => {
+		const t0 = Date.now();
+		const forceRefresh = req.query.refresh === "true";
+		try {
+			const report = await msciFactorService.getGlobalCountryReport(forceRefresh);
+			return res.status(200).json({
+				success: true,
+				data: report,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: report.engine_version,
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch MSCI country summary", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "MSCI_SUMMARY_FETCH_FAILED",
+				message: err?.message || "Failed to fetch consolidated MSCI summary",
+				meta: { timestamp: new Date().toISOString(), version: "MSCI-COUNTRY-v1.0.0" },
+			});
+		}
+	});
+
+	// ── Global FII Movement & Institutional Allocation Routes ────────────────
+
+	/**
+	 * GET /api/macro/fii/scorecards
+	 * Returns country-by-country multi-pillar institutional allocation scorecards (IN, US, TW, CN, JP, DE, etc.)
+	 */
+	app.get("/api/macro/fii/scorecards", async (req: Request, res: Response) => {
+		const t0 = Date.now();
+		const forceRefresh = req.query.refresh === "true";
+		try {
+			const report = await globalFiiTrackerEngine.getGlobalFiiReport(forceRefresh);
+			return res.status(200).json({
+				success: true,
+				data: report.scorecards,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: report.engine_version,
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch FII country scorecards", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "FII_SCORECARDS_FETCH_FAILED",
+				message: err?.message || "Failed to fetch FII scorecards",
+				meta: { timestamp: new Date().toISOString(), version: "FII-TRACKER-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/fii/cross-border-flows
+	 * Returns realized multi-country cross-border equity and debt flows.
+	 */
+	app.get("/api/macro/fii/cross-border-flows", async (req: Request, res: Response) => {
+		const t0 = Date.now();
+		const forceRefresh = req.query.refresh === "true";
+		try {
+			const report = await globalFiiTrackerEngine.getGlobalFiiReport(forceRefresh);
+			return res.status(200).json({
+				success: true,
+				data: report.recentFlows,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: report.engine_version,
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch FII cross-border flows", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "FII_FLOWS_FETCH_FAILED",
+				message: err?.message || "Failed to fetch FII flows",
+				meta: { timestamp: new Date().toISOString(), version: "FII-TRACKER-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/fii/rotation-signals
+	 * Returns global FII rotation vectors, pair trades, and India deep dive.
+	 */
+	app.get("/api/macro/fii/rotation-signals", async (req: Request, res: Response) => {
+		const t0 = Date.now();
+		const forceRefresh = req.query.refresh === "true";
+		try {
+			const report = await globalFiiTrackerEngine.getGlobalFiiReport(forceRefresh);
+			return res.status(200).json({
+				success: true,
+				data: {
+					globalFiiStanceOverview: report.globalFiiStanceOverview,
+					indiaDeepDive: report.indiaDeepDive,
+					crossCountryPairTrades: report.crossCountryPairTrades,
+					explainability: report.explainability,
+				},
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: report.engine_version,
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch FII rotation signals", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "FII_SIGNALS_FETCH_FAILED",
+				message: err?.message || "Failed to fetch FII rotation signals",
+				meta: { timestamp: new Date().toISOString(), version: "FII-TRACKER-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/fii/country/:code
+	 * Returns comprehensive FII scorecard diagnostic for a specific country.
+	 */
+	app.get("/api/macro/fii/country/:code", async (req: Request, res: Response) => {
+		const t0 = Date.now();
+		const countryCode = String(req.params.code).toUpperCase();
+		try {
+			const report = await globalFiiTrackerEngine.getGlobalFiiReport(false);
+			const countryScorecard = report.scorecards.find((s) => s.countryCode === countryCode);
+			const countryFlow = report.recentFlows.find((f) => f.countryCode === countryCode);
+
+			if (!countryScorecard) {
+				return res.status(404).json({
+					success: false,
+					error: "COUNTRY_NOT_FOUND",
+					message: `No FII diagnostic found for country code '${countryCode}'.`,
+					meta: { timestamp: new Date().toISOString(), version: "FII-TRACKER-v1.0.0" },
+				});
+			}
+
+			return res.status(200).json({
+				success: true,
+				data: {
+					scorecard: countryScorecard,
+					flows: countryFlow || null,
+				},
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: report.engine_version,
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch country FII diagnostic", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "FII_COUNTRY_FETCH_FAILED",
+				message: err?.message || "Failed to fetch country FII diagnostic",
+				meta: { timestamp: new Date().toISOString(), version: "FII-TRACKER-v1.0.0" },
 			});
 		}
 	});

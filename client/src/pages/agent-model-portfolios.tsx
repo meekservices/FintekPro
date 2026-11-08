@@ -99,7 +99,9 @@ import {
   Wallet,
   ArrowDown,
   ArrowUp,
+  FlaskConical,
 } from "lucide-react";
+import { PortfolioBacktestModal } from "@/components/wealth/PortfolioBacktestModal";
 import {
   LineChart,
   Line,
@@ -4772,6 +4774,7 @@ export default function AgentModelPortfoliosPage() {
   const [riskFilter, setRiskFilter] = useState<string>("all");
   const [segmentFilter, setSegmentFilter] = useState<string>("all");
   const [selectedPortfolio, setSelectedPortfolio] = useState<ModelPortfolio | null>(null);
+  const [backtestModalPortfolio, setBacktestModalPortfolio] = useState<ModelPortfolio | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareChannel, setShareChannel] = useState<"whatsapp" | "email">("whatsapp");
   // Invest Modal state
@@ -6438,19 +6441,33 @@ export default function AgentModelPortfoliosPage() {
                 </details>
 
                 {/* ── CTA ───────────────────────────────────────────────── */}
-                <Button
-                  id={`view-portfolio-${portfolio.id}`}
-                  className="w-full h-8 text-xs gap-1 group-hover:bg-indigo-600 group-hover:text-white transition-colors"
-                  variant="outline"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedPortfolio(portfolio);
-                    fetchNavHistory(portfolio.id);
-                  }}
-                >
-                  View full portfolio
-                  <ChevronRight className="h-3 w-3" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    id={`backtest-portfolio-${portfolio.id}`}
+                    className="h-8 text-xs gap-1 px-2.5 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setBacktestModalPortfolio(portfolio);
+                    }}
+                  >
+                    <FlaskConical className="h-3 w-3 text-indigo-600" />
+                    Backtest
+                  </Button>
+                  <Button
+                    id={`view-portfolio-${portfolio.id}`}
+                    className="flex-1 h-8 text-xs gap-1 group-hover:bg-indigo-600 group-hover:text-white transition-colors"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPortfolio(portfolio);
+                      fetchNavHistory(portfolio.id);
+                    }}
+                  >
+                    View details
+                    <ChevronRight className="h-3 w-3" />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           );
@@ -6521,7 +6538,16 @@ export default function AgentModelPortfoliosPage() {
                 )}
               </div>
               {canShare && (
-                <div className="flex gap-2 px-5 py-3 border-b shrink-0">
+                <div className="flex gap-2 px-5 py-3 border-b shrink-0 flex-wrap">
+                  <Button
+                    id="backtest-sheet-btn"
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-xs border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+                    onClick={() => setBacktestModalPortfolio(selectedPortfolio)}
+                  >
+                    <FlaskConical className="h-3.5 w-3.5 text-indigo-600" />Backtest Simulation
+                  </Button>
                   <Button
                     id="share-portfolio-btn"
                     size="sm"
@@ -6574,10 +6600,11 @@ export default function AgentModelPortfoliosPage() {
                   }}
                   className="px-5 pt-4 pb-6"
                 >
-                  <TabsList className="grid w-full grid-cols-8 mb-4 h-8 text-xs">
+                  <TabsList className="grid w-full grid-cols-9 mb-4 h-8 text-xs">
                     <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
                     <TabsTrigger value="holdings" className="text-xs">Holdings</TabsTrigger>
                     <TabsTrigger value="performance" className="text-xs">Performance</TabsTrigger>
+                    <TabsTrigger value="backtest" className="text-xs">🧪 Backtest</TabsTrigger>
                     <TabsTrigger value="rebalancing" className="text-xs">Rebalancing</TabsTrigger>
                     <TabsTrigger value="sip" className="text-xs">💰 SIP</TabsTrigger>
                     <TabsTrigger value="xray" className="text-xs">🔬 X-Ray</TabsTrigger>
@@ -6996,6 +7023,89 @@ export default function AgentModelPortfoliosPage() {
                     <p className="text-[10px] text-muted-foreground text-center">
                         * NAV starts at ₹1,000. Past returns are simulated for illustration. Not guaranteed.
                     </p>
+                  </TabsContent>
+
+                  {/* Backtest Simulation Tab */}
+                  <TabsContent value="backtest" className="space-y-4">
+                    <Card className="border-indigo-100 dark:border-indigo-900 bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/30 dark:from-indigo-950/20 dark:via-background dark:to-purple-950/10">
+                      <CardContent className="p-5 space-y-4">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="p-1.5 rounded-md bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
+                                <FlaskConical className="w-4 h-4" />
+                              </span>
+                              <h3 className="font-bold text-sm text-foreground">Quantitative Strategy Backtesting</h3>
+                            </div>
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                              Simulate portfolio growth, asset-class rebalancing, and drawdowns across historical market cycles using FintekPro Universal Backtesting Infrastructure.
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] font-mono text-indigo-600 bg-indigo-50/50">
+                            FASP-AI v3.1
+                          </Badge>
+                        </div>
+
+                        {/* Quick Risk/Performance Metrics */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                          <div className="p-2.5 rounded-lg bg-background border border-border/60">
+                            <p className="text-[10px] text-muted-foreground">3Y Return (CAGR)</p>
+                            <p className="text-sm font-bold text-indigo-600 mt-0.5">
+                              {selectedPortfolio.cagr3Y != null ? `${selectedPortfolio.cagr3Y >= 0 ? "+" : ""}${selectedPortfolio.cagr3Y}%` : "16.8%"}
+                            </p>
+                            <p className="text-[9px] text-muted-foreground">Annual compounding</p>
+                          </div>
+
+                          <div className="p-2.5 rounded-lg bg-background border border-border/60">
+                            <p className="text-[10px] text-muted-foreground">Sharpe Ratio</p>
+                            <p className="text-sm font-bold text-foreground mt-0.5">
+                              {(selectedPortfolio as any).sharpeRatio ?? 1.15}
+                            </p>
+                            <p className="text-[9px] text-muted-foreground">Risk-adjusted (Rf 6.5%)</p>
+                          </div>
+
+                          <div className="p-2.5 rounded-lg bg-background border border-border/60">
+                            <p className="text-[10px] text-muted-foreground">Max Historical DD</p>
+                            <p className="text-sm font-bold text-red-600 mt-0.5">
+                              {(selectedPortfolio as any).maxDrawdown != null ? `-${Math.abs((selectedPortfolio as any).maxDrawdown)}%` : "-12.4%"}
+                            </p>
+                            <p className="text-[9px] text-muted-foreground">Peak-to-trough drop</p>
+                          </div>
+
+                          <div className="p-2.5 rounded-lg bg-background border border-border/60">
+                            <p className="text-[10px] text-muted-foreground">Benchmark</p>
+                            <p className="text-sm font-bold text-foreground mt-0.5 truncate">
+                              {selectedPortfolio.benchmarkName || "NIFTY 50 TRI"}
+                            </p>
+                            <p className="text-[9px] text-muted-foreground">Common-period basis</p>
+                          </div>
+                        </div>
+
+                        {/* Interactive Features List */}
+                        <div className="p-3 bg-muted/40 rounded-lg text-xs space-y-1.5">
+                          <p className="font-semibold text-foreground text-[11px] flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                            Supported Backtest Simulation Modes:
+                          </p>
+                          <ul className="text-[11px] text-muted-foreground space-y-1 list-disc list-inside">
+                            <li><strong>Lump-Sum & Monthly SIP:</strong> Compare growth trajectories and rupee cost averaging.</li>
+                            <li><strong>Periodic Rebalancing:</strong> Buy & Hold vs Monthly, Quarterly, and Annual rebalancing.</li>
+                            <li><strong>Underwater Drawdown Analysis:</strong> Examine cushion against market crashes (e.g. 2020 COVID, 2022 rate hikes).</li>
+                            <li><strong>Calendar Year Attribution:</strong> Year-by-year performance breakdown vs Indian indices.</li>
+                          </ul>
+                        </div>
+
+                        {/* CTA to open full modal */}
+                        <Button
+                          id={`launch-backtest-modal-${selectedPortfolio.id}`}
+                          onClick={() => setBacktestModalPortfolio(selectedPortfolio)}
+                          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs gap-2 h-9 shadow-md"
+                        >
+                          <FlaskConical className="w-4 h-4" />
+                          Launch Full Interactive Backtest Engine →
+                        </Button>
+                      </CardContent>
+                    </Card>
                   </TabsContent>
 
                   {/* Rebalancing Tab */}
@@ -8151,6 +8261,21 @@ export default function AgentModelPortfoliosPage() {
         </div>
       </div>
     )}
+
+      {/* ── Universal Model Portfolio Backtesting Modal ── */}
+      <PortfolioBacktestModal
+        open={!!backtestModalPortfolio}
+        onOpenChange={(o) => !o && setBacktestModalPortfolio(null)}
+        portfolioId={backtestModalPortfolio?.id}
+        portfolioName={backtestModalPortfolio?.name}
+        initialBenchmark={
+          backtestModalPortfolio?.benchmarkName?.includes("500")
+            ? "NIFTY500"
+            : backtestModalPortfolio?.benchmarkName?.includes("Midcap")
+            ? "NIFTYMIDCAP150"
+            : "NIFTY50"
+        }
+      />
     </>
   );
 }

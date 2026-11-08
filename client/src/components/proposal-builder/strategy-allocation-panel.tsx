@@ -27,6 +27,16 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
+	ResponsiveContainer,
+	LineChart,
+	Line,
+	CartesianGrid,
+	XAxis,
+	YAxis,
+	Tooltip as RechartsTooltip,
+	Legend,
+} from "recharts";
+import {
 	Lock,
 	Unlock,
 	Brain,
@@ -240,7 +250,7 @@ export default function StrategyAllocationPanel({
 			return res.json();
 		},
 		onSuccess: (data) => {
-			setBacktestResult(data);
+			setBacktestResult(data.data || data);
 			toast({
 				title: "Backtest Complete",
 				description: "Fair comparison generated with common-period alignment.",
@@ -808,6 +818,67 @@ export default function StrategyAllocationPanel({
 											</div>
 										</div>
 									</div>
+
+									{/* Comparison Trajectory Chart */}
+									{(backtestResult as any).comparisonCurve && (backtestResult as any).comparisonCurve.length > 0 && (
+										<div className="p-3 border rounded-lg bg-card/40 space-y-2">
+											<div className="flex items-center justify-between text-xs font-semibold">
+												<span>Growth Trajectory (Common Lookback)</span>
+												<span className="text-[10px] text-muted-foreground font-normal">
+													Simulated Value (Base ₹1L)
+												</span>
+											</div>
+											<div className="h-[200px] w-full">
+												<ResponsiveContainer width="100%" height="100%">
+													<LineChart data={(backtestResult as any).comparisonCurve}>
+														<CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+														<XAxis
+															dataKey="date"
+															tick={{ fontSize: 9 }}
+															interval="preserveStartEnd"
+															tickFormatter={(d: string) => {
+																const parts = d.split("-");
+																return parts.length >= 2 ? `${parts[1]}/${parts[0].substring(2)}` : d;
+															}}
+														/>
+														<YAxis
+															tick={{ fontSize: 9 }}
+															domain={["auto", "auto"]}
+															tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
+														/>
+														<RechartsTooltip
+															formatter={(v: any, name: string) => [
+																`₹${Math.round(Number(v)).toLocaleString("en-IN")}`,
+																name === "proposedValue"
+																	? "Proposed Portfolio"
+																	: name === "currentValue"
+																	? "Current Portfolio"
+																	: "Benchmark",
+															]}
+														/>
+														<Legend wrapperStyle={{ fontSize: "10px" }} />
+														<Line
+															type="monotone"
+															dataKey="proposedValue"
+															name="Proposed Portfolio"
+															stroke="#4f46e5"
+															strokeWidth={2}
+															dot={false}
+														/>
+														<Line
+															type="monotone"
+															dataKey="currentValue"
+															name="Current Portfolio"
+															stroke="#94a3b8"
+															strokeWidth={1.5}
+															strokeDasharray="3 3"
+															dot={false}
+														/>
+													</LineChart>
+												</ResponsiveContainer>
+											</div>
+										</div>
+									)}
 
 									<Alert>
 										<LucideShield className="h-4 w-4" />

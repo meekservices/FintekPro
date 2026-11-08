@@ -774,7 +774,7 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
         SELECT id, name, asset_class, risk_profile, cagr_1y, cagr_3y, cagr_5y,
                benchmark_cagr_1y, benchmark_name, sharpe_ratio,
                max_drawdown, volatility, holdings, last_rebalanced, allocation,
-               max_drawdown_threshold
+               max_drawdown_threshold, inception_date
         FROM model_portfolios
         WHERE is_published = true
         ORDER BY id

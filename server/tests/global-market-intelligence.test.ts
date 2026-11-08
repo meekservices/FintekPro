@@ -11,6 +11,8 @@
 
 import { describe, it, expect } from "vitest";
 import { globalMarketIntelligenceEngine, GMIE_VERSION } from "../services/macro/global-market-intelligence-engine";
+import { msciFactorService, MSCI_SERVICE_VERSION } from "../services/macro/msci-factor-service";
+import { globalFiiTrackerEngine, FII_TRACKER_VERSION } from "../services/macro/global-fii-tracker-engine";
 
 describe("GlobalMarketIntelligenceEngine (GMIE v1.0)", () => {
   it("should have valid engine version identification", () => {
@@ -130,5 +132,154 @@ describe("GlobalMarketIntelligenceEngine (GMIE v1.0)", () => {
     expect(feeds.faspAdvisoryFeed.engine_version).toBe(GMIE_VERSION);
     expect(feeds.faspAdvisoryFeed.formulaApplied).toBeDefined();
     expect(feeds.faspAdvisoryFeed.intermediateSteps).toBeDefined();
+
+    // MSCI & ADR Embedded Verification
+    expect(report.msciAnalysis).toBeDefined();
+    expect(report.msciAnalysis?.engine_version).toBe(MSCI_SERVICE_VERSION);
+    expect(Array.isArray(report.indianAdrs)).toBe(true);
+    expect(report.indianAdrs!.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it("should evaluate MSCI factor indices, rebalancing estimates, and country market profiles", async () => {
+    const report = await msciFactorService.getGlobalCountryReport();
+
+    expect(report).toBeDefined();
+    expect(report.engine_version).toBe(MSCI_SERVICE_VERSION);
+    expect(report.indiaMsciProfile.weightInMsciEmPct).toBeGreaterThan(15);
+    expect(report.indiaMsciProfile.valuationPremiumOverEmPct).toBeGreaterThan(50);
+    expect(report.indiaMsciProfile.valuationPremiumOverChinaPct).toBeGreaterThan(80);
+
+    // Rebalancing inflows
+    expect(report.msciRebalancing.estimatedPassiveInflowUsdMn).toBeGreaterThan(0);
+    expect(report.msciRebalancing.estimatedPassiveInflowInrCr).toBeGreaterThan(0);
+    expect(report.msciRebalancing.keyCandidateStocks.length).toBeGreaterThan(0);
+
+    // Factors
+    const factors = report.factorAttribution.factors;
+    expect(factors.length).toBeGreaterThanOrEqual(8);
+    const momentum = factors.find((f) => f.indexCode === "MSCI_INDIA_MOMENTUM");
+    const value = factors.find((f) => f.indexCode === "MSCI_INDIA_VALUE");
+    expect(momentum).toBeDefined();
+    expect(value).toBeDefined();
+    expect(momentum!.return1Y).toBeGreaterThan(value!.return1Y);
+
+    // Country Markets
+    const countries = report.countryMarkets;
+    expect(countries.length).toBeGreaterThanOrEqual(8);
+    const us = countries.find((c) => c.countryCode === "US");
+    const china = countries.find((c) => c.countryCode === "CN");
+    const japan = countries.find((c) => c.countryCode === "JP");
+    expect(us).toBeDefined();
+    expect(china).toBeDefined();
+    expect(japan).toBeDefined();
+    expect(us!.sovereignYield10Y).toBeGreaterThan(4.0);
+    expect(typeof us!.yieldSpreadVsIndiaBps).toBe("number");
+  });
+
+  it("should evaluate Indian ADRs with accurate arbitrage spreads and overnight sector signals", () => {
+    const adrs = msciFactorService.getIndianAdrPerformances();
+
+    expect(Array.isArray(adrs)).toBe(true);
+    expect(adrs.length).toBeGreaterThanOrEqual(5);
+
+    const hdb = adrs.find((a) => a.symbol === "HDB");
+    const infy = adrs.find((a) => a.symbol === "INFY");
+    const ibn = adrs.find((a) => a.symbol === "IBN");
+
+    expect(hdb).toBeDefined();
+    expect(infy).toBeDefined();
+    expect(ibn).toBeDefined();
+
+    expect(hdb!.underlyingNseSymbol).toBe("HDFCBANK");
+    expect(hdb!.impliedInrPrice).toBeGreaterThan(1500);
+    expect(typeof hdb!.premiumDiscountPct).toBe("number");
+
+    expect(infy!.underlyingNseSymbol).toBe("INFY");
+    expect(infy!.impliedInrPrice).toBeGreaterThan(1800);
+    expect(typeof infy!.premiumDiscountPct).toBe("number");
+
+    // Composite Sentiment
+    const composite = msciFactorService.computeAdrComposite(adrs);
+    expect(composite).toBeDefined();
+    expect(typeof composite.averagePremiumPct).toBe("number");
+    expect(typeof composite.bankingAdrLeadPct).toBe("number");
+    expect(typeof composite.itAdrLeadPct).toBe("number");
+    expect(["STRONG_FOREIGN_DEMAND", "NEUTRAL_FLOW", "FOREIGN_SELLING"]).toContain(composite.compositeSentiment);
+  });
+
+  it("should evaluate the 6 institutional allocation pillars and generate global FII scorecards", async () => {
+    const report = await globalFiiTrackerEngine.getGlobalFiiReport();
+
+    expect(report).toBeDefined();
+    expect(report.engine_version).toBe(FII_TRACKER_VERSION);
+    expect(report.calculation_timestamp).toBeDefined();
+
+    // Stance overview
+    expect(report.globalFiiStanceOverview.topFavoredDestinations.length).toBeGreaterThan(0);
+    expect(report.globalFiiStanceOverview.leastFavoredDestinations.length).toBeGreaterThan(0);
+
+    // India deep dive
+    expect(report.indiaDeepDive.compositeScore).toBeGreaterThan(80.0);
+    expect(report.indiaDeepDive.allocationStance).toBe("STRONG_OVERWEIGHT");
+    expect(report.indiaDeepDive.rankInEmergingMarkets).toBe(1);
+    expect(report.indiaDeepDive.fpiIndexFuturesLsRatio).toBeGreaterThan(0);
+
+    // Multi-country scorecards
+    const cards = report.scorecards;
+    expect(cards.length).toBeGreaterThanOrEqual(8);
+
+    for (const sc of cards) {
+      expect(sc.countryCode).toBeDefined();
+      expect(sc.compositeFiiScore).toBeGreaterThanOrEqual(0);
+      expect(sc.compositeFiiScore).toBeLessThanOrEqual(100);
+
+      // Verify the 6 institutional pillars are present and within valid range
+      expect(sc.macroGrowthScore).toBeGreaterThanOrEqual(0);
+      expect(sc.macroGrowthScore).toBeLessThanOrEqual(100);
+      expect(sc.fxRiskScore).toBeGreaterThanOrEqual(0);
+      expect(sc.fxRiskScore).toBeLessThanOrEqual(100);
+      expect(sc.valuationAttractivenessScore).toBeGreaterThanOrEqual(0);
+      expect(sc.valuationAttractivenessScore).toBeLessThanOrEqual(100);
+      expect(sc.liquidityPolicyScore).toBeGreaterThanOrEqual(0);
+      expect(sc.liquidityPolicyScore).toBeLessThanOrEqual(100);
+      expect(sc.marketAccessibilityScore).toBeGreaterThanOrEqual(0);
+      expect(sc.marketAccessibilityScore).toBeLessThanOrEqual(100);
+      expect(sc.geopoliticalStabilityScore).toBeGreaterThanOrEqual(0);
+      expect(sc.geopoliticalStabilityScore).toBeLessThanOrEqual(100);
+
+      // Mathematical consistency of composite score
+      const expectedComposite = Number(
+        (
+          sc.macroGrowthScore * 0.2 +
+          sc.fxRiskScore * 0.2 +
+          sc.valuationAttractivenessScore * 0.2 +
+          sc.liquidityPolicyScore * 0.15 +
+          sc.marketAccessibilityScore * 0.15 +
+          sc.geopoliticalStabilityScore * 0.1
+        ).toFixed(1)
+      );
+      expect(Math.abs(sc.compositeFiiScore - expectedComposite)).toBeLessThanOrEqual(0.1);
+
+      expect([
+        "STRONG_OVERWEIGHT",
+        "MODERATE_OVERWEIGHT",
+        "NEUTRAL",
+        "UNDERWEIGHT",
+        "TACTICAL_AVOID",
+      ]).toContain(sc.fiiAllocationStance);
+    }
+
+    // Cross-border realized flows
+    expect(report.recentFlows.length).toBeGreaterThanOrEqual(8);
+    const inFlow = report.recentFlows.find((f) => f.countryCode === "IN");
+    const usFlow = report.recentFlows.find((f) => f.countryCode === "US");
+    expect(inFlow).toBeDefined();
+    expect(usFlow).toBeDefined();
+    expect(typeof inFlow!.trailing30dCumulativeUsdMn).toBe("number");
+    expect(typeof usFlow!.foreignOwnershipPctOfMcap).toBe("number");
+
+    // Tactical pair trades
+    expect(report.crossCountryPairTrades.length).toBeGreaterThanOrEqual(2);
+    expect(report.explainability.factorsConsidered.length).toBe(6);
   });
 });

@@ -99,9 +99,11 @@ import {
 	TrendingDown,
 	Scale,
 	Briefcase,
+	FlaskConical,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Link } from "wouter";
+import { PortfolioBacktestModal } from "@/components/wealth/PortfolioBacktestModal";
 
 // Product types for portfolio entry
 const PRODUCT_TYPES = [
@@ -296,6 +298,7 @@ export default function AgentProspectProposalsPage() {
 	const [holdingsText, setHoldingsText] = useState("");
 	const [portfolioHoldings, setPortfolioHoldings] = useState<any[]>([]);
 	const [useAdvancedEditor, setUseAdvancedEditor] = useState(false);
+	const [backtestProposal, setBacktestProposal] = useState<any | null>(null);
 
 	// Quick Entry with product search
 	const [quickHoldings, setQuickHoldings] = useState<PortfolioHolding[]>([]);
@@ -1335,6 +1338,22 @@ export default function AgentProspectProposalsPage() {
 															</Button>
 														</TooltipTrigger>
 														<TooltipContent>Edit</TooltipContent>
+													</Tooltip>
+												</TooltipProvider>
+												<TooltipProvider>
+													<Tooltip>
+														<TooltipTrigger asChild>
+															<Button
+																variant="ghost"
+																size="sm"
+																className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950"
+																onClick={() => setBacktestProposal(proposal)}
+																data-testid={`btn-backtest-${proposal.id}`}
+															>
+																<FlaskConical className="w-4 h-4" />
+															</Button>
+														</TooltipTrigger>
+														<TooltipContent>Backtest Simulation</TooltipContent>
 													</Tooltip>
 												</TooltipProvider>
 												<TooltipProvider>
@@ -3272,6 +3291,15 @@ export default function AgentProspectProposalsPage() {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			{/* Universal Proposal Backtest Modal */}
+			<PortfolioBacktestModal
+				open={!!backtestProposal}
+				onOpenChange={(o) => !o && setBacktestProposal(null)}
+				proposalId={backtestProposal?.id}
+				portfolioName={backtestProposal?.proposalTitle || "Proposal Portfolio"}
+				initialBenchmark="NIFTY50"
+			/>
 		</div>
 	);
 }
