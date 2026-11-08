@@ -1,11 +1,10 @@
 import {
 	format,
 	addDays,
-	isWeekend,
-	isSameDay,
 	parseISO,
 	getDay,
 } from "date-fns";
+import { logger } from "../logger";
 
 // Supported exchanges across regions
 type IndianExchange = "NSE" | "BSE" | "MCX" | "NCDEX";
@@ -672,10 +671,8 @@ class MarketHolidayService {
 			this.bankHolidays.get(year)!.push(holiday);
 		}
 
-		console.log(
-			"🏦 Bank Holiday Service initialized with",
-			allBankHolidays.length,
-			"holidays",
+		logger.info(
+			`🏦 Bank Holiday Service initialized with ${allBankHolidays.length} holidays`,
 		);
 	}
 
@@ -1245,10 +1242,8 @@ class MarketHolidayService {
 			this.internationalHolidays.get(year)!.push(holiday);
 		}
 
-		console.log(
-			"🌍 International Holiday Service initialized with",
-			allInternationalHolidays.length,
-			"holidays",
+		logger.info(
+			`🌍 International Holiday Service initialized with ${allInternationalHolidays.length} holidays`,
 		);
 	}
 
@@ -1280,6 +1275,31 @@ class MarketHolidayService {
 				(h) => h.date === dateStr && h.exchanges.includes(exchange),
 			) || null
 		);
+	}
+
+	getSpecialSession(
+		date: Date | string,
+		exchange: "NSE" | "BSE" | "MCX" | "NCDEX" = "NSE",
+	): MarketHoliday["specialSession"] | null {
+		const holiday = this.getHoliday(date, exchange);
+		if (holiday && holiday.type === "partial" && holiday.specialSession) {
+			return holiday.specialSession;
+		}
+		return null;
+	}
+
+	hasSpecialSession(
+		date: Date | string,
+		exchange: "NSE" | "BSE" | "MCX" | "NCDEX" = "NSE",
+	): boolean {
+		return !!this.getSpecialSession(date, exchange);
+	}
+
+	isMarketSessionDay(
+		date: Date | string,
+		exchange: "NSE" | "BSE" | "MCX" | "NCDEX" = "NSE",
+	): boolean {
+		return this.isTradingDay(date, exchange) || this.hasSpecialSession(date, exchange);
 	}
 
 	isWeekendDay(date: Date | string): boolean {
@@ -1368,6 +1388,32 @@ class MarketHolidayService {
 		];
 		const nextTradingDayName = dayNames[getDay(nextTradingDay)];
 
+		// 1. Partial holidays with special sessions take precedence over weekend closure
+		// (e.g. Diwali Muhurat Trading often falls on Sunday or Saturday)
+		if (holiday && holiday.type === "partial" && holiday.specialSession) {
+			const sessionStart = this.parseTime(holiday.specialSession.startTime);
+			const sessionEnd = this.parseTime(holiday.specialSession.endTime);
+			const isInSession =
+				currentTime >= sessionStart && currentTime <= sessionEnd;
+
+			return {
+				isOpen: isInSession,
+				isHoliday: true,
+				isWeekend: isWeekendToday,
+				holidayName: holiday.name,
+				reason: isInSession
+					? `${holiday.specialSession.name} in Progress`
+					: `${holiday.specialSession.name} - ${holiday.specialSession.startTime} to ${holiday.specialSession.endTime}`,
+				nextTradingDay: nextTradingDayStr,
+				nextTradingDayName,
+				specialSession: holiday.specialSession,
+				tradingHours: {
+					open: holiday.specialSession.startTime,
+					close: holiday.specialSession.endTime,
+				},
+			};
+		}
+
 		if (isWeekendToday) {
 			return {
 				isOpen: false,
@@ -1389,27 +1435,6 @@ class MarketHolidayService {
 				reason: `Holiday - ${holiday.name}`,
 				nextTradingDay: nextTradingDayStr,
 				nextTradingDayName,
-				tradingHours,
-			};
-		}
-
-		if (holiday && holiday.type === "partial" && holiday.specialSession) {
-			const sessionStart = this.parseTime(holiday.specialSession.startTime);
-			const sessionEnd = this.parseTime(holiday.specialSession.endTime);
-			const isInSession =
-				currentTime >= sessionStart && currentTime <= sessionEnd;
-
-			return {
-				isOpen: isInSession,
-				isHoliday: true,
-				isWeekend: false,
-				holidayName: holiday.name,
-				reason: isInSession
-					? `${holiday.specialSession.name} in Progress`
-					: `${holiday.specialSession.name} - ${holiday.specialSession.startTime} to ${holiday.specialSession.endTime}`,
-				nextTradingDay: nextTradingDayStr,
-				nextTradingDayName,
-				specialSession: holiday.specialSession,
 				tradingHours,
 			};
 		}

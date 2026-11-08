@@ -65,6 +65,15 @@ export interface ExchangeStatus {
 	name: string;
 	status: "open" | "closed";
 	reason: string;
+	isHoliday?: boolean;
+	holidayName?: string;
+	isWeekend?: boolean;
+	nextTradingDay?: string;
+	specialSession?: {
+		name: string;
+		startTime: string;
+		endTime: string;
+	};
 	nextOpen?: string;
 	nextClose?: string;
 	tradingHours: string;

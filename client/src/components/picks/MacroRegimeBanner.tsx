@@ -47,6 +47,11 @@ export interface MacroRegimeData {
 	usdInr?: number;
 	isTradingDay?: boolean;
 	marketStatus?: "OPEN" | "CLOSED";
+	specialSession?: {
+		name: string;
+		startTime: string;
+		endTime: string;
+	};
 	aiPosture?: string;
 	postureSummary?: string;
 }
@@ -154,6 +159,15 @@ export const MacroRegimeBanner: React.FC<MacroRegimeBannerProps> = ({
 								{macroData?.marketStatus || "OPEN"}
 							</span>
 						</Badge>
+						{macroData?.specialSession && (
+							<Badge
+								variant="outline"
+								className="text-[11px] font-semibold px-2 py-0.5 border-amber-500 text-amber-700 dark:text-amber-300 bg-amber-500/15 flex items-center gap-1 animate-pulse"
+							>
+								<Sparkles className="h-3 w-3 text-amber-500" />
+								{macroData.specialSession.name} ({macroData.specialSession.startTime}–{macroData.specialSession.endTime} IST)
+							</Badge>
+						)}
 						{isCasWindow && (
 							<Badge
 								variant="outline"

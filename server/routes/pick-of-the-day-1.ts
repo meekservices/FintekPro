@@ -158,6 +158,10 @@ router.get("/today", async (req, res) => {
 			.toISOString()
 			.split("T")[0];
 		const isMarketTradingDay = marketHolidayService.isTradingDay(todayIST, "NSE");
+		const specialSession = marketHolidayService.getSpecialSession(todayIST, "NSE");
+		const hasSpecialSession = !!specialSession;
+		const isMarketSessionDay = isMarketTradingDay || hasSpecialSession;
+		const nseStatus = marketHolidayService.getMarketStatus("NSE");
 
 		// Fetch latest Macro Regime Snapshot for HUD
 		let macroRegime: Record<string, any> = {
@@ -215,9 +219,10 @@ router.get("/today", async (req, res) => {
 		res.json({
 			success: true,
 			date: todayIST,
-			isTradingDay: isMarketTradingDay,
-			marketStatus: isMarketTradingDay ? "OPEN" : "CLOSED",
-			isWeekendOrHoliday: !isMarketTradingDay,
+			isTradingDay: isMarketSessionDay,
+			marketStatus: nseStatus.isOpen ? "OPEN" : "CLOSED",
+			isWeekendOrHoliday: !isMarketSessionDay,
+			specialSession: specialSession || undefined,
 			macroRegime,
 			// Role-adaptive depth: admin/agent see full scoring; retail sees headline rationale
 			picks: formatPicksForRole(picks as any, (req as any).user?.role),
@@ -229,11 +234,15 @@ router.get("/today", async (req, res) => {
 			fallbackDate,
 			message:
 				picks.length === 0
-					? "No picks generated yet. Picks will be auto-generated daily at 9:00 AM IST."
+					? hasSpecialSession
+						? `Special trading session scheduled today (${specialSession!.name}, ${specialSession!.startTime}–${specialSession!.endTime} IST).`
+						: "No picks generated yet. Picks will be auto-generated daily at 9:00 AM IST."
 					: isFallback
-						? !isMarketTradingDay
-							? `Markets are closed today (${new Date().toLocaleDateString("en-IN", { weekday: "long" })}). Showing latest active market picks from ${fallbackDate}.`
-							: `Showing most recent picks from ${fallbackDate}. Today's picks will be generated shortly.`
+						? hasSpecialSession
+							? `Special trading session today (${specialSession!.name}, ${specialSession!.startTime}–${specialSession!.endTime} IST). Showing latest picks from ${fallbackDate}.`
+							: !isMarketSessionDay
+								? `Markets are closed today (${new Date().toLocaleDateString("en-IN", { weekday: "long" })}). Showing latest active market picks from ${fallbackDate}.`
+								: `Showing most recent picks from ${fallbackDate}. Today's picks will be generated shortly.`
 						: undefined,
 			meta: {
 				timestamp: new Date().toISOString(),
@@ -259,6 +268,10 @@ router.get("/macro-regime", async (req, res) => {
 			.toISOString()
 			.split("T")[0];
 		const isMarketTradingDay = marketHolidayService.isTradingDay(todayIST, "NSE");
+		const specialSession = marketHolidayService.getSpecialSession(todayIST, "NSE");
+		const hasSpecialSession = !!specialSession;
+		const isMarketSessionDay = isMarketTradingDay || hasSpecialSession;
+		const nseStatus = marketHolidayService.getMarketStatus("NSE");
 
 		let macroRegime: Record<string, any> = {
 			snapshotDate: todayIST,
@@ -271,8 +284,9 @@ router.get("/macro-regime", async (req, res) => {
 			tenMinusTwoBps: 18,
 			gsec10YYield: 6.82,
 			usdInr: 84.15,
-			isTradingDay: isMarketTradingDay,
-			marketStatus: isMarketTradingDay ? "OPEN" : "CLOSED",
+			isTradingDay: isMarketSessionDay,
+			marketStatus: nseStatus.isOpen ? "OPEN" : "CLOSED",
+			specialSession: specialSession || undefined,
 			aiPosture: "Alpha Momentum + Disciplined Risk",
 			postureSummary: "Constructive macro environment. Engine favors high-conviction momentum leaders, selective F&O hedging, and growth compounders.",
 		};
@@ -297,8 +311,9 @@ router.get("/macro-regime", async (req, res) => {
 					tenMinusTwoBps: latestMacro.tenMinusTwoBps ?? 18,
 					gsec10YYield: latestMacro.gsec10YYield ? Number(latestMacro.gsec10YYield) : 6.82,
 					usdInr: latestMacro.usdInr ? Number(latestMacro.usdInr) : 84.15,
-					isTradingDay: isMarketTradingDay,
-					marketStatus: isMarketTradingDay ? "OPEN" : "CLOSED",
+					isTradingDay: isMarketSessionDay,
+					marketStatus: nseStatus.isOpen ? "OPEN" : "CLOSED",
+					specialSession: specialSession || undefined,
 					aiPosture: lbl === "risk_on"
 						? "Alpha Momentum + High Beta"
 						: lbl === "risk_off"
@@ -439,11 +454,14 @@ router.post("/generate", requireAdmin, async (req, res) => {
 		const todayIST = new Date(Date.now() + IST_OFFSET_MS)
 			.toISOString()
 			.split("T")[0];
-		if (!marketHolidayService.isTradingDay(todayIST, "NSE")) {
+		const isMarketSessionDay =
+			marketHolidayService.isTradingDay(todayIST, "NSE") ||
+			marketHolidayService.hasSpecialSession(todayIST, "NSE");
+		if (!isMarketSessionDay) {
 			return res.status(400).json({
 				success: false,
 				error_code: "MARKET_CLOSED_HOLIDAY",
-				message: `Cannot generate picks: ${todayIST} is a market holiday or weekend (NSE closed). Daily market picks and intraday calls are disabled on non-trading days.`,
+				message: `Cannot generate picks: ${todayIST} is a market holiday or weekend without any scheduled trading session (NSE closed). Daily market picks and intraday calls are disabled on non-trading days.`,
 			});
 		}
 		const picks = await pickOfTheDayService.generateDailyPicks();
@@ -467,10 +485,13 @@ router.post("/catchup", requireAuth, async (req, res) => {
 		const today = new Date(Date.now() + IST_OFFSET_MS)
 			.toISOString()
 			.split("T")[0];
-		if (!marketHolidayService.isTradingDay(today, "NSE")) {
+		const isMarketSessionDay =
+			marketHolidayService.isTradingDay(today, "NSE") ||
+			marketHolidayService.hasSpecialSession(today, "NSE");
+		if (!isMarketSessionDay) {
 			return res.json({
 				success: true,
-				message: `Skipping catch-up — ${today} is an NSE market holiday or weekend. Markets are closed.`,
+				message: `Skipping catch-up — ${today} is an NSE market holiday or weekend without any scheduled trading session. Markets are closed.`,
 				existingCategories: [],
 				generated: 0,
 			});

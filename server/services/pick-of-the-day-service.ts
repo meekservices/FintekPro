@@ -2181,6 +2181,18 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 		}
 	}
 
+	private hasNSESpecialSession(istDateStr: string): boolean {
+		try {
+			return marketHolidayService.hasSpecialSession(istDateStr, "NSE");
+		} catch {
+			return false;
+		}
+	}
+
+	private isNSESessionDay(istDateStr: string): boolean {
+		return this.isNSETradingDay(istDateStr) || this.hasNSESpecialSession(istDateStr);
+	}
+
 	async startDailyScheduler(): Promise<void> {
 		await this.catchUpIfNeeded();
 
@@ -2248,6 +2260,33 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 			}, delayMs);
 		};
 		scheduleNextGeneration();
+
+		// ── Special Session Scheduler (e.g. Muhurat Trading on Diwali) ──
+		const scheduleSpecialSessionGeneration = () => {
+			const todayStr = todayIST();
+			const specialSession = marketHolidayService.getSpecialSession(todayStr, "NSE");
+			if (specialSession) {
+				const [startH, startM] = specialSession.startTime.split(":").map(Number);
+				// Schedule 30 mins before special session start (e.g. 17:45 IST for 18:15 IST session)
+				let genHour = startH;
+				let genMin = startM - 30;
+				if (genMin < 0) {
+					genHour -= 1;
+					genMin += 60;
+				}
+				const delayMs = msUntilIst(genHour, genMin);
+				logger.info(
+					`📅 [PickOfTheDay] Special session (${specialSession.name}) detected on ${todayStr}! Scheduling pick generation in ${Math.round(delayMs / 60000)} min (${genHour.toString().padStart(2, "0")}:${genMin.toString().padStart(2, "0")} IST).`,
+				);
+				setTimeout(() => {
+					logger.info(`✨ [PickOfTheDay] Special session pick generation firing for ${specialSession.name}...`);
+					this.generateDailyPicks().catch((err) =>
+						logger.error("[PickOfTheDay] Special session generation error:", err instanceof Error ? err : new Error(String(err))),
+					);
+				}, delayMs);
+			}
+		};
+		scheduleSpecialSessionGeneration();
 
 		// ── 4:00 PM IST ── Refresh live prices after market close (market days only)
 		const scheduleEODRefresh = () => {
@@ -2378,15 +2417,15 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 		const today = todayIST(); // IST date — consistent with how picks are stored
 
 		// ── Market day guard ──────────────────────────────────────────────────────
-		// Do NOT generate picks on weekends or NSE holidays. If the market is closed,
-		// picks from the last trading day remain valid and no new picks should be added.
-		if (!this.isNSETradingDay(today)) {
+		// Do NOT generate picks on non-session weekends or full NSE holidays.
+		// If today is a normal trading day OR has a special session (e.g. Muhurat Trading), allow generation!
+		if (!this.isNSESessionDay(today)) {
 			const dayOfWeek = new Date().toLocaleDateString("en-US", {
 				weekday: "long",
 				timeZone: "Asia/Kolkata",
 			});
 			logger.info(
-				`📅 [PickOfTheDay] Skipping catch-up — ${today} is not a trading day (${dayOfWeek}).`,
+				`📅 [PickOfTheDay] Skipping catch-up — ${today} is not a trading or special session day (${dayOfWeek}).`,
 			);
 			return;
 		}

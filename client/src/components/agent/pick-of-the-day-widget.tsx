@@ -97,6 +97,13 @@ export default function PickOfTheDayWidget() {
 	const { data, isLoading } = useQuery<{
 		success: boolean;
 		picks: DailyPick[];
+		specialSession?: {
+			name: string;
+			startTime: string;
+			endTime: string;
+		};
+		marketStatus?: "OPEN" | "CLOSED";
+		isFallback?: boolean;
 	}>({
 		queryKey: ["/api/picks/today"],
 	});
@@ -139,6 +146,27 @@ export default function PickOfTheDayWidget() {
 				</div>
 			</CardHeader>
 			<CardContent className="space-y-3">
+				{data?.specialSession && (
+					<div
+						className="flex items-center justify-between p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs"
+						data-testid="banner-widget-special-session"
+					>
+						<div className="flex items-center gap-2">
+							<Sparkles className="h-4 w-4 text-amber-500 animate-pulse shrink-0" />
+							<div>
+								<span className="font-semibold text-amber-700 dark:text-amber-300">
+									{data.specialSession.name}
+								</span>
+								<span className="text-muted-foreground ml-1">
+									({data.specialSession.startTime}–{data.specialSession.endTime} IST)
+								</span>
+							</div>
+						</div>
+						<Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-700 dark:text-amber-300 py-0">
+							{data.marketStatus === "OPEN" ? "LIVE NOW" : "SCHEDULED"}
+						</Badge>
+					</div>
+				)}
 				{picks.length === 0 ? (
 					<div className="text-center py-6 text-muted-foreground">
 						<Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />

@@ -215,6 +215,11 @@ type PicksApiResponse = {
 	marketStatus?: "OPEN" | "CLOSED";
 	isWeekendOrHoliday?: boolean;
 	macroRegime?: MacroRegimeData;
+	specialSession?: {
+		name: string;
+		startTime: string;
+		endTime: string;
+	};
 };
 
 type StatsApiResponse = {
@@ -3293,9 +3298,69 @@ export default function AgentPicksPage() {
 				)}
 			</div>
 
+			{/* Special Festive / Exchange Session Ribbon */}
+			{todayData?.specialSession && (
+				<div
+					className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border border-amber-500/30 rounded-xl shadow-xs"
+					data-testid="banner-special-trading-session"
+				>
+					<div className="flex items-center gap-3">
+						<div className="p-2 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
+							<Sparkles className="h-5 w-5 animate-pulse" />
+						</div>
+						<div>
+							<div className="flex items-center gap-2 flex-wrap">
+								<h3 className="text-sm font-bold text-amber-800 dark:text-amber-300">
+									{todayData.specialSession.name} ({todayData.specialSession.startTime} – {todayData.specialSession.endTime} IST)
+								</h3>
+								<Badge
+									variant="outline"
+									className={`text-[10px] font-semibold py-0 ${
+										todayData.marketStatus === "OPEN"
+											? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 animate-pulse"
+											: "border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/10"
+									}`}
+								>
+									{todayData.marketStatus === "OPEN" ? "● SESSION LIVE" : "SCHEDULED TODAY"}
+								</Badge>
+							</div>
+							<p className="text-xs text-muted-foreground mt-0.5">
+								{todayData.marketStatus === "OPEN"
+									? `Special festive session in progress across NSE, BSE, MCX, and NCDEX. Real-time data and order placements are active.`
+									: `Special exchange trading session scheduled for this evening. Pre-market analysis and model recommendations apply.`}
+							</p>
+						</div>
+					</div>
+					{isFallback && (
+						<Button
+							size="sm"
+							onClick={() => catchupMutation.mutate()}
+							disabled={catchupMutation.isPending}
+							className="bg-amber-600 hover:bg-amber-700 text-white shrink-0 text-xs font-semibold gap-1.5 shadow-xs"
+						>
+							<RefreshCw className={`h-3.5 w-3.5 ${catchupMutation.isPending ? "animate-spin" : ""}`} />
+							{catchupMutation.isPending ? "Generating..." : `Generate ${todayData.specialSession.name} Picks`}
+						</Button>
+					)}
+				</div>
+			)}
+
 			{/* Macro Climate & Regime HUD Ribbon */}
 			<MacroRegimeBanner
-				macroData={todayData?.macroRegime}
+				macroData={
+					todayData?.macroRegime
+						? {
+								...todayData.macroRegime,
+								specialSession: todayData.specialSession,
+							}
+						: todayData?.specialSession
+							? {
+									specialSession: todayData.specialSession,
+									marketStatus: todayData.marketStatus,
+									isTradingDay: todayData.isTradingDay,
+								}
+							: null
+				}
 				todayCounts={todayCounts}
 				totalPicksCount={todayPicks.length}
 			/>
@@ -4037,42 +4102,54 @@ export default function AgentPicksPage() {
 											<Table2 className="h-3.5 w-3.5" />
 										</button>
 									</div>
-									{(isFallback || todayPicks.length < 8) && (
-										<Button
-											id="refresh-missing-picks-btn"
-											variant={isFallback ? "default" : "outline"}
-											size="sm"
-											onClick={() => {
-												if (todayData?.isWeekendOrHoliday || todayData?.isTradingDay === false) {
-													toast({
-														title: "Markets Closed Today",
-														description: "NSE/BSE markets are closed on weekends and holidays. Daily picks are generated on trading days before 9:00 AM IST.",
-													});
-													return;
-												}
-												catchupMutation.mutate();
-											}}
-											disabled={catchupMutation.isPending}
-											className={`shrink-0 gap-2 ${
-												isFallback
-													? todayData?.isWeekendOrHoliday || todayData?.isTradingDay === false
-														? "bg-slate-700 hover:bg-slate-800 text-white"
-														: "bg-indigo-600 hover:bg-indigo-700 text-white"
-													: "text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40"
-											}`}
-										>
-											<RefreshCw
-												className={`h-3.5 w-3.5 ${catchupMutation.isPending ? "animate-spin" : ""}`}
-											/>
-											{catchupMutation.isPending
-												? "Generating..."
-												: isFallback
-													? todayData?.isWeekendOrHoliday || todayData?.isTradingDay === false
-														? "Market Closed"
-														: `Generate Today's Picks`
-													: "Fill Missing Picks"}
-										</Button>
-									)}
+									{(isFallback || todayPicks.length < 8) && (() => {
+										const isMarketClosedWithoutSession =
+											(todayData?.isWeekendOrHoliday || todayData?.isTradingDay === false) &&
+											!todayData?.specialSession;
+
+										return (
+											<Button
+												id="refresh-missing-picks-btn"
+												variant={isFallback ? "default" : "outline"}
+												size="sm"
+												onClick={() => {
+													if (isMarketClosedWithoutSession) {
+														toast({
+															title: "Markets Closed Today",
+															description: "NSE/BSE markets are closed on weekends and holidays without any active special session. Daily picks are generated on trading days before 9:00 AM IST.",
+														});
+														return;
+													}
+													catchupMutation.mutate();
+												}}
+												disabled={catchupMutation.isPending}
+												className={`shrink-0 gap-2 ${
+													isFallback
+														? isMarketClosedWithoutSession
+															? "bg-slate-700 hover:bg-slate-800 text-white"
+															: todayData?.specialSession
+																? "bg-amber-600 hover:bg-amber-700 text-white font-semibold shadow-xs"
+																: "bg-indigo-600 hover:bg-indigo-700 text-white"
+														: "text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40"
+												}`}
+											>
+												<RefreshCw
+													className={`h-3.5 w-3.5 ${catchupMutation.isPending ? "animate-spin" : ""}`}
+												/>
+												{catchupMutation.isPending
+													? "Generating..."
+													: isFallback
+														? isMarketClosedWithoutSession
+															? "Market Closed"
+															: todayData?.specialSession
+																? `Generate ${todayData.specialSession.name} Picks`
+																: `Generate Today's Picks`
+														: todayData?.specialSession
+															? `Fill ${todayData.specialSession.name} Picks`
+															: "Fill Missing Picks"}
+											</Button>
+										);
+									})()}
 									{todayPicks.length > 0 && (
 										<Button
 											variant="outline"
@@ -8605,6 +8682,7 @@ function PicksTable({
 		return 0;
 	});
 
+	// biome-ignore lint/correctness/noComponentHookFactories: local table helper
 	const SortIcon = ({ col }: { col: string }) => {
 		if (sortCol !== col)
 			return <ArrowUpDown className="h-3 w-3 opacity-40 ml-1 inline" />;
@@ -8615,6 +8693,7 @@ function PicksTable({
 		);
 	};
 
+	// biome-ignore lint/correctness/noComponentHookFactories: local table helper
 	const Th = ({
 		col,
 		label,
@@ -9310,6 +9389,7 @@ function AIPortfolioStrategyTable({
 		return 0;
 	});
 
+	// biome-ignore lint/correctness/noComponentHookFactories: local table helper
 	const SortIcon = ({ col }: { col: string }) => {
 		if (sortCol !== col)
 			return <ArrowUpDown className="h-3 w-3 opacity-30 ml-1 inline" />;
@@ -9320,6 +9400,7 @@ function AIPortfolioStrategyTable({
 		);
 	};
 
+	// biome-ignore lint/correctness/noComponentHookFactories: local table helper
 	const Th = ({
 		col,
 		label,

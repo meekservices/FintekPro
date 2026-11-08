@@ -1,6 +1,6 @@
 import { useMarketStatus, type ExchangeStatus } from "@/hooks/use-market-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, Circle } from "lucide-react";
+import { Clock, Circle, Sparkles } from "lucide-react";
 
 interface MarketStatusCardProps {
 	exchange: ExchangeStatus;
@@ -119,6 +119,14 @@ export function MarketStatus() {
 		return null;
 	}
 
+	const specialSession =
+		marketStatus.exchanges.nse?.specialSession ||
+		marketStatus.exchanges.bse?.specialSession ||
+		marketStatus.exchanges.mcx?.specialSession;
+	const isSpecialSessionLive =
+		(marketStatus.exchanges.nse?.status === "open" && !!marketStatus.exchanges.nse?.specialSession) ||
+		(marketStatus.exchanges.bse?.status === "open" && !!marketStatus.exchanges.bse?.specialSession);
+
 	return (
 		<Card data-testid="market-status">
 			<CardHeader>
@@ -139,6 +147,35 @@ export function MarketStatus() {
 				</div>
 			</CardHeader>
 			<CardContent>
+				{specialSession && (
+					<div
+						className="mb-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-center justify-between"
+						data-testid="banner-special-session"
+					>
+						<div className="flex items-center gap-2.5">
+							<Sparkles className="h-4 w-4 text-amber-500 animate-pulse shrink-0" />
+							<div>
+								<p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+									{specialSession.name} ({specialSession.startTime} – {specialSession.endTime} IST)
+								</p>
+								<p className="text-xs text-muted-foreground">
+									{isSpecialSessionLive
+										? "Special festive session is currently LIVE"
+										: "Special trading session scheduled for today"}
+								</p>
+							</div>
+						</div>
+						<span
+							className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+								isSpecialSessionLive
+									? "bg-green-600 text-white animate-pulse"
+									: "bg-amber-500/20 text-amber-700 dark:text-amber-300"
+							}`}
+						>
+							{isSpecialSessionLive ? "LIVE NOW" : "SCHEDULED"}
+						</span>
+					</div>
+				)}
 				<div className="space-y-3" data-testid="exchanges-status">
 					<MarketStatusCard
 						exchange={marketStatus.exchanges.nse}
