@@ -53,7 +53,7 @@ export interface ModelPortfolioAlgoConfig {
   autoExecute?: boolean;          // true = full algo rebalance, false = requires 1-click confirmation
   executionChannel?: "ALGO_AUTO" | "ADVISOR_APPROVED" | "DRIFT_REBALANCE";
   allowedAssetClasses?: string[];
-  executionMode?: "SIMULATION" | "UPSTOX_SANDBOX" | "UPSTOX_LIVE";
+  executionMode?: "SIMULATION" | "PAPER_TRADING" | "UPSTOX_SANDBOX" | "UPSTOX_LIVE";
   slippageTolerancePct?: number;  // Dynamic slippage tolerance buffer (0.1% to 1.0%, default 0.3% / 30 bps)
   orderType?: "limit" | "market"; // Default: "limit" with adaptive tick-level slippage
   autoSyncOrders?: boolean;       // Auto reconcile open orders during batch sweeps
@@ -126,7 +126,7 @@ export class ModelPortfolioAlgoService {
       autoExecute: config.autoExecute ?? true,
       executionChannel: config.executionChannel ?? "ALGO_AUTO",
       allowedAssetClasses: config.allowedAssetClasses ?? ["equity", "debt", "hybrid", "gold"],
-      executionMode: config.executionMode ?? "SIMULATION",
+      executionMode: config.executionMode ?? "PAPER_TRADING",
       slippageTolerancePct: config.slippageTolerancePct ?? 0.3,
       orderType: config.orderType ?? "limit",
       autoSyncOrders: config.autoSyncOrders ?? true,
@@ -431,8 +431,16 @@ export class ModelPortfolioAlgoService {
       }
     }
 
+    // ── Execution Mode Determination: Real Broker vs Risk-Free Paper Trading ──
+    const isPaperTrading =
+      algoConfig.executionMode === "PAPER_TRADING" ||
+      algoConfig.executionMode === "SIMULATION" ||
+      !algoConfig.executionMode ||
+      (!options.executeWithBroker && algoConfig.executionMode !== "UPSTOX_LIVE" && algoConfig.executionMode !== "UPSTOX_SANDBOX");
+
     // ── Pre-trade RMS: Verify Upstox Available Margin (when broker execution active) ──
     const shouldRouteToBroker =
+      !isPaperTrading &&
       Boolean(options.executeWithBroker || algoConfig.executionMode === "UPSTOX_LIVE" || algoConfig.executionMode === "UPSTOX_SANDBOX") &&
       upstoxAdapter.isConfigured();
 
@@ -521,9 +529,9 @@ export class ModelPortfolioAlgoService {
       const transNum = this.generateTransactionNumber();
       const idempotencyKey = `algo_${portfolioId}_${transNum}`;
 
-      // ── Broker Execution via UpstoxAdapter (when enabled) ───────────────────
-      let brokerOrderId: string | null = null;
-      let executionStatus: "executed" | "submitted" | "simulated" = "executed";
+      // ── Broker Execution vs Paper Trading ───────────────────
+      let brokerOrderId: string | null = isPaperTrading ? `PAPER-${transNum}` : null;
+      let executionStatus: "executed" | "submitted" | "simulated" = isPaperTrading ? "simulated" : "executed";
 
       const canRouteInstrument = shouldRouteToBroker && Boolean(holdingSymbol);
 
@@ -607,9 +615,9 @@ export class ModelPortfolioAlgoService {
           executedWeightPct: matchingHolding ? ((executedAmount / totalPortfolioValue) * 100).toFixed(2) : null,
           driftBeforePct: matchingHolding?.drift ? parseFloat(matchingHolding.drift).toFixed(2) : null,
           executionStatus,
-          executionChannel: channel,
+          executionChannel: isPaperTrading ? "PAPER_TRADING" : channel,
           brokerOrderId: brokerOrderId ?? null,
-          rationale: action.reason || `Algo drift rebalance: ${legAction} ${instrumentName} to maintain target allocation`,
+          rationale: action.reason || `${isPaperTrading ? "[PAPER TRADING] " : ""}Algo drift rebalance: ${legAction} ${instrumentName} to maintain target allocation`,
           confidenceScore: 90,
           factorsConsidered: {
             driftScore: driftReport.driftScore,
@@ -623,10 +631,12 @@ export class ModelPortfolioAlgoService {
             orderType: orderTypeChoice,
             slippageTolerancePct: slippagePct,
             computedLimitPrice: orderTypeChoice === "limit" ? computedLimitPrice : undefined,
+            isPaperTrading,
+            executionMode: algoConfig.executionMode ?? (isPaperTrading ? "PAPER_TRADING" : "UPSTOX_LIVE"),
           },
           idempotencyKey,
           engineVersion: ALGO_ENGINE_VERSION,
-          source: "algo",
+          source: isPaperTrading ? "paper_algo" : "algo",
           executedAt: new Date(),
           updatedAt: new Date(),
         })
@@ -653,13 +663,15 @@ export class ModelPortfolioAlgoService {
             executionPrice: nav.toFixed(6),
             executedQuantity: units ? units.toFixed(4) : null,
             executedAt: new Date(),
-            notes: `Algorithmic model portfolio trade for ${portfolio.name} (${transNum})`,
+            notes: `${isPaperTrading ? "[PAPER TRADING] " : ""}Algorithmic model portfolio trade for ${portfolio.name} (${transNum})`,
             metadata: {
               modelPortfolioId: portfolioId,
               transactionNumber: transNum,
               algoExecution: true,
+              isPaperTrading,
+              executionMode: algoConfig.executionMode ?? (isPaperTrading ? "PAPER_TRADING" : "UPSTOX_LIVE"),
               engineVersion: ALGO_ENGINE_VERSION,
-              upstoxRouted: Boolean(brokerOrderId),
+              upstoxRouted: Boolean(brokerOrderId && !isPaperTrading),
               brokerOrderId: brokerOrderId ?? undefined,
             },
           })
@@ -674,10 +686,18 @@ export class ModelPortfolioAlgoService {
         // ── C. Record order lifecycle event ───────────────────────────────────
         await db.insert(orderLifecycleEvents).values({
           orderId: uniOrder.id,
-          eventType: brokerOrderId ? "UPSTOX_ALGO_ORDER_SUBMITTED" : "ALGO_ORDER_EXECUTED",
-          eventName: brokerOrderId ? "Upstox Model Portfolio Trade Dispatched" : "Algorithmic Model Portfolio Trade Executed",
-          eventDescription: `Algo executed ${legAction} of ₹${executedAmount.toLocaleString("en-IN")} on ${instrumentName} at ₹${nav.toFixed(2)}`,
-          newState: { status: executionStatus, amount: executedAmount, nav, brokerOrderId },
+          eventType: isPaperTrading
+            ? "ALGO_PAPER_TRADE_EXECUTED"
+            : brokerOrderId
+            ? "UPSTOX_ALGO_ORDER_SUBMITTED"
+            : "ALGO_ORDER_EXECUTED",
+          eventName: isPaperTrading
+            ? "Paper Trading Order Simulated (Risk-Free)"
+            : brokerOrderId
+            ? "Upstox Model Portfolio Trade Dispatched"
+            : "Algorithmic Model Portfolio Trade Executed",
+          eventDescription: `${isPaperTrading ? "[PAPER TRADING] " : ""}Algo executed ${legAction} of ₹${executedAmount.toLocaleString("en-IN")} on ${instrumentName} at ₹${nav.toFixed(2)}`,
+          newState: { status: executionStatus, amount: executedAmount, nav, brokerOrderId, isPaperTrading },
           actorId: actorId ?? null,
           actorType,
           isSystemGenerated: true,
@@ -685,6 +705,7 @@ export class ModelPortfolioAlgoService {
             portfolioId,
             transactionNumber: transNum,
             algoEngine: ALGO_ENGINE_VERSION,
+            isPaperTrading,
             brokerOrderId: brokerOrderId ?? undefined,
           },
         });
@@ -810,7 +831,9 @@ export class ModelPortfolioAlgoService {
       portfolioId,
       portfolioCode: portfolio.portfolioCode ?? undefined,
       status: "EXECUTED",
-      message: `Successfully executed ${recordedTransactions.length} algorithmic trade legs totaling ₹${totalAmountTraded.toLocaleString("en-IN")}.`,
+      message: isPaperTrading
+        ? `[PAPER TRADING] Successfully simulated ${recordedTransactions.length} paper trade legs totaling ₹${totalAmountTraded.toLocaleString("en-IN")}. Live market quotes used with zero real capital at risk.`
+        : `Successfully executed ${recordedTransactions.length} algorithmic trade legs totaling ₹${totalAmountTraded.toLocaleString("en-IN")}.`,
       transactions: recordedTransactions,
       totalAmountTraded,
       driftScoreBefore: driftReport.driftScore,

@@ -5296,6 +5296,72 @@ export default function AgentModelPortfoliosPage() {
     }
   };
 
+  // ── Algorithmic Paper Trading & Batch Sweep Handlers ───────────────────────
+  const [triggeringPaperAlgo, setTriggeringPaperAlgo] = useState(false);
+  const [runningBatchSweep, setRunningBatchSweep] = useState(false);
+
+  const handleTriggerPaperRebalance = async (portfolioId: string) => {
+    setTriggeringPaperAlgo(true);
+    try {
+      // 1. Ensure algo trading is enabled in PAPER_TRADING mode
+      await fetch(`/api/model-portfolios/${portfolioId}/algo-trading/enable`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ executionMode: "PAPER_TRADING", autoExecute: true }),
+      });
+
+      // 2. Execute simulated paper rebalance
+      const res = await fetch(`/api/model-portfolios/${portfolioId}/algo-trading/execute`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          forceExecution: true,
+          totalPortfolioValue: 1_000_000,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        toast({
+          title: "🧪 Paper Trading Simulated Successfully",
+          description: data.data?.message || "Virtual paper orders executed against live prices with zero real capital risked.",
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/model-portfolios"] });
+      } else {
+        toast({
+          title: "Paper Trading Failed",
+          description: data.message || "Could not complete simulated rebalance",
+          variant: "destructive",
+        });
+      }
+    } catch (e: any) {
+      toast({ title: "Paper Trading Error", description: e.message, variant: "destructive" });
+    } finally {
+      setTriggeringPaperAlgo(false);
+    }
+  };
+
+  const handleRunBatchSweep = async () => {
+    setRunningBatchSweep(true);
+    try {
+      const res = await fetch("/api/model-portfolios/algo-trading/sweep", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        toast({
+          title: "⚡ Batch Sweep Complete",
+          description: `Swept ${data.data?.swept ?? 0} portfolios: ${data.data?.executed ?? 0} executed, ${data.data?.reconciledPending ?? 0} orders reconciled.`,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/model-portfolios"] });
+      } else {
+        toast({ title: "Sweep Failed", description: data.message, variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Sweep Error", description: e.message, variant: "destructive" });
+    } finally {
+      setRunningBatchSweep(false);
+    }
+  };
+
   // ── Detail panel tab + on-demand holdings enrichment ─────────────────────────
   const [activeDetailTab, setActiveDetailTab] = useState("overview");
 
@@ -7217,6 +7283,60 @@ export default function AgentModelPortfoliosPage() {
                                 </div>
                               </div>
                             )}
+
+                            {/* ── Algorithmic Paper Trading & Upstox Controls ────────── */}
+                            <div className="rounded-xl border border-purple-200 dark:border-purple-800/60 bg-gradient-to-r from-purple-50/60 via-indigo-50/40 to-background dark:from-purple-950/20 dark:via-indigo-950/10 dark:to-background p-3.5 space-y-2.5 mt-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <FlaskConical className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                  <span className="text-xs font-bold text-purple-900 dark:text-purple-200">
+                                    🧪 Algorithmic Paper Trading (Risk-Free)
+                                  </span>
+                                </div>
+                                <span className="text-[9px] px-2 py-0.5 rounded-full font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                                  Virtual Simulation · ₹0 Real Capital
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                Test quantitative drift rebalancing, whole-share integer sizing, and simulated fills against live NSE/BSE tick data without touching broker rails or client funds.
+                              </p>
+                              <div className="flex items-center gap-2 pt-1">
+                                <Button
+                                  id={`trigger-paper-algo-${selectedPortfolio.id}`}
+                                  size="sm"
+                                  disabled={triggeringPaperAlgo}
+                                  onClick={() => handleTriggerPaperRebalance(selectedPortfolio.id)}
+                                  className="flex-1 text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                >
+                                  {triggeringPaperAlgo ? (
+                                    <>
+                                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                      Simulating Paper Trade...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Zap className="h-3.5 w-3.5" />
+                                      Trigger Paper Rebalance Now
+                                    </>
+                                  )}
+                                </Button>
+                                <Button
+                                  id="trigger-batch-sweep"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={runningBatchSweep}
+                                  onClick={handleRunBatchSweep}
+                                  className="text-xs font-semibold border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 flex items-center gap-1.5 disabled:opacity-50"
+                                >
+                                  {runningBatchSweep ? (
+                                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Activity className="h-3.5 w-3.5" />
+                                  )}
+                                  Sweep All Portfolios
+                                </Button>
+                              </div>
+                            </div>
                            {canViewFullHoldings && (
                              <div className="pt-2">
                                <Button

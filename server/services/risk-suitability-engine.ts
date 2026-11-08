@@ -130,6 +130,17 @@ class RiskSuitabilityEngine {
 			riskLevel: "very_high",
 			segments: ["bhni"],
 		},
+		algo_trading: {
+			minScore: 50,
+			maxScore: 100,
+			riskLevel: "high",
+		},
+		algo_trading_derivatives: {
+			minScore: 75,
+			maxScore: 100,
+			riskLevel: "very_high",
+			segments: ["hni", "shni", "bhni"],
+		},
 	};
 
 	private readonly questionWeights: Record<string, number> = {
@@ -233,19 +244,35 @@ class RiskSuitabilityEngine {
 		return "very_aggressive";
 	}
 
+	/**
+	 * SEBI (Investment Advisers) Regulations 2013, Regulation 17(c) Mandate:
+	 * Risk profiles must be reviewed at least once every 12 months.
+	 * High/Very-High risk categories (derivatives/algo) require 6-month review.
+	 */
 	private getReviewMonthsByRisk(category: string): number {
 		switch (category) {
 			case "conservative":
-				return 120;
 			case "moderate":
-				return 96;
 			case "aggressive":
-				return 48;
+				return 12; // 12 months (1 year mandatory annual review)
 			case "very_aggressive":
-				return 24;
+				return 6;  // 6 months (semi-annual review for high-frequency / derivative desks)
 			default:
-				return 96;
+				return 12;
 		}
+	}
+
+	/**
+	 * Checks if a client's risk profile has expired under SEBI 365-day statutory limit.
+	 */
+	public isRiskProfileExpired(assessmentDate?: Date | string | null): boolean {
+		if (!assessmentDate) return true;
+		const assessed = new Date(assessmentDate);
+		if (isNaN(assessed.getTime())) return true;
+		const now = new Date();
+		const diffMs = now.getTime() - assessed.getTime();
+		const diffDays = diffMs / (1000 * 60 * 60 * 24);
+		return diffDays > 365;
 	}
 
 	async saveRiskProfile(
@@ -417,6 +444,23 @@ class RiskSuitabilityEngine {
 				recommendations: ["Please select a valid product type"],
 				suitabilityScore: 0,
 			};
+		}
+
+		// SEBI IA Regulation 17(c) Suitability Mandate: Risk Profile 365-Day Expiry Check
+		const isExpired = this.isRiskProfileExpired(riskProfile?.assessmentDate);
+		const isHighRiskProduct =
+			productType === "algo_trading" ||
+			productType === "algo_trading_derivatives" ||
+			productType === "derivatives" ||
+			productConfig?.riskLevel === "very_high";
+
+		if (isExpired && isHighRiskProduct) {
+			warnings.push(
+				"SEBI_RISK_PROFILE_EXPIRED: Your risk assessment is older than 365 days. Annual renewal is legally mandated under SEBI IA Regulations before executing high-risk algorithmic strategies.",
+			);
+			recommendations.push(
+				"Please complete your mandatory annual risk profiling refresh to resume algorithmic execution.",
+			);
 		}
 
 		const riskProfileMatch =

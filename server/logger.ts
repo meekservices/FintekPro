@@ -141,8 +141,9 @@ export function logCopilotEvent(
 const PII_PATTERNS: [RegExp, string][] = [
 	// PAN: 5 letters + 4 digits + 1 letter (e.g. ABCDE1234F)
 	[/\b[A-Z]{5}[0-9]{4}[A-Z]\b/g, "[PAN-REDACTED]"],
-	// Aadhaar: exactly 12 consecutive digits (not part of a longer number)
+	// Aadhaar: exactly 12 consecutive digits or 4-4-4 formatted with space/hyphen
 	[/(?<!\d)\d{12}(?!\d)/g, "[AADHAAR-REDACTED]"],
+	[/\b\d{4}[ -]\d{4}[ -]\d{4}\b/g, "[AADHAAR-REDACTED]"],
 	// Indian mobile: optional +91/91/0 prefix, then 10-digit starting 6-9
 	[/(?:\+91|91|0)?[6-9]\d{9}\b/g, "[PHONE-REDACTED]"],
 	// Email address

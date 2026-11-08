@@ -23,6 +23,7 @@ import { db } from "../db";
 import { sql } from "drizzle-orm";
 import * as schema from "../../shared/schema";
 import { eq, and } from "drizzle-orm";
+import { logger } from "../logger";
 
 export const mobileAuthRouter = Router();
 
@@ -37,7 +38,7 @@ interface MobileJwtPayload {
 	userId: string;
 	email: string;
 	roles: string[];
-	portalType: "agent" | "investor";
+	portalType: "agent" | "partner" | "investor";
 	iat?: number;
 	exp?: number;
 }
@@ -116,7 +117,7 @@ mobileAuthRouter.post("/token", async (req: Request, res: Response) => {
 	const { email, password, portalType } = req.body as {
 		email: string;
 		password: string;
-		portalType: "agent" | "investor";
+		portalType: "agent" | "partner" | "investor";
 	};
 
 	if (!email || !password || !portalType) {
@@ -175,18 +176,26 @@ mobileAuthRouter.post("/token", async (req: Request, res: Response) => {
 			: JSON.parse(user.roles || "[]");
 
 		// Validate portal type access
-		const isAgent = roles.some((r) =>
-			["agent", "master_agent", "sub_agent", "admin", "super_admin"].includes(
-				r,
-			),
+		const isPartnerOrAgent = roles.some((r) =>
+			[
+				"agent",
+				"master_agent",
+				"sub_agent",
+				"partner",
+				"admin",
+				"super_admin",
+			].includes(r),
 		);
 
-		if (portalType === "agent" && !isAgent) {
+		if (
+			(portalType === "agent" || portalType === "partner") &&
+			!isPartnerOrAgent
+		) {
 			return res.status(403).json({
 				success: false,
 				error: {
 					error_code: "PORTAL_ACCESS_DENIED",
-					message: "You do not have agent portal access",
+					message: "You do not have partner portal access",
 					retryable: false,
 				},
 			});
@@ -203,7 +212,7 @@ mobileAuthRouter.post("/token", async (req: Request, res: Response) => {
 			portalType,
 		});
 
-		console.log(
+		logger.info(
 			JSON.stringify({
 				event: "MOBILE_LOGIN",
 				user_id: user.id,
@@ -229,7 +238,7 @@ mobileAuthRouter.post("/token", async (req: Request, res: Response) => {
 			meta: { timestamp: new Date().toISOString(), version: "1.0" },
 		});
 	} catch (err) {
-		console.error("[MobileAuth] Login error:", err);
+		logger.error("[MobileAuth] Login error:", err);
 		return res.status(500).json({
 			success: false,
 			error: {

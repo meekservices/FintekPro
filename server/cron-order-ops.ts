@@ -8,10 +8,11 @@
 
 import cron from "node-cron";
 import { isProductionEnvironment } from "./utils/enrichment-guard";
+import { logger } from "./logger";
 
 export function initializeOrderOpsCrons(): void {
 	if (!isProductionEnvironment()) {
-		console.log(
+		logger.info(
 			"⏭️ [ExpiryWarning/StaleOrders/ProcessingTimeout/KYCReminders] Skipped (development mode - production only)",
 		);
 		return;
@@ -20,7 +21,7 @@ export function initializeOrderOpsCrons(): void {
 	// ── Stale unified order cleanup — every 6 hours ────────────────────────────
 	// Auto-cancel orders stuck in 'initiated' or 'payment_pending' for > 24 hours
 	cron.schedule("0 */6 * * *", async () => {
-		console.log("[CRON] Starting stale order cleanup...");
+		logger.info("[CRON] Starting stale order cleanup...");
 		try {
 			const { db } = await import("./db");
 			const { unifiedOrders, users } = await import("@shared/schema");
@@ -47,7 +48,7 @@ export function initializeOrderOpsCrons(): void {
 				.limit(100);
 
 			if (staleOrders.length === 0) {
-				console.log("[CRON] No stale orders found");
+				logger.info("[CRON] No stale orders found");
 				return;
 			}
 
@@ -67,7 +68,7 @@ export function initializeOrderOpsCrons(): void {
 						} as any)
 						.where(eq(unifiedOrders.id, order.id));
 
-					console.log(
+					logger.info(
 						`[CRON] Order ${order.orderNumber} expired (created: ${order.createdAt})`,
 					);
 					cancelled++;
@@ -92,31 +93,31 @@ export function initializeOrderOpsCrons(): void {
 							});
 						}
 					} catch (notifyErr) {
-						console.error(
+						logger.error(
 							`[CRON] Failed to send expiry notification for order ${order.orderNumber}:`,
 							notifyErr,
 						);
 					}
 				} catch (orderError: any) {
-					console.error(
+					logger.error(
 						`[CRON] Failed to expire order ${order.orderNumber}:`,
 						orderError.message,
 					);
 					failed++;
 				}
 			}
-			console.log(
+			logger.info(
 				`[CRON] Stale order cleanup: ${cancelled} expired, ${failed} failed`,
 			);
 		} catch (error: any) {
-			console.error("[CRON] Stale order cleanup failed:", error.message);
+			logger.error("[CRON] Stale order cleanup failed:", error.message);
 		}
 	});
 
 	// ── Processing order timeout — every hour at :15 ────────────────────────────
 	// Auto-fail orders stuck in 'processing' for > 4 hours (execution failure)
 	cron.schedule("15 * * * *", async () => {
-		console.log("[CRON] Checking for stuck processing orders...");
+		logger.info("[CRON] Checking for stuck processing orders...");
 		try {
 			const { db } = await import("./db");
 			const { unifiedOrders } = await import("@shared/schema");
@@ -140,7 +141,7 @@ export function initializeOrderOpsCrons(): void {
 				.limit(50);
 
 			if (stuckOrders.length === 0) {
-				console.log("[CRON] No stuck processing orders found");
+				logger.info("[CRON] No stuck processing orders found");
 				return;
 			}
 
@@ -157,55 +158,71 @@ export function initializeOrderOpsCrons(): void {
 							updatedAt: new Date(),
 						} as any)
 						.where(eq(unifiedOrders.id, order.id));
-					console.warn(
+					logger.warn(
 						`[CRON] Order ${order.orderNumber} marked execution_failed (stuck since: ${order.updatedAt})`,
 					);
 					flagged++;
 				} catch (orderError: any) {
-					console.error(
+					logger.error(
 						`[CRON] Failed to flag stuck order ${order.orderNumber}:`,
 						orderError.message,
 					);
 				}
 			}
-			console.log(
+			logger.info(
 				`[CRON] Stuck order check: ${flagged} orders flagged for review`,
 			);
 		} catch (error: any) {
-			console.error("[CRON] Stuck order check failed:", error.message);
+			logger.error("[CRON] Stuck order check failed:", error.message);
 		}
 	});
 
 	// ── KYC upgrade reminders — every 4 hours at :30 ───────────────────────────
 	cron.schedule("30 */4 * * *", async () => {
-		console.log("[CRON] Processing KYC upgrade reminders...");
+		logger.info("[CRON] Processing KYC upgrade reminders...");
 		try {
 			const { kycUpgradeNotificationService } = await import(
 				"./services/kyc-upgrade-notification-service"
 			);
 			const stats =
 				await kycUpgradeNotificationService.processScheduledReminders();
-			console.log(
+			logger.info(
 				`[CRON] KYC reminders: processed ${stats.processed}, sent ${stats.sent}`,
 			);
 		} catch (error: any) {
-			console.error("[CRON] KYC reminder job failed:", error.message);
+			logger.error("[CRON] KYC reminder job failed:", error.message);
 		}
 	});
 
 	// ── Alpaca Order Reconciliation — every 4 hours at :00 ─────────────────────
 	cron.schedule("0 */4 * * *", async () => {
-		console.log("[CRON] Starting Alpaca order reconciliation...");
+		logger.info("[CRON] Starting Alpaca order reconciliation...");
 		try {
 			const { alpacaReconciliationService } = await import(
 				"./services/alpaca/trading/reconciliationService"
 			);
 			const stats = await alpacaReconciliationService.reconcileAllUsers();
-			console.log(
+			logger.info(
 				`[CRON] Alpaca reconciliation complete. Synced: ${stats.totalSynced} orders.`,
 			);
 		} catch (error: any) {
-			console.error("[CRON] Alpaca reconciliation job failed:", error.message);
+			logger.error("[CRON] Alpaca reconciliation job failed:", error.message);
+		}
+	});
+
+	// ── Upstox Demat & NSE/BSE EOD Order Reconciliation — 15:45 IST on weekdays ──
+	cron.schedule("45 15 * * 1-5", async () => {
+		logger.info("[CRON] Starting Upstox EOD trade & demat position reconciliation...");
+		try {
+			const { upstoxReconciliationService } = await import(
+				"./services/upstox-reconciliation-service"
+			);
+			const report = await upstoxReconciliationService.runEODReconciliation();
+			logger.info(
+				`[CRON] Upstox EOD reconciliation complete. Status: ${report.status}, Checked: ${report.totalOrdersChecked}, Discrepancies: ${report.mismatchedOrders}`,
+			);
+		} catch (error: any) {
+			logger.error("[CRON] Upstox EOD reconciliation failed:", error.message);
 		}
 	});
 }

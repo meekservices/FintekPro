@@ -823,10 +823,11 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 		const { registerMultiVendorLasRoutes } = await import("./routes/multi-vendor-las-routes");
 		registerMultiVendorLasRoutes(app);
 
-		// Algo Trading Signal Engine — FASP-AI v1.0 DSS
+		// Algo Trading Signal Engine — FASP-AI v1.0 DSS (Universal Indian & Global Regulated Markets)
 		logBootProgress("Step 9b: Registering Algo Trading Signal Routes...");
 		const algoTradingRoutes = await import("./routes/algo-trading-routes");
 		app.use("/api/us-trading/algo", algoTradingRoutes.default);
+		app.use("/api/algo", algoTradingRoutes.default);
 
 		// Quant Alpha Engine & Tail-Risk Stress Testing Gateway (GCR v1.0 + FASP-AI v1.0)
 		logBootProgress("Step 9c: Registering FintekPro Quant Alpha & Derivative Routes...");

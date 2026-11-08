@@ -526,10 +526,14 @@ function GeneratePanel({ onGenerated }: { onGenerated: () => void }) {
 			</CardHeader>
 			<CardContent className="space-y-4 relative z-10">
 				<div>
-					<label className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1.5 block">
+					<label
+						htmlFor="symbols-input"
+						className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1.5 block"
+					>
 						Symbols (comma-separated, max 20)
 					</label>
 					<input
+						id="symbols-input"
 						value={symbols}
 						onChange={(e) => setSymbols(e.target.value.toUpperCase())}
 						className="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-sm font-mono text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-yellow-400/40 transition-all"
@@ -787,6 +791,16 @@ interface BacktestSummary {
 	avgHoldDays: number;
 	profitFactor: number;
 	totalBars: number;
+	frictionBreakdown?: {
+		stt: number;
+		exchangeCharges: number;
+		gst: number;
+		stampDuty: number;
+		brokerage: number;
+		slippage: number;
+		total: number;
+	};
+	totalFrictionDeducted?: number;
 }
 interface AlgoBacktestResult {
 	symbol: string;
@@ -794,11 +808,15 @@ interface AlgoBacktestResult {
 	startDate: string;
 	endDate: string;
 	initialCapital: number;
+	currency?: "INR" | "USD";
 	summary: BacktestSummary;
 	equityCurve: EquityCurvePoint[];
 	trades: BacktestTrade[];
+	inputsHash?: string;
+	runId?: string;
 	modelVersion: string;
 	disclaimer: string;
+	regulatoryDisclaimers?: string[];
 	generatedAt: string;
 }
 
@@ -1272,13 +1290,28 @@ function BacktestPanel() {
 									{result.modelVersion}
 								</Badge>
 							</div>
-							<div className="flex gap-2 mt-1">
+							<div className="flex flex-wrap gap-2 mt-1">
 								<Badge className="text-[9px] bg-slate-800 text-white border-0">
-									${result.initialCapital.toLocaleString()} initial
+									{result.currency === "INR" ? "₹" : "$"}{result.initialCapital.toLocaleString()} initial
 								</Badge>
 								<Badge className="text-[9px] bg-slate-800 text-white border-0">
 									{result.summary.totalBars} trading days
 								</Badge>
+								{result.summary.frictionBreakdown && (
+									<Badge className="text-[9px] bg-emerald-950 text-emerald-300 border border-emerald-800">
+										✓ Frictions Included (STT/GST/Exch/Slippage: -{result.currency === "INR" ? "₹" : "$"}{(result.summary.totalFrictionDeducted ?? 0).toLocaleString()})
+									</Badge>
+								)}
+								{result.inputsHash && (
+									<Badge variant="outline" className="text-[9px] font-mono text-muted-foreground">
+										SHA-256: {result.inputsHash.slice(0, 10)}
+									</Badge>
+								)}
+								{result.runId && (
+									<Badge variant="outline" className="text-[9px] font-mono text-muted-foreground">
+										Run ID: {result.runId.slice(0, 8)}
+									</Badge>
+								)}
 							</div>
 						</CardHeader>
 						<CardContent className="space-y-5">
@@ -1448,20 +1481,31 @@ function BacktestPanel() {
 								</>
 							)}
 
-							{/* Disclaimer */}
-							<div className="flex items-start gap-2 p-4 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
-								<AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
-								<p className="text-[9px] text-muted-foreground leading-relaxed">
-									<span className="font-black text-amber-500">
-										Backtesting Disclaimer:{" "}
-									</span>
-									Results are hypothetical and do NOT represent actual past or
-									future returns. Simulated performance has inherent limitations
-									— it assumes perfect execution at close prices, no market
-									impact, and no slippage. Past strategy performance does not
-									guarantee future results. Not financial advice. Capital is at
-									risk. Consult a SEBI-registered Investment Advisor.
-								</p>
+							{/* SEBI & Regulatory Disclaimers */}
+							<div className="flex items-start gap-2.5 p-4 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
+								<AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+								<div className="space-y-1 text-[9px] text-muted-foreground leading-relaxed">
+									<p className="font-black text-amber-500 uppercase tracking-wider">
+										SEBI Regulatory & Statutory Disclosures (Algo Trading & Backtesting)
+									</p>
+									{result.regulatoryDisclaimers && result.regulatoryDisclaimers.length > 0 ? (
+										result.regulatoryDisclaimers.map((d: string, idx: number) => (
+											<p key={idx}>{d}</p>
+										))
+									) : (
+										<>
+											<p>
+												• Results are simulated and hypothetical; they do not represent actual market trading and cannot predict future returns.
+											</p>
+											<p>
+												• Simulated figures include realistic regulatory friction models (STT, GST, Exchange charges, Stamp duty, Brokerage, and Slippage).
+											</p>
+											<p>
+												• FintekPro Decision Support System (FASP-AI v1.0) provides analytical intelligence only. No guaranteed returns. Consult a SEBI-registered advisor before investing.
+											</p>
+										</>
+									)}
+								</div>
 							</div>
 						</CardContent>
 					</Card>
