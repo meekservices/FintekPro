@@ -840,6 +840,12 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 		app.use("/api/admin/quant", quantAdminRoutes.default);
 		app.use("/api/derivatives", derivativesRoutes.default);
 
+		// Admin Data Sufficiency & Quality Assurance Routes (FASP-AI v1.0 & SEBI IA Compliance)
+		const { adminDataSufficiencyRouter } = await import(
+			"./routes/admin-data-sufficiency-routes"
+		);
+		app.use("/api/admin/data-sufficiency", adminDataSufficiencyRouter);
+
 		// ── FINALIZATION ─────────────────────────────────────────────────────────
 
 		// Boot audit event

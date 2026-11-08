@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
 	Card,
 	CardContent,
@@ -8,6 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import {
 	Users,
 	Activity,
@@ -129,6 +132,67 @@ export default function AdminDashboard() {
 			queryKey: ["/api/admin/pending-orders/count"],
 		});
 
+	// Data Sufficiency & Filing Quality Assurance Telemetry (FASP-AI v1.0 & SEBI IA)
+	const { data: sufficiencyResponse, refetch: refetchSufficiency } = useQuery<{
+		success: boolean;
+		data: {
+			totalStocks: number;
+			healthyCount: number;
+			staleWarningCount: number;
+			criticalInsufficientCount: number;
+			overallSufficiencyPercent: number;
+			coveragePct: {
+				financials: number;
+				ratios: number;
+				derivedMetrics: number;
+				technicals: number;
+				consensus: number;
+			};
+			activeAlerts: Array<{
+				id: string;
+				severity: "CRITICAL" | "WARNING" | "INFO";
+				title: string;
+				message: string;
+				affectedCount: number;
+				actionRecommendation: string;
+			}>;
+			lastAuditedAt: string;
+			engineVersion: string;
+		};
+	}>({
+		queryKey: ["/api/admin/data-sufficiency/status"],
+	});
+	const sufficiencyStats = sufficiencyResponse?.data;
+	const [enrichmentTriggering, setEnrichmentTriggering] = useState(false);
+	const { toast } = useToast();
+
+	const handleTriggerEnrichment = async () => {
+		try {
+			setEnrichmentTriggering(true);
+			const res = await apiRequest(
+				"POST",
+				"/api/admin/data-sufficiency/trigger-enrichment",
+			);
+			const json = await res.json();
+			if (json.success) {
+				toast({
+					title: "Enrichment Initiated",
+					description:
+						"Background financial metrics & ratio enrichment batch started.",
+				});
+				setTimeout(() => refetchSufficiency(), 3000);
+			}
+		} catch (err: any) {
+			toast({
+				title: "Enrichment Trigger Failed",
+				description: err?.message || "Failed to trigger background enrichment.",
+				variant: "destructive",
+			});
+		} finally {
+			setEnrichmentTriggering(false);
+		}
+	};
+
 	const userGrowthData = dashboardData?.userGrowthData || [
 		{ name: "Mon", users: 0 },
 		{ name: "Tue", users: 0 },
@@ -200,6 +264,103 @@ export default function AdminDashboard() {
 					Refresh
 				</Button>
 			</div>
+
+			{/* Data Insufficiency & Regulatory Warning Banner (FASP-AI v1.0 & SEBI IA) */}
+			{sufficiencyStats &&
+				(sufficiencyStats.criticalInsufficientCount > 0 ||
+					sufficiencyStats.staleWarningCount > 0) && (
+					<div
+						className={`p-4 rounded-xl border ${
+							sufficiencyStats.criticalInsufficientCount > 0
+								? "bg-red-500/10 border-red-500/30 text-red-200"
+								: "bg-amber-500/10 border-amber-500/30 text-amber-200"
+						} flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all shadow-sm`}
+					>
+						<div className="flex items-start gap-3">
+							<div
+								className={`p-2 rounded-lg mt-0.5 ${
+									sufficiencyStats.criticalInsufficientCount > 0
+										? "bg-red-500/20 text-red-400"
+										: "bg-amber-500/20 text-amber-400"
+								}`}
+							>
+								<AlertTriangle className="h-5 w-5" />
+							</div>
+							<div>
+								<div className="flex items-center gap-2">
+									<h3 className="text-sm font-bold text-foreground">
+										{sufficiencyStats.criticalInsufficientCount > 0
+											? "CRITICAL: Market Data Insufficiency Alert"
+											: "Advisory Notice: Data Staleness & Coverage Gaps"}
+									</h3>
+									<Badge
+										variant={
+											sufficiencyStats.criticalInsufficientCount > 0
+												? "destructive"
+												: "outline"
+										}
+										className="text-[10px] font-mono"
+									>
+										{sufficiencyStats.overallSufficiencyPercent}% Sufficiency
+									</Badge>
+								</div>
+								<p className="text-xs text-muted-foreground mt-1 max-w-2xl leading-relaxed">
+									{sufficiencyStats.criticalInsufficientCount > 0 ? (
+										<span>
+											<strong className="text-red-400 font-semibold">
+												{sufficiencyStats.criticalInsufficientCount} securities
+											</strong>{" "}
+											lack active prices or audited filings (AI recommendations & proposals auto-paused).
+										</span>
+									) : null}
+									{sufficiencyStats.staleWarningCount > 0 ? (
+										<span>
+											{" "}
+											<strong className="text-amber-400 font-semibold">
+												{sufficiencyStats.staleWarningCount} securities
+											</strong>{" "}
+											have valuation ratio deficits or uncalculated Piotroski scores.
+										</span>
+									) : null}
+								</p>
+								<div className="flex flex-wrap items-center gap-2 mt-2 text-[10px] text-muted-foreground">
+									<span>Filings: {sufficiencyStats.coveragePct.financials}%</span>
+									<span>•</span>
+									<span>Ratios: {sufficiencyStats.coveragePct.ratios}%</span>
+									<span>•</span>
+									<span>Derived Quant: {sufficiencyStats.coveragePct.derivedMetrics}%</span>
+									<span>•</span>
+									<span>Technicals: {sufficiencyStats.coveragePct.technicals}%</span>
+								</div>
+							</div>
+						</div>
+						<div className="flex items-center gap-2 shrink-0">
+							<Button
+								size="sm"
+								variant="outline"
+								className="text-xs border-amber-500/40 hover:bg-amber-500/10"
+								disabled={enrichmentTriggering}
+								onClick={handleTriggerEnrichment}
+							>
+								<RefreshCw
+									className={`w-3.5 h-3.5 mr-1.5 ${
+										enrichmentTriggering ? "animate-spin" : ""
+									}`}
+								/>
+								{enrichmentTriggering ? "Triggering..." : "Trigger Enrichment"}
+							</Button>
+							<Link href="/admin/engine-health">
+								<Button
+									size="sm"
+									variant="ghost"
+									className="text-xs text-muted-foreground hover:text-foreground"
+								>
+									Audit Engine <ArrowRight className="w-3.5 h-3.5 ml-1" />
+								</Button>
+							</Link>
+						</div>
+					</div>
+				)}
 
 			{/* Primary Metrics */}
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
