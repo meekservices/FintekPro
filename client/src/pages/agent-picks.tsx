@@ -615,18 +615,138 @@ const BROAD_SECTOR_UI = [
 type BroadSector = (typeof BROAD_SECTOR_UI)[number];
 type SectorGroup = { sector: BroadSector | null; picks: DailyPick[] };
 
-/** Groups an array of DailyPick by their broadSector keyMetric. */
+const SECTOR_KEYWORD_MAP: Array<{ id: (typeof BROAD_SECTOR_UI)[number]["id"]; keywords: string[] }> = [
+	{
+		id: "banking_finance",
+		keywords: [
+			"bank",
+			"banking",
+			"finance",
+			"financial",
+			"insurance",
+			"nbfc",
+			"lending",
+			"fintech",
+			"broking",
+			"housing finance",
+		],
+	},
+	{
+		id: "information_technology",
+		keywords: [
+			"information technology",
+			"it - software",
+			"it services",
+			"software",
+			"technology",
+			"tech",
+			"computers",
+			"bpo",
+			"kpo",
+			"telecom",
+			"telecommunication",
+		],
+	},
+	{
+		id: "healthcare_pharma",
+		keywords: [
+			"pharmaceuticals",
+			"pharma",
+			"healthcare",
+			"hospital",
+			"diagnostics",
+			"biotechnology",
+			"life sciences",
+			"medical",
+			"drug",
+		],
+	},
+	{
+		id: "auto_infra",
+		keywords: [
+			"auto",
+			"automobile",
+			"infrastructure",
+			"construction",
+			"capital goods",
+			"engineering",
+			"cement",
+			"metals",
+			"mining",
+			"power",
+			"energy",
+			"oil",
+			"gas",
+			"utilities",
+			"invit",
+			"reit",
+			"real estate",
+		],
+	},
+	{
+		id: "fmcg_consumer",
+		keywords: [
+			"fmcg",
+			"consumer",
+			"retail",
+			"textiles",
+			"food",
+			"beverages",
+			"media",
+			"entertainment",
+			"hotels",
+			"tourism",
+			"agriculture",
+			"chemical",
+			"chemicals",
+			"petrochemical",
+		],
+	},
+];
+
+/** Resolves any pick's sector metadata to a canonical BroadSector, or null if unmapped. */
+function resolveBroadSector(pick: DailyPick): BroadSector | null {
+	const rawSector = (
+		pick.keyMetrics?.broadSector ||
+		pick.keyMetrics?.sector ||
+		pick.sectorCategory ||
+		pick.keyMetrics?.industry ||
+		""
+	)
+		.toString()
+		.trim()
+		.toLowerCase();
+
+	if (!rawSector) return null;
+
+	// 1. Direct match by id
+	const directById = BROAD_SECTOR_UI.find((bs) => bs.id.toLowerCase() === rawSector);
+	if (directById) return directById;
+
+	// 2. Direct match by label
+	const directByLabel = BROAD_SECTOR_UI.find((bs) => bs.label.toLowerCase() === rawSector);
+	if (directByLabel) return directByLabel;
+
+	// 3. Keyword matching across canonical sectors
+	for (const mapping of SECTOR_KEYWORD_MAP) {
+		if (mapping.keywords.some((kw) => rawSector.includes(kw))) {
+			return BROAD_SECTOR_UI.find((bs) => bs.id === mapping.id) ?? null;
+		}
+	}
+
+	return null;
+}
+
+/** Groups an array of DailyPick by their broadSector. Always retains unmapped picks in an ungrouped bucket. */
 function groupByBroadSector(picks: DailyPick[]): SectorGroup[] {
 	const grouped = new Map<string, DailyPick[]>();
 	const ungrouped: DailyPick[] = [];
 
 	for (const p of picks) {
-		// keyMetrics is a documented heterogeneous bag; broadSector is string when present
-		const bsId = (p.keyMetrics?.broadSector ?? undefined) as string | undefined;
-		if (bsId !== undefined) {
-			if (!grouped.has(bsId)) grouped.set(bsId, []);
-			const bucket = grouped.get(bsId);
-			if (bucket !== undefined) bucket.push(p);
+		const bs = resolveBroadSector(p);
+		if (bs) {
+			if (!grouped.has(bs.id)) grouped.set(bs.id, []);
+			grouped.get(bs.id)!.push(p);
 		} else {
 			ungrouped.push(p);
 		}
@@ -5944,7 +6064,20 @@ export default function AgentPicksPage() {
 								)
 							) : (
 								(() => {
-									// For listed_stocks: sector-grouped view. For all others: flat grid.
+									if (viewMode === "table") {
+										return (
+											<div className="space-y-6">
+												<PicksTable
+													picks={filteredTodayPicks}
+													onRowClick={setSelectedPick}
+												/>
+												{todayCategoryFilter === "pre_ipo" && renderUpcomingPreIpoRadar()}
+												{todayCategoryFilter === "ipo" && renderLiveIpoDesk()}
+											</div>
+										);
+									}
+
+									// For listed_stocks: sector-grouped view (with fallback to flat grid). For all others: flat grid.
 									if (
 										todayCategoryFilter === "listed_stocks" ||
 										todayCategoryFilter === "all"
@@ -5962,142 +6095,172 @@ export default function AgentPicksPage() {
 
 										return (
 											<div className="space-y-6">
-												{hasSectorData && (
-													<div className="space-y-4">
-														{/* Sector allocation bar */}
-														{sectorGroups.length >= 2 && (
-															<div className="bg-card border rounded-xl p-4 shadow-sm">
-																<h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide flex items-center gap-1.5">
-																	<PieChart className="h-3 w-3" /> Sector
-																	Diversity
-																	<span className="ml-auto flex items-center gap-1 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full text-xs">
-																		<span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-																		{
-																			sectorGroups.filter((g) => g.sector)
-																				.length
-																		}{" "}
-																		Sectors Covered
-																	</span>
-																</h4>
-																<div className="flex h-2.5 rounded-full overflow-hidden gap-0.5 mb-3">
-																	{sectorGroups
-																		.filter((g) => g.sector)
-																		.map((g) => (
-																			<TooltipProvider key={g.sector!.id}>
-																				<Tooltip>
-																					<TooltipTrigger asChild>
-																						<SectorBarSegment
-																							color={g.sector!.color}
-																							flex={g.picks.length}
-																							className="h-full rounded-sm transition-all hover:opacity-80 cursor-default"
-																						/>
-																					</TooltipTrigger>
-																					<TooltipContent>
-																						<div className="font-medium">
-																							{g.sector!.icon} {g.sector!.label}
-																						</div>
-																						<div className="text-xs text-muted-foreground">
-																							{g.picks
-																								.map((p) => p.symbol)
-																								.join(", ")}
-																						</div>
-																					</TooltipContent>
-																				</Tooltip>
-																			</TooltipProvider>
-																		))}
+												{stockPicks.length > 0 && (
+													hasSectorData ? (
+														<div className="space-y-4">
+															{/* Sector allocation bar */}
+															{sectorGroups.filter((g) => g.sector).length >= 2 && (
+																<div className="bg-card border rounded-xl p-4 shadow-sm">
+																	<h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide flex items-center gap-1.5">
+																		<PieChart className="h-3 w-3" /> Sector
+																		Diversity
+																		<span className="ml-auto flex items-center gap-1 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full text-xs">
+																			<span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+																			{
+																				sectorGroups.filter((g) => g.sector)
+																					.length
+																			}{" "}
+																			Sectors Covered
+																		</span>
+																	</h4>
+																	<div className="flex h-2.5 rounded-full overflow-hidden gap-0.5 mb-3">
+																		{sectorGroups
+																			.filter((g) => g.sector)
+																			.map((g) => (
+																				<TooltipProvider key={g.sector!.id}>
+																					<Tooltip>
+																						<TooltipTrigger asChild>
+																							<SectorBarSegment
+																								color={g.sector!.color}
+																								flex={g.picks.length}
+																								className="h-full rounded-sm transition-all hover:opacity-80 cursor-default"
+																							/>
+																						</TooltipTrigger>
+																						<TooltipContent>
+																							<div className="font-medium">
+																								{g.sector!.icon} {g.sector!.label}
+																							</div>
+																							<div className="text-xs text-muted-foreground">
+																								{g.picks
+																									.map((p) => p.symbol)
+																									.join(", ")}
+																							</div>
+																						</TooltipContent>
+																					</Tooltip>
+																				</TooltipProvider>
+																			))}
+																	</div>
+																	<div className="flex flex-wrap gap-3">
+																		{sectorGroups
+																			.filter((g) => g.sector)
+																			.map((g) => (
+																				<div
+																					key={g.sector!.id}
+																					className="flex items-center gap-1.5 text-xs"
+																				>
+																					<SectorDot
+																						color={g.sector!.color}
+																						className="w-2 h-2 rounded-full"
+																					/>
+																					<span>
+																						{g.sector!.icon} {g.sector!.label}
+																					</span>
+																					<span className="text-muted-foreground">
+																						·{" "}
+																						{g.picks
+																							.map((p) => p.symbol)
+																							.join(", ")}
+																					</span>
+																				</div>
+																			))}
+																	</div>
 																</div>
-																<div className="flex flex-wrap gap-3">
-																	{sectorGroups
-																		.filter((g) => g.sector)
-																		.map((g) => (
-																			<div
-																				key={g.sector!.id}
-																				className="flex items-center gap-1.5 text-xs"
-																			>
-																				<SectorDot
-																					color={g.sector!.color}
-																					className="w-2 h-2 rounded-full"
-																				/>
-																				<span>
-																					{g.sector!.icon} {g.sector!.label}
-																				</span>
-																				<span className="text-muted-foreground">
-																					·{" "}
-																					{g.picks
-																						.map((p) => p.symbol)
-																						.join(", ")}
-																				</span>
-																			</div>
-																		))}
-																</div>
-															</div>
-														)}
+															)}
 
-														{/* Per-sector groups */}
-														{sectorGroups.map((group, gi) => (
-															<div
-																key={group.sector?.id ?? "other"}
-																className="space-y-3"
-															>
-																<SectorHeader
-																	color={
-																		group.sector
-																			? group.sector.color
-																			: "hsl(var(--muted))"
-																	}
-																	textColor={
-																		group.sector
-																			? "#fff"
-																			: "hsl(var(--muted-foreground))"
-																	}
-																	className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold"
+															{/* Per-sector groups */}
+															{sectorGroups.map((group, gi) => (
+																<div
+																	key={group.sector?.id ?? `other-${gi}`}
+																	className="space-y-3"
 																>
-																	<span>{group.sector?.icon ?? "📊"}</span>
-																	<span>
-																		{group.sector?.label ?? "Other Sectors"}
-																	</span>
-																	<span className="ml-auto opacity-80 text-xs font-normal">
-																		{group.picks.length} pick
-																		{group.picks.length > 1 ? "s" : ""}
-																	</span>
-																</SectorHeader>
-																<div className="grid gap-4 grid-cols-1">
-																	{group.picks.map((pick, index) => (
-																		<PickCard
-																			key={`today-gs-${pick.id}-${gi}-${index}`}
-																			pick={pick}
-																			isWatchlisted={watchlistPickIds.has(
-																				pick.id,
-																			)}
-																			isSelected={selectedPickIds.has(pick.id)}
-																			onSelectToggle={handleSelectToggle}
-																			onAddToWatchlist={(id) =>
-																				addToWatchlistMutation.mutate(id)
-																			}
-																			onRemoveFromWatchlist={(id) =>
-																				removeFromWatchlistMutation.mutate(id)
-																			}
-																			onShareEmail={(id) =>
-																				handleShare(id, "email")
-																			}
-																			onShareWhatsApp={(id) =>
-																				handleShare(id, "whatsapp")
-																			}
-																			onShareClients={handleShareWithClients}
-																			onClick={setSelectedPick}
-																			onFaspExplain={(p) => setFaspModalPick(p)}
-																		/>
-																	))}
+																	<SectorHeader
+																		color={
+																			group.sector
+																				? group.sector.color
+																				: "hsl(var(--muted))"
+																		}
+																		textColor={
+																			group.sector
+																				? "#fff"
+																				: "hsl(var(--muted-foreground))"
+																		}
+																		className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold"
+																	>
+																		<span>{group.sector?.icon ?? "📊"}</span>
+																		<span>
+																			{group.sector?.label ?? "Other Sectors"}
+																		</span>
+																		<span className="ml-auto opacity-80 text-xs font-normal">
+																			{group.picks.length} pick
+																			{group.picks.length > 1 ? "s" : ""}
+																		</span>
+																	</SectorHeader>
+																	<div className="grid gap-4 grid-cols-1">
+																		{group.picks.map((pick, index) => (
+																			<PickCard
+																				key={`today-gs-${pick.id}-${gi}-${index}`}
+																				pick={pick}
+																				isWatchlisted={watchlistPickIds.has(
+																					pick.id,
+																				)}
+																				isSelected={selectedPickIds.has(pick.id)}
+																				onSelectToggle={handleSelectToggle}
+																				onAddToWatchlist={(id) =>
+																					addToWatchlistMutation.mutate(id)
+																				}
+																				onRemoveFromWatchlist={(id) =>
+																					removeFromWatchlistMutation.mutate(id)
+																				}
+																				onShareEmail={(id) =>
+																					handleShare(id, "email")
+																				}
+																				onShareWhatsApp={(id) =>
+																					handleShare(id, "whatsapp")
+																				}
+																				onShareClients={handleShareWithClients}
+																				onClick={setSelectedPick}
+																				onFaspExplain={(p) => setFaspModalPick(p)}
+																			/>
+																		))}
+																	</div>
 																</div>
-															</div>
-														))}
-													</div>
+															))}
+														</div>
+													) : (
+														/* Fallback when no sector metadata: render flat list of stock picks */
+														<div className="grid gap-4 grid-cols-1">
+															{stockPicks.map((pick, index) => (
+																<PickCard
+																	key={`today-stock-flat-${pick.id}-${index}`}
+																	pick={pick}
+																	isWatchlisted={watchlistPickIds.has(
+																		pick.id,
+																	)}
+																	isSelected={selectedPickIds.has(pick.id)}
+																	onSelectToggle={handleSelectToggle}
+																	onAddToWatchlist={(id) =>
+																		addToWatchlistMutation.mutate(id)
+																	}
+																	onRemoveFromWatchlist={(id) =>
+																		removeFromWatchlistMutation.mutate(id)
+																	}
+																	onShareEmail={(id) =>
+																		handleShare(id, "email")
+																	}
+																	onShareWhatsApp={(id) =>
+																		handleShare(id, "whatsapp")
+																	}
+																	onShareClients={handleShareWithClients}
+																	onClick={setSelectedPick}
+																	onFaspExplain={(p) => setFaspModalPick(p)}
+																/>
+															))}
+														</div>
+													)
 												)}
 
-												{/* Non-stock picks (when "All" tab) — table or grid */}
-												{nonStockPicks.length > 0 && (viewMode === "table" ? (
-													<PicksTable picks={nonStockPicks} onRowClick={setSelectedPick} />
-												) : (
+												{/* Non-stock picks (when "All" tab) — grid */}
+												{nonStockPicks.length > 0 && (
 													<div className="grid gap-4 grid-cols-1">
 														{nonStockPicks.map((pick, index) => (
 															<PickCard
@@ -6122,22 +6285,13 @@ export default function AgentPicksPage() {
 															/>
 														))}
 													</div>
-												))}
+												)}
 											</div>
 										);
 									}
 
 									// Flat grid for all other categories
-									return viewMode === "table" ? (
-										<div className="space-y-6">
-											<PicksTable
-												picks={filteredTodayPicks}
-												onRowClick={setSelectedPick}
-											/>
-											{todayCategoryFilter === "pre_ipo" && renderUpcomingPreIpoRadar()}
-											{todayCategoryFilter === "ipo" && renderLiveIpoDesk()}
-										</div>
-									) : (
+									return (
 										<div className="space-y-4">
 										{/* Unlisted: Pre-IPO Pipeline summary banner */}
 										{todayCategoryFilter === "unlisted" && filteredTodayPicks.length > 0 && (() => {
