@@ -1472,7 +1472,7 @@ const marketFilters = [
  */
 function parseRationale(raw: string | null | undefined): string {
 	if (!raw) return "";
-	const text = raw
+	let text = raw
 		.replace(/^```[\w]*\n?/gm, "")
 		.replace(/```$/gm, "")
 		.trim();
@@ -1495,16 +1495,33 @@ function parseRationale(raw: string | null | undefined): string {
 				parsed.text ??
 				null;
 			if (typeof extracted === "string" && extracted.length > 10)
-				return extracted.trim();
-			if (typeof extracted === "object" && extracted !== null) {
+				text = extracted.trim();
+			else if (typeof extracted === "object" && extracted !== null) {
 				const obj = extracted as Record<string, unknown>;
-				return String(obj.rationale ?? obj.content ?? text).trim();
+				text = String(obj.rationale ?? obj.content ?? text).trim();
 			}
 		} catch {
 			// not JSON — fall through and return as-is
 		}
 	}
-	return text;
+	// Separate appended regulatory disclaimers so pure AI investment thesis remains clean
+	const regMarker = /\*\*Regulatory Notice\*\*:?|\bRegulatory Notice:?|\bRegulatory Disclaimer:?/i;
+	const parts = text.split(regMarker);
+	return (parts[0] || "").trim();
+}
+
+/**
+ * Extracts regulatory compliance notice from the rationale or keyMetrics.
+ */
+function extractRegulatoryNotice(raw: string | null | undefined): string | null {
+	if (!raw) return null;
+	const regMarker = /\*\*Regulatory Notice\*\*:?|\bRegulatory Notice:?|\bRegulatory Disclaimer:?/i;
+	const parts = raw.split(regMarker);
+	if (parts.length > 1) {
+		const notice = parts.slice(1).join(" ").trim();
+		return notice.replace(/^\*+|\*+$/g, "").trim() || null;
+	}
+	return null;
 }
 
 /**
@@ -7193,18 +7210,20 @@ export default function AgentPicksPage() {
 											selectedPick.category,
 										)}
 									</p>
-									{safeNum(selectedPick.recoPrice) > 0 && (
-										<p className="text-xs text-green-600 font-medium">
-											+
-											{(
-												((safeNum(selectedPick.targetPrice) -
-													safeNum(selectedPick.recoPrice)) /
-													safeNum(selectedPick.recoPrice)) *
-												100
-											).toFixed(1)}
-											%
-										</p>
-									)}
+									{safeNum(selectedPick.recoPrice) > 0 && (() => {
+										const isCredit = (selectedPick.keyMetrics as any)?.isCreditStrategy === true ||
+											(selectedPick.category === "derivatives" && safeNum(selectedPick.targetPrice) < safeNum(selectedPick.recoPrice) && safeNum(selectedPick.recoPrice) > 0);
+										const _rec = safeNum(selectedPick.recoPrice);
+										const _tgt = safeNum(selectedPick.targetPrice);
+										const upPct = isCredit
+											? ((_rec - _tgt) / _rec) * 100
+											: ((_tgt - _rec) / _rec) * 100;
+										return (
+											<p className="text-xs text-green-600 font-medium">
+												+{Math.abs(upPct).toFixed(1)}%
+											</p>
+										);
+									})()}
 								</div>
 								<div className="bg-red-50 dark:bg-red-950 rounded-lg p-3 text-center border border-red-200 dark:border-red-800">
 									<p className="text-xs text-red-600 dark:text-red-400 mb-1 flex items-center justify-center gap-1">
@@ -7216,18 +7235,20 @@ export default function AgentPicksPage() {
 											selectedPick.category,
 										)}
 									</p>
-									{safeNum(selectedPick.recoPrice) > 0 && (
-										<p className="text-xs text-red-600 font-medium">
-											-
-											{(
-												((safeNum(selectedPick.recoPrice) -
-													safeNum(selectedPick.stoplossPrice)) /
-													safeNum(selectedPick.recoPrice)) *
-												100
-											).toFixed(1)}
-											%
-										</p>
-									)}
+									{safeNum(selectedPick.recoPrice) > 0 && (() => {
+										const isCredit = (selectedPick.keyMetrics as any)?.isCreditStrategy === true ||
+											(selectedPick.category === "derivatives" && safeNum(selectedPick.targetPrice) < safeNum(selectedPick.recoPrice) && safeNum(selectedPick.recoPrice) > 0);
+										const _rec = safeNum(selectedPick.recoPrice);
+										const _sl = safeNum(selectedPick.stoplossPrice);
+										const downPct = isCredit
+											? ((_sl - _rec) / _rec) * 100
+											: ((_rec - _sl) / _rec) * 100;
+										return (
+											<p className="text-xs text-red-600 font-medium">
+												-{Math.abs(downPct).toFixed(1)}%
+											</p>
+										);
+									})()}
 								</div>
 							</div>
 
@@ -7237,14 +7258,18 @@ export default function AgentPicksPage() {
 								const _spRec = safeNum(selectedPick.recoPrice);
 								const effectiveLtp = cur > 0 ? cur : _spRec;
 								const isEstimated = cur <= 0 && _spRec > 0;
-								const ret =
-									_spRec > 0
-										? (
-												((effectiveLtp - _spRec) /
-													_spRec) *
-												100
-											).toFixed(2)
-										: "0.00";
+								const isCredit = (selectedPick.keyMetrics as any)?.isCreditStrategy === true ||
+									(selectedPick.category === "derivatives" && safeNum(selectedPick.targetPrice) < _spRec && _spRec > 0);
+								const isDay0 = (selectedPick.daysHeld ?? 0) === 0 && Math.abs(effectiveLtp - _spRec) < 0.01;
+								const ret = isDay0
+									? "0.00"
+									: selectedPick.returnPct != null
+										? safeNum(selectedPick.returnPct).toFixed(2)
+										: _spRec > 0
+											? (isCredit
+													? (((_spRec - effectiveLtp) / _spRec) * 100).toFixed(2)
+													: (((effectiveLtp - _spRec) / _spRec) * 100).toFixed(2))
+											: "0.00";
 								return (
 									<div className="flex items-center justify-between p-3 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/50">
 										<div>
@@ -7312,36 +7337,46 @@ export default function AgentPicksPage() {
 								)}
 							</div>
 
-							{/* AI Rationale */}
+							{/* AI Investment Rationale & Regulatory Notice (Separated) */}
 							{selectedPick.rationale &&
 								(() => {
-									const raw =
-										typeof selectedPick.rationale === "string"
-											? selectedPick.rationale
-													.replace(/^```json\n?/, "")
-													.replace(/\n?```$/, "")
-													.trim()
-											: JSON.stringify(selectedPick.rationale);
-									let displayText = raw;
-									try {
-										const parsed = JSON.parse(raw);
-										if (parsed && typeof parsed === "object" && parsed.error) {
-											displayText = "";
-										}
-									} catch {
-										// not JSON — use raw text as-is
-									}
-									return displayText ? (
-										<div className="rounded-lg border p-4 bg-primary/5">
-											<h4 className="font-semibold text-sm flex items-center gap-2 mb-2">
-												<Brain className="h-4 w-4 text-primary" />
-												AI Rationale
-											</h4>
-											<p className="text-sm text-muted-foreground leading-relaxed">
-												{displayText}
-											</p>
+									const thesisText = parseRationale(selectedPick.rationale);
+									const inlineReg = extractRegulatoryNotice(selectedPick.rationale);
+									const km = (selectedPick.keyMetrics as any) || {};
+									const regNotice = inlineReg || km.regulatoryNote || (selectedPick as any).disclaimer || null;
+
+									return (
+										<div className="space-y-3">
+											{thesisText && (
+												<div className="rounded-lg border p-4 bg-primary/5">
+													<h4 className="font-semibold text-sm flex items-center gap-2 mb-2 text-primary">
+														<Brain className="h-4 w-4" />
+														AI Investment Rationale
+													</h4>
+													<p className="text-sm text-foreground/90 leading-relaxed font-normal">
+														{thesisText}
+													</p>
+												</div>
+											)}
+
+											{regNotice && (
+												<div className="rounded-lg border border-amber-300/60 dark:border-amber-700/60 p-3.5 bg-amber-50/70 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200">
+													<h5 className="font-semibold text-xs flex items-center gap-1.5 mb-1.5 text-amber-800 dark:text-amber-300">
+														<LucideShield className="h-3.5 w-3.5 shrink-0" />
+														Regulatory Notice & SEBI Compliance
+													</h5>
+													<p className="text-xs leading-relaxed text-amber-800/90 dark:text-amber-300/90 font-normal">
+														{regNotice}
+													</p>
+													{km.sebiCircularRef && (
+														<p className="text-[10px] text-amber-700/80 dark:text-amber-400/80 mt-1.5 font-mono">
+															Ref: {km.sebiCircularRef}
+														</p>
+													)}
+												</div>
+											)}
 										</div>
-									) : null;
+									);
 								})()}
 
 							{/* Derivative Strategy Legs & Payoff Architecture in Sheet */}
