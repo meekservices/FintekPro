@@ -1117,7 +1117,9 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 					: 50;
 	const atmStrike = Math.round(spot / strikeInterval) * strikeInterval;
 	const lotSize = Number(
-		(pick.keyMetrics as any)?.lotSize || (symbol.includes("BANK") ? 15 : 65),
+		(pick.keyMetrics as any)?.lotSize ||
+		({ NIFTY: 25, BANKNIFTY: 15, FINNIFTY: 40, MIDCPNIFTY: 50, SENSEX: 10, INFY: 300, TCS: 175, RELIANCE: 250 } as Record<string, number>)[symbol] ||
+		(symbol.includes("BANK") ? 15 : 50),
 	);
 	const rawReco = safeNum(pick.recoPrice);
 	const entryPrem =
@@ -1149,6 +1151,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 		];
 	}
 	if (lower.includes("bull call spread")) {
+		const spreadWidth = Math.max(strikeInterval, Math.ceil((entryPrem * 1.5) / strikeInterval) * strikeInterval);
 		return [
 			{
 				action: "BUY",
@@ -1161,14 +1164,15 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 			{
 				action: "SELL",
 				type: "CE",
-				strikePrice: atmStrike + strikeInterval,
+				strikePrice: atmStrike + spreadWidth,
 				quantity: 1,
 				premium: Math.round(entryPrem * 0.6),
-				name: `${symbol} ${atmStrike + strikeInterval} CE`,
+				name: `${symbol} ${atmStrike + spreadWidth} CE`,
 			},
 		];
 	}
 	if (lower.includes("bear put spread")) {
+		const spreadWidth = Math.max(strikeInterval, Math.ceil((entryPrem * 1.5) / strikeInterval) * strikeInterval);
 		return [
 			{
 				action: "BUY",
@@ -1181,14 +1185,15 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 			{
 				action: "SELL",
 				type: "PE",
-				strikePrice: atmStrike - strikeInterval,
+				strikePrice: atmStrike - spreadWidth,
 				quantity: 1,
 				premium: Math.round(entryPrem * 0.6),
-				name: `${symbol} ${atmStrike - strikeInterval} PE`,
+				name: `${symbol} ${atmStrike - spreadWidth} PE`,
 			},
 		];
 	}
 	if (lower.includes("bull put spread")) {
+		const spreadWidth = Math.max(strikeInterval, Math.ceil((entryPrem * 1.5) / strikeInterval) * strikeInterval);
 		return [
 			{
 				action: "SELL",
@@ -1201,14 +1206,15 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 			{
 				action: "BUY",
 				type: "PE",
-				strikePrice: atmStrike - strikeInterval,
+				strikePrice: atmStrike - spreadWidth,
 				quantity: 1,
 				premium: Math.round(entryPrem * 0.8),
-				name: `${symbol} ${atmStrike - strikeInterval} PE`,
+				name: `${symbol} ${atmStrike - spreadWidth} PE`,
 			},
 		];
 	}
 	if (lower.includes("bear call spread")) {
+		const spreadWidth = Math.max(strikeInterval, Math.ceil((entryPrem * 1.5) / strikeInterval) * strikeInterval);
 		return [
 			{
 				action: "SELL",
@@ -1221,65 +1227,67 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 			{
 				action: "BUY",
 				type: "CE",
-				strikePrice: atmStrike + strikeInterval,
+				strikePrice: atmStrike + spreadWidth,
 				quantity: 1,
 				premium: Math.round(entryPrem * 0.8),
-				name: `${symbol} ${atmStrike + strikeInterval} CE`,
+				name: `${symbol} ${atmStrike + spreadWidth} CE`,
 			},
 		];
 	}
 	if (lower.includes("iron condor")) {
+		const wingWidth = Math.max(strikeInterval, Math.ceil((entryPrem * 1.5) / strikeInterval) * strikeInterval);
 		return [
 			{
 				action: "BUY",
 				type: "PE",
-				strikePrice: atmStrike - strikeInterval * 2,
+				strikePrice: atmStrike - wingWidth * 2,
 				quantity: 1,
-				premium: Math.round(entryPrem * 0.4),
-				name: `${symbol} ${atmStrike - strikeInterval * 2} PE`,
+				premium: Math.round(entryPrem * 0.3 * 10) / 10,
+				name: `${symbol} ${atmStrike - wingWidth * 2} PE`,
 			},
 			{
 				action: "SELL",
 				type: "PE",
-				strikePrice: atmStrike - strikeInterval,
+				strikePrice: atmStrike - wingWidth,
 				quantity: 1,
-				premium: Math.round(entryPrem * 0.9),
-				name: `${symbol} ${atmStrike - strikeInterval} PE`,
+				premium: Math.round(entryPrem * 0.8 * 10) / 10,
+				name: `${symbol} ${atmStrike - wingWidth} PE`,
 			},
 			{
 				action: "SELL",
 				type: "CE",
-				strikePrice: atmStrike + strikeInterval,
+				strikePrice: atmStrike + wingWidth,
 				quantity: 1,
-				premium: Math.round(entryPrem * 0.9),
-				name: `${symbol} ${atmStrike + strikeInterval} CE`,
+				premium: Math.round(entryPrem * 0.8 * 10) / 10,
+				name: `${symbol} ${atmStrike + wingWidth} CE`,
 			},
 			{
 				action: "BUY",
 				type: "CE",
-				strikePrice: atmStrike + strikeInterval * 2,
+				strikePrice: atmStrike + wingWidth * 2,
 				quantity: 1,
-				premium: Math.round(entryPrem * 0.4),
-				name: `${symbol} ${atmStrike + strikeInterval * 2} CE`,
+				premium: Math.round(entryPrem * 0.3 * 10) / 10,
+				name: `${symbol} ${atmStrike + wingWidth * 2} CE`,
 			},
 		];
 	}
 	if (lower.includes("iron butterfly")) {
+		const wingWidth = Math.max(strikeInterval, Math.ceil((entryPrem * 1.5) / strikeInterval) * strikeInterval);
 		return [
 			{
 				action: "BUY",
 				type: "PE",
-				strikePrice: atmStrike - strikeInterval,
+				strikePrice: atmStrike - wingWidth,
 				quantity: 1,
-				premium: Math.round(entryPrem * 0.5),
-				name: `${symbol} ${atmStrike - strikeInterval} PE`,
+				premium: Math.round(entryPrem * 0.3 * 10) / 10,
+				name: `${symbol} ${atmStrike - wingWidth} PE`,
 			},
 			{
 				action: "SELL",
 				type: "PE",
 				strikePrice: atmStrike,
 				quantity: 1,
-				premium: Math.round(entryPrem * 1.0),
+				premium: Math.round(entryPrem * 0.8 * 10) / 10,
 				name: `${symbol} ${atmStrike} PE`,
 			},
 			{
@@ -1287,16 +1295,16 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 				type: "CE",
 				strikePrice: atmStrike,
 				quantity: 1,
-				premium: Math.round(entryPrem * 1.0),
+				premium: Math.round(entryPrem * 0.8 * 10) / 10,
 				name: `${symbol} ${atmStrike} CE`,
 			},
 			{
 				action: "BUY",
 				type: "CE",
-				strikePrice: atmStrike + strikeInterval,
+				strikePrice: atmStrike + wingWidth,
 				quantity: 1,
-				premium: Math.round(entryPrem * 0.5),
-				name: `${symbol} ${atmStrike + strikeInterval} CE`,
+				premium: Math.round(entryPrem * 0.3 * 10) / 10,
+				name: `${symbol} ${atmStrike + wingWidth} CE`,
 			},
 		];
 	}
@@ -3234,7 +3242,9 @@ export default function AgentPicksPage() {
 				const cur = getCurrencySymbol(p.category);
 				const _rec = safeNum(p.recoPrice);
 				const _ltp = safeNum(p.currentPrice) > 0 ? safeNum(p.currentPrice) : _rec;
-				const isCredit = (p.keyMetrics as any)?.isCreditStrategy === true;
+				const isCredit =
+					(p.keyMetrics as any)?.isCreditStrategy === true ||
+					(p.category === "derivatives" && safeNum(p.targetPrice) < _rec && _rec > 0);
 				const up = p.targetPrice && _rec
 					? `${((isCredit ? ((_rec - p.targetPrice) / _rec) : ((p.targetPrice - _rec) / _rec)) * 100).toFixed(1)}%` : "—";
 				const ret = p.returnPct != null
@@ -8916,7 +8926,9 @@ function PicksTable({
 						const _tgt = safeNum(pick.targetPrice);
 						const _rec = safeNum(pick.recoPrice);
 						const _cur = safeNum(pick.currentPrice ?? pick.recoPrice);
-						const isCredit = (pick.keyMetrics as any)?.isCreditStrategy === true;
+						const isCredit =
+							(pick.keyMetrics as any)?.isCreditStrategy === true ||
+							(pick.category === "derivatives" && _tgt < _rec && _rec > 0);
 						const upsidePct: number | null =
 							_tgt && _rec
 								? isCredit
@@ -8924,13 +8936,15 @@ function PicksTable({
 									: ((_tgt - _rec) / _rec) * 100
 								: null;
 						const returnPct: number | null =
-							pick.returnPct != null
-								? safeNum(pick.returnPct)
-								: pick.currentPrice && _rec
-									? isCredit
-										? ((_rec - _cur) / _rec) * 100
-										: ((_cur - _rec) / _rec) * 100
-									: null;
+							(pick.daysHeld ?? 0) === 0 && Math.abs(_cur - _rec) < 0.01
+								? 0
+								: pick.returnPct != null
+									? safeNum(pick.returnPct)
+									: pick.currentPrice && _rec
+										? isCredit
+											? ((_rec - _cur) / _rec) * 100
+											: ((_cur - _rec) / _rec) * 100
+										: null;
 						const isPreIpo = isPreIpoPick(pick);
 						const isUnlisted = pick.category === "unlisted" || isPreIpo;
 						const stageInfo = isUnlisted ? getPickRegulatoryStageInfo(pick) : null;
@@ -9959,7 +9973,9 @@ function PickCard({
 	const _sl2 = safeNum(pick.stoplossPrice);
 	const _cur2 = safeNum(pick.currentPrice);
 	const effectiveLtp2 = _cur2 > 0 ? _cur2 : _rec2;
-	const isCredit = (pick.keyMetrics as any)?.isCreditStrategy === true;
+	const isCredit =
+		(pick.keyMetrics as any)?.isCreditStrategy === true ||
+		(pick.category === "derivatives" && _tgt2 < _rec2 && _rec2 > 0);
 	const upside =
 		_tgt2 && _rec2
 			? (isCredit
@@ -9973,11 +9989,15 @@ function PickCard({
 					: (((_rec2 - _sl2) / _rec2) * 100).toFixed(1))
 			: "0.0";
 	const currentReturn =
-		_rec2 > 0
-			? (isCredit
-					? (((_rec2 - effectiveLtp2) / _rec2) * 100).toFixed(1)
-					: (((effectiveLtp2 - _rec2) / _rec2) * 100).toFixed(1))
-			: "0.0";
+		(pick.daysHeld ?? 0) === 0 && Math.abs(effectiveLtp2 - _rec2) < 0.01
+			? "0.0"
+			: pick.returnPct != null
+				? safeNum(pick.returnPct).toFixed(1)
+				: _rec2 > 0
+					? (isCredit
+							? (((_rec2 - effectiveLtp2) / _rec2) * 100).toFixed(1)
+							: (((effectiveLtp2 - _rec2) / _rec2) * 100).toFixed(1))
+					: "0.0";
 
 	const whatsappFormattedMsg = useMemo(
 		() => buildWhatsappFormattedMessage(pick),

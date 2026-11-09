@@ -427,35 +427,75 @@ export async function getLiveInstrumentPrice(
 				return null;
 			}
 			case "derivatives": {
-				// For derivatives: return current option premium * lotSize (not the underlying index level)
+				// For derivatives: return current option strategy value (premium * lotSize)
 				const derivSym = pick.symbol || pick.instrumentId;
 				if (!derivSym) return null;
 				try {
+					const km = typeof pick.keyMetrics === "string" ? JSON.parse(pick.keyMetrics) : (pick.keyMetrics || {});
+					const lotSize: number = Number(km.lotSize) || ({ NIFTY: 25, BANKNIFTY: 15, FINNIFTY: 40 } as Record<string, number>)[derivSym] || 50;
+
+					// If recommendation is brand new (Day 0), baseline to entry price unless market is actively moving with verified quotes
+					const isDay0 = (pick.daysHeld ?? 0) === 0;
+
 					const { derivativesService } = await import("../services/derivatives-service");
 					const chain = await (derivativesService as any).getOptionsChain(derivSym);
-					const spotPrice = chain.underlyingValue;
-					if (!spotPrice || spotPrice <= 0) return null;
-					const km = typeof pick.keyMetrics === "string" ? JSON.parse(pick.keyMetrics) : (pick.keyMetrics || {});
-					const lotSize: number = km.lotSize || ({ NIFTY: 25, BANKNIFTY: 15, FINNIFTY: 40 } as Record<string, number>)[derivSym] || 50;
+
+					// If strategy has defined legs, price the exact portfolio of legs from options chain
+					if (Array.isArray(km.legs) && km.legs.length > 0 && chain?.options) {
+						let totalUnitValue = 0;
+						let allLegsFound = true;
+
+						for (const leg of km.legs) {
+							const list = String(leg.type).toUpperCase() === "CE" ? chain.options.calls : chain.options.puts;
+							const opt = list?.find((o: any) => o.strikePrice === leg.strikePrice);
+							if (opt?.lastPrice && opt.lastPrice > 0) {
+								const qty = Number(leg.quantity || 1);
+								// For credit / seller legs (SELL), cost to close is positive debit
+								// For buyer legs (BUY), value to close is recovery (credit)
+								if (String(leg.action).toUpperCase() === "SELL") {
+									totalUnitValue += opt.lastPrice * qty;
+								} else {
+									totalUnitValue -= opt.lastPrice * qty;
+								}
+							} else {
+								allLegsFound = false;
+								break;
+							}
+						}
+
+						if (allLegsFound && totalUnitValue > 0) {
+							return Math.round(totalUnitValue * lotSize * 100) / 100;
+						}
+					}
+
+					// Single leg or fallback strike lookup
 					const strikePrice: number = km.strikePrice;
 					const strategy: string = km.strategy || "Long Call";
-					// Try to find the specific strike in the chain
-					const callOption = strikePrice && chain.options?.calls?.find((c: any) => c.strikePrice === strikePrice);
-					const putOption = strikePrice && chain.options?.puts?.find((p: any) => p.strikePrice === strikePrice);
+					const callOption = strikePrice && chain?.options?.calls?.find((c: any) => c.strikePrice === strikePrice);
+					const putOption = strikePrice && chain?.options?.puts?.find((p: any) => p.strikePrice === strikePrice);
 					const callPrice = callOption?.lastPrice || 0;
 					const putPrice = putOption?.lastPrice || 0;
-					// Compute current strategy value
+
 					let premiumNow = 0;
 					if (strategy.includes("Straddle") || strategy.includes("Strangle")) {
 						premiumNow = callPrice + putPrice;
 					} else if (strategy.toLowerCase().includes("put") || strategy.toLowerCase().includes("bear")) {
 						premiumNow = putPrice;
-					} else {
+					} else if (strategy.toLowerCase().includes("call") || strategy.toLowerCase().includes("bull")) {
 						premiumNow = callPrice;
 					}
-					// If specific strike prices found, use them; else approximate from spot
-					const effectivePremium = premiumNow > 0 ? premiumNow : spotPrice * 0.0045;
-					return Math.round(effectivePremium * lotSize * 100) / 100;
+
+					if (premiumNow > 0) {
+						return Math.round(premiumNow * lotSize * 100) / 100;
+					}
+
+					// If option chain quotes are offline/incomplete:
+					// On Day 0, return recoPrice (entry price) so return is 0.00% without distortion.
+					// Never synthesize artificial spot * 0.0045 which creates phantom gains/losses.
+					if (isDay0 && pick.recoPrice) {
+						return Number.parseFloat(pick.recoPrice);
+					}
+					return null;
 				} catch { return null; }
 			}
 			case "fixed_deposits": {
@@ -636,11 +676,15 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 								(pick.category === "derivatives" && targetPrice < recoPrice && recoPrice > 0);
 
 							if (recoPrice > 0) {
-								pick.returnPct = Number.parseFloat(
-									isCreditStrategy
-										? (((recoPrice - freshPrice) / recoPrice) * 100).toFixed(2)
-										: (((freshPrice - recoPrice) / recoPrice) * 100).toFixed(2),
-								);
+								if ((pick.daysHeld ?? 0) === 0 && Math.abs(freshPrice - recoPrice) < 0.01) {
+									pick.returnPct = 0;
+								} else {
+									pick.returnPct = Number.parseFloat(
+										isCreditStrategy
+											? (((recoPrice - freshPrice) / recoPrice) * 100).toFixed(2)
+											: (((freshPrice - recoPrice) / recoPrice) * 100).toFixed(2),
+									);
+								}
 							}
 
 							let newStatus = "live";
@@ -894,8 +938,18 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 
 		if (Number.isFinite(cur) && cur > 0) {
 			pick.currentPrice = cur;
+			const isCredit = (pick.keyMetrics as any)?.isCreditStrategy === true ||
+				(pick.category === "derivatives" && Number(pick.targetPrice) < reco && reco > 0);
 			if ((pick.returnPct == null || Number.isNaN(Number(pick.returnPct))) && Number.isFinite(reco) && reco > 0) {
-				pick.returnPct = Number.parseFloat((((cur - reco) / reco) * 100).toFixed(2));
+				if ((pick.daysHeld ?? 0) === 0 && Math.abs(cur - reco) < 0.01) {
+					pick.returnPct = 0;
+				} else {
+					pick.returnPct = Number.parseFloat(
+						isCredit
+							? (((reco - cur) / reco) * 100).toFixed(2)
+							: (((cur - reco) / reco) * 100).toFixed(2),
+					);
+				}
 			}
 			if (!pick.priceDataSource) {
 				pick.priceDataSource = "Live Exchange Feed";

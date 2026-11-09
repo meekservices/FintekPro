@@ -49,6 +49,52 @@ export function resolveOutputDepth(role: string | undefined): OutputDepth {
  */
 export function formatPickForRole(pick: Record<string, unknown>, role: string | undefined): Record<string, unknown> {
   const depth = resolveOutputDepth(role);
+  const km = (pick.keyMetrics ?? {}) as Record<string, unknown>;
+  const isDerivative = pick.category === "derivatives" || Boolean(km.strategy);
+
+  // Preserve full derivative architecture & Greeks across all user roles
+  // (Mandatory under SEBI circular SEBI/HO/MRD/POD1/CIR/P/2024/132 for complete risk disclosure)
+  const derivativeMetrics = isDerivative
+    ? {
+        strategy: km.strategy,
+        strategyType: km.strategyType,
+        isCreditStrategy: km.isCreditStrategy ?? (Number(pick.targetPrice) < Number(pick.recoPrice) && Number(pick.recoPrice) > 0),
+        iv: km.iv ?? km.impliedVolatility,
+        impliedVolatility: km.impliedVolatility ?? km.iv,
+        lotSize: km.lotSize,
+        spotPrice: km.spotPrice,
+        strikePrice: km.strikePrice,
+        premiumPerUnit: km.premiumPerUnit,
+        totalNetPremium: km.totalNetPremium,
+        maxProfit: km.maxProfit,
+        maxLoss: km.maxLoss,
+        breakeven: km.breakeven,
+        marginRequired: km.marginRequired,
+        legs: km.legs,
+        greeks: km.greeks,
+        outlook: km.outlook,
+        ivRegime: km.ivRegime,
+        regulatoryNote: km.regulatoryNote,
+        expiryDayELMPct: km.expiryDayELMPct,
+        cashMarginRequiredPct: km.cashMarginRequiredPct,
+        sebiCircularRef: km.sebiCircularRef,
+        description: km.description,
+      }
+    : {};
+
+  const baseKeyMetrics: Record<string, unknown> = {
+    cmp: km.cmp,
+    pe: km.pe,
+    roic: km.roic,
+    rsi: km.rsi,
+    sector: km.sector,
+    broadSectorLabel: km.broadSectorLabel,
+    broadSectorIcon: km.broadSectorIcon,
+    broadSectorColor: km.broadSectorColor,
+    suggestedAllocation: km.suggestedAllocation,
+    distributionYield: km.distributionYield,
+    ...derivativeMetrics,
+  };
 
   // Always included (retail baseline)
   const base: Record<string, unknown> = {
@@ -78,6 +124,7 @@ export function formatPickForRole(pick: Record<string, unknown>, role: string | 
     priceDataSource: pick.priceDataSource ?? "Live Exchange Feed",
     dataFreshness: pick.dataFreshness ?? "live",
     lastPriceUpdate: pick.lastPriceUpdate ?? new Date().toISOString(),
+    keyMetrics: baseKeyMetrics,
     disclaimer: REGULATORY_DISCLAIMER,
     formatter_version: FORMATTER_VERSION,
   };
@@ -85,30 +132,18 @@ export function formatPickForRole(pick: Record<string, unknown>, role: string | 
   if (depth === "retail") return base;
 
   // Advisor depth: adds analytical richness
-  const km = (pick.keyMetrics ?? {}) as Record<string, unknown>;
   const advisor: Record<string, unknown> = {
     ...base,
     confidenceScore: pick.confidenceScore, // numerical score for advisor transparency
     isin: pick.isin,
     keyMetrics: {
-      cmp: km.cmp,
-      pe: km.pe,
+      ...baseKeyMetrics,
       returns1y: km.returns1y,
       returns3y: km.returns3y,
-      roic: km.roic,
-      rsi: km.rsi,
       volatility: km.volatility,
-      sector: km.sector,
-      broadSectorLabel: km.broadSectorLabel,
       marketCap: km.marketCap,
       analystRating: km.analystRating,
       rewardToRiskRatio: km.rewardToRiskRatio,
-      suggestedAllocation: km.suggestedAllocation,
-      // Derivative / REIT specific
-      strategy: km.strategy,
-      iv: km.iv,
-      lotSize: km.lotSize,
-      distributionYield: km.distributionYield,
       debtCoverageRatio: km.debtCoverageRatio,
     },
     // Regime context (set by pick engine from telemetry bus)
