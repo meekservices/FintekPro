@@ -623,6 +623,7 @@ const SECTOR_KEYWORD_MAP: Array<{ id: (typeof BROAD_SECTOR_UI)[number]["id"]; ke
 			"banking",
 			"finance",
 			"financial",
+			"banking & finance",
 			"insurance",
 			"nbfc",
 			"lending",
@@ -653,6 +654,7 @@ const SECTOR_KEYWORD_MAP: Array<{ id: (typeof BROAD_SECTOR_UI)[number]["id"]; ke
 			"pharmaceuticals",
 			"pharma",
 			"healthcare",
+			"healthcare & pharma",
 			"hospital",
 			"diagnostics",
 			"biotechnology",
@@ -666,18 +668,25 @@ const SECTOR_KEYWORD_MAP: Array<{ id: (typeof BROAD_SECTOR_UI)[number]["id"]; ke
 		keywords: [
 			"auto",
 			"automobile",
+			"auto & capital goods",
 			"infrastructure",
+			"infrastructure & construction",
 			"construction",
 			"capital goods",
 			"engineering",
+			"manufacturing",
+			"industrial",
+			"industrials",
 			"cement",
 			"metals",
+			"metals & mining",
 			"mining",
 			"power",
 			"energy",
+			"energy & utilities",
+			"utilities",
 			"oil",
 			"gas",
-			"utilities",
 			"invit",
 			"reit",
 			"real estate",
@@ -687,7 +696,9 @@ const SECTOR_KEYWORD_MAP: Array<{ id: (typeof BROAD_SECTOR_UI)[number]["id"]; ke
 		id: "fmcg_consumer",
 		keywords: [
 			"fmcg",
+			"fmcg & consumer",
 			"consumer",
+			"consumer goods & retail",
 			"retail",
 			"textiles",
 			"food",
@@ -700,6 +711,7 @@ const SECTOR_KEYWORD_MAP: Array<{ id: (typeof BROAD_SECTOR_UI)[number]["id"]; ke
 			"chemical",
 			"chemicals",
 			"petrochemical",
+			"services",
 		],
 	},
 ];
@@ -758,6 +770,14 @@ function groupByBroadSector(picks: DailyPick[]): SectorGroup[] {
 		if (items !== undefined && items.length > 0)
 			result.push({ sector: bs, picks: items });
 	}
+
+	// Safety: any items under non-standard keys are folded into ungrouped
+	for (const [key, items] of grouped.entries()) {
+		if (!BROAD_SECTOR_UI.some((bs) => bs.id === key)) {
+			ungrouped.push(...items);
+		}
+	}
+
 	if (ungrouped.length > 0) result.push({ sector: null, picks: ungrouped });
 	return result;
 }
