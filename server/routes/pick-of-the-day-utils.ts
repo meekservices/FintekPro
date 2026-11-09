@@ -629,26 +629,31 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 							pick.currentPrice = freshPrice;
 							pick.lastPriceUpdate = now.toISOString();
 
-							if (pick.recoPrice) {
-								const recoPrice = Number.parseFloat(pick.recoPrice);
-								if (recoPrice > 0) {
-									pick.returnPct = Number.parseFloat(
-										(((freshPrice - recoPrice) / recoPrice) * 100).toFixed(2),
-									);
-								}
+							const recoPrice = pick.recoPrice ? Number.parseFloat(pick.recoPrice) : 0;
+							const targetPrice = pick.targetPrice ? Number.parseFloat(pick.targetPrice) : 0;
+							const stoplossPrice = pick.stoplossPrice ? Number.parseFloat(pick.stoplossPrice) : 0;
+							const isCreditStrategy = (pick.keyMetrics as any)?.isCreditStrategy === true ||
+								(pick.category === "derivatives" && targetPrice < recoPrice && recoPrice > 0);
+
+							if (recoPrice > 0) {
+								pick.returnPct = Number.parseFloat(
+									isCreditStrategy
+										? (((recoPrice - freshPrice) / recoPrice) * 100).toFixed(2)
+										: (((freshPrice - recoPrice) / recoPrice) * 100).toFixed(2),
+								);
 							}
 
 							let newStatus = "live";
-							if (
-								pick.targetPrice &&
-								freshPrice >= Number.parseFloat(pick.targetPrice)
-							)
-								newStatus = "target_hit";
-							else if (
-								pick.stoplossPrice &&
-								freshPrice <= Number.parseFloat(pick.stoplossPrice)
-							)
-								newStatus = "stoploss_hit";
+							// On Day 0 for newly recommended positional picks, preserve live status unless expired
+							if ((pick.daysHeld ?? 0) > 0 || pick.timeHorizon === "intraday") {
+								if (isCreditStrategy) {
+									if (targetPrice > 0 && freshPrice <= targetPrice) newStatus = "target_hit";
+									else if (stoplossPrice > 0 && freshPrice >= stoplossPrice) newStatus = "stoploss_hit";
+								} else {
+									if (targetPrice > 0 && freshPrice >= targetPrice) newStatus = "target_hit";
+									else if (stoplossPrice > 0 && freshPrice <= stoplossPrice) newStatus = "stoploss_hit";
+								}
+							}
 							if (newStatus !== pick.status) pick.status = newStatus;
 
 							if (pick.id) {

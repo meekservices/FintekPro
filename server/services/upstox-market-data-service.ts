@@ -1553,9 +1553,23 @@ class UpstoxMarketDataService {
     const instrumentKey = await this.resolveInstrumentKey(symbolOrKey);
 
     return this._withRetry<UpstoxOptionChainItem[]>(async () => {
+      let resolvedExpiry = expiryDate;
+      if (!resolvedExpiry) {
+        // Upstox /option/chain requires expiry_date. If omitted, auto-fetch nearest active expiry from contracts.
+        try {
+          const contractsRes = await this.getOptionContracts(symbolOrKey);
+          if (contractsRes.success && contractsRes.data && contractsRes.data.length > 0) {
+            const expiries = Array.from(new Set(contractsRes.data.map((c) => c.expiry).filter(Boolean))).sort();
+            resolvedExpiry = expiries[0];
+          }
+        } catch {
+          // fallback to direct request
+        }
+      }
+
       const params: Record<string, string> = { instrument_key: instrumentKey };
-      if (expiryDate) {
-        params.expiry_date = expiryDate;
+      if (resolvedExpiry) {
+        params.expiry_date = resolvedExpiry;
       }
 
       const res = await this.client!.get("/option/chain", { params });

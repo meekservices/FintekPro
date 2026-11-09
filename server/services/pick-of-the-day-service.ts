@@ -548,19 +548,29 @@ export class PickOfTheDayService {
 					}
 
 					// ── Guardrail 1: Target Already Achieved Gate ──────────────────────
-					// Never publish a BUY recommendation if current market price is already at or above target
-					if (!isCreditStrategy && targetP > 0 && currentP >= targetP) {
+					// Never publish a recommendation if current price has already reached the profit target.
+					// For Longs: target achieved when currentPrice >= targetPrice.
+					// For Credit strategies: target achieved when currentPrice <= targetPrice.
+					const targetAchieved = isCreditStrategy
+						? (targetP > 0 && currentP <= targetP)
+						: (targetP > 0 && currentP >= targetP);
+					if (targetAchieved) {
 						logger.warn(
-							`[PickOfTheDay] Target already achieved or breached for ${pick.instrumentName} (LTP: ₹${currentP} >= Target: ₹${targetP}). Rejecting stale pick.`,
+							`[PickOfTheDay] Target already achieved or breached for ${pick.instrumentName} (LTP: ₹${currentP}, Target: ₹${targetP}, isCredit: ${isCreditStrategy}). Rejecting stale pick.`,
 							{ instrument: pick.instrumentName, currentPrice: currentP, targetPrice: targetP, category },
 						);
 						continue;
 					}
 
 					// ── Guardrail 2: Stop Loss Already Breached Gate ───────────────────
-					if (stoplossP > 0 && currentP <= stoplossP) {
+					// For Longs: SL breached when currentPrice drops to or below stoplossPrice.
+					// For Credit strategies: SL breached when currentPrice rises to or above stoplossPrice.
+					const slBreached = isCreditStrategy
+						? (stoplossP > 0 && currentP >= stoplossP)
+						: (stoplossP > 0 && currentP <= stoplossP);
+					if (slBreached) {
 						logger.warn(
-							`[PickOfTheDay] Current price has already breached stop loss for ${pick.instrumentName} (LTP: ₹${currentP} <= StopLoss: ₹${stoplossP}). Rejecting candidate.`,
+							`[PickOfTheDay] Current price has already breached stop loss for ${pick.instrumentName} (LTP: ₹${currentP}, StopLoss: ₹${stoplossP}, isCredit: ${isCreditStrategy}). Rejecting candidate.`,
 							{ instrument: pick.instrumentName, currentPrice: currentP, stoplossPrice: stoplossP, category },
 						);
 						continue;
