@@ -3528,17 +3528,23 @@ const ASSET_CLASS_CONFIG: Record<string, { label: string; icon: string; color: s
   international: { label: "International", icon: "🌍", color: "bg-cyan-600" },
 };
 
-const EQUITY_SUBCATEGORIES = ["Large Cap", "Mid Cap", "Small Cap", "Flexi Cap", "Multi Cap", "Momentum", "Value", "Dividend"];
+const EQUITY_SUBCATEGORIES = ["Large Cap", "Mid Cap", "Small Cap", "Flexi Cap", "Multi Cap", "Momentum", "Value", "Dividend", "Factor"];
 const DEBT_SUBCATEGORIES = ["Short Duration", "Long Duration", "Corporate Bond", "Liquid / Ultra Short", "Corporate Treasury", "Target Maturity", "Credit Risk"];
-const HYBRID_SUBCATEGORIES = ["All-Weather", "Balanced Advantage", "Dividend / Income", "Retirement", "Multi-Asset"];
+const HYBRID_SUBCATEGORIES = ["All-Weather", "Balanced Advantage", "Dividend / Income", "Retirement", "Multi-Asset", "Equity Savings"];
 const THEMATIC_SUBCATEGORIES = ["Thematic / Sectoral", "BFSI", "Healthcare & Pharma", "Infrastructure", "Manufacturing", "Green Energy", "Digital India", "Consumption India"];
 const GOAL_SUBCATEGORIES = ["Child Education", "Retirement", "Wedding / Life Event", "Home Purchase", "Emergency Fund", "Senior Citizen", "First Investment", "NRI"];
-const HNI_SUBCATEGORIES = ["Multi-Asset ₹50L", "Multi-Asset ₹1Cr", "Multi-Asset ₹10Cr", "Wealth Compounder"];
+const HNI_SUBCATEGORIES = [
+  "Multi-Asset ₹50L", "Multi-Asset ₹1Cr", "Multi-Asset ₹10Cr", "Wealth Compounder",
+  "Discretionary Equity PMS", "Discretionary Multi-Asset PMS",
+  "Category III Long/Short Multi-Asset AIF", "Category II Private Equity / Pre-IPO AIF", "Category II Private Credit AIF",
+  "Long-Short Equity (SIF)", "Dynamic Factor Arbitrage (SIF)", "Derivative Hedged (SIF)",
+];
 
 // ── Investor Segment Tiers & SEBI Compliance ──────────────────────────────────
 const SEGMENT_CONFIG: Record<string, { label: string; icon: string; gradient: string; badgeColor: string; desc: string; minLabel: string; tierKey: string }> = {
   all:       { label: "All Portfolios",         icon: "🗂️", gradient: "from-slate-600 to-slate-700",   badgeColor: "bg-slate-500",   desc: "Full catalogue",             minLabel: "All Regulated Tiers", tierKey: "all" },
   retail:    { label: "Retail Mutual Funds",    icon: "🏠", gradient: "from-blue-600 to-indigo-600",  badgeColor: "bg-blue-500",    desc: "SEBI MF Regs · Folio / IRIS", minLabel: "Min ₹5,000 / ₹500 SIP", tierKey: "retail_mf" },
+  sif:       { label: "Affluent SIF (New Asset)", icon: "⚡", gradient: "from-emerald-600 to-teal-600", badgeColor: "bg-emerald-500", desc: "SEBI SIF 2024 · Trustee Units", minLabel: "SEBI Min ₹10 Lakhs", tierKey: "affluent_sif" },
   hni:       { label: "HNI Multi-Asset PMS",    icon: "💼", gradient: "from-purple-600 to-violet-600", badgeColor: "bg-purple-500",  desc: "SEBI PMS Reg 23(2) · Upstox", minLabel: "SEBI Min ₹50 Lakhs", tierKey: "hni_pms" },
   ultra_hni: { label: "UHNI Multi-Asset AIF",   icon: "💎", gradient: "from-amber-500 to-orange-600",  badgeColor: "bg-amber-500",   desc: "SEBI AIF Reg 10(c) · Global", minLabel: "SEBI Min ₹1 Crore", tierKey: "uhni_aif" },
 };
@@ -3546,22 +3552,27 @@ const SEGMENT_CONFIG: Record<string, { label: string; icon: string; gradient: st
 /**
  * Categorizes a model portfolio into the appropriate statutory SEBI institutional tier:
  * - retail: Mutual Fund / ETF baskets (ticket size < ₹50L, SEBI MF Regs 1996)
+ * - sif: Specified Investment Fund / New Asset Class (statutory ticket >= ₹10L, SEBI MF Amendment Regs 2024)
  * - hni: Multi-Asset PMS (statutory ticket >= ₹50L, SEBI PMS Regs 2020 Reg 23(2))
  * - ultra_hni: Multi-Asset AIF (statutory commitment >= ₹1Cr, SEBI AIF Regs 2012 Reg 10(c))
  */
-function getSegment(p: { minInvestment?: number; assetClass?: string; portfolioTier?: string }): "retail" | "hni" | "ultra_hni" {
+function getSegment(p: { minInvestment?: number; assetClass?: string; portfolioTier?: string }): "retail" | "sif" | "hni" | "ultra_hni" {
   if (p.portfolioTier === "uhni_aif") return "ultra_hni";
   if (p.portfolioTier === "hni_pms") return "hni";
+  if (p.portfolioTier === "affluent_sif") return "sif";
   if (p.portfolioTier === "retail_mf") return "retail";
 
   const min = Number(p.minInvestment ?? 0);
   if (min >= 10_000_000) return "ultra_hni"; // ≥ ₹1 Cr (AIF statutory threshold)
   if (min >= 5_000_000)  return "hni";       // ≥ ₹50L (PMS statutory threshold)
+  if (min >= 1_000_000)  return "sif";       // ≥ ₹10L (SIF statutory threshold)
 
   const ac = (p.assetClass ?? "").toLowerCase();
   if (ac === "hni" || ac === "alternatives") {
     if (min >= 10_000_000) return "ultra_hni";
-    return "hni";
+    if (min >= 5_000_000)  return "hni";
+    if (min >= 1_000_000)  return "sif";
+    return "retail";
   }
   return "retail";
 }

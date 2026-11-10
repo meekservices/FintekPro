@@ -2969,7 +2969,7 @@ crypto_status VARCHAR,
           '[{"type":"small_cap","label":"Small Cap","weight":60,"color":"#7C3AED"},{"type":"mid_cap","label":"Mid Cap","weight":25,"color":"#0891B2"},{"type":"multi_cap","label":"Multi Cap Alpha","weight":10,"color":"#059669"},{"type":"liquid","label":"Liquid Buffer","weight":5,"color":"#6B7280"}]',
           '[{"name":"Nippon India Small Cap Fund","isin":"INF204K01GQ2","weight":20,"type":"equity"},{"name":"SBI Small Cap Fund","isin":"INF200K01T28","weight":18,"type":"equity"},{"name":"Quant Small Cap Fund","isin":"INF966L01AA0","weight":12,"type":"equity"},{"name":"HDFC Small Cap Fund","isin":"INF179KA1RZ8","weight":10,"type":"equity"},{"name":"Motilal Oswal Midcap Fund","isin":"INF247L01965","weight":15,"type":"equity"},{"name":"PGIM India Midcap Opp Fund","isin":"INF663L01CA3","weight":10,"type":"equity"},{"name":"Quant Active Fund","isin":"INF082J01275","weight":10,"type":"equity"},{"name":"SBI Liquid Fund","isin":"INF200K01MA1","weight":5,"type":"liquid"}]'
         )
-      ON CONFLICT (id) DO UPDATE SET is_published = TRUE;
+      ON CONFLICT (id) DO NOTHING;
     `);
 		console.log("✅ model_portfolios table created and seeded (engine audit Fix #6)");
 	} catch (mpErr: any) {

@@ -36,6 +36,7 @@ import { db } from "../db";
 import { modelPortfolios, modelPortfolioHoldings } from "@shared/schema";
 import { eq, sql, and } from "drizzle-orm";
 import { logger } from "../logger";
+import { resolveCanonicalPortfolio } from "../data/canonical-model-portfolios";
 
 export type PortfolioTier = "retail_mf" | "affluent_sif" | "hni_pms" | "uhni_aif";
 export type VehicleType = "MUTUAL_FUND" | "SIF_NEW_ASSET_CLASS" | "PMS_MULTI_ASSET" | "AIF_MULTI_ASSET";
@@ -910,7 +911,38 @@ const retailPortfolios = [
 export const allPortfoliosToSeed = [...retailPortfolios, ...affluentSifPortfolios, ...hniPmsPortfolios, ...uhniAifPortfolios];
 
 export function getInstitutionalPortfolioDefinition(id: string) {
-  return allPortfoliosToSeed.find((p) => p.id === id);
+  const fromLegacy = allPortfoliosToSeed.find((p) => p.id === id);
+  if (fromLegacy) return fromLegacy;
+  const canonical = resolveCanonicalPortfolio(id);
+  if (canonical) {
+    return {
+      id: canonical.id,
+      name: canonical.name,
+      tagline: canonical.tagline,
+      riskProfile: canonical.riskProfile,
+      assetClass: canonical.assetClass,
+      subCategory: canonical.subCategory,
+      minInvestment: String(canonical.minInvestment),
+      timeHorizon: canonical.timeHorizon,
+      benchmarkName: canonical.benchmarkName,
+      portfolioTier: canonical.portfolioTier,
+      vehicleType: canonical.vehicleType,
+      sebiRegulatoryRegime: SEBI_TIER_CONFIGS[canonical.portfolioTier]?.sebiRegulatoryRegime ?? "SEBI Regulated",
+      sebiRegulationRef: SEBI_TIER_CONFIGS[canonical.portfolioTier]?.sebiRegulationRef ?? "SEBI Regs",
+      statutoryMinInvestment: String(canonical.statutoryMinInvestment),
+      executionRoute: SEBI_TIER_CONFIGS[canonical.portfolioTier]?.executionRoute ?? "iris",
+      custodyStructure: SEBI_TIER_CONFIGS[canonical.portfolioTier]?.custodyStructure ?? "DIRECT_AMC_FOLIO",
+      allowedAssetClasses: SEBI_TIER_CONFIGS[canonical.portfolioTier]?.allowedAssetClasses ?? [],
+      accreditationRequired: SEBI_TIER_CONFIGS[canonical.portfolioTier]?.accreditationRequired ?? false,
+      lockInPeriodMonths: SEBI_TIER_CONFIGS[canonical.portfolioTier]?.lockInPeriodMonths ?? 0,
+      portfolioCode: canonical.portfolioCode,
+      highlight: canonical.highlight,
+      icon: canonical.icon,
+      allocation: canonical.allocation,
+      holdings: canonical.holdings,
+    };
+  }
+  return undefined;
 }
 
 /**

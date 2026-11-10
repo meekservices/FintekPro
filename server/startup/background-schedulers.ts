@@ -1323,6 +1323,24 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			console.log("[PortfolioIntel] 🧠 Portfolio Intelligence Engine active (daily regime + weekly momentum + calendar rebalance + drift refresh + NAV history + nightly quant scorer + 15m algo sweep)");
 		});
 
+		// ── Phase 5f: Autonomous Quant Retraining Pipeline (Self-Learning SOP) ───
+		runStartupTask("Quant Retraining Scheduler", async () => {
+			try {
+				const { quantRetrainingScheduler } = await import(
+					"../services/quant/quant-retraining-scheduler"
+				);
+				quantRetrainingScheduler.start();
+				console.log(
+					"[QuantRetrain] 🤖 Autonomous Quant Retraining Scheduler active (MVO + Covariance + Black-Litterman + Drift Model)",
+				);
+			} catch (qErr: any) {
+				console.warn(
+					"[QuantRetrain] Failed to start quant retraining scheduler (non-fatal):",
+					qErr?.message,
+				);
+			}
+		});
+
 		// ── Phase 6: Audit & Compliance Cleanup ──────────────────────────────────
 		runStartupTask(
 			"Unlisted Regulatory Audit Cleanup",

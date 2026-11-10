@@ -69,8 +69,17 @@ import {
 } from "../services/model-portfolio-tier-service";
 import { checkRiskBudget } from "../services/portfolio-risk-guard";
 import { portfolioBacktestService } from "../services/portfolio-backtest-service";
+import { PORTFOLIO_ID_ALIASES } from "../data/canonical-model-portfolios";
 
 export const modelPortfoliosRouter = Router();
+
+// Automatic backward-compatible alias resolution for legacy portfolio slugs
+modelPortfoliosRouter.param("id", (req, _res, next, id) => {
+  if (id && PORTFOLIO_ID_ALIASES[id]) {
+    req.params.id = PORTFOLIO_ID_ALIASES[id];
+  }
+  next();
+});
 
 const ENGINE_VERSION = "FASP-AI-v3.0"; // Fix 5: mandatory version per FASP-AI v3.0
 

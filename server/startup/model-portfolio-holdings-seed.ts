@@ -19,8 +19,9 @@
  */
 import { db } from '../db';
 import { modelPortfolios } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { getInstrument } from '../data/instrument-registry';
+import { ALL_CANONICAL_PORTFOLIOS, DEPRECATED_PORTFOLIO_IDS } from '../data/canonical-model-portfolios';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // INSTRUMENT REGISTRY is now in server/data/instrument-registry.ts
@@ -1124,49 +1125,108 @@ const PORTFOLIO_HOLDINGS_SEED: Record<string, object[]> = Object.fromEntries(
 );
 
 /**
- * Seeds holdings for all model portfolios where the DB has fewer holdings than
- * the enriched static data. Safe to run multiple times — only updates if DB count
- * < static count (idempotent).
+ * Consolidated Model Portfolio Holdings & Metadata Seed (FASP-AI v3.1 / GCR v1.0).
+ *
+ * Ensures all 40 canonical model portfolios exist with enriched AMFI Regular-Plan holdings
+ * and statutory SEBI tiering (Retail MF, SIF ₹10L, PMS ₹50L, AIF ₹1Cr).
+ * Automatically unpublishes legacy duplicate slugs.
  */
 export async function seedModelPortfolioHoldings(): Promise<void> {
+  let created = 0;
   let updated = 0;
-  let skipped = 0;
   let errors  = 0;
 
-  // Log coverage stats at startup
-  const totalHoldings = Object.values(PORTFOLIO_HOLDINGS_SEED)
-    .flatMap(h => h as any[]).length;
-  const withSchemeCode = Object.values(PORTFOLIO_HOLDINGS_SEED)
-    .flatMap(h => h as any[])
-    .filter((h: any) => h.schemeCode != null).length;
-  console.log(
-    `[Holdings Seed] ${totalHoldings} holdings across ${Object.keys(PORTFOLIO_HOLDINGS_SEED).length} portfolios | ` +
-    `AMFI schemeCode coverage: ${withSchemeCode}/${totalHoldings} (${Math.round(100*withSchemeCode/totalHoldings)}%)`
-  );
+  console.log(`[Canonical Seed] Ensuring all ${ALL_CANONICAL_PORTFOLIOS.length} canonical portfolios with regular-plan AMFI holdings...`);
 
-  for (const [portfolioId, holdings] of Object.entries(PORTFOLIO_HOLDINGS_SEED)) {
+  for (const p of ALL_CANONICAL_PORTFOLIOS) {
     try {
-      const rows = await db.select({ id: modelPortfolios.id, holdings: modelPortfolios.holdings })
+      const rows = await db.select({ id: modelPortfolios.id, totalHoldings: modelPortfolios.totalHoldings })
         .from(modelPortfolios)
-        .where(eq(modelPortfolios.id, portfolioId))
+        .where(eq(modelPortfolios.id, p.id))
         .limit(1);
 
-      if (!rows[0]) { skipped++; continue; }
-
-      const current = Array.isArray(rows[0].holdings) ? rows[0].holdings : [];
-      if (current.length >= holdings.length) { skipped++; continue; }
-
-      await db.update(modelPortfolios)
-        .set({ holdings: holdings as any, updatedAt: new Date() })
-        .where(eq(modelPortfolios.id, portfolioId));
-
-      console.log(`  ✅ [Holdings Seed] ${portfolioId}: ${holdings.length} holdings (was ${current.length})`);
-      updated++;
+      if (!rows[0]) {
+        // Insert new canonical portfolio
+        await db.insert(modelPortfolios).values({
+          id: p.id,
+          portfolioCode: p.portfolioCode,
+          name: p.name,
+          tagline: p.tagline,
+          riskProfile: p.riskProfile,
+          assetClass: p.assetClass,
+          subCategory: p.subCategory,
+          portfolioTier: p.portfolioTier,
+          vehicleType: p.vehicleType,
+          statutoryMinInvestment: String(p.statutoryMinInvestment),
+          minInvestment: String(p.minInvestment),
+          timeHorizon: p.timeHorizon,
+          benchmarkName: p.benchmarkName,
+          benchmarkSchemeCode: p.benchmarkSchemeCode ?? null,
+          rebalancingFrequency: p.rebalancingFrequency,
+          rebalancingMode: p.rebalancingMode,
+          highlight: p.highlight,
+          icon: p.icon,
+          isPublished: true,
+          isFeatured: p.isFeatured,
+          isNew: p.isNew ?? false,
+          goals: p.goals as any,
+          allocation: p.allocation as any,
+          holdings: p.holdings as any,
+          totalHoldings: p.totalHoldings,
+          source: "canonical_seed",
+        });
+        created++;
+        console.log(`  ➕ [Canonical Seed] Created ${p.portfolioCode} | ${p.id} (${p.totalHoldings} holdings)`);
+      } else {
+        // Update existing portfolio to canonical holdings and SEBI tiering
+        await db.update(modelPortfolios)
+          .set({
+            portfolioCode: p.portfolioCode,
+            name: p.name,
+            tagline: p.tagline,
+            riskProfile: p.riskProfile,
+            assetClass: p.assetClass,
+            subCategory: p.subCategory,
+            portfolioTier: p.portfolioTier,
+            vehicleType: p.vehicleType,
+            statutoryMinInvestment: String(p.statutoryMinInvestment),
+            minInvestment: String(p.minInvestment),
+            timeHorizon: p.timeHorizon,
+            benchmarkName: p.benchmarkName,
+            benchmarkSchemeCode: p.benchmarkSchemeCode ?? null,
+            rebalancingFrequency: p.rebalancingFrequency,
+            rebalancingMode: p.rebalancingMode,
+            highlight: p.highlight,
+            icon: p.icon,
+            isPublished: true,
+            isFeatured: p.isFeatured,
+            isNew: p.isNew ?? false,
+            goals: p.goals as any,
+            allocation: p.allocation as any,
+            holdings: p.holdings as any,
+            totalHoldings: p.totalHoldings,
+            updatedAt: new Date(),
+          })
+          .where(eq(modelPortfolios.id, p.id));
+        updated++;
+      }
     } catch (err: unknown) {
-      console.warn(`  ⚠️  [Holdings Seed] ${portfolioId} failed:`, err instanceof Error ? err.message : String(err));
+      console.warn(`  ⚠️  [Canonical Seed] Failed ${p.id}:`, err instanceof Error ? err.message : String(err));
       errors++;
     }
   }
 
-  console.log(`[Holdings Seed] Complete — updated: ${updated}, skipped: ${skipped}, errors: ${errors}`);
+  // Deprecate legacy duplicate slugs to hide them from the active catalogue
+  try {
+    if (DEPRECATED_PORTFOLIO_IDS.length > 0) {
+      const depResult = await db.update(modelPortfolios)
+        .set({ isPublished: false, updatedAt: new Date() })
+        .where(inArray(modelPortfolios.id, DEPRECATED_PORTFOLIO_IDS));
+      console.log(`  🗑️  [Canonical Seed] Unpublished ${DEPRECATED_PORTFOLIO_IDS.length} legacy duplicate portfolio slugs.`);
+    }
+  } catch (depErr: any) {
+    console.warn("  ⚠️  [Canonical Seed] Failed to unpublish deprecated slugs:", depErr?.message);
+  }
+
+  console.log(`[Canonical Seed] Complete — Created: ${created}, Updated: ${updated}, Errors: ${errors}`);
 }
