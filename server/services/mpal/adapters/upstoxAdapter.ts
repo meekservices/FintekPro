@@ -37,6 +37,8 @@ export class UpstoxAdapter extends BaseBroker {
   public readonly capabilities: readonly BrokerCapability[] = [
     "EQUITY_IN",
     "FNO",
+    "BOND",
+    "SGB",
   ];
 
   private _client: AxiosInstance | null = null;
@@ -194,7 +196,9 @@ export class UpstoxAdapter extends BaseBroker {
     const transactionType = order.side.toUpperCase() as "BUY" | "SELL";
     const orderType = order.type === "market" ? "MARKET" : "LIMIT";
     const price = orderType === "MARKET" ? 0 : (order.limitPrice ?? 0);
-    const product = (order.meta?.product as string) || "D"; // 'D' = Delivery, 'I' = Intraday
+    // G-Secs, T-Bills, Bonds, and SGBs strictly require Delivery ("D") on Indian exchanges
+    const isDebt = order.assetClass === "BOND" || order.assetClass === "SGB" || Boolean(order.meta?.isDebt);
+    const product = isDebt ? "D" : ((order.meta?.product as string) || "D"); // 'D' = Delivery, 'I' = Intraday
     const validity = order.timeInForce === "ioc" ? "IOC" : "DAY";
 
     // Dynamic resolution of symbol to official Upstox instrument token: NSE_EQ|{ISIN}
@@ -202,7 +206,8 @@ export class UpstoxAdapter extends BaseBroker {
     const isinOrSym = await upstoxMarketDataService.resolveInstrumentKey(order.symbol, exchange);
     const internalTag = order.idempotencyKey || `fp-${Date.now()}`;
 
-    const payload = {
+    const isV3 = order.meta?.apiVersion === "v3" || order.meta?.useV3 === true;
+    const payload: Record<string, unknown> = {
       quantity: qty,
       product,
       validity,
@@ -213,8 +218,12 @@ export class UpstoxAdapter extends BaseBroker {
       transaction_type: transactionType,
       disclosed_quantity: 0,
       trigger_price: order.stopPrice ?? 0,
-      is_amo: false,
+      is_amo: Boolean(order.meta?.isAmo),
     };
+
+    if (isV3 && order.meta?.slice !== undefined) {
+      payload.slice = Boolean(order.meta.slice);
+    }
 
     const customToken =
       (order.meta?.userToken as string) ||
@@ -223,12 +232,14 @@ export class UpstoxAdapter extends BaseBroker {
 
     const activeClient = this.getClient(customToken);
 
+    const auditProductType = isDebt ? (order.assetClass === "SGB" ? "sgb" : "bond") : "equity";
+
     // SEBI Immutable Pre-Order Audit Hook
     await orderAuditHook.logOrderEvent({
       userId: order.userId || "system",
       userRole: "client",
       orderId: internalTag,
-      productType: "equity",
+      productType: auditProductType as any,
       action: "PLACED",
       newState: {
         symbol: order.symbol,
@@ -239,6 +250,7 @@ export class UpstoxAdapter extends BaseBroker {
         price,
         product,
         exchange,
+        apiVersion: isV3 ? "v3" : "v2",
       },
       channel: (order.meta?.channel as any) || "web",
       additionalMetadata: {
@@ -257,10 +269,13 @@ export class UpstoxAdapter extends BaseBroker {
       is_sandbox: this.isSandbox(),
       user_id: order.userId,
       is_custom_token: Boolean(customToken),
+      is_v3: isV3,
     });
 
     try {
-      const endpoint = "/order/place";
+      const endpoint = isV3 && !this.isSandbox()
+        ? "https://api.upstox.com/v3/order/place"
+        : "/order/place";
       const resp = await activeClient.post(endpoint, payload);
       const resData = resp.data?.data;
       const orderId = resData?.order_id || resData?.order_ids?.[0] || `UP-${Date.now()}`;
@@ -270,7 +285,7 @@ export class UpstoxAdapter extends BaseBroker {
         userId: order.userId || "system",
         userRole: "client",
         orderId: internalTag,
-        productType: "equity",
+        productType: auditProductType as any,
         action: "CONFIRMED",
         newState: {
           brokerOrderId: orderId,
@@ -304,7 +319,7 @@ export class UpstoxAdapter extends BaseBroker {
         userId: order.userId || "system",
         userRole: "client",
         orderId: internalTag,
-        productType: "equity",
+        productType: auditProductType as any,
         action: "REJECTED",
         newState: {
           errorCode: String(errCode),

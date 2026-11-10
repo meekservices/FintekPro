@@ -766,7 +766,7 @@ export default function LandingPage() {
 							Institutional Trust & Infrastructure
 						</h2>
 						<p className="text-lg text-muted-foreground">
-							FintekPro Financial Services LLP powers modern wealth creation
+							FINTEKPRO FINANCIAL SERVICES LLP powers modern wealth creation
 							with bank-grade depository integrations and rigorous regulatory alignment.
 						</p>
 					</div>
@@ -881,7 +881,7 @@ export default function LandingPage() {
 								</span>
 							</div>
 							<p className="text-sm text-muted-foreground max-w-sm">
-								FintekPro Financial Services LLP. Empowering the next generation
+								FINTEKPRO FINANCIAL SERVICES LLP. Empowering the next generation
 								of investors with institutional-grade technology, transparent
 								pricing, and SEBI-aligned decision intelligence.
 							</p>
@@ -954,7 +954,7 @@ export default function LandingPage() {
 						</div>
 					</div>
 					<div className="pt-8 border-t border-border/50 text-center text-xs text-muted-foreground">
-						© {new Date().getFullYear()} FintekPro Financial Services LLP. All
+						© {new Date().getFullYear()} FINTEKPRO FINANCIAL SERVICES LLP. All
 						rights reserved.
 					</div>
 				</div>

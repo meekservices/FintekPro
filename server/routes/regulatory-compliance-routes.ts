@@ -85,12 +85,13 @@ router.post(
 router.get("/compliance/info", (_req: Request, res: Response): void => {
 	res.json({
 		intermediary: {
-			name: "Fintekpro Financial Services LLP",
+			name: process.env.FIRM_NAME || "FINTEKPRO FINANCIAL SERVICES LLP",
 			type: "AMFI Registered Mutual Fund Distributor",
 			registrations: {
 				amfi: process.env.AMFI_ARN || "Pending",
 				sebi: process.env.SEBI_REG_NO || "Pending",
 				gstin: process.env.COMPANY_GSTIN || "Pending",
+				pan: process.env.FIRM_PAN || "ABYFM7655C",
 			},
 		},
 		grievanceOfficer: {

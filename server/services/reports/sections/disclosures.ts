@@ -62,7 +62,7 @@ export function generateDisclosures(reportDate: Date): DisclosureData {
 }
 
 export function getDisclosureFooter(): string {
-	return "This report is confidential and intended solely for the addressee. Unauthorized use, disclosure, or copying is prohibited. © FintekPro Financial Services. SEBI Registered Investment Adviser.";
+	return "This report is confidential and intended solely for the addressee. Unauthorized use, disclosure, or copying is prohibited. © FINTEKPRO FINANCIAL SERVICES LLP. SEBI Registered Investment Adviser.";
 }
 
 export default generateDisclosures;

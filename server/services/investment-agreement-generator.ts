@@ -627,8 +627,8 @@ class InvestmentAgreementGenerator {
 
   <div class="footer">
     <p>
-      <strong>FintekPro Financial Services</strong><br>
-      SEBI Registered Investment Adviser | CIN: UXXXXX2024PLCXXXXXX<br>
+      <strong>FINTEKPRO FINANCIAL SERVICES LLP</strong><br>
+      SEBI Registered Investment Adviser | PAN: ABYFM7655C<br>
       Document generated on ${this.formatDate(new Date())} | Version ${version}<br>
       Document Hash: ${this.createDocumentHash(proposal.id + version)}
     </p>

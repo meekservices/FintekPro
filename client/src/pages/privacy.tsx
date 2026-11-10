@@ -525,7 +525,7 @@ export default function PrivacyPolicy() {
 											<br />
 											<strong>Email:</strong> support@fintekpro.com
 											<br />
-											<strong>Address:</strong> FintekPro Financial Services
+											<strong>Address:</strong> FINTEKPRO FINANCIAL SERVICES
 											LLP, Mumbai, Maharashtra, India
 											<br />
 											<strong>Response Time:</strong> Acknowledgment within 48

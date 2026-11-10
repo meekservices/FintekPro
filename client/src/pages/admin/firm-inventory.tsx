@@ -306,7 +306,7 @@ export default function AdminFirmInventory() {
 				<div>
 					<h1 className="text-2xl font-bold">Firm Inventory — DP Holdings</h1>
 					<p className="text-sm text-muted-foreground">
-						Fintekpro Financial Services LLP · Zoho Books two-way sync
+						FINTEKPRO FINANCIAL SERVICES LLP · Zoho Books two-way sync
 					</p>
 				</div>
 				<div className="flex gap-2">

@@ -610,7 +610,7 @@ export class AgentProposalTransactionLifecycle {
 			executionStatus: order.executionStatus,
 			executedAt: order.executedAt?.toISOString() || now.toISOString(),
 			engineVersion: this.engineVersion,
-			fintekproPlatform: "FintekPro Financial Services LLP",
+			fintekproPlatform: process.env.FIRM_NAME || "FINTEKPRO FINANCIAL SERVICES LLP",
 		};
 
 		const auditHash = this.generateSebiAuditHash(auditPayload);
@@ -828,7 +828,7 @@ export class AgentProposalTransactionLifecycle {
 				sebi: meta.sebiAuditSync,
 			},
 			fintekproProvenance: {
-				platform: "FintekPro Financial Services LLP",
+				platform: process.env.FIRM_NAME || "FINTEKPRO FINANCIAL SERVICES LLP",
 				engineVersion: this.engineVersion,
 				calculationTimestamp: new Date().toISOString(),
 			},

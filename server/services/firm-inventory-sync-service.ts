@@ -1,8 +1,9 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 /**
  * Firm Inventory Sync Service
  *
- * Treats Fintekpro Financial Services LLP's DP holdings as Zoho Books inventory.
+ * Treats FINTEKPRO FINANCIAL SERVICES LLP's DP holdings as Zoho Books inventory.
  * Every buy/sell at the firm level auto-creates a Bill/Invoice in Zoho Books.
  * Inbound Zoho Books webhook events create firm_transactions records here.
  *
@@ -19,7 +20,8 @@ import { eq, and, sql, desc } from "drizzle-orm";
 import { getZohoBooksService } from "../zoho/services/books";
 
 const FIRM_PARTNER_ID = "platform-partner-001";
-const FIRM_NAME = "Fintekpro Financial Services LLP";
+const FIRM_NAME = process.env.FIRM_NAME || "FINTEKPRO FINANCIAL SERVICES LLP";
+const FIRM_PAN = process.env.FIRM_PAN || "ABYFM7655C";
 const FIRM_EMAIL = "meekservices@gmail.com";
 
 export interface FirmTxInput {

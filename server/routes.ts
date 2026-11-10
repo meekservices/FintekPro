@@ -86,6 +86,7 @@ import liveMFDataRouter from "./routes/live-mf-data-routes";
 import marketIntelligenceRouter from "./routes/market-intelligence-routes";
 import treasuryCopilotRoutes from "./routes/treasury-copilot-routes";
 import treasuryRoutes from "./routes/treasury-routes";
+import { upstoxTreasuryOrderRouter } from "./routes/upstox-treasury-order-routes";
 import versionRouter from "./routes/version";
 import { registerBankingRoutes } from "./routes/banking";
 import prospectWizardRoutes1 from "./routes/agent-prospect-wizard-1";
@@ -416,6 +417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	app.use("/api/ai-investment", aiInvestmentRoutes);
 	app.use("/api/ai/copilot", treasuryCopilotRoutes);
 	app.use("/api/treasury", treasuryRoutes);
+	app.use("/api/treasury/secondary-market/orders", upstoxTreasuryOrderRouter);
 	app.use("/api/engine-health", engineHealthRoutes); // matches UI calls: /api/engine-health/run, /registry, /gemini-deep-audit
 	app.use("/api/engine", engineHealthRoutes); // backward-compat alias
 	app.use("/api/engine-learning", engineLearningRoutes); // Continuous Learning & Autonomous Self-Improvement

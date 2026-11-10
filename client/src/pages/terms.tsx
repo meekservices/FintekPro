@@ -93,7 +93,7 @@ export default function TermsOfService() {
 								<p className="text-muted-foreground">
 									If you do not agree to these terms, please do not use our
 									services. These terms constitute a legally binding agreement
-									between you and FintekPro Financial Services LLP.
+									between you and FINTEKPRO FINANCIAL SERVICES LLP.
 								</p>
 							</CardContent>
 						</Card>

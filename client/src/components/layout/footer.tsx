@@ -481,7 +481,7 @@ export function Footer() {
 					</div>
 					<div className="text-center text-muted-foreground text-sm">
 						<p data-testid="footer-copyright">
-							&copy; 2026 FintekPro Financial Services LLP All rights reserved.
+							&copy; 2026 FINTEKPRO FINANCIAL SERVICES LLP. All rights reserved.
 							| SEBI Registered Investment Advisor | AMFI Registered Mutual Fund
 							Distributor
 						</p>
