@@ -103,8 +103,20 @@ const router = Router();
 
 router.get("/today", async (req, res) => {
 	try {
-		let rawPicks = await pickOfTheDayService.getTodaysPicks();
+		const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+		const todayIST = new Date(Date.now() + IST_OFFSET_MS)
+			.toISOString()
+			.split("T")[0];
+		const isMarketSessionDay =
+			marketHolidayService.isTradingDay(todayIST, "NSE") ||
+			marketHolidayService.hasSpecialSession(todayIST, "NSE");
+
+		let rawPicks: any[] = [];
 		let isFallback = false;
+
+		if (isMarketSessionDay) {
+			rawPicks = await pickOfTheDayService.getTodaysPicks();
+		}
 
 		if (rawPicks.length === 0) {
 			rawPicks = await pickOfTheDayService.getMostRecentPicks();
@@ -153,14 +165,9 @@ router.get("/today", async (req, res) => {
 		const fallbackDate =
 			isFallback && picks.length > 0 ? picks[0].recoDate : undefined;
 
-		const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-		const todayIST = new Date(Date.now() + IST_OFFSET_MS)
-			.toISOString()
-			.split("T")[0];
 		const isMarketTradingDay = marketHolidayService.isTradingDay(todayIST, "NSE");
 		const specialSession = marketHolidayService.getSpecialSession(todayIST, "NSE");
 		const hasSpecialSession = !!specialSession;
-		const isMarketSessionDay = isMarketTradingDay || hasSpecialSession;
 		const nseStatus = marketHolidayService.getMarketStatus("NSE");
 
 		// Fetch latest Macro Regime Snapshot for HUD
@@ -748,7 +755,7 @@ router.post("/admin/force-generate", requireAdmin, async (req, res) => {
 		}
 
 		// Run generation (bypasses holiday guard — admin's intent is explicit)
-		await pickOfTheDayService.generateDailyPicks();
+		await pickOfTheDayService.generateDailyPicks({ bypassHolidayGuard: true });
 
 		// Count what was created
 		const [result] = await db

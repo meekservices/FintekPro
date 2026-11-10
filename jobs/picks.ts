@@ -43,6 +43,36 @@ async function run(): Promise<void> {
 	});
 
 	try {
+		// Enforce market holiday guard rail: Cloud Run Job scheduled daily Mon-Fri at 8:45 AM IST
+		// must strictly skip candidate generation and push broadcasts on exchange holidays
+		const { marketHolidayService } = await import(
+			"../server/services/market-holiday-service"
+		);
+		const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+		const todayIST = new Date(Date.now() + IST_OFFSET_MS)
+			.toISOString()
+			.split("T")[0];
+
+		const isTradingDay = marketHolidayService.isTradingDay(todayIST, "NSE");
+		const hasSpecialSession = marketHolidayService.hasSpecialSession(todayIST, "NSE");
+
+		if (!isTradingDay && !hasSpecialSession) {
+			const holiday = marketHolidayService.getHoliday(todayIST, "NSE");
+			const reason = holiday ? `Market Holiday: ${holiday.name}` : "Weekend / Closed Session";
+			logger.info(
+				`[${JOB_NAME}] Skipping pick generation — today (${todayIST}) is not an NSE trading or special session day (${reason}). Exiting cleanly.`,
+				{
+					event: "JOB_SKIPPED_HOLIDAY",
+					job_name: JOB_NAME,
+					date: todayIST,
+					reason,
+					holiday_name: holiday?.name,
+					status: "skipped",
+				},
+			);
+			process.exit(0);
+		}
+
 		// Pre-warm Pro Thematic Screener synergy map before generating picks (0ms cache lookup)
 		try {
 			const { proThematicScreenerService } = await import(

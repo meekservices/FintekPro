@@ -344,17 +344,11 @@ class MarketHolidayService {
 				type: "full",
 			},
 
-			// 2026 NSE/BSE Holidays (Tentative based on patterns)
+			// 2026 Official NSE/BSE Trading Holidays (NSE Circular Ref: 172/2025, Ref No: NSE/CMTR/71775)
 			{
 				date: "2026-01-26",
 				name: "Republic Day",
 				exchanges: ["NSE", "BSE", "MCX", "NCDEX"],
-				type: "full",
-			},
-			{
-				date: "2026-02-17",
-				name: "Mahashivratri",
-				exchanges: ["NSE", "BSE"],
 				type: "full",
 			},
 			{
@@ -364,14 +358,14 @@ class MarketHolidayService {
 				type: "full",
 			},
 			{
-				date: "2026-03-20",
-				name: "Id-Ul-Fitr (Ramadan Eid)",
+				date: "2026-03-26",
+				name: "Shri Ram Navami",
 				exchanges: ["NSE", "BSE"],
 				type: "full",
 			},
 			{
-				date: "2026-03-30",
-				name: "Mahavir Jayanti",
+				date: "2026-03-31",
+				name: "Shri Mahavir Jayanti",
 				exchanges: ["NSE", "BSE"],
 				type: "full",
 			},
@@ -383,37 +377,31 @@ class MarketHolidayService {
 			},
 			{
 				date: "2026-04-14",
-				name: "Dr. Ambedkar Jayanti",
+				name: "Dr. Baba Saheb Ambedkar Jayanti",
 				exchanges: ["NSE", "BSE"],
 				type: "full",
 			},
 			{
 				date: "2026-05-01",
-				name: "Maharashtra Day / Buddha Purnima",
+				name: "Maharashtra Day",
 				exchanges: ["NSE", "BSE"],
 				type: "full",
 			},
 			{
-				date: "2026-05-27",
-				name: "Bakrid / Eid ul-Adha",
+				date: "2026-05-28",
+				name: "Bakri Id",
 				exchanges: ["NSE", "BSE", "MCX", "NCDEX"],
 				type: "full",
 			},
 			{
-				date: "2026-06-17",
+				date: "2026-06-26",
 				name: "Muharram",
 				exchanges: ["NSE", "BSE"],
 				type: "full",
 			},
 			{
-				date: "2026-08-15",
-				name: "Independence Day",
-				exchanges: ["NSE", "BSE", "MCX", "NCDEX"],
-				type: "full",
-			},
-			{
-				date: "2026-08-25",
-				name: "Milad-un-Nabi",
+				date: "2026-09-14",
+				name: "Ganesh Chaturthi",
 				exchanges: ["NSE", "BSE"],
 				type: "full",
 			},
@@ -441,14 +429,14 @@ class MarketHolidayService {
 				},
 			},
 			{
-				date: "2026-11-09",
+				date: "2026-11-10",
 				name: "Diwali Balipratipada",
 				exchanges: ["NSE", "BSE"],
 				type: "full",
 			},
 			{
-				date: "2026-11-25",
-				name: "Guru Nanak Jayanti",
+				date: "2026-11-24",
+				name: "Prakash Gurpurb Sri Guru Nanak Dev",
 				exchanges: ["NSE", "BSE"],
 				type: "full",
 			},
@@ -626,6 +614,18 @@ class MarketHolidayService {
 			},
 			{ date: "2026-03-03", name: "Holi", regions: ["IN"], type: "national" },
 			{
+				date: "2026-03-26",
+				name: "Shri Ram Navami",
+				regions: ["IN"],
+				type: "national",
+			},
+			{
+				date: "2026-03-31",
+				name: "Shri Mahavir Jayanti",
+				regions: ["IN"],
+				type: "national",
+			},
+			{
 				date: "2026-04-03",
 				name: "Good Friday",
 				regions: ["IN"],
@@ -638,10 +638,34 @@ class MarketHolidayService {
 				type: "national",
 			},
 			{
+				date: "2026-05-01",
+				name: "Maharashtra Day",
+				regions: ["IN"],
+				type: "state",
+			},
+			{
+				date: "2026-05-28",
+				name: "Bakri Id",
+				regions: ["IN"],
+				type: "national",
+			},
+			{
+				date: "2026-06-26",
+				name: "Muharram",
+				regions: ["IN"],
+				type: "national",
+			},
+			{
 				date: "2026-08-15",
 				name: "Independence Day",
 				regions: ["IN"],
 				type: "national",
+			},
+			{
+				date: "2026-09-14",
+				name: "Ganesh Chaturthi",
+				regions: ["IN"],
+				type: "state",
 			},
 			{
 				date: "2026-10-02",
@@ -650,7 +674,19 @@ class MarketHolidayService {
 				type: "national",
 			},
 			{
-				date: "2026-11-25",
+				date: "2026-10-20",
+				name: "Dussehra",
+				regions: ["IN"],
+				type: "national",
+			},
+			{
+				date: "2026-11-10",
+				name: "Diwali Balipratipada",
+				regions: ["IN"],
+				type: "national",
+			},
+			{
+				date: "2026-11-24",
 				name: "Guru Nanak Jayanti",
 				regions: ["IN"],
 				type: "national",
@@ -1362,8 +1398,13 @@ class MarketHolidayService {
 
 	getMarketStatus(
 		exchange: "NSE" | "BSE" | "MCX" | "NCDEX" = "NSE",
+		asOf?: Date | string,
 	): MarketStatus {
-		const now = new Date();
+		const now = asOf
+			? typeof asOf === "string"
+				? new Date(asOf.includes("T") ? asOf : `${asOf}T10:00:00Z`)
+				: asOf
+			: new Date();
 		const istTime = new Date(
 			now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
 		);

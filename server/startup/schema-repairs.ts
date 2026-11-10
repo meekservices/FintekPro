@@ -2683,6 +2683,22 @@ crypto_status VARCHAR,
 		console.warn("[Migration] daily_picks backfill skipped (non-fatal):", picksErr?.message);
 	}
 
+	// ── Market Holiday Picks Integrity Clean-up ──────────────────────────────
+	// Inactivates/cancels picks erroneously generated on full market holidays (e.g. 2026-11-10 Diwali Balipratipada)
+	try {
+		const { db: migDbHol } = await import("../db");
+		const { sql: migSqlHol } = await import("drizzle-orm");
+		await migDbHol.execute(migSqlHol`
+			UPDATE daily_picks
+			SET    status = 'cancelled'
+			WHERE  reco_date = '2026-11-10'
+			  AND  status = 'live';
+		`);
+		console.log("✅ daily_picks holiday cleanup complete (cancelled picks on 2026-11-10 Diwali Balipratipada)");
+	} catch (holErr: any) {
+		console.warn("[Migration] daily_picks holiday cleanup skipped (non-fatal):", holErr?.message);
+	}
+
 	// ── Engine Audit Fix #6 — 2026-06-27: model_portfolios table + seed ──────
 	// Creates the model_portfolios table (replacing static frontend data) and
 	// seeds 5 representative portfolios. INSERT ON CONFLICT DO NOTHING ensures

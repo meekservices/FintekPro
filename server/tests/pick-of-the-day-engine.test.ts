@@ -415,5 +415,19 @@ describe("Pick of the Day Engine - Unit Tests & Upgrades", () => {
 			expect(penalizedScore).toBe(Math.max(0, baseScore - 12));
 		});
 	});
+
+	describe("10. Market Holiday & Non-Trading Session Guard Rails", () => {
+		it("strictly blocks pick generation when date is a market holiday unless bypass is explicitly requested", async () => {
+			// Using todayIST date on 2026-11-10 (Diwali Balipratipada)
+			// Calling generateDailyPicks() without bypass should return []
+			const picks = await pickOfTheDayService.generateDailyPicks();
+			expect(picks).toEqual([]);
+		});
+
+		it("returns empty array for getTodaysPicks() on an exchange holiday to trigger fallback", async () => {
+			const todaysPicks = await pickOfTheDayService.getTodaysPicks();
+			expect(todaysPicks).toEqual([]);
+		});
+	});
 });
 

@@ -287,7 +287,24 @@ export class PickOfTheDayService {
 		return strategy;
 	}
 
-	async generateDailyPicks(): Promise<DailyPickData[]> {
+	async generateDailyPicks(options?: { bypassHolidayGuard?: boolean }): Promise<DailyPickData[]> {
+		const today = todayIST();
+
+		// Enforce market holiday guard rail
+		if (!options?.bypassHolidayGuard && !this.isNSESessionDay(today)) {
+			const holiday = marketHolidayService.getHoliday(today, "NSE");
+			logger.warn(
+				`🛑 [PickOfTheDay] generateDailyPicks() blocked — ${today} is an NSE market holiday (${holiday?.name || "Market Closed"}) or weekend without scheduled trading session. Daily market picks cannot be generated on non-trading days.`,
+				{
+					event: "PICK_GENERATION_BLOCKED_HOLIDAY",
+					date: today,
+					holiday: holiday?.name,
+					status: "blocked",
+				},
+			);
+			return [];
+		}
+
 		// ── BUG-4 FIX: Distributed generation lock via Redis SETNX ─────────────
 		// The previous in-process `_isGenerating` flag only prevents duplicate runs
 		// within a single Cloud Run instance. At 9:20 AM, Cloud Run scales to N
@@ -298,7 +315,6 @@ export class PickOfTheDayService {
 		// Fix: attempt a Redis SETNX with a 10-minute TTL. Only the first instance
 		// to acquire the lock proceeds. All others return [] immediately.
 		// If Redis is unavailable, fall back to the in-process flag (safe degraded mode).
-		const today = todayIST();
 		const lockKey = `picks:generating:${today}`;
 		let redisLockAcquired = false;
 
@@ -1415,6 +1431,22 @@ export class PickOfTheDayService {
 		const today = todayIST();
 		const cacheKey = `picks:daily:${today}`;
 
+		// If today is an NSE market holiday or weekend without a scheduled session,
+		// do not serve holiday picks — clear any stale holiday cache and return empty array
+		// so caller falls back to the most recent trading session
+		if (!this.isNSESessionDay(today)) {
+			try {
+				const redis = await this.getRedis();
+				if (redis) await redis.del(cacheKey);
+			} catch { /* non-fatal */ }
+
+			logger.info(
+				`[PickService] getTodaysPicks() — ${today} is an NSE market holiday or non-trading day. Returning empty array for previous session fallback.`,
+				{ event: "TODAY_PICKS_HOLIDAY_EMPTY", date: today },
+			);
+			return [];
+		}
+
 		// Cache read
 		try {
 			const redis = await this.getRedis();
@@ -2145,16 +2177,23 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 	}
 
 	async getMostRecentPicks(): Promise<DailyPickData[]> {
-		const latestDate = await db
-			.select({ maxDate: sql<string>`MAX(reco_date)` })
+		const distinctDates = await db
+			.selectDistinct({ recoDate: dailyPicks.recoDate })
 			.from(dailyPicks)
 			.where(
 				and(
 					eq(dailyPicks.status, "live"),
 					gte(dailyPicks.expiryDate, sql`CURRENT_DATE`),
 				),
-			);
-		const recoDate = latestDate[0]?.maxDate;
+			)
+			.orderBy(desc(dailyPicks.recoDate))
+			.limit(10);
+
+		// Find the first date in descending order that was an actual NSE trading or special session day
+		const validDateRow = distinctDates.find(
+			(d) => d.recoDate && this.isNSESessionDay(d.recoDate),
+		);
+		const recoDate = validDateRow?.recoDate || distinctDates[0]?.recoDate;
 		if (!recoDate) return [];
 		const picks = await db
 			.select()
