@@ -1,13 +1,21 @@
+/* eslint-disable no-console */
 import { Request, Response, NextFunction } from "express";
 import { v4 as uuidv4 } from "uuid";
+import crypto from "crypto";
 import * as globalAdvisoryService from "../services/global-advisory-service";
 
-const processedIdempotencyKeys = new Map<
-	string,
-	{ timestamp: number; result: any }
->();
+interface IdempotencyRecord {
+	timestamp: number;
+	result: any;
+	payloadHash?: string;
+}
+
+const processedIdempotencyKeys = new Map<string, IdempotencyRecord>();
+const inFlightIdempotencyKeys = new Set<string>();
+const recentSubmissions = new Map<string, number>();
 
 const IDEMPOTENCY_KEY_TTL = 24 * 60 * 60 * 1000;
+const DEBOUNCE_WINDOW_MS = 3000;
 
 setInterval(
 	() => {
@@ -18,22 +26,79 @@ setInterval(
 				processedIdempotencyKeys.delete(key);
 			}
 		}
+		// Clean up recent submission fingerprints (>30s)
+		for (const [key, ts] of recentSubmissions.entries()) {
+			if (now - ts > 30000) {
+				recentSubmissions.delete(key);
+			}
+		}
 	},
 	60 * 60 * 1000,
 );
+
+/**
+ * Computes a deterministic short SHA-256 fingerprint of the request payload.
+ */
+function computePayloadHash(body: any): string {
+	if (!body || (typeof body === "object" && Object.keys(body).length === 0)) {
+		return "empty";
+	}
+	try {
+		return crypto
+			.createHash("sha256")
+			.update(JSON.stringify(body))
+			.digest("hex")
+			.slice(0, 32);
+	} catch {
+		return "unhashable";
+	}
+}
+
+/**
+ * Scans payload for malicious or invalid inputs (prototype pollution, null bytes).
+ */
+function validatePayloadSanity(obj: any, depth = 0): { valid: boolean; reason?: string } {
+	if (!obj || typeof obj !== "object") return { valid: true };
+	if (depth > 12) return { valid: false, reason: "Payload nesting depth exceeds limit" };
+
+	for (const key of Object.keys(obj)) {
+		if (key === "__proto__" || key === "constructor" || key === "prototype") {
+			return { valid: false, reason: `Forbidden prototype property '${key}'` };
+		}
+		const val = obj[key];
+		if (typeof val === "string" && val.includes("\0")) {
+			return { valid: false, reason: `Null byte detected in field '${key}'` };
+		}
+		if (typeof val === "number" && (Number.isNaN(val) || !Number.isFinite(val))) {
+			return { valid: false, reason: `Invalid numeric value (NaN/Infinity) in field '${key}'` };
+		}
+		if (typeof val === "object" && val !== null) {
+			const nested = validatePayloadSanity(val, depth + 1);
+			if (!nested.valid) return nested;
+		}
+	}
+	return { valid: true };
+}
 
 const EXECUTION_ENDPOINTS = [
 	"/api/orders",
 	"/api/trade",
 	"/api/execute",
 	"/api/payment",
+	"/api/payments",
 	"/api/consent",
 	"/api/submit",
 	"/api/transactions",
 	"/api/kyc/submit",
 	"/api/bonds/order",
+	"/api/bonds/orders",
 	"/api/mutual-funds/order",
+	"/api/mutual-funds/orders",
+	"/api/mf/orders",
 	"/api/stocks/order",
+	"/api/stocks/orders",
+	"/api/us-trading/order",
+	"/api/cart/checkout",
 ];
 
 function isExecutionEndpoint(path: string): boolean {
@@ -53,7 +118,7 @@ export function executionGuard(options: ExecutionGuardOptions = {}) {
 		blockOfflineExecution = true,
 	} = options;
 
-	return (req: Request, res: Response, next: NextFunction) => {
+	return async (req: Request, res: Response, next: NextFunction) => {
 		if (
 			req.method === "GET" ||
 			req.method === "HEAD" ||
@@ -114,9 +179,60 @@ export function executionGuard(options: ExecutionGuardOptions = {}) {
 			});
 		}
 
+		// Guardrail 1: Input payload sanity validation (anti-poisoning & anti-tampering)
+		const sanityCheck = validatePayloadSanity(req.body);
+		if (!sanityCheck.valid) {
+			console.warn(`[EXECUTION_GUARD] Rejected malformed payload on ${req.path}: ${sanityCheck.reason}`);
+			return res.status(400).json({
+				success: false,
+				error: "MALFORMED_PAYLOAD_BLOCKED",
+				message: `Invalid request payload: ${sanityCheck.reason}`,
+				executionId,
+			});
+		}
+
+		const currentPayloadHash = computePayloadHash(req.body);
+
+		// Guardrail 2: Explicit Idempotency Key Handling with In-Flight Locking & Payload Verification
 		if (idempotencyKey) {
-			const existing = processedIdempotencyKeys.get(idempotencyKey);
+			// Tier 1: In-memory L1 cache
+			let existing = processedIdempotencyKeys.get(idempotencyKey);
+
+			// Tier 2: Distributed L2 Redis cache (multi-pod Cloud Run idempotency)
+			if (!existing) {
+				try {
+					const { getSharedRedis } = await import("../utils/redis-client");
+					const redis = await getSharedRedis();
+					if (redis?.isOpen) {
+						const raw = await redis.get(`idempotency:${idempotencyKey}`);
+						if (raw) {
+							existing = JSON.parse(raw);
+							if (existing) {
+								processedIdempotencyKeys.set(idempotencyKey, existing);
+							}
+						}
+					}
+				} catch {
+					// Fall through to standard processing
+				}
+			}
+
 			if (existing) {
+				// Guardrail 2a: Verify that payload matches the original submission
+				if (existing.payloadHash && existing.payloadHash !== "empty" && existing.payloadHash !== currentPayloadHash) {
+					console.warn(
+						`[EXECUTION_GUARD] Idempotency payload mismatch for key: ${idempotencyKey}`,
+						{ originalHash: existing.payloadHash, newHash: currentPayloadHash }
+					);
+					return res.status(422).json({
+						success: false,
+						error: "IDEMPOTENCY_PAYLOAD_MISMATCH",
+						message: "An idempotency key cannot be reused with a different request payload.",
+						executionId,
+						idempotencyKey,
+					});
+				}
+
 				console.log(
 					`[EXECUTION_GUARD] Duplicate idempotency key detected: ${idempotencyKey}`,
 					{
@@ -132,16 +248,102 @@ export function executionGuard(options: ExecutionGuardOptions = {}) {
 				});
 			}
 
+			// Guardrail 2b: In-Flight Lock (Mutual Exclusion) to prevent concurrent race conditions
+			let redisLockAcquired = false;
+			try {
+				const { getSharedRedis } = await import("../utils/redis-client");
+				const redis = await getSharedRedis();
+				if (redis?.isOpen) {
+					// Redis distributed lock with 60-second automatic lease expiration
+					const lockResult = await redis.set(`idempotency:lock:${idempotencyKey}`, executionId, {
+						NX: true,
+						EX: 60,
+					});
+					redisLockAcquired = lockResult === "OK";
+				} else {
+					redisLockAcquired = !inFlightIdempotencyKeys.has(idempotencyKey);
+				}
+			} catch {
+				redisLockAcquired = !inFlightIdempotencyKeys.has(idempotencyKey);
+			}
+
+			if (!redisLockAcquired || inFlightIdempotencyKeys.has(idempotencyKey)) {
+				console.warn(`[EXECUTION_GUARD] Concurrent request in-flight for key: ${idempotencyKey}`);
+				return res.status(409).json({
+					success: false,
+					error: "CONCURRENT_REQUEST_IN_FLIGHT",
+					message: "A transaction with this idempotency key is currently being processed. Please wait.",
+					executionId,
+					idempotencyKey,
+				});
+			}
+
+			// Acquire L1 in-flight marker
+			inFlightIdempotencyKeys.add(idempotencyKey);
+
+			// Release lock helper
+			const releaseInFlightLock = async () => {
+				inFlightIdempotencyKeys.delete(idempotencyKey);
+				try {
+					const { getSharedRedis } = await import("../utils/redis-client");
+					const redis = await getSharedRedis();
+					if (redis?.isOpen) {
+						await redis.del(`idempotency:lock:${idempotencyKey}`);
+					}
+				} catch {}
+			};
+
 			const originalJson = res.json.bind(res);
 			res.json = (body: any) => {
 				if (res.statusCode >= 200 && res.statusCode < 300) {
-					processedIdempotencyKeys.set(idempotencyKey, {
+					const record: IdempotencyRecord = {
 						timestamp: Date.now(),
 						result: body,
-					});
+						payloadHash: currentPayloadHash,
+					};
+					processedIdempotencyKeys.set(idempotencyKey, record);
+
+					// Asynchronously persist to Redis with 24-hour TTL
+					import("../utils/redis-client")
+						.then(({ getSharedRedis }) => getSharedRedis())
+						.then((redis) => {
+							if (redis?.isOpen) {
+								return redis.setEx(
+									`idempotency:${idempotencyKey}`,
+									86400,
+									JSON.stringify(record),
+								);
+							}
+						})
+						.catch(() => {});
 				}
+				void releaseInFlightLock();
 				return originalJson(body);
 			};
+
+			res.on("close", () => {
+				void releaseInFlightLock();
+			});
+		} else {
+			// Guardrail 3: Double-Click / Rapid Multi-Submission Debounce Guard
+			// Applied to mutating financial execution endpoints without explicit idempotency key
+			const userId = (req as any).user?.id || req.ip;
+			const submissionFingerprint = `${userId}:${req.method}:${req.path}:${currentPayloadHash}`;
+			const lastSeen = recentSubmissions.get(submissionFingerprint);
+			const now = Date.now();
+
+			if (lastSeen && now - lastSeen < DEBOUNCE_WINDOW_MS) {
+				console.warn(`[EXECUTION_GUARD] Blocked duplicate rapid submission: ${submissionFingerprint}`);
+				return res.status(429).json({
+					success: false,
+					error: "DUPLICATE_SUBMISSION_BLOCKED",
+					message: "Duplicate transaction submission detected. Please do not double-click or resubmit identical requests within 3 seconds.",
+					code: "DUPLICATE_REQUEST",
+					executionId,
+				});
+			}
+
+			recentSubmissions.set(submissionFingerprint, now);
 		}
 
 		res.on("finish", () => {

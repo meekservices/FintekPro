@@ -54,6 +54,8 @@ describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 				"upstox-golden-pricing",
 				"multi-exchange-market",
 				"market-brief-engine",
+				"knowledge-hub-engine",
+				"amc-knowledge-hub",
 				"scorer-calibration",
 				"pick-outcome-analyzer",
 				"smart-order-routing",
@@ -64,7 +66,7 @@ describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 			for (const id of expectedEngines) {
 				expect(engineIds).toContain(id);
 			}
-			expect(statuses.length).toBeGreaterThanOrEqual(23);
+			expect(statuses.length).toBeGreaterThanOrEqual(25);
 		});
 
 		it("computes unified composite alpha quality across registered engines", () => {

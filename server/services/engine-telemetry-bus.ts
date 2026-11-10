@@ -113,6 +113,8 @@ class EngineTelemetryBus {
       { id: "upstox-golden-pricing", name: "Upstox Golden Market Data", category: "Data Quality" },
       { id: "multi-exchange-market", name: "Multi-Exchange Market Service", category: "Data Quality" },
       { id: "market-brief-engine", name: "Daily Market Brief Engine", category: "AI Orchestration" },
+      { id: "knowledge-hub-engine", name: "Knowledge Hub Intelligence Engine", category: "AI Orchestration" },
+      { id: "amc-knowledge-hub", name: "AMC Knowledge Hub & Factsheet Service", category: "AI Orchestration" },
       { id: "scorer-calibration", name: "Scorer Calibration Service", category: "AI Orchestration" },
       { id: "pick-outcome-analyzer", name: "Pick Outcome Analyzer", category: "AI Orchestration" },
       { id: "smart-order-routing", name: "Smart Order Routing Engine", category: "Transaction" },

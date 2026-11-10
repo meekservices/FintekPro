@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Unified Order Management Service
  *
@@ -108,6 +109,34 @@ export class OrderManagementService {
 	 * Create a new unified order
 	 */
 	async createOrder(request: CreateOrderRequest) {
+		// Financial Guardrail: Deduplicate identical orders created within a 10-second window
+		if (request.userId && request.amount > 0) {
+			const recentDuplicates = await db
+				.select()
+				.from(unifiedOrders)
+				.where(
+					and(
+						eq(unifiedOrders.userId, request.userId),
+						eq(unifiedOrders.productType, request.productType),
+						eq(unifiedOrders.orderType, request.orderType),
+						eq(unifiedOrders.status, "initiated"),
+						sql`${unifiedOrders.createdAt} > NOW() - INTERVAL '10 seconds'`,
+					),
+				)
+				.limit(1);
+
+			if (
+				recentDuplicates.length > 0 &&
+				recentDuplicates[0].productName === request.productName &&
+				recentDuplicates[0].amount === request.amount.toString()
+			) {
+				console.log(
+					`[ORDER_SERVICE] Deduplicated redundant order for user ${request.userId} (${recentDuplicates[0].orderNumber})`,
+				);
+				return recentDuplicates[0];
+			}
+		}
+
 		const orderNumber = this.generateOrderNumber();
 		const orderId = randomUUID();
 

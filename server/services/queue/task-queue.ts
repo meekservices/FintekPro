@@ -173,7 +173,25 @@ class TaskQueueEngine {
 			return local as Job<TPayload, TResult>;
 		}
 
-		// Tier 2: Check PostgreSQL async_compute_jobs table (Cross-pod Zero-Redis)
+		// Tier 2: Shared Redis cluster cache (sub-millisecond cross-pod lookup)
+		if (process.env.REDIS_URL) {
+			try {
+				const redis = await getSharedRedis();
+				if (redis?.isOpen) {
+					const raw = await redis.get(`fintekpro:job:${jobId}`);
+					if (raw) {
+						const parsed = JSON.parse(raw);
+						this.localJobs.set(jobId, parsed);
+						return parsed;
+					}
+				}
+			} catch (err: unknown) {
+				const msg = err instanceof Error ? err.message : String(err);
+				logger.warn("[TaskQueue] Redis read error", { error: msg });
+			}
+		}
+
+		// Tier 3: Check PostgreSQL async_compute_jobs table (Cross-pod durable backup)
 		try {
 			await ensureQueueTable();
 			const result = await pool.query(
@@ -204,25 +222,7 @@ class TaskQueueEngine {
 				return job;
 			}
 		} catch {
-			// Fall through to Redis if DB fails
-		}
-
-		// Tier 3: Optional Redis fallback
-		if (process.env.REDIS_URL) {
-			try {
-				const redis = await getSharedRedis();
-				if (redis?.isOpen) {
-					const raw = await redis.get(`fintekpro:job:${jobId}`);
-					if (raw) {
-						const parsed = JSON.parse(raw);
-						this.localJobs.set(jobId, parsed);
-						return parsed;
-					}
-				}
-			} catch (err: unknown) {
-				const msg = err instanceof Error ? err.message : String(err);
-				logger.warn("[TaskQueue] Redis read error", { error: msg });
-			}
+			// Fall through
 		}
 
 		return null;

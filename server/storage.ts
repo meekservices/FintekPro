@@ -284,12 +284,12 @@ interface SessionCacheEntry {
 const PgSessionBase = connectPg(session);
 
 /**
- * Resilient In-Memory Cached Postgres Session Store
+ * Resilient In-Memory + Redis Distributed Postgres Session Store
  *
- * Wraps connect-pg-simple to:
- * 1. Cache session reads in memory for 2 minutes (eliminates ~95% of DB queries from repetitive requests/polling).
- * 2. Fall back to cached session data if PostgreSQL connection pool times out (prevents spurious 401 logouts).
- * 3. Write-through to PostgreSQL on set() and invalidate on destroy().
+ * Multi-Tier Hierarchy:
+ * 1. L1: In-memory Map (0ms read cache for repeated queries within pod lifetime).
+ * 2. L2: Redis Cluster Store (sub-millisecond cross-pod session sharing, avoids all DB reads).
+ * 3. L3: PostgreSQL connect-pg-simple fallback (durable cold storage).
  */
 class CachedPgSessionStore extends PgSessionBase {
 	private memCache = new Map<string, SessionCacheEntry>();
@@ -308,20 +308,11 @@ class CachedPgSessionStore extends PgSessionBase {
 		if (cleanup.unref) cleanup.unref();
 	}
 
-	override get(sid: string, fn: (err: any, session?: any) => void): void {
-		const cached = this.memCache.get(sid);
+	private getFallbackDb(sid: string, cached: SessionCacheEntry | undefined, fn: (err: any, session?: any) => void): void {
 		const now = Date.now();
-
-		if (cached && now - cached.cachedAt < this.CACHE_TTL_MS) {
-			return process.nextTick(() => fn(null, cached.sess));
-		}
-
 		try {
 			super.get(sid, (err: any, sessionData?: any) => {
 				if (err) {
-					// Resilient fallback: if DB connection pool times out or errors under load,
-					// serve cached session to prevent 401 logouts, OR return null (no session)
-					// instead of bubbling err to express-session (which causes HTTP 500 crashes).
 					if (cached?.sess) {
 						console.warn(
 							`[SessionStore] ⚠️ DB error reading session (${err.message || String(err)}). Serving cached session for ${sid.slice(0, 8)}...`,
@@ -336,6 +327,17 @@ class CachedPgSessionStore extends PgSessionBase {
 
 				if (sessionData) {
 					this.memCache.set(sid, { sess: sessionData, cachedAt: now });
+					// Also backfill Redis
+					if (process.env.REDIS_URL) {
+						import("./utils/redis-client")
+							.then(({ getSharedRedis }) => getSharedRedis())
+							.then((redis) => {
+								if (redis?.isOpen) {
+									return redis.setEx(`sess:${sid}`, 30 * 86400, JSON.stringify(sessionData));
+								}
+							})
+							.catch(() => {});
+					}
 				} else {
 					this.memCache.delete(sid);
 				}
@@ -352,8 +354,62 @@ class CachedPgSessionStore extends PgSessionBase {
 		}
 	}
 
+	override get(sid: string, fn: (err: any, session?: any) => void): void {
+		// Tier 1: Check L1 local in-memory cache
+		const cached = this.memCache.get(sid);
+		const now = Date.now();
+
+		if (cached && now - cached.cachedAt < this.CACHE_TTL_MS) {
+			return process.nextTick(() => fn(null, cached.sess));
+		}
+
+		// Tier 2: Check L2 Redis cluster store (across all Cloud Run pods)
+		if (process.env.REDIS_URL) {
+			import("./utils/redis-client")
+				.then(({ getSharedRedis }) => getSharedRedis())
+				.then((redis) => {
+					if (redis?.isOpen) {
+						return redis.get(`sess:${sid}`);
+					}
+					return null;
+				})
+				.then((redisVal) => {
+					if (redisVal) {
+						try {
+							const parsed = JSON.parse(redisVal);
+							this.memCache.set(sid, { sess: parsed, cachedAt: now });
+							return fn(null, parsed);
+						} catch {
+							// fall through
+						}
+					}
+					this.getFallbackDb(sid, cached, fn);
+				})
+				.catch(() => {
+					this.getFallbackDb(sid, cached, fn);
+				});
+			return;
+		}
+
+		// Tier 3: Check L3 PostgreSQL
+		this.getFallbackDb(sid, cached, fn);
+	}
+
 	override set(sid: string, sess: any, fn?: (err?: any) => void): void {
 		this.memCache.set(sid, { sess, cachedAt: Date.now() });
+
+		// Write to L2 Redis with 30-day TTL matching cookie
+		if (process.env.REDIS_URL) {
+			import("./utils/redis-client")
+				.then(({ getSharedRedis }) => getSharedRedis())
+				.then((redis) => {
+					if (redis?.isOpen) {
+						return redis.setEx(`sess:${sid}`, 30 * 86400, JSON.stringify(sess));
+					}
+				})
+				.catch(() => {});
+		}
+
 		try {
 			super.set(sid, sess, (err: any) => {
 				if (err) {
@@ -361,7 +417,7 @@ class CachedPgSessionStore extends PgSessionBase {
 						`[SessionStore] ⚠️ Error writing session ${sid.slice(0, 8)}... to DB:`,
 						err?.message || String(err),
 					);
-					// Non-fatal: session is stored in memCache, so current instance requests succeed
+					// Non-fatal: session is stored in memCache & Redis, so requests across pods succeed
 					if (fn) return fn(null);
 				}
 				if (fn) fn(null);
@@ -376,6 +432,16 @@ class CachedPgSessionStore extends PgSessionBase {
 
 	override destroy(sid: string, fn?: (err?: any) => void): void {
 		this.memCache.delete(sid);
+		if (process.env.REDIS_URL) {
+			import("./utils/redis-client")
+				.then(({ getSharedRedis }) => getSharedRedis())
+				.then((redis) => {
+					if (redis?.isOpen) {
+						return redis.del(`sess:${sid}`);
+					}
+				})
+				.catch(() => {});
+		}
 		try {
 			super.destroy(sid, (err: any) => {
 				if (err) {
@@ -395,6 +461,16 @@ class CachedPgSessionStore extends PgSessionBase {
 		const cached = this.memCache.get(sid);
 		if (cached) {
 			cached.cachedAt = Date.now();
+		}
+		if (process.env.REDIS_URL) {
+			import("./utils/redis-client")
+				.then(({ getSharedRedis }) => getSharedRedis())
+				.then((redis) => {
+					if (redis?.isOpen) {
+						return redis.expire(`sess:${sid}`, 30 * 86400);
+					}
+				})
+				.catch(() => {});
 		}
 		try {
 			super.touch(sid, sess, () => {

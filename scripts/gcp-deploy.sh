@@ -105,11 +105,31 @@ fi
 
 
 # 3. Deploy to Cloud Run
-# ─── Prerequisite: create REDIS_URL secret once ────────────────────────────
-# gcloud secrets create REDIS_URL --data-file=- <<< "redis://PRIVATE_IP:6379"
-# The private IP is the Memorystore instance IP from:
-#   gcloud redis instances describe fintekpro-cache --region=asia-south1
+# ─── Redis & VPC Configuration ─────────────────────────────────────────────
+# Automatically detects if REDIS_URL secret exists in Secret Manager:
+# - If REDIS_URL exists: wires it into Cloud Run secrets.
+# - If a VPC connector exists (e.g. fintekpro-vpc-connector for Memorystore): attaches it.
+# - If REDIS_URL does not exist: continues smoothly in Zero-Redis PostgreSQL mode.
 # ─────────────────────────────────────────────────────────────────────────────
+REDIS_SECRET_FLAG=""
+VPC_CONNECTOR_FLAG="--clear-vpc-connector"
+
+if gcloud secrets describe REDIS_URL --project="$PROJECT_ID" >/dev/null 2>&1; then
+  echo "✅ REDIS_URL secret detected in Secret Manager — wiring into Cloud Run"
+  REDIS_SECRET_FLAG="REDIS_URL=REDIS_URL:latest,"
+
+  # Check if a VPC connector exists for Memorystore private IP
+  if gcloud compute networks vpc-access connectors describe fintekpro-vpc-connector --region="$REGION" --project="$PROJECT_ID" >/dev/null 2>&1; then
+    echo "🔗 Attaching VPC connector fintekpro-vpc-connector for Memorystore Redis"
+    VPC_CONNECTOR_FLAG="--vpc-connector=fintekpro-vpc-connector"
+  else
+    echo "ℹ️  No VPC connector found — using direct connection (e.g. Upstash/external Redis)"
+    VPC_CONNECTOR_FLAG="--clear-vpc-connector"
+  fi
+else
+  echo "ℹ️  REDIS_URL secret not found — operating in Zero-Redis PostgreSQL mode"
+fi
+
 echo "🚀 Deploying to Cloud Run..."
 gcloud run deploy $SERVICE_NAME \
     --image $IMAGE_URL \
@@ -124,11 +144,12 @@ gcloud run deploy $SERVICE_NAME \
     --min-instances 1 \
     --max-instances 10 \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
-    --clear-vpc-connector \
+    $VPC_CONNECTOR_FLAG \
     --startup-probe=initialDelaySeconds=10,periodSeconds=5,failureThreshold=30,httpGet.port=8080,httpGet.path=/api/health \
     --liveness-probe=initialDelaySeconds=30,periodSeconds=15,timeoutSeconds=5,failureThreshold=3,httpGet.port=8080,httpGet.path=/api/health \
     --set-env-vars="NODE_ENV=production,NODE_OPTIONS=--max-old-space-size=3072,DEBUG_SUBDOMAIN=true,CUSTOM_DOMAIN=fintekpro.com,RUN_STARTUP_MIGRATIONS=true,PRIVATE_OBJECT_DIR=gs://fintekpro-documents/private,ALLOW_TESTER_BYPASS=true,INDIAN_API_BASE_URL=https://analyst.indianapi.in" \
     --set-secrets="\
+${REDIS_SECRET_FLAG}\
 PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,\
 DATABASE_URL=DATABASE_URL:latest,\
 SESSION_SECRET=SESSION_SECRET:latest,\

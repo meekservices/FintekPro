@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 /**
  * Bond Marketplace Routes
  * SEBI NCS & RBI Compliant Two-Sided Marketplace for Listed & Unlisted Bonds
@@ -318,11 +319,13 @@ router.post("/orders", requireAuth, async (req: Request, res: Response) => {
 			dpId,
 		} = req.body;
 
-		// Validate required fields
-		if (!isin || !quantity || quantity < 1) {
+		// Validate required fields and guardrails against invalid entries
+		const isinClean = typeof isin === "string" ? isin.trim().toUpperCase() : "";
+		const parsedQty = typeof quantity === "number" ? Math.floor(quantity) : parseInt(quantity, 10);
+		if (!/^IN[A-Z0-9]{10}$/i.test(isinClean) || !Number.isInteger(parsedQty) || parsedQty < 1 || parsedQty > 100000) {
 			return apiResponse.badRequest(
 				res,
-				"ISIN and valid quantity are required",
+				"Valid 12-character ISIN and positive integer quantity (1-100,000) are required",
 			);
 		}
 
@@ -337,7 +340,7 @@ router.post("/orders", requireAuth, async (req: Request, res: Response) => {
 		const [govBond] = await db
 			.select()
 			.from(schema.governmentSecurities)
-			.where(eq(schema.governmentSecurities.isin, isin));
+			.where(eq(schema.governmentSecurities.isin, isinClean));
 
 		if (govBond) {
 			bondDetails = govBond;
@@ -350,7 +353,7 @@ router.post("/orders", requireAuth, async (req: Request, res: Response) => {
 			const [corpBond] = await db
 				.select()
 				.from(schema.corporateBonds)
-				.where(eq(schema.corporateBonds.isin, isin));
+				.where(eq(schema.corporateBonds.isin, isinClean));
 
 			if (corpBond) {
 				bondDetails = corpBond;
@@ -376,8 +379,8 @@ router.post("/orders", requireAuth, async (req: Request, res: Response) => {
 					bondDetails.lastPrice?.toString() ||
 					"1000",
 			);
-		const grossAmount = orderPrice * quantity;
-		const totalFaceValue = faceValue * quantity;
+		const grossAmount = orderPrice * parsedQty;
+		const totalFaceValue = faceValue * parsedQty;
 
 		// Calculate accrued interest (simplified)
 		const accruedInterest = 0; // Would need coupon rate and last coupon date for accurate calculation
@@ -397,11 +400,11 @@ router.post("/orders", requireAuth, async (req: Request, res: Response) => {
 				clientCode: dematAccountNumber || null,
 				bondId: bondDetails.id,
 				bondType: actualBondType,
-				isin,
+				isin: isinClean,
 				bondName,
 				orderType: "buy",
 				orderCategory: orderType,
-				quantity,
+				quantity: parsedQty,
 				faceValue: faceValue.toString(),
 				totalFaceValue: totalFaceValue.toString(),
 				orderPrice: orderPrice.toString(),
@@ -424,7 +427,7 @@ router.post("/orders", requireAuth, async (req: Request, res: Response) => {
 			action: "place_order",
 			entityType: "bond_order",
 			entityId: order.id,
-			isin,
+			isin: isinClean,
 			bondType: actualBondType,
 			instrumentType:
 				actualBondType === "government"

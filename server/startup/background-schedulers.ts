@@ -1468,10 +1468,8 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 
 				try {
 					// 2. screener_derived_metrics aggregate (consumed by optimizer + regime detector)
-					const { createClient } = await import("redis");
-					const redis = createClient({ url: process.env.REDIS_URL });
-					redis.on("error", () => {});
-					await redis.connect().catch(() => {});
+					const { getSharedRedis } = await import("../utils/redis-client");
+					const redis = await getSharedRedis();
 					const { db } = await import("../db");
 					const { sql } = await import("drizzle-orm");
 					const res = await db.execute(sql`
@@ -1484,11 +1482,10 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 						WHERE return_1y IS NOT NULL
 					`).catch(() => ({ rows: [] }));
 					const row = (res as any).rows?.[0];
-					if (row && redis.isOpen) {
+					if (row && redis?.isOpen) {
 						await redis.setEx("screener:aggregate", 3600, JSON.stringify(row));
 						console.log("[CacheWarm] ✅ Screener aggregate cached (1h TTL)");
 					}
-					await redis.disconnect().catch(() => {});
 				} catch { /* non-fatal */ }
 			};
 
@@ -1785,6 +1782,62 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			);
 			nightlyFactorScreeningScheduler.start();
 			console.log("[QuantFactorScreen] 🔬 Automated nightly VCP, Mansfield RS & Delivery screening scheduler active");
+		});
+
+		// ─── Database & Market Data Guardrails (Automated Session Purge & F&O Sync) ────
+		runStartupTask("Database & Market Data Guardrails", async () => {
+			const { db } = await import("../db");
+			const { sql } = await import("drizzle-orm");
+
+			// 1. Session Table Auto-Purge: Clean expired sessions on startup and daily
+			const purgeExpiredSessions = async () => {
+				try {
+					await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_sessions_expire ON sessions (expire)`).catch(() => {});
+					const res: any = await db.execute(sql`DELETE FROM sessions WHERE expire < NOW()`).catch(() => ({ rowCount: 0 }));
+					console.log(`🧹 [SessionGuard] Cleaned ${res?.rowCount ?? 0} expired sessions from PostgreSQL`);
+				} catch (err: any) {
+					console.warn("[SessionGuard] Session purge error (non-fatal):", err?.message);
+				}
+			};
+
+			// Run on boot (after 20s) and every 24 hours
+			setTimeout(() => {
+				void runWithClusterLock("cron:session-purge", 3600, purgeExpiredSessions);
+			}, 20_000);
+			setInterval(() => {
+				void runWithClusterLock("cron:session-purge", 3600, purgeExpiredSessions);
+			}, 24 * 60 * 60 * 1000);
+
+			// 2. Pre-market Derivative Contracts Re-sync (keeps active strikes & expiries fresh)
+			const syncFnoContracts = async () => {
+				try {
+					console.log("📈 [DerivativeGuard] Syncing active F&O derivative contracts...");
+					const count = await upstoxMarketDataService.syncDerivativeContracts();
+					console.log(`📈 [DerivativeGuard] Active derivative contracts synced: ${count} contracts`);
+				} catch (err: any) {
+					console.warn("[DerivativeGuard] F&O sync error (non-fatal):", err?.message);
+				}
+			};
+
+			// Run on boot (after 45s) and daily at 08:30 AM IST (03:00 UTC)
+			setTimeout(() => {
+				void runWithClusterLock("cron:fno-contracts-sync", 7200, syncFnoContracts);
+			}, 45_000);
+
+			const msUntil0300UTC = (): number => {
+				const now = new Date();
+				const target = new Date();
+				target.setUTCHours(3, 0, 0, 0); // 8:30 AM IST
+				if (target <= now) target.setTime(target.getTime() + 24 * 60 * 60 * 1000);
+				return target.getTime() - now.getTime();
+			};
+
+			setTimeout(() => {
+				void runWithClusterLock("cron:fno-contracts-sync", 7200, syncFnoContracts);
+				setInterval(() => {
+					void runWithClusterLock("cron:fno-contracts-sync", 7200, syncFnoContracts);
+				}, 24 * 60 * 60 * 1000);
+			}, msUntil0300UTC());
 		});
 
 		console.log(

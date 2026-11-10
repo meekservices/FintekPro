@@ -266,6 +266,26 @@ class InProcessMarketSnapshotStore {
 			return cached.snapshot;
 		}
 
+		// Tier 2: Check distributed L2 Redis cache before triggering SWR/recompute
+		if (!forceFresh) {
+			try {
+				const { getSharedRedis } = await import("../utils/redis-client");
+				const redis = await getSharedRedis();
+				if (redis?.isOpen) {
+					const raw = await redis.get(`cache:market_brief_snapshot:${region}`);
+					if (raw) {
+						const parsed = JSON.parse(raw);
+						if (parsed?.asOfDate) {
+							this.snapshotCache.set(region, { snapshot: parsed, fetchedAt: now });
+							return parsed;
+						}
+					}
+				}
+			} catch {
+				/* fall through to SWR / refresh */
+			}
+		}
+
 		if (cached && !forceFresh) {
 			// SWR trigger: return cached immediately, refresh asynchronously in background
 			this.triggerBackgroundRefresh(region);
@@ -411,6 +431,17 @@ class InProcessMarketSnapshotStore {
 			snapshot: base,
 			fetchedAt: Date.now(),
 		});
+
+		// Persist to distributed L2 Redis cache (60-second TTL)
+		try {
+			const { getSharedRedis } = await import("../utils/redis-client");
+			const redis = await getSharedRedis();
+			if (redis?.isOpen) {
+				await redis.setEx(`cache:market_brief_snapshot:${region}`, 60, JSON.stringify(base));
+			}
+		} catch {
+			/* non-fatal */
+		}
 
 		// 5. Operational Telemetry Bus Reporting
 		telemetryBus.report({

@@ -56,8 +56,14 @@ const isinMap = new Map<string, {
 }>();
 
 for (const [name, info] of Object.entries(INSTRUMENT_REGISTRY)) {
-  const isin = info.isin;
-  if (!isin) continue; // skip entries with no ISIN (AIF, some SIF etc.)
+  const rawIsin = info.isin;
+  if (!rawIsin) continue; // skip entries with no ISIN (AIF, some SIF etc.)
+  const isin = rawIsin.trim().toUpperCase();
+  // Guardrail: Validate standard 12-character ISIN structure (2-letter country code + 9 alphanumeric + 1 check digit)
+  if (!/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(isin)) {
+    console.warn(`[ISIN_SEED_GUARD] Skipping invalid ISIN format: '${rawIsin}' for '${name}'`);
+    continue;
+  }
 
   if (!isinMap.has(isin)) {
     // Check if this entry is a known proxy

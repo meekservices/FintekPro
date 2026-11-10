@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Unified Order Management API Routes
  *
@@ -9,7 +10,7 @@ import { orderManagementService } from "./order-management-service";
 import { z } from "zod";
 import { blockSubAgentTransactions } from "./kyc-middleware";
 
-// Request validation schemas
+// Request validation schemas with strict financial guardrails
 const createOrderSchema = z.object({
 	productType: z.enum([
 		"mutual_fund",
@@ -22,7 +23,7 @@ const createOrderSchema = z.object({
 		"loan",
 	]),
 	productId: z.string().optional(),
-	productName: z.string(),
+	productName: z.string().min(1, "Product name cannot be empty").max(255).trim(),
 	orderType: z.enum([
 		"buy",
 		"sell",
@@ -31,8 +32,8 @@ const createOrderSchema = z.object({
 		"sip",
 		"application",
 	]),
-	quantity: z.number().optional(),
-	amount: z.number(),
+	quantity: z.number().positive("Quantity must be greater than 0").max(10_000_000).optional(),
+	amount: z.number().positive("Amount must be greater than 0").max(500_000_000, "Amount exceeds limit"),
 	currency: z.string().default("INR"),
 	cartId: z.string().optional(),
 	proposalId: z.string().optional(),

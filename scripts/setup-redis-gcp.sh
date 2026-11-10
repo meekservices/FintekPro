@@ -12,13 +12,29 @@ set -euo pipefail
 PROJECT_ID="fintekpro"
 REGION="asia-south1"
 REDIS_INSTANCE_NAME="fintekpro-cache"
-REDIS_TIER="STANDARD_HA"        # STANDARD_HA = 1 replica (HA). Use BASIC for dev.
-REDIS_SIZE_GB=1                 # 1 GB is sufficient for compliance cache + sessions
+# BASIC tier (1GB, ~$36/mo) is recommended for cost-efficiency. Set REDIS_TIER=STANDARD_HA for multi-AZ replica (~$72/mo).
+REDIS_TIER="${REDIS_TIER:-BASIC}"
+REDIS_SIZE_GB=1                 # 1 GB is sufficient for compliance cache + sessions + market data
 REDIS_VERSION="REDIS_7_0"
 VPC_CONNECTOR_NAME="fintekpro-vpc-connector"
 VPC_NETWORK="default"
 VPC_SUBNET_RANGE="10.8.0.0/28"  # /28 gives 14 IPs — enough for the connector
 SERVICE_NAME="fintekpro-app"
+
+# Optional external Redis URL (e.g., Upstash or Redis Cloud)
+# Usage: bash scripts/setup-redis-gcp.sh --external-url "rediss://default:xxxx@....upstash.io:6379"
+EXTERNAL_REDIS_URL=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --external-url|--url)
+      EXTERNAL_REDIS_URL="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
 
 echo ""
 echo "╔══════════════════════════════════════════════════════╗"
@@ -27,75 +43,81 @@ echo "║  Project: $PROJECT_ID | Region: $REGION       ║"
 echo "╚══════════════════════════════════════════════════════╝"
 echo ""
 
-# ── Step 1: Ensure required APIs are enabled ─────────────────────────────────
-echo "▶ Step 1: Enabling required GCP APIs..."
-gcloud services enable redis.googleapis.com \
-    vpcaccess.googleapis.com \
-    cloudresourcemanager.googleapis.com \
-    --project="$PROJECT_ID"
-echo "  ✅ APIs enabled"
-
-# ── Step 2: Create Serverless VPC Access Connector ───────────────────────────
-# Cloud Run needs a VPC connector to reach Memorystore (private IP only).
-echo ""
-echo "▶ Step 2: Creating Serverless VPC Access Connector..."
-
-if gcloud compute networks vpc-access connectors describe "$VPC_CONNECTOR_NAME" \
-    --region="$REGION" --project="$PROJECT_ID" &>/dev/null; then
-    echo "  ℹ️  VPC connector '$VPC_CONNECTOR_NAME' already exists — skipping."
+if [ -n "$EXTERNAL_REDIS_URL" ]; then
+    echo "ℹ️  External Redis URL supplied ($EXTERNAL_REDIS_URL)."
+    echo "    Skipping GCP Memorystore & VPC connector provisioning."
+    REDIS_URL="$EXTERNAL_REDIS_URL"
 else
-    gcloud compute networks vpc-access connectors create "$VPC_CONNECTOR_NAME" \
-        --region="$REGION" \
-        --network="$VPC_NETWORK" \
-        --range="$VPC_SUBNET_RANGE" \
-        --min-instances=2 \
-        --max-instances=3 \
-        --machine-type=e2-micro \
+    # ── Step 1: Ensure required APIs are enabled ─────────────────────────────────
+    echo "▶ Step 1: Enabling required GCP APIs..."
+    gcloud services enable redis.googleapis.com \
+        vpcaccess.googleapis.com \
+        cloudresourcemanager.googleapis.com \
         --project="$PROJECT_ID"
-    echo "  ✅ VPC connector created: $VPC_CONNECTOR_NAME"
+    echo "  ✅ APIs enabled"
+
+    # ── Step 2: Create Serverless VPC Access Connector ───────────────────────────
+    # Cloud Run needs a VPC connector to reach Memorystore (private IP only).
+    echo ""
+    echo "▶ Step 2: Creating Serverless VPC Access Connector..."
+
+    if gcloud compute networks vpc-access connectors describe "$VPC_CONNECTOR_NAME" \
+        --region="$REGION" --project="$PROJECT_ID" &>/dev/null; then
+        echo "  ℹ️  VPC connector '$VPC_CONNECTOR_NAME' already exists — skipping."
+    else
+        gcloud compute networks vpc-access connectors create "$VPC_CONNECTOR_NAME" \
+            --region="$REGION" \
+            --network="$VPC_NETWORK" \
+            --range="$VPC_SUBNET_RANGE" \
+            --min-instances=2 \
+            --max-instances=3 \
+            --machine-type=e2-micro \
+            --project="$PROJECT_ID"
+        echo "  ✅ VPC connector created: $VPC_CONNECTOR_NAME"
+    fi
+
+    # ── Step 3: Create Memorystore Redis Instance ─────────────────────────────────
+    echo ""
+    echo "▶ Step 3: Creating Memorystore Redis instance (Tier: $REDIS_TIER, Size: ${REDIS_SIZE_GB}GB)..."
+
+    if gcloud redis instances describe "$REDIS_INSTANCE_NAME" \
+        --region="$REGION" --project="$PROJECT_ID" &>/dev/null; then
+        echo "  ℹ️  Redis instance '$REDIS_INSTANCE_NAME' already exists — skipping."
+    else
+        gcloud redis instances create "$REDIS_INSTANCE_NAME" \
+            --size="$REDIS_SIZE_GB" \
+            --region="$REGION" \
+            --tier="$REDIS_TIER" \
+            --redis-version="$REDIS_VERSION" \
+            --network="$VPC_NETWORK" \
+            --project="$PROJECT_ID"
+        echo "  ✅ Redis instance created (this may take 3-5 minutes to be READY)"
+        echo "  ⏳ Waiting for Redis instance to be READY..."
+        while true; do
+            STATUS=$(gcloud redis instances describe "$REDIS_INSTANCE_NAME" \
+                --region="$REGION" --project="$PROJECT_ID" \
+                --format="value(state)" 2>/dev/null || echo "UNKNOWN")
+            echo "     Status: $STATUS"
+            if [ "$STATUS" = "READY" ]; then break; fi
+            sleep 15
+        done
+        echo "  ✅ Redis instance is READY"
+    fi
+
+    # ── Step 4: Get Redis private IP ──────────────────────────────────────────────
+    echo ""
+    echo "▶ Step 4: Fetching Redis private IP..."
+    REDIS_HOST=$(gcloud redis instances describe "$REDIS_INSTANCE_NAME" \
+        --region="$REGION" --project="$PROJECT_ID" \
+        --format="value(host)")
+    REDIS_PORT=$(gcloud redis instances describe "$REDIS_INSTANCE_NAME" \
+        --region="$REGION" --project="$PROJECT_ID" \
+        --format="value(port)")
+    REDIS_URL="redis://$REDIS_HOST:$REDIS_PORT"
+    echo "  Redis Host: $REDIS_HOST"
+    echo "  Redis Port: $REDIS_PORT"
+    echo "  Redis URL:  $REDIS_URL"
 fi
-
-# ── Step 3: Create Memorystore Redis Instance ─────────────────────────────────
-echo ""
-echo "▶ Step 3: Creating Memorystore Redis instance..."
-
-if gcloud redis instances describe "$REDIS_INSTANCE_NAME" \
-    --region="$REGION" --project="$PROJECT_ID" &>/dev/null; then
-    echo "  ℹ️  Redis instance '$REDIS_INSTANCE_NAME' already exists — skipping."
-else
-    gcloud redis instances create "$REDIS_INSTANCE_NAME" \
-        --size="$REDIS_SIZE_GB" \
-        --region="$REGION" \
-        --tier="$REDIS_TIER" \
-        --redis-version="$REDIS_VERSION" \
-        --network="$VPC_NETWORK" \
-        --project="$PROJECT_ID"
-    echo "  ✅ Redis instance created (this may take 3-5 minutes to be READY)"
-    echo "  ⏳ Waiting for Redis instance to be READY..."
-    while true; do
-        STATUS=$(gcloud redis instances describe "$REDIS_INSTANCE_NAME" \
-            --region="$REGION" --project="$PROJECT_ID" \
-            --format="value(state)" 2>/dev/null || echo "UNKNOWN")
-        echo "     Status: $STATUS"
-        if [ "$STATUS" = "READY" ]; then break; fi
-        sleep 15
-    done
-    echo "  ✅ Redis instance is READY"
-fi
-
-# ── Step 4: Get Redis private IP ──────────────────────────────────────────────
-echo ""
-echo "▶ Step 4: Fetching Redis private IP..."
-REDIS_HOST=$(gcloud redis instances describe "$REDIS_INSTANCE_NAME" \
-    --region="$REGION" --project="$PROJECT_ID" \
-    --format="value(host)")
-REDIS_PORT=$(gcloud redis instances describe "$REDIS_INSTANCE_NAME" \
-    --region="$REGION" --project="$PROJECT_ID" \
-    --format="value(port)")
-REDIS_URL="redis://$REDIS_HOST:$REDIS_PORT"
-echo "  Redis Host: $REDIS_HOST"
-echo "  Redis Port: $REDIS_PORT"
-echo "  Redis URL:  $REDIS_URL"
 
 # ── Step 5: Store Redis URL in GCP Secret Manager ─────────────────────────────
 echo ""

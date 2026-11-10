@@ -1044,6 +1044,31 @@ class UpstoxMarketDataService {
         ? toBseKey(symbol)
         : toNseKey(symbol);
     const encodedKey = encodeURIComponent(key);
+    const cacheKey = `upstox:candles:${encodedKey}:${interval}:${fromDate}:${toDate}`;
+
+    // Compute TTL: past daily candles are immutable (24h cache), intraday/current day is 60s/3600s
+    const isPastPeriod = toDate < new Date().toISOString().split("T")[0];
+    const isIntraday = interval === "1minute" || interval === "30minute";
+    const isLiveMarket = this._getCacheTTL() === 15_000;
+    const ttlSec = isPastPeriod && !isIntraday ? 86400 : isLiveMarket ? 60 : 3600;
+
+    // Tier 1: Shared Redis Cache
+    try {
+      const { getSharedRedis } = await import("../utils/redis-client");
+      const redis = await getSharedRedis();
+      if (redis?.isOpen) {
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+          return {
+            success: true,
+            data: JSON.parse(cached) as UpstoxHistoricalCandle[],
+            meta: this._meta(t0),
+          };
+        }
+      }
+    } catch {
+      // Non-fatal cache lookup fallback
+    }
 
     return this._withRetry<UpstoxHistoricalCandle[]>(async () => {
       const res = await this.client!.get(
@@ -1061,16 +1086,31 @@ class UpstoxMarketDataService {
           meta: this._meta(t0),
         };
       }
-      return {
-        success: true,
-        data: candles.map(([ts, open, high, low, close, volume]: any[]) => ({
+      const mappedCandles: UpstoxHistoricalCandle[] = candles.map(
+        ([ts, open, high, low, close, volume]: any[]) => ({
           timestamp: String(ts),
           open: Number(open),
           high: Number(high),
           low: Number(low),
           close: Number(close),
           volume: Number(volume),
-        })),
+        })
+      );
+
+      // Asynchronously cache in Redis
+      try {
+        const { getSharedRedis } = await import("../utils/redis-client");
+        const redis = await getSharedRedis();
+        if (redis?.isOpen) {
+          await redis.setEx(cacheKey, ttlSec, JSON.stringify(mappedCandles));
+        }
+      } catch {
+        // Non-fatal
+      }
+
+      return {
+        success: true,
+        data: mappedCandles,
         meta: this._meta(t0),
       };
     }, t0);
@@ -1085,6 +1125,27 @@ class UpstoxMarketDataService {
   async getNiftyLTP(): Promise<UpstoxServiceResult<UpstoxQuote>> {
     const t0 = Date.now();
     if (!this.isReady()) return this._inactive<UpstoxQuote>();
+
+    const cacheKey = "upstox:index:nifty50";
+    const ttlSec = Math.max(5, Math.round(this._getCacheTTL() / 1000));
+
+    // Tier 1: Shared Redis Cache
+    try {
+      const { getSharedRedis } = await import("../utils/redis-client");
+      const redis = await getSharedRedis();
+      if (redis?.isOpen) {
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+          return {
+            success: true,
+            data: JSON.parse(cached) as UpstoxQuote,
+            meta: this._meta(t0),
+          };
+        }
+      }
+    } catch {
+      // Non-fatal cache lookup fallback
+    }
 
     const INDEX_KEY = "NSE_INDEX|Nifty 50";
     return this._withRetry<UpstoxQuote>(async () => {
@@ -1104,17 +1165,30 @@ class UpstoxMarketDataService {
           meta: this._meta(t0),
         };
       }
+      const quote: UpstoxQuote = {
+        symbol: "NIFTY50",
+        exchange: "NSE",
+        last_price: Number(raw.last_price),
+        previous_close: raw.ohlc?.close ? Number(raw.ohlc.close) : undefined,
+        timestamp: Date.now(),
+        data_source: "UPSTOX",
+        engine_version: ENGINE_VERSION,
+      };
+
+      // Asynchronously cache in Redis
+      try {
+        const { getSharedRedis } = await import("../utils/redis-client");
+        const redis = await getSharedRedis();
+        if (redis?.isOpen) {
+          await redis.setEx(cacheKey, ttlSec, JSON.stringify(quote));
+        }
+      } catch {
+        // Non-fatal
+      }
+
       return {
         success: true,
-        data: {
-          symbol: "NIFTY50",
-          exchange: "NSE",
-          last_price: Number(raw.last_price),
-          previous_close: raw.ohlc?.close ? Number(raw.ohlc.close) : undefined,
-          timestamp: Date.now(),
-          data_source: "UPSTOX",
-          engine_version: ENGINE_VERSION,
-        },
+        data: quote,
         meta: this._meta(t0),
       };
     }, t0);
@@ -1126,6 +1200,27 @@ class UpstoxMarketDataService {
   async getMajorIndices(): Promise<UpstoxServiceResult<Record<string, UpstoxQuote>>> {
     const t0 = Date.now();
     if (!this.isReady()) return this._inactive<Record<string, UpstoxQuote>>();
+
+    const cacheKey = "upstox:indices:major";
+    const ttlSec = Math.max(5, Math.round(this._getCacheTTL() / 1000));
+
+    // Tier 1: Shared Redis Cache
+    try {
+      const { getSharedRedis } = await import("../utils/redis-client");
+      const redis = await getSharedRedis();
+      if (redis?.isOpen) {
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+          return {
+            success: true,
+            data: JSON.parse(cached) as Record<string, UpstoxQuote>,
+            meta: this._meta(t0),
+          };
+        }
+      }
+    } catch {
+      // Non-fatal cache lookup fallback
+    }
 
     const keys = "NSE_INDEX|Nifty 50,NSE_INDEX|Nifty Bank,BSE_INDEX|SENSEX";
     return this._withRetry<Record<string, UpstoxQuote>>(async () => {
@@ -1157,6 +1252,17 @@ class UpstoxMarketDataService {
       mapIndex("NSE_INDEX|Nifty 50", "NIFTY50", "NSE");
       mapIndex("NSE_INDEX|Nifty Bank", "BANKNIFTY", "NSE");
       mapIndex("BSE_INDEX|SENSEX", "SENSEX", "BSE");
+
+      // Asynchronously cache in Redis
+      try {
+        const { getSharedRedis } = await import("../utils/redis-client");
+        const redis = await getSharedRedis();
+        if (redis?.isOpen) {
+          await redis.setEx(cacheKey, ttlSec, JSON.stringify(result));
+        }
+      } catch {
+        // Non-fatal
+      }
 
       return {
         success: true,
@@ -1511,6 +1617,25 @@ class UpstoxMarketDataService {
     if (!this.isReady()) return this._inactive<UpstoxOptionContractItem[]>();
 
     const instrumentKey = await this.resolveInstrumentKey(symbolOrKey);
+    const cacheKey = `upstox:opt_contracts:${instrumentKey}`;
+
+    // Tier 1: Shared Redis Cache (4h TTL — contracts are intraday static)
+    try {
+      const { getSharedRedis } = await import("../utils/redis-client");
+      const redis = await getSharedRedis();
+      if (redis?.isOpen) {
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+          return {
+            success: true,
+            data: JSON.parse(cached) as UpstoxOptionContractItem[],
+            meta: this._meta(t0),
+          };
+        }
+      }
+    } catch {
+      // Non-fatal cache lookup fallback
+    }
 
     return this._withRetry<UpstoxOptionContractItem[]>(async () => {
       const res = await this.client!.get("/option/contract", {
@@ -1530,6 +1655,17 @@ class UpstoxMarketDataService {
         lot_size: Number(c.lot_size ?? 1),
         tick_size: Number(c.tick_size ?? 0.05),
       }));
+
+      // Cache contracts in Redis for 4 hours
+      try {
+        const { getSharedRedis } = await import("../utils/redis-client");
+        const redis = await getSharedRedis();
+        if (redis?.isOpen) {
+          await redis.setEx(cacheKey, 14400, JSON.stringify(contracts));
+        }
+      } catch {
+        // Non-fatal cache write
+      }
 
       return {
         success: true,
@@ -1552,21 +1688,44 @@ class UpstoxMarketDataService {
 
     const instrumentKey = await this.resolveInstrumentKey(symbolOrKey);
 
-    return this._withRetry<UpstoxOptionChainItem[]>(async () => {
-      let resolvedExpiry = expiryDate;
-      if (!resolvedExpiry) {
-        // Upstox /option/chain requires expiry_date. If omitted, auto-fetch nearest active expiry from contracts.
-        try {
-          const contractsRes = await this.getOptionContracts(symbolOrKey);
-          if (contractsRes.success && contractsRes.data && contractsRes.data.length > 0) {
-            const expiries = Array.from(new Set(contractsRes.data.map((c) => c.expiry).filter(Boolean))).sort();
-            resolvedExpiry = expiries[0];
-          }
-        } catch {
-          // fallback to direct request
+    let resolvedExpiry = expiryDate;
+    if (!resolvedExpiry) {
+      // Upstox /option/chain requires expiry_date. If omitted, auto-fetch nearest active expiry from contracts.
+      try {
+        const contractsRes = await this.getOptionContracts(symbolOrKey);
+        if (contractsRes.success && contractsRes.data && contractsRes.data.length > 0) {
+          const expiries = Array.from(new Set(contractsRes.data.map((c) => c.expiry).filter(Boolean))).sort();
+          resolvedExpiry = expiries[0];
+        }
+      } catch {
+        // fallback to direct request
+      }
+    }
+
+    const cacheKey = `upstox:opt_chain:${instrumentKey}:${resolvedExpiry || "nearest"}`;
+    // Dynamic TTL: 5s during live market hours, 300s off-market
+    const isLiveMarket = this._getCacheTTL() === 15_000;
+    const ttlSec = isLiveMarket ? 5 : 300;
+
+    // Tier 1: Shared Redis Cache
+    try {
+      const { getSharedRedis } = await import("../utils/redis-client");
+      const redis = await getSharedRedis();
+      if (redis?.isOpen) {
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+          return {
+            success: true,
+            data: JSON.parse(cached) as UpstoxOptionChainItem[],
+            meta: this._meta(t0),
+          };
         }
       }
+    } catch {
+      // Non-fatal cache lookup fallback
+    }
 
+    return this._withRetry<UpstoxOptionChainItem[]>(async () => {
       const params: Record<string, string> = { instrument_key: instrumentKey };
       if (resolvedExpiry) {
         params.expiry_date = resolvedExpiry;
@@ -1638,6 +1797,17 @@ class UpstoxMarketDataService {
             }
           : undefined,
       }));
+
+      // Cache option chain in Redis
+      try {
+        const { getSharedRedis } = await import("../utils/redis-client");
+        const redis = await getSharedRedis();
+        if (redis?.isOpen) {
+          await redis.setEx(cacheKey, ttlSec, JSON.stringify(chain));
+        }
+      } catch {
+        // Non-fatal cache write
+      }
 
       return {
         success: true,

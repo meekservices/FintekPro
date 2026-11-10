@@ -854,7 +854,7 @@ export class PickOfTheDayService {
 			const redis = await this.getRedis();
 			if (redis) {
 				const cacheKey = `picks:daily:${today}`;
-				await redis.set(cacheKey, JSON.stringify(generated), "EX", 86400);
+				await redis.setEx(cacheKey, 86400, JSON.stringify(generated));
 				logger.info(`[PickOfTheDay] Pre-warmed Redis cache key: ${cacheKey}`);
 			}
 		} catch (cacheErr) {

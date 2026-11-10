@@ -505,6 +505,11 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 			app.use("/api/otp/send", otpLimiter);
 			app.use("/api/login/request-otp", otpLimiter);
 			app.use("/api/auth", authLimiter);
+
+			// ── Execution Guardrails: Idempotency, In-Flight Mutex, Debounce & Anti-Duplicate ──
+			const { executionGuard } = await import("./middleware/execution-guard");
+			app.use(executionGuard({ requireNetworkHeader: false, blockOfflineExecution: false, logExecution: true }));
+			logger.info("🛡️  Execution guardrails mounted (idempotency, in-flight locks & anti-duplicate guard)");
 		} catch (error: any) {
 			logger.error("❌ [FATAL] Error in Step 3 block:", error);
 			bootState.error = `Step 3 Error: ${error?.message || String(error)}`;

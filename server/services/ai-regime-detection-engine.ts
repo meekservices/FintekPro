@@ -51,6 +51,20 @@ export interface RegimeHistoryEntry {
 
 export class AIRegimeDetectionEngine {
 	async detectCurrentRegime(): Promise<RegimeDetectionResult> {
+		// Tier 2: Check distributed L2 Redis cache (5-minute TTL)
+		try {
+			const { getSharedRedis } = await import("../utils/redis-client");
+			const redis = await getSharedRedis();
+			if (redis?.isOpen) {
+				const cached = await redis.get("cache:ai_regime:current");
+				if (cached) {
+					return JSON.parse(cached);
+				}
+			}
+		} catch {
+			/* non-fatal fallback */
+		}
+
 		try {
 			const priceData = await this.fetchNiftyPrices(120);
 
@@ -314,6 +328,15 @@ export class AIRegimeDetectionEngine {
 					indiaVix,
 				},
 			});
+
+			// Cache in Redis with 300s TTL (5 minutes)
+			try {
+				const { getSharedRedis } = await import("../utils/redis-client");
+				const redis = await getSharedRedis();
+				if (redis?.isOpen) {
+					await redis.setEx("cache:ai_regime:current", 300, JSON.stringify(detectionResult));
+				}
+			} catch {}
 
 			return detectionResult;
 		} catch (error) {
