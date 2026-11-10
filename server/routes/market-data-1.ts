@@ -451,12 +451,16 @@ export function registerMarketDataPart1Routes(app: Express): void {
 							exchange,
 						);
 						if (histRes.success && histRes.data && histRes.data.length > 0) {
-							const c = histRes.data.map((item) => item.close);
-							const h = histRes.data.map((item) => item.high);
-							const l = histRes.data.map((item) => item.low);
-							const o = histRes.data.map((item) => item.open);
-							const v = histRes.data.map((item) => item.volume);
-							const t = histRes.data.map((item) =>
+							// Upstox returns candles in descending order (newest first). Lightweight charts requires strictly ascending order.
+							const sorted = [...histRes.data].sort(
+								(a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+							);
+							const c = sorted.map((item) => item.close);
+							const h = sorted.map((item) => item.high);
+							const l = sorted.map((item) => item.low);
+							const o = sorted.map((item) => item.open);
+							const v = sorted.map((item) => item.volume);
+							const t = sorted.map((item) =>
 								Math.floor(new Date(item.timestamp).getTime() / 1000),
 							);
 							res.json({ s: "ok", c, h, l, o, t, v, source: "UPSTOX" });
@@ -482,8 +486,10 @@ export function registerMarketDataPart1Routes(app: Express): void {
 						);
 						const data =
 							finnhubService.transformCandlesToMarketCandles(finnhubCandles);
-						res.json(data);
-						return;
+						if (data.s === "ok" && data.c && data.c.length > 0) {
+							res.json(data);
+							return;
+						}
 					}
 				} catch (err) {
 					console.log(
@@ -506,9 +512,14 @@ export function registerMarketDataPart1Routes(app: Express): void {
 						NATURAL_GAS: "NG=F",
 						COPPER: "HG=F",
 					};
-					const targetSym = isMcx
-						? COMMODITY_YAHOO_MAP[cleanSym] || cleanSym
-						: symbol.toUpperCase();
+					let targetSym: string;
+					if (isMcx) {
+						targetSym = COMMODITY_YAHOO_MAP[cleanSym] || cleanSym;
+					} else if (symbol.toUpperCase().includes(".") || symbol.startsWith("^")) {
+						targetSym = symbol.toUpperCase();
+					} else {
+						targetSym = `${cleanSym}.${exchange === "BSE" ? "BO" : "NS"}`;
+					}
 					const interval = resolution === "D" ? "1d" : "1h";
 					const yahooResponse = await fetch(
 						`https://query1.finance.yahoo.com/v8/finance/chart/${targetSym}?period1=${fromTs}&period2=${toTs}&interval=${interval}`,
@@ -517,17 +528,38 @@ export function registerMarketDataPart1Routes(app: Express): void {
 					const result = yahooData.chart?.result?.[0];
 
 					if (result && result.timestamp && result.timestamp.length > 0) {
-						res.json({
-							c: result.indicators.quote[0].close || [],
-							h: result.indicators.quote[0].high || [],
-							l: result.indicators.quote[0].low || [],
-							o: result.indicators.quote[0].open || [],
-							t: result.timestamp, // Already in unix seconds
-							v: result.indicators.quote[0].volume || [],
-							s: "ok",
-							source: "yahoo-fallback",
-						});
-						return;
+						const rawT = result.timestamp as number[];
+						const quote = result.indicators?.quote?.[0];
+						if (quote && quote.close && quote.open) {
+							// Filter out any null/NaN trading holiday candles
+							const validPairs: { t: number; c: number; h: number; l: number; o: number; v: number }[] = [];
+							for (let i = 0; i < rawT.length; i++) {
+								const close = Number(quote.close[i]);
+								const open = Number(quote.open[i]);
+								const high = Number(quote.high?.[i] ?? Math.max(close, open));
+								const low = Number(quote.low?.[i] ?? Math.min(close, open));
+								const volume = Number(quote.volume?.[i] ?? 0);
+								const t = rawT[i];
+								if (!isNaN(close) && !isNaN(open) && close > 0 && open > 0 && t > 0) {
+									validPairs.push({ t, c: close, h: high, l: low, o: open, v: isNaN(volume) ? 0 : volume });
+								}
+							}
+							if (validPairs.length > 0) {
+								// Ensure strictly ascending
+								validPairs.sort((a, b) => a.t - b.t);
+								res.json({
+									c: validPairs.map((p) => p.c),
+									h: validPairs.map((p) => p.h),
+									l: validPairs.map((p) => p.l),
+									o: validPairs.map((p) => p.o),
+									t: validPairs.map((p) => p.t),
+									v: validPairs.map((p) => p.v),
+									s: "ok",
+									source: "yahoo-fallback",
+								});
+								return;
+							}
+						}
 					}
 				} catch (err) {
 					console.log("Yahoo candle fallback failed for", symbol);

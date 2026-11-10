@@ -340,12 +340,34 @@ export class ScreenerMasterSnapshotService {
         COALESCE(dm.dm_week_low::numeric, ls.week_low_52::numeric),
         COALESCE(NULLIF(fin.pe_ratio::numeric, 0), NULLIF(km.km_pe::numeric, 0)),
         fin.forward_pe::numeric,
-        fin.peg_ratio::numeric,
+        COALESCE(
+          fin.peg_ratio::numeric,
+          CASE
+            WHEN COALESCE(NULLIF(fin.pe_ratio::numeric, 0), NULLIF(km.km_pe::numeric, 0)) > 0
+             AND COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0)) > 0.01
+              THEN ROUND(
+                COALESCE(NULLIF(fin.pe_ratio::numeric, 0), NULLIF(km.km_pe::numeric, 0)) /
+                (CASE WHEN COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0)) <= 1.0
+                      THEN COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0)) * 100
+                      ELSE COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0))
+                 END),
+                2
+              )
+          END
+        ),
         GREATEST(-99999.9999::numeric, LEAST(99999.9999::numeric, COALESCE(NULLIF(fin.pb_ratio::numeric, 0), NULLIF(km.km_pb::numeric, 0), ROUND(NULLIF(ls.current_price::numeric, 0) / NULLIF(fin.book_value::numeric, 0), 2)))),
         fin.ev_to_ebitda::numeric,
         COALESCE(NULLIF(fin.roe::numeric, 0), NULLIF(km.km_roe::numeric, 0)),
         fin.roce::numeric,
-        fin.roa::numeric,
+        COALESCE(
+          fin.roa::numeric,
+          CASE
+            WHEN fin.total_assets::numeric > 0 AND fin.net_income::numeric IS NOT NULL
+              THEN ROUND(fin.net_income::numeric / fin.total_assets::numeric, 4)
+            WHEN COALESCE(NULLIF(fin.roe::numeric, 0), NULLIF(km.km_roe::numeric, 0)) > 0
+              THEN ROUND(COALESCE(NULLIF(fin.roe::numeric, 0), NULLIF(km.km_roe::numeric, 0)) / (1.0 + GREATEST(0.0::numeric, COALESCE(fin.debt_to_equity::numeric, km.km_de::numeric, 0.0::numeric))), 4)
+          END
+        ),
         km.roic::numeric,
         GREATEST(-99999.9999::numeric, LEAST(99999.9999::numeric, COALESCE(fin.net_profit_margin::numeric, ROUND((fin.net_income::numeric / NULLIF(fin.revenue::numeric, 0)) * 100, 2)))),
         fin.operating_margin::numeric,
@@ -696,12 +718,34 @@ export class ScreenerMasterSnapshotService {
         -- Fundamentals (cross-table fallback)
         COALESCE(NULLIF(fin.pe_ratio::numeric, 0), NULLIF(km.km_pe::numeric, 0)),
         fin.forward_pe::numeric,
-        fin.peg_ratio::numeric,
+        COALESCE(
+          fin.peg_ratio::numeric,
+          CASE
+            WHEN COALESCE(NULLIF(fin.pe_ratio::numeric, 0), NULLIF(km.km_pe::numeric, 0)) > 0
+             AND COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0)) > 0.01
+              THEN ROUND(
+                COALESCE(NULLIF(fin.pe_ratio::numeric, 0), NULLIF(km.km_pe::numeric, 0)) /
+                (CASE WHEN COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0)) <= 1.0
+                      THEN COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0)) * 100
+                      ELSE COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0))
+                 END),
+                2
+              )
+          END
+        ),
         GREATEST(-99999.9999::numeric, LEAST(99999.9999::numeric, COALESCE(NULLIF(fin.pb_ratio::numeric, 0), NULLIF(km.km_pb::numeric, 0), ROUND(NULLIF(ls.current_price::numeric, 0) / NULLIF(fin.book_value::numeric, 0), 2)))),
         fin.ev_to_ebitda::numeric,
         COALESCE(NULLIF(fin.roe::numeric, 0), NULLIF(km.km_roe::numeric, 0)),
         fin.roce::numeric,
-        fin.roa::numeric,
+        COALESCE(
+          fin.roa::numeric,
+          CASE
+            WHEN fin.total_assets::numeric > 0 AND fin.net_income::numeric IS NOT NULL
+              THEN ROUND(fin.net_income::numeric / fin.total_assets::numeric, 4)
+            WHEN COALESCE(NULLIF(fin.roe::numeric, 0), NULLIF(km.km_roe::numeric, 0)) > 0
+              THEN ROUND(COALESCE(NULLIF(fin.roe::numeric, 0), NULLIF(km.km_roe::numeric, 0)) / (1.0 + GREATEST(0.0::numeric, COALESCE(fin.debt_to_equity::numeric, km.km_de::numeric, 0.0::numeric))), 4)
+          END
+        ),
         km.roic::numeric,
         GREATEST(-99999.9999::numeric, LEAST(99999.9999::numeric, COALESCE(fin.net_profit_margin::numeric, ROUND((fin.net_income::numeric / NULLIF(fin.revenue::numeric, 0)) * 100, 2)))),
         fin.operating_margin::numeric,

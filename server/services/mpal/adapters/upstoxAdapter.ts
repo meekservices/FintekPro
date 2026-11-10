@@ -39,6 +39,8 @@ export class UpstoxAdapter extends BaseBroker {
     "FNO",
     "BOND",
     "SGB",
+    "MF",
+    "PMS",
   ];
 
   private _client: AxiosInstance | null = null;
@@ -197,7 +199,8 @@ export class UpstoxAdapter extends BaseBroker {
     const orderType = order.type === "market" ? "MARKET" : "LIMIT";
     const price = orderType === "MARKET" ? 0 : (order.limitPrice ?? 0);
     // G-Secs, T-Bills, Bonds, and SGBs strictly require Delivery ("D") on Indian exchanges
-    const isDebt = order.assetClass === "BOND" || order.assetClass === "SGB" || Boolean(order.meta?.isDebt);
+    const orderAssetClass = (order as any).assetClass;
+    const isDebt = orderAssetClass === "BOND" || orderAssetClass === "SGB" || Boolean(order.meta?.isDebt);
     const product = isDebt ? "D" : ((order.meta?.product as string) || "D"); // 'D' = Delivery, 'I' = Intraday
     const validity = order.timeInForce === "ioc" ? "IOC" : "DAY";
 
@@ -232,7 +235,7 @@ export class UpstoxAdapter extends BaseBroker {
 
     const activeClient = this.getClient(customToken);
 
-    const auditProductType = isDebt ? (order.assetClass === "SGB" ? "sgb" : "bond") : "equity";
+    const auditProductType = isDebt ? (orderAssetClass === "SGB" ? "bond" : "bond") : "equity";
 
     // SEBI Immutable Pre-Order Audit Hook
     await orderAuditHook.logOrderEvent({
@@ -879,6 +882,163 @@ export class UpstoxAdapter extends BaseBroker {
         this.brokerId,
         "GTT_ORDER_FAILED",
         `Failed to place Upstox GTT order: ${err.message}`,
+        false
+      );
+    }
+  }
+
+  // ─── Upstox Mutual Funds API Integration (API v2) ──────────────────────────
+
+  /**
+   * Fetch mutual fund holdings from client's Upstox Demat / folio.
+   */
+  async getMfHoldings(customToken?: string): Promise<any[]> {
+    const activeClient = this.getClient(customToken);
+    try {
+      const resp = await activeClient.get("/mf/holdings");
+      return resp.data?.data || [];
+    } catch (err: any) {
+      logger.warn(`[UpstoxAdapter] getMfHoldings failed: ${err.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch mutual fund order book.
+   */
+  async getMfOrderBook(customToken?: string): Promise<any[]> {
+    const activeClient = this.getClient(customToken);
+    try {
+      const resp = await activeClient.get("/mf/orders");
+      return resp.data?.data || [];
+    } catch (err: any) {
+      logger.warn(`[UpstoxAdapter] getMfOrderBook failed: ${err.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Place a mutual fund lumpsum or purchase order via Upstox API v2.
+   */
+  async placeMfOrder(
+    params: {
+      instrumentToken: string; // ISIN or Upstox MF instrument token
+      amount?: number;
+      quantity?: number;
+      transactionType: "BUY" | "SELL";
+      folioNumber?: string;
+      tag?: string;
+    },
+    customToken?: string
+  ): Promise<any> {
+    const activeClient = this.getClient(customToken);
+    const payload = {
+      instrument_token: params.instrumentToken,
+      amount: params.amount,
+      quantity: params.quantity,
+      transaction_type: params.transactionType,
+      folio_number: params.folioNumber,
+      tag: params.tag || "fintekpro_mf",
+    };
+
+    try {
+      const resp = await activeClient.post("/mf/order/place", payload);
+      logger.info(`[UpstoxAdapter] MF order placed successfully: ${resp.data?.data?.order_id || "OK"}`);
+      return resp.data?.data;
+    } catch (err: any) {
+      throw new BrokerError(
+        this.brokerId,
+        "MF_ORDER_FAILED",
+        `Failed to place Upstox MF order: ${err.message}`,
+        false
+      );
+    }
+  }
+
+  /**
+   * Cancel an open mutual fund order.
+   */
+  async cancelMfOrder(orderId: string, customToken?: string): Promise<any> {
+    const activeClient = this.getClient(customToken);
+    try {
+      const resp = await activeClient.delete(`/mf/order/cancel`, {
+        params: { order_id: orderId },
+      });
+      return resp.data?.data;
+    } catch (err: any) {
+      throw new BrokerError(
+        this.brokerId,
+        "MF_ORDER_CANCEL_FAILED",
+        `Failed to cancel Upstox MF order ${orderId}: ${err.message}`,
+        false
+      );
+    }
+  }
+
+  /**
+   * Fetch active mutual fund SIP schedules.
+   */
+  async getMfSips(customToken?: string): Promise<any[]> {
+    const activeClient = this.getClient(customToken);
+    try {
+      const resp = await activeClient.get("/mf/sips");
+      return resp.data?.data || [];
+    } catch (err: any) {
+      logger.warn(`[UpstoxAdapter] getMfSips failed: ${err.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Place a new mutual fund SIP via Upstox API v2.
+   */
+  async placeMfSip(
+    params: {
+      instrumentToken: string;
+      installmentAmount: number;
+      frequency?: "MONTHLY" | "WEEKLY" | "QUARTERLY";
+      dayOfMonth?: number;
+      tag?: string;
+    },
+    customToken?: string
+  ): Promise<any> {
+    const activeClient = this.getClient(customToken);
+    const payload = {
+      instrument_token: params.instrumentToken,
+      installment_amount: params.installmentAmount,
+      frequency: params.frequency || "MONTHLY",
+      day_of_month: params.dayOfMonth || 10,
+      tag: params.tag || "fintekpro_sip",
+    };
+
+    try {
+      const resp = await activeClient.post("/mf/sip/place", payload);
+      return resp.data?.data;
+    } catch (err: any) {
+      throw new BrokerError(
+        this.brokerId,
+        "MF_SIP_FAILED",
+        `Failed to place Upstox MF SIP: ${err.message}`,
+        false
+      );
+    }
+  }
+
+  /**
+   * Cancel an active mutual fund SIP.
+   */
+  async cancelMfSip(sipId: string, customToken?: string): Promise<any> {
+    const activeClient = this.getClient(customToken);
+    try {
+      const resp = await activeClient.delete(`/mf/sip/cancel`, {
+        params: { sip_id: sipId },
+      });
+      return resp.data?.data;
+    } catch (err: any) {
+      throw new BrokerError(
+        this.brokerId,
+        "MF_SIP_CANCEL_FAILED",
+        `Failed to cancel Upstox MF SIP ${sipId}: ${err.message}`,
         false
       );
     }

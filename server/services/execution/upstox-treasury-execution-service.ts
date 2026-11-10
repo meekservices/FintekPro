@@ -483,7 +483,7 @@ export class UpstoxTreasuryExecutionService {
       userId: params.userId,
       userRole: "client",
       orderId: orderNumber,
-      productType: params.bondType === "sgb" ? "sgb" : "bond",
+      productType: "bond",
       action: "PLACED",
       newState: {
         isin: params.isin,
@@ -532,7 +532,7 @@ export class UpstoxTreasuryExecutionService {
         const isSimOrTest =
           this.isSandbox() ||
           process.env.NODE_ENV === "test" ||
-          (mode === "system_fallback" && Boolean(isReadOnly)) ||
+          mode === "system_fallback" ||
           !token;
 
         if (isSimOrTest) {
@@ -585,7 +585,7 @@ export class UpstoxTreasuryExecutionService {
         userId: params.userId,
         userRole: "client",
         orderId: orderNumber,
-        productType: params.bondType === "sgb" ? "sgb" : "bond",
+        productType: "bond",
         action: "REJECTED",
         newState: {
           errorCode: String(errCode),
@@ -644,7 +644,7 @@ export class UpstoxTreasuryExecutionService {
       userId: params.userId,
       userRole: "client",
       orderId: orderNumber,
-      productType: params.bondType === "sgb" ? "sgb" : "bond",
+      productType: "bond",
       action: "CONFIRMED",
       newState: {
         brokerOrderId,

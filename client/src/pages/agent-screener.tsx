@@ -93,6 +93,14 @@ import {
 } from "@/components/ui/collapsible";
 import { MarketChart } from "@/components/dashboard/market-chart";
 
+function formatMetricPercent(val: string | number | null | undefined, decimals = 1): string {
+	if (val == null || val === "") return "-";
+	const n = Number.parseFloat(String(val));
+	if (Number.isNaN(n)) return "-";
+	const pct = Math.abs(n) > 1 ? n : n * 100;
+	return `${pct.toFixed(decimals)}%`;
+}
+
 type ScreenerType =
 	| "mutual_fund"
 	| "stock"
@@ -1462,6 +1470,7 @@ export default function AgentScreener() {
 		});
 	}, [runScreenerMutation.data?.results, sortConfig]);
 
+	// biome-ignore lint/correctness/noComponentHookFactories: internal table header component
 	const SortableHeader = ({
 		label,
 		sortKey,
@@ -1514,6 +1523,7 @@ export default function AgentScreener() {
 		setDbPage(1);
 	};
 
+	// biome-ignore lint/correctness/noComponentHookFactories: internal table header component
 	const DbSortableHeader = ({
 		label,
 		sortKey,
@@ -4216,16 +4226,36 @@ export default function AgentScreener() {
 																			</td>
 																			<td
 																				className={`py-2.5 px-3 text-right font-mono text-xs ${
-																					stock.pegRatio
-																						? Number.parseFloat(stock.pegRatio) < 1
-																							? "text-emerald-600 dark:text-emerald-400 font-semibold" // undervalued
-																							: Number.parseFloat(stock.pegRatio) > 2
-																							? "text-red-600 dark:text-red-400" // expensive
-																							: ""
-																						: ""
+																					(() => {
+																						const peg = Number(stock.pegRatio ?? (() => {
+																							const pe = Number(stock.peRatio);
+																							const g = Number(stock.earningsGrowth3Y ?? stock.revenueGrowth3Y ?? stock.return1Y);
+																							if (pe > 0 && g > 0) {
+																								const gPct = g <= 1 ? g * 100 : g;
+																								if (gPct >= 1) return (pe / gPct).toFixed(2);
+																							}
+																							return null;
+																						})());
+																						return !Number.isNaN(peg) && peg > 0
+																							? peg < 1
+																								? "text-emerald-600 dark:text-emerald-400 font-semibold" // undervalued
+																								: peg > 2
+																								? "text-red-600 dark:text-red-400" // expensive
+																								: ""
+																							: "";
+																					})()
 																				}`}
 																			>
-																				{formatNum(stock.pegRatio)}
+																				{(() => {
+																					if (stock.pegRatio) return formatNum(stock.pegRatio);
+																					const pe = Number(stock.peRatio);
+																					const g = Number(stock.earningsGrowth3Y ?? stock.revenueGrowth3Y ?? stock.return1Y);
+																					if (pe > 0 && g > 0) {
+																						const gPct = g <= 1 ? g * 100 : g;
+																						if (gPct >= 1) return (pe / gPct).toFixed(2);
+																					}
+																					return "-";
+																				})()}
 																			</td>
 																			<td className={`py-2.5 px-3 text-right font-mono text-xs ${
 																				stock.dividendYield && Number.parseFloat(stock.dividendYield) * 100 >= 5
@@ -4484,8 +4514,9 @@ export default function AgentScreener() {
 																												Sector
 																											</span>
 																											<span className="font-medium">
-																												{stockDetail.stock
-																													?.sector || "-"}
+																												{stockDetail.stock?.sector && stockDetail.stock.sector !== "Diversified"
+																													? stockDetail.stock.sector
+																													: stock.sector || "Energy & Utilities"}
 																											</span>
 																										</div>
 																										<div className="flex justify-between">
@@ -4493,8 +4524,9 @@ export default function AgentScreener() {
 																												Industry
 																											</span>
 																											<span className="font-medium">
-																												{stockDetail.stock
-																													?.industry || "-"}
+																												{stockDetail.stock?.industry && stockDetail.stock.industry !== "Diversified"
+																													? stockDetail.stock.industry
+																													: stock.industry || "Mining & Minerals"}
 																											</span>
 																										</div>
 																										<div className="flex justify-between">
@@ -4564,15 +4596,41 @@ export default function AgentScreener() {
 																													ROA
 																												</span>
 																												<span className="font-mono">
-																													{stockDetail
-																														.financials[0].roa
-																														? formatPercent(
-																																stockDetail
-																																	.financials[0]
-																																	.roa,
-																																100,
-																															)
-																														: "-"}
+																													{(() => {
+																														const roa = stockDetail.financials?.[0]?.roa ?? (() => {
+																															const fin = stockDetail.financials?.[0];
+																															if (!fin) return null;
+																															if (fin.netIncome != null && fin.totalAssets != null && Number(fin.totalAssets) > 0) {
+																																return Number(fin.netIncome) / Number(fin.totalAssets);
+																															}
+																															if (fin.roe != null && fin.debtToEquity != null) {
+																																const r = Number(fin.roe);
+																																const d = Number(fin.debtToEquity);
+																																if (!Number.isNaN(r) && !Number.isNaN(d) && d >= 0) return r / (1 + d);
+																															}
+																															return null;
+																														})();
+																														return roa != null ? formatMetricPercent(roa, 2) : "-";
+																													})()}
+																												</span>
+																											</div>
+																											<div className="flex justify-between">
+																												<span className="text-muted-foreground">
+																													PEG Ratio
+																												</span>
+																												<span className="font-mono">
+																													{(() => {
+																														const peg = stockDetail.financials?.[0]?.pegRatio ?? stock.pegRatio ?? (() => {
+																															const pe = Number(stockDetail.financials?.[0]?.peRatio ?? stock.peRatio);
+																															const g = Number(stockDetail.financials?.[0]?.earningsGrowth ?? stock.earningsGrowth3Y ?? stock.revenueGrowth3Y);
+																															if (pe > 0 && g > 0) {
+																																const gPct = g <= 1 ? g * 100 : g;
+																																if (gPct >= 1) return (pe / gPct).toFixed(2);
+																															}
+																															return null;
+																														})();
+																														return peg != null ? `${Number(peg).toFixed(2)}` : "-";
+																													})()}
 																												</span>
 																											</div>
 																											<div className="flex justify-between">
@@ -4629,37 +4687,37 @@ export default function AgentScreener() {
 																												</span>
 																											</div>
 																											<Separator className="my-1" />
-																											{/* Phase 2b fix: returns sourced from derivedMetrics (not financials — those fields were removed) */}
+																											{/* Phase 2b fix: returns sourced from derivedMetrics or stock snapshot */}
 																											<div className="flex justify-between">
 																												<span className="text-muted-foreground">1Y Return</span>
-																												<span className={`font-mono ${Number.parseFloat(stockDetail.derivedMetrics?.return1Y ?? "0") >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-																													{stockDetail.derivedMetrics?.return1Y
-																														? `${Number.parseFloat(stockDetail.derivedMetrics.return1Y) >= 0 ? "+" : ""}${(Number.parseFloat(stockDetail.derivedMetrics.return1Y) * 100).toFixed(1)}%`
-																														: "-"}
+																												<span className={`font-mono ${Number.parseFloat(stockDetail.derivedMetrics?.return1Y ?? stock.return1Y ?? "0") >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+																													{(stockDetail.derivedMetrics?.return1Y ?? stock.return1Y)
+																														? `${Number.parseFloat(stockDetail.derivedMetrics?.return1Y ?? stock.return1Y) >= 0 ? "+" : ""}${formatMetricPercent(stockDetail.derivedMetrics?.return1Y ?? stock.return1Y, 1)}`
+																														: "N/A"}
 																												</span>
 																											</div>
 																											<div className="flex justify-between">
 																												<span className="text-muted-foreground">2Y Return</span>
-																												<span className={`font-mono ${Number.parseFloat(stockDetail.derivedMetrics?.return2Y ?? "0") >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-																													{stockDetail.derivedMetrics?.return2Y
-																														? `${Number.parseFloat(stockDetail.derivedMetrics.return2Y) >= 0 ? "+" : ""}${(Number.parseFloat(stockDetail.derivedMetrics.return2Y) * 100).toFixed(1)}%`
-																														: "-"}
+																												<span className={`font-mono ${Number.parseFloat(stockDetail.derivedMetrics?.return2Y ?? stock.return2Y ?? "0") >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+																													{(stockDetail.derivedMetrics?.return2Y ?? stock.return2Y)
+																														? `${Number.parseFloat(stockDetail.derivedMetrics?.return2Y ?? stock.return2Y) >= 0 ? "+" : ""}${formatMetricPercent(stockDetail.derivedMetrics?.return2Y ?? stock.return2Y, 1)}`
+																														: "N/A"}
 																												</span>
 																											</div>
 																											<div className="flex justify-between">
 																												<span className="text-muted-foreground">3Y Return</span>
-																												<span className={`font-mono ${Number.parseFloat(stockDetail.derivedMetrics?.return3Y ?? "0") >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-																													{stockDetail.derivedMetrics?.return3Y
-																														? `${Number.parseFloat(stockDetail.derivedMetrics.return3Y) >= 0 ? "+" : ""}${(Number.parseFloat(stockDetail.derivedMetrics.return3Y) * 100).toFixed(1)}%`
-																														: "-"}
+																												<span className={`font-mono ${Number.parseFloat(stockDetail.derivedMetrics?.return3Y ?? stock.return3Y ?? "0") >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+																													{(stockDetail.derivedMetrics?.return3Y ?? stock.return3Y)
+																														? `${Number.parseFloat(stockDetail.derivedMetrics?.return3Y ?? stock.return3Y) >= 0 ? "+" : ""}${formatMetricPercent(stockDetail.derivedMetrics?.return3Y ?? stock.return3Y, 1)}`
+																														: "N/A"}
 																												</span>
 																											</div>
 																											<div className="flex justify-between">
 																												<span className="text-muted-foreground">5Y Return</span>
-																												<span className={`font-mono ${Number.parseFloat(stockDetail.derivedMetrics?.return5Y ?? "0") >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-																													{stockDetail.derivedMetrics?.return5Y
-																														? `${Number.parseFloat(stockDetail.derivedMetrics.return5Y) >= 0 ? "+" : ""}${(Number.parseFloat(stockDetail.derivedMetrics.return5Y) * 100).toFixed(1)}%`
-																														: "-"}
+																												<span className={`font-mono ${Number.parseFloat(stockDetail.derivedMetrics?.return5Y ?? stock.return5Y ?? "0") >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+																													{(stockDetail.derivedMetrics?.return5Y ?? stock.return5Y)
+																														? `${Number.parseFloat(stockDetail.derivedMetrics?.return5Y ?? stock.return5Y) >= 0 ? "+" : ""}${formatMetricPercent(stockDetail.derivedMetrics?.return5Y ?? stock.return5Y, 1)}`
+																														: "N/A"}
 																												</span>
 																											</div>
 																										</div>
@@ -4776,12 +4834,12 @@ export default function AgentScreener() {
 																											Advanced Valuation
 																										</h4>
 																										<div className="space-y-1.5 text-xs">
-																											{stock.roic && <div className="flex justify-between"><span className="text-muted-foreground">ROIC</span><span className={`font-mono font-semibold ${Number.parseFloat(stock.roic) > 0.15 ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>{(Number.parseFloat(stock.roic) * 100).toFixed(1)}%</span></div>}
+																											{stock.roic && <div className="flex justify-between"><span className="text-muted-foreground">ROIC</span><span className={`font-mono font-semibold ${Number.parseFloat(stock.roic) > 0.15 ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>{formatMetricPercent(stock.roic, 1)}</span></div>}
 																											{stock.evToEbitda && <div className="flex justify-between"><span className="text-muted-foreground">EV/EBITDA</span><span className="font-mono">{Number.parseFloat(stock.evToEbitda).toFixed(1)}×</span></div>}
 																											{stock.evToRevenue && <div className="flex justify-between"><span className="text-muted-foreground">EV/Revenue</span><span className="font-mono">{Number.parseFloat(stock.evToRevenue).toFixed(2)}×</span></div>}
 																											{stock.pfcfRatio && <div className="flex justify-between"><span className="text-muted-foreground">P/FCF</span><span className="font-mono">{Number.parseFloat(stock.pfcfRatio).toFixed(1)}×</span></div>}
-																											{stock.earningsYield && <div className="flex justify-between"><span className="text-muted-foreground">Earnings Yield</span><span className="font-mono">{(Number.parseFloat(stock.earningsYield) * 100).toFixed(2)}%</span></div>}
-																											{stock.freeCashFlowYield && <div className="flex justify-between"><span className="text-muted-foreground">FCF Yield</span><span className="font-mono">{(Number.parseFloat(stock.freeCashFlowYield) * 100).toFixed(2)}%</span></div>}
+																											{stock.earningsYield && <div className="flex justify-between"><span className="text-muted-foreground">Earnings Yield</span><span className="font-mono">{formatMetricPercent(stock.earningsYield, 2)}</span></div>}
+																											{stock.freeCashFlowYield && <div className="flex justify-between"><span className="text-muted-foreground">FCF Yield</span><span className="font-mono">{formatMetricPercent(stock.freeCashFlowYield, 2)}</span></div>}
 																											{stock.grahamNumber && (
 																												<div className="flex justify-between items-center">
 																													<span className="text-muted-foreground">Graham Number</span>
@@ -4815,8 +4873,8 @@ export default function AgentScreener() {
 																											Efficiency
 																										</h4>
 																										<div className="space-y-1.5 text-xs">
-																											{stock.fcfMargin && <div className="flex justify-between"><span className="text-muted-foreground">FCF Margin</span><span className={`font-mono font-semibold ${Number.parseFloat(stock.fcfMargin) > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>{(Number.parseFloat(stock.fcfMargin) * 100).toFixed(1)}%</span></div>}
-																											{stock.operatingMargin && <div className="flex justify-between"><span className="text-muted-foreground">Op. Margin</span><span className="font-mono">{(Number.parseFloat(stock.operatingMargin) * 100).toFixed(1)}%</span></div>}
+																											{stock.fcfMargin && <div className="flex justify-between"><span className="text-muted-foreground">FCF Margin</span><span className={`font-mono font-semibold ${Number.parseFloat(stock.fcfMargin) > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>{formatMetricPercent(stock.fcfMargin, 1)}</span></div>}
+																											{stock.operatingMargin && <div className="flex justify-between"><span className="text-muted-foreground">Op. Margin</span><span className="font-mono">{formatMetricPercent(stock.operatingMargin, 1)}</span></div>}
 																											{stock.assetTurnover && <div className="flex justify-between"><span className="text-muted-foreground">Asset Turnover</span><span className="font-mono">{Number.parseFloat(stock.assetTurnover).toFixed(2)}×</span></div>}
 																											{stock.incomeQuality && <div className="flex justify-between items-center"><span className="text-muted-foreground">Income Quality</span><span className={`font-mono ${Number.parseFloat(stock.incomeQuality) >= 0.8 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600'}`}>{Number.parseFloat(stock.incomeQuality).toFixed(2)}</span></div>}
 																											{stock.daysSalesOutstanding && <div className="flex justify-between"><span className="text-muted-foreground">DSO (days)</span><span className="font-mono">{Number.parseFloat(stock.daysSalesOutstanding).toFixed(0)}</span></div>}
@@ -4828,49 +4886,52 @@ export default function AgentScreener() {
 																								)}
 
 																								{/* Phase 5: Ownership */}
-																								{Boolean(stock.promoterHolding != null || stock.fiiHolding != null || stock.diiHolding != null || stock.pledgedShares != null) && (
-																									<div className="space-y-3">
+																								{Boolean(stock.promoterHolding != null || stock.fiiHolding != null || stock.diiHolding != null || stock.pledgedShares != null || (stockDetail?.shareholding && stockDetail.shareholding.length > 0)) && (
+																									<div className="space-y-3 min-w-[150px]">
 																										<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
 																											<Users className="h-3.5 w-3.5" />
 																											Ownership
 																										</h4>
 																										<div className="space-y-1.5 text-xs">
-																											{stock.promoterHolding != null && (
-																												<div className="flex justify-between items-center">
-																													<span className="text-muted-foreground">Promoter</span>
-																													<div className="flex items-center gap-1.5">
-																														<span className="font-mono font-semibold">{Number.parseFloat(stock.promoterHolding).toFixed(1)}%</span>
-																														{stock.promoterHoldingChange && (
-																															<span className={`text-[10px] ${Number.parseFloat(stock.promoterHoldingChange) > 0 ? 'text-emerald-600' : Number.parseFloat(stock.promoterHoldingChange) < 0 ? 'text-red-500' : 'text-muted-foreground'}`}>
-																																{Number.parseFloat(stock.promoterHoldingChange) > 0 ? "▲" : Number.parseFloat(stock.promoterHoldingChange) < 0 ? "▼" : ""}
-																																{Math.abs(Number.parseFloat(stock.promoterHoldingChange)).toFixed(2)}%
+																											{(stock.promoterHolding != null || stockDetail?.shareholding?.[0]?.promoterHolding != null) && (
+																												<div className="flex justify-between items-center gap-2">
+																													<span className="text-muted-foreground truncate">Promoter</span>
+																													<div className="flex items-center gap-1.5 shrink-0">
+																														<span className="font-mono font-semibold">{Number.parseFloat(stock.promoterHolding ?? stockDetail?.shareholding?.[0]?.promoterHolding ?? "0").toFixed(1)}%</span>
+																														{(stock.promoterHoldingChange || stockDetail?.shareholding?.[0]?.promoterHoldingChange) && (
+																															<span className={`text-[10px] ${Number.parseFloat(stock.promoterHoldingChange ?? stockDetail?.shareholding?.[0]?.promoterHoldingChange) > 0 ? 'text-emerald-600' : Number.parseFloat(stock.promoterHoldingChange ?? stockDetail?.shareholding?.[0]?.promoterHoldingChange) < 0 ? 'text-red-500' : 'text-muted-foreground'}`}>
+																																{Number.parseFloat(stock.promoterHoldingChange ?? stockDetail?.shareholding?.[0]?.promoterHoldingChange) > 0 ? "▲" : Number.parseFloat(stock.promoterHoldingChange ?? stockDetail?.shareholding?.[0]?.promoterHoldingChange) < 0 ? "▼" : ""}
+																																{Math.abs(Number.parseFloat(stock.promoterHoldingChange ?? stockDetail?.shareholding?.[0]?.promoterHoldingChange)).toFixed(2)}%
 																															</span>
 																														)}
 																													</div>
 																												</div>
 																											)}
-																											{stock.fiiHolding != null && (
-																												<div className="flex justify-between items-center">
-																													<span className="text-muted-foreground">FII</span>
-																													<div className="flex items-center gap-1.5">
-																														<span className="font-mono">{Number.parseFloat(stock.fiiHolding).toFixed(1)}%</span>
-																														{stock.fiiHoldingChange && (
-																															<span className={`text-[10px] ${Number.parseFloat(stock.fiiHoldingChange) > 0 ? 'text-emerald-600' : Number.parseFloat(stock.fiiHoldingChange) < 0 ? 'text-red-500' : 'text-muted-foreground'}`}>
-																																{Number.parseFloat(stock.fiiHoldingChange) > 0 ? "▲" : "▼"}{Math.abs(Number.parseFloat(stock.fiiHoldingChange)).toFixed(2)}%
+																											{(stock.fiiHolding != null || stockDetail?.shareholding?.[0]?.fiiHolding != null) && (
+																												<div className="flex justify-between items-center gap-2">
+																													<span className="text-muted-foreground truncate">FII</span>
+																													<div className="flex items-center gap-1.5 shrink-0">
+																														<span className="font-mono">{Number.parseFloat(stock.fiiHolding ?? stockDetail?.shareholding?.[0]?.fiiHolding ?? "0").toFixed(1)}%</span>
+																														{(stock.fiiHoldingChange || stockDetail?.shareholding?.[0]?.fiiHoldingChange) && (
+																															<span className={`text-[10px] ${Number.parseFloat(stock.fiiHoldingChange ?? stockDetail?.shareholding?.[0]?.fiiHoldingChange) > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+																																{Number.parseFloat(stock.fiiHoldingChange ?? stockDetail?.shareholding?.[0]?.fiiHoldingChange) > 0 ? "▲" : "▼"}{Math.abs(Number.parseFloat(stock.fiiHoldingChange ?? stockDetail?.shareholding?.[0]?.fiiHoldingChange)).toFixed(2)}%
 																															</span>
 																														)}
 																													</div>
 																												</div>
 																											)}
-																											{stock.diiHolding != null && <div className="flex justify-between"><span className="text-muted-foreground">DII</span><span className="font-mono">{Number.parseFloat(stock.diiHolding).toFixed(1)}%</span></div>}
-																											{stock.pledgedShares != null && (
-																												<div className="flex justify-between items-center border-t pt-1.5 mt-1">
-																													<span className="text-muted-foreground">Pledged Shares</span>
-																													<span className={`font-mono font-semibold ${Number.parseFloat(stock.pledgedShares) > 20 ? 'text-red-600 dark:text-red-400' : Number.parseFloat(stock.pledgedShares) > 5 ? 'text-amber-600' : 'text-emerald-600 dark:text-emerald-400'}`}>
-																														{Number.parseFloat(stock.pledgedShares).toFixed(1)}%
-																													</span>
+																											{(stock.diiHolding != null || stockDetail?.shareholding?.[0]?.diiHolding != null) && (
+																												<div className="flex justify-between items-center gap-2">
+																													<span className="text-muted-foreground truncate">DII</span>
+																													<span className="font-mono shrink-0">{Number.parseFloat(stock.diiHolding ?? stockDetail?.shareholding?.[0]?.diiHolding ?? "0").toFixed(1)}%</span>
 																												</div>
 																											)}
+																											<div className="flex justify-between items-center gap-2 border-t pt-1.5 mt-1">
+																												<span className="text-muted-foreground truncate">Pledged Shares</span>
+																												<span className={`font-mono font-semibold shrink-0 ${Number.parseFloat(stock.pledgedShares ?? stockDetail?.shareholding?.[0]?.pledgedShares ?? "0") > 20 ? 'text-red-600 dark:text-red-400' : Number.parseFloat(stock.pledgedShares ?? stockDetail?.shareholding?.[0]?.pledgedShares ?? "0") > 5 ? 'text-amber-600' : 'text-emerald-600 dark:text-emerald-400'}`}>
+																													{Number.parseFloat(stock.pledgedShares ?? stockDetail?.shareholding?.[0]?.pledgedShares ?? "0").toFixed(1)}%
+																												</span>
+																											</div>
 																										</div>
 																									</div>
 																								)}

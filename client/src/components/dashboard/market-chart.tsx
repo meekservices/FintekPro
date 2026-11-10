@@ -94,8 +94,9 @@ export function MarketChart({
 		if (!containerRef.current) return;
 		const isDark = document.documentElement.classList.contains("dark");
 
+		const initWidth = containerRef.current.clientWidth || containerRef.current.parentElement?.clientWidth || 600;
 		const chart = createChart(containerRef.current, {
-			width: containerRef.current.clientWidth,
+			width: initWidth,
 			height: height,
 			layout: {
 				background: { color: isDark ? "#0f172a" : "#ffffff" },
@@ -182,7 +183,7 @@ export function MarketChart({
 		});
 
 		const ro = new ResizeObserver((entries) => {
-			if (chartRef.current && entries[0]) {
+			if (chartRef.current && entries[0] && entries[0].contentRect.width > 0) {
 				chartRef.current.applyOptions({ width: entries[0].contentRect.width });
 			}
 		});
@@ -201,130 +202,169 @@ export function MarketChart({
 	useEffect(() => {
 		if (!chartRef.current || !candles || candles.s !== "ok") return;
 
-		// Remove previous series
-		if (seriesRef.current) {
-			try {
-				chartRef.current.removeSeries(seriesRef.current);
-			} catch (_) {}
-			seriesRef.current = null;
-		}
-		if (volumeSeriesRef.current) {
-			try {
-				chartRef.current.removeSeries(volumeSeriesRef.current);
-			} catch (_) {}
-			volumeSeriesRef.current = null;
+		// Extract, sanitize, sort ascending, and deduplicate candle data
+		const rawT = candles.t || [];
+		const rawO = candles.o || [];
+		const rawH = candles.h || [];
+		const rawL = candles.l || [];
+		const rawC = candles.c || [];
+		const rawV = candles.v || [];
+
+		const points: { ts: number; open: number; high: number; low: number; close: number; volume: number }[] = [];
+		for (let i = 0; i < rawT.length; i++) {
+			let ts = Number(rawT[i]);
+			if (ts > 1e11) ts = Math.floor(ts / 1000); // Normalize milliseconds to seconds
+			const open = Number(rawO[i]);
+			const high = Number(rawH[i]);
+			const low = Number(rawL[i]);
+			const close = Number(rawC[i]);
+			const volume = Number(rawV[i] ?? 0);
+			if (
+				!isNaN(ts) && ts > 0 &&
+				!isNaN(open) && open > 0 &&
+				!isNaN(high) && high > 0 &&
+				!isNaN(low) && low > 0 &&
+				!isNaN(close) && close > 0
+			) {
+				points.push({ ts, open, high, low, close, volume: isNaN(volume) ? 0 : volume });
+			}
 		}
 
-		// Adjust price scale bottom margin depending on volume visibility
-		chartRef.current.priceScale("right").applyOptions({
-			scaleMargins: {
-				top: 0.08,
-				bottom: showVolume ? 0.28 : 0.05,
-			},
-		});
+		// Sort STRICTLY ASCENDING (required by lightweight-charts)
+		points.sort((a, b) => a.ts - b.ts);
 
+		// Deduplicate timestamps (required by lightweight-charts)
+		const cleanPoints = points.filter((p, idx, arr) => idx === 0 || p.ts > arr[idx - 1].ts);
+
+		if (cleanPoints.length === 0) return;
+
+		// Filter by timeframe
 		const nowSec = Date.now() / 1000;
 		const cutoff = nowSec - TIMEFRAME_DAYS[timeframe] * 86400;
-		const startIdx = Math.max(
-			0,
-			candles.t.findIndex((ts: number) => ts >= cutoff),
-		);
+		const filtered = cleanPoints.filter((p) => p.ts >= cutoff);
+		const displayPoints = filtered.length >= 3 ? filtered : cleanPoints;
 
-		const t = candles.t.slice(startIdx) as number[];
-		const o = candles.o.slice(startIdx) as number[];
-		const h = candles.h.slice(startIdx) as number[];
-		const l = candles.l.slice(startIdx) as number[];
-		const c = candles.c.slice(startIdx) as number[];
-		const v = (candles.v ? candles.v.slice(startIdx) : []) as number[];
+		const t = displayPoints.map((p) => p.ts);
+		const o = displayPoints.map((p) => p.open);
+		const h = displayPoints.map((p) => p.high);
+		const l = displayPoints.map((p) => p.low);
+		const c = displayPoints.map((p) => p.close);
+		const v = displayPoints.map((p) => p.volume);
 
 		if (t.length === 0) return;
 
-		const UP = "#10b981";
-		const DOWN = "#ef4444";
-		const UP_VOL = "rgba(16, 185, 129, 0.65)";
-		const DOWN_VOL = "rgba(239, 68, 68, 0.65)";
+		try {
+			// Remove previous series
+			if (seriesRef.current) {
+				try {
+					chartRef.current.removeSeries(seriesRef.current);
+				} catch (_) {}
+				seriesRef.current = null;
+			}
+			if (volumeSeriesRef.current) {
+				try {
+					chartRef.current.removeSeries(volumeSeriesRef.current);
+				} catch (_) {}
+				volumeSeriesRef.current = null;
+			}
 
-		// 1. Add Price Series
-		if (chartType === "candlestick") {
-			const s = chartRef.current.addSeries(CandlestickSeries, {
-				upColor: UP,
-				downColor: DOWN,
-				borderUpColor: UP,
-				borderDownColor: DOWN,
-				wickUpColor: UP,
-				wickDownColor: DOWN,
-			});
-			s.setData(
-				t.map(
-					(ts, i) =>
-						({
-							time: ts as Time,
-							open: o[i],
-							high: h[i],
-							low: l[i],
-							close: c[i],
-						}) as CandlestickData,
-				),
-			);
-			seriesRef.current = s;
-		} else if (chartType === "line") {
-			const s = chartRef.current.addSeries(LineSeries, {
-				color: "#3b82f6",
-				lineWidth: 2,
-			});
-			s.setData(
-				t.map((ts, i) => ({ time: ts as Time, value: c[i] }) as LineData),
-			);
-			seriesRef.current = s;
-		} else {
-			const s = chartRef.current.addSeries(AreaSeries, {
-				topColor: "rgba(59,130,246,0.35)",
-				bottomColor: "rgba(59,130,246,0.0)",
-				lineColor: "#3b82f6",
-				lineWidth: 2,
-			});
-			s.setData(
-				t.map((ts, i) => ({ time: ts as Time, value: c[i] }) as LineData),
-			);
-			seriesRef.current = s;
-		}
-
-		// 2. Add Volume Series (Histogram Series pinned to bottom 28% of chart)
-		if (showVolume) {
-			const volSeries = chartRef.current.addSeries(HistogramSeries, {
-				priceFormat: { type: "volume" },
-				priceScaleId: "volume",
-			});
-
-			chartRef.current.priceScale("volume").applyOptions({
+			// Adjust price scale bottom margin depending on volume visibility
+			chartRef.current.priceScale("right").applyOptions({
 				scaleMargins: {
-					top: 0.72,
-					bottom: 0,
+					top: 0.08,
+					bottom: showVolume ? 0.28 : 0.05,
 				},
 			});
 
-			const hasRealVolume = v.length === t.length && v.some((val) => (val ?? 0) > 0);
+			const UP = "#10b981";
+			const DOWN = "#ef4444";
+			const UP_VOL = "rgba(16, 185, 129, 0.65)";
+			const DOWN_VOL = "rgba(239, 68, 68, 0.65)";
 
-			const volumeData: HistogramData[] = t.map((ts, i) => {
-				const isUp = (c[i] ?? 0) >= (o[i] ?? 0);
-				let vol = v[i] ?? 0;
-				// If index/ticker has no reported share volume, compute proportional indicator volume from day range
-				if (!hasRealVolume) {
-					const range = Math.max(0.5, (h[i] ?? 0) - (l[i] ?? 0));
-					vol = Math.round(range * 25000 + 40000);
-				}
-				return {
-					time: ts as Time,
-					value: vol,
-					color: isUp ? UP_VOL : DOWN_VOL,
-				};
-			});
+			// 1. Add Price Series
+			if (chartType === "candlestick") {
+				const s = chartRef.current.addSeries(CandlestickSeries, {
+					upColor: UP,
+					downColor: DOWN,
+					borderUpColor: UP,
+					borderDownColor: DOWN,
+					wickUpColor: UP,
+					wickDownColor: DOWN,
+				});
+				s.setData(
+					t.map(
+						(ts, i) =>
+							({
+								time: ts as Time,
+								open: o[i],
+								high: h[i],
+								low: l[i],
+								close: c[i],
+							}) as CandlestickData,
+					),
+				);
+				seriesRef.current = s;
+			} else if (chartType === "line") {
+				const s = chartRef.current.addSeries(LineSeries, {
+					color: "#3b82f6",
+					lineWidth: 2,
+				});
+				s.setData(
+					t.map((ts, i) => ({ time: ts as Time, value: c[i] }) as LineData),
+				);
+				seriesRef.current = s;
+			} else {
+				const s = chartRef.current.addSeries(AreaSeries, {
+					topColor: "rgba(59,130,246,0.35)",
+					bottomColor: "rgba(59,130,246,0.0)",
+					lineColor: "#3b82f6",
+					lineWidth: 2,
+				});
+				s.setData(
+					t.map((ts, i) => ({ time: ts as Time, value: c[i] }) as LineData),
+				);
+				seriesRef.current = s;
+			}
 
-			volSeries.setData(volumeData);
-			volumeSeriesRef.current = volSeries;
+			// 2. Add Volume Series (Histogram Series pinned to bottom 28% of chart)
+			if (showVolume) {
+				const volSeries = chartRef.current.addSeries(HistogramSeries, {
+					priceFormat: { type: "volume" },
+					priceScaleId: "volume",
+				});
+
+				chartRef.current.priceScale("volume").applyOptions({
+					scaleMargins: {
+						top: 0.72,
+						bottom: 0,
+					},
+				});
+
+				const hasRealVolume = v.length === t.length && v.some((val) => (val ?? 0) > 0);
+
+				const volumeData: HistogramData[] = t.map((ts, i) => {
+					const isUp = (c[i] ?? 0) >= (o[i] ?? 0);
+					let vol = v[i] ?? 0;
+					// If index/ticker has no reported share volume, compute proportional indicator volume from day range
+					if (!hasRealVolume) {
+						const range = Math.max(0.5, (h[i] ?? 0) - (l[i] ?? 0));
+						vol = Math.round(range * 25000 + 40000);
+					}
+					return {
+						time: ts as Time,
+						value: vol,
+						color: isUp ? UP_VOL : DOWN_VOL,
+					};
+				});
+
+				volSeries.setData(volumeData);
+				volumeSeriesRef.current = volSeries;
+			}
+
+			chartRef.current.timeScale().fitContent();
+		} catch (chartErr) {
+			console.error("[MarketChart] Error rendering chart series:", chartErr);
 		}
-
-		chartRef.current.timeScale().fitContent();
 
 		// Calculate Statistics
 		const last = c[c.length - 1];

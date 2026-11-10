@@ -79,7 +79,7 @@ upstoxTreasuryOrderRouter.post("/preview", (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error_code: "INVALID_ORDER_PREVIEW_INPUT",
-        message: parseResult.error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", "),
+        message: parseResult.error.issues.map((e) => `${e.path.join(".")}: ${e.message}`).join(", "),
         retryable: false,
       });
     }
@@ -118,7 +118,7 @@ upstoxTreasuryOrderRouter.post("/place", async (req: Request, res: Response) => 
       return res.status(400).json({
         success: false,
         error_code: "INVALID_DEBT_ORDER_INPUT",
-        message: parseResult.error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", "),
+        message: parseResult.error.issues.map((e) => `${e.path.join(".")}: ${e.message}`).join(", "),
         retryable: false,
       });
     }

@@ -144,7 +144,9 @@ import { registerPartnerPortalEnhancementRoutes } from "./routes/partner-portal-
 import { registerCasPortfolioUploadRoutes } from "./routes/cas-portfolio-upload-routes";
 import { registerComplianceGateRoutes } from "./routes/compliance-gate-routes";
 import { registerPmsRoutes } from "./routes/pms-routes";
+import { registerPmsFeeRoutes } from "./routes/pms-fee-routes";
 import { registerAifRoutes } from "./routes/aif-routes";
+import { registerCustodyOrchestrationRoutes } from "./routes/custody-orchestration-routes";
 import { registerMacroRoutes } from "./routes/macro-routes";
 import { registerCrmRoutes } from "./routes/crm";
 import { registerLoanRoutes } from "./routes/loans/index";
@@ -529,7 +531,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	registerComplianceGateRoutes(app); // GET /api/compliance/transaction-readiness
 	app.use(agentProposalTransactionRoutes); // /api/agent/proposals/* transaction lifecycle + Zoho & SEBI dispatch
 	registerPmsRoutes(app); // /api/pms/* — Dedicated SEBI Portfolio Management Services endpoints
+	registerPmsFeeRoutes(app); // /api/pms/fee-structures, /simulate-fees, /calculate-hwm-fee, /redemption/quote
 	registerAifRoutes(app); // /api/aif/* — Dedicated SEBI Alternative Investment Funds endpoints
+	registerCustodyOrchestrationRoutes(app); // /api/custody/* — Multi-Asset Custody & Execution Orchestrator
 	registerMacroRoutes(app); // GET /api/macro/* global macro transmission engine
 	registerCrmRoutes(app); // /api/crm/* client relationship management
 	registerLoanRoutes(app); // /api/loans/* loan marketplace

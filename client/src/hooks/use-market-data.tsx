@@ -118,7 +118,8 @@ export function useMarketNews() {
 }
 
 export function useStockCandles(symbol: string, resolution: string = "D", days: number = 365) {
-	const to = Math.floor(Date.now() / 1000);
+	// Stable 5-minute bucket so queryKey doesn't invalidate on every component render
+	const to = Math.floor(Date.now() / 300000) * 300;
 	const from = to - days * 24 * 60 * 60;
 
 	return useQuery<CandleData>({

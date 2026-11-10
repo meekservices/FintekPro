@@ -29,6 +29,10 @@ export interface JitFallbackDerivedMetrics {
 	fintekRating: number;
 	revenueGrowth3Y: string | null;
 	earningsGrowth3Y: string | null;
+	return1Y?: string | null;
+	return2Y?: string | null;
+	return3Y?: string | null;
+	return5Y?: string | null;
 	scoringMetadata: {
 		peScore: number;
 		pbScore: number;
@@ -274,6 +278,10 @@ export class SmartBackfillService {
 			fintekRating,
 			revenueGrowth3Y: latestFin.revenueGrowth || null,
 			earningsGrowth3Y: latestFin.earningsGrowth || null,
+			return1Y: (stock as any).return1Y != null ? String((stock as any).return1Y) : null,
+			return2Y: (stock as any).return2Y != null ? String((stock as any).return2Y) : null,
+			return3Y: (stock as any).return3Y != null ? String((stock as any).return3Y) : null,
+			return5Y: (stock as any).return5Y != null ? String((stock as any).return5Y) : null,
 			scoringMetadata: {
 				peScore: Math.round(peScore),
 				pbScore: Math.round(pbScore),

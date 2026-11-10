@@ -70,12 +70,48 @@ const TRADING_DAYS_PER_YEAR = 252;
 
 /**
  * Computes trailing return over `tradingDays` from closes (oldest first).
- * Returns null if not enough data.
+ * Uses date alignment when dates are available, with an 88% trading day
+ * tolerance to account for Indian market holiday calendars (NSE ~245 days/year).
  */
-function trailingReturn(closes: number[], tradingDays: number): number | null {
-  if (closes.length < tradingDays + 1) return null;
+function trailingReturn(closes: number[], tradingDays: number, dates?: string[]): number | null {
+  if (closes.length < 2) return null;
+
+  // Calendar date proximity check (handles leap years and NSE holidays)
+  if (dates && dates.length === closes.length && dates.length > 0) {
+    const latestDate = new Date(dates[dates.length - 1]);
+    const years = tradingDays / 252;
+    if (years >= 1 && !isNaN(latestDate.getTime())) {
+      const targetDate = new Date(latestDate);
+      targetDate.setFullYear(latestDate.getFullYear() - Math.round(years));
+
+      let bestIdx = -1;
+      let minDiff = Infinity;
+      for (let i = 0; i < dates.length; i++) {
+        const d = new Date(dates[i]);
+        if (!isNaN(d.getTime())) {
+          const diff = Math.abs(d.getTime() - targetDate.getTime());
+          if (diff < minDiff) {
+            minDiff = diff;
+            bestIdx = i;
+          }
+        }
+      }
+
+      // If within 45 calendar days of the target anniversary
+      if (bestIdx >= 0 && minDiff <= 45 * 86400 * 1000) {
+        const startPrice = closes[bestIdx];
+        const endPrice = closes[closes.length - 1];
+        if (startPrice > 0) return (endPrice - startPrice) / startPrice;
+      }
+    }
+  }
+
+  // Fallback to trading day count with 88% tolerance for Indian market holiday schedules
+  const minRequired = Math.floor(tradingDays * 0.88);
+  if (closes.length < minRequired + 1) return null;
+  const targetIdx = Math.max(0, closes.length - 1 - tradingDays);
   const endPrice = closes[closes.length - 1];
-  const startPrice = closes[closes.length - 1 - tradingDays];
+  const startPrice = closes[targetIdx];
   if (startPrice <= 0) return null;
   return (endPrice - startPrice) / startPrice;
 }
@@ -96,7 +132,7 @@ function round4(n: number): number {
  */
 export function computeReturnSeries(closes: number[], dates: string[]): ReturnSeries {
   const r = (days: number) => {
-    const val = trailingReturn(closes, days);
+    const val = trailingReturn(closes, days, dates);
     return val !== null ? round4(val) : null;
   };
 

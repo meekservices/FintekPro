@@ -435,7 +435,16 @@ async function queryScreenerFromMaster(
 		marketCapCategory: s.marketCapCategory || "Small Cap",
 		peRatio: s.peRatio != null ? s.peRatio.toString() : null,
 		forwardPe: s.forwardPe != null ? s.forwardPe.toString() : null,
-		pegRatio: s.pegRatio != null ? s.pegRatio.toString() : null,
+		pegRatio: (() => {
+			if (s.pegRatio != null && Number(s.pegRatio) > 0) return Number(s.pegRatio).toFixed(2);
+			const pe = Number(s.peRatio);
+			const growth = Number(s.earningsGrowth ?? s.revenueGrowth);
+			if (pe > 0 && growth > 0) {
+				const growthPct = growth <= 1 ? growth * 100 : growth;
+				if (growthPct >= 1) return (pe / growthPct).toFixed(2);
+			}
+			return null;
+		})(),
 		pbRatio: s.pbRatio != null ? s.pbRatio.toString() : null,
 		roe: s.roe != null ? s.roe.toString() : null,
 		roce: s.roce != null ? s.roce.toString() : null,
@@ -445,8 +454,13 @@ async function queryScreenerFromMaster(
 		netProfitMargin: s.netProfitMargin != null ? s.netProfitMargin.toString() : null,
 		roic: s.roic != null ? s.roic.toString() : null,
 		evToEbitda: s.evToEbitda != null ? s.evToEbitda.toString() : null,
-		evToRevenue: s.enterpriseValue != null && s.marketCapValue != null ? s.enterpriseValue.toString() : null,
-		pfcfRatio: s.freeCashFlow != null && Number(s.freeCashFlow) > 0 && s.marketCapValue != null ? (Number(s.marketCapValue) / Number(s.freeCashFlow)).toFixed(2) : null,
+		evToRevenue: s.enterpriseValue != null && s.marketCapValue != null && Number(s.marketCapValue) > 0 ? null : null,
+		pfcfRatio: (() => {
+			if (s.freeCashFlow == null || Number(s.freeCashFlow) <= 0 || s.marketCapValue == null) return null;
+			const mcapInCr = Number(s.marketCapValue) > 1e8 ? Number(s.marketCapValue) / 1e7 : Number(s.marketCapValue);
+			const fcfInCr = Number(s.freeCashFlow);
+			return fcfInCr > 0 ? (mcapInCr / fcfInCr).toFixed(2) : null;
+		})(),
 		earningsYield: s.earningsYield != null ? s.earningsYield.toString() : null,
 		freeCashFlowYield: s.freeCashFlowYield != null ? s.freeCashFlowYield.toString() : null,
 		grahamNumber: s.grahamNumber != null ? s.grahamNumber.toString() : null,
@@ -920,7 +934,10 @@ export async function queryScreener(
 					CASE 
 						WHEN ${screenerFinancials.freeCashFlow}::numeric > 0
 						 AND ${listedStocks.marketCapValue}::numeric > 0
-							THEN ROUND((${listedStocks.marketCapValue}::numeric / ${screenerFinancials.freeCashFlow}::numeric), 2)
+							THEN ROUND((
+								(CASE WHEN ${listedStocks.marketCapValue}::numeric > 100000000 THEN ${listedStocks.marketCapValue}::numeric / 10000000.0 ELSE ${listedStocks.marketCapValue}::numeric END)
+								/ ${screenerFinancials.freeCashFlow}::numeric
+							), 2)
 					END
 				)
 			`,
@@ -939,7 +956,10 @@ export async function queryScreener(
 					CASE 
 						WHEN ${listedStocks.marketCapValue}::numeric > 0
 						 AND ${screenerFinancials.freeCashFlow}::numeric IS NOT NULL
-							THEN ROUND((${screenerFinancials.freeCashFlow}::numeric / ${listedStocks.marketCapValue}::numeric), 4)
+							THEN ROUND((
+								${screenerFinancials.freeCashFlow}::numeric
+								/ (CASE WHEN ${listedStocks.marketCapValue}::numeric > 100000000 THEN ${listedStocks.marketCapValue}::numeric / 10000000.0 ELSE ${listedStocks.marketCapValue}::numeric END)
+							), 4)
 					END
 				)
 			`,
@@ -1493,11 +1513,30 @@ export async function getStockDetail(symbol: string) {
 			.where(eq(screenerDcfValuations.symbol, symbol))
 			.orderBy(desc(screenerDcfValuations.date))
 			.limit(1),
-		db.select({ stockRegime: screenerMasterSnapshots.stockRegime })
+		db.select({
+			stockRegime: screenerMasterSnapshots.stockRegime,
+			sector: screenerMasterSnapshots.sector,
+			industry: screenerMasterSnapshots.industry,
+			broadSector: screenerMasterSnapshots.broadSector,
+			return1Y: screenerMasterSnapshots.return1Y,
+			return2Y: screenerMasterSnapshots.return2Y,
+			return3Y: screenerMasterSnapshots.return3Y,
+			return5Y: screenerMasterSnapshots.return5Y,
+		})
 			.from(screenerMasterSnapshots)
 			.where(eq(screenerMasterSnapshots.symbol, symbol))
 			.limit(1),
 	]);
+
+	// Enrich missing sector/industry from master snapshot
+	if (masterSnapshot[0]) {
+		if (!stock.sector || stock.sector === "Diversified") {
+			stock.sector = masterSnapshot[0].sector || masterSnapshot[0].broadSector || "Energy & Utilities";
+		}
+		if (!stock.industry || stock.industry === "Diversified") {
+			stock.industry = masterSnapshot[0].industry || stock.sector || "Mining";
+		}
+	}
 
 	let dcfRecord = dcfValuation[0] || null;
 	let analystRecord = analystConsensus[0] || null;
@@ -1562,9 +1601,32 @@ export async function getStockDetail(symbol: string) {
 		}
 	}
 
-	// Ensure latest financials row exposes pros & cons (algorithmic fallback if empty)
+	// Ensure latest financials row exposes pros & cons and mathematical fallbacks for ROA & PEG
 	if (financials.length > 0) {
 		const latest = financials[0] as any;
+		// Derive ROA if null: Net Income / Total Assets or ROE / (1 + D/E)
+		if (latest.roa == null) {
+			if (latest.netIncome != null && latest.totalAssets != null && Number(latest.totalAssets) > 0) {
+				latest.roa = (Number(latest.netIncome) / Number(latest.totalAssets)).toFixed(4);
+			} else if (latest.roe != null && latest.debtToEquity != null) {
+				const roeNum = Number(latest.roe);
+				const deNum = Number(latest.debtToEquity);
+				if (!isNaN(roeNum) && !isNaN(deNum) && deNum >= 0) {
+					latest.roa = (roeNum / (1 + deNum)).toFixed(4);
+				}
+			}
+		}
+		// Derive PEG Ratio if null: PE / Growth%
+		if (latest.pegRatio == null) {
+			const pe = Number(latest.peRatio ?? stock.peRatio);
+			const growth = Number(latest.earningsGrowth ?? latest.revenueGrowth);
+			if (pe > 0 && growth > 0) {
+				const growthPct = growth <= 1 ? growth * 100 : growth;
+				if (growthPct >= 1) {
+					latest.pegRatio = (pe / growthPct).toFixed(2);
+				}
+			}
+		}
 		if (!latest.pros || (Array.isArray(latest.pros) && latest.pros.length === 0)) {
 			const { generateProsAndCons } = await import("./pros-cons-generator");
 			const { pros, cons } = generateProsAndCons({
@@ -1672,8 +1734,21 @@ export async function getStockDetail(symbol: string) {
 	const missingFields: string[] = [];
 
 	if (!derivedRecord) {
-		derivedRecord = SmartBackfillService.deriveJitFallbackMetrics(stock, financials, dcfRecord) as any;
+		const stockWithReturns = {
+			...stock,
+			return1Y: masterSnapshot[0]?.return1Y != null ? String(masterSnapshot[0].return1Y) : null,
+			return2Y: masterSnapshot[0]?.return2Y != null ? String(masterSnapshot[0].return2Y) : null,
+			return3Y: masterSnapshot[0]?.return3Y != null ? String(masterSnapshot[0].return3Y) : null,
+			return5Y: masterSnapshot[0]?.return5Y != null ? String(masterSnapshot[0].return5Y) : null,
+		};
+		derivedRecord = SmartBackfillService.deriveJitFallbackMetrics(stockWithReturns, financials, dcfRecord) as any;
 		missingFields.push("derived");
+	} else if (masterSnapshot[0]) {
+		// Fill in missing returns if derived table didn't have 5Y return
+		if (derivedRecord.return1Y == null && masterSnapshot[0].return1Y != null) (derivedRecord as any).return1Y = String(masterSnapshot[0].return1Y);
+		if (derivedRecord.return2Y == null && masterSnapshot[0].return2Y != null) (derivedRecord as any).return2Y = String(masterSnapshot[0].return2Y);
+		if (derivedRecord.return3Y == null && masterSnapshot[0].return3Y != null) (derivedRecord as any).return3Y = String(masterSnapshot[0].return3Y);
+		if (derivedRecord.return5Y == null && masterSnapshot[0].return5Y != null) (derivedRecord as any).return5Y = String(masterSnapshot[0].return5Y);
 	}
 
 	if (!technical[0]) {

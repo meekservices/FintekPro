@@ -745,7 +745,7 @@ const retailPortfolios = [
         maxTradeAmount: 200000,
         autoExecute: true,
         executionChannel: "ALGO_AUTO",
-        executionMode: "UPSTOX_LIVE",
+        executionMode: "PAPER_TRADING",
         slippageTolerancePct: 0.5,
         orderType: "limit",
         autoSyncOrders: true,

@@ -3888,6 +3888,10 @@ export async function runFASPAIv3Migrations(): Promise<void> {
       ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS last_algo_run_at TIMESTAMP;
       ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS last_algo_status VARCHAR(50);
       CREATE INDEX IF NOT EXISTS idx_model_portfolios_algo ON model_portfolios(algo_trading_enabled);
+      -- Enforce risk-free PAPER_TRADING mode across all model portfolios
+      UPDATE model_portfolios
+      SET algo_config = jsonb_set(COALESCE(algo_config, '{}'::jsonb), '{executionMode}', '"PAPER_TRADING"')
+      WHERE algo_config IS NOT NULL AND (algo_config->>'executionMode' = 'UPSTOX_LIVE' OR algo_config->>'executionMode' IS NULL);
     `);
     await migDb.execute(migSql`
       CREATE TABLE IF NOT EXISTS model_portfolio_transactions (
