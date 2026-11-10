@@ -219,6 +219,35 @@ class QuantOrchestrator {
 					});
 				}
 
+				// ── Synergy Upgrade 3: Ingest credit cycle macro tilts from GCCE ──
+				try {
+					const { globalCreditCycleService } = await import("../macro/global-credit-cycle-service");
+					const creditReport = await globalCreditCycleService.getCreditCycleReport();
+					if (creditReport?.downstreamFeeds?.quantOrchestratorFeed) {
+						const qFeed = creditReport.downstreamFeeds.quantOrchestratorFeed;
+						if (qFeed.recommendedCorporateBondTilt === "UNDERWEIGHT") {
+							views.push({
+								category: "DEBT",
+								direction: "BEARISH",
+								magnitude: 0.05,
+								confidence: 0.75,
+								source: "REGIME",
+							});
+						}
+						if (qFeed.defensiveAssetTilt === "OVERWEIGHT") {
+							views.push({
+								category: "GOLD",
+								direction: "BULLISH",
+								magnitude: 0.04,
+								confidence: 0.70,
+								source: "REGIME",
+							});
+						}
+					}
+				} catch (creditErr: any) {
+					logger.warn("[QuantOrch] Credit cycle views skipped", { error: creditErr?.message });
+				}
+
 				if (views.length > 0) {
 					const blConfig = {
 						tau: policy.tau,

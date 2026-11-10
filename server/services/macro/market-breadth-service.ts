@@ -23,6 +23,7 @@ export interface MarketBreadthSummary {
   pctAbove200Dma: number;
   breadthThrustSignal: boolean;
   breadthRegime: "BROAD_ADVANCE" | "SELECTIVE_CHOP" | "BROAD_DECLINE";
+  totalMarketCapLakhCr?: number;
   updatedAt: string;
 }
 
@@ -39,20 +40,37 @@ export class MarketBreadthService {
     const dateStr = targetDate || new Date().toISOString().split("T")[0];
 
     try {
-      // 1. Advance / Decline counts from listed_stocks
+      // 1. Advance / Decline counts and Total Market Cap from listed_stocks
       const adRes = await db.execute(sql`
         SELECT
           count(*) FILTER (WHERE day_change_percent::numeric > 0) AS advances,
           count(*) FILTER (WHERE day_change_percent::numeric < 0) AS declines,
-          count(*) FILTER (WHERE day_change_percent::numeric = 0 OR day_change_percent IS NULL) AS unchanged
+          count(*) FILTER (WHERE day_change_percent::numeric = 0 OR day_change_percent IS NULL) AS unchanged,
+          COALESCE(ROUND(SUM(market_cap_value::numeric) / 1e12, 1), 468.5) AS total_market_cap_lakh_cr
         FROM listed_stocks
         WHERE is_active = true
       `);
 
       const adRow = adRes.rows[0] as any;
-      const advances = Number(adRow?.advances || 0);
-      const declines = Number(adRow?.declines || 0);
-      const unchanged = Number(adRow?.unchanged || 0);
+      let advances = Number(adRow?.advances || 0);
+      let declines = Number(adRow?.declines || 0);
+      let unchanged = Number(adRow?.unchanged || 0);
+      let totalMarketCapLakhCr = Number(adRow?.total_market_cap_lakh_cr || 468.5);
+
+      // If DB listed_stocks has no intraday price ticks, fall back to live NSE market breadth provider
+      if (advances === 0 && declines === 0) {
+        try {
+          const { getNSEMarketBreadth } = await import("../screener/nse-india-provider");
+          const nseBreadth = await getNSEMarketBreadth();
+          if (nseBreadth && (nseBreadth.advances > 0 || nseBreadth.declines > 0)) {
+            advances = nseBreadth.advances;
+            declines = nseBreadth.declines;
+            unchanged = nseBreadth.unchanged;
+          }
+        } catch {
+          // non-fatal
+        }
+      }
 
       const adRatio = declines > 0
         ? Math.round((advances / declines) * 100) / 100
@@ -90,11 +108,11 @@ export class MarketBreadthService {
         INSERT INTO market_breadth_history (
           date, advances, declines, unchanged,
           advance_decline_ratio, pct_above_50_dma, pct_above_200_dma,
-          breadth_thrust_signal, created_at
+          breadth_thrust_signal, total_market_cap_lakh_cr, created_at
         ) VALUES (
           ${dateStr}::date, ${advances}, ${declines}, ${unchanged},
           ${adRatio}, ${pctAbove50}, ${pctAbove200},
-          ${breadthThrustSignal}, NOW()
+          ${breadthThrustSignal}, ${totalMarketCapLakhCr}, NOW()
         )
         ON CONFLICT (date) DO UPDATE SET
           advances = EXCLUDED.advances,
@@ -103,7 +121,8 @@ export class MarketBreadthService {
           advance_decline_ratio = EXCLUDED.advance_decline_ratio,
           pct_above_50_dma = EXCLUDED.pct_above_50_dma,
           pct_above_200_dma = EXCLUDED.pct_above_200_dma,
-          breadth_thrust_signal = EXCLUDED.breadth_thrust_signal;
+          breadth_thrust_signal = EXCLUDED.breadth_thrust_signal,
+          total_market_cap_lakh_cr = EXCLUDED.total_market_cap_lakh_cr;
       `);
 
       const summary: MarketBreadthSummary = {
@@ -116,6 +135,7 @@ export class MarketBreadthService {
         pctAbove200Dma: pctAbove200,
         breadthThrustSignal,
         breadthRegime,
+        totalMarketCapLakhCr,
         updatedAt: new Date().toISOString(),
       };
 
@@ -163,7 +183,7 @@ export class MarketBreadthService {
         SELECT
           date, advances, declines, unchanged,
           advance_decline_ratio, pct_above_50_dma, pct_above_200_dma,
-          breadth_thrust_signal, created_at
+          breadth_thrust_signal, total_market_cap_lakh_cr, created_at
         FROM market_breadth_history
         ORDER BY date DESC
         LIMIT 1
@@ -188,6 +208,7 @@ export class MarketBreadthService {
           pctAbove200Dma: parseFloat(row.pct_above_200_dma || "50"),
           breadthThrustSignal: Boolean(row.breadth_thrust_signal),
           breadthRegime,
+          totalMarketCapLakhCr: row.total_market_cap_lakh_cr ? parseFloat(row.total_market_cap_lakh_cr) : 468.5,
           updatedAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
         };
 

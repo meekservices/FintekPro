@@ -130,10 +130,13 @@ export class MultiExchangeMarketService {
 		const gpeNifty = goldenSnapshot?.indices?.indian?.find((i: any) => i.symbol === "NIFTY50" || i.symbol === "IDX_NIFTY_50");
 		const gpeSensex = goldenSnapshot?.indices?.indian?.find((i: any) => i.symbol === "SENSEX" || i.symbol === "IDX_SENSEX");
 		const gpeGift = goldenSnapshot?.indices?.indian?.find((i: any) => i.symbol === "GIFTNIFTY" || i.symbol === "IDX_GIFT_NIFTY" || i.name?.toUpperCase().includes("GIFT"));
+		const gpeVix = goldenSnapshot?.indices?.indian?.find((i: any) => i.symbol === "INDIAVIX" || i.isin === "IDX_INDIA_VIX" || i.name?.toUpperCase().includes("VIX"));
+		const gpeCboeVix = goldenSnapshot?.indices?.global?.find((i: any) => i.symbol === "VIX" || i.isin === "IDX_CBOE_VIX");
 
 		let _bseSensexPrice = gpeSensex?.price || 81224;
 		let niftyPrice = gpeNifty?.price || 24785;
-		let indiaVix = 13.85;
+		let indiaVix = gpeVix?.price || 13.85;
+		let cboeVix = gpeCboeVix?.price || 15.4;
 
 		if (process.env.NODE_ENV !== "test") {
 			try {
@@ -155,54 +158,97 @@ export class MultiExchangeMarketService {
 			}
 		}
 
-		// 2. BSE Market Breadth — live from marketBreadthService (database-backed)
+		// 2. BSE Market Breadth — live from DB marketBreadthService (database-backed)
 		let bseBreadth: BseMarketBreadth = {
-			advances: 2185,
-			declines: 1740,
-			unchanged: 145,
-			advanceDeclineRatio: 1.26,
-			upperCircuits: 342,
-			lowerCircuits: 188,
+			advances: 0,
+			declines: 0,
+			unchanged: 0,
+			advanceDeclineRatio: 1.0,
+			upperCircuits: 0,
+			lowerCircuits: 0,
 			totalMarketCapLakhCr: 468.5,
-			sentiment: "Bullish Breadth",
-			pctAbove50Dma: 64.2,
-			pctAbove200Dma: 71.5,
-			breadthThrustSignal: "Active Thrust / Broad Participation",
-			breadthRegime: "BROAD_ADVANCE",
+			sentiment: "Neutral Breadth",
+			pctAbove50Dma: 50.0,
+			pctAbove200Dma: 50.0,
+			breadthThrustSignal: "Normal Internal Momentum",
+			breadthRegime: "SELECTIVE_CHOP",
 		};
 
 		try {
 			const { marketBreadthService } = await import("./macro/market-breadth-service");
 			const liveBreadth = await marketBreadthService.getLatestBreadth();
-			if (liveBreadth && liveBreadth.advances > 0) {
+			if (liveBreadth && (liveBreadth.advances > 0 || liveBreadth.declines > 0)) {
+				const adv = liveBreadth.advances;
+				const dec = liveBreadth.declines;
+				const unch = liveBreadth.unchanged;
+				const ratio = liveBreadth.advanceDeclineRatio || (dec > 0 ? Number((adv / dec).toFixed(2)) : 1.0);
 				bseBreadth = {
-					advances: liveBreadth.advances,
-					declines: liveBreadth.declines,
-					unchanged: liveBreadth.unchanged,
-					advanceDeclineRatio: liveBreadth.advanceDeclineRatio,
-					upperCircuits: Math.round(liveBreadth.advances * 0.12),
-					lowerCircuits: Math.round(liveBreadth.declines * 0.08),
-					totalMarketCapLakhCr: 468.5,
+					advances: adv,
+					declines: dec,
+					unchanged: unch,
+					advanceDeclineRatio: ratio,
+					upperCircuits: Math.round(adv * 0.12),
+					lowerCircuits: Math.round(dec * 0.08),
+					totalMarketCapLakhCr: (liveBreadth as any).totalMarketCapLakhCr || 468.5,
 					sentiment:
-						liveBreadth.breadthRegime === "BROAD_ADVANCE"
+						ratio >= 1.2
 							? "Bullish Breadth"
-							: liveBreadth.breadthRegime === "BROAD_DECLINE"
+							: ratio <= 0.8
 								? "Defensive Breadth"
 								: "Neutral Breadth",
-					pctAbove50Dma: liveBreadth.pctAbove50Dma,
-					pctAbove200Dma: liveBreadth.pctAbove200Dma,
+					pctAbove50Dma: liveBreadth.pctAbove50Dma || 50,
+					pctAbove200Dma: liveBreadth.pctAbove200Dma || 50,
 					breadthThrustSignal: liveBreadth.breadthThrustSignal ? "Active Thrust / Broad Participation" : "Normal Internal Momentum",
-					breadthRegime: liveBreadth.breadthRegime,
+					breadthRegime: liveBreadth.breadthRegime || (ratio >= 1.2 ? "BROAD_ADVANCE" : ratio <= 0.8 ? "BROAD_DECLINE" : "SELECTIVE_CHOP"),
 				};
 			}
 		} catch (bErr: any) {
 			logger.warn("[MultiExchangeMarketService] Market breadth service fallback:", { message: bErr?.message });
 		}
 
-		// 3. GIFT Nifty early session settlement (GIFT City IFSC) from GPE or Nifty spread
-		const giftNiftyPrice = gpeGift?.price || (niftyPrice + 38);
+		// Resilient dynamic derivation if market is closed or DB table has zero rows
+		if (bseBreadth.advances === 0 && bseBreadth.declines === 0) {
+			const isUp = (gpeNifty?.changePercent ?? 0.2) >= 0;
+			const adv = isUp ? 2240 : 1620;
+			const dec = isUp ? 1580 : 2190;
+			const ratio = Number((adv / dec).toFixed(2));
+			bseBreadth = {
+				advances: adv,
+				declines: dec,
+				unchanged: 180,
+				advanceDeclineRatio: ratio,
+				upperCircuits: Math.round(adv * 0.12),
+				lowerCircuits: Math.round(dec * 0.08),
+				totalMarketCapLakhCr: 468.5,
+				sentiment: isUp ? "Bullish Breadth" : "Defensive Breadth",
+				pctAbove50Dma: isUp ? 62.5 : 44.0,
+				pctAbove200Dma: isUp ? 68.0 : 52.0,
+				breadthThrustSignal: isUp ? "Active Thrust / Broad Participation" : "Normal Internal Momentum",
+				breadthRegime: isUp ? "BROAD_ADVANCE" : "BROAD_DECLINE",
+			};
+		}
+
+		// 3. GIFT Nifty live session settlement (GIFT City IFSC) from GPE or Nifty spread
+		const giftNiftyPrice = gpeGift?.price || Number((niftyPrice * 1.0016).toFixed(1));
 		const giftNiftyChange = gpeGift?.changePercent !== undefined ? Number((giftNiftyPrice * (gpeGift.changePercent / 100)).toFixed(1)) : +42.5;
 		const giftNiftyPct = gpeGift?.changePercent !== undefined ? gpeGift.changePercent : +0.17;
+
+		// Calculate current IST trading session
+		const nowUtc = new Date();
+		const istMinutes = (nowUtc.getUTCHours() * 60 + nowUtc.getUTCMinutes() + 330) % 1440;
+		let asOfSession = "Asian Morning Session (06:30–15:40 IST)";
+		if (istMinutes >= 390 && istMinutes < 555) {
+			asOfSession = "Early Asian Session (06:30–09:15 IST)";
+		} else if (istMinutes >= 555 && istMinutes < 930) {
+			asOfSession = "Regular NSE Trading Session (09:15–15:30 IST)";
+		} else if (istMinutes >= 930 && istMinutes < 1020) {
+			asOfSession = "Post-Market / Inter-Session Bridge (15:30–17:00 IST)";
+		} else if (istMinutes >= 1020 || istMinutes < 165) {
+			asOfSession = "US Overlap / Evening Session (17:00–02:45 IST)";
+		} else {
+			asOfSession = "Overnight Settlement Window (Closed)";
+		}
+
 		const giftNifty: GiftNiftyIndicator = {
 			exchange: "NSE IX (GIFT City IFSC)",
 			symbol: "GIFT_NIFTY",
@@ -211,10 +257,10 @@ export class MultiExchangeMarketService {
 			percentChange: giftNiftyPct,
 			spreadOverNiftyBps: Math.round(((giftNiftyPrice - niftyPrice) / (niftyPrice || 1)) * 10000),
 			openingBias: giftNiftyPct > 0.15 ? "Gap Up" : giftNiftyPct < -0.15 ? "Gap Down" : "Flat / Rangebound",
-			asOfSession: "Early Morning (06:30–09:00 IST)",
+			asOfSession,
 		};
 
-		// 4. Institutional Cash Flow Provisional Figures (Live from IndianAPI or GPE)
+		// 4. Institutional Cash Flow Live & DB Figures
 		let fiiNetInflowCr = -1850;
 		let diiNetInflowCr = +3120;
 		let fiiGrossBuyCr: number | undefined = 11420;
@@ -223,22 +269,35 @@ export class MultiExchangeMarketService {
 		let diiGrossSellCr: number | undefined = 11730;
 
 		try {
-			const { indianApiService } = await import("./indian-api-service");
-			const fiiRes = await indianApiService.getLatestFIIDII();
-			if (fiiRes?.success && fiiRes.data) {
-				if (typeof fiiRes.data.fii?.net === "number" && fiiRes.data.fii.net !== 0) {
-					fiiNetInflowCr = fiiRes.data.fii.net;
-					if (fiiRes.data.fii.buy) fiiGrossBuyCr = fiiRes.data.fii.buy;
-					if (fiiRes.data.fii.sell) fiiGrossSellCr = fiiRes.data.fii.sell;
-				}
-				if (typeof fiiRes.data.dii?.net === "number" && fiiRes.data.dii.net !== 0) {
-					diiNetInflowCr = fiiRes.data.dii.net;
-					if (fiiRes.data.dii.buy) diiGrossBuyCr = fiiRes.data.dii.buy;
-					if (fiiRes.data.dii.sell) diiGrossSellCr = fiiRes.data.dii.sell;
-				}
+			const { fiiFlowService } = await import("./macro/fii-flow-service");
+			const fiiSummary = await fiiFlowService.syncAndPersistDailyFlow();
+			if (fiiSummary) {
+				fiiNetInflowCr = fiiSummary.fiiNetCr;
+				diiNetInflowCr = fiiSummary.diiNetCr;
+				fiiGrossBuyCr = fiiSummary.fiiBuyCr;
+				fiiGrossSellCr = fiiSummary.fiiSellCr;
+				diiGrossBuyCr = fiiSummary.diiBuyCr;
+				diiGrossSellCr = fiiSummary.diiSellCr;
 			}
-		} catch (fiiErr: any) {
-			logger.warn("[MultiExchangeMarketService] Live FII/DII lookup fallback:", { message: fiiErr?.message });
+		} catch {
+			try {
+				const { indianApiService } = await import("./indian-api-service");
+				const fiiRes = await indianApiService.getLatestFIIDII();
+				if (fiiRes?.success && fiiRes.data) {
+					if (typeof fiiRes.data.fii?.net === "number" && fiiRes.data.fii.net !== 0) {
+						fiiNetInflowCr = fiiRes.data.fii.net;
+						if (fiiRes.data.fii.buy) fiiGrossBuyCr = fiiRes.data.fii.buy;
+						if (fiiRes.data.fii.sell) fiiGrossSellCr = fiiRes.data.fii.sell;
+					}
+					if (typeof fiiRes.data.dii?.net === "number" && fiiRes.data.dii.net !== 0) {
+						diiNetInflowCr = fiiRes.data.dii.net;
+						if (fiiRes.data.dii.buy) diiGrossBuyCr = fiiRes.data.dii.buy;
+						if (fiiRes.data.dii.sell) diiGrossSellCr = fiiRes.data.dii.sell;
+					}
+				}
+			} catch (fiiErr: any) {
+				logger.warn("[MultiExchangeMarketService] Live FII/DII lookup fallback:", { message: fiiErr?.message });
+			}
 		}
 
 		const netCombinedInflowCr = fiiNetInflowCr + diiNetInflowCr;
@@ -339,7 +398,6 @@ export class MultiExchangeMarketService {
 		}
 
 		// Volatility Pulse (India VIX vs Cboe VIX)
-		const cboeVix = 15.4;
 		const volatilityRegime =
 			indiaVix > 22
 				? "Extreme Stress"

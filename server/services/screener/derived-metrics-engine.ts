@@ -212,11 +212,31 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
 	const crScore = cr != null ? normalize(cr, 0, 3) : 50;
 	const riskScore = clamp(deScore * 0.5 + crScore * 0.5, 0, 100);
 
+	// Momentum Score (ret1y 60%, ret3m 40% normalized against Indian equity markets)
+	let ret1yVal: number | null = null;
+	let ret3mVal: number | null = null;
+	try {
+		const existingRet = await db.execute(
+			sql`SELECT return_1y, return_3m FROM screener_derived_metrics WHERE symbol = ${symbol} LIMIT 1`,
+		);
+		const row = (existingRet as any).rows?.[0];
+		if (row) {
+			ret1yVal = safeNum(row.return_1y);
+			ret3mVal = safeNum(row.return_3m);
+		}
+	} catch {}
+
+	const m1yScore = ret1yVal != null ? normalize(ret1yVal, -0.20, 0.40) : (revGrowth != null ? normalize(revGrowth, -0.15, 0.35) : 50);
+	const m3mScore = ret3mVal != null ? normalize(ret3mVal, -0.10, 0.20) : 50;
+	const momentumScore = clamp(m1yScore * 0.60 + m3mScore * 0.40, 0, 100);
+
+	// Unified 5-Pillar Model: Quality 25%, Growth 20%, Value 20%, Momentum 20%, Risk 15% = 100%
 	const compositeScore = clamp(
-		growthScore * 0.25 +
-			qualityScore * 0.3 +
-			valueScore * 0.25 +
-			riskScore * 0.2,
+		qualityScore * 0.25 +
+			growthScore * 0.20 +
+			valueScore * 0.20 +
+			momentumScore * 0.20 +
+			riskScore * 0.15,
 		0,
 		100,
 	);
@@ -234,6 +254,7 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
 		qualityScore: qualityScore.toFixed(2),
 		valueScore: valueScore.toFixed(2),
 		riskScore: riskScore.toFixed(2),
+		momentumScore: momentumScore.toFixed(2),
 		compositeScore: compositeScore.toFixed(2),
 		fintekRating,
 		revenueGrowth3Y: revGrowth != null ? revGrowth.toFixed(4) : null,
@@ -291,7 +312,7 @@ export async function recalculateAllMetrics(): Promise<{
 
 	try {
 		const result = await db.execute(sql`
-      INSERT INTO screener_derived_metrics (symbol, growth_score, quality_score, value_score, risk_score, composite_score, fintek_rating, last_calculated)
+      INSERT INTO screener_derived_metrics (symbol, growth_score, quality_score, value_score, risk_score, momentum_score, composite_score, fintek_rating, last_calculated)
       SELECT
         sf.symbol,
         ROUND(LEAST(100, GREATEST(0,
@@ -313,7 +334,8 @@ export async function recalculateAllMetrics(): Promise<{
           (CASE WHEN sf.debt_to_equity IS NOT NULL THEN LEAST(100, GREATEST(0, ((2 - sf.debt_to_equity::numeric + 3) / 6) * 100)) ELSE 50 END) * 0.5 +
           (CASE WHEN sf.current_ratio IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.current_ratio::numeric / 3) * 100)) ELSE 50 END) * 0.5
         )), 2) as risk_score,
-        0 as composite_score,
+        50 as momentum_score,
+        50 as composite_score,
         3 as fintek_rating,
         NOW() as last_calculated
       FROM screener_financials sf
@@ -331,12 +353,13 @@ export async function recalculateAllMetrics(): Promise<{
         quality_score = sub.quality_score,
         value_score = sub.value_score,
         risk_score = sub.risk_score,
-        composite_score = ROUND(sub.growth_score * 0.25 + sub.quality_score * 0.30 + sub.value_score * 0.25 + sub.risk_score * 0.20, 2),
+        momentum_score = sub.momentum_score,
+        composite_score = ROUND(sub.quality_score * 0.25 + sub.growth_score * 0.20 + sub.value_score * 0.20 + sub.momentum_score * 0.20 + sub.risk_score * 0.15, 2),
         fintek_rating = CASE
-          WHEN (sub.growth_score * 0.25 + sub.quality_score * 0.30 + sub.value_score * 0.25 + sub.risk_score * 0.20) >= 75 THEN 5
-          WHEN (sub.growth_score * 0.25 + sub.quality_score * 0.30 + sub.value_score * 0.25 + sub.risk_score * 0.20) >= 60 THEN 4
-          WHEN (sub.growth_score * 0.25 + sub.quality_score * 0.30 + sub.value_score * 0.25 + sub.risk_score * 0.20) >= 40 THEN 3
-          WHEN (sub.growth_score * 0.25 + sub.quality_score * 0.30 + sub.value_score * 0.25 + sub.risk_score * 0.20) >= 20 THEN 2
+          WHEN (sub.quality_score * 0.25 + sub.growth_score * 0.20 + sub.value_score * 0.20 + sub.momentum_score * 0.20 + sub.risk_score * 0.15) >= 75 THEN 5
+          WHEN (sub.quality_score * 0.25 + sub.growth_score * 0.20 + sub.value_score * 0.20 + sub.momentum_score * 0.20 + sub.risk_score * 0.15) >= 60 THEN 4
+          WHEN (sub.quality_score * 0.25 + sub.growth_score * 0.20 + sub.value_score * 0.20 + sub.momentum_score * 0.20 + sub.risk_score * 0.15) >= 40 THEN 3
+          WHEN (sub.quality_score * 0.25 + sub.growth_score * 0.20 + sub.value_score * 0.20 + sub.momentum_score * 0.20 + sub.risk_score * 0.15) >= 20 THEN 2
           ELSE 1
         END,
         last_calculated = NOW()
@@ -361,9 +384,17 @@ export async function recalculateAllMetrics(): Promise<{
           ROUND(LEAST(100, GREATEST(0,
             (CASE WHEN sf.debt_to_equity IS NOT NULL THEN LEAST(100, GREATEST(0, ((2 - sf.debt_to_equity::numeric + 3) / 6) * 100)) ELSE 50 END) * 0.5 +
             (CASE WHEN sf.current_ratio IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.current_ratio::numeric / 3) * 100)) ELSE 50 END) * 0.5
-          )), 2) as risk_score
+          )), 2) as risk_score,
+          ROUND(LEAST(100, GREATEST(0,
+            (CASE WHEN dm2.return_1y IS NOT NULL THEN LEAST(100, GREATEST(0, ((dm2.return_1y::numeric + 0.20) / 0.60) * 100))
+                  WHEN sf.revenue_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.revenue_growth::numeric + 0.15) / 0.50) * 100))
+                  ELSE 50 END) * 0.60 +
+            (CASE WHEN dm2.return_3m IS NOT NULL THEN LEAST(100, GREATEST(0, ((dm2.return_3m::numeric + 0.10) / 0.30) * 100))
+                  ELSE 50 END) * 0.40
+          )), 2) as momentum_score
         FROM screener_financials sf
         INNER JOIN screener_stocks ss ON ss.symbol = sf.symbol AND ss.is_active = true
+        LEFT JOIN screener_derived_metrics dm2 ON dm2.symbol = sf.symbol
       ) sub
       WHERE dm.symbol = sub.symbol
     `);

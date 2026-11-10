@@ -266,6 +266,38 @@ export const globalFiiAllocationSignals = pgTable(
   ]
 );
 
+// ── 11. Global Credit Cycle & Systemic Lending Indicators ────────────────────
+export const globalCreditCycleMetrics = pgTable(
+  "global_credit_cycle_metrics",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    asOfDate: date("as_of_date").notNull().unique(),
+    // Core Credit Cycle Pillars
+    usHyOasBps: numeric("us_hy_oas_bps", { precision: 8, scale: 2 }).notNull(), // ICE BofA US High Yield Index OAS (bps)
+    usHyOasBand: varchar("us_hy_oas_band", { length: 30 }).notNull(), // 'EXPANSION', 'NEUTRAL', 'LATE_CYCLE', 'CONTRACTION', 'CRISIS'
+    sloosNetTighteningPct: numeric("sloos_net_tightening_pct", { precision: 6, scale: 2 }).notNull(), // Net % banks tightening C&I loans
+    embiGlobalSpreadBps: numeric("embi_global_spread_bps", { precision: 8, scale: 2 }).notNull(), // JPMorgan EMBI Global spread
+    chinaCreditImpulsePct: numeric("china_credit_impulse_pct", { precision: 6, scale: 2 }).notNull(), // China TSF Credit Impulse as % of GDP
+    indiaBankCreditGrowthYoY: numeric("india_bank_credit_growth_yoy", { precision: 6, scale: 2 }).notNull(), // RBI Commercial Bank Credit YoY %
+    indiaCommercialPaperSpreadBps: numeric("india_commercial_paper_spread_bps", { precision: 8, scale: 2 }).notNull(), // 3M CP vs 91D T-Bill spread
+    // Global Multi-Asset Credit & Liquidity Modifiers
+    g4CentralBankLiquidityUsdTrillion: numeric("g4_central_bank_liquidity_usd_trillion", { precision: 8, scale: 3 }), // Fed + ECB + BOJ + PBOC
+    copperGoldRatio: numeric("copper_gold_ratio", { precision: 8, scale: 6 }), // Spot Copper / Spot Gold
+    copperGoldSignal: varchar("copper_gold_signal", { length: 30 }), // 'EXPANSIONARY', 'NEUTRAL', 'STAGFLATION_WARNING'
+    rbiReer40Index: numeric("rbi_reer_40_index", { precision: 6, scale: 2 }), // RBI 40-Currency REER
+    // Derived Credit Cycle Regime
+    creditCycleCompositeScore: numeric("credit_cycle_composite_score", { precision: 6, scale: 2 }).notNull(), // 0 - 100
+    creditCycleRegime: varchar("credit_cycle_regime", { length: 50 }).notNull(), // 'EXPANSIONARY_CREDIT', 'NEUTRAL_LATE_CYCLE', 'CREDIT_CONTRACTION', 'SEVERE_CREDIT_CRUNCH'
+    creditStressTripwire: boolean("credit_stress_tripwire").default(false).notNull(),
+    meta: jsonb("meta").notNull(), // { engine_version, calculation_timestamp, factors_considered, formula_applied }
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_gccm_date").on(table.asOfDate),
+    index("idx_gccm_regime").on(table.creditCycleRegime),
+  ]
+);
+
 // ── Zod Schemas ─────────────────────────────────────────────────────────────
 export const insertGlobalMarketIndexSchema = createInsertSchema(globalMarketIndices);
 export const insertGlobalCapitalFlowSchema = createInsertSchema(globalCapitalFlows);
@@ -277,6 +309,7 @@ export const insertIndianAdrTrackingSchema = createInsertSchema(indianAdrTrackin
 export const insertGlobalFiiCountryScorecardSchema = createInsertSchema(globalFiiCountryScorecards);
 export const insertGlobalFiiCrossBorderFlowSchema = createInsertSchema(globalFiiCrossBorderFlows);
 export const insertGlobalFiiAllocationSignalSchema = createInsertSchema(globalFiiAllocationSignals);
+export const insertGlobalCreditCycleMetricSchema = createInsertSchema(globalCreditCycleMetrics);
 
 // ── Types ───────────────────────────────────────────────────────────────────
 export type GlobalMarketIndex = typeof globalMarketIndices.$inferSelect;
@@ -308,3 +341,6 @@ export type InsertGlobalFiiCrossBorderFlow = typeof globalFiiCrossBorderFlows.$i
 
 export type GlobalFiiAllocationSignal = typeof globalFiiAllocationSignals.$inferSelect;
 export type InsertGlobalFiiAllocationSignal = typeof globalFiiAllocationSignals.$inferInsert;
+
+export type GlobalCreditCycleMetric = typeof globalCreditCycleMetrics.$inferSelect;
+export type InsertGlobalCreditCycleMetric = typeof globalCreditCycleMetrics.$inferInsert;

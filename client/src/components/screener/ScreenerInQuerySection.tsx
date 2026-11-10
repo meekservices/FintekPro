@@ -37,7 +37,7 @@ export const SCREENER_IN_PRESETS: ScreenerInPreset[] = [
     title: "Growth at Reasonable Price (GARP)",
     description: "Strong 3-year growth compounders trading at reasonable P/E and low PEG",
     category: "Growth & Value",
-    query: "Market Capitalization > 1000 AND Price to Earning < 30 AND ROCE > 18% AND Sales Growth 3Y > 15%",
+    query: "Market Capitalization > 1000 AND Price to Earning < 30 AND PEG < 1.5 AND ROCE > 18% AND Sales Growth 3Y > 15%",
     badge: "Classic GARP",
     icon: TrendingUp,
   },
@@ -118,6 +118,8 @@ export const SCREENER_IN_PRESETS: ScreenerInPreset[] = [
 const METRIC_CHIPS = [
   { label: "Market Cap > 1000", snippet: "Market Capitalization > 1000 AND " },
   { label: "P/E < 25", snippet: "Price to Earning < 25 AND " },
+  { label: "PEG < 1.0", snippet: "PEG < 1.0 AND " },
+  { label: "PEG < 1.5", snippet: "PEG < 1.5 AND " },
   { label: "P/B < 3", snippet: "Price to Book < 3 AND " },
   { label: "ROCE > 18%", snippet: "ROCE > 18% AND " },
   { label: "ROE > 15%", snippet: "Return on Equity > 15% AND " },
@@ -407,6 +409,7 @@ export const ScreenerInQuerySection: React.FC<Props> = ({
                   <div>Market Capitalization (Cr)</div>
                   <div>Current Price (₹)</div>
                   <div>Price to Earning (P/E)</div>
+                  <div>PEG Ratio (P/E to Growth)</div>
                   <div>Price to Book (P/B)</div>
                   <div>EV to EBITDA</div>
                   <div>Graham Number</div>

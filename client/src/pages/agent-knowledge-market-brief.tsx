@@ -472,6 +472,14 @@ function getClientFallbackBrief(region: string): MarketBrief {
 	const isIndia = region === "india";
 	const isGlobal = region === "global";
 
+	const nowUtc = new Date();
+	const istMins = (nowUtc.getUTCHours() * 60 + nowUtc.getUTCMinutes() + 330) % 1440;
+	let dynamicSession = "Early Asian Session (06:30–09:15 IST)";
+	if (istMins >= 555 && istMins < 930) dynamicSession = "Regular NSE Trading Session (09:15–15:30 IST)";
+	else if (istMins >= 930 && istMins < 1020) dynamicSession = "Inter-Session Bridge (15:30–17:00 IST)";
+	else if (istMins >= 1020 || istMins < 165) dynamicSession = "US Overlap / Evening Session (17:00–02:45 IST)";
+	else if (istMins >= 165 && istMins < 390) dynamicSession = "Overnight Settlement Window (Closed)";
+
 	return {
 		id: `mb-fallback-${today}-${region}`,
 		date: today,
@@ -809,7 +817,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 						percentChange: 0.17,
 						spreadOverNiftyBps: 15,
 						openingBias: "Gap Up",
-						asOfSession: "Early Morning Session (06:30–09:00 IST)",
+						asOfSession: dynamicSession,
 					},
 					institutionalFlows: {
 						fiiNetInflowCr: -1850,
@@ -1162,10 +1170,26 @@ export default function AgentKnowledgeMarketBrief() {
 				brief.commodityRadar?.commodities?.find((c) => c.id === "CRUDE_OIL")?.cmxPrice,
 			96.09,
 		);
-		const brentDisplay = `$${liveBrent.toFixed(2)}/bbl (MCX Spot: ₹9,115/bbl)`;
-		const goldDisplay = "₹1,41,255/10g";
-		const natGasDisplay = "₹274.60/mmBtu";
-		const usdInrDisplay = "₹94.86";
+		const liveBrentMcx = safeNum(
+			brief.commodityRadar?.commodities?.find((c) => c.id === "CRUDE_OIL")?.mcxPrice,
+			9115,
+		);
+		const liveGold = safeNum(
+			brief.commodityRadar?.commodities?.find((c) => c.id === "GOLD")?.mcxPrice,
+			141255,
+		);
+		const liveNatGas = safeNum(
+			brief.commodityRadar?.commodities?.find((c) => c.id === "NATURAL_GAS")?.mcxPrice,
+			274.6,
+		);
+		const liveUsdInr = safeNum(
+			brief.ccilFixedIncome?.forexSpot?.usdInr ?? brief.fbil?.usdInr,
+			94.86,
+		);
+		const brentDisplay = `$${liveBrent.toFixed(2)}/bbl (MCX Spot: ₹${liveBrentMcx.toLocaleString("en-IN")}/bbl)`;
+		const goldDisplay = `₹${liveGold.toLocaleString("en-IN")}/10g`;
+		const natGasDisplay = `₹${liveNatGas.toFixed(2)}/mmBtu`;
+		const usdInrDisplay = `₹${liveUsdInr.toFixed(2)}`;
 
 		const liveGSec = safeNum(
 			brief.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ??
@@ -2295,11 +2319,17 @@ export default function AgentKnowledgeMarketBrief() {
 										<div className="flex items-center gap-2">
 											{/* Market Breadth Pill */}
 											<Badge variant="secondary" className="text-[11px] font-mono font-medium hidden md:inline-flex gap-1.5 bg-muted/80 text-foreground border border-border">
-												<span>NSE Breadth:</span>
-												<span className="text-emerald-600 dark:text-emerald-400 font-semibold">1,480 Adv</span>
+												<span>NSE/BSE Breadth:</span>
+												<span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+													{safeNum(briefToDisplay.multiExchangeData?.bseBreadth?.advances, 2240).toLocaleString("en-IN")} Adv
+												</span>
 												<span>/</span>
-												<span className="text-rose-600 dark:text-rose-400 font-semibold">890 Dec</span>
-												<span className="text-muted-foreground">(1.66x)</span>
+												<span className="text-rose-600 dark:text-rose-400 font-semibold">
+													{safeNum(briefToDisplay.multiExchangeData?.bseBreadth?.declines, 1580).toLocaleString("en-IN")} Dec
+												</span>
+												<span className="text-muted-foreground">
+													({safeNum(briefToDisplay.multiExchangeData?.bseBreadth?.advanceDeclineRatio, 1.42).toFixed(2)}:1)
+												</span>
 											</Badge>
 
 											{/* Filter Toggle */}
@@ -3605,13 +3635,13 @@ export default function AgentKnowledgeMarketBrief() {
 									</h4>
 									<ul className="list-disc list-inside space-y-1 text-muted-foreground">
 										<li>
-											<strong>Healthy Broad Participation:</strong> An A/D ratio of {safeNum(activeExplainerModal.data.advanceDeclineRatio, 1.26)}:1 indicates broad-based accumulation rather than narrow defensive concentration.
+											<strong>Market Breadth Participation:</strong> An A/D ratio of {safeNum(activeExplainerModal.data.advanceDeclineRatio, 1.26)}:1 indicates {safeNum(activeExplainerModal.data.advanceDeclineRatio, 1.26) >= 1.0 ? "broad-based accumulation rather than narrow defensive concentration." : "selective market breadth with capital rotating into defensive clusters."}
 										</li>
 										<li>
 											<strong>Systematic Deployment:</strong> Reassure clients that broader equity market internals support continuing systematic investment plans (SIP) and Systematic Transfer Plans (STP) without near-term concentration risk.
 										</li>
 										<li>
-											<strong>Circuit Ratio Confirmation:</strong> Upper circuits ({safeNum(activeExplainerModal.data.upperCircuits, 342)}) outnumbering lower circuits ({safeNum(activeExplainerModal.data.lowerCircuits, 188)}) signals resilient retail and domestic institutional sentiment.
+											<strong>Circuit Ratio Confirmation:</strong> Upper circuits ({safeNum(activeExplainerModal.data.upperCircuits, 342)}) {safeNum(activeExplainerModal.data.upperCircuits, 342) >= safeNum(activeExplainerModal.data.lowerCircuits, 188) ? "outnumbering" : "lagging"} lower circuits ({safeNum(activeExplainerModal.data.lowerCircuits, 188)}) signals {safeNum(activeExplainerModal.data.upperCircuits, 342) >= safeNum(activeExplainerModal.data.lowerCircuits, 188) ? "resilient retail and domestic institutional sentiment." : "active profit taking and cautious risk management in momentum scrips."}
 										</li>
 									</ul>
 								</div>
@@ -3637,7 +3667,7 @@ export default function AgentKnowledgeMarketBrief() {
 									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
 										<span className="text-[10px] text-muted-foreground block">Spread Over Nifty 50</span>
 										<span className="text-lg font-bold font-mono text-foreground">
-											+{safeNum(activeExplainerModal.data.spreadOverNiftyBps, 18)} bps
+											{safeNum(activeExplainerModal.data.spreadOverNiftyBps) >= 0 ? "+" : ""}{safeNum(activeExplainerModal.data.spreadOverNiftyBps, 18)} bps
 										</span>
 									</div>
 									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
@@ -3667,7 +3697,7 @@ export default function AgentKnowledgeMarketBrief() {
 										</div>
 									</div>
 									<div className="font-mono bg-card/80 p-2 rounded border border-border text-[11px] text-foreground">
-										Basis Spread (bps) = ((GIFT Nifty Futures - Domestic Nifty 50 Spot) / Domestic Nifty 50 Spot) × 10,000 = +{safeNum(activeExplainerModal.data.spreadOverNiftyBps, 18)} bps
+										Basis Spread (bps) = ((GIFT Nifty Futures - Domestic Nifty 50 Spot) / Domestic Nifty 50 Spot) × 10,000 = {safeNum(activeExplainerModal.data.spreadOverNiftyBps) >= 0 ? "+" : ""}{safeNum(activeExplainerModal.data.spreadOverNiftyBps, 18)} bps
 									</div>
 								</div>
 
@@ -3678,7 +3708,7 @@ export default function AgentKnowledgeMarketBrief() {
 									</h4>
 									<ul className="list-disc list-inside space-y-1 text-muted-foreground">
 										<li>
-											<strong>Pre-Market Calibration:</strong> A positive basis spread (+{safeNum(activeExplainerModal.data.spreadOverNiftyBps, 18)} bps) indicates foreign institutional overnight optimism, preparing clients for gap-up opens.
+											<strong>Pre-Market Calibration:</strong> A basis spread of {safeNum(activeExplainerModal.data.spreadOverNiftyBps) >= 0 ? "+" : ""}{safeNum(activeExplainerModal.data.spreadOverNiftyBps, 18)} bps indicates {safeNum(activeExplainerModal.data.spreadOverNiftyBps) >= 0 ? "foreign institutional overnight optimism, preparing clients for positive opens." : "cautious overnight positioning, preparing clients for flat or defensive opens."}
 										</li>
 										<li>
 											<strong>Trade Execution Discipline:</strong> In gap-up environments exceeding +50 bps, advise clients against placing aggressive market orders at 09:15 IST; instead allow initial 15-minute opening volatility to settle.
@@ -3706,8 +3736,8 @@ export default function AgentKnowledgeMarketBrief() {
 									</div>
 									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
 										<span className="text-[10px] text-muted-foreground block">Net Combined Flow</span>
-										<span className="text-lg font-bold font-mono text-emerald-700 dark:text-emerald-400">
-											+₹{safeNum(activeExplainerModal.data.netCombinedInflowCr, 1270).toLocaleString("en-IN")} Cr
+										<span className={`text-lg font-bold font-mono ${safeNum(activeExplainerModal.data.netCombinedInflowCr) >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
+											{safeNum(activeExplainerModal.data.netCombinedInflowCr) >= 0 ? "+" : "-"}₹{Math.abs(safeNum(activeExplainerModal.data.netCombinedInflowCr, 1270)).toLocaleString("en-IN")} Cr
 										</span>
 									</div>
 								</div>
@@ -3745,10 +3775,10 @@ export default function AgentKnowledgeMarketBrief() {
 										The Domestic SIP Moat Structure & Absorption Thesis
 									</h4>
 									<div className="font-mono bg-card/80 p-2 rounded border border-border text-[11px] text-foreground">
-										Absorption Ratio = |DII Net Buying| / |FII Net Selling| = ₹{safeNum(activeExplainerModal.data.diiNetInflowCr, 3120).toLocaleString("en-IN")} Cr / ₹{Math.abs(safeNum(activeExplainerModal.data.fiiNetInflowCr, -1850)).toLocaleString("en-IN")} Cr = {safeNum(activeExplainerModal.data.absorptionRatio, 1.69)}x
+										Absorption Ratio = |DII Net Buying| / |FII Net Selling| = ₹{Math.abs(safeNum(activeExplainerModal.data.diiNetInflowCr, 3120)).toLocaleString("en-IN")} Cr / ₹{Math.max(1, Math.abs(safeNum(activeExplainerModal.data.fiiNetInflowCr, -1850))).toLocaleString("en-IN")} Cr = {safeNum(activeExplainerModal.data.absorptionRatio, 1.69)}x
 									</div>
 									<p className="text-muted-foreground leading-relaxed">
-										Over the last decade, India's mutual fund industry has undergone a monumental structural shift. With monthly SIP inflows surpassing ₹26,425+ Crore ($3.16B/month), domestic capital acts as an insurmountable counter-cyclical liquidity cushion. While foreign portfolio investors (FPIs) rebalance due to US dollar strength or US Treasury yield spikes, domestic institutional buying absorbs foreign sales without triggering systemic market contagion.
+										Over the last decade, India's mutual fund industry has undergone a monumental structural shift. With monthly SIP inflows surpassing ₹{safeNum(activeExplainerModal.data.monthlyMfSipRunRateCr, 26425).toLocaleString("en-IN")}+ Crore, domestic capital acts as an insurmountable counter-cyclical liquidity cushion. While foreign portfolio investors (FPIs) rebalance due to US dollar strength or US Treasury yield spikes, domestic institutional buying absorbs foreign sales without triggering systemic market contagion.
 									</p>
 								</div>
 
@@ -3759,7 +3789,7 @@ export default function AgentKnowledgeMarketBrief() {
 									</h4>
 									<ul className="list-disc list-inside space-y-1 text-muted-foreground">
 										<li>
-											<strong>Countering Media FPI Panic:</strong> When clients read alarming headlines about "Foreign investors pulling out billions", show them this data: Domestic DIIs bought ₹{safeNum(activeExplainerModal.data.diiNetInflowCr, 3120).toLocaleString("en-IN")} Cr, providing a {safeNum(activeExplainerModal.data.absorptionRatio, 1.69)}x absorption buffer.
+											<strong>Countering Media FPI Panic:</strong> When clients read alarming headlines about "Foreign investors pulling out billions", show them this data: Domestic DIIs registered net {safeNum(activeExplainerModal.data.diiNetInflowCr) >= 0 ? "inflows of ₹" : "outflows of ₹"}{Math.abs(safeNum(activeExplainerModal.data.diiNetInflowCr, 3120)).toLocaleString("en-IN")} Cr, providing a {safeNum(activeExplainerModal.data.absorptionRatio, 1.69)}x absorption buffer against foreign institutional outflows.
 										</li>
 										<li>
 											<strong>Rupee Wealth Compounding:</strong> Indian household financialization ensures retail capital continues to drive long-term equity capital formation.
@@ -3794,7 +3824,7 @@ export default function AgentKnowledgeMarketBrief() {
 									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
 										<span className="text-[10px] text-muted-foreground block">Implied Daily Swing</span>
 										<span className="text-lg font-bold font-mono text-foreground">
-											±{(safeNum(activeExplainerModal.data.indiaVix, 14.2) / 19.1).toFixed(2)}%
+											±{(safeNum(activeExplainerModal.data.indiaVix, 14.2) / 15.87).toFixed(2)}%
 										</span>
 									</div>
 								</div>

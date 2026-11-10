@@ -16,6 +16,7 @@ import { globalMacroTransmissionService } from "../services/macro/global-macro-t
 import { globalMarketIntelligenceEngine } from "../services/macro/global-market-intelligence-engine";
 import { msciFactorService } from "../services/macro/msci-factor-service";
 import { globalFiiTrackerEngine } from "../services/macro/global-fii-tracker-engine";
+import { globalCreditCycleService } from "../services/macro/global-credit-cycle-service";
 import { goldenPricingEngine } from "../services/golden-pricing/GoldenPricingEngine";
 import { logger } from "../logger";
 
@@ -726,6 +727,101 @@ export function registerMacroRoutes(app: Express): void {
 				error: "FII_COUNTRY_FETCH_FAILED",
 				message: err?.message || "Failed to fetch country FII diagnostic",
 				meta: { timestamp: new Date().toISOString(), version: "FII-TRACKER-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/credit-cycle/summary
+	 * Comprehensive 5-pillar Global Credit Cycle & Systemic Lending diagnostic report.
+	 */
+	app.get("/api/macro/credit-cycle/summary", async (req: Request, res: Response) => {
+		const t0 = Date.now();
+		const forceRefresh = req.query.refresh === "true" || req.query.forceRefresh === "true";
+		try {
+			const report = await globalCreditCycleService.getCreditCycleReport(forceRefresh);
+			return res.status(200).json({
+				success: true,
+				data: report,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: report.engine_version,
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch credit cycle report", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "CREDIT_CYCLE_FETCH_FAILED",
+				message: err?.message || "Failed to fetch credit cycle report",
+				meta: { timestamp: new Date().toISOString(), version: "GCCE-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/credit-cycle/engine-feed
+	 * Returns standardized machine-readable downstream synergy feeds for AI Regime & Quant Engines.
+	 */
+	app.get("/api/macro/credit-cycle/engine-feed", async (req: Request, res: Response) => {
+		const t0 = Date.now();
+		try {
+			const report = await globalCreditCycleService.getCreditCycleReport(false);
+			return res.status(200).json({
+				success: true,
+				data: {
+					asOfDate: report.asOfDate,
+					compositeCreditScore: report.compositeCreditScore,
+					creditCycleRegime: report.creditCycleRegime,
+					creditStressTripwire: report.creditStressTripwire,
+					feeds: report.downstreamFeeds,
+				},
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: report.engine_version,
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch credit cycle engine feeds", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "CREDIT_FEEDS_FETCH_FAILED",
+				message: err?.message || "Failed to fetch credit cycle engine feeds",
+				meta: { timestamp: new Date().toISOString(), version: "GCCE-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/credit-cycle/indicators
+	 * Returns raw observed lending, spread, and liquidity indicators.
+	 */
+	app.get("/api/macro/credit-cycle/indicators", async (req: Request, res: Response) => {
+		const t0 = Date.now();
+		try {
+			const report = await globalCreditCycleService.getCreditCycleReport(false);
+			return res.status(200).json({
+				success: true,
+				data: {
+					asOfDate: report.asOfDate,
+					indicators: report.indicators,
+					pillars: report.pillars,
+				},
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: report.engine_version,
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch credit cycle indicators", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "CREDIT_INDICATORS_FETCH_FAILED",
+				message: err?.message || "Failed to fetch credit cycle indicators",
+				meta: { timestamp: new Date().toISOString(), version: "GCCE-v1.0.0" },
 			});
 		}
 	});

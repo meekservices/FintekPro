@@ -428,6 +428,43 @@ export function registerMarketDataPart1Routes(app: Express): void {
 					.replace(/\.BO$/, "")
 					.replace(/^MCX[:_]/, "");
 
+				// Priority 0: FintekPro Database EOD Cache (screener_price_history)
+				if (resolution === "D") {
+					try {
+						const { db } = await import("../db");
+						const { screenerPriceHistory } = await import("@shared/schema");
+						const { and, eq, gte, lte, asc } = await import("drizzle-orm");
+
+						const fromDateStr = new Date(fromTs * 1000).toISOString().split("T")[0];
+						const toDateStr = new Date(toTs * 1000).toISOString().split("T")[0];
+
+						const dbRows = await db
+							.select()
+							.from(screenerPriceHistory)
+							.where(
+								and(
+									eq(screenerPriceHistory.symbol, cleanSym),
+									gte(screenerPriceHistory.date, fromDateStr),
+									lte(screenerPriceHistory.date, toDateStr),
+								),
+							)
+							.orderBy(asc(screenerPriceHistory.date));
+
+						if (dbRows && dbRows.length >= 10) {
+							const c = dbRows.map((r) => Number(r.close || 0));
+							const h = dbRows.map((r) => Number(r.high || r.close || 0));
+							const l = dbRows.map((r) => Number(r.low || r.close || 0));
+							const o = dbRows.map((r) => Number(r.open || r.close || 0));
+							const v = dbRows.map((r) => Number(r.volume || 0));
+							const t = dbRows.map((r) => Math.floor(new Date(r.date).getTime() / 1000));
+							res.json({ s: "ok", c, h, l, o, t, v, source: "FINTEKPRO_DB" });
+							return;
+						}
+					} catch (dbErr) {
+						// Non-blocking: proceed to live feeds
+					}
+				}
+
 				// Priority 1: Upstox Historical OHLCV Candles (SEBI licensed feed)
 				if (upstoxMarketDataService.isReady()) {
 					try {

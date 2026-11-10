@@ -55,6 +55,8 @@ export interface ScreenerFilters {
 	// ── Fundamental filters (from screener_financials) ────────────────────────
 	minPE?: number;
 	maxPE?: number;
+	minPEG?: number;
+	maxPEG?: number;
 	minPB?: number;
 	maxPB?: number;
 	minROE?: number;
@@ -347,6 +349,8 @@ async function queryScreenerFromMaster(
 	// Valuation & Fundamentals
 	if (filters.minPE != null) conditions.push(gte(screenerMasterSnapshots.peRatio, filters.minPE.toString()));
 	if (filters.maxPE != null) conditions.push(lte(screenerMasterSnapshots.peRatio, filters.maxPE.toString()));
+	if (filters.minPEG != null) conditions.push(gte(screenerMasterSnapshots.pegRatio, filters.minPEG.toString()));
+	if (filters.maxPEG != null) conditions.push(lte(screenerMasterSnapshots.pegRatio, filters.maxPEG.toString()));
 	if (filters.minPB != null) conditions.push(gte(screenerMasterSnapshots.pbRatio, filters.minPB.toString()));
 	if (filters.maxPB != null) conditions.push(lte(screenerMasterSnapshots.pbRatio, filters.maxPB.toString()));
 	if (filters.minROE != null) conditions.push(gte(screenerMasterSnapshots.roe, (filters.minROE > 1 ? filters.minROE / 100 : filters.minROE).toString()));
@@ -436,12 +440,21 @@ async function queryScreenerFromMaster(
 		peRatio: s.peRatio != null ? s.peRatio.toString() : null,
 		forwardPe: s.forwardPe != null ? s.forwardPe.toString() : null,
 		pegRatio: (() => {
-			if (s.pegRatio != null && Number(s.pegRatio) > 0) return Number(s.pegRatio).toFixed(2);
+			if (s.pegRatio != null && Number(s.pegRatio) > 0 && Number(s.pegRatio) < 100) return Number(s.pegRatio).toFixed(2);
 			const pe = Number(s.peRatio);
-			const growth = Number(s.earningsGrowth ?? s.revenueGrowth);
-			if (pe > 0 && growth > 0) {
-				const growthPct = growth <= 1 ? growth * 100 : growth;
-				if (growthPct >= 1) return (pe / growthPct).toFixed(2);
+			if (pe <= 0 || isNaN(pe)) return null;
+			const rawGrowth = Number(
+				s.earningsGrowth ??
+				s.revenueGrowth ??
+				(s.return1Y != null && Number(s.return1Y) > 0.02 ? s.return1Y : null) ??
+				(s.return3Y != null && Number(s.return3Y) > 0.02 ? s.return3Y : null)
+			);
+			if (!isNaN(rawGrowth) && rawGrowth > 0) {
+				const growthPct = rawGrowth <= 1.0 ? rawGrowth * 100 : rawGrowth;
+				if (growthPct >= 1.0) {
+					const peg = pe / growthPct;
+					if (peg > 0 && peg < 100) return peg.toFixed(2);
+				}
 			}
 			return null;
 		})(),
@@ -483,7 +496,18 @@ async function queryScreenerFromMaster(
 		magicFormulaRank: s.magicFormulaRank != null ? Number(s.magicFormulaRank) : null,
 		volatility30D: s.volatility30D != null ? s.volatility30D.toString() : null,
 		sortinoRatio1Y: s.sortinoRatio1Y != null ? s.sortinoRatio1Y.toString() : null,
-		momentumScore: null,
+		momentumScore: s.momentumScore != null
+			? s.momentumScore.toString()
+			: (() => {
+				const r1y = s.return1Y != null ? Number(s.return1Y) : null;
+				const r3m = s.return3M != null ? Number(s.return3M) : null;
+				if (r1y != null || r3m != null) {
+					const s1 = r1y != null ? Math.min(100, Math.max(0, ((r1y + 0.20) / 0.60) * 100)) : 50;
+					const s3 = r3m != null ? Math.min(100, Math.max(0, ((r3m + 0.10) / 0.30) * 100)) : 50;
+					return (s1 * 0.6 + s3 * 0.4).toFixed(2);
+				}
+				return "50.00";
+			})(),
 		promoterHolding: s.promoterHolding != null ? s.promoterHolding.toString() : null,
 		promoterHoldingChange: s.promoterHoldingChange != null ? s.promoterHoldingChange.toString() : null,
 		fiiHolding: s.fiiHolding != null ? s.fiiHolding.toString() : null,
@@ -677,6 +701,14 @@ export async function queryScreener(
 	if (filters.maxPE != null)
 		financialConditions.push(
 			sql`COALESCE(NULLIF(${screenerFinancials.peRatio}::numeric, 0), NULLIF(${screenerKeyMetrics.peRatio}::numeric, 0), NULLIF(${listedStocks.peRatio}::numeric, 0)) <= ${filters.maxPE}`,
+		);
+	if (filters.minPEG != null)
+		financialConditions.push(
+			sql`COALESCE(NULLIF(${screenerFinancials.pegRatio}::numeric, 0), NULLIF(${screenerFinancials.peRatio}::numeric / NULLIF(${screenerFinancials.earningsGrowth}::numeric, 0), 0)) >= ${filters.minPEG}`,
+		);
+	if (filters.maxPEG != null)
+		financialConditions.push(
+			sql`COALESCE(NULLIF(${screenerFinancials.pegRatio}::numeric, 0), NULLIF(${screenerFinancials.peRatio}::numeric / NULLIF(${screenerFinancials.earningsGrowth}::numeric, 0), 0)) <= ${filters.maxPEG}`,
 		);
 	if (filters.minPB != null)
 		financialConditions.push(
@@ -885,12 +917,18 @@ export async function queryScreener(
 					${screenerFinancials.pegRatio}::numeric,
 					CASE 
 						WHEN (${screenerFinancials.peRatio}::numeric > 0 OR (${listedStocks.currentPrice}::numeric > 0 AND COALESCE(${screenerFinancials.eps}::numeric, ${listedStocks.eps}::numeric) > 0))
-						 AND COALESCE(NULLIF(${screenerFinancials.earningsGrowth}::numeric, 0), NULLIF(${screenerDerivedMetrics.return1Y}::numeric, 0)) > 0.02
+						 AND COALESCE(NULLIF(${screenerFinancials.earningsGrowth}::numeric, 0), NULLIF(${screenerDerivedMetrics.return1Y}::numeric, 0)) > 0.01
 							THEN ROUND((
 								COALESCE(
-									CASE WHEN ${screenerFinancials.peRatio}::numeric != 20.00 THEN ${screenerFinancials.peRatio}::numeric END,
-									(${listedStocks.currentPrice}::numeric / COALESCE(${screenerFinancials.eps}::numeric, ${listedStocks.eps}::numeric))
-								) / (COALESCE(NULLIF(${screenerFinancials.earningsGrowth}::numeric, 0), NULLIF(${screenerDerivedMetrics.return1Y}::numeric, 0)) * 100)
+									NULLIF(${screenerFinancials.peRatio}::numeric, 0),
+									(${listedStocks.currentPrice}::numeric / COALESCE(NULLIF(${screenerFinancials.eps}::numeric, 0), 1))
+								) / (
+									CASE
+										WHEN COALESCE(NULLIF(${screenerFinancials.earningsGrowth}::numeric, 0), NULLIF(${screenerDerivedMetrics.return1Y}::numeric, 0)) <= 1.0
+											THEN COALESCE(NULLIF(${screenerFinancials.earningsGrowth}::numeric, 0), NULLIF(${screenerDerivedMetrics.return1Y}::numeric, 0)) * 100
+										ELSE COALESCE(NULLIF(${screenerFinancials.earningsGrowth}::numeric, 0), NULLIF(${screenerDerivedMetrics.return1Y}::numeric, 0))
+									END
+								)
 							), 2)
 						ELSE NULL
 					END
@@ -1518,6 +1556,7 @@ export async function getStockDetail(symbol: string) {
 			sector: screenerMasterSnapshots.sector,
 			industry: screenerMasterSnapshots.industry,
 			broadSector: screenerMasterSnapshots.broadSector,
+			return3M: screenerMasterSnapshots.return3M,
 			return1Y: screenerMasterSnapshots.return1Y,
 			return2Y: screenerMasterSnapshots.return2Y,
 			return3Y: screenerMasterSnapshots.return3Y,
@@ -1619,7 +1658,13 @@ export async function getStockDetail(symbol: string) {
 		// Derive PEG Ratio if null: PE / Growth%
 		if (latest.pegRatio == null) {
 			const pe = Number(latest.peRatio ?? stock.peRatio);
-			const growth = Number(latest.earningsGrowth ?? latest.revenueGrowth);
+			const growth = Number(
+				latest.earningsGrowth ??
+				latest.revenueGrowth ??
+				(derived[0]?.return1Y ? Number(derived[0].return1Y) : null) ??
+				(derived[0]?.return3Y ? Number(derived[0].return3Y) : null) ??
+				(masterSnapshot[0]?.return1Y ? Number(masterSnapshot[0].return1Y) : null)
+			);
 			if (pe > 0 && growth > 0) {
 				const growthPct = growth <= 1 ? growth * 100 : growth;
 				if (growthPct >= 1) {
@@ -1749,6 +1794,17 @@ export async function getStockDetail(symbol: string) {
 		if (derivedRecord.return2Y == null && masterSnapshot[0].return2Y != null) (derivedRecord as any).return2Y = String(masterSnapshot[0].return2Y);
 		if (derivedRecord.return3Y == null && masterSnapshot[0].return3Y != null) (derivedRecord as any).return3Y = String(masterSnapshot[0].return3Y);
 		if (derivedRecord.return5Y == null && masterSnapshot[0].return5Y != null) (derivedRecord as any).return5Y = String(masterSnapshot[0].return5Y);
+		if ((derivedRecord as any).momentumScore == null) {
+			const r1y = derivedRecord.return1Y != null ? Number(derivedRecord.return1Y) : (masterSnapshot[0]?.return1Y != null ? Number(masterSnapshot[0].return1Y) : null);
+			const r3m = masterSnapshot[0]?.return3M != null ? Number(masterSnapshot[0].return3M) : null;
+			if (r1y != null || r3m != null) {
+				const s1 = r1y != null ? Math.min(100, Math.max(0, ((r1y + 0.20) / 0.60) * 100)) : 50;
+				const s3 = r3m != null ? Math.min(100, Math.max(0, ((r3m + 0.10) / 0.30) * 100)) : 50;
+				(derivedRecord as any).momentumScore = (s1 * 0.6 + s3 * 0.4).toFixed(2);
+			} else {
+				(derivedRecord as any).momentumScore = "50.00";
+			}
+		}
 	}
 
 	if (!technical[0]) {

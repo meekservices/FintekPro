@@ -166,6 +166,25 @@ export const STANDARD_MACRO_SCENARIOS: MacroScenarioDefinition[] = [
 		},
 		description: "Global risk-off rate shock drives aggressive valuation de-rating in high multiple equities and EM debt spreads.",
 	},
+	{
+		id: "GMIE_CREDIT_CRUNCH_OAS_650",
+		name: "GCCE Tripwire: Global High Yield OAS 650+ bps Blowout",
+		historicalPeriod: "Forward Synthetic Credit Shock",
+		category: "GMIE_FORWARD_TRIPWIRE",
+		broadMarketShockPct: -17.5,
+		sectorShocks: {
+			LARGE_CAP: -15.0,
+			MID_CAP: -22.0,
+			SMALL_CAP: -26.0,
+			BANKING: -22.0,
+			IT: -14.0,
+			PHARMA: -8.0,
+			AUTO: -19.0,
+			DEBT: -5.0,
+			GOLD: 11.0,
+		},
+		description: "Severe credit contraction and corporate refinancing squeeze widen high-yield and commercial paper spreads, impairing leveraged financials while sovereign bonds and gold buffer.",
+	},
 ];
 
 export interface ScenarioImpactResult {

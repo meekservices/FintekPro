@@ -358,6 +358,28 @@ export async function runStartupSchemaRepairs() {
 			`CREATE INDEX IF NOT EXISTS idx_mph_portfolio_id ON model_portfolio_holdings (portfolio_id)`,
 			`CREATE INDEX IF NOT EXISTS idx_mph_isin ON model_portfolio_holdings (isin)`,
 			`CREATE INDEX IF NOT EXISTS idx_mph_scheme_code ON model_portfolio_holdings (scheme_code)`,
+			`CREATE TABLE IF NOT EXISTS global_credit_cycle_metrics (
+				id VARCHAR(255) PRIMARY KEY DEFAULT gen_random_uuid(),
+				as_of_date DATE NOT NULL UNIQUE,
+				us_hy_oas_bps NUMERIC(8, 2) NOT NULL,
+				us_hy_oas_band VARCHAR(30) NOT NULL,
+				sloos_net_tightening_pct NUMERIC(6, 2) NOT NULL,
+				embi_global_spread_bps NUMERIC(8, 2) NOT NULL,
+				china_credit_impulse_pct NUMERIC(6, 2) NOT NULL,
+				india_bank_credit_growth_yoy NUMERIC(6, 2) NOT NULL,
+				india_commercial_paper_spread_bps NUMERIC(8, 2) NOT NULL,
+				g4_central_bank_liquidity_usd_trillion NUMERIC(8, 3),
+				copper_gold_ratio NUMERIC(8, 6),
+				copper_gold_signal VARCHAR(30),
+				rbi_reer_40_index NUMERIC(6, 2),
+				credit_cycle_composite_score NUMERIC(6, 2) NOT NULL,
+				credit_cycle_regime VARCHAR(50) NOT NULL,
+				credit_stress_tripwire BOOLEAN NOT NULL DEFAULT FALSE,
+				meta JSONB NOT NULL,
+				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_gccm_date ON global_credit_cycle_metrics (as_of_date)`,
+			`CREATE INDEX IF NOT EXISTS idx_gccm_regime ON global_credit_cycle_metrics (credit_cycle_regime)`,
 		];
 		for (const patchSql of _urgentSchemaPatches) {
 			try {
@@ -6660,6 +6682,7 @@ export async function runDbEfficiencyIndexesAndSnapshotsRepair(poolInstance?: an
         quality_score              DECIMAL(8, 4),
         value_score                DECIMAL(8, 4),
         risk_score                 DECIMAL(8, 4),
+        momentum_score             DECIMAL(8, 4),
         piotroski_score            INTEGER,
         altman_z_score             DECIMAL(8, 4),
         magic_formula_rank         INTEGER,
@@ -6709,6 +6732,7 @@ export async function runDbEfficiencyIndexesAndSnapshotsRepair(poolInstance?: an
       CREATE INDEX IF NOT EXISTS idx_sms_roe ON screener_master_snapshots (roe);
       CREATE INDEX IF NOT EXISTS idx_sms_debt_equity ON screener_master_snapshots (debt_to_equity);
       CREATE INDEX IF NOT EXISTS idx_sms_composite_score ON screener_master_snapshots (composite_score);
+      ALTER TABLE screener_master_snapshots ADD COLUMN IF NOT EXISTS momentum_score DECIMAL(8, 4);
       CREATE INDEX IF NOT EXISTS idx_sms_fintek_rating ON screener_master_snapshots (fintek_rating);
       CREATE INDEX IF NOT EXISTS idx_sms_piotroski ON screener_master_snapshots (piotroski_score);
       CREATE INDEX IF NOT EXISTS idx_sms_return_1y ON screener_master_snapshots (return_1y);
@@ -7065,9 +7089,46 @@ export async function ensureEngineGapFixTables(poolInstance?: any): Promise<void
       CREATE INDEX IF NOT EXISTS idx_admin_ai_audit_user_id   ON admin_ai_audit_logs (user_id);
       CREATE INDEX IF NOT EXISTS idx_admin_ai_audit_agent     ON admin_ai_audit_logs (agent_type, agent_action);
       CREATE INDEX IF NOT EXISTS idx_admin_ai_audit_timestamp ON admin_ai_audit_logs (timestamp);
+
+      -- ── market_breadth_history & fii_dii_daily_flows (Multi-Exchange Intelligence Desk SSOT) ──
+      CREATE TABLE IF NOT EXISTS market_breadth_history (
+        id                       VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        date                     DATE NOT NULL UNIQUE,
+        advances                 INTEGER NOT NULL,
+        declines                 INTEGER NOT NULL,
+        unchanged                INTEGER NOT NULL DEFAULT 0,
+        advance_decline_ratio    DECIMAL(8, 2) NOT NULL,
+        pct_above_50_dma         DECIMAL(6, 2) NOT NULL,
+        pct_above_200_dma        DECIMAL(6, 2) NOT NULL,
+        breadth_thrust_signal    BOOLEAN DEFAULT FALSE,
+        total_market_cap_lakh_cr DECIMAL(15, 2) DEFAULT 468.5,
+        created_at               TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_breadth_date ON market_breadth_history (date);
+
+      CREATE TABLE IF NOT EXISTS fii_dii_daily_flows (
+        id                 VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        date               DATE NOT NULL UNIQUE,
+        fii_buy_cr         DECIMAL(15, 2),
+        fii_sell_cr        DECIMAL(15, 2),
+        fii_net_cr         DECIMAL(15, 2) NOT NULL,
+        dii_buy_cr         DECIMAL(15, 2),
+        dii_sell_cr        DECIMAL(15, 2),
+        dii_net_cr         DECIMAL(15, 2) NOT NULL,
+        effective_flow_cr  DECIMAL(15, 2) NOT NULL,
+        sentiment          VARCHAR(20) NOT NULL,
+        top_favored_sector VARCHAR,
+        created_at         TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_fii_dii_date ON fii_dii_daily_flows (date);
+      CREATE INDEX IF NOT EXISTS idx_fii_dii_sentiment ON fii_dii_daily_flows (sentiment);
+
+      -- ── Ensure market_briefs multi_exchange_data and amc_consensus columns ──
+      ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS multi_exchange_data JSONB;
+      ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS amc_consensus JSONB;
     `);
 
-    console.log("  ✅ [GapFix] Engine gap-fix tables and columns ensured: asset_returns_history, macro_regime_snapshots, golden_prices_intraday, benchmark_correlation_matrix, price_audit_log, corporate_actions, price_adjustments, admin_ai_audit_logs, marquee brokerage tables (brokerage_firms, brokerage_coverage_calls, brokerage_consensus_history)");
+    console.log("  ✅ [GapFix] Engine gap-fix tables and columns ensured: asset_returns_history, macro_regime_snapshots, golden_prices_intraday, benchmark_correlation_matrix, price_audit_log, corporate_actions, price_adjustments, admin_ai_audit_logs, marquee brokerage tables (brokerage_firms, brokerage_coverage_calls, brokerage_consensus_history), market_breadth_history, fii_dii_daily_flows, market_briefs multi_exchange_data & amc_consensus");
   } catch (err: any) {
     console.warn("  ⚠️ [GapFix] Non-fatal migration error:", err?.message?.slice(0, 200));
   }

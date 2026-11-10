@@ -119,6 +119,7 @@ router.get("/api/screener/stocks", async (req, res) => {
 			limit: pi("limit") || 25,
 			// Fundamentals
 			minPE: p("minPE"), maxPE: p("maxPE"),
+			minPEG: p("minPEG") || p("minPeg"), maxPEG: p("maxPEG") || p("maxPeg"),
 			minPB: p("minPB"), maxPB: p("maxPB"),
 			minROE: p("minROE"), maxROE: p("maxROE"),
 			minROCE: p("minROCE"), maxROCE: p("maxROCE"),

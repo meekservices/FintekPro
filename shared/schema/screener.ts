@@ -918,6 +918,7 @@ export const screenerMasterSnapshots = pgTable("screener_master_snapshots", {
   qualityScore: decimal("quality_score", { precision: 8, scale: 4 }),
   valueScore: decimal("value_score", { precision: 8, scale: 4 }),
   riskScore: decimal("risk_score", { precision: 8, scale: 4 }),
+  momentumScore: decimal("momentum_score", { precision: 8, scale: 4 }),
   piotroskiScore: integer("piotroski_score"),
   altmanZScore: decimal("altman_z_score", { precision: 8, scale: 4 }),
   magicFormulaRank: integer("magic_formula_rank"),
@@ -1040,6 +1041,7 @@ export const marketBreadthHistory = pgTable("market_breadth_history", {
   pctAbove50Dma: decimal("pct_above_50_dma", { precision: 6, scale: 2 }).notNull(),
   pctAbove200Dma: decimal("pct_above_200_dma", { precision: 6, scale: 2 }).notNull(),
   breadthThrustSignal: boolean("breadth_thrust_signal").default(false),
+  totalMarketCapLakhCr: decimal("total_market_cap_lakh_cr", { precision: 15, scale: 2 }).default("468.5"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_breadth_date").on(table.date),

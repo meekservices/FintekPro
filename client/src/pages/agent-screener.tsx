@@ -1,4 +1,11 @@
 import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+} from "@/components/ui/dialog";
+import {
 	Card,
 	CardContent,
 	CardDescription,
@@ -439,31 +446,47 @@ function ScoreBreakdownTooltip({ stock }: { stock: any }) {
 						<div className="space-y-1.5">
 							{[
 								{
-									label: "Growth",
-									score: stock.growthScore,
-									icon: TrendingUp,
-									weight: "25%",
-									color: "text-blue-500",
-								},
-								{
 									label: "Quality",
 									score: stock.qualityScore,
 									icon: Sparkles,
-									weight: "30%",
+									weight: "25%",
 									color: "text-purple-500",
+								},
+								{
+									label: "Growth",
+									score: stock.growthScore,
+									icon: TrendingUp,
+									weight: "20%",
+									color: "text-blue-500",
 								},
 								{
 									label: "Value",
 									score: stock.valueScore,
 									icon: Target,
-									weight: "25%",
+									weight: "20%",
 									color: "text-emerald-500",
 								},
 								{
-									label: "Risk",
+									label: "Momentum",
+									score: stock.momentumScore ?? (() => {
+										const r1y = stock.return1Y != null ? Number(stock.return1Y) : null;
+										const r3m = stock.return3M != null ? Number(stock.return3M) : null;
+										if (r1y != null || r3m != null) {
+											const s1 = r1y != null ? Math.min(100, Math.max(0, ((r1y + 0.20) / 0.60) * 100)) : 50;
+											const s3 = r3m != null ? Math.min(100, Math.max(0, ((r3m + 0.10) / 0.30) * 100)) : 50;
+											return (s1 * 0.6 + s3 * 0.4).toFixed(1);
+										}
+										return "50";
+									})(),
+									icon: Zap,
+									weight: "20%",
+									color: "text-amber-500",
+								},
+								{
+									label: "Risk / Safety",
 									score: stock.riskScore,
 									icon: LucideShield,
-									weight: "20%",
+									weight: "15%",
 									color: "text-orange-500",
 								},
 							].map(({ label, score, icon: Icon, weight, color }) => {
@@ -636,6 +659,7 @@ export default function AgentScreener() {
 	const [viewMode, setViewMode] = useState<ViewMode>("table");
 	const [showFilters, setShowFilters] = useState(true);
 	const [expandedStock, setExpandedStock] = useState<string | null>(null);
+	const [chartStock, setChartStock] = useState<any | null>(null);
 
 	const [dbSearch, setDbSearch] = useState(() => {
 		const params = new URLSearchParams(window.location.search);
@@ -651,6 +675,7 @@ export default function AgentScreener() {
 	const [dbPvaClassification, setDbPvaClassification] = useState("");
 	const [dbMinPE, setDbMinPE] = useState("");
 	const [dbMaxPE, setDbMaxPE] = useState("");
+	const [dbMaxPEG, setDbMaxPEG] = useState("");
 	const [dbMinROE, setDbMinROE] = useState("");
 	const [dbMaxDE, setDbMaxDE] = useState("");
 	const [dbMinRating, setDbMinRating] = useState("");
@@ -810,6 +835,7 @@ export default function AgentScreener() {
 		if (dbPvaClassification) params.set("pvaClassification", dbPvaClassification);
 		if (dbMinPE) params.set("minPE", dbMinPE);
 		if (dbMaxPE) params.set("maxPE", dbMaxPE);
+		if (dbMaxPEG) params.set("maxPEG", dbMaxPEG);
 		if (dbMinROE) params.set("minROE", dbMinROE);
 		if (dbMaxDE) params.set("maxDebtToEquity", dbMaxDE);
 		if (dbMinRating) params.set("minFintekRating", dbMinRating);
@@ -833,6 +859,7 @@ export default function AgentScreener() {
 			"Market Cap (Cr)",
 			"Category",
 			"P/E",
+			"PEG Ratio",
 			"P/B",
 			"ROCE (%)",
 			"ROE (%)",
@@ -857,6 +884,7 @@ export default function AgentScreener() {
 			s.marketCapValue ? (Number(s.marketCapValue) / 10000000).toFixed(2) : "",
 			s.marketCapCategory || "",
 			s.peRatio || "",
+			s.pegRatio || "",
 			s.pbRatio || "",
 			s.roce ? (Number(s.roce) > 1 ? Number(s.roce) : Number(s.roce) * 100).toFixed(2) : "",
 			s.roe ? (Number(s.roe) > 1 ? Number(s.roe) : Number(s.roe) * 100).toFixed(2) : "",
@@ -1576,6 +1604,7 @@ export default function AgentScreener() {
 		setDbPvaClassification("");
 		setDbMinPE("");
 		setDbMaxPE("");
+		setDbMaxPEG("");
 		setDbMinROE("");
 		setDbMaxDE("");
 		setDbMinRating("");
@@ -1600,6 +1629,7 @@ export default function AgentScreener() {
 		dbPvaClassification,
 		dbMinPE,
 		dbMaxPE,
+		dbMaxPEG,
 		dbMinROE,
 		dbMaxDE,
 		dbMinRating,
@@ -3773,6 +3803,22 @@ export default function AgentScreener() {
 											</div>
 											<div className="w-20">
 												<Label className="text-[10px] text-muted-foreground mb-0.5 block">
+													Max PEG
+												</Label>
+												<Input
+													type="number"
+													step="0.1"
+													placeholder="1.5"
+													className="h-7 text-xs"
+													value={dbMaxPEG}
+													onChange={(e) => {
+														setDbMaxPEG(e.target.value);
+														setDbPage(1);
+													}}
+												/>
+											</div>
+											<div className="w-20">
+												<Label className="text-[10px] text-muted-foreground mb-0.5 block">
 													Min ROE%
 												</Label>
 												<Input
@@ -3898,6 +3944,11 @@ export default function AgentScreener() {
 										{dbMaxPE && (
 											<button type="button" onClick={() => { setDbMaxPE(""); setDbPage(1); }} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] hover:bg-amber-500/20 transition-colors">
 												Max P/E: {dbMaxPE} <span className="text-[9px] opacity-70">✕</span>
+											</button>
+										)}
+										{dbMaxPEG && (
+											<button type="button" onClick={() => { setDbMaxPEG(""); setDbPage(1); }} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] hover:bg-emerald-500/20 transition-colors font-medium">
+												Max PEG: {dbMaxPEG} <span className="text-[9px] opacity-70">✕</span>
 											</button>
 										)}
 										{dbMinROE && (
@@ -4084,7 +4135,7 @@ export default function AgentScreener() {
 																	align="center"
 																/>
 																<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider">
-																	Detail
+																	Actions
 																</th>
 															</tr>
 														</thead>
@@ -4426,6 +4477,18 @@ export default function AgentScreener() {
 																					<Button
 																						variant="ghost"
 																						size="sm"
+																						className="h-6 w-6 p-0 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+																						title="View Interactive Price Chart"
+																						onClick={(e) => {
+																							e.stopPropagation();
+																							setChartStock(stock);
+																						}}
+																					>
+																						<TrendingUp className="h-3.5 w-3.5" />
+																					</Button>
+																					<Button
+																						variant="ghost"
+																						size="sm"
 																						className="h-6 w-6 p-0 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
 																						title="Chat with AI"
 																						onClick={(e) => {
@@ -4466,14 +4529,23 @@ export default function AgentScreener() {
 																		{expandedStock === stock.symbol && (
 																			<tr key={`${stock.symbol}-detail`}>
 																				<td
-																					colSpan={19}
+																					colSpan={21}
 																					className="bg-muted/10 border-b"
 																				>
-																					<div className="p-4">
+																					<div className="p-4 space-y-4">
+																						{/* Interactive Price & Volume Chart */}
+																						<div className="border rounded-lg bg-card/70 p-2 shadow-xs">
+																							<MarketChart
+																								symbol={stock.symbol}
+																								title={`${stock.companyName} (${stock.symbol})`}
+																								height={320}
+																							/>
+																						</div>
+
 																						{detailLoading ? (
 																							<div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
 																								<Loader2 className="h-4 w-4 animate-spin" />
-																								Loading details...
+																								Loading company financials & details...
 																							</div>
 																						) : stockDetail ? (
 																							<>
@@ -4944,47 +5016,58 @@ export default function AgentScreener() {
 																										<div className="space-y-2">
 																											{[
 																												{
-																													label: "Growth",
-																													score:
-																														stockDetail
-																															.derivedMetrics
-																															.growthScore,
-																													icon: TrendingUp,
-																													color: "bg-blue-500",
-																													weight: "25%",
-																												},
-																												{
 																													label: "Quality",
 																													score:
 																														stockDetail
 																															.derivedMetrics
-																															.qualityScore,
+																															?.qualityScore,
 																													icon: Sparkles,
 																													color:
 																														"bg-purple-500",
-																													weight: "30%",
+																													weight: "25%",
+																												},
+																												{
+																													label: "Growth",
+																													score:
+																														stockDetail
+																															.derivedMetrics
+																															?.growthScore,
+																													icon: TrendingUp,
+																													color: "bg-blue-500",
+																													weight: "20%",
 																												},
 																												{
 																													label: "Value",
 																													score:
 																														stockDetail
 																															.derivedMetrics
-																															.valueScore,
+																															?.valueScore,
 																													icon: Target,
 																													color:
 																														"bg-emerald-500",
-																													weight: "25%",
+																													weight: "20%",
 																												},
 																												{
-																													label: "Risk",
+																													label: "Momentum",
 																													score:
 																														stockDetail
 																															.derivedMetrics
-																															.riskScore,
+																															?.momentumScore ??
+																														stock.momentumScore,
+																													icon: Zap,
+																													color: "bg-amber-500",
+																													weight: "20%",
+																												},
+																												{
+																													label: "Risk / Safety",
+																													score:
+																														stockDetail
+																															.derivedMetrics
+																															?.riskScore,
 																													icon: LucideShield,
 																													color:
 																														"bg-orange-500",
-																													weight: "20%",
+																													weight: "15%",
 																												},
 																											].map(
 																												({
@@ -5439,18 +5522,22 @@ export default function AgentScreener() {
 																		<Bot className="h-3 w-3 mr-1" />
 																		AI Copilot
 																	</Button>
-																	<div className="flex gap-1">
-																		<ScoreBadge
-																			score={stock.growthScore}
-																			label="Growth"
-																		/>
+																	<div className="flex gap-1 flex-wrap">
 																		<ScoreBadge
 																			score={stock.qualityScore}
 																			label="Quality"
 																		/>
 																		<ScoreBadge
+																			score={stock.growthScore}
+																			label="Growth"
+																		/>
+																		<ScoreBadge
 																			score={stock.valueScore}
 																			label="Value"
+																		/>
+																		<ScoreBadge
+																			score={stock.momentumScore}
+																			label="Momentum"
 																		/>
 																		<ScoreBadge
 																			score={stock.riskScore}
@@ -5814,6 +5901,7 @@ export default function AgentScreener() {
 													<th className="py-2.5 px-3 text-right">Price</th>
 													<th className="py-2.5 px-3 text-right">Mkt Cap</th>
 													<th className="py-2.5 px-3 text-right">P/E</th>
+													<th className="py-2.5 px-3 text-right">PEG</th>
 													<th className="py-2.5 px-3 text-right">P/B</th>
 													<th className="py-2.5 px-3 text-right">ROCE</th>
 													<th className="py-2.5 px-3 text-right">ROE</th>
@@ -5821,6 +5909,7 @@ export default function AgentScreener() {
 													<th className="py-2.5 px-3 text-right">Promoter</th>
 													<th className="py-2.5 px-3 text-right">FII</th>
 													<th className="py-2.5 px-3 text-right">Score</th>
+													<th className="py-2.5 px-3 text-center">Chart</th>
 												</tr>
 											</thead>
 											<tbody>
@@ -5836,6 +5925,24 @@ export default function AgentScreener() {
 														<td className="py-2 px-3 text-right font-mono font-medium">{formatCurrency(stock.currentPrice)}</td>
 														<td className="py-2 px-3 text-right font-mono">{formatMarketCap(stock.marketCapValue)}</td>
 														<td className="py-2 px-3 text-right font-mono">{formatNum(stock.peRatio)}</td>
+														<td className="py-2 px-3 text-right font-mono">
+															{(() => {
+																const peg = Number(stock.pegRatio ?? (() => {
+																	const pe = Number(stock.peRatio);
+																	const g = Number(stock.earningsGrowth3Y ?? stock.revenueGrowth3Y ?? stock.return1Y ?? stock.return3Y);
+																	if (pe > 0 && g > 0) {
+																		const gPct = g <= 1 ? g * 100 : g;
+																		if (gPct >= 1) return (pe / gPct).toFixed(2);
+																	}
+																	return null;
+																})());
+																return !Number.isNaN(peg) && peg > 0 ? (
+																	<span className={peg < 1 ? "text-emerald-600 dark:text-emerald-400 font-semibold" : peg > 2 ? "text-red-500 font-medium" : ""}>
+																		{peg.toFixed(2)}
+																	</span>
+																) : "-";
+															})()}
+														</td>
 														<td className="py-2 px-3 text-right font-mono">{formatNum(stock.pbRatio)}</td>
 														<td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400 font-semibold">{formatRoe(stock.roce)}</td>
 														<td className="py-2 px-3 text-right font-mono">{formatRoe(stock.roe)}</td>
@@ -5843,6 +5950,17 @@ export default function AgentScreener() {
 														<td className="py-2 px-3 text-right font-mono">{formatPercent(stock.promoterHolding)}</td>
 														<td className="py-2 px-3 text-right font-mono">{formatPercent(stock.fiiHolding)}</td>
 														<td className="py-2 px-3 text-right font-mono font-bold text-primary">{formatNum(stock.compositeScore, 0)}</td>
+														<td className="py-2 px-3 text-center">
+															<Button
+																variant="ghost"
+																size="sm"
+																className="h-6 w-6 p-0 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+																title="View Interactive Price Chart"
+																onClick={() => setChartStock(stock)}
+															>
+																<TrendingUp className="h-3.5 w-3.5" />
+															</Button>
+														</td>
 													</tr>
 												))}
 											</tbody>
@@ -6822,6 +6940,55 @@ export default function AgentScreener() {
 				isOpen={isChatOpen}
 				onClose={() => setIsChatOpen(false)}
 			/>
+
+			{/* ── Universal Stock Interactive Price Chart Dialog ──────────────── */}
+			<Dialog open={!!chartStock} onOpenChange={(open) => !open && setChartStock(null)}>
+				<DialogContent className="max-w-4xl w-[95vw] p-4 sm:p-6">
+					<DialogHeader className="pb-2">
+						<DialogTitle className="flex items-center justify-between text-base flex-wrap gap-2">
+							<div className="flex items-center gap-2">
+								<TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+								<span className="font-bold">{chartStock?.companyName || chartStock?.symbol}</span>
+								<Badge variant="outline" className="font-mono text-xs">{chartStock?.symbol}</Badge>
+								{chartStock?.sector && (
+									<Badge variant="secondary" className="text-[10px] hidden sm:inline-flex">
+										{chartStock.sector}
+									</Badge>
+								)}
+							</div>
+							{chartStock?.currentPrice && (
+								<div className="flex items-center gap-2">
+									<span className="font-mono text-base font-bold">₹{formatCurrency(chartStock.currentPrice)}</span>
+									{chartStock?.dayChangePercent && (
+										<Badge
+											variant="outline"
+											className={`text-xs font-mono font-semibold ${
+												Number(chartStock.dayChangePercent) >= 0
+													? "text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/30"
+													: "text-red-600 dark:text-red-400 border-red-500/30 bg-red-50/50 dark:bg-red-950/30"
+											}`}
+										>
+											{Number(chartStock.dayChangePercent) >= 0 ? "+" : ""}{Number(chartStock.dayChangePercent).toFixed(2)}%
+										</Badge>
+									)}
+								</div>
+							)}
+						</DialogTitle>
+						<DialogDescription className="text-xs text-muted-foreground">
+							Interactive Lightweight Charts • 1W / 1M / 3M / 1Y Candlestick, Line, Area & Volume Analysis
+						</DialogDescription>
+					</DialogHeader>
+					{chartStock && (
+						<div className="mt-2">
+							<MarketChart
+								symbol={chartStock.symbol}
+								title={`${chartStock.companyName || chartStock.symbol} (${chartStock.symbol})`}
+								height={380}
+							/>
+						</div>
+					)}
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

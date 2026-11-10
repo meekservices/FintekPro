@@ -256,6 +256,9 @@ class EngineLearningOrchestrator {
       if (s.engineId === "global-fii-tracker") {
         activeCalibrations.push("6-Pillar FII Institutional Scorecard Active");
       }
+      if (s.engineId === "global-credit-cycle") {
+        activeCalibrations.push("5-Pillar Global Credit Cycle & OAS Tripwires Active");
+      }
       if (s.engineId === "msci-factor-engine") {
         activeCalibrations.push("MSCI EM Weight & ADR Arbitrage Tracking Active");
       }
@@ -293,6 +296,7 @@ class EngineLearningOrchestrator {
       { id: "ai-regime-detection", name: "Market Regime Detection Engine", category: "Risk & Regime", defaultCalibration: "Black Swan 10σ Volatility Detection Active" },
       { id: "global-market-intelligence", name: "Global Market Intelligence Engine", category: "Risk & Regime", defaultCalibration: "Cross-Border Capital Flow & Decoupling Matrix Active" },
       { id: "global-fii-tracker", name: "Global FII Allocation Tracker Engine", category: "Risk & Regime", defaultCalibration: "6-Pillar FII Institutional Scorecard Active" },
+      { id: "global-credit-cycle", name: "Global Credit Cycle Engine", category: "Risk & Regime", defaultCalibration: "5-Pillar Global Credit Cycle & OAS Tripwires Active" },
       { id: "msci-factor-engine", name: "MSCI Factor & Country Profile Service", category: "Data Quality", defaultCalibration: "MSCI EM Weight & ADR Arbitrage Tracking Active" },
       { id: "tail-risk-stress", name: "Tail-Risk & Macro Stress Engine", category: "Risk & Regime", defaultCalibration: "Cornish-Fisher Fat-Tailed 95/99% CVaR Calibration Active" },
       { id: "upstox-golden-pricing", name: "Upstox Golden Market Data", category: "Data Quality", defaultCalibration: "Live Tick Freshness & Golden Price Resolution Active" },
@@ -488,6 +492,21 @@ class EngineLearningOrchestrator {
         });
       } catch (err: any) {
         logger.warn("[EngineLearningOrchestrator] FII tracker audit non-fatal", { error: err?.message });
+      }
+
+      // ── Step 7b: Audit Global Credit Cycle & Systemic Lending Indicators ────
+      let creditCycleSummary = "EXPANSIONARY_CREDIT (Score: 76.5)";
+      try {
+        const { globalCreditCycleService } = await import("./macro/global-credit-cycle-service");
+        const creditReport = await globalCreditCycleService.getCreditCycleReport();
+        creditCycleSummary = `${creditReport.creditCycleRegime} (Score: ${creditReport.compositeCreditScore}, OAS: ${creditReport.indicators.usHyOasBps} bps)`;
+        logger.info("[EngineLearningOrchestrator] Global Credit Cycle audited in self-improvement cycle", {
+          regime: creditReport.creditCycleRegime,
+          compositeScore: creditReport.compositeCreditScore,
+          tripwireActive: creditReport.creditStressTripwire,
+        });
+      } catch (err: any) {
+        logger.warn("[EngineLearningOrchestrator] Credit cycle audit non-fatal", { error: err?.message });
       }
 
       // ── Step 8: Detect Cross-Engine Drift ───────────────────────────────────

@@ -260,7 +260,7 @@ export class ScreenerMasterSnapshotService {
         dm AS (
           SELECT
             symbol, composite_score, fintek_rating, growth_score, quality_score, value_score,
-            risk_score, piotroski_score, altman_z_score, magic_formula_rank,
+            risk_score, momentum_score, piotroski_score, altman_z_score, magic_formula_rank,
             return_1w, return_1m, return_3m, return_6m, return_1y, return_2y,
             return_3y, return_5y, return_ytd, return_vs_nifty_1y, return_vs_sector_1y,
             beta, sharpe_ratio_1y, sortino_ratio_1y, max_drawdown_1y, volatility_30d,
@@ -309,7 +309,7 @@ export class ScreenerMasterSnapshotService {
         days_sales_outstanding, days_payables_outstanding, days_inventory_on_hand, income_quality,
         rsi_14, sma_50, sma_200, ema_20, macd, adx, technical_rating,
         composite_score, fintek_rating, growth_score, quality_score, value_score,
-        risk_score, piotroski_score, altman_z_score, magic_formula_rank,
+        risk_score, momentum_score, piotroski_score, altman_z_score, magic_formula_rank,
         return_1w, return_1m, return_3m, return_6m, return_1y, return_2y,
         return_3y, return_5y, return_ytd, return_vs_nifty_1y, return_vs_sector_1y,
         beta, sharpe_ratio_1y, sortino_ratio_1y, max_drawdown_1y, volatility_30d,
@@ -344,12 +344,12 @@ export class ScreenerMasterSnapshotService {
           fin.peg_ratio::numeric,
           CASE
             WHEN COALESCE(NULLIF(fin.pe_ratio::numeric, 0), NULLIF(km.km_pe::numeric, 0)) > 0
-             AND COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0)) > 0.01
+             AND COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0), NULLIF(dm.return_1y::numeric, 0)) > 0.01
               THEN ROUND(
                 COALESCE(NULLIF(fin.pe_ratio::numeric, 0), NULLIF(km.km_pe::numeric, 0)) /
-                (CASE WHEN COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0)) <= 1.0
-                      THEN COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0)) * 100
-                      ELSE COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0))
+                (CASE WHEN COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0), NULLIF(dm.return_1y::numeric, 0)) <= 1.0
+                      THEN COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0), NULLIF(dm.return_1y::numeric, 0)) * 100
+                      ELSE COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0), NULLIF(dm.return_1y::numeric, 0))
                  END),
                 2
               )
@@ -405,6 +405,7 @@ export class ScreenerMasterSnapshotService {
         dm.quality_score::numeric,
         dm.value_score::numeric,
         dm.risk_score::numeric,
+        dm.momentum_score::numeric,
         COALESCE(
           CASE
             WHEN dm.piotroski_score >= 4 THEN dm.piotroski_score
@@ -542,6 +543,7 @@ export class ScreenerMasterSnapshotService {
         quality_score = EXCLUDED.quality_score,
         value_score = EXCLUDED.value_score,
         risk_score = EXCLUDED.risk_score,
+        momentum_score = EXCLUDED.momentum_score,
         piotroski_score = EXCLUDED.piotroski_score,
         altman_z_score = EXCLUDED.altman_z_score,
         magic_formula_rank = EXCLUDED.magic_formula_rank,
@@ -642,7 +644,7 @@ export class ScreenerMasterSnapshotService {
         dm AS (
           SELECT
             composite_score, fintek_rating, growth_score, quality_score, value_score,
-            risk_score, piotroski_score, altman_z_score, magic_formula_rank,
+            risk_score, momentum_score, piotroski_score, altman_z_score, magic_formula_rank,
             return_1w, return_1m, return_3m, return_6m, return_1y, return_2y,
             return_3y, return_5y, return_ytd, return_vs_nifty_1y, return_vs_sector_1y,
             beta, sharpe_ratio_1y, sortino_ratio_1y, max_drawdown_1y, volatility_30d,
@@ -695,7 +697,7 @@ export class ScreenerMasterSnapshotService {
         days_sales_outstanding, days_payables_outstanding, days_inventory_on_hand, income_quality,
         rsi_14, sma_50, sma_200, ema_20, macd, adx, technical_rating,
         composite_score, fintek_rating, growth_score, quality_score, value_score,
-        risk_score, piotroski_score, altman_z_score, magic_formula_rank,
+        risk_score, momentum_score, piotroski_score, altman_z_score, magic_formula_rank,
         return_1w, return_1m, return_3m, return_6m, return_1y, return_2y,
         return_3y, return_5y, return_ytd, return_vs_nifty_1y, return_vs_sector_1y,
         beta, sharpe_ratio_1y, sortino_ratio_1y, max_drawdown_1y, volatility_30d,
@@ -722,12 +724,12 @@ export class ScreenerMasterSnapshotService {
           fin.peg_ratio::numeric,
           CASE
             WHEN COALESCE(NULLIF(fin.pe_ratio::numeric, 0), NULLIF(km.km_pe::numeric, 0)) > 0
-             AND COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0)) > 0.01
+             AND COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0), NULLIF(dm.return_1y::numeric, 0)) > 0.01
               THEN ROUND(
                 COALESCE(NULLIF(fin.pe_ratio::numeric, 0), NULLIF(km.km_pe::numeric, 0)) /
-                (CASE WHEN COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0)) <= 1.0
-                      THEN COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0)) * 100
-                      ELSE COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0))
+                (CASE WHEN COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0), NULLIF(dm.return_1y::numeric, 0)) <= 1.0
+                      THEN COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0), NULLIF(dm.return_1y::numeric, 0)) * 100
+                      ELSE COALESCE(NULLIF(fin.earnings_growth::numeric, 0), NULLIF(gm.gm_earnings_growth::numeric, 0), NULLIF(gm.revenue_growth::numeric, 0), NULLIF(dm.return_1y::numeric, 0))
                  END),
                 2
               )
@@ -786,6 +788,7 @@ export class ScreenerMasterSnapshotService {
         dm.quality_score,
         dm.value_score,
         dm.risk_score,
+        dm.momentum_score,
         COALESCE(
           CASE
             WHEN dm.piotroski_score >= 4 THEN dm.piotroski_score
@@ -926,6 +929,7 @@ export class ScreenerMasterSnapshotService {
         quality_score = EXCLUDED.quality_score,
         value_score = EXCLUDED.value_score,
         risk_score = EXCLUDED.risk_score,
+        momentum_score = EXCLUDED.momentum_score,
         piotroski_score = EXCLUDED.piotroski_score,
         altman_z_score = EXCLUDED.altman_z_score,
         magic_formula_rank = EXCLUDED.magic_formula_rank,

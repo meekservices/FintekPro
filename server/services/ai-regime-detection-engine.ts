@@ -251,6 +251,39 @@ export class AIRegimeDetectionEngine {
 				});
 			}
 
+			// ── Synergy Upgrade: Global Credit Cycle Engine (GCCE) Feed ─────────
+			try {
+				const { globalCreditCycleService } = await import("./macro/global-credit-cycle-service");
+				const creditReport = await globalCreditCycleService.getCreditCycleReport();
+				if (creditReport) {
+					let creditRegime: RegimeLabel = "sideways";
+					let creditDesc = `Credit cycle posture: ${creditReport.creditCycleRegime} (Score: ${creditReport.compositeCreditScore}/100)`;
+
+					if (creditReport.creditStressTripwire || creditReport.creditCycleRegime === "SEVERE_CREDIT_CRUNCH") {
+						creditRegime = "high_vol";
+						creditDesc = `CRITICAL CREDIT TRIPWIRE: Severe credit crunch / OAS blowout (${creditReport.indicators.usHyOasBps} bps)`;
+					} else if (creditReport.creditCycleRegime === "CREDIT_CONTRACTION") {
+						creditRegime = "bear";
+						creditDesc = `Credit contraction headwind: HY OAS ${creditReport.indicators.usHyOasBps} bps, SLOOS tightening ${creditReport.indicators.sloosNetTighteningPct}%`;
+					} else if (creditReport.creditCycleRegime === "EXPANSIONARY_CREDIT") {
+						creditRegime = "bull";
+						creditDesc = `Supportive global credit cycle: HY OAS ${creditReport.indicators.usHyOasBps} bps, healthy bank lending`;
+					}
+
+					signals.push({
+						name: "Global Credit Cycle & OAS",
+						value: creditReport.compositeCreditScore,
+						weight: 0.15,
+						regime: creditRegime,
+						description: creditDesc,
+					});
+				}
+			} catch (creditErr: any) {
+				logger.warn("[AIRegime] Credit Cycle signal injection unavailable", {
+					error: creditErr?.message,
+				});
+			}
+
 			const scores: Record<RegimeLabel, number> = {
 				bull: 0,
 				bear: 0,

@@ -148,7 +148,7 @@ fi
 section "Step 3/3 — TypeScript compile check (tsc --noEmit)"
 
 echo -e "${INFO}Running tsc --noEmit --skipLibCheck ..."
-TSC_OUT=$(NODE_OPTIONS="--max-old-space-size=6144" npx tsc --noEmit --skipLibCheck 2>&1 || true)
+TSC_OUT=$(NODE_OPTIONS="--max-old-space-size=8192" npx tsc --noEmit --skipLibCheck 2>&1 || true)
 TSC_ERRORS=$(echo "$TSC_OUT" | grep -c "error TS" || true)
 
 if [[ "$TSC_ERRORS" -eq 0 ]]; then

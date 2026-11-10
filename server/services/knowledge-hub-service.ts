@@ -715,6 +715,7 @@ export class KnowledgeHubService {
 
 		const region = brief.region || "india";
 		const isIndia = region === "india";
+		const syncSnapshot = CANONICAL_FALLBACK_SNAPSHOT_INDIA;
 		const brentPriceNum = brief.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? brief.globalMacroDesk?.wtiCrudeUsd ?? 96.09;
 		const isElevatedCrude = brentPriceNum > 85;
 
@@ -994,15 +995,27 @@ export class KnowledgeHubService {
 				}
 			: null;
 
+		// Calculate current IST session for GIFT Nifty dynamically
+		const nowUtc = new Date();
+		const istMin = (nowUtc.getUTCHours() * 60 + nowUtc.getUTCMinutes() + 330) % 1440;
+		let liveSession = "Asian Morning Session (06:30–15:40 IST)";
+		if (istMin >= 390 && istMin < 555) liveSession = "Early Asian Session (06:30–09:15 IST)";
+		else if (istMin >= 555 && istMin < 930) liveSession = "Regular NSE Trading Session (09:15–15:30 IST)";
+		else if (istMin >= 930 && istMin < 1020) liveSession = "Post-Market / Inter-Session Bridge (15:30–17:00 IST)";
+		else if (istMin >= 1020 || istMin < 165) liveSession = "US Overlap / Evening Session (17:00–02:45 IST)";
+		else liveSession = "Overnight Settlement Window (Closed)";
+
+		const meSnap = syncSnapshot?.multiExchange;
+
 		const defaultMultiExchange = isIndia
 			? {
-					bseBreadth: {
-						advances: 2185,
-						declines: 1740,
-						unchanged: 145,
-						advanceDeclineRatio: 1.26,
-						upperCircuits: 342,
-						lowerCircuits: 188,
+					bseBreadth: meSnap?.bseBreadth || {
+						advances: 2240,
+						declines: 1580,
+						unchanged: 180,
+						advanceDeclineRatio: 1.42,
+						upperCircuits: 268,
+						lowerCircuits: 126,
 						totalMarketCapLakhCr: 468.5,
 						sentiment: "Bullish Breadth",
 						pctAbove50Dma: 64.2,
@@ -1010,17 +1023,17 @@ export class KnowledgeHubService {
 						breadthThrustSignal: "Active Thrust / Broad Participation",
 						breadthRegime: "BROAD_ADVANCE",
 					},
-					giftNifty: {
+					giftNifty: meSnap?.giftNifty || {
 						exchange: "NSE IX (GIFT City IFSC)",
 						symbol: "GIFT Nifty",
-						lastPrice: brief.multiExchangeData?.giftNifty?.lastPrice ?? 24890,
-						netChange: 65,
-						percentChange: 0.26,
-						spreadOverNiftyBps: 18,
+						lastPrice: brief.multiExchangeData?.giftNifty?.lastPrice ?? 24823,
+						netChange: 42.5,
+						percentChange: 0.17,
+						spreadOverNiftyBps: 15,
 						openingBias: "Positive",
-						asOfSession: "Early Asian Session (06:30 - 15:40 IST)",
+						asOfSession: liveSession,
 					},
-					institutionalFlows: {
+					institutionalFlows: meSnap?.institutionalFlows || {
 						fiiNetInflowCr: -1850,
 						diiNetInflowCr: 3120,
 						fiiGrossBuyCr: 11420,
@@ -1032,7 +1045,7 @@ export class KnowledgeHubService {
 						absorptionRatio: 1.69,
 						liquidityRegime: "DII Inflows Absorb FPI Selling",
 					},
-					ncdexAgriPulse: {
+					ncdexAgriPulse: meSnap?.ncdexAgriPulse || {
 						exchange: "NCDEX",
 						staplesIndexChangePct: 0.22,
 						foodInflationBias: "Rangebound / Moderate",
@@ -1043,10 +1056,10 @@ export class KnowledgeHubService {
 							{ name: "Cocudakl", symbol: "COCUDAKL", trend: "Bullish", inflationWeight: "High (Dairy Feed)" },
 						],
 					},
-					volatilityPulse: {
-						indiaVix: 14.2,
+					volatilityPulse: meSnap?.volatilityPulse || {
+						indiaVix: 13.85,
 						cboeVix: 15.4,
-						regime: "LOW VOLATILITY",
+						regime: "Normal / Balanced",
 						advisoryTakeaway:
 							"Benign volatility environment supports systematic deployment (SIP/STP) into large and flexi-cap equity strategies.",
 					},
@@ -1127,7 +1140,6 @@ export class KnowledgeHubService {
 		const isElevatedFinal = finalBrentNum > 85;
 
 		// Zero-Redis In-Process SWR Snapshot & Token Hydration
-		const syncSnapshot = CANONICAL_FALLBACK_SNAPSHOT_INDIA;
 		if (isIndia && brief.marketSnapshot) {
 			brief.marketSnapshot = hydrateMarketTokens(brief.marketSnapshot, syncSnapshot);
 		}

@@ -105,6 +105,7 @@ class EngineTelemetryBus {
       { id: "ai-regime-detection", name: "Market Regime Detection Engine", category: "Risk & Regime" },
       { id: "global-market-intelligence", name: "Global Market Intelligence Engine", category: "Risk & Regime" },
       { id: "global-fii-tracker", name: "Global FII Allocation Tracker Engine", category: "Risk & Regime" },
+      { id: "global-credit-cycle", name: "Global Credit Cycle Engine", category: "Risk & Regime" },
       { id: "msci-factor-engine", name: "MSCI Factor & Country Profile Service", category: "Data Quality" },
       { id: "tail-risk-stress", name: "Tail-Risk & Macro Stress Engine", category: "Risk & Regime" },
       { id: "sip-simulator-engine", name: "SIP Simulator Engine", category: "Portfolio" },

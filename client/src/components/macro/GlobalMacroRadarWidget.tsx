@@ -197,6 +197,17 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 		staleTime: 60 * 1000,
 	});
 
+	// ── 1g. Fetch Global Credit Cycle Summary ──
+	const { data: creditCycleData } = useQuery<{ success: boolean; data: any }>({
+		queryKey: ["/api/macro/credit-cycle/summary"],
+		queryFn: async () => {
+			const res = await fetch("/api/macro/credit-cycle/summary");
+			if (!res.ok) throw new Error("Failed to fetch credit cycle summary");
+			return res.json();
+		},
+		staleTime: 60 * 1000,
+	});
+
 	const handleSync = async () => {
 		setIsRefreshing(true);
 		try {
@@ -498,10 +509,11 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 					);
 				})()}
 
-				{/* ── Tabs: Pillars Breakdown, Sector Matrix, FII Radar, ADRs, Stress Testing ── */}
+				{/* ── Tabs: Pillars Breakdown, Credit Cycle, Sector Matrix, FII Radar, ADRs, Stress Testing ── */}
 				<Tabs defaultValue="pillars" className="w-full">
-					<TabsList className="grid grid-cols-2 sm:grid-cols-5 h-auto sm:h-9 text-xs mb-3 gap-1 p-1">
+					<TabsList className="grid grid-cols-3 sm:grid-cols-6 h-auto sm:h-9 text-xs mb-3 gap-1 p-1">
 						<TabsTrigger value="pillars" className="text-xs">5 Pillars</TabsTrigger>
+						<TabsTrigger value="credit" className="text-xs">Credit Cycle</TabsTrigger>
 						<TabsTrigger value="sectors" className="text-xs">Sectors</TabsTrigger>
 						<TabsTrigger value="fii" className="text-xs">Global FII Radar</TabsTrigger>
 						<TabsTrigger value="adr" className="text-xs">ADR & MSCI</TabsTrigger>
@@ -537,6 +549,118 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 								<p className="text-muted-foreground leading-relaxed pt-0.5">{pillar.details}</p>
 							</div>
 						))}
+					</TabsContent>
+
+					{/* Tab: Global Credit Cycle & Systemic Lending Engine */}
+					<TabsContent value="credit" className="space-y-3">
+						{(() => {
+							const cc = creditCycleData?.data;
+							if (!cc) {
+								return (
+									<div className="p-4 rounded-lg border border-border/50 text-center text-xs text-muted-foreground">
+										Loading Global Credit Cycle diagnostics...
+									</div>
+								);
+							}
+
+							return (
+								<div className="space-y-3">
+									{/* Top Credit Scorecard */}
+									<div className="p-3.5 rounded-xl border border-border/60 bg-gradient-to-r from-card/80 to-muted/30 space-y-2">
+										<div className="flex flex-wrap items-center justify-between gap-2">
+											<div className="flex items-center gap-2">
+												<div className="h-8 w-8 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xs">
+													GCCE
+												</div>
+												<div>
+													<div className="font-semibold text-foreground text-xs flex items-center gap-1.5">
+														Global Credit Cycle Composite
+														<Badge
+															variant="secondary"
+															className={cn(
+																"text-[10px] py-0 px-1.5",
+																cc.creditCycleRegime === "EXPANSIONARY_CREDIT" && "bg-emerald-500/15 text-emerald-600 border-emerald-500/20",
+																cc.creditCycleRegime === "NEUTRAL_LATE_CYCLE" && "bg-blue-500/15 text-blue-600",
+																cc.creditCycleRegime === "CREDIT_CONTRACTION" && "bg-amber-500/15 text-amber-600",
+																cc.creditCycleRegime === "SEVERE_CREDIT_CRUNCH" && "bg-rose-500/15 text-rose-600"
+															)}
+														>
+															{cc.creditCycleRegime?.replace(/_/g, " ")}
+														</Badge>
+													</div>
+													<div className="text-[11px] text-muted-foreground">{cc.creditPostureSummary}</div>
+												</div>
+											</div>
+											<div className="text-right">
+												<div className="text-xl font-black text-foreground">{cc.compositeCreditScore}<span className="text-xs font-normal text-muted-foreground">/100</span></div>
+												<div className="text-[10px] text-muted-foreground">
+													{cc.creditStressTripwire ? (
+														<span className="text-rose-600 font-bold flex items-center gap-1">
+															<AlertTriangle className="h-3 w-3" /> Tripwire Active
+														</span>
+													) : (
+														<span className="text-emerald-600 font-medium">Tripwire Clear</span>
+													)}
+												</div>
+											</div>
+										</div>
+									</div>
+
+									{/* 5-Pillar Credit Grid */}
+									<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+										{cc.pillars?.map((p: any) => (
+											<div key={p.pillarId} className="p-3 rounded-lg border border-border/50 bg-card/60 space-y-1.5 text-xs">
+												<div className="flex items-center justify-between">
+													<span className="font-semibold text-foreground truncate">{p.pillarName}</span>
+													<Badge
+														variant="outline"
+														className={cn(
+															"text-[10px] py-0 px-1.5 shrink-0",
+															p.status === "EXPANSIONARY" && "text-emerald-600 border-emerald-500/30",
+															p.status === "NEUTRAL" && "text-slate-600 border-slate-500/30",
+															p.status === "TIGHTENING" && "text-amber-600 border-amber-500/30",
+															p.status === "DISTRESSED" && "text-rose-600 border-rose-500/30"
+														)}
+													>
+														{p.observedValue}
+													</Badge>
+												</div>
+												<Progress value={p.score} className="h-1" />
+												<p className="text-[11px] text-muted-foreground leading-snug">{p.details}</p>
+											</div>
+										))}
+									</div>
+
+									{/* Downstream Synergy Handoff Strip */}
+									<div className="p-3 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/40 text-xs space-y-1.5">
+										<div className="font-semibold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+											<Sparkles className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+											GCCE Inter-Engine Synergy Feeds
+										</div>
+										<div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
+											<div className="p-2 rounded bg-card/70 border border-border/40">
+												<div className="text-muted-foreground">AI Regime Engine</div>
+												<div className="font-bold text-foreground">
+													Multiple Headwind: {cc.downstreamFeeds?.aiRegimeFeed?.equityMultipleHeadwind || "NONE"}
+												</div>
+											</div>
+											<div className="p-2 rounded bg-card/70 border border-border/40">
+												<div className="text-muted-foreground">Quant Orchestrator</div>
+												<div className="font-bold text-foreground">
+													Bond Tilt: {cc.downstreamFeeds?.quantOrchestratorFeed?.recommendedCorporateBondTilt || "NEUTRAL"}
+												</div>
+											</div>
+											<div className="p-2 rounded bg-card/70 border border-border/40">
+												<div className="text-muted-foreground">Tail Risk Engine</div>
+												<div className="font-bold text-foreground truncate">
+													Scenario: {cc.downstreamFeeds?.tailRiskFeed?.recommendedStressScenario || "NONE"}
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							);
+						})()}
 					</TabsContent>
 
 					{/* Tab 2: Sector Sensitivities */}
@@ -879,6 +1003,17 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 								}}
 							>
 								⚡ US 10Y @ 5.25%
+							</Button>
+							<Button
+								size="sm"
+								variant={activeScenario === "GMIE_CREDIT_CRUNCH_OAS_650" ? "default" : "outline"}
+								className="text-xs h-8 border-purple-500/30 text-purple-600 dark:text-purple-400"
+								onClick={() => {
+									setActiveScenario("GMIE_CREDIT_CRUNCH_OAS_650");
+									stressMutation.mutate("GMIE_CREDIT_CRUNCH_OAS_650");
+								}}
+							>
+								⚡ HY OAS 650+ bps Blowout
 							</Button>
 						</div>
 

@@ -49,6 +49,7 @@ describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 				"ai-regime-detection",
 				"global-market-intelligence",
 				"global-fii-tracker",
+				"global-credit-cycle",
 				"msci-factor-engine",
 				"tail-risk-stress",
 				"upstox-golden-pricing",
