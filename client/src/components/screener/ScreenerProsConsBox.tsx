@@ -18,7 +18,7 @@ export const ScreenerProsConsBox: React.FC<Props> = ({ pros, cons, companyName }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 my-3">
-      {/* ── Pros Box (Screener.in Style) ────────────────────────────────────── */}
+      {/* ── Pros Box (Fundamental Insights) ─────────────────────────────────── */}
       <Card className="border border-emerald-500/30 bg-emerald-50/20 dark:bg-emerald-950/10 shadow-xs">
         <CardContent className="p-3 sm:p-4 space-y-2">
           <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
@@ -46,7 +46,7 @@ export const ScreenerProsConsBox: React.FC<Props> = ({ pros, cons, companyName }
         </CardContent>
       </Card>
 
-      {/* ── Cons Box (Screener.in Style) ────────────────────────────────────── */}
+      {/* ── Cons Box (Fundamental Risk Flags) ───────────────────────────────── */}
       <Card className="border border-rose-500/30 bg-rose-50/20 dark:bg-rose-950/10 shadow-xs">
         <CardContent className="p-3 sm:p-4 space-y-2">
           <div className="flex items-center gap-1.5 text-xs font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider">

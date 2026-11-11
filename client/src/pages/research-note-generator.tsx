@@ -327,7 +327,7 @@ function priceRs(val: number | null): string {
 }
 
 /**
- * Decodes HTML entities (e.g. &#x27; → ', &amp; → &) that Screener.in
+ * Decodes HTML entities (e.g. &#x27; → ', &amp; → &) that upstream data providers may include
  * returns in its key-points strings. Uses a DOM textarea which is safe
  * (the decoded text is set as a React text node, never via innerHTML).
  */
@@ -2838,7 +2838,7 @@ export default function ResearchNoteGenerator() {
 						</Card>
 					)}
 
-					{/* Screener.in Key Points */}
+					{/* Fundamental Key Points */}
 					{d.keyPoints &&
 						(d.keyPoints.pros.length > 0 || d.keyPoints.cons.length > 0) && (
 							<Card>
@@ -2848,7 +2848,7 @@ export default function ResearchNoteGenerator() {
 										Points
 									</CardTitle>
 									<p className="text-xs text-muted-foreground">
-										Machine-generated insights from Screener.in
+										Machine-generated fundamental insights
 									</p>
 								</CardHeader>
 								<CardContent className="space-y-3">
@@ -3216,7 +3216,7 @@ export default function ResearchNoteGenerator() {
 						</Card>
 					)}
 
-					{/* Key Points from Screener.in */}
+					{/* Key Fundamental Points */}
 					{d.keyPoints &&
 						(d.keyPoints.pros.length > 0 || d.keyPoints.cons.length > 0) && (
 							<Card>
@@ -3225,8 +3225,8 @@ export default function ResearchNoteGenerator() {
 										<ListChecks className="h-4 w-4 text-blue-600" /> Key Points
 									</CardTitle>
 									<p className="text-[10px] text-muted-foreground">
-										Machine-generated highlights from Screener.in · Exercise
-										caution and do your own analysis
+										Machine-generated fundamental highlights · Exercise caution
+										and do your own analysis
 									</p>
 								</CardHeader>
 								<CardContent>

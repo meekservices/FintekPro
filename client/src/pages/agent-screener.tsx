@@ -1748,13 +1748,9 @@ export default function AgentScreener() {
 						</div>
 						<div className="flex items-center gap-2">
 							<TabsList className="h-8">
-								<TabsTrigger value="db-screener" className="text-xs px-3 h-7">
-									<Database className="h-3.5 w-3.5 mr-1" />
+								<TabsTrigger value="db-screener" className="text-xs px-3 h-7 font-medium">
+									<Database className="h-3.5 w-3.5 mr-1 text-primary" />
 									Screener
-								</TabsTrigger>
-								<TabsTrigger value="screener-in" className="text-xs px-3 h-7 font-medium text-primary">
-									<Sparkles className="h-3.5 w-3.5 mr-1" />
-									Screener.in Query
 								</TabsTrigger>
 								<TabsTrigger value="builder" className="text-xs px-3 h-7">
 									<SlidersHorizontal className="h-3.5 w-3.5 mr-1" />
@@ -2885,9 +2881,9 @@ export default function AgentScreener() {
 												))}
 											</div>
 										) : (
-											<div className="border rounded-lg [overflow:clip]">
-												<div className="overflow-x-auto">
-													<table className="w-full text-sm">
+											<div className="w-full max-w-full overflow-hidden rounded-lg border bg-card shadow-xs">
+												<div className="w-full overflow-x-auto scrollbar-thin">
+													<table className="w-full text-sm min-w-[1150px]">
 														<thead className="bg-card text-muted-foreground sticky top-0 z-10 border-b shadow-sm">
 															<tr>
 																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider w-8">#</th>
@@ -3149,9 +3145,9 @@ export default function AgentScreener() {
 												))}
 											</div>
 										) : (
-											<div className="border rounded-lg [overflow:clip]">
-												<div className="overflow-x-auto">
-													<table className="w-full text-sm">
+											<div className="w-full max-w-full overflow-hidden rounded-lg border bg-card shadow-xs">
+												<div className="w-full overflow-x-auto scrollbar-thin">
+													<table className="w-full text-sm min-w-[1150px]">
 														<thead className="bg-card text-muted-foreground sticky top-0 z-10 border-b shadow-sm">
 															<tr>
 																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider w-8">#</th>
@@ -3456,7 +3452,7 @@ export default function AgentScreener() {
 								{/* ── Stock Screener (existing) ─────────────────────────────────── */}
 								{screenerType === "stock" && (
 								<div className="space-y-3">
-									{/* Screener.in Natural Language Query Bar & Presets */}
+									{/* Formula Query Bar & Presets */}
 									<ScreenerInQuerySection
 										query={screenerInQuery}
 										onQueryChange={(q) => {
@@ -3559,7 +3555,7 @@ export default function AgentScreener() {
 								</div>
 
 								{/* ── PVA (Price Volume Action) Quick-Filter Chips Bar ───────────────── */}
-								<div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none flex-nowrap sm:flex-wrap">
+								<div className="flex flex-wrap items-center gap-1.5 py-1">
 									<span className="text-[11px] font-semibold text-muted-foreground mr-1 flex items-center gap-1 whitespace-nowrap">
 										<Activity className="h-3 w-3 text-primary" />
 										PVA Signal:
@@ -3640,10 +3636,10 @@ export default function AgentScreener() {
 								</div>
 
 								{showFilters && (
-									<div className="bg-muted/30 rounded-lg p-3 border space-y-2.5">
-										<div className="flex flex-wrap items-end gap-2">
-											<div className="w-44">
-												<Label className="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1 font-medium">
+									<div className="bg-muted/30 rounded-lg p-3 border space-y-3">
+										<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+											<div className="space-y-1">
+												<Label className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium">
 													<Building2 className="h-2.5 w-2.5 text-blue-500" />
 													Macro Sector
 												</Label>
@@ -3657,7 +3653,7 @@ export default function AgentScreener() {
 														setDbPage(1);
 													}}
 												>
-													<SelectTrigger className="h-7 text-xs">
+													<SelectTrigger className="h-7 text-xs w-full">
 														<SelectValue placeholder="All Macro Sectors" />
 													</SelectTrigger>
 													<SelectContent className="max-h-64">
@@ -3670,8 +3666,8 @@ export default function AgentScreener() {
 													</SelectContent>
 												</Select>
 											</div>
-											<div className="w-48">
-												<Label className="text-[10px] text-muted-foreground mb-0.5 flex items-center gap-1 font-medium">
+											<div className="space-y-1">
+												<Label className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium">
 													<Layers className="h-2.5 w-2.5 text-indigo-500" />
 													Sub-Sector / Industry
 												</Label>
@@ -3685,7 +3681,7 @@ export default function AgentScreener() {
 														setDbPage(1);
 													}}
 												>
-													<SelectTrigger className="h-7 text-xs">
+													<SelectTrigger className="h-7 text-xs w-full">
 														<SelectValue placeholder={dbMacroSector ? "All Sub-Sectors" : "Select Macro First"} />
 													</SelectTrigger>
 													<SelectContent className="max-h-64">
@@ -3703,8 +3699,8 @@ export default function AgentScreener() {
 													</SelectContent>
 												</Select>
 											</div>
-											<div className="w-28">
-												<Label className="text-[10px] text-muted-foreground mb-0.5 block">
+											<div className="space-y-1">
+												<Label className="text-[10px] text-muted-foreground block font-medium">
 													Market Cap
 												</Label>
 												<Select
@@ -3714,7 +3710,7 @@ export default function AgentScreener() {
 														setDbPage(1);
 													}}
 												>
-													<SelectTrigger className="h-7 text-xs">
+													<SelectTrigger className="h-7 text-xs w-full">
 														<SelectValue placeholder="All" />
 													</SelectTrigger>
 													<SelectContent>
@@ -3725,8 +3721,8 @@ export default function AgentScreener() {
 													</SelectContent>
 												</Select>
 											</div>
-											<div className="w-36">
-												<Label className="text-[10px] text-muted-foreground mb-0.5 block">
+											<div className="space-y-1">
+												<Label className="text-[10px] text-muted-foreground block font-medium">
 													Micro-Regime
 												</Label>
 												<Select
@@ -3736,7 +3732,7 @@ export default function AgentScreener() {
 														setDbPage(1);
 													}}
 												>
-													<SelectTrigger className="h-7 text-xs">
+													<SelectTrigger className="h-7 text-xs w-full">
 														<SelectValue placeholder="All Regimes" />
 													</SelectTrigger>
 													<SelectContent>
@@ -3749,8 +3745,8 @@ export default function AgentScreener() {
 													</SelectContent>
 												</Select>
 											</div>
-											<div className="w-36">
-												<Label className="text-[10px] text-muted-foreground mb-0.5 block">
+											<div className="space-y-1">
+												<Label className="text-[10px] text-muted-foreground block font-medium">
 													PVA Signal
 												</Label>
 												<Select
@@ -3760,7 +3756,7 @@ export default function AgentScreener() {
 														setDbPage(1);
 													}}
 												>
-													<SelectTrigger className="h-7 text-xs">
+													<SelectTrigger className="h-7 text-xs w-full">
 														<SelectValue placeholder="All Signals" />
 													</SelectTrigger>
 													<SelectContent>
@@ -3774,14 +3770,14 @@ export default function AgentScreener() {
 													</SelectContent>
 												</Select>
 											</div>
-											<div className="w-20">
-												<Label className="text-[10px] text-muted-foreground mb-0.5 block">
+											<div className="space-y-1">
+												<Label className="text-[10px] text-muted-foreground block font-medium">
 													Min P/E
 												</Label>
 												<Input
 													type="number"
 													placeholder="0"
-													className="h-7 text-xs"
+													className="h-7 text-xs w-full"
 													value={dbMinPE}
 													onChange={(e) => {
 														setDbMinPE(e.target.value);
@@ -3789,14 +3785,14 @@ export default function AgentScreener() {
 													}}
 												/>
 											</div>
-											<div className="w-20">
-												<Label className="text-[10px] text-muted-foreground mb-0.5 block">
+											<div className="space-y-1">
+												<Label className="text-[10px] text-muted-foreground block font-medium">
 													Max P/E
 												</Label>
 												<Input
 													type="number"
 													placeholder="100"
-													className="h-7 text-xs"
+													className="h-7 text-xs w-full"
 													value={dbMaxPE}
 													onChange={(e) => {
 														setDbMaxPE(e.target.value);
@@ -3804,15 +3800,15 @@ export default function AgentScreener() {
 													}}
 												/>
 											</div>
-											<div className="w-20">
-												<Label className="text-[10px] text-muted-foreground mb-0.5 block">
+											<div className="space-y-1">
+												<Label className="text-[10px] text-muted-foreground block font-medium">
 													Max PEG
 												</Label>
 												<Input
 													type="number"
 													step="0.1"
 													placeholder="1.5"
-													className="h-7 text-xs"
+													className="h-7 text-xs w-full"
 													value={dbMaxPEG}
 													onChange={(e) => {
 														setDbMaxPEG(e.target.value);
@@ -3820,14 +3816,14 @@ export default function AgentScreener() {
 													}}
 												/>
 											</div>
-											<div className="w-20">
-												<Label className="text-[10px] text-muted-foreground mb-0.5 block">
+											<div className="space-y-1">
+												<Label className="text-[10px] text-muted-foreground block font-medium">
 													Min ROE%
 												</Label>
 												<Input
 													type="number"
 													placeholder="0"
-													className="h-7 text-xs"
+													className="h-7 text-xs w-full"
 													value={dbMinROE}
 													onChange={(e) => {
 														setDbMinROE(e.target.value);
@@ -3835,14 +3831,14 @@ export default function AgentScreener() {
 													}}
 												/>
 											</div>
-											<div className="w-20">
-												<Label className="text-[10px] text-muted-foreground mb-0.5 block">
+											<div className="space-y-1">
+												<Label className="text-[10px] text-muted-foreground block font-medium">
 													Max D/E
 												</Label>
 												<Input
 													type="number"
 													placeholder="2"
-													className="h-7 text-xs"
+													className="h-7 text-xs w-full"
 													value={dbMaxDE}
 													onChange={(e) => {
 														setDbMaxDE(e.target.value);
@@ -3850,8 +3846,8 @@ export default function AgentScreener() {
 													}}
 												/>
 											</div>
-											<div className="w-24">
-												<Label className="text-[10px] text-muted-foreground mb-0.5 block">
+											<div className="space-y-1">
+												<Label className="text-[10px] text-muted-foreground block font-medium">
 													Min Rating
 												</Label>
 												<Select
@@ -3861,7 +3857,7 @@ export default function AgentScreener() {
 														setDbPage(1);
 													}}
 												>
-													<SelectTrigger className="h-7 text-xs">
+													<SelectTrigger className="h-7 text-xs w-full">
 														<SelectValue placeholder="Any" />
 													</SelectTrigger>
 													<SelectContent>
@@ -3872,14 +3868,14 @@ export default function AgentScreener() {
 													</SelectContent>
 												</Select>
 											</div>
-											<div className="w-24">
-												<Label className="text-[10px] text-muted-foreground mb-0.5 block">
+											<div className="space-y-1">
+												<Label className="text-[10px] text-muted-foreground block font-medium">
 													Min Score
 												</Label>
 												<Input
 													type="number"
 													placeholder="0"
-													className="h-7 text-xs"
+													className="h-7 text-xs w-full"
 													value={dbMinScore}
 													onChange={(e) => {
 														setDbMinScore(e.target.value);
@@ -3887,14 +3883,16 @@ export default function AgentScreener() {
 													}}
 												/>
 											</div>
+										</div>
+										<div className="flex items-center justify-end pt-1 border-t border-border/50">
 											<Button
 												variant="ghost"
 												size="sm"
-												className="h-7 text-xs"
+												className="h-7 text-xs text-muted-foreground hover:text-foreground"
 												onClick={resetDbFilters}
 											>
 												<RefreshCw className="h-3 w-3 mr-1" />
-												Reset
+												Reset All Filters
 											</Button>
 										</div>
 									</div>
@@ -4037,9 +4035,9 @@ export default function AgentScreener() {
 								) : dbScreenerData?.stocks?.length > 0 ? (
 									viewMode === "table" ? (
 										<>
-											<div className="border rounded-lg [overflow:clip]">
-												<div className="overflow-x-auto">
-													<table className="w-full text-sm">
+											<div className="w-full max-w-full overflow-hidden rounded-lg border bg-card shadow-xs">
+												<div className="w-full overflow-x-auto scrollbar-thin">
+													<table className="w-full text-sm min-w-[1150px]">
 														<thead className="bg-card text-muted-foreground sticky top-0 z-10 border-b shadow-sm">
 															<tr>
 																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider w-8 sticky left-0 z-20 bg-card">
@@ -4552,7 +4550,7 @@ export default function AgentScreener() {
 																							</div>
 																						) : stockDetail ? (
 																							<>
-																								{/* Screener.in Pros & Cons Box */}
+																								{/* Fundamental Strengths & Risks Box */}
 																								<ScreenerProsConsBox
 																									pros={stockDetail.financials?.[0]?.pros}
 																									cons={stockDetail.financials?.[0]?.cons}
@@ -5850,131 +5848,6 @@ export default function AgentScreener() {
 									</div>
 								)}
 							</div>
-						</CardContent>
-					</TabsContent>
-
-					<TabsContent value="screener-in" className="m-0">
-						<CardContent className="pt-4 px-4 space-y-4">
-							<ScreenerInQuerySection
-								query={screenerInQuery}
-								onQueryChange={(q) => {
-									setScreenerInQuery(q);
-								}}
-								onRunQuery={(q) => {
-									setScreenerInQuery(q);
-									setDbPage(1);
-								}}
-								onExportCsv={handleExportCsv}
-								totalMatches={dbScreenerData?.total}
-								isLoading={dbLoading}
-							/>
-
-							{/* Live Query Results Table */}
-							{dbLoading ? (
-								<div className="flex items-center justify-center py-12 gap-2 text-sm text-muted-foreground">
-									<Loader2 className="h-5 w-5 animate-spin text-primary" />
-									Running Screener.in Query against full universe...
-								</div>
-							) : dbScreenerData?.stocks?.length ? (
-								<div className="space-y-2">
-									<div className="flex items-center justify-between text-xs text-muted-foreground">
-										<span className="font-semibold text-foreground">
-											Found {dbScreenerData.total} matching instruments (showing page {dbPage} of {dbScreenerData.totalPages})
-										</span>
-										<Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleExportCsv}>
-											<Download className="h-3.5 w-3.5 mr-1" />
-											Export {dbScreenerData.stocks.length} to CSV
-										</Button>
-									</div>
-									<div className="border rounded-lg overflow-x-auto">
-										<table className="w-full text-xs">
-											<thead className="bg-muted/50 border-b">
-												<tr>
-													<th className="py-2.5 px-3 text-left">#</th>
-													<th className="py-2.5 px-3 text-left">Company</th>
-													<th className="py-2.5 px-3 text-right">Price</th>
-													<th className="py-2.5 px-3 text-right">Mkt Cap</th>
-													<th className="py-2.5 px-3 text-right">P/E</th>
-													<th className="py-2.5 px-3 text-right">PEG</th>
-													<th className="py-2.5 px-3 text-right">P/B</th>
-													<th className="py-2.5 px-3 text-right">ROCE</th>
-													<th className="py-2.5 px-3 text-right">ROE</th>
-													<th className="py-2.5 px-3 text-right">D/E</th>
-													<th className="py-2.5 px-3 text-right">Promoter</th>
-													<th className="py-2.5 px-3 text-right">FII</th>
-													<th className="py-2.5 px-3 text-right">Score</th>
-													<th className="py-2.5 px-3 text-center">Chart</th>
-												</tr>
-											</thead>
-											<tbody>
-												{dbScreenerData.stocks.map((stock: any, idx: number) => (
-													<tr key={stock.symbol} className="border-b hover:bg-muted/30">
-														<td className="py-2 px-3 text-muted-foreground font-mono">
-															{(dbPage - 1) * dbLimit + idx + 1}
-														</td>
-														<td className="py-2 px-3">
-															<div className="font-semibold text-foreground">{stock.companyName}</div>
-															<div className="text-[10px] text-muted-foreground font-mono">{stock.symbol}</div>
-														</td>
-														<td className="py-2 px-3 text-right font-mono font-medium">{formatCurrency(stock.currentPrice)}</td>
-														<td className="py-2 px-3 text-right font-mono">{formatMarketCap(stock.marketCapValue)}</td>
-														<td className="py-2 px-3 text-right font-mono">{formatNum(stock.peRatio)}</td>
-														<td className="py-2 px-3 text-right font-mono">
-															{(() => {
-																const peg = Number(stock.pegRatio ?? (() => {
-																	const pe = Number(stock.peRatio);
-																	const g = Number(stock.earningsGrowth3Y ?? stock.revenueGrowth3Y ?? stock.return1Y ?? stock.return3Y);
-																	if (pe > 0 && g > 0) {
-																		const gPct = g <= 1 ? g * 100 : g;
-																		if (gPct >= 1) return (pe / gPct).toFixed(2);
-																	}
-																	return null;
-																})());
-																return !Number.isNaN(peg) && peg > 0 ? (
-																	<span className={peg < 1 ? "text-emerald-600 dark:text-emerald-400 font-semibold" : peg > 2 ? "text-red-500 font-medium" : ""}>
-																		{peg.toFixed(2)}
-																	</span>
-																) : "-";
-															})()}
-														</td>
-														<td className="py-2 px-3 text-right font-mono">{formatNum(stock.pbRatio)}</td>
-														<td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400 font-semibold">{formatRoe(stock.roce)}</td>
-														<td className="py-2 px-3 text-right font-mono">{formatRoe(stock.roe)}</td>
-														<td className="py-2 px-3 text-right font-mono">{formatNum(stock.debtToEquity)}</td>
-														<td className="py-2 px-3 text-right font-mono">{formatPercent(stock.promoterHolding)}</td>
-														<td className="py-2 px-3 text-right font-mono">{formatPercent(stock.fiiHolding)}</td>
-														<td className="py-2 px-3 text-right font-mono font-bold text-primary">{formatNum(stock.compositeScore, 0)}</td>
-														<td className="py-2 px-3 text-center">
-															<Button
-																variant="ghost"
-																size="sm"
-																className="h-6 w-6 p-0 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
-																title="View Interactive Price Chart"
-																onClick={() => setChartStock(stock)}
-															>
-																<TrendingUp className="h-3.5 w-3.5" />
-															</Button>
-														</td>
-													</tr>
-												))}
-											</tbody>
-										</table>
-									</div>
-								</div>
-							) : dbScreenerData?.queryError ? (
-								<div className="p-4 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2">
-									<AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
-									<div>
-										<div className="font-semibold text-sm">Query Parsing Notice</div>
-										<div className="mt-0.5">{dbScreenerData.queryError}</div>
-									</div>
-								</div>
-							) : (
-								<div className="text-center py-12 text-muted-foreground text-xs space-y-1">
-									<div className="font-semibold text-foreground text-sm">No stocks match your query criteria</div>
-									<div>Try adjusting operators or threshold numbers (e.g. lower ROCE or raise P/E).</div>
-								</div>
-							)}
 						</CardContent>
 					</TabsContent>
 

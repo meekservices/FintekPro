@@ -230,8 +230,8 @@ export const ScreenerInQuerySection: React.FC<Props> = ({
 
   return (
     <div className="space-y-3">
-      {/* ── Preset Screens Bar (Screener.in Inspired) ─────────────────────────── */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+      {/* ── Preset Screens Bar ─────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-1.5 pb-1">
         <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
           <Sparkles className="h-3 w-3 text-primary" /> Popular Screens:
         </span>
@@ -270,13 +270,13 @@ export const ScreenerInQuerySection: React.FC<Props> = ({
               </div>
               <div>
                 <div className="text-xs font-bold flex items-center gap-1.5">
-                  Screener.in Natural Query Syntax
+                  Institutional Formula Query
                   <Badge variant="outline" className="text-[10px] h-4 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 border-emerald-300">
-                    Full Universe · Zero Restrictions
+                    FintekPro DB · 3,300+ Stocks
                   </Badge>
                 </div>
                 <div className="text-[11px] text-muted-foreground">
-                  Type formulas using metrics, operators ({">="}, {"<="}, {">"}, {"<"}, {"="}), and AND
+                  Filter FintekPro database using custom metric formulas, comparison operators ({">="}, {"<="}, {">"}, {"<"}, {"="}), and AND
                 </div>
               </div>
             </div>
@@ -306,7 +306,7 @@ export const ScreenerInQuerySection: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* Textarea for Screener.in query */}
+          {/* Textarea for formula query */}
           <div className="relative">
             <textarea
               value={localQuery}
@@ -324,7 +324,7 @@ export const ScreenerInQuerySection: React.FC<Props> = ({
           </div>
 
           {/* Quick Metric Insertion Chips */}
-          <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none text-[11px]">
+          <div className="flex flex-wrap items-center gap-1 pb-0.5 text-[11px]">
             <span className="text-muted-foreground shrink-0 font-medium mr-1 text-[10px] uppercase tracking-wider">
               Quick Add:
             </span>
@@ -365,7 +365,7 @@ export const ScreenerInQuerySection: React.FC<Props> = ({
               ) : (
                 <div className="text-[11px] text-muted-foreground flex items-center gap-1">
                   <Info className="h-3 w-3" />
-                  <span>Showing complete unrestricted universe. Enter query above or pick a popular screen.</span>
+                  <span>Showing complete universe from FintekPro database. Enter formula query above or pick a popular screen.</span>
                 </div>
               )}
             </div>
