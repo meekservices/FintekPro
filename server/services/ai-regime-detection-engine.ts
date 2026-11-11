@@ -16,6 +16,14 @@ export interface RegimeSignal {
 	description: string;
 }
 
+export interface MacroMicroCoherence {
+	score: number; // 0-100
+	divergenceType: "NONE" | "BEARISH_BREADTH_DIVERGENCE" | "BULLISH_ABSORPTION_CONVERGENCE";
+	breadthThrust: boolean;
+	shortSqueezeRisk: boolean;
+	summaryNote: string;
+}
+
 export interface RegimeDetectionResult {
 	regimeLabel: RegimeLabel;
 	confidence: number;
@@ -38,6 +46,7 @@ export interface RegimeDetectionResult {
 		trendStrength: number;
 		momentum: Record<number, number>;
 	};
+	macroMicroCoherence?: MacroMicroCoherence;
 }
 
 export interface RegimeHistoryEntry {
@@ -284,6 +293,25 @@ export class AIRegimeDetectionEngine {
 				});
 			}
 
+			// ── Synergy Upgrade: US Labor Market & Macro Indicators (USME) Feed ─────────
+			try {
+				const { usMacroIndicatorsService } = await import("./macro/us-macro-indicators-service");
+				const usmeFeed = await usMacroIndicatorsService.getAiRegimeFeed();
+				if (usmeFeed) {
+					signals.push({
+						name: "US Labor & Macro Risk (Sahm/NFP)",
+						value: usmeFeed.laborMarketHealthScore,
+						weight: 0.15,
+						regime: usmeFeed.recommendedRegime,
+						description: usmeFeed.summaryDescription,
+					});
+				}
+			} catch (usmeErr: any) {
+				logger.warn("[AIRegime] USME signal injection unavailable", {
+					error: usmeErr?.message,
+				});
+			}
+
 			const scores: Record<RegimeLabel, number> = {
 				bull: 0,
 				bear: 0,
@@ -318,7 +346,41 @@ export class AIRegimeDetectionEngine {
 					: 0;
 
 			const t0 = Date.now();
-			const detectionResult = {
+
+			// ── Macro-Micro Coherence & Divergence Detection (MMCI) ─────────────
+			const macroIsBullish = scores.bull > scores.bear && scores.bull > scores.high_vol;
+			const breadthIsWeak = breadth.ratio < 0.85 || breadth.pctAbove50DMA < 45;
+			const breadthIsStrong = breadth.ratio >= 1.40 && breadth.pctAbove50DMA >= 55;
+			const macroIsBearish = scores.bear > scores.bull || scores.high_vol > scores.bull;
+			const shortSqueezeRisk = signals.some((s) => s.name.includes("FPI") && s.value <= 0.22);
+			const breadthThrust = breadth.ratio >= 2.0 && breadth.pctAbove50DMA >= 65;
+
+			let divergenceType: MacroMicroCoherence["divergenceType"] = "NONE";
+			let coherenceScore = 85;
+			let summaryNote = "Macro signals and micro domestic breadth are aligned.";
+
+			if (macroIsBullish && breadthIsWeak) {
+				divergenceType = "BEARISH_BREADTH_DIVERGENCE";
+				coherenceScore = 52;
+				summaryNote = "WARNING: Headline macro strength masking domestic market breadth deterioration (ADR < 0.85). Risk of index-heavy distribution.";
+			} else if (macroIsBearish && breadthIsStrong) {
+				divergenceType = "BULLISH_ABSORPTION_CONVERGENCE";
+				coherenceScore = 78;
+				summaryNote = "CONVERGENCE: Global macro headwinds being absorbed by robust domestic market breadth (ADR >= 1.40). Domestic champions outperforming.";
+			} else if (breadthThrust) {
+				coherenceScore = 95;
+				summaryNote = "STRONG EXPANSION: Zweig Breadth Thrust detected across domestic equities with broad accumulation.";
+			}
+
+			const macroMicroCoherence: MacroMicroCoherence = {
+				score: coherenceScore,
+				divergenceType,
+				breadthThrust,
+				shortSqueezeRisk,
+				summaryNote,
+			};
+
+			const detectionResult: RegimeDetectionResult = {
 				regimeLabel: winningRegime,
 				confidence,
 				signals,
@@ -340,6 +402,7 @@ export class AIRegimeDetectionEngine {
 					trendStrength: trendResult.r2,
 					momentum: momentumResult.momentum,
 				},
+				macroMicroCoherence,
 			};
 
 			// ── Regime Propagation: publish to telemetry bus ──

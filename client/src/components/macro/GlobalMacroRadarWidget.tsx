@@ -208,6 +208,17 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 		staleTime: 60 * 1000,
 	});
 
+	// ── 1h. Fetch US Labor & Macroeconomic Indicators (USME) ──
+	const { data: usMacroData } = useQuery<{ success: boolean; data: any }>({
+		queryKey: ["/api/macro/us-indicators/summary"],
+		queryFn: async () => {
+			const res = await fetch("/api/macro/us-indicators/summary");
+			if (!res.ok) throw new Error("Failed to fetch US macro indicators");
+			return res.json();
+		},
+		staleTime: 60 * 1000,
+	});
+
 	const handleSync = async () => {
 		setIsRefreshing(true);
 		try {
@@ -509,11 +520,12 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 					);
 				})()}
 
-				{/* ── Tabs: Pillars Breakdown, Credit Cycle, Sector Matrix, FII Radar, ADRs, Stress Testing ── */}
+				{/* ── Tabs: Pillars Breakdown, Credit Cycle, US Macro, Sector Matrix, FII Radar, ADRs, Stress Testing ── */}
 				<Tabs defaultValue="pillars" className="w-full">
-					<TabsList className="grid grid-cols-3 sm:grid-cols-6 h-auto sm:h-9 text-xs mb-3 gap-1 p-1">
+					<TabsList className="grid grid-cols-3 sm:grid-cols-7 h-auto sm:h-9 text-xs mb-3 gap-1 p-1">
 						<TabsTrigger value="pillars" className="text-xs">5 Pillars</TabsTrigger>
 						<TabsTrigger value="credit" className="text-xs">Credit Cycle</TabsTrigger>
+						<TabsTrigger value="usmacro" className="text-xs">US Macro</TabsTrigger>
 						<TabsTrigger value="sectors" className="text-xs">Sectors</TabsTrigger>
 						<TabsTrigger value="fii" className="text-xs">Global FII Radar</TabsTrigger>
 						<TabsTrigger value="adr" className="text-xs">ADR & MSCI</TabsTrigger>
@@ -663,7 +675,143 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 						})()}
 					</TabsContent>
 
-					{/* Tab 2: Sector Sensitivities */}
+					{/* Tab: US Labor Market & Macroeconomic Transmission */}
+					<TabsContent value="usmacro" className="space-y-3">
+						{(() => {
+							const um = usMacroData?.data;
+							if (!um) {
+								return (
+									<div className="p-4 rounded-lg border border-border/50 text-center text-xs text-muted-foreground">
+										Loading US Labor & Macro transmission telemetry...
+									</div>
+								);
+							}
+
+							return (
+								<div className="space-y-3">
+									{/* Top Scorecard */}
+									<div className="p-3.5 rounded-xl border border-border/60 bg-gradient-to-r from-card/80 to-muted/30 space-y-2">
+										<div className="flex flex-wrap items-center justify-between gap-2">
+											<div className="flex items-center gap-2">
+												<div className="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs">
+													USME
+												</div>
+												<div>
+													<div className="font-semibold text-foreground text-xs flex items-center gap-1.5">
+														US Labor Market Health & Regime
+														<Badge
+															variant="secondary"
+															className={cn(
+																"text-[10px] py-0 px-1.5",
+																um.usMacroRegime === "GOLDILOCKS_EXPANSION" && "bg-emerald-500/15 text-emerald-600 border-emerald-500/20",
+																um.usMacroRegime === "OVERHEATING_TIGHT_LABOR" && "bg-blue-500/15 text-blue-600",
+																um.usMacroRegime === "STAGFLATION_WARNING" && "bg-amber-500/15 text-amber-600",
+																um.usMacroRegime === "RECESSION_RISK" && "bg-rose-500/15 text-rose-600"
+															)}
+														>
+															{um.usMacroRegime?.replace(/_/g, " ")}
+														</Badge>
+													</div>
+													<div className="text-[11px] text-muted-foreground">{um.regimeNarrative}</div>
+												</div>
+											</div>
+											<div className="text-right">
+												<div className="text-xl font-black text-foreground">{um.laborMarketHealthScore}<span className="text-xs font-normal text-muted-foreground">/100</span></div>
+												<div className="text-[10px] text-muted-foreground">
+													{um.labor?.sahmRecessionTriggered ? (
+														<span className="text-rose-600 font-bold flex items-center gap-1">
+															<AlertTriangle className="h-3 w-3" /> Sahm Rule Triggered
+														</span>
+													) : (
+														<span className="text-emerald-600 font-medium">Sahm Rule Normal</span>
+													)}
+												</div>
+											</div>
+										</div>
+									</div>
+
+									{/* 4 Observed Metric Cards */}
+									<div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+										{/* 1. Unemployment & Sahm */}
+										<div className="p-2.5 rounded-lg border border-border/50 bg-card/60 space-y-1">
+											<div className="text-[11px] text-muted-foreground font-medium">Unemployment (U-3)</div>
+											<div className="text-base font-bold font-mono text-foreground">
+												{um.labor?.unemploymentRatePct}%
+											</div>
+											<div className="text-[10px] text-muted-foreground flex items-center justify-between">
+												<span>Sahm: {um.labor?.sahmRuleValuePct}%</span>
+												<Badge variant="outline" className={cn("text-[9px] py-0 px-1", um.labor?.sahmRuleValuePct >= 0.50 ? "text-rose-600 border-rose-500/30" : "text-emerald-600 border-emerald-500/30")}>
+													{um.labor?.sahmRuleValuePct >= 0.50 ? "Recession" : "Safe (<0.50%)"}
+												</Badge>
+											</div>
+										</div>
+
+										{/* 2. Non-Farm Payrolls */}
+										<div className="p-2.5 rounded-lg border border-border/50 bg-card/60 space-y-1">
+											<div className="text-[11px] text-muted-foreground font-medium">Non-Farm Payrolls</div>
+											<div className={cn("text-base font-bold font-mono", um.labor?.nonFarmPayrollsNetChangeK >= 0 ? "text-emerald-600" : "text-rose-600")}>
+												{um.labor?.nonFarmPayrollsNetChangeK > 0 ? `+${um.labor?.nonFarmPayrollsNetChangeK}k` : `${um.labor?.nonFarmPayrollsNetChangeK}k`}
+											</div>
+											<div className="text-[10px] text-muted-foreground">
+												Claims: {um.labor?.initialJoblessClaimsK}k / 4W: {um.labor?.joblessClaims4wMaK}k
+											</div>
+										</div>
+
+										{/* 3. 10Y-2Y Yield Curve */}
+										<div className="p-2.5 rounded-lg border border-border/50 bg-card/60 space-y-1">
+											<div className="text-[11px] text-muted-foreground font-medium">Yield Curve (10Y-2Y)</div>
+											<div className="text-base font-bold font-mono text-foreground">
+												{um.monetary?.yieldCurve10y2ySpreadBps > 0 ? `+${um.monetary?.yieldCurve10y2ySpreadBps}` : um.monetary?.yieldCurve10y2ySpreadBps} bps
+											</div>
+											<div className="text-[10px] text-muted-foreground flex items-center justify-between">
+												<span>Status:</span>
+												<Badge variant="outline" className={cn("text-[9px] py-0 px-1", um.monetary?.yieldCurveStatus === "INVERTED" ? "text-rose-600 border-rose-500/30" : "text-emerald-600 border-emerald-500/30")}>
+													{um.monetary?.yieldCurveStatus}
+												</Badge>
+											</div>
+										</div>
+
+										{/* 4. Core PCE Inflation */}
+										<div className="p-2.5 rounded-lg border border-border/50 bg-card/60 space-y-1">
+											<div className="text-[11px] text-muted-foreground font-medium">Core PCE Inflation</div>
+											<div className="text-base font-bold font-mono text-foreground">
+												{um.monetary?.corePceYoYPct}%
+											</div>
+											<div className="text-[10px] text-muted-foreground">
+												Fed Target: 2.0% | NFCI: {um.monetary?.chicagoFedNfci}
+											</div>
+										</div>
+									</div>
+
+									{/* Bottom Policy & Downstream Tilts */}
+									<div className="p-3 rounded-lg bg-card/80 border border-border/60 text-xs space-y-2">
+										<div className="flex flex-wrap items-center justify-between gap-2">
+											<div className="flex items-center gap-1.5 font-medium text-foreground">
+												<Globe2 className="h-3.5 w-3.5 text-blue-500" />
+												<span>FII Capital Flow Implication:</span>
+												<Badge variant="outline" className="text-[10px] py-0 px-1.5 font-bold">
+													{um.fiiFlowImplication}
+												</Badge>
+											</div>
+											<div className="flex items-center gap-2">
+												<span className="text-[11px] text-muted-foreground">EM Equity Tilt:</span>
+												<Badge className={cn("text-[10px] py-0 px-1.5 font-bold text-white", um.downstreamFeeds?.quantOrchestratorFeed?.recommendedEmEquityTilt === "OVERWEIGHT" ? "bg-emerald-600" : um.downstreamFeeds?.quantOrchestratorFeed?.recommendedEmEquityTilt === "UNDERWEIGHT" ? "bg-rose-600" : "bg-slate-600")}>
+													{um.downstreamFeeds?.quantOrchestratorFeed?.recommendedEmEquityTilt}
+												</Badge>
+												<span className="text-[11px] text-muted-foreground">Gold:</span>
+												<Badge className="text-[10px] py-0 px-1.5 font-bold bg-amber-600 text-white">
+													{um.downstreamFeeds?.quantOrchestratorFeed?.defensiveGoldTilt}
+												</Badge>
+											</div>
+										</div>
+										<p className="text-[11px] text-muted-foreground leading-relaxed">
+											{um.downstreamFeeds?.quantOrchestratorFeed?.rationale}
+										</p>
+									</div>
+								</div>
+							);
+						})()}
+					</TabsContent>
 					<TabsContent value="sectors" className="space-y-2">
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
 							{report.sectorImpactMatrix.map((sector) => (

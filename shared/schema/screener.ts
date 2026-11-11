@@ -171,6 +171,17 @@ export const screenerDerivedMetrics = pgTable("screener_derived_metrics", {
   revenueCagr3Y: decimal("revenue_cagr_3y", { precision: 10, scale: 4 }),  // 3-year CAGR of revenue
   epsCagr3Y:     decimal("eps_cagr_3y",     { precision: 10, scale: 4 }),  // 3-year CAGR of diluted EPS
 
+  // ── Advanced Micro Factors (Forensic, Liquidity & Governance) ────────────
+  beneishMScore: decimal("beneish_m_score", { precision: 10, scale: 4 }),
+  sloanAccrualRatio: decimal("sloan_accrual_ratio", { precision: 10, scale: 4 }),
+  cashFlowConversionRatio: decimal("cash_flow_conversion_ratio", { precision: 10, scale: 4 }),
+  cfoToEbitda: decimal("cfo_to_ebitda", { precision: 10, scale: 4 }),
+  evaSpread: decimal("eva_spread", { precision: 10, scale: 4 }),
+  amihudIlliquidity: decimal("amihud_illiquidity", { precision: 12, scale: 6 }),
+  deliveryPercent: decimal("delivery_percent", { precision: 8, scale: 4 }),
+  deliveryVolumeRatio: decimal("delivery_volume_ratio", { precision: 8, scale: 4 }),
+  promoterPledgeEncumbrance: decimal("promoter_pledge_encumbrance", { precision: 8, scale: 4 }),
+
   // ── Dividends & Price Info ────────────────────────────────────────────────
   dividendPerShare: decimal("dividend_per_share", { precision: 10, scale: 4 }),
   faceValue: decimal("face_value", { precision: 10, scale: 2 }),
@@ -960,6 +971,18 @@ export const screenerMasterSnapshots = pgTable("screener_master_snapshots", {
   stockRegime: varchar("stock_regime", { length: 30 }).default("CONSOLIDATION_BASE"),
   piotroskiFScore: integer("piotroski_f_score"),
   consensusUpsidePercent: decimal("consensus_upside_percent", { precision: 8, scale: 2 }),
+  // ── Advanced Micro Factors (Forensic, Liquidity, Governance & F&O) ────────
+  beneishMScore: decimal("beneish_m_score", { precision: 10, scale: 4 }),
+  sloanAccrualRatio: decimal("sloan_accrual_ratio", { precision: 10, scale: 4 }),
+  cashFlowConversionRatio: decimal("cash_flow_conversion_ratio", { precision: 10, scale: 4 }),
+  cfoToEbitda: decimal("cfo_to_ebitda", { precision: 10, scale: 4 }),
+  evaSpread: decimal("eva_spread", { precision: 10, scale: 4 }),
+  amihudIlliquidity: decimal("amihud_illiquidity", { precision: 12, scale: 6 }),
+  deliveryPercent: decimal("delivery_percent", { precision: 8, scale: 4 }),
+  deliveryVolumeRatio: decimal("delivery_volume_ratio", { precision: 8, scale: 4 }),
+  promoterPledgeEncumbrance: decimal("promoter_pledge_encumbrance", { precision: 8, scale: 4 }),
+  fnoBuildup: varchar("fno_buildup", { length: 30 }),
+  fnoPcr: decimal("fno_pcr", { precision: 6, scale: 2 }),
   // ── Snapshot freshness ─────────────────────────────────────────────────────
   financialsFiscalYear: integer("financials_fiscal_year"),
   shareholdingQuarterDate: varchar("shareholding_quarter_date", { length: 10 }),

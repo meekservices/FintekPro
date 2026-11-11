@@ -298,6 +298,41 @@ export const globalCreditCycleMetrics = pgTable(
   ]
 );
 
+// ── 12. US Labor Market & Macroeconomic Indicators ───────────────────────────
+export const usMacroEconomicIndicators = pgTable(
+  "us_macro_economic_indicators",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    asOfDate: date("as_of_date").notNull().unique(),
+    // Labor Market
+    unemploymentRatePct: numeric("unemployment_rate_pct", { precision: 6, scale: 2 }).notNull(), // UNRATE (e.g. 4.10%)
+    sahmRuleValuePct: numeric("sahm_rule_value_pct", { precision: 6, scale: 2 }).notNull(), // SAHMREALTIME (e.g. 0.43%)
+    sahmRecessionTriggered: boolean("sahm_recession_triggered").default(false).notNull(), // true if sahm >= 0.50%
+    nonFarmPayrollsNetChangeK: numeric("non_farm_payrolls_net_change_k", { precision: 8, scale: 1 }).notNull(), // PAYEMS monthly diff in thousands (e.g. 142.0k)
+    initialJoblessClaimsK: numeric("initial_jobless_claims_k", { precision: 8, scale: 1 }).notNull(), // ICSA in thousands (e.g. 221.0k)
+    joblessClaims4wMaK: numeric("jobless_claims_4w_ma_k", { precision: 8, scale: 1 }).notNull(), // 4-week moving average
+    laborForceParticipationPct: numeric("labor_force_participation_pct", { precision: 6, scale: 2 }), // CIVPART (e.g. 62.70%)
+    wageGrowthYoYPct: numeric("wage_growth_yoy_pct", { precision: 6, scale: 2 }).notNull(), // CES0500000003 Average Hourly Earnings YoY % (e.g. 3.80%)
+    // Monetary & Yield Curve
+    yieldCurve10y2ySpreadBps: numeric("yield_curve_10y_2y_spread_bps", { precision: 8, scale: 2 }).notNull(), // T10Y2Y in bps (e.g. +14 bps)
+    yieldCurveStatus: varchar("yield_curve_status", { length: 30 }).notNull(), // 'INVERTED', 'FLAT', 'NORMAL_STEEP', 'BULL_STEEPENING'
+    fedFundsRatePct: numeric("fed_funds_rate_pct", { precision: 6, scale: 2 }).notNull(), // DFF (e.g. 4.38%)
+    // Inflation & Financial Conditions
+    corePceYoYPct: numeric("core_pce_yoy_pct", { precision: 6, scale: 2 }).notNull(), // PCEPILFE YoY % (e.g. 2.70%)
+    headlineCpiYoYPct: numeric("headline_cpi_yoy_pct", { precision: 6, scale: 2 }).notNull(), // CPIAUCSL YoY % (e.g. 2.40%)
+    chicagoFedNfci: numeric("chicago_fed_nfci", { precision: 6, scale: 2 }), // NFCI (< 0 = loose financial conditions)
+    // Derived Macro Regimes
+    usMacroRegime: varchar("us_macro_regime", { length: 50 }).notNull(), // 'GOLDILOCKS_EXPANSION', 'OVERHEATING_TIGHT_LABOR', 'STAGFLATION_WARNING', 'RECESSION_RISK'
+    fiiFlowImplication: varchar("fii_flow_implication", { length: 50 }).notNull(), // 'STRONG_EM_INFLOW', 'MODERATE_INFLOW', 'NEUTRAL', 'FLIGHT_TO_SAFETY_OUTFLOW'
+    meta: jsonb("meta").notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_usme_date").on(table.asOfDate),
+    index("idx_usme_regime").on(table.usMacroRegime),
+  ]
+);
+
 // ── Zod Schemas ─────────────────────────────────────────────────────────────
 export const insertGlobalMarketIndexSchema = createInsertSchema(globalMarketIndices);
 export const insertGlobalCapitalFlowSchema = createInsertSchema(globalCapitalFlows);
@@ -310,6 +345,7 @@ export const insertGlobalFiiCountryScorecardSchema = createInsertSchema(globalFi
 export const insertGlobalFiiCrossBorderFlowSchema = createInsertSchema(globalFiiCrossBorderFlows);
 export const insertGlobalFiiAllocationSignalSchema = createInsertSchema(globalFiiAllocationSignals);
 export const insertGlobalCreditCycleMetricSchema = createInsertSchema(globalCreditCycleMetrics);
+export const insertUsMacroEconomicIndicatorSchema = createInsertSchema(usMacroEconomicIndicators);
 
 // ── Types ───────────────────────────────────────────────────────────────────
 export type GlobalMarketIndex = typeof globalMarketIndices.$inferSelect;
@@ -344,3 +380,6 @@ export type InsertGlobalFiiAllocationSignal = typeof globalFiiAllocationSignals.
 
 export type GlobalCreditCycleMetric = typeof globalCreditCycleMetrics.$inferSelect;
 export type InsertGlobalCreditCycleMetric = typeof globalCreditCycleMetrics.$inferInsert;
+
+export type UsMacroEconomicIndicator = typeof usMacroEconomicIndicators.$inferSelect;
+export type InsertUsMacroEconomicIndicator = typeof usMacroEconomicIndicators.$inferInsert;

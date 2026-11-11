@@ -107,6 +107,27 @@ export async function getLiveInstrumentPrice(
 					}
 				}
 
+				// 0.5 Check Shared Redis Price Cache (< 1ms)
+				if (sym || isin) {
+					try {
+						const { getSharedRedis } = await import("../utils/redis-client");
+						const redis = await getSharedRedis();
+						if (redis) {
+							const id = (sym || isin)!.toUpperCase();
+							const rVal = await redis.get(`golden:price:${id}`) || await redis.get(`upstox:quote:NSE:${id}`);
+							if (rVal) {
+								const parsed = JSON.parse(rVal);
+								const price = parsed.last_price || parsed.price;
+								if (price && price > 0) {
+									pick.priceDataSource = parsed.source || "Live Exchange Feed (Redis)";
+									pick.dataFreshness = "live";
+									return price;
+								}
+							}
+						}
+					} catch {}
+				}
+
 				// 1. Upstox Licensed Live Exchange Feed (Priority 1 for real-time market hours)
 				if (upstoxMarketDataService.isReady()) {
 					const queryTarget = sym?.toUpperCase() === "GRANULES" ? "INE101D01020" : (isin || sym);
@@ -722,9 +743,15 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 			picks.map(async (pick) => {
 				// ── Data source metadata (sync — no I/O) ──────────────────────
 				const source = DATA_SOURCES[pick.category];
-				pick.priceDataSource = source?.name || "Unknown";
-				pick.priceDataType = source?.type || "Unknown";
-				pick.priceRefreshInterval = source?.refreshInterval || "Unknown";
+				if (!pick.priceDataSource || pick.priceDataSource === "Unknown") {
+					pick.priceDataSource = source?.name || "Unknown";
+				}
+				if (!pick.priceDataType || pick.priceDataType === "Unknown") {
+					pick.priceDataType = source?.type || "Unknown";
+				}
+				if (!pick.priceRefreshInterval || pick.priceRefreshInterval === "Unknown") {
+					pick.priceRefreshInterval = source?.refreshInterval || "Unknown";
+				}
 
 				if (!pick.lastPriceUpdate && (pick.updatedAt || pick.statusUpdatedAt)) {
 					const updatedAt =
@@ -739,15 +766,17 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 					}
 				}
 
-				const ageHours = pick.lastPriceUpdate
-					? (Date.now() - new Date(pick.lastPriceUpdate).getTime()) / (1000 * 60 * 60)
-					: null;
-				pick.dataFreshness =
-					ageHours === null ? "unknown"
-					: ageHours < 1    ? "live"
-					: ageHours < 6    ? "recent"
-					: ageHours < 24   ? "delayed"
-					:                   "stale";
+				if (!pick.dataFreshness || pick.dataFreshness === "unknown") {
+					const ageHours = pick.lastPriceUpdate
+						? (Date.now() - new Date(pick.lastPriceUpdate).getTime()) / (1000 * 60 * 60)
+						: null;
+					pick.dataFreshness =
+						ageHours === null ? "unknown"
+						: ageHours < 1    ? "live"
+						: ageHours < 6    ? "recent"
+						: ageHours < 24   ? "delayed"
+						:                   "stale";
+				}
 
 				if (pick.category !== "listed_stocks" || !pick.symbol) return;
 				const km = typeof pick.keyMetrics === "string"

@@ -57,6 +57,7 @@ import { apiRequest, queryClient, getStoredSessionId } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { calculateIpoListingGain } from "@shared/calculations";
+import { MarketChart } from "@/components/dashboard/market-chart";
 import {
 	TrendingUp,
 	TrendingDown,
@@ -1765,6 +1766,8 @@ export default function AgentPicksPage() {
 		recommendations: AIStockRecommendation[];
 	}>({
 		queryKey: ["/api/ai-stock-recommendations/quick"],
+		staleTime: 15 * 1000,
+		refetchInterval: 30 * 1000,
 	});
 
 	// Dynamic fetch for complete fundamentals & returns if selected stock has missing metrics
@@ -5602,6 +5605,9 @@ export default function AgentPicksPage() {
 															<TabsTrigger value="overview">
 																Overview
 															</TabsTrigger>
+															<TabsTrigger value="chart">
+																Chart
+															</TabsTrigger>
 															<TabsTrigger value="fundamentals">
 																Fundamentals
 															</TabsTrigger>
@@ -5610,6 +5616,14 @@ export default function AgentPicksPage() {
 															</TabsTrigger>
 															<TabsTrigger value="tax">Tax Impact</TabsTrigger>
 														</ScrollableTabsList>
+
+														<TabsContent value="chart" className="mt-4 space-y-4">
+															<MarketChart
+																symbol={selectedAIStock.symbol}
+																title={`${selectedAIStock.symbol} - ${selectedAIStock.companyName}`}
+																height={380}
+															/>
+														</TabsContent>
 
 														<TabsContent
 															value="overview"

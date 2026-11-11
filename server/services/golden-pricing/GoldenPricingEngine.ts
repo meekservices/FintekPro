@@ -1844,6 +1844,25 @@ export async function getAuthoritativePrice(
 				return symCached.result;
 			}
 		}
+
+		// 1.5 Shared Redis Cache Hit (< 2ms)
+		try {
+			const { getSharedRedis } = await import("../../utils/redis-client");
+			const redis = await getSharedRedis();
+			if (redis) {
+				const redisKey = `golden:price:${(query.symbol || query.isin || "").toUpperCase().trim()}`;
+				const raw = await redis.get(redisKey);
+				if (raw) {
+					const parsed = JSON.parse(raw) as GoldenPriceResult;
+					memoryPriceCache.set(cacheKey, {
+						result: parsed,
+						cachedAt: now,
+						expiresAt: now + maxAgeMs,
+					});
+					return parsed;
+				}
+			}
+		} catch {}
 	}
 
 	// 2. Request Coalescing (Single-Flight)
@@ -2015,6 +2034,39 @@ export async function batchGetAuthoritativePrices(
 		misses.push(q);
 	}
 
+	// 1.5 Shared Redis Batch Cache Hit via mGet (< 2ms)
+	if (misses.length > 0 && !queries[0]?.forceRefresh) {
+		try {
+			const { getSharedRedis } = await import("../../utils/redis-client");
+			const redis = await getSharedRedis();
+			if (redis) {
+				const keys = misses.map((m) => `golden:price:${(m.symbol || m.isin || "").toUpperCase().trim()}`);
+				const cachedVals = await redis.mGet(keys);
+				const remainingMisses: AuthoritativePriceQuery[] = [];
+				for (let i = 0; i < misses.length; i++) {
+					const val = cachedVals[i];
+					const q = misses[i];
+					const id = (q.symbol || q.isin || "").toUpperCase().trim();
+					if (val) {
+						try {
+							const parsed = JSON.parse(val) as GoldenPriceResult;
+							results[id] = parsed;
+							memoryPriceCache.set(buildCacheKey(q), {
+								result: parsed,
+								cachedAt: now,
+								expiresAt: now + (q.maxAgeSeconds ?? DEFAULT_CACHE_TTL_SECONDS) * 1000,
+							});
+							continue;
+						} catch {}
+					}
+					remainingMisses.push(q);
+				}
+				misses.length = 0;
+				misses.push(...remainingMisses);
+			}
+		} catch {}
+	}
+
 	if (misses.length === 0) {
 		return results;
 	}
@@ -2071,6 +2123,16 @@ export async function batchGetAuthoritativePrices(
 					if (sym) memoryPriceCache.set(`SYM:${sym}:${q.exchange ?? "NSE"}`, entry);
 					if (isin) memoryPriceCache.set(`ISIN:${isin}`, entry);
 					results[identifier] = res;
+					try {
+						const { getSharedRedis } = await import("../../utils/redis-client");
+						const redis = await getSharedRedis();
+						if (redis) {
+							const ttlSec = Math.max(30, Math.floor(ttlMs / 1000));
+							const val = JSON.stringify(res);
+							if (sym) await redis.setEx(`golden:price:${sym}`, ttlSec, val);
+							if (isin) await redis.setEx(`golden:price:${isin}`, ttlSec, val);
+						}
+					} catch {}
 					return;
 				}
 			}
@@ -2079,6 +2141,16 @@ export async function batchGetAuthoritativePrices(
 			const res = await getAuthoritativePrice(q);
 			if (res) {
 				results[identifier] = res;
+				try {
+					const { getSharedRedis } = await import("../../utils/redis-client");
+					const redis = await getSharedRedis();
+					if (redis) {
+						const ttlSec = q.maxAgeSeconds ?? DEFAULT_CACHE_TTL_SECONDS;
+						const val = JSON.stringify(res);
+						if (sym) await redis.setEx(`golden:price:${sym}`, ttlSec, val);
+						if (isin) await redis.setEx(`golden:price:${isin}`, ttlSec, val);
+					}
+				} catch {}
 			}
 		} catch (err: any) {
 			logger.warn(`[GoldenPricing] Batch item resolution failed for ${identifier}: ${err?.message || err}`);

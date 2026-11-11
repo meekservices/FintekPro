@@ -181,7 +181,7 @@ class AIStockRecommendationService {
 		string,
 		{ recommendations: StockRecommendation[]; timestamp: Date }
 	>();
-	private readonly CACHE_TTL_MS = 30 * 60 * 1000;
+	private readonly CACHE_TTL_MS = 30 * 1000; // 30s cache for real-time market responsiveness
 	private readonly BUDGET_2024_STCG_RATE = 20;
 	private readonly BUDGET_2024_LTCG_RATE = 12.5;
 	private readonly LTCG_EXEMPTION_LIMIT = 125000;
@@ -308,25 +308,57 @@ class AIStockRecommendationService {
 				),
 			);
 
-			// Enrich recommendations with live licensed Upstox LTP tick data
-			if (upstoxMarketDataService.isReady()) {
-				try {
-					const syms = recommendations.map((r) => r.symbol).filter(Boolean);
+			// Enrich recommendations with live licensed Upstox LTP tick data and Golden Pricing fallback
+			try {
+				const syms = recommendations.map((r) => r.symbol).filter(Boolean);
+				let quotesMap = new Map<string, any>();
+				if (upstoxMarketDataService.isReady()) {
 					const bRes = await upstoxMarketDataService.getBatchQuotes(syms, "NSE");
 					if (bRes.success && bRes.data) {
-						for (const rec of recommendations) {
-							const liveQ = bRes.data.get(rec.symbol?.toUpperCase());
-							if (liveQ?.last_price && liveQ.last_price > 0) {
-								rec.currentPrice = liveQ.last_price;
-								if (rec.targetPrice && rec.targetPrice > 0) {
-									rec.expectedReturn = Math.round((((rec.targetPrice - liveQ.last_price) / liveQ.last_price) * 100) * 10) / 10;
-								}
-							}
+						quotesMap = bRes.data;
+					}
+				}
+
+				const missingSymbols = syms.filter((s) => {
+					const q = quotesMap.get(s.toUpperCase());
+					return !q?.last_price || q.last_price <= 0;
+				});
+
+				if (missingSymbols.length > 0) {
+					const { batchGetAuthoritativePrices } = await import("./golden-pricing/GoldenPricingEngine");
+					const gpMap = await batchGetAuthoritativePrices(
+						missingSymbols.map((s) => ({ symbol: s, assetClass: "equity" as const, exchange: "NSE" }))
+					);
+					for (const [s, gp] of Object.entries(gpMap)) {
+						if (gp?.price && gp.price > 0) {
+							quotesMap.set(s.toUpperCase(), {
+								last_price: gp.price,
+								change: gp.change,
+								change_percent: gp.changePercent,
+							});
 						}
 					}
-				} catch (err) {
-					logger.warn("[AI Recommendations] Live LTP enrich warning:", { error: String(err) });
 				}
+
+				for (const rec of recommendations) {
+					const symUpper = rec.symbol?.toUpperCase();
+					const liveQ = symUpper ? quotesMap.get(symUpper) : null;
+					if (liveQ?.last_price && liveQ.last_price > 0) {
+						rec.currentPrice = liveQ.last_price;
+						if (rec.targetPrice && rec.targetPrice > 0) {
+							rec.expectedReturn = Math.round((((rec.targetPrice - liveQ.last_price) / liveQ.last_price) * 100) * 10) / 10;
+						}
+						// Write-back live price to listed_stocks
+						db.execute(sql`
+							UPDATE listed_stocks
+							SET current_price = ${String(liveQ.last_price)},
+							    last_updated = NOW()
+							WHERE UPPER(symbol) = ${symUpper}
+						`).catch(() => {});
+					}
+				}
+			} catch (err) {
+				logger.warn("[AI Recommendations] Live LTP enrich warning:", { error: String(err) });
 			}
 
 			logger.info("[FASP-AI] Advice generated", {
@@ -918,7 +950,7 @@ class AIStockRecommendationService {
 				logger.warn("[AI Recommendations] Master snapshots bulk query fallback:", snapshotErr?.message);
 			}
 
-			// 2. Single batch live quote fetch from Upstox (eliminates 100 individual HTTP calls)
+			// 2. Single batch live quote fetch from Upstox with Golden Pricing fallback
 			let quotesMap = new Map<string, any>();
 			if (upstoxMarketDataService.isReady()) {
 				try {
@@ -929,6 +961,29 @@ class AIStockRecommendationService {
 				} catch (upstoxErr: any) {
 					logger.warn("[AI Recommendations] Upstox batch quotes fallback:", upstoxErr?.message);
 				}
+			}
+
+			// Fallback for missing symbols via GoldenPricingEngine
+			const missingSymbols = symbols.filter((s) => {
+				const q = quotesMap.get(s);
+				return !q?.last_price || q.last_price <= 0;
+			});
+			if (missingSymbols.length > 0) {
+				try {
+					const { batchGetAuthoritativePrices } = await import("./golden-pricing/GoldenPricingEngine");
+					const gpMap = await batchGetAuthoritativePrices(
+						missingSymbols.map((s) => ({ symbol: s, assetClass: "equity" as const, exchange: "NSE" }))
+					);
+					for (const [s, gp] of Object.entries(gpMap)) {
+						if (gp?.price && gp.price > 0) {
+							quotesMap.set(s.toUpperCase(), {
+								last_price: gp.price,
+								change: gp.change,
+								change_percent: gp.changePercent,
+							});
+						}
+					}
+				} catch {}
 			}
 
 			// 3. In-memory fast synchronous enrichment
@@ -1004,9 +1059,6 @@ class AIStockRecommendationService {
 				}
 
 				let livePrice = quote?.last_price && quote.last_price > 0 ? quote.last_price : stock.currentPrice;
-				if (sym === "SERVICE" && (!livePrice || Number(livePrice) < 60)) {
-					livePrice = 69.15;
-				}
 
 				return {
 					...stock,
@@ -1754,16 +1806,13 @@ Provide analysis in JSON format:
 			live.currentPrice || stock.currentPrice || "100",
 		);
 		let currentPrice = Number.isFinite(rawPrice) && rawPrice > 0 ? rawPrice : 100;
-		if (String(stock.symbol ?? "").toUpperCase() === "SERVICE" && currentPrice < 60) {
-			currentPrice = 69.15;
-		}
 
 		let targetPricePercent = Number(aiAnalysis.targetPricePercent || 14.5);
 		let stopLossPercent = Number(aiAnalysis.stopLossPercent || 7.5);
 
 		let targetPrice = Math.round(currentPrice * (1 + targetPricePercent / 100) * 100) / 100;
 		let stopLoss = Math.round(currentPrice * (1 - stopLossPercent / 100) * 100) / 100;
-		let entryPrice = Math.round(currentPrice * 0.995 * 100) / 100;
+		let entryPrice = currentPrice;
 
 		// ── CRITICAL GUARDRAIL: Pre-Publication Price & Target Reality Gate ──
 		// 1. If currentPrice >= targetPrice (or remaining upside is less than 5%), the target has ALREADY BEEN HIT!
@@ -2033,7 +2082,7 @@ Provide analysis in JSON format:
 
 		return fallbackStocks.map((stock, idx) => {
 			const currentPrice = stock.currentPrice;
-			const entryPrice = Math.round(currentPrice * 0.995 * 100) / 100;
+			const entryPrice = currentPrice;
 			const targetPrice = Math.round(currentPrice * 1.15 * 100) / 100;
 			const stopLoss = Math.round(currentPrice * 0.92 * 100) / 100;
 

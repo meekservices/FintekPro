@@ -17,6 +17,7 @@ import { globalMarketIntelligenceEngine } from "../services/macro/global-market-
 import { msciFactorService } from "../services/macro/msci-factor-service";
 import { globalFiiTrackerEngine } from "../services/macro/global-fii-tracker-engine";
 import { globalCreditCycleService } from "../services/macro/global-credit-cycle-service";
+import { usMacroIndicatorsService } from "../services/macro/us-macro-indicators-service";
 import { goldenPricingEngine } from "../services/golden-pricing/GoldenPricingEngine";
 import { logger } from "../logger";
 
@@ -822,6 +823,101 @@ export function registerMacroRoutes(app: Express): void {
 				error: "CREDIT_INDICATORS_FETCH_FAILED",
 				message: err?.message || "Failed to fetch credit cycle indicators",
 				meta: { timestamp: new Date().toISOString(), version: "GCCE-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/us-indicators/summary
+	 * Returns full US Labor Market & Macroeconomic Indicators report.
+	 */
+	app.get("/api/macro/us-indicators/summary", async (req: Request, res: Response) => {
+		const t0 = Date.now();
+		const forceRefresh = req.query.refresh === "true" || req.query.forceRefresh === "true";
+		try {
+			const report = await usMacroIndicatorsService.getUsMacroReport(forceRefresh);
+			return res.status(200).json({
+				success: true,
+				data: report,
+				meta: {
+					timestamp: report.calculation_timestamp,
+					version: report.engine_version,
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch US macro indicators report", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "US_MACRO_FETCH_FAILED",
+				message: err?.message || "Failed to fetch US macro indicators",
+				meta: { timestamp: new Date().toISOString(), version: "USME-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/us-indicators/labor
+	 * Returns labor market telemetry: U-3 unemployment, Sahm Rule, NFP, claims, and wage growth.
+	 */
+	app.get("/api/macro/us-indicators/labor", async (req: Request, res: Response) => {
+		const t0 = Date.now();
+		try {
+			const report = await usMacroIndicatorsService.getUsMacroReport(false);
+			return res.status(200).json({
+				success: true,
+				data: {
+					asOfDate: report.asOfDate,
+					labor: report.labor,
+					laborMarketHealthScore: report.laborMarketHealthScore,
+					usMacroRegime: report.usMacroRegime,
+					fiiFlowImplication: report.fiiFlowImplication,
+				},
+				meta: {
+					timestamp: report.calculation_timestamp,
+					version: report.engine_version,
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch US labor metrics", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "US_LABOR_FETCH_FAILED",
+				message: err?.message || "Failed to fetch US labor indicators",
+				meta: { timestamp: new Date().toISOString(), version: "USME-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/us-indicators/engine-feeds
+	 * Exposes feeds for AI Regime, Quant Orchestrator, and Tail Risk engines.
+	 */
+	app.get("/api/macro/us-indicators/engine-feeds", async (req: Request, res: Response) => {
+		const t0 = Date.now();
+		try {
+			const report = await usMacroIndicatorsService.getUsMacroReport(false);
+			return res.status(200).json({
+				success: true,
+				data: {
+					asOfDate: report.asOfDate,
+					downstreamFeeds: report.downstreamFeeds,
+					explainability: report.explainability,
+				},
+				meta: {
+					timestamp: report.calculation_timestamp,
+					version: report.engine_version,
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch US macro engine feeds", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "US_MACRO_FEEDS_FETCH_FAILED",
+				message: err?.message || "Failed to fetch US macro engine feeds",
+				meta: { timestamp: new Date().toISOString(), version: "USME-v1.0.0" },
 			});
 		}
 	});

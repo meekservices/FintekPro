@@ -428,12 +428,26 @@ export function registerMarketDataPart1Routes(app: Express): void {
 					.replace(/\.BO$/, "")
 					.replace(/^MCX[:_]/, "");
 
+				// Check Redis Cache for Candle Series (< 2ms)
+				const candleCacheKey = `market:candles:${cleanSym}:${resolution}:${fromTs}:${toTs}`;
+				try {
+					const { getSharedRedis } = await import("../utils/redis-client");
+					const redis = await getSharedRedis();
+					if (redis) {
+						const cached = await redis.get(candleCacheKey);
+						if (cached) {
+							res.json(JSON.parse(cached));
+							return;
+						}
+					}
+				} catch {}
+
 				// Priority 0: FintekPro Database EOD Cache (screener_price_history)
 				if (resolution === "D") {
 					try {
 						const { db } = await import("../db");
 						const { screenerPriceHistory } = await import("@shared/schema");
-						const { and, eq, gte, lte, asc } = await import("drizzle-orm");
+						const { and, eq, gte, lte, asc, sql } = await import("drizzle-orm");
 
 						const fromDateStr = new Date(fromTs * 1000).toISOString().split("T")[0];
 						const toDateStr = new Date(toTs * 1000).toISOString().split("T")[0];
@@ -457,7 +471,40 @@ export function registerMarketDataPart1Routes(app: Express): void {
 							const o = dbRows.map((r) => Number(r.open || r.close || 0));
 							const v = dbRows.map((r) => Number(r.volume || 0));
 							const t = dbRows.map((r) => Math.floor(new Date(r.date).getTime() / 1000));
-							res.json({ s: "ok", c, h, l, o, t, v, source: "FINTEKPRO_DB" });
+							const candleData = { s: "ok", c, h, l, o, t, v, source: "FINTEKPRO_DB" };
+							try {
+								const { getSharedRedis } = await import("../utils/redis-client");
+								const redis = await getSharedRedis();
+								if (redis) await redis.setEx(candleCacheKey, 3600, JSON.stringify(candleData));
+							} catch {}
+							res.json(candleData);
+							return;
+						}
+
+						// Priority 0.5: FintekPro Database golden_prices (authoritative Bhavcopy daily time-series)
+						const gpResult = await db.execute(sql`
+							SELECT price_date, price, volume, high_price, low_price, open_price
+							FROM golden_prices
+							WHERE (UPPER(symbol) = ${cleanSym} OR UPPER(isin) = ${cleanSym})
+							  AND price_date >= ${fromDateStr}
+							  AND price_date <= ${toDateStr}
+							ORDER BY price_date ASC
+						`);
+						const gpRows = ((gpResult as any).rows || gpResult || []) as any[];
+						if (gpRows && gpRows.length >= 5) {
+							const c = gpRows.map((r) => Number(r.price || 0));
+							const h = gpRows.map((r) => Number(r.high_price || r.price || 0));
+							const l = gpRows.map((r) => Number(r.low_price || r.price || 0));
+							const o = gpRows.map((r) => Number(r.open_price || r.price || 0));
+							const v = gpRows.map((r) => Number(r.volume || 0));
+							const t = gpRows.map((r) => Math.floor(new Date(r.price_date).getTime() / 1000));
+							const candleData = { s: "ok", c, h, l, o, t, v, source: "FINTEKPRO_GOLDEN_PRICES" };
+							try {
+								const { getSharedRedis } = await import("../utils/redis-client");
+								const redis = await getSharedRedis();
+								if (redis) await redis.setEx(candleCacheKey, 3600, JSON.stringify(candleData));
+							} catch {}
+							res.json(candleData);
 							return;
 						}
 					} catch (dbErr) {
@@ -500,7 +547,13 @@ export function registerMarketDataPart1Routes(app: Express): void {
 							const t = sorted.map((item) =>
 								Math.floor(new Date(item.timestamp).getTime() / 1000),
 							);
-							res.json({ s: "ok", c, h, l, o, t, v, source: "UPSTOX" });
+							const candleData = { s: "ok", c, h, l, o, t, v, source: "UPSTOX" };
+							try {
+								const { getSharedRedis } = await import("../utils/redis-client");
+								const redis = await getSharedRedis();
+								if (redis) await redis.setEx(candleCacheKey, resolution === "D" ? 3600 : 300, JSON.stringify(candleData));
+							} catch {}
+							res.json(candleData);
 							return;
 						}
 					} catch (upstoxErr) {

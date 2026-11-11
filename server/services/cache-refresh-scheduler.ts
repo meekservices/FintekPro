@@ -58,6 +58,15 @@ class CacheRefreshScheduler {
 			{ timezone: "Asia/Kolkata" },
 		);
 
+		// Pre-Market Macro & Market Intelligence Warmup - 8:30 AM IST on weekdays
+		cron.schedule(
+			"30 8 * * 1-5",
+			async () => {
+				await this.warmupPreMarketIntelligence();
+			},
+			{ timezone: "Asia/Kolkata" },
+		);
+
 		// End-of-day comprehensive market data refresh - 6 PM IST on weekdays
 		cron.schedule(
 			"0 18 * * 1-5",
@@ -93,6 +102,38 @@ class CacheRefreshScheduler {
 		);
 
 		logger.info("[CacheRefreshScheduler] Cron jobs scheduled");
+	}
+
+	/**
+	 * Pre-warms Macro and Domestic Market Intelligence engines at 08:30 IST.
+	 * Populates caches for instant sub-50ms API responsiveness when markets open.
+	 */
+	async warmupPreMarketIntelligence(): Promise<void> {
+		const t0 = Date.now();
+		try {
+			logger.info("[CacheRefreshScheduler] Starting pre-market intelligence warmup...");
+			const { globalMarketIntelligenceEngine } = await import("./macro/global-market-intelligence-engine");
+			const { globalMacroTransmissionService } = await import("./macro/global-macro-transmission-service");
+			const { marketBreadthService } = await import("./macro/market-breadth-service");
+			const { aiRegimeDetectionEngine } = await import("./ai-regime-detection-engine");
+
+			await Promise.allSettled([
+				globalMarketIntelligenceEngine.getIntelligenceReport(true),
+				globalMacroTransmissionService.getGlobalMacroReport(true),
+				marketBreadthService.computeAndPersistBreadth(),
+				aiRegimeDetectionEngine.detectCurrentRegime(),
+			]);
+
+			logger.info("[CacheRefreshScheduler] Pre-market intelligence warmup completed", {
+				event: "PRE_MARKET_INTELLIGENCE_WARMED",
+				latency_ms: Date.now() - t0,
+				status: "SUCCESS",
+			});
+		} catch (err: any) {
+			logger.warn("[CacheRefreshScheduler] Pre-market intelligence warmup encountered non-critical error", {
+				error: err?.message,
+			});
+		}
 	}
 
 	async refreshMarketData(assetType: string): Promise<RefreshJobResult> {

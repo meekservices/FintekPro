@@ -290,6 +290,40 @@ const FIELD_MAP: Record<string, FieldDef> = {
   grahamnumber: { dbColumn: "graham_number", name: "Graham Number", type: "number", description: "Benjamin Graham Number (₹)" },
   graham: { dbColumn: "graham_number", name: "Graham Number", type: "number", description: "Benjamin Graham Number (₹)" },
   grahamvalue: { dbColumn: "graham_number", name: "Graham Number", type: "number", description: "Benjamin Graham Number (₹)" },
+
+  // Micro Factors: Forensic Accounting, Liquidity & Capital Allocation
+  beneish: { dbColumn: "beneish_m_score", name: "Beneish M-Score", type: "number", description: "Beneish M-Score Forensic Earnings Manipulation Index (clean < -2.22, distorted > -1.78)" },
+  beneishmscore: { dbColumn: "beneish_m_score", name: "Beneish M-Score", type: "number", description: "Beneish M-Score Forensic Earnings Manipulation Index (clean < -2.22, distorted > -1.78)" },
+  mscore: { dbColumn: "beneish_m_score", name: "Beneish M-Score", type: "number", description: "Beneish M-Score Forensic Earnings Manipulation Index" },
+
+  sloanaccrual: { dbColumn: "sloan_accrual_ratio", name: "Sloan Accrual Ratio", type: "number", description: "Sloan Accrual Ratio ((Net Income - CFO)/Assets)" },
+  sloanaccrualratio: { dbColumn: "sloan_accrual_ratio", name: "Sloan Accrual Ratio", type: "number", description: "Sloan Accrual Ratio ((Net Income - CFO)/Assets)" },
+  accrual: { dbColumn: "sloan_accrual_ratio", name: "Sloan Accrual Ratio", type: "number", description: "Sloan Accrual Ratio" },
+  accrualratio: { dbColumn: "sloan_accrual_ratio", name: "Sloan Accrual Ratio", type: "number", description: "Sloan Accrual Ratio" },
+
+  cashflowconversion: { dbColumn: "cash_flow_conversion_ratio", name: "Cash Flow Conversion", type: "number", description: "Free Cash Flow to PAT Ratio (FCF / Net Income)" },
+  cashflowconversionratio: { dbColumn: "cash_flow_conversion_ratio", name: "Cash Flow Conversion", type: "number", description: "Free Cash Flow to PAT Ratio" },
+  fcfconversion: { dbColumn: "cash_flow_conversion_ratio", name: "Cash Flow Conversion", type: "number", description: "Free Cash Flow to PAT Ratio" },
+  fcfpat: { dbColumn: "cash_flow_conversion_ratio", name: "Cash Flow Conversion", type: "number", description: "Free Cash Flow to PAT Ratio" },
+
+  cfoebitda: { dbColumn: "cfo_to_ebitda", name: "CFO to EBITDA", type: "number", description: "Operating Cash Flow to EBITDA Ratio" },
+  cfotoebitda: { dbColumn: "cfo_to_ebitda", name: "CFO to EBITDA", type: "number", description: "Operating Cash Flow to EBITDA Ratio" },
+
+  evaspread: { dbColumn: "eva_spread", name: "EVA Spread", type: "percent_raw", description: "Economic Value Added Spread (ROIC - WACC) %" },
+  eva: { dbColumn: "eva_spread", name: "EVA Spread", type: "percent_raw", description: "Economic Value Added Spread (ROIC - WACC) %" },
+
+  amihud: { dbColumn: "amihud_illiquidity", name: "Amihud Illiquidity", type: "number", description: "Amihud Microstructure Illiquidity Ratio (Price Impact per Lakh)" },
+  amihudilliquidity: { dbColumn: "amihud_illiquidity", name: "Amihud Illiquidity", type: "number", description: "Amihud Microstructure Illiquidity Ratio" },
+  illiquidity: { dbColumn: "amihud_illiquidity", name: "Amihud Illiquidity", type: "number", description: "Amihud Microstructure Illiquidity Ratio" },
+
+  deliverypercent: { dbColumn: "delivery_percent", name: "Delivery %", type: "percent_scale100", description: "Delivery Volume to Total Volume %" },
+  deliverypct: { dbColumn: "delivery_percent", name: "Delivery %", type: "percent_scale100", description: "Delivery Volume to Total Volume %" },
+  deliveryratio: { dbColumn: "delivery_percent", name: "Delivery %", type: "percent_scale100", description: "Delivery Volume to Total Volume %" },
+
+  deliveryvolumeratio: { dbColumn: "delivery_volume_ratio", name: "Delivery Volume Ratio", type: "number", description: "Delivery Volume Ratio vs 20-Day Average" },
+
+  promoterpledgeencumbrance: { dbColumn: "promoter_pledge_encumbrance", name: "Promoter Pledge Encumbrance", type: "percent_scale100", description: "Promoter Pledge Encumbrance Ratio %" },
+  pledgeencumbrance: { dbColumn: "promoter_pledge_encumbrance", name: "Promoter Pledge Encumbrance", type: "percent_scale100", description: "Promoter Pledge Encumbrance Ratio %" },
 };
 
 const MULTIJOIN_TABLE_MAP: Record<string, string> = {
@@ -343,6 +377,15 @@ const MULTIJOIN_TABLE_MAP: Record<string, string> = {
   fii_holding: "screener_shareholding",
   dii_holding: "screener_shareholding",
   pledged_shares: "screener_shareholding",
+  beneish_m_score: "screener_derived_metrics",
+  sloan_accrual_ratio: "screener_derived_metrics",
+  cash_flow_conversion_ratio: "screener_derived_metrics",
+  cfo_to_ebitda: "screener_derived_metrics",
+  eva_spread: "screener_derived_metrics",
+  amihud_illiquidity: "screener_derived_metrics",
+  delivery_percent: "screener_derived_metrics",
+  delivery_volume_ratio: "screener_derived_metrics",
+  promoter_pledge_encumbrance: "screener_derived_metrics",
 };
 
 function normalizeKey(str: string): string {

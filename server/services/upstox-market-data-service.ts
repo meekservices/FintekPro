@@ -877,8 +877,16 @@ class UpstoxMarketDataService {
     // Chunk into batches of 500 (Upstox limit)
     for (let i = 0; i < symbols.length; i += 500) {
       const chunk = symbols.slice(i, i + 500);
+      const keyToSymbolMap = new Map<string, string>();
       const keys = await Promise.all(
-        chunk.map((s) => this.resolveInstrumentKey(s, exchange))
+        chunk.map(async (s) => {
+          const k = await this.resolveInstrumentKey(s, exchange);
+          const sUpper = s.toUpperCase().trim();
+          keyToSymbolMap.set(k.toUpperCase(), sUpper);
+          const parts = k.split(/[:|]/);
+          if (parts[1]) keyToSymbolMap.set(parts[1].toUpperCase(), sUpper);
+          return k;
+        })
       );
 
       const chunkResult = await this._withRetry<Record<string, unknown>>(async () => {
@@ -904,32 +912,39 @@ class UpstoxMarketDataService {
       }
 
       const raw = (chunkResult.data ?? {}) as Record<string, any>;
-      // Map both by exact key and by returned symbol (e.g. NSE_EQ:RELIANCE -> RELIANCE)
+      // Map both by exact key, symbol, and reverse-resolved requested symbol
       for (const [resKey, quoteObj] of Object.entries(raw)) {
         const q = quoteObj as any;
-        const sym = q?.symbol || resKey.split(":")[1] || resKey.split("|")[1];
-        if (sym && q?.last_price) {
-          const mapped = this._mapFullQuote(sym, exchange, q);
-          resultMap.set(sym.toUpperCase(), mapped);
-          void this._setCachedQuote(sym.toUpperCase(), exchange, mapped);
+        const resKeyUpper = resKey.toUpperCase();
+        const parts = resKeyUpper.split(/[:|]/);
+        const token = parts[1] || parts[0];
+        const originalSym = keyToSymbolMap.get(resKeyUpper) || keyToSymbolMap.get(token) || q?.symbol || token;
+        if (originalSym && q?.last_price) {
+          const mapped = this._mapFullQuote(originalSym, exchange, q);
+          resultMap.set(originalSym.toUpperCase(), mapped);
+          void this._setCachedQuote(originalSym.toUpperCase(), exchange, mapped);
+          if (token && token !== originalSym) {
+            resultMap.set(token.toUpperCase(), mapped);
+            void this._setCachedQuote(token.toUpperCase(), exchange, mapped);
+          }
           if (q.instrument_token) {
-            const tokenIsin = q.instrument_token.split("|")[1];
+            const tokenIsin = q.instrument_token.split(/[:|]/)[1];
             if (tokenIsin) {
               resultMap.set(tokenIsin.toUpperCase(), mapped);
               void this._setCachedQuote(tokenIsin.toUpperCase(), exchange, mapped);
+              const mappedSym = keyToSymbolMap.get(tokenIsin.toUpperCase());
+              if (mappedSym) {
+                resultMap.set(mappedSym, mapped);
+                void this._setCachedQuote(mappedSym, exchange, mapped);
+              }
             }
-          }
-          const tokenKey = resKey.split("|")[1] || resKey.split(":")[1];
-          if (tokenKey) {
-            resultMap.set(tokenKey.toUpperCase(), mapped);
-            void this._setCachedQuote(tokenKey.toUpperCase(), exchange, mapped);
           }
         }
       }
 
-      // Ensure all requested chunk symbols have an entry if their mapped ISIN was resolved
+      // Ensure all requested chunk symbols have an entry if their mapped ISIN or token was resolved
       for (const reqSym of chunk) {
-        const upper = reqSym.toUpperCase();
+        const upper = reqSym.toUpperCase().trim();
         if (!resultMap.has(upper)) {
           const mappedIsin = SYMBOL_TO_ISIN[upper];
           if (mappedIsin && resultMap.has(mappedIsin)) {

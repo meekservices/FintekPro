@@ -248,6 +248,35 @@ class QuantOrchestrator {
 					logger.warn("[QuantOrch] Credit cycle views skipped", { error: creditErr?.message });
 				}
 
+				// ── Synergy Upgrade 4: Ingest US Labor & Macro tilts from USME ──
+				try {
+					const { usMacroIndicatorsService } = await import("../macro/us-macro-indicators-service");
+					const usmeReport = await usMacroIndicatorsService.getUsMacroReport();
+					if (usmeReport?.downstreamFeeds?.quantOrchestratorFeed) {
+						const uFeed = usmeReport.downstreamFeeds.quantOrchestratorFeed;
+						if (uFeed.defensiveGoldTilt === "OVERWEIGHT") {
+							views.push({
+								category: "GOLD",
+								direction: "BULLISH",
+								magnitude: 0.05,
+								confidence: 0.75,
+								source: "REGIME",
+							});
+						}
+						if (uFeed.recommendedEmEquityTilt === "UNDERWEIGHT") {
+							views.push({
+								category: "LARGE_CAP",
+								direction: "BEARISH",
+								magnitude: 0.03,
+								confidence: 0.65,
+								source: "REGIME",
+							});
+						}
+					}
+				} catch (usmeErr: any) {
+					logger.warn("[QuantOrch] US Macro views skipped", { error: usmeErr?.message });
+				}
+
 				if (views.length > 0) {
 					const blConfig = {
 						tau: policy.tau,

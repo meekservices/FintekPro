@@ -32,6 +32,7 @@ interface FinancialData {
 	workingCapital?: number;
 	retainedEarnings?: number;
 	grossProfit?: number;
+	sgaExpense?: number;
 }
 
 interface HistoricalData {
@@ -419,6 +420,179 @@ export class FinancialMetricsCalculator {
 		return ocf / netIncome;
 	}
 
+	/**
+	 * Beneish M-Score (Messod Beneish 1999) — 8-variable model for detecting financial statement manipulation.
+	 * M > -1.78 suggests high probability of earnings manipulation.
+	 * M < -2.22 indicates high earnings quality / unmanipulated accounting.
+	 */
+	calculateBeneishMScore(current: FinancialData, previous?: FinancialData): number | null {
+		if (!current.totalAssets || current.totalAssets <= 0 || !current.revenue || current.revenue <= 0) {
+			return null;
+		}
+
+		// Defaults for index values (1.0 = no change vs prior period)
+		let dsri = 1.0;
+		let gmi = 1.0;
+		let aqi = 1.0;
+		let sgi = 1.0;
+		let depi = 1.0;
+		const sgai = 1.0;
+		let lvgi = 1.0;
+
+		const cRev = current.revenue;
+		const cRec = current.receivables || 0;
+		const cGp = current.grossProfit || (current.revenue * 0.3);
+		const cDep = current.depreciation || 0;
+		const cDebt = current.totalDebt || 0;
+		const cAssets = current.totalAssets;
+		const cOcf = current.operatingCashFlow || 0;
+		const cNi = current.netIncome || 0;
+
+		// TATA: Total Accruals to Total Assets
+		const tata = (cNi - cOcf) / cAssets;
+
+		if (previous && previous.revenue && previous.revenue > 0 && previous.totalAssets && previous.totalAssets > 0) {
+			const pRev = previous.revenue;
+			const pRec = previous.receivables || 0;
+			const pGp = previous.grossProfit || (previous.revenue * 0.3);
+			const pDep = previous.depreciation || 0;
+			const pDebt = previous.totalDebt || 0;
+			const pAssets = previous.totalAssets;
+
+			// 1. Days Sales in Receivables Index (DSRI)
+			const cDaysRec = cRec / cRev;
+			const pDaysRec = pRec / pRev;
+			if (pDaysRec > 0) dsri = Math.min(3.0, Math.max(0.3, cDaysRec / pDaysRec));
+
+			// 2. Gross Margin Index (GMI)
+			const cGm = cGp / cRev;
+			const pGm = pGp / pRev;
+			if (cGm > 0) gmi = Math.min(3.0, Math.max(0.3, pGm / cGm));
+
+			// 3. Asset Quality Index (AQI)
+			const cNca = Math.max(0, cAssets - (current.currentAssets || 0));
+			const pNca = Math.max(0, pAssets - (previous.currentAssets || 0));
+			const cAq = 1 - (cNca / cAssets);
+			const pAq = 1 - (pNca / pAssets);
+			if (pAq > 0) aqi = Math.min(3.0, Math.max(0.3, cAq / pAq));
+
+			// 4. Sales Growth Index (SGI)
+			sgi = Math.min(4.0, Math.max(0.2, cRev / pRev));
+
+			// 5. Depreciation Index (DEPI)
+			const cDepRate = cDep / (cAssets || 1);
+			const pDepRate = pDep / (pAssets || 1);
+			if (cDepRate > 0 && pDepRate > 0) depi = Math.min(3.0, Math.max(0.3, pDepRate / cDepRate));
+
+			// 6. Leverage Index (LVGI)
+			const cLev = cDebt / cAssets;
+			const pLev = pDebt / pAssets;
+			if (pLev > 0) lvgi = Math.min(3.0, Math.max(0.3, cLev / pLev));
+		}
+
+		// Beneish 8-variable model equation:
+		const mScore = -4.84 +
+			(0.920 * dsri) +
+			(0.528 * gmi) +
+			(0.404 * aqi) +
+			(0.892 * sgi) +
+			(0.115 * depi) -
+			(0.172 * sgai) +
+			(4.037 * tata) +
+			(0.0327 * lvgi);
+
+		return this.sanitize(Math.round(mScore * 10000) / 10000);
+	}
+
+	/**
+	 * Cash Flow Conversion Ratio = FCF / Net Income.
+	 * Measures what % of reported accounting profits actually materialize as unencumbered free cash.
+	 */
+	calculateCashFlowConversion(fcf: number, netIncome: number): number | null {
+		if (!netIncome || netIncome <= 0) return null;
+		return this.sanitize(Math.round((fcf / netIncome) * 10000) / 10000);
+	}
+
+	/**
+	 * CFO to EBITDA Ratio = Operating Cash Flow / EBITDA.
+	 * High conversion (>0.70) confirms healthy working capital collection.
+	 */
+	calculateCfoToEbitda(ocf: number, ebitda: number): number | null {
+		if (!ebitda || ebitda <= 0) return null;
+		return this.sanitize(Math.round((ocf / ebitda) * 10000) / 10000);
+	}
+
+	/**
+	 * Economic Value Added (EVA) Spread = ROIC - WACC.
+	 * Positive spread indicates true economic profit above hurdle rate of capital.
+	 */
+	calculateEVASpread(roic: number, wacc: number): number | null {
+		if (roic == null || wacc == null) return null;
+		return this.sanitize(Math.round((roic - wacc) * 100) / 100);
+	}
+
+	/**
+	 * Amihud Illiquidity Ratio (Amihud 2002) = Average(|Daily Return| / Daily Turnover in Lakhs).
+	 * Lower ratio indicates deep liquidity and negligible institutional market impact.
+	 */
+	calculateAmihudIlliquidity(dailyReturns: number[], dailyTurnoversInLakhs: number[]): number | null {
+		const n = Math.min(dailyReturns.length, dailyTurnoversInLakhs.length);
+		if (n < 5) return null;
+		let sum = 0;
+		let validCount = 0;
+		for (let i = 0; i < n; i++) {
+			const turnover = dailyTurnoversInLakhs[i];
+			if (turnover > 0) {
+				sum += Math.abs(dailyReturns[i]) / turnover;
+				validCount++;
+			}
+		}
+		if (validCount === 0) return null;
+		return this.sanitize(Math.round((sum / validCount) * 1000000) / 1000000);
+	}
+
+	/**
+	 * DuPont 5-Way Analysis: Decomposes ROE into 5 operational and financial drivers:
+	 * ROE = Tax Burden × Interest Burden × Operating Margin × Asset Turnover × Financial Leverage
+	 */
+	calculateDuPont5Way(current: FinancialData): {
+		taxBurden: number;
+		interestBurden: number;
+		operatingMargin: number;
+		assetTurnover: number;
+		financialLeverage: number;
+		computedRoe: number;
+	} | null {
+		const ni = current.netIncome;
+		const ebit = current.ebit;
+		const rev = current.revenue;
+		const assets = current.totalAssets;
+		const equity = current.totalEquity;
+		const intExp = current.interestExpense || 0;
+
+		if (!ni || !ebit || !rev || !assets || !equity || rev <= 0 || assets <= 0 || equity <= 0) {
+			return null;
+		}
+
+		const ebt = ebit - intExp;
+		const taxBurden = ebt > 0 ? ni / ebt : 1.0;
+		const interestBurden = ebit > 0 ? ebt / ebit : 1.0;
+		const operatingMargin = ebit / rev;
+		const assetTurnover = rev / assets;
+		const financialLeverage = assets / equity;
+
+		const computedRoe = taxBurden * interestBurden * operatingMargin * assetTurnover * financialLeverage;
+
+		return {
+			taxBurden: Math.round(taxBurden * 1000) / 1000,
+			interestBurden: Math.round(interestBurden * 1000) / 1000,
+			operatingMargin: Math.round(operatingMargin * 1000) / 1000,
+			assetTurnover: Math.round(assetTurnover * 1000) / 1000,
+			financialLeverage: Math.round(financialLeverage * 100) / 100,
+			computedRoe: Math.round(computedRoe * 10000) / 100, // as percentage
+		};
+	}
+
 	// === DIVIDEND METRICS ===
 
 	calculateDividendYield(dps: number, price: number): number | null {
@@ -664,6 +838,7 @@ export class FinancialMetricsCalculator {
 			// Quality Scores
 			piotroskiFScore: this.calculatePiotroskiFScore(current, prevYear),
 			altmanZScore: this.calculateAltmanZScore(current)?.toString(),
+			beneishMScore: this.calculateBeneishMScore(current, prevYear)?.toString(),
 			accrualRatio: this.calculateAccrualRatio(
 				current.netIncome || 0,
 				current.operatingCashFlow || 0,

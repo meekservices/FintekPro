@@ -185,6 +185,25 @@ export const STANDARD_MACRO_SCENARIOS: MacroScenarioDefinition[] = [
 		},
 		description: "Severe credit contraction and corporate refinancing squeeze widen high-yield and commercial paper spreads, impairing leveraged financials while sovereign bonds and gold buffer.",
 	},
+	{
+		id: "GMIE_US_RECESSION_SAHM_050",
+		name: "USME Tripwire: Sahm Rule Recession Trigger (Unemployment Spike)",
+		historicalPeriod: "Forward Synthetic Labor/Recession Shock",
+		category: "GMIE_FORWARD_TRIPWIRE",
+		broadMarketShockPct: -16.0,
+		sectorShocks: {
+			LARGE_CAP: -13.5,
+			MID_CAP: -19.5,
+			SMALL_CAP: -24.0,
+			BANKING: -18.0,
+			IT: -20.0,
+			PHARMA: -6.0,
+			AUTO: -17.0,
+			DEBT: 4.5,
+			GOLD: 15.0,
+		},
+		description: "Sahm Rule triggers as 3M moving average unemployment rises ≥0.50% above 12M low. US corporate demand slumps, triggering global risk-off contraction with safe haven rotation into Sovereign Debt and Gold.",
+	},
 ];
 
 export interface ScenarioImpactResult {

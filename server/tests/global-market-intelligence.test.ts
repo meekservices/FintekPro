@@ -282,4 +282,44 @@ describe("GlobalMarketIntelligenceEngine (GMIE v1.0)", () => {
     expect(report.crossCountryPairTrades.length).toBeGreaterThanOrEqual(2);
     expect(report.explainability.factorsConsidered.length).toBe(6);
   });
+
+  it("should compute dynamic Pearson correlation and validate statistical bounding", () => {
+    // Perfect positive correlation
+    const seriesA = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+    const seriesB = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0];
+    const rhoPos = globalMarketIntelligenceEngine.calculatePearsonCorrelation(seriesA, seriesB);
+    expect(rhoPos).toBe(1.0);
+
+    // Perfect inverse correlation
+    const seriesC = [10.0, 8.0, 6.0, 4.0, 2.0, 0.0];
+    const rhoNeg = globalMarketIntelligenceEngine.calculatePearsonCorrelation(seriesA, seriesC);
+    expect(rhoNeg).toBe(-1.0);
+
+    // Uncorrelated series
+    const seriesD = [1.0, -1.0, 1.0, -1.0, 1.0, -1.0];
+    const rhoUncorr = globalMarketIntelligenceEngine.calculatePearsonCorrelation(seriesA, seriesD);
+    expect(Math.abs(rhoUncorr)).toBeLessThan(0.3);
+
+    // Bounds checking
+    expect(rhoPos).toBeLessThanOrEqual(1.0);
+    expect(rhoNeg).toBeGreaterThanOrEqual(-1.0);
+  });
+
+  it("should evaluate Macro-Micro Coherence Index (MMCI) and detect market breadth divergence", async () => {
+    const { aiRegimeDetectionEngine } = await import("../services/ai-regime-detection-engine");
+    const result = await aiRegimeDetectionEngine.detectCurrentRegime();
+
+    expect(result).toBeDefined();
+    expect(result.macroMicroCoherence).toBeDefined();
+    expect(result.macroMicroCoherence!.score).toBeGreaterThanOrEqual(0);
+    expect(result.macroMicroCoherence!.score).toBeLessThanOrEqual(100);
+    expect([
+      "NONE",
+      "BEARISH_BREADTH_DIVERGENCE",
+      "BULLISH_ABSORPTION_CONVERGENCE",
+    ]).toContain(result.macroMicroCoherence!.divergenceType);
+    expect(typeof result.macroMicroCoherence!.breadthThrust).toBe("boolean");
+    expect(typeof result.macroMicroCoherence!.shortSqueezeRisk).toBe("boolean");
+    expect(result.macroMicroCoherence!.summaryNote).toBeDefined();
+  });
 });

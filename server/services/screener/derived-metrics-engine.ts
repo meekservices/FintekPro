@@ -12,6 +12,9 @@ import {
 	computeRiskMetrics,
 	computePiotroski,
 } from "./returns-calculator";
+import { FinancialMetricsCalculator } from "../financial-metrics-calculator";
+
+const finCalc = new FinancialMetricsCalculator();
 
 function clamp(val: number, min: number, max: number): number {
 	return Math.max(min, Math.min(max, val));
@@ -248,6 +251,49 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
 	else if (compositeScore >= 20) fintekRating = 2;
 	else fintekRating = 1;
 
+	// ── Advanced Micro Factors (Forensic, Liquidity, Capital Allocation) ──
+	const totalAssets = safeNum(finObj.totalAssets);
+	const netIncome = safeNum(finObj.netIncome);
+	const ocf = safeNum(finObj.operatingCashFlow);
+	const fcf = safeNum(finObj.freeCashFlow);
+	const rev = safeNum(finObj.revenue);
+	const debt = safeNum(finObj.totalDebt);
+
+	// 1. Sloan Accrual Ratio = (Net Income - OCF) / Total Assets
+	const sloanAccrual = (netIncome != null && ocf != null && totalAssets != null && totalAssets > 0)
+		? finCalc.calculateAccrualRatio(netIncome, ocf, totalAssets)
+		: null;
+
+	// 2. Cash Flow Conversion = FCF / Net Income
+	const cashFlowConv = (fcf != null && netIncome != null && netIncome > 0)
+		? finCalc.calculateCashFlowConversion(fcf, netIncome)
+		: null;
+
+	// 3. CFO to EBITDA
+	const ebitdaVal = safeNum(keyMetricData?.ebitda) ?? (safeNum(finObj.operatingMargin) && rev ? safeNum(finObj.operatingMargin)! * rev : null);
+	const cfoEbitda = (ocf != null && ebitdaVal != null && ebitdaVal > 0)
+		? finCalc.calculateCfoToEbitda(ocf, ebitdaVal)
+		: null;
+
+	// 4. EVA Spread = (ROIC - WACC) % (hurdle rate ~ 11.5%)
+	const evaSpread = (roic != null)
+		? finCalc.calculateEVASpread(roic * 100, 11.5)
+		: null;
+
+	// 5. Beneish M-Score (8-variable forensic model)
+	const currentFinData = {
+		revenue: rev ?? undefined,
+		netIncome: netIncome ?? undefined,
+		operatingCashFlow: ocf ?? undefined,
+		totalAssets: totalAssets ?? undefined,
+		totalDebt: debt ?? undefined,
+		currentAssets: safeNum(finObj.currentRatio) && totalAssets ? totalAssets * 0.4 : undefined,
+		receivables: safeNum(keyMetricData?.receivables) ?? undefined,
+		grossProfit: safeNum(finObj.grossMargin) && rev ? safeNum(finObj.grossMargin)! * rev : undefined,
+		depreciation: safeNum(finObj.capitalExpenditure) ? safeNum(finObj.capitalExpenditure)! * 0.5 : undefined,
+	};
+	const beneishM = finCalc.calculateBeneishMScore(currentFinData);
+
 	const values = {
 		symbol,
 		growthScore: growthScore.toFixed(2),
@@ -259,6 +305,11 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
 		fintekRating,
 		revenueGrowth3Y: revGrowth != null ? revGrowth.toFixed(4) : null,
 		earningsGrowth3Y: earnGrowth != null ? earnGrowth.toFixed(4) : null,
+		beneishMScore: beneishM != null ? beneishM.toFixed(4) : null,
+		sloanAccrualRatio: sloanAccrual != null ? sloanAccrual.toFixed(4) : null,
+		cashFlowConversionRatio: cashFlowConv != null ? cashFlowConv.toFixed(4) : null,
+		cfoToEbitda: cfoEbitda != null ? cfoEbitda.toFixed(4) : null,
+		evaSpread: evaSpread != null ? evaSpread.toFixed(4) : null,
 		scoringMetadata: {
 			peScore: Math.round(peScore),
 			pbScore: Math.round(pbScore),
@@ -489,7 +540,7 @@ export async function runOHLCVReturnPass(): Promise<{ processed: number; errors:
 				try {
 					// Fetch last 5 years of OHLCV
 					const histRows = await db.execute(sql`
-            SELECT date, close FROM screener_price_history
+            SELECT date, close, volume FROM screener_price_history
             WHERE symbol = ${symbol}
             ORDER BY date ASC
             LIMIT 1300
@@ -499,6 +550,21 @@ export async function runOHLCVReturnPass(): Promise<{ processed: number; errors:
 
 					const closes = rows.map((r: any) => Number(r.close));
 					const dates = rows.map((r: any) => String(r.date).substring(0, 10));
+
+					// Amihud Illiquidity Ratio (60-day window)
+					const last60 = rows.slice(-60);
+					const dReturns: number[] = [];
+					const dTurnovers: number[] = [];
+					for (let i = 1; i < last60.length; i++) {
+						const prevC = Number(last60[i - 1].close);
+						const currC = Number(last60[i].close);
+						const vol = Number(last60[i].volume || 0);
+						if (prevC > 0) {
+							dReturns.push((currC - prevC) / prevC);
+							dTurnovers.push((currC * vol) / 100000); // ₹ Lakhs
+						}
+					}
+					const amihudVal = finCalc.calculateAmihudIlliquidity(dReturns, dTurnovers);
 
 					// Build date-aligned parallel arrays for beta computation.
 					// IMPORTANT: alignedStockCloses[i] and alignedNiftyCloses[i] MUST correspond
@@ -565,6 +631,7 @@ export async function runOHLCVReturnPass(): Promise<{ processed: number; errors:
 							return_vs_nifty_1y,
 							return_vs_sector_1y,
 							piotroski_score,
+							amihud_illiquidity,
 							last_calculated
 						) VALUES (
 							${symbol},
@@ -585,6 +652,7 @@ export async function runOHLCVReturnPass(): Promise<{ processed: number; errors:
 							${risk.returnVsNifty1Y},
 							${risk.returnVsSector1Y},
 							${piotroski?.score ?? null},
+							${amihudVal != null ? amihudVal : null},
 							NOW()
 						)
 						ON CONFLICT (symbol) DO UPDATE SET
@@ -605,6 +673,7 @@ export async function runOHLCVReturnPass(): Promise<{ processed: number; errors:
 							return_vs_nifty_1y  = EXCLUDED.return_vs_nifty_1y,
 							return_vs_sector_1y = EXCLUDED.return_vs_sector_1y,
 							piotroski_score     = COALESCE(EXCLUDED.piotroski_score, screener_derived_metrics.piotroski_score),
+							amihud_illiquidity  = COALESCE(EXCLUDED.amihud_illiquidity, screener_derived_metrics.amihud_illiquidity),
 							last_calculated     = NOW();
 					`);
 					returnPassProcessed++;
