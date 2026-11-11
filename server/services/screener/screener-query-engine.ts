@@ -409,7 +409,14 @@ async function queryScreenerFromMaster(
 		case "altman": sortExpr = sql`${screenerMasterSnapshots.altmanZScore}::numeric ${sql.raw(dir)} NULLS LAST`; break;
 		case "piotroski": sortExpr = sql`${screenerMasterSnapshots.piotroskiScore} ${sql.raw(dir)} NULLS LAST`; break;
 		case "rsi": sortExpr = sql`${screenerMasterSnapshots.rsi14}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "roce": sortExpr = sql`${screenerMasterSnapshots.roce}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "pbRatio": sortExpr = sql`${screenerMasterSnapshots.pbRatio}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "compositeScore":
+		case "score":
+			sortExpr = sql`${screenerMasterSnapshots.compositeScore}::numeric ${sql.raw(dir)} NULLS LAST`; break;
 		case "promoterHolding": sortExpr = sql`${screenerMasterSnapshots.promoterHolding}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "fiiHolding": sortExpr = sql`${screenerMasterSnapshots.fiiHolding}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "diiHolding": sortExpr = sql`${screenerMasterSnapshots.diiHolding}::numeric ${sql.raw(dir)} NULLS LAST`; break;
 		default: sortExpr = sql`${screenerMasterSnapshots.compositeScore}::numeric DESC NULLS LAST`;
 	}
 
@@ -467,7 +474,15 @@ async function queryScreenerFromMaster(
 		netProfitMargin: s.netProfitMargin != null ? s.netProfitMargin.toString() : null,
 		roic: s.roic != null ? s.roic.toString() : null,
 		evToEbitda: s.evToEbitda != null ? s.evToEbitda.toString() : null,
-		evToRevenue: s.enterpriseValue != null && s.marketCapValue != null && Number(s.marketCapValue) > 0 ? null : null,
+		evToRevenue: (() => {
+			if (s.enterpriseValue != null && (s as any).revenue != null && Number((s as any).revenue) > 0) {
+				return (Number(s.enterpriseValue) / Number((s as any).revenue)).toFixed(2);
+			}
+			if (s.marketCapValue != null && (s as any).revenue != null && Number((s as any).revenue) > 0) {
+				return (Number(s.marketCapValue) / Number((s as any).revenue)).toFixed(2);
+			}
+			return null;
+		})(),
 		pfcfRatio: (() => {
 			if (s.freeCashFlow == null || Number(s.freeCashFlow) <= 0 || s.marketCapValue == null) return null;
 			const mcapInCr = Number(s.marketCapValue) > 1e8 ? Number(s.marketCapValue) / 1e7 : Number(s.marketCapValue);
@@ -484,7 +499,19 @@ async function queryScreenerFromMaster(
 		netDebtToEbitda: s.netDebtToEbitda != null ? s.netDebtToEbitda.toString() : null,
 		interestCoverage: s.interestCoverage != null ? s.interestCoverage.toString() : null,
 		incomeQuality: s.incomeQuality != null ? s.incomeQuality.toString() : null,
-		assetTurnover: null,
+		assetTurnover: (() => {
+			const roe = Number(s.roe);
+			const npm = Number(s.netProfitMargin);
+			const de = Number(s.debtToEquity ?? 0);
+			if (!isNaN(roe) && !isNaN(npm) && npm !== 0 && de >= 0) {
+				const roeRatio = Math.abs(roe) > 1 ? roe / 100 : roe;
+				const npmRatio = Math.abs(npm) > 1 ? npm / 100 : npm;
+				const leverage = 1 + de;
+				const at = roeRatio / (npmRatio * leverage);
+				if (at > 0 && at < 50) return at.toFixed(2);
+			}
+			return null;
+		})(),
 		daysSalesOutstanding: s.daysSalesOutstanding != null ? s.daysSalesOutstanding.toString() : null,
 		daysPayablesOutstanding: s.daysPayablesOutstanding != null ? s.daysPayablesOutstanding.toString() : null,
 		daysInventoryOnHand: s.daysInventoryOnHand != null ? s.daysInventoryOnHand.toString() : null,

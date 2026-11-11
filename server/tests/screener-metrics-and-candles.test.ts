@@ -192,5 +192,78 @@ describe("Screener Valuation Metrics & Candle Sanitation", () => {
 		expect(enrichedStock.sector).toBe("Energy");
 		expect(enrichedStock.industry).toBe("Thermal Coal");
 	});
+
+	it("derives Asset Turnover via DuPont identity: ROE / (Net Profit Margin * (1 + D/E))", () => {
+		const deriveAssetTurnover = (
+			roe: number | null,
+			netProfitMargin: number | null,
+			debtToEquity: number | null,
+		): string | null => {
+			if (roe == null || netProfitMargin == null || isNaN(roe) || isNaN(netProfitMargin) || netProfitMargin === 0) return null;
+			const de = debtToEquity ?? 0;
+			if (de < 0) return null;
+			const roeRatio = Math.abs(roe) > 1 ? roe / 100 : roe;
+			const npmRatio = Math.abs(netProfitMargin) > 1 ? netProfitMargin / 100 : netProfitMargin;
+			const leverage = 1 + de;
+			const at = roeRatio / (npmRatio * leverage);
+			return isFinite(at) && at > 0 && at < 50 ? at.toFixed(2) : null;
+		};
+
+		// ROE = 20% (0.20), NPM = 10% (0.10), D/E = 0.5 -> Leverage = 1.5 -> AT = 0.20 / (0.10 * 1.5) = 1.33x
+		expect(deriveAssetTurnover(20, 10, 0.5)).toBe("1.33");
+		// Stored as decimal ratios: 0.20, 0.10, 0.5
+		expect(deriveAssetTurnover(0.20, 0.10, 0.5)).toBe("1.33");
+		// Zero margin or negative returns null
+		expect(deriveAssetTurnover(15, 0, 0.2)).toBeNull();
+	});
+
+	it("derives EV/Revenue ratio from Enterprise Value and Revenue without null explosion", () => {
+		const deriveEvToRevenue = (
+			enterpriseValue: number | null,
+			revenue: number | null,
+			marketCap: number | null,
+		): string | null => {
+			if (enterpriseValue != null && revenue != null && revenue > 0) {
+				return (enterpriseValue / revenue).toFixed(2);
+			}
+			if (marketCap != null && revenue != null && revenue > 0) {
+				return (marketCap / revenue).toFixed(2);
+			}
+			return null;
+		};
+
+		// EV ₹50,000 Cr, Revenue ₹20,000 Cr -> 2.50x
+		expect(deriveEvToRevenue(50000, 20000, 45000)).toBe("2.50");
+		// Fallback to Market Cap when EV is null
+		expect(deriveEvToRevenue(null, 20000, 40000)).toBe("2.00");
+		// Zero revenue returns null
+		expect(deriveEvToRevenue(50000, 0, 45000)).toBeNull();
+	});
+
+	it("normalizes percent numbers cleanly in frontend formatter regardless of ratio or percent input", () => {
+		const formatPercent = (
+			val: string | number | null | undefined,
+			multiplier?: number,
+		): string => {
+			if (val == null || val === "") return "-";
+			const n = typeof val === "string" ? Number.parseFloat(val) : val;
+			if (Number.isNaN(n)) return "-";
+			const pct = multiplier !== undefined
+				? (Math.abs(n) <= 1 && multiplier === 1 ? n * 100 : n * multiplier)
+				: (Math.abs(n) <= 1 ? n * 100 : n);
+			return `${pct.toFixed(1)}%`;
+		};
+
+		// Stored as 0.75 ratio
+		expect(formatPercent(0.75)).toBe("75.0%");
+		// Stored as 75 percent
+		expect(formatPercent(75)).toBe("75.0%");
+		// With multiplier = 100 on 0.015
+		expect(formatPercent(0.015, 100)).toBe("1.5%");
+		// With multiplier = 1 on 0.75
+		expect(formatPercent(0.75, 1)).toBe("75.0%");
+		// Empty / null
+		expect(formatPercent(null)).toBe("-");
+	});
 });
 

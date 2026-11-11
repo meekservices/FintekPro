@@ -613,6 +613,12 @@ export function registerMarketDataPart1Routes(app: Express): void {
 					const interval = resolution === "D" ? "1d" : "1h";
 					const yahooResponse = await fetch(
 						`https://query1.finance.yahoo.com/v8/finance/chart/${targetSym}?period1=${fromTs}&period2=${toTs}&interval=${interval}`,
+						{
+							headers: {
+								"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+								"Accept": "application/json",
+							},
+						},
 					);
 					const yahooData = (await yahooResponse.json()) as any;
 					const result = yahooData.chart?.result?.[0];
@@ -656,11 +662,28 @@ export function registerMarketDataPart1Routes(app: Express): void {
 				}
 
 				// Priority 4: Resilient deterministic fallback (GCR v1.0 self-healing)
-				const basePrice = symbol.includes("BSESN") || symbol.includes("SENSEX")
+				let resolvedBasePrice = symbol.includes("BSESN") || symbol.includes("SENSEX")
 					? 80000
 					: symbol.includes("NSEI") || symbol.includes("NIFTY")
 						? 24500
-						: 1500;
+						: 0;
+
+				if (resolvedBasePrice === 0) {
+					try {
+						const { db } = await import("../db");
+						const { listedStocks } = await import("@shared/schema");
+						const { eq } = await import("drizzle-orm");
+						const [ls] = await db
+							.select({ currentPrice: listedStocks.currentPrice })
+							.from(listedStocks)
+							.where(eq(listedStocks.symbol, cleanSym))
+							.limit(1);
+						if (ls?.currentPrice && Number(ls.currentPrice) > 0) {
+							resolvedBasePrice = Number(ls.currentPrice);
+						}
+					} catch (_) {}
+				}
+				const basePrice = resolvedBasePrice > 0 ? resolvedBasePrice : 1500;
 				const count = Math.min(Math.max(Math.floor((toTs - fromTs) / 86400), 10), 90);
 				const stepSec = Math.floor((toTs - fromTs) / count) || 86400;
 				const simulatedT: number[] = [];

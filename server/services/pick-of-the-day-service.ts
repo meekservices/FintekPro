@@ -287,8 +287,8 @@ export class PickOfTheDayService {
 		return strategy;
 	}
 
-	async generateDailyPicks(options?: { bypassHolidayGuard?: boolean }): Promise<DailyPickData[]> {
-		const today = todayIST();
+	async generateDailyPicks(options?: { bypassHolidayGuard?: boolean; dateOverride?: string }): Promise<DailyPickData[]> {
+		const today = options?.dateOverride ?? todayIST();
 
 		// Enforce market holiday guard rail
 		if (!options?.bypassHolidayGuard && !this.isNSESessionDay(today)) {
@@ -348,7 +348,7 @@ export class PickOfTheDayService {
 
 		this._isGenerating = true;
 		try {
-			return await this._doGenerateDailyPicks();
+			return await this._doGenerateDailyPicks(today);
 		} finally {
 			this._isGenerating = false;
 			// Release Redis lock on completion so force-generate can re-run same day
@@ -362,25 +362,45 @@ export class PickOfTheDayService {
 	}
 
 	/** Internal: the actual generation logic. Always call via generateDailyPicks(). */
-	private async _doGenerateDailyPicks(): Promise<DailyPickData[]> {
+	private async _doGenerateDailyPicks(targetDate?: string): Promise<DailyPickData[]> {
+		const today = targetDate ?? todayIST();
 		// BUG-1 FIX: capture wall-clock start for accurate generation latency.
 		// Previously latencyMs was computed as (Date.now() - midnight IST) which
 		// always produced ~33,000,000 ms at 9:20 AM, corrupting telemetry.
 		const genStart = Date.now();
 		logger.info(
-			`[PickOfTheDay] Starting daily pick generation (v${SCORER_VERSION})...`,
+			`[PickOfTheDay] Starting daily pick generation (v${SCORER_VERSION}) for ${today}...`,
 		);
 		const generated: DailyPickData[] = [];
-		const today = todayIST();
 
 		// 1. Systemic Resilience Check: Detect Black Swan Regime
 		const isBlackSwan = marketRegimeDetector.detectBlackSwanEvent();
+
+		// SOP §3.2 & RISK_POLICY §3.2 Emergency Circuit Breakers:
+		// 1. 10σ Black Swan Event OR
+		// 2. India VIX > 35 (extreme systemic volatility)
+		let isVixBreached = false;
+		let liveVixValue = 0;
+		try {
+			const { inProcessMarketSnapshotStore } = await import("./market-brief-engine");
+			const briefSnap = await inProcessMarketSnapshotStore.getSnapshot("india", false);
+			liveVixValue = briefSnap?.multiExchange?.volatilityPulse?.indiaVix ?? 0;
+			if (liveVixValue > 35) {
+				isVixBreached = true;
+				logger.warn(
+					`🛑 [PickOfTheDay] SOP §3.2 Circuit Breaker Tripped: India VIX elevated at ${liveVixValue.toFixed(1)} (>35 threshold). Halting momentum-driven buying; switching to Risk-Off defensive regime.`,
+					{ event: "VIX_CIRCUIT_BREAKER_TRIPPED", indiaVix: liveVixValue },
+				);
+			}
+		} catch {
+			/* non-fatal fallback */
+		}
 
 		// ── Engine Telemetry Bus: read shared regime for richer context ──
 		// The regime from AIRegimeDetectionEngine is shared via the bus so all
 		// engines use the same signal (bull/bear/sideways/high_vol/unknown).
 		const sharedRegime = telemetryBus.getLatestRegime();
-		const regimeForContext = isBlackSwan ? "BLACK_SWAN" : (sharedRegime !== "unknown" ? sharedRegime : "NORMAL");
+		const regimeForContext = (isBlackSwan || isVixBreached) ? "BLACK_SWAN" : (sharedRegime !== "unknown" ? sharedRegime : "NORMAL");
 
 		// ── Alpha Self-Calibration: fetch calibrated min threshold ──
 		const calibratedMinThreshold = await scorerCalibrationService.getMinThreshold();
@@ -407,9 +427,9 @@ export class PickOfTheDayService {
 			"derivatives",
 		];
 
-		if (isBlackSwan) {
+		if (isBlackSwan || isVixBreached) {
 			logger.warn(
-				`🛑 [PickOfTheDay] 10σ Black Swan detected. Pivoting to Defensive Advasory mode.`,
+				`🛑 [PickOfTheDay] Extreme volatility guardrail active (Black Swan: ${isBlackSwan}, VIX Breached: ${isVixBreached} [${liveVixValue.toFixed(1)}]). Pivoting to Defensive Advisory mode.`,
 			);
 			// Restriction: Only safe-haven/defensive assets allowed during systemic instability
 			categories = ["sgb", "bonds", "fixed_deposits", "mutual_funds"];
@@ -1427,8 +1447,8 @@ export class PickOfTheDayService {
 	 * Cache TTL: 86400s (24h) — picks are stable for the full trading day.
 	 * Falls back to DB read if Redis is unavailable.
 	 */
-	async getTodaysPicks(): Promise<DailyPickData[]> {
-		const today = todayIST();
+	async getTodaysPicks(dateOverride?: string): Promise<DailyPickData[]> {
+		const today = dateOverride ?? todayIST();
 		const cacheKey = `picks:daily:${today}`;
 
 		// If today is an NSE market holiday or weekend without a scheduled session,

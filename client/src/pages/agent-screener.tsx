@@ -376,12 +376,15 @@ function formatRoe(val: string | number | null | undefined): string {
 
 function formatPercent(
 	val: string | number | null | undefined,
-	multiplier = 1,
+	multiplier?: number,
 ): string {
 	if (val == null || val === "") return "-";
 	const n = typeof val === "string" ? Number.parseFloat(val) : val;
 	if (Number.isNaN(n)) return "-";
-	return `${(n * multiplier).toFixed(1)}%`;
+	const pct = multiplier !== undefined
+		? (Math.abs(n) <= 1 && multiplier === 1 ? n * 100 : n * multiplier)
+		: (Math.abs(n) <= 1 ? n * 100 : n);
+	return `${pct.toFixed(1)}%`;
 }
 
 function RatingStars({ rating }: { rating: number | null }) {
@@ -937,7 +940,7 @@ export default function AgentScreener() {
 			dbSortBy,
 			dbSortOrder,
 		],
-		enabled: !isNonStockType,
+		enabled: screenerType === "stock",
 		queryFn: () =>
 			fetch(`/api/screener/stocks?${buildQueryParams()}`, {
 				credentials: "include",
@@ -5140,15 +5143,6 @@ export default function AgentScreener() {
 																										</p>
 																									)}
 																								</div>
-																							</div>
-
-																							{/* Price & Volume Chart */}
-																							<div className="mt-4">
-																								<MarketChart
-																									symbol={stock.symbol}
-																									title={`${stock.companyName} (${stock.symbol})`}
-																									height={300}
-																								/>
 																							</div>
 
 																							{stockDetail.marqueeBrokerageViews && (

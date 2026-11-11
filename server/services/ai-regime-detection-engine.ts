@@ -55,7 +55,15 @@ export interface RegimeHistoryEntry {
 }
 
 export class AIRegimeDetectionEngine {
+	private l1Cache: { data: RegimeDetectionResult; timestamp: number } | null = null;
+	private readonly L1_CACHE_TTL_MS = 5 * 60 * 1000; // 5-minute in-process memory cache
+
 	async detectCurrentRegime(): Promise<RegimeDetectionResult> {
+		// Tier 1: Check in-process L1 memory cache (fast, non-blocking, zero I/O)
+		if (this.l1Cache && Date.now() - this.l1Cache.timestamp < this.L1_CACHE_TTL_MS) {
+			return this.l1Cache.data;
+		}
+
 		// Tier 2: Check distributed L2 Redis cache (5-minute TTL)
 		try {
 			const { getSharedRedis } = await import("../utils/redis-client");
@@ -63,7 +71,9 @@ export class AIRegimeDetectionEngine {
 			if (redis?.isOpen) {
 				const cached = await redis.get("cache:ai_regime:current");
 				if (cached) {
-					return JSON.parse(cached);
+					const parsed = JSON.parse(cached) as RegimeDetectionResult;
+					this.l1Cache = { data: parsed, timestamp: Date.now() };
+					return parsed;
 				}
 			}
 		} catch {
@@ -399,7 +409,8 @@ export class AIRegimeDetectionEngine {
 				},
 			});
 
-			// Cache in Redis with 300s TTL (5 minutes)
+			// Cache in L1 in-process memory and L2 Redis (5 minutes)
+			this.l1Cache = { data: detectionResult, timestamp: Date.now() };
 			try {
 				const { getSharedRedis } = await import("../utils/redis-client");
 				const redis = await getSharedRedis();

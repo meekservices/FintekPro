@@ -18,6 +18,7 @@ import {
 	investmentProposals,
 	investmentProposalItems,
 	userNotifications,
+	riskProfiles,
 } from "@shared/schema";
 import { eq, like, or, sql, desc, and, count } from "drizzle-orm";
 import nodemailer from "nodemailer";
@@ -129,19 +130,7 @@ router.get("/", requireAuth, async (req, res) => {
 });
 
 
-router.post("/generate", requireAdmin, async (req, res) => {
-	try {
-		const picks = await pickOfTheDayService.generateDailyPicks();
-		res.json({
-			success: true,
-			message: `Generated ${picks.length} new picks`,
-			picks,
-		});
-	} catch (error) {
-		logger.error("[API] Error generating picks:", error instanceof Error ? error : new Error(String(error)));
-		res.status(500).json({ success: false, error: "Failed to generate picks" });
-	}
-});
+// Note: POST /generate is canonically registered with market holiday guard rails in pick-of-the-day-1.ts
 
 router.get("/stats/enhanced", requireAuth, async (req, res) => {
 	try {
@@ -295,6 +284,7 @@ router.post("/add-to-proposal", requireAuth, async (req, res) => {
 		}
 
 		let targetProposalId = proposalId;
+		let proposalClientId: string | null = null;
 
 		if (targetProposalId) {
 			const [existingProposal] = await db
@@ -319,6 +309,7 @@ router.post("/add-to-proposal", requireAuth, async (req, res) => {
 						error: "You do not have access to this proposal",
 					});
 			}
+			proposalClientId = existingProposal.clientId;
 		} else {
 			const existingDraft = await db
 				.select()
@@ -333,6 +324,7 @@ router.post("/add-to-proposal", requireAuth, async (req, res) => {
 
 			if (existingDraft.length > 0) {
 				targetProposalId = existingDraft[0].id;
+				proposalClientId = existingDraft[0].clientId;
 			} else {
 				const newId = `PICK-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 				const [newProposal] = await db
@@ -350,6 +342,46 @@ router.post("/add-to-proposal", requireAuth, async (req, res) => {
 					})
 					.returning();
 				targetProposalId = newProposal.id;
+				proposalClientId = newProposal.clientId;
+			}
+		}
+
+		// ── SEBI IA Reg 17 Hard Suitability Gate (COMPLIANCE §2.2 / RISK §2) ──
+		const targetClientId = proposalClientId || userId;
+		if (targetClientId) {
+			const [clientProfile] = await db
+				.select()
+				.from(riskProfiles)
+				.where(eq(riskProfiles.userId, targetClientId))
+				.orderBy(desc(riskProfiles.updatedAt))
+				.limit(1);
+
+			if (clientProfile) {
+				const RISK_TIER_RANK: Record<string, number> = {
+					conservative: 1,
+					low: 1,
+					moderate: 2,
+					medium: 2,
+					moderately_high: 3,
+					aggressive: 4,
+					high: 4,
+					very_aggressive: 5,
+					very_high: 5,
+				};
+				const clientRank = RISK_TIER_RANK[clientProfile.riskTolerance?.toLowerCase() ?? "moderate"] ?? 2;
+				const pickRank = RISK_TIER_RANK[pick.riskLevel?.toLowerCase() ?? "medium"] ?? 2;
+
+				if (pickRank > clientRank) {
+					logger.warn(
+						`🛑 [SuitabilityGate] Proposal addition blocked for client ${targetClientId}: pick ${pick.symbol || pick.instrumentName} risk (${pick.riskLevel}) exceeds client risk profile (${clientProfile.riskTolerance}).`,
+						{ event: "SUITABILITY_BREACH_BLOCKED", pickId, clientId: targetClientId },
+					);
+					return res.status(403).json({
+						success: false,
+						error_code: "SUITABILITY_BREACH",
+						message: `Suitability Breach: Pick risk level (${pick.riskLevel}) exceeds client assessed risk capacity (${clientProfile.riskTolerance}). Under SEBI Reg 17, higher-risk assets cannot be allocated without client re-profiling.`,
+					});
+				}
 			}
 		}
 

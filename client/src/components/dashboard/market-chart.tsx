@@ -56,7 +56,7 @@ export function MarketChart({
 	showControls = true,
 	showVolumeDefault = true,
 }: MarketChartProps) {
-	const containerRef = useRef<HTMLDivElement>(null);
+	const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
 	const chartRef = useRef<IChartApi | null>(null);
 	const seriesRef = useRef<ISeriesApi<any> | null>(null);
 	const volumeSeriesRef = useRef<ISeriesApi<any> | null>(null);
@@ -89,14 +89,14 @@ export function MarketChart({
 
 	const { data: candles, isLoading, error } = useStockCandles(symbol, "D", 365);
 
-	// Setup chart on mount
+	// Setup chart when container element is attached
 	useEffect(() => {
-		if (!containerRef.current) return;
+		if (!containerEl) return;
 		const isDark = document.documentElement.classList.contains("dark");
 
-		const initWidth = containerRef.current.clientWidth || containerRef.current.parentElement?.clientWidth || 600;
-		const chart = createChart(containerRef.current, {
-			width: initWidth,
+		const initWidth = containerEl.clientWidth || containerEl.parentElement?.clientWidth || 600;
+		const chart = createChart(containerEl, {
+			width: Math.max(initWidth, 100),
 			height: height,
 			layout: {
 				background: { color: isDark ? "#0f172a" : "#ffffff" },
@@ -185,18 +185,38 @@ export function MarketChart({
 		const ro = new ResizeObserver((entries) => {
 			if (chartRef.current && entries[0] && entries[0].contentRect.width > 0) {
 				chartRef.current.applyOptions({ width: entries[0].contentRect.width });
+				try {
+					chartRef.current.timeScale().fitContent();
+				} catch (_) {}
 			}
 		});
-		ro.observe(containerRef.current);
+		ro.observe(containerEl);
+
+		const themeObserver = new MutationObserver(() => {
+			if (!chartRef.current) return;
+			const isDarkNow = document.documentElement.classList.contains("dark");
+			chartRef.current.applyOptions({
+				layout: {
+					background: { color: isDarkNow ? "#0f172a" : "#ffffff" },
+					textColor: isDarkNow ? "#94a3b8" : "#475569",
+				},
+				grid: {
+					vertLines: { color: isDarkNow ? "rgba(30, 41, 59, 0.6)" : "rgba(241, 245, 249, 0.8)" },
+					horzLines: { color: isDarkNow ? "rgba(30, 41, 59, 0.6)" : "rgba(241, 245, 249, 0.8)" },
+				},
+			});
+		});
+		themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
 
 		return () => {
+			themeObserver.disconnect();
 			ro.disconnect();
 			chartRef.current?.remove();
 			chartRef.current = null;
 			seriesRef.current = null;
 			volumeSeriesRef.current = null;
 		};
-	}, [height]);
+	}, [containerEl, height]);
 
 	// Update Series when data, timeframe, chartType, or showVolume changes
 	useEffect(() => {
@@ -333,7 +353,7 @@ export function MarketChart({
 					priceScaleId: "volume",
 				});
 
-				chartRef.current.priceScale("volume").applyOptions({
+				volSeries.priceScale().applyOptions({
 					scaleMargins: {
 						top: 0.72,
 						bottom: 0,
@@ -384,7 +404,7 @@ export function MarketChart({
 			avgVolume: avgVol,
 			totalVolume: totalVol,
 		});
-	}, [candles, timeframe, chartType, showVolume]);
+	}, [candles, timeframe, chartType, showVolume, containerEl]);
 
 	if (isLoading) {
 		return (
@@ -567,7 +587,7 @@ export function MarketChart({
 
 			<CardContent>
 				<div
-					ref={containerRef}
+					ref={setContainerEl}
 					className="w-full rounded-lg overflow-hidden mb-4 min-h-[300px]"
 					data-testid="chart-container"
 				/>

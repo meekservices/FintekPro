@@ -1952,24 +1952,26 @@ export class StockStrategy extends BaseStrategy {
 		// If macro strength is divergent from weak market breadth (BEARISH_BREADTH_DIVERGENCE):
 		// - Suppress speculative high-beta breakouts (-8 pts)
 		// - Reward defensive, low-beta quality anchors with strong balance sheets (+6 pts)
-		try {
-			const { aiRegimeDetectionEngine } = await import("../ai-regime-detection-engine");
-			const regimeRes = await aiRegimeDetectionEngine.detectCurrentRegime();
-			if (regimeRes?.macroMicroCoherence?.divergenceType === "BEARISH_BREADTH_DIVERGENCE") {
-				const beta = enriched?.performance?.beta ?? (stock.beta ? Number.parseFloat(stock.beta) : null);
-				if (beta !== null && beta > 1.25) {
-					score -= 8; // penalize high beta when headline index diverges from underlying breadth
-				} else if (beta !== null && beta < 0.85) {
-					score += 6; // reward low beta quality anchor
+		if (includeAiBoost) {
+			try {
+				const { aiRegimeDetectionEngine } = await import("../ai-regime-detection-engine");
+				const regimeRes = await aiRegimeDetectionEngine.detectCurrentRegime();
+				if (regimeRes?.macroMicroCoherence?.divergenceType === "BEARISH_BREADTH_DIVERGENCE") {
+					const beta = enriched?.performance?.beta ?? (stock.beta ? Number.parseFloat(stock.beta) : null);
+					if (beta !== null && beta > 1.25) {
+						score -= 8; // penalize high beta when headline index diverges from underlying breadth
+					} else if (beta !== null && beta < 0.85) {
+						score += 6; // reward low beta quality anchor
+					}
+				} else if (regimeRes?.macroMicroCoherence?.shortSqueezeRisk) {
+					// Squeeze environment rewards oversold high-short names near 50-DMA
+					if (stockRegime === "EARLY_STAGE_BREAKOUT" || stockRegime === "CONSOLIDATION_BASE") {
+						score += 6;
+					}
 				}
-			} else if (regimeRes?.macroMicroCoherence?.shortSqueezeRisk) {
-				// Squeeze environment rewards oversold high-short names near 50-DMA
-				if (stockRegime === "EARLY_STAGE_BREAKOUT" || stockRegime === "CONSOLIDATION_BASE") {
-					score += 6;
-				}
+			} catch {
+				// Non-blocking fallback
 			}
-		} catch {
-			// Non-blocking fallback
 		}
 
 		// ── Upgrade #14: Price Volume Action (PVA) Wyckoff Institutional Accumulation ──

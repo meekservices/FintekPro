@@ -440,6 +440,17 @@ export class DerivativeStrategy extends BaseStrategy {
 				},
 			});
 
+			// ── SEBI Institutional Tail-Risk Guardrail ──────────────────────────────
+			// Option Seller strategies (Credit/Income) must strictly be hedged multi-leg spreads
+			// and can NEVER expose clients to "Unlimited" max loss.
+			if (strategy.strategyType === "SELLER" && payoff.maxLoss === "Unlimited") {
+				logger.error(
+					`🛑 [DerivativeStrategy] Hard Risk Breach: Option seller strategy '${strategy.name}' has unhedged unlimited loss. Rejected by institutional tail-risk gate.`,
+					{ event: "UNHEDGED_OPTION_SELLER_BLOCKED", symbol: selectedSymbol, strategy: strategy.name },
+				);
+				return null;
+			}
+
 			return {
 				category: "derivatives",
 				instrumentId: selectedSymbol,
@@ -849,6 +860,17 @@ export class DerivativeStrategy extends BaseStrategy {
 					dataSource: "fallback_curated",
 				},
 			});
+
+			// ── SEBI Institutional Tail-Risk Guardrail ──────────────────────────────
+			// Option Seller strategies (Credit/Income) must strictly be hedged multi-leg spreads
+			// and can NEVER expose clients to "Unlimited" max loss.
+			if (strategy.strategyType === "SELLER" && payoff.maxLoss === "Unlimited") {
+				logger.error(
+					`🛑 [DerivativeStrategy] Hard Risk Breach: Option seller strategy '${strategy.name}' has unhedged unlimited loss. Rejected by institutional tail-risk gate.`,
+					{ event: "UNHEDGED_OPTION_SELLER_BLOCKED", symbol, strategy: strategy.name },
+				);
+				return null;
+			}
 
 			return {
 				category: "derivatives",

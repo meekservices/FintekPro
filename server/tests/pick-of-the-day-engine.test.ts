@@ -418,14 +418,14 @@ describe("Pick of the Day Engine - Unit Tests & Upgrades", () => {
 
 	describe("10. Market Holiday & Non-Trading Session Guard Rails", () => {
 		it("strictly blocks pick generation when date is a market holiday unless bypass is explicitly requested", async () => {
-			// Using todayIST date on 2026-11-10 (Diwali Balipratipada)
+			// Using 2026-11-10 (Diwali Balipratipada) as verified NSE holiday
 			// Calling generateDailyPicks() without bypass should return []
-			const picks = await pickOfTheDayService.generateDailyPicks();
+			const picks = await pickOfTheDayService.generateDailyPicks({ dateOverride: "2026-11-10" });
 			expect(picks).toEqual([]);
 		});
 
 		it("returns empty array for getTodaysPicks() on an exchange holiday to trigger fallback", async () => {
-			const todaysPicks = await pickOfTheDayService.getTodaysPicks();
+			const todaysPicks = await pickOfTheDayService.getTodaysPicks("2026-11-10");
 			expect(todaysPicks).toEqual([]);
 		});
 	});
