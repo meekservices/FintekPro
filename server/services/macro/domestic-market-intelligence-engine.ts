@@ -383,7 +383,10 @@ export class DomesticMarketIntelligenceEngine {
     // 4. MCX / NCDEX Commodities
     let commoditySnap: CommodityMarketSnapshot | null = null;
     try {
-      commoditySnap = await commodityMarketService.getCommodityMarketSnapshot();
+      const res = await commodityMarketService.getCommodityBenchmarks();
+      if (res.success && res.data) {
+        commoditySnap = res.data;
+      }
     } catch {
       // Fallback
     }
