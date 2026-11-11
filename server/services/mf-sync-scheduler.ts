@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import axios from "axios";
 import { db } from "../db";
 import { mutualFunds, schemeRenameLog } from "@shared/schema";
@@ -111,19 +112,42 @@ class MFSyncScheduler {
 		let renamed = 0;
 
 		try {
-			// Fetch AMFI master data
-			const response = await axios.get(
-				"https://www.amfiindia.com/spages/NAVAll.txt",
-				{
-					timeout: 60000,
-					headers: {
-						"User-Agent":
-							"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-					},
-				},
-			);
+			// Fetch AMFI master data with endpoint fallback & browser headers
+			let responseData: string | null = null;
+			const amfiHeaders = {
+				"User-Agent":
+					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+				"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain,*/*;q=0.8",
+				"Accept-Language": "en-US,en;q=0.9",
+				"Referer": "https://www.amfiindia.com/",
+			};
 
-			const funds = this.parseAMFIData(response.data);
+			const urls = [
+				"https://www.amfiindia.com/spages/NAVAll.txt",
+				"https://portal.amfiindia.com/spages/NAVAll.txt",
+			];
+
+			for (const url of urls) {
+				try {
+					const res = await axios.get(url, {
+						timeout: 60000,
+						headers: amfiHeaders,
+					});
+					if (res.data && typeof res.data === "string" && res.data.length > 100) {
+						responseData = res.data;
+						break;
+					}
+				} catch (urlErr: any) {
+					console.warn(`[MF Sync] Attempt to fetch from ${url} failed:`, urlErr?.message);
+				}
+			}
+
+			if (!responseData) {
+				console.warn("[MF Sync] Unable to fetch AMFI master from any endpoint; skipping sync cycle.");
+				return { updated: 0, added: 0, errors: 1, renamed: 0 };
+			}
+
+			const funds = this.parseAMFIData(responseData);
 			console.log(`[MF Sync] Parsed ${funds.length} funds from AMFI`);
 
 			// ── Rename detection: snapshot all current (schemeCode → schemeName) ──

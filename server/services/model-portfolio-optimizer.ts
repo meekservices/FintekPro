@@ -34,6 +34,7 @@ import { modelPortfolios } from "../../shared/schema";
 import { logger } from "../logger";
 import { upstoxMarketDataService } from "./upstox-market-data-service";
 import { proThematicScreenerService, type ThematicSynergyInfo } from "./pro-thematic-screener-service";
+import { checkRiskBudget } from "./portfolio-risk-guard";
 import { telemetryBus } from "./engine-telemetry-bus";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -833,6 +834,26 @@ export async function generateOptimizationSuggestions(
         } else {
           recommendation = "reduce_weight";
           factors.push(`profit_guard:tax_friction_₹${totalFrictionCost}_vs_benefit_₹${driftBenefitRs}`);
+        }
+      }
+
+      // ── Cross-Engine Synergy: Risk Budget Pre-Validation (PortfolioRiskGuard) ──
+      if (recommendation === "replace" && best) {
+        try {
+          const simulatedHolding = {
+            name: best.name || best.symbol,
+            weight: drag.weight,
+            beta: best.beta ?? 1.0,
+            sector: best.sector,
+            type: drag.type,
+          };
+          const riskCheck = checkRiskBudget(analysis.portfolioId, "moderate", [simulatedHolding]);
+          if (riskCheck.hardBreaches.some(b => b.field === "maxSingleWeight" || b.field === "weightedBeta")) {
+            factors.push(`risk_guard:hard_breach:${riskCheck.hardBreaches[0].field}`);
+            recommendation = "reduce_weight";
+          }
+        } catch {
+          /* non-fatal */
         }
       }
 

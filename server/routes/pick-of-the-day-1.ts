@@ -32,6 +32,7 @@ import {
 } from "./pick-of-the-day-utils";
 import { formatPicksForRole } from "../services/advisory-output-formatter";
 import { marketHolidayService } from "../services/market-holiday-service";
+import { inProcessMarketSnapshotStore } from "../services/market-brief-engine";
 import { logger } from "../logger";
 
 const watchlistAddSchema = z.object({
@@ -170,17 +171,18 @@ router.get("/today", async (req, res) => {
 		const hasSpecialSession = !!specialSession;
 		const nseStatus = marketHolidayService.getMarketStatus("NSE");
 
-		// Fetch latest Macro Regime Snapshot for HUD
+		// Fetch latest Macro Regime Snapshot for HUD (with InProcessMarketSnapshotStore real-time fallback)
+		const briefSnap = await inProcessMarketSnapshotStore.getSnapshot("india", false);
 		let macroRegime: Record<string, any> = {
 			regimeLabel: "risk_on",
 			dxyBand: "neutral",
-			dxyIndex: 102.4,
-			crudeRegime: "comfort",
-			brentCrudeUsd: 74.2,
-			yieldCurveSlope: "normal",
-			tenMinusTwoBps: 18,
-			gsec10YYield: 6.82,
-			usdInr: 84.15,
+			dxyIndex: briefSnap?.macro?.dxyIndex ?? 104.25,
+			crudeRegime: (briefSnap?.commodities?.brentUsd ?? 96.09) > 80 ? "elevated" : "comfort",
+			brentCrudeUsd: briefSnap?.commodities?.brentUsd ?? 96.09,
+			yieldCurveSlope: briefSnap?.sovereign?.yieldCurveSlope ?? "normal",
+			tenMinusTwoBps: 28,
+			gsec10YYield: briefSnap?.sovereign?.gsec10Y ?? 6.79,
+			usdInr: briefSnap?.forex?.usdInr ?? 94.86,
 			aiPosture: "Alpha Momentum + Disciplined Risk",
 			postureSummary: "Constructive macro environment. Engine favors high-conviction momentum leaders, selective F&O hedging, and growth compounders.",
 		};

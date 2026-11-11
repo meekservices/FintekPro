@@ -3074,7 +3074,7 @@ export class DatabaseStorage implements IStorage {
 			.from(schema.products)
 			.where(and(...conditions))
 			.orderBy(
-				desc((schema.products as any).priority),
+				desc(schema.products.isFeatured),
 				desc(schema.products.updatedAt),
 			)
 			.limit(filters?.limit || 100);
@@ -3095,7 +3095,12 @@ export class DatabaseStorage implements IStorage {
 		const results = await db
 			.select()
 			.from(schema.products)
-			.where(eq((schema.products as any).slug, slug))
+			.where(
+				or(
+					eq(schema.products.id, slug),
+					sql`LOWER(REPLACE(${schema.products.name}, ' ', '-')) = LOWER(${slug})`,
+				),
+			)
 			.limit(1);
 		return results[0];
 	}
@@ -3210,7 +3215,7 @@ export class DatabaseStorage implements IStorage {
 			.from(schema.products)
 			.where(and(...conditions))
 			.orderBy(
-				desc((schema.products as any).priority),
+				desc(schema.products.isFeatured),
 				desc(schema.products.returns1y),
 			)
 			.limit(100);
@@ -3267,7 +3272,7 @@ export class DatabaseStorage implements IStorage {
 				),
 			)
 			.orderBy(
-				desc((schema.products as any).priority),
+				desc(schema.products.isFeatured),
 				desc(schema.products.returns1y),
 			)
 			.limit(limit || 10);
@@ -3303,7 +3308,7 @@ export class DatabaseStorage implements IStorage {
 				),
 			)
 			.orderBy(
-				desc((schema.products as any).priority),
+				desc(schema.products.isFeatured),
 				desc(schema.products.returns1y),
 			)
 			.limit(50);

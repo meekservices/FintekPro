@@ -277,4 +277,34 @@ describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 			expect(cycle.liquidityRegimeStatus).toBeDefined();
 		});
 	});
+
+	// ─── 8. Portfolio Risk Guard ↔ SEBI 5-Tier Risk Budget Synergy ──────────────
+	describe("8. Portfolio Risk Guard ↔ SEBI 5-Tier Risk Budget Synergy", () => {
+		it("enforces statutory limits for moderately_high and very_aggressive profiles with telemetry", async () => {
+			const { checkRiskBudget } = await import("../services/portfolio-risk-guard");
+
+			const balancedHoldings = [
+				{ name: "Large Cap Bluechip", weight: 20, beta: 1.05, sector: "Banking" },
+				{ name: "Flexi Cap Equity", weight: 20, beta: 1.10, sector: "Technology" },
+				{ name: "Mid Cap Leader", weight: 20, beta: 1.25, sector: "Pharma" },
+				{ name: "Target Maturity Debt", weight: 20, beta: 0.10, sector: "Fixed Income" },
+				{ name: "Arbitrage Fund", weight: 10, beta: 0.15, sector: "Arbitrage" },
+				{ name: "Gold ETF", weight: 10, beta: -0.10, sector: "Commodity" },
+			];
+
+			const reportModHigh = checkRiskBudget("TEST_PORTFOLIO_MOD_HIGH", "moderately_high", balancedHoldings);
+			expect(reportModHigh.approved).toBe(true);
+			expect(reportModHigh.riskScore).toBeLessThan(40);
+			expect(reportModHigh.metrics.weightedBeta).toBeLessThanOrEqual(1.30);
+
+			// Test single stock concentration breach (> 20% limit for moderately_high)
+			const concentratedHoldings = [
+				{ name: "Super Concentrated Stock", weight: 45, beta: 1.5, sector: "Tech" },
+				{ name: "Other Stock", weight: 55, beta: 1.0, sector: "Finance" },
+			];
+			const reportBreach = checkRiskBudget("TEST_PORTFOLIO_BREACH", "moderately_high", concentratedHoldings);
+			expect(reportBreach.approved).toBe(false);
+			expect(reportBreach.hardBreaches.some(b => b.field === "maxSingleWeight")).toBe(true);
+		});
+	});
 });

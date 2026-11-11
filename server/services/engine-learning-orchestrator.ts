@@ -259,6 +259,12 @@ class EngineLearningOrchestrator {
       if (s.engineId === "global-credit-cycle") {
         activeCalibrations.push("5-Pillar Global Credit Cycle & OAS Tripwires Active");
       }
+      if (s.engineId === "portfolio-risk-guard") {
+        activeCalibrations.push("SEBI 5-Tier Risk Budget & Hard Breach Enforcement Active");
+      }
+      if (s.engineId === "derived-metrics-engine") {
+        activeCalibrations.push("Piotroski F-Score, Altman Z & Magic Formula Ingestion Active");
+      }
       if (s.engineId === "msci-factor-engine") {
         activeCalibrations.push("MSCI EM Weight & ADR Arbitrage Tracking Active");
       }
@@ -290,6 +296,8 @@ class EngineLearningOrchestrator {
       { id: "institutional-flow", name: "Institutional Ownership & Flow Engine", category: "Alpha Generation", defaultCalibration: "Block/Bulk Deal & Promoter Pledge Footprint Surveillance Active" },
       { id: "exit-strategy-engine", name: "Algorithmic Trailing Exit Engine", category: "Alpha Generation", defaultCalibration: "Chandelier Volatility Trailing Stops Active" },
       { id: "model-portfolio-optimizer", name: "Model Portfolio Quant Optimizer", category: "Portfolio", defaultCalibration: "Alpha Recovery & Holding Drag Calibration Active" },
+      { id: "portfolio-risk-guard", name: "Portfolio Risk Guard Engine", category: "Portfolio", defaultCalibration: "SEBI 5-Tier Risk Budget & Hard Breach Enforcement Active" },
+      { id: "derived-metrics-engine", name: "Screener Derived Metrics Engine", category: "Alpha Generation", defaultCalibration: "Piotroski F-Score, Altman Z & Magic Formula Ingestion Active" },
       { id: "quant-orchestrator", name: "Quant & MVO Portfolio Orchestrator", category: "Portfolio", defaultCalibration: "MVO & Tail-Risk Stress CVaR Validation Active" },
       { id: "tax-loss-harvesting", name: "Tax-Loss Harvesting Engine", category: "Portfolio", defaultCalibration: "Budget 2024 LTCG/STCG Offset Active" },
       { id: "global-macro-transmission", name: "Global Macro Transmission Engine", category: "Risk & Regime", defaultCalibration: "Cross-Border Transmission Channels & Global Shock Simulation Active" },

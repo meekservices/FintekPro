@@ -22,6 +22,7 @@
  */
 
 import { logger } from "../logger";
+import { telemetryBus } from "./engine-telemetry-bus";
 
 const MODEL_VERSION = "FASP-AI v3.0 / risk-guard-v1";
 
@@ -39,11 +40,13 @@ interface RiskBudget {
 }
 
 const RISK_BUDGETS: Record<string, RiskBudget> = {
-  conservative:  { maxVolatility: 8,   maxDrawdown: -6,   betaCeiling: 0.4, sharpeFloor: 1.2, maxSingleWeight: 30, maxSectorWeight: 50, maxCashDrag: 40, alphaDragFloor: -5 },
-  moderate:      { maxVolatility: 16,  maxDrawdown: -14,  betaCeiling: 1.0, sharpeFloor: 0.7, maxSingleWeight: 25, maxSectorWeight: 40, maxCashDrag: 15, alphaDragFloor: -7 },
-  aggressive:    { maxVolatility: 26,  maxDrawdown: -24,  betaCeiling: 1.6, sharpeFloor: 0.4, maxSingleWeight: 15, maxSectorWeight: 35, maxCashDrag: 10, alphaDragFloor: -8 },
-  high:          { maxVolatility: 30,  maxDrawdown: -28,  betaCeiling: 1.9, sharpeFloor: 0.3, maxSingleWeight: 12, maxSectorWeight: 30, maxCashDrag: 10, alphaDragFloor: -10 },
-  all_weather:   { maxVolatility: 12,  maxDrawdown: -10,  betaCeiling: 0.7, sharpeFloor: 0.9, maxSingleWeight: 25, maxSectorWeight: 40, maxCashDrag: 20, alphaDragFloor: -6 },
+  conservative:     { maxVolatility: 8,   maxDrawdown: -6,   betaCeiling: 0.45, sharpeFloor: 0.85, maxSingleWeight: 30, maxSectorWeight: 50, maxCashDrag: 15, alphaDragFloor: -2.5 },
+  moderate:         { maxVolatility: 16,  maxDrawdown: -14,  betaCeiling: 1.05, sharpeFloor: 0.65, maxSingleWeight: 25, maxSectorWeight: 40, maxCashDrag: 10, alphaDragFloor: -3.0 },
+  moderately_high:  { maxVolatility: 20,  maxDrawdown: -18,  betaCeiling: 1.30, sharpeFloor: 0.55, maxSingleWeight: 20, maxSectorWeight: 38, maxCashDrag: 8,  alphaDragFloor: -3.2 },
+  aggressive:       { maxVolatility: 26,  maxDrawdown: -24,  betaCeiling: 1.65, sharpeFloor: 0.45, maxSingleWeight: 15, maxSectorWeight: 35, maxCashDrag: 8,  alphaDragFloor: -3.5 },
+  very_aggressive:  { maxVolatility: 30,  maxDrawdown: -28,  betaCeiling: 1.95, sharpeFloor: 0.35, maxSingleWeight: 12, maxSectorWeight: 30, maxCashDrag: 5,  alphaDragFloor: -4.0 },
+  high:             { maxVolatility: 30,  maxDrawdown: -28,  betaCeiling: 1.95, sharpeFloor: 0.35, maxSingleWeight: 12, maxSectorWeight: 30, maxCashDrag: 5,  alphaDragFloor: -4.0 },
+  all_weather:      { maxVolatility: 12,  maxDrawdown: -10,  betaCeiling: 0.75, sharpeFloor: 0.80, maxSingleWeight: 25, maxSectorWeight: 40, maxCashDrag: 12, alphaDragFloor: -2.8 },
 };
 
 const DEFAULT_BUDGET = RISK_BUDGETS["moderate"];
@@ -279,6 +282,26 @@ export function checkRiskBudget(
       status: "blocked",
     });
   }
+
+  // Operational Telemetry Bus Reporting
+  telemetryBus.report({
+    engineId: "portfolio-risk-guard",
+    engineName: "Portfolio Risk Guard",
+    category: "Portfolio",
+    reportedAt: ts,
+    latencyMs: Date.now() - _guardStart,
+    qualityScore: report.approved ? 98 : 70,
+    itemsProcessed: proposedHoldings.length,
+    errorCount: hardBreaches.length,
+    meta: {
+      portfolioId,
+      riskProfile,
+      approved: report.approved,
+      riskScore: report.riskScore,
+      hardBreachesCount: hardBreaches.length,
+      softWarningsCount: softWarnings.length,
+    },
+  });
 
   return report;
 }
