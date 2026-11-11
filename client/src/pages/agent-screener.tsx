@@ -79,6 +79,7 @@ import {
 } from "lucide-react";
 import { ScreenerInQuerySection } from "@/components/screener/ScreenerInQuerySection";
 import { ScreenerProsConsBox } from "@/components/screener/ScreenerProsConsBox";
+import { StockDetailDialog } from "@/components/screener/StockDetailDialog";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -662,6 +663,7 @@ export default function AgentScreener() {
 	const [viewMode, setViewMode] = useState<ViewMode>("table");
 	const [showFilters, setShowFilters] = useState(true);
 	const [expandedStock, setExpandedStock] = useState<string | null>(null);
+	const [detailStock, setDetailStock] = useState<any | null>(null);
 	const [chartStock, setChartStock] = useState<any | null>(null);
 
 	const [dbSearch, setDbSearch] = useState(() => {
@@ -1073,9 +1075,10 @@ export default function AgentScreener() {
 		staleTime: 5 * 60 * 1000,
 	});
 
+	const activeDetailSymbol = detailStock?.symbol || expandedStock;
 	const { data: stockDetail, isLoading: detailLoading } = useQuery<any>({
-		queryKey: ["/api/screener/stocks", expandedStock],
-		enabled: !!expandedStock,
+		queryKey: ["/api/screener/stocks", activeDetailSymbol],
+		enabled: !!activeDetailSymbol,
 	});
 
 	const { data: enrichmentProgress, refetch: refetchProgress } = useQuery<any>({
@@ -4035,465 +4038,319 @@ export default function AgentScreener() {
 								) : dbScreenerData?.stocks?.length > 0 ? (
 									viewMode === "table" ? (
 										<>
-											<div className="w-full max-w-full overflow-hidden rounded-lg border bg-card shadow-xs">
-												<div className="w-full overflow-x-auto scrollbar-thin">
-													<table className="w-full text-sm min-w-[1150px]">
-														<thead className="bg-card text-muted-foreground sticky top-0 z-10 border-b shadow-sm">
+<div className="w-full rounded-lg border bg-card shadow-xs overflow-hidden">
+												<div className="w-full overflow-x-auto">
+													<table className="w-full text-xs sm:text-sm border-collapse">
+														<thead className="bg-muted/40 text-muted-foreground sticky top-0 z-10 border-b">
 															<tr>
-																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider w-8 sticky left-0 z-20 bg-card">
+																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider w-8">
 																	#
 																</th>
-																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider sticky left-8 z-20 bg-card border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">
-																	Company
+																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider min-w-[170px]">
+																	Company / Sector
 																</th>
 																<DbSortableHeader
-																	label="Price"
+																	label="Price / 1Y"
 																	sortKey="currentPrice"
 																	align="right"
 																/>
 																<DbSortableHeader
-																	label="Mkt Cap"
+																	label="Mkt Cap / Val"
 																	sortKey="marketCap"
 																	align="right"
 																/>
-																<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider">
-																	Cap
-																</th>
 																<DbSortableHeader
-																	label="P/E"
+																	label="P/E & Fwd"
 																	sortKey="peRatio"
 																	align="right"
 																/>
 																<DbSortableHeader
-																	label="Fwd PE"
-																	sortKey="forwardPe"
-																	align="right"
-																/>
-																<DbSortableHeader
-																	label="PEG"
+																	label="PEG / Div"
 																	sortKey="pegRatio"
 																	align="right"
 																/>
 																<DbSortableHeader
-																	label="Div %"
-																	sortKey="dividendYield"
-																	align="right"
-																/>
-																<DbSortableHeader
-																	label="EPS"
-																	sortKey="eps"
-																	align="right"
-																/>
-
-																<DbSortableHeader
-																	label="ROE"
+																	label="ROCE / ROE"
 																	sortKey="roe"
 																	align="right"
 																/>
 																<DbSortableHeader
-																	label="D/E"
+																	label="D/E / Beta"
 																	sortKey="debtToEquity"
 																	align="right"
 																/>
 																<DbSortableHeader
-																	label="α Nifty"
-																	sortKey="returnVsNifty1Y"
-																	align="right"
-																/>
-																<DbSortableHeader
-																	label="Beta"
-																	sortKey="beta"
-																	align="right"
-																/>
-																<DbSortableHeader
-																	label="Sharpe"
-																	sortKey="sharpe"
-																	align="right"
-																/>
-																<DbSortableHeader
-																	label="Sortino"
-																	sortKey="sortino"
-																	align="right"
-																/>
-																<DbSortableHeader
-																	label="Analyst↑%"
-																	sortKey="analystUpside"
-																	align="right"
-																/>
-																<DbSortableHeader
-																	label="DCF↑%"
-																	sortKey="dcfUpside"
-																	align="right"
-																/>
-																<DbSortableHeader
-																	label="Score"
+																	label="Score / Rating"
 																	sortKey="compositeScore"
 																	align="center"
 																/>
-																<DbSortableHeader
-																	label="Rating"
-																	sortKey="fintekRating"
-																	align="center"
-																/>
-																<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider">
+																<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider min-w-[110px]">
 																	Actions
 																</th>
 															</tr>
 														</thead>
-														<tbody>
+														<tbody className="divide-y divide-border">
 															{dbScreenerData.stocks.map(
-																(stock: any, index: number) => (
-																	<>
+																(stock: any, index: number) => {
+																	const peg = Number(
+																		stock.pegRatio ??
+																			(() => {
+																				const pe = Number(stock.peRatio);
+																				const g = Number(
+																					stock.earningsGrowth3Y ??
+																						stock.revenueGrowth3Y ??
+																						stock.return1Y,
+																				);
+																				if (pe > 0 && g > 0) {
+																					const gPct = g <= 1 ? g * 100 : g;
+																					if (gPct >= 1) return (pe / gPct).toFixed(2);
+																				}
+																				return null;
+																			})(),
+																	);
+																	const ret1Y = Number(stock.return1Y ?? stock.returnVsNifty1Y);
+																	const dcfUpside = Number(stock.dcfUpsidePercent);
+
+																	return (
 																		<tr
 																			key={stock.symbol}
-																			className={`border-b hover:bg-muted/30 transition-colors ${expandedStock === stock.symbol ? "bg-muted/20" : ""}`}
+																			className="hover:bg-muted/30 transition-colors cursor-pointer group"
+																			onClick={() => setDetailStock(stock)}
 																		>
-																			<td className="py-2.5 px-3 text-xs text-muted-foreground sticky left-0 z-10 bg-background">
+																			{/* S.No */}
+																			<td className="py-2.5 px-3 text-xs text-muted-foreground align-top pt-3 font-mono">
 																				{(dbPage - 1) * dbLimit + index + 1}
 																			</td>
-																			<td className="py-2.5 px-3 sticky left-8 z-10 bg-background border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">
-																				<div
-																					className="font-medium text-sm truncate max-w-[220px]"
-																					title={stock.companyName}
-																				>
-																					{stock.companyName}
-																				</div>
-																				<div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-																					<Badge
-																						variant="outline"
-																						className="font-mono text-[10px] py-0 px-1 h-4"
+
+																			{/* Company & Sub-metadata (Stacked) */}
+																			<td className="py-2.5 px-3 align-top">
+																				<div className="flex flex-col gap-0.5">
+																					<div
+																						className="font-semibold text-xs sm:text-sm text-foreground group-hover:text-primary transition-colors line-clamp-1"
+																						title={stock.companyName}
 																					>
-																						{stock.symbol}
-																					</Badge>
-																					{Array.isArray(stock.modelPortfolios) && stock.modelPortfolios.length > 0 && (
+																						{stock.companyName}
+																					</div>
+																					<div className="flex items-center gap-1.5 flex-wrap pt-0.5">
 																						<Badge
 																							variant="outline"
-																							className="text-[9px] py-0 px-1 h-4 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 font-medium font-sans"
-																							title={`Held in Model Portfolio: ${stock.modelPortfolios.join(', ')}`}
+																							className="font-mono text-[10px] py-0 px-1 h-4 font-semibold"
 																						>
-																							⭐ {stock.modelPortfolios[0]}
+																							{stock.symbol}
 																						</Badge>
-																					)}
-																					{stock.stockRegime && (
-																						<Badge
-																							variant="outline"
-																							className={`text-[9px] py-0 px-1 h-4 font-sans font-medium ${
-																								stock.stockRegime === "BULLISH_TRENDING"
-																									? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
-																									: stock.stockRegime === "EARLY_STAGE_BREAKOUT"
-																									? "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/30"
-																									: stock.stockRegime === "BEARISH_DOWNTREND"
-																									? "bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/30"
-																									: stock.stockRegime === "HIGH_VOLATILITY_CHOP"
-																									? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30"
-																									: "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30"
-																							}`}
-																							title={`Micro-Regime: ${stock.stockRegime}`}
-																						>
-																							{stock.stockRegime === "BULLISH_TRENDING"
-																								? "🚀 Trending"
-																								: stock.stockRegime === "EARLY_STAGE_BREAKOUT"
-																								? "⚡ Breakout"
-																								: stock.stockRegime === "BEARISH_DOWNTREND"
-																								? "🔻 Downtrend"
-																								: stock.stockRegime === "HIGH_VOLATILITY_CHOP"
-																								? "⚠️ Chop"
-																								: "🛡️ Base"}
-																						</Badge>
-																					)}
-																					{stock.pvaClassification && (
-																						<Badge
-																							variant="outline"
-																							className={`text-[9px] py-0 px-1 h-4 font-sans font-medium ${
-																								stock.pvaClassification === "INSTITUTIONAL_ACCUMULATION"
-																									? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40"
-																									: stock.pvaClassification === "INSTITUTIONAL_DISTRIBUTION"
-																									? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40"
-																									: stock.pvaClassification === "ABSORPTION_PULLBACK"
-																									? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/40"
-																									: stock.pvaClassification === "VOLUME_CLIMAX_REVERSAL"
-																									? "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/40"
-																									: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30"
-																							}`}
-																							title={`Price Volume Action: ${stock.pvaClassification.replace(/_/g, " ")}`}
-																						>
-																							{stock.pvaClassification === "INSTITUTIONAL_ACCUMULATION"
-																								? "🔥 Accumulation"
-																								: stock.pvaClassification === "INSTITUTIONAL_DISTRIBUTION"
-																								? "🔻 Distribution"
-																								: stock.pvaClassification === "ABSORPTION_PULLBACK"
-																								? "🛡️ Absorption"
-																								: stock.pvaClassification === "VOLUME_CLIMAX_REVERSAL"
-																								? "⚡ Climax"
-																								: "PVA Active"}
-																						</Badge>
-																					)}
-																					{stock.sector && (
-																						<span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
-																							{stock.sector}
-																						</span>
-																					)}
-																				</div>
-																			</td>
-																			<td className="py-2.5 px-3 text-right font-mono text-xs">
-																				{formatCurrency(stock.currentPrice)}
-																			</td>
-																			<td className="py-2.5 px-3 text-right font-mono text-xs">
-																				{formatMarketCap(stock.marketCapValue)}
-																			</td>
-																			<td className="py-2.5 px-3 text-center">
-																				<MarketCapBadge
-																					category={stock.marketCapCategory}
-																				/>
-																			</td>
-																			<td className={`py-2.5 px-3 text-right font-mono text-xs ${
-																				stock.peRatio
-																					? Number.parseFloat(stock.peRatio) < 0
-																						? "text-red-500 dark:text-red-400"
-																						: Number.parseFloat(stock.peRatio) > 60
-																						? "text-red-500 dark:text-red-400"
-																						: Number.parseFloat(stock.peRatio) > 35
-																						? "text-amber-600 dark:text-amber-400"
-																						: Number.parseFloat(stock.peRatio) <= 25
-																						? "text-emerald-600 dark:text-emerald-400"
-																						: ""
-																					: ""
-																			}`}>
-																				{formatNum(stock.peRatio)}
-																			</td>
-																			<td className={`py-2.5 px-3 text-right font-mono text-xs ${
-																				stock.forwardPe
-																					? Number.parseFloat(stock.forwardPe) < 0
-																						? "text-red-500 dark:text-red-400"
-																						: Number.parseFloat(stock.forwardPe) > 60
-																						? "text-red-500 dark:text-red-400"
-																						: Number.parseFloat(stock.forwardPe) > 35
-																						? "text-amber-600 dark:text-amber-400"
-																						: Number.parseFloat(stock.forwardPe) <= 25
-																						? "text-emerald-600 dark:text-emerald-400"
-																						: ""
-																					: ""
-																			}`}>
-																				{formatNum(stock.forwardPe)}
-																			</td>
-																			<td
-																				className={`py-2.5 px-3 text-right font-mono text-xs ${
-																					(() => {
-																						const peg = Number(stock.pegRatio ?? (() => {
-																							const pe = Number(stock.peRatio);
-																							const g = Number(stock.earningsGrowth3Y ?? stock.revenueGrowth3Y ?? stock.return1Y);
-																							if (pe > 0 && g > 0) {
-																								const gPct = g <= 1 ? g * 100 : g;
-																								if (gPct >= 1) return (pe / gPct).toFixed(2);
-																							}
-																							return null;
-																						})());
-																						return !Number.isNaN(peg) && peg > 0
-																							? peg < 1
-																								? "text-emerald-600 dark:text-emerald-400 font-semibold" // undervalued
-																								: peg > 2
-																								? "text-red-600 dark:text-red-400" // expensive
-																								: ""
-																							: "";
-																					})()
-																				}`}
-																			>
-																				{(() => {
-																					if (stock.pegRatio) return formatNum(stock.pegRatio);
-																					const pe = Number(stock.peRatio);
-																					const g = Number(stock.earningsGrowth3Y ?? stock.revenueGrowth3Y ?? stock.return1Y);
-																					if (pe > 0 && g > 0) {
-																						const gPct = g <= 1 ? g * 100 : g;
-																						if (gPct >= 1) return (pe / gPct).toFixed(2);
-																					}
-																					return "-";
-																				})()}
-																			</td>
-																			<td className={`py-2.5 px-3 text-right font-mono text-xs ${
-																				stock.dividendYield && Number.parseFloat(stock.dividendYield) * 100 >= 5
-																					? "text-emerald-600 dark:text-emerald-400 font-semibold"
-																					: stock.dividendYield && Number.parseFloat(stock.dividendYield) * 100 >= 3
-																					? "text-emerald-500 dark:text-emerald-500"
-																					: ""
-																			}`}>
-																				{stock.dividendYield != null && stock.dividendYield !== ""
-																					? formatPercent(stock.dividendYield, 100)
-																					: "-"}
-																			</td>
-																			<td className={`py-2.5 px-3 text-right font-mono text-xs ${
-																				stock.eps
-																					? Number.parseFloat(stock.eps) > 0
-																						? "text-emerald-600 dark:text-emerald-400"
-																						: "text-red-500 dark:text-red-400"
-																					: ""
-																			}`}>
-																				{formatNum(stock.eps)}
-																			</td>
-																			<td className={`py-2.5 px-3 text-right font-mono text-xs ${
-																				stock.roe
-																					? Number.parseFloat(stock.roe) < 0
-																						? "text-red-500 dark:text-red-400"
-																						: Number.parseFloat(stock.roe) >= 0.20
-																						? "text-emerald-600 dark:text-emerald-400 font-semibold"
-																						: Number.parseFloat(stock.roe) >= 0.15
-																						? "text-emerald-500 dark:text-emerald-500"
-																						: ""
-																					: ""
-																			}`}>
-																				{formatRoe(stock.roe)}
-																			</td>
-																			<td className={`py-2.5 px-3 text-right font-mono text-xs ${
-																				stock.debtToEquity
-																					? Number.parseFloat(stock.debtToEquity) > 2
-																						? "text-red-600 dark:text-red-400 font-semibold"
-																						: Number.parseFloat(stock.debtToEquity) > 1.5
-																						? "text-red-500 dark:text-red-400"
-																						: Number.parseFloat(stock.debtToEquity) <= 0.3
-																						? "text-emerald-600 dark:text-emerald-400"
-																						: ""
-																					: ""
-																			}`}>
-																				{formatNum(stock.debtToEquity)}
-																			</td>
-																			{/* Phase 4a: Alpha vs NIFTY 50 — green=outperformed, red=underperformed */}
-																			<td
-																				className={`py-2.5 px-3 text-right font-mono text-xs ${
-																					stock.returnVsNifty1Y
-																						? Number.parseFloat(stock.returnVsNifty1Y) > 0
-																							? "text-emerald-600 dark:text-emerald-400 font-semibold"
-																							: "text-red-500 dark:text-red-400"
-																						: "text-muted-foreground"
-																				}`}
-																			>
-																				{stock.returnVsNifty1Y != null && stock.returnVsNifty1Y !== "" && !Number.isNaN(Number.parseFloat(stock.returnVsNifty1Y))
-																					? `${Number.parseFloat(stock.returnVsNifty1Y) > 0 ? "+" : ""}${(Number.parseFloat(stock.returnVsNifty1Y) * 100).toFixed(1)}%`
-																					: "-"}
-																			</td>
-																			{/* Beta */}
-																			<td className="py-2.5 px-3 text-right font-mono text-xs">
-																				{formatNum(stock.beta)}
-																			</td>
-																			{/* Sharpe 1Y */}
-																			<td
-																				className={`py-2.5 px-3 text-right font-mono text-xs ${
-																					stock.sharpeRatio1Y && Number.parseFloat(stock.sharpeRatio1Y) > 1
-																						? "text-emerald-600 dark:text-emerald-400 font-semibold"
-																						: ""
-																				}`}
-																			>
-																				{formatNum(stock.sharpeRatio1Y)}
-																			</td>
-																			{/* Sortino 1Y */}
-																			<td
-																				className={`py-2.5 px-3 text-right font-mono text-xs ${
-																					stock.sortinoRatio1Y && Number.parseFloat(stock.sortinoRatio1Y) > 1
-																						? "text-emerald-600 dark:text-emerald-400 font-semibold"
-																						: ""
-																				}`}
-																			>
-																				{formatNum(stock.sortinoRatio1Y)}
-																			</td>
-																			{/* Phase 4b: Analyst consensus upside % with Rating Badge */}
-																			<td className="py-2.5 px-3 text-right font-mono text-xs">
-																				{stock.analystUpsidePct ? (
-																					<div className="flex flex-col items-end gap-0.5">
-																						<span
-																							className={`font-semibold ${
-																								Number.parseFloat(stock.analystUpsidePct) > 10
-																									? "text-emerald-600 dark:text-emerald-400"
-																									: Number.parseFloat(stock.analystUpsidePct) < -5
-																									? "text-red-500 dark:text-red-400"
-																									: ""
-																							}`}
-																						>
-																							{Number.parseFloat(stock.analystUpsidePct) > 0 ? "+" : ""}
-																							{Number.parseFloat(stock.analystUpsidePct).toFixed(1)}%
-																						</span>
-																						{stock.analystConsensusRating && (
+																						<MarketCapBadge
+																							category={stock.marketCapCategory}
+																						/>
+																						{stock.pvaClassification && (
 																							<Badge
 																								variant="outline"
-																								className={`text-[8px] h-3.5 px-1 py-0 leading-none ${
-																									stock.analystConsensusRating.includes("Buy")
-																										? "border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/40"
-																										: stock.analystConsensusRating.includes("Sell")
-																										? "border-red-500 text-red-600 dark:text-red-400 bg-red-50/50 dark:bg-red-950/40"
-																										: "border-slate-400 text-slate-600 dark:text-slate-400"
+																								className={`text-[9px] py-0 px-1 h-4 leading-none font-medium ${
+																									stock.pvaClassification === "INSTITUTIONAL_ACCUMULATION"
+																										? "border-emerald-500/50 text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30"
+																										: stock.pvaClassification === "INSTITUTIONAL_DISTRIBUTION"
+																										? "border-red-500/50 text-red-600 dark:text-red-400 bg-red-50/50 dark:bg-red-950/30"
+																										: stock.pvaClassification === "ABSORPTION_PULLBACK"
+																										? "border-blue-500/50 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/30"
+																										: "border-amber-500/50 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/30"
 																								}`}
+																								title={`PVA: ${stock.pvaClassification.replace(/_/g, " ")}`}
 																							>
-																								{stock.analystConsensusRating}
+																								{stock.pvaClassification === "INSTITUTIONAL_ACCUMULATION"
+																									? "Accumulation"
+																									: stock.pvaClassification === "INSTITUTIONAL_DISTRIBUTION"
+																									? "Distribution"
+																									: stock.pvaClassification === "ABSORPTION_PULLBACK"
+																									? "Absorption"
+																									: "PVA Active"}
 																							</Badge>
 																						)}
+																						{stock.sector && (
+																							<span className="text-[10px] text-muted-foreground truncate max-w-[130px]">
+																								{stock.sector}
+																							</span>
+																						)}
 																					</div>
-																				) : (
-																					<span className="text-muted-foreground">-</span>
-																				)}
+																				</div>
 																			</td>
-																			{/* Phase 4c: DCF intrinsic value upside % with Valuation Signal */}
-																			<td className="py-2.5 px-3 text-right font-mono text-xs">
-																				{stock.dcfUpsidePercent ? (
-																					<div className="flex flex-col items-end gap-0.5">
+
+																			{/* Price & 1Y Return (Stacked) */}
+																			<td className="py-2.5 px-3 text-right align-top">
+																				<div className="font-mono font-medium text-xs sm:text-sm text-foreground">
+																					{formatCurrency(stock.currentPrice)}
+																				</div>
+																				<div className="text-[10px] font-mono mt-0.5">
+																					{!Number.isNaN(ret1Y) && ret1Y !== 0 ? (
 																						<span
-																							className={`font-semibold ${
-																								Number.parseFloat(stock.dcfUpsidePercent) > 15
-																									? "text-emerald-600 dark:text-emerald-400"
-																									: Number.parseFloat(stock.dcfUpsidePercent) < -15
-																									? "text-red-500 dark:text-red-400"
-																									: ""
-																							}`}
+																							className={
+																								ret1Y > 0
+																									? "text-emerald-600 dark:text-emerald-400 font-medium"
+																									: "text-red-500 dark:text-red-400 font-medium"
+																							}
 																						>
-																							{Number.parseFloat(stock.dcfUpsidePercent) > 0 ? "+" : ""}
-																							{Number.parseFloat(stock.dcfUpsidePercent).toFixed(1)}%
+																							1Y: {ret1Y > 0 ? "+" : ""}{formatMetricPercent(ret1Y)}
 																						</span>
-																						<Badge
-																							variant="outline"
-																							className={`text-[8px] h-3.5 px-1 py-0 leading-none ${
-																								Number.parseFloat(stock.dcfUpsidePercent) > 15
-																									? "border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/40"
-																									: Number.parseFloat(stock.dcfUpsidePercent) < -15
-																									? "border-red-500 text-red-600 dark:text-red-400 bg-red-50/50 dark:bg-red-950/40"
-																									: "border-blue-400 text-blue-600 dark:text-blue-400 bg-blue-50/40 dark:bg-blue-950/30"
+																					) : (
+																						<span className="text-muted-foreground">1Y: -</span>
+																					)}
+																				</div>
+																			</td>
+
+																			{/* Market Cap & DCF Signal (Stacked) */}
+																			<td className="py-2.5 px-3 text-right align-top">
+																				<div className="font-mono font-medium text-xs sm:text-sm text-foreground">
+																					{formatMarketCap(stock.marketCapValue)}
+																				</div>
+																				<div className="text-[10px] mt-0.5 flex justify-end">
+																					{!Number.isNaN(dcfUpside) && dcfUpside !== 0 ? (
+																						<span
+																							className={`font-medium ${
+																								dcfUpside > 15
+																									? "text-emerald-600 dark:text-emerald-400"
+																									: dcfUpside < -15
+																									? "text-red-500 dark:text-red-400"
+																									: "text-muted-foreground"
 																							}`}
 																						>
-																							{Number.parseFloat(stock.dcfUpsidePercent) > 15
-																								? "Undervalued"
-																								: Number.parseFloat(stock.dcfUpsidePercent) < -15
-																								? "Overvalued"
-																								: "Fair Value"}
-																						</Badge>
-																					</div>
-																				) : (
-																					<span className="text-muted-foreground">-</span>
-																				)}
+																							DCF: {dcfUpside > 0 ? "+" : ""}{dcfUpside.toFixed(0)}%
+																						</span>
+																					) : (
+																						<span className="text-muted-foreground capitalize">
+																							{stock.marketCapCategory || "Equity"}
+																						</span>
+																					)}
+																				</div>
 																			</td>
-																			<td className="py-2.5 px-3 text-center">
-																				<ScoreBreakdownTooltip stock={stock} />
+
+																			{/* P/E & Forward P/E (Stacked) */}
+																			<td className="py-2.5 px-3 text-right align-top">
+																				<div
+																					className={`font-mono font-medium text-xs sm:text-sm ${
+																						stock.peRatio
+																							? Number.parseFloat(stock.peRatio) < 0
+																								? "text-red-500"
+																								: Number.parseFloat(stock.peRatio) > 50
+																								? "text-red-500"
+																								: Number.parseFloat(stock.peRatio) <= 25
+																								? "text-emerald-600 dark:text-emerald-400"
+																								: ""
+																							: ""
+																					}`}
+																				>
+																					{formatNum(stock.peRatio)}
+																				</div>
+																				<div className="text-[10px] font-mono text-muted-foreground mt-0.5">
+																					Fwd: {stock.forwardPe ? formatNum(stock.forwardPe) : "-"}
+																				</div>
 																			</td>
-																			<td className="py-2.5 px-3 text-center">
-																				<RatingStars
-																					rating={stock.fintekRating}
-																				/>
+
+																			{/* PEG & Dividend Yield (Stacked) */}
+																			<td className="py-2.5 px-3 text-right align-top">
+																				<div className="font-mono font-medium text-xs sm:text-sm">
+																					{!Number.isNaN(peg) && peg > 0 ? (
+																						<span
+																							className={
+																								peg < 1
+																									? "text-emerald-600 dark:text-emerald-400 font-semibold"
+																									: peg > 2
+																									? "text-red-500 font-semibold"
+																									: "text-foreground"
+																							}
+																						>
+																							{peg.toFixed(2)}
+																						</span>
+																					) : (
+																						<span className="text-muted-foreground">-</span>
+																					)}
+																				</div>
+																				<div className="text-[10px] font-mono text-muted-foreground mt-0.5">
+																					Div: {stock.dividendYield ? formatMetricPercent(stock.dividendYield) : "-"}
+																				</div>
 																			</td>
-																			<td className="py-2.5 px-3 text-center">
-																				<div className="flex items-center justify-center gap-1">
+
+																			{/* ROCE & ROE (Stacked) */}
+																			<td className="py-2.5 px-3 text-right align-top">
+																				<div className="font-mono font-medium text-xs sm:text-sm">
+																					{stock.roce != null ? (
+																						<span
+																							className={
+																								Number(stock.roce) >= 18
+																									? "text-emerald-600 dark:text-emerald-400 font-semibold"
+																									: ""
+																							}
+																						>
+																							{formatMetricPercent(stock.roce)}
+																						</span>
+																					) : (
+																						<span className="text-muted-foreground">-</span>
+																					)}
+																				</div>
+																				<div className="text-[10px] font-mono text-muted-foreground mt-0.5">
+																					ROE: {stock.roe != null ? formatMetricPercent(stock.roe) : "-"}
+																				</div>
+																			</td>
+
+																			{/* Debt/Equity & Beta (Stacked) */}
+																			<td className="py-2.5 px-3 text-right align-top">
+																				<div className="font-mono font-medium text-xs sm:text-sm">
+																					{stock.debtToEquity != null ? (
+																						<span
+																							className={
+																								Number(stock.debtToEquity) <= 0.5
+																									? "text-emerald-600 dark:text-emerald-400 font-medium"
+																									: Number(stock.debtToEquity) > 1.5
+																									? "text-red-500 font-medium"
+																									: ""
+																							}
+																						>
+																							{formatNum(stock.debtToEquity)}
+																						</span>
+																					) : (
+																						<span className="text-muted-foreground">-</span>
+																					)}
+																				</div>
+																				<div className="text-[10px] font-mono text-muted-foreground mt-0.5">
+																					β: {stock.beta ? formatNum(stock.beta) : "-"}
+																				</div>
+																			</td>
+
+																			{/* Score & Rating (Stacked) */}
+																			<td className="py-2.5 px-3 text-center align-top">
+																				<div className="flex justify-center">
+																					<ScoreBreakdownTooltip stock={stock} />
+																				</div>
+																				<div className="mt-1 flex justify-center scale-90 origin-center">
+																					<RatingStars rating={stock.fintekRating} />
+																				</div>
+																			</td>
+
+																			{/* Actions (View button opens detail modal + Chart & AI Bot) */}
+																			<td className="py-2.5 px-3 text-center align-top" onClick={(e) => e.stopPropagation()}>
+																				<div className="flex items-center justify-center gap-1.5 pt-0.5">
+																					<Button
+																						variant="outline"
+																						size="sm"
+																						className="h-7 px-2.5 text-xs font-semibold flex items-center gap-1 bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground border-primary/20 shadow-xs transition-colors"
+																						title="View Deep Dive Analysis"
+																						onClick={() => setDetailStock(stock)}
+																					>
+																						<Eye className="h-3.5 w-3.5" />
+																						<span>View</span>
+																					</Button>
 																					<Button
 																						variant="ghost"
 																						size="sm"
-																						className="h-6 w-6 p-0 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+																						className="h-7 w-7 p-0 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
 																						title="View Interactive Price Chart"
-																						onClick={(e) => {
-																							e.stopPropagation();
-																							setChartStock(stock);
-																						}}
+																						onClick={() => setChartStock(stock)}
 																					>
 																						<TrendingUp className="h-3.5 w-3.5" />
 																					</Button>
 																					<Button
 																						variant="ghost"
 																						size="sm"
-																						className="h-6 w-6 p-0 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+																						className="h-7 w-7 p-0 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
 																						title="Chat with AI"
-																						onClick={(e) => {
-																							e.stopPropagation();
+																						onClick={() => {
 																							handleOpenChat({
 																								id: stock.symbol,
 																								name: stock.companyName,
@@ -4508,831 +4365,16 @@ export default function AgentScreener() {
 																					>
 																						<Bot className="h-3.5 w-3.5" />
 																					</Button>
-																					<Button
-																						variant="ghost"
-																						size="sm"
-																						className="h-6 w-6 p-0"
-																						onClick={() =>
-																							setExpandedStock(
-																								expandedStock === stock.symbol
-																									? null
-																									: stock.symbol,
-																							)
-																						}
-																					>
-																						<Eye
-																							className={`h-3.5 w-3.5 ${expandedStock === stock.symbol ? "text-primary" : "text-muted-foreground"}`}
-																						/>
-																					</Button>
 																				</div>
 																			</td>
 																		</tr>
-																		{expandedStock === stock.symbol && (
-																			<tr key={`${stock.symbol}-detail`}>
-																				<td
-																					colSpan={21}
-																					className="bg-muted/10 border-b"
-																				>
-																					<div className="p-4 space-y-4">
-																						{/* Interactive Price & Volume Chart */}
-																						<div className="border rounded-lg bg-card/70 p-2 shadow-xs">
-																							<MarketChart
-																								symbol={stock.symbol}
-																								title={`${stock.companyName} (${stock.symbol})`}
-																								height={320}
-																							/>
-																						</div>
-
-																						{detailLoading ? (
-																							<div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-																								<Loader2 className="h-4 w-4 animate-spin" />
-																								Loading company financials & details...
-																							</div>
-																						) : stockDetail ? (
-																							<>
-																								{/* Fundamental Strengths & Risks Box */}
-																								<ScreenerProsConsBox
-																									pros={stockDetail.financials?.[0]?.pros}
-																									cons={stockDetail.financials?.[0]?.cons}
-																									companyName={stock.companyName}
-																								/>
-
-																								<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-																								<div className="space-y-3">
-																									<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-																										<Building2 className="h-3.5 w-3.5" />
-																										Company Info
-																									</h4>
-																									<div className="space-y-1.5 text-xs">
-																										<div className="flex justify-between">
-																											<span className="text-muted-foreground">
-																												Exchange
-																											</span>
-																											<span className="font-medium">
-																												{stockDetail.stock
-																													?.exchange || "-"}
-																											</span>
-																										</div>
-																										<div className="flex justify-between">
-																											<span className="text-muted-foreground">
-																												ISIN
-																											</span>
-																											<span className="font-mono">
-																												{stockDetail.stock
-																													?.isin || "-"}
-																											</span>
-																										</div>
-																										<div className="flex justify-between">
-																											<span className="text-muted-foreground">
-																												Sector
-																											</span>
-																											<span className="font-medium">
-																												{stockDetail.stock?.sector && stockDetail.stock.sector !== "Diversified"
-																													? stockDetail.stock.sector
-																													: stock.sector || "Energy & Utilities"}
-																											</span>
-																										</div>
-																										<div className="flex justify-between">
-																											<span className="text-muted-foreground">
-																												Industry
-																											</span>
-																											<span className="font-medium">
-																												{stockDetail.stock?.industry && stockDetail.stock.industry !== "Diversified"
-																													? stockDetail.stock.industry
-																													: stock.industry || "Mining & Minerals"}
-																											</span>
-																										</div>
-																										<div className="flex justify-between">
-																											<span className="text-muted-foreground">
-																												Data Source
-																											</span>
-																											<Badge
-																												variant="outline"
-																												className="text-[9px] h-4"
-																											>
-																												{stockDetail.stock
-																													?.dataSource || "-"}
-																											</Badge>
-																										</div>
-																									</div>
-																								</div>
-																								<div className="space-y-3">
-																									<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-																										<BarChart3 className="h-3.5 w-3.5" />
-																										Financial Metrics
-																									</h4>
-																									{stockDetail
-																										.financials?.[0] ? (
-																										<div className="space-y-1.5 text-xs">
-																											<div className="flex justify-between">
-																												<span className="text-muted-foreground">
-																													P/E Ratio
-																												</span>
-																												<span className="font-mono">
-																													{formatNum(
-																														stockDetail
-																															.financials[0]
-																															.peRatio,
-																													)}
-																												</span>
-																											</div>
-																											<div className="flex justify-between">
-																												<span className="text-muted-foreground">
-																													P/B Ratio
-																												</span>
-																												<span className="font-mono">
-																													{formatNum(
-																														stockDetail
-																															.financials[0]
-																															.pbRatio,
-																													)}
-																												</span>
-																											</div>
-																											<div className="flex justify-between">
-																												<span className="text-muted-foreground">
-																													ROE
-																												</span>
-																												<span className="font-mono">
-																													{stockDetail
-																														.financials[0].roe
-																														? formatPercent(
-																																stockDetail
-																																	.financials[0]
-																																	.roe,
-																																100,
-																															)
-																														: "-"}
-																												</span>
-																											</div>
-																											<div className="flex justify-between">
-																												<span className="text-muted-foreground">
-																													ROA
-																												</span>
-																												<span className="font-mono">
-																													{(() => {
-																														const roa = stockDetail.financials?.[0]?.roa ?? (() => {
-																															const fin = stockDetail.financials?.[0];
-																															if (!fin) return null;
-																															if (fin.netIncome != null && fin.totalAssets != null && Number(fin.totalAssets) > 0) {
-																																return Number(fin.netIncome) / Number(fin.totalAssets);
-																															}
-																															if (fin.roe != null && fin.debtToEquity != null) {
-																																const r = Number(fin.roe);
-																																const d = Number(fin.debtToEquity);
-																																if (!Number.isNaN(r) && !Number.isNaN(d) && d >= 0) return r / (1 + d);
-																															}
-																															return null;
-																														})();
-																														return roa != null ? formatMetricPercent(roa, 2) : "-";
-																													})()}
-																												</span>
-																											</div>
-																											<div className="flex justify-between">
-																												<span className="text-muted-foreground">
-																													PEG Ratio
-																												</span>
-																												<span className="font-mono">
-																													{(() => {
-																														const peg = stockDetail.financials?.[0]?.pegRatio ?? stock.pegRatio ?? (() => {
-																															const pe = Number(stockDetail.financials?.[0]?.peRatio ?? stock.peRatio);
-																															const g = Number(stockDetail.financials?.[0]?.earningsGrowth ?? stock.earningsGrowth3Y ?? stock.revenueGrowth3Y);
-																															if (pe > 0 && g > 0) {
-																																const gPct = g <= 1 ? g * 100 : g;
-																																if (gPct >= 1) return (pe / gPct).toFixed(2);
-																															}
-																															return null;
-																														})();
-																														return peg != null ? `${Number(peg).toFixed(2)}` : "-";
-																													})()}
-																												</span>
-																											</div>
-																											<div className="flex justify-between">
-																												<span className="text-muted-foreground">
-																													EPS
-																												</span>
-																												<span className="font-mono">
-																													{formatNum(
-																														stockDetail
-																															.financials[0]
-																															.eps,
-																													)}
-																												</span>
-																											</div>
-																											<div className="flex justify-between">
-																												<span className="text-muted-foreground">
-																													Book Value
-																												</span>
-																												<span className="font-mono">
-																													{formatNum(
-																														stockDetail
-																															.financials[0]
-																															.bookValue,
-																													)}
-																												</span>
-																											</div>
-																											<div className="flex justify-between">
-																												<span className="text-muted-foreground">
-																													D/E
-																												</span>
-																												<span className="font-mono">
-																													{formatNum(
-																														stockDetail
-																															.financials[0]
-																															.debtToEquity,
-																													)}
-																												</span>
-																											</div>
-																											<div className="flex justify-between">
-																												<span className="text-muted-foreground">
-																													Dividend Yield
-																												</span>
-																												<span className="font-mono">
-																													{stockDetail
-																														.financials[0]
-																														.dividendYield
-																														? formatPercent(
-																																stockDetail
-																																	.financials[0]
-																																	.dividendYield,
-																																100,
-																															)
-																														: "-"}
-																												</span>
-																											</div>
-																											<Separator className="my-1" />
-																											{/* Phase 2b fix: returns sourced from derivedMetrics or stock snapshot */}
-																											<div className="flex justify-between">
-																												<span className="text-muted-foreground">1Y Return</span>
-																												<span className={`font-mono ${Number.parseFloat(stockDetail.derivedMetrics?.return1Y ?? stock.return1Y ?? "0") >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-																													{(stockDetail.derivedMetrics?.return1Y ?? stock.return1Y)
-																														? `${Number.parseFloat(stockDetail.derivedMetrics?.return1Y ?? stock.return1Y) >= 0 ? "+" : ""}${formatMetricPercent(stockDetail.derivedMetrics?.return1Y ?? stock.return1Y, 1)}`
-																														: "N/A"}
-																												</span>
-																											</div>
-																											<div className="flex justify-between">
-																												<span className="text-muted-foreground">2Y Return</span>
-																												<span className={`font-mono ${Number.parseFloat(stockDetail.derivedMetrics?.return2Y ?? stock.return2Y ?? "0") >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-																													{(stockDetail.derivedMetrics?.return2Y ?? stock.return2Y)
-																														? `${Number.parseFloat(stockDetail.derivedMetrics?.return2Y ?? stock.return2Y) >= 0 ? "+" : ""}${formatMetricPercent(stockDetail.derivedMetrics?.return2Y ?? stock.return2Y, 1)}`
-																														: "N/A"}
-																												</span>
-																											</div>
-																											<div className="flex justify-between">
-																												<span className="text-muted-foreground">3Y Return</span>
-																												<span className={`font-mono ${Number.parseFloat(stockDetail.derivedMetrics?.return3Y ?? stock.return3Y ?? "0") >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-																													{(stockDetail.derivedMetrics?.return3Y ?? stock.return3Y)
-																														? `${Number.parseFloat(stockDetail.derivedMetrics?.return3Y ?? stock.return3Y) >= 0 ? "+" : ""}${formatMetricPercent(stockDetail.derivedMetrics?.return3Y ?? stock.return3Y, 1)}`
-																														: "N/A"}
-																												</span>
-																											</div>
-																											<div className="flex justify-between">
-																												<span className="text-muted-foreground">5Y Return</span>
-																												<span className={`font-mono ${Number.parseFloat(stockDetail.derivedMetrics?.return5Y ?? stock.return5Y ?? "0") >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-																													{(stockDetail.derivedMetrics?.return5Y ?? stock.return5Y)
-																														? `${Number.parseFloat(stockDetail.derivedMetrics?.return5Y ?? stock.return5Y) >= 0 ? "+" : ""}${formatMetricPercent(stockDetail.derivedMetrics?.return5Y ?? stock.return5Y, 1)}`
-																														: "N/A"}
-																												</span>
-																											</div>
-																										</div>
-																									) : (
-																										<p className="text-xs text-muted-foreground">
-																											No financial data
-																											available
-																										</p>
-																									)}
-																								</div>
-																								{/* Phase 4b: Valuation Signals — Analyst Consensus + DCF + Alpha */}
-																								<div className="space-y-3">
-																									<div className="flex items-center justify-between">
-																										<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-																											<TrendingUp className="h-3.5 w-3.5 text-cyan-600" />
-																											GCP Valuation Signals
-																										</h4>
-																										<Badge variant="outline" className="text-[9px] h-4 bg-cyan-50/50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-300 border-cyan-300">
-																											GCP Native
-																										</Badge>
-																									</div>
-																									<div className="space-y-1.5 text-xs">
-																										{stock.analystAvgTarget ? (
-																											<>
-																												<div className="flex justify-between items-center"><span className="text-muted-foreground">Analyst Rating</span>{stock.analystConsensusRating && (<Badge variant="outline" className={`text-[9px] h-4 font-semibold ${stock.analystConsensusRating === 'Strong Buy' || stock.analystConsensusRating === 'Buy' ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/40' : stock.analystConsensusRating === 'Sell' || stock.analystConsensusRating === 'Strong Sell' ? 'border-red-500 text-red-600 dark:text-red-400 bg-red-50/50 dark:bg-red-950/40' : 'border-slate-400 text-slate-600 dark:text-slate-400'}`}>{stock.analystConsensusRating}</Badge>)}</div>
-																												<div className="flex justify-between"><span className="text-muted-foreground">Avg Target (12M)</span><span className="font-mono font-semibold">₹{Number.parseFloat(stock.analystAvgTarget).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span></div>
-																												<div className="flex justify-between"><span className="text-muted-foreground">Analyst Upside</span><span className={`font-mono font-semibold ${stock.analystUpsidePct && Number.parseFloat(stock.analystUpsidePct) > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>{stock.analystUpsidePct ? `${Number.parseFloat(stock.analystUpsidePct) > 0 ? "+" : ""}${Number.parseFloat(stock.analystUpsidePct).toFixed(1)}%` : "-"}</span></div>
-																												<div className="flex justify-between"><span className="text-muted-foreground">Coverage Basket</span><span className="font-mono">{stock.analystCount ?? "8"} inst.</span></div>
-																											</>
-																										) : (<p className="text-muted-foreground text-xs">Awaiting consensus run</p>)}
-																										{stock.dcfUpsidePercent && (
-																											<div className="mt-2 pt-2 border-t space-y-1.5">
-																												<div className="flex justify-between items-center"><span className="text-muted-foreground">DCF Intrinsic vs CMP</span><span className={`font-mono font-semibold ${Number.parseFloat(stock.dcfUpsidePercent) > 15 ? 'text-emerald-600 dark:text-emerald-400' : Number.parseFloat(stock.dcfUpsidePercent) < -15 ? 'text-red-500 dark:text-red-400' : ''}`}>{`${Number.parseFloat(stock.dcfUpsidePercent) > 0 ? "+" : ""}${Number.parseFloat(stock.dcfUpsidePercent).toFixed(1)}%`}</span></div>
-																												<div className="flex justify-between items-center"><span className="text-muted-foreground">Valuation Signal</span><Badge variant="outline" className={`text-[9px] h-4 ${Number.parseFloat(stock.dcfUpsidePercent) > 15 ? 'border-emerald-500 text-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/40' : Number.parseFloat(stock.dcfUpsidePercent) < -15 ? 'border-red-500 text-red-600 bg-red-50/50 dark:bg-red-950/40' : 'border-blue-400 text-blue-600 bg-blue-50/40'}`}>{Number.parseFloat(stock.dcfUpsidePercent) > 15 ? 'Undervalued' : Number.parseFloat(stock.dcfUpsidePercent) < -15 ? 'Overvalued' : 'Fair Value'}</Badge></div>
-																											</div>
-																										)}
-																										{stock.forwardPe && (
-																											<div className="mt-2 pt-2 border-t">
-																												<div className="flex justify-between items-center"><span className="text-muted-foreground">Forward P/E (1Y)</span><span className="font-mono font-semibold">{Number.parseFloat(stock.forwardPe).toFixed(1)}×</span></div>
-																											</div>
-																										)}
-																										{stock.returnVsNifty1Y && (<div className="mt-2 pt-2 border-t"><div className="flex justify-between"><span className="text-muted-foreground">α vs NIFTY (1Y)</span><span className={`font-mono font-semibold ${Number.parseFloat(stock.returnVsNifty1Y) > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>{`${Number.parseFloat(stock.returnVsNifty1Y) > 0 ? "+" : ""}${(Number.parseFloat(stock.returnVsNifty1Y) * 100).toFixed(1)}%`}</span></div></div>)}
-																									</div>
-																								</div>
-																								{/* GCP Risk & Volatility Ratios */}
-																								<div className="space-y-3">
-																									<div className="flex items-center justify-between">
-																										<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-																											<LucideShield className="h-3.5 w-3.5 text-primary" />
-																											GCP Risk & Ratios
-																										</h4>
-																										<Badge variant="outline" className="text-[9px] h-4 bg-primary/5 text-primary border-primary/30">
-																											Risk-Adjusted
-																										</Badge>
-																									</div>
-																									<div className="space-y-1.5 text-xs">
-																										<div className="flex justify-between">
-																											<span className="text-muted-foreground">Beta (vs NIFTY 50)</span>
-																											<span className="font-mono font-semibold">
-																												{(stock.beta ?? stockDetail.derivedMetrics?.beta) ? Number.parseFloat(stock.beta ?? stockDetail.derivedMetrics?.beta).toFixed(2) : "-"}
-																											</span>
-																										</div>
-																										<div className="flex justify-between">
-																											<span className="text-muted-foreground">Sharpe Ratio (1Y)</span>
-																											<span className={`font-mono font-semibold ${(stock.sharpeRatio1Y ?? stockDetail.derivedMetrics?.sharpeRatio1Y) && Number.parseFloat(stock.sharpeRatio1Y ?? stockDetail.derivedMetrics?.sharpeRatio1Y) > 1 ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
-																												{(stock.sharpeRatio1Y ?? stockDetail.derivedMetrics?.sharpeRatio1Y) ? Number.parseFloat(stock.sharpeRatio1Y ?? stockDetail.derivedMetrics?.sharpeRatio1Y).toFixed(2) : "-"}
-																											</span>
-																										</div>
-																										<div className="flex justify-between">
-																											<span className="text-muted-foreground">Sortino Ratio (1Y)</span>
-																											<span className={`font-mono font-semibold ${(stock.sortinoRatio1Y ?? stockDetail.derivedMetrics?.sortinoRatio1Y) && Number.parseFloat(stock.sortinoRatio1Y ?? stockDetail.derivedMetrics?.sortinoRatio1Y) > 1 ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
-																												{(stock.sortinoRatio1Y ?? stockDetail.derivedMetrics?.sortinoRatio1Y) ? Number.parseFloat(stock.sortinoRatio1Y ?? stockDetail.derivedMetrics?.sortinoRatio1Y).toFixed(2) : "-"}
-																											</span>
-																										</div>
-																										<div className="flex justify-between">
-																											<span className="text-muted-foreground">Volatility (30D Ann.)</span>
-																											<span className="font-mono">
-																												{(stock.volatility30D ?? stockDetail.derivedMetrics?.volatility30D) ? `${(Number.parseFloat(stock.volatility30D ?? stockDetail.derivedMetrics?.volatility30D) * 100).toFixed(1)}%` : "-"}
-																											</span>
-																										</div>
-																										<div className="flex justify-between">
-																											<span className="text-muted-foreground">Max Drawdown (1Y)</span>
-																											<span className="font-mono text-red-500">
-																												{(stock.maxDrawdown1Y ?? stockDetail.derivedMetrics?.maxDrawdown1Y) ? `${(Number.parseFloat(stock.maxDrawdown1Y ?? stockDetail.derivedMetrics?.maxDrawdown1Y) * 100).toFixed(1)}%` : "-"}
-																											</span>
-																										</div>
-																										{(stock.piotroskiScore != null || stock.altmanZScore != null) && (
-																											<div className="mt-2 pt-2 border-t space-y-1.5">
-																												{stock.piotroskiScore != null && (
-																													<div className="flex justify-between items-center">
-																														<span className="text-muted-foreground">Piotroski F-Score</span>
-																														<Badge variant="outline" className={`text-[9px] h-4 font-mono font-semibold ${stock.piotroskiScore >= 7 ? "border-emerald-500 text-emerald-600 bg-emerald-50/50" : stock.piotroskiScore <= 3 ? "border-red-500 text-red-600 bg-red-50/50" : "border-amber-500 text-amber-600"}`}>
-																															{stock.piotroskiScore}/9 {stock.piotroskiScore >= 7 ? "(Strong)" : stock.piotroskiScore <= 3 ? "(Weak)" : ""}
-																														</Badge>
-																													</div>
-																												)}
-																												{stock.altmanZScore != null && (
-																													<div className="flex justify-between items-center">
-																														<span className="text-muted-foreground">Altman Z-Score</span>
-																														<Badge variant="outline" className={`text-[9px] h-4 font-mono font-semibold ${Number.parseFloat(stock.altmanZScore) > 2.99 ? "border-emerald-500 text-emerald-600 bg-emerald-50/50" : Number.parseFloat(stock.altmanZScore) < 1.81 ? "border-red-500 text-red-600 bg-red-50/50" : "border-blue-400 text-blue-600 bg-blue-50/50"}`}>
-																															{Number.parseFloat(stock.altmanZScore).toFixed(2)} {Number.parseFloat(stock.altmanZScore) > 2.99 ? "(Safe)" : Number.parseFloat(stock.altmanZScore) < 1.81 ? "(Distress)" : "(Grey)"}
-																														</Badge>
-																													</div>
-																												)}
-																											</div>
-																										)}
-																									</div>
-																								</div>
-																								{/* Phase 5: Advanced Valuation */}
-																								{Boolean(stock.roic || stock.evToEbitda || stock.evToRevenue || stock.pfcfRatio || stock.earningsYield || stock.freeCashFlowYield || stock.grahamNumber || stock.magicFormulaRank != null) && (
-																									<div className="space-y-3">
-																										<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-																											<Target className="h-3.5 w-3.5" />
-																											Advanced Valuation
-																										</h4>
-																										<div className="space-y-1.5 text-xs">
-																											{stock.roic && <div className="flex justify-between"><span className="text-muted-foreground">ROIC</span><span className={`font-mono font-semibold ${Number.parseFloat(stock.roic) > 0.15 ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>{formatMetricPercent(stock.roic, 1)}</span></div>}
-																											{stock.evToEbitda && <div className="flex justify-between"><span className="text-muted-foreground">EV/EBITDA</span><span className="font-mono">{Number.parseFloat(stock.evToEbitda).toFixed(1)}×</span></div>}
-																											{stock.evToRevenue && <div className="flex justify-between"><span className="text-muted-foreground">EV/Revenue</span><span className="font-mono">{Number.parseFloat(stock.evToRevenue).toFixed(2)}×</span></div>}
-																											{stock.pfcfRatio && <div className="flex justify-between"><span className="text-muted-foreground">P/FCF</span><span className="font-mono">{Number.parseFloat(stock.pfcfRatio).toFixed(1)}×</span></div>}
-																											{stock.earningsYield && <div className="flex justify-between"><span className="text-muted-foreground">Earnings Yield</span><span className="font-mono">{formatMetricPercent(stock.earningsYield, 2)}</span></div>}
-																											{stock.freeCashFlowYield && <div className="flex justify-between"><span className="text-muted-foreground">FCF Yield</span><span className="font-mono">{formatMetricPercent(stock.freeCashFlowYield, 2)}</span></div>}
-																											{stock.grahamNumber && (
-																												<div className="flex justify-between items-center">
-																													<span className="text-muted-foreground">Graham Number</span>
-																													<div className="text-right">
-																														<span className="font-mono">₹{Number.parseFloat(stock.grahamNumber).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
-																														{stock.grahamUpside && (
-																															<Badge variant="outline" className={`ml-1 text-[9px] h-4 ${Number.parseFloat(stock.grahamUpside) > 0 ? 'border-emerald-500 text-emerald-600' : 'border-red-400 text-red-500'}`}>
-																																{Number.parseFloat(stock.grahamUpside) > 0 ? "+" : ""}{Number.parseFloat(stock.grahamUpside).toFixed(1)}%
-																															</Badge>
-																														)}
-																													</div>
-																												</div>
-																											)}
-																											{stock.magicFormulaRank != null && (
-																												<div className="flex justify-between items-center">
-																													<span className="text-muted-foreground">Magic Formula Rank</span>
-																													<Badge variant="outline" className={`text-[9px] h-4 ${stock.magicFormulaRank <= 100 ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' : stock.magicFormulaRank <= 300 ? 'border-amber-500 text-amber-600' : 'border-muted-foreground text-muted-foreground'}`}>
-																														#{stock.magicFormulaRank}
-																													</Badge>
-																												</div>
-																											)}
-																										</div>
-																									</div>
-																								)}
-
-																								{/* Phase 5: Efficiency */}
-																								{Boolean(stock.fcfMargin || stock.operatingMargin || stock.assetTurnover || stock.incomeQuality || stock.daysSalesOutstanding || stock.daysInventoryOnHand || stock.daysPayablesOutstanding || stock.cashConversionCycle) && (
-																									<div className="space-y-3">
-																										<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-																											<BarChart2 className="h-3.5 w-3.5" />
-																											Efficiency
-																										</h4>
-																										<div className="space-y-1.5 text-xs">
-																											{stock.fcfMargin && <div className="flex justify-between"><span className="text-muted-foreground">FCF Margin</span><span className={`font-mono font-semibold ${Number.parseFloat(stock.fcfMargin) > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>{formatMetricPercent(stock.fcfMargin, 1)}</span></div>}
-																											{stock.operatingMargin && <div className="flex justify-between"><span className="text-muted-foreground">Op. Margin</span><span className="font-mono">{formatMetricPercent(stock.operatingMargin, 1)}</span></div>}
-																											{stock.assetTurnover && <div className="flex justify-between"><span className="text-muted-foreground">Asset Turnover</span><span className="font-mono">{Number.parseFloat(stock.assetTurnover).toFixed(2)}×</span></div>}
-																											{stock.incomeQuality && <div className="flex justify-between items-center"><span className="text-muted-foreground">Income Quality</span><span className={`font-mono ${Number.parseFloat(stock.incomeQuality) >= 0.8 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600'}`}>{Number.parseFloat(stock.incomeQuality).toFixed(2)}</span></div>}
-																											{stock.daysSalesOutstanding && <div className="flex justify-between"><span className="text-muted-foreground">DSO (days)</span><span className="font-mono">{Number.parseFloat(stock.daysSalesOutstanding).toFixed(0)}</span></div>}
-																											{stock.daysInventoryOnHand && <div className="flex justify-between"><span className="text-muted-foreground">DIO (days)</span><span className="font-mono">{Number.parseFloat(stock.daysInventoryOnHand).toFixed(0)}</span></div>}
-																											{stock.daysPayablesOutstanding && <div className="flex justify-between"><span className="text-muted-foreground">DPO (days)</span><span className="font-mono">{Number.parseFloat(stock.daysPayablesOutstanding).toFixed(0)}</span></div>}
-																											{stock.cashConversionCycle && <div className="flex justify-between items-center border-t pt-1.5 mt-1"><span className="text-muted-foreground font-medium">Cash Conv. Cycle</span><span className={`font-mono font-semibold ${Number.parseFloat(stock.cashConversionCycle) < 0 ? 'text-emerald-600 dark:text-emerald-400' : Number.parseFloat(stock.cashConversionCycle) < 30 ? 'text-blue-600' : ''}`}>{Number.parseFloat(stock.cashConversionCycle).toFixed(0)} days</span></div>}
-																										</div>
-																									</div>
-																								)}
-
-																								{/* Phase 5: Ownership */}
-																								{Boolean(stock.promoterHolding != null || stock.fiiHolding != null || stock.diiHolding != null || stock.pledgedShares != null || (stockDetail?.shareholding && stockDetail.shareholding.length > 0)) && (
-																									<div className="space-y-3 min-w-[150px]">
-																										<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-																											<Users className="h-3.5 w-3.5" />
-																											Ownership
-																										</h4>
-																										<div className="space-y-1.5 text-xs">
-																											{(stock.promoterHolding != null || stockDetail?.shareholding?.[0]?.promoterHolding != null) && (
-																												<div className="flex justify-between items-center gap-2">
-																													<span className="text-muted-foreground truncate">Promoter</span>
-																													<div className="flex items-center gap-1.5 shrink-0">
-																														<span className="font-mono font-semibold">{Number.parseFloat(stock.promoterHolding ?? stockDetail?.shareholding?.[0]?.promoterHolding ?? "0").toFixed(1)}%</span>
-																														{(stock.promoterHoldingChange || stockDetail?.shareholding?.[0]?.promoterHoldingChange) && (
-																															<span className={`text-[10px] ${Number.parseFloat(stock.promoterHoldingChange ?? stockDetail?.shareholding?.[0]?.promoterHoldingChange) > 0 ? 'text-emerald-600' : Number.parseFloat(stock.promoterHoldingChange ?? stockDetail?.shareholding?.[0]?.promoterHoldingChange) < 0 ? 'text-red-500' : 'text-muted-foreground'}`}>
-																																{Number.parseFloat(stock.promoterHoldingChange ?? stockDetail?.shareholding?.[0]?.promoterHoldingChange) > 0 ? "▲" : Number.parseFloat(stock.promoterHoldingChange ?? stockDetail?.shareholding?.[0]?.promoterHoldingChange) < 0 ? "▼" : ""}
-																																{Math.abs(Number.parseFloat(stock.promoterHoldingChange ?? stockDetail?.shareholding?.[0]?.promoterHoldingChange)).toFixed(2)}%
-																															</span>
-																														)}
-																													</div>
-																												</div>
-																											)}
-																											{(stock.fiiHolding != null || stockDetail?.shareholding?.[0]?.fiiHolding != null) && (
-																												<div className="flex justify-between items-center gap-2">
-																													<span className="text-muted-foreground truncate">FII</span>
-																													<div className="flex items-center gap-1.5 shrink-0">
-																														<span className="font-mono">{Number.parseFloat(stock.fiiHolding ?? stockDetail?.shareholding?.[0]?.fiiHolding ?? "0").toFixed(1)}%</span>
-																														{(stock.fiiHoldingChange || stockDetail?.shareholding?.[0]?.fiiHoldingChange) && (
-																															<span className={`text-[10px] ${Number.parseFloat(stock.fiiHoldingChange ?? stockDetail?.shareholding?.[0]?.fiiHoldingChange) > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-																																{Number.parseFloat(stock.fiiHoldingChange ?? stockDetail?.shareholding?.[0]?.fiiHoldingChange) > 0 ? "▲" : "▼"}{Math.abs(Number.parseFloat(stock.fiiHoldingChange ?? stockDetail?.shareholding?.[0]?.fiiHoldingChange)).toFixed(2)}%
-																															</span>
-																														)}
-																													</div>
-																												</div>
-																											)}
-																											{(stock.diiHolding != null || stockDetail?.shareholding?.[0]?.diiHolding != null) && (
-																												<div className="flex justify-between items-center gap-2">
-																													<span className="text-muted-foreground truncate">DII</span>
-																													<span className="font-mono shrink-0">{Number.parseFloat(stock.diiHolding ?? stockDetail?.shareholding?.[0]?.diiHolding ?? "0").toFixed(1)}%</span>
-																												</div>
-																											)}
-																											<div className="flex justify-between items-center gap-2 border-t pt-1.5 mt-1">
-																												<span className="text-muted-foreground truncate">Pledged Shares</span>
-																												<span className={`font-mono font-semibold shrink-0 ${Number.parseFloat(stock.pledgedShares ?? stockDetail?.shareholding?.[0]?.pledgedShares ?? "0") > 20 ? 'text-red-600 dark:text-red-400' : Number.parseFloat(stock.pledgedShares ?? stockDetail?.shareholding?.[0]?.pledgedShares ?? "0") > 5 ? 'text-amber-600' : 'text-emerald-600 dark:text-emerald-400'}`}>
-																													{Number.parseFloat(stock.pledgedShares ?? stockDetail?.shareholding?.[0]?.pledgedShares ?? "0").toFixed(1)}%
-																												</span>
-																											</div>
-																										</div>
-																									</div>
-																								)}
-																								<div className="space-y-3">
-																									<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-																										<Target className="h-3.5 w-3.5" />
-																										Score Breakdown
-																									</h4>
-																									{stockDetail.derivedMetrics ? (
-																										<div className="space-y-2">
-																											{[
-																												{
-																													label: "Quality",
-																													score:
-																														stockDetail
-																															.derivedMetrics
-																															?.qualityScore,
-																													icon: Sparkles,
-																													color:
-																														"bg-purple-500",
-																													weight: "25%",
-																												},
-																												{
-																													label: "Growth",
-																													score:
-																														stockDetail
-																															.derivedMetrics
-																															?.growthScore,
-																													icon: TrendingUp,
-																													color: "bg-blue-500",
-																													weight: "20%",
-																												},
-																												{
-																													label: "Value",
-																													score:
-																														stockDetail
-																															.derivedMetrics
-																															?.valueScore,
-																													icon: Target,
-																													color:
-																														"bg-emerald-500",
-																													weight: "20%",
-																												},
-																												{
-																													label: "Momentum",
-																													score:
-																														stockDetail
-																															.derivedMetrics
-																															?.momentumScore ??
-																														stock.momentumScore,
-																													icon: Zap,
-																													color: "bg-amber-500",
-																													weight: "20%",
-																												},
-																												{
-																													label: "Risk / Safety",
-																													score:
-																														stockDetail
-																															.derivedMetrics
-																															?.riskScore,
-																													icon: LucideShield,
-																													color:
-																														"bg-orange-500",
-																													weight: "15%",
-																												},
-																											].map(
-																												({
-																													label,
-																													score,
-																													icon: Icon,
-																													color,
-																													weight,
-																												}) => {
-																													const s =
-																														Number.parseFloat(
-																															score || "0",
-																														);
-																													return (
-																														<div
-																															key={label}
-																															className="space-y-0.5"
-																														>
-																															<div className="flex items-center justify-between text-xs">
-																																<span className="flex items-center gap-1.5">
-																																	<Icon className="h-3 w-3 text-muted-foreground" />
-																																	{label}{" "}
-																																	<span className="text-muted-foreground">
-																																		({weight})
-																																	</span>
-																																</span>
-																																<span className="font-mono font-medium">
-																																	{s.toFixed(1)}
-																																</span>
-																															</div>
-																															<div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-																																<div
-																																	className={`h-full rounded-full ${color}`}
-																																	style={{
-																																		width: `${s}%`,
-																																	}}
-																																/>
-																															</div>
-																														</div>
-																													);
-																												},
-																											)}
-																											<Separator className="my-2" />
-																											<div className="flex items-center justify-between">
-																												<span className="text-xs font-semibold">
-																													Composite Score
-																												</span>
-																												<div className="flex items-center gap-2">
-																													<ScoreBadge
-																														score={
-																															stockDetail
-																																.derivedMetrics
-																																.compositeScore
-																														}
-																														label="Composite"
-																													/>
-																													<RatingStars
-																														rating={
-																															stockDetail
-																																.derivedMetrics
-																																.fintekRating
-																														}
-																													/>
-																												</div>
-																											</div>
-																										</div>
-																									) : (
-																										<p className="text-xs text-muted-foreground">
-																											No scoring data available
-																										</p>
-																									)}
-																								</div>
-																							</div>
-
-																							{stockDetail.marqueeBrokerageViews && (
-																								<div className="mt-4 border rounded-lg bg-card/70 p-3.5 space-y-3 shadow-xs">
-																									<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2">
-																										<div className="flex items-center gap-2 flex-wrap">
-																											<Landmark className="h-4 w-4 text-primary" />
-																											<span className="font-semibold text-xs tracking-tight text-foreground">
-																												Marquee Institutional Desk Views & Quoting Reference
-																											</span>
-																											<Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
-																												Reference Only
-																											</Badge>
-																											{stockDetail.marqueeBrokerageViews.consensusRating && (
-																												<Badge
-																													variant="outline"
-																													className={`text-[9px] px-1.5 py-0 font-semibold ${
-																														stockDetail.marqueeBrokerageViews.consensusRating.includes("BUY")
-																															? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
-																															: stockDetail.marqueeBrokerageViews.consensusRating.includes("SELL")
-																															? "bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/30"
-																															: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30"
-																													}`}
-																												>
-																													Consensus: {stockDetail.marqueeBrokerageViews.consensusRating}
-																												</Badge>
-																											)}
-																											{stockDetail.stockRegime && (
-																												<Badge
-																													variant="outline"
-																													className={`text-[9px] px-1.5 py-0 font-medium ${
-																														stockDetail.stockRegime === "BULLISH_TRENDING"
-																															? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
-																															: stockDetail.stockRegime === "EARLY_STAGE_BREAKOUT"
-																															? "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/30"
-																															: stockDetail.stockRegime === "BEARISH_DOWNTREND"
-																															? "bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/30"
-																															: stockDetail.stockRegime === "HIGH_VOLATILITY_CHOP"
-																															? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30"
-																															: "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30"
-																													}`}
-																												>
-																													Micro-Regime: {stockDetail.stockRegime.replace(/_/g, " ")}
-																												</Badge>
-																											)}
-																										</div>
-																										{stockDetail.marqueeBrokerageViews.totalAnalysts ? (
-																											<div className="flex items-center gap-2 text-xs flex-wrap">
-																												<span className="text-muted-foreground">
-																													Street Consensus ({stockDetail.marqueeBrokerageViews.totalAnalysts} Analysts):
-																												</span>
-																												<span className="font-mono font-bold text-foreground">
-																													Mean ₹{Number(stockDetail.marqueeBrokerageViews.targetMean || 0).toLocaleString()}
-																												</span>
-																												{stockDetail.marqueeBrokerageViews.consensusUpsidePercent != null && (
-																													<Badge
-																														variant="outline"
-																														className={`text-[10px] font-mono px-1.5 py-0 ${
-																															stockDetail.marqueeBrokerageViews.consensusUpsidePercent >= 0
-																																? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-																																: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
-																														}`}
-																													>
-																														{stockDetail.marqueeBrokerageViews.consensusUpsidePercent >= 0 ? "+" : ""}
-																														{stockDetail.marqueeBrokerageViews.consensusUpsidePercent}%
-																													</Badge>
-																												)}
-																												{stockDetail.marqueeBrokerageViews.targetHigh && stockDetail.marqueeBrokerageViews.targetLow && (
-																													<span className="text-muted-foreground font-mono text-[11px]">
-																														[Low ₹{Number(stockDetail.marqueeBrokerageViews.targetLow || 0).toLocaleString()} – High ₹{Number(stockDetail.marqueeBrokerageViews.targetHigh || 0).toLocaleString()}]
-																													</span>
-																												)}
-																											</div>
-																										) : null}
-																									</div>
-
-																									{/* Target Range Visual Meter */}
-																									{stockDetail.marqueeBrokerageViews.targetLow && stockDetail.marqueeBrokerageViews.targetHigh && stockDetail.marqueeBrokerageViews.targetMean && (
-																										<div className="bg-muted/20 border rounded-md p-2.5 space-y-1.5 text-xs">
-																											<div className="flex justify-between items-center text-[10px] text-muted-foreground">
-																												<span>Street Range</span>
-																												<span className="font-mono">
-																													Low: ₹{Number(stockDetail.marqueeBrokerageViews.targetLow).toLocaleString()} | Mean: ₹{Number(stockDetail.marqueeBrokerageViews.targetMean).toLocaleString()} | High: ₹{Number(stockDetail.marqueeBrokerageViews.targetHigh).toLocaleString()}
-																												</span>
-																											</div>
-																											<div className="w-full bg-muted/60 h-2 rounded-full relative overflow-hidden flex items-center">
-																												<div className="absolute inset-y-0 bg-primary/20 rounded-full w-full" />
-																												{(() => {
-																													const curPrice = Number(stockDetail.stock?.currentPrice || stock.currentPrice || 0);
-																													const targetLow = Number(stockDetail.marqueeBrokerageViews.targetLow || 0);
-																													const targetHigh = Number(stockDetail.marqueeBrokerageViews.targetHigh || 0);
-																													if (curPrice > 0 && targetHigh > targetLow) {
-																														const leftPct = Math.max(0, Math.min(100, ((curPrice - targetLow) / (targetHigh - targetLow)) * 100));
-																														return (
-																															<div
-																																className="absolute top-0 bottom-0 bg-primary rounded-full shadow-xs"
-																																style={{ left: `${leftPct}%`, width: "4px" }}
-																																title={`Current Price: ₹${curPrice}`}
-																															/>
-																														);
-																													}
-																													return null;
-																												})()}
-																											</div>
-																										</div>
-																									)}
-
-																									{stockDetail.marqueeBrokerageViews.quotingSummary && (
-																										<div className="bg-muted/40 rounded-md p-2.5 text-xs text-muted-foreground italic border-l-2 border-primary">
-																											"{stockDetail.marqueeBrokerageViews.quotingSummary}"
-																										</div>
-																									)}
-
-																									{Array.isArray(stockDetail.marqueeBrokerageViews.marqueeViews) && stockDetail.marqueeBrokerageViews.marqueeViews.length > 0 && (
-																										<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
-																											{stockDetail.marqueeBrokerageViews.marqueeViews.slice(0, 6).map((mv: any, idx: number) => (
-																												<div key={idx} className="p-2.5 rounded-md border bg-background/50 hover:bg-muted/20 transition-colors text-xs space-y-1.5">
-																													<div className="flex items-center justify-between">
-																														<span className="font-semibold text-foreground">{mv.firm}</span>
-																														<div className="flex items-center gap-1">
-																															{mv.action && mv.action !== "MAINTAIN" && (
-																																<Badge
-																																	variant="outline"
-																																	className={`text-[8px] px-1 py-0 ${
-																																		mv.action === "UPGRADE"
-																																			? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
-																																			: mv.action === "DOWNGRADE"
-																																			? "bg-red-500/10 text-red-600 border-red-500/30"
-																																			: "bg-blue-500/10 text-blue-600 border-blue-500/30"
-																																	}`}
-																																>
-																																	{mv.action}
-																																</Badge>
-																															)}
-																															<Badge variant="outline" className={`text-[9px] px-1 py-0 ${mv.tier === "GLOBAL_BULGE_BRACKET" ? "border-violet-500/30 text-violet-600 dark:text-violet-400 bg-violet-500/10" : "border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/10"}`}>
-																																{mv.tier === "GLOBAL_BULGE_BRACKET" ? "Bulge Bracket" : "Domestic Tier-1"}
-																															</Badge>
-																														</div>
-																													</div>
-																													<div className="flex items-center justify-between text-[11px]">
-																														{mv.targetPrice ? (
-																															<span className="font-mono font-medium text-foreground">
-																																Target: ₹{Number(mv.targetPrice).toLocaleString()}
-																															</span>
-																														) : (
-																															<span className="text-muted-foreground">Rating: {mv.rating || "Covered"}</span>
-																														)}
-																														{mv.upsidePercent !== null && mv.upsidePercent !== undefined && (
-																															<span className={`font-mono font-semibold ${mv.upsidePercent >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-																																{mv.upsidePercent >= 0 ? "+" : ""}{mv.upsidePercent}%
-																															</span>
-																														)}
-																													</div>
-																													<p className="text-[10px] text-muted-foreground line-clamp-2" title={mv.headline}>
-																														{mv.headline}
-																													</p>
-																													<div className="flex items-center justify-between text-[9px] text-muted-foreground/70 pt-0.5">
-																														<span>{mv.source || "Research Note"}</span>
-																														<span>{mv.publishedDate}</span>
-																													</div>
-																												</div>
-																											))}
-																										</div>
-																									)}
-
-																									<div className="text-[10px] text-muted-foreground/70 flex items-center gap-1.5 pt-1">
-																										<Info className="h-3 w-3 shrink-0" />
-																										<span>
-																											{stockDetail.marqueeBrokerageViews.disclaimer ||
-																												"Institutional brokerage views are curated from public research notes for reference, benchmarking, and quotation only. FintekPro engines independently evaluate intrinsic value."}
-																										</span>
-																									</div>
-																								</div>
-																							)}
-																						</>
-																					) : (
-																						<p className="text-sm text-muted-foreground">
-																							Could not load details
-																						</p>
-																					)}
-																					</div>
-																				</td>
-																			</tr>
-																		)}
-																	</>
-																),
+																	);
+																},
 															)}
 														</tbody>
 													</table>
 												</div>
 											</div>
-
 											<div className="flex items-center justify-between pt-1">
 												<div className="text-xs text-muted-foreground">
 													Showing {(dbPage - 1) * dbLimit + 1}-
@@ -5429,13 +4471,7 @@ export default function AgentScreener() {
 														<Card
 															key={stock.symbol}
 															className="hover:shadow-md transition-shadow cursor-pointer"
-															onClick={() =>
-																setExpandedStock(
-																	expandedStock === stock.symbol
-																		? null
-																		: stock.symbol,
-																)
-															}
+															onClick={() => setDetailStock(stock)}
 														>
 															<CardContent className="p-4">
 																<div className="flex items-start justify-between mb-2">
@@ -6856,6 +5892,16 @@ export default function AgentScreener() {
 					)}
 				</DialogContent>
 			</Dialog>
+
+			{/* ── Universal Stock Deep-Dive Detail Dialog ─────────────────────── */}
+			<StockDetailDialog
+				stock={detailStock}
+				stockDetail={stockDetail}
+				detailLoading={detailLoading}
+				isOpen={!!detailStock}
+				onClose={() => setDetailStock(null)}
+				handleOpenChat={handleOpenChat}
+			/>
 		</div>
 	);
 }
