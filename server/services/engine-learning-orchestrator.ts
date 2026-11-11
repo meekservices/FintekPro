@@ -294,6 +294,7 @@ class EngineLearningOrchestrator {
       { id: "tax-loss-harvesting", name: "Tax-Loss Harvesting Engine", category: "Portfolio", defaultCalibration: "Budget 2024 LTCG/STCG Offset Active" },
       { id: "global-macro-transmission", name: "Global Macro Transmission Engine", category: "Risk & Regime", defaultCalibration: "Cross-Border Transmission Channels & Global Shock Simulation Active" },
       { id: "ai-regime-detection", name: "Market Regime Detection Engine", category: "Risk & Regime", defaultCalibration: "Black Swan 10σ Volatility Detection Active" },
+      { id: "domestic-market-intelligence", name: "Domestic Market Intelligence Engine", category: "Risk & Regime", defaultCalibration: "RBI Stance, CCIL G-Sec & AMFI SIP Liquidity Active" },
       { id: "global-market-intelligence", name: "Global Market Intelligence Engine", category: "Risk & Regime", defaultCalibration: "Cross-Border Capital Flow & Decoupling Matrix Active" },
       { id: "global-fii-tracker", name: "Global FII Allocation Tracker Engine", category: "Risk & Regime", defaultCalibration: "6-Pillar FII Institutional Scorecard Active" },
       { id: "global-credit-cycle", name: "Global Credit Cycle Engine", category: "Risk & Regime", defaultCalibration: "5-Pillar Global Credit Cycle & OAS Tripwires Active" },

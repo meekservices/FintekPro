@@ -322,4 +322,51 @@ describe("GlobalMarketIntelligenceEngine (GMIE v1.0)", () => {
     expect(typeof result.macroMicroCoherence!.shortSqueezeRisk).toBe("boolean");
     expect(result.macroMicroCoherence!.summaryNote).toBeDefined();
   });
+
+  it("should evaluate countrywise global market intelligence across 4 systemic tiers", async () => {
+    const countries = await globalMarketIntelligenceEngine.evaluateCountryIntelligence();
+
+    expect(Array.isArray(countries)).toBe(true);
+    expect(countries.length).toBeGreaterThanOrEqual(8);
+
+    const countryCodes = countries.map((c) => c.countryCode);
+    expect(countryCodes).toContain("US");
+    expect(countryCodes).toContain("CN");
+    expect(countryCodes).toContain("JP");
+    expect(countryCodes).toContain("TW");
+    expect(countryCodes).toContain("KR");
+    expect(countryCodes).toContain("DE");
+    expect(countryCodes).toContain("GB");
+    expect(countryCodes).toContain("BR");
+
+    for (const c of countries) {
+      expect(c.countryCode).toBeDefined();
+      expect(c.countryName).toBeDefined();
+      expect(["TIER_1_GLOBAL_ANCHOR", "TIER_2_TECH_EM_PEER", "TIER_3_EUROPE_EXPORT", "TIER_4_ENERGY_REMITTANCE"]).toContain(c.tier);
+      expect(typeof c.macro.centralBankPolicyRate).toBe("number");
+      expect(typeof c.macro.sovereignYield10Y).toBe("number");
+      expect(typeof c.macro.yieldSpreadVsIndiaBps).toBe("number");
+      expect(c.markets.benchmarkIndex).toBeDefined();
+      expect(c.markets.peRatio).toBeGreaterThan(0);
+      expect(["TAILWIND", "HEADWIND", "NEUTRAL"]).toContain(c.indiaImpactTransmission.impactOnIndia);
+      expect(c.indiaImpactTransmission.keyRationale).toBeDefined();
+    }
+  });
+
+  it("should retrieve specific country profile and validate direct transmission to India", async () => {
+    const usProfile = await globalMarketIntelligenceEngine.getCountryIntelligence("US") as any;
+    expect(usProfile).toBeDefined();
+    expect(usProfile.countryCode).toBe("US");
+    expect(usProfile.tier).toBe("TIER_1_GLOBAL_ANCHOR");
+    expect(usProfile.indiaImpactTransmission.transmissionType).toBe("COST_OF_CAPITAL_ANCHOR");
+
+    const cnProfile = await globalMarketIntelligenceEngine.getCountryIntelligence("CN") as any;
+    expect(cnProfile).toBeDefined();
+    expect(cnProfile.countryCode).toBe("CN");
+    expect(cnProfile.indiaImpactTransmission.transmissionType).toBe("COMPETITIVE_FLOW_ROTATION");
+    expect(cnProfile.indiaImpactTransmission.impactOnIndia).toBe("HEADWIND");
+
+    const nonExistent = await globalMarketIntelligenceEngine.getCountryIntelligence("XYZ");
+    expect(nonExistent).toBeNull();
+  });
 });

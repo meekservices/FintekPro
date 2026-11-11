@@ -355,6 +355,96 @@ export function registerMacroRoutes(app: Express): void {
 		}
 	});
 
+	// ── Domestic Market Intelligence Engine (DMIE) Routes ────────────────────
+
+	/**
+	 * GET /api/macro/domestic-radar
+	 * Returns full consolidated Domestic Market Intelligence Report (RBI, CCIL G-Sec, Breadth, Derivatives, SIPs).
+	 */
+	app.get("/api/macro/domestic-radar", async (req: Request, res: Response) => {
+		const t0 = Date.now();
+		const forceRefresh = req.query.refresh === "true" || req.query.forceRefresh === "true";
+		try {
+			const { domesticMarketIntelligenceEngine } = await import("../services/macro/domestic-market-intelligence-engine");
+			const report = await domesticMarketIntelligenceEngine.getDomesticIntelligenceReport(forceRefresh);
+			return res.status(200).json({
+				success: true,
+				data: report,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: report.engine_version,
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch DMIE domestic intelligence report", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "DMIE_FETCH_FAILED",
+				message: err?.message || "Failed to fetch domestic market intelligence report",
+				meta: { timestamp: new Date().toISOString(), version: "DMIE-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/domestic-macro
+	 * Returns pure domestic macro factors: RBI policy stance, CPI inflation, CCIL sovereign debt, AMFI SIP inflows.
+	 */
+	app.get("/api/macro/domestic-macro", async (_req: Request, res: Response) => {
+		const t0 = Date.now();
+		try {
+			const { domesticMarketIntelligenceEngine } = await import("../services/macro/domestic-market-intelligence-engine");
+			const macro = await domesticMarketIntelligenceEngine.evaluateDomesticMacro();
+			return res.status(200).json({
+				success: true,
+				data: macro,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: "DMIE-v1.0.0",
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch domestic macro factors", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "DOMESTIC_MACRO_FETCH_FAILED",
+				message: err?.message || "Failed to fetch domestic macro factors",
+				meta: { timestamp: new Date().toISOString(), version: "DMIE-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/domestic-micro
+	 * Returns pure domestic micro factors: NSE/BSE breadth, derivatives PCR & participant OI, sector rotation.
+	 */
+	app.get("/api/macro/domestic-micro", async (_req: Request, res: Response) => {
+		const t0 = Date.now();
+		try {
+			const { domesticMarketIntelligenceEngine } = await import("../services/macro/domestic-market-intelligence-engine");
+			const micro = await domesticMarketIntelligenceEngine.evaluateDomesticMicro();
+			return res.status(200).json({
+				success: true,
+				data: micro,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: "DMIE-v1.0.0",
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch domestic micro factors", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "DOMESTIC_MICRO_FETCH_FAILED",
+				message: err?.message || "Failed to fetch domestic micro factors",
+				meta: { timestamp: new Date().toISOString(), version: "DMIE-v1.0.0" },
+			});
+		}
+	});
+
 	// ── Global Market Intelligence Engine (GMIE) Routes ──────────────────────
 
 	/**
@@ -381,6 +471,72 @@ export function registerMacroRoutes(app: Express): void {
 				success: false,
 				error: "GMIE_FETCH_FAILED",
 				message: err?.message || "Failed to fetch global market intelligence summary",
+				meta: { timestamp: new Date().toISOString(), version: "GMIE-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/intelligence/countries
+	 * Returns granular country-by-country market intelligence profiles across 4 global tiers.
+	 */
+	app.get("/api/macro/intelligence/countries", async (_req: Request, res: Response) => {
+		const t0 = Date.now();
+		try {
+			const countries = await globalMarketIntelligenceEngine.evaluateCountryIntelligence();
+			return res.status(200).json({
+				success: true,
+				data: countries,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: "GMIE-v1.0.0",
+					count: countries.length,
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch GMIE country intelligence", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "GMIE_COUNTRIES_FETCH_FAILED",
+				message: err?.message || "Failed to fetch countrywise market intelligence",
+				meta: { timestamp: new Date().toISOString(), version: "GMIE-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/intelligence/countries/:code
+	 * Returns market intelligence and direct transmission profile for a specific country (e.g. US, CN, JP).
+	 */
+	app.get("/api/macro/intelligence/countries/:code", async (req: Request, res: Response) => {
+		const t0 = Date.now();
+		const { code } = req.params;
+		try {
+			const country = await globalMarketIntelligenceEngine.getCountryIntelligence(code);
+			if (!country) {
+				return res.status(404).json({
+					success: false,
+					error: "COUNTRY_NOT_FOUND",
+					message: `Country profile for "${code}" not found in GMIE universe`,
+					meta: { timestamp: new Date().toISOString(), version: "GMIE-v1.0.0" },
+				});
+			}
+			return res.status(200).json({
+				success: true,
+				data: country,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: "GMIE-v1.0.0",
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error(`[MacroRoutes] Failed to fetch GMIE profile for country ${code}`, { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "GMIE_COUNTRY_FETCH_FAILED",
+				message: err?.message || `Failed to fetch country profile for ${code}`,
 				meta: { timestamp: new Date().toISOString(), version: "GMIE-v1.0.0" },
 			});
 		}

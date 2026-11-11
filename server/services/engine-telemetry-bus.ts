@@ -103,6 +103,7 @@ class EngineTelemetryBus {
       { id: "tax-loss-harvesting", name: "Tax-Loss Harvesting Engine", category: "Portfolio" },
       { id: "global-macro-transmission", name: "Global Macro Transmission Engine", category: "Risk & Regime" },
       { id: "ai-regime-detection", name: "Market Regime Detection Engine", category: "Risk & Regime" },
+      { id: "domestic-market-intelligence", name: "Domestic Market Intelligence Engine", category: "Risk & Regime" },
       { id: "global-market-intelligence", name: "Global Market Intelligence Engine", category: "Risk & Regime" },
       { id: "global-fii-tracker", name: "Global FII Allocation Tracker Engine", category: "Risk & Regime" },
       { id: "global-credit-cycle", name: "Global Credit Cycle Engine", category: "Risk & Regime" },
