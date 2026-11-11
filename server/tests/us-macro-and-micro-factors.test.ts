@@ -177,3 +177,4 @@ describe("Screener Natural Query Parser Micro Factor Aliases", () => {
 		expect(result.clauses[1].dbColumn).toBe("delivery_percent");
 	});
 });
+
