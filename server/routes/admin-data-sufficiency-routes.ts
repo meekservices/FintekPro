@@ -94,31 +94,17 @@ adminDataSufficiencyRouter.get("/stocks", async (req: Request, res: Response) =>
 
 /**
  * POST /api/admin/data-sufficiency/trigger-enrichment
- * Admin-triggered background job to backfill missing ratios and prices
+ * Admin-triggered or automated job to backfill missing ratios, filings, and prices
  */
 adminDataSufficiencyRouter.post("/trigger-enrichment", async (req: Request, res: Response) => {
 	try {
-		// Non-blocking background launch
-		void (async () => {
-			try {
-				logger.info("Admin initiated background enrichment run", {
-					event: "ADMIN_TRIGGERED_ENRICHMENT",
-				});
-				const { FinancialMetricsRefreshService } = await import(
-					"../services/financial-metrics-refresh-service"
-				);
-				const svc = new FinancialMetricsRefreshService();
-				await svc.refreshAllStockMetrics(100);
-			} catch (err: any) {
-				logger.error("Admin-triggered background enrichment failed:", err);
-			}
-		})();
+		const result = await dataSufficiencyEngine.triggerSelfHealing();
 
 		return res.json({
 			success: true,
 			data: {
-				message: "Background financial metrics & ratio enrichment job initiated successfully.",
-				status: "RUNNING",
+				message: result.message,
+				status: result.triggered ? "RUNNING" : "HEALTHY",
 			},
 			meta: {
 				timestamp: new Date().toISOString(),

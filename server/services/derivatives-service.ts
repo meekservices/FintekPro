@@ -528,6 +528,34 @@ class DerivativesService {
 		return REFERENCE_PRICES[upper] || 1000;
 	}
 
+	/**
+	 * Retrieves recent daily close prices for trend analysis (e.g. 20-day SMA).
+	 * Falls back to spot price if historical data is unavailable.
+	 */
+	async getRecentDailyCloses(symbol: string, days = 20): Promise<number[]> {
+		const upper = symbol.toUpperCase();
+		try {
+			const toDate = new Date().toISOString().split("T")[0];
+			const fromDateObj = new Date();
+			fromDateObj.setDate(fromDateObj.getDate() - (days * 2 + 10)); // Extra days for weekends and holidays
+			const fromDate = fromDateObj.toISOString().split("T")[0];
+
+			const res = await upstoxMarketDataService.getHistoricalData(upper, "day", fromDate, toDate, "NSE");
+			if (res.success && res.data && res.data.length > 0) {
+				const sorted = [...res.data].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+				const closes = sorted.map((c) => c.close).filter((c) => typeof c === "number" && c > 0);
+				if (closes.length >= 5) {
+					return closes.slice(-days);
+				}
+			}
+		} catch {
+			/* Fall through to spot price fallback */
+		}
+
+		const spot = await this.getSpotPrice(upper);
+		return [spot];
+	}
+
 	// ── Public API ────────────────────────────────────────────────────────────
 
 	async getAvailableSymbols(): Promise<{

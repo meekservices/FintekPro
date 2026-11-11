@@ -18,6 +18,7 @@ import zlib from "node:zlib";
 import { db } from "../db";
 import { sql } from "drizzle-orm";
 import { logger } from "../logger";
+import { telemetryBus } from "./engine-telemetry-bus";
 import {
 	BigQueryTimeSeriesService,
 	type StockEodPoint,
@@ -457,6 +458,24 @@ export class NseBhavcopyService {
 			updated_stocks: updatedCount,
 			bigquery_inserted: bqCount,
 			latency_ms: latencyMs,
+		});
+
+		telemetryBus.report({
+			engineId: "nse-bhavcopy-service",
+			engineName: "NSE Bhavcopy Ingestion Service",
+			category: "Data Quality",
+			reportedAt: new Date().toISOString(),
+			latencyMs,
+			qualityScore: records.length > 1500 ? 98 : records.length > 500 ? 80 : 50,
+			itemsProcessed: updatedCount,
+			errorCount: goldenFlagged,
+			meta: {
+				tradeDate: effectiveDate,
+				totalRecords: records.length,
+				bigQueryInserted: bqCount,
+				goldenInserted,
+				goldenFlagged,
+			},
 		});
 
 		return {

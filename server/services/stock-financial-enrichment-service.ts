@@ -9,7 +9,8 @@ import axios from "axios";
 import { db } from "../db";
 import { getProductionDb, hasProductionDb } from "../db";
 import { listedStocks } from "@shared/schema";
-import { eq, sql, isNull, or, and, desc, asc } from "drizzle-orm";
+import { eq, sql, isNull, or, desc } from "drizzle-orm";
+import { logger } from "../logger";
 
 interface StockFinancials {
 	symbol: string;
@@ -264,7 +265,7 @@ class StockFinancialEnrichmentService {
 			return d as T;
 		} catch (error: any) {
 			if (error.response?.status === 429) {
-				console.warn(`[Stock Enrichment] FMP rate limited`);
+				logger.warn("[Stock Enrichment] FMP rate limited");
 			}
 			return null;
 		}
@@ -529,7 +530,7 @@ class StockFinancialEnrichmentService {
 			};
 		} catch (error: any) {
 			if (error.response?.status === 429) {
-				console.warn(`[Stock Enrichment] Rate limited for ${symbol}`);
+				logger.warn(`[Stock Enrichment] Rate limited for ${symbol}`);
 				this.rateLimitRemaining = 0;
 			}
 			return null;
@@ -590,7 +591,7 @@ class StockFinancialEnrichmentService {
 			return Object.keys(result).length > 0 ? result : null;
 		} catch (error: any) {
 			if (error.response?.status === 429) {
-				console.warn(`[Stock Enrichment] Finnhub rate limited for ${symbol}`);
+				logger.warn(`[Stock Enrichment] Finnhub rate limited for ${symbol}`);
 			}
 			return null;
 		}
@@ -705,7 +706,7 @@ class StockFinancialEnrichmentService {
 		} = options;
 
 		if (!hasProductionDb()) {
-			console.warn(
+			logger.warn(
 				"[Stock Enrichment] PRODUCTION_DATABASE_URL not set. Enrichment runs on production only. Aborting.",
 			);
 			return {
@@ -720,7 +721,7 @@ class StockFinancialEnrichmentService {
 		}
 
 		const targetDb = getProductionDb();
-		console.log(
+		logger.info(
 			"[Stock Enrichment] ✅ Connected to PRODUCTION database for enrichment",
 		);
 
@@ -783,9 +784,23 @@ class StockFinancialEnrichmentService {
 						isNull(listedStocks.analystRating),
 						isNull(listedStocks.volatility),
 					),
+				)
+				.orderBy(
+					// Tiered prioritization: Large Cap (Tier 1) > Mid Cap (Tier 2) > High Volume > Rest
+					desc(sql`CASE 
+						WHEN ${listedStocks.marketCap} = 'large' THEN 3 
+						WHEN ${listedStocks.marketCap} = 'mid' THEN 2 
+						ELSE 1 
+					END`),
+					desc(sql`COALESCE(${listedStocks.averageVolume}, 0)`),
+					desc(sql`COALESCE(${listedStocks.currentPrice}, 0)`),
 				);
 
-			const stocksToProcess = useFmp ? stocks.slice(0, maxFmpStocks) : stocks;
+			// FMP processes up to maxFmpStocks; Yahoo Finance can process additional stocks
+			const totalToProcess = useFmp 
+				? Math.min(stocks.length, maxFmpStocks + (useYahoo ? maxYahooRequests : 0))
+				: stocks.length;
+			const stocksToProcess = stocks.slice(0, totalToProcess);
 			stats.totalStocks = stocksToProcess.length;
 			stats.stocksWithNullPe = stocksToProcess.filter(
 				(s) => s.peRatio === null,
@@ -810,7 +825,7 @@ class StockFinancialEnrichmentService {
 					.length,
 			};
 
-			console.log(
+			logger.info(
 				`[Stock Enrichment] Processing ${stocksToProcess.length}/${stocks.length} stocks. NULL counts: PE=${stats.stocksWithNullPe}, PB=${nullCounts.pbRatio}, DivYield=${nullCounts.dividendYield}, ROE=${nullCounts.roe}, Beta=${nullCounts.beta}, AvgVol=${nullCounts.avgVolume}, Returns1Y=${nullCounts.returns1Y}, BroadSector=${nullCounts.broadSector}, AnalystRating=${nullCounts.analystRating}`,
 			);
 
@@ -821,11 +836,13 @@ class StockFinancialEnrichmentService {
 				const batch = stocksToProcess.slice(i, i + batchSize);
 				enrichmentProgress.currentStep = `Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(stocksToProcess.length / batchSize)}...`;
 
-				for (const stock of batch) {
+				for (let batchIdx = 0; batchIdx < batch.length; batchIdx++) {
+					const stock = batch[batchIdx];
+					const globalIdx = i + batchIdx;
 					try {
 						let financials: Partial<StockFinancials> = {};
 
-						if (useFmp && process.env.FMP_API_KEY) {
+						if (useFmp && globalIdx < maxFmpStocks && process.env.FMP_API_KEY) {
 							const fmpData = await this.fetchFmpComprehensive(stock.symbol);
 							if (fmpData) {
 								financials = this.mergeFinancials(financials, fmpData);
@@ -846,6 +863,7 @@ class StockFinancialEnrichmentService {
 
 						if (
 							useYahoo &&
+							(!financials.peRatio || globalIdx >= maxFmpStocks) &&
 							yahooRequestCount < maxYahooRequests &&
 							this.rateLimitRemaining > 0
 						) {
@@ -867,7 +885,7 @@ class StockFinancialEnrichmentService {
 									await new Promise((resolve) => setTimeout(resolve, 300));
 								}
 							} catch (enrichErr: any) {
-								console.warn(
+								logger.warn(
 									"[StockEnrichment] Finnhub enrichment failed:",
 									enrichErr?.message,
 								);
@@ -1001,7 +1019,7 @@ class StockFinancialEnrichmentService {
 									.set(updates)
 									.where(eq(listedStocks.id, stock.id));
 								stats.stocksEnriched++;
-								console.log(
+								logger.info(
 									`[Stock Enrichment] Enriched ${stock.symbol}: ${Object.keys(
 										updates,
 									)
@@ -1036,12 +1054,12 @@ class StockFinancialEnrichmentService {
 			enrichmentProgress.status = "error";
 			enrichmentProgress.currentStep = `Error: ${error.message}`;
 			stats.errors.push(`Fatal: ${error.message}`);
-			console.error("[Stock Enrichment] Fatal error:", error);
+			logger.error("[Stock Enrichment] Fatal error:", { error });
 		}
 
 		stats.duration = Date.now() - startTime;
 		stats.fmpCalls = this.fmpCallCount;
-		console.log(
+		logger.info(
 			`[Stock Enrichment] Completed in ${stats.duration}ms: ${stats.stocksEnriched} stocks enriched, ${this.fmpCallCount} FMP API calls used`,
 		);
 

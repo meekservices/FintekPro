@@ -274,6 +274,76 @@ describe("POTD Derivative Engine - Multi-Leg & Option Seller Strategies", () => 
 			expect(km.greeks).toBeDefined();
 			expect(km.marginRequired).toBeGreaterThan(0);
 			expect(["SELLER", "BUYER"]).toContain(km.strategyType);
+
+			// Engine hardening: POP and execution sequence
+			expect(km.pop).toBeDefined();
+			expect(km.pop).toBeGreaterThanOrEqual(5);
+			expect(km.pop).toBeLessThanOrEqual(95);
+
+			for (const leg of km.legs) {
+				if (leg.action === "BUY") {
+					expect(leg.executionPriority).toBe(1);
+				} else {
+					expect(leg.executionPriority).toBe(2);
+				}
+			}
+		});
+	});
+
+	// ── 5. Hardening Verifications ───────────────────────────────────────────
+	describe("5. Engine Hardening: Mathematical POP, Dynamic Expiry & Asset-Class IV", () => {
+		it("calculates realistic Probability of Profit (POP) and leg execution sequences", () => {
+			const strat = STRATEGY_CATALOGUE.find((s) => s.name === "Iron Condor")!;
+			const payoff = strategyEngine.buildLegsAndPayoff(
+				"NIFTY",
+				strat,
+				25000,
+				25000,
+				50,
+				65,
+				undefined,
+				5,
+				18,
+			);
+
+			expect(payoff.pop).toBeGreaterThanOrEqual(10);
+			expect(payoff.pop).toBeLessThanOrEqual(95);
+
+			// Buy wings must have executionPriority 1, sell legs must have executionPriority 2
+			const buyWings = payoff.legs.filter((l) => l.action === "BUY");
+			const sellLegs = payoff.legs.filter((l) => l.action === "SELL");
+
+			for (const w of buyWings) {
+				expect(w.executionPriority).toBe(1);
+				expect(w.executionNote).toContain("SEBI portfolio margin");
+			}
+			for (const s of sellLegs) {
+				expect(s.executionPriority).toBe(2);
+				expect(s.executionNote).toContain("after protective wings");
+			}
+		});
+
+		it("dynamically resolves exchange expiry day by index convention", () => {
+			const niftyExpiry = strategyEngine.getUpcomingWeeklyExpiry("NIFTY");
+			const niftyDate = new Date(niftyExpiry);
+			// NIFTY weekly contracts expire on Thursday (day 4)
+			expect(niftyDate.getDay()).toBe(4);
+
+			const bankNiftyExpiry = strategyEngine.getUpcomingWeeklyExpiry("BANKNIFTY");
+			const bankNiftyDate = new Date(bankNiftyExpiry);
+			// BankNifty weekly contracts expire on Wednesday (day 3)
+			expect(bankNiftyDate.getDay()).toBe(3);
+		});
+
+		it("normalizes IV bands between equity index and single stocks", () => {
+			// IV = 24% on NIFTY (Index) is elevated (volRegime: high -> SELLER)
+			const niftyStrat = selectStrategy(25000, 24, [25000], undefined, "NIFTY");
+			expect(niftyStrat.volPreference).toBe("sell");
+
+			// IV = 24% on RELIANCE (Single Stock) is normal equity volatility (normal IV -> not forced high)
+			const stockStrat = selectStrategy(2950, 24, [2950], undefined, "RELIANCE");
+			// Since normal IV rotates by calendar day, it won't be artificially hard-locked to seller
+			expect(stockStrat).toBeDefined();
 		});
 	});
 });

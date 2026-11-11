@@ -48,6 +48,8 @@ export interface StrategyLegOutput {
 	strikePrice: number;
 	premium: number;
 	name: string;
+	executionPriority?: number; // 1 = Buy hedge wing first (SEBI margin relief), 2 = Sell leg
+	executionNote?: string;
 }
 
 export interface StrategyPayoffOutput {
@@ -58,6 +60,7 @@ export interface StrategyPayoffOutput {
 	maxProfit: number | "Unlimited";
 	maxLoss: number | "Unlimited";
 	breakeven: number | number[];
+	pop: number; // Probability of Profit % (e.g. 68 for 68%)
 	greeks: { delta: number; theta: number; vega: number };
 	marginRequired: number;
 }
@@ -103,6 +106,45 @@ function calculateBlackScholesPrice(
 			: K * Math.exp(-r * T) * normalCDF(-d2) - S * normalCDF(-d1);
 
 	return alignToTick(price);
+}
+
+/**
+ * Calculates mathematical Probability of Profit (POP %) under lognormal BSM distribution.
+ */
+function calculateProbabilityOfProfit(
+	S: number,
+	breakeven: number | number[],
+	dte: number,
+	iv: number,
+	isCredit: boolean,
+	strategyName: string,
+	r = 0.065,
+): number {
+	const T = Math.max(1, dte) / 365;
+	const vol = Math.max(0.05, Math.min(1.0, iv / 100));
+	const sqrtT = vol * Math.sqrt(T);
+	const mu = (r - 0.5 * (vol ** 2)) * T;
+
+	const calcD2 = (K: number) => (Math.log(K / S) - mu) / sqrtT;
+
+	let rawPop = 0.5;
+
+	if (Array.isArray(breakeven) && breakeven.length === 2) {
+		const [kLow, kHigh] = breakeven;
+		const probInside = Math.max(0, normalCDF(calcD2(kHigh)) - normalCDF(calcD2(kLow)));
+		rawPop = isCredit ? probInside : 1 - probInside;
+	} else if (typeof breakeven === "number") {
+		const probBelow = normalCDF(calcD2(breakeven));
+		if (strategyName === "Bull Put Spread" || strategyName === "Bull Call Spread" || strategyName === "Long Call") {
+			rawPop = 1 - probBelow;
+		} else {
+			rawPop = probBelow;
+		}
+	}
+
+	// Clamp between 5% and 95%
+	const popPct = Math.round(Math.max(0.05, Math.min(0.95, rawPop)) * 100);
+	return popPct;
 }
 
 // ─── Comprehensive Strategy Catalogue (Buyers & Sellers) ─────────────────────
@@ -295,9 +337,14 @@ export function selectStrategy(
 	recentIds?: Set<string>,
 	symbol?: string,
 ): DerivativeStrategyDef {
-	// India VIX: < 14 = low, 14-22 = normal, > 22 = high
+	// Asset-class aware IV normalization (Index vs Single-Stock F&O)
+	const upperSym = (symbol || "").toUpperCase();
+	const isIndex = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"].includes(upperSym);
+	const highIvCutoff = isIndex ? 22 : 32;
+	const lowIvCutoff = isIndex ? 14 : 20;
+
 	const volRegime: VolatilityRegime =
-		iv > 22 ? "high" : iv < 14 ? "low" : "normal";
+		iv > highIvCutoff ? "high" : iv < lowIvCutoff ? "low" : "normal";
 
 	let volPreference: "buy" | "sell";
 	if (volRegime === "high") {
@@ -330,28 +377,39 @@ export function selectStrategy(
 		return recentIds.has(strat.name.toLowerCase()) || recentIds.has(strat.name);
 	};
 
+	// Helper to prioritize defined-risk (hedged) setups for option sellers
+	const sortByDefinedRisk = (a: DerivativeStrategyDef, b: DerivativeStrategyDef) => {
+		if (a.strategyType === "SELLER" && b.strategyType === "SELLER") {
+			if (a.risk === "medium" && b.risk === "high") return -1;
+			if (a.risk === "high" && b.risk === "medium") return 1;
+		}
+		return 0;
+	};
+
 	// 1. Exact volPreference + exact outlook
-	const exact = STRATEGY_CATALOGUE.filter(
-		(s) => s.volPreference === volPreference && s.outlook === outlook,
-	);
+	const exact = STRATEGY_CATALOGUE
+		.filter((s) => s.volPreference === volPreference && s.outlook === outlook)
+		.sort(sortByDefinedRisk);
 	const freshExact = exact.filter((s) => !isRecent(s));
 	if (freshExact.length > 0) return freshExact[0];
 	if (exact.length > 0) return exact[0];
 
 	// 2. Exact volPreference + neutral outlook
-	const neutralMatch = STRATEGY_CATALOGUE.filter(
-		(s) => s.volPreference === volPreference && s.outlook === "neutral",
-	);
+	const neutralMatch = STRATEGY_CATALOGUE
+		.filter((s) => s.volPreference === volPreference && s.outlook === "neutral")
+		.sort(sortByDefinedRisk);
 	const freshNeutral = neutralMatch.filter((s) => !isRecent(s));
 	if (freshNeutral.length > 0) return freshNeutral[0];
 	if (neutralMatch.length > 0) return neutralMatch[0];
 
 	// 3. Fallback: Any fresh strategy matching volPreference
-	const anyVolFresh = STRATEGY_CATALOGUE.filter((s) => s.volPreference === volPreference && !isRecent(s));
+	const anyVolFresh = STRATEGY_CATALOGUE
+		.filter((s) => s.volPreference === volPreference && !isRecent(s))
+		.sort(sortByDefinedRisk);
 	if (anyVolFresh.length > 0) return anyVolFresh[0];
 
 	// 4. Any fresh strategy overall
-	const anyFresh = STRATEGY_CATALOGUE.filter((s) => !isRecent(s));
+	const anyFresh = STRATEGY_CATALOGUE.filter((s) => !isRecent(s)).sort(sortByDefinedRisk);
 	return anyFresh[0] || STRATEGY_CATALOGUE[0];
 }
 
@@ -385,10 +443,17 @@ export class DerivativeStrategy extends BaseStrategy {
 			const atmCall = chain.options?.calls?.find((c) => c.strikePrice === atmStrike);
 			const iv = atmCall?.impliedVolatility || 18;
 
-			const recentCloses: number[] = this.buildRecentCloses(chain, spotPrice);
-			const strategy = selectStrategy(spotPrice, iv, recentCloses, context.recentIds, selectedSymbol);
+			const recentCloses: number[] = await this.buildRecentCloses(chain, selectedSymbol, spotPrice);
+			let strategy = selectStrategy(spotPrice, iv, recentCloses, context.recentIds, selectedSymbol);
 
-			const payoff = this.buildLegsAndPayoff(
+			const todayStr = new Date().toISOString().split("T")[0];
+			const targetExpiry =
+				chain.expiryDates?.find((ed: string) => ed >= todayStr) ||
+				this.getUpcomingWeeklyExpiry(selectedSymbol);
+			const dteMs = new Date(targetExpiry).getTime() - Date.now();
+			const dte = Math.max(1, Math.ceil(dteMs / 86400000));
+
+			let payoff = this.buildLegsAndPayoff(
 				selectedSymbol,
 				strategy,
 				spotPrice,
@@ -396,9 +461,35 @@ export class DerivativeStrategy extends BaseStrategy {
 				strikeInterval,
 				lotSize,
 				chain,
-				7,
+				dte,
 				iv,
 			);
+
+			// ── SEBI Institutional Tail-Risk Guardrail ──────────────────────────────
+			// Option Seller strategies (Credit/Income) must strictly be hedged multi-leg spreads
+			// Auto-wrap protection wings if an unhedged setup was reached.
+			if (strategy.strategyType === "SELLER" && payoff.maxLoss === "Unlimited") {
+				logger.warn(
+					`[DerivativeStrategy] Option seller strategy '${strategy.name}' has unhedged risk; auto-wrapping protection wings for SEBI client safety.`,
+					{ symbol: selectedSymbol, rawStrategy: strategy.name },
+				);
+				const hedgedName = strategy.name === "Short Straddle" ? "Iron Butterfly" : "Iron Condor";
+				const hedgedStrategy = STRATEGY_CATALOGUE.find((s) => s.name === hedgedName);
+				if (hedgedStrategy) {
+					strategy = hedgedStrategy;
+					payoff = this.buildLegsAndPayoff(
+						selectedSymbol,
+						strategy,
+						spotPrice,
+						atmStrike,
+						strikeInterval,
+						lotSize,
+						chain,
+						dte,
+						iv,
+					);
+				}
+			}
 
 			if (payoff.totalNetPremium <= 0) {
 				return this.generateFallbackPick(context);
@@ -408,10 +499,16 @@ export class DerivativeStrategy extends BaseStrategy {
 			const targetPrice = Math.round(entryPrice * strategy.targetMult * 100) / 100;
 			const stoplossPrice = Math.round(entryPrice * strategy.slMult * 100) / 100;
 
+			const isIndexSymbol = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"].includes(
+				selectedSymbol.toUpperCase(),
+			);
+			const highIvBenchmark = isIndexSymbol ? 22 : 32;
+			const lowIvBenchmark = isIndexSymbol ? 14 : 20;
+
 			const ivRegimeLabel =
-				iv > 22
+				iv > highIvBenchmark
 					? "High IV (Option Seller favored)"
-					: iv < 14
+					: iv < lowIvBenchmark
 						? "Low IV (Option Buyer favored)"
 						: "Normal IV (Balanced Theta)";
 
@@ -436,13 +533,13 @@ export class DerivativeStrategy extends BaseStrategy {
 					maxProfit: payoff.maxProfit,
 					maxLoss: payoff.maxLoss,
 					breakeven: payoff.breakeven,
+					pop: payoff.pop,
 					marginRequired: payoff.marginRequired,
+					dte,
 				},
 			});
 
-			// ── SEBI Institutional Tail-Risk Guardrail ──────────────────────────────
-			// Option Seller strategies (Credit/Income) must strictly be hedged multi-leg spreads
-			// and can NEVER expose clients to "Unlimited" max loss.
+			// Final safety sanity check
 			if (strategy.strategyType === "SELLER" && payoff.maxLoss === "Unlimited") {
 				logger.error(
 					`🛑 [DerivativeStrategy] Hard Risk Breach: Option seller strategy '${strategy.name}' has unhedged unlimited loss. Rejected by institutional tail-risk gate.`,
@@ -463,15 +560,13 @@ export class DerivativeStrategy extends BaseStrategy {
 				stoplossPrice,
 				currentPrice: entryPrice,
 				status: "live",
-				expiryDate: this.getExpiryDate(7),
+				expiryDate: targetExpiry,
 				rationale,
 				riskLevel: strategy.risk,
 				suitableFor: this.deriveSuitableFor(strategy.risk, "derivatives"),
 				timeHorizon: "ultra_short_term",
 				confidenceScore: this.getConfidenceScore("derivatives", 65, 100),
-				sectorCategory: ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"].includes(selectedSymbol.toUpperCase())
-					? "Index Derivatives"
-					: "Stock Derivatives",
+				sectorCategory: isIndexSymbol ? "Index Derivatives" : "Stock Derivatives",
 				keyMetrics: {
 					strategy: strategy.name,
 					strategyType: strategy.strategyType,
@@ -491,6 +586,9 @@ export class DerivativeStrategy extends BaseStrategy {
 					maxProfit: payoff.maxProfit,
 					maxLoss: payoff.maxLoss,
 					breakeven: payoff.breakeven,
+					pop: payoff.pop,
+					probabilityOfProfit: payoff.pop,
+					dte,
 					marginRequired: payoff.marginRequired,
 					greeks: payoff.greeks,
 					regulatoryNote: `${SEBI_FNO_FRAMEWORK_2026.CASH_MARGIN_DISCLAIMER} ${SEBI_FNO_FRAMEWORK_2026.EXPIRY_DAY_ELM_DISCLAIMER}`,
@@ -569,6 +667,11 @@ export class DerivativeStrategy extends BaseStrategy {
 				strikePrice,
 				premium,
 				name: `${symbol} ${strikePrice} ${tmpl.type}`,
+				executionPriority: tmpl.action === "BUY" ? 1 : 2,
+				executionNote:
+					tmpl.action === "BUY"
+						? "Execute first to unlock SEBI portfolio margin benefit"
+						: "Execute after protective wings are confirmed filled",
 			});
 		}
 
@@ -732,6 +835,15 @@ export class DerivativeStrategy extends BaseStrategy {
 			theta = Math.max(1.0, Math.round((totalNetPremium / Math.max(1, dte)) * 100) / 100);
 		}
 
+		const pop = calculateProbabilityOfProfit(
+			spotPrice,
+			breakeven,
+			dte,
+			iv,
+			isCredit,
+			strategy.name,
+		);
+
 		return {
 			legs,
 			netPremium,
@@ -740,6 +852,7 @@ export class DerivativeStrategy extends BaseStrategy {
 			maxProfit,
 			maxLoss,
 			breakeven,
+			pop,
 			greeks: {
 				delta: +delta.toFixed(4),
 				theta: +theta.toFixed(2),
@@ -749,9 +862,33 @@ export class DerivativeStrategy extends BaseStrategy {
 		};
 	}
 
-	private buildRecentCloses(chain: any, spotPrice: number): number[] {
-		if (chain?.underlyingPriceSeries?.length > 0) {
+	/**
+	 * Computes upcoming weekly contract expiry date (Wednesday for BSE/BankNifty, Thursday for NSE indices).
+	 */
+	public getUpcomingWeeklyExpiry(symbol = "NIFTY", now = new Date()): string {
+		const upper = symbol.toUpperCase();
+		const targetDay = upper === "BANKNIFTY" || upper === "BANKEX" || upper === "SENSEX" ? 3 : 4;
+		const d = new Date(now);
+		let daysToAdd = (targetDay - d.getDay() + 7) % 7;
+		if (daysToAdd === 0) {
+			const istHours = d.getUTCHours() + 5.5;
+			if (istHours >= 15.5) {
+				daysToAdd = 7;
+			}
+		}
+		d.setDate(d.getDate() + daysToAdd);
+		return d.toISOString().split("T")[0];
+	}
+
+	private async buildRecentCloses(chain: any, symbol: string, spotPrice: number): Promise<number[]> {
+		if (Array.isArray(chain?.underlyingPriceSeries) && chain.underlyingPriceSeries.length >= 5) {
 			return (chain.underlyingPriceSeries as number[]).slice(-20);
+		}
+		try {
+			const closes = await derivativesService.getRecentDailyCloses(symbol, 20);
+			if (closes.length >= 5) return closes;
+		} catch {
+			/* Fall through */
 		}
 		return [spotPrice];
 	}
@@ -817,11 +954,15 @@ export class DerivativeStrategy extends BaseStrategy {
 			const idx = istDay % pool.length;
 			const { symbol, spotPrice, lotSize, sector } = pool[idx];
 
-			const strategy = selectStrategy(spotPrice, 18, [spotPrice], context.recentIds, symbol);
+			const targetExpiry = this.getUpcomingWeeklyExpiry(symbol);
+			const dteMs = new Date(targetExpiry).getTime() - Date.now();
+			const dte = Math.max(1, Math.ceil(dteMs / 86400000));
+
+			let strategy = selectStrategy(spotPrice, 18, [spotPrice], context.recentIds, symbol);
 			const strikeInterval = this.getStrikeInterval(symbol, spotPrice);
 			const atmStrike = Math.round(spotPrice / strikeInterval) * strikeInterval;
 
-			const payoff = this.buildLegsAndPayoff(
+			let payoff = this.buildLegsAndPayoff(
 				symbol,
 				strategy,
 				spotPrice,
@@ -829,9 +970,29 @@ export class DerivativeStrategy extends BaseStrategy {
 				strikeInterval,
 				lotSize,
 				undefined,
-				7,
+				dte,
 				18,
 			);
+
+			// Auto-wrap protection wings for SEBI client capital protection
+			if (strategy.strategyType === "SELLER" && payoff.maxLoss === "Unlimited") {
+				const hedgedName = strategy.name === "Short Straddle" ? "Iron Butterfly" : "Iron Condor";
+				const hedgedStrategy = STRATEGY_CATALOGUE.find((s) => s.name === hedgedName);
+				if (hedgedStrategy) {
+					strategy = hedgedStrategy;
+					payoff = this.buildLegsAndPayoff(
+						symbol,
+						strategy,
+						spotPrice,
+						atmStrike,
+						strikeInterval,
+						lotSize,
+						undefined,
+						dte,
+						18,
+					);
+				}
+			}
 
 			const entryPrice = payoff.totalNetPremium;
 			const targetPrice = Math.round(entryPrice * strategy.targetMult * 100) / 100;
@@ -856,7 +1017,9 @@ export class DerivativeStrategy extends BaseStrategy {
 					maxProfit: payoff.maxProfit,
 					maxLoss: payoff.maxLoss,
 					breakeven: payoff.breakeven,
+					pop: payoff.pop,
 					marginRequired: payoff.marginRequired,
+					dte,
 					dataSource: "fallback_curated",
 				},
 			});
@@ -884,7 +1047,7 @@ export class DerivativeStrategy extends BaseStrategy {
 				stoplossPrice,
 				currentPrice: entryPrice,
 				status: "live",
-				expiryDate: this.getExpiryDate(7),
+				expiryDate: targetExpiry,
 				rationale,
 				riskLevel: strategy.risk,
 				suitableFor: this.deriveSuitableFor(strategy.risk, "derivatives"),
@@ -909,6 +1072,9 @@ export class DerivativeStrategy extends BaseStrategy {
 					maxProfit: payoff.maxProfit,
 					maxLoss: payoff.maxLoss,
 					breakeven: payoff.breakeven,
+					pop: payoff.pop,
+					probabilityOfProfit: payoff.pop,
+					dte,
 					marginRequired: payoff.marginRequired,
 					greeks: payoff.greeks,
 					regulatoryNote: `${SEBI_FNO_FRAMEWORK_2026.CASH_MARGIN_DISCLAIMER} ${SEBI_FNO_FRAMEWORK_2026.EXPIRY_DAY_ELM_DISCLAIMER}`,

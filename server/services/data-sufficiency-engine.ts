@@ -18,6 +18,7 @@
 import { db } from "../db";
 import { sql } from "drizzle-orm";
 import { logger } from "../logger";
+import { telemetryBus } from "./engine-telemetry-bus";
 
 export const DATA_SUFFICIENCY_ENGINE_VERSION = "1.0.0";
 
@@ -347,6 +348,23 @@ export class DataSufficiencyEngine {
 				status: "SUCCESS",
 			});
 
+			telemetryBus.report({
+				engineId: "data-sufficiency-engine",
+				engineName: "Data Sufficiency & Quality Engine",
+				category: "Data Quality",
+				reportedAt: new Date().toISOString(),
+				latencyMs: Date.now() - startTime,
+				qualityScore: overallSufficiencyPercent,
+				itemsProcessed: totalStocks,
+				errorCount: criticalCount,
+				meta: {
+					coveragePct,
+					healthyCount,
+					criticalCount,
+					warningCount,
+				},
+			});
+
 			return stats;
 		} catch (error: any) {
 			logger.error("Failed to compute universe sufficiency stats", {
@@ -440,6 +458,52 @@ export class DataSufficiencyEngine {
 				offset,
 			};
 		}
+	}
+
+	/**
+	 * Autonomous self-healing: triggers background ratio and price enrichment
+	 * when data insufficiency crosses critical thresholds.
+	 */
+	async triggerSelfHealing(): Promise<{ triggered: boolean; message: string }> {
+		const stats = await this.getUniverseSufficiencyStats();
+		if (stats.criticalInsufficientCount === 0 && stats.staleWarningCount === 0) {
+			return { triggered: false, message: "Universe is healthy. No self-healing required." };
+		}
+
+		logger.info("[DataSufficiency] Initiating automated self-healing pipeline...", {
+			event: "DATA_SUFFICIENCY_SELF_HEALING_START",
+			criticalCount: stats.criticalInsufficientCount,
+			warningCount: stats.staleWarningCount,
+		});
+
+		// Trigger non-blocking async repairs
+		void (async () => {
+			try {
+				// 1. Refresh missing valuation ratios (P/E, RoE, RoCE)
+				const { FinancialMetricsRefreshService } = await import(
+					"./financial-metrics-refresh-service"
+				);
+				const metricsSvc = new FinancialMetricsRefreshService();
+				await metricsSvc.refreshAllStockMetrics(100);
+
+				// 2. Backfill historical prices for securities with incomplete time series
+				const { runHistoricalBackfill } = await import(
+					"./instrument-time-series/historical-backfill-service"
+				);
+				await runHistoricalBackfill(10);
+
+				logger.info("[DataSufficiency] Autonomous self-healing cycle completed", {
+					event: "DATA_SUFFICIENCY_SELF_HEALING_COMPLETE",
+				});
+			} catch (err: any) {
+				logger.error("[DataSufficiency] Autonomous self-healing failed:", err);
+			}
+		})();
+
+		return {
+			triggered: true,
+			message: `Self-healing triggered for ${stats.criticalInsufficientCount} critical and ${stats.staleWarningCount} warning securities.`,
+		};
 	}
 }
 

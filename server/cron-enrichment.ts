@@ -330,6 +330,8 @@ export function initializeEnrichmentCrons(
 					await stockFinancialEnrichmentService.enrichAllStocks({
 						useFmp: true,
 						maxFmpStocks: 40,
+						useYahoo: true,
+						maxYahooRequests: 100,
 						includeReturns: true,
 						batchSize: 50,
 					});
@@ -477,6 +479,74 @@ export function initializeEnrichmentCrons(
 	// ── NSE/BSE stock sync ──────────────────────────────────────────────────────
 	stockSyncScheduler.initialize();
 	logger.info("📊 [StockSync] NSE/BSE sync scheduler initialized");
+
+	// ── Official NSE Bhavcopy Daily EOD Ingestion ───────────────────────────────
+	staggeredStart(
+		"NSE Bhavcopy Ingestion",
+		() => {
+			// Daily 6:45 PM IST (13:15 UTC) weekdays — after NSE settlement archive upload
+			cron.schedule(
+				"45 18 * * 1-5",
+				async () => {
+					logger.info("[CRON] Starting daily NSE Bhavcopy EOD ingestion (6:45 PM IST)...");
+					try {
+						const { nseBhavcopyService } = await import(
+							"./services/nse-bhavcopy-service"
+						);
+						const result = await nseBhavcopyService.syncLatestBhavcopy();
+						logger.info(
+							`[CRON] NSE Bhavcopy ingestion complete: ${result.updatedStocks} stocks updated, ` +
+								`${result.bigQueryInserted} sent to BigQuery in ${result.latencyMs}ms`,
+						);
+					} catch (error: any) {
+						logger.error("[CRON] NSE Bhavcopy ingestion failed:", error.message);
+					}
+				},
+				{ timezone: "Asia/Kolkata" },
+			);
+			logger.info(
+				"📊 [NseBhavcopy] Daily official Bhavcopy ingestion scheduled (6:45 PM IST weekdays)",
+			);
+		},
+		delay,
+	);
+	delay += STAGGER;
+
+	// ── Historical Time-Series Backfill Batch ───────────────────────────────────
+	staggeredStart(
+		"Historical Time-Series Backfill",
+		() => {
+			// Daily 3:00 AM IST (21:30 UTC) — low-traffic overnight window
+			cron.schedule(
+				"0 3 * * *",
+				async () => {
+					if (!isEnrichmentWindow()) {
+						logger.info("⏭️ [HistoricalBackfill] Outside 8PM-8AM IST window, skipping");
+						return;
+					}
+					logger.info("[CRON] Starting nightly historical time-series backfill batch (3:00 AM IST)...");
+					try {
+						const { runHistoricalBackfill } = await import(
+							"./services/instrument-time-series/historical-backfill-service"
+						);
+						const result = await runHistoricalBackfill(25);
+						logger.info(
+							`[CRON] Historical backfill batch complete: ${result.processed} processed, ` +
+								`${result.totalRecords} price points, ${result.errors} errors`,
+						);
+					} catch (error: any) {
+						logger.error("[CRON] Historical backfill batch failed:", error.message);
+					}
+				},
+				{ timezone: "Asia/Kolkata" },
+			);
+			logger.info(
+				"📊 [HistoricalBackfill] Nightly historical price backfill scheduled (3:00 AM IST)",
+			);
+		},
+		delay,
+	);
+	delay += STAGGER;
 
 	// ── Golden Source Pricing Engine ────────────────────────────────────────────
 	// Runs at 9 PM IST (15:30 UTC) weekdays — after market close.
