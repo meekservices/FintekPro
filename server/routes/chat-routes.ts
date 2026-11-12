@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { createChatGPTService } from "../services/chatgpt-service";
 import type { IStorage } from "../storage";
+import { logger } from "../logger";
 
 interface AuthRequest extends Request {
 	user?: {
@@ -32,7 +33,7 @@ export function setupChatRoutes(
 				const sessions = await chatService.getUserSessions(userId.toString());
 				res.json(sessions);
 			} catch (error: unknown) {
-				console.error("[Chat] Get sessions error:", error);
+				logger.error("[Chat] Get sessions error:", { error: String(error) });
 				const msg =
 					error instanceof Error
 						? error.message
@@ -64,7 +65,7 @@ export function setupChatRoutes(
 
 				res.json(session);
 			} catch (error: unknown) {
-				console.error("[Chat] Create session error:", error);
+				logger.error("[Chat] Create session error:", { error: String(error) });
 				const msg =
 					error instanceof Error
 						? error.message
@@ -92,7 +93,7 @@ export function setupChatRoutes(
 				);
 				res.json(messages);
 			} catch (error: unknown) {
-				console.error("[Chat] Get messages error:", error);
+				logger.error("[Chat] Get messages error:", { error: String(error) });
 				const msg =
 					error instanceof Error
 						? error.message
@@ -132,7 +133,7 @@ export function setupChatRoutes(
 				);
 				res.json(result);
 			} catch (error: unknown) {
-				console.error("[Chat] Send message error:", error);
+				logger.error("[Chat] Send message error:", { error: String(error) });
 				const msg =
 					error instanceof Error ? error.message : "Failed to send message";
 				res.status(500).json({ error: msg });
@@ -155,7 +156,7 @@ export function setupChatRoutes(
 				await chatService.endSession(sessionId, userId.toString());
 				res.json({ success: true });
 			} catch (error: unknown) {
-				console.error("[Chat] End session error:", error);
+				logger.error("[Chat] End session error:", { error: String(error) });
 				const msg =
 					error instanceof Error ? error.message : "Failed to end chat session";
 				res.status(500).json({ error: msg });
@@ -192,7 +193,7 @@ export function setupChatRoutes(
 				);
 				res.json({ success: true });
 			} catch (error: unknown) {
-				console.error("[Chat] Rate message error:", error);
+				logger.error("[Chat] Rate message error:", { error: String(error) });
 				const msg =
 					error instanceof Error ? error.message : "Failed to rate message";
 				res.status(500).json({ error: msg });

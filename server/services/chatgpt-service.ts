@@ -1,5 +1,6 @@
 import { aiService, AIProvider, AIModel } from "./ai-service";
 import type { IStorage } from "../storage";
+import { logger } from "../logger";
 import type {
 	InsertChatMessage,
 	InsertChatSession,
@@ -21,12 +22,12 @@ function safeJsonParse(content: any): any {
 			return JSON.parse(content);
 		} catch (e) {
 			// If parsing fails, return a wrapper object with the raw content
-			console.warn("[Chat] JSON parse failed, returning raw content wrapper");
+			logger.warn("[Chat] JSON parse failed, returning raw content wrapper");
 			return { rawContent: content, parseError: true };
 		}
 	}
 	// For undefined, null, or other types, return empty object
-	console.warn("[Chat] Unexpected content type:", typeof content);
+	logger.warn("[Chat] Unexpected content type:", { type: typeof content });
 	return {};
 }
 
