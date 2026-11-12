@@ -112,7 +112,7 @@ fi
 # - If REDIS_URL does not exist: continues smoothly in Zero-Redis PostgreSQL mode.
 # ─────────────────────────────────────────────────────────────────────────────
 REDIS_SECRET_FLAG=""
-VPC_CONNECTOR_FLAG="--clear-vpc-connector"
+VPC_CONNECTOR_FLAG="--clear-vpc-connector --vpc-egress=private-ranges-only"
 
 if gcloud secrets describe REDIS_URL --project="$PROJECT_ID" >/dev/null 2>&1; then
   echo "✅ REDIS_URL secret detected in Secret Manager — wiring into Cloud Run"
@@ -124,7 +124,7 @@ if gcloud secrets describe REDIS_URL --project="$PROJECT_ID" >/dev/null 2>&1; th
     VPC_CONNECTOR_FLAG="--vpc-connector=fintekpro-vpc-connector"
   else
     echo "ℹ️  No VPC connector found — using direct connection (e.g. Upstash/external Redis)"
-    VPC_CONNECTOR_FLAG="--clear-vpc-connector"
+    VPC_CONNECTOR_FLAG="--clear-vpc-connector --vpc-egress=private-ranges-only"
   fi
 else
   echo "ℹ️  REDIS_URL secret not found — operating in Zero-Redis PostgreSQL mode"
