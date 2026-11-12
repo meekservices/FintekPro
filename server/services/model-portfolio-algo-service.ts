@@ -155,6 +155,68 @@ export class ModelPortfolioAlgoService {
   }
 
   /**
+   * Enable algorithmic trading platform-wide across active model portfolios
+   * adhering strictly to SEBI pre-trade RMS and FASP-AI-v3.1-ALGO guardrails.
+   */
+  async enableAllAlgoTrading(
+    config: ModelPortfolioAlgoConfig = {},
+    actorId = "system",
+  ): Promise<{ success: boolean; enabledCount: number; portfolios: string[] }> {
+    const t0 = Date.now();
+    logger.info("[ModelPortfolioAlgo] Enabling platform-wide algo trading", {
+      event: "PLATFORM_ALGO_TRADING_ENABLE_REQUEST",
+      user_id: actorId,
+    });
+
+    const rows = await db
+      .select({ id: modelPortfolios.id, assetClass: modelPortfolios.assetClass })
+      .from(modelPortfolios)
+      .where(eq(modelPortfolios.isPublished, true));
+
+    const enabledIds: string[] = [];
+
+    for (const p of rows) {
+      const mergedConfig: ModelPortfolioAlgoConfig = {
+        rebalanceThresholdPct: config.rebalanceThresholdPct ?? getDriftThreshold(p.id, p.assetClass) * 100,
+        maxTradeAmount: config.maxTradeAmount ?? 500_000,
+        autoExecute: config.autoExecute ?? true,
+        executionChannel: config.executionChannel ?? "ALGO_AUTO",
+        allowedAssetClasses: config.allowedAssetClasses ?? ["equity", "debt", "hybrid", "gold"],
+        executionMode: config.executionMode ?? "PAPER_TRADING",
+        slippageTolerancePct: config.slippageTolerancePct ?? 0.3,
+        orderType: config.orderType ?? "limit",
+        autoSyncOrders: config.autoSyncOrders ?? true,
+      };
+
+      await db
+        .update(modelPortfolios)
+        .set({
+          algoTradingEnabled: true,
+          algoConfig: mergedConfig as any,
+          lastAlgoStatus: "ENABLED",
+          updatedAt: new Date(),
+        })
+        .where(eq(modelPortfolios.id, p.id));
+
+      enabledIds.push(p.id);
+    }
+
+    logger.info(`[ModelPortfolioAlgo] Platform-wide algo trading ENABLED for ${enabledIds.length} portfolios`, {
+      event: "PLATFORM_ALGO_TRADING_ENABLED",
+      count: enabledIds.length,
+      user_id: actorId,
+      latency_ms: Date.now() - t0,
+      status: "success",
+    });
+
+    return {
+      success: true,
+      enabledCount: enabledIds.length,
+      portfolios: enabledIds,
+    };
+  }
+
+  /**
    * Disable algorithmic trading for a specific model portfolio
    */
   async disableAlgoTrading(

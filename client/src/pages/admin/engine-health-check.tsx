@@ -261,6 +261,70 @@ export default function EngineHealthCheck() {
 		refetchInterval: 30000,
 	});
 
+	const {
+		data: algoStatusData,
+		refetch: refetchAlgoStatus,
+		isLoading: _algoStatusLoading,
+	} = useQuery<{
+		success: boolean;
+		data: any[];
+		meta: { total: number; enabledCount: number; version: string };
+	}>({
+		queryKey: ["/api/model-portfolios/algo-trading/status"],
+		refetchInterval: 15000,
+	});
+
+	const [algoEnabling, setAlgoEnabling] = useState(false);
+	const [algoSweeping, setAlgoSweeping] = useState(false);
+
+	const handleEnableAllAlgo = async () => {
+		setAlgoEnabling(true);
+		try {
+			const res = await apiRequest("/api/model-portfolios/algo-trading/enable-all", "POST", {
+				autoExecute: true,
+				executionChannel: "ALGO_AUTO",
+				maxTradeAmount: 500000,
+				slippageTolerancePct: 0.3,
+				orderType: "limit",
+			});
+			const json = await res.json();
+			refetchAlgoStatus();
+			toast({
+				title: "Algorithmic Trading Enabled",
+				description: json.message || "Algo trading active across canonical model portfolios with SEBI RMS guardrails.",
+			});
+		} catch (err: any) {
+			toast({
+				title: "Activation Failed",
+				description: err?.message || "Could not enable platform-wide algo trading",
+				variant: "destructive",
+			});
+		} finally {
+			setAlgoEnabling(false);
+		}
+	};
+
+	const handleRunAlgoSweep = async () => {
+		setAlgoSweeping(true);
+		try {
+			const res = await apiRequest("/api/model-portfolios/algo-trading/sweep", "POST");
+			const json = await res.json();
+			refetchAlgoStatus();
+			toast({
+				title: "Algo Batch Sweep Complete",
+				description: `Swept ${json.data?.swept ?? 0} portfolios: ${json.data?.executed ?? 0} executed, ${json.data?.reconciledPending ?? 0} reconciled.`,
+			});
+		} catch (err: any) {
+			toast({
+				title: "Sweep Failed",
+				description: err?.message || "Algo sweep execution failed",
+				variant: "destructive",
+			});
+		} finally {
+			setAlgoSweeping(false);
+		}
+	};
+
 	const runHealthCheck = async () => {
 		setLoading(true);
 		try {
@@ -1009,6 +1073,90 @@ export default function EngineHealthCheck() {
 							</CardContent>
 						</Card>
 					)}
+
+					{/* ── Algorithmic Trading & Systematic Sweeps Engine ─────────── */}
+					<Card>
+						<CardHeader>
+							<div className="flex items-center justify-between">
+								<div className="space-y-1">
+									<CardTitle className="text-base font-semibold flex items-center gap-2">
+										<Zap className="h-4 w-4 text-purple-500" />
+										Algorithmic Trading & Systematic Rebalance Engine
+									</CardTitle>
+									<CardDescription>
+										SEBI-compliant Model Portfolio Algo Execution (FASP-AI-v3.1-ALGO) with 9-Gate Pre-Trade RMS
+									</CardDescription>
+								</div>
+								<Badge
+									variant="outline"
+									className={
+										(algoStatusData?.meta?.enabledCount ?? 0) > 0
+											? "bg-purple-500/10 text-purple-600 border-purple-500/30"
+											: "bg-muted text-muted-foreground"
+									}
+								>
+									{algoStatusData?.meta?.enabledCount ?? 0} / {algoStatusData?.meta?.total ?? 0} Portfolios Active
+								</Badge>
+							</div>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							<div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+								<div className="p-3 bg-muted/40 rounded-lg">
+									<div className="text-muted-foreground">Engine Version</div>
+									<div className="font-bold text-foreground font-mono mt-0.5">
+										{algoStatusData?.meta?.version ?? "FASP-AI-v3.1-ALGO"}
+									</div>
+								</div>
+								<div className="p-3 bg-muted/40 rounded-lg">
+									<div className="text-muted-foreground">Pre-Trade RMS</div>
+									<div className="font-bold text-emerald-600 mt-0.5">9 Gates Active</div>
+								</div>
+								<div className="p-3 bg-muted/40 rounded-lg">
+									<div className="text-muted-foreground">Max Leg Slippage</div>
+									<div className="font-bold text-foreground mt-0.5">30 bps (0.30%) Limit</div>
+								</div>
+								<div className="p-3 bg-muted/40 rounded-lg">
+									<div className="text-muted-foreground">Automated Sweep Cadence</div>
+									<div className="font-bold text-foreground mt-0.5">Every 15 Minutes</div>
+								</div>
+							</div>
+
+							<div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+								<p className="text-xs text-muted-foreground max-w-xl">
+									* In accordance with SEBI Investment Adviser Regulations and PMS rules, algo trading operates under pre-trade RMS bounds with an automated 15-minute sweep cycle and 1-click execution gates.
+								</p>
+								<div className="flex items-center gap-2">
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={handleRunAlgoSweep}
+										disabled={algoSweeping}
+									>
+										{algoSweeping ? (
+											<RefreshCw className="h-4 w-4 animate-spin mr-1.5" />
+										) : (
+											<RefreshCw className="h-4 w-4 mr-1.5 text-blue-500" />
+										)}
+										{algoSweeping ? "Sweeping..." : "Run Algo Sweep Now"}
+									</Button>
+									<Button
+										variant="default"
+										size="sm"
+										onClick={handleEnableAllAlgo}
+										disabled={algoEnabling}
+										className="bg-purple-600 hover:bg-purple-700 text-white"
+									>
+										{algoEnabling ? (
+											<RefreshCw className="h-4 w-4 animate-spin mr-1.5" />
+										) : (
+											<Zap className="h-4 w-4 mr-1.5" />
+										)}
+										{algoEnabling ? "Activating..." : "Enable Platform-Wide Algo Trading"}
+									</Button>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
 				</TabsContent>
 
 				{/* ── Regulatory & Statutory Compliance Tab ─────────────────────── */}

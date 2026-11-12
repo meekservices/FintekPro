@@ -6573,6 +6573,37 @@ modelPortfoliosRouter.post("/algo-trading/sweep", async (req: Request, res: Resp
 });
 
 /**
+ * POST /api/model-portfolios/algo-trading/enable-all
+ * Enables algorithmic trading across all active model portfolios with SEBI RMS guardrails.
+ */
+modelPortfoliosRouter.post("/algo-trading/enable-all", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const actorId = (req as any).user?.id?.toString() || "admin";
+    const config = req.body || {};
+    const result = await modelPortfolioAlgoService.enableAllAlgoTrading(config, actorId);
+    return res.json({
+      success: true,
+      message: `Algorithmic trading enabled across ${result.enabledCount} canonical model portfolios`,
+      data: result,
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: ALGO_ENGINE_VERSION,
+        latency_ms: Date.now() - t0,
+      },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] Failed to enable platform-wide algo trading", err);
+    return res.status(500).json({
+      success: false,
+      error_code: "PLATFORM_ALGO_ENABLE_FAILED",
+      message: err.message,
+      retryable: false,
+    });
+  }
+});
+
+/**
  * POST /api/model-portfolios/:id/algo-trading/enable
  * Enables algorithmic trading for a specific model portfolio.
  * Body: { rebalanceThresholdPct?: number, maxTradeAmount?: number, autoExecute?: boolean }
