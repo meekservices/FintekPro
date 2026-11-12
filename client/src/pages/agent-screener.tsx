@@ -784,6 +784,26 @@ export default function AgentScreener() {
 	const [sifSortBy, setSifSortBy] = useState("targetReturn");
 	const [sifSortOrder, setSifSortOrder] = useState<"asc" | "desc">("desc");
 
+	// ── Debounced search queries for responsive & resilient filtering ─────────
+	const [debouncedMfSearch, setDebouncedMfSearch] = useState(mfSearch);
+	const [debouncedBondSearch, setDebouncedBondSearch] = useState(bondSearch);
+	const [debouncedEtfSearch, setDebouncedEtfSearch] = useState(etfSearch);
+
+	useEffect(() => {
+		const t = setTimeout(() => setDebouncedMfSearch(mfSearch), 250);
+		return () => clearTimeout(t);
+	}, [mfSearch]);
+
+	useEffect(() => {
+		const t = setTimeout(() => setDebouncedBondSearch(bondSearch), 250);
+		return () => clearTimeout(t);
+	}, [bondSearch]);
+
+	useEffect(() => {
+		const t = setTimeout(() => setDebouncedEtfSearch(etfSearch), 250);
+		return () => clearTimeout(t);
+	}, [etfSearch]);
+
 	// Reactive URL synchronization for deep-linking from Model Portfolios & external tools
 	useEffect(() => {
 		const handleUrlParams = () => {
@@ -974,7 +994,7 @@ export default function AgentScreener() {
 			p.set("page", String(mfPage));
 			p.set("sortBy", mfSortBy);
 			p.set("sortOrder", mfSortOrder);
-			if (mfSearch)           p.set("q", mfSearch);
+			if (debouncedMfSearch)  p.set("q", debouncedMfSearch);
 			if (mfCategory)         p.set("category", mfCategory);
 			if (mfFundHouse)        p.set("fundHouse", mfFundHouse);
 			if (mfRiskLevel)        p.set("riskLevel", mfRiskLevel);
@@ -988,14 +1008,14 @@ export default function AgentScreener() {
 		} else if (screenerType === "bond") {
 			p.set("page", String(bondPage));
 			p.set("bondType", bondType);
-			if (bondSearch)             p.set("q", bondSearch);
+			if (debouncedBondSearch)     p.set("q", debouncedBondSearch);
 			if (bondMinYield)           p.set("minYield", bondMinYield);
 			if (bondMaxMaturityYears)   p.set("maxMaturityYears", bondMaxMaturityYears);
 			if (bondMinRating)          p.set("minRating", bondMinRating);
 			if (bondTaxStatus !== "all") p.set("taxStatus", bondTaxStatus);
 		} else if (screenerType === "etf") {
 			p.set("page", String(etfPage));
-			if (etfSearch)                 p.set("q", etfSearch);
+			if (debouncedEtfSearch)        p.set("q", debouncedEtfSearch);
 			if (etfCategory !== "all")     p.set("etfCategory", etfCategory);
 		} else if (screenerType === "unlisted") {
 			p.set("page", String(unlistedPage));
@@ -1045,10 +1065,10 @@ export default function AgentScreener() {
 	const { data: instrumentData, isLoading: instrumentLoading } = useQuery<any>({
 		queryKey: [
 			"/api/screener/instruments",
-			screenerType, mfPage, mfCategory, mfFundHouse, mfRiskLevel, mfSearch,
+			screenerType, mfPage, mfCategory, mfFundHouse, mfRiskLevel, debouncedMfSearch,
 			mfMinReturn1y, mfMinReturn3y, mfMaxExpenseRatio, mfMinAum, mfMinSharpe, mfMinAlpha, mfMaxBeta, mfSortBy, mfSortOrder,
-			bondPage, bondType, bondMinYield, bondMaxMaturityYears, bondMinRating, bondTaxStatus, bondSearch,
-			etfPage, etfCategory, etfSearch,
+			bondPage, bondType, bondMinYield, bondMaxMaturityYears, bondMinRating, bondTaxStatus, debouncedBondSearch,
+			etfPage, etfCategory, debouncedEtfSearch,
 			unlistedPage, unlistedStage, unlistedSector, unlistedSearch, unlistedSortBy, unlistedSortOrder,
 			reitPage, reitCategory, reitMinYield, reitSearch, reitSortBy, reitSortOrder,
 			smallcasePage, smallcaseSearch, smallcaseRisk, smallcaseSector,
@@ -1975,6 +1995,13 @@ export default function AgentScreener() {
 														</tr>
 													</thead>
 													<tbody className="divide-y">
+														{(instrumentData?.data ?? []).length === 0 && !instrumentLoading && (
+															<tr>
+																<td colSpan={17} className="py-12 text-center text-muted-foreground text-sm">
+																	No mutual funds found matching your criteria. Try adjusting the search keywords or filters.
+																</td>
+															</tr>
+														)}
 														{(instrumentData?.data ?? []).map((f: any, i: number) => (
 															<tr key={f.id ?? f.schemeCode} className="hover:bg-muted/30 transition-colors">
 																<td className="py-2 px-3 text-xs text-muted-foreground">{(mfPage-1)*25+i+1}</td>

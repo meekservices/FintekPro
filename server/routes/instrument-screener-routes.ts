@@ -88,6 +88,147 @@ const BOND_RATING_HIERARCHY = [
 ];
 
 /**
+ * Financial dictionary for expanding Mutual Fund search queries.
+ * Bridges natural financial language, common AMC abbreviations, and SEBI regulatory nomenclature:
+ *   - AMCs: "pru" -> "prudential", "sbi" -> "state bank", "absl" -> "aditya birla", "mosl" -> "motilal"
+ *   - Plans / Dividends: "divid" / "dividend" -> "idcw", "gr" -> "growth", "dir" -> "direct"
+ *   - Market Caps & Styles: "flexi" -> "flexicap", "small" -> "smallcap", "elss" -> "tax saver"
+ */
+const MF_SEARCH_ALIASES: Record<string, string[]> = {
+  // AMC Names & Abbreviations
+  pru: ["pru", "prudential"],
+  prudential: ["prudential", "pru"],
+  icici: ["icici"],
+  sbi: ["sbi", "state bank"],
+  hdfc: ["hdfc"],
+  absl: ["absl", "aditya birla", "birla"],
+  birla: ["birla", "aditya birla", "absl"],
+  aditya: ["aditya birla", "absl"],
+  nippon: ["nippon", "reliance"],
+  reliance: ["nippon", "reliance"],
+  parag: ["parag", "ppfas", "parikh"],
+  parikh: ["parag", "ppfas", "parikh"],
+  ppfas: ["ppfas", "parag", "parikh"],
+  motilal: ["motilal", "mosl", "oswal"],
+  mosl: ["mosl", "motilal", "oswal"],
+  oswal: ["oswal", "motilal", "mosl"],
+  mirae: ["mirae"],
+  kotak: ["kotak"],
+  tata: ["tata"],
+  axis: ["axis"],
+  quant: ["quant"],
+  groww: ["groww"],
+  dsp: ["dsp"],
+  uti: ["uti"],
+  canara: ["canara", "robeco"],
+  robeco: ["canara", "robeco"],
+  sundaram: ["sundaram"],
+  bandhan: ["bandhan", "idfc"],
+  idfc: ["bandhan", "idfc"],
+  franklin: ["franklin", "templeton"],
+  templeton: ["franklin", "templeton"],
+  hsbc: ["hsbc"],
+  edelweiss: ["edelweiss"],
+  invesco: ["invesco"],
+  baroda: ["baroda", "pnb"],
+  pnb: ["baroda", "pnb"],
+  mahindra: ["mahindra", "manulife"],
+  manulife: ["mahindra", "manulife"],
+  pgim: ["pgim"],
+  whiteoak: ["whiteoak", "white oak"],
+  samco: ["samco"],
+  zerodha: ["zerodha"],
+  navi: ["navi"],
+  helios: ["helios"],
+  nj: ["nj"],
+  "360": ["360", "360one", "iifl"],
+  "360one": ["360", "360one", "iifl"],
+  iifl: ["360", "360one", "iifl"],
+  union: ["union"],
+  boi: ["boi", "bank of india"],
+  iti: ["iti"],
+  taurus: ["taurus"],
+  shriram: ["shriram"],
+  trust: ["trust"],
+  quantum: ["quantum"],
+
+  // Dividend, IDCW, Plan Types
+  divid: ["dividend", "idcw", "divid"],
+  dividend: ["dividend", "idcw", "divid"],
+  idcw: ["idcw", "dividend", "divid"],
+  div: ["dividend", "idcw", "div"],
+  growth: ["growth", "gr"],
+  gr: ["growth", "gr"],
+  direct: ["direct", "dir"],
+  dir: ["direct", "dir"],
+  regular: ["regular", "reg"],
+  reg: ["regular", "reg"],
+  payout: ["payout", "idcw payout"],
+  reinvest: ["reinvest", "reinvestment"],
+  reinvestment: ["reinvest", "reinvestment"],
+
+  // Market Cap / Category aliases
+  flexi: ["flexi", "flexicap"],
+  flexicap: ["flexi", "flexicap"],
+  mid: ["mid", "midcap"],
+  midcap: ["mid", "midcap"],
+  small: ["small", "smallcap"],
+  smallcap: ["small", "smallcap"],
+  large: ["large", "largecap"],
+  largecap: ["large", "largecap"],
+  multi: ["multi", "multicap"],
+  multicap: ["multi", "multicap"],
+  multiasset: ["multi asset", "multi-asset", "multiasset"],
+  elss: ["elss", "tax saver", "tax relief"],
+  tax: ["elss", "tax saver", "tax relief", "tax"],
+  focused: ["focused", "focus"],
+  focus: ["focused", "focus"],
+  contra: ["contra"],
+  arbitrage: ["arbitrage", "arb"],
+  arb: ["arbitrage", "arb"],
+  overnight: ["overnight"],
+  liquid: ["liquid"],
+  balanced: ["balanced", "baf"],
+  baf: ["balanced advantage", "baf", "balanced"],
+  index: ["index", "nifty", "sensex"],
+};
+
+/**
+ * Builds tokenized, alias-expanded SQL WHERE conditions for mutual funds.
+ * Each search term must be satisfied (AND condition across tokens), but can match
+ * any of scheme name, fund house, category, ISINs, or scheme code via any of its synonyms.
+ */
+function buildMutualFundSearchConditions(query: string) {
+  const sanitized = query.replace(/[()\[\],;:\-_/\\]+/g, " ").trim();
+  const rawTokens = sanitized.split(/\s+/).filter((t) => t.length > 0).slice(0, 8);
+  if (rawTokens.length === 0) return [];
+
+  return rawTokens.map((rawToken) => {
+    const tokenLower = rawToken.toLowerCase();
+    const aliasMatches = MF_SEARCH_ALIASES[tokenLower] || [];
+    const variants = Array.from(new Set([rawToken, tokenLower, ...aliasMatches]));
+
+    const variantConditions = variants.flatMap((v) => {
+      const pattern = `%${v}%`;
+      return [
+        ilike(mutualFunds.schemeName, pattern),
+        ilike(mutualFunds.fundHouse, pattern),
+        ilike(mutualFunds.category, pattern),
+        ilike(mutualFunds.schemeSubCategory, pattern),
+        ilike(mutualFunds.isin, pattern),
+        ilike(mutualFunds.isinGrowth, pattern),
+        ilike(mutualFunds.isinDividendPayout, pattern),
+        ilike(mutualFunds.isinDividendReinvest, pattern),
+        ilike(mutualFunds.optionType, pattern),
+        sql`CAST(${mutualFunds.schemeCode} AS TEXT) ILIKE ${pattern}`,
+      ];
+    });
+
+    return or(...variantConditions) as ReturnType<typeof eq>;
+  });
+}
+
+/**
  * GET /api/screener/instruments
  *
  * Universal screener. Query params:
@@ -193,18 +334,11 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
 
       if (fundHouse) conditions.push(ilike(mutualFunds.fundHouse, `%${fundHouse}%`));
       if (riskLevel) conditions.push(ilike(mutualFunds.riskLevel, `%${riskLevel}%`));
-      if (q) {
-        const queryStr = `%${q.trim()}%`;
-        conditions.push(
-          or(
-            ilike(mutualFunds.schemeName, queryStr),
-            ilike(mutualFunds.isin, queryStr),
-            ilike(mutualFunds.isinGrowth, queryStr),
-            ilike(mutualFunds.fundHouse, queryStr),
-            ilike(mutualFunds.category, queryStr),
-            sql`CAST(${mutualFunds.schemeCode} AS TEXT) ILIKE ${queryStr}`
-          ) as ReturnType<typeof eq>
-        );
+      if (q && q.trim()) {
+        const mfSearchConditions = buildMutualFundSearchConditions(q);
+        if (mfSearchConditions.length > 0) {
+          conditions.push(...mfSearchConditions);
+        }
       }
       if (minReturn1y) conditions.push(gte(sql`COALESCE(${mutualFunds.returns1y}, ${mutualFundMetrics.return1y})::numeric`, minReturn1y as any));
       if (minReturn3y) conditions.push(gte(sql`COALESCE(${mutualFunds.returns3y}, ${mutualFundMetrics.return3y})::numeric`, minReturn3y as any));
@@ -483,10 +617,14 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
         if (minYield) {
           fallbackBonds = fallbackBonds.filter((b) => b.yieldToMaturity >= parseFloat(minYield));
         }
-        if (q) {
-          const qUpper = q.toUpperCase();
-          fallbackBonds = fallbackBonds.filter(
-            (b) => b.name.toUpperCase().includes(qUpper) || b.isin.toUpperCase().includes(qUpper) || b.issuer.toUpperCase().includes(qUpper)
+        if (q && q.trim()) {
+          const bondTokens = q.toUpperCase().replace(/[()\[\],;:\-_/\\]+/g, " ").trim().split(/\s+/).filter(Boolean).slice(0, 6);
+          fallbackBonds = fallbackBonds.filter((b) =>
+            bondTokens.every((tok) =>
+              (b.name && b.name.toUpperCase().includes(tok)) ||
+              (b.isin && b.isin.toUpperCase().includes(tok)) ||
+              (b.issuer && b.issuer.toUpperCase().includes(tok))
+            )
           );
         }
         bonds = fallbackBonds;
@@ -563,11 +701,19 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
         ) as ReturnType<typeof eq>,
       ];
 
-      if (q) etfConditions.push(or(
-        ilike(listedStocks.companyName, `%${q}%`),
-        ilike(listedStocks.symbol, `%${q}%`),
-        ilike(listedStocks.isin, `%${q}%`),
-      ) as ReturnType<typeof eq>);
+      if (q && q.trim()) {
+        const etfTokens = q.replace(/[()\[\],;:\-_/\\]+/g, " ").trim().split(/\s+/).filter(Boolean).slice(0, 6);
+        for (const token of etfTokens) {
+          const pattern = `%${token}%`;
+          etfConditions.push(
+            or(
+              ilike(listedStocks.companyName, pattern),
+              ilike(listedStocks.symbol, pattern),
+              ilike(listedStocks.isin, pattern),
+            ) as ReturnType<typeof eq>
+          );
+        }
+      }
 
       if (etfCategory === "gold") etfConditions.push(
         or(
@@ -654,10 +800,14 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
         if (etfCategory && etfCategory !== "all") {
           fallbackEtfs = fallbackEtfs.filter((e) => e.etfCategory === etfCategory);
         }
-        if (q) {
-          const qUpper = q.toUpperCase();
-          fallbackEtfs = fallbackEtfs.filter(
-            (e) => e.companyName.toUpperCase().includes(qUpper) || e.symbol.toUpperCase().includes(qUpper) || e.isin.toUpperCase().includes(qUpper)
+        if (q && q.trim()) {
+          const etfTokens = q.toUpperCase().replace(/[()\[\],;:\-_/\\]+/g, " ").trim().split(/\s+/).filter(Boolean).slice(0, 6);
+          fallbackEtfs = fallbackEtfs.filter((e) =>
+            etfTokens.every((tok) =>
+              (e.companyName && e.companyName.toUpperCase().includes(tok)) ||
+              (e.symbol && e.symbol.toUpperCase().includes(tok)) ||
+              (e.isin && e.isin.toUpperCase().includes(tok))
+            )
           );
         }
         etfs = fallbackEtfs as any[];
@@ -958,14 +1108,15 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
         const minCagrVal = Number(minCagr) || 0;
         items = items.filter((s) => s.cagr3y >= minCagrVal);
       }
-      if (q) {
-        const query = q.toLowerCase();
-        items = items.filter(
-          (s) =>
-            s.name.toLowerCase().includes(query) ||
-            s.theme.toLowerCase().includes(query) ||
-            s.description.toLowerCase().includes(query) ||
-            s.topHoldings.some((h) => h.symbol.toLowerCase().includes(query) || h.name.toLowerCase().includes(query))
+      if (q && q.trim()) {
+        const tokens = q.toLowerCase().replace(/[()\[\],;:\-_/\\]+/g, " ").trim().split(/\s+/).filter(Boolean);
+        items = items.filter((s) =>
+          tokens.every((tok) =>
+            s.name.toLowerCase().includes(tok) ||
+            s.theme.toLowerCase().includes(tok) ||
+            s.description.toLowerCase().includes(tok) ||
+            s.topHoldings.some((h) => h.symbol.toLowerCase().includes(tok) || h.name.toLowerCase().includes(tok))
+          )
         );
       }
 
@@ -1010,13 +1161,14 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
       if (provider && provider !== "all") {
         items = items.filter((i) => i.provider.toLowerCase() === provider.toLowerCase());
       }
-      if (q) {
-        const query = q.toLowerCase();
-        items = items.filter(
-          (i) =>
-            i.name.toLowerCase().includes(query) ||
-            i.indexCode.toLowerCase().includes(query) ||
-            i.description.toLowerCase().includes(query)
+      if (q && q.trim()) {
+        const tokens = q.toLowerCase().replace(/[()\[\],;:\-_/\\]+/g, " ").trim().split(/\s+/).filter(Boolean);
+        items = items.filter((i) =>
+          tokens.every((tok) =>
+            i.name.toLowerCase().includes(tok) ||
+            i.indexCode.toLowerCase().includes(tok) ||
+            i.description.toLowerCase().includes(tok)
+          )
         );
       }
 
@@ -1065,15 +1217,16 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
       if (minReturn) {
         items = items.filter((s) => s.targetReturn >= parseFloat(minReturn));
       }
-      if (q) {
-        const query = q.toLowerCase();
-        items = items.filter(
-          (s) =>
-            s.name.toLowerCase().includes(query) ||
-            s.amc.toLowerCase().includes(query) ||
-            s.strategy.toLowerCase().includes(query) ||
-            (s.isin && s.isin.toLowerCase().includes(query)) ||
-            s.portfolioPresence.some((p) => p.toLowerCase().includes(query))
+      if (q && q.trim()) {
+        const tokens = q.toLowerCase().replace(/[()\[\],;:\-_/\\]+/g, " ").trim().split(/\s+/).filter(Boolean);
+        items = items.filter((s) =>
+          tokens.every((tok) =>
+            s.name.toLowerCase().includes(tok) ||
+            s.amc.toLowerCase().includes(tok) ||
+            s.strategy.toLowerCase().includes(tok) ||
+            (s.isin && s.isin.toLowerCase().includes(tok)) ||
+            s.portfolioPresence.some((p) => p.toLowerCase().includes(tok))
+          )
         );
       }
 
