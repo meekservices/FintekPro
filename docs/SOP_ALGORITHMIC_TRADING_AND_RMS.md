@@ -138,6 +138,9 @@ In compliance with SEBI operational risk mandates, FintekPro provides a **Three-
 1. **Client In-App Kill Switch**: The client can pause automated trading on their portfolio at any time via the FintekPro mobile app.
 2. **Portfolio Override Kill Switch**: Accessible to partner RIAs and Portfolio Managers via `POST /api/model-portfolios/:id/algo-trading/disable`.
 3. **Platform Global Kill Switch**: The Compliance Officer can engage the global kill-switch via the Admin UI, which instantly freezes all algo sweeps and API dispatches across all tenant instances.
+4. **Client-Facing Voluntary Segment Kill-Switch (Upstox Benchmark)**:
+   - Retail and institutional clients can voluntarily halt their own derivative and F&O trading via `POST /api/derivatives/kill-switch`.
+   - Adhering to SEBI voluntary trading halt circulars, activation enforces an immutable **12-hour cooling-off lock period**. During this period, all order validation (`/api/derivatives/order/validate`) and execution (`/api/derivatives/order/execute`) endpoints reject incoming trades with `USER_KILL_SWITCH_ACTIVE`.
 
 ---
 
@@ -162,3 +165,17 @@ Per **SEBI Regulation 16** and **CERT-In Cyber Security Directions**:
   - **`portfolio_ai_decisions`**: Stores exact algorithm version (`FASP-AI-v3.1-ALGO`), drift metrics, and regime states.
   - **`order_lifecycle_events`**: Stores broker exchange order IDs and fill states.
 - All records are retained in PostgreSQL immutable WORM (Write-Once-Read-Many) storage for **7 years** for statutory inspection.
+
+---
+
+## 7. Multi-Leg Options Strategy Baskets & Greeks Engine (Upstox Pro Benchmark)
+
+To align with institutional standards and the Upstox Pro trading architecture:
+1. **Real-time Greeks Engine**:
+   - Every option strike computes Black-Scholes Greeks: Delta ($\Delta$), Gamma ($\Gamma$), Theta ($\Theta$), Vega ($\nu$), Rho ($\rho$), Implied Volatility (IV %), and Probability of Profit (POP).
+2. **1-Click Pre-Hedged Strategy Baskets**:
+   - Standardized strategy templates (*Bull Call Spread*, *Bear Put Spread*, *Long Straddle*, *Short Strangle*, *Iron Condor*).
+   - Enforces institutional BUY-first leg execution sequence to lock in exchange hedge margin relief benefits before short legs are routed.
+3. **Pre-Trade "Slide to Execute" Guardrail**:
+   - Accidental executions on web and touch interfaces are eliminated via the touch/drag `SlideToConfirmOrderModal.tsx`, satisfying FASP-AI v1.0 explicit client confirmation requirements.
+

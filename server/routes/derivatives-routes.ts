@@ -459,6 +459,54 @@ router.get(
 );
 
 /**
+ * GET /api/derivatives/kill-switch
+ * Returns client-level F&O segment kill switch status.
+ */
+router.get("/kill-switch", async (req: Request, res: Response): Promise<void> => {
+	try {
+		const userId = (req.user as any)?.id || "demo-user";
+		const status = derivativesService.getUserKillSwitch(userId);
+		res.json({
+			success: true,
+			data: status,
+			meta: { timestamp: new Date().toISOString() },
+		});
+	} catch (error: unknown) {
+		logger.error("[Derivatives] Error reading kill switch status:", errorMessage(error));
+		res.status(500).json({ error: "Failed to read kill switch status" });
+	}
+});
+
+/**
+ * POST /api/derivatives/kill-switch
+ * Toggles client-level F&O segment kill switch with SEBI-mandated 12-hour lock duration.
+ */
+router.post(
+	"/kill-switch",
+	async (
+		req: Request<any, any, { active: boolean; reason?: string }>,
+		res: Response,
+	): Promise<void> => {
+		try {
+			const userId = (req.user as any)?.id || "demo-user";
+			const { active, reason } = req.body;
+			const status = derivativesService.setUserKillSwitch(userId, Boolean(active), reason);
+			res.json({
+				success: true,
+				message: active
+					? "F&O segment successfully locked for 12 hours adhering to SEBI guidance."
+					: "F&O segment unlocked.",
+				data: status,
+				meta: { timestamp: new Date().toISOString() },
+			});
+		} catch (error: unknown) {
+			logger.error("[Derivatives] Error setting kill switch status:", errorMessage(error));
+			res.status(500).json({ error: "Failed to update kill switch status" });
+		}
+	},
+);
+
+/**
  * POST /api/derivatives/order/validate
  * Pre-trade compliance & suitability check adhering strictly to:
  * - SEBI Index Derivatives Framework Circular SEBI/HO/MRD/POD1/CIR/P/2024/132
@@ -485,6 +533,21 @@ router.post(
 		res: Response
 	): Promise<void> => {
 		try {
+			const userId = (req.user as any)?.id || "demo-user";
+			const userKillSwitch = derivativesService.getUserKillSwitch(userId);
+			if (userKillSwitch.active) {
+				res.status(403).json({
+					success: false,
+					allowed: false,
+					error_code: "USER_KILL_SWITCH_ACTIVE",
+					message: `F&O trading is halted by your personal Segment Kill-Switch (${userKillSwitch.reason}). Lock active until: ${userKillSwitch.lockUntil}`,
+					regulatoryNotices: [
+						"SEBI Voluntary Trading Halt: Your account has locked F&O derivatives trading.",
+					],
+				});
+				return;
+			}
+
 			const {
 				symbol,
 				tradingsymbol,
@@ -662,6 +725,16 @@ router.post(
 			const userId = (req.user as any)?.id;
 			if (!userId) {
 				res.status(401).json({ success: false, error: "Authentication required" });
+				return;
+			}
+
+			const userKillSwitch = derivativesService.getUserKillSwitch(userId);
+			if (userKillSwitch.active) {
+				res.status(403).json({
+					success: false,
+					error: "USER_KILL_SWITCH_ACTIVE",
+					message: `Derivative execution rejected: F&O segment is deactivated by your personal Kill-Switch (${userKillSwitch.reason}). Active until ${userKillSwitch.lockUntil}.`,
+				});
 				return;
 			}
 
@@ -894,6 +967,16 @@ router.post(
 			const userId = (req.user as any)?.id;
 			if (!userId) {
 				res.status(401).json({ success: false, error: "Authentication required" });
+				return;
+			}
+
+			const userKillSwitch = derivativesService.getUserKillSwitch(userId);
+			if (userKillSwitch.active) {
+				res.status(403).json({
+					success: false,
+					error: "USER_KILL_SWITCH_ACTIVE",
+					message: `Derivative execution rejected: F&O segment is deactivated by your personal Kill-Switch (${userKillSwitch.reason}). Active until ${userKillSwitch.lockUntil}.`,
+				});
 				return;
 			}
 			const result = await longShortAlgoEngine.executeBasket({

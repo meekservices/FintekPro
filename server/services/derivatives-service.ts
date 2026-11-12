@@ -20,10 +20,11 @@
 
 import { callPython } from "../clients/python-client";
 import { upstoxMarketDataService } from "./upstox-market-data-service";
+import { logger } from "../logger";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
-interface OptionData {
+export interface OptionData {
 	strikePrice: number;
 	expiryDate: string;
 	optionType: "CE" | "PE";
@@ -41,9 +42,15 @@ interface OptionData {
 	askQty: number;
 	askPrice: number;
 	underlyingValue: number;
+	delta?: number;
+	gamma?: number;
+	theta?: number;
+	vega?: number;
+	rho?: number;
+	pop?: number;
 }
 
-interface OptionsChain {
+export interface OptionsChain {
 	symbol: string;
 	underlyingValue: number;
 	expiryDates: string[];
@@ -51,6 +58,22 @@ interface OptionsChain {
 	options: { calls: OptionData[]; puts: OptionData[] };
 	timestamp: string;
 	dataSource: "nse" | "synthetic";
+	pcr?: number;
+	maxPain?: number;
+	atmStrike?: number;
+	totalCallOI?: number;
+	totalPutOI?: number;
+	totalCallVolume?: number;
+	totalPutVolume?: number;
+}
+
+export interface UserFnoKillSwitchState {
+	userId: string;
+	active: boolean;
+	activatedAt?: string;
+	lockUntil?: string;
+	reason?: string;
+	segment: "FO";
 }
 
 interface FuturesData {
@@ -696,6 +719,10 @@ class DerivativesService {
 				for (const row of chainData) {
 					if (row.call_options) {
 						const ce = row.call_options;
+						const dte = Math.max(1, this.daysToExpiry(expiryDate || ""));
+						const fallbackGreeks = this.calculateGreeks(underlying, row.strike_price, dte, 0.15, 0.065, "call");
+						const rawIv = Number(ce.option_greeks?.iv || 0);
+						const iv = rawIv > 0 ? rawIv : Math.round(fallbackGreeks.impliedVolatility * 100) / 100;
 						calls.push({
 							strikePrice: row.strike_price,
 							expiryDate: expiryDate || "",
@@ -704,7 +731,7 @@ class DerivativesService {
 							changeinOpenInterest:
 								(ce.market_data?.oi || 0) - (ce.market_data?.prev_oi || 0),
 							totalTradedVolume: ce.market_data?.volume || 0,
-							impliedVolatility: ce.option_greeks?.iv || 0,
+							impliedVolatility: iv,
 							lastPrice: ce.market_data?.ltp || 0,
 							change:
 								(ce.market_data?.ltp || 0) - (ce.market_data?.close_price || 0),
@@ -720,10 +747,20 @@ class DerivativesService {
 							askQty: ce.market_data?.ask_qty || 0,
 							askPrice: ce.market_data?.ask_price || 0,
 							underlyingValue: underlying,
+							delta: Number(ce.option_greeks?.delta ?? fallbackGreeks.delta),
+							gamma: Number(ce.option_greeks?.gamma ?? fallbackGreeks.gamma),
+							theta: Number(ce.option_greeks?.theta ?? fallbackGreeks.theta),
+							vega: Number(ce.option_greeks?.vega ?? fallbackGreeks.vega),
+							rho: Number(ce.option_greeks?.rho ?? fallbackGreeks.rho),
+							pop: Number(ce.option_greeks?.pop ?? 50),
 						});
 					}
 					if (row.put_options) {
 						const pe = row.put_options;
+						const dte = Math.max(1, this.daysToExpiry(expiryDate || ""));
+						const fallbackGreeks = this.calculateGreeks(underlying, row.strike_price, dte, 0.15, 0.065, "put");
+						const rawIv = Number(pe.option_greeks?.iv || 0);
+						const iv = rawIv > 0 ? rawIv : Math.round(fallbackGreeks.impliedVolatility * 100) / 100;
 						puts.push({
 							strikePrice: row.strike_price,
 							expiryDate: expiryDate || "",
@@ -732,7 +769,7 @@ class DerivativesService {
 							changeinOpenInterest:
 								(pe.market_data?.oi || 0) - (pe.market_data?.prev_oi || 0),
 							totalTradedVolume: pe.market_data?.volume || 0,
-							impliedVolatility: pe.option_greeks?.iv || 0,
+							impliedVolatility: iv,
 							lastPrice: pe.market_data?.ltp || 0,
 							change:
 								(pe.market_data?.ltp || 0) - (pe.market_data?.close_price || 0),
@@ -748,11 +785,18 @@ class DerivativesService {
 							askQty: pe.market_data?.ask_qty || 0,
 							askPrice: pe.market_data?.ask_price || 0,
 							underlyingValue: underlying,
+							delta: Number(pe.option_greeks?.delta ?? fallbackGreeks.delta),
+							gamma: Number(pe.option_greeks?.gamma ?? fallbackGreeks.gamma),
+							theta: Number(pe.option_greeks?.theta ?? fallbackGreeks.theta),
+							vega: Number(pe.option_greeks?.vega ?? fallbackGreeks.vega),
+							rho: Number(pe.option_greeks?.rho ?? fallbackGreeks.rho),
+							pop: Number(pe.option_greeks?.pop ?? 50),
 						});
 					}
 				}
 
 				const expiries = await this.getExpiryDates(symbol);
+				const metrics = this.computeChainMetrics(calls, puts, strikePrices, underlying);
 				const chain: OptionsChain = {
 					symbol: symbol.toUpperCase(),
 					underlyingValue: underlying,
@@ -761,6 +805,7 @@ class DerivativesService {
 					options: { calls, puts },
 					timestamp: new Date().toISOString(),
 					dataSource: "nse",
+					...metrics,
 				};
 				this.setCached(cacheKey, chain);
 				return chain;
@@ -810,13 +855,21 @@ class DerivativesService {
 					};
 					if (row.CE) {
 						const ce = row.CE;
+						const greeks = this.calculateGreeks(
+							underlying,
+							row.strikePrice,
+							Math.max(1, this.daysToExpiry(row.expiryDate || selected)),
+							Math.max(0.08, (ce.impliedVolatility || 15) / 100),
+							0.065,
+							"call"
+						);
 						calls.push({
 							...base,
 							optionType: "CE",
 							openInterest: ce.openInterest || 0,
 							changeinOpenInterest: ce.changeinOpenInterest || 0,
 							totalTradedVolume: ce.totalTradedVolume || 0,
-							impliedVolatility: ce.impliedVolatility || 0,
+							impliedVolatility: ce.impliedVolatility || Math.round(greeks.impliedVolatility * 100) / 100,
 							lastPrice: ce.lastPrice || 0,
 							change: ce.change || 0,
 							pChange: ce.pChange || 0,
@@ -826,17 +879,30 @@ class DerivativesService {
 							bidPrice: ce.bidPrice || 0,
 							askQty: ce.askQty || 0,
 							askPrice: ce.askPrice || 0,
+							delta: greeks.delta,
+							gamma: greeks.gamma,
+							theta: greeks.theta,
+							vega: greeks.vega,
+							rho: greeks.rho,
 						});
 					}
 					if (row.PE) {
 						const pe = row.PE;
+						const greeks = this.calculateGreeks(
+							underlying,
+							row.strikePrice,
+							Math.max(1, this.daysToExpiry(row.expiryDate || selected)),
+							Math.max(0.08, (pe.impliedVolatility || 15) / 100),
+							0.065,
+							"put"
+						);
 						puts.push({
 							...base,
 							optionType: "PE",
 							openInterest: pe.openInterest || 0,
 							changeinOpenInterest: pe.changeinOpenInterest || 0,
 							totalTradedVolume: pe.totalTradedVolume || 0,
-							impliedVolatility: pe.impliedVolatility || 0,
+							impliedVolatility: pe.impliedVolatility || Math.round(greeks.impliedVolatility * 100) / 100,
 							lastPrice: pe.lastPrice || 0,
 							change: pe.change || 0,
 							pChange: pe.pChange || 0,
@@ -846,10 +912,16 @@ class DerivativesService {
 							bidPrice: pe.bidPrice || 0,
 							askQty: pe.askQty || 0,
 							askPrice: pe.askPrice || 0,
+							delta: greeks.delta,
+							gamma: greeks.gamma,
+							theta: greeks.theta,
+							vega: greeks.vega,
+							rho: greeks.rho,
 						});
 					}
 				}
 
+				const metrics = this.computeChainMetrics(calls, puts, strikePrices, underlying);
 				const chain: OptionsChain = {
 					symbol,
 					underlyingValue: underlying,
@@ -858,6 +930,7 @@ class DerivativesService {
 					options: { calls, puts },
 					timestamp: new Date().toISOString(),
 					dataSource: "nse",
+					...metrics,
 				};
 				this.setCached(cacheKey, chain);
 				return chain;
@@ -1454,6 +1527,14 @@ class DerivativesService {
 				const roundedPrice = Math.round(price / tickSize) * tickSize;
 				const bid = Math.max(tickSize, Math.round((roundedPrice * 0.995) / tickSize) * tickSize);
 				const ask = Math.max(tickSize * 2, Math.round((roundedPrice * 1.005) / tickSize) * tickSize);
+				const greeks = this.calculateGreeks(
+					spotPrice,
+					strike,
+					Math.max(1, dte),
+					boundedIv,
+					0.065,
+					type === "CE" ? "call" : "put"
+				);
 
 				return {
 					strikePrice: strike,
@@ -1473,6 +1554,11 @@ class DerivativesService {
 					askQty: 500,
 					askPrice: ask,
 					underlyingValue: spotPrice,
+					delta: greeks.delta,
+					gamma: greeks.gamma,
+					theta: greeks.theta,
+					vega: greeks.vega,
+					rho: greeks.rho,
 				};
 			};
 
@@ -1480,6 +1566,7 @@ class DerivativesService {
 			puts.push(base(putP, "PE"));
 		}
 
+		const metrics = this.computeChainMetrics(calls, puts, strikes, spotPrice);
 		const chain: OptionsChain = {
 			symbol,
 			underlyingValue: spotPrice,
@@ -1488,6 +1575,7 @@ class DerivativesService {
 			options: { calls, puts },
 			timestamp: new Date().toISOString(),
 			dataSource: "synthetic",
+			...metrics,
 		};
 
 		this.setCached(`options_${symbol}_${expiryDate || "all"}`, chain);
@@ -1610,6 +1698,129 @@ class DerivativesService {
 		if (hs && cs === 1) return "Covered Call";
 		if (hs && pb === 1) return "Protective Put";
 		return "Custom Strategy";
+	}
+
+	// ── User-Level Segment Kill-Switch (SEBI & Upstox benchmark) ─────────────
+	private userKillSwitches = new Map<string, UserFnoKillSwitchState>();
+
+	public getUserKillSwitch(userId: string): UserFnoKillSwitchState {
+		const current = this.userKillSwitches.get(userId);
+		if (!current) {
+			return {
+				userId,
+				active: false,
+				segment: "FO",
+			};
+		}
+		if (current.active && current.lockUntil) {
+			const lockTime = new Date(current.lockUntil).getTime();
+			if (Date.now() >= lockTime) {
+				current.active = false;
+				current.reason = "12-hour cooling-off period elapsed";
+			}
+		}
+		return current;
+	}
+
+	public setUserKillSwitch(
+		userId: string,
+		active: boolean,
+		reason?: string,
+	): UserFnoKillSwitchState {
+		const now = new Date();
+		// SEBI & Upstox benchmark: 12-hour lock period upon activation
+		const lockUntil = active
+			? new Date(now.getTime() + 12 * 60 * 60 * 1000).toISOString()
+			: undefined;
+		const state: UserFnoKillSwitchState = {
+			userId,
+			active,
+			activatedAt: active ? now.toISOString() : undefined,
+			lockUntil,
+			reason:
+				reason ||
+				(active
+					? "Trader self-activated F&O trading halt (12-hour cooling period)"
+					: "Trader deactivated F&O trading halt"),
+			segment: "FO",
+		};
+		this.userKillSwitches.set(userId, state);
+		logger.info("USER_FNO_KILL_SWITCH_UPDATED", {
+			event: "USER_FNO_KILL_SWITCH_UPDATED",
+			user_id: userId,
+			active,
+			lockUntil,
+			reason: state.reason,
+		});
+		return state;
+	}
+
+	public computeChainMetrics(
+		calls: OptionData[],
+		puts: OptionData[],
+		strikePrices: number[],
+		underlyingValue: number,
+	): {
+		pcr: number;
+		maxPain: number;
+		atmStrike: number;
+		totalCallOI: number;
+		totalPutOI: number;
+		totalCallVolume: number;
+		totalPutVolume: number;
+	} {
+		const totalCallOI = calls.reduce((s, c) => s + (c.openInterest || 0), 0);
+		const totalPutOI = puts.reduce((s, p) => s + (p.openInterest || 0), 0);
+		const totalCallVolume = calls.reduce(
+			(s, c) => s + (c.totalTradedVolume || 0),
+			0,
+		);
+		const totalPutVolume = puts.reduce(
+			(s, p) => s + (p.totalTradedVolume || 0),
+			0,
+		);
+		const pcr =
+			totalCallOI > 0 ? Number((totalPutOI / totalCallOI).toFixed(3)) : 1.0;
+
+		let atmStrike = strikePrices[0] || underlyingValue;
+		let minDiff = Infinity;
+		for (const s of strikePrices) {
+			const diff = Math.abs(s - underlyingValue);
+			if (diff < minDiff) {
+				minDiff = diff;
+				atmStrike = s;
+			}
+		}
+
+		let maxPain = atmStrike;
+		let lowestPain = Infinity;
+		for (const targetStrike of strikePrices) {
+			let totalLoss = 0;
+			for (const c of calls) {
+				if (targetStrike > c.strikePrice) {
+					totalLoss += (targetStrike - c.strikePrice) * (c.openInterest || 0);
+				}
+			}
+			for (const p of puts) {
+				if (targetStrike < p.strikePrice) {
+					totalLoss += (p.strikePrice - targetStrike) * (p.openInterest || 0);
+				}
+			}
+			if (totalLoss < lowestPain) {
+				lowestPain = totalLoss;
+				maxPain = targetStrike;
+			}
+		}
+
+		return {
+			pcr,
+			maxPain,
+			atmStrike,
+			totalCallOI,
+			totalPutOI,
+			totalCallVolume,
+			totalPutVolume,
+		};
 	}
 }
 

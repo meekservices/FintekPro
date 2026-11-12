@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
 	Card,
@@ -38,10 +38,20 @@ import {
 	ShieldAlert,
 	Sparkles,
 	ArrowRight,
+	Layers,
+	Lock,
+	Unlock,
+	ShieldCheck,
+	Zap,
+	Info,
+	CheckCircle2,
+	PieChart,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
+import { SlideToConfirmOrderModal } from "@/components/picks/SlideToConfirmOrderModal";
+import type { StrategyLegItem } from "@/components/picks/DerivativePayoffSimulator";
 
 interface DerivativePosition {
 	id: string;
@@ -92,6 +102,27 @@ export default function DerivativesPage() {
 	const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 	const [validationResult, setValidationResult] = useState<ValidationData | null>(null);
 
+	// Upstox Pro Benchmark: Option Chain View Mode & Multi-Leg Strategy Slider
+	const [chainViewMode, setChainViewMode] = useState<"prices" | "oi" | "greeks">("prices");
+	const [isSlideModalOpen, setIsSlideModalOpen] = useState(false);
+	const [slideStrategyConfig, setSlideStrategyConfig] = useState<{
+		strategyName: string;
+		legs: StrategyLegItem[];
+		recoPrice: number;
+		isCredit: boolean;
+		marginRequired: number;
+		maxProfit: number | string;
+		maxLoss: number | string;
+	}>({
+		strategyName: "",
+		legs: [],
+		recoPrice: 0,
+		isCredit: false,
+		marginRequired: 65000,
+		maxProfit: "Defined",
+		maxLoss: "Defined",
+	});
+
 	// 1. Fetch available symbols and lot sizes
 	const { data: symbolsData } = useQuery<{
 		symbols: string[];
@@ -126,7 +157,7 @@ export default function DerivativesPage() {
 	const activeExpiry = selectedExpiry || expiryDates[0] || "";
 
 	// 3. Fetch real-time Option Chain from Upstox / NSE
-	const { data: chainData } = useQuery<{
+	const { data: chainData, isLoading: isChainLoading } = useQuery<{
 		symbol: string;
 		underlyingValue: number;
 		strikePrices: number[];
@@ -135,22 +166,230 @@ export default function DerivativesPage() {
 				strikePrice: number;
 				lastPrice: number;
 				openInterest: number;
+				changeinOpenInterest?: number;
 				totalTradedVolume: number;
 				impliedVolatility: number;
+				delta?: number;
+				gamma?: number;
+				theta?: number;
+				vega?: number;
+				bidPrice?: number;
+				askPrice?: number;
 			}>;
 			puts: Array<{
 				strikePrice: number;
 				lastPrice: number;
 				openInterest: number;
+				changeinOpenInterest?: number;
 				totalTradedVolume: number;
 				impliedVolatility: number;
+				delta?: number;
+				gamma?: number;
+				theta?: number;
+				vega?: number;
+				bidPrice?: number;
+				askPrice?: number;
 			}>;
 		};
+		pcr?: number;
+		maxPain?: number;
+		atmStrike?: number;
+		totalCallOI?: number;
+		totalPutOI?: number;
+		totalCallVolume?: number;
+		totalPutVolume?: number;
 		dataSource: string;
 	}>({
-		queryKey: ["/api/derivatives/options-chain", selectedSymbol, activeExpiry],
-		enabled: !!selectedSymbol && !!activeExpiry,
+		queryKey: [`/api/derivatives/options-chain/${selectedSymbol}${activeExpiry ? `?expiry=${activeExpiry}` : ""}`],
+		enabled: !!selectedSymbol,
 	});
+
+	// 3b. Fetch Client F&O Kill Switch Status (SEBI & Upstox Mobile Account Benchmark)
+	const { data: killSwitchData, refetch: refetchKillSwitch } = useQuery<{
+		success: boolean;
+		data: {
+			userId: string;
+			active: boolean;
+			activatedAt?: string;
+			lockUntil?: string;
+			reason?: string;
+			segment: "FO";
+		};
+	}>({
+		queryKey: ["/api/derivatives/kill-switch"],
+	});
+
+	const isUserKillSwitchActive = Boolean(killSwitchData?.data?.active);
+
+	const killSwitchMutation = useMutation({
+		mutationFn: async (active: boolean) => {
+			const res = await apiRequest("POST", "/api/derivatives/kill-switch", {
+				active,
+				reason: active
+					? "Voluntary trader self-lock (12-hour cooling-off period)"
+					: "Voluntary unlock request",
+			});
+			return res.json();
+		},
+		onSuccess: (data) => {
+			refetchKillSwitch();
+			queryClient.invalidateQueries({ queryKey: ["/api/derivatives/kill-switch"] });
+			toast({
+				title: data.data?.active ? "F&O Segment Locked" : "F&O Segment Unlocked",
+				description: data.message,
+				variant: data.data?.active ? "destructive" : "default",
+			});
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Kill Switch Error",
+				description: err.message || "Failed to toggle kill switch",
+				variant: "destructive",
+			});
+		},
+	});
+
+	// 3c. Upstox Pro Benchmark: 1-Click Multi-Leg Strategy Launcher
+	const handleLaunchStrategy = (
+		strategyType: "bull_call" | "bear_put" | "straddle" | "strangle" | "iron_condor"
+	) => {
+		if (isUserKillSwitchActive) {
+			toast({
+				title: "F&O Trading Halted",
+				description: "Your personal Kill-Switch is active. Unlock before creating strategy baskets.",
+				variant: "destructive",
+			});
+			return;
+		}
+
+		if (!chainData || !chainData.strikePrices || chainData.strikePrices.length === 0) {
+			toast({
+				title: "Option Chain Loading",
+				description: "Please wait for live market strikes to load.",
+				variant: "destructive",
+			});
+			return;
+		}
+
+		const spot = chainData.underlyingValue || 24000;
+		const atm = chainData.atmStrike || chainData.strikePrices.reduce((prev, curr) =>
+			Math.abs(curr - spot) < Math.abs(prev - spot) ? curr : prev
+		);
+
+		const step =
+			chainData.strikePrices[1] && chainData.strikePrices[0]
+				? Math.abs(chainData.strikePrices[1] - chainData.strikePrices[0])
+				: 100;
+
+		const calls = chainData.options.calls;
+		const puts = chainData.options.puts;
+
+		const getCallPrice = (k: number) =>
+			calls.find((c) => c.strikePrice === k)?.lastPrice || 120;
+		const getPutPrice = (k: number) =>
+			puts.find((p) => p.strikePrice === k)?.lastPrice || 110;
+
+		let strategyName = "";
+		let legs: StrategyLegItem[] = [];
+		let isCredit = false;
+		let recoPrice = 0;
+		let marginRequired = 65000;
+		let maxProfit: number | string = 0;
+		let maxLoss: number | string = 0;
+
+		if (strategyType === "bull_call") {
+			strategyName = `Bull Call Spread (${selectedSymbol})`;
+			const buyStrike = atm;
+			const sellStrike = atm + step;
+			const pBuy = getCallPrice(buyStrike);
+			const pSell = getCallPrice(sellStrike);
+			recoPrice = Math.max(5, pBuy - pSell);
+			isCredit = false;
+			marginRequired = Math.round(recoPrice * lotSize);
+			maxProfit = Math.round((step - recoPrice) * lotSize);
+			maxLoss = Math.round(recoPrice * lotSize);
+			legs = [
+				{ action: "BUY", type: "CE", strikePrice: buyStrike, premium: pBuy, quantity: lotSize },
+				{ action: "SELL", type: "CE", strikePrice: sellStrike, premium: pSell, quantity: lotSize },
+			];
+		} else if (strategyType === "bear_put") {
+			strategyName = `Bear Put Spread (${selectedSymbol})`;
+			const buyStrike = atm;
+			const sellStrike = atm - step;
+			const pBuy = getPutPrice(buyStrike);
+			const pSell = getPutPrice(sellStrike);
+			recoPrice = Math.max(5, pBuy - pSell);
+			isCredit = false;
+			marginRequired = Math.round(recoPrice * lotSize);
+			maxProfit = Math.round((step - recoPrice) * lotSize);
+			maxLoss = Math.round(recoPrice * lotSize);
+			legs = [
+				{ action: "BUY", type: "PE", strikePrice: buyStrike, premium: pBuy, quantity: lotSize },
+				{ action: "SELL", type: "PE", strikePrice: sellStrike, premium: pSell, quantity: lotSize },
+			];
+		} else if (strategyType === "straddle") {
+			strategyName = `Long Straddle (${selectedSymbol} ATM)`;
+			const pCall = getCallPrice(atm);
+			const pPut = getPutPrice(atm);
+			recoPrice = pCall + pPut;
+			isCredit = false;
+			marginRequired = Math.round(recoPrice * lotSize);
+			maxProfit = "Unlimited (Breakout)";
+			maxLoss = Math.round(recoPrice * lotSize);
+			legs = [
+				{ action: "BUY", type: "CE", strikePrice: atm, premium: pCall, quantity: lotSize },
+				{ action: "BUY", type: "PE", strikePrice: atm, premium: pPut, quantity: lotSize },
+			];
+		} else if (strategyType === "strangle") {
+			strategyName = `Short Strangle (${selectedSymbol} Range-Bound)`;
+			const callStrike = atm + step;
+			const putStrike = atm - step;
+			const pCall = getCallPrice(callStrike);
+			const pPut = getPutPrice(putStrike);
+			recoPrice = pCall + pPut;
+			isCredit = true;
+			marginRequired = 110000;
+			maxProfit = Math.round(recoPrice * lotSize);
+			maxLoss = "Undefined (Requires Stop-Loss)";
+			legs = [
+				{ action: "SELL", type: "CE", strikePrice: callStrike, premium: pCall, quantity: lotSize },
+				{ action: "SELL", type: "PE", strikePrice: putStrike, premium: pPut, quantity: lotSize },
+			];
+		} else if (strategyType === "iron_condor") {
+			strategyName = `Iron Condor (${selectedSymbol} Hedged Wings)`;
+			const sellCall = atm + step;
+			const buyCall = atm + step * 2;
+			const sellPut = atm - step;
+			const buyPut = atm - step * 2;
+			const pSellC = getCallPrice(sellCall);
+			const pBuyC = getCallPrice(buyCall);
+			const pSellP = getPutPrice(sellPut);
+			const pBuyP = getPutPrice(buyPut);
+			const netCredit = Math.max(5, pSellC - pBuyC + (pSellP - pBuyP));
+			recoPrice = netCredit;
+			isCredit = true;
+			marginRequired = 45000; // Hedged margin relief benefit!
+			maxProfit = Math.round(netCredit * lotSize);
+			maxLoss = Math.round((step - netCredit) * lotSize);
+			legs = [
+				{ action: "BUY", type: "CE", strikePrice: buyCall, premium: pBuyC, quantity: lotSize },
+				{ action: "SELL", type: "CE", strikePrice: sellCall, premium: pSellC, quantity: lotSize },
+				{ action: "BUY", type: "PE", strikePrice: buyPut, premium: pBuyP, quantity: lotSize },
+				{ action: "SELL", type: "PE", strikePrice: sellPut, premium: pSellP, quantity: lotSize },
+			];
+		}
+
+		setSlideStrategyConfig({
+			strategyName,
+			legs,
+			recoPrice,
+			isCredit,
+			marginRequired,
+			maxProfit,
+			maxLoss,
+		});
+		setIsSlideModalOpen(true);
+	};
 
 	// 4. Fetch OI Analysis
 	const { data: oiData } = useQuery<{
@@ -857,21 +1096,209 @@ export default function DerivativesPage() {
 					</Card>
 				</TabsContent>
 
-				{/* 4. Option Chain Tab */}
-				<TabsContent value="chain" className="space-y-4">
+				{/* 4. Option Chain Tab — Upstox Pro Web & Mobile Benchmark */}
+				<TabsContent value="chain" className="space-y-6">
+					{/* Top Metrics Banner */}
+					<div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+						<Card className="p-3 bg-muted/40">
+							<p className="text-xs text-muted-foreground font-medium">Spot Price</p>
+							<p className="text-xl font-bold mt-1">
+								₹{chainData?.underlyingValue?.toLocaleString() || "—"}
+							</p>
+							<span className="text-[11px] text-muted-foreground">
+								Feed: {chainData?.dataSource === "nse" ? "Licensed NSE" : "Live Streaming"}
+							</span>
+						</Card>
+
+						<Card className="p-3 bg-muted/40">
+							<p className="text-xs text-muted-foreground font-medium">ATM Strike</p>
+							<p className="text-xl font-bold mt-1 text-primary">
+								{chainData?.atmStrike?.toLocaleString() || "—"}
+							</p>
+							<span className="text-[11px] text-muted-foreground">Pivot Level</span>
+						</Card>
+
+						<Card className="p-3 bg-muted/40">
+							<p className="text-xs text-muted-foreground font-medium">Put-Call Ratio (PCR)</p>
+							<div className="flex items-center gap-2 mt-1">
+								<p className="text-xl font-bold">
+									{chainData?.pcr ? chainData.pcr.toFixed(2) : oiData?.pcr?.toFixed(2) || "1.00"}
+								</p>
+								<Badge
+									variant={
+										(chainData?.pcr ?? oiData?.pcr ?? 1) >= 1.05
+											? "default"
+											: (chainData?.pcr ?? oiData?.pcr ?? 1) <= 0.85
+												? "destructive"
+												: "outline"
+									}
+									className="text-[10px] h-5"
+								>
+									{(chainData?.pcr ?? oiData?.pcr ?? 1) >= 1.05
+										? "Bullish"
+										: (chainData?.pcr ?? oiData?.pcr ?? 1) <= 0.85
+											? "Bearish"
+											: "Neutral"}
+								</Badge>
+							</div>
+							<span className="text-[11px] text-muted-foreground">Sentiment Indicator</span>
+						</Card>
+
+						<Card className="p-3 bg-muted/40">
+							<p className="text-xs text-muted-foreground font-medium">Max Pain Strike</p>
+							<p className="text-xl font-bold mt-1 text-amber-600 dark:text-amber-400">
+								{chainData?.maxPain?.toLocaleString() || oiData?.maxPainStrike?.toLocaleString() || "—"}
+							</p>
+							<span className="text-[11px] text-muted-foreground">Expiry Anchor</span>
+						</Card>
+
+						<Card className="p-3 bg-muted/40 col-span-2 md:col-span-1">
+							<p className="text-xs text-muted-foreground font-medium">Market Open Interest</p>
+							<div className="flex justify-between text-xs mt-1 font-semibold">
+								<span className="text-green-600">
+									Calls: {chainData?.totalCallOI ? (chainData.totalCallOI / 100000).toFixed(1) + "L" : "—"}
+								</span>
+								<span className="text-red-600">
+									Puts: {chainData?.totalPutOI ? (chainData.totalPutOI / 100000).toFixed(1) + "L" : "—"}
+								</span>
+							</div>
+							<div className="w-full bg-red-200 dark:bg-red-950 h-2 rounded-full overflow-hidden mt-1 flex">
+								<div
+									className="bg-green-600 h-full transition-all duration-300"
+									style={{
+										width: `${
+											chainData?.totalCallOI && chainData?.totalPutOI
+												? Math.round(
+														(chainData.totalCallOI / (chainData.totalCallOI + chainData.totalPutOI)) * 100
+													)
+												: 50
+										}%`,
+									}}
+								/>
+							</div>
+						</Card>
+					</div>
+
+					{/* Upstox Pro Benchmark: 1-Click Strategy Builder Banner */}
+					<Card className="border-primary/20 bg-primary/5">
+						<CardContent className="pt-4 pb-4">
+							<div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+								<div className="space-y-0.5">
+									<div className="flex items-center gap-2">
+										<Zap className="h-4 w-4 text-primary fill-primary" />
+										<h4 className="font-semibold text-sm">1-Click Multi-Leg Strategy Baskets</h4>
+										<Badge variant="outline" className="text-[10px] bg-background">
+											Upstox Pro Benchmark
+										</Badge>
+									</div>
+									<p className="text-xs text-muted-foreground">
+										Construct pre-hedged options strategies with automated BUY-first leg execution and margin relief.
+									</p>
+								</div>
+
+								<div className="flex flex-wrap items-center gap-2">
+									<Button
+										size="sm"
+										variant="outline"
+										className="text-xs h-8 bg-background hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-950/30"
+										onClick={() => handleLaunchStrategy("bull_call")}
+										disabled={isUserKillSwitchActive}
+									>
+										📈 Bull Call Spread
+									</Button>
+									<Button
+										size="sm"
+										variant="outline"
+										className="text-xs h-8 bg-background hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/30"
+										onClick={() => handleLaunchStrategy("bear_put")}
+										disabled={isUserKillSwitchActive}
+									>
+										📉 Bear Put Spread
+									</Button>
+									<Button
+										size="sm"
+										variant="outline"
+										className="text-xs h-8 bg-background hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950/30"
+										onClick={() => handleLaunchStrategy("straddle")}
+										disabled={isUserKillSwitchActive}
+									>
+										🎯 Long Straddle
+									</Button>
+									<Button
+										size="sm"
+										variant="outline"
+										className="text-xs h-8 bg-background hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950/30"
+										onClick={() => handleLaunchStrategy("strangle")}
+										disabled={isUserKillSwitchActive}
+									>
+										🛡️ Short Strangle
+									</Button>
+									<Button
+										size="sm"
+										variant="outline"
+										className="text-xs h-8 bg-background hover:bg-purple-50 hover:text-purple-700 dark:hover:bg-purple-950/30"
+										onClick={() => handleLaunchStrategy("iron_condor")}
+										disabled={isUserKillSwitchActive}
+									>
+										🪽 Iron Condor
+									</Button>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+
+					{/* Option Chain Controls & Table */}
 					<Card>
-						<CardHeader>
+						<CardHeader className="pb-3">
 							<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
 								<div>
-									<CardTitle>Option Chain: {selectedSymbol}</CardTitle>
-									<CardDescription>
-										Expiry: {activeExpiry || "Nearest"} | Feed:{" "}
-										<Badge variant="outline" className="text-xs">
-											{chainData?.dataSource === "nse" ? "Licensed Real-Time" : "Live Streaming"}
-										</Badge>
+									<CardTitle className="text-lg">
+										{selectedSymbol} Option Chain ({activeExpiry || "Nearest"})
+									</CardTitle>
+									<CardDescription className="text-xs">
+										Exchange Multi-strike Order Book with real-time Black-Scholes Greeks and open interest distribution
 									</CardDescription>
 								</div>
-								<div className="flex items-center gap-2">
+
+								<div className="flex flex-wrap items-center gap-2">
+									{/* View Mode Toggle (Upstox Pro Mobile & Web paradigm) */}
+									<div className="flex items-center rounded-lg border bg-muted/30 p-1 text-xs">
+										<button
+											type="button"
+											className={`px-3 py-1 rounded-md font-medium transition-colors ${
+												chainViewMode === "prices"
+													? "bg-background shadow text-foreground"
+													: "text-muted-foreground hover:text-foreground"
+											}`}
+											onClick={() => setChainViewMode("prices")}
+										>
+											Prices & Depth
+										</button>
+										<button
+											type="button"
+											className={`px-3 py-1 rounded-md font-medium transition-colors ${
+												chainViewMode === "oi"
+													? "bg-background shadow text-foreground"
+													: "text-muted-foreground hover:text-foreground"
+											}`}
+											onClick={() => setChainViewMode("oi")}
+										>
+											OI & Volume
+										</button>
+										<button
+											type="button"
+											className={`px-3 py-1 rounded-md font-medium transition-colors ${
+												chainViewMode === "greeks"
+													? "bg-background shadow text-foreground"
+													: "text-muted-foreground hover:text-foreground"
+											}`}
+											onClick={() => setChainViewMode("greeks")}
+										>
+											Greeks (Δ, Γ, Θ, ν)
+										</button>
+									</div>
+
+									{/* Symbol Selector */}
 									<Select
 										value={selectedSymbol}
 										onValueChange={(val) => {
@@ -879,7 +1306,7 @@ export default function DerivativesPage() {
 											setSelectedExpiry("");
 										}}
 									>
-										<SelectTrigger className="w-[140px]">
+										<SelectTrigger className="w-[130px] h-8 text-xs">
 											<SelectValue />
 										</SelectTrigger>
 										<SelectContent>
@@ -890,23 +1317,87 @@ export default function DerivativesPage() {
 											))}
 										</SelectContent>
 									</Select>
+
+									{/* Expiry Selector */}
+									<Select
+										value={activeExpiry}
+										onValueChange={(val) => setSelectedExpiry(val)}
+									>
+										<SelectTrigger className="w-[140px] h-8 text-xs">
+											<SelectValue placeholder="Expiry" />
+										</SelectTrigger>
+										<SelectContent>
+											{expiryDates.map((d) => (
+												<SelectItem key={d} value={d}>
+													{d}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
 								</div>
 							</div>
 						</CardHeader>
 						<CardContent>
-							<div className="overflow-x-auto">
-								<table className="w-full text-sm">
+							<div className="overflow-x-auto border rounded-lg">
+								<table className="w-full text-xs">
 									<thead>
-										<tr className="border-b text-xs text-muted-foreground">
-											<th className="text-left p-2 text-green-600">Call LTP (₹)</th>
-											<th className="text-center p-2">Call OI</th>
-											<th className="text-center p-2 font-bold bg-muted/50">Strike</th>
-											<th className="text-center p-2">Put OI</th>
-											<th className="text-right p-2 text-red-600">Put LTP (₹)</th>
+										<tr className="border-b bg-muted/60 text-muted-foreground">
+											{/* Calls Header */}
+											{chainViewMode === "prices" && (
+												<>
+													<th className="text-left p-2 font-semibold text-green-600">Call Bid</th>
+													<th className="text-left p-2 font-semibold text-green-600">Call Ask</th>
+													<th className="text-right p-2 font-bold text-green-600">Call LTP (₹)</th>
+												</>
+											)}
+											{chainViewMode === "oi" && (
+												<>
+													<th className="text-left p-2 font-semibold">Volume</th>
+													<th className="text-center p-2 font-semibold">Chg OI</th>
+													<th className="text-right p-2 font-bold text-green-600">Call OI</th>
+												</>
+											)}
+											{chainViewMode === "greeks" && (
+												<>
+													<th className="text-left p-2 font-semibold">IV (%)</th>
+													<th className="text-center p-2 font-semibold">Delta (Δ)</th>
+													<th className="text-center p-2 font-semibold">Theta (Θ)</th>
+													<th className="text-right p-2 font-semibold">Vega (ν)</th>
+												</>
+											)}
+
+											{/* Center Strike Header */}
+											<th className="text-center p-2 font-extrabold bg-muted text-foreground min-w-[90px]">
+												Strike Price
+											</th>
+
+											{/* Puts Header */}
+											{chainViewMode === "prices" && (
+												<>
+													<th className="text-left p-2 font-bold text-red-600">Put LTP (₹)</th>
+													<th className="text-right p-2 font-semibold text-red-600">Put Bid</th>
+													<th className="text-right p-2 font-semibold text-red-600">Put Ask</th>
+												</>
+											)}
+											{chainViewMode === "oi" && (
+												<>
+													<th className="text-left p-2 font-bold text-red-600">Put OI</th>
+													<th className="text-center p-2 font-semibold">Chg OI</th>
+													<th className="text-right p-2 font-semibold">Volume</th>
+												</>
+											)}
+											{chainViewMode === "greeks" && (
+												<>
+													<th className="text-left p-2 font-semibold">Delta (Δ)</th>
+													<th className="text-center p-2 font-semibold">Theta (Θ)</th>
+													<th className="text-center p-2 font-semibold">Vega (ν)</th>
+													<th className="text-right p-2 font-semibold">IV (%)</th>
+												</>
+											)}
 										</tr>
 									</thead>
 									<tbody>
-										{(chainData?.strikePrices || []).slice(0, 15).map((strike) => {
+										{(chainData?.strikePrices || []).slice(0, 25).map((strike) => {
 											const call = chainData?.options?.calls?.find(
 												(c) => c.strikePrice === strike
 											);
@@ -914,34 +1405,142 @@ export default function DerivativesPage() {
 												(p) => p.strikePrice === strike
 											);
 											const isAtm =
-												Math.abs(strike - (chainData?.underlyingValue || 24000)) < 75;
+												Math.abs(strike - (chainData?.underlyingValue || 24000)) <
+												(chainData?.strikePrices[1]
+													? Math.abs(chainData.strikePrices[1] - chainData.strikePrices[0]) / 2 + 10
+													: 75);
 
 											return (
 												<tr
 													key={strike}
-													className={`border-b hover:bg-accent/40 ${
-														isAtm ? "bg-primary/5 font-semibold" : ""
+													className={`border-b hover:bg-accent/40 transition-colors ${
+														isAtm ? "bg-primary/10 font-semibold" : ""
 													}`}
 												>
-													<td className="p-2 text-green-600 font-medium">
-														₹{call?.lastPrice ? call.lastPrice.toFixed(2) : "0.00"}
-													</td>
-													<td className="text-center p-2 text-xs">
-														{call?.openInterest ? call.openInterest.toLocaleString() : "-"}
-													</td>
+													{/* Calls Columns */}
+													{chainViewMode === "prices" && (
+														<>
+															<td className="p-2 text-left text-muted-foreground">
+																₹{call?.bidPrice ? call.bidPrice.toFixed(2) : "—"}
+															</td>
+															<td className="p-2 text-left text-muted-foreground">
+																₹{call?.askPrice ? call.askPrice.toFixed(2) : "—"}
+															</td>
+															<td className="p-2 text-right font-bold text-green-600">
+																₹{call?.lastPrice ? call.lastPrice.toFixed(2) : "0.00"}
+															</td>
+														</>
+													)}
+													{chainViewMode === "oi" && (
+														<>
+															<td className="p-2 text-left text-muted-foreground">
+																{call?.totalTradedVolume ? call.totalTradedVolume.toLocaleString() : "—"}
+															</td>
+															<td className="p-2 text-center text-xs">
+																<span
+																	className={
+																		(call?.changeinOpenInterest || 0) >= 0
+																			? "text-green-600"
+																			: "text-red-600"
+																	}
+																>
+																	{(call?.changeinOpenInterest || 0) > 0 ? "+" : ""}
+																	{call?.changeinOpenInterest ? call.changeinOpenInterest.toLocaleString() : "0"}
+																</span>
+															</td>
+															<td className="p-2 text-right font-semibold text-green-600">
+																{call?.openInterest ? call.openInterest.toLocaleString() : "—"}
+															</td>
+														</>
+													)}
+													{chainViewMode === "greeks" && (
+														<>
+															<td className="p-2 text-left font-medium">
+																{call?.impliedVolatility ? `${call.impliedVolatility.toFixed(1)}%` : "—"}
+															</td>
+															<td className="p-2 text-center text-green-600 font-semibold">
+																{call?.delta !== undefined ? (call.delta >= 0 ? `+${call.delta.toFixed(2)}` : call.delta.toFixed(2)) : "+0.50"}
+															</td>
+															<td className="p-2 text-center text-red-500">
+																{call?.theta !== undefined ? call.theta.toFixed(1) : "-10.0"}
+															</td>
+															<td className="p-2 text-right text-muted-foreground">
+																{call?.vega !== undefined ? call.vega.toFixed(1) : "15.0"}
+															</td>
+														</>
+													)}
+
+													{/* Center Strike Column */}
 													<td
-														className={`text-center p-2 font-bold ${
-															isAtm ? "bg-primary/10 text-primary" : "bg-muted/30"
+														className={`p-2 text-center font-extrabold cursor-pointer select-none ${
+															isAtm
+																? "bg-primary/20 text-primary border-x border-primary/30"
+																: "bg-muted/30 border-x"
 														}`}
+														onClick={() => {
+															setSelectedStrike(String(strike));
+															toast({
+																title: `Strike ${strike} Selected`,
+																description: "Updated strike price in options order pad.",
+															});
+														}}
+														title="Click to select strike"
 													>
-														{strike} {isAtm ? "(ATM)" : ""}
+														{strike} {isAtm ? "⭐ ATM" : ""}
 													</td>
-													<td className="text-center p-2 text-xs">
-														{put?.openInterest ? put.openInterest.toLocaleString() : "-"}
-													</td>
-													<td className="p-2 text-right text-red-600 font-medium">
-														₹{put?.lastPrice ? put.lastPrice.toFixed(2) : "0.00"}
-													</td>
+
+													{/* Puts Columns */}
+													{chainViewMode === "prices" && (
+														<>
+															<td className="p-2 text-left font-bold text-red-600">
+																₹{put?.lastPrice ? put.lastPrice.toFixed(2) : "0.00"}
+															</td>
+															<td className="p-2 text-right text-muted-foreground">
+																₹{put?.bidPrice ? put.bidPrice.toFixed(2) : "—"}
+															</td>
+															<td className="p-2 text-right text-muted-foreground">
+																₹{put?.askPrice ? put.askPrice.toFixed(2) : "—"}
+															</td>
+														</>
+													)}
+													{chainViewMode === "oi" && (
+														<>
+															<td className="p-2 text-left font-semibold text-red-600">
+																{put?.openInterest ? put.openInterest.toLocaleString() : "—"}
+															</td>
+															<td className="p-2 text-center text-xs">
+																<span
+																	className={
+																		(put?.changeinOpenInterest || 0) >= 0
+																			? "text-green-600"
+																			: "text-red-600"
+																	}
+																>
+																	{(put?.changeinOpenInterest || 0) > 0 ? "+" : ""}
+																	{put?.changeinOpenInterest ? put.changeinOpenInterest.toLocaleString() : "0"}
+																</span>
+															</td>
+															<td className="p-2 text-right text-muted-foreground">
+																{put?.totalTradedVolume ? put.totalTradedVolume.toLocaleString() : "—"}
+															</td>
+														</>
+													)}
+													{chainViewMode === "greeks" && (
+														<>
+															<td className="p-2 text-left text-red-600 font-semibold">
+																{put?.delta !== undefined ? put.delta.toFixed(2) : "-0.50"}
+															</td>
+															<td className="p-2 text-center text-red-500">
+																{put?.theta !== undefined ? put.theta.toFixed(1) : "-10.0"}
+															</td>
+															<td className="p-2 text-center text-muted-foreground">
+																{put?.vega !== undefined ? put.vega.toFixed(1) : "15.0"}
+															</td>
+															<td className="p-2 text-right font-medium">
+																{put?.impliedVolatility ? `${put.impliedVolatility.toFixed(1)}%` : "—"}
+															</td>
+														</>
+													)}
 												</tr>
 											);
 										})}
@@ -950,8 +1549,81 @@ export default function DerivativesPage() {
 							</div>
 						</CardContent>
 					</Card>
+
+					{/* Upstox Mobile Account Benchmark: Client-Facing F&O Segment Kill-Switch Card */}
+					<Card className={isUserKillSwitchActive ? "border-destructive bg-destructive/5" : "border-border"}>
+						<CardContent className="pt-4 pb-4">
+							<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+								<div className="space-y-1">
+									<div className="flex items-center gap-2">
+										{isUserKillSwitchActive ? (
+											<Lock className="h-4 w-4 text-destructive" />
+										) : (
+											<Unlock className="h-4 w-4 text-primary" />
+										)}
+										<h4 className="font-semibold text-sm">
+											F&O Segment Trading Kill-Switch ({isUserKillSwitchActive ? "LOCKED" : "ACTIVE"})
+										</h4>
+										<Badge
+											variant={isUserKillSwitchActive ? "destructive" : "outline"}
+											className="text-[10px]"
+										>
+											{isUserKillSwitchActive ? "Trading Halted" : "Trading Enabled"}
+										</Badge>
+									</div>
+									<p className="text-xs text-muted-foreground">
+										{isUserKillSwitchActive
+											? `All new F&O order placement is currently blocked until ${
+													killSwitchData?.data?.lockUntil
+														? new Date(killSwitchData.data.lockUntil).toLocaleTimeString()
+														: "12 hours"
+												} to protect capital under SEBI voluntary trading halt rules.`
+											: "Activate this voluntary kill-switch to immediately block all derivative trades for 12 hours if experiencing emotional drawdown or adverse market conditions."}
+									</p>
+								</div>
+
+								<div>
+									<Button
+										size="sm"
+										variant={isUserKillSwitchActive ? "outline" : "destructive"}
+										onClick={() => killSwitchMutation.mutate(!isUserKillSwitchActive)}
+										disabled={killSwitchMutation.isPending}
+										className="text-xs"
+									>
+										{killSwitchMutation.isPending
+											? "Updating..."
+											: isUserKillSwitchActive
+												? "Deactivate Kill Switch"
+												: "Activate F&O Kill Switch (12-Hr Lock)"}
+									</Button>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
 				</TabsContent>
 			</Tabs>
+
+			{/* Multi-Leg Basket Strategy Slide-to-Confirm Modal (Upstox Pro Mobile & Web Benchmark) */}
+			<SlideToConfirmOrderModal
+				isOpen={isSlideModalOpen}
+				onClose={() => setIsSlideModalOpen(false)}
+				strategyName={slideStrategyConfig.strategyName}
+				symbol={selectedSymbol}
+				legs={slideStrategyConfig.legs}
+				lotSize={lotSize}
+				recoPrice={slideStrategyConfig.recoPrice}
+				isCreditStrategy={slideStrategyConfig.isCredit}
+				marginRequired={slideStrategyConfig.marginRequired}
+				maxProfit={slideStrategyConfig.maxProfit}
+				maxLoss={slideStrategyConfig.maxLoss}
+				onOrderSuccess={() => {
+					queryClient.invalidateQueries({ queryKey: ["/api/derivatives/positions"] });
+					toast({
+						title: "Strategy Executed Successfully",
+						description: `${slideStrategyConfig.strategyName} orders dispatched via FintekPro DMA adapter.`,
+					});
+				}}
+			/>
 
 			{/* Pre-Trade Order Confirmation Dialog */}
 			<Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
