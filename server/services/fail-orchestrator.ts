@@ -1,5 +1,7 @@
 import { db } from "../db";
 import { failSystemState } from "../../shared/schema/ai";
+import { eq } from "drizzle-orm";
+import { logger } from "../logger";
 import { aiModelSelectionEngine } from "./model-selection";
 import { aiGovernanceEngine } from "./ai-governance";
 import {
@@ -10,6 +12,16 @@ import {
 import { GovernanceInput } from "./ai-governance/types";
 import { aiScoringEngine } from "./scoring";
 import { TrackedRecommendation } from "./scoring/types";
+
+const DEFAULT_SUB_ENGINES = [
+	{ name: "AMSE", role: "AI Model Selection", status: "ACTIVE" },
+	{ name: "URCAE", role: "Capital Allocation", status: "ACTIVE" },
+	{ name: "QuantCore", role: "Numerical Validation", status: "ACTIVE" },
+	{ name: "AAGE", role: "Advisory Governance", status: "ACTIVE" },
+	{ name: "APSE", role: "Portfolio Simulation", status: "ACTIVE" },
+	{ name: "APRE", role: "Portfolio Rebalancing", status: "ACTIVE" },
+	{ name: "ARSE", role: "Scoring & Learning Feedback", status: "ACTIVE" },
+];
 
 export class FAILOrchestrator {
 	/**
@@ -107,7 +119,7 @@ export class FAILOrchestrator {
 
 			if (governanceCheck.decision === "BLOCK") {
 				tracePath.push(
-					`[AAGE] CRITICAL BLOCK: ${governanceCheck.final_output.reason}`,
+					`[AAGE] CRITICAL BLOCK: ${(governanceCheck.final_output as any).reason || "Policy violation"}`,
 				);
 				return { status: "BLOCKED", internal_routing_trace: tracePath };
 			}
@@ -165,12 +177,12 @@ export class FAILOrchestrator {
 	/**
 	 * Evaluates if the `failSystemState` has enacted a global advisory blockade due to massive compliance cascades
 	 */
-	private async checkKillSwitch(): Promise<boolean> {
+	public async checkKillSwitch(): Promise<boolean> {
 		try {
 			const state = await db
 				.select()
 				.from(failSystemState)
-				.where({ configKey: "GLOBAL_AI_KILL_SWITCH" })
+				.where(eq(failSystemState.configKey, "GLOBAL_AI_KILL_SWITCH"))
 				.limit(1);
 			if (state.length > 0) {
 				return state[0].isGloballyDisabled;
@@ -178,6 +190,89 @@ export class FAILOrchestrator {
 			return false; // Safely default to open
 		} catch {
 			return false; // DB disconnected, default to fallback
+		}
+	}
+
+	/**
+	 * Retrieves complete FAIL Orchestrator system state including kill-switch and active pipeline flags
+	 */
+	public async getSystemState() {
+		try {
+			const rows = await db
+				.select()
+				.from(failSystemState)
+				.where(eq(failSystemState.configKey, "GLOBAL_AI_KILL_SWITCH"))
+				.limit(1);
+
+			const isGloballyDisabled = rows.length > 0 ? rows[0].isGloballyDisabled : false;
+			const lastTriggerReason = rows.length > 0 ? rows[0].lastTriggerReason : null;
+			const triggeredAt = rows.length > 0 ? rows[0].triggeredAt : null;
+			const statusOverride = rows.length > 0 ? rows[0].statusOverride : "NORMAL_OPERATION";
+
+			return {
+				orchestratorVersion: "FAIL-v1.0.0",
+				pipelineStatus: isGloballyDisabled ? "BLOCKED" : "OPERATIONAL",
+				isGloballyDisabled,
+				lastTriggerReason,
+				triggeredAt,
+				statusOverride,
+				subEngines: DEFAULT_SUB_ENGINES,
+			};
+		} catch (error: any) {
+			logger.error("[FAILOrchestrator] Failed to fetch system state", { error: error?.message });
+			return {
+				orchestratorVersion: "FAIL-v1.0.0",
+				pipelineStatus: "OPERATIONAL",
+				isGloballyDisabled: false,
+				lastTriggerReason: null,
+				triggeredAt: null,
+				statusOverride: "FALLBACK_OPEN",
+				subEngines: DEFAULT_SUB_ENGINES,
+			};
+		}
+	}
+
+	/**
+	 * Mutates the Global AI Kill Switch state with mandatory audit reason (SEBI AI/ML Compliance)
+	 */
+	public async setKillSwitch(isGloballyDisabled: boolean, reason: string, updatedBy = "admin") {
+		try {
+			const now = new Date();
+			await db
+				.insert(failSystemState)
+				.values({
+					configKey: "GLOBAL_AI_KILL_SWITCH",
+					isGloballyDisabled,
+					lastTriggerReason: reason,
+					triggeredAt: now,
+					statusOverride: isGloballyDisabled ? "KILL_SWITCH_ENGAGED" : "NORMAL_OPERATION",
+				})
+				.onConflictDoUpdate({
+					target: failSystemState.configKey,
+					set: {
+						isGloballyDisabled,
+						lastTriggerReason: reason,
+						triggeredAt: now,
+						statusOverride: isGloballyDisabled ? "KILL_SWITCH_ENGAGED" : "NORMAL_OPERATION",
+					},
+				});
+
+			logger.warn("[FAILOrchestrator] Global Kill Switch state modified", {
+				isGloballyDisabled,
+				reason,
+				updatedBy,
+				timestamp: now.toISOString(),
+			});
+
+			return {
+				success: true,
+				isGloballyDisabled,
+				reason,
+				updatedAt: now.toISOString(),
+			};
+		} catch (error: any) {
+			logger.error("[FAILOrchestrator] Failed to toggle Kill Switch", { error: error?.message });
+			throw error;
 		}
 	}
 }

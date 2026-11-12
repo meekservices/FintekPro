@@ -233,16 +233,9 @@ const agentNavCategories: NavCategory[] = [
 		],
 	},
 	{
-		title: "Proposals & Distribution",
+		title: "Proposal",
 		icon: FileText,
 		items: [
-			{
-				title: "Product Store",
-				href: "/agent/store",
-				icon: Store,
-				description: "Multi-asset product distribution & proposal staging",
-				badge: "STORE",
-			},
 			{
 				title: "Financial Planning",
 				href: "/agent/financial-planning",

@@ -891,6 +891,95 @@ class ProfitOptimizedScoringEngine {
 		return scoredProducts;
 	}
 
+	/**
+	 * Async scoring pipeline integrating Python ML GradientBoostingRegressor (POST /api/ml/score).
+	 * Falls back gracefully to deterministic 8-factor rule model if Python service is unavailable.
+	 */
+	async scoreProductsAsync(
+		products: InvestmentProduct[],
+		clientProfile: ClientProfile,
+		mode: RecommendationMode = RECOMMENDATION_MODE.BALANCED,
+		regime: string = "sideways",
+	): Promise<ScoredProduct[]> {
+		const eligibleProducts: Array<{ product: InvestmentProduct; suitability: SuitabilityScore }> = [];
+		for (const product of products) {
+			const suitability = this.calculateSuitabilityScore(product, clientProfile);
+			if (suitability.isEligible) {
+				eligibleProducts.push({ product, suitability });
+			}
+		}
+
+		if (eligibleProducts.length === 0) return [];
+
+		// Attempt Python ML Scoring (GradientBoostingRegressor)
+		const pythonScoresMap = new Map<string, { predictedReturn: number; confidence: number }>();
+		try {
+			const { callPython } = await import("../clients/python-client");
+			const assetsPayload = eligibleProducts.map(({ product }) => {
+				const raw = product.raw_data || {};
+				return {
+					id: product.product_id,
+					pe: Number(raw.pe || raw.peRatio || raw.priceToEarnings || 25),
+					returns1y: Number(raw.returns1y || raw.return_1y || 12),
+					returns3y: Number(raw.returns3y || raw.return_3y || 15),
+					volatility: Number(product.volatility_proxy || 0.18),
+					sharpeRatio: Number(raw.sharpe || raw.sharpeRatio || 1.1),
+					yield: Number(raw.yield || raw.dividendYield || 0),
+					confidenceScore: 0.85,
+				};
+			});
+
+			const pyResult = await callPython<any>("/api/ml/score", "POST", {
+				assetClass: "all",
+				assets: assetsPayload,
+				regime,
+			});
+
+			if (pyResult && Array.isArray(pyResult.scoredAssets)) {
+				for (const item of pyResult.scoredAssets) {
+					if (item.id) {
+						pythonScoresMap.set(item.id, {
+							predictedReturn: Number(item.predictedReturn ?? item.predicted_return ?? 0),
+							confidence: Number(item.confidence ?? 0.8),
+						});
+					}
+				}
+			}
+		} catch (err) {
+			console.warn("[ProfitOptimizedScoring] Python ML scoring unavailable, using rule-based upside fallback:", err);
+		}
+
+		const scoredProducts: ScoredProduct[] = [];
+		for (const { product, suitability } of eligibleProducts) {
+			let upside = this.calculateUpsideScore(product);
+
+			const mlScore = pythonScoresMap.get(product.product_id);
+			if (mlScore) {
+				const mlNormalizedScore = Math.min(100, Math.max(0, ((mlScore.predictedReturn - 5) / 25) * 100));
+				const blendedUpsideTotal = Math.round(upside.total * 0.4 + mlNormalizedScore * 0.6);
+				upside = {
+					...upside,
+					total: blendedUpsideTotal,
+					methodology: `${upside.methodology} + Python ML GradientBoosting (${Math.round(mlScore.confidence * 100)}% conf)`,
+				};
+			}
+
+			const finalScore = this.calculateFinalScore(suitability, upside, mode);
+			scoredProducts.push({
+				...product,
+				suitability,
+				upside,
+				finalScore,
+				ranking: 0,
+			});
+		}
+
+		scoredProducts.sort((a, b) => b.finalScore.total - a.finalScore.total);
+		scoredProducts.forEach((p, idx) => (p.ranking = idx + 1));
+
+		return scoredProducts;
+	}
+
 	registerOverride(
 		override: Omit<AgentOverride, "overrideId" | "timestamp">,
 	): AgentOverride {

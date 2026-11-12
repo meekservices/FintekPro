@@ -145,4 +145,24 @@ router.post("/entities/:id/sync", isAuthenticated, async (req, res) => {
 	}
 });
 
+// --- Corporate Treasury Optimizer (SEBI 4-bucket SLSQP allocation via Python Service) ---
+router.post("/optimize", isAuthenticated, async (req, res) => {
+	try {
+		const { callPython } = await import("../clients/python-client");
+		const optimization = await callPython<any>(
+			"/api/fixed-income/treasury-optimize",
+			"POST",
+			req.body,
+			req.user,
+		);
+		if (!optimization) {
+			return apiResponse.error(res, "Treasury optimization service unavailable", 503);
+		}
+		return apiResponse.success(res, optimization);
+	} catch (error) {
+		console.error("[TreasuryRoutes] Optimize allocation error:", error);
+		return apiResponse.serverError(res);
+	}
+});
+
 export default router;

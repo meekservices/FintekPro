@@ -208,6 +208,13 @@ class EngineLearningOrchestrator {
   }
 
   /**
+   * Returns current learning configuration settings.
+   */
+  public getConfig(): LearningConfig {
+    return { ...this.config };
+  }
+
+  /**
    * Returns complete real-time status of all engines in learning mode.
    */
   async getStatus(): Promise<EngineLearningState> {

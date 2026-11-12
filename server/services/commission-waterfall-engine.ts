@@ -99,11 +99,24 @@ export class CommissionWaterfallEngine {
 
 			if (pct <= 0) continue;
 
-			const commissionAmount = (totalCommission * pct) / 100;
+			const commissionAmount = Math.round(((totalCommission * pct) / 100) * 100) / 100;
 			totalAllocated += pct;
 
 			const kycGated =
 				partner.kyc_status !== "VERIFIED" && partner.kycStatus !== "VERIFIED";
+
+			// TDS withholding under Section 194H (Finance Act 2024: 5% with PAN, 20% without PAN)
+			const hasPan = Boolean((partner.pan || partner.panNumber)?.toString().trim().length === 10);
+			const { calculateResidentTds } = await import("./tds-withholding-engine");
+			const tdsResult = calculateResidentTds(
+				"commission_brokerage",
+				commissionAmount,
+				commissionAmount,
+				hasPan,
+				partner.id,
+			);
+			const tdsAmount = tdsResult.tdsAmount;
+			const netPayout = Math.round((commissionAmount - tdsAmount) * 100) / 100;
 
 			const [entry] = await db
 				.insert(partnerCommissionLedger)
@@ -124,6 +137,12 @@ export class CommissionWaterfallEngine {
 						chainPosition: i,
 						chainLength,
 						dynamicAllocation: true,
+						grossCommission: commissionAmount,
+						tdsDeducted: tdsAmount,
+						tdsRate: tdsResult.rateApplied,
+						tdsSection: "194H",
+						netPayout,
+						hasPan,
 					},
 				})
 				.returning();
@@ -131,7 +150,7 @@ export class CommissionWaterfallEngine {
 			ledgerEntries.push(entry);
 
 			if (!kycGated) {
-				await this.creditWallet(partner.id, commissionAmount);
+				await this.creditWallet(partner.id, netPayout);
 			}
 		}
 

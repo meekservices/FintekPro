@@ -368,4 +368,50 @@ router.get(
 	},
 );
 
+router.post(
+	"/analytics",
+	requireAuth,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { callPython } = await import("../clients/python-client");
+			const analytics = await callPython<any>(
+				"/api/fixed-income/bond-analytics",
+				"POST",
+				req.body,
+				(req as any).user,
+			);
+			if (!analytics) {
+				apiResponse.error(res, "Fixed income analytics service unavailable", 503);
+				return;
+			}
+			apiResponse.success(res, analytics);
+		} catch (err: unknown) {
+			apiResponse.serverError(res, errorMessage(err));
+		}
+	},
+);
+
+router.post(
+	"/yield-curve",
+	requireAuth,
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { callPython } = await import("../clients/python-client");
+			const curve = await callPython<any>(
+				"/api/fixed-income/yield-curve",
+				"POST",
+				req.body,
+				(req as any).user,
+			);
+			if (!curve) {
+				apiResponse.error(res, "Yield curve service unavailable", 503);
+				return;
+			}
+			apiResponse.success(res, curve);
+		} catch (err: unknown) {
+			apiResponse.serverError(res, errorMessage(err));
+		}
+	},
+);
+
 export default router;

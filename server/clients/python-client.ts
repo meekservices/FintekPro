@@ -238,12 +238,81 @@ export function getPythonBaseUrl(): string {
 	return getBaseUrl();
 }
 
+export interface DetailedPythonHealth {
+	isHealthy: boolean;
+	baseUrl: string;
+	service?: string;
+	version?: string;
+	modelReady?: boolean;
+	circuitOpen: boolean;
+	consecutiveFailures: number;
+	latencyMs: number;
+	error?: string;
+}
+
+export async function getDetailedPythonHealth(): Promise<DetailedPythonHealth> {
+	const start = Date.now();
+	const baseUrl = getBaseUrl();
+	const state = getPythonHealthState();
+	if (!baseUrl) {
+		return {
+			isHealthy: false,
+			baseUrl: "",
+			circuitOpen: state.circuitOpen,
+			consecutiveFailures: state.consecutiveFailures,
+			latencyMs: 0,
+			error: "PYTHON_SERVICE_URL not configured",
+		};
+	}
+	try {
+		const res = await fetch(`${baseUrl}/health`, {
+			method: "GET",
+			headers: { "Content-Type": "application/json" },
+			signal: AbortSignal.timeout(10_000),
+		});
+		const latencyMs = Date.now() - start;
+		if (res.ok) {
+			const json = await res.json().catch(() => ({}));
+			recordSuccess();
+			return {
+				isHealthy: true,
+				baseUrl,
+				service: json.service || "fintekpro-python",
+				version: json.version || "4.0.0",
+				modelReady: !!json.model_ready,
+				circuitOpen: false,
+				consecutiveFailures: 0,
+				latencyMs,
+			};
+		}
+		recordFailure(res.status);
+		return {
+			isHealthy: false,
+			baseUrl,
+			circuitOpen: state.circuitOpen,
+			consecutiveFailures: state.consecutiveFailures + 1,
+			latencyMs,
+			error: `HTTP ${res.status}`,
+		};
+	} catch (err: any) {
+		recordFailure();
+		return {
+			isHealthy: false,
+			baseUrl,
+			circuitOpen: state.circuitOpen,
+			consecutiveFailures: state.consecutiveFailures + 1,
+			latencyMs: Date.now() - start,
+			error: err.message,
+		};
+	}
+}
+
 /**
  * Active health probe — bypasses the circuit breaker so it can be used to
  * RESET the circuit after a cold-start 502 storm.
  *
  * Call this 45–60 s after server boot so the Python service has time to
- * finish its scikit-learn import (~30 s on Railway).
+ * finish its scikit-learn import.
  *
  * Returns true if the Python service is reachable and healthy.
  */
@@ -266,12 +335,10 @@ export async function probePythonHealth(): Promise<boolean> {
 			const json = await res.json().catch(() => ({}));
 			recordSuccess();
 			const caps: string[] = json?.capabilities ?? [];
-			console.info(
-				`[PythonClient] ✅ Python service healthy at ${baseUrl}` +
-					(caps.length
-						? ` — capabilities: ${caps.slice(0, 5).join(", ")}${caps.length > 5 ? "…" : ""}`
-						: ""),
-			);
+			const details = caps.length
+				? `capabilities: ${caps.slice(0, 5).join(", ")}`
+				: `service: ${json?.service ?? "fintekpro-python"} v${json?.version ?? "4.0.0"} (model_ready: ${json?.model_ready ?? false})`;
+			console.info(`[PythonClient] ✅ Python service healthy at ${baseUrl} — ${details}`);
 			return true;
 		}
 		console.warn(

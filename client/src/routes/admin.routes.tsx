@@ -585,6 +585,13 @@ export function AdminRoutes() {
 					</AdminLayout>
 				)}
 			</Route>
+			<Route path="/admin/engine-health">
+				{() => (
+					<AdminLayout>
+						<EngineHealthCheck />
+					</AdminLayout>
+				)}
+			</Route>
 			<Route path="/admin/mf-analytics-ops">
 				{() => (
 					<AdminLayout>

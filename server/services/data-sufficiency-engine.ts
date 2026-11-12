@@ -237,17 +237,20 @@ export class DataSufficiencyEngine {
 
 		const startTime = Date.now();
 		try {
-			// Query aggregated coverage metrics from listed_stocks
+			// Query aggregated coverage metrics from listed_stocks joined with snapshot and technical telemetry
 			const stockStatsRes = await db.execute(sql`
 				SELECT
 					COUNT(*)::int AS total_stocks,
-					COUNT(CASE WHEN current_price IS NOT NULL AND current_price > 0 THEN 1 END)::int AS with_price,
-					COUNT(CASE WHEN pe_ratio IS NOT NULL AND pe_ratio > 0 THEN 1 END)::int AS with_ratios,
-					COUNT(CASE WHEN piotroski_f_score IS NOT NULL THEN 1 END)::int AS with_fscore,
-					COUNT(CASE WHEN last_daily_update IS NOT NULL THEN 1 END)::int AS with_technicals,
-					COUNT(CASE WHEN last_enriched_at IS NOT NULL THEN 1 END)::int AS with_financials
-				FROM listed_stocks
-				WHERE is_active = true
+					COUNT(CASE WHEN ls.current_price IS NOT NULL AND ls.current_price > 0 THEN 1 END)::int AS with_price,
+					COUNT(CASE WHEN (ls.pe_ratio IS NOT NULL AND ls.pe_ratio > 0) OR (sms.pe_ratio IS NOT NULL AND sms.pe_ratio > 0) THEN 1 END)::int AS with_ratios,
+					COUNT(CASE WHEN ls.piotroski_f_score IS NOT NULL OR sms.piotroski_score IS NOT NULL OR sms.piotroski_f_score IS NOT NULL OR sdm.piotroski_score IS NOT NULL THEN 1 END)::int AS with_fscore,
+					COUNT(CASE WHEN ls.last_daily_update IS NOT NULL OR sti.symbol IS NOT NULL THEN 1 END)::int AS with_technicals,
+					COUNT(CASE WHEN ls.last_enriched_at IS NOT NULL OR sms.fiscal_year IS NOT NULL THEN 1 END)::int AS with_financials
+				FROM listed_stocks ls
+				LEFT JOIN screener_master_snapshots sms ON sms.symbol = ls.symbol
+				LEFT JOIN screener_derived_metrics sdm ON sdm.symbol = ls.symbol
+				LEFT JOIN screener_technical_indicators_latest sti ON sti.symbol = ls.symbol
+				WHERE ls.is_active = true
 			`);
 
 			const row = stockStatsRes.rows[0] as {
@@ -420,22 +423,41 @@ export class DataSufficiencyEngine {
 
 		try {
 			// Query stocks where currentPrice is null/0 OR peRatio is null OR lastEnrichedAt is null
-			let whereClause = sql`is_active = true AND (current_price IS NULL OR current_price <= 0 OR pe_ratio IS NULL OR piotroski_f_score IS NULL)`;
+			let whereClause = sql`ls.is_active = true AND (
+				ls.current_price IS NULL OR ls.current_price <= 0 OR
+				(ls.pe_ratio IS NULL AND sms.pe_ratio IS NULL) OR
+				(ls.piotroski_f_score IS NULL AND sms.piotroski_score IS NULL AND sdm.piotroski_score IS NULL) OR
+				(ls.last_enriched_at IS NULL AND sms.fiscal_year IS NULL)
+			)`;
 			if (options.search) {
 				const term = `%${options.search.toUpperCase()}%`;
-				whereClause = sql`${whereClause} AND (symbol ILIKE ${term} OR company_name ILIKE ${term})`;
+				whereClause = sql`${whereClause} AND (ls.symbol ILIKE ${term} OR ls.company_name ILIKE ${term})`;
 			}
 
 			const [countRes, stocksRes] = await Promise.all([
-				db.execute(sql`SELECT COUNT(*)::int AS count FROM listed_stocks WHERE ${whereClause}`),
+				db.execute(sql`
+					SELECT COUNT(*)::int AS count 
+					FROM listed_stocks ls
+					LEFT JOIN screener_master_snapshots sms ON sms.symbol = ls.symbol
+					LEFT JOIN screener_derived_metrics sdm ON sdm.symbol = ls.symbol
+					WHERE ${whereClause}
+				`),
 				db.execute(sql`
 					SELECT
-						id, symbol, company_name, exchange, current_price,
-						pe_ratio, pb_ratio, roe, roce, piotroski_f_score,
-						last_daily_update, last_enriched_at, market_cap
-					FROM listed_stocks
+						ls.id, ls.symbol, ls.company_name, ls.exchange, ls.current_price,
+						COALESCE(ls.pe_ratio, sms.pe_ratio) AS pe_ratio,
+						COALESCE(ls.pb_ratio, sms.pb_ratio) AS pb_ratio,
+						COALESCE(ls.roe, sms.roe) AS roe,
+						COALESCE(ls.roce, sms.roce) AS roce,
+						COALESCE(ls.piotroski_f_score, sms.piotroski_score, sdm.piotroski_score) AS piotroski_f_score,
+						COALESCE(ls.last_daily_update, sti.updated_at, sti.date::timestamp) AS last_daily_update,
+						ls.last_enriched_at, ls.market_cap
+					FROM listed_stocks ls
+					LEFT JOIN screener_master_snapshots sms ON sms.symbol = ls.symbol
+					LEFT JOIN screener_derived_metrics sdm ON sdm.symbol = ls.symbol
+					LEFT JOIN screener_technical_indicators_latest sti ON sti.symbol = ls.symbol
 					WHERE ${whereClause}
-					ORDER BY symbol ASC
+					ORDER BY ls.symbol ASC
 					LIMIT ${limit} OFFSET ${offset}
 				`),
 			]);
@@ -461,7 +483,51 @@ export class DataSufficiencyEngine {
 	}
 
 	/**
-	 * Autonomous self-healing: triggers background ratio and price enrichment
+	 * Synchronizes derived Piotroski F-scores and technical indicator timestamps
+	 * from screener_master_snapshots and screener_technical_indicators_latest
+	 * back into listed_stocks to keep universe telemetry unified.
+	 */
+	async syncSufficiencyMetrics(): Promise<{
+		piotroskiSynced: number;
+		technicalsSynced: number;
+	}> {
+		try {
+			const pRes = await db.execute(sql`
+				UPDATE listed_stocks ls
+				SET piotroski_f_score = COALESCE(sms.piotroski_score, sms.piotroski_f_score)
+				FROM screener_master_snapshots sms
+				WHERE ls.symbol = sms.symbol
+				  AND (ls.piotroski_f_score IS NULL OR ls.piotroski_f_score = 0)
+				  AND COALESCE(sms.piotroski_score, sms.piotroski_f_score) IS NOT NULL
+			`);
+
+			const tRes = await db.execute(sql`
+				UPDATE listed_stocks ls
+				SET last_daily_update = COALESCE(sti.updated_at, sti.date::timestamp, NOW())
+				FROM screener_technical_indicators_latest sti
+				WHERE ls.symbol = sti.symbol
+				  AND ls.last_daily_update IS NULL
+			`);
+
+			const piotroskiSynced = Number((pRes as any)?.rowCount ?? 0);
+			const technicalsSynced = Number((tRes as any)?.rowCount ?? 0);
+
+			logger.info("[DataSufficiency] Synced metrics to listed_stocks", {
+				event: "DATA_SUFFICIENCY_METRICS_SYNCED",
+				piotroskiSynced,
+				technicalsSynced,
+			});
+
+			this.cachedStats = null;
+			return { piotroskiSynced, technicalsSynced };
+		} catch (err: any) {
+			logger.warn("[DataSufficiency] Could not sync metrics to listed_stocks:", err.message);
+			return { piotroskiSynced: 0, technicalsSynced: 0 };
+		}
+	}
+
+	/**
+	 * Autonomous self-healing: triggers background ratio, snapshot, and price enrichment
 	 * when data insufficiency crosses critical thresholds.
 	 */
 	async triggerSelfHealing(): Promise<{ triggered: boolean; message: string }> {
@@ -479,18 +545,54 @@ export class DataSufficiencyEngine {
 		// Trigger non-blocking async repairs
 		void (async () => {
 			try {
-				// 1. Refresh missing valuation ratios (P/E, RoE, RoCE)
-				const { FinancialMetricsRefreshService } = await import(
-					"./financial-metrics-refresh-service"
-				);
-				const metricsSvc = new FinancialMetricsRefreshService();
-				await metricsSvc.refreshAllStockMetrics(100);
+				// 1. Sync available snapshot & technical telemetry into listed_stocks
+				await this.syncSufficiencyMetrics();
 
-				// 2. Backfill historical prices for securities with incomplete time series
-				const { runHistoricalBackfill } = await import(
-					"./instrument-time-series/historical-backfill-service"
-				);
-				await runHistoricalBackfill(10);
+				// 2. Rebuild master snapshots if Piotroski scores or ratios need refresh
+				try {
+					const { ScreenerMasterSnapshotService } = await import(
+						"./screener/screener-master-snapshot-service"
+					);
+					const snapshotSvc = new ScreenerMasterSnapshotService();
+					await snapshotSvc.rebuildFullSnapshot();
+				} catch (snapErr: any) {
+					logger.warn("[DataSufficiency] Master snapshot rebuild warning:", snapErr.message);
+				}
+
+				// 3. Bootstrap screener technical indicators & valuation metrics
+				try {
+					const { bootstrapScreenerMetrics } = await import(
+						"./screener/screener-enrichment-engine"
+					);
+					await bootstrapScreenerMetrics({ limit: 500 });
+				} catch (bootErr: any) {
+					logger.warn("[DataSufficiency] Bootstrap screener metrics warning:", bootErr.message);
+				}
+
+				// 4. Refresh missing valuation ratios (P/E, RoE, RoCE)
+				try {
+					const { FinancialMetricsRefreshService } = await import(
+						"./financial-metrics-refresh-service"
+					);
+					const metricsSvc = new FinancialMetricsRefreshService();
+					await metricsSvc.refreshAllStockMetrics(100);
+				} catch (mErr: any) {
+					logger.warn("[DataSufficiency] Financial metrics refresh warning:", mErr.message);
+				}
+
+				// 5. Backfill historical prices for securities with incomplete time series
+				try {
+					const { runHistoricalBackfill } = await import(
+						"./instrument-time-series/historical-backfill-service"
+					);
+					await runHistoricalBackfill(10);
+				} catch (bErr: any) {
+					logger.warn("[DataSufficiency] Historical backfill warning:", bErr.message);
+				}
+
+				// Final sync after enrichments complete
+				await this.syncSufficiencyMetrics();
+				this.cachedStats = null;
 
 				logger.info("[DataSufficiency] Autonomous self-healing cycle completed", {
 					event: "DATA_SUFFICIENCY_SELF_HEALING_COMPLETE",

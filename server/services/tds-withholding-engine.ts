@@ -76,6 +76,13 @@ export const TDS_MF_INCOME: TdsRateSpec = {
   effectiveSince: "2020-04-01",
 };
 
+export const TDS_COMMISSION_BROKERAGE: TdsRateSpec = {
+  rate: 0.05, rateWithoutPan: 0.20, thresholdPerFY: 15_000,
+  statuteSection: "Section 194H — Commission or Brokerage",
+  description: "TDS on partner commission / agency payouts. 5% standard, 20% without PAN. Threshold ₹15,000 p.a.",
+  effectiveSince: "2001-06-01",
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // NRI / Non-Resident Specs (Section 195 / 196D)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -183,7 +190,8 @@ export type ResidentTdsType =
   | "dividend"
   | "bank_interest"
   | "bank_interest_senior_citizen"
-  | "mf_income";
+  | "mf_income"
+  | "commission_brokerage";
 
 const RESIDENT_RATE_MAP: Record<ResidentTdsType, TdsRateSpec> = {
   bond_interest_listed:          TDS_BOND_INTEREST,
@@ -192,6 +200,7 @@ const RESIDENT_RATE_MAP: Record<ResidentTdsType, TdsRateSpec> = {
   bank_interest:                 TDS_BANK_INTEREST,
   bank_interest_senior_citizen:  { ...TDS_BANK_INTEREST, thresholdPerFY: 50_000 },
   mf_income:                     TDS_MF_INCOME,
+  commission_brokerage:          TDS_COMMISSION_BROKERAGE,
 };
 
 /**
@@ -371,6 +380,8 @@ export function tdsEngineSelfTest(): { pass: true; engine_version: string; scena
     // 6. NRI bond interest: no DTAA → 20% + 4% cess (income < 50L, no surcharge)
     //    ₹1,00,000 × 20% = ₹20,000; cess = ₹800; total = ₹20,800
     { label: "NRI bond interest: no DTAA, no surcharge → 20% + 4% cess", run: () => calculateNriTds("nri_bond_interest", 100000, undefined, 3000000).tdsAmount, expected: 20800 },
+    // 7. Commission brokerage: Section 194H, ₹20,000 > ₹15,000 threshold → 5% = ₹1,000
+    { label: "Commission brokerage Section 194H: threshold crossed → 5%", run: () => calculateResidentTds("commission_brokerage", 20000, 20000, true).tdsAmount, expected: 1000 },
   ];
 
   for (const tc of cases) {

@@ -52,7 +52,7 @@ export function registerProfitOptimizedRoutes(app: Express) {
 					);
 
 				const allProducts = basket.products.map((item) => item.product);
-				const scoredProducts = profitOptimizedScoringEngine.scoreProducts(
+				const scoredProducts = await profitOptimizedScoringEngine.scoreProductsAsync(
 					allProducts,
 					clientProfile,
 					mode as RecommendationMode,
@@ -60,7 +60,7 @@ export function registerProfitOptimizedRoutes(app: Express) {
 
 				const balancedProducts =
 					mode !== RECOMMENDATION_MODE.BALANCED
-						? profitOptimizedScoringEngine.scoreProducts(
+						? await profitOptimizedScoringEngine.scoreProductsAsync(
 								allProducts,
 								clientProfile,
 								RECOMMENDATION_MODE.BALANCED,

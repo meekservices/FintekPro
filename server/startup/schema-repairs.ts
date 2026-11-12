@@ -7171,9 +7171,23 @@ export async function ensureEngineGapFixTables(poolInstance?: any): Promise<void
       -- ── Ensure market_briefs multi_exchange_data and amc_consensus columns ──
       ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS multi_exchange_data JSONB;
       ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS amc_consensus JSONB;
+
+      -- ── Sync listed_stocks piotroski_f_score and technicals from snapshots & indicators ──
+      UPDATE listed_stocks ls
+      SET piotroski_f_score = COALESCE(sms.piotroski_score, sms.piotroski_f_score)
+      FROM screener_master_snapshots sms
+      WHERE ls.symbol = sms.symbol
+        AND (ls.piotroski_f_score IS NULL OR ls.piotroski_f_score = 0)
+        AND COALESCE(sms.piotroski_score, sms.piotroski_f_score) IS NOT NULL;
+
+      UPDATE listed_stocks ls
+      SET last_daily_update = COALESCE(sti.updated_at, sti.date::timestamp, NOW())
+      FROM screener_technical_indicators_latest sti
+      WHERE ls.symbol = sti.symbol
+        AND ls.last_daily_update IS NULL;
     `);
 
-    console.log("  ✅ [GapFix] Engine gap-fix tables and columns ensured: asset_returns_history, macro_regime_snapshots, golden_prices_intraday, benchmark_correlation_matrix, price_audit_log, corporate_actions, price_adjustments, admin_ai_audit_logs, marquee brokerage tables (brokerage_firms, brokerage_coverage_calls, brokerage_consensus_history), market_breadth_history, fii_dii_daily_flows, market_briefs multi_exchange_data & amc_consensus");
+    console.log("  ✅ [GapFix] Engine gap-fix tables, sufficiency sync, and columns ensured");
   } catch (err: any) {
     console.warn("  ⚠️ [GapFix] Non-fatal migration error:", err?.message?.slice(0, 200));
   }

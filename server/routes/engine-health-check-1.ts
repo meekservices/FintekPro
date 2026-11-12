@@ -550,20 +550,22 @@ router.get("/run", async (req: Request, res: Response) => {
 				"Python Analytics Service",
 				"AI & Quant Services",
 				async () => {
-					const { probePythonHealth, getPythonHealthState, getPythonBaseUrl } =
+					const { getDetailedPythonHealth, getPythonBaseUrl } =
 						await import("../clients/python-client");
-					const isHealthy = await probePythonHealth();
-					const state = getPythonHealthState();
-					if (!isHealthy) {
+					const health = await getDetailedPythonHealth();
+					if (!health.isHealthy) {
 						throw new Error(
-							`Python service unreachable or returned non-OK at ${getPythonBaseUrl()}`,
+							`Python service unreachable or returned non-OK at ${health.baseUrl || getPythonBaseUrl()}: ${health.error || "unknown error"}`,
 						);
 					}
 					return {
-						baseUrl: getPythonBaseUrl(),
-						lastSuccessAt: state.lastSuccessAt,
-						circuitOpen: state.circuitOpen,
-						consecutiveFailures: state.consecutiveFailures,
+						service: health.service,
+						version: health.version,
+						modelReady: health.modelReady,
+						baseUrl: health.baseUrl,
+						circuitOpen: health.circuitOpen,
+						consecutiveFailures: health.consecutiveFailures,
+						latencyMs: health.latencyMs,
 					};
 				},
 			),
@@ -833,6 +835,19 @@ router.post("/self-heal", async (req: Request, res: Response) => {
 							}
 						} catch {
 							result = "Redis flush failed (non-fatal)";
+						}
+						break;
+					}
+					case "python-service":
+					case "python-analytics-service":
+					case "ai-ml-scoring": {
+						action = "train_python_ml_model";
+						try {
+							const { callPython } = await import("../clients/python-client");
+							const trainRes = await callPython<any>("/api/ml/train", "POST", { force: true });
+							result = trainRes ? `ML training triggered: ${JSON.stringify(trainRes)}` : "Python service unavailable";
+						} catch (err: any) {
+							result = `ML training trigger failed: ${err.message}`;
 						}
 						break;
 					}
