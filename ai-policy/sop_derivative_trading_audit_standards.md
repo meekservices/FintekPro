@@ -10,13 +10,16 @@
 * **Governing Regulatory Authorities:**
   * **SEBI:** Index Derivatives Framework — Circular `SEBI/HO/MRD/POD1/CIR/P/2024/132` (effective Feb 2025)
   * **SEBI:** F&O Eligibility Criteria & Lot Size Revisions — Circular `SEBI/HO/MRD/TP/P/CIR/2024/131`
-  * **SEBI (Investment Advisers) Regulations, 2013** — Regulation 17 (Suitability), Regulation 19 (Record Maintenance)
+  * **SEBI (Investment Advisers) Regulations, 2013** — Regulation 17 (Suitability), Regulation 19 (7-Year Mandatory Record Maintenance)
   * **SEBI (Portfolio Managers) Regulations, 2020** — Permitted Asset Universe (Regulation 22 & 23)
   * **SEBI (AIF) Regulations, 2012 (as amended 2024)** — Cat III Leverage Cap: max 200% gross exposure
   * **SEBI (Broker) Regulations, 1992** — Client Code Modification, Pre-trade Margin Collection
-  * **RBI FEMA Notification 20(R)/2017-RB** — FII/FPI derivative position limits
+  * **RBI FEMA Notification 20(R)/2017-RB & Model Risk Governance** — FII/FPI derivative position limits, sub-150ms algorithmic risk gate verification
+  * **Income Tax Department / CBDT:** Section 43(5) Non-speculative business income classification for exchange-traded derivatives, Section 44AB tax audit turnover computation
   * **BSE/NSE Circulars** — Position Limits, ELM, VaR margin computation
-  * **PMLA 2002 (as amended)** — Client identity & beneficial ownership verification before derivative account activation
+  * **PMLA 2002 (as amended) & FIU-IND** — Section 12 mandatory 7-year record retention, client identity & beneficial ownership verification before derivative account activation
+  * **DPDP Act 2023 & MeitY** — Deterministic de-identification of client identities before strategy processing, Zero External Model Retention
+  * **CERT-In & CSCRF** — Official IST NTP time synchronization within ±50ms, mandatory 6-hour security incident and AI breach reporting
 
 > [!IMPORTANT]
 > FintekPro is a SEBI-registered **Investment Adviser (RIA)**. Derivatives access is a **Decision Support System ONLY** — the platform recommends, analyzes, and audits derivative positions. FintekPro **NEVER autonomously executes derivative orders without explicit client confirmation and pre-trade risk gate clearance.**
@@ -195,21 +198,26 @@ All option Greeks ($\Delta, \Gamma, \Theta, \mathcal{V}, \rho$) and theoretical 
 
 ---
 
-### 7. SEBI 5-Year Audit Trail Requirements (Reg 19)
+### 7. SEBI & Multi-Regulator 7-Year Statutory Audit Trail Requirements (SEBI Reg 19 / PMLA Sec 12)
 
-All the following events must be stored immutably for **minimum 5 years** (Reg 19(1)(d)):
+All the following events must be stored immutably in PostgreSQL WORM storage for **minimum 7 years** (SEBI Reg 19(1)(d) & PMLA Section 12):
 
-| Event | Table | Retention |
-| :--- | :--- | :--- |
-| Client suitability assessment for F&O | `compliance_audit_logs` | 5 years |
-| Pre-trade gate check results (all 9 gates) | `order_lifecycle_events` | 5 years |
-| Strategy recommendation with confidence score | `portfolio_ai_decisions` | 5 years |
-| Order placement (any leg) with broker order ID | `unified_orders` + `order_lifecycle_events` | 5 years |
-| Margin adequacy check result at T0 | `order_lifecycle_events` | 5 years |
-| MTM risk alerts | `compliance_audit_logs` | 5 years |
-| Expiry / settlement instructions | `portfolio_transactions` | 5 years |
-| Square-off instructions & advisor confirmation | `order_lifecycle_events` | 5 years |
-| SEBI weekly expiry compliance gate decision | `compliance_audit_logs` | 5 years |
+| Event | Primary WORM Table | Active Redis Acceleration Tier | Statutory Retention |
+| :--- | :--- | :--- | :--- |
+| Client suitability assessment for F&O | `compliance_audit_logs` | `cache:suitability:{clientId}` (TTL 24h) | 7 years (Immutable) |
+| Pre-trade gate check results (all 9 gates) | `order_lifecycle_events` | `lock:order:derivative:{clientId}` (Lock TTL 10s) | 7 years (Immutable) |
+| Strategy recommendation with confidence score | `portfolio_ai_decisions` | `ai:strategy:{strategyHash}` (TTL 15m) | 7 years (Immutable) |
+| Order placement (any leg) with broker order ID | `unified_orders` + `order_lifecycle_events` | `idempotency:order:{idempotencyKey}` (TTL 24h) | 7 years (Immutable) |
+| Margin adequacy check result at T0 | `order_lifecycle_events` | `cache:margin:{clientId}` (TTL 5m) | 7 years (Immutable) |
+| MTM risk alerts | `compliance_audit_logs` | `stream:risk:alerts` (Pub/Sub) | 7 years (Immutable) |
+| Expiry / settlement instructions | `portfolio_transactions` | Invalidation of `cache:portfolio:{portfolioId}` | 7 years (Immutable) |
+| Square-off instructions & advisor confirmation | `order_lifecycle_events` | Distributed execution lock | 7 years (Immutable) |
+| SEBI weekly expiry compliance gate decision | `compliance_audit_logs` | `cache:sebi:expiry_calendar` (TTL 24h) | 7 years (Immutable) |
+
+**Active Redis Operational Tier Directive:**
+1. Active Redis distributed locks (`lock:order:derivative:{clientId}`) prevent double-leg execution or split-second duplicate submissions across Cloud Run multi-pod containers.
+2. In-memory margin cache provides sub-50ms validation for high-frequency market quote recalculations.
+3. Redis acts strictly as an operational ephemeral tier. All final order payloads, advisory envelopes, and regulatory verifications MUST write-through synchronously to PostgreSQL WORM storage before emitting success to the client.
 
 **Audit Log Schema (FASP-AI Compliant):**
 ```json
@@ -291,7 +299,8 @@ Additionally for short premium strategies:
 | `engine_version` & `calculation_timestamp` in all AI outputs | ✅ Mandatory |
 | SEBI weekly expiry check via `validateWeeklyExpiryEligibility()` | ✅ Mandatory |
 | No autonomous execution (human confirmation gate) | ✅ Non-negotiable |
-| 5-year audit trail in `compliance_audit_logs` | ✅ Mandatory |
+| 7-year statutory WORM audit trail in `compliance_audit_logs` & `order_lifecycle_events` | ✅ Mandatory |
+| Active Redis distributed locking (`lock:order:derivative:*`) & sub-50ms cache | ✅ Mandatory |
 | Disclaimer on every advisory screen and API response | ✅ Mandatory |
 | PAN masking in all derivative audit logs | ✅ Mandatory |
 | `expiry_day_elm_surcharge` applied on T-day for short options | ✅ Mandatory |

@@ -8,8 +8,14 @@ AI models
 governance engine
 Enables audit, ranking, and continuous learning
 This system must remain compliant with:
-Securities and Exchange Board of India
-Reserve Bank of India
+- Securities and Exchange Board of India (SEBI)
+- Reserve Bank of India (RBI)
+- Central Board of Direct Taxes (CBDT) / Income Tax Department
+- Digital Personal Data Protection Act, 2023 (DPDP Act) & MeitY
+- Financial Intelligence Unit (FIU-IND / PMLA)
+- IRDAI & PFRDA
+- Indian Computer Emergency Response Team (CERT-In)
+- AMFI Code of Conduct
 
 1. ARCHITECTURE POSITIONING
 AI Advisory Engine
@@ -131,17 +137,23 @@ Track:
   "consistency_score": 0.82
 }
 
-9. AUDIT & COMPLIANCE
-9.1 Full Traceability
+9. AUDIT, COMPLIANCE & REDIS ACCELERATION
+9.1 Full Traceability & 7-Year Statutory WORM Retention
 Each score must link to:
 original recommendation
 user profile
 market conditions
+Preserve immutable scoring audit logs for 7 years in PostgreSQL per SEBI and PMLA requirements.
 
-9.2 Regulator Reporting
+9.2 Regulator Reporting & Performance Advertising Ban
 Generate:
 “AI Performance Report”
 “Advisory Effectiveness Report”
+All performance metrics must be net of advisory fees, taxes, and slippage, and benchmarked against official TRI indices.
+Simulated backtest marketing to retail clients is strictly prohibited under SEBI Advertising Code.
+
+9.3 Active Redis Acceleration
+Live outcome tracking, streak metrics, and hit-rate caches are stored in Google Cloud Memorystore Redis (`ai_score:{recommendationId}`) for sub-50ms dashboard hydration across all Cloud Run pods.
 
 10. ALERTING & MONITORING
 Trigger alerts on:

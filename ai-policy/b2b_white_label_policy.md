@@ -1,7 +1,14 @@
 🏢 FintekPro B2B White-Label AI Infrastructure Policy (v1.0)
 
-0. SYSTEM OBJECTIVE
-Extend FintekPro's institutional-grade AI advisory and governance layers to third-party B2B partners while maintaining absolute security, multi-tenant isolation, and regulatory hygiene.
+0. SYSTEM OBJECTIVE & REGULATORY MANDATE
+Extend FintekPro's institutional-grade AI advisory and governance layers to third-party B2B partners (RIAs, Brokers, Wealth Managers, NBFCs) while maintaining absolute security, multi-tenant isolation, and regulatory hygiene under:
+- Securities and Exchange Board of India (SEBI RIA Regs 2013, Regulation 22 arm's-length segregation, RA Regs 2014, PMS Regs 2020)
+- Reserve Bank of India (RBI Digital Lending Guidelines 2022/2024, RE/LSP boundaries, IT outsourcing norms)
+- Income Tax Department / CBDT (Statutory capital gains, STCG/LTCG, TDS/TCS calculation integrity)
+- AMFI (EUIN/ARN attribution, code of conduct compliance)
+- DPDP Act 2023 & MeitY (Strict tenant PII firewall, pseudonymization before AI processing, zero multi-tenant data leakage)
+- FIU-IND / PMLA 2002 (Statutory 7-year transaction record retention, AML/PEP validation)
+- CERT-In & CSCRF (Sub-50ms NTP time stamping, tenant breach isolation, 6-hour incident disclosure)
 
 1. TENANT ISOLATION (NON-NEGOTIABLE)
 1.1 Logical Separation
@@ -12,10 +19,11 @@ All API requests MUST be authenticated via Tenant-specific, hashed API keys.
 Requests MUST include a valid `Tenant-ID` header for trace logging.
 
 2. API GOVERNANCE & SECURITY
-2.1 Rate Limiting
-Strict Token-Bucket rate limiting enforced per Tenant tier:
-- Standard: 10 requests/second
-- Enterprise: 50 requests/second
+2.1 Active Redis Distributed Rate Limiting
+Strict Token-Bucket rate limiting enforced across all Cloud Run pods via Active Redis (`ratelimit:b2b:{tenantId}:{tier}`):
+- Standard: 10 requests/second (Burst: 20)
+- Enterprise: 50 requests/second (Burst: 100)
+- Redis sub-millisecond atomic counter checks prevent cross-pod concurrency spikes.
 2.2 Payload Validation
 Every incoming request MUST be validated against strict JSON schemas.
 Malformed or non-compliant payloads MUST be rejected before hitting the AI or Financial engines.
@@ -39,11 +47,13 @@ If a Partner has their own licensed compliance team (RIA/Stockbroker), they may 
 4.2 Hard Blocks
 CRITICAL suitability blocks (e.g., high-risk assets to minor users) are SYSTEM-WIDE and CANNOT be overridden by any B2B Tenant.
 
-5. AUDIT & TRACEABILITY (PaaS LEVEL)
-5.1 Partner Audit Trails
-Partners MUST have access to their own transaction/advisory logs for regulatory reporting.
+5. AUDIT & TRACEABILITY (STATUTORY 7-YEAR WORM RETENTION)
+5.1 Partner Statutory Audit Trails
+Partners MUST have continuous access to their own transaction/advisory audit logs for regulatory inspection. All partner-facing logs are persisted immutably in PostgreSQL for minimum 7 years in compliance with SEBI RIA Reg 19, PMS Reg 22, and PMLA Section 12.
 5.2 Trace ID Continuity
 Every advisory generated via API MUST carry a unique `Trace-ID` that persists from `User Query` -> `Execution` -> `Reporting`.
+5.3 Tenant Isolation in Redis Cache
+Tenant caches in Active Redis MUST be strictly key-spaced (`b2b:{tenantId}:cache:*`) to prevent cross-tenant information bleed.
 
 6. PERFORMANCE SERVICE LEVEL AGREEMENTS (SLA)
 6.1 Latency Targets

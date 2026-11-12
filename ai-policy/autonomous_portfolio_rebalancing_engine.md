@@ -12,9 +12,15 @@ Executes only after approval gates
 Maintains full auditability
 
 Must be defensible under:
-Securities and Exchange Board of India
-Reserve Bank of India
-Income Tax Department
+- Securities and Exchange Board of India (SEBI RIA Regs 2013, PMS Regs 2020 Reg 22 segregation, AI Circular)
+- Reserve Bank of India (RBI Model Risk Governance & Capital adequacy guidance)
+- Income Tax Department / CBDT (Income Tax Act 1961 Section 111A/112/112A capital gains tax harvesting, Section 55(2)(ac) grandfathering, Section 43(5) business trading classifications)
+- AMFI (Scheme reclassification rules, cut-off timings 13:00/15:00 IST)
+- IRDAI (Asset rebalancing in ULIP/insurance-linked portfolios)
+- PFRDA (NPS age-driven asset tapering ceilings)
+- DPDP Act 2023 & MeitY (Deterministic pseudonymized client holding records)
+- FIU-IND / PMLA 2002 (Clean asset provenance)
+- CERT-In / CSCRF (Operational cyber resilience and sub-50ms NTP time integrity)
 
 1. ARCHITECTURE POSITIONING
 Portfolio State
@@ -153,8 +159,13 @@ match:
 planned vs executed
 log discrepancies
 
-10. AUDIT & LOGGING (CRITICAL)
-10.1 Rebalance Audit Record
+10. AUDIT & LOGGING (STATUTORY MULTI-REGULATOR COMPLIANCE)
+10.1 Active Redis Operational Acceleration
+- Distributed locking: `lock:rebalance:{portfolioId}` (TTL 30s) prevents split-brain duplicate rebalancing across Cloud Run pods.
+- Idempotency key registry: `rebalance:plan:{idempotencyKey}` (TTL 24h) guarantees safe retries.
+- Real-time drift caching: `cache:drift:{portfolioId}` (TTL 5m) delivers sub-50ms suitability and drift checks.
+10.2 PostgreSQL WORM Immutable Audit Store (7 Years)
+In accordance with SEBI RIA Reg 19, PMS Reg 22, and PMLA Section 12, all rebalancing records are stored immutably in PostgreSQL for minimum 7 years:
 {
   "rebalance_id": "...",
   "portfolio_id": "...",
@@ -166,12 +177,13 @@ log discrepancies
   "execution_status": "...",
   "timestamp": "..."
 }
-10.2 Replay Capability
-Must reconstruct:
-portfolio before
-plan generated
-decisions taken
-final outcome
+10.3 Full Replay Capability
+Statutory auditors must be able to reconstruct from WORM tables:
+- portfolio state before rebalance
+- candidate plan generated and tax-harvesting math
+- governance & risk simulation checks passed
+- human client/advisor approval token
+- post-execution fills and realized tax impact
 
 11. SCORING FEEDBACK (ARSE)
 Track:

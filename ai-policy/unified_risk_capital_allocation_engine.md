@@ -14,8 +14,15 @@ Advisory Engine
 Rebalancing Engine (APRE)
 
 Must align with:
-Securities and Exchange Board of India
-Reserve Bank of India
+- Securities and Exchange Board of India (SEBI RIA Regs 2013, PMS Regs 2020, AIF Regs 2012, AI Circular)
+- Reserve Bank of India (RBI Model Risk Management & Capital Allocation Guidance)
+- Income Tax Department / CBDT (Income Tax Act 1961 Section 111A/112/112A capital gains tax drag optimization)
+- AMFI (Risk-o-meter and asset categorization standards)
+- IRDAI (Asset-liability matching and life/general insurance product boundaries)
+- PFRDA (NPS statutory asset allocation caps: max 75% equity decreasing with age)
+- DPDP Act 2023 & MeitY (Deterministic pseudonymized risk profiling)
+- FIU-IND / PMLA 2002 (Sanction list screening and PEP checks)
+- CERT-In / CSCRF (Operational cyber resilience and sub-50ms NTP time integrity)
 
 1. ARCHITECTURE POSITIONING
 User Profile + Market State
@@ -144,8 +151,12 @@ short-term adjustments
 12.3 Strategic Allocation
 long-term baseline
 
-13. AUDIT & TRACEABILITY
-13.1 Allocation Record
+13. AUDIT & TRACEABILITY (7-YEAR WORM RETENTION)
+13.1 Active Redis Operational Cache
+- Macro regime caching: `market:regime` (TTL 15m) synchronized across all Cloud Run pods.
+- Risk budget cache: `risk:budget:{portfolioId}` (TTL 1h) enabling sub-50ms suitability evaluations.
+13.2 PostgreSQL Immutable WORM Retention (7 Years)
+Per SEBI RIA Reg 19, PMS Reg 22, and PMLA Section 12, every allocation run is permanently recorded for 7 years:
 {
   "allocation_id": "...",
   "inputs": {},
@@ -154,12 +165,12 @@ long-term baseline
   "final_weights": {},
   "timestamp": "..."
 }
-13.2 Replay Capability
-Must reconstruct:
-inputs
-model
-constraints
-decision
+13.3 Replay Capability
+Statutory auditors must be able to reconstruct from PostgreSQL WORM storage:
+- input market & user suitability state
+- mathematical optimization model applied
+- regulatory & asset class constraints enforced
+- final target weights and risk contribution fractions
 
 14. FAILSAFE DESIGN
 14.1 If Optimization Fails
@@ -169,9 +180,10 @@ rule-based allocation
 increase cash
 reduce risk assets
 
-15. PERFORMANCE REQUIREMENTS
-allocation computation < 500ms
-async for complex optimization
+15. PERFORMANCE & LATENCY REQUIREMENTS
+- Redis cache hit: < 50ms
+- Fresh allocation computation: < 500ms
+- Complex multi-asset quadratic optimization: async with Redis status polling
 
 16. CODE STRUCTURE
 /services/allocation/

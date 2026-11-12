@@ -3,7 +3,7 @@
 **Standard Version**: RGP-1.0.0  
 **Effective Date**: October 2026  
 **Governing Authority**: FintekPro Investment & Risk Committee (IRC)  
-**Regulatory Framework**: SEBI (Investment Advisers) Regulations, 2013 (Regulation 17 — Suitability), SEBI (Research Analysts) Regulations, 2014, and FASP-AI v3.0 Quantitative Risk Architecture
+**Regulatory Framework**: SEBI (Investment Advisers) Regulations 2013 (Reg 17 — Suitability), SEBI (Research Analysts) Regulations 2014, RBI Model Risk Management (MRM), DPDP Act 2023, and FASP-AI v3.2 Quantitative Risk Architecture
 
 ---
 
@@ -131,9 +131,11 @@ When translating portfolio weights into live Demat orders via Upstox:
 
 ---
 
-## 7. Policy Enforcement & Breaches
+## 7. Policy Enforcement, Redis Acceleration & Regulatory Audit
 
 - **Automated Real-Time Enforcement**: Handled via Express middleware (`suitability-gate.ts`) and core services (`portfolio-risk-guard.ts`, `risk-suitability-engine.ts`).
+- **Active Redis Acceleration**: Risk calculations, real-time macro regime signals (`market:regime`), and pre-trade LTV limits are accelerated via Google Cloud Memorystore Redis as Tier 1, ensuring sub-50ms suitability intercept checks across all Cloud Run pods.
+- **7-Year WORM Audit Trail**: Every suitability assessment, risk tier override attempt, and portfolio rebalance gate is immutably committed to Cloud SQL PostgreSQL and retained for 7 years per SEBI and RBI audit mandates.
 - **Audit Cadence**: The FintekPro Compliance Council reviews risk exceptions and portfolio divergence weekly.
 - **Reporting**: Any critical breach is dispatched immediately via the `opsAlertService` to administrative webhooks and audit logs.
 

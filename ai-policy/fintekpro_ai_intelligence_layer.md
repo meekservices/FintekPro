@@ -9,9 +9,15 @@ FintekPro MUST operate as:
 3. Regulator-Grade Explainable AI
 → Every output is auditable, explainable, and compliant
 This system must align with:
-Securities and Exchange Board of India
-Reserve Bank of India
-Income Tax Department
+- Securities and Exchange Board of India (SEBI RIA Regs 2013, RA Regs 2014, PMS Regs 2020, AIF Regs 2012, AI Circular)
+- Reserve Bank of India (RBI Model Risk Governance & Digital Lending Guidelines)
+- Income Tax Department / CBDT (Income Tax Act 1961 Section 111A/112/112A capital gains math)
+- AMFI (Code of Conduct & Scheme categorization)
+- IRDAI (Protection-first suitability & 30-day free look)
+- PFRDA (NPS age-linked equity tapering caps)
+- DPDP Act 2023 & MeitY (Deterministic pseudonymization & Zero External Model Retention)
+- FIU-IND / PMLA 2002 (PEP & AML counterparty checks)
+- CERT-In / CSCRF (Sub-50ms NTP time integrity & 6-hour security incident reporting)
 
 1. END-TO-END FLOW (NON-NEGOTIABLE)
 User Query
@@ -179,7 +185,7 @@ disable AI advisory globally if:
 compliance breach
 model failure spike
 
-11. DATA GOVERNANCE
+11. DATA GOVERNANCE & STATUTORY RETENTION (7 YEARS)
 11.1 Versioning
 Track:
 model versions
@@ -190,6 +196,12 @@ Every output must trace back to:
 data source
 transformation
 model
+11.3 Active Redis Acceleration Tier
+- Operational deduplication & hit-rate acceleration: `ai:response:{promptHash}` (TTL 15m) across all Cloud Run pods.
+- Pre-prompt PII redaction ensures only pseudonymized context is hashed in Redis.
+- Sub-150ms cache retrieval for identical advisory contexts.
+11.4 PostgreSQL Immutable WORM Storage (7 Years)
+Per SEBI RIA Reg 19, PMS Reg 22, and PMLA Section 12, all AI recommendations, factors considered, confidence scores, and user confirmation events are persisted for 7 years in PostgreSQL (`ai_advisory_outputs`, `portfolio_ai_decisions`, `compliance_audit_logs`).
 
 12. ANTIGRAVITY IMPLEMENTATION RULES
 ALWAYS:

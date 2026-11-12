@@ -12,8 +12,15 @@ Feeds results into:
 Governance Engine (AAGE)
 Advisory layer
 This system must be defensible under:
-Securities and Exchange Board of India
-Reserve Bank of India
+- Securities and Exchange Board of India (SEBI RIA Regs 2013, PMS Regs 2020, AIF Regs 2012, AI Circular)
+- Reserve Bank of India (RBI Model Risk Management & Stress Testing Guidance)
+- Income Tax Department / CBDT (Income Tax Act 1961 post-tax return simulations)
+- AMFI (Risk-o-meter and stress testing metrics)
+- IRDAI (Asset-liability matching guidelines)
+- PFRDA (NPS lifestyle fund risk boundaries)
+- DPDP Act 2023 & MeitY (Deterministic pseudonymized stress testing inputs)
+- FIU-IND / PMLA 2002 (Clean asset provenance)
+- CERT-In / CSCRF (Cyber resilience & compute integrity)
 
 1. ARCHITECTURE POSITIONING
 AI Recommendation
@@ -133,16 +140,23 @@ simulated vs actual outcomes
 simulation accuracy
 model calibration
 
-10. PERFORMANCE REQUIREMENTS
-Simulation time:
-< 2s (light)
-async for heavy runs
+10. PERFORMANCE & CACHING ARCHITECTURE
+10.1 Active Redis Acceleration Tier
+- Simulation output vectors and quantile distributions cached under `quant:sim:{portfolioId}:{paramHash}` with TTL = 6 hours.
+- Cache hit latency < 50ms across Cloud Run multi-pod instances.
+- Cache miss simulation time: < 2s (light), async background task for heavy runs (> 10,000 Monte Carlo paths).
 
-11. STORAGE DESIGN
-Store:
-simulation inputs
-outputs
-assumptions
+11. STORAGE DESIGN & MULTI-REGULATOR AUDIT COMPLIANCE
+11.1 PostgreSQL WORM Statutory Retention (7 Years)
+In compliance with SEBI RIA Reg 19, PMS Reg 22, and RBI Model Risk Governance, permanently store:
+- Exact simulation seeds and stochastic parameter vectors
+- Input asset weights and covariance matrices
+- Macroeconomic scenario assumptions and stress shocks
+- Distribution quantiles (VaR 95/99, CVaR, Max Drawdown)
+- Output decision envelope and timestamp (IST NTP ±50ms)
+- 7-year immutable retention in `portfolio_ai_decisions` and `compliance_audit_logs`.
+11.2 Active Redis Ephemeral Role
+Redis provides distributed speed and ephemeral caching only; all statutory dossiers are synchronously persisted to PostgreSQL.
 
 12. ALERT SYSTEM
 Trigger alerts on:

@@ -12,8 +12,14 @@ compliance
 latency
 cost
 This system MUST remain compliant with:
-Securities and Exchange Board of India
-Reserve Bank of India
+- Securities and Exchange Board of India (SEBI)
+- Reserve Bank of India (RBI)
+- Central Board of Direct Taxes (CBDT) / Income Tax Department
+- Digital Personal Data Protection Act, 2023 (DPDP Act) & MeitY
+- Financial Intelligence Unit (FIU-IND / PMLA)
+- IRDAI & PFRDA
+- Indian Computer Emergency Response Team (CERT-In)
+- AMFI Code of Conduct
 
 1. ARCHITECTURE POSITIONING
 User Query
@@ -134,14 +140,16 @@ repeated compliance failure → disable
   "timestamp": "...",
   "reason": "highest compliance + accuracy"
 }
-9.2 Replay Capability
+9.2 Replay & Statutory Retention
 reproduce:
 why model was chosen
 what alternatives existed
+Preserve immutable selection audit logs for 7 years in PostgreSQL per SEBI and PMLA statutory mandates.
 
-10. LATENCY & PERFORMANCE
+10. LATENCY & REDIS ACCELERATION
 selection decision < 50ms
-caching for repeated queries
+Tier 1 Active Redis caching (`ai_model:selection:{hash}`) for repeated queries
+Multi-pod model health and state distribution
 
 11. FAILSAFE MECHANISMS
 11.1 If No Model Meets Threshold

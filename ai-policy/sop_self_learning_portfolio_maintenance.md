@@ -139,8 +139,8 @@ To prevent machine learning models from destabilizing portfolios during tail-ris
   - Portfolios default to defensive capital-preservation postures (tactical liquid / treasury allocations).
   - High-priority operational alerts are dispatched to the Chief Risk Officer and Lead Portfolio Manager.
 
-### 4.2 Distributed Locking & Rate Limiting
-- **Lock Management:** Handled via PostgreSQL `quant_scheduler_locks` with a 30-minute Time-To-Live (TTL).
+### 4.2 Distributed Locking, Redis Acceleration & Rate Limiting
+- **Lock Management:** Handled via Google Cloud Memorystore Redis as Tier 1 (`distributedLock`, namespace `lock:quant_retrain:*`) with automatic TTL expiry, falling back to PostgreSQL `quant_scheduler_locks` with a 30-minute Time-To-Live (TTL).
 - **Execution Cap:** Maximum **4 retraining runs per 24-hour cycle** per cluster.
 - **Cooling Window:** Minimum gap of **6 hours** between consecutive MVO retrain executions.
 - **Exponential Backoff:** If an optimization routine fails or encounters degenerate covariance matrices, backoff kicks in from 15 minutes up to 24 hours.

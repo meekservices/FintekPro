@@ -137,6 +137,32 @@ In strict compliance with SEBI Advertising Codes for Investment Advisers and Res
 
 ---
 
+## 8. Active Redis Acceleration & Distributed Multi-Pod Caching
+
+With **Google Cloud Memorystore for Redis ACTIVATED and LIVE** in production:
+1. **Tier 1 Distributed In-Memory Cache**:
+   - AI recommendations and prompt hashes are cached across all Cloud Run pods via `distributedCache` and `aiResponseCacheService` under namespaces:
+     * `ai_response:{type}:{hash}` (TTL: 15m - 4h depending on volatility)
+     * `ai:rationale:{type}:{inputHash}` (TTL: 7 days, invalidated on rebalance/corporate action)
+     * `ratelimit:ai:{userId}` (Sliding-window rate limiter: 30 req/min)
+     * `market:regime` (Synchronized macro volatility regime state)
+2. **Statutory Non-Volatility Invariant**:
+   - Redis accelerates operational retrieval ($< 150\text{ ms}$ response).
+   - In accordance with SEBI, RBI, and PMLA non-repudiation mandates, **the permanent system of record is PostgreSQL WORM storage** (`ai_advisory_outputs`, `portfolio_ai_decisions`, `regulatory_audit_packs`).
+3. **Failover Safeguard**:
+   - Disconnections or timeouts ($> 150\text{ ms}$) trigger the internal circuit-breaker and fall back gracefully to local memory LRU and PostgreSQL without interrupting user advisory flows.
+
+---
+
+## 9. Multi-Regulator Statutory Audit Dossier Generation
+
+For regulatory inspections by SEBI, RBI, or Income Tax authorities:
+1. **Cryptographic Sealing**: Every advisory interaction is sealed with SHA-256 HMAC incorporating the input snapshot, model version, canonical formula citations, and human approval signature.
+2. **One-Click Dossier Export**: Authorized compliance officers can export complete, tamper-evident audit trails (CSV/JSON/PDF) for any client or transaction covering the mandatory 7-year inspection window.
+3. **Automated Continuous Verification**: Nightly cron tests verify all advisory models against the 9 regulatory dimensions (SEBI, RBI, CBDT, DPDP, MeitY, FIU-IND, IRDAI, PFRDA, CERT-In), alerting compliance officers within 60 seconds of any policy drift.
+
+---
+
 *FintekPro Regulatory & AI Technology Governance Council*  
 *Standard Operating Procedure — AI Governance & Model Risk*
 

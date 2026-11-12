@@ -84,16 +84,18 @@
    * Units credited to client Demat account within statutory custody timelines.
 
 #### Step 5: Post-Trade Record Keeping, Audit Trail & Cryptographic Sealing
-1. **5-Year Mandatory Immutable Storage (SEBI IA Reg 19 / PMS Reg 22):**
-   * Every advice, rationale, rebalance, and transaction must be permanently stored in `compliance_audit_trail` and `model_portfolio_transactions`.
-2. **Cryptographic SHA-256 Audit Pack Generation:**
+1. **7-Year Mandatory Immutable Storage (SEBI IA Reg 19 / PMS Reg 22 / PMLA):**
+   * Every advice, rationale, rebalance, and transaction must be permanently stored in `compliance_audit_trail`, `regulatory_audit_packs`, and `model_portfolio_transactions` for a minimum of 7 years.
+2. **Active Redis Tier 1 Acceleration:**
+   * Scheme NAVs, historical returns, and pre-trade suitability validation results are cached across all Cloud Run pods in Google Cloud Memorystore Redis for sub-50ms execution gates, with permanent audit trails committed to Cloud SQL PostgreSQL.
+3. **Cryptographic SHA-256 Audit Pack Generation:**
    * Every order generates a `regulatory_audit_pack` snapshot containing:
      * User identity & PAN verification status
      * Risk profile snapshot at transaction timestamp
      * Scheme/portfolio order payload
      * Platform fee & revenue configuration snapshot
      * Cryptographic SHA-256 checksum (`audit_hash`)
-3. **Rebalancing & Drift Monitoring:**
+4. **Rebalancing & Drift Monitoring:**
    * Asset allocation monitored against defined drift bands (±5%).
    * Breaches trigger rebalancing proposals logged in the audit ledger.
    * Drawdown circuit breakers pause automated rebalancing if drawdown breaches statutory tolerance.
