@@ -25,7 +25,7 @@ The primary active project is **FintekPro** — a financial-grade platform servi
 - Strict layered architecture: `/api` → `/services` → `/core` → `/data` → `/utils`
 - **NEVER** mix business logic inside API route handlers
 - **NEVER** access the DB directly from controllers — use the ORM (Drizzle) only
-- All APIs must be stateless; session data stored in DB or Redis
+- All APIs must be stateless; session data stored in Redis (Google Cloud Memorystore Redis is active) or DB
 - All write operations MUST support idempotency keys and safe retries
 
 ### Financial Logic Integrity
@@ -64,7 +64,7 @@ The primary active project is **FintekPro** — a financial-grade platform servi
 - Use Drizzle ORM only — no raw SQL mutations unless justified and documented
 - Every write must store: `created_at`, `updated_at`, `source` (api/system/cron)
 
-### AI Advisory System (FASP-AI v1.0)
+### AI Advisory System (FASP-AI v1.0 & Active Redis Policy)
 
 - AI is a **Decision Support System only** — it must NEVER autonomously execute trades, investments, or tax filings
 - Final actions ALWAYS require user confirmation or advisor (CA/RIA) approval
@@ -74,6 +74,8 @@ The primary active project is **FintekPro** — a financial-grade platform servi
 - If confidence < threshold: downgrade recommendation and suggest a human advisor
 - Mandatory disclaimers on every advisory: risk disclosure, market volatility warning
 - Log all AI advisory outputs: `{ event: "AI_ADVICE_GENERATED", user_id, input_context, output_summary, model_version, timestamp }`
+- **Active Redis Acceleration**: With Redis active in production, all AI advisory services, prompt deduplication hashes, and rationales MUST leverage Redis via `distributedCache` and `aiResponseCacheService` for sub-150ms cross-pod responses, distributed rate-limiting, and real-time market synchronization. Final outputs, explainability logs, and advisor approvals remain immutably persisted in PostgreSQL for 7-year statutory audit compliance. Zero-downtime fallback to local memory LRU is required if Redis is unavailable.
+- **Multi-Regulator Audit Compliance**: FintekPro AI must remain audit-compliant at all times across SEBI (RIA/RA/MF/PMS/AIF/F&O), RBI (DLG/MRM/FEMA), CBDT/Income Tax (canonical tax rules, Section 111A/112/112A), DPDP Act 2023 (PII sanitization firewall), MeitY (visible AI watermarking), FIU-IND (AML/PEP screening), IRDAI, PFRDA, and CERT-In (NTP sync, 6-hour incident report). All advisory logic is strictly Decision Support with zero autonomous execution and immutable 7-year WORM audit retention.
 
 ### Deployment
 

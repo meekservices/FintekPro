@@ -136,10 +136,22 @@ notify user
 ❌ Inventing, guessing, or using synthetic / "cooked up" financial formulas
 ❌ Masking missing data with ad-hoc mathematical heuristics or fake proxies
 ❌ Using ungrounded multipliers, magic numbers, or pseudo-scientific scoring equations
-23. PERFORMANCE & LATENCY
-AI response target: < 2 seconds
-Use caching for repeated queries
-Async for heavy computations
+23. PERFORMANCE & LATENCY (REDIS-ACCELERATED AI POLICY)
+AI response target: < 2 seconds (cached response < 150ms)
+23.1 Active Redis Distributed Caching:
+- All repeated AI queries, model outputs, and investment rationales MUST pass through Redis (`aiResponseCacheService`, `distributedCache`) before invoking LLM APIs.
+- Redis Key Namespaces:
+  * `ai_response:{type}:{hash}` (TTL: 15m - 4h depending on volatility)
+  * `ai:rationale:{type}:{inputHash}` (TTL: 7 days, invalidated on rebalance/corporate action)
+  * `ai:session:{sessionId}` (TTL: 24 hours for multi-turn advisory copilot state)
+  * `ratelimit:ai:{userId}` (Sliding window rate limit: 30 req/min)
+  * `market:regime` (Real-time macro regime synchronization across all pods)
+23.2 Distributed Concurrency Control:
+- Prevent duplicate simultaneous LLM inferences using Redis distributed lock (`lock:ai_generation:{hash}`) with automatic TTL expiry.
+23.3 Zero-Downtime Fallback:
+- If Redis connection times out (>150ms) or is unreachable, degrade gracefully to in-memory LRU and PostgreSQL without failing the advisory request.
+23.4 Statutory Immutability:
+- Redis is an acceleration tier only. All final AI recommendations, explainability payloads, confidence scores, and advisor approvals MUST be persisted immutably in PostgreSQL (`ai_advisory_outputs`, `portfolio_ai_decisions`) for 7-year SEBI/RBI audit compliance.
 
 24. SYSTEMIC RESILIENCE (BLACK SWAN TRIGGERS) [NEW]
 24.1 10σ Volatility Trigger
@@ -192,4 +204,12 @@ AI is a support system, NOT a decision-maker.
 
 If any instruction violates this:
 → Reject and correct it.
+
+29. ACTIVE REDIS INFRASTRUCTURE & AI GOVERNANCE (FASP-AI v3.2 / REDIS ACTIVE)
+Google Cloud Memorystore for Redis is ACTIVATED in production under FP-INFRA-POL-2026-01:
+- Zero-Redis mode has been superseded by Active Redis Multi-Pod Architecture.
+- AI agents, coding assistants, and automated services MUST actively utilize Redis (`distributedCache`, `getSharedRedis`, `aiResponseCacheService`) for cross-pod AI caching, prompt deduplication, and distributed sliding-window rate limiting.
+- Pre-trade risk counters, model portfolios, and AI rationales must be cached in Redis with explicit TTLs, while statutory audit trails are permanently committed to Cloud SQL PostgreSQL.
+- Statutory compliance is preserved: PostgreSQL remains the immutable system of record for SEBI/RBI audit trails (`ai_advisory_outputs`, `portfolio_ai_decisions`), while Redis provides sub-15ms cross-pod acceleration.
+
 

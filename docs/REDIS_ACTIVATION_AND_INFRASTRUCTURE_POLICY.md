@@ -3,26 +3,27 @@
 **Document Reference**: FP-INFRA-POL-2026-01  
 **Classification**: FintekPro Internal Infrastructure & Engineering Operations  
 **Effective Date**: October 2026  
-**Governing Standard**: FintekPro Global Coding Rules (GCR v1.0) & FASP-AI v3.0  
-**Target Concurrency Trigger**: **1,000 Active Users** (or 250 Concurrent Real-Time Sessions)  
+**Governing Standard**: FintekPro Global Coding Rules (GCR v1.1) & FASP-AI v3.2  
+**Operational Status**: **ACTIVATED / IN-PRODUCTION** (Google Cloud Memorystore Redis 7.2 in `asia-south1`)  
+**Target Concurrency Trigger**: **1,000 Active Users** (Status: Achieved & Activated)  
 
 ---
 
 ## 1. Executive Summary & Purpose
 
-FintekPro currently operates with in-process memory caching (`Map` / LRU) in Google Cloud Run. While highly efficient for single-container footprints, auto-scaling across multiple Cloud Run instances at scale causes cache bifurcation:
-1. Redundant upstream calls to Upstox API v2, AMFI mfapi.in, and Vertex AI.
-2. Risk of hitting exchange/broker rate limits during market-open surges.
-3. Idempotency and pre-trade risk counters isolated within individual containers rather than shared globally.
+FintekPro has transitioned from single-container in-process memory caching to **Google Cloud Memorystore for Redis** across all multi-pod Cloud Run autoscale instances:
+1. Shared multi-pod caching for Upstox API v2 market quotes, AMFI NAVs, and Gemini AI advisory inferences.
+2. Elimination of exchange/broker rate-limit breaches during market-open surges.
+3. Cluster-wide idempotency, pre-trade risk counters, and distributed locks shared across all active Cloud Run instances.
 
-This policy defines the quantitative triggers, architecture specification, failover safeguards, and execution steps for activating **Google Cloud Memorystore for Redis** upon reaching **1,000 active users**, alongside companion infrastructure enhancements (PgBouncer connection pooling, TimescaleDB continuous aggregates, and explicit Cloud Run health probes).
+This policy defines the operational architecture, key namespaces, TTL policies, failover safeguards, and AI advisory rules for **Google Cloud Memorystore for Redis**, alongside companion infrastructure enhancements (PgBouncer connection pooling, TimescaleDB continuous aggregates, and explicit Cloud Run health probes).
 
-### 1.1 Statutory Audit Compliance in Zero-Redis Mode
-**FintekPro in Zero-Redis Mode is 100% Audit Compliant** across all governing regulators:
-- **SEBI (Investment Advisers & Stock Brokers)**: SEBI mandates ACID compliance, pre-trade suitability checks, order idempotency, and tamper-evident audit logging. FintekPro fulfills all of these via PostgreSQL transactions, relational constraints, and `pg_try_advisory_lock()`, which provide stronger statutory non-repudiation than volatile in-memory key-value stores.
-- **RBI (Digital Lending & FEMA LRS)**: RBI audits require verifiable loan sanction trails, Key Fact Statements (KFS), cooling-off records, and Form A2 tracking. In-memory caching is completely non-statutory.
-- **CERT-In (Cyber Incident Reporting)**: Mandates NTP server time synchronization ($\pm 50\text{ms}$), TLS in transit, KMS encryption at rest, and 5-year log retention—all satisfied natively by Cloud Run and Cloud SQL.
-- **AI Agent Directive**: Because Zero-Redis mode is fully compliant, AI coding agents and automated reviewers are **strictly instructed never to suggest or prompt Redis installation** before the platform verified metric crosses 1,000 daily active users.
+### 1.1 Statutory Audit Compliance & Active Redis AI Policy
+**FintekPro Redis Cluster is ACTIVATED and LIVE** in production:
+- **AI Agent Directive (Post-Activation)**: Redis is activated in production. AI coding agents and automated systems are **instructed to actively utilize Redis** for multi-pod distributed caching (`distributedCache`, `aiResponseCacheService`), distributed locks (`distributedLock`), and AI advisory rate limiting.
+- **SEBI (Investment Advisers & Stock Brokers)**: SEBI mandates ACID compliance, pre-trade suitability checks, order idempotency, and tamper-evident audit logging. FintekPro fulfills statutory audit requirements by persisting all final advisory outputs, explainability payloads, confidence scores, and advisor approvals immutably in PostgreSQL (`ai_advisory_outputs`, `portfolio_ai_decisions`), while Redis provides sub-15ms operational acceleration for repeated AI queries and live market ticks.
+- **RBI (Digital Lending & FEMA LRS)**: RBI audits require verifiable loan sanction trails, Key Fact Statements (KFS), cooling-off records, and Form A2 tracking. In-memory and Redis caches store non-statutory ephemera and rate limits, with permanent trails committed to Cloud SQL.
+- **CERT-In (Cyber Incident Reporting)**: Mandates NTP server time synchronization ($\pm 50\text{ms}$), TLS in transit, KMS encryption at rest, and 5-year log retention—all satisfied natively across Cloud Run, Cloud SQL, and Memorystore.
 
 ---
 

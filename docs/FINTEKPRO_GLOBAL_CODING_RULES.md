@@ -24,8 +24,11 @@ Before proposing any new cloud resource, tier upgrade, or external API consumpti
    - Every external call to billable APIs (Upstox, IRIS KFintech, Cashfree, Probe42, Twilio) must pass through a local deduplication and caching gate to prevent duplicate billable hits.
 3. **Database Efficiency Over Raw Hardware**:
    - Resolve query bottlenecks through precise indexing (`pg_trgm`, compound B-Trees) and query optimization before suggesting vertical instance scaling.
-4. **Zero-Redis Architecture Prior to 1,000 Active Users**:
-   - Under `docs/REDIS_ACTIVATION_AND_INFRASTRUCTURE_POLICY.md`, FintekPro operates in Zero-Redis Mode using PostgreSQL distributed locks and in-memory caches. Redis recommendations are strictly prohibited before crossing the 1,000 active user threshold.
+4. **Active Redis Architecture (Post-Activation Mode)**:
+   - In accordance with `docs/REDIS_ACTIVATION_AND_INFRASTRUCTURE_POLICY.md`, **Google Cloud Memorystore for Redis is ACTIVATED and LIVE in production**.
+   - All AI advisory services, recommendation engines, and rate limiters MUST actively leverage the shared Redis tier (`distributedCache`, `getSharedRedis`, `aiResponseCacheService`) as Tier 1 for cross-pod AI inference caching, prompt deduplication, distributed sliding-window rate limiting, and real-time market regime distribution.
+   - Statutory compliance is preserved: PostgreSQL remains the immutable system of record for SEBI/RBI audit trails (`ai_advisory_outputs`, `portfolio_ai_decisions`), while Redis provides sub-15ms cross-pod acceleration.
+   - Graceful fallback: If Redis times out (>150ms) or is unreachable, the system automatically degrades to in-process memory LRU and PostgreSQL without interrupting user advisory flows.
 
 ---
 

@@ -31,6 +31,7 @@ import {
 	type InsertProposalMaterialization,
 } from "@shared/schema";
 import crypto from "crypto";
+import { distributedCache } from "../utils/distributed-cache";
 
 // Cache TTL configurations (in hours)
 const CACHE_TTL = {
@@ -314,7 +315,19 @@ export async function getCachedRationale(
 	inputParams: Record<string, unknown>,
 ): Promise<AiRationaleCache | null> {
 	const inputHash = generateHash(inputParams);
+	const redisKey = `ai:rationale:${rationaleType}:${inputHash}`;
 
+	// Tier 1: Multi-Pod Redis cache lookup
+	try {
+		const cachedFromRedis = await distributedCache.getJson<AiRationaleCache>(redisKey);
+		if (cachedFromRedis && isValid(cachedFromRedis.expiresAt ? new Date(cachedFromRedis.expiresAt) : null)) {
+			return cachedFromRedis;
+		}
+	} catch {
+		/* Fall through to Tier 2 PostgreSQL */
+	}
+
+	// Tier 2: PostgreSQL persistent storage
 	const [cached] = await db
 		.select()
 		.from(aiRationaleCache)
@@ -329,14 +342,23 @@ export async function getCachedRationale(
 		.limit(1);
 
 	if (cached) {
-		// Increment hit count
-		await db
-			.update(aiRationaleCache)
+		// Increment hit count asynchronously in DB
+		db.update(aiRationaleCache)
 			.set({
 				hitCount: sql`${aiRationaleCache.hitCount} + 1`,
 				lastHitAt: new Date(),
 			})
-			.where(eq(aiRationaleCache.id, cached.id));
+			.where(eq(aiRationaleCache.id, cached.id))
+			.catch(() => {});
+
+		// Warm Redis Tier
+		try {
+			const expMs = cached.expiresAt ? new Date(cached.expiresAt).getTime() - Date.now() : 0;
+			const ttlSec = Math.max(60, Math.floor(expMs / 1000));
+			distributedCache.setJson(redisKey, cached, ttlSec).catch(() => {});
+		} catch {
+			/* ignore */
+		}
 	}
 
 	return cached || null;
@@ -363,6 +385,7 @@ export async function cacheRationale(
 	ttlHours: number = CACHE_TTL.AI_RATIONALE,
 ): Promise<AiRationaleCache> {
 	const inputHash = generateHash(inputParams);
+	const expiry = getExpiry(ttlHours);
 
 	const [result] = await db
 		.insert(aiRationaleCache)
@@ -383,7 +406,7 @@ export async function cacheRationale(
 			userId: options.userId,
 			riskProfile: options.riskProfile,
 			investmentHorizon: options.investmentHorizon,
-			expiresAt: getExpiry(ttlHours),
+			expiresAt: expiry,
 		})
 		.onConflictDoUpdate({
 			target: [aiRationaleCache.inputHash, aiRationaleCache.rationaleType],
@@ -396,11 +419,20 @@ export async function cacheRationale(
 				modelUsed: options.modelUsed,
 				tokensUsed: options.tokensUsed,
 				generationTimeMs: options.generationTimeMs,
-				expiresAt: getExpiry(ttlHours),
+				expiresAt: expiry,
 				isInvalidated: false,
 			},
 		})
 		.returning();
+
+	// Populate Redis Tier for multi-pod sub-15ms access
+	try {
+		const redisKey = `ai:rationale:${rationaleType}:${inputHash}`;
+		const ttlSec = Math.max(60, ttlHours * 3600);
+		distributedCache.setJson(redisKey, result, ttlSec).catch(() => {});
+	} catch {
+		/* ignore */
+	}
 
 	return result;
 }
@@ -422,6 +454,11 @@ export async function invalidateRationale(
 		.update(aiRationaleCache)
 		.set({ isInvalidated: true })
 		.where(conditions.length > 0 ? and(...conditions) : sql`1=1`);
+
+	// Invalidate specific Redis rationale keys if rationaleType is known
+	if (rationaleType) {
+		distributedCache.del(`ai:rationale:${rationaleType}:*`).catch(() => {});
+	}
 
 	return (result as { rowCount?: number }).rowCount || 0;
 }

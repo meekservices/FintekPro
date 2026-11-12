@@ -97,39 +97,94 @@ FintekPro utilizes external foundation models (Google Gemini, Groq, Cerebras, An
 
 ---
 
-## 6. IRDAI & PFRDA AI Advisory Standards
+## 6. Income Tax Department & CBDT Compliance Mandates (Direct Taxes & Capital Gains)
 
-### 6.1 Insurance Advisory (IRDAI)
-- **Zero Automated Rejections**: AI engines may assist in insurance policy suitability comparisons (term, health, motor) but must **never** execute an automated claim denial or policy cancellation.
-- **Non-Discrimination**: Underwriting support algorithms are strictly audited to eliminate discrimination based on gender, caste, genetic predisposition, or disability.
+### 6.1 Canonical Tax Formula Governance (Income Tax Act 1961)
+- **Zero Synthetic Tax Math**: All capital gains (STCG/LTCG), surcharge, health & education cess (4%), indexation, and Section 111A/112/112A calculations MUST adhere strictly to the Income Tax Act 1961 as amended by the applicable Finance Act.
+- **FY / AY Precision**: Every tax optimization insight, harvest recommendation, or advance tax forecast MUST explicitly declare both Financial Year (FY) and Assessment Year (AY).
+- **Grandfathering Mandate**: LTCG on listed equities acquired before 31 January 2018 must strictly implement Section 55(2)(ac) Fair Market Value (FMV) grandfathering rules.
+- **TCS / TDS Enforcement**: Outward remittances under Liberalised Remittance Scheme (LRS) must reflect exact Section 206C(1G) TCS tiers (5% / 20%) and track the statutory ₹7,00,000 threshold.
 
-### 6.2 Pension Advisory (PFRDA)
-- **NPS Suitability**: Guidance on National Pension System (NPS) Tier I & Tier II schemes must strictly adhere to PFRDA age-linked asset allocation schedules (Auto Choice Aggressive LC-75, Moderate LC-50, Conservative LC-25).
+### 6.2 Tax Advisory Segregation & CA Certification
+- **Informational Classification**: AI-generated tax calculations, harvesting scenarios, and ITR schedules are strictly classified as **Computational Decision Support**.
+- **Mandatory Human CA / Tax Professional Sign-Off**: Filing of ITR, Advance Tax challan generation, or submission of rectification requests requires explicit validation by the client or their empaneled Chartered Accountant (CA).
+- **Audit Defense Pack**: For any tax loss harvesting or portfolio restructuring advice, the system generates an immutable tax justification sheet exposing original purchase dates, holding periods, grandfathered cost bases, and realized gain breakdown for Income Tax scrutiny.
 
 ---
 
-## 7. CERT-In & Cybersecurity Standards (CSCRF)
+## 7. AMFI & Mutual Fund Distribution Compliance Mandates
 
-### 7.1 Official IST Time Synchronization (NTP Mandate)
+### 7.1 SEBI & AMFI Code of Conduct for Intermediaries
+- **ARN / EUIN Validation**: Every mutual fund recommendation or transaction route must validate active AMFI Registration Number (ARN) and Employee Unique Identification Number (EUIN).
+- **Risk-o-Meter Suitability Alignment**: AI must never recommend a mutual fund scheme whose SEBI Risk-o-Meter rating exceeds the client's documented risk tolerance tier.
+- **SEBI Cut-Off Timing Enforcement**: Transaction advice must reflect official cut-off timings (13:00 IST for liquid/overnight funds; 15:00 IST for other equity/debt funds) and NAV realization rules.
+
+### 7.2 Regular vs. Direct Plan Segregation (SEBI IA Reg 22)
+- **Advisory Client Protection**: Clients enrolled under fee-based Advisory agreements (RIA) MUST NEVER be recommended or routed to commission-earning Regular Plans. AI strictly enforces Direct Plan routing.
+- **Distributor Pre-Sale TER Disclosure**: When operating in distribution mode (MFD), the system mandates a side-by-side disclosure of Total Expense Ratio (TER) differentials and estimated trail commissions prior to client authorization.
+
+---
+
+## 8. IRDAI & PFRDA AI Advisory Standards
+
+### 8.1 Insurance Advisory (IRDAI)
+- **Zero Automated Rejections**: AI engines may assist in insurance policy suitability comparisons (term, health, motor) but must **never** execute an automated claim denial or policy cancellation.
+- **Non-Discrimination**: Underwriting support algorithms are strictly audited to eliminate discrimination based on gender, caste, genetic predisposition, or disability.
+- **Need Analysis & Free-Look Notice**: All life/health insurance recommendations must include a documented Need Analysis and highlight the statutory 30-day Free-Look cancellation right.
+
+### 8.2 Pension Advisory (PFRDA)
+- **NPS Suitability**: Guidance on National Pension System (NPS) Tier I & Tier II schemes must strictly adhere to PFRDA age-linked asset allocation schedules (Auto Choice Aggressive LC-75, Moderate LC-50, Conservative LC-25).
+- **Equity Allocation Ceiling**: AI algorithms are hard-locked against proposing equity (Asset Class E) exposure exceeding statutory caps (75% up to age 35, tapering annually).
+
+---
+
+## 9. CERT-In & Cybersecurity Standards (CSCRF)
+
+### 9.1 Official IST Time Synchronization (NTP Mandate)
 - All FintekPro servers, microservices, and AI inference runtimes must synchronize their system clocks with the **National Physical Laboratory (NPL)** or **National Informatics Centre (NIC)** NTP servers within $\pm 50\text{ ms}$.
 - Ensures legally defensible, millisecond-accurate timestamps on all SEBI/RBI audit logs.
 
-### 7.2 6-Hour Cyber Incident Reporting
+### 9.2 6-Hour Cyber Incident Reporting
 - Any confirmed cyber incident, unauthorized API breach, credential leak, or algorithmic manipulation must be reported to the **Indian Computer Emergency Response Team (CERT-In)** within **6 hours** of detection per CERT-In Cyber Security Directions.
+- Immutable WORM audit trails and distributed security logs must be maintained for 5 years per CERT-In requirements.
 
 ---
 
-## 8. Multi-Regulator Inter-Agency Conflict Matrix
+## 10. Active Redis Infrastructure Governance & Multi-Pod Audit Invariants
+
+With **Google Cloud Memorystore for Redis ACTIVATED and LIVE** in production (FP-INFRA-POL-2026-01):
+1. **Tier 1 Distributed In-Memory Acceleration**:
+   - High-throughput Redis cluster accelerates AI rationale lookups (`ai:rationale:*`), prompt deduplication caches (`ai_response:*`), real-time market regimes (`market:regime`), and distributed rate limiting (`ratelimit:ai:*`).
+   - Ensures AI response latencies remain $< 150\text{ ms}$ for cached inferences and prevents duplicate LLM token charges.
+2. **Statutory Non-Volatility Invariant (Audit Primacy)**:
+   - Redis is an operational acceleration tier, **NOT** the statutory audit store.
+   - Per SEBI, RBI, and PMLA rules requiring permanent non-repudiation, all final AI advisory outputs, explainability trees, client risk confirmations, and advisor approvals MUST be committed to Cloud SQL PostgreSQL (`ai_advisory_outputs`, `portfolio_ai_decisions`, `regulatory_audit_packs`).
+3. **Resilient Zero-Downtime Fallback**:
+   - If Redis becomes unreachable or times out ($> 150\text{ ms}$), the system triggers the circuit-breaker and seamlessly falls back to in-memory LRU and Cloud SQL without interrupting client advisory flows or breaching regulatory uptime SLAs.
+
+---
+
+## 11. Multi-Regulator Inter-Agency Conflict Matrix
 
 When regulatory requirements diverge across integrated asset classes, the following statutory hierarchy governs:
 
 | Regulatory Area | Primary Authority | Secondary Authority | FintekPro Enforcement Rule |
 | :--- | :--- | :--- | :--- |
-| **Audit Log Retention** | SEBI (7 Years) | PMLA (5 Years) / DPDP (Erasure) | Retain immutable logs for **7 Years**; redact marketing PII only. |
+| **Audit Log Retention** | SEBI (7 Years) | PMLA (5 Years) / DPDP (Erasure) | Retain immutable WORM logs for **7 Years**; redact marketing PII only. |
 | **Client Risk Profiling** | SEBI Reg 17 (365 Days) | RBI Credit Scoring | Mandatory annual recertification; hard block on day 366. |
 | **Derivatives / F&O Access** | SEBI Derivatives Framework | Exchange Bylaws (NSE/BSE) | 9-Gate compliance check; limit to Aggressive profiles only. |
 | **Outbound Remittance** | RBI FEMA / LRS | Income Tax (TCS 20%) | Strictly block offshore CFDs/Margin; track $250k annual LRS cap. |
+| **Direct vs. Regular Plans** | SEBI IA Reg 22 | AMFI MFD Code | Fee-based advisory = 100% Direct Plans only. Zero commission bias. |
 | **AI Output Verification** | SEBI AI/ML Circular | MeitY AI Advisory | Standard explainability layer + Human RIA approval before execution. |
+
+---
+
+## 12. Statutory Audit Evidence & WORM Packaging Protocol
+
+To guarantee immediate compliance during SEBI, RBI, or Income Tax regulatory inspections:
+1. **Cryptographic Sealing**: Every advisory interaction generates a `regulatory_audit_pack` sealed with SHA-256 HMAC incorporating the input snapshot, model version, canonical formula citations, and human approval signature.
+2. **One-Click Regulatory Inspection Export**: Authorized compliance officers can export a complete, tamper-evident audit dossier (CSV/JSON/PDF) for any client or transaction covering the mandatory 7-year inspection window.
+3. **Daily Automated Compliance Health Checks**: Continuous integration test suites run automated verification across all 9 regulatory dimensions (SEBI, RBI, CBDT, DPDP, MeitY, FIU-IND, IRDAI, PFRDA, CERT-In), alerting compliance officers within 60 seconds of any policy drift.
 
 ---
 

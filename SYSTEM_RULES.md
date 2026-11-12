@@ -170,7 +170,8 @@ ungrounded heuristics or arbitrary constants
 11. Performance Constraints
 API response < 300ms (target)
 Async everywhere possible
-Use caching layer (Redis)
+Use caching layer (Active Redis Tier 1 + PostgreSQL Tier 2 + In-memory L1 LRU)
+Redis Memorystore is active in production across all Cloud Run pods for prompt deduplication and rationale caching.
 
 12. FintekPro-Specific Rules
 12.1 Prospect Engine
@@ -343,10 +344,22 @@ notify user
 ❌ Inventing, guessing, or using synthetic / "cooked up" financial formulas
 ❌ Masking missing data with ad-hoc mathematical heuristics or fake proxies
 ❌ Using ungrounded multipliers, magic numbers, or pseudo-scientific scoring equations
-23. PERFORMANCE & LATENCY
-AI response target: < 2 seconds
-Use caching for repeated queries
-Async for heavy computations
+23. PERFORMANCE & LATENCY (REDIS-ACCELERATED AI POLICY)
+AI response target: < 2 seconds (cached response < 150ms)
+23.1 Active Redis Distributed Caching:
+- All repeated AI queries, model outputs, and investment rationales MUST pass through Redis (`aiResponseCacheService`, `distributedCache`) before invoking LLM APIs.
+- Redis Key Namespaces:
+  * `ai_response:{type}:{hash}` (TTL: 15m - 4h depending on volatility)
+  * `ai:rationale:{type}:{inputHash}` (TTL: 7 days, invalidated on rebalance/corporate action)
+  * `ai:session:{sessionId}` (TTL: 24 hours for multi-turn advisory copilot state)
+  * `ratelimit:ai:{userId}` (Sliding window rate limit: 30 req/min)
+  * `market:regime` (Real-time macro regime synchronization across all pods)
+23.2 Distributed Concurrency Control:
+- Prevent duplicate simultaneous LLM inferences using Redis distributed lock (`lock:ai_generation:{hash}`) with automatic TTL expiry.
+23.3 Zero-Downtime Fallback:
+- If Redis connection times out (>150ms) or is unreachable, degrade gracefully to in-memory LRU and PostgreSQL without failing the advisory request.
+23.4 Statutory Immutability:
+- Redis is an acceleration tier only. All final AI recommendations, explainability payloads, confidence scores, and advisor approvals MUST be persisted immutably in PostgreSQL (`ai_advisory_outputs`, `portfolio_ai_decisions`) for 7-year SEBI/RBI audit compliance.
 24. ANTIGRAVITY EXECUTION RULES FOR AI
 When generating AI-related code, Antigravity MUST:
 ALWAYS:
@@ -423,5 +436,27 @@ All frontend pages, portals, widgets, and layout shells MUST adhere to the Unive
 - Card Definition: Avoid borderless cards (`border-0`). Use `border border-border/80 bg-card text-card-foreground shadow-sm` so cards remain defined across both modes.
 - Header Theme Toggle: All portal layout headers (`AppLayout`, `AgentLayout`, `TopNavLayout`) must include `<ThemeToggle />` in the top action bar.
 - Pre-Merge Dual-Theme Verification: Every newly authored or modified screen must be visually validated in both Light and Dark themes.
+
+32. ACTIVE REDIS INFRASTRUCTURE & AI GOVERNANCE (FASP-AI v3.2 / REDIS ACTIVE)
+Google Cloud Memorystore for Redis is ACTIVATED in production under FP-INFRA-POL-2026-01:
+- Zero-Redis mode has been superseded by Active Redis Multi-Pod Architecture.
+- AI agents, coding assistants, and automated services MUST actively utilize Redis (`distributedCache`, `getSharedRedis`, `aiResponseCacheService`) for cross-pod AI caching, prompt deduplication, and distributed sliding-window rate limiting.
+- Pre-trade risk counters, model portfolios, and AI rationales must be cached in Redis with explicit TTLs, while statutory audit trails are permanently committed to Cloud SQL PostgreSQL.
+- Statutory compliance is preserved: PostgreSQL remains the immutable system of record for SEBI/RBI audit trails (`ai_advisory_outputs`, `portfolio_ai_decisions`), while Redis provides sub-15ms cross-pod acceleration.
+
+33. MULTI-REGULATOR PERPETUAL AUDIT COMPLIANCE STANDARD (MR-PACS v1.0)
+To ensure the FintekPro platform is ALWAYS audit-compliant across all governing regulators (SEBI, RBI, Income Tax Dept/CBDT, DPDP Act 2023, MeitY, FIU-IND/PMLA, IRDAI, PFRDA, AMFI, and CERT-In), all generated code and algorithmic modules MUST satisfy these nine non-negotiable statutory invariants:
+1. **Zero Autonomous Execution (Decoupled Advisory Layer)**: AI possesses zero transaction execution keys or direct database mutation rights on live client holdings. All orders, investments, loan drawdowns, and tax filings REQUIRE explicit authenticated human-in-the-loop (HITL) authorization (client 2FA OTP or registered RIA/CA digital approval).
+2. **Immutable 7-Year WORM Audit Trail**: Every AI invocation, input snapshot, prompt hash, model version, factors considered, confidence score, and client/advisor decision MUST be persisted to write-once-read-many (WORM) PostgreSQL storage (`ai_advisory_outputs`, `portfolio_ai_decisions`, `regulatory_audit_packs`) and retained for 7 years per SEBI IA Reg 19, PMLA 2002, and Income Tax Act 1961.
+3. **Canonical Financial & Tax Math (Zero Synthetic Formulas)**: All formulas for valuation, yield, duration, Greeks, risk metrics, and tax computations (STCG, LTCG, indexation, grandfathering under Section 55(2)(ac), Section 111A/112/112A) MUST strictly derive from statutory acts or peer-reviewed quantitative finance literature with documented citations. LLM-invented, pseudo-financial, or cooked-up formulas are strictly prohibited.
+4. **Pre-Prompt PII Sanitization Firewall (DPDP Act 2023)**: Zero raw Aadhaar, PAN, bank account numbers, demat IDs, or client PII may be transmitted to external LLM providers (Gemini, Groq, OpenAI). All prompts must pass through the de-identification firewall prior to API dispatch.
+5. **Visible Statutory Disclaimers & MeitY Watermarking**: Every AI-generated output, report, UI view, and PDF export MUST render standard regulatory disclaimers:
+   `🤖 AI-Assisted Advisory • Decision Support System Only • Subject to Human Advisor Oversight • Investment in securities is subject to market risks.`
+6. **Statutory Segregation (SEBI IA Reg 22)**: Fee-paying Advisory clients (RIA) MUST NEVER be recommended or routed to commission-earning Regular Plans. Direct Plans only. Distribution flows (MFD) mandate pre-trade TER differential and commission disclosures.
+7. **Model Risk Management & Out-of-Distribution Guardrails (RBI MRM)**: Quantitative models must be continuously monitored for data and concept drift. If market volatility exceeds 3.5σ, AI engines MUST automatically downgrade confidence and revert to deterministic safety fallbacks.
+8. **AML & Sanctions Screening (FIU-IND / PMLA)**: Automated transaction anomaly screening against daily updated MHA UAPA, UNSC, and PEP sanction registries, with mandatory human Principal Officer review for any STR/CTR filing.
+9. **Official IST Time & Cyber Reporting (CERT-In / CSCRF)**: All system clocks synchronized via official NPL/NIC NTP servers within ±50ms. Confirmed cyber incidents or algorithmic compliance breaches must trigger automated compliance alerts within the mandatory 6-hour CERT-In reporting window.
+
+
 
 

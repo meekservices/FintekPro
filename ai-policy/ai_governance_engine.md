@@ -151,14 +151,16 @@ user_id
 date
 advisory_type
 
-6. REAL-TIME ENFORCEMENT
+6. REAL-TIME ENFORCEMENT & REDIS ACCELERATION
 6.1 Interceptor Middleware
 All AI responses MUST pass through:
 await governanceEngine.validate(aiOutput)
 ❌ No bypass allowed
 
-6.2 Latency Constraint
-Governance processing < 300ms
+6.2 Latency Constraint & Redis Caching
+Governance processing < 300ms (uncached) / < 15ms (cached in Redis)
+Validated outputs and governance decisions are cached across Cloud Run pods in Redis (`ai_gov:validation:{hash}`) with automatic invalidation upon user risk profile update.
+Permanent compliance decisions remain immutably logged to PostgreSQL.
 
 7. REGULATORY FEATURES
 7.1 Report Generation

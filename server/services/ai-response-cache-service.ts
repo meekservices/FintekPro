@@ -12,6 +12,8 @@
  */
 
 import crypto from "crypto";
+import { distributedCache } from "../utils/distributed-cache";
+import { logger } from "../logger";
 
 interface CachedResponse {
 	response: any;
@@ -67,7 +69,7 @@ class AIResponseCacheService {
 
 	constructor(config: Partial<CacheConfig> = {}) {
 		this.config = { ...DEFAULT_CONFIG, ...config };
-		console.log("✅ AI Response Cache Service initialized");
+		logger.info("AI Response Cache Service initialized", { event: "AI_CACHE_INIT", status: "success" });
 	}
 
 	/**
@@ -189,36 +191,86 @@ class AIResponseCacheService {
 		this.metrics.estimatedCostSavingsUSD +=
 			(GEMINI_COST_PER_1K_TOKENS * AVG_TOKENS_PER_REQUEST) / 1000;
 
-		console.log(
-			`[AICache] Cache HIT for ${type} (hash: ${hash}, hits: ${entry.hitCount})`,
-		);
+		logger.debug(`[AICache] Cache HIT for ${type}`, {
+			event: "AI_CACHE_HIT",
+			type,
+			hash,
+			hits: entry.hitCount,
+		});
 
 		return entry.response as T;
 	}
 
 	/**
-	 * Store an AI response in the cache
+	 * Get a cached AI response asynchronously (Tier 1: L1 Memory -> Tier 2: Redis)
+	 * Returns null if not cached or expired
+	 */
+	async getAsync<T>(type: string, input: any): Promise<T | null> {
+		const l1 = this.get<T>(type, input);
+		if (l1 !== null) return l1;
+
+		const hash = this.generateHash(type, input);
+		const redisKey = `ai_response:${type}:${hash}`;
+		try {
+			const redisEntry = await distributedCache.getJson<CachedResponse>(redisKey);
+			if (redisEntry && this.isValid(redisEntry, type)) {
+				redisEntry.hitCount = (redisEntry.hitCount || 0) + 1;
+				this.cache.set(hash, redisEntry);
+				this.touchEntry(hash);
+				this.metrics.cacheHits++;
+				this.metrics.estimatedApiCallsSaved++;
+				this.metrics.estimatedCostSavingsUSD +=
+					(GEMINI_COST_PER_1K_TOKENS * AVG_TOKENS_PER_REQUEST) / 1000;
+				logger.debug(`[AICache] Redis Tier Cache HIT for ${type}`, {
+					event: "AI_CACHE_REDIS_HIT",
+					type,
+					hash,
+					hits: redisEntry.hitCount,
+				});
+				return redisEntry.response as T;
+			}
+		} catch {
+			/* Redis read error fallback */
+		}
+
+		return null;
+	}
+
+	/**
+	 * Store an AI response in the cache (L1 Memory + Tier 2 Redis)
 	 */
 	set(type: string, input: any, response: any): void {
 		const hash = this.generateHash(type, input);
 
 		this.evictIfNeeded();
 
-		this.cache.set(hash, {
+		const entry: CachedResponse = {
 			response,
 			timestamp: Date.now(),
 			hitCount: 0,
 			inputHash: hash,
 			type,
-		});
+		};
 
+		this.cache.set(hash, entry);
 		this.touchEntry(hash);
 
-		console.log(`[AICache] Cached ${type} response (hash: ${hash})`);
+		// Multi-Pod Redis write-through with configured TTL
+		const ttlMs = this.getTtl(type);
+		const ttlSeconds = Math.max(10, Math.floor(ttlMs / 1000));
+		const redisKey = `ai_response:${type}:${hash}`;
+		distributedCache.setJson(redisKey, entry, ttlSeconds).catch(() => {});
+
+		logger.debug(`[AICache] Cached ${type} response`, {
+			event: "AI_CACHE_SET",
+			type,
+			hash,
+			ttlSeconds,
+		});
 	}
 
 	/**
-	 * Get or compute - checks cache first, then calls fetcher if miss
+	 * Get or compute - checks L1 cache, then Redis, then calls fetcher if miss
 	 * This is the primary method for integrating with AI services
 	 */
 	async getOrCompute<T>(
@@ -226,7 +278,7 @@ class AIResponseCacheService {
 		input: any,
 		fetcher: () => Promise<T>,
 	): Promise<T> {
-		const cached = this.get<T>(type, input);
+		const cached = await this.getAsync<T>(type, input);
 
 		if (cached !== null) {
 			return cached;
@@ -239,7 +291,7 @@ class AIResponseCacheService {
 	}
 
 	/**
-	 * Invalidate a specific cache entry
+	 * Invalidate a specific cache entry (L1 Memory + Redis)
 	 */
 	invalidate(type: string, input: any): boolean {
 		const hash = this.generateHash(type, input);
@@ -251,6 +303,9 @@ class AIResponseCacheService {
 				this.accessOrder.splice(index, 1);
 			}
 		}
+
+		const redisKey = `ai_response:${type}:${hash}`;
+		distributedCache.del(redisKey).catch(() => {});
 
 		return deleted;
 	}
