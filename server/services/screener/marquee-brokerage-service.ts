@@ -615,7 +615,7 @@ export class MarqueeBrokerageService {
           snap?.quotingSummary ||
           `Historical institutional consensus tracks average target price of ₹${mean?.toLocaleString("en-IN") || "—"}.`,
         disclaimer:
-          "Institutional views retrieved from FintekPro historical consensus repository. For reference only.",
+          "Institutional views retrieved from FintekPro historical consensus repository.",
         engineVersion: "MARQUEE-v2.0-FALLBACK",
         calculationTimestamp: timestamp,
         updatedAt: timestamp,

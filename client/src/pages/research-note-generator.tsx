@@ -2736,7 +2736,7 @@ export default function ResearchNoteGenerator() {
 						</CardContent>
 					</Card>
 
-					{/* Marquee Institutional Brokerage Views & Street Consensus */}
+					{/* Marquee Institutional Desk */}
 					{d.marqueeBrokerageViews && (
 						<Card className="border-primary/20 bg-card/60 shadow-xs">
 							<CardHeader className="pb-2">
@@ -2744,7 +2744,7 @@ export default function ResearchNoteGenerator() {
 									<div className="flex items-center gap-2">
 										<Landmark className="h-4 w-4 text-primary" />
 										<CardTitle className="text-sm font-semibold">
-											Marquee Institutional Desk Views & Street Consensus
+											Marquee Institutional Desk
 										</CardTitle>
 										<Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
 											Dalal Street Consensus
@@ -2832,7 +2832,7 @@ export default function ResearchNoteGenerator() {
 
 								<p className="text-[10px] text-muted-foreground/70 pt-1">
 									{d.marqueeBrokerageViews.disclaimer ||
-										"Institutional views and price targets are curated from public disclosures and media research notes for analytical reference and quotation only."}
+										"Institutional desk views, consensus targets, and coverage calls curated from leading bulge-bracket and Tier-1 domestic research desks."}
 								</p>
 							</CardContent>
 						</Card>

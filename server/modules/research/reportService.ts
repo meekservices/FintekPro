@@ -3086,7 +3086,7 @@ export async function generatePDF(data: ReportData): Promise<Buffer> {
 				.fillColor("#0f3460")
 				.fontSize(12)
 				.font("Helvetica-Bold")
-				.text("Marquee Institutional Desk Views & Street Consensus", 45, y3);
+				.text("Marquee Institutional Desk", 45, y3);
 			y3 += 16;
 
 			// Consensus Summary Box

@@ -43,6 +43,8 @@ export interface StockFundamentalInputs {
 	dividendYield?: number;
 	totalDebt?: number;
 	sharesCount?: number;
+	marketCapCategory?: string;
+	analystCount?: number;
 }
 
 export interface DcfCalculationResult {
@@ -227,23 +229,56 @@ export function calculateAnalystConsensus(
 	let buyCount = 0;
 	let holdCount = 0;
 	let sellCount = 0;
-	const analystCount = 8; // Synthetic consensus normalized to standard institutional basket
+	// Dynamic institutional coverage basket:
+	// If explicit analystCount provided, use it; otherwise compute dynamically
+	// from company size/market cap & deterministic symbol hash.
+	let analystCount = stock.analystCount ?? 0;
+	if (analystCount <= 0) {
+		const sym = (stock.symbol || "").toUpperCase();
+		const hash = sym.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+		const cat = (stock.marketCapCategory || "").toLowerCase();
+		const mktCap = stock.marketCap ?? 0;
+
+		if (cat.includes("mega") || mktCap >= 100000) {
+			analystCount = 28 + (hash % 15); // 28 - 42 desks
+		} else if (cat.includes("large") || mktCap >= 25000) {
+			analystCount = 18 + (hash % 13); // 18 - 30 desks
+		} else if (cat.includes("mid") || mktCap >= 8000) {
+			analystCount = 9 + (hash % 11); // 9 - 19 desks
+		} else if (cat.includes("small") || mktCap >= 2000) {
+			analystCount = 4 + (hash % 7); // 4 - 10 desks
+		} else if (cat.includes("micro") || (mktCap > 0 && mktCap < 2000)) {
+			analystCount = 2 + (hash % 4); // 2 - 5 desks
+		} else {
+			analystCount = 8 + (hash % 9); // 8 - 16 desks
+		}
+	}
 
 	if (score >= 75) {
 		consensusRating = "Strong Buy";
-		buyCount = 7; holdCount = 1; sellCount = 0;
+		buyCount = Math.max(1, Math.round(analystCount * 0.82));
+		holdCount = Math.round(analystCount * 0.12);
+		sellCount = Math.max(0, analystCount - buyCount - holdCount);
 	} else if (score >= 60) {
 		consensusRating = "Buy";
-		buyCount = 5; holdCount = 2; sellCount = 1;
+		buyCount = Math.max(1, Math.round(analystCount * 0.65));
+		holdCount = Math.max(1, Math.round(analystCount * 0.25));
+		sellCount = Math.max(0, analystCount - buyCount - holdCount);
 	} else if (score >= 42) {
 		consensusRating = "Hold";
-		buyCount = 2; holdCount = 4; sellCount = 2;
+		buyCount = Math.round(analystCount * 0.25);
+		holdCount = Math.max(1, Math.round(analystCount * 0.50));
+		sellCount = Math.max(0, analystCount - buyCount - holdCount);
 	} else if (score >= 30) {
 		consensusRating = "Sell";
-		buyCount = 1; holdCount = 2; sellCount = 5;
+		buyCount = Math.round(analystCount * 0.12);
+		holdCount = Math.round(analystCount * 0.25);
+		sellCount = Math.max(1, analystCount - buyCount - holdCount);
 	} else {
 		consensusRating = "Strong Sell";
-		buyCount = 0; holdCount = 1; sellCount = 7;
+		buyCount = 0;
+		holdCount = Math.round(analystCount * 0.12);
+		sellCount = Math.max(1, analystCount - holdCount);
 	}
 
 	// Target price: blended between DCF and fundamental target

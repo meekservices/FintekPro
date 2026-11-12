@@ -1608,6 +1608,16 @@ export async function getStockDetail(symbol: string) {
 	let analystRecord = analystConsensus[0] || null;
 	const currentPrice = parseFloat(stock.currentPrice || "0");
 
+	// Marquee Institutional Brokerage Views & Quoting Reference
+	let marqueeBrokerageViews: any = null;
+	try {
+		const { marqueeBrokerageService } = await import("./marquee-brokerage-service");
+		marqueeBrokerageViews = await marqueeBrokerageService.getMarqueeReference(stock.symbol, currentPrice);
+	} catch {
+		// Non-blocking fallback
+	}
+
+
 	if (currentPrice > 0) {
 		if (!dcfRecord) {
 			const latestFin = financials[0];
@@ -1642,6 +1652,9 @@ export async function getStockDetail(symbol: string) {
 				peRatio: financials[0]?.peRatio ? parseFloat(financials[0].peRatio) : undefined,
 				roe: financials[0]?.roe ? parseFloat(financials[0].roe) : undefined,
 				debtToEquity: financials[0]?.debtToEquity ? parseFloat(financials[0].debtToEquity) : undefined,
+				marketCap: stock.marketCapValue ? parseFloat(stock.marketCapValue) : undefined,
+				marketCapCategory: stock.marketCapCategory || undefined,
+				analystCount: marqueeBrokerageViews?.totalAnalysts ? Number(marqueeBrokerageViews.totalAnalysts) : undefined,
 			}, {
 				dcfIntrinsicValue: parseFloat(dcfRecord.dcf || "0"),
 				upsidePercent: parseFloat(dcfRecord.upsidePercent || "0"),
@@ -1792,14 +1805,6 @@ export async function getStockDetail(symbol: string) {
 		// Non-blocking fallback
 	}
 
-	// Marquee Institutional Brokerage Views & Quoting Reference
-	let marqueeBrokerageViews: any = null;
-	try {
-		const { marqueeBrokerageService } = await import("./marquee-brokerage-service");
-		marqueeBrokerageViews = await marqueeBrokerageService.getMarqueeReference(stock.symbol, currentPrice);
-	} catch {
-		// Non-blocking fallback
-	}
 
 	// Smart Read-Through Backfill: JIT in-memory fallback for current request + background DB persistence
 	let derivedRecord = derived[0] || null;
@@ -1844,6 +1849,16 @@ export async function getStockDetail(symbol: string) {
 
 	if (missingFields.length > 0) {
 		SmartBackfillService.triggerAsyncBackfill(symbol, missingFields);
+	}
+
+	// Dynamically align analystCount across stock snapshot and consensus
+	if (marqueeBrokerageViews?.totalAnalysts && Number(marqueeBrokerageViews.totalAnalysts) > 0) {
+		(stock as any).analystCount = marqueeBrokerageViews.totalAnalysts;
+		if (analystRecord) {
+			analystRecord.analystCount = marqueeBrokerageViews.totalAnalysts;
+		}
+	} else if (analystRecord?.analystCount) {
+		(stock as any).analystCount = analystRecord.analystCount;
 	}
 
 	return {
