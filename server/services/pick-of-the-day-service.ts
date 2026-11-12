@@ -2433,31 +2433,31 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 		};
 		scheduleIntradaySquareOff();
 
-		// ── Market Hours Intraday Heartbeat (every 15 min between 9:25 AM and 3:25 PM IST) ──
-		const INTRADAY_MONITOR_INTERVAL_MS = 15 * 60 * 1000;
+		// ── Market Hours Live Heartbeat (every 60s between 9:15 AM and 3:30 PM IST) ──
+		const MARKET_HOURS_MONITOR_INTERVAL_MS = 60 * 1000;
 		setInterval(async () => {
 			try {
 				const now = new Date(Date.now() + 5.5 * 3600 * 1000);
 				const hours = now.getUTCHours();
 				const minutes = now.getUTCMinutes();
 				const timeVal = hours * 60 + minutes;
-				// Active market window: 9:20 AM (560m) to 3:25 PM (925m) IST
-				const isMarketHours = timeVal >= 560 && timeVal <= 925;
+				// Active market window: 9:15 AM (555m) to 3:30 PM (930m) IST
+				const isMarketHours = timeVal >= 555 && timeVal <= 930;
 				if (isMarketHours && this.isNSETradingDay(todayIST())) {
-					// Check if any live intraday picks exist before firing full refresh
-					const liveIntradayCount = await db
+					// Sync prices for all live picks during active exchange hours
+					const liveCount = await db
 						.select({ count: sql<number>`COUNT(*)` })
 						.from(dailyPicks)
-						.where(and(eq(dailyPicks.status, "live"), eq(dailyPicks.timeHorizon, "intraday")));
-					if (Number(liveIntradayCount[0]?.count || 0) > 0) {
-						logger.info(`⚡ [PickOfTheDay] Intraday heartbeat: syncing prices for active intraday calls...`);
+						.where(eq(dailyPicks.status, "live"));
+					if (Number(liveCount[0]?.count || 0) > 0) {
+						logger.info(`⚡ [PickOfTheDay] Market heartbeat: syncing live quotes for ${liveCount[0].count} active picks...`);
 						await this.refreshLivePicks();
 					}
 				}
 			} catch (heartbeatErr) {
 				// Non-fatal background monitor
 			}
-		}, INTRADAY_MONITOR_INTERVAL_MS);
+		}, MARKET_HOURS_MONITOR_INTERVAL_MS);
 
 		logger.info(
 			`📅 [PickOfTheDay] Market-aware scheduler started: Gen@9:20AM, Refresh@11AM+12:30PM+2:30PM, SquareOff@3:25PM, EOD@4:00PM IST`,

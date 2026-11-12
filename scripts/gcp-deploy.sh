@@ -133,6 +133,7 @@ fi
 echo "🚀 Deploying to Cloud Run..."
 gcloud run deploy $SERVICE_NAME \
     --image $IMAGE_URL \
+    --quiet \
     --platform managed \
     --region $REGION \
     --allow-unauthenticated \

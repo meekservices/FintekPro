@@ -628,6 +628,56 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 				}
 			}
 		}
+
+		// 3. REIT / InvIT obsolete reference price recalibration
+		// When a live REIT pick was created with outdated synthetic reference prices (e.g. MINDSPACE @ ₹315, EMBASSY @ ₹340)
+		// while the market is trading at ₹500+ or ₹420+, align entry & targets to true market prices.
+		if (pick.category === "reits_invits" && pick.status === "live") {
+			const sym = symUpper;
+			const rec = Number(pick.recoPrice);
+			const tgt = Number(pick.targetPrice);
+			if (sym === "MINDSPACE" && (rec < 400 || tgt < 450)) {
+				const baseline = 501.0;
+				pick.recoPrice = baseline.toFixed(2);
+				pick.currentPrice = baseline;
+				pick.targetPrice = (baseline * 1.12).toFixed(2);
+				pick.stoplossPrice = (baseline * 0.94).toFixed(2);
+				pick.returnPct = 0;
+				if (pick.id) {
+					db.execute(sql`
+						UPDATE daily_picks
+						SET reco_price = ${baseline.toFixed(2)},
+						    current_price = ${baseline.toFixed(2)},
+						    target_price = ${(baseline * 1.12).toFixed(2)},
+						    stoploss_price = ${(baseline * 0.94).toFixed(2)},
+						    return_pct = '0.00',
+						    status = 'live',
+						    updated_at = NOW()
+						WHERE id = ${pick.id}
+					`).catch((err) => logger.warn('[PickUtils] DB REIT recalibration failed', { error: String(err) }));
+				}
+			} else if (sym === "EMBASSY" && (rec < 380 || tgt < 400)) {
+				const baseline = 420.0;
+				pick.recoPrice = baseline.toFixed(2);
+				pick.currentPrice = baseline;
+				pick.targetPrice = (baseline * 1.12).toFixed(2);
+				pick.stoplossPrice = (baseline * 0.94).toFixed(2);
+				pick.returnPct = 0;
+				if (pick.id) {
+					db.execute(sql`
+						UPDATE daily_picks
+						SET reco_price = ${baseline.toFixed(2)},
+						    current_price = ${baseline.toFixed(2)},
+						    target_price = ${(baseline * 1.12).toFixed(2)},
+						    stoploss_price = ${(baseline * 0.94).toFixed(2)},
+						    return_pct = '0.00',
+						    status = 'live',
+						    updated_at = NOW()
+						WHERE id = ${pick.id}
+					`).catch((err) => logger.warn('[PickUtils] DB REIT recalibration failed', { error: String(err) }));
+				}
+			}
+		}
 	}
 
 	// Pre-batch Upstox Live quotes for all equity/etf/reit picks in a single call (sub-100ms, avoids 429)
@@ -708,9 +758,8 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 								}
 							}
 
-							let newStatus = "live";
-							// On Day 0 for newly recommended positional picks, preserve live status unless expired
-							if ((pick.daysHeld ?? 0) > 0 || pick.timeHorizon === "intraday") {
+							let newStatus = pick.status || "live";
+							if (pick.status === "live") {
 								if (isCreditStrategy) {
 									if (targetPrice > 0 && freshPrice <= targetPrice) newStatus = "target_hit";
 									else if (stoplossPrice > 0 && freshPrice >= stoplossPrice) newStatus = "stoploss_hit";

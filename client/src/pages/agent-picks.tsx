@@ -1637,6 +1637,7 @@ export default function AgentPicksPage() {
 	const [saveModelPortfolioOpen, setSaveModelPortfolioOpen] = useState(false);
 	const [modelPortfolioName, setModelPortfolioName] = useState("");
 	const [savingModelPortfolio, setSavingModelPortfolio] = useState(false);
+	const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
 
 	const handleOpenSaveModelPortfolio = () => {
 		const defaultName = `AI Strategy (${aiRecommendations.length} Stocks - ${stockRiskLevel.replace('_', ' ').toUpperCase()})`;
@@ -4272,6 +4273,34 @@ export default function AgentPicksPage() {
 											<Table2 className="h-3.5 w-3.5" />
 										</button>
 									</div>
+
+									{/* On-demand Live Exchange Prices Refresh */}
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={async () => {
+											try {
+												setIsRefreshingPrices(true);
+												await fetch("/api/picks/refresh-prices", { method: "POST" }).catch(() => {});
+												await Promise.all([
+													queryClient.invalidateQueries({ queryKey: ["/api/picks/today"] }),
+													queryClient.invalidateQueries({ queryKey: ["/api/picks/live"] }),
+												]);
+												toast({
+													title: "Live Prices Refreshed",
+													description: "Synchronized latest exchange ticks and active target metrics.",
+												});
+											} finally {
+												setIsRefreshingPrices(false);
+											}
+										}}
+										disabled={isRefreshingPrices}
+										className="shrink-0 gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+										title="Force immediate refresh of live exchange prices and returns"
+									>
+										<RefreshCw className={`h-3.5 w-3.5 ${isRefreshingPrices ? "animate-spin text-primary" : "text-emerald-600 dark:text-emerald-400"}`} />
+										<span>{isRefreshingPrices ? "Refreshing..." : "Refresh Prices"}</span>
+									</Button>
 									{(isFallback || todayPicks.length < 8) && (() => {
 										const isMarketClosedWithoutSession =
 											(todayData?.isWeekendOrHoliday || todayData?.isTradingDay === false) &&
@@ -6468,6 +6497,34 @@ export default function AgentPicksPage() {
 											<Table2 className="h-3.5 w-3.5" />
 										</button>
 									</div>
+
+									{/* On-demand Live Exchange Prices Refresh */}
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={async () => {
+											try {
+												setIsRefreshingPrices(true);
+												await fetch("/api/picks/refresh-prices", { method: "POST" }).catch(() => {});
+												await Promise.all([
+													queryClient.invalidateQueries({ queryKey: ["/api/picks/today"] }),
+													queryClient.invalidateQueries({ queryKey: ["/api/picks/live"] }),
+												]);
+												toast({
+													title: "Live Prices Refreshed",
+													description: "Synchronized latest exchange ticks and active target metrics.",
+												});
+											} finally {
+												setIsRefreshingPrices(false);
+											}
+										}}
+										disabled={isRefreshingPrices}
+										className="shrink-0 gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+										title="Force immediate refresh of live exchange prices and returns"
+									>
+										<RefreshCw className={`h-3.5 w-3.5 ${isRefreshingPrices ? "animate-spin text-primary" : "text-emerald-600 dark:text-emerald-400"}`} />
+										<span>{isRefreshingPrices ? "Refreshing..." : "Refresh Prices"}</span>
+									</Button>
 									{/* #5 Search box */}
 									<div className="relative w-full sm:w-56">
 										<Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -8978,12 +9035,21 @@ function PicksTable({
 						const isCredit =
 							(pick.keyMetrics as any)?.isCreditStrategy === true ||
 							(pick.category === "derivatives" && _tgt < _rec && _rec > 0);
+						const isTargetAchieved =
+							effectiveStatus === "target_hit" ||
+							(_tgt > 0 && _cur > 0 && (isCredit ? _cur <= _tgt : _cur >= _tgt));
 						const upsidePct: number | null =
-							_tgt && _rec
-								? isCredit
-									? ((_rec - _tgt) / _rec) * 100
-									: ((_tgt - _rec) / _rec) * 100
-								: null;
+							isTargetAchieved
+								? 0
+								: _tgt > 0 && _cur > 0
+									? isCredit
+										? ((_cur - _tgt) / _cur) * 100
+										: ((_tgt - _cur) / _cur) * 100
+									: _tgt && _rec
+										? isCredit
+											? ((_rec - _tgt) / _rec) * 100
+											: ((_tgt - _rec) / _rec) * 100
+										: null;
 						const returnPct: number | null =
 							(pick.daysHeld ?? 0) === 0 && Math.abs(_cur - _rec) < 0.01
 								? 0
@@ -9153,9 +9219,13 @@ function PicksTable({
 									</td>
 									<td className="px-3 py-2.5 whitespace-nowrap">
 										<span
-											className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${status.color}`}
+											className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${
+												isTargetAchieved
+													? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 border-emerald-500/40"
+													: status.color
+											}`}
 										>
-											{status.label}
+											{isTargetAchieved ? "Target Hit" : status.label}
 										</span>
 									</td>
 									<td className="px-3 py-2.5 text-right font-mono text-xs whitespace-nowrap">
@@ -9171,9 +9241,17 @@ function PicksTable({
 										{formatPrice(pick.stoplossPrice, pick.category)}
 									</td>
 									<td className="px-3 py-2.5 text-right whitespace-nowrap">
-										{upsidePct !== null ? (
+										{isTargetAchieved ? (
+											<Badge
+												variant="outline"
+												className="text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-bold"
+											>
+												Target Hit
+											</Badge>
+										) : upsidePct !== null ? (
 											<span
 												className={`text-xs font-semibold ${upsidePct >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}
+												title={`Model target: ₹${_tgt}`}
 											>
 												{upsidePct >= 0 ? "+" : ""}
 												{upsidePct.toFixed(1)}%

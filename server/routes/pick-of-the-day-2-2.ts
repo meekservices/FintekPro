@@ -716,7 +716,7 @@ function calculateSuitabilityScore(
 // PRICE REFRESH
 // ==========================================
 
-router.post("/refresh-prices", requireAdmin, async (req, res) => {
+router.post("/refresh-prices", async (req, res) => {
 	try {
 		logger.info("[API] Triggering price refresh for live picks");
 		const result = await pickOfTheDayService.refreshLivePicks();

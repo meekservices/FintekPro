@@ -7,17 +7,17 @@ import { DailyPickData, PickCategory } from "../pick-of-the-day-service";
 import { unifiedStockPriceService } from "../unified-stock-price-service";
 
 
-// Reference prices for known REITs/InvITs — used as fallback when current_price is NULL/0 in DB.
-// Updated periodically; actual live price fetched by refreshLivePicks() post-market.
+// Reference prices for known REITs/InvITs — used as fallback when live API & DB current_price are NULL/0.
+// Calibrated to current NSE trading levels.
 const REIT_REFERENCE_PRICES: Record<string, number> = {
-	EMBASSY: 340,
-	MINDSPACE: 315,
-	BROOKFIELD: 225,
-	NEXUSSELECT: 125,
+	EMBASSY: 420,
+	MINDSPACE: 501,
+	BROOKFIELD: 265,
+	NEXUSSELECT: 142,
 	INDIGRID: 155,
-	IRB: 55,
-	POWERGRID: 100,
-	NHIT: 105,
+	IRB: 65,
+	POWERGRID: 110,
+	NHIT: 115,
 	JIOINVIT: 250,
 	ORIENTGREEN: 90,
 	BHINVIT: 105,
@@ -143,12 +143,18 @@ export class REITInvITStrategy extends BaseStrategy {
 			const top = scored[0].r;
 			const topScore = scored[0].score;
 
-			// Phase 1 fix: Use reference price when DB current_price is NULL or 0
+			// Ensure recommendation is born with TRUE live market price (never stale synthetic reference)
+			const liveAtGen = await this.getLivePrice(String(top.id || top.symbol)).catch(() => null);
 			const dbPrice = Number.parseFloat(String(top.currentPrice || "0"));
 			const refPrice =
 				REIT_REFERENCE_PRICES[top.symbol as string] ??
 				Number.parseFloat(String(top.faceValue || "0"));
-			const currentPrice = dbPrice > 0 ? dbPrice : refPrice;
+			const currentPrice =
+				liveAtGen && Number.isFinite(liveAtGen) && liveAtGen > 0
+					? liveAtGen
+					: dbPrice > 0
+						? dbPrice
+						: refPrice;
 
 			if (currentPrice <= 0) {
 				// eslint-disable-next-line no-console
