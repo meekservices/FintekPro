@@ -325,61 +325,65 @@ export class AIService {
 		const cerebras = process.env.CEREBRAS_API_KEY;
 
 		if (capability === AICapability.SUPERIOR) {
-			if (groq && this.isProviderHealthy("groq")) {
+			if (gemini) {
+				initialProvider = "gemini";
+				initialModel = "gemini-2.5-flash";
+			} else if (groq && this.isProviderHealthy("groq")) {
 				initialProvider = "groq";
-				initialModel = "llama-3.3-70b-versatile";
+				initialModel = "openai/gpt-oss-120b";
 			} else if (cerebras && this.isProviderHealthy("cerebras")) {
 				initialProvider = "cerebras";
 				initialModel = "llama-3.3-70b";
+			} else {
+				initialProvider = "gemini";
+				initialModel = "gemini-2.5-flash";
+			}
+		} else if (capability === AICapability.OPTIMIZED) {
+			if (groq && this.isProviderHealthy("groq")) {
+				initialProvider = "groq";
+				initialModel = "openai/gpt-oss-20b";
 			} else if (gemini) {
 				initialProvider = "gemini";
 				initialModel = "gemini-2.5-flash";
-			} else {
-				initialProvider = "groq";
-				initialModel = "llama-3.3-70b-versatile";
-			}
-		} else if (capability === AICapability.OPTIMIZED) {
-			if (cerebras && this.isProviderHealthy("cerebras")) {
+			} else if (cerebras && this.isProviderHealthy("cerebras")) {
 				initialProvider = "cerebras";
 				initialModel = "llama3.1-8b";
-			} else if (groq && this.isProviderHealthy("groq")) {
-				initialProvider = "groq";
-				initialModel = "llama-3.3-70b-versatile";
 			} else {
 				initialProvider = "gemini";
-				initialModel = "gemini-2.5-flash-lite";
+				initialModel = "gemini-2.5-flash";
 			}
 		} else if (capability === AICapability.STANDARD) {
-			if (groq && this.isProviderHealthy("groq")) {
+			if (gemini) {
+				initialProvider = "gemini";
+				initialModel = "gemini-2.5-flash";
+			} else if (groq && this.isProviderHealthy("groq")) {
 				initialProvider = "groq";
-				initialModel = "llama-3.3-70b-versatile";
+				initialModel = "openai/gpt-oss-120b";
 			} else if (cerebras && this.isProviderHealthy("cerebras")) {
 				initialProvider = "cerebras";
 				initialModel = "llama-3.3-70b";
 			} else {
-				initialProvider = gemini ? "gemini" : "groq";
-				initialModel = gemini ? "gemini-2.5-flash" : "llama-3.3-70b-versatile";
+				initialProvider = "gemini";
+				initialModel = "gemini-2.5-flash";
 			}
 		}
 
 		// Two capability-aware fallback chains:
-		//   SPEED chain (OPTIMIZED): Cerebras 8b → Groq 70b → Cerebras 70b → Gemini → Cloudflare
-		//   QUALITY chain (SUPERIOR/STANDARD): Groq 70b → Cerebras 70b → Gemini → Cloudflare
+		//   SPEED chain (OPTIMIZED): Groq 20b → Gemini 2.5 Flash → Groq 120b → Cerebras → Cloudflare
+		//   QUALITY chain (SUPERIOR/STANDARD): Gemini 2.5 Flash → Groq 120b → Groq 20b → Cerebras → Cloudflare
 		const speedFallbackChain: { provider: AIProvider; model: AIModel }[] = [
 			{ provider: "groq", model: "openai/gpt-oss-20b" },
+			{ provider: "gemini", model: "gemini-2.5-flash" },
 			{ provider: "groq", model: "openai/gpt-oss-120b" },
-			{ provider: "gemini", model: "gemini-2.5-flash-lite" },
 			{ provider: "cerebras", model: "llama3.1-8b" },
 			{ provider: "cerebras", model: "llama-3.3-70b" },
-			{ provider: "gemini", model: "gemini-2.5-flash" },
 			{ provider: "cloudflare", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast" },
 		];
 
 		const qualityFallbackChain: { provider: AIProvider; model: AIModel }[] = [
-			{ provider: "groq", model: "openai/gpt-oss-120b" },
-			{ provider: "gemini", model: "gemini-2.5-flash-lite" },
-			{ provider: "groq", model: "openai/gpt-oss-20b" },
 			{ provider: "gemini", model: "gemini-2.5-flash" },
+			{ provider: "groq", model: "openai/gpt-oss-120b" },
+			{ provider: "groq", model: "openai/gpt-oss-20b" },
 			{ provider: "cerebras", model: "llama-3.3-70b" },
 			{ provider: "cloudflare", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast" },
 		];
@@ -629,30 +633,33 @@ export class AIService {
 		let initialModel = defaultModel;
 
 		if (capability === AICapability.SUPERIOR) {
-			if (groq) {
+			if (gemini) {
+				initialProvider = "gemini";
+				initialModel = "gemini-2.5-flash";
+			} else if (groq) {
 				initialProvider = "groq";
-				initialModel = "llama-3.3-70b-versatile";
+				initialModel = "openai/gpt-oss-120b";
 			} else {
 				initialProvider = "gemini";
 				initialModel = "gemini-2.5-flash";
 			}
 		} else if (capability === AICapability.OPTIMIZED) {
 			initialProvider = "groq";
-			initialModel = "llama-3.1-8b-instant";
+			initialModel = "openai/gpt-oss-20b";
 		} else if (capability === AICapability.STANDARD) {
 			initialProvider = gemini ? "gemini" : "groq";
-			initialModel = gemini ? "gemini-2.5-flash" : "llama-3.3-70b-versatile";
+			initialModel = gemini ? "gemini-2.5-flash" : "openai/gpt-oss-120b";
 		}
 
 		const fallbackChain: { provider: AIProvider; model: AIModel }[] = [
-			// Groq — 100K TPD free; 70b flagship
-			{ provider: "groq", model: "llama-3.3-70b-versatile" },
+			// Gemini — primary reliable provider
+			{ provider: "gemini", model: "gemini-2.5-flash" },
+			// Groq — 120b & 20b
+			{ provider: "groq", model: "openai/gpt-oss-120b" },
+			{ provider: "groq", model: "openai/gpt-oss-20b" },
 			// Cerebras — fastest inference
 			{ provider: "cerebras", model: "llama-3.3-70b" },
 			{ provider: "cerebras", model: "llama3.1-8b" },
-			// Gemini — fallback
-			{ provider: "gemini", model: "gemini-2.5-flash" },
-			{ provider: "gemini", model: "gemini-2.5-flash-lite" },
 			{
 				provider: "cloudflare",
 				model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
@@ -1073,7 +1080,12 @@ export class AIService {
 		const prompt = userMessages.map((m) => m.content).join("\n\n");
 		const fullPrompt = systemMessage ? `${systemMessage}\n\n${prompt}` : prompt;
 
-		const geminiModel = model.includes("gemini") ? model : "gemini-2.5-flash-lite";
+		const geminiModel =
+			model.includes("gemini") &&
+			model !== "gemini-2.5-flash-lite" &&
+			model !== "gemini-2.0-flash"
+				? model
+				: "gemini-2.5-flash";
 
 		let response;
 		try {
@@ -1088,14 +1100,7 @@ export class AIService {
 				contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
 			});
 		} catch (geminiErr: any) {
-			if (geminiModel !== "gemini-2.5-flash-lite" && (
-				geminiErr?.status === 429 ||
-				geminiErr?.message?.includes("429") ||
-				geminiErr?.message?.includes("Resource has been exhausted")
-			)) {
-				logger.warn(`[AIService] Gemini ${geminiModel} 429 quota exhausted, falling back to gemini-2.5-flash-lite`);
-				return this.chatWithGemini(messages, "gemini-2.5-flash-lite", temperature, maxTokens, options);
-			}
+			logger.warn(`[AIService] Gemini ${geminiModel} error: ${geminiErr.message}. Passing to next provider in fallback chain.`);
 			throw geminiErr;
 		}
 

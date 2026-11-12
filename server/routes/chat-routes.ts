@@ -114,7 +114,10 @@ export function setupChatRoutes(
 				}
 
 				const { sessionId } = req.params;
-				const { content, options = {} } = req.body;
+				const { content } = req.body;
+				const options = req.body.options ? { ...req.body.options } : {};
+				if (req.body.provider && !options.provider) options.provider = req.body.provider;
+				if (req.body.model && !options.model) options.model = req.body.model;
 
 				if (!content || typeof content !== "string") {
 					res.status(400).json({ error: "Message content is required" });

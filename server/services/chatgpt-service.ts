@@ -121,9 +121,8 @@ export class ChatGPTService {
 		);
 		messages.push({ role: "user", content });
 
-		// Get AI response
-		// the newest OpenAI model is "gpt-4o" which was released August 7, 2025. do not change this unless explicitly requested by the user
-		const { provider = "openai", model = "gpt-4o" } = options;
+		// Get AI response — default to Gemini / Groq free tier
+		const { provider = "gemini", model = "gemini-2.5-flash" } = options;
 		const result = await aiService.chat(messages, {
 			provider,
 			model,
@@ -200,8 +199,8 @@ export class ChatGPTService {
 		);
 		messages.push({ role: "user", content });
 
-		// Get AI response with streaming
-		const { provider = "openai", model = "gpt-4o" } = options;
+		// Get AI response with streaming — default to Gemini / Groq
+		const { provider = "gemini", model = "gemini-2.5-flash" } = options;
 		const result = await aiService.streamChat(messages, onChunk, {
 			provider,
 			model,
