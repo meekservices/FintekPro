@@ -110,6 +110,7 @@ import {
 	AgentStorePage,
 	AgentFinancialPlanningPage,
 	ReitInvitPage,
+	AIChat,
 } from "@/routes/lazy-pages";
 
 // AgentRoot: shows AuthPage if not logged in, FieldAgentPortal if logged in.
@@ -196,6 +197,24 @@ export function AgentRoutes() {
 					<AgentLayout>
 						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
 							<FieldAgentPortal />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
+			<Route path="/agent/chat">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AIChat />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
+			<Route path="/agent-portal/chat">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AIChat />
 						</Suspense>
 					</AgentLayout>
 				)}

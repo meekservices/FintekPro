@@ -2,6 +2,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation, useSearch } from "wouter";
 import fintekproLogo from "@assets/fintekpro_admin_1772539048012.png";
 import { PortalLogo } from "@/components/portal/PortalLogo";
+import { FloatingChatWidget } from "@/components/FloatingChatWidget";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -137,6 +138,12 @@ const navCategories: NavCategory[] = [
 				href: "/admin/activity-centre",
 				icon: Activity,
 				description: "AI-powered activity feed",
+			},
+			{
+				title: "AI Copilot Chat",
+				href: "/admin/chat",
+				icon: MessageSquare,
+				description: "AI platform & advisory assistant",
 			},
 			{
 				title: "AI Insights",
@@ -1464,6 +1471,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 					<div className="w-full max-w-7xl mx-auto">{children}</div>
 				</main>
 			</div>
+
+			<FloatingChatWidget />
 		</div>
 	);
 }

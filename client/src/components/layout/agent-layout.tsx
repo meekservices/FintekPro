@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
 import { PortalLogo } from "@/components/portal/PortalLogo";
+import { FloatingChatWidget } from "@/components/FloatingChatWidget";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -86,6 +87,7 @@ import {
 	Store,
 	PieChart,
 	ShoppingCart,
+	MessageSquare,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo, } from "react";
 import { cn } from "@/lib/utils";
@@ -418,6 +420,13 @@ const agentNavCategories: NavCategory[] = [
 				href: "/agent/investment-advisory",
 				icon: Brain,
 				description: "AI-powered investment recommendations",
+				badge: "AI",
+			},
+			{
+				title: "AI Copilot Chat",
+				href: "/agent/chat",
+				icon: MessageSquare,
+				description: "AI copilot & assistant chat",
 				badge: "AI",
 			},
 			{
@@ -1432,6 +1441,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 			</div>
 
 			<MobileBottomNav />
+			<FloatingChatWidget />
 		</div>
 	);
 }

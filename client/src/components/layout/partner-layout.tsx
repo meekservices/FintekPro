@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
 import { PortalLogo } from "@/components/portal/PortalLogo";
+import { FloatingChatWidget } from "@/components/FloatingChatWidget";
 import { Button } from "@/components/ui/button";
 import { getPortalQueryParams } from "@/hooks/useSubdomain";
 import {
@@ -29,6 +30,7 @@ import {
 	ShieldCheck,
 	Headphones,
 	Target,
+	MessageSquare,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
@@ -65,6 +67,12 @@ const partnerNavSections: NavSection[] = [
 				href: "/partner-portal",
 				icon: Home,
 				description: "Key metrics & overview",
+			},
+			{
+				title: "AI Copilot Chat",
+				href: "/partner/chat",
+				icon: MessageSquare,
+				description: "AI partner copilot & advisory",
 			},
 		],
 	},
@@ -583,6 +591,7 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
 			</div>
 
 			<MobileBottomNav />
+			<FloatingChatWidget />
 		</div>
 	);
 }

@@ -3,6 +3,7 @@ import { Redirect, Route, Switch } from "wouter";
 import { LoadingState } from "@/components/LoadingState";
 import { PartnerLayout } from "@/components/layout/partner-layout";
 import { lazyWithRetry } from "@/lib/lazy-with-retry";
+import { AIChat } from "@/routes/lazy-pages";
 import AuthPage from "@/pages/auth-page";
 import NotFound from "@/pages/not-found";
 
@@ -105,6 +106,24 @@ export function PartnerRoutes() {
 					<PartnerShell>
 						<Suspense fallback={<PartnerLoading />}>
 							<DistributionPartnerPortal />
+						</Suspense>
+					</PartnerShell>
+				)}
+			</Route>
+			<Route path="/partner/chat">
+				{() => (
+					<PartnerShell>
+						<Suspense fallback={<PartnerLoading />}>
+							<AIChat />
+						</Suspense>
+					</PartnerShell>
+				)}
+			</Route>
+			<Route path="/partner-portal/chat">
+				{() => (
+					<PartnerShell>
+						<Suspense fallback={<PartnerLoading />}>
+							<AIChat />
 						</Suspense>
 					</PartnerShell>
 				)}

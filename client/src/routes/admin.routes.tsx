@@ -223,6 +223,7 @@ import {
 	CopilotProposalDrafts,
 	CopilotTaskManager,
 	// Additional pages used in admin routes
+	AIChat,
 	BiometricSettingsPage,
 	VideoKYC,
 	PortfolioHoldings,
@@ -1386,6 +1387,24 @@ export function AdminRoutes() {
 					<AdminLayout>
 						<Suspense fallback={<LoadingState variant="dashboard" />}>
 							<CopilotMeetings />
+						</Suspense>
+					</AdminLayout>
+				)}
+			</Route>
+			<Route path="/admin/chat">
+				{() => (
+					<AdminLayout>
+						<Suspense fallback={<LoadingState variant="dashboard" />}>
+							<AIChat />
+						</Suspense>
+					</AdminLayout>
+				)}
+			</Route>
+			<Route path="/admin/copilot/chat">
+				{() => (
+					<AdminLayout>
+						<Suspense fallback={<LoadingState variant="dashboard" />}>
+							<AIChat />
 						</Suspense>
 					</AdminLayout>
 				)}
