@@ -886,3 +886,4 @@ export function StockDetailDialog({
 		</Dialog>
 	);
 }
+
