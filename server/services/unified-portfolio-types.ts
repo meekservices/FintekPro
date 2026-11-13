@@ -203,6 +203,9 @@ export interface UnifiedImportResult {
 	errors: string[];
 	warnings?: string[];
 
+	isPasswordProtected?: boolean;
+	errorCode?: string;
+
 	rawTextLength?: number;
 	expectedCount?: number;
 	importedCount?: number;

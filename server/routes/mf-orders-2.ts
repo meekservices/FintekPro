@@ -882,7 +882,7 @@ const batchValidationSchema = z.object({
 
 router.post(
 	"/api/mf/batch/validate-credentials",
-	requireRole(["agent", "admin", "compliance_officer"]),
+	requireRole(["partner", "admin", "compliance_officer"]),
 	async (req: Request, res: Response) => {
 		try {
 			const user = req.user as any;
@@ -919,7 +919,7 @@ router.post(
 
 router.get(
 	"/api/mf/batch/preflight/:agentId",
-	requireRole(["agent", "admin", "compliance_officer"]),
+	requireRole(["partner", "admin", "compliance_officer"]),
 	async (req: Request, res: Response) => {
 		try {
 			const { agentId } = req.params;

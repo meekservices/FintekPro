@@ -159,18 +159,31 @@ router.post(
 			if (!userId) return res.status(401).json({ error: "Unauthorized" });
 			if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
+			const password = req.body?.password?.trim() || undefined;
+
 			const importResult = await unifiedPortfolioImportService.importFromPDF(
 				req.file.buffer,
 				req.file.originalname,
-				{ detectCAS: true },
+				{ detectCAS: true, password },
 			);
 
 			if (!importResult.success || importResult.holdings.length === 0) {
+				const isPasswordProtected = Boolean(importResult?.isPasswordProtected);
+				const isIncorrectPassword = importResult?.errorCode === "INCORRECT_PASSWORD";
 				return res
 					.status(400)
 					.json({
 						success: false,
-						error: "No holdings found in CAS statement",
+						isPasswordProtected,
+						requiresPassword: isPasswordProtected,
+						errorCode:
+							importResult?.errorCode ||
+							(isPasswordProtected ? "PASSWORD_PROTECTED" : "PARSE_ERROR"),
+						error: isIncorrectPassword
+							? "Incorrect password for this CAS statement. Please check and try again."
+							: isPasswordProtected
+								? "This CAS PDF is password-protected. Please enter the password to unlock."
+								: (importResult?.errors?.[0] || "No holdings found in CAS statement"),
 						errors: importResult.errors,
 					});
 			}
@@ -499,7 +512,7 @@ router.get(
 router.get(
 	"/api/agent/clients/:clientId/portfolio/unified",
 	requireAuth,
-	requireRole("admin", "agent", "partner"),
+	requireRole("admin", "partner"),
 	async (req: Request, res: Response) => {
 		try {
 			const { clientId } = req.params;

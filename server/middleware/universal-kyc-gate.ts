@@ -354,9 +354,9 @@ function buildRegulatoryBasis(
 			"AMFI Circular — Distributors must be KYC-compliant before soliciting",
 		);
 	}
-	if (roles.some((r) => ["agent", "sub_agent", "associate"].includes(r))) {
+	if (roles.some((r) => ["partner", "agent", "sub_agent", "associate"].includes(r))) {
 		basis.push(
-			"AMFI/IRDAI Circular — Agents must complete KYC before distributing products",
+			"AMFI/IRDAI Circular — Partners must complete KYC before distributing products",
 		);
 	}
 	if (

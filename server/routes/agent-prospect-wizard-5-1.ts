@@ -515,7 +515,7 @@ router.post(
 router.get(
 	"/mf-returns/status",
 	requireAuth,
-	requireRole(["admin", "agent", "ops"]),
+	requireRole(["admin", "partner", "ops"]),
 	async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { mfReturnsScheduler } = await import(
@@ -572,7 +572,7 @@ router.post(
 router.get(
 	"/mf-returns/fund/:schemeCode",
 	requireAuth,
-	requireRole(["admin", "agent", "ops"]),
+	requireRole(["admin", "partner", "ops"]),
 	async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { mfReturnsSyncService } = await import(

@@ -521,6 +521,7 @@ export function registerKycV2ExtensionPart1Routes(app: Express) {
 				const requester = req.user;
 				const isPrivileged =
 					requester.role === "admin" ||
+					requester.role === "partner" ||
 					requester.role === "agent" ||
 					requester.role === "superadmin";
 				if (!isPrivileged && requester.id !== targetUserId) {

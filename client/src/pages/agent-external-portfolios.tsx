@@ -81,7 +81,7 @@ export default function AgentExternalPortfolios() {
 						<AlertTriangle className="w-12 h-12 mx-auto mb-4 text-amber-500" />
 						<h2 className="text-xl font-semibold mb-2">Access Restricted</h2>
 						<p className="text-muted-foreground">
-							This page is only accessible to agents and administrators.
+							This page is only accessible to partners and administrators.
 						</p>
 					</CardContent>
 				</Card>

@@ -428,51 +428,14 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     requiresCompliance: false,
   },
 
-  // Level 4: External Distribution Network - Partners
-  /**
-   * Level 4: Partner — Mid-Tier Role
-   * Sits between Admin and Agent in the hierarchy.
-   * Can manage agents WITH EUIN (AMFI-certified, MF transactions enabled)
-   * and agents WITHOUT EUIN (lead/DSA agents, transactions blocked until EUIN verified).
-   */
+  // Level 4: External Distribution Network - Partners (Human distribution roles are Partners)
   partner: {
     id: 'partner',
     name: 'Partner',
-    description: 'Distribution partner (Company/Individual with ARN) — mid-tier between Admin and Agent',
+    description: 'Distribution Partner (human distribution role; "agent" is reserved exclusively for AI agents)',
     parentRoles: ['bd_head', 'master_agent'],
     portal: 'partner',
     level: 4,
-    permissions: [
-      // Agent management (core mid-tier capability)
-      'manage:own_agents',             // CRUD for agents under this partner
-      'invite:agent_with_euin',        // Onboard AMFI-certified agents (EUIN required)
-      'invite:agent_without_euin',     // Onboard DSA/lead agents (no EUIN)
-      'assign:agent_euin',             // Assign/upgrade agent with EUIN number
-      'suspend:agent',                 // Suspend agents
-      'reactivate:agent',              // Reactivate suspended agents
-      // Financial
-      'view:own_transactions',
-      'view:own_commissions',
-      'manage:own_clients',
-      // Network
-      'create:sub_agent',
-      'create:associate',
-      'refer:partner',
-    ],
-    canManageRoles: ['agent', 'partner_ops', 'sub_agent', 'associate'],
-    isInternal: false,
-    requiresCompliance: true,
-  },
-
-  // Level 5: Distribution Partners (Migrated from Agent)
-  // Human distribution roles are Partners. The "agent" name is reserved exclusively for AI agents.
-  agent: {
-    id: 'agent',
-    name: 'Partner',
-    description: 'Distribution Partner (human distribution role migrated to Partner; "agent" name reserved for AI agents)',
-    parentRoles: ['partner', 'agent'],
-    portal: 'partner',
-    level: 5,
     permissions: [
       'manage:own_clients',
       'view:own_transactions',
@@ -480,9 +443,39 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
       'create:sub_agent',
       'create:associate',
       'create:leads',
-      'refer:agent',
+      'refer:partner',
+      'manage:own_agents',
+      'invite:agent_with_euin',
+      'invite:agent_without_euin',
+      'assign:agent_euin',
+      'suspend:agent',
+      'reactivate:agent',
     ],
-    canManageRoles: ['sub_agent', 'associate', 'agent'],
+    canManageRoles: ['partner_ops', 'sub_agent', 'associate'],
+    isInternal: false,
+    requiresCompliance: true,
+  },
+
+  // Level 5: Legacy Agent role — ALIASED TO PARTNER
+  // Human distribution roles are strictly Partners. "agent" name is reserved exclusively for AI agents.
+  agent: {
+    id: 'partner' as RoleId,
+    name: 'Partner',
+    description: 'Legacy role alias — replaced by partner. Human role is Partner; "agent" is reserved for AI agents.',
+    parentRoles: ['bd_head', 'master_agent'],
+    portal: 'partner',
+    level: 4,
+    permissions: [
+      'manage:own_clients',
+      'view:own_transactions',
+      'view:own_commissions',
+      'create:sub_agent',
+      'create:associate',
+      'create:leads',
+      'refer:partner',
+      'manage:own_agents',
+    ],
+    canManageRoles: ['partner_ops', 'sub_agent', 'associate'],
     isInternal: false,
     requiresCompliance: true,
   },
@@ -770,10 +763,10 @@ export function getInternalRoles(): RoleId[] {
 }
 
 /**
- * Get all external distribution roles
+ * Get all external distribution roles (Partners)
  */
 export function getDistributionRoles(): RoleId[] {
-  return ['partner', 'partner_ops', 'agent', 'sub_agent', 'associate'];
+  return ['partner', 'partner_ops', 'sub_agent', 'associate'];
 }
 
 /**
@@ -817,7 +810,7 @@ export function getRoleOptions(filterByPortal?: 'admin' | 'partner' | 'agent' | 
 export const ADMIN_ROLES: RoleId[] = ['superadmin', 'master_agent', 'admin', 'bd_head', 'compliance_officer', 'finance_head', 'ops_head', 'hr_head', 'tech_head', 'regulatory_auditor', 'tester'];
 export const TEAM_ROLES: RoleId[] = ['bd_team', 'compliance_team', 'finance_team', 'ops_team', 'hr_team', 'tech_backend', 'tech_frontend', 'tech_devops'];
 // Human distribution roles are Partners. The "agent" name is reserved exclusively for AI agents.
-export const PARTNER_ROLES: RoleId[] = ['partner', 'partner_ops', 'agent', 'sub_agent', 'associate'];
+export const PARTNER_ROLES: RoleId[] = ['partner', 'partner_ops', 'sub_agent', 'associate'];
 export const CLIENT_ROLES: RoleId[] = ['client', 'business_client', 'user'];
 
 // All roles that can access admin portal

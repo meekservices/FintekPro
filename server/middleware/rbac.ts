@@ -77,8 +77,8 @@ async function checkAccess(
 		return next();
 	}
 
-	// 2. Agent access (assigned client)
-	if (user.roles?.includes("agent")) {
+	// 2. Partner access (assigned client)
+	if (user.roles?.includes("partner") || user.roles?.includes("agent")) {
 		const [client] = await db
 			.select({ agentId: users.agentId })
 			.from(users)

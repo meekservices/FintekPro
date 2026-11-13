@@ -236,7 +236,7 @@ router.get("/proposals", async (req, res) => {
 		}
 
 		let proposals;
-		if (role === "agent") {
+		if (role === "partner" || role === "agent") {
 			proposals = await aiProposalEngine.getAgentProposals(userId);
 		} else {
 			proposals = await aiProposalEngine.getClientProposals(userId);

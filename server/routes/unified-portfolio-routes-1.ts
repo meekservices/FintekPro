@@ -327,7 +327,7 @@ router.post(
 router.get(
 	"/api/agent/external-holdings",
 	requireAuth,
-	requireRole("admin", "agent", "partner"),
+	requireRole("admin", "partner"),
 	async (req: Request, res: Response) => {
 		try {
 			const { clientId, pan } = req.query;
@@ -461,7 +461,7 @@ const initiateCobSchema = z.object({
 router.post(
 	"/api/agent/initiate-cob",
 	requireAuth,
-	requireRole("admin", "agent", "partner"),
+	requireRole("admin", "partner"),
 	async (req: Request, res: Response) => {
 		try {
 			const agentId = (req.user as any)?.id;
@@ -612,6 +612,7 @@ router.post(
 			if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
 			const url = req.body?.url;
+			const password = req.body?.password?.trim() || undefined;
 			if (!req.file && !url) {
 				return res
 					.status(400)
@@ -643,9 +644,30 @@ router.post(
 						req.file.originalname,
 					);
 				} else {
+					let userPan: string | undefined;
+					let userDob: string | undefined;
+					try {
+						const [dbUser] = await db
+							.select({ panNumber: users.panNumber, dateOfBirth: users.dateOfBirth })
+							.from(users)
+							.where(eq(users.id, userId))
+							.limit(1);
+						if (dbUser) {
+							userPan = dbUser.panNumber || undefined;
+							userDob = dbUser.dateOfBirth || undefined;
+						}
+					} catch (uErr) {
+						// Non-fatal if user lookup fails
+					}
+
 					importResult = await unifiedPortfolioImportService.importFromPDF(
 						req.file.buffer,
 						req.file.originalname,
+						{
+							password,
+							pan: userPan,
+							dob: userDob,
+						},
 					);
 				}
 			}
@@ -655,9 +677,20 @@ router.post(
 				!importResult.success ||
 				importResult.holdings.length === 0
 			) {
+				const isPasswordProtected = Boolean(importResult?.isPasswordProtected);
+				const isIncorrectPassword = importResult?.errorCode === "INCORRECT_PASSWORD";
 				return res.status(400).json({
 					success: false,
-					error: "No holdings found in the uploaded file",
+					isPasswordProtected,
+					requiresPassword: isPasswordProtected,
+					errorCode:
+						importResult?.errorCode ||
+						(isPasswordProtected ? "PASSWORD_PROTECTED" : "PARSE_ERROR"),
+					error: isIncorrectPassword
+						? "Incorrect password for this PDF. Please check and try again."
+						: isPasswordProtected
+							? "This PDF is password-protected. Please enter the password to unlock."
+							: (importResult?.errors?.[0] || "No holdings found in the uploaded file"),
 					errors: importResult?.errors || ["Failed to parse portfolio"],
 				});
 			}

@@ -1774,7 +1774,7 @@ router.get("/admin/team", requireAdmin, async (req, res) => {
 			})
 			.from(users)
 			.where(
-				sql`'admin' = ANY(${users.roles}) OR 'superadmin' = ANY(${users.roles}) OR 'agent' = ANY(${users.roles})`,
+				sql`'admin' = ANY(${users.roles}) OR 'superadmin' = ANY(${users.roles}) OR 'partner' = ANY(${users.roles}) OR 'agent' = ANY(${users.roles})`,
 			);
 		res.json({ success: true, team });
 	} catch (error: any) {

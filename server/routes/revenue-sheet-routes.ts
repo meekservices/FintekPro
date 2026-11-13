@@ -13,7 +13,7 @@ const requireAuth = (req: any, res: Response, next: any) => {
 		if (isDev) {
 			req.user = {
 				id: "central-test-user",
-				roles: ["superadmin", "admin", "partner", "agent", "client"],
+				roles: ["superadmin", "admin", "partner", "client"],
 			};
 		} else {
 			return res

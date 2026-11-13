@@ -28,6 +28,7 @@ export function useProfileCompletion(): ProfileCompletionHook {
 	const shouldShowReminders =
 		!isComplete &&
 		!!user?.id &&
+		!user?.roles?.includes("partner") &&
 		!user?.roles?.includes("agent") &&
 		!user?.roles?.includes("admin");
 

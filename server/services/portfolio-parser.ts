@@ -2137,8 +2137,10 @@ function calculateAllocation(holdings: ImportedHolding[]): ImportedAllocation {
 export async function parsePDFPortfolio(
 	buffer: Buffer,
 	fileName: string,
+	options?: { password?: string } | string,
 ): Promise<ParseResult> {
-	const fileHash = computeFileHash(buffer);
+	const password = typeof options === "string" ? options : options?.password;
+	const fileHash = computeFileHash(buffer) + (password ? `:${password}` : "");
 
 	const cached = getCachedResult(fileHash);
 	if (cached) {
@@ -2147,7 +2149,9 @@ export async function parsePDFPortfolio(
 
 	try {
 		// Use centralized PDF parser service
-		const parseResult = await unifiedPDFParser.extractTextSafe(buffer);
+		const parseResult = await unifiedPDFParser.extractTextSafe(buffer, {
+			password,
+		});
 		if (!parseResult.success || !parseResult.result) {
 			return {
 				success: false,

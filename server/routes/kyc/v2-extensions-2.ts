@@ -522,7 +522,7 @@ export function registerKycV2ExtensionPart2Routes(app: Express) {
 						step,
 						previousStatus,
 						resetBy: req.user.id,
-						resetByRole: req.user.role || req.user.roles?.[0] || "agent",
+						resetByRole: req.user.role || req.user.roles?.[0] || "partner",
 						reason,
 						reasonCode,
 						dependentStepsReset: completedDownstream,

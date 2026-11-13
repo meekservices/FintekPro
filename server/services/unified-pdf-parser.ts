@@ -23,6 +23,8 @@ export type PDFType =
 	| "cas_cams" // CAMS CAS statement
 	| "cas_kfintech" // KFintech CAS statement
 	| "cas_combined" // Combined CAMS + KFintech
+	| "demat_cdsl" // CDSL Demat Statement / eCAS
+	| "demat_nsdl" // NSDL Demat Statement / eCAS
 	| "broker_zerodha" // Zerodha holdings
 	| "broker_groww" // Groww holdings
 	| "broker_icici" // ICICI Direct holdings
@@ -84,6 +86,8 @@ export interface TextExtractOptions {
 	enableOCRFallback?: boolean;
 	/** Hint for the OCR engine prompt selection */
 	ocrHint?: DocumentHint;
+	/** Password to decrypt encrypted/password-protected PDFs */
+	password?: string;
 }
 
 export interface SafeExtractResult {
@@ -96,7 +100,9 @@ export interface SafeExtractResult {
 		| "PARSE_ERROR"
 		| "EMPTY_CONTENT"
 		| "PASSWORD_PROTECTED"
+		| "INCORRECT_PASSWORD"
 		| "UNKNOWN";
+	isPasswordProtected?: boolean;
 	/** True when Gemini Vision OCR was used instead of pdf-parse */
 	ocrFallbackUsed?: boolean;
 	ocrConfidence?: "high" | "medium" | "low" | "unknown";
@@ -408,7 +414,10 @@ class UnifiedPDFParser {
 		let parser: PDFParse | null = null;
 
 		try {
-			parser = new PDFParse({ data: buffer });
+			parser = new PDFParse({
+				data: buffer,
+				password: options.password || undefined,
+			});
 			const result = await parser.getText();
 
 			let info: Record<string, any> | undefined;
@@ -507,9 +516,13 @@ class UnifiedPDFParser {
 						return {
 							success: false,
 							result,
-							error:
-								"PDF is password-protected. Please remove the password and re-upload.",
-							errorCode: "PASSWORD_PROTECTED",
+							error: options.password
+								? "Incorrect password for this password-protected PDF."
+								: "PDF is password-protected. Please enter the password to unlock.",
+							errorCode: options.password
+								? "INCORRECT_PASSWORD"
+								: "PASSWORD_PROTECTED",
+							isPasswordProtected: true,
 						};
 					}
 				}
@@ -565,6 +578,32 @@ class UnifiedPDFParser {
 			return { success: true, result };
 		} catch (error: any) {
 			const errorMessage = error?.message || "Unknown parsing error";
+			const errName = error?.name || "";
+
+			const isPasswordError =
+				errName === "PasswordException" ||
+				errorMessage.toLowerCase().includes("password") ||
+				errorMessage.toLowerCase().includes("decrypt") ||
+				errorMessage.toLowerCase().includes("encrypt");
+
+			if (isPasswordError) {
+				const isIncorrect =
+					errorMessage.toLowerCase().includes("incorrect") ||
+					errorMessage.toLowerCase().includes("wrong") ||
+					Boolean(options.password);
+
+				console.warn(
+					`[UnifiedPDFParser] PDF password error: ${isIncorrect ? "INCORRECT_PASSWORD" : "PASSWORD_PROTECTED"} (${errorMessage})`,
+				);
+				return {
+					success: false,
+					error: isIncorrect
+						? "Incorrect password for this password-protected PDF. Please check and try again."
+						: "PDF is password-protected. Please enter the password to unlock.",
+					errorCode: isIncorrect ? "INCORRECT_PASSWORD" : "PASSWORD_PROTECTED",
+					isPasswordProtected: true,
+				};
+			}
 
 			let errorCode: SafeExtractResult["errorCode"] = "UNKNOWN";
 			if (errorMessage.includes("Invalid") || errorMessage.includes("Empty")) {
@@ -622,10 +661,15 @@ class UnifiedPDFParser {
 			.substring(0, 32);
 	}
 
-	async profileDocument(buffer: Buffer): Promise<PDFProfile> {
+	async profileDocument(
+		buffer: Buffer,
+		options?: { password?: string },
+	): Promise<PDFProfile> {
 		const startTime = Date.now();
 
-		const parseResult = await this.extractTextSafe(buffer);
+		const parseResult = await this.extractTextSafe(buffer, {
+			password: options?.password,
+		});
 		if (!parseResult.success || !parseResult.result) {
 			throw new Error(parseResult.error || "Failed to extract PDF text");
 		}
@@ -685,6 +729,7 @@ class UnifiedPDFParser {
 			fileName?: string;
 			userId?: string;
 			agentId?: string;
+			password?: string;
 		},
 	): Promise<ParseResult> {
 		const startTime = Date.now();
@@ -694,7 +739,9 @@ class UnifiedPDFParser {
 		this.createParsingLog("parse_start", {});
 
 		try {
-			const profile = await this.profileDocument(buffer);
+			const profile = await this.profileDocument(buffer, {
+				password: options?.password,
+			});
 
 			const matchedPattern = this.findMatchingPattern(profile);
 			if (matchedPattern) {
@@ -704,7 +751,9 @@ class UnifiedPDFParser {
 				});
 			}
 
-			const parseResult = await this.extractTextSafe(buffer);
+			const parseResult = await this.extractTextSafe(buffer, {
+				password: options?.password,
+			});
 			if (!parseResult.success || !parseResult.result) {
 				throw new Error(parseResult.error || "Failed to extract PDF text");
 			}
@@ -851,6 +900,13 @@ class UnifiedPDFParser {
 	// ============================================
 
 	private detectPDFType(text: string): PDFType {
+		if (/central\s*depository\s*services|cdsl/i.test(text) && (/holding|demat|statement|e-?cas|bo\s*id/i.test(text))) {
+			return "demat_cdsl";
+		}
+		if (/national\s*securities\s*depository|nsdl/i.test(text) && (/holding|demat|statement|e-?cas|dp\s*id/i.test(text))) {
+			return "demat_nsdl";
+		}
+
 		if (/consolidated\s*account\s*statement/i.test(text)) {
 			if (/cams/i.test(text) && /kfintech|karvy/i.test(text)) {
 				return "cas_combined";

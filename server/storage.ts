@@ -2155,7 +2155,7 @@ export class DatabaseStorage implements IStorage {
 						mobile: defaultAgent.phone || "",
 						password: "", // Agents use separate authentication
 						isEmailVerified: true,
-						roles: ["agent"],
+						roles: ["partner"],
 						isActive: true,
 					})
 					.returning();

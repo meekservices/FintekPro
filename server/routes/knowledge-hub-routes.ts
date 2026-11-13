@@ -63,7 +63,7 @@ router.get(
 		if (brief && (req as any).user) {
 			knowledgeHubService.logAuditEvent({
 				userId: (req as any).user?.id || "anonymous",
-				userRole: (req as any).user?.roles?.[0] || "agent",
+				userRole: (req as any).user?.roles?.[0] || "partner",
 				eventType: "brief_viewed",
 				resourceType: "market_brief",
 				resourceId: brief.id,
@@ -258,7 +258,7 @@ router.get(
 
 		await knowledgeHubService.logAuditEvent({
 			userId: (req as any).user?.id || "anonymous",
-			userRole: (req as any).user?.roles?.[0] || "agent",
+			userRole: (req as any).user?.roles?.[0] || "partner",
 			eventType: "knowledge_accessed",
 			resourceType: "product_knowledge",
 			actionDetails: { filter: { productType, riskProfile } },
@@ -282,7 +282,7 @@ router.get(
 
 		await knowledgeHubService.logAuditEvent({
 			userId: (req as any).user?.id || "anonymous",
-			userRole: (req as any).user?.roles?.[0] || "agent",
+			userRole: (req as any).user?.roles?.[0] || "partner",
 			eventType: "knowledge_accessed",
 			resourceType: "product_knowledge",
 			resourceId: product.id,
@@ -411,7 +411,7 @@ router.post(
 
 		await knowledgeHubService.logAuditEvent({
 			userId: (req as any).user?.id || "anonymous",
-			userRole: (req as any).user?.roles?.[0] || "agent",
+			userRole: (req as any).user?.roles?.[0] || "partner",
 			eventType: "explanation_shared",
 			resourceType: "explanation_template",
 			resourceId: template.id,
@@ -518,7 +518,7 @@ router.post(
 
 		await knowledgeHubService.logAuditEvent({
 			userId: agentId,
-			userRole: (req as any).user?.roles?.[0] || "agent",
+			userRole: (req as any).user?.roles?.[0] || "partner",
 			eventType: "certification_updated",
 			resourceType: "agent_certification",
 			resourceId: result[0].id,
@@ -562,7 +562,7 @@ router.post(
 
 		await knowledgeHubService.logAuditEvent({
 			userId: agentId,
-			userRole: (req as any).user?.roles?.[0] || "agent",
+			userRole: (req as any).user?.roles?.[0] || "partner",
 			eventType: "certification_updated",
 			resourceType: "quiz_attempt",
 			resourceId: result.attemptId,
@@ -648,7 +648,7 @@ router.post(
 		if (user) {
 			knowledgeHubService.logAuditEvent({
 				userId: agentId,
-				userRole: user?.roles?.[0] || "agent",
+				userRole: user?.roles?.[0] || "partner",
 				eventType: "nism_course_launched",
 				resourceType: "nism_lms_course",
 				resourceId: courseId,
@@ -760,7 +760,7 @@ router.post(
 		if (user) {
 			knowledgeHubService.logAuditEvent({
 				userId: agentId,
-				userRole: user?.roles?.[0] || "agent",
+				userRole: user?.roles?.[0] || "partner",
 				eventType: "nism_practice_test_submitted",
 				resourceType: "nism_practice_test",
 				resourceId: courseId,
@@ -878,7 +878,7 @@ router.post(
 		if (user) {
 			knowledgeHubService.logAuditEvent({
 				userId: agentId,
-				userRole: user?.roles?.[0] || "agent",
+				userRole: user?.roles?.[0] || "partner",
 				eventType: "irdai_practice_test_submitted",
 				resourceType: "irdai_practice_test",
 				resourceId: "irdai-posp",

@@ -43,6 +43,12 @@ import {
 	Sparkles,
 	PenLine,
 	Zap,
+	Lock,
+	Unlock,
+	Eye,
+	EyeOff,
+	ShieldCheck,
+	HelpCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -71,6 +77,87 @@ const ASSET_TYPE_OPTIONS: { value: AssetType; label: string }[] = [
 	{ value: "invit", label: "InvIT" },
 	{ value: "unlisted", label: "Unlisted" },
 	{ value: "other", label: "Other" },
+];
+
+export interface DematProviderInfo {
+	id: string;
+	name: string;
+	formats: string;
+	downloadPath: string;
+	passwordHint?: string;
+}
+
+export const DEMAT_PROVIDERS: DematProviderInfo[] = [
+	{
+		id: "auto",
+		name: "Auto-Detect Provider",
+		formats: "PDF, Excel, CSV, HTML",
+		downloadPath: "Upload any statement; parser auto-identifies broker or depository",
+		passwordHint: "If encrypted, CAS password is PAN + DOB; Demat is PAN",
+	},
+	{
+		id: "zerodha",
+		name: "Zerodha (Kite / Console)",
+		formats: "XLSX, CSV, PDF",
+		downloadPath: "Console → Portfolio → Holdings → Download XLSX or CSV",
+	},
+	{
+		id: "groww",
+		name: "Groww",
+		formats: "PDF, Excel",
+		downloadPath: "Profile → Reports → Stocks Holding / Capital Gains (PDF or Excel)",
+	},
+	{
+		id: "upstox",
+		name: "Upstox",
+		formats: "Excel, CSV, PDF",
+		downloadPath: "Account → Reports → Holdings or P&L statement",
+	},
+	{
+		id: "icici",
+		name: "ICICI Direct",
+		formats: "PDF, Excel",
+		downloadPath: "Equity → Portfolio → Demat Allocation / Holdings statement",
+	},
+	{
+		id: "angelone",
+		name: "Angel One",
+		formats: "PDF, Excel",
+		downloadPath: "Reports → Portfolio Holdings statement",
+	},
+	{
+		id: "hdfc",
+		name: "HDFC Securities",
+		formats: "PDF, Excel",
+		downloadPath: "Portfolio → Equity Holdings statement",
+	},
+	{
+		id: "kotak",
+		name: "Kotak Securities",
+		formats: "PDF, Excel",
+		downloadPath: "Reports → Demat Holdings statement",
+	},
+	{
+		id: "cdsl",
+		name: "CDSL (eCAS / Demat)",
+		formats: "PDF",
+		downloadPath: "CDSL MyEasy / eCAS portal → Download monthly statement",
+		passwordHint: "Password is your 10-character PAN in UPPERCASE",
+	},
+	{
+		id: "nsdl",
+		name: "NSDL (eCAS / Demat)",
+		formats: "PDF",
+		downloadPath: "NSDL IDeAS / eCAS portal → Download CAS statement",
+		passwordHint: "Password is your 10-character PAN in UPPERCASE",
+	},
+	{
+		id: "cas_mf",
+		name: "CAMS / KFintech CAS",
+		formats: "PDF",
+		downloadPath: "CAMS / KFintech / MFCentral portal → Detailed CAS Statement",
+		passwordHint: "Password is PAN (UPPERCASE) + Date of Birth (DDMMYYYY), e.g. ABCDE15081990",
+	},
 ];
 
 interface PortfolioImportPanelProps {
@@ -115,6 +202,12 @@ export function PortfolioImportPanel({
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
 	const [urlInput, setUrlInput] = useState("");
 	const [dragActive, setDragActive] = useState(false);
+
+	// Password handling for protected statements
+	const [pdfPassword, setPdfPassword] = useState("");
+	const [showPassword, setShowPassword] = useState(false);
+	const [requiresPassword, setRequiresPassword] = useState(false);
+	const [selectedBroker, setSelectedBroker] = useState<string>("auto");
 
 	// IRIS auto-fetch state
 	const [irisError, setIrisError] = useState<string | null>(null);
@@ -180,6 +273,10 @@ export function PortfolioImportPanel({
 		setEditingIndex(null);
 		setSelectedFile(null);
 		setUrlInput("");
+		setPdfPassword("");
+		setRequiresPassword(false);
+		setShowPassword(false);
+		setSelectedBroker("auto");
 		setMode("choose");
 		irisFetch.reset(); // clear any pending/error IRIS state on back navigation
 	}, [irisFetch]);
@@ -278,15 +375,39 @@ export function PortfolioImportPanel({
 				file: selectedFile || undefined,
 				url: urlInput.trim() || undefined,
 				prospectId,
+				password: pdfPassword.trim() || undefined,
 			},
 			{
-				onSuccess: (result) => handleParseSuccess(result, source),
-				onError: (error) => {
-					toast({
-						title: "Import Failed",
-						description: error.message,
-						variant: "destructive",
-					});
+				onSuccess: (result) => {
+					setRequiresPassword(false);
+					setPdfPassword("");
+					handleParseSuccess(result, source);
+				},
+				onError: (error: any) => {
+					const isPwd =
+						error.isPasswordProtected ||
+						error.errorCode === "PASSWORD_PROTECTED" ||
+						error.errorCode === "INCORRECT_PASSWORD" ||
+						error.message?.toLowerCase().includes("password") ||
+						error.message?.toLowerCase().includes("decrypt") ||
+						error.message?.toLowerCase().includes("encrypted");
+
+					if (isPwd) {
+						setRequiresPassword(true);
+						toast({
+							title: "Password Required",
+							description:
+								error.message ||
+								"This statement is password-protected. Please enter the password to unlock.",
+							variant: "destructive",
+						});
+					} else {
+						toast({
+							title: "Import Failed",
+							description: error.message,
+							variant: "destructive",
+						});
+					}
 				},
 			},
 		);
@@ -294,6 +415,7 @@ export function PortfolioImportPanel({
 		selectedFile,
 		urlInput,
 		prospectId,
+		pdfPassword,
 		smartImport,
 		handleParseSuccess,
 		toast,
@@ -954,6 +1076,8 @@ export function PortfolioImportPanel({
 									setMode("choose");
 									setSelectedFile(null);
 									setUrlInput("");
+									setPdfPassword("");
+									setRequiresPassword(false);
 								}}
 							>
 								<ArrowLeft className="w-4 h-4 mr-1" /> Back
@@ -963,7 +1087,62 @@ export function PortfolioImportPanel({
 							</span>
 						</div>
 
+						{/* Demat Provider / Broker Selection */}
+						<div className="space-y-2 p-3 rounded-lg border bg-muted/20">
+							<div className="flex items-center justify-between">
+								<Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+									<ShieldCheck className="w-3.5 h-3.5 text-primary" />
+									Demat Account / Broker Provider
+								</Label>
+								<span className="text-[10px] text-muted-foreground">
+									Multi-broker demat support
+								</span>
+							</div>
+
+							<Select
+								value={selectedBroker}
+								onValueChange={(val) => {
+									setSelectedBroker(val);
+								}}
+							>
+								<SelectTrigger className="w-full text-xs h-9 bg-background">
+									<SelectValue placeholder="Auto-Detect (Zerodha, Groww, Upstox, CDSL, NSDL...)" />
+								</SelectTrigger>
+								<SelectContent>
+									{DEMAT_PROVIDERS.map((p) => (
+										<SelectItem key={p.id} value={p.id} className="text-xs">
+											{p.name} ({p.formats})
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+
+							{selectedBroker !== "auto" && (
+								<div className="p-2.5 rounded-md bg-muted/40 border border-border/50 text-[11px] space-y-1 text-muted-foreground">
+									<p className="font-medium text-foreground">
+										📌 How to download:{" "}
+										{
+											DEMAT_PROVIDERS.find((p) => p.id === selectedBroker)
+												?.downloadPath
+										}
+									</p>
+									{DEMAT_PROVIDERS.find((p) => p.id === selectedBroker)
+										?.passwordHint && (
+										<p className="text-amber-600 dark:text-amber-400 font-medium">
+											🔑 Default Password:{" "}
+											{
+												DEMAT_PROVIDERS.find((p) => p.id === selectedBroker)
+													?.passwordHint
+											}
+										</p>
+									)}
+								</div>
+							)}
+						</div>
+
 						<div
+							role="button"
+							tabIndex={0}
 							className={`relative flex flex-col items-center justify-center gap-3 p-8 rounded-xl border-2 border-dashed transition-all cursor-pointer ${
 								dragActive
 									? "border-primary bg-primary/10"
@@ -976,6 +1155,12 @@ export function PortfolioImportPanel({
 							onDragOver={handleDrag}
 							onDrop={handleDrop}
 							onClick={() => fileInputRef.current?.click()}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" || e.key === " ") {
+									e.preventDefault();
+									fileInputRef.current?.click();
+								}
+							}}
 						>
 							<input
 								ref={fileInputRef}
@@ -1009,6 +1194,8 @@ export function PortfolioImportPanel({
 										onClick={(e) => {
 											e.stopPropagation();
 											setSelectedFile(null);
+											setPdfPassword("");
+											setRequiresPassword(false);
 										}}
 									>
 										Choose a different file
@@ -1024,12 +1211,99 @@ export function PortfolioImportPanel({
 											Drop your file here or click to browse
 										</p>
 										<p className="text-xs text-muted-foreground mt-1">
-											PDF, CAS, CSV, Excel, HTML statements from any broker
+											PDF, CAS, CSV, Excel, HTML statements from any broker or demat
 										</p>
 									</div>
 								</>
 							)}
 						</div>
+
+						{/* Password Input for Encrypted PDF Statements */}
+						{selectedFile &&
+							(selectedFile.name.toLowerCase().endsWith(".pdf") ||
+								requiresPassword) && (
+								<div
+									className={`p-4 rounded-xl border transition-all space-y-2.5 ${
+										requiresPassword
+											? "border-amber-500/60 bg-amber-500/10 dark:bg-amber-950/20"
+											: "border-border bg-muted/20"
+									}`}
+								>
+									<div className="flex items-center justify-between">
+										<div className="flex items-center gap-2">
+											<Lock
+												className={`w-4 h-4 ${
+													requiresPassword ? "text-amber-500" : "text-primary"
+												}`}
+											/>
+											<Label
+												htmlFor="pdf-statement-password"
+												className="text-xs font-semibold"
+											>
+												{requiresPassword
+													? "PDF Password Required to Unlock"
+													: "PDF Password (if statement is protected)"}
+											</Label>
+										</div>
+										{requiresPassword ? (
+											<Badge
+												variant="outline"
+												className="text-[10px] text-amber-600 dark:text-amber-400 border-amber-500/50 bg-amber-500/10"
+											>
+												Encrypted Statement
+											</Badge>
+										) : (
+											<span className="text-[10px] text-muted-foreground">
+												Optional if unprotected
+											</span>
+										)}
+									</div>
+
+									<div className="relative flex items-center">
+										<Input
+											id="pdf-statement-password"
+											type={showPassword ? "text" : "password"}
+											placeholder="Enter statement password (e.g. PAN or PAN+DOB)"
+											value={pdfPassword}
+											onChange={(e) => setPdfPassword(e.target.value)}
+											className="pr-10 h-9 text-xs bg-background"
+											autoFocus={requiresPassword}
+											onKeyDown={(e) => {
+												if (e.key === "Enter") {
+													e.preventDefault();
+													handleSmartImport();
+												}
+											}}
+										/>
+										<Button
+											type="button"
+											variant="ghost"
+											size="sm"
+											className="absolute right-1 h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+											onClick={() => setShowPassword(!showPassword)}
+											tabIndex={-1}
+										>
+											{showPassword ? (
+												<EyeOff className="w-3.5 h-3.5" />
+											) : (
+												<Eye className="w-3.5 h-3.5" />
+											)}
+											<span className="sr-only">
+												{showPassword ? "Hide password" : "Show password"}
+											</span>
+										</Button>
+									</div>
+
+									<div className="text-[11px] text-muted-foreground space-y-0.5">
+										<p>
+											💡 <strong>CAS Statements (CAMS / KFintech):</strong> First 5 chars of PAN (UPPERCASE) + DOB DDMMYYYY (e.g., <code className="text-[10px] bg-muted px-1 py-0.5 rounded">ABCDE15081990</code>).
+										</p>
+										<p>
+											💡 <strong>Demat Statements (CDSL / NSDL):</strong> Usually your 10-digit PAN in UPPERCASE.
+										</p>
+									</div>
+								</div>
+							)}
 
 						<div className="flex items-center gap-3">
 							<div className="flex-1 h-px bg-border" />
@@ -1064,7 +1338,11 @@ export function PortfolioImportPanel({
 						>
 							{smartImport.isPending ? (
 								<>
-									<Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analyzing...
+									<Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analyzing statement...
+								</>
+							) : requiresPassword ? (
+								<>
+									<Unlock className="w-4 h-4 mr-2" /> Unlock & Import Portfolio
 								</>
 							) : (
 								<>
@@ -1073,7 +1351,18 @@ export function PortfolioImportPanel({
 							)}
 						</Button>
 
-						{smartImport.isError && (
+						{requiresPassword && (
+							<Alert className="border-amber-500/50 text-amber-800 dark:text-amber-300 bg-amber-500/10">
+								<Lock className="h-4 w-4 text-amber-500" />
+								<AlertDescription className="text-xs">
+									{smartImport.isError
+										? smartImport.error.message
+										: "This PDF statement is password-protected. Please enter the password above and click Unlock & Import."}
+								</AlertDescription>
+							</Alert>
+						)}
+
+						{smartImport.isError && !requiresPassword && (
 							<Alert variant="destructive">
 								<AlertCircle className="h-4 w-4" />
 								<AlertDescription>{smartImport.error.message}</AlertDescription>

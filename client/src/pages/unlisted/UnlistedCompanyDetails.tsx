@@ -292,7 +292,9 @@ export default function UnlistedCompanyDetails() {
 
 	const { user } = useAuth();
 	const canResearch =
-		user?.roles?.includes("admin") || user?.roles?.includes("agent");
+		user?.roles?.includes("admin") ||
+		user?.roles?.includes("partner") ||
+		user?.roles?.includes("agent");
 
 	// Fetch MCA Intelligence financial ratios (if company has CIN)
 	interface McaFinancialRatios {

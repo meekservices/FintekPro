@@ -24,7 +24,8 @@ interface UserWithRole {
 }
 
 /**
- * Normalize user roles from various formats
+ * Normalize user roles from various formats.
+ * Automatically maps legacy human 'agent' role to 'partner' ('agent' is reserved exclusively for AI agents).
  */
 function getUserRoles(
 	user: UserWithRole | Record<string, any> | undefined,
@@ -32,8 +33,11 @@ function getUserRoles(
 	if (!user) return [];
 
 	// Support both old single role field and new roles array
-	const roles = user.roles || (user.role ? [user.role] : ["user"]);
-	return (roles || ["user"]).filter(
+	const rawRoles = user.roles || (user.role ? [user.role] : ["user"]);
+	const normalizedRoles = (rawRoles || ["user"]).map((r: string) =>
+		r === "agent" ? "partner" : r,
+	);
+	return normalizedRoles.filter(
 		(r: string) => r in ROLE_DEFINITIONS,
 	) as RoleId[];
 }

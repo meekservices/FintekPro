@@ -23,12 +23,12 @@ router.get("/available-agents", async (req, res) => {
 			.from(users);
 
 		const filteredAgents = agents
-			.filter((a) => a.roles?.includes("agent"))
+			.filter((a) => a.roles?.includes("partner") || a.roles?.includes("agent"))
 			.map((a) => ({
 				id: a.id,
-				fullName: `${a.firstName || ""} ${a.lastName || ""}`.trim() || "Agent",
+				fullName: `${a.firstName || ""} ${a.lastName || ""}`.trim() || "Partner",
 				email: a.email,
-				role: "agent",
+				role: "partner",
 			}));
 
 		res.json({ agents: filteredAgents });
@@ -216,7 +216,7 @@ router.post("/request", async (req, res) => {
 
 			const agents = availableAgents.filter((u) => {
 				const roles = u.roles || [];
-				return roles.includes("agent") || roles.includes("admin");
+				return roles.includes("partner") || roles.includes("agent") || roles.includes("admin");
 			});
 
 			if (agents.length > 0) {

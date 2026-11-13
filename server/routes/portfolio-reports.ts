@@ -12,7 +12,7 @@ const router = Router();
 router.get(
 	"/api/portfolio-reports/clients-portfolios",
 	requireAuth,
-	requireRole("agent", "partner", "admin"),
+	requireRole("partner", "admin"),
 	async (req: Request, res: Response) => {
 		try {
 			const { db } = await import("../db");
@@ -63,7 +63,7 @@ router.get(
 router.post(
 	"/api/portfolio-reports/validate",
 	requireAuth,
-	requireRole("agent", "partner", "admin"),
+	requireRole("partner", "admin"),
 	async (req: Request, res: Response) => {
 		try {
 			const config = reportConfigSchema.parse(req.body);
@@ -85,7 +85,7 @@ router.post(
 router.post(
 	"/api/portfolio-reports/generate",
 	requireAuth,
-	requireRole("agent", "partner", "admin"),
+	requireRole("partner", "admin"),
 	async (req: Request, res: Response) => {
 		try {
 			const userId = (req.user as any)?.id;
@@ -193,7 +193,7 @@ router.post(
 router.get(
 	"/api/portfolio-reports/generated",
 	requireAuth,
-	requireRole("agent", "partner", "admin"),
+	requireRole("partner", "admin"),
 	async (req: Request, res: Response) => {
 		try {
 			const userId = (req.user as any)?.id;
@@ -214,7 +214,7 @@ router.get(
 router.get(
 	"/api/portfolio-reports/generated/:id",
 	requireAuth,
-	requireRole("agent", "partner", "admin"),
+	requireRole("partner", "admin"),
 	async (req: Request, res: Response) => {
 		try {
 			const userId = (req.user as any)?.id;
@@ -247,7 +247,7 @@ router.get(
 router.post(
 	"/api/portfolio-reports/templates",
 	requireAuth,
-	requireRole("agent", "partner", "admin"),
+	requireRole("partner", "admin"),
 	async (req: Request, res: Response) => {
 		try {
 			const userId = (req.user as any)?.id;
@@ -287,7 +287,7 @@ router.post(
 router.get(
 	"/api/portfolio-reports/templates",
 	requireAuth,
-	requireRole("agent", "partner", "admin"),
+	requireRole("partner", "admin"),
 	async (req: Request, res: Response) => {
 		try {
 			const userId = (req.user as any)?.id;
@@ -316,7 +316,7 @@ router.get(
 router.get(
 	"/api/portfolio-reports/templates/:id",
 	requireAuth,
-	requireRole("agent", "partner", "admin"),
+	requireRole("partner", "admin"),
 	async (req: Request, res: Response) => {
 		try {
 			const template = await reportOrchestratorService.getTemplate(
@@ -338,7 +338,7 @@ router.get(
 router.delete(
 	"/api/portfolio-reports/templates/:id",
 	requireAuth,
-	requireRole("agent", "partner", "admin"),
+	requireRole("partner", "admin"),
 	async (req: Request, res: Response) => {
 		try {
 			const userId = (req.user as any)?.id;
@@ -358,7 +358,7 @@ router.delete(
 router.get(
 	"/api/portfolio-reports/:id/audit",
 	requireAuth,
-	requireRole("agent", "partner", "admin"),
+	requireRole("partner", "admin"),
 	async (req: Request, res: Response) => {
 		try {
 			const logs = await reportOrchestratorService.getAuditLogs(req.params.id);
@@ -373,7 +373,7 @@ router.get(
 router.post(
 	"/api/portfolio-reports/:id/attach-proposal",
 	requireAuth,
-	requireRole("agent", "partner", "admin"),
+	requireRole("partner", "admin"),
 	async (req: Request, res: Response) => {
 		try {
 			const userId = (req.user as any)?.id;

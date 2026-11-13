@@ -300,6 +300,7 @@ export interface ParseOptions {
 	userId?: string;
 	replaceExisting?: boolean;
 	source?: ImportSource;
+	password?: string;
 }
 
 export function useParsePortfolioPDF() {
@@ -313,6 +314,9 @@ export function useParsePortfolioPDF() {
 			formData.append("portfolio", file);
 			if (options?.prospectId) {
 				formData.append("prospectId", options.prospectId);
+			}
+			if (options?.password) {
+				formData.append("password", options.password);
 			}
 
 			const endpoint = options?.prospectId
@@ -372,6 +376,9 @@ export function useParseCASStatement() {
 			if (options?.prospectId) {
 				formData.append("prospectId", options.prospectId);
 			}
+			if (options?.password) {
+				formData.append("password", options.password);
+			}
 
 			const endpoint = options?.prospectId
 				? "/api/agent-wizard/portfolio/parse-cas"
@@ -387,7 +394,16 @@ export function useParseCASStatement() {
 				const error = await res
 					.json()
 					.catch(() => ({ message: "Failed to parse CAS statement" }));
-				throw new Error(error.message || "Failed to parse CAS statement");
+				const err = new Error(
+					error.message || error.error || "Failed to parse CAS statement",
+				);
+				(err as any).isPasswordProtected =
+					error.isPasswordProtected ||
+					error.requiresPassword ||
+					error.errorCode === "PASSWORD_PROTECTED" ||
+					error.errorCode === "INCORRECT_PASSWORD";
+				(err as any).errorCode = error.errorCode;
+				throw err;
 			}
 			return res.json();
 		},
@@ -398,13 +414,14 @@ export function useSmartImport() {
 	return useMutation<
 		ImportResult,
 		Error,
-		{ file?: File; url?: string; prospectId?: string }
+		{ file?: File; url?: string; prospectId?: string; password?: string }
 	>({
-		mutationFn: async ({ file, url, prospectId }) => {
+		mutationFn: async ({ file, url, prospectId, password }) => {
 			const formData = new FormData();
 			if (file) formData.append("portfolio", file);
 			if (url) formData.append("url", url);
 			if (prospectId) formData.append("prospectId", prospectId);
+			if (password) formData.append("password", password);
 
 			const res = await fetch("/api/portfolio/import/smart", {
 				method: "POST",
@@ -416,9 +433,16 @@ export function useSmartImport() {
 				const error = await res
 					.json()
 					.catch(() => ({ message: "Failed to import portfolio" }));
-				throw new Error(
+				const err = new Error(
 					error.message || error.error || "Failed to import portfolio",
 				);
+				(err as any).isPasswordProtected =
+					error.isPasswordProtected ||
+					error.requiresPassword ||
+					error.errorCode === "PASSWORD_PROTECTED" ||
+					error.errorCode === "INCORRECT_PASSWORD";
+				(err as any).errorCode = error.errorCode;
+				throw err;
 			}
 			return res.json();
 		},

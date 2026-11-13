@@ -30,6 +30,7 @@ import {
 	parseURLPortfolio,
 	type ImportedHolding,
 } from "./portfolio-parser";
+import { deriveCasPassword } from "./cas-pdf-parser";
 import {
 	WealthyImportService,
 	type WealthyHolding,
@@ -52,17 +53,50 @@ class UnifiedPortfolioImportService {
 	async importFromPDF(
 		buffer: Buffer,
 		fileName: string,
-		options?: { detectCAS?: boolean; enableDualRun?: boolean },
+		options?: {
+			detectCAS?: boolean;
+			enableDualRun?: boolean;
+			password?: string;
+			pan?: string;
+			dob?: string;
+		},
 	): Promise<UnifiedImportResult> {
 		const result = createEmptyImportResult("broker_pdf");
 		result.sourceFileName = fileName;
 		const startTime = Date.now();
 
 		try {
-			const parseResult = await unifiedPDFParser.extractTextSafe(buffer);
+			let candidatePassword = options?.password;
+			let parseResult = await unifiedPDFParser.extractTextSafe(buffer, {
+				password: candidatePassword,
+			});
+
+			// If encrypted and no manual password provided, try auto-deriving SEBI CAS password from PAN + DOB
+			if (
+				!parseResult.success &&
+				parseResult.isPasswordProtected &&
+				!candidatePassword &&
+				options?.pan &&
+				options?.dob
+			) {
+				const derived = deriveCasPassword(options.pan, options.dob);
+				console.log(
+					`[UnifiedImport] Encrypted PDF detected — attempting auto-derived CAS password for ${options.pan.slice(0, 3)}**`,
+				);
+				const retryResult = await unifiedPDFParser.extractTextSafe(buffer, {
+					password: derived,
+				});
+				if (retryResult.success) {
+					parseResult = retryResult;
+					candidatePassword = derived;
+				}
+			}
+
 			if (!parseResult.success || !parseResult.result) {
 				result.errors.push(parseResult.error || "Failed to parse PDF");
 				result.parsingStatus = "failed";
+				result.isPasswordProtected = parseResult.isPasswordProtected;
+				result.errorCode = parseResult.errorCode;
 				return result;
 			}
 
@@ -80,6 +114,7 @@ class UnifiedPortfolioImportService {
 			console.log("[Parser] Using unified PDF parser");
 			const parserResult = await unifiedPDFParser.parseDocument(buffer, {
 				fileName,
+				password: candidatePassword,
 			});
 
 			if (!parserResult.success || parserResult.confidenceScore < 0.5) {
@@ -152,7 +187,9 @@ class UnifiedPortfolioImportService {
 			}
 
 			// Fallback to legacy portfolio parser if unified parser fails
-			const portfolioResult = await parsePDFPortfolio(buffer, fileName);
+			const portfolioResult = await parsePDFPortfolio(buffer, fileName, {
+				password: candidatePassword,
+			});
 
 			result.holdings = this.convertImportedHoldings(portfolioResult.holdings);
 			result.summary = holdingNormalizationService.computeSummary(
@@ -415,7 +452,13 @@ class UnifiedPortfolioImportService {
 		prospectId: string,
 		buffer: Buffer,
 		fileName: string,
-		options?: { detectCAS?: boolean; replaceExisting?: boolean },
+		options?: {
+			detectCAS?: boolean;
+			replaceExisting?: boolean;
+			password?: string;
+			pan?: string;
+			dob?: string;
+		},
 	): Promise<UnifiedImportResult & { storageResult?: any }> {
 		const importResult = await this.importFromPDF(buffer, fileName, options);
 

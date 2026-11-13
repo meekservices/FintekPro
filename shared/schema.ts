@@ -7983,7 +7983,7 @@ export const knowledgeHubConfig = pgTable("knowledge_hub_config", {
   
   // Feature Flags
   isEnabled: boolean("is_enabled").default(true).notNull(),
-  enabledForRoles: jsonb("enabled_for_roles").default(["agent", "partner"]),
+  enabledForRoles: jsonb("enabled_for_roles").default(["partner"]),
   
   // Market Brief Settings
   marketBriefEnabled: boolean("market_brief_enabled").default(true),

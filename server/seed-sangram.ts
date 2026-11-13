@@ -28,7 +28,7 @@ async function seedSangram() {
 			password: hashedPassword,
 			firstName: "Sangram",
 			lastName: "Mohanty",
-			roles: ["admin", "agent"],
+			roles: ["admin", "partner"],
 			isEmailVerified: true,
 			isActive: true,
 			planTier: "premium",

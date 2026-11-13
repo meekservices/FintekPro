@@ -235,7 +235,7 @@ export function registerLeadLeakageRoutes(app: Express) {
 		async (req: any, res: Response) => {
 			try {
 				let leads;
-				if (req.user.role === "agent") {
+				if (req.user.role === "partner" || req.user.role === "agent") {
 					leads = await leadRegistryService.getLeadsByAgent(req.user.id);
 				} else {
 					leads = await leadRegistryService.getLeadsByPartner(
@@ -494,7 +494,7 @@ export function registerLeadLeakageRoutes(app: Express) {
 			try {
 				const { status, agentId } = req.query;
 				let claims;
-				if (req.user.role === "agent") {
+				if (req.user.role === "partner" || req.user.role === "agent") {
 					claims = await payoutClaimService.getClaimsByAgent(req.user.id);
 				} else if (["admin", "superadmin"].includes(req.user.role) && status) {
 					claims = await payoutClaimService.getClaimsByStatus(status as string);

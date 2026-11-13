@@ -178,20 +178,21 @@ function parseHoldingsFromText(
 export async function parseCasPdf(
   fileBuffer: Buffer,
   pan: string,
-  dob: string
+  dob: string,
+  explicitPassword?: string
 ): Promise<ParsedCasHolding[]> {
   const safeCtx = { event: "CAS_PDF_PARSE", pan_prefix: pan.slice(0, 3) + "**" };
 
   let text: string;
 
   try {
-    text = await extractPdfText(fileBuffer);
-    logger.info("CAS PDF opened without password", { ...safeCtx, status: "unencrypted" });
+    text = await extractPdfText(fileBuffer, explicitPassword);
+    logger.info("CAS PDF opened successfully", { ...safeCtx, status: explicitPassword ? "decrypted_with_password" : "unencrypted" });
   } catch (err) {
     if (!(err instanceof CasPdfDecryptError)) throw err;
 
-    const password = deriveCasPassword(pan, dob);
-    logger.info("CAS PDF encrypted — retrying with derived password", {
+    const password = explicitPassword || deriveCasPassword(pan, dob);
+    logger.info("CAS PDF encrypted — retrying with password", {
       ...safeCtx, password_len: password.length,
     });
 

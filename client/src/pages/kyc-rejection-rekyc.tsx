@@ -117,7 +117,7 @@ export default function KycRejectionRekyc() {
 	const [agentRejectNotes, setAgentRejectNotes] = useState("");
 	const [agentRequireReKyc, setAgentRequireReKyc] = useState(true);
 
-	const isAgent = user?.roles?.includes("agent");
+	const isAgent = user?.roles?.includes("partner") || user?.roles?.includes("agent");
 
 	const params = new URLSearchParams(window.location.search);
 	const clientUserId = isAgent ? params.get("userId") || undefined : undefined;

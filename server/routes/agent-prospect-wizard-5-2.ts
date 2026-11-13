@@ -297,7 +297,7 @@ const generateProposalSchema = z.object({
 router.post(
 	"/prospects/:id/goals",
 	requireAuth,
-	requireRole(["admin", "agent", "ops"]),
+	requireRole(["admin", "partner", "ops"]),
 	async (req: Request, res: Response) => {
 		try {
 			const { id: prospectId } = req.params;
@@ -425,7 +425,7 @@ router.post(
 router.get(
 	"/prospects/:id/goals",
 	requireAuth,
-	requireRole(["admin", "agent", "ops"]),
+	requireRole(["admin", "partner", "ops"]),
 	async (req: Request, res: Response) => {
 		try {
 			const { id: prospectId } = req.params;

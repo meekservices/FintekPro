@@ -201,7 +201,7 @@ export function registerCapitalGainPart3Routes(app: Express): void {
 	app.post(
 		"/api/tax/regime-comparison",
 		requireAuth,
-		requireRole("user", "client", "agent", "admin"),
+		requireRole("user", "client", "partner", "admin"),
 		taxApiRateLimiter,
 		async (req: Request, res: Response) => {
 			try {
@@ -366,7 +366,7 @@ export function registerCapitalGainPart3Routes(app: Express): void {
 	app.post(
 		"/api/itr/auto-populate",
 		requireAuth,
-		requireRole("user", "client", "agent", "admin"),
+		requireRole("user", "client", "partner", "admin"),
 		taxApiRateLimiter,
 		async (req: Request, res: Response) => {
 			try {
@@ -500,7 +500,7 @@ export function registerCapitalGainPart3Routes(app: Express): void {
 	app.post(
 		"/api/tax/pnl-report",
 		requireAuth,
-		requireRole("user", "client", "agent", "admin"),
+		requireRole("user", "client", "partner", "admin"),
 		taxApiRateLimiter,
 		async (req: Request, res: Response) => {
 			try {
@@ -589,7 +589,7 @@ export function registerCapitalGainPart3Routes(app: Express): void {
 	app.post(
 		"/api/advance-tax/validate",
 		requireAuth,
-		requireRole("user", "client", "agent", "admin"),
+		requireRole("user", "client", "partner", "admin"),
 		taxApiRateLimiter,
 		async (req: Request, res: Response) => {
 			try {

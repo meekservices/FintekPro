@@ -81,7 +81,7 @@ function resolveClientId(req: Request): {
 
 	if (clientId === "me") return { clientId: userId, forbidden: false };
 	if (clientId === userId) return { clientId: userId, forbidden: false };
-	if (role === "admin" || role === "agent")
+	if (role === "admin" || role === "partner" || role === "agent")
 		return { clientId, forbidden: false };
 
 	return { clientId: null, forbidden: true };

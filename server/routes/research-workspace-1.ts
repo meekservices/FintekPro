@@ -51,7 +51,7 @@ function determineResearchRole(user: any): ResearchRole {
 	const roles = user?.roles || [];
 	if (roles.includes("superadmin") || roles.includes("admin")) return "admin";
 	if (roles.includes("master_agent")) return "master_agent";
-	if (roles.includes("agent")) return "agent";
+	if (roles.includes("partner") || roles.includes("agent")) return "agent";
 	if (roles.includes("sub_agent")) return "sub_agent";
 	if (roles.includes("client")) return "client";
 	return "client";

@@ -161,8 +161,8 @@ export const auditTrailMiddleware = (
 			details.requestBodySize = Number.parseInt(contentLength, 10);
 
 		const user = (req as any).user;
-		const actorType = user?.roles?.includes("agent")
-			? "agent"
+		const actorType = (user?.roles?.includes("partner") || user?.roles?.includes("agent"))
+			? "partner"
 			: user
 				? "client"
 				: null;
