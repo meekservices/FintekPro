@@ -58,6 +58,7 @@ import { registerMarketNewsRoutes } from "./routes/market-news-routes";
 import { registerPlatformStatsRoutes } from "./routes/platform-stats-routes";
 import { registerPortalSystemRoutes } from "./routes/portal-system";
 import { registerBondsMarketRoutes } from "./routes/bonds-market";
+import crossBorderTaxRouter from "./routes/cross-border-tax-routes";
 import { registerUserProfileKYCRoutes } from "./routes/user-profile-kyc";
 import yieldCurveRoutes from "./routes/yield-curve";
 import { registerReportsInlineRoutes } from "./routes/reports-inline";
@@ -607,6 +608,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 	// Tax Loss Harvesting: /api/tax-loss-harvesting/*
 	app.use("/api/tax-loss-harvesting", taxLossHarvestingRouter);
+
+	// Cross-Border Indo-US Tax & Regulatory Engine: /api/cross-border/*
+	app.use("/api/cross-border", crossBorderTaxRouter);
 
 	// Monte Carlo Goal Simulation: /api/goal-planning/*
 	app.use("/api/goal-planning", monteCarloGoalRouter);
