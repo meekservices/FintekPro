@@ -9,6 +9,7 @@ import { createHash, scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User as UserType, userTrustedDevices, users } from "@shared/schema";
+import { STATUTORY_ROLES } from "@shared/roles";
 import { db } from "./db";
 import { sessions } from "@shared/schema";
 
@@ -1670,7 +1671,9 @@ export function registerAuthRoutes(app: Express) {
 			firstName: req.user.firstName,
 			middleName: req.user.middleName,
 			lastName: req.user.lastName,
-			roles: req.user.roles,
+			roles: (req.user.roles?.includes("superadmin") || req.user.roles?.includes("super_admin"))
+				? Array.from(new Set([...(req.user.roles || []), ...STATUTORY_ROLES]))
+				: req.user.roles,
 			isEmailVerified: req.user.isEmailVerified,
 			isMobileVerified: req.user.isMobileVerified,
 			isPinSet: req.user.isPinSet,

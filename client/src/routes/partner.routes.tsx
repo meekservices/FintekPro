@@ -54,6 +54,7 @@ const SettingsPage = lazyWithRetry(() => import("@/pages/settings"));
 const ThemeSettings = lazyWithRetry(() => import("@/pages/theme-settings"));
 const Unlisted = lazyWithRetry(() => import("@/pages/unlisted"));
 const VideoKYC = lazyWithRetry(() => import("@/pages/video-kyc"));
+const PartnerCRM = lazyWithRetry(() => import("@/pages/agent-zoho-crm"));
 
 function PartnerLoading() {
 	return <LoadingState variant="partner-dashboard" />;
@@ -219,6 +220,15 @@ export function PartnerRoutes() {
 					<PartnerShell>
 						<Suspense fallback={<PartnerLoading />}>
 							<CASupportDetail />
+						</Suspense>
+					</PartnerShell>
+				)}
+			</Route>
+			<Route path="/partner/crm">
+				{() => (
+					<PartnerShell>
+						<Suspense fallback={<PartnerLoading />}>
+							<PartnerCRM />
 						</Suspense>
 					</PartnerShell>
 				)}

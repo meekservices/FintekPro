@@ -140,10 +140,10 @@ const navCategories: NavCategory[] = [
 				description: "AI-powered activity feed",
 			},
 			{
-				title: "AI Copilot Chat",
+				title: "Ask Iris (AI Co-pilot)",
 				href: "/admin/chat",
 				icon: MessageSquare,
-				description: "AI platform & advisory assistant",
+				description: "Iris by FintekPro platform & advisory assistant",
 			},
 			{
 				title: "AI Insights",

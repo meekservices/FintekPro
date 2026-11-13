@@ -240,12 +240,14 @@ class RoleService {
 	}
 
 	/**
-	 * Check if user is in distribution network (partner/agent hierarchy)
+	 * Check if user is in distribution network (partner/sales_support/client_support hierarchy)
 	 */
 	isDistributionNetwork(userRoles: RoleId[]): boolean {
 		const distributionRoles: RoleId[] = [
 			"partner",
 			"partner_ops",
+			"sales_support",
+			"client_support",
 			"agent",
 			"sub_agent",
 			"associate",

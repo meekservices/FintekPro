@@ -102,9 +102,10 @@ import {
 import { NotificationPermissionBanner } from "@/components/NotificationPermissionBanner";
 import type { LucideIcon } from "lucide-react";
 
-interface AgentLayoutProps {
+export interface AgentLayoutProps {
 	children: React.ReactNode;
 }
+export type DistributionPartnerLayoutProps = AgentLayoutProps;
 
 interface NavItem {
 	title: string;
@@ -183,10 +184,10 @@ const agentNavCategories: NavCategory[] = [
 				badge: "AI",
 			},
 			{
-				title: "Zoho CRM",
-				href: "/agent/zoho-crm",
+				title: "Partner CRM",
+				href: "/agent/crm",
 				icon: BarChart3,
-				description: "All leads from Zoho",
+				description: "Pipeline and client leads",
 			},
 			{
 				title: "Tasks",
@@ -416,10 +417,10 @@ const agentNavCategories: NavCategory[] = [
 				badge: "AI",
 			},
 			{
-				title: "AI Copilot Chat",
+				title: "Ask Iris (AI Co-pilot)",
 				href: "/agent/chat",
 				icon: MessageSquare,
-				description: "AI copilot & assistant chat",
+				description: "Iris by FintekPro advisory assistant",
 				badge: "AI",
 			},
 			{
@@ -546,7 +547,9 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 	const [sidebarOpen, setSidebarOpen] = useState(() => {
 		if (typeof window !== "undefined") {
 			if (window.innerWidth < 768) return false;
-			const saved = localStorage.getItem("agent-sidebar-open");
+			const saved =
+				localStorage.getItem("partner-sidebar-open") ||
+				localStorage.getItem("agent-sidebar-open");
 			return saved !== null ? saved === "true" : true;
 		}
 		return true;
@@ -554,7 +557,9 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 	const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
 		() => {
 			if (typeof window !== "undefined") {
-				const saved = localStorage.getItem("agent-expanded-categories");
+				const saved =
+					localStorage.getItem("partner-expanded-categories") ||
+					localStorage.getItem("agent-expanded-categories");
 				return saved
 					? new Set(JSON.parse(saved))
 					: new Set(["Dashboard", "Leads & CRM"]);
@@ -567,14 +572,14 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 
 	useEffect(() => {
 		if (typeof window !== "undefined" && window.innerWidth >= 768) {
-			localStorage.setItem("agent-sidebar-open", String(sidebarOpen));
+			localStorage.setItem("partner-sidebar-open", String(sidebarOpen));
 		}
 	}, [sidebarOpen]);
 
 	// Persist expanded categories
 	useEffect(() => {
 		localStorage.setItem(
-			"agent-expanded-categories",
+			"partner-expanded-categories",
 			JSON.stringify(Array.from(expandedCategories)),
 		);
 	}, [expandedCategories]);
@@ -939,13 +944,17 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 	}
 
 	const actualUser = (user as any)?.data || user;
-	const isAgent =
-		actualUser?.roles?.includes("agent") ||
+	const isPartner =
+		actualUser?.roles?.includes("partner") ||
+		actualUser?.roles?.includes("sales_support") ||
+		actualUser?.roles?.includes("client_support") ||
+		actualUser?.roles?.includes("master_agent") ||
 		actualUser?.roles?.includes("admin") ||
 		actualUser?.roles?.includes("superadmin") ||
-		actualUser?.roles?.includes("partner");
+		actualUser?.roles?.includes("agent") ||
+		actualUser?.roles?.includes("sub_agent");
 
-	if (!isAgent) {
+	if (!isPartner) {
 		return (
 			<div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-950 dark:to-orange-950 flex flex-col p-4 md:p-8">
 				<header className="mb-8 flex justify-center md:justify-start">
@@ -1347,12 +1356,12 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 					<CommandGroup heading="Quick Actions">
 						<CommandItem
 							onSelect={() => {
-								navigate("/agent/zoho-crm");
+								navigate("/agent/crm");
 								setSearchOpen(false);
 							}}
 						>
 							<Target className="mr-2 h-4 w-4" />
-							<span>Zoho CRM Leads</span>
+							<span>Partner CRM Leads</span>
 						</CommandItem>
 						<CommandItem
 							onSelect={() => {
@@ -1438,3 +1447,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 		</div>
 	);
 }
+
+// Canonical export for distribution partner portal
+export const DistributionPartnerLayout = AgentLayout;
+

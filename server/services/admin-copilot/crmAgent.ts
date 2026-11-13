@@ -41,9 +41,45 @@ export async function syncCrmLeads(
 	adminUserId: string,
 ): Promise<{ synced: number; intelligenceGenerated: number }> {
 	const start = Date.now();
-	const crm = buildCrmService(connectionId);
+	let leads: any[] = [];
+	let isNative = false;
 
-	const leads = await crm.getLeads(200);
+	if (!connectionId || connectionId === "native" || connectionId === "fintekpro_native") {
+		isNative = true;
+		const { prospectLeads } = await import("@shared/schema/crm");
+		const nativeRows = await db.select().from(prospectLeads).limit(200);
+		leads = nativeRows.map((l) => ({
+			id: l.id,
+			First_Name: l.primaryContactName?.split(" ")[0] || l.companyName,
+			Last_Name: l.primaryContactName?.split(" ").slice(1).join(" ") || "",
+			Email: l.primaryEmail,
+			Phone: l.primaryMobile,
+			Company: l.companyName,
+			Lead_Source: l.source || "Native CRM",
+			Lead_Status: l.status || "New",
+		}));
+	} else {
+		try {
+			const crm = buildCrmService(connectionId);
+			leads = await crm.getLeads(200);
+		} catch (err: any) {
+			console.warn("[CRM Agent] Zoho CRM unavailable, falling back to native leads:", err.message);
+			isNative = true;
+			const { prospectLeads } = await import("@shared/schema/crm");
+			const nativeRows = await db.select().from(prospectLeads).limit(200);
+			leads = nativeRows.map((l) => ({
+				id: l.id,
+				First_Name: l.primaryContactName?.split(" ")[0] || l.companyName,
+				Last_Name: l.primaryContactName?.split(" ").slice(1).join(" ") || "",
+				Email: l.primaryEmail,
+				Phone: l.primaryMobile,
+				Company: l.companyName,
+				Lead_Source: l.source || "Native CRM",
+				Lead_Status: l.status || "New",
+			}));
+		}
+	}
+
 	let intelligenceGenerated = 0;
 
 	for (const lead of leads) {

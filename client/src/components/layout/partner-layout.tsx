@@ -63,82 +63,70 @@ const partnerNavSections: NavSection[] = [
 		section: "Overview",
 		items: [
 			{
-				title: "Dashboard",
+				title: "Practice Dashboard",
 				href: "/partner-portal",
 				icon: Home,
-				description: "Key metrics & overview",
+				description: "Key metrics, filings & revenue overview",
 			},
 			{
-				title: "AI Copilot Chat",
+				title: "Ask Iris (CA & CS Co-pilot)",
 				href: "/partner/chat",
 				icon: MessageSquare,
-				description: "AI partner copilot & advisory",
-			},
-		],
-	},
-	{
-		id: "partner-network",
-		section: "Partner Network",
-		items: [
-			{
-				title: "My Team",
-				href: "/partner/my-team?tab=team",
-				icon: GitBranch,
-				description: "Sub-partners, SM/RM, invites & commissions",
-			},
-			{
-				title: "Lead Pipeline",
-				href: "/partner/leads",
-				icon: Target,
-				description: "Track, edit & convert leads",
-			},
-			{
-				title: "Partner Cost Centre",
-				href: "/partner/agents",
-				icon: Users,
-				description: "Recruit & manage partners in your hierarchy",
-			},
-			{
-				title: "Partner Performance",
-				href: "/partner/agent-performance",
-				icon: LineChart,
-				description: "Track partner metrics & P&L",
-			},
-			{
-				title: "Partner Payouts",
-				href: "/partner/payouts",
-				icon: DollarSign,
-				description: "Commission payouts & settlements",
+				description: "Iris by FintekPro tax, ROC & advisory assistant",
 			},
 		],
 	},
 	{
 		id: "ca-services",
-		section: "CA Services",
+		section: "CA & CS Professional Services",
 		items: [
 			{
-				title: "CA Management",
-				href: "/partner/ca-management",
-				icon: UserCheck,
-				description: "Onboard CAs & assign cases",
-			},
-			{
-				title: "CA Dashboard",
+				title: "CA & CS Dashboard",
 				href: "/partner/ca-dashboard",
 				icon: Briefcase,
-				description: "Cases, client overview & CA earnings",
+				description: "Audit cases, ROC/MCA filings & professional earnings",
 			},
 			{
-				title: "CA Clients",
+				title: "Client Matters & Filings",
 				href: "/partner/ca-clients",
 				icon: UserCog,
-				description: "Manage CA-assigned clients",
+				description: "Manage CA & CS assigned client cases",
 			},
 			{
-				title: "CA Support",
+				title: "CA & CS Management",
+				href: "/partner/ca-management",
+				icon: UserCheck,
+				description: "Onboard CAs & CSs and assign matters",
+			},
+			{
+				title: "Professional Support",
 				href: "/partner/ca-support",
 				icon: Headphones,
-				description: "CA assistance & support tickets",
+				description: "Technical, tax & secretarial assistance",
+			},
+		],
+	},
+	{
+		id: "partner-network",
+		section: "Professional Network",
+		items: [
+			{
+				title: "My Team",
+				href: "/partner/my-team?tab=team",
+				icon: GitBranch,
+				description: "Associate CAs, CSs, articled staff & revenue splits",
+			},
+			{
+				title: "Client Leads & Inquiries",
+				href: "/partner/leads",
+				icon: Target,
+				description: "Track & convert audit, tax & secretarial leads",
+			},
+			{
+				title: "Professional Payouts",
+				href: "/partner/payouts",
+				icon: DollarSign,
+				description: "Fee payouts, disbursements & settlements",
 			},
 		],
 	},
@@ -217,9 +205,17 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
 	});
 	const isCaQualified = caStatus?.isCaQualified ?? false;
 
-	const caOnlySections = ["CA Services"];
+	const isCaOrCs =
+		isCaQualified ||
+		user?.roles?.includes("ca") ||
+		user?.roles?.includes("cs") ||
+		user?.roles?.includes("partner") ||
+		user?.roles?.includes("admin") ||
+		user?.roles?.includes("superadmin");
+
+	const caOnlySections = ["CA & CS Professional Services", "CA Services"];
 	const visibleNavSections = partnerNavSections.filter(
-		(s) => !caOnlySections.includes(s.section) || isCaQualified,
+		(s) => !caOnlySections.includes(s.section) || isCaOrCs,
 	);
 
 	const toggleExpanded = (title: string) => {
@@ -267,11 +263,13 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
 
 	const isPartner =
 		user.roles?.includes("partner") ||
-		user.roles?.includes("agent") ||
+		user.roles?.includes("ca") ||
+		user.roles?.includes("cs") ||
 		user.roles?.includes("master_agent") ||
 		user.roles?.includes("sub_agent") ||
 		user.roles?.includes("admin") ||
-		user.roles?.includes("superadmin");
+		user.roles?.includes("superadmin") ||
+		user.roles?.includes("agent");
 
 	if (!isPartner) {
 		return (
@@ -282,7 +280,7 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
 						Access Denied
 					</h1>
 					<p className="text-muted-foreground mb-2">
-						This partner portal is restricted to registered partners only.
+						This portal is restricted to registered Chartered Accountants (CAs), Company Secretaries (CSs), and Professional Partners.
 					</p>
 					{user.email && (
 						<p className="text-sm text-muted-foreground mb-6">
@@ -339,12 +337,12 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
 						</Button>
 						<div className="flex items-center gap-3">
 							<PortalLogo size="md" showTagline />
-							<div className="hidden">
-								<h1 className="text-xl font-bold text-foreground">
-									FintekPro Partner
+							<div className="hidden sm:block">
+								<h1 className="text-sm font-bold text-foreground">
+									FintekPro CA & CS
 								</h1>
-								<p className="text-xs text-indigo-300">
-									Business Partner Portal
+								<p className="text-[10px] text-indigo-300">
+									Chartered Accountant & Company Secretary Portal
 								</p>
 							</div>
 						</div>
@@ -380,6 +378,10 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
 								<p className="text-xs text-indigo-400 capitalize">
 									{user?.roles?.includes("master_agent")
 										? "Master Partner"
+										: user?.roles?.includes("sales_support")
+										? "Sales Support"
+										: user?.roles?.includes("client_support")
+										? "Client Support"
 										: "Partner"}
 								</p>
 							</div>

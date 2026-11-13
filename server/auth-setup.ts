@@ -4,6 +4,7 @@ import session from "express-session";
 import passport from "passport";
 import { storage } from "./storage";
 import { validateSessionPortal } from "./subdomain-middleware";
+import { STATUTORY_ROLES } from "@shared/roles";
 
 // Extend express-session to include passport property
 declare module "express-session" {
@@ -172,6 +173,12 @@ export async function setupAuth(app: Express) {
 				);
 				return done(null, false);
 			}
+
+			// Assign all mandatory statutory roles to superadmin
+			if (user.roles?.includes("superadmin") || user.roles?.includes("super_admin")) {
+				user.roles = Array.from(new Set([...user.roles, ...STATUTORY_ROLES]));
+			}
+
 			done(null, user);
 		} catch (err: unknown) {
 			// CRITICAL FIX: calling done(err) here propagates the DB error as an

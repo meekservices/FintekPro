@@ -40,6 +40,7 @@ import {
 	CheckCircle2,
 	HelpCircle,
 } from "lucide-react";
+import { IRIS_CONFIG } from "@shared/iris-config";
 
 export interface ChatInstrumentTarget {
 	type?:
@@ -204,7 +205,7 @@ export function InstrumentChatDialog({
 				{
 					id: "welcome",
 					role: "assistant",
-					content: `Hello! I am your **FintekPro FASP-AI Decision Support Copilot**. I have loaded full operational & quantitative context for **${instrument.name} (${instSymbol})** [${typeLabel}].
+					content: `Hello! I am **Iris by FintekPro**, your AI Decision Support Co-pilot. I have loaded full operational & quantitative context for **${instrument.name} (${instSymbol})** [${typeLabel}].
 
 Ask any question about fundamentals, valuation multiples, thematic catalysts, risk breakdown, or portfolio suitability.`,
 					timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -505,7 +506,7 @@ Ask any question about fundamentals, valuation multiples, thematic catalysts, ri
 					{isLoading && (
 						<div className="flex items-center gap-2 text-xs text-muted-foreground p-3 bg-muted/20 rounded-xl w-fit">
 							<Loader2 className="h-4 w-4 animate-spin text-primary" />
-							<span>FintekPro FASP-AI evaluating {instrument.name}...</span>
+							<span>{IRIS_CONFIG.ui.statusAnalyzing}</span>
 						</div>
 					)}
 				</div>
@@ -520,7 +521,7 @@ Ask any question about fundamentals, valuation multiples, thematic catalysts, ri
 						className="flex items-center gap-2"
 					>
 						<Input
-							placeholder={`Ask AI about ${instrument.name} (${instrument.symbolOrId})...`}
+							placeholder={`Ask Iris about ${instrument.name} (${instrument.symbolOrId})...`}
 							value={input}
 							disabled={isLoading}
 							onChange={(e) => setInput(e.target.value)}
@@ -542,7 +543,7 @@ Ask any question about fundamentals, valuation multiples, thematic catalysts, ri
 					</form>
 
 					<div className="text-[10px] text-muted-foreground text-center">
-						Decision Support only · SEBI registered IA rules apply · Not automated trade execution
+						{IRIS_CONFIG.disclaimers.faspAi}
 					</div>
 				</div>
 			</DialogContent>

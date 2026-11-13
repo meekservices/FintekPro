@@ -11,6 +11,7 @@ import {
 	ADMIN_PORTAL_ROLES,
 	PARTNER_PORTAL_ROLES,
 	AGENT_PORTAL_ROLES,
+	STATUTORY_ROLES,
 } from "@shared/roles";
 
 // Note: Express.User is already extended in auth.ts
@@ -25,7 +26,8 @@ interface UserWithRole {
 
 /**
  * Normalize user roles from various formats.
- * Automatically maps legacy human 'agent' role to 'partner' ('agent' is reserved exclusively for AI agents).
+ * Automatically maps legacy human 'agent' -> 'sales_support' and 'sub_agent' -> 'client_support'.
+ * ('agent' is reserved exclusively for AI agents).
  */
 function getUserRoles(
 	user: UserWithRole | Record<string, any> | undefined,
@@ -34,9 +36,21 @@ function getUserRoles(
 
 	// Support both old single role field and new roles array
 	const rawRoles = user.roles || (user.role ? [user.role] : ["user"]);
-	const normalizedRoles = (rawRoles || ["user"]).map((r: string) =>
-		r === "agent" ? "partner" : r,
-	);
+	const normalizedRoles = (rawRoles || ["user"]).map((r: string) => {
+		if (r === "agent") return "sales_support";
+		if (r === "sub_agent") return "client_support";
+		return r;
+	});
+
+	// Automatically assign all mandatory statutory regulatory roles to superadmin
+	if (normalizedRoles.includes("superadmin") || normalizedRoles.includes("super_admin" as any)) {
+		for (const statRole of STATUTORY_ROLES) {
+			if (!normalizedRoles.includes(statRole)) {
+				normalizedRoles.push(statRole);
+			}
+		}
+	}
+
 	return normalizedRoles.filter(
 		(r: string) => r in ROLE_DEFINITIONS,
 	) as RoleId[];
@@ -308,9 +322,9 @@ export function requireBD(req: Request, res: Response, next: NextFunction) {
 }
 
 /**
- * Middleware: Require Partner or higher role (includes partner, admin hierarchy)
- * Allows: superadmin, master_agent, admin, bd_head, partner, agent, sub_agent, associate
- * Note: Human agent role has been migrated to Partner. "Agent" is reserved exclusively for AI agents.
+ * Middleware: Require Partner or higher role (includes partner, sales_support, client_support, admin hierarchy)
+ * Allows: superadmin, master_agent, admin, bd_head, partner, sales_support, client_support, sub_agent, associate
+ * Note: Human agent role has been renamed to Sales Support, sub-agent to Client Support. "Agent" is reserved exclusively for AI agents.
  */
 export function requirePartner(req: Request, res: Response, next: NextFunction) {
 	return requireRole(
@@ -319,6 +333,8 @@ export function requirePartner(req: Request, res: Response, next: NextFunction) 
 		"admin",
 		"bd_head",
 		"partner",
+		"sales_support",
+		"client_support",
 		"agent",
 		"sub_agent",
 		"associate",
@@ -337,6 +353,8 @@ export function requireClient(req: Request, res: Response, next: NextFunction) {
 		"master_agent",
 		"admin",
 		"partner",
+		"sales_support",
+		"client_support",
 		"agent",
 		"sub_agent",
 		"associate",

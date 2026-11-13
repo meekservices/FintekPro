@@ -14,6 +14,17 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
 	Target,
 	Search,
 	Plus,
@@ -30,14 +41,16 @@ import {
 	AlertCircle,
 	ChevronRight,
 	Loader2,
+	TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
-interface ZohoLead {
+interface CRMLead {
 	id: string;
-	First_Name: string;
-	Last_Name: string;
+	First_Name?: string;
+	Last_Name?: string;
 	Full_Name: string;
 	Email: string;
 	Phone: string;
@@ -46,7 +59,13 @@ interface ZohoLead {
 	Lead_Status: string;
 	Lead_Source: string;
 	Created_Time: string;
-	Modified_Time: string;
+	Modified_Time?: string;
+	cin?: string | null;
+	leadScore?: number | null;
+	wealthScore?: string | null;
+	activityScore?: string | null;
+	compositeScore?: string | null;
+	notes?: string | null;
 	Owner?: { name: string; email: string };
 }
 
@@ -61,10 +80,23 @@ const statusColors: Record<string, string> = {
 
 export default function AgentZohoCRM() {
 	const [, navigate] = useLocation();
+	const { toast } = useToast();
 	const [searchQuery, setSearchQuery] = useState("");
-	const [selectedLead, setSelectedLead] = useState<ZohoLead | null>(null);
+	const [selectedLead, setSelectedLead] = useState<CRMLead | null>(null);
 	const [activeTab, setActiveTab] = useState("all");
+	const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
+	// New lead form state
+	const [newLeadForm, setNewLeadForm] = useState({
+		companyName: "",
+		contactName: "",
+		email: "",
+		phone: "",
+		status: "new",
+		notes: "",
+	});
+
+	// Primary query: native CRM leads
 	const {
 		data: leadsData,
 		isLoading,
@@ -72,15 +104,14 @@ export default function AgentZohoCRM() {
 		isFetching,
 		error: leadsError,
 	} = useQuery<{
-		leads: ZohoLead[];
+		leads: CRMLead[];
 		total: number;
 		connected?: boolean;
 		message?: string;
 	}>({
-		queryKey: ["/api/agent/zoho/leads"],
+		queryKey: ["/api/crm/leads"],
 	});
 
-	const isConnected = leadsData?.connected === true;
 	const leads = leadsData?.leads || [];
 
 	const filteredLeads = leads.filter((lead) => {
@@ -95,31 +126,73 @@ export default function AgentZohoCRM() {
 			activeTab === "all" ||
 			(activeTab === "new" && lead.Lead_Status === "New") ||
 			(activeTab === "qualified" && lead.Lead_Status === "Qualified") ||
-			(activeTab === "contacted" && lead.Lead_Status === "Contacted");
+			(activeTab === "contacted" && lead.Lead_Status === "Contacted") ||
+			(activeTab === "converted" && lead.Lead_Status === "Converted");
 
 		return matchesSearch && matchesTab;
 	});
 
 	const syncMutation = useMutation({
-		mutationFn: () => apiRequest("/api/agent/zoho/sync", { method: "POST" }),
+		mutationFn: () => apiRequest("/api/crm/sync", "POST"),
 		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["/api/crm/leads"] });
 			queryClient.invalidateQueries({ queryKey: ["/api/agent/zoho/leads"] });
+			toast({
+				title: "CRM Refreshed",
+				description: "Latest lead data loaded successfully.",
+			});
 		},
 	});
 
-	const handleCreateProposal = (lead: ZohoLead) => {
+	const createLeadMutation = useMutation({
+		mutationFn: async (payload: typeof newLeadForm) => {
+			return await apiRequest("/api/crm/leads", "POST", {
+				companyName: payload.companyName,
+				primaryContactName: payload.contactName,
+				primaryEmail: payload.email,
+				primaryMobile: payload.phone,
+				status: payload.status,
+				notes: payload.notes,
+			});
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["/api/crm/leads"] });
+			setCreateDialogOpen(false);
+			setNewLeadForm({
+				companyName: "",
+				contactName: "",
+				email: "",
+				phone: "",
+				status: "new",
+				notes: "",
+			});
+			toast({
+				title: "Lead Created",
+				description: "New prospect lead added to your CRM pipeline.",
+			});
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Failed to create lead",
+				description: err.message || "An error occurred",
+				variant: "destructive",
+			});
+		},
+	});
+
+	const handleCreateProposal = (lead: CRMLead) => {
 		const params = new URLSearchParams({
 			leadId: lead.id,
-			name: lead.Full_Name || `${lead.First_Name} ${lead.Last_Name}`,
+			name: lead.Full_Name || `${lead.First_Name || ""} ${lead.Last_Name || ""}`.trim(),
 			email: lead.Email || "",
 			phone: lead.Phone || lead.Mobile || "",
 			company: lead.Company || "",
-			source: "zoho",
+			source: "native_crm",
 		});
-		navigate(`/agent/proposal-builder?${params.toString()}`);
+		navigate(`/partner/proposal-builder?${params.toString()}`);
 	};
 
-	const formatDate = (dateStr: string) => {
+	const formatDate = (dateStr?: string) => {
 		if (!dateStr) return "-";
 		try {
 			return new Date(dateStr).toLocaleDateString("en-IN", {
@@ -148,18 +221,23 @@ export default function AgentZohoCRM() {
 
 	return (
 		<div className="space-y-6">
-			<div className="flex items-center justify-between">
+			<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 				<div>
-					<h1 className="text-2xl font-bold text-foreground">Zoho CRM</h1>
-					<p className="text-muted-foreground">
-						Manage your leads from Zoho CRM
+					<div className="flex items-center gap-2">
+						<h1 className="text-2xl font-bold text-foreground">Partner CRM</h1>
+						<Badge variant="outline" className="border-emerald-500/30 text-emerald-400 bg-emerald-500/10">
+							Native Database
+						</Badge>
+					</div>
+					<p className="text-muted-foreground text-sm mt-1">
+						Manage your client pipeline, prospect leads, and investment opportunities
 					</p>
 				</div>
 				<div className="flex items-center gap-3">
 					<Button
 						variant="outline"
 						onClick={() => syncMutation.mutate()}
-						disabled={syncMutation.isPending}
+						disabled={syncMutation.isPending || isFetching}
 						className="border-border text-muted-foreground hover:bg-card"
 					>
 						<RefreshCw
@@ -168,8 +246,104 @@ export default function AgentZohoCRM() {
 								(isFetching || syncMutation.isPending) && "animate-spin",
 							)}
 						/>
-						Sync from Zoho
+						Refresh
 					</Button>
+
+					<Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+						<DialogTrigger asChild>
+							<Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
+								<Plus className="h-4 w-4 mr-2" />
+								Add Lead
+							</Button>
+						</DialogTrigger>
+						<DialogContent className="sm:max-w-[450px]">
+							<DialogHeader>
+								<DialogTitle>Add New Lead</DialogTitle>
+								<DialogDescription>
+									Create a new client or corporate prospect in your CRM pipeline.
+								</DialogDescription>
+							</DialogHeader>
+							<div className="space-y-3 py-2">
+								<div className="space-y-1">
+									<Label htmlFor="contactName">Contact Name *</Label>
+									<Input
+										id="contactName"
+										placeholder="e.g. Ramesh Sharma"
+										value={newLeadForm.contactName}
+										onChange={(e) =>
+											setNewLeadForm((prev) => ({ ...prev, contactName: e.target.value }))
+										}
+									/>
+								</div>
+								<div className="space-y-1">
+									<Label htmlFor="companyName">Company / Organization</Label>
+									<Input
+										id="companyName"
+										placeholder="e.g. Sharma Enterprises Pvt Ltd"
+										value={newLeadForm.companyName}
+										onChange={(e) =>
+											setNewLeadForm((prev) => ({ ...prev, companyName: e.target.value }))
+										}
+									/>
+								</div>
+								<div className="grid grid-cols-2 gap-3">
+									<div className="space-y-1">
+										<Label htmlFor="email">Email</Label>
+										<Input
+											id="email"
+											type="email"
+											placeholder="client@example.com"
+											value={newLeadForm.email}
+											onChange={(e) =>
+												setNewLeadForm((prev) => ({ ...prev, email: e.target.value }))
+											}
+										/>
+									</div>
+									<div className="space-y-1">
+										<Label htmlFor="phone">Phone / Mobile</Label>
+										<Input
+											id="phone"
+											placeholder="9876543210"
+											value={newLeadForm.phone}
+											onChange={(e) =>
+												setNewLeadForm((prev) => ({ ...prev, phone: e.target.value }))
+											}
+										/>
+									</div>
+								</div>
+								<div className="space-y-1">
+									<Label htmlFor="notes">Notes / Requirements</Label>
+									<Textarea
+										id="notes"
+										placeholder="Interested in AIF / PMS / Loan..."
+										value={newLeadForm.notes}
+										onChange={(e) =>
+											setNewLeadForm((prev) => ({ ...prev, notes: e.target.value }))
+										}
+										rows={3}
+									/>
+								</div>
+							</div>
+							<DialogFooter>
+								<Button
+									variant="outline"
+									onClick={() => setCreateDialogOpen(false)}
+								>
+									Cancel
+								</Button>
+								<Button
+									className="bg-emerald-600 hover:bg-emerald-700 text-white"
+									onClick={() => createLeadMutation.mutate(newLeadForm)}
+									disabled={createLeadMutation.isPending || (!newLeadForm.contactName && !newLeadForm.companyName)}
+								>
+									{createLeadMutation.isPending && (
+										<Loader2 className="h-4 w-4 mr-2 animate-spin" />
+									)}
+									Save Lead
+								</Button>
+							</DialogFooter>
+						</DialogContent>
+					</Dialog>
 				</div>
 			</div>
 
@@ -233,7 +407,7 @@ export default function AgentZohoCRM() {
 					<Card className="bg-background border-border">
 						<CardHeader className="pb-3">
 							<div className="flex items-center justify-between">
-								<CardTitle className="text-foreground">Leads</CardTitle>
+								<CardTitle className="text-foreground">Pipeline Leads</CardTitle>
 								<div className="relative w-64">
 									<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 									<Input
@@ -254,6 +428,7 @@ export default function AgentZohoCRM() {
 									<TabsTrigger value="new">New</TabsTrigger>
 									<TabsTrigger value="contacted">Contacted</TabsTrigger>
 									<TabsTrigger value="qualified">Qualified</TabsTrigger>
+									<TabsTrigger value="converted">Converted</TabsTrigger>
 								</TabsList>
 							</Tabs>
 						</CardHeader>
@@ -262,90 +437,73 @@ export default function AgentZohoCRM() {
 								<div className="flex items-center justify-center py-12">
 									<Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
 								</div>
-							) : !isConnected ? (
-								<div className="text-center py-12 bg-amber-500/10 rounded-lg border border-amber-500/30">
-									<AlertCircle className="h-12 w-12 text-amber-400 mx-auto mb-3" />
-									<p className="text-amber-300 font-medium">
-										Zoho CRM Not Connected
-									</p>
-									<p className="text-muted-foreground text-sm mt-1">
-										Please ask your admin to configure Zoho CRM integration
-									</p>
-								</div>
 							) : filteredLeads.length === 0 ? (
 								<div className="text-center py-12">
 									<Target className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
 									<p className="text-muted-foreground">No leads found</p>
 									<p className="text-muted-foreground text-sm mt-1">
 										{searchQuery
-											? "Try a different search"
-											: "Sync your leads from Zoho CRM"}
+											? "Try adjusting your search criteria"
+											: "Add a lead to begin tracking your pipeline"}
 									</p>
 								</div>
 							) : (
 								<ScrollArea className="h-[500px]">
 									<div className="space-y-2">
 										{filteredLeads.map((lead) => (
+											// biome-ignore lint/a11y/noStaticElementInteractions: lead selection item
+											// biome-ignore lint/a11y/useKeyWithClickEvents: lead selection item
 											<div
 												key={lead.id}
 												onClick={() => setSelectedLead(lead)}
 												className={cn(
-													"p-4 rounded-lg border cursor-pointer transition-colors",
+													"p-3 rounded-lg border transition-colors cursor-pointer",
 													selectedLead?.id === lead.id
-														? "bg-card border-emerald-500/50"
-														: "bg-card/50 border-border hover:bg-card",
+														? "border-emerald-500/50 bg-emerald-500/5"
+														: "border-border hover:bg-card/50",
 												)}
 											>
 												<div className="flex items-start justify-between">
-													<div className="flex items-start gap-3">
-														<div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-															<User className="h-5 w-5 text-muted-foreground" />
+													<div className="space-y-1">
+														<div className="flex items-center gap-2">
+															<span className="font-medium text-foreground">
+																{lead.Full_Name}
+															</span>
+															<Badge
+																variant="outline"
+																className={cn(
+																	"text-xs",
+																	statusColors[lead.Lead_Status] ||
+																		"bg-muted text-muted-foreground",
+																)}
+															>
+																{getStatusIcon(lead.Lead_Status)}
+																<span className="ml-1">{lead.Lead_Status}</span>
+															</Badge>
 														</div>
-														<div>
-															<p className="font-medium text-foreground">
-																{lead.Full_Name ||
-																	`${lead.First_Name || ""} ${lead.Last_Name || ""}`.trim() ||
-																	"Unnamed"}
+														{lead.Company && (
+															<p className="text-sm text-muted-foreground flex items-center gap-1">
+																<Building2 className="h-3 w-3" />
+																{lead.Company}
 															</p>
-															{lead.Company && (
-																<p className="text-sm text-muted-foreground flex items-center gap-1">
-																	<Building2 className="h-3 w-3" />
-																	{lead.Company}
-																</p>
+														)}
+														<div className="flex items-center gap-4 text-xs text-muted-foreground">
+															{lead.Email && (
+																<span className="flex items-center gap-1">
+																	<Mail className="h-3 w-3" />
+																	{lead.Email}
+																</span>
 															)}
-															<div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-																{lead.Email && (
-																	<span className="flex items-center gap-1">
-																		<Mail className="h-3 w-3" />
-																		{lead.Email}
-																	</span>
-																)}
-																{(lead.Phone || lead.Mobile) && (
-																	<span className="flex items-center gap-1">
-																		<Phone className="h-3 w-3" />
-																		{lead.Phone || lead.Mobile}
-																	</span>
-																)}
-															</div>
+															{(lead.Phone || lead.Mobile) && (
+																<span className="flex items-center gap-1">
+																	<Phone className="h-3 w-3" />
+																	{lead.Phone || lead.Mobile}
+																</span>
+															)}
 														</div>
 													</div>
-													<div className="flex flex-col items-end gap-2">
-														<Badge
-															variant="outline"
-															className={cn(
-																"text-xs",
-																statusColors[lead.Lead_Status] ||
-																	"bg-muted/20 text-muted-foreground",
-															)}
-														>
-															{getStatusIcon(lead.Lead_Status)}
-															<span className="ml-1">
-																{lead.Lead_Status || "Unknown"}
-															</span>
-														</Badge>
-														<span className="text-xs text-muted-foreground">
-															{formatDate(lead.Created_Time)}
-														</span>
+													<div className="text-right text-xs text-muted-foreground">
+														<span>{formatDate(lead.Created_Time)}</span>
 													</div>
 												</div>
 											</div>
@@ -358,90 +516,106 @@ export default function AgentZohoCRM() {
 				</div>
 
 				<div>
-					<Card className="bg-background border-border sticky top-4">
+					<Card className="bg-background border-border sticky top-6">
 						<CardHeader>
 							<CardTitle className="text-foreground">Lead Details</CardTitle>
 							<CardDescription>
-								{selectedLead
-									? "View and take action on this lead"
-									: "Select a lead to view details"}
+								Comprehensive client profile & actions
 							</CardDescription>
 						</CardHeader>
 						<CardContent>
 							{selectedLead ? (
 								<div className="space-y-4">
-									<div className="flex items-center gap-3">
-										<div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
-											<User className="h-6 w-6 text-emerald-400" />
-										</div>
-										<div>
-											<p className="font-semibold text-foreground text-lg">
-												{selectedLead.Full_Name ||
-													`${selectedLead.First_Name || ""} ${selectedLead.Last_Name || ""}`.trim()}
+									<div className="pb-3 border-b border-border">
+										<h3 className="font-semibold text-lg text-foreground">
+											{selectedLead.Full_Name}
+										</h3>
+										{selectedLead.Company && (
+											<p className="text-muted-foreground flex items-center gap-1 text-sm mt-0.5">
+												<Building2 className="h-3.5 w-3.5" />
+												{selectedLead.Company}
 											</p>
-											<Badge
-												variant="outline"
-												className={cn(
-													"text-xs",
-													statusColors[selectedLead.Lead_Status] ||
-														"bg-muted/20 text-muted-foreground",
-												)}
-											>
-												{selectedLead.Lead_Status}
-											</Badge>
-										</div>
+										)}
+										<Badge
+											variant="outline"
+											className={cn(
+												"mt-2 text-xs",
+												statusColors[selectedLead.Lead_Status] ||
+													"bg-muted text-muted-foreground",
+											)}
+										>
+											{selectedLead.Lead_Status}
+										</Badge>
 									</div>
 
-									<div className="space-y-3 pt-4 border-t border-border">
-										{selectedLead.Company && (
-											<div className="flex items-center gap-3">
-												<Building2 className="h-4 w-4 text-muted-foreground" />
-												<span className="text-muted-foreground">
-													{selectedLead.Company}
-												</span>
-											</div>
-										)}
+									<div className="space-y-2 text-sm">
 										{selectedLead.Email && (
-											<div className="flex items-center gap-3">
-												<Mail className="h-4 w-4 text-muted-foreground" />
-												<a
-													href={`mailto:${selectedLead.Email}`}
-													className="text-emerald-400 hover:underline"
-												>
+											<div className="flex items-center justify-between py-1">
+												<span className="text-muted-foreground flex items-center gap-2">
+													<Mail className="h-4 w-4" /> Email
+												</span>
+												<span className="text-foreground font-mono text-xs">
 													{selectedLead.Email}
-												</a>
+												</span>
 											</div>
 										)}
 										{(selectedLead.Phone || selectedLead.Mobile) && (
-											<div className="flex items-center gap-3">
-												<Phone className="h-4 w-4 text-muted-foreground" />
-												<a
-													href={`tel:${selectedLead.Phone || selectedLead.Mobile}`}
-													className="text-emerald-400 hover:underline"
-												>
+											<div className="flex items-center justify-between py-1">
+												<span className="text-muted-foreground flex items-center gap-2">
+													<Phone className="h-4 w-4" /> Phone
+												</span>
+												<span className="text-foreground">
 													{selectedLead.Phone || selectedLead.Mobile}
-												</a>
-											</div>
-										)}
-										{selectedLead.Lead_Source && (
-											<div className="flex items-center gap-3">
-												<Target className="h-4 w-4 text-muted-foreground" />
-												<span className="text-muted-foreground">
-													{selectedLead.Lead_Source}
 												</span>
 											</div>
 										)}
-										<div className="flex items-center gap-3">
-											<Calendar className="h-4 w-4 text-muted-foreground" />
-											<span className="text-muted-foreground text-sm">
-												Created: {formatDate(selectedLead.Created_Time)}
+										{selectedLead.cin && (
+											<div className="flex items-center justify-between py-1">
+												<span className="text-muted-foreground flex items-center gap-2">
+													<Building2 className="h-4 w-4" /> CIN
+												</span>
+												<span className="text-foreground font-mono text-xs">
+													{selectedLead.cin}
+												</span>
+											</div>
+										)}
+										{selectedLead.leadScore !== undefined && selectedLead.leadScore !== null && (
+											<div className="flex items-center justify-between py-1">
+												<span className="text-muted-foreground flex items-center gap-2">
+													<TrendingUp className="h-4 w-4 text-emerald-400" /> Lead Score
+												</span>
+												<span className="text-emerald-400 font-semibold">
+													{selectedLead.leadScore} / 100
+												</span>
+											</div>
+										)}
+										<div className="flex items-center justify-between py-1">
+											<span className="text-muted-foreground flex items-center gap-2">
+												<Calendar className="h-4 w-4" /> Created
+											</span>
+											<span className="text-foreground">
+												{formatDate(selectedLead.Created_Time)}
 											</span>
 										</div>
+										<div className="flex items-center justify-between py-1">
+											<span className="text-muted-foreground">Source</span>
+											<span className="text-foreground">
+												{selectedLead.Lead_Source || "Native CRM"}
+											</span>
+										</div>
+										{selectedLead.notes && (
+											<div className="pt-2 border-t border-border">
+												<p className="text-xs text-muted-foreground font-medium mb-1">Notes</p>
+												<p className="text-xs text-foreground/80 bg-card p-2 rounded border border-border">
+													{selectedLead.notes}
+												</p>
+											</div>
+										)}
 									</div>
 
 									<div className="pt-4 space-y-2">
 										<Button
-											className="w-full bg-emerald-600 hover:bg-emerald-700"
+											className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
 											onClick={() => handleCreateProposal(selectedLead)}
 										>
 											<FileText className="h-4 w-4 mr-2" />

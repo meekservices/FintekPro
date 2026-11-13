@@ -389,10 +389,10 @@ export function EnhancedNavigation() {
 					badge: "AI",
 				},
 				{
-					name: "AI Copilot Chat",
+					name: "Ask Iris (AI Co-pilot)",
 					href: "/chat",
 					icon: MessageSquare,
-					description: "Conversational portfolio & market copilot",
+					description: "Iris by FintekPro decision support copilot",
 					badge: "AI",
 				},
 			],
@@ -691,6 +691,7 @@ export function EnhancedNavigation() {
 		setMobileOpen(false);
 	};
 
+	// biome-ignore lint/correctness/noComponentHookFactories: legacy inner component structure
 	const NavigationContent = ({ inSheet = false }: { inSheet?: boolean }) => (
 		<div className="flex flex-col h-full">
 			{/* User Profile / Guest Portal Section */}

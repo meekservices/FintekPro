@@ -50,6 +50,7 @@ import {
 	PopoverTrigger,
 } from "@/components/ui/popover";
 import { formatDistanceToNow } from "date-fns";
+import { IRIS_CONFIG } from "@shared/iris-config";
 
 interface Message {
 	id: string;
@@ -339,12 +340,16 @@ export default function AIChat() {
 			<div className="mb-4 space-y-4">
 				<div className="flex items-center justify-between">
 					<div>
-						<h1 className="text-3xl font-bold" data-testid="text-chat-title">
-							AI Financial Advisor
-						</h1>
-						<p className="text-muted-foreground">
-							Ask me anything about your portfolio, investments, or financial
-							planning
+						<div className="flex items-center gap-2">
+							<h1 className="text-3xl font-bold" data-testid="text-chat-title">
+								{IRIS_CONFIG.productBranding}
+							</h1>
+							<span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium border border-primary/20">
+								{IRIS_CONFIG.ui.pillLabel}
+							</span>
+						</div>
+						<p className="text-muted-foreground text-sm mt-1">
+							FASP-AI Decision Support Co-pilot for portfolio management, cross-border tax, and market insights
 						</p>
 					</div>
 
@@ -429,6 +434,7 @@ export default function AIChat() {
 									<h4 className="font-medium text-sm">AI Settings</h4>
 
 									<div className="space-y-2">
+										{/* biome-ignore lint/a11y/noLabelWithoutControl: custom select component */}
 										<label className="text-sm font-medium">Provider</label>
 										<Select
 											value={provider}
@@ -445,6 +451,7 @@ export default function AIChat() {
 									</div>
 
 									<div className="space-y-2">
+										{/* biome-ignore lint/a11y/noLabelWithoutControl: custom select component */}
 										<label className="text-sm font-medium">Model</label>
 										<Select
 											value={model}
@@ -523,10 +530,10 @@ export default function AIChat() {
 						<div className="space-y-4">
 							{messages.length === 0 && (
 								<div className="text-center py-12">
-									<Bot className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-									<p className="text-muted-foreground">
-										Start a conversation! Ask me anything about investments,
-										portfolio analysis, tax planning, or financial transactions.
+									<Bot className="h-12 w-12 mx-auto text-primary mb-4" />
+									<h3 className="text-lg font-semibold mb-1">{IRIS_CONFIG.ui.emptyStateTitle}</h3>
+									<p className="text-muted-foreground max-w-md mx-auto text-sm">
+										{IRIS_CONFIG.ui.emptyStateDescription}
 									</p>
 								</div>
 							)}
@@ -588,10 +595,13 @@ export default function AIChat() {
 								>
 									<div className="flex gap-3 max-w-[80%]">
 										<div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-											<Bot className="h-4 w-4" />
+											<Bot className="h-4 w-4 text-primary" />
 										</div>
-										<div className="rounded-lg p-3 bg-secondary">
-											<Loader2 className="h-4 w-4 animate-spin" />
+										<div className="rounded-lg p-3 bg-secondary flex items-center gap-2">
+											<Loader2 className="h-4 w-4 animate-spin text-primary" />
+											<span className="text-xs font-medium text-muted-foreground">
+												{IRIS_CONFIG.ui.statusAnalyzing}
+											</span>
 										</div>
 									</div>
 								</div>
@@ -607,7 +617,7 @@ export default function AIChat() {
 					value={input}
 					onChange={(e) => setInput(e.target.value)}
 					onKeyPress={handleKeyPress}
-					placeholder="Type your message..."
+					placeholder={IRIS_CONFIG.ui.inputPlaceholder}
 					disabled={sendMessageMutation.isPending || !currentSessionId}
 					className="flex-1"
 					data-testid="input-chat-message"
@@ -626,6 +636,11 @@ export default function AIChat() {
 					)}
 				</Button>
 			</div>
+
+			{/* Mandatory FASP-AI Disclaimer */}
+			<p className="mt-2 text-center text-xs text-muted-foreground px-2">
+				{IRIS_CONFIG.disclaimers.faspAi}
+			</p>
 
 			{/* Confirmation Dialog */}
 			{confirmAction && (

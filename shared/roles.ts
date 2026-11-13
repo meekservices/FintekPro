@@ -1,42 +1,88 @@
 /**
  * FintekPro Role Hierarchy System
  * 
- * SUPERADMIN
- * └── Master Agent (ARN/EUIN/POSP/DSA – top compliance anchor)
- *     ├── Admin
+ * SUPERADMIN (Level 0)
+ * └── Master Partner (Level 1 – ARN/EUIN/POSP/DSA top compliance anchor)
+ *     ├── Admin (Level 2 – Department Heads)
  *     │     ├── Business Development Head
- *     │     │       ├── Partners
- *     │     │       │     ├── Agents
- *     │     │       │     │     ├── Sub-Agents
- *     │     │       │     │     │     └── Business Associates
- *     │     │       │     └── Partner Ops Support
- *     │     │       └── Distribution Team
- *     │     ├── Compliance Officer
- *     │     ├── Accounts & Finance
- *     │     ├── Operations Support Team
- *     │     ├── HR
- *     │     └── Technology Team (Backend + Frontend + DevOps)
- *     └── Regulatory Audit Oversight
+ *     │     │       ├── Distribution Partners (Level 4 – Wealth Managers, RIAs, DSAs, MFDs)
+ *     │     │       │     ├── Sales Support (Level 5 – Client Acquisition & Partner Ops)
+ *     │     │       │     │     ├── Client Support (Level 6 – Onboarding, Servicing & Operations)
+ *     │     │       │     │     │     └── Partner Associates (Level 7 – Referrals & Lead Generation)
+ *     │     │       │     └── Partner Ops Support (Level 3)
+ *     │     │       └── Distribution Team (Level 3)
+ *     │     ├── Compliance Officer (Level 2)
+ *     │     │       └── Compliance Team (Level 3)
+ *     │     ├── Accounts & Finance Head (Level 2)
+ *     │     │       └── Finance Team (Level 3)
+ *     │     ├── Operations Support Head (Level 2)
+ *     │     │       └── Operations Team (Level 3)
+ *     │     ├── HR Head (Level 2)
+ *     │     │       └── HR Team (Level 3)
+ *     │     └── Technology Team Head (Level 2)
+ *     │             ├── Backend Developers (Level 3)
+ *     │             ├── Frontend Developers (Level 3)
+ *     │             └── DevOps Engineers (Level 3)
+ *     ├── Regulatory Audit Oversight (Level 2 – Regulatory Auditor)
+ *     └── Universal Tester (Level 1 – Diagnostics & Logs)
+ * 
+ * CLIENTS & INVESTORS:
+ * ├── Corporate / Business Clients (Level 8)
+ * ├── Retail Clients (Level 8)
+ * └── Base Registered Users (Level 9)
+ * 
+ * NOTE ON AI AGENTS:
+ * Under FASP-AI v1.0, the term "AGENT" is strictly and exclusively reserved for AI AGENTS
+ * (Autonomous Copilots, Advisory Engines, CRM Agents, Compliance Agents).
+ * Human distribution professionals are Partners, Sales Support, Client Support, or Associates.
  */
+
+// Role categories for classification and UI grouping
+export type RoleCategory = 
+  | 'statutory_officer'     // Mandatory statutory & regulatory officers (SEBI, PMLA, CSCRF, DPDP)
+  | 'internal_management'   // Department Heads & Administrators
+  | 'internal_staff'        // Internal operations & engineering staff
+  | 'licensed_professional' // External accredited professionals (Chartered Accountants, Company Secretaries)
+  | 'distribution_network'  // Distribution Partners, Sales Support, Client Support, Associates
+  | 'client';               // Retail & Corporate Clients
+
+// Indian Financial Regulatory Bodies
+export type RegulatoryBody = 
+  | 'SEBI'       // Securities and Exchange Board of India
+  | 'FIU_IND'    // Financial Intelligence Unit – India (PMLA)
+  | 'CERT_IN'    // Indian Computer Emergency Response Team (CSCRF)
+  | 'DPDP'       // Data Protection Board of India (DPDP Act 2023)
+  | 'MCA'        // Ministry of Corporate Affairs
+  | 'ICAI'       // Institute of Chartered Accountants of India
+  | 'ICSI'       // Institute of Company Secretaries of India
+  | 'AMFI'       // Association of Mutual Funds in India
+  | 'RBI';       // Reserve Bank of India
 
 // Role type definitions
 export type RoleId = 
-  // Top Level
+  // Top Level & Statutory Governance
   | 'superadmin'
-  | 'master_agent'
+  | 'designated_director' // PMLA / FIU-IND Statutory Board Director
+  | 'master_agent'        // Top compliance partner anchor (ARN/EUIN/POSP/DSA)
+  
+  // Statutory Regulatory Officers (SEBI, PMLA, CSCRF, DPDP)
+  | 'principal_officer'   // SEBI RIA / RA / PMS Principal Officer (Mandatory advisory head)
+  | 'compliance_officer'  // SEBI Intermediary Compliance Officer
+  | 'grievance_officer'   // SEBI SCORES 2.0 & SMART ODR Grievance Redressal / Nodal Officer
+  | 'ciso'                // Chief Information Security Officer (SEBI CSCRF & CERT-In)
+  | 'dpo'                 // Data Protection Officer (DPDP Act 2023)
+  | 'regulatory_auditor'  // Statutory / Internal Regulatory Auditor
   
   // Admin Department Heads
   | 'admin'
-  | 'bd_head'           // Business Development Head
-  | 'compliance_officer'
-  | 'finance_head'      // Accounts & Finance Head
-  | 'ops_head'          // Operations Support Head
+  | 'bd_head'             // Business Development Head
+  | 'finance_head'        // Accounts & Finance Head
+  | 'ops_head'            // Operations Support Head
   | 'hr_head'
-  | 'tech_head'         // Technology Team Lead
-  | 'regulatory_auditor'
+  | 'tech_head'           // Technology Team Lead
   
   // Team Members
-  | 'bd_team'           // Distribution Team member
+  | 'bd_team'             // Distribution Team member
   | 'compliance_team'
   | 'finance_team'
   | 'ops_team'
@@ -45,26 +91,35 @@ export type RoleId =
   | 'tech_frontend'
   | 'tech_devops'
   
+  // Licensed Practice Network (CA & CS Portal)
+  | 'ca'                  // Chartered Accountant (Tax Audit, Form 15CA/CB, Financials)
+  | 'cs'                  // Company Secretary (MCA/ROC Filings, Secretarial Audit, KMP)
+
   // External Distribution Hierarchy
-  | 'partner'           // Partner (Company/Individual with ARN)
-  | 'partner_ops'       // Partner Ops Support
-  | 'agent'             // Agent (reports to Partner)
-  | 'sub_agent'         // Field Executive (reports to Agent)
-  | 'associate'         // Associate (reports to Field Executive)
+  | 'partner'             // Partner (Company/Individual with ARN)
+  | 'partner_ops'         // Partner Ops Support
+  | 'sales_support'       // Sales Support (formerly human agent; 'agent' is reserved strictly for AI agents)
+  | 'client_support'      // Client Support (formerly sub-agent / field executive)
+  | 'agent'               // Backward compatibility alias -> maps to sales_support / partner
+  | 'sub_agent'           // Backward compatibility alias -> maps to client_support
+  | 'associate'           // Associate (reports to Client Support / Sales Support)
   
   // Client Types
-  | 'client'            // Regular retail client
-  | 'business_client'   // Business/Corporate client
-  | 'user'              // Default user role
+  | 'client'              // Regular retail client
+  | 'business_client'     // Business/Corporate client
+  | 'user'                // Default user role
   
   // Special Roles
-  | 'tester';           // Universal tester - full access + error data collection
+  | 'tester';             // Universal tester - full access + error data collection
 
 // Role metadata interface
 export interface RoleDefinition {
   id: RoleId;
   name: string;
   description: string;
+  category: RoleCategory;
+  regulator?: RegulatoryBody;
+  mandatoryCredential?: string; // Required statutory credential (e.g. NISM, DIN, COP)
   parentRoles: RoleId[];        // Direct parent roles in hierarchy
   portal: 'admin' | 'partner' | 'agent' | 'client';  // Which portal this role accesses
   level: number;                // Hierarchy level (0 = highest)
@@ -81,13 +136,38 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'superadmin',
     name: 'Super Admin',
     description: 'Platform owner with full system access',
+    category: 'internal_management',
     parentRoles: [],
     portal: 'admin',
     level: 0,
     permissions: ['*'],  // All permissions
-    canManageRoles: ['master_agent', 'admin', 'bd_head', 'compliance_officer', 'finance_head', 'ops_head', 'hr_head', 'tech_head', 'regulatory_auditor'],
+    canManageRoles: ['designated_director', 'master_agent', 'admin', 'principal_officer', 'compliance_officer', 'grievance_officer', 'ciso', 'dpo', 'bd_head', 'finance_head', 'ops_head', 'hr_head', 'tech_head', 'regulatory_auditor'],
     isInternal: true,
     requiresCompliance: false,
+  },
+
+  // Level 1: Designated Director (PMLA / FIU-IND Statutory Board Director)
+  designated_director: {
+    id: 'designated_director',
+    name: 'Designated Director',
+    description: 'Statutory Board Director responsible for PMLA & FIU-IND regulatory reporting obligations',
+    category: 'statutory_officer',
+    regulator: 'FIU_IND',
+    mandatoryCredential: 'Director Identification Number (DIN) & Board Resolution',
+    parentRoles: ['superadmin'],
+    portal: 'admin',
+    level: 1,
+    permissions: [
+      'view:all_transactions',
+      'manage:compliance',
+      'approve:fiu_ind_filings',
+      'view:audit_logs',
+      'submit:regulatory_reports',
+      'escalate:aml_alerts',
+    ],
+    canManageRoles: ['compliance_officer', 'principal_officer', 'regulatory_auditor'],
+    isInternal: true,
+    requiresCompliance: true,
   },
 
   // Level 1: Master Partner (Compliance Anchor)
@@ -95,6 +175,9 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'master_agent',
     name: 'Master Partner',
     description: 'Top compliance partner anchor with ARN/EUIN/POSP/DSA certifications',
+    category: 'statutory_officer',
+    regulator: 'AMFI',
+    mandatoryCredential: 'ARN & EUIN License',
     parentRoles: ['superadmin'],
     portal: 'admin',
     level: 1,
@@ -108,12 +191,41 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
       'manage:commissions',
       'submit:regulatory_reports',
       'create:partner',
+      'create:sales_support',
+      'create:client_support',
+      'create:ca',
+      'create:cs',
       'create:agent',
       'create:sub_agent',
       'create:associate',
       'refer:master_agent',
     ],
-    canManageRoles: ['admin', 'partner', 'agent', 'sub_agent', 'associate', 'regulatory_auditor'],
+    canManageRoles: ['admin', 'partner', 'ca', 'cs', 'sales_support', 'client_support', 'agent', 'sub_agent', 'associate', 'regulatory_auditor'],
+    isInternal: true,
+    requiresCompliance: true,
+  },
+
+  // Level 2: Principal Officer (SEBI RIA / RA / PMS Advisory Head)
+  principal_officer: {
+    id: 'principal_officer',
+    name: 'Principal Officer',
+    description: 'SEBI-mandated Principal Officer for RIA/RA/PMS advisory operations, client suitability, and research approval',
+    category: 'statutory_officer',
+    regulator: 'SEBI',
+    mandatoryCredential: 'SEBI Registration ID & NISM Series X-A / X-B Certification',
+    parentRoles: ['superadmin', 'designated_director', 'master_agent'],
+    portal: 'admin',
+    level: 2,
+    permissions: [
+      'manage:advisory',
+      'approve:investment_recommendations',
+      'view:compliance_reports',
+      'manage:risk_profiling',
+      'submit:regulatory_reports',
+      'view:all_transactions',
+      'manage:products',
+    ],
+    canManageRoles: ['bd_head', 'partner'],
     isInternal: true,
     requiresCompliance: true,
   },
@@ -123,6 +235,7 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'admin',
     name: 'Admin',
     description: 'System administrator with broad access',
+    category: 'internal_management',
     parentRoles: ['superadmin', 'master_agent'],
     portal: 'admin',
     level: 2,
@@ -134,7 +247,7 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
       'view:reports',
       'manage:support',
     ],
-    canManageRoles: ['bd_head', 'compliance_officer', 'finance_head', 'ops_head', 'hr_head', 'tech_head'],
+    canManageRoles: ['bd_head', 'compliance_officer', 'finance_head', 'ops_head', 'hr_head', 'tech_head', 'ca', 'cs'],
     isInternal: true,
     requiresCompliance: false,
   },
@@ -143,18 +256,21 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'bd_head',
     name: 'Business Development Head',
     description: 'Head of business development and distribution',
+    category: 'internal_management',
     parentRoles: ['admin'],
     portal: 'admin',
     level: 2,
     permissions: [
       'manage:partners',
+      'manage:sales_support',
+      'manage:client_support',
       'manage:agents',
       'view:distribution_metrics',
       'manage:campaigns',
       'approve:partner_applications',
       'manage:bd_team',
     ],
-    canManageRoles: ['bd_team', 'partner'],
+    canManageRoles: ['bd_team', 'partner', 'sales_support', 'client_support'],
     isInternal: true,
     requiresCompliance: false,
   },
@@ -163,7 +279,10 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'compliance_officer',
     name: 'Compliance Officer',
     description: 'Regulatory compliance and KYC oversight',
-    parentRoles: ['admin', 'master_agent'],
+    category: 'statutory_officer',
+    regulator: 'SEBI',
+    mandatoryCredential: 'NISM Series III-A Certification',
+    parentRoles: ['admin', 'designated_director', 'master_agent'],
     portal: 'admin',
     level: 2,
     permissions: [
@@ -174,7 +293,76 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
       'submit:regulatory_reports',
       'manage:compliance_team',
     ],
-    canManageRoles: ['compliance_team'],
+    canManageRoles: ['compliance_team', 'grievance_officer'],
+    isInternal: true,
+    requiresCompliance: true,
+  },
+
+  // Level 2: Grievance Redressal / Nodal Officer (SEBI SCORES 2.0 & SMART ODR)
+  grievance_officer: {
+    id: 'grievance_officer',
+    name: 'Grievance Redressal Officer',
+    description: 'Statutory Nodal Officer for SEBI SCORES 2.0, SMART ODR, and investor complaint redressal within 21-day SLA',
+    category: 'statutory_officer',
+    regulator: 'SEBI',
+    mandatoryCredential: 'SEBI SCORES 2.0 Nodal Officer Credential',
+    parentRoles: ['compliance_officer', 'principal_officer', 'admin'],
+    portal: 'admin',
+    level: 2,
+    permissions: [
+      'manage:grievances',
+      'resolve:scores_complaints',
+      'manage:smart_odr',
+      'view:compliance_reports',
+      'escalate:grievance',
+    ],
+    canManageRoles: [],
+    isInternal: true,
+    requiresCompliance: true,
+  },
+
+  // Level 2: Chief Information Security Officer (SEBI CSCRF & CERT-In)
+  ciso: {
+    id: 'ciso',
+    name: 'Chief Information Security Officer',
+    description: 'SEBI CSCRF & CERT-In designated Chief Information Security Officer for cyber resilience, vulnerability audits and incident reporting',
+    category: 'statutory_officer',
+    regulator: 'CERT_IN',
+    mandatoryCredential: 'CISA / CISM / CISSP Credential & CERT-In Designation',
+    parentRoles: ['superadmin', 'admin'],
+    portal: 'admin',
+    level: 2,
+    permissions: [
+      'manage:cybersecurity',
+      'report:certin_incidents',
+      'view:system_logs',
+      'manage:vulnerability_assessments',
+      'audit:system_security',
+      'access:dev_tools',
+    ],
+    canManageRoles: ['tech_devops'],
+    isInternal: true,
+    requiresCompliance: true,
+  },
+
+  // Level 2: Data Protection Officer (DPDP Act 2023)
+  dpo: {
+    id: 'dpo',
+    name: 'Data Protection Officer',
+    description: 'DPDP Act 2023 statutory officer responsible for data privacy governance, consent auditing, and Data Protection Board compliance',
+    category: 'statutory_officer',
+    regulator: 'DPDP',
+    mandatoryCredential: 'Data Protection Officer Appointment & DPBI Registration',
+    parentRoles: ['superadmin', 'compliance_officer'],
+    portal: 'admin',
+    level: 2,
+    permissions: [
+      'manage:data_privacy',
+      'audit:consent_records',
+      'process:data_subject_requests',
+      'view:compliance_reports',
+    ],
+    canManageRoles: [],
     isInternal: true,
     requiresCompliance: true,
   },
@@ -183,6 +371,7 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'finance_head',
     name: 'Finance Head',
     description: 'Accounts and finance management',
+    category: 'internal_management',
     parentRoles: ['admin'],
     portal: 'admin',
     level: 2,
@@ -203,6 +392,7 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'ops_head',
     name: 'Operations Head',
     description: 'Operations and support team management',
+    category: 'internal_management',
     parentRoles: ['admin'],
     portal: 'admin',
     level: 2,
@@ -222,6 +412,7 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'hr_head',
     name: 'HR Head',
     description: 'Human resources management',
+    category: 'internal_management',
     parentRoles: ['admin'],
     portal: 'admin',
     level: 2,
@@ -240,6 +431,7 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'tech_head',
     name: 'Technology Head',
     description: 'Technology and development team lead',
+    category: 'internal_management',
     parentRoles: ['admin'],
     portal: 'admin',
     level: 2,
@@ -259,7 +451,10 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'regulatory_auditor',
     name: 'Regulatory Auditor',
     description: 'External regulatory audit oversight',
-    parentRoles: ['master_agent'],
+    category: 'statutory_officer',
+    regulator: 'SEBI',
+    mandatoryCredential: 'Chartered Accountant / Certified Internal Auditor',
+    parentRoles: ['master_agent', 'designated_director'],
     portal: 'admin',
     level: 2,
     permissions: [
@@ -278,6 +473,7 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'bd_team',
     name: 'Distribution Team',
     description: 'Business development team member',
+    category: 'internal_staff',
     parentRoles: ['bd_head'],
     portal: 'admin',
     level: 3,
@@ -296,6 +492,7 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'compliance_team',
     name: 'Compliance Team',
     description: 'Compliance team member',
+    category: 'internal_staff',
     parentRoles: ['compliance_officer'],
     portal: 'admin',
     level: 3,
@@ -313,6 +510,7 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'finance_team',
     name: 'Finance Team',
     description: 'Finance and accounts team member',
+    category: 'internal_staff',
     parentRoles: ['finance_head'],
     portal: 'admin',
     level: 3,
@@ -330,6 +528,7 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'ops_team',
     name: 'Operations Team',
     description: 'Operations support team member',
+    category: 'internal_staff',
     parentRoles: ['ops_head'],
     portal: 'admin',
     level: 3,
@@ -347,6 +546,7 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'hr_team',
     name: 'HR Team',
     description: 'Human resources team member',
+    category: 'internal_staff',
     parentRoles: ['hr_head'],
     portal: 'admin',
     level: 3,
@@ -363,6 +563,7 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'tech_backend',
     name: 'Backend Developer',
     description: 'Backend development team member',
+    category: 'internal_staff',
     parentRoles: ['tech_head'],
     portal: 'admin',
     level: 3,
@@ -380,6 +581,7 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'tech_frontend',
     name: 'Frontend Developer',
     description: 'Frontend development team member',
+    category: 'internal_staff',
     parentRoles: ['tech_head'],
     portal: 'admin',
     level: 3,
@@ -397,7 +599,8 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'tech_devops',
     name: 'DevOps Engineer',
     description: 'DevOps and infrastructure team member',
-    parentRoles: ['tech_head'],
+    category: 'internal_staff',
+    parentRoles: ['tech_head', 'ciso'],
     portal: 'admin',
     level: 3,
     permissions: [
@@ -415,6 +618,7 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'partner_ops',
     name: 'Partner Ops Support',
     description: 'Partner operations support staff',
+    category: 'distribution_network',
     parentRoles: ['ops_head', 'partner'],
     portal: 'partner',
     level: 3,
@@ -422,10 +626,61 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
       'view:partner_transactions',
       'manage:partner_support',
       'assist:agents',
+      'assist:sales_support',
+      'assist:client_support',
     ],
     canManageRoles: [],
     isInternal: false,
     requiresCompliance: false,
+  },
+
+  // Level 4: Licensed Practice Professionals (CA & CS Practice Portal)
+  ca: {
+    id: 'ca',
+    name: 'Chartered Accountant',
+    description: 'Accredited Chartered Accountant for statutory audits, Form 15CA/15CB remittances, tax compliance & certifications',
+    category: 'licensed_professional',
+    regulator: 'ICAI',
+    mandatoryCredential: 'ICAI Membership Number & Certificate of Practice (COP)',
+    parentRoles: ['admin', 'master_agent'],
+    portal: 'partner',
+    level: 4,
+    permissions: [
+      'manage:own_clients',
+      'view:tax_filings',
+      'sign:form_15cb',
+      'perform:statutory_audit',
+      'view:own_commissions',
+      'view:own_transactions',
+      'create:leads',
+    ],
+    canManageRoles: [],
+    isInternal: false,
+    requiresCompliance: true,
+  },
+
+  cs: {
+    id: 'cs',
+    name: 'Company Secretary',
+    description: 'Accredited Company Secretary for MCA/ROC filings, secretarial audits, corporate governance & Key Managerial Personnel oversight',
+    category: 'licensed_professional',
+    regulator: 'ICSI',
+    mandatoryCredential: 'ICSI Membership Number & Certificate of Practice (COP)',
+    parentRoles: ['admin', 'master_agent'],
+    portal: 'partner',
+    level: 4,
+    permissions: [
+      'manage:own_clients',
+      'manage:mca_filings',
+      'sign:secretarial_audit',
+      'manage:director_kyc',
+      'view:own_commissions',
+      'view:own_transactions',
+      'create:leads',
+    ],
+    canManageRoles: [],
+    isInternal: false,
+    requiresCompliance: true,
   },
 
   // Level 4: External Distribution Network - Partners (Human distribution roles are Partners)
@@ -433,6 +688,9 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'partner',
     name: 'Partner',
     description: 'Distribution Partner (human distribution role; "agent" is reserved exclusively for AI agents)',
+    category: 'distribution_network',
+    regulator: 'AMFI',
+    mandatoryCredential: 'ARN Number',
     parentRoles: ['bd_head', 'master_agent'],
     portal: 'partner',
     level: 4,
@@ -440,6 +698,8 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
       'manage:own_clients',
       'view:own_transactions',
       'view:own_commissions',
+      'create:sales_support',
+      'create:client_support',
       'create:sub_agent',
       'create:associate',
       'create:leads',
@@ -451,41 +711,71 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
       'suspend:agent',
       'reactivate:agent',
     ],
-    canManageRoles: ['partner_ops', 'sub_agent', 'associate'],
+    canManageRoles: ['partner_ops', 'sales_support', 'client_support', 'sub_agent', 'associate'],
     isInternal: false,
     requiresCompliance: true,
   },
 
-  // Level 5: Legacy Agent role — ALIASED TO PARTNER
-  // Human distribution roles are strictly Partners. "agent" name is reserved exclusively for AI agents.
-  agent: {
-    id: 'partner' as RoleId,
-    name: 'Partner',
-    description: 'Legacy role alias — replaced by partner. Human role is Partner; "agent" is reserved for AI agents.',
-    parentRoles: ['bd_head', 'master_agent'],
+  // Level 5: Sales Support (Formerly human agent. 'agent' is reserved exclusively for AI agents)
+  sales_support: {
+    id: 'sales_support',
+    name: 'Sales Support',
+    description: 'Sales Support professional assisting distribution partners, client acquisition, and operations. ("Agent" is strictly reserved for AI agents)',
+    category: 'distribution_network',
+    mandatoryCredential: 'EUIN Certification',
+    parentRoles: ['partner', 'bd_head', 'master_agent'],
     portal: 'partner',
-    level: 4,
+    level: 5,
     permissions: [
       'manage:own_clients',
       'view:own_transactions',
       'view:own_commissions',
+      'create:client_support',
       'create:sub_agent',
       'create:associate',
       'create:leads',
+      'refer:sales_support',
       'refer:partner',
-      'manage:own_agents',
+      'assist:clients',
     ],
-    canManageRoles: ['partner_ops', 'sub_agent', 'associate'],
+    canManageRoles: ['client_support', 'sub_agent', 'associate'],
     isInternal: false,
     requiresCompliance: true,
   },
 
-  // Level 6: Associate Partners (Migrated from Field Executives)
-  sub_agent: {
-    id: 'sub_agent',
-    name: 'Associate Partner',
-    description: 'Associate Partner in distribution network',
-    parentRoles: ['agent', 'sub_agent'],
+  // Legacy human 'agent' alias — maps to sales_support
+  // Note: Going forward, "agent" across FintekPro refers exclusively to AI agents.
+  agent: {
+    id: 'sales_support' as RoleId,
+    name: 'Sales Support',
+    description: 'Legacy human role alias — replaced by sales_support. "agent" is reserved exclusively for AI agents.',
+    category: 'distribution_network',
+    parentRoles: ['partner', 'bd_head', 'master_agent'],
+    portal: 'partner',
+    level: 5,
+    permissions: [
+      'manage:own_clients',
+      'view:own_transactions',
+      'view:own_commissions',
+      'create:client_support',
+      'create:sub_agent',
+      'create:associate',
+      'create:leads',
+      'refer:sales_support',
+      'refer:partner',
+    ],
+    canManageRoles: ['client_support', 'sub_agent', 'associate'],
+    isInternal: false,
+    requiresCompliance: true,
+  },
+
+  // Level 6: Client Support (Formerly sub-agent / field executive)
+  client_support: {
+    id: 'client_support',
+    name: 'Client Support',
+    description: 'Client Support specialist assisting clients with onboarding, portfolio operations, and servicing (formerly sub-agent).',
+    category: 'distribution_network',
+    parentRoles: ['sales_support', 'partner', 'master_agent'],
     portal: 'partner',
     level: 6,
     permissions: [
@@ -494,9 +784,33 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
       'view:own_commissions',
       'create:associate',
       'create:leads',
-      'refer:sub_agent',
+      'assist:clients',
+      'refer:client_support',
     ],
-    canManageRoles: ['associate', 'sub_agent'],
+    canManageRoles: ['associate'],
+    isInternal: false,
+    requiresCompliance: true,
+  },
+
+  // Legacy 'sub_agent' alias — maps to client_support
+  sub_agent: {
+    id: 'client_support' as RoleId,
+    name: 'Client Support',
+    description: 'Legacy sub-agent role alias — replaced by client_support.',
+    category: 'distribution_network',
+    parentRoles: ['sales_support', 'partner', 'master_agent'],
+    portal: 'partner',
+    level: 6,
+    permissions: [
+      'manage:own_clients',
+      'view:own_transactions',
+      'view:own_commissions',
+      'create:associate',
+      'create:leads',
+      'assist:clients',
+      'refer:client_support',
+    ],
+    canManageRoles: ['associate'],
     isInternal: false,
     requiresCompliance: true,
   },
@@ -506,7 +820,8 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'associate',
     name: 'Partner Associate',
     description: 'Partner Associate in distribution network',
-    parentRoles: ['sub_agent', 'associate'],
+    category: 'distribution_network',
+    parentRoles: ['client_support', 'sales_support', 'partner', 'sub_agent'],
     portal: 'partner',
     level: 7,
     permissions: [
@@ -524,6 +839,7 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'client',
     name: 'Client',
     description: 'Retail investor client',
+    category: 'client',
     parentRoles: [],
     portal: 'client',
     level: 8,
@@ -541,6 +857,7 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'business_client',
     name: 'Business Client',
     description: 'Corporate/Business investor client',
+    category: 'client',
     parentRoles: [],
     portal: 'client',
     level: 8,
@@ -559,6 +876,7 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'user',
     name: 'User',
     description: 'Default registered user',
+    category: 'client',
     parentRoles: [],
     portal: 'client',
     level: 9,
@@ -575,6 +893,7 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
     id: 'tester',
     name: 'Universal Tester',
     description: 'QA/Testing role with full platform access and error data collection capabilities',
+    category: 'internal_staff',
     parentRoles: ['superadmin'],
     portal: 'admin',
     level: 1,
@@ -619,14 +938,18 @@ export function hasAuthorityOver(userRole: RoleId, targetRole: RoleId): boolean 
 /**
  * Check if targetRole is in the hierarchy chain below userRole
  */
-export function isInHierarchyChain(userRole: RoleId, targetRole: RoleId): boolean {
+export function isInHierarchyChain(userRole: RoleId, targetRole: RoleId, visited = new Set<RoleId>()): boolean {
+  if (visited.has(targetRole)) return false;
+  visited.add(targetRole);
+
   const targetDef = ROLE_DEFINITIONS[targetRole];
   if (!targetDef) return false;
   
   // Check if userRole is a direct or indirect parent
   for (const parent of targetDef.parentRoles) {
+    if (parent === targetRole) continue;
     if (parent === userRole) return true;
-    if (isInHierarchyChain(userRole, parent)) return true;
+    if (isInHierarchyChain(userRole, parent, visited)) return true;
   }
   
   return false;
@@ -641,13 +964,17 @@ export function getManageableRoles(userRoles: RoleId[]): RoleId[] {
   for (const role of userRoles) {
     const def = ROLE_DEFINITIONS[role];
     if (def) {
-      def.canManageRoles.forEach(r => manageable.add(r));
+      def.canManageRoles.forEach(r => {
+        manageable.add(r);
+      });
       
       // Recursively add roles that manageable roles can manage
       def.canManageRoles.forEach(r => {
         const subDef = ROLE_DEFINITIONS[r];
         if (subDef) {
-          subDef.canManageRoles.forEach(sr => manageable.add(sr));
+          subDef.canManageRoles.forEach(sr => {
+            manageable.add(sr);
+          });
         }
       });
     }
@@ -724,7 +1051,9 @@ export function hasAllPermissions(userRoles: RoleId[], requiredPermissions: stri
     // Superadmin has all permissions
     if (def.permissions.includes('*')) return true;
     
-    def.permissions.forEach(p => userPermissions.add(p));
+    def.permissions.forEach(p => {
+      userPermissions.add(p);
+    });
   }
   
   return requiredPermissions.every(p => userPermissions.has(p));
@@ -739,7 +1068,9 @@ export function getAllPermissions(userRoles: RoleId[]): string[] {
   for (const role of userRoles) {
     const def = ROLE_DEFINITIONS[role];
     if (def) {
-      def.permissions.forEach(p => permissions.add(p));
+      def.permissions.forEach(p => {
+        permissions.add(p);
+      });
     }
   }
   
@@ -763,10 +1094,10 @@ export function getInternalRoles(): RoleId[] {
 }
 
 /**
- * Get all external distribution roles (Partners)
+ * Get all external distribution roles (Partners, Sales Support, and Client Support)
  */
 export function getDistributionRoles(): RoleId[] {
-  return ['partner', 'partner_ops', 'sub_agent', 'associate'];
+  return ['partner', 'partner_ops', 'sales_support', 'client_support', 'sub_agent', 'associate'];
 }
 
 /**
@@ -806,19 +1137,104 @@ export function getRoleOptions(filterByPortal?: 'admin' | 'partner' | 'agent' | 
     }));
 }
 
-// Export role groups for easy access
-export const ADMIN_ROLES: RoleId[] = ['superadmin', 'master_agent', 'admin', 'bd_head', 'compliance_officer', 'finance_head', 'ops_head', 'hr_head', 'tech_head', 'regulatory_auditor', 'tester'];
-export const TEAM_ROLES: RoleId[] = ['bd_team', 'compliance_team', 'finance_team', 'ops_team', 'hr_team', 'tech_backend', 'tech_frontend', 'tech_devops'];
-// Human distribution roles are Partners. The "agent" name is reserved exclusively for AI agents.
-export const PARTNER_ROLES: RoleId[] = ['partner', 'partner_ops', 'sub_agent', 'associate'];
+// Export role groups for easy access & compliance checks
+export const STATUTORY_ROLES: RoleId[] = [
+  'designated_director',
+  'master_agent',
+  'principal_officer',
+  'compliance_officer',
+  'grievance_officer',
+  'ciso',
+  'dpo',
+  'regulatory_auditor',
+];
+
+export const PROFESSIONAL_ROLES: RoleId[] = ['ca', 'cs'];
+
+export const MANAGEMENT_ROLES: RoleId[] = [
+  'superadmin',
+  'admin',
+  'bd_head',
+  'finance_head',
+  'ops_head',
+  'hr_head',
+  'tech_head',
+];
+
+export const ADMIN_ROLES: RoleId[] = [
+  ...MANAGEMENT_ROLES,
+  ...STATUTORY_ROLES,
+  'tester',
+];
+
+export const TEAM_ROLES: RoleId[] = [
+  'bd_team',
+  'compliance_team',
+  'finance_team',
+  'ops_team',
+  'hr_team',
+  'tech_backend',
+  'tech_frontend',
+  'tech_devops',
+];
+
+// Human distribution roles are Partners, Sales Support, and Client Support. The "agent" name is reserved exclusively for AI agents.
+export const PARTNER_ROLES: RoleId[] = [
+  'partner',
+  'partner_ops',
+  'sales_support',
+  'client_support',
+  'sub_agent',
+  'associate',
+];
+
 export const CLIENT_ROLES: RoleId[] = ['client', 'business_client', 'user'];
 
 // All roles that can access admin portal
 export const ADMIN_PORTAL_ROLES: RoleId[] = [...ADMIN_ROLES, ...TEAM_ROLES];
 
-// All roles that can access partner portal (human distribution network)
-export const PARTNER_PORTAL_ROLES: RoleId[] = [...PARTNER_ROLES];
+// All roles that can access partner portal (human distribution network & licensed professionals)
+export const PARTNER_PORTAL_ROLES: RoleId[] = [...PARTNER_ROLES, ...PROFESSIONAL_ROLES];
 
-// Backwards-compatibility aliases (human agent migrated to partner; agent reserved for AI agents)
+// Backwards-compatibility aliases (human agent migrated to sales_support/partner; agent reserved for AI agents)
 export const AGENT_ROLES: RoleId[] = PARTNER_ROLES;
 export const AGENT_PORTAL_ROLES: RoleId[] = PARTNER_PORTAL_ROLES;
+
+/**
+ * Check if a role is a mandatory statutory regulatory officer
+ */
+export function isStatutoryRole(role: RoleId): boolean {
+  return ROLE_DEFINITIONS[role]?.category === 'statutory_officer';
+}
+
+/**
+ * Check if a role is an accredited licensed professional (CA / CS)
+ */
+export function isProfessionalRole(role: RoleId): boolean {
+  return ROLE_DEFINITIONS[role]?.category === 'licensed_professional';
+}
+
+/**
+ * Get all roles within a specific category
+ */
+export function getRolesByCategory(category: RoleCategory): RoleId[] {
+  return (Object.values(ROLE_DEFINITIONS) as RoleDefinition[])
+    .filter(def => def.category === category)
+    .map(def => def.id);
+}
+
+/**
+ * AI AGENT TAXONOMY (FASP-AI v1.0)
+ * 
+ * In FintekPro, the word "Agent" refers EXCLUSIVELY to AI Agents and Autonomous Copilots.
+ * Human professionals are classified as Partners, Sales Support, Associates, or Administrators.
+ */
+export const AI_AGENT_TYPES = [
+  'crm_agent',           // Automated lead nurturing, scoring & CRM Copilot
+  'advisory_agent',      // FASP-AI investment suitability & portfolio copilot
+  'compliance_agent',    // SEBI & PMLA regulatory KYC auditing agent
+  'research_agent',      // Real-time market, equities, and mutual fund intelligence agent
+  'ops_support_agent',   // Autonomous client query resolution & ticket routing agent
+] as const;
+
+export type AIAgentType = typeof AI_AGENT_TYPES[number];

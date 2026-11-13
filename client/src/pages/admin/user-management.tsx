@@ -52,6 +52,11 @@ import {
 	Trash2,
 	Search,
 	Shield as LucideShield,
+	ShieldCheck,
+	Scale,
+	Building2,
+	Briefcase,
+	Award,
 	UserCheck,
 	UserX,
 	TrendingUp,
@@ -71,6 +76,57 @@ import {
 	type Column,
 	type BulkAction,
 } from "@/components/admin/BulkSelectTable";
+import {
+	ROLE_DEFINITIONS,
+	type RoleId,
+	type RoleCategory,
+	isStatutoryRole,
+	isProfessionalRole,
+	STATUTORY_ROLES,
+	PROFESSIONAL_ROLES,
+} from "@shared/roles";
+
+export interface AssignableRoleItem {
+	id: RoleId;
+	label: string;
+	category: RoleCategory;
+	regulator?: string;
+	mandatoryCredential?: string;
+}
+
+export const ALL_ASSIGNABLE_ROLES: AssignableRoleItem[] = [
+	// Statutory Regulatory Roles
+	{ id: "principal_officer", label: "Principal Officer", category: "statutory_officer", regulator: "SEBI", mandatoryCredential: "NISM Series X-A / X-B" },
+	{ id: "compliance_officer", label: "Compliance Officer", category: "statutory_officer", regulator: "SEBI", mandatoryCredential: "NISM Series III-A" },
+	{ id: "designated_director", label: "Designated Director", category: "statutory_officer", regulator: "FIU-IND", mandatoryCredential: "DIN & Board Resolution" },
+	{ id: "grievance_officer", label: "Grievance Redressal Officer", category: "statutory_officer", regulator: "SEBI (SCORES)", mandatoryCredential: "SCORES 2.0 Credential" },
+	{ id: "ciso", label: "Chief Information Security Officer", category: "statutory_officer", regulator: "CSCRF / CERT-In", mandatoryCredential: "CISA / CISM / CISSP" },
+	{ id: "dpo", label: "Data Protection Officer", category: "statutory_officer", regulator: "DPDP Act", mandatoryCredential: "DPO Appointment" },
+	{ id: "regulatory_auditor", label: "Regulatory Auditor", category: "statutory_officer", regulator: "SEBI", mandatoryCredential: "CA / Certified Auditor" },
+	{ id: "master_agent", label: "Master Partner", category: "statutory_officer", regulator: "AMFI / IRDAI", mandatoryCredential: "ARN / EUIN / POSP" },
+
+	// Licensed Practice Network
+	{ id: "ca", label: "Chartered Accountant", category: "licensed_professional", regulator: "ICAI", mandatoryCredential: "ICAI Membership & COP" },
+	{ id: "cs", label: "Company Secretary", category: "licensed_professional", regulator: "ICSI", mandatoryCredential: "ICSI Membership & COP" },
+
+	// External Distribution Network
+	{ id: "partner", label: "Distribution Partner", category: "distribution_network", regulator: "AMFI", mandatoryCredential: "ARN License" },
+	{ id: "sales_support", label: "Sales Support (formerly Agent)", category: "distribution_network", mandatoryCredential: "EUIN Certification" },
+	{ id: "client_support", label: "Client Support (formerly Sub-Agent)", category: "distribution_network" },
+	{ id: "associate", label: "Partner Associate", category: "distribution_network" },
+
+	// Internal Management & Staff
+	{ id: "admin", label: "Administrator", category: "internal_management" },
+	{ id: "bd_head", label: "Business Development Head", category: "internal_management" },
+	{ id: "finance_head", label: "Finance Head", category: "internal_management" },
+	{ id: "tech_head", label: "Technology Head", category: "internal_management" },
+	{ id: "ops_head", label: "Operations Head", category: "internal_management" },
+
+	// Client & Investor
+	{ id: "client", label: "Retail Client", category: "client" },
+	{ id: "business_client", label: "Business Client", category: "client" },
+	{ id: "user", label: "Base User", category: "client" },
+];
 
 interface User {
 	id: string;
@@ -255,12 +311,18 @@ export default function UserManagement() {
 		e.preventDefault();
 		const formData = new FormData(e.currentTarget);
 
-		const roles = [];
-		if (formData.get("role_user")) roles.push("user");
-		if (formData.get("role_admin")) roles.push("admin");
-		if (formData.get("role_agent")) roles.push("agent");
-		if (formData.get("role_partner")) roles.push("partner");
-		if (formData.get("role_client")) roles.push("client");
+		const roles: string[] = [];
+		for (const roleItem of ALL_ASSIGNABLE_ROLES) {
+			if (formData.get(`role_${roleItem.id}`)) {
+				roles.push(roleItem.id);
+			}
+		}
+		// Fallbacks for legacy checkbox keys if present
+		if (formData.get("role_user") && !roles.includes("user")) roles.push("user");
+		if (formData.get("role_admin") && !roles.includes("admin")) roles.push("admin");
+		if (formData.get("role_partner") && !roles.includes("partner")) roles.push("partner");
+		if (formData.get("role_client") && !roles.includes("client")) roles.push("client");
+		if (formData.get("role_agent") && !roles.includes("sales_support")) roles.push("sales_support");
 
 		createUserMutation.mutate({
 			email: formData.get("email") || null,
@@ -283,12 +345,18 @@ export default function UserManagement() {
 
 		const formData = new FormData(e.currentTarget);
 
-		const roles = [];
-		if (formData.get("role_user")) roles.push("user");
-		if (formData.get("role_admin")) roles.push("admin");
-		if (formData.get("role_agent")) roles.push("agent");
-		if (formData.get("role_partner")) roles.push("partner");
-		if (formData.get("role_client")) roles.push("client");
+		const roles: string[] = [];
+		for (const roleItem of ALL_ASSIGNABLE_ROLES) {
+			if (formData.get(`role_${roleItem.id}`)) {
+				roles.push(roleItem.id);
+			}
+		}
+		// Fallbacks for legacy checkbox keys if present
+		if (formData.get("role_user") && !roles.includes("user")) roles.push("user");
+		if (formData.get("role_admin") && !roles.includes("admin")) roles.push("admin");
+		if (formData.get("role_partner") && !roles.includes("partner")) roles.push("partner");
+		if (formData.get("role_client") && !roles.includes("client")) roles.push("client");
+		if (formData.get("role_agent") && !roles.includes("sales_support")) roles.push("sales_support");
 
 		const updateData: any = {
 			email: formData.get("email") || null,
@@ -312,34 +380,109 @@ export default function UserManagement() {
 	};
 
 	const getRoleBadge = (roles: string[]) => {
-		if (roles.includes("superadmin"))
-			return (
-				<Badge variant="destructive" data-testid={`badge-superadmin`}>
-					Superadmin
-				</Badge>
-			);
-		if (roles.includes("admin"))
-			return (
-				<Badge variant="destructive" data-testid={`badge-admin`}>
-					Admin
-				</Badge>
-			);
-		if (roles.includes("agent"))
-			return (
-				<Badge className="bg-blue-500" data-testid={`badge-agent`}>
-					Agent
-				</Badge>
-			);
-		if (roles.includes("partner"))
-			return (
-				<Badge className="bg-purple-500" data-testid={`badge-partner`}>
-					Partner
-				</Badge>
-			);
+		if (!roles || roles.length === 0) {
+			return <Badge variant="secondary">User</Badge>;
+		}
+
+		// Normalize legacy agent -> sales_support and sub_agent -> client_support for display
+		const displayRoles = roles.map((r) => {
+			if (r === "agent") return "sales_support";
+			if (r === "sub_agent") return "client_support";
+			return r;
+		});
+
+		// Find relevant roles to display (filter out base 'user' if higher roles exist)
+		const effectiveRoles = displayRoles.length > 1 ? displayRoles.filter((r) => r !== "user") : displayRoles;
+
 		return (
-			<Badge variant="secondary" data-testid={`badge-user`}>
-				User
-			</Badge>
+			<div className="flex flex-wrap gap-1 max-w-[280px]">
+				{effectiveRoles.map((roleId) => {
+					const def = ROLE_DEFINITIONS[roleId as RoleId];
+					const name = def?.name || roleId;
+					const category = def?.category;
+					const regulator = def?.regulator;
+
+					if (category === "statutory_officer" || isStatutoryRole(roleId as RoleId)) {
+						return (
+							<Badge
+								key={roleId}
+								className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1 font-semibold text-xs py-0.5"
+								data-testid={`badge-statutory-${roleId}`}
+							>
+								<ShieldCheck className="w-3 h-3 text-amber-500" />
+								<span>{name}</span>
+								{regulator && <span className="text-[10px] opacity-80 uppercase">({regulator})</span>}
+							</Badge>
+						);
+					}
+
+					if (category === "licensed_professional" || isProfessionalRole(roleId as RoleId)) {
+						return (
+							<Badge
+								key={roleId}
+								className="bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 flex items-center gap-1 font-medium text-xs py-0.5"
+								data-testid={`badge-prof-${roleId}`}
+							>
+								<Scale className="w-3 h-3 text-indigo-500" />
+								<span>{name}</span>
+								{regulator && <span className="text-[10px] opacity-80">({regulator})</span>}
+							</Badge>
+						);
+					}
+
+					if (roleId === "superadmin" || roleId === "admin" || category === "internal_management") {
+						return (
+							<Badge
+								key={roleId}
+								variant="destructive"
+								className="flex items-center gap-1 text-xs py-0.5"
+								data-testid={`badge-admin-${roleId}`}
+							>
+								<LucideShield className="w-3 h-3" />
+								<span>{name}</span>
+							</Badge>
+						);
+					}
+
+					if (category === "distribution_network" || roleId === "partner" || roleId === "sales_support" || roleId === "client_support" || roleId === "associate") {
+						return (
+							<Badge
+								key={roleId}
+								className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 flex items-center gap-1 font-medium text-xs py-0.5"
+								data-testid={`badge-partner-${roleId}`}
+							>
+								<Users className="w-3 h-3 text-emerald-500" />
+								<span>{name}</span>
+							</Badge>
+						);
+					}
+
+					if (category === "internal_staff") {
+						return (
+							<Badge
+								key={roleId}
+								variant="outline"
+								className="bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-400/30 flex items-center gap-1 text-xs py-0.5"
+								data-testid={`badge-staff-${roleId}`}
+							>
+								<Building2 className="w-3 h-3 text-slate-500" />
+								<span>{name}</span>
+							</Badge>
+						);
+					}
+
+					return (
+						<Badge
+							key={roleId}
+							variant="secondary"
+							className="text-xs py-0.5"
+							data-testid={`badge-client-${roleId}`}
+						>
+							{roleId === "business_client" ? "Business Client" : "Client"}
+						</Badge>
+					);
+				})}
+			</div>
 		);
 	};
 
@@ -743,74 +886,146 @@ export default function UserManagement() {
 									data-testid="input-agentId"
 								/>
 							</div>
-							<div className="space-y-2">
-								<Label>Roles *</Label>
-								<div className="flex flex-wrap gap-4">
-									<div className="flex items-center space-x-2">
-										<Checkbox
-											id="role_user"
-											name="role_user"
-											defaultChecked
-											data-testid="checkbox-role-user"
-										/>
-										<Label
-											htmlFor="role_user"
-											className="font-normal cursor-pointer"
-										>
-											User
-										</Label>
+							<div className="space-y-3">
+								<Label className="text-sm font-semibold">User Roles & Access Permissions *</Label>
+								
+								{/* 1. Statutory Regulatory Roles */}
+								<div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+									<div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
+										<ShieldCheck className="w-4 h-4 text-amber-500" />
+										<span>Statutory Regulatory Officers (Mandatory Regulatory Filings)</span>
 									</div>
-									<div className="flex items-center space-x-2">
-										<Checkbox
-											id="role_admin"
-											name="role_admin"
-											data-testid="checkbox-role-admin"
-										/>
-										<Label
-											htmlFor="role_admin"
-											className="font-normal cursor-pointer"
-										>
-											Admin
-										</Label>
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+										{ALL_ASSIGNABLE_ROLES.filter((r) => r.category === "statutory_officer").map((role) => (
+											<div key={role.id} className="flex items-start space-x-2">
+												<Checkbox
+													id={`role_${role.id}`}
+													name={`role_${role.id}`}
+													data-testid={`checkbox-role-${role.id}`}
+												/>
+												<Label
+													htmlFor={`role_${role.id}`}
+													className="text-xs font-normal cursor-pointer leading-tight"
+												>
+													<span className="font-medium text-foreground">{role.label}</span>
+													{role.regulator && (
+														<span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-semibold uppercase">
+															({role.regulator})
+														</span>
+													)}
+													{role.mandatoryCredential && (
+														<span className="block text-[10px] text-muted-foreground">
+															Req: {role.mandatoryCredential}
+														</span>
+													)}
+												</Label>
+											</div>
+										))}
 									</div>
-									<div className="flex items-center space-x-2">
-										<Checkbox
-											id="role_agent"
-											name="role_agent"
-											data-testid="checkbox-role-agent"
-										/>
-										<Label
-											htmlFor="role_agent"
-											className="font-normal cursor-pointer"
-										>
-											Agent
-										</Label>
+								</div>
+
+								{/* 2. Accredited Practice Network */}
+								<div className="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 space-y-2">
+									<div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+										<Scale className="w-4 h-4 text-indigo-500" />
+										<span>Accredited Licensed Practice (CA & CS Practice Portal)</span>
 									</div>
-									<div className="flex items-center space-x-2">
-										<Checkbox
-											id="role_partner"
-											name="role_partner"
-											data-testid="checkbox-role-partner"
-										/>
-										<Label
-											htmlFor="role_partner"
-											className="font-normal cursor-pointer"
-										>
-											Partner
-										</Label>
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+										{ALL_ASSIGNABLE_ROLES.filter((r) => r.category === "licensed_professional").map((role) => (
+											<div key={role.id} className="flex items-start space-x-2">
+												<Checkbox
+													id={`role_${role.id}`}
+													name={`role_${role.id}`}
+													data-testid={`checkbox-role-${role.id}`}
+												/>
+												<Label
+													htmlFor={`role_${role.id}`}
+													className="text-xs font-normal cursor-pointer leading-tight"
+												>
+													<span className="font-medium text-foreground">{role.label}</span>
+													{role.regulator && (
+														<span className="ml-1 text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold">
+															({role.regulator})
+														</span>
+													)}
+													{role.mandatoryCredential && (
+														<span className="block text-[10px] text-muted-foreground">
+															Req: {role.mandatoryCredential}
+														</span>
+													)}
+												</Label>
+											</div>
+										))}
 									</div>
-									<div className="flex items-center space-x-2">
-										<Checkbox
-											id="role_client"
-											name="role_client"
-											data-testid="checkbox-role-client"
-										/>
-										<Label
-											htmlFor="role_client"
-											className="font-normal cursor-pointer"
-										>
-											Client
-										</Label>
+								</div>
+
+								{/* 3. External Distribution Network */}
+								<div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
+									<div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+										<Users className="w-4 h-4 text-emerald-500" />
+										<span>External Distribution Network & Support</span>
+									</div>
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+										{ALL_ASSIGNABLE_ROLES.filter((r) => r.category === "distribution_network").map((role) => (
+											<div key={role.id} className="flex items-start space-x-2">
+												<Checkbox
+													id={`role_${role.id}`}
+													name={`role_${role.id}`}
+													data-testid={`checkbox-role-${role.id}`}
+												/>
+												<Label
+													htmlFor={`role_${role.id}`}
+													className="text-xs font-normal cursor-pointer leading-tight"
+												>
+													<span className="font-medium text-foreground">{role.label}</span>
+													{role.mandatoryCredential && (
+														<span className="block text-[10px] text-muted-foreground">
+															Req: {role.mandatoryCredential}
+														</span>
+													)}
+												</Label>
+											</div>
+										))}
+									</div>
+								</div>
+
+								{/* 4. Administration & Clients */}
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+									<div className="rounded-lg border border-border p-3 space-y-2">
+										<span className="text-xs font-semibold text-foreground">Internal Administration</span>
+										<div className="space-y-1.5">
+											{ALL_ASSIGNABLE_ROLES.filter((r) => r.category === "internal_management").map((role) => (
+												<div key={role.id} className="flex items-center space-x-2">
+													<Checkbox
+														id={`role_${role.id}`}
+														name={`role_${role.id}`}
+														data-testid={`checkbox-role-${role.id}`}
+													/>
+													<Label htmlFor={`role_${role.id}`} className="text-xs font-normal cursor-pointer">
+														{role.label}
+													</Label>
+												</div>
+											))}
+										</div>
+									</div>
+
+									<div className="rounded-lg border border-border p-3 space-y-2">
+										<span className="text-xs font-semibold text-foreground">Clients & Investors</span>
+										<div className="space-y-1.5">
+											{ALL_ASSIGNABLE_ROLES.filter((r) => r.category === "client").map((role) => (
+												<div key={role.id} className="flex items-center space-x-2">
+													<Checkbox
+														id={`role_${role.id}`}
+														name={`role_${role.id}`}
+														defaultChecked={role.id === "user"}
+														data-testid={`checkbox-role-${role.id}`}
+													/>
+													<Label htmlFor={`role_${role.id}`} className="text-xs font-normal cursor-pointer">
+														{role.label}
+													</Label>
+												</div>
+											))}
+										</div>
 									</div>
 								</div>
 							</div>
@@ -972,15 +1187,44 @@ export default function UserManagement() {
 							</div>
 						</div>
 						<Select value={roleFilter} onValueChange={setRoleFilter}>
-							<SelectTrigger className="w-40" data-testid="select-role-filter">
+							<SelectTrigger className="w-56" data-testid="select-role-filter">
 								<SelectValue placeholder="Filter by role" />
 							</SelectTrigger>
-							<SelectContent>
+							<SelectContent className="max-h-80">
 								<SelectItem value="all">All Roles</SelectItem>
-								<SelectItem value="admin">Admin</SelectItem>
-								<SelectItem value="agent">Agent</SelectItem>
-								<SelectItem value="partner">Partner</SelectItem>
-								<SelectItem value="user">User</SelectItem>
+								
+								{/* Statutory Regulatory Roles */}
+								<SelectItem value="statutory" className="font-semibold text-amber-600 dark:text-amber-400">
+									🛡️ All Statutory Officers
+								</SelectItem>
+								<SelectItem value="principal_officer">Principal Officer (SEBI)</SelectItem>
+								<SelectItem value="compliance_officer">Compliance Officer (SEBI)</SelectItem>
+								<SelectItem value="designated_director">Designated Director (PMLA)</SelectItem>
+								<SelectItem value="ciso">CISO (CSCRF/CERT-In)</SelectItem>
+								<SelectItem value="grievance_officer">Grievance Officer (SCORES)</SelectItem>
+								<SelectItem value="dpo">Data Protection Officer (DPDP)</SelectItem>
+								<SelectItem value="regulatory_auditor">Regulatory Auditor</SelectItem>
+								<SelectItem value="master_agent">Master Partner Anchor</SelectItem>
+
+								{/* Professional Practice */}
+								<SelectItem value="professional" className="font-semibold text-indigo-600 dark:text-indigo-400">
+									⚖️ All CA & CS Practice
+								</SelectItem>
+								<SelectItem value="ca">Chartered Accountant (ICAI)</SelectItem>
+								<SelectItem value="cs">Company Secretary (ICSI)</SelectItem>
+
+								{/* Distribution Network */}
+								<SelectItem value="partner_network" className="font-semibold text-emerald-600 dark:text-emerald-400">
+									🤝 All Partners & Support
+								</SelectItem>
+								<SelectItem value="partner">Distribution Partner</SelectItem>
+								<SelectItem value="sales_support">Sales Support</SelectItem>
+								<SelectItem value="client_support">Client Support</SelectItem>
+								<SelectItem value="associate">Partner Associate</SelectItem>
+
+								{/* Management & Clients */}
+								<SelectItem value="admin">Administrator / Management</SelectItem>
+								<SelectItem value="client">Clients & Users</SelectItem>
 							</SelectContent>
 						</Select>
 						<Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -1126,78 +1370,154 @@ export default function UserManagement() {
 									data-testid="input-edit-agentId"
 								/>
 							</div>
-							<div className="space-y-2">
-								<Label>Roles *</Label>
-								<div className="flex flex-wrap gap-4">
-									<div className="flex items-center space-x-2">
-										<Checkbox
-											id="edit-role_user"
-											name="role_user"
-											defaultChecked={editingUser.roles.includes("user")}
-											data-testid="checkbox-edit-role-user"
-										/>
-										<Label
-											htmlFor="edit-role_user"
-											className="font-normal cursor-pointer"
-										>
-											User
-										</Label>
+							<div className="space-y-3">
+								<Label className="text-sm font-semibold">User Roles & Access Permissions *</Label>
+								
+								{/* 1. Statutory Regulatory Roles */}
+								<div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+									<div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
+										<ShieldCheck className="w-4 h-4 text-amber-500" />
+										<span>Statutory Regulatory Officers (Mandatory Regulatory Filings)</span>
 									</div>
-									<div className="flex items-center space-x-2">
-										<Checkbox
-											id="edit-role_admin"
-											name="role_admin"
-											defaultChecked={editingUser.roles.includes("admin")}
-											data-testid="checkbox-edit-role-admin"
-										/>
-										<Label
-											htmlFor="edit-role_admin"
-											className="font-normal cursor-pointer"
-										>
-											Admin
-										</Label>
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+										{ALL_ASSIGNABLE_ROLES.filter((r) => r.category === "statutory_officer").map((role) => (
+											<div key={role.id} className="flex items-start space-x-2">
+												<Checkbox
+													id={`edit-role_${role.id}`}
+													name={`role_${role.id}`}
+													defaultChecked={editingUser.roles.includes(role.id)}
+													data-testid={`checkbox-edit-role-${role.id}`}
+												/>
+												<Label
+													htmlFor={`edit-role_${role.id}`}
+													className="text-xs font-normal cursor-pointer leading-tight"
+												>
+													<span className="font-medium text-foreground">{role.label}</span>
+													{role.regulator && (
+														<span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-semibold uppercase">
+															({role.regulator})
+														</span>
+													)}
+													{role.mandatoryCredential && (
+														<span className="block text-[10px] text-muted-foreground">
+															Req: {role.mandatoryCredential}
+														</span>
+													)}
+												</Label>
+											</div>
+										))}
 									</div>
-									<div className="flex items-center space-x-2">
-										<Checkbox
-											id="edit-role_agent"
-											name="role_agent"
-											defaultChecked={editingUser.roles.includes("agent")}
-											data-testid="checkbox-edit-role-agent"
-										/>
-										<Label
-											htmlFor="edit-role_agent"
-											className="font-normal cursor-pointer"
-										>
-											Agent
-										</Label>
+								</div>
+
+								{/* 2. Accredited Practice Network */}
+								<div className="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 space-y-2">
+									<div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+										<Scale className="w-4 h-4 text-indigo-500" />
+										<span>Accredited Licensed Practice (CA & CS Practice Portal)</span>
 									</div>
-									<div className="flex items-center space-x-2">
-										<Checkbox
-											id="edit-role_partner"
-											name="role_partner"
-											defaultChecked={editingUser.roles.includes("partner")}
-											data-testid="checkbox-edit-role-partner"
-										/>
-										<Label
-											htmlFor="edit-role_partner"
-											className="font-normal cursor-pointer"
-										>
-											Partner
-										</Label>
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+										{ALL_ASSIGNABLE_ROLES.filter((r) => r.category === "licensed_professional").map((role) => (
+											<div key={role.id} className="flex items-start space-x-2">
+												<Checkbox
+													id={`edit-role_${role.id}`}
+													name={`role_${role.id}`}
+													defaultChecked={editingUser.roles.includes(role.id)}
+													data-testid={`checkbox-edit-role-${role.id}`}
+												/>
+												<Label
+													htmlFor={`edit-role_${role.id}`}
+													className="text-xs font-normal cursor-pointer leading-tight"
+												>
+													<span className="font-medium text-foreground">{role.label}</span>
+													{role.regulator && (
+														<span className="ml-1 text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold">
+															({role.regulator})
+														</span>
+													)}
+													{role.mandatoryCredential && (
+														<span className="block text-[10px] text-muted-foreground">
+															Req: {role.mandatoryCredential}
+														</span>
+													)}
+												</Label>
+											</div>
+										))}
 									</div>
-									<div className="flex items-center space-x-2">
-										<Checkbox
-											id="edit-role_client"
-											name="role_client"
-											defaultChecked={editingUser.roles.includes("client")}
-											data-testid="checkbox-edit-role-client"
-										/>
-										<Label
-											htmlFor="edit-role_client"
-											className="font-normal cursor-pointer"
-										>
-											Client
-										</Label>
+								</div>
+
+								{/* 3. External Distribution Network */}
+								<div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
+									<div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+										<Users className="w-4 h-4 text-emerald-500" />
+										<span>External Distribution Network & Support</span>
+									</div>
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+										{ALL_ASSIGNABLE_ROLES.filter((r) => r.category === "distribution_network").map((role) => (
+											<div key={role.id} className="flex items-start space-x-2">
+												<Checkbox
+													id={`edit-role_${role.id}`}
+													name={`role_${role.id}`}
+													defaultChecked={
+														editingUser.roles.includes(role.id) ||
+														(role.id === "sales_support" && editingUser.roles.includes("agent")) ||
+														(role.id === "client_support" && editingUser.roles.includes("sub_agent"))
+													}
+													data-testid={`checkbox-edit-role-${role.id}`}
+												/>
+												<Label
+													htmlFor={`edit-role_${role.id}`}
+													className="text-xs font-normal cursor-pointer leading-tight"
+												>
+													<span className="font-medium text-foreground">{role.label}</span>
+													{role.mandatoryCredential && (
+														<span className="block text-[10px] text-muted-foreground">
+															Req: {role.mandatoryCredential}
+														</span>
+													)}
+												</Label>
+											</div>
+										))}
+									</div>
+								</div>
+
+								{/* 4. Administration & Clients */}
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+									<div className="rounded-lg border border-border p-3 space-y-2">
+										<span className="text-xs font-semibold text-foreground">Internal Administration</span>
+										<div className="space-y-1.5">
+											{ALL_ASSIGNABLE_ROLES.filter((r) => r.category === "internal_management").map((role) => (
+												<div key={role.id} className="flex items-center space-x-2">
+													<Checkbox
+														id={`edit-role_${role.id}`}
+														name={`role_${role.id}`}
+														defaultChecked={editingUser.roles.includes(role.id)}
+														data-testid={`checkbox-edit-role-${role.id}`}
+													/>
+													<Label htmlFor={`edit-role_${role.id}`} className="text-xs font-normal cursor-pointer">
+														{role.label}
+													</Label>
+												</div>
+											))}
+										</div>
+									</div>
+
+									<div className="rounded-lg border border-border p-3 space-y-2">
+										<span className="text-xs font-semibold text-foreground">Clients & Investors</span>
+										<div className="space-y-1.5">
+											{ALL_ASSIGNABLE_ROLES.filter((r) => r.category === "client").map((role) => (
+												<div key={role.id} className="flex items-center space-x-2">
+													<Checkbox
+														id={`edit-role_${role.id}`}
+														name={`role_${role.id}`}
+														defaultChecked={editingUser.roles.includes(role.id)}
+														data-testid={`checkbox-edit-role-${role.id}`}
+													/>
+													<Label htmlFor={`edit-role_${role.id}`} className="text-xs font-normal cursor-pointer">
+														{role.label}
+													</Label>
+												</div>
+											))}
+										</div>
 									</div>
 								</div>
 							</div>

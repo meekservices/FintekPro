@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { storage } from "./storage";
 import {
 	type User,
@@ -326,7 +327,19 @@ class AdminService {
 		// Apply filters
 		if (filter) {
 			if (filter.role) {
-				users = users.filter((user) => user.roles?.includes(filter.role || ""));
+				const statutoryGroup = ["designated_director", "master_agent", "principal_officer", "compliance_officer", "grievance_officer", "ciso", "dpo", "regulatory_auditor"];
+				const professionalGroup = ["ca", "cs"];
+				const partnerGroup = ["partner", "partner_ops", "sales_support", "client_support", "associate"];
+				
+				if (filter.role === "statutory") {
+					users = users.filter((user) => user.roles?.some((r: string) => statutoryGroup.includes(r)));
+				} else if (filter.role === "professional") {
+					users = users.filter((user) => user.roles?.some((r: string) => professionalGroup.includes(r)));
+				} else if (filter.role === "partner_network") {
+					users = users.filter((user) => user.roles?.some((r: string) => partnerGroup.includes(r)));
+				} else {
+					users = users.filter((user) => user.roles?.includes(filter.role || ""));
+				}
 			}
 			if (filter.isActive !== undefined) {
 				users = users.filter((user) => user.isActive === filter.isActive);

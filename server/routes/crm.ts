@@ -10,9 +10,263 @@ import {
 	users,
 	userNotifications,
 } from "@shared/schema";
-import { eq, desc, and, or, sql, gte, lte } from "drizzle-orm";
+import { prospectLeads } from "@shared/schema/crm";
+import { eq, desc, and, or, sql, gte, lte, ilike } from "drizzle-orm";
 
 export function registerCrmRoutes(app: Express) {
+	// ================== Native CRM Leads (Standalone / Replaces Zoho CRM) ==================
+
+	// Get all leads (with search, status filtering, and partner assignment)
+	app.get("/api/crm/leads", async (req, res) => {
+		try {
+			const { search, status, partnerId, limit = "200", offset = "0" } = req.query;
+			const maxLimit = Math.min(Number.parseInt(limit as string, 10) || 200, 500);
+			const pageOffset = Number.parseInt(offset as string, 10) || 0;
+
+			const conditions = [];
+
+			if (status && status !== "all") {
+				conditions.push(eq(prospectLeads.status, (status as string).toLowerCase()));
+			}
+
+			if (partnerId) {
+				conditions.push(eq(prospectLeads.assignedTo, partnerId as string));
+			}
+
+			if (search) {
+				const term = `%${search}%`;
+				conditions.push(
+					or(
+						ilike(prospectLeads.companyName, term),
+						ilike(prospectLeads.primaryContactName, term),
+						ilike(prospectLeads.primaryEmail, term),
+						ilike(prospectLeads.primaryMobile, term),
+					),
+				);
+			}
+
+			const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+			const rows = await db
+				.select()
+				.from(prospectLeads)
+				.where(whereClause)
+				.orderBy(desc(prospectLeads.createdAt))
+				.limit(maxLimit)
+				.offset(pageOffset);
+
+			// Count total matching leads
+			const [countResult] = await db
+				.select({ count: sql<number>`count(*)::int` })
+				.from(prospectLeads)
+				.where(whereClause);
+
+			const statusMap: Record<string, string> = {
+				new: "New",
+				contacted: "Contacted",
+				qualified: "Qualified",
+				converted: "Converted",
+				rejected: "Not Qualified",
+				on_hold: "Contacted",
+			};
+
+			// Format leads for both native UI and backward-compatible ZohoLead consumers
+			const formattedLeads = rows.map((l) => {
+				const names = (l.primaryContactName || l.companyName || "").trim().split(" ");
+				const firstName = names[0] || "";
+				const lastName = names.slice(1).join(" ") || "";
+				const fullName = l.primaryContactName || l.companyName || "Lead";
+
+				return {
+					id: l.id,
+					First_Name: firstName,
+					Last_Name: lastName,
+					Full_Name: fullName,
+					Email: l.primaryEmail || "",
+					Phone: l.primaryMobile || "",
+					Mobile: l.primaryMobile || "",
+					Company: l.companyName || fullName,
+					Lead_Status: statusMap[l.status] || "New",
+					Lead_Source: l.source || "Native CRM",
+					Created_Time: l.createdAt?.toISOString() || new Date().toISOString(),
+					Modified_Time: l.updatedAt?.toISOString() || l.createdAt?.toISOString() || new Date().toISOString(),
+					Owner: l.assignedTo ? { name: "Assigned Partner", email: "" } : undefined,
+					cin: l.cin,
+					leadScore: l.leadScore,
+					wealthScore: l.wealthScore,
+					activityScore: l.activityScore,
+					compositeScore: l.compositeScore,
+					notes: l.notes,
+					source: l.source,
+					rawStatus: l.status,
+				};
+			});
+
+			res.json({
+				success: true,
+				connected: true, // Native CRM is always connected (no external Zoho OAuth dependency)
+				leads: formattedLeads,
+				total: countResult?.count || formattedLeads.length,
+				source: "fintekpro_native_crm",
+			});
+		} catch (error: any) {
+			console.error("Error fetching CRM leads:", error);
+			res.status(500).json({ success: false, error: "Failed to fetch CRM leads" });
+		}
+	});
+
+	// Get single lead details
+	app.get("/api/crm/leads/:id", async (req, res) => {
+		try {
+			const { id } = req.params;
+			const [lead] = await db
+				.select()
+				.from(prospectLeads)
+				.where(eq(prospectLeads.id, id))
+				.limit(1);
+
+			if (!lead) {
+				return res.status(404).json({ success: false, error: "Lead not found" });
+			}
+
+			// Fetch recent interactions linked to this lead if available
+			res.json({
+				success: true,
+				connected: true,
+				lead,
+			});
+		} catch (error: any) {
+			console.error("Error fetching CRM lead:", error);
+			res.status(500).json({ success: false, error: "Failed to fetch lead" });
+		}
+	});
+
+	// Create a new lead directly in native CRM
+	app.post("/api/crm/leads", async (req, res) => {
+		try {
+			const {
+				companyName,
+				primaryContactName,
+				primaryEmail,
+				primaryMobile,
+				status = "new",
+				source = "native_crm",
+				notes,
+				assignedTo,
+				cin,
+			} = req.body;
+
+			if (!companyName && !primaryContactName) {
+				return res.status(400).json({
+					success: false,
+					error: "Either company name or contact name is required",
+				});
+			}
+
+			const [newLead] = await db
+				.insert(prospectLeads)
+				.values({
+					companyName: companyName || primaryContactName,
+					primaryContactName: primaryContactName || companyName,
+					primaryEmail: primaryEmail || null,
+					primaryMobile: primaryMobile || null,
+					status: status.toLowerCase(),
+					source,
+					notes,
+					assignedTo: assignedTo || (req as any).user?.id || null,
+					cin: cin || null,
+				})
+				.returning();
+
+			// Log creation in CRM activity log
+			const partnerId = (req as any).user?.id || assignedTo;
+			if (partnerId) {
+				await db.insert(crmActivityLog).values({
+					agentId: partnerId,
+					activityType: "lead",
+					action: "created",
+					entityId: newLead.id,
+					summary: `Created lead: ${newLead.primaryContactName || newLead.companyName}`,
+				}).catch(() => {});
+			}
+
+			res.status(201).json({
+				success: true,
+				lead: newLead,
+				message: "Lead created successfully in native CRM",
+			});
+		} catch (error: any) {
+			console.error("Error creating CRM lead:", error);
+			res.status(500).json({ success: false, error: "Failed to create lead" });
+		}
+	});
+
+	// Update lead status or details
+	app.patch("/api/crm/leads/:id", async (req, res) => {
+		try {
+			const { id } = req.params;
+			const { status, notes, assignedTo, primaryEmail, primaryMobile, companyName, primaryContactName } = req.body;
+
+			const updates: Record<string, any> = { updatedAt: new Date() };
+			if (status) updates.status = status.toLowerCase();
+			if (notes !== undefined) updates.notes = notes;
+			if (assignedTo !== undefined) updates.assignedTo = assignedTo;
+			if (primaryEmail !== undefined) updates.primaryEmail = primaryEmail;
+			if (primaryMobile !== undefined) updates.primaryMobile = primaryMobile;
+			if (companyName !== undefined) updates.companyName = companyName;
+			if (primaryContactName !== undefined) updates.primaryContactName = primaryContactName;
+
+			const [updatedLead] = await db
+				.update(prospectLeads)
+				.set(updates)
+				.where(eq(prospectLeads.id, id))
+				.returning();
+
+			if (!updatedLead) {
+				return res.status(404).json({ success: false, error: "Lead not found" });
+			}
+
+			res.json({
+				success: true,
+				lead: updatedLead,
+				message: "Lead updated successfully",
+			});
+		} catch (error: any) {
+			console.error("Error updating CRM lead:", error);
+			res.status(500).json({ success: false, error: "Failed to update lead" });
+		}
+	});
+
+	// Delete a lead
+	app.delete("/api/crm/leads/:id", async (req, res) => {
+		try {
+			const { id } = req.params;
+			await db.delete(prospectLeads).where(eq(prospectLeads.id, id));
+			res.json({ success: true, message: "Lead removed from CRM" });
+		} catch (error: any) {
+			console.error("Error deleting CRM lead:", error);
+			res.status(500).json({ success: false, error: "Failed to delete lead" });
+		}
+	});
+
+	// Real-time sync endpoint (no-op since database is real-time, ensures UI compatibility)
+	app.post("/api/crm/sync", async (req, res) => {
+		try {
+			const [countResult] = await db
+				.select({ count: sql<number>`count(*)::int` })
+				.from(prospectLeads);
+
+			res.json({
+				success: true,
+				connected: true,
+				synced: countResult?.count || 0,
+				message: "Native CRM is synchronized with database in real-time",
+			});
+		} catch (error: any) {
+			res.status(500).json({ success: false, error: error.message });
+		}
+	});
+
 	// ================== CRM Interactions ==================
 
 	// Get all interactions for a client

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { IRIS_CONFIG } from "@shared/iris-config";
 
 interface Message {
 	id: string;
@@ -138,8 +139,9 @@ export function FloatingChatWidget() {
 			{!isOpen && (
 				<Button
 					onClick={() => setIsOpen(true)}
-					className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50"
+					className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50 bg-indigo-600 hover:bg-indigo-700 text-white"
 					size="icon"
+					title={IRIS_CONFIG.ui.pillLabel}
 					data-testid="button-open-chat"
 				>
 					<MessageCircle className="h-6 w-6" />
@@ -155,10 +157,13 @@ export function FloatingChatWidget() {
 					data-testid="card-chat-widget"
 				>
 					{/* Header */}
-					<CardHeader className="flex flex-row items-center justify-between p-4 border-b">
-						<CardTitle className="text-lg flex items-center gap-2">
-							<Bot className="h-5 w-5" />
-							AI Financial Advisor
+					<CardHeader className="flex flex-row items-center justify-between p-3.5 border-b">
+						<CardTitle className="text-sm font-semibold flex items-center gap-2">
+							<Bot className="h-4 w-4 text-indigo-500" />
+							<span>{IRIS_CONFIG.productBranding}</span>
+							<span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-normal">
+								{IRIS_CONFIG.ui.pillLabel}
+							</span>
 						</CardTitle>
 						<div className="flex gap-1">
 							<Button
@@ -238,10 +243,13 @@ export function FloatingChatWidget() {
 										<div className="flex justify-start">
 											<div className="flex gap-2 max-w-[85%]">
 												<div className="flex-shrink-0 w-7 h-7 rounded-full bg-secondary flex items-center justify-center">
-													<Bot className="h-3 w-3" />
+													<Bot className="h-3 w-3 text-primary" />
 												</div>
-												<div className="rounded-lg p-3 bg-secondary">
-													<Loader2 className="h-4 w-4 animate-spin" />
+												<div className="rounded-lg p-2.5 bg-secondary flex items-center gap-2">
+													<Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+													<span className="text-[11px] font-medium text-muted-foreground">
+														{IRIS_CONFIG.ui.statusAnalyzing}
+													</span>
 												</div>
 											</div>
 										</div>
@@ -250,7 +258,7 @@ export function FloatingChatWidget() {
 							</ScrollArea>
 
 							{/* Input */}
-							<div className="p-4 border-t">
+							<div className="p-3 border-t">
 								<div className="flex gap-2">
 									<Input
 										value={input}
@@ -258,15 +266,15 @@ export function FloatingChatWidget() {
 										onKeyPress={handleKeyPress}
 										placeholder={
 											!currentSessionId
-												? "Initializing chat..."
-												: "Ask me anything..."
+												? "Initializing Iris..."
+												: IRIS_CONFIG.ui.widgetPlaceholder
 										}
 										disabled={
 											!currentSessionId ||
 											sendMessageMutation.isPending ||
 											startSessionMutation.isPending
 										}
-										className="flex-1"
+										className="flex-1 text-sm"
 										data-testid="input-chat-message-widget"
 									/>
 									<Button
@@ -288,6 +296,11 @@ export function FloatingChatWidget() {
 										)}
 									</Button>
 								</div>
+							</div>
+
+							{/* Mandatory FASP-AI Disclaimer */}
+							<div className="px-3 pb-2 text-[10px] text-center text-muted-foreground leading-tight">
+								{IRIS_CONFIG.disclaimers.faspAi}
 							</div>
 						</CardContent>
 					)}

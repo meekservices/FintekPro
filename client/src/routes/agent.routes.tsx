@@ -265,6 +265,24 @@ export function AgentRoutes() {
 					</AgentLayout>
 				)}
 			</Route>
+			<Route path="/agent/crm">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AgentZohoCRM />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
+			<Route path="/partner/crm">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AgentZohoCRM />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
 			<Route path="/agent/zoho-crm">
 				{() => (
 					<AgentLayout>

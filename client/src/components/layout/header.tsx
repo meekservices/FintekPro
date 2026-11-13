@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/use-cart";
 import { useUnifiedCartCount } from "@/contexts/UnifiedCartContext";
 import { MobileNavCards } from "./MobileNavCards";
+import { IRIS_CONFIG } from "@shared/iris-config";
 
 export function Header() {
 	const [location] = useLocation();
@@ -126,18 +127,18 @@ export function Header() {
 							</Button>
 						</Link>
 
-						{/* AI Copilot Chat Button */}
+						{/* Iris AI Co-pilot Button */}
 						{isAuthenticated && (
 							<Link href="/chat">
 								<Button
 									variant="outline"
 									size="sm"
 									className="border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 whitespace-nowrap"
-									title="AI Decision Support Copilot"
+									title={IRIS_CONFIG.ui.headerButtonTitle}
 									data-testid="header-ai-chat-button"
 								>
 									<Bot className="h-4 w-4 sm:mr-1.5 text-indigo-600 dark:text-indigo-400" />
-									<span className="hidden sm:inline">AI Copilot</span>
+									<span className="hidden sm:inline">{IRIS_CONFIG.ui.pillLabel}</span>
 								</Button>
 							</Link>
 						)}

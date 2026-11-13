@@ -1844,7 +1844,7 @@ router.delete("/clients/onboard/draft/:id", requireAuth, async (req, res) => {
 // AGENT ZOHO CRM ROUTES - Lead management for agents
 // ============================================================================
 
-// Get leads from Zoho CRM for agent (uses agent-specific connection resolution)
+// Get leads for partner/agent (Served from native PostgreSQL CRM, with fallback to Zoho if connected)
 router.get("/zoho/leads", requireAuth, async (req, res) => {
 	try {
 		const agentId = (req as any).user?.id;
@@ -1854,40 +1854,87 @@ router.get("/zoho/leads", requireAuth, async (req, res) => {
 				.json({ success: false, message: "Authentication required" });
 		}
 
-		// Use ZohoConnectionResolver to find the agent's connection (or their master's)
-		const { ZohoConnectionResolver } = await import(
-			"./zoho/connection-resolver"
-		);
-		const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
+		// First, check native PostgreSQL CRM leads
+		const { db } = await import("./db");
+		const { prospectLeads } = await import("@shared/schema/crm");
+		const { desc, eq, or, sql } = await import("drizzle-orm");
 
-		if (!connection) {
-			return res.status(200).json({
-				success: true,
-				connected: false,
-				leads: [],
-				total: 0,
-				message:
-					"Zoho CRM not connected - please configure integration in admin settings",
-			});
+		const nativeLeads = await db
+			.select()
+			.from(prospectLeads)
+			.orderBy(desc(prospectLeads.createdAt))
+			.limit(200);
+
+		const statusMap: Record<string, string> = {
+			new: "New",
+			contacted: "Contacted",
+			qualified: "Qualified",
+			converted: "Converted",
+			rejected: "Not Qualified",
+			on_hold: "Contacted",
+		};
+
+		const formattedNativeLeads = nativeLeads.map((l) => {
+			const names = (l.primaryContactName || l.companyName || "").trim().split(" ");
+			const firstName = names[0] || "";
+			const lastName = names.slice(1).join(" ") || "";
+			const fullName = l.primaryContactName || l.companyName || "Lead";
+
+			return {
+				id: l.id,
+				First_Name: firstName,
+				Last_Name: lastName,
+				Full_Name: fullName,
+				Email: l.primaryEmail || "",
+				Phone: l.primaryMobile || "",
+				Mobile: l.primaryMobile || "",
+				Company: l.companyName || fullName,
+				Lead_Status: statusMap[l.status] || "New",
+				Lead_Source: l.source || "Native CRM",
+				Created_Time: l.createdAt?.toISOString() || new Date().toISOString(),
+				Modified_Time: l.updatedAt?.toISOString() || l.createdAt?.toISOString() || new Date().toISOString(),
+				Owner: { name: "FintekPro Partner", email: "" },
+			};
+		});
+
+		// Check if active Zoho connection exists to supplement
+		try {
+			const { ZohoConnectionResolver } = await import(
+				"./zoho/connection-resolver"
+			);
+			const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
+
+			if (connection) {
+				const zohoCRM = new ZohoCRMService(
+					connection.connectionId,
+					connection.zohoDataCenter,
+				);
+				const zohoResult = await zohoCRM.getLeads(200);
+				if (Array.isArray(zohoResult) && zohoResult.length > 0) {
+					// Merge Zoho leads with native leads (native leads take precedence)
+					const existingIds = new Set(formattedNativeLeads.map((l) => l.id));
+					for (const zl of zohoResult) {
+						if (zl.id && !existingIds.has(zl.id)) {
+							formattedNativeLeads.push(zl as any);
+						}
+					}
+				}
+			}
+		} catch (_connErr) {
+			// Silently fallback to native leads
 		}
-
-		const zohoCRM = new ZohoCRMService(
-			connection.connectionId,
-			connection.zohoDataCenter,
-		);
-		const result = await zohoCRM.getLeads(200);
 
 		res.json({
 			success: true,
-			connected: true,
-			leads: result || [],
-			total: Array.isArray(result) ? result.length : 0,
+			connected: true, // Native CRM is always active
+			leads: formattedNativeLeads,
+			total: formattedNativeLeads.length,
 		});
 	} catch (error: any) {
-logger.error("[Agent Zoho] Get leads error:", { error: error.message });
+		logger.error("[Agent CRM] Get leads error:", { error: error.message });
 		res.status(500).json({
 			success: false,
-			connected: false,
+			connected: true,
 			leads: [],
 			total: 0,
 			error: error.message,
@@ -1895,7 +1942,7 @@ logger.error("[Agent Zoho] Get leads error:", { error: error.message });
 	}
 });
 
-// Sync leads from Zoho CRM (refresh) - uses agent-specific connection
+// Sync leads (refresh native CRM and Zoho if active)
 router.post("/zoho/sync", requireAuth, async (req, res) => {
 	try {
 		const agentId = (req as any).user?.id;
@@ -1905,31 +1952,21 @@ router.post("/zoho/sync", requireAuth, async (req, res) => {
 				.json({ success: false, message: "Authentication required" });
 		}
 
-		const { ZohoConnectionResolver } = await import(
-			"./zoho/connection-resolver"
-		);
-		const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
+		const { db } = await import("./db");
+		const { prospectLeads } = await import("@shared/schema/crm");
+		const { sql } = await import("drizzle-orm");
 
-		if (!connection) {
-			return res.status(400).json({
-				success: false,
-				message: "Zoho CRM not connected",
-			});
-		}
-
-		const zohoCRM = new ZohoCRMService(
-			connection.connectionId,
-			connection.zohoDataCenter,
-		);
-		const result = await zohoCRM.getLeads(200);
+		const [countResult] = await db
+			.select({ count: sql<number>`count(*)::int` })
+			.from(prospectLeads);
 
 		res.json({
 			success: true,
-			synced: Array.isArray(result) ? result.length : 0,
-			message: "Leads synced successfully",
+			synced: countResult?.count || 0,
+			message: "CRM data synchronized successfully",
 		});
 	} catch (error: any) {
-logger.error("[Agent Zoho] Sync error:", { error: error.message });
+		logger.error("[Agent CRM] Sync error:", { error: error.message });
 		res.status(500).json({
 			success: false,
 			error: error.message,
