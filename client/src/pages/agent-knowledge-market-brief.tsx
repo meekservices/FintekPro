@@ -209,6 +209,7 @@ interface MarketBrief {
 			monthlyMfSipRunRateCr: number;
 			absorptionRatio: number;
 			liquidityRegime: string;
+			asOfDate?: string;
 		};
 		ncdexAgriPulse?: {
 			exchange: string;
@@ -340,12 +341,12 @@ const DEFAULT_GMIE_DATA: GmieReportData = {
 	macroRegime: "DOMESTIC_DECOUPLING",
 	indiaDecouplingScore: 2.72,
 	capitalFlows: {
-		date: new Date().toISOString().split("T")[0],
-		fiiCashNetCr: -1850,
-		diiCashNetCr: 4200,
-		effectiveFlowCr: -590,
-		diiAbsorptionRatio: 2.27,
-		fpiIndexFuturesLongShortRatio: 0.85,
+		date: "2026-11-13",
+		fiiCashNetCr: 5736.55,
+		diiCashNetCr: -2253.58,
+		effectiveFlowCr: 5060.48,
+		diiAbsorptionRatio: 0.61,
+		fpiIndexFuturesLongShortRatio: 0.53,
 		fdiQuarterlyRunRateCr: 105000,
 		fdiRetentionRatePct: 78.4,
 		fedNetLiquidityUsdBn: 6420,
@@ -372,7 +373,7 @@ const DEFAULT_GMIE_DATA: GmieReportData = {
 			engine_version: "GMIE-v1.0.0",
 			calculation_timestamp: new Date().toISOString(),
 			macroSummary:
-				"Indian markets are operating under DOMESTIC_DECOUPLING conditions with a Decoupling Score of +2.72σ. Domestic institutional absorption ratio stands at 2.27x, providing structural cushion against FII cash selling.",
+				"Indian markets are operating under DOMESTIC_DECOUPLING conditions with sustained institutional flows. Domestic institutional participation and mutual fund SIP inflows provide a structural cushion against global volatility.",
 			factorsConsidered: [
 				"FII cash net vs DII absorption ratio",
 				"FPI Index Futures Long/Short ratio",
@@ -381,7 +382,7 @@ const DEFAULT_GMIE_DATA: GmieReportData = {
 				"US Fed Net Liquidity index",
 			],
 			formulaApplied: "Effective Flow = FII + 0.3 * DII; IDI = f(IAR, Z_EffectiveFlow, Spread_GIFT)",
-			intermediateSteps: "FII: ₹-1,850 Cr, DII: ₹4,200 Cr -> Effective Flow: ₹-590 Cr; Absorption: 2.27x.",
+			intermediateSteps: "FII: +₹5,736.55 Cr, DII: -₹2,253.58 Cr -> Effective Flow: +₹5,060.48 Cr; Absorption: 0.61x.",
 		},
 	},
 };
@@ -398,6 +399,11 @@ function safeNum(val: unknown, fallback = 0): number {
 function safeFormatDate(dateStr?: string, fmt = "EEEE, MMMM d, yyyy") {
 	if (!dateStr) return format(new Date(), fmt);
 	try {
+		if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+			const [y, m, d] = dateStr.split("-").map(Number);
+			const localDate = new Date(y, m - 1, d);
+			return Number.isNaN(localDate.getTime()) ? format(new Date(), fmt) : format(localDate, fmt);
+		}
 		const d = new Date(dateStr);
 		return Number.isNaN(d.getTime()) ? format(new Date(), fmt) : format(d, fmt);
 	} catch {
@@ -820,12 +826,17 @@ function getClientFallbackBrief(region: string): MarketBrief {
 						asOfSession: dynamicSession,
 					},
 					institutionalFlows: {
-						fiiNetInflowCr: -1850,
-						diiNetInflowCr: 3120,
-						netCombinedInflowCr: 1270,
+						fiiNetInflowCr: 5736.55,
+						diiNetInflowCr: -2253.58,
+						netCombinedInflowCr: 3482.97,
 						monthlyMfSipRunRateCr: 26425,
-						absorptionRatio: 1.69,
-						liquidityRegime: "DII Inflows Absorb FPI Selling",
+						absorptionRatio: 0.61,
+						liquidityRegime: "FII Inflows Absorb DII Selling",
+						asOfDate: "2026-11-13",
+						fiiGrossBuyCr: 18339.57,
+						fiiGrossSellCr: 12603.02,
+						diiGrossBuyCr: 11745.95,
+						diiGrossSellCr: 13999.53,
 					},
 					ncdexAgriPulse: {
 						exchange: "NCDEX",
@@ -1164,6 +1175,11 @@ export default function AgentKnowledgeMarketBrief() {
 	// Safe sanitized brief without mutating React Query cache
 	const briefToDisplay: MarketBrief = useMemo(() => {
 		const brief: MarketBrief = { ...rawBrief };
+
+		// When viewing an archived historical brief, preserve historical snapshot data and commentary intact
+		if (selectedBriefId && activeHistoricalBrief) {
+			return brief;
+		}
 
 		const liveBrent = safeNum(
 			brief.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ??
@@ -3106,7 +3122,9 @@ export default function AgentKnowledgeMarketBrief() {
 													setActiveExplainerModal({
 														type: "institutional",
 														title: "Institutional Liquidity & Domestic SIP Moat Desk",
-														subtitle: "NSE India & NSDL / CDSL Institutional Settlement Desk",
+														subtitle: briefToDisplay.multiExchangeData?.institutionalFlows?.asOfDate
+															? `NSE India & Upstox Institutional Feed — Trade Date: ${briefToDisplay.multiExchangeData.institutionalFlows.asOfDate}`
+															: "NSE India & NSDL / CDSL Institutional Settlement Desk",
 														data: briefToDisplay.multiExchangeData?.institutionalFlows,
 													})
 												}
@@ -3117,9 +3135,16 @@ export default function AgentKnowledgeMarketBrief() {
 														FII / DII Institutional Net
 														<Info className="h-3 w-3 text-muted-foreground opacity-60 group-hover:opacity-100 group-hover:text-primary transition-opacity" />
 													</span>
-													<Badge className="text-[10px] bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-200 border border-blue-300 dark:border-blue-800 font-semibold">
-														SIP Moat
-													</Badge>
+													<div className="flex items-center gap-1.5">
+														{briefToDisplay.multiExchangeData.institutionalFlows.asOfDate && (
+															<span className="text-[10px] text-muted-foreground font-mono">
+																{briefToDisplay.multiExchangeData.institutionalFlows.asOfDate}
+															</span>
+														)}
+														<Badge className="text-[10px] bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-200 border border-blue-300 dark:border-blue-800 font-semibold">
+															SIP Moat
+														</Badge>
+													</div>
 												</div>
 												<div className="mt-1 flex items-baseline justify-between text-xs font-mono">
 													<span>
@@ -3132,7 +3157,7 @@ export default function AgentKnowledgeMarketBrief() {
 															}
 														>
 															{safeNum(briefToDisplay.multiExchangeData.institutionalFlows.fiiNetInflowCr) >= 0 ? "+" : ""}
-															₹{safeNum(briefToDisplay.multiExchangeData.institutionalFlows.fiiNetInflowCr, -1850).toLocaleString("en-IN")} Cr
+															₹{safeNum(briefToDisplay.multiExchangeData.institutionalFlows.fiiNetInflowCr).toLocaleString("en-IN")} Cr
 														</strong>
 													</span>
 													<span>
@@ -3145,7 +3170,7 @@ export default function AgentKnowledgeMarketBrief() {
 															}
 														>
 															{safeNum(briefToDisplay.multiExchangeData.institutionalFlows.diiNetInflowCr) >= 0 ? "+" : ""}
-															₹{safeNum(briefToDisplay.multiExchangeData.institutionalFlows.diiNetInflowCr, 3120).toLocaleString("en-IN")} Cr
+															₹{safeNum(briefToDisplay.multiExchangeData.institutionalFlows.diiNetInflowCr).toLocaleString("en-IN")} Cr
 														</strong>
 													</span>
 												</div>
@@ -3725,19 +3750,19 @@ export default function AgentKnowledgeMarketBrief() {
 									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
 										<span className="text-[10px] text-muted-foreground block">FII / FPI Net Flow</span>
 										<span className={`text-lg font-bold font-mono ${safeNum(activeExplainerModal.data.fiiNetInflowCr) >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
-											{safeNum(activeExplainerModal.data.fiiNetInflowCr) >= 0 ? "+" : ""}₹{safeNum(activeExplainerModal.data.fiiNetInflowCr, -1850).toLocaleString("en-IN")} Cr
+											{safeNum(activeExplainerModal.data.fiiNetInflowCr) >= 0 ? "+" : ""}₹{safeNum(activeExplainerModal.data.fiiNetInflowCr).toLocaleString("en-IN")} Cr
 										</span>
 									</div>
 									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
 										<span className="text-[10px] text-muted-foreground block">DII Domestic Net Flow</span>
 										<span className={`text-lg font-bold font-mono ${safeNum(activeExplainerModal.data.diiNetInflowCr) >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
-											{safeNum(activeExplainerModal.data.diiNetInflowCr) >= 0 ? "+" : ""}₹{safeNum(activeExplainerModal.data.diiNetInflowCr, 3120).toLocaleString("en-IN")} Cr
+											{safeNum(activeExplainerModal.data.diiNetInflowCr) >= 0 ? "+" : ""}₹{safeNum(activeExplainerModal.data.diiNetInflowCr).toLocaleString("en-IN")} Cr
 										</span>
 									</div>
 									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
 										<span className="text-[10px] text-muted-foreground block">Net Combined Flow</span>
 										<span className={`text-lg font-bold font-mono ${safeNum(activeExplainerModal.data.netCombinedInflowCr) >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
-											{safeNum(activeExplainerModal.data.netCombinedInflowCr) >= 0 ? "+" : "-"}₹{Math.abs(safeNum(activeExplainerModal.data.netCombinedInflowCr, 1270)).toLocaleString("en-IN")} Cr
+											{safeNum(activeExplainerModal.data.netCombinedInflowCr) >= 0 ? "+" : "-"}₹{Math.abs(safeNum(activeExplainerModal.data.netCombinedInflowCr)).toLocaleString("en-IN")} Cr
 										</span>
 									</div>
 								</div>
@@ -3746,13 +3771,13 @@ export default function AgentKnowledgeMarketBrief() {
 									<div className="p-2 rounded bg-background border border-border">
 										<span className="text-[10px] text-muted-foreground block">FII Gross Buy / Sell</span>
 										<span className="font-mono font-semibold text-foreground text-xs">
-											₹{safeNum(activeExplainerModal.data.fiiGrossBuyCr, 11420).toLocaleString("en-IN")} / ₹{safeNum(activeExplainerModal.data.fiiGrossSellCr, 13270).toLocaleString("en-IN")} Cr
+											₹{safeNum(activeExplainerModal.data.fiiGrossBuyCr).toLocaleString("en-IN")} / ₹{safeNum(activeExplainerModal.data.fiiGrossSellCr).toLocaleString("en-IN")} Cr
 										</span>
 									</div>
 									<div className="p-2 rounded bg-background border border-border">
 										<span className="text-[10px] text-muted-foreground block">DII Gross Buy / Sell</span>
 										<span className="font-mono font-semibold text-foreground text-xs">
-											₹{safeNum(activeExplainerModal.data.diiGrossBuyCr, 14850).toLocaleString("en-IN")} / ₹{safeNum(activeExplainerModal.data.diiGrossSellCr, 11730).toLocaleString("en-IN")} Cr
+											₹{safeNum(activeExplainerModal.data.diiGrossBuyCr).toLocaleString("en-IN")} / ₹{safeNum(activeExplainerModal.data.diiGrossSellCr).toLocaleString("en-IN")} Cr
 										</span>
 									</div>
 									<div className="p-2 rounded bg-background border border-border">
@@ -3764,7 +3789,7 @@ export default function AgentKnowledgeMarketBrief() {
 									<div className="p-2 rounded bg-background border border-border">
 										<span className="text-[10px] text-muted-foreground block">DII Absorption Ratio</span>
 										<span className="font-mono font-semibold text-foreground text-xs">
-											{safeNum(activeExplainerModal.data.absorptionRatio, 1.69)}x
+											{safeNum(activeExplainerModal.data.absorptionRatio, 1.0)}x
 										</span>
 									</div>
 								</div>
@@ -3775,7 +3800,7 @@ export default function AgentKnowledgeMarketBrief() {
 										The Domestic SIP Moat Structure & Absorption Thesis
 									</h4>
 									<div className="font-mono bg-card/80 p-2 rounded border border-border text-[11px] text-foreground">
-										Absorption Ratio = |DII Net Buying| / |FII Net Selling| = ₹{Math.abs(safeNum(activeExplainerModal.data.diiNetInflowCr, 3120)).toLocaleString("en-IN")} Cr / ₹{Math.max(1, Math.abs(safeNum(activeExplainerModal.data.fiiNetInflowCr, -1850))).toLocaleString("en-IN")} Cr = {safeNum(activeExplainerModal.data.absorptionRatio, 1.69)}x
+										Absorption Ratio = |DII Net Buying| / |FII Net Selling| = ₹{Math.abs(safeNum(activeExplainerModal.data.diiNetInflowCr)).toLocaleString("en-IN")} Cr / ₹{Math.max(1, Math.abs(safeNum(activeExplainerModal.data.fiiNetInflowCr))).toLocaleString("en-IN")} Cr = {safeNum(activeExplainerModal.data.absorptionRatio, 1.0)}x
 									</div>
 									<p className="text-muted-foreground leading-relaxed">
 										Over the last decade, India's mutual fund industry has undergone a monumental structural shift. With monthly SIP inflows surpassing ₹{safeNum(activeExplainerModal.data.monthlyMfSipRunRateCr, 26425).toLocaleString("en-IN")}+ Crore, domestic capital acts as an insurmountable counter-cyclical liquidity cushion. While foreign portfolio investors (FPIs) rebalance due to US dollar strength or US Treasury yield spikes, domestic institutional buying absorbs foreign sales without triggering systemic market contagion.
@@ -3789,7 +3814,7 @@ export default function AgentKnowledgeMarketBrief() {
 									</h4>
 									<ul className="list-disc list-inside space-y-1 text-muted-foreground">
 										<li>
-											<strong>Countering Media FPI Panic:</strong> When clients read alarming headlines about "Foreign investors pulling out billions", show them this data: Domestic DIIs registered net {safeNum(activeExplainerModal.data.diiNetInflowCr) >= 0 ? "inflows of ₹" : "outflows of ₹"}{Math.abs(safeNum(activeExplainerModal.data.diiNetInflowCr, 3120)).toLocaleString("en-IN")} Cr, providing a {safeNum(activeExplainerModal.data.absorptionRatio, 1.69)}x absorption buffer against foreign institutional outflows.
+											<strong>Countering Media FPI Panic:</strong> When clients read alarming headlines about "Foreign investors pulling out billions", show them this data: Domestic DIIs registered net {safeNum(activeExplainerModal.data.diiNetInflowCr) >= 0 ? "inflows of ₹" : "outflows of ₹"}{Math.abs(safeNum(activeExplainerModal.data.diiNetInflowCr)).toLocaleString("en-IN")} Cr, providing a {safeNum(activeExplainerModal.data.absorptionRatio, 1.0)}x absorption buffer against foreign institutional outflows.
 										</li>
 										<li>
 											<strong>Rupee Wealth Compounding:</strong> Indian household financialization ensures retail capital continues to drive long-term equity capital formation.

@@ -844,7 +844,14 @@ export default function AgentKnowledgeHub() {
 								</Badge>
 							</div>
 							<CardDescription className="text-muted-foreground">
-								{format(new Date(briefToDisplay.date), "EEEE, MMMM d, yyyy")}
+								{(() => {
+									const ds = briefToDisplay?.date;
+									if (ds && /^\d{4}-\d{2}-\d{2}$/.test(ds)) {
+										const [y, m, d] = ds.split("-").map(Number);
+										return format(new Date(y, m - 1, d), "EEEE, MMMM d, yyyy");
+									}
+									return format(ds ? new Date(ds) : new Date(), "EEEE, MMMM d, yyyy");
+								})()}
 							</CardDescription>
 						</CardHeader>
 						<CardContent>

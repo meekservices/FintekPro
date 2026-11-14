@@ -29,6 +29,7 @@ import {
 import { eq, and, desc, sql, ne } from "drizzle-orm";
 import { callPython } from "../clients/python-client";
 import { aiMFRecommendationService } from "./ai-mf-recommendation-service";
+import { logger } from "../logger";
 // GoogleGenerativeAI imported from gemini service if needed
 
 const SEBI_DISCLAIMER = `This investment proposal is generated using an AI-assisted analytical system based on information provided by the client and available market data. The recommendations are not investment advice, do not assure returns, and are subject to market risks. Final investment decisions shall be taken by the client after independent evaluation.`;
@@ -1157,6 +1158,7 @@ export class AIProposalEngine {
 		recommendations: RecommendationInput[],
 		title?: string,
 	): Promise<{ proposal: AiProposal; items: AiProposalItem[] }> {
+		const startTime = Date.now();
 		const diagnostics = await db
 			.select()
 			.from(portfolioDiagnostics)
@@ -1247,9 +1249,9 @@ export class AIProposalEngine {
 				Math.round((absValue / newTotalValue) * 10000) / 100; // 2dp %
 		}
 
-		// T007: aiModelUsed reflects actual engine
+		// aiModelUsed reflects actual engine
 		const aiModelUsed = process.env.PYTHON_SERVICE_URL
-			? "python-sidecar-v3.0.0"
+			? "python-service-v4.0.0"
 			: "rule-based-v2.0.0";
 
 		const proposalData: InsertAiProposal = {
@@ -1269,7 +1271,7 @@ export class AIProposalEngine {
 			totalInvestmentAmount: totalInvestment.toString(),
 			totalRedemptionAmount: totalRedemption.toString(),
 			netCashFlow: (totalRedemption - totalInvestment).toString(),
-			aiEngineVersion: "3.0.0",
+			aiEngineVersion: "ai-proposal-v2.0",
 			aiModelUsed,
 			aiGeneratedAt: new Date(),
 			sebiDisclaimer: SEBI_DISCLAIMER,
@@ -1325,6 +1327,14 @@ export class AIProposalEngine {
 				totalInvestment,
 				totalRedemption,
 			},
+		});
+
+		logger.info({
+			event: "AI_PROPOSAL_CREATED",
+			proposal_id: proposalNumber,
+			user_id: clientId,
+			latency_ms: Date.now() - startTime,
+			status: "success",
 		});
 
 		return { proposal, items };

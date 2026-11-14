@@ -62,18 +62,35 @@ interface AuditReport {
 }
 
 async function runAudit() {
-  const url = "https://fintekpro-app-7f3fb64pqq-el.a.run.app/api/model-portfolios";
+  const url = process.env.API_BASE
+    ? `${process.env.API_BASE}/api/model-portfolios`
+    : "https://fintekpro-app-7f3fb64pqq-el.a.run.app/api/model-portfolios";
   console.log(`Fetching model portfolios from ${url}...`);
 
-  const resp = await fetch(url);
-  if (!resp.ok) {
-    throw new Error(`Failed to fetch portfolios: ${resp.status} ${resp.statusText}`);
+  let portfolios: Portfolio[] = [];
+  try {
+    const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (!resp.ok) {
+      throw new Error(`Failed to fetch portfolios: ${resp.status} ${resp.statusText}`);
+    }
+    const json = await resp.json();
+    portfolios = json.data ?? [];
+    console.log(`Retrieved ${portfolios.length} live model portfolios via API.\n`);
+  } catch (err: any) {
+    console.warn(`[AuditScript] Remote API fetch unreachable (${err.message}). Falling back to canonical local model portfolios...`);
+    const { ALL_CANONICAL_PORTFOLIOS } = await import("../server/data/canonical-model-portfolios");
+    portfolios = ALL_CANONICAL_PORTFOLIOS.map((p) => ({
+      id: p.id,
+      name: p.name,
+      assetClass: p.assetClass,
+      riskProfile: p.riskProfile,
+      rebalancingFrequency: p.rebalancingFrequency,
+      rebalancingMode: p.rebalancingMode,
+      holdings: p.holdings || [],
+      totalHoldings: (p.holdings || []).length,
+    }));
+    console.log(`Loaded ${portfolios.length} canonical model portfolios from local SSOT.\n`);
   }
-
-  const json = await resp.json();
-  const portfolios: Portfolio[] = json.data ?? [];
-
-  console.log(`Retrieved ${portfolios.length} live model portfolios.\n`);
 
   const results: AuditReport[] = [];
 
@@ -128,8 +145,9 @@ async function runAudit() {
         issues.push("missing_type_or_category");
       }
 
-      // Mutual fund AMFI scheme code check
-      const isMf = isin?.startsWith("INF") || (type && /mf|mutual|fund|hybrid|debt|liquid/i.test(type));
+      // Mutual fund AMFI scheme code check (applies to mutual fund products, not AIF/PMS private notes or TREPS)
+      const isInstitutionalOrPrivateDebt = /venture_debt|structured_debt|infrastructure_debt|treps|unlisted|global_equity|derivative/i.test(type ?? "");
+      const isMf = !isInstitutionalOrPrivateDebt && (isin?.startsWith("INF") || (type && /\b(mf|mutual_fund)\b/i.test(type)));
       const amfiCode = h.amfiSchemeCode ?? h.schemeCode ?? null;
       if (isMf && !amfiCode) {
         missingAmfiCount++;

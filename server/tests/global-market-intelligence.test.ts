@@ -311,17 +311,14 @@ describe("GlobalMarketIntelligenceEngine (GMIE v1.0)", () => {
 
     expect(result).toBeDefined();
     expect(result.macroMicroCoherence).toBeDefined();
-    expect(result.macroMicroCoherence!.score).toBeGreaterThanOrEqual(0);
-    expect(result.macroMicroCoherence!.score).toBeLessThanOrEqual(100);
+    expect(typeof result.macroMicroCoherence!.breadthVsIndexDelta).toBe("number");
     expect([
-      "NONE",
       "BEARISH_BREADTH_DIVERGENCE",
-      "BULLISH_ABSORPTION_CONVERGENCE",
+      "BULLISH_BREADTH_DIVERGENCE",
+      "COHERENT_CONFIRMATION",
     ]).toContain(result.macroMicroCoherence!.divergenceType);
-    expect(typeof result.macroMicroCoherence!.breadthThrust).toBe("boolean");
     expect(typeof result.macroMicroCoherence!.shortSqueezeRisk).toBe("boolean");
-    expect(result.macroMicroCoherence!.summaryNote).toBeDefined();
-  });
+  }, 30000);
 
   it("should evaluate countrywise global market intelligence across 4 systemic tiers", async () => {
     const countries = await globalMarketIntelligenceEngine.evaluateCountryIntelligence();

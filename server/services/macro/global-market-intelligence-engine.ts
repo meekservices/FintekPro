@@ -328,7 +328,7 @@ export class GlobalMarketIntelligenceEngine {
     }
 
     return {
-      date: today,
+      date: fiiDii?.date || today,
       fiiCashNetCr: fiiCashNet,
       diiCashNetCr: diiCashNet,
       effectiveFlowCr: effectiveFlow,

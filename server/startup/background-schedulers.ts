@@ -1693,17 +1693,19 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			await scheduleInstrumentMasterSync();
 		});
 
-		// ─── Domain Operations Crons (Orders, Compliance, Unlisted, IRIS CAS) ────
+		// ─── Domain Operations Crons (Orders, Compliance, Unlisted, IRIS CAS, Market Brief) ────
 		runStartupTask("Domain Operations & Compliance Crons", async () => {
 			const { initializeOrderOpsCrons } = await import("../cron-order-ops");
 			const { initializeComplianceCrons } = await import("../cron-compliance");
 			const { initializeIrisSyncCrons } = await import("../cron-iris-sync");
 			const { initializeUnlistedCrons } = await import("../cron-unlisted");
+			const { initializeMarketBriefEodCron } = await import("../cron/market-brief-eod-cron");
 			initializeOrderOpsCrons();
 			initializeComplianceCrons();
 			initializeIrisSyncCrons();
 			initializeUnlistedCrons();
-			console.log("[DomainCrons] ✅ Order ops, compliance, IRIS CAS, and unlisted crons active");
+			initializeMarketBriefEodCron();
+			console.log("[DomainCrons] ✅ Order ops, compliance, IRIS CAS, unlisted, and Market Brief EOD crons active");
 		});
 
 		// ─── Macro & Sovereign Benchmarks Maintenance (Live Tracking + 10Y Backfill) ──
@@ -1800,6 +1802,64 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			);
 			nightlyFactorScreeningScheduler.start();
 			console.log("[QuantFactorScreen] 🔬 Automated nightly VCP, Mansfield RS & Delivery screening scheduler active");
+		});
+
+		// ─── Autonomous Engine Learning & Self-Improvement Audit Scheduler ────────
+		runStartupTask("Autonomous Engine Learning & Self-Improvement Audit Scheduler", async () => {
+			const { engineLearningOrchestrator } = await import(
+				"../services/engine-learning-orchestrator"
+			);
+			const { telemetryBus } = await import("../services/engine-telemetry-bus");
+			const { modelPortfolioExecutionManager } = await import(
+				"../services/model-portfolio-execution-manager"
+			);
+
+			const runAudit = async (trigger: "startup" | "scheduled_eod" | "weekend_audit") => {
+				try {
+					console.log(`🧠 [SelfImprovement] 🔄 Running autonomous performance audit & learning cycle (${trigger})...`);
+					const cycleResult = await engineLearningOrchestrator.runSelfImprovementCycle();
+
+					// Audit Algo & Model Portfolio Execution metrics
+					const pilotMetrics = await modelPortfolioExecutionManager.getPilotExecutionMetrics("potd-tactical-alpha");
+
+					// Report execution quality to Telemetry Bus
+					telemetryBus.report({
+						engineId: "model-portfolio-algo",
+						engineName: "Model Portfolio Algo Execution Engine",
+						category: "Execution & Rebalancing",
+						reportedAt: new Date().toISOString(),
+						latencyMs: cycleResult.durationMs,
+						qualityScore: pilotMetrics.avgSlippageBps <= 30 ? 95 : 70,
+						itemsProcessed: pilotMetrics.totalOrdersFilled,
+						errorCount: pilotMetrics.circuitBreakerActive ? 1 : 0,
+						meta: {
+							executionMode: pilotMetrics.executionMode,
+							avgSlippageBps: pilotMetrics.avgSlippageBps,
+							turnover: pilotMetrics.dailyTurnover,
+							trigger,
+						},
+					});
+
+					console.log(`🧠 [SelfImprovement] ✅ Audit complete (${trigger}) | Cycle: ${cycleResult.cycleId} | Calibrations: ${cycleResult.calibrationResult?.action ?? "held"} | Algo Quality: ${pilotMetrics.avgSlippageBps <= 30 ? "Optimal" : "Slippage Warning"}`);
+				} catch (err: any) {
+					console.warn("[SelfImprovement] Audit non-fatal warning:", err?.message);
+				}
+			};
+
+			// 1. Initial audit check on boot (delayed 15s to allow other services to initialize)
+			setTimeout(() => {
+				void runAudit("startup");
+			}, 15000);
+
+			// 2. Periodic post-market learning cycle (runs every 12 hours)
+			setInterval(() => {
+				const now = new Date();
+				const dayOfWeek = now.getDay(); // 0 = Sun, 6 = Sat
+				const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+				void runAudit(isWeekend ? "weekend_audit" : "scheduled_eod");
+			}, 12 * 60 * 60 * 1000);
+
+			console.log("[SelfImprovement] 🤖 Autonomous engine learning & performance audit scheduler active");
 		});
 
 		// ─── Database & Market Data Guardrails (Automated Session Purge & F&O Sync) ────

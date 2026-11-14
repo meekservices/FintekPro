@@ -1332,11 +1332,24 @@ class UpstoxMarketDataService {
             params: { query: config.query, exchanges: "MCX" },
           });
           const futs = (searchRes.data?.data || []).filter(
-            (x: any) =>
-              x.instrument_type === "FUT" &&
-              (x.name === config.query ||
-                x.underlying_symbol === config.query ||
-                (config.id === "CRUDE_OIL" && x.name === "CRUDE OIL"))
+            (x: any) => {
+              if (x.instrument_type !== "FUT") return false;
+              if (config.id === "GOLD") {
+                // Must be benchmark 10g Gold contract (exclude 1g GOLDPETAL, GOLDTEN and 8g GOLDGUINEA)
+                return x.trading_symbol?.startsWith("GOLD FUT") || x.trading_symbol?.startsWith("GOLDM FUT");
+              }
+              if (config.id === "SILVER") {
+                // Exclude 1g SILVERMIC
+                return x.trading_symbol?.startsWith("SILVER FUT") || x.trading_symbol?.startsWith("SILVERM FUT");
+              }
+              if (config.id === "CRUDE_OIL") {
+                return x.trading_symbol?.startsWith("CRUDEOIL FUT") || x.name === "CRUDE OIL";
+              }
+              return (
+                x.name === config.query ||
+                x.underlying_symbol === config.query
+              );
+            }
           );
           if (futs.length > 0) {
             // Sort by earliest expiry to pick near-month active contract
@@ -2047,6 +2060,167 @@ class UpstoxMarketDataService {
             err?.message ??
             "Unknown Upstox API error",
           retryable: isTransient,
+        },
+        meta: this._meta(t0),
+      };
+    }
+  }
+
+  /**
+   * Fetches official FII and DII cash market and derivatives activity from Upstox Market Information API.
+   * Endpoints:
+   *   GET /v2/market/fii?data_type=NSE_EQ|CASH&interval=1D
+   *   GET /v2/market/dii?data_type=NSE_EQ|CASH&interval=1D
+   *   GET /v2/market/fii?data_type=NSE_FO|INDEX_FUTURES&interval=1D
+   */
+  async getFIIDIICashFlows(options?: { persistToDb?: boolean }): Promise<UpstoxServiceResult<any>> {
+    const t0 = Date.now();
+    if (!this.isReady()) return this._inactive();
+
+    try {
+      const [fiiCashRes, diiCashRes, fiiFuturesRes] = await Promise.allSettled([
+        this.client!.get("/market/fii?data_type=NSE_EQ%7CCASH&interval=1D"),
+        this.client!.get("/market/dii?data_type=NSE_EQ%7CCASH&interval=1D"),
+        this.client!.get("/market/fii?data_type=NSE_FO%7CINDEX_FUTURES&interval=1D"),
+      ]);
+
+      const fiiList: any[] = fiiCashRes.status === "fulfilled" ? (fiiCashRes.value?.data?.data?.["NSE_EQ|CASH"] || []) : [];
+      const diiList: any[] = diiCashRes.status === "fulfilled" ? (diiCashRes.value?.data?.data?.["NSE_EQ|CASH"] || []) : [];
+      const futuresList: any[] = fiiFuturesRes.status === "fulfilled" ? (fiiFuturesRes.value?.data?.data?.["NSE_FO|INDEX_FUTURES"] || []) : [];
+
+      if (fiiList.length === 0 && diiList.length === 0) {
+        throw new Error("No FII/DII data returned from Upstox API");
+      }
+
+      // Map by date (IST formatted YYYY-MM-DD)
+      const dateMap = new Map<string, {
+        date: string;
+        fiiBuyCr: number;
+        fiiSellCr: number;
+        fiiNetCr: number;
+        diiBuyCr: number;
+        diiSellCr: number;
+        diiNetCr: number;
+        fpiLongContracts?: number;
+        fpiShortContracts?: number;
+      }>();
+
+      const toIstDate = (ts: number): string => {
+        return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date(ts));
+      };
+
+      for (const item of fiiList) {
+        const d = toIstDate(item.time_stamp);
+        const buy = Number(item.buy_amount || 0);
+        const sell = Number(item.sell_amount || 0);
+        const existing = dateMap.get(d) || { date: d, fiiBuyCr: 0, fiiSellCr: 0, fiiNetCr: 0, diiBuyCr: 0, diiSellCr: 0, diiNetCr: 0 };
+        existing.fiiBuyCr = buy;
+        existing.fiiSellCr = sell;
+        existing.fiiNetCr = Math.round((buy - sell) * 100) / 100;
+        dateMap.set(d, existing);
+      }
+
+      for (const item of diiList) {
+        const d = toIstDate(item.time_stamp);
+        const buy = Number(item.buy_amount || 0);
+        const sell = Number(item.sell_amount || 0);
+        const existing = dateMap.get(d) || { date: d, fiiBuyCr: 0, fiiSellCr: 0, fiiNetCr: 0, diiBuyCr: 0, diiSellCr: 0, diiNetCr: 0 };
+        existing.diiBuyCr = buy;
+        existing.diiSellCr = sell;
+        existing.diiNetCr = Math.round((buy - sell) * 100) / 100;
+        dateMap.set(d, existing);
+      }
+
+      for (const item of futuresList) {
+        const d = toIstDate(item.time_stamp);
+        const existing = dateMap.get(d);
+        if (existing) {
+          existing.fpiLongContracts = Number(item.total_long_contracts || 0);
+          existing.fpiShortContracts = Number(item.total_short_contracts || 0);
+        }
+      }
+
+      const sortedDates = Array.from(dateMap.keys()).sort((a, b) => b.localeCompare(a));
+      const history = sortedDates.map((d) => dateMap.get(d)!);
+      const latestRaw = history[0];
+
+      const effectiveFlowCr = Math.round((latestRaw.fiiNetCr + 0.3 * latestRaw.diiNetCr) * 100) / 100;
+      const sentiment = effectiveFlowCr > 500 ? "RISK_ON" : effectiveFlowCr < -500 ? "RISK_OFF" : "NEUTRAL";
+      const topFavoredSector = sentiment === "RISK_ON" ? "banking_finance" : "healthcare_pharma";
+
+      const fpiLong = latestRaw.fpiLongContracts ?? 45000;
+      const fpiShort = latestRaw.fpiShortContracts ?? 115000;
+      const fpiLongShortRatio = fpiShort > 0 ? Math.round((fpiLong / fpiShort) * 100) / 100 : 0.39;
+
+      const latest = {
+        ...latestRaw,
+        effectiveFlowCr,
+        sentiment: sentiment as "RISK_ON" | "RISK_OFF" | "NEUTRAL",
+        topFavoredSector,
+        fpiIndexFuturesLongContracts: fpiLong,
+        fpiIndexFuturesShortContracts: fpiShort,
+        fpiIndexFuturesLongShortRatio: fpiLongShortRatio,
+        shortSqueezeAlert: fpiLongShortRatio <= 0.22,
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Persist all 30 days to database if requested
+      if (options?.persistToDb) {
+        try {
+          const { db } = await import("../db");
+          const { sql } = await import("drizzle-orm");
+
+          for (const row of history) {
+            const eff = Math.round((row.fiiNetCr + 0.3 * row.diiNetCr) * 100) / 100;
+            const sent = eff > 500 ? "RISK_ON" : eff < -500 ? "RISK_OFF" : "NEUTRAL";
+            const sec = sent === "RISK_ON" ? "banking_finance" : "healthcare_pharma";
+
+            await db.execute(sql`
+              INSERT INTO fii_dii_daily_flows (
+                date, fii_buy_cr, fii_sell_cr, fii_net_cr,
+                dii_buy_cr, dii_sell_cr, dii_net_cr,
+                effective_flow_cr, sentiment, top_favored_sector,
+                created_at
+              ) VALUES (
+                ${row.date}::date, ${row.fiiBuyCr}, ${row.fiiSellCr}, ${row.fiiNetCr},
+                ${row.diiBuyCr}, ${row.diiSellCr}, ${row.diiNetCr},
+                ${eff}, ${sent}, ${sec},
+                NOW()
+              )
+              ON CONFLICT (date) DO UPDATE SET
+                fii_buy_cr = EXCLUDED.fii_buy_cr,
+                fii_sell_cr = EXCLUDED.fii_sell_cr,
+                fii_net_cr = EXCLUDED.fii_net_cr,
+                dii_buy_cr = EXCLUDED.dii_buy_cr,
+                dii_sell_cr = EXCLUDED.dii_sell_cr,
+                dii_net_cr = EXCLUDED.dii_net_cr,
+                effective_flow_cr = EXCLUDED.effective_flow_cr,
+                sentiment = EXCLUDED.sentiment,
+                top_favored_sector = EXCLUDED.top_favored_sector;
+            `);
+          }
+          logger.info(`[Upstox] Persisted ${history.length} daily FII/DII flow records to PostgreSQL fii_dii_daily_flows`);
+        } catch (dbErr: any) {
+          logger.warn(`[Upstox] Non-critical DB persist warning for FII/DII flows: ${dbErr?.message}`);
+        }
+      }
+
+      return {
+        success: true,
+        data: {
+          latest,
+          history,
+        },
+        meta: this._meta(t0),
+      };
+    } catch (err: any) {
+      logger.error("[Upstox] getFIIDIICashFlows failed:", { error: err?.message });
+      return {
+        success: false,
+        error: {
+          error_code: "UPSTOX_FIIDII_FAILED",
+          message: err?.message || "Failed fetching FII/DII from Upstox",
+          retryable: true,
         },
         meta: this._meta(t0),
       };

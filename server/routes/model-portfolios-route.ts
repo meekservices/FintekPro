@@ -7378,3 +7378,282 @@ modelPortfoliosRouter.post("/backtest-custom", async (req: Request, res: Respons
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 2, 3, 4 EXECUTION PIPELINE ENDPOINTS (FASP-AI v3.1 / GCR v1.0)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/model-portfolios/:id/execution-mode
+ * Phase 2: Switch execution mode between PAPER_TRADING, UPSTOX_SANDBOX, and UPSTOX_LIVE.
+ */
+modelPortfoliosRouter.post("/:id/execution-mode", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const { executionMode, maxCapitalAllocated, maxTradeAmountPerLeg, dailyLossCapPct, maxSlippageToleranceBps } = req.body || {};
+    const actorId = (req as any).user?.id?.toString() || "portfolio_manager";
+
+    const { modelPortfolioExecutionManager } = await import("../services/model-portfolio-execution-manager");
+    const result = await modelPortfolioExecutionManager.switchExecutionMode(
+      id,
+      {
+        executionMode: executionMode || "PAPER_TRADING",
+        maxCapitalAllocated: maxCapitalAllocated ? Number(maxCapitalAllocated) : undefined,
+        maxTradeAmountPerLeg: maxTradeAmountPerLeg ? Number(maxTradeAmountPerLeg) : undefined,
+        dailyLossCapPct: dailyLossCapPct ? Number(dailyLossCapPct) : undefined,
+        maxSlippageToleranceBps: maxSlippageToleranceBps ? Number(maxSlippageToleranceBps) : undefined,
+      },
+      actorId,
+    );
+
+    return res.json({
+      success: true,
+      data: result,
+      meta: { timestamp: new Date().toISOString(), version: ALGO_ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    logger.error(`[ModelPortfolios] Failed to switch execution mode for ${req.params.id}`, err);
+    return res.status(400).json({
+      success: false,
+      error_code: "EXECUTION_MODE_SWITCH_FAILED",
+      message: err.message,
+      retryable: false,
+    });
+  }
+});
+
+/**
+ * GET /api/model-portfolios/:id/pilot-metrics
+ * Phase 2: View live pilot telemetry, slippage tracking, and fill rates.
+ */
+modelPortfoliosRouter.get("/:id/pilot-metrics", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const { modelPortfolioExecutionManager } = await import("../services/model-portfolio-execution-manager");
+    const metrics = await modelPortfolioExecutionManager.getPilotExecutionMetrics(id);
+
+    return res.json({
+      success: true,
+      data: metrics,
+      meta: { timestamp: new Date().toISOString(), version: ALGO_ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    logger.error(`[ModelPortfolios] Failed to fetch pilot metrics for ${req.params.id}`, err);
+    return res.status(500).json({
+      success: false,
+      error_code: "PILOT_METRICS_ERROR",
+      message: err.message,
+      retryable: true,
+    });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/:id/pilot-execution/run
+ * Phase 2: Run a live pilot execution with strict RMS and slippage audit.
+ */
+modelPortfoliosRouter.post("/:id/pilot-execution/run", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const { capitalAllocated, forceRebalance } = req.body || {};
+    const actorId = (req as any).user?.id?.toString() || "pilot_manager";
+
+    const { modelPortfolioExecutionManager } = await import("../services/model-portfolio-execution-manager");
+    const result = await modelPortfolioExecutionManager.runProprietaryPilotExecution(id, {
+      capitalAllocated: capitalAllocated ? Number(capitalAllocated) : undefined,
+      actorId,
+      forceRebalance: Boolean(forceRebalance),
+    });
+
+    return res.json({
+      success: result.success,
+      data: result,
+      meta: { timestamp: new Date().toISOString(), version: ALGO_ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    logger.error(`[ModelPortfolios] Pilot execution failed for ${req.params.id}`, err);
+    return res.status(500).json({
+      success: false,
+      error_code: "PILOT_EXECUTION_FAILED",
+      message: err.message,
+      retryable: false,
+    });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/:id/client-proposals/generate
+ * Phase 3: Generate a 1-Click Client Rebalance Proposal (Track A - Retail / RIA < ₹50L).
+ */
+modelPortfoliosRouter.post("/:id/client-proposals/generate", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const { clientId, clientPan, totalPortfolioValue, driftScore } = req.body || {};
+
+    if (!clientId) {
+      return res.status(400).json({ success: false, error_code: "MISSING_CLIENT_ID", message: "clientId is required" });
+    }
+
+    const { modelPortfolioExecutionManager } = await import("../services/model-portfolio-execution-manager");
+    const proposal = await modelPortfolioExecutionManager.generateClientRebalanceProposal(clientId, id, {
+      clientPan,
+      totalPortfolioValue: totalPortfolioValue ? Number(totalPortfolioValue) : undefined,
+      driftScore: driftScore ? Number(driftScore) : undefined,
+    });
+
+    return res.json({
+      success: true,
+      data: proposal,
+      meta: { timestamp: new Date().toISOString(), version: ALGO_ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    logger.error(`[ModelPortfolios] Failed to generate client proposal for ${req.params.id}`, err);
+    return res.status(500).json({
+      success: false,
+      error_code: "PROPOSAL_GENERATION_FAILED",
+      message: err.message,
+      retryable: false,
+    });
+  }
+});
+
+/**
+ * GET /api/model-portfolios/client-proposals/:token
+ * Phase 3: Review a 1-Click Client Proposal before confirmation.
+ */
+modelPortfoliosRouter.get("/client-proposals/:token", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { token } = req.params;
+    const { modelPortfolioExecutionManager } = await import("../services/model-portfolio-execution-manager");
+    const proposal = await modelPortfolioExecutionManager.getClientRebalanceProposal(token);
+
+    if (!proposal) {
+      return res.status(404).json({ success: false, error_code: "PROPOSAL_NOT_FOUND", message: "Invalid or expired proposal token." });
+    }
+
+    return res.json({
+      success: true,
+      data: proposal,
+      meta: { timestamp: new Date().toISOString(), version: ALGO_ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error_code: "PROPOSAL_LOOKUP_FAILED",
+      message: err.message,
+      retryable: true,
+    });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/client-proposals/:token/approve
+ * Phase 3: 1-Click Client Approval & Execution in client's Demat account.
+ */
+modelPortfoliosRouter.post("/client-proposals/:token/approve", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { token } = req.params;
+    const userId = (req as any).user?.id?.toString() || req.body?.userId || "retail_client";
+    const clientPan = req.body?.clientPan;
+    const userToken = req.body?.userToken || (req.headers["x-upstox-token"] as string) || undefined;
+    const ipAddress = req.ip || (req.headers["x-forwarded-for"] as string) || "127.0.0.1";
+    const userAgent = req.headers["user-agent"] || "FintekPro App";
+
+    const { modelPortfolioExecutionManager } = await import("../services/model-portfolio-execution-manager");
+    const execResult = await modelPortfolioExecutionManager.approveAndExecuteClientRebalance(token, {
+      userId,
+      clientPan,
+      userToken,
+      ipAddress,
+      userAgent,
+    });
+
+    return res.json({
+      success: true,
+      data: execResult,
+      meta: { timestamp: new Date().toISOString(), version: ALGO_ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    logger.error(`[ModelPortfolios] 1-Click Client Approval failed for token ${req.params.token}`, err);
+    return res.status(400).json({
+      success: false,
+      error_code: "CLIENT_APPROVAL_FAILED",
+      message: err.message,
+      retryable: false,
+    });
+  }
+});
+
+/**
+ * GET /api/model-portfolios/:id/discretionary-pma-status/:clientId
+ * Phase 4: Verify client PMA agreement status & suitability for Discretionary STP.
+ */
+modelPortfoliosRouter.get("/:id/discretionary-pma-status/:clientId", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id, clientId } = req.params;
+    const portfolioValue = Number(req.query.portfolioValue) || 5_000_000;
+
+    const { modelPortfolioExecutionManager } = await import("../services/model-portfolio-execution-manager");
+    const pmaStatus = await modelPortfolioExecutionManager.verifyDiscretionarySuitability(clientId, id, portfolioValue);
+
+    return res.json({
+      success: true,
+      data: pmaStatus,
+      meta: { timestamp: new Date().toISOString(), version: ALGO_ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error_code: "PMA_STATUS_CHECK_FAILED",
+      message: err.message,
+      retryable: true,
+    });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/:id/discretionary-stp/execute
+ * Phase 4: Straight-Through-Processing (STP) Discretionary PMS/SIF execution.
+ */
+modelPortfoliosRouter.post("/:id/discretionary-stp/execute", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const { clientId, portfolioValue, clientPan, userToken } = req.body || {};
+    const actorId = (req as any).user?.id?.toString() || "pms_discretionary_manager";
+
+    if (!clientId) {
+      return res.status(400).json({ success: false, error_code: "MISSING_CLIENT_ID", message: "clientId is required" });
+    }
+
+    const { modelPortfolioExecutionManager } = await import("../services/model-portfolio-execution-manager");
+    const result = await modelPortfolioExecutionManager.executeDiscretionarySTP(clientId, id, {
+      portfolioValue: portfolioValue ? Number(portfolioValue) : 5_000_000,
+      clientPan,
+      userToken: userToken || (req.headers["x-upstox-token"] as string) || undefined,
+      actorId,
+    });
+
+    const httpStatus = result.success ? 200 : 403;
+    return res.status(httpStatus).json({
+      success: result.success,
+      data: result,
+      meta: { timestamp: new Date().toISOString(), version: ALGO_ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    logger.error(`[ModelPortfolios] Discretionary STP failed for ${req.params.id}`, err);
+    return res.status(500).json({
+      success: false,
+      error_code: "DISCRETIONARY_STP_FAILED",
+      message: err.message,
+      retryable: false,
+    });
+  }
+});
+

@@ -1796,6 +1796,52 @@ const RAW_CANONICAL_PORTFOLIOS: CanonicalPortfolioDefinition[] = [
       { rank: 5, name: "91-Day Sovereign T-Bills Collateral Reserve", symbol: "TBILL-LIQ", category: "Sovereign Debt", weight: 20.0 },
     ],
   },
+
+  // ===========================================================================
+  // TIER 5: QUANTITATIVE DYNAMIC ALGO BASKETS (POTD ENGINE INTEGRATION)
+  // Regulatory: SEBI RIA/PMS Dual-Track | FASP-AI-v3.1-ALGO | Pre-Trade RMS Kill-Switch
+  // ===========================================================================
+  {
+    id: "potd-tactical-alpha",
+    portfolioCode: "FP-POTD-01",
+    name: "POTD Tactical Alpha Momentum Basket",
+    tagline: "Dynamic multi-asset quantitative strategy driven by FintekPro's top-conviction daily market picks",
+    riskProfile: "aggressive",
+    assetClass: "hybrid",
+    subCategory: "Quantitative Dynamic Asset Allocation",
+    portfolioTier: "affluent_sif",
+    vehicleType: "SIF_NEW_ASSET_CLASS",
+    statutoryMinInvestment: 1000000,
+    minInvestment: 500000,
+    timeHorizon: "1-3+ Years",
+    benchmarkName: "NIFTY 500 Multi-Asset Benchmark",
+    benchmarkSchemeCode: "118989",
+    rebalancingFrequency: "monthly",
+    rebalancingMode: "drift_triggered",
+    highlight: "Autonomous forward-tested model portfolio driven by daily POTD high-conviction signals with pre-trade RMS and dynamic trailing stops",
+    icon: "⚡",
+    isPublished: true,
+    isFeatured: true,
+    isNew: true,
+    goals: ["alpha_growth", "tactical_momentum", "capital_appreciation"],
+    allocation: [
+      { category: "equity", label: "POTD Quantitative Equity Leaders", weight: 60, color: "#3B82F6", icon: "📈" },
+      { category: "gold", label: "Sovereign Gold Bond Cushion", weight: 15, color: "#F59E0B", icon: "🥇" },
+      { category: "reits", label: "Real Asset High-Yield REITs", weight: 15, color: "#10B981", icon: "🏢" },
+      { category: "liquid_buffer", label: "CCIL TREPS & Overnight Buffer", weight: 10, color: "#6B7280", icon: "🛡️" },
+    ],
+    rawHoldings: [
+      { rank: 1, name: "Reliance Industries Limited", symbol: "RELIANCE", category: "Energy & Materials", weight: 12.0 },
+      { rank: 2, name: "ICICI Bank Limited", symbol: "ICICIBANK", category: "BFSI Leaders", weight: 12.0 },
+      { rank: 3, name: "Tata Consultancy Services", symbol: "TCS", category: "IT & Tech", weight: 10.0 },
+      { rank: 4, name: "Hindustan Copper Ltd", symbol: "HINDCOPPER", category: "Metals Supercycle", weight: 10.0 },
+      { rank: 5, name: "Bharti Airtel", symbol: "BHARTIARTL", category: "Telecom & Digital", weight: 8.0 },
+      { rank: 6, name: "Larsen & Toubro", symbol: "LT", category: "Capital Goods & Infra", weight: 8.0 },
+      { rank: 7, name: "SGB 2028 Series", symbol: "SGB", category: "Gold Hedge", weight: 15.0 },
+      { rank: 8, name: "Embassy Office Parks REIT", symbol: "EMBASSY", category: "REIT Yield", weight: 15.0 },
+      { rank: 9, name: "CCIL TREPS & Overnight Buffer", symbol: "TREPS", category: "Overnight Buffer", weight: 10.0 },
+    ],
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────

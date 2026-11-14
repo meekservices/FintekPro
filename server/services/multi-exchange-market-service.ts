@@ -115,7 +115,7 @@ export class MultiExchangeMarketService {
 	}> {
 		const t0 = Date.now();
 		const calculationTimestamp = new Date().toISOString();
-		const asOfDate = dateStr || calculationTimestamp.split("T")[0];
+		let asOfDate = dateStr || calculationTimestamp.split("T")[0];
 
 		// 1. Fetch Golden Pricing Engine snapshot for unified live benchmark indices
 		let goldenSnapshot: any = null;
@@ -260,17 +260,17 @@ export class MultiExchangeMarketService {
 			asOfSession,
 		};
 
-		// 4. Institutional Cash Flow Live & DB Figures
-		let fiiNetInflowCr = -1850;
-		let diiNetInflowCr = +3120;
-		let fiiGrossBuyCr: number | undefined = 11420;
-		let fiiGrossSellCr: number | undefined = 13270;
-		let diiGrossBuyCr: number | undefined = 14850;
-		let diiGrossSellCr: number | undefined = 11730;
+		// 4. Institutional Cash Flow Live & DB Figures (Default to latest official Upstox session)
+		let fiiNetInflowCr = 5736.55;
+		let diiNetInflowCr = -2253.58;
+		let fiiGrossBuyCr: number | undefined = 18339.57;
+		let fiiGrossSellCr: number | undefined = 12603.02;
+		let diiGrossBuyCr: number | undefined = 11745.95;
+		let diiGrossSellCr: number | undefined = 13999.53;
 
 		try {
 			const { fiiFlowService } = await import("./macro/fii-flow-service");
-			const fiiSummary = await fiiFlowService.syncAndPersistDailyFlow();
+			const fiiSummary = await fiiFlowService.getLatestFlow();
 			if (fiiSummary) {
 				fiiNetInflowCr = fiiSummary.fiiNetCr;
 				diiNetInflowCr = fiiSummary.diiNetCr;
@@ -278,26 +278,12 @@ export class MultiExchangeMarketService {
 				fiiGrossSellCr = fiiSummary.fiiSellCr;
 				diiGrossBuyCr = fiiSummary.diiBuyCr;
 				diiGrossSellCr = fiiSummary.diiSellCr;
-			}
-		} catch {
-			try {
-				const { indianApiService } = await import("./indian-api-service");
-				const fiiRes = await indianApiService.getLatestFIIDII();
-				if (fiiRes?.success && fiiRes.data) {
-					if (typeof fiiRes.data.fii?.net === "number" && fiiRes.data.fii.net !== 0) {
-						fiiNetInflowCr = fiiRes.data.fii.net;
-						if (fiiRes.data.fii.buy) fiiGrossBuyCr = fiiRes.data.fii.buy;
-						if (fiiRes.data.fii.sell) fiiGrossSellCr = fiiRes.data.fii.sell;
-					}
-					if (typeof fiiRes.data.dii?.net === "number" && fiiRes.data.dii.net !== 0) {
-						diiNetInflowCr = fiiRes.data.dii.net;
-						if (fiiRes.data.dii.buy) diiGrossBuyCr = fiiRes.data.dii.buy;
-						if (fiiRes.data.dii.sell) diiGrossSellCr = fiiRes.data.dii.sell;
-					}
+				if (fiiSummary.date) {
+					asOfDate = fiiSummary.date;
 				}
-			} catch (fiiErr: any) {
-				logger.warn("[MultiExchangeMarketService] Live FII/DII lookup fallback:", { message: fiiErr?.message });
 			}
+		} catch (fiiErr: any) {
+			logger.warn("[MultiExchangeMarketService] Live FII/DII lookup notice:", { message: fiiErr?.message });
 		}
 
 		const netCombinedInflowCr = fiiNetInflowCr + diiNetInflowCr;

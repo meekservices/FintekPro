@@ -322,6 +322,34 @@ export const STRATEGY_CATALOGUE: DerivativeStrategyDef[] = [
 			{ action: "BUY", type: "PE", strikeOffsetSteps: -1 },
 		],
 	},
+	{
+		name: "Covered Call",
+		outlook: "bullish",
+		volPreference: "sell",
+		strategyType: "SELLER",
+		risk: "medium",
+		targetMult: 0.4,
+		slMult: 1.8,
+		description: "Covered Call: Sells OTM Call against held underlying or deep-ITM Future for synthetic equity cash flow.",
+		legs: [
+			{ action: "BUY", type: "CE", strikeOffsetSteps: -2 },
+			{ action: "SELL", type: "CE", strikeOffsetSteps: 1 },
+		],
+	},
+	{
+		name: "Protective Collar",
+		outlook: "neutral",
+		volPreference: "sell",
+		strategyType: "BUYER",
+		risk: "medium",
+		targetMult: 0.35,
+		slMult: 1.6,
+		description: "Protective Collar: Buys protective OTM Put funded by selling an OTM Call to establish a strict downside floor.",
+		legs: [
+			{ action: "BUY", type: "PE", strikeOffsetSteps: -1 },
+			{ action: "SELL", type: "CE", strikeOffsetSteps: 1 },
+		],
+	},
 ];
 
 /**

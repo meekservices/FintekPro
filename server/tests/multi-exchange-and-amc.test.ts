@@ -1,9 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { multiExchangeMarketService } from "../services/multi-exchange-market-service";
 import { amcResearchService } from "../services/amc-research-service";
 
 describe("Multi-Exchange Market Service", () => {
 	it("returns valid BSE, GIFT Nifty, Institutional Flows, and NCDEX data", async () => {
+		const { goldenPricingEngine } = await import("../services/golden-pricing/GoldenPricingEngine");
+		vi.spyOn(goldenPricingEngine, "getDailyMarketBriefLiveSnapshot").mockResolvedValue({} as any);
+
 		const res = await multiExchangeMarketService.getMultiExchangeSnapshot();
 		expect(res.success).toBe(true);
 		expect(res.data).toBeDefined();

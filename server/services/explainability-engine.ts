@@ -9,6 +9,8 @@
  */
 
 import { getEnrichedStockSnapshot } from "./screener/enriched-stock-data";
+import { callPython } from "../clients/python-client";
+import { logger } from "../logger";
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -27,6 +29,9 @@ interface ProductExplanation {
 	disclosures: Disclosure[];
 	alternatives?: AlternativeProduct[];
 	generatedAt: string;
+	engineVersion?: string;
+	calculationTimestamp?: string;
+	pythonEnhanced?: boolean;
 }
 
 interface RecommendationReason {
@@ -327,6 +332,67 @@ export class ExplainabilityEngine {
 		}
 
 		return explanation;
+	}
+
+	/**
+	 * Async recommendation explainability with Python ML feature attributions / SHAP scoring
+	 */
+	async explainProductRecommendationAsync(
+		request: ExplainabilityRequest,
+	): Promise<ProductExplanation> {
+		const startTime = Date.now();
+		const baseExplanation = this.explainProductRecommendation(request);
+		let pythonEnhanced = false;
+
+		try {
+			// Query ML scoring engine for feature attributions
+			const prodAny = request.product as any;
+			const pyScore = await callPython<any>("/api/ml/score", "POST", {
+				productType: request.product.productType,
+				productCode: request.product.productCode,
+				features: {
+					pe_ratio: prodAny.financialMetrics?.peRatio ?? 20,
+					pb_ratio: prodAny.financialMetrics?.pbRatio ?? 3,
+					roe: prodAny.financialMetrics?.roe ?? 15,
+					cagr_3y: request.product.historicalReturns?.returns3Year ?? 12,
+					sharpe: prodAny.riskMetrics?.sharpeRatio ?? 1.2,
+					volatility: prodAny.riskMetrics?.volatility ?? 18,
+					debt_equity: prodAny.financialMetrics?.debtToEquity ?? 0.5,
+				},
+			});
+
+			if (pyScore && (pyScore.featureContributions || pyScore.score !== undefined)) {
+				pythonEnhanced = true;
+				if (pyScore.featureContributions && Array.isArray(pyScore.featureContributions)) {
+					for (const fc of pyScore.featureContributions) {
+						baseExplanation.reasons.push({
+							category: "return_potential",
+							weight: Math.round(Math.abs(fc.weight || 10) * 10),
+							description: `ML Feature Attribution: ${fc.feature} contributed ${fc.weight > 0 ? "+" : ""}${fc.weight}% to the recommendation score.`,
+							impact: fc.weight >= 0 ? "positive" : "negative",
+							dataPoints: { feature: fc.feature, contribution: fc.weight },
+						});
+					}
+				}
+			}
+		} catch (err) {
+			logger.warn(`[ExplainabilityEngine] ML score / SHAP call failed, using rule-based explainability: ${err}`);
+		}
+
+		logger.info("[ExplainabilityEngine] Generated explainability", {
+			event: "EXPLAINABILITY_GENERATED",
+			productCode: request.product.productCode,
+			latency_ms: Date.now() - startTime,
+			status: "success",
+			pythonEnhanced,
+		});
+
+		return {
+			...baseExplanation,
+			engineVersion: "explainability-v2.0",
+			calculationTimestamp: new Date().toISOString(),
+			pythonEnhanced,
+		};
 	}
 
 	/**
@@ -1142,9 +1208,8 @@ export class ExplainabilityEngine {
 				});
 			}
 		} catch (error: any) {
-			console.error(
-				`[ExplainabilityEngine] Failed to fetch enriched reasons for ${symbol}:`,
-				error.message,
+			logger.error(
+				`[ExplainabilityEngine] Failed to fetch enriched reasons for ${symbol}: ${error.message}`,
 			);
 		}
 		return enrichedReasons;

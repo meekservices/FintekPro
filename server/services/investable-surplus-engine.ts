@@ -13,6 +13,8 @@ import {
 	type ClientSegment,
 } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { callPython } from "../clients/python-client";
+import { logger } from "../logger";
 
 // PRD Section 6: Client Segmentation Thresholds (in INR)
 const SEGMENT_THRESHOLDS = {
@@ -145,6 +147,10 @@ interface SurplusCalculationResult {
 		shortTerm: string[];
 		longTerm: string[];
 	};
+	amcBreakdown?: any[];
+	engineVersion?: string;
+	calculationTimestamp?: string;
+	pythonEnhanced?: boolean;
 }
 
 interface SegmentResult {
@@ -362,6 +368,7 @@ export class InvestableSurplusEngine {
 	async calculateInvestableSurplus(
 		userId: string,
 	): Promise<SurplusCalculationResult> {
+		const startTime = Date.now();
 		// Get income
 		const incomeResult = await this.calculateTotalIncome(userId);
 
@@ -411,6 +418,30 @@ export class InvestableSurplusEngine {
 			incomeResult.netIncome,
 		);
 
+		// Query AMC allocation details from analytics service if available
+		let amcBreakdown: any[] = [];
+		let pythonEnhanced = false;
+		try {
+			const pyAmc = await callPython<any>(
+				`/api/analytics/amc-breakdown?clientId=${encodeURIComponent(userId)}`,
+				"GET",
+			);
+			if (pyAmc?.breakdown && Array.isArray(pyAmc.breakdown)) {
+				amcBreakdown = pyAmc.breakdown;
+				pythonEnhanced = true;
+			}
+		} catch (err) {
+			logger.warn(`[InvestableSurplusEngine] Python amc-breakdown call failed: ${err}`);
+		}
+
+		logger.info("[InvestableSurplusEngine] Investable surplus calculated", {
+			event: "INVESTABLE_SURPLUS_CALCULATED",
+			user_id: userId,
+			latency_ms: Date.now() - startTime,
+			status: "success",
+			pythonEnhanced,
+		});
+
 		return {
 			totalGrossIncome: incomeResult.grossIncome,
 			totalNetIncome: incomeResult.netIncome,
@@ -424,6 +455,10 @@ export class InvestableSurplusEngine {
 			surplusStability,
 			confidenceScore,
 			recommendations,
+			amcBreakdown,
+			engineVersion: "investable-surplus-v2.0",
+			calculationTimestamp: new Date().toISOString(),
+			pythonEnhanced,
 		};
 	}
 

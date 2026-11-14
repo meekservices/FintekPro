@@ -927,6 +927,25 @@ export class PickOfTheDayService {
 			logger.warn(`[PickOfTheDay] FCM broadcast failed (non-fatal): ${fcmErr}`);
 		}
 
+		try {
+			// 3. Synchronize POTD Tactical Alpha Model Portfolio ('potd-tactical-alpha')
+			// Automatically feeds today's high-conviction picks into the algo portfolio
+			// and executes paper-trading rebalance to track live execution quality.
+			const { modelPortfolioAlgoService } = await import("./model-portfolio-algo-service");
+			const syncResult = await modelPortfolioAlgoService.syncModelPortfolioWithPotd(
+				"potd-tactical-alpha",
+				generated,
+				"potd_engine",
+			);
+			logger.info(`[PickOfTheDay] POTD Model Portfolio sync: ${syncResult.message}`, {
+				event: "POTD_MODEL_PORTFOLIO_SYNC_COMPLETED",
+				portfolio_id: "potd-tactical-alpha",
+				rebalanced: syncResult.rebalanced,
+			});
+		} catch (syncErr: any) {
+			logger.warn(`[PickOfTheDay] POTD Model Portfolio sync failed (non-fatal): ${syncErr?.message}`);
+		}
+
 		return generated;
 	}
 
@@ -1066,7 +1085,11 @@ export class PickOfTheDayService {
 						);
 					}
 
-					if (livePrice != null) {
+					// Non-live yield categories (FDs, unlisted, bonds, SGB) accrue yield monotonically
+					// and must not be subjected to equity-style stoploss triggers.
+					const isNonLiveYieldCategory = PickOfTheDayService.NO_LIVE_PRICE_CATEGORIES.has(category) && category !== "derivatives";
+
+					if (livePrice != null && !isNonLiveYieldCategory) {
 						// ── Exchange-traded instrument: use actual live price ──────────────
 						const recoPrice = Number.parseFloat(pick.recoPrice);
 						const targetPrice = Number.parseFloat(pick.targetPrice);

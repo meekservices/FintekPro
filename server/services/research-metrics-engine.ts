@@ -1,4 +1,5 @@
 import { logger } from "../logger";
+import { callPython } from "../clients/python-client";
 /**
  * Research Metrics Engine
  * Calculates portfolio performance metrics: CAGR, Standard Deviation, Sharpe Ratio, Max Drawdown
@@ -573,6 +574,120 @@ export class ResearchMetricsEngine {
 		}
 
 		return resultMap;
+	}
+
+	/**
+	 * Vectorised batch computation of 40+ financial ratios via Python service
+	 * (POST /api/analytics/batch-metrics), with automatic fallback to local metrics.
+	 */
+	async batchComputeMetricsWithPythonAsync(
+		instruments: Array<{
+			id: string;
+			price?: number;
+			eps?: number;
+			bookValue?: number;
+			revenue?: number;
+			netIncome?: number;
+			ebitda?: number;
+			totalDebt?: number;
+			totalEquity?: number;
+			cashAndEquivalents?: number;
+			operatingCashFlow?: number;
+			freeCashFlow?: number;
+			dividendsPerShare?: number;
+			epsGrowth?: number;
+			revenueGrowth?: number;
+			sharesOutstanding?: number;
+			totalAssets?: number;
+			currentAssets?: number;
+			currentLiabilities?: number;
+			inventory?: number;
+			grossProfit?: number;
+			operatingIncome?: number;
+			interestExpense?: number;
+			beta?: number;
+			weekHigh52?: number;
+			weekLow52?: number;
+		}>,
+	): Promise<{
+		results: Array<{ id: string; ratios: Record<string, number | null> }>;
+		engineVersion: string;
+		calculationTimestamp: string;
+		pythonEnhanced: boolean;
+	}> {
+		const startTime = Date.now();
+		if (!instruments.length) {
+			return {
+				results: [],
+				engineVersion: "research-metrics-v2.0",
+				calculationTimestamp: new Date().toISOString(),
+				pythonEnhanced: false,
+			};
+		}
+
+		try {
+			const pyRes = await callPython<
+				Array<{ id: string; ratios: Record<string, number | null> }>
+			>("/api/analytics/batch-metrics", "POST", { instruments });
+
+			if (Array.isArray(pyRes) && pyRes.length > 0) {
+				logger.info("[ResearchMetricsEngine] Batch metrics calculated via python-service", {
+					event: "BATCH_METRICS_CALCULATED",
+					count: instruments.length,
+					latency_ms: Date.now() - startTime,
+					status: "success",
+					provider: "python-service",
+				});
+				return {
+					results: pyRes,
+					engineVersion: "research-metrics-v2.0",
+					calculationTimestamp: new Date().toISOString(),
+					pythonEnhanced: true,
+				};
+			}
+		} catch (err) {
+			logger.warn(
+				`[ResearchMetricsEngine] Python batch-metrics failed, falling back to TS: ${err}`,
+			);
+		}
+
+		// Fallback: build ratio records locally
+		const fallbackResults = instruments.map((inst) => {
+			const price = inst.price || 0;
+			const eps = inst.eps || 0;
+			const bv = inst.bookValue || 0;
+			return {
+				id: inst.id,
+				ratios: {
+					pe: eps > 0 ? Math.round((price / eps) * 100) / 100 : null,
+					pb: bv > 0 ? Math.round((price / bv) * 100) / 100 : null,
+					ev_ebitda: null,
+					roe:
+						inst.totalEquity && inst.netIncome
+							? Math.round((inst.netIncome / inst.totalEquity) * 10000) / 100
+							: null,
+					debt_to_equity:
+						inst.totalEquity && inst.totalDebt
+							? Math.round((inst.totalDebt / inst.totalEquity) * 100) / 100
+							: null,
+				},
+			};
+		});
+
+		logger.info("[ResearchMetricsEngine] Batch metrics calculated via node-fallback", {
+			event: "BATCH_METRICS_CALCULATED",
+			count: instruments.length,
+			latency_ms: Date.now() - startTime,
+			status: "success",
+			provider: "node-fallback",
+		});
+
+		return {
+			results: fallbackResults,
+			engineVersion: "research-metrics-v2.0",
+			calculationTimestamp: new Date().toISOString(),
+			pythonEnhanced: false,
+		};
 	}
 }
 

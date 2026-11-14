@@ -211,6 +211,21 @@ router.post(
 );
 
 router.post(
+	"/market-brief/eod-cron",
+	asyncHandler(async (req, res) => {
+		const adminKey = req.headers["x-admin-key"] || req.headers["x-cron-key"];
+		const isInternalCron = req.headers["x-cloudscheduler"] === "true" || (req as any).user?.roles?.some((r: string) => ["superadmin", "admin"].includes(r));
+		if (!isInternalCron && adminKey !== process.env.CRON_SECRET && process.env.NODE_ENV === "production") {
+			return res.status(403).json({ error: "Unauthorized cron trigger" });
+		}
+		const region = req.query.region as string || req.body?.region;
+		const { runMarketBriefEodJob } = await import("../cron/market-brief-eod-cron");
+		const results = await runMarketBriefEodJob(region);
+		res.json({ success: true, results });
+	}),
+);
+
+router.post(
 	"/market-brief",
 	requireRole("superadmin", "admin"),
 	asyncHandler(async (req, res) => {

@@ -35,7 +35,8 @@ export type EngineCategory =
   | "Data Quality"
   | "Compliance"
   | "Transaction"
-  | "Background Services";
+  | "Background Services"
+  | "Execution & Rebalancing";
 
 export interface EngineReport {
   engineId: string;

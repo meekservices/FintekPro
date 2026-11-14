@@ -462,8 +462,8 @@ export const INSTRUMENT_REGISTRY: Record<string, InstrumentInfo> = {
   "Aditya Birla SL Floating Rate Fund": { schemeCode: 100051, isin: "INF084M01036",  type: "debt" },
   "HDFC Floating Rate Debt Fund":       { schemeCode: 113070, isin: "INF179K01AY1",  type: "debt" },
   // ── Index ETF (Exchange Traded Funds — NSE ISINs) ─────────────────────────────
-  "Kotak NIFTY 50 ETF":                 { schemeCode: null, isin: "INF174K01Q03",    type: "large_cap" },
-  "Nippon India ETF Nifty BeES":        { schemeCode: null, isin: "INF204KB12A6",    type: "large_cap" },
+  "Kotak NIFTY 50 ETF":                 { schemeCode: 120166, isin: "INF174K01LS4",  type: "etf" },
+  "Nippon India ETF Nifty BeES":        { schemeCode: 100033, isin: "INF732E01037",  type: "etf" },
   "Nippon ETF NIFTY BeES":              { schemeCode: null, isin: "INF204KB12A6",    type: "large_cap" },
   "Nippon India ETF Nifty Next 50":     { schemeCode: null, isin: "INF204KB16B0",    type: "large_cap" },
   "UTI NIFTY Next 50 Index Fund":       { schemeCode: 143341, isin: "INF789FC12S3",  type: "large_cap" },
@@ -479,6 +479,16 @@ export const INSTRUMENT_REGISTRY: Record<string, InstrumentInfo> = {
   "Nippon India Gilt SDL Index":        { schemeCode: null, isin: "INF204KB1Q73",    type: "gilt" },
 
   // ── Direct Equity Stocks (NSE ISINs) ─────────────────────────────────────────
+  "Reliance Industries":                { schemeCode: null, isin: "INE002A01018",    type: "equity" },
+  "Reliance Industries Limited":        { schemeCode: null, isin: "INE002A01018",    type: "equity" },
+  "ICICI Bank":                         { schemeCode: null, isin: "INE090A01021",    type: "equity" },
+  "ICICI Bank Limited":                 { schemeCode: null, isin: "INE090A01021",    type: "equity" },
+  "Tata Consultancy Services":          { schemeCode: null, isin: "INE467B01029",    type: "equity" },
+  "TCS":                                { schemeCode: null, isin: "INE467B01029",    type: "equity" },
+  "Infosys":                            { schemeCode: null, isin: "INE009A01021",    type: "equity" },
+  "HDFC Bank":                          { schemeCode: null, isin: "INE040A01034",    type: "equity" },
+  "Bharti Airtel":                      { schemeCode: null, isin: "INE397D01024",    type: "equity" },
+  "Larsen & Toubro":                    { schemeCode: null, isin: "INE018A01030",    type: "equity" },
   "AU Small Finance Bank":              { schemeCode: null, isin: "INE949L01017",    type: "equity" },
   "Aavas Financiers":                   { schemeCode: null, isin: "INE216P01012",    type: "equity" },
   "Abbott India":                       { schemeCode: null, isin: "INE358A01014",    type: "equity" },
@@ -679,6 +689,74 @@ export const INSTRUMENT_REGISTRY: Record<string, InstrumentInfo> = {
   "LIC MF Balanced Advantage Fund":     { schemeCode: 149500, isin: "INF767K01LS2",  type: "hybrid" },
   "Canara Robeco Equity Hybrid Fund":   { schemeCode: 100244, isin: "INF760K01AU7",  type: "hybrid" },
   "Sundaram Balanced Advantage Fund":   { schemeCode: 147500, isin: "INF903J01DF9",  type: "hybrid" },
+
+  // ── Canonical Model Portfolio Exact Aliases & Institutional Sleeves ──────────
+  // Mutual Fund Exact Aliases (Regular Plans)
+  "Mirae Asset Large & Midcap":         { schemeCode: 107577, isin: "INF769K01028",  type: "equity" },
+  "Tata Large & Mid Cap Fund":          { schemeCode: 100122, isin: "INF277K01CS2",  type: "equity" },
+  "ICICI Pru Multi-Asset Fund":         { schemeCode: 100377, isin: "INF109K01841",  type: "hybrid" },
+  "UTI Nifty 200 Momentum 30 Index Fund": { schemeCode: 148680, isin: "INF789FB1X65", type: "index_fund" },
+  "Mirae Asset ELSS Tax Saver Fund":    { schemeCode: 135784, isin: "INF769K01DK3",  type: "equity" },
+  "Parag Parikh ELSS Tax Saver Fund":   { schemeCode: 150450, isin: "INF879O01225",  type: "equity" },
+  "DSP ELSS Tax Saver Fund":            { schemeCode: 119214, isin: "INF740K01357",  type: "equity" },
+  "Bandhan ELSS Tax Saver Fund":        { schemeCode: 108990, isin: "INF194K01722",  type: "equity" },
+  "Templeton India Equity Income":      { schemeCode: 103986, isin: "INF090I01445",  type: "equity" },
+  "SBI Banking & Financial Services":   { schemeCode: 133858, isin: "INF200KA1473",  type: "thematic" },
+  "Nippon India Banking Fund":          { schemeCode: 100373, isin: "INF204K01726",  type: "thematic" },
+  "HDFC Banking ETF":                   { schemeCode: 148280, isin: "INF179KC1BU8",  type: "etf" },
+  "Nippon India Pharma":                { schemeCode: 100611, isin: "INF204K01GH1",  type: "thematic" },
+  "Mirae Asset Healthcare":             { schemeCode: 143960, isin: "INF769K01GK3",  type: "thematic" },
+  "Mirae Asset Great Consumer":         { schemeCode: 101749, isin: "INF769K01EX1",  type: "thematic" },
+  "ICICI Pru FMCG Fund":                { schemeCode: 101004, isin: "INF109K01585",  type: "thematic" },
+  "SBI Consumption Opportunities":      { schemeCode: 120576, isin: "INF200K01VR6",  type: "thematic" },
+  "Canara Robeco Consumer Trends":      { schemeCode: 112930, isin: "INF760K01BB4",  type: "thematic" },
+  "SBI Technology Opp Fund":            { schemeCode: 120577, isin: "INF200K01VS4",  type: "thematic" },
+  "Aditya Birla Digital India":         { schemeCode: 100062, isin: "INF084M01168",  type: "thematic" },
+  "ICICI Pru Infrastructure Fund":      { schemeCode: 103328, isin: "INF109K01AA9",  type: "thematic" },
+  "Tata Infrastructure Fund":           { schemeCode: 103099, isin: "INF277K01336",  type: "thematic" },
+  "Kotak Manufacture in India":         { schemeCode: 149670, isin: "INF174K01SG6",  type: "thematic" },
+  "HDFC Manufacturing Fund":            { schemeCode: 152060, isin: "INF179KC1DP6",  type: "thematic" },
+  "Kotak Bond Short Term":              { schemeCode: 100187, isin: "INF174K01399",  type: "debt" },
+  "ICICI Pru Corporate Bond":           { schemeCode: 108460, isin: "INF109K01XS7",  type: "debt" },
+  "Edelweiss Balanced Advantage":       { schemeCode: 112117, isin: "INF754K01285",  type: "equity" },
+  "ICICI Pru Equity Savings Fund":      { schemeCode: 132680, isin: "INF109K01U93",  type: "hybrid" },
+  "HDFC Equity Savings Fund":           { schemeCode: 102604, isin: "INF179K01722",  type: "hybrid" },
+  "Kotak Equity Savings Fund":          { schemeCode: 130540, isin: "INF174K01NT9",  type: "hybrid" },
+  "SBI Equity Savings Fund":            { schemeCode: 134100, isin: "INF200K01TY3",  type: "hybrid" },
+  "SBI Conservative Hybrid":            { schemeCode: 101036, isin: "INF200K01348",  type: "hybrid" },
+
+  // Real Assets, REITs & Equities
+  "Hindustan Copper Ltd":               { schemeCode: null, isin: "INE531E01026",    type: "stock" },
+  "Tata Steel Ltd":                     { schemeCode: null, isin: "INE081A01020",    type: "stock" },
+  "Hindalco Industries Ltd":            { schemeCode: null, isin: "INE038A01020",    type: "stock" },
+
+  // SIF / PMS / AIF Collateral, Derivatives & Unlisted Institutional Sleeves
+  "91-Day Sovereign T-Bills Collateral": { schemeCode: null, isin: "IN002024X247",   type: "gsec_tbill" },
+  "91-Day Sovereign T-Bills Collateral Reserve": { schemeCode: null, isin: "IN002024X247", type: "gsec_tbill" },
+  "CCIL TREPS & Overnight Buffer":       { schemeCode: null, isin: "INF966L01010",   type: "treps_overnight" },
+  "NIFTY Put Hedge & Index Short":      { schemeCode: null, isin: "INE000A01099",    type: "derivative_hedge" },
+  "Dynamic Factor Arbitrage Basket":     { schemeCode: null, isin: "INE000A01098",    type: "factor_arbitrage" },
+  "NIFTY Futures Cash & Carry Basket":  { schemeCode: null, isin: "INE000A01097",    type: "arbitrage_basket" },
+  "Cross-Sector Pairs Momentum Spread":  { schemeCode: null, isin: "INE000A01096",    type: "pairs_spread" },
+  "NIFTY Delta-Neutral Options Collar":  { schemeCode: null, isin: "INE000A01095",    type: "derivative_collar" },
+  "NIFTY Index Put Hedge & Liquid Yield":{ schemeCode: null, isin: "INE000A01093",   type: "derivative_hedge" },
+  "India Pre-IPO FinTech Growth Trust":  { schemeCode: null, isin: "INE000A01094",    type: "unlisted_trust" },
+  "Microsoft Corporation (NASDAQ)":     { schemeCode: null, isin: "US5949181045",    type: "global_equity" },
+  "NVIDIA Corporation (NASDAQ)":        { schemeCode: null, isin: "US67066G1040",    type: "global_equity" },
+  "Alphabet Inc Class A (NASDAQ)":      { schemeCode: null, isin: "US02079K3059",    type: "global_equity" },
+  "National Stock Exchange of India (NSE)": { schemeCode: null, isin: "INE738I01010", type: "unlisted_equity" },
+  "Swiggy Limited Pre-IPO Equity Tranche": { schemeCode: null, isin: "INE00H001014", type: "unlisted_equity" },
+  "Imagine Marketing Ltd (boAt) Pre-IPO": { schemeCode: null, isin: "INE00P601019", type: "unlisted_equity" },
+  "Oravel Stays Ltd (OYO) Private Trust": { schemeCode: null, isin: "INE0CRB01017", type: "unlisted_equity" },
+  "Tata Technologies Private Placement Units": { schemeCode: null, isin: "INE142M01025", type: "unlisted_equity" },
+  "API Holdings (PharmEasy) Growth Tranche": { schemeCode: null, isin: "INE00MC01020", type: "unlisted_equity" },
+  "Pine Labs FinTech Private Equity Trust": { schemeCode: null, isin: "INE00Q801011", type: "unlisted_equity" },
+  "Senior Secured Venture Debt Note 2027": { schemeCode: null, isin: "INE000A01092", type: "venture_debt" },
+  "Zepto (KiranaKart) Hyperlocal Growth Units": { schemeCode: null, isin: "INE00S101012", type: "unlisted_equity" },
+  "Senior Secured Real Estate Notes (Class A)": { schemeCode: null, isin: "INE000A01091", type: "structured_debt" },
+  "Venture Debt Notes 2028":            { schemeCode: null, isin: "INE000A01090",    type: "venture_debt" },
+  "Commercial Office Park Mezzanine Tranche": { schemeCode: null, isin: "INE000A01089", type: "structured_debt" },
+  "High-Yield Infrastructure Debt Units":{ schemeCode: null, isin: "INE000A01088",   type: "infrastructure_debt" },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -705,9 +783,38 @@ export function getSchemeCode(name: string): number | null {
   return INSTRUMENT_REGISTRY[name]?.schemeCode ?? null;
 }
 
+// Pre-computed lowercase and normalized lookup tables for high-performance fallback
+const LOWERCASE_REGISTRY: Map<string, InstrumentInfo> = new Map();
+const NORMALIZED_REGISTRY: Map<string, InstrumentInfo> = new Map();
+
+function normalizeInstrumentKey(key: string): string {
+  return key
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .trim();
+}
+
+for (const [key, val] of Object.entries(INSTRUMENT_REGISTRY)) {
+  LOWERCASE_REGISTRY.set(key.toLowerCase(), val);
+  NORMALIZED_REGISTRY.set(normalizeInstrumentKey(key), val);
+}
+
 /**
  * Returns the full InstrumentInfo for a named instrument, or undefined if not found.
+ * Supports exact match, trimmed match, case-insensitive match, and normalized character match.
  */
 export function getInstrument(name: string): InstrumentInfo | undefined {
-  return INSTRUMENT_REGISTRY[name];
+  if (!name) return undefined;
+  // 1. Exact match
+  if (INSTRUMENT_REGISTRY[name]) return INSTRUMENT_REGISTRY[name];
+  // 2. Trimmed match
+  const trimmed = name.trim();
+  if (INSTRUMENT_REGISTRY[trimmed]) return INSTRUMENT_REGISTRY[trimmed];
+  // 3. Lowercase match
+  const lower = trimmed.toLowerCase();
+  if (LOWERCASE_REGISTRY.has(lower)) return LOWERCASE_REGISTRY.get(lower);
+  // 4. Normalized alphanumeric match
+  const norm = normalizeInstrumentKey(trimmed);
+  if (NORMALIZED_REGISTRY.has(norm)) return NORMALIZED_REGISTRY.get(norm);
+  return undefined;
 }

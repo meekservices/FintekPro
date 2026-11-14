@@ -1034,16 +1034,17 @@ export class KnowledgeHubService {
 						asOfSession: liveSession,
 					},
 					institutionalFlows: meSnap?.institutionalFlows || {
-						fiiNetInflowCr: -1850,
-						diiNetInflowCr: 3120,
-						fiiGrossBuyCr: 11420,
-						fiiGrossSellCr: 13270,
-						diiGrossBuyCr: 14850,
-						diiGrossSellCr: 11730,
-						netCombinedInflowCr: 1270,
+						fiiNetInflowCr: 5736.55,
+						diiNetInflowCr: -2253.58,
+						fiiGrossBuyCr: 18339.57,
+						fiiGrossSellCr: 12603.02,
+						diiGrossBuyCr: 11745.95,
+						diiGrossSellCr: 13999.53,
+						netCombinedInflowCr: 3482.97,
 						monthlyMfSipRunRateCr: 26425,
-						absorptionRatio: 1.69,
-						liquidityRegime: "DII Inflows Absorb FPI Selling",
+						absorptionRatio: 0.61,
+						liquidityRegime: "FII Inflows Absorb DII Selling",
+						asOfDate: "2026-11-13",
 					},
 					ncdexAgriPulse: meSnap?.ncdexAgriPulse || {
 						exchange: "NCDEX",
@@ -1412,14 +1413,43 @@ export class KnowledgeHubService {
 		};
 
 		try {
-			const inserted = await db
-				.insert(marketBriefs)
-				.values(briefData as any)
-				.returning();
+			// Idempotent upsert: check if brief already exists for this date and region
+			const existing = await db
+				.select({ id: marketBriefs.id, version: marketBriefs.version })
+				.from(marketBriefs)
+				.where(
+					and(
+						eq(marketBriefs.date, date),
+						eq(marketBriefs.region, region),
+					),
+				)
+				.orderBy(desc(marketBriefs.version))
+				.limit(1);
 
-			return await this.formatBriefForClient(inserted[0]);
+			let persistedRecord: any;
+			if (existing.length > 0 && existing[0]) {
+				const nextVersion = (existing[0].version || 1) + 1;
+				const updated = await db
+					.update(marketBriefs)
+					.set({
+						...briefData,
+						version: nextVersion,
+						updatedAt: new Date(),
+					} as any)
+					.where(eq(marketBriefs.id, existing[0].id))
+					.returning();
+				persistedRecord = updated[0];
+			} else {
+				const inserted = await db
+					.insert(marketBriefs)
+					.values(briefData as any)
+					.returning();
+				persistedRecord = inserted[0];
+			}
+
+			return await this.formatBriefForClient(persistedRecord);
 		} catch (err: any) {
-			console.warn("[KnowledgeHubService] DB insert error in generateBrief:", err.message);
+			console.warn("[KnowledgeHubService] DB upsert error in generateBrief:", err.message);
 			return await this.formatBriefForClient({
 				id: `mb-auto-${date}-${region}`,
 				...briefData,
@@ -1645,7 +1675,7 @@ export class KnowledgeHubService {
 	async getMarketBriefs(
 		filters: { region?: string; status?: string; limit?: number } = {},
 	) {
-		const { region, status, limit = 10 } = filters;
+		const { region = "india", status, limit = 30 } = filters;
 		try {
 			let query = db.select().from(marketBriefs);
 
@@ -1657,9 +1687,24 @@ export class KnowledgeHubService {
 				query = query.where(and(...conditions)) as any;
 			}
 
-			const results = await query.orderBy(desc(marketBriefs.date)).limit(limit);
+			const results = await query
+				.orderBy(desc(marketBriefs.date), desc(marketBriefs.version))
+				.limit(Math.max(limit * 3, 60));
+
 			if (results.length > 0) {
-				return await Promise.all(results.map((b) => this.formatBriefForClient(b)));
+				// Deduplicate by date so each calendar date appears only once (latest version wins)
+				const seenDates = new Set<string>();
+				const deduped: any[] = [];
+				for (const item of results) {
+					const dStr = typeof item.date === "string" ? item.date.split("T")[0] : new Date(item.date).toISOString().split("T")[0];
+					if (!seenDates.has(dStr)) {
+						seenDates.add(dStr);
+						deduped.push(item);
+						if (deduped.length >= limit) break;
+					}
+				}
+
+				return await Promise.all(deduped.map((b) => this.formatBriefForClient(b)));
 			}
 
 			// If empty, return at least today's generated brief in the list
@@ -1668,6 +1713,43 @@ export class KnowledgeHubService {
 		} catch {
 			return [this.getFallbackDailyBrief(region || "india")];
 		}
+	}
+
+	/**
+	 * Backfills historical weekday market briefs for archive completeness (e.g. past 30 days)
+	 */
+	async ensureHistoricalBriefsBackfill(region: string = "india", days: number = 30): Promise<{ backfilled: number; totalDaysChecked: number }> {
+		const tradingDates: string[] = [];
+		const now = new Date();
+
+		for (let i = 1; i <= days; i++) {
+			const d = new Date(now);
+			d.setDate(d.getDate() - i);
+			const dayOfWeek = d.getDay();
+			if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Mon-Fri
+				tradingDates.push(d.toISOString().split("T")[0]);
+			}
+		}
+
+		let backfilled = 0;
+		for (const dateStr of tradingDates) {
+			try {
+				const existing = await db
+					.select({ id: marketBriefs.id })
+					.from(marketBriefs)
+					.where(and(eq(marketBriefs.date, dateStr), eq(marketBriefs.region, region)))
+					.limit(1);
+
+				if (existing.length === 0) {
+					await this.generateAndPublishDailyBrief(region, dateStr);
+					backfilled++;
+				}
+			} catch (err: any) {
+				console.warn(`[KnowledgeHubService] Backfill notice for ${dateStr} (${region}):`, err?.message);
+			}
+		}
+
+		return { backfilled, totalDaysChecked: tradingDates.length };
 	}
 
 	async createMarketBrief(data: {

@@ -22,6 +22,7 @@ import { modelPortfolios } from '@shared/schema';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { getInstrument } from '../data/instrument-registry';
 import { ALL_CANONICAL_PORTFOLIOS, DEPRECATED_PORTFOLIO_IDS } from '../data/canonical-model-portfolios';
+import { modelPortfolioAlgoService } from '../services/model-portfolio-algo-service';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // INSTRUMENT REGISTRY is now in server/data/instrument-registry.ts
@@ -1173,42 +1174,80 @@ export async function seedModelPortfolioHoldings(): Promise<void> {
           allocation: p.allocation as any,
           holdings: p.holdings as any,
           totalHoldings: p.totalHoldings,
+          algoTradingEnabled: p.id === "potd-tactical-alpha" ? true : false,
+          algoConfig: p.id === "potd-tactical-alpha" ? {
+            rebalanceThresholdPct: 5,
+            maxTradeAmount: 250000,
+            autoExecute: true,
+            executionChannel: "ALGO_AUTO",
+            executionMode: "PAPER_TRADING",
+            allowedAssetClasses: ["equity", "gold", "reits_invits", "hybrid"],
+            slippageTolerancePct: 0.3,
+            orderType: "limit",
+            autoSyncOrders: true,
+          } : undefined,
+          lastAlgoStatus: p.id === "potd-tactical-alpha" ? "ENABLED" : undefined,
           source: "canonical_seed",
         });
         created++;
         console.log(`  ➕ [Canonical Seed] Created ${p.portfolioCode} | ${p.id} (${p.totalHoldings} holdings)`);
+        if (p.id === "potd-tactical-alpha") {
+          await modelPortfolioAlgoService.ensureBaselineTransactions(p.id);
+        }
       } else {
         // Update existing portfolio to canonical holdings and SEBI tiering
+        const updatePayload: any = {
+          portfolioCode: p.portfolioCode,
+          name: p.name,
+          tagline: p.tagline,
+          riskProfile: p.riskProfile,
+          assetClass: p.assetClass,
+          subCategory: p.subCategory,
+          portfolioTier: p.portfolioTier,
+          vehicleType: p.vehicleType,
+          statutoryMinInvestment: String(p.statutoryMinInvestment),
+          minInvestment: String(p.minInvestment),
+          timeHorizon: p.timeHorizon,
+          benchmarkName: p.benchmarkName,
+          benchmarkSchemeCode: p.benchmarkSchemeCode ?? null,
+          rebalancingFrequency: p.rebalancingFrequency,
+          rebalancingMode: p.rebalancingMode,
+          highlight: p.highlight,
+          icon: p.icon,
+          isPublished: true,
+          isFeatured: p.isFeatured,
+          isNew: p.isNew ?? false,
+          goals: p.goals as any,
+          allocation: p.allocation as any,
+          holdings: p.holdings as any,
+          totalHoldings: p.totalHoldings,
+          updatedAt: new Date(),
+        };
+
+        if (p.id === "potd-tactical-alpha") {
+          updatePayload.algoTradingEnabled = true;
+          updatePayload.algoConfig = {
+            rebalanceThresholdPct: 5,
+            maxTradeAmount: 250000,
+            autoExecute: true,
+            executionChannel: "ALGO_AUTO",
+            executionMode: "PAPER_TRADING",
+            allowedAssetClasses: ["equity", "gold", "reits_invits", "hybrid"],
+            slippageTolerancePct: 0.3,
+            orderType: "limit",
+            autoSyncOrders: true,
+          };
+          updatePayload.lastAlgoStatus = "ENABLED";
+        }
+
         await db.update(modelPortfolios)
-          .set({
-            portfolioCode: p.portfolioCode,
-            name: p.name,
-            tagline: p.tagline,
-            riskProfile: p.riskProfile,
-            assetClass: p.assetClass,
-            subCategory: p.subCategory,
-            portfolioTier: p.portfolioTier,
-            vehicleType: p.vehicleType,
-            statutoryMinInvestment: String(p.statutoryMinInvestment),
-            minInvestment: String(p.minInvestment),
-            timeHorizon: p.timeHorizon,
-            benchmarkName: p.benchmarkName,
-            benchmarkSchemeCode: p.benchmarkSchemeCode ?? null,
-            rebalancingFrequency: p.rebalancingFrequency,
-            rebalancingMode: p.rebalancingMode,
-            highlight: p.highlight,
-            icon: p.icon,
-            isPublished: true,
-            isFeatured: p.isFeatured,
-            isNew: p.isNew ?? false,
-            goals: p.goals as any,
-            allocation: p.allocation as any,
-            holdings: p.holdings as any,
-            totalHoldings: p.totalHoldings,
-            updatedAt: new Date(),
-          })
+          .set(updatePayload)
           .where(eq(modelPortfolios.id, p.id));
         updated++;
+
+        if (p.id === "potd-tactical-alpha") {
+          await modelPortfolioAlgoService.ensureBaselineTransactions(p.id);
+        }
       }
     } catch (err: unknown) {
       console.warn(`  ⚠️  [Canonical Seed] Failed ${p.id}:`, err instanceof Error ? err.message : String(err));

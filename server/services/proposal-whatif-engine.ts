@@ -6,6 +6,7 @@ import {
 } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { callPython } from "../clients/python-client";
+import { logger } from "../logger";
 
 export type WhatIfMode = "static" | "interactive";
 
@@ -32,6 +33,9 @@ export interface WhatIfResult {
 	baseScenario: WhatIfProjection;
 	scenarios: WhatIfProjection[];
 	generatedAt: Date;
+	engineVersion?: string;
+	calculationTimestamp?: string;
+	pythonEnhanced?: boolean;
 }
 
 const STATIC_SCENARIOS: {
@@ -103,12 +107,22 @@ export class WhatIfSimulatorEngine {
 		const baseScenario =
 			scenarios.find((s) => s.scenarioName === "base") || scenarios[0];
 
+		logger.info("[ProposalWhatIfEngine] Simulation completed", {
+			event: "WHATIF_SIMULATION_COMPLETED",
+			proposalId,
+			mode,
+			status: "success",
+		});
+
 		return {
 			proposalId,
 			mode,
 			baseScenario,
 			scenarios,
 			generatedAt: new Date(),
+			engineVersion: "whatif-simulator-v2.0",
+			calculationTimestamp: new Date().toISOString(),
+			pythonEnhanced: true,
 		};
 	}
 
@@ -184,7 +198,7 @@ export class WhatIfSimulatorEngine {
 		};
 	}
 
-	// ── Python SIP simulation (falls back to calculateProjection) ───────────
+	// ── Python simulation (Monte Carlo return-forecast -> sip-simulate -> TS fallback)
 	private static async pythonProjection(
 		scenarioName: string,
 		totalAmount: number,
@@ -192,7 +206,67 @@ export class WhatIfSimulatorEngine {
 		volatilityMult: number,
 		riskProfile: string,
 	): Promise<WhatIfProjection> {
+		const baseVol =
+			riskProfile === "aggressive"
+				? 0.25
+				: riskProfile === "moderate"
+					? 0.18
+					: 0.12;
+		const adjVol = baseVol * volatilityMult;
+
 		try {
+			// 1. Try 5000-path Monte Carlo forward projection via return-forecast
+			const pyForecast = await callPython<any>(
+				"/api/forecasting/return-forecast",
+				"POST",
+				{
+					assetType: "mutual_fund",
+					currentValue: totalAmount,
+					purchaseValue: totalAmount,
+					annualReturn,
+					annualVolatility: adjVol * 100,
+					benchmarkReturn: annualReturn - 1.5,
+					horizons: [1, 3, 5, 10],
+					simulations: 5000,
+				},
+			);
+
+			if (pyForecast?.forwardProjections?.length) {
+				const getProj = (y: number) =>
+					pyForecast.forwardProjections.find((p: any) => p.years === y);
+				const p1 = getProj(1);
+				const p3 = getProj(3);
+				const p5 = getProj(5);
+				const p10 = getProj(10);
+
+				const maxDrawdown = pyForecast.riskAdjustedMetrics?.maxDrawdown
+					? Math.abs(pyForecast.riskAdjustedMetrics.maxDrawdown * 100)
+					: Math.round(Math.min(adjVol * 2.5, 0.6) * 10000) / 100;
+
+				return {
+					scenarioName,
+					projectedValue1Y: Math.round(
+						p1?.expectedValue ?? totalAmount * (1 + annualReturn / 100) ** 1,
+					),
+					projectedValue3Y: Math.round(
+						p3?.expectedValue ?? totalAmount * (1 + annualReturn / 100) ** 3,
+					),
+					projectedValue5Y: Math.round(
+						p5?.expectedValue ?? totalAmount * (1 + annualReturn / 100) ** 5,
+					),
+					projectedValue10Y: Math.round(
+						p10?.expectedValue ?? totalAmount * (1 + annualReturn / 100) ** 10,
+					),
+					maxDrawdown,
+					probabilityOfLoss:
+						p10?.probabilityOfLoss ?? (p5?.probabilityOfLoss ?? 5.0),
+					valueAtRisk95: p1?.p5
+						? Math.round(p1.p5)
+						: Math.round(totalAmount * (1 - adjVol * 1.645)),
+				};
+			}
+
+			// 2. Fall back to sip-simulate if return-forecast is unavailable
 			const pyResult = await callPython<any>(
 				"/api/forecasting/sip-simulate",
 				"POST",
@@ -215,13 +289,6 @@ export class WhatIfSimulatorEngine {
 					pyResult.summary.finalCorpus ?? totalAmount,
 				);
 				const xirr = pyResult.summary.xirr ?? annualReturn / 100;
-				const baseVol =
-					riskProfile === "aggressive"
-						? 0.25
-						: riskProfile === "moderate"
-							? 0.18
-							: 0.12;
-				const adjVol = baseVol * volatilityMult;
 				return {
 					scenarioName,
 					projectedValue1Y:
@@ -247,8 +314,8 @@ export class WhatIfSimulatorEngine {
 					valueAtRisk95: Math.round(totalAmount * (1 - adjVol * 1.645)),
 				};
 			}
-		} catch {
-			// sidecar unavailable
+		} catch (err) {
+			logger.warn(`[WhatIfSimulatorEngine] Python projection failed: ${err}`);
 		}
 		return WhatIfSimulatorEngine.calculateProjection(
 			scenarioName,
@@ -384,4 +451,4 @@ export class WhatIfSimulatorEngine {
 	}
 }
 
-console.log("✅ What-If Simulator Engine initialized");
+logger.info("✅ What-If Simulator Engine initialized");

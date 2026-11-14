@@ -81,14 +81,20 @@ export abstract class BaseStrategy implements IPickStrategy {
 		volatility?: number,
 		currentPrice?: number,
 		timeHorizon?: string,
+		indiaVix?: number,
 	): { targetPct: number; stoplossPct: number; atrPct?: number } {
+		// ── Dynamic India VIX Regime Multiplier ────────────────────────────────
+		// Baseline VIX is ~15.0. In elevated volatility (>20), widen stops to avoid noise whipsaws.
+		// In low volatility (<13), tighten targets to capture modest mean-reversion swings.
+		const vixCoeff = indiaVix && indiaVix > 0 ? Math.min(1.35, Math.max(0.85, indiaVix / 15.0)) : 1.0;
+
 		// ── Intraday Calibration: 1-session target (1.5% - 3.0%) with strict 2:1 R:R ──
 		if (timeHorizon === "intraday" && (category === "listed_stocks" || category === "derivatives")) {
 			const annualVol = volatility && volatility > 0 ? volatility : 25;
 			const dailyVolFrac = (annualVol / 100) / Math.sqrt(252);
-			const atrFrac = dailyVolFrac * 1.2;
-			// Target: 1.5% to 3.0% (calibrated to ~1.2x daily ATR)
-			const targetPct = Math.min(0.035, Math.max(0.015, Math.round(atrFrac * 1.2 * 1000) / 1000));
+			const atrFrac = dailyVolFrac * 1.2 * vixCoeff;
+			// Target: 1.5% to 3.5% (calibrated to ~1.2x daily ATR with VIX scaling)
+			const targetPct = Math.min(0.045, Math.max(0.015, Math.round(atrFrac * 1.2 * 1000) / 1000));
 			// Strict 2:1 Risk-to-Reward ratio for intraday (stoploss is exactly half of target)
 			const stoplossPct = Math.round((targetPct / 2.0) * 1000) / 1000;
 			return {
@@ -116,10 +122,10 @@ export abstract class BaseStrategy implements IPickStrategy {
 			return { targetPct: base.target, stoplossPct: base.stoploss };
 		}
 
-		// ── Fix C: ATR-based stoploss & 2:1 Risk-Reward Enforcer ───────────────
+		// ── Fix C: ATR-based stoploss & 2:1 Risk-Reward Enforcer with VIX Scaling ──
 		// When currentPrice is provided, compute daily ATR using standard relationship:
-		//   Daily ATR% ≈ (annualVol% / 100) / √252 * 1.2
-		// Domestic listed_stocks: Stoploss at 1.5× daily ATR (capped at 6%, floored at 3.5%).
+		//   Daily ATR% ≈ (annualVol% / 100) / √252 * 1.2 * vixCoeff
+		// Domestic listed_stocks: Stoploss at 1.5× daily ATR (capped at 6.5%, floored at 3.5%).
 		// Target at max(3.5× ATR, 2.0× stoploss) ensuring a minimum 2:1 Risk-to-Reward ratio.
 		if (
 			currentPrice != null &&
@@ -128,14 +134,14 @@ export abstract class BaseStrategy implements IPickStrategy {
 		) {
 			const annualVolFrac = volatility / 100;
 			const dailyVolFrac = annualVolFrac / Math.sqrt(252);
-			const atrFrac = dailyVolFrac * 1.2; // 1-day Average True Range fraction
+			const atrFrac = dailyVolFrac * 1.2 * vixCoeff; // 1-day Average True Range fraction scaled by VIX
 			const isDomesticStock = category === "listed_stocks";
 			const stoplossPct = isDomesticStock
-				? Math.min(0.06, Math.max(0.035, Math.round(atrFrac * 1.5 * 1000) / 1000))
+				? Math.min(0.065, Math.max(0.035, Math.round(atrFrac * 1.5 * 1000) / 1000))
 				: Math.min(0.12, Math.max(0.04, Math.round(atrFrac * 2.0 * 1000) / 1000));
 			// Target calibrated to guarantee at least 2.0x the stop loss (2:1 R:R minimum)
 			const targetPct = isDomesticStock
-				? Math.min(0.18, Math.max(0.09, Math.round(Math.max(atrFrac * 3.5, stoplossPct * 2.0) * 1000) / 1000))
+				? Math.min(0.20, Math.max(0.09, Math.round(Math.max(atrFrac * 3.5, stoplossPct * 2.0) * 1000) / 1000))
 				: Math.min(0.35, Math.max(0.12, Math.round(Math.max(atrFrac * 4.5, stoplossPct * 2.0) * 1000) / 1000));
 			return {
 				targetPct,

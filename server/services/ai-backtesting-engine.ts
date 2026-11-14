@@ -8,6 +8,8 @@ import {
 } from "@shared/schema";
 import { eq, and, gte, lte, desc, sql, asc, between } from "drizzle-orm";
 import { aiAnalyticsEngine } from "./ai-analytics-engine";
+import { callPython } from "../clients/python-client";
+import { logger } from "../logger";
 
 export interface BacktestConfig {
 	assetClass?: string;
@@ -89,10 +91,14 @@ export interface BacktestResult {
 	equityCurve: EquityCurvePoint[];
 	trades: BacktestTrade[];
 	monthlyReturns: { month: string; return: number }[];
+	engineVersion?: string;
+	calculationTimestamp?: string;
+	pythonEnhanced?: boolean;
 }
 
 export class AIBacktestingEngine {
 	async runBacktest(config: BacktestConfig): Promise<BacktestResult> {
+		const startTime = Date.now();
 		const initialCapital = config.initialCapital ?? 1000000;
 		const maxPositions = config.maxPositions ?? 10;
 		const includeTransactionCosts = config.includeTransactionCosts ?? true;
@@ -374,6 +380,45 @@ export class AIBacktestingEngine {
 
 		const monthlyReturns = this.computeMonthlyReturns(equityCurve);
 
+		let finalSharpe = sharpeRatio;
+		let finalSortino = sortinoRatio;
+		let finalCalmar = calmarRatio;
+		let pythonEnhanced = false;
+
+		if (monthlyReturns.length >= 6) {
+			try {
+				const pyBacktest = await callPython<{
+					annualizedReturn: number;
+					portfolioVolatility: number;
+					sharpeRatio: number;
+					sortinoRatio: number;
+					calmarRatio: number;
+					maxDrawdown: number;
+				}>("/api/quant/backtest", "POST", {
+					weights: { portfolio: 1.0 },
+					monthlyReturns: {
+						portfolio: monthlyReturns.map((m) => m.return / 100),
+					},
+				});
+
+				if (pyBacktest && typeof pyBacktest.sharpeRatio === "number" && !("error" in (pyBacktest as any))) {
+					finalSharpe = pyBacktest.sharpeRatio;
+					finalSortino = pyBacktest.sortinoRatio;
+					finalCalmar = pyBacktest.calmarRatio;
+					pythonEnhanced = true;
+				}
+			} catch (err) {
+				logger.warn(`[AIBacktestingEngine] Python backtest metric call failed, falling back to TS: ${err}`);
+			}
+		}
+
+		logger.info("[AIBacktestingEngine] Backtest completed", {
+			event: "BACKTEST_COMPLETED",
+			latency_ms: Date.now() - startTime,
+			status: "success",
+			pythonEnhanced,
+		});
+
 		return {
 			config,
 			summary: {
@@ -387,11 +432,11 @@ export class AIBacktestingEngine {
 				expectancy: Math.round(expectancy * 100) / 100,
 				totalReturn: Math.round(totalReturn * 100) / 100,
 				cagr: Math.round(cagr * 10000) / 100,
-				sharpeRatio: Math.round(sharpeRatio * 100) / 100,
-				sortinoRatio: Math.round(sortinoRatio * 100) / 100,
+				sharpeRatio: Math.round(finalSharpe * 100) / 100,
+				sortinoRatio: Math.round(finalSortino * 100) / 100,
 				maxDrawdown: Math.round(maxDrawdown * 10000) / 100,
 				maxDrawdownPct: Math.round(maxDrawdownPct * 100) / 100,
-				calmarRatio: Math.round(calmarRatio * 100) / 100,
+				calmarRatio: Math.round(finalCalmar * 100) / 100,
 				avgDaysHeld: Math.round(avgDaysHeld),
 				totalTransactionCosts: Math.round(totalTransactionCosts * 100) / 100,
 				profitFactor: Math.round(profitFactor * 100) / 100,
@@ -403,6 +448,9 @@ export class AIBacktestingEngine {
 			equityCurve,
 			trades,
 			monthlyReturns,
+			engineVersion: "ai-backtesting-v2.0",
+			calculationTimestamp: new Date().toISOString(),
+			pythonEnhanced,
 		};
 	}
 

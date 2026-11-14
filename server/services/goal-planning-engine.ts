@@ -15,6 +15,8 @@ import {
 	type InsertGoalInvestmentLink,
 } from "@shared/schema";
 import { eq, and, desc, asc, sql } from "drizzle-orm";
+import { callPython } from "../clients/python-client";
+import { logger } from "../logger";
 
 interface SIPCalculationResult {
 	requiredSipAmount: number;
@@ -701,6 +703,122 @@ export class GoalPlanningEngine {
 			initialSip,
 			finalSip: Math.ceil(finalSip),
 			totalInvestment: Math.round(totalInvestment),
+		};
+	}
+
+	/**
+	 * Vectorised goal simulation using Python microservice (POST /api/forecasting/sip-simulate).
+	 * Computes month-by-month vectorised wealth generation, inflation-adjusted corpus,
+	 * benchmark comparisons, and exact XIRR with deterministic Node.js fallback.
+	 */
+	async simulateGoalWithPythonAsync(params: {
+		sipAmount: number;
+		horizonMonths: number;
+		expectedReturn: number;
+		inflationRate?: number;
+		stepUpPct?: number;
+		existingCorpus?: number;
+		targetCorpus?: number;
+		benchmarkReturn?: number;
+	}): Promise<{
+		summary: {
+			totalInvested: number;
+			finalCorpus: number;
+			wealthGained: number;
+			inflationAdjustedCorpus: number;
+			totalReturnPct: number;
+			xirr?: number | null;
+			benchmarkFinalCorpus?: number;
+			alphaVsBenchmark?: number;
+			monthsToGoal?: number | null;
+		};
+		monthlySnapshots?: Array<{
+			month: number;
+			year: number;
+			invested: number;
+			corpus: number;
+			benchmarkCorpus: number;
+			realValue: number;
+			totalReturn: number;
+			returnPct: number;
+			monthlySip: number;
+		}>;
+		parameters: Record<string, any>;
+		engineVersion: string;
+		calculationTimestamp: string;
+		pythonEnhanced: boolean;
+	}> {
+		const startTime = Date.now();
+		const inflationRate = params.inflationRate ?? 6.0;
+		const stepUpPct = params.stepUpPct ?? 0.0;
+		const existingCorpus = params.existingCorpus ?? 0.0;
+		const benchmarkReturn = params.benchmarkReturn ?? (params.expectedReturn - 1.5);
+
+		try {
+			const pyRes = await callPython<any>("/api/forecasting/sip-simulate", "POST", {
+				sipAmount: params.sipAmount,
+				horizonMonths: params.horizonMonths,
+				expectedReturn: params.expectedReturn,
+				inflationRate,
+				stepUpPct,
+				existingCorpus,
+				targetCorpus: params.targetCorpus,
+				benchmarkReturn,
+			});
+
+			if (pyRes && pyRes.summary && !pyRes.error) {
+				logger.info({
+					event: "GOAL_PROJECTION_SIMULATED",
+					latency_ms: Date.now() - startTime,
+					status: "success",
+					provider: "python-service",
+				});
+				return {
+					summary: pyRes.summary,
+					monthlySnapshots: pyRes.monthlySnapshots || [],
+					parameters: pyRes.parameters || params,
+					engineVersion: "goal-planning-v2.0",
+					calculationTimestamp: new Date().toISOString(),
+					pythonEnhanced: true,
+				};
+			}
+		} catch (err) {
+			logger.warn(`[GoalPlanningEngine] Python SIP simulate failed, falling back to TS: ${err}`);
+		}
+
+		// Deterministic TS fallback
+		const tsResult = this.calculateSIPForGoal(
+			params.targetCorpus ?? 1000000,
+			existingCorpus,
+			params.horizonMonths,
+			params.expectedReturn,
+			inflationRate,
+		);
+
+		const totalInvested = existingCorpus + params.sipAmount * params.horizonMonths;
+		const wealthGained = Math.max(0, tsResult.expectedCorpus - totalInvested);
+
+		logger.info({
+			event: "GOAL_PROJECTION_SIMULATED",
+			latency_ms: Date.now() - startTime,
+			status: "success",
+			provider: "node-fallback",
+		});
+
+		return {
+			summary: {
+				totalInvested,
+				finalCorpus: tsResult.expectedCorpus,
+				wealthGained,
+				inflationAdjustedCorpus: Math.round(tsResult.expectedCorpus / ((1 + inflationRate / 100) ** (params.horizonMonths / 12))),
+				totalReturnPct: totalInvested > 0 ? Math.round((wealthGained / totalInvested) * 10000) / 100 : 0,
+				xirr: params.expectedReturn,
+				monthsToGoal: params.horizonMonths,
+			},
+			parameters: params,
+			engineVersion: "goal-planning-v2.0",
+			calculationTimestamp: new Date().toISOString(),
+			pythonEnhanced: false,
 		};
 	}
 }

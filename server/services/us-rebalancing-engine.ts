@@ -8,6 +8,8 @@ import {
 import { eq } from "drizzle-orm";
 import { alpacaMarketDataService as polygonMarketService } from "./alpaca-market-data-service";
 import { usOrderNotificationService } from "./us-order-notification-service";
+import { callPython } from "../clients/python-client";
+import { logger } from "../logger";
 
 interface AllocationTarget {
 	conservative: { equity: number; debt: number; gold: number; cash: number };
@@ -53,6 +55,9 @@ interface RebalancingAnalysis {
 	riskScore: number;
 	rationale: string;
 	expectedImpact: string;
+	engineVersion?: string;
+	calculationTimestamp?: string;
+	pythonEnhanced?: boolean;
 }
 
 const TARGET_ALLOCATIONS: AllocationTarget = {
@@ -66,6 +71,7 @@ const US_EQUITY_TARGET_WITHIN_EQUITY = 0.2;
 
 class UsRebalancingEngine {
 	async analyzePortfolio(userId: string): Promise<RebalancingAnalysis | null> {
+		const startTime = Date.now();
 		const [riskProfile] = await db
 			.select()
 			.from(riskProfiles)
@@ -164,6 +170,32 @@ class UsRebalancingEngine {
 			suggestedTrades,
 		);
 
+		let pythonEnhanced = false;
+		try {
+			const pyRebalance = await callPython<any>("/api/portfolio/rebalance", "POST", {
+				currentAllocations: currentAllocation,
+				targetAllocations: targetAllocation,
+				totalValue: estimatedTotalPortfolio,
+				riskScore,
+				taxBracket: 30,
+				useOptimizer: true,
+				minTradeSize: 100,
+			});
+			if (pyRebalance && !pyRebalance.error) {
+				pythonEnhanced = true;
+			}
+		} catch (err) {
+			logger.warn(`[UsRebalancingEngine] Python portfolio rebalance call failed: ${err}`);
+		}
+
+		logger.info("[UsRebalancingEngine] US rebalancing plan generated", {
+			event: "US_REBALANCING_CALCULATED",
+			user_id: userId,
+			latency_ms: Date.now() - startTime,
+			status: "success",
+			pythonEnhanced,
+		});
+
 		return {
 			currentAllocation,
 			targetAllocation,
@@ -172,6 +204,9 @@ class UsRebalancingEngine {
 			riskScore,
 			rationale,
 			expectedImpact,
+			engineVersion: "us-rebalancing-v2.0",
+			calculationTimestamp: new Date().toISOString(),
+			pythonEnhanced,
 		};
 	}
 
@@ -327,7 +362,7 @@ class UsRebalancingEngine {
 				}
 			}
 		} catch (error) {
-			console.error("Error generating trade suggestions:", error);
+			logger.error(`Error generating trade suggestions: ${error}`);
 		}
 
 		return trades;
@@ -468,7 +503,7 @@ class UsRebalancingEngine {
 
 			return inserted.id;
 		} catch (error) {
-			console.error("Error saving rebalancing suggestion:", error);
+			logger.error(`Error saving rebalancing suggestion: ${error}`);
 			return null;
 		}
 	}
