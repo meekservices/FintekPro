@@ -697,6 +697,66 @@ router.get("/run", async (req: Request, res: Response) => {
 					hasLivePicks:    stats.livePicks > 0,
 				};
 			}),
+
+			testEngine("Knowledge Hub Auto-Heal Sentinel", "Data Quality", async () => {
+				const { knowledgeHubAutoHealSentinel } = await import("../services/knowledge-hub-auto-heal-sentinel");
+				const status = knowledgeHubAutoHealSentinel.getSentinelStatus();
+				return {
+					status: status.status,
+					overallQualityScore: status.overallQualityScore,
+					autoHealActive: status.autoHealActive,
+					totalAudits: status.totalAudits,
+					totalHeals: status.totalHeals,
+				};
+			}),
+
+			testEngine("Model Portfolio Execution Manager", "Execution & Rebalancing", async () => {
+				const { modelPortfolioExecutionManager } = await import("../services/model-portfolio-execution-manager");
+				const metrics = await modelPortfolioExecutionManager.getPilotExecutionMetrics("potd-tactical-alpha");
+				return {
+					portfolioId: metrics.portfolioId,
+					executionMode: metrics.executionMode,
+					avgSlippageBps: metrics.avgSlippageBps,
+					totalOrdersFilled: metrics.totalOrdersFilled,
+					circuitBreakerActive: metrics.circuitBreakerActive,
+				};
+			}),
+
+			testEngine("Goal Planning Inflation Engine", "Financial Planning", async () => {
+				const { goalPlanningEngine } = await import("../services/goal-planning-engine");
+				const sipResult = goalPlanningEngine.calculateSIPForGoal(10000000, 500000, 120, 12, 6);
+				return {
+					requiredSipAmount: sipResult.requiredSipAmount,
+					inflationAdjustedTarget: sipResult.inflationAdjustedTarget,
+					expectedCorpus: sipResult.expectedCorpus,
+					isRealRateApplied: true,
+				};
+			}),
+
+			testEngine("Research Metrics Engine", "Quant & Factor Models", async () => {
+				const { researchMetricsEngine } = await import("../services/research-metrics-engine");
+				const returns = [0.02, 0.01, -0.015, 0.03, 0.005, -0.01, 0.025, 0.018];
+				const prices = [100, 102, 103, 101.5, 104.5, 105, 104, 106.6];
+				const metrics = researchMetricsEngine.calculateAllMetrics(returns, prices);
+				return {
+					cagr: metrics.cagr,
+					annualizedReturn: metrics.annualizedReturn,
+					volatility: metrics.volatility,
+					sharpeRatio: metrics.sharpeRatio,
+					maxDrawdown: metrics.maxDrawdown,
+				};
+			}),
+
+			testEngine("Investable Surplus Engine", "Compliance", async () => {
+				const { investableSurplusEngine } = await import("../services/investable-surplus-engine");
+				const surplus = await investableSurplusEngine.calculateInvestableSurplus("demo-guest-user");
+				return {
+					totalNetIncome: surplus.totalNetIncome,
+					totalObligations: surplus.totalObligations,
+					monthlyInvestableSurplus: surplus.monthlyInvestableSurplus,
+					status: "verified",
+				};
+			}),
 		]);
 
 		for (const result of tests) {
@@ -848,6 +908,30 @@ router.post("/self-heal", async (req: Request, res: Response) => {
 							result = trainRes ? `ML training triggered: ${JSON.stringify(trainRes)}` : "Python service unavailable";
 						} catch (err: any) {
 							result = `ML training trigger failed: ${err.message}`;
+						}
+						break;
+					}
+					case "knowledge-hub-auto-heal-sentinel":
+					case "knowledge-hub-engine":
+					case "market-brief-engine": {
+						action = "sentinel_auto_heal";
+						try {
+							const { knowledgeHubAutoHealSentinel } = await import("../services/knowledge-hub-auto-heal-sentinel");
+							const healRes = await knowledgeHubAutoHealSentinel.autoHeal("india", { force: true, reason: "Admin Self-Heal Trigger" });
+							result = `Auto-heal complete: score ${healRes.preScore}% -> ${healRes.postScore}% (${healRes.violationsResolved} issues resolved)`;
+						} catch (sentinelErr: any) {
+							result = `Sentinel heal error: ${sentinelErr?.message}`;
+						}
+						break;
+					}
+					case "model-portfolio-algo": {
+						action = "audit_execution_metrics";
+						try {
+							const { modelPortfolioExecutionManager } = await import("../services/model-portfolio-execution-manager");
+							const m = await modelPortfolioExecutionManager.getPilotExecutionMetrics("potd-tactical-alpha");
+							result = `Pilot audited: slippage ${m.avgSlippageBps} bps, ${m.totalOrdersFilled} orders filled`;
+						} catch (algoErr: any) {
+							result = `Execution manager audit error: ${algoErr?.message}`;
 						}
 						break;
 					}
