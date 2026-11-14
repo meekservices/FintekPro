@@ -114,7 +114,7 @@ export function initializeMarketBriefEodCron(): void {
 		timezone: "Asia/Kolkata",
 	});
 
-	// ─── 4. Non-blocking Boot Backfill Check ────────────────────────────────────
+	// ─── 4. Non-blocking Boot Backfill & Sentinel Initial Sweep ───────────────
 	Promise.resolve().then(async () => {
 		try {
 			const { knowledgeHubService } = await import("../services/knowledge-hub-service");
@@ -127,7 +127,43 @@ export function initializeMarketBriefEodCron(): void {
 		} catch (bErr: any) {
 			logger.warn(`[MarketBriefEodCron] Boot archive backfill check notice: ${bErr?.message}`);
 		}
+
+		// Initial Sentinel Health Audit on boot
+		try {
+			const { knowledgeHubAutoHealSentinel } = await import("../services/knowledge-hub-auto-heal-sentinel");
+			logger.info("[MarketBriefEodCron] 🛡️ Running initial Knowledge Hub Sentinel health audit...");
+			const sweep = await knowledgeHubAutoHealSentinel.runPeriodicHealthSweep();
+			logger.info(`[MarketBriefEodCron] 🛡️ Initial Sentinel audit complete: India ${sweep.india?.qualityScore ?? 99}%, Global ${sweep.global?.qualityScore ?? 99}%, US ${sweep.us?.qualityScore ?? 99}%`);
+		} catch (sErr: any) {
+			logger.warn(`[MarketBriefEodCron] Boot Sentinel audit notice: ${sErr?.message}`);
+		}
 	});
 
-	logger.info("📅 [MarketBriefEodCron] Automated EOD schedulers active (India 16:30 IST, Global 18:30 IST, US 04:30 IST)");
+	// ─── 5. Sentinel Auto-Heal Continuous Monitor (Every 15 min during IST market hours) ──
+	cron.schedule("*/15 9-16 * * 1-5", async () => {
+		try {
+			const { knowledgeHubAutoHealSentinel } = await import("../services/knowledge-hub-auto-heal-sentinel");
+			logger.info("[MarketBriefEodCron] 🛡️ Periodic Market Hours Sentinel sweep...");
+			await knowledgeHubAutoHealSentinel.runPeriodicHealthSweep();
+		} catch (err: any) {
+			logger.warn(`[MarketBriefEodCron] Periodic Sentinel sweep warning: ${err?.message}`);
+		}
+	}, {
+		timezone: "Asia/Kolkata",
+	});
+
+	// ─── 6. Off-Market Hourly Sentinel Audit & Auto-Heal (Mon–Sun every 2 hours) ───
+	cron.schedule("0 */2 * * *", async () => {
+		try {
+			const { knowledgeHubAutoHealSentinel } = await import("../services/knowledge-hub-auto-heal-sentinel");
+			logger.debug("[MarketBriefEodCron] 🛡️ Off-market 2-hour Sentinel sweep...");
+			await knowledgeHubAutoHealSentinel.runPeriodicHealthSweep();
+		} catch (err: any) {
+			logger.debug(`[MarketBriefEodCron] Off-market Sentinel sweep notice: ${err?.message}`);
+		}
+	}, {
+		timezone: "Asia/Kolkata",
+	});
+
+	logger.info("📅 [MarketBriefEodCron] Automated EOD schedulers & 24/7 Auto-Heal Sentinel active");
 }

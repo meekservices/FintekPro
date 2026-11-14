@@ -7,6 +7,7 @@ import { nismCurriculumService } from "../services/nism-curriculum-service";
 import { irdaiPospTrainingService } from "../services/irdai-posp-training-service";
 import { amcKnowledgeHubService } from "../services/amc-knowledge-hub-service";
 import { getAmcDirectory, getAmcProfileByCode } from "../services/amc-master-directory";
+import { knowledgeHubAutoHealSentinel } from "../services/knowledge-hub-auto-heal-sentinel";
 import { requireAuth, requireRole } from "../middleware/roleMiddleware";
 
 const router = Router();
@@ -74,9 +75,51 @@ router.get(
 			}).catch(() => {});
 		}
 
-		res.json(
-			brief || knowledgeHubService.getFallbackDailyBrief(region),
-		);
+		const responseBrief = brief || knowledgeHubService.getFallbackDailyBrief(region);
+		const qualityAudit = knowledgeHubAutoHealSentinel.auditBrief(responseBrief, region);
+
+		res.json({
+			...responseBrief,
+			qualityAudit,
+		});
+	}),
+);
+
+// ── Knowledge Hub Auto-Heal & Quality Sentinel Routes ─────────────────────────
+
+router.get(
+	"/sentinel/health",
+	asyncHandler(async (_req, res) => {
+		const status = knowledgeHubAutoHealSentinel.getSentinelStatus();
+		res.json(status);
+	}),
+);
+
+router.post(
+	"/sentinel/auto-heal",
+	asyncHandler(async (req, res) => {
+		const region = (req.body?.region as string) || (req.query?.region as string) || "india";
+		const reason = (req.body?.reason as string) || "Manual trigger from UI";
+		const force = req.body?.force !== false;
+
+		const healResult = await knowledgeHubAutoHealSentinel.autoHeal(region, { force, reason });
+		res.json({
+			success: true,
+			data: healResult,
+		});
+	}),
+);
+
+router.get(
+	"/sentinel/audit",
+	asyncHandler(async (req, res) => {
+		const region = (req.query?.region as string) || "india";
+		const brief = await knowledgeHubService.getTodaysBrief(region);
+		const audit = knowledgeHubAutoHealSentinel.auditBrief(brief, region);
+		res.json({
+			success: true,
+			data: audit,
+		});
 	}),
 );
 

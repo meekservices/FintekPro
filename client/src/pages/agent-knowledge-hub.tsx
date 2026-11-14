@@ -839,9 +839,15 @@ export default function AgentKnowledgeHub() {
 									<TrendingUp className="h-5 w-5 text-blue-500" />
 									Today's Market Brief
 								</CardTitle>
-								<Badge className="bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-200 border border-blue-200 dark:border-blue-800 text-xs font-semibold">
-									{(briefToDisplay.region || "india").toUpperCase()}
-								</Badge>
+								<div className="flex items-center gap-1.5">
+									<Badge className="bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-200 border border-blue-200 dark:border-blue-800 text-xs font-semibold">
+										{(briefToDisplay.region || "india").toUpperCase()}
+									</Badge>
+									<Badge className="bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 text-[10px] font-semibold flex items-center gap-1">
+										<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+										Auto-Heal Monitored
+									</Badge>
+								</div>
 							</div>
 							<CardDescription className="text-muted-foreground">
 								{(() => {
