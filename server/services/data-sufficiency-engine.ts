@@ -433,8 +433,14 @@ export class DataSufficiencyEngine {
 		try {
 			// Query stocks where currentPrice is null/0 OR peRatio is null OR lastEnrichedAt is null
 			let whereClause = sql`ls.is_active = true AND (
-				ls.current_price IS NULL OR ls.current_price <= 0 OR
-				(ls.pe_ratio IS NULL AND sms.pe_ratio IS NULL) OR
+				((ls.current_price IS NULL OR ls.current_price <= 0) AND (sms.current_price IS NULL OR sms.current_price <= 0)) OR
+				(
+					(ls.pe_ratio IS NULL OR ls.pe_ratio <= 0) AND 
+					(sms.pe_ratio IS NULL OR sms.pe_ratio <= 0) AND 
+					(ls.pb_ratio IS NULL OR ls.pb_ratio <= 0) AND 
+					(sms.pb_ratio IS NULL OR sms.pb_ratio <= 0) AND 
+					(sms.ev_to_ebitda IS NULL OR sms.ev_to_ebitda <= 0)
+				) OR
 				(ls.piotroski_f_score IS NULL AND sms.piotroski_score IS NULL AND sms.piotroski_f_score IS NULL AND sdm.piotroski_score IS NULL) OR
 				(ls.last_enriched_at IS NULL AND sms.financials_fiscal_year IS NULL)
 			)`;
@@ -511,11 +517,15 @@ export class DataSufficiencyEngine {
 				    symbol LIKE '%-RE'
 				    OR (
 				      (current_price IS NULL OR current_price <= 0)
-				      AND last_enriched_at IS NULL
 				      AND NOT EXISTS (
 				        SELECT 1 FROM screener_master_snapshots sms 
 				        WHERE sms.symbol = listed_stocks.symbol 
 				          AND (sms.current_price > 0 OR sms.financials_fiscal_year IS NOT NULL)
+				      )
+				      AND NOT EXISTS (
+				        SELECT 1 FROM screener_technical_indicators_latest sti 
+				        WHERE sti.symbol = listed_stocks.symbol 
+				          AND sti.last_updated IS NOT NULL
 				      )
 				    )
 				  )
