@@ -583,6 +583,22 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 		// ── Phase 2: KYC & Compliance (high priority, before data ops) ────────────
 		await runStartupTask("KYC Expiry Monitor", startKycExpiryMonitor);
 		await runStartupTask("KYC LRS/TCS Monitor", startKycLrsMonitor);
+		runStartupTask("Autonomous Regulatory Sync Scheduler (4h)", async () => {
+			try {
+				const { regulatoryIngestionService } = await import("../services/regulatory-ingestion-service");
+				regulatoryIngestionService.pollAllRegulators().catch((err: any) => {
+					console.warn("[RegulatorySync] Initial scan non-fatal error:", err?.message);
+				});
+				setInterval(() => {
+					regulatoryIngestionService.pollAllRegulators().catch((err: any) => {
+						console.warn("[RegulatorySync] Recurring scan error:", err?.message);
+					});
+				}, 4 * 60 * 60 * 1000);
+				console.log("[RegulatorySync] 🕒 Autonomous 4-hour regulatory amendment sentinel scheduled.");
+			} catch (err: any) {
+				console.warn("[RegulatorySync] Scheduler failed to start:", err?.message);
+			}
+		});
 
 		// ── Phase 3: Market Data Sync (runs async, feeds Phase 4) ────────────────
 		// These are fire-and-forget — they schedule their own crons internally

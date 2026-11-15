@@ -44,6 +44,22 @@ interface CAService {
 
 const CA_SERVICES: CAService[] = [
 	{
+		id: "tax-law-hub",
+		name: "Direct Tax & CS Law Hub",
+		description: "Statute library, 3CD audit scanner & Rule 11UA valuation",
+		price: "Pro Access",
+		duration: "Instant",
+		features: [
+			"Bare Act & Rules",
+			"Form 3CD Scanner",
+			"Rule 11UA Valuation",
+			"FASP-AI Defense",
+		],
+		icon: Scale,
+		badge: "CA & CS Hub",
+		route: "/tax/law-hub",
+	},
+	{
 		id: "itr-filing",
 		name: "ITR Filing",
 		description: "Expert CA-assisted income tax return filing",

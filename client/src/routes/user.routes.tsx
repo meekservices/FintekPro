@@ -215,6 +215,7 @@ import {
 	TaxNoticesPage,
 	TaxDocumentVaultPage,
 	TaxCADeskPage,
+	TaxLawHubPage,
 	IntelligentTaxHub,
 	TaxReminderSubscription,
 	MLDs,
@@ -509,6 +510,8 @@ export function UserProtectedRoutes() {
 				<Route path="/tax/notices" component={TaxNoticesPage} />
 				<Route path="/tax/documents" component={TaxDocumentVaultPage} />
 				<Route path="/tax/ca-desk" component={TaxCADeskPage} />
+				<Route path="/tax/law-hub" component={TaxLawHubPage} />
+				<Route path="/tax/ca-cs-law" component={TaxLawHubPage} />
 				{/* Unified Tax Services - Primary Route */}
 				<Route path="/tax-hub" component={IntelligentTaxHub} />
 				<Route path="/tax" component={TaxSmartFiling} />

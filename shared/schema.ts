@@ -1,5 +1,6 @@
 
 export * from "./schema/enums.ts";
+export * from "./schema/tax-law.ts";
 export * from "./schema/commissions.ts";
 export * from "./schema/banking.ts";
 export * from "./schema/crm.ts";

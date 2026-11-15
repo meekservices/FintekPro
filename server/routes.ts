@@ -40,6 +40,8 @@ import { registerKYCWizardRoutes } from "./routes/kyc/index";
 import { registerKycV2ExtensionRoutes } from "./routes/kyc/v2-extensions";
 import { registerOrderRoutes } from "./order-routes";
 import { taxRoutes } from "./tax-routes";
+import taxLawRouter from "./routes/tax-law-routes";
+import regulatorySyncRouter from "./routes/regulatory-sync-routes";
 import { registerKYCVaultRoutes } from "./kyc-vault-routes";
 import { orchestratorRouter } from "./routes/orchestrator-routes";
 import { registerAppointmentManagementRoutes } from "./routes/appointment-management-routes";
@@ -400,6 +402,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	// Named export registrations
 	registerOrderRoutes(app);
 	app.use("/api/tax", taxRoutes);
+	app.use("/api/tax-law", taxLawRouter);
+	app.use("/api/regulatory-sync", regulatorySyncRouter);
 	registerKYCVaultRoutes(app);
 	// KYC Broker Orchestrator — diff, submit, status
 	app.use("/api/orchestrator", orchestratorRouter);

@@ -660,6 +660,7 @@ export const TaxDocumentVaultPage = lazyWithRetry(
 	() => import("@/pages/tax-document-vault"),
 );
 export const TaxCADeskPage = lazyWithRetry(() => import("@/pages/tax-ca-desk"));
+export const TaxLawHubPage = lazyWithRetry(() => import("@/pages/tax-law-hub"));
 export const IntelligentTaxHub = lazyWithRetry(
 	() => import("@/pages/intelligent-tax-hub"),
 );

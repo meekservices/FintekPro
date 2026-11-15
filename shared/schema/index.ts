@@ -35,3 +35,4 @@ export * from "./instruments";
 export * from "./derivatives";
 export * from "./pricing";
 export * from "./macro-intelligence";
+export * from "./tax-law";
