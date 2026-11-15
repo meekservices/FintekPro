@@ -7181,7 +7181,7 @@ export async function ensureEngineGapFixTables(poolInstance?: any): Promise<void
         AND COALESCE(sms.piotroski_score, sms.piotroski_f_score) IS NOT NULL;
 
       UPDATE listed_stocks ls
-      SET last_daily_update = COALESCE(sti.updated_at, sti.date::timestamp, NOW())
+      SET last_daily_update = COALESCE(sti.last_updated::date, NULLIF(sti.date, '')::date, CURRENT_DATE)
       FROM screener_technical_indicators_latest sti
       WHERE ls.symbol = sti.symbol
         AND ls.last_daily_update IS NULL;

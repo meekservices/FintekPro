@@ -160,6 +160,13 @@ async function run(): Promise<void> {
 			);
 			await quantOrchestrator.prewarmCovarianceCache();
 			logger.info(`[${JOB_NAME}] Phase F2: Quant Covariance cache pre-warmed`);
+
+			// Phase F3: Data Sufficiency & Telemetry Sync
+			const { dataSufficiencyEngine } = await import(
+				"../server/services/data-sufficiency-engine"
+			);
+			const syncRes = await dataSufficiencyEngine.syncSufficiencyMetrics();
+			logger.info(`[${JOB_NAME}] Phase F3: Data sufficiency metrics synced to listed_stocks`, syncRes);
 		} catch (err) {
 			logger.warn(`[${JOB_NAME}] Phase F failed (non-fatal)`, { error: String(err) });
 		}
