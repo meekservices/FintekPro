@@ -748,16 +748,35 @@ export default function EngineHealthCheck() {
 								Telemetry Alpha Signal
 							</div>
 							<div className="text-lg font-bold text-foreground mt-0.5">
-								<Badge
-									variant="outline"
-									className={
-										telemetryState?.alphaSignal === "STRONG"
-											? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
-											: "bg-blue-500/10 text-blue-600 border-blue-500/30"
-									}
-								>
-									{telemetryState?.alphaSignal ?? "STRONG"}
-								</Badge>
+								{(() => {
+									const rawSignal = telemetryState?.alphaSignal;
+									const label =
+										typeof rawSignal === "object" && rawSignal !== null
+											? (rawSignal.alphaLabel ?? "STRONG").toUpperCase()
+											: typeof rawSignal === "string"
+												? rawSignal.toUpperCase()
+												: "STRONG";
+									const quality =
+										typeof rawSignal === "object" && rawSignal !== null
+											? rawSignal.alphaQuality
+											: null;
+									const isStrong = label === "STRONG";
+									return (
+										<Badge
+											variant="outline"
+											className={
+												isStrong
+													? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+													: "bg-blue-500/10 text-blue-600 border-blue-500/30"
+											}
+										>
+											{label}
+											{quality !== null && quality !== undefined
+												? ` (${quality}%)`
+												: ""}
+										</Badge>
+									);
+								})()}
 							</div>
 							<div className="text-xs text-muted-foreground mt-1">
 								{telemetryState?.healthyCount ?? 0} Healthy / {telemetryState?.totalTracked ?? 0} Tracked
@@ -1073,7 +1092,13 @@ export default function EngineHealthCheck() {
 							<CardContent>
 								<div className="text-xs font-mono space-y-1 bg-background/80 p-3 rounded border border-border">
 									<div>Repaired Engines: {selfHealResult.repairedEngines}</div>
-									<div>Alpha Signal Strength: {selfHealResult.alphaSignal}</div>
+									<div>
+										Alpha Signal Strength:{" "}
+										{typeof selfHealResult.alphaSignal === "object" &&
+										selfHealResult.alphaSignal !== null
+											? `${(selfHealResult.alphaSignal.alphaLabel ?? "STRONG").toUpperCase()} (${selfHealResult.alphaSignal.alphaQuality ?? 0}%)`
+											: String(selfHealResult.alphaSignal ?? "N/A")}
+									</div>
 									{selfHealResult.repairLog?.map((log: any, idx: number) => (
 										<div key={idx} className="text-muted-foreground">
 											[{log.engineId}] {log.action}: {log.result}
