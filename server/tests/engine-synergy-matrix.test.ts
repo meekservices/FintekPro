@@ -358,14 +358,11 @@ describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 			} as any);
 
 			vi.spyOn(globalCreditCycleService, "getCreditCycleReport").mockResolvedValue({
-				cyclePhase: "MID_CYCLE_EXPANSION",
-				bankingSystemLiquidityCr: 75000,
-				creditGrowthYoy: 13.8,
-				depositGrowthYoy: 11.2,
-				cdRatio: 78.5,
-				mclrTrend: "STABLE",
-				corporateBondSpreadBps: 45,
-				stressIndex: "LOW",
+				creditCycleRegime: "EXPANSIONARY_CREDIT",
+				compositeCreditScore: 86,
+				creditStressTripwire: false,
+				indicators: { usHyOasBps: 285 },
+				pillars: [],
 			} as any);
 
 			const cycle = await engineLearningOrchestrator.runSelfImprovementCycle();
@@ -405,6 +402,116 @@ describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 			const reportBreach = checkRiskBudget("TEST_PORTFOLIO_BREACH", "moderately_high", concentratedHoldings);
 			expect(reportBreach.approved).toBe(false);
 			expect(reportBreach.hardBreaches.some(b => b.field === "maxSingleWeight")).toBe(true);
+		});
+	});
+
+	// ─── 9. Real-Time Surveillance & Incident Mitigation Synergy ───────────────
+	describe("9. Real-Time Surveillance & Incident Mitigation Synergy", () => {
+		it("actions trade errors, trips circuit breaker, and reports to telemetry bus", async () => {
+			const { surveillanceIncidentEngine } = await import("../services/surveillance-incident-engine");
+
+			const result = await surveillanceIncidentEngine.reportIncident({
+				domain: "runtime_error",
+				severity: "critical",
+				errorCode: "ORDER_REJECTED_EXCHANGE_CIRCUIT",
+				title: "Exchange Circuit Limit Tripped During Execution",
+				description: "Upper circuit breaker triggered on symbol TATAMOTORS",
+				sourceSystem: "order_placement",
+			});
+
+			expect(result.incidentId).toBeDefined();
+			expect(result.actionsTaken.length).toBeGreaterThan(0);
+
+			const status = telemetryBus.getStatus("surveillance-incident-engine");
+			expect(status.engineId).toBe("surveillance-incident-engine");
+			expect(status.category).toBe("Compliance");
+			expect(status.reportCount).toBeGreaterThan(0);
+		});
+	});
+
+	// ─── 10. T+1 Trade Reconciliation & Discrepancy Matching Synergy ───────────
+	describe("10. T+1 Trade Reconciliation & Discrepancy Matching Synergy", () => {
+		it("reconciles executed orders against broker tradebook with telemetry", async () => {
+			const { tradeReconciliationEngine } = await import("../services/trade-reconciliation-engine");
+
+			const report = await tradeReconciliationEngine.runReconciliation("test_synergy_suite");
+
+			expect(report.id).toMatch(/^recon_/);
+			expect(report.summary.matchRatePercent).toBeGreaterThanOrEqual(0);
+
+			const status = telemetryBus.getStatus("trade-reconciliation-engine");
+			expect(status.engineId).toBe("trade-reconciliation-engine");
+			expect(status.category).toBe("Transaction");
+			expect(status.reportCount).toBeGreaterThan(0);
+		});
+	});
+
+	// ─── 11. Direct Tax & Corporate Law Workstation Synergy ────────────────────
+	describe("11. Direct Tax & Corporate Law Workstation (Rule 11UA & Form 3CD) Synergy", () => {
+		it("computes deterministic Rule 11UA NAV valuation and Form 3CD audit scan with telemetry", async () => {
+			const { taxLawEngine } = await import("../services/tax-law-engine");
+
+			// Rule 11UA Valuation (FMV = (A - L) * (PV / PE))
+			const val = taxLawEngine.calculateRule11UAValuation({
+				bookValueOfAssets: 10_000_000,
+				bookValueOfLiabilities: 2_000_000,
+				paidUpEquityCapital: 1_000_000,
+				faceValueOfShare: 10,
+				sharesToBeValued: 50_000,
+			});
+
+			expect(val.engine_version).toBeDefined();
+			expect(val.fmv_per_share).toBe(80); // (10M - 2M) * (10 / 1M) = 8M * 0.00001 = 80
+			expect(val.intermediate_steps.total_valuation_of_block).toBe(4_000_000);
+
+			// Form 3CD clause audit scan
+			const audit = taxLawEngine.runForm3cdAuditScan([
+				{
+					id: "TXN-001",
+					date: "2026-11-10",
+					partyName: "Cash Vendor A",
+					amount: 15_000,
+					paymentMode: "cash",
+					type: "expense",
+				},
+				{
+					id: "TXN-002",
+					date: "2026-11-12",
+					partyName: "MSME Supplier B",
+					amount: 250_000,
+					paymentMode: "bank_transfer",
+					type: "msme_vendor",
+					isMsmeRegistered: true,
+					dueDate: "2026-10-15",
+					paymentDate: "2026-11-12",
+				},
+			]);
+
+			expect(audit.total_transactions_scanned).toBe(2);
+			expect(audit.high_risk_disallowance_count).toBeGreaterThan(0);
+			expect(audit.potential_disallowance_amount).toBeGreaterThan(0);
+
+			const status = telemetryBus.getStatus("tax-law-engine");
+			expect(status.engineId).toBe("tax-law-engine");
+			expect(status.category).toBe("Compliance");
+			expect(status.reportCount).toBeGreaterThan(0);
+		});
+	});
+
+	// ─── 12. Autonomous Regulatory Ingestion Engine Synergy ────────────────────
+	describe("12. Autonomous Regulatory Ingestion Engine Synergy", () => {
+		it("polls official regulatory gazettes (CBDT, SEBI, MCA) with telemetry", async () => {
+			const { RegulatoryIngestionService } = await import("../services/regulatory-ingestion-service");
+			const service = RegulatoryIngestionService.getInstance();
+
+			const pollResult = await service.pollAllRegulators();
+			expect(pollResult.sourcesScanned).toBeGreaterThan(0);
+			expect(pollResult.regressionTestsPassed).toBeGreaterThan(0);
+
+			const status = telemetryBus.getStatus("regulatory-ingestion-service");
+			expect(status.engineId).toBe("regulatory-ingestion-service");
+			expect(status.category).toBe("Data Quality");
+			expect(status.reportCount).toBeGreaterThan(0);
 		});
 	});
 });

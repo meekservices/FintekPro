@@ -129,6 +129,11 @@ class EngineTelemetryBus {
       { id: "smart-order-routing", name: "Smart Order Routing Engine", category: "Transaction" },
       { id: "long-short-algo", name: "Long-Short Strategy & Algorithmic Signal Engine", category: "Transaction" },
       { id: "fno-buildup-engine", name: "F&O Buildup & Derivative Intelligence Engine", category: "Transaction" },
+      { id: "surveillance-incident-engine", name: "Real-Time Surveillance & Incident Mitigation Engine", category: "Compliance" },
+      { id: "trade-reconciliation-engine", name: "T+1 Trade & Broker Reconciliation Engine", category: "Transaction" },
+      { id: "knowledge-hub-auto-heal-sentinel", name: "Knowledge Hub Auto-Heal Sentinel", category: "AI Orchestration" },
+      { id: "tax-law-engine", name: "Direct Tax & Corporate Law Workstation Engine", category: "Compliance" },
+      { id: "regulatory-ingestion-service", name: "Autonomous Regulatory Ingestion Engine", category: "Data Quality" },
     ];
     for (const eng of coreEngines) {
       this._meta.set(eng.id, { name: eng.name, category: eng.category });

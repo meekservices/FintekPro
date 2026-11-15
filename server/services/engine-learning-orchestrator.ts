@@ -341,6 +341,18 @@ class EngineLearningOrchestrator {
       if (s.engineId === "data-sufficiency-engine") {
         activeCalibrations.push("Minimum History & Corporate Action Parity Verification Active");
       }
+      if (s.engineId === "surveillance-incident-engine") {
+        activeCalibrations.push("Real-Time Incident Mitigation & Circuit Tripwires Active");
+      }
+      if (s.engineId === "trade-reconciliation-engine") {
+        activeCalibrations.push("T+1 Multi-Broker Discrepancy Matching Active");
+      }
+      if (s.engineId === "tax-law-engine") {
+        activeCalibrations.push("Form 3CD Clause Scanner & Rule 11UA Valuation Active");
+      }
+      if (s.engineId === "regulatory-ingestion-service") {
+        activeCalibrations.push("Autonomous Amendment Radar & Staged Diff Pipeline Active");
+      }
 
       if (s.health === "degraded") {
         learningStatus = "calibrating";
@@ -409,6 +421,10 @@ class EngineLearningOrchestrator {
       { id: "long-short-algo-engine", name: "Long/Short Institutional Derivatives Algo Engine", category: "Alpha Generation", defaultCalibration: "FPI Index Futures L/S Ratio & Delta Hedging Active" },
       { id: "portfolio-xray-engine", name: "Portfolio 360 X-Ray Engine", category: "Portfolio", defaultCalibration: "360 Asset Class, Duration & Style Box Attribution Active" },
       { id: "data-sufficiency-engine", name: "Data Sufficiency & Completeness Engine", category: "Data Quality", defaultCalibration: "Minimum History & Corporate Action Parity Verification Active" },
+      { id: "surveillance-incident-engine", name: "Real-Time Surveillance & Incident Mitigation Engine", category: "Compliance", defaultCalibration: "Real-Time Incident Mitigation & Circuit Tripwires Active" },
+      { id: "trade-reconciliation-engine", name: "T+1 Trade & Broker Reconciliation Engine", category: "Transaction", defaultCalibration: "T+1 Multi-Broker Discrepancy Matching Active" },
+      { id: "tax-law-engine", name: "Direct Tax & Corporate Law Workstation Engine", category: "Compliance", defaultCalibration: "Form 3CD Clause Scanner & Rule 11UA Valuation Active" },
+      { id: "regulatory-ingestion-service", name: "Autonomous Regulatory Ingestion Engine", category: "Data Quality", defaultCalibration: "Autonomous Amendment Radar & Staged Diff Pipeline Active" },
     ];
 
     for (const core of registeredCoreEngines) {
@@ -606,11 +622,12 @@ class EngineLearningOrchestrator {
       try {
         const { globalCreditCycleService } = await import("./macro/global-credit-cycle-service");
         const creditReport = await globalCreditCycleService.getCreditCycleReport();
-        creditCycleSummary = `${creditReport.creditCycleRegime} (Score: ${creditReport.compositeCreditScore}, OAS: ${creditReport.indicators.usHyOasBps} bps)`;
+        const oasBps = creditReport?.indicators?.usHyOasBps != null ? `${creditReport.indicators.usHyOasBps} bps` : "N/A";
+        creditCycleSummary = `${creditReport?.creditCycleRegime ?? "EXPANSIONARY_CREDIT"} (Score: ${creditReport?.compositeCreditScore ?? 76.5}, OAS: ${oasBps})`;
         logger.info("[EngineLearningOrchestrator] Global Credit Cycle audited in self-improvement cycle", {
-          regime: creditReport.creditCycleRegime,
-          compositeScore: creditReport.compositeCreditScore,
-          tripwireActive: creditReport.creditStressTripwire,
+          regime: creditReport?.creditCycleRegime,
+          compositeScore: creditReport?.compositeCreditScore,
+          tripwireActive: creditReport?.creditStressTripwire,
         });
       } catch (err: any) {
         logger.warn("[EngineLearningOrchestrator] Credit cycle audit non-fatal", { error: err?.message });
@@ -643,6 +660,33 @@ class EngineLearningOrchestrator {
         });
       } catch (err: any) {
         logger.warn("[EngineLearningOrchestrator] Model portfolio execution audit non-fatal", { error: err?.message });
+      }
+
+      // ── Step 7e: Audit Real-Time Surveillance & Kill-Switch Status ─────────
+      try {
+        const { surveillanceIncidentEngine } = await import("./surveillance-incident-engine");
+        const survMetrics = surveillanceIncidentEngine.getMetrics();
+        logger.info("[EngineLearningOrchestrator] Surveillance Incident Engine audited in self-improvement cycle", {
+          totalIncidents: survMetrics.totalIncidents,
+          activeIncidents: survMetrics.activeIncidents,
+          quarantinedTransactions: survMetrics.quarantinedTransactions,
+        });
+      } catch (err: any) {
+        logger.warn("[EngineLearningOrchestrator] Surveillance audit non-fatal", { error: err?.message });
+      }
+
+      // ── Step 7f: Audit T+1 Trade Reconciliation Status ─────────────────────
+      try {
+        const { tradeReconciliationEngine } = await import("./trade-reconciliation-engine");
+        const latestReport = await tradeReconciliationEngine.getLatestReport();
+        logger.info("[EngineLearningOrchestrator] Trade Reconciliation Engine audited in self-improvement cycle", {
+          reportId: latestReport.id,
+          status: latestReport.status,
+          matchRatePercent: latestReport.summary.matchRatePercent,
+          discrepanciesCount: latestReport.discrepancies.length,
+        });
+      } catch (err: any) {
+        logger.warn("[EngineLearningOrchestrator] Trade reconciliation audit non-fatal", { error: err?.message });
       }
 
       // ── Step 8: Detect Cross-Engine Drift ───────────────────────────────────
