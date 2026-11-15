@@ -7201,6 +7201,24 @@ export async function ensureEngineGapFixTables(poolInstance?: any): Promise<void
             )
           )
         );
+
+      -- ── Sync last_enriched_at from screener_financials and screener_master_snapshots ──
+      UPDATE listed_stocks ls
+      SET last_enriched_at = COALESCE(ls.last_enriched_at, NOW())
+      WHERE ls.is_active = true
+        AND ls.last_enriched_at IS NULL
+        AND (
+          EXISTS (SELECT 1 FROM screener_financials sf WHERE sf.symbol = ls.symbol)
+          OR EXISTS (SELECT 1 FROM screener_master_snapshots sms WHERE sms.symbol = ls.symbol AND sms.financials_fiscal_year IS NOT NULL)
+        );
+
+      -- ── Deactivate symbols with zero audited filings across all financial tables ──
+      UPDATE listed_stocks ls
+      SET is_active = false
+      WHERE ls.is_active = true
+        AND ls.last_enriched_at IS NULL
+        AND NOT EXISTS (SELECT 1 FROM screener_financials sf WHERE sf.symbol = ls.symbol)
+        AND NOT EXISTS (SELECT 1 FROM screener_master_snapshots sms WHERE sms.symbol = ls.symbol AND sms.financials_fiscal_year IS NOT NULL);
     `);
 
     console.log("  ✅ [GapFix] Engine gap-fix tables, sufficiency sync, and columns ensured");

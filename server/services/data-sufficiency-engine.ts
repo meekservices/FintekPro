@@ -538,7 +538,29 @@ export class DataSufficiencyEngine {
 				  )
 			`);
 
-			// 2. Sync Piotroski scores from master snapshots
+			// 2. Sync last_enriched_at from screener_financials and screener_master_snapshots
+			await db.execute(sql`
+				UPDATE listed_stocks ls
+				SET last_enriched_at = COALESCE(ls.last_enriched_at, NOW())
+				WHERE ls.is_active = true
+				  AND ls.last_enriched_at IS NULL
+				  AND (
+				    EXISTS (SELECT 1 FROM screener_financials sf WHERE sf.symbol = ls.symbol)
+				    OR EXISTS (SELECT 1 FROM screener_master_snapshots sms WHERE sms.symbol = ls.symbol AND sms.financials_fiscal_year IS NOT NULL)
+				  )
+			`);
+
+			// 3. Deactivate symbols with zero audited filings across all financial tables
+			const dFilingRes = await db.execute(sql`
+				UPDATE listed_stocks ls
+				SET is_active = false
+				WHERE ls.is_active = true
+				  AND ls.last_enriched_at IS NULL
+				  AND NOT EXISTS (SELECT 1 FROM screener_financials sf WHERE sf.symbol = ls.symbol)
+				  AND NOT EXISTS (SELECT 1 FROM screener_master_snapshots sms WHERE sms.symbol = ls.symbol AND sms.financials_fiscal_year IS NOT NULL)
+			`);
+
+			// 4. Sync Piotroski scores from master snapshots
 			const pRes = await db.execute(sql`
 				UPDATE listed_stocks ls
 				SET piotroski_f_score = COALESCE(sms.piotroski_score, sms.piotroski_f_score)
@@ -548,7 +570,7 @@ export class DataSufficiencyEngine {
 				  AND COALESCE(sms.piotroski_score, sms.piotroski_f_score) IS NOT NULL
 			`);
 
-			// 3. Sync technical indicator dates
+			// 5. Sync technical indicator dates
 			const tRes = await db.execute(sql`
 				UPDATE listed_stocks ls
 				SET last_daily_update = COALESCE(sti.last_updated::date, NULLIF(sti.date, '')::date, CURRENT_DATE)
@@ -557,7 +579,7 @@ export class DataSufficiencyEngine {
 				  AND ls.last_daily_update IS NULL
 			`);
 
-			const inactiveDeactivated = Number((dRes as any)?.rowCount ?? 0);
+			const inactiveDeactivated = Number((dRes as any)?.rowCount ?? 0) + Number((dFilingRes as any)?.rowCount ?? 0);
 			const piotroskiSynced = Number((pRes as any)?.rowCount ?? 0);
 			const technicalsSynced = Number((tRes as any)?.rowCount ?? 0);
 
