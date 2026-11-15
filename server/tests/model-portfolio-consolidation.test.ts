@@ -16,8 +16,8 @@ import {
 import { SEBI_TIER_CONFIGS } from "../services/model-portfolio-tier-service";
 
 describe("Model Portfolio Consolidation & Strategy Modernization Suite", () => {
-  it("maintains exactly 44 non-overlapping canonical model portfolios", () => {
-    expect(ALL_CANONICAL_PORTFOLIOS.length).toBe(44);
+  it("maintains exactly 45 non-overlapping canonical model portfolios", () => {
+    expect(ALL_CANONICAL_PORTFOLIOS.length).toBe(45);
   });
 
   it("mathematically verifies that EVERY canonical portfolio sums to exactly 100.00% holding weight", () => {

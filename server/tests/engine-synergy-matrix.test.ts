@@ -93,6 +93,59 @@ describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 	// ─── 2. Market Brief ↔ Multi-Exchange Market Service Synergy ──────────────────
 	describe("2. Market Brief ↔ Multi-Exchange Market Service Synergy", () => {
 		it("enriches market brief snapshot with synchronized multi-exchange metrics", async () => {
+			const { commodityMarketService } = await import("../services/commodity-market-service");
+			const { goldenPricingEngine } = await import("../services/golden-pricing/GoldenPricingEngine");
+			const { marketMoversCache } = await import("../services/market-movers-cache");
+
+			vi.spyOn(commodityMarketService, "getCommodityBenchmarks").mockResolvedValue({ success: true, data: { commodities: [] } } as any);
+			vi.spyOn(goldenPricingEngine, "getDailyMarketBriefLiveSnapshot").mockResolvedValue({
+				currencies: { usdInr: 84.4 },
+				fixedIncome: { gsec10YYield: 6.82, trepsWar: 6.45 },
+				commodities: { brentCrudeUsd: 74.5 },
+			} as any);
+			vi.spyOn(marketMoversCache, "getMarketMovers").mockResolvedValue({ success: true, data: { gainers: [], losers: [] } } as any);
+
+			vi.spyOn(multiExchangeMarketService, "getMultiExchangeSnapshot").mockResolvedValue({
+				success: true,
+				data: {
+					asOfDate: "2026-11-14",
+					timestamp: new Date().toISOString(),
+					nifty50: { value: 24350, change: 85, changePercent: 0.35, dayHigh: 24400, dayLow: 24280, volume: 1500000 },
+					sensex: { value: 80100, change: 250, changePercent: 0.31, dayHigh: 80250, dayLow: 79900, volume: 800000 },
+					bseBreadth: { advances: 2150, declines: 1620, unchanged: 110, totalTraded: 3880, advanceDeclineRatio: 1.33 },
+					giftNifty: {
+						exchange: "NSE IX (GIFT City IFSC)",
+						lastPrice: 24420,
+						change: 120,
+						changePercent: 0.49,
+						session: "ACTIVE",
+						timestamp: new Date().toISOString(),
+						sentiment: "bullish",
+					},
+					institutionalFlows: {
+						asOfDate: "2026-11-14",
+						fiiNetCr: 1250,
+						diiNetCr: 2100,
+						netInstitutionalCr: 3350,
+						sipMonthlyEstimateCr: 26000,
+						liquidityRegime: "EXPANSIONARY",
+						diiSipAbsorptionRatio: 2.1,
+						source: "UPSTOX_V2_PRO",
+					},
+					multiAssetIndices: {
+						indiaVix: 13.5,
+						cboeUsvix: 15.2,
+						tenYearGsecYield: 6.82,
+						usTenYearYield: 4.35,
+						crudeBrentUsd: 74.5,
+						goldMcx10g: 78500,
+						silverMcxKg: 91000,
+						usdInr: 84.4,
+					},
+				},
+				meta: { timestamp: new Date().toISOString(), version: "1.0", source: "TEST_MOCK" },
+			});
+
 			const snapshot = await inProcessMarketSnapshotStore.refreshSnapshot("india");
 
 			expect(snapshot).toBeDefined();
@@ -106,13 +159,25 @@ describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 			expect(snapshot.multiExchange?.bseBreadth.advances).toBeGreaterThan(0);
 			expect(snapshot.multiExchange?.giftNifty.exchange).toBe("NSE IX (GIFT City IFSC)");
 			expect(snapshot.multiExchange?.institutionalFlows.liquidityRegime).toBeDefined();
-		}, 15000);
+		});
 	});
 
 	// ─── 3. AI Regime Detection ↔ Multi-Exchange Breadth Synergy ─────────────────
 	describe("3. AI Regime Detection ↔ Multi-Exchange Breadth Synergy", () => {
 		it("detects market regime with resilient breadth ingestion without database failures", async () => {
 			const engine = new AIRegimeDetectionEngine();
+			vi.spyOn(engine as any, "fetchNiftyPrices").mockResolvedValue(
+				Array.from({ length: 120 }, (_, i) => ({
+					date: `2026-01-${String(i + 1).padStart(2, "0")}`,
+					close: 24000 + i * 10,
+				}))
+			);
+			vi.spyOn(engine as any, "estimateMarketBreadth").mockResolvedValue({
+				advances: 1500,
+				declines: 1000,
+				ratio: 1.5,
+			});
+
 			const regime = await engine.detectCurrentRegime();
 
 			expect(regime).toBeDefined();
@@ -268,6 +333,41 @@ describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 		});
 
 		it("executes full autonomous self-improvement cycle across multi-engine feeds", async () => {
+			const { globalMacroTransmissionService } = await import("../services/macro/global-macro-transmission-service");
+			const { globalFiiTrackerEngine } = await import("../services/macro/global-fii-tracker-engine");
+			const { globalCreditCycleService } = await import("../services/macro/global-credit-cycle-service");
+
+			vi.spyOn(globalMacroTransmissionService, "getMacroTransmissionReport").mockResolvedValue({
+				regime: "EXPANSION",
+				fiiPressure: "NEUTRAL",
+				diiAbsorptionCapacity: "HIGH",
+				currencyStress: "LOW",
+				rbiStanceExpectation: "NEUTRAL",
+				yieldSpread10Y_2Y: 0.45,
+				compositeTransmissionScore: 82,
+				factors: [],
+			} as any);
+
+			vi.spyOn(globalFiiTrackerEngine, "getGlobalFiiReport").mockResolvedValue({
+				riskSentiment: "RISK_ON",
+				dxyTrend: "NEUTRAL",
+				us10YTrend: "STABLE",
+				epfrIndiaAllocation: "OVERWEIGHT",
+				predictedFlowNext5D: 1500,
+				confidenceScore: 88,
+			} as any);
+
+			vi.spyOn(globalCreditCycleService, "getCreditCycleReport").mockResolvedValue({
+				cyclePhase: "MID_CYCLE_EXPANSION",
+				bankingSystemLiquidityCr: 75000,
+				creditGrowthYoy: 13.8,
+				depositGrowthYoy: 11.2,
+				cdRatio: 78.5,
+				mclrTrend: "STABLE",
+				corporateBondSpreadBps: 45,
+				stressIndex: "LOW",
+			} as any);
+
 			const cycle = await engineLearningOrchestrator.runSelfImprovementCycle();
 
 			expect(cycle.success).toBe(true);

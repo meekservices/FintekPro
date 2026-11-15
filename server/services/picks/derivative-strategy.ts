@@ -340,7 +340,7 @@ export const STRATEGY_CATALOGUE: DerivativeStrategyDef[] = [
 		name: "Protective Collar",
 		outlook: "neutral",
 		volPreference: "sell",
-		strategyType: "BUYER",
+		strategyType: "SELLER",
 		risk: "medium",
 		targetMult: 0.35,
 		slMult: 1.6,
