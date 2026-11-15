@@ -95,6 +95,7 @@ import {
 	FileBarChart,
 	Boxes,
 	Zap,
+	Brain,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
@@ -150,6 +151,12 @@ const navCategories: NavCategory[] = [
 				href: "/admin/ai-insights",
 				icon: Lightbulb,
 				description: "AI-powered trends & signals",
+			},
+			{
+				title: "AI Governance & Lineage",
+				href: "/admin/ai-governance",
+				icon: Brain,
+				description: "FASP-AI advisory compliance & explainability",
 			},
 			{
 				title: "Partner Oversight",
@@ -274,6 +281,12 @@ const navCategories: NavCategory[] = [
 				href: "/admin/order-audit",
 				icon: History,
 				description: "Order change audit trail",
+			},
+			{
+				title: "Trade Reconciliation",
+				href: "/admin/reconciliation",
+				icon: ArrowRightLeft,
+				description: "T+1 broker & gateway matching",
 			},
 			{
 				title: "E-Sign Documents",
@@ -680,6 +693,12 @@ const navCategories: NavCategory[] = [
 				description: "Calculation engine validation",
 			},
 			{
+				title: "Data Quality & Freshness",
+				href: "/admin/dashboard",
+				icon: ShieldCheck,
+				description: "Multi-domain data sufficiency & freshness audit",
+			},
+			{
 				title: "Pricing Engine",
 				href: "/admin/pricing-engine",
 				icon: DollarSign,
@@ -823,6 +842,25 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 		queryKey: ["/api/twilio/admin/messages/unread-count"],
 		refetchInterval: 30000,
 	});
+
+	const [emergencyModalOpen, setEmergencyModalOpen] = useState(false);
+	const [isTogglingBeaconKillSwitch, setIsTogglingBeaconKillSwitch] = useState(false);
+
+	const { data: surveillanceMetrics, refetch: refetchSurveillance } = useQuery<{
+		success: boolean;
+		data: {
+			activeIncidents: number;
+			quarantinedTransactions: number;
+			recentCriticalCount: number;
+			killSwitchStates: Record<string, { active: boolean; reason: string; triggeredAt: string; triggeredBy: string }>;
+		};
+	}>({
+		queryKey: ["/api/admin/surveillance/metrics"],
+		refetchInterval: 10000,
+	});
+
+	const isKillSwitchActive = surveillanceMetrics?.data?.killSwitchStates?.orders?.active ?? false;
+	const activeSurveillanceIncidents = surveillanceMetrics?.data?.activeIncidents || 0;
 
 	const smsUnreadCount = smsInboxResponse?.unreadCount || 0;
 
@@ -1032,6 +1070,103 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
 	return (
 		<div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
+			<Dialog open={emergencyModalOpen} onOpenChange={setEmergencyModalOpen}>
+				<DialogContent className="max-w-md">
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							<ShieldAlert className="h-5 w-5 text-red-500" />
+							Emergency Risk Management (RMS)
+						</DialogTitle>
+					</DialogHeader>
+					<div className="space-y-4 py-2">
+						<div className="p-3 rounded-lg border bg-muted/30 space-y-2">
+							<div className="flex items-center justify-between">
+								<span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+									Order Execution Pipeline
+								</span>
+								<Badge
+									className={
+										isKillSwitchActive
+											? "bg-red-600 text-white font-bold"
+											: "bg-emerald-600 text-white font-bold"
+									}
+								>
+									{isKillSwitchActive ? "HALTED" : "ACTIVE"}
+								</Badge>
+							</div>
+							<p className="text-xs text-muted-foreground">
+								{isKillSwitchActive
+									? `Halt reason: ${surveillanceMetrics?.data?.killSwitchStates?.orders?.reason || "Emergency action triggered"}`
+									: "Order routing, transaction compliance gates, and broker links operating normally."}
+							</p>
+						</div>
+
+						<div className="grid grid-cols-2 gap-2 text-center">
+							<div className="p-2.5 rounded-lg border bg-card">
+								<div className="text-lg font-bold text-foreground">
+									{activeSurveillanceIncidents}
+								</div>
+								<div className="text-[11px] text-muted-foreground">
+									Active Incidents
+								</div>
+							</div>
+							<div className="p-2.5 rounded-lg border bg-card">
+								<div className="text-lg font-bold text-orange-600">
+									{surveillanceMetrics?.data?.quarantinedTransactions || 0}
+								</div>
+								<div className="text-[11px] text-muted-foreground">
+									Quarantined Orders
+								</div>
+							</div>
+						</div>
+
+						<div className="flex flex-col gap-2 pt-2">
+							<Button
+								variant={isKillSwitchActive ? "outline" : "destructive"}
+								className="w-full font-semibold"
+								disabled={isTogglingBeaconKillSwitch}
+								onClick={async () => {
+									try {
+										setIsTogglingBeaconKillSwitch(true);
+										const nextActive = !isKillSwitchActive;
+										await apiRequest("/api/admin/surveillance/kill-switch", {
+											method: "POST",
+											body: JSON.stringify({
+												scope: "orders",
+												active: nextActive,
+												reason: nextActive
+													? "Manual emergency trip by Administrator from Top Navigation RMS Beacon"
+													: "Manual operational reset by Administrator from Top Navigation RMS Beacon",
+											}),
+										});
+										await refetchSurveillance();
+									} catch (e) {
+										console.error("Failed to toggle kill switch", e);
+									} finally {
+										setIsTogglingBeaconKillSwitch(false);
+									}
+								}}
+							>
+								{isKillSwitchActive
+									? "Disengage Kill-Switch (Resume Orders)"
+									: "🚨 TRIP EMERGENCY KILL-SWITCH"}
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								className="text-xs"
+								onClick={() => {
+									setEmergencyModalOpen(false);
+									navigate("/admin/agent-oversight");
+								}}
+							>
+								Open Full Surveillance & Incident Console →
+							</Button>
+						</div>
+					</div>
+				</DialogContent>
+			</Dialog>
+
 			<Dialog open={searchOpen} onOpenChange={setSearchOpen}>
 				<DialogContent
 					className="bg-background border-border p-0 max-w-lg"
@@ -1123,6 +1258,41 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 					</Button>
 
 					<div className="flex items-center gap-3">
+						{/* Real-Time Surveillance & Emergency RMS Beacon */}
+						{isKillSwitchActive ? (
+							<Button
+								variant="destructive"
+								size="sm"
+								onClick={() => setEmergencyModalOpen(true)}
+								className="animate-pulse h-8 px-2.5 text-xs font-bold gap-1.5 shadow-sm"
+								title="Trading Kill-Switch Active - Click to Inspect"
+							>
+								<ShieldAlert className="h-4 w-4" />
+								<span>KILL-SWITCH ACTIVE</span>
+							</Button>
+						) : activeSurveillanceIncidents > 0 ? (
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setEmergencyModalOpen(true)}
+								className="border-amber-500/80 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 h-8 px-2.5 text-xs font-medium gap-1.5"
+								title="Active Surveillance Incidents"
+							>
+								<AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+								<span>RMS: {activeSurveillanceIncidents} Alert{activeSurveillanceIncidents > 1 ? "s" : ""}</span>
+							</Button>
+						) : (
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={() => setEmergencyModalOpen(true)}
+								className="text-xs text-muted-foreground hover:text-foreground h-8 px-2.5 gap-1.5 hidden sm:inline-flex"
+								title="Risk Management & Surveillance Status: Nominal"
+							>
+								<span className="h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20" />
+								<span className="font-medium text-[11px] tracking-tight">RMS Nominal</span>
+							</Button>
+						)}
 						<DropdownMenu
 							open={notificationsOpen}
 							onOpenChange={setNotificationsOpen}

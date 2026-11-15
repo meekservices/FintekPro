@@ -16,7 +16,7 @@
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { db } from "../db";
-import { kycAuditLogs, kycConsentLogs } from "@shared/schema";
+import { kycAuditLogs, kycConsentLogs, regulatoryAuditPacks } from "@shared/schema";
 import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
 import { requireAdmin } from "../middleware/auth";
 import { logger } from "../logger";
@@ -197,6 +197,93 @@ adminComplianceRouter.get(
     } catch (e: unknown) {
       logger.error("ADMIN_COMPLIANCE_KRA_REUSE_ERROR", { admin_id: adminId, error: e instanceof Error ? e.message : String(e) });
       return errResp(res, "INTERNAL_ERROR", "Failed to fetch consent ledger", 500);
+    }
+  }
+);
+
+// ── GET /api/admin/compliance/audit-packs ─────────────────────────────────────
+// Full SEBI Regulatory Audit Packs (KYC + Suitability + Platform Fee + Cryptographic Hash)
+
+adminComplianceRouter.get(
+  "/audit-packs",
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    const startTs = Date.now();
+    const adminId = (req as any).user?.id;
+    const { userId, packType, page = 1, limit = 50 } = req.query as any;
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
+    const offset = (pageNum - 1) * limitNum;
+
+    try {
+      const conditions = [];
+      if (userId)   conditions.push(eq(regulatoryAuditPacks.userId, userId));
+      if (packType) conditions.push(eq(regulatoryAuditPacks.packType, packType));
+
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+      const [rows, [{ total }]] = await Promise.all([
+        db.select().from(regulatoryAuditPacks).where(whereClause)
+          .orderBy(desc(regulatoryAuditPacks.createdAt)).limit(limitNum).offset(offset),
+        db.select({ total: sql<number>`COUNT(*)::int` }).from(regulatoryAuditPacks).where(whereClause),
+      ]);
+
+      logger.info("ADMIN_COMPLIANCE_AUDIT_PACKS_READ", {
+        event: "ADMIN_COMPLIANCE_AUDIT_PACKS_READ", admin_id: adminId,
+        result_count: rows.length, total, latency_ms: Date.now() - startTs, status: "success",
+      });
+
+      return ok(res, rows, { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) });
+    } catch (e: unknown) {
+      logger.error("ADMIN_COMPLIANCE_AUDIT_PACKS_ERROR", { admin_id: adminId, error: e instanceof Error ? e.message : String(e) });
+      return errResp(res, "INTERNAL_ERROR", "Failed to fetch regulatory audit packs", 500);
+    }
+  }
+);
+
+// ── GET /api/admin/compliance/audit-packs/:id/export ──────────────────────────
+// 1-Click SEBI Audit Dossier Export
+
+adminComplianceRouter.get(
+  "/audit-packs/:id/export",
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const packId = Number(id);
+
+    try {
+      const [pack] = await db.select().from(regulatoryAuditPacks)
+        .where(eq(regulatoryAuditPacks.id, packId)).limit(1);
+
+      if (!pack) {
+        return errResp(res, "NOT_FOUND", "Audit pack not found", 404);
+      }
+
+      const dossier = {
+        title: "SEBI Form IA Regulatory Compliance Dossier",
+        dossierVersion: "1.0.0",
+        exportTimestamp: new Date().toISOString(),
+        auditPackId: pack.id,
+        investorId: pack.userId,
+        eventType: pack.packType,
+        transactionId: pack.transactionId,
+        cryptographicProof: {
+          auditHash: pack.auditHash,
+          algorithm: "SHA-256",
+          createdAt: pack.createdAt,
+        },
+        regulatorySnapshots: {
+          kycVerification: pack.kycSnapshot,
+          investorSuitability: pack.suitabilitySnapshot,
+          executionOrder: pack.orderSnapshot,
+          statutoryPlatformFees: pack.platformConfigSnapshot,
+        },
+        complianceDeclaration: "This electronic dossier is generated from FintekPro's immutable audit vault pursuant to SEBI (Investment Advisers) Regulations, 2013 and SEBI Master Circular on Cybersecurity and System Audit.",
+      };
+
+      return ok(res, dossier);
+    } catch (e: unknown) {
+      return errResp(res, "INTERNAL_ERROR", "Failed to export audit dossier", 500);
     }
   }
 );

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Express, Response } from "express";
 import { db } from "../../db";
 import { sql, desc, eq } from "drizzle-orm";
@@ -20,6 +21,8 @@ import { beneficialOwnershipService } from "../../services/beneficial-ownership-
 import { sebiScoresService } from "../../services/sebi-scores-service";
 import { mfReturnsSyncService } from "../../services/mf-returns-sync-service";
 import { requireAdmin } from "../../middleware/roleMiddleware";
+import { surveillanceRouter } from "./surveillance-routes";
+import { tradeReconciliationRouter } from "./reconciliation-routes";
 
 let _agentNotifTableReady = false;
 async function ensureAgentNotificationsTable() {
@@ -52,6 +55,12 @@ async function ensureAgentNotificationsTable() {
 ensureAgentNotificationsTable();
 
 export function registerAdminPanelPart3Sub1Routes(app: Express): void {
+	// Mount Real-Time Surveillance & Incident Mitigation Routes
+	app.use("/api/admin/surveillance", surveillanceRouter);
+
+	// Mount Multi-Broker T+1 Trade Reconciliation Routes
+	app.use("/api/admin/reconciliation", tradeReconciliationRouter);
+
 	// Admin Dashboard - Overview statistics
 
 	// Revenue Analytics API
@@ -493,14 +502,29 @@ export function registerAdminPanelPart3Sub1Routes(app: Express): void {
 				sql`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE is_active = true)::int AS active FROM suppliers`,
 			);
 
+			// In FintekPro architecture:
+			// - `partners` table stores CA Partners (Chartered Accountants / tax network)
+			// - `agents` table stores Channel & Distribution Partners
+			// Both new and legacy field names are returned for full backwards compatibility
+			const caTotal = Number(partnersResult.rows[0]?.total || 0);
+			const caActive = Number(partnersResult.rows[0]?.active || 0);
+			const partnerTotal = Number(agentsResult.rows[0]?.total || 0);
+			const partnerActive = Number(agentsResult.rows[0]?.active || 0);
+			const supplierTotal = Number(suppliersResult.rows[0]?.total || 0);
+			const supplierActive = Number(suppliersResult.rows[0]?.active || 0);
+
 			res.json({
 				stats: {
-					totalPartners: Number(partnersResult.rows[0]?.total || 0),
-					activePartners: Number(partnersResult.rows[0]?.active || 0),
-					totalAgents: Number(agentsResult.rows[0]?.total || 0),
-					activeAgents: Number(agentsResult.rows[0]?.active || 0),
-					totalSuppliers: Number(suppliersResult.rows[0]?.total || 0),
-					activeSuppliers: Number(suppliersResult.rows[0]?.active || 0),
+					totalCaPartners: caTotal,
+					activeCaPartners: caActive,
+					totalPartners: caTotal, // legacy mapping for CA partners
+					activePartners: caActive,
+					totalAgents: partnerTotal, // legacy DB table mapping for channel partners
+					activeAgents: partnerActive,
+					totalChannelPartners: partnerTotal,
+					activeChannelPartners: partnerActive,
+					totalSuppliers: supplierTotal,
+					activeSuppliers: supplierActive,
 				},
 			});
 		} catch (error) {

@@ -79,7 +79,7 @@ export function StaleDataIndicator({
 				icon: Clock,
 				color: "text-yellow-600 dark:text-yellow-400",
 				bgColor: "bg-yellow-100 dark:bg-yellow-900/20",
-				label: "Updated recently",
+				label: "Update aging (30-60m)",
 				testId: "stale-indicator-warning",
 			};
 		}
@@ -87,7 +87,7 @@ export function StaleDataIndicator({
 			icon: CheckCircle,
 			color: "text-green-600 dark:text-green-400",
 			bgColor: "bg-green-100 dark:bg-green-900/20",
-			label: "Fresh data",
+			label: "Fresh data (Live)",
 			testId: "stale-indicator-fresh",
 		};
 	};
@@ -142,9 +142,9 @@ export function DataFreshnessBar({
 		typeof lastUpdated === "string" ? new Date(lastUpdated) : lastUpdated;
 	if (Number.isNaN(updateDate.getTime())) return null;
 
-	const minutesSinceUpdate = Math.min(
-		(Date.now() - updateDate.getTime()) / (1000 * 60),
-		60,
+	const minutesSinceUpdate = Math.max(
+		0,
+		Math.min((Date.now() - updateDate.getTime()) / (1000 * 60), 60),
 	);
 	const freshnessPercent = Math.max(0, 100 - (minutesSinceUpdate / 60) * 100);
 

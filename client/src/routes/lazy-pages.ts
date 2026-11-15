@@ -1104,3 +1104,12 @@ export const KycOnboardingPage = lazyWithRetry(
 	() => import("@/pages/kyc-onboarding"),
 );
 
+// ─── Institutional Admin Upgrades ──────────────────────────────────────────
+export const TradeReconciliationPage = lazyWithRetry(
+	() => import("@/pages/admin/trade-reconciliation"),
+);
+export const AiGovernanceInspectorPage = lazyWithRetry(
+	() => import("@/pages/admin/ai-governance-inspector"),
+);
+
+

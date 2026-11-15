@@ -30,6 +30,7 @@ router.get("/gemini-deep-audit", async (req: Request, res: Response) => {
 			"Corporate Treasury Engine (SEBI-compliant investment policy management)",
 			"FEMA Compliance Service (LRS limits, TCS calculations, Form 15CA/15CB)",
 			"Asset Allocation Optimizer (mean-variance optimization with constraints)",
+			"Data Sufficiency & Freshness Quality Engine (SEBI IA Reg 17, market data staleness, filing completeness)",
 		];
 
 		const response = await aiService.chat(
@@ -232,6 +233,20 @@ const ENGINE_REGISTRY: EngineRegistryEntry[] = [
 		upgradeNote:
 			"Regime detection routes to Python GaussianMixture model with Redis cache and TS threshold fallback.",
 		priority: "high",
+	},
+	{
+		name: "Data Sufficiency & Freshness Quality Engine",
+		category: "Compliance",
+		subcategory: "Data Governance",
+		currentImpl: "TypeScript (Drizzle ORM + Telemetry Bus + Hourly Freshness Sentinel)",
+		upgradeStatus: "completed",
+		upgradeTypes: ["algorithm_upgrade", "formula_fix"],
+		pythonMigrated: false,
+		currentVersion: "1.0.0",
+		targetVersion: "1.0.0",
+		upgradeNote:
+			"FASP-AI v1.0 & SEBI IA Reg 17 compliance gate: monitors price staleness (>5d), filing freshness (>210d), fundamental valuation ratios, and Piotroski F-Scores. Pauses automated recommendations and live proposals on data gaps.",
+		priority: "critical",
 	},
 	{
 		name: "AI Analytics Engine",

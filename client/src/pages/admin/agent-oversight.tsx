@@ -47,7 +47,12 @@ import {
 	Shield as LucideShield,
 	Activity,
 	AlertCircle,
+	ShieldAlert,
+	Power,
+	RefreshCw,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface AgentOverviewData {
 	totalAgents: number;
@@ -87,9 +92,12 @@ interface AgentOverviewData {
 }
 
 export default function AdminAgentOversightPage() {
+	const { toast } = useToast();
 	const [searchQuery, setSearchQuery] = useState("");
 	const [periodFilter, setPeriodFilter] = useState("monthly");
 	const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+	const [surveillanceDomainFilter, setSurveillanceDomainFilter] = useState("all");
+	const [isTogglingKillSwitch, setIsTogglingKillSwitch] = useState(false);
 
 	const { data: overviewData, isLoading } = useQuery<AgentOverviewData>({
 		queryKey: ["/api/admin/agent-oversight", periodFilter],
@@ -99,6 +107,87 @@ export default function AdminAgentOversightPage() {
 		queryKey: ["/api/admin/agent-oversight", selectedAgent],
 		enabled: !!selectedAgent,
 	});
+
+	const { data: surveillanceMetrics, refetch: refetchMetrics } = useQuery<{ success: boolean; data: any }>({
+		queryKey: ["/api/admin/surveillance/metrics"],
+		refetchInterval: 8000,
+	});
+
+	const { data: surveillanceIncidents, refetch: refetchIncidents, isLoading: incidentsLoading } = useQuery<{ success: boolean; data: any[] }>({
+		queryKey: ["/api/admin/surveillance/incidents", surveillanceDomainFilter],
+		queryFn: async () => {
+			const url = surveillanceDomainFilter === "all"
+				? "/api/admin/surveillance/incidents"
+				: `/api/admin/surveillance/incidents?domain=${surveillanceDomainFilter}`;
+			const res = await apiRequest("GET", url);
+			return res.json();
+		},
+		refetchInterval: 8000,
+	});
+
+	const toggleKillSwitch = async (scope = "orders", currentlyActive = false) => {
+		try {
+			setIsTogglingKillSwitch(true);
+			const nextActive = !currentlyActive;
+			const res = await apiRequest("POST", "/api/admin/surveillance/kill-switch", {
+				scope,
+				active: nextActive,
+				reason: nextActive
+					? "Manual emergency trip by Administrator from Agent Oversight Console"
+					: "Manual reset and operational clearance by Administrator",
+			});
+			const data = await res.json();
+			if (data.success) {
+				toast({
+					title: nextActive ? "🚨 Kill Switch Engaged" : "🟢 Kill Switch Disengaged",
+					description: nextActive
+						? `Execution pipeline for ${scope} is now HALTED.`
+						: `Execution pipeline for ${scope} has been restored to normal.`,
+					variant: nextActive ? "destructive" : "default",
+				});
+				refetchMetrics();
+				refetchIncidents();
+			} else {
+				toast({
+					title: "Action Failed",
+					description: data.error?.message || "Could not update kill switch.",
+					variant: "destructive",
+				});
+			}
+		} catch (err: any) {
+			toast({
+				title: "Network Error",
+				description: err.message,
+				variant: "destructive",
+			});
+		} finally {
+			setIsTogglingKillSwitch(false);
+		}
+	};
+
+	const handleResolveIncident = async (id: string) => {
+		try {
+			const res = await apiRequest("POST", `/api/admin/surveillance/incidents/${id}/action`, {
+				action: "resolve",
+				note: "Reviewed and resolved by Administrator from Oversight Console",
+			});
+			const data = await res.json();
+			if (data.success) {
+				toast({
+					title: "Incident Resolved",
+					description: `Incident ${id} has been marked as resolved.`,
+				});
+				refetchMetrics();
+				refetchIncidents();
+			}
+		} catch (err: any) {
+			toast({
+				title: "Error",
+				description: err.message,
+				variant: "destructive",
+			});
+		}
+	};
 
 	const getSeverityColor = (severity: string) => {
 		switch (severity) {
@@ -127,10 +216,10 @@ export default function AdminAgentOversightPage() {
 					<div>
 						<h1 className="text-3xl font-bold flex items-center gap-3">
 							<Users className="h-8 w-8 text-primary" />
-							Agent Oversight Dashboard
+							Partner Oversight Dashboard
 						</h1>
 						<p className="text-muted-foreground mt-2">
-							Monitor agent performance, governance, and compliance
+							Monitor partner performance, governance, and compliance
 						</p>
 					</div>
 					<div className="flex items-center gap-4">
@@ -160,7 +249,7 @@ export default function AdminAgentOversightPage() {
 						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
 							<Card>
 								<CardHeader className="pb-2">
-									<CardDescription>Total Agents</CardDescription>
+									<CardDescription>Total Partners</CardDescription>
 									<CardTitle className="text-3xl">
 										{overviewData?.totalAgents || 0}
 									</CardTitle>
@@ -257,6 +346,10 @@ export default function AdminAgentOversightPage() {
 								<TabsTrigger value="overrides">Override Activity</TabsTrigger>
 								<TabsTrigger value="performance">
 									Performance Distribution
+								</TabsTrigger>
+								<TabsTrigger value="surveillance" className="flex items-center gap-1.5 text-red-600 dark:text-red-400">
+									<ShieldAlert className="h-4 w-4" />
+									Surveillance & Kill-Switch
 								</TabsTrigger>
 							</TabsList>
 
@@ -470,6 +563,203 @@ export default function AdminAgentOversightPage() {
 												</div>
 											</div>
 										</div>
+									</CardContent>
+								</Card>
+							</TabsContent>
+
+							<TabsContent value="surveillance" className="mt-6 space-y-6">
+								{/* Emergency Controls Header */}
+								<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+									<Card className="border-red-300 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20 col-span-1 md:col-span-2">
+										<CardHeader className="pb-3">
+											<div className="flex items-center justify-between">
+												<div className="flex items-center gap-2">
+													<ShieldAlert className="h-6 w-6 text-red-600 dark:text-red-400" />
+													<CardTitle className="text-xl">Execution Kill-Switch Controller</CardTitle>
+												</div>
+												<Badge
+													className={
+														surveillanceMetrics?.data?.killSwitchStates?.orders?.active
+															? "bg-red-600 text-white font-bold"
+															: "bg-green-600 text-white font-bold"
+													}
+												>
+													{surveillanceMetrics?.data?.killSwitchStates?.orders?.active
+														? "KILL-SWITCH ENGAGED (HALTED)"
+														: "SYSTEM ACTIVE (NORMAL)"}
+												</Badge>
+											</div>
+											<CardDescription>
+												Instantly halts all trade execution, order placement, and mutating workflows across the platform during severe runtime anomalies or illegal activity.
+											</CardDescription>
+										</CardHeader>
+										<CardContent className="flex items-center justify-between pt-0">
+											<div className="text-xs text-muted-foreground">
+												Last updated: {surveillanceMetrics?.data?.killSwitchStates?.orders?.triggeredAt
+													? new Date(surveillanceMetrics.data.killSwitchStates.orders.triggeredAt).toLocaleTimeString()
+													: "N/A"}{" "}
+												| Scope: <strong>orders & execution</strong>
+											</div>
+											<Button
+												variant={surveillanceMetrics?.data?.killSwitchStates?.orders?.active ? "outline" : "destructive"}
+												size="sm"
+												disabled={isTogglingKillSwitch}
+												onClick={() =>
+													toggleKillSwitch(
+														"orders",
+														surveillanceMetrics?.data?.killSwitchStates?.orders?.active ?? false
+													)
+												}
+												className="gap-1.5 font-semibold"
+											>
+												<Power className="h-4 w-4" />
+												{surveillanceMetrics?.data?.killSwitchStates?.orders?.active
+													? "Disengage Kill-Switch (Resume)"
+													: "EMERGENCY TRIP KILL-SWITCH"}
+											</Button>
+										</CardContent>
+									</Card>
+
+									<Card>
+										<CardHeader className="pb-2">
+											<CardDescription>Quarantined Transactions</CardDescription>
+											<CardTitle className="text-3xl text-orange-600">
+												{surveillanceMetrics?.data?.quarantinedTransactions || 0}
+											</CardTitle>
+										</CardHeader>
+										<CardContent className="text-xs text-muted-foreground">
+											Orders held for Compliance Officer review due to gate violations.
+										</CardContent>
+									</Card>
+								</div>
+
+								{/* Surveillance Incident Ledger */}
+								<Card>
+									<CardHeader>
+										<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+											<div>
+												<CardTitle className="flex items-center gap-2">
+													<Activity className="h-5 w-5 text-primary" />
+													Real-Time Surveillance & Incident Stream
+												</CardTitle>
+												<CardDescription>
+													Monitoring runtime errors, market abuse / illegal activities, and process flow integrity with automatic mitigation.
+												</CardDescription>
+											</div>
+											<div className="flex items-center gap-3">
+												<Select
+													value={surveillanceDomainFilter}
+													onValueChange={(val) => setSurveillanceDomainFilter(val)}
+												>
+													<SelectTrigger className="w-[200px]">
+														<SelectValue placeholder="All Domains" />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="all">All Domains</SelectItem>
+														<SelectItem value="runtime_error">Runtime Errors</SelectItem>
+														<SelectItem value="illegal_activity">Illegal / Abuse Activities</SelectItem>
+														<SelectItem value="process_flow_error">Process Flow Errors</SelectItem>
+													</SelectContent>
+												</Select>
+												<Button
+													variant="outline"
+													size="icon"
+													onClick={() => {
+														refetchMetrics();
+														refetchIncidents();
+													}}
+													title="Refresh Incidents"
+												>
+													<RefreshCw className="h-4 w-4" />
+												</Button>
+											</div>
+										</div>
+									</CardHeader>
+									<CardContent>
+										{incidentsLoading ? (
+											<div className="py-8 text-center text-muted-foreground">Loading surveillance ledger...</div>
+										) : !surveillanceIncidents?.data || surveillanceIncidents.data.length === 0 ? (
+											<div className="py-12 text-center">
+												<CheckCircle2 className="h-10 w-10 text-green-500 mx-auto mb-2" />
+												<h4 className="text-sm font-semibold">All Systems Operating Normally</h4>
+												<p className="text-xs text-muted-foreground mt-1">
+													No active runtime errors, illegal activities, or process flow deviations detected.
+												</p>
+											</div>
+										) : (
+											<Table>
+												<TableHeader>
+													<TableRow>
+														<TableHead>Time</TableHead>
+														<TableHead>Domain</TableHead>
+														<TableHead>Error Code & Message</TableHead>
+														<TableHead>Severity</TableHead>
+														<TableHead>Immediate Actions</TableHead>
+														<TableHead>Status</TableHead>
+														<TableHead className="text-right">Action</TableHead>
+													</TableRow>
+												</TableHeader>
+												<TableBody>
+													{surveillanceIncidents.data.map((incident: any) => (
+														<TableRow key={incident.id}>
+															<TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+																{new Date(incident.timestamp).toLocaleTimeString()}
+															</TableCell>
+															<TableCell>
+																<Badge variant="outline" className="text-xs capitalize">
+																	{incident.domain.replace(/_/g, " ")}
+																</Badge>
+															</TableCell>
+															<TableCell>
+																<div className="font-mono text-xs font-semibold">{incident.errorCode}</div>
+																<div className="text-xs text-muted-foreground line-clamp-1 max-w-md">
+																	{incident.message}
+																</div>
+															</TableCell>
+															<TableCell>
+																<Badge className={getSeverityColor(incident.severity)}>
+																	{incident.severity}
+																</Badge>
+															</TableCell>
+															<TableCell>
+																<div className="flex flex-wrap gap-1">
+																	{incident.actionsTaken?.map((action: string, idx: number) => (
+																		<span
+																			key={idx}
+																			className="text-[10px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono"
+																		>
+																			{action.replace(/_/g, " ")}
+																		</span>
+																	))}
+																</div>
+															</TableCell>
+															<TableCell>
+																<Badge
+																	variant={incident.status === "active" ? "destructive" : "secondary"}
+																	className="text-xs"
+																>
+																	{incident.status}
+																</Badge>
+															</TableCell>
+															<TableCell className="text-right">
+																{incident.status === "active" ? (
+																	<Button
+																		variant="outline"
+																		size="sm"
+																		onClick={() => handleResolveIncident(incident.id)}
+																		className="text-xs h-7"
+																	>
+																		Resolve
+																	</Button>
+																) : (
+																	<span className="text-xs text-muted-foreground">Resolved</span>
+																)}
+															</TableCell>
+														</TableRow>
+													))}
+												</TableBody>
+											</Table>
+										)}
 									</CardContent>
 								</Card>
 							</TabsContent>

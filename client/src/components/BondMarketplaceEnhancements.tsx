@@ -254,19 +254,19 @@ export function DataFreshnessIndicator({
 				return {
 					color: "text-green-600",
 					bgColor: "bg-green-50 dark:bg-green-950/30",
-					label: "Live",
+					label: "Live (< 4h)",
 				};
 			case "stale":
 				return {
 					color: "text-amber-600",
 					bgColor: "bg-amber-50 dark:bg-amber-950/30",
-					label: "Updated recently",
+					label: "Delayed (4-24h)",
 				};
 			case "outdated":
 				return {
 					color: "text-red-600",
 					bgColor: "bg-red-50 dark:bg-red-950/30",
-					label: "May be outdated",
+					label: "Outdated (> 24h)",
 				};
 		}
 	};

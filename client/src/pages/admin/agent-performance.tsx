@@ -252,10 +252,10 @@ export default function AgentPerformanceDashboard() {
 						className="text-3xl font-bold text-foreground"
 						data-testid="text-page-title"
 					>
-						Agent Performance Dashboard
+						Partner Performance Dashboard
 					</h1>
 					<p className="text-muted-foreground mt-1">
-						Monitor and analyze all agents' performance metrics
+						Monitor and analyze channel and distribution partners' performance metrics
 					</p>
 				</div>
 				<div className="flex gap-2">
@@ -287,7 +287,7 @@ export default function AgentPerformanceDashboard() {
 				<Card className="bg-card border-border border-l-4 border-l-blue-500">
 					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 						<CardTitle className="text-sm font-medium text-muted-foreground">
-							Total Agents
+							Total Partners
 						</CardTitle>
 						<Users className="h-4 w-4 text-blue-400" />
 					</CardHeader>
@@ -444,10 +444,10 @@ export default function AgentPerformanceDashboard() {
 					<CardHeader>
 						<CardTitle className="text-foreground flex items-center gap-2">
 							<AlertTriangle className="h-5 w-5 text-amber-400" />
-							Agents Needing Attention
+							Partners Needing Attention
 						</CardTitle>
 						<CardDescription className="text-muted-foreground">
-							Low performers, inactive agents, or those with declining metrics
+							Low performers, inactive partners, or those with declining metrics
 						</CardDescription>
 					</CardHeader>
 					<CardContent>
@@ -458,9 +458,9 @@ export default function AgentPerformanceDashboard() {
 										<CheckCircle2 className="h-6 w-6 text-green-500" />
 									</div>
 									<div>
-										<p className="font-medium text-foreground">All agents performing well</p>
+										<p className="font-medium text-foreground">All partners performing well</p>
 										<p className="text-xs text-muted-foreground mt-1">
-											No agents require attention right now. Check back after the next performance cycle.
+											No partners require attention right now. Check back after the next performance cycle.
 										</p>
 									</div>
 								</div>
@@ -515,17 +515,17 @@ export default function AgentPerformanceDashboard() {
 					<div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
 						<div>
 							<CardTitle className="text-foreground">
-								Top Performing Agents
+								Top Performing Partners
 							</CardTitle>
 							<CardDescription className="text-muted-foreground">
-								Detailed performance metrics for all agents
+								Detailed performance metrics for all partners
 							</CardDescription>
 						</div>
 						<div className="flex flex-wrap gap-3">
 							<div className="relative">
 								<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 								<Input
-									placeholder="Search agents..."
+									placeholder="Search partners..."
 									value={searchTerm}
 									onChange={(e) => setSearchTerm(e.target.value)}
 									className="pl-10 bg-muted border-border text-foreground w-48"

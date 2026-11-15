@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from "express";
 import { v4 as uuidv4 } from "uuid";
 import crypto from "crypto";
 import * as globalAdvisoryService from "../services/global-advisory-service";
+import { surveillanceIncidentEngine } from "../services/surveillance-incident-engine";
 
 interface IdempotencyRecord {
 	timestamp: number;
@@ -131,6 +132,18 @@ export function executionGuard(options: ExecutionGuardOptions = {}) {
 			return next();
 		}
 
+		// Surveillance Guardrail 0: Verify if Trade/Execution Kill Switch is active
+		if (surveillanceIncidentEngine.isKillSwitchActive("orders")) {
+			console.warn(`[EXECUTION_GUARD] BLOCKED execution - Kill Switch active for path: ${req.path}`);
+			return res.status(503).json({
+				success: false,
+				error: "EXECUTION_KILL_SWITCH_ACTIVE",
+				message: "Trading and execution operations are temporarily suspended by the Real-Time Surveillance Engine. Immediate action is underway.",
+				code: "KILL_SWITCH_ENGAGED",
+				retryable: false,
+			});
+		}
+
 		const networkState = req.headers["x-network-state"] as string;
 		const idempotencyKey = req.headers["x-idempotency-key"] as string;
 		const queuedAt = req.headers["x-queued-at"] as string;
@@ -183,6 +196,22 @@ export function executionGuard(options: ExecutionGuardOptions = {}) {
 		const sanityCheck = validatePayloadSanity(req.body);
 		if (!sanityCheck.valid) {
 			console.warn(`[EXECUTION_GUARD] Rejected malformed payload on ${req.path}: ${sanityCheck.reason}`);
+			void surveillanceIncidentEngine.reportIncident({
+				domain: "process_flow_error",
+				errorCode: "MALFORMED_PAYLOAD_BLOCKED",
+				severity: "high",
+				source: `execution-guard:${req.path}`,
+				message: `Malformed or poisoned payload: ${sanityCheck.reason}`,
+				context: {
+					url: req.path,
+					httpMethod: req.method,
+					ipAddress: req.ip,
+					userAgent: req.headers["user-agent"],
+					userId: (req as any).user?.id,
+					metadata: { reason: sanityCheck.reason, executionId },
+				},
+				requiresImmediateHalt: true,
+			});
 			return res.status(400).json({
 				success: false,
 				error: "MALFORMED_PAYLOAD_BLOCKED",
@@ -224,6 +253,22 @@ export function executionGuard(options: ExecutionGuardOptions = {}) {
 						`[EXECUTION_GUARD] Idempotency payload mismatch for key: ${idempotencyKey}`,
 						{ originalHash: existing.payloadHash, newHash: currentPayloadHash }
 					);
+					void surveillanceIncidentEngine.reportIncident({
+						domain: "process_flow_error",
+						errorCode: "IDEMPOTENCY_PAYLOAD_MISMATCH",
+						severity: "high",
+						source: `execution-guard:${req.path}`,
+						message: `Reused idempotency key with conflicting payload: ${idempotencyKey}`,
+						context: {
+							url: req.path,
+							httpMethod: req.method,
+							ipAddress: req.ip,
+							idempotencyKey,
+							userId: (req as any).user?.id,
+							metadata: { originalHash: existing.payloadHash, newHash: currentPayloadHash, executionId },
+						},
+						requiresImmediateHalt: true,
+					});
 					return res.status(422).json({
 						success: false,
 						error: "IDEMPOTENCY_PAYLOAD_MISMATCH",
@@ -269,6 +314,20 @@ export function executionGuard(options: ExecutionGuardOptions = {}) {
 
 			if (!redisLockAcquired || inFlightIdempotencyKeys.has(idempotencyKey)) {
 				console.warn(`[EXECUTION_GUARD] Concurrent request in-flight for key: ${idempotencyKey}`);
+				void surveillanceIncidentEngine.reportIncident({
+					domain: "process_flow_error",
+					errorCode: "CONCURRENT_REQUEST_IN_FLIGHT",
+					severity: "medium",
+					source: `execution-guard:${req.path}`,
+					message: `Concurrent race-condition clash on idempotency key: ${idempotencyKey}`,
+					context: {
+						url: req.path,
+						httpMethod: req.method,
+						ipAddress: req.ip,
+						idempotencyKey,
+						userId: (req as any).user?.id,
+					},
+				});
 				return res.status(409).json({
 					success: false,
 					error: "CONCURRENT_REQUEST_IN_FLIGHT",
@@ -334,6 +393,20 @@ export function executionGuard(options: ExecutionGuardOptions = {}) {
 
 			if (lastSeen && now - lastSeen < DEBOUNCE_WINDOW_MS) {
 				console.warn(`[EXECUTION_GUARD] Blocked duplicate rapid submission: ${submissionFingerprint}`);
+				void surveillanceIncidentEngine.reportIncident({
+					domain: "process_flow_error",
+					errorCode: "DUPLICATE_SUBMISSION_BLOCKED",
+					severity: "medium",
+					source: `execution-guard:${req.path}`,
+					message: `Rapid duplicate submission within ${DEBOUNCE_WINDOW_MS}ms window`,
+					context: {
+						url: req.path,
+						httpMethod: req.method,
+						ipAddress: req.ip,
+						userId: (req as any).user?.id,
+						metadata: { fingerprint: submissionFingerprint },
+					},
+				});
 				return res.status(429).json({
 					success: false,
 					error: "DUPLICATE_SUBMISSION_BLOCKED",

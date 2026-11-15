@@ -227,6 +227,8 @@ import {
 	BiometricSettingsPage,
 	VideoKYC,
 	PortfolioHoldings,
+	TradeReconciliationPage,
+	AiGovernanceInspectorPage,
 } from "@/routes/lazy-pages";
 
 // Component to handle admin root redirect
@@ -316,6 +318,12 @@ export function AdminRoutes() {
 						<FinancialOperationsPage />
 					</AdminLayout>
 				)}
+			</Route>
+			<Route path="/admin/reconciliation">
+				{() => <TradeReconciliationPage />}
+			</Route>
+			<Route path="/admin/ai-governance">
+				{() => <AiGovernanceInspectorPage />}
 			</Route>
 			<Route path="/admin/api-config">
 				{() => (

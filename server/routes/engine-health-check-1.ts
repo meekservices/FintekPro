@@ -293,6 +293,49 @@ router.get("/run", async (req: Request, res: Response) => {
 			),
 
 			testEngine(
+				"Data Sufficiency & Freshness Engine",
+				"Data Quality & Governance",
+				async () => {
+					const { dataSufficiencyEngine } = await import(
+						"../services/data-sufficiency-engine"
+					);
+					const healthyEval = dataSufficiencyEngine.evaluateStock(
+						{
+							symbol: "TCS",
+							companyName: "Tata Consultancy Services Ltd",
+							exchange: "NSE",
+							currentPrice: 3850.5,
+							peRatio: 28.5,
+							pbRatio: 12.1,
+							roe: 45.2,
+							roce: 58.4,
+							piotroskiFScore: 9,
+							lastDailyUpdate: new Date(),
+							lastEnrichedAt: new Date(),
+						},
+						{
+							fiscalYearEnd: new Date(),
+							revenue: 240000,
+							netIncome: 45000,
+							piotroskiFScore: 9,
+						},
+					);
+
+					if (healthyEval.severity !== "HEALTHY" || healthyEval.sufficiencyScore < 80) {
+						throw new Error(`Data sufficiency check failed: score=${healthyEval.sufficiencyScore}`);
+					}
+
+					return {
+						engineVersion: "1.0.0",
+						evaluatedHealthyScore: healthyEval.sufficiencyScore,
+						isExecutionAllowed: healthyEval.isExecutionAllowed,
+						isAiAllowed: healthyEval.isAiAllowed,
+						freshnessPointsVerified: true,
+					};
+				},
+			),
+
+			testEngine(
 				"Goal Planning - SIP Calculation",
 				"Financial Planning",
 				async () => {

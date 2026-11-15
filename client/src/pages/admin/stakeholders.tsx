@@ -864,7 +864,7 @@ export default function StakeholdersPage() {
 					Stakeholder Management
 				</h1>
 				<p className="text-muted-foreground mt-2">
-					Manage clients, partners, agents, and suppliers across your platform
+					Manage clients, CA partners, partners, and suppliers across your platform
 				</p>
 			</div>
 
@@ -897,7 +897,7 @@ export default function StakeholdersPage() {
 				<Card data-testid="card-partners-summary">
 					<CardHeader className="flex flex-row items-center justify-between pb-2">
 						<CardTitle className="text-sm font-medium text-muted-foreground">
-							Total Partners
+							Total CA Partners
 						</CardTitle>
 						<Building2 className="h-4 w-4 text-purple-600" />
 					</CardHeader>
@@ -921,9 +921,9 @@ export default function StakeholdersPage() {
 				<Card data-testid="card-agents-summary">
 					<CardHeader className="flex flex-row items-center justify-between pb-2">
 						<CardTitle className="text-sm font-medium text-muted-foreground">
-							Total Agents
+							Total Partners
 						</CardTitle>
-						<Headphones className="h-4 w-4 text-orange-600" />
+						<Users className="h-4 w-4 text-emerald-600" />
 					</CardHeader>
 					<CardContent>
 						<div className="text-2xl font-bold text-foreground">
@@ -1034,11 +1034,11 @@ export default function StakeholdersPage() {
 					</TabsTrigger>
 					<TabsTrigger value="partners" data-testid="tab-partners">
 						<Building2 className="h-4 w-4 mr-2" />
-						Partners
+						CA Partners
 					</TabsTrigger>
 					<TabsTrigger value="agents" data-testid="tab-agents">
-						<Headphones className="h-4 w-4 mr-2" />
-						Agents
+						<Users className="h-4 w-4 mr-2" />
+						Partners
 					</TabsTrigger>
 					<TabsTrigger value="suppliers" data-testid="tab-suppliers">
 						<Package className="h-4 w-4 mr-2" />
@@ -1063,11 +1063,11 @@ export default function StakeholdersPage() {
 												onValueChange={setBulkAssignAgentId}
 											>
 												<SelectTrigger className="w-[200px]">
-													<SelectValue placeholder="Assign to Agent..." />
+													<SelectValue placeholder="Assign to Partner..." />
 												</SelectTrigger>
 												<SelectContent>
 													<SelectItem value="__unassign__">
-														Unassign Agent
+														Unassign Partner
 													</SelectItem>
 													{availableAgents.map((agent) => (
 														<SelectItem key={agent.id} value={agent.id}>
@@ -1328,7 +1328,7 @@ export default function StakeholdersPage() {
 												colSpan={6}
 												className="text-center py-8 text-muted-foreground"
 											>
-												No partners found
+												No CA partners found
 											</TableCell>
 										</TableRow>
 									) : (
@@ -1394,7 +1394,7 @@ export default function StakeholdersPage() {
 																data-testid={`button-edit-partner-${partner.id}`}
 															>
 																<Pencil className="h-4 w-4 mr-2" />
-																Edit Partner
+																Edit CA Partner
 															</DropdownMenuItem>
 															<DropdownMenuItem
 																onClick={() =>
@@ -1443,9 +1443,9 @@ export default function StakeholdersPage() {
 							<Table>
 								<TableHeader>
 									<TableRow>
-										<TableHead>Name</TableHead>
+										<TableHead>Partner Name</TableHead>
 										<TableHead>Contact</TableHead>
-										<TableHead>Employee ID</TableHead>
+										<TableHead>Partner / ARN Code</TableHead>
 										<TableHead>Commission %</TableHead>
 										<TableHead>Active Clients</TableHead>
 										<TableHead>Revenue</TableHead>
@@ -1469,7 +1469,7 @@ export default function StakeholdersPage() {
 												colSpan={8}
 												className="text-center py-8 text-muted-foreground"
 											>
-												No agents found
+												No partners found
 											</TableCell>
 										</TableRow>
 									) : (
@@ -1561,7 +1561,7 @@ export default function StakeholdersPage() {
 																data-testid={`button-edit-agent-${agent.id}`}
 															>
 																<Pencil className="h-4 w-4 mr-2" />
-																Edit Agent
+																Edit Partner
 															</DropdownMenuItem>
 															<DropdownMenuItem>
 																Assign Clients
@@ -1798,9 +1798,9 @@ export default function StakeholdersPage() {
 			<Dialog open={isAddPartnerOpen} onOpenChange={setIsAddPartnerOpen}>
 				<DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
 					<DialogHeader>
-						<DialogTitle>Add New Partner</DialogTitle>
+						<DialogTitle>Add New CA Partner</DialogTitle>
 						<DialogDescription>
-							Create a new partner account with login credentials
+							Create a new CA partner account with login credentials
 						</DialogDescription>
 					</DialogHeader>
 					<form onSubmit={handleCreatePartner} className="space-y-4">
@@ -1923,8 +1923,8 @@ export default function StakeholdersPage() {
 			>
 				<DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
 					<DialogHeader>
-						<DialogTitle>Edit Partner</DialogTitle>
-						<DialogDescription>Update partner information</DialogDescription>
+						<DialogTitle>Edit CA Partner</DialogTitle>
+						<DialogDescription>Update CA partner information</DialogDescription>
 					</DialogHeader>
 					{editingPartner && (
 						<form onSubmit={handleUpdatePartner} className="space-y-4">
@@ -2044,7 +2044,7 @@ export default function StakeholdersPage() {
 								>
 									{updatePartnerMutation.isPending
 										? "Updating..."
-										: "Update Partner"}
+										: "Update CA Partner"}
 								</Button>
 							</div>
 						</form>
@@ -2056,8 +2056,8 @@ export default function StakeholdersPage() {
 			<Dialog open={isAddAgentOpen} onOpenChange={setIsAddAgentOpen}>
 				<DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
 					<DialogHeader>
-						<DialogTitle>Add New Agent</DialogTitle>
-						<DialogDescription>Create a new agent account</DialogDescription>
+						<DialogTitle>Add New Partner</DialogTitle>
+						<DialogDescription>Create a new channel or distribution partner account</DialogDescription>
 					</DialogHeader>
 					<form onSubmit={handleCreateAgent} className="space-y-4">
 						<div className="grid grid-cols-2 gap-4">
@@ -2154,7 +2154,7 @@ export default function StakeholdersPage() {
 								disabled={createAgentMutation.isPending}
 								data-testid="button-submit-agent"
 							>
-								{createAgentMutation.isPending ? "Creating..." : "Create Agent"}
+								{createAgentMutation.isPending ? "Creating..." : "Create Partner"}
 							</Button>
 						</div>
 					</form>
@@ -2168,8 +2168,8 @@ export default function StakeholdersPage() {
 			>
 				<DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
 					<DialogHeader>
-						<DialogTitle>Edit Agent</DialogTitle>
-						<DialogDescription>Update agent information</DialogDescription>
+						<DialogTitle>Edit Partner</DialogTitle>
+						<DialogDescription>Update partner information</DialogDescription>
 					</DialogHeader>
 					{editingAgent && (
 						<form onSubmit={handleUpdateAgent} className="space-y-4">
@@ -2356,7 +2356,7 @@ export default function StakeholdersPage() {
 								>
 									{updateAgentMutation.isPending
 										? "Updating..."
-										: "Update Agent"}
+										: "Update Partner"}
 								</Button>
 							</div>
 						</form>

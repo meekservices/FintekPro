@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * FintekPro Guarded Execution Engine
  *
@@ -26,6 +27,7 @@
 import { handleErrorWithAutoRecovery } from "./auto-recovery-service";
 import { db } from "../db";
 import { sql } from "drizzle-orm";
+import { surveillanceIncidentEngine } from "./surveillance-incident-engine";
 
 // ── Module types & risk levels ────────────────────────────────────────────────
 
@@ -97,6 +99,21 @@ export async function guardedExecution<T>(
 		console.error(
 			`[GuardedExecution] ${ctx.module}.${ctx.operation} failed (${riskLevel} risk): ${errorMsg}`,
 		);
+
+		// Surveillance Engine Incident Notification
+		if (riskLevel === "high" || ctx.module === "order_engine") {
+			void surveillanceIncidentEngine.reportIncident({
+				domain: "runtime_error",
+				errorCode: `RUNTIME_ERROR_${ctx.module.toUpperCase()}`,
+				severity: ctx.module === "order_engine" ? "critical" : "high",
+				source: `guarded-execution:${ctx.module}.${ctx.operation}`,
+				message: `High-risk execution runtime error: ${errorMsg}`,
+				context: {
+					metadata: { operation: ctx.operation, input: ctx.input },
+				},
+				requiresImmediateHalt: ctx.module === "order_engine",
+			});
+		}
 
 		// ── Async auto-recovery (fire-and-forget — never blocks caller) ───────────
 		handleErrorWithAutoRecovery(

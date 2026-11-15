@@ -28,6 +28,9 @@ import {
 	Building2,
 	CheckCircle,
 	XCircle,
+	Database,
+	ChevronDown,
+	ChevronUp,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -102,6 +105,20 @@ interface PendingOrdersCount {
 	total: number;
 }
 
+interface ServiceHealth {
+	name: string;
+	status: "healthy" | "degraded" | "down" | "unknown";
+	responseTime?: number;
+	lastCheck?: string;
+	message?: string;
+}
+
+interface SystemHealthReport {
+	overallStatus: "healthy" | "degraded" | "critical";
+	timestamp: string;
+	services: ServiceHealth[];
+}
+
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
 export default function AdminDashboard() {
@@ -112,6 +129,11 @@ export default function AdminDashboard() {
 	} = useQuery<DashboardStats>({
 		queryKey: ["/api/admin/dashboard"],
 	});
+
+	const { data: systemHealth, isLoading: systemHealthLoading } =
+		useQuery<SystemHealthReport>({
+			queryKey: ["/api/admin/system-health"],
+		});
 
 	const { data: kycResponse, isLoading: kycLoading } = useQuery<{
 		success: boolean;
@@ -158,12 +180,34 @@ export default function AdminDashboard() {
 			}>;
 			lastAuditedAt: string;
 			engineVersion: string;
+			telemetryDegraded?: boolean;
+			domains?: Array<{
+				domain: string;
+				code: string;
+				totalRecords: number;
+				healthyCount: number;
+				staleWarningCount: number;
+				criticalCount: number;
+				sufficiencyPercent: number;
+				freshnessThreshold: string;
+				subdomains: Array<{
+					name: string;
+					totalRecords: number;
+					healthyCount: number;
+					staleWarningCount: number;
+					criticalCount: number;
+					sufficiencyPercent: number;
+					freshnessScore: number;
+					keyChecks: string[];
+				}>;
+			}>;
 		};
 	}>({
 		queryKey: ["/api/admin/data-sufficiency/status"],
 	});
 	const sufficiencyStats = sufficiencyResponse?.data;
 	const [enrichmentTriggering, setEnrichmentTriggering] = useState(false);
+	const [showDomainDetails, setShowDomainDetails] = useState(false);
 	const { toast } = useToast();
 
 	const handleTriggerEnrichment = async () => {
@@ -267,12 +311,13 @@ export default function AdminDashboard() {
 
 			{/* Data Insufficiency & Regulatory Warning Banner (FASP-AI v1.0 & SEBI IA) */}
 			{sufficiencyStats &&
-				(sufficiencyStats.criticalInsufficientCount > 0 ||
-					(sufficiencyStats.staleWarningCount > 0 &&
-						sufficiencyStats.overallSufficiencyPercent < 95)) && (
+				(sufficiencyStats.telemetryDegraded ||
+					sufficiencyStats.criticalInsufficientCount > 0 ||
+					sufficiencyStats.staleWarningCount > 0 ||
+					sufficiencyStats.overallSufficiencyPercent < 95) && (
 					<div
 						className={`p-4 rounded-xl border ${
-							sufficiencyStats.criticalInsufficientCount > 0
+							sufficiencyStats.telemetryDegraded || sufficiencyStats.criticalInsufficientCount > 0
 								? "bg-red-500/10 border-red-500/30 text-red-200"
 								: "bg-amber-500/10 border-amber-500/30 text-amber-200"
 						} flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all shadow-sm`}
@@ -280,7 +325,7 @@ export default function AdminDashboard() {
 						<div className="flex items-start gap-3">
 							<div
 								className={`p-2 rounded-lg mt-0.5 ${
-									sufficiencyStats.criticalInsufficientCount > 0
+									sufficiencyStats.telemetryDegraded || sufficiencyStats.criticalInsufficientCount > 0
 										? "bg-red-500/20 text-red-400"
 										: "bg-amber-500/20 text-amber-400"
 								}`}
@@ -290,49 +335,63 @@ export default function AdminDashboard() {
 							<div>
 								<div className="flex items-center gap-2">
 									<h3 className="text-sm font-bold text-foreground">
-										{sufficiencyStats.criticalInsufficientCount > 0
-											? "CRITICAL: Market Data Insufficiency Alert"
-											: "Advisory Notice: Data Staleness & Coverage Gaps"}
+										{sufficiencyStats.telemetryDegraded
+											? "CRITICAL: Database Telemetry Offline"
+											: sufficiencyStats.criticalInsufficientCount > 0
+												? "CRITICAL: Market Data Insufficiency Alert"
+												: "Advisory Notice: Data Staleness & Coverage Gaps"}
 									</h3>
 									<Badge
 										variant={
-											sufficiencyStats.criticalInsufficientCount > 0
+											sufficiencyStats.telemetryDegraded || sufficiencyStats.criticalInsufficientCount > 0
 												? "destructive"
 												: "outline"
 										}
 										className="text-[10px] font-mono"
 									>
-										{sufficiencyStats.overallSufficiencyPercent}% Sufficiency
+										{sufficiencyStats.telemetryDegraded
+											? "Telemetry Offline"
+											: `${sufficiencyStats.overallSufficiencyPercent}% Sufficiency`}
 									</Badge>
 								</div>
 								<p className="text-xs text-muted-foreground mt-1 max-w-2xl leading-relaxed">
-									{sufficiencyStats.criticalInsufficientCount > 0 ? (
+									{sufficiencyStats.telemetryDegraded ? (
 										<span>
-											<strong className="text-red-400 font-semibold">
-												{sufficiencyStats.criticalInsufficientCount} securities
-											</strong>{" "}
-											lack active prices or audited filings (AI recommendations & proposals auto-paused).
+											Database connection is offline or in maintenance. Autonomous AI recommendations, rebalancing, and live proposals are paused for regulatory safety (SEBI IA Reg 17).
 										</span>
-									) : null}
-									{sufficiencyStats.staleWarningCount > 0 ? (
-										<span>
-											{" "}
-											<strong className="text-amber-400 font-semibold">
-												{sufficiencyStats.staleWarningCount} securities
-											</strong>{" "}
-											have valuation ratio deficits or uncalculated Piotroski scores.
-										</span>
-									) : null}
+									) : (
+										<>
+											{sufficiencyStats.criticalInsufficientCount > 0 ? (
+												<span>
+													<strong className="text-red-400 font-semibold">
+														{sufficiencyStats.criticalInsufficientCount} securities
+													</strong>{" "}
+													lack active prices or audited filings (AI recommendations & proposals auto-paused).
+												</span>
+											) : null}
+											{sufficiencyStats.staleWarningCount > 0 ? (
+												<span>
+													{" "}
+													<strong className="text-amber-400 font-semibold">
+														{sufficiencyStats.staleWarningCount} securities
+													</strong>{" "}
+													have valuation ratio deficits or uncalculated Piotroski scores.
+												</span>
+											) : null}
+										</>
+									)}
 								</p>
-								<div className="flex flex-wrap items-center gap-2 mt-2 text-[10px] text-muted-foreground">
-									<span>Filings: {sufficiencyStats.coveragePct.financials}%</span>
-									<span>•</span>
-									<span>Ratios: {sufficiencyStats.coveragePct.ratios}%</span>
-									<span>•</span>
-									<span>Derived Quant: {sufficiencyStats.coveragePct.derivedMetrics}%</span>
-									<span>•</span>
-									<span>Technicals: {sufficiencyStats.coveragePct.technicals}%</span>
-								</div>
+								{!sufficiencyStats.telemetryDegraded && (
+									<div className="flex flex-wrap items-center gap-2 mt-2 text-[10px] text-muted-foreground">
+										<span>Filings: {sufficiencyStats.coveragePct.financials}%</span>
+										<span>•</span>
+										<span>Ratios: {sufficiencyStats.coveragePct.ratios}%</span>
+										<span>•</span>
+										<span>Derived Quant: {sufficiencyStats.coveragePct.derivedMetrics}%</span>
+										<span>•</span>
+										<span>Technicals: {sufficiencyStats.coveragePct.technicals}%</span>
+									</div>
+								)}
 							</div>
 						</div>
 						<div className="flex items-center gap-2 shrink-0">
@@ -362,6 +421,100 @@ export default function AdminDashboard() {
 						</div>
 					</div>
 				)}
+
+			{/* Multi-Domain Data Freshness & Quality Matrix */}
+			{sufficiencyStats?.domains && sufficiencyStats.domains.length > 0 && (
+				<Card className="bg-card border-border shadow-sm">
+					<CardHeader className="pb-3 flex flex-row items-center justify-between">
+						<div>
+							<CardTitle className="text-base font-semibold flex items-center gap-2">
+								<Database className="h-4 w-4 text-primary" />
+								Multi-Domain Data Freshness & Quality Inspection
+								<Badge variant="outline" className="text-[10px] font-mono ml-2">
+									{sufficiencyStats.domains.length} Core Domains • 19 Subdomains
+								</Badge>
+							</CardTitle>
+							<CardDescription className="text-xs mt-1">
+								Autonomous inspection of prices, filings, NAVs, YTM yields, and statutory KYC/Risk validity across all financial asset classes
+							</CardDescription>
+						</div>
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={() => setShowDomainDetails(!showDomainDetails)}
+							className="text-xs text-muted-foreground hover:text-foreground shrink-0"
+						>
+							{showDomainDetails ? "Collapse Subdomains" : "View Subdomains"}
+							{showDomainDetails ? (
+								<ChevronUp className="w-3.5 h-3.5 ml-1" />
+							) : (
+								<ChevronDown className="w-3.5 h-3.5 ml-1" />
+							)}
+						</Button>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+							{sufficiencyStats.domains.map((dom) => (
+								<div
+									key={dom.code}
+									className="p-3 rounded-lg border border-border bg-muted/20 hover:bg-muted/30 transition-all flex flex-col justify-between space-y-2"
+								>
+									<div className="flex items-center justify-between">
+										<span className="text-xs font-semibold truncate text-foreground">
+											{dom.domain}
+										</span>
+										<Badge
+											variant={
+												dom.sufficiencyPercent >= 95
+													? "outline"
+													: dom.sufficiencyPercent >= 80
+														? "outline"
+														: "destructive"
+											}
+											className={`text-[10px] ${
+												dom.sufficiencyPercent >= 95
+													? "text-emerald-500 border-emerald-500/30"
+													: dom.sufficiencyPercent >= 80
+														? "text-amber-500 border-amber-500/30"
+														: "text-red-500"
+											}`}
+										>
+											{dom.sufficiencyPercent}%
+										</Badge>
+									</div>
+									<div className="text-[11px] text-muted-foreground flex justify-between">
+										<span>Records: {dom.totalRecords.toLocaleString()}</span>
+										<span className="text-[10px] text-muted-foreground/80">{dom.freshnessThreshold}</span>
+									</div>
+									{showDomainDetails && dom.subdomains && (
+										<div className="pt-2 border-t border-border/50 space-y-1">
+											{dom.subdomains.map((sub) => (
+												<div
+													key={sub.name}
+													className="flex items-center justify-between text-[10px]"
+												>
+													<span className="text-muted-foreground truncate max-w-[140px]">
+														{sub.name}
+													</span>
+													<span
+														className={`font-mono font-medium ${
+															sub.sufficiencyPercent >= 95
+																? "text-emerald-500"
+																: "text-amber-500"
+														}`}
+													>
+														{sub.sufficiencyPercent}%
+													</span>
+												</div>
+											))}
+										</div>
+									)}
+								</div>
+							))}
+						</div>
+					</CardContent>
+				</Card>
+			)}
 
 			{/* Primary Metrics */}
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -719,7 +872,7 @@ export default function AdminDashboard() {
 								Stakeholder Overview
 							</CardTitle>
 							<CardDescription className="text-muted-foreground">
-								Partners, agents, and suppliers status
+								CA Partners, Channel Partners, and Suppliers network status
 							</CardDescription>
 						</div>
 						<Link href="/admin/stakeholders">
@@ -742,7 +895,12 @@ export default function AdminDashboard() {
 									<Building2 className="w-5 h-5 text-blue-400" />
 								</div>
 								<div>
-									<p className="text-muted-foreground text-sm">Partners</p>
+									<div className="flex items-center gap-2">
+										<p className="text-muted-foreground text-sm font-medium">CA Partners</p>
+										<Badge variant="outline" className="text-[10px] py-0 px-1 border-blue-500/30 text-blue-400">
+											Chartered Accountants
+										</Badge>
+									</div>
 									{stakeholderLoading ? (
 										<Skeleton className="h-6 w-16 bg-muted" />
 									) : (
@@ -769,7 +927,12 @@ export default function AdminDashboard() {
 									<Users className="w-5 h-5 text-green-400" />
 								</div>
 								<div>
-									<p className="text-muted-foreground text-sm">Agents</p>
+									<div className="flex items-center gap-2">
+										<p className="text-muted-foreground text-sm font-medium">Partners</p>
+										<Badge variant="outline" className="text-[10px] py-0 px-1 border-green-500/30 text-green-400">
+											Distributors / Channels
+										</Badge>
+									</div>
 									{stakeholderLoading ? (
 										<Skeleton className="h-6 w-16 bg-muted" />
 									) : (
@@ -796,7 +959,12 @@ export default function AdminDashboard() {
 									<Briefcase className="w-5 h-5 text-purple-400" />
 								</div>
 								<div>
-									<p className="text-muted-foreground text-sm">Suppliers</p>
+									<div className="flex items-center gap-2">
+										<p className="text-muted-foreground text-sm font-medium">Suppliers</p>
+										<Badge variant="outline" className="text-[10px] py-0 px-1 border-purple-500/30 text-purple-400">
+											Issuers / Providers
+										</Badge>
+									</div>
 									{stakeholderLoading ? (
 										<Skeleton className="h-6 w-16 bg-muted" />
 									) : (
@@ -820,61 +988,108 @@ export default function AdminDashboard() {
 				</CardContent>
 			</Card>
 
-			{/* System Status */}
+			{/* Live System & Infrastructure Telemetry */}
 			<Card className="bg-card border-border">
-				<CardHeader>
-					<CardTitle className="text-foreground flex items-center gap-2">
-						<ShieldCheck className="w-5 h-5 text-green-400" />
-						System Status
-					</CardTitle>
-					<CardDescription className="text-muted-foreground">
-						All systems operational
-					</CardDescription>
+				<CardHeader className="flex flex-row items-center justify-between pb-3">
+					<div>
+						<CardTitle className="text-foreground flex items-center gap-2">
+							<ShieldCheck
+								className={`w-5 h-5 ${
+									systemHealth?.overallStatus === "critical"
+										? "text-red-500"
+										: systemHealth?.overallStatus === "degraded"
+											? "text-amber-500"
+											: "text-green-500"
+								}`}
+							/>
+							Live Infrastructure Telemetry
+							<Badge
+								variant={
+									systemHealth?.overallStatus === "critical"
+										? "destructive"
+										: "outline"
+								}
+								className={`text-[10px] font-mono ml-2 ${
+									systemHealth?.overallStatus === "healthy"
+										? "text-green-500 border-green-500/30"
+										: systemHealth?.overallStatus === "degraded"
+											? "text-amber-500 border-amber-500/30"
+											: ""
+								}`}
+							>
+								{systemHealth?.overallStatus
+									? systemHealth.overallStatus.toUpperCase()
+									: "CHECKING"}
+							</Badge>
+						</CardTitle>
+						<CardDescription className="text-muted-foreground text-xs mt-1">
+							Live telemetry across database, payment rails, AI services, and background workers
+						</CardDescription>
+					</div>
+					<Link href="/admin/system-health">
+						<Button
+							variant="ghost"
+							size="sm"
+							className="text-xs text-muted-foreground hover:text-foreground"
+						>
+							Detailed Metrics <ArrowRight className="w-3.5 h-3.5 ml-1" />
+						</Button>
+					</Link>
 				</CardHeader>
 				<CardContent>
 					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-						{[
-							{
-								name: "API Server",
-								status: "operational",
-								uptime: "99.99%",
-								icon: Activity,
-							},
-							{
-								name: "Database",
-								status: "operational",
-								uptime: "100%",
-								icon: ShieldCheck,
-							},
-							{
-								name: "Payment Gateway",
-								status: "operational",
-								uptime: "99.95%",
-								icon: DollarSign,
-							},
-							{
-								name: "Email Service",
-								status: "operational",
-								uptime: "99.98%",
-								icon: TrendingUp,
-							},
-						].map((service) => (
-							<div key={service.name} className="bg-muted/50 rounded-lg p-4">
-								<div className="flex items-center justify-between mb-2">
-									<service.icon className="w-5 h-5 text-muted-foreground" />
-									<div className="flex items-center gap-2">
-										<div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-										<span className="text-xs text-green-400 capitalize">
-											{service.status}
-										</span>
-									</div>
+						{systemHealthLoading ? (
+							Array.from({ length: 4 }).map((_, i) => (
+								<div key={i} className="bg-muted/50 rounded-lg p-4 space-y-2">
+									<Skeleton className="h-4 w-24 bg-muted" />
+									<Skeleton className="h-6 w-32 bg-muted" />
 								</div>
-								<p className="font-medium text-foreground">{service.name}</p>
-								<p className="text-sm text-muted-foreground">
-									Uptime: {service.uptime}
-								</p>
+							))
+						) : systemHealth?.services && systemHealth.services.length > 0 ? (
+							systemHealth.services.slice(0, 4).map((service) => (
+								<div key={service.name} className="bg-muted/50 rounded-lg p-4">
+									<div className="flex items-center justify-between mb-2">
+										<span className="text-xs font-semibold text-foreground truncate max-w-[140px]">
+											{service.name}
+										</span>
+										<div className="flex items-center gap-1.5">
+											<div
+												className={`w-2 h-2 rounded-full ${
+													service.status === "healthy"
+														? "bg-green-500 animate-pulse"
+														: service.status === "degraded"
+															? "bg-amber-500"
+															: "bg-red-500"
+												}`}
+											/>
+											<span
+												className={`text-[10px] capitalize font-medium ${
+													service.status === "healthy"
+														? "text-green-500"
+														: service.status === "degraded"
+															? "text-amber-500"
+															: "text-red-500"
+												}`}
+											>
+												{service.status}
+											</span>
+										</div>
+									</div>
+									<p className="text-xs text-muted-foreground truncate">
+										{service.message || "Responding"}
+									</p>
+									{service.responseTime !== undefined && (
+										<p className="text-[10px] font-mono text-muted-foreground/80 mt-1">
+											Latency: {service.responseTime}ms
+										</p>
+									)}
+								</div>
+							))
+						) : (
+							<div className="col-span-4 text-center py-4 text-sm text-muted-foreground">
+								Infrastructure telemetry initializing...
 							</div>
-						))}
+						)}
 					</div>
 				</CardContent>
 			</Card>
