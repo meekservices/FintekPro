@@ -367,7 +367,7 @@ export function selectStrategy(
 ): DerivativeStrategyDef {
 	// Asset-class aware IV normalization (Index vs Single-Stock F&O)
 	const upperSym = (symbol || "").toUpperCase();
-	const isIndex = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"].includes(upperSym);
+	const isIndex = !symbol || ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"].includes(upperSym);
 	const highIvCutoff = isIndex ? 22 : 32;
 	const lowIvCutoff = isIndex ? 14 : 20;
 
@@ -896,16 +896,18 @@ export class DerivativeStrategy extends BaseStrategy {
 	public getUpcomingWeeklyExpiry(symbol = "NIFTY", now = new Date()): string {
 		const upper = symbol.toUpperCase();
 		const targetDay = upper === "BANKNIFTY" || upper === "BANKEX" || upper === "SENSEX" ? 3 : 4;
-		const d = new Date(now);
-		let daysToAdd = (targetDay - d.getDay() + 7) % 7;
+		const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+		const istDate = new Date(now.getTime() + IST_OFFSET_MS);
+		const currentDay = istDate.getUTCDay();
+		let daysToAdd = (targetDay - currentDay + 7) % 7;
 		if (daysToAdd === 0) {
-			const istHours = d.getUTCHours() + 5.5;
+			const istHours = istDate.getUTCHours() + istDate.getUTCMinutes() / 60;
 			if (istHours >= 15.5) {
 				daysToAdd = 7;
 			}
 		}
-		d.setDate(d.getDate() + daysToAdd);
-		return d.toISOString().split("T")[0];
+		istDate.setUTCDate(istDate.getUTCDate() + daysToAdd);
+		return istDate.toISOString().split("T")[0];
 	}
 
 	private async buildRecentCloses(chain: any, symbol: string, spotPrice: number): Promise<number[]> {

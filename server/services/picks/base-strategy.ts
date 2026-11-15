@@ -168,9 +168,10 @@ export abstract class BaseStrategy implements IPickStrategy {
 	}
 
 	protected getExpiryDate(days: number): string {
-		const date = new Date();
+		const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+		const date = new Date(Date.now() + IST_OFFSET_MS);
 		if (days > 0) {
-			date.setDate(date.getDate() + days);
+			date.setUTCDate(date.getUTCDate() + days);
 		}
 		return date.toISOString().split("T")[0];
 	}

@@ -62,12 +62,19 @@ describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 				"smart-order-routing",
 				"long-short-algo",
 				"fno-buildup-engine",
+				"portfolio-risk-guard",
+				"surveillance-incident-engine",
+				"trade-reconciliation-engine",
+				"knowledge-hub-auto-heal-sentinel",
+				"tax-law-engine",
+				"regulatory-ingestion-service",
+				"indian-tax-calculator",
 			];
 
 			for (const id of expectedEngines) {
 				expect(engineIds).toContain(id);
 			}
-			expect(statuses.length).toBeGreaterThanOrEqual(25);
+			expect(statuses.length).toBeGreaterThanOrEqual(30);
 		});
 
 		it("computes unified composite alpha quality across registered engines", () => {
@@ -511,6 +518,92 @@ describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 			const status = telemetryBus.getStatus("regulatory-ingestion-service");
 			expect(status.engineId).toBe("regulatory-ingestion-service");
 			expect(status.category).toBe("Data Quality");
+			expect(status.reportCount).toBeGreaterThan(0);
+		});
+	});
+
+	// ─── 13. Dynamic Indian Income Tax Calculator Synergy ─────────────────────
+	describe("13. Dynamic Indian Income Tax Calculator Synergy", () => {
+		it("calculates comprehensive tax and compares Old vs New regimes with portfolio telemetry", async () => {
+			const { indianTaxCalculator } = await import("../services/indian-tax-calculator");
+
+			// AY 2025-26 with Capital Gains & Salary
+			const result = await indianTaxCalculator.calculateComprehensive({
+				assessmentYear: "2025-26",
+				regime: "new",
+				entityType: "individual",
+				ageCategory: "below_60",
+				salary: {
+					basicSalary: 1_200_000,
+					dearnessAllowance: 0,
+					hraReceived: 0,
+					rentPaidPerYear: 0,
+					isMetroCity: true,
+					specialAllowance: 0,
+					ltaReceived: 0,
+					employerNps80CCD2: 0,
+					otherAllowances: 0,
+					perquisites: 0,
+					professionalTax: 0,
+				},
+				capitalGains: {
+					stcgEquity111A: 100_000,
+					ltcgEquity112A: 225_000, // 225k - 125k exempt = 100k taxable @ 12.5%
+					stcgSlabRate: 0,
+					ltcgNormal20: 0,
+					ltcgNormal12_5: 0,
+				},
+			});
+
+			expect(result.success).toBe(true);
+			expect(result.data.assessmentYear).toBe("2025-26");
+			expect(result.data.salaryStandardDeduction).toBe(75_000);
+			// STCG 111A = 20% on 100,000 = 20,000
+			// LTCG 112A = 12.5% on (225,000 - 125,000) = 12,500
+			// Total special rate tax = 32,500
+			expect(result.data.specialRateTax).toBe(32_500);
+			expect(result.data.totalTaxLiability).toBeGreaterThan(0);
+
+			// Comparison
+			const comparison = await indianTaxCalculator.compareRegimes({
+				assessmentYear: "2025-26",
+				entityType: "individual",
+				ageCategory: "below_60",
+				salary: {
+					basicSalary: 1_500_000,
+					dearnessAllowance: 0,
+					hraReceived: 0,
+					rentPaidPerYear: 0,
+					isMetroCity: true,
+					specialAllowance: 0,
+					ltaReceived: 0,
+					employerNps80CCD2: 0,
+					otherAllowances: 0,
+					perquisites: 0,
+					professionalTax: 0,
+				},
+				deductions: {
+					section80C: 150_000,
+					section80DSelf: 25_000,
+					section80DParents: 0,
+					isParentsSeniorCitizen: false,
+					section80CCD1B_NPS: 50_000,
+					section80E_EducationLoan: 0,
+					section80G_Donations: 0,
+					section80TTA_Savings: 0,
+					section80TTB_SeniorSavings: 0,
+					otherDeductions: 0,
+				},
+			});
+
+			expect(comparison.success).toBe(true);
+			expect(comparison.recommendation).toBeDefined();
+			expect(comparison.recommendation.optimalRegime).toBeDefined();
+			expect(comparison.recommendation.breakEvenDeductionRequired).toBeGreaterThan(0);
+
+			const status = telemetryBus.getStatus("indian-tax-calculator");
+			expect(status.engineId).toBe("indian-tax-calculator");
+			expect(status.category).toBe("Portfolio");
 			expect(status.reportCount).toBeGreaterThan(0);
 		});
 	});

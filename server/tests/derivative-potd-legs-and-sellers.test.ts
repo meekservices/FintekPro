@@ -325,14 +325,14 @@ describe("POTD Derivative Engine - Multi-Leg & Option Seller Strategies", () => 
 
 		it("dynamically resolves exchange expiry day by index convention", () => {
 			const niftyExpiry = strategyEngine.getUpcomingWeeklyExpiry("NIFTY");
-			const niftyDate = new Date(niftyExpiry);
+			const niftyDate = new Date(`${niftyExpiry}T12:00:00Z`);
 			// NIFTY weekly contracts expire on Thursday (day 4)
-			expect(niftyDate.getDay()).toBe(4);
+			expect(niftyDate.getUTCDay()).toBe(4);
 
 			const bankNiftyExpiry = strategyEngine.getUpcomingWeeklyExpiry("BANKNIFTY");
-			const bankNiftyDate = new Date(bankNiftyExpiry);
+			const bankNiftyDate = new Date(`${bankNiftyExpiry}T12:00:00Z`);
 			// BankNifty weekly contracts expire on Wednesday (day 3)
-			expect(bankNiftyDate.getDay()).toBe(3);
+			expect(bankNiftyDate.getUTCDay()).toBe(3);
 		});
 
 		it("normalizes IV bands between equity index and single stocks", () => {
