@@ -268,7 +268,8 @@ export default function AdminDashboard() {
 			{/* Data Insufficiency & Regulatory Warning Banner (FASP-AI v1.0 & SEBI IA) */}
 			{sufficiencyStats &&
 				(sufficiencyStats.criticalInsufficientCount > 0 ||
-					sufficiencyStats.staleWarningCount > 0) && (
+					(sufficiencyStats.staleWarningCount > 0 &&
+						sufficiencyStats.overallSufficiencyPercent < 95)) && (
 					<div
 						className={`p-4 rounded-xl border ${
 							sufficiencyStats.criticalInsufficientCount > 0

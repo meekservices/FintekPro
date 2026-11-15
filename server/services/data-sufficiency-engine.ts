@@ -137,8 +137,11 @@ export class DataSufficiencyEngine {
 			reasons.push("CRITICAL_MISSING_FINANCIALS: Audited balance sheet / P&L filing missing.");
 		}
 
-		// Ratios check
-		const hasRatios = Boolean(stock.peRatio && stock.roe && stock.roce);
+		// Ratios check: Accept P/E > 0 OR P/B > 0 OR RoE/RoCE for loss-making / asset-heavy firms
+		const hasRatios = Boolean(
+			(Number(stock.peRatio) > 0 || Number(stock.pbRatio) > 0) &&
+			(stock.roe || stock.roce || metrics?.revenue)
+		);
 		if (hasRatios) {
 			score += 20;
 		} else {
@@ -241,8 +244,14 @@ export class DataSufficiencyEngine {
 			const stockStatsRes = await db.execute(sql`
 				SELECT
 					COUNT(*)::int AS total_stocks,
-					COUNT(CASE WHEN ls.current_price IS NOT NULL AND ls.current_price > 0 THEN 1 END)::int AS with_price,
-					COUNT(CASE WHEN (ls.pe_ratio IS NOT NULL AND ls.pe_ratio > 0) OR (sms.pe_ratio IS NOT NULL AND sms.pe_ratio > 0) THEN 1 END)::int AS with_ratios,
+					COUNT(CASE WHEN (ls.current_price IS NOT NULL AND ls.current_price > 0) OR (sms.current_price IS NOT NULL AND sms.current_price > 0) THEN 1 END)::int AS with_price,
+					COUNT(CASE WHEN 
+						(ls.pe_ratio IS NOT NULL AND ls.pe_ratio > 0) OR 
+						(sms.pe_ratio IS NOT NULL AND sms.pe_ratio > 0) OR
+						(ls.pb_ratio IS NOT NULL AND ls.pb_ratio > 0) OR
+						(sms.pb_ratio IS NOT NULL AND sms.pb_ratio > 0) OR
+						(sms.ev_to_ebitda IS NOT NULL AND sms.ev_to_ebitda > 0)
+					THEN 1 END)::int AS with_ratios,
 					COUNT(CASE WHEN ls.piotroski_f_score IS NOT NULL OR sms.piotroski_score IS NOT NULL OR sms.piotroski_f_score IS NOT NULL OR sdm.piotroski_score IS NOT NULL THEN 1 END)::int AS with_fscore,
 					COUNT(CASE WHEN ls.last_daily_update IS NOT NULL OR sms.rsi_14 IS NOT NULL OR sti.symbol IS NOT NULL THEN 1 END)::int AS with_technicals,
 					COUNT(CASE WHEN ls.last_enriched_at IS NOT NULL OR sms.financials_fiscal_year IS NOT NULL THEN 1 END)::int AS with_financials
@@ -490,8 +499,29 @@ export class DataSufficiencyEngine {
 	async syncSufficiencyMetrics(): Promise<{
 		piotroskiSynced: number;
 		technicalsSynced: number;
+		inactiveDeactivated: number;
 	}> {
 		try {
+			// 1. Deactivate expired Rights Entitlements (-RE) and unlisted ghost symbols without trading history
+			const dRes = await db.execute(sql`
+				UPDATE listed_stocks
+				SET is_active = false
+				WHERE is_active = true
+				  AND (
+				    symbol LIKE '%-RE'
+				    OR (
+				      (current_price IS NULL OR current_price <= 0)
+				      AND last_enriched_at IS NULL
+				      AND NOT EXISTS (
+				        SELECT 1 FROM screener_master_snapshots sms 
+				        WHERE sms.symbol = listed_stocks.symbol 
+				          AND (sms.current_price > 0 OR sms.financials_fiscal_year IS NOT NULL)
+				      )
+				    )
+				  )
+			`);
+
+			// 2. Sync Piotroski scores from master snapshots
 			const pRes = await db.execute(sql`
 				UPDATE listed_stocks ls
 				SET piotroski_f_score = COALESCE(sms.piotroski_score, sms.piotroski_f_score)
@@ -501,6 +531,7 @@ export class DataSufficiencyEngine {
 				  AND COALESCE(sms.piotroski_score, sms.piotroski_f_score) IS NOT NULL
 			`);
 
+			// 3. Sync technical indicator dates
 			const tRes = await db.execute(sql`
 				UPDATE listed_stocks ls
 				SET last_daily_update = COALESCE(sti.last_updated::date, NULLIF(sti.date, '')::date, CURRENT_DATE)
@@ -509,20 +540,22 @@ export class DataSufficiencyEngine {
 				  AND ls.last_daily_update IS NULL
 			`);
 
+			const inactiveDeactivated = Number((dRes as any)?.rowCount ?? 0);
 			const piotroskiSynced = Number((pRes as any)?.rowCount ?? 0);
 			const technicalsSynced = Number((tRes as any)?.rowCount ?? 0);
 
-			logger.info("[DataSufficiency] Synced metrics to listed_stocks", {
+			logger.info("[DataSufficiency] Synced metrics and purged inactive symbols in listed_stocks", {
 				event: "DATA_SUFFICIENCY_METRICS_SYNCED",
+				inactiveDeactivated,
 				piotroskiSynced,
 				technicalsSynced,
 			});
 
 			this.cachedStats = null;
-			return { piotroskiSynced, technicalsSynced };
+			return { piotroskiSynced, technicalsSynced, inactiveDeactivated };
 		} catch (err: any) {
 			logger.warn("[DataSufficiency] Could not sync metrics to listed_stocks:", err.message);
-			return { piotroskiSynced: 0, technicalsSynced: 0 };
+			return { piotroskiSynced: 0, technicalsSynced: 0, inactiveDeactivated: 0 };
 		}
 	}
 

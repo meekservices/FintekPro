@@ -7185,6 +7185,23 @@ export async function ensureEngineGapFixTables(poolInstance?: any): Promise<void
       FROM screener_technical_indicators_latest sti
       WHERE ls.symbol = sti.symbol
         AND ls.last_daily_update IS NULL;
+
+      -- ── Deactivate expired Rights Entitlements (-RE) and unlisted/unpriced ghost symbols ──
+      UPDATE listed_stocks
+      SET is_active = false
+      WHERE is_active = true
+        AND (
+          symbol LIKE '%-RE'
+          OR (
+            (current_price IS NULL OR current_price <= 0)
+            AND last_enriched_at IS NULL
+            AND NOT EXISTS (
+              SELECT 1 FROM screener_master_snapshots sms 
+              WHERE sms.symbol = listed_stocks.symbol 
+                AND (sms.current_price > 0 OR sms.financials_fiscal_year IS NOT NULL)
+            )
+          )
+        );
     `);
 
     console.log("  ✅ [GapFix] Engine gap-fix tables, sufficiency sync, and columns ensured");
