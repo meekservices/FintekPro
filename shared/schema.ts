@@ -12306,3 +12306,5 @@ export * from "./schema/instruments";
 export * from "./schema/derivatives";
 
 export * from "./schema/macro-intelligence";
+
+export * from "./schema/tax-calculator";

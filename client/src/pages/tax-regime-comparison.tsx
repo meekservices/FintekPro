@@ -34,6 +34,7 @@ import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { DynamicTaxCalculator } from "@/components/tax/dynamic-tax-calculator";
 
 interface TaxCalculation {
 	grossIncome: number;
@@ -292,7 +293,18 @@ export default function TaxRegimeComparison() {
 				</div>
 			</div>
 
-			{hasServerData && (
+			<Tabs defaultValue="comprehensive" className="space-y-6">
+				<TabsList className="grid w-full max-w-md grid-cols-2">
+					<TabsTrigger value="comprehensive">Comprehensive Engine (AY 24-27)</TabsTrigger>
+					<TabsTrigger value="quick">Quick Comparison</TabsTrigger>
+				</TabsList>
+
+				<TabsContent value="comprehensive" className="space-y-6">
+					<DynamicTaxCalculator />
+				</TabsContent>
+
+				<TabsContent value="quick" className="space-y-6">
+					{hasServerData && (
 				<Alert className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20">
 					<CheckCircle2 className="h-4 w-4 text-blue-600" />
 					<AlertTitle>Portfolio-Inclusive Comparison</AlertTitle>
@@ -670,25 +682,27 @@ export default function TaxRegimeComparison() {
 				</CardContent>
 			</Card>
 
-			<Alert>
-				<Info className="h-4 w-4" />
-				<AlertTitle>Important Notes</AlertTitle>
-				<AlertDescription>
-					<ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-						<li>
-							This is a simplified calculator for illustrative purposes only
-						</li>
-						<li>
-							Actual tax liability may vary based on surcharge, specific
-							exemptions, and other factors
-						</li>
-						<li>Consult a tax professional before making any decisions</li>
-						<li>
-							The new regime is the default option from FY 2023-24 onwards
-						</li>
-					</ul>
-				</AlertDescription>
-			</Alert>
+					<Alert>
+						<Info className="h-4 w-4" />
+						<AlertTitle>Important Notes</AlertTitle>
+						<AlertDescription>
+							<ul className="list-disc list-inside mt-2 space-y-1 text-sm">
+								<li>
+									This is a simplified calculator for illustrative purposes only
+								</li>
+								<li>
+									Actual tax liability may vary based on surcharge, specific
+									exemptions, and other factors
+								</li>
+								<li>Consult a tax professional before making any decisions</li>
+								<li>
+									The new regime is the default option from FY 2023-24 onwards
+								</li>
+							</ul>
+						</AlertDescription>
+					</Alert>
+				</TabsContent>
+			</Tabs>
 		</div>
 	);
 }

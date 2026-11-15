@@ -52,55 +52,16 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import {
-	calculateIncomeTax,
 	calculateSipReturns,
 	calculateEmiSchedule,
-	type TaxCalculationResult,
 	type SipCalculationResult,
 	type EmiCalculationResult,
 } from "@shared/calculations";
+import { DynamicTaxCalculator } from "@/components/tax/dynamic-tax-calculator";
 
 // Type aliases for imported types
 type SipResult = SipCalculationResult;
 type EmiResult = EmiCalculationResult;
-
-// Zod schemas for form validation
-const taxCalculatorSchema = z.object({
-	annualIncome: z
-		.string()
-		.min(1, "Annual income is required")
-		.refine((val) => !Number.isNaN(Number(val)) && Number(val) > 0, {
-			message: "Annual income must be a positive number",
-		}),
-	regime: z.enum(["new", "old"], { error: "Please select a tax regime" }),
-	section80C: z
-		.string()
-		.optional()
-		.refine((val) => !val || (!Number.isNaN(Number(val)) && Number(val) >= 0), {
-			message: "Section 80C deduction must be a valid number",
-		}),
-	section80D: z
-		.string()
-		.optional()
-		.refine((val) => !val || (!Number.isNaN(Number(val)) && Number(val) >= 0), {
-			message: "Section 80D deduction must be a valid number",
-		}),
-	houseRent: z
-		.string()
-		.optional()
-		.refine((val) => !val || (!Number.isNaN(Number(val)) && Number(val) >= 0), {
-			message: "House rent allowance must be a valid number",
-		}),
-	homeLoanInterest: z
-		.string()
-		.optional()
-		.refine((val) => !val || (!Number.isNaN(Number(val)) && Number(val) >= 0), {
-			message: "Home loan interest must be a valid number",
-		}),
-	age: z.enum(["below60", "60to80", "above80"], {
-		error: "Please select your age group",
-	}),
-});
 
 const sipCalculatorSchema = z.object({
 	monthlyInvestment: z
@@ -160,7 +121,6 @@ const emiCalculatorSchema = z.object({
 		),
 });
 
-type TaxFormData = z.infer<typeof taxCalculatorSchema>;
 type SipFormData = z.infer<typeof sipCalculatorSchema>;
 type EmiFormData = z.infer<typeof emiCalculatorSchema>;
 
@@ -195,19 +155,6 @@ export default function FinancialCalculators() {
 	const { toast } = useToast();
 
 	// Form instances with validation
-	const taxForm = useForm<TaxFormData>({
-		resolver: zodResolver(taxCalculatorSchema),
-		defaultValues: {
-			annualIncome: "",
-			regime: "new",
-			section80C: "",
-			section80D: "",
-			houseRent: "",
-			homeLoanInterest: "",
-			age: "below60",
-		},
-	});
-
 	const sipForm = useForm<SipFormData>({
 		resolver: zodResolver(sipCalculatorSchema),
 		defaultValues: {
@@ -226,62 +173,10 @@ export default function FinancialCalculators() {
 		},
 	});
 
-	const [taxResult, setTaxResult] = useState<TaxCalculationResult | null>(null);
 	const [sipResult, setSipResult] = useState<SipResult | null>(null);
 	const [emiResult, setEmiResult] = useState<EmiResult | null>(null);
 	const [sipLoading, setSipLoading] = useState(false);
 	const [emiLoading, setEmiLoading] = useState(false);
-
-	// Tax Calculation using Income Tax API integration
-	const calculateTaxMutation = useMutation({
-		mutationFn: async (formData: TaxFormData) => {
-			// Integration with Quicko Sandbox API (mock implementation)
-			// In production, this would call the actual Quicko Sandbox API
-			const annualIncome = Number.parseFloat(formData.annualIncome);
-			const section80C = Number.parseFloat(formData.section80C || "0");
-			const section80D = Number.parseFloat(formData.section80D || "0");
-			const standardDeduction = formData.regime === "new" ? 50000 : 50000;
-
-			// Mock API response structure
-			const mockApiResponse = await new Promise<TaxCalculationResult>(
-				(resolve) => {
-					setTimeout(() => {
-						const input = {
-							annualIncome,
-							regime: formData.regime as "new" | "old",
-							section80C,
-							section80D,
-							age: formData.age as "below60" | "60to80" | "above80",
-						};
-
-						const result = calculateIncomeTax(input);
-						resolve(result);
-					}, 1000);
-				},
-			);
-
-			return mockApiResponse;
-		},
-		onSuccess: (result) => {
-			setTaxResult(result);
-			toast({
-				title: "Tax Calculated Successfully",
-				description: `Your estimated annual tax is ₹${result.totalTax.toLocaleString("en-IN")}`,
-			});
-		},
-		onError: (error) => {
-			toast({
-				title: "Calculation Failed",
-				description: "Unable to calculate tax. Please check your inputs.",
-				variant: "destructive",
-			});
-		},
-	});
-
-	// Form submission handlers
-	const onTaxSubmit = (data: TaxFormData) => {
-		calculateTaxMutation.mutate(data);
-	};
 
 	const onSipSubmit = async (data: SipFormData) => {
 		setSipLoading(true);
@@ -386,304 +281,7 @@ export default function FinancialCalculators() {
 
 				{/* Tax Calculator Tab */}
 				<TabsContent value="tax" className="space-y-6">
-					<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-						{/* Tax Calculator Form */}
-						<Card>
-							<CardHeader>
-								<CardTitle className="flex items-center gap-2">
-									<Receipt className="h-5 w-5" />
-									Income Tax Calculator 2024-25
-								</CardTitle>
-								<CardDescription>
-									Calculate your income tax using official Income Tax Department
-									rates
-								</CardDescription>
-							</CardHeader>
-							<CardContent>
-								<Form {...taxForm}>
-									<form
-										onSubmit={taxForm.handleSubmit(onTaxSubmit)}
-										className="space-y-4"
-									>
-										<FormField
-											control={taxForm.control}
-											name="annualIncome"
-											render={({ field }) => (
-												<FormItem>
-													<FormLabel>Annual Income</FormLabel>
-													<FormControl>
-														<Input
-															type="number"
-															placeholder="Enter your annual income"
-															data-testid="input-annual-income"
-															{...field}
-														/>
-													</FormControl>
-													<FormMessage />
-												</FormItem>
-											)}
-										/>
-
-										<FormField
-											control={taxForm.control}
-											name="regime"
-											render={({ field }) => (
-												<FormItem>
-													<FormLabel>Tax Regime</FormLabel>
-													<Select
-														onValueChange={field.onChange}
-														defaultValue={field.value}
-													>
-														<FormControl>
-															<SelectTrigger data-testid="select-tax-regime">
-																<SelectValue />
-															</SelectTrigger>
-														</FormControl>
-														<SelectContent>
-															<SelectItem value="new">
-																New Tax Regime (2024-25)
-															</SelectItem>
-															<SelectItem value="old">
-																Old Tax Regime
-															</SelectItem>
-														</SelectContent>
-													</Select>
-													<FormMessage />
-												</FormItem>
-											)}
-										/>
-
-										{taxForm.watch("regime") === "old" && (
-											<>
-												<FormField
-													control={taxForm.control}
-													name="section80C"
-													render={({ field }) => (
-														<FormItem>
-															<FormLabel>Section 80C Deductions</FormLabel>
-															<FormControl>
-																<Input
-																	type="number"
-																	placeholder="EPF, PPF, ELSS, etc. (Max ₹1,50,000)"
-																	data-testid="input-section80c"
-																	{...field}
-																/>
-															</FormControl>
-															<FormMessage />
-														</FormItem>
-													)}
-												/>
-
-												<FormField
-													control={taxForm.control}
-													name="section80D"
-													render={({ field }) => (
-														<FormItem>
-															<FormLabel>Section 80D Deductions</FormLabel>
-															<FormControl>
-																<Input
-																	type="number"
-																	placeholder="Health Insurance Premium"
-																	data-testid="input-section80d"
-																	{...field}
-																/>
-															</FormControl>
-															<FormMessage />
-														</FormItem>
-													)}
-												/>
-											</>
-										)}
-
-										<FormField
-											control={taxForm.control}
-											name="age"
-											render={({ field }) => (
-												<FormItem>
-													<FormLabel>Age Group</FormLabel>
-													<Select
-														onValueChange={field.onChange}
-														defaultValue={field.value}
-													>
-														<FormControl>
-															<SelectTrigger data-testid="select-age-group">
-																<SelectValue />
-															</SelectTrigger>
-														</FormControl>
-														<SelectContent>
-															<SelectItem value="below60">
-																Below 60 years
-															</SelectItem>
-															<SelectItem value="60to80">
-																60-80 years
-															</SelectItem>
-															<SelectItem value="above80">
-																Above 80 years
-															</SelectItem>
-														</SelectContent>
-													</Select>
-													<FormMessage />
-												</FormItem>
-											)}
-										/>
-
-										<Button
-											type="submit"
-											className="w-full"
-											disabled={calculateTaxMutation.isPending}
-											data-testid="button-calculate-tax"
-										>
-											{calculateTaxMutation.isPending
-												? "Calculating..."
-												: "Calculate Tax"}
-										</Button>
-									</form>
-								</Form>
-							</CardContent>
-						</Card>
-
-						{/* Tax Results */}
-						{taxResult && (
-							<Card>
-								<CardHeader>
-									<CardTitle>Tax Calculation Results</CardTitle>
-									<Badge variant="outline">
-										{(taxResult.regime || "new").toUpperCase()} Tax Regime
-									</Badge>
-								</CardHeader>
-								<CardContent>
-									<div className="space-y-3">
-										<div className="flex justify-between">
-											<span className="text-sm">Gross Income:</span>
-											<span className="font-semibold">
-												{formatCurrency(taxResult.grossIncome)}
-											</span>
-										</div>
-										<div className="flex justify-between">
-											<span className="text-sm">Taxable Income:</span>
-											<span className="font-semibold">
-												{formatCurrency(taxResult.taxableIncome)}
-											</span>
-										</div>
-										<div className="flex justify-between">
-											<span className="text-sm">Income Tax:</span>
-											<span className="font-semibold text-red-600">
-												{formatCurrency(taxResult.incomeTax)}
-											</span>
-										</div>
-										<div className="flex justify-between">
-											<span className="text-sm">
-												Health & Education Cess (4%):
-											</span>
-											<span className="font-semibold text-red-600">
-												{formatCurrency(taxResult.cess)}
-											</span>
-										</div>
-										<hr />
-										<div className="flex justify-between">
-											<span className="font-medium">Total Tax:</span>
-											<span className="font-bold text-red-600">
-												{formatCurrency(taxResult.totalTax)}
-											</span>
-										</div>
-										<div className="flex justify-between">
-											<span className="font-medium">Net Income:</span>
-											<span className="font-bold text-green-600">
-												{formatCurrency(taxResult.netIncome)}
-											</span>
-										</div>
-										<div className="flex justify-between">
-											<span className="text-sm">Effective Tax Rate:</span>
-											<span className="font-semibold">
-												{taxResult.effectiveRate.toFixed(2)}%
-											</span>
-										</div>
-									</div>
-
-									{taxResult.slabBreakdown.length > 0 && (
-										<div className="mt-6">
-											<h4 className="font-semibold mb-3">Tax Slab Breakdown</h4>
-											<Table>
-												<TableHeader>
-													<TableRow>
-														<TableHead>Income Slab</TableHead>
-														<TableHead>Rate</TableHead>
-														<TableHead>Tax</TableHead>
-													</TableRow>
-												</TableHeader>
-												<TableBody>
-													{taxResult.slabBreakdown.map((slab, index) => (
-														<TableRow key={index}>
-															<TableCell className="text-sm">
-																{slab.slab}
-															</TableCell>
-															<TableCell>{slab.rate}</TableCell>
-															<TableCell>{formatCurrency(slab.tax)}</TableCell>
-														</TableRow>
-													))}
-												</TableBody>
-											</Table>
-										</div>
-									)}
-
-									{/* Tax Optimization Suggestions */}
-									<div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border">
-										<h4 className="font-semibold mb-3 text-blue-800 dark:text-blue-200">
-											💡 Tax Optimization Tips
-										</h4>
-										<div className="space-y-3 text-sm">
-											{taxResult.effectiveRate > 20 && (
-												<div className="flex items-start gap-2">
-													<span className="text-blue-600">•</span>
-													<span>
-														Your effective tax rate is{" "}
-														{taxResult.effectiveRate.toFixed(1)}%. Consider
-														maximizing Section 80C investments (ELSS, PPF, EPF)
-														to reduce taxable income.
-													</span>
-												</div>
-											)}
-
-											{taxResult.regime === "new" &&
-												taxResult.totalTax > 50000 && (
-													<div className="flex items-start gap-2">
-														<span className="text-blue-600">•</span>
-														<span>
-															You might benefit from the old tax regime with
-															deductions. Consider recalculating with the old
-															regime option.
-														</span>
-													</div>
-												)}
-
-											{taxResult.regime === "old" &&
-												taxResult.deductions.section80C < 150000 && (
-													<div className="flex items-start gap-2">
-														<span className="text-blue-600">•</span>
-														<span>
-															You can save up to ₹
-															{formatCurrency(
-																150000 - taxResult.deductions.section80C,
-															)}{" "}
-															more under Section 80C to reduce your tax
-															liability.
-														</span>
-													</div>
-												)}
-
-											<div className="flex items-start gap-2">
-												<span className="text-blue-600">•</span>
-												<span>
-													Consider SIP investments in ELSS mutual funds for tax
-													savings with growth potential.
-												</span>
-											</div>
-										</div>
-									</div>
-								</CardContent>
-							</Card>
-						)}
-					</div>
+					<DynamicTaxCalculator />
 				</TabsContent>
 
 				{/* SIP Calculator Tab */}

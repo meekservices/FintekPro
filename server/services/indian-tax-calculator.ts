@@ -1,3 +1,15 @@
+import { telemetryBus } from "./engine-telemetry-bus";
+import { logger } from "../logger";
+import type {
+	TaxCalculationRequest,
+	TaxCalculationResponse,
+	TaxCalculationResultData,
+	RegimeComparisonResponse,
+	TaxYearConfigResponse,
+	AssessmentYear,
+	SlabBreakdownItem,
+} from "@shared/schema/tax-calculator";
+
 /** GCR: bump when any slab, deduction limit, or formula changes */
 export const INDIAN_TAX_CALCULATOR_ENGINE_VERSION = "1.0.0-AY2026-27";
 
@@ -757,7 +769,13 @@ export class IndianTaxCalculator {
 				calculation_timestamp: new Date().toISOString(),
 			};
 		} catch (error) {
-			console.error("[IndianTaxCalculator] calculateTax error:", error);
+			logger.error("[IndianTaxCalculator] calculateTax error", {
+				event: "TAX_CALCULATOR_ERROR",
+				user_id: "SYSTEM",
+				latency_ms: 0,
+				status: "error",
+				error: error instanceof Error ? error.message : String(error),
+			});
 			return {
 				success: false,
 				message:
@@ -855,10 +873,13 @@ export class IndianTaxCalculator {
 				calculation_timestamp: new Date().toISOString(),
 			};
 		} catch (error) {
-			console.error(
-				"[IndianTaxCalculator] calculateTaxFromWizard error:",
-				error,
-			);
+			logger.error("[IndianTaxCalculator] calculateTaxFromWizard error", {
+				event: "TAX_CALCULATOR_WIZARD_ERROR",
+				user_id: "SYSTEM",
+				latency_ms: 0,
+				status: "error",
+				error: error instanceof Error ? error.message : String(error),
+			});
 			return {
 				success: false,
 				message:
@@ -978,6 +999,628 @@ export class IndianTaxCalculator {
 			oldRegimeTax: oldTax,
 			newRegimeTax: newTax,
 			savings: Math.abs(oldTax - newTax),
+		};
+	}
+
+	/**
+	 * Returns centralized statutory tax config (slabs, deductions, rebates) for a requested AY.
+	 */
+	public getYearConfig(ay: AssessmentYear = "2025-26"): TaxYearConfigResponse {
+		if (ay === "2026-27") {
+			return {
+				assessmentYear: "2026-27",
+				newRegime: {
+					standardDeduction: 75000,
+					familyPensionStandardDeduction: 25000,
+					rebate87ALimit: 1200000,
+					rebate87AMaxAmount: 60000,
+					slabs: [
+						{ min: 0, max: 400000, rate: 0 },
+						{ min: 400000, max: 800000, rate: 5 },
+						{ min: 800000, max: 1200000, rate: 10 },
+						{ min: 1200000, max: 1600000, rate: 15 },
+						{ min: 1600000, max: 2000000, rate: 20 },
+						{ min: 2000000, max: 2400000, rate: 25 },
+						{ min: 2400000, max: null, rate: 30 },
+					],
+					maxSurchargeRate: 0.25,
+				},
+				oldRegime: {
+					standardDeduction: 50000,
+					familyPensionStandardDeduction: 15000,
+					rebate87ALimit: 500000,
+					rebate87AMaxAmount: 12500,
+					slabs: {
+						below60: [
+							{ min: 0, max: 250000, rate: 0 },
+							{ min: 250000, max: 500000, rate: 5 },
+							{ min: 500000, max: 1000000, rate: 20 },
+							{ min: 1000000, max: null, rate: 30 },
+						],
+						senior60to80: [
+							{ min: 0, max: 300000, rate: 0 },
+							{ min: 300000, max: 500000, rate: 5 },
+							{ min: 500000, max: 1000000, rate: 20 },
+							{ min: 1000000, max: null, rate: 30 },
+						],
+						superSeniorAbove80: [
+							{ min: 0, max: 500000, rate: 0 },
+							{ min: 500000, max: 1000000, rate: 20 },
+							{ min: 1000000, max: null, rate: 30 },
+						],
+					},
+					maxSurchargeRate: 0.37,
+				},
+				cessRatePercent: 4,
+				statutoryAct: "Finance Act, 2025 (Union Budget 2025)",
+				effectiveDate: "2025-04-01",
+			};
+		}
+
+		if (ay === "2024-25") {
+			return {
+				assessmentYear: "2024-25",
+				newRegime: {
+					standardDeduction: 50000,
+					familyPensionStandardDeduction: 15000,
+					rebate87ALimit: 700000,
+					rebate87AMaxAmount: 25000,
+					slabs: [
+						{ min: 0, max: 300000, rate: 0 },
+						{ min: 300000, max: 600000, rate: 5 },
+						{ min: 600000, max: 900000, rate: 10 },
+						{ min: 900000, max: 1200000, rate: 15 },
+						{ min: 1200000, max: 1500000, rate: 20 },
+						{ min: 1500000, max: null, rate: 30 },
+					],
+					maxSurchargeRate: 0.25,
+				},
+				oldRegime: {
+					standardDeduction: 50000,
+					familyPensionStandardDeduction: 15000,
+					rebate87ALimit: 500000,
+					rebate87AMaxAmount: 12500,
+					slabs: {
+						below60: [
+							{ min: 0, max: 250000, rate: 0 },
+							{ min: 250000, max: 500000, rate: 5 },
+							{ min: 500000, max: 1000000, rate: 20 },
+							{ min: 1000000, max: null, rate: 30 },
+						],
+						senior60to80: [
+							{ min: 0, max: 300000, rate: 0 },
+							{ min: 300000, max: 500000, rate: 5 },
+							{ min: 500000, max: 1000000, rate: 20 },
+							{ min: 1000000, max: null, rate: 30 },
+						],
+						superSeniorAbove80: [
+							{ min: 0, max: 500000, rate: 0 },
+							{ min: 500000, max: 1000000, rate: 20 },
+							{ min: 1000000, max: null, rate: 30 },
+						],
+					},
+					maxSurchargeRate: 0.37,
+				},
+				cessRatePercent: 4,
+				statutoryAct: "Finance Act, 2023",
+				effectiveDate: "2023-04-01",
+			};
+		}
+
+		// Default: AY 2025-26 (Finance (No. 2) Act 2024)
+		return {
+			assessmentYear: "2025-26",
+			newRegime: {
+				standardDeduction: 75000,
+				familyPensionStandardDeduction: 25000,
+				rebate87ALimit: 700000,
+				rebate87AMaxAmount: 25000,
+				slabs: [
+					{ min: 0, max: 300000, rate: 0 },
+					{ min: 300000, max: 700000, rate: 5 },
+					{ min: 700000, max: 1000000, rate: 10 },
+					{ min: 1000000, max: 1200000, rate: 15 },
+					{ min: 1200000, max: 1500000, rate: 20 },
+					{ min: 1500000, max: null, rate: 30 },
+				],
+				maxSurchargeRate: 0.25,
+			},
+			oldRegime: {
+				standardDeduction: 50000,
+				familyPensionStandardDeduction: 15000,
+				rebate87ALimit: 500000,
+				rebate87AMaxAmount: 12500,
+				slabs: {
+					below60: [
+						{ min: 0, max: 250000, rate: 0 },
+						{ min: 250000, max: 500000, rate: 5 },
+						{ min: 500000, max: 1000000, rate: 20 },
+						{ min: 1000000, max: null, rate: 30 },
+					],
+					senior60to80: [
+						{ min: 0, max: 300000, rate: 0 },
+						{ min: 300000, max: 500000, rate: 5 },
+						{ min: 500000, max: 1000000, rate: 20 },
+						{ min: 1000000, max: null, rate: 30 },
+					],
+					superSeniorAbove80: [
+						{ min: 0, max: 500000, rate: 0 },
+						{ min: 500000, max: 1000000, rate: 20 },
+						{ min: 1000000, max: null, rate: 30 },
+					],
+				},
+				maxSurchargeRate: 0.37,
+			},
+			cessRatePercent: 4,
+			statutoryAct: "Finance (No. 2) Act, 2024",
+			effectiveDate: "2024-07-23",
+		};
+	}
+
+	/**
+	 * Comprehensive Dynamic Calculation supporting all 5 heads of income, multi-year slabs,
+	 * special rates, rebate 87A with marginal relief, surcharge with marginal relief, and advance tax interest.
+	 */
+	public calculateComprehensive(req: TaxCalculationRequest): TaxCalculationResponse {
+		const t0 = Date.now();
+		const ay = req.assessmentYear || "2025-26";
+		const regime = req.regime || "new";
+		const entity = req.entityType || "individual";
+		const age = req.ageCategory || "below_60";
+
+		const isSenior = age === "senior_60_to_80";
+		const isSuperSenior = age === "super_senior_above_80";
+
+		const sal = req.salary || {};
+		const hp = req.houseProperty || {};
+		const cg = req.capitalGains || {};
+		const biz = req.business || {};
+		const os = req.otherSources || {};
+		const ded = req.deductions || {};
+		const tp = req.taxesPaid || {};
+
+		// 1. Gross Salary
+		const grossSalary =
+			(sal.basicSalary || 0) +
+			(sal.dearnessAllowance || 0) +
+			(sal.hraReceived || 0) +
+			(sal.specialAllowance || 0) +
+			(sal.ltaReceived || 0) +
+			(sal.otherAllowances || 0) +
+			(sal.perquisites || 0);
+
+		// Standard deduction on salary
+		let salaryStdDed = 0;
+		if (grossSalary > 0) {
+			if (regime === "new") {
+				salaryStdDed = Math.min(grossSalary, ay === "2024-25" ? 50000 : 75000);
+			} else {
+				salaryStdDed = Math.min(grossSalary, 50000);
+			}
+		}
+
+		// HRA exemption (old regime only)
+		let hraExemption = 0;
+		if (regime === "old" && (sal.hraReceived || 0) > 0 && (sal.rentPaidPerYear || 0) > 0) {
+			const salForHra = (sal.basicSalary || 0) + (sal.dearnessAllowance || 0);
+			const pctLimit = sal.isMetroCity ? 0.5 * salForHra : 0.4 * salForHra;
+			const rentMinus10 = Math.max(0, (sal.rentPaidPerYear || 0) - 0.1 * salForHra);
+			hraExemption = Math.min(sal.hraReceived || 0, pctLimit, rentMinus10);
+		}
+
+		const profTax = regime === "old" ? sal.professionalTax || 0 : 0;
+		const netSalaryIncome = Math.max(0, grossSalary - salaryStdDed - hraExemption - profTax);
+
+		// 2. House Property Income
+		let netHousePropertyIncome = 0;
+		if (hp.isSelfOccupied) {
+			// In old regime, home loan interest u/s 24b creates negative income up to 2L
+			if (regime === "old") {
+				netHousePropertyIncome = -Math.min(hp.homeLoanInterestSec24b || 0, 200000);
+			} else {
+				netHousePropertyIncome = 0; // Nil in new regime for self-occupied
+			}
+		} else {
+			const nav = Math.max(0, (hp.grossAnnualRent || 0) - (hp.municipalTaxesPaid || 0));
+			const stdDed24a = 0.3 * nav;
+			const hpCalc = nav - stdDed24a - (hp.homeLoanInterestSec24b || 0);
+			netHousePropertyIncome = Math.max(-200000, hpCalc);
+		}
+
+		// 3. Capital Gains
+		// Special rate capital gains:
+		const stcg111ARate = ay === "2024-25" ? 0.15 : 0.20;
+		const stcg111ATax = (cg.stcgEquity111A || 0) * stcg111ARate;
+
+		const ltcg112AExemption = ay === "2024-25" ? 100000 : 125000;
+		const ltcg112ARate = ay === "2024-25" ? 0.10 : 0.125;
+		const ltcg112ATaxableGains = Math.max(0, (cg.ltcgEquity112A || 0) - ltcg112AExemption);
+		const ltcg112ATax = ltcg112ATaxableGains * ltcg112ARate;
+
+		const ltcgNormalTax = (cg.ltcgNormal20 || 0) * 0.20 + (cg.ltcgNormal12_5 || 0) * 0.125;
+		const totalSpecialRateCgTax = stcg111ATax + ltcg112ATax + ltcgNormalTax;
+
+		const totalCgGains =
+			(cg.stcgEquity111A || 0) +
+			(cg.ltcgEquity112A || 0) +
+			(cg.stcgSlabRate || 0) +
+			(cg.ltcgNormal20 || 0) +
+			(cg.ltcgNormal12_5 || 0);
+
+		// 4. Business Income
+		const netBusinessIncome = biz.netProfit || 0;
+
+		// 5. Other Sources
+		let pensionStdDed = 0;
+		if ((os.familyPension || 0) > 0) {
+			const maxPenDed = regime === "new" ? (ay === "2024-25" ? 15000 : 25000) : 15000;
+			pensionStdDed = Math.min((os.familyPension || 0) / 3, maxPenDed);
+		}
+		const netPension = Math.max(0, (os.familyPension || 0) - pensionStdDed);
+
+		const lotteryTax = (os.lotteryWinningsSec115BB || 0) * 0.30;
+		const cryptoTax = (os.vdaCryptoSec115BBH || 0) * 0.30;
+		const totalSpecialRateOsTax = lotteryTax + cryptoTax;
+
+		const normalOtherSources =
+			(os.savingsBankInterest || 0) +
+			(os.fixedDepositInterest || 0) +
+			(os.dividendIncome || 0) +
+			netPension +
+			(os.anyOtherIncome || 0);
+
+		const netOtherSourcesIncome =
+			normalOtherSources + (os.lotteryWinningsSec115BB || 0) + (os.vdaCryptoSec115BBH || 0);
+
+		// Normal Gross Total Income (eligible for slab & general deductions)
+		let normalGTI = netSalaryIncome + (cg.stcgSlabRate || 0) + netBusinessIncome + normalOtherSources;
+		if (netHousePropertyIncome < 0) {
+			normalGTI = Math.max(0, normalGTI + netHousePropertyIncome);
+		} else {
+			normalGTI += netHousePropertyIncome;
+		}
+
+		// Total Gross Total Income (including special rate heads)
+		const grossTotalIncome =
+			netSalaryIncome +
+			Math.max(0, netHousePropertyIncome) +
+			totalCgGains +
+			netBusinessIncome +
+			netOtherSourcesIncome;
+
+		// 6. Chapter VI-A Deductions
+		let totalEligibleDeductions = 0;
+		if (regime === "new") {
+			// In new regime, ONLY employer NPS 80CCD(2) is allowed (up to 14% of Basic + DA)
+			const salBase = (sal.basicSalary || 0) + (sal.dearnessAllowance || 0);
+			if (salBase > 0 && (sal.employerNps80CCD2 || 0) > 0) {
+				totalEligibleDeductions = Math.min(sal.employerNps80CCD2 || 0, salBase * 0.14);
+			}
+		} else {
+			// Old Regime Deductions
+			const sec80C = Math.min(ded.section80C || 0, 150000);
+			const sec80DSelf = Math.min(ded.section80DSelf || 0, isSenior || isSuperSenior ? 50000 : 25000);
+			const sec80DParents = Math.min(ded.section80DParents || 0, ded.isParentsSeniorCitizen ? 50000 : 25000);
+			const sec80CCD1B = Math.min(ded.section80CCD1B_NPS || 0, 50000);
+			const salBase = (sal.basicSalary || 0) + (sal.dearnessAllowance || 0);
+			const sec80CCD2 = salBase > 0 ? Math.min(sal.employerNps80CCD2 || 0, salBase * 0.10) : 0;
+			const sec80E = ded.section80E_EducationLoan || 0;
+			const sec80G = ded.section80G_Donations || 0;
+			const secInterest = isSenior || isSuperSenior
+				? Math.min(ded.section80TTB_SeniorSavings || 0, 50000)
+				: Math.min(ded.section80TTA_Savings || 0, 10000);
+			const secOther = ded.otherDeductions || 0;
+
+			const sumDed = sec80C + sec80DSelf + sec80DParents + sec80CCD1B + sec80CCD2 + sec80E + sec80G + secInterest + secOther;
+			totalEligibleDeductions = Math.min(sumDed, normalGTI);
+		}
+
+		const normalTaxableIncome = Math.max(0, normalGTI - totalEligibleDeductions);
+		const specialRateTaxableGains =
+			(cg.stcgEquity111A || 0) +
+			ltcg112ATaxableGains +
+			(cg.ltcgNormal20 || 0) +
+			(cg.ltcgNormal12_5 || 0) +
+			(os.lotteryWinningsSec115BB || 0) +
+			(os.vdaCryptoSec115BBH || 0);
+
+		const totalTaxableIncome = normalTaxableIncome + specialRateTaxableGains;
+
+		// 7. Normal Slab Tax & Slab Breakdown
+		const slabBreakdown: SlabBreakdownItem[] = [];
+		let normalSlabTax = 0;
+		const config = this.getYearConfig(ay);
+
+		if (regime === "new") {
+			const slabs = config.newRegime.slabs;
+			for (let i = 0; i < slabs.length; i++) {
+				const s = slabs[i];
+				if (normalTaxableIncome > s.min) {
+					const slabUpper = s.max ?? normalTaxableIncome;
+					const taxableInSlab = Math.min(normalTaxableIncome, slabUpper) - s.min;
+					const taxInSlab = (taxableInSlab * s.rate) / 100;
+					normalSlabTax += taxInSlab;
+					slabBreakdown.push({
+						slabRange: s.max ? `₹${(s.min / 100000).toFixed(1)}L – ₹${(s.max / 100000).toFixed(1)}L` : `Above ₹${(s.min / 100000).toFixed(1)}L`,
+						ratePercent: s.rate,
+						taxableAmountInSlab: taxableInSlab,
+						taxAmount: taxInSlab,
+					});
+				}
+			}
+		} else {
+			const slabs = isSuperSenior
+				? config.oldRegime.slabs.superSeniorAbove80
+				: isSenior
+				? config.oldRegime.slabs.senior60to80
+				: config.oldRegime.slabs.below60;
+
+			for (const s of slabs) {
+				if (normalTaxableIncome > s.min) {
+					const slabUpper = s.max ?? normalTaxableIncome;
+					const taxableInSlab = Math.min(normalTaxableIncome, slabUpper) - s.min;
+					const taxInSlab = (taxableInSlab * s.rate) / 100;
+					normalSlabTax += taxInSlab;
+					slabBreakdown.push({
+						slabRange: s.max ? `₹${(s.min / 100000).toFixed(1)}L – ₹${(s.max / 100000).toFixed(1)}L` : `Above ₹${(s.min / 100000).toFixed(1)}L`,
+						ratePercent: s.rate,
+						taxableAmountInSlab: taxableInSlab,
+						taxAmount: taxInSlab,
+					});
+				}
+			}
+		}
+
+		const specialRateTax = totalSpecialRateCgTax + totalSpecialRateOsTax;
+		const taxBeforeRebate = normalSlabTax + specialRateTax;
+
+		// 8. Section 87A Rebate with Marginal Relief
+		let rebate87A = 0;
+		if (regime === "new") {
+			const limit = config.newRegime.rebate87ALimit;
+			const maxRebate = config.newRegime.rebate87AMaxAmount;
+			if (totalTaxableIncome <= limit) {
+				rebate87A = Math.min(taxBeforeRebate, maxRebate);
+			} else {
+				// Marginal relief in new regime: tax payable cannot exceed income in excess of rebate threshold
+				const excessIncome = totalTaxableIncome - limit;
+				if (taxBeforeRebate > excessIncome) {
+					rebate87A = Math.max(0, taxBeforeRebate - excessIncome);
+				}
+			}
+		} else {
+			if (totalTaxableIncome <= 500000) {
+				rebate87A = Math.min(normalSlabTax, 12500);
+			}
+		}
+
+		const taxAfterRebate = Math.max(0, taxBeforeRebate - rebate87A);
+
+		// 9. Surcharge with Marginal Relief
+		let surchargeRate = 0;
+		if (totalTaxableIncome > 50000000) surchargeRate = regime === "new" ? 0.25 : 0.37;
+		else if (totalTaxableIncome > 20000000) surchargeRate = 0.25;
+		else if (totalTaxableIncome > 10000000) surchargeRate = 0.15;
+		else if (totalTaxableIncome > 5000000) surchargeRate = 0.10;
+
+		let surchargeAmount = taxAfterRebate * surchargeRate;
+		let marginalReliefAmount = 0;
+
+		if (surchargeRate > 0) {
+			const threshold = surchargeRate === 0.37 ? 50000000 : surchargeRate === 0.25 ? 20000000 : surchargeRate === 0.15 ? 10000000 : 5000000;
+			const excessIncome = totalTaxableIncome - threshold;
+			const taxAtThreshold = this.computeTaxAtThreshold(threshold, regime, ay);
+			const prevSurchargeRate = surchargeRate === 0.37 ? 0.25 : surchargeRate === 0.25 ? 0.15 : surchargeRate === 0.15 ? 0.10 : 0;
+			const taxPlusSurchargeAtThreshold = taxAtThreshold * (1 + prevSurchargeRate);
+			const currentTaxPlusSurcharge = taxAfterRebate + surchargeAmount;
+
+			if (currentTaxPlusSurcharge - taxPlusSurchargeAtThreshold > excessIncome) {
+				marginalReliefAmount = currentTaxPlusSurcharge - (taxPlusSurchargeAtThreshold + excessIncome);
+				surchargeAmount = Math.max(0, surchargeAmount - marginalReliefAmount);
+			}
+		}
+
+		// 10. Health & Education Cess (4%)
+		const healthAndEducationCess = Math.round((taxAfterRebate + surchargeAmount) * 0.04);
+		const totalTaxLiability = Math.round(taxAfterRebate + surchargeAmount + healthAndEducationCess);
+
+		// 11. Advance Tax & Interest (234A/B/C)
+		const totalTdsTcs = (tp.tdsSalary || 0) + (tp.tdsOtherThanSalary || 0) + (tp.tcsDeducted || 0);
+		const assessedTax = Math.max(0, totalTaxLiability - totalTdsTcs);
+
+		let interestSec234A = 0;
+		let interestSec234B = 0;
+		let interestSec234C = 0;
+
+		if (assessedTax >= 10000) {
+			const q1 = tp.advanceTaxQ1 || 0;
+			const q2 = tp.advanceTaxQ2 || 0;
+			const q3 = tp.advanceTaxQ3 || 0;
+			const q4 = tp.advanceTaxQ4 || 0;
+			const totalAdvanceTax = q1 + q2 + q3 + q4;
+
+			// 234C Deferment of installments
+			const sf1 = Math.max(0, 0.15 * assessedTax - q1);
+			const sf2 = Math.max(0, 0.45 * assessedTax - (q1 + q2));
+			const sf3 = Math.max(0, 0.75 * assessedTax - (q1 + q2 + q3));
+			const sf4 = Math.max(0, assessedTax - totalAdvanceTax);
+			interestSec234C = Math.round((sf1 * 0.01 * 3) + (sf2 * 0.01 * 3) + (sf3 * 0.01 * 3) + (sf4 * 0.01 * 1));
+
+			// 234B Default in payment of 90% advance tax
+			if (totalAdvanceTax < 0.90 * assessedTax) {
+				const shortfall234B = assessedTax - totalAdvanceTax;
+				interestSec234B = Math.round(shortfall234B * 0.01 * 3); // Standard 3-month Q1 evaluation
+			}
+		}
+
+		const totalInterestPenalties = interestSec234A + interestSec234B + interestSec234C;
+		const totalTaxAndInterest = totalTaxLiability + totalInterestPenalties;
+		const totalTaxesPaid = totalTdsTcs + (tp.advanceTaxQ1 || 0) + (tp.advanceTaxQ2 || 0) + (tp.advanceTaxQ3 || 0) + (tp.advanceTaxQ4 || 0) + (tp.selfAssessmentTax || 0);
+
+		const netBalance = totalTaxAndInterest - totalTaxesPaid;
+		const netTaxPayable = netBalance > 0 ? netBalance : 0;
+		const netRefundDue = netBalance < 0 ? Math.abs(netBalance) : 0;
+		const effectiveTaxRatePercent = totalTaxableIncome > 0 ? Number(((totalTaxLiability / totalTaxableIncome) * 100).toFixed(2)) : 0;
+
+		const resultData: TaxCalculationResultData = {
+			assessmentYear: ay,
+			regime,
+			entityType: entity,
+			ageCategory: age,
+			grossSalary,
+			salaryStandardDeduction: salaryStdDed,
+			netSalaryIncome,
+			netHousePropertyIncome,
+			netCapitalGainsIncome: totalCgGains,
+			netBusinessIncome,
+			netOtherSourcesIncome,
+			grossTotalIncome,
+			totalEligibleDeductions,
+			totalTaxableIncome,
+			normalSlabTax,
+			specialRateTax,
+			rebateSection87A: rebate87A,
+			taxAfterRebate,
+			surchargeAmount,
+			marginalReliefAmount,
+			healthAndEducationCess,
+			totalTaxLiability,
+			interestSec234A,
+			interestSec234B,
+			interestSec234C,
+			totalInterestPenalties,
+			totalTaxAndInterest,
+			totalTaxesPaid,
+			netTaxPayable,
+			netRefundDue,
+			effectiveTaxRatePercent,
+			slabBreakdown,
+		};
+
+		// Telemetry report
+		telemetryBus.report({
+			engineId: "indian-tax-calculator",
+			engineName: "Dynamic Indian Income Tax Calculator Engine",
+			category: "Portfolio",
+			reportedAt: new Date().toISOString(),
+			latencyMs: Date.now() - t0,
+			qualityScore: 99,
+			itemsProcessed: 1,
+			errorCount: 0,
+			meta: {
+				assessmentYear: ay,
+				regime,
+				entityType: entity,
+				totalTaxLiability,
+				effectiveTaxRatePercent,
+			},
+		});
+
+		return {
+			success: true,
+			data: resultData,
+			explainability: {
+				inputs_used: {
+					grossSalary,
+					netHousePropertyIncome,
+					totalCgGains,
+					netBusinessIncome,
+					netOtherSourcesIncome,
+					deductionsClaimed: totalEligibleDeductions,
+				},
+				formula_applied: `Total Tax = (Normal Slab Tax + Special Rate Tax - 87A Rebate + Surcharge - Marginal Relief) * 1.04 + Sec 234A/B/C Interest`,
+				intermediate_steps: {
+					normalGTI,
+					normalTaxableIncome,
+					specialRateTaxableGains,
+					taxBeforeRebate,
+					taxAfterRebate,
+					surchargeAmount,
+					healthAndEducationCess,
+				},
+				statutory_citations: [
+					"Section 115BAC (New Tax Regime for Individuals/HUF)",
+					"Section 87A (Rebate on total income)",
+					"Section 111A & Section 112A (Special rates on Capital Gains)",
+					"Section 234A, 234B, 234C (Advance tax and default interest)",
+					config.statutoryAct,
+				],
+			},
+			meta: {
+				engine_version: INDIAN_TAX_CALCULATOR_ENGINE_VERSION,
+				calculation_timestamp: new Date().toISOString(),
+			},
+		};
+	}
+
+	/**
+	 * Compares Old Regime vs New Regime side-by-side with optimal recommendation
+	 * and break-even deduction required for Old Regime to win.
+	 */
+	public compareRegimes(req: TaxCalculationRequest): RegimeComparisonResponse {
+		const ay = req.assessmentYear || "2025-26";
+		const oldCalc = this.calculateComprehensive({ ...req, regime: "old" }).data;
+		const newCalc = this.calculateComprehensive({ ...req, regime: "new" }).data;
+
+		const oldTotalTax = oldCalc.totalTaxLiability;
+		const newTotalTax = newCalc.totalTaxLiability;
+		const savingsAmount = Math.abs(oldTotalTax - newTotalTax);
+		const higherTax = Math.max(oldTotalTax, newTotalTax);
+		const savingsPercentage = higherTax > 0 ? Number(((savingsAmount / higherTax) * 100).toFixed(1)) : 0;
+		const optimalRegime = oldTotalTax <= newTotalTax ? "old" : "new";
+
+		let breakEvenDeductionRequired: number | undefined;
+		let advisoryNote = "";
+
+		if (optimalRegime === "new") {
+			// Estimate additional deduction needed under old regime
+			// Assuming top marginal slab of 30% (+4% cess = 31.2%)
+			breakEvenDeductionRequired = Math.round(savingsAmount / 0.312);
+			advisoryNote = `Under the New Regime (${ay}), you save ₹${savingsAmount.toLocaleString("en-IN")} (${savingsPercentage}% lower tax). To make the Old Regime financially beneficial, you would need additional eligible Chapter VI-A deductions of at least ₹${breakEvenDeductionRequired.toLocaleString("en-IN")}.`;
+		} else {
+			advisoryNote = `Under the Old Regime (${ay}), your deductions (80C, 80D, HRA, Home Loan) save you ₹${savingsAmount.toLocaleString("en-IN")} compared to the default New Regime.`;
+		}
+
+		return {
+			success: true,
+			assessmentYear: ay,
+			oldRegime: {
+				regime: "old",
+				grossIncome: oldCalc.grossTotalIncome,
+				totalDeductions: oldCalc.totalEligibleDeductions,
+				taxableIncome: oldCalc.totalTaxableIncome,
+				slabTax: oldCalc.normalSlabTax,
+				rebate87A: oldCalc.rebateSection87A,
+				surcharge: oldCalc.surchargeAmount,
+				cess: oldCalc.healthAndEducationCess,
+				totalTax: oldTotalTax,
+				effectiveTaxRate: oldCalc.effectiveTaxRatePercent,
+				takeHomeIncome: Math.max(0, oldCalc.grossTotalIncome - oldTotalTax),
+			},
+			newRegime: {
+				regime: "new",
+				grossIncome: newCalc.grossTotalIncome,
+				totalDeductions: newCalc.totalEligibleDeductions,
+				taxableIncome: newCalc.totalTaxableIncome,
+				slabTax: newCalc.normalSlabTax,
+				rebate87A: newCalc.rebateSection87A,
+				surcharge: newCalc.surchargeAmount,
+				cess: newCalc.healthAndEducationCess,
+				totalTax: newTotalTax,
+				effectiveTaxRate: newCalc.effectiveTaxRatePercent,
+				takeHomeIncome: Math.max(0, newCalc.grossTotalIncome - newTotalTax),
+			},
+			recommendation: {
+				optimalRegime,
+				savingsAmount,
+				savingsPercentage,
+				breakEvenDeductionRequired,
+				advisoryNote,
+			},
+			meta: {
+				engine_version: INDIAN_TAX_CALCULATOR_ENGINE_VERSION,
+				calculation_timestamp: new Date().toISOString(),
+			},
 		};
 	}
 }

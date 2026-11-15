@@ -134,6 +134,7 @@ class EngineTelemetryBus {
       { id: "knowledge-hub-auto-heal-sentinel", name: "Knowledge Hub Auto-Heal Sentinel", category: "AI Orchestration" },
       { id: "tax-law-engine", name: "Direct Tax & Corporate Law Workstation Engine", category: "Compliance" },
       { id: "regulatory-ingestion-service", name: "Autonomous Regulatory Ingestion Engine", category: "Data Quality" },
+      { id: "indian-tax-calculator", name: "Dynamic Indian Income Tax Calculator Engine", category: "Portfolio" },
     ];
     for (const eng of coreEngines) {
       this._meta.set(eng.id, { name: eng.name, category: eng.category });

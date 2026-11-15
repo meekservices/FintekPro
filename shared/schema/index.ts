@@ -36,3 +36,4 @@ export * from "./derivatives";
 export * from "./pricing";
 export * from "./macro-intelligence";
 export * from "./tax-law";
+export * from "./tax-calculator";

@@ -353,6 +353,9 @@ class EngineLearningOrchestrator {
       if (s.engineId === "regulatory-ingestion-service") {
         activeCalibrations.push("Autonomous Amendment Radar & Staged Diff Pipeline Active");
       }
+      if (s.engineId === "indian-tax-calculator") {
+        activeCalibrations.push("Multi-Year FY24/25/26/27 Dynamic Slabs & Marginal Relief Active");
+      }
 
       if (s.health === "degraded") {
         learningStatus = "calibrating";
@@ -425,6 +428,7 @@ class EngineLearningOrchestrator {
       { id: "trade-reconciliation-engine", name: "T+1 Trade & Broker Reconciliation Engine", category: "Transaction", defaultCalibration: "T+1 Multi-Broker Discrepancy Matching Active" },
       { id: "tax-law-engine", name: "Direct Tax & Corporate Law Workstation Engine", category: "Compliance", defaultCalibration: "Form 3CD Clause Scanner & Rule 11UA Valuation Active" },
       { id: "regulatory-ingestion-service", name: "Autonomous Regulatory Ingestion Engine", category: "Data Quality", defaultCalibration: "Autonomous Amendment Radar & Staged Diff Pipeline Active" },
+      { id: "indian-tax-calculator", name: "Dynamic Indian Income Tax Calculator Engine", category: "Portfolio", defaultCalibration: "Multi-Year FY24/25/26/27 Dynamic Slabs & Marginal Relief Active" },
     ];
 
     for (const core of registeredCoreEngines) {
