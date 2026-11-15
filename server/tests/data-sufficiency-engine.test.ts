@@ -312,5 +312,24 @@ describe("Data Sufficiency Engine (FASP-AI v1.0 & SEBI IA Compliance)", () => {
 			expect(domain.subdomains.length).toBeGreaterThan(0);
 		}
 	});
+
+	it("evaluates autonomous self-healing and cooldown mechanics correctly", async () => {
+		const res = await dataSufficiencyEngine.autoSelfHealIfDegraded(false);
+		expect(res).toBeDefined();
+		expect(typeof res.triggered).toBe("boolean");
+		expect(typeof res.message).toBe("string");
+		expect(res.stats).toBeDefined();
+
+		// Immediate second call should respect cooldown or actively running lock
+		const secondRes = await dataSufficiencyEngine.autoSelfHealIfDegraded(false);
+		expect(secondRes).toBeDefined();
+		if (res.triggered) {
+			expect(secondRes.triggered).toBe(false);
+			expect(
+				secondRes.message.includes("cooldown") ||
+				secondRes.message.includes("already actively running"),
+			).toBe(true);
+		}
+	});
 });
 

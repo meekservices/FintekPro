@@ -167,6 +167,20 @@ async function run(): Promise<void> {
 			);
 			const syncRes = await dataSufficiencyEngine.syncSufficiencyMetrics();
 			logger.info(`[${JOB_NAME}] Phase F3: Data sufficiency metrics synced to listed_stocks`, syncRes);
+
+			// Phase F4: Vectorized Technical Indicators Materialization & Auto Self-Healing
+			const { materializeAllTechnicalIndicators } = await import(
+				"../server/services/screener/screener-enrichment-engine"
+			);
+			const techRes = await materializeAllTechnicalIndicators({ concurrency: 25, refreshSnapshots: true });
+			logger.info(`[${JOB_NAME}] Phase F4: Technical indicators materialized across universe`, techRes);
+
+			const healRes = await dataSufficiencyEngine.autoSelfHealIfDegraded(true);
+			logger.info(`[${JOB_NAME}] Phase F5: Data sufficiency auto-healing evaluated`, {
+				triggered: healRes.triggered,
+				message: healRes.message,
+				overallSufficiency: healRes.stats?.overallSufficiencyPercent,
+			});
 		} catch (err) {
 			logger.warn(`[${JOB_NAME}] Phase F failed (non-fatal)`, { error: String(err) });
 		}

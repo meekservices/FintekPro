@@ -788,6 +788,20 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			}
 		});
 
+		// ── Phase 3e: Autonomous Data Sufficiency & Self-Healing Supervisor ──────
+		// Monitors multi-domain data sufficiency (Piotroski, valuation ratios, technical indicators, prices)
+		// and automatically initiates self-healing when deficits or staleness are detected.
+		runStartupTask("Autonomous Data Sufficiency Supervisor", async () => {
+			try {
+				const { dataSufficiencyEngine } = await import(
+					"../services/data-sufficiency-engine"
+				);
+				dataSufficiencyEngine.startAutonomousSupervisor(30 * 60 * 1000); // Check every 30m
+			} catch (err: any) {
+				console.warn("[SufficiencySupervisor] Startup failed (non-fatal):", err?.message);
+			}
+		});
+
 		// ── Phase 4: Pick of the Day (needs Phase 3 data, runs at 9 AM IST) ──────
 		await runStartupTask(
 			"Pick of the Day Scheduler",

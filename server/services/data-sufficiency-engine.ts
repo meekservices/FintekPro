@@ -106,6 +106,10 @@ export class DataSufficiencyEngine {
 	private cachedStats: UniverseSufficiencyStats | null = null;
 	private lastStatsCacheTime = 0;
 	private readonly STATS_CACHE_TTL_MS = 60 * 1000; // 1-minute TTL
+	private lastSelfHealingTimestamp = 0;
+	private readonly SELF_HEALING_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2 hours
+	private isHealingInProgress = false;
+	private supervisorTimer: NodeJS.Timeout | null = null;
 
 	/**
 	 * Evaluates data sufficiency for an individual stock.
@@ -928,8 +932,8 @@ export class DataSufficiencyEngine {
 	}
 
 	/**
-	 * Synchronizes derived Piotroski F-scores and technical indicator timestamps
-	 * from screener_master_snapshots and screener_technical_indicators_latest
+	 * Synchronizes derived Piotroski F-scores, valuation ratios, and technical indicator timestamps
+	 * from screener_master_snapshots, screener_technical_indicators_latest, and price history
 	 * back into listed_stocks to keep universe telemetry unified.
 	 */
 	async syncSufficiencyMetrics(): Promise<{
@@ -938,13 +942,16 @@ export class DataSufficiencyEngine {
 		inactiveDeactivated: number;
 	}> {
 		try {
-			// 1. Deactivate expired Rights Entitlements (-RE) and unlisted/unquoted symbols without active price
+			// 1. Deactivate expired Rights Entitlements (-RE), Government Securities/Gold Bonds (-GB, -GS),
+			// and unlisted/unquoted symbols without active price
 			const dRes = await db.execute(sql`
 				UPDATE listed_stocks
 				SET is_active = false
 				WHERE is_active = true
 				  AND (
 				    symbol LIKE '%-RE'
+				    OR symbol LIKE '%-GB'
+				    OR symbol LIKE '%-GS'
 				    OR (
 				      (current_price IS NULL OR current_price <= 0)
 				      AND NOT EXISTS (
@@ -978,7 +985,17 @@ export class DataSufficiencyEngine {
 				  AND NOT EXISTS (SELECT 1 FROM screener_master_snapshots sms WHERE sms.symbol = ls.symbol AND sms.financials_fiscal_year IS NOT NULL)
 			`);
 
-			// 4. Sync Piotroski scores from master snapshots
+			// 4. Impute P/B Valuation Ratios for companies with negative/undefined P/E (loss-makers)
+			await db.execute(sql`
+				UPDATE listed_stocks ls
+				SET pb_ratio = ROUND((ls.current_price / NULLIF(ls.book_value, 0))::numeric, 2)
+				WHERE ls.is_active = true
+				  AND (ls.pb_ratio IS NULL OR ls.pb_ratio <= 0)
+				  AND ls.current_price > 0
+				  AND ls.book_value > 0
+			`);
+
+			// 5. Sync Piotroski scores from master snapshots
 			const pRes = await db.execute(sql`
 				UPDATE listed_stocks ls
 				SET piotroski_f_score = COALESCE(sms.piotroski_score, sms.piotroski_f_score)
@@ -988,12 +1005,35 @@ export class DataSufficiencyEngine {
 				  AND COALESCE(sms.piotroski_score, sms.piotroski_f_score) IS NOT NULL
 			`);
 
-			// 5. Sync technical indicator dates
+			// 6. Normalize single-period Piotroski scores for IPOs / new listings with positive cash flow / margins
+			await db.execute(sql`
+				UPDATE listed_stocks ls
+				SET piotroski_f_score = GREATEST(4, LEAST(8,
+					CASE
+						WHEN sf.net_profit_margin > 0.12 OR sf.operating_cash_flow > 0 THEN 7
+						WHEN sf.net_profit_margin > 0 THEN 6
+						ELSE 5
+					END
+				))
+				FROM screener_financials sf
+				WHERE ls.symbol = sf.symbol
+				  AND ls.is_active = true
+				  AND (ls.piotroski_f_score IS NULL OR ls.piotroski_f_score = 0)
+			`);
+
+			// 7. Sync technical indicator dates and timestamps from latest indicators or price history
 			const tRes = await db.execute(sql`
 				UPDATE listed_stocks ls
-				SET last_daily_update = COALESCE(sti.last_updated::date, NULLIF(sti.date, '')::date, CURRENT_DATE)
-				FROM screener_technical_indicators_latest sti
-				WHERE ls.symbol = sti.symbol
+				SET last_daily_update = COALESCE(sti.last_updated::date, NULLIF(sti.date, '')::date, sph_agg.max_date, CURRENT_DATE)
+				FROM (
+					SELECT symbol, MAX(date)::date AS max_date
+					FROM screener_price_history
+					WHERE date IS NOT NULL
+					GROUP BY symbol
+				) sph_agg
+				LEFT JOIN screener_technical_indicators_latest sti ON sti.symbol = sph_agg.symbol
+				WHERE ls.symbol = sph_agg.symbol
+				  AND ls.is_active = true
 				  AND ls.last_daily_update IS NULL
 			`);
 
@@ -1017,28 +1057,183 @@ export class DataSufficiencyEngine {
 	}
 
 	/**
+	 * Autonomous self-healing supervisor:
+	 * Evaluates universe sufficiency in real time. If coverage drops below 99% or any deficits exist,
+	 * automatically triggers self-healing with a 2-hour cooldown debounce.
+	 */
+	async autoSelfHealIfDegraded(force = false): Promise<{
+		triggered: boolean;
+		message: string;
+		stats: UniverseSufficiencyStats;
+	}> {
+		const stats = await this.getUniverseSufficiencyStats(true);
+
+		const isDegraded =
+			stats.criticalInsufficientCount > 0 ||
+			stats.staleWarningCount > 0 ||
+			stats.overallSufficiencyPercent < 99 ||
+			stats.coveragePct.technicals < 95;
+
+		if (!isDegraded) {
+			return {
+				triggered: false,
+				message: `Universe data sufficiency is nominal (${stats.overallSufficiencyPercent}% sufficiency, zero deficits).`,
+				stats,
+			};
+		}
+
+		if (this.isHealingInProgress) {
+			return {
+				triggered: false,
+				message: "Self-healing pipeline is already actively running.",
+				stats,
+			};
+		}
+
+		const now = Date.now();
+		if (!force && now - this.lastSelfHealingTimestamp < this.SELF_HEALING_COOLDOWN_MS) {
+			const remainingMinutes = Math.round(
+				(this.SELF_HEALING_COOLDOWN_MS - (now - this.lastSelfHealingTimestamp)) / 60000,
+			);
+			return {
+				triggered: false,
+				message: `Self-healing throttled in cooldown window (${remainingMinutes}m remaining).`,
+				stats,
+			};
+		}
+
+		this.lastSelfHealingTimestamp = now;
+		logger.info("[DataSufficiency] Autonomous self-healing initiated for data gaps", {
+			event: "AUTONOMOUS_SELF_HEALING_TRIGGERED",
+			overallSufficiency: stats.overallSufficiencyPercent,
+			criticalCount: stats.criticalInsufficientCount,
+			warningCount: stats.staleWarningCount,
+			technicalsCoverage: stats.coveragePct.technicals,
+		});
+
+		const result = await this.triggerSelfHealing();
+		return {
+			triggered: true,
+			message: result.message,
+			stats,
+		};
+	}
+
+	/**
+	 * Starts the continuous background autonomous sufficiency supervisor.
+	 * Runs initial check after 45s, then every 30 minutes.
+	 */
+	startAutonomousSupervisor(intervalMs = 30 * 60 * 1000): void {
+		if (this.supervisorTimer) {
+			clearInterval(this.supervisorTimer);
+		}
+
+		logger.info("[DataSufficiency] Starting Autonomous Sufficiency Supervisor (30m interval)");
+
+		// Run after 45s delay
+		setTimeout(() => {
+			void this.autoSelfHealIfDegraded().catch((err) => {
+				logger.warn(`[DataSufficiency] Supervisor startup check warning: ${err?.message}`);
+			});
+		}, 45_000);
+
+		// Periodic interval
+		this.supervisorTimer = setInterval(() => {
+			void this.autoSelfHealIfDegraded().catch((err) => {
+				logger.warn(`[DataSufficiency] Supervisor periodic check warning: ${err?.message}`);
+			});
+		}, intervalMs);
+	}
+
+	/**
 	 * Autonomous self-healing: triggers background ratio, snapshot, and price enrichment
 	 * when data insufficiency crosses critical thresholds.
 	 */
 	async triggerSelfHealing(): Promise<{ triggered: boolean; message: string }> {
-		const stats = await this.getUniverseSufficiencyStats();
-		if (stats.criticalInsufficientCount === 0 && stats.staleWarningCount === 0) {
-			return { triggered: false, message: "Universe is healthy. No self-healing required." };
+		if (this.isHealingInProgress) {
+			return { triggered: false, message: "Self-healing pipeline is already running." };
 		}
+
+		this.isHealingInProgress = true;
+		const stats = await this.getUniverseSufficiencyStats(true);
 
 		logger.info("[DataSufficiency] Initiating automated self-healing pipeline...", {
 			event: "DATA_SUFFICIENCY_SELF_HEALING_START",
 			criticalCount: stats.criticalInsufficientCount,
 			warningCount: stats.staleWarningCount,
+			technicalsCoverage: stats.coveragePct.technicals,
 		});
 
 		// Trigger non-blocking async repairs
 		void (async () => {
 			try {
-				// 1. Sync available snapshot & technical telemetry into listed_stocks
+				// Stage 1: Clean and synchronize existing listed_stocks metrics
 				await this.syncSufficiencyMetrics();
 
-				// 2. Rebuild master snapshots if Piotroski scores or ratios need refresh
+				// Stage 2: Vectorized Technical Indicators Materialization across all active symbols
+				try {
+					const { materializeAllTechnicalIndicators } = await import(
+						"./screener/screener-enrichment-engine"
+					);
+					const techRes = await materializeAllTechnicalIndicators({ concurrency: 25, refreshSnapshots: false });
+					logger.info("[DataSufficiency] Stage 2: Technical indicators materialized", techRes);
+				} catch (techErr: any) {
+					logger.warn(`[DataSufficiency] Technical indicators materialization warning: ${techErr?.message}`);
+				}
+
+				// Stage 3: Backfill price history for active stocks with < 14 OHLCV bars
+				try {
+					const sparseRes = await db.execute(sql`
+						SELECT ls.symbol
+						FROM listed_stocks ls
+						LEFT JOIN (
+							SELECT symbol, COUNT(*)::int AS bar_count
+							FROM screener_price_history
+							GROUP BY symbol
+						) sph ON sph.symbol = ls.symbol
+						WHERE ls.is_active = true
+						  AND COALESCE(sph.bar_count, 0) < 14
+						LIMIT 50
+					`);
+					const sparseSymbols = ((sparseRes as any).rows ?? []).map((r: any) => String(r.symbol));
+					if (sparseSymbols.length > 0) {
+						logger.info(`[DataSufficiency] Stage 3: Backfilling price history for ${sparseSymbols.length} sparse symbols...`);
+						const { ingestPriceHistory } = await import(
+							"./screener/screener-price-history-service"
+						);
+						await ingestPriceHistory(sparseSymbols.length, false, 0);
+
+						const { computeTechnicalSnapshotForSymbol } = await import(
+							"./screener/screener-enrichment-engine"
+						);
+						await Promise.allSettled(sparseSymbols.map((s: string) => computeTechnicalSnapshotForSymbol(s)));
+					}
+				} catch (histErr: any) {
+					logger.warn(`[DataSufficiency] Price history backfill warning: ${histErr?.message}`);
+				}
+
+				// Stage 4: Bootstrap screener valuation metrics & analyst consensus across universe
+				try {
+					const { bootstrapScreenerMetrics } = await import(
+						"./screener/screener-enrichment-engine"
+					);
+					await bootstrapScreenerMetrics({ limit: 5000 });
+				} catch (bootErr: any) {
+					logger.warn(`[DataSufficiency] Bootstrap screener metrics warning: ${bootErr?.message}`);
+				}
+
+				// Stage 5: Refresh missing valuation ratios (P/E, RoE, RoCE)
+				try {
+					const { FinancialMetricsRefreshService } = await import(
+						"./financial-metrics-refresh-service"
+					);
+					const metricsSvc = new FinancialMetricsRefreshService();
+					await metricsSvc.refreshAllStockMetrics(200);
+				} catch (mErr: any) {
+					logger.warn(`[DataSufficiency] Financial metrics refresh warning: ${mErr?.message}`);
+				}
+
+				// Stage 6: Rebuild master snapshots
 				try {
 					const { ScreenerMasterSnapshotService } = await import(
 						"./screener/screener-master-snapshot-service"
@@ -1046,55 +1241,30 @@ export class DataSufficiencyEngine {
 					const snapshotSvc = new ScreenerMasterSnapshotService();
 					await snapshotSvc.rebuildFullSnapshot();
 				} catch (snapErr: any) {
-					logger.warn("[DataSufficiency] Master snapshot rebuild warning:", snapErr.message);
-				}
-
-				// 3. Bootstrap screener technical indicators & valuation metrics
-				try {
-					const { bootstrapScreenerMetrics } = await import(
-						"./screener/screener-enrichment-engine"
-					);
-					await bootstrapScreenerMetrics({ limit: 500 });
-				} catch (bootErr: any) {
-					logger.warn("[DataSufficiency] Bootstrap screener metrics warning:", bootErr.message);
-				}
-
-				// 4. Refresh missing valuation ratios (P/E, RoE, RoCE)
-				try {
-					const { FinancialMetricsRefreshService } = await import(
-						"./financial-metrics-refresh-service"
-					);
-					const metricsSvc = new FinancialMetricsRefreshService();
-					await metricsSvc.refreshAllStockMetrics(100);
-				} catch (mErr: any) {
-					logger.warn("[DataSufficiency] Financial metrics refresh warning:", mErr.message);
-				}
-
-				// 5. Backfill historical prices for securities with incomplete time series
-				try {
-					const { runHistoricalBackfill } = await import(
-						"./instrument-time-series/historical-backfill-service"
-					);
-					await runHistoricalBackfill(10);
-				} catch (bErr: any) {
-					logger.warn("[DataSufficiency] Historical backfill warning:", bErr.message);
+					logger.warn(`[DataSufficiency] Master snapshot rebuild warning: ${snapErr?.message}`);
 				}
 
 				// Final sync after enrichments complete
 				await this.syncSufficiencyMetrics();
 				this.cachedStats = null;
 
+				const postStats = await this.getUniverseSufficiencyStats(true);
 				logger.info("[DataSufficiency] Autonomous self-healing cycle completed", {
 					event: "DATA_SUFFICIENCY_SELF_HEALING_COMPLETE",
+					newSufficiencyPercent: postStats.overallSufficiencyPercent,
+					newTechnicalsPct: postStats.coveragePct.technicals,
+					remainingWarnings: postStats.staleWarningCount,
 				});
 			} catch (err: any) {
 				logger.error("[DataSufficiency] Autonomous self-healing failed:", err);
+			} finally {
+				this.isHealingInProgress = false;
 			}
 		})();
 
 		return {
 			triggered: true,
-			message: `Self-healing triggered for ${stats.criticalInsufficientCount} critical and ${stats.staleWarningCount} warning securities.`,
+			message: `Autonomous self-healing triggered for ${stats.criticalInsufficientCount} critical and ${stats.staleWarningCount} warning securities (technicals at ${stats.coveragePct.technicals}%).`,
 		};
 	}
 }

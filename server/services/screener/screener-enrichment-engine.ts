@@ -637,3 +637,91 @@ export async function bootstrapScreenerMetrics(options: {
 		durationMs,
 	};
 }
+
+/**
+ * Vectorized Technical Indicators Materialization Engine
+ * Computes RSI-14, MACD, SMA 50/200, and Bollinger Bands across all active symbols
+ * with OHLCV data in screener_price_history.
+ *
+ * @param options.concurrency Number of symbols processed in parallel (default: 25)
+ * @param options.symbols Optional explicit list of symbols to materialize
+ * @param options.refreshSnapshots Whether to rebuild screener_master_snapshots (default: true)
+ */
+export async function materializeAllTechnicalIndicators(options: {
+	concurrency?: number;
+	symbols?: string[];
+	refreshSnapshots?: boolean;
+} = {}): Promise<{
+	total: number;
+	succeeded: number;
+	skipped: number;
+	failed: number;
+	durationMs: number;
+}> {
+	const t0 = Date.now();
+	const concurrency = options.concurrency ?? 25;
+
+	let symbols: string[] = options.symbols ?? [];
+	if (symbols.length === 0) {
+		const symbolsRes = await db.execute(sql`
+			SELECT DISTINCT symbol
+			FROM screener_price_history
+			WHERE symbol IS NOT NULL
+			ORDER BY symbol ASC
+		`);
+		symbols = ((symbolsRes as any).rows ?? []).map((r: any) => String(r.symbol));
+	}
+
+	let succeeded = 0;
+	let skipped = 0;
+	let failed = 0;
+
+	const totalBatches = Math.ceil(symbols.length / concurrency);
+
+	for (let b = 0; b < totalBatches; b++) {
+		const batch = symbols.slice(b * concurrency, (b + 1) * concurrency);
+		const results = await Promise.allSettled(
+			batch.map(async (sym) => computeTechnicalSnapshotForSymbol(sym))
+		);
+
+		for (const r of results) {
+			if (r.status === "fulfilled") {
+				if (r.value) succeeded++;
+				else skipped++;
+			} else {
+				failed++;
+			}
+		}
+	}
+
+	const durationMs = Date.now() - t0;
+	logger.info("[ScreenerEnrichment] Materialized technical indicators across universe", {
+		event: "TECHNICAL_INDICATORS_MATERIALIZED",
+		user_id: "system",
+		total: symbols.length,
+		succeeded,
+		skipped,
+		failed,
+		latency_ms: durationMs,
+		status: "success",
+	});
+
+	if (options.refreshSnapshots !== false) {
+		try {
+			const { screenerMasterSnapshotService } = await import(
+				"./screener-master-snapshot-service"
+			);
+			await screenerMasterSnapshotService.rebuildFullSnapshot();
+		} catch (snapErr: any) {
+			logger.warn(`[ScreenerEnrichment] Rebuild snapshot warning: ${snapErr?.message}`);
+		}
+	}
+
+	return {
+		total: symbols.length,
+		succeeded,
+		skipped,
+		failed,
+		durationMs,
+	};
+}
