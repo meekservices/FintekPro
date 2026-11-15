@@ -7197,12 +7197,7 @@ export async function ensureEngineGapFixTables(poolInstance?: any): Promise<void
             AND NOT EXISTS (
               SELECT 1 FROM screener_master_snapshots sms 
               WHERE sms.symbol = listed_stocks.symbol 
-                AND (sms.current_price > 0 OR sms.financials_fiscal_year IS NOT NULL)
-            )
-            AND NOT EXISTS (
-              SELECT 1 FROM screener_technical_indicators_latest sti 
-              WHERE sti.symbol = listed_stocks.symbol 
-                AND sti.last_updated IS NOT NULL
+                AND sms.current_price > 0
             )
           )
         );

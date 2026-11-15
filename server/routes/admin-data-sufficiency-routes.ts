@@ -93,11 +93,46 @@ adminDataSufficiencyRouter.get("/stocks", async (req: Request, res: Response) =>
 });
 
 /**
+ * POST /api/admin/data-sufficiency/sync
+ * Manually or programmatically triggers telemetry synchronization & deactivation of unquoted symbols.
+ */
+adminDataSufficiencyRouter.post("/sync", async (req: Request, res: Response) => {
+	try {
+		const syncResult = await dataSufficiencyEngine.syncSufficiencyMetrics();
+		const stats = await dataSufficiencyEngine.getUniverseSufficiencyStats(true);
+
+		return res.json({
+			success: true,
+			data: {
+				syncResult,
+				stats,
+			},
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: stats.engineVersion,
+			},
+		});
+	} catch (error: any) {
+		logger.error("Error executing data sufficiency sync:", error);
+		return res.status(500).json({
+			success: false,
+			error: {
+				error_code: "SYNC_FAILED",
+				message: error.message || "Failed to execute sync.",
+				retryable: true,
+			},
+		});
+	}
+});
+
+/**
  * POST /api/admin/data-sufficiency/trigger-enrichment
  * Admin-triggered or automated job to backfill missing ratios, filings, and prices
  */
 adminDataSufficiencyRouter.post("/trigger-enrichment", async (req: Request, res: Response) => {
 	try {
+		// Immediately sync metrics and purge unquoted securities before async repair
+		await dataSufficiencyEngine.syncSufficiencyMetrics();
 		const result = await dataSufficiencyEngine.triggerSelfHealing();
 
 		return res.json({

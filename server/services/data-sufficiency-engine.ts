@@ -96,17 +96,25 @@ export class DataSufficiencyEngine {
 	evaluateStock(
 		stock: {
 			symbol: string;
-			companyName: string;
+			companyName?: string;
+			company_name?: string;
 			exchange?: string | null;
 			currentPrice?: string | number | null;
+			current_price?: string | number | null;
 			peRatio?: string | number | null;
+			pe_ratio?: string | number | null;
 			pbRatio?: string | number | null;
+			pb_ratio?: string | number | null;
 			roe?: string | number | null;
 			roce?: string | number | null;
 			piotroskiFScore?: number | null;
+			piotroski_f_score?: number | null;
 			lastDailyUpdate?: Date | string | null;
+			last_daily_update?: Date | string | null;
 			lastEnrichedAt?: Date | string | null;
+			last_enriched_at?: Date | string | null;
 			marketCap?: string | null;
+			market_cap?: string | null;
 		},
 		metrics?: {
 			fiscalYearEnd?: Date | string | null;
@@ -118,7 +126,7 @@ export class DataSufficiencyEngine {
 		const reasons: string[] = [];
 		let score = 0;
 
-		const currentPriceNum = Number(stock.currentPrice || 0);
+		const currentPriceNum = Number(stock.currentPrice ?? stock.current_price ?? 0);
 		const hasPrice = currentPriceNum > 0;
 		if (hasPrice) {
 			score += 25;
@@ -127,8 +135,9 @@ export class DataSufficiencyEngine {
 		}
 
 		// Financials check
+		const lastEnrichedAt = stock.lastEnrichedAt ?? stock.last_enriched_at;
 		const hasFinancials = Boolean(
-			stock.lastEnrichedAt ||
+			lastEnrichedAt ||
 			(metrics && (Number(metrics.revenue) > 0 || Number(metrics.netIncome) !== 0))
 		);
 		if (hasFinancials) {
@@ -138,8 +147,10 @@ export class DataSufficiencyEngine {
 		}
 
 		// Ratios check: Accept P/E > 0 OR P/B > 0 OR RoE/RoCE for loss-making / asset-heavy firms
+		const peRatio = stock.peRatio ?? stock.pe_ratio;
+		const pbRatio = stock.pbRatio ?? stock.pb_ratio;
 		const hasRatios = Boolean(
-			(Number(stock.peRatio) > 0 || Number(stock.pbRatio) > 0) &&
+			(Number(peRatio) > 0 || Number(pbRatio) > 0) &&
 			(stock.roe || stock.roce || metrics?.revenue)
 		);
 		if (hasRatios) {
@@ -149,7 +160,7 @@ export class DataSufficiencyEngine {
 		}
 
 		// Derived metrics / Piotroski
-		const fScore = stock.piotroskiFScore ?? metrics?.piotroskiFScore ?? null;
+		const fScore = stock.piotroskiFScore ?? stock.piotroski_f_score ?? metrics?.piotroskiFScore ?? null;
 		const hasDerived = fScore != null;
 		if (hasDerived) {
 			score += 15;
@@ -158,7 +169,8 @@ export class DataSufficiencyEngine {
 		}
 
 		// Technical indicators check
-		const hasTechnicals = Boolean(stock.lastDailyUpdate);
+		const lastDailyUpdate = stock.lastDailyUpdate ?? stock.last_daily_update;
+		const hasTechnicals = Boolean(lastDailyUpdate);
 		if (hasTechnicals) {
 			score += 10;
 		} else {
@@ -168,8 +180,8 @@ export class DataSufficiencyEngine {
 		// Freshness check (price within 7 days and financials within 210 days)
 		const now = Date.now();
 		let isPriceStale = false;
-		if (stock.lastDailyUpdate) {
-			const priceAgeDays = (now - new Date(stock.lastDailyUpdate).getTime()) / (1000 * 60 * 60 * 24);
+		if (lastDailyUpdate) {
+			const priceAgeDays = (now - new Date(lastDailyUpdate).getTime()) / (1000 * 60 * 60 * 24);
 			if (priceAgeDays > 5) {
 				isPriceStale = true;
 				reasons.push(`STALE_PRICE: Last traded quote is ${Math.round(priceAgeDays)} days old.`);
@@ -207,9 +219,9 @@ export class DataSufficiencyEngine {
 
 		return {
 			symbol: stock.symbol,
-			companyName: stock.companyName,
+			companyName: stock.companyName ?? stock.company_name ?? stock.symbol,
 			exchange: stock.exchange || "NSE",
-			marketCapCategory: stock.marketCap || "Unknown",
+			marketCapCategory: (stock.marketCap ?? stock.market_cap) || "Unknown",
 			sufficiencyScore: score,
 			severity,
 			reasons,
@@ -508,7 +520,7 @@ export class DataSufficiencyEngine {
 		inactiveDeactivated: number;
 	}> {
 		try {
-			// 1. Deactivate expired Rights Entitlements (-RE) and unlisted ghost symbols without trading history
+			// 1. Deactivate expired Rights Entitlements (-RE) and unlisted/unquoted symbols without active price
 			const dRes = await db.execute(sql`
 				UPDATE listed_stocks
 				SET is_active = false
@@ -520,12 +532,7 @@ export class DataSufficiencyEngine {
 				      AND NOT EXISTS (
 				        SELECT 1 FROM screener_master_snapshots sms 
 				        WHERE sms.symbol = listed_stocks.symbol 
-				          AND (sms.current_price > 0 OR sms.financials_fiscal_year IS NOT NULL)
-				      )
-				      AND NOT EXISTS (
-				        SELECT 1 FROM screener_technical_indicators_latest sti 
-				        WHERE sti.symbol = listed_stocks.symbol 
-				          AND sti.last_updated IS NOT NULL
+				          AND sms.current_price > 0
 				      )
 				    )
 				  )
