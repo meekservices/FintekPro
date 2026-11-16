@@ -816,7 +816,7 @@ export function getLegRoleLabel(
 	let moneyness = "";
 	if (atmStrike && strike > 0) {
 		const diff = strike - atmStrike;
-		if (Math.abs(diff) < 25) {
+		if (Math.abs(diff) <= 0.01) {
 			moneyness = "ATM ";
 		} else if (isCE) {
 			moneyness = diff > 0 ? "OTM " : "ITM ";
@@ -4387,7 +4387,7 @@ export default function AgentPicksPage() {
 						</CardHeader>
 						<CardContent>
 							{/* #3 + #11 Category Filter — horizontal scroll + hit rates */}
-							<div className="flex gap-2 mb-4 pb-4 border-b overflow-x-auto scrollbar-none">
+							<div className="flex gap-2 mb-4 pb-4 border-b overflow-x-auto scrollbar-none px-1">
 								{allCategories.map((catItem) => {
 									const { key, label, icon: Icon } = catItem;
 									const isAI = (catItem as any).isAI === true;
@@ -6551,7 +6551,7 @@ export default function AgentPicksPage() {
 						</CardHeader>
 						<CardContent>
 							{/* #3 + #11 Category Filter — horizontal scroll + hit rates */}
-							<div className="flex gap-2 mb-4 pb-4 border-b overflow-x-auto scrollbar-none">
+							<div className="flex gap-2 mb-4 pb-4 border-b overflow-x-auto scrollbar-none px-1">
 								{allCategories.map(({ key, label, icon: Icon }) => {
 									const count = liveCounts[key] || 0;
 									const isActive = liveCategoryFilter === key;
@@ -6833,7 +6833,7 @@ export default function AgentPicksPage() {
 							)}
 
 							{/* #3 + #11 Category Filter — horizontal scroll + hit rates */}
-							<div className="flex gap-2 mb-4 pb-4 border-b overflow-x-auto scrollbar-none">
+							<div className="flex gap-2 mb-4 pb-4 border-b overflow-x-auto scrollbar-none px-1">
 								{allCategories.map(({ key, label, icon: Icon }) => {
 									const count = historyCounts[key] || 0;
 									const isActive = historyCategoryFilter === key;
@@ -7670,6 +7670,7 @@ export default function AgentPicksPage() {
 													marginRequired={economics.marginRequired}
 													daysToExpiry={Number(km.dte || km.daysToExpiry || 7)}
 													impliedVolatility={Number(km.iv || km.impliedVolatility || 0.14)}
+													pop={Number(km.pop || km.probabilityOfProfit) || undefined}
 												/>
 											</div>
 										)}
@@ -9107,7 +9108,13 @@ function PicksTable({
 									</td>
 									<td className="px-3 py-2.5 min-w-[210px] max-w-[340px]">
 										<div className="font-semibold text-foreground truncate leading-tight flex items-center gap-1.5">
-											<span className="truncate">{pick.instrumentName}</span>
+											<span className="truncate">
+												{isDeriv && km.strategy
+													? (pick.instrumentName && pick.instrumentName.toLowerCase().includes(km.strategy.toLowerCase())
+														? pick.instrumentName
+														: `${pick.symbol || "F&O"} ${km.strategy}`)
+													: pick.instrumentName}
+											</span>
 											{isDeriv && derivLegs.length > 0 && (
 												<Badge
 													variant="outline"
@@ -9557,6 +9564,7 @@ function PicksTable({
 													marginRequired={economics.marginRequired}
 													daysToExpiry={Number((pick.keyMetrics as any)?.dte || (pick.keyMetrics as any)?.daysToExpiry || 7)}
 													impliedVolatility={Number((pick.keyMetrics as any)?.iv || (pick.keyMetrics as any)?.impliedVolatility || 0.14)}
+													pop={Number((pick.keyMetrics as any)?.pop || (pick.keyMetrics as any)?.probabilityOfProfit) || undefined}
 												/>
 											</div>
 										</td>
@@ -10908,6 +10916,7 @@ function PickCard({
 												marginRequired={economics.marginRequired}
 												daysToExpiry={Number(km.dte || km.daysToExpiry || 7)}
 												impliedVolatility={Number(km.iv || km.impliedVolatility || 0.14)}
+												pop={Number(km.pop || km.probabilityOfProfit) || undefined}
 											/>
 										</div>
 									)}

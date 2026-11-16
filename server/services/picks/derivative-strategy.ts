@@ -652,7 +652,11 @@ export class DerivativeStrategy extends BaseStrategy {
 		const allGreeks: Array<{ delta: number; theta: number; vega: number }> = [];
 
 		for (const tmpl of strategy.legs) {
-			const strikePrice = atmStrike + tmpl.strikeOffsetSteps * strikeInterval;
+			let offsetSteps = tmpl.strikeOffsetSteps;
+			if (strategy.name.includes("Strangle") && offsetSteps === 0) {
+				offsetSteps = tmpl.type === "CE" ? 1 : -1;
+			}
+			const strikePrice = atmStrike + offsetSteps * strikeInterval;
 			let premium = 0;
 
 			// 1. Try resolving real market quote from options chain

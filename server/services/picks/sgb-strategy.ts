@@ -43,7 +43,11 @@ export class SGBStrategy extends BaseStrategy {
 				(s) => String(s.id),
 			);
 			const top = freshSgb[0];
-			const currentPrice = Number.parseFloat(String(top.issuePrice ?? "0"));
+			let currentPrice = Number.parseFloat(String(top.issuePrice ?? "0"));
+			if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
+				const liveGold = await this.getLivePrice("");
+				currentPrice = liveGold && liveGold > 0 ? liveGold : 7400;
+			}
 			const sgbInterestRate = 2.5; // RBI fixed semi-annual coupon on SGBs
 
 			const { targetPct, stoplossPct } = this.getDynamicTargetStoploss("sgb");

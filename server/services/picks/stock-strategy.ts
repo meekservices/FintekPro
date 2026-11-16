@@ -938,6 +938,8 @@ export class StockStrategy extends BaseStrategy {
 				${listedStocks.averageVolume} IS NULL
 				OR CAST(${listedStocks.averageVolume} AS DECIMAL) > 0
 			)`,
+			// Exclude Trade-for-Trade / Surveillance series (BE, BZ, SZ)
+			sql`(${listedStocks.nseCode} IS NULL OR ${listedStocks.nseCode} NOT IN ('BE', 'BZ', 'SZ'))`,
 			baseSectorFilter,
 		);
 

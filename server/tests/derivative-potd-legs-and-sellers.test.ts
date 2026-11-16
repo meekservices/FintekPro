@@ -3,7 +3,6 @@ import {
 	DerivativeStrategy,
 	STRATEGY_CATALOGUE,
 	selectStrategy,
-	type DerivativeStrategyDef,
 } from "../services/picks/derivative-strategy";
 
 describe("POTD Derivative Engine - Multi-Leg & Option Seller Strategies", () => {
@@ -344,6 +343,53 @@ describe("POTD Derivative Engine - Multi-Leg & Option Seller Strategies", () => 
 			const stockStrat = selectStrategy(2950, 24, [2950], undefined, "RELIANCE");
 			// Since normal IV rotates by calendar day, it won't be artificially hard-locked to seller
 			expect(stockStrat).toBeDefined();
+		});
+
+		it("strictly separates Long Straddle (identical strikes) from Long Strangle (different strikes)", () => {
+			const straddleDef = STRATEGY_CATALOGUE.find((s) => s.name === "Long Straddle")!;
+			const strangleDef = STRATEGY_CATALOGUE.find((s) => s.name === "Long Strangle")!;
+
+			const straddlePayoff = strategyEngine.buildLegsAndPayoff(
+				"INFY",
+				straddleDef,
+				1850,
+				1860,
+				20,
+				300,
+				undefined,
+				7,
+				18,
+			);
+
+			const stranglePayoff = strategyEngine.buildLegsAndPayoff(
+				"INFY",
+				strangleDef,
+				1850,
+				1860,
+				20,
+				300,
+				undefined,
+				7,
+				18,
+			);
+
+			// Straddle: Both legs MUST have the exact same ATM strike
+			expect(straddlePayoff.legs.length).toBe(2);
+			expect(straddlePayoff.legs[0].strikePrice).toBe(1860);
+			expect(straddlePayoff.legs[1].strikePrice).toBe(1860);
+			expect(straddlePayoff.legs[0].strikePrice).toBe(straddlePayoff.legs[1].strikePrice);
+
+			// Strangle: Call leg MUST be higher than Put leg (OTM separation)
+			expect(stranglePayoff.legs.length).toBe(2);
+			const ceLeg = stranglePayoff.legs.find((l) => l.type === "CE")!;
+			const peLeg = stranglePayoff.legs.find((l) => l.type === "PE")!;
+			expect(ceLeg.strikePrice).toBe(1880); // 1860 + 20
+			expect(peLeg.strikePrice).toBe(1840); // 1860 - 20
+			expect(ceLeg.strikePrice).toBeGreaterThan(peLeg.strikePrice);
+
+			// Straddle POP for debit buyer must be realistic (< 55%), never 99%
+			expect(straddlePayoff.pop).toBeGreaterThanOrEqual(20);
+			expect(straddlePayoff.pop).toBeLessThanOrEqual(55);
 		});
 	});
 });

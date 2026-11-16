@@ -571,12 +571,30 @@ export class PickOfTheDayService {
 					// ── Guardrail 0: Boundary Invariant Gate ─────────────────────────
 					// For Long positions: stoplossPrice MUST be strictly less than currentPrice,
 					// and currentPrice MUST be strictly less than targetPrice.
-					// If bounds are inverted (e.g. SL >= Target or SL >= CMP), reject candidate.
+					// For Credit positions: targetPrice MUST be strictly less than currentPrice (decay target),
+					// and currentPrice MUST be strictly less than stoplossPrice (expansion stop).
 					const stoplossP = Number(pick.stoplossPrice ?? 0);
 					if (!isCreditStrategy) {
-						if (targetP <= stoplossP || (stoplossP > 0 && stoplossP >= currentP) || (targetP > 0 && targetP <= currentP)) {
+						if (
+							(targetP > 0 && stoplossP > 0 && targetP <= stoplossP) ||
+							(stoplossP > 0 && currentP > 0 && stoplossP >= currentP) ||
+							(targetP > 0 && currentP > 0 && targetP <= currentP)
+						) {
 							logger.warn(
-								`[PickOfTheDay] ⚠️ Invariant Violation for ${pick.instrumentName}: SL(₹${stoplossP}) >= Target(₹${targetP}) or inverted relative to CMP(₹${currentP}). Rejecting pick.`,
+								`[PickOfTheDay] ⚠️ Invariant Violation for ${pick.instrumentName} (Debit/Long): SL(₹${stoplossP}) >= Target(₹${targetP}) or inverted relative to CMP(₹${currentP}). Rejecting pick.`,
+								{ instrument: pick.instrumentName, currentPrice: currentP, targetPrice: targetP, stoplossPrice: stoplossP, category },
+							);
+							continue;
+						}
+					} else {
+						// For Credit Strategies: Target (decay) < CMP < Stoploss (expansion)
+						if (
+							(targetP > 0 && stoplossP > 0 && targetP >= stoplossP) ||
+							(targetP > 0 && currentP > 0 && targetP >= currentP) ||
+							(stoplossP > 0 && currentP > 0 && stoplossP <= currentP)
+						) {
+							logger.warn(
+								`[PickOfTheDay] ⚠️ Invariant Violation for ${pick.instrumentName} (Credit): Target(₹${targetP}) >= SL(₹${stoplossP}) or inverted relative to CMP(₹${currentP}). Rejecting pick.`,
 								{ instrument: pick.instrumentName, currentPrice: currentP, targetPrice: targetP, stoplossPrice: stoplossP, category },
 							);
 							continue;
@@ -2034,6 +2052,12 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 			await db
 				.update(dailyPicks)
 				.set({
+					instrumentId: pick.instrumentId ?? null,
+					instrumentName: pick.instrumentName,
+					isin: pick.isin ?? null,
+					symbol: pick.symbol ?? null,
+					market: pick.market ?? null,
+					exchange: pick.exchange ?? null,
 					recoPrice: pick.recoPrice.toString(),
 					targetPrice: pick.targetPrice.toString(),
 					stoplossPrice: pick.stoplossPrice.toString(),

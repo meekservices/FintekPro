@@ -57,6 +57,7 @@ export interface DerivativePayoffSimulatorProps {
 	marginRequired?: number;
 	daysToExpiry?: number;
 	impliedVolatility?: number;
+	pop?: number;
 }
 
 /* =======================================================================
@@ -116,7 +117,8 @@ function blackScholes(
 
 	const s = Math.max(0.01, spot);
 	const k = Math.max(0.01, strike);
-	const sigma = Math.max(0.01, volatility);
+	const normVol = volatility > 1 ? volatility / 100 : volatility;
+	const sigma = Math.max(0.01, normVol);
 	const r = riskFreeRate;
 	const t = timeInYears;
 
@@ -269,7 +271,8 @@ function calculateProbabilityOfProfit(
 	if (!breakeven || dte <= 0 || spot <= 0) return 50;
 
 	const t = Math.max(0.001, dte / 365);
-	const sigma = iv;
+	const normalizedIv = iv > 1 ? iv / 100 : iv;
+	const sigma = Math.max(0.05, Math.min(1.5, normalizedIv));
 	const sqrtT = Math.sqrt(t);
 
 	const probAbove = (price: number) => {
@@ -290,10 +293,10 @@ function calculateProbabilityOfProfit(
 		// For credit strategy (e.g. Short Strangle, Iron Condor), profit is INSIDE the breakevens
 		// For debit strategy (e.g. Long Straddle), profit is OUTSIDE the breakevens
 		const pop = isCreditStrategy ? probBetween : 1 - probBetween;
-		return Math.min(99, Math.max(1, Math.round(pop * 100)));
+		return Math.min(95, Math.max(5, Math.round(pop * 100)));
 	} else if (typeof breakeven === "number") {
 		const pop = isCreditStrategy ? probAbove(breakeven) : probBelow(breakeven);
-		return Math.min(99, Math.max(1, Math.round(pop * 100)));
+		return Math.min(95, Math.max(5, Math.round(pop * 100)));
 	}
 
 	return 50;
@@ -312,11 +315,18 @@ export const DerivativePayoffSimulator: React.FC<DerivativePayoffSimulatorProps>
 	marginRequired,
 	daysToExpiry = 7,
 	impliedVolatility = 0.14,
+	pop: initialPop,
 }) => {
 	const [isOpen, setIsOpen] = useState(false);
 	const [simulatedSpot, setSimulatedSpot] = useState<number>(currentSpot);
 	// Target days remaining: 0 means Expiry, daysToExpiry means Today (T+0)
 	const [targetDte, setTargetDte] = useState<number>(0);
+
+	// Normalized Implied Volatility (decimal format, e.g. 0.18 instead of 18)
+	const normIv = useMemo(() => {
+		const raw = Number(impliedVolatility) || 0.14;
+		return raw > 1 ? raw / 100 : Math.max(0.01, raw);
+	}, [impliedVolatility]);
 
 	// Portfolio Greeks & Probability of Profit
 	const greeks = useMemo(() => {
@@ -325,27 +335,30 @@ export const DerivativePayoffSimulator: React.FC<DerivativePayoffSimulatorProps>
 			legs,
 			lotSize,
 			daysToExpiry,
-			impliedVolatility,
+			normIv,
 		);
-	}, [currentSpot, legs, lotSize, daysToExpiry, impliedVolatility]);
+	}, [currentSpot, legs, lotSize, daysToExpiry, normIv]);
 
 	const pop = useMemo(() => {
+		if (typeof initialPop === "number" && initialPop > 0 && initialPop <= 100) {
+			return initialPop;
+		}
 		return calculateProbabilityOfProfit(
 			currentSpot,
 			breakeven,
 			daysToExpiry,
-			impliedVolatility,
+			normIv,
 			isCreditStrategy,
 		);
-	}, [currentSpot, breakeven, daysToExpiry, impliedVolatility, isCreditStrategy]);
+	}, [initialPop, currentSpot, breakeven, daysToExpiry, normIv, isCreditStrategy]);
 
 	// 1-Sigma Expected Move (68% normal probability cone)
 	const expectedMove = useMemo(() => {
 		if (currentSpot <= 0) return 0;
 		return Math.round(
-			currentSpot * impliedVolatility * Math.sqrt(Math.max(1, daysToExpiry) / 365),
+			currentSpot * normIv * Math.sqrt(Math.max(1, daysToExpiry) / 365),
 		);
-	}, [currentSpot, impliedVolatility, daysToExpiry]);
+	}, [currentSpot, normIv, daysToExpiry]);
 
 	const expectedRange = useMemo(() => {
 		return [currentSpot - expectedMove, currentSpot + expectedMove];
@@ -375,7 +388,7 @@ export const DerivativePayoffSimulator: React.FC<DerivativePayoffSimulatorProps>
 				legs,
 				lotSize,
 				targetDte,
-				impliedVolatility,
+				normIv,
 			);
 			data.push({
 				spot: p,
@@ -392,7 +405,7 @@ export const DerivativePayoffSimulator: React.FC<DerivativePayoffSimulatorProps>
 			step: stepSize,
 			chartData: data,
 		};
-	}, [currentSpot, legs, lotSize, targetDte, impliedVolatility]);
+	}, [currentSpot, legs, lotSize, targetDte, normIv]);
 
 	// Calculate PnL at the user-scrubbed simulated spot price
 	const currentExpirySimPnl = useMemo(() => {
@@ -405,9 +418,9 @@ export const DerivativePayoffSimulator: React.FC<DerivativePayoffSimulatorProps>
 			legs,
 			lotSize,
 			targetDte,
-			impliedVolatility,
+			normIv,
 		);
-	}, [simulatedSpot, legs, lotSize, targetDte, impliedVolatility]);
+	}, [simulatedSpot, legs, lotSize, targetDte, normIv]);
 
 	const activeSimPnl = targetDte > 0 ? currentTargetSimPnl : currentExpirySimPnl;
 
