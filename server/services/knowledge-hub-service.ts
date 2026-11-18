@@ -282,8 +282,8 @@ export class KnowledgeHubService {
 						tenor10Y_minus_2Y_bps: 28,
 						slope: "Normal Upward",
 						realYield10Y: gfi.realYield10Y,
-						cpiInflationAssumed: goldenSnapshot.macroIndicators?.indiaCpiInflation?.value ?? 5.49,
-						commentary: `Sovereign yield curve reflects normal upward slope. Real yield of +${gfi.realYield10Y}% over CPI inflation offers attractive carry.`,
+						cpiInflationAssumed: goldenSnapshot.macroIndicators?.indiaCpiInflation?.value ?? 6.21,
+						commentary: `Sovereign yield curve reflects normal upward slope. Real yield of +${gfi.realYield10Y}% over CPI inflation offers carry buffer.`,
 					},
 					sdlSpreadBps: 38,
 					forexSpot: {
@@ -520,7 +520,7 @@ export class KnowledgeHubService {
 					{
 						sector: "Fixed Income & CCIL Sovereign Debt",
 						trend: "Stable / Attractive",
-						outlook: `10-Year Benchmark G-Sec yield consolidated at ${gsecYieldStr} (Real Yield: +${ccilFixedIncome?.yieldCurveAnalysis?.realYield10Y ?? parseFloat((Number(ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? goldenSnapshot?.fixedIncome?.gsec10YYield ?? 6.79) - (goldenSnapshot?.macroIndicators?.indiaCpiInflation?.value ?? 5.49)).toFixed(2))}%). TREPS overnight WAR at ${ccilFixedIncome?.treps?.weightedAverageRate ?? goldenSnapshot?.fixedIncome?.trepsWar ?? 6.42}%.`,
+						outlook: `10-Year Benchmark G-Sec yield consolidated at ${gsecYieldStr} (Real Yield: +${ccilFixedIncome?.yieldCurveAnalysis?.realYield10Y ?? parseFloat((Number(ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? goldenSnapshot?.fixedIncome?.gsec10YYield ?? 6.79) - (goldenSnapshot?.macroIndicators?.indiaCpiInflation?.value ?? 6.21)).toFixed(2))}%). TREPS overnight WAR at ${ccilFixedIncome?.treps?.weightedAverageRate ?? goldenSnapshot?.fixedIncome?.trepsWar ?? 6.42}%.`,
 					},
 					{
 						sector: "Commodities & Energy (MCX / CMX)",
@@ -754,7 +754,7 @@ export class KnowledgeHubService {
 					{
 						sector: "Fixed Income & CCIL Sovereign Debt",
 						trend: "Stable / Attractive",
-						outlook: `10-Year Benchmark G-Sec yield at ${(brief.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? brief.ccilFixedIncome?.tenYearGSecYield ?? 6.79).toFixed(2)}% (Real Yield: +${((brief.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? brief.ccilFixedIncome?.tenYearGSecYield ?? 6.79) - (brief.macroIndicators?.indiaCpiInflation?.value ?? 5.49)).toFixed(2)}%). CCIL TREPS WAR at ${(brief.ccilFixedIncome?.treps?.weightedAverageRate ?? 6.42).toFixed(2)}%.`,
+						outlook: `10-Year Benchmark G-Sec yield at ${(brief.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? brief.ccilFixedIncome?.tenYearGSecYield ?? 6.79).toFixed(2)}% (Real Yield: +${((brief.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? brief.ccilFixedIncome?.tenYearGSecYield ?? 6.79) - (brief.macroIndicators?.indiaCpiInflation?.value ?? 6.21)).toFixed(2)}%). CCIL TREPS WAR at ${(brief.ccilFixedIncome?.treps?.weightedAverageRate ?? 6.42).toFixed(2)}%.`,
 					},
 					{
 						sector: "Commodities & Energy (MCX / CMX)",
@@ -846,9 +846,9 @@ export class KnowledgeHubService {
 					yieldCurveAnalysis: {
 						slope: "Normal Upward",
 						tenor10Y_minus_2Y_bps: 28,
-						realYield10Y: parseFloat(((brief.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? brief.ccilFixedIncome?.tenYearGSecYield ?? 6.79) - (brief.macroIndicators?.indiaCpiInflation?.value ?? 5.49)).toFixed(2)),
+						realYield10Y: parseFloat(((brief.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? brief.ccilFixedIncome?.tenYearGSecYield ?? 6.79) - (brief.macroIndicators?.indiaCpiInflation?.value ?? 6.21)).toFixed(2)),
 						commentary:
-							`Sovereign yield curve exhibits a normal upward slope. Real yield of +${parseFloat(((brief.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? brief.ccilFixedIncome?.tenYearGSecYield ?? 6.79) - (brief.macroIndicators?.indiaCpiInflation?.value ?? 5.49)).toFixed(2))}% offers robust buffer against macro volatility.`,
+							`Sovereign yield curve exhibits a normal upward slope. Real yield of +${parseFloat(((brief.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? brief.ccilFixedIncome?.tenYearGSecYield ?? 6.79) - (brief.macroIndicators?.indiaCpiInflation?.value ?? 6.21)).toFixed(2))}% offers buffer against macro volatility.`,
 					},
 					sdlSpreadBps: 38,
 					forexSpot: {
@@ -1108,7 +1108,7 @@ export class KnowledgeHubService {
 						recommendedCategory: "Target Maturity Gilt & Corporate Bond Funds",
 						sovereignCurveStance: "Neutral to Long Duration",
 						rationale:
-							`With 10Y benchmark G-Sec yielding ${brief.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? brief.ccilFixedIncome?.tenYearGSecYield ?? 6.79}% and real yields at +${((brief.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? brief.ccilFixedIncome?.tenYearGSecYield ?? 6.79) - (brief.macroIndicators?.indiaCpiInflation?.value ?? 5.49)).toFixed(2)}%, intermediate duration captures attractive carry with capital appreciation upside upon systemic policy rate easing.`,
+							`With 10Y benchmark G-Sec yielding ${brief.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? brief.ccilFixedIncome?.tenYearGSecYield ?? 6.79}% and real yields at +${((brief.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? brief.ccilFixedIncome?.tenYearGSecYield ?? 6.79) - (brief.macroIndicators?.indiaCpiInflation?.value ?? 6.21)).toFixed(2)}%, intermediate duration captures attractive carry with capital appreciation upside upon systemic policy rate easing.`,
 					},
 					thematicRotations: [
 						{
@@ -1286,8 +1286,12 @@ export class KnowledgeHubService {
 		const us10Y = goldenSnapshot?.fixedIncome?.us10YTreasury ?? 4.58;
 		const us2Y = goldenSnapshot?.fixedIncome?.us2YTreasury ?? 3.98;
 
+		const liveCpiNum = Number(goldenSnapshot?.macroIndicators?.indiaCpiInflation?.value ?? 6.21);
+		const gsecNum = Number(gsecYieldStr);
+		const realYieldStr = `${gsecNum - liveCpiNum >= 0 ? "+" : ""}${(gsecNum - liveCpiNum).toFixed(2)}%`;
+
 		let marketSnapshot = isIndia
-			? `Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at ${gsecYieldStr}%, backed by CCIL sovereign clearing, offering attractive +${(gsecYieldStr - 5.49).toFixed(2)}% real yield over CPI (5.49%). CCIL TREPS overnight funding rate printed at ${trepsRateStr}%, reflecting balanced systemic money market liquidity. Brent crude traded at ${brentStr}${isElevatedB ? ", remaining elevated above India's $80 comfort threshold and keeping imported inflation risks active" : " in the domestic comfort band"}.`
+			? `Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at ${gsecYieldStr}%, backed by CCIL sovereign clearing, offering ${realYieldStr} real yield over CPI (${liveCpiNum.toFixed(2)}%). CCIL TREPS overnight funding rate printed at ${trepsRateStr}%, reflecting balanced systemic money market liquidity. Brent crude traded at ${brentStr}${isElevatedB ? ", remaining elevated above India's $80 comfort threshold and keeping imported inflation risks active" : " in the domestic comfort band"}.`
 			: `US equity benchmarks traded with ${sp500.changePercent >= 0 ? "constructive" : "measured"} momentum today. The S&P 500 Index stood at ${sp500.price.toLocaleString("en-US")} (${sp500.changePercent >= 0 ? "+" : ""}${sp500.changePercent}%), while the tech-heavy Nasdaq 100 traded at ${nasdaq.price.toLocaleString("en-US")} (${nasdaq.changePercent >= 0 ? "+" : ""}${nasdaq.changePercent}%), driven by hyperscaler AI datacenter capex and megacap earnings resilience. The Dow Jones Industrial Average consolidated at ${dow.price.toLocaleString("en-US")} (${dow.changePercent >= 0 ? "+" : ""}${dow.changePercent}%). In fixed income, the benchmark 10-year US Treasury yield stood at ${us10Y}%, maintaining an upward term spread over the 2-Year Treasury (${us2Y}%). The USD/INR conversion rate hovered at ₹${usdInr}, providing strong wealth preservation and currency translation tailwinds for Indian investors allocating overseas via RBI LRS.`;
 
 		// Fetch live Indian indices for realistic market snapshot
@@ -1306,7 +1310,7 @@ export class KnowledgeHubService {
 						const sensexPts = `${Math.abs(sensex.netChange).toFixed(1)} pts (${sensex.percentChange >= 0 ? "+" : ""}${sensex.percentChange.toFixed(2)}%) to ${sensex.price.toLocaleString("en-IN")}`;
 						const bankStr = bankNifty ? ` Nifty Bank traded at ${bankNifty.price.toLocaleString("en-IN")} (${bankNifty.percentChange >= 0 ? "+" : ""}${bankNifty.percentChange.toFixed(2)}%).` : "";
 
-						marketSnapshot = `Indian equity benchmarks traded with ${nifty.netChange >= 0 ? "positive" : "defensive"} momentum today. Frontline index Nifty 50 ${niftyDir} ${niftyPts}, while the 30-share BSE Sensex consolidated, ${sensexDir} ${sensexPts}.${bankStr} The benchmark 10-year Indian Government Bond (G-Sec) yield hovered near ${gsecYieldStr}%, backed by CCIL sovereign clearing, offering resilient real yield spreads (+${(gsecYieldStr - 5.49).toFixed(2)}% over CPI). CCIL TREPS overnight weighted average rate printed at ${trepsRateStr}%, signaling comfortable money market liquidity. Brent crude traded at ${brentStr}, anchoring imported inflation expectations. Domestic institutional inflows (DIIs) provided strong underlying liquidity support through ongoing mutual fund SIP commitments (~₹26,000+ Cr monthly run-rate).`;
+						marketSnapshot = `Indian equity benchmarks traded with ${nifty.netChange >= 0 ? "positive" : "defensive"} momentum today. Frontline index Nifty 50 ${niftyDir} ${niftyPts}, while the 30-share BSE Sensex consolidated, ${sensexDir} ${sensexPts}.${bankStr} The benchmark 10-year Indian Government Bond (G-Sec) yield hovered near ${gsecYieldStr}%, backed by CCIL sovereign clearing, offering resilient real yield spreads (${realYieldStr} over CPI). CCIL TREPS overnight weighted average rate printed at ${trepsRateStr}%, signaling comfortable money market liquidity. Brent crude traded at ${brentStr}, anchoring imported inflation expectations. Domestic institutional inflows (DIIs) provided strong underlying liquidity support through ongoing mutual fund SIP commitments (~₹26,000+ Cr monthly run-rate).`;
 					}
 				}
 			} catch (idxErr: any) {
@@ -1484,7 +1488,7 @@ export class KnowledgeHubService {
 		const nasdaq = { price: 20380.0, changePercent: 1.12 };
 		const goldenSnapshot: any = {
 			currencies: { dxy: 104.25, usdInr: 94.8606 },
-			macroIndicators: { indiaCpiInflation: { value: 5.49 } },
+			macroIndicators: { indiaCpiInflation: { value: 6.21, unit: "% YoY", period: "Oct 2024", source: "MoSPI", status: "Above RBI 6% Upper Band" } },
 			fixedIncome: { bund10YYield: 2.35, gilt10YYield: 4.25 },
 		};
 

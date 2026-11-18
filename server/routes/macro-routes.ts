@@ -187,10 +187,10 @@ export function registerMacroRoutes(app: Express): void {
 						formula: "10Y Benchmark G-Sec Yield (%) - India CPI Inflation YoY (%)",
 						inputs: {
 							"10Y Benchmark G-Sec": "6.79%",
-							"India CPI Inflation (YoY)": "5.49%",
+							"India CPI Inflation (YoY)": "6.21%",
 						},
-						intermediateSteps: "6.79% - 5.49% = +1.30%",
-						output: "+1.30%",
+						intermediateSteps: "6.79% - 6.21% = +0.58%",
+						output: "+0.58%",
 						benchmarkSource: "CCIL Sovereign Debt Desk & MoSPI",
 						status: "EXACT_MATCH",
 					},

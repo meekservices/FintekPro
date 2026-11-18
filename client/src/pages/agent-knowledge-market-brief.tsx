@@ -551,8 +551,8 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					yieldCurveAnalysis: {
 						tenor10Y_minus_2Y_bps: 28,
 						slope: "Normal Upward",
-						realYield10Y: 1.30,
-						commentary: "Sovereign yield curve reflects normal upward slope (+28 bps 10Y–2Y spread). Real yield of +1.30% over CPI provides attractive carry.",
+						realYield10Y: 0.58,
+						commentary: "Sovereign yield curve reflects normal upward slope (+28 bps 10Y–2Y spread). Real yield of +0.58% over CPI provides positive carry buffer.",
 					},
 					sdlSpreadBps: 38,
 					forexSpot: {
@@ -1272,7 +1272,7 @@ export default function AgentKnowledgeMarketBrief() {
 				brief.fbil?.trepsOvernightWAR,
 			6.42,
 		);
-		const liveCpi = safeNum(brief.macroIndicators?.indiaCpiInflation?.value, 5.49);
+		const liveCpi = safeNum(brief.macroIndicators?.indiaCpiInflation?.value, 6.21);
 		const realYieldVal = parseFloat((liveGSec - liveCpi).toFixed(2));
 		const isElevatedB = liveBrent > 80;
 
@@ -1557,7 +1557,7 @@ export default function AgentKnowledgeMarketBrief() {
 				briefToDisplay.fbil?.gsec10YBenchmark,
 			6.79,
 		);
-		const liveCpi = safeNum(briefToDisplay.macroIndicators?.indiaCpiInflation?.value, 5.49);
+		const liveCpi = safeNum(briefToDisplay.macroIndicators?.indiaCpiInflation?.value, 6.21);
 		const realYieldStr = (liveGSec - liveCpi >= 0 ? "+" : "") + (liveGSec - liveCpi).toFixed(2);
 		const liveTreps = safeNum(
 			briefToDisplay.ccilFixedIncome?.treps?.weightedAverageRate ??
@@ -1948,14 +1948,24 @@ export default function AgentKnowledgeMarketBrief() {
 							<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 p-3.5 bg-muted/40 dark:bg-muted/20 border rounded-xl text-xs">
 								<div className="flex flex-col">
 									<span className="text-muted-foreground font-medium flex items-center gap-1">
-										<Activity className="h-3 w-3 text-emerald-500" />
+										<Activity className={`h-3 w-3 ${safeNum(briefToDisplay.macroIndicators?.indiaCpiInflation?.value, 6.21) > 6.0 ? "text-amber-500" : "text-emerald-500"}`} />
 										India CPI Inflation
 									</span>
 									<span className="text-sm font-bold text-foreground">
-										{briefToDisplay.macroIndicators?.indiaCpiInflation?.value ?? 5.49}%{" "}
+										{safeNum(briefToDisplay.macroIndicators?.indiaCpiInflation?.value, 6.21)}%{" "}
 										<span className="text-[10px] font-normal text-muted-foreground">YoY</span>
 									</span>
-									<span className="text-[10px] text-emerald-600 dark:text-emerald-400">Within 4±2% Band</span>
+									<span className={`text-[10px] font-medium ${
+										safeNum(briefToDisplay.macroIndicators?.indiaCpiInflation?.value, 6.21) > 6.0
+											? "text-amber-600 dark:text-amber-400"
+											: "text-emerald-600 dark:text-emerald-400"
+									}`}>
+										{briefToDisplay.macroIndicators?.indiaCpiInflation?.status ||
+											(safeNum(briefToDisplay.macroIndicators?.indiaCpiInflation?.value, 6.21) > 6.0
+												? "Above RBI 6% Band"
+												: "Within 4±2% Band")}
+										{briefToDisplay.macroIndicators?.indiaCpiInflation?.period ? ` (${briefToDisplay.macroIndicators.indiaCpiInflation.period})` : " (Oct 2024)"}
+									</span>
 								</div>
 								<div className="flex flex-col">
 									<span className="text-muted-foreground font-medium flex items-center gap-1">
@@ -1963,14 +1973,14 @@ export default function AgentKnowledgeMarketBrief() {
 										10Y Real Yield
 									</span>
 									<span className={`text-sm font-bold ${
-										(safeNum(briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent, 6.79) - safeNum(briefToDisplay.macroIndicators?.indiaCpiInflation?.value, 5.49)) >= 0
+										(safeNum(briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent, 6.79) - safeNum(briefToDisplay.macroIndicators?.indiaCpiInflation?.value, 6.21)) >= 0
 											? "text-emerald-600 dark:text-emerald-400"
 											: "text-rose-600 dark:text-rose-400"
 									}`}>
-										{((safeNum(briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent, 6.79) - safeNum(briefToDisplay.macroIndicators?.indiaCpiInflation?.value, 5.49)) >= 0 ? "+" : "") +
-											(safeNum(briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent, 6.79) - safeNum(briefToDisplay.macroIndicators?.indiaCpiInflation?.value, 5.49)).toFixed(2)}%
+										{((safeNum(briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent, 6.79) - safeNum(briefToDisplay.macroIndicators?.indiaCpiInflation?.value, 6.21)) >= 0 ? "+" : "") +
+											(safeNum(briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent, 6.79) - safeNum(briefToDisplay.macroIndicators?.indiaCpiInflation?.value, 6.21)).toFixed(2)}%
 									</span>
-									<span className="text-[10px] text-muted-foreground">Spread Over CPI</span>
+									<span className="text-[10px] text-muted-foreground">Spread Over CPI (MoSPI)</span>
 								</div>
 								<div className="flex flex-col">
 									<span className="text-muted-foreground font-medium flex items-center gap-1">
@@ -2649,10 +2659,8 @@ export default function AgentKnowledgeMarketBrief() {
 											<div className="flex items-center justify-between">
 												<span className="text-xs text-muted-foreground font-medium">10Y Benchmark G-Sec</span>
 												<Badge className="text-[10px] bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800 font-semibold">
-													Real: +{safeNum(
-														briefToDisplay.ccilFixedIncome.yieldCurveAnalysis?.realYield10Y,
-														parseFloat(((briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? 6.79) - (briefToDisplay.macroIndicators?.indiaCpiInflation?.value ?? 5.49)).toFixed(2))
-													)}%
+													Real: {((safeNum(briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent, 6.79) - safeNum(briefToDisplay.macroIndicators?.indiaCpiInflation?.value, 6.21)) >= 0 ? "+" : "") +
+														(safeNum(briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent, 6.79) - safeNum(briefToDisplay.macroIndicators?.indiaCpiInflation?.value, 6.21)).toFixed(2)}%
 												</Badge>
 											</div>
 											<div className="mt-1 flex items-baseline gap-2">

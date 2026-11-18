@@ -2299,7 +2299,18 @@ export async function syncMacroAndMarketBriefPrices(
 		logger.debug(`[GoldenPricing] FBIL benchmark sync notice: ${fErr?.message}`);
 	}
 
-	const indiaCpi = 5.49; // MoSPI Headline Consumer Price Index YoY %
+	let cpiReport: any = null;
+	try {
+		const { indiaCpiService } = await import("../macro/india-cpi-service");
+		cpiReport = await indiaCpiService.getLatestCpiReport(
+			fbilData?.gsec10YYield ?? ccilData?.sovereignYields?.[0]?.yieldPercent ?? 6.79,
+			6.50
+		);
+	} catch (cpiErr: any) {
+		logger.debug(`[GoldenPricing] India CPI service fetch notice: ${cpiErr?.message}`);
+	}
+
+	const indiaCpi = cpiReport?.headlineCpi ?? 6.21; // MoSPI Headline Consumer Price Index YoY % (Latest: Oct 2024 = 6.21%)
 	const usCpi = 2.40; // US BLS CPI YoY %
 	const rbiRepo = 6.50; // RBI MPC Benchmark Policy Repo Rate %
 	const usFedFunds = fredData?.fedFundsRate?.rate ?? 4.38; // US Federal Reserve Target Rate % (FRED DFF)
@@ -2440,7 +2451,8 @@ export async function syncMacroAndMarketBriefPrices(
 		metadata: Record<string, unknown>;
 	}> = [
 		// Macro
-		{ isin: "MACRO_IN_CPI", symbol: "CPI_IN", assetClass: "macro", price: indiaCpi, source: "MOSPI_MACRO", confidence: 99, currency: "INR", metadata: { indicator: "India CPI Inflation", unit: "% YoY", source: "MoSPI / RBI", status: "Active Benchmark" } },
+		{ isin: "MACRO_IN_CPI", symbol: "CPI_IN", assetClass: "macro", price: indiaCpi, source: "MOSPI_MACRO", confidence: 99, currency: "INR", metadata: { indicator: "India CPI Inflation", period: cpiReport?.period ?? "October 2024", unit: "% YoY", source: "MoSPI (NSO)", status: cpiReport?.statusBadge ?? (indiaCpi > 6.0 ? "Above RBI 6% Upper Band" : "Within RBI 4±2% Tolerance") } },
+		{ isin: "MACRO_INDIA_CPI", symbol: "CPI_IN", assetClass: "macro", price: indiaCpi, source: "MOSPI_MACRO", confidence: 99, currency: "INR", metadata: { indicator: "India CPI Inflation", period: cpiReport?.period ?? "October 2024", unit: "% YoY", source: "MoSPI (NSO)", status: cpiReport?.statusBadge ?? (indiaCpi > 6.0 ? "Above RBI 6% Upper Band" : "Within RBI 4±2% Tolerance") } },
 		{ isin: "MACRO_US_CPI", symbol: "CPI_US", assetClass: "macro", price: usCpi, source: "MOSPI_MACRO", confidence: 99, currency: "USD", metadata: { indicator: "US CPI Inflation", unit: "% YoY", source: "US BLS" } },
 		{ isin: "MACRO_IN_REPO", symbol: "REPO_RATE", assetClass: "rate", price: rbiRepo, source: "RBI_POLICY", confidence: 99, currency: "INR", metadata: { indicator: "RBI Benchmark Policy Repo Rate", unit: "%", source: "Reserve Bank of India" } },
 		{ isin: "MACRO_US_FED", symbol: "FED_FUNDS", assetClass: "rate", price: usFedFunds, source: "RBI_POLICY", confidence: 99, currency: "USD", metadata: { indicator: "US Federal Funds Rate Target", unit: "%", source: "Federal Reserve" } },
@@ -2653,7 +2665,13 @@ export async function syncMacroAndMarketBriefPrices(
 		asOfDate: today,
 		timestamp,
 		macroIndicators: {
-			indiaCpiInflation: { value: indiaCpi, unit: "% YoY", period: "Latest Official", source: "MoSPI", status: "Within RBI 4±2% Tolerance" },
+			indiaCpiInflation: {
+				value: indiaCpi,
+				unit: "% YoY",
+				period: cpiReport?.periodShort ?? "Oct 2024",
+				source: "MoSPI (NSO)",
+				status: cpiReport?.statusBadge ?? (indiaCpi > 6.0 ? "Above RBI 6% Upper Band" : "Within RBI 4±2% Tolerance"),
+			},
 			usCpiInflation: { value: usCpi, unit: "% YoY", period: "Latest Official", source: "US BLS", status: "Consolidating" },
 			rbiRepoRate: { value: rbiRepo, unit: "%", period: "Active MPC Stance", source: "RBI" },
 			usFedFundsRate: { value: usFedFunds, unit: "%", period: "Active FOMC", source: "Federal Reserve" },
@@ -2981,7 +2999,13 @@ async function buildSnapshotFromDBRows(): Promise<DailyMarketBriefSnapshot | nul
 		asOfDate: today,
 		timestamp,
 		macroIndicators: {
-			indiaCpiInflation: { value: getPrice("MACRO_INDIA_CPI", 5.49), unit: "% YoY", period: "Latest Official", source: "MoSPI (DB cache)", status: "Within RBI 4±2% Tolerance" },
+			indiaCpiInflation: {
+				value: getPrice("MACRO_IN_CPI", getPrice("MACRO_INDIA_CPI", 6.21)),
+				unit: "% YoY",
+				period: "Oct 2024",
+				source: "MoSPI (DB cache)",
+				status: getPrice("MACRO_IN_CPI", getPrice("MACRO_INDIA_CPI", 6.21)) > 6.0 ? "Above RBI 6% Upper Band" : "Within RBI 4±2% Tolerance",
+			},
 			usCpiInflation: { value: getPrice("MACRO_US_CPI", 3.2), unit: "% YoY", period: "Latest Official", source: "US BLS (DB cache)", status: "Consolidating" },
 			rbiRepoRate: { value: getPrice("MACRO_RBI_REPO", 6.5), unit: "%", period: "Active MPC Stance", source: "RBI (DB cache)" },
 			usFedFundsRate: { value: getPrice("MACRO_FED_FUNDS", 5.25), unit: "%", period: "Active FOMC", source: "Federal Reserve (DB cache)" },
@@ -3074,7 +3098,7 @@ async function buildSnapshotFromDBRows(): Promise<DailyMarketBriefSnapshot | nul
 			gsec10YYield: getPrice("YIELD_IN_10Y", 7.1),
 			gsec5YYield: getPrice("YIELD_IN_10Y", 7.1) - 0.08,
 			trepsWar: 6.48,
-			realYield10Y: Math.round((getPrice("YIELD_IN_10Y", 7.1) - getPrice("MACRO_INDIA_CPI", 5.49)) * 100) / 100,
+			realYield10Y: Math.round((getPrice("YIELD_IN_10Y", 6.79) - getPrice("MACRO_IN_CPI", getPrice("MACRO_INDIA_CPI", 6.21))) * 100) / 100,
 			us10YYield: getPrice("YIELD_US_10Y", 4.35),
 			us2YYield: getPrice("YIELD_US_2Y", 4.65),
 			dxy: getPrice("DXY_INDEX") || getPrice("FX_DXY", 104.2),

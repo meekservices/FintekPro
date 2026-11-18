@@ -225,7 +225,20 @@ export class DomesticMarketIntelligenceEngine {
     }
 
     const repoRate = 6.50; // Current RBI policy repo rate
-    const cpiInflation = 5.49; // Domestic CPI inflation benchmark
+    let cpiInflation = 6.21; // Domestic CPI inflation benchmark (Latest MoSPI release: Oct 2024 = 6.21%)
+    try {
+      const { indiaCpiService } = await import("./india-cpi-service");
+      const cpiReport = await indiaCpiService.getLatestCpiReport(
+        ccilData?.sovereignYields?.find((y) => y.tenor === "10Y")?.yieldPercent ?? 6.79,
+        repoRate
+      );
+      if (cpiReport?.headlineCpi && cpiReport.headlineCpi > 0) {
+        cpiInflation = cpiReport.headlineCpi;
+      }
+    } catch (cpiErr: any) {
+      logger.debug("[DMIE] India CPI service fetch fallback:", { error: cpiErr?.message });
+    }
+
     const coreInflation = 4.10; // Domestic Core CPI
     const gsec10YYield = ccilData?.sovereignYields?.find((y) => y.tenor === "10Y")?.yieldPercent ?? 6.79;
     const gsec2YYield = ccilData?.sovereignYields?.find((y) => y.tenor === "2Y")?.yieldPercent ?? 6.55;

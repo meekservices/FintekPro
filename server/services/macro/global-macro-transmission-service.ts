@@ -305,8 +305,9 @@ export class GlobalMacroTransmissionService {
 		// Real Yield over Domestic CPI: Nominal 10Y G-Sec Yield minus Domestic CPI Inflation Rate
 		const indiaCpi =
 			historicalPrices["MACRO_IN_CPI"] ??
+			historicalPrices["MACRO_INDIA_CPI"] ??
 			goldenSnapshot?.macroIndicators?.indiaCpiInflation?.value ??
-			5.49;
+			6.21;
 		const realYield10Y = Math.round((gsecYield - indiaCpi) * 100) / 100;
 		const pillar3: PillarScore = {
 			pillarId: "P3_SOVEREIGN_SPREAD",

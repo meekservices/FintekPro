@@ -182,10 +182,10 @@ const BASELINE_CCIL_DATA: CcilMoneyMarketSnapshot = {
   yieldCurveAnalysis: {
     tenor10Y_minus_2Y_bps: 28, // 6.79 - 6.51 = 28 bps
     slope: "Normal Upward",
-    realYield10Y: 1.30, // 6.79 - 5.49 (India CPI Inflation)
-    cpiInflationAssumed: 5.49,
+    realYield10Y: 0.58, // 6.79 - 6.21 (India CPI Inflation Oct 2024 print)
+    cpiInflationAssumed: 6.21,
     commentary:
-      "Sovereign yield curve reflects normal upward slope (+28 bps 10Y–2Y spread). Benchmark 10Y real yield at +1.30% over CPI provides attractive carry, while sovereign spread of +259 bps over US 10Y UST anchors domestic debt ballast.",
+      "Sovereign yield curve reflects normal upward slope (+28 bps 10Y–2Y spread). Benchmark 10Y real yield at +0.58% over CPI provides positive carry buffer, while sovereign spread of +259 bps over US 10Y UST anchors domestic debt ballast.",
   },
   sdlSpreadBps: 38, // State Development Loans offering ~7.17% (38 bps over 10Y G-Sec)
   forexSpot: {

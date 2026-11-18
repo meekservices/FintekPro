@@ -116,6 +116,15 @@ export function initializeMarketBriefEodCron(): void {
 
 	// ─── 4. Non-blocking Boot Backfill & Sentinel Initial Sweep ───────────────
 	Promise.resolve().then(async () => {
+		// Initial India CPI Inflation sync & persistence on boot
+		try {
+			const { indiaCpiService } = await import("../services/macro/india-cpi-service");
+			await indiaCpiService.syncAndPersistCpi();
+			logger.info("[MarketBriefEodCron] 🇮🇳 Verified and seeded official MoSPI CPI benchmark");
+		} catch (cErr: any) {
+			logger.warn(`[MarketBriefEodCron] Boot CPI sync notice: ${cErr?.message}`);
+		}
+
 		try {
 			const { knowledgeHubService } = await import("../services/knowledge-hub-service");
 			const existingBriefs = await knowledgeHubService.getMarketBriefs({ region: "india", limit: 10 });
@@ -165,5 +174,21 @@ export function initializeMarketBriefEodCron(): void {
 		timezone: "Asia/Kolkata",
 	});
 
-	logger.info("📅 [MarketBriefEodCron] Automated EOD schedulers & 24/7 Auto-Heal Sentinel active");
+	// ─── 7. MoSPI Monthly CPI Release Ingestion (12th of every month at 18:00 IST) ──
+	// MoSPI releases official CPI data on the 12th of each month at 17:30 IST
+	cron.schedule("0 18 12 * *", async () => {
+		try {
+			logger.info("[MarketBriefEodCron] ⏰ Triggered MoSPI Monthly CPI release ingestion (12th at 18:00 IST)");
+			const { indiaCpiService } = await import("../services/macro/india-cpi-service");
+			await indiaCpiService.syncAndPersistCpi();
+			// Re-run India brief to hydrate new CPI print into market_briefs
+			await runMarketBriefEodJob("india");
+		} catch (cpiErr: any) {
+			logger.error(`[MarketBriefEodCron] Monthly CPI ingestion error: ${cpiErr?.message}`);
+		}
+	}, {
+		timezone: "Asia/Kolkata",
+	});
+
+	logger.info("📅 [MarketBriefEodCron] Automated EOD schedulers, monthly CPI ingestion & 24/7 Auto-Heal Sentinel active");
 }

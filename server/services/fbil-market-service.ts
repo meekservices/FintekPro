@@ -79,8 +79,8 @@ const BASELINE_FBIL_DATA: FbilBenchmarkData = {
 	gsec5YYield: 6.64,
 	trepsOvernightWAR: 6.42,
 	trepsVolumeCr: 485200,
-	realYield10Y: 1.30, // 6.79% - 5.49% CPI
-	cpiAssumed: 5.49,
+	realYield10Y: 0.58, // 6.79% - 6.21% CPI (MoSPI Latest)
+	cpiAssumed: 6.21,
 	tenorZcyc: [
 		{ tenor: "91D", rate: 6.54 },
 		{ tenor: "182D", rate: 6.61 },
@@ -231,7 +231,14 @@ export class FbilMarketService {
 			logger.debug(`[FbilMarketService] CCIL fetch notice: ${ccilErr?.message}`);
 		}
 
-		const cpi = 5.49;
+		let cpi = 6.21;
+		try {
+			const { indiaCpiService } = await import("./macro/india-cpi-service");
+			const cpiRep = await indiaCpiService.getLatestCpiReport(gsec10Y, 6.50);
+			if (cpiRep?.headlineCpi && cpiRep.headlineCpi > 0) cpi = cpiRep.headlineCpi;
+		} catch {
+			// fallback to 6.21
+		}
 		const realYield = Number((gsec10Y - cpi).toFixed(2));
 
 		return {
