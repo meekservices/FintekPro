@@ -476,7 +476,7 @@ export class KnowledgeHubService {
 		if (region === "global" && goldenSnapshot) {
 			const dxyLive = goldenSnapshot.currencies?.dxy ?? 104.25;
 			const dxyChgLive = goldenSnapshot.currencies?.dxyChangePercent ?? 0.08;
-			const us10YLive = goldenSnapshot.fixedIncome?.us10YTreasury ?? 4.58;
+			const us10YLive = goldenSnapshot.fixedIncome?.us10YTreasury ?? 4.42;
 			const bundLive = goldenSnapshot.fixedIncome?.bund10YYield ?? 2.35;
 			const giltLive = goldenSnapshot.fixedIncome?.gilt10YYield ?? 4.25;
 			const jgbLive = goldenSnapshot.fixedIncome?.jgb10YYield ?? 1.15;
@@ -506,8 +506,8 @@ export class KnowledgeHubService {
 		const comexGoldUsd = commodityRadar?.commodities?.find((c: any) => c.id === "GOLD")?.cmxPrice ?? goldenSnapshot?.commodities?.goldComexUsd ?? 3885.50;
 		const isElevatedCrude = brentPriceNum > 85;
 		// US fixed income dynamic values for sector highlights
-		const liveUs10Y = goldenSnapshot?.fixedIncome?.us10YTreasury ?? 4.58;
-		const liveUs2Y = goldenSnapshot?.fixedIncome?.us2YTreasury ?? 3.98;
+		const liveUs10Y = goldenSnapshot?.fixedIncome?.us10YTreasury ?? 4.42;
+		const liveUs2Y = goldenSnapshot?.fixedIncome?.us2YTreasury ?? 4.30;
 		const usTreasSpread = Math.round((liveUs10Y - liveUs2Y) * 100);
 
 		const sectorHighlights = isIndia
@@ -664,10 +664,10 @@ export class KnowledgeHubService {
 					tenYearTreasury: liveUs10Y,
 					twoYearTreasury: liveUs2Y,
 					tenYearMinusTwoYearBps: usTreasSpread,
-					fedFundsTargetRate: goldenSnapshot?.macroIndicators?.usFedFundsRate?.value != null ? `${goldenSnapshot.macroIndicators.usFedFundsRate.value}%` : "4.75% – 5.00%",
-					thirtyYearMortgageAvg: 6.55,
+					fedFundsTargetRate: goldenSnapshot?.fixedIncome?.fedFundsTargetRate ?? "4.50% – 4.75%",
+					thirtyYearMortgageAvg: goldenSnapshot?.fixedIncome?.thirtyYearMortgageAvg ?? 6.78,
 					yieldCurveSlope: usTreasSpread >= 0 ? `Normal Upward (+${usTreasSpread} bps)` : `Inverted (${usTreasSpread} bps)`,
-					commentary: `US 10-Year Treasury at ${liveUs10Y}% (${usTreasSpread >= 0 ? "+" : ""}${usTreasSpread} bps over 2Y). FOMC easing cycle adjustments expected as markets price in orderly rate adjustments. 10Y-2Y term spread indicates constructive macro conditions.`,
+					commentary: `US 10-Year Treasury at ${liveUs10Y}% (${usTreasSpread >= 0 ? "+" : ""}${usTreasSpread} bps over 2Y). FOMC easing cycle target range at 4.50% – 4.75%. 10Y-2Y term spread indicates constructive macro conditions.`,
 					source: "Federal Reserve (FRED) & US Treasury",
 				}
 			: null;
@@ -781,7 +781,7 @@ export class KnowledgeHubService {
 					{
 						sector: "Fixed Income / US Treasuries",
 						trend: "Yield Consolidation",
-						outlook: `US 10-Year Treasury at ${(brief.usFixedIncome?.tenYearTreasury ?? 4.58).toFixed(2)}% — orderly FOMC rate path adjustments priced in by markets.`,
+						outlook: `US 10-Year Treasury at ${(brief.usFixedIncome?.tenYearTreasury ?? 4.42).toFixed(2)}% — orderly FOMC rate path adjustments priced in by markets.`,
 					},
 				];
 
@@ -865,13 +865,13 @@ export class KnowledgeHubService {
 
 		const defaultUsFixedIncome = region === "us"
 			? {
-					tenYearTreasury: brief.usFixedIncome?.tenYearTreasury ?? 4.58,
-					twoYearTreasury: brief.usFixedIncome?.twoYearTreasury ?? 4.35,
-					tenYearMinusTwoYearBps: brief.usFixedIncome?.tenYearMinusTwoYearBps ?? Math.round(((brief.usFixedIncome?.tenYearTreasury ?? 4.58) - (brief.usFixedIncome?.twoYearTreasury ?? 4.35)) * 100),
-					fedFundsTargetRate: brief.usFixedIncome?.fedFundsTargetRate ?? "4.25% – 4.50%",
-					thirtyYearMortgageAvg: 6.55,
-					yieldCurveSlope: (brief.usFixedIncome?.yieldCurveSlope ?? "Normal Upward"),
-					commentary: `US 10-Year Treasury at ${brief.usFixedIncome?.tenYearTreasury ?? 4.58}% as markets price in orderly FOMC rate adjustments. 10Y-2Y term spread: ${brief.usFixedIncome?.tenYearMinusTwoYearBps ?? Math.round(((brief.usFixedIncome?.tenYearTreasury ?? 4.58) - (brief.usFixedIncome?.twoYearTreasury ?? 4.35)) * 100)} bps.`,
+					tenYearTreasury: brief.usFixedIncome?.tenYearTreasury ?? 4.42,
+					twoYearTreasury: brief.usFixedIncome?.twoYearTreasury ?? 4.30,
+					tenYearMinusTwoYearBps: brief.usFixedIncome?.tenYearMinusTwoYearBps ?? Math.round(((brief.usFixedIncome?.tenYearTreasury ?? 4.42) - (brief.usFixedIncome?.twoYearTreasury ?? 4.30)) * 100),
+					fedFundsTargetRate: brief.usFixedIncome?.fedFundsTargetRate ?? "4.50% – 4.75%",
+					thirtyYearMortgageAvg: brief.usFixedIncome?.thirtyYearMortgageAvg ?? 6.78,
+					yieldCurveSlope: (brief.usFixedIncome?.yieldCurveSlope ?? `Normal Upward (+${Math.round(((brief.usFixedIncome?.tenYearTreasury ?? 4.42) - (brief.usFixedIncome?.twoYearTreasury ?? 4.30)) * 100)} bps)`),
+					commentary: `US 10-Year Treasury at ${brief.usFixedIncome?.tenYearTreasury ?? 4.42}% as markets price in orderly FOMC rate adjustments within the 4.50% – 4.75% band. 10Y-2Y term spread: ${brief.usFixedIncome?.tenYearMinusTwoYearBps ?? Math.round(((brief.usFixedIncome?.tenYearTreasury ?? 4.42) - (brief.usFixedIncome?.twoYearTreasury ?? 4.30)) * 100)} bps.`,
 					source: "Federal Reserve (FRED) & US Treasury",
 				}
 			: null;
@@ -1283,8 +1283,8 @@ export class KnowledgeHubService {
 		const nasdaq = goldenSnapshot?.indices?.global?.find((i: any) => i.symbol === "NDX") || { price: 20380.0, changePercent: 1.12 };
 		const dow = goldenSnapshot?.indices?.global?.find((i: any) => i.symbol === "DJI") || { price: 42114.4, changePercent: 0.33 };
 		const usdInr = goldenSnapshot?.currencies?.usdInr ?? 94.8606;
-		const us10Y = goldenSnapshot?.fixedIncome?.us10YTreasury ?? 4.58;
-		const us2Y = goldenSnapshot?.fixedIncome?.us2YTreasury ?? 3.98;
+		const us10Y = goldenSnapshot?.fixedIncome?.us10YTreasury ?? 4.42;
+		const us2Y = goldenSnapshot?.fixedIncome?.us2YTreasury ?? 4.30;
 
 		const liveCpiNum = Number(goldenSnapshot?.macroIndicators?.indiaCpiInflation?.value ?? 6.21);
 		const gsecNum = Number(gsecYieldStr);
@@ -1366,10 +1366,10 @@ export class KnowledgeHubService {
 					tenYearTreasury: us10Y,
 					twoYearTreasury: us2Y,
 					tenYearMinusTwoYearBps: Math.round((us10Y - us2Y) * 100),
-					fedFundsTargetRate: "4.25% – 4.50%",
-					thirtyYearMortgageAvg: 6.55,
+					fedFundsTargetRate: goldenSnapshot?.fixedIncome?.fedFundsTargetRate ?? "4.50% – 4.75%",
+					thirtyYearMortgageAvg: goldenSnapshot?.fixedIncome?.thirtyYearMortgageAvg ?? 6.78,
 					yieldCurveSlope: Math.round((us10Y - us2Y) * 100) >= 0 ? `Normal Upward (+${Math.round((us10Y - us2Y) * 100)} bps)` : `Inverted (${Math.round((us10Y - us2Y) * 100)} bps)`,
-					commentary: `US 10-Year Treasury at ${us10Y}% (${Math.round((us10Y - us2Y) * 100) >= 0 ? "+" : ""}${Math.round((us10Y - us2Y) * 100)} bps over 2Y). FOMC easing cycle adjustments expected. as markets price in orderly FOMC rate adjustments. 10Y-2Y term spread indicates constructive macro conditions.`,
+					commentary: `US 10-Year Treasury at ${us10Y}% (${Math.round((us10Y - us2Y) * 100) >= 0 ? "+" : ""}${Math.round((us10Y - us2Y) * 100)} bps over 2Y). FOMC easing cycle target range at 4.50% – 4.75%. 10Y-2Y term spread indicates constructive macro conditions.`,
 					source: "Federal Reserve (FRED) & US Treasury",
 				}
 			: null;

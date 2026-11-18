@@ -2197,6 +2197,8 @@ export interface DailyMarketBriefSnapshot {
 		realYield10Y: number;
 		us10YTreasury: number;
 		us2YTreasury: number;
+		thirtyYearMortgageAvg?: number;
+		fedFundsTargetRate?: string;
 		yieldCurveSlope: string;
 		bund10YYield: number;
 		gilt10YYield: number;
@@ -2313,7 +2315,7 @@ export async function syncMacroAndMarketBriefPrices(
 	const indiaCpi = cpiReport?.headlineCpi ?? 6.21; // MoSPI Headline Consumer Price Index YoY % (Latest: Oct 2024 = 6.21%)
 	const usCpi = 2.40; // US BLS CPI YoY %
 	const rbiRepo = 6.50; // RBI MPC Benchmark Policy Repo Rate %
-	const usFedFunds = fredData?.fedFundsRate?.rate ?? 4.38; // US Federal Reserve Target Rate % (FRED DFF)
+	const usFedFunds = fredData?.fedFundsRate?.rate ?? 4.58; // US Federal Reserve Target Rate % (FRED DFF)
 	const indiaGdp = 6.70; // CSO / NSO Real GDP Annual Growth %
 
 	// 3. Resolve Sovereign Debt & Yields
@@ -2323,8 +2325,9 @@ export async function syncMacroAndMarketBriefPrices(
 	const fbilMibor = fbilData?.miborOvernight ?? 6.50;
 	const realYield10Y = Math.round((gsec10Y - indiaCpi) * 100) / 100;
 
-	const us10Y = fredData?.us10YTreasury?.yieldPercent ?? 4.58; // FRED DGS10 10Y Benchmark
-	const us2Y = fredData?.us2YTreasury?.yieldPercent ?? 4.35; // FRED DGS2 2Y Benchmark
+	const us10Y = fredData?.us10YTreasury?.yieldPercent ?? 4.42; // FRED DGS10 10Y Benchmark
+	const us2Y = fredData?.us2YTreasury?.yieldPercent ?? 4.30; // FRED DGS2 2Y Benchmark
+	const usMortgage30Y = fredData?.mortgage30Y?.rate ?? 6.78; // Freddie Mac PMMS 30Y Fixed (FRED MORTGAGE30US)
 	const bund10Y = 2.32;
 	const gilt10Y = 4.24;
 	const jgb10Y = 0.95;
@@ -2465,6 +2468,7 @@ export async function syncMacroAndMarketBriefPrices(
 		{ isin: "RATE_FBIL_MIBOR", symbol: "MIBOR", assetClass: "rate", price: fbilMibor, source: "FBIL_MIBOR", confidence: 99, currency: "INR", metadata: { tenor: "OVERNIGHT", source: "FBIL Overnight MIBOR" } },
 		{ isin: "YIELD_US_10Y", symbol: "US10Y", assetClass: "bond", price: us10Y, source: fredData?.us10YTreasury?.source ? `FRED_${fredData.us10YTreasury.source}` : "YIELD_CURVE", confidence: 98, currency: "USD", metadata: { tenor: "10Y", country: "US", seriesId: "DGS10", source: "Federal Reserve (FRED)" } },
 		{ isin: "YIELD_US_2Y", symbol: "US02Y", assetClass: "bond", price: us2Y, source: fredData?.us2YTreasury?.source ? `FRED_${fredData.us2YTreasury.source}` : "YIELD_CURVE", confidence: 98, currency: "USD", metadata: { tenor: "2Y", country: "US", seriesId: "DGS2", source: "Federal Reserve (FRED)" } },
+		{ isin: "RATE_US_MORTGAGE_30Y", symbol: "MORTGAGE30US", assetClass: "rate", price: usMortgage30Y, source: fredData?.mortgage30Y?.source ? `FRED_${fredData.mortgage30Y.source}` : "FRED_PMMS", confidence: 98, currency: "USD", metadata: { tenor: "30Y", country: "US", seriesId: "MORTGAGE30US", source: "Freddie Mac Primary Mortgage Market Survey" } },
 		{ isin: "YIELD_DE_10Y", symbol: "DE10Y", assetClass: "bond", price: bund10Y, source: "YIELD_CURVE", confidence: 92, currency: "EUR", metadata: { tenor: "10Y", country: "DE" } },
 		{ isin: "YIELD_GB_10Y", symbol: "GB10Y", assetClass: "bond", price: gilt10Y, source: "YIELD_CURVE", confidence: 92, currency: "GBP", metadata: { tenor: "10Y", country: "GB" } },
 		{ isin: "YIELD_JP_10Y", symbol: "JP10Y", assetClass: "bond", price: jgb10Y, source: "YIELD_CURVE", confidence: 92, currency: "JPY", metadata: { tenor: "10Y", country: "JP" } },
@@ -2767,7 +2771,9 @@ export async function syncMacroAndMarketBriefPrices(
 			realYield10Y,
 			us10YTreasury: us10Y,
 			us2YTreasury: us2Y,
-			yieldCurveSlope: "+20 bps (Normal Upward)",
+			thirtyYearMortgageAvg: usMortgage30Y,
+			fedFundsTargetRate: "4.50% – 4.75%",
+			yieldCurveSlope: `${Math.round((us10Y - us2Y) * 100) >= 0 ? "+" : ""}${Math.round((us10Y - us2Y) * 100)} bps (${Math.round((us10Y - us2Y) * 100) >= 0 ? "Normal Upward" : "Inverted"})`,
 			bund10YYield: bund10Y,
 			gilt10YYield: gilt10Y,
 			jgb10YYield: jgb10Y,

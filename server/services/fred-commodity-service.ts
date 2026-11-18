@@ -76,6 +76,13 @@ export interface FredCommoditySnapshot {
 		seriesId: string;
 		source: string;
 	};
+	mortgage30Y?: {
+		rate: number;
+		unit: string;
+		date: string;
+		seriesId: string;
+		source: string;
+	};
 	dollarIndex?: {
 		price: number;
 		unit: string;
@@ -98,9 +105,10 @@ export const FRED_SERIES = {
 	BRENT_CRUDE: { id: "DCOILBRENTEU", name: "Crude Oil Prices: Brent - Europe", unit: "USD / bbl", category: "energy" as const, fallback: 96.09 },
 	WTI_CRUDE: { id: "DCOILWTICO", name: "Crude Oil Prices: West Texas Intermediate (WTI)", unit: "USD / bbl", category: "energy" as const, fallback: 70.85 },
 	NATURAL_GAS: { id: "DHHNGSP", name: "Henry Hub Natural Gas Spot Price", unit: "USD / mmBtu", category: "energy" as const, fallback: 2.75 },
-	US_10Y: { id: "DGS10", name: "10-Year Treasury Constant Maturity Rate", unit: "%", category: "treasury" as const, fallback: 4.58 },
-	US_2Y: { id: "DGS2", name: "2-Year Treasury Constant Maturity Rate", unit: "%", category: "treasury" as const, fallback: 4.35 },
-	FED_FUNDS: { id: "DFF", name: "Federal Funds Effective Rate", unit: "%", category: "rate" as const, fallback: 4.38 },
+	US_10Y: { id: "DGS10", name: "10-Year Treasury Constant Maturity Rate", unit: "%", category: "treasury" as const, fallback: 4.42 },
+	US_2Y: { id: "DGS2", name: "2-Year Treasury Constant Maturity Rate", unit: "%", category: "treasury" as const, fallback: 4.30 },
+	FED_FUNDS: { id: "DFF", name: "Federal Funds Effective Rate", unit: "%", category: "rate" as const, fallback: 4.58 },
+	MORTGAGE_30Y: { id: "MORTGAGE30US", name: "30-Year Fixed Rate Mortgage Average in the United States", unit: "%", category: "rate" as const, fallback: 6.78 },
 	DOLLAR_INDEX: { id: "DTWEXBGS", name: "Trade Weighted U.S. Dollar Index: Broad, Goods and Services", unit: "Index", category: "rate" as const, fallback: 104.25 },
 };
 
@@ -273,13 +281,14 @@ class FredCommodityService {
 			};
 		}
 
-		const [brent, wti, natgas, us10Y, us2Y, fedFunds, dollarIndex] = await Promise.all([
+		const [brent, wti, natgas, us10Y, us2Y, fedFunds, mortgage30Y, dollarIndex] = await Promise.all([
 			this.getSeriesObservation("BRENT_CRUDE", forceRefresh),
 			this.getSeriesObservation("WTI_CRUDE", forceRefresh),
 			this.getSeriesObservation("NATURAL_GAS", forceRefresh),
 			this.getSeriesObservation("US_10Y", forceRefresh),
 			this.getSeriesObservation("US_2Y", forceRefresh),
 			this.getSeriesObservation("FED_FUNDS", forceRefresh),
+			this.getSeriesObservation("MORTGAGE_30Y", forceRefresh),
 			this.getSeriesObservation("DOLLAR_INDEX", forceRefresh),
 		]);
 
@@ -330,6 +339,13 @@ class FredCommodityService {
 				date: fedFunds.date,
 				seriesId: fedFunds.seriesId,
 				source: fedFunds.source,
+			},
+			mortgage30Y: {
+				rate: mortgage30Y.value,
+				unit: mortgage30Y.unit,
+				date: mortgage30Y.date,
+				seriesId: mortgage30Y.seriesId,
+				source: mortgage30Y.source,
 			},
 			dollarIndex: {
 				price: dollarIndex.value,

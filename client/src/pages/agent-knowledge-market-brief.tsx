@@ -568,13 +568,13 @@ function getClientFallbackBrief(region: string): MarketBrief {
 			: undefined,
 		usFixedIncome: region === "us"
 			? {
-					tenYearTreasury: 4.58,
-					twoYearTreasury: 4.35,
-					tenYearMinusTwoYearBps: 23,
-					fedFundsTargetRate: "4.25% – 4.50%",
-					thirtyYearMortgageAvg: 6.55,
-					yieldCurveSlope: "Normal Upward (+23 bps)",
-					commentary: "US 10-Year Treasury yield consolidates near 4.58% as markets price in orderly FOMC rate adjustments. 10Y-2Y term spread indicates constructive macro conditions.",
+					tenYearTreasury: 4.42,
+					twoYearTreasury: 4.30,
+					tenYearMinusTwoYearBps: 12,
+					fedFundsTargetRate: "4.50% – 4.75%",
+					thirtyYearMortgageAvg: 6.78,
+					yieldCurveSlope: "Normal Upward (+12 bps)",
+					commentary: "US 10-Year Treasury yield consolidates near 4.42% as markets price in orderly FOMC rate adjustments within the 4.50% – 4.75% band. 10Y-2Y term spread indicates constructive macro conditions.",
 					source: "Federal Reserve (FRED) & US Treasury",
 				}
 			: undefined,
@@ -2771,7 +2771,7 @@ export default function AgentKnowledgeMarketBrief() {
 											<span className="text-xs text-muted-foreground font-medium">10Y Benchmark Treasury</span>
 											<div className="mt-1 flex items-baseline gap-2">
 												<span className="text-xl font-bold font-mono text-foreground">
-													{safeNum(briefToDisplay.usFixedIncome.tenYearTreasury, 4.58)}%
+													{safeNum(briefToDisplay.usFixedIncome.tenYearTreasury, 4.42)}%
 												</span>
 											</div>
 											<p className="text-[11px] text-muted-foreground mt-1">Sovereign 10Y Reference</p>
@@ -2781,7 +2781,7 @@ export default function AgentKnowledgeMarketBrief() {
 											<span className="text-xs text-muted-foreground font-medium">2Y Treasury Yield</span>
 											<div className="mt-1 flex items-baseline gap-2">
 												<span className="text-xl font-bold font-mono text-foreground">
-													{safeNum(briefToDisplay.usFixedIncome.twoYearTreasury, 4.35)}%
+													{safeNum(briefToDisplay.usFixedIncome.twoYearTreasury, 4.30)}%
 												</span>
 											</div>
 											<p className="text-[11px] text-muted-foreground mt-1">Short-End Policy Proxy</p>
@@ -2791,7 +2791,7 @@ export default function AgentKnowledgeMarketBrief() {
 											<span className="text-xs text-muted-foreground font-medium">10Y–2Y Term Spread</span>
 											<div className="mt-1 flex items-baseline gap-2">
 												<span className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
-													+{safeNum(briefToDisplay.usFixedIncome.tenYearMinusTwoYearBps, 23)} bps
+													+{safeNum(briefToDisplay.usFixedIncome.tenYearMinusTwoYearBps, 12)} bps
 												</span>
 											</div>
 											<p className="text-[11px] text-muted-foreground mt-1">{briefToDisplay.usFixedIncome.yieldCurveSlope}</p>
@@ -2801,11 +2801,11 @@ export default function AgentKnowledgeMarketBrief() {
 											<span className="text-xs text-muted-foreground font-medium">Fed Funds Target Range</span>
 											<div className="mt-1 flex items-baseline gap-2">
 												<span className="text-sm font-bold font-mono text-foreground">
-													{briefToDisplay.usFixedIncome.fedFundsTargetRate}
+													{briefToDisplay.usFixedIncome.fedFundsTargetRate || "4.50% – 4.75%"}
 												</span>
 											</div>
 											<p className="text-[11px] text-muted-foreground mt-1">
-												30Y Mortgage Avg: {safeNum(briefToDisplay.usFixedIncome.thirtyYearMortgageAvg, 6.55)}%
+												30Y Mortgage Avg: {safeNum(briefToDisplay.usFixedIncome.thirtyYearMortgageAvg, 6.78)}%
 											</p>
 										</div>
 									</div>
