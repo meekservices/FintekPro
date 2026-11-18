@@ -341,7 +341,7 @@ const DEFAULT_GMIE_DATA: GmieReportData = {
 	macroRegime: "DOMESTIC_DECOUPLING",
 	indiaDecouplingScore: 2.72,
 	capitalFlows: {
-		date: "2026-11-13",
+		date: new Date().toISOString().split("T")[0],
 		fiiCashNetCr: 5736.55,
 		diiCashNetCr: -2253.58,
 		effectiveFlowCr: 5060.48,
@@ -1281,16 +1281,10 @@ export default function AgentKnowledgeMarketBrief() {
 			let cleaned = brief.keyRisks
 				.replace(/\{\{commodity\.brentStr\}\}/g, brentDisplay)
 				.replace(/\{\{commodity\.brentUsd\}\}/g, `$${liveBrent.toFixed(2)}/bbl`)
-				.replace(/\{\{forex\.usdInr\}\}/g, usdInrDisplay)
-				.replace(/\$74\.8\/bbl/g, brentDisplay)
-				.replace(/74\.80/g, `${liveBrent}`)
-				.replace(/74\.8/g, `${liveBrent}`)
-				.replace(/~\$74[–-](\$?)78\/bbl/g, brentDisplay)
-				.replace(/\$74[–-](\$?)78\/bbl/g, brentDisplay)
-				.replace(/Brent currently at \$[0-9.]+\/bbl/g, `Brent currently at ${brentDisplay}`)
-				.replace(/Brent currently at [0-9.]+/g, `Brent currently at ${brentDisplay}`)
-				.replace(/Brent currently \$[0-9.+/a-zA-Z]+/g, `Brent currently ${brentDisplay}`);
-			if (cleaned.startsWith("Crude oil volatility")) {
+				.replace(/\{\{commodity\.brentMcxInr\}\}/g, `₹${liveBrentMcx.toLocaleString("en-IN")}/bbl`)
+				.replace(/\{\{commodity\.goldMcx\}\}/g, goldDisplay)
+				.replace(/\{\{forex\.usdInr\}\}/g, usdInrDisplay);
+			if (cleaned.startsWith("Crude oil volatility") && isElevatedB) {
 				cleaned = cleaned.replace("Crude oil volatility", "Elevated crude oil volatility");
 			}
 			brief.keyRisks = cleaned;
@@ -1304,20 +1298,7 @@ export default function AgentKnowledgeMarketBrief() {
 				.replace(/\{\{sovereign\.trepsWar\}\}/g, `${liveTreps.toFixed(2)}%`)
 				.replace(/\{\{commodity\.goldMcx\}\}/g, goldDisplay)
 				.replace(/\{\{commodity\.brentStr\}\}/g, brentDisplay)
-				.replace(/\{\{forex\.usdInr\}\}/g, usdInrDisplay)
-				.replace(/₹1,38,419\/10g/g, goldDisplay)
-				.replace(/₹138419\/10g/g, goldDisplay)
-				.replace(/₹143703\/10g/g, goldDisplay)
-				.replace(/₹1,43,703\/10g/g, goldDisplay)
-				.replace(/\$74\.8\/bbl/g, brentDisplay)
-				.replace(/\$74\.8/g, `$${liveBrent}`)
-				.replace(/in the domestic comfort band/g, "monitored closely for imported inflation risks")
-				.replace(/within India's comfort threshold \(<\$80\/bbl\)/g, "elevated above India's comfort threshold ($80/bbl)")
-				.replace(/₹86\.85/g, usdInrDisplay)
-				.replace(/₹84\.50/g, usdInrDisplay)
-				.replace(/₹84\.5/g, usdInrDisplay)
-				.replace(/₹230\.40/g, natGasDisplay)
-				.replace(/₹231\.2/g, natGasDisplay);
+				.replace(/\{\{forex\.usdInr\}\}/g, usdInrDisplay);
 		}
 
 		// 3. Sanitize & Hydrate What Changed
@@ -1328,84 +1309,62 @@ export default function AgentKnowledgeMarketBrief() {
 				.replace(/\{\{commodity\.goldMcx\}\}/g, goldDisplay)
 				.replace(/\{\{commodity\.brentStr\}\}/g, brentDisplay)
 				.replace(/\{\{forex\.usdInr\}\}/g, usdInrDisplay)
-				.replace(/\{\{macro\.brentInflationRiskStatus\}\}/g, isElevatedB ? "monitored above India's $80 comfort threshold for imported inflation" : "within comfort band")
-				.replace(/₹1,38,419\/10g/g, goldDisplay)
-				.replace(/₹138419\/10g/g, goldDisplay)
-				.replace(/₹143703\/10g/g, goldDisplay)
-				.replace(/₹1,43,703\/10g/g, goldDisplay)
-				.replace(/Brent crude consolidated at \$[0-9.]+\/bbl[^\n]+/g, `Brent crude CFD at $${liveBrent.toFixed(2)}/bbl (MCX Spot: ₹9,115/bbl), remaining above India's $80 comfort threshold and creating imported inflation headwinds.`)
-				.replace(/\$74\.8\/bbl/g, brentDisplay)
-				.replace(/\$74\.8/g, `$${liveBrent}`)
-				.replace(/₹86\.85/g, usdInrDisplay)
-				.replace(/₹84\.50/g, usdInrDisplay)
-				.replace(/₹84\.5/g, usdInrDisplay)
-				.replace(/₹230\.40/g, natGasDisplay)
-				.replace(/₹231\.2/g, natGasDisplay);
+				.replace(/\{\{macro\.brentInflationRiskStatus\}\}/g, isElevatedB ? "monitored above India's $80 comfort threshold for imported inflation" : "within comfort band");
 		}
 
-		// 4. Enforce Single-Source-of-Truth in Sector Highlights
-		if (selectedRegion === "india") {
-			brief.sectorHighlights = [
-				{
-					sector: "Banking & Financials (Nifty Bank)",
-					trend: "Bullish",
-					outlook: "Expanding credit growth (+14% YoY), benign credit costs, and resilient net interest margins (NIMs).",
-				},
-				{
-					sector: "Fixed Income & CCIL Sovereign Debt",
-					trend: "Stable / Attractive",
-					outlook: `10-Year Benchmark G-Sec yield consolidated at ${liveGSec.toFixed(2)}% (Real Yield: +${realYieldVal.toFixed(2)}% over CPI). CCIL TREPS WAR steady at ${liveTreps.toFixed(2)}%.`,
-				},
-				{
-					sector: "Commodities & Energy (MCX / CMX)",
-					trend: isElevatedB ? "Elevated Input Pressure" : "Benign Comfort Band",
-					outlook: `Brent Crude CFD at $${liveBrent.toFixed(2)}/bbl (MCX Spot: ₹9,115/bbl) ${isElevatedB ? "monitored above India's $80 comfort threshold for imported inflation" : "within comfort band"}; MCX Natural Gas at ${natGasDisplay}; MCX Gold at ₹1,41,255/10g (COMEX: $3,885.50/oz).`,
-				},
-				{
-					sector: "Information Technology (Nifty IT)",
-					trend: "Neutral to Positive",
-					outlook: "Cloud modernization and enterprise AI mandates underpinning multi-year pipeline deals.",
-				},
-				{
-					sector: "Automobile & Auto Ancillary",
-					trend: "Positive",
-					outlook: "Healthy festive dispatch bookings, premium SUV product mix, and moderating input commodity costs.",
-				},
-			];
-		} else if (brief.sectorHighlights && Array.isArray(brief.sectorHighlights)) {
-			brief.sectorHighlights = brief.sectorHighlights.map((sh) => ({
-				...sh,
-				outlook: typeof sh.outlook === "string"
-					? sh.outlook
-							.replace(/₹1,38,419\/10g/g, goldDisplay)
-							.replace(/₹138419\/10g/g, goldDisplay)
-							.replace(/within India comfort band monitoring/g, "monitored for imported inflation headwind")
-							.replace(/\$74\.8\/bbl/g, brentDisplay)
-					: sh.outlook,
-			}));
+		// 4. Sector Highlights: preserve server-hydrated canonical highlights if present
+		if (!brief.sectorHighlights || !Array.isArray(brief.sectorHighlights) || brief.sectorHighlights.length === 0) {
+			if (selectedRegion === "india") {
+				brief.sectorHighlights = [
+					{
+						sector: "Banking & Financials (Nifty Bank)",
+						trend: "Bullish",
+						outlook: "Expanding credit growth (+14% YoY), benign credit costs, and resilient net interest margins (NIMs).",
+					},
+					{
+						sector: "Fixed Income & CCIL Sovereign Debt",
+						trend: "Stable / Attractive",
+						outlook: `10-Year Benchmark G-Sec yield consolidated at ${liveGSec.toFixed(2)}% (Real Yield: +${realYieldVal.toFixed(2)}% over CPI). CCIL TREPS WAR steady at ${liveTreps.toFixed(2)}%.`,
+					},
+					{
+						sector: "Commodities & Energy (MCX / CMX)",
+						trend: isElevatedB ? "Elevated Input Pressure" : "Benign Comfort Band",
+						outlook: `Brent Crude CFD at $${liveBrent.toFixed(2)}/bbl (MCX Spot: ₹${liveBrentMcx.toLocaleString("en-IN")}/bbl) ${isElevatedB ? "monitored above India's $80 comfort threshold for imported inflation" : "within comfort band"}; MCX Natural Gas at ${natGasDisplay}; MCX Gold at ${goldDisplay}.`,
+					},
+					{
+						sector: "Information Technology (Nifty IT)",
+						trend: "Neutral to Positive",
+						outlook: "Cloud modernization and enterprise AI mandates underpinning multi-year pipeline deals.",
+					},
+					{
+						sector: "Automobile & Auto Ancillary",
+						trend: "Positive",
+						outlook: "Healthy festive dispatch bookings, premium SUV product mix, and moderating input commodity costs.",
+					},
+				];
+			}
 		}
 
-		// 5. Enforce single-source-of-truth spot prices in Commodity Radar
+		// 5. Commodity Radar: preserve dynamic live quotes, only use fallback if missing or zero
 		if (brief.commodityRadar?.commodities && Array.isArray(brief.commodityRadar.commodities)) {
+			const fallbackMap: Record<string, { name: string; mcxPrice: number; cmxPrice: number }> = {
+				GOLD: { name: "Gold 24K (MCX Spot)", mcxPrice: 141255, cmxPrice: 3885.50 },
+				SILVER: { name: "Silver (MCX Spot)", mcxPrice: 187200, cmxPrice: 48.50 },
+				CRUDE_OIL: { name: "Crude Oil (Brent / MCX Spot)", mcxPrice: 9115, cmxPrice: 96.09 },
+				NATURAL_GAS: { name: "Natural Gas (MCX Spot)", mcxPrice: 274.60, cmxPrice: 2.75 },
+				COPPER: { name: "Copper (MCX Spot)", mcxPrice: 1376.50, cmxPrice: 4.35 },
+			};
+
 			brief.commodityRadar = {
 				...brief.commodityRadar,
 				commodities: brief.commodityRadar.commodities.map((item) => {
-					if (item.id === "GOLD") {
-						return { ...item, name: "Gold 24K (MCX Spot)", mcxPrice: 141255, cmxPrice: 3885.50 };
-					}
-					if (item.id === "SILVER") {
-						return { ...item, name: "Silver (MCX Spot)", mcxPrice: 187200, cmxPrice: 48.50 };
-					}
-					if (item.id === "CRUDE_OIL") {
-						return { ...item, name: "Crude Oil (Brent / MCX Spot)", mcxPrice: 9115, cmxPrice: 96.09 };
-					}
-					if (item.id === "NATURAL_GAS") {
-						return { ...item, name: "Natural Gas (MCX Spot)", mcxPrice: 274.60, cmxPrice: 2.75 };
-					}
-					if (item.id === "COPPER") {
-						return { ...item, name: "Copper (MCX Spot)", mcxPrice: 1376.50, cmxPrice: 4.35 };
-					}
-					return item;
+					const fb = fallbackMap[item.id];
+					return {
+						...item,
+						name: item.name || fb?.name || item.name,
+						mcxPrice: safeNum(item.mcxPrice, fb?.mcxPrice ?? 0),
+						cmxPrice: safeNum(item.cmxPrice, fb?.cmxPrice ?? 0),
+					};
 				}),
 			};
 		}
@@ -1598,12 +1557,37 @@ export default function AgentKnowledgeMarketBrief() {
 				briefToDisplay.fbil?.gsec10YBenchmark,
 			6.79,
 		);
+		const liveCpi = safeNum(briefToDisplay.macroIndicators?.indiaCpiInflation?.value, 5.49);
+		const realYieldStr = (liveGSec - liveCpi >= 0 ? "+" : "") + (liveGSec - liveCpi).toFixed(2);
+		const liveTreps = safeNum(
+			briefToDisplay.ccilFixedIncome?.treps?.weightedAverageRate ??
+				briefToDisplay.fbil?.trepsOvernightWAR,
+			6.42,
+		);
 		const liveUsdInr = safeNum(
 			briefToDisplay.ccilFixedIncome?.forexSpot?.usdInr ?? briefToDisplay.fbil?.usdInr,
 			94.8606,
 		);
 		const liveBrent = safeNum(
-			briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? 96.09,
+			briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ??
+				briefToDisplay.commodityRadar?.commodities?.find((c) => c.id === "CRUDE_OIL")?.cmxPrice,
+			96.09,
+		);
+		const liveBrentMcx = safeNum(
+			briefToDisplay.commodityRadar?.commodities?.find((c) => c.id === "CRUDE_OIL")?.mcxPrice,
+			9115,
+		);
+		const liveGoldPrice = safeNum(
+			briefToDisplay.commodityRadar?.commodities?.find((c) => c.id === "GOLD")?.mcxPrice,
+			141255,
+		);
+		const liveSilverPrice = safeNum(
+			briefToDisplay.commodityRadar?.commodities?.find((c) => c.id === "SILVER")?.mcxPrice,
+			187200,
+		);
+		const liveNatGasPrice = safeNum(
+			briefToDisplay.commodityRadar?.commodities?.find((c) => c.id === "NATURAL_GAS")?.mcxPrice,
+			274.60,
 		);
 
 		const textLines: string[] = [
@@ -1611,14 +1595,14 @@ export default function AgentKnowledgeMarketBrief() {
 			`🗓 *Date:* ${safeFormatDate(briefToDisplay.date)}`,
 			``,
 			`🏛️ *Sovereign & Macro Benchmarks:*`,
-			`• 10Y Benchmark G-Sec: ${liveGSec.toFixed(2)}% (Real Yield: +1.30% over CPI)`,
+			`• 10Y Benchmark G-Sec: ${liveGSec.toFixed(2)}% (Real Yield: ${realYieldStr}% over CPI)`,
 			`• CCIL FX-CLEAR USD/INR Spot: ₹${liveUsdInr.toFixed(4)}`,
-			`• CCIL TREPS WAR: 6.42% (Systemic Money Market Liquidity)`,
+			`• CCIL TREPS WAR: ${liveTreps.toFixed(2)}% (Systemic Money Market Liquidity)`,
 			``,
 			`🛢️ *Commodity Radar:*`,
-			`• Brent Crude CFD: $${liveBrent.toFixed(2)}/bbl (MCX Spot: ₹9,115/bbl)`,
-			`• Natural Gas: ₹274.60/mmBtu (Official MCX Spot, pure benchmark)`,
-			`• Gold 24K: ₹1,41,255/10g | Silver: ₹1,87,200/kg (MCX Spot)`,
+			`• Brent Crude CFD: $${liveBrent.toFixed(2)}/bbl (MCX Spot: ₹${liveBrentMcx.toLocaleString("en-IN")}/bbl)`,
+			`• Natural Gas: ₹${liveNatGasPrice.toFixed(2)}/mmBtu (Official MCX Spot)`,
+			`• Gold 24K: ₹${liveGoldPrice.toLocaleString("en-IN")}/10g | Silver: ₹${liveSilverPrice.toLocaleString("en-IN")}/kg (MCX Spot)`,
 			``,
 			`📊 *Executive Market Snapshot:*`,
 			briefToDisplay.marketSnapshot?.split("\n")?.[0] || briefToDisplay.marketSnapshot,
@@ -1978,8 +1962,13 @@ export default function AgentKnowledgeMarketBrief() {
 										<TrendingUp className="h-3 w-3 text-blue-500" />
 										10Y Real Yield
 									</span>
-									<span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-										+{((briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? 6.79) - (briefToDisplay.macroIndicators?.indiaCpiInflation?.value ?? 5.49)).toFixed(2)}%
+									<span className={`text-sm font-bold ${
+										(safeNum(briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent, 6.79) - safeNum(briefToDisplay.macroIndicators?.indiaCpiInflation?.value, 5.49)) >= 0
+											? "text-emerald-600 dark:text-emerald-400"
+											: "text-rose-600 dark:text-rose-400"
+									}`}>
+										{((safeNum(briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent, 6.79) - safeNum(briefToDisplay.macroIndicators?.indiaCpiInflation?.value, 5.49)) >= 0 ? "+" : "") +
+											(safeNum(briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent, 6.79) - safeNum(briefToDisplay.macroIndicators?.indiaCpiInflation?.value, 5.49)).toFixed(2)}%
 									</span>
 									<span className="text-[10px] text-muted-foreground">Spread Over CPI</span>
 								</div>
@@ -2002,7 +1991,9 @@ export default function AgentKnowledgeMarketBrief() {
 									<span className="text-sm font-bold text-foreground font-mono">
 										{safeNum(briefToDisplay.fbil?.gsec10YBenchmark ?? briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent, 6.79)}%
 									</span>
-									<span className="text-[10px] text-muted-foreground">7.10% GS 2034</span>
+									<span className="text-[10px] text-muted-foreground truncate" title={briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.securityName ?? "7.10% GS 2034"}>
+										{briefToDisplay.ccilFixedIncome?.sovereignYields?.[0]?.securityName ?? "7.10% GS 2034"}
+									</span>
 								</div>
 								<div className="flex flex-col">
 									<span className="text-muted-foreground font-medium flex items-center gap-1">
@@ -2198,20 +2189,20 @@ export default function AgentKnowledgeMarketBrief() {
 											<Badge
 												variant="outline"
 												className={`text-[10px] font-bold ${
-													gmieData.macroRegime === "DOMESTIC_DECOUPLING"
+													gmieData?.macroRegime === "DOMESTIC_DECOUPLING"
 														? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300"
-														: gmieData.macroRegime === "GLOBAL_RISK_ON"
+														: gmieData?.macroRegime === "GLOBAL_RISK_ON"
 														? "border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300"
 														: "border-amber-500 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300"
 												}`}
 											>
-												{gmieData.macroRegime.replace(/_/g, " ")}
+												{(gmieData?.macroRegime || "DOMESTIC_DECOUPLING").replace(/_/g, " ")}
 											</Badge>
 										</div>
 										<div>
 											<div className="flex items-baseline gap-1.5">
 												<span className="text-2xl font-black font-mono text-foreground">
-													{gmieData.indiaDecouplingScore > 0 ? `+${gmieData.indiaDecouplingScore.toFixed(2)}σ` : `${gmieData.indiaDecouplingScore.toFixed(2)}σ`}
+													{safeNum(gmieData?.indiaDecouplingScore, 2.72) > 0 ? `+${safeNum(gmieData?.indiaDecouplingScore, 2.72).toFixed(2)}σ` : `${safeNum(gmieData?.indiaDecouplingScore, 2.72).toFixed(2)}σ`}
 												</span>
 												<span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
 													Domestic Decoupling
@@ -2223,7 +2214,14 @@ export default function AgentKnowledgeMarketBrief() {
 										</div>
 										<div className="pt-2 border-t border-border/60 flex items-center justify-between text-[10px] text-muted-foreground">
 											<span>Global Vol Ratio</span>
-											<span className="font-mono font-semibold text-foreground">1.18x (Cboe/India VIX)</span>
+											<span className="font-mono font-semibold text-foreground">
+												{(safeNum(
+													briefToDisplay.multiExchangeData?.volatilityPulse?.cboeVix && briefToDisplay.multiExchangeData?.volatilityPulse?.indiaVix
+														? briefToDisplay.multiExchangeData.volatilityPulse.cboeVix / briefToDisplay.multiExchangeData.volatilityPulse.indiaVix
+														: 1.18,
+													1.18
+												)).toFixed(2)}x (Cboe/India VIX)
+											</span>
 										</div>
 									</div>
 
@@ -2235,13 +2233,13 @@ export default function AgentKnowledgeMarketBrief() {
 												Institutional Flows
 											</span>
 											<Badge variant="outline" className="text-[10px] font-mono border-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-semibold">
-												{gmieData.capitalFlows.institutionalSentiment.replace(/_/g, " ")}
+												{(gmieData?.capitalFlows?.institutionalSentiment || "STRONG_ACCUMULATION").replace(/_/g, " ")}
 											</Badge>
 										</div>
 										<div>
 											<div className="flex items-baseline gap-1.5">
 												<span className="text-2xl font-black font-mono text-indigo-600 dark:text-indigo-400">
-													{gmieData.capitalFlows.diiAbsorptionRatio.toFixed(2)}x
+													{safeNum(gmieData?.capitalFlows?.diiAbsorptionRatio, 0.61).toFixed(2)}x
 												</span>
 												<span className="text-[11px] font-medium text-muted-foreground">
 													DII Cushion Ratio
@@ -2250,21 +2248,21 @@ export default function AgentKnowledgeMarketBrief() {
 											<div className="mt-1 space-y-0.5 text-[11px]">
 												<div className="flex justify-between">
 													<span className="text-muted-foreground">FII Cash Net:</span>
-													<span className={`font-mono font-semibold ${gmieData.capitalFlows.fiiCashNetCr >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-														{gmieData.capitalFlows.fiiCashNetCr >= 0 ? "+" : ""}₹{gmieData.capitalFlows.fiiCashNetCr.toLocaleString("en-IN")} Cr
+													<span className={`font-mono font-semibold ${safeNum(gmieData?.capitalFlows?.fiiCashNetCr) >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+														{safeNum(gmieData?.capitalFlows?.fiiCashNetCr) >= 0 ? "+" : ""}₹{safeNum(gmieData?.capitalFlows?.fiiCashNetCr, 5736.55).toLocaleString("en-IN")} Cr
 													</span>
 												</div>
 												<div className="flex justify-between">
 													<span className="text-muted-foreground">DII Cash Net:</span>
-													<span className={`font-mono font-semibold ${gmieData.capitalFlows.diiCashNetCr >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-														{gmieData.capitalFlows.diiCashNetCr >= 0 ? "+" : ""}₹{gmieData.capitalFlows.diiCashNetCr.toLocaleString("en-IN")} Cr
+													<span className={`font-mono font-semibold ${safeNum(gmieData?.capitalFlows?.diiCashNetCr) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+														{safeNum(gmieData?.capitalFlows?.diiCashNetCr) >= 0 ? "+" : ""}₹{safeNum(gmieData?.capitalFlows?.diiCashNetCr, -2253.58).toLocaleString("en-IN")} Cr
 													</span>
 												</div>
 											</div>
 										</div>
 										<div className="pt-2 border-t border-border/60 flex items-center justify-between text-[10px] text-muted-foreground">
-											<span>FPI Futures L/S: <strong className="text-foreground">{gmieData.capitalFlows.fpiIndexFuturesLongShortRatio}</strong></span>
-											<span>Fed Liq: <strong className="text-foreground">${gmieData.capitalFlows.fedNetLiquidityUsdBn}B</strong></span>
+											<span>FPI Futures L/S: <strong className="text-foreground">{safeNum(gmieData?.capitalFlows?.fpiIndexFuturesLongShortRatio, 0.53)}</strong></span>
+											<span>Fed Liq: <strong className="text-foreground">${safeNum(gmieData?.capitalFlows?.fedNetLiquidityUsdBn, 6420)}B</strong></span>
 										</div>
 									</div>
 
@@ -2285,7 +2283,7 @@ export default function AgentKnowledgeMarketBrief() {
 													<ArrowUpRight className="h-3 w-3" /> Accumulating (Overweight)
 												</span>
 												<div className="flex flex-wrap gap-1 mt-1">
-													{(gmieData.capitalFlows.fiiFavoredSectors || ["Healthcare & Pharma", "Capital Goods & Defense", "Power"]).map((s) => (
+													{(gmieData?.capitalFlows?.fiiFavoredSectors || ["Healthcare & Pharma", "Capital Goods & Defense", "Power"]).map((s) => (
 														<span key={s} className="px-1.5 py-0.5 text-[10px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 rounded">
 															{s}
 														</span>
@@ -2297,7 +2295,7 @@ export default function AgentKnowledgeMarketBrief() {
 													<ArrowDownRight className="h-3 w-3" /> Pruning (Underweight)
 												</span>
 												<div className="flex flex-wrap gap-1 mt-1">
-													{(gmieData.capitalFlows.fiiPrunedSectors || ["IT Software", "Oil Marketing", "Private Banks"]).map((s) => (
+													{(gmieData?.capitalFlows?.fiiPrunedSectors || ["IT Software", "Oil Marketing", "Private Banks"]).map((s) => (
 														<span key={s} className="px-1.5 py-0.5 text-[10px] font-medium bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20 rounded">
 															{s}
 														</span>
@@ -2305,8 +2303,8 @@ export default function AgentKnowledgeMarketBrief() {
 												</div>
 											</div>
 										</div>
-										<div className="pt-2 border-t border-border/60 text-[10px] text-muted-foreground truncate" title={gmieData.engineFeeds?.screenerSectorSignalFeed?.topInflowDriver}>
-											Driver: <span className="text-foreground font-medium">{gmieData.engineFeeds?.screenerSectorSignalFeed?.topInflowDriver || "AMFI SIP ₹26.5k Cr/mo"}</span>
+										<div className="pt-2 border-t border-border/60 text-[10px] text-muted-foreground truncate" title={gmieData?.engineFeeds?.screenerSectorSignalFeed?.topInflowDriver}>
+											Driver: <span className="text-foreground font-medium">{gmieData?.engineFeeds?.screenerSectorSignalFeed?.topInflowDriver || "AMFI SIP ₹26.5k Cr/mo"}</span>
 										</div>
 									</div>
 
@@ -2320,20 +2318,20 @@ export default function AgentKnowledgeMarketBrief() {
 											<Badge
 												variant="outline"
 												className={`text-[10px] font-bold font-mono ${
-													gmieData.overnightTransmission.overnightBias === "GAP_UP"
+													(gmieData?.overnightTransmission?.overnightBias ?? "GAP_UP") === "GAP_UP"
 														? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300"
-														: gmieData.overnightTransmission.overnightBias === "GAP_DOWN"
+														: (gmieData?.overnightTransmission?.overnightBias ?? "GAP_UP") === "GAP_DOWN"
 														? "border-rose-500 bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300"
 														: "border-slate-400 text-foreground"
 												}`}
 											>
-												{gmieData.overnightTransmission.overnightBias.replace(/_/g, " ")}
+												{(gmieData?.overnightTransmission?.overnightBias || "GAP_UP").replace(/_/g, " ")}
 											</Badge>
 										</div>
 										<div>
 											<div className="flex items-baseline gap-1.5">
 												<span className="text-2xl font-black font-mono text-foreground">
-													{gmieData.overnightTransmission.openingProbabilityScore}%
+													{safeNum(gmieData?.overnightTransmission?.openingProbabilityScore, 82)}%
 												</span>
 												<span className="text-[11px] font-medium text-muted-foreground">
 													Opening Confidence
@@ -2343,20 +2341,20 @@ export default function AgentKnowledgeMarketBrief() {
 												<div className="flex justify-between">
 													<span className="text-muted-foreground">GIFT Nifty Spread:</span>
 													<span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
-														+{gmieData.overnightTransmission.giftNiftySpreadBps} bps
+														+{safeNum(gmieData?.overnightTransmission?.giftNiftySpreadBps, 35)} bps
 													</span>
 												</div>
 												<div className="flex justify-between">
 													<span className="text-muted-foreground">Nasdaq Overnight:</span>
-													<span className={`font-mono font-semibold ${gmieData.overnightTransmission.nasdaqChangePct >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-														{gmieData.overnightTransmission.nasdaqChangePct >= 0 ? "+" : ""}{gmieData.overnightTransmission.nasdaqChangePct.toFixed(2)}%
+													<span className={`font-mono font-semibold ${safeNum(gmieData?.overnightTransmission?.nasdaqChangePct) >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+														{safeNum(gmieData?.overnightTransmission?.nasdaqChangePct) >= 0 ? "+" : ""}{safeNum(gmieData?.overnightTransmission?.nasdaqChangePct, 0.85).toFixed(2)}%
 													</span>
 												</div>
 											</div>
 										</div>
 										<div className="pt-2 border-t border-border/60 flex items-center justify-between text-[10px] text-muted-foreground">
-											<span>Brent: <strong className="text-foreground">{gmieData.overnightTransmission.brentCrudeChangePct >= 0 ? "+" : ""}{gmieData.overnightTransmission.brentCrudeChangePct.toFixed(2)}%</strong></span>
-											<span>US 10Y: <strong className="text-foreground">{gmieData.overnightTransmission.us10YChangeBps >= 0 ? "+" : ""}{gmieData.overnightTransmission.us10YChangeBps} bps</strong></span>
+											<span>Brent: <strong className="text-foreground">{safeNum(gmieData?.overnightTransmission?.brentCrudeChangePct) >= 0 ? "+" : ""}{safeNum(gmieData?.overnightTransmission?.brentCrudeChangePct, -0.65).toFixed(2)}%</strong></span>
+											<span>US 10Y: <strong className="text-foreground">{safeNum(gmieData?.overnightTransmission?.us10YChangeBps) >= 0 ? "+" : ""}{safeNum(gmieData?.overnightTransmission?.us10YChangeBps, -2.4)} bps</strong></span>
 										</div>
 									</div>
 								</div>

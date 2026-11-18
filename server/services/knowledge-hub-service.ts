@@ -599,25 +599,36 @@ export class KnowledgeHubService {
 
 		const canonicalSectorHighlights = generateCanonicalSectorHighlights(snapshot, region);
 
-		// Ground-truth enforcement for Commodity Radar
+		// Commodity Radar: Preserve dynamic prices from commodityMarketService/GPE, fallback only if missing
 		if (commodityRadar?.commodities && Array.isArray(commodityRadar.commodities)) {
 			commodityRadar.commodities = commodityRadar.commodities.map((item: any) => {
-				if (item.id === "GOLD") {
-					return { ...item, name: "Gold 24K (MCX Spot)", mcxPrice: 141255, cmxPrice: 3885.50 };
-				}
-				if (item.id === "SILVER") {
-					return { ...item, name: "Silver (MCX Spot)", mcxPrice: 187200, cmxPrice: 48.50 };
-				}
-				if (item.id === "CRUDE_OIL") {
-					return { ...item, name: "Crude Oil (Brent / MCX Spot)", mcxPrice: 9115, cmxPrice: 96.09 };
-				}
-				if (item.id === "NATURAL_GAS") {
-					return { ...item, name: "Natural Gas (MCX Spot)", mcxPrice: 274.60, cmxPrice: 2.75 };
-				}
-				if (item.id === "COPPER") {
-					return { ...item, name: "Copper (MCX Spot)", mcxPrice: 1376.50, cmxPrice: 4.35 };
-				}
-				return item;
+				const fallbackMcx =
+					item.id === "GOLD" ? (snapshot.commodities?.goldMcxPrice ?? 141255) :
+					item.id === "SILVER" ? (snapshot.commodities?.silverMcxPrice ?? 187200) :
+					item.id === "CRUDE_OIL" ? (snapshot.commodities?.brentMcxInr ?? 9115) :
+					item.id === "NATURAL_GAS" ? (snapshot.commodities?.naturalGasMcxPrice ?? 274.60) :
+					item.id === "COPPER" ? (snapshot.commodities?.copperMcxPrice ?? 1376.50) : 0;
+
+				const fallbackCmx =
+					item.id === "GOLD" ? (snapshot.commodities?.goldComexPrice ?? 3885.50) :
+					item.id === "SILVER" ? (snapshot.commodities?.silverComexPrice ?? 48.50) :
+					item.id === "CRUDE_OIL" ? (snapshot.commodities?.brentUsd ?? 96.09) :
+					item.id === "NATURAL_GAS" ? (snapshot.commodities?.naturalGasHenryHubUsd ?? 2.75) :
+					item.id === "COPPER" ? (snapshot.commodities?.copperComexUsd ?? 4.35) : 0;
+
+				const defaultName =
+					item.id === "GOLD" ? "Gold 24K (MCX Spot)" :
+					item.id === "SILVER" ? "Silver (MCX Spot)" :
+					item.id === "CRUDE_OIL" ? "Crude Oil (Brent / MCX Spot)" :
+					item.id === "NATURAL_GAS" ? "Natural Gas (MCX Spot)" :
+					item.id === "COPPER" ? "Copper (MCX Spot)" : item.name;
+
+				return {
+					...item,
+					name: item.name || defaultName,
+					mcxPrice: item.mcxPrice && item.mcxPrice > 0 ? item.mcxPrice : fallbackMcx,
+					cmxPrice: item.cmxPrice && item.cmxPrice > 0 ? item.cmxPrice : fallbackCmx,
+				};
 			});
 		}
 

@@ -7166,6 +7166,7 @@ export async function ensureEngineGapFixTables(poolInstance?: any): Promise<void
         created_at         TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_fii_dii_date ON fii_dii_daily_flows (date);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_fii_dii_date_unique ON fii_dii_daily_flows (date);
       CREATE INDEX IF NOT EXISTS idx_fii_dii_sentiment ON fii_dii_daily_flows (sentiment);
 
       -- ── Ensure market_briefs multi_exchange_data and amc_consensus columns ──

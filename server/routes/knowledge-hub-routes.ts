@@ -269,6 +269,16 @@ router.post(
 );
 
 router.post(
+	"/market-brief/backfill-history",
+	asyncHandler(async (req, res) => {
+		const region = (req.body?.region as string) || (req.query?.region as string) || "india";
+		const days = parseInt(req.body?.days || req.query?.days || "30", 10);
+		const report = await knowledgeHubService.ensureHistoricalBriefsBackfill(region, days);
+		res.json({ success: true, report });
+	}),
+);
+
+router.post(
 	"/market-brief",
 	requireRole("superadmin", "admin"),
 	asyncHandler(async (req, res) => {
