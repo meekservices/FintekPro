@@ -6,7 +6,7 @@
 # FintekPro Cloud Run Jobs.
 #
 # Schedulers configured:
-#   1. fintekpro-picks-trigger      - 08:45 AM IST (03:15 UTC) Mon-Fri
+#   1. fintekpro-picks-trigger      - 08:45 AM IST (03:15 UTC) Daily (executes only on NSE market open days / special sessions)
 #   2. fintekpro-enrichment-trigger - 06:00 PM IST (12:30 UTC) Mon-Fri
 #   3. fintekpro-nav-sync-trigger   - 11:30 PM IST (18:00 UTC) Daily
 #   4. fintekpro-compliance-trigger - 12:30 AM IST (19:00 UTC) Daily
@@ -69,12 +69,12 @@ upsert_scheduler_job() {
   fi
 }
 
-# 1. Daily Picks Generator (Mon-Fri 08:45 AM IST)
+# 1. Daily Picks Generator (Daily 08:45 AM IST — strictly runs on market trading & special session days only)
 upsert_scheduler_job \
   "fintekpro-picks-trigger" \
-  "45 8 * * 1-5" \
+  "45 8 * * *" \
   "fintekpro-picks" \
-  "Triggers daily multi-asset candidate evaluation and pick generation prior to Indian market open"
+  "Triggers daily multi-asset candidate evaluation and pick generation on market open days prior to Indian market open"
 
 # 2. Daily Market Data & Financial Enrichment (Daily 09:00 PM IST)
 upsert_scheduler_job \

@@ -1,8 +1,9 @@
 # FintekPro Standard Operating Policy: Portfolio Management Services Desk (SOP-PMS v1.0)
 
-**Document Code**: SOP-PMS-2026-02  
-**Effective Date**: October 2026  
-**Governing Regulations**: SEBI (Portfolio Managers) Regulations, 2020 (Regulation 23(2)); SEBI Circulars on Performance Fee Calculation  
+**Document Code**: `SOP-PMS-2026-02`  
+**Standard Version**: SOP-PMS-1.1.0  
+**Effective Date**: November 2026  
+**Governing Regulations**: SEBI (Portfolio Managers) Regulations, 2020 (Regulation 22 & 23); APMI (Association of Portfolio Managers in India) Standardized Performance Reporting Circulars; SEBI Master Circular on Portfolio Managers  
 **Execution Desk**: Upstox PMS API & Segregated Depository Participants  
 
 ---
@@ -36,7 +37,20 @@ Unlike Mutual Funds, PMS operates strictly on a **segregated client custody arch
 
 ---
 
-## 4. Fee Schedules & High-Water Mark (HWM) Computation
+## 4. APMI Standardized Performance Reporting & TWRR Audits
+
+In strict adherence to SEBI circulars and APMI (Association of Portfolio Managers in India) norms:
+1. **Mandatory Time-Weighted Rate of Return (TWRR)**:
+   - All performance figures (strategy returns, alpha vs benchmark) must be computed using the standardized **Time-Weighted Rate of Return (TWRR)** method net of all fees, expenses, and taxes.
+   - Money-weighted returns (XIRR/IRR) can only be shown as secondary personalized metrics, never as the headline strategy performance.
+2. **Monthly APMI Portal Submission**:
+   - By the **7th calendar day of each month**, standardized performance and AUM data across all discretionary and non-discretionary strategies must be validated and uploaded to the central APMI reporting repository.
+3. **Mandatory Benchmark Comparison**:
+   - Performance must be benchmarked against standardized APMI-designated indices (e.g. Nifty 50 TRI, BSE 500 TRI, Nifty Midcap 150 TRI) matching the investment universe.
+
+---
+
+## 5. Fee Schedules & High-Water Mark (HWM) Computation
 
 1. **Fee Component Breakdown**:
    - **Fixed Management Fee**: Billed quarterly in arrears on daily average AUM.
@@ -46,55 +60,15 @@ Unlike Mutual Funds, PMS operates strictly on a **segregated client custody arch
    - If a portfolio suffers a drawdown, no performance fee is charged until all past losses are fully recouped.
 3. **No Upfront Performance Fees**:
    - Charging performance fees in advance or without crystallization of returns is strictly forbidden.
+4. **Direct Plan PMS Option**:
+   - The platform offers a **Direct Plan** variant for every PMS strategy with zero distributor placement fees, ensuring lower expense friction for self-directed UHNIs.
 
 ---
 
-## 5. SEBI Disclosure Document (Form C) & Onboarding
+## 6. SEBI Disclosure Document (Form C) & Digital Onboarding
 
 1. **Mandatory 48-Hour Prior Delivery**:
    - In strict compliance with SEBI (Portfolio Managers) Regulations, 2020, the client must be furnished with the latest **SEBI Disclosure Document (Form C)** at least **48 hours prior** to entering into the client-manager agreement.
    - The platform timestamp records delivery; agreement signing UI remains locked until 48 hours have elapsed.
-2. **Mandatory Client Acknowledgment**:
-   - The Disclosure Document details the Portfolio Manager's disciplinary history, audited performance track record, conflict of interest disclosures, and comprehensive fee matrix.
-   - Client digital signature (Aadhaar e-Sign) and timestamped confirmation are logged in the audit trail.
-
----
-
-## 6. APMI Standardized Performance Reporting & TWRR Audits
-
-1. **Time-Weighted Rate of Return (TWRR)**:
-   - In compliance with SEBI circular `SEBI/HO/IMD/DF1/CIR/P/2020/26` and Association of Portfolio Managers in India (APMI) reporting standards, all portfolio performance is calculated strictly on a **daily Time-Weighted Rate of Return (TWRR)** basis.
-   - Eliminates distortions caused by large capital contributions or withdrawals.
-2. **Monthly APMI Benchmarking & Net-of-Fee Reporting**:
-   - Portfolio performance is reconciled monthly against standard APMI peer benchmarks (NSE Multi Asset Index 1, BSE 200 TRI, Nifty 500 TRI) and reported **strictly net of all fees, custody charges, audit costs, and brokerage slippage**.
-   - Model backtests cannot be presented as live PMS track records.
-
----
-
-## 7. Performance Guardrails & Capital Efficiency (FASP-AI v3.1)
-
-1. **Anti-Cash Drag Protocol**:
-   - Idle cash in client Demat accounts exceeding **5%** triggers an automated sweep into 91-Day T-Bills, Overnight instruments, or Liquid ETFs yielding market repo rates.
-   - Eliminates cash drag during sustained upward market regimes.
-2. **Associate & Related-Party Investment Cap**:
-   - Investments in securities of associates or related-party group entities of the Portfolio Manager are capped at **15% to 25%** of portfolio value and require prior written client consent under SEBI PMS Reg 24.
-3. **Slippage & Market Impact Controls**:
-   - Slice-order algorithms restrict individual execution legs to **$\le 5\%$ of the Average Daily Trading Volume (ADTV)**, minimizing market impact and trade friction.
-4. **AI Decision Support Boundary**:
-   - AI algorithms (factor scoring, drift rebalancing, tax-loss harvesting) operate strictly as **Decision Support Systems**.
-   - The registered human Portfolio Manager (Principal Officer) retains non-delegable statutory fiduciary responsibility and must review and cryptographically authorize all batch orders before exchange transmission. Autonomous algorithmic trading is barred.
-
----
-
-## 8. Codebase Enforcement Architecture
-
-- **Tier Validator**: [`model-portfolio-tier-service.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/model-portfolio-tier-service.ts) (`portfolioTier: "hni_pms"`, `custodyStructure: "SEGREGATED_CLIENT_DEMAT"`).
-- **Execution Driver**: [`upstox-execution-engine.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/upstox-execution-engine.ts) for atomic batch order slicing and execution.
-- **Risk Budget Guard**: [`portfolio-risk-guard.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/portfolio-risk-guard.ts) with dynamic drift and cash-drag monitoring.
-- **Capital Sizing**: [`model-portfolio-share-sizing.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/model-portfolio-share-sizing.ts) ensuring whole-share integer allocations across segregated demats.
-
----
-
-*FintekPro Legal & Regulatory Council*  
-*Standard Operating Policy — PMS Desk*
-
+2. **Digital Onboarding & Central KYC (CKYC)**:
+   - All PMS clients undergo CKYC verification, PAN-Aadhaar linking status checks, and digital agreement execution via Aadhaar e-Sign before fund transfers are permitted.

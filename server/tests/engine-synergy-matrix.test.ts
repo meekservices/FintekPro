@@ -69,6 +69,8 @@ describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 				"tax-law-engine",
 				"regulatory-ingestion-service",
 				"indian-tax-calculator",
+				"ai-portfolio-optimizer",
+				"model-portfolio-algo",
 			];
 
 			for (const id of expectedEngines) {
@@ -605,6 +607,138 @@ describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 			expect(status.engineId).toBe("indian-tax-calculator");
 			expect(status.category).toBe("Portfolio");
 			expect(status.reportCount).toBeGreaterThan(0);
+		});
+	});
+
+	// ─── 14. AI Portfolio Optimizer ↔ Risk Guard & Self-Learning Synergy ────────
+	describe("14. AI Portfolio Optimizer ↔ Risk Guard & Self-Learning Synergy", () => {
+		it("synchronizes with shared regime, validates risk budget, and clamps allocations via self-healing", async () => {
+			const { aiPortfolioOptimizer } = await import("../services/ai-portfolio-optimizer");
+
+			// Set shared regime in telemetry bus
+			telemetryBus.setLatestRegime("volatile");
+
+			// Mock db call so optimizeBasket runs deterministically
+			const { db } = await import("../db");
+			vi.spyOn(db, "select").mockReturnValue({
+				from: () => ({
+					where: () => ({
+						orderBy: () => Promise.resolve([
+							{
+								id: 101,
+								instrumentId: "TCS",
+								instrumentName: "Tata Consultancy Services",
+								symbol: "TCS",
+								category: "large_cap",
+								sectorCategory: "Technology",
+								currentPrice: "3800",
+								targetPrice: "4484",
+								confidenceScore: 85,
+								recoDate: "2026-11-14",
+							},
+							{
+								id: 102,
+								instrumentId: "SUNPHARMA",
+								instrumentName: "Sun Pharmaceutical",
+								symbol: "SUNPHARMA",
+								category: "large_cap",
+								sectorCategory: "Healthcare",
+								currentPrice: "1750",
+								targetPrice: "2047",
+								confidenceScore: 80,
+								recoDate: "2026-11-14",
+							},
+							{
+								id: 103,
+								instrumentId: "HDFCBANK",
+								instrumentName: "HDFC Bank Ltd",
+								symbol: "HDFCBANK",
+								category: "large_cap",
+								sectorCategory: "Banking",
+								currentPrice: "1650",
+								targetPrice: "1914",
+								confidenceScore: 82,
+								recoDate: "2026-11-14",
+							},
+							{
+								id: 104,
+								instrumentId: "TATAMOTORS",
+								instrumentName: "Tata Motors Ltd",
+								symbol: "TATAMOTORS",
+								category: "large_cap",
+								sectorCategory: "Automobile",
+								currentPrice: "1100",
+								targetPrice: "1309",
+								confidenceScore: 88,
+								recoDate: "2026-11-14",
+							},
+						]),
+					}),
+				}),
+			} as any);
+
+			const basket = await aiPortfolioOptimizer.optimizeBasket({
+				riskProfile: "moderate",
+				targetPositions: 4,
+			});
+
+			expect(basket).toBeDefined();
+			expect(basket.weights.length).toBe(4);
+			expect(basket.engine_version).toBe("mvo-optimizer-v2.0");
+			expect(basket.regime).toBe("volatile");
+			expect(basket.risk_report).toBeDefined();
+			expect(basket.risk_report?.approved).toBe(true);
+
+			// Check telemetry bus emission
+			const status = telemetryBus.getStatus("ai-portfolio-optimizer");
+			expect(status.engineId).toBe("ai-portfolio-optimizer");
+			expect(status.category).toBe("Portfolio");
+			expect(status.reportCount).toBeGreaterThan(0);
+		});
+
+		it("tracks rolling self-learning metrics and self-calibrates risk parameters", async () => {
+			const { aiPortfolioOptimizer } = await import("../services/ai-portfolio-optimizer");
+
+			// Feed historical optimization telemetry
+			aiPortfolioOptimizer.recordOptimizationMetrics({
+				sharpeRatio: 1.45,
+				volatility: 0.14,
+				diversificationRatio: 1.35,
+				selfHealed: false,
+				riskScore: 25,
+				positionsCount: 8,
+			});
+			aiPortfolioOptimizer.recordOptimizationMetrics({
+				sharpeRatio: 1.38,
+				volatility: 0.15,
+				diversificationRatio: 1.40,
+				selfHealed: false,
+				riskScore: 30,
+				positionsCount: 8,
+			});
+			aiPortfolioOptimizer.recordOptimizationMetrics({
+				sharpeRatio: 1.52,
+				volatility: 0.13,
+				diversificationRatio: 1.42,
+				selfHealed: false,
+				riskScore: 20,
+				positionsCount: 8,
+			});
+
+			const metrics = aiPortfolioOptimizer.getLearningMetrics();
+			expect(metrics.totalOptimizations).toBeGreaterThanOrEqual(3);
+			expect(metrics.avgSharpe).toBeGreaterThan(1.0);
+			expect(metrics.riskBreachAvoidanceRate).toBeGreaterThanOrEqual(90);
+
+			// Test self-calibration under volatile regime
+			telemetryBus.setLatestRegime("volatile");
+			const calib = aiPortfolioOptimizer.selfCalibrateRiskParameters();
+			expect(calib.calibrated).toBe(true);
+			expect(calib.action).toBe("TIGHTENED_MAX_WEIGHT_AND_RIDGE");
+
+			const params = aiPortfolioOptimizer.getCalibratedParameters();
+			expect(params.maxWeight).toBe(0.18);
+			expect(params.covRidge).toBe(0.0005);
 		});
 	});
 });

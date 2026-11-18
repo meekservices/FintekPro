@@ -5,6 +5,10 @@ import { aiAnalyticsEngine } from "./ai-analytics-engine";
 import { aiResponseCacheService } from "./ai-response-cache-service";
 import { logger } from "../logger"; // Fix #14: structured GCR-compliant logging
 import { upstoxMarketDataService } from "./upstox-market-data-service";
+import { telemetryBus } from "./engine-telemetry-bus";
+import { proThematicScreenerService } from "./pro-thematic-screener-service";
+import { checkRiskBudget, type RiskReport } from "./portfolio-risk-guard";
+import { computeGuardedPortfolioWeights, type PortfolioStockCandidate } from "../../shared/portfolio-guardrails";
 
 /**
  * BUG-2 FIX: Risk-free rate sourced dynamically from DB admin_settings.
@@ -39,6 +43,7 @@ export interface AssetCandidate {
 	assetClass: string;
 	symbol?: string;
 	isin?: string;
+	sector?: string;
 	expectedReturn: number;
 	volatility: number;
 	sharpeRatio: number;
@@ -92,6 +97,9 @@ export interface OptimizedBasket {
 		weights: OptimizedWeight[];
 		metrics: PortfolioMetrics;
 	}[];
+	risk_report?: RiskReport;
+	self_healed?: boolean;
+	self_healing_actions?: string[];
 }
 
 export interface OptimizationConfig {
@@ -101,10 +109,23 @@ export interface OptimizationConfig {
 	riskFreeRate?: number;
 	targetPositions?: number;
 	regime?: string;
+	riskProfile?: "conservative" | "moderate" | "aggressive" | "high" | "moderately_high" | "very_aggressive" | "all_weather";
 	includeAlternatives?: boolean;
 }
 
 export class AIPortfolioOptimizer {
+	private optimizationHistory: Array<{
+		timestamp: string;
+		sharpeRatio: number;
+		volatility: number;
+		diversificationRatio: number;
+		selfHealed: boolean;
+		riskScore: number;
+		positionsCount: number;
+	}> = [];
+	private calibratedMaxSingleWeight: number = 0.25;
+	private calibratedCovRidge: number = 1e-4;
+
 	async optimizeBasket(config?: OptimizationConfig): Promise<OptimizedBasket> {
 		return aiResponseCacheService.getOrCompute(
 			"portfolio_optimization",
@@ -116,13 +137,15 @@ export class AIPortfolioOptimizer {
 	private async optimizeBasketInternal(
 		config?: OptimizationConfig,
 	): Promise<OptimizedBasket> {
-		const cfg: Required<OptimizationConfig> = {
-			maxWeightPerAsset: config?.maxWeightPerAsset ?? 0.25,
+		const t0 = Date.now();
+		const cfg = {
+			maxWeightPerAsset: config?.maxWeightPerAsset ?? this.calibratedMaxSingleWeight,
 			minWeightPerAsset: config?.minWeightPerAsset ?? 0.02,
 			maxPerAssetClass: config?.maxPerAssetClass ?? 0.4,
 			riskFreeRate: config?.riskFreeRate ?? (await getRiskFreeRate()),
 			targetPositions: config?.targetPositions ?? 10,
 			regime: config?.regime ?? "normal",
+			riskProfile: config?.riskProfile ?? "moderate",
 			includeAlternatives: config?.includeAlternatives ?? true,
 		};
 
@@ -198,14 +221,44 @@ export class AIPortfolioOptimizer {
 				        debt: 1.10, gilt: 1.15, gold: 1.20, alternatives: 0.90, international: 0.80 },
 			normal:   {},  // no adjustment
 		};
-		const regime = (cfg.regime ?? "normal").toLowerCase();
+		let regime = (cfg.regime ?? "normal").toLowerCase();
+		// Cross-Engine Synergy: Pull shared macro regime if regime is default "normal"
+		if (regime === "normal") {
+			const sharedRegime = telemetryBus.getLatestRegime();
+			if (sharedRegime && sharedRegime !== "unknown") {
+				regime = sharedRegime.toLowerCase();
+				cfg.regime = regime;
+			}
+		}
 		const regimeFactor = REGIME_FACTORS[regime] ?? {};
 
-		// Clone candidates to avoid mutating caller's array
-		const adjustedCandidates = candidates.map(c => ({
-			...c,
-			expectedReturn: c.expectedReturn * (regimeFactor[c.assetClass] ?? 1.0),
-		}));
+		// Cross-Engine Synergy: Ingest thematic screener synergy map for high-conviction candidate boost
+		let synergyMap = new Map<string, any>();
+		try {
+			synergyMap = await proThematicScreenerService.getThematicSynergyMap();
+		} catch (err: any) {
+			logger.warn("[AIPortfolioOptimizer] Failed to fetch thematic synergy map (non-fatal)", {
+				error: err?.message,
+			});
+		}
+
+		// Clone candidates with regime factor and thematic screener synergy conviction
+		const adjustedCandidates = candidates.map(c => {
+			const rFactor = regimeFactor[c.assetClass] ?? 1.0;
+			let synergyMultiplier = 1.0;
+			const sym = (c.symbol || "").toUpperCase();
+			if (sym && synergyMap.has(sym)) {
+				const syn = synergyMap.get(sym);
+				if (syn?.scoreBonus && syn.scoreBonus > 0) {
+					// Apply synergy conviction bonus: e.g. 10 pt bonus adds up to 10% expected return conviction
+					synergyMultiplier = 1.0 + Math.min(syn.scoreBonus / 100, 0.15);
+				}
+			}
+			return {
+				...c,
+				expectedReturn: c.expectedReturn * rFactor * synergyMultiplier,
+			};
+		});
 
 		const selected = adjustedCandidates
 			.sort((a, b) => b.sharpeRatio - a.sharpeRatio)
@@ -231,13 +284,122 @@ export class AIPortfolioOptimizer {
 		// H-03: Track data quality — if any selected asset fell back to synthetic returns
 		const usedSynthetic = syntheticAssetIds.length > 0;
 
-		const optimizedWeights = this.optimizeWeights(selected, covMatrix, cfg);
-		const portfolioMetrics = this.computePortfolioMetrics(
+		let optimizedWeights = this.optimizeWeights(selected, covMatrix, cfg);
+		let portfolioMetrics = this.computePortfolioMetrics(
 			optimizedWeights,
 			selected,
 			covMatrix,
 			cfg.riskFreeRate,
 		);
+
+		// ── Risk Budget Gate & Autonomous Self-Healing ──────────────────────────
+		const riskProfile = cfg.riskProfile;
+		const proposedHoldings = optimizedWeights.map((w, idx) => {
+			const cand = selected[idx];
+			return {
+				name: w.assetName,
+				weight: w.weight * 100, // percentage 0-100 for checkRiskBudget
+				sector: cand?.sector || cand?.assetClass || "General",
+				type: cand?.assetClass || "listed_stocks",
+				currentReturn: cand?.expectedReturn ? cand.expectedReturn * 100 : null,
+				sharpe: cand?.sharpeRatio || null,
+				beta: 1.0,
+			};
+		});
+
+		let riskReport = checkRiskBudget("ai-portfolio-basket", riskProfile, proposedHoldings);
+		let selfHealed = false;
+		const selfHealingActions: string[] = [];
+
+		if (!riskReport.approved) {
+			selfHealed = true;
+			selfHealingActions.push(
+				`Initial MVO allocation breached risk budget: ${riskReport.hardBreaches.map(b => b.message).join("; ")}`,
+			);
+
+			// Apply autonomous self-healing: clamp to SEBI 5-Tier concentration guardrails
+			const stockCandidates: PortfolioStockCandidate[] = selected.map(s => ({
+				id: s.pickId,
+				symbol: s.symbol || s.assetId,
+				companyName: s.assetName,
+				sector: s.sector || s.assetClass || "General",
+				confidence: Math.round(s.confidenceScore || 70),
+			}));
+
+			const guardedWeightsMap = computeGuardedPortfolioWeights(stockCandidates, riskProfile);
+			for (let i = 0; i < optimizedWeights.length; i++) {
+				const candId = String(selected[i].pickId);
+				const guardedPct = guardedWeightsMap[candId] ?? (100 / optimizedWeights.length);
+				optimizedWeights[i].weight = Math.round((guardedPct / 100) * 10000) / 10000;
+			}
+
+			// Normalize to exact 1.0 sum
+			const sumW = optimizedWeights.reduce((acc, w) => acc + w.weight, 0);
+			if (sumW > 0) {
+				optimizedWeights.forEach(w => { w.weight = w.weight / sumW; });
+			}
+
+			// Recompute metrics with guarded weights
+			portfolioMetrics = this.computePortfolioMetrics(
+				optimizedWeights,
+				selected,
+				covMatrix,
+				cfg.riskFreeRate,
+			);
+
+			// Re-check risk budget post-healing
+			const guardedHoldings = optimizedWeights.map((w, idx) => {
+				const cand = selected[idx];
+				return {
+					name: w.assetName,
+					weight: w.weight * 100,
+					sector: cand?.sector || cand?.assetClass || "General",
+					type: cand?.assetClass || "listed_stocks",
+					currentReturn: cand?.expectedReturn ? cand.expectedReturn * 100 : null,
+					sharpe: cand?.sharpeRatio || null,
+					beta: 1.0,
+				};
+			});
+			riskReport = checkRiskBudget("ai-portfolio-basket", riskProfile, guardedHoldings);
+			selfHealingActions.push(
+				`Autonomous self-healing applied: Clamped to SEBI/APRE §5.2 concentration guardrails. New risk score: ${riskReport.riskScore}/100 (Approved: ${riskReport.approved})`,
+			);
+		}
+
+		// Record in optimization history for rolling self-learning
+		this.optimizationHistory.push({
+			timestamp: new Date().toISOString(),
+			sharpeRatio: portfolioMetrics.sharpeRatio,
+			volatility: portfolioMetrics.expectedVolatility,
+			diversificationRatio: portfolioMetrics.diversificationRatio,
+			selfHealed,
+			riskScore: riskReport.riskScore,
+			positionsCount: optimizedWeights.length,
+		});
+		if (this.optimizationHistory.length > 100) {
+			this.optimizationHistory.shift();
+		}
+
+		// Emit fleet telemetry
+		const latencyMs = Date.now() - t0;
+		telemetryBus.report({
+			engineId: "ai-portfolio-optimizer",
+			engineName: "AI Portfolio Optimizer & MVO Engine",
+			category: "Portfolio",
+			reportedAt: new Date().toISOString(),
+			latencyMs,
+			qualityScore: Math.max(10, Math.min(100, Math.round(100 - (riskReport.riskScore * 0.4)))),
+			itemsProcessed: optimizedWeights.length,
+			errorCount: 0,
+			meta: {
+				regime: cfg.regime,
+				sharpeRatio: portfolioMetrics.sharpeRatio,
+				diversificationRatio: portfolioMetrics.diversificationRatio,
+				selfHealed,
+				riskApproved: riskReport.approved,
+				riskScore: riskReport.riskScore,
+			},
+		});
 
 		const alternativePortfolios: OptimizedBasket["alternativePortfolios"] = [];
 
@@ -279,7 +441,7 @@ export class AIPortfolioOptimizer {
 			regime: cfg.regime,
 			optimizationMethod: "max-sharpe-gradient-ascent",
 			timestamp: new Date().toISOString(),
-			engine_version: "mvo-optimizer-v1.0",
+			engine_version: "mvo-optimizer-v2.0",
 			data_quality: usedSynthetic ? "synthetic" : "historical",
 			data_quality_warning: usedSynthetic
 				? `${syntheticAssetIds.length} asset(s) used synthetic return estimates due to missing historical data. Results may be less reliable.`
@@ -291,6 +453,9 @@ export class AIPortfolioOptimizer {
 				riskFreeRate: cfg.riskFreeRate,
 			},
 			alternativePortfolios,
+			risk_report: riskReport,
+			self_healed: selfHealed,
+			self_healing_actions: selfHealingActions.length > 0 ? selfHealingActions : undefined,
 		};
 	}
 
@@ -361,6 +526,7 @@ export class AIPortfolioOptimizer {
 				const sharpeRatio =
 					volatility > 0 ? (expectedReturn - riskFreeRate) / volatility : 0;
 				const confidenceScore = pick.confidenceScore || 70;
+				const sector = pick.sectorCategory || pick.category || "General";
 
 				candidates.push({
 					pickId: pick.id,
@@ -369,6 +535,7 @@ export class AIPortfolioOptimizer {
 					assetClass,
 					symbol: pick.symbol || undefined,
 					isin: pick.isin || undefined,
+					sector,
 					expectedReturn,
 					volatility,
 					sharpeRatio,
@@ -532,9 +699,10 @@ export class AIPortfolioOptimizer {
 				event: "COV_MATRIX_RIDGE_REGULARIZATION",
 				user_id: "system",
 				condition_number: conditionNumber,
+				ridge_epsilon: this.calibratedCovRidge,
 				status: "warn",
 			});
-			const epsilon = 1e-4;
+			const epsilon = this.calibratedCovRidge;
 			for (let i = 0; i < n; i++) {
 				if (covMatrix[i]) covMatrix[i][i] = (covMatrix[i][i] ?? 0) + epsilon;
 			}
@@ -1097,6 +1265,128 @@ export class AIPortfolioOptimizer {
 			arr.reduce((sum, v) => sum + (v - mean) * (v - mean), 0) /
 			(arr.length - 1);
 		return Math.sqrt(variance);
+	}
+
+	/**
+	 * Allows recording optimization metrics into rolling history for self-learning analysis.
+	 */
+	recordOptimizationMetrics(entry: {
+		sharpeRatio: number;
+		volatility: number;
+		diversificationRatio: number;
+		selfHealed: boolean;
+		riskScore: number;
+		positionsCount: number;
+	}): void {
+		this.optimizationHistory.push({
+			timestamp: new Date().toISOString(),
+			...entry,
+		});
+		if (this.optimizationHistory.length > 100) {
+			this.optimizationHistory.shift();
+		}
+	}
+
+	/**
+	 * Returns rolling quantitative learning and self-healing telemetry metrics.
+	 */
+	getLearningMetrics(): {
+		totalOptimizations: number;
+		avgSharpe: number;
+		avgDiversification: number;
+		selfHealCount: number;
+		riskBreachAvoidanceRate: number;
+		currentCalibratedMaxWeight: number;
+		currentCalibratedRidge: number;
+		historySize: number;
+	} {
+		const count = this.optimizationHistory.length;
+		if (count === 0) {
+			return {
+				totalOptimizations: 0,
+				avgSharpe: 0,
+				avgDiversification: 1,
+				selfHealCount: 0,
+				riskBreachAvoidanceRate: 100,
+				currentCalibratedMaxWeight: this.calibratedMaxSingleWeight,
+				currentCalibratedRidge: this.calibratedCovRidge,
+				historySize: 0,
+			};
+		}
+
+		const totalSharpe = this.optimizationHistory.reduce(
+			(s, h) => s + (Number.isFinite(h.sharpeRatio) ? h.sharpeRatio : 0),
+			0,
+		);
+		const totalDiv = this.optimizationHistory.reduce(
+			(s, h) => s + (Number.isFinite(h.diversificationRatio) ? h.diversificationRatio : 1),
+			0,
+		);
+		const selfHealCount = this.optimizationHistory.filter((h) => h.selfHealed).length;
+		const safeCount = this.optimizationHistory.filter((h) => h.riskScore <= 50).length;
+
+		return {
+			totalOptimizations: count,
+			avgSharpe: Math.round((totalSharpe / count) * 100) / 100,
+			avgDiversification: Math.round((totalDiv / count) * 100) / 100,
+			selfHealCount,
+			riskBreachAvoidanceRate: Math.round((safeCount / count) * 100),
+			currentCalibratedMaxWeight: this.calibratedMaxSingleWeight,
+			currentCalibratedRidge: this.calibratedCovRidge,
+			historySize: count,
+		};
+	}
+
+	/**
+	 * Self-healing and dynamic risk parameter calibration invoked periodically
+	 * by EngineLearningOrchestrator or on-demand after regime shifts.
+	 */
+	selfCalibrateRiskParameters(): {
+		calibrated: boolean;
+		action: string;
+		reason: string;
+	} {
+		const metrics = this.getLearningMetrics();
+		if (metrics.totalOptimizations < 3) {
+			return {
+				calibrated: false,
+				action: "held",
+				reason: `Insufficient sample size (${metrics.totalOptimizations}/3 optimizations)`,
+			};
+		}
+
+		const sharedRegime = telemetryBus.getLatestRegime();
+		let action = "held";
+		let reason = "MVO parameters aligned with rolling risk-return profile";
+		let calibrated = false;
+
+		// Tighten risk in turbulent regimes or if risk breach avoidance dropped
+		if (sharedRegime === "volatile" || sharedRegime === "bear" || metrics.riskBreachAvoidanceRate < 70) {
+			if (this.calibratedMaxSingleWeight > 0.18) {
+				this.calibratedMaxSingleWeight = 0.18;
+				this.calibratedCovRidge = 5e-4; // Amplify ridge to safeguard matrix stability
+				calibrated = true;
+				action = "TIGHTENED_MAX_WEIGHT_AND_RIDGE";
+				reason = `Regime=${sharedRegime}, avoidanceRate=${metrics.riskBreachAvoidanceRate}%. Clamped max asset weight to 18% and amplified covariance ridge.`;
+			}
+		} else if (metrics.avgSharpe >= 1.2 && metrics.riskBreachAvoidanceRate >= 90) {
+			if (this.calibratedMaxSingleWeight < 0.25) {
+				this.calibratedMaxSingleWeight = 0.25;
+				this.calibratedCovRidge = 1e-4;
+				calibrated = true;
+				action = "RESTORED_STANDARD_WEIGHT_CAP";
+				reason = `Strong rolling Sharpe (${metrics.avgSharpe}) and 0-drift compliance (${metrics.riskBreachAvoidanceRate}%). Restored 25% single-asset cap.`;
+			}
+		}
+
+		return { calibrated, action, reason };
+	}
+
+	getCalibratedParameters(): { maxWeight: number; covRidge: number } {
+		return {
+			maxWeight: this.calibratedMaxSingleWeight,
+			covRidge: this.calibratedCovRidge,
+		};
 	}
 }
 

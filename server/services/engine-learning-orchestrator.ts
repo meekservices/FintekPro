@@ -281,6 +281,9 @@ class EngineLearningOrchestrator {
       if (s.engineId === "model-portfolio-algo") {
         activeCalibrations.push("Pilot Slippage & Execution Quality Monitored");
       }
+      if (s.engineId === "ai-portfolio-optimizer") {
+        activeCalibrations.push("MVO Sharpe-Risk Guardrail & Self-Calibrating Covariance Active");
+      }
       if (s.engineId === "goal-planning-engine") {
         activeCalibrations.push("Fisher Equation Real-Yield Inflation Adjusted SIP Active");
       }
@@ -691,6 +694,30 @@ class EngineLearningOrchestrator {
         });
       } catch (err: any) {
         logger.warn("[EngineLearningOrchestrator] Trade reconciliation audit non-fatal", { error: err?.message });
+      }
+
+      // ── Step 7g: Audit AI Portfolio Optimizer & MVO Learning Calibration ──
+      try {
+        const { aiPortfolioOptimizer } = await import("./ai-portfolio-optimizer");
+        const learningMetrics = aiPortfolioOptimizer.getLearningMetrics();
+        const calibration = aiPortfolioOptimizer.selfCalibrateRiskParameters();
+        if (calibration.calibrated) {
+          this.recentCalibrations.push({
+            engineId: "ai-portfolio-optimizer",
+            action: calibration.action,
+            reason: calibration.reason,
+            timestamp: new Date().toISOString(),
+          });
+        }
+        logger.info("[EngineLearningOrchestrator] AI Portfolio Optimizer audited in self-improvement cycle", {
+          totalOptimizations: learningMetrics.totalOptimizations,
+          avgSharpe: learningMetrics.avgSharpe,
+          selfHealCount: learningMetrics.selfHealCount,
+          riskBreachAvoidanceRate: learningMetrics.riskBreachAvoidanceRate,
+          action: calibration.action,
+        });
+      } catch (err: any) {
+        logger.warn("[EngineLearningOrchestrator] AI Portfolio Optimizer audit non-fatal", { error: err?.message });
       }
 
       // ── Step 8: Detect Cross-Engine Drift ───────────────────────────────────

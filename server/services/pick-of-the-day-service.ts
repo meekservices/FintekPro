@@ -1539,6 +1539,19 @@ export class PickOfTheDayService {
 		}
 		const result = Array.from(seen.values()).map((p) => this.transformPick(p));
 
+		// Self-healing trigger: If today is a market session day, we are past the 8:45 AM IST window,
+		// and fewer than MIN_PICKS_THRESHOLD exist, asynchronously trigger catchUpIfNeeded() to auto-generate picks.
+		if (result.length < 4 && this.isNSESessionDay(today)) {
+			const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+			const nowIST = new Date(Date.now() + IST_OFFSET_MS);
+			const timeInMin = nowIST.getUTCHours() * 60 + nowIST.getUTCMinutes();
+			if (timeInMin >= 525) { // 8:45 AM IST or later
+				this.catchUpIfNeeded().catch((err) =>
+					logger.error("[PickService] Async catchUpIfNeeded error in getTodaysPicks:", err instanceof Error ? err : new Error(String(err)))
+				);
+			}
+		}
+
 		// Cache write (24h TTL — auto-expires at midnight next day)
 		if (result.length > 0) {
 			try {
@@ -2363,7 +2376,7 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 			);
 			setTimeout(() => {
 				const todayStr = todayIST();
-				if (this.isNSETradingDay(todayStr)) {
+				if (this.isNSESessionDay(todayStr)) {
 					logger.info(`📅 [PickOfTheDay] Market is open today (${todayStr}). Generating picks...`);
 					this.generateDailyPicks().catch((err) =>
 						logger.error("[PickOfTheDay] 9AM generation error:", err instanceof Error ? err : new Error(String(err))),
@@ -2408,7 +2421,7 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 		const scheduleEODRefresh = () => {
 			const delayMs = msUntilIst(16, 0);
 			setTimeout(() => {
-				if (this.isNSETradingDay(todayIST())) {
+				if (this.isNSESessionDay(todayIST())) {
 					this.refreshLivePicks().catch((err) =>
 						logger.error("[PickOfTheDay] 4PM refresh error:", err instanceof Error ? err : new Error(String(err))),
 					);
@@ -2422,7 +2435,7 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 		const scheduleMorningRefresh = () => {
 			const delayMs = msUntilIst(11, 0);
 			setTimeout(() => {
-				if (this.isNSETradingDay(todayIST())) {
+				if (this.isNSESessionDay(todayIST())) {
 					this.refreshLivePicks().catch((err) =>
 						logger.error("[PickOfTheDay] 11AM refresh error:", err instanceof Error ? err : new Error(String(err))),
 					);
@@ -2436,7 +2449,7 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 		const scheduleMidDayRefresh = () => {
 			const delayMs = msUntilIst(12, 30);
 			setTimeout(() => {
-				if (this.isNSETradingDay(todayIST())) {
+				if (this.isNSESessionDay(todayIST())) {
 					this.refreshLivePicks().catch((err) =>
 						logger.error("[PickOfTheDay] 12:30PM refresh error:", err instanceof Error ? err : new Error(String(err))),
 					);
@@ -2450,7 +2463,7 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 		const scheduleMidAfternoonRefresh = () => {
 			const delayMs = msUntilIst(14, 30);
 			setTimeout(() => {
-				if (this.isNSETradingDay(todayIST())) {
+				if (this.isNSESessionDay(todayIST())) {
 					this.refreshLivePicks().catch((err) =>
 						logger.error("[PickOfTheDay] 2:30PM refresh error:", err instanceof Error ? err : new Error(String(err))),
 					);
@@ -2469,7 +2482,7 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 				`📅 [PickOfTheDay] Intraday auto-square-off scheduled in ${Math.round(delayMs / 60000)} min (3:25 PM IST)`,
 			);
 			setTimeout(() => {
-				if (this.isNSETradingDay(todayIST())) {
+				if (this.isNSESessionDay(todayIST())) {
 					logger.info(`⚡ [PickOfTheDay] Executing 3:25 PM IST Intraday Auto-Square-Off...`);
 					this.squareOffIntradayPicks().catch((err) =>
 						logger.error("[PickOfTheDay] 3:25PM Intraday square-off error:", err instanceof Error ? err : new Error(String(err))),
@@ -2490,7 +2503,7 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 				const timeVal = hours * 60 + minutes;
 				// Active market window: 9:15 AM (555m) to 3:30 PM (930m) IST
 				const isMarketHours = timeVal >= 555 && timeVal <= 930;
-				if (isMarketHours && this.isNSETradingDay(todayIST())) {
+				if (isMarketHours && this.isNSESessionDay(todayIST())) {
 					// Sync prices for all live picks during active exchange hours
 					const liveCount = await db
 						.select({ count: sql<number>`COUNT(*)` })
@@ -2525,11 +2538,11 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 	}
 
 	/**
-	 * Generates picks on startup if today has none OR fewer than 3 picks (partial failure recovery).
+	 * Generates picks on startup if today has none OR fewer than 4 picks (partial failure recovery).
 	 * Also handles the edge case where the 9 AM scheduler fired but some strategies failed.
-	 * Skips generation entirely on weekends and NSE market holidays.
+	 * Skips generation entirely on non-trading days and NSE market holidays.
 	 */
-	private async catchUpIfNeeded(): Promise<void> {
+	public async catchUpIfNeeded(): Promise<void> {
 		const today = todayIST(); // IST date — consistent with how picks are stored
 
 		// ── Market day guard ──────────────────────────────────────────────────────
@@ -2542,6 +2555,21 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 			});
 			logger.info(
 				`📅 [PickOfTheDay] Skipping catch-up — ${today} is not a trading or special session day (${dayOfWeek}).`,
+			);
+			return;
+		}
+
+		// Pre-market guard: Cloud Run Job runs at 8:45 AM IST prior to market open.
+		// On early morning container boot (e.g. 4 AM / 6 AM IST), do not catch up prematurely.
+		const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+		const nowIST = new Date(Date.now() + IST_OFFSET_MS);
+		const currentHourIST = nowIST.getUTCHours();
+		const currentMinIST = nowIST.getUTCMinutes();
+		const timeInMinIST = currentHourIST * 60 + currentMinIST;
+
+		if (timeInMinIST < 525) { // Before 8:45 AM IST
+			logger.info(
+				`📅 [PickOfTheDay] Skipping startup catch-up — currently ${currentHourIST}:${currentMinIST.toString().padStart(2, "0")} IST (before 8:45 AM market opening window). Scheduled generator will run.`,
 			);
 			return;
 		}

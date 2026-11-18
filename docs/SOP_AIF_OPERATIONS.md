@@ -1,8 +1,9 @@
 # FintekPro Standard Operating Policy: Alternative Investment Funds Desk (SOP-AIF v1.0)
 
-**Document Code**: SOP-AIF-2026-03  
-**Effective Date**: October 2026  
-**Governing Regulations**: SEBI (Alternative Investment Funds) Regulations, 2012 (Regulation 10(c)); SEBI Master Circular for AIFs (July 2023); SEBI Accredited Investor Framework  
+**Document Code**: `SOP-AIF-2026-03`  
+**Standard Version**: SOP-AIF-1.1.0  
+**Effective Date**: November 2026  
+**Governing Regulations**: SEBI (Alternative Investment Funds) Regulations, 2012 (as amended through 2024–2025); SEBI Master Circular for AIFs; SEBI Guidelines on Borrowing by Category I & II AIFs (August 2024); SEBI Accredited Investor Framework  
 **Execution Desk**: Multi-Asset Orchestration Desk & Trust Escrow Custody  
 
 ---
@@ -30,84 +31,54 @@ AIFs are structured as **privately pooled investment trusts or Limited Liability
 
 ---
 
-## 3. Capital Commitment, Drawdowns & Default Policy
+## 3. Mandatory Custodian Appointment for ALL AIFs (SEBI 2024 Mandate)
+
+In compliance with the **SEBI (AIF) (Amendment) Regulations, 2024**:
+1. **Universal Custodial Mandate**:
+   - An independent SEBI-registered custodian must be appointed for **ALL Category I, Category II, and Category III AIFs**, irrespective of fund corpus size (the prior ₹500 Crore exemption for Category I/II is abolished).
+2. **Custodial Verification**:
+   - Title deeds of unlisted securities, partnership units, debt notes, and custodial receipts must be verified directly with the independent custodian before unit allocations are recognized in client digital portfolios.
+
+---
+
+## 4. Borrowing Norms for Category I & II AIFs (SEBI August 2024 Circular)
+
+Under SEBI circular guidelines on temporary liquidity management:
+1. **Drawdown Shortfall Only**:
+   - Category I and II AIFs cannot borrow for general leverage or speculative returns. Borrowing is permitted strictly to meet a **temporary shortfall in drawdown amounts** from investors while completing an investment.
+2. **Statutory Ceilings**:
+   - Maximum borrowing amount: **$\le 10\%$ of the total investment outlay** in the investee company.
+   - Maximum tenure: Not exceeding **30 calendar days**.
+   - Frequency: Maximum **4 borrowing instances per financial year**.
+   - Cost: Borrowing interest cost must be commercially reasonable and tied to RBI Repo Rate benchmarks.
+
+---
+
+## 5. Due Diligence to Prevent Evergreening & Unfair Regulatory Arbitrage
+
+Under SEBI Master Directives on financial stability and anti-avoidance:
+1. **Anti-Evergreening Verification**:
+   - The platform strictly enforces due diligence to ensure that AIF structures are not used by regulated lenders (Banks, NBFCs) to **evergreen stressed loans or non-performing assets**.
+2. **FATF Jurisdiction Clearance**:
+   - The platform verifies that no investor or beneficial owner originates from a jurisdiction identified on the **FATF Call for Action (Blacklist)**.
+
+---
+
+## 6. Capital Commitment, Drawdowns & Valuation Norms
 
 1. **Commitment vs. Drawdown Accounting**:
-   - Unlike mutual funds where the entire amount is debited on Day 1, AIF investments are structured as **Commitment Agreements**.
-   - Capital is called in tranches (Drawdowns) as the Investment Manager identifies target portfolio company investments over the fund's 2–3 year investment period.
-2. **Drawdown Notice Operations**:
-   - Drawdown notices must provide a minimum **15 business days' notice period** with detailed capital deployment context and wire instructions to the Fund’s designated Escrow Account.
-3. **Defaulting Investor Protocol**:
-   - If a client fails to honor a drawdown notice within the stipulated window, the platform initiates a formal default curing notice. Failure to cure triggers contractual remedies under the Private Placement Memorandum (PPM), including suspension of voting rights, penalty interest (typically 18% p.a.), and forfeiture/compulsory transfer of existing units.
+   - AIF investments are structured as **Commitment Agreements** called in tranches over the investment period.
+   - Drawdown notices require a minimum **15 business days' notice period** with detailed wire instructions to the Fund’s designated Escrow Account.
+2. **Independent IBBI Valuation**:
+   - Category I and II AIFs holding unlisted securities must be valued at least **semi-annually or quarterly** by an independent Registered Valuer registered with the Insolvency and Bankruptcy Board of India (IBBI).
+3. **Statutory 4-Tier Distribution Waterfall**:
+   - Realizations flow strictly through: (1) Return of Capital $\to$ (2) Preferred Return (Hurdle 8–10% IRR) $\to$ (3) Catch-up $\to$ (4) Carried Interest Split (80/20).
 
 ---
 
-## 4. Valuation Norms & Distribution Waterfall
-
-1. **Independent IBBI Valuation**:
-   - Category I and II AIFs hold illiquid, unlisted securities. Valuations must be conducted at least **semi-annually or quarterly** by an independent Registered Valuer registered with the Insolvency and Bankruptcy Board of India (IBBI).
-2. **Distribution Waterfall Hierarchy**:
-   - Cash realizations from liquidity events (pre-IPO listings, buybacks, debt coupon repayments) must be distributed through the statutory 4-tier waterfall:
-     1. **Return of Capital**: 100% of proceeds go to investors until cumulative capital contributed is fully returned.
-     2. **Preferred Return (Hurdle Rate)**: 100% of proceeds go to investors until they receive their preferred return (typically 8% to 10% IRR compounded annually).
-     3. **Catch-up**: Investment Manager receives a catch-up tranche per the PPM terms.
-     4. **Carried Interest Split**: Remaining surplus is split (typically 80% to investors, 20% carried interest to the Investment Manager).
-
----
-
-## 5. Lock-in Periods & Secondary Unit Transfers
-
-1. **Tenure & Lock-in Enforcement**:
-   - Category I and II AIFs are strictly closed-ended with a statutory tenure of **3 to 7 years** (extendable by up to 2 years with approval of two-thirds of investors by value).
-   - Early redemptions are strictly prohibited during the fund lifecycle.
-2. **Secondary Transfers**:
-   - Unit transfers to third parties are permitted only with the written consent of the Investment Manager and subject to the transferee meeting the ₹1 Crore minimum / Accredited Investor eligibility threshold.
-
----
-
-## 6. Mandatory Dematerialization of AIF Units (SEBI 2024 Mandate)
+## 7. Mandatory Dematerialization & Annual PPM Audit
 
 1. **Depository Holding via NSDL / CDSL**:
    - In accordance with SEBI circulars, all beneficial trust units issued by Category I, Category II, and Category III AIFs must be held in **dematerialized format**.
-   - Platform automates corporate action credit and statement of account (SOA) conversion into client depository participant (DP) accounts.
-
----
-
-## 7. Direct Plan Onboarding & Fee Unbundling
-
-1. **Zero-Distribution Direct Class**:
-   - The platform enforces an unbundled **Direct Class** for institutional and self-directed UHNIs.
-   - Eliminates distributor placement fees and ongoing trail commissions, directly improving net-of-fee fund IRR by 1.0% to 1.5% annually.
-
----
-
-## 8. Fund Performance Guardrails & Capital Optimization (FASP-AI v3.1)
-
-1. **Uncalled Commitment Cash Drag Elimination**:
-   - Investor capital called but pending final disbursement into unlisted portfolio companies is automatically swept into **Sovereign T-Bills or Tri-Party Repo (TREPS)** yielding 6.75%–7.05% p.a.
-   - Prevents unallocated cash from dragging down the fund's gross IRR.
-2. **Statutory Leverage Ceilings (SEBI AIF Regulations)**:
-   - **Category I & II AIFs**: Leverage and borrowing are **strictly prohibited (0%)**, except temporary borrowing to meet operational expenses not exceeding 10% of investable funds for up to 30 days (max 4 times a year).
-   - **Category III AIFs**: Total gross exposure through debt or derivatives is strictly capped at **200% of Net Asset Value (2x leverage)**. The portfolio risk guard monitors real-time margin utilization and alerts upon breach of 180% NAV.
-3. **Valuation Governance & Ind AS 113 Standards**:
-   - Portfolio valuation conducted quarterly by IBBI-registered independent valuers following the International Private Equity and Venture Capital Valuation (IPEV) and Ind AS 113 fair value hierarchy.
-   - **AI Boundary**: AI algorithms may generate scenario stress tests or cash-flow forecasts, but **cannot unilaterally re-value illiquid assets** or substitute official IBBI valuation reports.
-4. **Co-Investment Vehicle (CIV) Parity**:
-   - Co-investment opportunities offered to select anchor investors must follow pro-rata rights and identical terms, preventing preferential pricing or cherry-picking.
-5. **Human Investment Committee Mandate**:
-   - AI algorithms are strictly decision-support systems. Capital call generation, term sheet sign-offs, and distributions require human Investment Committee (IC) and Trustee approval. Automated drawdown execution is strictly prohibited.
-
----
-
-## 9. Codebase Enforcement Architecture
-
-- **Tier Validator**: [`model-portfolio-tier-service.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/model-portfolio-tier-service.ts) (`portfolioTier: "uhni_aif"`, `statutoryMinInvestment: "10000000"`, `accreditationRequired: true`).
-- **Accreditation Gate**: Verified through `validateInvestmentTierCompliance()`.
-- **Institutional Custody**: `custodyStructure: "POOLED_TRUST_UNITS"`.
-- **Performance Guard**: Cash-drag sweep and liquidity horizon validation.
-
----
-
-*FintekPro Legal & Regulatory Council*  
-*Standard Operating Policy — AIF Desk*
-
+2. **Annual Private Placement Memorandum (PPM) Audit**:
+   - An annual independent audit of compliance with the terms of the PPM must be conducted by an external Chartered Accountant or CS. The audit report must be uploaded to SEBI and distributed to investors.

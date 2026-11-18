@@ -117,6 +117,18 @@ router.get("/today", async (req, res) => {
 
 		if (isMarketSessionDay) {
 			rawPicks = await pickOfTheDayService.getTodaysPicks();
+			if (rawPicks.length === 0) {
+				// Autonomous self-heal: on a market open day during/past 8:45 AM IST window,
+				// asynchronously trigger background catch-up generation so picks are populated automatically
+				const nowIST = new Date(Date.now() + IST_OFFSET_MS);
+				const timeInMinIST = nowIST.getUTCHours() * 60 + nowIST.getUTCMinutes();
+				if (timeInMinIST >= 525) { // 8:45 AM IST or later
+					logger.info(`[API/Picks] No picks for market day ${todayIST} at ${nowIST.getUTCHours()}:${nowIST.getUTCMinutes()} IST — triggering background catch-up generation`);
+					pickOfTheDayService.catchUpIfNeeded().catch((err) =>
+						logger.error("[API/Picks] Autonomous catchUpIfNeeded error:", err instanceof Error ? err : new Error(String(err)))
+					);
+				}
+			}
 		}
 
 		if (rawPicks.length === 0) {

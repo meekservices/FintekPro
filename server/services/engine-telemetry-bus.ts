@@ -100,6 +100,8 @@ class EngineTelemetryBus {
       { id: "institutional-flow", name: "Institutional Ownership & Flow Engine", category: "Alpha Generation" },
       { id: "exit-strategy-engine", name: "Algorithmic Trailing Exit Engine", category: "Alpha Generation" },
       { id: "model-portfolio-optimizer", name: "Model Portfolio Quant Optimizer", category: "Portfolio" },
+      { id: "ai-portfolio-optimizer", name: "AI Portfolio Optimizer & MVO Engine", category: "Portfolio" },
+      { id: "model-portfolio-algo", name: "Model Portfolio Algo Execution Engine", category: "Transaction" },
       { id: "portfolio-risk-guard", name: "Portfolio Risk Guard Engine", category: "Portfolio" },
       { id: "model-portfolio-quant", name: "Model Portfolio Quant Engine", category: "Portfolio" },
       { id: "quant-orchestrator", name: "Quant & MVO Portfolio Orchestrator", category: "Portfolio" },
@@ -291,6 +293,11 @@ class EngineTelemetryBus {
   /** Returns the latest regime label from AIRegimeDetectionEngine reports. */
   getLatestRegime(): string {
     return this._latestRegime;
+  }
+
+  /** Sets the latest regime label (e.g. from tests or dynamic overrides). */
+  setLatestRegime(regime: string): void {
+    this._latestRegime = regime;
   }
 
   private async _persistToRedis(engineId: string, report: EngineReport): Promise<void> {

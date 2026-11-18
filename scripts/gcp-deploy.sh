@@ -295,6 +295,13 @@ fi
 # All 3 cron jobs need --add-cloudsql-instances so the /cloudsql socket exists.
 # Without it, the DB connection silently fails and jobs exit(0) in <500ms.
 
+# Ensure :latest tag is attached to the deployed image so Cloud Run jobs never fail with image not found
+DEPLOYED_IMAGE=$(gcloud run services describe $SERVICE_NAME --project=$PROJECT_ID --region=$REGION --format='value(spec.template.spec.containers[0].image)' 2>/dev/null || echo "")
+if [ -n "$DEPLOYED_IMAGE" ]; then
+  echo "🏷️  Ensuring deployed image is tagged as :latest for Cloud Run jobs..."
+  gcloud artifacts docker tags add "$DEPLOYED_IMAGE" "asia-south1-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE_NAME}:latest" --quiet 2>/dev/null || true
+fi
+
 echo ""
 echo "🔧 Updating fintekpro-schema-repairs job..."
 gcloud run jobs update fintekpro-schema-repairs \
@@ -444,12 +451,21 @@ for REGISTRY_IMAGE in \
   CLEANED=0
   while IFS= read -r digest; do
     [ -z "$digest" ] && continue
+    # Never delete an image if it's currently deployed or matches DEPLOYED_IMAGE
+    if [ -n "$DEPLOYED_IMAGE" ] && [[ "$DEPLOYED_IMAGE" == *"$digest"* ]]; then
+      continue
+    fi
     gcloud artifacts docker images delete \
       "${REGISTRY_IMAGE}@${digest}" \
       --delete-tags --quiet 2>/dev/null && CLEANED=$((CLEANED+1)) || true
   done <<< "$OLD_DIGESTS"
   echo "  ✅ ${REGISTRY_IMAGE##*/}: removed ${CLEANED} old image version(s)"
 done
+
+# Re-affirm :latest tag after cleanup so jobs are never left without an image
+if [ -n "$DEPLOYED_IMAGE" ]; then
+  gcloud artifacts docker tags add "$DEPLOYED_IMAGE" "asia-south1-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE_NAME}:latest" --quiet 2>/dev/null || true
+fi
 
 # Cloud Run: prune old revisions (keep 5 latest, delete the rest).
 # Old revisions don't cost compute but clutter the console and slow gcloud CLI.

@@ -41,6 +41,7 @@ import { upstoxAdapter } from "./mpal/adapters/upstoxAdapter";
 import { calculateIntegerShareAllocation } from "./model-portfolio-share-sizing";
 import { resolveCanonicalPortfolio } from "../data/canonical-model-portfolios";
 import { getInstrument } from "../data/instrument-registry";
+import { telemetryBus } from "./engine-telemetry-bus";
 
 export const ALGO_ENGINE_VERSION = "FASP-AI-v3.1-ALGO";
 
@@ -70,6 +71,10 @@ export interface ExecuteAlgoOptions {
   forceExecution?: boolean; // bypass drift threshold if manually triggered by manager
   executeWithBroker?: boolean; // send real orders to Upstox if configured
   userToken?: string; // Client OAuth access token for multi-tenant Demat execution
+  accountCategory?: "PRO" | "CLI"; // Proprietary vs Client Segregated Demat
+  algoStrategyId?: string; // Exchange-Approved Algo Strategy ID
+  clientConsentTimestamp?: string; // Timestamp of 1-Click Biometric/OTP authorization (15-min TTL)
+  marketWideCircuitHalted?: boolean; // Exchange nationwide MWCB halt flag
 }
 
 export interface AlgoExecutionResult {
@@ -329,6 +334,56 @@ export class ModelPortfolioAlgoService {
     }
 
     // 2. Pre-Trade RMS Validation
+    // Rule: Market-Wide Circuit Breaker (MWCB) Check
+    if (options.marketWideCircuitHalted) {
+      const msg = "Execution blocked: SEBI Nationwide Market-Wide Circuit Breaker (MWCB) in effect. Algorithmic sweeps frozen.";
+      logger.warn(`[ModelPortfolioAlgo] ${msg}`, {
+        event: "ALGO_EXECUTION_BLOCKED_MWCB",
+        portfolio_id: portfolioId,
+      });
+      return {
+        success: false,
+        portfolioId,
+        portfolioCode: portfolio.portfolioCode ?? undefined,
+        status: "CIRCUIT_BREAKER_BLOCKED",
+        message: msg,
+        transactions: [],
+        totalAmountTraded: 0,
+        driftScoreBefore: portfolio.driftScore ?? 0,
+        engineVersion: ALGO_ENGINE_VERSION,
+        timestamp: new Date().toISOString(),
+        latencyMs: Date.now() - t0,
+      };
+    }
+
+    // Rule: Client Consent TTL Check (15 minutes statutory TTL for Retail/RIA non-discretionary)
+    const isClientFacing = options.accountCategory === "CLI" || options.actorType === "user";
+    if (isClientFacing && options.clientConsentTimestamp) {
+      const consentAgeMs = Date.now() - new Date(options.clientConsentTimestamp).getTime();
+      const MAX_CONSENT_TTL_MS = 15 * 60 * 1000;
+      if (consentAgeMs > MAX_CONSENT_TTL_MS) {
+        const msg = `Execution blocked: Client biometric/OTP authorization expired (${Math.round(consentAgeMs / 60000)} mins old > 15-min statutory TTL). Fresh consent required under SEBI IA Regulations.`;
+        logger.warn(`[ModelPortfolioAlgo] ${msg}`, {
+          event: "ALGO_EXECUTION_BLOCKED_CONSENT_TTL",
+          portfolio_id: portfolioId,
+          consent_age_ms: consentAgeMs,
+        });
+        return {
+          success: false,
+          portfolioId,
+          portfolioCode: portfolio.portfolioCode ?? undefined,
+          status: "RMS_BLOCKED",
+          message: msg,
+          transactions: [],
+          totalAmountTraded: 0,
+          driftScoreBefore: portfolio.driftScore ?? 0,
+          engineVersion: ALGO_ENGINE_VERSION,
+          timestamp: new Date().toISOString(),
+          latencyMs: Date.now() - t0,
+        };
+      }
+    }
+
     // Rule: Algo trading must be explicitly enabled for this model portfolio
     if (!portfolio.algoTradingEnabled) {
       const msg = `Algo trading is NOT enabled for model portfolio '${portfolioId}'.`;
@@ -936,6 +991,23 @@ export class ModelPortfolioAlgoService {
       total_amount: totalAmountTraded,
       latency_ms: Date.now() - t0,
       status: "success",
+    });
+
+    telemetryBus.report({
+      engineId: "model-portfolio-algo",
+      engineName: "Model Portfolio Algo Execution Engine",
+      category: "Transaction",
+      reportedAt: new Date().toISOString(),
+      latencyMs: Date.now() - t0,
+      qualityScore: 98,
+      itemsProcessed: recordedTransactions.length,
+      errorCount: 0,
+      meta: {
+        portfolioId,
+        totalAmountTraded,
+        transactionsCount: recordedTransactions.length,
+        executionMode: portfolio.algoConfig?.executionMode || "PAPER_TRADING",
+      },
     });
 
     return {

@@ -3,7 +3,7 @@
  * Cloud Run Job: fintekpro-picks
  *
  * Entrypoint for daily investment recommendations (Pick of the Day) as a Cloud Run Job.
- * Triggered by Cloud Scheduler: `15 3 * * 1-5` UTC (08:45 AM IST Mon-Fri).
+ * Triggered by Cloud Scheduler: `15 3 * * *` UTC (08:45 AM IST Daily, strictly on market open days).
  *
  * Runs deterministic candidate evaluation across 11 asset classes:
  * - Stocks, Mutual Funds, Unlisted & Pre-IPO, Bonds, REITs/InvITs, ETFs, Global Stocks
