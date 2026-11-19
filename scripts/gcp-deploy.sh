@@ -60,8 +60,8 @@ IMAGE_URL="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$SERVICE_NAME:latest"
 # Linux/CI: standard builds submit works fine.
 _ARCH="$(uname -m)"
 _OS="$(uname -s)"
-_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-_REPO_ROOT="$(cd "${_SCRIPT_DIR}/.." && pwd)"
+_SCRIPT_DIR="$SCRIPT_DIR"
+_REPO_ROOT="$PROJECT_ROOT"
 _CB_GITHUB="${_REPO_ROOT}/cloudbuild-github.yaml"
 
 if [[ "$_OS" == "Darwin" && "$_ARCH" == "arm64" ]]; then
