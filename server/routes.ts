@@ -25,6 +25,7 @@ import agentRoutes from "./agent-routes";
 import agentEmpanelmentRoutes from "./routes/agent-empanelment";
 import knowledgeHubRoutes from "./routes/knowledge-hub-routes";
 import cloudSchedulerRouter from "./routes/cloud-scheduler-routes";
+import userIntentRouter from "./routes/user-intent-routes";
 import agentTrackerRoutes from "./routes/agent-tracker";
 import { registerAgentCapitalGainPart1Part1Routes } from "./routes/agent-capital-gains-1-1";
 import agentRevenueRoutes from "./routes/agent-revenue-routes";
@@ -401,6 +402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	app.use("/api/unified-cart", unifiedCartRouter);
 	app.use("/api/knowledge-hub", knowledgeHubRoutes);
 	app.use("/api/cron", cloudSchedulerRouter);
+	app.use("/api/user-intent", userIntentRouter);
 
 	// Named export registrations
 	registerOrderRoutes(app);
