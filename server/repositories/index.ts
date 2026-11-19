@@ -7,4 +7,5 @@ export * from "./base.repository";
 export * from "./distribution.repository";
 export * from "./derivatives.repository";
 export * from "./user.repository";
+export * from "./golden-price.repository";
 
