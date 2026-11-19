@@ -559,10 +559,18 @@ router.get("/agent-bookings", async (req, res) => {
 						firstName: users.firstName,
 						lastName: users.lastName,
 						email: users.email,
+						roles: users.roles,
 					})
 					.from(users)
 					.where(eq(users.id, booking.clientId))
 					.limit(1);
+
+				let attendeeType = "client";
+				const roles = client[0]?.roles || [];
+				if (roles.includes("lead")) attendeeType = "lead";
+				else if (roles.includes("prospect")) attendeeType = "prospect";
+				else if (roles.includes("guest")) attendeeType = "guest";
+
 				return {
 					...booking,
 					clientName: client[0]
@@ -570,6 +578,7 @@ router.get("/agent-bookings", async (req, res) => {
 							"Client"
 						: "Client",
 					clientEmail: client[0]?.email,
+					attendeeType,
 				};
 			}),
 		);

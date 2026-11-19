@@ -1,8 +1,8 @@
 /* eslint-disable no-console */
 import { Router } from "express";
 import { db } from "../db";
-import { meetingBookings, users } from "@shared/schema";
-import { eq, and, desc, gte, lte } from "drizzle-orm";
+import { meetingBookings, users, agentLeads, prospectClients, leadActivities } from "@shared/schema";
+import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
 import { zohoMeetingService } from "../services/zoho-meeting-service";
 import { videoConferencingService, VideoPlatform } from "../services/video-conferencing-service";
 import { meetingNotificationService } from "../services/meeting-notification-service";
@@ -38,8 +38,73 @@ router.get("/available-agents", async (req, res) => {
 	}
 });
 
+async function resolveOrCreateContactUser(
+	name: string,
+	email: string,
+	mobile?: string | null,
+	role: "lead" | "prospect" | "guest" = "lead",
+): Promise<string> {
+	// 1. Check if user exists by email
+	if (email && email.trim()) {
+		const existingByEmail = await db
+			.select({ id: users.id })
+			.from(users)
+			.where(eq(users.email, email.toLowerCase().trim()))
+			.limit(1);
+
+		if (existingByEmail.length > 0) {
+			return existingByEmail[0].id;
+		}
+	}
+
+	// 2. Check if user exists by mobile
+	if (mobile && mobile.trim()) {
+		const cleanPhone = mobile.replace(/\D/g, "").slice(-10);
+		if (cleanPhone.length === 10) {
+			const existingByPhone = await db
+				.select({ id: users.id })
+				.from(users)
+				.where(eq(users.mobile, cleanPhone))
+				.limit(1);
+
+			if (existingByPhone.length > 0) {
+				return existingByPhone[0].id;
+			}
+		}
+	}
+
+	// 3. Create lightweight contact user to satisfy foreign key constraint
+	const parts = (name || "Contact").trim().split(" ");
+	const firstName = parts[0] || "Contact";
+	const lastName = parts.slice(1).join(" ") || "";
+	const safeEmail = email && email.trim()
+		? email.toLowerCase().trim()
+		: `${role}_${Date.now()}@fintekpro.internal`;
+	const safeUserId = `${role}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+	const [created] = await db
+		.insert(users)
+		.values({
+			userId: safeUserId,
+			firstName,
+			lastName,
+			email: safeEmail,
+			mobile: mobile || undefined,
+			password: sql`gen_random_uuid()`,
+			roles: ["user", role],
+		})
+		.returning({ id: users.id });
+
+	return created.id;
+}
+
 const agentBookMeetingSchema = z.object({
-	clientId: z.string().min(1, "Client ID is required"),
+	attendeeType: z.enum(["client", "lead", "prospect", "guest"]).default("client").optional(),
+	clientId: z.string().optional(),
+	leadId: z.string().optional(),
+	prospectId: z.string().optional(),
+	guestName: z.string().optional(),
+	guestEmail: z.string().optional(),
 	topic: z.string().min(3, "Topic must be at least 3 characters"),
 	description: z.string().optional(),
 	scheduledAt: z.string().transform((val) => new Date(val)),
@@ -82,17 +147,90 @@ router.post("/agent-book", async (req, res) => {
 				.json({ error: "Only agents can schedule meetings" });
 		}
 
-		const client = await db
-			.select()
-			.from(users)
-			.where(eq(users.id, data.clientId))
-			.limit(1);
+		let attendeeName = "";
+		let attendeeEmail = "";
+		let resolvedUserId = "";
+		const attendeeType = data.attendeeType || "client";
 
-		if (client.length === 0) {
-			return res.status(404).json({ error: "Client not found" });
+		if (attendeeType === "client" && data.clientId) {
+			const client = await db
+				.select()
+				.from(users)
+				.where(eq(users.id, data.clientId))
+				.limit(1);
+
+			if (client.length === 0) {
+				return res.status(404).json({ error: "Client not found" });
+			}
+			resolvedUserId = client[0].id;
+			attendeeName = `${client[0].firstName || ""} ${client[0].lastName || ""}`.trim() || client[0].userId;
+			attendeeEmail = client[0].email || "";
+		} else if (attendeeType === "lead" && data.leadId) {
+			const leadRecord = await db
+				.select()
+				.from(agentLeads)
+				.where(eq(agentLeads.id, data.leadId))
+				.limit(1);
+
+			if (leadRecord.length === 0) {
+				return res.status(404).json({ error: "Lead not found" });
+			}
+			attendeeName = leadRecord[0].name;
+			attendeeEmail = leadRecord[0].email || "";
+			resolvedUserId = await resolveOrCreateContactUser(attendeeName, attendeeEmail, leadRecord[0].phone, "lead");
+
+			// Log touchpoint in leadActivities
+			try {
+				await db.insert(leadActivities).values({
+					leadId: data.leadId,
+					activityType: "meeting",
+					subject: `Video Meeting: ${data.topic}`,
+					description: `Scheduled for ${data.scheduledAt.toLocaleString()}`,
+					outcome: "confirmed",
+					performedBy: agentId,
+				});
+			} catch (_logErr) {
+				// non-blocking
+			}
+		} else if (attendeeType === "prospect" && data.prospectId) {
+			const prospect = await db
+				.select()
+				.from(prospectClients)
+				.where(eq(prospectClients.id, data.prospectId))
+				.limit(1);
+
+			if (prospect.length === 0) {
+				return res.status(404).json({ error: "Prospect not found" });
+			}
+			attendeeName = prospect[0].name;
+			attendeeEmail = prospect[0].email || "";
+			resolvedUserId = await resolveOrCreateContactUser(attendeeName, attendeeEmail, prospect[0].mobile, "prospect");
+		} else if (attendeeType === "guest") {
+			if (!data.guestName || !data.guestEmail) {
+				return res.status(400).json({ error: "Guest name and email are required" });
+			}
+			attendeeName = data.guestName;
+			attendeeEmail = data.guestEmail;
+			resolvedUserId = await resolveOrCreateContactUser(attendeeName, attendeeEmail, undefined, "guest");
+		} else if (data.clientId) {
+			const client = await db
+				.select()
+				.from(users)
+				.where(eq(users.id, data.clientId))
+				.limit(1);
+
+			if (client.length > 0) {
+				resolvedUserId = client[0].id;
+				attendeeName = `${client[0].firstName || ""} ${client[0].lastName || ""}`.trim() || client[0].userId;
+				attendeeEmail = client[0].email || "";
+			}
 		}
 
-		const participantEmails = [client[0].email, agent[0].email].filter(
+		if (!resolvedUserId) {
+			return res.status(400).json({ error: "Unable to resolve meeting attendee" });
+		}
+
+		const participantEmails = [attendeeEmail, agent[0].email].filter(
 			Boolean,
 		) as string[];
 
@@ -110,7 +248,7 @@ router.post("/agent-book", async (req, res) => {
 		const [booking] = await db
 			.insert(meetingBookings)
 			.values({
-				clientId: data.clientId,
+				clientId: resolvedUserId,
 				agentId: agentId,
 				topic: data.topic,
 				description: data.description,
@@ -130,10 +268,9 @@ router.post("/agent-book", async (req, res) => {
 			success: true,
 			booking: {
 				...booking,
-				clientName:
-					`${client[0].firstName || ""} ${client[0].lastName || ""}`.trim() ||
-					client[0].userId,
-				clientEmail: client[0].email,
+				clientName: attendeeName,
+				clientEmail: attendeeEmail,
+				attendeeType,
 			},
 		});
 	} catch (error: any) {
@@ -161,6 +298,7 @@ router.get("/agent-clients", async (req, res) => {
 				.json({ error: "Access denied. Agent role required." });
 		}
 
+		// 1. Registered Clients
 		const allUsers = await db
 			.select({
 				id: users.id,
@@ -177,10 +315,56 @@ router.get("/agent-clients", async (req, res) => {
 			.map((u) => ({
 				id: u.id,
 				fullName: `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.userId,
-				email: u.email,
+				email: u.email || "",
+				attendeeType: "client" as const,
 			}));
 
-		res.json({ clients });
+		// 2. Leads from Pipeline
+		let leads: Array<{ id: string; leadId: string; fullName: string; email: string; attendeeType: "lead"; tier?: string; stage?: string }> = [];
+		try {
+			const leadRows = await db
+				.select()
+				.from(agentLeads)
+				.where(eq(agentLeads.agentId, user.id));
+
+			leads = leadRows.map((l) => ({
+				id: `lead_${l.id}`,
+				leadId: l.id,
+				fullName: l.name,
+				email: l.email || "",
+				attendeeType: "lead" as const,
+				tier: l.score ? `Score ${l.score}` : undefined,
+				stage: l.stage || undefined,
+			}));
+		} catch (err) {
+			console.warn("Could not fetch agent leads for meetings:", err);
+		}
+
+		// 3. Prospects from HNI Prospects
+		let prospects: Array<{ id: string; prospectId: string; fullName: string; email: string; attendeeType: "prospect"; tier?: string }> = [];
+		try {
+			const prospectRows = await db
+				.select()
+				.from(prospectClients);
+
+			prospects = prospectRows.map((p) => ({
+				id: `prospect_${p.id}`,
+				prospectId: p.id,
+				fullName: p.name,
+				email: p.email || "",
+				attendeeType: "prospect" as const,
+				tier: p.clientType ? `${p.clientType.toUpperCase()} HNI` : "👑 HNI",
+			}));
+		} catch (err) {
+			console.warn("Could not fetch prospects for meetings:", err);
+		}
+
+		res.json({
+			clients,
+			leads,
+			prospects,
+			allAttendees: [...clients, ...leads, ...prospects],
+		});
 	} catch (error: any) {
 		console.error("Fetch clients error:", error);
 		res.status(500).json({ error: "Failed to fetch clients" });

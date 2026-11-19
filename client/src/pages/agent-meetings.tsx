@@ -39,6 +39,11 @@ import {
 	CheckCircle2,
 	XCircle,
 	Users,
+	Copy,
+	Check,
+	Target,
+	Crown,
+	Mail,
 } from "lucide-react";
 
 interface MeetingBooking {
@@ -55,26 +60,38 @@ interface MeetingBooking {
 	startLink?: string;
 	clientName?: string;
 	clientEmail?: string;
+	attendeeType?: "client" | "lead" | "prospect" | "guest";
 	clientNotes?: string;
 	agentNotes?: string;
 	createdAt: string;
 }
 
-interface MeetingClient {
+interface MeetingAttendee {
 	id: string;
+	leadId?: string;
+	prospectId?: string;
 	fullName: string;
 	email: string;
+	attendeeType: "client" | "lead" | "prospect" | "guest";
+	tier?: string;
+	stage?: string;
 }
 
 export default function AgentMeetings() {
 	const { toast } = useToast();
 	const [meetingDialog, setMeetingDialog] = useState(false);
+	const [attendeeType, setAttendeeType] = useState<"client" | "lead" | "prospect" | "guest">("client");
 	const [meetingClientId, setMeetingClientId] = useState("");
+	const [meetingLeadId, setMeetingLeadId] = useState("");
+	const [meetingProspectId, setMeetingProspectId] = useState("");
+	const [guestName, setGuestName] = useState("");
+	const [guestEmail, setGuestEmail] = useState("");
 	const [meetingTopic, setMeetingTopic] = useState("");
 	const [meetingDescription, setMeetingDescription] = useState("");
 	const [meetingDate, setMeetingDate] = useState("");
 	const [meetingTime, setMeetingTime] = useState("");
 	const [meetingDuration, setMeetingDuration] = useState(30);
+	const [copiedMeetingId, setCopiedMeetingId] = useState<string | null>(null);
 
 	const { data: meetingsData, isLoading: meetingsLoading } = useQuery<{
 		bookings: MeetingBooking[];
@@ -86,7 +103,12 @@ export default function AgentMeetings() {
 		},
 	});
 
-	const { data: meetingClientsData } = useQuery<{ clients: MeetingClient[] }>({
+	const { data: meetingClientsData } = useQuery<{
+		clients?: MeetingAttendee[];
+		leads?: MeetingAttendee[];
+		prospects?: MeetingAttendee[];
+		allAttendees?: MeetingAttendee[];
+	}>({
 		queryKey: ["/api/meetings/agent-clients"],
 		queryFn: async () => {
 			const response = await apiRequest("/api/meetings/agent-clients");
@@ -106,7 +128,12 @@ export default function AgentMeetings() {
 
 	const scheduleMeetingMutation = useMutation({
 		mutationFn: async (data: {
-			clientId: string;
+			attendeeType: "client" | "lead" | "prospect" | "guest";
+			clientId?: string;
+			leadId?: string;
+			prospectId?: string;
+			guestName?: string;
+			guestEmail?: string;
 			topic: string;
 			description?: string;
 			scheduledAt: string;
@@ -227,7 +254,12 @@ export default function AgentMeetings() {
 	});
 
 	const resetMeetingForm = () => {
+		setAttendeeType("client");
 		setMeetingClientId("");
+		setMeetingLeadId("");
+		setMeetingProspectId("");
+		setGuestName("");
+		setGuestEmail("");
 		setMeetingTopic("");
 		setMeetingDescription("");
 		setMeetingDate("");
@@ -236,22 +268,103 @@ export default function AgentMeetings() {
 	};
 
 	const handleScheduleMeeting = () => {
-		if (!meetingClientId || !meetingTopic || !meetingDate || !meetingTime) {
+		if (attendeeType === "client" && !meetingClientId) {
 			toast({
-				title: "Missing Fields",
-				description: "Please fill in all required fields",
+				title: "Client Required",
+				description: "Please select a registered client to meet with",
 				variant: "destructive",
 			});
 			return;
 		}
+		if (attendeeType === "lead" && !meetingLeadId) {
+			toast({
+				title: "Lead Required",
+				description: "Please select a pipeline lead to meet with",
+				variant: "destructive",
+			});
+			return;
+		}
+		if (attendeeType === "prospect" && !meetingProspectId) {
+			toast({
+				title: "Prospect Required",
+				description: "Please select an HNI prospect to meet with",
+				variant: "destructive",
+			});
+			return;
+		}
+		if (attendeeType === "guest" && (!guestName.trim() || !guestEmail.trim())) {
+			toast({
+				title: "Guest Details Required",
+				description: "Please enter guest name and valid email address",
+				variant: "destructive",
+			});
+			return;
+		}
+		if (!meetingTopic || !meetingDate || !meetingTime) {
+			toast({
+				title: "Missing Fields",
+				description: "Please fill in meeting topic, date, and time",
+				variant: "destructive",
+			});
+			return;
+		}
+
 		const scheduledAt = new Date(`${meetingDate}T${meetingTime}`).toISOString();
 		scheduleMeetingMutation.mutate({
-			clientId: meetingClientId,
+			attendeeType,
+			clientId: attendeeType === "client" ? meetingClientId : undefined,
+			leadId: attendeeType === "lead" ? meetingLeadId : undefined,
+			prospectId: attendeeType === "prospect" ? meetingProspectId : undefined,
+			guestName: attendeeType === "guest" ? guestName.trim() : undefined,
+			guestEmail: attendeeType === "guest" ? guestEmail.trim() : undefined,
 			topic: meetingTopic,
 			description: meetingDescription || undefined,
 			scheduledAt,
 			duration: meetingDuration,
 		});
+	};
+
+	const copyJoinLink = (link: string, id: string) => {
+		navigator.clipboard.writeText(link);
+		setCopiedMeetingId(id);
+		toast({
+			title: "Link Copied!",
+			description: "Meeting join link copied to clipboard. Share via WhatsApp or Email.",
+		});
+		setTimeout(() => setCopiedMeetingId(null), 2500);
+	};
+
+	const renderAttendeeBadge = (type?: string, tier?: string) => {
+		switch (type) {
+			case "lead":
+				return (
+					<Badge variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-300 text-xs flex items-center gap-1">
+						<Target className="h-3 w-3" />
+						Lead {tier ? `• ${tier}` : ""}
+					</Badge>
+				);
+			case "prospect":
+				return (
+					<Badge variant="outline" className="bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-300 text-xs flex items-center gap-1">
+						<Crown className="h-3 w-3" />
+						Prospect {tier ? `• ${tier}` : ""}
+					</Badge>
+				);
+			case "guest":
+				return (
+					<Badge variant="outline" className="bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-300 text-xs flex items-center gap-1">
+						<Mail className="h-3 w-3" />
+						Guest
+					</Badge>
+				);
+			default:
+				return (
+					<Badge variant="outline" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-300 text-xs flex items-center gap-1">
+						<Users className="h-3 w-3" />
+						Client
+					</Badge>
+				);
+		}
 	};
 
 	const upcomingMeetings =
@@ -270,10 +383,10 @@ export default function AgentMeetings() {
 				<div>
 					<h1 className="text-2xl font-bold flex items-center gap-2">
 						<Video className="h-6 w-6 text-blue-600" />
-						Client Meetings
+						Meetings & Video Hub
 					</h1>
 					<p className="text-muted-foreground">
-						Schedule and manage video meetings with clients via Google Meet & Video Hub
+						Connect with clients, leads, prospects, and guests via Google Meet & Video Hub
 					</p>
 				</div>
 				<Dialog open={meetingDialog} onOpenChange={setMeetingDialog}>
@@ -290,31 +403,184 @@ export default function AgentMeetings() {
 						<DialogHeader>
 							<DialogTitle>Schedule New Meeting</DialogTitle>
 							<DialogDescription>
-								Book a video call with your client
+								Book a video call with a client, pipeline lead, HNI prospect, or external guest
 							</DialogDescription>
 						</DialogHeader>
 						<div className="space-y-4 py-4">
-							<div className="space-y-2">
-								<Label htmlFor="meeting-client">Select Client *</Label>
-								<Select
-									value={meetingClientId}
-									onValueChange={setMeetingClientId}
-								>
-									<SelectTrigger
-										id="meeting-client"
-										data-testid="select-meeting-client"
+							{/* Attendee Type Switcher */}
+							<div className="space-y-1.5">
+								<Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+									Select Attendee Type
+								</Label>
+								<div className="grid grid-cols-4 gap-1 p-1 bg-muted rounded-lg text-xs font-medium">
+									<button
+										type="button"
+										onClick={() => setAttendeeType("client")}
+										className={`py-1.5 px-2 rounded-md flex items-center justify-center gap-1 transition-all ${
+											attendeeType === "client"
+												? "bg-background text-foreground shadow-sm font-semibold"
+												: "text-muted-foreground hover:text-foreground"
+										}`}
 									>
-										<SelectValue placeholder="Choose a client" />
-									</SelectTrigger>
-									<SelectContent>
-										{meetingClientsData?.clients?.map((client) => (
-											<SelectItem key={client.id} value={client.id}>
-												{client.fullName} ({client.email})
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+										<Users className="h-3.5 w-3.5 text-emerald-600" />
+										<span>Client</span>
+									</button>
+									<button
+										type="button"
+										onClick={() => setAttendeeType("lead")}
+										className={`py-1.5 px-2 rounded-md flex items-center justify-center gap-1 transition-all ${
+											attendeeType === "lead"
+												? "bg-background text-foreground shadow-sm font-semibold"
+												: "text-muted-foreground hover:text-foreground"
+										}`}
+									>
+										<Target className="h-3.5 w-3.5 text-blue-600" />
+										<span>Lead</span>
+									</button>
+									<button
+										type="button"
+										onClick={() => setAttendeeType("prospect")}
+										className={`py-1.5 px-2 rounded-md flex items-center justify-center gap-1 transition-all ${
+											attendeeType === "prospect"
+												? "bg-background text-foreground shadow-sm font-semibold"
+												: "text-muted-foreground hover:text-foreground"
+										}`}
+									>
+										<Crown className="h-3.5 w-3.5 text-amber-600" />
+										<span>Prospect</span>
+									</button>
+									<button
+										type="button"
+										onClick={() => setAttendeeType("guest")}
+										className={`py-1.5 px-2 rounded-md flex items-center justify-center gap-1 transition-all ${
+											attendeeType === "guest"
+												? "bg-background text-foreground shadow-sm font-semibold"
+												: "text-muted-foreground hover:text-foreground"
+										}`}
+									>
+										<Mail className="h-3.5 w-3.5 text-purple-600" />
+										<span>Guest</span>
+									</button>
+								</div>
 							</div>
+
+							{/* Dynamic Attendee Selector */}
+							{attendeeType === "client" && (
+								<div className="space-y-2">
+									<Label htmlFor="meeting-client">Select Registered Client *</Label>
+									<Select
+										value={meetingClientId}
+										onValueChange={setMeetingClientId}
+									>
+										<SelectTrigger
+											id="meeting-client"
+											data-testid="select-meeting-client"
+										>
+											<SelectValue placeholder="Choose a registered client" />
+										</SelectTrigger>
+										<SelectContent>
+											{meetingClientsData?.clients && meetingClientsData.clients.length > 0 ? (
+												meetingClientsData.clients.map((client) => (
+													<SelectItem key={client.id} value={client.id}>
+														{client.fullName} ({client.email})
+													</SelectItem>
+												))
+											) : (
+												<SelectItem value="none" disabled>
+													No registered clients found
+												</SelectItem>
+											)}
+										</SelectContent>
+									</Select>
+								</div>
+							)}
+
+							{attendeeType === "lead" && (
+								<div className="space-y-2">
+									<Label htmlFor="meeting-lead">Select Pipeline Lead *</Label>
+									<Select
+										value={meetingLeadId}
+										onValueChange={setMeetingLeadId}
+									>
+										<SelectTrigger
+											id="meeting-lead"
+											data-testid="select-meeting-lead"
+										>
+											<SelectValue placeholder="Choose a lead from pipeline" />
+										</SelectTrigger>
+										<SelectContent>
+											{meetingClientsData?.leads && meetingClientsData.leads.length > 0 ? (
+												meetingClientsData.leads.map((lead) => (
+													<SelectItem key={lead.leadId || lead.id} value={lead.leadId || lead.id}>
+														{lead.fullName} {lead.stage ? `[${lead.stage}]` : ""} {lead.email ? `(${lead.email})` : ""}
+													</SelectItem>
+												))
+											) : (
+												<SelectItem value="none" disabled>
+													No leads found in pipeline
+												</SelectItem>
+											)}
+										</SelectContent>
+									</Select>
+								</div>
+							)}
+
+							{attendeeType === "prospect" && (
+								<div className="space-y-2">
+									<Label htmlFor="meeting-prospect">Select HNI Prospect *</Label>
+									<Select
+										value={meetingProspectId}
+										onValueChange={setMeetingProspectId}
+									>
+										<SelectTrigger
+											id="meeting-prospect"
+											data-testid="select-meeting-prospect"
+										>
+											<SelectValue placeholder="Choose an HNI prospect" />
+										</SelectTrigger>
+										<SelectContent>
+											{meetingClientsData?.prospects && meetingClientsData.prospects.length > 0 ? (
+												meetingClientsData.prospects.map((p) => (
+													<SelectItem key={p.prospectId || p.id} value={p.prospectId || p.id}>
+														{p.fullName} {p.tier ? `(${p.tier})` : ""}
+													</SelectItem>
+												))
+											) : (
+												<SelectItem value="none" disabled>
+													No HNI prospects found
+												</SelectItem>
+											)}
+										</SelectContent>
+									</Select>
+								</div>
+							)}
+
+							{attendeeType === "guest" && (
+								<div className="grid grid-cols-2 gap-3">
+									<div className="space-y-1.5">
+										<Label htmlFor="guest-name">Guest Name *</Label>
+										<Input
+											id="guest-name"
+											placeholder="Full Name"
+											value={guestName}
+											onChange={(e) => setGuestName(e.target.value)}
+											data-testid="input-guest-name"
+										/>
+									</div>
+									<div className="space-y-1.5">
+										<Label htmlFor="guest-email">Guest Email *</Label>
+										<Input
+											id="guest-email"
+											type="email"
+											placeholder="guest@example.com"
+											value={guestEmail}
+											onChange={(e) => setGuestEmail(e.target.value)}
+											data-testid="input-guest-email"
+										/>
+									</div>
+								</div>
+							)}
+
 							<div className="space-y-2">
 								<Label htmlFor="meeting-topic">Topic *</Label>
 								<Input
@@ -501,7 +767,7 @@ export default function AgentMeetings() {
 								Upcoming Meetings
 							</CardTitle>
 							<CardDescription>
-								Scheduled video calls with your clients
+								Scheduled video calls with clients, leads, prospects, and guests
 							</CardDescription>
 						</CardHeader>
 						<CardContent>
@@ -517,21 +783,27 @@ export default function AgentMeetings() {
 											className="border rounded-lg p-4 bg-green-50 dark:bg-green-950"
 											data-testid={`meeting-card-${meeting.id}`}
 										>
-											<div className="flex items-start justify-between">
-												<div className="space-y-1">
-													<h4 className="font-medium">{meeting.topic}</h4>
+											<div className="flex items-start justify-between gap-4">
+												<div className="space-y-1.5 flex-1">
+													<div className="flex items-center gap-2 flex-wrap">
+														<h4 className="font-semibold">{meeting.topic}</h4>
+														{renderAttendeeBadge(meeting.attendeeType)}
+													</div>
 													<p className="text-sm text-muted-foreground">
-														Client: {meeting.clientName || "Unknown"}
+														Attendee: <span className="font-medium text-foreground">{meeting.clientName || "Unknown"}</span>
+														{meeting.clientEmail && (
+															<span className="text-xs text-muted-foreground ml-1">({meeting.clientEmail})</span>
+														)}
 													</p>
 													<div className="flex items-center gap-4 text-sm text-muted-foreground">
 														<span className="flex items-center gap-1">
-															<Calendar className="h-3 w-3" />
+															<Calendar className="h-3.5 w-3.5" />
 															{new Date(
 																meeting.scheduledAt,
 															).toLocaleDateString()}
 														</span>
 														<span className="flex items-center gap-1">
-															<Clock className="h-3 w-3" />
+															<Clock className="h-3.5 w-3.5" />
 															{new Date(meeting.scheduledAt).toLocaleTimeString(
 																[],
 																{ hour: "2-digit", minute: "2-digit" },
@@ -541,6 +813,32 @@ export default function AgentMeetings() {
 													</div>
 												</div>
 												<div className="flex items-center gap-2">
+													{(meeting.joinLink || meeting.startLink) && (
+														<Button
+															size="sm"
+															variant="outline"
+															onClick={() =>
+																copyJoinLink(
+																	meeting.joinLink || meeting.startLink || "",
+																	meeting.id,
+																)
+															}
+															data-testid={`button-copy-link-${meeting.id}`}
+															className="flex items-center gap-1"
+														>
+															{copiedMeetingId === meeting.id ? (
+																<>
+																	<Check className="h-3.5 w-3.5 text-green-600" />
+																	<span className="text-xs">Copied</span>
+																</>
+															) : (
+																<>
+																	<Copy className="h-3.5 w-3.5" />
+																	<span className="text-xs">Copy Link</span>
+																</>
+															)}
+														</Button>
+													)}
 													{meeting.startLink && (
 														<Button
 															size="sm"
@@ -550,7 +848,7 @@ export default function AgentMeetings() {
 															}
 															data-testid={`button-start-meeting-${meeting.id}`}
 														>
-															<ExternalLink className="mr-1 h-3 w-3" />
+															<ExternalLink className="mr-1 h-3.5 w-3.5" />
 															Start
 														</Button>
 													)}
@@ -564,7 +862,7 @@ export default function AgentMeetings() {
 														disabled={cancelMeetingMutation.isPending}
 														data-testid={`button-cancel-meeting-${meeting.id}`}
 													>
-														<XCircle className="mr-1 h-3 w-3" />
+														<XCircle className="mr-1 h-3.5 w-3.5" />
 														Cancel
 													</Button>
 												</div>
@@ -579,7 +877,7 @@ export default function AgentMeetings() {
 										No Upcoming Meetings
 									</h3>
 									<p className="text-muted-foreground mb-4">
-										Schedule a video meeting with a client via Google Meet & Video Hub
+										Schedule a video meeting with a client, lead, prospect, or guest via Google Meet & Video Hub
 									</p>
 									<Button
 										onClick={() => setMeetingDialog(true)}
@@ -609,10 +907,13 @@ export default function AgentMeetings() {
 											className="border rounded-lg p-3 bg-muted opacity-75"
 										>
 											<div className="flex items-center justify-between">
-												<div>
-													<h4 className="font-medium text-sm">
-														{meeting.topic}
-													</h4>
+												<div className="space-y-0.5">
+													<div className="flex items-center gap-2">
+														<h4 className="font-medium text-sm">
+															{meeting.topic}
+														</h4>
+														{renderAttendeeBadge(meeting.attendeeType)}
+													</div>
 													<p className="text-xs text-muted-foreground">
 														{meeting.clientName} •{" "}
 														{new Date(meeting.scheduledAt).toLocaleDateString()}
@@ -639,20 +940,20 @@ export default function AgentMeetings() {
 				<div className="space-y-6">
 					<Card>
 						<CardHeader>
-							<CardTitle className="text-sm">Meeting Statistics</CardTitle>
+							<CardTitle className="text-sm font-semibold">Meeting Statistics</CardTitle>
 						</CardHeader>
 						<CardContent>
 							<div className="space-y-3">
 								<div className="flex items-center justify-between">
 									<span className="text-sm text-muted-foreground flex items-center gap-2">
-										<Calendar className="h-4 w-4" />
+										<Calendar className="h-4 w-4 text-emerald-600" />
 										Upcoming
 									</span>
 									<Badge variant="secondary">{upcomingMeetings.length}</Badge>
 								</div>
 								<div className="flex items-center justify-between">
 									<span className="text-sm text-muted-foreground flex items-center gap-2">
-										<Clock className="h-4 w-4" />
+										<Clock className="h-4 w-4 text-orange-600" />
 										Pending Requests
 									</span>
 									<Badge variant="outline" className="text-orange-600">
@@ -661,7 +962,7 @@ export default function AgentMeetings() {
 								</div>
 								<div className="flex items-center justify-between">
 									<span className="text-sm text-muted-foreground flex items-center gap-2">
-										<CheckCircle2 className="h-4 w-4" />
+										<CheckCircle2 className="h-4 w-4 text-blue-600" />
 										Completed
 									</span>
 									<Badge variant="outline">
@@ -672,11 +973,14 @@ export default function AgentMeetings() {
 								</div>
 								<div className="flex items-center justify-between">
 									<span className="text-sm text-muted-foreground flex items-center gap-2">
-										<Users className="h-4 w-4" />
-										Total Clients
+										<Users className="h-4 w-4 text-purple-600" />
+										Total Contacts
 									</span>
 									<Badge variant="outline">
-										{meetingClientsData?.clients?.length || 0}
+										{meetingClientsData?.allAttendees?.length ||
+											(meetingClientsData?.clients?.length || 0) +
+												(meetingClientsData?.leads?.length || 0) +
+												(meetingClientsData?.prospects?.length || 0)}
 									</Badge>
 								</div>
 							</div>
@@ -685,13 +989,13 @@ export default function AgentMeetings() {
 
 					<Card>
 						<CardHeader>
-							<CardTitle className="text-sm">Quick Tips</CardTitle>
+							<CardTitle className="text-sm font-semibold">Quick Tips</CardTitle>
 						</CardHeader>
 						<CardContent className="text-sm text-muted-foreground space-y-2">
-							<p>• Meetings are powered by Google Meet & Video Hub</p>
-							<p>• Clients receive email invitations automatically</p>
-							<p>• Click "Start" to launch your meeting room</p>
-							<p>• Approve or decline client meeting requests</p>
+							<p>• Connect with Clients, Leads, HNI Prospects, or External Guests</p>
+							<p>• Instant video meeting links via Google Meet & Video Hub</p>
+							<p>• 1-click Copy Link to invite guests on WhatsApp or Email</p>
+							<p>• Lead meetings automatically sync to Kanban activity timeline</p>
 						</CardContent>
 					</Card>
 				</div>
