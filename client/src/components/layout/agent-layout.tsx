@@ -307,13 +307,6 @@ const agentNavCategories: NavCategory[] = [
 				badge: "STORE",
 			},
 			{
-				title: "Financial Planning",
-				href: "/agent/financial-planning",
-				icon: Target,
-				description: "Goal simulation, SIP solver & proposal fulfillment",
-				badge: "NEW",
-			},
-			{
 				title: "Asset Allocation",
 				href: "/agent/asset-allocation",
 				icon: PieChart,
@@ -337,12 +330,6 @@ const agentNavCategories: NavCategory[] = [
 				href: "/agent/us-client-accounts",
 				icon: Wallet,
 				description: "Broker-managed US trading accounts",
-			},
-			{
-				title: "Open US Account",
-				href: "/agent/us-client-accounts",
-				icon: UserPlus,
-				description: "Onboard client for US equity",
 			},
 			{
 				title: "Treasury",
@@ -454,12 +441,6 @@ const agentNavCategories: NavCategory[] = [
 				icon: LayoutGrid,
 				description: "Curated multi-asset investment templates",
 				badge: "NEW",
-			},
-			{
-				title: "Asset Allocation",
-				href: "/agent/asset-allocation",
-				icon: PieChart,
-				description: "Strategic & tactical asset allocation matrix",
 			},
 			{
 				title: "Research Lists",

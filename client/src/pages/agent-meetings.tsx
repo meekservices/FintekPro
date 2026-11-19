@@ -273,7 +273,7 @@ export default function AgentMeetings() {
 						Client Meetings
 					</h1>
 					<p className="text-muted-foreground">
-						Schedule and manage video meetings with clients via Zoho Meetings
+						Schedule and manage video meetings with clients via Google Meet & Video Hub
 					</p>
 				</div>
 				<Dialog open={meetingDialog} onOpenChange={setMeetingDialog}>
@@ -579,7 +579,7 @@ export default function AgentMeetings() {
 										No Upcoming Meetings
 									</h3>
 									<p className="text-muted-foreground mb-4">
-										Schedule a video meeting with a client using Zoho Meetings
+										Schedule a video meeting with a client via Google Meet & Video Hub
 									</p>
 									<Button
 										onClick={() => setMeetingDialog(true)}
@@ -688,7 +688,7 @@ export default function AgentMeetings() {
 							<CardTitle className="text-sm">Quick Tips</CardTitle>
 						</CardHeader>
 						<CardContent className="text-sm text-muted-foreground space-y-2">
-							<p>• Meetings are powered by Zoho Meetings</p>
+							<p>• Meetings are powered by Google Meet & Video Hub</p>
 							<p>• Clients receive email invitations automatically</p>
 							<p>• Click "Start" to launch your meeting room</p>
 							<p>• Approve or decline client meeting requests</p>
