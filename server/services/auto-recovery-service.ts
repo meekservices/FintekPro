@@ -13,9 +13,11 @@
  * Any service can register/update its own breaker via registerCircuitBreaker().
  */
 
-import { db } from "../db";
+import { db, pool } from "../db";
 import { sql } from "drizzle-orm";
 import { clearSandboxToken } from "../utils/sandbox-config";
+import { getSharedRedis } from "../utils/redis-client";
+import { logger } from "../logger";
 
 // ── Circuit breaker registry ──────────────────────────────────────────────────
 
@@ -31,12 +33,125 @@ export interface CircuitBreakerState {
 
 const circuitRegistry = new Map<string, CircuitBreakerState>();
 
+// Async helper to ensure circuit breaker persistence table
+let circuitTableEnsured = false;
+async function ensureCircuitTable(): Promise<void> {
+	if (circuitTableEnsured) return;
+	try {
+		await pool.query(`
+			CREATE TABLE IF NOT EXISTS system_circuit_breakers (
+				service VARCHAR(100) PRIMARY KEY,
+				status VARCHAR(20) NOT NULL DEFAULT 'closed',
+				failure_count INT NOT NULL DEFAULT 0,
+				last_failure_at TIMESTAMPTZ,
+				open_until TIMESTAMPTZ,
+				last_success_at TIMESTAMPTZ,
+				total_recoveries INT NOT NULL DEFAULT 0,
+				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+		`);
+		circuitTableEnsured = true;
+	} catch {
+		// Non-fatal if table cannot be created immediately
+	}
+}
+
+// Background sync from distributed store (Redis / PostgreSQL)
+async function syncFromDistributedStore(): Promise<void> {
+	try {
+		const redis = await getSharedRedis();
+		if (redis) {
+			for (const service of circuitRegistry.keys()) {
+				const remote = await redis.get(`fintekpro:circuit:${service}`);
+				if (remote) {
+					try {
+						const parsed = JSON.parse(remote);
+						circuitRegistry.set(service, {
+							...circuitRegistry.get(service)!,
+							...parsed,
+							lastFailureAt: parsed.lastFailureAt ? new Date(parsed.lastFailureAt) : null,
+							openUntil: parsed.openUntil ? new Date(parsed.openUntil) : null,
+							lastSuccessAt: parsed.lastSuccessAt ? new Date(parsed.lastSuccessAt) : null,
+						});
+					} catch {
+						// ignore parse error
+					}
+				}
+			}
+			return;
+		}
+
+		// Fallback: query PostgreSQL if table exists
+		await ensureCircuitTable();
+		const res = await pool.query("SELECT * FROM system_circuit_breakers");
+		for (const row of res.rows) {
+			circuitRegistry.set(row.service, {
+				service: row.service,
+				status: row.status as "closed" | "open" | "half-open",
+				failureCount: row.failure_count,
+				lastFailureAt: row.last_failure_at ? new Date(row.last_failure_at) : null,
+				openUntil: row.open_until ? new Date(row.open_until) : null,
+				lastSuccessAt: row.last_success_at ? new Date(row.last_success_at) : null,
+				totalRecoveries: row.total_recoveries,
+			});
+		}
+	} catch {
+		// Non-fatal background sync failure
+	}
+}
+
+// Run periodic sync every 15 seconds across pods
+setInterval(() => {
+	void syncFromDistributedStore();
+}, 15_000).unref?.();
+
+// Async helper to persist circuit breaker state across all Cloud Run pods
+async function broadcastCircuitState(service: string, state: CircuitBreakerState): Promise<void> {
+	try {
+		const redis = await getSharedRedis();
+		if (redis) {
+			const ttlSec = state.openUntil ? Math.max(30, Math.ceil((new Date(state.openUntil).getTime() - Date.now()) / 1000)) : 3600;
+			await redis.set(`fintekpro:circuit:${service}`, JSON.stringify(state), { EX: ttlSec });
+			return;
+		}
+
+		// Zero-Redis PostgreSQL fallback
+		await ensureCircuitTable();
+		await pool.query(
+			`
+			INSERT INTO system_circuit_breakers (
+				service, status, failure_count, last_failure_at, open_until, last_success_at, total_recoveries, updated_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+			ON CONFLICT (service) DO UPDATE SET
+				status = EXCLUDED.status,
+				failure_count = EXCLUDED.failure_count,
+				last_failure_at = EXCLUDED.last_failure_at,
+				open_until = EXCLUDED.open_until,
+				last_success_at = EXCLUDED.last_success_at,
+				total_recoveries = EXCLUDED.total_recoveries,
+				updated_at = NOW();
+			`,
+			[
+				service,
+				state.status,
+				state.failureCount,
+				state.lastFailureAt,
+				state.openUntil,
+				state.lastSuccessAt,
+				state.totalRecoveries,
+			],
+		);
+	} catch {
+		// Non-fatal: local memory already updated
+	}
+}
+
 export function registerCircuitBreaker(
 	service: string,
 	state: Partial<CircuitBreakerState>,
 ): void {
 	const existing = circuitRegistry.get(service);
-	circuitRegistry.set(service, {
+	const updated: CircuitBreakerState = {
 		service,
 		status: "closed",
 		failureCount: 0,
@@ -46,7 +161,8 @@ export function registerCircuitBreaker(
 		totalRecoveries: 0,
 		...existing,
 		...state,
-	});
+	};
+	circuitRegistry.set(service, updated);
 }
 
 export function updateCircuitBreaker(
@@ -62,7 +178,9 @@ export function updateCircuitBreaker(
 		lastSuccessAt: null,
 		totalRecoveries: 0,
 	};
-	circuitRegistry.set(service, { ...existing, ...update });
+	const newState = { ...existing, ...update };
+	circuitRegistry.set(service, newState);
+	void broadcastCircuitState(service, newState);
 }
 
 export function getAllCircuitBreakers(): CircuitBreakerState[] {
@@ -72,12 +190,14 @@ export function getAllCircuitBreakers(): CircuitBreakerState[] {
 export function resetCircuitBreaker(service: string): void {
 	const existing = circuitRegistry.get(service);
 	if (existing) {
-		circuitRegistry.set(service, {
+		const resetState: CircuitBreakerState = {
 			...existing,
 			status: "closed",
 			failureCount: 0,
 			openUntil: null,
-		});
+		};
+		circuitRegistry.set(service, resetState);
+		void broadcastCircuitState(service, resetState);
 	}
 }
 
@@ -85,30 +205,64 @@ export function resetAllCircuitBreakers(): string[] {
 	const reset: string[] = [];
 	for (const [name, state] of circuitRegistry.entries()) {
 		if (state.status !== "closed") {
-			circuitRegistry.set(name, {
+			const resetState: CircuitBreakerState = {
 				...state,
 				status: "closed",
 				failureCount: 0,
 				openUntil: null,
-			});
+			};
+			circuitRegistry.set(name, resetState);
+			void broadcastCircuitState(name, resetState);
 			reset.push(name);
 		}
 	}
 	return reset;
 }
 
-// ── Recovery action rate limiter ──────────────────────────────────────────────
+// ── Recovery action rate limiter (Distributed Across Cloud Run Pods) ───────────
 
 const lastRecoveryAt = new Map<string, number>(); // action → epoch ms
 const RECOVERY_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 
-function canRunRecovery(action: string): boolean {
+async function canRunRecovery(action: string): Promise<boolean> {
 	const last = lastRecoveryAt.get(action) ?? 0;
-	return Date.now() - last >= RECOVERY_COOLDOWN_MS;
+	if (Date.now() - last < RECOVERY_COOLDOWN_MS) {
+		return false;
+	}
+
+	// Distributed check via Redis / PostgreSQL to avoid multi-pod thundering herd
+	try {
+		const redis = await getSharedRedis();
+		if (redis) {
+			const activeCooldown = await redis.get(`fintekpro:recovery_cooldown:${action}`);
+			if (activeCooldown) return false;
+		} else {
+			// Check recent healing events in DB
+			const res = await pool.query(
+				`SELECT id FROM self_healing_events 
+				 WHERE action_taken = $1 AND occurred_at > NOW() - INTERVAL '5 minutes' 
+				 LIMIT 1`,
+				[action],
+			);
+			if ((res.rowCount ?? 0) > 0) return false;
+		}
+	} catch {
+		// fallback to local check
+	}
+
+	return true;
 }
 
-function markRecoveryRan(action: string): void {
+async function markRecoveryRan(action: string): Promise<void> {
 	lastRecoveryAt.set(action, Date.now());
+	try {
+		const redis = await getSharedRedis();
+		if (redis) {
+			await redis.set(`fintekpro:recovery_cooldown:${action}`, "active", { EX: 300 });
+		}
+	} catch {
+		// non-fatal
+	}
 }
 
 // ── Recovery actions ──────────────────────────────────────────────────────────
@@ -136,7 +290,7 @@ async function runRecoveryAction(
 ): Promise<RecoveryResult> {
 	const start = Date.now();
 
-	if (!force && !canRunRecovery(action)) {
+	if (!force && !(await canRunRecovery(action))) {
 		const remaining = Math.ceil(
 			(RECOVERY_COOLDOWN_MS -
 				(Date.now() - (lastRecoveryAt.get(action) ?? 0))) /
@@ -151,7 +305,7 @@ async function runRecoveryAction(
 		};
 	}
 
-	markRecoveryRan(action);
+	await markRecoveryRan(action);
 
 	try {
 		switch (action) {
@@ -339,7 +493,7 @@ export async function handleErrorWithAutoRecovery(
 
 	for (const { pattern, actions, description } of ERROR_PATTERNS) {
 		if (pattern.test(errorMessage)) {
-			console.log(
+			logger.info(
 				`[AutoRecovery] Pattern matched for "${context}": ${description}`,
 			);
 			for (const action of actions) {
@@ -398,7 +552,7 @@ export async function triggerManualRecovery(
 	action: RecoveryAction,
 	adminId: string,
 ): Promise<RecoveryResult> {
-	console.log(`[AutoRecovery] Manual trigger: ${action} by ${adminId}`);
+	logger.info(`[AutoRecovery] Manual trigger: ${action} by ${adminId}`);
 	const result = await runRecoveryAction(
 		action,
 		true /* force = bypass cooldown */,
@@ -503,7 +657,7 @@ export function initAutoRecoveryService(): void {
 	for (const svc of services) {
 		registerCircuitBreaker(svc, {});
 	}
-	console.log(
+	logger.info(
 		`✅ Auto-Recovery Service initialized (${services.length} circuit breakers registered)`,
 	);
 }

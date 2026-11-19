@@ -104,8 +104,36 @@ upsert_scheduler_job \
   "fintekpro-rebalance" \
   "Executes autonomous model portfolio drift rebalancing, momentum swaps, and real-money risk/reward queue generation post market close"
 
+# 6. Autonomous Regulatory Sync (Every 4 Hours)
+upsert_scheduler_job \
+  "fintekpro-regulatory-sync-trigger" \
+  "0 */4 * * *" \
+  "fintekpro-regulatory-sync" \
+  "Synchronizes live SEBI circulars, AMFI regulatory updates, and investor protection directives"
+
+# 7. Pre-Market Health & Token Watchdog (Mon-Fri 08:30 AM IST)
+upsert_scheduler_job \
+  "fintekpro-premarket-watchdog-trigger" \
+  "30 8 * * 1-5" \
+  "fintekpro-premarket-watchdog" \
+  "Pre-market diagnostic verifying Upstox broker token health, Cloud SQL latency, and market data vendor readiness"
+
+# 8. EOD Market Intelligence & Macro Synthesis (Mon-Fri 05:00 PM IST)
+upsert_scheduler_job \
+  "fintekpro-market-intel-trigger" \
+  "0 17 * * 1-5" \
+  "fintekpro-market-intel" \
+  "Autonomous EOD multi-region market briefs, FII/DII net flows, MoSPI CPI tracking, and knowledge hub health audit"
+
+# 9. Autonomous Database & Data Hygiene (Sunday 01:30 AM IST)
+upsert_scheduler_job \
+  "fintekpro-data-maintenance-trigger" \
+  "30 1 * * 0" \
+  "fintekpro-data-maintenance" \
+  "Autonomous weekly database hygiene: session purge, stale lock eviction, cache cleanup, and query optimizer statistics refresh"
+
 echo ""
 echo "================================================================="
-echo "✅ All 5 Cloud Scheduler triggers configured successfully!"
+echo "✅ All 9 Cloud Scheduler triggers configured successfully!"
 echo "================================================================="
 
