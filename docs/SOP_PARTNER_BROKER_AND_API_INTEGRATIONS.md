@@ -235,6 +235,16 @@ flowchart TD
 
 This Standard Operating Procedure is reviewed and re-certified on a **semi-annual basis** by the FintekPro Compliance Council and the Principal Officer to incorporate emerging regulatory circulars from SEBI, RBI, and partner broker technical revisions.
 
+---
+
+## 10. Deprecation & Delinking Addendum: External CRM Services (Zoho CRM)
+
+As of November 2026, **all third-party CRM connections (specifically Zoho CRM) are formally delinked, deprecated, and retired** under FintekPro Policy `POL-CRM-2026-01`:
+
+1. **System of Record (SoR)**: FintekPro Native CRM Engine (`lead_registry`, `agent_leads`, `prospect_clients`, `prospect_proposals`) is the exclusive, sovereign System of Record for all non-client lead pipelines, corporate director wealth scores, and KYC onboarding conversions.
+2. **Data Isolation & DPDP Sovereignty**: To prevent unneeded third-party exposure of customer PAN, liquid net worth, and investment intent, no prospect or client PII shall be synchronised to external CRM SaaS vendors.
+3. **Route & Interface Retirement**: `/agent/crm` navigation links have been eliminated from all agent layouts and redirected to the unified Lead Pipeline (`/agent/leads`). All active acquisition workflows operate natively within FintekPro.
+
 *Document Approved by*: FintekPro Legal, Regulatory & Technology Council  
 *Distribution*: Engineering, Product, Compliance, Operations, and RIA Advisory Desks  
 

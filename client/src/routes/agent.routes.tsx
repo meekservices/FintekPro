@@ -21,7 +21,6 @@ import {
 	AgentDashboard,
 	AgentPicks,
 	AgentProspectWizard,
-	AgentZohoCRM,
 	AgentClientsPage,
 	AgentUsClientAccounts,
 	AgentCrmClient360,
@@ -266,31 +265,13 @@ export function AgentRoutes() {
 				)}
 			</Route>
 			<Route path="/agent/crm">
-				{() => (
-					<AgentLayout>
-						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
-							<AgentZohoCRM />
-						</Suspense>
-					</AgentLayout>
-				)}
+				{() => <Redirect to="/agent/leads" />}
 			</Route>
 			<Route path="/partner/crm">
-				{() => (
-					<AgentLayout>
-						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
-							<AgentZohoCRM />
-						</Suspense>
-					</AgentLayout>
-				)}
+				{() => <Redirect to="/agent/leads" />}
 			</Route>
 			<Route path="/agent/zoho-crm">
-				{() => (
-					<AgentLayout>
-						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
-							<AgentZohoCRM />
-						</Suspense>
-					</AgentLayout>
-				)}
+				{() => <Redirect to="/agent/leads" />}
 			</Route>
 			<Route path="/agent/clients">
 				{() => (

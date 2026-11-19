@@ -170,10 +170,10 @@ const agentNavCategories: NavCategory[] = [
 				description: "Manage your lead pipeline",
 			},
 			{
-				title: "HNI Prospects",
+				title: "HNI Wealth Intelligence",
 				href: "/agent/hni-leaderboard",
 				icon: UserCog,
-				description: "Prospects ranked by wealth score",
+				description: "AI-scored corporate directors & wealth events",
 				badge: "AI",
 			},
 			{
@@ -182,12 +182,6 @@ const agentNavCategories: NavCategory[] = [
 				icon: Crosshair,
 				description: "Match AIF/PMS deals to best-fit prospects",
 				badge: "AI",
-			},
-			{
-				title: "Partner CRM",
-				href: "/agent/crm",
-				icon: BarChart3,
-				description: "Pipeline and client leads",
 			},
 			{
 				title: "Tasks",
@@ -1356,12 +1350,12 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 					<CommandGroup heading="Quick Actions">
 						<CommandItem
 							onSelect={() => {
-								navigate("/agent/crm");
+								navigate("/agent/leads");
 								setSearchOpen(false);
 							}}
 						>
 							<Target className="mr-2 h-4 w-4" />
-							<span>Partner CRM Leads</span>
+							<span>Lead Pipeline</span>
 						</CommandItem>
 						<CommandItem
 							onSelect={() => {
