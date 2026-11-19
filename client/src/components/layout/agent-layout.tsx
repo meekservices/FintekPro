@@ -184,6 +184,13 @@ const agentNavCategories: NavCategory[] = [
 				badge: "AI",
 			},
 			{
+				title: "Marketing Studio",
+				href: "/agent/bulk-communication",
+				icon: Send,
+				description: "Omnichannel WhatsApp, Email & SMS campaigns",
+				badge: "Growth",
+			},
+			{
 				title: "Tasks",
 				href: "/agent/tasks",
 				icon: CheckSquare,
@@ -428,12 +435,6 @@ const agentNavCategories: NavCategory[] = [
 				href: "/agent/festival-greetings",
 				icon: Sparkles,
 				description: "Send festival wishes to clients",
-			},
-			{
-				title: "Bulk Communication",
-				href: "/agent/bulk-communication",
-				icon: Mail,
-				description: "Email/SMS campaigns",
 			},
 			{
 				title: "Marketing Profile",

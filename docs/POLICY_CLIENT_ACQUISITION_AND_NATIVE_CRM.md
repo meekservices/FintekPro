@@ -112,3 +112,14 @@ In accordance with SEBI CSCRF guidelines:
   ```
 - No PII is logged in unmasked plain text; PAN and Aadhaar are masked according to UIDAI and SEBI norms.
 - All lead activities remain immutable in `lead_activities` for a minimum statutory period of 5 years.
+
+---
+
+## 6. Native Marketing Studio & Omnichannel Acquisition Governance
+
+To empower partners with automated acquisition capabilities without relying on external campaign software:
+
+1. **Integrated Marketing Studio**: Elevated into the primary partner navigation (`/agent/bulk-communication`, `/agent/marketing`, `/agent/campaigns`) and linked directly from the Lead Pipeline cockpit.
+2. **Unified Audience Segmentation**: The marketing engine natively aggregates both **Non-Client Leads** (from `agent_leads` / `prospect_clients`) and **Existing Clients** (from `users` / `clients`), allowing targeted outreach by tier (`💎 UHNI`, `👑 HNI`, `Affluent`), persona (corporate directors), and funnel stage (`new`, `contacted`, `proposal_sent`).
+3. **Closed-Loop Touchpoint Logging**: Every outbound campaign (WhatsApp broadcast, transactional email, SMS blast) automatically records an activity record in `lead_activities`, ensuring complete interaction visibility on the partner Kanban board.
+4. **SEBI Advertising Code Compliance**: All promotional templates must include statutory risk disclaimers, avoid deterministic profit guarantees, and support explicit DPDP opt-out mechanisms.

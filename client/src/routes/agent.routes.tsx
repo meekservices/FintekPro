@@ -740,6 +740,24 @@ export function AgentRoutes() {
 					</AgentLayout>
 				)}
 			</Route>
+			<Route path="/agent/marketing">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AgentBulkCommunication />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
+			<Route path="/agent/campaigns">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AgentBulkCommunication />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
 			<Route path="/agent/calendar">
 				{() => (
 					<AgentLayout>

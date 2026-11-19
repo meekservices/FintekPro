@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
 	Card,
@@ -70,6 +71,7 @@ import {
 	ShieldCheck,
 	FileText,
 	UserCheck,
+	Send,
 } from "lucide-react";
 
 interface Lead {
@@ -179,6 +181,7 @@ const STAGES: (keyof typeof STAGE_CONFIG)[] = [
 ];
 
 export default function AgentLeadPipeline() {
+	const [, setLocation] = useLocation();
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
 	const [searchQuery, setSearchQuery] = useState("");
@@ -644,6 +647,15 @@ export default function AgentLeadPipeline() {
 						>
 							<PhoneCall className="h-4 w-4 mr-2" />
 							Auto-Dialer Queue
+						</Button>
+						<Button
+							variant="outline"
+							onClick={() => setLocation("/agent/bulk-communication")}
+							className="border-indigo-500/40 text-indigo-400 bg-indigo-500/5 hover:bg-indigo-500/10 font-medium"
+							data-testid="button-open-marketing-studio"
+						>
+							<Send className="h-4 w-4 mr-2" />
+							Marketing Studio
 						</Button>
 						<Dialog open={showBulkUpload} onOpenChange={setShowBulkUpload}>
 							<DialogTrigger asChild>

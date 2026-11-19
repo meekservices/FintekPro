@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Express } from "express";
 import { storage } from "../storage";
 import { db } from "../db";
@@ -75,6 +76,24 @@ export function registerAgentCapitalGainPart2Part2Routes(app: Express): void {
 				);
 			}
 
+			// Log marketing touchpoints asynchronously in Native CRM
+			if (db && (schema as any).leadActivities) {
+				for (const r of recipients) {
+					if (r.id) {
+						db.insert((schema as any).leadActivities)
+							.values({
+								leadId: String(r.id),
+								activityType: "sms",
+								subject: `Campaign: ${name}`,
+								description: message?.substring(0, 200),
+								outcome: "successful",
+								performedBy: req.user.id,
+							})
+							.catch(() => {});
+					}
+				}
+			}
+
 			res.json({
 				success: true,
 				campaignId: `sms-${Date.now()}`,
@@ -141,6 +160,24 @@ export function registerAgentCapitalGainPart2Part2Routes(app: Express): void {
 				);
 			}
 
+			// Log marketing touchpoints asynchronously in Native CRM
+			if (db && (schema as any).leadActivities) {
+				for (const r of recipients) {
+					if (r.id) {
+						db.insert((schema as any).leadActivities)
+							.values({
+								leadId: String(r.id),
+								activityType: "email",
+								subject: `Campaign: ${name} (${subject || "Email"})`,
+								description: (htmlContent || "").substring(0, 200),
+								outcome: "successful",
+								performedBy: req.user.id,
+							})
+							.catch(() => {});
+					}
+				}
+			}
+
 			res.json({
 				success: true,
 				campaignId: `email-${Date.now()}`,
@@ -205,6 +242,24 @@ export function registerAgentCapitalGainPart2Part2Routes(app: Express): void {
 				console.log(
 					`[Mock WhatsApp Campaign] Dispatcher not available, simulating send to ${recipients.length} recipients`,
 				);
+			}
+
+			// Log marketing touchpoints asynchronously in Native CRM
+			if (db && (schema as any).leadActivities) {
+				for (const r of recipients) {
+					if (r.id) {
+						db.insert((schema as any).leadActivities)
+							.values({
+								leadId: String(r.id),
+								activityType: "whatsapp",
+								subject: `Campaign: ${name} (${templateName})`,
+								description: `WhatsApp template ${templateName} dispatched`,
+								outcome: "successful",
+								performedBy: req.user.id,
+							})
+							.catch(() => {});
+					}
+				}
 			}
 
 			res.json({

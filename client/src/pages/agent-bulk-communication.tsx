@@ -113,6 +113,9 @@ interface Client {
 	investmentValue: number;
 	lastInteraction?: string;
 	tags?: string[];
+	type?: "client" | "lead";
+	tier?: string;
+	stage?: string;
 }
 
 interface RecipientFilter {
@@ -147,6 +150,7 @@ export default function AgentBulkCommunication() {
 	const [scheduledDate, setScheduledDate] = useState("");
 	const [scheduledTime, setScheduledTime] = useState("");
 	const [selectAll, setSelectAll] = useState(false);
+	const [targetAudienceType, setTargetAudienceType] = useState<"all" | "leads" | "clients">("all");
 
 	const { data: campaigns, isLoading: campaignsLoading } = useQuery<Campaign[]>(
 		{
@@ -172,6 +176,17 @@ export default function AgentBulkCommunication() {
 		},
 	});
 
+	const { data: leadsResponse, isLoading: leadsLoading } = useQuery<{ success?: boolean; data?: any[] }>({
+		queryKey: ["/api/agent/leads"],
+		queryFn: async () => {
+			const response = await fetch("/api/agent/leads");
+			if (!response.ok) {
+				return { success: false, data: [] };
+			}
+			return response.json();
+		},
+	});
+
 	const { data: whatsappTemplates } = useQuery<WhatsAppTemplate[]>({
 		queryKey: ["/api/marketing/whatsapp/templates"],
 		queryFn: async () => {
@@ -184,10 +199,52 @@ export default function AgentBulkCommunication() {
 		enabled: selectedChannel === "whatsapp",
 	});
 
-	const filteredClients = useMemo(() => {
-		if (!clients) return [];
+	const allContacts = useMemo(() => {
+		const list: Client[] = [];
 
-		return clients.filter((client) => {
+		if (clients && Array.isArray(clients)) {
+			for (const c of clients) {
+				list.push({
+					...c,
+					type: "client",
+				});
+			}
+		}
+
+		const rawLeads = leadsResponse?.data;
+		if (rawLeads && Array.isArray(rawLeads)) {
+			for (const l of rawLeads) {
+				const parts = (l.name || "Lead").trim().split(" ");
+				list.push({
+					id: String(l.id),
+					firstName: parts[0] || l.name || "Lead",
+					lastName: parts.slice(1).join(" ") || "",
+					email: l.email || "",
+					phone: l.phone || "",
+					kycStatus: "Non-Client Lead",
+					investmentValue: Number(l.potentialValue || 0),
+					lastInteraction: l.createdAt,
+					tags: [l.tier || "Lead", l.status || "new"],
+					type: "lead",
+					tier: l.tier,
+					stage: l.status,
+				});
+			}
+		}
+
+		return list;
+	}, [clients, leadsResponse]);
+
+	const filteredClients = useMemo(() => {
+		let list = allContacts;
+
+		if (targetAudienceType === "leads") {
+			list = list.filter((c) => c.type === "lead");
+		} else if (targetAudienceType === "clients") {
+			list = list.filter((c) => c.type === "client");
+		}
+
+		return list.filter((client) => {
 			if (
 				recipientFilter.kycStatus &&
 				client.kycStatus !== recipientFilter.kycStatus
@@ -225,7 +282,7 @@ export default function AgentBulkCommunication() {
 			}
 			return true;
 		});
-	}, [clients, recipientFilter]);
+	}, [allContacts, targetAudienceType, recipientFilter]);
 
 	const campaignStats = useMemo(() => {
 		if (!campaigns || !Array.isArray(campaigns) || campaigns.length === 0) {
@@ -565,14 +622,15 @@ export default function AgentBulkCommunication() {
 													description: "Template-based messages",
 												},
 											].map((channel) => (
-												<div
+												<button
+													type="button"
 													key={channel.id}
 													onClick={() =>
 														setSelectedChannel(
 															channel.id as "sms" | "email" | "whatsapp",
 														)
 													}
-													className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
+													className={`text-left w-full cursor-pointer rounded-lg border-2 p-4 transition-all ${
 														selectedChannel === channel.id
 															? "border-emerald-500 bg-emerald-500/10"
 															: "border-border hover:border-border bg-card"
@@ -588,7 +646,7 @@ export default function AgentBulkCommunication() {
 													<p className="text-xs text-muted-foreground">
 														{channel.description}
 													</p>
-												</div>
+												</button>
 											))}
 										</div>
 									</div>
@@ -597,6 +655,43 @@ export default function AgentBulkCommunication() {
 
 							{wizardStep === 2 && (
 								<div className="space-y-6 py-4">
+									{/* Audience Segment Switcher */}
+									<div className="flex flex-wrap items-center gap-2 p-1.5 bg-card/60 rounded-lg border border-border">
+										<button
+											type="button"
+											onClick={() => setTargetAudienceType("all")}
+											className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+												targetAudienceType === "all"
+													? "bg-emerald-600 text-white shadow-sm"
+													: "text-muted-foreground hover:text-foreground hover:bg-muted"
+											}`}
+										>
+											All Contacts ({allContacts.length})
+										</button>
+										<button
+											type="button"
+											onClick={() => setTargetAudienceType("leads")}
+											className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+												targetAudienceType === "leads"
+													? "bg-amber-600 text-white shadow-sm"
+													: "text-muted-foreground hover:text-foreground hover:bg-muted"
+											}`}
+										>
+											🎯 Non-Client Leads ({allContacts.filter((c) => c.type === "lead").length})
+										</button>
+										<button
+											type="button"
+											onClick={() => setTargetAudienceType("clients")}
+											className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+												targetAudienceType === "clients"
+													? "bg-blue-600 text-white shadow-sm"
+													: "text-muted-foreground hover:text-foreground hover:bg-muted"
+											}`}
+										>
+											👥 Active Clients ({allContacts.filter((c) => c.type === "client").length})
+										</button>
+									</div>
+
 									<div className="grid grid-cols-2 gap-4">
 										<div className="space-y-2">
 											<Label className="text-muted-foreground">
@@ -741,9 +836,10 @@ export default function AgentBulkCommunication() {
 												</div>
 											) : (
 												filteredClients.map((client) => (
-													<div
+													<button
+														type="button"
 														key={client.id}
-														className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+														className={`w-full text-left flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
 															selectedRecipients.includes(client.id)
 																? "bg-emerald-500/10 border border-emerald-500/30"
 																: "bg-card hover:bg-muted"
@@ -756,17 +852,36 @@ export default function AgentBulkCommunication() {
 															className="border-border"
 														/>
 														<div className="flex-1">
-															<p className="font-medium text-foreground">
-																{client.firstName} {client.lastName}
-															</p>
+															<div className="flex items-center gap-2">
+																<p className="font-medium text-foreground">
+																	{client.firstName} {client.lastName}
+																</p>
+																{client.type === "lead" ? (
+																	<Badge className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px] py-0 px-1.5">
+																		Lead
+																	</Badge>
+																) : (
+																	<Badge className="bg-blue-500/10 text-blue-400 border-blue-500/30 text-[10px] py-0 px-1.5">
+																		Client
+																	</Badge>
+																)}
+																{client.tier && (
+																	<span className="text-[10px] font-semibold text-amber-300">
+																		{client.tier}
+																	</span>
+																)}
+															</div>
 															<p className="text-xs text-muted-foreground">
-																{client.email} • {client.phone}
+																{client.email || "No email"} • {client.phone || "No phone"}
+																{client.stage && ` • ${client.stage}`}
 															</p>
 														</div>
 														<Badge variant="outline" className="text-xs">
-															₹{(client.investmentValue / 100000).toFixed(1)}L
+															{client.type === "lead"
+																? (client.investmentValue ? `₹${(client.investmentValue / 100000).toFixed(1)}L Est` : "Lead")
+																: `₹${(client.investmentValue / 100000).toFixed(1)}L`}
 														</Badge>
-													</div>
+													</button>
 												))
 											)}
 										</div>
@@ -944,9 +1059,10 @@ export default function AgentBulkCommunication() {
 											When to send?
 										</Label>
 										<div className="grid grid-cols-2 gap-4">
-											<div
+											<button
+												type="button"
 												onClick={() => setScheduleType("now")}
-												className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
+												className={`text-left w-full cursor-pointer rounded-lg border-2 p-4 transition-all ${
 													scheduleType === "now"
 														? "border-emerald-500 bg-emerald-500/10"
 														: "border-border hover:border-border bg-card"
@@ -962,10 +1078,11 @@ export default function AgentBulkCommunication() {
 												<p className="text-xs text-muted-foreground">
 													Campaign will be sent right away
 												</p>
-											</div>
-											<div
+											</button>
+											<button
+												type="button"
 												onClick={() => setScheduleType("schedule")}
-												className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
+												className={`text-left w-full cursor-pointer rounded-lg border-2 p-4 transition-all ${
 													scheduleType === "schedule"
 														? "border-emerald-500 bg-emerald-500/10"
 														: "border-border hover:border-border bg-card"
@@ -981,7 +1098,7 @@ export default function AgentBulkCommunication() {
 												<p className="text-xs text-muted-foreground">
 													Choose date and time
 												</p>
-											</div>
+											</button>
 										</div>
 									</div>
 
