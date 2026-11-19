@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Express } from "express";
 import { storage } from "../storage";
 import { db } from "../db";
@@ -450,35 +451,278 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
 			res.json({ pendingTasks: 0, overdueCount: 0 });
 		}
 	});
-	// Partner / Agent leads - Full CRUD for lead pipeline
-	// GET all leads for partner/agent
+	// Partner / Agent leads - Unified Lead Pipeline & HNI Prospect Funnel
+	// GET all leads for partner/agent (merging agent leads, HNI wizard prospects, and proposals)
 	app.get(["/api/agent/leads", "/api/partner/leads"], requireAgent, async (req, res) => {
 		try {
-			const leads = await db
+			const agentId = req.user!.id;
+
+			// 1. Fetch agentLeads (Standard manual/campaign leads)
+			const standardLeads = await db
 				.select()
 				.from(schema.agentLeads)
-				.where(eq(schema.agentLeads.agentId, req.user!.id))
+				.where(eq(schema.agentLeads.agentId, agentId))
 				.orderBy(desc(schema.agentLeads.createdAt));
 
-			// Transform to match frontend Lead interface
-			const transformedLeads = leads.map((lead) => ({
-				id: lead.id,
-				name: lead.name || "",
-				email: lead.email || "",
-				phone: lead.phone || "",
-				mobile: lead.phone || "",
-				stage: lead.stage || "new",
-				status: lead.stage || "new",
-				source: lead.source || "manual",
-				potentialValue: Number(lead.potentialValue) || 0,
-				score: lead.score || 50,
-				notes: lead.notes || "",
-				interest: lead.notes || "",
-				lastContact: lead.lastContactAt?.toISOString(),
-				nextFollowUp: lead.nextFollowUpAt?.toISOString(),
-				createdAt: lead.createdAt?.toISOString() || new Date().toISOString(),
-				tags: lead.tags || [],
-			}));
+			// 2. Fetch prospectClients (HNI prospects created via Wizard / Proposals)
+			const prospectClientsList = await db
+				.select()
+				.from(schema.prospectClients)
+				.where(eq(schema.prospectClients.agentId, agentId))
+				.orderBy(desc(schema.prospectClients.createdAt));
+
+			// 3. Fetch prospectProposals for this agent (to enrich leads with live proposal state)
+			const proposals = await db
+				.select({
+					id: schema.prospectProposals.id,
+					shareToken: schema.prospectProposals.shareToken,
+					status: schema.prospectProposals.status,
+					proposalTitle: schema.prospectProposals.proposalTitle,
+					totalInvestmentAmount: schema.prospectProposals.totalInvestmentAmount,
+					viewCount: schema.prospectProposals.viewCount,
+					lastViewedAt: schema.prospectProposals.lastViewedAt,
+					prospectName: schema.prospectProposals.prospectName,
+					prospectEmail: schema.prospectProposals.prospectEmail,
+					prospectMobile: schema.prospectProposals.prospectMobile,
+					createdAt: schema.prospectProposals.createdAt,
+				})
+				.from(schema.prospectProposals)
+				.where(eq(schema.prospectProposals.agentId, agentId))
+				.orderBy(desc(schema.prospectProposals.createdAt));
+
+			// 4. Fetch assigned B2B / MCA Director leads (prospectLeads)
+			let b2bLeadsList: any[] = [];
+			try {
+				b2bLeadsList = await db
+					.select()
+					.from(schema.prospectLeads)
+					.where(eq(schema.prospectLeads.assignedTo, agentId))
+					.limit(50);
+			} catch (_e) {
+				// Table might be empty or optional
+			}
+
+			// Group proposals by phone, email, and normalized name
+			const proposalsByPhone = new Map<string, typeof proposals>();
+			const proposalsByEmail = new Map<string, typeof proposals>();
+			const proposalsByName = new Map<string, typeof proposals>();
+
+			const normalizePhone = (p?: string | null) => (p || "").replace(/\D/g, "").slice(-10);
+			const normalizeEmail = (e?: string | null) => (e || "").trim().toLowerCase();
+			const normalizeName = (n?: string | null) => (n || "").trim().toLowerCase();
+
+			for (const p of proposals) {
+				const phoneKey = normalizePhone(p.prospectMobile);
+				const emailKey = normalizeEmail(p.prospectEmail);
+				const nameKey = normalizeName(p.prospectName);
+
+				if (phoneKey) {
+					if (!proposalsByPhone.has(phoneKey)) proposalsByPhone.set(phoneKey, []);
+					proposalsByPhone.get(phoneKey)!.push(p);
+				}
+				if (emailKey) {
+					if (!proposalsByEmail.has(emailKey)) proposalsByEmail.set(emailKey, []);
+					proposalsByEmail.get(emailKey)!.push(p);
+				}
+				if (nameKey) {
+					if (!proposalsByName.has(nameKey)) proposalsByName.set(nameKey, []);
+					proposalsByName.get(nameKey)!.push(p);
+				}
+			}
+
+			const findProposals = (phone?: string | null, email?: string | null, name?: string | null) => {
+				const pKey = normalizePhone(phone);
+				const eKey = normalizeEmail(email);
+				const nKey = normalizeName(name);
+				if (pKey && proposalsByPhone.has(pKey)) return proposalsByPhone.get(pKey)!;
+				if (eKey && proposalsByEmail.has(eKey)) return proposalsByEmail.get(eKey)!;
+				if (nKey && proposalsByName.has(nKey)) return proposalsByName.get(nKey)!;
+				return [];
+			};
+
+			const calculateTier = (value: number, tags: string[] = []): "RETAIL" | "AFFLUENT" | "HNI" | "UHNI" => {
+				const hasUhniTag = tags.some((t) => /uhni|ultra/i.test(t));
+				const hasHniTag = tags.some((t) => /hni|wealth|promoter|director/i.test(t));
+				if (value >= 50000000 || hasUhniTag) return "UHNI";
+				if (value >= 10000000 || hasHniTag) return "HNI";
+				if (value >= 2500000) return "AFFLUENT";
+				return "RETAIL";
+			};
+
+			const seenPhones = new Set<string>();
+			const seenEmails = new Set<string>();
+			const seenNames = new Set<string>();
+
+			// Transform standard leads
+			const transformedLeads: any[] = standardLeads.map((lead) => {
+				const pPhone = normalizePhone(lead.phone);
+				const pEmail = normalizeEmail(lead.email);
+				const pName = normalizeName(lead.name);
+				if (pPhone) seenPhones.add(pPhone);
+				if (pEmail) seenEmails.add(pEmail);
+				if (pName) seenNames.add(pName);
+
+				const matchedProps = findProposals(lead.phone, lead.email, lead.name);
+				const latestProp = matchedProps[0] || null;
+				const potentialVal = Number(lead.potentialValue) || (latestProp ? Number(latestProp.totalInvestmentAmount) || 0 : 0);
+				const tags = lead.tags || [];
+				const tier = calculateTier(potentialVal, tags);
+
+				return {
+					id: lead.id,
+					name: lead.name || "",
+					email: lead.email || "",
+					phone: lead.phone || "",
+					mobile: lead.phone || "",
+					stage: lead.stage || (latestProp ? (latestProp.status === "accepted" ? "negotiating" : "proposal_sent") : "new"),
+					status: lead.stage || "new",
+					source: lead.source || "manual",
+					potentialValue: potentialVal,
+					score: lead.score || (tier === "UHNI" ? 90 : tier === "HNI" ? 80 : 50),
+					notes: lead.notes || "",
+					interest: lead.notes || "",
+					lastContact: lead.lastContactAt?.toISOString(),
+					nextFollowUp: lead.nextFollowUpAt?.toISOString(),
+					createdAt: lead.createdAt?.toISOString() || new Date().toISOString(),
+					tags,
+					tier,
+					isHni: tier === "HNI" || tier === "UHNI",
+					proposalsCount: matchedProps.length,
+					latestProposal: latestProp
+						? {
+								id: latestProp.id,
+								title: latestProp.proposalTitle,
+								status: latestProp.status,
+								shareToken: latestProp.shareToken,
+								viewCount: latestProp.viewCount || 0,
+								investmentAmount: Number(latestProp.totalInvestmentAmount) || 0,
+								lastViewedAt: latestProp.lastViewedAt?.toISOString(),
+						  }
+						: null,
+				};
+			});
+
+			// Synthesize from prospectClients (HNI Prospects created via Wizard)
+			for (const pc of prospectClientsList) {
+				const pcPhone = normalizePhone(pc.mobile);
+				const pcEmail = normalizeEmail(pc.email);
+				const pcName = normalizeName(pc.name);
+
+				const isAlreadyIn =
+					(pcPhone && seenPhones.has(pcPhone)) ||
+					(pcEmail && seenEmails.has(pcEmail)) ||
+					(pcName && seenNames.has(pcName));
+
+				if (!isAlreadyIn) {
+					if (pcPhone) seenPhones.add(pcPhone);
+					if (pcEmail) seenEmails.add(pcEmail);
+					if (pcName) seenNames.add(pcName);
+
+					const matchedProps = findProposals(pc.mobile, pc.email, pc.name);
+					const latestProp = matchedProps[0] || null;
+					const potentialVal = latestProp ? Number(latestProp.totalInvestmentAmount) || 2500000 : 2500000;
+					const tags = ["HNI Prospect", pc.indicativeRiskProfile || "Moderate", "Wizard"];
+					const tier = calculateTier(potentialVal, tags);
+
+					let stage = "new";
+					if (pc.state === "onboarded" || pc.state === "client") {
+						stage = "converted";
+					} else if (matchedProps.length > 0) {
+						stage = matchedProps.some((p) => p.status === "accepted") ? "negotiating" : "proposal_sent";
+					}
+
+					transformedLeads.push({
+						id: `prospect_${pc.id}`,
+						prospectClientId: pc.id,
+						name: pc.name,
+						email: pc.email || "",
+						phone: pc.mobile || "",
+						mobile: pc.mobile || "",
+						pan: pc.pan || "",
+						stage,
+						status: stage,
+						source: "prospect_wizard",
+						potentialValue: potentialVal,
+						score: tier === "UHNI" ? 95 : 85,
+						notes: pc.investmentGoals ? `Goals: ${pc.investmentGoals}` : "HNI Prospect via Wizard",
+						interest: pc.investmentHorizon ? `Horizon: ${pc.investmentHorizon}` : "",
+						createdAt: pc.createdAt?.toISOString() || new Date().toISOString(),
+						tags,
+						tier,
+						isHni: true,
+						proposalsCount: matchedProps.length,
+						latestProposal: latestProp
+							? {
+									id: latestProp.id,
+									title: latestProp.proposalTitle,
+									status: latestProp.status,
+									shareToken: latestProp.shareToken,
+									viewCount: latestProp.viewCount || 0,
+									investmentAmount: Number(latestProp.totalInvestmentAmount) || 0,
+									lastViewedAt: latestProp.lastViewedAt?.toISOString(),
+							  }
+							: null,
+					});
+				}
+			}
+
+			// Synthesize from assigned B2B / MCA Director leads (prospectLeads)
+			for (const b2b of b2bLeadsList) {
+				const bPhone = normalizePhone(b2b.primaryMobile);
+				const bEmail = normalizeEmail(b2b.primaryEmail);
+				const bName = normalizeName(b2b.primaryContactName || b2b.companyName);
+
+				const isAlreadyIn =
+					(bPhone && seenPhones.has(bPhone)) ||
+					(bEmail && seenEmails.has(bEmail)) ||
+					(bName && seenNames.has(bName));
+
+				if (!isAlreadyIn) {
+					if (bPhone) seenPhones.add(bPhone);
+					if (bEmail) seenEmails.add(bEmail);
+					if (bName) seenNames.add(bName);
+
+					const matchedProps = findProposals(b2b.primaryMobile, b2b.primaryEmail, b2b.primaryContactName || b2b.companyName);
+					const latestProp = matchedProps[0] || null;
+					const potentialVal = Number(b2b.investableSurplus) || 5000000;
+					const tags = ["Corporate Director", b2b.companyName, b2b.leadQuality || "warm"];
+					const tier = calculateTier(potentialVal, tags);
+
+					transformedLeads.push({
+						id: `b2b_${b2b.id}`,
+						b2bLeadId: b2b.id,
+						name: b2b.primaryContactName ? `${b2b.primaryContactName} (${b2b.companyName})` : b2b.companyName,
+						email: b2b.primaryEmail || "",
+						phone: b2b.primaryMobile || "",
+						mobile: b2b.primaryMobile || "",
+						stage: b2b.status === "converted" ? "converted" : b2b.status === "contacted" ? "contacted" : "new",
+						status: b2b.status || "new",
+						source: b2b.source || "credhive_mca",
+						potentialValue: potentialVal,
+						score: b2b.leadScore || 70,
+						notes: `Company: ${b2b.companyName} | CIN: ${b2b.cin || "N/A"} | Revenue: ₹${b2b.annualRevenue || "N/A"}`,
+						createdAt: b2b.createdAt?.toISOString() || new Date().toISOString(),
+						tags,
+						tier,
+						isHni: true,
+						proposalsCount: matchedProps.length,
+						latestProposal: latestProp
+							? {
+									id: latestProp.id,
+									title: latestProp.proposalTitle,
+									status: latestProp.status,
+									shareToken: latestProp.shareToken,
+									viewCount: latestProp.viewCount || 0,
+									investmentAmount: Number(latestProp.totalInvestmentAmount) || 0,
+									lastViewedAt: latestProp.lastViewedAt?.toISOString(),
+							  }
+							: null,
+					});
+				}
+			}
+
+			// Sort by createdAt DESC
+			transformedLeads.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
 			res.json(transformedLeads);
 		} catch (error) {
@@ -487,13 +731,29 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
 		}
 	});
 
-	// GET leads stats with full metrics
+	// GET leads stats with full unified metrics
 	app.get(["/api/agent/leads/stats", "/api/partner/leads/stats"], requireAgent, async (req, res) => {
 		try {
+			const agentId = req.user!.id;
 			const leads = await db
 				.select()
 				.from(schema.agentLeads)
-				.where(eq(schema.agentLeads.agentId, req.user!.id));
+				.where(eq(schema.agentLeads.agentId, agentId));
+
+			const prospectClientsList = await db
+				.select()
+				.from(schema.prospectClients)
+				.where(eq(schema.prospectClients.agentId, agentId));
+
+			const proposalsList = await db
+				.select({
+					id: schema.prospectProposals.id,
+					status: schema.prospectProposals.status,
+					viewCount: schema.prospectProposals.viewCount,
+					totalInvestmentAmount: schema.prospectProposals.totalInvestmentAmount,
+				})
+				.from(schema.prospectProposals)
+				.where(eq(schema.prospectProposals.agentId, agentId));
 
 			const stageCounts = {
 				new: 0,
@@ -506,6 +766,7 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
 
 			let totalValue = 0;
 			let convertedValue = 0;
+			let hniCount = 0;
 
 			leads.forEach((lead) => {
 				const stage = lead.stage as keyof typeof stageCounts;
@@ -513,6 +774,9 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
 					stageCounts[stage]++;
 				}
 				const val = Number(lead.potentialValue) || 0;
+				if (val >= 10000000 || (lead.tags || []).some((t) => /hni|ultra|promoter/i.test(t))) {
+					hniCount++;
+				}
 				if (stage !== "lost" && stage !== "converted") {
 					totalValue += val;
 				}
@@ -521,17 +785,35 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
 				}
 			});
 
+			prospectClientsList.forEach((pc) => {
+				hniCount++;
+				if (pc.state === "onboarded" || pc.state === "client") {
+					stageCounts.converted++;
+					convertedValue += 2500000;
+				} else {
+					stageCounts.new++;
+					totalValue += 2500000;
+				}
+			});
+
+			const totalCount = leads.length + prospectClientsList.length;
+			const activeProposals = proposalsList.filter((p) => p.status === "sent" || p.status === "viewed");
+			const viewedProposals = proposalsList.filter((p) => (p.viewCount || 0) > 0);
+
 			const stats = {
-				total: leads.length,
+				total: totalCount,
 				new: stageCounts.new,
 				contacted: stageCounts.contacted,
 				proposalSent: stageCounts.proposal_sent,
 				negotiating: stageCounts.negotiating,
 				converted: stageCounts.converted,
 				lost: stageCounts.lost,
+				hniCount,
+				activeProposalsCount: activeProposals.length,
+				proposalsViewedCount: viewedProposals.length,
 				conversionRate:
-					leads.length > 0
-						? Math.round((stageCounts.converted / leads.length) * 100)
+					totalCount > 0
+						? Math.round((stageCounts.converted / totalCount) * 100)
 						: 0,
 				avgDealValue:
 					stageCounts.converted > 0

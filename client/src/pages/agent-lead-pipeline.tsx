@@ -49,6 +49,7 @@ import {
 	TrendingUp,
 	Clock,
 	CheckCircle,
+	CheckCircle2,
 	XCircle,
 	ArrowRight,
 	MoreHorizontal,
@@ -61,6 +62,14 @@ import {
 	AlertCircle,
 	Star,
 	Zap,
+	Crown,
+	Sparkles,
+	Share2,
+	Copy,
+	ExternalLink,
+	ShieldCheck,
+	FileText,
+	UserCheck,
 } from "lucide-react";
 
 interface Lead {
@@ -83,6 +92,20 @@ interface Lead {
 	nextFollowUp?: string;
 	createdAt: string;
 	tags: string[];
+	tier?: "RETAIL" | "AFFLUENT" | "HNI" | "UHNI";
+	isHni?: boolean;
+	pan?: string;
+	prospectClientId?: string;
+	proposalsCount?: number;
+	latestProposal?: {
+		id: string;
+		title: string;
+		status: string;
+		shareToken: string;
+		viewCount: number;
+		investmentAmount?: number;
+		lastViewedAt?: string;
+	} | null;
 }
 
 interface LeadStats {
@@ -96,6 +119,9 @@ interface LeadStats {
 	conversionRate: number;
 	avgDealValue: number;
 	pipelineValue: number;
+	hniCount?: number;
+	activeProposalsCount?: number;
+	proposalsViewedCount?: number;
 }
 
 const STAGE_CONFIG = {
@@ -156,8 +182,11 @@ export default function AgentLeadPipeline() {
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
 	const [searchQuery, setSearchQuery] = useState("");
+	const [tierFilter, setTierFilter] = useState<"all" | "hni" | "proposals" | "hot">("all");
 	const [showAddLead, setShowAddLead] = useState(false);
 	const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+	const [convertedOnboardingUrl, setConvertedOnboardingUrl] = useState<string | null>(null);
+	const [copiedLink, setCopiedLink] = useState(false);
 	const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
 	const [dialerOpen, setDialerOpen] = useState(false);
 	const [dialerTargetLead, setDialerTargetLead] = useState<any>(null);
@@ -167,6 +196,7 @@ export default function AgentLeadPipeline() {
 		name: "",
 		email: "",
 		phone: "",
+		pan: "",
 		source: "referral",
 		potentialValue: "",
 		notes: "",
@@ -286,12 +316,18 @@ export default function AgentLeadPipeline() {
 	});
 
 	const createLeadMutation = useMutation({
-		mutationFn: (data: typeof newLead) =>
-			apiRequest("/api/agent/leads", {
+		mutationFn: async (data: typeof newLead) => {
+			const res = await apiRequest("/api/agent/leads", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(data),
-			}),
+			});
+			if (!res.ok) {
+				const errData = await res.json().catch(() => ({}));
+				throw new Error(errData.error || errData.message || "Failed to create lead");
+			}
+			return res.json();
+		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["/api/agent/leads"] });
 			queryClient.invalidateQueries({ queryKey: ["/api/agent/leads/stats"] });
@@ -300,11 +336,22 @@ export default function AgentLeadPipeline() {
 				name: "",
 				email: "",
 				phone: "",
+				pan: "",
 				source: "referral",
 				potentialValue: "",
 				notes: "",
 			});
-			toast({ title: "Lead added successfully" });
+			toast({
+				title: "Lead added successfully",
+				description: "Passed anti-collision guardrails and is active in your pipeline.",
+			});
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Duplicate / Collision Detected",
+				description: err.message || "Failed to add lead. Contact may already exist as an active client, lead, or prospect.",
+				variant: "destructive",
+			});
 		},
 	});
 
@@ -421,15 +468,51 @@ export default function AgentLeadPipeline() {
 			setShowBulkUpload(false);
 			setParsedLeads([]);
 			setBulkFile(null);
+			const skipped = data.skippedDuplicates || 0;
 			toast({
-				title: "Bulk Import Successful",
-				description: `Successfully added ${data.importedCount || parsedLeads.length} leads to your pipeline!`,
+				title: "Bulk Import Finished",
+				description: `Successfully added ${data.importedCount || parsedLeads.length} unique leads.${skipped > 0 ? ` Skipped ${skipped} duplicate contacts per anti-collision guardrails.` : ""}`,
 			});
 		},
 		onError: (err: any) => {
 			toast({
 				title: "Bulk Upload Failed",
-				description: err.message || "Failed to upload leads batch",
+				description: err.message || "Failed to upload leads batch. Contacts may all be duplicates.",
+				variant: "destructive",
+			});
+		},
+	});
+
+	const convertToClientMutation = useMutation({
+		mutationFn: async (leadId: string) => {
+			const res = await apiRequest(`/api/agent/leads/${leadId}/convert-to-client`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+			});
+			if (!res.ok) {
+				const errData = await res.json().catch(() => ({}));
+				throw new Error(errData.error || errData.message || "Failed to convert lead to client");
+			}
+			return res.json();
+		},
+		onSuccess: (data: any) => {
+			queryClient.invalidateQueries({ queryKey: ["/api/agent/leads"] });
+			queryClient.invalidateQueries({ queryKey: ["/api/agent/leads/stats"] });
+			if (selectedLead) {
+				setSelectedLead({ ...selectedLead, stage: "converted" });
+			}
+			if (data?.data?.onboardingUrl) {
+				setConvertedOnboardingUrl(data.data.onboardingUrl);
+			}
+			toast({
+				title: "Lead Converted to Client",
+				description: data.message || "Lead has been marked as converted and KYC onboarding invitation generated.",
+			});
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Conversion Failed",
+				description: err.message || "Failed to convert lead to client",
 				variant: "destructive",
 			});
 		},
@@ -474,12 +557,26 @@ export default function AgentLeadPipeline() {
 		pipelineValue: 0,
 	};
 
-	const filteredLeads = displayLeads.filter(
-		(lead) =>
+	const filteredLeads = displayLeads.filter((lead) => {
+		const matchesSearch =
 			(lead.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
 			(lead.email || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-			(lead.phone || "").includes(searchQuery),
-	);
+			(lead.phone || "").includes(searchQuery) ||
+			(lead.pan || "").toLowerCase().includes(searchQuery.toLowerCase());
+
+		if (!matchesSearch) return false;
+
+		if (tierFilter === "hni") {
+			return lead.tier === "HNI" || lead.tier === "UHNI" || lead.isHni;
+		}
+		if (tierFilter === "proposals") {
+			return (lead.proposalsCount || 0) > 0 || !!lead.latestProposal;
+		}
+		if (tierFilter === "hot") {
+			return lead.score >= 80 && lead.stage !== "converted" && lead.stage !== "lost";
+		}
+		return true;
+	});
 
 	const getLeadsByStage = (stage: string) =>
 		filteredLeads.filter((lead) => lead.stage === stage);
@@ -756,32 +853,6 @@ export default function AgentLeadPipeline() {
 									</div>
 									<div className="grid grid-cols-2 gap-4">
 										<div>
-											<Label htmlFor="source" className="text-muted-foreground">
-												Source
-											</Label>
-											<Select
-												value={newLead.source}
-												onValueChange={(value) =>
-													setNewLead({ ...newLead, source: value })
-												}
-											>
-												<SelectTrigger
-													className="mt-1 bg-card border-border"
-													data-testid="select-lead-source"
-												>
-													<SelectValue />
-												</SelectTrigger>
-												<SelectContent className="bg-card border-border">
-													<SelectItem value="referral">Referral</SelectItem>
-													<SelectItem value="website">Website</SelectItem>
-													<SelectItem value="linkedin">LinkedIn</SelectItem>
-													<SelectItem value="event">Event</SelectItem>
-													<SelectItem value="webinar">Webinar</SelectItem>
-													<SelectItem value="cold_call">Cold Call</SelectItem>
-												</SelectContent>
-											</Select>
-										</div>
-										<div>
 											<Label htmlFor="value" className="text-muted-foreground">
 												Potential Value (₹)
 											</Label>
@@ -800,6 +871,30 @@ export default function AgentLeadPipeline() {
 												data-testid="input-lead-value"
 											/>
 										</div>
+										<div>
+											<Label htmlFor="pan" className="text-muted-foreground flex items-center justify-between">
+												<span>PAN (Optional)</span>
+												<span className="text-[10px] text-emerald-400">HNI Check</span>
+											</Label>
+											<Input
+												id="pan"
+												value={newLead.pan}
+												onChange={(e) =>
+													setNewLead({
+														...newLead,
+														pan: e.target.value.toUpperCase(),
+													})
+												}
+												className="mt-1 bg-card border-border uppercase font-mono"
+												placeholder="ABCDE1234F"
+												maxLength={10}
+												data-testid="input-lead-pan"
+											/>
+										</div>
+									</div>
+									<div className="flex items-center gap-2 p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-400">
+										<ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+										<span>Anti-collision guardrails active. Duplicate clients, active leads, and HNI prospects are blocked.</span>
 									</div>
 									<div>
 										<Label htmlFor="notes" className="text-muted-foreground">
@@ -942,6 +1037,67 @@ export default function AgentLeadPipeline() {
 					</Card>
 				</div>
 
+				{/* Funnel Segment Filter Bar */}
+				<div className="flex flex-wrap items-center justify-between gap-3 bg-card/60 p-2.5 rounded-lg border border-border">
+					<div className="flex items-center gap-1.5 flex-wrap">
+						<Button
+							variant={tierFilter === "all" ? "default" : "outline"}
+							size="sm"
+							onClick={() => setTierFilter("all")}
+							className={
+								tierFilter === "all"
+									? "bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8"
+									: "border-border text-muted-foreground text-xs h-8"
+							}
+						>
+							All Leads ({displayLeads.length})
+						</Button>
+						<Button
+							variant={tierFilter === "hni" ? "default" : "outline"}
+							size="sm"
+							onClick={() => setTierFilter("hni")}
+							className={
+								tierFilter === "hni"
+									? "bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold text-xs h-8"
+									: "border-border text-amber-400 hover:text-amber-300 text-xs h-8"
+							}
+						>
+							<Crown className="h-3.5 w-3.5 mr-1 text-amber-400" />
+							HNI / Promoters ({displayLeads.filter((l) => l.isHni || l.tier === "HNI" || l.tier === "UHNI").length})
+						</Button>
+						<Button
+							variant={tierFilter === "proposals" ? "default" : "outline"}
+							size="sm"
+							onClick={() => setTierFilter("proposals")}
+							className={
+								tierFilter === "proposals"
+									? "bg-purple-600 hover:bg-purple-700 text-white text-xs h-8"
+									: "border-border text-purple-400 text-xs h-8"
+							}
+						>
+							<FileText className="h-3.5 w-3.5 mr-1 text-purple-400" />
+							Proposals Active ({displayLeads.filter((l) => (l.proposalsCount || 0) > 0 || l.latestProposal).length})
+						</Button>
+						<Button
+							variant={tierFilter === "hot" ? "default" : "outline"}
+							size="sm"
+							onClick={() => setTierFilter("hot")}
+							className={
+								tierFilter === "hot"
+									? "bg-rose-600 hover:bg-rose-700 text-white text-xs h-8"
+									: "border-border text-rose-400 text-xs h-8"
+							}
+						>
+							<Zap className="h-3.5 w-3.5 mr-1 text-rose-400" />
+							Hot Leads (80+) ({displayLeads.filter((l) => l.score >= 80 && l.stage !== "converted" && l.stage !== "lost").length})
+						</Button>
+					</div>
+					<div className="flex items-center gap-2 text-xs text-muted-foreground">
+						<ShieldCheck className="h-4 w-4 text-emerald-400" />
+						<span>Anti-collision deduplication active</span>
+					</div>
+				</div>
+
 				{/* Kanban Board */}
 				<div className="overflow-x-auto pb-4">
 					<div className="flex gap-4 min-w-max">
@@ -954,8 +1110,9 @@ export default function AgentLeadPipeline() {
 							);
 
 							return (
-								<div
+								<section
 									key={stage}
+									aria-label={config.label}
 									className="w-80 flex-shrink-0"
 									onDragOver={handleDragOver}
 									onDrop={() => handleDrop(stage)}
@@ -1002,9 +1159,21 @@ export default function AgentLeadPipeline() {
 														<CardContent className="p-3">
 															<div className="flex items-start justify-between mb-2">
 																<div>
-																	<p className="text-foreground font-medium text-sm">
-																		{lead.name}
-																	</p>
+																	<div className="flex items-center gap-1.5 flex-wrap">
+																		<p className="text-foreground font-medium text-sm">
+																			{lead.name}
+																		</p>
+																		{lead.tier === "UHNI" && (
+																			<Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] px-1 py-0 flex items-center gap-0.5 font-bold">
+																				<Crown className="h-2.5 w-2.5 text-amber-400" /> UHNI
+																			</Badge>
+																		)}
+																		{(lead.tier === "HNI" || lead.isHni) && lead.tier !== "UHNI" && (
+																			<Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[9px] px-1 py-0 flex items-center gap-0.5 font-bold">
+																				<Crown className="h-2.5 w-2.5 text-amber-400" /> HNI
+																			</Badge>
+																		)}
+																	</div>
 																	<p className="text-muted-foreground text-xs">
 																		{lead.source}
 																	</p>
@@ -1035,7 +1204,20 @@ export default function AgentLeadPipeline() {
 																<span>
 																	{formatCurrency(lead.potentialValue)}
 																</span>
+																{lead.pan && (
+																	<span className="font-mono text-[10px] text-slate-400">
+																		• {lead.pan}
+																	</span>
+																)}
 															</div>
+															{lead.latestProposal && (
+																<div className="mb-2">
+																	<Badge className="bg-purple-500/15 text-purple-300 border border-purple-500/30 text-[10px] px-1.5 py-0 flex items-center gap-1 w-fit">
+																		<FileText className="h-2.5 w-2.5 text-purple-400" />
+																		Proposal: {lead.latestProposal.status} ({lead.latestProposal.viewCount}v)
+																	</Badge>
+																</div>
+															)}
 															{lead.tags.length > 0 && (
 																<div className="flex flex-wrap gap-1 mb-2">
 																	{lead.tags.slice(0, 2).map((tag, i) => (
@@ -1049,6 +1231,7 @@ export default function AgentLeadPipeline() {
 																	))}
 																	{lead.tags.length > 2 && (
 																		<Badge
+																			key="extra-tags"
 																			variant="outline"
 																			className="text-xs border-border text-muted-foreground py-0"
 																		>
@@ -1074,6 +1257,21 @@ export default function AgentLeadPipeline() {
 																		size="sm"
 																		variant="ghost"
 																		className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+																		title="Call lead"
+																		onClick={(e) => {
+																			e.stopPropagation();
+																			setDialerTargetLead({
+																				id: lead.id,
+																				companyName: lead.name,
+																				contactName: lead.name,
+																				phone: lead.phone,
+																				email: lead.email,
+																				leadScore: lead.score,
+																				notes: lead.notes,
+																			});
+																			setIsQueueMode(false);
+																			setDialerOpen(true);
+																		}}
 																	>
 																		<Phone className="h-3 w-3" />
 																	</Button>
@@ -1081,15 +1279,27 @@ export default function AgentLeadPipeline() {
 																		size="sm"
 																		variant="ghost"
 																		className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+																		title="Send email"
+																		onClick={(e) => {
+																			e.stopPropagation();
+																			if (lead.email) {
+																				window.open(`mailto:${lead.email}?subject=FintekPro Wealth Advisory`);
+																			}
+																		}}
 																	>
 																		<Mail className="h-3 w-3" />
 																	</Button>
 																	<Button
 																		size="sm"
 																		variant="ghost"
-																		className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+																		className="h-7 w-7 p-0 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+																		title="Generate / Open AI Proposal"
+																		onClick={(e) => {
+																			e.stopPropagation();
+																			window.location.href = `/agent/prospect-wizard?name=${encodeURIComponent(lead.name)}&phone=${lead.phone}&email=${lead.email}&value=${lead.potentialValue}&ref=${lead.id}`;
+																		}}
 																	>
-																		<MessageSquare className="h-3 w-3" />
+																		<Sparkles className="h-3.5 w-3.5" />
 																	</Button>
 																</div>
 																<Button
@@ -1106,7 +1316,7 @@ export default function AgentLeadPipeline() {
 											)}
 										</div>
 									</ScrollArea>
-								</div>
+								</section>
 							);
 						})}
 					</div>
@@ -1162,9 +1372,21 @@ export default function AgentLeadPipeline() {
 								<DialogHeader>
 									<div className="flex items-start justify-between">
 										<div>
-											<DialogTitle className="text-xl">
-												{selectedLead.name}
-											</DialogTitle>
+											<div className="flex items-center gap-2">
+												<DialogTitle className="text-xl">
+													{selectedLead.name}
+												</DialogTitle>
+												{selectedLead.tier === "UHNI" && (
+													<Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs px-2 py-0.5 flex items-center gap-1 font-bold">
+														<Crown className="h-3 w-3 text-amber-400" /> UHNI
+													</Badge>
+												)}
+												{(selectedLead.tier === "HNI" || selectedLead.isHni) && selectedLead.tier !== "UHNI" && (
+													<Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/30 text-xs px-2 py-0.5 flex items-center gap-1 font-bold">
+														<Crown className="h-3 w-3 text-amber-400" /> HNI Prospect
+													</Badge>
+												)}
+											</div>
 											<DialogDescription className="text-muted-foreground flex items-center gap-2 mt-1">
 												<Badge
 													className={`${STAGE_CONFIG[selectedLead.stage].bgColor} ${STAGE_CONFIG[selectedLead.stage].textColor}`}
@@ -1173,6 +1395,12 @@ export default function AgentLeadPipeline() {
 												</Badge>
 												<span>•</span>
 												<span>Score: {selectedLead.score}</span>
+												{selectedLead.pan && (
+													<>
+														<span>•</span>
+														<span className="font-mono text-xs">PAN: {selectedLead.pan}</span>
+													</>
+												)}
 											</DialogDescription>
 										</div>
 									</div>
@@ -1181,7 +1409,7 @@ export default function AgentLeadPipeline() {
 									<div className="grid grid-cols-2 gap-4">
 										<div className="p-3 bg-card rounded-lg">
 											<p className="text-muted-foreground text-xs">
-												Potential Value
+												Potential Value / Surplus
 											</p>
 											<p className="text-foreground font-medium">
 												{formatCurrency(selectedLead.potentialValue)}
@@ -1194,17 +1422,112 @@ export default function AgentLeadPipeline() {
 											</p>
 										</div>
 									</div>
+
+									{/* Proposal Section if exists */}
+									{selectedLead.latestProposal && (
+										<div className="p-3 rounded-lg border border-purple-500/30 bg-purple-500/5 space-y-2">
+											<div className="flex items-center justify-between">
+												<div className="flex items-center gap-2 text-xs font-semibold text-purple-300">
+													<FileText className="h-4 w-4 text-purple-400" />
+													<span>Active Proposal: {selectedLead.latestProposal.title}</span>
+												</div>
+												<Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40 text-[10px]">
+													{selectedLead.latestProposal.status.toUpperCase()}
+												</Badge>
+											</div>
+											<div className="flex items-center justify-between text-xs text-muted-foreground">
+												<span>Views: {selectedLead.latestProposal.viewCount} times</span>
+												{selectedLead.latestProposal.lastViewedAt && (
+													<span>Last viewed: {new Date(selectedLead.latestProposal.lastViewedAt).toLocaleDateString()}</span>
+												)}
+											</div>
+											<div className="flex items-center gap-2 pt-1">
+												<Button
+													size="sm"
+													variant="outline"
+													className="h-7 text-xs border-purple-500/40 text-purple-300 hover:text-white hover:bg-purple-500/20 flex-1"
+													onClick={() => {
+														window.open(`/proposal/view/${selectedLead.latestProposal?.shareToken}`, "_blank");
+													}}
+												>
+													<ExternalLink className="h-3 w-3 mr-1" />
+													View Proposal
+												</Button>
+												<Button
+													size="sm"
+													variant="outline"
+													className="h-7 text-xs border-purple-500/40 text-purple-300 hover:text-white hover:bg-purple-500/20"
+													onClick={() => {
+														const link = `${window.location.origin}/proposal/view/${selectedLead.latestProposal?.shareToken}`;
+														navigator.clipboard.writeText(link);
+														toast({ title: "Proposal link copied to clipboard" });
+													}}
+												>
+													<Copy className="h-3 w-3 mr-1" />
+													Copy Link
+												</Button>
+											</div>
+										</div>
+									)}
+
+									{/* Converted KYC Onboarding Invitation Box */}
+									{convertedOnboardingUrl && (
+										<div className="p-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 space-y-2">
+											<div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
+												<CheckCircle2 className="h-4 w-4" />
+												<span>KYC Onboarding Link Ready for Client</span>
+											</div>
+											<p className="text-[11px] text-muted-foreground">
+												Share this personalized onboarding link with the prospect to finalize their FintekPro client registration.
+											</p>
+											<div className="flex items-center gap-2 pt-1">
+												<Button
+													size="sm"
+													className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex-1"
+													onClick={() => {
+														const fullUrl = `${window.location.origin}${convertedOnboardingUrl}`;
+														navigator.clipboard.writeText(fullUrl);
+														setCopiedLink(true);
+														setTimeout(() => setCopiedLink(false), 2000);
+														toast({ title: "KYC link copied to clipboard!" });
+													}}
+												>
+													{copiedLink ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+													{copiedLink ? "Copied!" : "Copy KYC Link"}
+												</Button>
+												{selectedLead.phone && (
+													<Button
+														size="sm"
+														variant="outline"
+														className="h-7 text-xs border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/20"
+														onClick={() => {
+															const fullUrl = `${window.location.origin}${convertedOnboardingUrl}`;
+															const cleanPhone = selectedLead.phone.replace(/\D/g, "").slice(-10);
+															const msg = encodeURIComponent(
+																`Hello ${selectedLead.name}, here is your FintekPro onboarding link to activate your investment account: ${fullUrl}`
+															);
+															window.open(`https://api.whatsapp.com/send?phone=91${cleanPhone}&text=${msg}`, "_blank");
+														}}
+													>
+														<Share2 className="h-3 w-3 mr-1" />
+														WhatsApp
+													</Button>
+												)}
+											</div>
+										</div>
+									)}
+
 									<div className="space-y-2">
 										<div className="flex items-center gap-2 text-sm">
 											<Mail className="h-4 w-4 text-muted-foreground" />
 											<span className="text-muted-foreground">
-												{selectedLead.email}
+												{selectedLead.email || "No email provided"}
 											</span>
 										</div>
 										<div className="flex items-center gap-2 text-sm">
 											<Phone className="h-4 w-4 text-muted-foreground" />
 											<span className="text-muted-foreground">
-												{selectedLead.phone}
+												{selectedLead.phone || "No phone provided"}
 											</span>
 										</div>
 										{selectedLead.lastContact && (
@@ -1242,7 +1565,44 @@ export default function AgentLeadPipeline() {
 											))}
 										</div>
 									)}
-									<div className="flex gap-3 pt-4 border-t border-border">
+
+									{/* Action Buttons */}
+									<div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
+										<Button
+											onClick={() => {
+												window.location.href = `/agent/prospect-wizard?name=${encodeURIComponent(selectedLead.name)}&phone=${selectedLead.phone}&email=${selectedLead.email}&value=${selectedLead.potentialValue}&ref=${selectedLead.id}`;
+											}}
+											className="bg-purple-600 hover:bg-purple-700 text-white font-medium text-xs h-9"
+										>
+											<Sparkles className="h-3.5 w-3.5 mr-1.5" />
+											AI Proposal Studio
+										</Button>
+										{selectedLead.stage !== "converted" ? (
+											<Button
+												onClick={() => convertToClientMutation.mutate(selectedLead.id)}
+												disabled={convertToClientMutation.isPending}
+												className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs h-9"
+											>
+												{convertToClientMutation.isPending ? (
+													<Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+												) : (
+													<UserCheck className="h-3.5 w-3.5 mr-1.5" />
+												)}
+												Convert to Client (KYC)
+											</Button>
+										) : (
+											<Button
+												variant="outline"
+												disabled
+												className="border-emerald-500/40 text-emerald-400 font-medium text-xs h-9"
+											>
+												<CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+												Client Converted
+											</Button>
+										)}
+									</div>
+
+									<div className="flex gap-2 pt-2 border-t border-border">
 										<Button
 											onClick={() => {
 												setDialerTargetLead({
@@ -1257,34 +1617,39 @@ export default function AgentLeadPipeline() {
 												setIsQueueMode(false);
 												setDialerOpen(true);
 											}}
-											className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+											className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs h-8"
 											data-testid="button-call-lead"
 										>
-											<Phone className="h-4 w-4 mr-2" />
+											<Phone className="h-3.5 w-3.5 mr-1.5" />
 											Call (Device SIM)
 										</Button>
 										<Button
 											variant="outline"
-											className="flex-1 border-border"
+											className="flex-1 border-border text-xs h-8"
 											data-testid="button-email-lead"
+											onClick={() => {
+												if (selectedLead.email) {
+													window.open(`mailto:${selectedLead.email}?subject=FintekPro Wealth Advisory`);
+												}
+											}}
 										>
-											<Mail className="h-4 w-4 mr-2" />
+											<Mail className="h-3.5 w-3.5 mr-1.5" />
 											Email
 										</Button>
 										<Button
 											variant="outline"
-											className="border-border hover:bg-muted"
+											className="border-border hover:bg-muted text-xs h-8"
 											data-testid="button-edit-lead"
 											onClick={() => handleOpenEditLead(selectedLead)}
 											title="Edit Lead"
 										>
-											<Edit className="h-4 w-4 mr-2" />
+											<Edit className="h-3.5 w-3.5 mr-1.5" />
 											Edit
 										</Button>
 										<Button
 											variant="ghost"
 											size="icon"
-											className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+											className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 h-8 w-8"
 											data-testid="button-delete-lead"
 											onClick={() => {
 												if (confirm(`Are you sure you want to delete lead "${selectedLead.name}"?`)) {

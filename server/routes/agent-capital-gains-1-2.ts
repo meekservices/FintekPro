@@ -19,13 +19,14 @@ import {
 } from "drizzle-orm";
 import { agentAppointments, prospectClients, portfolios } from "@shared/schema";
 import { logger } from "../logger";
+import { LeadDeduplicationService } from "../services/lead-deduplication-service";
 
 export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
 	app.post(["/api/agent/leads", "/api/partner/leads"], requireAgent, async (req, res) => {
 		try {
-			const { name, email, phone, source, potentialValue, notes } = req.body;
+			const { name, email, phone, pan, source, potentialValue, notes, tags } = req.body;
 
-			if (!name) {
+			if (!name || String(name).trim().length === 0) {
 				return res.status(400).json({ error: "Lead name is required" });
 			}
 
@@ -59,19 +60,52 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
 				}
 			}
 
+			// ── DEDUPLICATION GUARDRAIL ──────────────────────────────────────────
+			// Check if contact already exists as a client, lead, or HNI prospect
+			const dupCheck = await LeadDeduplicationService.checkDuplicate({
+				phone,
+				email,
+				pan,
+				agentId: assignedAgentId,
+			});
+
+			if (dupCheck.isDuplicate) {
+				logger.warn("[LeadCreate] Duplicate contact rejected by guardrail", {
+					name,
+					email,
+					phone,
+					agentId: assignedAgentId,
+					type: dupCheck.duplicateType,
+				});
+				return res.status(409).json({
+					success: false,
+					error: dupCheck.message,
+					isDuplicate: true,
+					duplicateType: dupCheck.duplicateType,
+					matchedField: dupCheck.matchedField,
+					existingRecord: dupCheck.existingRecord,
+				});
+			}
+
+			const parsedTags = Array.isArray(tags)
+				? tags
+				: typeof tags === "string" && tags.trim().length > 0
+					? tags.split(",").map((t: string) => t.trim())
+					: [];
+
 			const [newLead] = await db
 				.insert(schema.agentLeads)
 				.values({
 					agentId: assignedAgentId,
-					name,
-					email: email || null,
-					phone: phone || null,
+					name: String(name).trim(),
+					email: email ? String(email).trim() : null,
+					phone: phone ? String(phone).trim() : null,
 					source: resolvedSource,
-					potentialValue: potentialValue ? String(potentialValue) : "0",
-					notes: notes || null,
+					potentialValue: potentialValue ? String(potentialValue).replace(/[^\d.]/g, "") : "0",
+					notes: notes ? String(notes).trim() : null,
 					stage: "new",
 					score: 50,
-					tags: [],
+					tags: parsedTags,
 				})
 				.returning();
 
@@ -96,7 +130,7 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
 		}
 	});
 
-	// POST bulk upload leads
+	// POST bulk upload leads with deduplication guardrails
 	app.post(["/api/agent/leads/bulk", "/api/partner/leads/bulk"], requireAgent, async (req, res) => {
 		try {
 			const { leads } = req.body;
@@ -138,7 +172,7 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
 			}
 
 			const validStages = ["new", "contacted", "proposal_sent", "negotiating", "converted", "lost"];
-			const validLeads = leads
+			const rawLeads = leads
 				.filter((l: any) => l && l.name && String(l.name).trim().length > 0)
 				.map((l: any) => {
 					const stage = validStages.includes(l.stage) ? l.stage : "new";
@@ -153,6 +187,7 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
 						name: String(l.name).trim(),
 						email: l.email ? String(l.email).trim() : null,
 						phone: l.phone ? String(l.phone).replace(/[^\d+]/g, "") : null,
+						pan: l.pan ? String(l.pan).trim() : null,
 						source: l.source ? String(l.source).trim() : resolvedSource,
 						potentialValue: l.potentialValue ? String(l.potentialValue).replace(/[^\d.]/g, "") : "0",
 						notes: l.notes ? String(l.notes).trim() : null,
@@ -162,18 +197,43 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
 					};
 				});
 
-			if (validLeads.length === 0) {
+			if (rawLeads.length === 0) {
 				return res.status(400).json({ error: "No valid leads found in upload. Ensure each row contains a name." });
+			}
+
+			// ── DEDUPLICATION GUARDRAIL (BATCH) ───────────────────────────────────
+			const { validLeads, duplicateCount, duplicates } =
+				await LeadDeduplicationService.deduplicateBatch(rawLeads, assignedAgentId);
+
+			if (validLeads.length === 0) {
+				return res.status(409).json({
+					error: "All submitted leads were identified as duplicates of existing clients, prospects, or active leads.",
+					skippedDuplicates: duplicateCount,
+					duplicates: duplicates.slice(0, 10),
+				});
 			}
 
 			const inserted = await db
 				.insert(schema.agentLeads)
-				.values(validLeads)
+				.values(validLeads.map((l: any) => ({
+					agentId: l.agentId,
+					name: l.name,
+					email: l.email,
+					phone: l.phone,
+					source: l.source,
+					potentialValue: l.potentialValue,
+					notes: l.notes,
+					stage: l.stage,
+					score: l.score,
+					tags: l.tags,
+				})))
 				.returning();
 
 			res.json({
 				success: true,
 				importedCount: inserted.length,
+				skippedDuplicates: duplicateCount,
+				duplicates: duplicates.slice(0, 10),
 				data: inserted.map((lead) => ({
 					id: lead.id,
 					name: lead.name,
@@ -191,6 +251,93 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
 		} catch (error: any) {
 			logger.error("Error bulk uploading leads", { error: error.message });
 			res.status(500).json({ error: error.message || "Failed to bulk upload leads" });
+		}
+	});
+
+	// POST convert lead to registered client with 1-click KYC onboarding invitation
+	app.post(["/api/agent/leads/:id/convert-to-client", "/api/partner/leads/:id/convert-to-client"], requireAgent, async (req, res) => {
+		try {
+			const { id } = req.params;
+			const agentId = (req.user as any)!.id;
+			const now = new Date();
+
+			let leadName = "";
+			let leadEmail = "";
+			let leadPhone = "";
+
+			if (id.startsWith("prospect_")) {
+				const realId = id.replace("prospect_", "");
+				const [updated] = await db
+					.update(schema.prospectClients)
+					.set({
+						state: "onboarded",
+					})
+					.where(and(eq(schema.prospectClients.id, realId), eq(schema.prospectClients.agentId, agentId)))
+					.returning();
+				if (updated) {
+					leadName = updated.name;
+					leadEmail = updated.email || "";
+					leadPhone = updated.mobile || "";
+				}
+			} else if (id.startsWith("b2b_")) {
+				const realId = id.replace("b2b_", "");
+				const [updated] = await db
+					.update(schema.prospectLeads)
+					.set({
+						status: "converted",
+						convertedAt: now,
+						convertedToUserId: agentId,
+					})
+					.where(and(eq(schema.prospectLeads.id, realId), eq(schema.prospectLeads.assignedTo, agentId)))
+					.returning();
+				if (updated) {
+					leadName = updated.primaryContactName || updated.companyName;
+					leadEmail = updated.primaryEmail || "";
+					leadPhone = updated.primaryMobile || "";
+				}
+			} else {
+				const [updated] = await db
+					.update(schema.agentLeads)
+					.set({
+						stage: "converted",
+						convertedAt: now,
+						updatedAt: now,
+					})
+					.where(and(eq(schema.agentLeads.id, id), eq(schema.agentLeads.agentId, agentId)))
+					.returning();
+				if (updated) {
+					leadName = updated.name;
+					leadEmail = updated.email || "";
+					leadPhone = updated.phone || "";
+				}
+			}
+
+			// Generate personalized onboarding KYC link
+			const queryParams = new URLSearchParams();
+			if (leadName) queryParams.set("name", leadName);
+			if (leadPhone) queryParams.set("mobile", leadPhone);
+			if (leadEmail) queryParams.set("email", leadEmail);
+			queryParams.set("ref", agentId);
+			queryParams.set("source", "lead_conversion");
+
+			const onboardingUrl = `/kyc/onboarding?${queryParams.toString()}`;
+
+			res.json({
+				success: true,
+				message: `Lead ${leadName || id} successfully converted to client`,
+				data: {
+					leadId: id,
+					name: leadName,
+					email: leadEmail,
+					phone: leadPhone,
+					stage: "converted",
+					onboardingUrl,
+				},
+				meta: { timestamp: now.toISOString(), version: "1.0" },
+			});
+		} catch (error: any) {
+			logger.error("Error converting lead to client", { error: error.message });
+			res.status(500).json({ error: error.message || "Failed to convert lead to client" });
 		}
 	});
 
