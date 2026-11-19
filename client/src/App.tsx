@@ -39,6 +39,7 @@ import {
 	ExcelAddin,
 	Profile,
 	PublicProfilePage,
+	PublicPortfolioXRayPage,
 	PublicProposalPage,
 	OnboardingPage,
 	CARegistration,
@@ -115,6 +116,8 @@ function Router() {
 					</Route>
 					<Route path="/excel-addin" component={ExcelAddin} />
 					<Route path="/profile" component={Profile} />
+					<Route path="/tools/portfolio-xray" component={PublicPortfolioXRayPage} />
+					<Route path="/p/:code/xray" component={PublicPortfolioXRayPage} />
 					<Route path="/profile/p/:code" component={PublicProfilePage} />
 					<Route path="/proposal/:shareToken" component={PublicProposalPage} />
 					<Route path="/advisory/proposal/:shareToken" component={PublicProposalPage} />

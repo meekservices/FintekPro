@@ -54,7 +54,18 @@ import {
 	Loader2,
 	BarChart3,
 	TrendingUp,
+	Share2,
+	Copy,
+	Check,
+	Sparkles,
+	Download,
+	ExternalLink,
+	Zap,
+	Target,
+	Award,
+	ArrowUpRight,
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingState } from "@/components/LoadingState";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -152,6 +163,145 @@ export default function AgentBulkCommunication() {
 	const [selectAll, setSelectAll] = useState(false);
 	const [targetAudienceType, setTargetAudienceType] = useState<"all" | "leads" | "clients">("all");
 
+	// Marketing Studio Digital Acquisition & Lead Magnet States
+	const { user } = useAuth();
+	const [copiedPosterId, setCopiedPosterId] = useState<string | null>(null);
+	const [copiedLeadMagnetLink, setCopiedLeadMagnetLink] = useState(false);
+	const [selectedPosterCategory, setSelectedPosterCategory] = useState<string>("all");
+
+	const partnerName = user
+		? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.userId
+		: "FintekPro Advisory Partner";
+	const partnerPhone = user?.mobile || "";
+	const partnerInitials =
+		partnerName
+			.split(" ")
+			.map((n: string) => n[0])
+			.join("")
+			.slice(0, 2)
+			.toUpperCase() || "FP";
+
+	const leadMagnetUrl =
+		typeof window !== "undefined"
+			? `${window.location.origin}/tools/portfolio-xray?ref=${user?.id || user?.userId || "default"}`
+			: "";
+
+	const copyLeadMagnet = () => {
+		navigator.clipboard.writeText(leadMagnetUrl);
+		setCopiedLeadMagnetLink(true);
+		toast({
+			title: "Link Copied!",
+			description: "Your personalized Portfolio X-Ray lead magnet link is copied to clipboard.",
+		});
+		setTimeout(() => setCopiedLeadMagnetLink(false), 2500);
+	};
+
+	const copyPosterCaption = (caption: string, id: string) => {
+		navigator.clipboard.writeText(caption);
+		setCopiedPosterId(id);
+		toast({
+			title: "Caption & Link Copied!",
+			description: "Ready to paste into WhatsApp, LinkedIn, or Email.",
+		});
+		setTimeout(() => setCopiedPosterId(null), 2500);
+	};
+
+	const posterTemplates = useMemo(
+		() => [
+			{
+				id: "sip-multiplier",
+				title: "The 10% Step-Up SIP Multiplier",
+				subtitle: "How an annual 10% bump turns ₹10k/mo into ₹2.1 Crore",
+				category: "Wealth Creation",
+				tagColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+				highlightStat: "₹2.12 Cr vs ₹98L",
+				statSub: "Over 15 Years @ 12% CAGR",
+				keyPoints: [
+					"Flat ₹10,000/mo SIP = ₹98 Lakhs",
+					"10% Annual Step-Up SIP = ₹2.12 Crore",
+					"Adds ₹1.14 Cr extra wealth with small salary hikes",
+				],
+				caption: `📈 Did you know? Increasing your monthly mutual fund SIP by just 10% every year more than DOUBLES your final wealth!\n\n💡 Flat ₹10k/mo SIP: ₹98 Lakhs\n🚀 10% Annual Step-Up: ₹2.12 Crore (₹1.14 Cr extra!)\n\nAudit your mutual fund portfolio and compounding roadmap for free with our 60-second Portfolio X-Ray:\n👉 ${leadMagnetUrl}\n\n— ${partnerName} | Financial Partner`,
+			},
+			{
+				id: "market-dip",
+				title: "Market Volatility: Risk or Secret Weapon?",
+				subtitle: "Why 5%+ corrections historically deliver 15%+ multi-year XIRR",
+				category: "Market Outlook",
+				tagColor: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+				highlightStat: "+62% Average Rally",
+				statSub: "Over 3 Years following major corrections",
+				keyPoints: [
+					"Every 5%+ Nifty dip historically rebounded to fresh all-time highs",
+					"Panic redemptions turn paper drawdowns into permanent capital loss",
+					"Opportunistic lumpsum deployments supercharge long-term alpha",
+				],
+				caption: `📉 Market Volatility: Should You Panic or Deploy?\n\nHistorically, every 5%+ correction in the Indian equity markets has presented generational compounding opportunities for long-term investors.\n\nBefore pausing SIPs or panic selling, run your portfolio through our health diagnostic:\n👉 ${leadMagnetUrl}\n\n— ${partnerName} | Financial Partner`,
+			},
+			{
+				id: "fee-leakage",
+				title: "Hidden Mutual Fund Commissions",
+				subtitle: "Is your portfolio losing ₹14 Lakhs to Regular plan fees?",
+				category: "Advisory Diagnostic",
+				tagColor: "bg-red-500/10 text-red-400 border-red-500/30",
+				highlightStat: "1.10% Annual Drag",
+				statSub: "~₹14 Lakhs lost on ₹25L over 10 Years",
+				keyPoints: [
+					"Regular mutual funds charge trailing distributor commissions annually",
+					"Direct / RIA advisory plans eliminate middleman deductions",
+					"Compounding savings adds 1-2 years to early retirement",
+				],
+				caption: `🔬 Are you paying hidden distributor commissions on your mutual funds without knowing it?\n\nRegular mutual funds silently bleed ~1.0% to 1.25% in distributor trailing fees each year. On a ₹25L portfolio, that's over ₹14 Lakhs lost in 10 years!\n\nCheck your exact fee leakage in 60 seconds with our free diagnostic:\n👉 ${leadMagnetUrl}\n\n— ${partnerName} | Financial Partner`,
+			},
+			{
+				id: "tax-harvesting",
+				title: "LTCG 12.5% Tax Strategy Guide",
+				subtitle: "How annual tax-loss harvesting saves ₹15,000+ every year",
+				category: "Tax Strategy",
+				tagColor: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+				highlightStat: "₹1.25L Tax Exemption",
+				statSub: "Annual tax-free equity capital gains threshold",
+				keyPoints: [
+					"Union Budget revised Equity LTCG rate to 12.5% beyond ₹1.25L",
+					"Harvest up to ₹1.25L unrealized profit each FY tax-free",
+					"Offset equity capital gains against short-term losses",
+				],
+				caption: `⚖️ Union Budget Revised Equity LTCG to 12.5%.\n\nAre you taking advantage of the annual ₹1.25 Lakh tax-free profit exemption and systematic tax-loss harvesting before March 31?\n\nAudit your portfolio for tax-efficiency:\n👉 ${leadMagnetUrl}\n\n— ${partnerName} | Financial Partner`,
+			},
+			{
+				id: "corporate-bonds",
+				title: "Corporate Bonds vs Traditional FDs",
+				subtitle: "Senior-secured debt yielding 9.5% to 11.2% with regular payouts",
+				category: "Fixed Income",
+				tagColor: "bg-purple-500/10 text-purple-400 border-purple-500/30",
+				highlightStat: "9.5% - 11.2% Yield",
+				statSub: "Senior Secured & Rated AA/AAA",
+				keyPoints: [
+					"Beats traditional bank FDs by 250–350 basis points",
+					"Monthly or quarterly coupon credit directly to bank account",
+					"Listed and tradeable on NSE/BSE secondary markets",
+				],
+				caption: `🏛️ Looking for higher fixed income returns than bank FDs?\n\nExplore curated Senior Secured Corporate Bonds & NCDs yielding 9.5% to 11.2% with regular quarterly or monthly payouts.\n\nDiscover curated debt opportunities:\n👉 ${leadMagnetUrl}\n\n— ${partnerName} | Financial Partner`,
+			},
+			{
+				id: "hni-alternatives",
+				title: "Beyond Nifty: AIFs & Pre-IPO Alpha",
+				subtitle: "Exclusive wealth creation strategies for high-net-worth investors",
+				category: "HNI Wealth",
+				tagColor: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30",
+				highlightStat: "CAT-II & Pre-IPO",
+				statSub: "Uncorrelated private market returns",
+				keyPoints: [
+					"Access to pre-IPO growth companies before exchange listing",
+					"Private credit and long-short quantitative hedge strategies",
+					"Curated deals with Institutional-grade diligence",
+				],
+				caption: `👑 Build generational wealth beyond standard mutual funds.\n\nExplore curated Category II & III Alternative Investment Funds (AIFs) and Pre-IPO high-growth companies with FintekPro Institutional Diligence.\n\nSchedule an exclusive HNI consultation:\n👉 ${leadMagnetUrl}\n\n— ${partnerName} | Financial Partner`,
+			},
+		],
+		[leadMagnetUrl, partnerName],
+	);
+
 	const { data: campaigns, isLoading: campaignsLoading } = useQuery<Campaign[]>(
 		{
 			queryKey: ["/api/agent/campaigns"],
@@ -234,6 +384,22 @@ export default function AgentBulkCommunication() {
 
 		return list;
 	}, [clients, leadsResponse]);
+
+	const xrayLeads = useMemo(() => {
+		const rawLeads = leadsResponse?.data || [];
+		return rawLeads.filter(
+			(l: any) =>
+				l.source === "portfolio_xray_magnet" ||
+				(l.tags && l.tags.includes("portfolio_xray")),
+		);
+	}, [leadsResponse]);
+
+	const totalXRayTracked = useMemo(() => {
+		return xrayLeads.reduce(
+			(sum: number, l: any) => sum + (Number(l.potentialValue) || 0),
+			0,
+		);
+	}, [xrayLeads]);
 
 	const filteredClients = useMemo(() => {
 		let list = allContacts;
@@ -1257,7 +1423,7 @@ export default function AgentBulkCommunication() {
 			</div>
 
 			<Tabs defaultValue="dashboard" className="space-y-6">
-				<TabsList className="bg-card border-border">
+				<TabsList className="bg-card border-border flex flex-wrap h-auto p-1 gap-1">
 					<TabsTrigger
 						value="dashboard"
 						className="data-[state=active]:bg-emerald-600"
@@ -1273,6 +1439,30 @@ export default function AgentBulkCommunication() {
 					>
 						<MessageSquare className="mr-2 h-4 w-4" />
 						Campaigns
+					</TabsTrigger>
+					<TabsTrigger
+						value="posters"
+						className="data-[state=active]:bg-emerald-600"
+						data-testid="tab-posters"
+					>
+						<Sparkles className="mr-2 h-4 w-4 text-amber-400" />
+						Co-Branded Poster Studio
+					</TabsTrigger>
+					<TabsTrigger
+						value="xray-magnet"
+						className="data-[state=active]:bg-emerald-600"
+						data-testid="tab-xray-magnet"
+					>
+						<Target className="mr-2 h-4 w-4 text-blue-400" />
+						Portfolio X-Ray Magnet
+					</TabsTrigger>
+					<TabsTrigger
+						value="flash-broadcasts"
+						className="data-[state=active]:bg-emerald-600"
+						data-testid="tab-flash-broadcasts"
+					>
+						<Zap className="mr-2 h-4 w-4 text-purple-400" />
+						Market Flash Broadcasts
 					</TabsTrigger>
 				</TabsList>
 
@@ -1595,6 +1785,510 @@ export default function AgentBulkCommunication() {
 									))}
 								</div>
 							)}
+						</CardContent>
+					</Card>
+				</TabsContent>
+
+				{/* 🎨 Co-Branded Poster Studio (AssetPlus / NJ Wealth Style) */}
+				<TabsContent value="posters" className="space-y-6">
+					<Card className="bg-card border-border">
+						<CardHeader>
+							<div className="flex items-center justify-between flex-wrap gap-4">
+								<div>
+									<CardTitle className="text-xl flex items-center gap-2">
+										<Sparkles className="h-5 w-5 text-amber-400" />
+										Co-Branded Social & WhatsApp Poster Studio
+									</CardTitle>
+									<CardDescription>
+										Curated, compliance-reviewed financial cards co-branded with your Name, Phone, and Lead Magnet link for instant sharing.
+									</CardDescription>
+								</div>
+								<div className="flex items-center gap-2">
+									<Button
+										size="sm"
+										variant="outline"
+										onClick={copyLeadMagnet}
+										className="border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10"
+									>
+										{copiedLeadMagnetLink ? (
+											<>
+												<Check className="h-3.5 w-3.5 mr-1" />
+												Copied X-Ray Link
+											</>
+										) : (
+											<>
+												<Copy className="h-3.5 w-3.5 mr-1" />
+												Copy Lead Magnet Link
+											</>
+										)}
+									</Button>
+								</div>
+							</div>
+						</CardHeader>
+						<CardContent className="space-y-6">
+							{/* Category Filters */}
+							<div className="flex items-center gap-1.5 flex-wrap">
+								{["all", "Wealth Creation", "Market Outlook", "Advisory Diagnostic", "Tax Strategy", "Fixed Income", "HNI Wealth"].map(
+									(cat) => (
+										<Button
+											key={cat}
+											size="sm"
+											variant={selectedPosterCategory === cat ? "default" : "outline"}
+											onClick={() => setSelectedPosterCategory(cat)}
+											className={`text-xs h-7 ${
+												selectedPosterCategory === cat
+													? "bg-emerald-600 text-white"
+													: "border-border text-muted-foreground"
+											}`}
+										>
+											{cat === "all" ? "All Creatives" : cat}
+										</Button>
+									),
+								)}
+							</div>
+
+							{/* Poster Cards Grid */}
+							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+								{posterTemplates
+									.filter(
+										(p) =>
+											selectedPosterCategory === "all" ||
+											p.category === selectedPosterCategory,
+									)
+									.map((poster) => (
+										<div
+											key={poster.id}
+											className="rounded-xl border border-border bg-gradient-to-b from-card to-muted/20 p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition-all space-y-4"
+										>
+											<div className="space-y-3">
+												{/* Category & Title */}
+												<div className="flex items-center justify-between">
+													<Badge
+														variant="outline"
+														className={`text-xs font-semibold ${poster.tagColor}`}
+													>
+														{poster.category}
+													</Badge>
+													<span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+														SEBI Compliant
+													</span>
+												</div>
+												<div>
+													<h4 className="font-bold text-foreground text-base leading-snug">
+														{poster.title}
+													</h4>
+													<p className="text-xs text-muted-foreground mt-0.5">
+														{poster.subtitle}
+													</p>
+												</div>
+
+												{/* Big Stat Box */}
+												<div className="p-3 rounded-lg bg-background/80 border border-border text-center space-y-0.5">
+													<div className="text-2xl font-black text-emerald-400">
+														{poster.highlightStat}
+													</div>
+													<div className="text-[11px] text-muted-foreground">
+														{poster.statSub}
+													</div>
+												</div>
+
+												{/* Key Bullet Points */}
+												<div className="space-y-1.5 text-xs text-muted-foreground pt-1">
+													{poster.keyPoints.map((point, idx) => (
+														<div key={idx} className="flex items-start gap-1.5">
+															<span className="text-emerald-500 font-bold">•</span>
+															<span>{point}</span>
+														</div>
+													))}
+												</div>
+											</div>
+
+											{/* Co-Branded Footer Stamp */}
+											<div className="pt-3 border-t border-border space-y-3">
+												<div className="flex items-center justify-between text-xs bg-muted/40 p-2 rounded-lg border border-border">
+													<div className="flex items-center gap-2">
+														<div className="h-7 w-7 rounded-full bg-emerald-600/20 text-emerald-500 font-bold flex items-center justify-center text-xs">
+															{partnerInitials}
+														</div>
+														<div className="text-left">
+															<div className="font-semibold text-foreground leading-tight">
+																{partnerName}
+															</div>
+															<div className="text-[10px] text-muted-foreground">
+																{partnerPhone || "Advisory Partner"}
+															</div>
+														</div>
+													</div>
+													<Badge variant="outline" className="text-[10px] py-0 border-emerald-500/30 text-emerald-500">
+														Partner ID
+													</Badge>
+												</div>
+
+												{/* Action Buttons */}
+												<div className="grid grid-cols-2 gap-2">
+													<Button
+														size="sm"
+														className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs flex items-center justify-center gap-1.5"
+														onClick={() => {
+															const shareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(
+																poster.caption,
+															)}`;
+															window.open(shareUrl, "_blank");
+														}}
+													>
+														<Share2 className="h-3.5 w-3.5" />
+														<span>WhatsApp</span>
+													</Button>
+
+													<Button
+														size="sm"
+														variant="outline"
+														className="border-border text-xs flex items-center justify-center gap-1.5"
+														onClick={() =>
+															copyPosterCaption(poster.caption, poster.id)
+														}
+													>
+														{copiedPosterId === poster.id ? (
+															<>
+																<Check className="h-3.5 w-3.5 text-emerald-400" />
+																<span>Copied</span>
+															</>
+														) : (
+															<>
+																<Copy className="h-3.5 w-3.5" />
+																<span>Copy Text</span>
+															</>
+														)}
+													</Button>
+												</div>
+											</div>
+										</div>
+									))}
+							</div>
+						</CardContent>
+					</Card>
+				</TabsContent>
+
+				{/* 🔬 Portfolio X-Ray Lead Magnet (Dezerv / INDmoney Style) */}
+				<TabsContent value="xray-magnet" className="space-y-6">
+					{/* Lead Magnet Overview Card */}
+					<Card className="bg-gradient-to-r from-emerald-950/40 via-card to-card border-emerald-500/30">
+						<CardHeader>
+							<div className="flex items-center justify-between flex-wrap gap-4">
+								<div className="space-y-1">
+									<div className="flex items-center gap-2">
+										<Badge className="bg-emerald-600 text-white font-semibold">
+											High-Conversion Lead Magnet
+										</Badge>
+										<Badge variant="outline" className="border-emerald-500/40 text-emerald-500">
+											Dezerv & INDmoney Playbook
+										</Badge>
+									</div>
+									<CardTitle className="text-2xl font-bold">
+										Portfolio X-Ray & Fee Drag Lead Magnet
+									</CardTitle>
+									<CardDescription className="max-w-2xl">
+										Share your personal diagnostic link. When prospects run an audit of their mutual funds and demat holdings, their contact details and asset profile automatically land in your Kanban pipeline.
+									</CardDescription>
+								</div>
+								<Button
+									size="lg"
+									className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-2 shadow-md"
+									onClick={() => window.open(leadMagnetUrl, "_blank")}
+								>
+									<ExternalLink className="h-4 w-4" />
+									Preview Your Funnel Page
+								</Button>
+							</div>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							{/* Link Box */}
+							<div className="p-3 rounded-lg bg-background border border-border flex items-center justify-between gap-3 flex-wrap">
+								<div className="flex items-center gap-2 text-xs text-muted-foreground flex-1 min-w-[240px] truncate font-mono">
+									<Target className="h-4 w-4 text-emerald-500 shrink-0" />
+									<span className="text-foreground truncate">{leadMagnetUrl}</span>
+								</div>
+								<div className="flex items-center gap-2">
+									<Button
+										size="sm"
+										variant="outline"
+										onClick={copyLeadMagnet}
+										className="border-border text-xs"
+									>
+										{copiedLeadMagnetLink ? (
+											<>
+												<Check className="h-3.5 w-3.5 mr-1 text-emerald-400" />
+												Copied
+											</>
+										) : (
+											<>
+												<Copy className="h-3.5 w-3.5 mr-1" />
+												Copy Link
+											</>
+										)}
+									</Button>
+									<Button
+										size="sm"
+										className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs flex items-center gap-1.5"
+										onClick={() => {
+											const text = encodeURIComponent(
+												`Hi! Are you paying hidden distributor commissions on your mutual funds without knowing it?\n\nTake this free 60-second Portfolio X-Ray to check your fee leakage, asset allocation, and risk score:\n👉 ${leadMagnetUrl}\n\n— ${partnerName}`,
+											);
+											window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
+										}}
+									>
+										<Share2 className="h-3.5 w-3.5" />
+										Share on WhatsApp
+									</Button>
+								</div>
+							</div>
+
+							{/* Aggregate Stats */}
+							<div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+								<div className="p-4 rounded-xl bg-card border border-border text-center">
+									<div className="text-xs text-muted-foreground font-medium">Leads Captured via X-Ray</div>
+									<div className="text-3xl font-extrabold text-foreground mt-1">
+										{xrayLeads.length}
+									</div>
+									<div className="text-[11px] text-emerald-500 mt-0.5">High Intent Prospects</div>
+								</div>
+
+								<div className="p-4 rounded-xl bg-card border border-border text-center">
+									<div className="text-xs text-muted-foreground font-medium">Total Assets Audited</div>
+									<div className="text-3xl font-extrabold text-emerald-500 mt-1">
+										{totalXRayTracked >= 10000000
+											? `₹${(totalXRayTracked / 10000000).toFixed(2)} Cr`
+											: `₹${(totalXRayTracked / 100000).toFixed(1)} Lakhs`}
+									</div>
+									<div className="text-[11px] text-muted-foreground mt-0.5">Potential AUM Pipeline</div>
+								</div>
+
+								<div className="p-4 rounded-xl bg-card border border-border text-center">
+									<div className="text-xs text-muted-foreground font-medium">Avg Lead Score</div>
+									<div className="text-3xl font-extrabold text-blue-400 mt-1">
+										{xrayLeads.length > 0
+											? Math.round(
+													xrayLeads.reduce(
+														(acc: number, l: any) => acc + (l.score || 70),
+														0,
+													) / xrayLeads.length,
+												)
+											: 75}
+										<span className="text-sm text-muted-foreground font-normal"> / 100</span>
+									</div>
+									<div className="text-[11px] text-muted-foreground mt-0.5">Automated Risk Scoring</div>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+
+					{/* Captured X-Ray Leads Table */}
+					<Card className="bg-card border-border">
+						<CardHeader>
+							<CardTitle className="text-base font-semibold flex items-center gap-2">
+								<Users className="h-4 w-4 text-emerald-500" />
+								Recent X-Ray Inbound Prospects ({xrayLeads.length})
+							</CardTitle>
+							<CardDescription>
+								Prospects who completed your Portfolio Health Check and are awaiting follow-up
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							{xrayLeads.length === 0 ? (
+								<div className="text-center py-10 space-y-3">
+									<Target className="h-10 w-10 text-muted-foreground mx-auto opacity-50" />
+									<h4 className="font-semibold text-foreground">No Inbound X-Ray Leads Yet</h4>
+									<p className="text-xs text-muted-foreground max-w-sm mx-auto">
+										Share your personalized X-Ray link on WhatsApp or social media to start generating qualified leads into your pipeline.
+									</p>
+									<Button
+										size="sm"
+										onClick={copyLeadMagnet}
+										className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+									>
+										Copy Funnel Link
+									</Button>
+								</div>
+							) : (
+								<div className="space-y-3">
+									{xrayLeads.map((lead: any) => (
+										<div
+											key={lead.id}
+											className="p-4 rounded-lg border border-border bg-muted/20 flex items-center justify-between gap-4 flex-wrap"
+										>
+											<div className="space-y-1">
+												<div className="flex items-center gap-2">
+													<span className="font-bold text-foreground">{lead.name}</span>
+													<Badge variant="outline" className="text-xs border-emerald-500/40 text-emerald-500">
+														Score: {lead.score || 75}
+													</Badge>
+												</div>
+												<p className="text-xs text-muted-foreground">
+													{lead.phone} {lead.email && `• ${lead.email}`}
+												</p>
+												{lead.notes && (
+													<p className="text-xs text-muted-foreground italic font-mono bg-background/50 px-2 py-0.5 rounded border border-border inline-block">
+														{lead.notes}
+													</p>
+												)}
+											</div>
+											<div className="flex items-center gap-2">
+												<Button
+													size="sm"
+													variant="outline"
+													className="border-emerald-500/40 text-emerald-500 text-xs"
+													onClick={() => {
+														const cleanPhone = lead.phone?.replace(/\D/g, "");
+														const text = encodeURIComponent(
+															`Hi ${lead.name}, thank you for checking your Portfolio X-Ray on FintekPro. I reviewed your diagnostic summary and would love to share a few actionable optimization steps. When are you free for a 10-minute call?`,
+														);
+														window.open(`https://wa.me/${cleanPhone}?text=${text}`, "_blank");
+													}}
+												>
+													<Share2 className="h-3.5 w-3.5 mr-1" />
+													WhatsApp Lead
+												</Button>
+												<Button
+													size="sm"
+													className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+													onClick={() => {
+														window.open(`/agent/meetings`, "_blank");
+													}}
+												>
+													<Calendar className="h-3.5 w-3.5 mr-1" />
+													Schedule Call
+												</Button>
+											</div>
+										</div>
+									))}
+								</div>
+							)}
+						</CardContent>
+					</Card>
+				</TabsContent>
+
+				{/* ⚡ Market Event Flash Broadcasts (Motilal Oswal & Sanctum Playbook) */}
+				<TabsContent value="flash-broadcasts" className="space-y-6">
+					<Card className="bg-card border-border">
+						<CardHeader>
+							<CardTitle className="text-xl flex items-center gap-2">
+								<Zap className="h-5 w-5 text-purple-400" />
+								Event-Driven Flash Broadcasts
+							</CardTitle>
+							<CardDescription>
+								Compliance-approved, 1-click broadcast messages triggered by market events (Nifty corrections, RBI policy announcements, Budget tax changes) to reassure clients and capture opportunistic lumpsums.
+							</CardDescription>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+								{/* Trigger 1 */}
+								<div className="p-4 rounded-xl border border-border bg-muted/20 space-y-3">
+									<div className="flex items-center justify-between">
+										<Badge variant="outline" className="border-blue-500/40 text-blue-400 text-xs">
+											Market Dip Alert
+										</Badge>
+										<span className="text-xs text-muted-foreground">Trigger: Nifty -2.5%</span>
+									</div>
+									<h4 className="font-bold text-foreground text-sm">
+										Nifty Pullback: Why Systematic Compounding Beats Timing
+									</h4>
+									<p className="text-xs text-muted-foreground">
+										Reassures nervous investors during market drawdowns and reminds them that historically every 5%+ correction generated strong 3-year alpha.
+									</p>
+									<Button
+										size="sm"
+										className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs flex items-center justify-center gap-1.5"
+										onClick={() => {
+											const msg = `📉 Market Dip Reassurance: Notice the recent market correction?\n\nHistorically, equity corrections are a natural part of India's long-term compounding story. Disciplined investors who stay invested and use dips to top-up historically outperform those who try to time the market.\n\nNeed a personalized review of your portfolio? Connect with us:\n👉 ${leadMagnetUrl}\n\n— ${partnerName}`;
+											window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, "_blank");
+										}}
+									>
+										<Share2 className="h-3.5 w-3.5" />
+										1-Click WhatsApp Broadcast
+									</Button>
+								</div>
+
+								{/* Trigger 2 */}
+								<div className="p-4 rounded-xl border border-border bg-muted/20 space-y-3">
+									<div className="flex items-center justify-between">
+										<Badge variant="outline" className="border-emerald-500/40 text-emerald-400 text-xs">
+											RBI Policy Flash
+										</Badge>
+										<span className="text-xs text-muted-foreground">Trigger: Rate Pause</span>
+									</div>
+									<h4 className="font-bold text-foreground text-sm">
+										RBI Repo Rate Update: Lock In High-Yield Senior Debt
+									</h4>
+									<p className="text-xs text-muted-foreground">
+										Alerts conservative and moderate clients to lock in high coupon rates on AA/AAA rated corporate bonds before potential rate cuts.
+									</p>
+									<Button
+										size="sm"
+										className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs flex items-center justify-center gap-1.5"
+										onClick={() => {
+											const msg = `🏛️ RBI Monetary Policy Update: With interest rates at peak cycle, high-yield senior secured bonds (9.5% - 11.2%) offer exceptional yield lock-in before rate cuts begin.\n\nExplore curated fixed income instruments for your portfolio:\n👉 ${leadMagnetUrl}\n\n— ${partnerName}`;
+											window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, "_blank");
+										}}
+									>
+										<Share2 className="h-3.5 w-3.5" />
+										1-Click WhatsApp Broadcast
+									</Button>
+								</div>
+
+								{/* Trigger 3 */}
+								<div className="p-4 rounded-xl border border-border bg-muted/20 space-y-3">
+									<div className="flex items-center justify-between">
+										<Badge variant="outline" className="border-amber-500/40 text-amber-400 text-xs">
+											Tax Season Alert
+										</Badge>
+										<span className="text-xs text-muted-foreground">Trigger: Year-End</span>
+									</div>
+									<h4 className="font-bold text-foreground text-sm">
+										LTCG 12.5% Tax-Loss Harvesting Before March 31
+									</h4>
+									<p className="text-xs text-muted-foreground">
+										Encourages investors to claim their annual ₹1.25 Lakh tax-free equity gains exemption and offset capital gains.
+									</p>
+									<Button
+										size="sm"
+										className="w-full bg-amber-600 hover:bg-amber-700 text-white text-xs flex items-center justify-center gap-1.5"
+										onClick={() => {
+											const msg = `⚖️ FY Year-End Tax Alert: Have you utilized your ₹1.25 Lakh annual tax-free LTCG exemption under the new tax rules?\n\nRun an instant tax-loss harvesting audit on your portfolio before March 31:\n👉 ${leadMagnetUrl}\n\n— ${partnerName}`;
+											window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, "_blank");
+										}}
+									>
+										<Share2 className="h-3.5 w-3.5" />
+										1-Click WhatsApp Broadcast
+									</Button>
+								</div>
+
+								{/* Trigger 4 */}
+								<div className="p-4 rounded-xl border border-border bg-muted/20 space-y-3">
+									<div className="flex items-center justify-between">
+										<Badge variant="outline" className="border-purple-500/40 text-purple-400 text-xs">
+											Quarterly Audit
+										</Badge>
+										<span className="text-xs text-muted-foreground">Trigger: 6-Month Review</span>
+									</div>
+									<h4 className="font-bold text-foreground text-sm">
+										Portfolio Drift & Rebalancing Checkup
+									</h4>
+									<p className="text-xs text-muted-foreground">
+										Reminds clients to review equity-debt allocation and rebalance away from overheated market sectors.
+									</p>
+									<Button
+										size="sm"
+										className="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs flex items-center justify-center gap-1.5"
+										onClick={() => {
+											const msg = `🔄 Semi-Annual Portfolio Health Check: Has market rally drifted your equity exposure too high?\n\nRebalancing every 6 months protects compounding profits from deep drawdowns. Audit your asset allocation now:\n👉 ${leadMagnetUrl}\n\n— ${partnerName}`;
+											window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, "_blank");
+										}}
+									>
+										<Share2 className="h-3.5 w-3.5" />
+										1-Click WhatsApp Broadcast
+									</Button>
+								</div>
+							</div>
 						</CardContent>
 					</Card>
 				</TabsContent>

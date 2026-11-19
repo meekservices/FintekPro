@@ -212,6 +212,7 @@ import { dialerRouter } from "./routes/dialer-routes"; // /api/dialer/*
 import taxLossHarvestingRouter from "./routes/tax-loss-harvesting-routes"; // /api/tax-loss-harvesting
 import monteCarloGoalRouter from "./routes/monte-carlo-goal-routes"; // /api/goal-planning/monte-carlo-simulate
 import asyncJobsRouter from "./routes/async-jobs-routes"; // /api/async-jobs
+import portfolioXRayRouter from "./routes/portfolio-xray-routes"; // /api/public/portfolio-xray
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -665,6 +666,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	                                        // POST /api/calling/register-agent-number
 	                                        // GET  /api/calling/truecaller-status
 	app.use("/api/dialer", dialerRouter);   // POST /api/dialer/call, /disposition, GET /queue, /history, /stats
+	app.use("/api/public/portfolio-xray", portfolioXRayRouter); // Public Lead Magnet: Portfolio Health & Fee Drag X-Ray
 
 	const httpServer = createServer(app);
 	return httpServer;

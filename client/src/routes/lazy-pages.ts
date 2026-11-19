@@ -580,6 +580,9 @@ export const PublicAdvisorProfile = lazyWithRetry(
 export const PublicProfilePage = lazyWithRetry(
 	() => import("@/pages/PublicProfilePage"),
 );
+export const PublicPortfolioXRayPage = lazyWithRetry(
+	() => import("@/pages/PublicPortfolioXRayPage"),
+);
 export const AgentProspectProposals = lazyWithRetry(
 	() => import("@/pages/agent-prospect-proposals"),
 );
