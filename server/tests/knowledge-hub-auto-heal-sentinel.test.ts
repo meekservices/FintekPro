@@ -139,4 +139,172 @@ describe("Knowledge Hub Auto-Heal & Quality Sentinel", () => {
 		expect(status.engineVersion).toContain("FASP-AI");
 		expect(status.regions.india).toBeDefined();
 	});
+
+	// ── US Fixed Income & Sovereign Desk Sentinel Tests ─────────────────────────
+
+	const validUsBrief = {
+		id: "brief-us-test-1",
+		date: new Date().toISOString().split("T")[0],
+		region: "us",
+		version: 1,
+		marketSnapshot:
+			"US equity benchmarks traded with positive momentum today led by megacap technology. S&P 500 and Nasdaq 100 consolidated near record highs. The benchmark 10-Year US Treasury yield stood at 4.42%, maintaining a normal upward slope over 2-year notes (4.30%).",
+		whatChanged:
+			"1. Megacap Tech Momentum: Hyperscaler AI capex supporting S&P 500.\n2. Treasury Yields & FOMC Stance: US 10-Year Treasury at 4.42%, 2-Year at 4.30% (+12 bps spread).\n3. Currency: DXY at 104.25.",
+		keyRisks:
+			"FOMC interest rate guidance path, US Dollar Index movements, and trade tariff negotiations.",
+		opportunityAreas: "1. Core index ETFs (SPY, QQQ).\n2. Cash-generative tech titans.",
+		portfolioImpact: "Encourage 10-15% global asset diversification under RBI LRS.",
+		complianceNote:
+			"SEBI FASP-AI v1.0 Regulatory Notice: Strictly for RIA decision support. Not deterministic investment advice or guaranteed return solicitation.",
+		topMovers: [
+			{ name: "Apple Inc.", symbol: "AAPL", price: 228.0, change: 1.2, direction: "up" },
+			{ name: "Microsoft Corp.", symbol: "MSFT", price: 425.0, change: 0.8, direction: "up" },
+			{ name: "Nvidia Corp.", symbol: "NVDA", price: 145.0, change: 2.1, direction: "up" },
+		],
+		usFixedIncome: {
+			tenYearTreasury: 4.42,
+			twoYearTreasury: 4.30,
+			tenYearMinusTwoYearBps: 12,
+			fedFundsTargetRate: "4.50% – 4.75%",
+			thirtyYearMortgageAvg: 6.78,
+			yieldCurveSlope: "Normal Upward (+12 bps)",
+			commentary: "US 10-Year Treasury at 4.42% as markets price in orderly FOMC rate path adjustments within 4.50% - 4.75% band.",
+		},
+	};
+
+	it("audits a pristine US brief and awards high quality score (>= 95%) with zero critical violations", () => {
+		const report = knowledgeHubAutoHealSentinel.auditBrief(validUsBrief, "us");
+		expect(report.qualityScore).toBeGreaterThanOrEqual(95);
+		expect(report.status).toBe("PRISTINE");
+		expect(report.violations.filter((v) => v.severity === "critical")).toHaveLength(0);
+	});
+
+	it("detects outdated or prematurely cut Fed Funds target range (e.g. 4.25% – 4.50%)", () => {
+		const outdatedBrief = {
+			...validUsBrief,
+			usFixedIncome: {
+				...validUsBrief.usFixedIncome,
+				fedFundsTargetRate: "4.25% – 4.50%",
+			},
+		};
+
+		const report = knowledgeHubAutoHealSentinel.auditBrief(outdatedBrief, "us");
+		const fomcViolation = report.violations.find((v) => v.code === "OUTDATED_FED_FUNDS_TARGET");
+		expect(fomcViolation).toBeDefined();
+		expect(fomcViolation?.severity).toBe("critical");
+	});
+
+	it("detects term spread arithmetic mismatch (e.g. 10Y: 4.42, 2Y: 4.30, spread: 23 bps)", () => {
+		const mismatchedBrief = {
+			...validUsBrief,
+			usFixedIncome: {
+				...validUsBrief.usFixedIncome,
+				tenYearTreasury: 4.42,
+				twoYearTreasury: 4.30,
+				tenYearMinusTwoYearBps: 23, // 4.42 - 4.30 = 12 bps, not 23!
+			},
+		};
+
+		const report = knowledgeHubAutoHealSentinel.auditBrief(mismatchedBrief, "us");
+		const spreadViolation = report.violations.find((v) => v.code === "TERM_SPREAD_MATH_MISMATCH");
+		expect(spreadViolation).toBeDefined();
+	});
+
+	it("detects yield curve slope classification error (labeled Inverted when spread is positive)", () => {
+		const slopeErrorBrief = {
+			...validUsBrief,
+			usFixedIncome: {
+				...validUsBrief.usFixedIncome,
+				tenYearMinusTwoYearBps: 12,
+				yieldCurveSlope: "Inverted (-12 bps)",
+			},
+		};
+
+		const report = knowledgeHubAutoHealSentinel.auditBrief(slopeErrorBrief, "us");
+		const slopeViolation = report.violations.find((v) => v.code === "YIELD_CURVE_SLOPE_MISMATCH");
+		expect(slopeViolation).toBeDefined();
+	});
+
+	it("detects stale Freddie Mac 30Y mortgage fallback (6.55%)", () => {
+		const staleMortgageBrief = {
+			...validUsBrief,
+			usFixedIncome: {
+				...validUsBrief.usFixedIncome,
+				thirtyYearMortgageAvg: 6.55, // Stale September fallback
+			},
+		};
+
+		const report = knowledgeHubAutoHealSentinel.auditBrief(staleMortgageBrief, "us");
+		const mortgageViolation = report.violations.find((v) => v.code === "STALE_MORTGAGE_FALLBACK_DETECTED");
+		expect(mortgageViolation).toBeDefined();
+	});
+
+	it("detects US 10Y Treasury yield outlier (e.g. 7.50%)", () => {
+		const outlierBrief = {
+			...validUsBrief,
+			usFixedIncome: {
+				...validUsBrief.usFixedIncome,
+				tenYearTreasury: 7.50, // Outlier
+			},
+		};
+
+		const report = knowledgeHubAutoHealSentinel.auditBrief(outlierBrief, "us");
+		const yieldViolation = report.violations.find((v) => v.code === "UNREALISTIC_US_10Y_YIELD");
+		expect(yieldViolation).toBeDefined();
+		expect(yieldViolation?.severity).toBe("critical");
+	});
+
+	// ── Global Macro Transmission Sentinel Tests ───────────────────────────────
+
+	const validGlobalBrief = {
+		id: "brief-global-test-1",
+		date: new Date().toISOString().split("T")[0],
+		region: "global",
+		version: 1,
+		marketSnapshot:
+			"Global equity benchmarks traded with constructive risk sentiment across Asian and European sessions. The US Dollar Index (DXY) traded at 104.25, anchoring cross-border capital flows.",
+		whatChanged:
+			"1. Cross-Asset Transmission: US Dollar Index (DXY) at 104.25.\n2. European Momentum: DAX and FTSE holding gains.\n3. Sovereign Bond Spreads: 10Y Bund at 2.35%, UK Gilt at 4.25%, JGB at 1.15%.",
+		keyRisks:
+			"Global geopolitical developments, shifting trade tariff policies, and currency volatility.",
+		opportunityAreas: "1. Global multi-asset diversification.\n2. Developed market sovereign debt.",
+		portfolioImpact: "Maintain core portfolio allocation with diversified foreign currency exposure.",
+		complianceNote:
+			"SEBI FASP-AI v1.0 Regulatory Notice: Strictly for RIA decision support. Not deterministic investment advice or guaranteed return solicitation.",
+		topMovers: [
+			{ name: "DAX 40", symbol: "DAX", price: 19480.0, change: 0.45, direction: "up" },
+			{ name: "Nikkei 225", symbol: "N225", price: 38950.0, change: 0.95, direction: "up" },
+			{ name: "FTSE 100", symbol: "UKX", price: 8245.0, change: -0.32, direction: "down" },
+		],
+		globalMacroDesk: {
+			dxyIndex: 104.25,
+			dxyChangePercent: 0.08,
+			bund10YYield: 2.35,
+			gilt10YYield: 4.25,
+			jgb10YYield: 1.15,
+			usdInr: 94.86,
+		},
+	};
+
+	it("audits a pristine Global brief with zero critical violations", () => {
+		const report = knowledgeHubAutoHealSentinel.auditBrief(validGlobalBrief, "global");
+		expect(report.qualityScore).toBeGreaterThanOrEqual(95);
+		expect(report.status).toBe("PRISTINE");
+	});
+
+	it("detects US Dollar Index (DXY) outlier (e.g. 135.0)", () => {
+		const dxyOutlierBrief = {
+			...validGlobalBrief,
+			globalMacroDesk: {
+				...validGlobalBrief.globalMacroDesk,
+				dxyIndex: 135.0,
+			},
+		};
+
+		const report = knowledgeHubAutoHealSentinel.auditBrief(dxyOutlierBrief, "global");
+		const dxyViolation = report.violations.find((v) => v.code === "DXY_OUTLIER_DETECTED");
+		expect(dxyViolation).toBeDefined();
+		expect(dxyViolation?.severity).toBe("critical");
+	});
 });

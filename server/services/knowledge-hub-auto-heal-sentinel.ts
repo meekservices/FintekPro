@@ -254,6 +254,202 @@ export class KnowledgeHubAutoHealSentinel {
 					remedy: "Re-fetch FBIL reference fixing.",
 				});
 			}
+		} else if (region === "us") {
+			const fixedIncome = brief?.usFixedIncome || brief?.fixedIncome;
+			const tenYear = typeof fixedIncome?.tenYearTreasury === "number" ? fixedIncome.tenYearTreasury : null;
+			const twoYear = typeof fixedIncome?.twoYearTreasury === "number" ? fixedIncome.twoYearTreasury : null;
+			const spread = typeof fixedIncome?.tenYearMinusTwoYearBps === "number" ? fixedIncome.tenYearMinusTwoYearBps : null;
+			const fedFundsTarget = typeof fixedIncome?.fedFundsTargetRate === "string" ? fixedIncome.fedFundsTargetRate.trim() : "";
+			const mortgage30Y = typeof fixedIncome?.thirtyYearMortgageAvg === "number" ? fixedIncome.thirtyYearMortgageAvg : null;
+
+			// 10Y Benchmark Treasury corridor: 3.0% to 6.5%
+			if (tenYear != null) {
+				if (tenYear < 3.0 || tenYear > 6.5) {
+					commodityMacroPricing -= 8;
+					violations.push({
+						code: "UNREALISTIC_US_10Y_YIELD",
+						field: "usFixedIncome.tenYearTreasury",
+						severity: "critical",
+						message: `US 10-Year Treasury yield (${tenYear}%) is outside plausible macro corridor [3.0% - 6.5%].`,
+						remedy: "Re-query official FRED DGS10 daily constant maturity release.",
+					});
+				}
+			} else {
+				commodityMacroPricing -= 8;
+				violations.push({
+					code: "MISSING_US_10Y_YIELD",
+					field: "usFixedIncome.tenYearTreasury",
+					severity: "critical",
+					message: "US 10-Year Treasury yield benchmark is missing or non-numeric.",
+					remedy: "Resolve official FRED DGS10 benchmark.",
+				});
+			}
+
+			// 2Y Treasury Yield corridor: 2.5% to 6.0%
+			if (twoYear != null) {
+				if (twoYear < 2.5 || twoYear > 6.0) {
+					commodityMacroPricing -= 6;
+					violations.push({
+						code: "UNREALISTIC_US_2Y_YIELD",
+						field: "usFixedIncome.twoYearTreasury",
+						severity: "warning",
+						message: `US 2-Year Treasury yield (${twoYear}%) is outside plausible policy proxy corridor [2.5% - 6.0%].`,
+						remedy: "Re-query official FRED DGS2 constant maturity release.",
+					});
+				}
+			}
+
+			// Term Spread calculation & Slope consistency
+			if (tenYear != null && twoYear != null && spread != null) {
+				const expectedSpread = Math.round((tenYear - twoYear) * 100);
+				if (Math.abs(expectedSpread - spread) > 2) {
+					commodityMacroPricing -= 5;
+					violations.push({
+						code: "TERM_SPREAD_MATH_MISMATCH",
+						field: "usFixedIncome.tenYearMinusTwoYearBps",
+						severity: "warning",
+						message: `10Y-2Y term spread mismatch: recorded ${spread} bps vs calculated ${expectedSpread} bps.`,
+						remedy: "Recalculate term spread = round((10Y - 2Y) * 100).",
+					});
+				}
+
+				const slope = (fixedIncome?.yieldCurveSlope || "").toLowerCase();
+				if (expectedSpread >= 0 && slope.includes("inverted") && !slope.includes("normal")) {
+					commodityMacroPricing -= 5;
+					violations.push({
+						code: "YIELD_CURVE_SLOPE_MISMATCH",
+						field: "usFixedIncome.yieldCurveSlope",
+						severity: "warning",
+						message: `Yield curve slope labeled 'Inverted' despite positive term spread (+${expectedSpread} bps).`,
+						remedy: "Correct slope classification to 'Normal Upward'.",
+					});
+				}
+			}
+
+			// Fed Funds Target Range: Syntax & Active Target adherence
+			if (fedFundsTarget) {
+				const rangeMatch = fedFundsTarget.match(/(\d+\.\d{2})%\s*–\s*(\d+\.\d{2})%/);
+				if (!rangeMatch) {
+					commodityMacroPricing -= 5;
+					violations.push({
+						code: "INVALID_FED_FUNDS_RANGE_SYNTAX",
+						field: "usFixedIncome.fedFundsTargetRate",
+						severity: "warning",
+						message: `Fed Funds Target Range format invalid ('${fedFundsTarget}'). Expected 'X.XX% – X.XX%'.`,
+						remedy: "Format target range adhering strictly to standard FOMC 25 bps band.",
+					});
+				} else {
+					const lo = parseFloat(rangeMatch[1]);
+					const hi = parseFloat(rangeMatch[2]);
+					if (Math.abs(hi - lo - 0.25) > 0.01) {
+						commodityMacroPricing -= 4;
+						violations.push({
+							code: "INVALID_FOMC_BANDWIDTH",
+							field: "usFixedIncome.fedFundsTargetRate",
+							severity: "warning",
+							message: `FOMC target bandwidth is ${Math.round((hi - lo) * 100)} bps instead of standard 25 bps.`,
+							remedy: "Re-align FOMC target band width to 25 bps.",
+						});
+					}
+					// Check for premature or stale cut band (e.g. 4.25% - 4.50%)
+					if (lo < 4.50 && hi <= 4.50) {
+						commodityMacroPricing -= 6;
+						violations.push({
+							code: "OUTDATED_FED_FUNDS_TARGET",
+							field: "usFixedIncome.fedFundsTargetRate",
+							severity: "critical",
+							message: `Fed Funds target range '${fedFundsTarget}' reflects outdated or prematurely cut policy rate. Active FOMC target is 4.50% – 4.75%.`,
+							remedy: "Update target band to active official FOMC policy range (4.50% – 4.75%).",
+						});
+					}
+				}
+			} else {
+				commodityMacroPricing -= 5;
+				violations.push({
+					code: "MISSING_FED_FUNDS_TARGET",
+					field: "usFixedIncome.fedFundsTargetRate",
+					severity: "critical",
+					message: "Fed Funds Target Range is missing from US fixed income desk.",
+					remedy: "Inject active FOMC target range (4.50% – 4.75%).",
+				});
+			}
+
+			// Freddie Mac 30Y Fixed Mortgage: 5.0% to 9.0%, reject legacy stale 6.55%
+			if (mortgage30Y != null) {
+				if (mortgage30Y < 5.0 || mortgage30Y > 9.0) {
+					commodityMacroPricing -= 5;
+					violations.push({
+						code: "UNREALISTIC_MORTGAGE_RATE",
+						field: "usFixedIncome.thirtyYearMortgageAvg",
+						severity: "warning",
+						message: `30-Year Mortgage Average (${mortgage30Y}%) outside plausible market bounds [5.0% - 9.0%].`,
+						remedy: "Re-query Freddie Mac Primary Mortgage Market Survey (FRED MORTGAGE30US).",
+					});
+				} else if (mortgage30Y === 6.55) {
+					commodityMacroPricing -= 5;
+					violations.push({
+						code: "STALE_MORTGAGE_FALLBACK_DETECTED",
+						field: "usFixedIncome.thirtyYearMortgageAvg",
+						severity: "warning",
+						message: "30-Year Mortgage Average matches legacy late-September fallback (6.55%). Current PMMS is ~6.78% – 6.84%.",
+						remedy: "Update to live Freddie Mac PMMS release (FRED MORTGAGE30US).",
+					});
+				}
+			}
+		} else if (region === "global") {
+			const globalDesk = brief?.globalMacroDesk;
+			const dxy = typeof globalDesk?.dxyIndex === "number" ? globalDesk.dxyIndex : null;
+			const bund = typeof globalDesk?.bund10YYield === "number" ? globalDesk.bund10YYield : null;
+			const gilt = typeof globalDesk?.gilt10YYield === "number" ? globalDesk.gilt10YYield : null;
+			const jgb = typeof globalDesk?.jgb10YYield === "number" ? globalDesk.jgb10YYield : null;
+
+			// DXY Index bounds: 90 to 115
+			if (dxy != null) {
+				if (dxy < 90 || dxy > 115) {
+					commodityMacroPricing -= 8;
+					violations.push({
+						code: "DXY_OUTLIER_DETECTED",
+						field: "globalMacroDesk.dxyIndex",
+						severity: "critical",
+						message: `US Dollar Index (${dxy}) outside plausible macro corridor [90 - 115].`,
+						remedy: "Re-synthesize DXY from ICE geometric currency basket or FRED DTWEXBGS.",
+					});
+				}
+			}
+
+			// Sovereign Debt Corridors: Bund (1.0% - 4.5%), Gilt (2.5% - 6.0%), JGB (0.2% - 2.5%)
+			if (bund != null && (bund < 1.0 || bund > 4.5)) {
+				commodityMacroPricing -= 4;
+				violations.push({
+					code: "UNREALISTIC_BUND_YIELD",
+					field: "globalMacroDesk.bund10YYield",
+					severity: "warning",
+					message: `German 10Y Bund yield (${bund}%) outside normal European sovereign band.`,
+					remedy: "Re-query European benchmark yield curve.",
+				});
+			}
+
+			if (gilt != null && (gilt < 2.5 || gilt > 6.0)) {
+				commodityMacroPricing -= 4;
+				violations.push({
+					code: "UNREALISTIC_GILT_YIELD",
+					field: "globalMacroDesk.gilt10YYield",
+					severity: "warning",
+					message: `UK 10Y Gilt yield (${gilt}%) outside normal UK sovereign corridor.`,
+					remedy: "Re-query UK DMO gilt benchmark.",
+				});
+			}
+
+			if (jgb != null && (jgb < 0.2 || jgb > 2.5)) {
+				commodityMacroPricing -= 4;
+				violations.push({
+					code: "UNREALISTIC_JGB_YIELD",
+					field: "globalMacroDesk.jgb10YYield",
+					severity: "warning",
+					message: `Japan 10Y JGB yield (${jgb}%) outside Bank of Japan yield curve control tolerances.`,
+					remedy: "Re-query BoJ JGB benchmark feed.",
+				});
+			}
 		}
 
 		// ── 4. Narrative Completeness & Editorial Integrity (Max 20 pts) ────────
@@ -440,7 +636,7 @@ export class KnowledgeHubAutoHealSentinel {
 				logger.warn(`[AutoHealSentinel] Cache flush warning: ${cErr?.message}`);
 			}
 
-			// 3. For India: Trigger deep multi-tier upstream synchronization
+			// 3. Multi-tier upstream synchronization based on region
 			if (region === "india") {
 				// Re-sync official Upstox FII/DII institutional cash flows
 				try {
@@ -450,15 +646,24 @@ export class KnowledgeHubAutoHealSentinel {
 				} catch (fErr: any) {
 					logger.warn(`[AutoHealSentinel] FII/DII sync non-fatal warning: ${fErr?.message}`);
 				}
-
-				// Re-sync Golden Pricing Engine live snapshots
+			} else if (region === "us" || region === "global") {
+				// Re-sync official Federal Reserve (FRED) observations
 				try {
-					const { goldenPricingEngine } = await import("./golden-pricing/GoldenPricingEngine");
-					await goldenPricingEngine.getDailyMarketBriefLiveSnapshot(region, true);
-					logger.info("[AutoHealSentinel] 🔄 Force-refreshed Golden Pricing Engine live snapshots");
-				} catch (gpErr: any) {
-					logger.warn(`[AutoHealSentinel] Golden Pricing sync warning: ${gpErr?.message}`);
+					const { fredCommodityService } = await import("./fred-commodity-service");
+					await fredCommodityService.getCommodityAndMacroSnapshot(true);
+					logger.info(`[AutoHealSentinel] 🔄 Force-refreshed FRED commodity and Treasury benchmarks for ${region}`);
+				} catch (fredErr: any) {
+					logger.warn(`[AutoHealSentinel] FRED sync warning: ${fredErr?.message}`);
 				}
+			}
+
+			// Re-sync Golden Pricing Engine live snapshots across all regions
+			try {
+				const { goldenPricingEngine } = await import("./golden-pricing/GoldenPricingEngine");
+				await goldenPricingEngine.getDailyMarketBriefLiveSnapshot(region, true);
+				logger.info(`[AutoHealSentinel] 🔄 Force-refreshed Golden Pricing Engine live snapshots for ${region}`);
+			} catch (gpErr: any) {
+				logger.warn(`[AutoHealSentinel] Golden Pricing sync warning: ${gpErr?.message}`);
 			}
 
 			// 4. Force regenerate and publish a new pristine brief in database
