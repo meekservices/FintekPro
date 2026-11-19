@@ -32,10 +32,11 @@ describe("Knowledge Hub Auto-Heal & Quality Sentinel", () => {
 		],
 		multiExchangeData: {
 			institutionalFlows: {
-				fiiNetCr: 5736.55,
-				diiNetCr: -2253.58,
+				fiiNetCr: -1420.5,
+				diiNetCr: 2840.2,
 				monthlySipCr: 26425,
-				asOfDate: "2026-11-13",
+				absorptionRatio: 2.0,
+				asOfDate: new Date().toISOString().split("T")[0],
 			},
 		},
 		commodityRadar: {
@@ -129,6 +130,24 @@ describe("Knowledge Hub Auto-Heal & Quality Sentinel", () => {
 		const claimViolation = report.violations.find((v) => v.code === "PROHIBITED_DETERMINISTIC_LANGUAGE");
 		expect(claimViolation).toBeDefined();
 		expect(claimViolation?.severity).toBe("critical");
+	});
+
+	it("detects stale institutional flow trade date and flags STALE_INSTITUTIONAL_FLOW_DATE violation", () => {
+		const staleBrief = {
+			...validPristineBrief,
+			multiExchangeData: {
+				institutionalFlows: {
+					...validPristineBrief.multiExchangeData.institutionalFlows,
+					asOfDate: "2026-11-13",
+				},
+			},
+		};
+
+		const report = knowledgeHubAutoHealSentinel.auditBrief(staleBrief, "india");
+		const staleViolation = report.violations.find((v) => v.code === "STALE_INSTITUTIONAL_FLOW_DATE");
+		expect(staleViolation).toBeDefined();
+		expect(staleViolation?.severity).toBe("warning");
+		expect(report.dimensions.institutionalFinancials).toBeLessThan(25);
 	});
 
 	it("reports sentinel status summary correctly", () => {

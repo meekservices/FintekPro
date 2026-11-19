@@ -1396,6 +1396,38 @@ class MarketHolidayService {
 		return prevDay;
 	}
 
+	/**
+	 * Returns the most recent settled trade date (YYYY-MM-DD in Asia/Kolkata).
+	 * If today is an active trading day and it's post-market settlement (>= 17:30 IST), returns today's date.
+	 * Otherwise returns the most recent preceding trading day.
+	 */
+	getLatestSettledTradingDate(
+		exchange: "NSE" | "BSE" | "MCX" | "NCDEX" = "NSE",
+		asOf?: Date | string,
+	): string {
+		const now = asOf
+			? typeof asOf === "string"
+				? new Date(asOf.includes("T") ? asOf : `${asOf}T10:00:00Z`)
+				: asOf
+			: new Date();
+		const istTime = new Date(
+			now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
+		);
+		const todayStr = format(istTime, "yyyy-MM-dd");
+		const hours = istTime.getHours();
+		const minutes = istTime.getMinutes();
+		const currentTimeMinutes = hours * 60 + minutes;
+
+		// Post-market settlement window: NSE FII/DII and exchange settlement reports are finalized after 17:30 IST (1050 mins)
+		const isTradingToday = this.isTradingDay(istTime, exchange);
+		if (isTradingToday && currentTimeMinutes >= 1050) {
+			return todayStr;
+		}
+
+		const prevDay = this.getPreviousTradingDay(istTime, exchange);
+		return format(prevDay, "yyyy-MM-dd");
+	}
+
 	getMarketStatus(
 		exchange: "NSE" | "BSE" | "MCX" | "NCDEX" = "NSE",
 		asOf?: Date | string,

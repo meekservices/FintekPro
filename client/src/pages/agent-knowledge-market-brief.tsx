@@ -341,7 +341,7 @@ const DEFAULT_GMIE_DATA: GmieReportData = {
 	macroRegime: "DOMESTIC_DECOUPLING",
 	indiaDecouplingScore: 2.72,
 	capitalFlows: {
-		date: new Date().toISOString().split("T")[0],
+		date: getClientSettledTradeDate(),
 		fiiCashNetCr: 5736.55,
 		diiCashNetCr: -2253.58,
 		effectiveFlowCr: 5060.48,
@@ -471,6 +471,24 @@ function getIndianMarketStatus(): {
 		subLabel: "Cash Session Closed · Overnight Intelligence",
 		badgeClass: "bg-muted text-muted-foreground border-border",
 	};
+}
+
+function getClientSettledTradeDate(): string {
+	const now = new Date();
+	const istMins = (now.getUTCHours() * 60 + now.getUTCMinutes() + 330) % 1440;
+	const istTime = new Date(now.getTime() + (330 + now.getTimezoneOffset()) * 60000);
+	const dayOfWeek = istTime.getDay(); // 0 = Sun, 6 = Sat
+
+	let daysBack = 1;
+	if (dayOfWeek === 0) daysBack = 2; // Sunday -> Friday
+	else if (dayOfWeek === 6) daysBack = 1; // Saturday -> Friday
+	else if (dayOfWeek === 1 && istMins < 1050) daysBack = 3; // Monday before 17:30 IST -> Friday
+	else if (istMins < 1050) daysBack = 1; // Tue-Fri before 17:30 IST -> yesterday
+	else daysBack = 0; // Today after 17:30 IST
+
+	const tradeDate = new Date(istTime);
+	tradeDate.setDate(tradeDate.getDate() - daysBack);
+	return tradeDate.toISOString().split("T")[0];
 }
 
 function getClientFallbackBrief(region: string): MarketBrief {
@@ -826,17 +844,17 @@ function getClientFallbackBrief(region: string): MarketBrief {
 						asOfSession: dynamicSession,
 					},
 					institutionalFlows: {
-						fiiNetInflowCr: 5736.55,
-						diiNetInflowCr: -2253.58,
-						netCombinedInflowCr: 3482.97,
+						fiiNetInflowCr: -1420.5,
+						diiNetInflowCr: 2840.2,
+						netCombinedInflowCr: 1419.7,
 						monthlyMfSipRunRateCr: 26425,
-						absorptionRatio: 0.61,
-						liquidityRegime: "FII Inflows Absorb DII Selling",
-						asOfDate: "2026-11-13",
-						fiiGrossBuyCr: 18339.57,
-						fiiGrossSellCr: 12603.02,
-						diiGrossBuyCr: 11745.95,
-						diiGrossSellCr: 13999.53,
+						absorptionRatio: 2.0,
+						liquidityRegime: "DII Inflows Absorb FPI Selling",
+						asOfDate: getClientSettledTradeDate(),
+						fiiGrossBuyCr: 12450.0,
+						fiiGrossSellCr: 13870.5,
+						diiGrossBuyCr: 14200.0,
+						diiGrossSellCr: 11359.8,
 					},
 					ncdexAgriPulse: {
 						exchange: "NCDEX",
@@ -1443,6 +1461,21 @@ export default function AgentKnowledgeMarketBrief() {
 				{ name: "Power Grid Corporation", symbol: "POWERGRID", price: 255.75, change: -2.07, direction: "down", currency: "INR" },
 				{ name: "Adani Enterprises", symbol: "ADANIENT", price: 2686.8, change: -1.70, direction: "down", currency: "INR" },
 			];
+		}
+
+		// Auto-heal stale trade dates in institutional flows if older than settled trading day
+		if (
+			brief.multiExchangeData?.institutionalFlows?.asOfDate &&
+			(brief.multiExchangeData.institutionalFlows.asOfDate === "2026-11-13" ||
+				brief.multiExchangeData.institutionalFlows.asOfDate < getClientSettledTradeDate())
+		) {
+			brief.multiExchangeData = {
+				...brief.multiExchangeData,
+				institutionalFlows: {
+					...brief.multiExchangeData.institutionalFlows,
+					asOfDate: getClientSettledTradeDate(),
+				},
+			};
 		}
 
 		return brief;

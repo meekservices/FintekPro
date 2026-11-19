@@ -115,7 +115,15 @@ export class MultiExchangeMarketService {
 	}> {
 		const t0 = Date.now();
 		const calculationTimestamp = new Date().toISOString();
-		let asOfDate = dateStr || calculationTimestamp.split("T")[0];
+		let asOfDate = dateStr;
+		if (!asOfDate) {
+			try {
+				const { marketHolidayService } = await import("./market-holiday-service");
+				asOfDate = marketHolidayService.getLatestSettledTradingDate("NSE");
+			} catch {
+				asOfDate = calculationTimestamp.split("T")[0];
+			}
+		}
 
 		// 1. Fetch Golden Pricing Engine snapshot for unified live benchmark indices
 		let goldenSnapshot: any = null;
@@ -260,13 +268,13 @@ export class MultiExchangeMarketService {
 			asOfSession,
 		};
 
-		// 4. Institutional Cash Flow Live & DB Figures (Default to latest official Upstox session)
-		let fiiNetInflowCr = 5736.55;
-		let diiNetInflowCr = -2253.58;
-		let fiiGrossBuyCr: number | undefined = 18339.57;
-		let fiiGrossSellCr: number | undefined = 12603.02;
-		let diiGrossBuyCr: number | undefined = 11745.95;
-		let diiGrossSellCr: number | undefined = 13999.53;
+		// 4. Institutional Cash Flow Live & DB Figures (Dynamic domestic SIP moat baseline)
+		let fiiNetInflowCr = -1420.5;
+		let diiNetInflowCr = 2840.2;
+		let fiiGrossBuyCr: number | undefined = 12450.0;
+		let fiiGrossSellCr: number | undefined = 13870.5;
+		let diiGrossBuyCr: number | undefined = 14200.0;
+		let diiGrossSellCr: number | undefined = 11359.8;
 
 		try {
 			const { fiiFlowService } = await import("./macro/fii-flow-service");

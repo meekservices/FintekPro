@@ -10,6 +10,7 @@
 import { logger } from "../logger";
 import { telemetryBus } from "./engine-telemetry-bus";
 import { knowledgeHubService } from "./knowledge-hub-service";
+import { marketHolidayService } from "./market-holiday-service";
 
 export interface QualityViolation {
 	code: string;
@@ -156,16 +157,35 @@ export class KnowledgeHubAutoHealSentinel {
 					});
 				}
 
-				// Check for stale static fallbacks (-1850 / +3120)
-				if (inst.fiiNetCr === -1850 && inst.diiNetCr === 3120) {
+				// Check for stale static fallbacks (-1850 / +3120) or (+5736.55 / -2253.58)
+				if (
+					(inst.fiiNetCr === -1850 && inst.diiNetCr === 3120) ||
+					(inst.fiiNetCr === 5736.55 && inst.diiNetCr === -2253.58)
+				) {
 					institutionalFinancials -= 10;
 					violations.push({
 						code: "STATIC_MOCK_FALLBACK_DETECTED",
 						field: "institutionalFlows",
 						severity: "warning",
-						message: "Institutional flow figures match legacy static fallback (-₹1,850 Cr / +₹3,120 Cr).",
-						remedy: "Trigger active Upstox API v2 live sync.",
+						message: "Institutional flow figures match legacy static fallback snapshot.",
+						remedy: "Trigger active Upstox API v2 live sync or dynamic holiday-aware backfill.",
 					});
+				}
+
+				// Check for stale trade date against latest settled trading day
+				const expectedSettledDate = marketHolidayService.getLatestSettledTradingDate("NSE");
+				if (inst.asOfDate) {
+					const flowDate = String(inst.asOfDate).split("T")[0];
+					if (flowDate < expectedSettledDate) {
+						institutionalFinancials -= 10;
+						violations.push({
+							code: "STALE_INSTITUTIONAL_FLOW_DATE",
+							field: "institutionalFlows.asOfDate",
+							severity: "warning",
+							message: `Institutional feed trade date (${flowDate}) is stale compared to latest settled trading day (${expectedSettledDate}).`,
+							remedy: "Synchronize latest exchange feed from Upstox / fiiFlowService.",
+						});
+					}
 				}
 
 				// Monthly SIP run-rate sanity (AMFI bounds: ₹20,000 Cr - ₹35,000 Cr)

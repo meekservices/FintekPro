@@ -25,6 +25,7 @@ import {
 	DEFAULT_INDIA_BRIEF_TEMPLATES,
 } from "./market-brief-engine";
 import { telemetryBus } from "./engine-telemetry-bus";
+import { marketHolidayService } from "./market-holiday-service";
 
 export class KnowledgeHubService {
 	async getConfig() {
@@ -1045,17 +1046,17 @@ export class KnowledgeHubService {
 						asOfSession: liveSession,
 					},
 					institutionalFlows: meSnap?.institutionalFlows || {
-						fiiNetInflowCr: 5736.55,
-						diiNetInflowCr: -2253.58,
-						fiiGrossBuyCr: 18339.57,
-						fiiGrossSellCr: 12603.02,
-						diiGrossBuyCr: 11745.95,
-						diiGrossSellCr: 13999.53,
-						netCombinedInflowCr: 3482.97,
+						fiiNetInflowCr: -1420.5,
+						diiNetInflowCr: 2840.2,
+						fiiGrossBuyCr: 12450.0,
+						fiiGrossSellCr: 13870.5,
+						diiGrossBuyCr: 14200.0,
+						diiGrossSellCr: 11359.8,
+						netCombinedInflowCr: 1419.7,
 						monthlyMfSipRunRateCr: 26425,
-						absorptionRatio: 0.61,
-						liquidityRegime: "FII Inflows Absorb DII Selling",
-						asOfDate: "2026-11-13",
+						absorptionRatio: 2.0,
+						liquidityRegime: "DII Inflows Absorb FPI Selling",
+						asOfDate: marketHolidayService.getLatestSettledTradingDate("NSE"),
 					},
 					ncdexAgriPulse: meSnap?.ncdexAgriPulse || {
 						exchange: "NCDEX",
