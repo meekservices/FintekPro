@@ -61,6 +61,26 @@ router.get(
 	},
 );
 
+/**
+ * GET /api/derivatives/multi-expiry-calls/:symbol
+ * Returns Call option recommendations across 3 monthly expiries:
+ * This Month (M1), Next Month (M2), Month After (M3)
+ * with complete profitability, theta drag, POP, and risk-reward metrics.
+ */
+router.get(
+	"/multi-expiry-calls/:symbol",
+	async (req: Request<{ symbol: string }>, res: Response): Promise<void> => {
+		try {
+			const { symbol } = req.params;
+			const data = await derivativesService.getMultiExpiryCalls(symbol);
+			res.json({ success: true, data });
+		} catch (error: unknown) {
+			logger.error("[Derivatives] Error fetching multi-expiry calls:", errorMessage(error));
+			res.status(500).json({ success: false, error: "Failed to compute multi-expiry calls comparison" });
+		}
+	},
+);
+
 router.get(
 	"/options-chain/:symbol",
 	async (

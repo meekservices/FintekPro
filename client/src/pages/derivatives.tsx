@@ -204,6 +204,53 @@ export default function DerivativesPage() {
 		enabled: !!selectedSymbol,
 	});
 
+	// 3c. Fetch Multi-Expiry Calls Term Structure Analysis (This Month M1, Next Month M2, Far Month M3)
+	const { data: multiExpiryRes, isLoading: isMultiExpiryLoading } = useQuery<{
+		success: boolean;
+		data: {
+			symbol: string;
+			spotPrice: number;
+			lotSize: number;
+			atmStrike: number;
+			recommendedTenure: string;
+			strategicSummary: string;
+			calls: Array<{
+				tenure: "near_month" | "next_month" | "far_month";
+				tenureLabel: string;
+				monthName: string;
+				expiryDate: string;
+				dte: number;
+				strikePrice: number;
+				spotPrice: number;
+				lotSize: number;
+				premium: number;
+				totalCostPerLot: number;
+				targetPrice: number;
+				stoplossPrice: number;
+				maxProfitPerLot: number;
+				maxLossPerLot: number;
+				rewardToRisk: number;
+				breakeven: number;
+				breakevenMovePct: number;
+				pop: number;
+				delta: number;
+				theta: number;
+				dailyThetaCostPerLot: number;
+				vega: number;
+				impliedVolatility: number;
+				openInterest: number;
+				profitVerdict: string;
+				badge: string;
+				isRecommended: boolean;
+			}>;
+		};
+	}>({
+		queryKey: [`/api/derivatives/multi-expiry-calls/${selectedSymbol}`],
+		enabled: !!selectedSymbol,
+	});
+
+	const multiExpiryData = multiExpiryRes?.data;
+
 	// 3b. Fetch Client F&O Kill Switch Status (SEBI & Upstox Mobile Account Benchmark)
 	const { data: killSwitchData, refetch: refetchKillSwitch } = useQuery<{
 		success: boolean;
@@ -1247,8 +1294,186 @@ export default function DerivativesPage() {
 						</CardContent>
 					</Card>
 
+					{/* Multi-Expiry Term Structure & Profit Analyzer Ribbon (M1 · M2 · M3) */}
+					{multiExpiryData && multiExpiryData.calls && multiExpiryData.calls.length > 0 && (
+						<Card className="border-primary/20 bg-gradient-to-b from-primary/5 via-background to-background">
+							<CardHeader className="pb-3">
+								<div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+									<div>
+										<div className="flex items-center gap-2">
+											<CardTitle className="text-lg flex items-center gap-2">
+												<Layers className="h-5 w-5 text-primary" />
+												Multi-Expiry Term Structure & Profit Analyzer
+											</CardTitle>
+											<Badge variant="outline" className="text-xs border-primary/40 bg-primary/10 text-primary">
+												Institutional Edge
+											</Badge>
+										</div>
+										<CardDescription className="text-xs mt-1">
+											Comparative term structure analysis for ATM Calls across <strong>Near Month (M1)</strong>, <strong>Next Month (M2)</strong>, and <strong>Far Month (M3)</strong> monthly expiries. Designed to mitigate retail theta decay trap.
+										</CardDescription>
+									</div>
+									<div className="flex items-center gap-3 text-xs text-muted-foreground">
+										<span>Spot: <strong className="text-foreground">₹{multiExpiryData.spotPrice.toLocaleString("en-IN")}</strong></span>
+										<span>•</span>
+										<span>Lot: <strong className="text-foreground">{multiExpiryData.lotSize}</strong></span>
+									</div>
+								</div>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+									{multiExpiryData.calls.map((call) => {
+										const isSelected = activeExpiry === call.expiryDate;
+										return (
+											<div
+												key={call.expiryDate}
+												className={`rounded-xl border p-4 transition-all relative flex flex-col justify-between ${
+													call.isRecommended
+														? "border-primary/60 bg-primary/[0.04] shadow-sm ring-1 ring-primary/20"
+														: "border-border/60 bg-card hover:border-border"
+												}`}
+											>
+												{call.isRecommended && (
+													<div className="absolute -top-2.5 right-3">
+														<Badge className="bg-primary text-primary-foreground text-[10px] font-semibold px-2 py-0.5 shadow-sm flex items-center gap-1">
+															<Sparkles className="h-3 w-3" />
+															Recommended for Directional
+														</Badge>
+													</div>
+												)}
+
+												<div>
+													<div className="flex items-start justify-between gap-2 mb-2">
+														<div>
+															<div className="font-semibold text-sm flex items-center gap-1.5">
+																<span>{call.tenureLabel}</span>
+																<span className="text-xs text-muted-foreground font-normal">
+																	({call.monthName})
+																</span>
+															</div>
+															<div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+																<Clock className="h-3 w-3" />
+																<span>Expiry: {call.expiryDate}</span>
+																<span className="font-medium text-foreground">({call.dte} DTE)</span>
+															</div>
+														</div>
+														<Badge
+															variant={call.badge.includes("Optimal") ? "default" : "secondary"}
+															className="text-[10px] whitespace-nowrap"
+														>
+															{call.badge}
+														</Badge>
+													</div>
+
+													{/* Strike & Premium */}
+													<div className="mt-3 p-2.5 rounded-lg bg-muted/40 border border-muted flex items-center justify-between">
+														<div>
+															<div className="text-xs text-muted-foreground font-medium">Strike (ATM)</div>
+															<div className="text-base font-bold tracking-tight">
+																{call.strikePrice} CE
+															</div>
+														</div>
+														<div className="text-right">
+															<div className="text-xs text-muted-foreground font-medium">LTP (Lot Cost)</div>
+															<div className="text-base font-bold text-primary">
+																₹{call.premium.toFixed(1)}
+																<span className="text-[11px] font-normal text-muted-foreground ml-1">
+																	(₹{Math.round(call.totalCostPerLot).toLocaleString("en-IN")})
+																</span>
+															</div>
+														</div>
+													</div>
+
+													{/* Quantitative & Greeks Metrics */}
+													<div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+														<div className="p-2 rounded bg-background border border-border/50">
+															<div className="text-muted-foreground text-[10px]">Daily Theta Cost</div>
+															<div className={`font-semibold text-xs mt-0.5 ${
+																call.dailyThetaCostPerLot > 1000
+																	? "text-red-500 font-bold"
+																	: call.dailyThetaCostPerLot < 400
+																	? "text-emerald-500 font-bold"
+																	: "text-amber-500"
+															}`}>
+																₹{Math.round(call.dailyThetaCostPerLot).toLocaleString("en-IN")}/day
+															</div>
+															<div className="text-[9px] text-muted-foreground">per lot decay</div>
+														</div>
+														<div className="p-2 rounded bg-background border border-border/50">
+															<div className="text-muted-foreground text-[10px]">Req. Move to BE</div>
+															<div className="font-semibold text-xs mt-0.5 text-foreground">
+																+{call.breakevenMovePct.toFixed(2)}%
+															</div>
+															<div className="text-[9px] text-muted-foreground">BE: ₹{Math.round(call.breakeven).toLocaleString("en-IN")}</div>
+														</div>
+														<div className="p-2 rounded bg-background border border-border/50">
+															<div className="text-muted-foreground text-[10px]">Probability of Profit</div>
+															<div className="font-semibold text-xs mt-0.5 text-foreground">
+																{call.pop}%
+															</div>
+															<div className="text-[9px] text-muted-foreground">Delta: {call.delta.toFixed(2)}</div>
+														</div>
+														<div className="p-2 rounded bg-background border border-border/50">
+															<div className="text-muted-foreground text-[10px]">Vega / IV</div>
+															<div className="font-semibold text-xs mt-0.5 text-foreground">
+																{call.vega.toFixed(1)} / {(call.impliedVolatility * 100).toFixed(1)}%
+															</div>
+															<div className="text-[9px] text-muted-foreground">IV Volatility</div>
+														</div>
+													</div>
+
+													{/* Institutional Verdict */}
+													<div className="mt-3 text-xs p-2 rounded bg-muted/20 border border-border/40 text-muted-foreground leading-relaxed">
+														<span className="font-semibold text-foreground mr-1">Institutional Note:</span>
+														{call.profitVerdict}
+													</div>
+												</div>
+
+												{/* Action Button */}
+												<div className="mt-4 pt-2 border-t border-border/50">
+													<Button
+														size="sm"
+														variant={isSelected ? "default" : "outline"}
+														className="w-full text-xs h-8 flex items-center justify-center gap-1.5"
+														onClick={() => {
+															setSelectedExpiry(call.expiryDate);
+															const chainElem = document.getElementById("option-chain-card");
+															if (chainElem) {
+																chainElem.scrollIntoView({ behavior: "smooth" });
+															}
+														}}
+													>
+														{isSelected ? (
+															<>
+																<CheckCircle2 className="h-3.5 w-3.5" />
+																Active in Chain ({call.expiryDate})
+															</>
+														) : (
+															<>
+																<ArrowRight className="h-3.5 w-3.5" />
+																Select {call.tenureLabel} ({call.expiryDate})
+															</>
+														)}
+													</Button>
+												</div>
+											</div>
+										);
+									})}
+								</div>
+
+								{/* Institutional Insight Footer Banner */}
+								<div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs flex items-start gap-2.5 text-blue-900 dark:text-blue-200">
+									<Info className="h-4 w-4 mt-0.5 text-blue-600 dark:text-blue-400 shrink-0" />
+									<div className="leading-relaxed">
+										<strong className="font-semibold">Institutional Gap Analysis:</strong> Retail option buyers overwhelmingly concentrate on Near-Month (M1) with &lt;7 DTE, absorbing massive theta burn (e.g. ₹{Math.round(multiExpiryData.calls[0]?.dailyThetaCostPerLot || 1000).toLocaleString("en-IN")}/day) where market makers harvest premium decay. Rolling directional exposures out to <strong>Next-Month (M2)</strong> slashes time decay by over 50% while giving directional breakout moves sufficient time to play out without being stopped out by time erosion.
+									</div>
+								</div>
+							</CardContent>
+						</Card>
+					)}
+
 					{/* Option Chain Controls & Table */}
-					<Card>
+					<Card id="option-chain-card">
 						<CardHeader className="pb-3">
 							<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
 								<div>

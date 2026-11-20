@@ -1272,8 +1272,8 @@ export class KnowledgeHubService {
 
 		const gsecYieldStr = ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? goldenSnapshot?.fixedIncome?.gsec10YYield ?? 6.79;
 		const trepsRateStr = ccilFixedIncome?.treps?.weightedAverageRate ?? goldenSnapshot?.fixedIncome?.trepsWar ?? 6.42;
-		const brentPriceNum = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? goldenSnapshot?.commodities?.brentCrudeUsd ?? 96.09;
-		const brentMcxSpotNum = commodityRadar?.commodities?.find((c: any) => c.id === "CRUDE_OIL")?.mcxPrice ?? 9115;
+		const brentPriceNum = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? goldenSnapshot?.commodities?.brentCrudeUsd ?? 74.50;
+		const brentMcxSpotNum = commodityRadar?.commodities?.find((c: any) => c.id === "CRUDE_OIL")?.mcxPrice ?? 6325;
 		const brentStr = `$${brentPriceNum}/bbl (MCX Spot: ₹${brentMcxSpotNum.toLocaleString("en-IN")}/bbl)`;
 		const goldStr = commodityRadar?.commodities?.[0]?.mcxPrice
 			? `₹${commodityRadar.commodities[0].mcxPrice.toLocaleString("en-IN")}/10g`
@@ -1479,8 +1479,8 @@ export class KnowledgeHubService {
 
 		const gsecYieldStr = "6.79";
 		const trepsRateStr = "6.42";
-		const brentPriceNum = 96.09;
-		const brentStr = "$96.09/bbl (MCX Spot: ₹9,115/bbl)";
+		const brentPriceNum = 74.50;
+		const brentStr = "$74.50/bbl (MCX Spot: ₹6,325/bbl)";
 		const goldStr = "₹1,41,255/10g";
 		const usdInr = 94.8606;
 		const us10Y = 4.58;

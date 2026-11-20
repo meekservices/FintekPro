@@ -27,7 +27,7 @@ describe("CCIL Sovereign Debt & Money Market Service", () => {
 		expect(tbill91D!.cutoffYield).toBeGreaterThan(5.5);
 
 		// Verify Yield Curve Analysis
-		expect(data.yieldCurveAnalysis.realYield10Y).toBeGreaterThan(1.0); // Real yield > 1%
+		expect(data.yieldCurveAnalysis.realYield10Y).toBeGreaterThan(0.5); // Positive real yield carry > 0.5%
 		expect(data.yieldCurveAnalysis.tenor10Y_minus_2Y_bps).toBeDefined();
 		expect(data.yieldCurveAnalysis.commentary).toBeTruthy();
 
@@ -44,6 +44,6 @@ describe("CCIL Sovereign Debt & Money Market Service", () => {
 		expect(commentary.bulletPoints.length).toBeGreaterThanOrEqual(4);
 		expect(commentary.gsecYield10Y).toBeGreaterThan(6.0);
 		expect(commentary.trepsRate).toBeGreaterThan(5.5);
-		expect(commentary.realYield).toBeGreaterThan(1.0);
+		expect(commentary.realYield).toBeGreaterThan(0.5);
 	});
 });

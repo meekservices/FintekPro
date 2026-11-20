@@ -130,18 +130,18 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     name: "Crude Oil (MCX Spot)",
     category: "Energy",
     mcxSymbol: "CRUDEOIL",
-    mcxPrice: 9115,
+    mcxPrice: 6325,
     mcxUnit: "₹ / bbl",
     mcxChangePercent: -0.45,
     cmxSymbol: "BZ=F (ICE Brent Continuous / CFD)",
-    cmxPrice: 96.09,
+    cmxPrice: 74.50,
     cmxUnit: "$ / bbl",
     cmxChangePercent: -0.40,
     trend: "Neutral",
     deliveryCenter: "NA (MCX Spot)",
     priceType: "SPOT",
     macroImplication:
-      "Official MCX Spot crude price at ₹9,115/bbl ($96.09/bbl equivalent). Elevated above India's $80 comfort threshold, sustaining imported inflation pressures across downstream petrochemical and tyre sectors.",
+      "Official MCX Spot crude price at ₹6,325/bbl ($74.50/bbl equivalent). Traded within India's $80 comfort threshold, limiting imported inflation pressures across downstream petrochemical and tyre sectors.",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
   {
@@ -692,7 +692,7 @@ export class CommodityMarketService {
     const gold = items.find((c) => c.id === "GOLD") || BASELINE_COMMODITIES[0];
     const silver = items.find((c) => c.id === "SILVER") || BASELINE_COMMODITIES[1];
 
-    const brentPrice = crude.cmxPrice || 96.09;
+    const brentPrice = crude.cmxPrice || 74.50;
     const inflationImpact: "Benign" | "Moderate" | "Elevated" =
       brentPrice < 80 ? "Benign" : brentPrice <= 88 ? "Moderate" : "Elevated";
 

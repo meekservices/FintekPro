@@ -126,6 +126,8 @@ export function formatPickForRole(pick: Record<string, unknown>, role: string | 
     lastPriceUpdate: pick.lastPriceUpdate ?? new Date().toISOString(),
     keyMetrics: baseKeyMetrics,
     disclaimer: REGULATORY_DISCLAIMER,
+    engine_version: pick.engineVersion ?? (km.engine_version as string | undefined) ?? "FASP-AI-v2.0",
+    calculation_timestamp: pick.calculationTimestamp ? (typeof pick.calculationTimestamp === "object" && "toISOString" in (pick.calculationTimestamp as any) ? (pick.calculationTimestamp as Date).toISOString() : String(pick.calculationTimestamp)) : ((km.calculation_timestamp as string | undefined) ?? new Date().toISOString()),
     formatter_version: FORMATTER_VERSION,
   };
 

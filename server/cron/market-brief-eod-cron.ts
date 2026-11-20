@@ -29,41 +29,60 @@ export async function runMarketBriefEodJob(targetRegion?: string): Promise<EodEx
 
 	logger.info(`[MarketBriefEodCron] 🚀 Starting EOD Market Brief persistence for [${regions.join(", ")}]...`);
 
-	for (const region of regions) {
-		try {
-			// 1. Force refresh golden pricing benchmarks
-			const { goldenPricingEngine } = await import("../services/golden-pricing/GoldenPricingEngine");
-			await goldenPricingEngine.getDailyMarketBriefLiveSnapshot(region, true);
-
-			// 1b. For India, synchronize daily FII/DII institutional flows
-			if (region === "india") {
+	// Execute regional persistence concurrently for optimal latency & complete isolation
+	const executions = await Promise.allSettled(
+		regions.map(async (region): Promise<EodExecutionResult> => {
+			try {
+				// 1. Force refresh golden pricing benchmarks (isolated try/catch)
 				try {
-					const { fiiFlowService } = await import("../services/macro/fii-flow-service");
-					await fiiFlowService.syncAndPersistDailyFlow();
-				} catch (fErr: any) {
-					logger.debug(`[MarketBriefEodCron] FII flow sync notice: ${fErr?.message}`);
+					const { goldenPricingEngine } = await import("../services/golden-pricing/GoldenPricingEngine");
+					await goldenPricingEngine.getDailyMarketBriefLiveSnapshot(region, true);
+				} catch (gpErr: any) {
+					logger.warn(`[MarketBriefEodCron] Golden pricing snapshot notice for ${region}: ${gpErr?.message}`);
 				}
+
+				// 1b. For India, synchronize daily FII/DII institutional flows
+				if (region === "india") {
+					try {
+						const { fiiFlowService } = await import("../services/macro/fii-flow-service");
+						await fiiFlowService.syncAndPersistDailyFlow();
+					} catch (fErr: any) {
+						logger.debug(`[MarketBriefEodCron] FII flow sync notice: ${fErr?.message}`);
+					}
+				}
+
+				// 2. Generate, format, and upsert daily market brief in DB
+				const { knowledgeHubService } = await import("../services/knowledge-hub-service");
+				const brief = await knowledgeHubService.generateAndPublishDailyBrief(region, today);
+
+				logger.info(`[MarketBriefEodCron] ✅ EOD brief persisted for ${region} (v${brief?.version ?? 1}) on ${today}`);
+				return {
+					region,
+					date: today,
+					success: true,
+					version: brief?.version ?? 1,
+				};
+			} catch (err: any) {
+				logger.error(`[MarketBriefEodCron] ❌ EOD brief generation failed for ${region}: ${err?.message}`);
+				return {
+					region,
+					date: today,
+					success: false,
+					error: err?.message,
+				};
 			}
+		}),
+	);
 
-			// 2. Generate, format, and upsert daily market brief in DB
-			const { knowledgeHubService } = await import("../services/knowledge-hub-service");
-			const brief = await knowledgeHubService.generateAndPublishDailyBrief(region, today);
-
+	for (const res of executions) {
+		if (res.status === "fulfilled") {
+			results.push(res.value);
+		} else {
 			results.push({
-				region,
-				date: today,
-				success: true,
-				version: brief?.version ?? 1,
-			});
-
-			logger.info(`[MarketBriefEodCron] ✅ EOD brief persisted for ${region} (v${brief?.version ?? 1}) on ${today}`);
-		} catch (err: any) {
-			logger.error(`[MarketBriefEodCron] ❌ EOD brief generation failed for ${region}: ${err?.message}`);
-			results.push({
-				region,
+				region: "unknown",
 				date: today,
 				success: false,
-				error: err?.message,
+				error: res.reason?.message || "Execution rejected",
 			});
 		}
 	}

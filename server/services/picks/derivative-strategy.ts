@@ -475,9 +475,29 @@ export class DerivativeStrategy extends BaseStrategy {
 			let strategy = selectStrategy(spotPrice, iv, recentCloses, context.recentIds, selectedSymbol);
 
 			const todayStr = new Date().toISOString().split("T")[0];
-			const targetExpiry =
+
+			// ── Multi-Tenure Monthly Expiries (M1, M2, M3) Analysis ───────────────────
+			const multiExpiryComparison = await derivativesService
+				.getMultiExpiryCalls(selectedSymbol)
+				.catch(() => null);
+
+			// Profit-optimized tenure selection:
+			// Option Buyers benefit from Next Month (M2) to avoid rapid final-week theta crush.
+			// Option Sellers benefit from This Month (M1) to maximize theta cash-flow capture.
+			let targetExpiry =
 				chain.expiryDates?.find((ed: string) => ed >= todayStr) ||
 				this.getUpcomingWeeklyExpiry(selectedSymbol);
+
+			if (multiExpiryComparison?.calls && multiExpiryComparison.calls.length >= 2) {
+				if (strategy.strategyType === "BUYER") {
+					const m2 = multiExpiryComparison.calls.find((c) => c.tenure === "next_month");
+					if (m2?.expiryDate) targetExpiry = m2.expiryDate;
+				} else {
+					const m1 = multiExpiryComparison.calls.find((c) => c.tenure === "near_month");
+					if (m1?.expiryDate) targetExpiry = m1.expiryDate;
+				}
+			}
+
 			const dteMs = new Date(targetExpiry).getTime() - Date.now();
 			const dte = Math.max(1, Math.ceil(dteMs / 86400000));
 
@@ -623,6 +643,7 @@ export class DerivativeStrategy extends BaseStrategy {
 					cashMarginRequiredPct: SEBI_FNO_FRAMEWORK_2026.CASH_MARGIN_MIN_PCT,
 					expiryDayELMPct: SEBI_FNO_FRAMEWORK_2026.EXPIRY_DAY_ELM_SURCHARGE_PCT,
 					sebiCircularRef: SEBI_FNO_FRAMEWORK_2026.CIRCULAR_REF,
+					multiTenureComparison: multiExpiryComparison,
 				},
 			};
 		} catch (error) {
@@ -1115,6 +1136,7 @@ export class DerivativeStrategy extends BaseStrategy {
 					cashMarginRequiredPct: SEBI_FNO_FRAMEWORK_2026.CASH_MARGIN_MIN_PCT,
 					expiryDayELMPct: SEBI_FNO_FRAMEWORK_2026.EXPIRY_DAY_ELM_SURCHARGE_PCT,
 					sebiCircularRef: SEBI_FNO_FRAMEWORK_2026.CIRCULAR_REF,
+					multiTenureComparison: await derivativesService.getMultiExpiryCalls(symbol).catch(() => null),
 				},
 			};
 		} catch (err) {

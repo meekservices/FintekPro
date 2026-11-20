@@ -42,6 +42,7 @@ import {
 	CAS_WINDOW_DISCLAIMER,
 } from "./market-session-service";
 import { faspGroundingService } from "./fasp-grounding-service";
+import { FaspAiGuardrailService, faspAiGuardrailService } from "./fasp-ai-guardrail-service";
 
 
 // --- Strategy Imports ---
@@ -207,6 +208,7 @@ export interface DailyPickData {
 	calculationTimestamp?: Date;
 	scoringVersion?: string;
 	entryPriceGolden?: string | number;
+	macroRegimeId?: number;
 }
 
 export function calculateSuggestedAllocation(
@@ -522,6 +524,38 @@ export class PickOfTheDayService {
 						continue;
 					}
 
+					// ── FASP-AI v1.0 Regulatory Guardrail & Scrubbing Gate ─────────────
+					// Scrubs prohibited deterministic language, attaches mandatory SEBI/FASP-AI
+					// disclaimer, populates explainability metadata, and records telemetry log.
+					const guardrailAudit = faspAiGuardrailService.auditOutbound(pick.rationale, {
+						userId: "SYSTEM_ADVISORY",
+						riskProfile: pick.riskLevel,
+						investmentHorizon: pick.timeHorizon,
+						factorsConsidered: [
+							`category: ${pick.category}`,
+							`riskLevel: ${pick.riskLevel}`,
+							`recoPrice: ${pick.recoPrice}`,
+							`targetPrice: ${pick.targetPrice}`,
+							`stoplossPrice: ${pick.stoplossPrice}`,
+							...(pick.sectorCategory ? [`sector: ${pick.sectorCategory}`] : []),
+							...(pick.timeHorizon ? [`horizon: ${pick.timeHorizon}`] : []),
+						],
+						confidenceScore: pick.confidenceScore,
+						modelVersion: pick.engineVersion || "FASP-AI-v2.0",
+					});
+					pick.rationale = guardrailAudit.scrubbedText;
+					pick.engineVersion = guardrailAudit.explainability.engine_version;
+					pick.calculationTimestamp = new Date(guardrailAudit.explainability.calculation_timestamp);
+					if (pick.keyMetrics && typeof pick.keyMetrics === "object") {
+						(pick.keyMetrics as any).engine_version = pick.engineVersion;
+						(pick.keyMetrics as any).calculation_timestamp = guardrailAudit.explainability.calculation_timestamp;
+						(pick.keyMetrics as any).fasp_ai_audit = {
+							approved: guardrailAudit.approved,
+							violations: guardrailAudit.deterministicViolations,
+							explainability: guardrailAudit.explainability,
+						};
+					}
+
 					// ── Signal Quality Gate ─────────────────────────────────────────────
 					// Only publish BUY / STRONG_BUY picks to the daily_picks feed.
 					// HOLD signals are valid research signals but NOT actionable picks —
@@ -557,8 +591,18 @@ export class PickOfTheDayService {
 						fixed_deposits:  4, // FDs: YTM-based
 						sgb:             4, // SGB: sovereign, yield + gold appreciation
 					};
+					// Debt/liquid/conservative funds have lower expected yield (4%) compared to equity (8%)
+					const isDebtOrConservativeFund = category === "mutual_funds" && (
+						(pick.sectorCategory || "").toLowerCase().includes("debt") ||
+						(pick.sectorCategory || "").toLowerCase().includes("bond") ||
+						(pick.sectorCategory || "").toLowerCase().includes("liquid") ||
+						(pick.sectorCategory || "").toLowerCase().includes("conservative") ||
+						(pick.instrumentName || "").toLowerCase().includes("bond") ||
+						(pick.instrumentName || "").toLowerCase().includes("debt")
+					);
+					const defaultMinUpside = isDebtOrConservativeFund ? 4 : (minUpsidePct[category] ?? 8);
 					// Intraday equity calls have realistic 1.5% - 3.0% targets and must not be blocked by 8% positional swing gate
-					const minUpside = pick.timeHorizon === "intraday" ? 1.5 : (minUpsidePct[category] ?? 8);
+					const minUpside = pick.timeHorizon === "intraday" ? 1.5 : defaultMinUpside;
 					const recoP = Number(pick.recoPrice ?? 0);
 					const targetP = Number(pick.targetPrice ?? 0);
 					const currentP = Number(pick.currentPrice ?? recoP);
@@ -1953,6 +1997,7 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 			? Math.round(((currentPrice - targetPrice) / currentPrice) * 100)
 			: (currentPrice > 0 ? Math.round((targetPrice / currentPrice - 1) * 100) : 0);
 
+		let text = "";
 		if (params.category === "derivatives") {
 			const legs = (params.metrics as any)?.legs;
 			const legsSummary = Array.isArray(legs)
@@ -1960,10 +2005,12 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 				: "";
 			const stratType = isCredit ? "Option Seller (Credit Strategy)" : "Option Buyer (Debit Strategy)";
 			const legsText = legsSummary ? ` Strategy Legs: ${legsSummary}.` : "";
-			return `${params.name} is selected under institutional ${stratType} framework based on implied volatility alignment (${(params.metrics as any)?.iv ?? 18}%) and favorable risk-reward.${legsText} Target profit is ${upside}% with systematic stop-loss and predefined risk boundaries.`;
+			text = `${params.name} is selected under institutional ${stratType} framework based on implied volatility alignment (${(params.metrics as any)?.iv ?? 18}%) and favorable risk-reward.${legsText} Target profit is ${upside}% with systematic stop-loss and predefined risk boundaries.`;
+		} else {
+			text = `${params.name} is selected as today's top pick based on strong fundamentals and a potential upside of ${upside}% from current levels. The technical outlook remains positive with favorable risk-reward indicators.`;
 		}
 
-		return `${params.name} is selected as today's top pick based on strong fundamentals and a potential upside of ${upside}% from current levels. The technical outlook remains positive with favorable risk-reward indicators.`;
+		return `${text}\n\n---\n*${FaspAiGuardrailService.MANDATORY_DISCLAIMER}*`;
 	}
 
 	private extractRationaleText(raw: unknown): string {
@@ -2177,9 +2224,14 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 						rawMetrics,
 					);
 
+		const engineVersion = pick.engineVersion ?? (rawMetrics.engine_version as string | undefined) ?? "FASP-AI-v2.0";
+		const calculationTimestamp = pick.calculationTimestamp ?? (rawMetrics.calculation_timestamp ? new Date(rawMetrics.calculation_timestamp) : (pick.createdAt ?? new Date()));
+
 		const keyMetrics = {
 			...rawMetrics,
 			suggestedAllocation,
+			engine_version: engineVersion,
+			calculation_timestamp: calculationTimestamp instanceof Date ? calculationTimestamp.toISOString() : String(calculationTimestamp),
 		};
 
 		let instrumentName = pick.instrumentName;
@@ -2251,6 +2303,10 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 			sectorCategory: pick.sectorCategory ?? undefined,
 			scoringBreakdown: pick.scoringBreakdown as ScoreBreakdown | undefined,
 			riskScore: pick.riskScore ?? undefined,
+			engineVersion,
+			calculationTimestamp: calculationTimestamp instanceof Date ? calculationTimestamp : new Date(calculationTimestamp),
+			entryPriceGolden: pick.entryPriceGolden ? Number.parseFloat(pick.entryPriceGolden) : undefined,
+			macroRegimeId: pick.macroRegimeId ?? undefined,
 			updatedAt: pick.updatedAt ?? undefined,
 			statusUpdatedAt: pick.statusUpdatedAt ?? undefined,
 		};

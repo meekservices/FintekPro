@@ -2333,9 +2333,9 @@ export async function syncMacroAndMarketBriefPrices(
 	const jgb10Y = 0.95;
 
 	// 4. Resolve Commodities (Global CFD in USD and Domestic MCX Official Spot in INR)
-	const brentCfdUsd = commData?.crudeOilBreakevenStatus?.brentUsd ?? fredData?.brentCrude?.price ?? 96.09;
-	const brentMcxInr = commData?.commodities?.find((c: any) => c.id === "CRUDE_OIL")?.mcxPrice ?? 9115;
-	const wtiUsd = fredData?.wtiCrude?.price ?? 91.85;
+	const brentCfdUsd = commData?.crudeOilBreakevenStatus?.brentUsd ?? fredData?.brentCrude?.price ?? 74.50;
+	const brentMcxInr = commData?.commodities?.find((c: any) => c.id === "CRUDE_OIL")?.mcxPrice ?? 6325;
+	const wtiUsd = fredData?.wtiCrude?.price ?? 70.85;
 	const goldMcxInr = commData?.commodities?.find((c: any) => c.id === "GOLD")?.mcxPrice ?? 141255;
 	const silverMcxInr = commData?.commodities?.find((c: any) => c.id === "SILVER")?.mcxPrice ?? 187200;
 	const goldCfdUsd = commData?.commodities?.find((c: any) => c.id === "GOLD")?.cmxPrice ?? 3885.5;
@@ -3040,9 +3040,9 @@ async function buildSnapshotFromDBRows(): Promise<DailyMarketBriefSnapshot | nul
 		commodities: {
 			brentCrude: {
 				name: "Crude Oil (Brent / MCX Spot)",
-				cfdPriceUsd: getPrice("ICE_BRENT_USD", 96.09),
+				cfdPriceUsd: getPrice("ICE_BRENT_USD", 74.50),
 				cfdUnit: "$ / bbl",
-				mcxPriceInr: getPrice("MCX_CRUDEOIL", 9115),
+				mcxPriceInr: getPrice("MCX_CRUDEOIL", 6325),
 				mcxUnit: "₹ / bbl",
 				changePercent: getChg("ICE_BRENT_USD", -0.45),
 				sourceCfd: "ICE / DB cache",
@@ -3068,9 +3068,9 @@ async function buildSnapshotFromDBRows(): Promise<DailyMarketBriefSnapshot | nul
 				sourceCfd: "COMEX / DB cache",
 				sourceMcx: "MCX Spot (Ahmedabad) / DB cache",
 			},
-			brentCrudeUsd: getPrice("ICE_BRENT_USD", 96.09),
-			brentCrudeMcxInr: getPrice("MCX_CRUDEOIL", 9115),
-			wtiCrudeUsd: getPrice("ICE_BRENT_USD", 96.09) - 4,
+			brentCrudeUsd: getPrice("ICE_BRENT_USD", 74.50),
+			brentCrudeMcxInr: getPrice("MCX_CRUDEOIL", 6325),
+			wtiCrudeUsd: getPrice("ICE_BRENT_USD", 74.50) - 3.65,
 			goldMcxInr: getPrice("MCX_GOLD", 141255),
 			silverMcxInr: getPrice("MCX_SILVER", 187200),
 			goldComexUsd: getPrice("COMEX_GOLD_USD", 3885.50),
