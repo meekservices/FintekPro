@@ -21,6 +21,7 @@ import {
 	validateProspectData,
 } from "./guarded-execution";
 import { distributedCache } from "../utils/distributed-cache";
+import { logger } from "../logger";
 
 const CREDHIVE_API_KEY = process.env.CREDHIVE_API_KEY || "";
 const CREDHIVE_BASE_URL =
@@ -245,7 +246,7 @@ class CredhiveService {
 			const cached =
 				await distributedCache.getJson<CredhiveCompanyProfile>(cacheKey);
 			if (cached) {
-				console.log(`[CredhiveService] Serving cached profile for ${cin}`);
+				logger.info(`[CredhiveService] Serving cached profile for ${cin}`);
 				return { success: true, data: cached };
 			}
 		}
@@ -342,7 +343,7 @@ class CredhiveService {
 			const cached =
 				await distributedCache.getJson<CredhiveFinancialStatement[]>(cacheKey);
 			if (cached) {
-				console.log(`[CredhiveService] Serving cached financials for ${cin}`);
+				logger.info(`[CredhiveService] Serving cached financials for ${cin}`);
 				return { success: true, data: cached };
 			}
 		}
@@ -420,7 +421,7 @@ class CredhiveService {
 			const cached =
 				await distributedCache.getJson<CredhiveDirector[]>(cacheKey);
 			if (cached) {
-				console.log(`[CredhiveService] Serving cached directors for ${cin}`);
+				logger.info(`[CredhiveService] Serving cached directors for ${cin}`);
 				return { success: true, data: cached };
 			}
 		}
@@ -481,7 +482,7 @@ class CredhiveService {
 			const cached =
 				await distributedCache.getJson<CredhiveComplianceData>(cacheKey);
 			if (cached) {
-				console.log(`[CredhiveService] Serving cached compliance for ${cin}`);
+				logger.info(`[CredhiveService] Serving cached compliance for ${cin}`);
 				return { success: true, data: cached };
 			}
 		}
@@ -918,6 +919,7 @@ class CredhiveService {
 						latestRevenue: latestFin?.revenue,
 						latestNetProfit: latestFin?.net_profit ?? latestFin?.pat,
 						latestEbitda: latestFin?.ebitda,
+						latestNetworth: latestFin?.networth,
 					});
 				}),
 			);
@@ -935,6 +937,10 @@ class CredhiveService {
 		if (filters.minEbitda)
 			filtered = filtered.filter(
 				(c) => (c.latestEbitda || 0) >= filters.minEbitda!,
+			);
+		if (filters.minNetworth)
+			filtered = filtered.filter(
+				(c) => (c.latestNetworth || 0) >= filters.minNetworth!,
 			);
 
 		return {

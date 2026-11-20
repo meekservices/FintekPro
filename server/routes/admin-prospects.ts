@@ -119,6 +119,13 @@ router.get("/b2b-leads", requireAdmin, async (req: any, res: Response) => {
 			assignedTo,
 			search,
 			source,
+			city,
+			state,
+			pincode,
+			industry,
+			minNetworth,
+			maxNetworth,
+			minScore,
 			limit = 50,
 			offset = 0,
 		} = req.query;
@@ -138,6 +145,39 @@ router.get("/b2b-leads", requireAdmin, async (req: any, res: Response) => {
 		}
 		if (source && source !== "all") {
 			conditions.push(eq(prospectLeads.source, source as string));
+		}
+		// Area-wise filtering (city, state, pincode)
+		if (city && city !== "all") {
+			conditions.push(ilike(prospectLeads.city, `%${city as string}%`));
+		}
+		if (state && state !== "all") {
+			conditions.push(ilike(prospectLeads.state, `%${state as string}%`));
+		}
+		if (pincode && pincode !== "all") {
+			conditions.push(ilike(prospectLeads.pincode, `%${pincode as string}%`));
+		}
+		// Company-wise filtering (industry segment)
+		if (industry && industry !== "all") {
+			conditions.push(ilike(prospectLeads.industrySegment, `%${industry as string}%`));
+		}
+		// Net worth-wise filtering
+		if (minNetworth) {
+			const nw = Number.parseFloat(minNetworth as string);
+			if (!isNaN(nw)) {
+				conditions.push(sql`${prospectLeads.estimatedNetworth} >= ${nw}`);
+			}
+		}
+		if (maxNetworth) {
+			const nw = Number.parseFloat(maxNetworth as string);
+			if (!isNaN(nw)) {
+				conditions.push(sql`${prospectLeads.estimatedNetworth} <= ${nw}`);
+			}
+		}
+		if (minScore) {
+			const s = Number.parseInt(minScore as string);
+			if (!isNaN(s)) {
+				conditions.push(sql`${prospectLeads.leadScore} >= ${s}`);
+			}
 		}
 		if (search) {
 			const s = (search as string).trim();

@@ -30,21 +30,27 @@ export interface PlanConfig {
 	dedicatedRM: boolean;
 	apiAccess: boolean;
 	highlight: boolean;
+	freePortfolioDiagnostics: number | null;
+	freeProspectProposals: number | null;
+	leadMagnetAccess: boolean;
+	areaSearchAccess: boolean;
+	prospectProposalsAllowed: boolean;
 }
 
 export const PLANS: Record<PlanTier, PlanConfig> = {
 	free: {
 		tier: "free",
-		name: "Free",
-		tagline: "Start your global investment journey",
+		name: "Free / Starter Lead Engine",
+		tagline: "Instant portfolio diagnostics & starter prospecting engine",
 		monthlyPriceInr: 0,
 		annualPriceInr: 0,
 		features: [
-			"US stock investing via Alpaca",
-			"Basic portfolio tracking",
-			"Delayed market data",
-			"Auto-generated research summaries",
-			"5 trades per month",
+			"1 Instant Multi-Asset Portfolio Health Check",
+			"Capital Gains & Tax Drag Preview",
+			"Curated Daily EOD Market Brief",
+			"3 Free AI Prospect Proposals (for Advisors/CAs)",
+			"Area & Company Prospect Discovery Preview",
+			"US stock investing (up to 5 trades/month)",
 		],
 		fxSpreadPct: 1.0,
 		tradeFeInr: 0,
@@ -53,25 +59,30 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
 		usTrading: true,
 		realTimeData: false,
 		aiReports: false,
-		portfolioScoring: false,
+		portfolioScoring: true,
 		taxReports: false,
 		advisorDashboard: false,
 		dedicatedRM: false,
 		apiAccess: false,
 		highlight: false,
+		freePortfolioDiagnostics: 1,
+		freeProspectProposals: 3,
+		leadMagnetAccess: true,
+		areaSearchAccess: true,
+		prospectProposalsAllowed: true,
 	},
 	pro: {
 		tier: "pro",
 		name: "Pro",
-		tagline: "For serious investors who mean business",
+		tagline: "For serious investors & wealth managers who mean business",
 		monthlyPriceInr: 999,
 		annualPriceInr: 9999,
 		features: [
-			"Unlimited US trades",
-			"Real-time US market data",
-			"Advanced analytics dashboard",
+			"Unlimited US trades & real-time US data",
+			"Continuous portfolio health & risk scoring",
+			"25 AI Prospect Proposals & CRM Pipeline Tracking",
+			"Full Area, Company & Net Worth Prospect Filtering",
 			"AI research reports (DCF + comps)",
-			"Portfolio health scoring",
 			"Smart alerts (valuation, earnings, risk)",
 			"India tax-ready capital gains reports",
 			"Lower FX spread (0.5%)",
@@ -89,17 +100,23 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
 		dedicatedRM: false,
 		apiAccess: false,
 		highlight: true,
+		freePortfolioDiagnostics: null,
+		freeProspectProposals: 25,
+		leadMagnetAccess: true,
+		areaSearchAccess: true,
+		prospectProposalsAllowed: true,
 	},
 	elite: {
 		tier: "elite",
 		name: "Elite",
-		tagline: "Institutional-grade wealth management",
+		tagline: "Institutional-grade wealth management & unmetered prospecting",
 		monthlyPriceInr: null,
 		annualPriceInr: 25000,
 		features: [
 			"Everything in Pro",
-			"Direct advisor dashboard",
-			"Multi-asset portfolio view (global + India)",
+			"Unlimited AI Prospect Proposals & Lead Ingestion",
+			"Director DIN Net Worth & Multi-Company Deep Lookups",
+			"Direct advisor dashboard & Multi-asset portfolio view",
 			"Institutional-grade PMS-style reports",
 			"Deal flow — pre-IPO & private markets",
 			"Dedicated RM + WhatsApp desk",
@@ -121,6 +138,11 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
 		dedicatedRM: true,
 		apiAccess: true,
 		highlight: false,
+		freePortfolioDiagnostics: null,
+		freeProspectProposals: null,
+		leadMagnetAccess: true,
+		areaSearchAccess: true,
+		prospectProposalsAllowed: true,
 	},
 };
 

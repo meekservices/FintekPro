@@ -44,6 +44,11 @@ router.get("/plans", (_req, res) => {
 		dedicatedRM: p.dedicatedRM,
 		apiAccess: p.apiAccess,
 		highlight: p.highlight,
+		freePortfolioDiagnostics: p.freePortfolioDiagnostics,
+		freeProspectProposals: p.freeProspectProposals,
+		leadMagnetAccess: p.leadMagnetAccess,
+		areaSearchAccess: p.areaSearchAccess,
+		prospectProposalsAllowed: p.prospectProposalsAllowed,
 	}));
 	res.json({ success: true, plans: catalogue });
 });

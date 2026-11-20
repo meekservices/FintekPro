@@ -382,12 +382,16 @@ export default function LeadProspecting() {
 			filters.nameStartsWith = formData.get("companyName");
 		if (formData.get("city")) filters.city = formData.get("city");
 		if (formData.get("state")) filters.state = formData.get("state");
+		if (formData.get("pincode")) filters.pincode = formData.get("pincode");
+		if (formData.get("industry")) filters.industry = formData.get("industry");
 		if (formData.get("minRevenue"))
 			filters.minRevenue = Number.parseInt(
 				formData.get("minRevenue") as string,
 			);
 		if (formData.get("minProfit"))
 			filters.minProfit = Number.parseInt(formData.get("minProfit") as string);
+		if (formData.get("minNetworth"))
+			filters.minNetworth = Number.parseInt(formData.get("minNetworth") as string);
 		if (formData.get("credhiveScore")) {
 			filters.credhiveScore = Number.parseInt(
 				formData.get("credhiveScore") as string,
@@ -490,6 +494,40 @@ export default function LeadProspecting() {
 											placeholder="Maharashtra, Karnataka..."
 											data-testid="input-state"
 										/>
+									</div>
+
+									<div className="space-y-2">
+										<Label htmlFor="pincode">PIN / Postal Code (Area)</Label>
+										<Input
+											id="pincode"
+											name="pincode"
+											placeholder="400051, 560001..."
+											data-testid="input-pincode"
+										/>
+									</div>
+
+									<div className="space-y-2">
+										<Label htmlFor="industry">Industry / Sector (Company)</Label>
+										<Input
+											id="industry"
+											name="industry"
+											placeholder="Fintech, SaaS, Manufacturing, Real Estate..."
+											data-testid="input-industry"
+										/>
+									</div>
+
+									<div className="space-y-2">
+										<Label htmlFor="minNetworth">Min Net Worth / Investable Surplus (₹)</Label>
+										<Input
+											id="minNetworth"
+											name="minNetworth"
+											type="number"
+											placeholder="25000000"
+											data-testid="input-min-networth"
+										/>
+										<p className="text-xs text-muted-foreground">
+											HNI filter (e.g., ₹2.5 Cr+ net worth)
+										</p>
 									</div>
 
 									<div className="space-y-2">

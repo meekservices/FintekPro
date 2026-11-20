@@ -46,6 +46,11 @@ interface Plan {
 	dedicatedRM: boolean;
 	apiAccess: boolean;
 	highlight: boolean;
+	freePortfolioDiagnostics?: number | null;
+	freeProspectProposals?: number | null;
+	leadMagnetAccess?: boolean;
+	areaSearchAccess?: boolean;
+	prospectProposalsAllowed?: boolean;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -269,6 +274,21 @@ function ComparisonTable({ plans }: { plans: Plan[] }) {
 			label: "Portfolio Health Scoring",
 			key: "portfolioScoring",
 			icon: LucideShield,
+		},
+		{
+			label: "Free Diagnostic Lead Magnet",
+			key: "leadMagnetAccess",
+			icon: Sparkles,
+		},
+		{
+			label: "Area & Company Search",
+			key: "areaSearchAccess",
+			icon: Globe,
+		},
+		{
+			label: "AI Prospect Proposals (Advisors)",
+			key: "prospectProposalsAllowed",
+			icon: Users,
 		},
 		{ label: "Tax-ready Reports (India)", key: "taxReports", icon: FileText },
 		{ label: "Advisor Dashboard", key: "advisorDashboard", icon: Users },
@@ -577,7 +597,7 @@ export default function PricingPage() {
 
 					<div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary mb-2">
 						<Sparkles className="h-3.5 w-3.5" />
-						Bloomberg Terminal for Indian Investors
+						Wall Street Analytics, Built for Indian Investors
 					</div>
 					<h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
 						Invest globally, <span className="text-blue-600">pay fairly</span>

@@ -535,11 +535,11 @@ export function registerMarketingRoutes(app: Express) {
 		requireAdmin,
 		async (req: Request, res: Response) => {
 			try {
-				const { minRevenue, minProfit, credhiveScore, minEbitda, riskLevel } =
+				const { minRevenue, minProfit, credhiveScore, minEbitda, riskLevel, minNetworth, pincode, industry } =
 					req.body;
 
 				const hasFinancialFilters =
-					minRevenue || minProfit || credhiveScore || minEbitda || riskLevel;
+					minRevenue || minProfit || credhiveScore || minEbitda || riskLevel || minNetworth;
 
 				let result;
 				if (hasFinancialFilters) {
@@ -570,9 +570,20 @@ export function registerMarketingRoutes(app: Express) {
 					if (state) {
 						conditions.push(ilike(prospectLeads.state, `%${state}%`));
 					}
+					if (pincode) {
+						conditions.push(ilike(prospectLeads.pincode, `%${pincode}%`));
+					}
+					if (industry) {
+						conditions.push(ilike(prospectLeads.industrySegment, `%${industry}%`));
+					}
 					if (minRevenue) {
 						conditions.push(
 							gte(prospectLeads.annualRevenue, minRevenue.toString()),
+						);
+					}
+					if (minNetworth) {
+						conditions.push(
+							sql`${prospectLeads.estimatedNetworth} >= ${Number(minNetworth)}`,
 						);
 					}
 

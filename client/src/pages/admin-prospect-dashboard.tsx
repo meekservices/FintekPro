@@ -196,6 +196,9 @@ export default function AdminProspectDashboardPage() {
 	const [b2bStatus, setB2bStatus] = useState("all");
 	const [b2bQuality, setB2bQuality] = useState("all");
 	const [b2bAssigned, setB2bAssigned] = useState("all");
+	const [b2bCity, setB2bCity] = useState("");
+	const [b2bIndustry, setB2bIndustry] = useState("");
+	const [b2bMinNetworth, setB2bMinNetworth] = useState("all");
 	const [individualSearch, setIndividualSearch] = useState("");
 	const [individualState, setIndividualState] = useState("all");
 	const [individualAgent, setIndividualAgent] = useState("all");
@@ -231,6 +234,9 @@ export default function AdminProspectDashboardPage() {
 			b2bStatus,
 			b2bQuality,
 			b2bAssigned,
+			b2bCity,
+			b2bIndustry,
+			b2bMinNetworth,
 		],
 		queryFn: async () => {
 			const params = new URLSearchParams();
@@ -238,6 +244,9 @@ export default function AdminProspectDashboardPage() {
 			if (b2bStatus !== "all") params.set("status", b2bStatus);
 			if (b2bQuality !== "all") params.set("quality", b2bQuality);
 			if (b2bAssigned !== "all") params.set("assignedTo", b2bAssigned);
+			if (b2bCity?.trim()) params.set("city", b2bCity.trim());
+			if (b2bIndustry?.trim()) params.set("industry", b2bIndustry.trim());
+			if (b2bMinNetworth !== "all") params.set("minNetworth", b2bMinNetworth);
 			return await apiRequest(`/api/admin/prospects/b2b-leads?${params}`);
 		},
 	});
@@ -852,6 +861,32 @@ export default function AdminProspectDashboardPage() {
 										/>
 									</div>
 								</div>
+								<div className="w-[160px]">
+									<Input
+										placeholder="Filter City / Area..."
+										value={b2bCity}
+										onChange={(e) => setB2bCity(e.target.value)}
+									/>
+								</div>
+								<div className="w-[160px]">
+									<Input
+										placeholder="Filter Industry..."
+										value={b2bIndustry}
+										onChange={(e) => setB2bIndustry(e.target.value)}
+									/>
+								</div>
+								<Select value={b2bMinNetworth} onValueChange={setB2bMinNetworth}>
+									<SelectTrigger className="w-[160px]">
+										<SelectValue placeholder="Net Worth Tier" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="all">All Net Worth</SelectItem>
+										<SelectItem value="5000000">₹50L+ (Affluent)</SelectItem>
+										<SelectItem value="20000000">₹2 Cr+ (HNI)</SelectItem>
+										<SelectItem value="50000000">₹5 Cr+ (Super HNI)</SelectItem>
+										<SelectItem value="100000000">₹10 Cr+ (UHNI)</SelectItem>
+									</SelectContent>
+								</Select>
 								<Select value={b2bStatus} onValueChange={setB2bStatus}>
 									<SelectTrigger className="w-[150px]">
 										<SelectValue placeholder="Status" />
