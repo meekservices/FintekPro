@@ -252,7 +252,7 @@ export class KnowledgeHubService {
 		let commodityRadar: any = brief.commodityRadar || null;
 		let multiExchangeData: any = brief.multiExchangeData || null;
 		let amcConsensus: any = brief.amcConsensus || null;
-		const liveUsdInr = goldenSnapshot?.currencies?.usdInr ?? (brief.fbil as any)?.usdInr ?? (brief.globalMacroDesk as any)?.usdInr ?? 94.8606;
+		const liveUsdInr = goldenSnapshot?.currencies?.usdInr ?? (brief.fbil as any)?.usdInr ?? (brief.globalMacroDesk as any)?.usdInr ?? 84.4512;
 
 		if (isIndia) {
 			// 1. Fixed Income: enrich with latest live GPE or CCIL benchmarks
@@ -288,8 +288,8 @@ export class KnowledgeHubService {
 					},
 					sdlSpreadBps: 38,
 					forexSpot: {
-						usdInr: goldenSnapshot?.currencies?.usdInr ?? 94.8606,
-						inrUsd: Number((1 / (goldenSnapshot?.currencies?.usdInr ?? 94.8606)).toFixed(6)),
+						usdInr: goldenSnapshot?.currencies?.usdInr ?? 84.4512,
+						inrUsd: Number((1 / (goldenSnapshot?.currencies?.usdInr ?? 84.4512)).toFixed(6)),
 						changePercent: 0.08,
 						platform: "CCIL FX-CLEAR",
 						settlementType: "T+2 Spot",
@@ -465,7 +465,7 @@ export class KnowledgeHubService {
 			const us10YLive = goldenSnapshot.fixedIncome?.us10YTreasury ?? 4.58;
 			const us2YLive = goldenSnapshot.fixedIncome?.us2YTreasury ?? 4.35;
 			const dxyLive = goldenSnapshot.currencies?.dxy ?? 104.25;
-			const usdInrLive = goldenSnapshot.currencies?.usdInr ?? 94.8606;
+			const usdInrLive = goldenSnapshot.currencies?.usdInr ?? 84.4512;
 			const spreadBps = Math.round((us10YLive - us2YLive) * 100);
 			const spDir = sp500Live.changePercent >= 0 ? "positive" : "defensive";
 			brief.marketSnapshot = `US equity benchmarks traded with ${spDir} bias. S&P 500 at ${sp500Live.price.toLocaleString("en-US")} (${sp500Live.changePercent >= 0 ? "+" : ""}${sp500Live.changePercent.toFixed(2)}%), Nasdaq-100 at ${ndxLive.price.toLocaleString("en-US")} (${ndxLive.changePercent >= 0 ? "+" : ""}${ndxLive.changePercent.toFixed(2)}%), Dow Jones at ${dowLive.price.toLocaleString("en-US")}. The 10-Year US Treasury yield consolidated near ${us10YLive}%, with the 10Y–2Y spread at ${spreadBps >= 0 ? "+" : ""}${spreadBps} bps indicating ${spreadBps >= 0 ? "normal" : "inverted"} curve conditions. US Dollar Index (DXY) traded at ${dxyLive.toFixed(2)}, while the USD/INR reference rate stood at ₹${usdInrLive.toFixed(2)}, supporting RBI LRS overseas investment allocations.`;
@@ -481,7 +481,7 @@ export class KnowledgeHubService {
 			const bundLive = goldenSnapshot.fixedIncome?.bund10YYield ?? 2.35;
 			const giltLive = goldenSnapshot.fixedIncome?.gilt10YYield ?? 4.25;
 			const jgbLive = goldenSnapshot.fixedIncome?.jgb10YYield ?? 1.15;
-			const liveUsdInrRate = goldenSnapshot.currencies?.usdInr ?? 94.8606;
+			const liveUsdInrRate = goldenSnapshot.currencies?.usdInr ?? 84.4512;
 			const eurUsdLive = goldenSnapshot.currencies?.eurInr
 				? parseFloat((goldenSnapshot.currencies.eurInr / liveUsdInrRate).toFixed(4))
 				: 1.048;
@@ -822,7 +822,7 @@ export class KnowledgeHubService {
 			};
 		});
 
-		const liveUsdInr = (brief.fbil as any)?.usdInr ?? (brief.globalMacroDesk as any)?.usdInr ?? 94.8606;
+		const liveUsdInr = (brief.fbil as any)?.usdInr ?? (brief.globalMacroDesk as any)?.usdInr ?? 84.4512;
 
 		const defaultCcil = isIndia
 			? {
@@ -1056,6 +1056,8 @@ export class KnowledgeHubService {
 						monthlyMfSipRunRateCr: 26425,
 						absorptionRatio: 2.0,
 						liquidityRegime: "DII Inflows Absorb FPI Selling",
+						fpiIndexFuturesLongShortRatio: 0.42,
+						fpiFuturesPositioning: "42% Net Long (Balanced Hedging)",
 						asOfDate: marketHolidayService.getLatestSettledTradingDate("NSE"),
 					},
 					ncdexAgriPulse: meSnap?.ncdexAgriPulse || {
@@ -1277,13 +1279,13 @@ export class KnowledgeHubService {
 		const brentStr = `$${brentPriceNum}/bbl (MCX Spot: ₹${brentMcxSpotNum.toLocaleString("en-IN")}/bbl)`;
 		const goldStr = commodityRadar?.commodities?.[0]?.mcxPrice
 			? `₹${commodityRadar.commodities[0].mcxPrice.toLocaleString("en-IN")}/10g`
-			: `₹${(goldenSnapshot?.commodities?.goldMcxInr ?? 141255).toLocaleString("en-IN")}/10g`;
+			: `₹${(goldenSnapshot?.commodities?.goldMcxInr ?? 78250).toLocaleString("en-IN")}/10g`;
 		const isElevatedB = Number(brentPriceNum) > 85;
 
 		const sp500 = goldenSnapshot?.indices?.global?.find((i: any) => i.symbol === "SPX") || { price: 5864.5, changePercent: 0.75 };
 		const nasdaq = goldenSnapshot?.indices?.global?.find((i: any) => i.symbol === "NDX") || { price: 20380.0, changePercent: 1.12 };
 		const dow = goldenSnapshot?.indices?.global?.find((i: any) => i.symbol === "DJI") || { price: 42114.4, changePercent: 0.33 };
-		const usdInr = goldenSnapshot?.currencies?.usdInr ?? 94.8606;
+		const usdInr = goldenSnapshot?.currencies?.usdInr ?? 84.4512;
 		const us10Y = goldenSnapshot?.fixedIncome?.us10YTreasury ?? 4.42;
 		const us2Y = goldenSnapshot?.fixedIncome?.us2YTreasury ?? 4.30;
 
@@ -1375,7 +1377,7 @@ export class KnowledgeHubService {
 				}
 			: null;
 
-		const liveUsdInrRate = goldenSnapshot?.currencies?.usdInr ?? usdInr ?? 94.8606;
+		const liveUsdInrRate = goldenSnapshot?.currencies?.usdInr ?? usdInr ?? 84.4512;
 
 		const defaultGlobalMacroDesk = {
 			dxyIndex: goldenSnapshot?.currencies?.dxy ?? 104.25,
@@ -1481,14 +1483,14 @@ export class KnowledgeHubService {
 		const trepsRateStr = "6.42";
 		const brentPriceNum = 74.50;
 		const brentStr = "$74.50/bbl (MCX Spot: ₹6,325/bbl)";
-		const goldStr = "₹1,41,255/10g";
-		const usdInr = 94.8606;
+		const goldStr = "₹78,250/10g";
+		const usdInr = 84.4512;
 		const us10Y = 4.58;
 		const us2Y = 4.35;
 		const sp500 = { price: 5864.5, changePercent: 0.75 };
 		const nasdaq = { price: 20380.0, changePercent: 1.12 };
 		const goldenSnapshot: any = {
-			currencies: { dxy: 104.25, usdInr: 94.8606 },
+			currencies: { dxy: 104.25, usdInr: 84.4512 },
 			macroIndicators: { indiaCpiInflation: { value: 6.21, unit: "% YoY", period: "Oct 2024", source: "MoSPI", status: "Above RBI 6% Upper Band" } },
 			fixedIncome: { bund10YYield: 2.35, gilt10YYield: 4.25 },
 		};

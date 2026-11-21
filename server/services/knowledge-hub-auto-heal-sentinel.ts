@@ -225,26 +225,42 @@ export class KnowledgeHubAutoHealSentinel {
 			const gold = commodities.find((c: any) => c.id === "GOLD" || c.name?.toUpperCase().includes("GOLD"));
 			const goldPrice = gold?.mcxPrice || brief?.commodityRadar?.goldPrice;
 
-			// CRITICAL: Check if Gold price is in standard 10g benchmark (₹80,000 - ₹180,000)
-			// Must never be micro-contract like GOLDPETAL at ₹13,800
+			// CRITICAL: Check if Gold price is in standard 10g benchmark (₹65,000 - ₹90,000)
+			// Must never be micro-contract like GOLDPETAL at ₹13,800 or unanchored mock like ₹1,41,255
 			if (typeof goldPrice === "number") {
-				if (goldPrice < 50000) {
+				if (goldPrice < 55000) {
 					commodityMacroPricing -= 15;
 					violations.push({
 						code: "GOLD_MICRO_CONTRACT_CORRUPTION",
 						field: "commodityRadar.goldPrice",
 						severity: "critical",
 						message: `MCX Gold price (₹${goldPrice}) indicates a micro-contract (e.g. 1g GOLDPETAL) instead of 10g standard benchmark.`,
-						remedy: "Resolve standard benchmark contract (GOLD FUT 10g).",
+						remedy: "Resolve standard benchmark contract (GOLD FUT 10g, ~₹78,000).",
 					});
-				} else if (goldPrice > 250000) {
-					commodityMacroPricing -= 8;
+				} else if (goldPrice > 95000) {
+					commodityMacroPricing -= 12;
 					violations.push({
 						code: "GOLD_PRICE_ANOMALY",
 						field: "commodityRadar.goldPrice",
+						severity: "critical",
+						message: `MCX Gold price (₹${goldPrice}/10g) exceeds normal benchmark corridor [₹65,000 - ₹90,000]. Unanchored synthetic mock detected.`,
+						remedy: "Re-query MCX spot benchmark feed via commodityMarketService.",
+					});
+				}
+			}
+
+			// CRITICAL: Check Silver benchmark price (1kg standard: ₹75,000 - ₹105,000)
+			const silver = commodities.find((c: any) => c.id === "SILVER" || c.name?.toUpperCase().includes("SILVER"));
+			const silverPrice = silver?.mcxPrice || brief?.commodityRadar?.silverPrice;
+			if (typeof silverPrice === "number") {
+				if (silverPrice < 65000 || silverPrice > 115000) {
+					commodityMacroPricing -= 8;
+					violations.push({
+						code: "SILVER_PRICE_ANOMALY",
+						field: "commodityRadar.silverPrice",
 						severity: "warning",
-						message: `MCX Gold price (₹${goldPrice}) exceeds normal volatility ceiling.`,
-						remedy: "Re-query MCX spot benchmark feed.",
+						message: `MCX Silver price (₹${silverPrice}/kg) outside standard market band [₹75,000 - ₹105,000].`,
+						remedy: "Re-query official MCX silver spot quote.",
 					});
 				}
 			}
@@ -262,16 +278,33 @@ export class KnowledgeHubAutoHealSentinel {
 				});
 			}
 
-			// USD/INR Exchange Rate
+			// Real Yield Mathematical Parity Check
+			const reportedRealYield = brief?.ccilFixedIncome?.yieldCurveAnalysis?.realYield10Y ?? brief?.sovereign?.realYield10Y;
+			const cpi = brief?.macroIndicators?.indiaCpiInflation?.value ?? 6.21;
+			if (typeof gsecYield === "number" && typeof reportedRealYield === "number" && typeof cpi === "number") {
+				const expectedRealYield = Number((gsecYield - cpi).toFixed(2));
+				if (Math.abs(reportedRealYield - expectedRealYield) > 0.15) {
+					commodityMacroPricing -= 5;
+					violations.push({
+						code: "REAL_YIELD_FORMULA_MISMATCH",
+						field: "ccilFixedIncome.yieldCurveAnalysis.realYield10Y",
+						severity: "warning",
+						message: `Real yield (+${reportedRealYield}%) does not match 10Y G-Sec (${gsecYield}%) minus CPI (${cpi}%) which equals +${expectedRealYield}%.`,
+						remedy: "Recalculate real yield dynamically as gsec10Y - cpi.",
+					});
+				}
+			}
+
+			// USD/INR Exchange Rate (Plausible corridor: ₹80.00 - ₹89.00)
 			const usdInr = brief?.globalMacroDesk?.usdInr || brief?.fbil?.usdInr;
-			if (typeof usdInr === "number" && (usdInr < 75 || usdInr > 115)) {
-				commodityMacroPricing -= 5;
+			if (typeof usdInr === "number" && (usdInr < 78 || usdInr > 89)) {
+				commodityMacroPricing -= 12;
 				violations.push({
 					code: "UNREALISTIC_USD_INR",
 					field: "globalMacroDesk.usdInr",
-					severity: "warning",
-					message: `USD/INR exchange rate (${usdInr}) is outside plausible historical band.`,
-					remedy: "Re-fetch FBIL reference fixing.",
+					severity: "critical",
+					message: `USD/INR exchange rate (₹${usdInr}) is outside plausible market band [₹80.00 - ₹89.00]. Legacy mock (e.g. ₹94.86) detected.`,
+					remedy: "Re-fetch FBIL reference fixing via fbilMarketService.",
 				});
 			}
 		} else if (region === "us") {
@@ -547,6 +580,21 @@ export class KnowledgeHubAutoHealSentinel {
 				severity: "critical",
 				message: "Brief text contains prohibited deterministic profit claims.",
 				remedy: "Scrub language and enforce probabilistic advisory phrasing.",
+			});
+		}
+
+		// ── 6. Policy Enforcement: Zero Synthetic Calculations (FintekPro GCR v1.0) ───
+		// Policy mandates: Pure API quotes and official exchange published archives only.
+		// Flag any detected synthetic multiplier / synthetic estimation artifacts.
+		const sourceStr = `${brief?.ccilFixedIncome?.source || ""} ${brief?.fbil?.source || ""} ${brief?.source || ""}`.toLowerCase();
+		if (sourceStr.includes("synthetic") || fullText.includes("synthetic proxy") || fullText.includes("formula multiplier")) {
+			sebiCompliance -= 10;
+			violations.push({
+				code: "SYNTHETIC_CALCULATION_DETECTED",
+				field: "source",
+				severity: "critical",
+				message: "Synthetic calculation or unanchored formula multiplier detected. Policy mandates pure API binding and official published archives only.",
+				remedy: "Eliminate synthetic derivation; bind directly to official exchange tick or published FBIL/Bhavcopy fixing.",
 			});
 		}
 

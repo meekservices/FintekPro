@@ -69,9 +69,10 @@ Every advisory must link to:
   "ai_version": "v2.1",
   "pricing_engine_version": "v1.4"
 }
-17.3 Canonical Formula Governance (Zero Synthetic Formulas)
-AI MUST NEVER invent, approximate, or synthesize mathematical formulas for valuation, yields, risk metrics, tax computations, or returns.
-AI must strictly invoke or reference the deterministic core financial engine which implements canonical, peer-reviewed, or statutory formulas.
+17.3 Canonical Formula & Data Governance (Zero Synthetic Calculations & Data)
+AI and all downstream pricing engines MUST NEVER invent, approximate, or synthesize mathematical formulas or pricing figures for valuation, yields, risk metrics, tax computations, or market benchmarks.
+All pricing and benchmark figures must bind directly to authentic licensed feeds (Upstox, IndianAPI, FBIL, CCIL, AMFI). Magic scalar multipliers (e.g. `nifty * 1.0016`), proxy scaling factors (`SPY * 10`), fabricated currency crosses (`usdInr * 1.085`), and speculative forward fallback numbers are strictly banned.
+AI must strictly invoke or reference the deterministic core financial engine which implements canonical, peer-reviewed, or statutory formulas governed by SOP-SDCG-01.
 If required input parameters are missing, the system MUST fail gracefully with a structured error; it is strictly forbidden to use "cooked-up" heuristics, magic multipliers, or synthetic formula stand-ins.
 18. REGULATORY COMPLIANCE FOR AI
 18.1 Advisory Classification Control

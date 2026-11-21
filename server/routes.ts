@@ -21,6 +21,7 @@ import { symbolMappingService } from "./services/symbol-mapping-service";
 import { registerAuditExportRoutes } from "./routes/admin/audit-export-routes";
 import { maskEmail, maskMobile } from "./utils/pii-utils";
 import usTradingRoutes from "./routes/us-trading";
+import marketStreamRouter from "./routes/market-stream-routes";
 import agentRoutes from "./agent-routes";
 import agentEmpanelmentRoutes from "./routes/agent-empanelment";
 import knowledgeHubRoutes from "./routes/knowledge-hub-routes";
@@ -361,6 +362,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 	// US Trading & Alpaca Broker Routes
 	app.use("/api/us-trading", usTradingRoutes);
+
+	// Real-time Market Data Streaming & Decision Matrix Routes
+	app.use("/api/market-stream", marketStreamRouter);
 
 	// REIT & InvIT investment product routes
 	app.use("/api/reit-invit", reitInvitRouter);

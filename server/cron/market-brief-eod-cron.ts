@@ -104,9 +104,40 @@ export async function runMarketBriefEodJob(targetRegion?: string): Promise<EodEx
 
 /**
  * Initializes node-cron background schedulers for day-wise market briefs
+ * Following Moneycontrol & Institutional Release Milestones:
+ *   1. 08:30 IST: Pre-Market Brief (GIFT Nifty, Asian opens, overnight US close)
+ *   2. 13:15 IST: Mid-Day FBIL Reference Rates & Money Market Fixing
+ *   3. 16:30 IST: Post-Market EOD Equity & Commodity Settlement
+ *   4. 18:30 IST: Global EOD Brief (European close & Asian consolidation)
+ *   5. 19:00 IST: Institutional F&O Derivatives & Final Turnover Sync
+ *   6. 04:30 IST: US Market EOD Brief (NYSE & NASDAQ close)
  */
 export function initializeMarketBriefEodCron(): void {
-	// ─── 1. India EOD Brief (Mon–Fri at 16:30 IST / 11:00 UTC) ────────────────
+	// ─── 0. India Pre-Market Brief (Mon–Fri at 08:30 IST / 03:00 UTC) ─────────
+	// Captures GIFT Nifty opening indicators, Asian markets, overnight US tech prints
+	cron.schedule("30 8 * * 1-5", async () => {
+		logger.info("[MarketBriefEodCron] ⏰ Triggered India Pre-Market Brief scheduler (08:30 IST)");
+		await runMarketBriefEodJob("india");
+	}, {
+		timezone: "Asia/Kolkata",
+	});
+
+	// ─── 1. India Mid-Day FBIL Reference Rate Sync (Mon–Fri at 13:15 IST) ─────
+	// Official FBIL reference rates published at 13:00 IST (USD/INR, EUR/INR, GBP/INR, MIBOR)
+	cron.schedule("15 13 * * 1-5", async () => {
+		logger.info("[MarketBriefEodCron] ⏰ Triggered Mid-Day FBIL Reference Rate sync (13:15 IST)");
+		try {
+			const { fbilMarketService } = await import("../services/fbil-market-service");
+			await fbilMarketService.getFbilBenchmarks(true);
+			await runMarketBriefEodJob("india");
+		} catch (fbilErr: any) {
+			logger.warn(`[MarketBriefEodCron] Mid-Day FBIL sync warning: ${fbilErr?.message}`);
+		}
+	}, {
+		timezone: "Asia/Kolkata",
+	});
+
+	// ─── 2. India EOD Brief (Mon–Fri at 16:30 IST / 11:00 UTC) ────────────────
 	// Market close at 15:30 IST, clearing & settlement references settled by 16:30 IST
 	cron.schedule("30 16 * * 1-5", async () => {
 		logger.info("[MarketBriefEodCron] ⏰ Triggered India EOD Market Brief scheduler (16:30 IST)");
@@ -115,7 +146,22 @@ export function initializeMarketBriefEodCron(): void {
 		timezone: "Asia/Kolkata",
 	});
 
-	// ─── 2. Global EOD Brief (Mon–Fri at 18:30 IST / 13:00 UTC) ───────────────
+	// ─── 3. India Evening Institutional F&O Derivatives Sync (Mon–Fri at 19:00 IST) ──
+	// NSE publishes participant-wise open interest (FII, DII, Pro, Client) at ~18:30 IST
+	cron.schedule("0 19 * * 1-5", async () => {
+		logger.info("[MarketBriefEodCron] ⏰ Triggered Evening F&O Derivatives reconciliation (19:00 IST)");
+		try {
+			const { fiiFlowService } = await import("../services/macro/fii-flow-service");
+			await fiiFlowService.syncAndPersistDailyFlow();
+			await runMarketBriefEodJob("india");
+		} catch (foErr: any) {
+			logger.warn(`[MarketBriefEodCron] Evening F&O sync warning: ${foErr?.message}`);
+		}
+	}, {
+		timezone: "Asia/Kolkata",
+	});
+
+	// ─── 4. Global EOD Brief (Mon–Fri at 18:30 IST / 13:00 UTC) ───────────────
 	// European market close & Asian consolidation
 	cron.schedule("30 18 * * 1-5", async () => {
 		logger.info("[MarketBriefEodCron] ⏰ Triggered Global EOD Market Brief scheduler (18:30 IST)");
@@ -124,7 +170,7 @@ export function initializeMarketBriefEodCron(): void {
 		timezone: "Asia/Kolkata",
 	});
 
-	// ─── 3. US EOD Brief (Tue–Sat at 04:30 AM IST / 23:00 UTC Mon–Fri) ─────────
+	// ─── 5. US EOD Brief (Tue–Sat at 04:30 AM IST / 23:00 UTC Mon–Fri) ─────────
 	// NYSE & NASDAQ close at 04:00 AM IST (16:00 EST)
 	cron.schedule("30 4 * * 2-6", async () => {
 		logger.info("[MarketBriefEodCron] ⏰ Triggered US EOD Market Brief scheduler (04:30 AM IST)");

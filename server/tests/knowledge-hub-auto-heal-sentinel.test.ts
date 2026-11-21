@@ -25,10 +25,10 @@ describe("Knowledge Hub Auto-Heal & Quality Sentinel", () => {
 		complianceNote:
 			"SEBI FASP-AI v1.0 Regulatory Notice: Strictly for Registered Investment Advisors (RIA) & Mutual Fund Distributors (MFD) decision support. Not deterministic investment advice or guaranteed return solicitation.",
 		topMovers: [
-			{ name: "ICICI Bank", symbol: "ICICIBANK", price: 1527.0, change: 1.8, direction: "up" },
-			{ name: "HDFC Bank", symbol: "HDFCBANK", price: 771.25, change: 1.48, direction: "up" },
+			{ name: "ICICI Bank", symbol: "ICICIBANK", price: 1287.0, change: 1.8, direction: "up" },
+			{ name: "HDFC Bank", symbol: "HDFCBANK", price: 1771.25, change: 1.48, direction: "up" },
 			{ name: "Bharti Airtel", symbol: "BHARTIARTL", price: 2084.0, change: 1.32, direction: "up" },
-			{ name: "Tata Motors", symbol: "TATAMOTORS", price: 287.0, change: -2.28, direction: "down" },
+			{ name: "Tata Motors", symbol: "TATAMOTORS", price: 810.0, change: -1.28, direction: "down" },
 		],
 		multiExchangeData: {
 			institutionalFlows: {
@@ -40,9 +40,10 @@ describe("Knowledge Hub Auto-Heal & Quality Sentinel", () => {
 			},
 		},
 		commodityRadar: {
-			goldPrice: 141255,
+			goldPrice: 78250,
 			commodities: [
-				{ id: "GOLD", name: "Gold 24K (MCX Standard)", mcxPrice: 141255 },
+				{ id: "GOLD", name: "Gold 24K (MCX Standard)", mcxPrice: 78250 },
+				{ id: "SILVER", name: "Silver", mcxPrice: 91500 },
 				{ id: "CRUDE_OIL", name: "Crude Oil", mcxPrice: 6325 },
 			],
 			crudeOilBreakevenStatus: {
@@ -53,9 +54,13 @@ describe("Knowledge Hub Auto-Heal & Quality Sentinel", () => {
 			fbilMiborOvernight: 6.5,
 			sovereignYields: [{ tenor: "10Y", yieldPercent: 6.79 }],
 			treps: { weightedAverageRate: 6.42 },
+			yieldCurveAnalysis: { realYield10Y: 0.58 },
+		},
+		macroIndicators: {
+			indiaCpiInflation: { value: 6.21 },
 		},
 		globalMacroDesk: {
-			usdInr: 94.86,
+			usdInr: 84.45,
 			dxyIndex: 104.25,
 		},
 	};
@@ -302,9 +307,40 @@ describe("Knowledge Hub Auto-Heal & Quality Sentinel", () => {
 			bund10YYield: 2.35,
 			gilt10YYield: 4.25,
 			jgb10YYield: 1.15,
-			usdInr: 94.86,
+			usdInr: 84.45,
 		},
 	};
+
+	it("detects unanchored gold price anomaly (e.g. legacy ₹141,255/10g) as critical violation", () => {
+		const corruptedBrief = {
+			...validPristineBrief,
+			commodityRadar: {
+				...validPristineBrief.commodityRadar,
+				goldPrice: 141255, // legacy corrupt mock!
+				commodities: [{ id: "GOLD", mcxPrice: 141255 }],
+			},
+		};
+
+		const report = knowledgeHubAutoHealSentinel.auditBrief(corruptedBrief, "india");
+		const goldAnomaly = report.violations.find((v) => v.code === "GOLD_PRICE_ANOMALY");
+		expect(goldAnomaly).toBeDefined();
+		expect(goldAnomaly?.severity).toBe("critical");
+	});
+
+	it("detects out-of-corridor USD/INR rate (e.g. legacy ₹94.86) as critical violation", () => {
+		const corruptedBrief = {
+			...validPristineBrief,
+			globalMacroDesk: {
+				...validPristineBrief.globalMacroDesk,
+				usdInr: 94.86, // legacy corrupt mock!
+			},
+		};
+
+		const report = knowledgeHubAutoHealSentinel.auditBrief(corruptedBrief, "india");
+		const fxViolation = report.violations.find((v) => v.code === "UNREALISTIC_USD_INR");
+		expect(fxViolation).toBeDefined();
+		expect(fxViolation?.severity).toBe("critical");
+	});
 
 	it("audits a pristine Global brief with zero critical violations", () => {
 		const report = knowledgeHubAutoHealSentinel.auditBrief(validGlobalBrief, "global");

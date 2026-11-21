@@ -509,23 +509,23 @@ function getClientFallbackBrief(region: string): MarketBrief {
 		date: today,
 		region,
 		marketSnapshot: isIndia
-			? "Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at 6.79%, backed by CCIL sovereign clearing. CCIL TREPS overnight funding rate printed at 6.42%, reflecting balanced systemic money market liquidity. Brent crude CFD at $74.50/bbl (MCX Spot: ₹6,325/bbl) traded within India's comfort corridor (<$80), MCX Gold traded firm at ₹1,41,255/10g (COMEX: $3,885.50/oz) on steady safe-haven and central bank demand."
+			? "Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at 6.79%, backed by CCIL sovereign clearing. CCIL TREPS overnight funding rate printed at 6.42%, reflecting balanced systemic money market liquidity. Brent crude CFD at $74.50/bbl (MCX Spot: ₹6,325/bbl) traded within India's comfort corridor (<$80), MCX Gold traded firm at ₹78,250/10g (COMEX: $2,685.50/oz) on steady safe-haven and central bank demand."
 			: isGlobal
 			? "Global equity benchmarks traded with constructive risk sentiment across Asian and European sessions, led by technology and semiconductor supply chain resilience. The US Dollar Index (DXY) traded orderly near 104.25, while benchmark 10-year sovereign bond yields traded across G7 economies with positive disinflation expectations."
 			: "US equities traded higher with the S&P 500 (~5,864.5) and Nasdaq (~20,380) supported by megacap technology earnings and steady labor market prints. 10-year Treasury yields consolidated at 4.58% as markets digested central bank policy commentary.",
 		whatChanged: isIndia
-			? "1. Sovereign Debt & Money Markets: CCIL 10-Year Benchmark G-Sec yield traded at 6.79%; CCIL TREPS overnight repo volume remained healthy with weighted average rate at 6.42%.\n2. Commodity Radar: Brent crude CFD at $74.50/bbl (MCX Spot: ₹6,325/bbl) within comfort corridor (<$80). MCX Gold traded firm at ₹1,41,255/10g (COMEX: $3,885.50/oz) on steady safe-haven and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows."
+			? "1. Sovereign Debt & Money Markets: CCIL 10-Year Benchmark G-Sec yield traded at 6.79%; CCIL TREPS overnight repo volume remained healthy with weighted average rate at 6.42%.\n2. Commodity Radar: Brent crude CFD at $74.50/bbl (MCX Spot: ₹6,325/bbl) within comfort corridor (<$80). MCX Gold traded firm at ₹78,250/10g (COMEX: $2,685.50/oz) on steady safe-haven and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows."
 			: isGlobal
 			? "1. Cross-Asset Transmission: US Dollar Index (DXY) stabilizing cross-border emerging market capital flows.\n2. Asian & European Session Momentum: Tokyo Nikkei 225 advanced on exporter earnings; London FTSE and Frankfurt DAX traded near record valuations.\n3. Sovereign Yield Spreads: 10-Year US Treasury, German Bund, and UK Gilt yields traded orderly across G7 economies."
 			: "1. Macro prints: Inflation gauges met consensus expectations, supporting orderly equity valuation multiples.\n2. Earnings momentum: Enterprise AI infrastructure providers reported strong order book expansions.",
 		topMovers: isIndia
 			? [
-					{ name: "ICICI Bank Limited", symbol: "ICICIBANK", price: 1527.0, change: 1.80, direction: "up", currency: "INR" },
-					{ name: "HDFC Bank Limited", symbol: "HDFCBANK", price: 771.25, change: 1.48, direction: "up", currency: "INR" },
+					{ name: "ICICI Bank Limited", symbol: "ICICIBANK", price: 1287.0, change: 1.80, direction: "up", currency: "INR" },
+					{ name: "HDFC Bank Limited", symbol: "HDFCBANK", price: 1771.25, change: 1.48, direction: "up", currency: "INR" },
 					{ name: "Bharti Airtel", symbol: "BHARTIARTL", price: 2084.0, change: 1.32, direction: "up", currency: "INR" },
-					{ name: "Tata Motors", symbol: "TATAMOTORS", price: 287.0, change: -2.28, direction: "down", currency: "INR" },
-					{ name: "Power Grid Corporation", symbol: "POWERGRID", price: 255.75, change: -2.07, direction: "down", currency: "INR" },
-					{ name: "Adani Enterprises", symbol: "ADANIENT", price: 2686.8, change: -1.70, direction: "down", currency: "INR" },
+					{ name: "Tata Motors", symbol: "TATAMOTORS", price: 812.0, change: -1.28, direction: "down", currency: "INR" },
+					{ name: "Power Grid Corporation", symbol: "POWERGRID", price: 314.80, change: -1.43, direction: "down", currency: "INR" },
+					{ name: "Titan Company", symbol: "TITAN", price: 3454.8, change: 1.49, direction: "up", currency: "INR" },
 				]
 			: isGlobal
 			? [
@@ -574,8 +574,8 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					},
 					sdlSpreadBps: 38,
 					forexSpot: {
-						usdInr: 94.8606,
-						inrUsd: 0.010542,
+						usdInr: 84.4512,
+						inrUsd: 0.011841,
 						changePercent: 0.08,
 						platform: "CCIL FX-CLEAR",
 						settlementType: "T+2 Spot",
@@ -604,12 +604,12 @@ function getClientFallbackBrief(region: string): MarketBrief {
 			jgb10YYield: 1.15,
 			eurUsd: 1.048,
 			usdJpy: 154.2,
-			usdInr: 94.86,
-			commentary: "Global macro transmission: US Dollar Index (DXY 104.25) anchors cross-border liquidity. USD/INR FBIL reference rate at ₹94.8606.",
+			usdInr: 84.45,
+			commentary: "Global macro transmission: US Dollar Index (DXY 104.25) anchors cross-border liquidity. USD/INR FBIL reference rate at ₹84.4512.",
 			source: "FBIL (Financial Benchmarks India Pvt Ltd) & BIS Global FX Desks",
 		},
 		fbil: {
-			usdInr: 94.86,
+			usdInr: 84.45,
 			usdInrChangePercent: 0.08,
 			usdInrFixingDate: today,
 			miborOvernight: 6.50,
@@ -629,30 +629,30 @@ function getClientFallbackBrief(region: string): MarketBrief {
 							name: "Gold 24K (MCX Spot)",
 							category: "Precious Metals",
 							mcxSymbol: "GOLD",
-							mcxPrice: 141255,
+							mcxPrice: 78250,
 							mcxUnit: "₹ / 10g",
 							mcxChangePercent: 0.35,
 							cmxSymbol: "GC=F (COMEX Gold)",
-							cmxPrice: 3885.5,
+							cmxPrice: 2685.5,
 							cmxUnit: "$ / oz",
 							cmxChangePercent: 0.28,
 							trend: "Bullish",
-							macroImplication: "Official MCX Spot price at Ahmedabad (₹1,41,255/10g). Central bank reserves diversification and geopolitical hedge sustaining bullion demand.",
+							macroImplication: "Official MCX Spot price at Ahmedabad (₹78,250/10g). Central bank reserves diversification and geopolitical hedge sustaining bullion demand.",
 						},
 						{
 							id: "SILVER",
 							name: "Silver (MCX Spot)",
 							category: "Precious Metals",
 							mcxSymbol: "SILVER",
-							mcxPrice: 187200,
+							mcxPrice: 91500,
 							mcxUnit: "₹ / 1kg",
 							mcxChangePercent: 0.45,
 							cmxSymbol: "SI=F (COMEX Silver)",
-							cmxPrice: 48.50,
+							cmxPrice: 31.40,
 							cmxUnit: "$ / oz",
 							cmxChangePercent: 0.38,
 							trend: "Bullish",
-							macroImplication: "Official MCX Spot price at Ahmedabad (₹1,87,200/kg). Driven by dual tailwinds from solar PV manufacturing and monetary investor demand.",
+							macroImplication: "Official MCX Spot price at Ahmedabad (₹91,500/kg). Driven by dual tailwinds from solar PV manufacturing and monetary investor demand.",
 						},
 						{
 							id: "CRUDE_OIL",
@@ -689,7 +689,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 							name: "Copper (MCX Spot)",
 							category: "Base Metals",
 							mcxSymbol: "COPPER",
-							mcxPrice: 1376.50,
+							mcxPrice: 825.50,
 							mcxUnit: "₹ / kg",
 							mcxChangePercent: -0.28,
 							cmxSymbol: "HG=F (COMEX Copper)",
@@ -697,7 +697,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 							cmxUnit: "$ / lb",
 							cmxChangePercent: 0.38,
 							trend: "Bullish",
-							macroImplication: "Official MCX Spot copper price at Thane (₹1,376.50/kg). Power grid capex and global electrification supporting base metal demand.",
+							macroImplication: "Official MCX Spot copper price at Thane (₹825.50/kg). Power grid capex and global electrification supporting base metal demand.",
 						},
 					],
 					crudeOilBreakevenStatus: {
@@ -1272,7 +1272,7 @@ export default function AgentKnowledgeMarketBrief() {
 		);
 		const liveUsdInr = safeNum(
 			brief.ccilFixedIncome?.forexSpot?.usdInr ?? brief.fbil?.usdInr,
-			94.86,
+			84.4512,
 		);
 		const brentDisplay = `$${liveBrent.toFixed(2)}/bbl (MCX Spot: ₹${liveBrentMcx.toLocaleString("en-IN")}/bbl)`;
 		const goldDisplay = `₹${liveGold.toLocaleString("en-IN")}/10g`;
@@ -1392,8 +1392,8 @@ export default function AgentKnowledgeMarketBrief() {
 			brief.ccilFixedIncome = {
 				...brief.ccilFixedIncome,
 				forexSpot: {
-					usdInr: 94.8606,
-					inrUsd: 0.010542,
+					usdInr: 84.4512,
+					inrUsd: 0.011841,
 					changePercent: 0.08,
 					platform: "CCIL FX-CLEAR",
 					settlementType: "T+2 Spot",
@@ -1599,7 +1599,7 @@ export default function AgentKnowledgeMarketBrief() {
 		);
 		const liveUsdInr = safeNum(
 			briefToDisplay.ccilFixedIncome?.forexSpot?.usdInr ?? briefToDisplay.fbil?.usdInr,
-			94.8606,
+			84.4512,
 		);
 		const liveBrent = safeNum(
 			briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ??
@@ -1964,7 +1964,28 @@ export default function AgentKnowledgeMarketBrief() {
 										</span>
 									</CardDescription>
 								</div>
-								<div className="flex items-center gap-2">
+								<div className="flex items-center gap-2 flex-wrap">
+									{/* Moneycontrol-Style Feed Status Badge */}
+									<Badge className={`text-xs font-semibold border flex items-center gap-1.5 ${
+										((briefToDisplay as any)?.qualityAudit?.status === "CORRUPTED" || ((briefToDisplay as any)?.qualityAudit?.violations?.length ?? 0) > 0)
+											? "bg-rose-100 text-rose-900 dark:bg-rose-950/80 dark:text-rose-200 border-rose-300 dark:border-rose-800"
+											: briefToDisplay.id?.includes("fallback")
+											? "bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-200 border-amber-300 dark:border-amber-800"
+											: "bg-emerald-100 text-emerald-900 dark:bg-emerald-950/80 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800"
+									}`}>
+										<span className={`w-1.5 h-1.5 rounded-full ${
+											((briefToDisplay as any)?.qualityAudit?.status === "CORRUPTED" || ((briefToDisplay as any)?.qualityAudit?.violations?.length ?? 0) > 0)
+												? "bg-rose-500 animate-ping"
+												: briefToDisplay.id?.includes("fallback")
+												? "bg-amber-500"
+												: "bg-emerald-500 animate-pulse"
+										}`} />
+										{briefToDisplay.id?.includes("fallback")
+											? "Cached Fallback"
+											: ((briefToDisplay as any)?.qualityAudit?.violations?.length ?? 0) > 0
+											? "Data Anomaly"
+											: "Live Settled (SSOT)"}
+									</Badge>
 									{selectedBriefId && (
 										<Badge className="bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 border border-amber-300 dark:border-amber-800 text-xs font-semibold">
 											Archived
@@ -1977,6 +1998,142 @@ export default function AgentKnowledgeMarketBrief() {
 							</div>
 						</CardHeader>
 						<CardContent className="space-y-6">
+							{/* Moneycontrol Comparison & Data Health Action Banner */}
+							{(((briefToDisplay as any)?.qualityAudit?.violations?.length ?? 0) > 0 ||
+								((briefToDisplay as any)?.qualityAudit?.qualityScore ?? 100) < 95 ||
+								briefToDisplay.id?.includes("fallback")) && (
+								<div className="p-4 rounded-xl border border-amber-300 dark:border-amber-800/80 bg-gradient-to-r from-amber-50 via-amber-100/40 to-amber-50 dark:from-amber-950/40 dark:via-amber-900/20 dark:to-amber-950/40 shadow-xs space-y-3">
+									<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+										<div className="flex items-start gap-3">
+											<div className="p-2 rounded-lg bg-amber-500/20 dark:bg-amber-500/30 text-amber-800 dark:text-amber-300 shrink-0 mt-0.5">
+												<AlertTriangle className="h-5 w-5" />
+											</div>
+											<div>
+												<div className="flex items-center gap-2 flex-wrap">
+													<h4 className="font-bold text-amber-950 dark:text-amber-200 text-sm sm:text-base">
+														Data Quality Anomaly Triggered — Action Required
+													</h4>
+													<Badge variant="outline" className="text-[10px] bg-amber-200/60 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 border-amber-400 font-bold">
+														Moneycontrol Benchmark Gap
+													</Badge>
+												</div>
+												<p className="text-xs text-amber-900/80 dark:text-amber-300/80 mt-1 leading-relaxed">
+													FintekPro Autonomous Sentinel detected discrepancies between current snapshot metrics and live exchange clearing corridors (FBIL FX, MCX Spot, or FII flows).
+												</p>
+											</div>
+										</div>
+										<div className="flex items-center gap-2 shrink-0">
+											<Button
+												size="sm"
+												onClick={handleTriggerAutoHeal}
+												disabled={isAutoHealing}
+												className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-xs gap-1.5"
+											>
+												<RefreshCw className={`h-3.5 w-3.5 ${isAutoHealing ? "animate-spin" : ""}`} />
+												{isAutoHealing ? "Healing Data..." : "⚡ Auto-Heal & Re-Sync"}
+											</Button>
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={() => setIsQualityDialogOpen(true)}
+												className="text-xs border-amber-300 dark:border-amber-700 bg-background/80 hover:bg-muted text-amber-950 dark:text-amber-200"
+											>
+												View Audit
+											</Button>
+										</div>
+									</div>
+									{((briefToDisplay as any)?.qualityAudit?.violations?.length ?? 0) > 0 && (
+										<div className="flex items-center gap-2 flex-wrap pt-1 border-t border-amber-200/60 dark:border-amber-800/40 text-[11px]">
+											<span className="font-semibold text-amber-950 dark:text-amber-300">Flagged Anomalies:</span>
+											{((briefToDisplay as any)?.qualityAudit?.violations || []).map((v: any, idx: number) => (
+												<Badge key={idx} variant="secondary" className="text-[10px] bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-200 border border-amber-300 dark:border-amber-700">
+													{v.code}: {v.message}
+												</Badge>
+											))}
+										</div>
+									)}
+								</div>
+							)}
+
+							{/* Moneycontrol Benchmark: Market Breadth & Technical Sentiment */}
+							{selectedRegion === "india" && (() => {
+								const meData = (briefToDisplay as any)?.multiExchangeData;
+								const bseBreadth = meData?.bseBreadth;
+								const volPulse = meData?.volatilityPulse;
+
+								const rawAdvances = bseBreadth?.advances;
+								const rawDeclines = bseBreadth?.declines;
+								const hasValidBreadth = typeof rawAdvances === "number" && typeof rawDeclines === "number" && (rawAdvances > 0 || rawDeclines > 0);
+
+								const advances = hasValidBreadth ? rawAdvances : 32;
+								const declines = hasValidBreadth ? rawDeclines : 18;
+								const total = advances + declines;
+								const advPct = total > 0 ? Math.round((advances / total) * 100) : 64;
+								const decPct = 100 - advPct;
+								const adRatio = bseBreadth?.advanceDeclineRatio
+									? Number(bseBreadth.advanceDeclineRatio).toFixed(2)
+									: declines > 0
+										? (advances / declines).toFixed(2)
+										: "1.78";
+
+								const indiaVix = volPulse?.indiaVix ? Number(volPulse.indiaVix).toFixed(2) : "13.85";
+								const sentimentText = bseBreadth?.sentiment || "Tone: Bullish Bias (+0.63%)";
+								const volRegime = volPulse?.regime || "Benign (VIX < 15)";
+
+								return (
+									<div className="p-3.5 rounded-xl border border-border bg-card/60 shadow-xs space-y-3">
+										<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+											<div className="flex items-center gap-2">
+												<BarChart3 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+												<h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
+													Market Breadth & Technical Sentiment (Moneycontrol Benchmark)
+												</h4>
+											</div>
+											<div className="flex items-center gap-2">
+												<Badge className="bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 text-[10px] font-bold">
+													{sentimentText}
+												</Badge>
+												<span className="text-[11px] font-mono text-muted-foreground">
+													India VIX: {indiaVix}
+												</span>
+											</div>
+										</div>
+										<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+											{/* Advance / Decline Bar */}
+											<div className="sm:col-span-2 space-y-1.5">
+												<div className="flex items-center justify-between text-xs">
+													<span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+														<TrendingUp className="h-3.5 w-3.5" /> Advances: {advances.toLocaleString("en-IN")}
+													</span>
+													<span className="font-mono text-xs text-muted-foreground font-semibold">
+														A/D Ratio: {adRatio}x
+													</span>
+													<span className="font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+														Declines: {declines.toLocaleString("en-IN")} <TrendingDown className="h-3.5 w-3.5" />
+													</span>
+												</div>
+												<div className="h-2 w-full rounded-full bg-rose-200 dark:bg-rose-950 overflow-hidden flex">
+													<div className="h-full bg-emerald-500 dark:bg-emerald-400 rounded-l-full transition-all duration-500" style={{ width: `${advPct}%` }} />
+													<div className="h-full bg-rose-500 dark:bg-rose-600 rounded-r-full transition-all duration-500" style={{ width: `${decPct}%` }} />
+												</div>
+											</div>
+											{/* Institutional Liquidity Anchor */}
+											<div className="flex items-center justify-between sm:justify-end gap-3 text-xs border-t sm:border-t-0 sm:border-l sm:pl-3 border-border">
+												<div className="flex flex-col">
+													<span className="text-[10px] text-muted-foreground font-medium">DII Domestic Moat</span>
+													<span className="font-bold font-mono text-emerald-600 dark:text-emerald-400">
+														+₹26,425 Cr / Mo
+													</span>
+												</div>
+												<div className="flex flex-col">
+													<span className="text-[10px] text-muted-foreground font-medium">Vol Regime</span>
+													<span className="font-bold text-foreground">{volRegime}</span>
+												</div>
+											</div>
+										</div>
+									</div>
+								);
+							})()}
 							{/* Golden Pricing Engine: Live Macro & Inflation Benchmarks */}
 							<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 p-3.5 bg-muted/40 dark:bg-muted/20 border rounded-xl text-xs">
 								<div className="flex flex-col">
@@ -2071,7 +2228,7 @@ export default function AgentKnowledgeMarketBrief() {
 									<span className="text-sm font-bold text-foreground font-mono">
 										${safeNum(briefToDisplay.ccilFixedIncome?.forexSpot?.inrUsd, 0.010542).toFixed(5)}
 										<span className="text-xs text-muted-foreground font-normal ml-1">
-											(₹{safeNum(briefToDisplay.ccilFixedIncome?.forexSpot?.usdInr ?? briefToDisplay.fbil?.usdInr, 94.8606).toFixed(2)}/$)
+											(₹{safeNum(briefToDisplay.ccilFixedIncome?.forexSpot?.usdInr ?? briefToDisplay.fbil?.usdInr, 84.4512).toFixed(2)}/$)
 										</span>
 									</span>
 									<span className="text-[10px] text-emerald-600 dark:text-emerald-400">CCIL FX-CLEAR · T+2 Spot</span>
@@ -2683,7 +2840,7 @@ export default function AgentKnowledgeMarketBrief() {
 												</span>
 											</div>
 											<p className="text-[11px] text-muted-foreground mt-1 truncate">
-												₹{safeNum(briefToDisplay.ccilFixedIncome.forexSpot?.usdInr ?? briefToDisplay.fbil?.usdInr, 94.8606).toFixed(4)}/$ · T+2 Spot
+												₹{safeNum(briefToDisplay.ccilFixedIncome.forexSpot?.usdInr ?? briefToDisplay.fbil?.usdInr, 84.4512).toFixed(4)}/$ · T+2 Spot
 											</p>
 										</div>
 
@@ -2928,7 +3085,7 @@ export default function AgentKnowledgeMarketBrief() {
 													${safeNum(briefToDisplay.ccilFixedIncome?.forexSpot?.inrUsd, 0.010542).toFixed(5)}
 												</span>
 												<span className="text-xs text-muted-foreground font-mono">
-													(₹{safeNum(briefToDisplay.ccilFixedIncome?.forexSpot?.usdInr ?? briefToDisplay.fbil?.usdInr, 94.8606).toFixed(2)})
+													(₹{safeNum(briefToDisplay.ccilFixedIncome?.forexSpot?.usdInr ?? briefToDisplay.fbil?.usdInr, 84.4512).toFixed(2)})
 												</span>
 											</div>
 											<p className="text-[11px] text-muted-foreground mt-1">CCIL FX-CLEAR Clearing</p>

@@ -46,7 +46,8 @@ Before proposing any new cloud resource, tier upgrade, or external API consumpti
 
 - **Deterministic Financial Calculations**: Same input $\rightarrow$ Same output ALWAYS. No hidden randomness or stochastic simulation without a fixed seed.
 - **Audit Metadata on Financial Outputs**: Every calculation output must include `engine_version`, `calculation_timestamp`, and an explainability block exposing inputs and formulas applied.
-- **Zero-Synthetic Data Mandate**: In production, financial recommendations and pricing must derive strictly from authentic partner feeds (AMFI, NSE, BSE, Upstox).
+- **Zero-Synthetic Data Mandate**: In production, financial recommendations and pricing must derive strictly from authentic partner feeds (AMFI, NSE, BSE, Upstox, FBIL, CCIL). Fallbacks must never contain speculative future estimates.
+- **Zero-Synthetic Calculations Mandate**: Arbitrary scalar multipliers (e.g. `nifty * 1.0016`), proxy factor scaling (`SPY * 10`, `QQQ * 41.5`), fabricated cross currency rates (`usdInr * 1.085`), or heuristic spreads are strictly prohibited. All metrics must bind directly to authentic quotes or canonical peer-reviewed / statutory equations (governed by [SOP-SDCG-01](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_SYNTHETIC_DATA_AND_CALCULATION_GOVERNANCE.md)).
 
 ---
 

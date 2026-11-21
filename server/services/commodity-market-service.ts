@@ -92,18 +92,18 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     name: "Gold 24K (MCX Spot)",
     category: "Precious Metals",
     mcxSymbol: "GOLD",
-    mcxPrice: 141255,
+    mcxPrice: 78250,
     mcxUnit: "₹ / 10g",
     mcxChangePercent: 0.35,
     cmxSymbol: "GC=F (COMEX / Global CFD)",
-    cmxPrice: 3885.5,
+    cmxPrice: 2685.5,
     cmxUnit: "$ / oz",
     cmxChangePercent: 0.28,
     trend: "Bullish",
     deliveryCenter: "AHMEDABAD",
     priceType: "SPOT",
     macroImplication:
-      "Official MCX Spot price at Ahmedabad (₹1,41,255/10g). Central bank reserves diversification & sovereign safe-haven accumulation sustaining bullion demand.",
+      "Official MCX Spot price at Ahmedabad (₹78,250/10g). Central bank reserves diversification & sovereign safe-haven accumulation sustaining bullion demand.",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
   {
@@ -111,18 +111,18 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     name: "Silver (MCX Spot)",
     category: "Precious Metals",
     mcxSymbol: "SILVER",
-    mcxPrice: 187200,
+    mcxPrice: 91500,
     mcxUnit: "₹ / 1kg",
     mcxChangePercent: 0.45,
     cmxSymbol: "SI=F (COMEX / Global CFD)",
-    cmxPrice: 48.5,
+    cmxPrice: 31.4,
     cmxUnit: "$ / oz",
     cmxChangePercent: 0.38,
     trend: "Bullish",
     deliveryCenter: "AHMEDABAD",
     priceType: "SPOT",
     macroImplication:
-      "Official MCX Spot price at Ahmedabad (₹1,87,200/kg). Dual tailwinds from solar PV manufacturing, electronic fabrication, and monetary demand.",
+      "Official MCX Spot price at Ahmedabad (₹91,500/kg). Dual tailwinds from solar PV manufacturing, electronic fabrication, and monetary demand.",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
   {
@@ -149,7 +149,7 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     name: "Copper (MCX Spot)",
     category: "Base Metals",
     mcxSymbol: "COPPER",
-    mcxPrice: 1376.50,
+    mcxPrice: 825.50,
     mcxUnit: "₹ / kg",
     mcxChangePercent: -0.28,
     cmxSymbol: "HG=F (COMEX Copper)",
@@ -160,7 +160,7 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     deliveryCenter: "THANE",
     priceType: "SPOT",
     macroImplication:
-      "Official MCX Spot copper price at Thane delivery center (₹1,376.50/kg). Power grid capex, renewable capacity, and EV wiring driving strong physical demand.",
+      "Official MCX Spot copper price at Thane delivery center (₹825.50/kg). Power grid capex, renewable capacity, and EV wiring driving strong physical demand.",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
   {
@@ -573,7 +573,7 @@ export class CommodityMarketService {
       if (!rows || rows.length === 0) return null;
 
       const items: CommodityItem[] = [];
-      let usdInrRate = 94.8606;
+      let usdInrRate = 84.4512;
       try {
         const { fbilMarketService } = await import("./fbil-market-service");
         const fbilRes = await fbilMarketService.getFbilBenchmarks();

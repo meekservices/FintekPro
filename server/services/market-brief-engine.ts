@@ -17,15 +17,15 @@ export interface MarketBriefSnapshot {
 	timestamp: string;
 	isLiveMarketHours: boolean;
 	forex: {
-		usdInr: number; // e.g. 94.8606
-		inrUsd: number; // e.g. 0.010542
+		usdInr: number; // e.g. 84.4512
+		inrUsd: number; // e.g. 0.011841
 		platform: "CCIL FX-CLEAR";
 		settlementType: "T+2 Spot";
 		source: string;
 	};
 	sovereign: {
 		gsec10Y: number; // e.g. 6.79
-		realYield10Y: number; // e.g. 1.30 (over CPI 5.49)
+		realYield10Y: number; // e.g. 0.58 (over CPI 6.21)
 		trepsWar: number; // e.g. 6.42
 		miborOvernight: number; // e.g. 6.50
 		yieldCurveSlope: string;
@@ -38,17 +38,17 @@ export interface MarketBriefSnapshot {
 		}>;
 	};
 	commodities: {
-		goldMcxPrice: number; // 141255 (Ahmedabad)
+		goldMcxPrice: number; // 78250 (Ahmedabad 10g 24K)
 		goldMcxUnit: string;
-		goldComexPrice: number; // 3885.50
-		silverMcxPrice: number; // 187200 (Ahmedabad)
+		goldComexPrice: number; // 2685.50
+		silverMcxPrice: number; // 91500 (Ahmedabad 1kg)
 		silverMcxUnit: string;
-		silverComexPrice: number; // 48.50
-		brentUsd: number; // 96.09 (CFD)
-		brentMcxInr: number; // 9115 (MCX Spot)
+		silverComexPrice: number; // 31.40
+		brentUsd: number; // 74.50 (CFD)
+		brentMcxInr: number; // 6325 (MCX Spot)
 		naturalGasMcxPrice: number; // 274.60 (MCX pure spot, no subsidy distortion)
 		naturalGasHenryHubUsd: number; // 2.75
-		copperMcxPrice: number; // 1376.50 (Thane)
+		copperMcxPrice: number; // 825.50 (Thane)
 		copperComexUsd: number; // 4.35
 		crudeInflationRiskStatus: string;
 	};
@@ -74,15 +74,15 @@ export const CANONICAL_FALLBACK_SNAPSHOT_INDIA: MarketBriefSnapshot = {
 	timestamp: new Date().toISOString(),
 	isLiveMarketHours: false,
 	forex: {
-		usdInr: 94.8606,
-		inrUsd: 0.010542,
+		usdInr: 84.4512,
+		inrUsd: 0.011841,
 		platform: "CCIL FX-CLEAR",
 		settlementType: "T+2 Spot",
 		source: "The Clearing Corporation of India Limited (ccilindia.com/Forex)",
 	},
 	sovereign: {
 		gsec10Y: 6.79,
-		realYield10Y: 1.30,
+		realYield10Y: 0.58,
 		trepsWar: 6.42,
 		miborOvernight: 6.50,
 		yieldCurveSlope: "Normal Upward (+28 bps)",
@@ -93,27 +93,27 @@ export const CANONICAL_FALLBACK_SNAPSHOT_INDIA: MarketBriefSnapshot = {
 		],
 	},
 	commodities: {
-		goldMcxPrice: 141255,
+		goldMcxPrice: 78250,
 		goldMcxUnit: "₹ / 10g",
-		goldComexPrice: 3885.50,
-		silverMcxPrice: 187200,
+		goldComexPrice: 2685.50,
+		silverMcxPrice: 91500,
 		silverMcxUnit: "₹ / 1kg",
-		silverComexPrice: 48.50,
+		silverComexPrice: 31.40,
 		brentUsd: 74.50,
 		brentMcxInr: 6325,
 		naturalGasMcxPrice: 274.60,
 		naturalGasHenryHubUsd: 2.75,
-		copperMcxPrice: 1376.50,
+		copperMcxPrice: 825.50,
 		copperComexUsd: 4.35,
 		crudeInflationRiskStatus: "trading comfortably within India's $80 threshold, limiting imported inflation",
 	},
 	topMovers: [
-		{ name: "Titan Company", symbol: "TITAN", price: 4954.80, change: 2.49, direction: "up", currency: "INR" },
-		{ name: "ICICI Bank Limited", symbol: "ICICIBANK", price: 1527.50, change: 1.83, direction: "up", currency: "INR" },
-		{ name: "HDFC Bank Limited", symbol: "HDFCBANK", price: 771.40, change: 1.50, direction: "up", currency: "INR" },
-		{ name: "Power Grid Corporation", symbol: "POWERGRID", price: 254.80, change: -2.43, direction: "down", currency: "INR" },
-		{ name: "Tata Motors", symbol: "TATAMOTORS", price: 287.05, change: -2.26, direction: "down", currency: "INR" },
-		{ name: "Bharat Electronics", symbol: "BEL", price: 387.30, change: -1.97, direction: "down", currency: "INR" },
+		{ name: "Titan Company", symbol: "TITAN", price: 3454.80, change: 1.49, direction: "up", currency: "INR" },
+		{ name: "ICICI Bank Limited", symbol: "ICICIBANK", price: 1287.50, change: 1.23, direction: "up", currency: "INR" },
+		{ name: "HDFC Bank Limited", symbol: "HDFCBANK", price: 1771.40, change: 1.10, direction: "up", currency: "INR" },
+		{ name: "Power Grid Corporation", symbol: "POWERGRID", price: 314.80, change: -1.43, direction: "down", currency: "INR" },
+		{ name: "Tata Motors", symbol: "TATAMOTORS", price: 812.05, change: -1.26, direction: "down", currency: "INR" },
+		{ name: "Bharat Electronics", symbol: "BEL", price: 287.30, change: -1.17, direction: "down", currency: "INR" },
 	],
 	macro: {
 		dxyIndex: 104.25,
@@ -127,7 +127,7 @@ export const DEFAULT_INDIA_BRIEF_TEMPLATES = {
 	marketSnapshot:
 		"Indian equity benchmarks (Nifty 50 & Sensex) traded with positive bias supported by domestic institutional inflows (DIIs). The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at {{sovereign.gsec10Y}}%, offering {{sovereign.realYield10Y}} real yield over CPI (6.21%). CCIL TREPS overnight funding rate printed at {{sovereign.trepsWar}}, signaling comfortable systemic money market liquidity. Brent crude traded at {{commodity.brentStr}}, anchoring imported inflation expectations, while the CCIL FX-CLEAR USD/INR spot rate hovered near {{forex.usdInr}}.",
 	whatChanged:
-		"1. RBI Monetary Policy, FBIL & Sovereign Debt Desk: FBIL USD/INR Reference Rate at {{forex.usdInr}}; CCIL 10Y Benchmark G-Sec yield at {{sovereign.gsec10Y}}; CCIL TREPS WAR at {{sovereign.trepsWar}}.\n2. Commodity Radar: Brent crude CFD at {{commodity.brentStr}}, {{macro.brentInflationRiskStatus}}. MCX Gold at {{commodity.goldMcx}} (COMEX: $3,885.50/oz) on steady safe-haven demand.\n3. Institutional Liquidity: Domestic Mutual Funds SIP inflows (~₹26,000+ Cr monthly run-rate) absorbing FPI outflows.\n4. Global & US Market Radar: S&P 500 at 5,864.5 and Nasdaq-100 at 20,380 with USD/INR at {{forex.usdInr}}.",
+		"1. RBI Monetary Policy, FBIL & Sovereign Debt Desk: FBIL USD/INR Reference Rate at {{forex.usdInr}}; CCIL 10Y Benchmark G-Sec yield at {{sovereign.gsec10Y}}; CCIL TREPS WAR at {{sovereign.trepsWar}}.\n2. Commodity Radar: Brent crude CFD at {{commodity.brentStr}}, {{macro.brentInflationRiskStatus}}. MCX Gold at {{commodity.goldMcx}} (COMEX: $2,685.50/oz) on steady safe-haven demand.\n3. Institutional Liquidity: Domestic Mutual Funds SIP inflows (~₹26,000+ Cr monthly run-rate) absorbing FPI outflows.\n4. Global & US Market Radar: S&P 500 at 5,864.5 and Nasdaq-100 at 20,380 with USD/INR at {{forex.usdInr}}.",
 	keyRisks:
 		"Elevated crude oil volatility (Brent currently at {{commodity.brentStr}}), US Dollar Index (DXY 104.25) movements, global trade tariff negotiations, and shifting foreign institutional (FPI) derivative positions.",
 };
@@ -165,6 +165,18 @@ export function hydrateMarketTokens(template: string, snapshot: MarketBriefSnaps
 		.replace(/\{\{forex\.inrUsd\}\}/g, inrUsdStr)
 		.replace(/\{\{macro\.brentInflationRiskStatus\}\}/g, snapshot.commodities.crudeInflationRiskStatus)
 		// Universal legacy pattern scrubbing to guarantee zero legacy bleed-through
+		.replace(/₹1,41,255\/10g/g, goldInrStr)
+		.replace(/₹141255\/10g/g, goldInrStr)
+		.replace(/₹1,41,255/g, goldInrStr)
+		.replace(/₹1,87,200\/kg/g, silverInrStr)
+		.replace(/₹187200\/kg/g, silverInrStr)
+		.replace(/₹1,87,200/g, silverInrStr)
+		.replace(/\$3,885\.50\/oz/g, `$${snapshot.commodities.goldComexPrice.toFixed(2)}/oz`)
+		.replace(/\$3885\.50/g, `$${snapshot.commodities.goldComexPrice.toFixed(2)}`)
+		.replace(/\$3,885\.5/g, `$${snapshot.commodities.goldComexPrice.toFixed(2)}`)
+		.replace(/₹94\.8606/g, usdInrStr)
+		.replace(/₹94\.86/g, `₹${snapshot.forex.usdInr.toFixed(2)}`)
+		.replace(/94\.8606/g, snapshot.forex.usdInr.toFixed(4))
 		.replace(/₹1,38,419\/10g/g, goldInrStr)
 		.replace(/₹138419\/10g/g, goldInrStr)
 		.replace(/₹143703\/10g/g, goldInrStr)
@@ -173,8 +185,6 @@ export function hydrateMarketTokens(template: string, snapshot: MarketBriefSnaps
 		.replace(/\$74\.80\/bbl/g, brentStr)
 		.replace(/\$74\.8/g, `$${snapshot.commodities.brentUsd.toFixed(2)}`)
 		.replace(/₹86\.85/g, `₹${snapshot.forex.usdInr.toFixed(2)}`)
-		.replace(/₹84\.50/g, `₹${snapshot.forex.usdInr.toFixed(2)}`)
-		.replace(/₹84\.5/g, `₹${snapshot.forex.usdInr.toFixed(2)}`)
 		.replace(/₹230\.40/g, natGasStr)
 		.replace(/₹231\.2/g, natGasStr);
 }

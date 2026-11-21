@@ -20,6 +20,7 @@
 
 import { callPython } from "../clients/python-client";
 import { upstoxMarketDataService } from "./upstox-market-data-service";
+import { upstoxWsStreamingService } from "./upstox-ws-streaming-service";
 import { logger } from "../logger";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
@@ -765,18 +766,20 @@ class DerivativesService {
 						const ce = row.call_options;
 						const dte = Math.max(1, this.daysToExpiry(expiryDate || ""));
 						const fallbackGreeks = this.calculateGreeks(underlying, row.strike_price, dte, 0.15, 0.065, "call");
-						const rawIv = Number(ce.option_greeks?.iv || 0);
+						const streamGreeks = ce.instrument_key ? upstoxWsStreamingService.getLatestGreeks(ce.instrument_key) : undefined;
+						const streamTick = ce.instrument_key ? upstoxWsStreamingService.getLatestTick(ce.instrument_key) : undefined;
+						const rawIv = Number(streamGreeks?.iv ?? ce.option_greeks?.iv ?? 0);
 						const iv = rawIv > 0 ? rawIv : Math.round(fallbackGreeks.impliedVolatility * 100) / 100;
 						calls.push({
 							strikePrice: row.strike_price,
 							expiryDate: expiryDate || "",
 							optionType: "CE",
-							openInterest: ce.market_data?.oi || 0,
+							openInterest: streamGreeks?.oi ?? ce.market_data?.oi ?? 0,
 							changeinOpenInterest:
 								(ce.market_data?.oi || 0) - (ce.market_data?.prev_oi || 0),
-							totalTradedVolume: ce.market_data?.volume || 0,
+							totalTradedVolume: streamGreeks?.vtt ?? ce.market_data?.volume ?? 0,
 							impliedVolatility: iv,
-							lastPrice: ce.market_data?.ltp || 0,
+							lastPrice: streamTick?.ltp ?? ce.market_data?.ltp ?? 0,
 							change:
 								(ce.market_data?.ltp || 0) - (ce.market_data?.close_price || 0),
 							pChange: ce.market_data?.close_price
@@ -791,11 +794,11 @@ class DerivativesService {
 							askQty: ce.market_data?.ask_qty || 0,
 							askPrice: ce.market_data?.ask_price || 0,
 							underlyingValue: underlying,
-							delta: Number(ce.option_greeks?.delta ?? fallbackGreeks.delta),
-							gamma: Number(ce.option_greeks?.gamma ?? fallbackGreeks.gamma),
-							theta: Number(ce.option_greeks?.theta ?? fallbackGreeks.theta),
-							vega: Number(ce.option_greeks?.vega ?? fallbackGreeks.vega),
-							rho: Number(ce.option_greeks?.rho ?? fallbackGreeks.rho),
+							delta: Number(streamGreeks?.delta ?? ce.option_greeks?.delta ?? fallbackGreeks.delta),
+							gamma: Number(streamGreeks?.gamma ?? ce.option_greeks?.gamma ?? fallbackGreeks.gamma),
+							theta: Number(streamGreeks?.theta ?? ce.option_greeks?.theta ?? fallbackGreeks.theta),
+							vega: Number(streamGreeks?.vega ?? ce.option_greeks?.vega ?? fallbackGreeks.vega),
+							rho: Number(streamGreeks?.rho ?? ce.option_greeks?.rho ?? fallbackGreeks.rho),
 							pop: Number(ce.option_greeks?.pop ?? 50),
 						});
 					}
@@ -803,18 +806,20 @@ class DerivativesService {
 						const pe = row.put_options;
 						const dte = Math.max(1, this.daysToExpiry(expiryDate || ""));
 						const fallbackGreeks = this.calculateGreeks(underlying, row.strike_price, dte, 0.15, 0.065, "put");
-						const rawIv = Number(pe.option_greeks?.iv || 0);
+						const streamGreeks = pe.instrument_key ? upstoxWsStreamingService.getLatestGreeks(pe.instrument_key) : undefined;
+						const streamTick = pe.instrument_key ? upstoxWsStreamingService.getLatestTick(pe.instrument_key) : undefined;
+						const rawIv = Number(streamGreeks?.iv ?? pe.option_greeks?.iv ?? 0);
 						const iv = rawIv > 0 ? rawIv : Math.round(fallbackGreeks.impliedVolatility * 100) / 100;
 						puts.push({
 							strikePrice: row.strike_price,
 							expiryDate: expiryDate || "",
 							optionType: "PE",
-							openInterest: pe.market_data?.oi || 0,
+							openInterest: streamGreeks?.oi ?? pe.market_data?.oi ?? 0,
 							changeinOpenInterest:
 								(pe.market_data?.oi || 0) - (pe.market_data?.prev_oi || 0),
-							totalTradedVolume: pe.market_data?.volume || 0,
+							totalTradedVolume: streamGreeks?.vtt ?? pe.market_data?.volume ?? 0,
 							impliedVolatility: iv,
-							lastPrice: pe.market_data?.ltp || 0,
+							lastPrice: streamTick?.ltp ?? pe.market_data?.ltp ?? 0,
 							change:
 								(pe.market_data?.ltp || 0) - (pe.market_data?.close_price || 0),
 							pChange: pe.market_data?.close_price
@@ -829,11 +834,11 @@ class DerivativesService {
 							askQty: pe.market_data?.ask_qty || 0,
 							askPrice: pe.market_data?.ask_price || 0,
 							underlyingValue: underlying,
-							delta: Number(pe.option_greeks?.delta ?? fallbackGreeks.delta),
-							gamma: Number(pe.option_greeks?.gamma ?? fallbackGreeks.gamma),
-							theta: Number(pe.option_greeks?.theta ?? fallbackGreeks.theta),
-							vega: Number(pe.option_greeks?.vega ?? fallbackGreeks.vega),
-							rho: Number(pe.option_greeks?.rho ?? fallbackGreeks.rho),
+							delta: Number(streamGreeks?.delta ?? pe.option_greeks?.delta ?? fallbackGreeks.delta),
+							gamma: Number(streamGreeks?.gamma ?? pe.option_greeks?.gamma ?? fallbackGreeks.gamma),
+							theta: Number(streamGreeks?.theta ?? pe.option_greeks?.theta ?? fallbackGreeks.theta),
+							vega: Number(streamGreeks?.vega ?? pe.option_greeks?.vega ?? fallbackGreeks.vega),
+							rho: Number(streamGreeks?.rho ?? pe.option_greeks?.rho ?? fallbackGreeks.rho),
 							pop: Number(pe.option_greeks?.pop ?? 50),
 						});
 					}

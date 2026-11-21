@@ -33,6 +33,8 @@ import {
   type ModelPortfolioAlgoConfig,
 } from "./model-portfolio-algo-service";
 import { upstoxAdapter } from "./mpal/adapters/upstoxAdapter";
+import { upstoxWsStreamingService } from "./upstox-ws-streaming-service";
+import { MarketDataDecisionEngine } from "./market-data-decision-matrix";
 import { resolveCanonicalPortfolio } from "../data/canonical-model-portfolios";
 import { getInstrument } from "../data/instrument-registry";
 import { randomBytes, createHash } from "crypto";
@@ -245,7 +247,10 @@ export class ModelPortfolioExecutionManager {
     const legCount = executionResult.transactions.length;
 
     for (const txn of executionResult.transactions) {
-      const benchmarkPrice = Number(txn.nav) || 100;
+      // Decision Matrix: MODEL_PORTFOLIO_REBALANCING prefers live WebSocket stream ticks for slippage audit
+      const sym = (txn as any).symbol || (txn as any).isin || "";
+      const liveTick = upstoxWsStreamingService.getLatestTick(`NSE_EQ|${sym}`) || upstoxWsStreamingService.getLatestTick(sym);
+      const benchmarkPrice = (liveTick && liveTick.ltp > 0) ? liveTick.ltp : (Number(txn.nav) || 100);
       const executedPrice = Number((txn as any).executionPrice ?? txn.nav) || benchmarkPrice;
       const slippageBps = Math.round((Math.abs(executedPrice - benchmarkPrice) / benchmarkPrice) * 10000);
       totalSlippageBps += slippageBps;

@@ -1,9 +1,10 @@
-# FintekPro Data Correctness & Pricing Integrity Policy (DCP v1.0)
+# FintekPro Data Correctness & Pricing Integrity Policy (DCP v2.0)
 
-**Standard Version**: DCP-1.0.0  
-**Effective Date**: October 2026  
+**Standard Version**: DCP-2.0.0  
+**Effective Date**: November 2026  
 **Applies To**: All Microservices, Scheduled Workers, Frontend Views, APIs, Data Providers, and AI Advisory Engines  
-**Regulatory Governance**: SEBI (Investment Advisers) Regulations, 2013 (Reg 15 & 19), SEBI (Research Analysts) Regulations, 2014, and FintekPro GCR v1.0 / FASP-AI v1.0
+**Regulatory Governance**: SEBI (Investment Advisers) Regulations, 2013 (Reg 15 & 19), SEBI (Research Analysts) Regulations, 2014, and FintekPro GCR v1.0 / FASP-AI v1.0  
+**Associated Standard Operating Procedure**: [SOP_SYNTHETIC_DATA_AND_CALCULATION_GOVERNANCE.md](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_SYNTHETIC_DATA_AND_CALCULATION_GOVERNANCE.md)
 
 ---
 
@@ -19,6 +20,8 @@ This policy defines non-negotiable rules governing data acquisition, ingestion, 
 
 ### Rule 1: Strict Ban on Synthetic & Fabricated Production Data (Zero-Synthetic Mandate)
 - **Production Ban**: In any production environment (`NODE_ENV === "production"`), the generation or display of synthetic, mock, or randomized (`Math.random()`) pricing data is **strictly prohibited**.
+- **No Speculative Forward Projections as Fallbacks**: Hardcoded baseline constants and fallback data structures must strictly reflect verified, canonical historical/EOD settlement values (e.g. USD/INR `84.4512`, Gold MCX `₹78,250/10g`, Silver MCX `₹91,500/kg`). Hardcoding speculative future prices (e.g. `94.8606`, `141255`, `187200`) into codebases is strictly banned as it corrupts advisory narratives during cache misses.
+- **Legacy Corrupted Snapshot Scrubbing**: Any legacy cached records containing known speculative numbers must be scrubbed automatically by regex santizers prior to client rendering.
 - **No Silent Faking**: If an upstream provider (e.g. Upstox, IndianAPI, NSE, MCX, AMFI) is unavailable, rate-limited (HTTP 429), or experiencing downtime:
   - The system must **never** fabricate arbitrary prices to mask the outage.
   - The service must return an explicit, structured error:
@@ -36,11 +39,17 @@ This policy defines non-negotiable rules governing data acquisition, ingestion, 
 
 ---
 
-### Rule 1B: Strict Ban on Synthetic, Cooked-Up, or Fabricated Formulas (Canonical Math Mandate)
-- **Zero Cooked-Up Formulas**: The invention, generation, or application of synthetic, ad-hoc, or "cooked up" mathematical formulas, heuristic shortcuts, or arbitrary weightings is **strictly prohibited** across all services, analytical models, pricing engines, and AI advisory outputs.
-- **Canonical & Statutory Authority**: Every formula implemented or recommended MUST be backed by:
+### Rule 1B: Strict Ban on Synthetic Calculations & Magic Multipliers (Canonical Math Mandate)
+- **Zero Cooked-Up Formulas & Proxy Multipliers**: The invention, generation, or application of synthetic, ad-hoc, or "cooked up" mathematical formulas, heuristic shortcuts, or arbitrary weightings is **strictly prohibited** across all services, analytical models, pricing engines, and AI advisory outputs.
+- **Explicitly Prohibited Patterns**:
+  1. **Magic Scalar Multipliers**: Multiplying cash indices by arbitrary constants to fake derivatives (e.g., `nifty * 1.0016` to fake GIFT Nifty).
+  2. **Proxy Scaling Factors**: Multiplying ETFs or proxy instruments by constant scaling ratios (e.g., `SPY * 10` for S&P 500, `QQQ * 41.5` for Nasdaq 100).
+  3. **Fabricated Currency Cross Rates**: Deriving non-dollar currencies via ad-hoc multipliers (e.g., `usdInr * 1.085` for EUR/INR or `usdInr / 154.20` for JPY/INR) instead of binding directly to official FBIL published reference rates.
+  4. **Unverified Term Spreads**: Arbitrarily adding basis points to overnight benchmarks (e.g., `miborOvernight + 0.15`) instead of official FBIL term fixings.
+- **Pure Direct Binding Requirement**: Every index, currency pair, and benchmark must bind directly to its official licensed API quote or published statutory publication.
+- **Canonical & Statutory Authority**: Where mathematical transformations are legitimate, every formula implemented or recommended MUST be backed by:
   1. **Canonical Quantitative Economics**: Peer-reviewed finance literature (e.g. Black-Scholes-Merton for options, Markowitz mean-variance optimization, standard Discounted Cash Flow with explicitly derived WACC, standard XIRR/CAGR/TWRR, Macaulay/Modified Duration).
-  2. **Statutory & Regulatory Frameworks**: Prescribed circulars and formulas from SEBI, RBI, AMFI, CBDT / Income Tax Act 1961, or official Exchange bylaws.
+  2. **Statutory & Regulatory Frameworks**: Prescribed circulars and formulas from SEBI, RBI, AMFI, CBDT / Income Tax Act 1961, or official Exchange bylaws (e.g., landed MCX duty calculation using statutory Customs, AIDC, and GST).
 - **Fail-Closed on Missing Inputs**: If an input parameter required by a canonical formula is missing or cannot be validated, the engine must **fail gracefully** with a structured error rather than substituting a synthetic or cooked-up approximation to make numbers appear plausible.
 - **Explainability Requirement**: Every computed output must expose its exact mathematical equation and canonical citation in the explainability layer.
 
