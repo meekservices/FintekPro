@@ -112,22 +112,20 @@ fi
 # - If REDIS_URL does not exist: continues smoothly in Zero-Redis PostgreSQL mode.
 # ─────────────────────────────────────────────────────────────────────────────
 REDIS_SECRET_FLAG=""
-VPC_CONNECTOR_FLAG="--clear-vpc-connector --vpc-egress=private-ranges-only"
-
 if gcloud secrets describe REDIS_URL --project="$PROJECT_ID" >/dev/null 2>&1; then
   echo "✅ REDIS_URL secret detected in Secret Manager — wiring into Cloud Run"
   REDIS_SECRET_FLAG="REDIS_URL=REDIS_URL:latest,"
-
-  # Check if a VPC connector exists for Memorystore private IP
-  if gcloud compute networks vpc-access connectors describe fintekpro-vpc-connector --region="$REGION" --project="$PROJECT_ID" >/dev/null 2>&1; then
-    echo "🔗 Attaching VPC connector fintekpro-vpc-connector for Memorystore Redis"
-    VPC_CONNECTOR_FLAG="--vpc-connector=fintekpro-vpc-connector --vpc-egress=private-ranges-only"
-  else
-    echo "ℹ️  No VPC connector found — using direct connection (e.g. Upstash/external Redis)"
-    VPC_CONNECTOR_FLAG="--clear-vpc-connector --vpc-egress=private-ranges-only"
-  fi
 else
   echo "ℹ️  REDIS_URL secret not found — operating in Zero-Redis PostgreSQL mode"
+fi
+
+# ─── VPC & Cloud NAT Configuration (Static Outbound IP 8.231.118.86) ────────
+VPC_CONNECTOR_FLAG="--clear-vpc-connector --vpc-egress=private-ranges-only"
+if gcloud compute networks vpc-access connectors describe fintekpro-vpc-connector --region="$REGION" --project="$PROJECT_ID" >/dev/null 2>&1; then
+  echo "🔗 Attaching VPC connector fintekpro-vpc-connector (Cloud NAT static IP 8.231.118.86)"
+  VPC_CONNECTOR_FLAG="--vpc-connector=fintekpro-vpc-connector --vpc-egress=all-traffic"
+else
+  echo "ℹ️  No VPC connector found — using direct connection"
 fi
 
 # ─── LinkedIn OAuth Configuration ──────────────────────────────────────────
@@ -139,6 +137,13 @@ if gcloud secrets describe LINKEDIN_CLIENT_ID --project="$PROJECT_ID" >/dev/null
   LINKEDIN_SECRET_FLAG="LINKEDIN_CLIENT_ID=LINKEDIN_CLIENT_ID:latest,LINKEDIN_CLIENT_SECRET=LINKEDIN_CLIENT_SECRET:latest,"
 else
   echo "ℹ️  LinkedIn OAuth secrets not found in Secret Manager — skipping LinkedIn Cloud Run mount"
+fi
+
+# ─── Angel One SmartAPI (NCDEX Agri-Commodities) ───────────────────────────
+ANGEL_SECRET_FLAG=""
+if gcloud secrets describe ANGEL_API_KEY --project="$PROJECT_ID" >/dev/null 2>&1; then
+  echo "✅ Angel One SmartAPI secrets detected in Secret Manager — wiring into Cloud Run"
+  ANGEL_SECRET_FLAG="ANGEL_API_KEY=ANGEL_API_KEY:latest,ANGEL_CLIENT_CODE=ANGEL_CLIENT_CODE:latest,ANGEL_PIN=ANGEL_PIN:latest,ANGEL_TOTP_SECRET=ANGEL_TOTP_SECRET:latest,"
 fi
 
 # ── Pre-Deploy Database Migration Gate (Expand-Contract / Zero-Downtime) ─────
@@ -190,6 +195,7 @@ gcloud run deploy $SERVICE_NAME \
     --set-secrets="\
 ${REDIS_SECRET_FLAG}\
 ${LINKEDIN_SECRET_FLAG}\
+${ANGEL_SECRET_FLAG}\
 PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,\
 DATABASE_URL=DATABASE_URL:latest,\
 SESSION_SECRET=SESSION_SECRET:latest,\
