@@ -29,13 +29,14 @@ export type MarketDataUseCase =
   | "UNLISTED_VALUATION"
   | "MODEL_PORTFOLIO_REBALANCING"
   | "LIVE_WATCHLIST"
-  | "LIVE_OPTION_CHAIN";
+  | "LIVE_OPTION_CHAIN"
+  | "NCDEX_AGRI_COMMODITIES";
 
 export interface DecisionMatrixEntry {
   useCase: MarketDataUseCase;
   name: string;
   protocol: MarketDataProtocol;
-  recommendedProvider: "UPSTOX" | "ALPACA" | "CCIL_FBIL" | "MCA_VALUATION";
+  recommendedProvider: "UPSTOX" | "ALPACA" | "CCIL_FBIL" | "MCA_VALUATION" | "ANGEL_ONE";
   targetLatencyMs: number;
   cacheTtlSeconds: number;
   rationale: string;
@@ -111,6 +112,16 @@ export const MARKET_DATA_DECISION_MATRIX: Record<MarketDataUseCase, DecisionMatr
     targetLatencyMs: 100,
     cacheTtlSeconds: 1,
     rationale: "Streaming Greeks (Delta, Gamma, Theta, IV) across dozens of strikes is only feasible via binary Protobuf WebSocket.",
+    fallbackProtocol: "REST_BATCH",
+  },
+  NCDEX_AGRI_COMMODITIES: {
+    useCase: "NCDEX_AGRI_COMMODITIES",
+    name: "NCDEX Agricultural Commodity Benchmarks",
+    protocol: "REST_BATCH",
+    recommendedProvider: "ANGEL_ONE",
+    targetLatencyMs: 1500,
+    cacheTtlSeconds: 60,
+    rationale: "Upstox does not cover NCDEX; Angel One SmartAPI provides native ncx_fo exchange support for Indian agri-derivatives.",
     fallbackProtocol: "REST_BATCH",
   },
 };

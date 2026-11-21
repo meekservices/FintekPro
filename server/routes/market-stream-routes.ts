@@ -28,6 +28,8 @@ import {
   type UpstoxLiveTick,
 } from "../services/upstox-ws-streaming-service";
 import { alpacaWsStreamingService } from "../services/alpaca-ws-streaming-service";
+import { angelOneAdapter } from "../services/adapters/angel-one-adapter";
+import { ncdexMarketService } from "../services/ncdex-market-service";
 import { logger } from "../logger";
 
 const router = Router();
@@ -45,6 +47,7 @@ router.get("/decision-matrix", (_req: Request, res: Response) => {
       activeFeeds: {
         upstox: upstoxWsStreamingService.getStatus(),
         alpaca: alpacaWsStreamingService.getStatus(),
+        angelOne: angelOneAdapter.getStatus(),
       },
     },
     meta: metadata,
@@ -59,12 +62,28 @@ router.get("/status", (_req: Request, res: Response) => {
     data: {
       upstox: upstoxWsStreamingService.getStatus(),
       alpaca: alpacaWsStreamingService.getStatus(),
+      angelOne: angelOneAdapter.getStatus(),
     },
     meta: {
       timestamp: new Date().toISOString(),
       version: "market-stream@1.0.0",
     },
   });
+});
+
+// ─── 2b. NCDEX Agricultural Commodities (Angel One / Bhavcopy) ────────────────
+
+router.get("/ncdex", async (_req: Request, res: Response) => {
+  try {
+    const result = await ncdexMarketService.getAgriculturalBenchmarks({ persistToDb: false });
+    res.json(result);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({
+      success: false,
+      error: { error_code: "NCDEX_FETCH_FAILED", message: msg, retryable: true },
+    });
+  }
 });
 
 // ─── 3. Connect / Disconnect ──────────────────────────────────────────────────

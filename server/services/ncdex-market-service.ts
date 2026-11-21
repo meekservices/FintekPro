@@ -19,6 +19,11 @@
 
 import { logger } from "../logger";
 import { distributedCache } from "../utils/distributed-cache";
+import {
+  angelOneAdapter,
+  ANGEL_NCDEX_BENCHMARK_TOKENS,
+  type AngelOneQuoteItem,
+} from "./adapters/angel-one-adapter";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -255,7 +260,35 @@ class NcdexMarketService {
       logger.debug(`[NCDEX] Redis check warning: ${err?.message}`);
     }
 
-    // Step 2: Check PostgreSQL commodities table
+    // Step 2: Live Angel One SmartAPI Feed (ncx_fo)
+    if (angelOneAdapter.isConfigured()) {
+      try {
+        const liveQuotes = await angelOneAdapter.getNcdexQuotes();
+        if (liveQuotes && liveQuotes.length > 0) {
+          const liveItems = this.mergeWithAngelQuotes(liveQuotes);
+          const snapshot = this.buildSnapshot(liveItems, "ANGEL_ONE_SMARTAPI");
+          await distributedCache.setJson(CACHE_KEY, snapshot, 60); // 1 min hot cache during active market
+          if (options.persistToDb) {
+            await this.persistToDatabase(liveItems);
+          }
+          return {
+            success: true,
+            data: snapshot,
+            meta: {
+              timestamp,
+              version: ENGINE_VERSION,
+              source: "ANGEL_ONE_SMARTAPI",
+              cached: false,
+            },
+          };
+        }
+      } catch (angelErr: unknown) {
+        const msg = angelErr instanceof Error ? angelErr.message : String(angelErr);
+        logger.warn(`[NCDEX] Angel One SmartAPI live quote failed, falling back to EOD: ${msg}`);
+      }
+    }
+
+    // Step 3: Check PostgreSQL commodities table
     try {
       const dbItems = await this.loadFromDatabase();
       if (dbItems && dbItems.length >= 4) {
@@ -346,6 +379,49 @@ class NcdexMarketService {
     } catch (e: any) {
       logger.debug(`[NCDEX] DB persistence note: ${e?.message}`);
     }
+  }
+
+  /**
+   * Merges Angel One live quotes with baseline NCDEX commodity items.
+   */
+  private mergeWithAngelQuotes(quotes: AngelOneQuoteItem[]): NcdexCommodityItem[] {
+    const today = new Date().toISOString().split("T")[0];
+    const quoteByToken = new Map<string, AngelOneQuoteItem>();
+    const quoteBySymbol = new Map<string, AngelOneQuoteItem>();
+
+    for (const q of quotes) {
+      if (q.symbolToken) quoteByToken.set(q.symbolToken, q);
+      if (q.tradingSymbol) quoteBySymbol.set(q.tradingSymbol.toUpperCase(), q);
+    }
+
+    return NCDEX_BASELINE_COMMODITIES.map((base) => {
+      const meta = ANGEL_NCDEX_BENCHMARK_TOKENS[base.id];
+      const match =
+        (meta && quoteByToken.get(meta.symbolToken)) ||
+        (meta && quoteBySymbol.get(meta.tradingSymbol.toUpperCase())) ||
+        quoteBySymbol.get(base.tradingSymbol.toUpperCase());
+
+      if (match && match.ltp > 0) {
+        const prevClose = match.close > 0 ? match.close : base.previousClose;
+        const change = Number((match.ltp - prevClose).toFixed(2));
+        const changePercent = prevClose > 0 ? Number(((change / prevClose) * 100).toFixed(2)) : 0;
+        const trend: "Bullish" | "Neutral" | "Bearish" =
+          changePercent > 0.5 ? "Bullish" : changePercent < -0.5 ? "Bearish" : "Neutral";
+
+        return {
+          ...base,
+          price: match.ltp,
+          previousClose: prevClose,
+          change,
+          changePercent,
+          volume: match.totalTradedVolume ?? base.volume,
+          openInterest: match.opnInterest ?? base.openInterest,
+          trend,
+          lastUpdated: today,
+        };
+      }
+      return base;
+    });
   }
 
   /**
