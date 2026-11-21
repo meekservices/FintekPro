@@ -620,6 +620,23 @@ export class StockStrategy extends BaseStrategy {
 				return null;
 			}
 
+			// Institutional Volatility Position Sizing Enrichment
+			for (const p of results) {
+				try {
+					if (!p.symbol) continue;
+					const { volatilityPositionSizingEngine } = await import("./volatility-position-sizing");
+					const sizing = volatilityPositionSizingEngine.calculateSizing(
+						p.symbol,
+						p.recoPrice,
+						p.stoplossPrice,
+						null,
+						p.keyMetrics?.volatility ?? null,
+					);
+					if (!p.keyMetrics) p.keyMetrics = {};
+					p.keyMetrics.positionSizing = sizing;
+				} catch { /* non-fatal */ }
+			}
+
 			logger.info(
 				`[StockStrategy] Generated ${results.length} sector picks: ${results.map((p) => `${p.sectorCategory} → ${p.symbol}`).join(", ")}`,
 			);
@@ -2096,6 +2113,29 @@ export class StockStrategy extends BaseStrategy {
 				// Cap total deduction to 8 pts so candidate pool is not starved below threshold
 				const cappedPenalty = Math.min(8, factorPenalty);
 				score = Math.max(0, score - cappedPenalty);
+			}
+		} catch { /* non-fatal */ }
+
+		// ── Institutional Upgrade #16: Cross-Asset Commodity & Sector Transmission ──
+		try {
+			const { commoditySectorTransmissionEngine } = await import("./commodity-sector-transmission");
+			const macroCtx = await getMacroContext();
+			const commImpact = commoditySectorTransmissionEngine.evaluateSectorImpact(stock.sector || "", {
+				brentUsd: macroCtx?.commodities?.brentCrudeUsd,
+				goldMcxInr: macroCtx?.commodities?.goldMcxInr,
+				copperMcxInr: (macroCtx?.commodities as any)?.copperInr ?? 825.50,
+			});
+			if (commImpact.scoreDelta !== 0) {
+				score += commImpact.scoreDelta;
+			}
+		} catch { /* non-fatal */ }
+
+		// ── Institutional Upgrade #17: Smart Money Surveillance & Institutional Accumulation ──
+		try {
+			const { smartMoneySurveillanceService } = await import("./smart-money-surveillance-service");
+			const smartSignal = smartMoneySurveillanceService.getSmartMoneySignal(stock.symbol || "", enriched);
+			if (smartSignal.scoreBoost !== 0) {
+				score += smartSignal.scoreBoost;
 			}
 		} catch { /* non-fatal */ }
 
