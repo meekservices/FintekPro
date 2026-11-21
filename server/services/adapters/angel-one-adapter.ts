@@ -264,7 +264,7 @@ export class AngelOneAdapter {
             "X-UserType": "USER",
             "X-SourceID": "WEB",
             "X-ClientLocalIP": "127.0.0.1",
-            "X-ClientPublicIP": "127.0.0.1",
+            "X-ClientPublicIP": process.env.ANGEL_STATIC_IP || "8.231.118.86",
             "X-MACAddress": "02:00:00:00:00:00",
             "X-PrivateKey": apiKey,
           },
@@ -303,6 +303,8 @@ export class AngelOneAdapter {
 
   /**
    * Fetches live market quotes for NCDEX agricultural contracts.
+   * Based on SmartAPI Market Data API:
+   * POST /rest/secure/angelbroking/market/v1/quote/
    *
    * @param tokens Array of Angel One NCDEX symbol tokens (e.g. ["508001", "508002"])
    */
@@ -324,7 +326,7 @@ export class AngelOneAdapter {
       };
 
       const resp = await axios.post(
-        `${this.baseUrl}/rest/secure/angelbroking/market/v1/quote`,
+        `${this.baseUrl}/rest/secure/angelbroking/market/v1/quote/`,
         payload,
         {
           headers: {
@@ -334,7 +336,7 @@ export class AngelOneAdapter {
             "X-UserType": "USER",
             "X-SourceID": "WEB",
             "X-ClientLocalIP": "127.0.0.1",
-            "X-ClientPublicIP": "127.0.0.1",
+            "X-ClientPublicIP": process.env.ANGEL_STATIC_IP || "8.231.118.86",
             "X-MACAddress": "02:00:00:00:00:00",
             "X-PrivateKey": apiKey,
           },
@@ -364,6 +366,120 @@ export class AngelOneAdapter {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.warn(`[AngelOne] getNcdexQuotes failed: ${msg}`);
+      return [];
+    }
+  }
+
+  /**
+   * Fetches single instrument LTP via SmartAPI getLtpData endpoint.
+   * Based on: POST /rest/secure/angelbroking/order/v1/getLtpData
+   *
+   * @param exchange "NCX" | "NSE" | "BSE" | "MCX" | "NFO"
+   * @param tradingSymbol Contract symbol (e.g. "JEERAUNJHA")
+   * @param symbolToken Instrument token (e.g. "508001")
+   */
+  public async getLtpData(
+    exchange: string,
+    tradingSymbol: string,
+    symbolToken: string
+  ): Promise<{ exchange: string; tradingSymbol: string; symbolToken: string; ltp: number; open: number; high: number; low: number; close: number } | null> {
+    const token = await this.getActiveToken();
+    if (!token) return null;
+
+    try {
+      const apiKey = process.env.ANGEL_API_KEY!;
+      const resp = await axios.post(
+        `${this.baseUrl}/rest/secure/angelbroking/order/v1/getLtpData`,
+        {
+          exchange,
+          tradingsymbol: tradingSymbol,
+          symboltoken: symbolToken,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            "X-UserType": "USER",
+            "X-SourceID": "WEB",
+            "X-ClientLocalIP": "127.0.0.1",
+            "X-ClientPublicIP": process.env.ANGEL_STATIC_IP || "8.231.118.86",
+            "X-MACAddress": "02:00:00:00:00:00",
+            "X-PrivateKey": apiKey,
+          },
+          timeout: 6_000,
+        }
+      );
+
+      const d = resp.data?.data;
+      if (resp.data?.status && d) {
+        return {
+          exchange: d.exchange,
+          tradingSymbol: d.tradingsymbol,
+          symbolToken: d.symboltoken,
+          ltp: Number(d.ltp || 0),
+          open: Number(d.open || 0),
+          high: Number(d.high || 0),
+          low: Number(d.low || 0),
+          close: Number(d.close || 0),
+        };
+      }
+      return null;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn(`[AngelOne] getLtpData failed: ${msg}`);
+      return null;
+    }
+  }
+
+  /**
+   * Fetches historical candlestick data via SmartAPI getCandleData.
+   * Based on: POST /rest/secure/angelbroking/historical/v1/getCandleData
+   */
+  public async getCandleData(
+    exchange: string,
+    symbolToken: string,
+    interval: "ONE_MINUTE" | "FIVE_MINUTE" | "FIFTEEN_MINUTE" | "ONE_HOUR" | "ONE_DAY" = "ONE_DAY",
+    fromDate: string, // "YYYY-MM-DD HH:MM"
+    toDate: string    // "YYYY-MM-DD HH:MM"
+  ): Promise<Array<[string, number, number, number, number, number]>> {
+    const token = await this.getActiveToken();
+    if (!token) return [];
+
+    try {
+      const apiKey = process.env.ANGEL_API_KEY!;
+      const resp = await axios.post(
+        `${this.baseUrl}/rest/secure/angelbroking/historical/v1/getCandleData`,
+        {
+          exchange,
+          symboltoken: symbolToken,
+          interval,
+          fromdate: fromDate,
+          todate: toDate,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            "X-UserType": "USER",
+            "X-SourceID": "WEB",
+            "X-ClientLocalIP": "127.0.0.1",
+            "X-ClientPublicIP": process.env.ANGEL_STATIC_IP || "8.231.118.86",
+            "X-MACAddress": "02:00:00:00:00:00",
+            "X-PrivateKey": apiKey,
+          },
+          timeout: 10_000,
+        }
+      );
+
+      if (resp.data?.status && Array.isArray(resp.data?.data)) {
+        return resp.data.data;
+      }
+      return [];
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn(`[AngelOne] getCandleData failed: ${msg}`);
       return [];
     }
   }
