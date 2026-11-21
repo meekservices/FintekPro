@@ -5,6 +5,7 @@ import { storage } from "../storage";
 import { db } from "../db";
 import { sql } from "drizzle-orm";
 import { complianceMonitor } from "../compliance-monitor";
+import { logger } from "../logger";
 
 export async function registerPlatformStatsRoutes(app: Express): Promise<void> {
 	// Platform Statistics endpoint - Real data for homepage (with caching)
@@ -15,7 +16,7 @@ export async function registerPlatformStatsRoutes(app: Express): Promise<void> {
 			res.set("X-Cache-Age", String(Math.round(cacheAge / 1000)));
 			res.json(data);
 		} catch (error) {
-			console.error("Error fetching platform stats:", error);
+			logger.error("Error fetching platform stats", { error: (error as any)?.message || error });
 			res.json({
 				activeUsers: "0",
 				activeUsersRaw: 0,
@@ -107,7 +108,7 @@ export async function registerPlatformStatsRoutes(app: Express): Promise<void> {
 				rolloutPercentage,
 			});
 		} catch (error: any) {
-			console.error("[Feature Flags] Check error:", error.message);
+			logger.error("[Feature Flags] Check error", { error: error.message });
 			res.json({ enabled: false, error: "check_failed" });
 		}
 	});
@@ -205,7 +206,7 @@ export async function registerPlatformStatsRoutes(app: Express): Promise<void> {
 					});
 				}
 			} catch (auditError) {
-				console.error("[ConsentAudit] Failed to persist consent:", auditError);
+				logger.error("[ConsentAudit] Failed to persist consent", { error: (auditError as any)?.message || auditError });
 			}
 
 			res.json({
@@ -213,7 +214,7 @@ export async function registerPlatformStatsRoutes(app: Express): Promise<void> {
 				message: "Consent preferences recorded successfully",
 			});
 		} catch (error) {
-			console.error("Error recording consent:", error);
+			logger.error("Error recording consent", { error: (error as any)?.message || error });
 			res.status(500).json({ error: "Failed to record consent preferences" });
 		}
 	});
@@ -272,7 +273,7 @@ export async function registerPlatformStatsRoutes(app: Express): Promise<void> {
 			res.setHeader("Content-Type", "application/json");
 			res.send(JSON.stringify(exportPayload, null, 2));
 		} catch (error) {
-			console.error("[Privacy API] Export error:", error);
+			logger.error("[Privacy API] Export error", { error: (error as any)?.message || error });
 			res.status(500).json({ success: false, error: "Failed to generate personal data export" });
 		}
 	});
@@ -317,7 +318,7 @@ export async function registerPlatformStatsRoutes(app: Express): Promise<void> {
 					additionalData: { reason },
 				});
 			} catch (auditErr) {
-				console.error("[Privacy API] Audit logging error:", auditErr);
+				logger.error("[Privacy API] Audit logging error", { error: (auditErr as any)?.message || auditErr });
 			}
 
 			res.json({
@@ -327,7 +328,7 @@ export async function registerPlatformStatsRoutes(app: Express): Promise<void> {
 				statutoryRegulations: ["SEBI Master Circular for Intermediaries", "Prevention of Money Laundering Act (PMLA) 2002 Rule 3", "Income Tax Act 1961 Section 149"],
 			});
 		} catch (error) {
-			console.error("[Privacy API] Erasure request error:", error);
+			logger.error("[Privacy API] Erasure request error", { error: (error as any)?.message || error });
 			res.status(500).json({ success: false, error: "Failed to process erasure request" });
 		}
 	});

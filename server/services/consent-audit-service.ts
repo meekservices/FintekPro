@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 import { db } from "../db";
 import {
 	consentAuditLog,

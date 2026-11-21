@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { logger } from "../logger";
 
 const router = Router();
 
@@ -158,7 +159,7 @@ router.get("/yield-curve", (req, res) => {
 
 		res.json(yieldCurveData);
 	} catch (error) {
-		console.error("Error generating yield curve data:", error);
+		logger.error("Error generating yield curve data", { error: (error as any)?.message || error });
 		res.status(500).json({ error: "Failed to generate yield curve data" });
 	}
 });
@@ -178,7 +179,7 @@ router.get("/yield-curve/historical", (req, res) => {
 			data: historicalData,
 		});
 	} catch (error) {
-		console.error("Error generating historical yield curve data:", error);
+		logger.error("Error generating historical yield curve data", { error: (error as any)?.message || error });
 		res.status(500).json({ error: "Failed to generate historical data" });
 	}
 });

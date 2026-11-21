@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 import { Express, Request, Response } from "express";
 import axios from "axios";
 import { indianApiService } from "../services/indian-api-service";

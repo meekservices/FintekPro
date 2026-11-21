@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { unifiedBrokerReportService } from "../services/reports/unified-broker-report-service";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { logger } from "../logger";
 
 export const comprehensiveReportsRouter = Router();
 
@@ -25,7 +26,7 @@ comprehensiveReportsRouter.get("/tax-pnl", async (req: Request, res: Response): 
 
 		res.json({ success: true, data: summary });
 	} catch (error: any) {
-		console.error("[ComprehensiveReports] Error fetching tax pnl:", error);
+		logger.error("[ComprehensiveReports] Error fetching tax pnl", { error: error.message || error });
 		res.status(500).json({ success: false, error: error.message || "Failed to generate Tax P&L statement" });
 	}
 });
@@ -91,7 +92,7 @@ comprehensiveReportsRouter.get("/tax-pnl/download", async (req: Request, res: Re
 			res.send(pdfBuffer);
 		}
 	} catch (error: any) {
-		console.error("[ComprehensiveReports] Error downloading tax pnl:", error);
+		logger.error("[ComprehensiveReports] Error downloading tax pnl", { error: error.message || error });
 		res.status(500).json({ success: false, error: error.message || "Failed to download Tax P&L statement" });
 	}
 });
@@ -118,7 +119,7 @@ comprehensiveReportsRouter.get("/financial-ledger", async (req: Request, res: Re
 
 		res.json({ success: true, data: ledger });
 	} catch (error: any) {
-		console.error("[ComprehensiveReports] Error fetching financial ledger:", error);
+		logger.error("[ComprehensiveReports] Error fetching financial ledger", { error: error.message || error });
 		res.status(500).json({ success: false, error: error.message || "Failed to generate Financial Ledger" });
 	}
 });
@@ -185,7 +186,7 @@ comprehensiveReportsRouter.get("/financial-ledger/download", async (req: Request
 			res.send(pdfBuffer);
 		}
 	} catch (error: any) {
-		console.error("[ComprehensiveReports] Error downloading financial ledger:", error);
+		logger.error("[ComprehensiveReports] Error downloading financial ledger", { error: error.message || error });
 		res.status(500).json({ success: false, error: error.message || "Failed to download Financial Ledger" });
 	}
 });
