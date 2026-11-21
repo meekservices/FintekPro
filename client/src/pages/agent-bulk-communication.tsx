@@ -763,6 +763,8 @@ export default function AgentBulkCommunication() {
 			payload.htmlContent = messageContent;
 		} else if (selectedChannel === "whatsapp") {
 			payload.templateName = selectedTemplate?.name;
+			payload.templateId = selectedTemplate?.id;
+			payload.templateVariables = templateVariables;
 			payload.bodyParams = Object.values(templateVariables);
 			payload.mediaUrl = mediaUrl || undefined;
 		}

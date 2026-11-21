@@ -184,7 +184,7 @@ import documentUploadRouter from "./routes/document-upload-routes"; // /api/docu
 import unifiedProposalsRouter from "./routes/unified-proposals-routes";
 import improvementFeaturesRouter from "./routes/improvement-features";
 
-// ── Proposal Builder + Agent Portal Engines (previously orphaned) ─────────────
+// ── Proposal Builder + Partner Portal Engines (previously orphaned) ─────────────
 import prospectProposalsRouter from "./routes/prospect-proposals";
 import proposalBuilderRouter from "./routes/proposal-builder-routes";
 import sipSimulatorRouter from "./routes/sip-simulator";

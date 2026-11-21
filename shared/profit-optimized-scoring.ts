@@ -58,12 +58,18 @@ export interface ScoredProduct extends InvestmentProduct {
 export interface AgentOverride {
   overrideId: string;
   agentId: string;
+  partnerId?: string;
   clientId: string;
   overrideType: 'mode_downgrade' | 'asset_class_lock' | 'allocation_cap';
   value: any;
   reason: string;
   timestamp: Date;
 }
+
+/**
+ * PartnerOverride - canonical name replacing legacy AgentOverride
+ */
+export type PartnerOverride = AgentOverride;
 
 export interface ExperimentAssignment {
   clientId: string;

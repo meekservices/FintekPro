@@ -338,6 +338,8 @@ export function requirePartner(req: Request, res: Response, next: NextFunction) 
 		"agent",
 		"sub_agent",
 		"associate",
+		"ca",
+		"cs",
 	)(req, res, next);
 }
 

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 // @ts-nocheck
 import { Express } from "express";
 import { z } from "zod";
@@ -24,6 +25,7 @@ import {
 	portfolios,
 	clientAgentRelationships,
 	users,
+	marketingCampaigns,
 } from "@shared/schema";
 
 export function registerAgentCapitalGainPart2Part1Routes(app: Express): void {
@@ -655,6 +657,36 @@ export function registerAgentCapitalGainPart2Part1Routes(app: Express): void {
 		try {
 			if (!req.user) {
 				return res.status(401).json({ error: "Authentication required" });
+			}
+
+			if (db && marketingCampaigns) {
+				const campaigns = await db
+					.select()
+					.from(marketingCampaigns)
+					.orderBy(desc(marketingCampaigns.createdAt))
+					.limit(50);
+
+				if (campaigns && campaigns.length > 0) {
+					return res.json(
+						campaigns.map((c) => ({
+							id: c.id,
+							name: c.name,
+							channel: c.campaignType as "sms" | "email" | "whatsapp",
+							status: (c.status as any) || "sent",
+							recipientCount: c.recipientCount ?? 0,
+							sentCount: c.sentCount ?? 0,
+							deliveredCount: c.deliveredCount ?? 0,
+							readCount: c.openedCount ?? 0,
+							failedCount: c.bouncedCount ?? 0,
+							scheduledAt: c.scheduledAt ? new Date(c.scheduledAt).toISOString() : undefined,
+							sentAt: c.sendAt ? new Date(c.sendAt).toISOString() : c.createdAt ? new Date(c.createdAt).toISOString() : undefined,
+							createdAt: c.createdAt ? new Date(c.createdAt).toISOString() : new Date().toISOString(),
+							message: c.whatsappMessage || c.description,
+							subject: c.emailSubject,
+							templateName: c.whatsappTemplateName,
+						})),
+					);
+				}
 			}
 
 			res.json([]);

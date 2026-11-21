@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Router } from "express";
 import { aiProposalEngine } from "../services/ai-proposal-engine";
 import { db } from "../db";
@@ -236,8 +237,8 @@ router.get("/proposals", async (req, res) => {
 		}
 
 		let proposals;
-		if (role === "partner" || role === "agent") {
-			proposals = await aiProposalEngine.getAgentProposals(userId);
+		if (role === "partner" || role === "agent" || role === "sales_support") {
+			proposals = await aiProposalEngine.getPartnerProposals(userId);
 		} else {
 			proposals = await aiProposalEngine.getClientProposals(userId);
 		}

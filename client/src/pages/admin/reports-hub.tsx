@@ -88,8 +88,8 @@ const PLATFORM_REPORTS: PlatformReport[] = [
 	},
 	{
 		id: "agent_performance_summary",
-		name: "Agent Performance Summary",
-		description: "Aggregated performance metrics for all agents",
+		name: "Partner Performance Summary",
+		description: "Aggregated performance metrics for all partners",
 		category: "business",
 		icon: Target,
 		lastGenerated: "2024-12-21",

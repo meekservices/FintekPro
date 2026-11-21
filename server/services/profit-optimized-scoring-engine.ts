@@ -6,6 +6,7 @@ import {
 	LiquidityLevel,
 	InvestmentHorizon,
 } from "@shared/unified-investment-product";
+import { logger } from "../logger";
 import {
 	SuitabilityScore,
 	UpsideScore,
@@ -867,7 +868,7 @@ class ProfitOptimizedScoringEngine {
 			);
 
 			if (!suitability.isEligible) {
-				console.log(
+				logger.debug(
 					`[SCORING] Excluded: ${product.name} - ${suitability.exclusionReason}`,
 				);
 				continue;
@@ -946,7 +947,7 @@ class ProfitOptimizedScoringEngine {
 				}
 			}
 		} catch (err) {
-			console.warn("[ProfitOptimizedScoring] Python ML scoring unavailable, using rule-based upside fallback:", err);
+			logger.warn("[ProfitOptimizedScoring] Python ML scoring unavailable, using rule-based upside fallback:", err as Error);
 		}
 
 		const scoredProducts: ScoredProduct[] = [];
@@ -990,8 +991,8 @@ class ProfitOptimizedScoringEngine {
 		};
 
 		this.overrides.push(fullOverride);
-		console.log(
-			`[AUDIT] Override registered: ${fullOverride.overrideType} by agent ${fullOverride.agentId}`,
+		logger.info(
+			`[AUDIT] Override registered: ${fullOverride.overrideType} by partner/agent ${fullOverride.agentId}`,
 		);
 
 		return fullOverride;
@@ -1011,7 +1012,7 @@ class ProfitOptimizedScoringEngine {
 		};
 
 		this.auditLogs.push(log);
-		console.log(
+		logger.info(
 			`[AUDIT] Recommendation logged: ${log.mode} mode, ${log.productsRecommended} products for client ${log.clientId}`,
 		);
 
@@ -1021,6 +1022,7 @@ class ProfitOptimizedScoringEngine {
 	getAuditLogs(filters?: {
 		clientId?: string;
 		agentId?: string;
+		partnerId?: string;
 		startDate?: Date;
 		endDate?: Date;
 	}): RecommendationAuditLog[] {
@@ -1029,8 +1031,9 @@ class ProfitOptimizedScoringEngine {
 		if (filters?.clientId) {
 			logs = logs.filter((l) => l.clientId === filters.clientId);
 		}
-		if (filters?.agentId) {
-			logs = logs.filter((l) => l.agentId === filters.agentId);
+		const effectiveAgentId = filters?.partnerId || filters?.agentId;
+		if (effectiveAgentId) {
+			logs = logs.filter((l) => l.agentId === effectiveAgentId);
 		}
 		if (filters?.startDate) {
 			logs = logs.filter((l) => l.timestamp >= filters.startDate!);
@@ -1045,13 +1048,13 @@ class ProfitOptimizedScoringEngine {
 	activateKillSwitch(reason: string): void {
 		this.killSwitchActive = true;
 		this.killSwitchReason = reason;
-		console.log(`[KILL SWITCH] Activated: ${reason}`);
+		logger.warn(`[KILL SWITCH] Activated: ${reason}`);
 	}
 
 	deactivateKillSwitch(): void {
 		this.killSwitchActive = false;
 		this.killSwitchReason = undefined;
-		console.log(`[KILL SWITCH] Deactivated`);
+		logger.info(`[KILL SWITCH] Deactivated`);
 	}
 
 	isKillSwitchActive(): boolean {

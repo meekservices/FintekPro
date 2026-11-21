@@ -130,15 +130,16 @@ router.post(
  *   featureSetId — Truecaller feature set ID (from Business Console)
  */
 router.post(
-  "/register-agent-number",
+  ["/register-agent-number", "/register-partner-number"],
   requireAuth,
   async (req: any, res: Response) => {
-    const { agentId, phoneNumber, featureSetId } = req.body;
+    const effectiveId = req.body.partnerId || req.body.agentId;
+    const { phoneNumber, featureSetId } = req.body;
 
-    if (!agentId || !phoneNumber || !featureSetId) {
+    if (!effectiveId || !phoneNumber || !featureSetId) {
       return apiResponse.badRequest(
         res,
-        "agentId, phoneNumber, featureSetId are required",
+        "partnerId (or agentId), phoneNumber, featureSetId are required",
       );
     }
 
@@ -148,13 +149,13 @@ router.post(
     );
 
     if (result.success) {
-      // Mark agent as Truecaller-registered in DB
+      // Mark partner/agent as Truecaller-registered in DB
       // truecaller_registered column is added by Phase I schema migration
       try {
         await db
           .update(users)
           .set({ truecallerRegistered: true, updatedAt: new Date() })
-          .where(eq(users.id, agentId));
+          .where(eq(users.id, effectiveId));
       } catch (err: any) {
         // Column may not exist yet if migration hasn't run — non-fatal
         logger.warn("TRUECALLER_DB_FLAG_SKIPPED", {

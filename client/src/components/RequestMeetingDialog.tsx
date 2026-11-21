@@ -243,19 +243,19 @@ export function RequestMeetingDialog({
 				<div className="space-y-4 py-4">
 					{!preselectedAgentId && (
 						<div className="space-y-2">
-							<Label htmlFor="agent">Select Agent (Optional)</Label>
+							<Label htmlFor="agent">Select Partner / Advisor (Optional)</Label>
 							{agentsLoading ? (
 								<div className="flex items-center gap-2 text-sm text-muted-foreground">
 									<Loader2 className="w-4 h-4 animate-spin" />
-									Loading agents...
+									Loading advisors...
 								</div>
 							) : (
 								<Select value={selectedAgent} onValueChange={setSelectedAgent}>
 									<SelectTrigger data-testid="select-agent">
-										<SelectValue placeholder="Any available agent" />
+										<SelectValue placeholder="Any available partner / advisor" />
 									</SelectTrigger>
 									<SelectContent>
-										<SelectItem value="">Any available agent</SelectItem>
+										<SelectItem value="">Any available partner / advisor</SelectItem>
 										{agents.map((agent) => (
 											<SelectItem key={agent.id} value={agent.id}>
 												{agent.fullName || agent.email}

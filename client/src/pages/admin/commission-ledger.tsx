@@ -585,7 +585,7 @@ export default function CommissionLedgerPage() {
 										<TableHead className="text-right">TDS Rate</TableHead>
 										<TableHead className="text-right">FintekPro %</TableHead>
 										<TableHead className="text-right">Partner %</TableHead>
-										<TableHead className="text-right">Agent %</TableHead>
+										<TableHead className="text-right">Frontline Partner %</TableHead>
 									</TableRow>
 								</TableHeader>
 								<TableBody>
@@ -635,8 +635,9 @@ export default function CommissionLedgerPage() {
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 								<div className="space-y-4">
 									<div>
-										<label className="text-sm font-medium">Loan Amount</label>
+										<Label htmlFor="calcLoanAmount" className="text-sm font-medium">Loan Amount</Label>
 										<Input
+											id="calcLoanAmount"
 											type="number"
 											value={calcAmount}
 											onChange={(e) => setCalcAmount(e.target.value)}
@@ -644,9 +645,9 @@ export default function CommissionLedgerPage() {
 										/>
 									</div>
 									<div>
-										<label className="text-sm font-medium">Product Type</label>
+										<Label htmlFor="calcProductType" className="text-sm font-medium">Product Type</Label>
 										<Select value={calcProduct} onValueChange={setCalcProduct}>
-											<SelectTrigger>
+											<SelectTrigger id="calcProductType">
 												<SelectValue placeholder="Select product" />
 											</SelectTrigger>
 											<SelectContent>
@@ -735,7 +736,7 @@ export default function CommissionLedgerPage() {
 												</p>
 											</div>
 											<div className="p-2 bg-green-100 dark:bg-green-900/30 rounded text-center">
-												<p className="text-xs text-muted-foreground">Agent</p>
+												<p className="text-xs text-muted-foreground">Frontline Partner</p>
 												<p className="font-bold">
 													{formatCurrency(
 														calculatedCommission.data.agentAmount,

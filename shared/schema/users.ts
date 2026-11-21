@@ -135,10 +135,10 @@ export const users = pgTable("users", {
   isPinSet: boolean("is_pin_set").default(false),
   loginPin: text("login_pin"),
   shareableProfileEnabled: boolean("shareable_profile_enabled").default(false),
-  // Agent geo coverage — used by Lead Assignment Engine for geo-priority routing
+  // Partner geo coverage — used by Lead Assignment Engine for geo-priority routing
   operatingCities: jsonb("operating_cities").$type<string[]>().default([]),
   operatingStates: jsonb("operating_states").$type<string[]>().default([]),
-  // Truecaller Business — true once agent's calling number is registered as verified
+  // Truecaller Business — true once partner's calling number is registered as verified
   truecallerRegistered: boolean("truecaller_registered").default(false),
 }, (table) => [
   index("idx_users_email").on(table.email),

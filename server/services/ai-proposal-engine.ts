@@ -1367,12 +1367,16 @@ export class AIProposalEngine {
 			.orderBy(desc(aiProposals.createdAt));
 	}
 
-	async getAgentProposals(agentId: string): Promise<AiProposal[]> {
+	async getPartnerProposals(partnerId: string): Promise<AiProposal[]> {
 		return db
 			.select()
 			.from(aiProposals)
-			.where(eq(aiProposals.agentId, agentId))
+			.where(eq(aiProposals.agentId, partnerId))
 			.orderBy(desc(aiProposals.createdAt));
+	}
+
+	async getAgentProposals(agentId: string): Promise<AiProposal[]> {
+		return this.getPartnerProposals(agentId);
 	}
 
 	async updateProposalStatus(

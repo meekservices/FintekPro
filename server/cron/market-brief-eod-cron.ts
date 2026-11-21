@@ -74,18 +74,18 @@ export async function runMarketBriefEodJob(targetRegion?: string): Promise<EodEx
 		}),
 	);
 
-	for (const res of executions) {
+	executions.forEach((res, index) => {
 		if (res.status === "fulfilled") {
 			results.push(res.value);
 		} else {
 			results.push({
-				region: "unknown",
+				region: regions[index] || "unknown",
 				date: today,
 				success: false,
 				error: res.reason?.message || "Execution rejected",
 			});
 		}
-	}
+	});
 
 	telemetryBus.report({
 		engineId: "market-brief-engine",

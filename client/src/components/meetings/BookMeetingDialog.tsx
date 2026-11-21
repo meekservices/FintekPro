@@ -182,8 +182,8 @@ export function BookMeetingDialog({
 			const targetAgent = agentId || selectedAgent;
 			if (!targetAgent) {
 				toast({
-					title: "Select Agent",
-					description: "Please select an agent to meet with",
+					title: "Select Partner / Advisor",
+					description: "Please select a partner or advisor to meet with",
 					variant: "destructive",
 				});
 				return;
@@ -392,16 +392,16 @@ export function BookMeetingDialog({
 
 					{!isAgentView && !agentId && (
 						<div className="space-y-2">
-							<Label htmlFor="agent">Select Agent *</Label>
+							<Label htmlFor="agent">Select Partner / Advisor *</Label>
 							{agentsLoading ? (
 								<div className="flex items-center gap-2 text-sm text-muted-foreground">
 									<Loader2 className="w-4 h-4 animate-spin" />
-									Loading agents...
+									Loading advisors...
 								</div>
 							) : (
 								<Select value={selectedAgent} onValueChange={setSelectedAgent}>
 									<SelectTrigger data-testid="select-agent">
-										<SelectValue placeholder="Choose an agent" />
+										<SelectValue placeholder="Choose an advisor / partner" />
 									</SelectTrigger>
 									<SelectContent>
 										{agents.map((agent) => (

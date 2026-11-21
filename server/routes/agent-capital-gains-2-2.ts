@@ -16,7 +16,67 @@ import {
 	lt,
 	count,
 } from "drizzle-orm";
-import { agentAppointments, prospectClients, portfolios } from "@shared/schema";
+import { agentAppointments, prospectClients, portfolios, marketingCampaigns } from "@shared/schema";
+
+/**
+ * Hydrates WhatsApp marketing template text with variables and recipient personalization.
+ */
+function hydrateWhatsAppTemplate(
+	templateKeyOrName: string,
+	variables?: Record<string, string> | any[],
+	recipientName?: string,
+): string {
+	const templateMap: Record<string, string> = {
+		advance_tax: "🚨 Advance Tax Reminder: Ensure your installment is deposited before {{due_date}} to avoid 12% annual interest under Sec 234B/234C. Calculate your liability: {{advisory_link}}",
+		tax_harvesting: "⚖️ LTCG 12.5% Tax Strategy: Harvest up to {{ltcg_exemption_amount}} in equity capital gains tax-free before March 31. Audit your portfolio: {{lead_magnet_link}}",
+		corporate_treasury: "💼 Corporate Treasury Yield: Optimize idle current account balances with institutional liquid & overnight funds yielding {{yield_rate}} with T+1 liquidity. Consult: {{consult_link}}",
+		mca_roc_compliance: "📋 MCA & ROC Filing Notice: Ensure timely filing of {{filing_type}} to prevent ₹100/day penal fees and director DIN deactivation. Access CA Desk: {{ca_desk_link}}",
+		portfolio_xray: "📊 Portfolio X-Ray Diagnostic: Review asset allocation, commission drag, and risk diversification in 60 seconds: {{diagnostic_link}}",
+		welcome: "👋 Welcome to FintekPro! We are thrilled to partner with you on your financial compounding journey.",
+		ipo_alert: "🎯 IPO Alert: {{company_name}} opens on {{open_date}} in the price band {{price_range}}.",
+		portfolio_update: "📊 Portfolio Update: Your current valuation is {{portfolio_value}} ({{change_percent}}%).",
+		kyc_reminder: "🔐 KYC Action Required: Please complete your {{pending_step}} to unlock all trading and advisory features.",
+		promotion: "🎁 Special Advisory Offer: {{offer_title}}. Details: {{offer_details}}.",
+		mutual_fund: "📈 Mutual Fund Update: {{fund_name}} has delivered {{returns}}. Start SIP from {{min_investment}}.",
+		dividend_alert: "💰 Dividend Alert: {{company_name}} declared {{dividend_amount}} dividend with ex-date {{ex_date}}.",
+	};
+
+	let rawText = templateMap[templateKeyOrName];
+	if (!rawText) {
+		const matchedKey = Object.keys(templateMap).find(k =>
+			templateKeyOrName.toLowerCase().includes(k.toLowerCase()) ||
+			k.toLowerCase().includes(templateKeyOrName.toLowerCase())
+		);
+		rawText = matchedKey ? templateMap[matchedKey] : `FintekPro Advisory: ${templateKeyOrName.replace(/_/g, " ")}`;
+	}
+
+	let text = rawText;
+	const name = recipientName || "Valued Client";
+	text = text.replace(/\{\{customer_name\}\}/gi, name);
+	text = text.replace(/\{\{director_name\}\}/gi, name);
+
+	if (variables) {
+		if (Array.isArray(variables)) {
+			variables.forEach((val, i) => {
+				text = text.replace(new RegExp(`\\{\\{${i + 1}\\}\\}`, "g"), String(val));
+			});
+			const matches = text.match(/\{\{[^}]+\}\}/g);
+			if (matches) {
+				matches.forEach((m, idx) => {
+					if (variables[idx] !== undefined) {
+						text = text.replace(m, String(variables[idx]));
+					}
+				});
+			}
+		} else if (typeof variables === "object") {
+			for (const [k, v] of Object.entries(variables)) {
+				text = text.replace(new RegExp(`\\{\\{${k}\\}\\}`, "gi"), String(v));
+			}
+		}
+	}
+
+	return text;
+}
 
 export function registerAgentCapitalGainPart2Part2Routes(app: Express): void {
 	app.post("/api/agent/campaigns/sms", requireAgent, async (req, res) => {
@@ -94,9 +154,32 @@ export function registerAgentCapitalGainPart2Part2Routes(app: Express): void {
 				}
 			}
 
+			const campaignId = `sms-${Date.now()}`;
+
+			// Persist campaign record in marketingCampaigns table
+			try {
+				if (db && marketingCampaigns) {
+					await db.insert(marketingCampaigns).values({
+						id: campaignId,
+						name,
+						campaignType: "sms",
+						description: message,
+						status: failedCount === recipients.length ? "failed" : "sent",
+						recipientCount: recipients.length,
+						sentCount: successCount,
+						deliveredCount: successCount,
+						bouncedCount: failedCount,
+						sendAt: new Date(),
+						createdAt: new Date(),
+					});
+				}
+			} catch (dbErr) {
+				console.error("[Campaigns] Error saving SMS campaign to DB:", dbErr);
+			}
+
 			res.json({
 				success: true,
-				campaignId: `sms-${Date.now()}`,
+				campaignId,
 				name,
 				type: "sms",
 				totalRecipients: recipients.length,
@@ -178,9 +261,34 @@ export function registerAgentCapitalGainPart2Part2Routes(app: Express): void {
 				}
 			}
 
+			const campaignId = `email-${Date.now()}`;
+
+			// Persist campaign record in marketingCampaigns table
+			try {
+				if (db && marketingCampaigns) {
+					await db.insert(marketingCampaigns).values({
+						id: campaignId,
+						name,
+						campaignType: "email",
+						emailSubject: subject,
+						emailHtmlContent: htmlContent,
+						description: subject,
+						status: failedCount === recipients.length ? "failed" : "sent",
+						recipientCount: recipients.length,
+						sentCount: successCount,
+						deliveredCount: successCount,
+						bouncedCount: failedCount,
+						sendAt: new Date(),
+						createdAt: new Date(),
+					});
+				}
+			} catch (dbErr) {
+				console.error("[Campaigns] Error saving Email campaign to DB:", dbErr);
+			}
+
 			res.json({
 				success: true,
-				campaignId: `email-${Date.now()}`,
+				campaignId,
 				name,
 				type: "email",
 				totalRecipients: recipients.length,
@@ -201,11 +309,20 @@ export function registerAgentCapitalGainPart2Part2Routes(app: Express): void {
 				return res.status(401).json({ error: "Authentication required" });
 			}
 
-			const { name, templateName, templateParams, recipients } = req.body;
+			const {
+				name,
+				templateName,
+				templateId,
+				templateParams,
+				bodyParams,
+				templateVariables,
+				mediaUrl,
+				recipients,
+			} = req.body;
 
 			if (
 				!name ||
-				!templateName ||
+				(!templateName && !templateId) ||
 				!recipients ||
 				!Array.isArray(recipients) ||
 				recipients.length === 0
@@ -220,28 +337,67 @@ export function registerAgentCapitalGainPart2Part2Routes(app: Express): void {
 			let successCount = 0;
 			let failedCount = 0;
 			const broadcastId = `whatsapp-${Date.now()}`;
+			const vars = templateVariables || templateParams || bodyParams;
+			const targetKey = templateId || templateName;
+
+			let sampleMessage = "";
 
 			try {
 				const { whatsappDispatcher } = await import(
 					"../services/whatsapp-dispatcher"
 				);
 
-				const dispatchList = (recipients as Array<{ phone?: string }>)
+				const dispatchList = (recipients as Array<{ phone?: string; firstName?: string; lastName?: string; id?: string }>)
 					.filter((r) => !!r.phone)
-					.map((r) => ({
-						mobile: r.phone!,
-						message: `${name}: ${templateName}`,
-						category: "AGENT_CAMPAIGN",
-					}));
+					.map((r) => {
+						const personalizedMessage = hydrateWhatsAppTemplate(
+							targetKey,
+							vars,
+							r.firstName,
+						);
+						if (!sampleMessage) sampleMessage = personalizedMessage;
+						return {
+							mobile: r.phone!,
+							message: personalizedMessage,
+							mediaUrl: mediaUrl || undefined,
+							category: "AGENT_CAMPAIGN",
+							templateType: templateId || templateName,
+						};
+					});
 
 				const bulk = await whatsappDispatcher.sendBulk(dispatchList);
 				successCount = bulk.irisSent + bulk.twilioSent;
 				failedCount = bulk.failed;
 			} catch (importError) {
 				successCount = recipients.length;
+				sampleMessage = hydrateWhatsAppTemplate(targetKey, vars);
 				console.log(
 					`[Mock WhatsApp Campaign] Dispatcher not available, simulating send to ${recipients.length} recipients`,
 				);
+			}
+
+			// Persist campaign record in marketingCampaigns table
+			try {
+				if (db && marketingCampaigns) {
+					await db.insert(marketingCampaigns).values({
+						id: broadcastId,
+						name,
+						campaignType: "whatsapp",
+						whatsappTemplateName: templateName || templateId,
+						whatsappMessage: sampleMessage || `${name}: ${templateName}`,
+						whatsappMediaUrl: mediaUrl || null,
+						description: `WhatsApp: ${templateName || templateId}`,
+						status: failedCount === recipients.length ? "failed" : "sent",
+						recipientCount: recipients.length,
+						sentCount: successCount,
+						deliveredCount: successCount,
+						bouncedCount: failedCount,
+						sendAt: new Date(),
+						createdAt: new Date(),
+					});
+				}
+			} catch (dbErr) {
+				console.error("[Campaigns] Error saving WhatsApp campaign to DB:", dbErr);
 			}
 
 			// Log marketing touchpoints asynchronously in Native CRM
@@ -252,8 +408,8 @@ export function registerAgentCapitalGainPart2Part2Routes(app: Express): void {
 							.values({
 								leadId: String(r.id),
 								activityType: "whatsapp",
-								subject: `Campaign: ${name} (${templateName})`,
-								description: `WhatsApp template ${templateName} dispatched`,
+								subject: `Campaign: ${name} (${templateName || templateId})`,
+								description: (sampleMessage || `WhatsApp template ${templateName} dispatched`).substring(0, 200),
 								outcome: "successful",
 								performedBy: req.user.id,
 							})
@@ -264,7 +420,7 @@ export function registerAgentCapitalGainPart2Part2Routes(app: Express): void {
 
 			res.json({
 				success: true,
-				campaignId: broadcastId || `whatsapp-${Date.now()}`,
+				campaignId: broadcastId,
 				name,
 				type: "whatsapp",
 				totalRecipients: recipients.length,

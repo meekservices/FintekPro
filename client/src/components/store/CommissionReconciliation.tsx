@@ -641,7 +641,7 @@ export function CommissionReconciliation() {
 						<CardHeader>
 							<CardTitle>Commission Payouts</CardTitle>
 							<CardDescription>
-								Agent and partner commission payout reconciliation with Zoho
+								Partner commission payout reconciliation with Zoho
 								Books
 							</CardDescription>
 						</CardHeader>
@@ -660,7 +660,7 @@ export function CommissionReconciliation() {
 								<Table>
 									<TableHeader>
 										<TableRow>
-											<TableHead>Agent</TableHead>
+											<TableHead>Partner</TableHead>
 											<TableHead>Product</TableHead>
 											<TableHead>Commission</TableHead>
 											<TableHead>TDS</TableHead>

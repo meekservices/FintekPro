@@ -212,7 +212,7 @@ export function AgentOverrideControls({
 						>
 							<div className="flex items-center gap-2">
 								<Settings className="h-5 w-5" />
-								<CardTitle className="text-lg">Agent Overrides</CardTitle>
+								<CardTitle className="text-lg">Partner / Advisor Overrides</CardTitle>
 								{overridesData?.count && overridesData.count > 0 && (
 									<Badge variant="secondary">
 										{overridesData.count} active
@@ -246,7 +246,7 @@ export function AgentOverrideControls({
 							</DialogTrigger>
 							<DialogContent>
 								<DialogHeader>
-									<DialogTitle>Add Agent Override</DialogTitle>
+									<DialogTitle>Add Partner Override</DialogTitle>
 									<DialogDescription>
 										Override the default recommendation behavior for this
 										client. All overrides are logged for compliance purposes.

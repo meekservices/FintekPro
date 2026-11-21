@@ -54,7 +54,7 @@ graph TD
 ### Module Responsibilities:
 - **Lead Pipeline (`/agent/leads`)**: The primary command cockpit for managing all non-client relationships. Incorporates Kanban stages (`new`, `contacted`, `proposal_sent`, `negotiation`, `converted`, `lost`), quick filters (`All Leads`, `👑 HNI / Promoters`, `📄 Proposals Active`, `🔥 Hot Leads`), auto-dialer queues, bulk CSV ingestion, and instant WhatsApp/Copy onboarding invitations.
 - **HNI Wealth Intelligence (`/agent/hni-leaderboard`)**: An analytical intelligence module powered by AI wealth scoring that evaluates corporate directors, listed shareholdings, liquidity events, and corporate surplus for targeted outreach.
-- **Deal Matcher (`/agent/deal-matcher`)**: An algorithmic engine matching high-ticket PMS/AIF opportunities with qualified prospects based on net worth thresholds and risk profiling.
+- **Deal Matcher (`/partner/deal-matcher` / `/agent/deal-matcher`)**: An algorithmic engine matching high-ticket PMS/AIF opportunities with qualified prospects based on net worth thresholds and risk profiling.
 - **Clients (`/agent/clients`)**: Reserved exclusively for users who have completed KYC verification or have an active investor account on FintekPro.
 
 ---

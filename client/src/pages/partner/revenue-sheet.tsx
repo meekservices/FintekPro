@@ -168,9 +168,9 @@ function NetworkTable({ rows }: { rows: AgentNetworkRow[] }) {
 			<Table>
 				<TableHeader>
 					<TableRow>
-						<TableHead>Agent</TableHead>
+						<TableHead>Partner</TableHead>
 						<TableHead className="text-right">Cases</TableHead>
-						<TableHead className="text-right">Agent Commission</TableHead>
+						<TableHead className="text-right">Partner Commission</TableHead>
 						<TableHead className="text-right">Upline Rate</TableHead>
 						<TableHead className="text-right">Your Earning</TableHead>
 						<TableHead>Status</TableHead>
@@ -544,7 +544,7 @@ export default function PartnerRevenueSheet() {
 			<Tabs value={activeTab} onValueChange={setActiveTab}>
 				<TabsList className="mb-2">
 					<TabsTrigger value="network" className="flex items-center gap-2">
-						<Users className="w-4 h-4" /> Agent Network
+						<Users className="w-4 h-4" /> Partner Network
 					</TabsTrigger>
 					<TabsTrigger value="planner" className="flex items-center gap-2">
 						<Target className="w-4 h-4" /> Monthly Planner
@@ -560,7 +560,7 @@ export default function PartnerRevenueSheet() {
 							<div className="flex items-center justify-between">
 								<CardTitle className="flex items-center gap-2 text-base">
 									<Users className="w-4 h-4" />
-									Agent Network — {MONTHS[month - 1]} {year}
+									Partner Network — {MONTHS[month - 1]} {year}
 								</CardTitle>
 								<Button variant="ghost" size="sm" onClick={() => refetch()}>
 									<RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh

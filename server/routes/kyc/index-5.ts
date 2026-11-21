@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 // @ts-nocheck
 import { Express, Request, Response } from "express";
 import { randomInt } from "crypto";
@@ -672,6 +673,6 @@ export function registerKYCWizardPart5Routes(app: Express) {
 	);
 
 	console.log(
-		"✅ KYC Wizard v2 routes registered (Orchestrator + Entity Lock + CKYC Scoring + Agent Blocks + AML + Tier Engine + Vault Status + Sufficiency)",
+		"✅ KYC Wizard v2 routes registered (Orchestrator + Entity Lock + CKYC Scoring + Partner Blocks + AML + Tier Engine + Vault Status + Sufficiency)",
 	);
 }

@@ -281,9 +281,9 @@ export default function AdminAgentPayoutsPage() {
 		<div className="container mx-auto p-6 space-y-6">
 			<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 				<div>
-					<h1 className="text-2xl font-bold">Agent Payout Management</h1>
+					<h1 className="text-2xl font-bold">Partner Payout Management</h1>
 					<p className="text-muted-foreground">
-						Review and process agent commission payouts
+						Review and process partner commission payouts
 					</p>
 				</div>
 				<div className="flex items-center gap-2">
@@ -525,7 +525,7 @@ export default function AdminAgentPayoutsPage() {
 									</Badge>
 								</div>
 								<div>
-									<Label className="text-muted-foreground">Agent</Label>
+									<Label className="text-muted-foreground">Partner</Label>
 									<p className="font-medium">
 										{selectedClaim.agentName || selectedClaim.agentEmail}
 									</p>
@@ -581,7 +581,7 @@ export default function AdminAgentPayoutsPage() {
 							</div>
 							{selectedClaim.remarks && (
 								<div>
-									<Label className="text-muted-foreground">Agent Remarks</Label>
+									<Label className="text-muted-foreground">Partner Remarks</Label>
 									<p className="bg-muted p-2 rounded mt-1">
 										{selectedClaim.remarks}
 									</p>
@@ -645,7 +645,7 @@ export default function AdminAgentPayoutsPage() {
 									</span>
 								</div>
 								<div className="flex justify-between">
-									<span className="text-muted-foreground">Agent</span>
+									<span className="text-muted-foreground">Partner</span>
 									<span className="font-medium">
 										{selectedClaim.agentName || selectedClaim.agentEmail}
 									</span>
@@ -726,7 +726,7 @@ export default function AdminAgentPayoutsPage() {
 									</span>
 								</div>
 								<div className="flex justify-between">
-									<span className="text-muted-foreground">Agent</span>
+									<span className="text-muted-foreground">Partner</span>
 									<span className="font-medium">
 										{selectedClaim.agentName || selectedClaim.agentEmail}
 									</span>

@@ -133,7 +133,7 @@ export default function AdminAgentOversightPage() {
 				scope,
 				active: nextActive,
 				reason: nextActive
-					? "Manual emergency trip by Administrator from Agent Oversight Console"
+					? "Manual emergency trip by Administrator from Partner Oversight Console"
 					: "Manual reset and operational clearance by Administrator",
 			});
 			const data = await res.json();
@@ -358,15 +358,15 @@ export default function AdminAgentOversightPage() {
 									<CardHeader>
 										<div className="flex items-center justify-between">
 											<div>
-												<CardTitle>Growth-Optimized Mode by Agent</CardTitle>
+												<CardTitle>Growth-Optimized Mode by Partner</CardTitle>
 												<CardDescription>
-													Agents using advanced recommendation mode
+													Partners using advanced recommendation mode
 												</CardDescription>
 											</div>
 											<div className="relative w-64">
 												<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 												<Input
-													placeholder="Search agents..."
+													placeholder="Search partners..."
 													value={searchQuery}
 													onChange={(e) => setSearchQuery(e.target.value)}
 													className="pl-10"
@@ -378,7 +378,7 @@ export default function AdminAgentOversightPage() {
 										<Table>
 											<TableHeader>
 												<TableRow>
-													<TableHead>Agent Name</TableHead>
+													<TableHead>Partner Name</TableHead>
 													<TableHead className="text-center">
 														Usage Count
 													</TableHead>
@@ -450,7 +450,7 @@ export default function AdminAgentOversightPage() {
 								<Card>
 									<CardHeader>
 										<CardTitle>Override Activity Summary</CardTitle>
-										<CardDescription>Agent overrides by type</CardDescription>
+										<CardDescription>Partner overrides by type</CardDescription>
 									</CardHeader>
 									<CardContent>
 										<div className="grid grid-cols-1 md:grid-cols-3 gap-6">

@@ -1,13 +1,12 @@
 import { db } from "../db";
 import {
-	partners,
 	partnerCommissionRules,
 	partnerCommissionLedger,
 	partnerWallets,
 	platformConfig,
 	fintekproCaRegistry,
 } from "@shared/schema";
-import { eq, and, sql, isNull, lte, gte, desc } from "drizzle-orm";
+import { eq, and, sql, desc } from "drizzle-orm";
 import { logger } from "../logger";
 
 export class CommissionWaterfallEngine {
@@ -84,7 +83,7 @@ export class CommissionWaterfallEngine {
 			let waterfallLevel: string;
 
 			if (i === 0) {
-				// Seller / frontline agent
+				// Seller / frontline partner (sales support)
 				pct = agentPct;
 				waterfallLevel = `L${chainLength}`;
 			} else if (i === chainLength - 1) {
