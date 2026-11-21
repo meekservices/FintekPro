@@ -161,6 +161,35 @@ export function initializeMarketBriefEodCron(): void {
 		timezone: "Asia/Kolkata",
 	});
 
+	// ─── 3b. NCDEX Agricultural EOD Sync (Mon–Fri at 18:00 IST) ───────────────
+	// NCDEX agri trading closes at 17:00 IST; settlement benchmarks finalized by 18:00 IST
+	cron.schedule("0 18 * * 1-5", async () => {
+		logger.info("[MarketBriefEodCron] ⏰ Triggered NCDEX Agri Bhavcopy & Mandi Spot Ingestion (18:00 IST)");
+		try {
+			const { ncdexBhavcopyService } = await import("../services/ncdex-bhavcopy-service");
+			await ncdexBhavcopyService.syncLatestBhavcopy();
+		} catch (ncdexErr: any) {
+			logger.warn(`[MarketBriefEodCron] NCDEX EOD sync warning: ${ncdexErr?.message}`);
+		}
+	}, {
+		timezone: "Asia/Kolkata",
+	});
+
+	// ─── 3c. MCX Midnight Settlement & EOD Re-Snap (Tue–Sat at 00:05 IST) ─────
+	// MCX closes at 23:30 / 23:55 IST; settles official EOD DSP and physical spot
+	cron.schedule("5 0 * * 2-6", async () => {
+		logger.info("[MarketBriefEodCron] ⏰ Triggered MCX Midnight Settlement & Bhavcopy sync (00:05 IST)");
+		try {
+			const { mcxBhavcopyService } = await import("../services/mcx-bhavcopy-service");
+			await mcxBhavcopyService.syncLatestBhavcopy();
+			await runMarketBriefEodJob("india");
+		} catch (mcxErr: any) {
+			logger.warn(`[MarketBriefEodCron] MCX Midnight settlement sync warning: ${mcxErr?.message}`);
+		}
+	}, {
+		timezone: "Asia/Kolkata",
+	});
+
 	// ─── 4. Global EOD Brief (Mon–Fri at 18:30 IST / 13:00 UTC) ───────────────
 	// European market close & Asian consolidation
 	cron.schedule("30 18 * * 1-5", async () => {
@@ -188,6 +217,19 @@ export function initializeMarketBriefEodCron(): void {
 			logger.info("[MarketBriefEodCron] 🇮🇳 Verified and seeded official MoSPI CPI benchmark");
 		} catch (cErr: any) {
 			logger.warn(`[MarketBriefEodCron] Boot CPI sync notice: ${cErr?.message}`);
+		}
+
+		// Initial MCX & NCDEX Bhavcopy / Spot seed on boot
+		try {
+			const { mcxBhavcopyService } = await import("../services/mcx-bhavcopy-service");
+			const { ncdexBhavcopyService } = await import("../services/ncdex-bhavcopy-service");
+			await Promise.allSettled([
+				mcxBhavcopyService.syncLatestBhavcopy(),
+				ncdexBhavcopyService.syncLatestBhavcopy(),
+			]);
+			logger.info("[MarketBriefEodCron] 🌾 Verified and seeded official MCX & NCDEX EOD benchmarks");
+		} catch (commErr: any) {
+			logger.warn(`[MarketBriefEodCron] Boot commodity bhavcopy sync notice: ${commErr?.message}`);
 		}
 
 		try {

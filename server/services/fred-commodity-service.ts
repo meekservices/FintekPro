@@ -105,6 +105,8 @@ export const FRED_SERIES = {
 	BRENT_CRUDE: { id: "DCOILBRENTEU", name: "Crude Oil Prices: Brent - Europe", unit: "USD / bbl", category: "energy" as const, fallback: 74.50 },
 	WTI_CRUDE: { id: "DCOILWTICO", name: "Crude Oil Prices: West Texas Intermediate (WTI)", unit: "USD / bbl", category: "energy" as const, fallback: 70.85 },
 	NATURAL_GAS: { id: "DHHNGSP", name: "Henry Hub Natural Gas Spot Price", unit: "USD / mmBtu", category: "energy" as const, fallback: 2.75 },
+	GOLD: { id: "GOLDAMGBD228NLBM", name: "Gold Fixing Price 3:00 P.M. London Bullion Market", unit: "USD / oz", category: "metals" as const, fallback: 2685.50 },
+	SILVER: { id: "SLVPRUSD", name: "Silver Price: London Fix", unit: "USD / oz", category: "metals" as const, fallback: 31.40 },
 	US_10Y: { id: "DGS10", name: "10-Year Treasury Constant Maturity Rate", unit: "%", category: "treasury" as const, fallback: 4.42 },
 	US_2Y: { id: "DGS2", name: "2-Year Treasury Constant Maturity Rate", unit: "%", category: "treasury" as const, fallback: 4.30 },
 	FED_FUNDS: { id: "DFF", name: "Federal Funds Effective Rate", unit: "%", category: "rate" as const, fallback: 4.58 },

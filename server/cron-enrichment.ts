@@ -512,6 +512,68 @@ export function initializeEnrichmentCrons(
 	);
 	delay += STAGGER;
 
+	// ── Official NCDEX Bhavcopy & Mandi Spot Daily Ingestion ───────────────────
+	staggeredStart(
+		"NCDEX Bhavcopy Ingestion",
+		() => {
+			// Daily 6:00 PM IST (12:30 UTC) weekdays — after 5:00 PM NCDEX market close
+			cron.schedule(
+				"0 18 * * 1-5",
+				async () => {
+					logger.info("[CRON] Starting daily NCDEX Bhavcopy & Mandi Spot ingestion (6:00 PM IST)...");
+					try {
+						const { ncdexBhavcopyService } = await import(
+							"./services/ncdex-bhavcopy-service"
+						);
+						const result = await ncdexBhavcopyService.syncLatestBhavcopy();
+						logger.info(
+							`[CRON] NCDEX Bhavcopy ingestion complete: ${result.goldenPricesInserted} benchmarks updated in ${result.latencyMs}ms`,
+						);
+					} catch (error: any) {
+						logger.error("[CRON] NCDEX Bhavcopy ingestion failed:", error.message);
+					}
+				},
+				{ timezone: "Asia/Kolkata" },
+			);
+			logger.info(
+				"🌾 [NcdexBhavcopy] Daily official NCDEX Bhavcopy & Mandi Spot scheduled (6:00 PM IST weekdays)",
+			);
+		},
+		delay,
+	);
+	delay += STAGGER;
+
+	// ── Official MCX Bhavcopy & Midnight Settlement Daily Ingestion ─────────────
+	staggeredStart(
+		"MCX Bhavcopy Ingestion",
+		() => {
+			// Nightly 00:05 AM IST (18:35 UTC) Tue-Sat — after 11:30 PM / 11:55 PM MCX session close
+			cron.schedule(
+				"5 0 * * 2-6",
+				async () => {
+					logger.info("[CRON] Starting nightly MCX Bhavcopy & Midnight settlement ingestion (00:05 AM IST)...");
+					try {
+						const { mcxBhavcopyService } = await import(
+							"./services/mcx-bhavcopy-service"
+						);
+						const result = await mcxBhavcopyService.syncLatestBhavcopy();
+						logger.info(
+							`[CRON] MCX Bhavcopy ingestion complete: ${result.updatedCommodities} commodities, ${result.goldenPricesInserted} golden_prices recorded in ${result.latencyMs}ms`,
+						);
+					} catch (error: any) {
+						logger.error("[CRON] MCX Bhavcopy ingestion failed:", error.message);
+					}
+				},
+				{ timezone: "Asia/Kolkata" },
+			);
+			logger.info(
+				"⚡ [McxBhavcopy] Nightly official MCX Bhavcopy & Midnight settlement scheduled (00:05 AM IST Tue-Sat)",
+			);
+		},
+		delay,
+	);
+	delay += STAGGER;
+
 	// ── Historical Time-Series Backfill Batch ───────────────────────────────────
 	staggeredStart(
 		"Historical Time-Series Backfill",

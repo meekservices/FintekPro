@@ -115,6 +115,10 @@ export const SEBI_AUDIT_GRADE_SOURCES = new Set([
 	"RBI_POLICY",
 	"CCIL_SOVEREIGN",
 	"MCX_INDIA",
+	"MCX_BHAVCOPY",
+	"MCX_SPOT",
+	"NCDEX_BHAVCOPY",
+	"NCDEX_SPOT",
 ]);
 
 export interface PricingJob {
@@ -145,6 +149,10 @@ export const SOURCE_CONFIDENCE: Record<string, number> = {
 	RBI_POLICY: 99, // Reserve Bank of India Official Policy Benchmarks (Repo, SDF, MSF)
 	CCIL_SOVEREIGN: 98, // The Clearing Corporation of India Limited (G-Sec, TREPS)
 	MCX_INDIA: 95, // Multi Commodity Exchange of India (Gold, Silver, Crude)
+	MCX_BHAVCOPY: 98, // Official MCX Settlement Bhavcopy
+	MCX_SPOT: 98, // Official MCX Mandi Polled Physical Spot Benchmarks
+	NCDEX_BHAVCOPY: 97, // Official NCDEX Settlement Bhavcopy
+	NCDEX_SPOT: 97, // Official NCDEX Mandi Polled Spot Benchmarks
 	COMEX_GLOBAL: 94, // COMEX / NYMEX / CME Group Global Benchmarks
 	GLOBAL_INDEX: 92, // International Market Indexes (S&P, Nasdaq, Nikkei, FTSE, DAX)
 	FX_MARKET: 95, // Central Bank / Interbank Forex Benchmark

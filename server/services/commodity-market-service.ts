@@ -519,6 +519,12 @@ export class CommodityMarketService {
             } else if (base.id === "NATURAL_GAS") {
               const gasObs = await fredCommodityService.getSeriesObservation("NATURAL_GAS");
               if (gasObs?.value && gasObs.value > 0) fredPrice = gasObs.value;
+            } else if (base.id === "GOLD") {
+              const goldObs = await fredCommodityService.getSeriesObservation("GOLD");
+              if (goldObs?.value && goldObs.value > 0) fredPrice = goldObs.value;
+            } else if (base.id === "SILVER") {
+              const silverObs = await fredCommodityService.getSeriesObservation("SILVER");
+              if (silverObs?.value && silverObs.value > 0) fredPrice = silverObs.value;
             }
           } catch {
             /* non-fatal fallback */
