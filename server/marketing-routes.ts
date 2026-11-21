@@ -22,6 +22,7 @@ import {
 	credhiveService,
 	normalizeCompanyResult,
 } from "./services/credhive-service";
+import { nativeProspectIntelligenceAgent } from "./services/native-prospect-intelligence-agent";
 import { irisKfintechService } from "./services/iris-kfintech-service";
 import { whatsappDispatcher } from "./services/whatsapp-dispatcher";
 import { apiResponse } from "./utils/responses";
@@ -888,6 +889,37 @@ export function registerMarketingRoutes(app: Express) {
 			} catch (error) {
 				console.error("Error enriching company for preview:", error);
 				return apiResponse.serverError(res, "Failed to enrich company data");
+			}
+		},
+	);
+
+	/**
+	 * Run Native FintekPro Intelligence Agent on a company/prospect (CredHive + Grounded Search)
+	 * Acts as failover/backup intelligence engine when primary external providers fail.
+	 */
+	app.post(
+		"/api/admin/marketing/leads/deep-intelligence",
+		requireAdmin,
+		async (req: Request, res: Response) => {
+			try {
+				const { companyName, cin, city } = req.body;
+				if (!companyName && !cin) {
+					return apiResponse.badRequest(res, "Either companyName or cin is required");
+				}
+
+				const dossier = await nativeProspectIntelligenceAgent.enrichProspect(
+					companyName || "Unknown",
+					cin,
+					city,
+				);
+
+				return res.json({
+					success: true,
+					dossier,
+				});
+			} catch (error: any) {
+				console.error("Error in Native Intelligence Agent execution:", error);
+				return apiResponse.serverError(res, "Failed to run Native Intelligence Agent");
 			}
 		},
 	);

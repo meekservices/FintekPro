@@ -56,6 +56,8 @@ import {
 	User,
 	Network,
 	Loader2,
+	Sparkles,
+	ExternalLink,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingState } from "@/components/LoadingState";
@@ -191,6 +193,7 @@ export default function LeadProspecting() {
 	const [selectedCompany, setSelectedCompany] =
 		useState<CompanySearchResult | null>(null);
 	const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+	const [aiDossier, setAiDossier] = useState<any>(null);
 	const [activeTab, setActiveTab] = useState("company-search");
 	const [directorName, setDirectorName] = useState("");
 	const [directorResults, setDirectorResults] = useState<
@@ -299,9 +302,38 @@ export default function LeadProspecting() {
 		},
 	});
 
+	const deepIntelligenceMutation = useMutation({
+		mutationFn: async ({
+			cin,
+			companyName,
+			city,
+		}: { cin?: string; companyName?: string; city?: string }) => {
+			const res = await apiRequest("/api/admin/marketing/leads/deep-intelligence", {
+				method: "POST",
+				body: JSON.stringify({ cin, companyName, city }),
+			});
+			return res.json ? res.json() : res;
+		},
+		onSuccess: (data: any) => {
+			setAiDossier(data.dossier);
+			toast({
+				title: "Native AI Dossier Generated",
+				description: `Synthesized with ${data.dossier?.groundedSources?.length || 0} live web sources and MCA records.`,
+			});
+		},
+		onError: (error: any) => {
+			toast({
+				title: "AI Investigation Failed",
+				description: error.message || "Failed to generate deep dossier",
+				variant: "destructive",
+			});
+		},
+	});
+
 	const handleViewDetails = (
 		company: CompanySearchResult | DirectorCompany,
 	) => {
+		setAiDossier(null);
 		enrichPreviewMutation.mutate({
 			cin: company.cin,
 			companyName:
@@ -1616,6 +1648,99 @@ export default function LeadProspecting() {
 					{selectedCompany && (
 						<ScrollArea className="max-h-[60vh] pr-4">
 							<div className="space-y-6">
+								{/* Native AI Dossier Card (if generated) */}
+								{aiDossier && (
+									<div className="p-4 bg-gradient-to-br from-violet-500/10 via-background to-blue-500/10 rounded-lg border border-violet-500/30 space-y-3">
+										<div className="flex items-center justify-between">
+											<div className="flex items-center gap-2">
+												<Sparkles className="h-4 w-4 text-violet-500" />
+												<span className="font-bold text-sm text-violet-600 dark:text-violet-400">
+													Native AI Grounded Dossier
+												</span>
+											</div>
+											<div className="flex items-center gap-2">
+												<Badge variant="outline" className="text-xs bg-violet-50 dark:bg-violet-950 border-violet-300">
+													{aiDossier.wealthTier}
+												</Badge>
+												<Badge variant="secondary" className="text-xs">
+													{aiDossier.confidenceScore}% Confidence
+												</Badge>
+											</div>
+										</div>
+										<p className="text-sm text-foreground/90 leading-relaxed">
+											{aiDossier.summary}
+										</p>
+										{aiDossier.investableSurplus && (
+											<div className="text-xs text-muted-foreground">
+												Estimated Investable Surplus:{" "}
+												<span className="font-semibold text-emerald-600">
+													₹{(aiDossier.investableSurplus / 10000000).toFixed(2)} Cr
+												</span>
+											</div>
+										)}
+										{aiDossier.signals && aiDossier.signals.length > 0 && (
+											<div className="space-y-1 pt-1">
+												<span className="text-xs font-semibold text-muted-foreground uppercase">
+													Liquidity & Growth Signals
+												</span>
+												<div className="grid gap-1.5">
+													{aiDossier.signals.map((sig: any, idx: number) => (
+														<div
+															key={idx}
+															className="text-xs p-2 rounded bg-background/60 border flex items-start justify-between gap-2"
+														>
+															<div>
+																<span className="font-medium capitalize text-violet-600">
+																	[{sig.type.replace(/_/g, " ")}]
+																</span>{" "}
+																<span>{sig.summary}</span>
+															</div>
+															{sig.sourceUrl && (
+																<a
+																	href={sig.sourceUrl}
+																	target="_blank"
+																	rel="noreferrer"
+																	className="text-muted-foreground hover:text-primary shrink-0"
+																>
+																	<ExternalLink className="h-3 w-3" />
+																</a>
+															)}
+														</div>
+													))}
+												</div>
+											</div>
+										)}
+										{aiDossier.groundedSources && aiDossier.groundedSources.length > 0 && (
+											<div className="pt-1">
+												<span className="text-xs font-semibold text-muted-foreground block mb-1">
+													Verified Sources ({aiDossier.groundedSources.length})
+												</span>
+												<div className="flex flex-wrap gap-1">
+													{aiDossier.groundedSources.slice(0, 4).map((src: string, sIdx: number) => {
+														try {
+															const domain = new URL(src).hostname.replace("www.", "");
+															return (
+																<a
+																	key={sIdx}
+																	href={src}
+																	target="_blank"
+																	rel="noreferrer"
+																	className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-muted/80 hover:bg-muted text-muted-foreground border"
+																>
+																	<ExternalLink className="h-2.5 w-2.5" />
+																	{domain}
+																</a>
+															);
+														} catch {
+															return null;
+														}
+													})}
+												</div>
+											</div>
+										)}
+									</div>
+								)}
+
 								{/* Quick Summary Card */}
 								<div className="p-4 bg-gradient-to-r from-background to-muted rounded-lg border">
 									<h3 className="font-semibold text-lg mb-3">
@@ -2145,12 +2270,37 @@ export default function LeadProspecting() {
 						</ScrollArea>
 					)}
 
-					<DialogFooter className="gap-2 sm:gap-0">
+					<DialogFooter className="gap-2 sm:gap-2">
 						<Button
 							variant="outline"
 							onClick={() => setShowDetailsDialog(false)}
 						>
 							Cancel
+						</Button>
+						<Button
+							variant="secondary"
+							onClick={() => {
+								if (selectedCompany) {
+									deepIntelligenceMutation.mutate({
+										cin: selectedCompany.cin,
+										companyName: selectedCompany.companyName,
+										city: selectedCompany.city,
+									});
+								}
+							}}
+							disabled={deepIntelligenceMutation.isPending}
+						>
+							{deepIntelligenceMutation.isPending ? (
+								<>
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									Investigating...
+								</>
+							) : (
+								<>
+									<Sparkles className="mr-2 h-4 w-4 text-violet-500" />
+									Deep AI Dossier
+								</>
+							)}
 						</Button>
 						<Button
 							onClick={() => {

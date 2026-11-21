@@ -205,6 +205,7 @@ import { vendorInfraRoutes } from "./routes/vendor-infra-routes"; // /api/infra/
 import { upstoxOAuthRouter } from "./routes/upstox-oauth-routes"; // /api/upstox/oauth/*, /api/upstox/partner/*
 import { dhanOAuthRouter } from "./routes/dhan-oauth-routes"; // /api/dhan/oauth/*, /api/dhan/partner/*
 import { agentGeoCoverageRouter } from "./routes/agent-geo-coverage-routes"; // /api/agent/geo-coverage
+import { linkedinAuthRouter } from "./routes/linkedin-auth-routes"; // /api/auth/linkedin (Free LinkedIn OAuth)
 // Director phone enrichment is CredHive-only — no external phone provider needed.
 // EasyLeadz webhook route is deprecated (kept as dead file for historical reference).
 import { registerTruecallerBusinessRoutes } from "./routes/truecaller-business-routes"; // /api/calling/*
@@ -667,6 +668,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	                                        // GET  /api/calling/truecaller-status
 	app.use("/api/dialer", dialerRouter);   // POST /api/dialer/call, /disposition, GET /queue, /history, /stats
 	app.use("/api/public/portfolio-xray", portfolioXRayRouter); // Public Lead Magnet: Portfolio Health & Fee Drag X-Ray
+	app.use("/api/auth/linkedin", linkedinAuthRouter); // Free LinkedIn OAuth OpenID Connect authentication
 
 	const httpServer = createServer(app);
 	return httpServer;
