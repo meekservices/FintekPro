@@ -66,7 +66,9 @@ router.get("/ai/recommendations", async (req, res) => {
 					quote.changePercent > 0
 						? Math.min(quote.changePercent * 10, 30)
 						: Math.max(quote.changePercent * 5, -20);
-				const baseScore = 50 + changeScore + Math.random() * 20;
+				// Deterministic quality score based on company size and momentum (zero Math.random)
+				const tierBoost = ["AAPL", "MSFT", "GOOGL", "AMZN"].includes(symbol) ? 12 : 8;
+				const baseScore = 50 + changeScore + tierBoost;
 				const score = Math.min(Math.max(Math.round(baseScore), 20), 95);
 
 				let signal: "buy" | "hold" | "sell";

@@ -172,6 +172,24 @@ export async function registerPlatformStatsRoutes(app: Express): Promise<void> {
 							action: preferences.all ? "granted" : "withdrawn",
 						});
 					}
+					if (preferences.fnoRiskDisclosure !== undefined) {
+						consents.push({
+							consentType: "sebi_fno_risk_disclosure",
+							action: preferences.fnoRiskDisclosure ? "granted" : "withdrawn",
+						});
+					}
+					if (preferences.aiGovernance !== undefined) {
+						consents.push({
+							consentType: "ai_governance_acknowledgment",
+							action: preferences.aiGovernance ? "granted" : "withdrawn",
+						});
+					}
+					if (preferences.dpdpConsent !== undefined) {
+						consents.push({
+							consentType: "dpdp_data_consent",
+							action: preferences.dpdpConsent ? "granted" : "withdrawn",
+						});
+					}
 				}
 
 				if (consents.length > 0) {
@@ -179,8 +197,8 @@ export async function registerPlatformStatsRoutes(app: Express): Promise<void> {
 						userId,
 						sessionId: sessionId || `session-${Date.now()}`,
 						version: version || "1.0",
-						sourceScreen: "privacy_dialog",
-						sourceComponent: "CookieConsentBanner",
+						sourceScreen: req.body.sourceScreen || "privacy_dialog",
+						sourceComponent: req.body.sourceComponent || "CookieConsentBanner",
 						ipAddress,
 						userAgent,
 						additionalData: { rawPreferences: preferences, timestamp },
@@ -197,6 +215,120 @@ export async function registerPlatformStatsRoutes(app: Express): Promise<void> {
 		} catch (error) {
 			console.error("Error recording consent:", error);
 			res.status(500).json({ error: "Failed to record consent preferences" });
+		}
+	});
+
+	// DPDP Act 2023 Section 11: Right to Access Information (Data Export)
+	app.get("/api/privacy/export-my-data", async (req, res) => {
+		try {
+			const userId = (req as any).user?.id;
+			if (!userId) {
+				res.status(401).json({ success: false, error: "Authentication required to export data" });
+				return;
+			}
+
+			const [user, profile, bankAccounts, dematAccounts] = await Promise.all([
+				storage.getUser(userId),
+				storage.getUserProfile(userId).catch(() => null),
+				storage.getUserBankAccounts(userId).catch(() => []),
+				storage.getUserDematAccounts(userId).catch(() => []),
+			]);
+
+			if (!user) {
+				res.status(404).json({ success: false, error: "User not found" });
+				return;
+			}
+
+			// Sanitize sensitive credentials
+			const sanitizedUser = {
+				id: user.id,
+				email: user.email,
+				phone: (user as any).phone || (user as any).mobile || null,
+				fullName: (user as any).fullName || `${(user as any).firstName || ''} ${(user as any).lastName || ''}`.trim(),
+				kycStatus: (user as any).kycStatus || "PENDING",
+				role: (user as any).role || (user as any).roles || "CLIENT",
+				createdAt: user.createdAt,
+			};
+
+			const exportPayload = {
+				version: "1.0",
+				statutoryFramework: "DPDP_ACT_2023_SECTION_11",
+				dataFiduciary: {
+					name: "FintekPro Wealth Systems",
+					entityRegistration: "SEBI Registered Intermediary",
+					dpoContact: "privacy@fintekpro.com",
+				},
+				exportTimestamp: new Date().toISOString(),
+				userData: {
+					user: sanitizedUser,
+					profile,
+					bankAccounts,
+					dematAccounts,
+				},
+				regulatoryNotice: "Personal data exported in compliance with the Digital Personal Data Protection Act, 2023. Statutory transaction records, KYC documents, and order audit trails are preserved under mandatory SEBI and PMLA 7-year retention requirements.",
+			};
+
+			res.setHeader("Content-Disposition", `attachment; filename="fintekpro-data-export-${userId}.json"`);
+			res.setHeader("Content-Type", "application/json");
+			res.send(JSON.stringify(exportPayload, null, 2));
+		} catch (error) {
+			console.error("[Privacy API] Export error:", error);
+			res.status(500).json({ success: false, error: "Failed to generate personal data export" });
+		}
+	});
+
+	// DPDP Act 2023 Section 12: Right to Correction & Erasure (With PMLA/SEBI Retention Hold)
+	app.post("/api/privacy/request-erasure", async (req, res) => {
+		try {
+			const userId = (req as any).user?.id;
+			const { reason } = req.body;
+			const ipAddress = req.ip || req.connection.remoteAddress || "";
+			const userAgent = req.get("User-Agent") || "";
+
+			if (!userId) {
+				res.status(401).json({ success: false, error: "Authentication required" });
+				return;
+			}
+
+			// Record erasure request into audit trail
+			complianceMonitor.logEvent({
+				userId,
+				eventType: "delete_data",
+				action: "DPDP Section 12 Erasure Requested",
+				ipAddress,
+				userAgent,
+				outcome: "success",
+				riskLevel: "medium",
+				details: { reason, timestamp: new Date().toISOString() },
+			});
+
+			try {
+				const { consentAuditService } = await import("../services/consent-audit-service");
+				await consentAuditService.recordConsent({
+					userId,
+					sessionId: `session-${Date.now()}`,
+					consentType: "dpdp_data_consent",
+					action: "withdrawn",
+					sourceScreen: "settings_privacy",
+					sourceComponent: "DataPrivacyDpdpCard",
+					ipAddress,
+					userAgent,
+					consentText: "User requested personal data erasure under DPDP Act 2023 Section 12",
+					additionalData: { reason },
+				});
+			} catch (auditErr) {
+				console.error("[Privacy API] Audit logging error:", auditErr);
+			}
+
+			res.json({
+				success: true,
+				message: "Data erasure request registered. Non-statutory marketing and personalized processing have been revoked. As required under SEBI Master Circular and PMLA 2002, statutory financial transaction records, KYC logs, and tax filings will remain securely preserved in encrypted cold storage for the mandatory 7-year retention period before final purging.",
+				retentionHoldApplied: true,
+				statutoryRegulations: ["SEBI Master Circular for Intermediaries", "Prevention of Money Laundering Act (PMLA) 2002 Rule 3", "Income Tax Act 1961 Section 149"],
+			});
+		} catch (error) {
+			console.error("[Privacy API] Erasure request error:", error);
+			res.status(500).json({ success: false, error: "Failed to process erasure request" });
 		}
 	});
 

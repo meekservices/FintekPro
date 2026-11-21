@@ -535,48 +535,38 @@ export function generateComprehensivePmsSeedData(): PmsSeedData[] {
 	const seedData: PmsSeedData[] = [];
 	let regCounter = 1;
 
-	for (const house of fundHouses) {
-		const numProducts = Math.floor(Math.random() * 3) + 2;
+	for (let houseIdx = 0; houseIdx < fundHouses.length; houseIdx++) {
+		const house = fundHouses[houseIdx];
+		const numProducts = 2; // Deterministic catalog sizing
 
 		for (let i = 0; i < numProducts; i++) {
-			const strategy =
-				strategies[Math.floor(Math.random() * strategies.length)];
-			const productName =
-				productNames[Math.floor(Math.random() * productNames.length)];
-			const benchmark =
-				benchmarks[Math.floor(Math.random() * benchmarks.length)];
+			const strategy = strategies[(houseIdx + i) % strategies.length];
+			const productName = productNames[(houseIdx * 2 + i) % productNames.length];
+			const benchmark = benchmarks[(houseIdx + i) % benchmarks.length];
 
-			const baseReturn = strategy.returnBase + (Math.random() * 10 - 5);
-			const volatility = 12 + Math.random() * 15;
-			const sharpeRatio = (baseReturn - 6) / volatility;
+			// Deterministic baseline figures based on strategy parameters (zero Math.random)
+			const baseReturn = strategy.returnBase;
+			const volatility = 14.5;
+			const sharpeRatio = ((baseReturn - 6.5) / volatility).toFixed(2);
 
-			const minInvestment = [5000000, 10000000, 25000000, 50000000][
-				Math.floor(Math.random() * 4)
-			];
-			const aum = Math.floor(Math.random() * 8000 + 200) * 10000000;
-			const nav = 100 + Math.random() * 400;
+			const minInvestment = "50000000"; // Statutory ₹50 Lakh minimum under SEBI PMS Regulations 2020
+			const aum = (2500 * 10000000).toString();
+			const nav = "150.0000";
 
-			const inceptionYear = 2008 + Math.floor(Math.random() * 15);
-			const inceptionMonth = String(
-				Math.floor(Math.random() * 12) + 1,
-			).padStart(2, "0");
-			const inceptionDay = String(Math.floor(Math.random() * 28) + 1).padStart(
-				2,
-				"0",
-			);
+			const inceptionYear = 2018 + (houseIdx % 5);
+			const inceptionMonth = String((i * 3 + 1)).padStart(2, "0");
+			const inceptionDay = "15";
 
-			const return1M = baseReturn / 12 + (Math.random() * 4 - 2);
-			const return3M = baseReturn / 4 + (Math.random() * 6 - 3);
-			const return6M = baseReturn / 2 + (Math.random() * 8 - 4);
-			const return1Y = baseReturn + (Math.random() * 10 - 5);
-			const return3Y = baseReturn * 0.9 + (Math.random() * 8 - 4);
-			const return5Y = baseReturn * 0.85 + (Math.random() * 6 - 3);
-			const returnSI = baseReturn * 0.8 + (Math.random() * 5 - 2.5);
+			const return1M = (baseReturn / 12).toFixed(2);
+			const return3M = (baseReturn / 4).toFixed(2);
+			const return6M = (baseReturn / 2).toFixed(2);
+			const return1Y = baseReturn.toFixed(2);
+			const return3Y = (baseReturn * 0.95).toFixed(2);
+			const return5Y = (baseReturn * 0.90).toFixed(2);
+			const returnSI = (baseReturn * 0.88).toFixed(2);
 
-			const managementFee = [1.5, 1.75, 2.0, 2.25, 2.5][
-				Math.floor(Math.random() * 5)
-			];
-			const performanceFee = [10, 15, 20][Math.floor(Math.random() * 3)];
+			const managementFee = "2.0";
+			const performanceFee = "15";
 
 			seedData.push({
 				registrationNo: `INP${String(regCounter++).padStart(9, "0")}`,
@@ -587,32 +577,27 @@ export function generateComprehensivePmsSeedData(): PmsSeedData[] {
 				sponsor: house.sponsor,
 				inceptionDate: `${inceptionYear}-${inceptionMonth}-${inceptionDay}`,
 				city: house.city,
-				minInvestment: minInvestment.toString(),
-				lockIn: ["None", "6 months", "12 months", "24 months"][
-					Math.floor(Math.random() * 4)
-				],
+				minInvestment,
+				lockIn: "None",
 				benchmark,
 				feeStructure: "Fixed + Performance",
-				managementFee: managementFee.toFixed(2),
-				performanceFee: performanceFee.toString(),
+				managementFee,
+				performanceFee,
 				fundStatus: "active",
-				latestNav: nav.toFixed(2),
+				latestNav: nav,
 				lastNavDate: new Date().toISOString().split("T")[0],
-				aum: aum.toString(),
-				return1M: return1M.toFixed(2),
-				return3M: return3M.toFixed(2),
-				return6M: return6M.toFixed(2),
-				return1Y: return1Y.toFixed(2),
-				return3Y: return3Y.toFixed(2),
-				return5Y: return5Y.toFixed(2),
-				returnSinceInception: returnSI.toFixed(2),
-				riskScore: Math.min(
-					10,
-					Math.max(1, strategy.riskBase + Math.floor(Math.random() * 3) - 1),
-				),
+				aum,
+				return1M,
+				return3M,
+				return6M,
+				return1Y,
+				return3Y,
+				return5Y,
+				returnSinceInception: returnSI,
+				riskScore: strategy.riskBase,
 				volatility: volatility.toFixed(2),
-				sharpeRatio: sharpeRatio.toFixed(2),
-				maxDrawdown: (-(10 + Math.random() * 25)).toFixed(2),
+				sharpeRatio,
+				maxDrawdown: "-12.50",
 				description: `${house.name}'s ${strategy.name} strategy focusing on ${strategy.style.toLowerCase()} investing approach with proven track record.`,
 				source: "seed_generator",
 			});

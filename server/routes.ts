@@ -122,6 +122,7 @@ import { faspAdvisoryRouter } from "./routes/fasp-advisory-routes";
 import errorTrackingRouter from "./routes/error-tracking-routes";
 import goldenPricingRouter from "./routes/golden-pricing-routes";
 import agentProposalTransactionRoutes from "./routes/agent-proposal-transaction-routes";
+import comprehensiveReportsRouter from "./routes/comprehensive-reports-routes";
 import { Router } from "express";
 
 // ── Previously-missing route modules (fix: all portals returning 404) ─────────
@@ -512,6 +513,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	// ── Market Intelligence (IndianAPI.in Growth Plan — 31 endpoints) ──────────
 	// Routes: /api/market/*, /api/stocks/:symbol/*, /api/mutual-funds/*, /api/ipo/*
 	app.use(marketIntelligenceRouter);
+
+	// ── Comprehensive Tax P&L & Financial Ledger (Upstox / Angel One benchmark)
+	app.use("/api/reports", comprehensiveReportsRouter);
 
 	// Error tracking routes — must be mounted WITHOUT CSRF for /ingest
 	// (called from ErrorBoundary/componentDidCatch where no CSRF token is available)

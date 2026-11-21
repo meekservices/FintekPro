@@ -61,9 +61,6 @@ export function registerStockExchangeRoutes(app: Express) {
 	} | null = null;
 	const INDICES_CACHE_TTL = 60 * 1000; // 1 minute cache
 
-	// SENSEX/NIFTY50 ratio fallback only — used when Google Finance is also unavailable
-	const SENSEX_NIFTY_RATIO = 3.32;
-
 	// Parse NSE timestamp string like "02-Apr-2026 15:30" → ISO string
 	function parseNseTimestamp(raw: string | undefined): string | null {
 		if (!raw) return null;
@@ -115,7 +112,7 @@ export function registerStockExchangeRoutes(app: Express) {
 			if (!niftyLtp) throw new Error("NIFTY 50 not available from Yahoo Finance");
 
 
-			// SENSEX: fetch from Google Finance (BSE index — not in NSE library)
+			// SENSEX: fetch from Google Finance or Yahoo Finance ^BSESN (official BSE index)
 			let sensexLtp: number | null = null;
 			let sensexSource: string = "unavailable";
 			let sensexDataTimestamp: string | null = null;
@@ -153,31 +150,46 @@ export function registerStockExchangeRoutes(app: Express) {
 					}
 				}
 			} catch (gfErr) {
-    // eslint-disable-next-line no-console
 				console.warn(
 					"[NSE Indices] Google Finance unavailable for SENSEX:",
 					(gfErr as Error).message,
 				);
 			}
 
-			// If Google Finance also failed, derive from NIFTY ratio but mark clearly
-			const sensexIsDerived = sensexLtp === null;
-			if (sensexIsDerived) {
-				sensexLtp = Number.parseFloat(
-					(niftyLtp * SENSEX_NIFTY_RATIO).toFixed(2),
-				);
-				sensexSource = "estimated";
-				sensexDataQuality = "estimated";
+			// SECONDARY: If Google Finance failed, query Yahoo Finance ^BSESN directly (NO synthetic multiplier)
+			if (sensexLtp === null) {
+				try {
+					const bseResp = await axios.get(
+						"https://query1.finance.yahoo.com/v8/finance/chart/%5EBSESN?range=1d&interval=1d",
+						{ timeout: 8_000, headers: { "User-Agent": "Mozilla/5.0" } },
+					);
+					const bseMeta = bseResp.data?.chart?.result?.[0]?.meta || {};
+					if (bseMeta.regularMarketPrice && bseMeta.regularMarketPrice > 10000) {
+						sensexLtp = bseMeta.regularMarketPrice;
+						sensexSource = "yahoo_finance_bsesn";
+						sensexDataQuality = "exchange";
+						if (bseMeta.regularMarketTime) {
+							sensexDataTimestamp = new Date(bseMeta.regularMarketTime * 1000).toISOString();
+						}
+					}
+				} catch (yfErr) {
+					console.warn("[NSE Indices] Yahoo Finance unavailable for SENSEX ^BSESN:", (yfErr as Error).message);
+				}
+			}
+
+			const sensexIsDerived = false;
+			if (sensexLtp === null) {
+				sensexSource = "unavailable";
+				sensexDataQuality = "unavailable";
 				sensexDataTimestamp = null;
-    // eslint-disable-next-line no-console
 				console.warn(
-					"[NSE Indices] SENSEX: both Google Finance and BSE unavailable — showing ratio estimate",
+					"[NSE Indices] SENSEX: live quote unavailable from feeds — returning null without synthetic proxy calculation",
 				);
 			}
 
-			const sensexChng = Number.parseFloat(
-				(((sensexLtp ?? 0) * niftyPctChng) / 100).toFixed(2),
-			);
+			const sensexChng = sensexLtp !== null
+				? Number.parseFloat((((sensexLtp) * niftyPctChng) / 100).toFixed(2))
+				: null;
 			const sensexPrevClose = Number.parseFloat(
 				((sensexLtp ?? 0) - sensexChng).toFixed(2),
 			);
@@ -613,30 +625,64 @@ export function registerStockExchangeRoutes(app: Express) {
 	app.get("/api/bse/quote/:symbol", async (req, res) => {
 		try {
 			const { symbol } = req.params;
-			const quote = {
-				status: "success",
-				data: {
-					symbol: symbol.toUpperCase(),
-					companyName: `${symbol.toUpperCase()} Limited`,
-					price: Math.round((Math.random() * 2000 + 100) * 100) / 100,
-					change: Math.round((Math.random() * 40 - 20) * 100) / 100,
-					percentChange: Math.round((Math.random() * 8 - 4) * 100) / 100,
-					high: Math.round((Math.random() * 2100 + 150) * 100) / 100,
-					low: Math.round((Math.random() * 1900 + 80) * 100) / 100,
-					volume: Math.floor(Math.random() * 10000000 + 100000),
-					lastUpdated: new Date().toISOString(),
-				},
-			};
-			res.json({
-				status: "success",
-				data: quote.data || quote,
+			const cleanSymbol = symbol.toUpperCase().trim();
+
+			// 1. Primary: Query IndianAPI BSE feed
+			const result = await indianApiService.getStockQuote(cleanSymbol, "BSE");
+			if (result.success && result.data && result.data.currentPrice) {
+				return res.json({
+					status: "success",
+					data: {
+						symbol: cleanSymbol,
+						companyName: result.data.companyName || `${cleanSymbol} Limited`,
+						price: result.data.currentPrice,
+						change: result.data.change ?? 0,
+						percentChange: result.data.percentChange ?? 0,
+						high: result.data.high ?? result.data.currentPrice,
+						low: result.data.low ?? result.data.currentPrice,
+						volume: result.data.volume ?? 0,
+						lastUpdated: new Date().toISOString(),
+						dataSource: "INDIAN_API_BSE",
+						dataQuality: "exchange",
+					},
+				});
+			}
+
+			// 2. Secondary: Fallback to NSE quote if BSE-specific tick unavailable
+			const nseResult = await indianApiService.getStockQuote(cleanSymbol, "NSE");
+			if (nseResult.success && nseResult.data && nseResult.data.currentPrice) {
+				return res.json({
+					status: "success",
+					data: {
+						symbol: cleanSymbol,
+						companyName: nseResult.data.companyName || `${cleanSymbol} Limited`,
+						price: nseResult.data.currentPrice,
+						change: nseResult.data.change ?? 0,
+						percentChange: nseResult.data.percentChange ?? 0,
+						high: nseResult.data.high ?? nseResult.data.currentPrice,
+						low: nseResult.data.low ?? nseResult.data.currentPrice,
+						volume: nseResult.data.volume ?? 0,
+						lastUpdated: new Date().toISOString(),
+						dataSource: "INDIAN_API_NSE_FALLBACK",
+						dataQuality: "exchange",
+					},
+				});
+			}
+
+			// 3. Strict Fail-Closed per SOP-SDCG-01 (Zero Synthetic Data)
+			return res.status(404).json({
+				status: "error",
+				error_code: "DATA_PROVIDER_UNAVAILABLE",
+				error: `Quote for ${cleanSymbol} temporarily unavailable from licensed BSE/NSE feeds`,
+				retryable: true,
 			});
-		} catch (error) {
-   // eslint-disable-next-line no-console
-			console.error("Error fetching BSE quote:", error);
+		} catch (error: any) {
+			console.error("Error fetching BSE quote:", error?.message);
 			res.status(500).json({
 				status: "error",
-				error: "Failed to fetch BSE quote",
+				error_code: "INTERNAL_QUOTE_FETCH_ERROR",
+				error: "Failed to fetch BSE quote from licensed feed",
+				retryable: true,
 			});
 		}
 	});

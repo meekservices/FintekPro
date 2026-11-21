@@ -19,7 +19,10 @@ export type ConsentType =
 	| "kyc_data_processing"
 	| "investment_profiling"
 	| "credit_check"
-	| "all_cookies";
+	| "all_cookies"
+	| "sebi_fno_risk_disclosure"
+	| "ai_governance_acknowledgment"
+	| "dpdp_data_consent";
 
 export type ConsentAction = "granted" | "withdrawn" | "updated";
 

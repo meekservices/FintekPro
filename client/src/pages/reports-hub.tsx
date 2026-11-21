@@ -19,6 +19,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { ClientTransactionHistory } from "@/components/store/ClientTransactionHistory";
+import { WealthyConsolidatedReport } from "@/components/reports/WealthyConsolidatedReport";
+import { UnifiedBrokerReports } from "@/components/reports/UnifiedBrokerReports";
 import {
 	FileText,
 	Download,
@@ -726,6 +728,12 @@ export default function ReportsHub() {
 						as per regulatory requirements.
 					</AlertDescription>
 				</Alert>
+
+				{/* Wealthy.in Benchmark: Consolidated Family Wealth Statement */}
+				<WealthyConsolidatedReport />
+
+				{/* Upstox & Angel One Benchmark: Tax P&L (ITR-2/3) & Financial Running Ledger */}
+				<UnifiedBrokerReports />
 
 				<Card className="border-2 border-purple-200 dark:border-purple-800 bg-gradient-to-r from-purple-50 dark:from-purple-950/30 to-indigo-50 dark:to-indigo-950/30">
 					<CardContent className="p-4">

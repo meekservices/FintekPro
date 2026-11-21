@@ -1394,6 +1394,11 @@ export default function LandingPage() {
 									</a>
 								</li>
 								<li>
+									<a href="/ai-governance" className="hover:text-primary transition-colors flex items-center gap-1">
+										AI Governance Policy
+									</a>
+								</li>
+								<li>
 									<a href="/refund-policy" className="hover:text-primary transition-colors">
 										Refund Policy
 									</a>
@@ -1402,9 +1407,53 @@ export default function LandingPage() {
 							</ul>
 						</div>
 					</div>
-					<div className="pt-8 border-t border-border/50 text-center text-xs text-muted-foreground">
-						© {new Date().getFullYear()} FINTEKPRO FINANCIAL SERVICES LLP. All
-						rights reserved.
+					{/* SEBI & Statutory Regulatory Footer Block */}
+					<div className="pt-8 pb-4 border-t border-border/50 space-y-4 text-xs text-muted-foreground">
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4 border-b border-border/30">
+							<div className="space-y-1">
+								<h5 className="font-bold text-foreground text-xs uppercase tracking-wider">
+									Regulatory Disclosure & Intermediary Credentials
+								</h5>
+								<p className="leading-relaxed">
+									<strong>FINTEKPRO FINANCIAL SERVICES LLP</strong> • Registered Office: Mumbai, Maharashtra, India.
+									Financial technology platform. Investment advisory services are provided in association with SEBI Registered Investment Advisers. Mutual Fund distribution services provided in association with AMFI Registered Mutual Fund Distributors.
+								</p>
+							</div>
+							<div className="space-y-1 md:text-right">
+								<h5 className="font-bold text-foreground text-xs uppercase tracking-wider">
+									Dispute Resolution & Grievance Redressal
+								</h5>
+								<div className="flex flex-wrap items-center md:justify-end gap-3 text-xs pt-0.5">
+									<a
+										href="https://scores.sebi.gov.in"
+										target="_blank"
+										rel="noopener noreferrer"
+										className="text-primary hover:underline font-semibold flex items-center gap-1"
+									>
+										SEBI SCORES Portal <ExternalLink className="w-3 h-3 opacity-70" />
+									</a>
+									<span>•</span>
+									<a
+										href="https://smartodr.in"
+										target="_blank"
+										rel="noopener noreferrer"
+										className="text-primary hover:underline font-semibold flex items-center gap-1"
+									>
+										SMART ODR Portal <ExternalLink className="w-3 h-3 opacity-70" />
+									</a>
+									<span>•</span>
+									<span className="font-mono text-muted-foreground">grievance@fintekpro.com</span>
+								</div>
+							</div>
+						</div>
+
+						<p className="text-[11px] leading-relaxed text-muted-foreground/90">
+							<strong>SEBI Mandatory Disclaimer:</strong> "Investment in securities market are subject to market risks. Read all the related documents carefully before investing. Registration granted by SEBI, membership of BASL and certification from NISM in no way guarantee performance of the intermediary or provide any assurance of returns to investors."
+						</p>
+					</div>
+
+					<div className="pt-4 text-center text-xs text-muted-foreground">
+						© {new Date().getFullYear()} FINTEKPRO FINANCIAL SERVICES LLP. All rights reserved.
 					</div>
 				</div>
 			</footer>

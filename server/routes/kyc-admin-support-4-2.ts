@@ -1119,8 +1119,10 @@ export function registerKYCAdminSupporPart4Part2Routes(app: Express): void {
 						? stock.price * (1 - multiplier.slPct)
 						: stock.price * (1 + multiplier.slPct);
 
-					const rsi = Math.floor(30 + Math.random() * 50);
+					const rsi = isUptrend ? 58 : 42;
 					const macd = isUptrend ? "Bullish" : "Bearish";
+					const confidence = isUptrend ? 78 : 68;
+					const riskScore = 4;
 
 					return {
 						id: `STOCK-${Date.now()}-${idx}`,
@@ -1133,8 +1135,8 @@ export function registerKYCAdminSupporPart4Part2Routes(app: Express): void {
 						targetPrice: Math.round(targetPrice * 100) / 100,
 						stopLoss: Math.round(stopLoss * 100) / 100,
 						action,
-						confidence: Math.floor(65 + Math.random() * 30),
-						riskScore: Math.floor(3 + Math.random() * 5),
+						confidence,
+						riskScore,
 						expectedReturn:
 							Math.round(multiplier.returnPct * riskMult * 10) / 10,
 						timeHorizon,
@@ -1142,12 +1144,12 @@ export function registerKYCAdminSupporPart4Part2Routes(app: Express): void {
 							rsi,
 							macd,
 							movingAverage50:
-								Math.round(stock.price * (0.95 + Math.random() * 0.1) * 100) /
+								Math.round(stock.price * (isUptrend ? 0.96 : 1.04) * 100) /
 								100,
 							movingAverage200:
-								Math.round(stock.price * (0.9 + Math.random() * 0.1) * 100) /
+								Math.round(stock.price * (isUptrend ? 0.91 : 1.09) * 100) /
 								100,
-							volumeTrend: Math.random() > 0.5 ? "High" : "Normal",
+							volumeTrend: isUptrend ? "High" : "Normal",
 							supportLevel: Math.round(stock.price * 0.92 * 100) / 100,
 							resistanceLevel: Math.round(stock.price * 1.08 * 100) / 100,
 						},
@@ -1243,8 +1245,7 @@ export function registerKYCAdminSupporPart4Part2Routes(app: Express): void {
 							: Math.round((underlying.price * 0.98) / 50) * 50;
 						premium =
 							Math.round(
-								(underlying.price * 0.015 +
-									Math.random() * underlying.price * 0.01) *
+								(underlying.price * (isCall ? 0.018 : 0.015)) *
 									100,
 							) / 100;
 						strategy = isCall
@@ -1255,9 +1256,7 @@ export function registerKYCAdminSupporPart4Part2Routes(app: Express): void {
 					const action = isBullish ? "BUY" : "SELL";
 					const targetMultiplier = isFutures ? 0.03 : 0.5;
 					const slMultiplier = isFutures ? 0.015 : 0.3;
-					const delta = isCall
-						? 0.4 + Math.random() * 0.3
-						: -(0.4 + Math.random() * 0.3);
+					const delta = isCall ? 0.52 : -0.48;
 
 					return {
 						id: `DERIV-${Date.now()}-${idx}`,
@@ -1273,10 +1272,8 @@ export function registerKYCAdminSupporPart4Part2Routes(app: Express): void {
 							Math.round(premium * (1 + targetMultiplier) * 100) / 100,
 						stopLoss: Math.round(premium * (1 - slMultiplier) * 100) / 100,
 						action,
-						confidence: Math.floor(60 + Math.random() * 30),
-						riskScore: isFutures
-							? Math.floor(6 + Math.random() * 3)
-							: Math.floor(4 + Math.random() * 4),
+						confidence: isFutures ? 75 : 70,
+						riskScore: isFutures ? 7 : 5,
 						expectedReturn: Math.round(targetMultiplier * 100),
 						maxProfit: isFutures
 							? undefined
@@ -1288,17 +1285,10 @@ export function registerKYCAdminSupporPart4Part2Routes(app: Express): void {
 						greeks: !isFutures
 							? {
 									delta: Math.round(delta * 100) / 100,
-									gamma:
-										Math.round((0.001 + Math.random() * 0.002) * 10000) / 10000,
-									theta:
-										Math.round(
-											-(premium * 0.02 + Math.random() * premium * 0.01) * 100,
-										) / 100,
-									vega:
-										Math.round(
-											(premium * 0.1 + Math.random() * premium * 0.05) * 100,
-										) / 100,
-									iv: Math.round((15 + Math.random() * 15) * 10) / 10,
+									gamma: 0.0018,
+									theta: Math.round(-(premium * 0.025) * 100) / 100,
+									vega: Math.round((premium * 0.12) * 100) / 100,
+									iv: 18.5,
 								}
 							: undefined,
 						aiRationale: `${underlying.name} showing ${isBullish ? "bullish" : "bearish"} signals. ${strategy} recommended with ${riskTolerance} risk profile.`,

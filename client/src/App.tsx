@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { GDPRConsent } from "@/components/gdpr-consent";
+import { DpdpCookieConsentBanner } from "@/components/regulatory/DpdpCookieConsentBanner";
 import { ThemeProvider } from "@/contexts/theme-context";
 import { PortalThemeProvider } from "@/components/portal/PortalThemeProvider";
 import { LowDataProvider } from "@/contexts/LowDataContext";
@@ -54,6 +55,7 @@ import {
 	Terms,
 	RefundPolicy,
 	InvestmentDisclaimer,
+	AiGovernancePage,
 	TesterDiagnostics,
 	AdminProposalsPage,
 	UnlistedCompaniesAdmin,
@@ -146,6 +148,8 @@ function Router() {
 					<Route path="/terms-of-service" component={Terms} />
 					<Route path="/refund-policy" component={RefundPolicy} />
 					<Route path="/disclaimer" component={InvestmentDisclaimer} />
+					<Route path="/ai-governance" component={AiGovernancePage} />
+					<Route path="/ai-policy" component={AiGovernancePage} />
 					<Route path="/reit-invit" component={ReitInvitPage} />
 
 					{/* Agent/Admin routes - bypass profile completion but require authentication */}
@@ -205,6 +209,7 @@ function App() {
 											<DSCBackgroundSync />
 											<Toaster />
 											<GDPRConsent />
+											<DpdpCookieConsentBanner />
 											<UniversalKYCWall>
 												<Router />
 											</UniversalKYCWall>

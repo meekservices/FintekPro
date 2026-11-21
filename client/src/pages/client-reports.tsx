@@ -18,6 +18,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import type { LucideIcon } from "lucide-react";
+import { WealthyConsolidatedReport } from "@/components/reports/WealthyConsolidatedReport";
+import { UnifiedBrokerReports } from "@/components/reports/UnifiedBrokerReports";
 import {
 	FileText,
 	Download,
@@ -511,6 +513,12 @@ export default function ClientReports() {
 						</CardContent>
 					</Card>
 				</div>
+
+				{/* Wealthy.in Benchmark: Consolidated Family Wealth Statement */}
+				<WealthyConsolidatedReport />
+
+				{/* Upstox & Angel One Benchmark: Tax P&L & Running Ledger Suite */}
+				<UnifiedBrokerReports />
 
 				<Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
 					<TabsList className="bg-card border border-border shadow-sm w-full md:w-auto">

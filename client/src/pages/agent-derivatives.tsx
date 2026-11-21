@@ -33,6 +33,10 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
+	SebiFnoRiskDisclosureModal,
+	SebiFnoRiskBanner,
+} from "@/components/regulatory/SebiFnoRiskDisclosureModal";
+import {
 	TrendingUp,
 	TrendingDown,
 	Target,
@@ -363,6 +367,8 @@ export default function AgentDerivatives() {
 
 	return (
 		<div className="space-y-6">
+			<SebiFnoRiskDisclosureModal />
+			<SebiFnoRiskBanner />
 			<div className="flex items-center justify-between">
 				<div>
 					<h1 className="text-3xl font-bold" data-testid="text-page-title">

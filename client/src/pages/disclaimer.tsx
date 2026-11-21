@@ -510,21 +510,24 @@ export default function InvestmentDisclaimer() {
 									</p>
 									<ul className="list-disc list-inside text-muted-foreground space-y-1 mt-3">
 										<li>
-											Advisory in nature and not personalized investment advice
+											Strictly a Decision Support System (DSS); zero autonomous trade execution
 										</li>
-										<li>Based on historical data and algorithmic models</li>
-										<li>Not a guarantee of future performance or outcomes</li>
-										<li>Subject to model limitations and data quality</li>
 										<li>
-											Should be considered alongside professional financial
-											advice
+											Advisory in nature and not personalized investment advice unless authorized by a SEBI RIA
 										</li>
+										<li>Based on canonical quantitative economics and licensed exchange feeds</li>
+										<li>Not a guarantee of future performance or outcomes</li>
+										<li>Subject to model limitations and data quality standards governed by SOP-SDCG-01</li>
 									</ul>
 								</div>
-								<p className="text-sm font-medium">
-									Always conduct your own research and consult with a qualified
-									financial advisor before making investment decisions.
-								</p>
+								<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
+									<p className="text-sm font-medium">
+										Always conduct your own research and consult with a qualified financial advisor before investing.
+									</p>
+									<Link href="/ai-governance" className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline shrink-0">
+										View Full AI Governance Policy →
+									</Link>
+								</div>
 							</CardContent>
 						</Card>
 

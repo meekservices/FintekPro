@@ -314,16 +314,17 @@ export function generateSampleMldListings(): BseMldListing[] {
 	const listings: BseMldListing[] = [];
 	let isinCounter = 1;
 
-	for (const issuer of issuers) {
-		const numMlds = Math.floor(Math.random() * 3) + 2;
+	for (let issuerIdx = 0; issuerIdx < issuers.length; issuerIdx++) {
+		const issuer = issuers[issuerIdx];
+		const numMlds = 2; // Deterministic count
 
 		for (let i = 0; i < numMlds; i++) {
-			const mldType = mldTypes[Math.floor(Math.random() * mldTypes.length)];
-			const tenor = tenors[Math.floor(Math.random() * tenors.length)];
+			const mldType = mldTypes[(issuerIdx + i) % mldTypes.length];
+			const tenor = tenors[(issuerIdx + i) % tenors.length];
 			const series = String.fromCharCode(65 + i);
 
-			const issueYear = 2023 + Math.floor(Math.random() * 2);
-			const issueMonth = Math.floor(Math.random() * 12) + 1;
+			const issueYear = 2024;
+			const issueMonth = (i * 4 + 1);
 			const maturityYear = issueYear + tenor;
 
 			const isinNum = String(isinCounter++).padStart(5, "0");
@@ -334,7 +335,7 @@ export function generateSampleMldListings(): BseMldListing[] {
 				issuer: issuer.name,
 				issueDate: `${issueYear}-${String(issueMonth).padStart(2, "0")}-15`,
 				maturityDate: `${maturityYear}-${String(issueMonth).padStart(2, "0")}-15`,
-				faceValue: faceValues[Math.floor(Math.random() * faceValues.length)],
+				faceValue: faceValues[(issuerIdx + i) % faceValues.length],
 				couponRate: null,
 				creditRating: issuer.rating,
 				listingType: "listed",

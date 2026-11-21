@@ -100,6 +100,9 @@ export const PricingPage = lazyWithRetry(() => import("@/pages/pricing"));
 export const InvestmentDisclaimer = lazyWithRetry(
 	() => import("@/pages/disclaimer"),
 );
+export const AiGovernancePage = lazyWithRetry(
+	() => import("@/pages/ai-governance"),
+);
 export const ExcelAddin = lazyWithRetry(() => import("@/pages/excel-addin"));
 export const AIF = lazyWithRetry(() => import("@/pages/aif"));
 export const AIFDetail = lazyWithRetry(() => import("@/pages/aif-detail"));

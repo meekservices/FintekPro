@@ -435,72 +435,33 @@ export function generateComprehensiveAifSeedData(): AifSeedData[] {
 
 	return baseListings.map((listing) => {
 		const category = listing.category as keyof typeof benchmarks;
-		const benchmark =
-			benchmarks[category][
-				Math.floor(Math.random() * benchmarks[category].length)
-			];
+		const benchmark = benchmarks[category]?.[0] || "Nifty 50";
 
-		const baseReturn =
-			category === "Category III" ? 12 : category === "Category II" ? 18 : 25;
-		const variance = () => (Math.random() - 0.5) * 15;
-
-		const return1Y = (baseReturn + variance()).toFixed(2);
-		const return3Y = (
-			Number.parseFloat(return1Y) * 0.9 +
-			variance() * 0.5
-		).toFixed(2);
-		const return5Y = (
-			Number.parseFloat(return3Y) * 0.85 +
-			variance() * 0.3
-		).toFixed(2);
-		const returnSI = (
-			Number.parseFloat(return5Y) * 0.8 +
-			variance() * 0.2
-		).toFixed(2);
-
+		// Canonical SEBI AIF Regulations 2012 baseline (Zero Math.random / synthetic performance numbers)
 		const riskScore =
-			category === "Category I"
-				? 8 + Math.floor(Math.random() * 3)
-				: category === "Category II"
-					? 6 + Math.floor(Math.random() * 3)
-					: 5 + Math.floor(Math.random() * 4);
-
-		const aumBase =
-			category === "Category III"
-				? 500
-				: category === "Category II"
-					? 1000
-					: 300;
-		const aum = ((aumBase + Math.random() * aumBase * 2) * 10000000).toFixed(0);
+			category === "Category I" ? 9 : category === "Category II" ? 7 : 8;
 
 		return {
 			...listing,
-			minInvestment:
-				minInvestments[Math.floor(Math.random() * minInvestments.length)],
-			lockIn: lockIns[Math.floor(Math.random() * lockIns.length)],
+			minInvestment: "10000000", // Statutory ₹1 Crore minimum under SEBI AIF Regulations
+			lockIn: category === "Category III" ? "None (Open-ended)" : "3 Years",
 			benchmark,
-			style: styles[Math.floor(Math.random() * styles.length)],
-			fundStatus:
-				Math.random() > 0.1
-					? "active"
-					: Math.random() > 0.5
-						? "soft_close"
-						: "existing_only",
-			aum,
-			latestNav: (100 + Math.random() * 400).toFixed(4),
-			return1M: ((Math.random() - 0.3) * 8).toFixed(2),
-			return3M: ((Math.random() - 0.2) * 12).toFixed(2),
-			return6M: ((Math.random() - 0.1) * 18).toFixed(2),
-			return1Y,
-			return3Y,
-			return5Y,
-			returnSinceInception: returnSI,
+			style: category === "Category III" ? "Long-Short / Absolute Return" : "Growth / Buyout",
+			fundStatus: "active",
+			aum: "0",
+			latestNav: "100.0000",
+			return1M: "0.00",
+			return3M: "0.00",
+			return6M: "0.00",
+			return1Y: "0.00",
+			return3Y: "0.00",
+			return5Y: "0.00",
+			returnSinceInception: "0.00",
 			riskScore,
-			volatility: (10 + Math.random() * 20).toFixed(2),
-			maxDrawdown: (-5 - Math.random() * 25).toFixed(2),
-			sharpeRatio: (0.5 + Math.random() * 1.5).toFixed(2),
-			liquidityFrequency:
-				liquidityFreqs[Math.floor(Math.random() * liquidityFreqs.length)],
+			volatility: "0.00",
+			maxDrawdown: "0.00",
+			sharpeRatio: "0.00",
+			liquidityFrequency: category === "Category III" ? "Quarterly" : "At Inception / Exit",
 			navFrequency: category === "Category III" ? "DAILY" : "MONTHLY",
 			description: `${listing.name} is a ${listing.category} Alternative Investment Fund focused on ${listing.subcategory} strategies. Managed by ${listing.fundHouseName}, the fund aims to deliver superior risk-adjusted returns.`,
 			investmentObjective: `To generate long-term capital appreciation through ${listing.subcategory?.toLowerCase()} investments while maintaining appropriate risk controls.`,

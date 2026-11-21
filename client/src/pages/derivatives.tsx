@@ -52,6 +52,10 @@ import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
 import { SlideToConfirmOrderModal } from "@/components/picks/SlideToConfirmOrderModal";
 import type { StrategyLegItem } from "@/components/picks/DerivativePayoffSimulator";
+import {
+	SebiFnoRiskDisclosureModal,
+	SebiFnoRiskBanner,
+} from "@/components/regulatory/SebiFnoRiskDisclosureModal";
 
 interface DerivativePosition {
 	id: string;
@@ -576,7 +580,11 @@ export default function DerivativesPage() {
 	};
 
 	return (
-		<div className="container mx-auto py-6 px-4 max-w-7xl">
+		<div className="container mx-auto py-6 px-4 max-w-7xl space-y-5">
+			{/* Mandatory SEBI F&O Risk Disclosure Modal & Banner */}
+			<SebiFnoRiskDisclosureModal />
+			<SebiFnoRiskBanner />
+
 			{/* Header */}
 			<div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
 				<div className="flex items-center gap-3">

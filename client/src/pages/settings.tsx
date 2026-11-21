@@ -58,6 +58,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { SignatureManagement } from "@/components/esign/SignatureManagement";
+import { DataPrivacyDpdpCard } from "@/components/regulatory/DataPrivacyDpdpCard";
 import {
 	Form,
 	FormControl,
@@ -296,6 +297,50 @@ function TrustedDevicesCard() {
 	);
 }
 
+// ── PIN Box Row (Module Level) ──────────────────────────────────────────────
+function PinBoxRow({
+	label,
+	arr,
+	setArr,
+	refs,
+	onDigit,
+	onKeyDown,
+}: {
+	label: string;
+	arr: string[];
+	setArr: (a: string[]) => void;
+	refs: React.RefObject<HTMLInputElement>[];
+	onDigit: (idx: number, val: string, arr: string[], setArr: (a: string[]) => void, refs: React.RefObject<HTMLInputElement>[]) => void;
+	onKeyDown: (e: React.KeyboardEvent, idx: number, arr: string[], setArr: (a: string[]) => void, refs: React.RefObject<HTMLInputElement>[]) => void;
+}) {
+	return (
+		<div className="space-y-2">
+			<Label className="text-sm font-medium text-muted-foreground">
+				{label}
+			</Label>
+			<div className="flex gap-3">
+				{arr.map((d, i) => (
+					<input
+						key={i}
+						ref={refs[i]}
+						type="password"
+						inputMode="numeric"
+						maxLength={1}
+						value={d}
+						onChange={(e) => onDigit(i, e.target.value, arr, setArr, refs)}
+						onKeyDown={(e) => onKeyDown(e, i, arr, setArr, refs)}
+						className="w-12 h-12 text-center text-xl font-bold rounded-lg border-2 bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all caret-transparent"
+						data-testid={`pin-box-${label.toLowerCase().replace(/\s/g, "-")}-${i}`}
+						aria-label={`${label} digit ${i + 1}`}
+						title={`${label} digit ${i + 1}`}
+						placeholder="-"
+					/>
+				))}
+			</div>
+		</div>
+	);
+}
+
 // ── PIN Management Component ─────────────────────────────────────────────────
 function PinManagementCard() {
 	const { user } = useAuth();
@@ -411,43 +456,6 @@ function PinManagementCard() {
 		pinMutation.mutate(pin);
 	};
 
-	const PinBoxRow = ({
-		label,
-		arr,
-		setArr,
-		refs,
-	}: {
-		label: string;
-		arr: string[];
-		setArr: (a: string[]) => void;
-		refs: React.RefObject<HTMLInputElement>[];
-	}) => (
-		<div className="space-y-2">
-			<Label className="text-sm font-medium text-muted-foreground">
-				{label}
-			</Label>
-			<div className="flex gap-3">
-				{arr.map((d, i) => (
-					<input
-						key={i}
-						ref={refs[i]}
-						type="password"
-						inputMode="numeric"
-						maxLength={1}
-						value={d}
-						onChange={(e) => handleDigit(i, e.target.value, arr, setArr, refs)}
-						onKeyDown={(e) => handleKeyDown(e, i, arr, setArr, refs)}
-						className="w-12 h-12 text-center text-xl font-bold rounded-lg border-2 bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all caret-transparent"
-						data-testid={`pin-box-${label.toLowerCase().replace(/\s/g, "-")}-${i}`}
-						aria-label={`${label} digit ${i + 1}`}
-						title={`${label} digit ${i + 1}`}
-						placeholder="-"
-					/>
-				))}
-			</div>
-		</div>
-	);
-
 	return (
 		<Card>
 			<CardHeader>
@@ -523,6 +531,8 @@ function PinManagementCard() {
 								arr={currentPin}
 								setArr={setCurrentPin}
 								refs={currentRefs}
+								onDigit={handleDigit}
+								onKeyDown={handleKeyDown}
 							/>
 						)}
 						<PinBoxRow
@@ -530,12 +540,16 @@ function PinManagementCard() {
 							arr={newPin}
 							setArr={setNewPin}
 							refs={newRefs}
+							onDigit={handleDigit}
+							onKeyDown={handleKeyDown}
 						/>
 						<PinBoxRow
 							label="Confirm New PIN"
 							arr={confirmPin}
 							setArr={setConfirmPin}
 							refs={confirmRefs}
+							onDigit={handleDigit}
+							onKeyDown={handleKeyDown}
 						/>
 
 						{pinError && (
@@ -1438,6 +1452,9 @@ export default function SettingsPage() {
 							)}
 						</CardContent>
 					</Card>
+
+					{/* Data Privacy & DPDP Act Rights */}
+					<DataPrivacyDpdpCard />
 
 					{/* Danger Zone */}
 					<Card className="border-destructive">

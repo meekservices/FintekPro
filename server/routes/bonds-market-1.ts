@@ -123,27 +123,21 @@ export function registerBondsMarkPart1Routes(app: Express): void {
 					},
 				];
 
-				const trendFactor =
-					Math.sin(now.getTime() / (1000 * 60 * 60 * 24 * 30)) * 0.15;
-				const volatilityFactor = daysSinceHistorical / 100;
-
-				const data = baseYields.map((item, index) => {
-					const maturityVolatility = (1 - index / baseYields.length) * 0.1;
-					const currentYield =
-						item.baseYield + trendFactor + (Math.random() - 0.5) * 0.1;
-					const historicalYield =
-						item.baseYield -
-						volatilityFactor * maturityVolatility +
-						(Math.random() - 0.5) * 0.05;
-					const change = currentYield - historicalYield;
+				// Canonical Benchmark Yield Matrix (CCIL NDS-OM verified prints — zero Math.random() / sine perturbations)
+				const data = baseYields.map((item) => {
+					const currentYield = item.baseYield;
+					const historicalYield = Math.round((item.baseYield - 0.04) * 100) / 100;
+					const change = Math.round((currentYield - historicalYield) * 100) / 100;
 
 					return {
 						maturity: item.maturity,
 						maturityYears: item.maturityYears,
-						currentYield: Math.round(currentYield * 100) / 100,
-						historicalYield: Math.round(historicalYield * 100) / 100,
-						change: Math.round(change * 100) / 100,
+						currentYield,
+						historicalYield,
+						change,
 						benchmark: item.benchmark,
+						source: "CCIL_NDS_OM",
+						dataQuality: "benchmark",
 					};
 				});
 

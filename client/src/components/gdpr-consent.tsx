@@ -121,19 +121,17 @@ export function GDPRConsent() {
 						<div className="space-y-4">
 							<div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
 								<h3 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">
-									We respect your privacy and follow GDPR guidelines
+									We respect your privacy and comply with the DPDP Act 2023 & GDPR
 								</h3>
-								<p className="text-blue-700 dark:text-blue-300 text-sm">
-									Our platform processes financial data to provide investment
-									services, comply with regulations, and improve your
-									experience. You can customize your preferences below.
+								<p className="text-blue-700 dark:text-blue-300 text-sm leading-relaxed">
+									FintekPro processes personal and financial data in strict adherence to the <strong>Digital Personal Data Protection Act, 2023</strong> and SEBI intermediary data protection norms. We use essential encryption and cookies to deliver secure financial services and institutional analytics.
 								</p>
 							</div>
 
 							<div className="flex flex-wrap gap-3">
 								<Button
 									onClick={handleAcceptAll}
-									className="bg-blue-600 hover:bg-blue-700"
+									className="bg-blue-600 hover:bg-blue-700 font-semibold text-xs h-9"
 									data-testid="accept-all-button"
 								>
 									Accept All
@@ -141,6 +139,7 @@ export function GDPRConsent() {
 								<Button
 									onClick={handleRejectNonEssential}
 									variant="outline"
+									className="font-semibold text-xs h-9"
 									data-testid="reject-non-essential-button"
 								>
 									Essential Only
@@ -148,6 +147,7 @@ export function GDPRConsent() {
 								<Button
 									onClick={() => setShowDetails(true)}
 									variant="outline"
+									className="font-semibold text-xs h-9"
 									data-testid="customize-button"
 								>
 									Customize Preferences
@@ -156,13 +156,15 @@ export function GDPRConsent() {
 
 							<p className="text-xs text-muted-foreground">
 								By continuing, you agree to our{" "}
-								<Link href="/privacy" className="text-blue-600 hover:underline">
-									Privacy Policy
-								</Link>{" "}
-								and{" "}
-								<Link href="/terms" className="text-blue-600 hover:underline">
+								<Link href="/privacy" className="text-blue-600 dark:text-blue-400 hover:underline">
+									Privacy Policy (DPDP)
+								</Link>,{" "}
+								<Link href="/terms" className="text-blue-600 dark:text-blue-400 hover:underline">
 									Terms of Service
-								</Link>
+								</Link>, and{" "}
+								<Link href="/ai-governance" className="text-blue-600 dark:text-blue-400 hover:underline">
+									AI Governance Policy
+								</Link>.
 							</p>
 						</div>
 					) : (
