@@ -1,8 +1,10 @@
 import { Router, Request, Response } from "express";
 import { db } from "../db";
 import { giftCityProducts, insertGiftCityProductSchema } from "@shared/schema";
-import { eq, ilike, or, and, desc, sql } from "drizzle-orm";
+import { eq, ilike, or, and, desc } from "drizzle-orm";
 import { giftCityMaintenanceService } from "../services/gift-city-maintenance-service";
+import { giftCityExecutionService } from "../services/gift-city-execution-service";
+import { logger } from "../logger";
 
 const router = Router();
 
@@ -680,7 +682,7 @@ router.get("/admin", async (req: Request, res: Response) => {
 
 		res.json({ products });
 	} catch (error) {
-		console.error("Error fetching Gift City products:", error);
+		logger.error("Error fetching Gift City products", { error });
 		res.status(500).json({ error: "Failed to fetch products" });
 	}
 });
@@ -713,7 +715,7 @@ router.get("/", async (req: Request, res: Response) => {
 
 		res.json({ products });
 	} catch (error) {
-		console.error("Error fetching Gift City products:", error);
+		logger.error("Error fetching Gift City products", { error });
 		res.status(500).json({ error: "Failed to fetch products" });
 	}
 });
@@ -732,14 +734,14 @@ router.post("/admin", async (req: Request, res: Response) => {
 
 		res.status(201).json({ product });
 	} catch (error) {
-		console.error("Error creating Gift City product:", error);
+		logger.error("Error creating Gift City product", { error });
 		res.status(500).json({ error: "Failed to create product" });
 	}
 });
 
 router.post("/admin/bulk-seed", async (req: Request, res: Response) => {
 	try {
-		console.log("[bulk-seed] Request body:", JSON.stringify(req.body));
+		logger.info("[bulk-seed] Request received", { template: req.body?.template });
 		const { template } = req.body || {};
 		let productsToSeed: any[] = [];
 
@@ -806,7 +808,7 @@ router.post("/admin/bulk-seed", async (req: Request, res: Response) => {
 			products: inserted,
 		});
 	} catch (error) {
-		console.error("Error bulk seeding Gift City products:", error);
+		logger.error("Error bulk seeding Gift City products", { error });
 		res.status(500).json({ error: "Failed to seed products" });
 	}
 });
@@ -816,7 +818,7 @@ router.delete("/admin/clear-all", async (req: Request, res: Response) => {
 		const deleted = await db.delete(giftCityProducts).returning();
 		res.json({ success: true, count: deleted.length });
 	} catch (error) {
-		console.error("Error clearing Gift City products:", error);
+		logger.error("Error clearing Gift City products", { error });
 		res.status(500).json({ error: "Failed to clear products" });
 	}
 });
@@ -826,7 +828,7 @@ router.get("/admin/maintenance/stats", async (req: Request, res: Response) => {
 		const stats = await giftCityMaintenanceService.getMaintenanceStats();
 		res.json({ success: true, stats });
 	} catch (error) {
-		console.error("Error fetching maintenance stats:", error);
+		logger.error("Error fetching maintenance stats", { error });
 		res.status(500).json({ error: "Failed to fetch maintenance stats" });
 	}
 });
@@ -836,7 +838,7 @@ router.get("/admin/maintenance/health", async (req: Request, res: Response) => {
 		const health = await giftCityMaintenanceService.getProductHealth();
 		res.json({ success: true, health });
 	} catch (error) {
-		console.error("Error fetching product health:", error);
+		logger.error("Error fetching product health", { error });
 		res.status(500).json({ error: "Failed to fetch product health" });
 	}
 });
@@ -849,7 +851,7 @@ router.post("/admin/maintenance/run", async (req: Request, res: Response) => {
 		const result = await giftCityMaintenanceService.runMaintenance();
 		res.json({ success: true, result });
 	} catch (error) {
-		console.error("Error running maintenance:", error);
+		logger.error("Error running maintenance", { error });
 		res.status(500).json({ error: "Failed to run maintenance" });
 	}
 });
@@ -861,7 +863,7 @@ router.post(
 			const result = await giftCityMaintenanceService.refreshProductPricing();
 			res.json({ success: true, result });
 		} catch (error) {
-			console.error("Error refreshing pricing:", error);
+			logger.error("Error refreshing pricing", { error });
 			res.status(500).json({ error: "Failed to refresh pricing" });
 		}
 	},
@@ -874,7 +876,7 @@ router.post(
 			const result = await giftCityMaintenanceService.cleanupDuplicates();
 			res.json({ success: true, result });
 		} catch (error) {
-			console.error("Error cleaning up duplicates:", error);
+			logger.error("Error cleaning up duplicates", { error });
 			res.status(500).json({ error: "Failed to cleanup duplicates" });
 		}
 	},
@@ -891,7 +893,7 @@ router.put(
 			giftCityMaintenanceService.setRefreshInterval(hours);
 			res.json({ success: true, interval: hours });
 		} catch (error: any) {
-			console.error("Error setting interval:", error);
+			logger.error("Error setting interval", { error });
 			res
 				.status(400)
 				.json({ error: error.message || "Failed to set interval" });
@@ -918,7 +920,7 @@ router.put("/admin/:id", async (req: Request, res: Response) => {
 
 		res.json({ product });
 	} catch (error) {
-		console.error("Error updating Gift City product:", error);
+		logger.error("Error updating Gift City product", { error });
 		res.status(500).json({ error: "Failed to update product" });
 	}
 });
@@ -940,7 +942,7 @@ router.patch("/admin/:id", async (req: Request, res: Response) => {
 
 		res.json({ product });
 	} catch (error) {
-		console.error("Error updating Gift City product:", error);
+		logger.error("Error updating Gift City product", { error });
 		res.status(500).json({ error: "Failed to update product" });
 	}
 });
@@ -960,7 +962,7 @@ router.delete("/admin/:id", async (req: Request, res: Response) => {
 
 		res.json({ success: true });
 	} catch (error) {
-		console.error("Error deleting Gift City product:", error);
+		logger.error("Error deleting Gift City product", { error });
 		res.status(500).json({ error: "Failed to delete product" });
 	}
 });
@@ -974,8 +976,136 @@ router.get("/categories", async (req: Request, res: Response) => {
 
 		res.json({ categories: result.map((r) => r.category) });
 	} catch (error) {
-		console.error("Error fetching categories:", error);
+		logger.error("Error fetching categories", { error });
 		res.status(500).json({ error: "Failed to fetch categories" });
+	}
+});
+
+// ── Public Products Catalog with Seed Fallback ──────────────────────────────
+router.get("/products", async (req: Request, res: Response) => {
+	try {
+		const { category, flowDirection } = req.query;
+		const conditions = [eq(giftCityProducts.isPublished, true)];
+
+		if (category && category !== "all") {
+			conditions.push(eq(giftCityProducts.category, category as string));
+		}
+		if (flowDirection && (flowDirection === "inbound" || flowDirection === "outbound")) {
+			conditions.push(eq(giftCityProducts.flowDirection, flowDirection as string));
+		}
+
+		let products = await db
+			.select()
+			.from(giftCityProducts)
+			.where(and(...conditions))
+			.orderBy(desc(giftCityProducts.createdAt));
+
+		// If DB has 0 products, return curated seed as instant fallback
+		if (products.length === 0) {
+			const fallbackSeeds = [...INBOUND_PRODUCTS_SEED, ...OUTBOUND_PRODUCTS_SEED].map((p, idx) => ({
+				...p,
+				id: `seed-${idx + 1}`,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			}));
+			return res.json({
+				success: true,
+				data: fallbackSeeds,
+				meta: { count: fallbackSeeds.length, source: "seed_fallback", timestamp: new Date().toISOString() },
+			});
+		}
+
+		res.json({
+			success: true,
+			data: products,
+			meta: { count: products.length, source: "database", timestamp: new Date().toISOString() },
+		});
+	} catch (error: any) {
+		logger.error("Error fetching gift city products", { error });
+		res.status(500).json({ error: "Failed to fetch products", message: error?.message });
+	}
+});
+
+// ── IFSCA Accredited Investor Assessment ───────────────────────────────────
+router.post("/accredited-check", (req: Request, res: Response) => {
+	try {
+		const { investorType, netWorthUSD, netWorthINR, annualIncomeUSD, annualIncomeINR, hasProfessionalExperience, entityType } = req.body;
+		if (!investorType || !["individual", "entity", "nri", "fpi"].includes(investorType)) {
+			return res.status(400).json({ error: "Invalid investorType. Must be individual, entity, nri, or fpi" });
+		}
+
+		const result = giftCityExecutionService.assessAccreditedInvestorStatus({
+			investorType,
+			netWorthUSD: netWorthUSD ? Number(netWorthUSD) : undefined,
+			netWorthINR: netWorthINR ? Number(netWorthINR) : undefined,
+			annualIncomeUSD: annualIncomeUSD ? Number(annualIncomeUSD) : undefined,
+			annualIncomeINR: annualIncomeINR ? Number(annualIncomeINR) : undefined,
+			hasProfessionalExperience: Boolean(hasProfessionalExperience),
+			entityType,
+		});
+
+		res.json({ success: true, data: result, meta: { timestamp: new Date().toISOString(), version: "1.0.0" } });
+	} catch (error: any) {
+		logger.error("Error assessing accredited investor status", { error });
+		res.status(500).json({ error: "Accreditation check failed", message: error?.message });
+	}
+});
+
+// ── LRS Remittance & Section 206C(1G) TCS Breakdown Quote ──────────────────
+router.post("/lrs-remittance-quote", (req: Request, res: Response) => {
+	try {
+		const { remittanceAmountUSD, fxRate, fyUtilizationINR, purposeCode, remitterName, remitterPAN, beneficiaryName, beneficiaryBank } = req.body;
+		const amountUSD = Number(remittanceAmountUSD);
+
+		if (!amountUSD || amountUSD <= 0) {
+			return res.status(400).json({ error: "remittanceAmountUSD must be a positive number" });
+		}
+
+		const quote = giftCityExecutionService.generateLrsRemittancePackage({
+			remittanceAmountUSD: amountUSD,
+			fxRate: fxRate ? Number(fxRate) : undefined,
+			fyUtilizationINR: fyUtilizationINR ? Number(fyUtilizationINR) : undefined,
+			purposeCode: purposeCode || "S0001",
+			remitterName,
+			remitterPAN,
+			beneficiaryName,
+			beneficiaryBank,
+		});
+
+		res.json({ success: true, data: quote, meta: { timestamp: new Date().toISOString(), version: "1.0.0" } });
+	} catch (error: any) {
+		logger.error("Error generating LRS remittance quote", { error });
+		res.status(500).json({ error: "LRS quote generation failed", message: error?.message });
+	}
+});
+
+// ── Submit GIFT City Investment Application ─────────────────────────────────
+router.post("/application", async (req: Request, res: Response) => {
+	try {
+		const { productId, productName, applicantName, email, phone, investorType, flowDirection, proposedInvestmentUSD, isAccredited, lrsApplicable, notes } = req.body;
+
+		if (!productName || !applicantName || !email || !phone) {
+			return res.status(400).json({ error: "Missing mandatory fields: productName, applicantName, email, phone" });
+		}
+
+		const application = await giftCityExecutionService.submitGiftCityApplication({
+			productId,
+			productName,
+			applicantName,
+			email,
+			phone,
+			investorType: investorType || "Individual Resident",
+			flowDirection: flowDirection === "outbound" ? "outbound" : "inbound",
+			proposedInvestmentUSD: Number(proposedInvestmentUSD) || 10000,
+			isAccredited: Boolean(isAccredited),
+			lrsApplicable: Boolean(lrsApplicable),
+			notes,
+		});
+
+		res.json({ success: true, data: application, meta: { timestamp: new Date().toISOString(), version: "1.0.0" } });
+	} catch (error: any) {
+		logger.error("Error submitting GIFT City application", { error });
+		res.status(500).json({ error: "Application submission failed", message: error?.message });
 	}
 });
 

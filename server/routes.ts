@@ -214,6 +214,7 @@ import taxLossHarvestingRouter from "./routes/tax-loss-harvesting-routes"; // /a
 import monteCarloGoalRouter from "./routes/monte-carlo-goal-routes"; // /api/goal-planning/monte-carlo-simulate
 import asyncJobsRouter from "./routes/async-jobs-routes"; // /api/async-jobs
 import portfolioXRayRouter from "./routes/portfolio-xray-routes"; // /api/public/portfolio-xray
+import giftCityRoutes from "./routes/gift-city-routes"; // /api/gift-city/*, /api/store/gift-city/*
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -629,6 +630,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 	// Async Background Worker Queue: /api/async-jobs/*
 	app.use("/api/async-jobs", asyncJobsRouter);
+
+	// GIFT City (IFSC) Execution & Compliance Hub: /api/gift-city/* and /api/store/gift-city/*
+	app.use("/api/gift-city", giftCityRoutes);
+	app.use("/api/store/gift-city", giftCityRoutes);
 
 	// Profile Sharing Toggle
 	app.patch("/api/user/profile/sharing", async (req, res) => {

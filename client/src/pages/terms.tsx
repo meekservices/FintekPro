@@ -588,14 +588,26 @@ export default function TermsOfService() {
 											</p>
 											<ul className="list-disc list-inside text-sm space-y-1 mt-1">
 												<li>
-													Investment disputes:{" "}
+													SEBI SMART ODR (Online Dispute Resolution Portal):{" "}
+													<a
+														href="https://smartodr.in"
+														target="_blank"
+														rel="noopener noreferrer"
+														className="text-blue-600 underline font-medium"
+													>
+														smartodr.in
+													</a>{" "}
+													(SEBI Circular SEBI/HO/OIAE/OIAE_IAD-1/P/CIR/2023/131)
+												</li>
+												<li>
+													SEBI SCORES Portal:{" "}
 													<a
 														href="https://scores.sebi.gov.in"
 														target="_blank"
 														rel="noopener noreferrer"
 														className="text-blue-600 underline"
 													>
-														SEBI SCORES Portal
+														scores.sebi.gov.in
 													</a>
 												</li>
 												<li>
@@ -606,10 +618,20 @@ export default function TermsOfService() {
 														rel="noopener noreferrer"
 														className="text-blue-600 underline"
 													>
-														RBI Integrated Ombudsman
+														RBI Integrated Ombudsman (cms.rbi.org.in)
 													</a>
 												</li>
-												<li>Insurance disputes: IRDAI IGMS Portal</li>
+												<li>
+													Insurance disputes:{" "}
+													<a
+														href="https://bimabharosa.irdai.gov.in"
+														target="_blank"
+														rel="noopener noreferrer"
+														className="text-blue-600 underline"
+													>
+														IRDAI Bima Bharosa Portal
+													</a>
+												</li>
 											</ul>
 										</div>
 										<div className="bg-muted p-3 rounded">

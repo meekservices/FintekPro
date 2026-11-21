@@ -577,6 +577,17 @@ export default function InvestmentDisclaimer() {
 											For Investment-Related Complaints
 										</h4>
 										<p className="text-muted-foreground">
+											<strong>SEBI SMART ODR (Online Dispute Resolution):</strong>{" "}
+											<a
+												href="https://smartodr.in"
+												className="text-blue-600 underline font-medium"
+												target="_blank"
+												rel="noopener noreferrer"
+											>
+												https://smartodr.in
+											</a>{" "}
+											(SEBI Mandated Online Dispute Resolution Portal)
+											<br />
 											<strong>SEBI SCORES:</strong>{" "}
 											<a
 												href="https://scores.sebi.gov.in"

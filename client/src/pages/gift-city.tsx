@@ -1,11 +1,31 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+	DialogFooter,
+} from "@/components/ui/dialog";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import {
 	Building2,
 	Crown,
@@ -371,21 +391,146 @@ const regulatoryAdvantages = [
 
 export default function GiftCity() {
 	const { user } = useAuth();
+	const { toast } = useToast();
+	const [activeTab, setActiveTab] = useState("products");
 	const [selectedCategory, setSelectedCategory] = useState("all");
 	const [searchTerm, setSearchTerm] = useState("");
 
-	const filteredProducts = giftCityProducts.filter((product) => {
+	// Modals & Application state
+	const [selectedProductForApply, setSelectedProductForApply] = useState<any | null>(null);
+	const [selectedProductForDetails, setSelectedProductForDetails] = useState<any | null>(null);
+	const userFullName = user ? [user.firstName, user.lastName].filter(Boolean).join(" ") : "";
+	const [applyForm, setApplyForm] = useState({
+		applicantName: userFullName,
+		email: user?.email || "",
+		phone: user?.mobile || "",
+		investorType: "Resident Indian",
+		proposedInvestmentUSD: 25000,
+		isAccredited: false,
+		notes: "",
+	});
+	const [applicationSuccessData, setApplicationSuccessData] = useState<any | null>(null);
+
+	// LRS & TCS Calculator state
+	const [lrsAmountUSD, setLrsAmountUSD] = useState<number>(25000);
+	const [lrsPriorINR, setLrsPriorINR] = useState<number>(0);
+	const [lrsPurposeCode, setLrsPurposeCode] = useState<string>("S0001");
+	const [lrsRemitterName, setLrsRemitterName] = useState<string>(userFullName);
+	const [lrsRemitterPAN, setLrsRemitterPAN] = useState<string>("");
+	const [lrsQuoteResult, setLrsQuoteResult] = useState<any | null>(null);
+
+	// Accredited Investor check state
+	const [accInvestorType, setAccInvestorType] = useState<string>("individual");
+	const [accNetWorthUSD, setAccNetWorthUSD] = useState<number>(1200000);
+	const [accIncomeUSD, setAccIncomeUSD] = useState<number>(220000);
+	const [accResult, setAccResult] = useState<any | null>(null);
+
+	// Fetch dynamic products with seed fallback
+	const { data: apiProductsData } = useQuery({
+		queryKey: ["/api/gift-city/products"],
+		queryFn: async () => {
+			try {
+				const res = await apiRequest("/api/gift-city/products");
+				return await res.json();
+			} catch {
+				return { data: [] };
+			}
+		},
+	});
+
+	const activeCatalog: any[] =
+		apiProductsData?.data && apiProductsData.data.length > 0
+			? apiProductsData.data.map((p: any) => ({
+					...p,
+					minimumInvestment: Number(p.minimumInvestment) || 10000,
+					features: Array.isArray(p.features) ? p.features : [],
+					regulatoryBenefits: Array.isArray(p.regulatoryBenefits) ? p.regulatoryBenefits : [],
+					eligibility: Array.isArray(p.eligibility) ? p.eligibility : [],
+			  }))
+			: giftCityProducts;
+
+	const filteredProducts = activeCatalog.filter((product) => {
 		const matchesCategory =
 			selectedCategory === "all" || product.category === selectedCategory;
 		const matchesSearch =
 			product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			product.description.toLowerCase().includes(searchTerm.toLowerCase());
+			(product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase()));
 		return matchesCategory && matchesSearch;
 	});
 
+	// Mutations
+	const applyMutation = useMutation({
+		mutationFn: async (payload: any) => {
+			const res = await apiRequest("/api/gift-city/application", "POST", payload);
+			return res.json();
+		},
+		onSuccess: (res: any) => {
+			if (res.success && res.data) {
+				setApplicationSuccessData(res.data);
+				setSelectedProductForApply(null);
+				toast({
+					title: "Application Registered",
+					description: `Reference Number: ${res.data.referenceNumber}`,
+				});
+			} else {
+				throw new Error(res.error || "Failed to register application");
+			}
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Submission Error",
+				description: err?.message || "Could not register application",
+				variant: "destructive",
+			});
+		},
+	});
+
+	const lrsQuoteMutation = useMutation({
+		mutationFn: async (payload: any) => {
+			const res = await apiRequest("/api/gift-city/lrs-remittance-quote", "POST", payload);
+			return res.json();
+		},
+		onSuccess: (res: any) => {
+			if (res.success) {
+				setLrsQuoteResult(res.data);
+				toast({ title: "LRS Calculation Updated", description: "Section 206C(1G) TCS breakdown ready" });
+			}
+		},
+		onError: (err: any) => {
+			toast({ title: "Calculation Error", description: err?.message, variant: "destructive" });
+		},
+	});
+
+	const accreditedCheckMutation = useMutation({
+		mutationFn: async (payload: any) => {
+			const res = await apiRequest("/api/gift-city/accredited-check", "POST", payload);
+			return res.json();
+		},
+		onSuccess: (res: any) => {
+			if (res.success) {
+				setAccResult(res.data);
+				toast({
+					title: "Assessment Complete",
+					description: `Status: ${res.data.accreditationLevel}`,
+				});
+			}
+		},
+		onError: (err: any) => {
+			toast({ title: "Assessment Error", description: err?.message, variant: "destructive" });
+		},
+	});
+
+	const handleOpenApply = (product: any) => {
+		setSelectedProductForApply(product);
+		setApplyForm((prev) => ({
+			...prev,
+			proposedInvestmentUSD: Number(product.minimumInvestment) || 25000,
+		}));
+	};
+
 	const formatCurrency = (amount: number, currency: string) => {
 		if (currency === "USD") {
-			return `$${(amount / 1000000).toFixed(1)}M`;
+			return amount >= 1000000 ? `$${(amount / 1000000).toFixed(1)}M` : `$${amount.toLocaleString()}`;
 		}
 		if (currency === "Multi-Currency") {
 			return `$${(amount / 1000000).toFixed(1)}M+`;
@@ -478,10 +623,16 @@ export default function GiftCity() {
 				</div>
 			</div>
 
-			<Tabs value="products" className="w-full">
-				<ScrollableTabsList className="grid w-full grid-cols-3">
+			<Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+				<ScrollableTabsList className="grid w-full grid-cols-2 md:grid-cols-5">
 					<TabsTrigger value="products" data-testid="tab-products">
 						Premium Products
+					</TabsTrigger>
+					<TabsTrigger value="lrs-calculator" data-testid="tab-lrs-calculator">
+						LRS & TCS Form A2
+					</TabsTrigger>
+					<TabsTrigger value="accredited" data-testid="tab-accredited">
+						IFSCA Accreditation
 					</TabsTrigger>
 					<TabsTrigger value="advantages" data-testid="tab-advantages">
 						IFSC Advantages
@@ -621,7 +772,7 @@ export default function GiftCity() {
 									<div>
 										<p className="text-sm font-semibold mb-2">Key Features</p>
 										<div className="flex flex-wrap gap-1">
-											{product.features.slice(0, 3).map((feature, index) => (
+											{product.features?.slice(0, 3).map((feature: string, index: number) => (
 												<Badge
 													key={index}
 													variant="outline"
@@ -638,8 +789,8 @@ export default function GiftCity() {
 										<p className="text-sm font-semibold mb-2">IFSC Benefits</p>
 										<div className="flex flex-wrap gap-1">
 											{product.regulatoryBenefits
-												.slice(0, 2)
-												.map((benefit, index) => (
+												?.slice(0, 2)
+												.map((benefit: string, index: number) => (
 													<Badge
 														key={index}
 														variant="secondary"
@@ -665,6 +816,7 @@ export default function GiftCity() {
 										<Button
 											size="sm"
 											className="flex-1 bg-purple-600 hover:bg-purple-700"
+											onClick={() => handleOpenApply(product)}
 											data-testid={`button-invest-${product.id}`}
 										>
 											<Wallet className="h-4 w-4 mr-1" />
@@ -673,6 +825,7 @@ export default function GiftCity() {
 										<Button
 											variant="outline"
 											size="sm"
+											onClick={() => setSelectedProductForDetails(product)}
 											data-testid={`button-details-${product.id}`}
 										>
 											<FileText className="h-4 w-4 mr-1" />
@@ -682,6 +835,327 @@ export default function GiftCity() {
 								</CardContent>
 							</Card>
 						))}
+					</div>
+				</TabsContent>
+
+				{/* LRS & TCS Form A2 Assistant Tab */}
+				<TabsContent value="lrs-calculator" className="space-y-6">
+					<div className="mb-6">
+						<h2 className="text-2xl font-bold text-foreground mb-2 flex items-center gap-2">
+							<Calculator className="h-6 w-6 text-purple-600" />
+							RBI LRS Quota & Section 206C(1G) TCS Calculator
+						</h2>
+						<p className="text-muted-foreground">
+							Compute outward remittances under the RBI Liberalised Remittance Scheme ($250,000 USD/FY) with exact 20% TCS threshold calculations and automated Form A2 generation for IFSC Banking Units (IBU).
+						</p>
+					</div>
+
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+						{/* Inputs Card */}
+						<Card>
+							<CardHeader>
+								<CardTitle className="text-lg">Remittance Parameters</CardTitle>
+								<CardDescription>
+									Enter your proposed investment to evaluate LRS quota and tax implications
+								</CardDescription>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								<div>
+									<Label className="text-sm font-semibold">Remittance Amount ($ USD)</Label>
+									<Input
+										type="number"
+										value={lrsAmountUSD}
+										onChange={(e) => setLrsAmountUSD(Number(e.target.value))}
+										placeholder="e.g. 25000"
+										className="mt-1"
+									/>
+									<p className="text-xs text-muted-foreground mt-1">
+										Converted at reference rate ₹84.50/USD
+									</p>
+								</div>
+
+								<div>
+									<Label className="text-sm font-semibold">Prior FY Remittances (₹ INR)</Label>
+									<Input
+										type="number"
+										value={lrsPriorINR}
+										onChange={(e) => setLrsPriorINR(Number(e.target.value))}
+										placeholder="e.g. 0"
+										className="mt-1"
+									/>
+									<p className="text-xs text-muted-foreground mt-1">
+										Cumulative foreign remittances made across all bank accounts this financial year
+									</p>
+								</div>
+
+								<div>
+									<Label className="text-sm font-semibold">RBI Purpose Code</Label>
+									<Select value={lrsPurposeCode} onValueChange={setLrsPurposeCode}>
+										<SelectTrigger className="mt-1">
+											<SelectValue placeholder="Select purpose code" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="S0001">S0001: Indian investment abroad in equity shares/AIFs</SelectItem>
+											<SelectItem value="S0002">S0002: Indian investment abroad in debt securities</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+
+								<div className="grid grid-cols-2 gap-3">
+									<div>
+										<Label className="text-sm font-semibold">Remitter Name</Label>
+										<Input
+											value={lrsRemitterName}
+											onChange={(e) => setLrsRemitterName(e.target.value)}
+											placeholder="Full Name"
+											className="mt-1"
+										/>
+									</div>
+									<div>
+										<Label className="text-sm font-semibold">Remitter PAN</Label>
+										<Input
+											value={lrsRemitterPAN}
+											onChange={(e) => setLrsRemitterPAN(e.target.value.toUpperCase())}
+											placeholder="ABCDE1234F"
+											maxLength={10}
+											className="mt-1"
+										/>
+									</div>
+								</div>
+
+								<Button
+									className="w-full bg-purple-600 hover:bg-purple-700"
+									disabled={lrsQuoteMutation.isPending || lrsAmountUSD <= 0}
+									onClick={() =>
+										lrsQuoteMutation.mutate({
+											remittanceAmountUSD: lrsAmountUSD,
+											fyUtilizationINR: lrsPriorINR,
+											purposeCode: lrsPurposeCode,
+											remitterName: lrsRemitterName,
+											remitterPAN: lrsRemitterPAN,
+										})
+									}
+								>
+									{lrsQuoteMutation.isPending ? "Calculating..." : "Calculate LRS & TCS Breakdown"}
+								</Button>
+							</CardContent>
+						</Card>
+
+						{/* Breakdown & Form A2 Preview Card */}
+						<Card>
+							<CardHeader>
+								<CardTitle className="text-lg flex items-center justify-between">
+									<span>Remittance & Tax Breakdown</span>
+									{lrsQuoteResult && (
+										<Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+											{lrsQuoteResult.a2FormPreview?.formNumber}
+										</Badge>
+									)}
+								</CardTitle>
+								<CardDescription>
+									Statutory calculations under Section 206C(1G) and RBI LRS limits
+								</CardDescription>
+							</CardHeader>
+							<CardContent>
+								{lrsQuoteResult ? (
+									<div className="space-y-4">
+										<div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg">
+											<div>
+												<p className="text-xs text-muted-foreground">Remittance Amount (USD)</p>
+												<p className="text-lg font-bold">${lrsQuoteResult.remittanceUSD?.toLocaleString()}</p>
+											</div>
+											<div>
+												<p className="text-xs text-muted-foreground">INR Equivalent (@ ₹{lrsQuoteResult.fxRate})</p>
+												<p className="text-lg font-bold">₹{lrsQuoteResult.remittanceINR?.toLocaleString()}</p>
+											</div>
+										</div>
+
+										<div className="space-y-2 border-t pt-3">
+											<div className="flex justify-between text-sm">
+												<span className="text-muted-foreground">Exempt Portion (below ₹7L threshold):</span>
+												<span className="font-medium">₹{lrsQuoteResult.tcsDetails?.amountBelowThresholdINR?.toLocaleString()}</span>
+											</div>
+											<div className="flex justify-between text-sm">
+												<span className="text-muted-foreground">Portion Subject to TCS:</span>
+												<span className="font-medium">₹{lrsQuoteResult.tcsDetails?.amountAboveThresholdINR?.toLocaleString()}</span>
+											</div>
+											<div className="flex justify-between text-sm">
+												<span className="text-purple-600 font-semibold">TCS Rate (Finance Act 2023):</span>
+												<Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+													{lrsQuoteResult.tcsDetails?.tcsRatePercent}%
+												</Badge>
+											</div>
+											<div className="flex justify-between text-sm border-t pt-2">
+												<span className="font-semibold">TCS Payable (Tax credit in ITR):</span>
+												<span className="font-bold text-amber-600">₹{lrsQuoteResult.tcsDetails?.tcsPayableINR?.toLocaleString()}</span>
+											</div>
+											<div className="flex justify-between text-base font-bold border-t pt-2 bg-purple-50 dark:bg-purple-950/40 p-2 rounded">
+												<span>Total Amount Payable to AD Bank:</span>
+												<span className="text-purple-700 dark:text-purple-300">₹{lrsQuoteResult.tcsDetails?.totalPayableWithTcsINR?.toLocaleString()}</span>
+											</div>
+										</div>
+
+										{/* Form A2 Preview */}
+										<div className="p-3 border rounded-lg bg-background text-xs space-y-1">
+											<p className="font-bold text-sm text-foreground flex items-center gap-1">
+												<FileText className="h-4 w-4 text-purple-600" />
+												RBI Form A2 Pre-Filled Metadata
+											</p>
+											<p><span className="text-muted-foreground">Beneficiary Bank:</span> {lrsQuoteResult.a2FormPreview?.beneficiaryBank}</p>
+											<p><span className="text-muted-foreground">Routing Rail:</span> {lrsQuoteResult.a2FormPreview?.transferChannel}</p>
+											<p><span className="text-muted-foreground">Remaining LRS Balance:</span> ${lrsQuoteResult.remainingLrsLimitUSD?.toLocaleString()} USD</p>
+										</div>
+
+										<p className="text-xs text-muted-foreground italic">
+											Note: TCS collected is fully adjustable against Advance Tax liability or refundable during annual ITR filing.
+										</p>
+									</div>
+								) : (
+									<div className="text-center py-12 text-muted-foreground space-y-2">
+										<Calculator className="h-10 w-10 mx-auto text-purple-400 opacity-60" />
+										<p className="text-sm">Click "Calculate LRS & TCS Breakdown" to view statutory remittance calculations and Form A2 package.</p>
+									</div>
+								)}
+							</CardContent>
+						</Card>
+					</div>
+				</TabsContent>
+
+				{/* IFSCA Accredited Investor Assessment Tab */}
+				<TabsContent value="accredited" className="space-y-6">
+					<div className="mb-6">
+						<h2 className="text-2xl font-bold text-foreground mb-2 flex items-center gap-2">
+							<Award className="h-6 w-6 text-purple-600" />
+							IFSCA Accredited Investor Assessment
+						</h2>
+						<p className="text-muted-foreground">
+							Determine statutory eligibility under IFSCA (Fund Management) Regulations, 2022 to invest in Category I, II, & III Alternative Investment Funds (AIFs) and unlisted vehicles.
+						</p>
+					</div>
+
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+						{/* Assessment Form Card */}
+						<Card>
+							<CardHeader>
+								<CardTitle className="text-lg">Accreditation Questionnaire</CardTitle>
+								<CardDescription>
+									Self-certify financial thresholds as defined under IFSCA Regulation 2(1)(a)
+								</CardDescription>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								<div>
+									<Label className="text-sm font-semibold">Investor Category</Label>
+									<Select value={accInvestorType} onValueChange={setAccInvestorType}>
+										<SelectTrigger className="mt-1">
+											<SelectValue placeholder="Select investor type" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="individual">Individual Resident / NRI</SelectItem>
+											<SelectItem value="entity">Corporate Body / Family Office</SelectItem>
+											<SelectItem value="fpi">Foreign Portfolio Investor (FPI)</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+
+								<div>
+									<Label className="text-sm font-semibold">Liquid / Investable Net Worth ($ USD)</Label>
+									<Input
+										type="number"
+										value={accNetWorthUSD}
+										onChange={(e) => setAccNetWorthUSD(Number(e.target.value))}
+										placeholder="e.g. 1200000"
+										className="mt-1"
+									/>
+									<p className="text-xs text-muted-foreground mt-1">
+										IFSCA Floor: $1,000,000 USD (excl. primary residence)
+									</p>
+								</div>
+
+								<div>
+									<Label className="text-sm font-semibold">Gross Annual Income (3-Year Average, $ USD)</Label>
+									<Input
+										type="number"
+										value={accIncomeUSD}
+										onChange={(e) => setAccIncomeUSD(Number(e.target.value))}
+										placeholder="e.g. 250000"
+										className="mt-1"
+									/>
+									<p className="text-xs text-muted-foreground mt-1">
+										IFSCA Floor: $200,000 USD gross annual income
+									</p>
+								</div>
+
+								<Button
+									className="w-full bg-purple-600 hover:bg-purple-700"
+									disabled={accreditedCheckMutation.isPending}
+									onClick={() =>
+										accreditedCheckMutation.mutate({
+											investorType: accInvestorType,
+											netWorthUSD: accNetWorthUSD,
+											annualIncomeUSD: accIncomeUSD,
+										})
+									}
+								>
+									{accreditedCheckMutation.isPending ? "Evaluating..." : "Run Statutory Eligibility Assessment"}
+								</Button>
+							</CardContent>
+						</Card>
+
+						{/* Assessment Result Card */}
+						<Card>
+							<CardHeader>
+								<CardTitle className="text-lg flex items-center justify-between">
+									<span>Accreditation Verdict</span>
+									{accResult && (
+										<Badge
+											variant={accResult.isEligible ? "default" : "destructive"}
+											className={accResult.isEligible ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+										>
+											{accResult.accreditationLevel}
+										</Badge>
+									)}
+								</CardTitle>
+								<CardDescription>
+									Official classification and eligible GIFT City asset tiers
+								</CardDescription>
+							</CardHeader>
+							<CardContent>
+								{accResult ? (
+									<div className="space-y-4">
+										<div className="p-3 border rounded-lg bg-muted/40 space-y-2">
+											<p className="text-sm font-semibold text-foreground">Statutory Framework</p>
+											<p className="text-xs text-muted-foreground">{accResult.framework}</p>
+											<p className="text-xs"><span className="font-semibold">Validity:</span> {accResult.validityPeriod}</p>
+										</div>
+
+										<div className="space-y-2">
+											<p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Criteria Verification</p>
+											{accResult.criteriaEvaluated?.map((c: any, idx: number) => (
+												<div key={idx} className="flex items-center justify-between p-2 border rounded text-xs">
+													<div>
+														<p className="font-semibold">{c.metric}</p>
+														<p className="text-muted-foreground">Floor: {c.threshold} | Provided: {c.valueProvided}</p>
+													</div>
+													<Badge variant={c.met ? "secondary" : "outline"} className={c.met ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : "text-amber-600"}>
+														{c.met ? "MET" : "NOT MET"}
+													</Badge>
+												</div>
+											))}
+										</div>
+
+										<div className="p-3 bg-purple-50 dark:bg-purple-950/40 rounded-lg text-xs space-y-1">
+											<p className="font-bold text-purple-900 dark:text-purple-200">Permitted Investment Scope:</p>
+											<p className="text-muted-foreground">{accResult.statutoryNotice}</p>
+										</div>
+									</div>
+								) : (
+									<div className="text-center py-12 text-muted-foreground space-y-2">
+										<Award className="h-10 w-10 mx-auto text-purple-400 opacity-60" />
+										<p className="text-sm">Run the assessment to verify whether you qualify as an Accredited Investor under IFSCA guidelines.</p>
+									</div>
+								)}
+							</CardContent>
+						</Card>
 					</div>
 				</TabsContent>
 
@@ -928,6 +1402,264 @@ export default function GiftCity() {
 					</Card>
 				</TabsContent>
 			</Tabs>
+
+			{/* ── Dialog 1: Investment Intent / Application Modal ── */}
+			<Dialog open={!!selectedProductForApply} onOpenChange={() => setSelectedProductForApply(null)}>
+				<DialogContent className="max-w-lg">
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							<Building2 className="h-5 w-5 text-purple-600" />
+							GIFT City Investment Intent
+						</DialogTitle>
+						<DialogDescription>
+							Register investment interest for <span className="font-semibold text-foreground">{selectedProductForApply?.name}</span>
+						</DialogDescription>
+					</DialogHeader>
+
+					<div className="space-y-4 py-2">
+						<div className="p-3 bg-purple-50 dark:bg-purple-950/40 rounded-lg text-xs space-y-1">
+							<div className="flex justify-between">
+								<span className="text-muted-foreground">Category:</span>
+								<span className="font-semibold">{selectedProductForApply?.category}</span>
+							</div>
+							<div className="flex justify-between">
+								<span className="text-muted-foreground">Minimum Ticket:</span>
+								<span className="font-semibold">${selectedProductForApply?.minimumInvestment?.toLocaleString()} {selectedProductForApply?.currency}</span>
+							</div>
+							<div className="flex justify-between">
+								<span className="text-muted-foreground">Flow Direction:</span>
+								<Badge variant="outline" className="text-xs">{selectedProductForApply?.flowDirection === "outbound" ? "Outbound LRS" : "Inbound Foreign"}</Badge>
+							</div>
+						</div>
+
+						<div className="grid grid-cols-2 gap-3">
+							<div>
+								<Label className="text-xs font-semibold">Full Name *</Label>
+								<Input
+									value={applyForm.applicantName}
+									onChange={(e) => setApplyForm((p) => ({ ...p, applicantName: e.target.value }))}
+									placeholder="Your Full Name"
+									className="mt-1 text-sm"
+								/>
+							</div>
+							<div>
+								<Label className="text-xs font-semibold">Phone Number *</Label>
+								<Input
+									value={applyForm.phone}
+									onChange={(e) => setApplyForm((p) => ({ ...p, phone: e.target.value }))}
+									placeholder="+91 / +1 ..."
+									className="mt-1 text-sm"
+								/>
+							</div>
+						</div>
+
+						<div>
+							<Label className="text-xs font-semibold">Email Address *</Label>
+							<Input
+								value={applyForm.email}
+								onChange={(e) => setApplyForm((p) => ({ ...p, email: e.target.value }))}
+								placeholder="investor@example.com"
+								className="mt-1 text-sm"
+							/>
+						</div>
+
+						<div className="grid grid-cols-2 gap-3">
+							<div>
+								<Label className="text-xs font-semibold">Investor Classification</Label>
+								<Select
+									value={applyForm.investorType}
+									onValueChange={(val) => setApplyForm((p) => ({ ...p, investorType: val }))}
+								>
+									<SelectTrigger className="mt-1 text-sm">
+										<SelectValue placeholder="Select type" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="Resident Indian">Resident Indian (LRS)</SelectItem>
+										<SelectItem value="NRI">NRI (Non-Resident Indian)</SelectItem>
+										<SelectItem value="Foreign HNI">Foreign Portfolio HNI</SelectItem>
+										<SelectItem value="Family Office">Family Office / Corporate</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+							<div>
+								<Label className="text-xs font-semibold">Proposed Amount ($ USD)</Label>
+								<Input
+									type="number"
+									value={applyForm.proposedInvestmentUSD}
+									onChange={(e) => setApplyForm((p) => ({ ...p, proposedInvestmentUSD: Number(e.target.value) }))}
+									className="mt-1 text-sm"
+								/>
+							</div>
+						</div>
+
+						<div>
+							<Label className="text-xs font-semibold">Notes / Advisor Requests</Label>
+							<Textarea
+								value={applyForm.notes}
+								onChange={(e) => setApplyForm((p) => ({ ...p, notes: e.target.value }))}
+								placeholder="e.g. Inquiring regarding Form A2 or USD escrow setup..."
+								rows={2}
+								className="mt-1 text-sm"
+							/>
+						</div>
+					</div>
+
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setSelectedProductForApply(null)}>
+							Cancel
+						</Button>
+						<Button
+							className="bg-purple-600 hover:bg-purple-700"
+							disabled={applyMutation.isPending || !applyForm.applicantName || !applyForm.email || !applyForm.phone}
+							onClick={() =>
+								applyMutation.mutate({
+									productId: selectedProductForApply?.id,
+									productName: selectedProductForApply?.name,
+									applicantName: applyForm.applicantName,
+									email: applyForm.email,
+									phone: applyForm.phone,
+									investorType: applyForm.investorType,
+									flowDirection: selectedProductForApply?.flowDirection || "outbound",
+									proposedInvestmentUSD: applyForm.proposedInvestmentUSD,
+									isAccredited: applyForm.isAccredited,
+									lrsApplicable: selectedProductForApply?.lrsApplicable ?? true,
+									notes: applyForm.notes,
+								})
+							}
+						>
+							{applyMutation.isPending ? "Submitting..." : "Submit Application"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* ── Dialog 2: Full Product Details Modal ── */}
+			<Dialog open={!!selectedProductForDetails} onOpenChange={() => setSelectedProductForDetails(null)}>
+				<DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							<Crown className="h-5 w-5 text-purple-600" />
+							{selectedProductForDetails?.name}
+						</DialogTitle>
+						<DialogDescription>
+							{selectedProductForDetails?.category} • Provided by {selectedProductForDetails?.provider}
+						</DialogDescription>
+					</DialogHeader>
+
+					<div className="space-y-4 py-2">
+						<p className="text-sm text-foreground">{selectedProductForDetails?.description}</p>
+
+						<div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-3 bg-muted/40 rounded-lg text-xs">
+							<div>
+								<span className="text-muted-foreground block">Minimum Ticket:</span>
+								<span className="font-bold text-sm">${selectedProductForDetails?.minimumInvestment?.toLocaleString()} {selectedProductForDetails?.currency}</span>
+							</div>
+							<div>
+								<span className="text-muted-foreground block">Expected Returns:</span>
+								<span className="font-bold text-sm text-green-600">{selectedProductForDetails?.expectedReturns || "Market Linked"}</span>
+							</div>
+							<div>
+								<span className="text-muted-foreground block">Risk Level:</span>
+								<span className="font-bold text-sm text-purple-600">{selectedProductForDetails?.riskLevel || "Moderate"}</span>
+							</div>
+						</div>
+
+						{/* Features */}
+						<div>
+							<h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Key Features</h4>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+								{selectedProductForDetails?.features?.map((f: string, i: number) => (
+									<div key={i} className="flex items-center gap-2 text-xs p-2 border rounded">
+										<CheckCircle className="h-3.5 w-3.5 text-purple-600 shrink-0" />
+										<span>{f}</span>
+									</div>
+								))}
+							</div>
+						</div>
+
+						{/* Regulatory Benefits */}
+						<div>
+							<h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">IFSC Regulatory & Tax Benefits</h4>
+							<div className="space-y-1">
+								{selectedProductForDetails?.regulatoryBenefits?.map((b: string, i: number) => (
+									<div key={i} className="flex items-center gap-2 text-xs text-green-700 dark:text-green-300">
+										<LucideShield className="h-3.5 w-3.5 shrink-0" />
+										<span>{b}</span>
+									</div>
+								))}
+							</div>
+						</div>
+
+						{/* Tax Treatment */}
+						{selectedProductForDetails?.taxImplications && (
+							<div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-lg text-xs">
+								<span className="font-semibold text-amber-900 dark:text-amber-200 block mb-1">Taxation Framework:</span>
+								<p className="text-muted-foreground">{selectedProductForDetails.taxImplications}</p>
+							</div>
+						)}
+					</div>
+
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setSelectedProductForDetails(null)}>
+							Close
+						</Button>
+						<Button
+							className="bg-purple-600 hover:bg-purple-700"
+							onClick={() => {
+								const prod = selectedProductForDetails;
+								setSelectedProductForDetails(null);
+								handleOpenApply(prod);
+							}}
+						>
+							<Wallet className="h-4 w-4 mr-1" />
+							Apply for this Product
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* ── Dialog 3: Application Success Confirmation ── */}
+			<Dialog open={!!applicationSuccessData} onOpenChange={() => setApplicationSuccessData(null)}>
+				<DialogContent className="max-w-md text-center">
+					<DialogHeader>
+						<div className="w-12 h-12 rounded-full bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300 mx-auto flex items-center justify-center mb-2">
+							<CheckCircle className="h-6 w-6" />
+						</div>
+						<DialogTitle className="text-xl">Application Registered</DialogTitle>
+						<DialogDescription>
+							Reference ID: <span className="font-bold text-purple-600">{applicationSuccessData?.referenceNumber}</span>
+						</DialogDescription>
+					</DialogHeader>
+
+					<div className="space-y-3 py-2 text-left text-xs">
+						<p className="text-muted-foreground">
+							Thank you, <span className="font-semibold text-foreground">{applicationSuccessData?.applicantName}</span>. Your expression of interest for <span className="font-semibold text-foreground">{applicationSuccessData?.productName}</span> has been logged with our IFSC compliance desk.
+						</p>
+
+						<div className="p-3 bg-muted rounded-lg space-y-2">
+							<p className="font-semibold text-foreground">Next Action Steps:</p>
+							{applicationSuccessData?.nextSteps?.map((step: string, i: number) => (
+								<div key={i} className="flex items-start gap-2">
+									<span className="w-4 h-4 rounded-full bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+										{i + 1}
+									</span>
+									<span className="text-muted-foreground">{step}</span>
+								</div>
+							))}
+						</div>
+
+						<p className="text-[11px] text-muted-foreground">
+							<span className="font-semibold">Assigned Office:</span> {applicationSuccessData?.assignedBranch}
+						</p>
+					</div>
+
+					<DialogFooter>
+						<Button className="w-full bg-purple-600 hover:bg-purple-700" onClick={() => setApplicationSuccessData(null)}>
+							Done
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

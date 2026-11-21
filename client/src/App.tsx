@@ -141,7 +141,9 @@ function Router() {
 					<Route path="/net-worth" component={NetWorthPage} />
 					<Route path="/pricing" component={PricingPage} />
 					<Route path="/privacy" component={Privacy} />
+					<Route path="/privacy-policy" component={Privacy} />
 					<Route path="/terms" component={Terms} />
+					<Route path="/terms-of-service" component={Terms} />
 					<Route path="/refund-policy" component={RefundPolicy} />
 					<Route path="/disclaimer" component={InvestmentDisclaimer} />
 					<Route path="/reit-invit" component={ReitInvitPage} />

@@ -57,13 +57,15 @@ export default function PrivacyPolicy() {
 
 					<div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800 mb-8">
 						<h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">
-							Regulatory Compliance
+							Regulatory Compliance & Statutory Governance
 						</h4>
 						<p className="text-blue-700 dark:text-blue-300 text-sm">
-							This Privacy Policy complies with the Information Technology Act,
-							2000, IT (Reasonable Security Practices) Rules, 2011, SEBI data
-							protection requirements, RBI guidelines on customer data, and
-							applicable provisions of the Digital Personal Data Protection Act.
+							This Privacy Policy strictly complies with the Digital Personal Data
+							Protection Act, 2023 (DPDP Act 2023) and its statutory rules, the
+							Information Technology Act, 2000 (Sections 43A & 72A) and SPDI Rules,
+							2011, SEBI Master Circulars on Data Security & Intermediary Conduct,
+							RBI Master Directions on IT Governance and KYC, and CERT-In Cyber
+							Security Directions on log retention and incident response.
 						</p>
 					</div>
 
@@ -142,6 +144,33 @@ export default function PrivacyPolicy() {
 										<li>Platform usage patterns and feature interactions</li>
 										<li>Communication preferences and notification settings</li>
 									</ul>
+								</div>
+								<div>
+									<h4 className="font-semibold mb-2">
+										Third-Party Identity Providers & OAuth 2.0 (SSO)
+									</h4>
+									<p className="text-sm text-muted-foreground mb-2">
+										When you authenticate or register using official third-party Single Sign-On (SSO) or OAuth 2.0 services such as LinkedIn OpenID Connect (scopes: <code>openid</code>, <code>profile</code>, <code>email</code>) or Google:
+									</p>
+									<ul className="list-disc list-inside text-muted-foreground space-y-1">
+										<li>
+											<strong>Profile Identifiers:</strong> We receive only your basic verified public profile data: full legal name, verified primary email address, profile identifier (sub), and display avatar.
+										</li>
+										<li>
+											<strong>Strict Least-Privilege:</strong> We operate strictly on read-only authentication scopes. We never access, request, or store your private messages, social feed, address book, or connections.
+										</li>
+										<li>
+											<strong>Revocable Association:</strong> This identity is used exclusively to verify identity, establish encrypted sessions, and prevent duplicate account fraud. You may unlink your SSO provider at any time from account settings.
+										</li>
+									</ul>
+								</div>
+								<div>
+									<h4 className="font-semibold mb-2">
+										Protection of Children's Data (Section 9, DPDP Act 2023)
+									</h4>
+									<p className="text-sm text-muted-foreground">
+										In strict accordance with Section 9 of the Digital Personal Data Protection Act 2023, FintekPro does not permit unassisted account registration or direct contracting by individuals under the age of 18 (minors). Minor accounts may only be established under the verified consent and supervision of a parent or legal guardian. FintekPro strictly prohibits behavioral tracking, targeted advertising, or profiling of minors.
+									</p>
 								</div>
 							</CardContent>
 						</Card>
@@ -282,7 +311,10 @@ export default function PrivacyPolicy() {
 											<strong>Communication Logs:</strong> 5 years
 										</li>
 										<li>
-											<strong>Session/Login Data:</strong> 1 year
+											<strong>System Access & Cyber Security Logs:</strong> Rolling 180 days within Indian territory (strictly adhering to CERT-In directives) and up to 1 year for audit analytics
+										</li>
+										<li>
+											<strong>Session & Authentication Records:</strong> 1 year
 										</li>
 										<li>
 											<strong>Marketing Preferences:</strong> Until consent
@@ -417,12 +449,15 @@ export default function PrivacyPolicy() {
 										a structured, machine-readable format
 									</li>
 									<li>
-										<strong>Right to Withdraw Consent:</strong> Opt out of
-										optional data processing and marketing
+										<strong>Right to Withdraw Consent (Sec 6, DPDP Act 2023):</strong> Opt out of
+										optional data processing or marketing at any time. Withdrawal does not affect the legality of processing conducted prior to withdrawal, nor does it override mandatory statutory retention under SEBI/RBI regulations.
 									</li>
 									<li>
-										<strong>Right to Grievance:</strong> Lodge complaints with
-										our Grievance Officer
+										<strong>Right to Nominate (Sec 14, DPDP Act 2023):</strong> Nominate an individual who, in the event of your death or incapacity, shall be authorized to exercise your data rights and requests.
+									</li>
+									<li>
+										<strong>Right to Grievance Redressal (Sec 13, DPDP Act 2023):</strong> Lodge complaints with
+										our designated Grievance Officer, with mandatory acknowledgment within 48 hours and resolution within 30 days.
 									</li>
 								</ul>
 								<div className="bg-muted p-4 rounded-lg mt-4">
