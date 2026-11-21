@@ -130,6 +130,17 @@ else
   echo "ℹ️  REDIS_URL secret not found — operating in Zero-Redis PostgreSQL mode"
 fi
 
+# ─── LinkedIn OAuth Configuration ──────────────────────────────────────────
+# Detects if LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET exist in Secret Manager:
+LINKEDIN_SECRET_FLAG=""
+if gcloud secrets describe LINKEDIN_CLIENT_ID --project="$PROJECT_ID" >/dev/null 2>&1 && \
+   gcloud secrets describe LINKEDIN_CLIENT_SECRET --project="$PROJECT_ID" >/dev/null 2>&1; then
+  echo "✅ LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET detected in Secret Manager — wiring into Cloud Run"
+  LINKEDIN_SECRET_FLAG="LINKEDIN_CLIENT_ID=LINKEDIN_CLIENT_ID:latest,LINKEDIN_CLIENT_SECRET=LINKEDIN_CLIENT_SECRET:latest,"
+else
+  echo "ℹ️  LinkedIn OAuth secrets not found in Secret Manager — skipping LinkedIn Cloud Run mount"
+fi
+
 # ── Pre-Deploy Database Migration Gate (Expand-Contract / Zero-Downtime) ─────
 # Executes schema repairs and migrations in a dedicated one-off Cloud Run Job
 # BEFORE deploying the new web service revision. This guarantees:
@@ -178,6 +189,7 @@ gcloud run deploy $SERVICE_NAME \
     --set-env-vars="NODE_ENV=production,NODE_OPTIONS=--max-old-space-size=3072,DEBUG_SUBDOMAIN=true,CUSTOM_DOMAIN=fintekpro.com,RUN_STARTUP_MIGRATIONS=false,PRIVATE_OBJECT_DIR=gs://fintekpro-documents/private,ALLOW_TESTER_BYPASS=true,INDIAN_API_BASE_URL=https://analyst.indianapi.in" \
     --set-secrets="\
 ${REDIS_SECRET_FLAG}\
+${LINKEDIN_SECRET_FLAG}\
 PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,\
 DATABASE_URL=DATABASE_URL:latest,\
 SESSION_SECRET=SESSION_SECRET:latest,\

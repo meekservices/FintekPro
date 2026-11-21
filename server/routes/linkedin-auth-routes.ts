@@ -28,7 +28,14 @@ const LINKEDIN_TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken";
 const LINKEDIN_USERINFO_URL = "https://api.linkedin.com/v2/userinfo";
 
 function getRedirectUri(req: Request): string {
-	const configuredUrl = process.env.APP_URL || process.env.BASE_URL;
+	const configuredUrl =
+		process.env.APP_URL ||
+		process.env.BASE_URL ||
+		(process.env.CUSTOM_DOMAIN
+			? (process.env.CUSTOM_DOMAIN.startsWith("http")
+					? process.env.CUSTOM_DOMAIN
+					: `https://${process.env.CUSTOM_DOMAIN}`)
+			: undefined);
 	if (configuredUrl) {
 		return `${configuredUrl.replace(/\/$/, "")}/api/auth/linkedin/callback`;
 	}
