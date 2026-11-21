@@ -503,8 +503,8 @@ export class KnowledgeHubService {
 		const brentStr = `$${brentPriceNum}/bbl`;
 		const goldStr = commodityRadar?.commodities?.[0]?.mcxPrice
 			? `₹${commodityRadar.commodities[0].mcxPrice.toLocaleString("en-IN")}/10g`
-			: `₹${(goldenSnapshot?.commodities?.goldMcxInr ?? 141255).toLocaleString("en-IN")}/10g`;
-		const comexGoldUsd = commodityRadar?.commodities?.find((c: any) => c.id === "GOLD")?.cmxPrice ?? goldenSnapshot?.commodities?.goldComexUsd ?? 3885.50;
+			: `₹${(goldenSnapshot?.commodities?.goldMcxInr ?? 78250).toLocaleString("en-IN")}/10g`;
+		const comexGoldUsd = commodityRadar?.commodities?.find((c: any) => c.id === "GOLD")?.cmxPrice ?? goldenSnapshot?.commodities?.goldComexUsd ?? 2685.50;
 		const isElevatedCrude = brentPriceNum > 85;
 		// US fixed income dynamic values for sector highlights
 		const liveUs10Y = goldenSnapshot?.fixedIncome?.us10YTreasury ?? 4.42;
@@ -604,15 +604,15 @@ export class KnowledgeHubService {
 		if (commodityRadar?.commodities && Array.isArray(commodityRadar.commodities)) {
 			commodityRadar.commodities = commodityRadar.commodities.map((item: any) => {
 				const fallbackMcx =
-					item.id === "GOLD" ? (snapshot.commodities?.goldMcxPrice ?? 141255) :
-					item.id === "SILVER" ? (snapshot.commodities?.silverMcxPrice ?? 187200) :
-					item.id === "CRUDE_OIL" ? (snapshot.commodities?.brentMcxInr ?? 9115) :
+					item.id === "GOLD" ? (snapshot.commodities?.goldMcxPrice ?? 78250) :
+					item.id === "SILVER" ? (snapshot.commodities?.silverMcxPrice ?? 91500) :
+					item.id === "CRUDE_OIL" ? (snapshot.commodities?.brentMcxInr ?? 6325) :
 					item.id === "NATURAL_GAS" ? (snapshot.commodities?.naturalGasMcxPrice ?? 274.60) :
-					item.id === "COPPER" ? (snapshot.commodities?.copperMcxPrice ?? 1376.50) : 0;
+					item.id === "COPPER" ? (snapshot.commodities?.copperMcxPrice ?? 825.50) : 0;
 
 				const fallbackCmx =
-					item.id === "GOLD" ? (snapshot.commodities?.goldComexPrice ?? 3885.50) :
-					item.id === "SILVER" ? (snapshot.commodities?.silverComexPrice ?? 48.50) :
+					item.id === "GOLD" ? (snapshot.commodities?.goldComexPrice ?? 2685.50) :
+					item.id === "SILVER" ? (snapshot.commodities?.silverComexPrice ?? 31.40) :
 					item.id === "CRUDE_OIL" ? (snapshot.commodities?.brentUsd ?? 74.50) :
 					item.id === "NATURAL_GAS" ? (snapshot.commodities?.naturalGasHenryHubUsd ?? 2.75) :
 					item.id === "COPPER" ? (snapshot.commodities?.copperComexUsd ?? 4.35) : 0;
@@ -709,6 +709,7 @@ export class KnowledgeHubService {
 			globalMacroDesk: brief.globalMacroDesk || defaultGlobalMacroDesk,
 			commodityRadar,
 			multiExchangeData,
+			institutionalFlows: brief.institutionalFlows || multiExchangeData?.institutionalFlows,
 			amcConsensus,
 			macroIndicators: brief.macroIndicators || goldenSnapshot?.macroIndicators || null,
 			sectorHighlights: canonicalSectorHighlights,
@@ -760,7 +761,7 @@ export class KnowledgeHubService {
 					{
 						sector: "Commodities & Energy (MCX / CMX)",
 						trend: isElevatedCrude ? "Elevated Input Pressure" : "Benign Comfort Band",
-						outlook: `Brent Crude at $${brentPriceNum}/bbl (${isElevatedCrude ? "above" : "within"} India comfort band <$80); MCX Gold at ₹${(brief.commodityRadar?.commodities?.find((c: any) => c.id === "GOLD")?.mcxPrice ?? 141255).toLocaleString("en-IN")}/10g.`,
+						outlook: `Brent Crude at $${brentPriceNum}/bbl (${isElevatedCrude ? "above" : "within"} India comfort band <$80); MCX Gold at ₹${(brief.commodityRadar?.commodities?.find((c: any) => c.id === "GOLD")?.mcxPrice ?? 78250).toLocaleString("en-IN")}/10g.`,
 					},
 					{
 						sector: "Information Technology (Nifty IT)",
@@ -912,16 +913,16 @@ export class KnowledgeHubService {
 							name: "Gold 24K (MCX Spot)",
 							category: "Precious Metals",
 							mcxSymbol: "GOLD",
-							mcxPrice: 141255,
+							mcxPrice: 78250,
 							mcxUnit: "₹ / 10g",
 							mcxChangePercent: 0.35,
 							cmxSymbol: "GC=F (COMEX / Global CFD)",
-							cmxPrice: 3885.50,
+							cmxPrice: 2685.50,
 							cmxUnit: "$ / oz",
 							cmxChangePercent: 0.28,
 							trend: "Bullish",
 							macroImplication:
-								"Official MCX Spot price at Ahmedabad (₹1,41,255/10g). Central bank accumulation & safe-haven bullion demand.",
+								"Official MCX Spot price at Ahmedabad (₹78,250/10g). Central bank accumulation & safe-haven bullion demand.",
 							lastUpdated: new Date().toISOString().split("T")[0],
 						},
 						{
@@ -929,16 +930,16 @@ export class KnowledgeHubService {
 							name: "Silver (MCX Spot)",
 							category: "Precious Metals",
 							mcxSymbol: "SILVER",
-							mcxPrice: 187200,
+							mcxPrice: 91500,
 							mcxUnit: "₹ / 1kg",
 							mcxChangePercent: 0.45,
 							cmxSymbol: "SI=F (COMEX / Global CFD)",
-							cmxPrice: 48.50,
+							cmxPrice: 31.40,
 							cmxUnit: "$ / oz",
 							cmxChangePercent: 0.38,
 							trend: "Bullish",
 							macroImplication:
-								"Official MCX Spot price at Ahmedabad (₹1,87,200/kg). Dual tailwinds from monetary demand and booming solar PV consumption.",
+								"Official MCX Spot price at Ahmedabad (₹91,500/kg). Dual tailwinds from monetary demand and booming solar PV consumption.",
 							lastUpdated: new Date().toISOString().split("T")[0],
 						},
 						{
@@ -1048,11 +1049,14 @@ export class KnowledgeHubService {
 					institutionalFlows: meSnap?.institutionalFlows || {
 						fiiNetInflowCr: -1420.5,
 						diiNetInflowCr: 2840.2,
+						fiiNetCr: -1420.5,
+						diiNetCr: 2840.2,
 						fiiGrossBuyCr: 12450.0,
 						fiiGrossSellCr: 13870.5,
 						diiGrossBuyCr: 14200.0,
 						diiGrossSellCr: 11359.8,
 						netCombinedInflowCr: 1419.7,
+						monthlySipCr: 26425,
 						monthlyMfSipRunRateCr: 26425,
 						absorptionRatio: 2.0,
 						liquidityRegime: "DII Inflows Absorb FPI Selling",
@@ -1214,6 +1218,7 @@ export class KnowledgeHubService {
 			globalMacroDesk: brief.globalMacroDesk || defaultGlobalMacroDesk,
 			commodityRadar: brief.commodityRadar || defaultCommodityRadar,
 			multiExchangeData: brief.multiExchangeData || defaultMultiExchange,
+			institutionalFlows: brief.institutionalFlows || (brief.multiExchangeData?.institutionalFlows || defaultMultiExchange?.institutionalFlows),
 			amcConsensus: brief.amcConsensus || defaultAmcConsensus,
 			sectorHighlights: syncCanonicalSectorHighlights,
 			agentTips: brief.agentTips || agentTips,
@@ -1556,7 +1561,8 @@ export class KnowledgeHubService {
 
 	async getTodaysBrief(region: string = "india") {
 		const t0 = Date.now();
-		const today = new Date().toISOString().split("T")[0];
+		const tz = region === "india" ? "Asia/Kolkata" : region === "us" ? "America/New_York" : "UTC";
+		const today = new Date().toLocaleDateString("en-CA", { timeZone: tz });
 		const cacheKey = `cache:knowledge_hub_brief:${region}:${today}`;
 
 		// Tier 2: Check distributed L2 Redis cache before triggering DB query

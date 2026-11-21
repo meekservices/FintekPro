@@ -133,8 +133,20 @@ export class KnowledgeHubAutoHealSentinel {
 					remedy: "Sync with official Upstox API v2 / fii-flow-service.",
 				});
 			} else {
+				const fiiNet = typeof inst.fiiNetCr === "number" && !Number.isNaN(inst.fiiNetCr)
+					? inst.fiiNetCr
+					: typeof inst.fiiNetInflowCr === "number" && !Number.isNaN(inst.fiiNetInflowCr)
+						? inst.fiiNetInflowCr
+						: null;
+
+				const diiNet = typeof inst.diiNetCr === "number" && !Number.isNaN(inst.diiNetCr)
+					? inst.diiNetCr
+					: typeof inst.diiNetInflowCr === "number" && !Number.isNaN(inst.diiNetInflowCr)
+						? inst.diiNetInflowCr
+						: null;
+
 				// FII Net
-				if (typeof inst.fiiNetCr !== "number" || Number.isNaN(inst.fiiNetCr)) {
+				if (fiiNet === null) {
 					institutionalFinancials -= 10;
 					violations.push({
 						code: "INVALID_FII_NET",
@@ -146,7 +158,7 @@ export class KnowledgeHubAutoHealSentinel {
 				}
 
 				// DII Net
-				if (typeof inst.diiNetCr !== "number" || Number.isNaN(inst.diiNetCr)) {
+				if (diiNet === null) {
 					institutionalFinancials -= 8;
 					violations.push({
 						code: "INVALID_DII_NET",
@@ -159,8 +171,9 @@ export class KnowledgeHubAutoHealSentinel {
 
 				// Check for stale static fallbacks (-1850 / +3120) or (+5736.55 / -2253.58)
 				if (
-					(inst.fiiNetCr === -1850 && inst.diiNetCr === 3120) ||
-					(inst.fiiNetCr === 5736.55 && inst.diiNetCr === -2253.58)
+					fiiNet !== null && diiNet !== null &&
+					((fiiNet === -1850 && diiNet === 3120) ||
+					(fiiNet === 5736.55 && diiNet === -2253.58))
 				) {
 					institutionalFinancials -= 10;
 					violations.push({
@@ -189,7 +202,7 @@ export class KnowledgeHubAutoHealSentinel {
 				}
 
 				// Monthly SIP run-rate sanity (AMFI bounds: ₹20,000 Cr - ₹35,000 Cr)
-				const sip = Number(inst.monthlySipCr || 0);
+				const sip = Number(inst.monthlySipCr ?? inst.monthlyMfSipRunRateCr ?? 0);
 				if (sip < 15000 || sip > 45000) {
 					institutionalFinancials -= 5;
 					violations.push({
@@ -202,8 +215,8 @@ export class KnowledgeHubAutoHealSentinel {
 				}
 
 				// Absorption ratio check: when FII is negative and DII is positive
-				if (inst.fiiNetCr < 0 && inst.diiNetCr > 0) {
-					const expectedRatio = Math.abs(inst.diiNetCr / inst.fiiNetCr);
+				if (fiiNet !== null && diiNet !== null && fiiNet < 0 && diiNet > 0) {
+					const expectedRatio = Math.abs(diiNet / fiiNet);
 					const actualRatio = Number(inst.absorptionRatio || 0);
 					if (Number.isNaN(actualRatio) || actualRatio <= 0 || Math.abs(expectedRatio - actualRatio) > 0.1) {
 						institutionalFinancials -= 4;
@@ -693,12 +706,20 @@ export class KnowledgeHubAutoHealSentinel {
 
 			// 2. Invalidate caches (Redis + in-memory)
 			const expectedDate = this.getExpectedTradingDate();
+			const datesToFlush = Array.from(new Set([
+				expectedDate,
+				new Date().toISOString().split("T")[0],
+				currentBrief?.date,
+			].filter(Boolean))) as string[];
+
 			try {
 				const { getSharedRedis } = await import("../utils/redis-client");
 				const redis = await getSharedRedis();
 				if (redis?.isOpen) {
-					await redis.del(`cache:knowledge_hub_brief:${region}:${expectedDate}`);
-					logger.debug(`[AutoHealSentinel] 🧹 Flushed Redis cache for ${region}:${expectedDate}`);
+					for (const d of datesToFlush) {
+						await redis.del(`cache:knowledge_hub_brief:${region}:${d}`);
+					}
+					logger.debug(`[AutoHealSentinel] 🧹 Flushed Redis cache for ${region} on dates [${datesToFlush.join(", ")}]`);
 				}
 			} catch (cErr: any) {
 				logger.warn(`[AutoHealSentinel] Cache flush warning: ${cErr?.message}`);
@@ -736,6 +757,9 @@ export class KnowledgeHubAutoHealSentinel {
 
 			// 4. Force regenerate and publish a new pristine brief in database
 			const healedBrief = await knowledgeHubService.generateAndPublishDailyBrief(region, expectedDate);
+			if (currentBrief?.date && currentBrief.date !== expectedDate) {
+				await knowledgeHubService.generateAndPublishDailyBrief(region, currentBrief.date).catch(() => null);
+			}
 
 			// 5. Re-audit newly persisted brief
 			const postAudit = this.auditBrief(healedBrief, region);

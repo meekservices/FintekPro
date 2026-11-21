@@ -201,12 +201,15 @@ interface MarketBrief {
 		institutionalFlows: {
 			fiiNetInflowCr: number;
 			diiNetInflowCr: number;
+			fiiNetCr?: number;
+			diiNetCr?: number;
 			fiiGrossBuyCr?: number;
 			fiiGrossSellCr?: number;
 			diiGrossBuyCr?: number;
 			diiGrossSellCr?: number;
 			netCombinedInflowCr: number;
 			monthlyMfSipRunRateCr: number;
+			monthlySipCr?: number;
 			absorptionRatio: number;
 			liquidityRegime: string;
 			asOfDate?: string;
@@ -724,7 +727,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					{
 						sector: "Commodities & Energy (MCX / CMX)",
 						trend: "Comfort Corridor (<$80)",
-						outlook: "Brent Crude CFD at $74.50/bbl (MCX Spot: ₹6,325/bbl) trading in India's comfort band (<$80); MCX Gold at ₹1,41,255/10g.",
+						outlook: "Brent Crude CFD at $74.50/bbl (MCX Spot: ₹6,325/bbl) trading in India's comfort band (<$80); MCX Gold at ₹78,250/10g.",
 					},
 					{
 						sector: "Information Technology (Nifty IT)",
@@ -846,6 +849,9 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					institutionalFlows: {
 						fiiNetInflowCr: -1420.5,
 						diiNetInflowCr: 2840.2,
+						fiiNetCr: -1420.5,
+						diiNetCr: 2840.2,
+						monthlySipCr: 26425,
 						netCombinedInflowCr: 1419.7,
 						monthlyMfSipRunRateCr: 26425,
 						absorptionRatio: 2.0,
@@ -1093,6 +1099,9 @@ export default function AgentKnowledgeMarketBrief() {
 				}),
 			});
 			const resData = await res.json();
+			if (resData?.data?.healedBrief) {
+				queryClient.setQueryData(["/api/knowledge-hub/market-brief/today", selectedRegion], resData.data.healedBrief);
+			}
 			toast({
 				title: "Auto-Heal Sentinel Complete",
 				description: `Quality Score: ${resData?.data?.postScore ?? 99}% (Resolved ${resData?.data?.violationsResolved ?? 0} items)`,
@@ -1100,6 +1109,8 @@ export default function AgentKnowledgeMarketBrief() {
 			await Promise.all([
 				refetch(),
 				refetchSentinel(),
+				queryClient.invalidateQueries({ queryKey: ["/api/knowledge-hub/market-brief/today", selectedRegion] }),
+				queryClient.invalidateQueries({ queryKey: ["/api/knowledge-hub/sentinel/health"] }),
 				queryClient.invalidateQueries({ queryKey: ["/api/knowledge-hub/market-brief/today"] }),
 			]);
 		} catch (e: any) {
@@ -1264,7 +1275,7 @@ export default function AgentKnowledgeMarketBrief() {
 		);
 		const liveGold = safeNum(
 			brief.commodityRadar?.commodities?.find((c) => c.id === "GOLD")?.mcxPrice,
-			141255,
+			78250,
 		);
 		const liveNatGas = safeNum(
 			brief.commodityRadar?.commodities?.find((c) => c.id === "NATURAL_GAS")?.mcxPrice,
@@ -1366,11 +1377,11 @@ export default function AgentKnowledgeMarketBrief() {
 		// 5. Commodity Radar: preserve dynamic live quotes, only use fallback if missing or zero
 		if (brief.commodityRadar?.commodities && Array.isArray(brief.commodityRadar.commodities)) {
 			const fallbackMap: Record<string, { name: string; mcxPrice: number; cmxPrice: number }> = {
-				GOLD: { name: "Gold 24K (MCX Spot)", mcxPrice: 141255, cmxPrice: 3885.50 },
-				SILVER: { name: "Silver (MCX Spot)", mcxPrice: 187200, cmxPrice: 48.50 },
+				GOLD: { name: "Gold 24K (MCX Spot)", mcxPrice: 78250, cmxPrice: 2685.50 },
+				SILVER: { name: "Silver (MCX Spot)", mcxPrice: 91500, cmxPrice: 31.40 },
 				CRUDE_OIL: { name: "Crude Oil (Brent / MCX Spot)", mcxPrice: 6325, cmxPrice: 74.50 },
 				NATURAL_GAS: { name: "Natural Gas (MCX Spot)", mcxPrice: 274.60, cmxPrice: 2.75 },
-				COPPER: { name: "Copper (MCX Spot)", mcxPrice: 1376.50, cmxPrice: 4.35 },
+				COPPER: { name: "Copper (MCX Spot)", mcxPrice: 825.50, cmxPrice: 4.35 },
 			};
 
 			brief.commodityRadar = {
@@ -1612,11 +1623,11 @@ export default function AgentKnowledgeMarketBrief() {
 		);
 		const liveGoldPrice = safeNum(
 			briefToDisplay.commodityRadar?.commodities?.find((c) => c.id === "GOLD")?.mcxPrice,
-			141255,
+			78250,
 		);
 		const liveSilverPrice = safeNum(
 			briefToDisplay.commodityRadar?.commodities?.find((c) => c.id === "SILVER")?.mcxPrice,
-			187200,
+			91500,
 		);
 		const liveNatGasPrice = safeNum(
 			briefToDisplay.commodityRadar?.commodities?.find((c) => c.id === "NATURAL_GAS")?.mcxPrice,
@@ -2287,11 +2298,11 @@ export default function AgentKnowledgeMarketBrief() {
 									</div>
 									<div className="flex flex-col items-end">
 										<span className="font-mono font-bold text-sm text-foreground">
-											${safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "GOLD")?.cmxPrice, 3885.50).toLocaleString("en-US", { minimumFractionDigits: 2 })}/oz
+											${safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "GOLD")?.cmxPrice, 2685.50).toLocaleString("en-US", { minimumFractionDigits: 2 })}/oz
 											<Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0 border-blue-400 text-blue-700 dark:text-blue-300">CFD</Badge>
 										</span>
 										<span className="font-mono text-xs text-muted-foreground">
-											₹{safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "GOLD")?.mcxPrice, 141255).toLocaleString("en-IN")}/10g
+											₹{safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "GOLD")?.mcxPrice, 78250).toLocaleString("en-IN")}/10g
 											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">MCX SPOT</Badge>
 										</span>
 									</div>
@@ -2307,11 +2318,11 @@ export default function AgentKnowledgeMarketBrief() {
 									</div>
 									<div className="flex flex-col items-end">
 										<span className="font-mono font-bold text-sm text-foreground">
-											${safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "SILVER")?.cmxPrice, 48.50).toFixed(2)}/oz
+											${safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "SILVER")?.cmxPrice, 31.40).toFixed(2)}/oz
 											<Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0 border-blue-400 text-blue-700 dark:text-blue-300">CFD</Badge>
 										</span>
 										<span className="font-mono text-xs text-muted-foreground">
-											₹{safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "SILVER")?.mcxPrice, 187200).toLocaleString("en-IN")}/kg
+											₹{safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "SILVER")?.mcxPrice, 91500).toLocaleString("en-IN")}/kg
 											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">MCX SPOT</Badge>
 										</span>
 									</div>

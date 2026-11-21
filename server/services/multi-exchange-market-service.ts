@@ -45,6 +45,9 @@ export interface GiftNiftyIndicator {
 export interface InstitutionalCashFlows {
 	fiiNetInflowCr: number;
 	diiNetInflowCr: number;
+	fiiNetCr?: number;
+	diiNetCr?: number;
+	monthlySipCr?: number;
 	fiiGrossBuyCr?: number;
 	fiiGrossSellCr?: number;
 	diiGrossBuyCr?: number;
@@ -316,6 +319,9 @@ export class MultiExchangeMarketService {
 		const institutionalFlows: InstitutionalCashFlows = {
 			fiiNetInflowCr,
 			diiNetInflowCr,
+			fiiNetCr: fiiNetInflowCr,
+			diiNetCr: diiNetInflowCr,
+			monthlySipCr: monthlyMfSipRunRateCr,
 			fiiGrossBuyCr,
 			fiiGrossSellCr,
 			diiGrossBuyCr,
