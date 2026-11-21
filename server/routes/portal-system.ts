@@ -73,6 +73,7 @@ const PORTAL_ICON_MAP: Record<string, string> = {
 	main: "/icon-192.png",
 	partner: "/icon-partner.png",
 	agent: "/icon-agent.png",
+	ca: "/icon-partner.png",
 	admin: "/icon-admin.png",
 };
 

@@ -31,12 +31,16 @@ import {
 	Headphones,
 	Target,
 	MessageSquare,
+	Megaphone,
+	Building2,
+	Send,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { Badge } from "@/components/ui/badge";
 import { MobileBottomNav } from "./mobile-bottom-nav";
 
 interface PartnerLayoutProps {
@@ -48,6 +52,7 @@ interface NavItem {
 	href?: string;
 	icon: LucideIcon;
 	description: string;
+	badge?: string;
 	children?: { title: string; href: string; description?: string }[];
 }
 
@@ -107,6 +112,33 @@ const partnerNavSections: NavSection[] = [
 		],
 	},
 	{
+		id: "marketing-growth",
+		section: "Practice Growth & Marketing",
+		items: [
+			{
+				title: "Marketing Studio",
+				href: "/partner/bulk-communication",
+				icon: Megaphone,
+				description: "Tax season alerts, advance tax & client acquisition campaigns",
+				badge: "Growth",
+			},
+			{
+				title: "Client Leads & Inquiries",
+				href: "/partner/leads",
+				icon: Target,
+				description: "Track & convert audit, tax & corporate advisory leads",
+				badge: "Active",
+			},
+			{
+				title: "Corporate Prospects",
+				href: "/partner/lead-prospecting",
+				icon: Building2,
+				description: "MCA director intelligence & corporate tax prospects",
+				badge: "Cold",
+			},
+		],
+	},
+	{
 		id: "partner-network",
 		section: "Professional Network",
 		items: [
@@ -115,12 +147,6 @@ const partnerNavSections: NavSection[] = [
 				href: "/partner/my-team?tab=team",
 				icon: GitBranch,
 				description: "Associate CAs, CSs, articled staff & revenue splits",
-			},
-			{
-				title: "Client Leads & Inquiries",
-				href: "/partner/leads",
-				icon: Target,
-				description: "Track & convert audit, tax & secretarial leads",
 			},
 			{
 				title: "Professional Payouts",
@@ -569,7 +595,7 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
 													<Icon className="h-4 w-4 flex-shrink-0" />
 													<span
 														className={cn(
-															"text-sm font-medium",
+															"text-sm font-medium flex-1",
 															isActive
 																? "text-foreground"
 																: "text-indigo-200 group-hover:text-foreground",
@@ -577,6 +603,14 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
 													>
 														{item.title}
 													</span>
+													{item.badge && (
+														<Badge
+															variant="outline"
+															className="text-[10px] px-1.5 py-0 h-4 bg-violet-500/20 text-violet-300 border-violet-500/30 font-medium"
+														>
+															{item.badge}
+														</Badge>
+													)}
 												</Link>
 											);
 										})}

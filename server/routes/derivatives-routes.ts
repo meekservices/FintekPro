@@ -62,21 +62,43 @@ router.get(
 );
 
 /**
- * GET /api/derivatives/multi-expiry-calls/:symbol
- * Returns Call option recommendations across 3 monthly expiries:
+ * GET /api/derivatives/multi-expiry-calls/:symbol?type=CE|PE
+ * Returns ATM Call (CE) or Put (PE) option analysis across 3 monthly expiries:
  * This Month (M1), Next Month (M2), Month After (M3)
  * with complete profitability, theta drag, POP, and risk-reward metrics.
  */
 router.get(
 	"/multi-expiry-calls/:symbol",
-	async (req: Request<{ symbol: string }>, res: Response): Promise<void> => {
+	async (
+		req: Request<{ symbol: string }, any, any, { type?: string }>,
+		res: Response,
+	): Promise<void> => {
 		try {
 			const { symbol } = req.params;
-			const data = await derivativesService.getMultiExpiryCalls(symbol);
+			const optionType = (String(req.query.type || "CE").toUpperCase() === "PE" ? "PE" : "CE") as "CE" | "PE";
+			const data = await derivativesService.getMultiExpiryCalls(symbol, optionType);
 			res.json({ success: true, data });
 		} catch (error: unknown) {
-			logger.error("[Derivatives] Error fetching multi-expiry calls:", errorMessage(error));
-			res.status(500).json({ success: false, error: "Failed to compute multi-expiry calls comparison" });
+			logger.error("[Derivatives] Error fetching multi-expiry options:", errorMessage(error));
+			res.status(500).json({ success: false, error: "Failed to compute multi-expiry options comparison" });
+		}
+	},
+);
+
+router.get(
+	"/multi-expiry-options/:symbol",
+	async (
+		req: Request<{ symbol: string }, any, any, { type?: string }>,
+		res: Response,
+	): Promise<void> => {
+		try {
+			const { symbol } = req.params;
+			const optionType = (String(req.query.type || "CE").toUpperCase() === "PE" ? "PE" : "CE") as "CE" | "PE";
+			const data = await derivativesService.getMultiExpiryCalls(symbol, optionType);
+			res.json({ success: true, data });
+		} catch (error: unknown) {
+			logger.error("[Derivatives] Error fetching multi-expiry options:", errorMessage(error));
+			res.status(500).json({ success: false, error: "Failed to compute multi-expiry options comparison" });
 		}
 	},
 );

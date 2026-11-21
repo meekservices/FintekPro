@@ -363,9 +363,9 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 
 				{/* ── Macro Risk Tripwire Buffer Strip ── */}
 				{(() => {
-					const brentStr = String(report.pillars?.[0]?.observedValue || "$96.09/bbl");
+					const brentStr = String(report.pillars?.[0]?.observedValue || "$74.50/bbl");
 					const brentMatch = brentStr.match(/\$([0-9.]+)/);
-					const brentVal = brentMatch ? parseFloat(brentMatch[1]) : 96.09;
+					const brentVal = brentMatch ? parseFloat(brentMatch[1]) : 74.50;
 					const brentBuffer = 80 - brentVal;
 					const isBrentElevated = brentVal > 80;
 
@@ -423,9 +423,9 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 
 				{/* ── 4 Top-Level Metric Gauges ── */}
 				{(() => {
-					const brentStr = String(report.pillars?.[0]?.observedValue || "$96.09/bbl");
+					const brentStr = String(report.pillars?.[0]?.observedValue || "$74.50/bbl");
 					const brentMatch = brentStr.match(/\$([0-9.]+)/);
-					const brentVal = brentMatch ? parseFloat(brentMatch[1]) : 96.09;
+					const brentVal = brentMatch ? parseFloat(brentMatch[1]) : 74.50;
 					const usdInrVal = report.macroRegimeSummary.usdInrRate || 94.86;
 					const inrUsdVal = usdInrVal > 0 ? (1 / usdInrVal).toFixed(5) : "0.01054";
 

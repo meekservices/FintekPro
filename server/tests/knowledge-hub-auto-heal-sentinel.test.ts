@@ -43,10 +43,10 @@ describe("Knowledge Hub Auto-Heal & Quality Sentinel", () => {
 			goldPrice: 141255,
 			commodities: [
 				{ id: "GOLD", name: "Gold 24K (MCX Standard)", mcxPrice: 141255 },
-				{ id: "CRUDE_OIL", name: "Crude Oil", mcxPrice: 9115 },
+				{ id: "CRUDE_OIL", name: "Crude Oil", mcxPrice: 6325 },
 			],
 			crudeOilBreakevenStatus: {
-				brentUsd: 96.09,
+				brentUsd: 74.50,
 			},
 		},
 		ccilFixedIncome: {

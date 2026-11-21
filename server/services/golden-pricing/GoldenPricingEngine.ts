@@ -3078,10 +3078,10 @@ async function buildSnapshotFromDBRows(): Promise<DailyMarketBriefSnapshot | nul
 			copperInr: getPrice("MCX_COPPER", 1376.50),
 			naturalGasInr: getPrice("MCX_NATGAS", 274.60),
 			crudeOilBreakevenStatus: {
-				brentUsd: getPrice("ICE_BRENT_USD", 96.09),
+				brentUsd: getPrice("ICE_BRENT_USD", 74.50),
 				comfortBandMax: 80,
-				inflationImpact: getPrice("ICE_BRENT_USD", 96.09) <= 80 ? "Benign" : getPrice("ICE_BRENT_USD", 96.09) <= 88 ? "Moderate" : "Elevated",
-				commentary: `Brent at $${getPrice("ICE_BRENT_USD", 96.09).toFixed(2)}/bbl (MCX Spot: ₹${getPrice("MCX_CRUDEOIL", 9115).toLocaleString("en-IN")}/bbl) — DB cache`,
+				inflationImpact: getPrice("ICE_BRENT_USD", 74.50) <= 80 ? "Benign" : getPrice("ICE_BRENT_USD", 74.50) <= 88 ? "Moderate" : "Elevated",
+				commentary: `Brent at $${getPrice("ICE_BRENT_USD", 74.50).toFixed(2)}/bbl (MCX Spot: ₹${getPrice("MCX_CRUDEOIL", 6325).toLocaleString("en-IN")}/bbl) — DB cache`,
 			},
 		},
 		currencies: {

@@ -2,6 +2,7 @@ export enum PortalType {
   MAIN = 'main',
   PARTNER = 'partner',
   AGENT = 'agent',
+  CA = 'ca',
   ADMIN = 'admin',
 }
 
@@ -47,6 +48,16 @@ export const PORTAL_BRAND_CONFIG: Record<PortalType, PortalBrandConfig> = {
     sidebarBg: '#1B3D2F',
     sidebarText: '#D1FAE5',
   },
+  [PortalType.CA]: {
+    portalType: PortalType.CA,
+    logoPath: '/api/system/portal-logo/ca',
+    label: 'FintekPro | CA Practice',
+    tagline: 'Tax Practice, Audit & Client Advisory Cockpit',
+    primaryColor: '#0284C7',
+    accentColor: '#38BDF8',
+    sidebarBg: '#0C2B4E',
+    sidebarText: '#E0F2FE',
+  },
   [PortalType.ADMIN]: {
     portalType: PortalType.ADMIN,
     logoPath: '/api/system/portal-logo/admin',
@@ -63,6 +74,7 @@ export function resolvePortalType(subdomain: string): PortalType {
   switch (subdomain) {
     case 'partner': return PortalType.PARTNER;
     case 'agent': return PortalType.AGENT;
+    case 'ca': return PortalType.CA;
     case 'admin': return PortalType.ADMIN;
     default: return PortalType.MAIN;
   }

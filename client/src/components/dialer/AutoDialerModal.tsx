@@ -93,6 +93,7 @@ export function AutoDialerModal({
   const [disposition, setDisposition] = useState<string>("interested");
   const [dispositionNotes, setDispositionNotes] = useState("");
   const [followUpDate, setFollowUpDate] = useState("");
+  const [showBattlecard, setShowBattlecard] = useState(true);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -296,11 +297,12 @@ export function AutoDialerModal({
     toast({ title: "Phone number copied", description: cleanPhone(currentLead.phone) });
   };
 
-  const getWhatsAppUrl = (phone: string, name: string) => {
+  const getWhatsAppUrl = (phone: string, name: string, company?: string) => {
     const cleanDigits = phone.replace(/\D/g, "");
     const formatted = cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
+    const companyText = company ? ` regarding ${company}'s corporate treasury` : " regarding corporate treasury";
     const text = encodeURIComponent(
-      `Hello ${name}, this is from FintekPro Wealth Advisory regarding your investment portfolio. Would you have 5 minutes to discuss?`
+      `Hello ${name}, reaching out from FintekPro Institutional Advisory${companyText}. We help private enterprises deploy liquid overnight & arbitrage treasury earning ~7.15% with zero lock-in vs 0-3.5% in Current Accounts. Can I share a 1-page treasury yield comparison for your finance team?`
     );
     return `https://wa.me/${formatted}?text=${text}`;
   };
@@ -450,6 +452,74 @@ export function AutoDialerModal({
                       )}
                     </div>
                   </div>
+                </div>
+
+                {/* ── Advisor Pre-Call Battlecard / Cheat Sheet ── */}
+                <div className="rounded-xl border border-indigo-500/30 bg-indigo-950/20 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400">
+                        <Sparkles className="h-4 w-4" />
+                      </div>
+                      <h4 className="font-semibold text-white text-sm">
+                        Advisor Pre-Call Battlecard
+                      </h4>
+                      <Badge variant="outline" className="border-indigo-500/40 text-indigo-300 text-[10px]">
+                        Corporate Treasury & HNW Hook
+                      </Badge>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowBattlecard(!showBattlecard)}
+                      className="text-xs text-indigo-300 hover:text-white h-7 px-2"
+                    >
+                      {showBattlecard ? "Hide Cheat Sheet" : "Show Cheat Sheet"}
+                    </Button>
+                  </div>
+
+                  {showBattlecard && (
+                    <div className="space-y-2.5 text-xs">
+                      {/* Opening Value Hook */}
+                      <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800">
+                        <p className="font-semibold text-emerald-400 mb-1 flex items-center gap-1.5">
+                          <CheckCircle className="h-3.5 w-3.5" />
+                          Recommended 15-Second Opening Hook:
+                        </p>
+                        <p className="text-slate-300 italic leading-relaxed">
+                          "Hi {currentLead.contactName?.split(" ")[0] || "there"}, calling from FintekPro Institutional Desk regarding {currentLead.companyName}. We help private business owners optimize idle working capital into overnight/arbitrage tranches earning ~7.15% with daily liquidity vs 0-3.5% in Current Accounts."
+                        </p>
+                      </div>
+
+                      {/* Top Objection Handlers Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="p-2 rounded bg-slate-900/60 border border-slate-800/80">
+                          <span className="font-semibold text-amber-400 block mb-0.5">
+                            If: "Already have a CA / Bank RM"
+                          </span>
+                          <span className="text-slate-400 text-[11px] leading-normal block">
+                            "Understood — we don't replace your CA. We serve as a direct primary treasury desk offering direct sovereign paper and tax-advantaged liquid funds your bank doesn't show."
+                          </span>
+                        </div>
+                        <div className="p-2 rounded bg-slate-900/60 border border-slate-800/80">
+                          <span className="font-semibold text-amber-400 block mb-0.5">
+                            If: "We keep all cash in Bank FDs"
+                          </span>
+                          <span className="text-slate-400 text-[11px] leading-normal block">
+                            "Under Budget 2024 tax slabs, bank FDs are taxed at 30%+, giving ~4.5% post-tax. Arbitrage/Liquid funds yield ~7.15% with equity taxation (12.5% LTCG), saving substantial tax drag."
+                          </span>
+                        </div>
+                      </div>
+
+                      {currentLead.notes && (
+                        <div className="text-[11px] text-slate-400 pt-1 border-t border-slate-800">
+                          <span className="text-slate-500 font-medium">Profile Intel:</span>{" "}
+                          {currentLead.notes.split("\n")[0]}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* ── Call Action & Live Status Stage ── */}

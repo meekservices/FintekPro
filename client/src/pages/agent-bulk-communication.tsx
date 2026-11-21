@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
 	Card,
@@ -64,7 +64,10 @@ import {
 	Target,
 	Award,
 	ArrowUpRight,
+	Info,
+	BookOpen,
 } from "lucide-react";
+import { CRM_PORTAL_TAXONOMY } from "@shared/types/crm-taxonomy";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingState } from "@/components/LoadingState";
@@ -162,12 +165,26 @@ export default function AgentBulkCommunication() {
 	const [scheduledTime, setScheduledTime] = useState("");
 	const [selectAll, setSelectAll] = useState(false);
 	const [targetAudienceType, setTargetAudienceType] = useState<"all" | "leads" | "clients">("all");
+	const [showTaxonomyGuide, setShowTaxonomyGuide] = useState(false);
 
 	// Marketing Studio Digital Acquisition & Lead Magnet States
 	const { user } = useAuth();
 	const [copiedPosterId, setCopiedPosterId] = useState<string | null>(null);
 	const [copiedLeadMagnetLink, setCopiedLeadMagnetLink] = useState(false);
 	const [selectedPosterCategory, setSelectedPosterCategory] = useState<string>("all");
+
+	// Auto-open wizard if arriving from Lead Pipeline / CRM with leadId
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		const params = new URLSearchParams(window.location.search);
+		const leadIdParam = params.get("leadId");
+		if (leadIdParam) {
+			setSelectedRecipients([leadIdParam]);
+			setIsWizardOpen(true);
+			setWizardStep(2);
+			setTargetAudienceType("leads");
+		}
+	}, []);
 
 	const partnerName = user
 		? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.userId
@@ -298,6 +315,66 @@ export default function AgentBulkCommunication() {
 				],
 				caption: `👑 Build generational wealth beyond standard mutual funds.\n\nExplore curated Category II & III Alternative Investment Funds (AIFs) and Pre-IPO high-growth companies with FintekPro Institutional Diligence.\n\nSchedule an exclusive HNI consultation:\n👉 ${leadMagnetUrl}\n\n— ${partnerName} | Financial Partner`,
 			},
+			{
+				id: "advance-tax",
+				title: "Advance Tax Q4 Compliance Alert",
+				subtitle: "Avoid 12% annual interest penalty under Section 234B & 234C",
+				category: "CA & Tax Practice",
+				tagColor: "bg-rose-500/10 text-rose-400 border-rose-500/30",
+				highlightStat: "12% Interest Drag",
+				statSub: "Penal interest charged on delayed tax payments",
+				keyPoints: [
+					"100% of estimated tax liability must be deposited by March 15",
+					"Applies to business owners, consultants, capital gains earners & high salaried individuals",
+					"Section 234B (1% per month) + 234C penal interest levied on shortfall",
+				],
+				caption: `🚨 Advance Tax Compliance Reminder from your Chartered Accountant.\n\nDid you know? If your net tax liability exceeds ₹10,000 for the financial year, failing to pay Advance Tax attracts 1% monthly interest penalties under Section 234B and 234C.\n\nCalculate your advance tax liability and avoid penal interest:\n👉 ${leadMagnetUrl}\n\n— ${partnerName} | CA & Tax Advisory Partner`,
+			},
+			{
+				id: "corporate-treasury",
+				title: "Corporate Treasury 7.15% Yield Optimization",
+				subtitle: "Stop losing interest in 0% bank current accounts",
+				category: "Corporate Advisory",
+				tagColor: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30",
+				highlightStat: "7.15% vs 0.0%",
+				statSub: "Overnight & Liquid mutual funds vs Current Accounts",
+				keyPoints: [
+					"Indian corporates hold over ₹18 Lakh Crore idle in zero-interest current accounts",
+					"SEBI-regulated Overnight & Liquid funds offer T+1 redemption and sovereign/AAA safety",
+					"Generates ₹71,500 annual returns per ₹10 Lakhs of working capital buffer",
+				],
+				caption: `💼 Why let your company's working capital sit idle at 0% in a bank current account?\n\nDeploy your corporate surplus into institutional overnight and liquid funds yielding ~7.15% annualized with T+1 instant liquidity and sovereign safety.\n\nSchedule a corporate treasury review for your firm:\n👉 ${leadMagnetUrl}\n\n— ${partnerName} | Financial & Tax Advisory Partner`,
+			},
+			{
+				id: "mca-roc-filing",
+				title: "MCA & ROC Annual Compliance Desk",
+				subtitle: "Timely director KYC (DIR-3) & AOC-4/MGT-7 filing for private limited firms",
+				category: "CA & Tax Practice",
+				tagColor: "bg-indigo-500/10 text-indigo-400 border-indigo-500/30",
+				highlightStat: "₹100 / Day Penalty",
+				statSub: "Additional MCA fees for delayed corporate filings",
+				keyPoints: [
+					"Mandatory annual DIR-3 KYC verification for all company directors",
+					"Financial statement (AOC-4) and annual return (MGT-7) compliance",
+					"Avoid director disqualification under Section 164(2) of Companies Act",
+				],
+				caption: `📋 Corporate Secretarial Alert for Company Directors & Founders.\n\nStay 100% compliant with Ministry of Corporate Affairs (MCA) regulations. Avoid heavy ₹100/day penalties and DIN deactivation with our structured ROC filing desk.\n\nBook an audit consultation:\n👉 ${leadMagnetUrl}\n\n— ${partnerName} | CA & Corporate Advisory Partner`,
+			},
+			{
+				id: "gst-reconciliation",
+				title: "GST Input Tax Credit (ITC) Leakage Audit",
+				subtitle: "Reconcile GSTR-2B vs purchase registers to recover lost credits",
+				category: "Corporate Advisory",
+				tagColor: "bg-teal-500/10 text-teal-400 border-teal-500/30",
+				highlightStat: "Recover 2-5% ITC",
+				statSub: "Typical input credit lost due to non-compliant vendors",
+				keyPoints: [
+					"Match GSTR-2B with books to prevent Section 16(2)(aa) disallowances",
+					"Identify non-filing vendors before paying invoices",
+					"Automated reconciliation protects working capital margins",
+				],
+				caption: `📊 Are you losing Input Tax Credit (ITC) due to vendor GST mismatches?\n\nUnder strict GST rules, input credit is blocked if your supplier fails to upload GSTR-1. Our automated reconciliation ensures you never lose legitimate tax credits.\n\nRequest a GST audit check:\n👉 ${leadMagnetUrl}\n\n— ${partnerName} | CA & Tax Advisory Partner`,
+			},
 		],
 		[leadMagnetUrl, partnerName],
 	);
@@ -322,18 +399,20 @@ export default function AgentBulkCommunication() {
 			if (!response.ok) {
 				return [];
 			}
-			return response.json();
+			const data = await response.json();
+			return Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
 		},
 	});
 
-	const { data: leadsResponse, isLoading: leadsLoading } = useQuery<{ success?: boolean; data?: any[] }>({
+	const { data: rawLeadsData, isLoading: leadsLoading } = useQuery<any>({
 		queryKey: ["/api/agent/leads"],
 		queryFn: async () => {
 			const response = await fetch("/api/agent/leads");
 			if (!response.ok) {
-				return { success: false, data: [] };
+				return [];
 			}
-			return response.json();
+			const data = await response.json();
+			return Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
 		},
 	});
 
@@ -344,7 +423,12 @@ export default function AgentBulkCommunication() {
 			if (!response.ok) {
 				return [];
 			}
-			return response.json();
+			const data = await response.json();
+			return Array.isArray(data)
+				? data
+				: Array.isArray(data?.templates)
+				? data.templates
+				: [];
 		},
 		enabled: selectedChannel === "whatsapp",
 	});
@@ -354,45 +438,75 @@ export default function AgentBulkCommunication() {
 
 		if (clients && Array.isArray(clients)) {
 			for (const c of clients) {
+				const rawClientName = (
+					c.firstName
+						? `${c.firstName} ${c.lastName || ""}`
+						: (c as any).name || (c as any).fullName || "Client"
+				).trim();
+				const parts = rawClientName.split(" ");
 				list.push({
-					...c,
+					id: String(c.id),
+					firstName: c.firstName || parts[0] || "Client",
+					lastName: c.lastName || parts.slice(1).join(" ") || "",
+					email: c.email || "",
+					phone: c.phone || (c as any).mobile || "",
+					kycStatus: c.kycStatus || "verified",
+					investmentValue: Number(c.investmentValue || (c as any).totalPortfolioValue || 0),
+					lastInteraction: c.lastInteraction || (c as any).createdAt,
+					tags: c.tags || ["Active Client"],
 					type: "client",
+					tier: c.tier || (c as any).clientCategory || "Retail",
+					stage: "active",
 				});
 			}
 		}
 
-		const rawLeads = leadsResponse?.data;
-		if (rawLeads && Array.isArray(rawLeads)) {
-			for (const l of rawLeads) {
-				const parts = (l.name || "Lead").trim().split(" ");
+		const leadsList = Array.isArray(rawLeadsData)
+			? rawLeadsData
+			: Array.isArray(rawLeadsData?.data)
+			? rawLeadsData.data
+			: [];
+
+		if (leadsList && Array.isArray(leadsList)) {
+			for (const l of leadsList) {
+				const rawName = (l.name || "Lead").trim();
+				const match = rawName.match(/^(.*?)\s*\((.*?)\)$/);
+				const contactName = match ? match[1].trim() : rawName;
+				const companyName = match ? match[2].trim() : l.company || "";
+				const parts = contactName.split(" ");
+
 				list.push({
 					id: String(l.id),
-					firstName: parts[0] || l.name || "Lead",
-					lastName: parts.slice(1).join(" ") || "",
+					firstName: parts[0] || contactName || "Lead",
+					lastName: parts.slice(1).join(" ") || (companyName ? `(${companyName})` : ""),
 					email: l.email || "",
-					phone: l.phone || "",
+					phone: l.phone || l.mobile || "",
 					kycStatus: "Non-Client Lead",
-					investmentValue: Number(l.potentialValue || 0),
+					investmentValue: Number(l.potentialValue || 5000000),
 					lastInteraction: l.createdAt,
-					tags: [l.tier || "Lead", l.status || "new"],
+					tags: [l.tier || "Lead", l.status || "new", ...(l.tags || [])],
 					type: "lead",
-					tier: l.tier,
-					stage: l.status,
+					tier: l.tier || "HNI",
+					stage: l.status || l.stage || "new",
 				});
 			}
 		}
 
 		return list;
-	}, [clients, leadsResponse]);
+	}, [clients, rawLeadsData]);
 
 	const xrayLeads = useMemo(() => {
-		const rawLeads = leadsResponse?.data || [];
-		return rawLeads.filter(
+		const leadsList = Array.isArray(rawLeadsData)
+			? rawLeadsData
+			: Array.isArray(rawLeadsData?.data)
+			? rawLeadsData.data
+			: [];
+		return leadsList.filter(
 			(l: any) =>
 				l.source === "portfolio_xray_magnet" ||
 				(l.tags && l.tags.includes("portfolio_xray")),
 		);
-	}, [leadsResponse]);
+	}, [rawLeadsData]);
 
 	const totalXRayTracked = useMemo(() => {
 		return xrayLeads.reduce(
@@ -413,9 +527,18 @@ export default function AgentBulkCommunication() {
 		return list.filter((client) => {
 			if (
 				recipientFilter.kycStatus &&
-				client.kycStatus !== recipientFilter.kycStatus
+				recipientFilter.kycStatus !== "all"
 			) {
-				return false;
+				if (client.type === "lead") {
+					if (
+						recipientFilter.kycStatus !== "Non-Client Lead" &&
+						recipientFilter.kycStatus !== "lead"
+					) {
+						return false;
+					}
+				} else if (client.kycStatus !== recipientFilter.kycStatus) {
+					return false;
+				}
 			}
 			if (
 				recipientFilter.minInvestmentValue &&
@@ -820,7 +943,33 @@ export default function AgentBulkCommunication() {
 							)}
 
 							{wizardStep === 2 && (
-								<div className="space-y-6 py-4">
+								<div className="space-y-5 py-3">
+									{/* Audience Segment Header & Taxonomy Guide Link */}
+									<div className="flex items-center justify-between pb-1">
+										<div>
+											<h4 className="text-sm font-semibold text-foreground">
+												Select Target Audience
+											</h4>
+											<p className="text-xs text-muted-foreground">
+												{targetAudienceType === "leads"
+													? "Targeting Non-Client Leads & Cold Prospects (Acquisition Campaigns)"
+													: targetAudienceType === "clients"
+													? "Targeting KYC-Verified Active Clients (Portfolio Servicing & Retention)"
+													: "Targeting All Registered Platform Contacts"}
+											</p>
+										</div>
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											onClick={() => setShowTaxonomyGuide(true)}
+											className="h-8 gap-1.5 text-xs text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10"
+										>
+											<BookOpen className="h-3.5 w-3.5" />
+											Taxonomy Guide
+										</Button>
+									</div>
+
 									{/* Audience Segment Switcher */}
 									<div className="flex flex-wrap items-center gap-2 p-1.5 bg-card/60 rounded-lg border border-border">
 										<button
@@ -861,7 +1010,11 @@ export default function AgentBulkCommunication() {
 									<div className="grid grid-cols-2 gap-4">
 										<div className="space-y-2">
 											<Label className="text-muted-foreground">
-												KYC Status
+												{targetAudienceType === "leads"
+													? "Lead Category"
+													: targetAudienceType === "clients"
+													? "KYC Status"
+													: "KYC / Lead Status"}
 											</Label>
 											<Select
 												value={recipientFilter.kycStatus || "all"}
@@ -880,9 +1033,16 @@ export default function AgentBulkCommunication() {
 												</SelectTrigger>
 												<SelectContent className="bg-card border-border">
 													<SelectItem value="all">All Statuses</SelectItem>
-													<SelectItem value="verified">Verified</SelectItem>
-													<SelectItem value="pending">Pending</SelectItem>
-													<SelectItem value="incomplete">Incomplete</SelectItem>
+													{targetAudienceType !== "leads" && (
+														<>
+															<SelectItem value="verified">Verified KYC</SelectItem>
+															<SelectItem value="pending">Pending KYC</SelectItem>
+															<SelectItem value="incomplete">Incomplete KYC</SelectItem>
+														</>
+													)}
+													{targetAudienceType !== "clients" && (
+														<SelectItem value="Non-Client Lead">Non-Client Leads</SelectItem>
+													)}
 												</SelectContent>
 											</Select>
 										</div>
@@ -991,14 +1151,29 @@ export default function AgentBulkCommunication() {
 
 									<ScrollArea className="h-64 rounded border border-border">
 										<div className="p-2 space-y-2">
-											{clientsLoading ? (
+											{clientsLoading || leadsLoading ? (
 												<div className="flex items-center justify-center py-8">
 													<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
 												</div>
 											) : filteredClients.length === 0 ? (
 												<div className="text-center py-8 text-muted-foreground">
-													<Users className="h-8 w-8 mx-auto mb-2" />
-													<p>No clients match your filters</p>
+													<Users className="h-8 w-8 mx-auto mb-2 text-muted-foreground/60" />
+													<p className="font-semibold text-foreground">
+														{targetAudienceType === "leads"
+															? "No leads match your filters"
+															: targetAudienceType === "clients"
+															? "No active clients match your filters"
+															: "No contacts match your filters"}
+													</p>
+													{allContacts.length === 0 && !leadsLoading && !clientsLoading ? (
+														<p className="text-xs text-muted-foreground mt-1.5 max-w-sm mx-auto">
+															You don't have any contacts in this segment yet. Leads uploaded in the Lead Pipeline or onboarded clients will appear here automatically.
+														</p>
+													) : (
+														<p className="text-xs text-muted-foreground mt-1">
+															Try clearing or broadening your filter criteria above.
+														</p>
+													)}
 												</div>
 											) : (
 												filteredClients.map((client) => (
@@ -1420,6 +1595,62 @@ export default function AgentBulkCommunication() {
 						</div>
 					</DialogContent>
 				</Dialog>
+
+				{/* CRM & Audience Taxonomy Guide Dialog */}
+				<Dialog open={showTaxonomyGuide} onOpenChange={setShowTaxonomyGuide}>
+					<DialogContent className="max-w-3xl bg-card border-border text-foreground">
+						<DialogHeader>
+							<DialogTitle className="flex items-center gap-2 text-lg">
+								<BookOpen className="h-5 w-5 text-indigo-400" />
+								Portal CRM & Audience Taxonomy Standard
+							</DialogTitle>
+							<DialogDescription>
+								Aligned with industry standards (HubSpot, Salesforce FSC, NJ Wealth & Zerodha Partner)
+							</DialogDescription>
+						</DialogHeader>
+						<div className="space-y-4 py-2">
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+								{Object.entries(CRM_PORTAL_TAXONOMY).map(([key, item]) => (
+									<div
+										key={key}
+										className={`p-3.5 rounded-lg border ${item.colorScheme.border} ${item.colorScheme.bg} space-y-2`}
+									>
+										<div className="flex items-center justify-between">
+											<span className="font-semibold text-sm text-foreground">
+												{item.term}
+											</span>
+											<Badge variant="outline" className={`text-[10px] ${item.colorScheme.border} ${item.colorScheme.text}`}>
+												{item.badgeLabel}
+											</Badge>
+										</div>
+										<p className="text-xs font-medium text-foreground/90">
+											{item.shortDefinition}
+										</p>
+										<p className="text-xs text-muted-foreground leading-relaxed">
+											{item.fullDescription}
+										</p>
+										<div className="pt-1.5 border-t border-border/50 text-[11px] text-muted-foreground space-y-1">
+											<div>
+												<span className="font-medium text-foreground/80">Peer Standard: </span>
+												{item.peerReference}
+											</div>
+											<div className="flex flex-wrap gap-1 pt-0.5">
+												{item.targetActions.map((action, idx) => (
+													<span
+														key={idx}
+														className="inline-block px-1.5 py-0.5 bg-background/50 rounded text-[10px] text-muted-foreground"
+													>
+														• {action}
+													</span>
+												))}
+											</div>
+										</div>
+									</div>
+								))}
+							</div>
+						</div>
+					</DialogContent>
+				</Dialog>
 			</div>
 
 			<Tabs defaultValue="dashboard" className="space-y-6">
@@ -1828,7 +2059,7 @@ export default function AgentBulkCommunication() {
 						<CardContent className="space-y-6">
 							{/* Category Filters */}
 							<div className="flex items-center gap-1.5 flex-wrap">
-								{["all", "Wealth Creation", "Market Outlook", "Advisory Diagnostic", "Tax Strategy", "Fixed Income", "HNI Wealth"].map(
+								{["all", "Wealth Creation", "CA & Tax Practice", "Corporate Advisory", "Tax Strategy", "Market Outlook", "Advisory Diagnostic", "Fixed Income", "HNI Wealth"].map(
 									(cat) => (
 										<Button
 											key={cat}

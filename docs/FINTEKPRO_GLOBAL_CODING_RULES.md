@@ -82,3 +82,19 @@ Before proposing any new cloud resource, tier upgrade, or external API consumpti
 - **Universal Header Theme Controls**: All portal layouts (`AppLayout`, `AgentLayout`, `TopNavLayout`) must expose `<ThemeToggle />` in the primary top header.
 - **Dual-Theme Verification Gate**: All new pages, components, and widgets must be validated in both Light and Dark themes before merge and deployment.
 
+---
+
+## 8. Brand, Trademark & Advertising Compliance (GCR BT-AC v1.0)
+
+FintekPro strictly enforces SEBI Advertising Guidelines (2023 Master Circulars), the Trade Marks Act, 1999, and the Consumer Protection Act, 2019:
+- **Zero Third-Party Trademark Appropriation**: Never use protected third-party brand names or trademarks (e.g. `Bloomberg Terminal`, `Reuters Eikon`, `FactSet`, `Robinhood of India`, `Zerodha Kite`) as product badges, page titles, headlines, metadata descriptions, or software claims.
+- **Strict Prohibition on Unlicensed Equivalency**: Claiming direct equivalence to proprietary commercial systems (e.g., "The Bloomberg Terminal for Indian Investors", "Indian Bloomberg") is illegal under passing-off and trademark infringement laws, and constitutes deceptive advertising under SEBI regulations.
+- **Approved Institutional Terminology**: When conveying sophisticated quantitative or institutional capabilities, use descriptive, non-infringing vocabulary:
+  - ✅ *"Wall Street Analytics, Built for Indian Investors"*
+  - ✅ *"Institutional-Grade Terminal for Indian Investors"*
+  - ✅ *"Institutional Research & Analytics Cockpit"*
+  - ✅ *"Multi-Asset Execution & Decision Terminal"*
+- **Nominative Fair Use Disclaimers**: If a third-party brand is referenced purely for factual citation or data indexing (e.g., "JP Morgan GBI-EM Index", "MSCI World Index"), it must appear in an explanatory body context with statutory attribution and a clear non-affiliation disclaimer:
+  `[Brand]® is a registered trademark of its respective owner. FintekPro is an independent platform and is not affiliated with or endorsed by [Brand].`
+- **Ban on Deceptive or Deterministic Marketing Language**: Marketing headers, landing pages, and CTAs must never promise "guaranteed returns", "zero-risk trading", "sure-shot AI profits", or "algorithmic alpha" without certified SEBI disclosures and market risk warnings.
+

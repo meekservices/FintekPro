@@ -457,6 +457,17 @@ To ensure the FintekPro platform is ALWAYS audit-compliant across all governing 
 8. **AML & Sanctions Screening (FIU-IND / PMLA)**: Automated transaction anomaly screening against daily updated MHA UAPA, UNSC, and PEP sanction registries, with mandatory human Principal Officer review for any STR/CTR filing.
 9. **Official IST Time & Cyber Reporting (CERT-In / CSCRF)**: All system clocks synchronized via official NPL/NIC NTP servers within ±50ms. Confirmed cyber incidents or algorithmic compliance breaches must trigger automated compliance alerts within the mandatory 6-hour CERT-In reporting window.
 
+34. BRAND, TRADEMARK & SEBI ADVERTISING COMPLIANCE POLICY (BT-AC v1.0)
+To prevent intellectual property infringement, trademark dilution, and violations of SEBI Advertising Guidelines (2023 Master Circulars):
+1. **Zero Third-Party Trademark Appropriation**: NEVER appropriate proprietary commercial trademarks (such as `Bloomberg Terminal`, `Reuters Eikon`, `FactSet`, `Robinhood`, `Zerodha Kite`) as platform feature names, UI badges, slogans, or product descriptors.
+2. **Strict Prohibition on Unlicensed Equivalency**: Code and UI templates must never imply, suggest, or assert that FintekPro is an authorized distributor, white-label, or clone of third-party institutional terminals without an executed commercial partnership and license agreement.
+3. **Approved Institutional Vocabulary**:
+   - ✅ "Wall Street Analytics, Built for Indian Investors"
+   - ✅ "Institutional-Grade Terminal for Indian Investors"
+   - ✅ "Institutional Analytics & Research Cockpit"
+   - ✅ "Multi-Asset Execution & Decision Terminal"
+4. **Mandatory Automated CI Enforcement**: All PRs and automated builds must undergo automated linting/testing against prohibited trademark claims and deceptive marketing strings.
+
 
 
 

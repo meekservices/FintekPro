@@ -59,6 +59,9 @@ import {
 	LogIn,
 	Users,
 	Lock,
+	Briefcase,
+	GraduationCap,
+	ArrowRight,
 } from "lucide-react";
 import { usePortalMeta } from "@/components/portal/PortalLogo";
 import { PORTAL_BRAND_CONFIG, resolvePortalType } from "@shared/portal";
@@ -72,6 +75,7 @@ const PORTAL_LOGO_MAP: Record<string, string> = {
 	admin: adminLogoImg,
 	agent: agentLogoImg,
 	partner: partnerLogoImg,
+	ca: partnerLogoImg,
 };
 
 const loginSchema = z.object({
@@ -222,6 +226,31 @@ const PORTAL_DESCRIPTIONS: Record<
 				icon: "message",
 				title: "AI Recommendations",
 				desc: "Smart suggestions for client investments",
+			},
+		],
+	},
+	ca: {
+		hero: "Chartered Accountant & Tax Practice Cockpit. Streamline client ITR filing, grandfathering capital gains, Form 16/26AS/AIS reconciliation, and client wealth advisory.",
+		features: [
+			{
+				icon: "shield",
+				title: "ITR & Audit Compliance",
+				desc: "Seamless filing from ITR-1 to ITR-6 with automated AIS/26AS reconciliation",
+			},
+			{
+				icon: "trending",
+				title: "Capital Gains Engine",
+				desc: "Multi-broker P&L imports and tax-loss harvesting calculations",
+			},
+			{
+				icon: "chart",
+				title: "Client Tax Vault",
+				desc: "Consolidated client portfolios, financial statements, and audit trails",
+			},
+			{
+				icon: "message",
+				title: "Practice Growth Hub",
+				desc: "White-labeled client advisory and advance tax planning proposals",
 			},
 		],
 	},
@@ -1457,10 +1486,9 @@ export default function AuthPage() {
 											>
 												4-Digit PIN
 											</Label>
-											<div
+											<fieldset
 												id="agent-pin-direct-group"
-												className="flex gap-3 justify-center mt-2"
-												role="group"
+												className="flex gap-3 justify-center mt-2 border-0 p-0 m-0"
 												aria-label="4-Digit PIN entry"
 											>
 												{[0, 1, 2, 3].map((i) => (
@@ -1497,7 +1525,7 @@ export default function AuthPage() {
 														}}
 													/>
 												))}
-											</div>
+											</fieldset>
 											{pinDirectError && (
 												<p className="text-sm text-red-600 mt-2 text-center">
 													{pinDirectError}
@@ -1984,9 +2012,8 @@ export default function AuthPage() {
 
 						<div className="space-y-5 py-2">
 							{/* 4-digit PIN input boxes — focus managed via refs, no dynamic IDs needed */}
-							<div
-								className="flex justify-center gap-3"
-								role="group"
+							<fieldset
+								className="flex justify-center gap-3 border-0 p-0 m-0"
 								aria-label="PIN entry"
 							>
 								{[0, 1, 2, 3].map((i) => (
@@ -2026,7 +2053,7 @@ export default function AuthPage() {
 										data-testid={`pin-digit-${i}`}
 									/>
 								))}
-							</div>
+							</fieldset>
 
 							{pinError && (
 								<p className="text-sm text-red-500 flex items-center justify-center gap-1">
@@ -2588,6 +2615,59 @@ export default function AuthPage() {
 									</CardDescription>
 								</CardHeader>
 								<CardContent>
+									{/* Subdomain-Specific Certified Onboarding Callout Banner */}
+									{portalType === "partner" || portalType === "agent" ? (
+										<div className="mb-4 p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs flex items-center justify-between gap-2.5">
+											<div className="flex items-center gap-2 text-purple-900 dark:text-purple-200">
+												<Briefcase className="h-4 w-4 shrink-0 text-purple-600 dark:text-purple-400" />
+												<div>
+													<span className="font-semibold block">New Financial Advisor or MFD?</span>
+													<span className="text-[11px] text-muted-foreground">Access multi-AMC proposals & client trade dispatch</span>
+												</div>
+											</div>
+											<Button
+												size="sm"
+												className="h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white font-medium shrink-0 shadow-sm"
+												onClick={() => navigate("/partner/register")}
+											>
+												Register Partner →
+											</Button>
+										</div>
+									) : portalType === "ca" ? (
+										<div className="mb-4 p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs flex items-center justify-between gap-2.5">
+											<div className="flex items-center gap-2 text-sky-900 dark:text-sky-200">
+												<GraduationCap className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" />
+												<div>
+													<span className="font-semibold block">Chartered Accountant Practice?</span>
+													<span className="text-[11px] text-muted-foreground">Register your firm for bulk ITR & capital gains engine</span>
+												</div>
+											</div>
+											<Button
+												size="sm"
+												className="h-8 text-xs bg-sky-600 hover:bg-sky-700 text-white font-medium shrink-0 shadow-sm"
+												onClick={() => navigate("/ca-registration")}
+											>
+												CA Onboarding →
+											</Button>
+										</div>
+									) : (
+										<div className="mb-4 p-2.5 rounded-xl bg-primary/5 border border-primary/20 text-xs flex items-center justify-between gap-2">
+											<div className="flex items-center gap-2 text-foreground">
+												<Smartphone className="h-4 w-4 shrink-0 text-primary" />
+												<div className="text-[11px]">
+													<span className="font-semibold block">Prefer investing on your phone?</span>
+													<span className="text-muted-foreground">Download the FintekPro Investor App for Android & iOS</span>
+												</div>
+											</div>
+											<a
+												href="/#mobile-apps"
+												className="text-[11px] font-semibold text-primary hover:underline shrink-0 flex items-center gap-1"
+											>
+												Get App →
+											</a>
+										</div>
+									)}
+
 									<Tabs
 										value={authMode}
 										onValueChange={(v) => {

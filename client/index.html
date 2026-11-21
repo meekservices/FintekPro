@@ -13,6 +13,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FintekPro" />
     <meta name="description" content="FintekPro is India's leading SEBI-compliant financial services platform for personal finance, portfolio management, mutual funds, stocks, bonds, and AI-powered investment insights." />
+    <meta name="keywords" content="direct mutual funds, sovereign gold bonds, corporate bonds India, unlisted shares, IPO bidding, financial advisor platform, MFD software, CA tax filing, capital gains tax calculator, FASP-AI, SEBI investment advisor, FintekPro" />
+    <meta name="author" content="FINTEKPRO FINANCIAL SERVICES LLP" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <link rel="canonical" href="https://fintekpro.com/" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://fintekpro.com/" />
@@ -34,9 +37,19 @@
         var pType = 'main';
         if (h.startsWith('partner.')) pType = 'partner';
         else if (h.startsWith('agent.')) pType = 'agent';
+        else if (h.startsWith('ca.')) pType = 'ca';
         else if (h.startsWith('admin.')) pType = 'admin';
 
-        var iconMap = { main: '/icon-192.png', partner: '/icon-partner.png', agent: '/icon-agent.png', admin: '/icon-admin.png' };
+        var titleMap = {
+          main: 'FintekPro - Smart Financial Services Platform',
+          partner: 'FintekPro Partner | Certified Financial Advisor & MFD Cockpit',
+          agent: 'FintekPro Partner | Certified Financial Advisor & MFD Cockpit',
+          ca: 'FintekPro CA Practice | Chartered Accountant Tax & Audit Cockpit',
+          admin: 'FintekPro Admin | Institutional Control Center'
+        };
+        if (titleMap[pType]) document.title = titleMap[pType];
+
+        var iconMap = { main: '/icon-192.png', partner: '/icon-partner.png', agent: '/icon-agent.png', ca: '/icon-partner.png', admin: '/icon-admin.png' };
         var icon = iconMap[pType] || '/icon-192.png';
         var fav = document.getElementById('favicon-link');
         var ati = document.getElementById('apple-touch-icon-link');
@@ -58,6 +71,7 @@
             if (tc && meta.primary_color) tc.content = meta.primary_color;
             var awt = document.querySelector('meta[name="apple-mobile-web-app-title"]');
             if (awt && meta.label) awt.content = meta.label;
+            if (meta.label) document.title = meta.label + ' | FintekPro';
           })
           .catch(function() {});
       })();

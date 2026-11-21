@@ -55,6 +55,12 @@ const ThemeSettings = lazyWithRetry(() => import("@/pages/theme-settings"));
 const Unlisted = lazyWithRetry(() => import("@/pages/unlisted"));
 const VideoKYC = lazyWithRetry(() => import("@/pages/video-kyc"));
 const PartnerCRM = lazyWithRetry(() => import("@/pages/agent-zoho-crm"));
+const AgentBulkCommunication = lazyWithRetry(
+	() => import("@/pages/agent-bulk-communication"),
+);
+const LeadProspecting = lazyWithRetry(
+	() => import("@/pages/admin/lead-prospecting"),
+);
 
 function PartnerLoading() {
 	return <LoadingState variant="partner-dashboard" />;
@@ -170,6 +176,51 @@ export function PartnerRoutes() {
 					<PartnerShell>
 						<Suspense fallback={<PartnerLoading />}>
 							<AgentLeadPipeline />
+						</Suspense>
+					</PartnerShell>
+				)}
+			</Route>
+			<Route path="/partner/bulk-communication">
+				{() => (
+					<PartnerShell>
+						<Suspense fallback={<PartnerLoading />}>
+							<AgentBulkCommunication />
+						</Suspense>
+					</PartnerShell>
+				)}
+			</Route>
+			<Route path="/partner/marketing">
+				{() => (
+					<PartnerShell>
+						<Suspense fallback={<PartnerLoading />}>
+							<AgentBulkCommunication />
+						</Suspense>
+					</PartnerShell>
+				)}
+			</Route>
+			<Route path="/partner/marketing-studio">
+				{() => (
+					<PartnerShell>
+						<Suspense fallback={<PartnerLoading />}>
+							<AgentBulkCommunication />
+						</Suspense>
+					</PartnerShell>
+				)}
+			</Route>
+			<Route path="/partner/lead-prospecting">
+				{() => (
+					<PartnerShell>
+						<Suspense fallback={<PartnerLoading />}>
+							<LeadProspecting />
+						</Suspense>
+					</PartnerShell>
+				)}
+			</Route>
+			<Route path="/partner/prospects">
+				{() => (
+					<PartnerShell>
+						<Suspense fallback={<PartnerLoading />}>
+							<LeadProspecting />
 						</Suspense>
 					</PartnerShell>
 				)}

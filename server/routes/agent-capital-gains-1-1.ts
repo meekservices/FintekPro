@@ -497,7 +497,7 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
 					.select()
 					.from(schema.prospectLeads)
 					.where(eq(schema.prospectLeads.assignedTo, agentId))
-					.limit(50);
+					.limit(500);
 			} catch (_e) {
 				// Table might be empty or optional
 			}
@@ -745,6 +745,15 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
 				.from(schema.prospectClients)
 				.where(eq(schema.prospectClients.agentId, agentId));
 
+			let b2bLeads: any[] = [];
+			try {
+				b2bLeads = await db
+					.select()
+					.from(schema.prospectLeads)
+					.where(eq(schema.prospectLeads.assignedTo, agentId))
+					.limit(500);
+			} catch (_e) {}
+
 			const proposalsList = await db
 				.select({
 					id: schema.prospectProposals.id,
@@ -796,7 +805,22 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
 				}
 			});
 
-			const totalCount = leads.length + prospectClientsList.length;
+			b2bLeads.forEach((b2b) => {
+				hniCount++;
+				const st = b2b.status === "converted" ? "converted" : b2b.status === "contacted" ? "contacted" : "new";
+				if (stageCounts.hasOwnProperty(st)) {
+					(stageCounts as any)[st]++;
+				}
+				const val = Number(b2b.investableSurplus) || 5000000;
+				if (st !== "converted") {
+					totalValue += val;
+				}
+				if (st === "converted") {
+					convertedValue += val;
+				}
+			});
+
+			const totalCount = leads.length + prospectClientsList.length + b2bLeads.length;
 			const activeProposals = proposalsList.filter((p) => p.status === "sent" || p.status === "viewed");
 			const viewedProposals = proposalsList.filter((p) => (p.viewCount || 0) > 0);
 

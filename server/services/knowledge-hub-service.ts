@@ -359,11 +359,11 @@ export class KnowledgeHubService {
 							name: "Crude Oil (Brent / MCX Spot)",
 							category: "Energy",
 							mcxSymbol: "CRUDEOIL",
-							mcxPrice: gc.brentCrudeMcxInr ?? 9115,
+							mcxPrice: gc.brentCrudeMcxInr ?? 6325,
 							mcxUnit: "₹ / bbl",
 							mcxChangePercent: -0.65,
 							cmxSymbol: "BZ=F (ICE Brent Continuous / CFD)",
-							cmxPrice: gc.brentCrudeUsd ?? 96.09,
+							cmxPrice: gc.brentCrudeUsd ?? 74.50,
 							cmxUnit: "$ / bbl",
 							cmxChangePercent: -0.72,
 							trend: "Neutral",
@@ -498,7 +498,7 @@ export class KnowledgeHubService {
 		const gsecYieldStr = ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent
 			? `${ccilFixedIncome.sovereignYields[0].yieldPercent}%`
 			: `${goldenSnapshot?.fixedIncome?.gsec10YYield ?? 6.79}%`;
-		const brentPriceNum = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? goldenSnapshot?.commodities?.brentCrudeUsd ?? 96.09;
+		const brentPriceNum = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? goldenSnapshot?.commodities?.brentCrudeUsd ?? 74.50;
 		const wtiPriceNum = goldenSnapshot?.commodities?.wtiCrudeUsd ?? 92.0;
 		const brentStr = `$${brentPriceNum}/bbl`;
 		const goldStr = commodityRadar?.commodities?.[0]?.mcxPrice
@@ -613,7 +613,7 @@ export class KnowledgeHubService {
 				const fallbackCmx =
 					item.id === "GOLD" ? (snapshot.commodities?.goldComexPrice ?? 3885.50) :
 					item.id === "SILVER" ? (snapshot.commodities?.silverComexPrice ?? 48.50) :
-					item.id === "CRUDE_OIL" ? (snapshot.commodities?.brentUsd ?? 96.09) :
+					item.id === "CRUDE_OIL" ? (snapshot.commodities?.brentUsd ?? 74.50) :
 					item.id === "NATURAL_GAS" ? (snapshot.commodities?.naturalGasHenryHubUsd ?? 2.75) :
 					item.id === "COPPER" ? (snapshot.commodities?.copperComexUsd ?? 4.35) : 0;
 
@@ -728,7 +728,7 @@ export class KnowledgeHubService {
 		const region = brief.region || "india";
 		const isIndia = region === "india";
 		const syncSnapshot = CANONICAL_FALLBACK_SNAPSHOT_INDIA;
-		const brentPriceNum = brief.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? brief.globalMacroDesk?.wtiCrudeUsd ?? 96.09;
+		const brentPriceNum = brief.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? brief.globalMacroDesk?.wtiCrudeUsd ?? 74.50;
 		const isElevatedCrude = brentPriceNum > 85;
 
 		let topMovers = brief.topMovers && brief.topMovers.length > 0 ? brief.topMovers : null;
@@ -946,16 +946,16 @@ export class KnowledgeHubService {
 							name: "Crude Oil (Brent / MCX Spot)",
 							category: "Energy",
 							mcxSymbol: "CRUDEOIL",
-							mcxPrice: 9115,
+							mcxPrice: 6325,
 							mcxUnit: "₹ / bbl",
 							mcxChangePercent: -0.45,
 							cmxSymbol: "BZ=F (ICE Brent Continuous / CFD)",
-							cmxPrice: 96.09,
+							cmxPrice: 74.50,
 							cmxUnit: "$ / bbl",
 							cmxChangePercent: -0.40,
 							trend: "Neutral",
 							macroImplication:
-								`Official MCX Spot crude price at ₹9,115/bbl ($96.09/bbl CFD). Above India's comfort threshold (<$80/bbl), creating imported inflation headwinds for paints, tyres, airlines.`,
+								`Official MCX Spot crude price at ₹6,325/bbl ($74.50/bbl CFD). Traded within India's comfort threshold (<$80/bbl), limiting imported inflation pressures for paints, tyres, airlines.`,
 							lastUpdated: new Date().toISOString().split("T")[0],
 						},
 						{

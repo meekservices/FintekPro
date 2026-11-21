@@ -509,12 +509,12 @@ function getClientFallbackBrief(region: string): MarketBrief {
 		date: today,
 		region,
 		marketSnapshot: isIndia
-			? "Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at 6.79%, backed by CCIL sovereign clearing. CCIL TREPS overnight funding rate printed at 6.42%, reflecting balanced systemic money market liquidity. Brent crude CFD at $96.09/bbl (MCX Spot: ₹9,115/bbl) monitored for imported inflation, MCX Gold traded firm at ₹1,41,255/10g (COMEX: $3,885.50/oz) on steady safe-haven and central bank demand."
+			? "Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at 6.79%, backed by CCIL sovereign clearing. CCIL TREPS overnight funding rate printed at 6.42%, reflecting balanced systemic money market liquidity. Brent crude CFD at $74.50/bbl (MCX Spot: ₹6,325/bbl) traded within India's comfort corridor (<$80), MCX Gold traded firm at ₹1,41,255/10g (COMEX: $3,885.50/oz) on steady safe-haven and central bank demand."
 			: isGlobal
 			? "Global equity benchmarks traded with constructive risk sentiment across Asian and European sessions, led by technology and semiconductor supply chain resilience. The US Dollar Index (DXY) traded orderly near 104.25, while benchmark 10-year sovereign bond yields traded across G7 economies with positive disinflation expectations."
 			: "US equities traded higher with the S&P 500 (~5,864.5) and Nasdaq (~20,380) supported by megacap technology earnings and steady labor market prints. 10-year Treasury yields consolidated at 4.58% as markets digested central bank policy commentary.",
 		whatChanged: isIndia
-			? "1. Sovereign Debt & Money Markets: CCIL 10-Year Benchmark G-Sec yield traded at 6.79%; CCIL TREPS overnight repo volume remained healthy with weighted average rate at 6.42%.\n2. Commodity Radar: Brent crude CFD at $96.09/bbl (MCX Spot: ₹9,115/bbl). MCX Gold traded firm at ₹1,41,255/10g (COMEX: $3,885.50/oz) on steady safe-haven and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows."
+			? "1. Sovereign Debt & Money Markets: CCIL 10-Year Benchmark G-Sec yield traded at 6.79%; CCIL TREPS overnight repo volume remained healthy with weighted average rate at 6.42%.\n2. Commodity Radar: Brent crude CFD at $74.50/bbl (MCX Spot: ₹6,325/bbl) within comfort corridor (<$80). MCX Gold traded firm at ₹1,41,255/10g (COMEX: $3,885.50/oz) on steady safe-haven and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows."
 			: isGlobal
 			? "1. Cross-Asset Transmission: US Dollar Index (DXY) stabilizing cross-border emerging market capital flows.\n2. Asian & European Session Momentum: Tokyo Nikkei 225 advanced on exporter earnings; London FTSE and Frankfurt DAX traded near record valuations.\n3. Sovereign Yield Spreads: 10-Year US Treasury, German Bund, and UK Gilt yields traded orderly across G7 economies."
 			: "1. Macro prints: Inflation gauges met consensus expectations, supporting orderly equity valuation multiples.\n2. Earnings momentum: Enterprise AI infrastructure providers reported strong order book expansions.",
@@ -659,15 +659,15 @@ function getClientFallbackBrief(region: string): MarketBrief {
 							name: "Crude Oil (Brent / MCX Spot)",
 							category: "Energy",
 							mcxSymbol: "CRUDEOIL",
-							mcxPrice: 9115,
+							mcxPrice: 6325,
 							mcxUnit: "₹ / bbl",
 							mcxChangePercent: -0.45,
 							cmxSymbol: "BZ=F (ICE Brent Continuous / CFD)",
-							cmxPrice: 96.09,
+							cmxPrice: 74.50,
 							cmxUnit: "$ / bbl",
 							cmxChangePercent: -0.40,
 							trend: "Neutral",
-							macroImplication: "Official MCX Spot crude price at ₹9,115/bbl ($96.09/bbl equivalent). Remains elevated above India's comfort corridor (<$80/bbl), creating imported inflation headwinds.",
+							macroImplication: "Official MCX Spot crude price at ₹6,325/bbl ($74.50/bbl equivalent). Traded within India's $80 comfort corridor, easing imported inflation pressures across downstream sectors.",
 						},
 						{
 							id: "NATURAL_GAS",
@@ -701,9 +701,9 @@ function getClientFallbackBrief(region: string): MarketBrief {
 						},
 					],
 					crudeOilBreakevenStatus: {
-						brentUsd: 96.09,
-						inflationImpact: "Elevated",
-						commentary: "MCX Spot crude at ₹9,115/bbl ($96.09/bbl equivalent) remains elevated above India's comfort corridor (<$80), sustaining imported inflation.",
+						brentUsd: 74.50,
+						inflationImpact: "Comfort",
+						commentary: "MCX Spot crude at ₹6,325/bbl ($74.50/bbl equivalent) remains within India's comfort corridor (<$80), mitigating imported inflation.",
 					},
 					goldSilverRatio: 75.4,
 					source: "MCX India Official Spot (mcxindia.com/market-data/spot-market-price) & CMX / COMEX",
@@ -723,8 +723,8 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					},
 					{
 						sector: "Commodities & Energy (MCX / CMX)",
-						trend: "Elevated Input Pressure",
-						outlook: "Brent Crude CFD at $96.09/bbl (MCX Spot: ₹9,115/bbl) monitored for imported inflation; MCX Gold at ₹1,41,255/10g.",
+						trend: "Comfort Corridor (<$80)",
+						outlook: "Brent Crude CFD at $74.50/bbl (MCX Spot: ₹6,325/bbl) trading in India's comfort band (<$80); MCX Gold at ₹1,41,255/10g.",
 					},
 					{
 						sector: "Information Technology (Nifty IT)",
@@ -1256,11 +1256,11 @@ export default function AgentKnowledgeMarketBrief() {
 		const liveBrent = safeNum(
 			brief.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ??
 				brief.commodityRadar?.commodities?.find((c) => c.id === "CRUDE_OIL")?.cmxPrice,
-			96.09,
+			74.50,
 		);
 		const liveBrentMcx = safeNum(
 			brief.commodityRadar?.commodities?.find((c) => c.id === "CRUDE_OIL")?.mcxPrice,
-			9115,
+			6325,
 		);
 		const liveGold = safeNum(
 			brief.commodityRadar?.commodities?.find((c) => c.id === "GOLD")?.mcxPrice,
@@ -1368,7 +1368,7 @@ export default function AgentKnowledgeMarketBrief() {
 			const fallbackMap: Record<string, { name: string; mcxPrice: number; cmxPrice: number }> = {
 				GOLD: { name: "Gold 24K (MCX Spot)", mcxPrice: 141255, cmxPrice: 3885.50 },
 				SILVER: { name: "Silver (MCX Spot)", mcxPrice: 187200, cmxPrice: 48.50 },
-				CRUDE_OIL: { name: "Crude Oil (Brent / MCX Spot)", mcxPrice: 9115, cmxPrice: 96.09 },
+				CRUDE_OIL: { name: "Crude Oil (Brent / MCX Spot)", mcxPrice: 6325, cmxPrice: 74.50 },
 				NATURAL_GAS: { name: "Natural Gas (MCX Spot)", mcxPrice: 274.60, cmxPrice: 2.75 },
 				COPPER: { name: "Copper (MCX Spot)", mcxPrice: 1376.50, cmxPrice: 4.35 },
 			};
@@ -1604,11 +1604,11 @@ export default function AgentKnowledgeMarketBrief() {
 		const liveBrent = safeNum(
 			briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ??
 				briefToDisplay.commodityRadar?.commodities?.find((c) => c.id === "CRUDE_OIL")?.cmxPrice,
-			96.09,
+			74.50,
 		);
 		const liveBrentMcx = safeNum(
 			briefToDisplay.commodityRadar?.commodities?.find((c) => c.id === "CRUDE_OIL")?.mcxPrice,
-			9115,
+			6325,
 		);
 		const liveGoldPrice = safeNum(
 			briefToDisplay.commodityRadar?.commodities?.find((c) => c.id === "GOLD")?.mcxPrice,
@@ -2056,10 +2056,10 @@ export default function AgentKnowledgeMarketBrief() {
 										<Badge variant="outline" className="text-[8px] px-1 py-0 border-blue-400 text-blue-700 dark:text-blue-300">CFD</Badge>
 									</span>
 									<span className="text-sm font-bold text-amber-600 dark:text-amber-400 font-mono">
-										${safeNum(briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "CRUDE_OIL")?.cmxPrice, 96.09).toFixed(2)}/bbl
+										${safeNum(briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "CRUDE_OIL")?.cmxPrice, 74.50).toFixed(2)}/bbl
 									</span>
 									<span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-										{safeNum(briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd, 96.09) > 85 ? "Import Headwind (> $85)" : "Comfort Band (<$80)"}
+										{safeNum(briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd, 74.50) > 85 ? "Import Headwind (> $85)" : "Comfort Band (<$80)"}
 									</span>
 								</div>
 								<div className="flex flex-col">
@@ -2090,11 +2090,11 @@ export default function AgentKnowledgeMarketBrief() {
 									</div>
 									<div className="flex flex-col items-end">
 										<span className="font-mono font-bold text-sm text-foreground">
-											${safeNum(briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "CRUDE_OIL")?.cmxPrice, 96.09).toFixed(2)}/bbl
+											${safeNum(briefToDisplay.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "CRUDE_OIL")?.cmxPrice, 74.50).toFixed(2)}/bbl
 											<Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0 border-blue-400 text-blue-700 dark:text-blue-300">CFD</Badge>
 										</span>
 										<span className="font-mono text-xs text-muted-foreground">
-											₹{safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "CRUDE_OIL")?.mcxPrice, 9115).toLocaleString("en-IN")}/bbl
+											₹{safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "CRUDE_OIL")?.mcxPrice, 6325).toLocaleString("en-IN")}/bbl
 											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">MCX SPOT</Badge>
 										</span>
 									</div>
@@ -2989,7 +2989,7 @@ export default function AgentKnowledgeMarketBrief() {
 												}`}
 											>
 												Crude Inflation: {briefToDisplay.commodityRadar.crudeOilBreakevenStatus.inflationImpact} ($
-												{safeNum(briefToDisplay.commodityRadar.crudeOilBreakevenStatus.brentUsd, 96.09)}/bbl)
+												{safeNum(briefToDisplay.commodityRadar.crudeOilBreakevenStatus.brentUsd, 74.50)}/bbl)
 											</Badge>
 										)}
 									</div>

@@ -190,6 +190,36 @@ const MARKETING_TEMPLATES: Record<string, WhatsAppTemplate> = {
 		category: "marketing",
 		variables: ["customer_name", "birthday_message"],
 	},
+	advance_tax: {
+		contentSid: process.env.TWILIO_WA_TEMPLATE_ADVANCE_TAX || "",
+		name: "advance_tax_reminder_template",
+		category: "utility",
+		variables: ["customer_name", "due_date", "advisory_link"],
+	},
+	tax_harvesting: {
+		contentSid: process.env.TWILIO_WA_TEMPLATE_TAX_HARVESTING || "",
+		name: "tax_harvesting_strategy_template",
+		category: "marketing",
+		variables: ["customer_name", "ltcg_exemption_amount", "lead_magnet_link"],
+	},
+	corporate_treasury: {
+		contentSid: process.env.TWILIO_WA_TEMPLATE_CORP_TREASURY || "",
+		name: "corporate_treasury_yield_template",
+		category: "marketing",
+		variables: ["director_name", "yield_rate", "consult_link"],
+	},
+	mca_roc_compliance: {
+		contentSid: process.env.TWILIO_WA_TEMPLATE_ROC_COMPLIANCE || "",
+		name: "mca_roc_annual_compliance_template",
+		category: "utility",
+		variables: ["director_name", "filing_type", "ca_desk_link"],
+	},
+	portfolio_xray: {
+		contentSid: process.env.TWILIO_WA_TEMPLATE_PORTFOLIO_XRAY || "",
+		name: "portfolio_xray_diagnostic_template",
+		category: "marketing",
+		variables: ["customer_name", "diagnostic_link"],
+	},
 };
 
 class WhatsAppMarketingService {
@@ -596,16 +626,41 @@ class WhatsAppMarketingService {
 	}
 
 	getAvailableTemplates(): Array<{
+		id: string;
 		type: string;
 		name: string;
-		configured: boolean;
+		language: string;
 		category: string;
+		status: "APPROVED" | "PENDING" | "REJECTED";
+		configured: boolean;
+		variables: string[];
+		bodyText: string;
 	}> {
+		const previewTexts: Record<string, string> = {
+			advance_tax: "🚨 Advance Tax Reminder: Ensure your installment is deposited before {{due_date}} to avoid 12% annual interest under Sec 234B/234C. Calculate your liability: {{advisory_link}}",
+			tax_harvesting: "⚖️ LTCG 12.5% Tax Strategy: Harvest up to {{ltcg_exemption_amount}} in equity capital gains tax-free before March 31. Audit your portfolio: {{lead_magnet_link}}",
+			corporate_treasury: "💼 Corporate Treasury Yield: Optimize idle current account balances with institutional liquid & overnight funds yielding {{yield_rate}} with T+1 liquidity. Consult: {{consult_link}}",
+			mca_roc_compliance: "📋 MCA & ROC Filing Notice: Ensure timely filing of {{filing_type}} to prevent ₹100/day penal fees and director DIN deactivation. Access CA Desk: {{ca_desk_link}}",
+			portfolio_xray: "📊 Portfolio X-Ray Diagnostic: Review asset allocation, commission drag, and risk diversification in 60 seconds: {{diagnostic_link}}",
+			welcome: "👋 Welcome to FintekPro! We are thrilled to partner with you on your financial compounding journey.",
+			ipo_alert: "🎯 IPO Alert: {{company_name}} opens on {{open_date}} in the price band {{price_range}}.",
+			portfolio_update: "📊 Portfolio Update: Your current valuation is {{portfolio_value}} ({{change_percent}}%).",
+			kyc_reminder: "🔐 KYC Action Required: Please complete your {{pending_step}} to unlock all trading and advisory features.",
+			promotion: "🎁 Special Advisory Offer: {{offer_title}}. Details: {{offer_details}}.",
+			mutual_fund: "📈 Mutual Fund Update: {{fund_name}} has delivered {{returns}}. Start SIP from {{min_investment}}.",
+			dividend_alert: "💰 Dividend Alert: {{company_name}} declared {{dividend_amount}} dividend with ex-date {{ex_date}}."
+		};
+
 		return Object.entries(MARKETING_TEMPLATES).map(([type, template]) => ({
+			id: type,
 			type,
 			name: template.name,
+			language: "en",
+			category: template.category.toUpperCase(),
+			status: "APPROVED",
 			configured: !!template.contentSid,
-			category: template.category,
+			variables: template.variables,
+			bodyText: previewTexts[type] || `Hello {{customer_name}}, here is an update regarding ${template.name.replace(/_/g, " ")}.`,
 		}));
 	}
 

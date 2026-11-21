@@ -31,6 +31,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { AutoDialerModal } from "@/components/dialer/AutoDialerModal";
 import {
@@ -194,6 +195,110 @@ export default function AgentLeadPipeline() {
 	const [dialerOpen, setDialerOpen] = useState(false);
 	const [dialerTargetLead, setDialerTargetLead] = useState<any>(null);
 	const [isQueueMode, setIsQueueMode] = useState(false);
+
+	// WhatsApp Pitch & Marketing Studio Integration States
+	const { user } = useAuth();
+	const partnerName = user
+		? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.userId
+		: "FintekPro Advisory Partner";
+	const leadMagnetUrl = typeof window !== "undefined"
+		? `${window.location.origin}/tools/portfolio-xray?ref=${user?.id || user?.userId || "default"}`
+		: "";
+
+	const [showPitchModal, setShowPitchModal] = useState(false);
+	const [pitchTargetLead, setPitchTargetLead] = useState<Lead | null>(null);
+	const [selectedPitchPreset, setSelectedPitchPreset] = useState<"treasury" | "xray" | "bonds" | "custom">("treasury");
+	const [pitchMessage, setPitchMessage] = useState("");
+	const [isGeneratingPitch, setIsGeneratingPitch] = useState(false);
+
+	const getCleanPhone = (phone?: string) => {
+		if (!phone) return "";
+		return phone.replace(/\D/g, "").slice(-10);
+	};
+
+	const extractContactAndCompany = (lead: Lead | null) => {
+		if (!lead) return { contactName: "Client", companyName: "your enterprise" };
+		const rawName = lead.name || "";
+		const match = rawName.match(/^(.*?)\s*\((.*?)\)$/);
+		if (match) {
+			return { contactName: match[1].trim(), companyName: match[2].trim() };
+		}
+		const companyTag = lead.tags?.find(
+			(t) => t !== "Corporate Director" && t !== "hot" && t !== "warm" && t !== "cold" && t !== "HNI" && t !== "UHNI"
+		);
+		return { contactName: rawName, companyName: companyTag || "your enterprise" };
+	};
+
+	const getPresetMessage = (preset: "treasury" | "xray" | "bonds", lead: Lead) => {
+		const { contactName, companyName } = extractContactAndCompany(lead);
+		const firstName = contactName.split(" ")[0] || contactName;
+
+		if (preset === "treasury") {
+			return `Hello ${firstName}, noticed ${companyName}'s growth in Bengaluru. Many founders keep ₹1–5 Cr in Current Accounts earning 0% or FDs with high tax drag.\n\nWe help private enterprises deploy liquid overnight & arbitrage treasury earning ~7.15% with zero lock-in and superior post-tax efficiency.\n\nCan I share a 1-page corporate treasury yield comparison for your finance team?\n\n— ${partnerName}, FintekPro Advisory Desk`;
+		} else if (preset === "xray") {
+			return `Hello ${firstName}, audit your family mutual fund portfolio and capital gains tax drag under Budget 2024 rules in 60 seconds.\n\nRun your confidential, complimentary Portfolio X-Ray here:\n👉 ${leadMagnetUrl}\n\n— ${partnerName}, FintekPro Wealth Partner`;
+		} else {
+			return `Hello ${firstName}, we have an exclusive institutional tranche of AAA-rated corporate bonds yielding 9.25% - 11.50% annualized, with monthly/quarterly payouts.\n\nWould you like a brief overview of current available primary issuances?\n\n— ${partnerName}, FintekPro Advisory Desk`;
+		}
+	};
+
+	const openPitchModal = (lead: Lead) => {
+		setPitchTargetLead(lead);
+		setSelectedPitchPreset("treasury");
+		setPitchMessage(getPresetMessage("treasury", lead));
+		setShowPitchModal(true);
+	};
+
+	const handlePresetChange = (preset: "treasury" | "xray" | "bonds") => {
+		setSelectedPitchPreset(preset);
+		if (pitchTargetLead) {
+			setPitchMessage(getPresetMessage(preset, pitchTargetLead));
+		}
+	};
+
+	const handleGenerateCustomAIPitch = async () => {
+		if (!pitchTargetLead) return;
+		setIsGeneratingPitch(true);
+		try {
+			const { contactName, companyName } = extractContactAndCompany(pitchTargetLead);
+			const res = await apiRequest("/api/knowledge-hub/generate-pitch", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					productTitle: "FintekPro Institutional Wealth & Corporate Treasury",
+					productType: "wealth_advisory",
+					persona: pitchTargetLead.tier === "UHNI" || pitchTargetLead.isHni ? "hni_promoter" : "corporate_treasury",
+					channel: "whatsapp",
+					keyFeatures: `Client: ${contactName}, Company: ${companyName}, Potential Surplus: ₹${pitchTargetLead.potentialValue || 5000000}`,
+				}),
+			});
+			if (res.ok) {
+				const data = await res.json();
+				if (data.pitch) {
+					setPitchMessage(data.pitch);
+					setSelectedPitchPreset("custom");
+					toast({ title: "AI Pitch Generated", description: "Tailored for HNI Promoter / Corporate Treasury." });
+				}
+			}
+		} catch (e: any) {
+			toast({ title: "Failed to generate AI pitch", description: e.message, variant: "destructive" });
+		} finally {
+			setIsGeneratingPitch(false);
+		}
+	};
+
+	const handleSendWhatsAppPitch = () => {
+		if (!pitchTargetLead) return;
+		const clean = getCleanPhone(pitchTargetLead.phone);
+		if (!clean) {
+			toast({ title: "No Phone Number", description: "This lead does not have a valid mobile number.", variant: "destructive" });
+			return;
+		}
+		const encoded = encodeURIComponent(pitchMessage);
+		window.open(`https://api.whatsapp.com/send?phone=91${clean}&text=${encoded}`, "_blank");
+		toast({ title: "WhatsApp Opened", description: `Outreach initiated for ${pitchTargetLead.name}` });
+		setShowPitchModal(false);
+	};
 
 	const [newLead, setNewLead] = useState({
 		name: "",
@@ -1629,15 +1734,23 @@ export default function AgentLeadPipeline() {
 												setIsQueueMode(false);
 												setDialerOpen(true);
 											}}
-											className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs h-8"
+											className="bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs h-8"
 											data-testid="button-call-lead"
 										>
-											<Phone className="h-3.5 w-3.5 mr-1.5" />
-											Call (Device SIM)
+											<Phone className="h-3.5 w-3.5 mr-1" />
+											Call
+										</Button>
+										<Button
+											onClick={() => openPitchModal(selectedLead)}
+											className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs h-8 shadow-sm"
+											data-testid="button-whatsapp-pitch"
+										>
+											<MessageSquare className="h-3.5 w-3.5 mr-1" />
+											WhatsApp
 										</Button>
 										<Button
 											variant="outline"
-											className="flex-1 border-border text-xs h-8"
+											className="border-border text-xs h-8"
 											data-testid="button-email-lead"
 											onClick={() => {
 												if (selectedLead.email) {
@@ -1645,8 +1758,21 @@ export default function AgentLeadPipeline() {
 												}
 											}}
 										>
-											<Mail className="h-3.5 w-3.5 mr-1.5" />
+											<Mail className="h-3.5 w-3.5 mr-1" />
 											Email
+										</Button>
+									</div>
+
+									<div className="flex gap-2 pt-1 border-t border-border">
+										<Button
+											variant="outline"
+											className="flex-1 border-indigo-500/40 text-indigo-400 bg-indigo-500/5 hover:bg-indigo-500/10 text-xs h-8"
+											onClick={() => {
+												setLocation(`/agent/bulk-communication?leadId=${selectedLead.id}&phone=${selectedLead.phone}`);
+											}}
+										>
+											<Send className="h-3 w-3 mr-1.5" />
+											Marketing Studio Campaign
 										</Button>
 										<Button
 											variant="outline"
@@ -1655,7 +1781,7 @@ export default function AgentLeadPipeline() {
 											onClick={() => handleOpenEditLead(selectedLead)}
 											title="Edit Lead"
 										>
-											<Edit className="h-3.5 w-3.5 mr-1.5" />
+											<Edit className="h-3.5 w-3.5 mr-1" />
 											Edit
 										</Button>
 										<Button
@@ -1676,6 +1802,127 @@ export default function AgentLeadPipeline() {
 								</div>
 							</>
 						)}
+					</DialogContent>
+				</Dialog>
+
+				{/* WhatsApp Pitch & Marketing Studio Outreach Dialog */}
+				<Dialog open={showPitchModal} onOpenChange={setShowPitchModal}>
+					<DialogContent className="bg-background border-border text-foreground max-w-lg">
+						<DialogHeader>
+							<div className="flex items-center gap-2">
+								<div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+									<MessageSquare className="h-5 w-5" />
+								</div>
+								<div>
+									<DialogTitle className="text-lg">
+										1-Click WhatsApp Pitch & Lead Magnet
+									</DialogTitle>
+									<DialogDescription className="text-xs text-muted-foreground">
+										Targeting: {pitchTargetLead?.name} {pitchTargetLead?.phone && `(${pitchTargetLead.phone})`}
+									</DialogDescription>
+								</div>
+							</div>
+						</DialogHeader>
+
+						<div className="space-y-3 mt-2">
+							{/* Preset Selector */}
+							<div>
+								<Label className="text-xs text-muted-foreground font-semibold">Select Value-First Hook:</Label>
+								<div className="grid grid-cols-3 gap-1.5 mt-1.5">
+									<Button
+										type="button"
+										size="sm"
+										variant={selectedPitchPreset === "treasury" ? "default" : "outline"}
+										className={`text-xs h-8 ${selectedPitchPreset === "treasury" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "border-border text-muted-foreground"}`}
+										onClick={() => handlePresetChange("treasury")}
+									>
+										🏢 Treasury 7.15%
+									</Button>
+									<Button
+										type="button"
+										size="sm"
+										variant={selectedPitchPreset === "xray" ? "default" : "outline"}
+										className={`text-xs h-8 ${selectedPitchPreset === "xray" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "border-border text-muted-foreground"}`}
+										onClick={() => handlePresetChange("xray")}
+									>
+										🔍 Portfolio X-Ray
+									</Button>
+									<Button
+										type="button"
+										size="sm"
+										variant={selectedPitchPreset === "bonds" ? "default" : "outline"}
+										className={`text-xs h-8 ${selectedPitchPreset === "bonds" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "border-border text-muted-foreground"}`}
+										onClick={() => handlePresetChange("bonds")}
+									>
+										📈 AAA Bonds 11%
+									</Button>
+								</div>
+							</div>
+
+							{/* Text Area */}
+							<div className="space-y-1">
+								<div className="flex items-center justify-between">
+									<Label className="text-xs text-muted-foreground">Message Preview (Editable):</Label>
+									<Button
+										type="button"
+										variant="ghost"
+										size="sm"
+										onClick={handleGenerateCustomAIPitch}
+										disabled={isGeneratingPitch}
+										className="h-6 text-[11px] text-purple-400 hover:text-purple-300 p-1"
+									>
+										{isGeneratingPitch ? (
+											<Loader2 className="h-3 w-3 mr-1 animate-spin" />
+										) : (
+											<Sparkles className="h-3 w-3 mr-1 text-purple-400" />
+										)}
+										FASP-AI Polish
+									</Button>
+								</div>
+								<Textarea
+									value={pitchMessage}
+									onChange={(e) => setPitchMessage(e.target.value)}
+									rows={7}
+									className="text-xs bg-muted/40 font-sans leading-relaxed border-border"
+								/>
+							</div>
+
+							{/* Action Buttons */}
+							<div className="flex gap-2 pt-2 border-t border-border">
+								<Button
+									type="button"
+									onClick={handleSendWhatsAppPitch}
+									className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold h-9 shadow-sm"
+								>
+									<Send className="h-3.5 w-3.5 mr-1.5" />
+									Send via WhatsApp
+								</Button>
+								<Button
+									type="button"
+									variant="outline"
+									onClick={() => {
+										navigator.clipboard.writeText(pitchMessage);
+										toast({ title: "Copied to clipboard!" });
+									}}
+									className="border-border text-xs h-9"
+								>
+									<Copy className="h-3.5 w-3.5 mr-1" />
+									Copy
+								</Button>
+								<Button
+									type="button"
+									variant="outline"
+									onClick={() => {
+										setShowPitchModal(false);
+										setLocation(`/agent/bulk-communication?leadId=${pitchTargetLead?.id}&phone=${pitchTargetLead?.phone}`);
+									}}
+									className="border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/10 text-xs h-9"
+								>
+									<ExternalLink className="h-3.5 w-3.5 mr-1" />
+									Marketing Studio
+								</Button>
+							</div>
+						</div>
 					</DialogContent>
 				</Dialog>
 

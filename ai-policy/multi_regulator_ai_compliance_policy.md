@@ -36,6 +36,12 @@ FintekPro maintains an immutable, version-controlled **AI Model Registry** categ
 - **Mandatory Benchmark Comparison**: Model portfolio returns must always be displayed side-by-side with official SEBI total return benchmarks (e.g. NIFTY 50 TRI, NIFTY 500 TRI, CRISIL Composite Bond Index).
 - **Finfluencer / Unregistered Algorithm Guardrail**: FintekPro APIs and white-label SDKs strictly prohibit partnering with unregistered algorithmic signal providers or finfluencer syndicates.
 
+### 2.4 Brand, Trademark & Advertising Compliance Guardrail (SEBI & Trade Marks Act, 1999)
+- **Prohibition on Proprietary Trademark Claims**: The AI system, code generators, and contributors must never generate UI badges, promotional claims, marketing emails, or investor pitch decks adopting or co-opting third-party trademarks (e.g., `Bloomberg Terminal`, `Reuters Eikon`, `FactSet`, `Refinitiv`, `Robinhood`).
+- **SEBI Advertising Code Adherence**: SEBI Master Circulars (2023) forbid registered intermediaries and tech platforms from publishing comparative advertisements that mislead investors, claim unauthorized institutional affiliations, or convey false equivalency.
+- **Approved Institutional Language**: Use approved generic institutional terminology such as *"Wall Street Analytics, Built for Indian Investors"*, *"Institutional-Grade Terminal"*, or *"Institutional Research & Analytics Cockpit"*.
+- **Nominative Fair Use**: Referencing third-party indices or institutions (e.g. "MSCI World", "JP Morgan GBI-EM") is permitted strictly in factual, data-attribution contexts accompanied by standard trademark ownership disclaimers.
+
 ---
 
 ## 3. RBI Compliance Mandates (Banking, Lending & Payments)

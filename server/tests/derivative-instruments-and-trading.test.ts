@@ -114,5 +114,45 @@ describe("FintekPro Derivative Instruments & F&O Trading Engine (GCR v1.0 + SEBI
       expect(Array.isArray(results)).toBe(true);
     });
   });
+
+  describe("5. Multi-Expiry Term Structure Comparison (CE & PE)", () => {
+    it("computes 3-month ATM Call option term structure with next-month recommendation", async () => {
+      const result = await derivativesService.getMultiExpiryCalls("NIFTY", "CE");
+
+      expect(result.symbol).toBe("NIFTY");
+      expect(result.optionType).toBe("CE");
+      expect(result.calls.length).toBe(3);
+      expect(result.recommendedTenure).toBe("next_month");
+      expect(result.calls[1].isRecommended).toBe(true);
+      expect(result.calls[1].thetaReductionPct).toBeGreaterThan(0);
+      expect(result.calls[0].tenure).toBe("near_month");
+      expect(result.calls[1].tenure).toBe("next_month");
+      expect(result.calls[2].tenure).toBe("far_month");
+
+      for (const call of result.calls) {
+        expect(call.optionType).toBe("CE");
+        expect(call.breakeven).toBeGreaterThan(call.strikePrice);
+        expect(call.delta).toBeGreaterThan(0);
+        expect(call.dailyThetaCostPerLot).toBeGreaterThan(0);
+        expect(call.pop).toBeGreaterThan(0);
+      }
+    }, 15000);
+
+    it("computes 3-month ATM Put option term structure for downside hedging", async () => {
+      const result = await derivativesService.getMultiExpiryCalls("NIFTY", "PE");
+
+      expect(result.symbol).toBe("NIFTY");
+      expect(result.optionType).toBe("PE");
+      expect(result.calls.length).toBe(3);
+      expect(result.strategicSummary).toContain("put buyers and portfolio hedgers");
+
+      for (const put of result.calls) {
+        expect(put.optionType).toBe("PE");
+        expect(put.breakeven).toBeLessThan(put.strikePrice);
+        expect(put.delta).toBeLessThan(0);
+        expect(put.dailyThetaCostPerLot).toBeGreaterThan(0);
+      }
+    }, 15000);
+  });
 });
 

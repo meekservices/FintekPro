@@ -96,6 +96,7 @@ import {
 	Boxes,
 	Zap,
 	Brain,
+	Send,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
@@ -112,6 +113,7 @@ interface NavItem {
 	href: string;
 	icon: LucideIcon;
 	description: string;
+	badge?: string;
 	children?: NavItem[];
 }
 
@@ -196,10 +198,18 @@ const navCategories: NavCategory[] = [
 				description: "Clients & partner network",
 			},
 			{
-				title: "Prospect Dashboard",
+				title: "Prospect Directory",
 				href: "/admin/prospect-dashboard",
 				icon: Target,
-				description: "All prospects & leads",
+				description: "Cold contacts, MCA intelligence & imports",
+				badge: "Cold",
+			},
+			{
+				title: "Qualified Lead Pipeline",
+				href: "/admin/lead-prospecting",
+				icon: TrendingUp,
+				description: "Assigned partner leads & active deal stages",
+				badge: "Active",
 			},
 			{
 				title: "Partner Performance",
@@ -518,6 +528,13 @@ const navCategories: NavCategory[] = [
 		title: "Marketing",
 		icon: Megaphone,
 		items: [
+			{
+				title: "Marketing Studio",
+				href: "/admin/bulk-communication",
+				icon: Send,
+				description: "Omnichannel campaigns for Clients & Non-Clients",
+				badge: "Growth",
+			},
 			{
 				title: "Overview",
 				href: "/admin/marketing-dashboard",
@@ -1620,6 +1637,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 															<span className="text-sm flex-1">
 																{item.title}
 															</span>
+															{item.badge && (
+																<Badge
+																	variant="outline"
+																	className="text-[10px] px-1.5 py-0 h-4 bg-emerald-500/15 text-emerald-400 border-emerald-500/30 font-medium"
+																>
+																	{item.badge}
+																</Badge>
+															)}
 															{showBadge && (
 																<Badge className="h-5 min-w-[20px] flex items-center justify-center p-0 bg-red-500 text-white text-xs">
 																	{smsUnreadCount > 99 ? "99+" : smsUnreadCount}

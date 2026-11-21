@@ -42,10 +42,14 @@ import {
 	ChevronRight,
 	Loader2,
 	TrendingUp,
+	MessageSquare,
+	Send,
+	Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 interface CRMLead {
 	id: string;
@@ -81,6 +85,21 @@ const statusColors: Record<string, string> = {
 export default function AgentZohoCRM() {
 	const [, navigate] = useLocation();
 	const { toast } = useToast();
+	const { user } = useAuth();
+	const partnerName = user
+		? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.userId
+		: "FintekPro Advisory Desk";
+
+	const getWhatsAppPitchUrl = (lead: CRMLead) => {
+		const rawPhone = lead.Phone || lead.Mobile || "";
+		const cleanDigits = rawPhone.replace(/\D/g, "").slice(-10);
+		const firstName = (lead.First_Name || lead.Full_Name.split(" ")[0] || "there").trim();
+		const company = lead.Company ? ` regarding ${lead.Company}'s corporate treasury` : "";
+		const text = encodeURIComponent(
+			`Hello ${firstName}, reaching out from FintekPro Institutional Advisory${company}. We help private business owners deploy liquid overnight & arbitrage treasury earning ~7.15% with zero lock-in vs 0-3.5% in Current Accounts. Can I share a 1-page comparison for your finance team?\n\n— ${partnerName}, FintekPro Wealth Desk`
+		);
+		return `https://api.whatsapp.com/send?phone=91${cleanDigits}&text=${text}`;
+	};
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedLead, setSelectedLead] = useState<CRMLead | null>(null);
 	const [activeTab, setActiveTab] = useState("all");
@@ -622,32 +641,62 @@ export default function AgentZohoCRM() {
 											Create Proposal
 											<ChevronRight className="h-4 w-4 ml-auto" />
 										</Button>
+
 										{(selectedLead.Phone || selectedLead.Mobile) && (
-											<Button
-												variant="outline"
-												className="w-full border-border text-muted-foreground hover:bg-card"
-												asChild
-											>
-												<a
-													href={`tel:${selectedLead.Phone || selectedLead.Mobile}`}
+											<div className="grid grid-cols-2 gap-2">
+												<Button
+													variant="outline"
+													className="w-full border-emerald-500/30 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 text-xs font-semibold"
+													asChild
 												>
-													<Phone className="h-4 w-4 mr-2" />
-													Call Lead
-												</a>
-											</Button>
+													<a
+														href={getWhatsAppPitchUrl(selectedLead)}
+														target="_blank"
+														rel="noreferrer"
+													>
+														<MessageSquare className="h-4 w-4 mr-1.5" />
+														WhatsApp Pitch
+													</a>
+												</Button>
+												<Button
+													variant="outline"
+													className="w-full border-border text-muted-foreground hover:bg-card text-xs"
+													asChild
+												>
+													<a
+														href={`tel:${selectedLead.Phone || selectedLead.Mobile}`}
+													>
+														<Phone className="h-4 w-4 mr-1.5" />
+														Call Lead
+													</a>
+												</Button>
+											</div>
 										)}
-										{selectedLead.Email && (
+
+										<div className="grid grid-cols-2 gap-2">
+											{selectedLead.Email && (
+												<Button
+													variant="outline"
+													className="w-full border-border text-muted-foreground hover:bg-card text-xs"
+													asChild
+												>
+													<a href={`mailto:${selectedLead.Email}`}>
+														<Mail className="h-4 w-4 mr-1.5" />
+														Send Email
+													</a>
+												</Button>
+											)}
 											<Button
 												variant="outline"
-												className="w-full border-border text-muted-foreground hover:bg-card"
-												asChild
+												className="w-full border-indigo-500/30 text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 text-xs"
+												onClick={() => {
+													navigate(`/agent/bulk-communication?leadId=${selectedLead.id}&phone=${selectedLead.Phone || selectedLead.Mobile || ""}`);
+												}}
 											>
-												<a href={`mailto:${selectedLead.Email}`}>
-													<Mail className="h-4 w-4 mr-2" />
-													Send Email
-												</a>
+												<Send className="h-4 w-4 mr-1.5" />
+												Marketing Studio
 											</Button>
-										)}
+										</div>
 									</div>
 								</div>
 							) : (

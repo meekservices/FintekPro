@@ -103,7 +103,7 @@ router.get("/metrics", requireAdmin, async (req: any, res: Response) => {
 			},
 		});
 	} catch (error) {
-		console.error("Error fetching prospect metrics:", error);
+		logger.error("Error fetching prospect metrics:", error);
 		return apiResponse.serverError(res, "Failed to fetch prospect metrics");
 	}
 });
@@ -244,7 +244,7 @@ router.get("/b2b-leads", requireAdmin, async (req: any, res: Response) => {
 			offset: Number.parseInt(offset as string),
 		});
 	} catch (error) {
-		console.error("Error fetching B2B leads:", error);
+		logger.error("Error fetching B2B leads:", error);
 		return apiResponse.serverError(res, "Failed to fetch B2B leads");
 	}
 });
@@ -290,7 +290,7 @@ router.patch("/b2b-leads/:id", requireAdmin, async (req: any, res: Response) => 
 
 		res.json(updated);
 	} catch (error) {
-		console.error("Error updating B2B lead:", error);
+		logger.error("Error updating B2B lead:", error);
 		return apiResponse.serverError(res, "Failed to update B2B lead");
 	}
 });
@@ -304,7 +304,7 @@ router.delete("/b2b-leads/:id", requireAdmin, async (req: any, res: Response) =>
 		await db.delete(prospectLeads).where(eq(prospectLeads.id, id));
 		res.json({ success: true, message: "Lead deleted successfully" });
 	} catch (error) {
-		console.error("Error deleting B2B lead:", error);
+		logger.error("Error deleting B2B lead:", error);
 		return apiResponse.serverError(res, "Failed to delete B2B lead");
 	}
 });
@@ -422,7 +422,7 @@ router.post("/b2b-leads", requireAdmin, async (req: any, res: Response) => {
 
 		res.status(201).json(newLead);
 	} catch (error) {
-		console.error("Error creating B2B lead:", error);
+		logger.error("Error creating B2B lead:", error);
 		return apiResponse.serverError(res, "Failed to create B2B lead");
 	}
 });
@@ -502,7 +502,7 @@ router.get(
 				offset: Number.parseInt(offset as string),
 			});
 		} catch (error) {
-			console.error("Error fetching individual prospects:", error);
+			logger.error("Error fetching individual prospects:", error);
 			return apiResponse.serverError(
 				res,
 				"Failed to fetch individual prospects",
@@ -536,7 +536,7 @@ router.get("/agents", requireAdmin, async (req: any, res: Response) => {
 
 		res.json(agents);
 	} catch (error) {
-		console.error("Error fetching agents:", error);
+		logger.error("Error fetching agents:", error);
 		return apiResponse.serverError(res, "Failed to fetch agents");
 	}
 });
@@ -628,7 +628,7 @@ router.post(
 
 			res.status(201).json(newProspect);
 		} catch (error) {
-			console.error("Error creating individual prospect:", error);
+			logger.error("Error creating individual prospect:", error);
 			return apiResponse.serverError(
 				res,
 				"Failed to create individual prospect",
@@ -686,7 +686,7 @@ router.patch(
 
 			res.json(updated);
 		} catch (error) {
-			console.error("Error assigning lead:", error);
+			logger.error("Error assigning lead:", error);
 			return apiResponse.serverError(res, "Failed to assign lead");
 		}
 	},
@@ -739,7 +739,7 @@ router.patch(
 				},
 			});
 		} catch (error) {
-			console.error("Error reassigning prospect:", error);
+			logger.error("Error reassigning prospect:", error);
 			return apiResponse.serverError(res, "Failed to reassign prospect");
 		}
 	},
@@ -804,7 +804,7 @@ router.post(
 				failed,
 			});
 		} catch (error) {
-			console.error("Error bulk assigning leads:", error);
+			logger.error("Error bulk assigning leads:", error);
 			return apiResponse.serverError(res, "Failed to bulk assign leads");
 		}
 	},
@@ -837,7 +837,7 @@ router.get(
 
 			res.json(activities);
 		} catch (error) {
-			console.error("Error fetching lead history:", error);
+			logger.error("Error fetching lead history:", error);
 			return apiResponse.serverError(res, "Failed to fetch lead history");
 		}
 	},
@@ -939,7 +939,7 @@ router.post(
 				batchId: importBatchId,
 			});
 		} catch (error: any) {
-			console.error("Error importing from Zoho CRM:", error);
+			logger.error("Error importing from Zoho CRM:", error);
 			return apiResponse.serverError(
 				res,
 				`Failed to import from Zoho CRM: ${error.message}`,
@@ -960,7 +960,7 @@ router.get("/zoho-status", requireAdmin, async (req: any, res: Response) => {
 			connectionId: connectionId || null,
 		});
 	} catch (error) {
-		console.error("Error checking Zoho status:", error);
+		logger.error("Error checking Zoho status:", error);
 		res.json({ configured: false, connectionId: null });
 	}
 });

@@ -51,6 +51,9 @@ import {
 	Coins,
 	CheckCircle2,
 	Lock,
+	Clock,
+	ArrowRight,
+	Info,
 } from "lucide-react";
 import { PartnerClientDispatchModal } from "@/components/picks/PartnerClientDispatchModal";
 import { SlideToConfirmOrderModal } from "@/components/picks/SlideToConfirmOrderModal";
@@ -147,6 +150,7 @@ export default function AgentDerivatives() {
 	const [showITM, setShowITM] = useState(true);
 	const [_selectedOption, _setSelectedOption] = useState<OptionData | null>(null);
 	const [strategyFilter, setStrategyFilter] = useState<"all" | "seller" | "buyer">("all");
+	const [multiExpiryOptionType, setMultiExpiryOptionType] = useState<"CE" | "PE">("CE");
 	const [selectedAlgoSignal, setSelectedAlgoSignal] = useState<any>(null);
 	const [isDispatchModalOpen, setIsDispatchModalOpen] = useState<boolean>(false);
 	const [isSlideModalOpen, setIsSlideModalOpen] = useState<boolean>(false);
@@ -178,6 +182,54 @@ export default function AgentDerivatives() {
 		],
 		enabled: !!selectedSymbol,
 	});
+
+	const { data: multiExpiryRes, isLoading: isMultiExpiryLoading } = useQuery<{
+		success: boolean;
+		data: {
+			symbol: string;
+			spotPrice: number;
+			lotSize: number;
+			atmStrike: number;
+			optionType: "CE" | "PE";
+			recommendedTenure: string;
+			strategicSummary: string;
+			calls: Array<{
+				tenure: "near_month" | "next_month" | "far_month";
+				tenureLabel: string;
+				monthName: string;
+				expiryDate: string;
+				dte: number;
+				optionType?: "CE" | "PE";
+				strikePrice: number;
+				spotPrice: number;
+				lotSize: number;
+				premium: number;
+				totalCostPerLot: number;
+				targetPrice: number;
+				stoplossPrice: number;
+				maxProfitPerLot: number;
+				maxLossPerLot: number;
+				rewardToRisk: number;
+				breakeven: number;
+				breakevenMovePct: number;
+				pop: number;
+				delta: number;
+				theta: number;
+				dailyThetaCostPerLot: number;
+				thetaReductionPct?: number;
+				vega: number;
+				impliedVolatility: number;
+				openInterest: number;
+				profitVerdict: string;
+				badge: string;
+				isRecommended: boolean;
+			}>;
+		};
+	}>({
+		queryKey: [`/api/derivatives/multi-expiry-calls/${selectedSymbol}?type=${multiExpiryOptionType}`],
+		enabled: !!selectedSymbol,
+	});
+	const multiExpiryData = multiExpiryRes?.data;
 
 	const { data: futuresData, isLoading: isLoadingFutures } = useQuery<{
 		symbol: string;
@@ -444,6 +496,241 @@ export default function AgentDerivatives() {
 				</ScrollableTabsList>
 
 				<TabsContent value="chain" className="space-y-4">
+					{/* Multi-Expiry Term Structure & Advisor Profit Analyzer Ribbon (M1 · M2 · M3) */}
+					{multiExpiryData && multiExpiryData.calls && multiExpiryData.calls.length > 0 && (
+						<Card className="border-primary/20 bg-gradient-to-b from-primary/5 via-background to-background">
+							<CardHeader className="pb-3">
+								<div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+									<div>
+										<div className="flex items-center gap-2">
+											<CardTitle className="text-lg flex items-center gap-2">
+												<Layers className="h-5 w-5 text-primary" />
+												Multi-Expiry Term Structure & Profit Analyzer
+											</CardTitle>
+											<Badge variant="outline" className="text-xs border-primary/40 bg-primary/10 text-primary">
+												Institutional Advisor View
+											</Badge>
+										</div>
+										<CardDescription className="text-xs mt-1">
+											Term structure comparison for ATM {multiExpiryOptionType === "CE" ? "Calls (Directional Breakout)" : "Puts (Downside Hedge)"} across <strong>Near Month (M1)</strong>, <strong>Next Month (M2)</strong>, and <strong>Far Month (M3)</strong>. Dispatch optimal tenure to clients.
+										</CardDescription>
+									</div>
+
+									<div className="flex flex-wrap items-center gap-3">
+										{/* CE / PE Segmented Toggle */}
+										<div className="flex items-center bg-muted/60 p-1 rounded-lg border border-border">
+											<Button
+												size="sm"
+												variant={multiExpiryOptionType === "CE" ? "default" : "ghost"}
+												className="h-7 text-xs px-2.5 font-medium"
+												onClick={() => setMultiExpiryOptionType("CE")}
+											>
+												Calls (CE) · Breakout
+											</Button>
+											<Button
+												size="sm"
+												variant={multiExpiryOptionType === "PE" ? "default" : "ghost"}
+												className="h-7 text-xs px-2.5 font-medium"
+												onClick={() => setMultiExpiryOptionType("PE")}
+											>
+												Puts (PE) · Downside Hedge
+											</Button>
+										</div>
+
+										<div className="flex items-center gap-2 text-xs text-muted-foreground">
+											<span>Spot: <strong className="text-foreground">₹{multiExpiryData.spotPrice.toLocaleString("en-IN")}</strong></span>
+											<span>•</span>
+											<span>Lot: <strong className="text-foreground">{multiExpiryData.lotSize}</strong></span>
+										</div>
+									</div>
+								</div>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+									{multiExpiryData.calls.map((call) => {
+										const isSelected = selectedExpiry === call.expiryDate;
+										return (
+											<div
+												key={call.expiryDate}
+												className={`rounded-xl border p-4 transition-all relative flex flex-col justify-between ${
+													call.isRecommended
+														? "border-primary/60 bg-primary/[0.04] shadow-sm ring-1 ring-primary/20"
+														: "border-border/60 bg-card hover:border-border"
+												}`}
+											>
+												{call.isRecommended && (
+													<div className="absolute -top-2.5 right-3">
+														<Badge className="bg-primary text-primary-foreground text-[10px] font-semibold px-2 py-0.5 shadow-sm flex items-center gap-1">
+															<Sparkles className="h-3 w-3" />
+															Recommended Tenure
+														</Badge>
+													</div>
+												)}
+
+												<div>
+													<div className="flex items-start justify-between gap-2 mb-2">
+														<div>
+															<div className="font-semibold text-sm flex items-center gap-1.5">
+																<span>{call.tenureLabel}</span>
+																<span className="text-xs text-muted-foreground font-normal">
+																	({call.monthName})
+																</span>
+															</div>
+															<div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+																<Clock className="h-3 w-3" />
+																<span>Expiry: {call.expiryDate}</span>
+																<span className="font-medium text-foreground">({call.dte} DTE)</span>
+															</div>
+														</div>
+														<div className="flex flex-col items-end gap-1">
+															<Badge
+																variant={call.badge.includes("Optimal") || call.badge.includes("Recommended") ? "default" : "secondary"}
+																className="text-[10px] whitespace-nowrap"
+															>
+																{call.badge}
+															</Badge>
+															{typeof call.thetaReductionPct === "number" && call.thetaReductionPct > 0 && (
+																<Badge variant="outline" className="text-[9px] px-1.5 py-0 border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium">
+																	-{call.thetaReductionPct}% Theta Drag vs M1
+																</Badge>
+															)}
+														</div>
+													</div>
+
+													{/* Strike & Premium */}
+													<div className="mt-3 p-2.5 rounded-lg bg-muted/40 border border-muted flex items-center justify-between">
+														<div>
+															<div className="text-xs text-muted-foreground font-medium">Strike (ATM)</div>
+															<div className="text-base font-bold tracking-tight">
+																{call.strikePrice} {multiExpiryOptionType}
+															</div>
+														</div>
+														<div className="text-right">
+															<div className="text-xs text-muted-foreground font-medium">LTP (Lot Cost)</div>
+															<div className="text-base font-bold text-primary">
+																₹{call.premium.toFixed(1)}
+																<span className="text-[11px] font-normal text-muted-foreground ml-1">
+																	(₹{Math.round(call.totalCostPerLot).toLocaleString("en-IN")})
+																</span>
+															</div>
+														</div>
+													</div>
+
+													{/* Quantitative & Greeks Metrics */}
+													<div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+														<div className="p-2 rounded bg-background border border-border/50">
+															<div className="text-muted-foreground text-[10px]">Daily Theta Cost</div>
+															<div className={`font-semibold text-xs mt-0.5 ${
+																call.dailyThetaCostPerLot > 1000
+																	? "text-red-500 font-bold"
+																	: call.dailyThetaCostPerLot < 400
+																	? "text-emerald-500 font-bold"
+																	: "text-amber-500"
+															}`}>
+																₹{Math.round(call.dailyThetaCostPerLot).toLocaleString("en-IN")}/day
+															</div>
+															<div className="text-[9px] text-muted-foreground">per lot decay</div>
+														</div>
+														<div className="p-2 rounded bg-background border border-border/50">
+															<div className="text-muted-foreground text-[10px]">Req. Move to BE</div>
+															<div className="font-semibold text-xs mt-0.5 text-foreground">
+																{call.breakevenMovePct > 0 ? `+${call.breakevenMovePct.toFixed(2)}%` : `${call.breakevenMovePct.toFixed(2)}%`}
+															</div>
+															<div className="text-[9px] text-muted-foreground">BE: ₹{Math.round(call.breakeven).toLocaleString("en-IN")}</div>
+														</div>
+														<div className="p-2 rounded bg-background border border-border/50">
+															<div className="text-muted-foreground text-[10px]">Probability of Profit</div>
+															<div className="font-semibold text-xs mt-0.5 text-foreground">
+																{call.pop}%
+															</div>
+															<div className="text-[9px] text-muted-foreground">Delta: {call.delta.toFixed(2)}</div>
+														</div>
+														<div className="p-2 rounded bg-background border border-border/50">
+															<div className="text-muted-foreground text-[10px]">Vega / IV</div>
+															<div className="font-semibold text-xs mt-0.5 text-foreground">
+																{call.vega.toFixed(1)} / {(call.impliedVolatility * 100).toFixed(1)}%
+															</div>
+															<div className="text-[9px] text-muted-foreground">IV Volatility</div>
+														</div>
+													</div>
+
+													{/* Institutional Note */}
+													<div className="mt-3 text-xs p-2 rounded bg-muted/20 border border-border/40 text-muted-foreground leading-relaxed">
+														<span className="font-semibold text-foreground mr-1">Institutional Note:</span>
+														{call.profitVerdict}
+													</div>
+												</div>
+
+												{/* Action Buttons: Set In Chain & 1-Click Client Dispatch */}
+												<div className="mt-4 pt-2 border-t border-border/50 grid grid-cols-2 gap-2">
+													<Button
+														size="sm"
+														variant={isSelected ? "default" : "outline"}
+														className="text-xs h-8 flex items-center justify-center gap-1"
+														onClick={() => setSelectedExpiry(call.expiryDate)}
+													>
+														{isSelected ? (
+															<>
+																<CheckCircle2 className="h-3.5 w-3.5" />
+																Active in Chain
+															</>
+														) : (
+															<>
+																<ArrowRight className="h-3.5 w-3.5" />
+																Chain ({call.expiryDate.slice(5)})
+															</>
+														)}
+													</Button>
+
+													<Button
+														size="sm"
+														className="text-xs h-8 flex items-center justify-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
+														onClick={() => {
+															setSelectedAlgoSignal({
+																id: `multi-expiry-${selectedSymbol}-${call.expiryDate}-${multiExpiryOptionType}`,
+																title: `${call.tenureLabel} ATM ${multiExpiryOptionType} (${selectedSymbol} ${call.strikePrice})`,
+																pairName: selectedSymbol,
+																legs: [
+																	{
+																		action: "BUY",
+																		type: multiExpiryOptionType,
+																		strikePrice: call.strikePrice,
+																		premium: call.premium,
+																		quantity: call.lotSize,
+																	},
+																],
+																summary: `${call.badge} - ${call.profitVerdict}`,
+																recommendedAction: "BUY",
+																entryPrice: call.premium,
+																targetPrice: call.targetPrice,
+																stopLoss: call.stoplossPrice,
+																popScore: call.pop,
+																tenure: call.tenure,
+																expiry: call.expiryDate,
+															});
+															setIsDispatchModalOpen(true);
+														}}
+													>
+														<Send className="h-3.5 w-3.5" />
+														Dispatch Pick
+													</Button>
+												</div>
+											</div>
+										);
+									})}
+								</div>
+
+								{/* Institutional Insight Footer Banner */}
+								<div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs flex items-start gap-2.5 text-blue-900 dark:text-blue-200">
+									<Info className="h-4 w-4 mt-0.5 text-blue-600 dark:text-blue-400 shrink-0" />
+									<div className="leading-relaxed">
+										<strong className="font-semibold">Institutional Advisor Guidance:</strong> {multiExpiryData.strategicSummary}
+									</div>
+								</div>
+							</CardContent>
+						</Card>
+					)}
+
 					<Card>
 						<CardHeader className="pb-2">
 							<div className="flex items-center justify-between">

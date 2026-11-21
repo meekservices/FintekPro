@@ -205,7 +205,7 @@ export class GlobalMacroTransmissionService {
 			goldenSnapshot?.commodities?.brentCrudeUsd ??
 			commodityData?.crudeOilBreakevenStatus?.brentUsd ??
 			commodityData?.commodities.find((c) => c.id === "CRUDE_OIL")?.cmxPrice ??
-			96.09;
+			74.50;
 
 		let pillar1Score = 75;
 		let p1Status: PillarScore["status"] = "FAVORABLE";

@@ -78,6 +78,7 @@ import {
 	ProspectAnalytics,
 	ClientIntelligence,
 	MarketingAnalytics,
+	AgentBulkCommunication,
 	AgentPerformanceDashboard,
 	DemoProposalsTracking,
 	AdminTaskOversight,
@@ -403,6 +404,20 @@ export function AdminRoutes() {
 						<Suspense fallback={<LoadingState variant="dashboard" />}>
 							<ZohoImportPage />
 						</Suspense>
+					</AdminLayout>
+				)}
+			</Route>
+			<Route path="/admin/bulk-communication">
+				{() => (
+					<AdminLayout>
+						<AgentBulkCommunication />
+					</AdminLayout>
+				)}
+			</Route>
+			<Route path="/admin/marketing-studio">
+				{() => (
+					<AdminLayout>
+						<AgentBulkCommunication />
 					</AdminLayout>
 				)}
 			</Route>

@@ -73,6 +73,7 @@ export interface MultiExpiryCallOption {
 	monthName: string;
 	expiryDate: string;
 	dte: number;
+	optionType: "CE" | "PE";
 	strikePrice: number;
 	spotPrice: number;
 	lotSize: number;
@@ -89,6 +90,7 @@ export interface MultiExpiryCallOption {
 	delta: number;
 	theta: number;
 	dailyThetaCostPerLot: number;
+	thetaReductionPct?: number;
 	vega: number;
 	impliedVolatility: number;
 	openInterest: number;
@@ -102,6 +104,7 @@ export interface MultiExpiryCallsComparison {
 	spotPrice: number;
 	lotSize: number;
 	atmStrike: number;
+	optionType: "CE" | "PE";
 	timestamp: string;
 	calls: MultiExpiryCallOption[];
 	recommendedTenure: "next_month";
@@ -1865,14 +1868,14 @@ class DerivativesService {
 	}
 
 	/**
-	 * Computes and compares ATM Call options across 3 monthly expiries:
-	 * 1. This Month (Near Month / M1)
-	 * 2. Next Month (Mid Month / M2)
-	 * 3. Month After (Far Month / M3)
+	 * Compute Multi-Expiry Term Structure Comparison for ATM Calls or Puts:
+	 * Near Month (M1), Next Month (M2), Month After (M3).
 	 * Evaluates profit potential, theta drag, POP, and risk:reward.
 	 */
-	async getMultiExpiryCalls(symbol: string): Promise<MultiExpiryCallsComparison> {
+	async getMultiExpiryCalls(symbol: string, optionType: "CE" | "PE" = "CE"): Promise<MultiExpiryCallsComparison> {
 		const upper = symbol.toUpperCase();
+		const optType: "CE" | "PE" = optionType === "PE" ? "PE" : "CE";
+		const isPE = optType === "PE";
 		const spotPrice = await this.getSpotPrice(upper);
 		const allExpiries = await this.getExpiryDates(upper);
 		const todayStr = new Date().toISOString().split("T")[0];
@@ -1936,7 +1939,10 @@ class DerivativesService {
 		const atmStrike = Math.round(spotPrice / strikeInterval) * strikeInterval;
 		const calls: MultiExpiryCallOption[] = [];
 
-		for (const t of tenures) {
+		let m1DailyThetaCost = 0;
+
+		for (let i = 0; i < tenures.length; i++) {
+			const t = tenures[i];
 			const dteMs = new Date(t.expiry).getTime() - Date.now();
 			const dte = Math.max(1, Math.ceil(dteMs / 86400000));
 			const chain = await this.getOptionsChain(upper, t.expiry).catch(() => null);
@@ -1947,32 +1953,42 @@ class DerivativesService {
 			let greeks: Greeks | null = null;
 			let pop = 45;
 
-			const callOption = chain?.options?.calls?.find((c) => c.strikePrice === atmStrike);
-			if (callOption && callOption.lastPrice > 0) {
-				premium = callOption.lastPrice;
-				iv = callOption.impliedVolatility || 15;
-				oi = callOption.openInterest || 0;
+			const contractOption = isPE
+				? chain?.options?.puts?.find((p) => p.strikePrice === atmStrike)
+				: chain?.options?.calls?.find((c) => c.strikePrice === atmStrike);
+
+			if (contractOption && contractOption.lastPrice > 0) {
+				premium = contractOption.lastPrice;
+				iv = contractOption.impliedVolatility || 15;
+				oi = contractOption.openInterest || 0;
 				greeks = {
-					delta: callOption.delta || 0.52,
-					gamma: callOption.gamma || 0.0004,
-					theta: callOption.theta || -12,
-					vega: callOption.vega || 25,
-					rho: callOption.rho || 0,
+					delta: contractOption.delta || (isPE ? -0.48 : 0.52),
+					gamma: contractOption.gamma || 0.0004,
+					theta: contractOption.theta || -12,
+					vega: contractOption.vega || 25,
+					rho: contractOption.rho || 0,
 					impliedVolatility: iv,
 				};
-				pop = callOption.pop || 45;
+				pop = contractOption.pop || 45;
 			} else {
 				iv = 15;
-				greeks = this.calculateGreeks(spotPrice, atmStrike, dte, iv / 100, 0.065, "call");
+				greeks = this.calculateGreeks(spotPrice, atmStrike, dte, iv / 100, 0.065, isPE ? "put" : "call");
 				premium = Math.max(0.05, Math.round(spotPrice * 0.015 * Math.sqrt(dte / 7) * 100) / 100);
 			}
 
 			// Clean premium & greeks
 			premium = Math.max(0.05, Math.round(premium * 20) / 20); // 0.05 tick
-			const delta = greeks?.delta ? Number(greeks.delta.toFixed(3)) : 0.52;
+			const delta = greeks?.delta ? Number(greeks.delta.toFixed(3)) : (isPE ? -0.48 : 0.52);
 			const theta = greeks?.theta ? Number(greeks.theta.toFixed(2)) : -10;
 			const vega = greeks?.vega ? Number(greeks.vega.toFixed(2)) : 25;
 			const dailyThetaCostPerLot = Math.round(Math.abs(theta) * lotSize);
+
+			if (i === 0) {
+				m1DailyThetaCost = dailyThetaCostPerLot;
+			}
+			const thetaReductionPct = m1DailyThetaCost > 0
+				? Math.max(0, Math.round(((m1DailyThetaCost - dailyThetaCostPerLot) / m1DailyThetaCost) * 100))
+				: 0;
 
 			// Profit parameters
 			const targetPrice = Math.round(premium * 1.8 * 100) / 100; // +80% profit target
@@ -1981,7 +1997,9 @@ class DerivativesService {
 			const maxProfitPerLot = Math.round((targetPrice - premium) * lotSize);
 			const maxLossPerLot = Math.round((premium - stoplossPrice) * lotSize);
 			const rewardToRisk = Number((maxProfitPerLot / Math.max(1, maxLossPerLot)).toFixed(2));
-			const breakeven = Math.round((atmStrike + premium) * 100) / 100;
+			const breakeven = isPE
+				? Math.round((atmStrike - premium) * 100) / 100
+				: Math.round((atmStrike + premium) * 100) / 100;
 			const breakevenMovePct = Number((((breakeven - spotPrice) / spotPrice) * 100).toFixed(2));
 
 			// Calibrated POP based on DTE and breakeven hurdle
@@ -1995,16 +2013,30 @@ class DerivativesService {
 			let profitVerdict = "";
 			let isRecommended = false;
 
-			if (t.tenure === "near_month") {
-				badge = "High Velocity / Momentum";
-				profitVerdict = `High gamma acceleration but violent theta decay (₹${dailyThetaCostPerLot}/lot/day). High probability of time decay loss if underlying consolidates.`;
-			} else if (t.tenure === "next_month") {
-				badge = "Recommended (Optimal Swing Profit)";
-				profitVerdict = `Highest risk-adjusted profit (Sharpe). Theta drag reduced by ~50-60% (₹${dailyThetaCostPerLot}/lot/day) with 35+ days runway for price breakout.`;
-				isRecommended = true;
+			if (isPE) {
+				if (t.tenure === "near_month") {
+					badge = "High Velocity / Panic Hedge";
+					profitVerdict = `High downside acceleration but violent theta decay (₹${dailyThetaCostPerLot}/lot/day). High probability of decay loss if market rebounds or consolidates.`;
+				} else if (t.tenure === "next_month") {
+					badge = "Recommended (Optimal Hedge & Put Swing)";
+					profitVerdict = `Highest risk-adjusted hedge efficiency. Theta burn reduced by ${thetaReductionPct}% (₹${dailyThetaCostPerLot}/lot/day) with 35+ days buffer for corrective momentum.`;
+					isRecommended = true;
+				} else {
+					badge = "Structural Portfolio Insurance";
+					profitVerdict = `Minimal theta erosion (₹${dailyThetaCostPerLot}/lot/day). Acts as a long-range macro hedge protecting equity portfolios against sharp market drawdowns.`;
+				}
 			} else {
-				badge = "Structural Long / Synthetic";
-				profitVerdict = `Minimal theta erosion (₹${dailyThetaCostPerLot}/lot/day) with high vega gain if IV expands. Acts as a capital-efficient synthetic stock surrogate.`;
+				if (t.tenure === "near_month") {
+					badge = "High Velocity / Momentum";
+					profitVerdict = `High gamma acceleration but violent theta decay (₹${dailyThetaCostPerLot}/lot/day). High probability of time decay loss if underlying consolidates.`;
+				} else if (t.tenure === "next_month") {
+					badge = "Recommended (Optimal Swing Profit)";
+					profitVerdict = `Highest risk-adjusted profit (Sharpe). Theta drag reduced by ${thetaReductionPct}% (₹${dailyThetaCostPerLot}/lot/day) with 35+ days runway for price breakout.`;
+					isRecommended = true;
+				} else {
+					badge = "Structural Long / Synthetic";
+					profitVerdict = `Minimal theta erosion (₹${dailyThetaCostPerLot}/lot/day) with high vega gain if IV expands. Acts as a capital-efficient synthetic stock surrogate.`;
+				}
 			}
 
 			calls.push({
@@ -2013,6 +2045,7 @@ class DerivativesService {
 				monthName,
 				expiryDate: t.expiry,
 				dte,
+				optionType: optType,
 				strikePrice: atmStrike,
 				spotPrice,
 				lotSize,
@@ -2029,6 +2062,7 @@ class DerivativesService {
 				delta,
 				theta,
 				dailyThetaCostPerLot,
+				thetaReductionPct,
 				vega,
 				impliedVolatility: iv,
 				openInterest: oi,
@@ -2038,16 +2072,25 @@ class DerivativesService {
 			});
 		}
 
+		const strategicSummary = isPE
+			? `Next Month (M2) expiry is recommended for directional put buyers and portfolio hedgers: cuts theta erosion by ~50% compared to near-month, provides 35+ days for corrective waves to materialize, and protects against near-month expiry whipsaws with a 52% probability of profit.`
+			: `Next Month (M2) expiry is recommended for directional call buyers: saves over 50% of theta decay compared to near-month, provides sufficient time for the underlying breakout to materialize, and delivers a superior 2:1 risk-to-reward ratio with 52% probability of profit.`;
+
 		return {
 			symbol: upper,
 			spotPrice,
 			lotSize,
 			atmStrike,
+			optionType: optType,
 			timestamp: new Date().toISOString(),
 			calls,
 			recommendedTenure: "next_month",
-			strategicSummary: "Next Month (M2) expiry is recommended for directional call buyers: saves over 50% of theta decay compared to near-month, provides sufficient time for the underlying breakout to materialize, and delivers a superior 2:1 risk-to-reward ratio with 52% probability of profit.",
+			strategicSummary,
 		};
+	}
+
+	async getMultiExpiryOptions(symbol: string, optionType: "CE" | "PE" = "CE"): Promise<MultiExpiryCallsComparison> {
+		return this.getMultiExpiryCalls(symbol, optionType);
 	}
 }
 

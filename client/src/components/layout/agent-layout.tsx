@@ -164,17 +164,18 @@ const agentNavCategories: NavCategory[] = [
 		icon: Target,
 		items: [
 			{
+				title: "Prospect Intelligence",
+				href: "/agent/prospects",
+				icon: UserCog,
+				description: "Cold director database & imported prospect lists",
+				badge: "Cold",
+			},
+			{
 				title: "Lead Pipeline",
 				href: "/agent/leads",
 				icon: TrendingUp,
-				description: "Manage your lead pipeline",
-			},
-			{
-				title: "HNI Wealth Intelligence",
-				href: "/agent/hni-leaderboard",
-				icon: UserCog,
-				description: "AI-scored corporate directors & wealth events",
-				badge: "AI",
+				description: "Qualified leads & active conversion stages",
+				badge: "Active",
 			},
 			{
 				title: "Deal Matcher",
@@ -187,7 +188,7 @@ const agentNavCategories: NavCategory[] = [
 				title: "Marketing Studio",
 				href: "/agent/bulk-communication",
 				icon: Send,
-				description: "Omnichannel WhatsApp, Email & SMS campaigns",
+				description: "Omnichannel campaigns for Clients & Non-Client Leads",
 				badge: "Growth",
 			},
 			{
@@ -218,7 +219,8 @@ const agentNavCategories: NavCategory[] = [
 				title: "My Clients",
 				href: "/agent/clients",
 				icon: Users,
-				description: "Client portfolio",
+				description: "KYC-verified client portfolios & AUM",
+				badge: "KYC",
 			},
 			{
 				title: "Onboard Client",

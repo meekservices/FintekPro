@@ -42,6 +42,7 @@ const LOGO_MAP: Record<string, string> = {
 	main: mainLogoImg,
 	agent: partnerLogoImg,
 	partner: partnerLogoImg,
+	ca: partnerLogoImg,
 	admin: adminLogoImg,
 };
 

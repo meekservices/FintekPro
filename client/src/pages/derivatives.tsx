@@ -104,6 +104,7 @@ export default function DerivativesPage() {
 
 	// Upstox Pro Benchmark: Option Chain View Mode & Multi-Leg Strategy Slider
 	const [chainViewMode, setChainViewMode] = useState<"prices" | "oi" | "greeks">("prices");
+	const [multiExpiryOptionType, setMultiExpiryOptionType] = useState<"CE" | "PE">("CE");
 	const [isSlideModalOpen, setIsSlideModalOpen] = useState(false);
 	const [slideStrategyConfig, setSlideStrategyConfig] = useState<{
 		strategyName: string;
@@ -204,7 +205,7 @@ export default function DerivativesPage() {
 		enabled: !!selectedSymbol,
 	});
 
-	// 3c. Fetch Multi-Expiry Calls Term Structure Analysis (This Month M1, Next Month M2, Far Month M3)
+	// 3c. Fetch Multi-Expiry Calls & Puts Term Structure Analysis (This Month M1, Next Month M2, Far Month M3)
 	const { data: multiExpiryRes, isLoading: isMultiExpiryLoading } = useQuery<{
 		success: boolean;
 		data: {
@@ -212,6 +213,7 @@ export default function DerivativesPage() {
 			spotPrice: number;
 			lotSize: number;
 			atmStrike: number;
+			optionType: "CE" | "PE";
 			recommendedTenure: string;
 			strategicSummary: string;
 			calls: Array<{
@@ -220,6 +222,7 @@ export default function DerivativesPage() {
 				monthName: string;
 				expiryDate: string;
 				dte: number;
+				optionType?: "CE" | "PE";
 				strikePrice: number;
 				spotPrice: number;
 				lotSize: number;
@@ -236,6 +239,7 @@ export default function DerivativesPage() {
 				delta: number;
 				theta: number;
 				dailyThetaCostPerLot: number;
+				thetaReductionPct?: number;
 				vega: number;
 				impliedVolatility: number;
 				openInterest: number;
@@ -245,7 +249,7 @@ export default function DerivativesPage() {
 			}>;
 		};
 	}>({
-		queryKey: [`/api/derivatives/multi-expiry-calls/${selectedSymbol}`],
+		queryKey: [`/api/derivatives/multi-expiry-calls/${selectedSymbol}?type=${multiExpiryOptionType}`],
 		enabled: !!selectedSymbol,
 	});
 
@@ -1298,7 +1302,7 @@ export default function DerivativesPage() {
 					{multiExpiryData && multiExpiryData.calls && multiExpiryData.calls.length > 0 && (
 						<Card className="border-primary/20 bg-gradient-to-b from-primary/5 via-background to-background">
 							<CardHeader className="pb-3">
-								<div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+								<div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
 									<div>
 										<div className="flex items-center gap-2">
 											<CardTitle className="text-lg flex items-center gap-2">
@@ -1310,13 +1314,36 @@ export default function DerivativesPage() {
 											</Badge>
 										</div>
 										<CardDescription className="text-xs mt-1">
-											Comparative term structure analysis for ATM Calls across <strong>Near Month (M1)</strong>, <strong>Next Month (M2)</strong>, and <strong>Far Month (M3)</strong> monthly expiries. Designed to mitigate retail theta decay trap.
+											Comparative term structure analysis for ATM {multiExpiryOptionType === "CE" ? "Calls (Directional Breakout)" : "Puts (Downside Hedge)"} across <strong>Near Month (M1)</strong>, <strong>Next Month (M2)</strong>, and <strong>Far Month (M3)</strong> monthly expiries. Mitigate retail theta decay trap.
 										</CardDescription>
 									</div>
-									<div className="flex items-center gap-3 text-xs text-muted-foreground">
-										<span>Spot: <strong className="text-foreground">₹{multiExpiryData.spotPrice.toLocaleString("en-IN")}</strong></span>
-										<span>•</span>
-										<span>Lot: <strong className="text-foreground">{multiExpiryData.lotSize}</strong></span>
+
+									<div className="flex flex-wrap items-center gap-3">
+										{/* CE / PE Segmented Toggle */}
+										<div className="flex items-center bg-muted/60 p-1 rounded-lg border border-border">
+											<Button
+												size="sm"
+												variant={multiExpiryOptionType === "CE" ? "default" : "ghost"}
+												className="h-7 text-xs px-2.5 font-medium"
+												onClick={() => setMultiExpiryOptionType("CE")}
+											>
+												Calls (CE) · Breakout
+											</Button>
+											<Button
+												size="sm"
+												variant={multiExpiryOptionType === "PE" ? "default" : "ghost"}
+												className="h-7 text-xs px-2.5 font-medium"
+												onClick={() => setMultiExpiryOptionType("PE")}
+											>
+												Puts (PE) · Downside Hedge
+											</Button>
+										</div>
+
+										<div className="flex items-center gap-2 text-xs text-muted-foreground">
+											<span>Spot: <strong className="text-foreground">₹{multiExpiryData.spotPrice.toLocaleString("en-IN")}</strong></span>
+											<span>•</span>
+											<span>Lot: <strong className="text-foreground">{multiExpiryData.lotSize}</strong></span>
+										</div>
 									</div>
 								</div>
 							</CardHeader>
@@ -1337,7 +1364,7 @@ export default function DerivativesPage() {
 													<div className="absolute -top-2.5 right-3">
 														<Badge className="bg-primary text-primary-foreground text-[10px] font-semibold px-2 py-0.5 shadow-sm flex items-center gap-1">
 															<Sparkles className="h-3 w-3" />
-															Recommended for Directional
+															Recommended Tenure
 														</Badge>
 													</div>
 												)}
@@ -1357,12 +1384,19 @@ export default function DerivativesPage() {
 																<span className="font-medium text-foreground">({call.dte} DTE)</span>
 															</div>
 														</div>
-														<Badge
-															variant={call.badge.includes("Optimal") ? "default" : "secondary"}
-															className="text-[10px] whitespace-nowrap"
-														>
-															{call.badge}
-														</Badge>
+														<div className="flex flex-col items-end gap-1">
+															<Badge
+																variant={call.badge.includes("Optimal") || call.badge.includes("Recommended") ? "default" : "secondary"}
+																className="text-[10px] whitespace-nowrap"
+															>
+																{call.badge}
+															</Badge>
+															{typeof call.thetaReductionPct === "number" && call.thetaReductionPct > 0 && (
+																<Badge variant="outline" className="text-[9px] px-1.5 py-0 border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium">
+																	-{call.thetaReductionPct}% Theta Drag vs M1
+																</Badge>
+															)}
+														</div>
 													</div>
 
 													{/* Strike & Premium */}
@@ -1370,7 +1404,7 @@ export default function DerivativesPage() {
 														<div>
 															<div className="text-xs text-muted-foreground font-medium">Strike (ATM)</div>
 															<div className="text-base font-bold tracking-tight">
-																{call.strikePrice} CE
+																{call.strikePrice} {multiExpiryOptionType}
 															</div>
 														</div>
 														<div className="text-right">
@@ -1402,7 +1436,7 @@ export default function DerivativesPage() {
 														<div className="p-2 rounded bg-background border border-border/50">
 															<div className="text-muted-foreground text-[10px]">Req. Move to BE</div>
 															<div className="font-semibold text-xs mt-0.5 text-foreground">
-																+{call.breakevenMovePct.toFixed(2)}%
+																{call.breakevenMovePct > 0 ? `+${call.breakevenMovePct.toFixed(2)}%` : `${call.breakevenMovePct.toFixed(2)}%`}
 															</div>
 															<div className="text-[9px] text-muted-foreground">BE: ₹{Math.round(call.breakeven).toLocaleString("en-IN")}</div>
 														</div>
@@ -1429,12 +1463,12 @@ export default function DerivativesPage() {
 													</div>
 												</div>
 
-												{/* Action Button */}
-												<div className="mt-4 pt-2 border-t border-border/50">
+												{/* Action Buttons: Chain Filter & 1-Click Slide to Trade */}
+												<div className="mt-4 pt-2 border-t border-border/50 grid grid-cols-2 gap-2">
 													<Button
 														size="sm"
 														variant={isSelected ? "default" : "outline"}
-														className="w-full text-xs h-8 flex items-center justify-center gap-1.5"
+														className="text-xs h-8 flex items-center justify-center gap-1"
 														onClick={() => {
 															setSelectedExpiry(call.expiryDate);
 															const chainElem = document.getElementById("option-chain-card");
@@ -1446,14 +1480,42 @@ export default function DerivativesPage() {
 														{isSelected ? (
 															<>
 																<CheckCircle2 className="h-3.5 w-3.5" />
-																Active in Chain ({call.expiryDate})
+																In Chain
 															</>
 														) : (
 															<>
 																<ArrowRight className="h-3.5 w-3.5" />
-																Select {call.tenureLabel} ({call.expiryDate})
+																Chain ({call.expiryDate.slice(5)})
 															</>
 														)}
+													</Button>
+
+													<Button
+														size="sm"
+														className="text-xs h-8 flex items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+														onClick={() => {
+															setSlideStrategyConfig({
+																strategyName: `${call.tenureLabel} ATM ${multiExpiryOptionType} (${selectedSymbol} ${call.strikePrice})`,
+																legs: [
+																	{
+																		action: "BUY",
+																		type: multiExpiryOptionType,
+																		strikePrice: call.strikePrice,
+																		premium: call.premium,
+																		quantity: call.lotSize,
+																	},
+																],
+																recoPrice: call.premium,
+																isCredit: false,
+																marginRequired: call.totalCostPerLot,
+																maxProfit: call.maxProfitPerLot,
+																maxLoss: call.maxLossPerLot,
+															});
+															setIsSlideModalOpen(true);
+														}}
+													>
+														<Zap className="h-3.5 w-3.5 fill-current" />
+														Slide Order
 													</Button>
 												</div>
 											</div>
@@ -1465,7 +1527,7 @@ export default function DerivativesPage() {
 								<div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs flex items-start gap-2.5 text-blue-900 dark:text-blue-200">
 									<Info className="h-4 w-4 mt-0.5 text-blue-600 dark:text-blue-400 shrink-0" />
 									<div className="leading-relaxed">
-										<strong className="font-semibold">Institutional Gap Analysis:</strong> Retail option buyers overwhelmingly concentrate on Near-Month (M1) with &lt;7 DTE, absorbing massive theta burn (e.g. ₹{Math.round(multiExpiryData.calls[0]?.dailyThetaCostPerLot || 1000).toLocaleString("en-IN")}/day) where market makers harvest premium decay. Rolling directional exposures out to <strong>Next-Month (M2)</strong> slashes time decay by over 50% while giving directional breakout moves sufficient time to play out without being stopped out by time erosion.
+										<strong className="font-semibold">Institutional Gap Analysis:</strong> {multiExpiryData.strategicSummary}
 									</div>
 								</div>
 							</CardContent>
