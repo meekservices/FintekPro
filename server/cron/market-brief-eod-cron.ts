@@ -104,7 +104,7 @@ export async function runMarketBriefEodJob(targetRegion?: string): Promise<EodEx
 
 /**
  * Initializes node-cron background schedulers for day-wise market briefs
- * Following Moneycontrol & Institutional Release Milestones:
+ * Following Official Exchange & Institutional Release Milestones:
  *   1. 08:30 IST: Pre-Market Brief (GIFT Nifty, Asian opens, overnight US close)
  *   2. 13:15 IST: Mid-Day FBIL Reference Rates & Money Market Fixing
  *   3. 16:30 IST: Post-Market EOD Equity & Commodity Settlement

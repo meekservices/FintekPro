@@ -1974,7 +1974,7 @@ export default function AgentKnowledgeMarketBrief() {
 									</CardDescription>
 								</div>
 								<div className="flex items-center gap-2 flex-wrap">
-									{/* Moneycontrol-Style Feed Status Badge */}
+									{/* Exchange Feed Status Badge */}
 									<Badge className={`text-xs font-semibold border flex items-center gap-1.5 ${
 										((briefToDisplay as any)?.qualityAudit?.status === "CORRUPTED" || ((briefToDisplay as any)?.qualityAudit?.violations?.length ?? 0) > 0)
 											? "bg-rose-100 text-rose-900 dark:bg-rose-950/80 dark:text-rose-200 border-rose-300 dark:border-rose-800"
@@ -2007,7 +2007,7 @@ export default function AgentKnowledgeMarketBrief() {
 							</div>
 						</CardHeader>
 						<CardContent className="space-y-6">
-							{/* Moneycontrol Comparison & Data Health Action Banner */}
+							{/* Data Health Action Banner */}
 							{(((briefToDisplay as any)?.qualityAudit?.violations?.length ?? 0) > 0 ||
 								(((briefToDisplay as any)?.qualityAudit?.qualityScore != null &&
 									((briefToDisplay as any)?.qualityAudit?.qualityScore ?? 100) < 95))) && (
@@ -2022,9 +2022,6 @@ export default function AgentKnowledgeMarketBrief() {
 													<h4 className="font-bold text-amber-950 dark:text-amber-200 text-sm sm:text-base">
 														Data Quality Anomaly Triggered — Action Required
 													</h4>
-													<Badge variant="outline" className="text-[10px] bg-amber-200/60 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 border-amber-400 font-bold">
-														Moneycontrol Benchmark Gap
-													</Badge>
 												</div>
 												<p className="text-xs text-amber-900/80 dark:text-amber-300/80 mt-1 leading-relaxed">
 													FintekPro Autonomous Sentinel detected discrepancies between current snapshot metrics and live exchange clearing corridors (FBIL FX, MCX Spot, or FII flows).
@@ -2064,7 +2061,7 @@ export default function AgentKnowledgeMarketBrief() {
 								</div>
 							)}
 
-							{/* Moneycontrol Benchmark: Market Breadth & Technical Sentiment */}
+							{/* Market Breadth & Technical Sentiment */}
 							{selectedRegion === "india" && (() => {
 								const meData = (briefToDisplay as any)?.multiExchangeData;
 								const bseBreadth = meData?.bseBreadth;
@@ -2095,7 +2092,7 @@ export default function AgentKnowledgeMarketBrief() {
 											<div className="flex items-center gap-2">
 												<BarChart3 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
 												<h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
-													Market Breadth & Technical Sentiment (Moneycontrol Benchmark)
+													Market Breadth & Technical Sentiment
 												</h4>
 											</div>
 											<div className="flex items-center gap-2">
