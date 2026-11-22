@@ -1445,6 +1445,9 @@ export function buildWhatsappFormattedMessage(pick: DailyPick): string {
 		`Target: ${cur}${_tgt.toLocaleString("en-IN")} (${km.isCreditStrategy ? "Profit Target" : `+${upside}%`})\n` +
 		`Stoploss: ${cur}${_sl.toLocaleString("en-IN")} (${km.isCreditStrategy ? "Stop Level" : `-${downside}%`})\n` +
 		derivDetails +
+		(km.positionSizing
+			? `Institutional Sizing: ${km.positionSizing.recommendedWeightPct}% weight (${km.positionSizing.riskBucket} risk, ~${km.positionSizing.estimatedImpactCostBps} bps impact)\n`
+			: "") +
 		(pick.timeHorizon
 			? `Horizon: ${horizonConfig[pick.timeHorizon]?.label || pick.timeHorizon}\n`
 			: "") +
@@ -10087,7 +10090,10 @@ function PickCard({
 	const { toast } = useToast();
 	const [isBasketModalOpen, setIsBasketModalOpen] = useState(false);
 	const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
-	const suggestedAllocation = pick.keyMetrics?.suggestedAllocation || 5;
+	const suggestedAllocation =
+		pick.keyMetrics?.positionSizing?.recommendedWeightPct ??
+		pick.keyMetrics?.suggestedAllocation ??
+		5;
 	const isPreIpo = isPreIpoPick(pick);
 	const isDeriv =
 		pick.category === "derivatives" ||
@@ -10280,6 +10286,28 @@ function PickCard({
 													<p className="text-[10px] text-muted-foreground mt-1">
 														Scanned corporate filings & financial news for the last 72h.
 													</p>
+												</TooltipContent>
+											</Tooltip>
+										</TooltipProvider>
+									)}
+									{/* Institutional Position Sizing & Impact Cost (FASP-AI v1.0) */}
+									{pick.keyMetrics?.positionSizing && (
+										<TooltipProvider>
+											<Tooltip>
+												<TooltipTrigger asChild>
+													<span className="text-xs px-2 py-0.5 rounded-full font-semibold border inline-flex items-center gap-1 cursor-help bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800">
+														<ShieldCheck className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+														{pick.keyMetrics.positionSizing.riskBucket?.toUpperCase()} RISK · {pick.keyMetrics.positionSizing.recommendedWeightPct}% WT
+													</span>
+												</TooltipTrigger>
+												<TooltipContent className="text-xs max-w-[280px] space-y-1">
+													<p className="font-semibold text-blue-600 dark:text-blue-400">Institutional Position Sizing (Inverse ATR)</p>
+													<p className="text-muted-foreground">Allocation: <strong>{pick.keyMetrics.positionSizing.recommendedWeightPct}%</strong> (Max Risk: {pick.keyMetrics.positionSizing.maxRiskExposurePct}%)</p>
+													<p className="text-muted-foreground">Daily Volatility (ATR): <strong>{pick.keyMetrics.positionSizing.dailyAtrPercent}%</strong></p>
+													<p className="text-muted-foreground">Liquidity Tier: <strong>{pick.keyMetrics.positionSizing.liquidityTier}</strong> (Impact: ~{pick.keyMetrics.positionSizing.estimatedImpactCostBps} bps)</p>
+													{pick.keyMetrics.positionSizing.executionAdvice && (
+														<p className="text-[10px] text-muted-foreground pt-1 border-t border-border">{pick.keyMetrics.positionSizing.executionAdvice}</p>
+													)}
 												</TooltipContent>
 											</Tooltip>
 										</TooltipProvider>

@@ -1109,9 +1109,7 @@ export default function AgentKnowledgeMarketBrief() {
 			await Promise.all([
 				refetch(),
 				refetchSentinel(),
-				queryClient.invalidateQueries({ queryKey: ["/api/knowledge-hub/market-brief/today", selectedRegion] }),
 				queryClient.invalidateQueries({ queryKey: ["/api/knowledge-hub/sentinel/health"] }),
-				queryClient.invalidateQueries({ queryKey: ["/api/knowledge-hub/market-brief/today"] }),
 			]);
 		} catch (e: any) {
 			toast({
@@ -2011,8 +2009,8 @@ export default function AgentKnowledgeMarketBrief() {
 						<CardContent className="space-y-6">
 							{/* Moneycontrol Comparison & Data Health Action Banner */}
 							{(((briefToDisplay as any)?.qualityAudit?.violations?.length ?? 0) > 0 ||
-								((briefToDisplay as any)?.qualityAudit?.qualityScore ?? 100) < 95 ||
-								briefToDisplay.id?.includes("fallback")) && (
+								(((briefToDisplay as any)?.qualityAudit?.qualityScore != null &&
+									((briefToDisplay as any)?.qualityAudit?.qualityScore ?? 100) < 95))) && (
 								<div className="p-4 rounded-xl border border-amber-300 dark:border-amber-800/80 bg-gradient-to-r from-amber-50 via-amber-100/40 to-amber-50 dark:from-amber-950/40 dark:via-amber-900/20 dark:to-amber-950/40 shadow-xs space-y-3">
 									<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 										<div className="flex items-start gap-3">
@@ -2133,7 +2131,7 @@ export default function AgentKnowledgeMarketBrief() {
 												<div className="flex flex-col">
 													<span className="text-[10px] text-muted-foreground font-medium">DII Domestic Moat</span>
 													<span className="font-bold font-mono text-emerald-600 dark:text-emerald-400">
-														+₹26,425 Cr / Mo
+														+₹{safeNum(meData?.institutionalFlows?.monthlyMfSipRunRateCr ?? meData?.institutionalFlows?.monthlySipCr, 26425).toLocaleString("en-IN")} Cr / Mo
 													</span>
 												</div>
 												<div className="flex flex-col">
@@ -3434,33 +3432,33 @@ export default function AgentKnowledgeMarketBrief() {
 														FII:{" "}
 														<strong
 															className={
-																safeNum(briefToDisplay.multiExchangeData.institutionalFlows.fiiNetInflowCr) >= 0
+																safeNum(briefToDisplay.multiExchangeData.institutionalFlows.fiiNetInflowCr ?? (briefToDisplay.multiExchangeData.institutionalFlows as any).fiiNetCr) >= 0
 																	? "text-emerald-700 dark:text-emerald-400"
 																	: "text-rose-700 dark:text-rose-400"
 															}
 														>
-															{safeNum(briefToDisplay.multiExchangeData.institutionalFlows.fiiNetInflowCr) >= 0 ? "+" : ""}
-															₹{safeNum(briefToDisplay.multiExchangeData.institutionalFlows.fiiNetInflowCr).toLocaleString("en-IN")} Cr
+															{safeNum(briefToDisplay.multiExchangeData.institutionalFlows.fiiNetInflowCr ?? (briefToDisplay.multiExchangeData.institutionalFlows as any).fiiNetCr) >= 0 ? "+" : ""}
+															₹{safeNum(briefToDisplay.multiExchangeData.institutionalFlows.fiiNetInflowCr ?? (briefToDisplay.multiExchangeData.institutionalFlows as any).fiiNetCr).toLocaleString("en-IN")} Cr
 														</strong>
 													</span>
 													<span>
 														DII:{" "}
 														<strong
 															className={
-																safeNum(briefToDisplay.multiExchangeData.institutionalFlows.diiNetInflowCr) >= 0
+																safeNum(briefToDisplay.multiExchangeData.institutionalFlows.diiNetInflowCr ?? (briefToDisplay.multiExchangeData.institutionalFlows as any).diiNetCr) >= 0
 																	? "text-emerald-700 dark:text-emerald-400"
 																	: "text-rose-700 dark:text-rose-400"
 															}
 														>
-															{safeNum(briefToDisplay.multiExchangeData.institutionalFlows.diiNetInflowCr) >= 0 ? "+" : ""}
-															₹{safeNum(briefToDisplay.multiExchangeData.institutionalFlows.diiNetInflowCr).toLocaleString("en-IN")} Cr
+															{safeNum(briefToDisplay.multiExchangeData.institutionalFlows.diiNetInflowCr ?? (briefToDisplay.multiExchangeData.institutionalFlows as any).diiNetCr) >= 0 ? "+" : ""}
+															₹{safeNum(briefToDisplay.multiExchangeData.institutionalFlows.diiNetInflowCr ?? (briefToDisplay.multiExchangeData.institutionalFlows as any).diiNetCr).toLocaleString("en-IN")} Cr
 														</strong>
 													</span>
 												</div>
 												<div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1 pt-1 border-t border-border">
 													<span>
 														Monthly SIP: ₹
-														{safeNum(briefToDisplay.multiExchangeData.institutionalFlows.monthlyMfSipRunRateCr, 26425).toLocaleString("en-IN")} Cr
+														{safeNum(briefToDisplay.multiExchangeData.institutionalFlows.monthlyMfSipRunRateCr ?? (briefToDisplay.multiExchangeData.institutionalFlows as any).monthlySipCr, 26425).toLocaleString("en-IN")} Cr
 													</span>
 													<span className="truncate">{briefToDisplay.multiExchangeData.institutionalFlows.liquidityRegime ?? "SIP Moat Active"}</span>
 												</div>
@@ -4032,14 +4030,14 @@ export default function AgentKnowledgeMarketBrief() {
 								<div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
 									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
 										<span className="text-[10px] text-muted-foreground block">FII / FPI Net Flow</span>
-										<span className={`text-lg font-bold font-mono ${safeNum(activeExplainerModal.data.fiiNetInflowCr) >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
-											{safeNum(activeExplainerModal.data.fiiNetInflowCr) >= 0 ? "+" : ""}₹{safeNum(activeExplainerModal.data.fiiNetInflowCr).toLocaleString("en-IN")} Cr
+										<span className={`text-lg font-bold font-mono ${safeNum(activeExplainerModal.data.fiiNetInflowCr ?? activeExplainerModal.data.fiiNetCr) >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
+											{safeNum(activeExplainerModal.data.fiiNetInflowCr ?? activeExplainerModal.data.fiiNetCr) >= 0 ? "+" : ""}₹{safeNum(activeExplainerModal.data.fiiNetInflowCr ?? activeExplainerModal.data.fiiNetCr).toLocaleString("en-IN")} Cr
 										</span>
 									</div>
 									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
 										<span className="text-[10px] text-muted-foreground block">DII Domestic Net Flow</span>
-										<span className={`text-lg font-bold font-mono ${safeNum(activeExplainerModal.data.diiNetInflowCr) >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
-											{safeNum(activeExplainerModal.data.diiNetInflowCr) >= 0 ? "+" : ""}₹{safeNum(activeExplainerModal.data.diiNetInflowCr).toLocaleString("en-IN")} Cr
+										<span className={`text-lg font-bold font-mono ${safeNum(activeExplainerModal.data.diiNetInflowCr ?? activeExplainerModal.data.diiNetCr) >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
+											{safeNum(activeExplainerModal.data.diiNetInflowCr ?? activeExplainerModal.data.diiNetCr) >= 0 ? "+" : ""}₹{safeNum(activeExplainerModal.data.diiNetInflowCr ?? activeExplainerModal.data.diiNetCr).toLocaleString("en-IN")} Cr
 										</span>
 									</div>
 									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
@@ -4066,7 +4064,7 @@ export default function AgentKnowledgeMarketBrief() {
 									<div className="p-2 rounded bg-background border border-border">
 										<span className="text-[10px] text-muted-foreground block">Monthly MF SIP Moat</span>
 										<span className="font-mono font-semibold text-blue-700 dark:text-blue-400 text-xs">
-											₹{safeNum(activeExplainerModal.data.monthlyMfSipRunRateCr, 26425).toLocaleString("en-IN")} Cr / mo
+											₹{safeNum(activeExplainerModal.data.monthlyMfSipRunRateCr ?? activeExplainerModal.data.monthlySipCr, 26425).toLocaleString("en-IN")} Cr / mo
 										</span>
 									</div>
 									<div className="p-2 rounded bg-background border border-border">
@@ -4083,10 +4081,10 @@ export default function AgentKnowledgeMarketBrief() {
 										The Domestic SIP Moat Structure & Absorption Thesis
 									</h4>
 									<div className="font-mono bg-card/80 p-2 rounded border border-border text-[11px] text-foreground">
-										Absorption Ratio = |DII Net Buying| / |FII Net Selling| = ₹{Math.abs(safeNum(activeExplainerModal.data.diiNetInflowCr)).toLocaleString("en-IN")} Cr / ₹{Math.max(1, Math.abs(safeNum(activeExplainerModal.data.fiiNetInflowCr))).toLocaleString("en-IN")} Cr = {safeNum(activeExplainerModal.data.absorptionRatio, 1.0)}x
+										Absorption Ratio = |DII Net Buying| / |FII Net Selling| = ₹{Math.abs(safeNum(activeExplainerModal.data.diiNetInflowCr ?? activeExplainerModal.data.diiNetCr)).toLocaleString("en-IN")} Cr / ₹{Math.max(1, Math.abs(safeNum(activeExplainerModal.data.fiiNetInflowCr ?? activeExplainerModal.data.fiiNetCr))).toLocaleString("en-IN")} Cr = {safeNum(activeExplainerModal.data.absorptionRatio, 1.0)}x
 									</div>
 									<p className="text-muted-foreground leading-relaxed">
-										Over the last decade, India's mutual fund industry has undergone a monumental structural shift. With monthly SIP inflows surpassing ₹{safeNum(activeExplainerModal.data.monthlyMfSipRunRateCr, 26425).toLocaleString("en-IN")}+ Crore, domestic capital acts as an insurmountable counter-cyclical liquidity cushion. While foreign portfolio investors (FPIs) rebalance due to US dollar strength or US Treasury yield spikes, domestic institutional buying absorbs foreign sales without triggering systemic market contagion.
+										Over the last decade, India's mutual fund industry has undergone a monumental structural shift. With monthly SIP inflows surpassing ₹{safeNum(activeExplainerModal.data.monthlyMfSipRunRateCr ?? activeExplainerModal.data.monthlySipCr, 26425).toLocaleString("en-IN")}+ Crore, domestic capital acts as an insurmountable counter-cyclical liquidity cushion. While foreign portfolio investors (FPIs) rebalance due to US dollar strength or US Treasury yield spikes, domestic institutional buying absorbs foreign sales without triggering systemic market contagion.
 									</p>
 								</div>
 
@@ -4097,7 +4095,7 @@ export default function AgentKnowledgeMarketBrief() {
 									</h4>
 									<ul className="list-disc list-inside space-y-1 text-muted-foreground">
 										<li>
-											<strong>Countering Media FPI Panic:</strong> When clients read alarming headlines about "Foreign investors pulling out billions", show them this data: Domestic DIIs registered net {safeNum(activeExplainerModal.data.diiNetInflowCr) >= 0 ? "inflows of ₹" : "outflows of ₹"}{Math.abs(safeNum(activeExplainerModal.data.diiNetInflowCr)).toLocaleString("en-IN")} Cr, providing a {safeNum(activeExplainerModal.data.absorptionRatio, 1.0)}x absorption buffer against foreign institutional outflows.
+											<strong>Countering Media FPI Panic:</strong> When clients read alarming headlines about "Foreign investors pulling out billions", show them this data: Domestic DIIs registered net {safeNum(activeExplainerModal.data.diiNetInflowCr ?? activeExplainerModal.data.diiNetCr) >= 0 ? "inflows of ₹" : "outflows of ₹"}{Math.abs(safeNum(activeExplainerModal.data.diiNetInflowCr ?? activeExplainerModal.data.diiNetCr)).toLocaleString("en-IN")} Cr, providing a {safeNum(activeExplainerModal.data.absorptionRatio, 1.0)}x absorption buffer against foreign institutional outflows.
 										</li>
 										<li>
 											<strong>Rupee Wealth Compounding:</strong> Indian household financialization ensures retail capital continues to drive long-term equity capital formation.
