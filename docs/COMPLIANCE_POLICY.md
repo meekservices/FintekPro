@@ -57,11 +57,15 @@ Because product classes and regulatory jurisdictions operate under distinct stat
 - **Client-Facing Algorithmic Trading Policy (Portal Users)**: [`POLICY_AND_SOP_CLIENT_ALGO_TRADING.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/POLICY_AND_SOP_CLIENT_ALGO_TRADING.md) (FINTEK-POL-CLI-ALGO-2026-01: Extending algo facilities to portal users, SEBI anti-pooling in client segregated demat accounts via broker APIs, Track A non-discretionary 1-click biometric rebalance for Retail/RIA vs Track B discretionary sweeps for PMS $\ge$ ₹50L, 9-gate pre-trade RMS, voluntary 12-hr cooling-off kill switch, 7-year WORM audit).
 
 #### B. Regulatory & Technological Infrastructure SOPs
+- **Commercial Website Operations, Fee Collection & Multi-Regulator Billing Policy & SOP**: [`POLICY_AND_SOP_WEBSITE_COMMERCIAL_FEE_COLLECTION.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/POLICY_AND_SOP_WEBSITE_COMMERCIAL_FEE_COLLECTION.md) (FINTEK-POL-SOP-COMM-FEES-2026-01: 100% adherence zero-exception mandate across SEBI fee caps, CeFCoM mechanism, RBI PA/PG and 24-hr pre-debit e-mandates, CCPA Dark Patterns 2023 anti-drip pricing, E-Commerce 2020 footer disclosures, DPDP Act 2023, and 18% GST tax invoicing).
+- **Multi-Regulator AI Compliance Framework**: [`multi_regulator_ai_compliance_policy.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/ai-policy/multi_regulator_ai_compliance_policy.md) (Master compliance standard harmonizing SEBI, RBI, CBDT, DPDP Act 2023, MeitY, FIU-IND, IRDAI, PFRDA, AMFI, and CERT-In).
 - **AI Advisory Governance & Model Risk SOP**: [`SOP_AI_ADVISORY_AND_MODEL_GOVERNANCE.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_AI_ADVISORY_AND_MODEL_GOVERNANCE.md) (SEBI AI/ML intermediary circular, model inventory Tiers 1–3, legal non-delegation, retail backtest marketing ban, 3.5σ drift fallback, Global Kill-Switch SOP).
+- **Income Tax Statutory Amendment Ingestion SOP**: [`SOP_TAX_AMENDMENT_MANAGEMENT_AND_PATCHING.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_TAX_AMENDMENT_MANAGEMENT_AND_PATCHING.md) (Statutory tax rate resolution, grandfathering under Section 55(2)(ac), Section 111A/112A capital gains, dual authorization, CA portal sync).
 - **DPDP Data Privacy & LLM Sanitization SOP**: [`SOP_DPDP_DATA_PRIVACY_AND_LLM_FIREWALL.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_DPDP_DATA_PRIVACY_AND_LLM_FIREWALL.md) (DPDP Act 2023, pre-prompt PII firewall stripping Aadhaar/PAN/Bank details before external LLMs, Zero Data Retention, client right to human review, MeitY AI watermarking).
 - **RBI Digital Lending & MRM SOP**: [`SOP_RBI_DIGITAL_LENDING_AND_MRM.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_RBI_DIGITAL_LENDING_AND_MRM.md) (RBI Digital Lending Guidelines, strict device privacy banning contact/SMS harvesting, KFS generation, 3-day cooling-off window, direct borrower-to-RE loan disbursals, statutory LTV caps).
 - **AML, PMLA & Sanctions Screening SOP**: [`SOP_AML_PMLA_AND_SANCTIONS_SCREENING.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_AML_PMLA_AND_SANCTIONS_SCREENING.md) (FIU-IND, automated AML anomaly detection, daily MHA UAPA / UNSC / PEP screening, human Principal Officer review before STR/CTR filings).
 - **CERT-In Cyber Incident & Time Sync SOP**: [`SOP_CERTIN_CYBER_INCIDENT_AND_TIME_SYNC.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_CERTIN_CYBER_INCIDENT_AND_TIME_SYNC.md) (Mandatory 6-hour incident reporting window to CERT-In and SEBI, NPL/NIC NTP server time sync within ±50ms, 5–7 year sovereign in-country log retention).
+- **Redis Infrastructure & Scalable Architecture Policy**: [`REDIS_ACTIVATION_AND_INFRASTRUCTURE_POLICY.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/REDIS_ACTIVATION_AND_INFRASTRUCTURE_POLICY.md) (Operational Tier 1 Redis acceleration with PostgreSQL 7-year WORM audit store for multi-pod Cloud Run consistency).
 - **Third-Party Partner & Broker API Governance SOP**: [`SOP_PARTNER_BROKER_AND_API_INTEGRATIONS.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/SOP_PARTNER_BROKER_AND_API_INTEGRATIONS.md) (Standard operating procedures for Upstox API v2, KFintech IRIS Hub, Alpaca Broker API, and Smallcase Gateway: token lifecycles, circuit breakers, self-healing fallbacks, FEMA LRS cash accounts, and CERT-In/SEBI audit logging).
 
 ---
@@ -162,7 +166,30 @@ Operates under the master **FintekPro Multi-Regulator AI Compliance Framework (M
 
 ---
 
-## 7. Compliance Verification & Escalation Cadence
+## 7. Commercial Website Operations & Multi-Regulator Fee Collection (Zero-Exception Mandate)
+
+Governed under [`POLICY_AND_SOP_WEBSITE_COMMERCIAL_FEE_COLLECTION.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/POLICY_AND_SOP_WEBSITE_COMMERCIAL_FEE_COLLECTION.md) (FINTEK-POL-SOP-COMM-FEES-2026-01):
+
+1. **SEBI IA Fee Caps & CeFCoM**:
+   - Fixed fee cap $\le ₹1,25,000$ per annum per client family; AUA fee cap $\le 2.5\%$ p.a.
+   - Advance fee collections cannot exceed **2 quarters (6 months)**.
+   - Centralized Fee Collection Mechanism (CeFCoM - Circular Sept 13, 2024) must be offered on all advisory/research billing portals alongside verified banking channels. Cash payments are illegal.
+   - Advisory clients paying advisory fees are strictly segregated from distribution commissions (Reg 22).
+2. **RBI Payment Aggregator & e-Mandate Framework**:
+   - Collections must route exclusively through RBI-authorized Payment Aggregators (Razorpay/Cashfree/etc.). Unlicensed pool or proprietary transit escrow accounts are prohibited.
+   - Recurring subscriptions require initial AFA registration, mandatory **24-hour pre-debit alerts** (SMS/Email), and immediate 1-click self-service cancellation.
+   - Card-on-File Tokenization (CoFT): Raw card PANs and CVVs must never be stored on application databases or logs.
+3. **CCPA Dark Patterns Prevention 2023 & Consumer Disclosures**:
+   - Zero drip pricing: All fee amounts shown must be clear and all-inclusive of 18% GST prior to checkout initiation.
+   - Zero forced continuity: Pre-checked checkboxes for auto-renewals or add-on packages are strictly banned.
+   - Mandatory footer disclosures: Legal entity name, CIN, registered office, Grievance Officer details, Terms, and Privacy Policy.
+4. **August 2024 SEBI Finfluencer Ban**:
+   - Absolute prohibition on paying referral commissions, lead-generation bounties, or revenue-sharing to unregistered financial influencers or tipsters.
+5. **Enforcement Standard**: **100% Perpetual Adherence — Strictly Zero Exception**. Any violation triggers automatic service disconnection and immediate Compliance Officer escalation.
+
+---
+
+## 8. Compliance Verification & Escalation Cadence
 
 ```mermaid
 flowchart LR

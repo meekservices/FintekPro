@@ -96,7 +96,7 @@ router.get("/history", requireAuth, async (req: any, res) => {
 
 		const history = await getUserSubscriptionHistory(userId);
 		res.json({ success: true, history });
-	} catch (err: any) {
+	} catch {
 		res.status(500).json({ error: "Failed to fetch subscription history" });
 	}
 });
@@ -147,6 +147,10 @@ router.post("/checkout", requireAuth, async (req: any, res) => {
 			paymentSessionId: order.paymentSessionId,
 			paymentUrl: order.paymentUrl,
 			amountInr,
+			baseAmountInr: order.baseAmountInr,
+			gstAmountInr: order.gstAmountInr,
+			sacCode: order.sacCode,
+			rpeVerified: order.rpeVerified,
 			tier,
 			cycle,
 		});

@@ -699,7 +699,7 @@ router.get(
 				regulatoryBasis:
 					"AMFI Circular 135/BP/22/2018-19 — ARN renewal mandatory every 3 years",
 			});
-		} catch (err: unknown) {
+		} catch {
 			res
 				.status(500)
 				.json({ success: false, message: "ARN validation failed" });
@@ -728,7 +728,7 @@ router.get(
 				euinNumber: euinNumber.toUpperCase(),
 				...result,
 			});
-		} catch (err: unknown) {
+		} catch {
 			res
 				.status(500)
 				.json({ success: false, message: "EUIN validation failed" });
@@ -809,7 +809,7 @@ router.get(
 			const status =
 				await nomineeEnforcementService.checkNomineeCompliance(userId);
 			res.json({ success: true, ...status });
-		} catch (err) {
+		} catch {
 			res
 				.status(500)
 				.json({ success: false, message: "Failed to check nominee status" });
@@ -835,12 +835,78 @@ router.post(
 				message:
 					"Nominee opt-out recorded. You can add a nominee at any time from your profile.",
 			});
-		} catch (err: unknown) {
+		} catch {
 			res
 				.status(500)
 				.json({ success: false, message: "Failed to record opt-out" });
 		}
 	},
 );
+
+// ─── Regulatory Prohibition Engine (RPE v1.0: "What CANNOT Be Done") ────────
+
+router.get("/prohibitions/matrix", (_req: Request, res: Response) => {
+	const { regulatoryProhibitionEngine } = require("../services/regulatory-prohibition-engine");
+	const matrix = regulatoryProhibitionEngine.getProhibitionRegistry();
+	res.json({
+		success: true,
+		data: matrix,
+		meta: {
+			totalRules: Object.keys(matrix).length,
+			engineVersion: "1.0.0-PROHIBITION-CHECKER-2026",
+			timestamp: new Date().toISOString(),
+		},
+	});
+});
+
+router.post("/prohibitions/validate/pricing", (req: Request, res: Response) => {
+	const { regulatoryProhibitionEngine } = require("../services/regulatory-prohibition-engine");
+	const result = regulatoryProhibitionEngine.checkPricingAndCheckout(req.body);
+	res.status(result.passed ? 200 : 422).json({
+		success: result.passed,
+		data: result,
+		meta: { timestamp: result.timestamp, version: result.engineVersion },
+	});
+});
+
+router.post("/prohibitions/validate/advisory-fee", (req: Request, res: Response) => {
+	const { regulatoryProhibitionEngine } = require("../services/regulatory-prohibition-engine");
+	const result = regulatoryProhibitionEngine.checkAdvisoryFee(req.body);
+	res.status(result.passed ? 200 : 422).json({
+		success: result.passed,
+		data: result,
+		meta: { timestamp: result.timestamp, version: result.engineVersion },
+	});
+});
+
+router.post("/prohibitions/validate/marketing", (req: Request, res: Response) => {
+	const { regulatoryProhibitionEngine } = require("../services/regulatory-prohibition-engine");
+	const result = regulatoryProhibitionEngine.checkMarketingContent(req.body);
+	res.status(result.passed ? 200 : 422).json({
+		success: result.passed,
+		data: result,
+		meta: { timestamp: result.timestamp, version: result.engineVersion },
+	});
+});
+
+router.post("/prohibitions/validate/partner", (req: Request, res: Response) => {
+	const { regulatoryProhibitionEngine } = require("../services/regulatory-prohibition-engine");
+	const result = regulatoryProhibitionEngine.checkPartnerOnboarding(req.body);
+	res.status(result.passed ? 200 : 422).json({
+		success: result.passed,
+		data: result,
+		meta: { timestamp: result.timestamp, version: result.engineVersion },
+	});
+});
+
+router.post("/prohibitions/validate/footer", (req: Request, res: Response) => {
+	const { regulatoryProhibitionEngine } = require("../services/regulatory-prohibition-engine");
+	const result = regulatoryProhibitionEngine.checkWebsiteFooterDisclosures(req.body);
+	res.status(result.passed ? 200 : 422).json({
+		success: result.passed,
+		data: result,
+		meta: { timestamp: result.timestamp, version: result.engineVersion },
+	});
+});
 
 export default router;

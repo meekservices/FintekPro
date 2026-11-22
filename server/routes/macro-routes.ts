@@ -18,7 +18,6 @@ import { msciFactorService } from "../services/macro/msci-factor-service";
 import { globalFiiTrackerEngine } from "../services/macro/global-fii-tracker-engine";
 import { globalCreditCycleService } from "../services/macro/global-credit-cycle-service";
 import { usMacroIndicatorsService } from "../services/macro/us-macro-indicators-service";
-import { goldenPricingEngine } from "../services/golden-pricing/GoldenPricingEngine";
 import { logger } from "../logger";
 
 export function registerMacroRoutes(app: Express): void {

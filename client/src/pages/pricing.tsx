@@ -452,6 +452,10 @@ function PaymentModal({ tier, cycle, onClose }: PaymentModalProps) {
 				: "₹999/month"
 			: "₹25,000/year";
 
+	const numAmount = tier === "pro" ? (cycle === "annual" ? 9999 : 999) : 25000;
+	const baseAmount = Math.round((numAmount / 1.18) * 100) / 100;
+	const gstAmount = Math.round((numAmount - baseAmount) * 100) / 100;
+
 	return (
 		<div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
 			<div className="bg-background rounded-2xl border shadow-xl max-w-md w-full p-6 space-y-5">
@@ -469,35 +473,59 @@ function PaymentModal({ tier, cycle, onClose }: PaymentModalProps) {
 
 				<Separator />
 
+				{/* Upfront Transparent Price Breakdown (CCPA Anti-Drip Pricing Compliant) */}
+				<div className="rounded-lg bg-muted/50 p-3.5 space-y-2 text-xs border border-border/80">
+					<div className="font-semibold text-foreground text-xs uppercase tracking-wider mb-1">
+						Transparent Tax Breakdown (No Hidden Fees)
+					</div>
+					<div className="flex justify-between text-muted-foreground">
+						<span>Base Software Plan:</span>
+						<span className="font-mono text-foreground">₹{baseAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+					</div>
+					<div className="flex justify-between text-muted-foreground">
+						<span>Standard GST (18% • SAC 998313):</span>
+						<span className="font-mono text-foreground">₹{gstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+					</div>
+					<Separator className="my-1" />
+					<div className="flex justify-between font-bold text-sm text-foreground">
+						<span>Total Payable Amount:</span>
+						<span className="font-mono text-blue-600 dark:text-blue-400">₹{numAmount.toLocaleString("en-IN")}</span>
+					</div>
+				</div>
+
 				<div className="space-y-3 text-sm">
 					<div className="flex items-center gap-3 rounded-lg bg-muted/40 p-3">
 						<LucideShield className="h-5 w-5 text-green-500 shrink-0" />
 						<div>
 							<div className="font-medium">Secure payment via Cashfree</div>
 							<div className="text-xs text-muted-foreground">
-								UPI, Netbanking, Cards, Wallets accepted
+								UPI, Netbanking, Cards (RBI Tokenized), Wallets accepted
 							</div>
 						</div>
 					</div>
 					<div className="flex items-center gap-3 rounded-lg bg-muted/40 p-3">
 						<Check className="h-5 w-5 text-blue-500 shrink-0" />
 						<div>
-							<div className="font-medium">Instant activation</div>
+							<div className="font-medium">Instant activation & 1-Click Cancel</div>
 							<div className="text-xs text-muted-foreground">
-								Your plan upgrades immediately after payment
+								Plan upgrades immediately. Subscriptions can be paused or cancelled anytime.
 							</div>
 						</div>
 					</div>
 					<div className="flex items-center gap-3 rounded-lg bg-muted/40 p-3">
 						<FileText className="h-5 w-5 text-purple-500 shrink-0" />
 						<div>
-							<div className="font-medium">GST Invoice provided</div>
+							<div className="font-medium">Automated GST Tax Invoice</div>
 							<div className="text-xs text-muted-foreground">
-								18% GST included, invoice sent to your email
+								Digitally signed tax invoice sent instantly to your email
 							</div>
 						</div>
 					</div>
 				</div>
+
+				<p className="text-[11px] text-muted-foreground leading-tight">
+					🛡️ <strong>RBI e-Mandate Protection:</strong> Recurring plans receive an automated 24-hour pre-debit alert and can be cancelled anytime in 1 click under RBI directives. Zero surprise markups at checkout (CCPA compliant).
+				</p>
 
 				<div className="flex gap-3">
 					<Button variant="outline" className="flex-1" onClick={onClose}>
@@ -657,6 +685,21 @@ export default function PricingPage() {
 					</div>
 				)}
 
+				{/* Regulatory Transparency & Anti-Dark-Pattern Disclosures */}
+				<div className="rounded-xl border border-border/80 bg-muted/30 p-4 text-xs text-muted-foreground flex flex-col md:flex-row items-center justify-between gap-3">
+					<div className="flex items-center gap-2">
+						<LucideShield className="h-4 w-4 text-green-500 shrink-0" />
+						<span>
+							<strong>100% Transparent Pricing:</strong> All plan prices are inclusive of 18% GST (SAC 998313). Strictly zero hidden convenience fees or checkout markups (CCPA Dark Patterns Prevention Compliant).
+						</span>
+					</div>
+					<div className="flex items-center gap-2">
+						<Badge variant="outline" className="text-[11px] font-normal border-blue-400/50 bg-blue-50/50 dark:bg-blue-950/30">
+							SEBI CeFCoM & RBI e-Mandate Compliant
+						</Badge>
+					</div>
+				</div>
+
 				{/* ARPU Context */}
 				<div className="rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border border-blue-100 dark:border-blue-900 p-8">
 					<div className="text-center mb-8">
@@ -681,13 +724,13 @@ export default function PricingPage() {
 					</div>
 				)}
 
-				{/* ARPU projections */}
+				{/* Platform Economic Value Context */}
 				<div className="rounded-2xl border bg-card p-8">
 					<h2 className="text-2xl font-bold mb-2 text-center">
-						Expected returns by tier
+						Platform Commercial Value & Economics by Tier
 					</h2>
 					<p className="text-sm text-muted-foreground text-center mb-6">
-						What investors typically earn annually across each plan
+						Estimated annualized platform value and economics realized across each tier (Not an investment return guarantee)
 					</p>
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 						{[

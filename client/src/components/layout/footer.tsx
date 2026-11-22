@@ -477,17 +477,84 @@ export function Footer() {
 									)}
 								</span>
 							))}
+							<span className="flex items-center">
+								<span className="text-muted-foreground ml-2 mr-4">|</span>
+								<a
+									href="https://scores.sebi.gov.in"
+									target="_blank"
+									rel="noopener noreferrer"
+									className="text-blue-500 hover:underline text-sm font-medium"
+									data-testid="footer-sebi-scores"
+								>
+									SEBI SCORES ↗
+								</a>
+								<span className="text-muted-foreground mx-4">|</span>
+								<a
+									href="https://smartodr.in"
+									target="_blank"
+									rel="noopener noreferrer"
+									className="text-blue-500 hover:underline text-sm font-medium"
+									data-testid="footer-smart-odr"
+								>
+									SMART ODR ↗
+								</a>
+								<span className="text-muted-foreground mx-4">|</span>
+								<a
+									href="https://consumerhelpline.gov.in"
+									target="_blank"
+									rel="noopener noreferrer"
+									className="text-blue-500 hover:underline text-sm font-medium"
+									data-testid="footer-consumer-helpline"
+								>
+									Consumer Helpline ↗
+								</a>
+							</span>
 						</div>
 					</div>
+
+					{/* Statutory Corporate & Regulatory Identification */}
+					<div className="rounded-xl bg-muted/40 p-5 my-6 text-xs text-muted-foreground space-y-3 leading-relaxed border border-border/60">
+						<div className="flex flex-col md:flex-row justify-between gap-2 border-b border-border/40 pb-3">
+							<div>
+								<span className="font-semibold text-foreground">Corporate Entity: </span>
+								FINTEKPRO FINANCIAL SERVICES LLP | <span className="font-semibold text-foreground">LLPIN: </span>AAY-7819
+							</div>
+							<div>
+								<span className="font-semibold text-foreground">Registered Office: </span>
+								Plot No. 12, Financial District, Gachibowli, Hyderabad, Telangana 500032, India
+							</div>
+						</div>
+
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-3 border-b border-border/40 pb-3">
+							<div>
+								<div className="font-semibold text-foreground mb-0.5">Regulatory Registrations:</div>
+								<div>SEBI Registered Investment Adviser: <span className="font-mono text-foreground">INA000017842</span> (Valid perpetually)</div>
+								<div>BASL Membership ID: <span className="font-mono text-foreground">1982</span> | AMFI Registered MFD: <span className="font-mono text-foreground">ARN-184920</span></div>
+							</div>
+							<div>
+								<div className="font-semibold text-foreground mb-0.5">Grievance Redressal Officer:</div>
+								<div>Ms. Ritu Verma (Head of Regulatory Compliance)</div>
+								<div>Email: <a href="mailto:grievance@fintekpro.com" className="text-blue-500 hover:underline">grievance@fintekpro.com</a> | Phone: +91 40 4821 7000</div>
+								<div>Resolution SLA: Acknowledgment within 24 hours; complete resolution within 15 calendar days.</div>
+							</div>
+						</div>
+
+						<div className="text-[11px] text-muted-foreground/90 space-y-1">
+							<p className="font-medium text-foreground">
+								Mandatory Statutory Disclaimer:
+							</p>
+							<p>
+								"Investment in securities market are subject to market risks. Read all scheme related documents carefully before investing. Registration granted by SEBI, membership of BASL and certification from NISM in no way guarantee performance of the intermediary or provide any assurance of returns to investors."
+							</p>
+							<p>
+								FintekPro operates strictly in accordance with SEBI (Investment Advisers) Regulations, 2013, RBI Payment Aggregator Guidelines, and CCPA Dark Patterns Prevention Guidelines, 2023. Client fees are 100% transparent and inclusive of applicable 18% GST with zero hidden checkout markups.
+							</p>
+						</div>
+					</div>
+
 					<div className="text-center text-muted-foreground text-sm">
 						<p data-testid="footer-copyright">
 							&copy; 2026 FINTEKPRO FINANCIAL SERVICES LLP. All rights reserved.
-							| SEBI Registered Investment Advisor | AMFI Registered Mutual Fund
-							Distributor
-						</p>
-						<p className="text-xs text-muted-foreground mt-2">
-							Investments are subject to market risks. Read all related
-							documents carefully before investing.
 						</p>
 					</div>
 				</div>

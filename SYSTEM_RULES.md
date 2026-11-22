@@ -468,6 +468,29 @@ To prevent intellectual property infringement, trademark dilution, and violation
    - ✅ "Multi-Asset Execution & Decision Terminal"
 4. **Mandatory Automated CI Enforcement**: All PRs and automated builds must undergo automated linting/testing against prohibited trademark claims and deceptive marketing strings.
 
+35. MULTI-REGULATOR COMMERCIAL & WEBSITE PROHIBITIONS STANDARD (RPE v1.0 - WHAT CANNOT BE DONE)
+FintekPro enforces the strict statutory negative list ("What CANNOT Be Done") across all business portals, APIs, and commercial checkout flows, powered by `RegulatoryProhibitionEngine` (`server/services/regulatory-prohibition-engine.ts`):
+1. **SEBI Prohibitions**:
+   - ❌ CANNOT guarantee returns, promise profits, or advertise model backtest win-rates as guaranteed future performance.
+   - ❌ CANNOT exceed statutory advisory fee caps: max ₹1,25,000 p.a. (fixed) or 2.5% AUA p.a. per family; advance fees capped at 2 quarters (6 months).
+   - ❌ CANNOT collect advisory or transaction fees in cash or untraceable channels; must provide CeFCoM mechanism.
+   - ❌ CANNOT charge advisory fees and earn distribution commissions from the same client/family (Reg 22 segregation).
+   - ❌ CANNOT pay referral commissions or share revenue with unregistered finfluencers or tipsters (Aug 2024 SEBI circular).
+   - ❌ CANNOT pool client funds into proprietary nodal accounts (all executions route directly to clearing corporations/brokers).
+2. **RBI Prohibitions**:
+   - ❌ CANNOT store raw card numbers (PAN), CVVs, or expiration dates on platform databases or logs (CoFT mandate).
+   - ❌ CANNOT deduct recurring subscriptions without AFA registration and a mandatory 24-hour pre-debit SMS/email alert.
+   - ❌ CANNOT trap users in recurring mandates; must provide an instant, 1-click self-service cancellation dashboard.
+   - ❌ CANNOT route online payments through uncertified payment gateways or hold funds in unauthorized escrows.
+3. **CCPA & Consumer Protection Prohibitions (Dark Patterns 2023)**:
+   - ❌ CANNOT engage in Drip Pricing (adding hidden convenience fees, processing charges, or unexpected taxes at final checkout).
+   - ❌ CANNOT engage in Forced Continuity (pre-checked auto-renewal or bundled add-on checkboxes).
+   - ❌ CANNOT omit mandatory E-Commerce Rule 2020 disclosures (CIN, registered address, Grievance Redressal Officer).
+4. **MeitY & DPDP Act 2023 Prohibitions**:
+   - ❌ CANNOT transmit raw PII (Aadhaar, PAN, Bank accounts) to public LLM prompts.
+   - ❌ CANNOT process client data without explicit, unbundled, itemized consent notices.
+5. **Enforcement**: 100% adherence, zero tolerance. All checkout, pricing, marketing, and partner endpoints must run through the `RegulatoryProhibitionEngine` pre-flight gate.
+
 
 
 

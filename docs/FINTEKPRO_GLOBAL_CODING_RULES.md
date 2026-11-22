@@ -99,3 +99,15 @@ FintekPro strictly enforces SEBI Advertising Guidelines (2023 Master Circulars),
   `[Brand]® is a registered trademark of its respective owner. FintekPro is an independent platform and is not affiliated with or endorsed by [Brand].`
 - **Ban on Deceptive or Deterministic Marketing Language**: Marketing headers, landing pages, and CTAs must never promise "guaranteed returns", "zero-risk trading", "sure-shot AI profits", or "algorithmic alpha" without certified SEBI disclosures and market risk warnings.
 
+---
+
+## 9. Website Fee Collection, Commercial Checkout & Anti-Dark-Pattern Rules (GCR WFC v1.0)
+
+All commercial fee checkout, subscription engines, pricing tables, and payment gateway interactions are governed by [`POLICY_AND_SOP_WEBSITE_COMMERCIAL_FEE_COLLECTION.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/POLICY_AND_SOP_WEBSITE_COMMERCIAL_FEE_COLLECTION.md) under a **100% Adherence, Zero Exception** policy:
+- **Zero Drip Pricing**: Pricing tables and checkout interfaces must explicitly show total cost including 18% GST and any statutory breakdown. No surprise convenience or payment fees on final steps.
+- **Zero Forced Continuity**: Checkboxes for auto-renewals, recurring billing, or optional modules must never default to pre-checked (`checked={false}`).
+- **RBI Card Tokenization (CoFT)**: Cardholder PANs and CVVs must NEVER touch application servers, memory, or logs. Use client-side hosted SDKs of RBI-authorized Payment Aggregators (Razorpay/Cashfree).
+- **24-Hour Pre-Debit Alert**: Every recurring subscription deduction must have an automated SMS/email alert sent at $T-24$ hours with an immediate 1-click cancellation link.
+- **SEBI Fee Cap Verification Gate**: In advisory/research workflows, [`fee-calculator-service.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/fee-calculator-service.ts) must programmatically verify that cumulative client family fees do not exceed statutory limits (₹1.25L fixed or 2.5% AUA; max 6-month advance) and offer CeFCoM.
+- **GST Invoicing**: Successful transactions must automatically generate a compliant GST Tax Invoice with SAC 9971/9983, GSTIN, and place of supply breakdown.
+
