@@ -512,12 +512,12 @@ function getClientFallbackBrief(region: string): MarketBrief {
 		date: today,
 		region,
 		marketSnapshot: isIndia
-			? "Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at 6.79%, backed by CCIL sovereign clearing. CCIL TREPS overnight funding rate printed at 6.42%, reflecting balanced systemic money market liquidity. Brent crude CFD at $74.50/bbl (MCX Spot: ₹6,325/bbl) traded within India's comfort corridor (<$80), MCX Gold traded firm at ₹78,250/10g (COMEX: $2,685.50/oz) on steady safe-haven and central bank demand."
+			? "Indian equity benchmarks traded with positive bias as Nifty 50 and Sensex demonstrated strength supported by sustained domestic institutional inflows (DIIs). Bank Nifty outperformed led by frontline private and PSU lenders. The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at 6.79%, backed by CCIL sovereign clearing. CCIL TREPS overnight funding rate printed at 6.42%, reflecting balanced systemic money market liquidity. Brent crude CFD at $74.50/bbl (MCX LTP: ₹6,325/bbl) traded within India's comfort corridor (<$80), MCX Gold traded firm at ₹78,250/10g (COMEX: $2,685.50/oz) on steady safe-haven and central bank demand."
 			: isGlobal
 			? "Global equity benchmarks traded with constructive risk sentiment across Asian and European sessions, led by technology and semiconductor supply chain resilience. The US Dollar Index (DXY) traded orderly near 104.25, while benchmark 10-year sovereign bond yields traded across G7 economies with positive disinflation expectations."
 			: "US equities traded higher with the S&P 500 (~5,864.5) and Nasdaq (~20,380) supported by megacap technology earnings and steady labor market prints. 10-year Treasury yields consolidated at 4.58% as markets digested central bank policy commentary.",
 		whatChanged: isIndia
-			? "1. Sovereign Debt & Money Markets: CCIL 10-Year Benchmark G-Sec yield traded at 6.79%; CCIL TREPS overnight repo volume remained healthy with weighted average rate at 6.42%.\n2. Commodity Radar: Brent crude CFD at $74.50/bbl (MCX Spot: ₹6,325/bbl) within comfort corridor (<$80). MCX Gold traded firm at ₹78,250/10g (COMEX: $2,685.50/oz) on steady safe-haven and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows."
+			? "1. Sovereign Debt & Money Markets: CCIL 10-Year Benchmark G-Sec yield traded at 6.79%; CCIL TREPS overnight repo volume remained healthy with weighted average rate at 6.42%.\n2. Commodity Radar: Brent crude CFD at $74.50/bbl (MCX LTP: ₹6,325/bbl) within comfort corridor (<$80). MCX Gold traded firm at ₹78,250/10g (COMEX: $2,685.50/oz) on steady safe-haven and central bank demand.\n3. Institutional Liquidity: Domestic Mutual Funds registered ongoing SIP inflows (~₹26,000+ Cr monthly run-rate), absorbing foreign portfolio outflows."
 			: isGlobal
 			? "1. Cross-Asset Transmission: US Dollar Index (DXY) stabilizing cross-border emerging market capital flows.\n2. Asian & European Session Momentum: Tokyo Nikkei 225 advanced on exporter earnings; London FTSE and Frankfurt DAX traded near record valuations.\n3. Sovereign Yield Spreads: 10-Year US Treasury, German Bund, and UK Gilt yields traded orderly across G7 economies."
 			: "1. Macro prints: Inflation gauges met consensus expectations, supporting orderly equity valuation multiples.\n2. Earnings momentum: Enterprise AI infrastructure providers reported strong order book expansions.",
@@ -629,7 +629,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					commodities: [
 						{
 							id: "GOLD",
-							name: "Gold 24K (MCX Spot)",
+							name: "Gold 24K (MCX LTP)",
 							category: "Precious Metals",
 							mcxSymbol: "GOLD",
 							mcxPrice: 78250,
@@ -640,11 +640,11 @@ function getClientFallbackBrief(region: string): MarketBrief {
 							cmxUnit: "$ / oz",
 							cmxChangePercent: 0.28,
 							trend: "Bullish",
-							macroImplication: "Official MCX Spot price at Ahmedabad (₹78,250/10g). Central bank reserves diversification and geopolitical hedge sustaining bullion demand.",
+							macroImplication: "Official MCX Last Traded Price (LTP) at Ahmedabad (₹78,250/10g). Central bank reserves diversification and geopolitical hedge sustaining bullion demand.",
 						},
 						{
 							id: "SILVER",
-							name: "Silver (MCX Spot)",
+							name: "Silver (MCX LTP)",
 							category: "Precious Metals",
 							mcxSymbol: "SILVER",
 							mcxPrice: 91500,
@@ -655,11 +655,11 @@ function getClientFallbackBrief(region: string): MarketBrief {
 							cmxUnit: "$ / oz",
 							cmxChangePercent: 0.38,
 							trend: "Bullish",
-							macroImplication: "Official MCX Spot price at Ahmedabad (₹91,500/kg). Driven by dual tailwinds from solar PV manufacturing and monetary investor demand.",
+							macroImplication: "Official MCX Last Traded Price (LTP) at Ahmedabad (₹91,500/kg). Driven by dual tailwinds from solar PV manufacturing and monetary investor demand.",
 						},
 						{
 							id: "CRUDE_OIL",
-							name: "Crude Oil (Brent / MCX Spot)",
+							name: "Crude Oil (Brent / MCX LTP)",
 							category: "Energy",
 							mcxSymbol: "CRUDEOIL",
 							mcxPrice: 6325,
@@ -670,11 +670,11 @@ function getClientFallbackBrief(region: string): MarketBrief {
 							cmxUnit: "$ / bbl",
 							cmxChangePercent: -0.40,
 							trend: "Neutral",
-							macroImplication: "Official MCX Spot crude price at ₹6,325/bbl ($74.50/bbl equivalent). Traded within India's $80 comfort corridor, easing imported inflation pressures across downstream sectors.",
+							macroImplication: "Official MCX Crude Last Traded Price (LTP) at ₹6,325/bbl ($74.50/bbl equivalent). Traded within India's $80 comfort corridor, easing imported inflation pressures across downstream sectors.",
 						},
 						{
 							id: "NATURAL_GAS",
-							name: "Natural Gas (MCX Spot)",
+							name: "Natural Gas (MCX LTP)",
 							category: "Energy",
 							mcxSymbol: "NATURALGAS",
 							mcxPrice: 274.60,
@@ -685,11 +685,11 @@ function getClientFallbackBrief(region: string): MarketBrief {
 							cmxUnit: "$ / mmBtu",
 							cmxChangePercent: 0.45,
 							trend: "Bullish",
-							macroImplication: "Official MCX Spot price (₹274.60/mmBtu as per mcxindia.com). Pure physical spot benchmark without CGD or government subsidy distortions.",
+							macroImplication: "Official MCX Natural Gas Last Traded Price (₹274.60/mmBtu). Clean industrial fuel benchmark providing transparent market price discovery.",
 						},
 						{
 							id: "COPPER",
-							name: "Copper (MCX Spot)",
+							name: "Copper (MCX LTP)",
 							category: "Base Metals",
 							mcxSymbol: "COPPER",
 							mcxPrice: 825.50,
@@ -700,16 +700,16 @@ function getClientFallbackBrief(region: string): MarketBrief {
 							cmxUnit: "$ / lb",
 							cmxChangePercent: 0.38,
 							trend: "Bullish",
-							macroImplication: "Official MCX Spot copper price at Thane (₹825.50/kg). Power grid capex and global electrification supporting base metal demand.",
+							macroImplication: "Official MCX Copper Last Traded Price (₹825.50/kg). Power grid capex and global electrification supporting base metal demand.",
 						},
 					],
 					crudeOilBreakevenStatus: {
 						brentUsd: 74.50,
 						inflationImpact: "Comfort",
-						commentary: "MCX Spot crude at ₹6,325/bbl ($74.50/bbl equivalent) remains within India's comfort corridor (<$80), mitigating imported inflation.",
+						commentary: "MCX Crude LTP at ₹6,325/bbl ($74.50/bbl equivalent) remains within India's comfort corridor (<$80), mitigating imported inflation.",
 					},
 					goldSilverRatio: 75.4,
-					source: "MCX India Official Spot (mcxindia.com/market-data/spot-market-price) & CMX / COMEX",
+					source: "MCX India Official LTP & CMX / COMEX",
 				}
 			: undefined,
 		sectorHighlights: isIndia
@@ -727,7 +727,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					{
 						sector: "Commodities & Energy (MCX / CMX)",
 						trend: "Comfort Corridor (<$80)",
-						outlook: "Brent Crude CFD at $74.50/bbl (MCX Spot: ₹6,325/bbl) trading in India's comfort band (<$80); MCX Gold at ₹78,250/10g.",
+						outlook: "Brent Crude CFD at $74.50/bbl (MCX LTP: ₹6,325/bbl) trading in India's comfort band (<$80); MCX Gold at ₹78,250/10g.",
 					},
 					{
 						sector: "Information Technology (Nifty IT)",
@@ -940,35 +940,35 @@ function getClientFallbackBrief(region: string): MarketBrief {
 	};
 }
 
-// Official MCX Spot Delivery Centers & Physical Contract Specifications
+// Official MCX LTP Delivery Centers & Contract Specifications
 const COMMODITY_PHYSICAL_SPECS: Record<string, { delivery: string; purity?: string; lotSize?: string; note: string }> = {
 	GOLD: {
 		delivery: "Ahmedabad",
 		purity: "995 (24K)",
 		lotSize: "10g",
-		note: "Official MCX Spot settlement (Ahmedabad basis, ex-GST).",
+		note: "Official MCX Last Traded Price (Ahmedabad basis, ex-GST).",
 	},
 	SILVER: {
 		delivery: "Ahmedabad",
 		purity: "999",
 		lotSize: "1kg",
-		note: "Official MCX Spot settlement (Ahmedabad basis, ex-GST).",
+		note: "Official MCX Last Traded Price (Ahmedabad basis, ex-GST).",
 	},
 	CRUDE_OIL: {
-		delivery: "NA (MCX Spot)",
+		delivery: "NA (MCX LTP)",
 		lotSize: "100 bbl",
 		note: "Front-month MCX settlement tracking international physical CIF parity.",
 	},
 	NATURAL_GAS: {
-		delivery: "NA (MCX Spot)",
+		delivery: "NA (MCX LTP)",
 		lotSize: "1 mmBtu",
-		note: "Pure physical exchange spot price (mcxindia.com). Free of CGD or government subsidy distortions.",
+		note: "Pure physical exchange LTP (mcxindia.com). Free of CGD or government subsidy distortions.",
 	},
 	COPPER: {
 		delivery: "Thane",
 		purity: "Cathode",
 		lotSize: "1kg",
-		note: "Official MCX Spot settlement at Thane delivery center.",
+		note: "Official MCX Last Traded Price at Thane delivery center.",
 	},
 };
 
@@ -1283,7 +1283,7 @@ export default function AgentKnowledgeMarketBrief() {
 			brief.ccilFixedIncome?.forexSpot?.usdInr ?? brief.fbil?.usdInr,
 			84.4512,
 		);
-		const brentDisplay = `$${liveBrent.toFixed(2)}/bbl (MCX Spot: ₹${liveBrentMcx.toLocaleString("en-IN")}/bbl)`;
+		const brentDisplay = `$${liveBrent.toFixed(2)}/bbl (MCX LTP: ₹${liveBrentMcx.toLocaleString("en-IN")}/bbl)`;
 		const goldDisplay = `₹${liveGold.toLocaleString("en-IN")}/10g`;
 		const natGasDisplay = `₹${liveNatGas.toFixed(2)}/mmBtu`;
 		const usdInrDisplay = `₹${liveUsdInr.toFixed(2)}`;
@@ -1356,7 +1356,7 @@ export default function AgentKnowledgeMarketBrief() {
 					{
 						sector: "Commodities & Energy (MCX / CMX)",
 						trend: isElevatedB ? "Elevated Input Pressure" : "Benign Comfort Band",
-						outlook: `Brent Crude CFD at $${liveBrent.toFixed(2)}/bbl (MCX Spot: ₹${liveBrentMcx.toLocaleString("en-IN")}/bbl) ${isElevatedB ? "monitored above India's $80 comfort threshold for imported inflation" : "within comfort band"}; MCX Natural Gas at ${natGasDisplay}; MCX Gold at ${goldDisplay}.`,
+						outlook: `Brent Crude CFD at $${liveBrent.toFixed(2)}/bbl (MCX LTP: ₹${liveBrentMcx.toLocaleString("en-IN")}/bbl) ${isElevatedB ? "monitored above India's $80 comfort threshold for imported inflation" : "within comfort band"}; MCX Natural Gas at ${natGasDisplay}; MCX Gold at ${goldDisplay}.`,
 					},
 					{
 						sector: "Information Technology (Nifty IT)",
@@ -1375,11 +1375,11 @@ export default function AgentKnowledgeMarketBrief() {
 		// 5. Commodity Radar: preserve dynamic live quotes, only use fallback if missing or zero
 		if (brief.commodityRadar?.commodities && Array.isArray(brief.commodityRadar.commodities)) {
 			const fallbackMap: Record<string, { name: string; mcxPrice: number; cmxPrice: number }> = {
-				GOLD: { name: "Gold 24K (MCX Spot)", mcxPrice: 78250, cmxPrice: 2685.50 },
-				SILVER: { name: "Silver (MCX Spot)", mcxPrice: 91500, cmxPrice: 31.40 },
-				CRUDE_OIL: { name: "Crude Oil (Brent / MCX Spot)", mcxPrice: 6325, cmxPrice: 74.50 },
-				NATURAL_GAS: { name: "Natural Gas (MCX Spot)", mcxPrice: 274.60, cmxPrice: 2.75 },
-				COPPER: { name: "Copper (MCX Spot)", mcxPrice: 825.50, cmxPrice: 4.35 },
+				GOLD: { name: "Gold 24K (MCX LTP)", mcxPrice: 78250, cmxPrice: 2685.50 },
+				SILVER: { name: "Silver (MCX LTP)", mcxPrice: 91500, cmxPrice: 31.40 },
+				CRUDE_OIL: { name: "Crude Oil (Brent / MCX LTP)", mcxPrice: 6325, cmxPrice: 74.50 },
+				NATURAL_GAS: { name: "Natural Gas (MCX LTP)", mcxPrice: 274.60, cmxPrice: 2.75 },
+				COPPER: { name: "Copper (MCX LTP)", mcxPrice: 825.50, cmxPrice: 4.35 },
 			};
 
 			brief.commodityRadar = {
@@ -1642,9 +1642,9 @@ export default function AgentKnowledgeMarketBrief() {
 			`• CCIL TREPS WAR: ${liveTreps.toFixed(2)}% (Systemic Money Market Liquidity)`,
 			``,
 			`🛢️ *Commodity Radar:*`,
-			`• Brent Crude CFD: $${liveBrent.toFixed(2)}/bbl (MCX Spot: ₹${liveBrentMcx.toLocaleString("en-IN")}/bbl)`,
-			`• Natural Gas: ₹${liveNatGasPrice.toFixed(2)}/mmBtu (Official MCX Spot)`,
-			`• Gold 24K: ₹${liveGoldPrice.toLocaleString("en-IN")}/10g | Silver: ₹${liveSilverPrice.toLocaleString("en-IN")}/kg (MCX Spot)`,
+			`• Brent Crude CFD: $${liveBrent.toFixed(2)}/bbl (MCX LTP: ₹${liveBrentMcx.toLocaleString("en-IN")}/bbl)`,
+			`• Natural Gas: ₹${liveNatGasPrice.toFixed(2)}/mmBtu (Official MCX LTP)`,
+			`• Gold 24K: ₹${liveGoldPrice.toLocaleString("en-IN")}/10g | Silver: ₹${liveSilverPrice.toLocaleString("en-IN")}/kg (MCX LTP)`,
 			``,
 			`📊 *Executive Market Snapshot:*`,
 			briefToDisplay.marketSnapshot?.split("\n")?.[0] || briefToDisplay.marketSnapshot,
@@ -2024,7 +2024,7 @@ export default function AgentKnowledgeMarketBrief() {
 													</h4>
 												</div>
 												<p className="text-xs text-amber-900/80 dark:text-amber-300/80 mt-1 leading-relaxed">
-													FintekPro Autonomous Sentinel detected discrepancies between current snapshot metrics and live exchange clearing corridors (FBIL FX, MCX Spot, or FII flows).
+													FintekPro Autonomous Sentinel detected discrepancies between current snapshot metrics and live exchange clearing corridors (FBIL FX, MCX LTP, or FII flows).
 												</p>
 											</div>
 										</div>
@@ -2241,7 +2241,7 @@ export default function AgentKnowledgeMarketBrief() {
 								</div>
 							</div>
 
-							{/* Golden Pricing Engine: Key Commodities (Global CFD & Domestic MCX Spot) */}
+							{/* Golden Pricing Engine: Key Commodities (Global CFD & Domestic MCX LTP) */}
 							<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl text-xs">
 								<div className="flex items-center justify-between p-2.5 rounded-lg bg-card/80 border border-border/80">
 									<div className="flex flex-col">
@@ -2258,7 +2258,7 @@ export default function AgentKnowledgeMarketBrief() {
 										</span>
 										<span className="font-mono text-xs text-muted-foreground">
 											₹{safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "CRUDE_OIL")?.mcxPrice, 6325).toLocaleString("en-IN")}/bbl
-											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">MCX SPOT</Badge>
+											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">MCX LTP</Badge>
 										</span>
 									</div>
 								</div>
@@ -2278,7 +2278,7 @@ export default function AgentKnowledgeMarketBrief() {
 										</span>
 										<span className="font-mono text-xs text-muted-foreground">
 											₹{safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "NATURAL_GAS")?.mcxPrice, 274.60).toFixed(2)}/mmBtu
-											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">MCX SPOT</Badge>
+											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">MCX LTP</Badge>
 										</span>
 									</div>
 								</div>
@@ -2298,7 +2298,7 @@ export default function AgentKnowledgeMarketBrief() {
 										</span>
 										<span className="font-mono text-xs text-muted-foreground">
 											₹{safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "GOLD")?.mcxPrice, 78250).toLocaleString("en-IN")}/10g
-											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">MCX SPOT</Badge>
+											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">MCX LTP</Badge>
 										</span>
 									</div>
 								</div>
@@ -2318,7 +2318,7 @@ export default function AgentKnowledgeMarketBrief() {
 										</span>
 										<span className="font-mono text-xs text-muted-foreground">
 											₹{safeNum(briefToDisplay.commodityRadar?.commodities?.find(c => c.id === "SILVER")?.mcxPrice, 91500).toLocaleString("en-IN")}/kg
-											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">MCX SPOT</Badge>
+											<Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">MCX LTP</Badge>
 										</span>
 									</div>
 								</div>
@@ -3128,16 +3128,16 @@ export default function AgentKnowledgeMarketBrief() {
 											<Coins className="h-5 w-5 text-amber-700 dark:text-amber-400" />
 											<div>
 												<h3 className="text-base font-semibold text-foreground flex items-center gap-2">
-													Commodity Radar (MCX Official Spot Market Prices & Global CFD Benchmarks)
+													Commodity Radar (MCX Last Traded Prices & Global CFD Benchmarks)
 													<Badge
 														variant="outline"
 														className="text-xs bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-700 font-semibold"
 													>
-														MCX Spot SSOT
+														MCX LTP SSOT
 													</Badge>
 												</h3>
 												<p className="text-xs text-muted-foreground">
-													Official MCX Spot Market Prices (mcxindia.com/market-data/spot-market-price) paired with live International CFD benchmarks
+													Official MCX Last Traded Prices (LTP) paired with live International CFD benchmarks
 												</p>
 											</div>
 										</div>
@@ -3171,7 +3171,7 @@ export default function AgentKnowledgeMarketBrief() {
 														setActiveExplainerModal({
 															type: "commodity",
 															title: `${item.name} · Commodity Radar Deep Dive`,
-															subtitle: `Global CFD vs Domestic MCX Spot Arbitrage, Conversion & Delivery Economics`,
+															subtitle: `Global CFD vs Domestic MCX LTP Arbitrage, Conversion & Delivery Economics`,
 															data: item,
 															spec: COMMODITY_PHYSICAL_SPECS[item.id],
 														})
@@ -3210,10 +3210,10 @@ export default function AgentKnowledgeMarketBrief() {
 														</span>
 													</div>
 
-													{/* Domestic MCX Spot (₹) */}
+													{/* Domestic MCX LTP (₹) */}
 													<div className="flex items-baseline justify-between">
 														<span className="text-xs text-muted-foreground flex items-center gap-1">
-															<Badge variant="outline" className="text-[9px] px-1 py-0 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">MCX SPOT (₹)</Badge>
+															<Badge variant="outline" className="text-[9px] px-1 py-0 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">MCX LTP (₹)</Badge>
 														</span>
 														<span className="font-mono text-sm font-bold text-foreground">
 															₹{mcxPriceNum % 1 !== 0 ? mcxPriceNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : mcxPriceNum.toLocaleString("en-IN")}{" "}
@@ -4270,7 +4270,7 @@ export default function AgentKnowledgeMarketBrief() {
 										</span>
 									</div>
 									<div className="p-2.5 rounded-lg bg-muted/40 border border-border">
-										<span className="text-[10px] text-muted-foreground block">Domestic MCX Spot</span>
+										<span className="text-[10px] text-muted-foreground block">Domestic MCX LTP</span>
 										<span className="text-lg font-bold font-mono text-emerald-700 dark:text-emerald-400">
 											₹{safeNum(activeExplainerModal.data.mcxPrice).toLocaleString("en-IN")}{" "}
 											<span className="text-xs font-normal text-muted-foreground">{activeExplainerModal.data.mcxUnit}</span>
@@ -4317,10 +4317,10 @@ export default function AgentKnowledgeMarketBrief() {
 										{activeExplainerModal.data.id === "gold" && "Domestic Gold (₹/10g) = ((COMEX Gold $/oz × USD/INR) / 31.1034768 × 10) × (1 + Customs Duty 6% + AIDC + GST 3%)"}
 										{activeExplainerModal.data.id === "silver" && "Domestic Silver (₹/kg) = ((COMEX Silver $/oz × USD/INR) / 31.1034768 × 1,000) × (1 + Duty + GST)"}
 										{activeExplainerModal.data.id === "crude" && "Domestic Crude (₹/bbl) = ICE Brent Crude $/bbl × USD/INR (Plus Freight & Refinery Refining Premium)"}
-										{activeExplainerModal.data.id !== "gold" && activeExplainerModal.data.id !== "silver" && activeExplainerModal.data.id !== "crude" && "Domestic MCX Spot (₹) = (Global CFD Price in USD × Current USD/INR FX Rate) × Unit Conversion Factor + Taxes/Duties"}
+										{activeExplainerModal.data.id !== "gold" && activeExplainerModal.data.id !== "silver" && activeExplainerModal.data.id !== "crude" && "Domestic MCX LTP (₹) = (Global CFD Price in USD × Current USD/INR FX Rate) × Unit Conversion Factor + Taxes/Duties"}
 									</div>
 									<p className="text-muted-foreground leading-relaxed">
-										MCX domestic spot prices trade at an onshore premium or discount based on physical clearing warehouse logistics, landing tariffs, basic customs duties, and local jewellery / manufacturing demand.
+										MCX domestic prices reflect active exchange trading and clearing corridors, onshore premiums or discounts based on physical logistics, landing tariffs, basic customs duties, and local demand.
 									</p>
 								</div>
 

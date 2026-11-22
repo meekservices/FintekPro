@@ -72,7 +72,7 @@ export const MCX_POLLED_SPOT_BENCHMARKS: Array<{
 }> = [
 	{
 		symbol: "GOLD",
-		name: "Gold 24K (MCX Spot)",
+		name: "Gold 24K (MCX LTP)",
 		tradingSymbol: "GOLD SPOT AHM",
 		instrumentKey: "MCX_SPOT|GOLD_AHM",
 		deliveryCenter: "Ahmedabad",
@@ -83,7 +83,7 @@ export const MCX_POLLED_SPOT_BENCHMARKS: Array<{
 	},
 	{
 		symbol: "SILVER",
-		name: "Silver (MCX Spot)",
+		name: "Silver (MCX LTP)",
 		tradingSymbol: "SILVER SPOT AHM",
 		instrumentKey: "MCX_SPOT|SILVER_AHM",
 		deliveryCenter: "Ahmedabad",
@@ -94,7 +94,7 @@ export const MCX_POLLED_SPOT_BENCHMARKS: Array<{
 	},
 	{
 		symbol: "CRUDE_OIL",
-		name: "Crude Oil (MCX Spot Equivalent)",
+		name: "Crude Oil (MCX LTP)",
 		tradingSymbol: "CRUDEOIL SPOT",
 		instrumentKey: "MCX_SPOT|CRUDEOIL",
 		deliveryCenter: "FOB Equivalent",
@@ -105,7 +105,7 @@ export const MCX_POLLED_SPOT_BENCHMARKS: Array<{
 	},
 	{
 		symbol: "NATURAL_GAS",
-		name: "Natural Gas (MCX Spot)",
+		name: "Natural Gas (MCX LTP)",
 		tradingSymbol: "NATGAS SPOT",
 		instrumentKey: "MCX_SPOT|NATGAS",
 		deliveryCenter: "Hazira Equivalent",
@@ -116,7 +116,7 @@ export const MCX_POLLED_SPOT_BENCHMARKS: Array<{
 	},
 	{
 		symbol: "COPPER",
-		name: "Copper (MCX Spot)",
+		name: "Copper (MCX LTP)",
 		tradingSymbol: "COPPER SPOT THN",
 		instrumentKey: "MCX_SPOT|COPPER_THN",
 		deliveryCenter: "Thane",
@@ -127,7 +127,7 @@ export const MCX_POLLED_SPOT_BENCHMARKS: Array<{
 	},
 	{
 		symbol: "COTTON",
-		name: "Cotton (MCX Spot)",
+		name: "Cotton (MCX LTP)",
 		tradingSymbol: "COTTON SPOT RJK",
 		instrumentKey: "MCX_SPOT|COTTON_RJK",
 		deliveryCenter: "Rajkot",
@@ -138,7 +138,7 @@ export const MCX_POLLED_SPOT_BENCHMARKS: Array<{
 	},
 	{
 		symbol: "CARDAMOM",
-		name: "Cardamom (MCX Spot)",
+		name: "Cardamom (MCX LTP)",
 		tradingSymbol: "CARDAMOM SPOT VDM",
 		instrumentKey: "MCX_SPOT|CARDAMOM_VDM",
 		deliveryCenter: "Vandanmedu",
@@ -267,7 +267,8 @@ export class McxBhavcopyService {
 			this.fetchSettledFuturesRecords(tradeDate),
 		]);
 
-		const allRecords = [...spotRecords, ...futuresRecords];
+		// Always prioritize Last Traded Price (LTP) from futures over spot records
+		const allRecords = [...futuresRecords, ...spotRecords];
 
 		if (allRecords.length === 0) {
 			return {
@@ -382,6 +383,26 @@ export class McxBhavcopyService {
 				goldenPricesCount++;
 			} catch (gpErr: any) {
 				logger.warn(`[McxBhavcopyService] golden_prices upsert warning for ${r.tradingSymbol}:`, gpErr?.message);
+			}
+		}
+
+		// Step 4: Ensure commodities master table reflects MCX Last Traded Price (LTP)
+		for (const fut of futuresRecords) {
+			try {
+				await db.execute(sql`
+					UPDATE commodities
+					SET current_price = ${String(fut.price)},
+					    price_inr = ${String(fut.price)},
+					    day_change = ${fut.change !== undefined ? String(fut.change) : null},
+					    day_change_percent = ${fut.changePercent !== undefined ? String(fut.changePercent) : null},
+					    data_source = 'upstox_mcx_ltp',
+					    last_updated = NOW(),
+					    updated_at = NOW()
+					WHERE symbol = ${fut.commoditySymbol}
+					   OR symbol = ${fut.commoditySymbol.replace("_", "")}
+				`);
+			} catch (updateErr: any) {
+				logger.debug(`[McxBhavcopyService] Master commodities update notice for ${fut.commoditySymbol}:`, updateErr?.message);
 			}
 		}
 

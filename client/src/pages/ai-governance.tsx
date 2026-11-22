@@ -234,7 +234,7 @@ export default function AiGovernancePage() {
 									The <code>KnowledgeHubAutoHealSentinel</code> operates 24/7 across all market data corridors:
 								</p>
 								<ul className="list-disc list-inside space-y-1 text-xs">
-									<li>Audits active snapshots against official exchange clearing corridors (FBIL FX, MCX Spot).</li>
+									<li>Audits active snapshots against official exchange clearing corridors (FBIL FX, MCX LTP).</li>
 									<li>Triggers automated cache invalidation and re-crawl on detected corridor deviations.</li>
 									<li>Flags data quality warnings on user dashboards if upstream exchanges experience delays.</li>
 								</ul>

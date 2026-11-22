@@ -45,7 +45,7 @@ export interface MarketBriefSnapshot {
 		silverMcxUnit: string;
 		silverComexPrice: number; // 31.40
 		brentUsd: number; // 74.50 (CFD)
-		brentMcxInr: number; // 6325 (MCX Spot)
+		brentMcxInr: number; // 6325 (MCX LTP)
 		naturalGasMcxPrice: number; // 274.60 (MCX pure spot, no subsidy distortion)
 		naturalGasHenryHubUsd: number; // 2.75
 		copperMcxPrice: number; // 825.50 (Thane)
@@ -140,7 +140,7 @@ export function hydrateMarketTokens(template: string, snapshot: MarketBriefSnaps
 
 	const goldInrStr = `₹${snapshot.commodities.goldMcxPrice.toLocaleString("en-IN")}/10g`;
 	const silverInrStr = `₹${snapshot.commodities.silverMcxPrice.toLocaleString("en-IN")}/kg`;
-	const brentStr = `$${snapshot.commodities.brentUsd.toFixed(2)}/bbl (MCX Spot: ₹${snapshot.commodities.brentMcxInr.toLocaleString("en-IN")}/bbl)`;
+	const brentStr = `$${snapshot.commodities.brentUsd.toFixed(2)}/bbl (MCX LTP: ₹${snapshot.commodities.brentMcxInr.toLocaleString("en-IN")}/bbl)`;
 	const natGasStr = `₹${snapshot.commodities.naturalGasMcxPrice.toFixed(2)}/mmBtu`;
 	const copperStr = `₹${snapshot.commodities.copperMcxPrice.toFixed(2)}/kg`;
 	const usdInrStr = `₹${snapshot.forex.usdInr.toFixed(4)}`;
@@ -212,7 +212,7 @@ export function generateCanonicalSectorHighlights(
 			{
 				sector: "Commodities & Energy (MCX / CMX)",
 				trend: isElevatedB ? "Elevated Input Pressure" : "Benign Comfort Band",
-				outlook: `Brent Crude CFD at $${snapshot.commodities.brentUsd.toFixed(2)}/bbl (MCX Spot: ₹${snapshot.commodities.brentMcxInr.toLocaleString("en-IN")}/bbl) ${isElevatedB ? "monitored above India's $80 comfort threshold for imported inflation" : "within comfort band"}; MCX Natural Gas at ₹${snapshot.commodities.naturalGasMcxPrice.toFixed(2)}/mmBtu; MCX Gold at ₹${snapshot.commodities.goldMcxPrice.toLocaleString("en-IN")}/10g (COMEX: $${snapshot.commodities.goldComexPrice.toFixed(2)}/oz).`,
+				outlook: `Brent Crude CFD at $${snapshot.commodities.brentUsd.toFixed(2)}/bbl (MCX LTP: ₹${snapshot.commodities.brentMcxInr.toLocaleString("en-IN")}/bbl) ${isElevatedB ? "monitored above India's $80 comfort threshold for imported inflation" : "within comfort band"}; MCX Natural Gas at ₹${snapshot.commodities.naturalGasMcxPrice.toFixed(2)}/mmBtu; MCX Gold at ₹${snapshot.commodities.goldMcxPrice.toLocaleString("en-IN")}/10g (COMEX: $${snapshot.commodities.goldComexPrice.toFixed(2)}/oz).`,
 			},
 			{
 				sector: "Information Technology (Nifty IT)",

@@ -215,7 +215,7 @@ export function registerMacroRoutes(app: Express): void {
 							"Brent CFD Benchmark": "$74.50",
 							"USD/INR CCIL/FBIL Rate": "₹94.8606",
 						},
-						intermediateSteps: "$74.50 * 84.90 = ₹6,325.00 / bbl (MCX Spot: ₹6,325)",
+						intermediateSteps: "$74.50 * 84.90 = ₹6,325.00 / bbl (MCX LTP: ₹6,325)",
 						output: "₹6,325 / bbl",
 						benchmarkSource: "ICE Futures Europe CFD & FBIL Fixing",
 						status: "EXACT_MATCH",
@@ -287,10 +287,10 @@ export function registerMacroRoutes(app: Express): void {
 						verificationStatus: "VERIFIED_AUTHORITATIVE",
 					},
 					{
-						provider: "MCX India Official Spot & ICE CFD (Golden Pricing Engine)",
-						feedId: "GPE-CRUDE-SPOT",
-						instrument: "Crude Oil (MCX Spot: ₹6,325/bbl | ICE Brent CFD: $74.50/bbl)",
-						ingestionMode: "Official MCX Spot Market Price (mcxindia.com) & ICE API",
+						provider: "MCX India Official LTP & ICE CFD (Golden Pricing Engine)",
+						feedId: "GPE-CRUDE-LTP",
+						instrument: "Crude Oil (MCX LTP: ₹6,325/bbl | ICE Brent CFD: $74.50/bbl)",
+						ingestionMode: "Official MCX Last Traded Price (LTP) & ICE API",
 						verificationStatus: "VERIFIED_AUTHORITATIVE",
 					},
 					{

@@ -356,7 +356,7 @@ export class KnowledgeHubService {
 						},
 						{
 							id: "CRUDE_OIL",
-							name: "Crude Oil (Brent / MCX Spot)",
+							name: "Crude Oil (Brent / MCX LTP)",
 							category: "Energy",
 							mcxSymbol: "CRUDEOIL",
 							mcxPrice: gc.brentCrudeMcxInr ?? 6325,
@@ -618,11 +618,11 @@ export class KnowledgeHubService {
 					item.id === "COPPER" ? (snapshot.commodities?.copperComexUsd ?? 4.35) : 0;
 
 				const defaultName =
-					item.id === "GOLD" ? "Gold 24K (MCX Spot)" :
-					item.id === "SILVER" ? "Silver (MCX Spot)" :
-					item.id === "CRUDE_OIL" ? "Crude Oil (Brent / MCX Spot)" :
-					item.id === "NATURAL_GAS" ? "Natural Gas (MCX Spot)" :
-					item.id === "COPPER" ? "Copper (MCX Spot)" : item.name;
+					item.id === "GOLD" ? "Gold 24K (MCX LTP)" :
+					item.id === "SILVER" ? "Silver (MCX LTP)" :
+					item.id === "CRUDE_OIL" ? "Crude Oil (Brent / MCX LTP)" :
+					item.id === "NATURAL_GAS" ? "Natural Gas (MCX LTP)" :
+					item.id === "COPPER" ? "Copper (MCX LTP)" : item.name;
 
 				return {
 					...item,
@@ -910,7 +910,7 @@ export class KnowledgeHubService {
 					commodities: [
 						{
 							id: "GOLD",
-							name: "Gold 24K (MCX Spot)",
+							name: "Gold 24K (MCX LTP)",
 							category: "Precious Metals",
 							mcxSymbol: "GOLD",
 							mcxPrice: 78250,
@@ -922,12 +922,12 @@ export class KnowledgeHubService {
 							cmxChangePercent: 0.28,
 							trend: "Bullish",
 							macroImplication:
-								"Official MCX Spot price at Ahmedabad (₹78,250/10g). Central bank accumulation & safe-haven bullion demand.",
+								"Official MCX Last Traded Price (LTP) (₹78,250/10g). Central bank accumulation & safe-haven bullion demand.",
 							lastUpdated: new Date().toISOString().split("T")[0],
 						},
 						{
 							id: "SILVER",
-							name: "Silver (MCX Spot)",
+							name: "Silver (MCX LTP)",
 							category: "Precious Metals",
 							mcxSymbol: "SILVER",
 							mcxPrice: 91500,
@@ -939,12 +939,12 @@ export class KnowledgeHubService {
 							cmxChangePercent: 0.38,
 							trend: "Bullish",
 							macroImplication:
-								"Official MCX Spot price at Ahmedabad (₹91,500/kg). Dual tailwinds from monetary demand and booming solar PV consumption.",
+								"Official MCX Last Traded Price (LTP) (₹91,500/kg). Dual tailwinds from monetary demand and booming solar PV consumption.",
 							lastUpdated: new Date().toISOString().split("T")[0],
 						},
 						{
 							id: "CRUDE_OIL",
-							name: "Crude Oil (Brent / MCX Spot)",
+							name: "Crude Oil (Brent / MCX LTP)",
 							category: "Energy",
 							mcxSymbol: "CRUDEOIL",
 							mcxPrice: 6325,
@@ -956,12 +956,12 @@ export class KnowledgeHubService {
 							cmxChangePercent: -0.40,
 							trend: "Neutral",
 							macroImplication:
-								`Official MCX Spot crude price at ₹6,325/bbl ($74.50/bbl CFD). Traded within India's comfort threshold (<$80/bbl), limiting imported inflation pressures for paints, tyres, airlines.`,
+								`Official MCX Last Traded Price (LTP) at ₹6,325/bbl ($74.50/bbl CFD). Traded within India's comfort threshold (<$80/bbl), limiting imported inflation pressures for paints, tyres, airlines.`,
 							lastUpdated: new Date().toISOString().split("T")[0],
 						},
 						{
 							id: "NATURAL_GAS",
-							name: "Natural Gas (MCX Spot)",
+							name: "Natural Gas (MCX LTP)",
 							category: "Energy",
 							mcxSymbol: "NATURALGAS",
 							mcxPrice: 274.60,
@@ -973,12 +973,12 @@ export class KnowledgeHubService {
 							cmxChangePercent: 0.45,
 							trend: "Bullish",
 							macroImplication:
-								"Official MCX Spot price (₹274.60/mmBtu as per mcxindia.com). Pure physical spot benchmark without CGD or government subsidy distortions.",
+								"Official MCX Last Traded Price (LTP) (₹274.60/mmBtu). Clean industrial fuel benchmark providing transparent market price discovery.",
 							lastUpdated: new Date().toISOString().split("T")[0],
 						},
 						{
 							id: "COPPER",
-							name: "Copper (MCX Spot)",
+							name: "Copper (MCX LTP)",
 							category: "Base Metals",
 							mcxSymbol: "COPPER",
 							mcxPrice: 1376.50,
@@ -990,7 +990,7 @@ export class KnowledgeHubService {
 							cmxChangePercent: 0.38,
 							trend: "Bullish",
 							macroImplication:
-								"Official MCX Spot copper price at Thane (₹1,376.50/kg). Electrification, AI datacenter grid infrastructure, and EV wiring demand.",
+								"Official MCX Last Traded Price (LTP) (₹1,376.50/kg). Electrification, AI datacenter grid infrastructure, and EV wiring demand.",
 							lastUpdated: new Date().toISOString().split("T")[0],
 						},
 					],
@@ -1281,7 +1281,7 @@ export class KnowledgeHubService {
 		const trepsRateStr = ccilFixedIncome?.treps?.weightedAverageRate ?? goldenSnapshot?.fixedIncome?.trepsWar ?? 6.42;
 		const brentPriceNum = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? goldenSnapshot?.commodities?.brentCrudeUsd ?? 74.50;
 		const brentMcxSpotNum = commodityRadar?.commodities?.find((c: any) => c.id === "CRUDE_OIL")?.mcxPrice ?? 6325;
-		const brentStr = `$${brentPriceNum}/bbl (MCX Spot: ₹${brentMcxSpotNum.toLocaleString("en-IN")}/bbl)`;
+		const brentStr = `$${brentPriceNum}/bbl (MCX LTP: ₹${brentMcxSpotNum.toLocaleString("en-IN")}/bbl)`;
 		const goldStr = commodityRadar?.commodities?.[0]?.mcxPrice
 			? `₹${commodityRadar.commodities[0].mcxPrice.toLocaleString("en-IN")}/10g`
 			: `₹${(goldenSnapshot?.commodities?.goldMcxInr ?? 78250).toLocaleString("en-IN")}/10g`;
@@ -1487,7 +1487,7 @@ export class KnowledgeHubService {
 		const gsecYieldStr = "6.79";
 		const trepsRateStr = "6.42";
 		const brentPriceNum = 74.50;
-		const brentStr = "$74.50/bbl (MCX Spot: ₹6,325/bbl)";
+		const brentStr = "$74.50/bbl (MCX LTP: ₹6,325/bbl)";
 		const goldStr = "₹78,250/10g";
 		const usdInr = 84.4512;
 		const us10Y = 4.58;

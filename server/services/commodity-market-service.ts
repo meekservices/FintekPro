@@ -41,7 +41,7 @@ export interface CommodityItem {
   macroImplication: string;
   lastUpdated: string;
   deliveryCenter?: string; // e.g. "AHMEDABAD", "THANE", "HAZIRA", "VANDANMEDU", "RAJKOT"
-  priceType?: "SPOT" | "FUTURES"; // explicitly "SPOT" for physical delivery benchmarks
+  priceType?: "SPOT" | "FUTURES" | "LTP" | "LIVE_LTP" | "OFFICIAL_CLOSE"; // "LTP" for Last Traded Price, "SPOT" for physical benchmarks
 }
 
 export interface CommodityMarketSnapshot {
@@ -89,7 +89,7 @@ const CACHE_TTL_SECONDS = 1800; // 30 minutes
 const BASELINE_COMMODITIES: CommodityItem[] = [
   {
     id: "GOLD",
-    name: "Gold 24K (MCX Spot)",
+    name: "Gold 24K (MCX LTP)",
     category: "Precious Metals",
     mcxSymbol: "GOLD",
     mcxPrice: 78250,
@@ -101,14 +101,14 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     cmxChangePercent: 0.28,
     trend: "Bullish",
     deliveryCenter: "AHMEDABAD",
-    priceType: "SPOT",
+    priceType: "LTP",
     macroImplication:
-      "Official MCX Spot price at Ahmedabad (₹78,250/10g). Central bank reserves diversification & sovereign safe-haven accumulation sustaining bullion demand.",
+      "Official MCX Last Traded Price (LTP). Central bank reserves diversification & sovereign safe-haven accumulation sustaining bullion demand.",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
   {
     id: "SILVER",
-    name: "Silver (MCX Spot)",
+    name: "Silver (MCX LTP)",
     category: "Precious Metals",
     mcxSymbol: "SILVER",
     mcxPrice: 91500,
@@ -120,14 +120,14 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     cmxChangePercent: 0.38,
     trend: "Bullish",
     deliveryCenter: "AHMEDABAD",
-    priceType: "SPOT",
+    priceType: "LTP",
     macroImplication:
-      "Official MCX Spot price at Ahmedabad (₹91,500/kg). Dual tailwinds from solar PV manufacturing, electronic fabrication, and monetary demand.",
+      "Official MCX Last Traded Price (LTP). Dual tailwinds from solar PV manufacturing, electronic fabrication, and monetary demand.",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
   {
     id: "CRUDE_OIL",
-    name: "Crude Oil (MCX Spot)",
+    name: "Crude Oil (MCX LTP)",
     category: "Energy",
     mcxSymbol: "CRUDEOIL",
     mcxPrice: 6325,
@@ -138,15 +138,15 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     cmxUnit: "$ / bbl",
     cmxChangePercent: -0.40,
     trend: "Neutral",
-    deliveryCenter: "NA (MCX Spot)",
-    priceType: "SPOT",
+    deliveryCenter: "NA (MCX LTP)",
+    priceType: "LTP",
     macroImplication:
-      "Official MCX Spot crude price at ₹6,325/bbl ($74.50/bbl equivalent). Traded within India's $80 comfort threshold, limiting imported inflation pressures across downstream petrochemical and tyre sectors.",
+      "Official MCX Crude Last Traded Price (LTP). Traded within India's $80 comfort threshold, limiting imported inflation pressures across downstream petrochemical and tyre sectors.",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
   {
     id: "COPPER",
-    name: "Copper (MCX Spot)",
+    name: "Copper (MCX LTP)",
     category: "Base Metals",
     mcxSymbol: "COPPER",
     mcxPrice: 825.50,
@@ -158,14 +158,14 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     cmxChangePercent: 0.38,
     trend: "Bullish",
     deliveryCenter: "THANE",
-    priceType: "SPOT",
+    priceType: "LTP",
     macroImplication:
-      "Official MCX Spot copper price at Thane delivery center (₹825.50/kg). Power grid capex, renewable capacity, and EV wiring driving strong physical demand.",
+      "Official MCX Copper Last Traded Price (LTP). Power grid capex, renewable capacity, and EV wiring driving strong physical demand.",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
   {
     id: "NATURAL_GAS",
-    name: "Natural Gas (MCX Spot)",
+    name: "Natural Gas (MCX LTP)",
     category: "Energy",
     mcxSymbol: "NATURALGAS",
     mcxPrice: 274.60,
@@ -176,15 +176,15 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     cmxUnit: "$ / mmBtu",
     cmxChangePercent: 0.45,
     trend: "Bullish",
-    deliveryCenter: "NA (MCX Spot)",
-    priceType: "SPOT",
+    deliveryCenter: "NA (MCX LTP)",
+    priceType: "LTP",
     macroImplication:
-      "Official MCX Spot price (₹274.60/mmBtu as per mcxindia.com/market-data/spot-market-price). Pure physical spot benchmark without CGD or government subsidy distortions.",
+      "Official MCX Natural Gas Last Traded Price (LTP). Clean industrial fuel benchmark providing transparent market price discovery.",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
   {
     id: "COTTON",
-    name: "Cotton (MCX Spot)",
+    name: "Cotton (MCX LTP)",
     category: "Agriculture",
     mcxSymbol: "COTTON",
     mcxPrice: 31370,
@@ -196,14 +196,14 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     cmxChangePercent: 0.25,
     trend: "Bullish",
     deliveryCenter: "RAJKOT",
-    priceType: "SPOT",
+    priceType: "LTP",
     macroImplication:
-      "Official MCX Spot price at Rajkot (₹31,370/bale). Steady spinning mill procurement supporting textile manufacturing exports.",
+      "Official MCX Cotton Last Traded Price (LTP). Steady spinning mill procurement supporting textile manufacturing exports.",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
   {
     id: "CARDAMOM",
-    name: "Cardamom (MCX Spot)",
+    name: "Cardamom (MCX LTP)",
     category: "Agriculture",
     mcxSymbol: "CARDAMOM",
     mcxPrice: 3315,
@@ -215,9 +215,9 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     cmxChangePercent: -0.20,
     trend: "Neutral",
     deliveryCenter: "VANDANMEDU",
-    priceType: "SPOT",
+    priceType: "LTP",
     macroImplication:
-      "Official MCX Spot price at Vandanmedu auction center (₹3,315/kg). Favorable spice harvest volumes maintaining balanced export realizations.",
+      "Official MCX Cardamom Last Traded Price (LTP). Favorable spice harvest volumes maintaining balanced export realizations.",
     lastUpdated: new Date().toISOString().split("T")[0],
   },
 ];
@@ -498,7 +498,7 @@ export class CommodityMarketService {
                 : base.trend;
 
           // Pure API binding: NO synthetic price calculations.
-          // Domestic MCX uses official MCX Spot price; International uses live API quote.
+          // Domestic MCX uses official MCX Last Traded Price (LTP); International uses live API quote.
           items.push({
             ...base,
             cmxPrice: updatedCmxPrice,
@@ -541,7 +541,7 @@ export class CommodityMarketService {
               lastUpdated: today,
             });
           } else {
-            // Official MCX Spot Benchmark as per exchange
+            // Official MCX Last Traded Price (LTP) Benchmark as per exchange
             items.push({
               ...base,
               mcxPrice: updatedMcxPrice,
@@ -710,7 +710,7 @@ export class CommodityMarketService {
     } else if (brentPrice <= 90) {
       commentary = `Brent crude at $${brentPrice.toFixed(2)}/bbl tests the upper boundary of India's macroeconomic comfort zone ($80-$85/bbl). Monitor CAD and foreign exchange intervention.`;
     } else {
-      commentary = `Brent crude at $${brentPrice.toFixed(2)}/bbl (MCX Spot: ₹${crude.mcxPrice.toLocaleString("en-IN")}/bbl) surges significantly above India's comfort threshold ($80/bbl). Elevated crude prices widen the Current Account Deficit (CAD), fuel imported inflation, and pressure operating margins for paint, auto, tyre, and chemical sectors.`;
+      commentary = `Brent crude at $${brentPrice.toFixed(2)}/bbl (MCX LTP: ₹${crude.mcxPrice.toLocaleString("en-IN")}/bbl) surges significantly above India's comfort threshold ($80/bbl). Elevated crude prices widen the Current Account Deficit (CAD), fuel imported inflation, and pressure operating margins for paint, auto, tyre, and chemical sectors.`;
     }
 
     return {

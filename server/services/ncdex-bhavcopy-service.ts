@@ -65,7 +65,7 @@ export const NCDEX_MANDI_POLLED_SPOT_BENCHMARKS: Array<{
 }> = [
 	{
 		id: "JEERA",
-		name: "Jeera / Cumin Seed (NCDEX Spot)",
+		name: "Jeera / Cumin Seed (NCDEX LTP)",
 		tradingSymbol: "JEERA SPOT UNJ",
 		deliveryCenter: "Unjha (Gujarat)",
 		category: "Spices",
@@ -75,7 +75,7 @@ export const NCDEX_MANDI_POLLED_SPOT_BENCHMARKS: Array<{
 	},
 	{
 		id: "TURMERIC",
-		name: "Turmeric / Haldi (NCDEX Spot)",
+		name: "Turmeric / Haldi (NCDEX LTP)",
 		tradingSymbol: "TMCFGRNZM SPOT",
 		deliveryCenter: "Nizamabad (Telangana)",
 		category: "Spices",
@@ -85,7 +85,7 @@ export const NCDEX_MANDI_POLLED_SPOT_BENCHMARKS: Array<{
 	},
 	{
 		id: "GUARSEED",
-		name: "Guar Seed 10 MT (NCDEX Spot)",
+		name: "Guar Seed 10 MT (NCDEX LTP)",
 		tradingSymbol: "GUARSEED10 SPOT",
 		deliveryCenter: "Jodhpur (Rajasthan)",
 		category: "Guar Complex",
@@ -95,7 +95,7 @@ export const NCDEX_MANDI_POLLED_SPOT_BENCHMARKS: Array<{
 	},
 	{
 		id: "COCUDAKL",
-		name: "Cottonseed Oilcake (NCDEX Spot)",
+		name: "Cottonseed Oilcake (NCDEX LTP)",
 		tradingSymbol: "COCUDAKL SPOT AKL",
 		deliveryCenter: "Akola (Maharashtra)",
 		category: "Oil & Oilseeds",
@@ -105,7 +105,7 @@ export const NCDEX_MANDI_POLLED_SPOT_BENCHMARKS: Array<{
 	},
 	{
 		id: "DHANIYA",
-		name: "Dhaniya / Coriander (NCDEX Spot)",
+		name: "Dhaniya / Coriander (NCDEX LTP)",
 		tradingSymbol: "DHANIYA SPOT KOT",
 		deliveryCenter: "Kota (Rajasthan)",
 		category: "Spices",
@@ -115,7 +115,7 @@ export const NCDEX_MANDI_POLLED_SPOT_BENCHMARKS: Array<{
 	},
 	{
 		id: "CASTORSEED",
-		name: "Castor Seed (NCDEX Spot)",
+		name: "Castor Seed (NCDEX LTP)",
 		tradingSymbol: "CASTOR SPOT DEA",
 		deliveryCenter: "Deesa (Gujarat)",
 		category: "Oil & Oilseeds",
@@ -228,7 +228,8 @@ export class NcdexBhavcopyService {
 
 		const spotRecords = this.fetchMandiSpotRecords(tradeDate);
 		const futuresRecords = await this.fetchSettledFuturesRecords(tradeDate);
-		const allRecords = [...spotRecords, ...futuresRecords];
+		// Always prioritize Last Traded Price (LTP) from futures over spot records
+		const allRecords = [...futuresRecords, ...spotRecords];
 
 		let goldenPricesCount = 0;
 
@@ -271,6 +272,25 @@ export class NcdexBhavcopyService {
 				goldenPricesCount++;
 			} catch (gpErr: any) {
 				logger.warn(`[NcdexBhavcopyService] golden_prices upsert warning for ${r.tradingSymbol}:`, gpErr?.message);
+			}
+		}
+
+		// Ensure commodities master table reflects NCDEX Last Traded Price (LTP)
+		for (const fut of futuresRecords) {
+			try {
+				await db.execute(sql`
+					UPDATE commodities
+					SET current_price = ${String(fut.price)},
+					    price_inr = ${String(fut.price)},
+					    day_change = ${fut.change !== undefined ? String(fut.change) : null},
+					    day_change_percent = ${fut.changePercent !== undefined ? String(fut.changePercent) : null},
+					    data_source = 'angel_ncdex_ltp',
+					    last_updated = NOW(),
+					    updated_at = NOW()
+					WHERE symbol = ${fut.id}
+				`);
+			} catch (updateErr: any) {
+				logger.debug(`[NcdexBhavcopyService] Master commodities update notice for ${fut.id}:`, updateErr?.message);
 			}
 		}
 

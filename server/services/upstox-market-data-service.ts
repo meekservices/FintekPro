@@ -75,6 +75,10 @@ export interface UpstoxMCXQuote {
   exchange: "MCX";
   expiryDate?: string;
   price: number;
+  ltp?: number;
+  close?: number;
+  priceType?: "LIVE_LTP" | "OFFICIAL_CLOSE" | "LTP";
+  isMarketOpen?: boolean;
   openPrice?: number;
   highPrice?: number;
   lowPrice?: number;
@@ -87,6 +91,22 @@ export interface UpstoxMCXQuote {
   lotSize?: number;
   timestamp: string;
   dataSource: "UPSTOX";
+}
+
+/**
+ * Checks if MCX is currently in live trading hours (Mon-Fri, 09:00 to 23:55 IST).
+ */
+export function isMCXMarketOpen(): boolean {
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const istDate = new Date(utc + 3600000 * 5.5);
+  const day = istDate.getDay(); // 0 is Sunday, 6 is Saturday
+  if (day === 0 || day === 6) return false;
+  const hours = istDate.getHours();
+  const minutes = istDate.getMinutes();
+  const totalMinutes = hours * 60 + minutes;
+  // Mon-Fri, 09:00 to 23:55 IST
+  return totalMinutes >= 9 * 60 && totalMinutes <= 23 * 60 + 55;
 }
 
 export interface UpstoxHistoricalCandle {
@@ -1343,7 +1363,11 @@ class UpstoxMarketDataService {
                 return x.trading_symbol?.startsWith("SILVER FUT") || x.trading_symbol?.startsWith("SILVERM FUT");
               }
               if (config.id === "CRUDE_OIL") {
-                return x.trading_symbol?.startsWith("CRUDEOIL FUT") || x.name === "CRUDE OIL";
+                // Benchmark standard CRUDEOIL futures (exclude CRUDEOILM mini & options)
+                return (
+                  (x.trading_symbol?.startsWith("CRUDEOIL FUT") || x.name === "CRUDE OIL" || x.name === "CRUDEOIL") &&
+                  !x.trading_symbol?.includes("M FUT")
+                );
               }
               return (
                 x.name === config.query ||
@@ -1352,9 +1376,16 @@ class UpstoxMarketDataService {
             }
           );
           if (futs.length > 0) {
-            // Sort by earliest expiry to pick near-month active contract
-            futs.sort((a: any, b: any) => new Date(a.expiry || 0).getTime() - new Date(b.expiry || 0).getTime());
-            const nearest = futs[0];
+            const nowMs = Date.now();
+            // Filter unexpired contracts to auto-handle expiry rollover
+            const activeFuts = futs.filter((f: any) => {
+              const expTime = f.expiry ? new Date(f.expiry).getTime() : 0;
+              return expTime > nowMs;
+            });
+            const pool = activeFuts.length > 0 ? activeFuts : futs;
+            // Sort by earliest expiry to pick active near-month contract
+            pool.sort((a: any, b: any) => new Date(a.expiry || 0).getTime() - new Date(b.expiry || 0).getTime());
+            const nearest = pool[0];
             activeKey = nearest.instrument_key || activeKey;
             tradingSymbol = nearest.trading_symbol || tradingSymbol;
             expiry = nearest.expiry;
@@ -1385,6 +1416,7 @@ class UpstoxMarketDataService {
 
       const results: Record<string, UpstoxMCXQuote> = {};
       const nowIso = new Date().toISOString();
+      const marketOpen = isMCXMarketOpen();
 
       for (const contract of resolvedContracts) {
         // Upstox keys in response can be "MCX_FO|{token}" or "MCX_FO:{trading_symbol_sanitized}"
@@ -1399,16 +1431,24 @@ class UpstoxMarketDataService {
         if (!raw && !quoteData[contract.key]) continue;
 
         const dataObj = raw ?? quoteData[contract.key];
-        const lastPrice = Number(dataObj.last_price || dataObj.ohlc?.close || 0);
-        if (lastPrice <= 0) continue;
-
         const ohlc = dataObj.ohlc || {};
+        const ltp = dataObj.last_price ? Number(dataObj.last_price) : undefined;
+        const officialClose = ohlc.close ? Number(ohlc.close) : undefined;
+
+        // Policy: Always consider Last Traded Price (LTP) for MCX and NCDEX.
+        // Fallback to official close only if no LTP is populated yet
+        const effectivePrice = (ltp && ltp > 0) ? ltp : (officialClose && officialClose > 0 ? officialClose : Number(dataObj.last_price || 0));
+        if (effectivePrice <= 0) continue;
+
+        const priceType: "LIVE_LTP" | "OFFICIAL_CLOSE" | "LTP" =
+          marketOpen && ltp ? "LIVE_LTP" : officialClose ? "OFFICIAL_CLOSE" : "LTP";
+
         const prevClose = ohlc.close ? Number(ohlc.close) : undefined;
         const openPrice = ohlc.open ? Number(ohlc.open) : undefined;
         const highPrice = ohlc.high ? Number(ohlc.high) : undefined;
         const lowPrice = ohlc.low ? Number(ohlc.low) : undefined;
-        const change = prevClose ? Number((lastPrice - prevClose).toFixed(2)) : undefined;
-        const changePercent = prevClose ? Number((((lastPrice - prevClose) / prevClose) * 100).toFixed(2)) : 0;
+        const change = prevClose ? Number((effectivePrice - prevClose).toFixed(2)) : undefined;
+        const changePercent = prevClose ? Number((((effectivePrice - prevClose) / prevClose) * 100).toFixed(2)) : 0;
         const volume = dataObj.volume ? Number(dataObj.volume) : undefined;
         const openInterest = dataObj.oi ? Number(dataObj.oi) : undefined;
 
@@ -1418,7 +1458,11 @@ class UpstoxMarketDataService {
           tradingSymbol: contract.tradingSymbol,
           exchange: "MCX",
           expiryDate: contract.expiry,
-          price: lastPrice,
+          price: effectivePrice,
+          ltp,
+          close: officialClose,
+          priceType,
+          isMarketOpen: marketOpen,
           openPrice,
           highPrice,
           lowPrice,
@@ -1521,6 +1565,39 @@ class UpstoxMarketDataService {
         meta: this._meta(t0),
       };
     }, t0);
+  }
+
+  /**
+   * Fetches official MCX Crude Oil quote and price type (LIVE_LTP vs OFFICIAL_CLOSE).
+   * Prioritizes active front-month contract and respects live MCX trading hours.
+   */
+  async getOfficialMCXCrudePrice(instrumentKey?: string): Promise<{
+    symbol: string;
+    instrumentKey: string;
+    officialPrice: number;
+    priceType: "LIVE_LTP" | "OFFICIAL_CLOSE" | "LTP";
+    ltp: number;
+    open?: number;
+    high?: number;
+    low?: number;
+    close?: number;
+    timestamp?: string;
+  } | null> {
+    const quotesRes = await this.getMCXCommodityQuotes({ persistToDb: false });
+    if (!quotesRes.success || !quotesRes.data?.CRUDE_OIL) return null;
+    const crude = quotesRes.data.CRUDE_OIL;
+    return {
+      symbol: crude.tradingSymbol,
+      instrumentKey: crude.instrumentKey,
+      officialPrice: crude.price,
+      priceType: crude.priceType || (isMCXMarketOpen() ? "LIVE_LTP" : "OFFICIAL_CLOSE"),
+      ltp: crude.ltp ?? crude.price,
+      open: crude.openPrice,
+      high: crude.highPrice,
+      low: crude.lowPrice,
+      close: crude.close ?? crude.previousClose,
+      timestamp: crude.timestamp,
+    };
   }
 
   // ── IPO (Initial Public Offering) ──────────────────────────────────────────
