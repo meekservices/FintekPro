@@ -145,7 +145,7 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 # STEP 3 — TypeScript tsc --noEmit (full project type check)
 # ─────────────────────────────────────────────────────────────────────────────
-section "Step 3/3 — TypeScript compile check (tsc --noEmit)"
+section "Step 3/4 — TypeScript compile check (tsc --noEmit)"
 
 echo -e "${INFO}Running tsc --noEmit --skipLibCheck ..."
 TSC_OUT=$(NODE_OPTIONS="--max-old-space-size=8192" npx tsc --noEmit --skipLibCheck 2>&1 || true)
@@ -156,6 +156,19 @@ if [[ "$TSC_ERRORS" -eq 0 ]]; then
 else
   echo -e "${FAIL} TypeScript: $TSC_ERRORS error(s) found:"
   echo "$TSC_OUT" | grep "error TS" | head -20
+  ERRORS=$((ERRORS + 1))
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 4 — FintekPro Policy & Regulatory Guardrails (FASP-AI v1.0 + GCR v1.0)
+# ─────────────────────────────────────────────────────────────────────────────
+section "Step 4/4 — FintekPro Policy & Regulatory Guardrail Enforcement"
+
+echo -e "${INFO}Checking brand neutrality, zero synthetic math, and regulatory compliance..."
+if node "$PROJECT_ROOT/scripts/enforce-policy-guardrails.mjs"; then
+  echo -e "${PASS} Policy Guardrails: 100% compliant"
+else
+  echo -e "${FAIL} Policy Guardrails: Violations detected — commit/deploy blocked"
   ERRORS=$((ERRORS + 1))
 fi
 

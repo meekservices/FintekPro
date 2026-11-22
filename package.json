@@ -13,6 +13,7 @@
     "lint:changed": "node scripts/lint-changed.js",
     "pre-commit": "bash scripts/pre-commit-check.sh",
     "quality-gate": "bash scripts/pre-commit-check.sh",
+    "policy:check": "node scripts/enforce-policy-guardrails.mjs",
     "install-hooks": "bash scripts/install-hooks.sh",
     "postinstall": "bash scripts/install-hooks.sh 2>/dev/null || true",
     "db:repair": "tsx server/startup/schema-repairs-runner.ts",
