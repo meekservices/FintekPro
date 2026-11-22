@@ -125,7 +125,7 @@ export const CANONICAL_FALLBACK_SNAPSHOT_INDIA: MarketBriefSnapshot = {
 
 export const DEFAULT_INDIA_BRIEF_TEMPLATES = {
 	marketSnapshot:
-		"Indian equity benchmarks (Nifty 50 & Sensex) traded with positive bias supported by domestic institutional inflows (DIIs). The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at {{sovereign.gsec10Y}}%, offering {{sovereign.realYield10Y}} real yield over CPI (6.21%). CCIL TREPS overnight funding rate printed at {{sovereign.trepsWar}}, signaling comfortable systemic money market liquidity. Brent crude traded at {{commodity.brentStr}}, anchoring imported inflation expectations, while the CCIL FX-CLEAR USD/INR spot rate hovered near {{forex.usdInr}}.",
+		"Indian equity benchmarks (Nifty 50 & Sensex) traded with positive bias supported by domestic institutional inflows (DIIs). The 10-year benchmark Indian Government Bond (G-Sec) yield hovered at {{sovereign.gsec10Y}}, offering {{sovereign.realYield10Y}} real yield over CPI (6.21%). CCIL TREPS overnight funding rate printed at {{sovereign.trepsWar}}, signaling comfortable systemic money market liquidity. Brent crude traded at {{commodity.brentStr}}, anchoring imported inflation expectations, while the CCIL FX-CLEAR USD/INR spot rate hovered near {{forex.usdInr}}.",
 	whatChanged:
 		"1. RBI Monetary Policy, FBIL & Sovereign Debt Desk: FBIL USD/INR Reference Rate at {{forex.usdInr}}; CCIL 10Y Benchmark G-Sec yield at {{sovereign.gsec10Y}}; CCIL TREPS WAR at {{sovereign.trepsWar}}.\n2. Commodity Radar: Brent crude CFD at {{commodity.brentStr}}, {{macro.brentInflationRiskStatus}}. MCX Gold at {{commodity.goldMcx}} (COMEX: $2,685.50/oz) on steady safe-haven demand.\n3. Institutional Liquidity: Domestic Mutual Funds SIP inflows (~₹26,000+ Cr monthly run-rate) absorbing FPI outflows.\n4. Global & US Market Radar: S&P 500 at 5,864.5 and Nasdaq-100 at 20,380 with USD/INR at {{forex.usdInr}}.",
 	keyRisks:
@@ -186,7 +186,8 @@ export function hydrateMarketTokens(template: string, snapshot: MarketBriefSnaps
 		.replace(/\$74\.8/g, `$${snapshot.commodities.brentUsd.toFixed(2)}`)
 		.replace(/₹86\.85/g, `₹${snapshot.forex.usdInr.toFixed(2)}`)
 		.replace(/₹230\.40/g, natGasStr)
-		.replace(/₹231\.2/g, natGasStr);
+		.replace(/₹231\.2/g, natGasStr)
+		.replace(/%%/g, "%");
 }
 
 /**

@@ -413,7 +413,7 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 								<div>
 									<div className="text-[10px] text-muted-foreground uppercase font-semibold">10Y Sovereign Real Carry</div>
 									<div className="font-mono font-bold text-emerald-600">
-										+1.30% <span className="text-[10px] text-muted-foreground font-normal">over CPI</span>
+										+0.58% <span className="text-[10px] text-muted-foreground font-normal">over CPI (6.21%)</span>
 									</div>
 								</div>
 							</div>

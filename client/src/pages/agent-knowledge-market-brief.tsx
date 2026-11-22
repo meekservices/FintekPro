@@ -722,7 +722,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 					{
 						sector: "Fixed Income & CCIL Sovereign Debt",
 						trend: "Stable / Attractive",
-						outlook: "10-Year Benchmark G-Sec yield consolidated at 6.79% (Real Yield: +1.30%). CCIL TREPS WAR steady at 6.42%.",
+						outlook: "10-Year Benchmark G-Sec yield consolidated at 6.79% (Real Yield: +0.58% over CPI). CCIL TREPS WAR steady at 6.42%.",
 					},
 					{
 						sector: "Commodities & Energy (MCX / CMX)",
@@ -902,7 +902,7 @@ function getClientFallbackBrief(region: string): MarketBrief {
 						recommendedDurationBand: "3 to 5 Years",
 						recommendedCategory: "Target Maturity Gilt & Corporate Bond Funds",
 						sovereignCurveStance: "Neutral to Long Duration",
-						rationale: "With 10Y benchmark G-Sec yielding 6.79% and real yields at +1.30%, intermediate duration captures attractive carry with capital appreciation upside upon systemic policy rate easing.",
+						rationale: "With 10Y benchmark G-Sec yielding 6.79% and real yields at +0.58% over CPI (6.21%), intermediate duration captures attractive carry with capital appreciation upside upon systemic policy rate easing.",
 					},
 					thematicRotations: [
 						{
@@ -1319,24 +1319,42 @@ export default function AgentKnowledgeMarketBrief() {
 
 		// 2. Sanitize & Hydrate Market Snapshot
 		if (brief.marketSnapshot && typeof brief.marketSnapshot === "string") {
-			brief.marketSnapshot = brief.marketSnapshot
+			let snap = brief.marketSnapshot
 				.replace(/\{\{sovereign\.gsec10Y\}\}/g, `${liveGSec.toFixed(2)}%`)
 				.replace(/\{\{sovereign\.realYield10Y\}\}/g, `+${realYieldVal.toFixed(2)}%`)
 				.replace(/\{\{sovereign\.trepsWar\}\}/g, `${liveTreps.toFixed(2)}%`)
 				.replace(/\{\{commodity\.goldMcx\}\}/g, goldDisplay)
 				.replace(/\{\{commodity\.brentStr\}\}/g, brentDisplay)
 				.replace(/\{\{forex\.usdInr\}\}/g, usdInrDisplay);
+
+			// Strict reconciliation: eliminate discrepancies with top cards
+			snap = snap
+				.replace(/Brent crude traded at \$[0-9.]+\/bbl \([^)]+\)/g, `Brent crude traded at ${brentDisplay}`)
+				.replace(/Brent crude CFD at \$[0-9.]+\/bbl \([^)]+\)/g, `Brent crude CFD at ${brentDisplay}`)
+				.replace(/CCIL TREPS overnight funding rate printed at [0-9.]+(%%|%)/g, `CCIL TREPS overnight funding rate printed at ${liveTreps.toFixed(2)}%`)
+				.replace(/hovered at [0-9.]+(%%|%)/g, `hovered at ${liveGSec.toFixed(2)}%`)
+				.replace(/%%/g, "%");
+
+			brief.marketSnapshot = snap;
 		}
 
 		// 3. Sanitize & Hydrate What Changed
 		if (brief.whatChanged && typeof brief.whatChanged === "string") {
-			brief.whatChanged = brief.whatChanged
+			let wc = brief.whatChanged
 				.replace(/\{\{sovereign\.gsec10Y\}\}/g, `${liveGSec.toFixed(2)}%`)
 				.replace(/\{\{sovereign\.trepsWar\}\}/g, `${liveTreps.toFixed(2)}%`)
 				.replace(/\{\{commodity\.goldMcx\}\}/g, goldDisplay)
 				.replace(/\{\{commodity\.brentStr\}\}/g, brentDisplay)
 				.replace(/\{\{forex\.usdInr\}\}/g, usdInrDisplay)
 				.replace(/\{\{macro\.brentInflationRiskStatus\}\}/g, isElevatedB ? "monitored above India's $80 comfort threshold for imported inflation" : "within comfort band");
+
+			wc = wc
+				.replace(/Brent crude CFD at \$[0-9.]+\/bbl \([^)]+\)/g, `Brent crude CFD at ${brentDisplay}`)
+				.replace(/CCIL TREPS WAR at [0-9.]+(%%|%)/g, `CCIL TREPS WAR at ${liveTreps.toFixed(2)}%`)
+				.replace(/10Y Benchmark G-Sec yield at [0-9.]+(%%|%)/g, `10Y Benchmark G-Sec yield at ${liveGSec.toFixed(2)}%`)
+				.replace(/%%/g, "%");
+
+			brief.whatChanged = wc;
 		}
 
 		// 4. Sector Highlights: preserve server-hydrated canonical highlights if present
@@ -4311,16 +4329,28 @@ export default function AgentKnowledgeMarketBrief() {
 								<div className="p-3 rounded-lg bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 space-y-2">
 									<h4 className="font-bold text-amber-950 dark:text-amber-200 flex items-center gap-1.5">
 										<Scale className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-										Conversion Formula & Arbitrage Mechanics
+										Exchange Price Discovery & Clearing Architecture
 									</h4>
-									<div className="font-mono bg-card/80 p-2 rounded border border-border text-[11px] text-foreground">
-										{activeExplainerModal.data.id === "gold" && "Domestic Gold (₹/10g) = ((COMEX Gold $/oz × USD/INR) / 31.1034768 × 10) × (1 + Customs Duty 6% + AIDC + GST 3%)"}
-										{activeExplainerModal.data.id === "silver" && "Domestic Silver (₹/kg) = ((COMEX Silver $/oz × USD/INR) / 31.1034768 × 1,000) × (1 + Duty + GST)"}
-										{activeExplainerModal.data.id === "crude" && "Domestic Crude (₹/bbl) = ICE Brent Crude $/bbl × USD/INR (Plus Freight & Refinery Refining Premium)"}
-										{activeExplainerModal.data.id !== "gold" && activeExplainerModal.data.id !== "silver" && activeExplainerModal.data.id !== "crude" && "Domestic MCX LTP (₹) = (Global CFD Price in USD × Current USD/INR FX Rate) × Unit Conversion Factor + Taxes/Duties"}
+									<div className="bg-card/80 p-2.5 rounded border border-border text-xs text-foreground space-y-1.5">
+										<div className="flex items-center justify-between">
+											<span className="text-muted-foreground font-medium">Domestic Clearing Benchmark:</span>
+											<span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+												MCX LTP ({activeExplainerModal.data.unit ?? "₹"}) — Pure Order Book
+											</span>
+										</div>
+										<div className="flex items-center justify-between">
+											<span className="text-muted-foreground font-medium">Global Benchmark:</span>
+											<span className="font-mono font-bold text-blue-600 dark:text-blue-400">
+												{activeExplainerModal.data.cmxSymbol ?? "Global CFD"} (${activeExplainerModal.data.cmxUnit ?? "USD"})
+											</span>
+										</div>
+										<div className="flex items-center justify-between border-t border-border/60 pt-1 text-[11px]">
+											<span className="text-muted-foreground">Derivation Mode:</span>
+											<span className="font-semibold text-foreground">Zero Synthetic Formulas (Live Licensed Exchange Feeds)</span>
+										</div>
 									</div>
-									<p className="text-muted-foreground leading-relaxed">
-										MCX domestic prices reflect active exchange trading and clearing corridors, onshore premiums or discounts based on physical logistics, landing tariffs, basic customs duties, and local demand.
+									<p className="text-muted-foreground leading-relaxed text-xs">
+										MCX and NCDEX domestic benchmarks are autonomous, exchange-cleared futures contracts with direct order book price discovery (LTP). They are not synthesized through currency multipliers, preserving regulatory fidelity and real-time trade execution integrity.
 									</p>
 								</div>
 
