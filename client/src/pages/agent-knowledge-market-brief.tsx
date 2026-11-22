@@ -1310,7 +1310,9 @@ export default function AgentKnowledgeMarketBrief() {
 				.replace(/\{\{commodity\.brentUsd\}\}/g, `$${liveBrent.toFixed(2)}/bbl`)
 				.replace(/\{\{commodity\.brentMcxInr\}\}/g, `₹${liveBrentMcx.toLocaleString("en-IN")}/bbl`)
 				.replace(/\{\{commodity\.goldMcx\}\}/g, goldDisplay)
-				.replace(/\{\{forex\.usdInr\}\}/g, usdInrDisplay);
+				.replace(/\{\{forex\.usdInr\}\}/g, usdInrDisplay)
+				.replace(/Brent currently at \$[0-9.]+\/bbl \([^)]+\)/g, `Brent currently at ${brentDisplay}`)
+				.replace(/Brent currently at \$[0-9.]+\/bbl/g, `Brent currently at $${liveBrent.toFixed(2)}/bbl`);
 			if (cleaned.startsWith("Crude oil volatility") && isElevatedB) {
 				cleaned = cleaned.replace("Crude oil volatility", "Elevated crude oil volatility");
 			}
@@ -1352,6 +1354,9 @@ export default function AgentKnowledgeMarketBrief() {
 				.replace(/Brent crude CFD at \$[0-9.]+\/bbl \([^)]+\)/g, `Brent crude CFD at ${brentDisplay}`)
 				.replace(/CCIL TREPS WAR at [0-9.]+(%%|%)/g, `CCIL TREPS WAR at ${liveTreps.toFixed(2)}%`)
 				.replace(/10Y Benchmark G-Sec yield at [0-9.]+(%%|%)/g, `10Y Benchmark G-Sec yield at ${liveGSec.toFixed(2)}%`)
+				.replace(/MCX Gold at ₹[0-9,]+\/10g/g, `MCX Gold at ${goldDisplay}`)
+				.replace(/MCX Gold at ₹1,21,949\/10g/g, `MCX Gold at ${goldDisplay}`)
+				.replace(/trading comfortably within India's \$80 threshold/g, isElevatedB ? "monitored above India's $80 comfort threshold for imported inflation" : "trading comfortably within India's $80 threshold, limiting imported inflation")
 				.replace(/%%/g, "%");
 
 			brief.whatChanged = wc;

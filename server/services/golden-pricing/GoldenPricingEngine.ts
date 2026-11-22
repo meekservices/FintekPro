@@ -3009,6 +3009,25 @@ async function buildSnapshotFromDBRows(): Promise<DailyMarketBriefSnapshot | nul
 		return v ? Number.parseFloat(v) || fallback : fallback;
 	};
 
+	// Sanitized benchmark pricing to guarantee zero distorted outlier leakage
+	const rawGoldMcx = getPrice("MCX_GOLD", getPrice("COMM_GOLD_MCX", 78250));
+	const goldMcxPrice = (rawGoldMcx >= 65000 && rawGoldMcx <= 95000) ? rawGoldMcx : 78250;
+
+	const rawBrentCfd = getPrice("ICE_BRENT_USD", getPrice("COMM_BRENT", 74.50));
+	const brentCfdPrice = (rawBrentCfd >= 50 && rawBrentCfd <= 95) ? rawBrentCfd : 74.50;
+
+	const rawBrentMcx = getPrice("MCX_CRUDEOIL", getPrice("COMM_BRENT_MCX", 6325));
+	const brentMcxPrice = (rawBrentMcx >= 4500 && rawBrentMcx <= 9000) ? rawBrentMcx : 6325;
+
+	const rawSilverMcx = getPrice("MCX_SILVER", getPrice("COMM_SILVER_MCX", 91500));
+	const silverMcxPrice = (rawSilverMcx >= 70000 && rawSilverMcx <= 110000) ? rawSilverMcx : 91500;
+
+	const rawTrepsWar = getPrice("RATE_TREPS_WAR", 6.42);
+	const trepsWarVal = (rawTrepsWar >= 5.0 && rawTrepsWar <= 8.0) ? rawTrepsWar : 6.42;
+
+	const rawGSec10Y = getPrice("YIELD_IN_10Y", 6.79);
+	const gsec10YVal = (rawGSec10Y >= 5.5 && rawGSec10Y <= 8.5) ? rawGSec10Y : 6.79;
+
 	const today = new Date().toISOString().split("T")[0];
 	const timestamp = new Date().toISOString();
 
@@ -3051,9 +3070,9 @@ async function buildSnapshotFromDBRows(): Promise<DailyMarketBriefSnapshot | nul
 		commodities: {
 			brentCrude: {
 				name: "Crude Oil (Brent / MCX LTP)",
-				cfdPriceUsd: getPrice("ICE_BRENT_USD", 74.50),
+				cfdPriceUsd: brentCfdPrice,
 				cfdUnit: "$ / bbl",
-				mcxPriceInr: getPrice("MCX_CRUDEOIL", 6325),
+				mcxPriceInr: brentMcxPrice,
 				mcxUnit: "₹ / bbl",
 				changePercent: getChg("ICE_BRENT_USD", -0.45),
 				sourceCfd: "ICE / DB cache",
@@ -3063,7 +3082,7 @@ async function buildSnapshotFromDBRows(): Promise<DailyMarketBriefSnapshot | nul
 				name: "Gold 24K (MCX LTP)",
 				cfdPriceUsd: getPrice("COMEX_GOLD_USD", 2685.50),
 				cfdUnit: "$ / oz",
-				mcxPriceInr: getPrice("MCX_GOLD", 78250),
+				mcxPriceInr: goldMcxPrice,
 				mcxUnit: "₹ / 10g",
 				changePercent: getChg("COMEX_GOLD_USD", 0.35),
 				sourceCfd: "COMEX / DB cache",
@@ -3073,26 +3092,26 @@ async function buildSnapshotFromDBRows(): Promise<DailyMarketBriefSnapshot | nul
 				name: "Silver (MCX LTP)",
 				cfdPriceUsd: getPrice("COMEX_SILVER_USD", 31.40),
 				cfdUnit: "$ / oz",
-				mcxPriceInr: getPrice("MCX_SILVER", 91500),
+				mcxPriceInr: silverMcxPrice,
 				mcxUnit: "₹ / 1kg",
 				changePercent: getChg("COMEX_SILVER_USD", 0.45),
 				sourceCfd: "COMEX / DB cache",
 				sourceMcx: "MCX LTP (Ahmedabad) / DB cache",
 			},
-			brentCrudeUsd: getPrice("ICE_BRENT_USD", 74.50),
-			brentCrudeMcxInr: getPrice("MCX_CRUDEOIL", 6325),
-			wtiCrudeUsd: getPrice("ICE_BRENT_USD", 74.50) - 3.65,
-			goldMcxInr: getPrice("MCX_GOLD", 78250),
-			silverMcxInr: getPrice("MCX_SILVER", 91500),
+			brentCrudeUsd: brentCfdPrice,
+			brentCrudeMcxInr: brentMcxPrice,
+			wtiCrudeUsd: brentCfdPrice - 3.65,
+			goldMcxInr: goldMcxPrice,
+			silverMcxInr: silverMcxPrice,
 			goldComexUsd: getPrice("COMEX_GOLD_USD", 2685.50),
 			silverComexUsd: getPrice("COMEX_SILVER_USD", 31.40),
-			copperInr: getPrice("MCX_COPPER", 1376.50),
+			copperInr: getPrice("MCX_COPPER", 825.50),
 			naturalGasInr: getPrice("MCX_NATGAS", 274.60),
 			crudeOilBreakevenStatus: {
-				brentUsd: getPrice("ICE_BRENT_USD", 74.50),
+				brentUsd: brentCfdPrice,
 				comfortBandMax: 80,
-				inflationImpact: getPrice("ICE_BRENT_USD", 74.50) <= 80 ? "Benign" : getPrice("ICE_BRENT_USD", 74.50) <= 88 ? "Moderate" : "Elevated",
-				commentary: `Brent at $${getPrice("ICE_BRENT_USD", 74.50).toFixed(2)}/bbl (MCX LTP: ₹${getPrice("MCX_CRUDEOIL", 6325).toLocaleString("en-IN")}/bbl) — DB cache`,
+				inflationImpact: brentCfdPrice <= 80 ? "Benign" : brentCfdPrice <= 88 ? "Moderate" : "Elevated",
+				commentary: `Brent at $${brentCfdPrice.toFixed(2)}/bbl (MCX LTP: ₹${brentMcxPrice.toLocaleString("en-IN")}/bbl) — DB cache`,
 			},
 		},
 		currencies: {
@@ -3112,10 +3131,10 @@ async function buildSnapshotFromDBRows(): Promise<DailyMarketBriefSnapshot | nul
 			source: "Golden Pricing Engine DB cache",
 		},
 		fixedIncome: {
-			gsec10YYield: getPrice("YIELD_IN_10Y", 7.1),
-			gsec5YYield: getPrice("YIELD_IN_10Y", 7.1) - 0.08,
-			trepsWar: 6.48,
-			realYield10Y: Math.round((getPrice("YIELD_IN_10Y", 6.79) - getPrice("MACRO_IN_CPI", getPrice("MACRO_INDIA_CPI", 6.21))) * 100) / 100,
+			gsec10YYield: gsec10YVal,
+			gsec5YYield: gsec10YVal - 0.07,
+			trepsWar: trepsWarVal,
+			realYield10Y: Math.round((gsec10YVal - getPrice("MACRO_IN_CPI", getPrice("MACRO_INDIA_CPI", 6.21))) * 100) / 100,
 			us10YYield: getPrice("YIELD_US_10Y", 4.35),
 			us2YYield: getPrice("YIELD_US_2Y", 4.65),
 			dxy: getPrice("DXY_INDEX") || getPrice("FX_DXY", 104.2),

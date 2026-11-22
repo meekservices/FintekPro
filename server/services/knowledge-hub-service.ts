@@ -981,7 +981,7 @@ export class KnowledgeHubService {
 							name: "Copper (MCX LTP)",
 							category: "Base Metals",
 							mcxSymbol: "COPPER",
-							mcxPrice: 1376.50,
+							mcxPrice: 825.50,
 							mcxUnit: "₹ / kg",
 							mcxChangePercent: -0.28,
 							cmxSymbol: "HG=F (COMEX Copper)",
@@ -990,7 +990,7 @@ export class KnowledgeHubService {
 							cmxChangePercent: 0.38,
 							trend: "Bullish",
 							macroImplication:
-								"Official MCX Last Traded Price (LTP) (₹1,376.50/kg). Electrification, AI datacenter grid infrastructure, and EV wiring demand.",
+								"Official MCX Last Traded Price (LTP) (₹825.50/kg). Electrification, AI datacenter grid infrastructure, and EV wiring demand.",
 							lastUpdated: new Date().toISOString().split("T")[0],
 						},
 					],

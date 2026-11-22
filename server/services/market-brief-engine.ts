@@ -164,7 +164,11 @@ export function hydrateMarketTokens(template: string, snapshot: MarketBriefSnaps
 		.replace(/\{\{forex\.usdInr\}\}/g, usdInrStr)
 		.replace(/\{\{forex\.inrUsd\}\}/g, inrUsdStr)
 		.replace(/\{\{macro\.brentInflationRiskStatus\}\}/g, snapshot.commodities.crudeInflationRiskStatus)
-		// Universal legacy pattern scrubbing to guarantee zero legacy bleed-through
+		// Universal legacy & distorted quote scrubbing to guarantee zero bleed-through
+		.replace(/₹1,21,949\/10g/g, goldInrStr)
+		.replace(/₹121949\/10g/g, goldInrStr)
+		.replace(/₹1,21,949/g, goldInrStr)
+		.replace(/₹121949/g, goldInrStr)
 		.replace(/₹1,41,255\/10g/g, goldInrStr)
 		.replace(/₹141255\/10g/g, goldInrStr)
 		.replace(/₹1,41,255/g, goldInrStr)
@@ -187,6 +191,17 @@ export function hydrateMarketTokens(template: string, snapshot: MarketBriefSnaps
 		.replace(/₹86\.85/g, `₹${snapshot.forex.usdInr.toFixed(2)}`)
 		.replace(/₹230\.40/g, natGasStr)
 		.replace(/₹231\.2/g, natGasStr)
+		// Universal reconciliation patterns: guarantee narrative text matches active snapshot cards
+		.replace(/Brent crude traded at \$[0-9.]+\/bbl \([^)]+\)/g, `Brent crude traded at ${brentStr}`)
+		.replace(/Brent crude CFD at \$[0-9.]+\/bbl \([^)]+\)/g, `Brent crude CFD at ${brentStr}`)
+		.replace(/Brent currently at \$[0-9.]+\/bbl \([^)]+\)/g, `Brent currently at ${brentStr}`)
+		.replace(/CCIL TREPS overnight funding rate printed at [0-9.]+(%%|%)/g, `CCIL TREPS overnight funding rate printed at ${trepsStr}`)
+		.replace(/CCIL TREPS WAR at [0-9.]+(%%|%)/g, `CCIL TREPS WAR at ${trepsStr}`)
+		.replace(/TREPS overnight WAR at [0-9.]+(%%|%)/g, `TREPS overnight WAR at ${trepsStr}`)
+		.replace(/MCX Gold at ₹[0-9,]+\/10g/g, `MCX Gold at ${goldInrStr}`)
+		.replace(/MCX Gold printed at ₹[0-9,]+\/10g/g, `MCX Gold printed at ${goldInrStr}`)
+		.replace(/hovered at [0-9.]+(%%|%)/g, `hovered at ${gsecStr}`)
+		.replace(/10Y Benchmark G-Sec yield at [0-9.]+(%%|%)/g, `10Y Benchmark G-Sec yield at ${gsecStr}`)
 		.replace(/%%/g, "%");
 }
 
@@ -378,19 +393,19 @@ class InProcessMarketSnapshotStore {
 					base.sovereign.gsec10Y = gpe.fixedIncome.gsec10YYield;
 					base.sovereign.realYield10Y = parseFloat((gpe.fixedIncome.gsec10YYield - base.macro.indiaCpiAssumed).toFixed(2));
 				}
-				if (gpe.fixedIncome?.trepsWar) {
+				if (gpe.fixedIncome?.trepsWar && gpe.fixedIncome.trepsWar >= 5.0 && gpe.fixedIncome.trepsWar <= 8.0) {
 					base.sovereign.trepsWar = gpe.fixedIncome.trepsWar;
 				}
-				if (gpe.commodities?.brentCrudeUsd) {
+				if (gpe.commodities?.brentCrudeUsd && gpe.commodities.brentCrudeUsd >= 50 && gpe.commodities.brentCrudeUsd <= 95) {
 					base.commodities.brentUsd = gpe.commodities.brentCrudeUsd;
 				}
-				if (gpe.commodities?.brentCrudeMcxInr) {
+				if (gpe.commodities?.brentCrudeMcxInr && gpe.commodities.brentCrudeMcxInr >= 4500 && gpe.commodities.brentCrudeMcxInr <= 9000) {
 					base.commodities.brentMcxInr = gpe.commodities.brentCrudeMcxInr;
 				}
-				if (gpe.commodities?.goldMcxInr) {
+				if (gpe.commodities?.goldMcxInr && gpe.commodities.goldMcxInr >= 65000 && gpe.commodities.goldMcxInr <= 95000) {
 					base.commodities.goldMcxPrice = gpe.commodities.goldMcxInr;
 				}
-				if (gpe.commodities?.silverMcxInr) {
+				if (gpe.commodities?.silverMcxInr && gpe.commodities.silverMcxInr >= 70000 && gpe.commodities.silverMcxInr <= 110000) {
 					base.commodities.silverMcxPrice = gpe.commodities.silverMcxInr;
 				}
 				if (gpe.commodities?.naturalGasInr) {

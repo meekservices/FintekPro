@@ -52,6 +52,13 @@ router.get(
 		const forceRefresh = req.query.forceRefresh === "true" || req.query.refresh === "true";
 		if (forceRefresh) {
 			try {
+				const { getSharedRedis } = await import("../utils/redis-client");
+				const redis = await getSharedRedis();
+				if (redis?.isOpen) {
+					const todayStr = new Date().toISOString().split("T")[0];
+					await redis.del(`cache:knowledge_hub_brief:${region}:${todayStr}`);
+					await redis.del(`cache:market_brief_snapshot:${region}`);
+				}
 				const { goldenPricingEngine } = await import("../services/golden-pricing/GoldenPricingEngine");
 				await goldenPricingEngine.getDailyMarketBriefLiveSnapshot(region, true);
 				await knowledgeHubService.generateAndPublishDailyBrief(region);
@@ -75,7 +82,24 @@ router.get(
 			}).catch(() => {});
 		}
 
-		const responseBrief = brief || knowledgeHubService.getFallbackDailyBrief(region);
+		let responseBrief = brief || knowledgeHubService.getFallbackDailyBrief(region);
+		if (responseBrief && region === "india") {
+			try {
+				const { inProcessMarketSnapshotStore, hydrateMarketTokens } = await import("../services/market-brief-engine");
+				const snap = await inProcessMarketSnapshotStore.getSnapshot("india");
+				if (responseBrief.marketSnapshot) {
+					responseBrief.marketSnapshot = hydrateMarketTokens(responseBrief.marketSnapshot, snap);
+				}
+				if (responseBrief.whatChanged) {
+					responseBrief.whatChanged = hydrateMarketTokens(responseBrief.whatChanged, snap);
+				}
+				if (responseBrief.keyRisks) {
+					responseBrief.keyRisks = hydrateMarketTokens(responseBrief.keyRisks, snap);
+				}
+			} catch {
+				/* non-fatal */
+			}
+		}
 		const qualityAudit = knowledgeHubAutoHealSentinel.auditBrief(responseBrief, region);
 
 		res.json({
