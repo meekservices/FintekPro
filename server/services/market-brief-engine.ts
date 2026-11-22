@@ -165,26 +165,27 @@ export function hydrateMarketTokens(template: string, snapshot: MarketBriefSnaps
 		.replace(/\{\{forex\.inrUsd\}\}/g, inrUsdStr)
 		.replace(/\{\{macro\.brentInflationRiskStatus\}\}/g, snapshot.commodities.crudeInflationRiskStatus)
 		// Universal legacy & distorted quote scrubbing to guarantee zero bleed-through
-		.replace(/₹1,21,949\/10g/g, goldInrStr)
-		.replace(/₹121949\/10g/g, goldInrStr)
-		.replace(/₹1,21,949/g, goldInrStr)
-		.replace(/₹121949/g, goldInrStr)
-		.replace(/₹1,41,255\/10g/g, goldInrStr)
-		.replace(/₹141255\/10g/g, goldInrStr)
-		.replace(/₹1,41,255/g, goldInrStr)
-		.replace(/₹1,87,200\/kg/g, silverInrStr)
-		.replace(/₹187200\/kg/g, silverInrStr)
-		.replace(/₹1,87,200/g, silverInrStr)
+		.replace(/₹1,21,949(\/10g)*/g, goldInrStr)
+		.replace(/₹121949(\/10g)*/g, goldInrStr)
+		.replace(/₹1,41,255(\/10g)*/g, goldInrStr)
+		.replace(/₹141255(\/10g)*/g, goldInrStr)
+		.replace(/₹1,87,200(\/kg)*/g, silverInrStr)
+		.replace(/₹187200(\/kg)*/g, silverInrStr)
+		.replace(/\$89\.95\/bbl \(MCX (LTP|Spot): ₹7,720\/bbl\)/g, brentStr)
+		.replace(/\$89\.95\/bbl \(MCX (LTP|Spot): ₹6,325\/bbl\)/g, brentStr)
+		.replace(/\$89\.95\/bbl/g, `$${snapshot.commodities.brentUsd.toFixed(2)}/bbl`)
+		.replace(/₹7,720\/bbl/g, `₹${snapshot.commodities.brentMcxInr.toLocaleString("en-IN")}/bbl`)
+		.replace(/₹7720\/bbl/g, `₹${snapshot.commodities.brentMcxInr.toLocaleString("en-IN")}/bbl`)
 		.replace(/\$3,885\.50\/oz/g, `$${snapshot.commodities.goldComexPrice.toFixed(2)}/oz`)
 		.replace(/\$3885\.50/g, `$${snapshot.commodities.goldComexPrice.toFixed(2)}`)
 		.replace(/\$3,885\.5/g, `$${snapshot.commodities.goldComexPrice.toFixed(2)}`)
 		.replace(/₹94\.8606/g, usdInrStr)
 		.replace(/₹94\.86/g, `₹${snapshot.forex.usdInr.toFixed(2)}`)
 		.replace(/94\.8606/g, snapshot.forex.usdInr.toFixed(4))
-		.replace(/₹1,38,419\/10g/g, goldInrStr)
-		.replace(/₹138419\/10g/g, goldInrStr)
-		.replace(/₹143703\/10g/g, goldInrStr)
-		.replace(/₹1,43,703\/10g/g, goldInrStr)
+		.replace(/₹1,38,419(\/10g)*/g, goldInrStr)
+		.replace(/₹138419(\/10g)*/g, goldInrStr)
+		.replace(/₹143703(\/10g)*/g, goldInrStr)
+		.replace(/₹1,43,703(\/10g)*/g, goldInrStr)
 		.replace(/\$74\.8\/bbl/g, brentStr)
 		.replace(/\$74\.80\/bbl/g, brentStr)
 		.replace(/\$74\.8/g, `$${snapshot.commodities.brentUsd.toFixed(2)}`)
@@ -198,10 +199,13 @@ export function hydrateMarketTokens(template: string, snapshot: MarketBriefSnaps
 		.replace(/CCIL TREPS overnight funding rate printed at [0-9.]+(%%|%)/g, `CCIL TREPS overnight funding rate printed at ${trepsStr}`)
 		.replace(/CCIL TREPS WAR at [0-9.]+(%%|%)/g, `CCIL TREPS WAR at ${trepsStr}`)
 		.replace(/TREPS overnight WAR at [0-9.]+(%%|%)/g, `TREPS overnight WAR at ${trepsStr}`)
-		.replace(/MCX Gold at ₹[0-9,]+\/10g/g, `MCX Gold at ${goldInrStr}`)
-		.replace(/MCX Gold printed at ₹[0-9,]+\/10g/g, `MCX Gold printed at ${goldInrStr}`)
+		.replace(/MCX Gold at ₹[0-9,]+(\/10g)*/g, `MCX Gold at ${goldInrStr}`)
+		.replace(/MCX Gold printed at ₹[0-9,]+(\/10g)*/g, `MCX Gold printed at ${goldInrStr}`)
 		.replace(/hovered at [0-9.]+(%%|%)/g, `hovered at ${gsecStr}`)
 		.replace(/10Y Benchmark G-Sec yield at [0-9.]+(%%|%)/g, `10Y Benchmark G-Sec yield at ${gsecStr}`)
+		.replace(/(\/10g)+/g, "/10g")
+		.replace(/(\/bbl)+/g, "/bbl")
+		.replace(/(\/kg)+/g, "/kg")
 		.replace(/%%/g, "%");
 }
 
@@ -427,16 +431,16 @@ class InProcessMarketSnapshotStore {
 				const gas = commRes.data.commodities.find((c) => c.id === "NATURAL_GAS");
 				const copper = commRes.data.commodities.find((c) => c.id === "COPPER");
 
-				if (gold?.mcxPrice) base.commodities.goldMcxPrice = gold.mcxPrice;
-				if (gold?.cmxPrice) base.commodities.goldComexPrice = gold.cmxPrice;
-				if (silver?.mcxPrice) base.commodities.silverMcxPrice = silver.mcxPrice;
-				if (silver?.cmxPrice) base.commodities.silverComexPrice = silver.cmxPrice;
-				if (crude?.cmxPrice) base.commodities.brentUsd = crude.cmxPrice;
-				if (crude?.mcxPrice) base.commodities.brentMcxInr = crude.mcxPrice;
-				if (gas?.mcxPrice) base.commodities.naturalGasMcxPrice = gas.mcxPrice;
-				if (gas?.cmxPrice) base.commodities.naturalGasHenryHubUsd = gas.cmxPrice;
-				if (copper?.mcxPrice) base.commodities.copperMcxPrice = copper.mcxPrice;
-				if (copper?.cmxPrice) base.commodities.copperComexUsd = copper.cmxPrice;
+				if (gold?.mcxPrice && gold.mcxPrice >= 65000 && gold.mcxPrice <= 95000) base.commodities.goldMcxPrice = gold.mcxPrice;
+				if (gold?.cmxPrice && gold.cmxPrice >= 2000 && gold.cmxPrice <= 3200) base.commodities.goldComexPrice = gold.cmxPrice;
+				if (silver?.mcxPrice && silver.mcxPrice >= 70000 && silver.mcxPrice <= 110000) base.commodities.silverMcxPrice = silver.mcxPrice;
+				if (silver?.cmxPrice && silver.cmxPrice >= 20 && silver.cmxPrice <= 45) base.commodities.silverComexPrice = silver.cmxPrice;
+				if (crude?.cmxPrice && crude.cmxPrice >= 50 && crude.cmxPrice <= 95) base.commodities.brentUsd = crude.cmxPrice;
+				if (crude?.mcxPrice && crude.mcxPrice >= 4500 && crude.mcxPrice <= 9000) base.commodities.brentMcxInr = crude.mcxPrice;
+				if (gas?.mcxPrice && gas.mcxPrice >= 150 && gas.mcxPrice <= 600) base.commodities.naturalGasMcxPrice = gas.mcxPrice;
+				if (gas?.cmxPrice && gas.cmxPrice >= 1.5 && gas.cmxPrice <= 6.0) base.commodities.naturalGasHenryHubUsd = gas.cmxPrice;
+				if (copper?.mcxPrice && copper.mcxPrice >= 650 && copper.mcxPrice <= 1100) base.commodities.copperMcxPrice = copper.mcxPrice;
+				if (copper?.cmxPrice && copper.cmxPrice >= 3.0 && copper.cmxPrice <= 6.5) base.commodities.copperComexUsd = copper.cmxPrice;
 			}
 		} catch {
 			/* non-fatal */

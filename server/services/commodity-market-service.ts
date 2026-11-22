@@ -621,28 +621,28 @@ export class CommodityMarketService {
               const isUsd = curr === "USD" || row.unit === "barrel" || row.unit === "ounce" || row.unit === "lb" || row.unit === "mmbtu";
 
               if (isUsd) {
-                if (base.id === "CRUDE_OIL" && price >= 30 && price <= 250) {
+                if (base.id === "CRUDE_OIL" && price >= 50 && price <= 95) {
                   updatedCmxPrice = price;
-                } else if (base.id === "GOLD" && price >= 1500 && price <= 6500) {
+                } else if (base.id === "GOLD" && price >= 2000 && price <= 3200) {
                   updatedCmxPrice = price;
-                } else if (base.id === "SILVER" && price >= 15 && price <= 120) {
+                } else if (base.id === "SILVER" && price >= 20 && price <= 45) {
                   updatedCmxPrice = price;
-                } else if (base.id === "NATURAL_GAS" && price >= 0.5 && price <= 20) {
+                } else if (base.id === "NATURAL_GAS" && price >= 1.5 && price <= 6.0) {
                   updatedCmxPrice = price;
-                } else if (base.id === "COPPER" && price >= 1.5 && price <= 15) {
+                } else if (base.id === "COPPER" && price >= 3.0 && price <= 6.5) {
                   updatedCmxPrice = price;
                 }
                 if (saneChange !== undefined) updatedCmxChange = saneChange;
               } else {
-                if (base.id === "CRUDE_OIL" && price >= 2500 && price <= 25000) {
+                if (base.id === "CRUDE_OIL" && price >= 4500 && price <= 9000) {
                   updatedMcxPrice = price;
-                } else if (base.id === "GOLD" && price >= 40000 && price <= 250000) {
+                } else if (base.id === "GOLD" && price >= 65000 && price <= 95000) {
                   updatedMcxPrice = price;
-                } else if (base.id === "SILVER" && price >= 40000 && price <= 300000) {
+                } else if (base.id === "SILVER" && price >= 70000 && price <= 110000) {
                   updatedMcxPrice = price;
-                } else if (base.id === "NATURAL_GAS" && price >= 50 && price <= 1000) {
+                } else if (base.id === "NATURAL_GAS" && price >= 150 && price <= 600) {
                   updatedMcxPrice = price;
-                } else if (base.id === "COPPER" && price >= 300 && price <= 2000) {
+                } else if (base.id === "COPPER" && price >= 650 && price <= 1100) {
                   updatedMcxPrice = price;
                 }
                 if (saneChange !== undefined) updatedMcxChange = saneChange;

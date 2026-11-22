@@ -1262,19 +1262,25 @@ export default function AgentKnowledgeMarketBrief() {
 			return brief;
 		}
 
-		const liveBrent = safeNum(
+		const rawBrent = safeNum(
 			brief.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ??
 				brief.commodityRadar?.commodities?.find((c) => c.id === "CRUDE_OIL")?.cmxPrice,
 			74.50,
 		);
-		const liveBrentMcx = safeNum(
+		const liveBrent = rawBrent >= 50 && rawBrent <= 95 ? rawBrent : 74.50;
+
+		const rawBrentMcx = safeNum(
 			brief.commodityRadar?.commodities?.find((c) => c.id === "CRUDE_OIL")?.mcxPrice,
 			6325,
 		);
-		const liveGold = safeNum(
+		const liveBrentMcx = rawBrentMcx >= 4500 && rawBrentMcx <= 9000 ? rawBrentMcx : 6325;
+
+		const rawGold = safeNum(
 			brief.commodityRadar?.commodities?.find((c) => c.id === "GOLD")?.mcxPrice,
 			78250,
 		);
+		const liveGold = rawGold >= 65000 && rawGold <= 95000 ? rawGold : 78250;
+
 		const liveNatGas = safeNum(
 			brief.commodityRadar?.commodities?.find((c) => c.id === "NATURAL_GAS")?.mcxPrice,
 			274.6,
@@ -1312,7 +1318,9 @@ export default function AgentKnowledgeMarketBrief() {
 				.replace(/\{\{commodity\.goldMcx\}\}/g, goldDisplay)
 				.replace(/\{\{forex\.usdInr\}\}/g, usdInrDisplay)
 				.replace(/Brent currently at \$[0-9.]+\/bbl \([^)]+\)/g, `Brent currently at ${brentDisplay}`)
-				.replace(/Brent currently at \$[0-9.]+\/bbl/g, `Brent currently at $${liveBrent.toFixed(2)}/bbl`);
+				.replace(/Brent currently at \$[0-9.]+\/bbl/g, `Brent currently at $${liveBrent.toFixed(2)}/bbl`)
+				.replace(/(\/bbl)+/g, "/bbl")
+				.replace(/(\/10g)+/g, "/10g");
 			if (cleaned.startsWith("Crude oil volatility") && isElevatedB) {
 				cleaned = cleaned.replace("Crude oil volatility", "Elevated crude oil volatility");
 			}
@@ -1335,6 +1343,8 @@ export default function AgentKnowledgeMarketBrief() {
 				.replace(/Brent crude CFD at \$[0-9.]+\/bbl \([^)]+\)/g, `Brent crude CFD at ${brentDisplay}`)
 				.replace(/CCIL TREPS overnight funding rate printed at [0-9.]+(%%|%)/g, `CCIL TREPS overnight funding rate printed at ${liveTreps.toFixed(2)}%`)
 				.replace(/hovered at [0-9.]+(%%|%)/g, `hovered at ${liveGSec.toFixed(2)}%`)
+				.replace(/(\/bbl)+/g, "/bbl")
+				.replace(/(\/10g)+/g, "/10g")
 				.replace(/%%/g, "%");
 
 			brief.marketSnapshot = snap;
@@ -1354,9 +1364,11 @@ export default function AgentKnowledgeMarketBrief() {
 				.replace(/Brent crude CFD at \$[0-9.]+\/bbl \([^)]+\)/g, `Brent crude CFD at ${brentDisplay}`)
 				.replace(/CCIL TREPS WAR at [0-9.]+(%%|%)/g, `CCIL TREPS WAR at ${liveTreps.toFixed(2)}%`)
 				.replace(/10Y Benchmark G-Sec yield at [0-9.]+(%%|%)/g, `10Y Benchmark G-Sec yield at ${liveGSec.toFixed(2)}%`)
-				.replace(/MCX Gold at ₹[0-9,]+\/10g/g, `MCX Gold at ${goldDisplay}`)
-				.replace(/MCX Gold at ₹1,21,949\/10g/g, `MCX Gold at ${goldDisplay}`)
+				.replace(/MCX Gold at ₹[0-9,]+(\/10g)*/g, `MCX Gold at ${goldDisplay}`)
+				.replace(/MCX Gold printed at ₹[0-9,]+(\/10g)*/g, `MCX Gold printed at ${goldDisplay}`)
 				.replace(/trading comfortably within India's \$80 threshold/g, isElevatedB ? "monitored above India's $80 comfort threshold for imported inflation" : "trading comfortably within India's $80 threshold, limiting imported inflation")
+				.replace(/(\/bbl)+/g, "/bbl")
+				.replace(/(\/10g)+/g, "/10g")
 				.replace(/%%/g, "%");
 
 			brief.whatChanged = wc;

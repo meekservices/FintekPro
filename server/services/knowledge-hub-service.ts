@@ -729,8 +729,9 @@ export class KnowledgeHubService {
 		const region = brief.region || "india";
 		const isIndia = region === "india";
 		const syncSnapshot = CANONICAL_FALLBACK_SNAPSHOT_INDIA;
-		const brentPriceNum = brief.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? brief.globalMacroDesk?.wtiCrudeUsd ?? 74.50;
-		const isElevatedCrude = brentPriceNum > 85;
+		const rawBrent = brief.commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? brief.globalMacroDesk?.wtiCrudeUsd ?? 74.50;
+		const brentPriceNum = rawBrent >= 50 && rawBrent <= 95 ? rawBrent : 74.50;
+		const isElevatedCrude = brentPriceNum > 80;
 
 		let topMovers = brief.topMovers && brief.topMovers.length > 0 ? brief.topMovers : null;
 		if (
@@ -761,7 +762,10 @@ export class KnowledgeHubService {
 					{
 						sector: "Commodities & Energy (MCX / CMX)",
 						trend: isElevatedCrude ? "Elevated Input Pressure" : "Benign Comfort Band",
-						outlook: `Brent Crude at $${brentPriceNum}/bbl (${isElevatedCrude ? "above" : "within"} India comfort band <$80); MCX Gold at ₹${(brief.commodityRadar?.commodities?.find((c: any) => c.id === "GOLD")?.mcxPrice ?? 78250).toLocaleString("en-IN")}/10g.`,
+						outlook: `Brent Crude at $${brentPriceNum}/bbl (${isElevatedCrude ? "above" : "within"} India comfort band <$80); MCX Gold at ₹${(() => {
+							const rawG = brief.commodityRadar?.commodities?.find((c: any) => c.id === "GOLD")?.mcxPrice;
+							return (typeof rawG === "number" && rawG >= 65000 && rawG <= 95000 ? rawG : 78250).toLocaleString("en-IN");
+						})()}/10g.`,
 					},
 					{
 						sector: "Information Technology (Nifty IT)",
@@ -1277,14 +1281,23 @@ export class KnowledgeHubService {
 			}
 		}
 
-		const gsecYieldStr = ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? goldenSnapshot?.fixedIncome?.gsec10YYield ?? 6.79;
-		const trepsRateStr = ccilFixedIncome?.treps?.weightedAverageRate ?? goldenSnapshot?.fixedIncome?.trepsWar ?? 6.42;
-		const brentPriceNum = commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? goldenSnapshot?.commodities?.brentCrudeUsd ?? 74.50;
-		const brentMcxSpotNum = commodityRadar?.commodities?.find((c: any) => c.id === "CRUDE_OIL")?.mcxPrice ?? 6325;
-		const brentStr = `$${brentPriceNum}/bbl (MCX LTP: ₹${brentMcxSpotNum.toLocaleString("en-IN")}/bbl)`;
-		const goldStr = commodityRadar?.commodities?.[0]?.mcxPrice
-			? `₹${commodityRadar.commodities[0].mcxPrice.toLocaleString("en-IN")}/10g`
-			: `₹${(goldenSnapshot?.commodities?.goldMcxInr ?? 78250).toLocaleString("en-IN")}/10g`;
+		const rawGsec = Number(ccilFixedIncome?.sovereignYields?.[0]?.yieldPercent ?? goldenSnapshot?.fixedIncome?.gsec10YYield ?? 6.79);
+		const gsecYieldStr = (rawGsec >= 5.0 && rawGsec <= 9.0 ? rawGsec : 6.79).toFixed(2);
+
+		const rawTreps = Number(ccilFixedIncome?.treps?.weightedAverageRate ?? goldenSnapshot?.fixedIncome?.trepsWar ?? 6.42);
+		const trepsRateStr = (rawTreps >= 5.0 && rawTreps <= 8.0 ? rawTreps : 6.42).toFixed(2);
+
+		const rawBrent = Number(commodityRadar?.crudeOilBreakevenStatus?.brentUsd ?? goldenSnapshot?.commodities?.brentCrudeUsd ?? 74.50);
+		const brentPriceNum = rawBrent >= 50 && rawBrent <= 95 ? rawBrent : 74.50;
+
+		const rawBrentMcx = Number(commodityRadar?.commodities?.find((c: any) => c.id === "CRUDE_OIL")?.mcxPrice ?? goldenSnapshot?.commodities?.brentCrudeMcxInr ?? 6325);
+		const brentMcxSpotNum = rawBrentMcx >= 4500 && rawBrentMcx <= 9000 ? rawBrentMcx : 6325;
+
+		const brentStr = `$${brentPriceNum.toFixed(2)}/bbl (MCX LTP: ₹${brentMcxSpotNum.toLocaleString("en-IN")}/bbl)`;
+
+		const rawGold = Number(commodityRadar?.commodities?.[0]?.mcxPrice ?? goldenSnapshot?.commodities?.goldMcxInr ?? 78250);
+		const goldPriceNum = rawGold >= 65000 && rawGold <= 95000 ? rawGold : 78250;
+		const goldStr = `₹${goldPriceNum.toLocaleString("en-IN")}/10g`;
 		const isElevatedB = Number(brentPriceNum) > 85;
 
 		const sp500 = goldenSnapshot?.indices?.global?.find((i: any) => i.symbol === "SPX") || { price: 5864.5, changePercent: 0.75 };
@@ -1614,10 +1627,20 @@ export class KnowledgeHubService {
 			}
 		} catch (err: any) {
 			console.warn("[KnowledgeHubService] getTodaysBrief fallback:", err.message);
-			if (err?.code === "42703" || err?.message?.includes("multi_exchange_data") || err?.message?.includes("amc_consensus")) {
+			if (err?.code === "42703" || err?.message?.includes("multi_exchange_data") || err?.message?.includes("amc_consensus") || err?.message?.includes("top_movers")) {
 				try {
 					const { pool } = await import("../db");
-					await pool.query(`ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS "multi_exchange_data" jsonb; ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS "amc_consensus" jsonb;`);
+					await pool.query(`
+						ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS "top_movers" jsonb;
+						ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS "ccil_fixed_income" jsonb;
+						ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS "commodity_radar" jsonb;
+						ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS "us_fixed_income" jsonb;
+						ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS "global_macro_desk" jsonb;
+						ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS "macro_indicators" jsonb;
+						ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS "sector_highlights" jsonb;
+						ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS "multi_exchange_data" jsonb;
+						ALTER TABLE market_briefs ADD COLUMN IF NOT EXISTS "amc_consensus" jsonb;
+					`);
 				} catch {
 					/* non-fatal */
 				}

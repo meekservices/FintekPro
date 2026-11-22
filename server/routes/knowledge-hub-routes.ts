@@ -61,6 +61,8 @@ router.get(
 				}
 				const { goldenPricingEngine } = await import("../services/golden-pricing/GoldenPricingEngine");
 				await goldenPricingEngine.getDailyMarketBriefLiveSnapshot(region, true);
+				const { inProcessMarketSnapshotStore } = await import("../services/market-brief-engine");
+				await inProcessMarketSnapshotStore.refreshSnapshot(region);
 				await knowledgeHubService.generateAndPublishDailyBrief(region);
 			} catch (rfErr: any) {
 				logger.warn(`[KnowledgeHubRoutes] Market brief force refresh notice: ${rfErr?.message}`);
