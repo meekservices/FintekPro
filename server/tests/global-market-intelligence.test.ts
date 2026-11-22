@@ -366,4 +366,27 @@ describe("GlobalMarketIntelligenceEngine (GMIE v1.0)", () => {
     const nonExistent = await globalMarketIntelligenceEngine.getCountryIntelligence("XYZ");
     expect(nonExistent).toBeNull();
   });
+
+  it("should generate a ranked, unified 10-country FII leaderboard with 6-pillar breakdowns and deltas", async () => {
+    const leaderboard = await globalFiiTrackerEngine.getFiiLeaderboard();
+    expect(Array.isArray(leaderboard)).toBe(true);
+    expect(leaderboard.length).toBeGreaterThanOrEqual(10);
+
+    // Verify ordering by compositeFiiScore descending
+    for (let i = 0; i < leaderboard.length - 1; i++) {
+      expect(leaderboard[i].compositeFiiScore).toBeGreaterThanOrEqual(leaderboard[i + 1].compositeFiiScore);
+      expect(leaderboard[i].rank).toBe(i + 1);
+    }
+
+    // Verify India presence and top tier rank
+    const india = leaderboard.find((c) => c.countryCode === "IN");
+    expect(india).toBeDefined();
+    expect(india?.rank).toBeLessThanOrEqual(2);
+    expect(india?.compositeFiiScore).toBeGreaterThanOrEqual(80);
+    expect(india?.allocationStance).toBe("STRONG_OVERWEIGHT");
+    expect(typeof india?.delta30dScore).toBe("number");
+    expect(india?.pillars).toBeDefined();
+    expect(india?.pillars.macroGrowthScore).toBe(92);
+    expect(india?.metrics.averageRoePct).toBe(15.8);
+  });
 });

@@ -260,6 +260,11 @@ export const MacroRegimeBanner: React.FC<MacroRegimeBannerProps> = ({
 								F&O Strategies: {todayCounts.derivatives}
 							</span>
 						) : null}
+						{todayCounts.commodities ? (
+							<span className="bg-amber-600/10 text-amber-800 dark:text-amber-200 px-2 py-0.5 rounded-full font-mono text-[10px] font-semibold">
+								Commodities: {todayCounts.commodities}
+							</span>
+						) : null}
 						{todayCounts.mutual_funds ? (
 							<span className="bg-blue-500/10 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-mono text-[10px] font-semibold">
 								Mutual Funds: {todayCounts.mutual_funds}

@@ -19,6 +19,7 @@ import {
 	Coins,
 	Activity,
 	Calculator,
+	Flame,
 } from "lucide-react";
 
 interface DailyPick {
@@ -71,6 +72,7 @@ const categoryIcons: Record<string, any> = {
 	fixed_deposits: LucideShield,
 	sgb: Coins,
 	derivatives: Activity,
+	commodities: Flame,
 };
 
 const categoryLabels: Record<string, string> = {
@@ -84,6 +86,7 @@ const categoryLabels: Record<string, string> = {
 	fixed_deposits: "Fixed Deposit",
 	sgb: "Sovereign Gold Bond",
 	derivatives: "Derivatives",
+	commodities: "Commodities",
 };
 
 const statusColors: Record<string, string> = {

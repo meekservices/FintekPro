@@ -179,17 +179,20 @@ export class MarketBreadthService {
     }
 
     try {
-      const res = await db.execute(sql`
-        SELECT
-          date, advances, declines, unchanged,
-          advance_decline_ratio, pct_above_50_dma, pct_above_200_dma,
-          breadth_thrust_signal, total_market_cap_lakh_cr, created_at
-        FROM market_breadth_history
-        ORDER BY date DESC
-        LIMIT 1
-      `);
+      const res: any = await Promise.race([
+        db.execute(sql`
+          SELECT
+            date, advances, declines, unchanged,
+            advance_decline_ratio, pct_above_50_dma, pct_above_200_dma,
+            breadth_thrust_signal, total_market_cap_lakh_cr, created_at
+          FROM market_breadth_history
+          ORDER BY date DESC
+          LIMIT 1
+        `),
+        new Promise<any>((_, reject) => setTimeout(() => reject(new Error("DB timeout")), 800)),
+      ]);
 
-      if (res.rows.length > 0) {
+      if (res && res.rows && res.rows.length > 0) {
         const row = res.rows[0] as any;
         const adRatio = parseFloat(row.advance_decline_ratio || "1.0");
         const pctAbove50 = parseFloat(row.pct_above_50_dma || "50");

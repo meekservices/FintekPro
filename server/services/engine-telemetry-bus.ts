@@ -137,6 +137,9 @@ class EngineTelemetryBus {
       { id: "tax-law-engine", name: "Direct Tax & Corporate Law Workstation Engine", category: "Compliance" },
       { id: "regulatory-ingestion-service", name: "Autonomous Regulatory Ingestion Engine", category: "Data Quality" },
       { id: "indian-tax-calculator", name: "Dynamic Indian Income Tax Calculator Engine", category: "Portfolio" },
+      { id: "commodity-strategy", name: "Institutional Commodity Derivatives Engine", category: "Alpha Generation" },
+      { id: "mcx-bhavcopy-service", name: "MCX Commodity Bhavcopy Ingestion Service", category: "Data Quality" },
+      { id: "ncdex-bhavcopy-service", name: "NCDEX Commodity Bhavcopy Ingestion Service", category: "Data Quality" },
     ];
     for (const eng of coreEngines) {
       this._meta.set(eng.id, { name: eng.name, category: eng.category });

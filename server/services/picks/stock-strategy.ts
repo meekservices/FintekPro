@@ -61,7 +61,10 @@ async function getMacroContext(): Promise<DailyMarketBriefSnapshot | null> {
 	}
 	try {
 		const { getDailyMarketBriefLiveSnapshot } = await import("../golden-pricing/GoldenPricingEngine");
-		const snap = await getDailyMarketBriefLiveSnapshot("india");
+		const snap = await Promise.race([
+			getDailyMarketBriefLiveSnapshot("india"),
+			new Promise<null>((_, reject) => setTimeout(() => reject(new Error("Macro context timeout")), 800)),
+		]);
 		_macroContextCache = { data: snap, ts: Date.now() };
 		return snap;
 	} catch {
@@ -420,11 +423,14 @@ async function _getWeightOverrides(): Promise<Record<string, number>> {
 		const { db: wDb } = await import("../../db");
 		const { adminSettings: wSettings } = await import("@shared/schema");
 		const { eq: wEq } = await import("drizzle-orm");
-		const rows = await wDb
-			.select({ value: wSettings.value })
-			.from(wSettings)
-			.where(wEq(wSettings.key, "pick_scoring_weight_overrides"))
-			.limit(1);
+		const rows = await Promise.race([
+			wDb
+				.select({ value: wSettings.value })
+				.from(wSettings)
+				.where(wEq(wSettings.key, "pick_scoring_weight_overrides"))
+				.limit(1),
+			new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error("DB timeout")), 800)),
+		]);
 		const data = (rows[0]?.value as Record<string, number>) ?? {};
 		_weightOverridesCache = { data, ts: Date.now() };
 		return data;
@@ -1669,35 +1675,40 @@ export class StockStrategy extends BaseStrategy {
 		// Data source: screener_shareholding via enriched snapshot or direct DB query.
 		// Non-fatal: missing data = 0 impact (no false penalty).
 		try {
-			const shRows = await db
-				.select({
-					promoterHolding: screenerShareholding.promoterHolding,
-					pledgedShares: screenerShareholding.pledgedShares,
-				})
-				.from(screenerShareholding)
-				.where(eq(screenerShareholding.symbol, (stock.symbol ?? "").toUpperCase()))
-				.orderBy(desc(screenerShareholding.quarterDate))
-				.limit(1);
-			if (shRows[0]) {
-				const promoterHolding = shRows[0].promoterHolding
-					? Number.parseFloat(shRows[0].promoterHolding)
-					: null;
-				const pledgedPct = shRows[0].pledgedShares
-					? Number.parseFloat(shRows[0].pledgedShares)
-					: null;
-				// Promoter conviction
-				if (promoterHolding !== null) {
-					if (promoterHolding >= 60) score += 10;      // Very high insider conviction
-					else if (promoterHolding >= 50) score += 6;  // Strong conviction
-					else if (promoterHolding < 20) score -= 5;   // Very low promoter skin-in-game
-				}
-				// Pledge trap — hard penalty (FASP-AI v1.0: financial risk filter)
-				if (pledgedPct !== null) {
-					if (pledgedPct >= 50) score -= 20; // Severe distress risk — avoid
-					else if (pledgedPct >= 25) score -= 10; // Elevated risk
-					else if (pledgedPct >= 10) score -= 4;  // Moderate caution
+			let promoterHolding = stock.promoterHolding != null ? Number(stock.promoterHolding) : null;
+			let pledgedPct = stock.promoterPledgePct != null ? Number(stock.promoterPledgePct) : null;
+
+			if (promoterHolding === null && pledgedPct === null) {
+				const queryWithTimeout = Promise.race([
+					db
+						.select({
+							promoterHolding: screenerShareholding.promoterHolding,
+							pledgedShares: screenerShareholding.pledgedShares,
+						})
+						.from(screenerShareholding)
+						.where(eq(screenerShareholding.symbol, (stock.symbol ?? "").toUpperCase()))
+						.orderBy(desc(screenerShareholding.quarterDate))
+						.limit(1),
+					new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error("DB timeout")), 500)),
+				]);
+				const shRows = await queryWithTimeout;
+				if (shRows[0]) {
+					promoterHolding = shRows[0].promoterHolding
+						? Number.parseFloat(shRows[0].promoterHolding)
+						: null;
+					pledgedPct = shRows[0].pledgedShares
+						? Number.parseFloat(shRows[0].pledgedShares)
+						: null;
 				}
 			}
+
+			// Promoter conviction
+			if (promoterHolding !== null) {
+				if (promoterHolding >= 60) score += 10;      // Very high insider conviction
+				else if (promoterHolding >= 50) score += 6;  // Strong conviction
+				else if (promoterHolding < 20) score -= 5;   // Very low promoter skin-in-game
+			}
+			// Note: High promoter pledge penalty is also strictly enforced in Cross-Engine Synergy (lines 2081-2090)
 		} catch { /* non-fatal — no data = no impact */ }
 
 		// ── P0 Alpha Factor A: 52-Week Positioning ──────────────────────────────────
@@ -2072,7 +2083,9 @@ export class StockStrategy extends BaseStrategy {
 		// Connects the 12 Curated Institutional screens (Piotroski 7-9, Bulk/Block Deals,
 		// Defence/EV/Green Energy themes, Breakouts/Breakdowns) directly into POTD.
 		try {
-			const synergy = thematicInfo ?? (stock.symbol ? await proThematicScreenerService.getThematicSynergyForSymbol(stock.symbol) : null);
+			const synergy = thematicInfo !== undefined
+				? thematicInfo
+				: (stock.symbol ? await proThematicScreenerService.getThematicSynergyForSymbol(stock.symbol) : null);
 			if (synergy && synergy.scoreBonus !== 0) {
 				score += synergy.scoreBonus;
 			}
@@ -2294,9 +2307,13 @@ export class StockStrategy extends BaseStrategy {
 			if (_metricsTableHasData === undefined || Date.now() - _metricsTableCheckedAt >= 60 * 60 * 1000) {
 				_metricsTableCheckedAt = Date.now();
 				try {
-					const [{ value }] = await db
-						.select({ value: count() })
-						.from(stockFinancialMetrics);
+					const countQueryWithTimeout = Promise.race([
+						db
+							.select({ value: count() })
+							.from(stockFinancialMetrics),
+						new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error("DB timeout")), 500)),
+					]);
+					const [{ value }] = await countQueryWithTimeout;
 					_metricsTableHasData = (value ?? 0) > 0;
 				} catch {
 					_metricsTableHasData = false;

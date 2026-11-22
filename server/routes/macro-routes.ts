@@ -18,6 +18,7 @@ import { msciFactorService } from "../services/macro/msci-factor-service";
 import { globalFiiTrackerEngine } from "../services/macro/global-fii-tracker-engine";
 import { globalCreditCycleService } from "../services/macro/global-credit-cycle-service";
 import { usMacroIndicatorsService } from "../services/macro/us-macro-indicators-service";
+import { centralMacroContextBus } from "../services/macro/central-macro-context-bus";
 import { logger } from "../logger";
 
 export function registerMacroRoutes(app: Express): void {
@@ -753,6 +754,37 @@ export function registerMacroRoutes(app: Express): void {
 	// ── Global FII Movement & Institutional Allocation Routes ────────────────
 
 	/**
+	 * GET /api/macro/fii/leaderboard
+	 * Returns unified 10-country institutional FII leaderboard with composite rankings,
+	 * 30D score deltas, realized flow momentum, 6-pillar score breakdowns, and India transmission vectors.
+	 */
+	app.get("/api/macro/fii/leaderboard", async (req: Request, res: Response) => {
+		const t0 = Date.now();
+		const forceRefresh = req.query.refresh === "true";
+		try {
+			const leaderboard = await globalFiiTrackerEngine.getFiiLeaderboard(forceRefresh);
+			return res.status(200).json({
+				success: true,
+				data: leaderboard,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: "FII-TRACKER-v1.0.0",
+					count: leaderboard.length,
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch FII leaderboard", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "FII_LEADERBOARD_FETCH_FAILED",
+				message: err?.message || "Failed to fetch FII leaderboard",
+				meta: { timestamp: new Date().toISOString(), version: "FII-TRACKER-v1.0.0" },
+			});
+		}
+	});
+
+	/**
 	 * GET /api/macro/fii/scorecards
 	 * Returns country-by-country multi-pillar institutional allocation scorecards (IN, US, TW, CN, JP, DE, etc.)
 	 */
@@ -1074,6 +1106,66 @@ export function registerMacroRoutes(app: Express): void {
 				error: "US_MACRO_FEEDS_FETCH_FAILED",
 				message: err?.message || "Failed to fetch US macro engine feeds",
 				meta: { timestamp: new Date().toISOString(), version: "USME-v1.0.0" },
+			});
+		}
+	});
+
+	// ── Central In-Memory Macro Context Bus Endpoints ─────────────────────────
+
+	/**
+	 * GET /api/macro/central-context
+	 * Returns the unified in-memory top-down macro context (<1ms cached latency)
+	 * uniting GMIE, DMIE, GMTE, and FII Tracker directives for downstream fleet engines.
+	 */
+	app.get("/api/macro/central-context", async (req: Request, res: Response) => {
+		const t0 = Date.now();
+		const forceRefresh = req.query.refresh === "true" || req.query.forceRefresh === "true";
+		try {
+			const context = await centralMacroContextBus.getLiveContext(forceRefresh);
+			return res.status(200).json({
+				success: true,
+				data: context,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: context.engine_version,
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch central macro context", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "CENTRAL_MACRO_CONTEXT_FAILED",
+				message: err?.message || "Failed to fetch central macro context",
+				meta: { timestamp: new Date().toISOString(), version: "CMCB-v1.0.0" },
+			});
+		}
+	});
+
+	/**
+	 * GET /api/macro/tripwires
+	 * Returns active systemic macro tripwire statuses (Yen Carry, Crude CAD, US 10Y, Squeeze Sentinel).
+	 */
+	app.get("/api/macro/tripwires", async (_req: Request, res: Response) => {
+		const t0 = Date.now();
+		try {
+			const context = centralMacroContextBus.getSynchronousSnapshot();
+			return res.status(200).json({
+				success: true,
+				data: context.tripwires,
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: context.engine_version,
+					latency_ms: Date.now() - t0,
+				},
+			});
+		} catch (err: any) {
+			logger.error("[MacroRoutes] Failed to fetch macro tripwires", { error: err?.message });
+			return res.status(500).json({
+				success: false,
+				error: "TRIPWIRES_FETCH_FAILED",
+				message: err?.message || "Failed to fetch systemic tripwires",
+				meta: { timestamp: new Date().toISOString(), version: "CMCB-v1.0.0" },
 			});
 		}
 	});

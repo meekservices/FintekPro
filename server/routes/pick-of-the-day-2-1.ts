@@ -20,6 +20,7 @@ import {
 	investmentProposals,
 	investmentProposalItems,
 	userNotifications,
+	commodities,
 } from "@shared/schema";
 import { eq, like, or, sql, desc, and, count } from "drizzle-orm";
 import nodemailer from "nodemailer";
@@ -283,6 +284,29 @@ router.get("/search/products", requireAuth, async (req, res) => {
 					.limit(20);
 				results.push(
 					...fdResults.map((f) => ({ ...f, type: "fixed_deposits" })),
+				);
+				break;
+			}
+
+			case "commodities": {
+				const commodityResults = await db
+					.select({
+						id: commodities.id,
+						name: commodities.name,
+						symbol: commodities.symbol,
+						price: commodities.currentPrice,
+						category: commodities.commodityType,
+					})
+					.from(commodities)
+					.where(
+						or(
+							sql`${commodities.name} ILIKE ${searchTerm}`,
+							sql`${commodities.symbol} ILIKE ${searchTerm}`,
+						),
+					)
+					.limit(20);
+				results.push(
+					...commodityResults.map((c) => ({ ...c, type: "commodities" })),
 				);
 				break;
 			}

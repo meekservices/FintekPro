@@ -17,6 +17,7 @@ export abstract class BaseStrategy implements IPickStrategy {
 		switch (category) {
 			case "listed_stocks":
 			case "derivatives":
+			case "commodities":
 				return "short_term";
 			case "global_stocks":
 			case "etfs":
@@ -114,6 +115,7 @@ export abstract class BaseStrategy implements IPickStrategy {
 			reits_invits: { target: 0.12, stoploss: 0.06 },
 			unlisted: { target: 0.25, stoploss: 0.125 }, // 2:1 R:R
 			fixed_deposits: { target: 0, stoploss: 0 },
+			commodities: { target: 0.06, stoploss: 0.03 }, // MCX/NCDEX: 6.0% target / 3.0% stoploss (2:1 R:R)
 		};
 
 		const base = baseTargets[category] || { target: 0.12, stoploss: 0.06 };

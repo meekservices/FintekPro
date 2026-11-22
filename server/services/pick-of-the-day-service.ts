@@ -58,6 +58,7 @@ import { ETFStrategy } from "./picks/etf-strategy";
 import { SGBStrategy } from "./picks/sgb-strategy";
 import { REITInvITStrategy } from "./picks/reit-invit-strategy";
 import { FixedDepositStrategy } from "./picks/fixed-deposit-strategy";
+import { CommodityStrategy } from "./picks/commodity-strategy";
 
 export type PickCategory =
 	| "listed_stocks"
@@ -70,7 +71,8 @@ export type PickCategory =
 	| "reits_invits"
 	| "fixed_deposits"
 	| "sgb"
-	| "derivatives";
+	| "derivatives"
+	| "commodities";
 
 
 export type PickStatus = "live" | "target_hit" | "stoploss_hit" | "expired";
@@ -279,6 +281,7 @@ export class PickOfTheDayService {
 		this.strategies.set("sgb", new SGBStrategy());
 		this.strategies.set("reits_invits", new REITInvITStrategy());
 		this.strategies.set("fixed_deposits", new FixedDepositStrategy());
+		this.strategies.set("commodities", new CommodityStrategy());
 	}
 
 	private getStrategy(category: PickCategory): IPickStrategy {
@@ -427,6 +430,7 @@ export class PickOfTheDayService {
 			"sgb",
 			"fixed_deposits",
 			"derivatives",
+			"commodities",
 		];
 
 		if (isBlackSwan || isVixBreached) {
@@ -590,6 +594,7 @@ export class PickOfTheDayService {
 						bonds:           4, // bonds: yield-based
 						fixed_deposits:  4, // FDs: YTM-based
 						sgb:             4, // SGB: sovereign, yield + gold appreciation
+						commodities:     4, // commodities: MCX/NCDEX high-conviction swing ≥4%
 					};
 					// Debt/liquid/conservative funds have lower expected yield (4%) compared to equity (8%)
 					const isDebtOrConservativeFund = category === "mutual_funds" && (
@@ -2006,6 +2011,11 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 			const stratType = isCredit ? "Option Seller (Credit Strategy)" : "Option Buyer (Debit Strategy)";
 			const legsText = legsSummary ? ` Strategy Legs: ${legsSummary}.` : "";
 			text = `${params.name} is selected under institutional ${stratType} framework based on implied volatility alignment (${(params.metrics as any)?.iv ?? 18}%) and favorable risk-reward.${legsText} Target profit is ${upside}% with systematic stop-loss and predefined risk boundaries.`;
+		} else if (params.category === "commodities") {
+			const exchange = (params.metrics as any)?.exchange ?? "MCX";
+			const deliveryCenter = (params.metrics as any)?.deliveryCenter ? ` Delivery / Mandi center: ${(params.metrics as any)?.deliveryCenter}.` : "";
+			const macroImplication = (params.metrics as any)?.macroImplication ? ` Macro catalyst: ${(params.metrics as any)?.macroImplication}` : "";
+			text = `${params.name} (${exchange}) is selected as today's institutional commodity pick under our multi-exchange quantitative framework. Favorable momentum, technical trend alignment, and supply-demand fundamentals indicate an expected upside target of ${upside}% with strict 2:1 risk-reward discipline.${deliveryCenter}${macroImplication}`;
 		} else {
 			text = `${params.name} is selected as today's top pick based on strong fundamentals and a potential upside of ${upside}% from current levels. The technical outlook remains positive with favorable risk-reward indicators.`;
 		}

@@ -71,7 +71,7 @@ export interface SubdomainSufficiency {
 
 export interface DomainSufficiencyStatus {
 	domain: string;
-	code: "EQUITIES" | "MUTUAL_FUNDS" | "FIXED_INCOME" | "ALTERNATIVES" | "REAL_ASSETS" | "UNLISTED" | "COMPLIANCE";
+	code: "EQUITIES" | "MUTUAL_FUNDS" | "FIXED_INCOME" | "ALTERNATIVES" | "REAL_ASSETS" | "UNLISTED" | "COMPLIANCE" | "COMMODITIES";
 	totalRecords: number;
 	healthyCount: number;
 	staleWarningCount: number;
@@ -532,11 +532,43 @@ export class DataSufficiencyEngine {
 					},
 				],
 			},
+			{
+				domain: "Commodities (MCX & NCDEX)",
+				code: "COMMODITIES",
+				totalRecords: degraded ? 0 : 25,
+				healthyCount: degraded ? 0 : 24,
+				staleWarningCount: degraded ? 0 : 1,
+				criticalCount: 0,
+				sufficiencyPercent: degraded ? 0 : 96,
+				freshnessThreshold: "< 36 hours settlement / spot close",
+				subdomains: [
+					{
+						name: "MCX Bullion, Energy & Base Metals",
+						totalRecords: degraded ? 0 : 15,
+						healthyCount: degraded ? 0 : 15,
+						staleWarningCount: 0,
+						criticalCount: 0,
+						sufficiencyPercent: degraded ? 0 : 100,
+						freshnessScore: degraded ? 0 : 99,
+						keyChecks: ["Official MCX Bhavcopy", "Settlement Price", "Volume & Open Interest", "Lot Size"],
+					},
+					{
+						name: "NCDEX Agricultural Mandi Benchmarks",
+						totalRecords: degraded ? 0 : 10,
+						healthyCount: degraded ? 0 : 9,
+						staleWarningCount: degraded ? 0 : 1,
+						criticalCount: 0,
+						sufficiencyPercent: degraded ? 0 : 90,
+						freshnessScore: degraded ? 0 : 95,
+						keyChecks: ["Official NCDEX Bhavcopy", "Mandi Polled Spot", "Delivery Center", "FMCG Deflation Status"],
+					},
+				],
+			},
 		];
 	}
 
 	/**
-	 * Inspects all 7 core statutory domains and subdomains for data freshness and sufficiency.
+	 * Inspects all 8 core statutory domains and subdomains for data freshness and sufficiency.
 	 */
 	async inspectAllDomains(): Promise<DomainSufficiencyStatus[]> {
 		const defaultDomains = this.getDefaultDomainStatuses();
@@ -603,6 +635,18 @@ export class DataSufficiencyEngine {
 						(SELECT COUNT(*)::int FROM risk_profiles WHERE assessment_date <= NOW() - INTERVAL '365 days') AS risk_profiles_expired,
 						(SELECT COUNT(*)::int FROM user_profiles WHERE kyc_tier IS NOT NULL) AS kyc_tiered_count
 				`),
+				// 8. Commodities Domain (MCX & NCDEX)
+				db.execute(sql`
+					SELECT 
+						(SELECT COUNT(*)::int FROM mcx_commodity_quotes WHERE is_active = true) AS mcx_total,
+						(SELECT COUNT(*)::int FROM mcx_commodity_quotes WHERE is_active = true AND price > 0 AND synced_at > NOW() - INTERVAL '36 hours') AS mcx_fresh,
+						(SELECT COUNT(*)::int FROM mcx_commodity_quotes WHERE is_active = true AND (price IS NULL OR price <= 0)) AS mcx_missing,
+						(SELECT COUNT(*)::int FROM mcx_commodity_quotes WHERE is_active = true AND (synced_at <= NOW() - INTERVAL '36 hours' OR synced_at IS NULL)) AS mcx_stale,
+						(SELECT COUNT(*)::int FROM golden_prices WHERE isin LIKE 'NCDEX_%_SPOT') AS ncdex_total,
+						(SELECT COUNT(*)::int FROM golden_prices WHERE isin LIKE 'NCDEX_%_SPOT' AND close_price > 0 AND as_of_date >= CURRENT_DATE - INTERVAL '3 days') AS ncdex_fresh,
+						(SELECT COUNT(*)::int FROM golden_prices WHERE isin LIKE 'NCDEX_%_SPOT' AND (close_price IS NULL OR close_price <= 0)) AS ncdex_missing,
+						(SELECT COUNT(*)::int FROM golden_prices WHERE isin LIKE 'NCDEX_%_SPOT' AND as_of_date < CURRENT_DATE - INTERVAL '3 days') AS ncdex_stale
+				`),
 			]);
 
 			// Update equities live counts if fulfilled
@@ -648,6 +692,54 @@ export class DataSufficiencyEngine {
 					defaultDomains[2].healthyCount = withPrice;
 					defaultDomains[2].criticalCount = missing;
 					defaultDomains[2].sufficiencyPercent = Math.round((withPrice / total) * 100);
+				}
+			}
+
+			// Update commodities live counts if fulfilled
+			if (results[7]?.status === "fulfilled") {
+				const row = (results[7].value.rows?.[0] as any) || {};
+				const mcxTotal = Number(row.mcx_total || 0);
+				const mcxFresh = Number(row.mcx_fresh || 0);
+				const mcxMissing = Number(row.mcx_missing || 0);
+				const mcxStale = Number(row.mcx_stale || 0);
+
+				const ncdexTotal = Number(row.ncdex_total || 0);
+				const ncdexFresh = Number(row.ncdex_fresh || 0);
+				const ncdexMissing = Number(row.ncdex_missing || 0);
+				const ncdexStale = Number(row.ncdex_stale || 0);
+
+				const commDomain = defaultDomains.find((d) => d.code === "COMMODITIES");
+				if (commDomain) {
+					const total = mcxTotal + ncdexTotal;
+					const healthy = mcxFresh + ncdexFresh;
+					const stale = mcxStale + ncdexStale;
+					const critical = mcxMissing + ncdexMissing;
+
+					if (total > 0) {
+						commDomain.totalRecords = total;
+						commDomain.healthyCount = healthy;
+						commDomain.staleWarningCount = stale;
+						commDomain.criticalCount = critical;
+						commDomain.sufficiencyPercent = Math.round((healthy / total) * 100);
+					}
+
+					// Update MCX subdomain
+					if (commDomain.subdomains[0] && mcxTotal > 0) {
+						commDomain.subdomains[0].totalRecords = mcxTotal;
+						commDomain.subdomains[0].healthyCount = mcxFresh;
+						commDomain.subdomains[0].staleWarningCount = mcxStale;
+						commDomain.subdomains[0].criticalCount = mcxMissing;
+						commDomain.subdomains[0].sufficiencyPercent = Math.round((mcxFresh / mcxTotal) * 100);
+					}
+
+					// Update NCDEX subdomain
+					if (commDomain.subdomains[1] && ncdexTotal > 0) {
+						commDomain.subdomains[1].totalRecords = ncdexTotal;
+						commDomain.subdomains[1].healthyCount = ncdexFresh;
+						commDomain.subdomains[1].staleWarningCount = ncdexStale;
+						commDomain.subdomains[1].criticalCount = ncdexMissing;
+						commDomain.subdomains[1].sufficiencyPercent = Math.round((ncdexFresh / ncdexTotal) * 100);
+					}
 				}
 			}
 
@@ -765,6 +857,18 @@ export class DataSufficiencyEngine {
 			}
 
 			const domains = await this.inspectAllDomains();
+
+			const commDomain = domains.find((d) => d.code === "COMMODITIES");
+			if (commDomain && (commDomain.criticalCount > 0 || commDomain.staleWarningCount > 2)) {
+				activeAlerts.push({
+					id: "COMMODITY_STALENESS_WARNING",
+					severity: commDomain.criticalCount > 0 ? "CRITICAL" : "WARNING",
+					title: "Commodity Settlement Staleness: MCX/NCDEX",
+					message: `${commDomain.criticalCount + commDomain.staleWarningCount} commodity contracts lack fresh Bhavcopy or spot settlement within 36 hours.`,
+					affectedCount: commDomain.criticalCount + commDomain.staleWarningCount,
+					actionRecommendation: "Trigger MCX and NCDEX nightly Bhavcopy ingestion pipelines.",
+				});
+			}
 
 			const stats: UniverseSufficiencyStats = {
 				totalStocks,
@@ -1242,6 +1346,22 @@ export class DataSufficiencyEngine {
 					await snapshotSvc.rebuildFullSnapshot();
 				} catch (snapErr: any) {
 					logger.warn(`[DataSufficiency] Master snapshot rebuild warning: ${snapErr?.message}`);
+				}
+
+				// Stage 7: Refresh MCX & NCDEX Commodity Bhavcopy & Polled Spot Pricing
+				try {
+					const { mcxBhavcopyService } = await import("./mcx-bhavcopy-service");
+					const { ncdexBhavcopyService } = await import("./ncdex-bhavcopy-service");
+					const [mcxSync, ncdexSync] = await Promise.allSettled([
+						mcxBhavcopyService.syncLatestBhavcopy(),
+						ncdexBhavcopyService.syncLatestBhavcopy(),
+					]);
+					logger.info("[DataSufficiency] Stage 7: Commodity data synced", {
+						mcxSuccess: mcxSync.status === "fulfilled" && mcxSync.value.success,
+						ncdexSuccess: ncdexSync.status === "fulfilled" && ncdexSync.value.success,
+					});
+				} catch (commErr: any) {
+					logger.warn(`[DataSufficiency] Commodity sync self-healing warning: ${commErr?.message}`);
 				}
 
 				// Final sync after enrichments complete

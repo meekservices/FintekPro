@@ -46,6 +46,7 @@ const productTypeLabels: Record<string, string> = {
 	pms: "PMS",
 	aif: "AIF",
 	derivatives: "Derivatives",
+	commodities: "Commodities",
 	loan: "Loans",
 	tax_services: "Tax Services",
 	advisory: "Advisory",

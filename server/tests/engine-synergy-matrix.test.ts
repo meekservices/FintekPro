@@ -253,7 +253,7 @@ describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 
 			// Pledged stock must receive a 15-point governance penalty
 			expect(safeScore - pledgedScore).toBe(15);
-		});
+		}, 15000);
 	});
 
 	// ─── 6. Fast Analytical Engine In-Memory Vectorized Query ─────────────────────

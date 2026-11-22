@@ -255,11 +255,11 @@ describe("Data Sufficiency Engine (FASP-AI v1.0 & SEBI IA Compliance)", () => {
 		expect(result.reasons).toHaveLength(0);
 	});
 
-	it("inspects all 7 core financial domains and their respective subdomains", async () => {
+	it("inspects all 8 core financial domains and their respective subdomains", async () => {
 		const domains = await engine.inspectAllDomains();
 
 		expect(domains).toBeDefined();
-		expect(domains).toHaveLength(7);
+		expect(domains).toHaveLength(8);
 
 		const expectedDomains = [
 			"EQUITIES",
@@ -269,6 +269,7 @@ describe("Data Sufficiency Engine (FASP-AI v1.0 & SEBI IA Compliance)", () => {
 			"REAL_ASSETS",
 			"UNLISTED",
 			"COMPLIANCE",
+			"COMMODITIES",
 		];
 
 		const actualCodes = domains.map((d) => d.code);
@@ -296,13 +297,20 @@ describe("Data Sufficiency Engine (FASP-AI v1.0 & SEBI IA Compliance)", () => {
 		expect(compliance).toBeDefined();
 		expect(compliance?.freshnessThreshold).toContain("365 days");
 		expect(compliance?.subdomains.some((s) => s.name.includes("SEBI IA Reg 17"))).toBe(true);
+
+		// Check Commodities (MCX & NCDEX) subdomains
+		const commodities = domains.find((d) => d.code === "COMMODITIES");
+		expect(commodities).toBeDefined();
+		expect(commodities?.freshnessThreshold).toContain("36 hours");
+		expect(commodities?.subdomains.some((s) => s.name.includes("MCX"))).toBe(true);
+		expect(commodities?.subdomains.some((s) => s.name.includes("NCDEX"))).toBe(true);
 	});
 
 	it("includes multi-domain telemetry in universe sufficiency stats response", async () => {
 		const stats = await dataSufficiencyEngine.getUniverseSufficiencyStats();
 
 		expect(stats.domains).toBeDefined();
-		expect(stats.domains.length).toBe(7);
+		expect(stats.domains.length).toBe(8);
 
 		for (const domain of stats.domains) {
 			expect(domain.domain).toBeDefined();

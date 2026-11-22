@@ -432,6 +432,7 @@ class EngineLearningOrchestrator {
       { id: "tax-law-engine", name: "Direct Tax & Corporate Law Workstation Engine", category: "Compliance", defaultCalibration: "Form 3CD Clause Scanner & Rule 11UA Valuation Active" },
       { id: "regulatory-ingestion-service", name: "Autonomous Regulatory Ingestion Engine", category: "Data Quality", defaultCalibration: "Autonomous Amendment Radar & Staged Diff Pipeline Active" },
       { id: "indian-tax-calculator", name: "Dynamic Indian Income Tax Calculator Engine", category: "Portfolio", defaultCalibration: "Multi-Year FY24/25/26/27 Dynamic Slabs & Marginal Relief Active" },
+      { id: "commodity-strategy", name: "Institutional Commodity Derivatives Engine", category: "Alpha Generation", defaultCalibration: "MCX/NCDEX Momentum, 2:1 R:R & Staggered Delivery Window Active" },
     ];
 
     for (const core of registeredCoreEngines) {

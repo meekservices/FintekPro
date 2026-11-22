@@ -90,6 +90,7 @@ import {
 	PieChart,
 	AlertTriangle,
 	Activity,
+	Flame,
 	Star,
 	Brain,
 	RefreshCw,
@@ -360,6 +361,7 @@ const categoryIcons: Record<string, ComponentType<{ className?: string }>> = {
 	fixed_deposits: LucideShield,
 	sgb: Coins,
 	derivatives: Activity,
+	commodities: Flame,
 };
 
 const categoryLabels: Record<string, string> = {
@@ -376,6 +378,7 @@ const categoryLabels: Record<string, string> = {
 	fixed_deposits: "Fixed Deposits",
 	sgb: "SGBs",
 	derivatives: "Derivatives (F&O)",
+	commodities: "Commodities (MCX/NCDEX)",
 };
 
 // Currency helper for global stocks (USD) vs domestic (INR)
@@ -575,6 +578,7 @@ const allCategories = [
 	{ key: "fixed_deposits", label: "FDs", icon: LucideShield },
 	{ key: "sgb", label: "SGBs", icon: Coins },
 	{ key: "derivatives", label: "F&O", icon: Activity },
+	{ key: "commodities", label: "Commodities", icon: Flame },
 ] as const;
 
 
@@ -7882,6 +7886,84 @@ export default function AgentPicksPage() {
 								</div>
 							)}
 
+						{selectedPick.category === "commodities" &&
+							selectedPick.keyMetrics && (
+								<div className="mt-3 pt-3 border-t">
+									<div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+										<div>
+											<span className="text-muted-foreground">Exchange: </span>
+											<span className="font-semibold text-amber-600 dark:text-amber-400">
+												{selectedPick.exchange || "MCX"}
+											</span>
+										</div>
+										{selectedPick.keyMetrics.deliveryCenter && (
+											<div>
+												<span className="text-muted-foreground">Mandi / Center: </span>
+												<span className="font-medium">
+													{selectedPick.keyMetrics.deliveryCenter}
+												</span>
+											</div>
+										)}
+										{selectedPick.keyMetrics.priceUnit && (
+											<div>
+												<span className="text-muted-foreground">Unit: </span>
+												<span className="font-mono">
+													{selectedPick.keyMetrics.priceUnit}
+												</span>
+											</div>
+										)}
+										{selectedPick.keyMetrics.trend && (
+											<div>
+												<span className="text-muted-foreground">Trend: </span>
+												<span className="font-medium text-emerald-600">
+													{selectedPick.keyMetrics.trend}
+												</span>
+											</div>
+										)}
+										{selectedPick.keyMetrics.targetDistancePct && (
+											<div>
+												<span className="text-muted-foreground">Target Upside: </span>
+												<span className="font-medium text-emerald-600">
+													+{selectedPick.keyMetrics.targetDistancePct}%
+												</span>
+											</div>
+										)}
+										{selectedPick.keyMetrics.stoplossDistancePct && (
+											<div>
+												<span className="text-muted-foreground">Stop Loss: </span>
+												<span className="font-medium text-rose-600">
+													-{selectedPick.keyMetrics.stoplossDistancePct}%
+												</span>
+											</div>
+										)}
+										{selectedPick.keyMetrics.riskRewardRatio && (
+											<div>
+												<span className="text-muted-foreground">R:R Ratio: </span>
+												<span className="font-semibold text-primary">
+													{selectedPick.keyMetrics.riskRewardRatio}:1
+												</span>
+											</div>
+										)}
+										{selectedPick.keyMetrics.settlementType && (
+											<div>
+												<span className="text-muted-foreground">Settlement: </span>
+												<span className="font-medium text-[11px]">
+													{selectedPick.keyMetrics.settlementType}
+												</span>
+											</div>
+										)}
+									</div>
+									{selectedPick.keyMetrics.macroImplication && (
+										<div className="mt-2 p-2 bg-muted/40 rounded text-xs">
+											<span className="text-muted-foreground font-semibold">Macro Catalyst: </span>
+											<span className="text-foreground">
+												{selectedPick.keyMetrics.macroImplication}
+											</span>
+										</div>
+									)}
+								</div>
+							)}
+
 							{/* Actions */}
 							<div className="flex flex-col gap-2 pt-2 border-t">
 								{selectedPick.keyMetrics?.pdfUrl && (
@@ -10517,6 +10599,31 @@ function PickCard({
 											)}
 										</div>
 									)}
+									{pick.category === "commodities" && (
+										<div className="flex items-center gap-1.5 flex-wrap">
+											{pick.exchange && (
+												<span className="text-[10px] bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded font-bold border border-amber-300 dark:border-amber-800 flex items-center gap-1">
+													<Flame className="h-3 w-3" />
+													{pick.exchange}
+												</span>
+											)}
+											{pick.keyMetrics?.deliveryCenter && (
+												<span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted/60 border font-mono">
+													Center: {pick.keyMetrics.deliveryCenter}
+												</span>
+											)}
+											{pick.keyMetrics?.priceUnit && (
+												<span className="text-[10px] bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-800 font-mono">
+													{pick.keyMetrics.priceUnit}
+												</span>
+											)}
+											{pick.keyMetrics?.trend && (
+												<span className="text-[10px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded font-semibold border border-emerald-200 dark:border-emerald-800">
+													{pick.keyMetrics.trend}
+												</span>
+											)}
+										</div>
+									)}
 								</div>
 							</div>
 							<div className="flex items-center gap-1.5 shrink-0 self-start">
@@ -11327,6 +11434,84 @@ function PickCard({
 													: typeof pick.keyMetrics.legs === "string"
 														? pick.keyMetrics.legs
 														: "—"}
+											</span>
+										</div>
+									)}
+								</div>
+							)}
+
+						{pick.category === "commodities" &&
+							pick.keyMetrics && (
+								<div className="mt-3 pt-3 border-t">
+									<div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+										<div>
+											<span className="text-muted-foreground">Exchange: </span>
+											<span className="font-semibold text-amber-600 dark:text-amber-400">
+												{pick.exchange || "MCX"}
+											</span>
+										</div>
+										{pick.keyMetrics.deliveryCenter && (
+											<div>
+												<span className="text-muted-foreground">Mandi / Center: </span>
+												<span className="font-medium">
+													{pick.keyMetrics.deliveryCenter}
+												</span>
+											</div>
+										)}
+										{pick.keyMetrics.priceUnit && (
+											<div>
+												<span className="text-muted-foreground">Unit: </span>
+												<span className="font-mono">
+													{pick.keyMetrics.priceUnit}
+												</span>
+											</div>
+										)}
+										{pick.keyMetrics.trend && (
+											<div>
+												<span className="text-muted-foreground">Trend: </span>
+												<span className="font-medium text-emerald-600">
+													{pick.keyMetrics.trend}
+												</span>
+											</div>
+										)}
+										{pick.keyMetrics.targetDistancePct && (
+											<div>
+												<span className="text-muted-foreground">Target Upside: </span>
+												<span className="font-medium text-emerald-600">
+													+{pick.keyMetrics.targetDistancePct}%
+												</span>
+											</div>
+										)}
+										{pick.keyMetrics.stoplossDistancePct && (
+											<div>
+												<span className="text-muted-foreground">Stop Loss: </span>
+												<span className="font-medium text-rose-600">
+													-{pick.keyMetrics.stoplossDistancePct}%
+												</span>
+											</div>
+										)}
+										{pick.keyMetrics.riskRewardRatio && (
+											<div>
+												<span className="text-muted-foreground">R:R Ratio: </span>
+												<span className="font-semibold text-primary">
+													{pick.keyMetrics.riskRewardRatio}:1
+												</span>
+											</div>
+										)}
+										{pick.keyMetrics.settlementType && (
+											<div>
+												<span className="text-muted-foreground">Settlement: </span>
+												<span className="font-medium text-[11px]">
+													{pick.keyMetrics.settlementType}
+												</span>
+											</div>
+										)}
+									</div>
+									{pick.keyMetrics.macroImplication && (
+										<div className="mt-2 p-2 bg-muted/40 rounded text-xs">
+											<span className="text-muted-foreground font-semibold">Macro Catalyst: </span>
+											<span className="text-foreground">
+												{pick.keyMetrics.macroImplication}
 											</span>
 										</div>
 									)}

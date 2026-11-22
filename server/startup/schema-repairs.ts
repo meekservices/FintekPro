@@ -1299,11 +1299,15 @@ before_state JSONB,
           DO $$ 
           BEGIN
               IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'pick_category') THEN
-                  CREATE TYPE pick_category AS ENUM ('listed_stocks', 'mutual_funds', 'bonds', 'unlisted', 'pre_ipo', 'global_stocks', 'etfs', 'reits_invits', 'fixed_deposits', 'sgb', 'derivatives');
+                  CREATE TYPE pick_category AS ENUM ('listed_stocks', 'mutual_funds', 'bonds', 'unlisted', 'pre_ipo', 'global_stocks', 'etfs', 'reits_invits', 'fixed_deposits', 'sgb', 'derivatives', 'commodities');
               ELSE
                   -- Idempotent: add pre_ipo if missing (for existing DBs)
                   IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumtypid = 'pick_category'::regtype AND enumlabel = 'pre_ipo') THEN
                       ALTER TYPE pick_category ADD VALUE 'pre_ipo';
+                  END IF;
+                  -- Idempotent: add commodities if missing (for existing DBs)
+                  IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumtypid = 'pick_category'::regtype AND enumlabel = 'commodities') THEN
+                      ALTER TYPE pick_category ADD VALUE 'commodities';
                   END IF;
               END IF;
               IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'pick_status') THEN

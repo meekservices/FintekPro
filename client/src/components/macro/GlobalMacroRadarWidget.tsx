@@ -13,14 +13,11 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
 	Globe2,
-	TrendingUp,
-	TrendingDown,
 	Flame,
 	ShieldCheck,
 	Coins,
 	AlertTriangle,
 	RefreshCw,
-	Layers,
 	ChevronRight,
 	Activity,
 	ArrowUpRight,
@@ -31,7 +28,6 @@ import {
 	Hash,
 	Database,
 	ExternalLink,
-	Lock,
 	Scale,
 	Landmark,
 	BarChart2,
@@ -124,6 +120,8 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 	const [activeScenario, setActiveScenario] = useState<string>("OIL_SPIKE_95");
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [isAuditOpen, setIsAuditOpen] = useState(false);
+	const [selectedCountry, setSelectedCountry] = useState<any | null>(null);
+	const [fiiViewMode, setFiiViewMode] = useState<"leaderboard" | "valuation_frontier">("leaderboard");
 
 	// ── 1. Fetch Live or Historical Global Macro Report ──
 	const { data, isLoading, isError, refetch, isFetching } = useQuery<{ success: boolean; data: GlobalMacroReport }>({
@@ -153,7 +151,18 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 		enabled: isAuditOpen,
 	});
 
-	// ── 1c. Fetch Global FII 6-Pillar Scorecards ──
+	// ── 1c. Fetch Global FII 10-Country Leaderboard ──
+	const { data: leaderboardData } = useQuery<{ success: boolean; data: any[] }>({
+		queryKey: ["/api/macro/fii/leaderboard"],
+		queryFn: async () => {
+			const res = await fetch("/api/macro/fii/leaderboard");
+			if (!res.ok) throw new Error("Failed to fetch FII leaderboard");
+			return res.json();
+		},
+		staleTime: 60 * 1000,
+	});
+
+	// ── 1c2. Fetch Global FII 6-Pillar Scorecards ──
 	const { data: fiiData } = useQuery<{ success: boolean; data: any }>({
 		queryKey: ["/api/macro/fii/scorecards"],
 		queryFn: async () => {
@@ -214,6 +223,17 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 		queryFn: async () => {
 			const res = await fetch("/api/macro/us-indicators/summary");
 			if (!res.ok) throw new Error("Failed to fetch US macro indicators");
+			return res.json();
+		},
+		staleTime: 60 * 1000,
+	});
+
+	// ── 1i. Fetch Central Macro Context Systemic Tripwires ──
+	const { data: tripwiresData } = useQuery<{ success: boolean; data: any[] }>({
+		queryKey: ["/api/macro/tripwires"],
+		queryFn: async () => {
+			const res = await fetch("/api/macro/tripwires");
+			if (!res.ok) throw new Error("Failed to fetch tripwires");
 			return res.json();
 		},
 		staleTime: 60 * 1000,
@@ -845,6 +865,38 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 
 					{/* Tab 3: Global FII Scorecard & Cross-Border Flows */}
 					<TabsContent value="fii" className="space-y-3">
+						{/* Systemic Macro Tripwire Sentinel Bar */}
+						<div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+							{(tripwiresData?.data?.slice(0, 3) || [
+								{ id: "YEN_CARRY", name: "Yen Carry Sentinel", observedValue: "BOJ 0.25% • Normalizing", status: "NORMAL", alertBadge: "CARRY STABLE" },
+								{ id: "CRUDE_OIL", name: "Crude Oil CAD Band", observedValue: "Brent $74.2 / Comfort $70–$80", status: "NORMAL", alertBadge: "CAD TAILWIND" },
+								{ id: "US_10Y_YIELD", name: "US 10Y Cost of Capital", observedValue: "4.45% (Spread: 234 bps)", status: "NORMAL", alertBadge: "HURDLE < 4.75%" },
+							]).map((tw: any) => (
+								<div key={tw.id} className="p-2.5 rounded-lg border border-border/60 bg-card/70 flex items-center justify-between">
+									<div>
+										<div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{tw.name}</div>
+										<div className="font-bold text-foreground text-xs flex items-center gap-1.5 mt-0.5">
+											{tw.id === "YEN_CARRY" && <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />}
+											{tw.id === "CRUDE_OIL" && <Flame className="h-3.5 w-3.5 text-amber-500" />}
+											{tw.id === "US_10Y_YIELD" && <Scale className="h-3.5 w-3.5 text-indigo-500" />}
+											<span>{tw.observedValue}</span>
+										</div>
+									</div>
+									<Badge
+										variant="outline"
+										className={cn(
+											"text-[9px]",
+											tw.status === "NORMAL" && "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+											tw.status === "WARNING" && "bg-amber-500/10 text-amber-600 border-amber-500/20",
+											tw.status === "BREACH_CRITICAL" && "bg-rose-500/15 text-rose-600 border-rose-500/30"
+										)}
+									>
+										{tw.alertBadge || (tw.status === "NORMAL" ? "STABLE" : tw.status)}
+									</Badge>
+								</div>
+							))}
+						</div>
+
 						{/* India Standout Banner */}
 						<div className="p-3 rounded-xl bg-gradient-to-r from-emerald-500/10 via-indigo-500/10 to-transparent border border-emerald-500/25 space-y-2">
 							<div className="flex items-center justify-between">
@@ -853,7 +905,7 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 									<span className="font-bold text-xs text-foreground">Global FII Institutional Capital Allocation Matrix</span>
 								</div>
 								<Badge className="bg-emerald-600 text-white text-[10px] py-0 px-2 font-semibold">
-									INDIA #1 IN EM (84.2/100)
+									INDIA #1 IN EM (84.4/100)
 								</Badge>
 							</div>
 							<p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -866,7 +918,7 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 								</div>
 								<div className="p-2 rounded-lg bg-card/80 border border-border/50 text-[11px]">
 									<div className="text-muted-foreground text-[10px]">Forex Import Cover</div>
-									<div className="font-bold font-mono text-foreground">&gt;11.2 Months</div>
+									<div className="font-bold font-mono text-foreground">11.8 Months ($704B)</div>
 								</div>
 								<div className="p-2 rounded-lg bg-card/80 border border-border/50 text-[11px]">
 									<div className="text-muted-foreground text-[10px]">India Corporate ROE</div>
@@ -874,99 +926,446 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 								</div>
 								<div className="p-2 rounded-lg bg-card/80 border border-border/50 text-[11px]">
 									<div className="text-muted-foreground text-[10px]">Friend-Shoring Score</div>
-									<div className="font-bold font-mono text-emerald-600">88/100 (China+1)</div>
+									<div className="font-bold font-mono text-emerald-600">90/100 (China+1)</div>
 								</div>
 							</div>
 						</div>
 
-						{/* Country Ranking Leaderboard Table */}
-						<div className="rounded-xl border border-border overflow-hidden">
-							<div className="bg-muted/50 px-3 py-2 border-b border-border flex items-center justify-between text-xs">
-								<span className="font-semibold text-foreground flex items-center gap-1.5">
-									<Landmark className="h-3.5 w-3.5 text-indigo-500" />
-									10-Country Global FII Scorecard Leaderboard
-								</span>
-								<span className="text-[10px] text-muted-foreground font-mono">
-									Engine: FII-TRACKER-v1.0.0
-								</span>
+						{/* View Switcher Header */}
+						<div className="flex items-center justify-between pt-1">
+							<div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+								<Landmark className="h-3.5 w-3.5 text-indigo-500" />
+								<span>Global Country-Wise Intelligence</span>
 							</div>
-							<div className="overflow-x-auto">
-								<table className="w-full text-[11px]">
-									<thead className="bg-muted/30 text-muted-foreground border-b border-border font-medium">
-										<tr>
-											<th className="text-left p-2">Rank & Country</th>
-											<th className="text-center p-2">Region</th>
-											<th className="text-center p-2">FII Score</th>
-											<th className="text-center p-2">30d Flow</th>
-											<th className="text-right p-2">Allocation Stance</th>
-										</tr>
-									</thead>
-									<tbody className="divide-y divide-border/60">
-										{(fiiData?.data?.scorecards || [
-											{ rank: 1, countryCode: "IND", countryName: "India", region: "EM_ASIA", compositeFiiScore: 84.2, cumulative30dFlowUsdMn: 1450, allocationStance: "STRONG_OVERWEIGHT" },
-											{ rank: 2, countryCode: "USA", countryName: "United States", region: "DM_AMERICAS", compositeFiiScore: 78.4, cumulative30dFlowUsdMn: 12400, allocationStance: "OVERWEIGHT" },
-											{ rank: 3, countryCode: "TWN", countryName: "Taiwan", region: "EM_ASIA", compositeFiiScore: 74.6, cumulative30dFlowUsdMn: 820, allocationStance: "OVERWEIGHT" },
-											{ rank: 4, countryCode: "JPN", countryName: "Japan", region: "DM_ASIA", compositeFiiScore: 72.1, cumulative30dFlowUsdMn: 2100, allocationStance: "OVERWEIGHT" },
-											{ rank: 5, countryCode: "KOR", countryName: "South Korea", region: "EM_ASIA", compositeFiiScore: 65.3, cumulative30dFlowUsdMn: 310, allocationStance: "NEUTRAL" },
-											{ rank: 6, countryCode: "DEU", countryName: "Germany", region: "DM_EUROPE", compositeFiiScore: 61.8, cumulative30dFlowUsdMn: -450, allocationStance: "NEUTRAL" },
-											{ rank: 7, countryCode: "GBR", countryName: "United Kingdom", region: "DM_EUROPE", compositeFiiScore: 59.4, cumulative30dFlowUsdMn: -890, allocationStance: "NEUTRAL" },
-											{ rank: 8, countryCode: "BRA", countryName: "Brazil", region: "EM_LATAM", compositeFiiScore: 58.7, cumulative30dFlowUsdMn: 120, allocationStance: "NEUTRAL" },
-											{ rank: 9, countryCode: "CHN", countryName: "China", region: "EM_ASIA", compositeFiiScore: 48.2, cumulative30dFlowUsdMn: -3850, allocationStance: "UNDERWEIGHT" },
-										]).map((c: any) => (
-											<tr key={c.countryCode} className={cn("hover:bg-muted/30 transition-colors", c.countryCode === "IND" && "bg-emerald-500/5 font-semibold")}>
-												<td className="p-2 flex items-center gap-1.5">
-													<span className="font-mono text-muted-foreground w-4">#{c.rank}</span>
-													<span className="text-foreground">{c.countryName}</span>
-													{c.countryCode === "IND" && (
-														<Badge className="text-[9px] py-0 px-1 bg-emerald-600 text-white">Focus</Badge>
-													)}
-												</td>
-												<td className="p-2 text-center text-[10px] text-muted-foreground font-mono">{c.region}</td>
-												<td className="p-2 text-center font-mono font-bold text-foreground">{c.compositeFiiScore}</td>
-												<td className="p-2 text-center font-mono text-[10px]">
-													<span className={c.cumulative30dFlowUsdMn >= 0 ? "text-emerald-600 font-semibold" : "text-rose-600 font-semibold"}>
-														{c.cumulative30dFlowUsdMn >= 0 ? "+" : ""}${c.cumulative30dFlowUsdMn}M
-													</span>
-												</td>
-												<td className="p-2 text-right">
-													<Badge
-														variant="outline"
-														className={cn(
-															"text-[9px] py-0 px-1.5 font-bold",
-															c.allocationStance === "STRONG_OVERWEIGHT" && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
-															c.allocationStance === "OVERWEIGHT" && "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30",
-															c.allocationStance === "NEUTRAL" && "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-400/20",
-															c.allocationStance === "UNDERWEIGHT" && "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30"
-														)}
-													>
-														{c.allocationStance.replace(/_/g, " ")}
-													</Badge>
-												</td>
-											</tr>
-										))}
-									</tbody>
-								</table>
+							<div className="flex items-center gap-1 p-0.5 rounded-lg bg-muted/60 border border-border text-[11px]">
+								<button
+									type="button"
+									onClick={() => setFiiViewMode("leaderboard")}
+									className={cn(
+										"px-2.5 py-1 rounded-md transition-all font-medium",
+										fiiViewMode === "leaderboard"
+											? "bg-background text-foreground shadow-sm"
+											: "text-muted-foreground hover:text-foreground"
+									)}
+								>
+									Scorecard Leaderboard
+								</button>
+								<button
+									type="button"
+									onClick={() => setFiiViewMode("valuation_frontier")}
+									className={cn(
+										"px-2.5 py-1 rounded-md transition-all font-medium",
+										fiiViewMode === "valuation_frontier"
+											? "bg-background text-foreground shadow-sm"
+											: "text-muted-foreground hover:text-foreground"
+									)}
+								>
+									2D Valuation Frontier (P/E vs ROE)
+								</button>
 							</div>
 						</div>
 
+						{/* VIEW 1: Leaderboard Table */}
+						{fiiViewMode === "leaderboard" && (
+							<div className="rounded-xl border border-border overflow-hidden">
+								<div className="bg-muted/50 px-3 py-2 border-b border-border flex items-center justify-between text-xs">
+									<span className="font-medium text-muted-foreground">
+										Click on any country to inspect 6-Pillar diagnostics and direct transmission to India
+									</span>
+									<span className="text-[10px] text-muted-foreground font-mono">
+										Live Feed: FII-TRACKER-v1.0.0
+									</span>
+								</div>
+								<div className="overflow-x-auto">
+									<table className="w-full text-[11px]">
+										<thead className="bg-muted/30 text-muted-foreground border-b border-border font-medium">
+											<tr>
+												<th className="text-left p-2.5">Rank & Country</th>
+												<th className="text-center p-2">Region</th>
+												<th className="text-center p-2">FII Score (30d Δ)</th>
+												<th className="text-center p-2">30d Flow</th>
+												<th className="text-center p-2">Valuation (Fwd P/E : ROE)</th>
+												<th className="text-right p-2.5">Allocation Stance</th>
+											</tr>
+										</thead>
+										<tbody className="divide-y divide-border/60">
+											{(leaderboardData?.data || fiiData?.data?.scorecards || [
+												{ rank: 1, countryCode: "IN", countryName: "India", region: "EMERGING_MARKETS", compositeFiiScore: 84.4, delta30dScore: +1.8, cumulative30dFlowUsdMn: 2150, metrics: { forwardPeRatio: 21.2, averageRoePct: 15.8 }, allocationStance: "STRONG_OVERWEIGHT" },
+												{ rank: 2, countryCode: "US", countryName: "United States", region: "DEVELOPED_MARKETS", compositeFiiScore: 83.2, delta30dScore: +0.6, cumulative30dFlowUsdMn: 38400, metrics: { forwardPeRatio: 22.4, averageRoePct: 19.5 }, allocationStance: "STRONG_OVERWEIGHT" },
+												{ rank: 3, countryCode: "TW", countryName: "Taiwan", region: "EMERGING_MARKETS", compositeFiiScore: 80.2, delta30dScore: +2.4, cumulative30dFlowUsdMn: 4850, metrics: { forwardPeRatio: 16.8, averageRoePct: 16.2 }, allocationStance: "MODERATE_OVERWEIGHT" },
+												{ rank: 4, countryCode: "JP", countryName: "Japan", region: "DEVELOPED_MARKETS", compositeFiiScore: 74.8, delta30dScore: -1.2, cumulative30dFlowUsdMn: 1650, metrics: { forwardPeRatio: 16.4, averageRoePct: 9.2 }, allocationStance: "MODERATE_OVERWEIGHT" },
+												{ rank: 5, countryCode: "KR", countryName: "South Korea", region: "EMERGING_MARKETS", compositeFiiScore: 71.2, delta30dScore: -0.5, cumulative30dFlowUsdMn: 580, metrics: { forwardPeRatio: 10.8, averageRoePct: 7.8 }, allocationStance: "NEUTRAL" },
+												{ rank: 6, countryCode: "BR", countryName: "Brazil", region: "EMERGING_MARKETS", compositeFiiScore: 68.4, delta30dScore: +0.4, cumulative30dFlowUsdMn: 420, metrics: { forwardPeRatio: 8.8, averageRoePct: 14.5 }, allocationStance: "NEUTRAL" },
+												{ rank: 7, countryCode: "GB", countryName: "United Kingdom", region: "DEVELOPED_MARKETS", compositeFiiScore: 67.5, delta30dScore: -0.8, cumulative30dFlowUsdMn: -890, metrics: { forwardPeRatio: 12.2, averageRoePct: 10.8 }, allocationStance: "NEUTRAL" },
+												{ rank: 8, countryCode: "SA", countryName: "Saudi Arabia / GCC", region: "MIDDLE_EAST", compositeFiiScore: 66.8, delta30dScore: +0.2, cumulative30dFlowUsdMn: 190, metrics: { forwardPeRatio: 18.5, averageRoePct: 13.8 }, allocationStance: "NEUTRAL" },
+												{ rank: 9, countryCode: "DE", countryName: "Germany", region: "DEVELOPED_MARKETS", compositeFiiScore: 65.2, delta30dScore: -2.1, cumulative30dFlowUsdMn: -1250, metrics: { forwardPeRatio: 13.8, averageRoePct: 11.4 }, allocationStance: "NEUTRAL" },
+												{ rank: 10, countryCode: "CN", countryName: "China", region: "EMERGING_MARKETS", compositeFiiScore: 61.4, delta30dScore: -1.9, cumulative30dFlowUsdMn: -1850, metrics: { forwardPeRatio: 9.4, averageRoePct: 9.8 }, allocationStance: "UNDERWEIGHT" },
+											]).map((c: any) => (
+												<tr
+													key={c.countryCode}
+													onClick={() => setSelectedCountry(c)}
+													className={cn(
+														"cursor-pointer hover:bg-muted/40 transition-colors group",
+														c.countryCode === "IN" && "bg-emerald-500/5 font-semibold"
+													)}
+												>
+													<td className="p-2.5 flex items-center gap-1.5">
+														<span className="font-mono text-muted-foreground w-4">#{c.rank}</span>
+														<span className="text-foreground group-hover:text-primary transition-colors flex items-center gap-1">
+															{c.countryName}
+															<ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-primary" />
+														</span>
+														{c.countryCode === "IN" && (
+															<Badge className="text-[9px] py-0 px-1 bg-emerald-600 text-white">Focus</Badge>
+														)}
+													</td>
+													<td className="p-2 text-center text-[10px] text-muted-foreground font-mono">
+														{c.region?.replace(/_/g, " ")}
+													</td>
+													<td className="p-2 text-center font-mono font-bold text-foreground">
+														<span>{c.compositeFiiScore}</span>
+														{typeof c.delta30dScore === "number" && (
+															<span
+																className={cn(
+																	"text-[9px] ml-1 px-1 py-0.2 rounded font-normal",
+																	c.delta30dScore > 0
+																		? "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40"
+																		: c.delta30dScore < 0
+																		? "text-rose-600 bg-rose-50 dark:bg-rose-950/40"
+																		: "text-muted-foreground"
+																)}
+															>
+																{c.delta30dScore > 0 ? `+${c.delta30dScore}` : c.delta30dScore}
+															</span>
+														)}
+													</td>
+													<td className="p-2 text-center font-mono text-[10px]">
+														<span className={(c.cumulative30dFlowUsdMn ?? 0) >= 0 ? "text-emerald-600 font-semibold" : "text-rose-600 font-semibold"}>
+															{(c.cumulative30dFlowUsdMn ?? 0) >= 0 ? "+" : ""}${c.cumulative30dFlowUsdMn ?? 0}M
+														</span>
+													</td>
+													<td className="p-2 text-center font-mono text-[10px] text-muted-foreground">
+														{c.metrics?.forwardPeRatio ? `${c.metrics.forwardPeRatio}x` : "—"}
+														{" : "}
+														<span className="font-semibold text-foreground">
+															{c.metrics?.averageRoePct ? `${c.metrics.averageRoePct}%` : "—"}
+														</span>
+													</td>
+													<td className="p-2.5 text-right">
+														<Badge
+															variant="outline"
+															className={cn(
+																"text-[9px] py-0 px-1.5 font-bold",
+																c.allocationStance === "STRONG_OVERWEIGHT" && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+																c.allocationStance === "MODERATE_OVERWEIGHT" && "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30",
+																c.allocationStance === "NEUTRAL" && "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-400/20",
+																c.allocationStance === "UNDERWEIGHT" && "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30",
+																c.allocationStance === "TACTICAL_AVOID" && "bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/40"
+															)}
+														>
+															{c.allocationStance?.replace(/_/g, " ")}
+														</Badge>
+													</td>
+												</tr>
+											))}
+										</tbody>
+									</table>
+								</div>
+							</div>
+						)}
+
+						{/* VIEW 2: 2D Relative Valuation Frontier (P/E vs ROE) */}
+						{fiiViewMode === "valuation_frontier" && (
+							<div className="rounded-xl border border-border p-4 bg-card/60 space-y-3">
+								<div className="flex items-center justify-between text-xs">
+									<div className="font-semibold text-foreground flex items-center gap-1.5">
+										<BarChart2 className="h-4 w-4 text-indigo-500" />
+										<span>Institutional 2D Relative Valuation Frontier</span>
+									</div>
+									<Badge variant="outline" className="text-[10px]">
+										Y-Axis: ROE (%) | X-Axis: Forward P/E Multiple
+									</Badge>
+								</div>
+
+								{/* Quadrant Map */}
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+									<div className="p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 space-y-1.5">
+										<div className="flex items-center justify-between">
+											<span className="font-bold text-emerald-700 dark:text-emerald-300 text-xs">
+												High ROE & Quality Growth (Overweight Hub)
+											</span>
+											<Badge className="bg-emerald-600 text-white text-[9px] py-0 px-1">FII Overweight</Badge>
+										</div>
+										<p className="text-[11px] text-muted-foreground leading-relaxed">
+											Markets delivering ROE &gt; 15% with high domestic reinvestment rates justifying premium valuation multiples.
+										</p>
+										<div className="space-y-1 pt-1 font-mono text-[11px]">
+											<div className="flex justify-between items-center p-1.5 rounded bg-background/80 border border-border/40">
+												<span className="font-bold text-foreground">India (IN)</span>
+												<span className="text-emerald-600 font-semibold">21.2x P/E | 15.8% ROE (+7.0% GDP)</span>
+											</div>
+											<div className="flex justify-between items-center p-1.5 rounded bg-background/80 border border-border/40">
+												<span className="font-bold text-foreground">United States (US)</span>
+												<span className="text-indigo-600 font-semibold">22.4x P/E | 19.5% ROE (Tech Capex)</span>
+											</div>
+											<div className="flex justify-between items-center p-1.5 rounded bg-background/80 border border-border/40">
+												<span className="font-bold text-foreground">Taiwan (TW)</span>
+												<span className="text-teal-600 font-semibold">16.8x P/E | 16.2% ROE (AI Foundry)</span>
+											</div>
+										</div>
+									</div>
+
+									<div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 space-y-1.5">
+										<div className="flex items-center justify-between">
+											<span className="font-bold text-amber-700 dark:text-amber-300 text-xs">
+												Value Trap vs Deflationary Margin Compression
+											</span>
+											<Badge variant="outline" className="text-[9px] border-amber-500 text-amber-600">FII Underweight</Badge>
+										</div>
+										<p className="text-[11px] text-muted-foreground leading-relaxed">
+											Low P/E multiples masking real-estate de-leveraging, deflationary pressures, and export contractions.
+										</p>
+										<div className="space-y-1 pt-1 font-mono text-[11px]">
+											<div className="flex justify-between items-center p-1.5 rounded bg-background/80 border border-border/40">
+												<span className="font-bold text-foreground">China (CN)</span>
+												<span className="text-rose-600 font-semibold">9.4x P/E | 9.8% ROE (0.4% CPI)</span>
+											</div>
+											<div className="flex justify-between items-center p-1.5 rounded bg-background/80 border border-border/40">
+												<span className="font-bold text-foreground">South Korea (KR)</span>
+												<span className="text-muted-foreground">10.8x P/E | 7.8% ROE (DRAM Cycle)</span>
+											</div>
+											<div className="flex justify-between items-center p-1.5 rounded bg-background/80 border border-border/40">
+												<span className="font-bold text-foreground">Germany (DE)</span>
+												<span className="text-muted-foreground">13.8x P/E | 11.4% ROE (0.2% GDP)</span>
+											</div>
+										</div>
+									</div>
+								</div>
+
+								<div className="p-2.5 rounded-lg bg-muted/40 border border-border text-[11px] text-muted-foreground leading-relaxed flex items-center gap-2">
+									<Scale className="h-4 w-4 text-indigo-500 shrink-0" />
+									<span>
+										<strong className="text-foreground">Why India Commands a +82.8% Valuation Premium over MSCI EM:</strong> Indian corporate balance sheets sustain the highest structural ROE in Asia (15.8% vs EM 11.2%), insulated from Chinese deflation by robust domestic consumer and infrastructure capex cycles.
+									</span>
+								</div>
+							</div>
+						)}
+
 						{/* Strategic Pair Trade Highlight */}
-						<div className="p-3 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 text-xs space-y-1">
+						<div className="p-3 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 text-xs space-y-2">
 							<div className="flex items-center justify-between">
 								<span className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
 									<Sparkles className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-									Active Institutional Cross-Border Pair Trade
+									Active Institutional Cross-Border Pair Trades
 								</span>
 								<Badge variant="outline" className="text-[10px] border-indigo-400 text-indigo-700 dark:text-indigo-300 font-mono">
-									Conviction: 88/100
+									Conviction: High (88/100)
 								</Badge>
 							</div>
-							<div className="font-semibold text-foreground text-xs pt-0.5">
-								Long India (Nifty 50 / Capex Themes) / Short China (CSI 300 / Real Estate)
-							</div>
-							<p className="text-[11px] text-muted-foreground leading-relaxed">
-								Driven by diverging real GDP growth (+7.2% vs +4.6%), positive real interest rate buffer (+1.7%), and sovereign debt inclusion inflows under JP Morgan GBI-EM.
-							</p>
+							{(rotationData?.data?.crossCountryPairTrades?.slice(0, 2) || [
+								{
+									longCountry: "India (Nifty 50 / Capex Themes)",
+									shortCountry: "China (CSI 300 / Real Estate)",
+									rationale: "Driven by diverging real GDP growth (+7.0% vs +4.8%), positive real interest rate buffer (+1.7%), and sovereign debt inclusion inflows under JP Morgan GBI-EM.",
+								},
+							]).map((pt: any, idx: number) => (
+								<div key={idx} className="pt-1.5 border-t border-indigo-200/40 dark:border-indigo-800/40 first:border-t-0 first:pt-0">
+									<div className="font-semibold text-foreground text-xs">
+										Long {pt.longCountry} / Short {pt.shortCountry}
+									</div>
+									<p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5">
+										{pt.rationale}
+									</p>
+								</div>
+							))}
 						</div>
+
+						{/* Country Diagnostic Inspection Modal */}
+						<Dialog open={Boolean(selectedCountry)} onOpenChange={(open) => !open && setSelectedCountry(null)}>
+							<DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
+								{selectedCountry && (
+									<div className="space-y-4 text-xs">
+										<DialogHeader>
+											<div className="flex items-center justify-between">
+												<div className="flex items-center gap-2">
+													<div className="h-7 w-7 rounded-lg bg-primary/10 text-primary font-bold font-mono flex items-center justify-center text-xs">
+														{selectedCountry.countryCode}
+													</div>
+													<div>
+														<DialogTitle className="text-base font-bold">
+															{selectedCountry.countryName}
+														</DialogTitle>
+														<DialogDescription className="text-xs">
+															Rank #{selectedCountry.rank} • Region: {selectedCountry.region?.replace(/_/g, " ")}
+														</DialogDescription>
+													</div>
+												</div>
+												<Badge
+													variant="outline"
+													className={cn(
+														"font-bold text-xs py-0.5 px-2",
+														selectedCountry.allocationStance === "STRONG_OVERWEIGHT" && "bg-emerald-500/15 text-emerald-700 border-emerald-500/30",
+														selectedCountry.allocationStance === "MODERATE_OVERWEIGHT" && "bg-teal-500/15 text-teal-700 border-teal-500/30",
+														selectedCountry.allocationStance === "NEUTRAL" && "bg-slate-500/10 text-slate-600 border-slate-400/20",
+														selectedCountry.allocationStance === "UNDERWEIGHT" && "bg-rose-500/15 text-rose-700 border-rose-500/30"
+													)}
+												>
+													{selectedCountry.allocationStance?.replace(/_/g, " ")}
+												</Badge>
+											</div>
+										</DialogHeader>
+
+										{/* Composite Score Card */}
+										<div className="p-3 rounded-lg bg-muted/40 border border-border flex items-center justify-between">
+											<div>
+												<div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Institutional FII Composite Score</div>
+												<div className="text-2xl font-bold font-mono text-foreground mt-0.5">
+													{selectedCountry.compositeFiiScore}
+													<span className="text-xs text-muted-foreground font-normal"> / 100</span>
+												</div>
+											</div>
+											<div className="text-right">
+												<div className="text-[10px] text-muted-foreground">30D Realized Flow</div>
+												<div className="text-sm font-bold font-mono text-emerald-600">
+													${selectedCountry.cumulative30dFlowUsdMn ?? 0}M
+												</div>
+											</div>
+										</div>
+
+										{/* 6 Institutional Pillars Progress Bars */}
+										<div className="space-y-2 p-3 rounded-lg border border-border bg-card">
+											<div className="font-semibold text-foreground text-xs">6 Institutional Pillars Breakdown</div>
+											<div className="space-y-2 pt-1 text-[11px]">
+												<div>
+													<div className="flex justify-between text-muted-foreground pb-0.5">
+														<span>Macro Growth & Real Rates (20%)</span>
+														<span className="font-mono font-bold text-foreground">
+															{selectedCountry.pillars?.macroGrowthScore ?? selectedCountry.macroGrowthScore ?? 80}/100
+														</span>
+													</div>
+													<Progress value={selectedCountry.pillars?.macroGrowthScore ?? selectedCountry.macroGrowthScore ?? 80} className="h-1.5" />
+												</div>
+												<div>
+													<div className="flex justify-between text-muted-foreground pb-0.5">
+														<span>FX Risk & Reserve Import Cover (20%)</span>
+														<span className="font-mono font-bold text-foreground">
+															{selectedCountry.pillars?.fxRiskScore ?? selectedCountry.fxRiskScore ?? 80}/100
+														</span>
+													</div>
+													<Progress value={selectedCountry.pillars?.fxRiskScore ?? selectedCountry.fxRiskScore ?? 80} className="h-1.5" />
+												</div>
+												<div>
+													<div className="flex justify-between text-muted-foreground pb-0.5">
+														<span>Valuation Attractiveness (20%)</span>
+														<span className="font-mono font-bold text-foreground">
+															{selectedCountry.pillars?.valuationAttractivenessScore ?? selectedCountry.valuationAttractivenessScore ?? 70}/100
+														</span>
+													</div>
+													<Progress value={selectedCountry.pillars?.valuationAttractivenessScore ?? selectedCountry.valuationAttractivenessScore ?? 70} className="h-1.5" />
+												</div>
+												<div>
+													<div className="flex justify-between text-muted-foreground pb-0.5">
+														<span>Systemic Liquidity & Yield (15%)</span>
+														<span className="font-mono font-bold text-foreground">
+															{selectedCountry.pillars?.liquidityPolicyScore ?? selectedCountry.liquidityPolicyScore ?? 75}/100
+														</span>
+													</div>
+													<Progress value={selectedCountry.pillars?.liquidityPolicyScore ?? selectedCountry.liquidityPolicyScore ?? 75} className="h-1.5" />
+												</div>
+												<div>
+													<div className="flex justify-between text-muted-foreground pb-0.5">
+														<span>Market Accessibility & FOL (15%)</span>
+														<span className="font-mono font-bold text-foreground">
+															{selectedCountry.pillars?.marketAccessibilityScore ?? selectedCountry.marketAccessibilityScore ?? 85}/100
+														</span>
+													</div>
+													<Progress value={selectedCountry.pillars?.marketAccessibilityScore ?? selectedCountry.marketAccessibilityScore ?? 85} className="h-1.5" />
+												</div>
+												<div>
+													<div className="flex justify-between text-muted-foreground pb-0.5">
+														<span>Geopolitical Stability & Friend-Shoring (10%)</span>
+														<span className="font-mono font-bold text-foreground">
+															{selectedCountry.pillars?.geopoliticalStabilityScore ?? selectedCountry.geopoliticalStabilityScore ?? 80}/100
+														</span>
+													</div>
+													<Progress value={selectedCountry.pillars?.geopoliticalStabilityScore ?? selectedCountry.geopoliticalStabilityScore ?? 80} className="h-1.5" />
+												</div>
+											</div>
+										</div>
+
+										{/* Direct India Transmission Channel */}
+										{selectedCountry.indiaTransmission && (
+											<div className="p-3 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 space-y-1.5">
+												<div className="flex items-center justify-between">
+													<span className="font-bold text-xs text-indigo-950 dark:text-indigo-200">
+														Direct Transmission Channel to India
+													</span>
+													<Badge
+														variant="outline"
+														className={cn(
+															"text-[10px] font-bold",
+															selectedCountry.indiaTransmission.impactOnIndia === "TAILWIND" && "bg-emerald-500/15 text-emerald-700 border-emerald-400",
+															selectedCountry.indiaTransmission.impactOnIndia === "HEADWIND" && "bg-rose-500/15 text-rose-700 border-rose-400",
+															selectedCountry.indiaTransmission.impactOnIndia === "NEUTRAL" && "bg-slate-500/10 text-slate-700 border-slate-300"
+														)}
+													>
+														{selectedCountry.indiaTransmission.impactOnIndia}
+													</Badge>
+												</div>
+												<div className="font-mono text-[10px] text-indigo-600 dark:text-indigo-400">
+													Type: {selectedCountry.indiaTransmission.transmissionType}
+												</div>
+												<p className="text-[11px] text-muted-foreground leading-relaxed">
+													{selectedCountry.indiaTransmission.keyRationale}
+												</p>
+											</div>
+										)}
+
+										{/* Hard Macro Metrics Grid */}
+										{selectedCountry.metrics && (
+											<div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+												<div className="p-2 rounded bg-muted/40 border border-border">
+													<div className="text-muted-foreground text-[10px]">Real GDP Growth</div>
+													<div className="font-bold font-mono text-foreground">
+														{selectedCountry.metrics.realGdpGrowthPct > 0 ? `+${selectedCountry.metrics.realGdpGrowthPct}%` : `${selectedCountry.metrics.realGdpGrowthPct}%`}
+													</div>
+												</div>
+												<div className="p-2 rounded bg-muted/40 border border-border">
+													<div className="text-muted-foreground text-[10px]">Forward P/E</div>
+													<div className="font-bold font-mono text-foreground">
+														{selectedCountry.metrics.forwardPeRatio}x
+													</div>
+												</div>
+												<div className="p-2 rounded bg-muted/40 border border-border">
+													<div className="text-muted-foreground text-[10px]">Average ROE</div>
+													<div className="font-bold font-mono text-indigo-600">
+														{selectedCountry.metrics.averageRoePct}%
+													</div>
+												</div>
+												<div className="p-2 rounded bg-muted/40 border border-border">
+													<div className="text-muted-foreground text-[10px]">10Y Sovereign Yield</div>
+													<div className="font-bold font-mono text-foreground">
+														{selectedCountry.metrics.tenYearSovereignYieldPct}%
+													</div>
+												</div>
+											</div>
+										)}
+
+										{/* Key Drivers */}
+										{selectedCountry.keyDrivers && selectedCountry.keyDrivers.length > 0 && (
+											<div className="space-y-1 text-[11px]">
+												<div className="font-semibold text-foreground">Key Institutional Drivers:</div>
+												<ul className="list-disc pl-4 space-y-0.5 text-muted-foreground">
+													{selectedCountry.keyDrivers.map((d: string, i: number) => (
+														<li key={i}>{d}</li>
+													))}
+												</ul>
+											</div>
+										)}
+									</div>
+								)}
+							</DialogContent>
+						</Dialog>
 					</TabsContent>
 
 					{/* Tab 4: Indian ADR Performance & MSCI Factors */}
@@ -980,7 +1379,11 @@ export function GlobalMacroRadarWidget({ asOfDate }: { asOfDate?: string } = {})
 								</div>
 								<div className="flex items-center gap-2 font-mono text-[11px]">
 									<span className="text-muted-foreground">MSCI India Weight:</span>
-									<span className="font-bold text-emerald-600 dark:text-emerald-400">20.45% (Rank #2 in EM)</span>
+									<span className="font-bold text-emerald-600 dark:text-emerald-400">
+										{msciData?.data?.indices?.find((i: any) => i.indexCode === "MSCI_INDIA")?.weightInEmPct
+											? `${msciData.data.indices.find((i: any) => i.indexCode === "MSCI_INDIA").weightInEmPct}%`
+											: "20.45%"} (Rank #2 in EM)
+									</span>
 								</div>
 							</div>
 							<p className="text-[11px] text-muted-foreground leading-relaxed">

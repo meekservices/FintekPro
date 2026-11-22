@@ -716,10 +716,18 @@ export class ProThematicScreenerService {
       return this.synergyCache.map;
     }
 
-    const rows = await db
-      .select()
-      .from(proThematicConstituents)
-      .orderBy(asc(proThematicConstituents.rank));
+    let rows: any[] = [];
+    try {
+      rows = await Promise.race([
+        db
+          .select()
+          .from(proThematicConstituents)
+          .orderBy(asc(proThematicConstituents.rank)),
+        new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error("DB timeout")), 800)),
+      ]);
+    } catch {
+      rows = [];
+    }
 
     const map = new Map<string, ThematicSynergyInfo>();
 
