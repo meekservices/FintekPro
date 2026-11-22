@@ -102,7 +102,7 @@ const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour cache (FRED publishes daily serie
 
 // Known official Federal Reserve Economic Data series IDs
 export const FRED_SERIES = {
-	BRENT_CRUDE: { id: "DCOILBRENTEU", name: "Crude Oil Prices: Brent - Europe", unit: "USD / bbl", category: "energy" as const, fallback: 74.50 },
+	BRENT_CRUDE: { id: "DCOILBRENTEU", name: "Crude Oil Prices: Brent - Europe", unit: "USD / bbl", category: "energy" as const, fallback: 92.94 },
 	WTI_CRUDE: { id: "DCOILWTICO", name: "Crude Oil Prices: West Texas Intermediate (WTI)", unit: "USD / bbl", category: "energy" as const, fallback: 70.85 },
 	NATURAL_GAS: { id: "DHHNGSP", name: "Henry Hub Natural Gas Spot Price", unit: "USD / mmBtu", category: "energy" as const, fallback: 2.75 },
 	GOLD: { id: "GOLDAMGBD228NLBM", name: "Gold Fixing Price 3:00 P.M. London Bullion Market", unit: "USD / oz", category: "metals" as const, fallback: 2685.50 },
