@@ -238,8 +238,8 @@ export class KnowledgeHubAutoHealSentinel {
 			const gold = commodities.find((c: any) => c.id === "GOLD" || c.name?.toUpperCase().includes("GOLD"));
 			const goldPrice = gold?.mcxPrice || brief?.commodityRadar?.goldPrice;
 
-			// CRITICAL: Check if Gold price is in standard 10g benchmark (₹65,000 - ₹90,000)
-			// Must never be micro-contract like GOLDPETAL at ₹13,800 or unanchored mock like ₹1,41,255
+			// CRITICAL: Check if Gold price is in standard 10g benchmark (₹65,000 - ₹160,000)
+			// Must never be micro-contract like GOLDPETAL at ₹13,800
 			if (typeof goldPrice === "number") {
 				if (goldPrice < 55000) {
 					commodityMacroPricing -= 15;
@@ -248,31 +248,31 @@ export class KnowledgeHubAutoHealSentinel {
 						field: "commodityRadar.goldPrice",
 						severity: "critical",
 						message: `MCX Gold price (₹${goldPrice}) indicates a micro-contract (e.g. 1g GOLDPETAL) instead of 10g standard benchmark.`,
-						remedy: "Resolve standard benchmark contract (GOLD FUT 10g, ~₹78,000).",
+						remedy: "Resolve standard benchmark contract (GOLD FUT 10g).",
 					});
-				} else if (goldPrice > 95000) {
+				} else if (goldPrice > 135000) {
 					commodityMacroPricing -= 12;
 					violations.push({
 						code: "GOLD_PRICE_ANOMALY",
 						field: "commodityRadar.goldPrice",
 						severity: "critical",
-						message: `MCX Gold price (₹${goldPrice}/10g) exceeds normal benchmark corridor [₹65,000 - ₹90,000]. Unanchored synthetic mock detected.`,
+						message: `MCX Gold price (₹${goldPrice}/10g) exceeds normal benchmark corridor [₹65,000 - ₹135,000]. Unanchored synthetic mock detected.`,
 						remedy: "Re-query MCX spot benchmark feed via commodityMarketService.",
 					});
 				}
 			}
 
-			// CRITICAL: Check Silver benchmark price (1kg standard: ₹75,000 - ₹105,000)
+			// CRITICAL: Check Silver benchmark price (1kg standard: ₹65,000 - ₹185,000)
 			const silver = commodities.find((c: any) => c.id === "SILVER" || c.name?.toUpperCase().includes("SILVER"));
 			const silverPrice = silver?.mcxPrice || brief?.commodityRadar?.silverPrice;
 			if (typeof silverPrice === "number") {
-				if (silverPrice < 65000 || silverPrice > 115000) {
+				if (silverPrice < 65000 || silverPrice > 200000) {
 					commodityMacroPricing -= 8;
 					violations.push({
 						code: "SILVER_PRICE_ANOMALY",
 						field: "commodityRadar.silverPrice",
 						severity: "warning",
-						message: `MCX Silver price (₹${silverPrice}/kg) outside standard market band [₹75,000 - ₹105,000].`,
+						message: `MCX Silver price (₹${silverPrice}/kg) outside standard market band [₹65,000 - ₹185,000].`,
 						remedy: "Re-query official MCX silver spot quote.",
 					});
 				}

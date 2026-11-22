@@ -163,7 +163,12 @@ export function hydrateMarketTokens(template: string, snapshot: MarketBriefSnaps
 		.replace(/\{\{commodity\.copperMcx\}\}/g, copperStr)
 		.replace(/\{\{forex\.usdInr\}\}/g, usdInrStr)
 		.replace(/\{\{forex\.inrUsd\}\}/g, inrUsdStr)
-		.replace(/\{\{macro\.brentInflationRiskStatus\}\}/g, snapshot.commodities.crudeInflationRiskStatus)
+		.replace(
+			/\{\{macro\.brentInflationRiskStatus\}\}/g,
+			snapshot.commodities.brentUsd > 80
+				? "monitored above India's $80 comfort threshold for imported inflation and CAD risk"
+				: (snapshot.commodities.crudeInflationRiskStatus || "trading comfortably within India's $80 threshold, limiting imported inflation"),
+		)
 		// Universal legacy & distorted quote scrubbing to guarantee zero bleed-through
 		.replace(/₹1,21,949(\/10g)*/g, goldInrStr)
 		.replace(/₹121949(\/10g)*/g, goldInrStr)
@@ -431,16 +436,22 @@ class InProcessMarketSnapshotStore {
 				const gas = commRes.data.commodities.find((c) => c.id === "NATURAL_GAS");
 				const copper = commRes.data.commodities.find((c) => c.id === "COPPER");
 
-				if (gold?.mcxPrice && gold.mcxPrice >= 65000 && gold.mcxPrice <= 95000) base.commodities.goldMcxPrice = gold.mcxPrice;
-				if (gold?.cmxPrice && gold.cmxPrice >= 2000 && gold.cmxPrice <= 3200) base.commodities.goldComexPrice = gold.cmxPrice;
-				if (silver?.mcxPrice && silver.mcxPrice >= 70000 && silver.mcxPrice <= 110000) base.commodities.silverMcxPrice = silver.mcxPrice;
-				if (silver?.cmxPrice && silver.cmxPrice >= 20 && silver.cmxPrice <= 45) base.commodities.silverComexPrice = silver.cmxPrice;
-				if (crude?.cmxPrice && crude.cmxPrice >= 50 && crude.cmxPrice <= 95) base.commodities.brentUsd = crude.cmxPrice;
-				if (crude?.mcxPrice && crude.mcxPrice >= 4500 && crude.mcxPrice <= 9000) base.commodities.brentMcxInr = crude.mcxPrice;
-				if (gas?.mcxPrice && gas.mcxPrice >= 150 && gas.mcxPrice <= 600) base.commodities.naturalGasMcxPrice = gas.mcxPrice;
-				if (gas?.cmxPrice && gas.cmxPrice >= 1.5 && gas.cmxPrice <= 6.0) base.commodities.naturalGasHenryHubUsd = gas.cmxPrice;
-				if (copper?.mcxPrice && copper.mcxPrice >= 650 && copper.mcxPrice <= 1100) base.commodities.copperMcxPrice = copper.mcxPrice;
-				if (copper?.cmxPrice && copper.cmxPrice >= 3.0 && copper.cmxPrice <= 6.5) base.commodities.copperComexUsd = copper.cmxPrice;
+				if (gold?.mcxPrice && gold.mcxPrice >= 55000 && gold.mcxPrice <= 165000) base.commodities.goldMcxPrice = gold.mcxPrice;
+				if (gold?.cmxPrice && gold.cmxPrice >= 1800 && gold.cmxPrice <= 3800) base.commodities.goldComexPrice = gold.cmxPrice;
+				if (silver?.mcxPrice && silver.mcxPrice >= 60000 && silver.mcxPrice <= 200000) base.commodities.silverMcxPrice = silver.mcxPrice;
+				if (silver?.cmxPrice && silver.cmxPrice >= 15 && silver.cmxPrice <= 60) base.commodities.silverComexPrice = silver.cmxPrice;
+				if (crude?.cmxPrice && crude.cmxPrice >= 40 && crude.cmxPrice <= 130) base.commodities.brentUsd = crude.cmxPrice;
+				if (crude?.mcxPrice && crude.mcxPrice >= 4000 && crude.mcxPrice <= 12000) base.commodities.brentMcxInr = crude.mcxPrice;
+				if (gas?.mcxPrice && gas.mcxPrice >= 100 && gas.mcxPrice <= 800) base.commodities.naturalGasMcxPrice = gas.mcxPrice;
+				if (gas?.cmxPrice && gas.cmxPrice >= 1.0 && gas.cmxPrice <= 10.0) base.commodities.naturalGasHenryHubUsd = gas.cmxPrice;
+				if (copper?.mcxPrice && copper.mcxPrice >= 500 && copper.mcxPrice <= 1600) base.commodities.copperMcxPrice = copper.mcxPrice;
+				if (copper?.cmxPrice && copper.cmxPrice >= 2.5 && copper.cmxPrice <= 8.0) base.commodities.copperComexUsd = copper.cmxPrice;
+
+				if (base.commodities.brentUsd > 80) {
+					base.commodities.crudeInflationRiskStatus = "monitored above India's $80 comfort threshold for imported inflation and CAD risk";
+				} else {
+					base.commodities.crudeInflationRiskStatus = "trading comfortably within India's $80 threshold, limiting imported inflation";
+				}
 			}
 		} catch {
 			/* non-fatal */

@@ -1267,19 +1267,19 @@ export default function AgentKnowledgeMarketBrief() {
 				brief.commodityRadar?.commodities?.find((c) => c.id === "CRUDE_OIL")?.cmxPrice,
 			74.50,
 		);
-		const liveBrent = rawBrent >= 50 && rawBrent <= 95 ? rawBrent : 74.50;
+		const liveBrent = rawBrent >= 40 && rawBrent <= 130 ? rawBrent : 74.50;
 
 		const rawBrentMcx = safeNum(
 			brief.commodityRadar?.commodities?.find((c) => c.id === "CRUDE_OIL")?.mcxPrice,
 			6325,
 		);
-		const liveBrentMcx = rawBrentMcx >= 4500 && rawBrentMcx <= 9000 ? rawBrentMcx : 6325;
+		const liveBrentMcx = rawBrentMcx >= 4000 && rawBrentMcx <= 12000 ? rawBrentMcx : 6325;
 
 		const rawGold = safeNum(
 			brief.commodityRadar?.commodities?.find((c) => c.id === "GOLD")?.mcxPrice,
 			78250,
 		);
-		const liveGold = rawGold >= 65000 && rawGold <= 95000 ? rawGold : 78250;
+		const liveGold = rawGold >= 55000 && rawGold <= 165000 ? rawGold : 78250;
 
 		const liveNatGas = safeNum(
 			brief.commodityRadar?.commodities?.find((c) => c.id === "NATURAL_GAS")?.mcxPrice,
