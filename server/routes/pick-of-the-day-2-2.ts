@@ -731,6 +731,21 @@ router.post("/refresh-prices", async (req, res) => {
 	}
 });
 
+router.post("/intraday-square-off", async (req, res) => {
+	try {
+		logger.info("[API] Triggering 3:25 PM IST auto-square-off for intraday picks");
+		const result = await pickOfTheDayService.squareOffIntradayPicks();
+		res.json({
+			success: true,
+			message: `Auto-squared off ${result.squaredOff} intraday pick(s)`,
+			...result,
+		});
+	} catch (error) {
+		logger.error("[API] Error in intraday square-off:", error instanceof Error ? error : new Error(String(error)));
+		res.status(500).json({ success: false, error: "Failed to execute intraday square-off" });
+	}
+});
+
 // ==========================================
 // PRICE ALERTS
 // ==========================================

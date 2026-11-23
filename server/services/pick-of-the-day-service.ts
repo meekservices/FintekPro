@@ -1187,14 +1187,19 @@ export class PickOfTheDayService {
 						// ── Dynamic Multi-Tier Profit-Locking Trailing Stop ─────────────────
 						let stoplossAdjusted = false;
 						if (isCreditStrategy) {
-							// Tier 1: At 4% gain, move SL to breakeven + 0.5%
-							if (returnPct >= 4.0 && stoplossPrice > recoPrice * 1.005) {
+							const targetDrop = recoPrice - targetPrice;
+							const decayAchieved = recoPrice - livePrice;
+							const halfTargetDecay = targetDrop > 0 && decayAchieved >= (targetDrop * 0.5);
+							const threeQuarterTargetDecay = targetDrop > 0 && decayAchieved >= (targetDrop * 0.75);
+
+							// Tier 1: At 4% gain OR >= 50% of target decay achieved, move SL to breakeven + 0.5%
+							if ((returnPct >= 4.0 || halfTargetDecay) && stoplossPrice > recoPrice * 1.005) {
 								stoplossPrice = Math.round(recoPrice * 1.005 * 100) / 100;
 								stoplossAdjusted = true;
 							}
-							// Tier 2: At >= 8% gain, trail SL to protect 50% of profit
+							// Tier 2: At >= 8% gain OR >= 75% target decay, trail SL to protect 50% of profit
 							const halfProfitSL = recoPrice * (1 - (returnPct * 0.5) / 100);
-							if (returnPct >= 8.0 && stoplossPrice > halfProfitSL) {
+							if ((returnPct >= 8.0 || threeQuarterTargetDecay) && stoplossPrice > halfProfitSL) {
 								stoplossPrice = Math.round(halfProfitSL * 100) / 100;
 								stoplossAdjusted = true;
 							}
@@ -1203,14 +1208,19 @@ export class PickOfTheDayService {
 								stoplossPrice = Math.round(targetPrice * 1.01 * 100) / 100;
 							}
 						} else {
-							// Tier 1: At 4% gain, move SL to breakeven (recoPrice - 0.5% breathing room)
-							if (returnPct >= 4.0 && stoplossPrice < recoPrice * 0.995) {
+							const targetUpside = targetPrice - recoPrice;
+							const gainAchieved = livePrice - recoPrice;
+							const halfTargetGain = targetUpside > 0 && gainAchieved >= (targetUpside * 0.5);
+							const threeQuarterTargetGain = targetUpside > 0 && gainAchieved >= (targetUpside * 0.75);
+
+							// Tier 1: At 4% gain OR >= 50% of target upside achieved, move SL to breakeven (recoPrice - 0.5% buffer)
+							if ((returnPct >= 4.0 || halfTargetGain) && stoplossPrice < recoPrice * 0.995) {
 								stoplossPrice = Math.round(recoPrice * 0.995 * 100) / 100;
 								stoplossAdjusted = true;
 							}
-							// Tier 2: At >= 8% gain, trail SL to protect 50% of peak gains
+							// Tier 2: At >= 8% gain OR >= 75% of target upside, trail SL to protect 50% of peak gains
 							const halfGainSL = recoPrice * (1 + (returnPct * 0.5) / 100);
-							if (returnPct >= 8.0 && stoplossPrice < halfGainSL) {
+							if ((returnPct >= 8.0 || threeQuarterTargetGain) && stoplossPrice < halfGainSL) {
 								stoplossPrice = Math.round(halfGainSL * 100) / 100;
 								stoplossAdjusted = true;
 							}

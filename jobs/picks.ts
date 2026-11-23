@@ -31,20 +31,26 @@
 import { logger } from "../server/logger";
 
 const JOB_NAME = "fintekpro-picks";
-const VERSION = "1.0.0";
+const VERSION = "1.1.0";
 const START_TIME = Date.now();
 
+// Parse action mode from CLI arguments: --action=generate | --action=refresh | --action=square-off
+const actionArg =
+	process.argv.find((a) => a.startsWith("--action="))?.split("=")[1]?.toLowerCase() ||
+	"generate";
+
 async function run(): Promise<void> {
-	logger.info(`[${JOB_NAME}] Starting daily pick generation job`, {
+	logger.info(`[${JOB_NAME}] Starting pick execution job (action: ${actionArg})`, {
 		event: "JOB_START",
 		job_name: JOB_NAME,
+		action: actionArg,
 		version: VERSION,
 		timestamp: new Date().toISOString(),
 	});
 
 	try {
-		// Enforce market holiday guard rail: Cloud Run Job scheduled daily Mon-Fri at 8:45 AM IST
-		// must strictly skip candidate generation and push broadcasts on exchange holidays
+		// Enforce market holiday guard rail: Cloud Run Job scheduled daily Mon-Fri
+		// must strictly skip operations on exchange holidays
 		const { marketHolidayService } = await import(
 			"../server/services/market-holiday-service"
 		);
@@ -60,10 +66,11 @@ async function run(): Promise<void> {
 			const holiday = marketHolidayService.getHoliday(todayIST, "NSE");
 			const reason = holiday ? `Market Holiday: ${holiday.name}` : "Weekend / Closed Session";
 			logger.info(
-				`[${JOB_NAME}] Skipping pick generation — today (${todayIST}) is not an NSE trading or special session day (${reason}). Exiting cleanly.`,
+				`[${JOB_NAME}] Skipping pick operation (${actionArg}) — today (${todayIST}) is not an NSE trading or special session day (${reason}). Exiting cleanly.`,
 				{
 					event: "JOB_SKIPPED_HOLIDAY",
 					job_name: JOB_NAME,
+					action: actionArg,
 					date: todayIST,
 					reason,
 					holiday_name: holiday?.name,
@@ -73,34 +80,55 @@ async function run(): Promise<void> {
 			process.exit(0);
 		}
 
-		// Pre-warm Pro Thematic Screener synergy map before generating picks (0ms cache lookup)
-		try {
-			const { proThematicScreenerService } = await import(
-				"../server/services/pro-thematic-screener-service"
-			);
-			const thematicMap = await proThematicScreenerService.getThematicSynergyMap();
-			logger.info(`[${JOB_NAME}] Thematic synergy map pre-warmed for POTD generation`, {
-				constituentsCount: thematicMap.size,
-			});
-		} catch (themeErr) {
-			logger.warn(`[${JOB_NAME}] Thematic synergy map pre-warm skipped (non-fatal)`, { error: String(themeErr) });
-		}
-
 		// Import service dynamically to ensure clean process boot
 		const { pickOfTheDayService } = await import(
 			"../server/services/pick-of-the-day-service"
 		);
 
-		logger.info(`[${JOB_NAME}] Invoking generateDailyPicks() across multi-asset universe...`);
-		const picks = await pickOfTheDayService.generateDailyPicks();
+		let resultSummary: Record<string, unknown> = {};
+
+		if (actionArg === "refresh") {
+			logger.info(`[${JOB_NAME}] Invoking refreshLivePicks() to update prices and trail stop-losses...`);
+			const refreshResult = await pickOfTheDayService.refreshLivePicks();
+			resultSummary = {
+				refreshed_count: refreshResult.updated,
+				errors_count: refreshResult.errors,
+			};
+		} else if (actionArg === "square-off") {
+			logger.info(`[${JOB_NAME}] Invoking squareOffIntradayPicks() for 3:25 PM IST auto-square-off...`);
+			const squareOffResult = await pickOfTheDayService.squareOffIntradayPicks();
+			resultSummary = {
+				squared_off_count: squareOffResult.squaredOff,
+			};
+		} else {
+			// Pre-warm Pro Thematic Screener synergy map before generating picks (0ms cache lookup)
+			try {
+				const { proThematicScreenerService } = await import(
+					"../server/services/pro-thematic-screener-service"
+				);
+				const thematicMap = await proThematicScreenerService.getThematicSynergyMap();
+				logger.info(`[${JOB_NAME}] Thematic synergy map pre-warmed for POTD generation`, {
+					constituentsCount: thematicMap.size,
+				});
+			} catch (themeErr) {
+				logger.warn(`[${JOB_NAME}] Thematic synergy map pre-warm skipped (non-fatal)`, { error: String(themeErr) });
+			}
+
+			logger.info(`[${JOB_NAME}] Invoking generateDailyPicks() across multi-asset universe...`);
+			const picks = await pickOfTheDayService.generateDailyPicks();
+			resultSummary = {
+				picks_count: picks?.length ?? 0,
+			};
+		}
 
 		const latencyMs = Date.now() - START_TIME;
-		logger.info(`[${JOB_NAME}] Pick generation job completed successfully`, {
+		logger.info(`[${JOB_NAME}] Pick job completed successfully (${actionArg})`, {
 			event: "JOB_COMPLETE",
 			job_name: JOB_NAME,
+			action: actionArg,
 			status: "success",
-			picks_count: picks?.length ?? 0,
 			latency_ms: latencyMs,
+			...resultSummary,
 		});
 
 		// Tear down database pool so the container process exits immediately without hanging

@@ -1398,6 +1398,21 @@ export class StockStrategy extends BaseStrategy {
 				continue;
 			}
 
+			// Gate 7: Opening Gap Slippage / Overextension Guard (FASP-AI v3.1)
+			// Disqualifies candidates that opened on an excessive gap-up (>= 3.5%) or have already consumed > 35% of target upside.
+			const prevClose = topStock.previousClose ? Number.parseFloat(topStock.previousClose) : null;
+			if (prevClose && prevClose > 0 && currentPrice > prevClose) {
+				const gapPct = (currentPrice - prevClose) / prevClose;
+				const expectedUpsideFromPrev = (targetPrice - prevClose) / prevClose;
+				const upsideConsumed = expectedUpsideFromPrev > 0 ? gapPct / expectedUpsideFromPrev : 0;
+				if (gapPct >= 0.035 || (expectedUpsideFromPrev > 0 && upsideConsumed > 0.35 && gapPct >= 0.015)) {
+					logger.warn(
+						`[StockStrategy] ⚠️ Gate 7 Slippage VETO: ${topStock.symbol} opened on unsustainable gap of ${(gapPct * 100).toFixed(2)}% (consumed ${(upsideConsumed * 100).toFixed(1)}% of upside target). Discarding candidate to protect Risk-Reward.`,
+					);
+					continue;
+				}
+			}
+
 			const sectorLabel = broadSector.label;
 			let rationale = await context.service.generateRationale({
 				category: "listed_stocks",

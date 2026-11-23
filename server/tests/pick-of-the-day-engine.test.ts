@@ -255,6 +255,26 @@ describe("Pick of the Day Engine - Unit Tests & Upgrades", () => {
 			const hitStoploss = (dayLow != null && dayLow <= stoplossPrice) || livePrice <= stoplossPrice;
 			expect(hitStoploss).toBe(false); // Protected against exact-entry wick stopout!
 		});
+
+		it("activates break-even trailing stop when 50% of expected target upside is achieved even if return is < 4%", () => {
+			// Intraday pick: recoPrice 500, targetPrice 512 (+2.4%), stoploss 494 (-1.2%)
+			const recoPrice = 500;
+			const targetPrice = 512;
+			let stoplossPrice = 494;
+			const livePrice = 506.5; // gained +6.5 pts out of 12.0 target upside = 54.2% of target journey!
+			const returnPct = ((livePrice - recoPrice) / recoPrice) * 100; // +1.30% (< 4.0%)
+
+			const targetUpside = targetPrice - recoPrice;
+			const gainAchieved = livePrice - recoPrice;
+			const halfTargetGain = targetUpside > 0 && gainAchieved >= (targetUpside * 0.5);
+
+			if ((returnPct >= 4.0 || halfTargetGain) && stoplossPrice < recoPrice * 0.995) {
+				stoplossPrice = Math.round(recoPrice * 0.995 * 100) / 100;
+			}
+
+			expect(halfTargetGain).toBe(true);
+			expect(stoplossPrice).toBe(497.5); // Trailed up to break-even (recoPrice - 0.5% buffer)
+		});
 	});
 
 	describe("8. Mutual Fund Expiry Benchmark Evaluation", () => {
