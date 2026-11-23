@@ -1,7 +1,7 @@
-# FintekPro Standard Operating Policy: Third-Party Partner & Broker API Governance (SOP-API v1.1)
+# FintekPro Standard Operating Policy: Third-Party Partner & Broker API Governance (SOP-API v1.2)
 
 **Document Code**: SOP-API-2026-01  
-**Effective Date**: November 2026 (Updated: Angel One SmartAPI Partner Policy & NCDEX Governance)  
+**Effective Date**: November 2026 (Updated: Alpaca Broker Partner API Upgrade, Versioning Governance & RBI-LRS Account Configuration Policy)  
 **Governing Authorities**: SEBI (Securities and Exchange Board of India), RBI (Reserve Bank of India), CERT-In (Indian Computer Emergency Response Team), US FINRA / SEC (via Alpaca clearing), and DPDP Act 2023  
 **Statutory Desks**: Upstox Gateway Desk, KFintech IRIS Hub, Alpaca International Broker Desk, Smallcase Gateway Desk, Angel One SmartAPI Gateway Desk (NCDEX Commodity Segment)  
 **Target Architecture**: Multi-Vendor Resilient API Engine (`server/services/instruments/multi-vendor-resolver.ts`)  
@@ -18,6 +18,7 @@ FintekPro interfaces with licensed institutional infrastructure providers across
 3. **Alpaca Broker API (Alpaca Securities LLC / BMO Harris Bank N.A.)**: FINRA/SIPC registered clearing broker gateway powering US Equity & ETF trading, fractional share custody, and outward SWIFT wire funding for Indian residents under the **RBI Liberalised Remittance Scheme (LRS)**.
 4. **Smallcase Gateway (Smallcase Technologies Pvt. Ltd.)**: Non-custodial basket transaction engine, model portfolio rebalancing bridge, and Demat Loan Against Securities (LAS) eligibility evaluator.
 5. **Angel One SmartAPI (Angel One Ltd. - Member: NSE/BSE/MCX/NCDEX)**: Licensed agricultural commodity market data gateway providing real-time quotes, market depth, and historical candlestick feeds for Indian agricultural derivatives on the National Commodity & Derivatives Exchange (NCDEX `ncx_fo` segment) covering statutory inflation benchmarks (Jeera, Turmeric, Guar Seed, Cocudakl, Dhaniya, Castor Seed, Chana). Fills the critical asset coverage gap as Upstox does not support NCDEX.
+6. **Finvu Account Aggregator (Cookiejar Technologies Pvt. Ltd. - RBI Licensed NBFC-AA)**: Primary consent-driven financial data aggregation bridge operating on ReBIT AA specifications, providing automated fetching of bank statements, deposits, mutual funds, equities, and insurance for Net Worth calculation and RIA portfolio advisory. (Enrolment governed under [`POLICY_AND_SOP_API_SERVICE_PROVIDER_ENROLMENT.md`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/docs/POLICY_AND_SOP_API_SERVICE_PROVIDER_ENROLMENT.md)).
 
 ---
 
@@ -107,12 +108,132 @@ FintekPro enforces a strict three-tier token lifecycle ensuring separation of ma
   2. The service maintains an in-memory session token with a 5-minute pre-expiry buffer.
   3. Upon receipt of HTTP 401/403, the client re-authenticates automatically using tenant credentials and retries the original request transparently (zero user impact).
 
-### 3.3 Alpaca Broker API
-- **Authentication**: Stateless HMAC request headers (`APCA-API-KEY-ID` and `APCA-API-SECRET-KEY`).
-- **Endpoint Routing**:
-  - Live Trading & Custody: `https://broker-api.alpaca.markets/v1`
-  - Market Data (IEX/SIP): `https://data.alpaca.markets/v2`
-- **Environment Parity**: Staging environments connect to Alpaca Sandbox (`https://broker-api.sandbox.alpaca.markets/v1`). Production connects strictly to Live Trading with dual-approval key issuance.
+### 3.3 Alpaca Broker Partner API Architecture, Auth & Upgrade Governance SOP
+
+FintekPro interfaces with Alpaca Securities LLC (`https://broker-api.alpaca.markets`) as a fully-disclosed broker partner to deliver US Equity, ETF, and institutional custody infrastructure under FINRA, SEC, and RBI FEMA regulations.
+
+#### 3.3.1 Authentication, Dual-Tier Environment Parity & Key Management
+1. **Stateless HMAC Header Authentication**:
+   - All standard Broker REST requests pass:
+     - `APCA-API-KEY-ID`: Institutional Partner Key Identifier (`ALPACA_API_KEY` / `ALPACA_BROKER_KEY_ID`).
+     - `APCA-API-SECRET-KEY`: Encrypted Secret Key (`ALPACA_API_SECRET` / `ALPACA_BROKER_SECRET_KEY`).
+2. **Multi-Tenant OAuth 2.0 Token Generation (AuthX)**:
+   - For partner-mediated client authorization flows, bearer tokens are issued via:
+     - Live Auth: `POST https://authx.alpaca.markets/v1/oauth2/token`
+     - Sandbox Auth: `POST https://authx.sandbox.alpaca.markets/v1/oauth2/token`
+   - Tokens pass via `Authorization: Bearer <access_token>` with automated token refresh 15 minutes prior to expiry.
+3. **Environment Parity & Zero-Risk Isolation**:
+   - **Sandbox Gateway**: `https://broker-api.sandbox.alpaca.markets/v1` (Market data: `https://data.sandbox.alpaca.markets/v2`). Used for integration testing, staging CI/CD, and simulated customer onboarding.
+   - **Production Gateway**: `https://broker-api.alpaca.markets/v1` (Market data: `https://data.alpaca.markets/v2`). Provisioned strictly behind Cloud Run egress NAT with dual-approval key distribution from GCP Secret Manager.
+
+#### 3.3.2 Upstream Partner API Upgrade & Breaking Changes Policy
+Alpaca enforces a strict two-tier platform modification and versioning policy across all Broker API endpoints:
+
+1. **Backwards-Compatible (Additive / Non-Breaking) Changes**:
+   - *Definition*: Appending new optional request parameters, introducing new fields in response JSON payloads, adding non-conflicting route endpoints, modernizing TLS cipher suites, or expanding rate limits.
+   - *Upstream Policy*: Alpaca deploys backwards-compatible changes **without mandatory upfront notification or path version changes**.
+   - *FintekPro Client Guardrail*: All TypeScript models, Zod validators, and Axios deserializers must implement flexible schema parsing (e.g. `stripUnknown: true` or tolerant JSON deserialization) so that upstream payload expansions never trigger runtime desync or client crashes.
+2. **Breaking Changes & Route Versioning Hierarchy**:
+   - *Definition*: Modifying or removing existing mandatory request parameters, restructuring response payloads, renaming fields, altering error status codes, or sunsetting features.
+   - *Upstream Policy*: Breaking changes are **never introduced into an active version route**. Alpaca isolates breaking changes by incrementing the root URI version (e.g., migrating from `/v1/...` to `/v2/...`).
+   - *Sunset Window & Deprecation SLA*: Alpaca provides formal advance notification through the Partner Developer Portal and partner success channels, maintaining a **minimum 60-to-90-calendar-day (2 to 3 months) deprecation grace period** before legacy endpoints are decommissioned.
+3. **Sandbox-First Promotion Protocol**:
+   - All upstream version upgrades or major structural payload updates (e.g., Journaling JNLC v2, trade event migrations) must undergo an **isolated $\ge 14$-day sandbox validation period** in `broker-api.sandbox.alpaca.markets`.
+   - Automated test pipelines must pass all reconciliation tests (`server/tests/trade-reconciliation-engine.test.ts`) before code promotion to production.
+4. **OpenAPI Specification Tracking & Modern SDK Policy**:
+   - The Engineering Desk periodically pulls Alpaca’s official OpenAPI specifications (`https://broker-api.alpaca.markets/v1/openapi.json`) to detect schema revisions and new regulatory disclosure requirements.
+   - Legacy packages (such as `alpaca-trade-api-js` or legacy Python wrappers) are deprecated. FintekPro enforces sovereign native TypeScript HTTP adapters ([`alpaca-broker-service.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/alpaca-broker-service.ts) and [`alpacaClient.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/alpaca/core/alpacaClient.ts)) with strict TypeScript typings and zero unvetted intermediary wrappers.
+
+#### 3.3.3 Event Streaming Protocol (SSE / WebSocket v2) & Webhook Verification
+1. **Event Stream v2 Architecture**:
+   - Programmatic account, order, and funding state changes stream over Server-Sent Events (SSE) via `/v2/events/...`:
+     - Trade Execution Events: `GET https://broker-api.alpaca.markets/v2/events/trades`
+     - Account Status Events: `GET https://broker-api.alpaca.markets/v2/events/accounts/status`
+     - Cash Transfers & Wire Events: `GET https://broker-api.alpaca.markets/v2/events/transfers/status`
+     - Journaling Events: `GET https://broker-api.alpaca.markets/v2/events/journals/status`
+   - Handled by [`alpaca-sse-service.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/alpaca-sse-service.ts). Streams maintain persistent HTTP connections with automated heartbeat keep-alives (15–30s ping), exponential reconnection backoff with jitter, and catch-up recovery using the `since` query parameter.
+2. **Webhook v2 & Signature Verification Policy**:
+   - Webhook notifications delivered to `/api/webhooks/alpaca` must validate the HMAC-SHA256 signature passed in the `Alpaca-Signature` / `X-Alpaca-Signature` header against `ALPACA_WEBHOOK_SECRET`.
+   - Every received event ID (`event_id`) is idempotently checked and recorded in the database event journal (`server/services/mpal/events/webhookDispatcher.ts`) before triggering internal state transitions.
+
+#### 3.3.4 Account Upgrade, Agreement Execution & Configuration Workflow SOP
+Alpaca Broker API manages account capabilities through a segregated, two-phase upgrade architecture: legal disclosure agreements and trading configuration boundaries.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Client / Advisor Portal
+    participant Fintek as FintekPro Compliance Engine
+    participant AlpacaAcct as Alpaca Account API (v1/accounts)
+    participant AlpacaCfg as Alpaca Trading Config (v1/trading)
+
+    Note over Client,AlpacaCfg: Two-Phase Account Upgrade Workflow
+    Client->>Fintek: Request Upgrade (Options Level / Margin / Custody)
+    Fintek->>Fintek: Evaluate RBI FEMA LRS Status & Risk Tier
+    alt Resident Indian (LRS Account)
+        Fintek-->>Client: REJECTED: RBI FEMA LRS Prohibits Margin / Leveraged Options
+    else Qualified NRI / Foreign Entity (Compliant)
+        Fintek->>Client: Present Mandatory SEC/FINRA Legal Disclosures
+        Client->>Fintek: Explicit Consent + Signed Timestamp + Client IP
+        Fintek->>AlpacaAcct: PATCH /v1/accounts/{account_id} (Signed Agreements Payload)
+        AlpacaAcct-->>Fintek: HTTP 200 OK (Agreements Recorded)
+        Fintek->>AlpacaCfg: PATCH /v1/trading/accounts/{account_id}/account/configurations
+        Note right of AlpacaCfg: Update max_margin_multiplier & max_options_trading_level
+        AlpacaCfg-->>Fintek: HTTP 200 OK (Capabilities Activated)
+        Fintek->>Fintek: Audit Log Emitted & Local DB State Synchronised
+        Fintek-->>Client: Account Upgrade Confirmed
+    end
+```
+
+1. **Phase 1: Legal Disclosures & Agreement Submission**:
+   - Upgrading account trading capabilities requires prior execution of relevant legal disclosures.
+   - Endpoint: `PATCH https://broker-api.alpaca.markets/v1/accounts/{account_id}`
+   - The payload appends signed agreement records:
+     ```json
+     {
+       "agreements": [
+         {
+           "agreement": "options_agreement",
+           "signed_at": "2026-11-23T07:30:00Z",
+           "ip_address": "49.207.180.12",
+           "revision": "1.0"
+         },
+         {
+           "agreement": "margin_agreement",
+           "signed_at": "2026-11-23T07:30:00Z",
+           "ip_address": "49.207.180.12",
+           "revision": "1.0"
+         }
+       ]
+     }
+     ```
+   - Supported agreements: `customer_agreement`, `account_agreement`, `margin_agreement`, `options_agreement`, `crypto_agreement`.
+   - **Audit Trail Requirement**: The client’s verified IP address, user-agent, and ISO-8601 UTC timestamp must be recorded in the local compliance audit table prior to transmission.
+
+2. **Phase 2: Trading Configuration Modification**:
+   - Once agreements are accepted by Alpaca clearing, execution boundaries are elevated via:
+   - Endpoint: `PATCH https://broker-api.alpaca.markets/v1/trading/accounts/{account_id}/account/configurations`
+   - Key configuration fields:
+     - `max_margin_multiplier`: `"1.0"` (Cash only, 1x leverage) or `"2.0"` (Standard Reg T margin, requiring $\ge \$2,000$ equity).
+     - `max_options_trading_level`:
+       - `0`: Options trading disabled (Default for cash/LRS accounts).
+       - `1`: Covered calls and cash-secured equity puts.
+       - `2`: Long calls and long puts (Directional speculative options).
+       - `3`: Multi-leg spreads, straddles, and advanced options strategies.
+     - `fractional_trading`: Boolean flag enabling fractional share trading (enabled by default for FintekPro US portfolios).
+     - `pdt_check`: Pattern Day Trader validation (`both`, `entry`, or `exit`). Default is `both`.
+     - `suspend_trade`: Emergency administrative trading freeze (`true`/`false`).
+   - Managed via [`AccountConfigPanel.tsx`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/client/src/components/us-trading/AccountConfigPanel.tsx) and `/api/us-trading/broker/accounts/:id/config`.
+
+3. **Customer Identification Program (CIP) & Document Re-verification**:
+   - If an account state transitions to `ACTION_REQUIRED` or requires identity remediation during an upgrade or periodic review:
+   - Document upload endpoint: `POST https://broker-api.alpaca.markets/v1/accounts/{account_id}/documents`
+   - Supported document types: `identity_verification` (Passport/National ID), `address_verification` (Utility bill, bank statement), `w8ben` (Tax treaty certification).
+   - FintekPro’s [`alpacaKycMapper.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/alpaca/onboarding/alpacaKycMapper.ts) orchestrates multi-document uploads with ASCII 32–126 character sanitization.
+
+4. **IRS Form W-8BEN Re-Certification Lifecycle**:
+   - Under US Internal Revenue Code Chapter 3 and Chapter 4 (FATCA), foreign non-resident certifications on Form W-8BEN expire on the **last day of the third calendar year** following execution.
+   - The FintekPro Compliance Engine tracks the `w8ben_signed_date` and prompts clients 60 days prior to expiry for electronic re-certification via `PATCH /v1/accounts/{account_id}`. Failure to re-certify results in backup withholding tax penalties (30% on US dividends and gross proceeds).
 
 ### 3.4 Smallcase Gateway
 - **Transaction Model**: Smallcase Gateway employs a **Server-Side Generated Transaction Model**. The client browser SDK never communicates directly with Smallcase without a server-signed JWT.
@@ -179,8 +300,10 @@ To protect partner endpoints and prevent platform-wide cascading failures, all o
 | **Upstox Market Data** | 50 req/s | 25 req/s | Exponential (50ms $\rightarrow$ 200ms $\rightarrow$ 800ms) | 5 failures in 10s $\rightarrow$ Open 30s |
 | **Upstox OMS (Orders)** | 15 req/s | 10 req/s | Exponential + Jitter | 3 consecutive failures $\rightarrow$ Open 60s |
 | **KFintech IRIS Hub** | 20 req/s | 15 req/s | 2 retries, 500ms backoff | 5 failures in 15s $\rightarrow$ Open 45s |
-| **Alpaca Market Data** | 250 req/min | 200 req/min | 2 retries, 1000ms backoff | 4 failures in 20s $\rightarrow$ Open 60s |
-| **Alpaca Broker API** | 120 req/min | 100 req/min | Fail immediately (No blind retries) | 3 failures in 30s $\rightarrow$ Open 120s |
+| **Alpaca Market Data (SIP/IEX)** | 250 req/min | 200 req/min | 2 retries, 1000ms backoff | 4 failures in 20s $\rightarrow$ Open 60s |
+| **Alpaca Broker REST (Trading/Config)** | 120 req/min | 100 req/min | Fail immediately (No blind retries) | 3 failures in 30s $\rightarrow$ Open 120s |
+| **Alpaca Account Onboarding / CIP Docs** | 50 req/min | 30 req/min | Exponential (200ms $\rightarrow$ 800ms $\rightarrow$ 2000ms) | 3 failures in 20s $\rightarrow$ Open 60s |
+| **Alpaca Event Stream (SSE v2)** | 10 streams | 5 streams | Exponential with Jitter (5s max) | 3 disconnects in 60s $\rightarrow$ Reconnect Backoff |
 | **Smallcase Gateway** | 60 req/min | 50 req/min | 2 retries, 300ms backoff | 5 failures in 20s $\rightarrow$ Open 30s |
 | **Angel One Market Quotes (ncx_fo)** | 10 req/s | 5 req/s | Exponential (100ms $\rightarrow$ 400ms $\rightarrow$ 1200ms) | 4 failures in 10s $\rightarrow$ Open 30s |
 | **Angel One Historical Data** | 3 req/s | 1 req/s | 2 retries, 500ms backoff | 3 failures in 15s $\rightarrow$ Open 60s |
@@ -249,12 +372,42 @@ flowchart TD
    - Equity, Debt, and Hybrid Schemes: **3:00 PM IST**
 2. **Post-Cut-Off Handling**: Orders authorized post-cutoff are assigned an immutable audit timestamp and queued for next-business-day execution (`T+1`).
 
-### 6.4 Alpaca & RBI FEMA LRS Compliance
-1. **Cash-Only Enforcement**: Under RBI Liberalised Remittance Scheme rules (max \$250,000 per financial year), Indian residents cannot trade on margin, execute short sales, or trade crypto assets. [`AlpacaKycMapper`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/alpaca/onboarding/alpacaKycMapper.ts) strictly restricts accounts to `enabled_assets: ["us_equity"]`.
-2. **International SWIFT Wire Clearing Protocol**:
+### 6.4 Alpaca, RBI FEMA LRS Compliance & Account Upgrade Statutory Locks
+
+FintekPro enforces strict statutory boundaries between US broker capabilities (Alpaca Broker API) and Indian foreign exchange regulations (RBI Foreign Exchange Management Act - FEMA):
+
+#### 6.4.1 Strict Statutory Prohibition on Margin / Leveraged Derivatives for Resident Indians
+1. **Statutory LRS Mandate**: Under the Reserve Bank of India (RBI) Liberalised Remittance Scheme (LRS) Master Directions (statutory remittance ceiling of \$250,000 USD per financial year), resident Indian individuals remitting capital abroad under Purpose Code **`S0001`** (Portfolio investment in foreign equity shares) are **strictly prohibited** from:
+   - Borrowing or trading on credit/margin (Reg T or portfolio margin).
+   - Executing short sales or uncovered options.
+   - Trading leveraged financial derivatives (futures/options) or speculative synthetic instruments.
+   - Trading or holding cryptocurrency assets abroad.
+2. **Statutory Lock on Account Upgrades**:
+   - For all accounts where `country_of_tax_residence = "IND"` or citizenship is Indian:
+     - `enabled_assets`: Programmatically locked to `["us_equity"]`.
+     - `max_margin_multiplier`: Permanently locked to `"1.0"` (Cash account only).
+     - `max_options_trading_level`: Permanently locked to `0` (Options disabled).
+   - In accordance with [`AlpacaKycMapper`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/alpaca/onboarding/alpacaKycMapper.ts), resident Indian accounts are precluded from signing `margin_agreement` or `crypto_agreement`. Any client attempt to trigger an account upgrade through UI or direct API will be rejected at the FintekPro middleware layer before reaching Alpaca.
+
+#### 6.4.2 Qualified Non-Resident & Corporate Account Upgrade Protocol
+1. **Eligible Entities for Trading Upgrades**:
+   - Non-Resident Indians (NRIs) with foreign tax residence (e.g. USA, UK, UAE, Singapore) funding accounts through foreign bank accounts outside RBI LRS jurisdiction.
+   - Qualified foreign institutional or corporate accounts holding certified non-Indian tax residencies.
+2. **Mandatory 4-Tier Upgrade Approval Process**:
+   - **Tier 1 (Suitability Scoring)**: Verified liquid net worth $\ge \$25,000$ USD and "aggressive" / "high" investment risk tolerance.
+   - **Tier 2 (Explicit Disclosure Consent)**: Execution of Alpaca Margin Agreement and/or Alpaca Options Agreement with verifiable client IP, timestamp, and W-8BEN / W-9 verification.
+   - **Tier 3 (Compliance Officer Sign-off)**: Dual-approval gate by FintekPro Principal Officer / Compliance Officer validating source of funds non-applicability of RBI LRS.
+   - **Tier 4 (Programmatic Provisioning)**: Sequential execution of `PATCH /v1/accounts/{account_id}` (agreements) followed by `PATCH /v1/trading/accounts/{account_id}/account/configurations`.
+
+#### 6.4.3 International SWIFT Wire Clearing Protocol
+1. **Clearing Bank Details**:
    - Beneficiary Bank: BMO Harris Bank N.A. (Chicago, IL, USA)
-   - Remittance Reference (Field 70): Mandatory inclusion of the investor's unique Alpaca Account Number (`APCA-...`).
-   - Purpose Code: Mandatory Form A2 submission under RBI Purpose Code **`S0001`** (Indian investment in equity shares abroad).
+   - ABA / Routing Transit Number: Alpaca Clearing wire instructions.
+2. **Mandatory Remittance Reference (Field 70)**:
+   - Outward SWIFT wire messages (MT103) must include the investor's unique Alpaca Account Number (`APCA-...`) in Field 70 (Remittance Information). Failure to include the account number results in wire rejection or suspense hold by BMO Harris Bank.
+3. **RBI Form A2 & TCS Verification**:
+   - Authorized Dealer (AD Category I) banks require automated generation of Form A2 declaration citing Purpose Code **`S0001`**.
+   - Tax Collected at Source (TCS) tracking under Section 206C(1G) of the Indian Income Tax Act (20% TCS above ₹7,00,000 threshold for remittances other than education/medical).
 
 ### 6.5 Smallcase Demat Lending (LAS) Guardrails
 1. **SEBI/RBI Loan-to-Value (LTV) Caps**: Loan against listed equity shares is capped at **50% of the approved portfolio valuation** in strict compliance with RBI Master Directions.
@@ -312,7 +465,7 @@ flowchart TD
 | :--- | :--- | :--- | :--- |
 | **Upstox API Team** | `api-support@upstox.com` | Partner Engineering Lead | Head of Institutional Alliances |
 | **KFintech IRIS Desk** | `iris.support@kfintech.com` | Institutional Solutions Head | Chief Technology Officer |
-| **Alpaca Broker Operations** | `broker-support@alpaca.markets` | API Integration Specialist | VP, Global Clearing & Partnerships |
+| **Alpaca Broker Operations** | `broker-support@alpaca.markets` / `api-support@alpaca.markets` | API Integration Specialist / Partner Engineer | VP, Global Clearing, Partnerships & Compliance |
 | **Smallcase Gateway** | `gateway-support@smallcase.com` | Developer Relations Manager | VP, Engineering |
 | **Angel One SmartAPI Desk** | `smartapi@angelbroking.com` / `api-support@angelone.in` | Developer Relations Lead | Head of Technology & Alliances |
 

@@ -37,3 +37,4 @@ export * from "./pricing";
 export * from "./macro-intelligence";
 export * from "./tax-law";
 export * from "./tax-calculator";
+export * from "./finvu";

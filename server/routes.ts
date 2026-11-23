@@ -197,6 +197,7 @@ import { registerPortfolioCompareAISIPRoutes } from "./routes/portfolio-compare-
 import stockIntersectionRouter from "./routes/stock-intersection";
 import { registerAgentAdvisoryPart4Routes } from "./routes/agent-advisory-4";
 import overlapIntelligenceRouter from "./routes/overlap-intelligence"; // /api/portfolio/intelligence, /simulate-impact, /optimize-sip, /goal-based-score
+import { portfolioSwitchRouter } from "./routes/portfolio-switch-routes"; // /api/portfolio/switch-to-direct/*, /api/portfolio/aa/mf/*
 import amcPortfolioDeltaRouter from "./routes/amc-portfolio-delta-routes"; // /api/mutual-funds/amc-deltas/*
 import { modelPortfoliosRouter } from "./routes/model-portfolios-route"; // /api/model-portfolios — engine audit Fix #6
 import { sifRouter } from "./routes/sif-routes"; // /api/sif/* — Specified Investment Funds (New Asset Class)
@@ -211,6 +212,7 @@ import { linkedinAuthRouter } from "./routes/linkedin-auth-routes"; // /api/auth
 // Director phone enrichment is CredHive-only — no external phone provider needed.
 // EasyLeadz webhook route is deprecated (kept as dead file for historical reference).
 import { registerTruecallerBusinessRoutes } from "./routes/truecaller-business-routes"; // /api/calling/*
+import { registerFinvuRoutes } from "./routes/finvu-routes"; // /api/finvu/*
 import { dialerRouter } from "./routes/dialer-routes"; // /api/dialer/*
 import taxLossHarvestingRouter from "./routes/tax-loss-harvesting-routes"; // /api/tax-loss-harvesting
 import monteCarloGoalRouter from "./routes/monte-carlo-goal-routes"; // /api/goal-planning/monte-carlo-simulate
@@ -617,6 +619,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 	// Portfolio Intelligence: /api/portfolio/intelligence, /simulate-impact, /optimize-sip, /goal-based-score
 	app.use("/api/portfolio", overlapIntelligenceRouter);
+	app.use("/api/portfolio", portfolioSwitchRouter); // Direct switch optimizer & AA MF ingestion
 
 	// AMC Portfolio Deltas ("What's In & What's Out"): /api/mutual-funds/amc-deltas/*
 	app.use("/api/mutual-funds/amc-deltas", amcPortfolioDeltaRouter);
@@ -682,6 +685,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	app.use("/api/dialer", dialerRouter);   // POST /api/dialer/call, /disposition, GET /queue, /history, /stats
 	app.use("/api/public/portfolio-xray", portfolioXRayRouter); // Public Lead Magnet: Portfolio Health & Fee Drag X-Ray
 	app.use("/api/auth/linkedin", linkedinAuthRouter); // Free LinkedIn OAuth OpenID Connect authentication
+	registerFinvuRoutes(app); // ReBIT Account Aggregator (Finvu AA) Routes (/api/finvu/*)
 
 	const httpServer = createServer(app);
 	return httpServer;
