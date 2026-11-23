@@ -13,7 +13,7 @@
 This Standard Operating Procedure (SOP) defines the non-negotiable operational, technological, and regulatory protocols governing all external third-party Application Programming Interfaces (APIs) connected to the FintekPro ecosystem. 
 
 FintekPro interfaces with licensed institutional infrastructure providers across four critical asset and transaction domains:
-1. **Upstox API v2 (RKSV Securities India Pvt. Ltd.)**: Primary licensed exchange market data feed and order routing gateway for Indian Listed Equities (NSE/BSE), Equity Derivatives (F&O), Commodities (MCX), Exchange Traded Funds (ETFs), Sovereign Gold Bonds (SGBs), and Benchmark Indices.
+1. **Upstox API v3 (RKSV Securities India Pvt. Ltd.)**: Primary licensed exchange market data feed and order routing gateway for Indian Listed Equities (NSE/BSE), Equity Derivatives (F&O), Commodities (MCX), Exchange Traded Funds (ETFs), Sovereign Gold Bonds (SGBs), and Benchmark Indices. Defaulting to API v3 endpoints with Market Price Protection (MPP) and GTT execution.
 2. **KFintech IRIS Hub (KFin Technologies Ltd.)**: Primary Registrar & Transfer Agent (RTA) gateway for Mutual Funds (Direct & Regular schemes), Corporate Fixed Deposits, National Pension System (NPS), and Specialised Investment Funds (SIF/AIF).
 3. **Alpaca Broker API (Alpaca Securities LLC / BMO Harris Bank N.A.)**: FINRA/SIPC registered clearing broker gateway powering US Equity & ETF trading, fractional share custody, and outward SWIFT wire funding for Indian residents under the **RBI Liberalised Remittance Scheme (LRS)**.
 4. **Smallcase Gateway (Smallcase Technologies Pvt. Ltd.)**: Non-custodial basket transaction engine, model portfolio rebalancing bridge, and Demat Loan Against Securities (LAS) eligibility evaluator.
@@ -27,7 +27,7 @@ In strict compliance with **FintekPro Global Coding Rules (GCR v1.0)** and **SEB
 ### 2.1 Storage & Access Isolation
 - **No Hardcoded Secrets**: Plaintext API keys, secrets, tokens, or private certificates in code repositories, environment config files, or client-side bundles are strictly prohibited.
 - **Google Cloud Secret Manager**: All production credentials reside exclusively in GCP Secret Manager under project `fintekpro` and are mounted into Cloud Run runtime memory via encrypted environment variables:
-  - Upstox: `UPSTOX_ACCESS_TOKEN`, `UPSTOX_TOKEN_ISSUED_AT`
+  - Upstox: `UPSTOX_ACCESS_TOKEN` / `UPSTOX_ANALYTICS_TOKEN`, `UPSTOX_TOKEN_ISSUED_AT`, `UPSTOX_TRADING_ACCESS_TOKEN`, `UPSTOX_CLIENT_ID`, `UPSTOX_API_KEY`, `UPSTOX_REDIRECT_URI`
   - IRIS: `IRIS_USERNAME`, `IRIS_PASSWORD`, `IRIS_TENANT_CODE`
   - Alpaca: `ALPACA_API_KEY`, `ALPACA_API_SECRET`, `ALPACA_ENV`
   - Smallcase: `SMALLCASE_GATEWAY_NAME`, `SMALLCASE_SECRET`
@@ -71,12 +71,32 @@ sequenceDiagram
     end
 ```
 
-### 3.1 Upstox API v2
-- **Token Validity**: Upstox OAuth 2.0 access tokens expire daily at 03:30 AM IST.
-- **Daily Pre-Market Renewal SOP (08:30 AM IST)**:
-  1. The automated worker verifies token readiness via `upstoxMarketDataService.isReady()`.
-  2. If the token is within 1 hour of expiration or invalid, the system alerts the operations team or executes the automated login flow using the registered redirect URI.
-  3. Once renewed, `UPSTOX_ACCESS_TOKEN` and `UPSTOX_TOKEN_ISSUED_AT` are updated in Secret Manager.
+### 3.1 Upstox API v3 & Triangulated Token Architecture
+
+FintekPro enforces a strict three-tier token lifecycle ensuring separation of market data ingestion, institutional treasury trading, and non-custodial client demat execution:
+
+1. **Tier 1: System Analytics Token (`UPSTOX_ANALYTICS_TOKEN` / `UPSTOX_ACCESS_TOKEN`)**:
+   - **Scope**: Read-only exchange quotes (NSE/BSE/MCX), Option Greeks, EOD bhavcopy, and V3 WebSocket binary protobuf feeds.
+   - **Validity**: Long-lived Developer Analytics Token (1-year validity; current production token valid through August 2027).
+   - **Lifecycle SOP**: Zero daily interactive login required. Monitored via automated age-check; proactive alerts fire 30 days prior to annual rotation.
+
+2. **Tier 2: Institutional Treasury & OMS Token (`UPSTOX_TRADING_ACCESS_TOKEN`)**:
+   - **Scope**: Secondary market sovereign debt (G-Secs, T-Bills, SDLs, SGBs) and model portfolio treasury routing.
+   - **Validity**: Daily enterprise OAuth session expiring at 03:30 AM IST.
+   - **Pre-Market Renewal SOP (08:30 AM IST)**:
+     - Automated cron checks token validity via `upstoxMarketDataService.isReady()`.
+     - Re-authenticates via institutional service credentials if token expired, updating Secret Manager `:latest`.
+
+3. **Tier 3: Client Segregated Demat OAuth Token (`indian_broker_accounts.access_token`)**:
+   - **Scope**: Execution within client-owned demat account at Upstox.
+   - **Validity**: Session-bound; expires strictly at trading day close (**15:30 IST**) or 24 hours max.
+   - **SEBI FASP-AI Mandate**: No autonomous algorithmic trading without client confirmation. Client grants explicit daily consent via 3-legged OAuth dialog (`/api/upstox/oauth/connect`).
+
+### 3.1.1 Upstox API v3 Upgrade Protocol & Execution Guardrails
+- **Default V3 OMS Routing**: All equity, derivative, and debt orders route to `https://api.upstox.com/v3/order/place` (and `v3/order/modify`, `v3/order/cancel`).
+- **Market Price Protection (MPP)**: Configured via `market_protection` (percentage buffer, default `0` for broker automated protection). Prevents fill execution spikes on illiquid strikes.
+- **Good-Til-Triggered (GTT)**: Native stop-loss and entry order support via `/order/gtt/place`.
+- **Freeze-Limit Auto-Slicing**: Large institutional baskets automatically pass `slice: true` to prevent rejection at exchange quantity thresholds.
 
 ### 3.2 KFintech IRIS Hub
 - **Session Duration**: IRIS tokens expire every 60 minutes.

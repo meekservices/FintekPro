@@ -46,12 +46,13 @@ export class UpstoxAdapter extends BaseBroker {
   private _client: AxiosInstance | null = null;
 
   /**
-   * Returns true if either UPSTOX_TRADING_ACCESS_TOKEN or UPSTOX_ACCESS_TOKEN is configured.
+   * Returns true if any Upstox access token (Trading, Sandbox, Analytics, or Default) is configured.
    */
   isConfigured(): boolean {
     return !!(
       process.env.UPSTOX_TRADING_ACCESS_TOKEN ||
       process.env.UPSTOX_SANDBOX_ACCESS_TOKEN ||
+      process.env.UPSTOX_ANALYTICS_TOKEN ||
       process.env.UPSTOX_ACCESS_TOKEN
     );
   }
@@ -66,12 +67,14 @@ export class UpstoxAdapter extends BaseBroker {
         process.env.UPSTOX_SANDBOX_ACCESS_TOKEN ||
         process.env.UPSTOX_TRADING_ACCESS_TOKEN ||
         process.env.UPSTOX_ACCESS_TOKEN ||
+        process.env.UPSTOX_ANALYTICS_TOKEN ||
         ""
       );
     }
     return (
       process.env.UPSTOX_TRADING_ACCESS_TOKEN ||
       process.env.UPSTOX_ACCESS_TOKEN ||
+      process.env.UPSTOX_ANALYTICS_TOKEN ||
       ""
     );
   }
@@ -209,7 +212,8 @@ export class UpstoxAdapter extends BaseBroker {
     const isinOrSym = await upstoxMarketDataService.resolveInstrumentKey(order.symbol, exchange);
     const internalTag = order.idempotencyKey || `fp-${Date.now()}`;
 
-    const isV3 = order.meta?.apiVersion === "v3" || order.meta?.useV3 === true;
+    // Upstox API v3 Upgrade SOP: Default to v3 endpoints unless legacy v2 is explicitly requested
+    const isV3 = order.meta?.apiVersion !== "v2" && order.meta?.useV2 !== true;
     const payload: Record<string, unknown> = {
       quantity: qty,
       product,
@@ -224,8 +228,15 @@ export class UpstoxAdapter extends BaseBroker {
       is_amo: Boolean(order.meta?.isAmo),
     };
 
-    if (isV3 && order.meta?.slice !== undefined) {
-      payload.slice = Boolean(order.meta.slice);
+    if (isV3) {
+      // Market Price Protection (MPP): 0 indicates automatic Upstox broker protection buffer
+      payload.market_protection = order.meta?.marketProtection !== undefined
+        ? Number(order.meta.marketProtection)
+        : 0;
+
+      if (order.meta?.slice !== undefined) {
+        payload.slice = Boolean(order.meta.slice);
+      }
     }
 
     const customToken =
@@ -353,12 +364,15 @@ export class UpstoxAdapter extends BaseBroker {
   }
 
   /**
-   * Cancel an open order on Upstox.
+   * Cancel an open order on Upstox (v3 endpoint).
    */
   async cancelOrder(orderId: string, customToken?: string): Promise<void> {
     try {
       const activeClient = this.getClient(customToken);
-      await activeClient.delete("/order/cancel", {
+      const endpoint = this.isSandbox()
+        ? "/order/cancel"
+        : "https://api.upstox.com/v3/order/cancel";
+      await activeClient.delete(endpoint, {
         params: { order_id: orderId },
       });
     } catch (err: any) {
@@ -631,6 +645,9 @@ export class UpstoxAdapter extends BaseBroker {
     customToken?: string
   ): Promise<any> {
     const activeClient = this.getClient(customToken);
+    const endpoint = this.isSandbox()
+      ? "/order/modify"
+      : "https://api.upstox.com/v3/order/modify";
     const payload: Record<string, any> = { order_id: orderId };
     if (updates.quantity !== undefined) payload.quantity = updates.quantity;
     if (updates.price !== undefined) payload.price = updates.price;
@@ -639,7 +656,7 @@ export class UpstoxAdapter extends BaseBroker {
     if (updates.triggerPrice !== undefined) payload.trigger_price = updates.triggerPrice;
     if (updates.disclosedQuantity !== undefined) payload.disclosed_quantity = updates.disclosedQuantity;
 
-    const resp = await activeClient.put("/order/modify", payload);
+    const resp = await activeClient.put(endpoint, payload);
     return resp.data?.data;
   }
 

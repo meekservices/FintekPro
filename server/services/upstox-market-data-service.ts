@@ -471,12 +471,12 @@ class UpstoxMarketDataService {
   }
 
   private init(): void {
-    const token = process.env.UPSTOX_ACCESS_TOKEN;
+    const token = process.env.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_ANALYTICS_TOKEN;
     if (!token) {
-      logger.warn("[Upstox] UPSTOX_ACCESS_TOKEN not set — service inactive.", {
+      logger.warn("[Upstox] UPSTOX_ACCESS_TOKEN / UPSTOX_ANALYTICS_TOKEN not set — service inactive.", {
         event: "UPSTOX_SERVICE_INACTIVE",
         status: "SKIPPED",
-        message: "Set UPSTOX_ACCESS_TOKEN via: https://account.upstox.com/developer/apps",
+        message: "Set UPSTOX_ACCESS_TOKEN or UPSTOX_ANALYTICS_TOKEN via: https://account.upstox.com/developer/apps",
       });
       return;
     }
