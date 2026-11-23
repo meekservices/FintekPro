@@ -1,9 +1,9 @@
-# FintekPro Standard Operating Policy: Third-Party Partner & Broker API Governance (SOP-API v1.0)
+# FintekPro Standard Operating Policy: Third-Party Partner & Broker API Governance (SOP-API v1.1)
 
 **Document Code**: SOP-API-2026-01  
-**Effective Date**: November 2026  
+**Effective Date**: November 2026 (Updated: Angel One SmartAPI Partner Policy & NCDEX Governance)  
 **Governing Authorities**: SEBI (Securities and Exchange Board of India), RBI (Reserve Bank of India), CERT-In (Indian Computer Emergency Response Team), US FINRA / SEC (via Alpaca clearing), and DPDP Act 2023  
-**Statutory Desks**: Upstox Gateway Desk, KFintech IRIS Hub, Alpaca International Broker Desk, Smallcase Gateway Desk  
+**Statutory Desks**: Upstox Gateway Desk, KFintech IRIS Hub, Alpaca International Broker Desk, Smallcase Gateway Desk, Angel One SmartAPI Gateway Desk (NCDEX Commodity Segment)  
 **Target Architecture**: Multi-Vendor Resilient API Engine (`server/services/instruments/multi-vendor-resolver.ts`)  
 
 ---
@@ -12,11 +12,12 @@
 
 This Standard Operating Procedure (SOP) defines the non-negotiable operational, technological, and regulatory protocols governing all external third-party Application Programming Interfaces (APIs) connected to the FintekPro ecosystem. 
 
-FintekPro interfaces with licensed institutional infrastructure providers across four critical asset and transaction domains:
+FintekPro interfaces with licensed institutional infrastructure providers across five critical asset and transaction domains:
 1. **Upstox API v3 (RKSV Securities India Pvt. Ltd.)**: Primary licensed exchange market data feed and order routing gateway for Indian Listed Equities (NSE/BSE), Equity Derivatives (F&O), Commodities (MCX), Exchange Traded Funds (ETFs), Sovereign Gold Bonds (SGBs), and Benchmark Indices. Defaulting to API v3 endpoints with Market Price Protection (MPP) and GTT execution.
 2. **KFintech IRIS Hub (KFin Technologies Ltd.)**: Primary Registrar & Transfer Agent (RTA) gateway for Mutual Funds (Direct & Regular schemes), Corporate Fixed Deposits, National Pension System (NPS), and Specialised Investment Funds (SIF/AIF).
 3. **Alpaca Broker API (Alpaca Securities LLC / BMO Harris Bank N.A.)**: FINRA/SIPC registered clearing broker gateway powering US Equity & ETF trading, fractional share custody, and outward SWIFT wire funding for Indian residents under the **RBI Liberalised Remittance Scheme (LRS)**.
 4. **Smallcase Gateway (Smallcase Technologies Pvt. Ltd.)**: Non-custodial basket transaction engine, model portfolio rebalancing bridge, and Demat Loan Against Securities (LAS) eligibility evaluator.
+5. **Angel One SmartAPI (Angel One Ltd. - Member: NSE/BSE/MCX/NCDEX)**: Licensed agricultural commodity market data gateway providing real-time quotes, market depth, and historical candlestick feeds for Indian agricultural derivatives on the National Commodity & Derivatives Exchange (NCDEX `ncx_fo` segment) covering statutory inflation benchmarks (Jeera, Turmeric, Guar Seed, Cocudakl, Dhaniya, Castor Seed, Chana). Fills the critical asset coverage gap as Upstox does not support NCDEX.
 
 ---
 
@@ -31,6 +32,7 @@ In strict compliance with **FintekPro Global Coding Rules (GCR v1.0)** and **SEB
   - IRIS: `IRIS_USERNAME`, `IRIS_PASSWORD`, `IRIS_TENANT_CODE`
   - Alpaca: `ALPACA_API_KEY`, `ALPACA_API_SECRET`, `ALPACA_ENV`
   - Smallcase: `SMALLCASE_GATEWAY_NAME`, `SMALLCASE_SECRET`
+  - Angel One: `ANGEL_API_KEY`, `ANGEL_CLIENT_CODE`, `ANGEL_PIN`, `ANGEL_TOTP_SECRET`, `ANGEL_STATIC_IP`
 - **IAM Principle of Least Privilege**: Access to API secret versions is granted strictly to the Cloud Run runtime service account (`fintekpro-app@fintekpro.iam.gserviceaccount.com`). Developer and CI/CD IAM accounts possess no read access to production API keys.
 
 ### 2.2 Periodic & Emergency Credential Rotation
@@ -53,7 +55,7 @@ sequenceDiagram
     participant Scheduler as Background Cron / Worker
     participant SecretMgr as GCP Secret Manager
     participant App as FintekPro Gateway Service
-    participant Partner as Partner API (Upstox/IRIS/Alpaca/Smallcase)
+    participant Partner as Partner API (Upstox/IRIS/Alpaca/Smallcase/AngelOne)
 
     Note over App,Partner: Daily Token Lifecycle & Pre-Market Verification
     Scheduler->>App: 08:30 AM IST Pre-Market Trigger
@@ -120,6 +122,52 @@ FintekPro enforces a strict three-tier token lifecycle ensuring separation of ma
   - User Claims: `sub = smallcaseAuthId` for connected users; guest payloads for unlinked users.
 - **Zero-Storage of Broker Passwords**: FintekPro never receives, stores, or processes client broker credentials. Broker authentication occurs strictly inside the Smallcase Gateway SDK.
 
+### 3.5 Angel One SmartAPI Partner & Publisher Installation, Auth & Upgrade Policy SOP
+
+FintekPro interfaces with Angel One SmartAPI (`https://apiconnect.angelone.in`) to ingest agricultural commodity derivative data on NCDEX (`ncx_fo` segment), closing the critical asset coverage gap as Upstox does not support NCDEX.
+
+#### 3.5.1 Installation & Package Policy (Node.js & Python SDKs)
+1. **Official SDKs**:
+   - **Node.js / TypeScript**: Official npm package is `smartapi-javascript`. Fresh installation: `npm i smartapi-javascript`. Upgrade command: `npm i smartapi-javascript@latest`.
+   - **Python**: Official PyPI package is `smartapi-python`. Fresh installation: `pip install smartapi-python`. Upgrade command: `pip install smartapi-python --upgrade` (with peer dependencies: `pyotp`, `logzero`, `websocket-client`, `pycryptodome`).
+2. **FintekPro Sovereign Zero-Dependency Native Architecture**:
+   - In accordance with **FintekPro Global Coding Rules (GCR v1.0)** and supply-chain security standards, FintekPro implements a sovereign native HTTP adapter ([`angel-one-adapter.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/services/adapters/angel-one-adapter.ts)) using Axios and Node.js native `crypto`.
+   - **RFC 6238 TOTP Engine**: Dynamically calculates 6-digit TOTP codes from `ANGEL_TOTP_SECRET` using standard Base32 decoding and HMAC-SHA1 without external unvetted dependencies (`pyotp` or unverified wrappers).
+3. **SDK Upgrade Cadence & Version Review Policy**:
+   - The Engineering Desk conducts quarterly reviews of upstream Angel One developer releases (`angel-one/smartapi-javascript`).
+   - If breaking schema changes occur (e.g. SmartAPI v2 protocol revisions, new header signing algorithms, or endpoint deprecations), the native adapter is updated and validated against the Vitest suite ([`angel-one-ncdex.test.ts`](file:///Users/sangrammohanty/Documents/GitHub/FintekPro/server/tests/angel-one-ncdex.test.ts)).
+
+#### 3.5.2 Regulatory Mandate: Static Public IP Whitelisting (SEBI / NSE Guidelines)
+- **Mandatory Static IP Whitelisting**: In strict alignment with SEBI circulars and NSE/NCDEX algorithmic and broker gateway guidelines, all programmatic sessions and API order operations **must originate from a pre-registered, whitelisted public static IP address**. Requests originating from dynamic or unwhitelisted residential/cloud IPs are rejected with HTTP 403 / auth error.
+- **SmartAPI Dashboard IP Registration**:
+  - Up to 5 Static Public IPs can be mapped per API Key on the Angel One SmartAPI developer portal (`smartapi.angelone.in`).
+  - The production static IP (`ANGEL_STATIC_IP`, default `8.231.118.86`) is bound to the Cloud Run egress gateway / Cloud NAT.
+  - Every outbound API request passes this value in the `X-ClientPublicIP` header.
+
+#### 3.5.3 Two-Factor Authentication (2FA) via RFC 6238 TOTP
+- **SMS OTP Deprecation**: Traditional SMS OTPs are fully deprecated and non-compliant for programmatic access.
+- **Automated TOTP Handshake**:
+  - The login payload pairs `clientcode: ANGEL_CLIENT_CODE`, `password: ANGEL_PIN`, and dynamically generated `totp: generateTOTP(ANGEL_TOTP_SECRET)`.
+  - Step size: 30 seconds.
+- **CERT-In NTP Clock Drift Enforcement**: Server clocks on Cloud Run must maintain clock drift $\le \pm 50\text{ms}$ with `time.google.com` / `time.nic.in`. Any drift exceeding 25 seconds causes `AB1050` ("Invalid TOTP") handshake rejection by the Angel One gateway.
+
+#### 3.5.4 Partner Auth Endpoints, Header Specification & Token Lifecycle
+1. **Authentication Endpoint**: `POST https://apiconnect.angelone.in/rest/auth/partner/v1/loginByPassword` (or `/rest/auth/angelbroking/user/v1/loginByPassword`).
+2. **Mandatory Headers**:
+   - `Content-Type: application/json`
+   - `Accept: application/json`
+   - `X-UserType: USER`
+   - `X-SourceID: WEB`
+   - `X-ClientLocalIP: 127.0.0.1`
+   - `X-ClientPublicIP: <ANGEL_STATIC_IP>`
+   - `X-MACAddress: 02:00:00:00:00:00`
+   - `X-PrivateKey: <ANGEL_API_KEY>`
+3. **Session Token Expiration & Caching**:
+   - `jwtToken`: Lifetime of **24 hours**. Cached in-memory and proactively refreshed when remaining validity is $< 5\text{ minutes}$.
+   - Subsequent calls pass `Authorization: Bearer <jwtToken>`.
+   - `refreshToken`: Stored for non-interactive token renewal.
+   - `feedToken`: Stored for binary WebSocket market depth streaming.
+
 ---
 
 ## 4. Rate Limiting, Throttling & Circuit Breakers
@@ -134,6 +182,9 @@ To protect partner endpoints and prevent platform-wide cascading failures, all o
 | **Alpaca Market Data** | 250 req/min | 200 req/min | 2 retries, 1000ms backoff | 4 failures in 20s $\rightarrow$ Open 60s |
 | **Alpaca Broker API** | 120 req/min | 100 req/min | Fail immediately (No blind retries) | 3 failures in 30s $\rightarrow$ Open 120s |
 | **Smallcase Gateway** | 60 req/min | 50 req/min | 2 retries, 300ms backoff | 5 failures in 20s $\rightarrow$ Open 30s |
+| **Angel One Market Quotes (ncx_fo)** | 10 req/s | 5 req/s | Exponential (100ms $\rightarrow$ 400ms $\rightarrow$ 1200ms) | 4 failures in 10s $\rightarrow$ Open 30s |
+| **Angel One Historical Data** | 3 req/s | 1 req/s | 2 retries, 500ms backoff | 3 failures in 15s $\rightarrow$ Open 60s |
+| **Angel One Order OMS (if active)** | 10 req/s | 5 req/s | Fail immediately (No blind retries - TOPS cap) | 3 failures in 20s $\rightarrow$ Open 60s |
 
 ### Circuit Breaker States
 1. **CLOSED (Normal)**: All traffic passes to the primary partner API. Latency and error counters tracked.
@@ -170,6 +221,13 @@ flowchart TD
     A_F -->|Success| RESP_WARN
     A_F -->|Fail| A_F2["3. instrument_master.last_price"]
     A_F2 --> RESP_WARN
+
+    ROUTE -->|NCDEX Agricultural Commodities| AO_P["1. Angel One SmartAPI ncx_fo (Primary)"]
+    AO_P -->|Success| RESP
+    AO_P -->|403 / Timeout / Fail| AO_F1["2. PostgreSQL commodities Table Cache (EOD)"]
+    AO_F1 -->|Success| RESP_WARN
+    AO_F1 -->|Fail| AO_F2["3. Institutional Bhavcopy Baseline (7 Commodities)"]
+    AO_F2 --> RESP_WARN
 ```
 
 ---
@@ -201,6 +259,14 @@ flowchart TD
 ### 6.5 Smallcase Demat Lending (LAS) Guardrails
 1. **SEBI/RBI Loan-to-Value (LTV) Caps**: Loan against listed equity shares is capped at **50% of the approved portfolio valuation** in strict compliance with RBI Master Directions.
 2. **Pledge / Depository Lien Marking**: Loan disbursals remain locked until an irrevocable electronic pledge confirmation is acknowledged by NSDL or CDSL.
+
+### 6.6 Angel One NCDEX & SEBI Algo Trading / Static IP Guardrails
+1. **Strict Market Ingestion Scope**: The Angel One SmartAPI connection is provisioned strictly for agricultural commodity inflation benchmarking, NCDEX spot-futures basis tracking, and derivative analytics (`ncx_fo` segment).
+2. **Zero Autonomous Algorithmic Order Routing (FASP-AI v1.0 Mandate)**: In compliance with SEBI algo directives and FintekPro advisory rules, no autonomous trade execution or programmatic position entry may take place through Angel One without explicit, non-delegated client confirmation and licensed advisor sign-off.
+3. **SEBI Static IP & TOPS Compliance**:
+   - In accordance with SEBI retail algo guidelines, all programmatic traffic must originate strictly from the whitelisted Cloud Run static egress IP (`ANGEL_STATIC_IP`).
+   - Order placement frequency (if OMS capabilities are activated in future releases) is bound to the Threshold Order Per Second (TOPS) statutory cap of **10 OPS**.
+   - All requests must carry deterministic idempotency keys (`ORDER_REQ_{userId}_{symbolToken}_{timestamp}`) and pre-trade margin verification.
 
 ---
 
@@ -248,6 +314,7 @@ flowchart TD
 | **KFintech IRIS Desk** | `iris.support@kfintech.com` | Institutional Solutions Head | Chief Technology Officer |
 | **Alpaca Broker Operations** | `broker-support@alpaca.markets` | API Integration Specialist | VP, Global Clearing & Partnerships |
 | **Smallcase Gateway** | `gateway-support@smallcase.com` | Developer Relations Manager | VP, Engineering |
+| **Angel One SmartAPI Desk** | `smartapi@angelbroking.com` / `api-support@angelone.in` | Developer Relations Lead | Head of Technology & Alliances |
 
 ---
 
