@@ -22,7 +22,7 @@ describe("MCX Bhavcopy & Polled Spot Ingestion Service", () => {
 		const gold = records.find((r) => r.commoditySymbol === "GOLD");
 		expect(gold).toBeDefined();
 		expect(gold?.deliveryCenter).toBe("Ahmedabad");
-		expect(gold?.price).toBe(78250);
+		expect(gold?.price).toBe(124870);
 		expect(gold?.unit).toBe("₹ / 10g");
 		expect(gold?.isSpot).toBe(true);
 

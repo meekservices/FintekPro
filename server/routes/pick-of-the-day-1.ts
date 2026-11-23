@@ -733,6 +733,37 @@ router.delete("/admin/:id", requireAdmin, async (req, res) => {
 });
 
 /**
+ * DELETE /api/picks/admin/today
+ * Admin-only: Deletes picks for today (optionally filtered by category e.g. commodities).
+ * Allows operator to purge contaminated picks and trigger fresh generation.
+ */
+router.delete("/admin/today", requireAdmin, async (req, res) => {
+	try {
+		const category = req.query.category as string | undefined;
+		const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+		const todayIST = new Date(Date.now() + IST_OFFSET_MS).toISOString().split("T")[0];
+
+		const conditions = [
+			sql`(${dailyPicks.recoDate} = ${todayIST} OR ${dailyPicks.recoDate} = CURRENT_DATE)`
+		];
+		if (category) {
+			conditions.push(eq(dailyPicks.category, category as any));
+		}
+
+		const deleted = await db
+			.delete(dailyPicks)
+			.where(and(...conditions))
+			.returning();
+
+		logger.info(`[Admin] Deleted ${deleted.length} picks for today (${todayIST}), category: ${category || 'all'}`);
+		res.json({ success: true, count: deleted.length, message: `Deleted ${deleted.length} picks for today` });
+	} catch (error) {
+		logger.error("[API] Error deleting today's picks:", error);
+		res.status(500).json({ success: false, error: "Failed to delete today's picks" });
+	}
+});
+
+/**
  * POST /api/picks/admin/force-generate
  * Admin-only: Force-generate today's picks immediately, bypassing market-holiday guards.
  * Use this for:

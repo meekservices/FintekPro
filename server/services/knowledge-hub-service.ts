@@ -503,7 +503,7 @@ export class KnowledgeHubService {
 		const brentStr = `$${brentPriceNum}/bbl`;
 		const goldStr = commodityRadar?.commodities?.[0]?.mcxPrice
 			? `₹${commodityRadar.commodities[0].mcxPrice.toLocaleString("en-IN")}/10g`
-			: `₹${(goldenSnapshot?.commodities?.goldMcxInr ?? 78250).toLocaleString("en-IN")}/10g`;
+			: `₹${(goldenSnapshot?.commodities?.goldMcxInr ?? 124870).toLocaleString("en-IN")}/10g`;
 		const comexGoldUsd = commodityRadar?.commodities?.find((c: any) => c.id === "GOLD")?.cmxPrice ?? goldenSnapshot?.commodities?.goldComexUsd ?? 2685.50;
 		const isElevatedCrude = brentPriceNum > 85;
 		// US fixed income dynamic values for sector highlights
@@ -604,7 +604,7 @@ export class KnowledgeHubService {
 		if (commodityRadar?.commodities && Array.isArray(commodityRadar.commodities)) {
 			commodityRadar.commodities = commodityRadar.commodities.map((item: any) => {
 				const fallbackMcx =
-					item.id === "GOLD" ? (snapshot.commodities?.goldMcxPrice ?? 78250) :
+					item.id === "GOLD" ? (snapshot.commodities?.goldMcxPrice ?? 124870) :
 					item.id === "SILVER" ? (snapshot.commodities?.silverMcxPrice ?? 91500) :
 					item.id === "CRUDE_OIL" ? (snapshot.commodities?.brentMcxInr ?? 6325) :
 					item.id === "NATURAL_GAS" ? (snapshot.commodities?.naturalGasMcxPrice ?? 274.60) :
@@ -764,7 +764,7 @@ export class KnowledgeHubService {
 						trend: isElevatedCrude ? "Elevated Input Pressure" : "Benign Comfort Band",
 						outlook: `Brent Crude at $${brentPriceNum}/bbl (${isElevatedCrude ? "above" : "within"} India comfort band <$80); MCX Gold at ₹${(() => {
 							const rawG = brief.commodityRadar?.commodities?.find((c: any) => c.id === "GOLD")?.mcxPrice;
-							return (typeof rawG === "number" && rawG >= 65000 && rawG <= 95000 ? rawG : 78250).toLocaleString("en-IN");
+							return (typeof rawG === "number" && rawG >= 95000 && rawG <= 165000 ? rawG : 124870).toLocaleString("en-IN");
 						})()}/10g.`,
 					},
 					{
@@ -917,7 +917,7 @@ export class KnowledgeHubService {
 							name: "Gold 24K (MCX LTP)",
 							category: "Precious Metals",
 							mcxSymbol: "GOLD",
-							mcxPrice: 78250,
+							mcxPrice: 124870,
 							mcxUnit: "₹ / 10g",
 							mcxChangePercent: 0.35,
 							cmxSymbol: "GC=F (COMEX / Global CFD)",
@@ -926,7 +926,7 @@ export class KnowledgeHubService {
 							cmxChangePercent: 0.28,
 							trend: "Bullish",
 							macroImplication:
-								"Official MCX Last Traded Price (LTP) (₹78,250/10g). Central bank accumulation & safe-haven bullion demand.",
+								"Official MCX Last Traded Price (LTP) (₹1,24,870/10g). Central bank accumulation & safe-haven bullion demand.",
 							lastUpdated: new Date().toISOString().split("T")[0],
 						},
 						{
@@ -1295,8 +1295,8 @@ export class KnowledgeHubService {
 
 		const brentStr = `$${brentPriceNum.toFixed(2)}/bbl (MCX LTP: ₹${brentMcxSpotNum.toLocaleString("en-IN")}/bbl)`;
 
-		const rawGold = Number(commodityRadar?.commodities?.[0]?.mcxPrice ?? goldenSnapshot?.commodities?.goldMcxInr ?? 78250);
-		const goldPriceNum = rawGold >= 65000 && rawGold <= 95000 ? rawGold : 78250;
+		const rawGold = Number(commodityRadar?.commodities?.[0]?.mcxPrice ?? goldenSnapshot?.commodities?.goldMcxInr ?? 124870);
+		const goldPriceNum = rawGold >= 95000 && rawGold <= 165000 ? rawGold : 124870;
 		const goldStr = `₹${goldPriceNum.toLocaleString("en-IN")}/10g`;
 		const isElevatedB = Number(brentPriceNum) > 85;
 

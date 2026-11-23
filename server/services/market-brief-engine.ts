@@ -38,7 +38,7 @@ export interface MarketBriefSnapshot {
 		}>;
 	};
 	commodities: {
-		goldMcxPrice: number; // 78250 (Ahmedabad 10g 24K)
+		goldMcxPrice: number; // 124870 (Ahmedabad 10g 24K)
 		goldMcxUnit: string;
 		goldComexPrice: number; // 2685.50
 		silverMcxPrice: number; // 91500 (Ahmedabad 1kg)
@@ -93,7 +93,7 @@ export const CANONICAL_FALLBACK_SNAPSHOT_INDIA: MarketBriefSnapshot = {
 		],
 	},
 	commodities: {
-		goldMcxPrice: 78250,
+		goldMcxPrice: 124870,
 		goldMcxUnit: "₹ / 10g",
 		goldComexPrice: 2685.50,
 		silverMcxPrice: 91500,

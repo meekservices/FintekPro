@@ -2344,7 +2344,7 @@ export async function syncMacroAndMarketBriefPrices(
 	const brentCfdUsd = commData?.crudeOilBreakevenStatus?.brentUsd ?? fredData?.brentCrude?.price ?? 74.50;
 	const brentMcxInr = commData?.commodities?.find((c: any) => c.id === "CRUDE_OIL")?.mcxPrice ?? 6325;
 	const wtiUsd = fredData?.wtiCrude?.price ?? 70.85;
-	const goldMcxInr = commData?.commodities?.find((c: any) => c.id === "GOLD")?.mcxPrice ?? 78250;
+	const goldMcxInr = commData?.commodities?.find((c: any) => c.id === "GOLD")?.mcxPrice ?? 124870;
 	const silverMcxInr = commData?.commodities?.find((c: any) => c.id === "SILVER")?.mcxPrice ?? 91500;
 	const goldCfdUsd = commData?.commodities?.find((c: any) => c.id === "GOLD")?.cmxPrice ?? 2685.5;
 	const silverCfdUsd = commData?.commodities?.find((c: any) => c.id === "SILVER")?.cmxPrice ?? 31.4;
@@ -3010,8 +3010,8 @@ async function buildSnapshotFromDBRows(): Promise<DailyMarketBriefSnapshot | nul
 	};
 
 	// Sanitized benchmark pricing to guarantee zero distorted outlier leakage
-	const rawGoldMcx = getPrice("MCX_GOLD", getPrice("COMM_GOLD_MCX", 78250));
-	const goldMcxPrice = (rawGoldMcx >= 65000 && rawGoldMcx <= 95000) ? rawGoldMcx : 78250;
+	const rawGoldMcx = getPrice("MCX_GOLD", getPrice("COMM_GOLD_MCX", 124870));
+	const goldMcxPrice = (rawGoldMcx >= 95000 && rawGoldMcx <= 165000) ? rawGoldMcx : 124870;
 
 	const rawBrentCfd = getPrice("ICE_BRENT_USD", getPrice("COMM_BRENT", 74.50));
 	const brentCfdPrice = (rawBrentCfd >= 50 && rawBrentCfd <= 95) ? rawBrentCfd : 74.50;

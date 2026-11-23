@@ -530,13 +530,13 @@ export async function getLiveInstrumentPrice(
 					const bench = await goldenPricingEngine.getAuthoritativeCommodityBenchmarks();
 					if (commSym === "GOLD" || commSym.includes("GOLD")) {
 						const mcxGold = bench?.gold?.mcxPriceInr;
-						// Dynamic Corridor Clamp: Gold 10g must be within ₹65,000 to ₹90,000
-						if (mcxGold && mcxGold >= 65000 && mcxGold <= 90000) {
+						// Dynamic Corridor Clamp: Gold 10g 2026 corridor [₹95,000 to ₹165,000]
+						if (mcxGold && mcxGold >= 95000 && mcxGold <= 165000) {
 							pick.priceDataSource = "MCX India (Golden Engine)";
 							pick.dataFreshness = "live";
 							return mcxGold;
 						}
-						return 78250; // Canonical spot fallback
+						return 124870; // Canonical spot fallback (2026 MCX spot ~₹1,24,870)
 					}
 					if (commSym === "SILVER" || commSym.includes("SILVER")) {
 						const mcxSilver = bench?.silver?.mcxPriceInr;
@@ -548,7 +548,7 @@ export async function getLiveInstrumentPrice(
 						return 91500;
 					}
 					if (commSym === "CRUDEOIL" || commSym === "CRUDE_OIL" || commSym === "CRUDE") {
-						const mcxCrude = bench?.crude?.mcxPriceInr;
+						const mcxCrude = bench?.brentCrude?.mcxPriceInr;
 						if (mcxCrude && mcxCrude >= 4000 && mcxCrude <= 9500) {
 							pick.priceDataSource = "MCX India (Golden Engine)";
 							pick.dataFreshness = "live";
@@ -732,19 +732,42 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 			}
 		}
 
-		// 5. Commodity Outlier Quarantine & Phantom Target Hit Reversion
+		// 5. Commodity Outlier Quarantine & 2026 Price Realignment
 		if (pick.category === "commodities" && (symUpper === "GOLD" || nameLower.includes("gold"))) {
 			const curP = Number(pick.currentPrice || 0);
 			const recoP = Number(pick.recoPrice || 0);
-			// Canonical Gold MCX is ~₹78,000 / 10g. Any price > ₹95,000 is an outlier contaminated tick
-			if (curP > 95000 || curP < 55000) {
-				const canonicalGoldLtp = 78250.0;
+			const canonicalGoldLtp = 124870.0;
+
+			// If recommendation entry was generated with stale 2024 price (< ₹100,000), heal entry/target/SL immediately
+			if (recoP > 0 && recoP < 100000) {
+				const effectivePrice = curP >= 95000 && curP <= 165000 ? curP : canonicalGoldLtp;
+				pick.recoPrice = effectivePrice;
+				pick.currentPrice = effectivePrice;
+				pick.targetPrice = Number((effectivePrice * 1.05).toFixed(2));
+				pick.stoplossPrice = (effectivePrice * 0.975).toFixed(2);
+				pick.returnPct = 0.00;
+				pick.status = "live";
+
+				if (pick.id) {
+					db.execute(sql`
+						UPDATE daily_picks
+						SET reco_price = ${effectivePrice.toFixed(4)},
+						    current_price = ${effectivePrice.toFixed(4)},
+						    target_price = ${(effectivePrice * 1.05).toFixed(4)},
+						    stoploss_price = ${(effectivePrice * 0.975).toFixed(4)},
+						    return_pct = '0.00',
+						    status = 'live',
+						    updated_at = NOW()
+						WHERE id = ${pick.id}
+					`).catch((err) => logger.warn('[PickUtils] DB Gold recalibration failed', { error: String(err) }));
+				}
+			} else if (curP > 165000 || curP < 95000) {
+				// Outlier clamp for live feed anomalies outside [₹95,000, ₹165,000]
 				pick.currentPrice = canonicalGoldLtp;
 				pick.returnPct = recoP > 0 ? Number((((canonicalGoldLtp - recoP) / recoP) * 100).toFixed(2)) : 0;
-				// If status was falsely tripped to 'target_hit' due to outlier tick, revert to 'live'
 				if (pick.status === "target_hit" && canonicalGoldLtp < Number(pick.targetPrice)) {
 					pick.status = "live";
-					pick.stoplossPrice = (recoP * 0.95).toFixed(2);
+					pick.stoplossPrice = (recoP * 0.975).toFixed(2);
 				}
 				if (pick.id) {
 					db.execute(sql`
@@ -752,7 +775,7 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 						SET current_price = ${canonicalGoldLtp.toFixed(4)},
 						    return_pct = ${pick.returnPct.toString()},
 						    status = ${pick.status},
-						    stoploss_price = ${pick.stoplossPrice ? pick.stoplossPrice.toString() : '74337.5000'},
+						    stoploss_price = ${pick.stoplossPrice ? pick.stoplossPrice.toString() : '121748.2500'},
 						    updated_at = NOW()
 						WHERE id = ${pick.id}
 					`).catch((err) => logger.warn('[PickUtils] DB Gold outlier clamp failed', { error: String(err) }));

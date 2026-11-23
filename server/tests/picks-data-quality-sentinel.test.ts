@@ -31,9 +31,9 @@ describe("Picks Data Quality Sentinel & Disambiguation Engine", () => {
   });
 
   it("should clamp anomalous Gold MCX ticks exceeding exchange circuit limits", () => {
-    const canonicalSpot = 78250;
-    const SANITY_MIN = 65000;
-    const SANITY_MAX = 90000;
+    const canonicalSpot = 124870;
+    const SANITY_MIN = 95000;
+    const SANITY_MAX = 165000;
 
     const clampCommodityPrice = (rawTick: number): { valid: boolean; price: number } => {
       if (rawTick >= SANITY_MIN && rawTick <= SANITY_MAX) {
@@ -42,52 +42,59 @@ describe("Picks Data Quality Sentinel & Disambiguation Engine", () => {
       return { valid: false, price: canonicalSpot };
     };
 
-    // Valid price
-    const normalTick = clampCommodityPrice(78800);
+    // Valid price (~124,870 - 125,070 authentic 2026 spot)
+    const normalTick = clampCommodityPrice(125070);
     expect(normalTick.valid).toBe(true);
-    expect(normalTick.price).toBe(78800);
+    expect(normalTick.price).toBe(125070);
 
-    // Erroneous tick (125,070 from screenshot)
-    const outlierTick = clampCommodityPrice(125070);
+    // Erroneous tick (e.g. 250,000 corrupt feed spike)
+    const outlierTick = clampCommodityPrice(250000);
     expect(outlierTick.valid).toBe(false);
-    expect(outlierTick.price).toBe(78250);
+    expect(outlierTick.price).toBe(124870);
 
-    // Micro contract tick (e.g. 1g Gold at 7,800)
-    const microTick = clampCommodityPrice(7800);
+    // Micro contract tick (e.g. 1g Gold at 12,487)
+    const microTick = clampCommodityPrice(12487);
     expect(microTick.valid).toBe(false);
-    expect(microTick.price).toBe(78250);
+    expect(microTick.price).toBe(124870);
   });
 
-  it("should revert false Target Hit status and restore trailing stoploss when tick was an outlier", () => {
-    const recoPrice = 78250;
-    const targetPrice = 82162.5;
-    const falseOutlierPrice = 125070;
-    const canonicalSpotPrice = 78250;
+  it("should heal stale entry price, adjust targets and stoploss, and revert false Target Hit status", () => {
+    const staleRecoPrice = 78250;
+    const currentMarketPrice = 124870;
+    const canonicalSpotPrice = 124870;
 
-    // Simulate contaminated state
-    let status = falseOutlierPrice >= targetPrice ? "target_hit" : "live";
-    let returnPct = Number((((falseOutlierPrice - recoPrice) / recoPrice) * 100).toFixed(2));
-    expect(status).toBe("target_hit");
-    expect(returnPct).toBe(59.83);
+    // Simulate corrupted state where 2024 stale baseline (78,250) was used as entry against live 2026 market (125,070)
+    const falseReturnPct = Number((((currentMarketPrice - staleRecoPrice) / staleRecoPrice) * 100).toFixed(2));
+    expect(falseReturnPct).toBe(59.58);
 
-    // Sentinel Auto-Heal Action
-    if (falseOutlierPrice > 95000) {
-      status = canonicalSpotPrice < targetPrice ? "live" : "target_hit";
-      returnPct = Number((((canonicalSpotPrice - recoPrice) / recoPrice) * 100).toFixed(2));
-      const restoredStoploss = +(recoPrice * 0.95).toFixed(2);
+    // Sentinel Auto-Heal Action for stale entry (< 100,000)
+    let recoPrice = staleRecoPrice;
+    let targetPrice = +(recoPrice * 1.05).toFixed(2);
+    let stoplossPrice = +(recoPrice * 0.975).toFixed(2);
+    let status = "target_hit";
+    let returnPct = falseReturnPct;
 
-      expect(status).toBe("live");
-      expect(returnPct).toBe(0.0);
-      expect(restoredStoploss).toBe(74337.5);
-      expect(restoredStoploss).toBeLessThan(recoPrice);
-      expect(recoPrice).toBeLessThan(targetPrice);
+    if (recoPrice < 100000) {
+      recoPrice = canonicalSpotPrice;
+      targetPrice = +(canonicalSpotPrice * 1.05).toFixed(2);
+      stoplossPrice = +(canonicalSpotPrice * 0.975).toFixed(2);
+      returnPct = 0.0;
+      status = "live";
     }
+
+    expect(recoPrice).toBe(124870);
+    expect(targetPrice).toBe(131113.5);
+    expect(stoplossPrice).toBe(121748.25);
+    expect(returnPct).toBe(0.0);
+    expect(status).toBe("live");
+    expect(stoplossPrice).toBeLessThan(recoPrice);
+    expect(recoPrice).toBeLessThan(targetPrice);
   });
 
   it("should enforce Stoploss < Entry < Target invariant for Long picks", () => {
-    const entry = 78250;
-    const target = 82162.5;
-    let corruptedStoploss = 81340.88; // Trailing stop pulled above entry on false spike
+    const entry = 124870;
+    const target = 131113.5;
+    let corruptedStoploss = 132000.00; // Corrupted stop pulled above target
 
     const checkInvariant = (sl: number, ent: number, tgt: number) => sl < ent && ent < tgt;
 
@@ -96,10 +103,10 @@ describe("Picks Data Quality Sentinel & Disambiguation Engine", () => {
 
     // Auto-heal invariant
     if (corruptedStoploss >= entry) {
-      corruptedStoploss = +(entry * 0.95).toFixed(2);
+      corruptedStoploss = +(entry * 0.975).toFixed(2);
     }
 
     expect(checkInvariant(corruptedStoploss, entry, target)).toBe(true);
-    expect(corruptedStoploss).toBe(74337.5);
+    expect(corruptedStoploss).toBe(121748.25);
   });
 });

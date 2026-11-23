@@ -136,7 +136,7 @@ export class CommoditySectorTransmissionEngine {
 			s.includes("gems & jewellery");
 
 		if (isBullionSector) {
-			const goldPrice = macroState?.goldMcxInr ?? 78250;
+			const goldPrice = macroState?.goldMcxInr ?? 124870;
 			if (goldPrice >= 75000) {
 				return {
 					scoreDelta: 8,

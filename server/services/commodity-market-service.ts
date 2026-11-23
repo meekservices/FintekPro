@@ -92,7 +92,7 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     name: "Gold 24K (MCX LTP)",
     category: "Precious Metals",
     mcxSymbol: "GOLD",
-    mcxPrice: 78250,
+    mcxPrice: 124870,
     mcxUnit: "₹ / 10g",
     mcxChangePercent: 0.35,
     cmxSymbol: "GC=F (COMEX / Global CFD)",

@@ -76,9 +76,9 @@ export const MCX_POLLED_SPOT_BENCHMARKS: Array<{
 		tradingSymbol: "GOLD SPOT AHM",
 		instrumentKey: "MCX_SPOT|GOLD_AHM",
 		deliveryCenter: "Ahmedabad",
-		price: 78250,
+		price: 124870,
 		unit: "₹ / 10g",
-		prevClose: 77800,
+		prevClose: 124300,
 		cfdUsd: 2685.50,
 	},
 	{

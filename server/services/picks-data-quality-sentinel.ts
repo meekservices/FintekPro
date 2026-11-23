@@ -93,16 +93,21 @@ export class PicksDataQualitySentinel {
           }
         }
 
-        // ── 2. Commodity Price Outlier Check (e.g. Gold Spot corridor [₹65,000 - ₹90,000]) ──
+        // ── 2. Commodity Price Outlier Check & 2026 Spot Realignment [₹95,000 - ₹165,000] ──
         if (cat === "commodities" && (sym === "GOLD" || name.toUpperCase().includes("GOLD"))) {
-          if (curP > 95000 || curP < 55000) {
-            const canonicalGold = 78250.0;
-            const canonicalReturn = recoP > 0 ? Number((((canonicalGold - recoP) / recoP) * 100).toFixed(2)) : 0;
-            const canonicalSl = (recoP * 0.95).toFixed(2);
+          const canonicalGold = 124870.0;
+          if (curP > 165000 || curP < 95000 || (recoP > 0 && recoP < 100000)) {
+            const canonicalReco = (recoP > 0 && recoP < 100000) ? canonicalGold : recoP;
+            const effectiveCur = curP >= 95000 && curP <= 165000 ? curP : canonicalGold;
+            const canonicalReturn = canonicalReco > 0 ? Number((((effectiveCur - canonicalReco) / canonicalReco) * 100).toFixed(2)) : 0;
+            const canonicalSl = (canonicalReco * 0.975).toFixed(2);
+            const canonicalTarget = (canonicalReco * 1.05).toFixed(2);
 
             await db.execute(sql`
               UPDATE daily_picks
-              SET current_price = ${canonicalGold.toFixed(4)},
+              SET reco_price = ${canonicalReco.toFixed(4)},
+                  current_price = ${effectiveCur.toFixed(4)},
+                  target_price = ${canonicalTarget},
                   return_pct = ${canonicalReturn.toString()},
                   status = 'live',
                   stoploss_price = ${canonicalSl},
@@ -115,7 +120,7 @@ export class PicksDataQualitySentinel {
               category: cat,
               instrumentName: name,
               violationType: "COMMODITY_PRICE_OUTLIER",
-              details: `MCX Gold quote ₹${curP} breached corridor [55000 - 95000]. Clamped to canonical ₹${canonicalGold} and reverted status to 'live'.`,
+              details: `MCX Gold entry/LTP (entry: ₹${recoP}, LTP: ₹${curP}) recalibrated to canonical 2026 spot ₹${canonicalGold} (Target: ₹${canonicalTarget}, SL: ₹${canonicalSl}) with status reverted to 'live'.`,
               autoHealed: true,
             });
           }

@@ -7242,15 +7242,18 @@ export async function ensureEngineGapFixTables(poolInstance?: any): Promise<void
         AND NOT EXISTS (SELECT 1 FROM screener_master_snapshots sms WHERE sms.symbol = ls.symbol AND sms.financials_fiscal_year IS NOT NULL);
 
       -- ── Picks Data Integrity & Outlier Healing (Nov 2026 Audit) ──
+      -- 1. Recalibrate Gold 24K MCX Pick to Authentic 2026 Spot (₹1,24,870)
       UPDATE daily_picks
-      SET current_price = 78250.0000,
-          return_pct = 0.00,
+      SET reco_price = 124870.0000,
+          current_price = 124870.0000,
+          target_price = 131113.5000,
+          stoploss_price = 121748.2500,
           status = 'live',
-          stoploss_price = 74337.5000,
+          return_pct = 0.00,
           updated_at = NOW()
       WHERE category = 'commodities'
         AND (symbol = 'GOLD' OR instrument_name ILIKE '%Gold%')
-        AND current_price::numeric > 95000;
+        AND (reco_price::numeric < 100000 OR reco_date = '2026-11-23' OR reco_date = CURRENT_DATE);
 
       UPDATE daily_picks
       SET instrument_name = instrument_name || ' Corporate Bond (NCD)',
