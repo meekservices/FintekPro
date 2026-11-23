@@ -248,10 +248,16 @@ export class BondStrategy extends BaseStrategy {
 				},
 			});
 
+			const maturityYear = topBond.maturityDate
+				? new Date(topBond.maturityDate).getFullYear()
+				: null;
+			const couponStr = coupon ? `${coupon.toFixed(2)}% ` : "";
+			const formattedBondName = `${topBond.issuerName || "Corporate"} ${couponStr}NCD${maturityYear ? ` (${maturityYear})` : ""}`.trim();
+
 			return {
 				category: "bonds",
 				instrumentId: topBond.id,
-				instrumentName: topBond.issuerName || topBond.isin,
+				instrumentName: formattedBondName,
 				isin: topBond.isin,
 				symbol: topBond.isin,
 				recoDate: context.today,
