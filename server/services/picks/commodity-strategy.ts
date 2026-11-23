@@ -222,7 +222,7 @@ export class CommodityStrategy extends BaseStrategy {
 				],
 				confidenceScore,
 				keyMetrics,
-				engineVersion: "CommodityStrategy-v1.0",
+				engineVersion: "Commodity-v1.0",
 				calculationTimestamp: new Date(),
 			};
 

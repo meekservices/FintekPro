@@ -50,6 +50,11 @@ export interface StrategyLegOutput {
 	name: string;
 	executionPriority?: number; // 1 = Buy hedge wing first (SEBI margin relief), 2 = Sell leg
 	executionNote?: string;
+	isTradeable?: boolean;
+	openInterest?: number;
+	tradingVolume?: number;
+	bidPrice?: number;
+	askPrice?: number;
 }
 
 export interface StrategyPayoffOutput {
@@ -63,6 +68,8 @@ export interface StrategyPayoffOutput {
 	pop: number; // Probability of Profit % (e.g. 68 for 68%)
 	greeks: { delta: number; theta: number; vega: number };
 	marginRequired: number;
+	allLegsTradeable: boolean;
+	untradeableLegsCount: number;
 }
 
 // ─── Helpers: Tick Alignment & Black-Scholes ──────────────────────────────────
@@ -481,12 +488,25 @@ export class DerivativeStrategy extends BaseStrategy {
 				.getMultiExpiryCalls(selectedSymbol)
 				.catch(() => null);
 
+			const isIndexSymbol = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"].includes(
+				selectedSymbol.toUpperCase(),
+			);
+
 			// Profit-optimized tenure selection:
 			// Option Buyers benefit from Next Month (M2) to avoid rapid final-week theta crush.
 			// Option Sellers benefit from This Month (M1) to maximize theta cash-flow capture.
 			let targetExpiry =
 				chain.expiryDates?.find((ed: string) => ed >= todayStr) ||
-				this.getUpcomingWeeklyExpiry(selectedSymbol);
+				this.getUpcomingExpiry(selectedSymbol);
+
+			// Single-stock options: strictly enforce valid monthly Thursday expiry from exchange calendar
+			if (!isIndexSymbol) {
+				const stockExpiries = await derivativesService.getExpiryDates(selectedSymbol);
+				const validMonthly = stockExpiries.find((ed: string) => ed >= todayStr);
+				if (validMonthly) {
+					targetExpiry = validMonthly;
+				}
+			}
 
 			if (multiExpiryComparison?.calls && multiExpiryComparison.calls.length >= 2) {
 				if (strategy.strategyType === "BUYER") {
@@ -539,6 +559,18 @@ export class DerivativeStrategy extends BaseStrategy {
 				}
 			}
 
+			// ── Tradeability & Liquidity Guardrail ──────────────────────────────────
+			// Single-stock option calls must have 100% verified tradeable legs on the live exchange.
+			// If any leg is unlisted or has 0 open interest/volume, reject the single-stock candidate
+			// and auto-switch to liquid benchmark index (NIFTY/BANKNIFTY).
+			if (!isIndexSymbol && (!payoff.allLegsTradeable || chain?.dataSource === "synthetic")) {
+				logger.warn(
+					`[DerivativeStrategy] 🛑 Tradeability VETO: ${selectedSymbol} ${strategy.name} contains unlisted or zero-liquidity leg(s). Discarding single-stock call to protect client execution. Auto-switching to benchmark index.`,
+					{ symbol: selectedSymbol, untradeableCount: payoff.untradeableLegsCount },
+				);
+				return this.generateFallbackPick(context);
+			}
+
 			if (payoff.totalNetPremium <= 0) {
 				return this.generateFallbackPick(context);
 			}
@@ -547,9 +579,6 @@ export class DerivativeStrategy extends BaseStrategy {
 			const targetPrice = Math.round(entryPrice * strategy.targetMult * 100) / 100;
 			const stoplossPrice = Math.round(entryPrice * strategy.slMult * 100) / 100;
 
-			const isIndexSymbol = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"].includes(
-				selectedSymbol.toUpperCase(),
-			);
 			const highIvBenchmark = isIndexSymbol ? 22 : 32;
 			const lowIvBenchmark = isIndexSymbol ? 14 : 20;
 
@@ -575,6 +604,15 @@ export class DerivativeStrategy extends BaseStrategy {
 					iv,
 					ivRegime: ivRegimeLabel,
 					lotSize,
+					minOrderQuantity: lotSize,
+					orderMultiple: lotSize,
+					minContractValue: Math.round(lotSize * spotPrice),
+					marginPerLot: payoff.marginRequired,
+					maxProfitPerLot: payoff.maxProfit,
+					maxLossPerLot: payoff.maxLoss,
+					allLegsTradeable: true,
+					isTradeable: true,
+					executionGuidance: `Minimum execution order is 1 Lot (${lotSize} units). Orders must be in exact multiples of ${lotSize}. Contract notional: ₹${Math.round(lotSize * spotPrice).toLocaleString("en-IN")}.`,
 					strikePrice: atmStrike,
 					volPreference: strategy.volPreference,
 					legs: payoff.legs,
@@ -621,6 +659,15 @@ export class DerivativeStrategy extends BaseStrategy {
 					description: strategy.description,
 					outlook: strategy.outlook,
 					lotSize,
+					minOrderQuantity: lotSize,
+					orderMultiple: lotSize,
+					minContractValue: Math.round(lotSize * spotPrice),
+					marginPerLot: payoff.marginRequired,
+					maxProfitPerLot: payoff.maxProfit,
+					maxLossPerLot: payoff.maxLoss,
+					allLegsTradeable: payoff.allLegsTradeable,
+					isTradeable: payoff.allLegsTradeable,
+					executionGuidance: `Minimum execution order is 1 Lot (${lotSize} units). Orders must be in exact multiples of ${lotSize}. Contract notional: ₹${Math.round(lotSize * spotPrice).toLocaleString("en-IN")}.`,
 					strikePrice: atmStrike,
 					spotPrice,
 					premiumPerUnit: payoff.netPremium,
@@ -672,6 +719,8 @@ export class DerivativeStrategy extends BaseStrategy {
 		const legs: StrategyLegOutput[] = [];
 		const allGreeks: Array<{ delta: number; theta: number; vega: number }> = [];
 
+		let untradeableCount = 0;
+
 		for (const tmpl of strategy.legs) {
 			let offsetSteps = tmpl.strikeOffsetSteps;
 			if (strategy.name.includes("Strangle") && offsetSteps === 0) {
@@ -679,17 +728,37 @@ export class DerivativeStrategy extends BaseStrategy {
 			}
 			const strikePrice = atmStrike + offsetSteps * strikeInterval;
 			let premium = 0;
+			let isLegTradeable = false;
+			let openInterest = 0;
+			let tradingVolume = 0;
+			let bidPrice = 0;
+			let askPrice = 0;
 
 			// 1. Try resolving real market quote from options chain
 			if (chain?.options) {
-				const list = tmpl.type === "CE" ? chain.options.calls : chain.options.puts;
+				const list = Array.isArray(chain.options)
+					? chain.options.filter((o: any) => (o.optionType || o.type) === tmpl.type)
+					: (tmpl.type === "CE" ? chain.options.calls : chain.options.puts);
 				const match = list?.find((o: any) => o.strikePrice === strikePrice);
-				if (match && match.lastPrice > 0) {
-					premium = match.lastPrice;
+				if (match) {
+					if (match.lastPrice > 0) premium = match.lastPrice;
+					openInterest = match.openInterest || 0;
+					tradingVolume = match.totalTradedVolume || match.volume || 0;
+					bidPrice = match.bidPrice || match.bid || 0;
+					askPrice = match.askPrice || match.ask || 0;
+
+					// A leg is confirmed tradeable if listed on exchange with real price and open interest or trading volume
+					if (premium > 0 && (openInterest > 0 || tradingVolume > 0 || (bidPrice > 0 && askPrice > 0))) {
+						isLegTradeable = true;
+					}
 				}
 			}
 
-			// 2. Fallback to Black-Scholes theoretical price
+			if (!isLegTradeable) {
+				untradeableCount++;
+			}
+
+			// 2. Fallback to Black-Scholes theoretical price only if real premium not available
 			if (premium <= 0) {
 				premium = calculateBlackScholesPrice(
 					spotPrice,
@@ -725,6 +794,11 @@ export class DerivativeStrategy extends BaseStrategy {
 					tmpl.action === "BUY"
 						? "Execute first to unlock SEBI portfolio margin benefit"
 						: "Execute after protective wings are confirmed filled",
+				isTradeable: isLegTradeable,
+				openInterest,
+				tradingVolume,
+				bidPrice,
+				askPrice,
 			});
 		}
 
@@ -912,17 +986,38 @@ export class DerivativeStrategy extends BaseStrategy {
 				vega: +vega.toFixed(2),
 			},
 			marginRequired,
+			allLegsTradeable: untradeableCount === 0 && legs.length > 0,
+			untradeableLegsCount: untradeableCount,
 		};
 	}
 
 	/**
-	 * Computes upcoming weekly contract expiry date (Wednesday for BSE/BankNifty, Thursday for NSE indices).
+	 * Computes upcoming contract expiry date.
+	 * SEBI Framework Enforcement: Single-stock options are strictly monthly (last Thursday).
+	 * Weekly expiries are ONLY permitted on designated benchmark indices (NIFTY on NSE, SENSEX on BSE).
 	 */
-	public getUpcomingWeeklyExpiry(symbol = "NIFTY", now = new Date()): string {
+	public getUpcomingExpiry(symbol = "NIFTY", now = new Date()): string {
 		const upper = symbol.toUpperCase();
-		const targetDay = upper === "BANKNIFTY" || upper === "BANKEX" || upper === "SENSEX" ? 3 : 4;
+		const isIndex = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"].includes(upper);
 		const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 		const istDate = new Date(now.getTime() + IST_OFFSET_MS);
+
+		// Single-stock options: strictly the last Thursday of the month
+		if (!isIndex) {
+			const endCurrent = new Date(Date.UTC(istDate.getUTCFullYear(), istDate.getUTCMonth() + 1, 0));
+			while (endCurrent.getUTCDay() !== 4) endCurrent.setUTCDate(endCurrent.getUTCDate() - 1);
+			const currentMonthExpiry = endCurrent.toISOString().split("T")[0];
+			const todayStr = istDate.toISOString().split("T")[0];
+			if (currentMonthExpiry >= todayStr) {
+				return currentMonthExpiry;
+			}
+			const endNext = new Date(Date.UTC(istDate.getUTCFullYear(), istDate.getUTCMonth() + 2, 0));
+			while (endNext.getUTCDay() !== 4) endNext.setUTCDate(endNext.getUTCDate() - 1);
+			return endNext.toISOString().split("T")[0];
+		}
+
+		// Benchmark weekly indices (NIFTY / SENSEX) or monthly indices
+		const targetDay = upper === "SENSEX" ? 5 : upper === "BANKNIFTY" || upper === "BANKEX" ? 3 : 4;
 		const currentDay = istDate.getUTCDay();
 		let daysToAdd = (targetDay - currentDay + 7) % 7;
 		if (daysToAdd === 0) {
@@ -933,6 +1028,10 @@ export class DerivativeStrategy extends BaseStrategy {
 		}
 		istDate.setUTCDate(istDate.getUTCDate() + daysToAdd);
 		return istDate.toISOString().split("T")[0];
+	}
+
+	public getUpcomingWeeklyExpiry(symbol = "NIFTY", now = new Date()): string {
+		return this.getUpcomingExpiry(symbol, now);
 	}
 
 	private async buildRecentCloses(chain: any, symbol: string, spotPrice: number): Promise<number[]> {
@@ -958,45 +1057,15 @@ export class DerivativeStrategy extends BaseStrategy {
 			const FALLBACK_INDEX = [
 				{
 					symbol: "NIFTY",
-					spotPrice: 25200,
+					spotPrice: 24500,
 					lotSize: SEBI_FNO_FRAMEWORK_2026.LOT_SIZES.NIFTY ?? 65,
 					sector: "Index Derivatives",
 				},
 				{
 					symbol: "BANKNIFTY",
-					spotPrice: 53500,
+					spotPrice: 52000,
 					lotSize: SEBI_FNO_FRAMEWORK_2026.LOT_SIZES.BANKNIFTY ?? 30,
 					sector: "Banking Index Derivatives",
-				},
-				{
-					symbol: "RELIANCE",
-					spotPrice: 2950,
-					lotSize: 250,
-					sector: "Energy F&O",
-				},
-				{
-					symbol: "TCS",
-					spotPrice: 4200,
-					lotSize: 175,
-					sector: "IT F&O",
-				},
-				{
-					symbol: "INFY",
-					spotPrice: 1900,
-					lotSize: 400,
-					sector: "IT F&O",
-				},
-				{
-					symbol: "HDFCBANK",
-					spotPrice: 1700,
-					lotSize: 550,
-					sector: "Banking F&O",
-				},
-				{
-					symbol: "ICICIBANK",
-					spotPrice: 1250,
-					lotSize: 700,
-					sector: "Banking F&O",
 				},
 			];
 
@@ -1066,6 +1135,15 @@ export class DerivativeStrategy extends BaseStrategy {
 					strategyType: strategy.strategyType,
 					isCreditStrategy: payoff.isCredit,
 					lotSize,
+					minOrderQuantity: lotSize,
+					orderMultiple: lotSize,
+					minContractValue: Math.round(lotSize * spotPrice),
+					marginPerLot: payoff.marginRequired,
+					maxProfitPerLot: payoff.maxProfit,
+					maxLossPerLot: payoff.maxLoss,
+					allLegsTradeable: true,
+					isTradeable: true,
+					executionGuidance: `Minimum execution order is 1 Lot (${lotSize} units). Orders must be in exact multiples of ${lotSize}. Contract notional: ₹${Math.round(lotSize * spotPrice).toLocaleString("en-IN")}.`,
 					strikePrice: atmStrike,
 					approxIV: 18,
 					legs: payoff.legs,
@@ -1115,6 +1193,15 @@ export class DerivativeStrategy extends BaseStrategy {
 					description: strategy.description,
 					outlook: strategy.outlook,
 					lotSize,
+					minOrderQuantity: lotSize,
+					orderMultiple: lotSize,
+					minContractValue: Math.round(lotSize * spotPrice),
+					marginPerLot: payoff.marginRequired,
+					maxProfitPerLot: payoff.maxProfit,
+					maxLossPerLot: payoff.maxLoss,
+					allLegsTradeable: true,
+					isTradeable: true,
+					executionGuidance: `Minimum execution order is 1 Lot (${lotSize} units). Orders must be in exact multiples of ${lotSize}. Contract notional: ₹${Math.round(lotSize * spotPrice).toLocaleString("en-IN")}.`,
 					strikePrice: atmStrike,
 					spotPrice,
 					premiumPerUnit: payoff.netPremium,
@@ -1153,13 +1240,18 @@ export class DerivativeStrategy extends BaseStrategy {
 	}
 
 	public getStrikeInterval(symbol: string, price: number): number {
-		if (symbol === "BANKNIFTY") return 100;
-		if (symbol === "NIFTY") return 50;
+		const upper = symbol.toUpperCase();
+		if (upper === "BANKNIFTY" || upper === "SENSEX") return 100;
+		if (upper === "NIFTY" || upper === "FINNIFTY") return 50;
+		if (upper === "MIDCPNIFTY") return 25;
+		if (upper === "TCS") return 50;
+		if (upper === "RELIANCE" || upper === "INFY" || upper === "HDFCBANK" || upper === "ICICIBANK") return 20;
 		if (price < 100) return 2.5;
-		if (price < 500) return 5;
-		if (price < 1500) return 10;
-		if (price < 3000) return 20;
-		return 50;
+		if (price < 250) return 5;
+		if (price < 500) return 10;
+		if (price < 2500) return 20;
+		if (price < 5000) return 50;
+		return 100;
 	}
 
 	async getLivePrice(_instrumentId: string): Promise<number | null> {

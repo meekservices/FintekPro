@@ -629,6 +629,21 @@ export async function runStartupSchemaRepairs() {
 			if ((expiredRes.rowCount ?? 0) > 0) {
 				console.log(`  ⏳ [POTD Policy] Auto-expired ${expiredRes.rowCount} stale pick(s) whose expiry date has passed.`);
 			}
+
+			// 4. POTD Policy: Auto-expire untradeable derivative picks with non-exchange strikes or corrupted spot prices (e.g. INFY 1100 CE)
+			const untradeableDerivRes = await migPool.query(`
+				UPDATE daily_picks
+				SET status = 'expired', updated_at = NOW()
+				WHERE category = 'derivatives'
+				  AND status = 'live'
+				  AND (
+					  (symbol = 'INFY' AND (key_metrics->>'legs') LIKE '%1100 CE%')
+					  OR (symbol = 'INFY' AND (key_metrics->>'spotPrice')::numeric < 1400)
+				  );
+			`);
+			if ((untradeableDerivRes.rowCount ?? 0) > 0) {
+				console.log(`  🛡️ [POTD Policy] Auto-expired ${untradeableDerivRes.rowCount} untradeable derivative pick(s) with non-exchange strikes.`);
+			}
 		} catch (err: any) {
 			console.warn("  ⚠️ [POTD Repairs] Non-fatal error in POTD data repair:", err?.message?.slice(0, 100));
 		}
@@ -6972,7 +6987,8 @@ export async function ensureEngineGapFixTables(poolInstance?: any): Promise<void
       CREATE INDEX IF NOT EXISTS idx_corr_matrix_valid_until ON benchmark_correlation_matrix (valid_until);
 
       -- ── daily_picks: FASP-AI additive columns ──────────────────────────────
-      ALTER TABLE daily_picks ADD COLUMN IF NOT EXISTS engine_version        VARCHAR(20);
+      ALTER TABLE daily_picks ADD COLUMN IF NOT EXISTS engine_version        VARCHAR(50);
+      ALTER TABLE daily_picks ALTER COLUMN engine_version TYPE VARCHAR(50);
       ALTER TABLE daily_picks ADD COLUMN IF NOT EXISTS calculation_timestamp TIMESTAMP;
       ALTER TABLE daily_picks ADD COLUMN IF NOT EXISTS entry_price_golden    DECIMAL(20, 6);
       ALTER TABLE daily_picks ADD COLUMN IF NOT EXISTS macro_regime_id       INTEGER;

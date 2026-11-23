@@ -6127,6 +6127,8 @@ export default function AgentPicksPage() {
 											<Coins className="h-8 w-8 text-muted-foreground/60" />
 										) : todayCategoryFilter === "fixed_deposits" ? (
 											<LucideShield className="h-8 w-8 text-muted-foreground/60" />
+										) : todayCategoryFilter === "commodities" ? (
+											<Flame className="h-8 w-8 text-muted-foreground/60" />
 										) : (
 											<Sparkles className="h-8 w-8 text-muted-foreground/60" />
 										)}
@@ -6152,7 +6154,9 @@ export default function AgentPicksPage() {
 																? "Fixed Deposit picks are generated from the instrument master. Ensure FD instruments are seeded in the database."
 																: todayCategoryFilter === "etfs"
 																	? 'ETF picks require instruments with assetClass="etf" and a non-null lastPrice in the instrument master.'
-																	: "Picks are generated automatically each morning at 9 AM IST based on market analysis."}
+																	: todayCategoryFilter === "commodities"
+																		? "Commodity picks evaluate high-conviction MCX Bullion, Energy, Base Metals, and NCDEX Agri contracts with 2:1 risk-to-reward discipline."
+																		: "Picks are generated automatically each morning at 9 AM IST based on market analysis."}
 									</p>
 									<p className="text-xs text-muted-foreground/60 mt-2">
 										Next auto-generation: 9:00 AM IST
@@ -9451,7 +9455,7 @@ function PicksTable({
 														</h4>
 														<p className="text-[10px] text-muted-foreground mt-0.5">
 															Underlying Spot: ₹{curSpot.toLocaleString("en-IN")}{" "}
-															· Lot Size: {lotSize} · DTE: {km.dte ?? 7} Days ·
+															· Lot Size: {lotSize} · Min Order Qty: {km.minOrderQuantity ?? lotSize} (1 Lot) · DTE: {km.dte ?? 7} Days ·
 															Expiry: {expiryFormatted}
 														</p>
 													</div>

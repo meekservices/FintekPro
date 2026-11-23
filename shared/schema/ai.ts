@@ -193,7 +193,7 @@ export const dailyPicks = pgTable("daily_picks", {
   // ── FASP-AI v1.0 compliance fields ──────────────────────────────────────────
   // Required: every AI advisory output must expose engine_version,
   // calculation_timestamp, confidence_score, and macro context (GCR §AI Advisory).
-  engineVersion: varchar("engine_version", { length: 20 }),          // e.g. "POTD-v2.1"
+  engineVersion: varchar("engine_version", { length: 50 }),          // e.g. "POTD-v2.1"
   calculationTimestamp: timestamp("calculation_timestamp"),            // when pick was scored
   entryPriceGolden: decimal("entry_price_golden", { precision: 20, scale: 6 }), // GPE price at reco time
   macroRegimeId: integer("macro_regime_id"),                          // FK → macro_regime_snapshots.id (no .references() to avoid circular dep across schema files)

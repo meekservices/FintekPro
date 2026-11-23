@@ -392,5 +392,105 @@ describe("POTD Derivative Engine - Multi-Leg & Option Seller Strategies", () => 
 			expect(straddlePayoff.pop).toBeLessThanOrEqual(55);
 		});
 	});
+
+	// ── 6. Tradeability Guardrail, Minimum Order Quantity & SEBI Monthly Expiry ───
+	describe("6. Tradeability Guardrail, Minimum Order Quantity & SEBI Monthly Expiry", () => {
+		it("strictly computes monthly Thursday expiry for single-stock options (no weekly expiries)", () => {
+			const infyExpiry = strategyEngine.getUpcomingExpiry("INFY", new Date("2026-11-23T10:00:00.000Z"));
+			// 23 Nov 2026 is a Monday. Last Thursday of Nov 2026 is 26 Nov 2026.
+			expect(infyExpiry).toBe("2026-11-26");
+			const d = new Date(infyExpiry);
+			expect(d.getDay()).toBe(4); // Thursday
+		});
+
+		it("allows weekly expiry for benchmark indices (NIFTY / SENSEX)", () => {
+			const niftyExpiry = strategyEngine.getUpcomingExpiry("NIFTY", new Date("2026-11-23T10:00:00.000Z"));
+			// NIFTY expires on Thursday
+			const d = new Date(niftyExpiry);
+			expect(d.getDay()).toBe(4);
+			expect(niftyExpiry).toBe("2026-11-26");
+		});
+
+		it("enforces minimum order quantity equals lot size and calculates minContractValue", async () => {
+			const mockContext = {
+				recentIds: new Set<string>(),
+				service: {
+					generateRationale: async (p: any) => `Structured rationale for ${p.name}`,
+				} as any,
+			};
+
+			const pick = await (strategyEngine as any).generateFallbackPick(mockContext);
+			const km = pick.keyMetrics;
+			expect(km.lotSize).toBeGreaterThan(0);
+			expect(km.minOrderQuantity).toBe(km.lotSize);
+			expect(km.orderMultiple).toBe(km.lotSize);
+			expect(km.minContractValue).toBeGreaterThan(0);
+		});
+
+		it("flags single-stock legs as untradeable when open interest is 0 or chain is synthetic", () => {
+			const strat = STRATEGY_CATALOGUE.find((s) => s.name === "Bear Call Spread")!;
+			// Synthetic chain mock without live exchange quotes
+			const syntheticChain = {
+				dataSource: "synthetic",
+				options: [],
+			};
+			const payoff = strategyEngine.buildLegsAndPayoff(
+				"INFY",
+				strat,
+				1850,
+				1860,
+				20,
+				300,
+				syntheticChain,
+			);
+			expect(payoff.allLegsTradeable).toBe(false);
+			expect(payoff.untradeableLegsCount).toBeGreaterThan(0);
+			for (const leg of payoff.legs) {
+				expect(leg.isTradeable).toBe(false);
+			}
+		});
+
+		it("flags legs as tradeable when live quotes with positive OI and volume exist", () => {
+			const strat = STRATEGY_CATALOGUE.find((s) => s.name === "Bear Call Spread")!;
+			const liveChain = {
+				dataSource: "live",
+				options: [
+					{
+						strikePrice: 1860,
+						optionType: "CE",
+						openInterest: 150000,
+						volume: 45000,
+						bidPrice: 18.5,
+						askPrice: 19.0,
+						lastPrice: 18.75,
+					},
+					{
+						strikePrice: 1880,
+						optionType: "CE",
+						openInterest: 220000,
+						volume: 60000,
+						bidPrice: 8.2,
+						askPrice: 8.5,
+						lastPrice: 8.35,
+					},
+				],
+			};
+			const payoff = strategyEngine.buildLegsAndPayoff(
+				"INFY",
+				strat,
+				1850,
+				1860,
+				20,
+				300,
+				liveChain,
+			);
+			expect(payoff.allLegsTradeable).toBe(true);
+			expect(payoff.untradeableLegsCount).toBe(0);
+			for (const leg of payoff.legs) {
+				expect(leg.isTradeable).toBe(true);
+				expect(leg.openInterest).toBeGreaterThan(0);
+			}
+		});
+	});
 });
 

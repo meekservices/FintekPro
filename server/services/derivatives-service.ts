@@ -572,28 +572,58 @@ class DerivativesService {
 		const cached = this.spotCache.get(upper);
 		if (cached && Date.now() - cached.ts < this.SPOT_TTL) return cached.price;
 
+		const refPrice = REFERENCE_PRICES[upper];
+
 		// Tier 1: Upstox licensed live quote (SEBI-grade real-time feed)
 		try {
 			const quoteRes = await upstoxMarketDataService.getQuote(upper);
 			if (quoteRes.success && quoteRes.data?.last_price && quoteRes.data.last_price > 0) {
 				const price = quoteRes.data.last_price;
-				this.spotCache.set(upper, { price, ts: Date.now() });
-				return price;
+				// Sanity check: Ensure quote is not corrupted ADR/currency mismatch (within 40% of known ref)
+				if (!refPrice || Math.abs(price - refPrice) / refPrice < 0.40) {
+					this.spotCache.set(upper, { price, ts: Date.now() });
+					return price;
+				}
+				logger.warn(`[DerivativesService.getSpotPrice] Upstox price ₹${price} for ${upper} failed sanity check against ref ₹${refPrice}. Falling through.`);
+			}
+		} catch {
+			/* Fall through to Tier 1b */
+		}
+
+		// Tier 1b: Unified Stock Price Service (checks DB listed_stocks, IndianAPI, etc.)
+		try {
+			const { unifiedStockPriceService } = await import("./unified-stock-price-service");
+			const stockPrice = await unifiedStockPriceService.getPrice(upper, "NSE");
+			if (stockPrice?.price && stockPrice.price > 0) {
+				const price = stockPrice.price;
+				if (!refPrice || Math.abs(price - refPrice) / refPrice < 0.40) {
+					this.spotCache.set(upper, { price, ts: Date.now() });
+					return price;
+				}
+				logger.warn(`[DerivativesService.getSpotPrice] Unified price ₹${price} for ${upper} failed sanity check against ref ₹${refPrice}. Falling through.`);
 			}
 		} catch {
 			/* Fall through to Tier 2 */
 		}
 
 		// Tier 2: Python/yfinance
-		const pyPrices = await this.fetchPythonNseSpot([upper]);
-		if (pyPrices.has(upper)) {
-			const price = pyPrices.get(upper)!;
-			this.spotCache.set(upper, { price, ts: Date.now() });
-			return price;
+		try {
+			const pyPrices = await this.fetchPythonNseSpot([upper]);
+			if (pyPrices.has(upper)) {
+				const price = pyPrices.get(upper)!;
+				if (!refPrice || Math.abs(price - refPrice) / refPrice < 0.40) {
+					this.spotCache.set(upper, { price, ts: Date.now() });
+					return price;
+				}
+			}
+		} catch {
+			/* Fall through to Tier 3 */
 		}
 
 		// Tier 3: reference prices
-		return REFERENCE_PRICES[upper] || 1000;
+		const fallback = refPrice || 1000;
+		this.spotCache.set(upper, { price: fallback, ts: Date.now() });
+		return fallback;
 	}
 
 	/**
@@ -717,18 +747,26 @@ class DerivativesService {
 
 		// Compute Thursday-based expiry calendar (NSE pattern)
 		const today = new Date();
-		const isIndex = NSE_INDICES.has(symbol.toUpperCase());
+		const isIndex = NSE_INDICES.has(upper);
 		const expiries: string[] = [];
 
-		for (let i = 0; i < 12; i++) {
-			const d = new Date(today);
-			d.setDate(d.getDate() + i * 7);
-			const thu = new Date(d);
-			thu.setDate(d.getDate() + ((4 - d.getDay() + 7) % 7));
-			if (thu > today) expiries.push(thu.toISOString().split("T")[0]);
-			if (!isIndex && expiries.length >= 3) break;
+		// SEBI F&O Framework: Single-stock options are strictly MONTHLY only!
+		// Weekly expiries are ONLY permitted on designated benchmark indices (NIFTY on NSE, SENSEX on BSE).
+		const isWeeklyAllowedIndex = isIndex &&
+			(SEBI_FNO_FRAMEWORK_2026.ALLOWED_WEEKLY_EXPIRY_INDICES as readonly string[]).includes(upper);
+
+		if (isWeeklyAllowedIndex) {
+			for (let i = 0; i < 4; i++) {
+				const d = new Date(today);
+				d.setDate(d.getDate() + i * 7);
+				const targetDay = upper === "SENSEX" ? 5 : 4; // Friday for BSE SENSEX, Thursday for NSE NIFTY
+				const expiryDay = new Date(d);
+				expiryDay.setDate(d.getDate() + ((targetDay - d.getDay() + 7) % 7));
+				if (expiryDay > today) expiries.push(expiryDay.toISOString().split("T")[0]);
+			}
 		}
 
+		// Monthly expiries: Last Thursday of each month (mandatory for all single stocks and monthly indices)
 		const monthly: string[] = [];
 		for (let m = 0; m < 3; m++) {
 			const end = new Date(today.getFullYear(), today.getMonth() + m + 1, 0);
@@ -1544,7 +1582,7 @@ class DerivativesService {
 			? symbol === "BANKNIFTY"
 				? 100
 				: 50
-			: this.strikeInterval(spotPrice);
+			: this.strikeInterval(spotPrice, symbol);
 		const atm = Math.round(spotPrice / interval) * interval;
 		const strikes = Array.from(
 			{ length: 31 },
@@ -1659,12 +1697,19 @@ class DerivativesService {
 		);
 	}
 
-	private strikeInterval(price: number): number {
+	public strikeInterval(price: number, symbol?: string): number {
+		const upper = symbol?.toUpperCase();
+		if (upper === "BANKNIFTY" || upper === "SENSEX") return 100;
+		if (upper === "NIFTY" || upper === "FINNIFTY") return 50;
+		if (upper === "MIDCPNIFTY") return 25;
+		if (upper === "TCS") return 50;
+		if (upper === "RELIANCE" || upper === "INFY" || upper === "HDFCBANK" || upper === "ICICIBANK") return 20;
 		if (price < 100) return 2.5;
-		if (price < 500) return 5;
-		if (price < 1000) return 10;
-		if (price < 5000) return 25;
-		return 50;
+		if (price < 250) return 5;
+		if (price < 500) return 10;
+		if (price < 2500) return 20;
+		if (price < 5000) return 50;
+		return 100;
 	}
 
 	private isLastThursday(date: Date): boolean {
