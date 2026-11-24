@@ -89,6 +89,16 @@ Under **FASP-AI v1.0 Section 14–15**, each executive sub-agent is classified s
    - CTO reviews auto-heal timeline in `/admin/activity-centre`.
    - Confirms telemetry archive via 1-click audit sign-off.
 
+### 3.6 SOP-REV-01: Cross-Desk Autonomous Revenue Generation & Monetization Standard
+1. **Mandate Allocation:**
+   - **`Iris-CBO` (Lead Revenue Generator):** Owns pipeline origination, buyer-seller matching, MCA liquidity deal conversion, high-yield bond syndication tranches, and B2B distributor monetization.
+   - **`Iris-CFO` (Revenue Realization & Take-Rate Sentinel):** Reconciles exchange clearing rebates (Upstox/Alpaca), enforces partner commission margin protection (ensuring minimum 1.5% net take-rate), and accelerates fee collections via Zoho Books.
+2. **Autonomous Revenue Pipeline Flow:**
+   - **Step 1 (Origination):** `Iris-CBO` detects matched order spreads (<1.5%) in secondary unlisted markets or corporate ESOP buybacks in MCA radar.
+   - **Step 2 (Accreditation & Suitability Gate):** Intercepted by `AAGE v1.0` + `Iris-CCO` to confirm SEBI investor category and zero regulatory drift.
+   - **Step 3 (Escrow & Margin Calculation):** `Iris-CFO` validates transaction fees, netting rules, and 10% statutory TDS deductions.
+   - **Step 4 (1-Click C-Suite Execution):** CBO/CFO confirms deal execution via 1-click token on the Command Desk, creating an immutable audit log and dispatching e-Sign agreements.
+
 ---
 
 ## 4. Immutable Audit Trail & Regulatory Forensics Contract
