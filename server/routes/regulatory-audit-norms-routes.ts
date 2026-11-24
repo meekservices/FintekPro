@@ -72,4 +72,54 @@ router.get("/norm/:normId", async (req: Request, res: Response) => {
 	}
 });
 
+/**
+ * POST /api/admin/regulatory-audit/remediate/:normId
+ * Triggers statutory remediation action for a specific norm.
+ */
+router.post("/remediate/:normId", async (req: Request, res: Response) => {
+	try {
+		const svc = await getService();
+		const { normId } = req.params;
+		const actor = (req as any).user;
+		const result = await svc.remediateNorm(normId, req.body, actor);
+		res.json(result);
+	} catch (err: any) {
+		res.status(500).json({ success: false, error: err.message });
+	}
+});
+
+/**
+ * POST /api/admin/regulatory-audit/form-a-filing
+ * Records SEBI Annual Compliance Report Form A filing details.
+ */
+router.post("/form-a-filing", async (req: Request, res: Response) => {
+	try {
+		const svc = await getService();
+		const actor = (req as any).user;
+		const result = await svc.recordFormAFiling({
+			...req.body,
+			filedByUserId: actor?.id,
+			actorRole: actor?.role,
+		});
+		res.json(result);
+	} catch (err: any) {
+		res.status(400).json({ success: false, error: err.message });
+	}
+});
+
+/**
+ * GET /api/admin/regulatory-audit/export-dossier
+ * Generates and returns the cryptographically sealed SEBI/AMFI Regulatory Audit Dossier.
+ */
+router.get("/export-dossier", async (req: Request, res: Response) => {
+	try {
+		const svc = await getService();
+		const user = (req as any).user;
+		const dossier = await svc.generateAuditDossier(user?.email || user?.id || "admin");
+		res.json({ success: true, data: dossier });
+	} catch (err: any) {
+		res.status(500).json({ success: false, error: err.message });
+	}
+});
+
 export default router;

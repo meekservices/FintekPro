@@ -40,8 +40,23 @@ import {
 	Info,
 	ChevronRight,
 	AlertCircle,
+	Download,
+	FileCheck,
+	Play,
 } from "lucide-react";
 import { format } from "date-fns";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+	DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -222,8 +237,17 @@ function scoreBarColor(score: number) {
 // ─── Component ────────────────────────────────────────────────────────────
 
 export default function RegulatoryAuditNorms() {
+	const { toast } = useToast();
 	const [runningCheck, setRunningCheck] = useState<string | null>(null);
 	const [activeTab, setActiveTab] = useState("overview");
+	const [exportingDossier, setExportingDossier] = useState(false);
+	const [formADialogOpen, setFormADialogOpen] = useState(false);
+	const [formAData, setFormAData] = useState({
+		financialYear: `FY ${new Date().getFullYear() - 1}-${String(new Date().getFullYear()).slice(-2)}`,
+		ackNumber: "",
+		filingDate: new Date().toISOString().split("T")[0],
+		remarks: "",
+	});
 
 	const {
 		data: reportData,
@@ -254,6 +278,97 @@ export default function RegulatoryAuditNorms() {
 			});
 		},
 	});
+
+	const remediateMutation = useMutation({
+		mutationFn: async ({ normId, payload }: { normId: string; payload?: any }) => {
+			const res = await apiRequest(`/api/admin/regulatory-audit/remediate/${normId}`, {
+				method: "POST",
+				body: JSON.stringify(payload || {}),
+			});
+			return res.json();
+		},
+		onSuccess: (data: any) => {
+			toast({
+				title: "Remediation Executed",
+				description: data.message || "Statutory action executed successfully.",
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["/api/admin/regulatory-audit/readiness"],
+			});
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Remediation Failed",
+				description: err.message || "Failed to execute statutory action.",
+				variant: "destructive",
+			});
+		},
+	});
+
+	const formAFilingMutation = useMutation({
+		mutationFn: async (data: { financialYear: string; ackNumber: string; filingDate: string; remarks?: string }) => {
+			const res = await apiRequest("/api/admin/regulatory-audit/form-a-filing", {
+				method: "POST",
+				body: JSON.stringify(data),
+			});
+			return res.json();
+		},
+		onSuccess: (data: any) => {
+			toast({
+				title: "Form A Recorded",
+				description: data.message || "SEBI Annual Compliance Form A recorded.",
+			});
+			setFormADialogOpen(false);
+			setFormAData({
+				financialYear: `FY ${new Date().getFullYear() - 1}-${String(new Date().getFullYear()).slice(-2)}`,
+				ackNumber: "",
+				filingDate: new Date().toISOString().split("T")[0],
+				remarks: "",
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["/api/admin/regulatory-audit/readiness"],
+			});
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Filing Error",
+				description: err.message || "Failed to record Form A filing.",
+				variant: "destructive",
+			});
+		},
+	});
+
+	const exportDossier = async () => {
+		try {
+			setExportingDossier(true);
+			const res = await apiRequest("/api/admin/regulatory-audit/export-dossier");
+			const json = await res.json();
+			const dossierData = json.data || json;
+			const jsonBlob = new Blob([JSON.stringify(dossierData, null, 2)], {
+				type: "application/json",
+			});
+			const url = URL.createObjectURL(jsonBlob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = `SEBI_Regulatory_Audit_Dossier_${new Date().toISOString().split("T")[0]}.json`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+			toast({
+				title: "Dossier Exported",
+				description: "SEBI/AMFI Regulatory Audit Pack Dossier exported successfully.",
+			});
+		} catch (err: any) {
+			toast({
+				title: "Export Failed",
+				description: err.message || "Failed to export audit dossier.",
+				variant: "destructive",
+			});
+		} finally {
+			setExportingDossier(false);
+		}
+	};
 
 	const report = reportData?.data;
 
@@ -289,7 +404,7 @@ export default function RegulatoryAuditNorms() {
 		<TooltipProvider>
 			<div className="p-6 space-y-6 max-w-7xl mx-auto">
 				{/* Header */}
-				<div className="flex items-center justify-between">
+				<div className="flex items-center justify-between flex-wrap gap-4">
 					<div>
 						<h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
 							<LucideShield className="h-6 w-6 text-blue-600" />
@@ -305,18 +420,39 @@ export default function RegulatoryAuditNorms() {
 							)}
 						</p>
 					</div>
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => forceRefetch.mutate()}
-						disabled={forceRefetch.isPending || isFetching}
-						className="gap-2"
-					>
-						<RefreshCw
-							className={`h-4 w-4 ${forceRefetch.isPending || isFetching ? "animate-spin" : ""}`}
-						/>
-						Refresh Checks
-					</Button>
+					<div className="flex items-center gap-2 flex-wrap">
+						<Button
+							variant="default"
+							size="sm"
+							onClick={exportDossier}
+							disabled={exportingDossier}
+							className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+						>
+							<Download className={`h-4 w-4 ${exportingDossier ? "animate-bounce" : ""}`} />
+							Export Certified Dossier
+						</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => setFormADialogOpen(true)}
+							className="gap-2"
+						>
+							<FileCheck className="h-4 w-4 text-green-600" />
+							Record Form A
+						</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => forceRefetch.mutate()}
+							disabled={forceRefetch.isPending || isFetching}
+							className="gap-2"
+						>
+							<RefreshCw
+								className={`h-4 w-4 ${forceRefetch.isPending || isFetching ? "animate-spin" : ""}`}
+							/>
+							Refresh Checks
+						</Button>
+					</div>
 				</div>
 
 				{/* Critical Failure Banner */}
@@ -655,6 +791,53 @@ export default function RegulatoryAuditNorms() {
 												<strong>{norm.retentionYears} years</strong>
 											</div>
 										)}
+
+										<div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
+											<div className="flex items-center gap-2">
+												{norm.id === "NORM-IA-003" && (
+													<Button
+														size="sm"
+														variant="outline"
+														className="h-7 text-xs text-blue-600 border-blue-300 gap-1"
+														onClick={() => setFormADialogOpen(true)}
+													>
+														<FileCheck className="h-3 w-3" />
+														Record Form A Filing
+													</Button>
+												)}
+												{(result?.status === "fail" || result?.status === "warn") && norm.id !== "NORM-IA-003" && (
+													<Button
+														size="sm"
+														variant="outline"
+														className="h-7 text-xs text-amber-700 border-amber-300 gap-1"
+														disabled={remediateMutation.isPending}
+														onClick={() => remediateMutation.mutate({ normId: norm.id })}
+													>
+														<Play className="h-3 w-3" />
+														Take Remedial Action
+													</Button>
+												)}
+											</div>
+											{norm.autoCheckable && (
+												<Button
+													variant="ghost"
+													size="sm"
+													className="h-7 text-xs"
+													disabled={runningCheck === norm.id || singleCheck.isPending}
+													onClick={async () => {
+														setRunningCheck(norm.id);
+														try {
+															await singleCheck.mutateAsync(norm.id);
+														} finally {
+															setRunningCheck(null);
+														}
+													}}
+												>
+													<RefreshCw className={`h-3 w-3 mr-1 ${runningCheck === norm.id ? "animate-spin" : ""}`} />
+													Re-check Norm
+												</Button>
+											)}
+										</div>
 									</CardContent>
 								</Card>
 							);
@@ -709,7 +892,96 @@ export default function RegulatoryAuditNorms() {
 													{item.description}
 												</p>
 											</div>
-											<ChevronRight className="h-4 w-4 text-gray-400 flex-shrink-0 mt-1" />
+											<div className="flex-shrink-0 flex items-center gap-2">
+												{item.normId === "NORM-IA-003" && (
+													<Button
+														size="sm"
+														className="bg-blue-600 hover:bg-blue-700 text-white text-xs gap-1.5"
+														onClick={() => setFormADialogOpen(true)}
+													>
+														<FileCheck className="h-3.5 w-3.5" />
+														Record Form A
+													</Button>
+												)}
+												{item.normId === "NORM-IA-002" && (
+													<Button
+														size="sm"
+														variant="outline"
+														className="text-xs gap-1.5"
+														disabled={remediateMutation.isPending}
+														onClick={() => remediateMutation.mutate({ normId: "NORM-IA-002" })}
+													>
+														<RefreshCw className={`h-3.5 w-3.5 ${remediateMutation.isPending ? "animate-spin" : ""}`} />
+														Trigger Re-KYC Notice
+													</Button>
+												)}
+												{(item.normId === "NORM-IA-006" || item.normId === "NORM-SYS-001") && (
+													<Button
+														size="sm"
+														variant="outline"
+														className="text-xs gap-1.5"
+														disabled={remediateMutation.isPending}
+														onClick={() => remediateMutation.mutate({ normId: item.normId })}
+													>
+														<ShieldCheck className={`h-3.5 w-3.5 ${remediateMutation.isPending ? "animate-spin" : ""}`} />
+														Verify Audit Packs
+													</Button>
+												)}
+												{item.normId === "NORM-MFD-001" && (
+													<Button
+														size="sm"
+														variant="outline"
+														className="text-xs gap-1.5 text-amber-700 border-amber-300"
+														disabled={remediateMutation.isPending}
+														onClick={() => remediateMutation.mutate({ normId: "NORM-MFD-001" })}
+													>
+														<AlertTriangle className="h-3.5 w-3.5" />
+														Notify Expiring ARNs
+													</Button>
+												)}
+												{item.normId === "NORM-MFD-002" && (
+													<Button
+														size="sm"
+														variant="outline"
+														className="text-xs gap-1.5"
+														disabled={remediateMutation.isPending}
+														onClick={() => remediateMutation.mutate({ normId: "NORM-MFD-002" })}
+													>
+														<RefreshCw className={`h-3.5 w-3.5 ${remediateMutation.isPending ? "animate-spin" : ""}`} />
+														Reconcile EUINs
+													</Button>
+												)}
+												{item.normId === "NORM-SYS-004" && (
+													<Button
+														size="sm"
+														variant="outline"
+														className="text-xs gap-1.5 text-red-700 border-red-300"
+														disabled={remediateMutation.isPending}
+														onClick={() => remediateMutation.mutate({ normId: "NORM-SYS-004", payload: { deactivate: false } })}
+													>
+														<ShieldAlert className="h-3.5 w-3.5" />
+														Audit Inactive Accounts
+													</Button>
+												)}
+												{item.normId !== "NORM-IA-003" &&
+													item.normId !== "NORM-IA-002" &&
+													item.normId !== "NORM-IA-006" &&
+													item.normId !== "NORM-SYS-001" &&
+													item.normId !== "NORM-MFD-001" &&
+													item.normId !== "NORM-MFD-002" &&
+													item.normId !== "NORM-SYS-004" && (
+														<Button
+															size="sm"
+															variant="outline"
+															className="text-xs gap-1.5"
+															disabled={remediateMutation.isPending}
+															onClick={() => remediateMutation.mutate({ normId: item.normId })}
+														>
+															<Play className="h-3.5 w-3.5" />
+															Remediate
+														</Button>
+													)}
+											</div>
 										</div>
 									</div>
 								);
@@ -792,6 +1064,73 @@ export default function RegulatoryAuditNorms() {
 						</Card>
 					</TabsContent>
 				</Tabs>
+
+				{/* Form A Recording Dialog */}
+				<Dialog open={formADialogOpen} onOpenChange={setFormADialogOpen}>
+					<DialogContent className="sm:max-w-[480px]">
+						<DialogHeader>
+							<DialogTitle className="flex items-center gap-2">
+								<FileCheck className="h-5 w-5 text-blue-600" />
+								Record SEBI Form A Filing
+							</DialogTitle>
+							<DialogDescription>
+								Annual Compliance Report under Regulation 19(2) of SEBI (Investment Advisers) Regulations, 2013.
+							</DialogDescription>
+						</DialogHeader>
+						<div className="space-y-4 py-2">
+							<div className="space-y-1.5">
+								<Label htmlFor="fy">Financial Year</Label>
+								<Input
+									id="fy"
+									value={formAData.financialYear}
+									onChange={(e) => setFormAData((prev) => ({ ...prev, financialYear: e.target.value }))}
+									placeholder="e.g. FY 2025-26"
+								/>
+							</div>
+							<div className="space-y-1.5">
+								<Label htmlFor="ack">SEBI Portal Acknowledgement / Reference Number</Label>
+								<Input
+									id="ack"
+									value={formAData.ackNumber}
+									onChange={(e) => setFormAData((prev) => ({ ...prev, ackNumber: e.target.value }))}
+									placeholder="e.g. SEBI/IA/ACK/2026/04912"
+									required
+								/>
+							</div>
+							<div className="space-y-1.5">
+								<Label htmlFor="date">Filing Date</Label>
+								<Input
+									id="date"
+									type="date"
+									value={formAData.filingDate}
+									onChange={(e) => setFormAData((prev) => ({ ...prev, filingDate: e.target.value }))}
+								/>
+							</div>
+							<div className="space-y-1.5">
+								<Label htmlFor="remarks">Compliance Notes / Remarks</Label>
+								<Textarea
+									id="remarks"
+									value={formAData.remarks}
+									onChange={(e) => setFormAData((prev) => ({ ...prev, remarks: e.target.value }))}
+									placeholder="Form A uploaded to SEBI Intermediary Portal. Statutory audit completed."
+									rows={3}
+								/>
+							</div>
+						</div>
+						<DialogFooter>
+							<Button variant="outline" onClick={() => setFormADialogOpen(false)}>
+								Cancel
+							</Button>
+							<Button
+								onClick={() => formAFilingMutation.mutate(formAData)}
+								disabled={!formAData.ackNumber.trim() || formAFilingMutation.isPending}
+								className="bg-blue-600 hover:bg-blue-700 text-white"
+							>
+								{formAFilingMutation.isPending ? "Recording..." : "Confirm & Save Filing"}
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
 			</div>
 		</TooltipProvider>
 	);
