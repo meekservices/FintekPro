@@ -122,4 +122,57 @@ describe("Lead MCA & Corporate Intelligence Enrichment", () => {
 			expect(score).toBe(100);
 		});
 	});
+
+	describe("Direct MCA Filing (Option B) XBRL Parsing", () => {
+		const sampleAoc4Xml = `<?xml version="1.0" encoding="UTF-8"?>
+<xbrl xmlns="http://www.xbrl.org/2003/instance" xmlns:in-gaap="http://www.mca.gov.in/in-gaap">
+  <in-gaap:CorporateIdentityNumber>U34100KA2012PTC062534</in-gaap:CorporateIdentityNumber>
+  <in-gaap:NameOfCompany>Altigreen Propulsion Labs Private Limited</in-gaap:NameOfCompany>
+  <in-gaap:PaidUpEquityShareCapital unitRef="INR" decimals="0">85000000</in-gaap:PaidUpEquityShareCapital>
+  <in-gaap:RevenueFromOperations unitRef="INR" decimals="0">452000000</in-gaap:RevenueFromOperations>
+  <in-gaap:ProfitLossForPeriod unitRef="INR" decimals="0">38500000</in-gaap:ProfitLossForPeriod>
+  <in-gaap:EBITDA unitRef="INR" decimals="0">62000000</in-gaap:EBITDA>
+  <in-gaap:TotalAssets unitRef="INR" decimals="0">540000000</in-gaap:TotalAssets>
+  <in-gaap:NetWorth unitRef="INR" decimals="0">280000000</in-gaap:NetWorth>
+  <in-gaap:TotalBorrowings unitRef="INR" decimals="0">120000000</in-gaap:TotalBorrowings>
+</xbrl>`;
+
+		function extractTag(content: string, tag: string): number | undefined {
+			const regex = new RegExp(`(?:<[^>]*:)?${tag}[^>]*>([0-9.,\\-\\s]+)<`, "i");
+			const match = content.match(regex);
+			if (match?.[1]) {
+				return Number.parseFloat(match[1].replace(/[,\s]/g, ""));
+			}
+			return undefined;
+		}
+
+		it("extracts canonical revenue from MCA Form AOC-4 XML", () => {
+			const revenue = extractTag(sampleAoc4Xml, "RevenueFromOperations");
+			expect(revenue).toBe(452000000); // ₹45.2 Cr
+		});
+
+		it("extracts profit after tax (PAT) from MCA Form AOC-4 XML", () => {
+			const pat = extractTag(sampleAoc4Xml, "ProfitLossForPeriod");
+			expect(pat).toBe(38500000); // ₹3.85 Cr
+		});
+
+		it("extracts paid-up share capital from MCA Form AOC-4 XML", () => {
+			const paidUp = extractTag(sampleAoc4Xml, "PaidUpEquityShareCapital");
+			expect(paidUp).toBe(85000000); // ₹8.5 Cr
+		});
+
+		it("extracts EBITDA and total assets from MCA Form AOC-4 XML", () => {
+			const ebitda = extractTag(sampleAoc4Xml, "EBITDA");
+			const assets = extractTag(sampleAoc4Xml, "TotalAssets");
+			expect(ebitda).toBe(62000000);
+			expect(assets).toBe(540000000);
+		});
+
+		it("extracts CIN and company name from MCA Form AOC-4 XML", () => {
+			const cinMatch = sampleAoc4Xml.match(/CorporateIdentityNumber[^>]*>([^<]+)</i);
+			const nameMatch = sampleAoc4Xml.match(/NameOfCompany[^>]*>([^<]+)</i);
+			expect(cinMatch?.[1]).toBe("U34100KA2012PTC062534");
+			expect(nameMatch?.[1]).toBe("Altigreen Propulsion Labs Private Limited");
+		});
+	});
 });

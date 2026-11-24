@@ -1196,6 +1196,41 @@ export function registerMarketingRoutes(app: Express) {
 	);
 
 	/**
+	 * Direct MCA Filing Ingestion (Option B)
+	 * Ingests official Form AOC-4 / MGT-7 XML/XBRL directly into FintekPro DB
+	 */
+	app.post(
+		"/api/admin/marketing/leads/:id/ingest-mca-filing",
+		requireAdmin,
+		async (req: Request, res: Response) => {
+			try {
+				const { xbrlContent, filingType, financialYear } = req.body;
+				if (!xbrlContent || typeof xbrlContent !== "string" || xbrlContent.trim().length < 20) {
+					return apiResponse.badRequest(
+						res,
+						"Valid MCA filing content (XBRL/XML/Form text) is required",
+					);
+				}
+
+				const result = await leadMcaEnrichmentService.ingestMcaFiling({
+					leadId: req.params.id,
+					xbrlContent,
+					filingType: filingType || "AOC-4",
+					financialYear,
+				});
+
+				return apiResponse.success(res, result, result.message);
+			} catch (error: any) {
+				console.error(`Error ingesting direct MCA filing for lead ${req.params.id}:`, error);
+				return apiResponse.serverError(
+					res,
+					error?.message || "Failed to ingest direct MCA filing",
+				);
+			}
+		},
+	);
+
+	/**
 	 * Add activity to lead
 	 */
 	app.post(

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -207,6 +208,49 @@ export default function LeadProspecting() {
 
 	const [apiError, setApiError] = useState<string | null>(null);
 	const [enrichingLeadId, setEnrichingLeadId] = useState<string | null>(null);
+	const [mcaFilingDialogOpen, setMcaFilingDialogOpen] = useState(false);
+	const [targetFilingLead, setTargetFilingLead] = useState<ProspectLead | null>(null);
+	const [filingType, setFilingType] = useState<string>("AOC-4");
+	const [filingFy, setFilingFy] = useState<string>("FY2023-24");
+	const [xbrlContent, setXbrlContent] = useState<string>("");
+
+	const ingestMcaFilingMutation = useMutation({
+		mutationFn: async ({
+			leadId,
+			xbrlContent,
+			filingType,
+			financialYear,
+		}: {
+			leadId: string;
+			xbrlContent: string;
+			filingType: string;
+			financialYear: string;
+		}) => {
+			const res = await apiRequest(`/api/admin/marketing/leads/${leadId}/ingest-mca-filing`, {
+				method: "POST",
+				body: JSON.stringify({ xbrlContent, filingType, financialYear }),
+			});
+			return res.json ? res.json() : res;
+		},
+		onSuccess: (data: any) => {
+			setMcaFilingDialogOpen(false);
+			setXbrlContent("");
+			queryClient.invalidateQueries({ queryKey: ["/api/admin/marketing/leads"] });
+			toast({
+				title: "MCA Filing Ingested Successfully",
+				description:
+					data?.message ||
+					"Audited balance sheet metrics extracted and persisted permanently.",
+			});
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Filing Ingestion Failed",
+				description: err?.message || "Could not parse or persist MCA filing.",
+				variant: "destructive",
+			});
+		},
+	});
 
 	const enrichLeadMutation = useMutation({
 		mutationFn: async (leadId: string) => {
@@ -1365,7 +1409,20 @@ export default function LeadProspecting() {
 												</p>
 											</div>
 										</div>
-										<div className="flex items-center gap-3">
+										<div className="flex items-center gap-2">
+											<Button
+												size="sm"
+												variant="outline"
+												className="border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 gap-1.5 text-xs h-8"
+												onClick={() => {
+													setTargetFilingLead(lead);
+													setMcaFilingDialogOpen(true);
+												}}
+												title="Ingest official MCA Form AOC-4/MGT-7 filing directly (Option B)"
+											>
+												<Landmark className="h-3.5 w-3.5 text-emerald-600" />
+												Direct MCA Filing
+											</Button>
 											{(!lead.cin || !lead.annualRevenue) && (
 												<Button
 													size="sm"
@@ -1708,7 +1765,12 @@ export default function LeadProspecting() {
 									{/* Enrichment Footer */}
 									<div className="pt-3 border-t flex items-center justify-between text-xs text-muted-foreground">
 										<div className="flex items-center gap-4">
-											{lead.cin && lead.annualRevenue ? (
+											{lead.enrichmentSources?.includes("mca_direct_aoc4") ? (
+												<span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-300">
+													<CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+													Direct MCA AOC-4 Verified (100%)
+												</span>
+											) : lead.cin && lead.annualRevenue ? (
 												<span className="flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
 													<CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
 													Audited Intelligence: {lead.enrichmentScore || 90}%
@@ -2434,6 +2496,169 @@ export default function LeadProspecting() {
 						>
 							<Download className="mr-2 h-4 w-4" />
 							Import Lead
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* Direct MCA Filing Ingestion Dialog (Option B) */}
+			<Dialog open={mcaFilingDialogOpen} onOpenChange={setMcaFilingDialogOpen}>
+				<DialogContent className="max-w-2xl max-h-[90vh]">
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							<Landmark className="h-5 w-5 text-emerald-600" />
+							Direct MCA Filing Ingestion (Option B)
+						</DialogTitle>
+						<DialogDescription>
+							Ingest official Ministry of Corporate Affairs Form AOC-4 (Balance Sheet) or MGT-7.
+							FintekPro parses metrics via the in-house XBRL engine and permanently owns the data.
+						</DialogDescription>
+					</DialogHeader>
+
+					{targetFilingLead && (
+						<div className="space-y-4 py-2">
+							<div className="p-3 bg-muted/50 rounded-lg flex items-center justify-between">
+								<div>
+									<h4 className="font-semibold text-sm">{targetFilingLead.companyName}</h4>
+									<p className="text-xs text-muted-foreground font-mono">
+										CIN: {targetFilingLead.cin || "Pending Resolution"}
+									</p>
+								</div>
+								<Badge variant="outline" className="text-xs border-emerald-300 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40">
+									Section 399 Ingestion
+								</Badge>
+							</div>
+
+							<div className="grid grid-cols-2 gap-4">
+								<div className="space-y-1.5">
+									<Label className="text-xs">Filing Type</Label>
+									<select
+										className="w-full text-xs h-9 rounded-md border border-input bg-background px-3 py-1"
+										value={filingType}
+										onChange={(e) => setFilingType(e.target.value)}
+									>
+										<option value="AOC-4">Form AOC-4 (Financial Statements)</option>
+										<option value="AOC-4-XBRL">Form AOC-4 XBRL</option>
+										<option value="MGT-7">Form MGT-7 (Annual Return)</option>
+									</select>
+								</div>
+								<div className="space-y-1.5">
+									<Label className="text-xs">Financial Year</Label>
+									<Input
+										value={filingFy}
+										onChange={(e) => setFilingFy(e.target.value)}
+										placeholder="e.g. FY2023-24"
+										className="h-9 text-xs font-mono"
+									/>
+								</div>
+							</div>
+
+							<div className="space-y-2">
+								<div className="flex items-center justify-between">
+									<Label className="text-xs font-medium">
+										Official MCA Filing Content (XBRL / XML)
+									</Label>
+									<div className="flex items-center gap-2">
+										<Button
+											type="button"
+											variant="ghost"
+											size="sm"
+											className="h-6 text-xs text-violet-600 dark:text-violet-400 px-2"
+											onClick={() => {
+												setXbrlContent(`<?xml version="1.0" encoding="UTF-8"?>
+<xbrl xmlns="http://www.xbrl.org/2003/instance" xmlns:in-gaap="http://www.mca.gov.in/in-gaap">
+  <!-- Official MCA Form AOC-4 Filing for ${targetFilingLead.companyName} -->
+  <in-gaap:CorporateIdentityNumber>${targetFilingLead.cin || "U72900KA2020PTC123456"}</in-gaap:CorporateIdentityNumber>
+  <in-gaap:NameOfCompany>${targetFilingLead.companyName}</in-gaap:NameOfCompany>
+  <in-gaap:PaidUpEquityShareCapital unitRef="INR" decimals="0">85000000</in-gaap:PaidUpEquityShareCapital>
+  <in-gaap:RevenueFromOperations unitRef="INR" decimals="0">452000000</in-gaap:RevenueFromOperations>
+  <in-gaap:ProfitLossForPeriod unitRef="INR" decimals="0">38500000</in-gaap:ProfitLossForPeriod>
+  <in-gaap:EBITDA unitRef="INR" decimals="0">62000000</in-gaap:EBITDA>
+  <in-gaap:TotalAssets unitRef="INR" decimals="0">540000000</in-gaap:TotalAssets>
+  <in-gaap:NetWorth unitRef="INR" decimals="0">280000000</in-gaap:NetWorth>
+  <in-gaap:TotalBorrowings unitRef="INR" decimals="0">120000000</in-gaap:TotalBorrowings>
+</xbrl>`);
+											}}
+										>
+											Load Sample MCA AOC-4
+										</Button>
+										<Label
+											htmlFor="mca-file-upload"
+											className="cursor-pointer text-xs text-muted-foreground hover:text-foreground underline"
+										>
+											Upload File
+										</Label>
+										<input
+											id="mca-file-upload"
+											type="file"
+											accept=".xml,.xbrl,.txt"
+											className="hidden"
+											onChange={(e) => {
+												const file = e.target.files?.[0];
+												if (file) {
+													const reader = new FileReader();
+													reader.onload = (event) => {
+														const text = event.target?.result;
+														if (typeof text === "string") {
+															setXbrlContent(text);
+														}
+													};
+													reader.readAsText(file);
+												}
+											}}
+										/>
+									</div>
+								</div>
+								<Textarea
+									rows={8}
+									placeholder="Paste official MCA XML/XBRL filing content or upload Form AOC-4 export..."
+									value={xbrlContent}
+									onChange={(e) => setXbrlContent(e.target.value)}
+									className="font-mono text-xs leading-relaxed"
+								/>
+								<p className="text-[11px] text-muted-foreground">
+									Filing data is extracted into canonical balance sheet columns, stored permanently in FintekPro, and immediately updates the lead pipeline.
+								</p>
+							</div>
+						</div>
+					)}
+
+					<DialogFooter className="gap-2 sm:gap-0">
+						<Button
+							variant="outline"
+							onClick={() => setMcaFilingDialogOpen(false)}
+						>
+							Cancel
+						</Button>
+						<Button
+							className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+							disabled={
+								!xbrlContent.trim() ||
+								!targetFilingLead ||
+								ingestMcaFilingMutation.isPending
+							}
+							onClick={() => {
+								if (targetFilingLead && xbrlContent.trim()) {
+									ingestMcaFilingMutation.mutate({
+										leadId: targetFilingLead.id,
+										xbrlContent,
+										filingType,
+										financialYear: filingFy,
+									});
+								}
+							}}
+						>
+							{ingestMcaFilingMutation.isPending ? (
+								<>
+									<Loader2 className="h-4 w-4 animate-spin mr-1" />
+									Parsing Filing...
+								</>
+							) : (
+								<>
+									<CheckCircle2 className="h-4 w-4 mr-1" />
+									Ingest & Parse Balance Sheet
+								</>
+							)}
 						</Button>
 					</DialogFooter>
 				</DialogContent>
