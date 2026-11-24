@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * MCA (Ministry of Corporate Affairs) Service
  * Fallback data source for official company filings
@@ -10,8 +11,7 @@
  * Data is sourced directly from MCA21 portal via Sandbox API
  */
 
-import axios, { AxiosInstance } from "axios";
-import type { InsertCompanyFinancials } from "@shared/schema";
+import axios, { type AxiosInstance } from "axios";
 
 import {
 	getSandboxBaseUrl,
@@ -19,10 +19,6 @@ import {
 	getSandboxApiSecret,
 	getSandboxAccessToken,
 } from "../utils/sandbox-config";
-
-const SANDBOX_API_KEY = getSandboxApiKey();
-const SANDBOX_API_SECRET = getSandboxApiSecret();
-const SANDBOX_BASE_URL = getSandboxBaseUrl();
 
 export interface MCAShareholding {
 	financialYear: string;
@@ -115,7 +111,7 @@ class MCAService {
 
 	constructor() {
 		this.client = axios.create({
-			baseURL: SANDBOX_BASE_URL,
+			baseURL: getSandboxBaseUrl(),
 			timeout: 30000,
 			headers: {
 				"Content-Type": "application/json",
@@ -132,19 +128,49 @@ class MCAService {
 	}
 
 	/**
-	 * Get company master data by CIN
+	 * Get company master data by CIN or LLPIN
 	 */
 	async getCompanyByCIN(cin: string): Promise<MCACompanyMasterData | null> {
-		if (!cin || cin.length !== 21) {
-			console.log("[MCA] Invalid CIN format:", cin);
+		if (!cin || (cin.length !== 21 && !/^[A-Z]{3}-\d{4}$/.test(cin))) {
+			console.log("[MCA] Invalid CIN/LLPIN format:", cin);
 			return null;
 		}
 
 		try {
 			const token = await this.getAccessToken();
+			const apiKey = getSandboxApiKey();
+			const baseUrl = getSandboxBaseUrl();
 
 			console.log(`[MCA] Fetching company data for CIN: ${cin}`);
 
+			// Try modern Sandbox KYC MCA endpoint
+			try {
+				const response = await axios.post(
+					`${baseUrl}/kyc/mca/company/master-data`,
+					{ cin },
+					{
+						headers: {
+							Authorization: token,
+							"x-api-key": apiKey,
+							"x-api-version": "1.0.0",
+							"Content-Type": "application/json",
+						},
+						timeout: 25000,
+					},
+				);
+
+				if (response.data?.code === 200 && response.data?.data) {
+					return this.transformMCAResponse(response.data.data, response.data.data);
+				}
+			} catch (modernErr: any) {
+				if (modernErr.response?.status !== 404 && modernErr.response?.data?.code !== 404) {
+					console.warn(
+						`[MCA] Modern KYC endpoint notice: ${modernErr.response?.data?.message || modernErr.message}`,
+					);
+				}
+			}
+
+			// Fallback to legacy endpoint
 			const response = await this.client.post(
 				"/mca/company/master-data/search",
 				{
@@ -156,7 +182,7 @@ class MCAService {
 				{
 					headers: {
 						Authorization: `Bearer ${token}`,
-						"x-api-key": SANDBOX_API_KEY,
+						"x-api-key": apiKey,
 						"x-api-version": "1.0.0",
 						"Content-Type": "application/json",
 					},
@@ -202,7 +228,10 @@ class MCAService {
 			};
 		}
 
-		if (!SANDBOX_API_KEY || !SANDBOX_API_SECRET) {
+		const apiKey = getSandboxApiKey();
+		const apiSecret = getSandboxApiSecret();
+
+		if (!apiKey || !apiSecret) {
 			return {
 				success: false,
 				error: {
@@ -231,7 +260,7 @@ class MCAService {
 				{
 					headers: {
 						Authorization: `Bearer ${token}`,
-						"x-api-key": SANDBOX_API_KEY,
+						"x-api-key": apiKey,
 						"x-api-version": "1.0.0",
 						"Content-Type": "application/json",
 					},
@@ -406,21 +435,31 @@ class MCAService {
 
 		return {
 			cin: masterData.cin || "",
-			companyName: masterData.company_name || "",
+			companyName: masterData.company_name || masterData.companyName || "",
 			companyStatus:
-				masterData["company_status(for_efiling)"] ||
 				masterData.company_status ||
-				"",
+				masterData["company_status(for_efiling)"] ||
+				"Active",
 			companyCategory: masterData.company_category || "",
-			companySubcategory: masterData.company_subcategory || "",
-			classOfCompany: masterData.class_of_company || "",
-			dateOfIncorporation: parseDate(masterData.date_of_incorporation),
-			rocCode: masterData.roc_code || "",
-			registeredAddress: masterData.registered_address || "",
-			emailId: masterData.email_id,
-			authorizedCapital: parseNumber(masterData["authorised_capital(rs)"]),
-			paidUpCapital: parseNumber(masterData["paid_up_capital(rs)"]),
-			whetherListedOrNot: masterData.whether_listed_or_not || "Unlisted",
+			companySubcategory:
+				masterData.company_sub_category || masterData.company_subcategory || "",
+			classOfCompany: masterData.company_class || masterData.class_of_company || "",
+			dateOfIncorporation:
+				masterData.company_registration_date || parseDate(masterData.date_of_incorporation),
+			rocCode: masterData.company_roc_code || masterData.roc_code || "",
+			registeredAddress:
+				masterData.registered_office_address || masterData.registered_address || "",
+			emailId: masterData.email_id || masterData.email,
+			authorizedCapital: parseNumber(
+				masterData.authorized_capital ?? masterData["authorised_capital(rs)"],
+			),
+			paidUpCapital: parseNumber(
+				masterData.paidup_capital ??
+					masterData.paid_up_capital ??
+					masterData["paid_up_capital(rs)"],
+			),
+			whetherListedOrNot:
+				masterData.listing_status || masterData.whether_listed_or_not || "Unlisted",
 			suspendedAtStockExchange: masterData.suspended_at_stock_exchange || "-",
 			dateOfLastAgm: parseDate(masterData.date_of_last_agm),
 			dateOfBalanceSheet: parseDate(masterData.date_of_balance_sheet),
@@ -488,7 +527,7 @@ class MCAService {
 	 * Check if credentials are configured
 	 */
 	isConfigured(): boolean {
-		return !!(SANDBOX_API_KEY && SANDBOX_API_SECRET);
+		return !!(getSandboxApiKey() && getSandboxApiSecret());
 	}
 
 	/**
@@ -503,15 +542,55 @@ class MCAService {
 
 		try {
 			const token = await this.getAccessToken();
+			const apiKey = getSandboxApiKey();
+			const baseUrl = getSandboxBaseUrl();
 
 			// Clean up company name for search
 			const searchName = companyName
-				.replace(/\s+(Ltd|Limited|Pvt|Private)\.?$/i, "")
+				.replace(/\s+(Ltd|Limited|Pvt|Private|LLP)\.?$/i, "")
 				.replace(/[^\w\s]/g, "")
 				.trim();
 
 			console.log(`[MCA] Searching companies by name: "${searchName}"`);
 
+			// Try modern Sandbox KYC search endpoint (GET)
+			try {
+				const response = await axios.get(
+					`${baseUrl}/kyc/mca/company/master-data/search?company_name=${encodeURIComponent(searchName)}&limit=5`,
+					{
+						headers: {
+							Authorization: token,
+							"x-api-key": apiKey,
+							"x-api-version": "1.0.0",
+							Accept: "application/json",
+						},
+						timeout: 20000,
+					},
+				);
+
+				if (response.data?.code === 200 && response.data?.data?.records) {
+					const records = response.data.data.records;
+					console.log(
+						`[MCA] Found ${records.length} companies matching "${searchName}" via modern Sandbox API`,
+					);
+
+					return records.map((r: any) => ({
+						cin: r.cin || r.CIN || "",
+						name: r.company_name || r.name || "",
+						status: r.company_status || r.status || "Active",
+						category: r.company_category || "",
+						authorizedCapital: Number.parseFloat(r.authorized_capital) || 0,
+						paidUpCapital: Number.parseFloat(r.paidup_capital || r.paid_up_capital) || 0,
+						dateOfIncorporation: r.company_registration_date || r.date_of_incorporation || "",
+					}));
+				}
+			} catch (searchErr: any) {
+				console.warn(
+					`[MCA] Modern search error: ${searchErr.response?.data?.message || searchErr.message}, falling back to legacy...`,
+				);
+			}
+
+			// Fallback: Legacy POST /mca/company/search
 			const response = await this.client.post(
 				"/mca/company/search",
 				{
@@ -523,6 +602,7 @@ class MCAService {
 				{
 					headers: {
 						Authorization: `Bearer ${token}`,
+						"x-api-key": apiKey,
 						"Content-Type": "application/json",
 					},
 				},
@@ -531,7 +611,7 @@ class MCAService {
 			if (response.data?.code === 200 && response.data?.data?.companies) {
 				const companies = response.data.data.companies;
 				console.log(
-					`[MCA] Found ${companies.length} companies matching "${searchName}"`,
+					`[MCA] Found ${companies.length} companies matching "${searchName}" via legacy MCA API`,
 				);
 
 				return companies.map((c: any) => ({

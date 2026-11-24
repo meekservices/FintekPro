@@ -23,6 +23,7 @@ import { unlistedCompanies, companyFinancials } from "@shared/schema";
 import { eq, ilike, or, and, isNull } from "drizzle-orm";
 import { credhiveService } from "./credhive-service";
 import { probe42Service } from "./probe42-service";
+import { mcaService } from "./mca-service";
 import { xbrlParserService } from "./xbrl-parser-service";
 import { logger } from "../logger";
 
@@ -200,7 +201,27 @@ class LeadMcaEnrichmentService {
 				}
 			}
 
-			// Try 1c: Search Internal FintekPro Unlisted Companies registry
+			// Try 1c: Search Sandbox MCA database by name
+			if (!resolvedCin && mcaService.isConfigured()) {
+				try {
+					const sandboxMatches = await mcaService.searchCompanyByName(cleanedName);
+					if (sandboxMatches && sandboxMatches.length > 0) {
+						const match = sandboxMatches.find(
+							(m) => m.cin && isValidCin(m.cin),
+						);
+						if (match?.cin) {
+							resolvedCin = match.cin.toUpperCase();
+							sourcesUsed.push("sandbox_mca_search");
+						}
+					}
+				} catch (err: unknown) {
+					logger.warn(
+						`[LeadMcaEnrichment] Sandbox MCA company search error for "${lead.companyName}": ${err instanceof Error ? err.message : String(err)}`,
+					);
+				}
+			}
+
+			// Try 1d: Search Internal FintekPro Unlisted Companies registry
 			if (!resolvedCin) {
 				try {
 					const [internalMatch] = await db
@@ -334,7 +355,43 @@ class LeadMcaEnrichmentService {
 				}
 			}
 
-			// 2c. Fallback to internal companyFinancials table
+			// 2c. Fallback to Sandbox MCA Master Data (Paid-up capital, status, directors, charges)
+			if (resolvedCin && mcaService.isConfigured() && (!paidUpCapital || !directors)) {
+				try {
+					const mcaData = await mcaService.getCompanyByCIN(resolvedCin);
+					if (mcaData) {
+						sourcesUsed.push("sandbox_mca_master_data");
+						paidUpCapital = mcaData.paidUpCapital ? String(mcaData.paidUpCapital) : paidUpCapital;
+						authorizedCapital = mcaData.authorizedCapital ? String(mcaData.authorizedCapital) : authorizedCapital;
+						companyStatus = mcaData.companyStatus || companyStatus;
+						companyType = mcaData.classOfCompany || companyType;
+						listingStatus = mcaData.whetherListedOrNot || listingStatus;
+						activeCompliance = mcaData.activeCompliance || activeCompliance;
+
+						if (!directors && mcaData.directors && mcaData.directors.length > 0) {
+							directors = mcaData.directors;
+						}
+
+						if (mcaData.charges && mcaData.charges.length > 0) {
+							const openCharges = mcaData.charges.filter(
+								(c) => c.status?.toLowerCase() !== "closed",
+							);
+							openChargesCount = openCharges.length;
+							const totalAmount = openCharges.reduce(
+								(sum, c) => sum + (c.chargeAmount || 0),
+								0,
+							);
+							totalChargesAmount = totalAmount > 0 ? String(totalAmount) : totalChargesAmount;
+						}
+					}
+				} catch (err: unknown) {
+					logger.warn(
+						`[LeadMcaEnrichment] Sandbox MCA Master Data error for ${resolvedCin}: ${err instanceof Error ? err.message : String(err)}`,
+					);
+				}
+			}
+
+			// 2d. Fallback to internal companyFinancials table
 			if (!financialsFound) {
 				try {
 					const [finRow] = await db
