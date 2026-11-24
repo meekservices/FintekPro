@@ -32,6 +32,7 @@ import { FinancialValidator } from "./validators/financial-validator";
 import { RiskValidator } from "./validators/risk-validator";
 import { ExplainabilityValidator } from "./validators/explainability-validator";
 import { aiGovernanceAuditLogger, logger } from "../../logger";
+import { aiAdvisoryDecisionService } from "../ai-advisory-decision-service";
 
 /** FASP-AI §21.1: confidence threshold below which recommendation is downgraded. */
 const LOW_CONFIDENCE_THRESHOLD = 0.5;
@@ -190,6 +191,42 @@ export class AIGovernanceDecisionEngine {
 				governanceOutput,
 			);
 			governanceOutput.audit_id = auditId;
+
+			const mappedDecision = (finalDecision as string) === "APPROVE"
+				? "APPROVED"
+				: (finalDecision as string) === "MODIFY"
+					? "MODIFIED"
+					: "BLOCKED";
+
+			// Record into Real-Time AI Advisory Decision Ledger for live monitoring
+			aiAdvisoryDecisionService.recordDecision({
+				id: auditId,
+				userId: input.user_id,
+				clientRisk: input.user_profile?.risk_profile || "moderate",
+				recommendedAssetRisk: (governanceOutput.final_output as any)?.risk_profile?.risk_level || input.user_profile?.risk_profile || "moderate",
+				query: input.query,
+				recommendation: typeof governanceOutput.final_output === "object" && "recommendation" in governanceOutput.final_output
+					? (governanceOutput.final_output as any).recommendation
+					: JSON.stringify(governanceOutput.final_output),
+				rawAiOutput: input.ai_output as any,
+				finalOutput: governanceOutput.final_output as any,
+				confidenceScore: input.ai_output?.confidence_score ?? 0.85,
+				factorsConsidered: input.ai_output?.factors_considered || [],
+				deterministicLanguageScan: allViolations.some((v: any) => v.code === "CERTAINTY_LANGUAGE" || v.code === "DETERMINISTIC_PROMISE")
+					? "FLAGGED_DETERMINISTIC_PROMISE"
+					: "CLEAN",
+				governanceDecision: mappedDecision,
+				regulatoryNotes: allViolations.length > 0
+					? allViolations.map((v: any) => v.message).join(" | ")
+					: "SEBI IA Reg 17 suitability compliant. No deterministic profit promises.",
+				humanAdvisorReviewRequired: mappedDecision === "BLOCKED" || (input.ai_output?.confidence_score ?? 1) < 0.75,
+				modelVersion: input.ai_output?.model_version || "FASP-AI v3.2-prod",
+				traceId: input.trace_id,
+				partnerRiaId: input.b2b_context?.partner_ria_id,
+				source: "system",
+			}).catch((err) => {
+				logger.warn("[AAGE] Failed to record decision in ledger", { error: err.message });
+			});
 
 			// GCR §5 Observability: emit structured AAGE_DECISION log with latency_ms
 			logger.info("[AAGE] Governance decision resolved", {

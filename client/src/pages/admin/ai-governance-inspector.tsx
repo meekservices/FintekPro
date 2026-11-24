@@ -86,9 +86,9 @@ export default function AiGovernanceInspectorPage() {
 	const events = eventsResponse?.data || [];
 	const prompts = promptsResponse?.prompts || [];
 
-	const approvedCount = events.filter((e) => e.governanceDecision === "APPROVED").length;
-	const modifiedCount = events.filter((e) => e.governanceDecision === "MODIFIED").length;
-	const blockedCount = events.filter((e) => e.governanceDecision === "BLOCKED").length;
+	const approvedCount = events.filter((e: any) => e.governanceDecision === "APPROVED").length;
+	const modifiedCount = events.filter((e: any) => e.governanceDecision === "MODIFIED").length;
+	const blockedCount = events.filter((e: any) => e.governanceDecision === "BLOCKED" || e.governanceDecision === "DOWNGRADED").length;
 
 	return (
 		<AdminLayout>
@@ -280,7 +280,9 @@ export default function AiGovernanceInspectorPage() {
 																	? "bg-emerald-600 text-white text-xs font-bold"
 																	: event.governanceDecision === "MODIFIED"
 																		? "bg-amber-600 text-white text-xs font-bold"
-																		: "bg-red-600 text-white text-xs font-bold"
+																		: event.governanceDecision === "DOWNGRADED"
+																			? "bg-purple-600 text-white text-xs font-bold"
+																			: "bg-red-600 text-white text-xs font-bold"
 															}
 														>
 															{event.governanceDecision}
@@ -408,7 +410,7 @@ export default function AiGovernanceInspectorPage() {
 							</Button>
 							<Button
 								variant="destructive"
-								disabled={downgradeMutation.isPending}
+								disabled={downgradeMutation.isPending || selectedEvent?.governanceDecision === "DOWNGRADED"}
 								onClick={() =>
 									downgradeMutation.mutate({
 										eventId: selectedEvent.id,
@@ -416,7 +418,11 @@ export default function AiGovernanceInspectorPage() {
 									})
 								}
 							>
-								{downgradeMutation.isPending ? "Downgrading..." : "Downgrade to Human RIA"}
+								{downgradeMutation.isPending
+									? "Downgrading..."
+									: selectedEvent?.governanceDecision === "DOWNGRADED"
+										? "Already Downgraded to RIA"
+										: "Downgrade to Human RIA"}
 							</Button>
 						</DialogFooter>
 					</DialogContent>

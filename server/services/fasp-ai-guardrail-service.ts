@@ -12,6 +12,7 @@
  */
 
 import { logger } from "../logger";
+import { aiAdvisoryDecisionService } from "./ai-advisory-decision-service";
 
 export interface ExplainabilityMetadata {
 	engine_version: string;
@@ -142,6 +143,7 @@ export class FaspAiGuardrailService {
 			intermediateSteps?: string[];
 			confidenceScore?: number;
 			modelVersion?: string;
+			inputContext?: string;
 		} = {},
 	): FaspAiAuditResult {
 		const violations: string[] = [];
@@ -197,6 +199,27 @@ export class FaspAiGuardrailService {
 			output_summary: scrubbedText.slice(0, 160).replace(/\n/g, " "),
 			model_version: explainability.engine_version,
 			timestamp: explainability.calculation_timestamp,
+		});
+
+		// Persist decision into Real-Time AI Advisory Decision Ledger
+		aiAdvisoryDecisionService.recordDecision({
+			userId: options.userId || "anonymous",
+			clientRisk: options.riskProfile || "moderate",
+			recommendedAssetRisk: options.riskProfile || "moderate",
+			query: options.inputContext || "Advisory calculation & portfolio optimization query",
+			recommendation: scrubbedText,
+			confidenceScore: confidenceScore / 100,
+			factorsConsidered: explainability.factors_considered,
+			deterministicLanguageScan: violations.length > 0 ? "FLAGGED_DETERMINISTIC_PROMISE" : "CLEAN",
+			governanceDecision: violations.length > 0 ? "MODIFIED" : "APPROVED",
+			regulatoryNotes: violations.length > 0
+				? `MODIFIED BY AAGE: ${violations.join(", ")} scrubbed to risk-aware phrasing.`
+				: "SEBI IA Reg 17 suitability compliant.",
+			humanAdvisorReviewRequired: violations.length > 0,
+			modelVersion: explainability.engine_version,
+			source: "api",
+		}).catch((err) => {
+			logger.warn("[FaspAiGuardrail] Failed to record decision to ledger", { error: err.message });
 		});
 
 		return {

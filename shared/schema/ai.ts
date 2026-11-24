@@ -999,6 +999,39 @@ export const insertAiGovernanceAuditLogSchema = createInsertSchema(aiGovernanceA
   timestamp: z.any(),
 }).omit({ timestamp: true });
 
+// ── Persistent Real-Time AI Advisory Decision Ledger (FASP-AI v1.0 & SEBI RIA Norms) ──
+export const aiAdvisoryDecisionLedger = pgTable("ai_advisory_decision_ledger", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  clientRisk: varchar("client_risk", { length: 50 }).notNull().default("moderate"),
+  recommendedAssetRisk: varchar("recommended_asset_risk", { length: 50 }).notNull().default("moderate"),
+  query: text("query").notNull(),
+  recommendation: text("recommendation").notNull(),
+  rawAiOutput: jsonb("raw_ai_output"),
+  finalOutput: jsonb("final_output"),
+  confidenceScore: numeric("confidence_score", { precision: 5, scale: 4 }).notNull().default("0.8500"),
+  factorsConsidered: jsonb("factors_considered").default([]),
+  deterministicLanguageScan: varchar("deterministic_language_scan", { length: 100 }).notNull().default("CLEAN"),
+  governanceDecision: varchar("governance_decision", { length: 50 }).notNull().default("APPROVED"), // APPROVED | MODIFIED | BLOCKED | DOWNGRADED
+  regulatoryNotes: text("regulatory_notes"),
+  humanAdvisorReviewRequired: boolean("human_advisor_review_required").default(false),
+  modelVersion: varchar("model_version", { length: 100 }).notNull().default("FASP-AI v3.2-prod"),
+  traceId: varchar("trace_id", { length: 255 }),
+  partnerRiaId: varchar("partner_ria_id", { length: 255 }),
+  source: varchar("source", { length: 50 }).notNull().default("system"),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ai_adv_ledger_user").on(table.userId),
+  index("idx_ai_adv_ledger_decision").on(table.governanceDecision),
+  index("idx_ai_adv_ledger_timestamp").on(table.timestamp),
+]);
+
+export type AiAdvisoryDecisionLedger = typeof aiAdvisoryDecisionLedger.$inferSelect;
+export type InsertAiAdvisoryDecisionLedger = typeof aiAdvisoryDecisionLedger.$inferInsert;
+export const insertAiAdvisoryDecisionLedgerSchema = createInsertSchema(aiAdvisoryDecisionLedger);
+
 // ARSE: Recommendations tracked for scoring
 export const arRecommendations = pgTable("ar_recommendations", {
   id: varchar("id", { length: 255 }).primaryKey(),

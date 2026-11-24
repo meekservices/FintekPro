@@ -7,6 +7,7 @@ import { eq, desc } from "drizzle-orm";
 import { ALL_PROMPTS } from "../../ai/prompts/registry";
 import { adminService } from "../../admin-service";
 import { requireAdmin } from "../../middleware/roleMiddleware";
+import { aiAdvisoryDecisionService } from "../../services/ai-advisory-decision-service";
 
 const router = Router();
 
@@ -101,66 +102,26 @@ router.get(
 
 // ── Live AI Advisory Governance Feed (FASP-AI v1.0 & SEBI RIA Norms) ──────────
 
-router.get("/api/admin/ai/governance-events", requireAdmin, async (_req, res) => {
+router.get("/api/admin/ai/governance-events", requireAdmin, async (req, res) => {
 	try {
-		// Active advisory decisions intercepted by AAGE
-		const sampleDecisions = [
-			{
-				id: "aage_evt_001",
-				timestamp: new Date().toISOString(),
-				userId: "usr_hni_098",
-				clientRisk: "moderate",
-				recommendedAssetRisk: "moderate",
-				query: "Recommend optimal tax-loss harvesting rebalancing for equity portfolio",
-				recommendation: "Shift 12% allocation from high P/E small-caps to sovereign gold bonds and large-cap Nifty 50 ETF. Realize ₹42,000 short-term capital loss.",
-				modelVersion: "FASP-AI v3.2-prod",
-				confidenceScore: 0.89,
-				factorsConsidered: [
-					"Unrealized capital loss timeline",
-					"Client tax slab (30%)",
-					"Asset correlation matrix",
-					"RBI interest rate cycle",
-				],
-				deterministicLanguageScan: "CLEAN",
-				governanceDecision: "APPROVED",
-				regulatoryNotes: "SEBI IA Reg 17 suitability compliant. No deterministic profit promises.",
-				humanAdvisorReviewRequired: false,
-			},
-			{
-				id: "aage_evt_002",
-				timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-				userId: "usr_ret_234",
-				clientRisk: "conservative",
-				recommendedAssetRisk: "aggressive",
-				query: "Suggest high growth momentum strategy for retirement corpus",
-				recommendation: "Allocate 60% in Nifty Bank call options and micro-cap momentum basket.",
-				modelVersion: "FASP-AI v3.2-prod",
-				confidenceScore: 0.54,
-				factorsConsidered: ["Recent 3-month momentum", "Retail search volume"],
-				deterministicLanguageScan: "CLEAN",
-				governanceDecision: "BLOCKED",
-				regulatoryNotes: "BLOCKED BY AAGE: Severe risk mismatch (Conservative client assigned Aggressive F&O). Confidence 0.54 < 0.75 threshold.",
-				humanAdvisorReviewRequired: true,
-			},
-			{
-				id: "aage_evt_003",
-				timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-				userId: "usr_sme_441",
-				clientRisk: "moderate",
-				recommendedAssetRisk: "moderate",
-				query: "Generate corporate treasury surplus yield brief",
-				recommendation: "Invest surplus in AAA rated banking PSU debt funds and 91-day T-Bills for guaranteed 8.2% return.",
-				modelVersion: "FASP-AI v3.1-legacy",
-				confidenceScore: 0.91,
-				factorsConsidered: ["CRISIL corporate ratings", "Macaulay duration < 1 yr"],
-				deterministicLanguageScan: "FLAGGED_DETERMINISTIC_PROMISE",
-				governanceDecision: "MODIFIED",
-				regulatoryNotes: "MODIFIED BY AAGE: Word 'guaranteed' scrubbed to 'indicative historical yield'. Disclaimer appended.",
-				humanAdvisorReviewRequired: false,
-			},
-		];
+		const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+		const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+		const decision = req.query.decision as any;
 
-		res.json({ success: true, data: sampleDecisions, total: sampleDecisions.length });
+		const result = await aiAdvisoryDecisionService.getDecisions({
+			page,
+			limit,
+			decision,
+		});
+
+		res.json({
+			success: true,
+			data: result.items,
+			total: result.total,
+			page: result.page,
+			limit: result.limit,
+			meta: result.meta,
+		});
 	} catch (error: any) {
 		console.error("[AI Governance] Error fetching governance events:", error.message);
 		res.status(500).json({ success: false, error: "Failed to retrieve AI governance feed" });
@@ -170,10 +131,16 @@ router.get("/api/admin/ai/governance-events", requireAdmin, async (_req, res) =>
 router.post("/api/admin/ai/downgrade-advice", requireAdmin, async (req, res) => {
 	try {
 		const { eventId, reason } = req.body;
-		console.log(`[AI Governance] Advice event ${eventId} downgraded to human RIA review. Reason: ${reason}`);
+		const adminUserId = (req as any).user?.id || (req as any).user?.userId || "admin";
+		const result = await aiAdvisoryDecisionService.downgradeDecision(
+			eventId,
+			reason || "Quarantined by Administrator",
+			adminUserId,
+		);
+
 		res.json({
-			success: true,
-			data: { eventId, status: "DOWNGRADED_TO_HUMAN_RIA", timestamp: new Date().toISOString() },
+			success: result.success,
+			data: { eventId, status: result.status, timestamp: new Date().toISOString() },
 		});
 	} catch (error: any) {
 		console.error("[AI Governance] Downgrade failed:", error.message);
