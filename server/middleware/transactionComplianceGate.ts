@@ -30,6 +30,8 @@ import { logger } from "../logger";
 import { kycSufficiencyService } from "../services/kyc-sufficiency-service";
 import { fatcaCrsService } from "../services/fatca-crs-service";
 import { queueTransactionForMasterApproval } from "../services/masterAgentApprovalService";
+import { deskGatewayService } from "../services/desk-gateway-service";
+import { DeskType } from "@shared/schema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -857,6 +859,21 @@ export function requireTransactionCompliance(
 		const startMs = Date.now();
 
 		try {
+			// Resolve Desk Licensing & Execution Mode (Sandbox Simulation vs. Production Live)
+			const deskTypeMap: Record<TransactionType, DeskType> = {
+				MF: "MFD_AMFI",
+				US_EQUITY: "ALPACA_GLOBAL",
+				PMS: "SEBI_RIA_ADVISORY",
+				AIF: "SEBI_RIA_ADVISORY",
+			};
+			const targetDesk = deskTypeMap[transactionType] || "MFD_AMFI";
+			const deskResolution = await deskGatewayService.resolveExecutionMode(targetDesk);
+
+			res.setHeader("X-FintekPro-Operating-Mode", deskResolution.operatingMode);
+			res.setHeader("X-FintekPro-Desk-Mode", deskResolution.mode);
+			res.setHeader("X-FintekPro-Capability-Tier", deskResolution.capabilityTier);
+			(req as any).deskExecutionResolution = deskResolution;
+
 			const result = await runComplianceChecks(userId, transactionType, res, {
 				action: actionHint,
 				amount,

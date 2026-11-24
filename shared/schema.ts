@@ -7,6 +7,7 @@ export * from "./schema/crm.ts";
 export * from "./schema/telephony.ts";
 export * from "./schema/pricing.ts";
 export * from "./schema/finvu.ts";
+export * from "./schema/desk-licenses.ts";
 import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, uniqueIndex, integer, date, bigint, numeric, serial, uuid, real, bigserial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";

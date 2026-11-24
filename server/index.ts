@@ -678,6 +678,11 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 		app.use("/api/admin/compliance", adminComplianceRouter);
 		logger.info("✅ Admin Compliance dashboard routes registered at /api/admin/compliance");
 
+		// ── Admin Desk Licensing & Progressive Capability Activator ────────────
+		const { adminLicenseRouter } = await import("./routes/admin-license-routes");
+		app.use("/api/admin/desks", adminLicenseRouter);
+		logger.info("✅ Admin Desk Licensing & Capability routes registered at /api/admin/desks");
+
 		logBootProgress("Step 6: Registering Marketplace & Regulatory Routes...");
 		const [
 			unlistedRoutes,

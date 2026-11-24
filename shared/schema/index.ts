@@ -38,3 +38,4 @@ export * from "./macro-intelligence";
 export * from "./tax-law";
 export * from "./tax-calculator";
 export * from "./finvu";
+export * from "./desk-licenses";
