@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { db } from "../db";
 import { errorLedger, ErrorLedgerEntry, users } from "../../shared/schema";
-import { eq, desc, and, gte, lte, sql, like, or, count } from "drizzle-orm";
+import { eq, desc, and, gte, lte, sql, like, or, count, inArray } from "drizzle-orm";
 import crypto from "crypto";
 import { emailService } from "../email-service";
 import { errorSpikeDetectionService } from "./error-spike-detection-service";
@@ -190,6 +190,8 @@ class ErrorTrackingService {
 				severity: error.severity,
 				message: error.message,
 				environment: error.environment || "production",
+				clientId: error.clientId || undefined,
+				transactionId: error.transactionId || undefined,
 			});
 		} catch (err) {
 			console.error("[ErrorTracking] Failed to check for spikes:", err);
@@ -295,6 +297,66 @@ class ErrorTrackingService {
 		return updated || null;
 	}
 
+	async bulkUpdateErrorStatus(options: {
+		ids?: string[];
+		errorCode?: string;
+		module?: string;
+		severity?: string;
+		currentStatus?: string;
+		targetStatus: string;
+		userId: string;
+		resolutionNote?: string;
+	}): Promise<{ updatedCount: number }> {
+		const conditions = [];
+
+		if (options.ids && options.ids.length > 0) {
+			conditions.push(inArray(errorLedger.id, options.ids));
+		}
+		if (options.errorCode) {
+			conditions.push(eq(errorLedger.errorCode, options.errorCode));
+		}
+		if (options.module) {
+			conditions.push(eq(errorLedger.module, options.module));
+		}
+		if (options.severity) {
+			conditions.push(eq(errorLedger.severity, options.severity));
+		}
+		if (options.currentStatus) {
+			conditions.push(eq(errorLedger.status, options.currentStatus));
+		} else {
+			conditions.push(eq(errorLedger.status, "open"));
+		}
+
+		const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+		if (!whereClause) {
+			return { updatedCount: 0 };
+		}
+
+		const updates: Partial<ErrorLedgerEntry> = {
+			status: options.targetStatus,
+			updatedAt: new Date(),
+		};
+
+		if (options.targetStatus === "resolved") {
+			updates.resolvedBy = options.userId;
+			updates.resolvedAt = new Date();
+			if (options.resolutionNote) {
+				updates.resolutionNote = options.resolutionNote;
+			}
+		} else if (options.targetStatus === "acknowledged") {
+			updates.acknowledgedBy = options.userId;
+			updates.acknowledgedAt = new Date();
+		}
+
+		const result = await db
+			.update(errorLedger)
+			.set(updates)
+			.where(whereClause)
+			.returning({ id: errorLedger.id });
+
+		return { updatedCount: result.length };
+	}
+
 	async getMetrics(dateFrom?: Date, dateTo?: Date): Promise<ErrorMetrics> {
 		const conditions = [];
 		if (dateFrom) conditions.push(gte(errorLedger.createdAt, dateFrom));
@@ -307,13 +369,17 @@ class ErrorTrackingService {
 			.from(errorLedger)
 			.where(whereClause);
 
+		// Count open errors by severity for actionable metrics (Critical errors needing attention)
+		const bySeverityConditions = [eq(errorLedger.status, "open")];
+		if (whereClause) bySeverityConditions.push(whereClause);
+
 		const bySeverityResult = await db
 			.select({
 				severity: errorLedger.severity,
 				count: count(),
 			})
 			.from(errorLedger)
-			.where(whereClause)
+			.where(and(...bySeverityConditions))
 			.groupBy(errorLedger.severity);
 
 		const byModuleResult = await db

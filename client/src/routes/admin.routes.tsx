@@ -230,6 +230,7 @@ import {
 	PortfolioHoldings,
 	TradeReconciliationPage,
 	AiGovernanceInspectorPage,
+	ExecutiveDeskPage,
 } from "@/routes/lazy-pages";
 
 // Component to handle admin root redirect
@@ -325,6 +326,48 @@ export function AdminRoutes() {
 			</Route>
 			<Route path="/admin/ai-governance">
 				{() => <AiGovernanceInspectorPage />}
+			</Route>
+			<Route path="/admin/coo-desk">
+				{() => (
+					<AdminLayout>
+						<ExecutiveDeskPage initialRole="coo" />
+					</AdminLayout>
+				)}
+			</Route>
+			<Route path="/admin/cfo-desk">
+				{() => (
+					<AdminLayout>
+						<ExecutiveDeskPage initialRole="cfo" />
+					</AdminLayout>
+				)}
+			</Route>
+			<Route path="/admin/cbo-desk">
+				{() => (
+					<AdminLayout>
+						<ExecutiveDeskPage initialRole="cbo" />
+					</AdminLayout>
+				)}
+			</Route>
+			<Route path="/admin/cco-desk">
+				{() => (
+					<AdminLayout>
+						<ExecutiveDeskPage initialRole="cco" />
+					</AdminLayout>
+				)}
+			</Route>
+			<Route path="/admin/cto-desk">
+				{() => (
+					<AdminLayout>
+						<ExecutiveDeskPage initialRole="cto" />
+					</AdminLayout>
+				)}
+			</Route>
+			<Route path="/admin/executive-desk">
+				{() => (
+					<AdminLayout>
+						<ExecutiveDeskPage initialRole="coo" />
+					</AdminLayout>
+				)}
 			</Route>
 			<Route path="/admin/api-config">
 				{() => (

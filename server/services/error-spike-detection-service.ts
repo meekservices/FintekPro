@@ -70,6 +70,8 @@ class ErrorSpikeDetectionService {
 		severity: string;
 		message: string;
 		environment?: string;
+		clientId?: string;
+		transactionId?: string;
 	}): Promise<void> {
 		// NOTE: Per-error critical alerts are handled by errorTrackingService.triggerCriticalAlert()
 		// and the route's errorDigestService.sendCriticalAlert() (first occurrence only).
@@ -96,8 +98,30 @@ class ErrorSpikeDetectionService {
 
 			this.recentAlerts.set(alertKey, Date.now());
 
-			if (spikeResult.shouldEscalate && errorEntry.severity !== "critical") {
-				await this.escalateErrorSeverity(errorEntry.id);
+			// Impact-aware escalation:
+			// High-impact errors involve real user transactions, client sessions, or high-risk modules.
+			// Background services (AIService rate limits, PythonClient sidecar fallback) that have
+			// active graceful degradation should escalate to "high" or "warning", not "critical",
+			// preventing alert fatigue on the operational incident dashboard.
+			const isHighImpact =
+				Boolean(errorEntry.clientId || errorEntry.transactionId) ||
+				["order", "portfolio", "payment", "auth", "demat", "kyc"].some((m) =>
+					errorEntry.module.toLowerCase().includes(m),
+				);
+
+			const isBackgroundDegraded =
+				errorEntry.errorCode.startsWith("AI_PROVIDER_ERROR_") ||
+				errorEntry.errorCode === "PYTHON_SERVICE_CALL_FAILED";
+
+			if (spikeResult.shouldEscalate) {
+				if (isHighImpact || !isBackgroundDegraded) {
+					if (errorEntry.severity !== "critical") {
+						await this.escalateErrorSeverity(errorEntry.id, "critical");
+					}
+				} else if (errorEntry.severity === "low" || errorEntry.severity === "medium") {
+					// Elevate background noise to high without marking it critical
+					await this.escalateErrorSeverity(errorEntry.id, "high");
+				}
 			}
 
 			await this.sendSpikeAlert(errorEntry, spikeResult);
@@ -166,14 +190,19 @@ class ErrorSpikeDetectionService {
 		}
 	}
 
-	private async escalateErrorSeverity(errorId: string): Promise<void> {
+	private async escalateErrorSeverity(
+		errorId: string,
+		targetSeverity: "critical" | "high" = "critical",
+	): Promise<void> {
 		try {
 			await db
 				.update(errorLedger)
-				.set({ severity: "critical", updatedAt: new Date() })
+				.set({ severity: targetSeverity, updatedAt: new Date() })
 				.where(eq(errorLedger.id, errorId));
 
-			console.log(`[SpikeDetection] Escalated error ${errorId} to critical`);
+			console.log(
+				`[SpikeDetection] Escalated error ${errorId} to ${targetSeverity}`,
+			);
 		} catch (error) {
 			console.error(
 				"[SpikeDetection] Failed to escalate error severity:",

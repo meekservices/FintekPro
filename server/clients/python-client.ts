@@ -30,6 +30,10 @@ const CIRCUIT_OPEN_DURATION_MS = 2 * 60 * 1000; // 2 minutes open before retry (
 let circuitFailures = 0;
 let circuitOpenUntil = 0; // epoch ms — 0 means closed
 
+// Cooldown between errorTrackingService.ingestError calls to prevent flooding the DB
+const PYTHON_ERROR_INGEST_COOLDOWN_MS = 5 * 60 * 1000; // at most once every 5 minutes during persistent outages
+let lastPythonCallErrorLoggedAt = 0;
+
 // ── Python body-error deduplication ────────────────────────────────────────
 // Prevents log floods when a batch job calls callPython() many times and the
 // Python service returns the same error for each call (e.g. "No trained model
@@ -106,22 +110,31 @@ function recordFailure(status?: number): void {
 	circuitFailures++;
 	consecutiveFailures++;
 
-	// Log each failure to error tracker
-	errorTrackingService
-		.ingestError({
-			source: "PythonClient",
-			severity: "medium",
-			errorCode: "PYTHON_SERVICE_CALL_FAILED",
-			message:
-				`Python service call failed` + (status ? ` with status ${status}` : ""),
-			context: {
-				module: "PythonClient",
-				metadata: { status, circuitFailures, consecutiveFailures },
-			},
-		})
-		.catch((err: unknown) => {
-			logger.error("PYTHON_CALL_FAILED_INGEST_FAILED", { event: "PYTHON_CALL_FAILED_INGEST_FAILED", error_code: "UNHANDLED_ERROR", retryable: false, error: err instanceof Error ? err.message : String(err) });
-		});
+	// Throttle error ledger ingestion to prevent flooding the database with tens of thousands
+	// of identical errors while Python service is down or degraded.
+	const shouldIngest =
+		consecutiveFailures === 1 ||
+		circuitFailures === CIRCUIT_OPEN_THRESHOLD ||
+		Date.now() - lastPythonCallErrorLoggedAt >= PYTHON_ERROR_INGEST_COOLDOWN_MS;
+
+	if (shouldIngest) {
+		lastPythonCallErrorLoggedAt = Date.now();
+		errorTrackingService
+			.ingestError({
+				source: "PythonClient",
+				severity: "medium",
+				errorCode: "PYTHON_SERVICE_CALL_FAILED",
+				message:
+					`Python service call failed` + (status ? ` with status ${status}` : ""),
+				context: {
+					module: "PythonClient",
+					metadata: { status, circuitFailures, consecutiveFailures },
+				},
+			})
+			.catch((err: unknown) => {
+				logger.error("PYTHON_CALL_FAILED_INGEST_FAILED", { event: "PYTHON_CALL_FAILED_INGEST_FAILED", error_code: "UNHANDLED_ERROR", retryable: false, error: err instanceof Error ? err.message : String(err) });
+			});
+	}
 
 	if (circuitFailures >= CIRCUIT_OPEN_THRESHOLD) {
 		const wasOpen = circuitOpenUntil > 0;
@@ -151,10 +164,21 @@ function recordSuccess(): void {
 		console.info(
 			"[PythonClient] ✅ Circuit CLOSED — Python service healthy again",
 		);
+		// Auto-resolve open PYTHON_SERVICE_CALL_FAILED errors in errorLedger
+		errorTrackingService
+			.bulkUpdateErrorStatus({
+				errorCode: "PYTHON_SERVICE_CALL_FAILED",
+				targetStatus: "resolved",
+				userId: "system_auto_heal",
+				resolutionNote:
+					"Auto-healed: Downstream Python service recovered healthy status and closed circuit",
+			})
+			.catch(() => {});
 	}
 	circuitFailures = 0;
 	circuitOpenUntil = 0;
 	consecutiveFailures = 0;
+	lastPythonCallErrorLoggedAt = 0;
 	lastSuccessAt = new Date();
 }
 

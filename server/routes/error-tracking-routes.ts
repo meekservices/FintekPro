@@ -660,6 +660,52 @@ router.get("/:id", async (req: Request, res: Response) => {
 	}
 });
 
+router.post("/:id/resolve", async (req: Request, res: Response) => {
+	try {
+		const { resolutionNote } = req.body || {};
+		const userId = (req as any).user?.id || "admin_user";
+
+		const updated = await errorTrackingService.updateErrorStatus(
+			req.params.id,
+			"resolved",
+			userId,
+			resolutionNote || "Resolved via Activity Centre",
+		);
+
+		if (!updated) {
+			return res.status(404).json({ error: "Error not found" });
+		}
+
+		res.json(updated);
+	} catch (err) {
+		console.error("Error resolving error:", err);
+		res.status(500).json({ error: "Failed to resolve error" });
+	}
+});
+
+router.post("/bulk-resolve", async (req: Request, res: Response) => {
+	try {
+		const { ids, errorCode, module, severity, resolutionNote } = req.body || {};
+		const userId = (req as any).user?.id || "admin_user";
+
+		const result = await errorTrackingService.bulkUpdateErrorStatus({
+			ids,
+			errorCode,
+			module,
+			severity,
+			currentStatus: "open",
+			targetStatus: "resolved",
+			userId,
+			resolutionNote: resolutionNote || "Bulk resolved via Activity Centre",
+		});
+
+		res.json({ success: true, updatedCount: result.updatedCount });
+	} catch (err) {
+		console.error("Error bulk resolving errors:", err);
+		res.status(500).json({ error: "Failed to bulk resolve errors" });
+	}
+});
+
 router.patch("/:id/status", async (req: Request, res: Response) => {
 	try {
 		const { status, resolutionNote } = req.body;

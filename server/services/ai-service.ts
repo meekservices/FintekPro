@@ -131,6 +131,47 @@ export interface AIUsageMetrics {
 	timestamp: Date;
 }
 
+// ── AI Error Deduplication Map ──────────────────────────────────────────────
+// Prevents log floods when background jobs repeatedly hit rate limits or provider
+// glitches. Intermediate retries are logged to logger.warn, while errorLedger
+// entries are throttled to at most once per 2 minutes per provider/model.
+const seenAiErrors = new Map<string, number>();
+
+function logAiProviderErrorThrottled(
+	provider: string,
+	model: string,
+	error: any,
+	status: any,
+	attempt: number,
+	contextMeta: Record<string, unknown>,
+): void {
+	const minuteBucket = Math.floor(Date.now() / 120_000); // 2-minute bucket
+	const key = `${provider}:${model}:${String(status)}:${error.message?.slice(0, 60)}`;
+	if (seenAiErrors.get(key) === minuteBucket) return;
+	seenAiErrors.set(key, minuteBucket);
+	if (seenAiErrors.size > 200) seenAiErrors.clear();
+
+	errorTrackingService
+		.ingestError({
+			source: "AIService",
+			severity: "medium",
+			errorCode: `AI_PROVIDER_ERROR_${provider.toUpperCase()}`,
+			message: `AI provider ${provider} (${model}) failed: ${error.message}`,
+			stack: error.stack,
+			context: {
+				module: "AIService",
+				metadata: {
+					...contextMeta,
+					provider,
+					model,
+					status,
+					attempt,
+				},
+			},
+		})
+		.catch(() => {});
+}
+
 export class AIService {
 	private usageMetrics: AIUsageMetrics[] = [];
 	private _defaultProvider: AIProvider = "gemini"; // Groq free TPD (100K) exhausts daily; Gemini has no hard TPD cap
@@ -494,6 +535,19 @@ export class AIService {
 					}
 
 					this.releaseSlot(provider);
+
+					// Self-healing: If provider was previously unhealthy, restore it and auto-resolve open errors
+					if (this.providerStatus[provider] && !this.providerStatus[provider].healthy) {
+						this.providerStatus[provider].healthy = true;
+						errorTrackingService
+							.bulkUpdateErrorStatus({
+								errorCode: `AI_PROVIDER_ERROR_${provider.toUpperCase()}`,
+								targetStatus: "resolved",
+								userId: "system_auto_heal",
+								resolutionNote: `Auto-healed: Provider ${provider} recovered and served successful inference`,
+							})
+							.catch(() => {});
+					}
 					// ── H2: AI_ADVICE_GENERATED — FASP-AI v3.0 mandatory audit log ──────
 					// Every AI output that reaches a user/advisor must be logged with:
 					// model_version, timestamp, user_id, feature, output length.
@@ -526,29 +580,6 @@ export class AIService {
 						event: "AI_PROVIDER_ERROR", provider, model, status, attempt, feature, user_id: userId, error: error.message,
 					});
 
-					// Log each failure to error tracker
-					errorTrackingService
-						.ingestError({
-							source: "AIService",
-							severity: "medium",
-							errorCode: `AI_PROVIDER_ERROR_${provider.toUpperCase()}`,
-							message: `AI provider ${provider} (${model}) failed: ${error.message}`,
-							stack: error.stack,
-							context: {
-								module: "AIService",
-								metadata: {
-									provider,
-									model,
-									status,
-									attempt,
-									capability,
-									feature,
-									options,
-								},
-							},
-						})
-						.catch(() => {});
-
 					const is429 =
 						error.status === 429 ||
 						error.message?.includes("429") ||
@@ -568,10 +599,25 @@ export class AIService {
 						logger.error(`[AIService] Max retries reached for ${provider} after 429. Marking unhealthy.`, {
 							event: "AI_PROVIDER_MAX_RETRIES", provider, model, attempt, user_id: userId,
 						});
+
+						// Only ingest to error tracker once max retries are reached
+						logAiProviderErrorThrottled(provider, model, error, status, attempt, {
+							capability,
+							feature,
+							options,
+						});
+
 						this.markProviderUnhealthy(provider);
 						this.releaseSlot(provider);
 						break; // Move to next provider
 					}
+
+					// Non-429 or non-retryable failure: ingest throttled error
+					logAiProviderErrorThrottled(provider, model, error, status, attempt, {
+						capability,
+						feature,
+						options,
+					});
 
 					logger.error(`[AIService] ${provider} failed (non-retryable or max retries)`, {
 						event: "AI_PROVIDER_FAILED", provider, model, error: error.message, user_id: userId, feature,

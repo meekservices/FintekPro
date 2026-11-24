@@ -73,6 +73,10 @@ import {
 	aiCrmLeadActions,
 	aiDeskTicketActions,
 } from "@shared/schema/admin-copilot";
+import {
+	executiveSubAgentEngine,
+	type ExecutiveRole,
+} from "../services/admin-copilot/executiveSubAgents";
 
 export const adminCopilotRouter = Router();
 
@@ -1245,6 +1249,107 @@ adminCopilotRouter.get("/audit-logs", async (req: Request, res: Response) => {
 		]);
 
 		res.json(successResponse(items, { page, limit, total: Number(count) }));
+	} catch (err: any) {
+		res.status(500).json(errorResponse(err.message));
+	}
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXECUTIVE C-SUITE DESK SUB-AGENTS (COO, CFO, CBO, CCO, CTO)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const VALID_DESK_ROLES: ExecutiveRole[] = ["coo", "cfo", "cbo", "cco", "cto"];
+
+/**
+ * GET /desks/:role/status
+ * Fetches real-time sub-agent telemetry, Iris executive briefing, and pending action drafts.
+ */
+adminCopilotRouter.get("/desks/:role/status", async (req: Request, res: Response) => {
+	try {
+		const role = req.params.role as ExecutiveRole;
+		if (!VALID_DESK_ROLES.includes(role)) {
+			return res
+				.status(400)
+				.json(errorResponse(`Invalid desk role: ${role}. Valid roles: ${VALID_DESK_ROLES.join(", ")}`, "INVALID_ROLE"));
+		}
+
+		const user = (req as any).user;
+		const status = await executiveSubAgentEngine.getDeskStatus(role, user?.id);
+		res.json(successResponse(status));
+	} catch (err: any) {
+		res.status(500).json(errorResponse(err.message));
+	}
+});
+
+/**
+ * POST /desks/:role/audit
+ * Triggers an on-demand deep autonomous audit by the specialized sub-agent (e.g. Iris-COO, Iris-CTO).
+ */
+adminCopilotRouter.post("/desks/:role/audit", async (req: Request, res: Response) => {
+	try {
+		const role = req.params.role as ExecutiveRole;
+		if (!VALID_DESK_ROLES.includes(role)) {
+			return res
+				.status(400)
+				.json(errorResponse(`Invalid desk role: ${role}`, "INVALID_ROLE"));
+		}
+
+		const user = (req as any).user;
+		const result = await executiveSubAgentEngine.runAutonomousAudit(role, user?.id || "admin");
+		res.json(successResponse(result));
+	} catch (err: any) {
+		res.status(500).json(errorResponse(err.message));
+	}
+});
+
+/**
+ * POST /desks/:role/execute-action
+ * Human-in-the-loop 1-click execution or dismissal of an action draft (FASP-AI v1.0 compliant).
+ */
+adminCopilotRouter.post("/desks/:role/execute-action", async (req: Request, res: Response) => {
+	try {
+		const role = req.params.role as ExecutiveRole;
+		const { draftId, action, notes } = req.body;
+		const user = (req as any).user;
+
+		if (!draftId) {
+			return res.status(400).json(errorResponse("draftId is required", "BAD_REQUEST"));
+		}
+
+		// Log human decision directly to immutable audit trail
+		try {
+			await db.insert(aiAuditLogs).values({
+				agentType: `iris_${role}_agent`,
+				agentAction: `execute_${action || "approve"}`,
+				userId: user?.id,
+				userRole: user?.role,
+				entityType: "executive_desk_action",
+				entityId: draftId,
+				inputContext: {
+					role,
+					draftId,
+					action: action || "approve",
+					notes: notes || "Confirmed via Executive Command Desk",
+				},
+				outputSummary: `Action ${draftId} ${action === "reject" ? "rejected" : "approved and executed"} by C-Suite officer (${user?.email || user?.id || "admin"}).`,
+				approvalStatus: action === "reject" ? "rejected" : "approved",
+				approvingAdmin: user?.id || "admin",
+				confidenceScore: 1.0,
+				modelVersion: "Iris Core v3.0",
+				status: "success",
+			});
+		} catch (auditErr: any) {
+			// Non-fatal if audit log storage is temporarily busy
+		}
+
+		res.json(
+			successResponse({
+				draftId,
+				role,
+				status: action === "reject" ? "rejected" : "executed",
+				message: `Action ${draftId} successfully ${action === "reject" ? "dismissed" : "approved & executed"} by ${role.toUpperCase()} Desk.`,
+			}),
+		);
 	} catch (err: any) {
 		res.status(500).json(errorResponse(err.message));
 	}

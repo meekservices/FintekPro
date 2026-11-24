@@ -606,8 +606,9 @@ function WebhookAlertingSettings() {
 					</DialogHeader>
 					<div className="space-y-4">
 						<div>
-							<label className="text-sm font-medium">Name</label>
+							<label htmlFor="webhook-name" className="text-sm font-medium">Name</label>
 							<Input
+								id="webhook-name"
 								placeholder="e.g., Production Alerts"
 								value={newWebhook.name}
 								onChange={(e) =>
@@ -617,14 +618,14 @@ function WebhookAlertingSettings() {
 							/>
 						</div>
 						<div>
-							<label className="text-sm font-medium">Provider</label>
+							<label htmlFor="webhook-provider" className="text-sm font-medium">Provider</label>
 							<Select
 								value={newWebhook.provider}
 								onValueChange={(v) =>
 									setNewWebhook({ ...newWebhook, provider: v })
 								}
 							>
-								<SelectTrigger data-testid="select-webhook-provider">
+								<SelectTrigger id="webhook-provider" data-testid="select-webhook-provider">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
@@ -636,8 +637,9 @@ function WebhookAlertingSettings() {
 							</Select>
 						</div>
 						<div>
-							<label className="text-sm font-medium">Webhook URL</label>
+							<label htmlFor="webhook-url" className="text-sm font-medium">Webhook URL</label>
 							<Input
+								id="webhook-url"
 								placeholder="https://hooks.slack.com/..."
 								value={newWebhook.webhookUrl}
 								onChange={(e) =>
@@ -647,14 +649,14 @@ function WebhookAlertingSettings() {
 							/>
 						</div>
 						<div>
-							<label className="text-sm font-medium">Environment</label>
+							<label htmlFor="webhook-environment" className="text-sm font-medium">Environment</label>
 							<Select
 								value={newWebhook.environment}
 								onValueChange={(v) =>
 									setNewWebhook({ ...newWebhook, environment: v })
 								}
 							>
-								<SelectTrigger data-testid="select-webhook-environment">
+								<SelectTrigger id="webhook-environment" data-testid="select-webhook-environment">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
@@ -665,8 +667,9 @@ function WebhookAlertingSettings() {
 							</Select>
 						</div>
 						<div>
-							<label className="text-sm font-medium">Cooldown (minutes)</label>
+							<label htmlFor="webhook-cooldown" className="text-sm font-medium">Cooldown (minutes)</label>
 							<Input
+								id="webhook-cooldown"
 								type="number"
 								min={1}
 								max={60}
@@ -1574,6 +1577,41 @@ export default function ActivityCentre() {
 		},
 	});
 
+	const bulkResolveMutation = useMutation({
+		mutationFn: async (payload: {
+			ids?: string[];
+			errorCode?: string;
+			module?: string;
+			severity?: string;
+			note?: string;
+		}) => {
+			return apiRequest(`/api/errors/bulk-resolve`, {
+				method: "POST",
+				body: JSON.stringify({
+					...payload,
+					resolutionNote: payload.note,
+				}),
+				headers: { "Content-Type": "application/json" },
+			});
+		},
+		onSuccess: (data: any) => {
+			queryClient.invalidateQueries({ queryKey: ["/api/errors"] });
+			queryClient.invalidateQueries({ queryKey: ["/api/errors/metrics"] });
+			toast({
+				title: "Errors resolved",
+				description: `${data?.updatedCount ?? "Selected"} error(s) marked as resolved.`,
+			});
+			setSelectedError(null);
+		},
+		onError: () => {
+			toast({
+				title: "Error",
+				description: "Failed to bulk resolve errors.",
+				variant: "destructive",
+			});
+		},
+	});
+
 	const filteredErrors = errors?.filter((error) => {
 		const matchesSearch =
 			error.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1764,6 +1802,28 @@ export default function ActivityCentre() {
 											<SelectItem value="info">Info</SelectItem>
 										</SelectContent>
 									</Select>
+									<Button
+										variant="outline"
+										size="sm"
+										className="border-emerald-600/40 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
+										disabled={
+											bulkResolveMutation.isPending ||
+											!filteredErrors ||
+											filteredErrors.length === 0
+										}
+										onClick={() => {
+											const ids = filteredErrors?.map((e) => e.id) || [];
+											if (ids.length > 0) {
+												bulkResolveMutation.mutate({
+													ids,
+													note: `Bulk resolved via Activity Centre (${severityFilter} filter)`,
+												});
+											}
+										}}
+									>
+										<CheckCircle className="h-3.5 w-3.5 mr-1" />
+										Resolve Filtered ({filteredErrors?.length || 0})
+									</Button>
 								</div>
 							</div>
 						</CardHeader>
@@ -2088,6 +2148,19 @@ export default function ActivityCentre() {
 									<LucideShield className="h-4 w-4 mr-2" />
 									Generate Support Bundle
 								</div>
+							</Button>
+							<Button
+								variant="outline"
+								className="w-full sm:w-auto border-emerald-600/40 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
+								onClick={() =>
+									bulkResolveMutation.mutate({
+										errorCode: selectedError.errorCode,
+										note: `Bulk resolved all open instances of ${selectedError.errorCode}`,
+									})
+								}
+								disabled={bulkResolveMutation.isPending}
+							>
+								Resolve All ({selectedError.errorCode})
 							</Button>
 							<Button
 								className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700"

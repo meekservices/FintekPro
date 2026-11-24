@@ -1118,5 +1118,8 @@ export const TradeReconciliationPage = lazyWithRetry(
 export const AiGovernanceInspectorPage = lazyWithRetry(
 	() => import("@/pages/admin/ai-governance-inspector"),
 );
+export const ExecutiveDeskPage = lazyWithRetry(
+	() => import("@/pages/admin/executive-desk"),
+);
 
 
