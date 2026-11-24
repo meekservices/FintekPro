@@ -554,8 +554,9 @@ class LeadMcaEnrichmentService {
 	/**
 	 * Batch enrich leads that have missing CIN or missing financial data
 	 */
-	async batchEnrichLeads(limit = 25): Promise<BatchEnrichmentSummary> {
+	async batchEnrichLeads(limit = 10): Promise<BatchEnrichmentSummary> {
 		const startTime = Date.now();
+		const effectiveLimit = Math.min(20, Math.max(1, limit));
 
 		// Target leads with missing CIN or missing Revenue
 		const targets = await db
@@ -568,7 +569,7 @@ class LeadMcaEnrichmentService {
 					isNull(prospectLeads.annualRevenue),
 				),
 			)
-			.limit(limit);
+			.limit(effectiveLimit);
 
 		let fullyEnriched = 0;
 		let partiallyEnriched = 0;
@@ -576,18 +577,27 @@ class LeadMcaEnrichmentService {
 		let errors = 0;
 		const results: LeadEnrichmentResult[] = [];
 
-		for (const target of targets) {
-			try {
-				const res = await this.enrichLead(target.id);
-				results.push(res);
-				if (res.status === "FULL_ENRICHMENT") fullyEnriched++;
-				else if (res.status === "PARTIAL_ENRICHMENT") partiallyEnriched++;
-				else contactOnly++;
-			} catch (err: unknown) {
-				errors++;
-				logger.error(
-					`[LeadMcaEnrichment] Failed to enrich lead ${target.id}: ${err instanceof Error ? err.message : String(err)}`,
-				);
+		// Process in concurrent chunks of 3 for rapid completion without client timeout
+		const chunkSize = 3;
+		for (let i = 0; i < targets.length; i += chunkSize) {
+			const chunk = targets.slice(i, i + chunkSize);
+			const chunkResults = await Promise.allSettled(
+				chunk.map((t) => this.enrichLead(t.id)),
+			);
+
+			for (const cr of chunkResults) {
+				if (cr.status === "fulfilled") {
+					const res = cr.value;
+					results.push(res);
+					if (res.status === "FULL_ENRICHMENT") fullyEnriched++;
+					else if (res.status === "PARTIAL_ENRICHMENT") partiallyEnriched++;
+					else contactOnly++;
+				} else {
+					errors++;
+					logger.error(
+						`[LeadMcaEnrichment] Failed to enrich lead in batch: ${cr.reason instanceof Error ? cr.reason.message : String(cr.reason)}`,
+					);
+				}
 			}
 		}
 

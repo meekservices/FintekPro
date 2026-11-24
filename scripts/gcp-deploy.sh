@@ -159,6 +159,7 @@ if [ "${SKIP_PREDEPLOY_MIGRATIONS:-0}" != "1" ]; then
       --image=$IMAGE_URL \
       --project=$PROJECT_ID \
       --region=$REGION \
+      --vpc-connector=$VPC_CONNECTOR \
       --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
       --command="node" \
       --args="dist/startup/schema-repairs-runner.js" \
@@ -353,6 +354,7 @@ gcloud run jobs update fintekpro-schema-repairs \
     --image=asia-south1-docker.pkg.dev/${PROJECT_ID}/fintekpro-repo/fintekpro-app:latest \
     --project=$PROJECT_ID \
     --region=$REGION \
+    --vpc-connector=$VPC_CONNECTOR \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
     --command="node" \
     --args="dist/startup/schema-repairs-runner.js" \

@@ -284,7 +284,7 @@ export default function LeadProspecting() {
 		mutationFn: async () => {
 			const res = await apiRequest("/api/admin/marketing/leads/batch-enrich", {
 				method: "POST",
-				body: JSON.stringify({ limit: 50 }),
+				body: JSON.stringify({ limit: 10 }),
 			});
 			return res.json ? res.json() : res;
 		},
@@ -294,7 +294,7 @@ export default function LeadProspecting() {
 				title: "Batch Enrichment Completed",
 				description:
 					data?.message ||
-					"Leads successfully enriched with MCA & corporate metrics.",
+					"Batch of leads successfully enriched with MCA & corporate metrics.",
 			});
 		},
 		onError: (error: any) => {
