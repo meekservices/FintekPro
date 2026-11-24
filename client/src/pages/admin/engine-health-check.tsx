@@ -991,28 +991,32 @@ export default function EngineHealthCheck() {
 									/>
 								</div>
 
-								<div className="border-t border-border pt-4 grid grid-cols-1 md:grid-cols-2 gap-2">
+								<div className="border-t border-border pt-4 flex flex-col gap-2.5">
 									<Button
 										onClick={runProbeFleet}
 										disabled={probeFleetLoading}
-										className="w-full"
+										className="w-full justify-center h-auto py-2.5 text-xs sm:text-sm font-medium whitespace-normal"
 										variant="outline"
 									>
-										<Activity className="h-4 w-4 mr-2 text-cyan-500" />
-										{probeFleetLoading
-											? "Running Live Probes..."
-											: "Probe Fleet Quality Live"}
+										<Activity className="h-4 w-4 mr-2 shrink-0 text-cyan-500" />
+										<span>
+											{probeFleetLoading
+												? "Running Live Probes..."
+												: "Probe Fleet Quality Live"}
+										</span>
 									</Button>
 									<Button
 										onClick={runLearningCycle}
 										disabled={learningCycleLoading}
-										className="w-full"
+										className="w-full justify-center h-auto py-2.5 text-xs sm:text-sm font-medium whitespace-normal"
 										variant="outline"
 									>
-										<Sparkles className="h-4 w-4 mr-2 text-amber-500" />
-										{learningCycleLoading
-											? "Executing Feedback Sweep..."
-											: "Run Immediate Self-Improvement Cycle"}
+										<Sparkles className="h-4 w-4 mr-2 shrink-0 text-amber-500" />
+										<span>
+											{learningCycleLoading
+												? "Executing Feedback Sweep..."
+												: "Run Immediate Self-Improvement Cycle"}
+										</span>
 									</Button>
 								</div>
 							</CardContent>
