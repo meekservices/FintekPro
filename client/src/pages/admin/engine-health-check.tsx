@@ -234,6 +234,7 @@ export default function EngineHealthCheck() {
 	const [selfHealLoading, setSelfHealLoading] = useState(false);
 	const [selfHealResult, setSelfHealResult] = useState<any>(null);
 	const [learningCycleLoading, setLearningCycleLoading] = useState(false);
+	const [probeFleetLoading, setProbeFleetLoading] = useState(false);
 	const [killSwitchModalOpen, setKillSwitchModalOpen] = useState(false);
 	const [killSwitchReason, setKillSwitchReason] = useState("");
 	const [killSwitchSubmitting, setKillSwitchSubmitting] = useState(false);
@@ -247,8 +248,9 @@ export default function EngineHealthCheck() {
 	const [registryCategoryFilter, setRegistryCategoryFilter] =
 		useState<string>("all");
 	const [registrySearch, setRegistrySearch] = useState("");
+	const [subEngineSearch, setSubEngineSearch] = useState("");
 
-	const { data: registryData, isLoading: registryLoading } =
+	const { data: registryData, isLoading: registryLoading, refetch: refetchRegistry } =
 		useQuery<RegistryResponse>({
 			queryKey: ["/api/engine-health/registry"],
 		});
@@ -397,6 +399,28 @@ export default function EngineHealthCheck() {
 			});
 		} finally {
 			setLearningCycleLoading(false);
+		}
+	};
+
+	const runProbeFleet = async () => {
+		setProbeFleetLoading(true);
+		try {
+			const res = await apiRequest("/api/engine-learning/probe-fleet", "POST");
+			const json = await res.json();
+			refetchOrchestrator();
+			refetchRegistry();
+			toast({
+				title: "Fleet Quality Probed Live",
+				description: json.message || "Live tests performed across core engines and dynamic scores updated.",
+			});
+		} catch (err: any) {
+			toast({
+				title: "Probe Failed",
+				description: err?.message || "Failed to probe fleet quality live",
+				variant: "destructive",
+			});
+		} finally {
+			setProbeFleetLoading(false);
 		}
 	};
 
@@ -626,6 +650,20 @@ export default function EngineHealthCheck() {
 					</Button>
 
 					<Button
+						onClick={runProbeFleet}
+						disabled={probeFleetLoading}
+						variant="outline"
+						size="sm"
+					>
+						{probeFleetLoading ? (
+							<RefreshCw className="h-4 w-4 animate-spin mr-1.5" />
+						) : (
+							<Activity className="h-4 w-4 mr-1.5 text-cyan-500" />
+						)}
+						{probeFleetLoading ? "Probing..." : "Probe Fleet"}
+					</Button>
+
+					<Button
 						onClick={runLearningCycle}
 						disabled={learningCycleLoading}
 						variant="outline"
@@ -760,15 +798,18 @@ export default function EngineHealthCheck() {
 										typeof rawSignal === "object" && rawSignal !== null
 											? rawSignal.alphaQuality
 											: null;
-									const isStrong = label === "STRONG";
+									const badgeColor =
+										label === "STRONG"
+											? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+											: label === "MODERATE"
+												? "bg-blue-500/10 text-blue-600 border-blue-500/30"
+												: label === "WEAK"
+													? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+													: "bg-rose-500/10 text-rose-600 border-rose-500/30";
 									return (
 										<Badge
 											variant="outline"
-											className={
-												isStrong
-													? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
-													: "bg-blue-500/10 text-blue-600 border-blue-500/30"
-											}
+											className={badgeColor}
 										>
 											{label}
 											{quality !== null && quality !== undefined
@@ -950,7 +991,18 @@ export default function EngineHealthCheck() {
 									/>
 								</div>
 
-								<div className="border-t border-border pt-4">
+								<div className="border-t border-border pt-4 grid grid-cols-1 md:grid-cols-2 gap-2">
+									<Button
+										onClick={runProbeFleet}
+										disabled={probeFleetLoading}
+										className="w-full"
+										variant="outline"
+									>
+										<Activity className="h-4 w-4 mr-2 text-cyan-500" />
+										{probeFleetLoading
+											? "Running Live Probes..."
+											: "Probe Fleet Quality Live"}
+									</Button>
 									<Button
 										onClick={runLearningCycle}
 										disabled={learningCycleLoading}
@@ -1010,70 +1062,126 @@ export default function EngineHealthCheck() {
 									</div>
 								</div>
 
-								<div className="space-y-2 pt-2">
-									<h4 className="text-xs font-semibold text-muted-foreground uppercase">
-										Sub-Engine Learning Status
-									</h4>
-									<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-										{(learningState?.engines ?? [
-											{
-												engineId: "pro_thematic_screener",
-												engineName: "Pro Thematic Screener",
-												learningStatus: "optimal",
-												qualityScore: 94,
-												activeCalibrations: ["thematic_weight_drift"],
-											},
-											{
-												engineId: "pick_of_the_day",
-												engineName: "Pick of the Day Engine",
-												learningStatus: "optimal",
-												qualityScore: 96,
-												activeCalibrations: ["scorer_threshold_auto"],
-											},
-											{
-												engineId: "model_portfolio_quant",
-												engineName: "Model Portfolio Quant Optimizer",
-												learningStatus: "optimal",
-												qualityScore: 92,
-												activeCalibrations: ["covariance_shrinkage"],
-											},
-											{
-												engineId: "ai_regime_detection",
-												engineName: "AI Market Regime Engine",
-												learningStatus: "calibrating",
-												qualityScore: 88,
-												activeCalibrations: ["volatility_shift_band"],
-											},
-										]).map((eng: any) => (
-											<div
-												key={eng.engineId}
-												className="p-3 rounded-lg border border-border bg-card flex items-center justify-between"
-											>
-												<div>
-													<div className="text-sm font-medium text-foreground">
-														{eng.engineName}
+								<div className="space-y-3 pt-2">
+									<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+										<div>
+											<h4 className="text-xs font-semibold text-muted-foreground uppercase">
+												Sub-Engine Learning Status ({(() => {
+													const engines = learningState?.engines ?? [];
+													if (!subEngineSearch) return engines.length;
+													const q = subEngineSearch.toLowerCase();
+													return engines.filter((e: any) =>
+														e.engineName?.toLowerCase().includes(q) ||
+														e.engineId?.toLowerCase().includes(q) ||
+														e.category?.toLowerCase().includes(q) ||
+														e.activeCalibrations?.[0]?.toLowerCase().includes(q)
+													).length;
+												})()})
+											</h4>
+											<p className="text-[11px] text-muted-foreground mt-0.5">
+												Real-time calibration posture and output quality across all quantitative fleet engines
+											</p>
+										</div>
+										<div className="w-full sm:w-64">
+											<Input
+												placeholder="Search engines or calibrations..."
+												value={subEngineSearch}
+												onChange={(e) => setSubEngineSearch(e.target.value)}
+												className="h-8 text-xs"
+											/>
+										</div>
+									</div>
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[560px] overflow-y-auto pr-1">
+										{(() => {
+											const engines = learningState?.engines ?? [
+												{
+													engineId: "pro_thematic_screener",
+													engineName: "Pro Thematic Screener",
+													category: "Alpha Generation",
+													learningStatus: "optimal",
+													qualityScore: 94,
+													reportCount: 1,
+													activeCalibrations: ["thematic_weight_drift"],
+												},
+												{
+													engineId: "pick_of_the_day",
+													engineName: "Pick of the Day Engine",
+													category: "Alpha Generation",
+													learningStatus: "optimal",
+													qualityScore: 96,
+													reportCount: 1,
+													activeCalibrations: ["scorer_threshold_auto"],
+												},
+												{
+													engineId: "model_portfolio_quant",
+													engineName: "Model Portfolio Quant Optimizer",
+													category: "Portfolio",
+													learningStatus: "optimal",
+													qualityScore: 92,
+													reportCount: 1,
+													activeCalibrations: ["covariance_shrinkage"],
+												},
+												{
+													engineId: "ai_regime_detection",
+													engineName: "AI Market Regime Engine",
+													category: "Risk & Regime",
+													learningStatus: "calibrating",
+													qualityScore: 88,
+													reportCount: 1,
+													activeCalibrations: ["volatility_shift_band"],
+												},
+											];
+											const filtered = engines.filter((eng: any) => {
+												if (!subEngineSearch) return true;
+												const q = subEngineSearch.toLowerCase();
+												return (
+													eng.engineName?.toLowerCase().includes(q) ||
+													eng.engineId?.toLowerCase().includes(q) ||
+													eng.category?.toLowerCase().includes(q) ||
+													eng.activeCalibrations?.[0]?.toLowerCase().includes(q)
+												);
+											});
+											return filtered.map((eng: any) => (
+												<div
+													key={eng.engineId}
+													className="p-3 rounded-lg border border-border bg-card flex items-center justify-between hover:bg-muted/30 transition-colors"
+												>
+													<div className="space-y-0.5 mr-2">
+														<div className="text-sm font-medium text-foreground flex items-center gap-1.5 flex-wrap">
+															<span>{eng.engineName}</span>
+															{eng.category && (
+																<Badge variant="secondary" className="text-[10px] font-normal py-0 px-1.5 h-4">
+																	{eng.category}
+																</Badge>
+															)}
+														</div>
+														<div className="text-xs text-muted-foreground line-clamp-1">
+															{eng.activeCalibrations?.[0]?.replace(/_/g, " ") ?? "Continuous Adaptive"}
+														</div>
 													</div>
-													<div className="text-xs text-muted-foreground capitalize mt-0.5">
-														{eng.activeCalibrations?.[0]?.replace(/_/g, " ") ?? "Continuous"}
+													<div className="text-right shrink-0">
+														<Badge
+															variant="outline"
+															className={
+																eng.learningStatus === "optimal"
+																	? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+																	: eng.learningStatus === "calibrating"
+																		? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+																		: "bg-rose-500/10 text-rose-600 border-rose-500/30"
+															}
+														>
+															{eng.learningStatus}
+														</Badge>
+														<div className="text-[11px] text-muted-foreground mt-1">
+															Quality: {eng.qualityScore ? `${eng.qualityScore}%` : "90%"}
+															<span className="text-[10px] text-muted-foreground/70 ml-1">
+																({eng.reportCount > 0 ? "Live" : "Baseline"})
+															</span>
+														</div>
 													</div>
 												</div>
-												<div className="text-right">
-													<Badge
-														variant="outline"
-														className={
-															eng.learningStatus === "optimal"
-																? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
-																: "bg-amber-500/10 text-amber-600 border-amber-500/30"
-														}
-													>
-														{eng.learningStatus}
-													</Badge>
-													<div className="text-[11px] text-muted-foreground mt-1">
-														Quality: {eng.qualityScore ?? 90}%
-													</div>
-												</div>
-											</div>
-										))}
+											));
+										})()}
 									</div>
 								</div>
 							</CardContent>

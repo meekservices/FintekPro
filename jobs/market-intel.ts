@@ -46,14 +46,20 @@ async function run(): Promise<void> {
 			logger.warn(`[${JOB_NAME}] Phase A warning (non-fatal)`, { error: String(err) });
 		}
 
-		// Phase B: Institutional FII/DII Net Flow Ingestion
-		logger.info(`[${JOB_NAME}] Phase B: Syncing FII/DII Institutional Flows...`);
+		// Phase B: Institutional FII/DII Net Flow & F&O Participant OI Ingestion
+		logger.info(`[${JOB_NAME}] Phase B: Syncing FII/DII Institutional Flows and F&O Participant OI...`);
 		try {
 			const { fiiFlowService } = await import(
 				"../server/services/macro/fii-flow-service"
 			);
 			await fiiFlowService.syncAndPersistDailyFlow();
-			logger.info(`[${JOB_NAME}] Phase B Complete: FII/DII net flows synchronized`);
+
+			const { nseFoParticipantService } = await import(
+				"../server/services/nse-fo-participant-service"
+			);
+			await nseFoParticipantService.syncParticipantOi();
+
+			logger.info(`[${JOB_NAME}] Phase B Complete: FII/DII flows and F&O Participant OI synchronized`);
 		} catch (err) {
 			logger.warn(`[${JOB_NAME}] Phase B warning (non-fatal)`, { error: String(err) });
 		}

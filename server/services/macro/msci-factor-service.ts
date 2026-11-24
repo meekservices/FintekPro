@@ -238,7 +238,9 @@ export class MsciFactorService {
         expiresAt: Date.now() + CACHE_TTL_MS,
       };
 
-      this.reportTelemetry(Date.now() - t0, 100, 0);
+      const factorCoverage = report.factorAttribution?.factors?.length ?? 5;
+      const dynamicQualityScore = Math.max(50, Math.min(100, Math.round(factorCoverage >= 5 ? 98 : factorCoverage * 18)));
+      this.reportTelemetry(Date.now() - t0, dynamicQualityScore, 0);
 
       // Non-blocking persistence for regulatory audit trail
       this.persistMsciProfiles(report).catch((err) => {

@@ -10093,6 +10093,7 @@ export const stockQuarterlyFinancials = pgTable("stock_quarterly_financials", {
   isin: varchar("isin", { length: 20 }),
   quarterEnd: date("quarter_end").notNull(),
   quarterLabel: varchar("quarter_label", { length: 16 }).notNull(), // 'Q3 FY26'
+  statementNature: varchar("statement_nature", { length: 16 }).default("CONSOLIDATED"), // 'CONSOLIDATED' | 'STANDALONE'
   
   revenueCr: decimal("revenue_cr", { precision: 12, scale: 2 }),
   ebitdaCr: decimal("ebitda_cr", { precision: 12, scale: 2 }),
@@ -10109,6 +10110,7 @@ export const stockQuarterlyFinancials = pgTable("stock_quarterly_financials", {
   source: varchar("source", { length: 32 }).default("bse_nse_filing"),
 }, (table) => [
   index("idx_quarterly_symbol_quarter").on(table.symbol, table.quarterEnd),
+  uniqueIndex("uq_quarterly_symbol_end_nature").on(table.symbol, table.quarterEnd, table.statementNature),
   index("idx_quarterly_turnaround").on(table.isLossToProfitTurnaround),
   index("idx_quarterly_pat_growth").on(table.patGrowthYoyPercent),
 ]);

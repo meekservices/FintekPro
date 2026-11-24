@@ -7269,9 +7269,36 @@ export async function ensureEngineGapFixTables(poolInstance?: any): Promise<void
       WHERE category != 'derivatives'
         AND stoploss_price::numeric >= target_price::numeric
         AND reco_price::numeric > 0;
+
+      -- ── Ensure stock_quarterly_financials table & indexes ──
+      CREATE TABLE IF NOT EXISTS stock_quarterly_financials (
+        id SERIAL PRIMARY KEY,
+        symbol VARCHAR(30) NOT NULL,
+        isin VARCHAR(20),
+        quarter_end DATE NOT NULL,
+        quarter_label VARCHAR(16) NOT NULL,
+        statement_nature VARCHAR(16) DEFAULT 'CONSOLIDATED',
+        revenue_cr DECIMAL(12, 2),
+        ebitda_cr DECIMAL(12, 2),
+        ebitda_margin_percent DECIMAL(6, 2),
+        net_profit_cr DECIMAL(12, 2),
+        net_margin_percent DECIMAL(6, 2),
+        prev_quarter_pat_cr DECIMAL(12, 2),
+        prev_year_pat_cr DECIMAL(12, 2),
+        pat_growth_yoy_percent DECIMAL(10, 2),
+        is_loss_to_profit_turnaround BOOLEAN DEFAULT FALSE,
+        filing_date TIMESTAMPTZ,
+        source VARCHAR(32) DEFAULT 'bse_nse_filing'
+      );
+
+      ALTER TABLE stock_quarterly_financials ADD COLUMN IF NOT EXISTS statement_nature VARCHAR(16) DEFAULT 'CONSOLIDATED';
+      CREATE INDEX IF NOT EXISTS idx_quarterly_symbol_quarter ON stock_quarterly_financials (symbol, quarter_end);
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_quarterly_symbol_end_nature ON stock_quarterly_financials (symbol, quarter_end, statement_nature);
+      CREATE INDEX IF NOT EXISTS idx_quarterly_turnaround ON stock_quarterly_financials (is_loss_to_profit_turnaround);
+      CREATE INDEX IF NOT EXISTS idx_quarterly_pat_growth ON stock_quarterly_financials (pat_growth_yoy_percent);
     `);
 
-    console.log("  ✅ [GapFix] Engine gap-fix tables, sufficiency sync, columns, and daily_picks healed");
+    console.log("  ✅ [GapFix] Engine gap-fix tables, sufficiency sync, columns, daily_picks, and quarterly financials healed");
   } catch (err: any) {
     console.warn("  ⚠️ [GapFix] Non-fatal migration error:", err?.message?.slice(0, 200));
   }

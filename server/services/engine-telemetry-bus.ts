@@ -89,6 +89,7 @@ class EngineTelemetryBus {
 
   constructor() {
     this._seedCoreEngines();
+    void this.hydrateFromRedis();
   }
 
   private _seedCoreEngines(): void {
@@ -119,6 +120,8 @@ class EngineTelemetryBus {
       { id: "financial-metrics-calculator", name: "Financial Metrics Calculator", category: "Data Quality" },
       { id: "data-sufficiency-engine", name: "Data Sufficiency & Quality Engine", category: "Data Quality" },
       { id: "nse-bhavcopy-service", name: "NSE Bhavcopy Ingestion Service", category: "Data Quality" },
+      { id: "bse-bhavcopy-service", name: "BSE Bhavcopy Ingestion Service", category: "Data Quality" },
+      { id: "nse-fo-participant-service", name: "NSE F&O Participant OI Ingestion Service", category: "Data Quality" },
       { id: "stock-enrichment-service", name: "Stock Financial Enrichment Service", category: "Data Quality" },
       { id: "historical-backfill-service", name: "Historical Time-Series Backfill", category: "Data Quality" },
       { id: "upstox-golden-pricing", name: "Upstox Golden Market Data", category: "Data Quality" },
@@ -129,17 +132,33 @@ class EngineTelemetryBus {
       { id: "scorer-calibration", name: "Scorer Calibration Service", category: "AI Orchestration" },
       { id: "pick-outcome-analyzer", name: "Pick Outcome Analyzer", category: "AI Orchestration" },
       { id: "smart-order-routing", name: "Smart Order Routing Engine", category: "Transaction" },
+      { id: "long-short-algo-engine", name: "Long/Short Institutional Derivatives Algo Engine", category: "Alpha Generation" },
       { id: "long-short-algo", name: "Long-Short Strategy & Algorithmic Signal Engine", category: "Transaction" },
-      { id: "fno-buildup-engine", name: "F&O Buildup & Derivative Intelligence Engine", category: "Transaction" },
+      { id: "fno-buildup-engine", name: "F&O Buildup & Derivative Intelligence Engine", category: "Alpha Generation" },
       { id: "surveillance-incident-engine", name: "Real-Time Surveillance & Incident Mitigation Engine", category: "Compliance" },
       { id: "trade-reconciliation-engine", name: "T+1 Trade & Broker Reconciliation Engine", category: "Transaction" },
-      { id: "knowledge-hub-auto-heal-sentinel", name: "Knowledge Hub Auto-Heal Sentinel", category: "AI Orchestration" },
+      { id: "knowledge-hub-auto-heal-sentinel", name: "Knowledge Hub Auto-Heal Sentinel", category: "Data Quality" },
       { id: "tax-law-engine", name: "Direct Tax & Corporate Law Workstation Engine", category: "Compliance" },
       { id: "regulatory-ingestion-service", name: "Autonomous Regulatory Ingestion Engine", category: "Data Quality" },
       { id: "indian-tax-calculator", name: "Dynamic Indian Income Tax Calculator Engine", category: "Portfolio" },
       { id: "commodity-strategy", name: "Institutional Commodity Derivatives Engine", category: "Alpha Generation" },
       { id: "mcx-bhavcopy-service", name: "MCX Commodity Bhavcopy Ingestion Service", category: "Data Quality" },
       { id: "ncdex-bhavcopy-service", name: "NCDEX Commodity Bhavcopy Ingestion Service", category: "Data Quality" },
+      { id: "goal-planning-engine", name: "Goal Planning & Inflation Engine", category: "Portfolio" },
+      { id: "investable-surplus-engine", name: "Investable Surplus & Cashflow Engine", category: "Compliance" },
+      { id: "ai-backtesting-engine", name: "AI Multi-Asset Backtesting Engine", category: "Alpha Generation" },
+      { id: "ai-proposal-engine", name: "AI Proposal & Asset Allocation Engine", category: "AI Orchestration" },
+      { id: "proposal-whatif-engine", name: "Proposal What-If Simulator Engine", category: "Portfolio" },
+      { id: "research-metrics-engine", name: "Research & Factor Metrics Engine", category: "Alpha Generation" },
+      { id: "explainability-engine", name: "Explainability & Governance Layer Engine", category: "Compliance" },
+      { id: "risk-suitability-engine", name: "Risk Suitability & Profiling Engine", category: "Compliance" },
+      { id: "us-rebalancing-engine", name: "US Cross-Border Rebalancing Engine", category: "Execution & Rebalancing" },
+      { id: "rebalancing-engine", name: "Portfolio Drift & Tax-Optimized Rebalancing Engine", category: "Portfolio" },
+      { id: "profit-optimized-scoring-engine", name: "Profit-Optimized Quant Scoring Engine", category: "Alpha Generation" },
+      { id: "return-forecasting-engine", name: "Return Forecasting & Monte Carlo Engine", category: "Risk & Regime" },
+      { id: "corporate-treasury-engine", name: "Corporate Treasury & SEBI Policy Engine", category: "Compliance" },
+      { id: "tds-withholding-engine", name: "TDS Withholding & Tax Optimization Engine", category: "Compliance" },
+      { id: "portfolio-xray-engine", name: "Portfolio 360 X-Ray Engine", category: "Portfolio" },
     ];
     for (const eng of coreEngines) {
       this._meta.set(eng.id, { name: eng.name, category: eng.category });
@@ -259,11 +278,15 @@ class EngineTelemetryBus {
     const alphaEngines = all.filter(
       (s) => s.category === "Alpha Generation" || s.category === "Portfolio",
     );
+    // Only average engines that have actively reported (reportCount > 0).
+    // Pre-seeded or dormant engines with 0 reports have an 'unknown' state and
+    // must not falsely drag down the fleet alpha composite score to 0.
+    const activeAlphaEngines = alphaEngines.filter((s) => s.reportCount > 0);
     const alphaQuality =
-      alphaEngines.length > 0
+      activeAlphaEngines.length > 0
         ? Math.round(
-            alphaEngines.reduce((s, e) => s + e.avgQualityScore, 0) /
-              alphaEngines.length,
+            activeAlphaEngines.reduce((s, e) => s + e.avgQualityScore, 0) /
+              activeAlphaEngines.length,
           )
         : 70; // optimistic default when no reports yet
 
@@ -301,6 +324,40 @@ class EngineTelemetryBus {
   /** Sets the latest regime label (e.g. from tests or dynamic overrides). */
   setLatestRegime(regime: string): void {
     this._latestRegime = regime;
+  }
+
+  /**
+   * Hydrates the in-memory buffer with the latest engine telemetry reports cached in Redis.
+   * Useful on Cloud Run cold starts or container restarts.
+   */
+  async hydrateFromRedis(): Promise<void> {
+    try {
+      const { getSharedRedis } = await import("../utils/redis-client");
+      const redis = await getSharedRedis();
+      if (!redis) return;
+      const keys = await redis.keys("telemetry:engine:*");
+      for (const key of keys) {
+        const raw = await redis.get(key);
+        if (!raw) continue;
+        const report = JSON.parse(raw) as EngineReport;
+        if (report?.engineId) {
+          const buf = this._buffer.get(report.engineId) ?? [];
+          if (buf.length === 0) {
+            buf.push(report);
+            this._buffer.set(report.engineId, buf);
+            this._meta.set(report.engineId, {
+              name: report.engineName,
+              category: report.category,
+            });
+            if (report.engineId === "ai-regime-detection" && report.meta?.regime) {
+              this._latestRegime = String(report.meta.regime);
+            }
+          }
+        }
+      }
+    } catch {
+      // Non-fatal
+    }
   }
 
   private async _persistToRedis(engineId: string, report: EngineReport): Promise<void> {

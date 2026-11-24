@@ -290,13 +290,17 @@ export class FastAnalyticalEngine {
 		const paginated = filtered.slice(offset, offset + limit);
 		const executionTimeMs = Math.max(0, Date.now() - startMs);
 
+		// Sub-10ms SLA dynamic score: penalize if latency exceeds 10ms or if memory scan drops
+		const latencyPenalty = executionTimeMs <= 10 ? 0 : Math.min(50, (executionTimeMs - 10) * 2);
+		const dynamicQualityScore = Math.max(30, Math.min(100, Math.round(100 - latencyPenalty)));
+
 		telemetryBus.report({
 			engineId: "fast-analytical-engine",
 			engineName: "Fast Analytical In-Memory Engine",
 			category: "Alpha Generation",
 			reportedAt: timestamp,
 			latencyMs: executionTimeMs,
-			qualityScore: 99,
+			qualityScore: dynamicQualityScore,
 			itemsProcessed: paginated.length,
 			errorCount: 0,
 			meta: { totalMatches, scanned },

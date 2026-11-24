@@ -512,6 +512,72 @@ export function initializeEnrichmentCrons(
 	);
 	delay += STAGGER;
 
+	// ── Official BSE Bhavcopy Daily Ingestion ───────────────────────────────────
+	staggeredStart(
+		"BSE Bhavcopy Ingestion",
+		() => {
+			// Daily 6:50 PM IST (13:20 UTC) weekdays — after BSE settlement archive upload
+			cron.schedule(
+				"50 18 * * 1-5",
+				async () => {
+					logger.info("[CRON] Starting daily BSE Bhavcopy EOD ingestion (6:50 PM IST)...");
+					try {
+						const { bseBhavcopyService } = await import(
+							"./services/bse-bhavcopy-service"
+						);
+						const result = await bseBhavcopyService.syncLatestBhavcopy();
+						logger.info(
+							`[CRON] BSE Bhavcopy ingestion complete: ${result.updatedStocks} stocks updated, ` +
+								`${result.goldenInserted} golden prices, turnover ₹${result.totalTurnoverCr} Cr in ${result.latencyMs}ms`,
+						);
+					} catch (error: any) {
+						logger.error("[CRON] BSE Bhavcopy ingestion failed:", error.message);
+					}
+				},
+				{ timezone: "Asia/Kolkata" },
+			);
+			logger.info(
+				"🏛️ [BseBhavcopy] Daily official BSE Bhavcopy ingestion scheduled (6:50 PM IST weekdays)",
+			);
+		},
+		delay,
+	);
+	delay += STAGGER;
+
+	// ── Official NSE F&O Participant Open Interest Ingestion ───────────────────
+	staggeredStart(
+		"NSE FO Participant OI Ingestion",
+		() => {
+			// Daily 7:15 PM IST (13:45 UTC) weekdays — after NSE derivatives clearing settlement
+			cron.schedule(
+				"15 19 * * 1-5",
+				async () => {
+					logger.info("[CRON] Starting daily NSE F&O Participant OI ingestion (7:15 PM IST)...");
+					try {
+						const { nseFoParticipantService } = await import(
+							"./services/nse-fo-participant-service"
+						);
+						const result = await nseFoParticipantService.syncParticipantOi();
+						if (result) {
+							logger.info(
+								`[CRON] NSE F&O Participant OI complete: FII Long/Short ratio ${result.fiiIndexFuturesLongShortRatio}, ` +
+									`Posture ${result.institutionalPosture}, SqueezeAlert=${result.shortSqueezeAlert} in ${result.latencyMs}ms`,
+							);
+						}
+					} catch (error: any) {
+						logger.error("[CRON] NSE F&O Participant OI ingestion failed:", error.message);
+					}
+				},
+				{ timezone: "Asia/Kolkata" },
+			);
+			logger.info(
+				"⚡ [NseFoParticipant] Daily official NSE F&O Participant OI scheduled (7:15 PM IST weekdays)",
+			);
+		},
+		delay,
+	);
+	delay += STAGGER;
+
 	// ── Official NCDEX Bhavcopy & Mandi Spot Daily Ingestion ───────────────────
 	staggeredStart(
 		"NCDEX Bhavcopy Ingestion",
@@ -1287,6 +1353,10 @@ async function runScreenerEnrichmentBatch(
 					// Re-sync master snapshot for this symbol
 					const { screenerMasterSnapshotService } = await import("./services/screener/screener-master-snapshot-service");
 					await screenerMasterSnapshotService.upsertSnapshot(sym).catch(() => {});
+
+					// Unpack quarterly filings into stock_quarterly_financials for thematic screeners
+					const { stockQuarterlyFinancialsService } = await import("./services/stock-quarterly-financials-service");
+					await stockQuarterlyFinancialsService.unpackScreenerQuarterlyHistory(sym).catch(() => {});
 
 					done++;
 				} else {

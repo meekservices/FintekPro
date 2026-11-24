@@ -1479,6 +1479,22 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 					} else {
 						console.log(`[MetricsRefresh] ℹ️ stockFinancialMetrics table has ${count} records. Ready for AI & quant models.`);
 					}
+
+					// Startup check for stock_quarterly_financials (powers turnaround & profit-blasters screeners)
+					try {
+						const { stockQuarterlyFinancials } = await import("../../shared/schema");
+						const qCountRes = await db.select({ count: sql<number>`count(*)::int` }).from(stockQuarterlyFinancials);
+						const qCount = Number(qCountRes[0]?.count ?? 0);
+						if (qCount < 50) {
+							console.log(`[QuarterlyFinancials] 🚀 Initial startup warmup: stockQuarterlyFinancials has ${qCount} records. Populating from screener unpack...`);
+							const { stockQuarterlyFinancialsService } = await import("../services/stock-quarterly-financials-service");
+							void stockQuarterlyFinancialsService.syncAllFromScreener(300);
+						} else {
+							console.log(`[QuarterlyFinancials] ℹ️ stockQuarterlyFinancials has ${qCount} records.`);
+						}
+					} catch (qErr: any) {
+						console.warn("[QuarterlyFinancials] ⚠️ Startup table check note:", qErr?.message?.slice(0, 120));
+					}
 				} catch (err: any) {
 					console.warn("[MetricsRefresh] ⚠️ Startup table check failed (non-fatal):", err?.message);
 				}
@@ -1847,6 +1863,8 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			const runAudit = async (trigger: "startup" | "scheduled_eod" | "weekend_audit") => {
 				try {
 					console.log(`🧠 [SelfImprovement] 🔄 Running autonomous performance audit & learning cycle (${trigger})...`);
+					// Run empirical non-destructive live quality probes on fleet engines
+					await engineLearningOrchestrator.probeFleetQualityLive();
 					const cycleResult = await engineLearningOrchestrator.runSelfImprovementCycle();
 
 					// Audit Algo & Model Portfolio Execution metrics

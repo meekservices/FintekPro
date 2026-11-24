@@ -100,6 +100,23 @@ export interface IndianAPIProfitLoss {
 	net_margin?: number;
 }
 
+export interface IndianAPIQuarterlyResult {
+	quarter: string; // e.g. "Jun 2024", "Q1 FY25", "2024-06-30"
+	quarter_end?: string; // normalized YYYY-MM-DD
+	revenue: number; // in Cr
+	gross_profit?: number;
+	ebitda?: number;
+	operating_profit?: number;
+	operating_margin?: number; // in %
+	depreciation?: number;
+	interest?: number;
+	profit_before_tax?: number;
+	pat: number; // in Cr
+	eps?: number;
+	net_margin?: number; // in %
+	raw?: Record<string, any>;
+}
+
 export interface IndianAPICashFlow {
 	year: string;
 	operating_cash_flow: number;
@@ -911,6 +928,49 @@ class IndianAPIService {
 				})));
 			} catch (error: any) {
 				logger.error(`[IndianAPI] getProfitLoss(${symbol}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.FUNDAMENTALS);
+	}
+
+	async getQuarterlyResults(symbol: string, quarters = 8): Promise<IndianAPIResult<IndianAPIQuarterlyResult[]>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "quarterly", `${symbol}:${quarters}`);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/statement", { params: { stock_name: symbol.toUpperCase(), stats: "quarter_results" } }),
+				);
+				const data = r.data?.quarter_results ?? r.data?.quarterly_results ?? r.data?.quarters ?? r.data?.profit_loss ?? r.data ?? [];
+				const list: any[] = Array.isArray(data) ? data : typeof data === "object" && data !== null ? [data] : [];
+				const rawList: any[] = list.slice(0, quarters);
+				const parseNum = (val: any): number => {
+					if (val == null) return 0;
+					if (typeof val === "number" && !Number.isNaN(val)) return val;
+					if (typeof val === "string") {
+						const n = Number.parseFloat(val.replace(/,/g, "").replace(/%/g, ""));
+						return Number.isNaN(n) ? 0 : n;
+					}
+					return 0;
+				};
+
+				return this.makeResult<IndianAPIQuarterlyResult[]>(rawList.map((row: any) => ({
+					quarter: row.quarter ?? row.period ?? row.quarter_end ?? row.year ?? "Q",
+					quarter_end: row.quarter_end ?? row.date,
+					revenue: parseNum(row.revenue ?? row.sales ?? row.netSales ?? row.totalIncome),
+					gross_profit: row.grossProfit ? parseNum(row.grossProfit) : undefined,
+					ebitda: (row.ebitda ?? row.operating_profit ?? row.operatingProfit) ? parseNum(row.ebitda ?? row.operating_profit ?? row.operatingProfit) : undefined,
+					operating_margin: (row.operating_margin ?? row.operatingMargin ?? row.opm) ? parseNum(row.operating_margin ?? row.operatingMargin ?? row.opm) : undefined,
+					depreciation: row.depreciation ? parseNum(row.depreciation) : undefined,
+					interest: row.interest ? parseNum(row.interest) : undefined,
+					profit_before_tax: (row.pbt ?? row.profitBeforeTax) ? parseNum(row.pbt ?? row.profitBeforeTax) : undefined,
+					pat: parseNum(row.pat ?? row.net_profit ?? row.netProfit ?? row.netIncome),
+					eps: row.eps ? parseNum(row.eps ?? row.basicEps) : undefined,
+					net_margin: row.netMargin ? parseNum(row.netMargin) : undefined,
+					raw: row,
+				})));
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getQuarterlyResults(${symbol}) error: ${error.message}`);
 				return this.makeError(error.message);
 			}
 		}, TTL.FUNDAMENTALS);

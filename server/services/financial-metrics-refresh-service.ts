@@ -92,6 +92,17 @@ export class FinancialMetricsRefreshService {
 				metrics,
 			);
 
+			// Refresh quarterly filings for Pro Thematic Screener ('turnaround', 'profit-blasters')
+			try {
+				const { stockQuarterlyFinancialsService } = await import("./stock-quarterly-financials-service");
+				await stockQuarterlyFinancialsService.refreshStockQuarterly(stock.symbol, stock.isin);
+			} catch (qErr: any) {
+				console.warn(
+					`[FinancialMetricsRefresh] Quarterly financials sync note for ${stock.symbol}:`,
+					qErr?.message?.slice(0, 120),
+				);
+			}
+
 			console.log(
 				`[FinancialMetricsRefresh] Successfully refreshed metrics for ${stock.symbol}`,
 			);

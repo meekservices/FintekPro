@@ -262,7 +262,9 @@ export class GlobalFiiTrackerEngine {
         expiresAt: Date.now() + CACHE_TTL_MS,
       };
 
-      this.reportTelemetry(Date.now() - t0, 100, 0);
+      const topScore = report.scorecards?.[0]?.compositeFiiScore ?? 84;
+      const dynamicQualityScore = Math.max(40, Math.min(100, Math.round(topScore)));
+      this.reportTelemetry(Date.now() - t0, dynamicQualityScore, 0);
 
       // Non-blocking persistent audit write-back
       this.persistFiiScorecards(report).catch((err) => {

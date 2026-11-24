@@ -55,6 +55,41 @@ async function run(): Promise<void> {
 			logger.warn(`[${JOB_NAME}] Phase A0 failed (non-fatal)`, { error: String(err) });
 		}
 
+		// Phase A0-BSE: Official BSE Bhavcopy Settlement Ingestion (₹0 GCP Native)
+		logger.info(`[${JOB_NAME}] Phase A0-BSE: Ingesting official BSE Bhavcopy settlement prices`);
+		try {
+			const { bseBhavcopyService } = await import(
+				"../server/services/bse-bhavcopy-service"
+			);
+			const bseResult = await bseBhavcopyService.syncLatestBhavcopy();
+			logger.info(`[${JOB_NAME}] Phase A0-BSE complete`, {
+				tradeDate: bseResult.tradeDate,
+				updatedStocks: bseResult.updatedStocks,
+				goldenInserted: bseResult.goldenInserted,
+				totalTurnoverCr: bseResult.totalTurnoverCr,
+			});
+		} catch (err) {
+			logger.warn(`[${JOB_NAME}] Phase A0-BSE failed (non-fatal)`, { error: String(err) });
+		}
+
+		// Phase A0-FO: Official NSE F&O Participant Open Interest Ingestion
+		logger.info(`[${JOB_NAME}] Phase A0-FO: Ingesting official NSE F&O Participant OI`);
+		try {
+			const { nseFoParticipantService } = await import(
+				"../server/services/nse-fo-participant-service"
+			);
+			const foResult = await nseFoParticipantService.syncParticipantOi();
+			if (foResult) {
+				logger.info(`[${JOB_NAME}] Phase A0-FO complete`, {
+					tradeDate: foResult.tradeDate,
+					fiiRatio: foResult.fiiIndexFuturesLongShortRatio,
+					posture: foResult.institutionalPosture,
+				});
+			}
+		} catch (err) {
+			logger.warn(`[${JOB_NAME}] Phase A0-FO failed (non-fatal)`, { error: String(err) });
+		}
+
 		// Phase A: Stock data enrichment (IndianAPI + Finnhub)
 		logger.info(`[${JOB_NAME}] Phase A: Stock/financial data enrichment`);
 		try {
@@ -147,6 +182,17 @@ async function run(): Promise<void> {
 		// Phase F: Quant Pre-Warming & Fleet Synergy (Covariance Matrix & Thematic Synergy Map)
 		logger.info(`[${JOB_NAME}] Phase F: Pre-warming Quant Covariance & Pro Thematic Synergy Map`);
 		try {
+			// Phase F0: Materialize normalized quarterly financials for thematic screeners
+			try {
+				const { stockQuarterlyFinancialsService } = await import(
+					"../server/services/stock-quarterly-financials-service"
+				);
+				const qSync = await stockQuarterlyFinancialsService.syncAllFromScreener(1000);
+				logger.info(`[${JOB_NAME}] Phase F0: Stock Quarterly Financials populated`, qSync);
+			} catch (qErr: any) {
+				logger.warn(`[${JOB_NAME}] Phase F0 quarterly financials non-fatal warning:`, { error: String(qErr) });
+			}
+
 			const { proThematicScreenerService } = await import(
 				"../server/services/pro-thematic-screener-service"
 			);

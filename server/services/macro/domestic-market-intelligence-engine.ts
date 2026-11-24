@@ -329,17 +329,26 @@ export class DomesticMarketIntelligenceEngine {
       };
     }
 
-    // 2. F&O Derivatives Micro-Structure
+    // 2. F&O Derivatives Micro-Structure (Official NSE Participant Open Interest + FII Flow)
     let fpiLsRatio = 0.38;
     let shortSqueezeAlert = false;
     try {
-      const flow = await fiiFlowService.getLatestFlow();
-      if (flow?.fpiIndexFuturesLongShortRatio) {
-        fpiLsRatio = flow.fpiIndexFuturesLongShortRatio;
+      const { nseFoParticipantService } = await import("../nse-fo-participant-service");
+      const foSnapshot = await nseFoParticipantService.getLatestSnapshot();
+      if (foSnapshot?.fiiIndexFuturesLongShortRatio) {
+        fpiLsRatio = foSnapshot.fiiIndexFuturesLongShortRatio;
+        shortSqueezeAlert = foSnapshot.shortSqueezeAlert;
       }
-      shortSqueezeAlert = flow?.shortSqueezeAlert ?? (fpiLsRatio <= 0.22);
     } catch {
-      // Non-fatal
+      try {
+        const flow = await fiiFlowService.getLatestFlow();
+        if (flow?.fpiIndexFuturesLongShortRatio) {
+          fpiLsRatio = flow.fpiIndexFuturesLongShortRatio;
+        }
+        shortSqueezeAlert = flow?.shortSqueezeAlert ?? (fpiLsRatio <= 0.22);
+      } catch {
+        // Non-fatal
+      }
     }
 
     const niftyPcr = 1.12; // Healthy base above 1.0
@@ -414,8 +423,40 @@ export class DomesticMarketIntelligenceEngine {
     const mcxCrudeSpotPrice = crudeItem?.mcxPrice ?? 5850;
     const copperSpotPrice = copperItem?.mcxPrice ?? 845;
 
+    // Dynamic NCDEX Agri Mandi Food Inflation Pulse
+    let ncdexAgriPulse: DomesticMicroFactors["domesticCommodities"]["ncdexAgriPulse"] = "STABLE";
+    try {
+      const { ncdexBhavcopyService } = await import("../ncdex-bhavcopy-service");
+      const mandiBenchmarks = ncdexBhavcopyService.fetchMandiSpotRecords(new Date().toISOString().split("T")[0]);
+      if (mandiBenchmarks.length > 0) {
+        const avgAgriChange = mandiBenchmarks.reduce((acc: number, m: any) => acc + (m.changePercent || 0), 0) / mandiBenchmarks.length;
+        if (avgAgriChange > 2.0) ncdexAgriPulse = "FOOD_INFLATION_WATCH";
+        else if (avgAgriChange < -1.0) ncdexAgriPulse = "COOLING";
+      }
+    } catch {
+      // Non-blocking fallback
+    }
+
     // 5. Volatility (India VIX)
-    const indiaVix = 14.25;
+    let indiaVix = 14.25;
+    try {
+      const res = await Promise.race([
+        db.execute(sql`
+          SELECT price FROM golden_prices
+          WHERE isin = 'IDX_INDIA_VIX' OR symbol = 'INDIAVIX'
+          ORDER BY price_date DESC, updated_at DESC
+          LIMIT 1
+        `),
+        new Promise<null>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 400)),
+      ]);
+      if (res && (res as any).rows?.[0]?.price) {
+        const p = parseFloat((res as any).rows[0].price);
+        if (p > 0) indiaVix = p;
+      }
+    } catch {
+      // Fallback
+    }
+
     let volatilityRegime: DomesticMicroFactors["volatility"]["volatilityRegime"] = "CONTROLLED_NORMAL";
     if (indiaVix < 13.0) volatilityRegime = "BENIGN_STABILITY";
     else if (indiaVix > 21.0) volatilityRegime = "PANIC_SPIKE";
@@ -442,7 +483,7 @@ export class DomesticMarketIntelligenceEngine {
         mcxSilverPrice,
         mcxCrudeSpotPrice,
         copperSpotPrice,
-        ncdexAgriPulse: "STABLE",
+        ncdexAgriPulse,
       },
       volatility: {
         indiaVix,

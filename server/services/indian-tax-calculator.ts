@@ -1497,6 +1497,11 @@ export class IndianTaxCalculator {
 			slabBreakdown,
 		};
 
+		// Mathematical integrity verification: net tax payable and refund consistency check
+		const isMathConsistent = Math.abs((totalTaxAndInterest - totalTaxesPaid) - (netTaxPayable - netRefundDue)) < 1;
+		const latencyPenalty = (Date.now() - t0) > 50 ? 5 : 0;
+		const dynamicQualityScore = isMathConsistent ? (99 - latencyPenalty) : 55;
+
 		// Telemetry report
 		telemetryBus.report({
 			engineId: "indian-tax-calculator",
@@ -1504,9 +1509,9 @@ export class IndianTaxCalculator {
 			category: "Portfolio",
 			reportedAt: new Date().toISOString(),
 			latencyMs: Date.now() - t0,
-			qualityScore: 99,
+			qualityScore: dynamicQualityScore,
 			itemsProcessed: 1,
-			errorCount: 0,
+			errorCount: isMathConsistent ? 0 : 1,
 			meta: {
 				assessmentYear: ay,
 				regime,

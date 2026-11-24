@@ -299,13 +299,17 @@ export class NcdexBhavcopyService {
 			`[NcdexBhavcopyService] ✅ NCDEX EOD sync complete: ${goldenPricesCount} golden_prices recorded in ${latencyMs}ms`,
 		);
 
+		const expectedMinRecords = 10;
+		const yieldRatio = Math.min(1, allRecords.length / expectedMinRecords);
+		const dynamicQualityScore = Math.max(30, Math.min(100, Math.round(yieldRatio * 95 + (goldenPricesCount > 0 ? 5 : 0))));
+
 		telemetryBus.report({
 			engineId: "ncdex-bhavcopy-service",
 			engineName: "NCDEX Bhavcopy Ingestion Service",
 			category: "Data Quality",
 			reportedAt: new Date().toISOString(),
 			latencyMs,
-			qualityScore: 99,
+			qualityScore: dynamicQualityScore,
 			itemsProcessed: allRecords.length,
 			errorCount: 0,
 		});

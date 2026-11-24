@@ -375,13 +375,18 @@ class LongShortAlgoEngine {
 			engine_version: this.engineVersion,
 		});
 
+		const avgConfidence = signals.length > 0
+			? signals.reduce((acc, s) => acc + (s.confidenceScore || 50), 0) / signals.length / 100
+			: 0.5;
+		const dynamicQualityScore = Math.max(40, Math.min(100, Math.round(avgConfidence * 100)));
+
 		telemetryBus.report({
 			engineId: "long-short-algo",
 			engineName: "Long-Short Strategy & Algorithmic Signal Engine",
 			category: "Transaction",
 			reportedAt: new Date().toISOString(),
 			latencyMs: Date.now() - t0,
-			qualityScore: 92,
+			qualityScore: dynamicQualityScore,
 			itemsProcessed: signals.length,
 			errorCount: 0,
 		});

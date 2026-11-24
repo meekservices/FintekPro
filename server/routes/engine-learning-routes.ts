@@ -102,4 +102,33 @@ router.post("/trigger-cycle", async (_req: Request, res: Response) => {
   }
 });
 
+// ── POST /probe-fleet ────────────────────────────────────────────────────────
+router.post("/probe-fleet", async (_req: Request, res: Response) => {
+  try {
+    const results = await engineLearningOrchestrator.probeFleetQualityLive();
+    res.json({
+      success: true,
+      message: `Live fleet quality probe completed across ${results.probedCount} core engines`,
+      data: {
+        probedCount: results.probedCount,
+        results,
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: "1.0.0",
+      },
+    });
+  } catch (err: any) {
+    logger.error("[EngineLearningRoutes] Fleet quality probe failed", {
+      error: err?.message,
+    });
+    res.status(500).json({
+      success: false,
+      error_code: "PROBE_FLEET_FAILED",
+      message: err?.message || "Failed to probe fleet quality live",
+      retryable: true,
+    });
+  }
+});
+
 export default router;

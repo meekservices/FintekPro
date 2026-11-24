@@ -1022,13 +1022,16 @@ export class TaxLawEngine {
       },
     ];
 
+    const riskRatio = transactions.length > 0 ? (highRiskCount / transactions.length) : 0;
+    const dynamicAuditQuality = Math.max(30, Math.min(100, Math.round(98 - (riskRatio * 40))));
+
     telemetryBus.report({
       engineId: "tax-law-engine",
       engineName: "Direct Tax & Corporate Law Workstation Engine",
       category: "Compliance",
       reportedAt: timestamp,
       latencyMs: 1,
-      qualityScore: 98,
+      qualityScore: dynamicAuditQuality,
       itemsProcessed: transactions.length,
       errorCount: highRiskCount,
       meta: {

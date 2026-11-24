@@ -38,7 +38,7 @@ import {
   stockFinancialMetrics,
   type ProThematicConstituent,
 } from "@shared/schema";
-import { eq, desc, asc, and, or, gte, gt, sql, inArray, isNotNull } from "drizzle-orm";
+import { eq, desc, asc, and, or, gte, gt, sql, inArray, isNotNull, isNull } from "drizzle-orm";
 import { telemetryBus } from "./engine-telemetry-bus";
 
 export interface ScreenerRunResult {
@@ -494,17 +494,37 @@ export class ProThematicScreenerService {
             marketCap: listedStocks.marketCap,
             netProfitCr: stockQuarterlyFinancials.netProfitCr,
             prevQuarterPatCr: stockQuarterlyFinancials.previousQuarterNetProfitCr,
+            prevYearPatCr: stockQuarterlyFinancials.previousYearNetProfitCr,
             quarterLabel: stockQuarterlyFinancials.quarterLabel,
+            quarterEnd: stockQuarterlyFinancials.quarterEnd,
           })
           .from(listedStocks)
           .innerJoin(stockQuarterlyFinancials, eq(listedStocks.symbol, stockQuarterlyFinancials.symbol))
-          .where(eq(stockQuarterlyFinancials.isLossToProfitTurnaround, true))
-          .orderBy(desc(stockQuarterlyFinancials.netProfitCr))
-          .limit(limit);
+          .where(
+            and(
+              eq(stockQuarterlyFinancials.isLossToProfitTurnaround, true),
+              or(
+                eq(stockQuarterlyFinancials.statementNature, "CONSOLIDATED"),
+                isNull(stockQuarterlyFinancials.statementNature)
+              )
+            )
+          )
+          .orderBy(desc(stockQuarterlyFinancials.quarterEnd), desc(stockQuarterlyFinancials.netProfitCr))
+          .limit(limit * 3);
 
-        return rows.map((r) => {
+        const seen = new Set<string>();
+        const unique = [];
+        for (const r of rows) {
+          if (!seen.has(r.symbol)) {
+            seen.add(r.symbol);
+            unique.push(r);
+            if (unique.length >= limit) break;
+          }
+        }
+
+        return unique.map((r) => {
           const pat = Number(r.netProfitCr || 0);
-          const prevPat = Number(r.prevQuarterPatCr || 0);
+          const prevYearPat = Number(r.prevYearPatCr || 0);
           return {
             symbol: r.symbol,
             isin: r.isin,
@@ -512,15 +532,15 @@ export class ProThematicScreenerService {
             sector: r.sector,
             marketCapCategory: r.marketCap,
             primaryMetricLabel: "Turnaround PAT",
-            primaryMetricValue: `₹ ${pat.toLocaleString("en-IN")} Cr PAT`,
-            secondaryMetricLabel: "Previous Period",
-            secondaryMetricValue: prevPat < 0 ? `Swung from -₹ ${Math.abs(prevPat)} Cr` : `Prior: ₹ ${prevPat} Cr`,
+            primaryMetricValue: `₹ ${pat.toLocaleString("en-IN")} Cr (${r.quarterLabel})`,
+            secondaryMetricLabel: "YoY Baseline",
+            secondaryMetricValue: prevYearPat < 0 ? `Swung from -₹ ${Math.abs(prevYearPat)} Cr` : `Prior: ₹ ${prevYearPat} Cr`,
             themeBadge: "Operational Pivot",
           };
         });
       }
 
-      // 9. Profit Blasters (>80% YoY Net Income Surge)
+      // 9. Profit Blasters (>50% YoY Net Income Surge)
       case "profit-blasters": {
         const rows = await db
           .select({
@@ -531,14 +551,34 @@ export class ProThematicScreenerService {
             marketCap: listedStocks.marketCap,
             patGrowthYoy: stockQuarterlyFinancials.patGrowthYoyPercent,
             ebitdaMargin: stockQuarterlyFinancials.ebitdaMarginPercent,
+            quarterLabel: stockQuarterlyFinancials.quarterLabel,
+            quarterEnd: stockQuarterlyFinancials.quarterEnd,
           })
           .from(listedStocks)
           .innerJoin(stockQuarterlyFinancials, eq(listedStocks.symbol, stockQuarterlyFinancials.symbol))
-          .where(gte(stockQuarterlyFinancials.patGrowthYoyPercent, "50.0"))
-          .orderBy(desc(stockQuarterlyFinancials.patGrowthYoyPercent))
-          .limit(limit);
+          .where(
+            and(
+              gte(stockQuarterlyFinancials.patGrowthYoyPercent, "50.0"),
+              or(
+                eq(stockQuarterlyFinancials.statementNature, "CONSOLIDATED"),
+                isNull(stockQuarterlyFinancials.statementNature)
+              )
+            )
+          )
+          .orderBy(desc(stockQuarterlyFinancials.quarterEnd), desc(stockQuarterlyFinancials.patGrowthYoyPercent))
+          .limit(limit * 3);
 
-        return rows.map((r) => {
+        const seen = new Set<string>();
+        const unique = [];
+        for (const r of rows) {
+          if (!seen.has(r.symbol)) {
+            seen.add(r.symbol);
+            unique.push(r);
+            if (unique.length >= limit) break;
+          }
+        }
+
+        return unique.map((r) => {
           const growth = Number(r.patGrowthYoy || 0);
           const margin = Number(r.ebitdaMargin || 0);
           return {
@@ -548,7 +588,7 @@ export class ProThematicScreenerService {
             sector: r.sector,
             marketCapCategory: r.marketCap,
             primaryMetricLabel: "YoY Profit Growth %",
-            primaryMetricValue: `+${growth.toFixed(1)}% YoY`,
+            primaryMetricValue: `+${growth.toFixed(1)}% YoY (${r.quarterLabel})`,
             secondaryMetricLabel: "Operating Margin",
             secondaryMetricValue: margin > 0 ? `EBITDA Margin ${margin.toFixed(1)}%` : undefined,
             themeBadge: growth >= 150 ? "Multi-Fold PAT" : "Profit Surge",

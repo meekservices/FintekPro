@@ -213,13 +213,16 @@ export class RegulatoryIngestionService {
 
     const pendingReviewCount = this.stagedProposals.filter((p) => p.status === "pending_review").length;
 
+    const passRatio = regressionTestsExecuted > 0 ? (regressionTestsPassed / regressionTestsExecuted) : 1;
+    const dynamicQualityScore = Math.max(40, Math.min(100, Math.round(passRatio * 98)));
+
     telemetryBus.report({
       engineId: "regulatory-ingestion-service",
       engineName: "Autonomous Regulatory Ingestion Engine",
       category: "Data Quality",
       reportedAt: timestamp,
       latencyMs: 12,
-      qualityScore: 98,
+      qualityScore: dynamicQualityScore,
       itemsProcessed: sources.length,
       errorCount: 0,
       meta: {

@@ -94,7 +94,8 @@ describe("FintekPro Engine Synergy & Performance Fleet Matrix", () => {
 			const alpha = telemetryBus.getAlphaSignal();
 			expect(alpha).toBeDefined();
 			expect(typeof alpha.alphaQuality).toBe("number");
-			expect(["strong", "moderate", "weak", "poor"]).toContain(alpha.alphaLabel);
+			expect(alpha.alphaQuality).toBeGreaterThanOrEqual(80);
+			expect(alpha.alphaLabel).toBe("strong");
 			expect(alpha.systemHealth).toBe("HEALTHY");
 		});
 	});

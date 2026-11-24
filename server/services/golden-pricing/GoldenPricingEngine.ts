@@ -107,6 +107,7 @@ export interface GoldenPriceResult {
 
 export const SEBI_AUDIT_GRADE_SOURCES = new Set([
 	"NSE_BHAVCOPY",
+	"BSE_BHAVCOPY",
 	"AMFI_NAV",
 	"UPSTOX",
 	"INDIAN_API",
