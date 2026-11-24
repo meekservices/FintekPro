@@ -129,6 +129,24 @@ const DESK_METADATA: Record<string, { label: string; regulator: string; subtitle
     subtitle: "Fee-only fiduciary advisory & Reg 22 SIDD segregation",
     icon: "🧠",
   },
+  CORPORATE_FD_DESK: {
+    label: "Corporate Fixed Deposits",
+    regulator: "RBI & NHB",
+    subtitle: "High-yield AAA/AA NBFC & Bank FDs (Bajaj, Shriram, Mahindra, Utkarsh)",
+    icon: "🏦",
+  },
+  LAMF_CREDIT_DESK: {
+    label: "Loan Against Mutual Funds (LAMF)",
+    regulator: "RBI Lending Guidelines",
+    subtitle: "Instant digital overdraft against CAMS/KFintech units (Volt, 50Fin, Tata)",
+    icon: "💳",
+  },
+  SDI_ALTERNATIVE_DEBT_DESK: {
+    label: "Securitized Debt Instruments (SDI)",
+    regulator: "SEBI OBPP & NCS",
+    subtitle: "Pass-Through Certificates (PTCs), lease & gold-loan pools (Grip, Jiraaf)",
+    icon: "📑",
+  },
 };
 
 export function DeskLicensingManager() {
@@ -155,6 +173,42 @@ export function DeskLicensingManager() {
   const { data: circuitData } = useQuery<{ success: boolean; data: Record<string, CircuitMetrics> }>({
     queryKey: ["/api/admin/desks/circuits"],
     refetchInterval: 10000,
+  });
+
+  // Fetch Multi-Partner per Product Mapping
+  const { data: productPartnersData, refetch: refetchProductPartners } = useQuery<{
+    success: boolean;
+    data: Record<string, Array<{
+      id: string;
+      productType: string;
+      providerKey: string;
+      providerDisplayName: string;
+      status: string;
+      priorityOrder: number;
+      distributorCommissionBps: number;
+      partnerRevenueSharePercent: number;
+      isSandboxMock: boolean;
+    }>>;
+  }>({
+    queryKey: ["/api/admin/desks/products/partners"],
+  });
+
+  // Test routing state
+  const [testProductType, setTestProductType] = useState<string>("EQUITY_BROKERAGE");
+  const [routeResult, setRouteResult] = useState<any>(null);
+
+  const testRouteMutation = useMutation({
+    mutationFn: async (productType: string) => {
+      const res = await apiRequest(`/api/admin/desks/products/${productType}/route`, "POST", {});
+      return res.json() as Promise<{ success: boolean; data: any }>;
+    },
+    onSuccess: (data) => {
+      setRouteResult(data.data);
+      toast({
+        title: "Dynamic Route Resolved",
+        description: `Routed to ${data.data.selectedProviderDisplayName} (Priority ${data.data.priorityOrder}). Failover: ${data.data.isFailover ? "YES" : "NO"}`,
+      });
+    },
   });
 
   const deskConfig = statusData?.data?.config;
@@ -585,6 +639,140 @@ export function DeskLicensingManager() {
         </CardContent>
       </Card>
 
+      {/* ── Multi-Partner per Product Routing Matrix ── */}
+      <Card className="border border-slate-200 dark:border-slate-800">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Sliders className="w-5 h-5 text-indigo-500" />
+                <CardTitle className="text-base font-bold">Multi-Partner Product Routing Matrix</CardTitle>
+              </div>
+              <CardDescription className="text-xs">
+                Multiple accredited partners per financial product. Dynamic health-aware failover and commission tracking.
+              </CardDescription>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => refetchProductPartners()}
+              className="text-xs h-8"
+            >
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+              Refresh Partners
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {productPartnersData?.data &&
+              Object.entries(productPartnersData.data).map(([prodType, partners]) => {
+                const primary = partners.find((p) => p.priorityOrder === 1) || partners[0];
+                return (
+                  <div
+                    key={prodType}
+                    className="p-3.5 rounded-lg border border-border/70 bg-card space-y-2.5 text-xs shadow-sm"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-foreground truncate">{prodType.replace(/_/g, " ")}</span>
+                      <Badge variant="outline" className="text-[10px] font-mono">
+                        {partners.length} Partners
+                      </Badge>
+                    </div>
+                    <div className="space-y-1.5 pt-1">
+                      {partners.map((p) => {
+                        const circuit = circuits[p.providerKey];
+                        const isHealthy = !circuit || circuit.state === "CLOSED";
+                        return (
+                          <div
+                            key={p.id}
+                            className={`p-2 rounded border flex items-center justify-between text-[11px] ${
+                              p.priorityOrder === 1
+                                ? "border-indigo-500/40 bg-indigo-500/5 font-semibold"
+                                : "border-border/40 bg-muted/20"
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5 truncate">
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                  isHealthy ? "bg-emerald-400" : "bg-red-500"
+                                }`}
+                              />
+                              <span className="truncate">{p.providerDisplayName}</span>
+                            </div>
+                            <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+                              P{p.priorityOrder} • {p.distributorCommissionBps / 100}%
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+
+          {/* Dynamic Route Probe Tool */}
+          <div className="p-4 rounded-lg bg-muted/30 border border-border/60 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold text-foreground block">Simulate Dynamic Multi-Partner Routing</span>
+                <span className="text-[11px] text-muted-foreground block">
+                  Tests automated partner selection and circuit-breaker auto-failover for any product vertical.
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select value={testProductType} onValueChange={setTestProductType}>
+                  <SelectTrigger className="w-[200px] h-8 text-xs">
+                    <SelectValue placeholder="Select Product" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="EQUITY_BROKERAGE">EQUITY_BROKERAGE (Upstox / Angel One / Dhan)</SelectItem>
+                    <SelectItem value="MUTUAL_FUNDS_DISTRIBUTION">MUTUAL_FUNDS (KFintech / CAMS / BSE Star)</SelectItem>
+                    <SelectItem value="CORPORATE_FIXED_DEPOSITS">CORPORATE_FD (Bajaj / Shriram / Mahindra)</SelectItem>
+                    <SelectItem value="LOAN_AGAINST_SECURITIES_LAMF">LAMF_CREDIT (Volt Money / 50Fin / Tata)</SelectItem>
+                    <SelectItem value="BONDS_NCDS_DEBT">BONDS_DEBT (Upstox / GoldenPi)</SelectItem>
+                    <SelectItem value="US_GLOBAL_EQUITIES">US_EQUITIES (Alpaca)</SelectItem>
+                    <SelectItem value="SECURITIZED_DEBT_SDI">SDI_DEBT (Grip Invest)</SelectItem>
+                    <SelectItem value="ACCOUNT_AGGREGATOR_AA">AA_CONSENT (Finvu / Setu)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white h-8 text-xs"
+                  onClick={() => testRouteMutation.mutate(testProductType)}
+                  disabled={testRouteMutation.isPending}
+                >
+                  {testRouteMutation.isPending ? "Routing..." : "Probe Route"}
+                </Button>
+              </div>
+            </div>
+
+            {routeResult && (
+              <div className="p-3 rounded bg-black/40 border border-indigo-500/30 text-xs font-mono text-slate-300 space-y-1">
+                <div className="flex items-center gap-2 text-emerald-400 font-bold">
+                  <span>✓ Routed To: {routeResult.selectedProviderDisplayName}</span>
+                  <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-300">
+                    Priority {routeResult.priorityOrder}
+                  </Badge>
+                  {routeResult.isFailover && (
+                    <Badge variant="destructive" className="text-[10px]">
+                      Auto-Failover
+                    </Badge>
+                  )}
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  Circuit State: {routeResult.circuitState} • Commission: {routeResult.commissionBps / 100}% • Partner Share: {routeResult.partnerRevenueSharePercent}%
+                </div>
+                {routeResult.failoverReason && (
+                  <div className="text-[11px] text-amber-300">{routeResult.failoverReason}</div>
+                )}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* ── Sandbox Order Simulator Console ── */}
       <Card className="border border-slate-200 dark:border-slate-800 bg-gradient-to-r from-slate-900 to-indigo-950 text-white">
         <CardHeader className="pb-3">
@@ -609,6 +797,9 @@ export function DeskLicensingManager() {
                   <SelectItem value="UPSTOX_BROKER">UPSTOX_BROKER (Equities)</SelectItem>
                   <SelectItem value="BONDS_NCDS_DESK">BONDS_NCDS_DESK (Bonds & NCDs)</SelectItem>
                   <SelectItem value="ALPACA_GLOBAL">ALPACA_GLOBAL (US Equities)</SelectItem>
+                  <SelectItem value="CORPORATE_FD_DESK">CORPORATE_FD_DESK (Bajaj & Shriram FDs)</SelectItem>
+                  <SelectItem value="LAMF_CREDIT_DESK">LAMF_CREDIT_DESK (Loan Against MFs)</SelectItem>
+                  <SelectItem value="SDI_ALTERNATIVE_DEBT_DESK">SDI_ALTERNATIVE_DEBT_DESK (Securitized Debt)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

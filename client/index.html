@@ -61,19 +61,21 @@
         var ogUrl = document.querySelector('meta[property="og:url"]');
         if (ogUrl && window.location.origin) ogUrl.content = window.location.origin + window.location.pathname;
 
-        fetch('/api/system/portal-meta')
-          .then(function(r) { return r.json(); })
-          .then(function(meta) {
-            var dynIcon = iconMap[meta.portal_type] || icon;
-            if (fav) fav.href = dynIcon;
-            if (ati) ati.href = dynIcon;
-            var tc = document.querySelector('meta[name="theme-color"]');
-            if (tc && meta.primary_color) tc.content = meta.primary_color;
-            var awt = document.querySelector('meta[name="apple-mobile-web-app-title"]');
-            if (awt && meta.label) awt.content = meta.label;
-            if (meta.label) document.title = meta.label + ' | FintekPro';
-          })
-          .catch(function() {});
+        window.addEventListener('load', function() {
+          fetch('/api/system/portal-meta')
+            .then(function(r) { return r.json(); })
+            .then(function(meta) {
+              var dynIcon = iconMap[meta.portal_type] || icon;
+              if (fav) fav.href = dynIcon;
+              if (ati) ati.href = dynIcon;
+              var tc = document.querySelector('meta[name="theme-color"]');
+              if (tc && meta.primary_color) tc.content = meta.primary_color;
+              var awt = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+              if (awt && meta.label) awt.content = meta.label;
+              if (meta.label) document.title = meta.label + ' | FintekPro';
+            })
+            .catch(function() {});
+        });
       })();
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">

@@ -58,6 +58,8 @@ export interface DeskStatusSummary {
     isAlpacaUsEquityActive: boolean;
     isCorporateFdActive: boolean;
     isBondDistributionActive: boolean;
+    isLamfActive: boolean;
+    isSdiActive: boolean;
     isAiAdvisoryActive: boolean;
     updatedAt: string;
   };
@@ -96,6 +98,8 @@ interface InMemoryConfig {
   isAlpacaUsEquityActive: boolean;
   isCorporateFdActive: boolean;
   isBondDistributionActive: boolean;
+  isLamfActive: boolean;
+  isSdiActive: boolean;
   isAiAdvisoryActive: boolean;
   updatedBy: string;
   updatedAt: Date;
@@ -149,6 +153,9 @@ export class DeskGatewayService {
     ALPACA_GLOBAL: ["ALPACA_BROKER_PARTNER_AGREEMENT", "GST_EXPORT_LUT_CERTIFICATE"],
     SEBI_RIA_ADVISORY: ["SEBI_RIA_REGISTRATION_CERTIFICATE", "CA_NET_WORTH_CERTIFICATE"],
     BONDS_NCDS_DESK: ["UPSTOX_DEBT_SEGMENT_APPROVAL", "CRISIL_ICRA_BOND_RATING_DATA_AGMT"],
+    CORPORATE_FD_DESK: ["BAJAJ_SHRIRAM_FD_AGENCY_AGMT"],
+    LAMF_CREDIT_DESK: ["VOLT_MONEY_OR_NBFC_LAMF_PARTNER_AGMT"],
+    SDI_ALTERNATIVE_DEBT_DESK: ["SEBI_OBPP_SDI_TRUSTEE_OR_ISSUER_AGMT"],
   };
 
   constructor() {
@@ -163,6 +170,8 @@ export class DeskGatewayService {
       isAlpacaUsEquityActive: false,
       isCorporateFdActive: false,
       isBondDistributionActive: false,
+      isLamfActive: false,
+      isSdiActive: false,
       isAiAdvisoryActive: false,
       updatedBy: "SYSTEM_INIT",
       updatedAt: new Date(),
@@ -175,6 +184,9 @@ export class DeskGatewayService {
       { id: "LIC_ALPACA_GLOBAL", deskType: "ALPACA_GLOBAL" },
       { id: "LIC_SEBI_RIA_ADVISORY", deskType: "SEBI_RIA_ADVISORY" },
       { id: "LIC_BONDS_NCDS", deskType: "BONDS_NCDS_DESK" },
+      { id: "LIC_CORPORATE_FD", deskType: "CORPORATE_FD_DESK" },
+      { id: "LIC_LAMF_CREDIT", deskType: "LAMF_CREDIT_DESK" },
+      { id: "LIC_SDI_ALT_DEBT", deskType: "SDI_ALTERNATIVE_DEBT_DESK" },
     ];
 
     for (const d of defaultDesks) {
@@ -222,6 +234,8 @@ export class DeskGatewayService {
           isAlpacaUsEquityActive: false,
           isCorporateFdActive: false,
           isBondDistributionActive: false,
+          isLamfActive: false,
+          isSdiActive: false,
           isAiAdvisoryActive: false,
           updatedBy: "SYSTEM_INIT",
         });
@@ -233,6 +247,9 @@ export class DeskGatewayService {
           { id: "LIC_ALPACA_GLOBAL", deskType: "ALPACA_GLOBAL" },
           { id: "LIC_SEBI_RIA_ADVISORY", deskType: "SEBI_RIA_ADVISORY" },
           { id: "LIC_BONDS_NCDS", deskType: "BONDS_NCDS_DESK" },
+          { id: "LIC_CORPORATE_FD", deskType: "CORPORATE_FD_DESK" },
+          { id: "LIC_LAMF_CREDIT", deskType: "LAMF_CREDIT_DESK" },
+          { id: "LIC_SDI_ALT_DEBT", deskType: "SDI_ALTERNATIVE_DEBT_DESK" },
         ];
 
         for (const desk of defaultDesks) {
@@ -334,6 +351,8 @@ export class DeskGatewayService {
         isAlpacaUsEquityActive: config.isAlpacaUsEquityActive,
         isCorporateFdActive: config.isCorporateFdActive,
         isBondDistributionActive: config.isBondDistributionActive,
+        isLamfActive: (config as any).isLamfActive ?? false,
+        isSdiActive: (config as any).isSdiActive ?? false,
         isAiAdvisoryActive: config.isAiAdvisoryActive,
         updatedAt: config.updatedAt instanceof Date ? config.updatedAt.toISOString() : String(config.updatedAt),
       },
@@ -608,6 +627,9 @@ export class DeskGatewayService {
     const isBondActive =
       statusMap.get("BONDS_NCDS_DESK") === "VERIFIED_ACTIVE" ||
       statusMap.get("UPSTOX_BROKER") === "VERIFIED_ACTIVE";
+    const isFdActive = statusMap.get("CORPORATE_FD_DESK") === "VERIFIED_ACTIVE" || isMfActive;
+    const isLamfActive = statusMap.get("LAMF_CREDIT_DESK") === "VERIFIED_ACTIVE" || isMfActive;
+    const isSdiActive = statusMap.get("SDI_ALTERNATIVE_DEBT_DESK") === "VERIFIED_ACTIVE" || isBondActive;
 
     let capabilityTier: CapabilityTier = "SANDBOX_TEST";
 
@@ -615,7 +637,7 @@ export class DeskGatewayService {
       capabilityTier = "ADVISORY_UPGRADED";
     } else if (isMfActive && isUpstoxActive && isAlpacaActive) {
       capabilityTier = "FULL_DISTRIBUTION";
-    } else if (isMfActive || isUpstoxActive || isAlpacaActive || isBondActive) {
+    } else if (isMfActive || isUpstoxActive || isAlpacaActive || isBondActive || isFdActive || isLamfActive) {
       capabilityTier = "PARTIAL_DISTRIBUTION";
     } else {
       capabilityTier = "SANDBOX_TEST";
@@ -623,8 +645,10 @@ export class DeskGatewayService {
 
     this.memoryConfig.capabilityTier = capabilityTier;
     this.memoryConfig.isMfDistributionActive = isMfActive;
-    this.memoryConfig.isCorporateFdActive = isMfActive;
+    this.memoryConfig.isCorporateFdActive = isFdActive;
     this.memoryConfig.isBondDistributionActive = isBondActive;
+    this.memoryConfig.isLamfActive = isLamfActive;
+    this.memoryConfig.isSdiActive = isSdiActive;
     this.memoryConfig.isUpstoxEquityActive = isUpstoxActive;
     this.memoryConfig.isAlpacaUsEquityActive = isAlpacaActive;
     this.memoryConfig.isAiAdvisoryActive = isRiaActive;
@@ -638,8 +662,10 @@ export class DeskGatewayService {
           .set({
             capabilityTier,
             isMfDistributionActive: isMfActive,
-            isCorporateFdActive: isMfActive,
+            isCorporateFdActive: isFdActive,
             isBondDistributionActive: isBondActive,
+            isLamfActive,
+            isSdiActive,
             isUpstoxEquityActive: isUpstoxActive,
             isAlpacaUsEquityActive: isAlpacaActive,
             isAiAdvisoryActive: isRiaActive,
@@ -743,6 +769,40 @@ export class DeskGatewayService {
     const mockId = `SIM_${params.deskType}_${nanoid(10).toUpperCase()}`;
     const timestamp = new Date().toISOString();
 
+    let mockResponse: Record<string, any> = {
+      status: "COMPLETE",
+      simulatedFillPrice: params.amount > 0 ? (params.amount * 0.999).toFixed(2) : "100.00",
+      settlementDate: "T+1 Business Day (Simulated)",
+    };
+
+    if (params.deskType === "CORPORATE_FD_DESK") {
+      mockResponse = {
+        status: "FDR_ISSUED",
+        fdrNumber: `FDR-${Math.floor(100000000 + Math.random() * 900000000)}`,
+        issuer: "Bajaj Finance Limited (CRISIL AAA)",
+        tenureMonths: 36,
+        effectiveRate: "8.10% p.a.",
+        maturityValue: Math.round(params.amount * 1.263),
+        interestPayout: "CUMULATIVE",
+      };
+    } else if (params.deskType === "LAMF_CREDIT_DESK") {
+      mockResponse = {
+        status: "PLEDGE_APPROVED",
+        pledgeId: `PLG_${Date.now()}`,
+        approvedCreditLimit: Math.round(params.amount * 0.50),
+        sanctionedInterestRate: "10.25% p.a.",
+        disbursalType: "INSTANT_BANK_OVERDRAFT",
+      };
+    } else if (params.deskType === "SDI_ALTERNATIVE_DEBT_DESK") {
+      mockResponse = {
+        status: "SDI_UNITS_ALLOCATED",
+        sdiTrust: "Grip EV Lease Securitization Trust Series II",
+        isin: "INE00SDI0101",
+        xirrYield: "11.75% p.a.",
+        payoutFrequency: "MONTHLY_AMORTIZING",
+      };
+    }
+
     return {
       success: true,
       simulatedOrderId: mockId,
@@ -755,11 +815,7 @@ export class DeskGatewayService {
         operatingMode: resolution.operatingMode,
         capabilityTier: resolution.capabilityTier,
         deskStatus: resolution.deskStatus,
-        mockExchangeResponse: {
-          status: "COMPLETE",
-          simulatedFillPrice: params.amount > 0 ? (params.amount * 0.999).toFixed(2) : "100.00",
-          settlementDate: "T+1 Business Day (Simulated)",
-        },
+        mockExchangeResponse: mockResponse,
       },
       timestamp,
     };

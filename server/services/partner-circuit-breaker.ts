@@ -12,7 +12,25 @@
 
 import { logger } from "../logger";
 
-export type PartnerProvider = "UPSTOX" | "KFINTECH_IRIS" | "ALPACA" | "FINVU_AA" | "ANGEL_ONE";
+export type PartnerProvider =
+  | "UPSTOX"
+  | "KFINTECH_IRIS"
+  | "ALPACA"
+  | "FINVU_AA"
+  | "ANGEL_ONE"
+  | "DHAN"
+  | "CAMS"
+  | "BSE_STAR_MF"
+  | "BAJAJ_FINANCE"
+  | "SHRIRAM_FINANCE"
+  | "MAHINDRA_FINANCE"
+  | "UTKARSH_SFB"
+  | "VOLT_MONEY"
+  | "FIFTY_FIN"
+  | "TATA_CAPITAL"
+  | "GOLDEN_PI"
+  | "GRIP_INVEST"
+  | "SETU_AA";
 export type CircuitState = "CLOSED" | "OPEN" | "HALF_OPEN";
 
 export interface CircuitMetrics {
@@ -55,7 +73,26 @@ export class PartnerCircuitBreaker {
   private fallbackCache: Map<string, CacheEntry<any>> = new Map();
 
   constructor() {
-    const providers: PartnerProvider[] = ["UPSTOX", "KFINTECH_IRIS", "ALPACA", "FINVU_AA", "ANGEL_ONE"];
+    const providers: PartnerProvider[] = [
+      "UPSTOX",
+      "KFINTECH_IRIS",
+      "ALPACA",
+      "FINVU_AA",
+      "ANGEL_ONE",
+      "DHAN",
+      "CAMS",
+      "BSE_STAR_MF",
+      "BAJAJ_FINANCE",
+      "SHRIRAM_FINANCE",
+      "MAHINDRA_FINANCE",
+      "UTKARSH_SFB",
+      "VOLT_MONEY",
+      "FIFTY_FIN",
+      "TATA_CAPITAL",
+      "GOLDEN_PI",
+      "GRIP_INVEST",
+      "SETU_AA",
+    ];
     for (const p of providers) {
       this.metrics.set(p, {
         state: "CLOSED",
@@ -205,6 +242,61 @@ export class PartnerCircuitBreaker {
       }
 
       throw err;
+    }
+  }
+
+  /**
+   * Returns current health and metrics for a specific partner circuit.
+   */
+  getCircuitStatus(provider: PartnerProvider): CircuitMetrics {
+    const m = this.metrics.get(provider);
+    if (!m) {
+      return {
+        provider,
+        state: "CLOSED",
+        consecutiveFailures: 0,
+        totalCalls: 0,
+        successfulCalls: 0,
+        failedCalls: 0,
+        lastFailureTime: null,
+        lastSuccessTime: null,
+        nextAttemptAllowedAt: null,
+      };
+    }
+    return {
+      provider,
+      state: m.state,
+      consecutiveFailures: m.consecutiveFailures,
+      totalCalls: m.totalCalls,
+      successfulCalls: m.successfulCalls,
+      failedCalls: m.failedCalls,
+      lastFailureTime: m.lastFailureTime ? new Date(m.lastFailureTime).toISOString() : null,
+      lastSuccessTime: m.lastSuccessTime ? new Date(m.lastSuccessTime).toISOString() : null,
+      nextAttemptAllowedAt: m.nextAttemptAllowedAt
+        ? new Date(m.nextAttemptAllowedAt).toISOString()
+        : null,
+    };
+  }
+
+  /**
+   * Records a manual or external failure for testing or asynchronous webhook events.
+   */
+  recordFailure(provider: PartnerProvider, err?: Error): void {
+    const metric = this.metrics.get(provider);
+    if (!metric) return;
+    metric.failedCalls++;
+    metric.consecutiveFailures++;
+    metric.lastFailureTime = Date.now();
+    if (metric.consecutiveFailures >= this.FAILURE_THRESHOLD) {
+      metric.state = "OPEN";
+      metric.nextAttemptAllowedAt = Date.now() + this.RESET_TIMEOUT_MS;
+      logger.warn("CIRCUIT_BREAKER_TRIPPED", {
+        provider,
+        event: "CIRCUIT_TRIPPED_OPEN",
+        consecutive_failures: metric.consecutiveFailures,
+        cool_off_ms: this.RESET_TIMEOUT_MS,
+        error: err?.message,
+      });
     }
   }
 

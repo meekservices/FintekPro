@@ -401,11 +401,20 @@ export class BseBhavcopyService {
 						goldenInserted++;
 					}
 
+					const chgPct = r.prevClose > 0 ? ((r.close - r.prevClose) / r.prevClose) * 100 : 0;
+
 					return sql`(
 						${r.isin}::varchar,
+						${r.scripName}::varchar,
 						${effectiveIsoDate}::date,
 						'equity'::varchar,
 						${r.close.toFixed(4)}::numeric,
+						${r.open.toFixed(4)}::numeric,
+						${r.high.toFixed(4)}::numeric,
+						${r.low.toFixed(4)}::numeric,
+						${r.shares}::numeric,
+						${chgPct.toFixed(4)}::numeric,
+						${r.prevClose.toFixed(4)}::numeric,
 						'BSE_BHAVCOPY'::varchar,
 						1.0::numeric,
 						${!isSuspect}::boolean,
@@ -416,15 +425,22 @@ export class BseBhavcopyService {
 
 				await db.execute(sql`
 					INSERT INTO golden_prices
-						(isin, price_date, asset_class, price, source, confidence_score, is_validated, is_flagged, currency)
+						(isin, symbol, price_date, asset_class, price, open_price, high_price, low_price, volume, change_percent, previous_price, source, confidence_score, is_validated, is_flagged, currency)
 					VALUES ${sql.join(valuesSql, sql`, `)}
 					ON CONFLICT (isin, price_date) DO UPDATE
-						SET price            = CASE WHEN golden_prices.source = 'NSE_BHAVCOPY' THEN golden_prices.price ELSE EXCLUDED.price END,
+						SET symbol           = COALESCE(golden_prices.symbol, EXCLUDED.symbol),
+						    price            = CASE WHEN golden_prices.source = 'NSE_BHAVCOPY' THEN golden_prices.price ELSE EXCLUDED.price END,
+						    open_price       = CASE WHEN golden_prices.source = 'NSE_BHAVCOPY' THEN golden_prices.open_price ELSE EXCLUDED.open_price END,
+						    high_price       = CASE WHEN golden_prices.source = 'NSE_BHAVCOPY' THEN golden_prices.high_price ELSE EXCLUDED.high_price END,
+						    low_price        = CASE WHEN golden_prices.source = 'NSE_BHAVCOPY' THEN golden_prices.low_price ELSE EXCLUDED.low_price END,
+						    volume           = CASE WHEN golden_prices.source = 'NSE_BHAVCOPY' THEN golden_prices.volume ELSE EXCLUDED.volume END,
+						    change_percent   = CASE WHEN golden_prices.source = 'NSE_BHAVCOPY' THEN golden_prices.change_percent ELSE EXCLUDED.change_percent END,
+						    previous_price   = CASE WHEN golden_prices.source = 'NSE_BHAVCOPY' THEN golden_prices.previous_price ELSE EXCLUDED.previous_price END,
 						    source           = CASE WHEN golden_prices.source = 'NSE_BHAVCOPY' THEN golden_prices.source ELSE 'BSE_BHAVCOPY' END,
 						    is_validated     = EXCLUDED.is_validated,
 						    is_flagged       = EXCLUDED.is_flagged,
 						    updated_at       = NOW()
-					WHERE golden_prices.source != 'NSE_BHAVCOPY'
+					WHERE golden_prices.source != 'NSE_BHAVCOPY' OR golden_prices.symbol IS NULL
 				`);
 			}
 		} catch (gpErr: any) {

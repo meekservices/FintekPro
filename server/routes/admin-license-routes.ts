@@ -310,3 +310,196 @@ adminLicenseRouter.post("/ca-saas/invoice-preview", async (req: Request, res: Re
     return errResp(res, "INVOICE_CALCULATION_ERROR", error.message, 400);
   }
 });
+
+// ── GET /api/admin/desks/products/partners ──────────────────────────────────
+// Returns all products and their multi-partner configurations
+adminLicenseRouter.get("/products/partners", async (_req: Request, res: Response) => {
+  const { multiPartnerRouterService } = await import("../services/multi-partner-router-service");
+  return ok(res, multiPartnerRouterService.getAllProductPartners());
+});
+
+// ── GET /api/admin/desks/products/:product/partners ─────────────────────────
+// Returns partners configured for a specific product
+adminLicenseRouter.get("/products/:product/partners", async (req: Request, res: Response) => {
+  const productType = req.params.product.toUpperCase() as any;
+  const { multiPartnerRouterService } = await import("../services/multi-partner-router-service");
+  try {
+    const partners = multiPartnerRouterService.getPartnersForProduct(productType);
+    return ok(res, partners);
+  } catch (error: any) {
+    return errResp(res, "INVALID_PRODUCT_TYPE", error.message, 400);
+  }
+});
+
+// ── POST /api/admin/desks/products/:product/route ────────────────────────────
+// Resolves best active partner with auto-failover if primary is tripped
+const resolveRouteSchema = z.object({
+  preferredProviderKey: z.string().optional(),
+});
+
+adminLicenseRouter.post("/products/:product/route", async (req: Request, res: Response) => {
+  const productType = req.params.product.toUpperCase() as any;
+  const parsed = resolveRouteSchema.safeParse(req.body);
+  const preferredKey = parsed.success ? (parsed.data.preferredProviderKey as any) : undefined;
+
+  const { multiPartnerRouterService } = await import("../services/multi-partner-router-service");
+  try {
+    const resolution = multiPartnerRouterService.resolveActivePartner(productType, preferredKey);
+    return ok(res, resolution);
+  } catch (error: any) {
+    return errResp(res, "ROUTING_RESOLUTION_ERROR", error.message, 400);
+  }
+});
+
+// ── PATCH /api/admin/desks/products/:product/partners/:provider/status ──────
+// Updates partner status & priority (Admin toggle)
+const updatePartnerStatusSchema = z.object({
+  status: z.enum(["ACTIVE_PRIMARY", "ACTIVE_SECONDARY", "STANDBY_FALLBACK", "MAINTENANCE", "DISABLED"]),
+  priorityOrder: z.number().int().min(1).max(10).optional(),
+});
+
+adminLicenseRouter.patch("/products/:product/partners/:provider/status", requireAdmin, async (req: Request, res: Response) => {
+  const productType = req.params.product.toUpperCase() as any;
+  const providerKey = req.params.provider.toUpperCase() as any;
+  const parsed = updatePartnerStatusSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return errResp(res, "VALIDATION_ERROR", parsed.error.message);
+  }
+
+  const { multiPartnerRouterService } = await import("../services/multi-partner-router-service");
+  try {
+    const updated = multiPartnerRouterService.updatePartnerStatus(
+      productType,
+      providerKey,
+      parsed.data.status,
+      parsed.data.priorityOrder
+    );
+    return ok(res, updated);
+  } catch (error: any) {
+    return errResp(res, "UPDATE_PARTNER_ERROR", error.message, 400);
+  }
+});
+
+// ── GET /api/admin/desks/fd/schemes ─────────────────────────────────────────
+// Returns available corporate FD schemes (Bajaj, Shriram, Mahindra, Utkarsh)
+adminLicenseRouter.get("/fd/schemes", async (_req: Request, res: Response) => {
+  const { corporateFdService } = await import("../services/corporate-fd-service");
+  return ok(res, corporateFdService.getAvailableSchemes());
+});
+
+// ── POST /api/admin/desks/fd/calculate ──────────────────────────────────────
+// Calculates corporate FD maturity value, interest payout, and TDS
+const calculateFdSchema = z.object({
+  schemeKey: z.string(),
+  principalAmount: z.number().positive(),
+  tenureMonths: z.number().int().positive(),
+  isSeniorCitizen: z.boolean().optional(),
+  isWomanInvestor: z.boolean().optional(),
+  payoutFrequency: z.enum(["CUMULATIVE", "MONTHLY", "QUARTERLY", "HALF_YEARLY", "ANNUAL"]).optional(),
+});
+
+adminLicenseRouter.post("/fd/calculate", async (req: Request, res: Response) => {
+  const parsed = calculateFdSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return errResp(res, "VALIDATION_ERROR", parsed.error.message);
+  }
+
+  const { corporateFdService } = await import("../services/corporate-fd-service");
+  try {
+    const calculation = corporateFdService.calculateMaturity(parsed.data);
+    return ok(res, calculation);
+  } catch (error: any) {
+    return errResp(res, "FD_CALCULATION_ERROR", error.message, 400);
+  }
+});
+
+// ── POST /api/admin/desks/fd/simulate-booking ───────────────────────────────
+// Simulates digital corporate FD booking
+const simulateFdBookingSchema = z.object({
+  schemeKey: z.string(),
+  principalAmount: z.number().positive(),
+  tenureMonths: z.number().int().positive(),
+  investorPan: z.string().min(10).max(10),
+  investorName: z.string().min(2),
+  bankAccountNumber: z.string().min(5),
+  ifscCode: z.string().min(5),
+  nomineeName: z.string().min(2),
+  nomineeRelation: z.string().min(2),
+  isSeniorCitizen: z.boolean().optional(),
+  isWomanInvestor: z.boolean().optional(),
+  payoutFrequency: z.enum(["CUMULATIVE", "MONTHLY", "QUARTERLY", "HALF_YEARLY", "ANNUAL"]).optional(),
+});
+
+adminLicenseRouter.post("/fd/simulate-booking", async (req: Request, res: Response) => {
+  const parsed = simulateFdBookingSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return errResp(res, "VALIDATION_ERROR", parsed.error.message);
+  }
+
+  const { corporateFdService } = await import("../services/corporate-fd-service");
+  try {
+    const result = corporateFdService.simulateBooking(parsed.data);
+    return ok(res, result);
+  } catch (error: any) {
+    return errResp(res, "FD_BOOKING_ERROR", error.message, 400);
+  }
+});
+
+// ── POST /api/admin/desks/lamf/evaluate ─────────────────────────────────────
+// Evaluates portfolio holdings for Loan Against Mutual Funds (LAMF)
+const evaluateLamfSchema = z.object({
+  holdings: z.array(
+    z.object({
+      schemeCode: z.string(),
+      schemeName: z.string(),
+      category: z.enum(["EQUITY", "HYBRID", "DEBT", "LIQUID"]),
+      currentNav: z.number(),
+      units: z.number(),
+      currentValue: z.number().optional().default(0),
+      costValue: z.number().optional().default(0),
+      folioNumber: z.string().optional().default("FOLIO_DEFAULT"),
+      rta: z.enum(["CAMS", "KFINTECH"]).optional().default("CAMS"),
+    })
+  ),
+});
+
+adminLicenseRouter.post("/lamf/evaluate", async (req: Request, res: Response) => {
+  const parsed = evaluateLamfSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return errResp(res, "VALIDATION_ERROR", parsed.error.message);
+  }
+
+  const { lamfCreditService } = await import("../services/lamf-credit-service");
+  try {
+    const evaluation = lamfCreditService.evaluatePortfolio(parsed.data.holdings as any);
+    return ok(res, evaluation);
+  } catch (error: any) {
+    return errResp(res, "LAMF_EVALUATION_ERROR", error.message, 400);
+  }
+});
+
+// ── POST /api/admin/desks/lamf/tax-savings ──────────────────────────────────
+// Calculates avoided capital gains tax and retained compounding of LAMF vs Selling
+const lamfTaxSavingsSchema = z.object({
+  withdrawalAmount: z.number().positive(),
+  tenureMonths: z.number().int().positive(),
+  assumedAnnualPortfolioReturnPercent: z.number().optional(),
+  holdingPeriodIsLongTerm: z.boolean().optional(),
+  costBasisRatio: z.number().optional(),
+});
+
+adminLicenseRouter.post("/lamf/tax-savings", async (req: Request, res: Response) => {
+  const parsed = lamfTaxSavingsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return errResp(res, "VALIDATION_ERROR", parsed.error.message);
+  }
+
+  const { lamfCreditService } = await import("../services/lamf-credit-service");
+  try {
+    const comparison = lamfCreditService.calculateTaxSavings(parsed.data);
+    return ok(res, comparison);
+  } catch (error: any) {
+    return errResp(res, "TAX_SAVINGS_CALCULATION_ERROR", error.message, 400);
+  }
+});

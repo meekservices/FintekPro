@@ -235,41 +235,50 @@ export class NcdexBhavcopyService {
 
 		for (const r of allRecords) {
 			try {
-				const isin = `NCDEX_${r.id}_${r.isSpot ? "SPOT" : "FUT"}`;
-				await db.execute(sql`
-					INSERT INTO golden_prices (
-						isin, symbol, asset_class, price_date, price,
-						change_percent, source, confidence_score, currency, metadata, created_at, updated_at
-					) VALUES (
-						${isin},
-						${r.id},
-						'commodity',
-						${tradeDate}::date,
-						${r.price},
-						${r.changePercent},
-						${r.source},
-						95,
-						'INR',
-						${JSON.stringify({
-							name: r.name,
-							tradingSymbol: r.tradingSymbol,
-							deliveryCenter: r.deliveryCenter,
-							category: r.category,
-							unit: r.unit,
-							isSpot: r.isSpot,
-						})}::jsonb,
-						NOW(),
-						NOW()
-					)
-					ON CONFLICT (isin, price_date) DO UPDATE SET
-						price = EXCLUDED.price,
-						change_percent = EXCLUDED.change_percent,
-						source = EXCLUDED.source,
-						confidence_score = 95,
-						metadata = EXCLUDED.metadata,
-						updated_at = NOW()
-				`);
-				goldenPricesCount++;
+				const isins = [`NCDEX_${r.id}_${r.isSpot ? "SPOT" : "FUT"}`];
+				if (r.isSpot) {
+					// Register alias used by GoldenPricingEngine (e.g. COMM_JEERA)
+					isins.push(`COMM_${r.id}`);
+				}
+
+				for (const isin of isins) {
+					await db.execute(sql`
+						INSERT INTO golden_prices (
+							isin, symbol, asset_class, price_date, price,
+							change_percent, previous_price, source, confidence_score, currency, metadata, created_at, updated_at
+						) VALUES (
+							${isin},
+							${r.id},
+							'commodity',
+							${tradeDate}::date,
+							${r.price},
+							${r.changePercent},
+							${r.previousClose ?? null},
+							${r.source},
+							95,
+							'INR',
+							${JSON.stringify({
+								name: r.name,
+								tradingSymbol: r.tradingSymbol,
+								deliveryCenter: r.deliveryCenter,
+								category: r.category,
+								unit: r.unit,
+								isSpot: r.isSpot,
+							})}::jsonb,
+							NOW(),
+							NOW()
+						)
+						ON CONFLICT (isin, price_date) DO UPDATE SET
+							price = EXCLUDED.price,
+							change_percent = EXCLUDED.change_percent,
+							previous_price = COALESCE(EXCLUDED.previous_price, golden_prices.previous_price),
+							source = EXCLUDED.source,
+							confidence_score = 95,
+							metadata = EXCLUDED.metadata,
+							updated_at = NOW()
+					`);
+					goldenPricesCount++;
+				}
 			} catch (gpErr: any) {
 				logger.warn(`[NcdexBhavcopyService] golden_prices upsert warning for ${r.tradingSymbol}:`, gpErr?.message);
 			}

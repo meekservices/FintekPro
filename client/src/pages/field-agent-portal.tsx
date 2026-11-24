@@ -379,20 +379,7 @@ export default function FieldAgentPortal() {
 		});
 	};
 
-	const isLoading = profileLoading || statsLoading;
-
-	if (isLoading) {
-		return (
-			<div className="min-h-screen bg-gradient-to-br from-background via-blue-50/30 to-indigo-50/30 dark:from-background dark:via-blue-950/30 dark:to-indigo-950/30">
-				<div className="container mx-auto p-6">
-					<div className="flex items-center justify-center h-64">
-						<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3" />
-						<div className="text-lg">Loading partner portal...</div>
-					</div>
-				</div>
-			</div>
-		);
-	}
+	const _isLoading = profileLoading || statsLoading;
 
 	interface AgentStats {
 		totalClients: number;

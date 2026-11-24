@@ -68,7 +68,9 @@ export default defineConfig({
           if (
             id.includes("/node_modules/recharts") ||
             id.includes("/node_modules/d3-") ||
-            id.includes("/node_modules/victory")
+            id.includes("/node_modules/victory") ||
+            id.includes("/client/src/components/ui/chart") ||
+            id.includes("/client/src/components/MemoizedChart")
           ) return "vendor-charts";
 
           // ── Shared app code ─────────────────────────────────────────────────────

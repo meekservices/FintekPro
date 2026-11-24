@@ -1,5 +1,5 @@
 import { Switch, Route, useLocation, Redirect } from "wouter";
-import { Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -19,17 +19,22 @@ import { VersionCheckModal } from "@/components/VersionCheckModal";
 import { DSCBackgroundSync } from "@/components/DSCBackgroundSync";
 import { GlobalActionQueueMonitor } from "@/components/GlobalActionQueueMonitor";
 import { LoadingState } from "@/components/LoadingState";
-import { AdminRoutes } from "@/routes/admin.routes";
-import { AgentRoutes } from "@/routes/agent.routes";
-import { PartnerRoutes } from "@/routes/partner.routes";
-import { UserProtectedRoutes } from "@/routes/user.routes";
+const AdminRoutes = lazy(() =>
+	import("@/routes/admin.routes").then((m) => ({ default: m.AdminRoutes })),
+);
+const AgentRoutes = lazy(() =>
+	import("@/routes/agent.routes").then((m) => ({ default: m.AgentRoutes })),
+);
+const PartnerRoutes = lazy(() =>
+	import("@/routes/partner.routes").then((m) => ({ default: m.PartnerRoutes })),
+);
+const UserProtectedRoutes = lazy(() =>
+	import("@/routes/user.routes").then((m) => ({ default: m.UserProtectedRoutes })),
+);
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
 import ProfileCompletionGuard from "@/components/ProfileCompletionGuard";
-import { AppLayout } from "@/components/layout/app-layout";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { AgentLayout } from "@/components/layout/agent-layout";
-import { PartnerLayout } from "@/components/layout/partner-layout";
 import { LayoutResolver } from "@/components/layout/LayoutResolver";
 import { useSubdomain } from "@/hooks/useSubdomain";
 import { useAuth } from "@/hooks/useAuth";

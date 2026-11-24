@@ -263,34 +263,85 @@ export function registerAgentCapitalGainPart2Part1Routes(app: Express): void {
 		}
 	});
 
-	// Get agent statistics
+	// Get agent statistics (optimized with parallel query execution)
 	app.get("/api/agent/stats", requireAgent, async (req, res) => {
 		try {
 			const agentId = req.user!.id;
 
-			// Get basic stats from existing data
-			const clientRelationships = await storage.getClientsForAgent(agentId);
+			const now = new Date();
+			const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+			const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+			const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+			// Parallelize independent DB queries
+			const [
+				clientRelationships,
+				leadsResult,
+				convertedLeadsResult,
+				thisMonthCommissions,
+				lastMonthCommissions,
+				totalCommissionsResult,
+				pendingCommissionsResult,
+			] = await Promise.all([
+				storage.getClientsForAgent(agentId),
+				db.select({ count: count() })
+					.from(schema.agentLeads)
+					.where(eq(schema.agentLeads.agentId, agentId)),
+				db.select({ count: count() })
+					.from(schema.agentLeads)
+					.where(
+						and(
+							eq(schema.agentLeads.agentId, agentId),
+							eq(schema.agentLeads.stage, "converted"),
+						),
+					),
+				db.select({
+					total: sum(schema.agentCommissions.agentCommissionAmount),
+				})
+					.from(schema.agentCommissions)
+					.where(
+						and(
+							eq(schema.agentCommissions.agentId, agentId),
+							gte(schema.agentCommissions.createdAt, monthStart),
+						),
+					),
+				db.select({
+					total: sum(schema.agentCommissions.agentCommissionAmount),
+				})
+					.from(schema.agentCommissions)
+					.where(
+						and(
+							eq(schema.agentCommissions.agentId, agentId),
+							gte(schema.agentCommissions.createdAt, lastMonthStart),
+							lte(schema.agentCommissions.createdAt, lastMonthEnd),
+						),
+					),
+				db.select({
+					total: sum(schema.agentCommissions.agentCommissionAmount),
+				})
+					.from(schema.agentCommissions)
+					.where(
+						and(
+							eq(schema.agentCommissions.agentId, agentId),
+							eq(schema.agentCommissions.agentSettlementStatus, "settled"),
+						),
+					),
+				db.select({
+					total: sum(schema.agentCommissions.agentCommissionAmount),
+				})
+					.from(schema.agentCommissions)
+					.where(
+						and(
+							eq(schema.agentCommissions.agentId, agentId),
+							eq(schema.agentCommissions.agentSettlementStatus, "pending"),
+						),
+					),
+			]);
+
 			const activeClients = clientRelationships.filter(
 				(c) => c.isActive,
 			).length;
-
-			// Get leads count
-			const leadsResult = await db
-				.select({ count: count() })
-				.from(schema.agentLeads)
-				.where(eq(schema.agentLeads.agentId, agentId));
 			const totalLeads = leadsResult[0]?.count || 0;
-
-			// Get converted leads
-			const convertedLeadsResult = await db
-				.select({ count: count() })
-				.from(schema.agentLeads)
-				.where(
-					and(
-						eq(schema.agentLeads.agentId, agentId),
-						eq(schema.agentLeads.stage, "converted"),
-					),
-				);
 			const convertedLeads = convertedLeadsResult[0]?.count || 0;
 
 			// Get AUM from client portfolios
@@ -310,70 +361,12 @@ export function registerAgentCapitalGainPart2Part1Routes(app: Express): void {
 				);
 			}
 
-			// Get current month's start date
-			const now = new Date();
-			const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-			const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-			const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-
-			// Get this month's commissions (business)
-			const thisMonthCommissions = await db
-				.select({
-					total: sum(schema.agentCommissions.agentCommissionAmount),
-				})
-				.from(schema.agentCommissions)
-				.where(
-					and(
-						eq(schema.agentCommissions.agentId, agentId),
-						gte(schema.agentCommissions.createdAt, monthStart),
-					),
-				);
 			const thisMonthBusiness =
 				Number.parseFloat(thisMonthCommissions[0]?.total || "0") || 0;
-
-			// Get last month's commissions
-			const lastMonthCommissions = await db
-				.select({
-					total: sum(schema.agentCommissions.agentCommissionAmount),
-				})
-				.from(schema.agentCommissions)
-				.where(
-					and(
-						eq(schema.agentCommissions.agentId, agentId),
-						gte(schema.agentCommissions.createdAt, lastMonthStart),
-						lte(schema.agentCommissions.createdAt, lastMonthEnd),
-					),
-				);
 			const lastMonthBusiness =
 				Number.parseFloat(lastMonthCommissions[0]?.total || "0") || 0;
-
-			// Get total commissions (settled)
-			const totalCommissionsResult = await db
-				.select({
-					total: sum(schema.agentCommissions.agentCommissionAmount),
-				})
-				.from(schema.agentCommissions)
-				.where(
-					and(
-						eq(schema.agentCommissions.agentId, agentId),
-						eq(schema.agentCommissions.agentSettlementStatus, "settled"),
-					),
-				);
 			const totalCommissions =
 				Number.parseFloat(totalCommissionsResult[0]?.total || "0") || 0;
-
-			// Get pending commissions
-			const pendingCommissionsResult = await db
-				.select({
-					total: sum(schema.agentCommissions.agentCommissionAmount),
-				})
-				.from(schema.agentCommissions)
-				.where(
-					and(
-						eq(schema.agentCommissions.agentId, agentId),
-						eq(schema.agentCommissions.agentSettlementStatus, "pending"),
-					),
-				);
 			const pendingCommissions =
 				Number.parseFloat(pendingCommissionsResult[0]?.total || "0") || 0;
 

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, timestamp, boolean, jsonb, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, jsonb, varchar, integer, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -29,7 +29,10 @@ export const DESK_TYPES = [
   "IRIS_KFINTECH",
   "ALPACA_GLOBAL",
   "SEBI_RIA_ADVISORY",
-  "BONDS_NCDS_DESK"
+  "BONDS_NCDS_DESK",
+  "CORPORATE_FD_DESK",
+  "LAMF_CREDIT_DESK",
+  "SDI_ALTERNATIVE_DEBT_DESK"
 ] as const;
 export type DeskType = typeof DESK_TYPES[number];
 
@@ -66,7 +69,10 @@ export const LICENSE_DOC_TYPES = [
   "SEBI_RIA_REGISTRATION_CERTIFICATE",
   "CA_NET_WORTH_CERTIFICATE",
   "BSE_STAR_DEBT_OR_ISSUER_SYNDICATION_AGMT",
-  "CRISIL_ICRA_BOND_RATING_DATA_AGMT"
+  "CRISIL_ICRA_BOND_RATING_DATA_AGMT",
+  "BAJAJ_SHRIRAM_FD_AGENCY_AGMT",
+  "VOLT_MONEY_OR_NBFC_LAMF_PARTNER_AGMT",
+  "SEBI_OBPP_SDI_TRUSTEE_OR_ISSUER_AGMT"
 ] as const;
 export type LicenseDocType = typeof LICENSE_DOC_TYPES[number];
 
@@ -87,6 +93,8 @@ export const deskOperationalConfigs = pgTable("desk_operational_configs", {
   isAlpacaUsEquityActive: boolean("is_alpaca_us_equity_active").default(false).notNull(),
   isCorporateFdActive: boolean("is_corporate_fd_active").default(false).notNull(),
   isBondDistributionActive: boolean("is_bond_distribution_active").default(false).notNull(),
+  isLamfActive: boolean("is_lamf_active").default(false).notNull(),
+  isSdiActive: boolean("is_sdi_active").default(false).notNull(),
   isAiAdvisoryActive: boolean("is_ai_advisory_active").default(false).notNull(),
 
   // Current Capability Tier
@@ -166,3 +174,49 @@ export const insertLicenseVerificationDocumentSchema = createInsertSchema(licens
 export const selectLicenseVerificationDocumentSchema = createSelectSchema(licenseVerificationDocuments);
 export type LicenseVerificationDocument = z.infer<typeof selectLicenseVerificationDocumentSchema>;
 export type InsertLicenseVerificationDocument = z.infer<typeof insertLicenseVerificationDocumentSchema>;
+
+/**
+ * 4. Multi-Partner per Product Mapping & Dynamic Routing Matrix
+ */
+export const PRODUCT_TYPES = [
+  "EQUITY_BROKERAGE",
+  "MUTUAL_FUNDS_DISTRIBUTION",
+  "CORPORATE_FIXED_DEPOSITS",
+  "LOAN_AGAINST_SECURITIES_LAMF",
+  "BONDS_NCDS_DEBT",
+  "US_GLOBAL_EQUITIES",
+  "SECURITIZED_DEBT_SDI",
+  "ACCOUNT_AGGREGATOR_AA"
+] as const;
+export type ProductType = typeof PRODUCT_TYPES[number];
+
+export const PARTNER_PROVIDER_STATUSES = [
+  "ACTIVE_PRIMARY",
+  "ACTIVE_SECONDARY",
+  "STANDBY_FALLBACK",
+  "MAINTENANCE",
+  "DISABLED"
+] as const;
+export type PartnerProviderStatus = typeof PARTNER_PROVIDER_STATUSES[number];
+
+export const productPartnerProviders = pgTable("product_partner_providers", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  productType: text("product_type", { enum: PRODUCT_TYPES }).notNull(),
+  providerKey: text("provider_key").notNull(),
+  providerDisplayName: text("provider_display_name").notNull(),
+  status: text("status", { enum: PARTNER_PROVIDER_STATUSES }).default("ACTIVE_SECONDARY").notNull(),
+  priorityOrder: integer("priority_order").default(1).notNull(),
+  distributorCommissionBps: integer("distributor_commission_bps").default(100).notNull(),
+  partnerRevenueSharePercent: numeric("partner_revenue_share_percent", { precision: 5, scale: 2 }).default("80.00").notNull(),
+  apiEndpointRef: text("api_endpoint_ref"),
+  circuitBreakerKey: text("circuit_breaker_key").notNull(),
+  isSandboxMock: boolean("is_sandbox_mock").default(true).notNull(),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const insertProductPartnerProviderSchema = createInsertSchema(productPartnerProviders);
+export const selectProductPartnerProviderSchema = createSelectSchema(productPartnerProviders);
+export type ProductPartnerProvider = z.infer<typeof selectProductPartnerProviderSchema>;
+export type InsertProductPartnerProvider = z.infer<typeof insertProductPartnerProviderSchema>;

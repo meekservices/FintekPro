@@ -17,8 +17,8 @@ describe("FintekPro Desk License Gateway & Progressive Capability Activator", ()
     expect(summary.config.operatingMode).toBe("TEST_SANDBOX");
     expect(summary.config.capabilityTier).toBe("SANDBOX_TEST");
 
-    // All 6 core desks should exist
-    expect(summary.licenses.length).toBe(6);
+    // All 9 core desks should exist
+    expect(summary.licenses.length).toBe(9);
     const deskTypes = summary.licenses.map((l) => l.deskType);
     expect(deskTypes).toContain("MFD_AMFI");
     expect(deskTypes).toContain("IRIS_KFINTECH");
@@ -26,6 +26,9 @@ describe("FintekPro Desk License Gateway & Progressive Capability Activator", ()
     expect(deskTypes).toContain("ALPACA_GLOBAL");
     expect(deskTypes).toContain("SEBI_RIA_ADVISORY");
     expect(deskTypes).toContain("BONDS_NCDS_DESK");
+    expect(deskTypes).toContain("CORPORATE_FD_DESK");
+    expect(deskTypes).toContain("LAMF_CREDIT_DESK");
+    expect(deskTypes).toContain("SDI_ALTERNATIVE_DEBT_DESK");
   });
 
   it("resolves execution mode to SANDBOX_MOCK when in TEST_SANDBOX mode", async () => {
@@ -308,5 +311,120 @@ AMC_ICICI|ICICI202|F7654321|BCDEF2345G|SIP|2026-11-20|10000|100.00|100.00|TX_REF
     expect(interstateInvoice.isInterstate).toBe(true);
     expect(interstateInvoice.igstAmountInr).toBeCloseTo(2590.2, 1);
     expect(interstateInvoice.cgstAmountInr).toBe(0);
+  });
+
+  it("validates multi-partner per product architecture and automatic failover", async () => {
+    const { multiPartnerRouterService } = await import("../services/multi-partner-router-service");
+    const { partnerCircuitBreaker } = await import("../services/partner-circuit-breaker");
+
+    // 1. Verify multiple partners are configured per product
+    const eqPartners = multiPartnerRouterService.getPartnersForProduct("EQUITY_BROKERAGE");
+    expect(eqPartners.length).toBeGreaterThanOrEqual(3);
+    expect(eqPartners.map((p) => p.providerKey)).toContain("UPSTOX");
+    expect(eqPartners.map((p) => p.providerKey)).toContain("ANGEL_ONE");
+    expect(eqPartners.map((p) => p.providerKey)).toContain("DHAN");
+
+    const fdPartners = multiPartnerRouterService.getPartnersForProduct("CORPORATE_FIXED_DEPOSITS");
+    expect(fdPartners.length).toBeGreaterThanOrEqual(4);
+    expect(fdPartners.map((p) => p.providerKey)).toContain("BAJAJ_FINANCE");
+    expect(fdPartners.map((p) => p.providerKey)).toContain("SHRIRAM_FINANCE");
+
+    // 2. Normal routing routes to Priority 1 (Upstox)
+    partnerCircuitBreaker.resetCircuit("UPSTOX");
+    const normalRoute = multiPartnerRouterService.resolveActivePartner("EQUITY_BROKERAGE");
+    expect(normalRoute.selectedProviderKey).toBe("UPSTOX");
+    expect(normalRoute.priorityOrder).toBe(1);
+    expect(normalRoute.isFailover).toBe(false);
+
+    // 3. Trip Upstox circuit with 5 consecutive failures
+    for (let i = 0; i < 5; i++) {
+      partnerCircuitBreaker.recordFailure("UPSTOX", new Error("503 Service Unavailable"));
+    }
+    expect(partnerCircuitBreaker.getCircuitStatus("UPSTOX").state).toBe("OPEN");
+
+    // 4. Multi-partner router must automatically fail over to Priority 2 (Angel One)!
+    const failoverRoute = multiPartnerRouterService.resolveActivePartner("EQUITY_BROKERAGE");
+    expect(failoverRoute.selectedProviderKey).toBe("ANGEL_ONE");
+    expect(failoverRoute.priorityOrder).toBe(2);
+    expect(failoverRoute.isFailover).toBe(true);
+    expect(failoverRoute.failoverReason).toContain("Primary partner unavailable");
+
+    // Cleanup: reset circuit
+    partnerCircuitBreaker.resetCircuit("UPSTOX");
+  });
+
+  it("validates Corporate FD calculations, maturity values, and Section 194A TDS", async () => {
+    const { corporateFdService } = await import("../services/corporate-fd-service");
+
+    const schemes = corporateFdService.getAvailableSchemes();
+    expect(schemes.length).toBeGreaterThanOrEqual(4);
+
+    // Bajaj Finance: ₹1,00,000 for 36 months cumulative
+    const bajajCalc = corporateFdService.calculateMaturity({
+      schemeKey: "BAJAJ_FINANCE",
+      principalAmount: 100000,
+      tenureMonths: 36,
+      isSeniorCitizen: false,
+    });
+    expect(bajajCalc.baseRatePercent).toBe(8.10);
+    expect(bajajCalc.effectiveRatePercent).toBe(8.10);
+    expect(bajajCalc.maturityValue).toBeGreaterThan(120000);
+    expect(bajajCalc.partnerCommissionEstimate).toBe(1750); // 1.75% of 1L
+
+    // Shriram Finance with Senior Citizen bonus (+0.50%)
+    const shriramCalc = corporateFdService.calculateMaturity({
+      schemeKey: "SHRIRAM_FINANCE",
+      principalAmount: 200000,
+      tenureMonths: 36,
+      isSeniorCitizen: true,
+    });
+    expect(shriramCalc.seniorBonusPercent).toBe(0.50);
+    expect(shriramCalc.effectiveRatePercent).toBe(9.20); // 8.70 + 0.50
+    expect(shriramCalc.partnerCommissionEstimate).toBe(4400); // 2.20% of 2L
+  });
+
+  it("validates LAMF Credit LTV caps and capital gains tax savings", async () => {
+    const { lamfCreditService } = await import("../services/lamf-credit-service");
+
+    const mockHoldings = [
+      {
+        schemeCode: "HDFC_TOP100",
+        schemeName: "HDFC Top 100 Fund",
+        category: "EQUITY" as const,
+        currentNav: 1000,
+        units: 500,
+        currentValue: 500000,
+        costValue: 350000,
+        folioNumber: "F123",
+        rta: "CAMS" as const,
+      },
+      {
+        schemeCode: "ICICI_LIQUID",
+        schemeName: "ICICI Liquid Fund",
+        category: "LIQUID" as const,
+        currentNav: 350,
+        units: 1000,
+        currentValue: 350000,
+        costValue: 340000,
+        folioNumber: "F456",
+        rta: "KFINTECH" as const,
+      },
+    ];
+
+    const eligibility = lamfCreditService.evaluatePortfolio(mockHoldings);
+    expect(eligibility.totalPortfolioValue).toBe(850000);
+
+    // Equity @ 50% LTV = ₹2,50,000; Liquid @ 80% LTV = ₹2,80,000 => Total = ₹5,30,000
+    expect(eligibility.totalEligibleCreditLimit).toBe(530000);
+
+    // Tax avoidance savings: ₹2,00,000 withdrawal for 12 months
+    const taxSavings = lamfCreditService.calculateTaxSavings({
+      withdrawalAmount: 200000,
+      tenureMonths: 12,
+      holdingPeriodIsLongTerm: true,
+    });
+    expect(taxSavings.scenarioRedemption.capitalGainsTaxPayable).toBeGreaterThan(0);
+    expect(taxSavings.scenarioLamf.portfolioGrownValue).toBeGreaterThan(200000);
+    expect(taxSavings.scenarioLamf.netBenefitOfLamf).toBeGreaterThan(0);
   });
 });

@@ -7270,6 +7270,33 @@ export async function ensureEngineGapFixTables(poolInstance?: any): Promise<void
         AND stoploss_price::numeric >= target_price::numeric
         AND reco_price::numeric > 0;
 
+      -- ── Golden Prices Symbol & Commodity Alias Repair (Bhavcopy Audit) ──
+      UPDATE golden_prices gp
+      SET symbol = ls.symbol, updated_at = NOW()
+      FROM listed_stocks ls
+      WHERE gp.isin = ls.isin AND (gp.symbol IS NULL OR gp.symbol = '');
+
+      -- Ensure commodity aliases exist in golden_prices for Gold and Silver
+      INSERT INTO golden_prices (isin, symbol, asset_class, price_date, price, open_price, high_price, low_price, volume, change_percent, source, confidence_score, currency, created_at, updated_at)
+      SELECT 'COMM_GOLD_MCX', 'GOLD', 'commodity', price_date, price, open_price, high_price, low_price, volume, change_percent, source, confidence_score, currency, NOW(), NOW()
+      FROM golden_prices WHERE isin = 'MCX_GOLD_SPOT'
+      ON CONFLICT (isin, price_date) DO UPDATE SET price = EXCLUDED.price, updated_at = NOW();
+
+      INSERT INTO golden_prices (isin, symbol, asset_class, price_date, price, open_price, high_price, low_price, volume, change_percent, source, confidence_score, currency, created_at, updated_at)
+      SELECT 'MCX_GOLD', 'GOLD', 'commodity', price_date, price, open_price, high_price, low_price, volume, change_percent, source, confidence_score, currency, NOW(), NOW()
+      FROM golden_prices WHERE isin = 'MCX_GOLD_SPOT'
+      ON CONFLICT (isin, price_date) DO UPDATE SET price = EXCLUDED.price, updated_at = NOW();
+
+      INSERT INTO golden_prices (isin, symbol, asset_class, price_date, price, open_price, high_price, low_price, volume, change_percent, source, confidence_score, currency, created_at, updated_at)
+      SELECT 'COMM_SILVER_MCX', 'SILVER', 'commodity', price_date, price, open_price, high_price, low_price, volume, change_percent, source, confidence_score, currency, NOW(), NOW()
+      FROM golden_prices WHERE isin = 'MCX_SILVER_SPOT'
+      ON CONFLICT (isin, price_date) DO UPDATE SET price = EXCLUDED.price, updated_at = NOW();
+
+      INSERT INTO golden_prices (isin, symbol, asset_class, price_date, price, open_price, high_price, low_price, volume, change_percent, source, confidence_score, currency, created_at, updated_at)
+      SELECT 'MCX_SILVER', 'SILVER', 'commodity', price_date, price, open_price, high_price, low_price, volume, change_percent, source, confidence_score, currency, NOW(), NOW()
+      FROM golden_prices WHERE isin = 'MCX_SILVER_SPOT'
+      ON CONFLICT (isin, price_date) DO UPDATE SET price = EXCLUDED.price, updated_at = NOW();
+
       -- ── Ensure stock_quarterly_financials table & indexes ──
       CREATE TABLE IF NOT EXISTS stock_quarterly_financials (
         id SERIAL PRIMARY KEY,

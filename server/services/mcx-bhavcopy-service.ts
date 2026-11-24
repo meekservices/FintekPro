@@ -347,40 +347,66 @@ export class McxBhavcopyService {
 
 			// Step 3: Upsert into golden_prices for historical time-series & factor analysis
 			try {
-				const isin = `MCX_${r.commoditySymbol}_${r.isSpot ? "SPOT" : "FUT"}`;
-				await db.execute(sql`
-					INSERT INTO golden_prices (
-						isin, symbol, asset_class, price_date, price,
-						change_percent, source, confidence_score, currency, metadata, created_at, updated_at
-					) VALUES (
-						${isin},
-						${r.commoditySymbol},
-						'commodity',
-						${tradeDate}::date,
-						${r.price},
-						${r.changePercent ?? 0},
-						${r.source},
-						98,
-						'INR',
-						${JSON.stringify({
-							tradingSymbol: r.tradingSymbol,
-							instrumentKey: r.instrumentKey,
-							deliveryCenter: r.deliveryCenter,
-							isSpot: r.isSpot,
-							unit: r.unit,
-						})}::jsonb,
-						NOW(),
-						NOW()
-					)
-					ON CONFLICT (isin, price_date) DO UPDATE SET
-						price = EXCLUDED.price,
-						change_percent = EXCLUDED.change_percent,
-						source = EXCLUDED.source,
-						confidence_score = 98,
-						metadata = EXCLUDED.metadata,
-						updated_at = NOW()
-				`);
-				goldenPricesCount++;
+				const isins = [`MCX_${r.commoditySymbol}_${r.isSpot ? "SPOT" : "FUT"}`];
+				// Register aliases used by GoldenPricingEngine and KnowledgeHub
+				if (r.commoditySymbol === "GOLD" && r.isSpot) {
+					isins.push("COMM_GOLD_MCX", "MCX_GOLD");
+				} else if (r.commoditySymbol === "SILVER" && r.isSpot) {
+					isins.push("COMM_SILVER_MCX", "MCX_SILVER");
+				} else if (r.commoditySymbol === "CRUDE_OIL") {
+					isins.push("COMM_BRENT_MCX", "MCX_CRUDEOIL");
+				} else if (r.commoditySymbol === "COPPER") {
+					isins.push("COMM_COPPER");
+				} else if (r.commoditySymbol === "NATURAL_GAS") {
+					isins.push("COMM_NATGAS");
+				}
+
+				for (const isin of isins) {
+					await db.execute(sql`
+						INSERT INTO golden_prices (
+							isin, symbol, asset_class, price_date, price,
+							open_price, high_price, low_price, volume,
+							change_percent, previous_price, source, confidence_score, currency, metadata, created_at, updated_at
+						) VALUES (
+							${isin},
+							${r.commoditySymbol},
+							'commodity',
+							${tradeDate}::date,
+							${r.price},
+							${r.openPrice ?? null},
+							${r.highPrice ?? null},
+							${r.lowPrice ?? null},
+							${r.volume ?? null},
+							${r.changePercent ?? 0},
+							${r.previousClose ?? null},
+							${r.source},
+							98,
+							'INR',
+							${JSON.stringify({
+								tradingSymbol: r.tradingSymbol,
+								instrumentKey: r.instrumentKey,
+								deliveryCenter: r.deliveryCenter,
+								isSpot: r.isSpot,
+								unit: r.unit,
+							})}::jsonb,
+							NOW(),
+							NOW()
+						)
+						ON CONFLICT (isin, price_date) DO UPDATE SET
+							price = EXCLUDED.price,
+							open_price = COALESCE(EXCLUDED.open_price, golden_prices.open_price),
+							high_price = COALESCE(EXCLUDED.high_price, golden_prices.high_price),
+							low_price = COALESCE(EXCLUDED.low_price, golden_prices.low_price),
+							volume = COALESCE(EXCLUDED.volume, golden_prices.volume),
+							change_percent = EXCLUDED.change_percent,
+							previous_price = COALESCE(EXCLUDED.previous_price, golden_prices.previous_price),
+							source = EXCLUDED.source,
+							confidence_score = 98,
+							metadata = EXCLUDED.metadata,
+							updated_at = NOW()
+					`);
+					goldenPricesCount++;
+				}
 			} catch (gpErr: any) {
 				logger.warn(`[McxBhavcopyService] golden_prices upsert warning for ${r.tradingSymbol}:`, gpErr?.message);
 			}

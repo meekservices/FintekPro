@@ -201,8 +201,9 @@ export class NseBhavcopyService {
 		}
 
 		const records: BhavcopyRecord[] = [];
-		// Allowed equity series on NSE: EQ (Regular), BE (Book Entry), BZ (Z group), SM (SME)
-		const validSeries = new Set(["EQ", "BE", "BZ", "SM"]);
+		// Allowed exchange series on NSE:
+		// EQ (Regular Equity), BE (Book Entry), BZ (Z group), SM (SME), GB (Sovereign Gold Bonds)
+		const validSeries = new Set(["EQ", "BE", "BZ", "SM", "GB"]);
 
 		for (let i = 1; i < lines.length; i++) {
 			const line = lines[i].trim();
@@ -408,11 +409,20 @@ export class NseBhavcopyService {
 					} else {
 						goldenInserted++;
 					}
+					const chgPct = r.prevClose > 0 ? ((r.close - r.prevClose) / r.prevClose) * 100 : 0;
+					const assetClass = r.series === "GB" ? "gold_sovereign" : "equity";
 					return sql`(
 						${r.isin}::varchar,
+						${r.symbol}::varchar,
 						${effectiveDate}::date,
-						'equity'::varchar,
+						${assetClass}::varchar,
 						${r.close.toFixed(4)}::numeric,
+						${r.open.toFixed(4)}::numeric,
+						${r.high.toFixed(4)}::numeric,
+						${r.low.toFixed(4)}::numeric,
+						${r.volume}::numeric,
+						${chgPct.toFixed(4)}::numeric,
+						${r.prevClose.toFixed(4)}::numeric,
 						'NSE_BHAVCOPY'::varchar,
 						1.0::numeric,
 						${!isSuspect}::boolean,
@@ -423,10 +433,17 @@ export class NseBhavcopyService {
 
 				await db.execute(sql`
 					INSERT INTO golden_prices
-						(isin, price_date, asset_class, price, source, confidence_score, is_validated, is_flagged, currency)
+						(isin, symbol, price_date, asset_class, price, open_price, high_price, low_price, volume, change_percent, previous_price, source, confidence_score, is_validated, is_flagged, currency)
 					VALUES ${sql.join(valuesSql, sql`, `)}
 					ON CONFLICT (isin, price_date) DO UPDATE
-						SET price            = EXCLUDED.price,
+						SET symbol           = EXCLUDED.symbol,
+						    price            = EXCLUDED.price,
+						    open_price       = EXCLUDED.open_price,
+						    high_price       = EXCLUDED.high_price,
+						    low_price        = EXCLUDED.low_price,
+						    volume           = EXCLUDED.volume,
+						    change_percent   = EXCLUDED.change_percent,
+						    previous_price   = EXCLUDED.previous_price,
 						    source           = 'NSE_BHAVCOPY',
 						    confidence_score = 1.0,
 						    is_validated     = EXCLUDED.is_validated,

@@ -134,20 +134,7 @@ export default function DistributionPartnerPortal() {
 		queryKey: ["/api/admin/desks/circuits"],
 	});
 
-	const isLoading = profileLoading || statsLoading;
-
-	if (isLoading) {
-		return (
-			<div className="min-h-screen bg-gradient-to-br from-background via-blue-50/30 to-indigo-50/30 dark:from-background dark:via-blue-950/30 dark:to-indigo-950/30">
-				<div className="container mx-auto p-6">
-					<div className="flex items-center justify-center h-64">
-						<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3" />
-						<div className="text-lg">Loading partner portal...</div>
-					</div>
-				</div>
-			</div>
-		);
-	}
+	const _isLoading = profileLoading || statsLoading;
 
 	interface PartnerStats {
 		totalAgents: number;
@@ -1368,25 +1355,89 @@ export default function DistributionPartnerPortal() {
 											Corporate FDs & Deposits
 										</CardTitle>
 										<Badge variant="default" className="bg-rose-600 text-white">
-											Active
+											Multi-Partner Active
 										</Badge>
 									</div>
 									<CardDescription className="text-xs">
-										High-yield AAA/AA+ Corporate FDs (Bajaj, Shriram, Mahindra, HDFC).
+										High-yield AAA/AA+ Corporate FDs: Bajaj Finance, Shriram, Mahindra, Utkarsh SFB.
 									</CardDescription>
 								</CardHeader>
 								<CardContent className="space-y-2 text-xs">
 									<div className="flex justify-between py-1 border-b border-border/40">
 										<span className="text-muted-foreground">Product Type:</span>
-										<span className="font-medium">RBI Regulated NBFC Deposits</span>
+										<span className="font-medium">RBI Regulated NBFC & Bank Deposits</span>
 									</div>
 									<div className="flex justify-between py-1 border-b border-border/40">
-										<span className="text-muted-foreground">Distribution Partner:</span>
-										<span className="font-semibold text-rose-400">Direct NBFC Agency</span>
+										<span className="text-muted-foreground">Active Issuers:</span>
+										<span className="font-semibold text-rose-400">Bajaj (AAA), Shriram (AA+), Utkarsh</span>
 									</div>
 									<div className="flex justify-between py-1">
 										<span className="text-muted-foreground">Interest Rates:</span>
-										<span>Up to 8.85% p.a. + Senior Citizen</span>
+										<span>Up to 9.40% p.a. + Senior Citizen Bonus</span>
+									</div>
+								</CardContent>
+							</Card>
+
+							{/* Loan Against Mutual Funds (LAMF) Desk */}
+							<Card className="border-border/70">
+								<CardHeader className="pb-3">
+									<div className="flex items-center justify-between">
+										<CardTitle className="text-base font-bold flex items-center gap-2">
+											<Wallet className="w-4 h-4 text-cyan-400" />
+											Loan Against Mutual Funds (LAMF)
+										</CardTitle>
+										<Badge variant="default" className="bg-cyan-600 text-white">
+											Multi-Partner Active
+										</Badge>
+									</div>
+									<CardDescription className="text-xs">
+										Instant digital overdraft (10.25% p.a.) against pledged CAMS/KFintech units.
+									</CardDescription>
+								</CardHeader>
+								<CardContent className="space-y-2 text-xs">
+									<div className="flex justify-between py-1 border-b border-border/40">
+										<span className="text-muted-foreground">Lending Partners:</span>
+										<span className="font-medium">Volt Money, 50Fin, Tata Capital</span>
+									</div>
+									<div className="flex justify-between py-1 border-b border-border/40">
+										<span className="text-muted-foreground">LTV Ratios:</span>
+										<span className="font-semibold text-cyan-400">Equity 50%, Debt/Liquid 80%</span>
+									</div>
+									<div className="flex justify-between py-1">
+										<span className="text-muted-foreground">Advantage:</span>
+										<span>Zero tax triggered • AUM trail preserved</span>
+									</div>
+								</CardContent>
+							</Card>
+
+							{/* Securitized Debt Instruments (SDI) Desk */}
+							<Card className="border-border/70">
+								<CardHeader className="pb-3">
+									<div className="flex items-center justify-between">
+										<CardTitle className="text-base font-bold flex items-center gap-2">
+											<FileText className="w-4 h-4 text-amber-400" />
+											Securitized Debt (SDI)
+										</CardTitle>
+										<Badge variant="default" className="bg-amber-600 text-white">
+											Active
+										</Badge>
+									</div>
+									<CardDescription className="text-xs">
+										Pass-Through Certificates (PTCs), vehicle lease pools, and invoice debt.
+									</CardDescription>
+								</CardHeader>
+								<CardContent className="space-y-2 text-xs">
+									<div className="flex justify-between py-1 border-b border-border/40">
+										<span className="text-muted-foreground">Syndicate Partners:</span>
+										<span className="font-medium">Grip Invest, Jiraaf Alternative Debt</span>
+									</div>
+									<div className="flex justify-between py-1 border-b border-border/40">
+										<span className="text-muted-foreground">Target Yield:</span>
+										<span className="font-semibold text-amber-400">10.5% - 12.5% XIRR</span>
+									</div>
+									<div className="flex justify-between py-1">
+										<span className="text-muted-foreground">Payout Frequency:</span>
+										<span>Monthly Amortizing Cash Flows</span>
 									</div>
 								</CardContent>
 							</Card>
@@ -1397,20 +1448,27 @@ export default function DistributionPartnerPortal() {
 							<CardHeader>
 								<CardTitle className="text-base font-bold flex items-center gap-2">
 									<Zap className="w-5 h-5 text-amber-400" />
-									Upstream Partner Gateways & Circuit Breakers
+									Upstream Multi-Partner Gateways & Circuit Surveillance
 								</CardTitle>
 								<CardDescription className="text-xs">
-									Real-time health monitoring of third-party execution and account aggregation APIs.
+									Real-time health monitoring and dynamic failover states for all financial product partners.
 								</CardDescription>
 							</CardHeader>
 							<CardContent>
-								<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+								<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
 									{[
-										{ key: "UPSTOX", label: "Upstox Broker API", provider: "RKSV" },
-										{ key: "KFINTECH", label: "KFintech IRIS", provider: "RTA" },
-										{ key: "ALPACA", label: "Alpaca US Markets", provider: "US Broker" },
-										{ key: "FINVU", label: "Finvu Account Aggregator", provider: "RBI AA" },
-										{ key: "ANGEL_ONE", label: "Angel One SmartAPI", provider: "Broker" },
+										{ key: "UPSTOX", label: "Upstox", provider: "Equity Broker" },
+										{ key: "ANGEL_ONE", label: "Angel One", provider: "Equity Broker" },
+										{ key: "DHAN", label: "DhanHQ", provider: "Equity Broker" },
+										{ key: "KFINTECH_IRIS", label: "KFintech IRIS", provider: "Mutual Funds" },
+										{ key: "CAMS", label: "CAMS Finnet", provider: "Mutual Funds" },
+										{ key: "BSE_STAR_MF", label: "BSE StAR MF", provider: "MF Exchange" },
+										{ key: "BAJAJ_FINANCE", label: "Bajaj Finance", provider: "Corporate FD" },
+										{ key: "SHRIRAM_FINANCE", label: "Shriram Finance", provider: "Corporate FD" },
+										{ key: "VOLT_MONEY", label: "Volt Money", provider: "LAMF Overdraft" },
+										{ key: "FIFTY_FIN", label: "50Fin", provider: "Demat LAS" },
+										{ key: "ALPACA", label: "Alpaca US", provider: "Global Equities" },
+										{ key: "FINVU_AA", label: "Finvu", provider: "Account Aggregator" },
 									].map(({ key, label, provider }) => {
 										const circuit = circuitsData?.data?.[key];
 										const isHealthy = !circuit || circuit.state === "CLOSED";
@@ -1421,11 +1479,11 @@ export default function DistributionPartnerPortal() {
 												className="p-3 rounded-lg border border-border/60 bg-muted/20 space-y-1.5"
 											>
 												<div className="flex items-center justify-between">
-													<span className="text-[10px] text-muted-foreground uppercase font-mono">
+													<span className="text-[10px] text-muted-foreground uppercase font-mono truncate">
 														{provider}
 													</span>
 													<span
-														className={`w-2 h-2 rounded-full ${
+														className={`w-2 h-2 rounded-full shrink-0 ${
 															isHealthy ? "bg-emerald-400" : "bg-red-500 animate-ping"
 														}`}
 													/>
