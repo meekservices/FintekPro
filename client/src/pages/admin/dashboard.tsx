@@ -32,7 +32,7 @@ import {
 	ChevronDown,
 	ChevronUp,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
 	AreaChart,
@@ -206,6 +206,7 @@ export default function AdminDashboard() {
 		queryKey: ["/api/admin/data-sufficiency/status"],
 	});
 	const sufficiencyStats = sufficiencyResponse?.data;
+	const queryClient = useQueryClient();
 	const [enrichmentTriggering, setEnrichmentTriggering] = useState(false);
 	const [showDomainDetails, setShowDomainDetails] = useState(false);
 	const { toast } = useToast();
@@ -219,12 +220,27 @@ export default function AdminDashboard() {
 			);
 			const json = await res.json();
 			if (json.success) {
+				// Immediately update React Query cache if backend returned reconciled stats
+				if (json.data?.stats) {
+					queryClient.setQueryData(
+						["/api/admin/data-sufficiency/status"],
+						{
+							success: true,
+							data: json.data.stats,
+							meta: json.meta,
+						},
+					);
+				}
 				toast({
-					title: "Enrichment Initiated",
+					title: "Enrichment & Telemetry Reconciled",
 					description:
+						json.data?.message ||
 						"Background financial metrics & ratio enrichment batch started.",
 				});
-				setTimeout(() => refetchSufficiency(), 3000);
+				setTimeout(() => {
+					refetchSufficiency();
+					refetchDashboard();
+				}, 1500);
 			}
 		} catch (err: any) {
 			toast({
@@ -300,7 +316,10 @@ export default function AdminDashboard() {
 				<Button
 					variant="outline"
 					size="sm"
-					onClick={() => refetchDashboard()}
+					onClick={() => {
+						refetchDashboard();
+						refetchSufficiency();
+					}}
 					className="border-border text-muted-foreground hover:bg-muted"
 					data-testid="btn-refresh-dashboard"
 				>

@@ -131,19 +131,24 @@ adminDataSufficiencyRouter.post("/sync", async (req: Request, res: Response) => 
  */
 adminDataSufficiencyRouter.post("/trigger-enrichment", async (req: Request, res: Response) => {
 	try {
-		// Immediately sync metrics and purge unquoted securities before async repair
-		await dataSufficiencyEngine.syncSufficiencyMetrics();
+		// Immediately sync metrics, prices, ratios, and purge unquoted securities synchronously
+		const syncResult = await dataSufficiencyEngine.syncSufficiencyMetrics();
+		// Invalidate cache and fetch fresh universe stats immediately
+		const stats = await dataSufficiencyEngine.getUniverseSufficiencyStats(true);
+		// Trigger non-blocking deep background repair
 		const result = await dataSufficiencyEngine.triggerSelfHealing();
 
 		return res.json({
 			success: true,
 			data: {
-				message: result.message,
+				message: `Enrichment & telemetry reconciled. Overall sufficiency: ${stats.overallSufficiencyPercent}%. Active deficits: ${stats.criticalInsufficientCount}.`,
 				status: result.triggered ? "RUNNING" : "HEALTHY",
+				stats,
+				syncResult,
 			},
 			meta: {
 				timestamp: new Date().toISOString(),
-				version: "1.0.0",
+				version: stats.engineVersion,
 			},
 		});
 	} catch (error: any) {

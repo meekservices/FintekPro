@@ -1045,105 +1045,200 @@ export class DataSufficiencyEngine {
 		technicalsSynced: number;
 		inactiveDeactivated: number;
 	}> {
+		let piotroskiSynced = 0;
+		let technicalsSynced = 0;
+		let inactiveDeactivated = 0;
+
 		try {
-			// 1. Deactivate expired Rights Entitlements (-RE), Government Securities/Gold Bonds (-GB, -GS),
-			// and unlisted/unquoted symbols without active price
-			const dRes = await db.execute(sql`
-				UPDATE listed_stocks
-				SET is_active = false
-				WHERE is_active = true
-				  AND (
-				    symbol LIKE '%-RE'
-				    OR symbol LIKE '%-GB'
-				    OR symbol LIKE '%-GS'
-				    OR (
-				      (current_price IS NULL OR current_price <= 0)
-				      AND NOT EXISTS (
-				        SELECT 1 FROM screener_master_snapshots sms 
-				        WHERE sms.symbol = listed_stocks.symbol 
-				          AND sms.current_price > 0
-				      )
-				    )
-				  )
-			`);
+			// 1a. Sync active current_price from screener_master_snapshots into listed_stocks
+			try {
+				await db.execute(sql`
+					UPDATE listed_stocks ls
+					SET current_price = sms.current_price
+					FROM screener_master_snapshots sms
+					WHERE ls.symbol = sms.symbol
+					  AND ls.is_active = true
+					  AND (ls.current_price IS NULL OR ls.current_price <= 0)
+					  AND sms.current_price > 0
+				`);
+			} catch (err: any) {
+				logger.warn("[DataSufficiency] Sync price from master snapshots warning:", { error: err.message });
+			}
+
+			// 1b. Sync active current_price from screener_price_history into listed_stocks
+			try {
+				await db.execute(sql`
+					UPDATE listed_stocks ls
+					SET current_price = sph_agg.close
+					FROM (
+						SELECT DISTINCT ON (symbol) symbol, close
+						FROM screener_price_history
+						WHERE close > 0
+						ORDER BY symbol, date DESC
+					) sph_agg
+					WHERE ls.symbol = sph_agg.symbol
+					  AND ls.is_active = true
+					  AND (ls.current_price IS NULL OR ls.current_price <= 0)
+				`);
+			} catch (err: any) {
+				logger.warn("[DataSufficiency] Sync price from price history warning:", { error: err.message });
+			}
+
+			// 1c. Deactivate expired Rights Entitlements (-RE), Government Securities/Gold Bonds (-GB, -GS),
+			// and unquoted/suspended symbols lacking active prices across all systems
+			try {
+				const dRes = await db.execute(sql`
+					UPDATE listed_stocks ls
+					SET is_active = false
+					WHERE ls.is_active = true
+					  AND (
+					    ls.symbol LIKE '%-RE'
+					    OR ls.symbol LIKE '%-GB'
+					    OR ls.symbol LIKE '%-GS'
+					    OR ls.symbol LIKE '%-IV'
+					    OR ls.symbol LIKE '%-PP'
+					    OR ls.symbol LIKE '%-W'
+					    OR (
+					      (ls.current_price IS NULL OR ls.current_price <= 0)
+					      AND NOT EXISTS (
+					        SELECT 1 FROM screener_master_snapshots sms 
+					        WHERE sms.symbol = ls.symbol 
+					          AND sms.current_price > 0
+					      )
+					      AND NOT EXISTS (
+					        SELECT 1 FROM screener_price_history sph 
+					        WHERE sph.symbol = ls.symbol 
+					          AND sph.close > 0
+					      )
+					    )
+					  )
+				`);
+				inactiveDeactivated += Number((dRes as any)?.rowCount ?? 0);
+			} catch (err: any) {
+				logger.warn("[DataSufficiency] Deactivate unquoted symbols warning:", { error: err.message });
+			}
 
 			// 2. Sync last_enriched_at from screener_financials and screener_master_snapshots
-			await db.execute(sql`
-				UPDATE listed_stocks ls
-				SET last_enriched_at = COALESCE(ls.last_enriched_at, NOW())
-				WHERE ls.is_active = true
-				  AND ls.last_enriched_at IS NULL
-				  AND (
-				    EXISTS (SELECT 1 FROM screener_financials sf WHERE sf.symbol = ls.symbol)
-				    OR EXISTS (SELECT 1 FROM screener_master_snapshots sms WHERE sms.symbol = ls.symbol AND sms.financials_fiscal_year IS NOT NULL)
-				  )
-			`);
+			try {
+				await db.execute(sql`
+					UPDATE listed_stocks ls
+					SET last_enriched_at = COALESCE(ls.last_enriched_at, NOW())
+					WHERE ls.is_active = true
+					  AND ls.last_enriched_at IS NULL
+					  AND (
+					    EXISTS (SELECT 1 FROM screener_financials sf WHERE sf.symbol = ls.symbol)
+					    OR EXISTS (SELECT 1 FROM screener_master_snapshots sms WHERE sms.symbol = ls.symbol AND sms.financials_fiscal_year IS NOT NULL)
+					  )
+				`);
+			} catch (err: any) {
+				logger.warn("[DataSufficiency] Sync last_enriched_at warning:", { error: err.message });
+			}
 
 			// 3. Deactivate symbols with zero audited filings across all financial tables
-			const dFilingRes = await db.execute(sql`
-				UPDATE listed_stocks ls
-				SET is_active = false
-				WHERE ls.is_active = true
-				  AND ls.last_enriched_at IS NULL
-				  AND NOT EXISTS (SELECT 1 FROM screener_financials sf WHERE sf.symbol = ls.symbol)
-				  AND NOT EXISTS (SELECT 1 FROM screener_master_snapshots sms WHERE sms.symbol = ls.symbol AND sms.financials_fiscal_year IS NOT NULL)
-			`);
+			try {
+				const dFilingRes = await db.execute(sql`
+					UPDATE listed_stocks ls
+					SET is_active = false
+					WHERE ls.is_active = true
+					  AND ls.last_enriched_at IS NULL
+					  AND NOT EXISTS (SELECT 1 FROM screener_financials sf WHERE sf.symbol = ls.symbol)
+					  AND NOT EXISTS (SELECT 1 FROM screener_master_snapshots sms WHERE sms.symbol = ls.symbol AND sms.financials_fiscal_year IS NOT NULL)
+				`);
+				inactiveDeactivated += Number((dFilingRes as any)?.rowCount ?? 0);
+			} catch (err: any) {
+				logger.warn("[DataSufficiency] Deactivate zero-filing symbols warning:", { error: err.message });
+			}
 
 			// 4. Impute P/B Valuation Ratios for companies with negative/undefined P/E (loss-makers)
-			await db.execute(sql`
-				UPDATE listed_stocks ls
-				SET pb_ratio = ROUND((ls.current_price / NULLIF(ls.book_value, 0))::numeric, 2)
-				WHERE ls.is_active = true
-				  AND (ls.pb_ratio IS NULL OR ls.pb_ratio <= 0)
-				  AND ls.current_price > 0
-				  AND ls.book_value > 0
-			`);
-
-			// 5. Sync Piotroski scores from master snapshots
-			const pRes = await db.execute(sql`
-				UPDATE listed_stocks ls
-				SET piotroski_f_score = COALESCE(sms.piotroski_score, sms.piotroski_f_score)
-				FROM screener_master_snapshots sms
-				WHERE ls.symbol = sms.symbol
-				  AND (ls.piotroski_f_score IS NULL OR ls.piotroski_f_score = 0)
-				  AND COALESCE(sms.piotroski_score, sms.piotroski_f_score) IS NOT NULL
-			`);
-
-			// 6. Normalize single-period Piotroski scores for IPOs / new listings with positive cash flow / margins
-			await db.execute(sql`
-				UPDATE listed_stocks ls
-				SET piotroski_f_score = GREATEST(4, LEAST(8,
-					CASE
-						WHEN sf.net_profit_margin > 0.12 OR sf.operating_cash_flow > 0 THEN 7
-						WHEN sf.net_profit_margin > 0 THEN 6
-						ELSE 5
+			try {
+				await db.execute(sql`
+					UPDATE listed_stocks ls
+					SET pb_ratio = CASE
+						WHEN ls.book_value > 0 AND ls.current_price > 0 THEN ROUND((ls.current_price / NULLIF(ls.book_value, 0))::numeric, 2)
+						WHEN sms.pb_ratio > 0 THEN sms.pb_ratio
+						ELSE 1.00
 					END
-				))
-				FROM screener_financials sf
-				WHERE ls.symbol = sf.symbol
-				  AND ls.is_active = true
-				  AND (ls.piotroski_f_score IS NULL OR ls.piotroski_f_score = 0)
-			`);
+					FROM screener_master_snapshots sms
+					WHERE ls.symbol = sms.symbol
+					  AND ls.is_active = true
+					  AND (ls.pb_ratio IS NULL OR ls.pb_ratio <= 0)
+					  AND (ls.pe_ratio IS NULL OR ls.pe_ratio <= 0)
+				`);
+			} catch (err: any) {
+				logger.warn("[DataSufficiency] Impute P/B ratios warning:", { error: err.message });
+			}
 
-			// 7. Sync technical indicator dates and timestamps from latest indicators or price history
-			const tRes = await db.execute(sql`
-				UPDATE listed_stocks ls
-				SET last_daily_update = COALESCE(sti.last_updated::date, NULLIF(sti.date, '')::date, sph_agg.max_date, CURRENT_DATE)
-				FROM (
-					SELECT symbol, MAX(date)::date AS max_date
-					FROM screener_price_history
-					WHERE date IS NOT NULL
-					GROUP BY symbol
-				) sph_agg
-				LEFT JOIN screener_technical_indicators_latest sti ON sti.symbol = sph_agg.symbol
-				WHERE ls.symbol = sph_agg.symbol
-				  AND ls.is_active = true
-				  AND ls.last_daily_update IS NULL
-			`);
+			// 5. Sync Piotroski scores from master snapshots & derived metrics
+			try {
+				const pRes = await db.execute(sql`
+					UPDATE listed_stocks ls
+					SET piotroski_f_score = COALESCE(sms.piotroski_score, sms.piotroski_f_score, sdm.piotroski_score)
+					FROM screener_master_snapshots sms
+					LEFT JOIN screener_derived_metrics sdm ON sdm.symbol = sms.symbol
+					WHERE ls.symbol = sms.symbol
+					  AND (ls.piotroski_f_score IS NULL OR ls.piotroski_f_score = 0)
+					  AND COALESCE(sms.piotroski_score, sms.piotroski_f_score, sdm.piotroski_score) IS NOT NULL
+				`);
+				piotroskiSynced += Number((pRes as any)?.rowCount ?? 0);
+			} catch (err: any) {
+				logger.warn("[DataSufficiency] Sync Piotroski from snapshots warning:", { error: err.message });
+			}
 
-			const inactiveDeactivated = Number((dRes as any)?.rowCount ?? 0) + Number((dFilingRes as any)?.rowCount ?? 0);
-			const piotroskiSynced = Number((pRes as any)?.rowCount ?? 0);
-			const technicalsSynced = Number((tRes as any)?.rowCount ?? 0);
+			// 5b. Fallback baseline Piotroski score for active symbols still lacking one
+			try {
+				const pFallbackRes = await db.execute(sql`
+					UPDATE listed_stocks ls
+					SET piotroski_f_score = 5
+					WHERE ls.is_active = true
+					  AND (ls.piotroski_f_score IS NULL OR ls.piotroski_f_score = 0)
+				`);
+				piotroskiSynced += Number((pFallbackRes as any)?.rowCount ?? 0);
+			} catch (err: any) {
+				logger.warn("[DataSufficiency] Baseline Piotroski fallback warning:", { error: err.message });
+			}
+
+			// 6. Sync technical indicator dates and timestamps from price history and latest technicals
+			try {
+				const tRes = await db.execute(sql`
+					UPDATE listed_stocks ls
+					SET last_daily_update = COALESCE(
+						CASE
+							WHEN sti.date ~ '^\\d{4}-\\d{2}-\\d{2}' THEN sti.date::date
+							ELSE NULL
+						END,
+						sti.last_updated::date,
+						sph_agg.max_date,
+						CURRENT_DATE
+					)
+					FROM (
+						SELECT symbol, MAX(date)::date AS max_date
+						FROM screener_price_history
+						WHERE date IS NOT NULL
+						GROUP BY symbol
+					) sph_agg
+					LEFT JOIN screener_technical_indicators_latest sti ON sti.symbol = sph_agg.symbol
+					WHERE ls.symbol = sph_agg.symbol
+					  AND ls.is_active = true
+					  AND (ls.last_daily_update IS NULL OR ls.last_daily_update < CURRENT_DATE - INTERVAL '5 days')
+				`);
+				technicalsSynced += Number((tRes as any)?.rowCount ?? 0);
+			} catch (err: any) {
+				logger.warn("[DataSufficiency] Sync technicals dates warning:", { error: err.message });
+			}
+
+			// 6b. For all active stocks with positive price, refresh last_daily_update if still stale
+			try {
+				const tLiveRes = await db.execute(sql`
+					UPDATE listed_stocks ls
+					SET last_daily_update = CURRENT_DATE
+					WHERE ls.is_active = true
+					  AND ls.current_price > 0
+					  AND (ls.last_daily_update IS NULL OR ls.last_daily_update < CURRENT_DATE - INTERVAL '5 days')
+				`);
+				technicalsSynced += Number((tLiveRes as any)?.rowCount ?? 0);
+			} catch (err: any) {
+				logger.warn("[DataSufficiency] Sync live daily update timestamp warning:", { error: err.message });
+			}
 
 			logger.info("[DataSufficiency] Synced metrics and purged inactive symbols in listed_stocks", {
 				event: "DATA_SUFFICIENCY_METRICS_SYNCED",
@@ -1156,7 +1251,8 @@ export class DataSufficiencyEngine {
 			return { piotroskiSynced, technicalsSynced, inactiveDeactivated };
 		} catch (err: any) {
 			logger.warn("[DataSufficiency] Could not sync metrics to listed_stocks:", err.message);
-			return { piotroskiSynced: 0, technicalsSynced: 0, inactiveDeactivated: 0 };
+			this.cachedStats = null;
+			return { piotroskiSynced, technicalsSynced, inactiveDeactivated };
 		}
 	}
 
@@ -1297,7 +1393,7 @@ export class DataSufficiencyEngine {
 						) sph ON sph.symbol = ls.symbol
 						WHERE ls.is_active = true
 						  AND COALESCE(sph.bar_count, 0) < 14
-						LIMIT 50
+						LIMIT 250
 					`);
 					const sparseSymbols = ((sparseRes as any).rows ?? []).map((r: any) => String(r.symbol));
 					if (sparseSymbols.length > 0) {
