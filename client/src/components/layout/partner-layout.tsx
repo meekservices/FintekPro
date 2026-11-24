@@ -231,6 +231,25 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
 	});
 	const isCaQualified = caStatus?.isCaQualified ?? false;
 
+	const { data: deskStatusData } = useQuery<{
+		success: boolean;
+		data: {
+			mode: "TEST_SANDBOX" | "PRODUCTION_LIVE";
+			tier: "TIER_1_BASIC_LEAD_GEN" | "TIER_2_EXECUTION_READY" | "TIER_3_FULL_POWERHOUSE";
+			config: {
+				isAmfiMfdActive: boolean;
+				isUpstoxDirectActive: boolean;
+				isBondDistributionActive: boolean;
+				isAlpacaUsActive: boolean;
+				isSebiRiaActive: boolean;
+			};
+		};
+	}>({
+		queryKey: ["/api/admin/desks/status"],
+		staleTime: 60 * 1000,
+	});
+	const deskStatus = deskStatusData?.data;
+
 	const isCaOrCs =
 		isCaQualified ||
 		user?.roles?.includes("ca") ||
@@ -375,6 +394,39 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
 					</div>
 
 					<div className="flex items-center gap-4">
+						{deskStatus && (
+							<div className="flex items-center gap-2">
+								{deskStatus.mode === "TEST_SANDBOX" ? (
+									<Badge
+										variant="outline"
+										className="border-amber-500/50 bg-amber-500/10 text-amber-300 font-mono text-[11px] flex items-center gap-1.5 py-0.5 px-2"
+										title="FintekPro Financial Services LLP operating in simulated test conditions"
+									>
+										<span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+										SANDBOX MODE
+									</Badge>
+								) : (
+									<Badge
+										variant="outline"
+										className="border-emerald-500/50 bg-emerald-500/10 text-emerald-300 font-mono text-[11px] flex items-center gap-1.5 py-0.5 px-2"
+										title="FintekPro Live Production Desk"
+									>
+										<span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+										LIVE PRODUCTION
+									</Badge>
+								)}
+								<Badge
+									variant="secondary"
+									className="hidden lg:inline-flex bg-indigo-900/60 text-indigo-200 border border-indigo-700/50 text-[10px]"
+								>
+									{deskStatus.tier === "TIER_3_FULL_POWERHOUSE"
+										? "Tier 3: Powerhouse"
+										: deskStatus.tier === "TIER_2_EXECUTION_READY"
+										? "Tier 2: Execution Ready"
+										: "Tier 1: Lead Gen"}
+								</Badge>
+							</div>
+						)}
 						<Link href="/theme-settings">
 							<Button
 								variant="ghost"
@@ -478,6 +530,20 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
 					</div>
 				</div>
 			</header>
+
+			{deskStatus?.mode === "TEST_SANDBOX" && (
+				<div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-1.5 text-xs text-amber-200 flex items-center justify-between">
+					<div className="flex items-center gap-2">
+						<AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+						<span>
+							<strong>Test Sandbox Active:</strong> FintekPro Financial Services LLP is currently operating in test sandbox mode. Client orders, lead dispatches, and mock commissions are simulated.
+						</span>
+					</div>
+					<span className="text-[10px] text-amber-300/80 font-mono hidden md:inline">
+						Progressive Activation Desk v1.0
+					</span>
+				</div>
+			)}
 
 			<div className="flex min-h-0">
 				{/* Mobile backdrop overlay */}

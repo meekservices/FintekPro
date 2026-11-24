@@ -44,6 +44,10 @@ import {
 	Shield as LucideShield,
 	UserCheck,
 	Briefcase,
+	Activity,
+	Zap,
+	RefreshCw,
+	CheckCircle,
 } from "lucide-react";
 
 export default function DistributionPartnerPortal() {
@@ -95,6 +99,39 @@ export default function DistributionPartnerPortal() {
 		}>
 	>({
 		queryKey: ["/api/partner/top-agents"],
+	});
+
+	const { data: deskStatusData, refetch: refetchDesks } = useQuery<{
+		success: boolean;
+		data: {
+			mode: "TEST_SANDBOX" | "PRODUCTION_LIVE";
+			tier: "TIER_1_BASIC_LEAD_GEN" | "TIER_2_EXECUTION_READY" | "TIER_3_FULL_POWERHOUSE";
+			config: {
+				isAmfiMfdActive: boolean;
+				isUpstoxDirectActive: boolean;
+				isBondDistributionActive: boolean;
+				isAlpacaUsActive: boolean;
+				isSebiRiaActive: boolean;
+			};
+			licenses: Array<{
+				id: string;
+				desk: string;
+				licenseType: string;
+				registrationNumber: string | null;
+				holderEntity: string;
+				isVerified: boolean;
+				status: string;
+			}>;
+		};
+	}>({
+		queryKey: ["/api/admin/desks/status"],
+	});
+
+	const { data: circuitsData, refetch: refetchCircuits } = useQuery<{
+		success: boolean;
+		data: Record<string, { state: string; failureCount: number; lastFailureTime: string | null }>;
+	}>({
+		queryKey: ["/api/admin/desks/circuits"],
 	});
 
 	const isLoading = profileLoading || statsLoading;
@@ -323,6 +360,10 @@ export default function DistributionPartnerPortal() {
 						<TabsTrigger value="reports" data-testid="tab-partner-reports">
 							<FileText className="h-4 w-4 mr-2" />
 							Reports
+						</TabsTrigger>
+						<TabsTrigger value="desks" data-testid="tab-partner-desks">
+							<LucideShield className="h-4 w-4 mr-2 text-indigo-400" />
+							Desks & Gateways
 						</TabsTrigger>
 						<TabsTrigger value="settings" data-testid="tab-partner-settings">
 							<Settings className="h-4 w-4 mr-2" />
@@ -970,49 +1011,49 @@ export default function DistributionPartnerPortal() {
 								<CardContent className="space-y-4">
 									<div className="grid grid-cols-2 gap-4">
 										<div>
-											<label className="text-sm font-medium text-muted-foreground">
+											<span className="text-sm font-medium text-muted-foreground block">
 												Company Name
-											</label>
+											</span>
 											<p className="font-medium">
 												{(partnerProfile as any)?.companyName || "-"}
 											</p>
 										</div>
 										<div>
-											<label className="text-sm font-medium text-muted-foreground">
+											<span className="text-sm font-medium text-muted-foreground block">
 												Partner Type
-											</label>
+											</span>
 											<p className="font-medium">
 												{(partnerProfile as any)?.partnerType || "-"}
 											</p>
 										</div>
 										<div>
-											<label className="text-sm font-medium text-muted-foreground">
+											<span className="text-sm font-medium text-muted-foreground block">
 												Email
-											</label>
+											</span>
 											<p className="font-medium">
 												{(partnerProfile as any)?.contactEmail || "-"}
 											</p>
 										</div>
 										<div>
-											<label className="text-sm font-medium text-muted-foreground">
+											<span className="text-sm font-medium text-muted-foreground block">
 												Phone
-											</label>
+											</span>
 											<p className="font-medium">
 												{(partnerProfile as any)?.contactPhone || "-"}
 											</p>
 										</div>
 										<div>
-											<label className="text-sm font-medium text-muted-foreground">
+											<span className="text-sm font-medium text-muted-foreground block">
 												ARN Code
-											</label>
+											</span>
 											<p className="font-medium">
 												{(partnerProfile as any)?.arnCode || "-"}
 											</p>
 										</div>
 										<div>
-											<label className="text-sm font-medium text-muted-foreground">
+											<span className="text-sm font-medium text-muted-foreground block">
 												EUIN Number
-											</label>
+											</span>
 											<p className="font-medium">
 												{(partnerProfile as any)?.euinNumber || "-"}
 											</p>
@@ -1037,17 +1078,17 @@ export default function DistributionPartnerPortal() {
 								<CardContent className="space-y-4">
 									<div className="grid grid-cols-2 gap-4">
 										<div>
-											<label className="text-sm font-medium text-muted-foreground">
+											<span className="text-sm font-medium text-muted-foreground block">
 												Account Holder
-											</label>
+											</span>
 											<p className="font-medium">
 												{(partnerProfile as any)?.bankAccountHolderName || "-"}
 											</p>
 										</div>
 										<div>
-											<label className="text-sm font-medium text-muted-foreground">
+											<span className="text-sm font-medium text-muted-foreground block">
 												Account Number
-											</label>
+											</span>
 											<p className="font-medium">
 												{(partnerProfile as any)?.bankAccountNumber
 													? "****" +
@@ -1056,17 +1097,17 @@ export default function DistributionPartnerPortal() {
 											</p>
 										</div>
 										<div>
-											<label className="text-sm font-medium text-muted-foreground">
+											<span className="text-sm font-medium text-muted-foreground block">
 												IFSC Code
-											</label>
+											</span>
 											<p className="font-medium">
 												{(partnerProfile as any)?.ifscCode || "-"}
 											</p>
 										</div>
 										<div>
-											<label className="text-sm font-medium text-muted-foreground">
+											<span className="text-sm font-medium text-muted-foreground block">
 												UPI ID
-											</label>
+											</span>
 											<p className="font-medium">
 												{(partnerProfile as any)?.upiId || "-"}
 											</p>
@@ -1083,6 +1124,329 @@ export default function DistributionPartnerPortal() {
 								</CardContent>
 							</Card>
 						</div>
+					</TabsContent>
+
+					{/* Distribution Desks & Gateways Surveillance Tab */}
+					<TabsContent value="desks" className="mt-6 space-y-6">
+						<Card className="border-indigo-800/40 bg-gradient-to-r from-indigo-950/60 via-slate-900 to-indigo-950/40 text-foreground">
+							<CardHeader>
+								<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+									<div>
+										<div className="flex items-center gap-2">
+											<Badge
+												variant="outline"
+												className={
+													deskStatusData?.data.mode === "TEST_SANDBOX"
+														? "border-amber-500/50 bg-amber-500/10 text-amber-300 font-mono"
+														: "border-emerald-500/50 bg-emerald-500/10 text-emerald-300 font-mono"
+												}
+											>
+												<Activity className="w-3.5 h-3.5 mr-1" />
+												{deskStatusData?.data.mode === "TEST_SANDBOX"
+													? "Operating Mode: TEST SANDBOX (Simulated)"
+													: "Operating Mode: PRODUCTION LIVE"}
+											</Badge>
+											<Badge
+												variant="secondary"
+												className="bg-indigo-900/60 text-indigo-200 border border-indigo-700/50"
+											>
+												{deskStatusData?.data.tier === "TIER_3_FULL_POWERHOUSE"
+													? "Tier 3: Full Powerhouse"
+													: deskStatusData?.data.tier === "TIER_2_EXECUTION_READY"
+													? "Tier 2: Execution Ready"
+													: "Tier 1: Basic Lead Gen"}
+											</Badge>
+										</div>
+										<CardTitle className="text-xl font-bold mt-2 text-white">
+											FintekPro Financial Services LLP — Distribution Desks
+										</CardTitle>
+										<CardDescription className="text-indigo-200/80">
+											Status of licensed partner desks, execution gateways, and real-time partner circuit breakers.
+										</CardDescription>
+									</div>
+
+									<Button
+										size="sm"
+										variant="outline"
+										className="border-indigo-500/40 text-indigo-200 hover:text-white"
+										onClick={() => {
+											refetchDesks();
+											refetchCircuits();
+											toast({ title: "Desks Refreshed", description: "Updated desk licenses and circuit breaker states." });
+										}}
+									>
+										<RefreshCw className="w-4 h-4 mr-2" />
+										Refresh Gateways
+									</Button>
+								</div>
+							</CardHeader>
+						</Card>
+
+						{/* Desk Cards Grid */}
+						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+							{/* AMFI MFD Desk */}
+							<Card className="border-border/70">
+								<CardHeader className="pb-3">
+									<div className="flex items-center justify-between">
+										<CardTitle className="text-base font-bold flex items-center gap-2">
+											<LucideShield className="w-4 h-4 text-emerald-400" />
+											AMFI MFD Corporate Desk
+										</CardTitle>
+										<Badge
+											variant={deskStatusData?.data.config.isAmfiMfdActive ? "default" : "outline"}
+											className={deskStatusData?.data.config.isAmfiMfdActive ? "bg-emerald-600 text-white" : "text-muted-foreground"}
+										>
+											{deskStatusData?.data.config.isAmfiMfdActive ? "Active" : "Sandbox Mock"}
+										</Badge>
+									</div>
+									<CardDescription className="text-xs">
+										Regular Mutual Funds, SIPs, ELSS via KFintech IRIS & CAMS.
+									</CardDescription>
+								</CardHeader>
+								<CardContent className="space-y-2 text-xs">
+									<div className="flex justify-between py-1 border-b border-border/40">
+										<span className="text-muted-foreground">Entity:</span>
+										<span className="font-medium">FintekPro Financial Services LLP</span>
+									</div>
+									<div className="flex justify-between py-1 border-b border-border/40">
+										<span className="text-muted-foreground">ARN Status:</span>
+										<span className="font-semibold text-emerald-400">AMFI Registered Distributor</span>
+									</div>
+									<div className="flex justify-between py-1">
+										<span className="text-muted-foreground">Settlement:</span>
+										<span>RTA Direct to AMC / BSE Star MF</span>
+									</div>
+								</CardContent>
+							</Card>
+
+							{/* Upstox Direct Desk */}
+							<Card className="border-border/70">
+								<CardHeader className="pb-3">
+									<div className="flex items-center justify-between">
+										<CardTitle className="text-base font-bold flex items-center gap-2">
+											<Zap className="w-4 h-4 text-blue-400" />
+											Upstox Equity & Debt Desk
+										</CardTitle>
+										<Badge
+											variant={deskStatusData?.data.config.isUpstoxDirectActive ? "default" : "outline"}
+											className={deskStatusData?.data.config.isUpstoxDirectActive ? "bg-blue-600 text-white" : "text-muted-foreground"}
+										>
+											{deskStatusData?.data.config.isUpstoxDirectActive ? "Active" : "Sandbox Mock"}
+										</Badge>
+									</div>
+									<CardDescription className="text-xs">
+										Direct Equities, Derivatives (F&O), and Direct MF via Upstox AP API.
+									</CardDescription>
+								</CardHeader>
+								<CardContent className="space-y-2 text-xs">
+									<div className="flex justify-between py-1 border-b border-border/40">
+										<span className="text-muted-foreground">Broker Partner:</span>
+										<span className="font-medium">Upstox (RKSV Securities)</span>
+									</div>
+									<div className="flex justify-between py-1 border-b border-border/40">
+										<span className="text-muted-foreground">Revenue Stream:</span>
+										<span className="font-semibold text-blue-400">Trading API & Advisory Sub</span>
+									</div>
+									<div className="flex justify-between py-1">
+										<span className="text-muted-foreground">Execution:</span>
+										<span>Sub-broker AP Integration</span>
+									</div>
+								</CardContent>
+							</Card>
+
+							{/* Bonds & NCDs Desk */}
+							<Card className="border-border/70">
+								<CardHeader className="pb-3">
+									<div className="flex items-center justify-between">
+										<CardTitle className="text-base font-bold flex items-center gap-2">
+											<Building2 className="w-4 h-4 text-purple-400" />
+											Bonds & NCDs Desk
+										</CardTitle>
+										<Badge
+											variant={deskStatusData?.data.config.isBondDistributionActive ? "default" : "outline"}
+											className={deskStatusData?.data.config.isBondDistributionActive ? "bg-purple-600 text-white" : "text-muted-foreground"}
+										>
+											{deskStatusData?.data.config.isBondDistributionActive ? "Active" : "Sandbox Mock"}
+										</Badge>
+									</div>
+									<CardDescription className="text-xs">
+										Corporate Bonds, Non-Convertible Debentures (NCDs), SGBs & 54EC.
+									</CardDescription>
+								</CardHeader>
+								<CardContent className="space-y-2 text-xs">
+									<div className="flex justify-between py-1 border-b border-border/40">
+										<span className="text-muted-foreground">Desk Type:</span>
+										<span className="font-medium">OBPP Debt Distribution</span>
+									</div>
+									<div className="flex justify-between py-1 border-b border-border/40">
+										<span className="text-muted-foreground">Clearing House:</span>
+										<span className="font-semibold text-purple-400">ICCL / NCL Settlement</span>
+									</div>
+									<div className="flex justify-between py-1">
+										<span className="text-muted-foreground">Fixed Yield:</span>
+										<span>8.50% - 11.25% p.a. Curated</span>
+									</div>
+								</CardContent>
+							</Card>
+
+							{/* Alpaca US Equities Desk */}
+							<Card className="border-border/70">
+								<CardHeader className="pb-3">
+									<div className="flex items-center justify-between">
+										<CardTitle className="text-base font-bold flex items-center gap-2">
+											<TrendingUp className="w-4 h-4 text-amber-400" />
+											Alpaca Global Equities Desk
+										</CardTitle>
+										<Badge
+											variant={deskStatusData?.data.config.isAlpacaUsActive ? "default" : "outline"}
+											className={deskStatusData?.data.config.isAlpacaUsActive ? "bg-amber-600 text-white" : "text-muted-foreground"}
+										>
+											{deskStatusData?.data.config.isAlpacaUsActive ? "Active" : "Sandbox Mock"}
+										</Badge>
+									</div>
+									<CardDescription className="text-xs">
+										US Equities, ETFs, and Fractional Shares under RBI LRS ($250k/yr).
+									</CardDescription>
+								</CardHeader>
+								<CardContent className="space-y-2 text-xs">
+									<div className="flex justify-between py-1 border-b border-border/40">
+										<span className="text-muted-foreground">US Broker-Dealer:</span>
+										<span className="font-medium">Alpaca Securities LLC (FINRA/SIPC)</span>
+									</div>
+									<div className="flex justify-between py-1 border-b border-border/40">
+										<span className="text-muted-foreground">Foreign Referral:</span>
+										<span className="font-semibold text-amber-400">Non-resident Broker Partner</span>
+									</div>
+									<div className="flex justify-between py-1">
+										<span className="text-muted-foreground">FEMA Remittance:</span>
+										<span>Form A2 + Outward Remittance</span>
+									</div>
+								</CardContent>
+							</Card>
+
+							{/* SEBI RIA AI Advisory Desk */}
+							<Card className="border-border/70">
+								<CardHeader className="pb-3">
+									<div className="flex items-center justify-between">
+										<CardTitle className="text-base font-bold flex items-center gap-2">
+											<BarChart3 className="w-4 h-4 text-teal-400" />
+											SEBI RIA Advisory Desk
+										</CardTitle>
+										<Badge
+											variant={deskStatusData?.data.config.isSebiRiaActive ? "default" : "outline"}
+											className={deskStatusData?.data.config.isSebiRiaActive ? "bg-teal-600 text-white" : "text-muted-foreground"}
+										>
+											{deskStatusData?.data.config.isSebiRiaActive ? "Active" : "Sandbox Mock"}
+										</Badge>
+									</div>
+									<CardDescription className="text-xs">
+										FASP-AI Decision Support Engine. Zero commission fee-only advice.
+									</CardDescription>
+								</CardHeader>
+								<CardContent className="space-y-2 text-xs">
+									<div className="flex justify-between py-1 border-b border-border/40">
+										<span className="text-muted-foreground">Model:</span>
+										<span className="font-medium">SEBI (Investment Advisers) 2013</span>
+									</div>
+									<div className="flex justify-between py-1 border-b border-border/40">
+										<span className="text-muted-foreground">Fee Model:</span>
+										<span className="font-semibold text-teal-400">Fixed Flat Fee / Tiered</span>
+									</div>
+									<div className="flex justify-between py-1">
+										<span className="text-muted-foreground">Chinese Wall:</span>
+										<span>Strict Distribution Separation</span>
+									</div>
+								</CardContent>
+							</Card>
+
+							{/* Corporate FDs & Deposits Desk */}
+							<Card className="border-border/70">
+								<CardHeader className="pb-3">
+									<div className="flex items-center justify-between">
+										<CardTitle className="text-base font-bold flex items-center gap-2">
+											<PiggyBank className="w-4 h-4 text-rose-400" />
+											Corporate FDs & Deposits
+										</CardTitle>
+										<Badge variant="default" className="bg-rose-600 text-white">
+											Active
+										</Badge>
+									</div>
+									<CardDescription className="text-xs">
+										High-yield AAA/AA+ Corporate FDs (Bajaj, Shriram, Mahindra, HDFC).
+									</CardDescription>
+								</CardHeader>
+								<CardContent className="space-y-2 text-xs">
+									<div className="flex justify-between py-1 border-b border-border/40">
+										<span className="text-muted-foreground">Product Type:</span>
+										<span className="font-medium">RBI Regulated NBFC Deposits</span>
+									</div>
+									<div className="flex justify-between py-1 border-b border-border/40">
+										<span className="text-muted-foreground">Distribution Partner:</span>
+										<span className="font-semibold text-rose-400">Direct NBFC Agency</span>
+									</div>
+									<div className="flex justify-between py-1">
+										<span className="text-muted-foreground">Interest Rates:</span>
+										<span>Up to 8.85% p.a. + Senior Citizen</span>
+									</div>
+								</CardContent>
+							</Card>
+						</div>
+
+						{/* Real-Time Partner Circuit Breakers */}
+						<Card className="border-border/70">
+							<CardHeader>
+								<CardTitle className="text-base font-bold flex items-center gap-2">
+									<Zap className="w-5 h-5 text-amber-400" />
+									Upstream Partner Gateways & Circuit Breakers
+								</CardTitle>
+								<CardDescription className="text-xs">
+									Real-time health monitoring of third-party execution and account aggregation APIs.
+								</CardDescription>
+							</CardHeader>
+							<CardContent>
+								<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+									{[
+										{ key: "UPSTOX", label: "Upstox Broker API", provider: "RKSV" },
+										{ key: "KFINTECH", label: "KFintech IRIS", provider: "RTA" },
+										{ key: "ALPACA", label: "Alpaca US Markets", provider: "US Broker" },
+										{ key: "FINVU", label: "Finvu Account Aggregator", provider: "RBI AA" },
+										{ key: "ANGEL_ONE", label: "Angel One SmartAPI", provider: "Broker" },
+									].map(({ key, label, provider }) => {
+										const circuit = circuitsData?.data?.[key];
+										const isHealthy = !circuit || circuit.state === "CLOSED";
+
+										return (
+											<div
+												key={key}
+												className="p-3 rounded-lg border border-border/60 bg-muted/20 space-y-1.5"
+											>
+												<div className="flex items-center justify-between">
+													<span className="text-[10px] text-muted-foreground uppercase font-mono">
+														{provider}
+													</span>
+													<span
+														className={`w-2 h-2 rounded-full ${
+															isHealthy ? "bg-emerald-400" : "bg-red-500 animate-ping"
+														}`}
+													/>
+												</div>
+												<p className="font-semibold text-xs text-foreground truncate">{label}</p>
+												<div className="flex items-center justify-between pt-1 text-[11px]">
+													<span className="text-muted-foreground">State:</span>
+													<span
+														className={`font-mono font-bold ${
+															isHealthy ? "text-emerald-400" : "text-rose-400"
+														}`}
+													>
+														{circuit?.state || "HEALTHY"}
+													</span>
+												</div>
+											</div>
+										);
+									})}
+								</div>
+							</CardContent>
+						</Card>
 					</TabsContent>
 				</Tabs>
 			</div>

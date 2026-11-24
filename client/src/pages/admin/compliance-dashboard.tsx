@@ -39,6 +39,7 @@ import {
 	isWithinInterval,
 } from "date-fns";
 import { ForensicAuditTrail } from "@/components/regulatory/ForensicAuditTrail";
+import { DeskLicensingManager } from "@/components/admin/DeskLicensingManager";
 import { useLocation } from "wouter";
 
 interface ComplianceDeadline {
@@ -118,7 +119,7 @@ export default function ComplianceDashboard() {
 
 	const [location] = useLocation();
 	const searchParams = new URLSearchParams(window.location.search);
-	const defaultTab = searchParams.get("alertId") ? "forensic" : "deadlines";
+	const defaultTab = searchParams.get("tab") || (searchParams.get("alertId") ? "forensic" : "deadlines");
 
 	const { data: grievanceData } = useQuery<{
 		success: boolean;
@@ -326,6 +327,9 @@ export default function ComplianceDashboard() {
 					</TabsTrigger>
 					<TabsTrigger value="forensic" data-testid="tab-forensic">
 						Forensic Audit
+					</TabsTrigger>
+					<TabsTrigger value="desks" data-testid="tab-desks">
+						Desk Licensing & Sandbox
 					</TabsTrigger>
 				</TabsList>
 
@@ -796,6 +800,10 @@ export default function ComplianceDashboard() {
 
 				<TabsContent value="forensic" className="mt-4">
 					<ForensicAuditTrail />
+				</TabsContent>
+
+				<TabsContent value="desks" className="mt-4">
+					<DeskLicensingManager />
 				</TabsContent>
 			</Tabs>
 		</div>

@@ -66,6 +66,7 @@ import {
 	Scale,
 	Receipt,
 	Building2,
+	Sparkles,
 } from "lucide-react";
 import { CaseWorkspaceDrawer } from "@/components/ca/case-workspace-drawer";
 import { CACertificationsPanel } from "@/components/ca/ca-certifications-panel";
@@ -74,6 +75,7 @@ import { CAAdvanceTaxPanel } from "@/components/ca/ca-advance-tax-panel";
 import { CAGstPanel } from "@/components/ca/ca-gst-panel";
 import { CAMsmePanel } from "@/components/ca/ca-msme-panel";
 import { CAComplianceRadarPanel } from "@/components/ca/ca-compliance-radar-panel";
+import { CAPracticeSaasPanel } from "@/components/ca/ca-practice-saas-panel";
 
 interface DashboardStats {
 	activeCases: number;
@@ -453,6 +455,10 @@ export default function CADashboard() {
 						<TabsTrigger value="radar" data-testid="tab-radar">
 							<Calendar className="h-4 w-4 mr-2" />
 							Compliance Radar
+						</TabsTrigger>
+						<TabsTrigger value="practice_saas" data-testid="tab-practice-saas">
+							<Sparkles className="h-4 w-4 mr-2 text-indigo-400" />
+							SaaS Plan & Invoicing
 						</TabsTrigger>
 					</ScrollableTabsList>
 
@@ -1300,6 +1306,10 @@ export default function CADashboard() {
 
 					<TabsContent value="radar" className="mt-6">
 						<CAComplianceRadarPanel />
+					</TabsContent>
+
+					<TabsContent value="practice_saas" className="mt-6">
+						<CAPracticeSaasPanel />
 					</TabsContent>
 				</Tabs>
 			</div>

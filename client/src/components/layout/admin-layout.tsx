@@ -661,6 +661,12 @@ const navCategories: NavCategory[] = [
 				description: "SEBI/RBI compliance overview",
 			},
 			{
+				title: "Desk Licensing & Sandbox",
+				href: "/admin/compliance-dashboard?tab=desks",
+				icon: Building2,
+				description: "LLP Desks, Licenses & Circuit Breakers",
+			},
+			{
 				title: "Audit Norms",
 				href: "/admin/regulatory-audit-norms",
 				icon: Scale,

@@ -659,6 +659,13 @@ export function AdminRoutes() {
 					</AdminLayout>
 				)}
 			</Route>
+			<Route path="/admin/desks">
+				{() => (
+					<AdminLayout>
+						<ComplianceDashboardPage />
+					</AdminLayout>
+				)}
+			</Route>
 			<Route path="/admin/sebi-mf-compliance">
 				{() => (
 					<AdminLayout>
