@@ -229,14 +229,14 @@ async function runImport() {
         industrySegment: row.segment === "business_owner" ? "Business Owner" : (row.segment || "HNW Professional"),
         companyCategory: "mid_market",
         leadQuality: "hot",
-        leadScore: 85,
+        leadScore: 65,
         status: "new",
         assignedTo: TARGET_PARTNER_USER_ID,
         source: "linkedin_import",
         importBatchId: BATCH_ID,
         notes,
         enrichmentData,
-        enrichmentScore: 90,
+        enrichmentScore: 35, // Initial contact-only score until MCA/Probe42 enrichment is run
         createdAt: new Date(),
         updatedAt: new Date(),
       });

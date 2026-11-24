@@ -22,6 +22,7 @@ import {
 	credhiveService,
 	normalizeCompanyResult,
 } from "./services/credhive-service";
+import { leadMcaEnrichmentService } from "./services/lead-mca-enrichment-service";
 import { nativeProspectIntelligenceAgent } from "./services/native-prospect-intelligence-agent";
 import { irisKfintechService } from "./services/iris-kfintech-service";
 import { whatsappDispatcher } from "./services/whatsapp-dispatcher";
@@ -1141,6 +1142,55 @@ export function registerMarketingRoutes(app: Express) {
 			} catch (error) {
 				console.error("Error updating lead:", error);
 				return apiResponse.serverError(res, "Failed to update lead");
+			}
+		},
+	);
+
+	/**
+	 * Enrich a specific lead with MCA / Probe42 / CredHive corporate intelligence
+	 */
+	app.post(
+		"/api/admin/marketing/leads/:id/enrich",
+		requireAdmin,
+		async (req: Request, res: Response) => {
+			try {
+				const result = await leadMcaEnrichmentService.enrichLead(req.params.id);
+				return apiResponse.success(
+					res,
+					result,
+					result.message,
+				);
+			} catch (error: any) {
+				console.error(`Error enriching lead ${req.params.id}:`, error);
+				return apiResponse.serverError(
+					res,
+					error?.message || "Failed to enrich lead corporate data",
+				);
+			}
+		},
+	);
+
+	/**
+	 * Batch enrich pending leads that lack CIN or financial metrics
+	 */
+	app.post(
+		"/api/admin/marketing/leads/batch-enrich",
+		requireAdmin,
+		async (req: Request, res: Response) => {
+			try {
+				const limit = Math.min(50, Number(req.body.limit) || 25);
+				const summary = await leadMcaEnrichmentService.batchEnrichLeads(limit);
+				return apiResponse.success(
+					res,
+					summary,
+					`Processed ${summary.totalProcessed} leads (${summary.fullyEnriched} fully enriched, ${summary.partiallyEnriched} CIN resolved, ${summary.contactOnly} contact only)`,
+				);
+			} catch (error: any) {
+				console.error("Error running batch lead enrichment:", error);
+				return apiResponse.serverError(
+					res,
+					error?.message || "Failed to run batch lead enrichment",
+				);
 			}
 		},
 	);
