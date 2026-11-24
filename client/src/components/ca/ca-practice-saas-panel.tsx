@@ -428,8 +428,8 @@ export function CAPracticeSaasPanel() {
         </CardContent>
 
         <CardFooter className="flex justify-between items-center border-t border-border/60 py-3 bg-muted/10">
-          <p className="text-xs text-muted-foreground">
-            FintekPro Financial Services LLP • GSTIN: 27AABCF1234F1Z5 • Maharashtra
+          <p className="text-xs text-muted-foreground font-mono">
+            FintekPro Financial Services LLP • LLPIN: ACD-6942 • PAN: ABYFM7655C • TAN: BLRM45653G
           </p>
           <Button
             size="sm"

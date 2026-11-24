@@ -517,7 +517,7 @@ export function Footer() {
 						<div className="flex flex-col md:flex-row justify-between gap-2 border-b border-border/40 pb-3">
 							<div>
 								<span className="font-semibold text-foreground">Corporate Entity: </span>
-								FINTEKPRO FINANCIAL SERVICES LLP | <span className="font-semibold text-foreground">LLPIN: </span>AAY-7819
+								FINTEKPRO FINANCIAL SERVICES LLP | <span className="font-semibold text-foreground">LLPIN: </span>ACD-6942 | <span className="font-semibold text-foreground">PAN: </span>ABYFM7655C | <span className="font-semibold text-foreground">TAN: </span>BLRM45653G
 							</div>
 							<div>
 								<span className="font-semibold text-foreground">Registered Office: </span>

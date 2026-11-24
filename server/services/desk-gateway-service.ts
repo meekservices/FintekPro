@@ -162,7 +162,7 @@ export class DeskGatewayService {
     this.memoryConfig = {
       id: DeskGatewayService.MASTER_CONFIG_ID,
       entityName: "FintekPro Financial Services LLP",
-      llpin: "AAM-1234",
+      llpin: "ACD-6942",
       operatingMode: "TEST_SANDBOX",
       capabilityTier: "SANDBOX_TEST",
       isMfDistributionActive: false,
@@ -226,7 +226,7 @@ export class DeskGatewayService {
         await db.insert(deskOperationalConfigs).values({
           id: DeskGatewayService.MASTER_CONFIG_ID,
           entityName: "FintekPro Financial Services LLP",
-          llpin: "AAM-1234",
+          llpin: "ACD-6942",
           operatingMode: "TEST_SANDBOX",
           capabilityTier: "SANDBOX_TEST",
           isMfDistributionActive: false,

@@ -82,7 +82,9 @@ export type LicenseDocType = typeof LICENSE_DOC_TYPES[number];
 export const deskOperationalConfigs = pgTable("desk_operational_configs", {
   id: varchar("id", { length: 64 }).primaryKey().default("FINTEKPRO_LLP_MASTER"),
   entityName: text("entity_name").default("FintekPro Financial Services LLP").notNull(),
-  llpin: text("llpin").default("AAM-1234"), // LLP Identification Number
+  llpin: text("llpin").default("ACD-6942"), // Official LLP Identification Number
+  pan: text("pan").default("ABYFM7655C"),   // Income Tax PAN
+  tan: text("tan").default("BLRM45653G"),   // Tax Deduction & Collection Account Number
   
   // Global Mode Toggle
   operatingMode: text("operating_mode", { enum: OPERATING_MODES }).default("TEST_SANDBOX").notNull(),

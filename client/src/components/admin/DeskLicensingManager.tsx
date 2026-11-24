@@ -351,7 +351,13 @@ export function DeskLicensingManager() {
                   {deskConfig?.entityName || "FintekPro Financial Services LLP"}
                 </h2>
                 <Badge variant="outline" className="font-mono text-xs">
-                  LLPIN: {deskConfig?.llpin || "AAM-1234"}
+                  LLPIN: {deskConfig?.llpin || "ACD-6942"}
+                </Badge>
+                <Badge variant="outline" className="font-mono text-xs">
+                  PAN: ABYFM7655C
+                </Badge>
+                <Badge variant="outline" className="font-mono text-xs">
+                  TAN: BLRM45653G
                 </Badge>
               </div>
               <p className="text-sm text-slate-500 dark:text-slate-400">
