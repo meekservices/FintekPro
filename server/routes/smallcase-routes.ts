@@ -27,7 +27,7 @@
  */
 
 import { Router, Request, Response } from "express";
-import crypto from "crypto";
+import * as crypto from "crypto";
 import { db } from "../db";
 import { sql } from "drizzle-orm";
 
@@ -152,9 +152,10 @@ router.get(
 
 /**
  * @route POST /api/smallcase/transaction/create
- * @body  { holdings: [{isin, quantity, action}], intent, portfolioName }
+ * @body  { holdings: [{isin, symbol, quantity, action}], intent, portfolioName, market, currency, estimatedAmountUsd, lrsDeclaration }
  * @description Creates a Smallcase transaction on the SC server.
  *   Returns a transactionId for the client SDK to open the Gateway UI.
+ *   Supports both Domestic (INR) and Offshore/Global (USD/GIFT City/LRS) transactions.
  *
  * FASP-AI: This creates the transaction record only — no order is placed until
  * the user confirms within the Gateway UI overlay.
@@ -172,10 +173,22 @@ router.post(
       });
     }
 
-    const { holdings, intent = "TRANSACTION", portfolioName } = req.body as {
-      holdings:      Array<{ isin: string; quantity: number; action: "BUY" | "SELL" }>;
-      intent?:       string;
-      portfolioName?: string;
+    const {
+      holdings,
+      intent = "TRANSACTION",
+      portfolioName,
+      market = "DOMESTIC",
+      currency = "INR",
+      estimatedAmountUsd,
+      lrsDeclaration = false,
+    } = req.body as {
+      holdings:            Array<{ isin?: string; symbol?: string; quantity: number; action: "BUY" | "SELL" }>;
+      intent?:             string;
+      portfolioName?:      string;
+      market?:             "DOMESTIC" | "GLOBAL_OFFSHORE";
+      currency?:           "INR" | "USD";
+      estimatedAmountUsd?: number;
+      lrsDeclaration?:     boolean;
     };
 
     if (!Array.isArray(holdings) || holdings.length === 0) {
@@ -185,6 +198,41 @@ router.post(
         meta:    { timestamp: new Date().toISOString(), version: "1.0" },
         error:   { error_code: "INVALID_HOLDINGS", message: "holdings[] is required and must be non-empty", retryable: false },
       });
+    }
+
+    // Detect if this is an offshore/global basket based on flag, currency, or US ISINs
+    const isOffshore = market === "GLOBAL_OFFSHORE" ||
+      currency.toUpperCase() === "USD" ||
+      holdings.some(h => (h.isin?.startsWith("US") || (!h.isin && !!h.symbol)));
+
+    // ── Offshore / Global Guardrails (FEMA LRS & IFSCA GIFT City) ──────────────
+    if (isOffshore) {
+      if (!lrsDeclaration) {
+        return res.status(400).json({
+          success: false,
+          data:    null,
+          meta:    { timestamp: new Date().toISOString(), version: "1.0" },
+          error:   {
+            error_code: "FEMA_LRS_DECLARATION_REQUIRED",
+            message:    "FEMA LRS Declaration must be acknowledged for offshore global smallcase execution (Purpose Code S0001).",
+            retryable:  false,
+          },
+        });
+      }
+
+      const LRS_ANNUAL_LIMIT_USD = 250_000;
+      if (estimatedAmountUsd && estimatedAmountUsd > LRS_ANNUAL_LIMIT_USD) {
+        return res.status(400).json({
+          success: false,
+          data:    null,
+          meta:    { timestamp: new Date().toISOString(), version: "1.0" },
+          error:   {
+            error_code: "LRS_ANNUAL_LIMIT_EXCEEDED",
+            message:    `Estimated amount ($${estimatedAmountUsd}) exceeds the statutory annual LRS ceiling of $${LRS_ANNUAL_LIMIT_USD} USD under RBI FEMA regulations.`,
+            retryable:  false,
+          },
+        });
+      }
     }
 
     try {
@@ -198,8 +246,8 @@ router.post(
       const smallcaseAuthId: string | null = row?.default_broker_id ?? null;
 
       const jwtPayload = smallcaseAuthId
-        ? { sub: smallcaseAuthId, gatewayName: GATEWAY_NAME }
-        : { gatewayName: GATEWAY_NAME };
+        ? { sub: smallcaseAuthId, gatewayName: GATEWAY_NAME, market: isOffshore ? "GLOBAL" : "DOMESTIC" }
+        : { gatewayName: GATEWAY_NAME, market: isOffshore ? "GLOBAL" : "DOMESTIC" };
 
       const authToken = generateScJwt(jwtPayload);
 
@@ -213,11 +261,14 @@ router.post(
         },
         body: JSON.stringify({
           intent,
+          market: isOffshore ? "GLOBAL" : "DOMESTIC",
+          currency: isOffshore ? "USD" : "INR",
           transaction: {
             transactionType: "SECURITIES",
             legs: holdings.map(h => ({
-              isin:         h.isin,
-              quantity:     h.quantity,
+              ...(h.isin ? { isin: h.isin } : {}),
+              ...(h.symbol ? { symbol: h.symbol } : {}),
+              quantity:        Number(h.quantity), // Supports fractional shares for global smallcases
               transactionType: h.action === "BUY" ? "BUY" : "SELL",
             })),
           },
@@ -234,10 +285,12 @@ router.post(
       // Structured FASP-AI log
       // eslint-disable-next-line no-console
       console.log(JSON.stringify({
-        event:          "SMALLCASE_TRANSACTION_CREATED",
+        event:          isOffshore ? "SMALLCASE_GLOBAL_TRANSACTION_CREATED" : "SMALLCASE_TRANSACTION_CREATED",
         user_id:        userId,
         transactionId:  scData.transactionId,
         intent,
+        market:         isOffshore ? "GLOBAL_OFFSHORE" : "DOMESTIC",
+        currency:       isOffshore ? "USD" : "INR",
         holdingsCount:  holdings.length,
         portfolioName:  portfolioName ?? null,
         model_version:  "sc-gateway-v2.0",
@@ -248,8 +301,17 @@ router.post(
 
       return res.json({
         success: true,
-        data:    { transactionId: scData.transactionId },
-        meta:    { timestamp: new Date().toISOString(), version: "1.0" },
+        data:    {
+          transactionId: scData.transactionId,
+          market:        isOffshore ? "GLOBAL_OFFSHORE" : "DOMESTIC",
+          currency:      isOffshore ? "USD" : "INR",
+          femaCompliance: isOffshore ? {
+            purposeCode: "S0001",
+            lrsLimitUsd: 250_000,
+            tcsGuidance: "20% TCS applies on cumulative overseas remittances exceeding ₹7 Lakh per financial year under Section 206C(1G).",
+          } : undefined,
+        },
+        meta:    { timestamp: new Date().toISOString(), version: "2.1" },
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Transaction creation failed";
@@ -264,6 +326,93 @@ router.post(
     }
   },
 );
+
+// ── Route: GET /api/smallcase/offshore/baskets ────────────────────────────────
+
+/**
+ * @route GET /api/smallcase/offshore/baskets
+ * @description Retrieves curated global/offshore smallcase portfolios (US Stocks & Global ETFs)
+ *   eligible for Indian retail & HNI investors via GIFT City IFSC / RBI LRS route.
+ */
+router.get("/offshore/baskets", async (_req: Request, res: Response) => {
+  const globalBaskets = [
+    {
+      id: "sc-global-tech-ai",
+      name: "Global AI & Tech Titans",
+      category: "Thematic Global",
+      currency: "USD",
+      minInvestmentUsd: 100,
+      riskLevel: "High",
+      cagr3Y: "28.4%",
+      volatility: "19.2%",
+      regulatoryRoute: "IFSCA Global Access / RBI LRS (Purpose S0001)",
+      description: "Curated portfolio of US technology leaders pioneering semiconductor hardware, cloud compute, and enterprise AI foundational models.",
+      constituentsCount: 10,
+      topHoldings: ["NVDA", "MSFT", "AAPL", "GOOGL", "AVGO", "TSM"],
+      rebalanceFrequency: "Quarterly",
+    },
+    {
+      id: "sc-global-all-weather",
+      name: "All-Weather Global Allocation",
+      category: "Multi-Asset Global",
+      currency: "USD",
+      minInvestmentUsd: 100,
+      riskLevel: "Moderate",
+      cagr3Y: "14.8%",
+      volatility: "9.5%",
+      regulatoryRoute: "IFSCA Global Access / RBI LRS (Purpose S0001)",
+      description: "Ray Dalio-inspired macro diversification across US Equities (SPY), Long-Term US Treasuries (TLT), Intermediate Bonds (IEF), and Commodities (GLD).",
+      constituentsCount: 5,
+      topHoldings: ["SPY", "TLT", "IEF", "GLD", "DBC"],
+      rebalanceFrequency: "Semi-Annual",
+    },
+    {
+      id: "sc-global-clean-energy",
+      name: "Global Energy Transition & Decarbonization",
+      category: "Thematic Global",
+      currency: "USD",
+      minInvestmentUsd: 50,
+      riskLevel: "High",
+      cagr3Y: "18.6%",
+      volatility: "22.1%",
+      regulatoryRoute: "IFSCA Global Access / RBI LRS (Purpose S0001)",
+      description: "Clean power producers, solar & wind equipment manufacturers, and battery storage pioneers across North America and Europe.",
+      constituentsCount: 8,
+      topHoldings: ["ICLN", "ENPH", "NEE", "FSLR", "SEDG"],
+      rebalanceFrequency: "Quarterly",
+    },
+    {
+      id: "sc-global-dividend-aristocrats",
+      name: "US Dividend Aristocrats & Cashflow",
+      category: "Large Cap Core",
+      currency: "USD",
+      minInvestmentUsd: 75,
+      riskLevel: "Moderate",
+      cagr3Y: "12.3%",
+      volatility: "11.4%",
+      regulatoryRoute: "IFSCA Global Access / RBI LRS (Purpose S0001)",
+      description: "S&P 500 companies that have consistently increased dividends every year for at least 25 consecutive years.",
+      constituentsCount: 12,
+      topHoldings: ["JNJ", "PG", "KO", "PEP", "ABBV", "MMM"],
+      rebalanceFrequency: "Annual",
+    },
+  ];
+
+  return res.json({
+    success: true,
+    data:    {
+      baskets: globalBaskets,
+      framework: {
+        regulatoryBody: "IFSCA / RBI FEMA",
+        route: "Liberalised Remittance Scheme (LRS) / GIFT City IFSC Global Access",
+        annualCeilingUsd: 250_000,
+        fractionalTrading: true,
+        tcsGuidance: "20% TCS on remittances exceeding ₹7 Lakh per financial year under Section 206C(1G)",
+      },
+    },
+    meta: { timestamp: new Date().toISOString(), version: "2.1" },
+  });
+});
 
 // ── Route: POST /api/smallcase/auth/save ──────────────────────────────────────
 
