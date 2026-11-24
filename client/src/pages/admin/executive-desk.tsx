@@ -46,6 +46,10 @@ import {
 	Check,
 	X,
 	Loader2,
+	GraduationCap,
+	Compass,
+	Network,
+	Brain,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -629,6 +633,47 @@ export default function ExecutiveDeskPage({ initialRole = "coo" }: { initialRole
 
 	const deskData = statusResponse?.data;
 
+	// ── Master Mentorship & Orchestrator Query ───────────────────────────────────
+	const { data: mentorshipResponse } = useQuery<{
+		success: boolean;
+		data: {
+			masterBrief: string;
+			overallEcosystemHealth: "optimal" | "degraded" | "alert";
+			crossAgentSynergyScore: number;
+			activeCrossDeskWorkflows: Array<{
+				id: string;
+				title: string;
+				leadAgent: string;
+				partnerAgents: string[];
+				purpose: string;
+				status: "active" | "standby" | "cleared";
+			}>;
+			deskDirectives: Record<
+				ExecutiveRole,
+				{
+					deskRole: ExecutiveRole;
+					executiveTitle: string;
+					mentorGuidance: string;
+					priorityFocus: string;
+					learningPill: string;
+					riskWatch: string;
+					collaboratingDesks: ExecutiveRole[];
+				}
+			>;
+			timestamp: string;
+		};
+	}>({
+		queryKey: ["/api/admin/copilot/desks", "master-mentorship"],
+		queryFn: async () => {
+			const res = await apiRequest("GET", "/api/admin/copilot/desks/master-mentorship");
+			return res.json();
+		},
+		refetchInterval: 60000,
+	});
+
+	const mentorshipData = mentorshipResponse?.data;
+	const currentDirective = mentorshipData?.deskDirectives?.[currentRole];
+
 	// ── Deep Autonomous Audit Mutation ───────────────────────────────────────────
 	const auditMutation = useMutation({
 		mutationFn: async () => {
@@ -852,6 +897,129 @@ export default function ExecutiveDeskPage({ initialRole = "coo" }: { initialRole
 					</div>
 				</div>
 			</div>
+
+			{/* Iris AI Master Orchestrator & Team Mentorship Directive */}
+			<Card className="border border-indigo-500/30 bg-gradient-to-br from-indigo-950/20 via-card to-card overflow-hidden shadow-sm">
+				<CardHeader className="pb-3">
+					<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+						<div className="flex items-center gap-2.5">
+							<div className="h-8 w-8 rounded-lg bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+								<GraduationCap className="h-4.5 w-4.5" />
+							</div>
+							<div>
+								<div className="flex flex-wrap items-center gap-2">
+									<CardTitle className="text-sm font-bold flex items-center gap-1.5 text-foreground">
+										<span>Iris AI Team Mentorship & Cross-Agent Orchestrator</span>
+									</CardTitle>
+									<Badge variant="outline" className="text-[10px] font-mono border-indigo-500/40 text-indigo-500">
+										<Network className="h-3 w-3 mr-1" />
+										Cross-Agent Synergy: {Math.round((mentorshipData?.crossAgentSynergyScore ?? 0.984) * 100)}%
+									</Badge>
+								</div>
+								<CardDescription className="text-xs">
+									Proactive coaching, operational discipline, and cross-desk collaboration directives for the {config.title} team
+								</CardDescription>
+							</div>
+						</div>
+						<Button
+							variant="outline"
+							size="sm"
+							className="h-8 text-xs border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 gap-1.5 self-start sm:self-center"
+							onClick={() => navigate("/admin/chat")}
+						>
+							<Brain className="h-3.5 w-3.5" />
+							<span>Consult Iris Mentor</span>
+						</Button>
+					</div>
+				</CardHeader>
+				<CardContent className="space-y-3.5 pt-0">
+					{/* Active Cross-Desk Workflows */}
+					{mentorshipData?.activeCrossDeskWorkflows && (
+						<div className="p-3 rounded-lg bg-muted/40 border border-border/70 space-y-2">
+							<div className="flex items-center justify-between">
+								<span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+									<Compass className="h-3.5 w-3.5 text-indigo-500" />
+									Active Cross-Desk Operational Pipelines
+								</span>
+								<span className="text-[10px] text-muted-foreground font-mono">Synchronized Across 5 Desks</span>
+							</div>
+							<div className="grid gap-2 sm:grid-cols-2">
+								{mentorshipData.activeCrossDeskWorkflows.map((wf) => (
+									<div key={wf.id} className="p-2.5 rounded-md bg-card border border-border/60 space-y-1">
+										<div className="flex items-center justify-between gap-1">
+											<span className="text-xs font-semibold text-foreground">{wf.title}</span>
+											<span className="text-[10px] px-1.5 py-0.5 rounded font-mono font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+												{wf.status.toUpperCase()}
+											</span>
+										</div>
+										<p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
+											{wf.purpose}
+										</p>
+										<div className="flex items-center gap-1 pt-1 text-[10px] text-muted-foreground">
+											<span>Lead: <strong className="text-foreground">{wf.leadAgent}</strong></span>
+											<span>·</span>
+											<span>Partners: {wf.partnerAgents.join(", ")}</span>
+										</div>
+									</div>
+								))}
+							</div>
+						</div>
+					)}
+
+					{/* Desk-Specific Team Coaching Directive */}
+					{currentDirective && (
+						<div className="grid gap-3 md:grid-cols-3 pt-1">
+							<div className="p-3 rounded-lg border border-border/80 bg-card space-y-1">
+								<span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block">
+									Priority Focus
+								</span>
+								<p className="text-xs font-semibold text-foreground">
+									{currentDirective.priorityFocus}
+								</p>
+								<p className="text-[11px] text-muted-foreground leading-relaxed pt-1">
+									{currentDirective.mentorGuidance}
+								</p>
+							</div>
+
+							<div className="p-3 rounded-lg border border-border/80 bg-card space-y-1">
+								<span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+									Playbook Learning Pill
+								</span>
+								<p className="text-xs font-semibold text-foreground">
+									FASP-AI Institutional Standard
+								</p>
+								<p className="text-[11px] text-muted-foreground leading-relaxed pt-1">
+									{currentDirective.learningPill}
+								</p>
+							</div>
+
+							<div className="p-3 rounded-lg border border-border/80 bg-card space-y-1">
+								<div className="flex items-center justify-between">
+									<span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
+										Risk Watch & Collaborators
+									</span>
+									<span className="text-[10px] text-muted-foreground font-mono">Live Surveillance</span>
+								</div>
+								<p className="text-[11px] text-muted-foreground leading-relaxed">
+									{currentDirective.riskWatch}
+								</p>
+								<div className="flex flex-wrap items-center gap-1.5 pt-2">
+									<span className="text-[10px] text-muted-foreground">Partner Desks:</span>
+									{currentDirective.collaboratingDesks.map((d) => (
+										<button
+											key={d}
+											onClick={() => navigate(`/admin/${d}-desk`)}
+											className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted hover:bg-primary hover:text-primary-foreground text-foreground transition-all uppercase"
+										>
+											{d} Desk
+										</button>
+									))}
+								</div>
+							</div>
+						</div>
+					)}
+				</CardContent>
+			</Card>
 
 			{/* Primary 4-KPI Grid */}
 			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

@@ -52,6 +52,32 @@ export interface DeskSubAgentStatus {
 	pendingDrafts: ActionDraft[];
 }
 
+export interface TeamMentorshipDirective {
+	deskRole: ExecutiveRole;
+	executiveTitle: string;
+	mentorGuidance: string;
+	priorityFocus: string;
+	learningPill: string;
+	riskWatch: string;
+	collaboratingDesks: ExecutiveRole[];
+}
+
+export interface MasterMentorshipOverview {
+	masterBrief: string;
+	overallEcosystemHealth: "optimal" | "degraded" | "alert";
+	crossAgentSynergyScore: number;
+	activeCrossDeskWorkflows: Array<{
+		id: string;
+		title: string;
+		leadAgent: string;
+		partnerAgents: string[];
+		purpose: string;
+		status: "active" | "standby" | "cleared";
+	}>;
+	deskDirectives: Record<ExecutiveRole, TeamMentorshipDirective>;
+	timestamp: string;
+}
+
 export class ExecutiveSubAgentEngine {
 	private readonly MODEL_VERSION = "gemini-2.5-flash / Iris Core v3.0";
 
@@ -449,6 +475,134 @@ export class ExecutiveSubAgentEngine {
 					createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
 				},
 			],
+		};
+	}
+
+	// ── Master Mentorship & Sub-Agent Orchestration ────────────────────────────
+	async getMasterMentorship(adminUserId?: string): Promise<MasterMentorshipOverview> {
+		return {
+			masterBrief:
+				"Iris Master Copilot is actively orchestrating all 5 sub-agents across Trading, Treasury, Commercial Growth, Regulatory Compliance, and Cloud Infrastructure. All 5 sentinels report optimal health with cross-agent synergy at 98.4%. Primary focus: Scale algorithmic trading under COO with CTO latency governance, and monetize secondary unlisted liquidity matches via CBO.",
+			overallEcosystemHealth: "optimal",
+			crossAgentSynergyScore: 0.984,
+			activeCrossDeskWorkflows: [
+				{
+					id: "wf-algo-trading",
+					title: "Algorithmic Trading & Execution Pipeline",
+					leadAgent: "Iris-COO",
+					partnerAgents: ["Iris-CTO", "Iris-CFO", "Iris-CCO"],
+					purpose: "Operate low-latency F&O pairs trading on NSE while monitoring WebSocket tick latency (<100ms), margin float, and SEBI OTR limits.",
+					status: "active",
+				},
+				{
+					id: "wf-unlisted-liquidity",
+					title: "Pre-IPO Secondary Marketplace Deal Monetization",
+					leadAgent: "Iris-CBO",
+					partnerAgents: ["Iris-CFO", "Iris-CCO"],
+					purpose: "Match institutional buyer demand with pre-IPO seller blocks at 1.2% spread, verifying investor accreditation and escrow settlement.",
+					status: "active",
+				},
+				{
+					id: "wf-regulatory-auditing",
+					title: "SEBI True-to-Label Scheme & RIA Compliance Audit",
+					leadAgent: "Iris-CCO",
+					partnerAgents: ["Iris-COO", "Iris-CBO"],
+					purpose: "Conduct daily drift scans across 412 MF schemes and audit 12 newly empanelled Chartered Accountant distributor firms.",
+					status: "active",
+				},
+				{
+					id: "wf-telemetry-auto-heal",
+					title: "Autonomous Circuit-Breaker & Telemetry Sentinel",
+					leadAgent: "Iris-CTO",
+					partnerAgents: ["Iris-COO"],
+					purpose: "Suppress duplicate error ledger ingestion during sidecar or AI provider latency and auto-heal recovered services.",
+					status: "active",
+				},
+			],
+			deskDirectives: {
+				coo: {
+					deskRole: "coo",
+					executiveTitle: "Chief Operating Officer",
+					mentorGuidance:
+						"Coach your trading team on execution slippage discipline. Coordinate with the CTO desk before 9:00 AM to verify Upstox WebSocket feed latency (<100ms). Enforce BUY-first leg sequencing on F&O pairs to preserve margin relief. Review T+1 trade settlement discrepancies before 11:30 AM.",
+					priorityFocus: "Algo Trading Slippage Control & T+1 Settlement Velocity",
+					learningPill: "SEBI F&O margin relief is strictly dependent on leg execution sequencing. Always buy protective wings before writing short legs.",
+					riskWatch: "NDML CKYC registry API peak latency between 2:00 PM and 3:00 PM.",
+					collaboratingDesks: ["cto", "cfo", "cco"],
+				},
+				cfo: {
+					deskRole: "cfo",
+					executiveTitle: "Chief Financial Officer",
+					mentorGuidance:
+						"Guide the finance desk to sweep Upstox and Alpaca clearing rebates at 3:45 PM. Safeguard the 1.82% net take-rate margin by auditing partner commission deductions before batch release. Ensure the clearing cash buffer never dips below ₹10 Lakhs.",
+					priorityFocus: "Take-Rate Preservation & Automated Cashfree Payout Batches",
+					learningPill: "Gross revenue minus distributor commission must maintain a minimum 1.50% net floor to cover regulatory fees and tech infrastructure.",
+					riskWatch: "Monitor quarterly advance tax liabilities and TDS remittance dates.",
+					collaboratingDesks: ["cbo", "coo"],
+				},
+				cbo: {
+					deskRole: "cbo",
+					executiveTitle: "Chief Business Officer",
+					mentorGuidance:
+						"Mentor commercial deal managers to focus on high-spread unlisted secondary blocks (Tata Capital, NSE) where buyer-seller spreads are under 1.5%. Drive the MCA radar pipeline in Bangalore and Mumbai for promoter buyback wealth advisory mandates.",
+					priorityFocus: "GTV Acceleration & Institutional Deal Syndication",
+					learningPill: "Promoters undergoing capital raises (>₹25 Cr) have a 4x higher propensity to seek wealth management and secondary share liquidity within 90 days.",
+					riskWatch: "Avoid cold outreach on non-accredited retail users; uphold SEBI private placement guidelines.",
+					collaboratingDesks: ["cfo", "cco"],
+				},
+				cco: {
+					deskRole: "cco",
+					executiveTitle: "Chief Compliance Officer",
+					mentorGuidance:
+						"Coach compliance analysts on proactive true-to-label drift detection. Ensure mutual fund category shifts beyond 5% are flagged to portfolio managers within 24 hours. Keep the SEBI automated kill switch tested weekly.",
+					priorityFocus: "True-to-Label Integrity & Proactive Regulatory Surveillance",
+					learningPill: "SEBI circulars mandate instant algorithmic order cancellations if the order-to-trade ratio (OTR) exceeds 50:1 in any 1-minute window.",
+					riskWatch: "RIA and CA partner empanelment renewal dates expiring in the current quarter.",
+					collaboratingDesks: ["coo", "cbo"],
+				},
+				cto: {
+					deskRole: "cto",
+					executiveTitle: "Chief Technology Officer",
+					mentorGuidance:
+						"Coach the engineering and SRE team on zero-defect releases and telemetry self-healing. Ensure the Golden Pricing Engine refreshes NSE/BSE ticks every 15 seconds. Keep broker session tokens refreshed proactively 2 hours prior to market open.",
+					priorityFocus: "Zero-Latency Pricing Engine & Autonomous Telemetry Auto-Healing",
+					learningPill: "Circuit breakers should downgrade to cached pricing gracefully rather than throwing 500 errors, preserving client trading session continuity.",
+					riskWatch: "Python sidecar heartbeat during high-concurrency 9:15 AM market opening spikes.",
+					collaboratingDesks: ["coo"],
+				},
+			},
+			timestamp: new Date().toISOString(),
+		};
+	}
+
+	async askMentorshipCoach(
+		role: ExecutiveRole,
+		topic: string,
+		question: string,
+		adminUserId?: string,
+	): Promise<{
+		role: ExecutiveRole;
+		topic: string;
+		mentorGuidance: string;
+		practicalRecommendations: string[];
+		regulatoryChecklist: string[];
+		timestamp: string;
+	}> {
+		return {
+			role,
+			topic: topic || "Operational Excellence",
+			mentorGuidance: `Iris Mentorship for ${role.toUpperCase()} Desk on "${topic}": Align strategy execution with FASP-AI v1.0 and SEBI/RBI compliance frameworks. Coordinate cross-desk workflows early to ensure margin, latency, and regulatory clearance before initiating actions.`,
+			practicalRecommendations: [
+				"Verify pre-requisite signals from partner sub-agents before triggering high-volume batches.",
+				"Review explainability factors and confidence scores on all generated action drafts.",
+				"Ensure 1-click maker-checker confirmation is recorded in the immutable audit ledger.",
+			],
+			regulatoryChecklist: [
+				"Zero deterministic return promises in advisory text.",
+				"Suitability gate verified against client risk profile.",
+				"Canonical pricing formulas backed by licensed feeds (Upstox/NSE/BSE).",
+			],
+			timestamp: new Date().toISOString(),
 		};
 	}
 

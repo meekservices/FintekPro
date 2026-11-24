@@ -1354,3 +1354,37 @@ adminCopilotRouter.post("/desks/:role/execute-action", async (req: Request, res:
 		res.status(500).json(errorResponse(err.message));
 	}
 });
+
+/**
+ * GET /desks/master-mentorship
+ * Retrieves Iris Copilot's master cross-desk coordination matrix and tailored executive mentorship directives.
+ */
+adminCopilotRouter.get("/desks/master-mentorship", async (req: Request, res: Response) => {
+	try {
+		const user = (req as any).user;
+		const mentorship = await executiveSubAgentEngine.getMasterMentorship(user?.id);
+		res.json(successResponse(mentorship));
+	} catch (err: any) {
+		res.status(500).json(errorResponse(err.message));
+	}
+});
+
+/**
+ * POST /desks/mentorship-advice
+ * Allows executives or team members to consult Iris Mentor on operational, financial, or regulatory challenges.
+ */
+adminCopilotRouter.post("/desks/mentorship-advice", async (req: Request, res: Response) => {
+	try {
+		const { role, topic, question } = req.body;
+		const user = (req as any).user;
+		const guidance = await executiveSubAgentEngine.askMentorshipCoach(
+			(role as ExecutiveRole) || "coo",
+			topic || "General Execution",
+			question || "",
+			user?.id,
+		);
+		res.json(successResponse(guidance));
+	} catch (err: any) {
+		res.status(500).json(errorResponse(err.message));
+	}
+});
