@@ -1968,47 +1968,47 @@ export default function FieldAgentPortal() {
 								<CardContent className="space-y-4">
 									<div className="grid grid-cols-2 gap-4">
 										<div>
-											<label className="text-sm font-medium text-muted-foreground">
+											<span className="block text-sm font-medium text-muted-foreground">
 												Full Name
-											</label>
+											</span>
 											<p className="font-medium">
 												{(agentProfile as any)?.fullName || "-"}
 											</p>
 										</div>
 										<div>
-											<label className="text-sm font-medium text-muted-foreground">
+											<span className="block text-sm font-medium text-muted-foreground">
 												Partner Level
-											</label>
+											</span>
 											<p className="font-medium">{levelLabel}</p>
 										</div>
 										<div>
-											<label className="text-sm font-medium text-muted-foreground">
+											<span className="block text-sm font-medium text-muted-foreground">
 												Email
-											</label>
+											</span>
 											<p className="font-medium">
 												{(agentProfile as any)?.email || "-"}
 											</p>
 										</div>
 										<div>
-											<label className="text-sm font-medium text-muted-foreground">
+											<span className="block text-sm font-medium text-muted-foreground">
 												Phone
-											</label>
+											</span>
 											<p className="font-medium">
 												{(agentProfile as any)?.phone || "-"}
 											</p>
 										</div>
 										<div>
-											<label className="text-sm font-medium text-muted-foreground">
+											<span className="block text-sm font-medium text-muted-foreground">
 												EUIN Number
-											</label>
+											</span>
 											<p className="font-medium">
 												{(agentProfile as any)?.euinNumber || "-"}
 											</p>
 										</div>
 										<div>
-											<label className="text-sm font-medium text-muted-foreground">
+											<span className="block text-sm font-medium text-muted-foreground">
 												ARN Code
-											</label>
+											</span>
 											<p className="font-medium">
 												{(agentProfile as any)?.arnCode || "-"}
 											</p>
