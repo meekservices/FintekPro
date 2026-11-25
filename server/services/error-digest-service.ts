@@ -1,10 +1,10 @@
-// @ts-nocheck
 import { errorTrackingService } from "./error-tracking-service";
 import { emailService } from "../email-service";
 import { aiService } from "./ai-service";
 import { db } from "../db";
 import { users } from "../../shared/schema";
-import { eq, sql, and } from "drizzle-orm";
+import { sql } from "drizzle-orm";
+import { logger } from "../logger";
 
 interface ErrorDigest {
 	period: string;
@@ -44,7 +44,7 @@ class ErrorDigestService {
 				(e) => e.severity === "critical" || e.severity === "error",
 			);
 			const newErrors = errors.filter(
-				(e) => new Date(e.createdAt) >= yesterday,
+				(e) => (e.createdAt ? new Date(e.createdAt as any) >= yesterday : false),
 			);
 			const resolvedErrors = errors.filter((e) => e.status === "resolved");
 
@@ -110,7 +110,7 @@ Total: ${errors.length} errors, ${criticalErrors.length} critical, ${resolvedErr
 					}
 				}
 			} catch (aiError) {
-				console.error("[ErrorDigest] AI analysis failed:", aiError);
+				logger.error("[ErrorDigest] AI analysis failed:", { error: String(aiError) });
 			}
 
 			return {
@@ -126,7 +126,7 @@ Total: ${errors.length} errors, ${criticalErrors.length} critical, ${resolvedErr
 				trendAnalysis,
 			};
 		} catch (error) {
-			console.error("[ErrorDigest] Failed to generate digest:", error);
+			logger.error("[ErrorDigest] Failed to generate digest:", { error: String(error) });
 			return null;
 		}
 	}
@@ -136,11 +136,13 @@ Total: ${errors.length} errors, ${criticalErrors.length} critical, ${resolvedErr
 			const adminUsers = await db
 				.select()
 				.from(users)
-				.where(and(eq(users.role, "admin"), eq(users.isActive, true)))
+				.where(
+					sql`${users.roles} @> ARRAY['admin']::varchar[] AND ${users.isActive} = true`,
+				)
 				.limit(10);
 
 			if (adminUsers.length === 0) {
-				console.log("[ErrorDigest] No admin users found to send digest");
+				logger.info("[ErrorDigest] No admin users found to send digest");
 				return false;
 			}
 
@@ -244,10 +246,10 @@ Total: ${errors.length} errors, ${criticalErrors.length} critical, ${resolvedErr
 				}
 			}
 
-			console.log(`[ErrorDigest] Sent digest to ${adminUsers.length} admin(s)`);
+			logger.info(`[ErrorDigest] Sent digest to ${adminUsers.length} admin(s)`);
 			return true;
 		} catch (error) {
-			console.error("[ErrorDigest] Failed to send digest email:", error);
+			logger.error("[ErrorDigest] Failed to send digest email:", { error: String(error) });
 			return false;
 		}
 	}
@@ -274,9 +276,9 @@ Total: ${errors.length} errors, ${criticalErrors.length} critical, ${resolvedErr
 				]);
 				if (analysisResult?.content) aiAnalysis = analysisResult.content;
 			} catch (e) {
-				console.error(
+				logger.error(
 					"[ErrorDigest] AI analysis for critical alert failed:",
-					e,
+					{ error: String(e) },
 				);
 			}
 
@@ -326,34 +328,64 @@ Total: ${errors.length} errors, ${criticalErrors.length} critical, ${resolvedErr
 				}
 			}
 
-			console.log(
+			// Multi-channel dispatch: Primary webhook (Slack Block Kit / OpsAlert)
+			try {
+				const { opsAlertService } = await import("./ops-alert-service");
+				await opsAlertService.fire({
+					code: `CRITICAL_ERR_${error.errorCode || "UNCAUGHT"}`,
+					severity: "CRITICAL",
+					title: `Critical Error: ${error.errorCode} in ${error.module}`,
+					message: `Module: ${error.module}\nError: ${error.message || "Unknown error"}\nTime: ${new Date().toISOString()}`,
+					action: "Inspect in /admin/activity-centre or /admin/cto-desk",
+				});
+			} catch (webhookErr) {
+				logger.error("[ErrorDigest] OpsAlertService webhook dispatch failed:", { error: String(webhookErr) });
+			}
+
+			logger.info(
 				`[ErrorDigest] Sent critical alert for ${error.errorCode} to ${adminUsers.length} admin(s)`,
 			);
 		} catch (err) {
-			console.error("[ErrorDigest] Failed to send critical alert:", err);
+			logger.error("[ErrorDigest] Failed to send critical alert:", { error: String(err) });
 		}
 	}
 
 	async runDailyDigest(): Promise<void> {
 		if (this.isRunning) {
-			console.log("[ErrorDigest] Digest already running, skipping");
+			logger.info("[ErrorDigest] Digest already running, skipping");
 			return;
 		}
 
 		this.isRunning = true;
-		console.log("[ErrorDigest] Starting daily error digest...");
+		logger.info("[ErrorDigest] Starting daily error digest...");
 
 		try {
 			const digest = await this.generateDailyDigest();
 
 			if (digest && digest.totalErrors > 0) {
 				await this.sendDigestEmail(digest);
-				console.log("[ErrorDigest] Daily digest completed successfully");
+				logger.info("[ErrorDigest] Daily digest completed successfully");
+
+				// Publish summary to opsAlertService if critical errors exist
+				if (digest.criticalErrors > 0) {
+					try {
+						const { opsAlertService } = await import("./ops-alert-service");
+						await opsAlertService.fire({
+							code: "DAILY_ERROR_DIGEST_CRITICAL",
+							severity: "WARNING",
+							title: `Daily Error Digest: ${digest.criticalErrors} Critical Issue(s)`,
+							message: `Total Errors: ${digest.totalErrors} | Critical: ${digest.criticalErrors} | Top Module: ${digest.topModules[0]?.module || "N/A"}\nAI Summary: ${digest.aiSummary.slice(0, 200)}...`,
+							action: "Review daily digest report in /admin/activity-centre",
+						});
+					} catch (webhookErr) {
+						logger.error("[ErrorDigest] Ops alert webhook failed:", { error: String(webhookErr) });
+					}
+				}
 			} else {
-				console.log("[ErrorDigest] No errors to report in the last 24 hours");
+				logger.info("[ErrorDigest] No errors to report in the last 24 hours");
 			}
 		} catch (error) {
-			console.error("[ErrorDigest] Daily digest failed:", error);
+			logger.error("[ErrorDigest] Daily digest failed:", { error: String(error) });
 		} finally {
 			this.isRunning = false;
 		}

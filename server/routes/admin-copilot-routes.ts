@@ -1388,3 +1388,51 @@ adminCopilotRouter.post("/desks/mentorship-advice", async (req: Request, res: Re
 		res.status(500).json(errorResponse(err.message));
 	}
 });
+
+/**
+ * GET /desks/cto/resilience-cockpit
+ * Detailed SEBI CSCRF, NTP time sync, Disaster Recovery, and DevSecOps telemetry for the CTO Desk.
+ */
+adminCopilotRouter.get("/desks/cto/resilience-cockpit", async (_req: Request, res: Response) => {
+	try {
+		const cockpitData = await executiveSubAgentEngine.getCTOResilienceCockpit();
+		res.json(successResponse(cockpitData));
+	} catch (err: any) {
+		res.status(500).json(errorResponse(err.message));
+	}
+});
+
+/**
+ * POST /desks/cto/cert-in-report
+ * Generates an automated CERT-In Form-C Statutory Cyber Incident Dispatch Form complying with § 70B IT Act 2000 & SEBI CSCRF.
+ */
+adminCopilotRouter.post("/desks/cto/cert-in-report", async (req: Request, res: Response) => {
+	try {
+		const { classification, affectedSystems, containmentActions, rootCauseAnalysis } = req.body;
+		const user = (req as any).user;
+		const report = await executiveSubAgentEngine.generateCertInReport({
+			classification,
+			affectedSystems,
+			containmentActions,
+			rootCauseAnalysis,
+			reportedBy: user ? `${user.username || user.email} (${user.role})` : "CTO Operational Desk",
+		});
+		res.json(successResponse(report));
+	} catch (err: any) {
+		res.status(500).json(errorResponse(err.message));
+	}
+});
+
+/**
+ * POST /desks/cto/trigger-dr-drill
+ * Executes an automated Disaster Recovery simulated failover drill and verifies secondary region standby health.
+ */
+adminCopilotRouter.post("/desks/cto/trigger-dr-drill", async (req: Request, res: Response) => {
+	try {
+		const user = (req as any).user;
+		const drillResult = await executiveSubAgentEngine.triggerDisasterRecoveryDrill(user?.id || "admin");
+		res.json(successResponse(drillResult));
+	} catch (err: any) {
+		res.status(500).json(errorResponse(err.message));
+	}
+});

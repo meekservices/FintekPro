@@ -163,6 +163,100 @@ async function run(): Promise<void> {
 			});
 		}
 
+		// 5. Domains & Subdomains Ingress Health & SSL Pre-Flight
+		const domainStart = Date.now();
+		try {
+			const subdomains = [
+				{ name: "client_portal", host: "fintekpro.com" },
+				{ name: "admin_portal", host: "admin.fintekpro.com" },
+				{ name: "partner_portal", host: "partner.fintekpro.com" },
+				{ name: "ca_practice_portal", host: "ca.fintekpro.com" },
+			];
+
+			const isProd = process.env.NODE_ENV === "production";
+			const domainResults: string[] = [];
+			let domainDegraded = false;
+
+			for (const sub of subdomains) {
+				try {
+					if (isProd) {
+						const url = `https://${sub.host}/api/boot-status`;
+						const controller = new AbortController();
+						const timeoutId = setTimeout(() => controller.abort(), 3500);
+						const res = await fetch(url, { signal: controller.signal }).catch(() => null);
+						clearTimeout(timeoutId);
+
+						if (res && res.ok) {
+							domainResults.push(`${sub.name}: OK (${res.status})`);
+						} else {
+							domainResults.push(`${sub.name}: reachability warning`);
+							domainDegraded = true;
+						}
+					} else {
+						// Local/Development: configuration check
+						domainResults.push(`${sub.name}: nominal (${sub.host})`);
+					}
+				} catch (subErr: any) {
+					domainResults.push(`${sub.name}: check notice (${subErr?.message || "unreachable"})`);
+					if (isProd) domainDegraded = true;
+				}
+			}
+
+			checks.push({
+				name: "domains_and_subdomains",
+				status: domainDegraded ? "warning" : "healthy",
+				latencyMs: Date.now() - domainStart,
+				details: domainResults.join("; "),
+			});
+		} catch (dErr: any) {
+			checks.push({
+				name: "domains_and_subdomains",
+				status: "warning",
+				latencyMs: Date.now() - domainStart,
+				details: `Domain preflight note: ${dErr?.message}`,
+			});
+		}
+
+		// 6. Synthetic Calculation Engine Integrity (XIRR, IRR, Pricing Determinism)
+		const mathStart = Date.now();
+		try {
+			const { FinancialCalculations } = await import(
+				"../server/services/financial-calculations"
+			);
+
+			// Standard benchmark cashflows: 10% annual return
+			const benchmarkFlows = [
+				{ date: new Date("2024-01-01"), amount: -100000 },
+				{ date: new Date("2025-01-01"), amount: 110000 },
+			];
+
+			const xirrRes = await FinancialCalculations.calculateXIRR(benchmarkFlows);
+			const expectedXirr = 10.0;
+			const tolerance = 0.5; // within 0.5% tolerance
+			const mathAccurate =
+				xirrRes &&
+				typeof xirrRes.xirrPercentage === "number" &&
+				!isNaN(xirrRes.xirrPercentage) &&
+				isFinite(xirrRes.xirrPercentage) &&
+				Math.abs(xirrRes.xirrPercentage - expectedXirr) <= tolerance;
+
+			checks.push({
+				name: "calculation_engines_math",
+				status: mathAccurate ? "healthy" : "critical",
+				latencyMs: Date.now() - mathStart,
+				details: mathAccurate
+					? `Synthetic XIRR deterministic benchmark passed (${xirrRes.xirrPercentage.toFixed(2)}%)`
+					: `Calculation engine divergence: expected ~10.0%, received ${xirrRes?.xirrPercentage}%`,
+			});
+		} catch (mErr: any) {
+			checks.push({
+				name: "calculation_engines_math",
+				status: "critical",
+				latencyMs: Date.now() - mathStart,
+				details: `Calculation engine exception: ${mErr?.message}`,
+			});
+		}
+
 		// Log summary
 		const hasCritical = checks.some((c) => c.status === "critical");
 		const hasWarning = checks.some((c) => c.status === "warning");
@@ -182,10 +276,12 @@ async function run(): Promise<void> {
 				const { opsAlertService } = await import(
 					"../server/services/ops-alert-service"
 				);
-				await opsAlertService.publishAlert({
-					component: "premarket-watchdog",
+				await opsAlertService.fire({
+					code: "PREMARKET_WATCHDOG_CRITICAL",
+					title: "Premarket Health Alert: Critical Gate Failed",
 					severity: "CRITICAL",
-					message: `Premarket Health Alert: Critical failure detected before market open: ${checks.filter((c) => c.status === "critical").map((c) => `${c.name}: ${c.details}`).join("; ")}`,
+					message: `Critical failure detected before 9:15 AM market open:\n${checks.filter((c) => c.status === "critical").map((c) => `• ${c.name}: ${c.details}`).join("\n")}`,
+					action: "Investigate immediately via /admin/cto-desk or Activity Centre before market opens.",
 				});
 			} catch (alertErr) {
 				logger.error(`[${JOB_NAME}] Failed to dispatch ops alert:`, { error: String(alertErr) });
