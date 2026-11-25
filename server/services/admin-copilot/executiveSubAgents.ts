@@ -17,6 +17,7 @@
 
 import { db } from "../../db";
 import { errorTrackingService } from "../error-tracking-service";
+import { regulatoryIngestionService } from "../regulatory-ingestion-service";
 import { logger } from "../../logger";
 import { aiAuditLogs } from "@shared/schema/admin-copilot";
 
@@ -330,7 +331,7 @@ export class ExecutiveSubAgentEngine {
 					factorsConsidered: ["client_accredited_tier", "yield_spread_attractive", "placement_fee_1.2pct"],
 					confidenceScore: 0.96,
 					proposedAction: "Publish syndication memorandum and open 48h early allocation window",
-					targetRoute: "/admin/bonds-management",
+					targetRoute: "/admin/bonds/dashboard",
 					status: "draft",
 					createdAt: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
 				},
@@ -370,6 +371,32 @@ export class ExecutiveSubAgentEngine {
 
 	// ── 4. Iris-CCO Sub-Agent ──────────────────────────────────────────────────
 	private async getCCOStatus(): Promise<DeskSubAgentStatus> {
+		const pendingCirculars = await regulatoryIngestionService
+			.getProposals("pending_review")
+			.catch(() => null);
+
+		const circularDrafts: ActionDraft[] = (pendingCirculars?.proposals || []).map(
+			(p) => ({
+				id: `circular-${p.id}`,
+				role: "cco",
+				title: `[${p.regulator}] ${p.documentNumber}: ${p.documentTitle}`,
+				category: "Regulator Circular",
+				urgency: "high",
+				amountOrImpact: p.effectiveDate ? `Effective ${p.effectiveDate}` : "Pending Review",
+				rationale: p.rawSummary,
+				factorsConsidered: [
+					p.regulator.toLowerCase(),
+					p.amendmentType,
+					`regression_${p.regressionTestStatus}`,
+				],
+				confidenceScore: p.regressionTestStatus === "passed" ? 0.96 : 0.78,
+				proposedAction: "Review circular diff and promote amendment in Tax & Regulatory Hub",
+				targetRoute: "/tax/law-hub",
+				status: "draft",
+				createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString(),
+			}),
+		);
+
 		return {
 			role: "cco",
 			agentName: "Iris-CCO (Compliance & Risk Sentinel)",
@@ -386,8 +413,10 @@ export class ExecutiveSubAgentEngine {
 				activeDeskLicenses: "8 / 8",
 				quarantinedTransactions: 0,
 				sebiSchemeCompliance: "100%",
+				pendingCircularProposals: pendingCirculars?.pendingCount ?? 0,
 			},
 			pendingDrafts: [
+				...circularDrafts,
 				{
 					id: "draft-cco-1",
 					role: "cco",

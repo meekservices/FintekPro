@@ -196,6 +196,10 @@ export class RegulatoryIngestionService {
       { name: "MCA Corporate Notifications", url: "https://www.mca.gov.in/content/mca/global/en/acts-rules/ebooks/notifications.html" },
       { name: "IRS Internal Revenue Bulletins", url: "https://www.irs.gov/irb" },
       { name: "RBI Notification Master Circulars", url: "https://www.rbi.org.in/scripts/BS_CircularIndexDisplay.aspx" },
+      { name: "AMFI Best Practice Circulars", url: "https://www.amfiindia.com/circulars" },
+      { name: "IRDAI Circulars & Guidelines", url: "https://irdai.gov.in/circulars" },
+      { name: "PFRDA Circulars & Master Guidelines", url: "https://www.pfrda.org.in/index1.cshtml?lsid=12" },
+      { name: "CERT-In Advisories & Directives", url: "https://www.cert-in.org.in/" },
     ];
 
     // Execute automated regression test suites on all staged proposals

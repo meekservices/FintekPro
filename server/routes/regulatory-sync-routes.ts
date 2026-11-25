@@ -82,8 +82,9 @@ router.post("/proposals/:id/approve", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const parsed = approveSchema.safeParse(req.body);
-    const approverId = parsed.success ? parsed.data.approverId : "compliance-officer";
-    const approverRole = parsed.success ? parsed.data.approverRole : "compliance_officer";
+    const authUser = (req as { user?: { id?: string; role?: string } }).user;
+    const approverId = authUser?.id || (parsed.success ? parsed.data.approverId : "compliance-officer");
+    const approverRole = authUser?.role || (parsed.success ? parsed.data.approverRole : "compliance_officer");
 
     const result = await regulatoryIngestionService.approveAndPromoteProposal(id, approverId, approverRole);
 

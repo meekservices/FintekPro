@@ -441,7 +441,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	app.use("/api/tax", taxCalculatorRouter);
 	app.use("/api/tax", taxRoutes);
 	app.use("/api/tax-law", taxLawRouter);
-	app.use("/api/regulatory-sync", regulatorySyncRouter);
+	app.use("/api/regulatory-sync", requireAdmin, regulatorySyncRouter);
 	registerKYCVaultRoutes(app);
 	// KYC Broker Orchestrator — diff, submit, status
 	app.use("/api/orchestrator", orchestratorRouter);

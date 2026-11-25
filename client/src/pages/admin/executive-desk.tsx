@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
@@ -359,7 +359,7 @@ const DESK_CONFIGS: Record<ExecutiveRole, DeskConfig> = {
 				amountOrImpact: "₹5.8 Lakhs Margin (₹4.8 Cr Tranche)",
 				timeAgo: "35m ago",
 				actionLabel: "Syndicate Batch",
-				targetRoute: "/admin/bonds-management",
+				targetRoute: "/admin/bonds/dashboard",
 			},
 			{
 				id: "cbo-rev-3",
@@ -603,6 +603,12 @@ export default function ExecutiveDeskPage({ initialRole = "coo" }: { initialRole
 	const config = DESK_CONFIGS[currentRole];
 	const [activeTab, setActiveTab] = useState(config.tabs[0]?.id || "overview");
 	const [isRefreshing, setIsRefreshing] = useState(false);
+
+	useEffect(() => {
+		const tabParam = new URLSearchParams(window.location.search).get("tab");
+		const hasTab = tabParam && config.tabs.some((t) => t.id === tabParam);
+		setActiveTab(hasTab ? tabParam : config.tabs[0]?.id || "overview");
+	}, [currentRole, location, config]);
 
 	// ── Live Sub-Agent Status Query ──────────────────────────────────────────────
 	const { data: statusResponse, isLoading: isStatusLoading, refetch } = useQuery<{
