@@ -30,6 +30,7 @@ const CAT_LABELS: Record<string, string> = {
 export default function EmailIntelligencePage() {
 	const [selected, setSelected] = useState<any>(null);
 	const [syncing, setSyncing] = useState(false);
+	const [syncError, setSyncError] = useState<string | null>(null);
 	const [filter, setFilter] = useState("");
 	const qc = useQueryClient();
 
@@ -48,8 +49,9 @@ export default function EmailIntelligencePage() {
 
 	async function handleSync() {
 		setSyncing(true);
+		setSyncError(null);
 		try {
-			await fetch("/api/admin/copilot/mail/sync", {
+			const r = await fetch("/api/admin/copilot/mail/sync", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -58,7 +60,16 @@ export default function EmailIntelligencePage() {
 					limit: 50,
 				}),
 			});
+			const json = await r.json().catch(() => ({}));
+			if (!r.ok || json?.success === false) {
+				setSyncError(
+					json?.error?.message || `Sync failed (${r.status})`,
+				);
+				return;
+			}
 			qc.invalidateQueries({ queryKey: ["copilot-emails"] });
+		} catch (err: any) {
+			setSyncError(err?.message || "Failed to sync emails");
 		} finally {
 			setSyncing(false);
 		}
@@ -168,6 +179,34 @@ export default function EmailIntelligencePage() {
 					</button>
 				</div>
 			</div>
+			{syncError && (
+				<div
+					style={{
+						background: "rgba(239,68,68,0.12)",
+						borderBottom: "1px solid rgba(239,68,68,0.3)",
+						color: "#fca5a5",
+						padding: "0.65rem 1.5rem",
+						fontSize: "0.82rem",
+						display: "flex",
+						justifyContent: "space-between",
+						alignItems: "center",
+					}}
+				>
+					<span>⚠️ {syncError}</span>
+					<button
+						onClick={() => setSyncError(null)}
+						style={{
+							background: "transparent",
+							border: "none",
+							color: "#fca5a5",
+							cursor: "pointer",
+							fontWeight: 700,
+						}}
+					>
+						✕
+					</button>
+				</div>
+			)}
 			<div style={s.body}>
 				<div style={s.list}>
 					{isLoading && (
@@ -178,9 +217,18 @@ export default function EmailIntelligencePage() {
 						</div>
 					)}
 					{emails.map((e: any) => (
-						<div
+						<button
+							type="button"
 							key={e.id}
-							style={s.row(selected?.id === e.id)}
+							style={{
+								...s.row(selected?.id === e.id),
+								width: "100%",
+								textAlign: "left",
+								borderLeft: "none",
+								borderRight: "none",
+								borderTop: "none",
+								color: "inherit",
+							}}
 							onClick={() => setSelected(e)}
 						>
 							<div
@@ -215,7 +263,7 @@ export default function EmailIntelligencePage() {
 									{e.approvalStatus}
 								</span>
 							</div>
-						</div>
+						</button>
 					))}
 				</div>
 				<div style={s.detail}>

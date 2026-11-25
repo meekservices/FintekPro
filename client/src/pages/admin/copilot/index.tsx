@@ -163,6 +163,33 @@ export default function AdminCopilotHub() {
 		retry: false,
 	});
 
+	const { data: emailData } = useQuery({
+		queryKey: ["copilot-email-count"],
+		queryFn: async () => {
+			const r = await fetch("/api/admin/copilot/mail/inbox?limit=1");
+			return r.json();
+		},
+		retry: false,
+	});
+
+	const { data: proposalData } = useQuery({
+		queryKey: ["copilot-proposal-count"],
+		queryFn: async () => {
+			const r = await fetch("/api/admin/copilot/proposals?limit=1");
+			return r.json();
+		},
+		retry: false,
+	});
+
+	const { data: auditData } = useQuery({
+		queryKey: ["copilot-audit-count"],
+		queryFn: async () => {
+			const r = await fetch("/api/admin/copilot/audit-logs?limit=1");
+			return r.json();
+		},
+		retry: false,
+	});
+
 	useEffect(() => {
 		const tick = () =>
 			setServerTime(
@@ -175,6 +202,10 @@ export default function AdminCopilotHub() {
 
 	const openAlerts = complianceData?.meta?.total ?? "—";
 	const openTasks = taskData?.meta?.total ?? "—";
+	const totalEmails = emailData?.meta?.total ?? "—";
+	const totalProposals = proposalData?.meta?.total ?? "—";
+	const totalAudits = auditData?.meta?.total ?? "—";
+	const activeAgentCount = health?.data?.agents?.length ?? 10;
 	const isHealthy = health?.data?.status === "ok";
 
 	const phase1 = MODULES.filter((m) => m.phase === 1);
@@ -287,7 +318,7 @@ export default function AdminCopilotHub() {
 					},
 					{
 						label: "Active Agents",
-						value: "5 / 11",
+						value: `${activeAgentCount} / ${MODULES.length}`,
 						icon: "🤖",
 						color: "#6366f1",
 					},
@@ -374,17 +405,23 @@ export default function AdminCopilotHub() {
 									? String(openAlerts)
 									: m.title === "Task Manager"
 										? String(openTasks)
-										: m.stat,
+										: m.title === "Email Intelligence"
+											? String(totalEmails)
+											: m.title === "Proposal Drafts"
+												? String(totalProposals)
+												: m.title === "Audit Logs"
+													? String(totalAudits)
+													: m.stat,
 						}}
 					/>
 				))}
 			</div>
 
-			{/* Phase 2 — Planned */}
+			{/* Phase 2 — Live */}
 			<SectionHeader
 				phase={2}
-				label="Phase 2 — Planned (CRM, Desk, Books, Meeting)"
-				badge="🔵 Coming Soon"
+				label="Phase 2 — Live (CRM, Desk, Books, Meeting)"
+				badge="🟢 Active"
 			/>
 			<div
 				style={{
@@ -395,7 +432,7 @@ export default function AdminCopilotHub() {
 				}}
 			>
 				{phase2.map((m, i) => (
-					<ModuleCardComp key={i} module={m} disabled />
+					<ModuleCardComp key={i} module={m} />
 				))}
 			</div>
 

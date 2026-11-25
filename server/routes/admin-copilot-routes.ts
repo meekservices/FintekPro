@@ -73,6 +73,7 @@ import {
 	aiCrmLeadActions,
 	aiDeskTicketActions,
 } from "@shared/schema/admin-copilot";
+import { zohoConnections } from "@shared/schema";
 import {
 	executiveSubAgentEngine,
 	type ExecutiveRole,
@@ -167,28 +168,44 @@ adminCopilotRouter.get("/health", async (_req, res) => {
 adminCopilotRouter.post("/mail/sync", async (req: Request, res: Response) => {
 	try {
 		const {
-			connectionId,
-			accountId,
+			connectionId: rawConnectionId,
+			accountId: rawAccountId,
 			limit = 50,
 		} = req.body as {
-			connectionId: string;
-			accountId: string;
+			connectionId?: string;
+			accountId?: string;
 			limit?: number;
 		};
-		if (!connectionId || !accountId) {
+
+		let resolvedConnectionId =
+			rawConnectionId && rawConnectionId !== "default"
+				? rawConnectionId
+				: undefined;
+		let resolvedAccountId = rawAccountId?.trim() || process.env.ZOHO_MAIL_ACCOUNT_ID?.trim();
+
+		if (!resolvedConnectionId) {
+			const [conn] = await db
+				.select({ id: zohoConnections.id })
+				.from(zohoConnections)
+				.orderBy(desc(zohoConnections.createdAt))
+				.limit(1);
+			resolvedConnectionId = conn?.id;
+		}
+
+		if (!resolvedConnectionId || !resolvedAccountId) {
 			return res
 				.status(400)
 				.json(
 					errorResponse(
-						"connectionId and accountId are required",
+						"No active Zoho Mail connection or accountId configured",
 						"VALIDATION_ERROR",
 					),
 				);
 		}
 		const adminId = (req as any).user.id;
 		const result = await syncAndClassifyEmails(
-			connectionId,
-			accountId,
+			resolvedConnectionId,
+			resolvedAccountId,
 			adminId,
 			limit,
 		);
@@ -997,6 +1014,21 @@ adminCopilotRouter.get("/meetings", async (req: Request, res: Response) => {
 		res.status(500).json(errorResponse(err.message));
 	}
 });
+adminCopilotRouter.get(
+	"/meetings/no-shows",
+	async (req: Request, res: Response) => {
+		try {
+			const items = await db
+				.select()
+				.from(aiMeetingActions)
+				.where(eq(aiMeetingActions.meetingStatus, "no_show"))
+				.orderBy(desc(aiMeetingActions.scheduledAt));
+			res.json(successResponse(items));
+		} catch (err: any) {
+			res.status(500).json(errorResponse(err.message));
+		}
+	},
+);
 adminCopilotRouter.get("/meetings/:id", async (req: Request, res: Response) => {
 	try {
 		const [meeting] = await db
@@ -1143,22 +1175,6 @@ adminCopilotRouter.get(
 		}
 	},
 );
-adminCopilotRouter.get(
-	"/meetings/no-shows",
-	async (req: Request, res: Response) => {
-		try {
-			const items = await db
-				.select()
-				.from(aiMeetingActions)
-				.where(eq(aiMeetingActions.meetingStatus, "no_show"))
-				.orderBy(desc(aiMeetingActions.scheduledAt));
-			res.json(successResponse(items));
-		} catch (err: any) {
-			res.status(500).json(errorResponse(err.message));
-		}
-	},
-);
-
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPLIANCE ALERTS
 // ─────────────────────────────────────────────────────────────────────────────
