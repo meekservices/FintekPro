@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { activityInsightsService } from "../services/activity-insights-service";
 import { requestLatencyTracker } from "../services/request-latency-tracker";
+import { logger } from "../logger";
 
 const router = Router();
 
@@ -9,7 +10,7 @@ router.get("/metrics", async (_req: Request, res: Response): Promise<void> => {
 		const metrics = await activityInsightsService.getActivityMetrics();
 		res.json({ success: true, metrics });
 	} catch (error) {
-		console.error("[ActivityCentre] Error fetching metrics:", error);
+		logger.error("[ActivityCentre] Error fetching metrics", error as Error);
 		res
 			.status(500)
 			.json({ success: false, message: "Failed to fetch metrics" });
@@ -43,7 +44,7 @@ router.get("/insights", async (_req: Request, res: Response): Promise<void> => {
 			});
 		}
 	} catch (error) {
-		console.error("[ActivityCentre] Error generating insights:", error);
+		logger.error("[ActivityCentre] Error generating insights", error as Error);
 		res
 			.status(500)
 			.json({ success: false, message: "Failed to generate insights" });
@@ -63,7 +64,7 @@ router.post(
 				lastAnalysis: activityInsightsService.getLastAnalysisTime(),
 			});
 		} catch (error) {
-			console.error("[ActivityCentre] Error refreshing insights:", error);
+			logger.error("[ActivityCentre] Error refreshing insights", error as Error);
 			res
 				.status(500)
 				.json({ success: false, message: "Failed to refresh insights" });
@@ -77,7 +78,7 @@ router.get("/activity", async (req: Request, res: Response): Promise<void> => {
 		const activity = await activityInsightsService.getRecentActivity(limit);
 		res.json({ success: true, activity });
 	} catch (error) {
-		console.error("[ActivityCentre] Error fetching activity:", error);
+		logger.error("[ActivityCentre] Error fetching activity", error as Error);
 		res
 			.status(500)
 			.json({ success: false, message: "Failed to fetch activity" });
@@ -91,7 +92,7 @@ router.get(
 			const alerts = await activityInsightsService.getSecurityAlerts();
 			res.json({ success: true, alerts });
 		} catch (error) {
-			console.error("[ActivityCentre] Error fetching security alerts:", error);
+			logger.error("[ActivityCentre] Error fetching security alerts", error as Error);
 			res
 				.status(500)
 				.json({ success: false, message: "Failed to fetch security alerts" });
@@ -105,7 +106,7 @@ router.get("/latency", async (_req: Request, res: Response): Promise<void> => {
 		const slowEndpoints = requestLatencyTracker.getSlowEndpoints();
 		res.json({ success: true, metrics, slowEndpoints });
 	} catch (error) {
-		console.error("[ActivityCentre] Error fetching latency metrics:", error);
+		logger.error("[ActivityCentre] Error fetching latency metrics", error as Error);
 		res
 			.status(500)
 			.json({ success: false, message: "Failed to fetch latency metrics" });
@@ -113,13 +114,13 @@ router.get("/latency", async (_req: Request, res: Response): Promise<void> => {
 });
 
 router.get(
-	"/kyc/stuck-users",
+	["/stuck-kyc", "/kyc/stuck-users"],
 	async (_req: Request, res: Response): Promise<void> => {
 		try {
 			const users = await activityInsightsService.getStuckKycUsers();
 			res.json({ success: true, users });
 		} catch (error) {
-			console.error("[ActivityCentre] Error fetching stuck KYC users:", error);
+			logger.error("[ActivityCentre] Error fetching stuck KYC users", error as Error);
 			res
 				.status(500)
 				.json({ success: false, message: "Failed to fetch stuck KYC users" });

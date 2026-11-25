@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import type { Request, Response, NextFunction } from "express";
+import { logger } from "../logger";
 
 /**
  * Zoho Webhook Signature Validator
@@ -23,7 +25,7 @@ export class ZohoWebhookValidator {
 		webhookSecret: string,
 	): boolean {
 		if (!signature || !webhookSecret) {
-			console.warn("Missing signature or webhook secret");
+			logger.warn("Missing signature or webhook secret");
 			return false;
 		}
 
@@ -39,7 +41,7 @@ export class ZohoWebhookValidator {
 				Buffer.from(computedSignature),
 			);
 		} catch (error) {
-			console.error("Webhook signature validation error:", error);
+			logger.error("Webhook signature validation error", error as Error);
 			return false;
 		}
 	}
@@ -55,7 +57,7 @@ export class ZohoWebhookValidator {
 		checksum: string | undefined,
 	): boolean {
 		if (!checksum) {
-			console.warn("Missing payload checksum");
+			logger.warn("Missing payload checksum");
 			return false;
 		}
 
@@ -67,7 +69,7 @@ export class ZohoWebhookValidator {
 
 			return checksum.toLowerCase() === computedChecksum.toLowerCase();
 		} catch (error) {
-			console.error("Webhook checksum validation error:", error);
+			logger.error("Webhook checksum validation error", error as Error);
 			return false;
 		}
 	}
@@ -120,19 +122,19 @@ export class ZohoWebhookValidator {
  * Express middleware for webhook validation
  */
 export function validateZohoWebhook(webhookSecret: string) {
-	return (req: any, res: any, next: any) => {
+	return (req: Request, res: Response, next: NextFunction) => {
 		// Get raw body (must be string)
 		const rawBody = JSON.stringify(req.body);
 
 		// Validate webhook
 		const validation = ZohoWebhookValidator.validate(
 			rawBody,
-			req.headers,
+			req.headers as Record<string, string | undefined>,
 			webhookSecret,
 		);
 
 		if (!validation.valid) {
-			console.warn(`Webhook validation failed: ${validation.reason}`);
+			logger.warn(`Webhook validation failed: ${validation.reason}`);
 			return res.status(401).json({
 				message: "Webhook validation failed",
 				reason: validation.reason,

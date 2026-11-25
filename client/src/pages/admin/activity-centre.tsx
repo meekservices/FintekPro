@@ -1087,7 +1087,7 @@ function ErrorSupportReport({
 }: { error: ErrorEntry; onClose: () => void }) {
 	const { toast } = useToast();
 	const { data: report, isLoading } = useQuery<SupportReportData>({
-		queryKey: [`/api/errors/${error.id}/report`],
+		queryKey: [`/api/errors/support-report/${error.id}`],
 	});
 
 	const copyToClipboard = (text: string) => {

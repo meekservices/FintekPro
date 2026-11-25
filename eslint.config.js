@@ -36,9 +36,17 @@ export default [
     },
   },
 
+  // ── CLI, seed, and boot scripts — console output is intentional ──────────
+  {
+    files: ["server/scripts/**/*.ts", "server/startup/**/*.ts", "server/test-*.ts"],
+    rules: {
+      "no-console": "off",
+    },
+  },
+
   // ── Test files — relax strict rules ──────────────────────────────────────
   {
-    files: ["tests/**/*.ts", "*.spec.ts", "*.test.ts"],
+    files: ["tests/**/*.ts", "server/tests/**/*.ts", "**/*.spec.ts", "**/*.test.ts"],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
       "no-console": "off",

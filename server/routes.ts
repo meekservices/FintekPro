@@ -113,6 +113,28 @@ import { registerAgentAdvisoryPart2Routes } from "./routes/agent-advisory-2";
 import { registerAgentAdvisoryPart3Routes } from "./routes/agent-advisory-3";
 import { registerAgentProspectAcquisitionPart1Routes } from "./routes/agent-prospect-acquisition-1";
 import testerDiagnosticsRoutes from "./routes/tester-diagnostics-routes";
+import activityCentreRouter from "./routes/activity-centre-routes";
+import taskOversightRouter from "./routes/task-oversight-routes";
+import unifiedAdvisoryRouter from "./routes/unified-advisory-routes";
+import aiRecommendationTrackingRouter from "./routes/ai-recommendation-tracking-routes";
+import selfHealingRouter from "./routes/self-healing-routes";
+import aiRebalancingRouter from "./routes/ai-rebalancing-routes";
+import institutionalRouter from "./routes/institutional-routes";
+import mfAnalyticsAdminRouter from "./routes/mf-analytics-admin";
+import onboardingInvitationsRouter from "./routes/onboarding-invitations";
+import portfolioReportsRouter from "./routes/portfolio-reports";
+import truthscreenEaadhaarRouter from "./routes/truthscreen-eaadhaar-routes";
+import { registerAIInvestmentOrchestratorRoutes } from "./routes/ai-investment-orchestrator-routes";
+import { registerBBPSPanConsentRoutes } from "./routes/bbps-pan-consent";
+import { registerCommoditiesMarketRoutes } from "./routes/commodities-market";
+import { registerM2PCardRoutes } from "./routes/m2p-card-routes";
+import { registerMFEnrichmentRoutes } from "./routes/mf-enrichment-routes";
+import { registerProfitOptimizedRoutes } from "./routes/profit-optimized-routes";
+import { registerEntityLockerRoutes } from "./routes/sandbox-entitylocker";
+import { registerSandboxITReportRoutes } from "./routes/sandbox-it-report";
+import { registerSandboxWebhookRoutes } from "./routes/sandbox-webhooks";
+import { registerSecurityMasterCreditRatingRoutes } from "./routes/security-master-credit-ratings";
+import { requireAdmin, requireAuth } from "./middleware/roleMiddleware";
 import researchNoteRouter from "./routes/research-note-routes";
 import researchWorkspaceRouter from "./routes/research-workspace";
 import smallcaseRouter from "./routes/smallcase-routes";
@@ -522,6 +544,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	// Error tracking routes — must be mounted WITHOUT CSRF for /ingest
 	// (called from ErrorBoundary/componentDidCatch where no CSRF token is available)
 	app.use("/api/errors", errorTrackingRouter);
+	app.use("/api/activity-centre", requireAdmin, activityCentreRouter);
+	app.use("/api/admin/task-oversight", requireAdmin, taskOversightRouter);
+	app.use("/api/admin/self-healing", requireAdmin, selfHealingRouter);
+	app.use("/api/ai-recommendations-tracking", requireAdmin, aiRecommendationTrackingRouter);
+	app.use("/api/unified-advisory", requireAuth, unifiedAdvisoryRouter);
+
+	// ── Previously-unmounted full-path feature routers ────────────────────────
+	app.use(aiRebalancingRouter);
+	app.use(institutionalRouter);
+	app.use(mfAnalyticsAdminRouter);
+	app.use(onboardingInvitationsRouter);
+	app.use(portfolioReportsRouter);
+	app.use(truthscreenEaadhaarRouter);
+	registerAIInvestmentOrchestratorRoutes(app);
+	registerBBPSPanConsentRoutes(app);
+	registerCommoditiesMarketRoutes(app);
+	registerM2PCardRoutes(app);
+	registerMFEnrichmentRoutes(app);
+	registerProfitOptimizedRoutes(app);
+	registerEntityLockerRoutes(app);
+	registerSandboxITReportRoutes(app);
+	registerSandboxWebhookRoutes(app);
+	registerSecurityMasterCreditRatingRoutes(app);
 
 	// ── FIX: Register previously-missing route modules ────────────────────────
 	// These routes were defined in server route files but never wired to Express,
