@@ -761,6 +761,57 @@ export default function ExecutiveDeskPage({ initialRole = "coo" }: { initialRole
 		refetchInterval: currentRole === "cto" ? 30000 : false,
 	});
 
+	// ── CFO OpenAI $20 Paid Fallback Budget Query & Controls ───────────────────
+	const { data: aiBudgetResponse, refetch: refetchAiBudget } = useQuery<{
+		success: boolean;
+		data: {
+			totalCreditsUsd: number;
+			totalCapUsd: number;
+			dailyCapUsd: number;
+			totalSpendUsd: number;
+			dailySpendUsd: number;
+			remainingCreditsUsd: number;
+			dailyRequests: number;
+			totalRequests: number;
+			paused: boolean;
+			fallbackModel: string;
+			freeTierFirstEnforced: boolean;
+			canUsePaidFallback: boolean;
+			blockReason: string | null;
+		};
+	}>({
+		queryKey: ["/api/admin/copilot/ai-budget"],
+		queryFn: async () => {
+			const res = await apiRequest("GET", "/api/admin/copilot/ai-budget");
+			return res.json();
+		},
+		enabled: currentRole === "cfo",
+		refetchInterval: currentRole === "cfo" ? 30000 : false,
+	});
+
+	const aiBudget = aiBudgetResponse?.data;
+
+	const updateAiBudgetMutation = useMutation({
+		mutationFn: async (payload: { dailyCapUsd?: number; paused?: boolean }) => {
+			const res = await apiRequest("POST", "/api/admin/copilot/ai-budget", payload);
+			return res.json();
+		},
+		onSuccess: () => {
+			refetchAiBudget();
+			toast({
+				title: "OpenAI Fallback Budget Updated",
+				description: "Iris-CFO spend guardrails updated.",
+			});
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Failed to Update AI Budget",
+				description: err.message,
+				variant: "destructive",
+			});
+		},
+	});
+
 	const ctoData = ctoCockpitResponse?.data;
 
 	const drDrillMutation = useMutation({
@@ -1621,6 +1672,50 @@ export default function ExecutiveDeskPage({ initialRole = "coo" }: { initialRole
 						</div>
 					</div>
 				</div>
+
+				{/* Iris-CFO OpenAI $20 Paid Fallback Guard */}
+				{currentRole === "cfo" && aiBudget && (
+					<div className="mt-4 p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-950/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+						<div className="space-y-1">
+							<div className="flex flex-wrap items-center gap-2">
+								<span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+									OpenAI Paid Fallback Guard ({aiBudget.fallbackModel})
+								</span>
+								<Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-mono">
+									{aiBudget.paused ? "PAUSED" : aiBudget.canUsePaidFallback ? "FREE-TIER FIRST · ARMED" : "CAPPED"}
+								</Badge>
+							</div>
+							<p className="text-xs text-muted-foreground">
+								Balance: <strong className="text-foreground font-mono">${aiBudget.remainingCreditsUsd.toFixed(2)} / ${aiBudget.totalCreditsUsd.toFixed(2)}</strong>
+								{" · "}Today: <strong className="text-foreground font-mono">${aiBudget.dailySpendUsd.toFixed(4)} / ${aiBudget.dailyCapUsd.toFixed(2)}</strong>
+								{" · "}Requests: <strong className="text-foreground font-mono">{aiBudget.dailyRequests} today ({aiBudget.totalRequests} total)</strong>
+							</p>
+						</div>
+						<div className="flex flex-wrap items-center gap-1.5">
+							{[0.25, 0.5, 1.0].map((cap) => (
+								<Button
+									key={cap}
+									size="sm"
+									variant={aiBudget.dailyCapUsd === cap ? "default" : "outline"}
+									className="h-7 px-2.5 text-xs font-mono"
+									disabled={updateAiBudgetMutation.isPending}
+									onClick={() => updateAiBudgetMutation.mutate({ dailyCapUsd: cap })}
+								>
+									${cap.toFixed(2)}/day
+								</Button>
+							))}
+							<Button
+								size="sm"
+								variant={aiBudget.paused ? "default" : "destructive"}
+								className="h-7 px-3 text-xs"
+								disabled={updateAiBudgetMutation.isPending}
+								onClick={() => updateAiBudgetMutation.mutate({ paused: !aiBudget.paused })}
+							>
+								{aiBudget.paused ? "Resume Fallback" : "Pause Fallback"}
+							</Button>
+						</div>
+					</div>
+				)}
 			</div>
 
 			{/* Iris AI Master Orchestrator & Team Mentorship Directive */}

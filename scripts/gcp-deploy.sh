@@ -414,7 +414,7 @@ gcloud run jobs update fintekpro-picks \
     --set-env-vars="NODE_OPTIONS=--max-old-space-size=3072" \
     --command="node" \
     --args="dist/jobs/picks.js" \
-    --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,INDIAN_API_KEY=INDIAN_API_KEY:latest" \
+    --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,GROQ_API_KEY=GROQ_API_KEY:latest,CEREBRAS_API_KEY=CEREBRAS_API_KEY:latest,CLOUDFLARE_API_KEY=CLOUDFLARE_API_KEY:latest,CLOUDFLARE_ACCOUNT_ID=CLOUDFLARE_ACCOUNT_ID:latest,OPENROUTER_API_KEY=OPENROUTER_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,INDIAN_API_KEY=INDIAN_API_KEY:latest,UPSTOX_ACCESS_TOKEN=UPSTOX_ACCESS_TOKEN:latest,FMP_API_KEY=FMP_API_KEY:latest,ALPHA_VANTAGE_API_KEY=ALPHA_VANTAGE_API_KEY:latest" \
     --max-retries=1 \
     --task-timeout=1200 \
     2>&1 | tail -3
@@ -441,7 +441,7 @@ else
       --image=asia-south1-docker.pkg.dev/${PROJECT_ID}/fintekpro-repo/fintekpro-app:latest \
       --project=$PROJECT_ID \
       --region=$REGION \
-      --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
+      --set-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
       --memory=2Gi \
       --cpu=2 \
       --set-env-vars="NODE_OPTIONS=--max-old-space-size=1536" \
@@ -474,7 +474,7 @@ else
       --image=asia-south1-docker.pkg.dev/${PROJECT_ID}/fintekpro-repo/fintekpro-app:latest \
       --project=$PROJECT_ID \
       --region=$REGION \
-      --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
+      --set-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
       --memory=2Gi \
       --cpu=1 \
       --command="node" \

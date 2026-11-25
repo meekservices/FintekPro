@@ -233,6 +233,14 @@ export class ExecutiveSubAgentEngine {
 
 	// ── 2. Iris-CFO Sub-Agent ──────────────────────────────────────────────────
 	private async getCFOStatus(): Promise<DeskSubAgentStatus> {
+		const { aiService } = await import("../ai-service");
+		const aiBudget = aiService.getOpenAIBudgetStatus();
+		const fallbackState = aiBudget.paused
+			? "PAUSED"
+			: aiBudget.canUsePaidFallback
+				? `ARMED (${aiBudget.fallbackModel})`
+				: `CAPPED (${aiBudget.blockReason})`;
+
 		return {
 			role: "cfo",
 			agentName: "Iris-CFO (Treasury & Revenue Realization Sentinel)",
@@ -243,12 +251,15 @@ export class ExecutiveSubAgentEngine {
 			lastAuditAt: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
 			eventsProcessedToday: 412,
 			executiveBrief:
-				"Monthly net realized revenue stands at ₹48.2 Lakhs with clearing rebate revenues of ₹14.2 Lakhs across Upstox and Alpaca. Net take-rate is safeguarded at 1.82% after partner commission provisions. Collection velocity is 98.4% on-time. Vendor cloud/AI cost burn is contained at 3.1% of gross revenue.",
+				`Monthly net realized revenue stands at ₹48.2 Lakhs with clearing rebate revenues of ₹14.2 Lakhs across Upstox and Alpaca. Net take-rate is safeguarded at 1.82% after partner commission provisions. Paid OpenAI fallback (${aiBudget.fallbackModel}) is ${fallbackState} with $${aiBudget.remainingCreditsUsd.toFixed(2)}/$${aiBudget.totalCreditsUsd.toFixed(2)} remaining (today's burn: $${aiBudget.dailySpendUsd.toFixed(4)} / $${aiBudget.dailyCapUsd.toFixed(2)} cap).`,
 			keyMetrics: {
 				monthlyNetRevenue: "₹48.2 Lakhs",
 				clearingRebates: "₹14.2 Lakhs",
 				netTakeRate: "1.82%",
 				pendingPayoutClaims: "₹12.8 Lakhs",
+				openAiBudgetRemaining: `$${aiBudget.remainingCreditsUsd.toFixed(2)} / $${aiBudget.totalCreditsUsd.toFixed(2)}`,
+				openAiDailySpend: `$${aiBudget.dailySpendUsd.toFixed(4)} / $${aiBudget.dailyCapUsd.toFixed(2)}`,
+				openAiFallbackState: fallbackState,
 			},
 			pendingDrafts: [
 				{

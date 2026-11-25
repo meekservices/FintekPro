@@ -859,6 +859,56 @@ export class PickOfTheDayService {
 						}
 					}
 
+					// ── Cross-Asset Concentration Agent ──────────────────────────────────
+					try {
+						const { evaluateCrossAssetConcentration } = await import("./picks/cross-asset-concentration-agent");
+						const crossAsset = evaluateCrossAssetConcentration(pick, generated);
+						if (!crossAsset.allowed) {
+							sectorGateBlocked++;
+							logger.info(`⚠️ [PickOfTheDay] ${crossAsset.reason}`, {
+								event: "CROSS_ASSET_CONCENTRATION_BLOCKED",
+								instrument: pick.instrumentName,
+								category,
+								theme: crossAsset.normalizedTheme,
+							});
+							continue;
+						}
+						if (pick.keyMetrics && typeof pick.keyMetrics === "object") {
+							(pick.keyMetrics as any).cross_asset_concentration = crossAsset;
+						}
+						if (crossAsset.penaltyApplied > 0) {
+							pick.confidenceScore = Math.max(
+								calibratedMinThreshold,
+								(pick.confidenceScore ?? 65) - crossAsset.penaltyApplied,
+							);
+						}
+					} catch (crossErr) {
+						logger.warn(`[PickOfTheDay] Cross-asset concentration check skipped (non-fatal): ${crossErr}`);
+					}
+
+					// ── Bear-Case Critique Agent (Devil's Advocate) ──────────────────────
+					try {
+						const { runBearCaseCritique } = await import("./picks/bear-case-critique-agent");
+						const critique = await runBearCaseCritique(pick, {
+							useAi: false,
+							minConfidenceFloor: calibratedMinThreshold,
+						});
+						pick.confidenceScore = critique.adjustedConfidence;
+						if (pick.keyMetrics && typeof pick.keyMetrics === "object") {
+							if (critique.downgradedSignal) {
+								(pick.keyMetrics as any).signal = critique.finalSignal;
+							}
+							(pick.keyMetrics as any).bear_case_critique = critique;
+						}
+						if (critique.flags.length > 0) {
+							logger.info(
+								`🔍 [PickOfTheDay] Bear-case critique for ${pick.instrumentName}: ${critique.flags.join("; ")}${critique.downgradedSignal ? " (downgraded strong_buy -> buy)" : ""}`,
+							);
+						}
+					} catch (critiqueErr) {
+						logger.warn(`[PickOfTheDay] Bear-case critique skipped (non-fatal): ${critiqueErr}`);
+					}
+
 					await this.savePick(pick);
 
 					// ── Phase 3: GCS Automated 1-Page PDF Investment Note ────────────────

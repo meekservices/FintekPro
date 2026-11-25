@@ -7,11 +7,11 @@ import { logger } from "../logger";
 
 // the newest OpenAI model is "gpt-4o" which was released August 7, 2025. do not change this unless explicitly requested by the user
 
-// OpenAI — DISABLED. We use Gemini (free tier) as primary.
-// Groq / Cerebras / Cloudflare still import OpenAI as an OpenAI-compatible client
-// (different base URLs), so the import is kept above but the OpenAI clients are null.
+// OpenAI — Paid safety-net fallback (only reached if all free-tier providers fail/429).
 const openaiIntegrations = null;
-const openaiDirect = null;
+const openaiDirect = process.env.OPENAI_API_KEY
+	? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+	: null;
 
 // Groq — free tier (14,400 req/day). Get key: https://console.groq.com/keys
 const groq = process.env.GROQ_API_KEY
@@ -33,7 +33,7 @@ const cerebras = process.env.CEREBRAS_API_KEY
 			apiKey: process.env.CEREBRAS_API_KEY,
 		})
 	: null;
-const CEREBRAS_DEFAULT_MODEL = "llama-3.3-70b";
+const CEREBRAS_DEFAULT_MODEL = "gpt-oss-120b";
 
 // Cloudflare Workers AI — free forever on the free plan. Get key: https://dash.cloudflare.com
 // Uses OpenAI-compatible endpoint via the AI Gateway
@@ -48,6 +48,20 @@ const cloudflare =
 		: null;
 const CLOUDFLARE_DEFAULT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
+// OpenRouter — free tier & community models. Get key: https://openrouter.ai/keys
+const openrouterApiKey = process.env.OPENROUTER_API_KEY;
+const openrouter = openrouterApiKey
+	? new OpenAI({
+			baseURL: "https://openrouter.ai/api/v1",
+			apiKey: openrouterApiKey,
+			defaultHeaders: {
+				"HTTP-Referer": "https://fintekpro.com",
+				"X-Title": "FintekPro",
+			},
+		})
+	: null;
+const OPENROUTER_DEFAULT_MODEL = "nvidia/nemotron-3.5-lightning:free";
+
 // Anthropic Claude — best instruction-following. Get key: https://console.anthropic.com
 // Uses OpenAI-compatible endpoint via a thin wrapper if ANTHROPIC_API_KEY is set
 const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
@@ -59,16 +73,20 @@ export type AIProvider =
 	| "groq"
 	| "cerebras"
 	| "cloudflare"
+	| "openrouter"
 	| "anthropic";
 export type AIModel =
 	// ── OpenAI ──────────────────────────────────────────────────────────────
+	| "gpt-5-nano" // Ultra-low-cost paid safety-net ($0.05/1M in, $0.40/1M out)
 	| "gpt-4o" // Best reasoning (quota-heavy)
 	| "gpt-4o-mini" // 30x cheaper than gpt-4o, ~95% quality
 	| "o4-mini" // Reasoning model — best for complex analysis
 	// ── Gemini (Google) ─────────────────────────────────────────────────────
 	| "gemini-2.5-flash" // Stable GA — fast + multimodal, free 15 rpm
 	| "gemini-2.5-flash-lite" // Ultra-cheap fast fallback (2.5 family)
-	| "gemini-2.0-flash" // Full Flash — still available
+	| "gemini-3.5-flash" // Next-gen multimodal flash
+	| "gemini-3.5-flash-lite" // Next-gen lightweight fast fallback
+	| "gemini-2.0-flash" // Full Flash — legacy alias
 	// ── Groq (free tier, OpenAI-compatible) ─────────────────────────────────
 	| "openai/gpt-oss-120b"                          // Groq flagship reasoning model
 	| "openai/gpt-oss-20b"                           // Groq fast reasoning model
@@ -77,12 +95,18 @@ export type AIModel =
 	| "llama-3.1-8b-instant"                          // Bulk processing (if enabled)
 	| "groq/compound"                                 // Groq auto-router
 	| "groq/compound-mini"                            // Groq auto-router — lightweight tasks
-	// ── Cerebras (free tier, fastest inference) ────────────────────────────
-	| "llama-3.3-70b" // Llama 3.3 70B on Cerebras — ultra-fast
-	| "llama3.1-8b"   // Llama 3.1 8B on Cerebras — fast lightweight
+	// ── Cerebras (OpenAI-compatible) ───────────────────────────────────────
+	| "gpt-oss-120b" // Flagship reasoning on Cerebras
+	| "qwen-3.8-27b" // Fast Qwen 3.8 27B on Cerebras
+	| "llama-3.3-70b" // Legacy alias
+	| "llama3.1-8b"   // Legacy alias
 	// ── Cloudflare Workers AI (free forever) ────────────────────────────────
 	| "@cf/meta/llama-3.3-70b-instruct-fp8-fast" // Llama 3.3 70B on Cloudflare — free
 	| "@cf/meta/llama-3.1-8b-instruct" // Llama 3.1 8B on Cloudflare — free
+	// ── OpenRouter (free tier, OpenAI-compatible) ───────────────────────────
+	| "nvidia/nemotron-3.5-lightning:free"
+	| "liquid/lfm-3-1.7b:free"
+	| "baidu/ernie-5.5-flash-preview:free"
 	// ── Anthropic ───────────────────────────────────────────────────────────
 	| "claude-3-5-haiku-20241022" // Best instruction-following, $0.80/1M tok
 	| "claude-3-5-sonnet-20241022"; // Best overall Anthropic model
@@ -129,6 +153,24 @@ export interface AIUsageMetrics {
 	totalTokens: number;
 	requestId: string;
 	timestamp: Date;
+}
+
+export interface OpenAIBudgetStatus {
+	totalCreditsUsd: number;
+	totalCapUsd: number;
+	dailyCapUsd: number;
+	totalSpendUsd: number;
+	dailySpendUsd: number;
+	remainingCreditsUsd: number;
+	dailyRequests: number;
+	totalRequests: number;
+	paused: boolean;
+	fallbackModel: string;
+	freeTierFirstEnforced: boolean;
+	lastUsedAt: string | null;
+	lastResetDateIst: string;
+	canUsePaidFallback: boolean;
+	blockReason: string | null;
 }
 
 // ── AI Error Deduplication Map ──────────────────────────────────────────────
@@ -187,9 +229,110 @@ export class AIService {
 		groq: { healthy: true, lastErrorTime: 0 },
 		cerebras: { healthy: true, lastErrorTime: 0 },
 		cloudflare: { healthy: true, lastErrorTime: 0 },
+		openrouter: { healthy: true, lastErrorTime: 0 },
 		anthropic: { healthy: true, lastErrorTime: 0 },
 	};
 	private COOL_DOWN_MS = 5 * 60 * 1000; // 5 minutes cool-down for 429s
+
+	// ── OpenAI $20 Paid Fallback Budget Guard (managed by Iris-CFO Desk) ──
+	private openAiBudget = {
+		totalCreditsUsd: 20.0,
+		totalCapUsd: 18.0, // Keep $2.00 safety buffer
+		dailyCapUsd: 0.5, // Judicious daily cap (~145 full POTD runs/day on gpt-5-nano)
+		totalSpendUsd: 0,
+		dailySpendUsd: 0,
+		dailyRequests: 0,
+		totalRequests: 0,
+		paused: false,
+		lastUsedAt: null as string | null,
+		lastResetDateIst: new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().split("T")[0],
+	};
+
+	private syncOpenAiDailyWindow(): void {
+		const todayIst = new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().split("T")[0];
+		if (this.openAiBudget.lastResetDateIst !== todayIst) {
+			this.openAiBudget.dailySpendUsd = 0;
+			this.openAiBudget.dailyRequests = 0;
+			this.openAiBudget.lastResetDateIst = todayIst;
+		}
+	}
+
+	private estimateOpenAiCostUsd(model: string, promptTokens: number, completionTokens: number): number {
+		// Per-1M token rates (USD)
+		const rates: Record<string, { inPerM: number; outPerM: number }> = {
+			"gpt-5-nano": { inPerM: 0.05, outPerM: 0.4 },
+			"gpt-4.1-nano": { inPerM: 0.1, outPerM: 0.4 },
+			"gpt-4o-mini": { inPerM: 0.15, outPerM: 0.6 },
+			"gpt-4o": { inPerM: 2.5, outPerM: 10.0 },
+		};
+		const r = rates[model] ?? rates["gpt-5-nano"];
+		return (promptTokens / 1_000_000) * r.inPerM + (completionTokens / 1_000_000) * r.outPerM;
+	}
+
+	private recordOpenAiSpend(model: string, promptTokens: number, completionTokens: number): void {
+		this.syncOpenAiDailyWindow();
+		const cost = this.estimateOpenAiCostUsd(model, promptTokens, completionTokens);
+		this.openAiBudget.dailySpendUsd = Number((this.openAiBudget.dailySpendUsd + cost).toFixed(6));
+		this.openAiBudget.totalSpendUsd = Number((this.openAiBudget.totalSpendUsd + cost).toFixed(6));
+		this.openAiBudget.dailyRequests += 1;
+		this.openAiBudget.totalRequests += 1;
+		this.openAiBudget.lastUsedAt = new Date().toISOString();
+	}
+
+	public getOpenAIBudgetStatus(): OpenAIBudgetStatus {
+		this.syncOpenAiDailyWindow();
+		const remaining = Math.max(0, Number((this.openAiBudget.totalCreditsUsd - this.openAiBudget.totalSpendUsd).toFixed(4)));
+		let blockReason: string | null = null;
+		if (this.openAiBudget.paused) blockReason = "Paused by Iris-CFO Executive Desk";
+		else if (this.openAiBudget.dailySpendUsd >= this.openAiBudget.dailyCapUsd) blockReason = "Daily spend cap reached";
+		else if (this.openAiBudget.totalSpendUsd >= this.openAiBudget.totalCapUsd) blockReason = "Total safety cap reached";
+
+		return {
+			totalCreditsUsd: this.openAiBudget.totalCreditsUsd,
+			totalCapUsd: this.openAiBudget.totalCapUsd,
+			dailyCapUsd: this.openAiBudget.dailyCapUsd,
+			totalSpendUsd: Number(this.openAiBudget.totalSpendUsd.toFixed(4)),
+			dailySpendUsd: Number(this.openAiBudget.dailySpendUsd.toFixed(4)),
+			remainingCreditsUsd: remaining,
+			dailyRequests: this.openAiBudget.dailyRequests,
+			totalRequests: this.openAiBudget.totalRequests,
+			paused: this.openAiBudget.paused,
+			fallbackModel: "gpt-5-nano",
+			freeTierFirstEnforced: true,
+			lastUsedAt: this.openAiBudget.lastUsedAt,
+			lastResetDateIst: this.openAiBudget.lastResetDateIst,
+			canUsePaidFallback: blockReason === null,
+			blockReason,
+		};
+	}
+
+	public updateOpenAIBudgetConfig(patch: {
+		dailyCapUsd?: number;
+		totalCapUsd?: number;
+		paused?: boolean;
+	}): OpenAIBudgetStatus {
+		if (typeof patch.dailyCapUsd === "number" && Number.isFinite(patch.dailyCapUsd)) {
+			this.openAiBudget.dailyCapUsd = Math.max(0, Math.min(this.openAiBudget.totalCreditsUsd, patch.dailyCapUsd));
+		}
+		if (typeof patch.totalCapUsd === "number" && Number.isFinite(patch.totalCapUsd)) {
+			this.openAiBudget.totalCapUsd = Math.max(0, Math.min(this.openAiBudget.totalCreditsUsd, patch.totalCapUsd));
+		}
+		if (typeof patch.paused === "boolean") {
+			this.openAiBudget.paused = patch.paused;
+		}
+		logger.info("[AIService] OpenAI fallback budget updated", {
+			event: "OPENAI_BUDGET_CONFIG_UPDATED",
+			...this.getOpenAIBudgetStatus(),
+		});
+		return this.getOpenAIBudgetStatus();
+	}
+
+	public resetOpenAIDailySpend(): OpenAIBudgetStatus {
+		this.openAiBudget.dailySpendUsd = 0;
+		this.openAiBudget.dailyRequests = 0;
+		this.openAiBudget.lastResetDateIst = new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().split("T")[0];
+		return this.getOpenAIBudgetStatus();
+	}
 
 	/**
 	 * Per-provider concurrency limiter.
@@ -201,6 +344,7 @@ export class AIService {
 		groq: 8, // Free tier TPM limit is generous but TPD is finite
 		cerebras: 5, // Free tier is narrow — cap tightly
 		cloudflare: 6,
+		openrouter: 6, // Free tier rate limits: 20 RPM
 		anthropic: 4,
 		openai: 4,
 		"openai-direct": 4,
@@ -374,7 +518,7 @@ export class AIService {
 				initialModel = "openai/gpt-oss-120b";
 			} else if (cerebras && this.isProviderHealthy("cerebras")) {
 				initialProvider = "cerebras";
-				initialModel = "llama-3.3-70b";
+				initialModel = "gpt-oss-120b";
 			} else {
 				initialProvider = "gemini";
 				initialModel = "gemini-2.5-flash";
@@ -388,7 +532,7 @@ export class AIService {
 				initialModel = "gemini-2.5-flash";
 			} else if (cerebras && this.isProviderHealthy("cerebras")) {
 				initialProvider = "cerebras";
-				initialModel = "llama3.1-8b";
+				initialModel = "qwen-3.8-27b";
 			} else {
 				initialProvider = "gemini";
 				initialModel = "gemini-2.5-flash";
@@ -402,7 +546,7 @@ export class AIService {
 				initialModel = "openai/gpt-oss-120b";
 			} else if (cerebras && this.isProviderHealthy("cerebras")) {
 				initialProvider = "cerebras";
-				initialModel = "llama-3.3-70b";
+				initialModel = "gpt-oss-120b";
 			} else {
 				initialProvider = "gemini";
 				initialModel = "gemini-2.5-flash";
@@ -410,23 +554,37 @@ export class AIService {
 		}
 
 		// Two capability-aware fallback chains:
-		//   SPEED chain (OPTIMIZED): Groq 20b → Gemini 2.5 Flash → Groq 120b → Cerebras → Cloudflare
-		//   QUALITY chain (SUPERIOR/STANDARD): Gemini 2.5 Flash → Groq 120b → Groq 20b → Cerebras → Cloudflare
+		//   SPEED chain (OPTIMIZED): Groq Qwen 27b → Groq 20b → Gemini 3.5 Lite → Gemini 2.5 Lite → Gemini 3.5 Flash → Gemini 2.5 Flash → Groq 120b → Cerebras → Cloudflare → OpenAI gpt-5-nano (safety net)
+		//   QUALITY chain (SUPERIOR/STANDARD): Gemini 2.5 Flash → Gemini 3.5 Flash → Gemini 2.5 Lite → Gemini 3.5 Lite → Groq 120b → Groq 20b → Groq Qwen 27b → Cerebras → Cloudflare → OpenAI gpt-5-nano (safety net)
 		const speedFallbackChain: { provider: AIProvider; model: AIModel }[] = [
+			{ provider: "groq", model: "qwen/qwen3.8-27b" },
 			{ provider: "groq", model: "openai/gpt-oss-20b" },
+			{ provider: "gemini", model: "gemini-3.5-flash-lite" },
+			{ provider: "gemini", model: "gemini-2.5-flash-lite" },
+			{ provider: "gemini", model: "gemini-3.5-flash" },
 			{ provider: "gemini", model: "gemini-2.5-flash" },
 			{ provider: "groq", model: "openai/gpt-oss-120b" },
-			{ provider: "cerebras", model: "llama3.1-8b" },
-			{ provider: "cerebras", model: "llama-3.3-70b" },
+			{ provider: "cerebras", model: "qwen-3.8-27b" },
+			{ provider: "cerebras", model: "gpt-oss-120b" },
 			{ provider: "cloudflare", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast" },
+			{ provider: "openrouter", model: "nvidia/nemotron-3.5-lightning:free" },
+			{ provider: "openrouter", model: "liquid/lfm-3-1.7b:free" },
+			{ provider: "openai-direct", model: "gpt-5-nano" },
 		];
 
 		const qualityFallbackChain: { provider: AIProvider; model: AIModel }[] = [
 			{ provider: "gemini", model: "gemini-2.5-flash" },
+			{ provider: "gemini", model: "gemini-3.5-flash" },
+			{ provider: "gemini", model: "gemini-2.5-flash-lite" },
+			{ provider: "gemini", model: "gemini-3.5-flash-lite" },
 			{ provider: "groq", model: "openai/gpt-oss-120b" },
 			{ provider: "groq", model: "openai/gpt-oss-20b" },
-			{ provider: "cerebras", model: "llama-3.3-70b" },
+			{ provider: "groq", model: "qwen/qwen3.8-27b" },
+			{ provider: "cerebras", model: "gpt-oss-120b" },
 			{ provider: "cloudflare", model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast" },
+			{ provider: "openrouter", model: "nvidia/nemotron-3.5-lightning:free" },
+			{ provider: "openrouter", model: "liquid/lfm-3-1.7b:free" },
+			{ provider: "openai-direct", model: "gpt-5-nano" },
 		];
 
 		const fallbackChain =
@@ -449,6 +607,17 @@ export class AIService {
 					event: "AI_PROVIDER_SKIPPED", provider, status: "unhealthy",
 				});
 				continue;
+			}
+
+			if (provider === "openai" || provider === "openai-direct") {
+				const budget = this.getOpenAIBudgetStatus();
+				if (!budget.canUsePaidFallback) {
+					logger.warn(`[AIService] OpenAI paid fallback blocked: ${budget.blockReason}`, {
+						event: "OPENAI_BUDGET_GUARD_BLOCKED",
+						...budget,
+					});
+					continue;
+				}
 			}
 
 			// Acquire a concurrency slot (waits if provider is at cap)
@@ -488,6 +657,13 @@ export class AIService {
 						);
 					} else if (provider === "cloudflare" && cloudflare) {
 						result = await this.chatWithCloudflare(
+							messages,
+							model,
+							temperature,
+							maxTokens,
+						);
+					} else if (provider === "openrouter" && openrouter) {
+						result = await this.chatWithOpenRouter(
 							messages,
 							model,
 							temperature,
@@ -801,7 +977,11 @@ export class AIService {
 		maxTokens: number,
 		stream: boolean,
 	): Promise<{ content: string; usage: AIUsageMetrics }> {
-		const isO1 = model.startsWith("o1-");
+		const isReasoningOrGpt5 =
+			model.startsWith("o1-") ||
+			model.startsWith("o3-") ||
+			model.startsWith("o4-") ||
+			model.startsWith("gpt-5");
 		const client = openaiDirect || openaiIntegrations;
 		if (!client) {
 			throw new Error(
@@ -811,9 +991,9 @@ export class AIService {
 		const response = await client.chat.completions.create({
 			model,
 			messages,
-			temperature: isO1 ? undefined : temperature,
-			max_completion_tokens: isO1 ? maxTokens : undefined,
-			max_tokens: !isO1 ? maxTokens : undefined,
+			temperature: isReasoningOrGpt5 ? undefined : temperature,
+			max_completion_tokens: isReasoningOrGpt5 ? maxTokens : undefined,
+			max_tokens: !isReasoningOrGpt5 ? maxTokens : undefined,
 			stream: false,
 		});
 
@@ -836,6 +1016,7 @@ export class AIService {
 		};
 
 		this.usageMetrics.push(usage);
+		this.recordOpenAiSpend(model, usage.promptTokens, usage.completionTokens);
 		return { content, usage };
 	}
 
@@ -990,6 +1171,48 @@ export class AIService {
 	}
 
 	/**
+	 * OpenRouter chat completion — free community models
+	 * Requires OPENROUTER_API_KEY.
+	 */
+	private async chatWithOpenRouter(
+		messages: ChatMessage[],
+		model: string,
+		temperature: number,
+		maxTokens: number,
+	): Promise<{ content: string; usage: AIUsageMetrics }> {
+		if (!openrouter) {
+			throw new Error(
+				"OpenRouter not configured — set OPENROUTER_API_KEY environment variable",
+			);
+		}
+		const validModels = [
+			"nvidia/nemotron-3.5-lightning:free",
+			"liquid/lfm-3-1.7b:free",
+			"baidu/ernie-5.5-flash-preview:free",
+		];
+		const orModel = validModels.includes(model) ? model : OPENROUTER_DEFAULT_MODEL;
+		const response = await openrouter.chat.completions.create({
+			model: orModel,
+			messages,
+			temperature,
+			max_tokens: maxTokens,
+			stream: false,
+		});
+		const content = response.choices[0]?.message?.content || "";
+		const usage: AIUsageMetrics = {
+			provider: "openrouter",
+			model: orModel,
+			promptTokens: response.usage?.prompt_tokens || 0,
+			completionTokens: response.usage?.completion_tokens || 0,
+			totalTokens: response.usage?.total_tokens || 0,
+			requestId: response.id || `or-${Date.now()}`,
+			timestamp: new Date(),
+		};
+		this.usageMetrics.push(usage);
+		return { content, usage };
+	}
+
+	/**
 	 * Anthropic Claude — best instruction following, JSON extraction
 	 * Requires ANTHROPIC_API_KEY. Get $5 free at: https://console.anthropic.com
 	 * Uses Anthropic's native Messages API directly (not OpenAI-compatible)
@@ -1063,7 +1286,11 @@ export class AIService {
 		maxTokens: number,
 		onChunk: (chunk: string) => void,
 	): Promise<{ content: string; usage: AIUsageMetrics }> {
-		const isO1 = model.startsWith("o1-");
+		const isReasoningOrGpt5 =
+			model.startsWith("o1-") ||
+			model.startsWith("o3-") ||
+			model.startsWith("o4-") ||
+			model.startsWith("gpt-5");
 		const client = openaiDirect || openaiIntegrations;
 		if (!client) {
 			throw new Error("OpenAI provider not configured for streaming");
@@ -1071,9 +1298,9 @@ export class AIService {
 		const stream = await client.chat.completions.create({
 			model,
 			messages,
-			temperature: isO1 ? undefined : temperature,
-			max_completion_tokens: isO1 ? maxTokens : undefined,
-			max_tokens: !isO1 ? maxTokens : undefined,
+			temperature: isReasoningOrGpt5 ? undefined : temperature,
+			max_completion_tokens: isReasoningOrGpt5 ? maxTokens : undefined,
+			max_tokens: !isReasoningOrGpt5 ? maxTokens : undefined,
 			stream: true,
 		});
 

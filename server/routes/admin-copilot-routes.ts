@@ -1452,3 +1452,62 @@ adminCopilotRouter.post("/desks/cto/trigger-dr-drill", async (req: Request, res:
 		res.status(500).json(errorResponse(err.message));
 	}
 });
+
+/**
+ * GET /ai-budget
+ * Returns live OpenAI $20 paid fallback budget & spend telemetry for Iris-CFO Desk.
+ */
+adminCopilotRouter.get("/ai-budget", async (_req: Request, res: Response) => {
+	try {
+		const { aiService } = await import("../services/ai-service");
+		res.json(successResponse(aiService.getOpenAIBudgetStatus()));
+	} catch (err: any) {
+		res.status(500).json(errorResponse(err.message));
+	}
+});
+
+/**
+ * POST /ai-budget
+ * Updates OpenAI paid fallback caps or pause state (human-in-the-loop CFO control).
+ */
+adminCopilotRouter.post("/ai-budget", async (req: Request, res: Response) => {
+	try {
+		const { dailyCapUsd, totalCapUsd, paused, resetDaily } = req.body ?? {};
+		const { aiService } = await import("../services/ai-service");
+		const user = (req as any).user;
+
+		if (resetDaily === true) {
+			aiService.resetOpenAIDailySpend();
+		}
+
+		const updated = aiService.updateOpenAIBudgetConfig({
+			...(typeof dailyCapUsd === "number" ? { dailyCapUsd } : {}),
+			...(typeof totalCapUsd === "number" ? { totalCapUsd } : {}),
+			...(typeof paused === "boolean" ? { paused } : {}),
+		});
+
+		try {
+			await db.insert(aiAuditLogs).values({
+				agentType: "iris_cfo_agent",
+				agentAction: "update_openai_fallback_budget",
+				userId: user?.id,
+				userRole: user?.role,
+				entityType: "openai_fallback_budget",
+				entityId: "gpt-5-nano",
+				inputContext: { dailyCapUsd, totalCapUsd, paused, resetDaily },
+				outputSummary: `Iris-CFO updated OpenAI fallback budget: dailyCap=$${updated.dailyCapUsd}, totalCap=$${updated.totalCapUsd}, paused=${updated.paused}.`,
+				approvalStatus: "approved",
+				approvingAdmin: user?.id || "admin",
+				confidenceScore: 1.0,
+				modelVersion: "Iris Core v3.0",
+				status: "success",
+			});
+		} catch {
+			// Non-fatal audit log write
+		}
+
+		res.json(successResponse(updated));
+	} catch (err: any) {
+		res.status(500).json(errorResponse(err.message));
+	}
+});
