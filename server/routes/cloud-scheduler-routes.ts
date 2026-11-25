@@ -17,26 +17,48 @@ const router = Router();
 
 /**
  * Middleware: Authenticates inbound Cloud Scheduler webhooks via shared secret or Google OIDC.
+ *
+ * Security:
+ * - Rejects spoofable x-cloudscheduler plain boolean headers from public internet
+ * - Strictly enforces CRON_SECRET or ADMIN_API_KEY in production
+ * - Supports Authorization: Bearer <secret> and X-Cron-Secret / X-CloudScheduler-Key headers
  */
 function authenticateScheduler(req: Request, res: Response, next: NextFunction): void {
 	if (process.env.NODE_ENV === "test") {
 		return next();
 	}
 
+	const authHeader = req.headers.authorization;
+	const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
+
 	const schedulerKey =
 		req.headers["x-cloudscheduler-key"] ||
 		req.headers["x-cron-secret"] ||
+		bearerToken ||
 		(req.query.key as string);
 
-	const expectedKey = process.env.CRON_SECRET || process.env.ADMIN_API_KEY || "fintekpro-scheduler-auth";
+	const isProduction = process.env.NODE_ENV === "production";
+	const expectedKey = process.env.CRON_SECRET || process.env.ADMIN_API_KEY;
 
-	if (schedulerKey && schedulerKey === expectedKey) {
-		return next();
+	// In production, CRON_SECRET or ADMIN_API_KEY is non-negotiable
+	if (isProduction && !expectedKey) {
+		logger.error("[CloudScheduler] ❌ CRON_SECRET or ADMIN_API_KEY must be configured in production");
+		res.status(500).json({
+			success: false,
+			error_code: "SCHEDULER_AUTH_MISCONFIGURED",
+			message: "Scheduler authentication credentials are not configured on the server.",
+			retryable: false,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: "cloud-scheduler@1.0.0",
+			},
+		});
+		return;
 	}
 
-	// Also allow Google Cloud App Engine / Cloud Tasks / Cloud Scheduler headers
-	const gcpSchedulerHeader = req.headers["x-cloudscheduler"];
-	if (gcpSchedulerHeader === "true") {
+	const resolvedKey = expectedKey || "fintekpro-local-dev-scheduler-key";
+
+	if (schedulerKey && schedulerKey === resolvedKey) {
 		return next();
 	}
 
@@ -48,8 +70,13 @@ function authenticateScheduler(req: Request, res: Response, next: NextFunction):
 
 	res.status(401).json({
 		success: false,
-		error: "UNAUTHORIZED_SCHEDULER_REQUEST",
+		error_code: "UNAUTHORIZED_SCHEDULER_REQUEST",
 		message: "Invalid or missing Cloud Scheduler authorization credential.",
+		retryable: false,
+		meta: {
+			timestamp: new Date().toISOString(),
+			version: "cloud-scheduler@1.0.0",
+		},
 	});
 }
 

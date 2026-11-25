@@ -14,8 +14,8 @@ import { calculateSuggestedAllocation, isPickExpired } from "../services/pick-of
 import { upstoxMarketDataService } from "../services/upstox-market-data-service";
 import { mapToBroadSector, BROAD_SECTORS } from "../services/picks/stock-strategy";
 
-export const REGULATORY_DISCLAIMER =
-	"Investment recommendations are AI-generated and for informational purposes only. Past performance does not guarantee future results. Investors should conduct independent due diligence and consult a SEBI-registered investment advisor before making investment decisions. FintekPro does not guarantee accuracy of third-party data. Data sourced from NSE, BSE, AMFI, Alpha Vantage, and Yahoo Finance.";
+import { REGULATORY_DISCLAIMER } from "../utils/compliance-utils";
+export { REGULATORY_DISCLAIMER };
 
 export const DATA_SOURCES: Record<
 	string,

@@ -1,10 +1,5 @@
-export interface TaxEstimationContext {
-	action: "BUY" | "SELL";
-	asset: string;
-	quantity: number;
-	estimated_gain_val: number; // Positive = gain, Negative = loss harvest
-	is_long_term: boolean;
-}
+import type { TaxEstimationContext } from "../../core/types";
+export type { TaxEstimationContext };
 
 export interface TaxImpactReport {
 	total_projected_liability: number;

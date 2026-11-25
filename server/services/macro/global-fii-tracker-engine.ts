@@ -881,7 +881,7 @@ export class GlobalFiiTrackerEngine {
   private reportTelemetry(latencyMs: number, qualityScore: number, errorCount: number): void {
     try {
       telemetryBus.report({
-        engineId: "GLOBAL_FII_TRACKER",
+        engineId: "global-fii-tracker",
         engineName: "Global FII Allocation & Movement Tracker",
         category: "Alpha Generation",
         reportedAt: new Date().toISOString(),

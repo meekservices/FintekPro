@@ -21,6 +21,8 @@ import { logger } from "../logger";
  */
 
 import { aiService, AICapability, AIProvider } from "./ai-service";
+import { faspAiGuardrailService } from "./fasp-ai-guardrail-service";
+import { aiGovernanceEngine } from "./ai-governance";
 import { aiResponseCacheService } from "./ai-response-cache-service";
 import { aiRecommendationTrackingService } from "./ai-recommendation-tracking-service";
 import { abTestingService } from "./ab-testing-service";
@@ -550,6 +552,52 @@ class UnifiedAIRecommendationEngine {
 				: 0;
 
 		const diversificationScore = this.calculateDiversification(recommended);
+
+		const mappedRisk =
+			clientProfile.riskProfile === "conservative"
+				? "low"
+				: clientProfile.riskProfile === "aggressive"
+					? "high"
+					: "medium";
+
+		const mappedHorizon =
+			clientProfile.investmentHorizon <= 2
+				? "short"
+				: clientProfile.investmentHorizon >= 5
+					? "long"
+					: "medium";
+
+		for (const item of recommended) {
+			if (item.analysis?.selectionRationale) {
+				const audit = faspAiGuardrailService.auditOutbound(item.analysis.selectionRationale, {
+					userId: clientProfile.id || "SYSTEM",
+					riskProfile: mappedRisk,
+					factorsConsidered: ["Overall Score", "Risk Alignment", "Horizon Alignment"],
+					confidenceScore: item.analysis.overallScore,
+					modelVersion: "unified-ai-recommendation-v1.0",
+				});
+				item.analysis.selectionRationale = audit.scrubbedText;
+			}
+		}
+
+		await aiGovernanceEngine.validateAndResolve({
+			user_id: clientProfile.id || "SYSTEM",
+			query: "unified_product_recommendation",
+			ai_output: {
+				recommendation:
+					recommended.map((r) => r.analysis?.selectionRationale).filter(Boolean).join(" | ") ||
+					"No product recommendations generated.",
+				confidence_score: Math.min(1, Math.max(0, avgScore / 100 || 0.75)),
+				factors_considered: ["Product Score", "Risk Alignment", "Horizon Alignment", "Diversification"],
+				model_version: "unified-ai-recommendation-v1.0",
+			},
+			user_profile: {
+				risk_profile: mappedRisk,
+				investment_horizon: mappedHorizon,
+				kyc_status: "verified",
+				user_segment: "retail",
+			},
+		});
 
 		// Track the recommendation
 		await this.trackRecommendation(trackingId, clientProfile, recommended);

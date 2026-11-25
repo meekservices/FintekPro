@@ -21,7 +21,7 @@
  * @version 1.0.0
  */
 
-import { REGULATORY_DISCLAIMER } from "../routes/pick-of-the-day-utils";
+import { REGULATORY_DISCLAIMER } from "../utils/compliance-utils";
 
 const FORMATTER_VERSION = "1.0.0";
 

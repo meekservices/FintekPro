@@ -24,23 +24,14 @@
  * APRE v1.0: §3.2 trigger conditions fully implemented.
  */
 
+import type { TriggerReason, DriftReport } from "../../core/types";
+export type { TriggerReason, DriftReport };
+
 /** Individual asset weight in a portfolio. */
 export interface AssetWeight {
   asset: string;
   weight: number;
 }
-
-/**
- * APRE v1.0 §3.2 — Supported drift trigger reasons.
- * Each trigger reason determines downstream urgency and approval requirements.
- */
-export type TriggerReason =
-  | "THRESHOLD_BREACH"       // absolute drift > drift_threshold
-  | "CALENDAR"               // periodic rebalance schedule (monthly/quarterly)
-  | "RISK_PROFILE_CHANGE"    // user's risk profile changed → re-check suitability
-  | "MARKET_REGIME_CHANGE"   // APSE market regime signal changed (e.g. BULL→BEAR)
-  | "BLACK_SWAN"             // market volatility > 10σ → auto-suspend (FASP-AI §24.1)
-  | "MANUAL";                // advisor-initiated review
 
 /** Target allocation + rebalance policy for a portfolio. */
 export interface PortfolioTargetModel {
@@ -53,31 +44,6 @@ export interface PortfolioTargetModel {
     drift_threshold: number;
     /** If true, capital gains impact must be minimised before executing. */
     tax_aware: boolean;
-  };
-}
-
-/**
- * APRE v1.0 §3 — Extended drift report.
- * Adds trigger_reason and volatility_context to the original drift data.
- */
-export interface DriftReport {
-  has_drifted: boolean;
-  largest_drift: number;
-  trigger_reason: TriggerReason;
-  drifting_assets: {
-    asset: string;
-    current: number;
-    target: number;
-    delta: number;
-  }[];
-  /**
-   * Volatility context from the market regime / Black Swan detector.
-   * Populated when trigger_reason is MARKET_REGIME_CHANGE or BLACK_SWAN.
-   */
-  volatility_context?: {
-    sigma_level: number;         // current volatility in σ units
-    regime: string;              // e.g. "BULL" | "BEAR" | "SIDEWAYS"
-    auto_suspend: boolean;       // true if >= 10σ → block all execution
   };
 }
 

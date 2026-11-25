@@ -934,7 +934,7 @@ export class PickOfTheDayService {
 
 		// ── Telemetry Bus: report picks generation quality ──
 		telemetryBus.report({
-			engineId: "picks-engine",
+			engineId: "pick-of-the-day",
 			engineName: "Pick of the Day Engine",
 			category: "Alpha Generation",
 			reportedAt: new Date().toISOString(),

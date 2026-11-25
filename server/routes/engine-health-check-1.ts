@@ -894,7 +894,7 @@ router.post("/self-heal", async (req: Request, res: Response) => {
 				let result = "Cache flush attempted";
 
 				switch (engine.engineId) {
-					case "picks-engine": {
+					case "pick-of-the-day": {
 						// Trigger pick generation for today if none generated yet
 						action = "trigger_pick_generation";
 						const todayPicks = await pickOfTheDayService.getTodaysPicks();

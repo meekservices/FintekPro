@@ -1,6 +1,8 @@
 // @ts-nocheck
 /* eslint-disable no-console */
 import { db } from "../db";
+import { faspAiGuardrailService } from "./fasp-ai-guardrail-service";
+import { aiGovernanceEngine } from "./ai-governance";
 import {
 	portfolioDiagnostics,
 	aiProposals,
@@ -1146,9 +1148,47 @@ export class AIProposalEngine {
 			});
 		}
 
-		return recommendations.sort(
+		const sorted = recommendations.sort(
 			(a, b) => (a.priority || 99) - (b.priority || 99),
 		);
+
+		const mappedRisk =
+			riskProfile?.riskTolerance === "conservative"
+				? "low"
+				: riskProfile?.riskTolerance === "aggressive"
+					? "high"
+					: "medium";
+
+		for (const rec of sorted) {
+			const audit = faspAiGuardrailService.auditOutbound(rec.rationale || "", {
+				userId: diagnostics?.userId || "SYSTEM",
+				riskProfile: mappedRisk,
+				factorsConsidered: ["Portfolio Diagnostics", "Risk Tolerance", "Asset Allocation"],
+				modelVersion: "ai-proposal-engine-v1.0",
+			});
+			rec.rationale = audit.scrubbedText;
+		}
+
+		await aiGovernanceEngine.validateAndResolve({
+			user_id: diagnostics?.userId || "SYSTEM",
+			query: "portfolio_proposal_recommendations",
+			ai_output: {
+				recommendation:
+					sorted.map((r) => r.rationale).join(" | ") ||
+					"No portfolio changes recommended at this time.",
+				confidence_score: 0.85,
+				factors_considered: ["Asset Allocation", "Risk Tolerance", "Cash Deployment"],
+				model_version: "ai-proposal-engine-v1.0",
+			},
+			user_profile: {
+				risk_profile: mappedRisk,
+				investment_horizon: "medium",
+				kyc_status: "verified",
+				user_segment: "retail",
+			},
+		});
+
+		return sorted;
 	}
 
 	async createProposal(

@@ -1064,7 +1064,7 @@ export class GlobalMarketIntelligenceEngine {
   private reportTelemetry(latencyMs: number, qualityScore: number, errorCount: number): void {
     try {
       telemetryBus.report({
-        engineId: "GMIE",
+        engineId: "global-market-intelligence",
         engineName: "Global Market Intelligence Engine",
         category: "Risk & Regime",
         reportedAt: new Date().toISOString(),

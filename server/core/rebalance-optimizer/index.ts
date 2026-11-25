@@ -1,5 +1,4 @@
-import { DriftReport } from "../../services/drift";
-import { TaxEstimationContext } from "../../services/tax";
+import type { DriftReport, TaxEstimationContext } from "../types";
 
 /**
  * Profit-guard context enriched per-holding SELL action.

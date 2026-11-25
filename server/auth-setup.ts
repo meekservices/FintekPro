@@ -66,7 +66,7 @@ export async function setupAuth(app: Express) {
 	const sessionSecret =
 		process.env.SESSION_SECRET ||
 		(!process.env.NODE_ENV || process.env.NODE_ENV !== "production"
-			? process.env.REPL_ID || "fintek-secure-session-secret-2024"
+			? process.env.REPL_ID || `fintek-dev-session-${process.env.USER || "local"}`
 			: undefined);
 
 	if (!sessionSecret) {

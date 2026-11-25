@@ -9,6 +9,8 @@ import { telemetryBus } from "./engine-telemetry-bus";
 import { proThematicScreenerService } from "./pro-thematic-screener-service";
 import { checkRiskBudget, type RiskReport } from "./portfolio-risk-guard";
 import { computeGuardedPortfolioWeights, type PortfolioStockCandidate } from "../../shared/portfolio-guardrails";
+import { faspAiGuardrailService } from "./fasp-ai-guardrail-service";
+import { aiGovernanceEngine } from "./ai-governance";
 
 /**
  * BUG-2 FIX: Risk-free rate sourced dynamically from DB admin_settings.
@@ -434,6 +436,32 @@ export class AIPortfolioOptimizer {
 				metrics: eqMetrics,
 			});
 		}
+
+		const summaryText = `Portfolio optimization (${cfg.regime} regime): Sharpe ${portfolioMetrics.sharpeRatio.toFixed(2)}, Expected Return ${(portfolioMetrics.expectedReturn * 100).toFixed(1)}%, Volatility ${(portfolioMetrics.expectedVolatility * 100).toFixed(1)}%.`;
+		const guardrailAudit = faspAiGuardrailService.auditOutbound(summaryText, {
+			userId: "SYSTEM",
+			riskProfile: cfg.regime,
+			factorsConsidered: ["Expected Return", "Covariance Matrix", "Sharpe Ratio", "Risk Guard Budget"],
+			formulaApplied: "max-sharpe-gradient-ascent",
+			modelVersion: "mvo-optimizer-v2.0",
+		});
+
+		await aiGovernanceEngine.validateAndResolve({
+			user_id: "SYSTEM",
+			query: "portfolio_optimization",
+			ai_output: {
+				recommendation: guardrailAudit.scrubbedText,
+				confidence_score: Math.min(1, guardrailAudit.explainability.confidence_score / 100),
+				factors_considered: guardrailAudit.explainability.factors_considered,
+				model_version: "mvo-optimizer-v2.0",
+			},
+			user_profile: {
+				risk_profile: "medium",
+				investment_horizon: "long",
+				kyc_status: "verified",
+				user_segment: "retail",
+			},
+		});
 
 		return {
 			weights: optimizedWeights,

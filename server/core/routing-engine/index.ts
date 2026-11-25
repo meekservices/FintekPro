@@ -1,5 +1,4 @@
-import { ModelRegistryEntry } from "../../services/model-registry/types";
-import { SelectionContext } from "../../services/model-selection/types";
+import type { ModelRegistryEntry, SelectionContext } from "../types";
 
 export class RoutingEngine {
 	/**

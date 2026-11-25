@@ -5,6 +5,9 @@
 
 import { complianceMonitor } from "../compliance-monitor";
 
+export const REGULATORY_DISCLAIMER =
+	"Investment recommendations are AI-generated and for informational purposes only. Past performance does not guarantee future results. Investors should conduct independent due diligence and consult a SEBI-registered investment advisor before making investment decisions. FintekPro does not guarantee accuracy of third-party data. Data sourced from NSE, BSE, AMFI, Alpha Vantage, and Yahoo Finance.";
+
 // Regulatory thresholds for transaction monitoring (e.g., PAN requirement, TDS, high-value reporting)
 export const REGULATORY_THRESHOLDS = {
 	PAN_REQUIREMENT: 50000,

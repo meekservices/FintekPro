@@ -973,7 +973,7 @@ export class MsciFactorService {
   private reportTelemetry(latencyMs: number, qualityScore: number, errorCount: number): void {
     try {
       telemetryBus.report({
-        engineId: "MSCI_FACTOR_SERVICE",
+        engineId: "msci-factor-engine",
         engineName: "MSCI Factor & Country Market Intelligence",
         category: "Alpha Generation",
         reportedAt: new Date().toISOString(),
