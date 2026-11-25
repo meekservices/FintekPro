@@ -257,6 +257,73 @@ async function run(): Promise<void> {
 			});
 		}
 
+		// 7. Derivative Expiry & Holiday Invariant Probe
+		const fnoStart = Date.now();
+		try {
+			const { marketHolidayService } = await import(
+				"../server/services/market-holiday-service"
+			);
+			const { derivativeStrategy } = await import(
+				"../server/services/picks/derivative-strategy"
+			);
+
+			// Test upcoming expiries across benchmark indices and single-stock underlyings
+			const testSymbols = ["NIFTY", "BANKNIFTY", "RELIANCE", "ICICIBANK"];
+			const holidayViolations: string[] = [];
+
+			for (const sym of testSymbols) {
+				const expiry = derivativeStrategy.getUpcomingExpiry(sym);
+				if (expiry) {
+					const isTrading = marketHolidayService.isTradingDay(new Date(expiry), "NSE");
+					if (!isTrading) {
+						holidayViolations.push(`${sym} expiry ${expiry} falls on an NSE holiday`);
+					}
+				}
+			}
+
+			// Verify active live derivative picks from DB (if available)
+			try {
+				const { db } = await import("../server/db");
+				const { picksOfTheDay } = await import("../shared/schema");
+				const { eq, and } = await import("drizzle-orm");
+				const activeDerivs = await db
+					.select()
+					.from(picksOfTheDay)
+					.where(and(eq(picksOfTheDay.category, "derivatives"), eq(picksOfTheDay.status, "live")));
+
+				for (const dp of activeDerivs) {
+					if (dp.expiryDate) {
+						const expDate = new Date(dp.expiryDate.split("T")[0]);
+						const isTrading = marketHolidayService.isTradingDay(expDate, "NSE");
+						if (!isTrading) {
+							holidayViolations.push(
+								`Active pick ${dp.id} (${dp.symbol}) expiry ${dp.expiryDate} falls on an NSE holiday`,
+							);
+						}
+					}
+				}
+			} catch {
+				// DB active pick query is non-fatal if table empty or in isolated check
+			}
+
+			const fnoHealthy = holidayViolations.length === 0;
+			checks.push({
+				name: "derivative_expiry_holiday_probe",
+				status: fnoHealthy ? "healthy" : "warning",
+				latencyMs: Date.now() - fnoStart,
+				details: fnoHealthy
+					? "All derivative upcoming expiries verified against NSE holiday calendar"
+					: `Holiday invariant warnings: ${holidayViolations.join("; ")}`,
+			});
+		} catch (fnoErr: any) {
+			checks.push({
+				name: "derivative_expiry_holiday_probe",
+				status: "warning",
+				latencyMs: Date.now() - fnoStart,
+				details: `F&O expiry check notice: ${fnoErr?.message}`,
+			});
+		}
+
 		// Log summary
 		const hasCritical = checks.some((c) => c.status === "critical");
 		const hasWarning = checks.some((c) => c.status === "warning");

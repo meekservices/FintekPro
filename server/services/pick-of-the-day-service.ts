@@ -79,14 +79,19 @@ export type PickStatus = "live" | "target_hit" | "stoploss_hit" | "expired";
 
 /**
  * Returns true if the pick has passed its expiry window.
- * Intraday calls expire at 15:30:00 IST (3:30 PM market close) on their expiry date.
+ * Intraday and F&O derivative calls expire at 15:30:00 IST (3:30 PM market close) on their expiry date.
  * Positional calls expire at 23:59:59 IST on their expiry date.
  */
-export function isPickExpired(expiryDateStr?: string | null, timeHorizon?: string | null): boolean {
+export function isPickExpired(
+	expiryDateStr?: string | null,
+	timeHorizon?: string | null,
+	category?: string | null,
+): boolean {
 	if (!expiryDateStr) return false;
 	const dateOnly = expiryDateStr.split("T")[0];
-	const isIntraday = timeHorizon === "intraday";
-	const cutoff = isIntraday ? "T15:30:00+05:30" : "T23:59:59+05:30";
+	const isIntraday = timeHorizon === "intraday" || timeHorizon === "intra_day";
+	const isDerivative = category === "derivatives";
+	const cutoff = isIntraday || isDerivative ? "T15:30:00+05:30" : "T23:59:59+05:30";
 	const expiryTs = new Date(`${dateOnly}${cutoff}`).getTime();
 	return Date.now() > expiryTs;
 }
@@ -511,10 +516,12 @@ export class PickOfTheDayService {
 						query: `Generate ${category} pick for ${today}`,
 						ai_output: governanceOutput,
 						user_profile: {
-							risk_profile: (isBlackSwan
-								? "conservative"
-								: "aggressive") as any,
-							investment_horizon: "medium",
+							risk_profile: (category === "derivatives" || category === "commodities"
+								? "aggressive"
+								: isBlackSwan
+									? "conservative"
+									: "moderate") as any,
+							investment_horizon: category === "derivatives" ? "short" : "medium",
 							kyc_status: "verified",
 							user_segment: "retail",
 						},
@@ -526,6 +533,16 @@ export class PickOfTheDayService {
 							`⚠️ [PickOfTheDay] Governance Block for ${pick.instrumentName}: ${aageCheck.audit_id}`,
 						);
 						continue;
+					}
+
+					// If modified by AAGE (e.g. disclaimer or risk notes attached), update rationale
+					if (
+						aageCheck.decision === "MODIFY" &&
+						aageCheck.final_output &&
+						"recommendation" in aageCheck.final_output &&
+						typeof aageCheck.final_output.recommendation === "string"
+					) {
+						pick.rationale = aageCheck.final_output.recommendation;
 					}
 
 					// ── FASP-AI v1.0 Regulatory Guardrail & Scrubbing Gate ─────────────
@@ -1129,8 +1146,8 @@ export class PickOfTheDayService {
 					);
 
 					// ── Fix 1: Expiry check runs unconditionally with market-hours awareness ──
-					// Intraday calls expire at 15:30 IST on expiry date; positional calls at 23:59:59 IST.
-					const isExpired = isPickExpired(pick.expiryDate, pick.timeHorizon);
+					// Intraday & F&O derivative calls expire at 15:30 IST on expiry date; positional calls at 23:59:59 IST.
+					const isExpired = isPickExpired(pick.expiryDate, pick.timeHorizon, pick.category);
 
 					let livePrice: number | null = null;
 					let dayHigh: number | undefined;

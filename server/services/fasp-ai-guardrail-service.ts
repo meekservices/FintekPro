@@ -36,7 +36,7 @@ export class FaspAiGuardrailService {
 	private static instance: FaspAiGuardrailService;
 	public static readonly ENGINE_VERSION = "fasp-ai-guardrail@1.0.0";
 	public static readonly MANDATORY_DISCLAIMER =
-		"FASP-AI v1.0 Regulatory Notice: Strictly for educational and professional decision support. Not deterministic investment advice or guaranteed return solicitation. Investments in securities are subject to market risks.";
+		"FASP-AI v1.0 Regulatory Notice: Strictly for educational and professional decision support. Not deterministic investment advice or solicitation of assured returns. Investments in securities are subject to market risks.";
 
 	private static readonly DETERMINISTIC_PATTERNS = [
 		/\bguarantee(?:s|d|ing)?\s+(?:(?:\d+(?:\.\d+)?%|high|assured|fixed)\s+)?(?:return|profit|gain|yield)s?\b/i,

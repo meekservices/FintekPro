@@ -325,6 +325,20 @@ describe("Pick of the Day Engine - Unit Tests & Upgrades", () => {
 			expect(isPickExpired(todayIST, "intraday")).toBe(isPast330);
 		});
 
+		it("correctly identifies whether derivative pick is expired based on 15:30 IST market close", () => {
+			const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+			const todayIST = new Date(Date.now() + IST_OFFSET_MS).toISOString().split("T")[0];
+			const yesterdayIST = new Date(Date.now() + IST_OFFSET_MS - 86400000).toISOString().split("T")[0];
+
+			// Yesterday's derivative pick is always expired
+			expect(isPickExpired(yesterdayIST, "short_term", "derivatives")).toBe(true);
+
+			// Today's derivative pick expiry depends on current IST time vs 15:30 IST (market close)
+			const nowIST = new Date(Date.now() + IST_OFFSET_MS);
+			const isPast330 = (nowIST.getUTCHours() > 15) || (nowIST.getUTCHours() === 15 && nowIST.getUTCMinutes() >= 30);
+			expect(isPickExpired(todayIST, "short_term", "derivatives")).toBe(isPast330);
+		});
+
 		it("evaluates auto-square-off outcomes correctly at 3:25 PM IST", () => {
 			// +1.5% return at 3:25 PM -> target_hit
 			const winReturn = 1.5;

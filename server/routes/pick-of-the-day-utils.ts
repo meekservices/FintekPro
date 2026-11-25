@@ -812,9 +812,9 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 	// ── Phase 1: live price fetch (2s cap per pick, market categories only) ──────
 	Promise.all(
 		picks.map(async (pick) => {
-			// Expiry check (respects intraday 15:30 IST market close)
+			// Expiry check (respects intraday & derivative 15:30 IST market close)
 			if (pick.status === "live" && pick.expiryDate) {
-				if (isPickExpired(pick.expiryDate, pick.timeHorizon)) {
+				if (isPickExpired(pick.expiryDate, pick.timeHorizon, pick.category)) {
 					pick.status = "expired";
 					if (pick.id) expiredPickIds.push(pick.id);
 				}

@@ -25,10 +25,19 @@ export class ComplianceValidator implements GovernanceValidator {
 		const recommendationStr =
 			input.ai_output?.recommendation?.toLowerCase() || "";
 
+		// Strip disclaimer blocks and negative disclaimers to prevent false-positive blocks
+		// (e.g. "Not deterministic investment advice or guaranteed return solicitation")
+		let cleanText = recommendationStr
+			.replace(/---\s*\*?fasp-ai[\s\S]*$/i, "")
+			.replace(/\bdisclaimer:[\s\S]*$/i, "")
+			.replace(/\bnot\s+(?:deterministic\s+investment\s+advice\s+or\s+)?guaranteed\s+returns?\b/gi, "")
+			.replace(/\bno\s+guaranteed\s+returns?\b/gi, "")
+			.replace(/\bnot\s+risk[- ]?free\b/gi, "");
+
 		// Check for prohibited language
 		let containsProhibited = false;
 		for (const phrase of PROHIBITED_PHRASES) {
-			if (recommendationStr.includes(phrase)) {
+			if (cleanText.includes(phrase)) {
 				containsProhibited = true;
 				violations.push({
 					module: "ComplianceValidator",

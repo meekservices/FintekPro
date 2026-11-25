@@ -16,6 +16,7 @@ import {
 	derivativesService,
 	SEBI_FNO_FRAMEWORK_2026,
 } from "../derivatives-service";
+import { marketHolidayService } from "../market-holiday-service";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type MarketOutlook = "bullish" | "bearish" | "neutral";
@@ -55,6 +56,7 @@ export interface StrategyLegOutput {
 	tradingVolume?: number;
 	bidPrice?: number;
 	askPrice?: number;
+	expiryDate?: string;
 }
 
 export interface StrategyPayoffOutput {
@@ -531,6 +533,7 @@ export class DerivativeStrategy extends BaseStrategy {
 				chain,
 				dte,
 				iv,
+				targetExpiry,
 			);
 
 			// ── SEBI Institutional Tail-Risk Guardrail ──────────────────────────────
@@ -555,6 +558,7 @@ export class DerivativeStrategy extends BaseStrategy {
 						chain,
 						dte,
 						iv,
+						targetExpiry,
 					);
 				}
 			}
@@ -677,6 +681,8 @@ export class DerivativeStrategy extends BaseStrategy {
 					ivRegime: ivRegimeLabel,
 					volPreference: strategy.volPreference,
 					isCreditStrategy: payoff.isCredit,
+					expiry: targetExpiry,
+					expiryDate: targetExpiry,
 					legs: payoff.legs,
 					maxProfit: payoff.maxProfit,
 					maxLoss: payoff.maxLoss,
@@ -715,6 +721,7 @@ export class DerivativeStrategy extends BaseStrategy {
 		chain?: any,
 		dte = 7,
 		iv = 18,
+		targetExpiry?: string,
 	): StrategyPayoffOutput {
 		const legs: StrategyLegOutput[] = [];
 		const allGreeks: Array<{ delta: number; theta: number; vega: number }> = [];
@@ -799,6 +806,7 @@ export class DerivativeStrategy extends BaseStrategy {
 				tradingVolume,
 				bidPrice,
 				askPrice,
+				expiryDate: targetExpiry,
 			});
 		}
 
@@ -998,26 +1006,40 @@ export class DerivativeStrategy extends BaseStrategy {
 	 */
 	public getUpcomingExpiry(symbol = "NIFTY", now = new Date()): string {
 		const upper = symbol.toUpperCase();
-		const isIndex = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"].includes(upper);
+		const isBse = upper === "SENSEX" || upper === "BANKEX";
+		const exchange = isBse ? "BSE" : "NSE";
 		const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 		const istDate = new Date(now.getTime() + IST_OFFSET_MS);
 
-		// Single-stock options: strictly the last Thursday of the month
-		if (!isIndex) {
+		// Helper to adjust backward if the expiry falls on an exchange trading holiday
+		const adjustForHoliday = (date: Date): Date => {
+			const cur = new Date(date);
+			while (!marketHolidayService.isTradingDay(cur, exchange)) {
+				cur.setUTCDate(cur.getUTCDate() - 1);
+			}
+			return cur;
+		};
+
+		// Weekly expiries are ONLY permitted on designated benchmark indices (NIFTY on NSE, SENSEX on BSE).
+		// Single-stock options & monthly-only indices (BANKNIFTY, FINNIFTY, MIDCPNIFTY): strictly monthly last Thursday!
+		const isWeeklyAllowed = upper === "NIFTY" || upper === "SENSEX";
+
+		if (!isWeeklyAllowed) {
 			const endCurrent = new Date(Date.UTC(istDate.getUTCFullYear(), istDate.getUTCMonth() + 1, 0));
 			while (endCurrent.getUTCDay() !== 4) endCurrent.setUTCDate(endCurrent.getUTCDate() - 1);
-			const currentMonthExpiry = endCurrent.toISOString().split("T")[0];
+			const adjustedCurrent = adjustForHoliday(endCurrent);
+			const currentMonthExpiry = adjustedCurrent.toISOString().split("T")[0];
 			const todayStr = istDate.toISOString().split("T")[0];
 			if (currentMonthExpiry >= todayStr) {
 				return currentMonthExpiry;
 			}
 			const endNext = new Date(Date.UTC(istDate.getUTCFullYear(), istDate.getUTCMonth() + 2, 0));
 			while (endNext.getUTCDay() !== 4) endNext.setUTCDate(endNext.getUTCDate() - 1);
-			return endNext.toISOString().split("T")[0];
+			return adjustForHoliday(endNext).toISOString().split("T")[0];
 		}
 
-		// Benchmark weekly indices (NIFTY / SENSEX) or monthly indices
-		const targetDay = upper === "SENSEX" ? 5 : upper === "BANKNIFTY" || upper === "BANKEX" ? 3 : 4;
+		// Benchmark weekly indices (NIFTY on Thursday = 4, SENSEX on Friday = 5)
+		const targetDay = isBse ? 5 : 4;
 		const currentDay = istDate.getUTCDay();
 		let daysToAdd = (targetDay - currentDay + 7) % 7;
 		if (daysToAdd === 0) {
@@ -1027,7 +1049,7 @@ export class DerivativeStrategy extends BaseStrategy {
 			}
 		}
 		istDate.setUTCDate(istDate.getUTCDate() + daysToAdd);
-		return istDate.toISOString().split("T")[0];
+		return adjustForHoliday(istDate).toISOString().split("T")[0];
 	}
 
 	public getUpcomingWeeklyExpiry(symbol = "NIFTY", now = new Date()): string {
@@ -1096,6 +1118,7 @@ export class DerivativeStrategy extends BaseStrategy {
 				undefined,
 				dte,
 				18,
+				targetExpiry,
 			);
 
 			// Auto-wrap protection wings for SEBI client capital protection
@@ -1114,6 +1137,7 @@ export class DerivativeStrategy extends BaseStrategy {
 						undefined,
 						dte,
 						18,
+						targetExpiry,
 					);
 				}
 			}
@@ -1210,6 +1234,8 @@ export class DerivativeStrategy extends BaseStrategy {
 					impliedVolatility: 18,
 					dataSource: "fallback_curated",
 					isCreditStrategy: payoff.isCredit,
+					expiry: targetExpiry,
+					expiryDate: targetExpiry,
 					legs: payoff.legs,
 					maxProfit: payoff.maxProfit,
 					maxLoss: payoff.maxLoss,
@@ -1258,3 +1284,5 @@ export class DerivativeStrategy extends BaseStrategy {
 		return null;
 	}
 }
+
+export const derivativeStrategy = new DerivativeStrategy();

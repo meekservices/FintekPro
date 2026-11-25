@@ -832,6 +832,114 @@ export function getLegRoleLabel(
 	return `Leg ${index + 1}: ${actionStr} ${moneyness}${typeStr} Option`;
 }
 
+export const DERIVATIVE_LOT_SIZES: Record<string, number> = {
+	NIFTY: 65,
+	BANKNIFTY: 30,
+	SENSEX: 20,
+	FINNIFTY: 65,
+	MIDCPNIFTY: 120,
+	BANKEX: 30,
+	RELIANCE: 250,
+	TCS: 150,
+	INFY: 300,
+	HDFCBANK: 550,
+	ICICIBANK: 700,
+	SBIN: 1500,
+	BHARTIARTL: 475,
+	ITC: 1600,
+	KOTAKBANK: 400,
+	LT: 150,
+	AXISBANK: 600,
+	MARUTI: 100,
+	TITAN: 175,
+	BAJFINANCE: 125,
+	ASIANPAINT: 200,
+	TATAMOTORS: 1425,
+	SUNPHARMA: 350,
+	HCLTECH: 350,
+	WIPRO: 1500,
+	TATASTEEL: 5500,
+	ONGC: 3850,
+	NTPC: 2250,
+	POWERGRID: 2700,
+	COALINDIA: 2100,
+	JSWSTEEL: 675,
+	HINDALCO: 1075,
+};
+
+export function resolveLotSize(symbol?: string, existingLotSize?: number): number {
+	if (existingLotSize && existingLotSize > 0) return existingLotSize;
+	const upper = (symbol || "NIFTY").toUpperCase().trim();
+	if (DERIVATIVE_LOT_SIZES[upper]) return DERIVATIVE_LOT_SIZES[upper];
+	if (upper === "BANKNIFTY" || upper === "BANKEX") return 30;
+	if (upper === "NIFTY" || upper === "FINNIFTY") return 65;
+	if (upper === "SENSEX") return 20;
+	return 50;
+}
+
+export function getFormattedLegExpiry(
+	pick: DailyPick,
+	leg?: StrategyLegItem,
+): string {
+	const km = (pick.keyMetrics as any) || {};
+	const candidate =
+		(leg as any)?.expiryDate ||
+		(leg as any)?.expiry ||
+		km.expiryDate ||
+		km.expiry ||
+		pick.expiryDate;
+
+	const now = new Date();
+	const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+	if (candidate) {
+		const parsed = new Date(candidate);
+		if (!Number.isNaN(parsed.getTime())) {
+			if (
+				parsed >= todayMidnight ||
+				pick.status === "expired" ||
+				pick.status === "target_hit" ||
+				pick.status === "stoploss_hit"
+			) {
+				return parsed.toLocaleDateString("en-IN", {
+					day: "numeric",
+					month: "short",
+					year: "numeric",
+				});
+			}
+		}
+	}
+
+	const symbol = (pick.symbol || "").toUpperCase();
+	const isIndex = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"].includes(symbol);
+
+	if (!isIndex) {
+		// Single-stock options: strictly monthly (last Thursday of current or next month)
+		let end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+		while (end.getDay() !== 4) end.setDate(end.getDate() - 1);
+		if (end < todayMidnight) {
+			end = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+			while (end.getDay() !== 4) end.setDate(end.getDate() - 1);
+		}
+		return end.toLocaleDateString("en-IN", {
+			day: "numeric",
+			month: "short",
+			year: "numeric",
+		});
+	}
+
+	// Weekly index option: next upcoming Thursday
+	const nextThursday = new Date(now);
+	const daysUntilThursday = (4 - now.getDay() + 7) % 7 || 7;
+	nextThursday.setDate(now.getDate() + daysUntilThursday);
+
+	return nextThursday.toLocaleDateString("en-IN", {
+		day: "numeric",
+		month: "short",
+		year: "numeric",
+	});
+}
+
 export interface DerivativeEconomics {
 	maxProfit: number | "Unlimited";
 	maxLoss: number | "Unlimited";
@@ -1058,10 +1166,19 @@ export function computeDerivativeEconomics(
 				: totalNetPremium;
 
 	const hasBothLegs = !allBuy && !allSell;
-	const grossMargin = hasBothLegs
+	const isOptionSellerStrategy =
+		isCredit ||
+		stratName.includes("condor") ||
+		stratName.includes("butterfly") ||
+		stratName.includes("credit") ||
+		(!allBuy && (stratName.includes("short") || (stratName.includes("spread") && isCredit)));
+
+	const grossMargin = (hasBothLegs && isOptionSellerStrategy)
 		? Math.round(curSpot * lotSize * 0.16)
 		: finalMargin;
-	const hedgeBenefit = hasBothLegs ? Math.max(0, grossMargin - finalMargin) : 0;
+	const hedgeBenefit = (hasBothLegs && isOptionSellerStrategy)
+		? Math.max(0, grossMargin - finalMargin)
+		: 0;
 	const hedgeBenefitPct =
 		grossMargin > 0 ? Math.round((hedgeBenefit / grossMargin) * 100) : 0;
 
@@ -1121,11 +1238,7 @@ export function extractDerivativeLegs(pick: DailyPick): StrategyLegItem[] {
 					? 100
 					: 50;
 	const atmStrike = Math.round(spot / strikeInterval) * strikeInterval;
-	const lotSize = Number(
-		(pick.keyMetrics as any)?.lotSize ||
-		({ NIFTY: 25, BANKNIFTY: 15, FINNIFTY: 40, MIDCPNIFTY: 50, SENSEX: 10, INFY: 300, TCS: 175, RELIANCE: 250 } as Record<string, number>)[symbol] ||
-		(symbol.includes("BANK") ? 15 : 50),
-	);
+	const lotSize = resolveLotSize(symbol, Number((pick.keyMetrics as any)?.lotSize));
 	const rawReco = safeNum(pick.recoPrice);
 	const entryPrem =
 		safeNum((pick.keyMetrics as any)?.premiumPerUnit) ||
@@ -2909,7 +3022,8 @@ export default function AgentPicksPage() {
 		if (p.status === "expired") return true;
 		if (!p.expiryDate) return false;
 		const isIntraday = p.timeHorizon === "intraday" || p.timeHorizon === "intra_day";
-		const expiryIso = isIntraday
+		const isDerivative = p.category === "derivatives";
+		const expiryIso = isIntraday || isDerivative
 			? `${p.expiryDate.split("T")[0]}T15:30:00+05:30`
 			: `${p.expiryDate.split("T")[0]}T23:59:59+05:30`;
 		return Date.now() > new Date(expiryIso).getTime();
@@ -7484,13 +7598,7 @@ export default function AgentPicksPage() {
 									lotSize,
 									curSpot,
 								);
-								const expiryFormatted = km.expiry
-									? new Date(km.expiry).toLocaleDateString("en-IN", {
-											day: "numeric",
-											month: "short",
-											year: "numeric",
-										})
-									: "11 Nov 2026";
+								const expiryFormatted = getFormattedLegExpiry(selectedPick);
 
 								return (
 									<div className="space-y-3 p-3.5 rounded-lg border bg-gradient-to-br from-indigo-50/40 via-background to-purple-50/30 dark:from-indigo-950/25 dark:via-background dark:to-purple-950/20 border-indigo-200/80 dark:border-indigo-900/60">
@@ -7510,8 +7618,8 @@ export default function AgentPicksPage() {
 												}`}
 											>
 												{economics.isCredit
-													? `Net Credit: ₹${economics.netPremium.toFixed(1)}/unit (Total: ₹${Math.round(economics.netPremium * lotSize).toLocaleString("en-IN")})`
-													: `Net Debit: ₹${economics.netPremium.toFixed(1)}/unit (Total: ₹${Math.round(economics.netPremium * lotSize).toLocaleString("en-IN")})`}
+													? `Net Credit: ₹${economics.netPremium.toFixed(2)}/unit (Total: ₹${Math.round(economics.netPremium * lotSize).toLocaleString("en-IN")})`
+													: `Net Debit: ₹${economics.netPremium.toFixed(2)}/unit (Total: ₹${Math.round(economics.netPremium * lotSize).toLocaleString("en-IN")})`}
 											</Badge>
 										</div>
 
@@ -7573,7 +7681,7 @@ export default function AgentPicksPage() {
 																		{leg.quantity ?? 1} Lot ({lotSize} Qty)
 																	</span>
 																	<span>·</span>
-																	<span>Exp: {expiryFormatted}</span>
+																	<span>Exp: {getFormattedLegExpiry(selectedPick, leg)}</span>
 																</div>
 															</div>
 															<div className="text-right shrink-0">
@@ -7657,7 +7765,7 @@ export default function AgentPicksPage() {
 														? `+₹${Math.abs(Number(economics.theta)).toFixed(1)}/day`
 														: `₹${Number(economics.marginRequired).toLocaleString("en-IN")}`}
 												</p>
-												{economics.hedgeBenefit != null && economics.hedgeBenefit > 0 && (
+												{economics.isCredit && economics.hedgeBenefit != null && economics.hedgeBenefit > 0 && (
 													<span className="text-[9.5px] text-purple-600 dark:text-purple-400 font-semibold block">
 														Hedge: -₹{economics.hedgeBenefit.toLocaleString("en-IN")} ({economics.hedgeBenefitPct}%)
 													</span>
@@ -8082,11 +8190,9 @@ export default function AgentPicksPage() {
 					}
 					symbol={sheetBasketModalPick.symbol || "NIFTY"}
 					legs={extractDerivativeLegs(sheetBasketModalPick)}
-					lotSize={Number(
-						(sheetBasketModalPick.keyMetrics as any)?.lotSize ||
-							(sheetBasketModalPick.symbol?.toUpperCase().includes("BANK")
-								? 15
-								: 65),
+					lotSize={resolveLotSize(
+						sheetBasketModalPick.symbol,
+						Number((sheetBasketModalPick.keyMetrics as any)?.lotSize),
 					)}
 					recoPrice={sheetBasketModalPick.recoPrice}
 					isCreditStrategy={
@@ -9177,14 +9283,7 @@ function PicksTable({
 						const economics = isDeriv
 							? computeDerivativeEconomics(pick, derivLegs, lotSize, curSpot)
 							: null;
-						const expiryDateStr = pick.expiryDate || pick.recoDate;
-						const expiryFormatted = expiryDateStr
-							? new Date(expiryDateStr).toLocaleDateString("en-IN", {
-									day: "2-digit",
-									month: "short",
-									year: "numeric",
-								})
-							: "Weekly Expiry";
+						const expiryFormatted = getFormattedLegExpiry(pick);
 
 						return (
 							<Fragment key={pick.id}>
@@ -9442,14 +9541,14 @@ function PicksTable({
 																	variant="outline"
 																	className="text-[10px] bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700 font-bold"
 																>
-																	Net Credit: ₹{economics.netPremium} / unit (Total: ₹{economics.totalNetPremium.toLocaleString("en-IN")})
+																	Net Credit: ₹{Number(economics.netPremium).toFixed(2)} / unit (Total: ₹{economics.totalNetPremium.toLocaleString("en-IN")})
 																</Badge>
 															) : (
 																<Badge
 																	variant="outline"
 																	className="text-[10px] bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-400 border-sky-300 dark:border-sky-700 font-bold"
 																>
-																	Net Debit: ₹{economics.netPremium} / unit (Total: ₹{economics.totalNetPremium.toLocaleString("en-IN")})
+																	Net Debit: ₹{Number(economics.netPremium).toFixed(2)} / unit (Total: ₹{economics.totalNetPremium.toLocaleString("en-IN")})
 																</Badge>
 															)}
 														</h4>
@@ -9547,7 +9646,7 @@ function PicksTable({
 																		{leg.quantity ?? 1} Lot ({lotSize} Qty)
 																	</span>
 																	<span>·</span>
-																	<span>Exp: {expiryFormatted}</span>
+																	<span>Exp: {getFormattedLegExpiry(pick, leg)}</span>
 																</div>
 															</div>
 															<div className="text-right shrink-0 pl-2">
@@ -9630,7 +9729,7 @@ function PicksTable({
 															? `+₹${Math.abs(Number(economics.theta)).toFixed(1)}/day`
 															: `₹${Number(economics.marginRequired).toLocaleString("en-IN")}`}
 													</p>
-													{economics.hedgeBenefit != null && economics.hedgeBenefit > 0 && (
+													{economics.isCredit && economics.hedgeBenefit != null && economics.hedgeBenefit > 0 && (
 														<span className="text-[9.5px] text-purple-600 dark:text-purple-400 font-semibold block">
 															Hedge: -₹{economics.hedgeBenefit.toLocaleString("en-IN")} ({economics.hedgeBenefitPct}%)
 														</span>
@@ -10873,13 +10972,7 @@ function PickCard({
 								lotSize,
 								curSpot,
 							);
-							const expiryFormatted = km.expiry
-								? new Date(km.expiry).toLocaleDateString("en-IN", {
-										day: "numeric",
-										month: "short",
-										year: "numeric",
-									})
-								: "11 Nov 2026";
+							const expiryFormatted = getFormattedLegExpiry(pick);
 
 							return (
 								<div className="mt-3.5 p-3 rounded-lg border bg-gradient-to-br from-indigo-50/40 via-background to-purple-50/30 dark:from-indigo-950/20 dark:via-background dark:to-purple-950/20 border-indigo-200/80 dark:border-indigo-900/60 space-y-2.5">
@@ -10899,8 +10992,8 @@ function PickCard({
 											}`}
 										>
 											{economics.isCredit
-												? `Net Credit: ₹${economics.netPremium.toFixed(1)}/unit (Total: ₹${Math.round(economics.netPremium * lotSize).toLocaleString("en-IN")})`
-												: `Net Debit: ₹${economics.netPremium.toFixed(1)}/unit (Total: ₹${Math.round(economics.netPremium * lotSize).toLocaleString("en-IN")})`}
+												? `Net Credit: ₹${economics.netPremium.toFixed(2)}/unit (Total: ₹${Math.round(economics.netPremium * lotSize).toLocaleString("en-IN")})`
+												: `Net Debit: ₹${economics.netPremium.toFixed(2)}/unit (Total: ₹${Math.round(economics.netPremium * lotSize).toLocaleString("en-IN")})`}
 										</Badge>
 									</div>
 
@@ -10958,7 +11051,7 @@ function PickCard({
 																	{leg.quantity ?? 1} Lot ({lotSize} Qty)
 																</span>
 																<span>·</span>
-																<span>Exp: {expiryFormatted}</span>
+																<span>Exp: {getFormattedLegExpiry(pick, leg)}</span>
 															</div>
 														</div>
 														<div className="text-right shrink-0">
@@ -11031,7 +11124,7 @@ function PickCard({
 													? `+₹${Math.abs(Number(economics.theta)).toFixed(1)}/day`
 													: `₹${Number(economics.marginRequired).toLocaleString("en-IN")}`}
 											</p>
-											{economics.hedgeBenefit != null && economics.hedgeBenefit > 0 && (
+											{economics.isCredit && economics.hedgeBenefit != null && economics.hedgeBenefit > 0 && (
 												<span className="text-[9.5px] text-purple-600 dark:text-purple-400 font-semibold block">
 													Hedge: -₹{economics.hedgeBenefit.toLocaleString("en-IN")} ({economics.hedgeBenefitPct}%)
 												</span>

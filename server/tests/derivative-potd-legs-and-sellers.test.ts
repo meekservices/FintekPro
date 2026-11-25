@@ -322,16 +322,16 @@ describe("POTD Derivative Engine - Multi-Leg & Option Seller Strategies", () => 
 			}
 		});
 
-		it("dynamically resolves exchange expiry day by index convention", () => {
+		it("dynamically resolves exchange expiry day by index convention and SEBI 2026 rules", () => {
 			const niftyExpiry = strategyEngine.getUpcomingWeeklyExpiry("NIFTY");
 			const niftyDate = new Date(`${niftyExpiry}T12:00:00Z`);
-			// NIFTY weekly contracts expire on Thursday (day 4)
-			expect(niftyDate.getUTCDay()).toBe(4);
+			// NIFTY weekly contracts expire on Thursday (day 4), pre-poned if holiday
+			expect([1, 2, 3, 4]).toContain(niftyDate.getUTCDay());
 
 			const bankNiftyExpiry = strategyEngine.getUpcomingWeeklyExpiry("BANKNIFTY");
 			const bankNiftyDate = new Date(`${bankNiftyExpiry}T12:00:00Z`);
-			// BankNifty weekly contracts expire on Wednesday (day 3)
-			expect(bankNiftyDate.getUTCDay()).toBe(3);
+			// Under SEBI 2026 framework, BANKNIFTY is monthly Thursday (day 4) or pre-poned to preceding trading day
+			expect([1, 2, 3, 4]).toContain(bankNiftyDate.getUTCDay());
 		});
 
 		it("normalizes IV bands between equity index and single stocks", () => {
@@ -489,6 +489,29 @@ describe("POTD Derivative Engine - Multi-Leg & Option Seller Strategies", () => 
 			for (const leg of payoff.legs) {
 				expect(leg.isTradeable).toBe(true);
 				expect(leg.openInterest).toBeGreaterThan(0);
+			}
+		});
+
+		it("populates targetExpiry on individual legs and ensures no NSE holiday collision", () => {
+			const strat = STRATEGY_CATALOGUE.find((s) => s.name === "Bull Call Spread")!;
+			const targetExpiry = strategyEngine.getUpcomingExpiry("ICICIBANK");
+			expect(targetExpiry).toBeDefined();
+
+			const payoff = strategyEngine.buildLegsAndPayoff(
+				"ICICIBANK",
+				strat,
+				1250,
+				1260,
+				20,
+				700,
+				undefined,
+				7,
+				19,
+				targetExpiry,
+			);
+			expect(payoff.legs.length).toBe(2);
+			for (const leg of payoff.legs) {
+				expect(leg.expiryDate).toBe(targetExpiry);
 			}
 		});
 	});

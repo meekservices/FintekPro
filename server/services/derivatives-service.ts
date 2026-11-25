@@ -21,6 +21,7 @@
 import { callPython } from "../clients/python-client";
 import { upstoxMarketDataService } from "./upstox-market-data-service";
 import { upstoxWsStreamingService } from "./upstox-ws-streaming-service";
+import { marketHolidayService } from "./market-holiday-service";
 import { logger } from "../logger";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
@@ -745,10 +746,20 @@ class DerivativesService {
 			/* fall through */
 		}
 
-		// Compute Thursday-based expiry calendar (NSE pattern)
+		// Compute Thursday/Friday-based expiry calendar (NSE/BSE pattern) with holiday preponement
 		const today = new Date();
 		const isIndex = NSE_INDICES.has(upper);
+		const isBse = upper === "SENSEX" || upper === "BANKEX";
+		const exchange = isBse ? "BSE" : "NSE";
 		const expiries: string[] = [];
+
+		const adjustForHoliday = (date: Date): Date => {
+			const cur = new Date(date);
+			while (!marketHolidayService.isTradingDay(cur, exchange)) {
+				cur.setDate(cur.getDate() - 1);
+			}
+			return cur;
+		};
 
 		// SEBI F&O Framework: Single-stock options are strictly MONTHLY only!
 		// Weekly expiries are ONLY permitted on designated benchmark indices (NIFTY on NSE, SENSEX on BSE).
@@ -759,10 +770,11 @@ class DerivativesService {
 			for (let i = 0; i < 4; i++) {
 				const d = new Date(today);
 				d.setDate(d.getDate() + i * 7);
-				const targetDay = upper === "SENSEX" ? 5 : 4; // Friday for BSE SENSEX, Thursday for NSE NIFTY
+				const targetDay = isBse ? 5 : 4; // Friday for BSE SENSEX, Thursday for NSE NIFTY
 				const expiryDay = new Date(d);
 				expiryDay.setDate(d.getDate() + ((targetDay - d.getDay() + 7) % 7));
-				if (expiryDay > today) expiries.push(expiryDay.toISOString().split("T")[0]);
+				const adjusted = adjustForHoliday(expiryDay);
+				if (adjusted > today) expiries.push(adjusted.toISOString().split("T")[0]);
 			}
 		}
 
@@ -771,7 +783,8 @@ class DerivativesService {
 		for (let m = 0; m < 3; m++) {
 			const end = new Date(today.getFullYear(), today.getMonth() + m + 1, 0);
 			while (end.getDay() !== 4) end.setDate(end.getDate() - 1);
-			if (end > today) monthly.push(end.toISOString().split("T")[0]);
+			const adjusted = adjustForHoliday(end);
+			if (adjusted > today) monthly.push(adjusted.toISOString().split("T")[0]);
 		}
 
 		return Array.from(new Set([...expiries, ...monthly])).sort();
