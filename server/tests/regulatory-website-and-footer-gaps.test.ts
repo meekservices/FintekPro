@@ -16,7 +16,7 @@ describe("Regulatory Disclosures, Footer & Checkout Gap Remediation Audit", () =
 
 		it("contains Corporate Identifier (LLPIN) and Registered Office Address", () => {
 			expect(footerContent).toContain("FINTEKPRO FINANCIAL SERVICES LLP");
-			expect(footerContent).toContain("LLPIN: </span>AAY-7819");
+			expect(footerContent).toContain("LLPIN: </span>ACD-6942");
 			expect(footerContent).toContain("Financial District, Gachibowli, Hyderabad, Telangana 500032");
 		});
 

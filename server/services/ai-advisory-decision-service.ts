@@ -47,6 +47,14 @@ export interface DecisionQueryFilter {
 	userId?: string;
 }
 
+export interface DecisionSummaryCounts {
+	total: number;
+	approved: number;
+	modified: number;
+	blocked: number;
+	downgraded: number;
+}
+
 export interface DecisionQueryResult {
 	items: Array<{
 		id: string;
@@ -56,6 +64,8 @@ export interface DecisionQueryResult {
 		recommendedAssetRisk: string;
 		query: string;
 		recommendation: string;
+		rawAiOutput: Record<string, unknown> | null;
+		finalOutput: Record<string, unknown> | null;
 		modelVersion: string;
 		confidenceScore: number;
 		factorsConsidered: string[];
@@ -63,11 +73,14 @@ export interface DecisionQueryResult {
 		governanceDecision: string;
 		regulatoryNotes: string;
 		humanAdvisorReviewRequired: boolean;
+		traceId: string | null;
+		partnerRiaId: string | null;
 		source: string;
 	}>;
 	total: number;
 	page: number;
 	limit: number;
+	summary: DecisionSummaryCounts;
 	meta: {
 		engine_version: string;
 		calculation_timestamp: string;
@@ -136,7 +149,7 @@ class AiAdvisoryDecisionService {
 
 			// Seed initial baseline records if table is currently empty
 			const countResult = await db.execute(sql`SELECT COUNT(*)::int as count FROM ai_advisory_decision_ledger`);
-			const count = Number((countResult.rows[0] as any)?.count || 0);
+			const count = Number((countResult.rows[0] as { count?: number | string } | undefined)?.count || 0);
 
 			if (count === 0) {
 				const baselineDecisions = [
@@ -214,10 +227,10 @@ class AiAdvisoryDecisionService {
 			}
 
 			this.tableEnsured = true;
-		} catch (error: any) {
+		} catch (error: unknown) {
 			logger.warn("[AiAdvisoryDecisionService] Table ensure warning:", {
 				event: "AI_DECISION_LEDGER_INIT_WARNING",
-				error: error.message,
+				error: error instanceof Error ? error.message : String(error),
 			});
 		}
 	}
@@ -289,11 +302,11 @@ class AiAdvisoryDecisionService {
 			});
 
 			return decisionId;
-		} catch (error: any) {
+		} catch (error: unknown) {
 			logger.error("[AiAdvisoryDecisionService] Failed to record decision in DB", {
 				event: "AI_ADVISORY_LEDGER_ERROR",
 				user_id: input.userId,
-				error: error.message,
+				error: error instanceof Error ? error.message : String(error),
 				latency_ms: Date.now() - t0,
 				status: "error",
 			});
@@ -344,6 +357,30 @@ class AiAdvisoryDecisionService {
 
 			const total = Number(countRows[0]?.count || 0);
 
+			const summaryRows = await db
+				.select({
+					decision: aiAdvisoryDecisionLedger.governanceDecision,
+					count: sql<number>`count(*)::int`,
+				})
+				.from(aiAdvisoryDecisionLedger)
+				.groupBy(aiAdvisoryDecisionLedger.governanceDecision);
+
+			const summary: DecisionSummaryCounts = {
+				total: 0,
+				approved: 0,
+				modified: 0,
+				blocked: 0,
+				downgraded: 0,
+			};
+			for (const row of summaryRows) {
+				const c = Number(row.count || 0);
+				summary.total += c;
+				if (row.decision === "APPROVED") summary.approved = c;
+				else if (row.decision === "MODIFIED") summary.modified = c;
+				else if (row.decision === "BLOCKED") summary.blocked = c;
+				else if (row.decision === "DOWNGRADED") summary.downgraded = c;
+			}
+
 			const items = rows.map((r: AiAdvisoryDecisionLedger) => ({
 				id: r.id,
 				timestamp: r.timestamp.toISOString(),
@@ -352,6 +389,8 @@ class AiAdvisoryDecisionService {
 				recommendedAssetRisk: r.recommendedAssetRisk,
 				query: r.query,
 				recommendation: r.recommendation,
+				rawAiOutput: (r.rawAiOutput as Record<string, unknown> | null) ?? null,
+				finalOutput: (r.finalOutput as Record<string, unknown> | null) ?? null,
 				modelVersion: r.modelVersion,
 				confidenceScore: Number(r.confidenceScore || 0.85),
 				factorsConsidered: Array.isArray(r.factorsConsidered) ? (r.factorsConsidered as string[]) : [],
@@ -359,6 +398,8 @@ class AiAdvisoryDecisionService {
 				governanceDecision: r.governanceDecision,
 				regulatoryNotes: r.regulatoryNotes || "",
 				humanAdvisorReviewRequired: Boolean(r.humanAdvisorReviewRequired),
+				traceId: r.traceId ?? null,
+				partnerRiaId: r.partnerRiaId ?? null,
 				source: r.source,
 			}));
 
@@ -367,21 +408,23 @@ class AiAdvisoryDecisionService {
 				total,
 				page,
 				limit,
+				summary,
 				meta: {
 					engine_version: ADVISORY_DECISION_ENGINE_VERSION,
 					calculation_timestamp: new Date().toISOString(),
 				},
 			};
-		} catch (error: any) {
+		} catch (error: unknown) {
 			logger.error("[AiAdvisoryDecisionService] Error retrieving decisions", {
 				event: "AI_ADVISORY_QUERY_ERROR",
-				error: error.message,
+				error: error instanceof Error ? error.message : String(error),
 			});
 			return {
 				items: [],
 				total: 0,
 				page,
 				limit,
+				summary: { total: 0, approved: 0, modified: 0, blocked: 0, downgraded: 0 },
 				meta: {
 					engine_version: ADVISORY_DECISION_ENGINE_VERSION,
 					calculation_timestamp: new Date().toISOString(),
@@ -409,6 +452,31 @@ class AiAdvisoryDecisionService {
 		await this.ensureTableAndBaseline();
 
 		try {
+			const existing = await db
+				.select({
+					id: aiAdvisoryDecisionLedger.id,
+					governanceDecision: aiAdvisoryDecisionLedger.governanceDecision,
+				})
+				.from(aiAdvisoryDecisionLedger)
+				.where(eq(aiAdvisoryDecisionLedger.id, eventId))
+				.limit(1);
+
+			if (existing.length === 0) {
+				return {
+					success: false,
+					eventId,
+					status: "NOT_FOUND",
+				};
+			}
+
+			if (existing[0].governanceDecision === "DOWNGRADED") {
+				return {
+					success: true,
+					eventId,
+					status: "ALREADY_DOWNGRADED",
+				};
+			}
+
 			await db
 				.update(aiAdvisoryDecisionLedger)
 				.set({
@@ -432,10 +500,10 @@ class AiAdvisoryDecisionService {
 				eventId,
 				status: "DOWNGRADED_TO_HUMAN_RIA",
 			};
-		} catch (error: any) {
+		} catch (error: unknown) {
 			logger.error("[AiAdvisoryDecisionService] Failed to downgrade decision", {
 				event: "AI_ADVICE_DOWNGRADE_ERROR",
-				error: error.message,
+				error: error instanceof Error ? error.message : String(error),
 			});
 			return {
 				success: false,

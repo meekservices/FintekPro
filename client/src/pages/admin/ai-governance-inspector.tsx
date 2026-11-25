@@ -30,37 +30,131 @@ import {
 import {
 	Brain,
 	ShieldCheck,
-	ShieldAlert,
 	AlertTriangle,
-	CheckCircle2,
 	RefreshCw,
-	Eye,
-	UserCheck,
-	Sparkles,
 	BookOpen,
-	ArrowRight,
+	History,
+	ChevronLeft,
+	ChevronRight,
+	GitCompare,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
+interface GovernanceEvent {
+	id: string;
+	timestamp: string;
+	userId: string;
+	clientRisk: string;
+	recommendedAssetRisk: string;
+	query: string;
+	recommendation: string;
+	rawAiOutput?: Record<string, unknown> | null;
+	finalOutput?: Record<string, unknown> | null;
+	modelVersion: string;
+	confidenceScore: number;
+	factorsConsidered: string[];
+	deterministicLanguageScan: string;
+	governanceDecision: "APPROVED" | "MODIFIED" | "BLOCKED" | "DOWNGRADED" | string;
+	regulatoryNotes: string;
+	humanAdvisorReviewRequired: boolean;
+	traceId?: string | null;
+	partnerRiaId?: string | null;
+	source: string;
+}
+
+interface DecisionSummary {
+	total: number;
+	approved: number;
+	modified: number;
+	blocked: number;
+	downgraded: number;
+}
+
+interface GovernanceEventsResponse {
+	success: boolean;
+	data: GovernanceEvent[];
+	total: number;
+	page: number;
+	limit: number;
+	summary?: DecisionSummary;
+}
+
+interface PromptInventoryItem {
+	name: string;
+	version: string;
+	lastReviewedAt: string;
+	reviewedBy: string;
+	regulatoryCategory?: string;
+	daysSinceReview: number;
+	freshness: "green" | "amber" | "red";
+}
+
+interface PromptHistoryItem {
+	id: number;
+	promptName: string;
+	version: string;
+	usedAt: string;
+	userId?: string | null;
+	feature?: string | null;
+	responsePreviewHash?: string | null;
+}
+
+type DecisionFilter = "ALL" | "APPROVED" | "MODIFIED" | "BLOCKED" | "DOWNGRADED";
+
+const PAGE_SIZE = 20;
+
 export default function AiGovernanceInspectorPage() {
 	const { toast } = useToast();
-	const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
+	const [selectedEvent, setSelectedEvent] = useState<GovernanceEvent | null>(null);
+	const [selectedPromptName, setSelectedPromptName] = useState<string | null>(null);
+	const [decisionFilter, setDecisionFilter] = useState<DecisionFilter>("ALL");
+	const [page, setPage] = useState(1);
 
-	const { data: eventsResponse, refetch: refetchEvents, isLoading: eventsLoading } = useQuery<{
-		success: boolean;
-		data: any[];
-	}>({
-		queryKey: ["/api/admin/ai/governance-events"],
+	const eventsUrl =
+		decisionFilter === "ALL"
+			? `/api/admin/ai/governance-events?page=${page}&limit=${PAGE_SIZE}`
+			: `/api/admin/ai/governance-events?page=${page}&limit=${PAGE_SIZE}&decision=${decisionFilter}`;
+
+	const {
+		data: eventsResponse,
+		refetch: refetchEvents,
+		isLoading: eventsLoading,
+		isError: eventsError,
+		error: eventsErrorObj,
+	} = useQuery<GovernanceEventsResponse>({
+		queryKey: [eventsUrl],
 		refetchInterval: 15000,
 	});
 
-	const { data: promptsResponse, refetch: refetchPrompts, isLoading: promptsLoading } = useQuery<{
-		prompts: any[];
+	const {
+		data: promptsResponse,
+		refetch: refetchPrompts,
+		isLoading: promptsLoading,
+		isError: promptsError,
+	} = useQuery<{
+		prompts: PromptInventoryItem[];
 		total: number;
 	}>({
 		queryKey: ["/api/admin/ai/prompts"],
 		refetchInterval: 60000,
+	});
+
+	const promptHistoryUrl = selectedPromptName
+		? `/api/admin/ai/prompts/${encodeURIComponent(selectedPromptName)}/history`
+		: "";
+
+	const {
+		data: promptHistoryResponse,
+		isLoading: promptHistoryLoading,
+		isError: promptHistoryError,
+	} = useQuery<{
+		promptName: string;
+		history: PromptHistoryItem[];
+		total: number;
+	}>({
+		queryKey: [promptHistoryUrl],
+		enabled: !!selectedPromptName,
 	});
 
 	const downgradeMutation = useMutation({
@@ -72,23 +166,53 @@ export default function AiGovernanceInspectorPage() {
 			return res.json();
 		},
 		onSuccess: (data) => {
-			if (data.success) {
+			if (data?.success) {
 				toast({
 					title: "Advisory Downgraded to Human RIA",
 					description: "Recommendation has been quarantined and routed to a human advisor for review.",
 				});
 				setSelectedEvent(null);
 				refetchEvents();
+			} else {
+				toast({
+					title: "Downgrade Not Applied",
+					description: data?.message || "Unable to downgrade the selected advisory decision.",
+					variant: "destructive",
+				});
 			}
+		},
+		onError: (err: Error) => {
+			toast({
+				title: "Downgrade Failed",
+				description: err.message || "An error occurred while downgrading the advisory event.",
+				variant: "destructive",
+			});
 		},
 	});
 
 	const events = eventsResponse?.data || [];
+	const totalFiltered = eventsResponse?.total ?? events.length;
+	const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
 	const prompts = promptsResponse?.prompts || [];
 
-	const approvedCount = events.filter((e: any) => e.governanceDecision === "APPROVED").length;
-	const modifiedCount = events.filter((e: any) => e.governanceDecision === "MODIFIED").length;
-	const blockedCount = events.filter((e: any) => e.governanceDecision === "BLOCKED" || e.governanceDecision === "DOWNGRADED").length;
+	const summary = eventsResponse?.summary;
+	const totalCycles = summary?.total ?? totalFiltered;
+	const approvedCount = summary?.approved ?? events.filter((e) => e.governanceDecision === "APPROVED").length;
+	const modifiedCount = summary?.modified ?? events.filter((e) => e.governanceDecision === "MODIFIED").length;
+	const blockedCount =
+		summary !== undefined
+			? summary.blocked + summary.downgraded
+			: events.filter((e) => e.governanceDecision === "BLOCKED" || e.governanceDecision === "DOWNGRADED").length;
+
+	const handleFilterChange = (nextFilter: DecisionFilter) => {
+		setDecisionFilter(nextFilter);
+		setPage(1);
+	};
+
+	const formatConfidence = (score: number | undefined) => {
+		if (typeof score !== "number" || Number.isNaN(score)) return "N/A";
+		return `${(score * 100).toFixed(0)}%`;
+	};
 
 	return (
 		<AdminLayout>
@@ -126,7 +250,7 @@ export default function AiGovernanceInspectorPage() {
 						<div className="flex items-center gap-3">
 							<ShieldCheck className="h-6 w-6 text-blue-600 dark:text-blue-400 flex-shrink-0" />
 							<div className="text-xs text-muted-foreground">
-								<strong className="text-foreground">FASP-AI Core Mandate:</strong> AI is strictly a <strong>Decision Support System (DSS)</strong>. It is prohibited from autonomous trade execution or tax filings. Confidence threshold for autonomous advice presentation is <strong>≥ 0.75</strong>; all sub-threshold outputs are automatically downgraded.
+								<strong className="text-foreground">FASP-AI Core Mandate:</strong> AI is strictly a <strong>Decision Support System (DSS)</strong>. It is prohibited from autonomous trade execution or tax filings. Outputs with confidence <strong>&lt; 0.50</strong> are auto-downgraded by AAGE, and outputs <strong>&lt; 0.75</strong> are flagged for human RIA review.
 							</div>
 						</div>
 						<Badge variant="outline" className="border-blue-400 text-blue-700 dark:text-blue-300 font-semibold whitespace-nowrap ml-4">
@@ -141,7 +265,7 @@ export default function AiGovernanceInspectorPage() {
 						<CardHeader className="pb-2">
 							<CardDescription>Intercepted Advice Cycles</CardDescription>
 							<CardTitle className="text-2xl font-bold text-foreground">
-								{events.length}
+								{totalCycles}
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="text-xs text-muted-foreground">
@@ -175,13 +299,13 @@ export default function AiGovernanceInspectorPage() {
 
 					<Card>
 						<CardHeader className="pb-2">
-							<CardDescription>Blocked (Unsuitable Risk)</CardDescription>
+							<CardDescription>Blocked / Downgraded</CardDescription>
 							<CardTitle className="text-2xl font-bold text-red-600">
 								{blockedCount}
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="text-xs text-muted-foreground">
-							Risk mismatch or low confidence score
+							Risk mismatch, low confidence, or RIA quarantine
 						</CardContent>
 					</Card>
 				</div>
@@ -201,107 +325,160 @@ export default function AiGovernanceInspectorPage() {
 					{/* Decisions Tab */}
 					<TabsContent value="decisions" className="space-y-4">
 						<Card>
-							<CardHeader>
-								<CardTitle className="text-lg">Real-Time AI Advisory Decision Ledger</CardTitle>
-								<CardDescription>
-									Detailed lineage of inputs, confidence scores, suitability checks, and governance decisions.
-								</CardDescription>
+							<CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+								<div>
+									<CardTitle className="text-lg">Real-Time AI Advisory Decision Ledger</CardTitle>
+									<CardDescription>
+										Detailed lineage of inputs, confidence scores, suitability checks, and governance decisions.
+									</CardDescription>
+								</div>
+								<div className="flex flex-wrap items-center gap-1.5">
+									{(["ALL", "APPROVED", "MODIFIED", "BLOCKED", "DOWNGRADED"] as DecisionFilter[]).map((status) => (
+										<Button
+											key={status}
+											variant={decisionFilter === status ? "default" : "outline"}
+											size="sm"
+											className="h-7 text-xs"
+											onClick={() => handleFilterChange(status)}
+										>
+											{status}
+										</Button>
+									))}
+								</div>
 							</CardHeader>
 							<CardContent>
 								{eventsLoading ? (
 									<div className="py-8 text-center text-muted-foreground">Loading AI governance feed...</div>
+								) : eventsError ? (
+									<div className="py-8 text-center text-red-600 flex flex-col items-center gap-2">
+										<AlertTriangle className="h-5 w-5" />
+										<span>Failed to load AI governance events: {(eventsErrorObj as Error)?.message || "Unknown error"}</span>
+									</div>
 								) : events.length === 0 ? (
-									<div className="py-8 text-center text-muted-foreground">No recent AI advisory events intercepted.</div>
+									<div className="py-8 text-center text-muted-foreground">No AI advisory events match the current filter.</div>
 								) : (
-									<Table>
-										<TableHeader>
-											<TableRow>
-												<TableHead>Time</TableHead>
-												<TableHead>Client vs Asset Risk</TableHead>
-												<TableHead>Query & Recommendation</TableHead>
-												<TableHead>Confidence</TableHead>
-												<TableHead>Language Scan</TableHead>
-												<TableHead>Decision</TableHead>
-												<TableHead className="text-right">Action</TableHead>
-											</TableRow>
-										</TableHeader>
-										<TableBody>
-											{events.map((event: any) => (
-												<TableRow key={event.id}>
-													<TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-														{new Date(event.timestamp).toLocaleTimeString()}
-													</TableCell>
-													<TableCell>
-														<div className="text-xs">
-															<span className="text-muted-foreground">Client: </span>
-															<strong className="capitalize">{event.clientRisk}</strong>
-														</div>
-														<div className="text-xs">
-															<span className="text-muted-foreground">Asset: </span>
-															<span className={event.clientRisk === event.recommendedAssetRisk ? "text-emerald-600 font-semibold capitalize" : "text-red-500 font-semibold capitalize"}>
-																{event.recommendedAssetRisk}
-															</span>
-														</div>
-													</TableCell>
-													<TableCell className="max-w-md">
-														<div className="text-xs font-semibold text-foreground line-clamp-1">{event.query}</div>
-														<div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{event.recommendation}</div>
-														<div className="text-[10px] text-blue-600 dark:text-blue-400 mt-1">
-															Factors: {event.factorsConsidered?.join(" • ")}
-														</div>
-													</TableCell>
-													<TableCell>
-														<Badge
-															className={
-																event.confidenceScore >= 0.75
-																	? "bg-emerald-500 text-white font-mono"
-																	: "bg-red-500 text-white font-mono"
-															}
-														>
-															{(event.confidenceScore * 100).toFixed(0)}%
-														</Badge>
-													</TableCell>
-													<TableCell>
-														<Badge
-															variant="outline"
-															className={
-																event.deterministicLanguageScan === "CLEAN"
-																	? "text-emerald-600 border-emerald-300 text-xs"
-																	: "text-red-600 border-red-300 text-xs font-bold"
-															}
-														>
-															{event.deterministicLanguageScan}
-														</Badge>
-													</TableCell>
-													<TableCell>
-														<Badge
-															className={
-																event.governanceDecision === "APPROVED"
-																	? "bg-emerald-600 text-white text-xs font-bold"
-																	: event.governanceDecision === "MODIFIED"
-																		? "bg-amber-600 text-white text-xs font-bold"
-																		: event.governanceDecision === "DOWNGRADED"
-																			? "bg-purple-600 text-white text-xs font-bold"
-																			: "bg-red-600 text-white text-xs font-bold"
-															}
-														>
-															{event.governanceDecision}
-														</Badge>
-													</TableCell>
-													<TableCell className="text-right">
-														<Button
-															variant="outline"
-															size="sm"
-															onClick={() => setSelectedEvent(event)}
-															className="text-xs h-7"
-														>
-															Inspect
-														</Button>
-													</TableCell>
+									<>
+										<Table>
+											<TableHeader>
+												<TableRow>
+													<TableHead>Time</TableHead>
+													<TableHead>Client vs Asset Risk</TableHead>
+													<TableHead>Query & Recommendation</TableHead>
+													<TableHead>Confidence</TableHead>
+													<TableHead>Language Scan</TableHead>
+													<TableHead>Decision</TableHead>
+													<TableHead className="text-right">Action</TableHead>
 												</TableRow>
-											))}
-										</TableBody>
-									</Table>
+											</TableHeader>
+											<TableBody>
+												{events.map((event) => (
+													<TableRow key={event.id}>
+														<TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+															{new Date(event.timestamp).toLocaleTimeString()}
+														</TableCell>
+														<TableCell>
+															<div className="text-xs">
+																<span className="text-muted-foreground">Client: </span>
+																<strong className="capitalize">{event.clientRisk}</strong>
+															</div>
+															<div className="text-xs">
+																<span className="text-muted-foreground">Asset: </span>
+																<span className={event.clientRisk === event.recommendedAssetRisk ? "text-emerald-600 font-semibold capitalize" : "text-red-500 font-semibold capitalize"}>
+																	{event.recommendedAssetRisk}
+																</span>
+															</div>
+														</TableCell>
+														<TableCell className="max-w-md">
+															<div className="text-xs font-semibold text-foreground line-clamp-1">{event.query}</div>
+															<div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{event.recommendation}</div>
+															{event.factorsConsidered?.length > 0 && (
+																<div className="text-[10px] text-blue-600 dark:text-blue-400 mt-1">
+																	Factors: {event.factorsConsidered.join(" • ")}
+																</div>
+															)}
+														</TableCell>
+														<TableCell>
+															<Badge
+																className={
+																	event.confidenceScore >= 0.75
+																		? "bg-emerald-500 text-white font-mono"
+																		: "bg-red-500 text-white font-mono"
+																}
+															>
+																{formatConfidence(event.confidenceScore)}
+															</Badge>
+														</TableCell>
+														<TableCell>
+															<Badge
+																variant="outline"
+																className={
+																	event.deterministicLanguageScan === "CLEAN"
+																		? "text-emerald-600 border-emerald-300 text-xs"
+																		: "text-red-600 border-red-300 text-xs font-bold"
+																}
+															>
+																{event.deterministicLanguageScan}
+															</Badge>
+														</TableCell>
+														<TableCell>
+															<Badge
+																className={
+																	event.governanceDecision === "APPROVED"
+																		? "bg-emerald-600 text-white text-xs font-bold"
+																		: event.governanceDecision === "MODIFIED"
+																			? "bg-amber-600 text-white text-xs font-bold"
+																			: event.governanceDecision === "DOWNGRADED"
+																				? "bg-purple-600 text-white text-xs font-bold"
+																				: "bg-red-600 text-white text-xs font-bold"
+																}
+															>
+																{event.governanceDecision}
+															</Badge>
+														</TableCell>
+														<TableCell className="text-right">
+															<Button
+																variant="outline"
+																size="sm"
+																onClick={() => setSelectedEvent(event)}
+																className="text-xs h-7"
+															>
+																Inspect
+															</Button>
+														</TableCell>
+													</TableRow>
+												))}
+											</TableBody>
+										</Table>
+
+										{/* Pagination Footer */}
+										<div className="flex items-center justify-between pt-4 border-t mt-4 text-xs text-muted-foreground">
+											<div>
+												Showing page <strong>{page}</strong> of <strong>{totalPages}</strong> ({totalFiltered} total records)
+											</div>
+											<div className="flex items-center gap-2">
+												<Button
+													variant="outline"
+													size="sm"
+													className="h-7 text-xs gap-1"
+													disabled={page <= 1}
+													onClick={() => setPage((p) => Math.max(1, p - 1))}
+												>
+													<ChevronLeft className="h-3.5 w-3.5" />
+													Previous
+												</Button>
+												<Button
+													variant="outline"
+													size="sm"
+													className="h-7 text-xs gap-1"
+													disabled={page >= totalPages}
+													onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+												>
+													Next
+													<ChevronRight className="h-3.5 w-3.5" />
+												</Button>
+											</div>
+										</div>
+									</>
 								)}
 							</CardContent>
 						</Card>
@@ -319,6 +496,11 @@ export default function AiGovernanceInspectorPage() {
 							<CardContent>
 								{promptsLoading ? (
 									<div className="py-8 text-center text-muted-foreground">Loading prompt inventory...</div>
+								) : promptsError ? (
+									<div className="py-8 text-center text-red-600 flex flex-col items-center gap-2">
+										<AlertTriangle className="h-5 w-5" />
+										<span>Failed to load prompt inventory.</span>
+									</div>
 								) : (
 									<Table>
 										<TableHeader>
@@ -329,10 +511,11 @@ export default function AiGovernanceInspectorPage() {
 												<TableHead>Last Reviewed</TableHead>
 												<TableHead>Days Since Review</TableHead>
 												<TableHead>Freshness</TableHead>
+												<TableHead className="text-right">Lineage</TableHead>
 											</TableRow>
 										</TableHeader>
 										<TableBody>
-											{prompts.map((p: any) => (
+											{prompts.map((p) => (
 												<TableRow key={p.name}>
 													<TableCell className="font-semibold text-xs">{p.name}</TableCell>
 													<TableCell className="font-mono text-xs">{p.version}</TableCell>
@@ -356,6 +539,17 @@ export default function AiGovernanceInspectorPage() {
 															{p.freshness.toUpperCase()}
 														</Badge>
 													</TableCell>
+													<TableCell className="text-right">
+														<Button
+															variant="outline"
+															size="sm"
+															className="h-7 text-xs gap-1"
+															onClick={() => setSelectedPromptName(p.name)}
+														>
+															<History className="h-3.5 w-3.5" />
+															History
+														</Button>
+													</TableCell>
 												</TableRow>
 											))}
 										</TableBody>
@@ -366,41 +560,87 @@ export default function AiGovernanceInspectorPage() {
 					</TabsContent>
 				</Tabs>
 
-				{/* Event Inspection & Downgrade Modal */}
+				{/* Event Forensic & Lineage Inspection Modal */}
 				<Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
-					<DialogContent className="max-w-xl">
+					<DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
 						<DialogHeader>
 							<DialogTitle className="flex items-center gap-2">
 								<Brain className="h-5 w-5 text-primary" />
-								AI Advisory Forensic Inspection
+								AI Advisory Forensic & Lineage Inspection
 							</DialogTitle>
-							<DialogDescription>
-								Inspection ID: {selectedEvent?.id} | Model: {selectedEvent?.modelVersion}
+							<DialogDescription className="font-mono text-[11px]">
+								ID: {selectedEvent?.id} | Trace: {selectedEvent?.traceId || "N/A"} | Model: {selectedEvent?.modelVersion} | Source: {selectedEvent?.source}
 							</DialogDescription>
 						</DialogHeader>
 						<div className="space-y-4 py-2 text-xs">
-							<div className="p-3 rounded-lg border bg-muted/30 space-y-1">
+							<div className="p-3 rounded-lg border bg-muted/30 space-y-1.5">
+								<div><strong>User ID:</strong> <span className="font-mono">{selectedEvent?.userId}</span></div>
 								<div><strong>Query:</strong> {selectedEvent?.query}</div>
-								<div><strong>AI Output:</strong> {selectedEvent?.recommendation}</div>
+								<div><strong>Final Recommendation:</strong> {selectedEvent?.recommendation}</div>
 							</div>
 
-							<div className="grid grid-cols-2 gap-3">
+							<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
 								<div className="p-2.5 border rounded-md">
 									<div className="text-muted-foreground">Suitability Match</div>
-									<div className="font-bold text-sm mt-0.5">
-										Client: {selectedEvent?.clientRisk} → Asset: {selectedEvent?.recommendedAssetRisk}
+									<div className="font-bold text-sm mt-0.5 capitalize">
+										{selectedEvent?.clientRisk} → {selectedEvent?.recommendedAssetRisk}
 									</div>
 								</div>
 								<div className="p-2.5 border rounded-md">
 									<div className="text-muted-foreground">Confidence Score</div>
 									<div className="font-bold text-sm mt-0.5">
-										{(selectedEvent?.confidenceScore * 100).toFixed(0)}% (Threshold: 75%)
+										{formatConfidence(selectedEvent?.confidenceScore)} (RIA Review &lt; 75%)
+									</div>
+								</div>
+								<div className="p-2.5 border rounded-md">
+									<div className="text-muted-foreground">Human RIA Review</div>
+									<div className="font-bold text-sm mt-0.5">
+										{selectedEvent?.humanAdvisorReviewRequired ? "Required" : "Not Required"}
+										{selectedEvent?.partnerRiaId ? ` (${selectedEvent.partnerRiaId})` : ""}
 									</div>
 								</div>
 							</div>
 
+							{selectedEvent?.factorsConsidered && selectedEvent.factorsConsidered.length > 0 && (
+								<div className="p-3 border rounded-md space-y-1.5">
+									<div className="font-semibold">Factors Considered</div>
+									<div className="flex flex-wrap gap-1.5">
+										{selectedEvent.factorsConsidered.map((factor, idx) => (
+											<Badge key={idx} variant="secondary" className="text-[11px] font-normal">
+												{factor}
+											</Badge>
+										))}
+									</div>
+								</div>
+							)}
+
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+								<div className="p-3 border rounded-md bg-muted/20">
+									<div className="font-semibold flex items-center gap-1.5 mb-1.5">
+										<GitCompare className="h-3.5 w-3.5 text-muted-foreground" />
+										Raw AI Output (Pre-AAGE)
+									</div>
+									<pre className="text-[11px] font-mono whitespace-pre-wrap break-words max-h-48 overflow-y-auto text-muted-foreground">
+										{selectedEvent?.rawAiOutput
+											? JSON.stringify(selectedEvent.rawAiOutput, null, 2)
+											: "No raw payload recorded for this cycle."}
+									</pre>
+								</div>
+								<div className="p-3 border rounded-md bg-muted/20">
+									<div className="font-semibold flex items-center gap-1.5 mb-1.5">
+										<ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+										Final Governed Output (Post-AAGE)
+									</div>
+									<pre className="text-[11px] font-mono whitespace-pre-wrap break-words max-h-48 overflow-y-auto text-muted-foreground">
+										{selectedEvent?.finalOutput
+											? JSON.stringify(selectedEvent.finalOutput, null, 2)
+											: "No post-AAGE payload recorded for this cycle."}
+									</pre>
+								</div>
+							</div>
+
 							<div className="p-3 border rounded-md bg-amber-50/50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-200">
-								<strong>AAGE Regulatory Audit Note:</strong>
+								<strong>AAGE Regulatory Audit Note ({selectedEvent?.deterministicLanguageScan}):</strong>
 								<p className="mt-1">{selectedEvent?.regulatoryNotes}</p>
 							</div>
 						</div>
@@ -412,6 +652,7 @@ export default function AiGovernanceInspectorPage() {
 								variant="destructive"
 								disabled={downgradeMutation.isPending || selectedEvent?.governanceDecision === "DOWNGRADED"}
 								onClick={() =>
+									selectedEvent &&
 									downgradeMutation.mutate({
 										eventId: selectedEvent.id,
 										reason: "Manually quarantined by Administrator from AI Governance Inspector",
@@ -423,6 +664,60 @@ export default function AiGovernanceInspectorPage() {
 									: selectedEvent?.governanceDecision === "DOWNGRADED"
 										? "Already Downgraded to RIA"
 										: "Downgrade to Human RIA"}
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
+
+				{/* Prompt Version History Modal */}
+				<Dialog open={!!selectedPromptName} onOpenChange={() => setSelectedPromptName(null)}>
+					<DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+						<DialogHeader>
+							<DialogTitle className="flex items-center gap-2">
+								<History className="h-5 w-5 text-primary" />
+								Prompt Usage Lineage: {selectedPromptName}
+							</DialogTitle>
+							<DialogDescription>
+								Latest 100 recorded executions from `ai_prompt_versions`.
+							</DialogDescription>
+						</DialogHeader>
+						{promptHistoryLoading ? (
+							<div className="py-8 text-center text-xs text-muted-foreground">Loading prompt usage history...</div>
+						) : promptHistoryError ? (
+							<div className="py-8 text-center text-xs text-red-600">Failed to load prompt usage history.</div>
+						) : !promptHistoryResponse?.history?.length ? (
+							<div className="py-8 text-center text-xs text-muted-foreground">No usage history recorded for this prompt yet.</div>
+						) : (
+							<Table>
+								<TableHeader>
+									<TableRow>
+										<TableHead>Used At</TableHead>
+										<TableHead>Version</TableHead>
+										<TableHead>Feature</TableHead>
+										<TableHead>User ID</TableHead>
+										<TableHead>Preview Hash</TableHead>
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{promptHistoryResponse.history.map((h) => (
+										<TableRow key={h.id}>
+											<TableCell className="text-xs whitespace-nowrap">
+												{new Date(h.usedAt).toLocaleString()}
+											</TableCell>
+											<TableCell className="font-mono text-xs">{h.version}</TableCell>
+											<TableCell className="text-xs">{h.feature || "—"}</TableCell>
+											<TableCell className="font-mono text-xs">{h.userId || "—"}</TableCell>
+											<TableCell className="font-mono text-[11px] text-muted-foreground">
+												{h.responsePreviewHash ? h.responsePreviewHash.slice(0, 12) : "—"}
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						)}
+						<DialogFooter>
+							<Button variant="outline" onClick={() => setSelectedPromptName(null)}>
+								Close
 							</Button>
 						</DialogFooter>
 					</DialogContent>

@@ -31,9 +31,10 @@ import { db } from "../db";
 import {
   modelPortfolios,
   modelPortfolioHoldings,
+  mutualFunds,
   type ModelPortfolioHolding,
 } from "@shared/schema";
-import { eq, isNull, sql, and, desc, asc } from "drizzle-orm";
+import { eq, isNull, sql, and, desc, asc, or } from "drizzle-orm";
 import { logger } from "../logger";
 import { deriveSubCategory } from "./isin-resolver-service";
 
@@ -141,11 +142,13 @@ function computeAlphaScore(h: {
   sharpeRatio?: number | string | null;
   alpha?: number | string | null;
   expenseRatio?: number | string | null;
+  crisilRating?: number | string | null;
 }): number {
   const c1y = parseFloat(String(h.cagr1y  ?? 0)) || 0;
   const sharpe = parseFloat(String(h.sharpeRatio ?? 0)) || 0;
   const alp  = parseFloat(String(h.alpha ?? 0)) || 0;
   const er   = parseFloat(String(h.expenseRatio ?? 1.0)) || 1.0;
+  const crisil = h.crisilRating != null ? parseFloat(String(h.crisilRating)) : NaN;
 
   // Normalise cagr1y: cap at 50% to avoid outliers dominating
   const c1yNorm = Math.min(Math.max(c1y, 0), 50) / 50;
@@ -156,15 +159,19 @@ function computeAlphaScore(h: {
   // ER: 1/er normalised — ER of 0.1% scores highest; cap inverse at 10
   const erNorm = Math.min(1 / Math.max(er, 0.1), 10) / 10;
 
-  // Fix #8 — Weights MUST sum to 1.0.
-  // The original 4-factor weights (0.30 + 0.20 + 0.15 + 0.15 = 0.80) silently
-  // dropped crisilRating's 0.20 share, making the maximum achievable score 8.0/10
-  // instead of 10.0 and biasing all comparisons. Normalised to 1.0 until the
-  // crisilRating JOIN is added (see TODO Sprint 4 below).
-  //
-  // TODO(Sprint 4): JOIN mutual_funds on ISIN to get crisilRating; add:
-  //   crisilNorm = Math.min(Math.max(crisilRating, 0), 5) / 5;
-  //   and use weights: c1y×0.30, sharpe×0.20, alpha×0.175, er×0.175, crisil×0.15
+  if (Number.isFinite(crisil) && crisil > 0) {
+    // 5-factor formula with CRISIL / FintekPro Smart Rating (1-5 scale)
+    const crisilNorm = Math.min(Math.max(crisil, 0), 5) / 5;
+    const score =
+      c1yNorm * 0.30 +
+      sharpeNorm * 0.20 +
+      alpNorm * 0.175 +
+      erNorm * 0.175 +
+      crisilNorm * 0.15;
+    return parseFloat((score * 10).toFixed(2));
+  }
+
+  // Fallback 4-factor normalized weights when crisilRating is unavailable
   const score =
     c1yNorm    * 0.375 +  // 0.30 / 0.80 — renormalised
     sharpeNorm * 0.250 +  // 0.20 / 0.80
@@ -409,11 +416,29 @@ export async function refreshHoldingNAV(holding: ModelPortfolioHolding): Promise
 
   const { nav, return1y } = await fetchNavFromMfapi(holding.schemeCode);
 
+  let crisilRating: number | null = null;
+  try {
+    const mfConditions = [];
+    if (holding.isin) mfConditions.push(eq(mutualFunds.isin, holding.isin));
+    if (holding.schemeCode) mfConditions.push(eq(mutualFunds.schemeCode, holding.schemeCode));
+    if (mfConditions.length > 0) {
+      const [mfRow] = await db
+        .select({ crisilRating: mutualFunds.crisilRating })
+        .from(mutualFunds)
+        .where(mfConditions.length > 1 ? or(...mfConditions) : mfConditions[0])
+        .limit(1);
+      crisilRating = mfRow?.crisilRating ?? null;
+    }
+  } catch {
+    // Non-blocking fallback to 4-factor score
+  }
+
   const alphaScore = computeAlphaScore({
-    cagr1y:      return1y,
+    cagr1y:       return1y,
     sharpeRatio:  holding.sharpeRatio,
     alpha:        holding.alpha,
     expenseRatio: holding.expenseRatio,
+    crisilRating,
   });
 
   // Fix 1: If this is the first NAV refresh (inceptionNav is null), set

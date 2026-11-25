@@ -9,8 +9,8 @@
  */
 
 import { db } from "../db";
-import { mutualFunds } from "@shared/schema";
-import { eq, or, ilike } from "drizzle-orm";
+import { mutualFunds, mfNavHistory } from "@shared/schema";
+import { eq, or, ilike, and, lte, desc } from "drizzle-orm";
 import { InvestmentLot } from "./fifo-lot-ledger-service";
 import { exitLoadService, ExitLoadResult } from "./exit-load-service";
 import {
@@ -295,6 +295,52 @@ class LotTaxCalculatorService {
 	}
 
 	/**
+	 * Looks up the Jan 31, 2018 (or closest prior) NAV for Section 112A grandfathering.
+	 */
+	private async lookupJan2018Nav(
+		isin?: string,
+		schemeName?: string,
+	): Promise<number | null> {
+		try {
+			if (!isin && !schemeName) return null;
+
+			const fundConditions = [];
+			if (isin) fundConditions.push(eq(mutualFunds.isin, isin));
+			if (schemeName) fundConditions.push(ilike(mutualFunds.schemeName, `%${schemeName}%`));
+
+			const [fund] = await db
+				.select({ schemeCode: mutualFunds.schemeCode })
+				.from(mutualFunds)
+				.where(fundConditions.length > 1 ? or(...fundConditions) : fundConditions[0])
+				.limit(1);
+
+			if (!fund?.schemeCode) return null;
+
+			const [navRow] = await db
+				.select({ nav: mfNavHistory.nav })
+				.from(mfNavHistory)
+				.where(
+					and(
+						eq(mfNavHistory.schemeCode, fund.schemeCode),
+						lte(mfNavHistory.navDate, "2018-01-31"),
+					),
+				)
+				.orderBy(desc(mfNavHistory.navDate))
+				.limit(1);
+
+			if (!navRow?.nav) return null;
+			const parsed = Number(navRow.nav);
+			return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+		} catch (err) {
+			logger.warn("[LotTaxCalculator] Jan 2018 NAV lookup failed", {
+				isin,
+				error: err instanceof Error ? err.message : String(err),
+			});
+			return null;
+		}
+	}
+
+	/**
 	 * Epic 3.2: Calculate capital gains for a single lot
 	 */
 	async calculateLotTax(
@@ -325,19 +371,32 @@ class LotTaxCalculatorService {
 
 		// Calculate values
 		const units = lot.remainingUnits;
-		const costBasis = lot.costPerUnit * units;
+		let costBasis = lot.costPerUnit * units;
 		const currentValue = currentNav * units;
-		const unrealizedGain = currentValue - costBasis;
+		let unrealizedGain = currentValue - costBasis;
 
-		// Apply grandfathering for equity purchased before Feb 2018
+		// Apply Section 112A grandfathering for equity purchased before Feb 2018
 		if (
 			assetClass === "equity" &&
 			lot.purchaseDate < GRANDFATHERING_DATE &&
 			capitalGainsType === "ltcg"
 		) {
-			// TODO: Look up Jan 31, 2018 NAV for this fund
-			// For now, add warning
-			warnings.push("Grandfathering benefit may apply - pre-Feb 2018 purchase");
+			const fmv2018 = await this.lookupJan2018Nav(lot.isin, lot.schemeName);
+			if (fmv2018 !== null && fmv2018 > 0) {
+				const grandfatheredCostPerUnit = Math.max(
+					lot.costPerUnit,
+					Math.min(fmv2018, currentNav),
+				);
+				costBasis = grandfatheredCostPerUnit * units;
+				unrealizedGain = currentValue - costBasis;
+				warnings.push(
+					`Section 112A grandfathering applied using Jan 31, 2018 NAV (₹${fmv2018.toFixed(2)})`,
+				);
+			} else {
+				warnings.push(
+					"Grandfathering benefit may apply - pre-Feb 2018 purchase (Jan 31, 2018 NAV not found in history)",
+				);
+			}
 		}
 
 		// Get tax rate from regime-appropriate config

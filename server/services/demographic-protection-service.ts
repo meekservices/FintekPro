@@ -1,8 +1,7 @@
-// @ts-nocheck
 import { eq, and } from "drizzle-orm";
 import { db } from "../db";
-import { users, ckycRecords } from "../../shared/schema";
-import type { User } from "../../shared/schema";
+import { users, ckycRecords, kycAuditLogs } from "../../shared/schema";
+import { logger } from "../logger";
 import crypto from "crypto";
 
 interface DemographicChangeRequest {
@@ -137,14 +136,9 @@ export class DemographicProtectionService {
 				state: "Update", // Required field
 				pincode: "000000", // Required field
 				ckycNumber: reCkycRequestId,
+				applicationNumber: reCkycRequestId,
+				verificationMethod: "re_ckyc_pending",
 				status: "pending",
-				remarks: JSON.stringify({
-					[request.fieldName]: {
-						current: request.currentValue,
-						requested: request.requestedValue,
-						reason: request.requestReason,
-					},
-				}),
 			});
 
 			// Log the demographic change attempt
@@ -169,7 +163,7 @@ export class DemographicProtectionService {
 					"Demographic change request created. Re-CKYC verification required.",
 			};
 		} catch (error) {
-			console.error("Error creating demographic change request:", error);
+			logger.error("[DemographicProtection] Error creating change request", { error: error instanceof Error ? error.message : String(error) });
 			return {
 				success: false,
 				message: "Failed to create demographic change request",
@@ -232,8 +226,10 @@ export class DemographicProtectionService {
 				state: changes.state || "Updated State",
 				pincode: changes.pincode || "000000",
 				ckycNumber: reCkycRecordId,
+				applicationNumber: reCkycRecordId,
+				verificationMethod,
+				lastVerifiedAt: new Date(),
 				status: "verified",
-				remarks: `Demographic update completed: ${reason}`,
 			});
 
 			// Log successful demographic update
@@ -255,7 +251,7 @@ export class DemographicProtectionService {
 				updatedFields: Object.keys(protectedChanges),
 			};
 		} catch (error) {
-			console.error("Error processing re-CKYC update:", error);
+			logger.error("[DemographicProtection] Error processing re-CKYC update", { error: error instanceof Error ? error.message : String(error) });
 			return {
 				success: false,
 				message: "Failed to process re-CKYC update",
@@ -316,7 +312,7 @@ export class DemographicProtectionService {
 				hasPendingRequests: pendingRequests.length > 0,
 				pendingRequests: pendingRequests.map((req) => ({
 					id: req.id,
-					remarks: req.remarks,
+					remarks: req.verificationMethod || req.applicationNumber || null,
 					createdAt: req.createdAt,
 					status: req.status,
 				})),
@@ -325,7 +321,7 @@ export class DemographicProtectionService {
 				reasonsForReCkyc,
 			};
 		} catch (error) {
-			console.error("Error getting re-CKYC status:", error);
+			logger.error("[DemographicProtection] Error getting re-CKYC status", { error: error instanceof Error ? error.message : String(error) });
 			return {
 				isEligibleForReCkyc: false,
 				hasPendingRequests: false,
@@ -349,22 +345,24 @@ export class DemographicProtectionService {
 		userAgent?: string;
 	}): Promise<void> {
 		try {
-			// In a real implementation, this would go to a dedicated audit log table
-			console.log(
-				`[DEMOGRAPHIC_AUDIT] User: ${activity.userId}, Action: ${activity.action}`,
-				{
-					fieldName: activity.fieldName,
-					reCkycRequestId: activity.reCkycRequestId,
-					details: activity.details,
-					timestamp: new Date().toISOString(),
-					ipAddress: activity.ipAddress,
+			await db.insert(kycAuditLogs).values({
+				userId: activity.userId,
+				accessedBy: activity.userId,
+				accessType: activity.action,
+				dataFieldsAccessed: {
+					fieldName: activity.fieldName ?? null,
+					reCkycRequestId: activity.reCkycRequestId ?? null,
+					details: activity.details ?? null,
 				},
-			);
-
-			// TODO: Implement proper audit logging table
-			// For now, we log to console for transparency
+				purpose: `Demographic protection audit: ${activity.action}`,
+				ipAddress: activity.ipAddress ?? null,
+				userAgent: activity.userAgent ?? null,
+				requestId: activity.reCkycRequestId ?? null,
+				regulatoryPurpose: "SEBI_CKYC_DEMOGRAPHIC_PROTECTION",
+				complianceCheckPassed: activity.action !== "DIRECT_EDIT_BLOCKED",
+			});
 		} catch (error) {
-			console.error("Error logging demographic activity:", error);
+			logger.error("[DemographicProtection] Error logging demographic activity", { error: error instanceof Error ? error.message : String(error) });
 			// Don't throw here to avoid breaking main operations
 		}
 	}

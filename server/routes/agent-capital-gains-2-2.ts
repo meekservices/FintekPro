@@ -497,8 +497,14 @@ export function registerAgentCapitalGainPart2Part2Routes(app: Express): void {
 				return res.status(404).json({ error: "IB account not found" });
 			}
 
-			// TODO: Implement actual IB API connection logic
-			// For now, just update status
+			if (!process.env.IBKR_GATEWAY_URL) {
+				return res.status(501).json({
+					error_code: "IBKR_GATEWAY_NOT_CONFIGURED",
+					message: "Interactive Brokers gateway integration is not configured",
+					retryable: false,
+				});
+			}
+
 			const updatedAccount = await storage.updateIBAccountConnectionStatus(
 				id,
 				"connected",
@@ -576,6 +582,14 @@ export function registerAgentCapitalGainPart2Part2Routes(app: Express): void {
 				return res.status(404).json({ error: "IB account not found" });
 			}
 
+			if (!process.env.IBKR_GATEWAY_URL) {
+				return res.status(501).json({
+					error_code: "IBKR_GATEWAY_NOT_CONFIGURED",
+					message: "Interactive Brokers order submission is not configured",
+					retryable: false,
+				});
+			}
+
 			const order = await storage.createIBOrder({
 				userId: req.user!.id,
 				ibAccountId,
@@ -587,8 +601,6 @@ export function registerAgentCapitalGainPart2Part2Routes(app: Express): void {
 				timeInForce: timeInForce || "DAY",
 				status: "pending",
 			} as any);
-
-			// TODO: Submit order to IB API
 
 			res.json({ order });
 		} catch (error) {

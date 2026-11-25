@@ -1,13 +1,19 @@
 /* eslint-disable no-console */
 import { Router } from "express";
+import { z } from "zod";
 import { db } from "../../db";
-import { sql } from "drizzle-orm";
+import { sql, eq, desc } from "drizzle-orm";
 import { aiPromptVersions } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
 import { ALL_PROMPTS } from "../../ai/prompts/registry";
-import { adminService } from "../../admin-service";
 import { requireAdmin } from "../../middleware/roleMiddleware";
 import { aiAdvisoryDecisionService } from "../../services/ai-advisory-decision-service";
+
+const VALID_DECISIONS = ["APPROVED", "MODIFIED", "BLOCKED", "DOWNGRADED"] as const;
+
+const downgradeAdviceSchema = z.object({
+	eventId: z.string().trim().min(1, "eventId is required"),
+	reason: z.string().trim().max(500).optional(),
+});
 
 const router = Router();
 
@@ -34,8 +40,8 @@ async function ensureAiPromptVersionsTable() {
       CREATE INDEX IF NOT EXISTS idx_ai_prompt_versions_user_id ON ai_prompt_versions(user_id)
     `);
 		console.log("✅ [AI Governance] ai_prompt_versions table ready");
-	} catch (err: any) {
-		console.error("[AI Governance] Table init error:", err.message);
+	} catch (err: unknown) {
+		console.error("[AI Governance] Table init error:", err instanceof Error ? err.message : String(err));
 	}
 }
 
@@ -68,8 +74,8 @@ router.get("/api/admin/ai/prompts", requireAdmin, async (_req, res) => {
 			};
 		});
 		res.json({ prompts: inventory, total: inventory.length });
-	} catch (error: any) {
-		console.error("[AI Governance] Failed to list prompts:", error.message);
+	} catch (error: unknown) {
+		console.error("[AI Governance] Failed to list prompts:", error instanceof Error ? error.message : String(error));
 		res.status(500).json({ error: "Failed to retrieve prompt inventory" });
 	}
 });
@@ -90,10 +96,10 @@ router.get(
 				.limit(100);
 
 			res.json({ promptName: decodedName, history, total: history.length });
-		} catch (error: any) {
+		} catch (error: unknown) {
 			console.error(
 				"[AI Governance] Failed to get prompt history:",
-				error.message,
+				error instanceof Error ? error.message : String(error),
 			);
 			res.status(500).json({ error: "Failed to retrieve prompt history" });
 		}
@@ -104,14 +110,25 @@ router.get(
 
 router.get("/api/admin/ai/governance-events", requireAdmin, async (req, res) => {
 	try {
-		const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
-		const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
-		const decision = req.query.decision as any;
+		const rawPage = Number.parseInt(String(req.query.page ?? "1"), 10);
+		const rawLimit = Number.parseInt(String(req.query.limit ?? "50"), 10);
+		const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+		const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(100, rawLimit) : 50;
+
+		const rawDecision = typeof req.query.decision === "string" ? req.query.decision.toUpperCase() : undefined;
+		if (rawDecision && !VALID_DECISIONS.includes(rawDecision as (typeof VALID_DECISIONS)[number])) {
+			return res.status(400).json({
+				success: false,
+				error_code: "INVALID_DECISION_FILTER",
+				message: `Invalid decision filter. Expected one of: ${VALID_DECISIONS.join(", ")}`,
+				retryable: false,
+			});
+		}
 
 		const result = await aiAdvisoryDecisionService.getDecisions({
 			page,
 			limit,
-			decision,
+			decision: rawDecision as (typeof VALID_DECISIONS)[number] | undefined,
 		});
 
 		res.json({
@@ -120,31 +137,71 @@ router.get("/api/admin/ai/governance-events", requireAdmin, async (req, res) => 
 			total: result.total,
 			page: result.page,
 			limit: result.limit,
+			summary: result.summary,
 			meta: result.meta,
 		});
-	} catch (error: any) {
-		console.error("[AI Governance] Error fetching governance events:", error.message);
-		res.status(500).json({ success: false, error: "Failed to retrieve AI governance feed" });
+	} catch (error: unknown) {
+		console.error("[AI Governance] Error fetching governance events:", error instanceof Error ? error.message : String(error));
+		res.status(500).json({
+			success: false,
+			error_code: "AI_GOVERNANCE_FEED_ERROR",
+			message: "Failed to retrieve AI governance feed",
+			retryable: true,
+		});
 	}
 });
 
 router.post("/api/admin/ai/downgrade-advice", requireAdmin, async (req, res) => {
 	try {
-		const { eventId, reason } = req.body;
-		const adminUserId = (req as any).user?.id || (req as any).user?.userId || "admin";
+		const parsed = downgradeAdviceSchema.safeParse(req.body);
+		if (!parsed.success) {
+			return res.status(400).json({
+				success: false,
+				error_code: "INVALID_DOWNGRADE_PAYLOAD",
+				message: parsed.error.issues[0]?.message || "Invalid request payload",
+				retryable: false,
+			});
+		}
+
+		const { eventId, reason } = parsed.data;
+		const reqUser = (req as { user?: { id?: string; userId?: string } }).user;
+		const adminUserId = reqUser?.id || reqUser?.userId || "admin";
 		const result = await aiAdvisoryDecisionService.downgradeDecision(
 			eventId,
 			reason || "Quarantined by Administrator",
 			adminUserId,
 		);
 
+		if (result.status === "NOT_FOUND") {
+			return res.status(404).json({
+				success: false,
+				error_code: "DECISION_NOT_FOUND",
+				message: `Advisory decision '${eventId}' was not found`,
+				retryable: false,
+			});
+		}
+
+		if (!result.success) {
+			return res.status(500).json({
+				success: false,
+				error_code: "DOWNGRADE_FAILED",
+				message: "Failed to downgrade advice",
+				retryable: true,
+			});
+		}
+
 		res.json({
-			success: result.success,
+			success: true,
 			data: { eventId, status: result.status, timestamp: new Date().toISOString() },
 		});
-	} catch (error: any) {
-		console.error("[AI Governance] Downgrade failed:", error.message);
-		res.status(500).json({ success: false, error: "Failed to downgrade advice" });
+	} catch (error: unknown) {
+		console.error("[AI Governance] Downgrade failed:", error instanceof Error ? error.message : String(error));
+		res.status(500).json({
+			success: false,
+			error_code: "DOWNGRADE_FAILED",
+			message: "Failed to downgrade advice",
+			retryable: true,
+		});
 	}
 });
 

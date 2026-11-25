@@ -122,28 +122,22 @@ export class IrisAdapter extends BaseBroker {
 				false,
 			);
 		}
-		return this.callWithRetry(async () => {
-			// TODO: const result = await irisKfintechService.placeTransaction({ ... });
-			logger.info(`[IrisAdapter] placeOrder stub`, {
-				event: "IRIS_PLACE_ORDER",
-				user_id: order.userId,
-				symbol: order.symbol,
-				side: order.side,
-				status: "stub",
-			});
-			return {
-				brokerOrderId: `IRIS_ORD_${Date.now()}`,
-				status: "submitted" as const,
-				_raw: {
-					note: "IRIS order placement TODO — implement irisKfintechService.placeTransaction()",
-				},
-			};
-		}, "placeOrder");
+		logger.warn(`[IrisAdapter] placeOrder blocked — adapter not wired`, {
+			event: "IRIS_PLACE_ORDER_UNIMPLEMENTED",
+			user_id: order.userId,
+			symbol: order.symbol,
+			side: order.side,
+		});
+		throw new BrokerError(
+			this.brokerId,
+			"IRIS_ADAPTER_NOT_IMPLEMENTED",
+			"IRIS order placement is not yet wired to irisKfintechService.placeTransaction()",
+			false,
+		);
 	}
 
 	/**
 	 * Notional orders are the primary mode for MF SIPs (invest ₹5000 in SCHEME_X).
-	 * TODO: Map to IRIS SIP / lumpsum by notional amount.
 	 */
 	async placeNotionalOrder(
 		userId: string,
@@ -159,20 +153,19 @@ export class IrisAdapter extends BaseBroker {
 				false,
 			);
 		}
-		// TODO: const result = await irisKfintechService.placeSip({ schemeCode: symbol, amount: notional, ... });
-		logger.info(`[IrisAdapter] placeNotionalOrder stub`, {
-			event: "IRIS_NOTIONAL_ORDER",
+		logger.warn(`[IrisAdapter] placeNotionalOrder blocked — adapter not wired`, {
+			event: "IRIS_NOTIONAL_ORDER_UNIMPLEMENTED",
 			user_id: userId,
 			symbol,
 			notional,
 			side,
-			status: "stub",
 		});
-		return {
-			brokerOrderId: `IRIS_NOTIONAL_${Date.now()}`,
-			status: "submitted" as const,
-			_raw: { note: "IRIS notional order TODO" },
-		};
+		throw new BrokerError(
+			this.brokerId,
+			"IRIS_ADAPTER_NOT_IMPLEMENTED",
+			"IRIS notional order placement is not yet wired to irisKfintechService.placeSip()",
+			false,
+		);
 	}
 }
 
