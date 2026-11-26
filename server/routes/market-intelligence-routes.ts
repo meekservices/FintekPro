@@ -45,6 +45,10 @@ import { Router } from "express";
 import { indianApiService } from "../services/indian-api-service";
 import { commodityMarketService } from "../services/commodity-market-service";
 import { ncdexMarketService } from "../services/ncdex-market-service";
+import { mfSchemeHoldingsService } from "../services/mf-scheme-holdings-service";
+import { db } from "../db";
+import { mutualFunds } from "@shared/schema";
+import { or, ilike, eq } from "drizzle-orm";
 import { logger } from "../logger";
 
 const router = Router();
@@ -403,9 +407,36 @@ router.get("/api/mutual-funds/search", requireAuth, async (req, res) => {
     return res.status(400).json({ success: false, error: "Query parameter 'q' is required" });
   }
   try {
+    // 1. Check local DB mutual_funds table first
+    const cleanQ = q.trim();
+    const dbMatches = await db
+      .select({
+        schemeCode: mutualFunds.schemeCode,
+        isin: mutualFunds.isin,
+        schemeName: mutualFunds.schemeName,
+        category: mutualFunds.category,
+        fundHouse: mutualFunds.fundHouse,
+        nav: mutualFunds.nav,
+        expenseRatio: mutualFunds.expenseRatio,
+      })
+      .from(mutualFunds)
+      .where(
+        or(
+          ilike(mutualFunds.schemeName, `%${cleanQ}%`),
+          ilike(mutualFunds.isin, `%${cleanQ}%`),
+          eq(mutualFunds.schemeCode, cleanQ)
+        )
+      )
+      .limit(25);
+
+    if (dbMatches.length > 0) {
+      return apiOk(res, dbMatches, { query: q, total: dbMatches.length, source: "LOCAL_POSTGRES_DB" });
+    }
+
+    // 2. Fallback to IndianAPI
     const result = await indianApiService.searchMutualFunds(q);
     if (!result.success) return apiError(res, result.error ?? "Failed");
-    return apiOk(res, result.data, { query: q, total: (result.data as any[])?.length ?? 0 });
+    return apiOk(res, result.data, { query: q, total: (result.data as any[])?.length ?? 0, source: "INDIAN_API_FALLBACK" });
   } catch (err: any) {
     logger.error(`[MarketRoutes] /mf-search error: ${err.message}`);
     return apiError(res, err.message);
@@ -438,9 +469,37 @@ router.get("/api/mutual-funds/:slug/details", requireAuth, async (req, res) => {
 router.get("/api/mutual-funds/:id/holdings", requireAuth, async (req, res) => {
   const id = req.params.id;
   try {
+    // 1. Check local PostgreSQL DB (mfSchemeStockHoldings / mfPortfolioHoldings)
+    const localHoldings = await mfSchemeHoldingsService.getHoldingsForScheme(id);
+    if (localHoldings && localHoldings.length > 0) {
+      return apiOk(res, localHoldings, {
+        scheme_id: id,
+        source: "LOCAL_POSTGRES_DB",
+        total: localHoldings.length,
+      });
+    }
+
+    // 2. Fallback to IndianAPI if not present in local DB
     const result = await indianApiService.getMFHoldings(id);
     if (!result.success) return apiError(res, result.error ?? "Failed");
-    return apiOk(res, result.data, { scheme_id: id });
+
+    // Asynchronously seed local DB with fetched holdings so future queries hit local DB
+    if (Array.isArray(result.data) && result.data.length > 0) {
+      const mappedHoldings = result.data.map((h: any) => ({
+        stockSymbol: h.stockSymbol || h.symbol || h.company_name || "UNKNOWN",
+        stockName: h.stockName || h.company_name || h.stockSymbol || "Unknown",
+        stockIsin: h.stockIsin || h.isin,
+        sector: h.sector,
+        holdingPercentage: Number.parseFloat(String(h.holdingPercentage || h.weight || h.percentage || 0)),
+      }));
+      mfSchemeHoldingsService.ingestHoldings(id, mappedHoldings, new Date(), "indianapi_fallback").catch(() => {});
+    }
+
+    return apiOk(res, result.data, {
+      scheme_id: id,
+      source: "INDIAN_API_FALLBACK",
+      total: Array.isArray(result.data) ? result.data.length : 0,
+    });
   } catch (err: any) {
     logger.error(`[MarketRoutes] /mf-holdings(${id}) error: ${err.message}`);
     return apiError(res, err.message);
@@ -450,9 +509,32 @@ router.get("/api/mutual-funds/:id/holdings", requireAuth, async (req, res) => {
 router.get("/api/mutual-funds/:id/nav-history", requireAuth, async (req, res) => {
   const id = req.params.id;
   try {
+    // 1. Try free official AMFI API (mfapi.in) if id is a numeric scheme code
+    if (/^\d+$/.test(id.trim())) {
+      try {
+        const resp = await fetch(`https://api.mfapi.in/mf/${id.trim()}`, {
+          signal: AbortSignal.timeout(5_000),
+        });
+        if (resp.ok) {
+          const body: any = await resp.json();
+          if (body?.status === "SUCCESS" && Array.isArray(body?.data)) {
+            return apiOk(res, body.data, {
+              scheme_id: id,
+              source: "AMFI_MFAPI",
+              total: body.data.length,
+              meta: body.meta,
+            });
+          }
+        }
+      } catch {
+        // Fall through to IndianAPI fallback
+      }
+    }
+
+    // 2. Fallback to IndianAPI
     const result = await indianApiService.getMFNavHistory(id);
     if (!result.success) return apiError(res, result.error ?? "Failed");
-    return apiOk(res, result.data, { scheme_id: id });
+    return apiOk(res, result.data, { scheme_id: id, source: "INDIAN_API_FALLBACK" });
   } catch (err: any) {
     logger.error(`[MarketRoutes] /mf-nav-history(${id}) error: ${err.message}`);
     return apiError(res, err.message);

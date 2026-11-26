@@ -17,6 +17,7 @@
 import { requestDedupeService } from "./request-deduplication-service";
 import { indianApiService } from "./indian-api-service";
 import { upstoxMarketDataService } from "./upstox-market-data-service";
+import { upstoxWsStreamingService } from "./upstox-ws-streaming-service";
 import { angelOneAdapter } from "./adapters/angel-one-adapter";
 
 import yahooFinance from "yahoo-finance2";
@@ -253,6 +254,25 @@ class UnifiedStockPriceService {
 			return cached;
 		}
 
+		// Tier -1: Upstox WebSocket Hot In-Memory Tick (sub-millisecond, zero network)
+		const wsTick = upstoxWsStreamingService.getTick(symbol);
+		if (wsTick && wsTick.ltp > 0) {
+			const tickAge = Date.now() - new Date(wsTick.timestamp).getTime();
+			if (tickAge < 60_000) {
+				const stockPrice: StockPrice = {
+					symbol: symbol.toUpperCase(),
+					price: wsTick.ltp,
+					previousClose: wsTick.cp,
+					change: wsTick.change,
+					changePercent: wsTick.changePercent,
+					timestamp: wsTick.ltt || new Date(wsTick.timestamp).getTime(),
+					source: "UPSTOX" as const,
+				};
+				this.setCache(symbol, stockPrice, CACHE_TTL.REALTIME, exchange);
+				return stockPrice;
+			}
+		}
+
 		const dedupeKey = `stock_price:${symbol}:${exchange || "ANY"}`;
 
 		return requestDedupeService.dedupe(dedupeKey, async () => {
@@ -319,6 +339,35 @@ class UnifiedStockPriceService {
 			return result;
 		}
 
+		// -1. Upstox WebSocket Hot In-Memory Ticks (Tier -1 — sub-millisecond, zero network)
+		const remainingAfterWs: string[] = [];
+		for (const sym of toFetch) {
+			const wsTick = upstoxWsStreamingService.getTick(sym);
+			if (wsTick && wsTick.ltp > 0) {
+				const tickAge = Date.now() - new Date(wsTick.timestamp).getTime();
+				if (tickAge < 60_000) {
+					const stockPrice: StockPrice = {
+						symbol: sym.toUpperCase(),
+						price: wsTick.ltp,
+						previousClose: wsTick.cp,
+						change: wsTick.change,
+						changePercent: wsTick.changePercent,
+						timestamp: wsTick.ltt || new Date(wsTick.timestamp).getTime(),
+						source: "UPSTOX" as const,
+					};
+					result.prices.set(sym, stockPrice);
+					result.fromCache++;
+					this.setCache(sym, stockPrice, CACHE_TTL.REALTIME, exchange);
+					continue;
+				}
+			}
+			remainingAfterWs.push(sym);
+		}
+
+		if (remainingAfterWs.length === 0) {
+			return result;
+		}
+
 		// 0. Upstox Batch Quotes (Tier 0 — instant licensed feed)
 		if (
 			upstoxMarketDataService.isReady() &&
@@ -326,7 +375,7 @@ class UnifiedStockPriceService {
 		) {
 			try {
 				const upstoxRes = await upstoxMarketDataService.getBatchQuotes(
-					toFetch,
+					remainingAfterWs,
 					exchange ?? "NSE",
 				);
 				if (upstoxRes.success && upstoxRes.data) {
@@ -705,6 +754,23 @@ class UnifiedStockPriceService {
 		symbol: string,
 		exchange?: "NSE" | "BSE",
 	): Promise<StockPrice | null> {
+		// -1. Upstox WebSocket Hot In-Memory Tick (Tier -1, instant memory read)
+		const wsTick = upstoxWsStreamingService.getTick(symbol);
+		if (wsTick && wsTick.ltp > 0) {
+			const tickAge = Date.now() - new Date(wsTick.timestamp).getTime();
+			if (tickAge < 60_000) {
+				return {
+					symbol,
+					price: wsTick.ltp,
+					previousClose: wsTick.cp,
+					change: wsTick.change,
+					changePercent: wsTick.changePercent,
+					timestamp: wsTick.ltt || new Date(wsTick.timestamp).getTime(),
+					source: "UPSTOX" as const,
+				};
+			}
+		}
+
 		// 0. Upstox — licensed NSE/BSE feed (Tier 0, highest priority)
 		if (
 			upstoxMarketDataService.isReady() &&

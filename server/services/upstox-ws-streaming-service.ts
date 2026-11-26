@@ -476,6 +476,35 @@ class UpstoxWsStreamingService extends EventEmitter {
 
   // ─── Query Accessors ────────────────────────────────────────────────────────
 
+  /**
+   * Look up tick by symbol (e.g. "RELIANCE") or full instrument key (e.g. "NSE_EQ|INE002A01018")
+   */
+  getTick(symbolOrKey: string): UpstoxLiveTick | undefined {
+    if (!symbolOrKey) return undefined;
+    const clean = symbolOrKey.trim().toUpperCase();
+
+    // 1. Direct match on instrumentKey
+    const direct = this.latestTicks.get(clean);
+    if (direct) return direct;
+
+    // 2. Prefixed match (NSE_EQ / BSE_EQ / NSE_INDEX)
+    const nseEq = this.latestTicks.get(`NSE_EQ|${clean}`);
+    if (nseEq) return nseEq;
+    const bseEq = this.latestTicks.get(`BSE_EQ|${clean}`);
+    if (bseEq) return bseEq;
+    const nseIndex = this.latestTicks.get(`NSE_INDEX|${clean}`);
+    if (nseIndex) return nseIndex;
+
+    // 3. Match keys ending with |${clean}
+    for (const [key, tick] of this.latestTicks.entries()) {
+      if (key.endsWith(`|${clean}`)) {
+        return tick;
+      }
+    }
+
+    return undefined;
+  }
+
   getLatestTick(instrumentKey: string): UpstoxLiveTick | undefined {
     return this.latestTicks.get(instrumentKey);
   }
