@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { nismLmsService, type XApiStatement } from "../services/nism-lms-service";
+import { aiService } from "../services/ai-service";
 
 describe("NISM LMS Service (LTI 1.3 & xAPI)", () => {
 	it("generates an authentic LTI 1.3 launch token with valid HMAC signature", async () => {
@@ -105,6 +106,11 @@ describe("NISM LMS Service (LTI 1.3 & xAPI)", () => {
 	});
 
 	it("evaluates a submitted practice test with negative marking, topic diagnostics, and AI remediation", async () => {
+		vi.spyOn(aiService, "chat").mockResolvedValueOnce({
+			content: "• Practice topic revision: Focus on NAV cutoff and LTCG taxation.\n• Adhere to statutory thresholds.\n• Remember SEBI Master Circular guidelines.",
+			model: "mock-model",
+			provider: "mock",
+		});
 		const practice = nismLmsService.getPracticeQuestions("nism-viii");
 		const answers: Record<string, number> = {};
 		for (const q of practice.questions) {
@@ -220,6 +226,57 @@ describe("NISM LMS Service (LTI 1.3 & xAPI)", () => {
 	});
 
 	it("can generate customized NISM question papers from curriculum topics", async () => {
+		vi.spyOn(aiService, "chat").mockResolvedValueOnce({
+			content: JSON.stringify([
+				{
+					id: "gen-nism-va-1",
+					courseId: "nism-va",
+					question: "What is the LTCG tax rate for equity mutual funds exceeding ₹1.25 Lakhs as per Union Budget 2024?",
+					options: ["10%", "12.5%", "15%", "20%"],
+					correctIndex: 1,
+					explanation: "Section 112A was amended in Union Budget 2024 setting equity LTCG rate to 12.5% above the threshold.",
+					topic: "Chapter 7: Taxation of Mutual Funds & Capital Gains",
+				},
+				{
+					id: "gen-nism-va-2",
+					courseId: "nism-va",
+					question: "What is the STCG tax rate for equity mutual funds as per Union Budget 2024?",
+					options: ["10%", "15%", "20%", "30%"],
+					correctIndex: 2,
+					explanation: "Section 111A amended STCG rate on equity mutual funds to 20%.",
+					topic: "Chapter 7: Taxation of Mutual Funds & Capital Gains",
+				},
+				{
+					id: "gen-nism-va-3",
+					courseId: "nism-va",
+					question: "What is the holding period required for units of equity mutual funds to qualify as long term?",
+					options: ["12 months", "24 months", "36 months", "8 months"],
+					correctIndex: 0,
+					explanation: "Listed equity fund units qualify as long-term capital assets when held for more than 12 months.",
+					topic: "Chapter 7: Taxation of Mutual Funds & Capital Gains",
+				},
+				{
+					id: "gen-nism-va-4",
+					courseId: "nism-va",
+					question: "Are debt mutual funds acquired after April 1, 2023 eligible for indexation benefits?",
+					options: ["Yes, after 36 months", "No, taxed at applicable slab rate", "Yes, at 20% with indexation", "Only for corporate investors"],
+					correctIndex: 1,
+					explanation: "Specified mutual funds (debt funds with equity <=35%) are treated as short term capital gains taxed at slab rates.",
+					topic: "Chapter 7: Taxation of Mutual Funds & Capital Gains",
+				},
+				{
+					id: "gen-nism-va-5",
+					courseId: "nism-va",
+					question: "What is the threshold for LTCG exemption on equity mutual funds under Section 112A?",
+					options: ["₹50,000", "₹1,00,000", "₹1,25,000", "₹2,50,000"],
+					correctIndex: 2,
+					explanation: "Budget 2024 enhanced the LTCG annual exemption limit under Section 112A to ₹1.25 Lakhs.",
+					topic: "Chapter 7: Taxation of Mutual Funds & Capital Gains",
+				},
+			]),
+			model: "mock-model",
+			provider: "mock",
+		});
 		const generated = await nismLmsService.generateNismQuestionPaperFromCurriculum({
 			courseId: "nism-va",
 			curriculumTopic: "Chapter 7: Taxation of Mutual Funds & Capital Gains",
@@ -246,7 +303,7 @@ describe("NISM LMS Service (LTI 1.3 & xAPI)", () => {
 		];
 
 		for (const modId of allModules) {
-			const expectedExamCount = modId === "nism-vd" ? 150 : 100;
+			const _expectedExamCount = modId === "nism-vd" ? 150 : 100;
 			const expectedExamDuration = modId === "nism-vd" ? 180 : 120;
 
 			// Paper 1 in Exam Mode

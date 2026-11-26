@@ -63,8 +63,8 @@ class MfSchemeHoldingsService {
 				});
 				holdingsMap.set(h.mfIsin, existing);
 			}
-		} catch (dbErr: any) {
-			logger.warn("[MfSchemeHoldings] Direct query failed (DB unavailable or error):", dbErr?.message);
+		} catch (dbErr: unknown) {
+			logger.warn(`[MfSchemeHoldings] Direct query failed (DB unavailable or error): ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`);
 		}
 
 		// 2. Check for missing identifiers (e.g. scheme codes instead of ISINs, or vice versa)
@@ -135,22 +135,22 @@ class MfSchemeHoldingsService {
 						FROM mf_portfolio_holdings
 						WHERE scheme_code IN (${sql.join(stillMissing.map((id) => sql`${id}`), sql`, `)})
 					`);
-					const rows = (pfHoldings as any).rows || [];
+					const rows = (pfHoldings as unknown as { rows?: Array<Record<string, unknown>> })?.rows || [];
 					for (const r of rows) {
 						const code = String(r.scheme_code);
 						const existing = holdingsMap.get(code) || [];
 						existing.push({
-							stockSymbol: r.stock_name || r.stock_isin,
-							stockName: r.stock_name,
-							stockIsin: r.stock_isin,
+							stockSymbol: String(r.stock_name || r.stock_isin || ""),
+							stockName: String(r.stock_name || r.stock_isin || "Unknown"),
+							stockIsin: r.stock_isin ? String(r.stock_isin) : undefined,
 							sector: undefined,
 							holdingPercentage: Number.parseFloat(String(r.weight_percent || "0")),
 						});
 						holdingsMap.set(code, existing);
 					}
 				}
-			} catch (e: any) {
-				logger.warn("[MfSchemeHoldings] Identifier resolution fallback warning:", e?.message);
+			} catch (e: unknown) {
+				logger.warn(`[MfSchemeHoldings] Identifier resolution fallback warning: ${e instanceof Error ? e.message : String(e)}`);
 			}
 		}
 
@@ -193,12 +193,13 @@ class MfSchemeHoldingsService {
 			await db.insert(mfSchemeStockHoldings).values(insertData);
 
 			return { mfIsin, holdingsCount: holdings.length, success: true };
-		} catch (error: any) {
+		} catch (error: unknown) {
+			const errMsg = error instanceof Error ? error.message : String(error);
 			logger.error(
 				`[MfSchemeHoldings] Error ingesting holdings for ${mfIsin}:`,
 				error,
 			);
-			return { mfIsin, holdingsCount: 0, success: false, error: error.message };
+			return { mfIsin, holdingsCount: 0, success: false, error: errMsg };
 		}
 	}
 

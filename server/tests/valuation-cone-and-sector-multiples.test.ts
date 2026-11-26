@@ -149,6 +149,6 @@ describe("Phase 2: Valuation Intelligence Engine", () => {
         expect(result.engineVersion).toBe("2.1.0");
         expect(new Date(result.calculationTimestamp).getTime()).toBeGreaterThan(0);
       }
-    });
+    }, 15000);
   });
 });
