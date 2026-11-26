@@ -1,6 +1,7 @@
 import { db } from "../db";
 import { mfSchemeStockHoldings, mutualFunds } from "../../shared/schema";
 import { eq, desc, and, sql, inArray, or } from "drizzle-orm";
+import { logger } from "../logger";
 
 interface SchemeHolding {
 	stockSymbol: string;
@@ -41,25 +42,29 @@ class MfSchemeHoldingsService {
 		const holdingsMap = new Map<string, SchemeHolding[]>();
 
 		// 1. Direct query on mf_scheme_stock_holdings by mfIsin
-		const directHoldings = await db
-			.select()
-			.from(mfSchemeStockHoldings)
-			.where(inArray(mfSchemeStockHoldings.mfIsin, cleanIds))
-			.orderBy(
-				mfSchemeStockHoldings.mfIsin,
-				desc(mfSchemeStockHoldings.holdingPercentage),
-			);
+		try {
+			const directHoldings = await db
+				.select()
+				.from(mfSchemeStockHoldings)
+				.where(inArray(mfSchemeStockHoldings.mfIsin, cleanIds))
+				.orderBy(
+					mfSchemeStockHoldings.mfIsin,
+					desc(mfSchemeStockHoldings.holdingPercentage),
+				);
 
-		for (const h of directHoldings) {
-			const existing = holdingsMap.get(h.mfIsin) || [];
-			existing.push({
-				stockSymbol: h.stockSymbol,
-				stockName: h.stockName || h.stockSymbol,
-				stockIsin: h.stockIsin || undefined,
-				sector: h.sector || undefined,
-				holdingPercentage: Number.parseFloat(String(h.holdingPercentage)),
-			});
-			holdingsMap.set(h.mfIsin, existing);
+			for (const h of directHoldings) {
+				const existing = holdingsMap.get(h.mfIsin) || [];
+				existing.push({
+					stockSymbol: h.stockSymbol,
+					stockName: h.stockName || h.stockSymbol,
+					stockIsin: h.stockIsin || undefined,
+					sector: h.sector || undefined,
+					holdingPercentage: Number.parseFloat(String(h.holdingPercentage)),
+				});
+				holdingsMap.set(h.mfIsin, existing);
+			}
+		} catch (dbErr: any) {
+			logger.warn("[MfSchemeHoldings] Direct query failed (DB unavailable or error):", dbErr?.message);
 		}
 
 		// 2. Check for missing identifiers (e.g. scheme codes instead of ISINs, or vice versa)
@@ -145,7 +150,7 @@ class MfSchemeHoldingsService {
 					}
 				}
 			} catch (e: any) {
-				console.warn("[MfSchemeHoldings] Identifier resolution fallback warning:", e?.message);
+				logger.warn("[MfSchemeHoldings] Identifier resolution fallback warning:", e?.message);
 			}
 		}
 
@@ -189,7 +194,7 @@ class MfSchemeHoldingsService {
 
 			return { mfIsin, holdingsCount: holdings.length, success: true };
 		} catch (error: any) {
-			console.error(
+			logger.error(
 				`[MfSchemeHoldings] Error ingesting holdings for ${mfIsin}:`,
 				error,
 			);
@@ -555,10 +560,8 @@ class MfSchemeHoldingsService {
 			await this.ingestHoldings(isin, holdings, holdingDate, "seed");
 		}
 
-		console.log(
-			"[MfSchemeHoldings] Seeded sample holdings for",
-			Object.keys(sampleHoldings).length,
-			"funds",
+		logger.info(
+			`[MfSchemeHoldings] Seeded sample holdings for ${Object.keys(sampleHoldings).length} funds`,
 		);
 	}
 }
