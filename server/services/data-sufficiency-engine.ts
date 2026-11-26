@@ -904,7 +904,7 @@ export class DataSufficiencyEngine {
 				latencyMs: Date.now() - startTime,
 				qualityScore: overallSufficiencyPercent,
 				itemsProcessed: totalStocks,
-				errorCount: criticalCount,
+				errorCount: 0, // Incomplete history count is a domain audit metric stored in meta, not an engine runtime failure
 				meta: {
 					coveragePct,
 					healthyCount,
