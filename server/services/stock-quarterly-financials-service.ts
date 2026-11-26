@@ -364,7 +364,7 @@ export class StockQuarterlyFinancialsService {
   /**
    * Upsert a single quarterly record with conflict resolution on (symbol, quarter_end, statement_nature).
    */
-  private async upsertQuarterlyRecord(rec: NormalizedQuarterlyFinancial): Promise<void> {
+  public async upsertQuarterlyRecord(rec: NormalizedQuarterlyFinancial): Promise<void> {
     const revStr = rec.revenueCr != null ? rec.revenueCr.toFixed(2) : null;
     const ebitdaStr = rec.ebitdaCr != null ? rec.ebitdaCr.toFixed(2) : null;
     const ebitdaMarginStr = rec.ebitdaMarginPercent != null ? rec.ebitdaMarginPercent.toFixed(2) : null;

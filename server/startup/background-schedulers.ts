@@ -1964,6 +1964,17 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 					void runWithClusterLock("cron:fno-contracts-sync", 7200, syncFnoContracts);
 				}, 24 * 60 * 60 * 1000);
 			}, msUntil0300UTC());
+
+			// 3. Autonomous Exchange XBRL Results Ingestion Worker (Phase 3)
+			try {
+				const { xbrlEarningsIngestionWorker } = await import(
+					"../services/corporate-filings/xbrl-ingestion-worker"
+				);
+				xbrlEarningsIngestionWorker.startScheduler();
+				console.log("✅ [Schedulers] Autonomous Exchange XBRL Earnings Ingestion Worker started");
+			} catch (xbrlErr: any) {
+				console.warn("[Schedulers] XBRL ingestion scheduler initialization warning:", xbrlErr?.message);
+			}
 		});
 
 		console.log(

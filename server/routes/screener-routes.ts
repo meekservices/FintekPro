@@ -57,6 +57,8 @@ import {
 	runShareholdingBatchJob,
 } from "../services/screener/shareholding-service";
 import { valuationConeService } from "../services/screener/valuation-cone-service";
+import { xbrlEarningsIngestionWorker } from "../services/corporate-filings/xbrl-ingestion-worker";
+import { totalReturnIndexService } from "../services/portfolio/total-return-index-service";
 import { screenerCache, stockDetailCache, statsCache } from "../utils/lean-cache";
 
 const router = Router();
@@ -1417,6 +1419,50 @@ router.get("/api/screener/sectors/multiples", async (_req, res) => {
 		const multiplesMap = await valuationConeService.getSectorMultiples();
 		const list = Array.from(multiplesMap.values());
 		res.json({ success: true, data: list, total: list.length });
+	} catch (err: any) {
+		res.status(500).json({ success: false, error: err.message });
+	}
+});
+
+router.post("/api/screener/admin/xbrl-ingest", async (req, res) => {
+	try {
+		const exchange = req.body.exchange || "ALL";
+		const limit = req.body.limit ? Number(req.body.limit) : 30;
+		const stats = await xbrlEarningsIngestionWorker.runIngestionPass({ exchange, limit });
+		res.json({ success: true, data: stats });
+	} catch (err: any) {
+		res.status(500).json({ success: false, error: err.message });
+	}
+});
+
+router.get("/api/benchmarks/:index/tri", async (req, res) => {
+	try {
+		const benchmark = req.params.index;
+		const startDate = req.query.from as string | undefined;
+		const endDate = req.query.to as string | undefined;
+		const tri = await totalReturnIndexService.getBenchmarkTRI(benchmark, startDate, endDate);
+		if (!tri) {
+			return res.status(404).json({ success: false, error: `Benchmark TRI data not found for ${benchmark}` });
+		}
+		res.json({ success: true, data: tri });
+	} catch (err: any) {
+		res.status(500).json({ success: false, error: err.message });
+	}
+});
+
+router.post("/api/benchmarks/:index/alpha-vs-tri", async (req, res) => {
+	try {
+		const benchmark = req.params.index;
+		const portfolioCagr = Number(req.body.portfolioCagr);
+		if (Number.isNaN(portfolioCagr)) {
+			return res.status(400).json({ success: false, error: "portfolioCagr must be a valid number" });
+		}
+		const tri = await totalReturnIndexService.getBenchmarkTRI(benchmark);
+		if (!tri) {
+			return res.status(404).json({ success: false, error: `Benchmark TRI data not found for ${benchmark}` });
+		}
+		const comparison = totalReturnIndexService.calculateAlphaVsTri(portfolioCagr, tri);
+		res.json({ success: true, data: comparison });
 	} catch (err: any) {
 		res.status(500).json({ success: false, error: err.message });
 	}
