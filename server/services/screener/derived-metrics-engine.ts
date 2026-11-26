@@ -13,6 +13,7 @@ import {
 	computePiotroski,
 } from "./returns-calculator";
 import { FinancialMetricsCalculator } from "../financial-metrics-calculator";
+import { valuationConeService } from "./valuation-cone-service";
 
 const finCalc = new FinancialMetricsCalculator();
 
@@ -294,6 +295,23 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
 	};
 	const beneishM = finCalc.calculateBeneishMScore(currentFinData);
 
+	// Valuation Cone (Phase 2 Trendlyne/Tijori peer parity)
+	let valuationConeStatus: string | null = null;
+	let peMedian3Y: number | null = null;
+	let peMedian5Y: number | null = null;
+	try {
+		const cone = await valuationConeService.getValuationCone(symbol, false);
+		if (cone?.pe3Y) {
+			valuationConeStatus = cone.pe3Y.valuationStatus;
+			peMedian3Y = cone.pe3Y.median;
+		}
+		if (cone?.pe5Y) {
+			peMedian5Y = cone.pe5Y.median;
+		}
+	} catch {
+		// Non-fatal fallback
+	}
+
 	const values = {
 		symbol,
 		growthScore: growthScore.toFixed(2),
@@ -314,6 +332,9 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
 			peScore: Math.round(peScore),
 			pbScore: Math.round(pbScore),
 			dyScore: Math.round(dyScore),
+			valuationStatus: valuationConeStatus,
+			peMedian3Y,
+			peMedian5Y,
 			dcfScore: dcfScore != null ? Math.round(dcfScore) : null,
 			dcfUpside: dcfUpside != null ? +(dcfUpside * 100).toFixed(1) : null,
 			deScore: Math.round(deScore),

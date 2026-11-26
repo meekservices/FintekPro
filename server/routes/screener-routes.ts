@@ -56,6 +56,7 @@ import {
 	getShareholdingForSymbol,
 	runShareholdingBatchJob,
 } from "../services/screener/shareholding-service";
+import { valuationConeService } from "../services/screener/valuation-cone-service";
 import { screenerCache, stockDetailCache, statsCache } from "../utils/lean-cache";
 
 const router = Router();
@@ -1022,6 +1023,33 @@ router.get("/api/screener/stocks/:symbol/dcf", async (req, res) => {
 	}
 });
 
+router.get("/api/screener/stocks/:symbol/valuation-cone", async (req, res) => {
+	try {
+		const symbol = req.params.symbol;
+		const includeTimeSeries = req.query.timeseries !== "false";
+		const cone = await valuationConeService.getValuationCone(symbol, includeTimeSeries);
+		if (!cone) {
+			return res.status(404).json({ success: false, error: `Valuation cone data not found for ${symbol}` });
+		}
+		res.json({ success: true, data: cone });
+	} catch (err: any) {
+		res.status(500).json({ success: false, error: err.message });
+	}
+});
+
+router.get("/api/screener/stocks/:symbol/sector-valuation", async (req, res) => {
+	try {
+		const symbol = req.params.symbol;
+		const rel = await valuationConeService.getCompanySectorRelativeValuation(symbol);
+		if (!rel) {
+			return res.status(404).json({ success: false, error: `Sector valuation data not found for ${symbol}` });
+		}
+		res.json({ success: true, data: rel });
+	} catch (err: any) {
+		res.status(500).json({ success: false, error: err.message });
+	}
+});
+
 router.get("/api/screener/stocks/:symbol/rating", async (req, res) => {
 	try {
 		const symbol = req.params.symbol;
@@ -1381,6 +1409,16 @@ router.get("/api/screener/sector-performance", async (req, res) => {
 		res.json({ data: rows });
 	} catch (err: any) {
 		res.status(500).json({ error: err.message });
+	}
+});
+
+router.get("/api/screener/sectors/multiples", async (_req, res) => {
+	try {
+		const multiplesMap = await valuationConeService.getSectorMultiples();
+		const list = Array.from(multiplesMap.values());
+		res.json({ success: true, data: list, total: list.length });
+	} catch (err: any) {
+		res.status(500).json({ success: false, error: err.message });
 	}
 });
 
