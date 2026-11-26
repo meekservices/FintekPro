@@ -1025,6 +1025,7 @@ export class PickOfTheDayService {
 			if (redis) {
 				const cacheKey = `picks:daily:${today}`;
 				await redis.setEx(cacheKey, 86400, JSON.stringify(generated));
+				await redis.del("picks:live");
 				logger.info(`[PickOfTheDay] Pre-warmed Redis cache key: ${cacheKey}`);
 			}
 		} catch (cacheErr) {
@@ -1640,11 +1641,17 @@ export class PickOfTheDayService {
 			if (redis) {
 				const cached = await redis.get(cacheKey);
 				if (cached) {
-					logger.info("[PickService] getTodaysPicks Redis HIT", {
-						event: "PICKS_CACHE_HIT", user_id: "system",
-						date: today, latency_ms: 0, status: "success",
-					});
-					return JSON.parse(cached) as DailyPickData[];
+					const parsed = JSON.parse(cached) as DailyPickData[];
+					const hasValidIds = Array.isArray(parsed) && parsed.length > 0 && parsed.every((p) => p.id != null);
+					if (hasValidIds) {
+						logger.info("[PickService] getTodaysPicks Redis HIT", {
+							event: "PICKS_CACHE_HIT", user_id: "system",
+							date: today, latency_ms: 0, status: "success",
+						});
+						return parsed;
+					}
+					// Stale or incomplete cache without IDs — evict and fall through to DB
+					await redis.del(cacheKey);
 				}
 			}
 		} catch { /* cache miss is fine */ }
@@ -1750,12 +1757,12 @@ export class PickOfTheDayService {
 	/**
 	 * Explicitly purges POTD cached data across Redis / distributed cache keys.
 	 */
-	public async invalidatePicksCache(): Promise<void> {
+	public async invalidatePicksCache(dateOverride?: string): Promise<void> {
 		try {
 			const redis = await this.getRedis();
 			if (redis) {
 				await redis.del("picks:live");
-				const today = todayIST();
+				const today = dateOverride ?? todayIST();
 				await redis.del(`picks:daily:${today}`);
 				logger.info("[PickOfTheDay] Explicitly invalidated picks cache", {
 					event: "PICKS_CACHE_INVALIDATED",
@@ -2195,6 +2202,7 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 			.limit(1);
 
 		if (existing.length > 0) {
+			pick.id = existing[0].id;
 			// Update the existing pick in place (e.g. attaching pdfUrl or fresh metrics)
 			await db
 				.update(dailyPicks)
@@ -2229,7 +2237,7 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 			return;
 		}
 
-		await db
+		const [inserted] = await db
 			.insert(dailyPicks)
 			.values({
 				category: pick.category,
@@ -2262,7 +2270,21 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 				generatedBy: "ai",
 				updatedAt: new Date(),
 			})
-			.onConflictDoNothing();
+			.onConflictDoNothing()
+			.returning({ id: dailyPicks.id });
+
+		if (inserted?.id) {
+			pick.id = inserted.id;
+		} else {
+			const recheck = await db
+				.select({ id: dailyPicks.id })
+				.from(dailyPicks)
+				.where(and(...matchConditions, or(...identityOrs)))
+				.limit(1);
+			if (recheck[0]?.id) {
+				pick.id = recheck[0].id;
+			}
+		}
 	}
 
 

@@ -22,6 +22,8 @@
 import WebSocket from "ws";
 import { EventEmitter } from "events";
 import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
 import protobuf from "protobufjs";
 import { logger } from "../logger";
 import { upstoxAdapter } from "./mpal/adapters/upstoxAdapter";
@@ -102,13 +104,27 @@ class UpstoxWsStreamingService extends EventEmitter {
 
   private async initProtobuf(): Promise<void> {
     try {
-      const protoPath = path.resolve(__dirname, "../proto/MarketDataFeedV3.proto");
+      const possiblePaths = [
+        path.resolve(process.cwd(), "server/proto/MarketDataFeedV3.proto"),
+        path.resolve(process.cwd(), "dist/proto/MarketDataFeedV3.proto"),
+        path.resolve(process.cwd(), "proto/MarketDataFeedV3.proto"),
+      ];
+      try {
+        if (typeof import.meta !== "undefined" && import.meta.url) {
+          const currentFile = fileURLToPath(import.meta.url);
+          possiblePaths.unshift(path.resolve(path.dirname(currentFile), "../proto/MarketDataFeedV3.proto"));
+          possiblePaths.unshift(path.resolve(path.dirname(currentFile), "./proto/MarketDataFeedV3.proto"));
+        }
+      } catch {
+        /* ignore import.meta fallback */
+      }
+      const protoPath = possiblePaths.find((p) => fs.existsSync(p)) || possiblePaths[0];
       const root = await protobuf.load(protoPath);
       this.protobufRoot = root;
       this.feedResponseType = root.lookupType(
         "com.upstox.marketdatafeederv3udapi.rpc.proto.FeedResponse"
       );
-      logger.info("[UpstoxWS] Protobuf definitions loaded successfully");
+      logger.info("[UpstoxWS] Protobuf definitions loaded successfully", { protoPath });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.error(`[UpstoxWS] Failed to load Protobuf schema: ${msg}`);

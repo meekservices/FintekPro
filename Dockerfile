@@ -62,6 +62,8 @@ RUN npm install --omit=dev --no-fund --legacy-peer-deps && \
 
 # Copy compiled assets from builder
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/server/proto ./server/proto
+COPY --from=builder /app/server/proto ./dist/proto
 
 # Expose the Cloud Run expected port
 EXPOSE 8080
