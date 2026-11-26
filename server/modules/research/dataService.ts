@@ -2871,31 +2871,34 @@ export async function getFinancialData(
 					);
 				} else {
 					logger.info(
-						`[ResearchNote] Probe42 unavailable or empty for ${nseSymbol} — trying IndianAPI`,
+						`[ResearchNote] Probe42 unavailable or empty for ${nseSymbol} — trying Python/yfinance`,
 					);
-					const iapiData = await fetchFundamentalsFromIndianAPI(nseSymbol);
-					if (iapiData && (iapiData.revenue !== null || iapiData.plHistory !== null)) {
-						screener = iapiData;
+					const pyData = await fetchFundamentalsFromPython(nseSymbol);
+					if (pyData && (pyData.revenue !== null || pyData.plHistory !== null)) {
+						screener = mergeScreenerWithFallback(screenerResult, pyData);
 						fundamentalsSource = {
-							source: "INDIAN_API_FALLBACK",
+							source: "PYTHON_YFINANCE",
 							scrapedAt: new Date().toISOString(),
 							ageHours: 0,
 						};
 						logger.info(
-							`[ResearchNote] Populated fundamentals from IndianAPI fallback for ${nseSymbol}`,
+							`[ResearchNote] Populated fundamentals from Python/yfinance for ${nseSymbol}`,
 						);
 					} else {
 						logger.info(
-							`[ResearchNote] IndianAPI unavailable or empty for ${nseSymbol} — trying Python/yfinance`,
+							`[ResearchNote] Python/yfinance unavailable — trying IndianAPI as fallback`,
 						);
-						const pyData = await fetchFundamentalsFromPython(nseSymbol);
-						if (pyData) {
-							screener = mergeScreenerWithFallback(screenerResult, pyData);
+						const iapiData = await fetchFundamentalsFromIndianAPI(nseSymbol);
+						if (iapiData && (iapiData.revenue !== null || iapiData.plHistory !== null)) {
+							screener = iapiData;
 							fundamentalsSource = {
-								source: "PYTHON_YFINANCE",
+								source: "INDIAN_API_FALLBACK",
 								scrapedAt: new Date().toISOString(),
 								ageHours: 0,
 							};
+							logger.info(
+								`[ResearchNote] Populated fundamentals from IndianAPI fallback for ${nseSymbol}`,
+							);
 						} else {
 							screener = screenerResult;
 							fundamentalsSource = {
@@ -2912,7 +2915,7 @@ export async function getFinancialData(
 			writeScreenerToDB(nseSymbol, screener).catch(() => {});
 		} else if (screenerResult.plHistory === null) {
 			// Tier 2: Screener returned point-in-time ratios but history tables are missing
-			// Enrich with CredHive -> Probe42 -> IndianAPI -> Python
+			// Enrich with CredHive -> Probe42 -> Python -> IndianAPI
 			const chData = await fetchFundamentalsFromCredhive(nseSymbol);
 			if (chData?.plHistory) {
 				screener = mergeScreenerWithFallback(screenerResult, chData);
@@ -2927,24 +2930,18 @@ export async function getFinancialData(
 						`[ResearchNote] Probe42 enriched missing history tables for ${nseSymbol}`,
 					);
 				} else {
-					const iapiData = await fetchFundamentalsFromIndianAPI(nseSymbol);
-					if (iapiData?.plHistory) {
-						screener = mergeScreenerWithFallback(screenerResult, iapiData);
+					const pyData = await fetchFundamentalsFromPython(nseSymbol);
+					if (pyData?.plHistory) {
+						screener = mergeScreenerWithFallback(screenerResult, pyData);
 						logger.info(
-							`[ResearchNote] IndianAPI enriched missing history tables for ${nseSymbol}`,
+							`[ResearchNote] Python/yfinance enriched missing history tables for ${nseSymbol}`,
 						);
 					} else {
-						const pyData = await fetchFundamentalsFromPython(nseSymbol);
-						if (pyData) {
-							screener = mergeScreenerWithFallback(screenerResult, pyData);
-							const histCount = [
-								screener.plHistory,
-								screener.bsHistory,
-								screener.cfHistory,
-								screener.quarterlyHistory,
-							].filter(Boolean).length;
+						const iapiData = await fetchFundamentalsFromIndianAPI(nseSymbol);
+						if (iapiData?.plHistory) {
+							screener = mergeScreenerWithFallback(screenerResult, iapiData);
 							logger.info(
-								`[ResearchNote] Python enriched missing history for ${nseSymbol}: ${histCount}/4 tables`,
+								`[ResearchNote] IndianAPI enriched missing history tables for ${nseSymbol}`,
 							);
 						} else {
 							screener = screenerResult;

@@ -457,14 +457,16 @@ export class StockQuarterlyFinancialsService {
   }
 
   /**
-   * Refresh quarterly filings for a specific stock (tries IndianAPI first, falls back to Screener unpack).
+   * Refresh quarterly filings for a specific stock (tries local DB unpack first, falls back to IndianAPI).
    */
   public async refreshStockQuarterly(symbol: string, isin?: string | null): Promise<number> {
-    const apiCount = await this.syncStockFromIndianAPI(symbol, isin);
-    if (apiCount > 0) {
-      return apiCount;
+    // 1. Unpack fresh local DB screener_financials first (0ms, zero external API cost)
+    const localCount = await this.unpackScreenerQuarterlyHistory(symbol, isin);
+    if (localCount > 0) {
+      return localCount;
     }
-    return this.unpackScreenerQuarterlyHistory(symbol, isin);
+    // 2. Fall back to IndianAPI only when local DB has no quarterly history
+    return this.syncStockFromIndianAPI(symbol, isin);
   }
 }
 

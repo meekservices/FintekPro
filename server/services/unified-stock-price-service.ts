@@ -17,6 +17,7 @@
 import { requestDedupeService } from "./request-deduplication-service";
 import { indianApiService } from "./indian-api-service";
 import { upstoxMarketDataService } from "./upstox-market-data-service";
+import { angelOneAdapter } from "./adapters/angel-one-adapter";
 
 import yahooFinance from "yahoo-finance2";
 import axios from "axios";
@@ -39,6 +40,7 @@ interface StockPrice {
 	timestamp: number;
 	source:
 		| "UPSTOX"
+		| "ANGEL_ONE"
 		| "NSE"
 		| "BSE"
 		| "YAHOO"
@@ -364,7 +366,37 @@ class UnifiedStockPriceService {
 			return result;
 		}
 
-		// 1. IndianAPI Batch Fallback (Tier 1 — fast bulk resolution for Indian equities)
+		// 1. Angel One SmartAPI Fallback (Tier 1 — Licensed SEBI broker feed)
+		if (angelOneAdapter.isReady() && !this.isProviderCoolingDown("angel_one")) {
+			try {
+				let anySuccess = false;
+				for (const sym of remainingToFetch) {
+					const angelQuote = await this.fetchFromAngelOne(sym, exchange);
+					if (angelQuote && angelQuote.price > 0) {
+						result.prices.set(sym, angelQuote);
+						result.fromApi++;
+						this.setCache(sym, angelQuote, CACHE_TTL.REALTIME, exchange);
+						this.writeToDb(angelQuote);
+						anySuccess = true;
+					}
+				}
+				if (anySuccess) {
+					this.recordSuccess("angel_one");
+				}
+			} catch (err: any) {
+				// eslint-disable-next-line no-console
+				console.warn(`[StockPrice] Angel One batch quote failed: ${err?.message}`);
+				this.recordFailure("angel_one");
+			}
+		}
+
+		// Re-check remaining symbols after Angel One
+		remainingToFetch = remainingToFetch.filter((s) => !result.prices.has(s));
+		if (remainingToFetch.length === 0) {
+			return result;
+		}
+
+		// 2. IndianAPI Batch Fallback (Tier 2 — secondary aggregator, after Upstox and Angel One)
 		if (
 			indianApiService.isReady() &&
 			!this.isProviderCoolingDown("indianapi_batch")
@@ -712,7 +744,19 @@ class UnifiedStockPriceService {
 			}
 		}
 
-		// 1. IndianAPI/NSE library (exchange-direct, Tier 1)
+		// 1. Angel One SmartAPI (Licensed SEBI feed, Tier 1)
+		if (!this.isProviderCoolingDown("angel_one")) {
+			const angelPrice = await this.fetchFromAngelOne(symbol, exchange);
+			if (angelPrice) {
+				this.recordSuccess("angel_one");
+				return angelPrice;
+			}
+			if (angelOneAdapter.isReady()) {
+				this.recordFailure("angel_one");
+			}
+		}
+
+		// 2. IndianAPI/NSE (Exchange aggregator backup, Tier 2 — after Upstox and Angel One)
 		if (
 			(exchange === "NSE" || !exchange) &&
 			!this.isProviderCoolingDown("nse")
@@ -725,7 +769,7 @@ class UnifiedStockPriceService {
 			this.recordFailure("nse");
 		}
 
-		// 1.2 BSE Fallback / Direct BSE — If price is not available at NSE, fetch from BSE
+		// 2.2 BSE Fallback / Direct BSE — If price is not available at NSE, fetch from BSE
 		if (!this.isProviderCoolingDown("bse")) {
 			const bsePrice = await this.fetchFromBSE(symbol);
 			if (bsePrice) {
@@ -737,7 +781,7 @@ class UnifiedStockPriceService {
 			}
 		}
 
-		// 1.5 IndianAPI Batch — single-symbol batch call as Tier 1.5 bridge.
+		// 2.5 IndianAPI Batch — single-symbol batch call as Tier 2.5 bridge.
 		// When INDIAN_API_KEY is set, getBatchLivePriceNSE is a dedicated endpoint
 		// that gives us a second IndianAPI path (different endpoint, different error surface).
 		// When INDIAN_API_KEY is NOT set, this is skipped and we fall to Yahoo.
@@ -809,7 +853,39 @@ class UnifiedStockPriceService {
 	}
 
 	/**
-	 * Tier 1.5b — IndianAPI batch endpoint single-symbol lookup.
+	 * Tier 1 — Angel One SmartAPI single-symbol lookup.
+	 * Licensed SEBI broker feed, fast execution, no datacenter IP blocking.
+	 */
+	private async fetchFromAngelOne(
+		symbol: string,
+		exchange?: string
+	): Promise<StockPrice | null> {
+		if (!angelOneAdapter.isReady()) return null;
+		try {
+			const ex = exchange === "BSE" ? "BSE" : "NSE";
+			const quote = await angelOneAdapter.getEquityQuote(symbol, ex);
+			if (quote && quote.currentPrice > 0) {
+				return {
+					symbol: quote.symbol,
+					price: quote.currentPrice,
+					previousClose: quote.close,
+					change: quote.change,
+					changePercent: quote.changePercent,
+					high: quote.high,
+					low: quote.low,
+					open: quote.open,
+					timestamp: quote.timestamp,
+					source: "ANGEL_ONE",
+				};
+			}
+			return null;
+		} catch {
+			return null;
+		}
+	}
+
+	/**
+	 * Tier 2.5b — IndianAPI batch endpoint single-symbol lookup.
 	 * Uses getBatchLivePriceNSE([symbol]) as a second IndianAPI surface
 	 * distinct from the getStockQuote() path in fetchFromNSE().
 	 * Provides redundancy when the quote endpoint is rate-limited but
@@ -948,7 +1024,7 @@ class UnifiedStockPriceService {
 		cooldownRemainingMs: number;
 	}> {
 		const now = Date.now();
-		const providers = ["upstox", "indianapi", "indianapi_batch", "yahoo", "fmp", "google_finance"];
+		const providers = ["upstox", "angel_one", "indianapi", "indianapi_batch", "yahoo", "fmp", "google_finance"];
 		return providers.map((p) => {
 			const h = this.providerHealth.get(p);
 			const coolingDown = h ? now < h.cooldownUntil : false;
@@ -964,18 +1040,19 @@ class UnifiedStockPriceService {
 
 	/**
 	 * Returns the name of the highest-priority active pricing provider.
-	 * @outputs "UPSTOX" | "IndianAPI/NSE" | "Yahoo Finance" | "FMP" | "Google Finance" | "DB_STALE"
+	 * @outputs "UPSTOX" | "Angel One SmartAPI" | "IndianAPI/NSE" | "Yahoo Finance" | "FMP" | "Google Finance" | "DB_STALE"
 	 */
 	getActivePricingTier(): string {
 		const health = this.getProviderHealth();
 		const upstox = process.env.UPSTOX_ACCESS_TOKEN;
 		if (upstox && health.find(h => h.provider === "upstox")?.active) return "UPSTOX (Tier 0)";
-		if (health.find(h => h.provider === "indianapi")?.active) return "IndianAPI/NSE (Tier 1)";
-		if (health.find(h => h.provider === "indianapi_batch")?.active) return "IndianAPI Batch (Tier 1.5)";
-		if (health.find(h => h.provider === "yahoo")?.active) return "Yahoo Finance (Tier 2)";
-		if (health.find(h => h.provider === "fmp")?.active) return "FMP (Tier 3)";
-		if (health.find(h => h.provider === "google_finance")?.active) return "Google Finance (Tier 4)";
-		return "DB_STALE (Tier 5)";
+		if (angelOneAdapter.isReady() && health.find(h => h.provider === "angel_one")?.active) return "Angel One SmartAPI (Tier 1)";
+		if (health.find(h => h.provider === "indianapi")?.active) return "IndianAPI/NSE (Tier 2)";
+		if (health.find(h => h.provider === "indianapi_batch")?.active) return "IndianAPI Batch (Tier 2.5)";
+		if (health.find(h => h.provider === "yahoo")?.active) return "Yahoo Finance (Tier 3)";
+		if (health.find(h => h.provider === "fmp")?.active) return "FMP (Tier 4)";
+		if (health.find(h => h.provider === "google_finance")?.active) return "Google Finance (Tier 5)";
+		return "DB_STALE (Tier 6)";
 	}
 
 	resetMetrics(): void {

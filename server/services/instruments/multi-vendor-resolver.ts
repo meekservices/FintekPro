@@ -44,7 +44,7 @@ export interface ResolvedQuote {
 }
 
 export interface VendorRoutingConfig {
-  vendor: "upstox" | "iris" | "nse" | "bse" | "amfi" | "indianapi" | "fmp" | "alpaca";
+  vendor: "upstox" | "iris" | "nse" | "bse" | "amfi" | "indianapi" | "fmp" | "alpaca" | "angelone";
   priority: number;
   timeoutMs: number;
   maxRetries: number;
@@ -57,8 +57,9 @@ export class MultiVendorInstrumentResolver {
   private readonly routingMatrix: Record<string, VendorRoutingConfig[]> = {
     equity: [
       { vendor: "upstox", priority: 1, timeoutMs: 3000, maxRetries: 2 },
-      { vendor: "nse", priority: 2, timeoutMs: 4000, maxRetries: 2 },
+      { vendor: "angelone", priority: 2, timeoutMs: 3500, maxRetries: 2 },
       { vendor: "indianapi", priority: 3, timeoutMs: 5000, maxRetries: 1 },
+      { vendor: "nse", priority: 4, timeoutMs: 4000, maxRetries: 2 },
     ],
     mutual_fund: [
       { vendor: "iris", priority: 1, timeoutMs: 4000, maxRetries: 2 },
@@ -458,7 +459,37 @@ export class MultiVendorInstrumentResolver {
       }
     }
 
-    // 2. MFAPI / AMFI for Mutual Funds
+    // 2. Angel One SmartAPI for Listed Indian Equities & Benchmarks (Priority 2 licensed feed)
+    if (vendor === "angelone") {
+      const lookupSym = mapping?.vendorSymbol || mapping?.vendorInstrumentToken || isin;
+      try {
+        const { angelOneAdapter } = await import("../adapters/angel-one-adapter");
+        if (angelOneAdapter.isReady()) {
+          const exchange = (mapping as any)?.exchange === "BSE" ? "BSE" : "NSE";
+          const quote = await angelOneAdapter.getEquityQuote(lookupSym, exchange);
+          if (quote && quote.currentPrice > 0) {
+            return {
+              isin,
+              symbol: quote.symbol || lookupSym,
+              price: quote.currentPrice,
+              change: quote.change,
+              changePercent: quote.changePercent,
+              open: quote.open,
+              high: quote.high,
+              low: quote.low,
+              vendorUsed: "angelone",
+              isFallback: false,
+              timestamp: new Date(quote.timestamp).toISOString(),
+              cached: false,
+            };
+          }
+        }
+      } catch {
+        // fallback to next vendor
+      }
+    }
+
+    // 3. MFAPI / AMFI for Mutual Funds
     if (vendor === "amfi" || (vendor === "iris" && isin.startsWith("INF"))) {
       const schemeCode = mapping?.vendorInstrumentToken || mapping?.vendorSymbol;
       if (schemeCode) {
@@ -483,8 +514,8 @@ export class MultiVendorInstrumentResolver {
       }
     }
 
-    // 3. Local DB Bhavcopy fallback for equities & ETFs
-    if (vendor === "nse" || vendor === "bse" || vendor === "indianapi") {
+    // 4. Local DB Bhavcopy fallback for equities & ETFs
+    if (vendor === "nse" || vendor === "bse" || vendor === "indianapi" || vendor === "angelone") {
       try {
         const { listedStocks } = await import("@shared/schema");
         const { or } = await import("drizzle-orm");

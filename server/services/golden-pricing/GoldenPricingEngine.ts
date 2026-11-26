@@ -35,6 +35,7 @@ import {
 	upstoxMarketDataService,
 	type UpstoxQuote,
 } from "../upstox-market-data-service";
+import { angelOneAdapter } from "../adapters/angel-one-adapter";
 
 const INDIAN_API_BASE_URL =
 	process.env.INDIAN_API_BASE_URL || "https://analyst.indianapi.in";
@@ -110,6 +111,7 @@ export const SEBI_AUDIT_GRADE_SOURCES = new Set([
 	"BSE_BHAVCOPY",
 	"AMFI_NAV",
 	"UPSTOX",
+	"ANGEL_ONE",
 	"INDIAN_API",
 	"BSE_CLOSE",
 	"MOSPI_MACRO",
@@ -144,7 +146,8 @@ export const SOURCE_CONFIDENCE: Record<string, number> = {
 	AMFI_NAV: 97,
 	ALPACA: 96, // Alpaca Data API v2 — US Broker SIP feed (Real-time, High confidence)
 	UPSTOX: 96, // Upstox Developer API v2 — Licensed NSE/BSE broker feed, SEBI-compliant
-	INDIAN_API: 93, // IndianAPI.in — India-native, NSE+BSE dual quotes, SEBI-safe
+	ANGEL_ONE: 95, // Angel One SmartAPI — Licensed NSE/BSE/MCX/NCDEX broker feed, SEBI-compliant
+	INDIAN_API: 93, // IndianAPI.in — India-native, NSE+BSE dual quotes, SEBI-safe (after Upstox and Angel One)
 	BSE_CLOSE: 95,
 	MOSPI_MACRO: 99, // Ministry of Statistics and Programme Implementation (CPI, GDP)
 	RBI_POLICY: 99, // Reserve Bank of India Official Policy Benchmarks (Repo, SDF, MSF)
@@ -307,6 +310,36 @@ async function fetchFMPPrice(symbol: string): Promise<RawPrice | null> {
 			code: `FMP stable/profile → price for ${symbol}.NS`,
 		},
 	);
+}
+
+/**
+ * Fetches real-time stock price from Angel One SmartAPI (Licensed SEBI broker feed).
+ * Prioritized over third-party aggregators.
+ */
+async function fetchAngelOnePrice(
+	symbol: string,
+	exchange: "NSE" | "BSE" = "NSE"
+): Promise<RawPrice | null> {
+	if (!angelOneAdapter.isReady()) return null;
+	try {
+		const quote = await angelOneAdapter.getEquityQuote(symbol, exchange);
+		if (!quote || quote.currentPrice <= 0) return null;
+
+		validateStockPrice(quote.currentPrice, symbol);
+
+		return {
+			price: quote.currentPrice,
+			open: quote.open,
+			high: quote.high,
+			low: quote.low,
+			changePercent: quote.changePercent,
+			source: "ANGEL_ONE",
+			confidence: SOURCE_CONFIDENCE.ANGEL_ONE,
+		};
+	} catch (err: any) {
+		logger.debug(`[GoldenPricing] Angel One quote notice for ${symbol}: ${err?.message || err}`);
+		return null;
+	}
 }
 
 /**
@@ -1198,7 +1231,22 @@ async function discoverBestPrice(
 		}
 	}
 
-	// 5c. Official Bhavcopy in local DB (populated by nightly Bhavcopy Ingestion, 0 network lag)
+	// 5c. Live Angel One SmartAPI Quote (Licensed SEBI broker feed, Tier 1)
+	if (resolvedSymbol && angelOneAdapter.isReady()) {
+		try {
+			const angelRes = await fetchAngelOnePrice(
+				resolvedSymbol,
+				job.exchange === "BSE" ? "BSE" : "NSE",
+			);
+			if (angelRes?.price) return angelRes;
+		} catch (angelErr: any) {
+			logger.debug(
+				`[GoldenPricing] Angel One quote notice for ${resolvedSymbol}: ${angelErr?.message || angelErr}`,
+			);
+		}
+	}
+
+	// 5d. Official Bhavcopy in local DB (populated by nightly Bhavcopy Ingestion, 0 network lag)
 	if (resolvedSymbol || isin) {
 		const bhavRow = await db
 			.execute(sql`
@@ -1225,13 +1273,13 @@ async function discoverBestPrice(
 		}
 	}
 
-	// 5d. IndianAPI.in Dual Quote
+	// 5e. IndianAPI.in Dual Quote (Aggregator Fallback — after Upstox and Angel One)
 	if (resolvedSymbol) {
 		const indianApi = await fetchIndianAPIPrice(resolvedSymbol);
 		if (indianApi?.price) return indianApi;
 	}
 
-	// 5e. Yahoo Finance
+	// 5f. Yahoo Finance
 	if (resolvedSymbol) {
 		const yahoo = await fetchYahooFinancePrice(
 			resolvedSymbol,
@@ -2259,12 +2307,31 @@ export async function syncMacroAndMarketBriefPrices(
 		logger.debug(`[GoldenPricing] MCX import/init warning: ${mcxInitErr?.message}`);
 	}
 
+	let idxSource = "INDIAN_API";
 	try {
-		const { indianApiService } = await import("../indian-api-service");
-		const res = await indianApiService.getIndices();
-		if (res.success && res.data) idxData = res.data;
-	} catch (e: any) {
-		logger.warn(`[GoldenPricing] IndianAPI index sync warning: ${e?.message || e}`);
+		const { angelOneAdapter } = await import("../adapters/angel-one-adapter");
+		if (angelOneAdapter.isReady()) {
+			const angelIndices = await angelOneAdapter.getIndices();
+			if (angelIndices && angelIndices.length > 0) {
+				idxData = angelIndices.map((i) => ({ name: i.name, price: i.price, percentChange: i.changePercent }));
+				idxSource = "ANGEL_ONE";
+			}
+		}
+	} catch (angelErr: any) {
+		logger.debug(`[GoldenPricing] Angel One index sync notice: ${angelErr?.message || angelErr}`);
+	}
+
+	if (!idxData || idxData.length === 0) {
+		try {
+			const { indianApiService } = await import("../indian-api-service");
+			const res = await indianApiService.getIndices();
+			if (res.success && res.data) {
+				idxData = res.data;
+				idxSource = "INDIAN_API";
+			}
+		} catch (e: any) {
+			logger.warn(`[GoldenPricing] IndianAPI index sync warning: ${e?.message || e}`);
+		}
 	}
 
 	try {
@@ -2486,12 +2553,12 @@ export async function syncMacroAndMarketBriefPrices(
 		{ isin: "YIELD_JP_10Y", symbol: "JP10Y", assetClass: "bond", price: jgb10Y, source: "YIELD_CURVE", confidence: 92, currency: "JPY", metadata: { tenor: "10Y", country: "JP" } },
 
 		// Indian Indices
-		{ isin: "IDX_NIFTY_50", symbol: "NIFTY50", assetClass: "index", price: nifty.price, changePercent: nifty.changePercent, source: "INDIAN_API", confidence: 95, currency: "INR", metadata: { name: "Nifty 50 Index", exchange: "NSE" } },
-		{ isin: "IDX_SENSEX", symbol: "SENSEX", assetClass: "index", price: sensex.price, changePercent: sensex.changePercent, source: "INDIAN_API", confidence: 95, currency: "INR", metadata: { name: "BSE Sensex Index", exchange: "BSE" } },
-		{ isin: "IDX_BANKNIFTY", symbol: "BANKNIFTY", assetClass: "index", price: bankNifty.price, changePercent: bankNifty.changePercent, source: "INDIAN_API", confidence: 95, currency: "INR", metadata: { name: "Nifty Bank Index", exchange: "NSE" } },
-		{ isin: "IDX_NIFTY_IT", symbol: "NIFTYIT", assetClass: "index", price: niftyIt.price, changePercent: niftyIt.changePercent, source: "INDIAN_API", confidence: 95, currency: "INR", metadata: { name: "Nifty IT Index", exchange: "NSE" } },
-		{ isin: "IDX_GIFT_NIFTY", symbol: "GIFTNIFTY", assetClass: "index", price: giftNifty.price, changePercent: giftNifty.changePercent, source: "INDIAN_API", confidence: 92, currency: "INR", metadata: { name: "GIFT Nifty (NSE IX)", exchange: "NSE_IX" } },
-		{ isin: "IDX_INDIA_VIX", symbol: "INDIAVIX", assetClass: "index", price: indiaVix.price, changePercent: indiaVix.changePercent, source: "INDIAN_API", confidence: 95, currency: "INR", metadata: { name: "India VIX", exchange: "NSE" } },
+		{ isin: "IDX_NIFTY_50", symbol: "NIFTY50", assetClass: "index", price: nifty.price, changePercent: nifty.changePercent, source: idxSource, confidence: 95, currency: "INR", metadata: { name: "Nifty 50 Index", exchange: "NSE" } },
+		{ isin: "IDX_SENSEX", symbol: "SENSEX", assetClass: "index", price: sensex.price, changePercent: sensex.changePercent, source: idxSource, confidence: 95, currency: "BSE", metadata: { name: "BSE Sensex Index", exchange: "BSE" } },
+		{ isin: "IDX_BANKNIFTY", symbol: "BANKNIFTY", assetClass: "index", price: bankNifty.price, changePercent: bankNifty.changePercent, source: idxSource, confidence: 95, currency: "INR", metadata: { name: "Nifty Bank Index", exchange: "NSE" } },
+		{ isin: "IDX_NIFTY_IT", symbol: "NIFTYIT", assetClass: "index", price: niftyIt.price, changePercent: niftyIt.changePercent, source: idxSource, confidence: 95, currency: "INR", metadata: { name: "Nifty IT Index", exchange: "NSE" } },
+		{ isin: "IDX_GIFT_NIFTY", symbol: "GIFTNIFTY", assetClass: "index", price: giftNifty.price, changePercent: giftNifty.changePercent, source: idxSource, confidence: 92, currency: "INR", metadata: { name: "GIFT Nifty (NSE IX)", exchange: "NSE_IX" } },
+		{ isin: "IDX_INDIA_VIX", symbol: "INDIAVIX", assetClass: "index", price: indiaVix.price, changePercent: indiaVix.changePercent, source: idxSource, confidence: 95, currency: "INR", metadata: { name: "India VIX", exchange: "NSE" } },
 
 		// Global Indices
 		{ isin: "IDX_SP500", symbol: "SPX", assetClass: "index", price: sp500.price, changePercent: sp500.changePercent, source: "GLOBAL_INDEX", confidence: 92, currency: "USD", metadata: { name: "S&P 500 Index", region: "US" } },

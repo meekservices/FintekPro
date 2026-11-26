@@ -67,6 +67,98 @@ export interface NcdexContractMeta {
   tickSize: number;
 }
 
+export interface AngelIndexMeta {
+  id: string;
+  name: string;
+  exchange: "NSE" | "BSE";
+  symbolToken: string;
+  tradingSymbol: string;
+}
+
+export interface AngelOneEquityQuote {
+  symbol: string;
+  exchange: "NSE" | "BSE";
+  currentPrice: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  change?: number;
+  changePercent?: number;
+  volume?: number;
+  timestamp: number;
+  source: "ANGEL_ONE";
+}
+
+// ─── Benchmark Index Tokens (SmartAPI NSE & BSE) ──────────────────────────────
+export const ANGEL_INDEX_BENCHMARK_TOKENS: Record<string, AngelIndexMeta> = {
+  NIFTY_50: {
+    id: "NIFTY_50",
+    name: "Nifty 50 Index",
+    exchange: "NSE",
+    symbolToken: "26000",
+    tradingSymbol: "Nifty 50",
+  },
+  BANKNIFTY: {
+    id: "BANKNIFTY",
+    name: "Nifty Bank Index",
+    exchange: "NSE",
+    symbolToken: "26009",
+    tradingSymbol: "Nifty Bank",
+  },
+  SENSEX: {
+    id: "SENSEX",
+    name: "BSE Sensex Index",
+    exchange: "BSE",
+    symbolToken: "99926000",
+    tradingSymbol: "SENSEX",
+  },
+  INDIA_VIX: {
+    id: "INDIA_VIX",
+    name: "India VIX",
+    exchange: "NSE",
+    symbolToken: "26017",
+    tradingSymbol: "India VIX",
+  },
+  NIFTY_IT: {
+    id: "NIFTY_IT",
+    name: "Nifty IT Index",
+    exchange: "NSE",
+    symbolToken: "26008",
+    tradingSymbol: "Nifty IT",
+  },
+};
+
+// ─── High-Volume Large-Cap NSE Symbol Token Mappings ──────────────────────────
+export const ANGEL_EQUITY_BENCHMARK_TOKENS: Record<string, { token: string; symbol: string }> = {
+  RELIANCE: { token: "2885", symbol: "RELIANCE-EQ" },
+  TCS: { token: "11536", symbol: "TCS-EQ" },
+  INFY: { token: "1594", symbol: "INFY-EQ" },
+  HDFCBANK: { token: "1333", symbol: "HDFCBANK-EQ" },
+  ICICIBANK: { token: "4963", symbol: "ICICIBANK-EQ" },
+  SBIN: { token: "3045", symbol: "SBIN-EQ" },
+  BHARTIARTL: { token: "10604", symbol: "BHARTIARTL-EQ" },
+  ITC: { token: "1660", symbol: "ITC-EQ" },
+  KOTAKBANK: { token: "1922", symbol: "KOTAKBANK-EQ" },
+  LT: { token: "11483", symbol: "LT-EQ" },
+  AXISBANK: { token: "5900", symbol: "AXISBANK-EQ" },
+  TATAMOTORS: { token: "3456", symbol: "TATAMOTORS-EQ" },
+  MARUTI: { token: "10999", symbol: "MARUTI-EQ" },
+  SUNPHARMA: { token: "3351", symbol: "SUNPHARMA-EQ" },
+  BAJFINANCE: { token: "317", symbol: "BAJFINANCE-EQ" },
+  HINDUNILVR: { token: "1394", symbol: "HINDUNILVR-EQ" },
+  TITAN: { token: "3506", symbol: "TITAN-EQ" },
+  ASIANPAINT: { token: "236", symbol: "ASIANPAINT-EQ" },
+  TATASTEEL: { token: "3499", symbol: "TATASTEEL-EQ" },
+  WIPRO: { token: "3787", symbol: "WIPRO-EQ" },
+  HCLTECH: { token: "7229", symbol: "HCLTECH-EQ" },
+  NTPC: { token: "11630", symbol: "NTPC-EQ" },
+  POWERGRID: { token: "14977", symbol: "POWERGRID-EQ" },
+  ONGC: { token: "2475", symbol: "ONGC-EQ" },
+  COALINDIA: { token: "20374", symbol: "COALINDIA-EQ" },
+  ANGELONE: { token: "11184", symbol: "ANGELONE-EQ" },
+};
+
 // ─── Baseline NCDEX Contract Tokens (Angel One NCX segment) ───────────────────
 // These map benchmark FintekPro commodity IDs to Angel One SmartAPI symbol tokens
 export const ANGEL_NCDEX_BENCHMARK_TOKENS: Record<string, NcdexContractMeta> = {
@@ -210,6 +302,10 @@ export class AngelOneAdapter {
       process.env.ANGEL_PIN &&
       process.env.ANGEL_TOTP_SECRET
     );
+  }
+
+  public isReady(): boolean {
+    return this.isConfigured();
   }
 
   public getStatus() {
@@ -482,6 +578,101 @@ export class AngelOneAdapter {
       logger.warn(`[AngelOne] getCandleData failed: ${msg}`);
       return [];
     }
+  }
+
+  // ── Equity & Index Market Quotes (NSE & BSE) ────────────────────────────────
+
+  /**
+   * Fetches real-time equity quote for NSE / BSE symbol from Angel One SmartAPI.
+   */
+  public async getEquityQuote(
+    symbol: string,
+    exchange: "NSE" | "BSE" = "NSE"
+  ): Promise<AngelOneEquityQuote | null> {
+    if (!this.isReady()) return null;
+
+    const symUpper = symbol.toUpperCase().replace(/\.(NS|BO)$/i, "");
+    const tokenInfo = ANGEL_EQUITY_BENCHMARK_TOKENS[symUpper];
+    const tradingSymbol = tokenInfo ? tokenInfo.symbol : `${symUpper}-EQ`;
+    const symbolToken = tokenInfo ? tokenInfo.token : symUpper;
+
+    try {
+      const ltpData = await this.getLtpData(exchange, tradingSymbol, symbolToken);
+      if (!ltpData || !ltpData.ltp || ltpData.ltp <= 0) {
+        return null;
+      }
+
+      const prevClose = ltpData.close || ltpData.open || ltpData.ltp;
+      const change = Math.round((ltpData.ltp - prevClose) * 100) / 100;
+      const changePercent = prevClose > 0 ? Math.round(((ltpData.ltp - prevClose) / prevClose) * 10000) / 100 : 0;
+
+      return {
+        symbol: symUpper,
+        exchange,
+        currentPrice: ltpData.ltp,
+        open: ltpData.open || ltpData.ltp,
+        high: ltpData.high || ltpData.ltp,
+        low: ltpData.low || ltpData.ltp,
+        close: ltpData.close || ltpData.ltp,
+        change,
+        changePercent,
+        timestamp: Date.now(),
+        source: "ANGEL_ONE",
+      };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn(`[AngelOne] getEquityQuote failed for ${symUpper}: ${msg}`);
+      return null;
+    }
+  }
+
+  /**
+   * Fetches official benchmark index quote (Nifty 50, Sensex, Bank Nifty, etc.)
+   */
+  public async getIndexQuote(
+    indexKey: "NIFTY_50" | "BANKNIFTY" | "SENSEX" | "INDIA_VIX" | "NIFTY_IT" | string
+  ): Promise<{ name: string; price: number; changePercent: number; exchange: "NSE" | "BSE" } | null> {
+    if (!this.isReady()) return null;
+
+    const meta = ANGEL_INDEX_BENCHMARK_TOKENS[indexKey];
+    if (!meta) return null;
+
+    try {
+      const ltpData = await this.getLtpData(meta.exchange, meta.tradingSymbol, meta.symbolToken);
+      if (!ltpData || !ltpData.ltp || ltpData.ltp <= 0) return null;
+
+      const prevClose = ltpData.close || ltpData.open || ltpData.ltp;
+      const changePercent = prevClose > 0 ? Math.round(((ltpData.ltp - prevClose) / prevClose) * 10000) / 100 : 0;
+
+      return {
+        name: meta.name,
+        price: ltpData.ltp,
+        changePercent,
+        exchange: meta.exchange,
+      };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn(`[AngelOne] getIndexQuote failed for ${indexKey}: ${msg}`);
+      return null;
+    }
+  }
+
+  /**
+   * Fetches all core Indian benchmark indices in one call.
+   */
+  public async getIndices(): Promise<Array<{ name: string; price: number; changePercent: number; exchange: "NSE" | "BSE" }>> {
+    if (!this.isReady()) return [];
+
+    const keys = Object.keys(ANGEL_INDEX_BENCHMARK_TOKENS);
+    const results = await Promise.allSettled(keys.map((k) => this.getIndexQuote(k)));
+    const items: Array<{ name: string; price: number; changePercent: number; exchange: "NSE" | "BSE" }> = [];
+
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value) {
+        items.push(r.value);
+      }
+    }
+    return items;
   }
 }
 
