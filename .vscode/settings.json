@@ -1,20 +1,21 @@
 {
   // ─── Biome ────────────────────────────────────────────────────────────────
   // Points the VS Code Biome extension to the local node_modules binary.
-  // Fixes: "Unable to find the Biome binary" on workspace open.
   "biome.lsp.bin": "node_modules/@biomejs/biome/bin/biome",
   "biome.lspBin": "node_modules/@biomejs/biome/bin/biome",
 
-  // ─── TypeScript ───────────────────────────────────────────────────────────
+  // ─── TypeScript Language Server High-Performance Tuning ────────────────────
   "typescript.tsdk": "node_modules/typescript/lib",
   "typescript.preferences.importModuleSpecifier": "relative",
   "typescript.tsserver.maxTsServerMemory": 8192,
+  "typescript.tsserver.useSeparateSyntaxServer": "forFullProject",
+  "typescript.tsserver.experimental.enableProjectDiagnostics": false,
+  "typescript.disableAutomaticTypeAcquisition": true,
+  "typescript.suggest.paths": true,
+  "typescript.suggest.autoImports": true,
+  "typescript.preferences.includePackageJsonAutoImports": "off",
 
   // ─── Matt Pocock 'Total TypeScript' (mattpocock.ts-error-translator) ────────
-  // The extension emits `info`-level diagnostics teaching TypeScript patterns.
-  // `hiddenTips` is the ONLY setting that suppresses Problems-panel entries.
-  // `hideAllTips` / `hideBasicTips` only affect the inline hover popup UI.
-  // Listed here: every tip ID that appears in FintekPro source files.
   "totalTypeScript.hideAllTips": true,
   "totalTypeScript.hideBasicTips": true,
   "totalTypeScript.hiddenTips": [
@@ -64,9 +65,18 @@
     "satisfies-keyword"
   ],
 
-  // ─── Editor ───────────────────────────────────────────────────────────────
+  // ─── Editor Rendering & Lag Reduction ──────────────────────────────────────
   "files.autoSave": "onFocusChange",
   "editor.formatOnSave": false,
+  "editor.minimap.enabled": false,
+  "editor.minimap.renderCharacters": false,
+  "editor.renderWhitespace": "selection",
+  "editor.renderControlCharacters": false,
+  "editor.hover.delay": 350,
+  "editor.smoothScrolling": false,
+  "editor.cursorBlinking": "smooth",
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": "active",
   "[typescript]": {
     "editor.defaultFormatter": "vscode.typescript-language-features"
   },
@@ -74,10 +84,47 @@
     "editor.defaultFormatter": "vscode.typescript-language-features"
   },
 
+  // ─── Search & Indexing Optimization ────────────────────────────────────────
+  "search.followSymlinks": false,
+  "search.useIgnoreFiles": true,
+  "search.useGlobalIgnoreFiles": false,
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/coverage": true,
+    "**/.git": true,
+    "**/drizzle-migrations": true,
+    "**/.antigravity": true,
+    "**/package-lock.json": true,
+    "**/*.log": true,
+    "**/*.tsbuildinfo": true
+  },
+
+  // ─── File Watcher Memory & Disk I/O Throttling ─────────────────────────────
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.git/**": true,
+    "**/dist/**": true,
+    "**/coverage/**": true,
+    "**/drizzle-migrations/**": true,
+    "**/.antigravity/**": true,
+    "**/services/python/.venv/**": true,
+    "**/.turbo/**": true,
+    "**/.cache/**": true
+  },
+
+  // ─── Git & SCM Optimization ────────────────────────────────────────────────
+  "git.autorefresh": true,
+  "git.autoStash": true,
+  "git.fetchOnPull": true,
+  "git.statusLimit": 5000,
+  "git.decorations.enabled": true,
+
+  // ─── Terminal GPU Acceleration ─────────────────────────────────────────────
+  "terminal.integrated.gpuAcceleration": "auto",
+  "terminal.integrated.fastScrollSensitivity": 5,
+
   // ─── Python ───────────────────────────────────────────────────────────────
-  // Point the IDE at the venv created inside the python service directory.
-  // To create it: cd services/python && python3.12 -m venv .venv && pip install -r requirements.txt
-  // Then reload the IDE window so this interpreter is picked up automatically.
   "python.defaultInterpreterPath": "${workspaceFolder}/services/python/.venv/bin/python",
   "python.analysis.extraPaths": [
     "${workspaceFolder}/services/python"
@@ -105,21 +152,8 @@
   ],
 
   // ─── Docker ───────────────────────────────────────────────────────────────
-  // Keep Compose validation quiet in this workspace; the project uses plain
-  // docker compose files plus Cloud Run deployment scripts.
   "docker.extension.enableComposeLanguageServer": false,
 
-  // ─── Performance & Recommendations ─────────────────────────────────────────
-  "extensions.ignoreRecommendations": true,
-
-  // ─── File exclusions & Watcher Optimization ────────────────────────────────
-  "files.watcherExclude": {
-    "**/node_modules/**": true,
-    "**/.git/**": true,
-    "**/dist/**": true,
-    "**/coverage/**": true,
-    "**/drizzle-migrations/**": true,
-    "**/.antigravity/**": true,
-    "**/services/python/.venv/**": true
-  }
+  // ─── Performance & Notification Hygiene ───────────────────────────────────
+  "extensions.ignoreRecommendations": true
 }
