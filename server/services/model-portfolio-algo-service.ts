@@ -828,6 +828,9 @@ export class ModelPortfolioAlgoService {
             executedAt: new Date(),
             notes: `${isPaperTrading ? "[PAPER TRADING] " : ""}Algorithmic model portfolio trade for ${portfolio.name} (${transNum})`,
             metadata: {
+              broker: "UPSTOX",
+              exchange: "NSE",
+              symbol: holdingSymbol ?? instrumentName,
               modelPortfolioId: portfolioId,
               transactionNumber: transNum,
               algoExecution: true,

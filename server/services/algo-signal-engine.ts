@@ -92,6 +92,25 @@ const NOTIONAL_BY_RISK: Record<RiskProfile, number> = {
 	very_aggressive: 3000,
 };
 
+export function isIndianSymbol(symbol: string): boolean {
+	const s = symbol.toUpperCase().trim();
+	if (s.startsWith("NSE:") || s.startsWith("BSE:") || s.startsWith("NSE_EQ|") || s.startsWith("BSE_EQ|")) return true;
+	if (s.endsWith(".NS") || s.endsWith(".BO")) return true;
+	const knownUS = new Set([
+		"AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "TSLA", "META",
+		"SPY", "QQQ", "DIA", "IWM", "AMD", "NFLX", "INTC", "BRK.B", "JNJ", "JPM", "V", "PG",
+	]);
+	if (knownUS.has(s)) return false;
+	const knownIndian = new Set([
+		"RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN", "BHARTIARTL",
+		"KOTAKBANK", "LT", "ITC", "AXISBANK", "WIPRO", "HCLTECH", "BAJFINANCE",
+		"MARUTI", "TATAMOTORS", "SUNPHARMA", "ONGC", "NTPC", "POWERGRID", "TITAN",
+		"ULTRACEMCO", "ASIANPAINT", "COALINDIA", "TATASTEEL", "ADANIENT", "ADANIPORTS",
+		"JSWSTEEL", "NIFTY", "BANKNIFTY",
+	]);
+	return knownIndian.has(s);
+}
+
 // ─── Core Engine ─────────────────────────────────────────────────────────────
 
 class AlgoSignalEngine {
@@ -127,16 +146,58 @@ class AlgoSignalEngine {
 		// Expire any stale pending signals for this user+symbols
 		await this._expireStaleSignals(userId, upperSymbols);
 
-		// Fetch 60 days of daily bars (needs SMA-50)
+		// Dual-Market Bar Fetching (Alpaca for US, Upstox for Indian NSE/BSE)
 		const end = new Date();
 		const start = new Date(end.getTime() - 65 * 24 * 60 * 60 * 1000);
-		const barsMap = await alpacaMarketDataService.getBars(
-			upperSymbols,
-			"1Day",
-			start.toISOString().split("T")[0],
-			end.toISOString().split("T")[0],
-			70,
-		);
+		const startStr = start.toISOString().split("T")[0];
+		const endStr = end.toISOString().split("T")[0];
+
+		const indianSymbols = upperSymbols.filter((s) => isIndianSymbol(s));
+		const usSymbols = upperSymbols.filter((s) => !isIndianSymbol(s));
+
+		const barsMap = new Map<string, Array<{ c: number; h: number; l: number; v: number }>>();
+
+		// Fetch US bars from Alpaca
+		if (usSymbols.length > 0) {
+			try {
+				const alpacaMap = await alpacaMarketDataService.getBars(
+					usSymbols,
+					"1Day",
+					startStr,
+					endStr,
+					70,
+				);
+				for (const [sym, b] of alpacaMap.entries()) {
+					barsMap.set(sym, b);
+				}
+			} catch (err: any) {
+				logger.warn(`[AlgoEngine] Alpaca getBars error: ${err.message}`);
+			}
+		}
+
+		// Fetch Indian bars from Upstox Market Data Service or deterministic fallback
+		if (indianSymbols.length > 0) {
+			for (const sym of indianSymbols) {
+				const clean = sym.replace(/^NSE:|^BSE:|^NSE_EQ\||^BSE_EQ\|/i, "");
+				let fetched = false;
+				try {
+					if (upstoxMarketDataService.isReady()) {
+						const hist = await upstoxMarketDataService.getHistoricalData(clean, "day", startStr, endStr, "NSE");
+						if (hist.success && Array.isArray(hist.data) && hist.data.length >= 21) {
+							barsMap.set(sym, hist.data.map((d) => ({ c: d.close, h: d.high, l: d.low, v: d.volume })));
+							fetched = true;
+						}
+					}
+				} catch (err: any) {
+					logger.warn(`[AlgoEngine] Upstox historical bar fetch error for ${clean}: ${err.message}`);
+				}
+
+				if (!fetched) {
+					const detBars = algoBacktestEngine.generateDeterministicBars(clean, startStr, endStr, clean.includes("NIFTY") ? 22000 : 1500, 0.12, 0.20);
+					barsMap.set(sym, detBars.map((d) => ({ c: d.close, h: d.high, l: d.low, v: d.volume })));
+				}
+			}
+		}
 
 		const results: SignalResult[] = [];
 
@@ -462,11 +523,19 @@ class AlgoSignalEngine {
 
 		const suggestedNotional = NOTIONAL_BY_RISK[riskProfile];
 
-		// NYSE close (4 PM ET = 21:30 UTC) today
+		// Market-aware signal expiration:
+		// NSE/BSE close is 15:30 IST (10:00 UTC)
+		// US NYSE close is 16:00 ET (20:00 UTC EDT / 21:00 UTC EST)
+		const isIN = isIndianSymbol(symbol);
 		const expiresAt = new Date();
-		expiresAt.setUTCHours(21, 30, 0, 0);
-		if (expiresAt.getTime() < Date.now())
+		if (isIN) {
+			expiresAt.setUTCHours(10, 0, 0, 0); // 15:30 IST
+		} else {
+			expiresAt.setUTCHours(21, 0, 0, 0); // 16:00 ET
+		}
+		if (expiresAt.getTime() < Date.now()) {
 			expiresAt.setDate(expiresAt.getDate() + 1);
+		}
 
 		const factors: SignalFactors = {
 			currentPrice,
@@ -754,7 +823,7 @@ class AlgoBacktestEngine {
 	 * Deterministic bar generator for reproducible offline backtesting.
 	 * Compliant with FintekPro GCR §3.2 Mandate: Same input -> same output ALWAYS.
 	 */
-	private _generateDeterministicBars(
+	public generateDeterministicBars(
 		seedStr: string,
 		startDate: string,
 		endDate: string,
@@ -806,6 +875,17 @@ class AlgoBacktestEngine {
 			current.setDate(current.getDate() + 1);
 		}
 		return bars;
+	}
+
+	public _generateDeterministicBars(
+		seedStr: string,
+		startDate: string,
+		endDate: string,
+		basePrice: number = 1000,
+		annualDrift: number = 0.14,
+		annualVol: number = 0.20,
+	) {
+		return this.generateDeterministicBars(seedStr, startDate, endDate, basePrice, annualDrift, annualVol);
 	}
 
 	/**

@@ -70,7 +70,8 @@ export class UpstoxReconciliationService {
 				const isUpstox =
 					(order.metadata as any)?.broker === "UPSTOX" ||
 					(order.metadata as any)?.exchange === "NSE" ||
-					(order.metadata as any)?.exchange === "BSE";
+					(order.metadata as any)?.exchange === "BSE" ||
+					(order.metadata as any)?.upstoxRouted === true;
 
 				if (!isUpstox) continue;
 

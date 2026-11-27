@@ -142,13 +142,13 @@ export class TradeReconciliationEngine {
 			UNLISTED_DESK: { totalOrders: 0, matchedOrders: 0, discrepancies: 0, slippageViolations: 0 },
 		};
 
-		// ── 1. Reconcile Payment Gateways (Cashfree / PhonePe) ─────────────
+		// ── 1. Reconcile Payment Gateways (Cashfree / PhonePe / Unified Orders) ─────────────
 		try {
 			const paymentRecon = await db.execute(sql`
 				SELECT 
 					COUNT(*)::int AS total_payments,
-					COUNT(CASE WHEN status = 'SUCCESS' OR status = 'COMPLETED' THEN 1 END)::int AS success_payments
-				FROM payment_orders
+					COUNT(CASE WHEN payment_status = 'completed' OR payment_status = 'SUCCESS' OR payment_status = 'COMPLETED' THEN 1 END)::int AS success_payments
+				FROM unified_orders
 				WHERE created_at >= ${start} AND created_at <= ${end}
 			`).catch(() => ({ rows: [{ total_payments: 0, success_payments: 0 }] }));
 
@@ -161,14 +161,14 @@ export class TradeReconciliationEngine {
 			logger.warn(`[TradeReconciliationEngine] PG recon fallback: ${err.message}`);
 		}
 
-		// ── 2. Reconcile Mutual Funds / IRIS ──────────────────────────────
+		// ── 2. Reconcile Mutual Funds / IRIS (mf_orders) ──────────────────────────────
 		try {
 			const mfRecon = await db.execute(sql`
 				SELECT 
 					COUNT(*)::int AS total_mf_orders,
-					COUNT(CASE WHEN status = 'executed' OR status = 'allotted' THEN 1 END)::int AS successful_orders,
+					COUNT(CASE WHEN status = 'executed' OR status = 'allotted' OR status = 'completed' THEN 1 END)::int AS successful_orders,
 					COUNT(CASE WHEN status = 'pending' AND created_at < NOW() - INTERVAL '48 hours' THEN 1 END)::int AS stuck_orders
-				FROM mutual_funds_orders
+				FROM mf_orders
 				WHERE created_at >= ${start} AND created_at <= ${end}
 			`).catch(() => ({ rows: [{ total_mf_orders: 0, successful_orders: 0, stuck_orders: 0 }] }));
 
