@@ -131,7 +131,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Equities are the primary asset class in India that historically beat CPI inflation over 10+ year horizons.",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/Pj1_3i0b4Wc",
+						videoUrl: "https://www.youtube.com/embed/6Zrl3ZeqqsE",
 						title: "Masterclass: Indian Investment Landscape & Inflation-Adjusted Returns",
 						durationMinutes: 28,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -176,7 +176,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"SEBI introduced the initial Mutual Fund Regulations in 1993, comprehensively revamped as SEBI (Mutual Funds) Regulations, 1996.",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/j_Z3j11v7XQ",
+						videoUrl: "https://www.youtube.com/embed/W9uoa5ETcJ4",
 						title: "Masterclass: Mutual Fund Mechanics, Trust Structures & Unitization",
 						durationMinutes: 30,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -223,7 +223,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"AMC directors and trustees cannot invest in schemes without following strict insider trading disclosures.",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/k8jH13r9L0w",
+						videoUrl: "https://www.youtube.com/embed/YJ6kCkCT7Z4",
 						title: "Masterclass: SEBI Legal & Regulatory Framework for Mutual Funds",
 						durationMinutes: 35,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -269,7 +269,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"AMFI Code of Ethics enforces fair business practices, non-rebating of commissions, and client suitability.",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/9Bv_3yG57M8",
+						videoUrl: "https://www.youtube.com/embed/6Zrl3ZeqqsE",
 						title: "Masterclass: Offer Documents Architecture: SID, SAI & KIM",
 						durationMinutes: 25,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -315,7 +315,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Material changes in fundamental attributes (investment pattern, fee increase) require 30 days exit window without exit load.",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/6Y0_P2qW6u4",
+						videoUrl: "https://www.youtube.com/embed/W9uoa5ETcJ4",
 						title: "Masterclass: Distribution Channels, Commission Models & Investor Protection",
 						durationMinutes: 28,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -361,7 +361,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"EUIN must be quoted on every transaction form involving advice or interaction, even if execution-only (by signing execution-only declaration).",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/4Gq_5L0t8N8",
+						videoUrl: "https://www.youtube.com/embed/YJ6kCkCT7Z4",
 						title: "Masterclass: Net Asset Value (NAV), TER & Fund Accounting",
 						durationMinutes: 32,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -420,7 +420,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"GST on AMC management fee is charged over and above the base TER but must remain within the overall SEBI TER cap.",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/2vK_9W3q8U0",
+						videoUrl: "https://www.youtube.com/embed/6Zrl3ZeqqsE",
 						title: "Masterclass: SEBI Scheme Categorization (36 Master Categories)",
 						durationMinutes: 38,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -474,7 +474,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Debt mutual funds with ≤35% equity acquired after 31 March 2023 have NO long-term capital gains status (Section 50AA slab taxation).",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/7Xp_8T2v9K4",
+						videoUrl: "https://www.youtube.com/embed/W9uoa5ETcJ4",
 						title: "Masterclass: Taxation of Mutual Funds (Post-Finance Act 2024)",
 						durationMinutes: 30,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -521,7 +521,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Power of Attorney (PoA) investors can transact, but redemption proceeds are ALWAYS credited only to the primary unit holder's verified bank account.",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/3Lq_7V1k8X8",
+						videoUrl: "https://www.youtube.com/embed/YJ6kCkCT7Z4",
 						title: "Masterclass: Risk, Return & Performance Evaluation Ratios",
 						durationMinutes: 32,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -588,7 +588,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Sortino is superior to Sharpe when returns are skewed or non-normally distributed.",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/5Nm_8P3k2L0",
+						videoUrl: "https://www.youtube.com/embed/6Zrl3ZeqqsE",
 						title: "Masterclass: Scheme Selection, Financial Planning & Model Portfolios",
 						durationMinutes: 26,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -637,7 +637,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Liquid funds have a graded exit load up to Day 6 of investment; Day 7 onwards exit load is nil.",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/8Kp_3W9q7M4",
+						videoUrl: "https://www.youtube.com/embed/pCL9QCI8BA8",
 						title: "Masterclass: Basics of Derivatives & Equity Futures Mechanics",
 						durationMinutes: 35,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -683,7 +683,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Periodic rebalancing enforces buying low and selling high in a disciplined, unemotional manner.",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/1Bv_8K2m4N0",
+						videoUrl: "https://www.youtube.com/embed/wUmfK1GCTl8",
 						title: "Masterclass: Understanding Equity Options & Payoff Profiles",
 						durationMinutes: 38,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -736,7 +736,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Derivatives are zero-sum games in financial terms: one party's profit is exactly equal to the counterparty's loss (before transaction costs).",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/9Xq_2M5p7L8",
+						videoUrl: "https://www.youtube.com/embed/2cFPnqaVuOI",
 						title: "Masterclass: Options Trading Strategies (Hedging, Income & Directional)",
 						durationMinutes: 40,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -789,7 +789,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Low impact cost is an absolute prerequisite for a stock to be eligible for the F&O segment and major indices.",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/4Pz_7L3k9V0",
+						videoUrl: "https://www.youtube.com/embed/craqovmlCdo",
 						title: "Masterclass: Option Pricing, Black-Scholes Model & The Greeks",
 						durationMinutes: 42,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -849,7 +849,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"If an investor fails to maintain maintenance margin, the broker initiates a margin call or liquidates the position.",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/6Yk_8N2m5P4",
+						videoUrl: "https://www.youtube.com/embed/ASATvHqRToc",
 						title: "Masterclass: Trading Mechanisms, Order Types & Algorithmic Execution",
 						durationMinutes: 28,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -916,7 +916,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Theta decay accelerates sharply in the final 30 days before expiration, heavily favoring option sellers.",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/2Xm_9P4k8L0",
+						videoUrl: "https://www.youtube.com/embed/wUmfK1GCTl8",
 						title: "Masterclass: Clearing, Settlement & Margining Architecture (SPAN + Exposure)",
 						durationMinutes: 34,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -978,7 +978,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Short Straddle has unlimited loss potential if a sudden large gap-up or gap-down occurs.",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/7Vn_3K8m5L0",
+						videoUrl: "https://www.youtube.com/embed/2cFPnqaVuOI",
 						title: "Masterclass: Regulatory & Compliance Framework for Derivatives",
 						durationMinutes: 25,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -1045,7 +1045,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Higher coupon bonds have LOWER duration (less interest rate risk) than lower coupon bonds of the same maturity.",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/5Bv_2N9m7K4",
+						videoUrl: "https://www.youtube.com/embed/craqovmlCdo",
 						title: "Masterclass: Fixed Income Securities, Macaulay Duration & Bond Convexity",
 						durationMinutes: 36,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -1098,7 +1098,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"MIBOR (Mumbai Interbank Outright Rate) is administered by Financial Benchmarks India Pvt Ltd (FBIL).",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/8Pm_4K2m9L0",
+						videoUrl: "https://www.youtube.com/embed/ASATvHqRToc",
 						title: "Masterclass: Interest Rate Derivatives (FRAs, IRS & OIS)",
 						durationMinutes: 36,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -1157,7 +1157,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"When market yields are above 6%, high coupon bonds tend to become the Cheapest-to-Deliver.",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/3Kq_7N2m5V8",
+						videoUrl: "https://www.youtube.com/embed/2cFPnqaVuOI",
 						title: "Masterclass: 10-Year G-Sec Interest Rate Futures (IRFs) & CTD Bond",
 						durationMinutes: 38,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -1203,7 +1203,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"IRO premiums are quoted in INR per ₹100 face value of the underlying security.",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/9Bn_4K2m7P0",
+						videoUrl: "https://www.youtube.com/embed/craqovmlCdo",
 						title: "Masterclass: Exchange Traded Interest Rate Options (IROs)",
 						durationMinutes: 30,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
@@ -1265,7 +1265,7 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"SIF funds are allowed to use long-short equity and inverse strategies, which are strictly prohibited in standard mutual funds.",
 					],
 					video: {
-						videoUrl: "https://www.youtube-nocookie.com/embed/1Lq_8V3m9P4",
+						videoUrl: "https://www.youtube.com/embed/ASATvHqRToc",
 						title: "Masterclass: SEBI Specialized Investment Fund (SIF) Framework & Master Strategies",
 						durationMinutes: 45,
 						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
