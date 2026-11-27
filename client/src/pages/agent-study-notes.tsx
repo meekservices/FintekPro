@@ -38,6 +38,7 @@ import type {
 	NismCourseCurriculum,
 	NismCurriculumChapter,
 } from "@/components/NismCurriculumModal";
+import { NismInstitutionalVideoPlayer } from "@/components/NismInstitutionalVideoPlayer";
 
 const SUPPORTED_COURSES = [
 	{
@@ -396,6 +397,11 @@ export default function AgentStudyNotesPage() {
 												<span className="font-mono text-[10px] font-bold text-amber-700 dark:text-amber-400">
 													CH {ch.chapterNumber}
 												</span>
+												{ch.video && (
+													<span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-400 font-semibold" title="Video Masterclass Included">
+														🎬 Video
+													</span>
+												)}
 												{isDone && (
 													<CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400 inline" />
 												)}
@@ -468,6 +474,24 @@ export default function AgentStudyNotesPage() {
 										{activeChapter.overview}
 									</p>
 								</div>
+
+								{/* Institutional Video Masterclass Player */}
+								{activeChapter.video && (
+									<div className="space-y-3">
+										<NismInstitutionalVideoPlayer
+											video={activeChapter.video}
+											courseId={courseId}
+											chapterNumber={activeChapter.chapterNumber}
+											chapterTitle={activeChapter.title}
+											moduleTitle={activeChapter.moduleTitle}
+											onCompleted={() => {
+												if (!completedChapters.has(activeChapter.chapterNumber)) {
+													toggleChapterCompleted(activeChapter.chapterNumber);
+												}
+											}}
+										/>
+									</div>
+								)}
 
 								{/* Core Concepts */}
 								<div className="space-y-4">

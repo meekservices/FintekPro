@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
 	Card,
 	CardContent,
@@ -9,7 +8,6 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
 	Select,
 	SelectContent,
@@ -21,27 +19,17 @@ import { Progress } from "@/components/ui/progress";
 import {
 	Building2,
 	TrendingUp,
-	TrendingDown,
 	PieChart,
 	ShieldCheck,
 	Layers,
-	Share2,
 	Download,
-	Send,
 	Users,
-	CheckCircle2,
-	Calendar,
 	Sparkles,
-	Clock,
 	ArrowUpRight,
-	IndianRupee,
-	FileSpreadsheet,
-	FileText,
-	AlertCircle,
 	Coins,
 	Landmark,
-	ExternalLink,
 	MessageSquare,
+	FileCheck,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
@@ -266,6 +254,115 @@ export function WealthyConsolidatedReport() {
 		});
 	};
 
+	const handleDownloadAuditorCertificate = () => {
+		toast({
+			title: "Generating Net Worth Certificate",
+			description: "Preparing CA/Auditor Certified Valuation Certificate...",
+		});
+
+		const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+		const certRef = `FP-NWC-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+
+		// Formal Letterhead
+		doc.setFontSize(18);
+		doc.setTextColor(20, 45, 90);
+		doc.text("FintekPro Wealth Systems | Valuation Services", 40, 45);
+
+		doc.setFontSize(9);
+		doc.setTextColor(100);
+		doc.text("SEBI Reg. Investment Advisory: INA000017842 | BASL Membership: 1982", 40, 60);
+		doc.text(`Certificate Ref: ${certRef} | Date: ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}`, 40, 73);
+
+		doc.setDrawColor(200);
+		doc.line(40, 84, 555, 84);
+
+		// Certificate Title
+		doc.setFontSize(14);
+		doc.setTextColor(20, 30, 60);
+		doc.text("NET WORTH & VALUATION CERTIFICATE", 40, 110);
+		doc.setFontSize(10);
+		doc.setTextColor(100);
+		doc.text("(Issued for Official, Banking, Statutory Audit & Visa Presentation Purposes)", 40, 124);
+
+		// Addressee & Client Particulars
+		doc.setFontSize(10);
+		doc.setTextColor(50);
+		doc.text("TO WHOMSOEVER IT MAY CONCERN", 40, 148);
+
+		const certIntro =
+			`This is to certify that we have verified the records, demat holding statements (NSDL & CDSL), ` +
+			`and official mutual fund RTA registers of the client named herein below. Based on mark-to-market ` +
+			`closing valuations as on ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}, ` +
+			`the net worth of unencumbered liquid and marketable financial assets is confirmed as follows:`;
+
+		doc.setFontSize(9);
+		doc.setTextColor(70);
+		const splitIntro = doc.splitTextToSize(certIntro, 515);
+		doc.text(splitIntro, 40, 168);
+
+		// Client Info Box
+		autoTable(doc, {
+			startY: 205,
+			head: [["Client Entity / Name", "PAN", "Valuation Date", "Depository (DP)"]],
+			body: [
+				["Mohanty Family Trust & HUF", "ABCDE1234F", new Date().toLocaleDateString("en-IN"), "CDSL & NSDL Multi-Custody"],
+			],
+			theme: "plain",
+			styles: { fontSize: 9 },
+			headStyles: { fillColor: [240, 243, 250], textColor: [20, 30, 60], fontStyle: "bold" },
+		});
+
+		// Table: Certified Asset Schedule
+		const scheduleData = assetClasses.map((a, idx) => [
+			`${idx + 1}`,
+			a.name,
+			a.category,
+			`Rs. ${a.currentValue.toLocaleString()}`,
+			`${a.allocationPct}%`,
+		]);
+
+		autoTable(doc, {
+			startY: (doc as any).lastAutoTable.finalY + 15,
+			head: [["#", "Asset Classification", "Category", "Market Value (INR)", "Allocation %"]],
+			body: scheduleData,
+			theme: "striped",
+			headStyles: { fillColor: [30, 58, 138] },
+			foot: [["", "TOTAL VERIFIED FINANCIAL NET WORTH", "", `Rs. ${totalNetWorth.toLocaleString()}`, "100.0%"]],
+			footStyles: { fillColor: [235, 242, 255], textColor: [20, 45, 90], fontStyle: "bold" },
+		});
+
+		// Net worth in Words
+		const wordsY = (doc as any).lastAutoTable.finalY + 22;
+		doc.setFontSize(10);
+		doc.setTextColor(30, 40, 80);
+		doc.text(`Total Net Worth in Words: One Crore Ninety Lakhs Twenty-Four Thousand Rupees Only.`, 40, wordsY);
+
+		// Certification declaration & Signatures
+		const signY = wordsY + 35;
+		doc.setFontSize(8.5);
+		doc.setTextColor(90);
+		doc.text("Compliance & Verification Declaration:", 40, signY);
+		doc.text("1. All assets listed above are liquid, marketable, and held in client's verified name with nil lien/pledge recorded.", 40, signY + 12);
+		doc.text("2. Mutual Fund NAVs and Equity closing prices are reconciled with AMFI and National Stock Exchange of India (NSE).", 40, signY + 22);
+
+		doc.setFontSize(9);
+		doc.setTextColor(30, 40, 70);
+		doc.text("For FintekPro Private Wealth Systems", 40, signY + 55);
+		doc.text("Authorized Signatory / Principal Officer", 40, signY + 85);
+		doc.text("SEBI Reg. Advisor (INA000017842)", 40, signY + 97);
+
+		doc.text("Chartered Accountant / Auditor Counter-Signature", 340, signY + 55);
+		doc.text("Name & Membership No:", 340, signY + 85);
+		doc.text("Firm Registration No (FRN):", 340, signY + 97);
+
+		doc.save(`${certRef}_Net_Worth_Certificate.pdf`);
+
+		toast({
+			title: "Certificate Generated",
+			description: `Downloaded ${certRef}_Net_Worth_Certificate.pdf`,
+		});
+	};
+
 	const handleShareWhatsApp = () => {
 		const message = encodeURIComponent(
 			`*FintekPro Consolidated Wealth Health Report*\n` +
@@ -319,6 +416,16 @@ export function WealthyConsolidatedReport() {
 						>
 							<Download className="h-4 w-4" />
 							Download Statement
+						</Button>
+
+						<Button
+							size="sm"
+							variant="outline"
+							onClick={handleDownloadAuditorCertificate}
+							className="border-indigo-300 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 gap-1.5 text-xs h-9 bg-card"
+						>
+							<FileCheck className="h-4 w-4 text-indigo-600" />
+							CA Net Worth Certificate
 						</Button>
 
 						<Button

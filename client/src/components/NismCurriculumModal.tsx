@@ -27,6 +27,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { apiRequest } from "@/lib/queryClient";
+import {
+	NismInstitutionalVideoPlayer,
+	type NismChapterVideo,
+	type NismVideoTimestamp,
+} from "@/components/NismInstitutionalVideoPlayer";
+
+export type { NismChapterVideo, NismVideoTimestamp };
 
 export interface NismFormulaItem {
 	name: string;
@@ -44,6 +51,7 @@ export interface NismCurriculumChapter {
 	keyConcepts: string[];
 	formulas?: NismFormulaItem[];
 	highYieldTips: string[];
+	video?: NismChapterVideo;
 }
 
 export interface NismCurriculumModule {
@@ -65,6 +73,14 @@ export interface NismCourseCurriculum {
 	passingPercentage: number;
 	negativeMarkingPercentage: number;
 	modules: NismCurriculumModule[];
+	masterclassSeries?: {
+		seriesTitle: string;
+		totalVideos: number;
+		totalDurationMinutes: number;
+		instructorFaculty: string;
+		accreditation: string;
+		syllabusEffectiveDate: string;
+	};
 }
 
 interface NismCurriculumModalProps {
@@ -291,6 +307,19 @@ export function NismCurriculumModal({
 											{activeChapter.overview}
 										</p>
 									</div>
+
+									{/* Embedded Institutional Video Masterclass */}
+									{activeChapter.video && (
+										<div className="space-y-2">
+											<NismInstitutionalVideoPlayer
+												video={activeChapter.video}
+												courseId={courseId}
+												chapterNumber={activeChapter.chapterNumber}
+												chapterTitle={activeChapter.title}
+												moduleTitle={activeChapter.moduleTitle}
+											/>
+										</div>
+									)}
 
 									{/* Key Concepts Section */}
 									<div className="space-y-3">

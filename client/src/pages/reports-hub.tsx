@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLocation, Link } from "wouter";
+import { useLocation, } from "wouter";
 import {
 	Card,
 	CardHeader,
@@ -21,6 +21,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { ClientTransactionHistory } from "@/components/store/ClientTransactionHistory";
 import { WealthyConsolidatedReport } from "@/components/reports/WealthyConsolidatedReport";
 import { UnifiedBrokerReports } from "@/components/reports/UnifiedBrokerReports";
+import { ContractNotesViewer } from "@/components/reports/ContractNotesViewer";
+import { DepositoryComplianceViewer } from "@/components/reports/DepositoryComplianceViewer";
 import {
 	FileText,
 	Download,
@@ -29,26 +31,20 @@ import {
 	TrendingUp,
 	Building2,
 	Landmark,
-	CreditCard,
 	Receipt,
-	FileSpreadsheet,
-	Calendar,
-	IndianRupee,
 	PiggyBank,
 	Shield as LucideShield,
-	Briefcase,
+	ShieldCheck,
 	BarChart3,
 	Lock,
 	CheckCircle2,
 	RefreshCw,
 	Clock,
 	AlertCircle,
-	ChevronRight,
-	Wallet,
-	Home,
-	Coins,
 	Database,
 	Loader2,
+	Users,
+	BookOpen,
 } from "lucide-react";
 
 interface ReportCategory {
@@ -536,6 +532,24 @@ export default function ReportsHub() {
 	const { user } = useAuth();
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
+
+	const searchParams =
+		typeof window !== "undefined"
+			? new URLSearchParams(window.location.search)
+			: new URLSearchParams();
+	const queryTab = searchParams.get("tab");
+	const queryType = searchParams.get("type");
+	const defaultTab =
+		queryTab ||
+		(queryType === "capital-gains"
+			? "tax-pnl"
+			: queryType === "transactions"
+				? "contract-notes"
+				: queryType === "compliance"
+					? "depository-compliance"
+					: "tax-pnl");
+
+	const [activeMasterTab, setActiveMasterTab] = useState(defaultTab);
 	const [activeCategory, setActiveCategory] = useState("mutual-funds");
 	const [isRefreshing, setIsRefreshing] = useState<string | null>(null);
 	const [isSyncing, setIsSyncing] = useState<string | null>(null);
@@ -568,7 +582,7 @@ export default function ReportsHub() {
 
 	// Extract KYC data from correct API response structure
 	const kycData = (kycStatus as any)?.data;
-	const userKYCLevel = Number.parseInt(kycData?.kycLevel) || 0;
+	const userKYCLevel = Number.parseInt(kycData?.kycLevel, 10) || 0;
 	const kycLevelName = kycData?.kycLevelName || "Not Verified";
 	const isPanVerified = kycData?.profile?.panVerified || false;
 	const isCkycFetched = kycData?.profile?.ckycFetched || false;
@@ -690,14 +704,14 @@ export default function ReportsHub() {
 		});
 	};
 
-	const handleDownload = (reportId: string, format: string) => {
+	const handleDownload = (_reportId: string, format: string) => {
 		toast({
 			title: "Download Started",
 			description: `Downloading report in ${format} format...`,
 		});
 	};
 
-	const handleEmailReport = (reportId: string) => {
+	const handleEmailReport = (_reportId: string) => {
 		toast({
 			title: "Email Sent",
 			description: "Report has been sent to your registered email.",
@@ -729,40 +743,74 @@ export default function ReportsHub() {
 					</AlertDescription>
 				</Alert>
 
-				{/* Wealthy.in Benchmark: Consolidated Family Wealth Statement */}
-				<WealthyConsolidatedReport />
+				<Tabs
+					value={activeMasterTab}
+					onValueChange={setActiveMasterTab}
+					className="space-y-6"
+				>
+					<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-3">
+						<ScrollableTabsList className="bg-muted/70 p-1">
+							<TabsTrigger
+								value="tax-pnl"
+								className="gap-2 text-xs sm:text-sm font-semibold"
+							>
+								<Receipt className="h-4 w-4" />
+								Tax P&L & Advance Tax (Upstox/Angel One)
+							</TabsTrigger>
+							<TabsTrigger
+								value="wealth-consolidated"
+								className="gap-2 text-xs sm:text-sm font-semibold"
+							>
+								<Users className="h-4 w-4" />
+								Consolidated Wealth & Family (Wealthy.in)
+							</TabsTrigger>
+							<TabsTrigger
+								value="ledger"
+								className="gap-2 text-xs sm:text-sm font-semibold"
+							>
+								<BookOpen className="h-4 w-4" />
+								Financial Running Ledger (Angel One)
+							</TabsTrigger>
+							<TabsTrigger
+								value="contract-notes"
+								className="gap-2 text-xs sm:text-sm font-semibold"
+							>
+								<FileText className="h-4 w-4" />
+								Trade Book & Contract Notes (Upstox)
+							</TabsTrigger>
+							<TabsTrigger
+								value="depository-compliance"
+								className="gap-2 text-xs sm:text-sm font-semibold"
+							>
+								<ShieldCheck className="h-4 w-4" />
+								Depository CAS & Registries (SEBI/AMFI)
+							</TabsTrigger>
+						</ScrollableTabsList>
+					</div>
 
-				{/* Upstox & Angel One Benchmark: Tax P&L (ITR-2/3) & Financial Running Ledger */}
-				<UnifiedBrokerReports />
+					{/* TAB 1: TAX P&L */}
+					<TabsContent value="tax-pnl" className="space-y-6">
+						<UnifiedBrokerReports initialTab="tax-pnl" hideHeader={true} />
+					</TabsContent>
 
-				<Card className="border-2 border-purple-200 dark:border-purple-800 bg-gradient-to-r from-purple-50 dark:from-purple-950/30 to-indigo-50 dark:to-indigo-950/30">
-					<CardContent className="p-4">
-						<div className="flex items-center justify-between">
-							<div className="flex items-center gap-3">
-								<div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-									<Receipt className="w-5 h-5 text-purple-600" />
-								</div>
-								<div>
-									<h3 className="font-semibold text-foreground">
-										Transaction Reports
-									</h3>
-									<p className="text-sm text-muted-foreground">
-										View all FintekPro orders and payment transactions
-									</p>
-								</div>
-							</div>
-							<Link href="/transaction-reports">
-								<Button
-									className="bg-purple-600 hover:bg-purple-700"
-									data-testid="link-transaction-reports"
-								>
-									<ChevronRight className="w-4 h-4 mr-1" />
-									View Transactions
-								</Button>
-							</Link>
-						</div>
-					</CardContent>
-				</Card>
+					{/* TAB 2: CONSOLIDATED WEALTH */}
+					<TabsContent value="wealth-consolidated" className="space-y-6">
+						<WealthyConsolidatedReport />
+					</TabsContent>
+
+					{/* TAB 3: FINANCIAL LEDGER */}
+					<TabsContent value="ledger" className="space-y-6">
+						<UnifiedBrokerReports initialTab="ledger" hideHeader={true} />
+					</TabsContent>
+
+					{/* TAB 4: TRADE BOOK & ECN */}
+					<TabsContent value="contract-notes" className="space-y-6">
+						<ContractNotesViewer />
+					</TabsContent>
+
+					{/* TAB 5: DEPOSITORY CAS & REGISTRIES */}
+					<TabsContent value="depository-compliance" className="space-y-6">
+						<DepositoryComplianceViewer />
 
 				{/* Store Transaction History - SEBI/RBI Compliant */}
 				<Card className="border-2 border-emerald-200 dark:border-emerald-800 bg-gradient-to-r from-emerald-50 dark:from-emerald-950/30 to-teal-50 dark:to-teal-950/30">
@@ -1251,6 +1299,8 @@ export default function ReportsHub() {
 						</div>
 					</div>
 				)}
+					</TabsContent>
+				</Tabs>
 			</div>
 		</div>
 	);

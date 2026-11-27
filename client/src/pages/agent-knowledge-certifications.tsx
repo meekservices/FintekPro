@@ -1246,7 +1246,7 @@ export default function AgentKnowledgeCertifications() {
 													}}
 												>
 													<BookOpen className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-													Study Guide & Notes
+													<span>{course.courseId === "nism-vd" ? "Study Notes & 22 Videos" : "Study Guide & Notes"}</span>
 													<ExternalLink className="h-3 w-3 ml-0.5 opacity-60" />
 												</Button>
 
@@ -2091,35 +2091,58 @@ export default function AgentKnowledgeCertifications() {
 							</Button>
 						</div>
 
-						{/* Action Portals: 1. Training LMS | 2. Practice Mock Test | 3. Exam Booking */}
+						{/* Action Portals: 1. Training LMS & Videos | 2. Practice Mock Test | 3. Exam Booking */}
 						<div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-							{/* 1. LMS Portal */}
+							{/* 1. LMS Portal & Masterclass */}
 							<div className="p-3.5 rounded-lg bg-card border border-emerald-500/30 flex flex-col justify-between hover:border-emerald-500 transition-colors">
 								<div className="space-y-1 mb-3">
 									<div className="flex items-center justify-between">
 										<span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
 											<BookOpen className="h-3.5 w-3.5" />
-											eLearning Training
+											eLearning & Masterclass
 										</span>
-										<Badge className="text-[10px] bg-emerald-500/20 text-emerald-300">Live LMS</Badge>
+										<Badge className="text-[10px] bg-emerald-500/20 text-emerald-300 font-mono">
+											{(nismLaunchModal.launchData?.courseId || nismLaunchModal.course?.courseId || "").includes("vd") ? "22 Videos" : "Live LMS"}
+										</Badge>
 									</div>
 									<p className="text-xs text-muted-foreground">
-										Access official video lectures, slides & syllabus modules in NISM LMS.
+										In-app video lectures with concept timestamps, xAPI tracking, & official NISM portal.
 									</p>
 								</div>
-								<Button
-									size="sm"
-									className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9 flex items-center justify-center gap-1.5 shadow-sm font-semibold"
-									onClick={() => {
-										safeOpenUrl(
-											nismLaunchModal.launchData?.portalUrl ||
-												"https://online.nism.ac.in/nismlms/",
-										);
-									}}
-								>
-									<span>Open Training Portal</span>
-									<ExternalLink className="h-3.5 w-3.5" />
-								</Button>
+								<div className="space-y-1.5">
+									<Button
+										size="sm"
+										className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 flex items-center justify-center gap-1.5 shadow-sm font-semibold"
+										onClick={() => {
+											const targetCourseId =
+												nismLaunchModal.launchData?.courseId ||
+												nismLaunchModal.course?.courseId ||
+												(nismLaunchModal.course as any)?.id ||
+												"nism-vd";
+											window.open(
+												`/agent/knowledge-hub/study-notes?courseId=${encodeURIComponent(targetCourseId)}`,
+												"_blank",
+											);
+										}}
+									>
+										<Play className="h-3.5 w-3.5 fill-current" />
+										<span>Watch Video Masterclasses</span>
+									</Button>
+									<Button
+										size="sm"
+										variant="outline"
+										className="w-full border-border/70 text-xs h-7 flex items-center justify-center gap-1 text-muted-foreground hover:text-foreground"
+										onClick={() => {
+											safeOpenUrl(
+												nismLaunchModal.launchData?.portalUrl ||
+													"https://online.nism.ac.in/nismlms/",
+											);
+										}}
+									>
+										<span>NISM LMS External Portal</span>
+										<ExternalLink className="h-3 w-3" />
+									</Button>
+								</div>
 							</div>
 
 							{/* 2. Practice Mock Test */}

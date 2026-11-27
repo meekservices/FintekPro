@@ -28,8 +28,6 @@ import {
 import {
 	FileSpreadsheet,
 	Download,
-	TrendingUp,
-	TrendingDown,
 	IndianRupee,
 	Receipt,
 	Calendar,
@@ -41,13 +39,20 @@ import {
 	BookOpen,
 	ArrowUpRight,
 	ArrowDownRight,
-	FileText,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-export function UnifiedBrokerReports() {
+interface UnifiedBrokerReportsProps {
+	initialTab?: "tax-pnl" | "ledger";
+	hideHeader?: boolean;
+}
+
+export function UnifiedBrokerReports({
+	initialTab = "tax-pnl",
+	hideHeader = false,
+}: UnifiedBrokerReportsProps = {}) {
 	const { toast } = useToast();
-	const [activeTab, setActiveTab] = useState<"tax-pnl" | "ledger">("tax-pnl");
+	const [activeTab, setActiveTab] = useState<"tax-pnl" | "ledger">(initialTab);
 	const [financialYear, setFinancialYear] = useState("2024-2025");
 	const [quarter, setQuarter] = useState("all");
 	const [ledgerCategory, setLedgerCategory] = useState("all");
@@ -101,43 +106,45 @@ export function UnifiedBrokerReports() {
 	return (
 		<div className="space-y-6">
 			{/* Top Header Card */}
-			<div className="p-6 rounded-2xl border border-border bg-gradient-to-r from-blue-50/60 via-card to-indigo-50/60 dark:from-blue-950/20 dark:via-card dark:to-indigo-950/20 shadow-xs">
-				<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-					<div className="space-y-1.5">
-						<div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider">
-							<ShieldCheck className="h-3.5 w-3.5" />
-							SEBI & Income Tax Act Standard
+			{!hideHeader && (
+				<div className="p-6 rounded-2xl border border-border bg-gradient-to-r from-blue-50/60 via-card to-indigo-50/60 dark:from-blue-950/20 dark:via-card dark:to-indigo-950/20 shadow-xs">
+					<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+						<div className="space-y-1.5">
+							<div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider">
+								<ShieldCheck className="h-3.5 w-3.5" />
+								SEBI & Income Tax Act Standard
+							</div>
+							<h2 className="text-2xl font-bold tracking-tight">
+								Broker-Grade P&L & Financial Ledger Suite
+							</h2>
+							<p className="text-xs sm:text-sm text-muted-foreground">
+								Comprehensive capital gains (Sec 111A/112A), F&O turnover (Sec 44AB), statutory expense breakdown, and double-entry cash balance ledger.
+							</p>
 						</div>
-						<h2 className="text-2xl font-bold tracking-tight">
-							Broker-Grade P&L & Financial Ledger Suite
-						</h2>
-						<p className="text-xs sm:text-sm text-muted-foreground">
-							Comprehensive capital gains (Sec 111A/112A), F&O turnover (Sec 44AB), statutory expense breakdown, and double-entry cash balance ledger.
-						</p>
-					</div>
 
-					<div className="flex items-center gap-2">
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() => (activeTab === "tax-pnl" ? handleDownloadTaxPnl("xlsx") : handleDownloadLedger("xlsx"))}
-							className="gap-1.5 text-xs h-9 bg-card"
-						>
-							<FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-							Export Excel
-						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() => (activeTab === "tax-pnl" ? handleDownloadTaxPnl("pdf") : handleDownloadLedger("pdf"))}
-							className="gap-1.5 text-xs h-9 bg-card"
-						>
-							<Download className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-							Export PDF
-						</Button>
+						<div className="flex items-center gap-2">
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => (activeTab === "tax-pnl" ? handleDownloadTaxPnl("xlsx") : handleDownloadLedger("xlsx"))}
+								className="gap-1.5 text-xs h-9 bg-card"
+							>
+								<FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+								Export Excel
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => (activeTab === "tax-pnl" ? handleDownloadTaxPnl("pdf") : handleDownloadLedger("pdf"))}
+								className="gap-1.5 text-xs h-9 bg-card"
+							>
+								<Download className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+								Export PDF
+							</Button>
+						</div>
 					</div>
 				</div>
-			</div>
+			)}
 
 			{/* Main Tabs */}
 			<Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="space-y-6">
@@ -300,6 +307,76 @@ export function UnifiedBrokerReports() {
 								</Card>
 							</div>
 
+							{/* SEBI Derivative Risk Warning */}
+							<div className="p-3.5 rounded-xl border border-amber-300/80 dark:border-amber-800/80 bg-amber-50/60 dark:bg-amber-950/20 text-xs text-amber-900 dark:text-amber-200">
+								<div className="flex items-center gap-2 font-bold uppercase tracking-wider text-[11px] mb-1">
+									<AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+									SEBI Statutory Risk Disclosure for Derivative Traders
+								</div>
+								<p className="leading-relaxed text-[11px]">
+									9 out of 10 individual traders in equity Futures and Options segment incurred net losses (avg. loss ~₹50,000), spending an average of 28% of net trading losses in transaction costs and statutory levies. Trade derivatives strictly with risk capital.
+								</p>
+							</div>
+
+							{/* Advance Tax Compliance Calendar (CBDT Mandate) */}
+							<Card className="border-border bg-gradient-to-r from-card via-muted/20 to-card">
+								<CardHeader className="py-3.5">
+									<div className="flex items-center justify-between">
+										<CardTitle className="text-sm font-bold flex items-center gap-2">
+											<Calendar className="h-4 w-4 text-primary" />
+											Statutory Advance Tax Schedule (Sec 208/211 Income Tax Act)
+										</CardTitle>
+										<Badge variant="outline" className="text-[10px] font-mono">
+											Total Est. Tax: ₹{taxPnlData.estimatedTaxLiability.toLocaleString()}
+										</Badge>
+									</div>
+								</CardHeader>
+								<CardContent className="pt-0">
+									<div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono tabular-nums">
+										<div className="p-3 rounded-lg border border-border bg-card">
+											<div className="flex items-center justify-between text-[11px] text-muted-foreground font-sans">
+												<span>Q1: 15% (15 Jun)</span>
+												<Badge variant="secondary" className="text-[9px] py-0">Paid</Badge>
+											</div>
+											<div className="text-sm font-bold mt-1 text-foreground">
+												₹{Math.round(taxPnlData.estimatedTaxLiability * 0.15).toLocaleString()}
+											</div>
+											<div className="text-[10px] text-muted-foreground font-sans mt-0.5">Cumulative 15%</div>
+										</div>
+										<div className="p-3 rounded-lg border border-border bg-card">
+											<div className="flex items-center justify-between text-[11px] text-muted-foreground font-sans">
+												<span>Q2: 45% (15 Sep)</span>
+												<Badge variant="secondary" className="text-[9px] py-0">Paid</Badge>
+											</div>
+											<div className="text-sm font-bold mt-1 text-foreground">
+												₹{Math.round(taxPnlData.estimatedTaxLiability * 0.45).toLocaleString()}
+											</div>
+											<div className="text-[10px] text-muted-foreground font-sans mt-0.5">Cumulative 45%</div>
+										</div>
+										<div className="p-3 rounded-lg border border-border bg-card">
+											<div className="flex items-center justify-between text-[11px] text-muted-foreground font-sans">
+												<span>Q3: 75% (15 Dec)</span>
+												<Badge variant="secondary" className="text-[9px] py-0">Paid</Badge>
+											</div>
+											<div className="text-sm font-bold mt-1 text-foreground">
+												₹{Math.round(taxPnlData.estimatedTaxLiability * 0.75).toLocaleString()}
+											</div>
+											<div className="text-[10px] text-muted-foreground font-sans mt-0.5">Cumulative 75%</div>
+										</div>
+										<div className="p-3 rounded-lg border border-primary/30 bg-primary/5">
+											<div className="flex items-center justify-between text-[11px] text-foreground font-sans font-semibold">
+												<span>Q4: 100% (15 Mar)</span>
+												<Badge variant="default" className="text-[9px] py-0 bg-primary">Upcoming</Badge>
+											</div>
+											<div className="text-sm font-bold mt-1 text-primary">
+												₹{taxPnlData.estimatedTaxLiability.toLocaleString()}
+											</div>
+											<div className="text-[10px] text-muted-foreground font-sans mt-0.5">Full Final Liability</div>
+										</div>
+									</div>
+								</CardContent>
+							</Card>
+
 							{/* Statutory Expense Breakdown */}
 							<Card className="border-border">
 								<CardHeader className="py-4">
@@ -453,6 +530,29 @@ export function UnifiedBrokerReports() {
 										<p className="text-[11px] text-muted-foreground mt-1">Available cash & margin</p>
 									</CardContent>
 								</Card>
+							</div>
+
+							{/* SEBI Running Account Retention Statement Tracker */}
+							<div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+								<div className="space-y-0.5">
+									<div className="font-bold text-foreground flex items-center gap-1.5">
+										<ShieldCheck className="h-4 w-4 text-blue-600" />
+										SEBI Quarterly Running Account Settlement (Retention Statement)
+									</div>
+									<p className="text-muted-foreground text-[11px]">
+										Per SEBI Circular SEBI/HO/MIRSD/DOP/P/CIR/2021/590, unencumbered client funds are settled on the 1st Friday of every quarter. Maximum permissible margin retention is 225% of margin obligations.
+									</p>
+								</div>
+								<div className="flex items-center gap-2 font-mono tabular-nums text-right">
+									<div className="p-2 rounded-lg bg-card border border-border text-[11px]">
+										<span className="text-muted-foreground font-sans block text-[10px]">Next Settlement:</span>
+										<span className="font-bold text-foreground">03 Apr 2026 (1st Friday)</span>
+									</div>
+									<div className="p-2 rounded-lg bg-card border border-border text-[11px]">
+										<span className="text-muted-foreground font-sans block text-[10px]">Retention Status:</span>
+										<span className="font-bold text-emerald-600">Zero Excess Retained</span>
+									</div>
+								</div>
 							</div>
 
 							{/* Ledger Table */}

@@ -10,6 +10,24 @@
 import { DEFAULT_COURSES, type NismCourse } from "./nism-lms-service";
 import { NISM_PRACTICE_BANK } from "./nism-question-bank";
 
+export interface NismVideoTimestamp {
+	timeSec: number;
+	label: string;
+	description?: string;
+}
+
+export interface NismChapterVideo {
+	videoUrl: string;
+	title: string;
+	durationMinutes: number;
+	instructor?: string;
+	instructorRole?: string;
+	thumbnailUrl?: string;
+	summary?: string;
+	keyTimestamps: NismVideoTimestamp[];
+	isInstitutionalAccredited?: boolean;
+}
+
 export interface NismFormulaItem {
 	name: string;
 	formula: string;
@@ -26,6 +44,7 @@ export interface NismCurriculumChapter {
 	keyConcepts: string[];
 	formulas?: NismFormulaItem[];
 	highYieldTips: string[];
+	video?: NismChapterVideo;
 }
 
 export interface NismCurriculumModule {
@@ -47,6 +66,14 @@ export interface NismCourseCurriculum {
 	passingPercentage: number;
 	negativeMarkingPercentage: number;
 	modules: NismCurriculumModule[];
+	masterclassSeries?: {
+		seriesTitle: string;
+		totalVideos: number;
+		totalDurationMinutes: number;
+		instructorFaculty: string;
+		accreditation: string;
+		syllabusEffectiveDate: string;
+	};
 }
 
 /**
@@ -64,6 +91,14 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 	examDurationMinutes: 180,
 	passingPercentage: 60,
 	negativeMarkingPercentage: 10, // 0.10 marks deducted per wrong answer
+		masterclassSeries: {
+		seriesTitle: "NISM Series V-D Institutional Video Masterclass Series (SEBI SIF Blueprint)",
+		totalVideos: 22,
+		totalDurationMinutes: 720,
+		instructorFaculty: "Faculty of Capital Markets & RIA Advisory (Empaneled NISM Trainers / CAs)",
+		accreditation: "SEBI Registered Intermediary Continuous Professional Education (CPE) Standard",
+		syllabusEffectiveDate: "July 2026",
+	},
 	modules: [
 		{
 			moduleNumber: 1,
@@ -95,6 +130,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Remember: Real return can be negative if inflation exceeds the nominal interest rate.",
 						"Equities are the primary asset class in India that historically beat CPI inflation over 10+ year horizons.",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/Pj1_3i0b4Wc",
+						title: "Masterclass: Indian Investment Landscape & Inflation-Adjusted Returns",
+						durationMinutes: 28,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "Deep dive into real vs nominal returns, Fisher effect, lifecycle asset allocation stages, and systematic vs non-systematic risk premiums.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - Introduction to the Indian Capital Markets Landscape"
+      },
+      {
+            "timeSec": 360,
+            "label": "06:00 - Real vs Nominal Rates of Return (Fisher Equation)"
+      },
+      {
+            "timeSec": 780,
+            "label": "13:00 - Asset Allocation across Investor Lifecycle Stages"
+      },
+      {
+            "timeSec": 1200,
+            "label": "20:00 - Systematic vs Non-Systematic Risk Trade-offs"
+      }
+]
+					},
 				},
 				{
 					chapterNumber: 2,
@@ -113,6 +175,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Mutual funds do NOT guarantee returns; investors bear the entire portfolio investment risk.",
 						"SEBI introduced the initial Mutual Fund Regulations in 1993, comprehensively revamped as SEBI (Mutual Funds) Regulations, 1996.",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/j_Z3j11v7XQ",
+						title: "Masterclass: Mutual Fund Mechanics, Trust Structures & Unitization",
+						durationMinutes: 30,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "Structure of Mutual Funds in India: Sponsor, Trustees, AMC, Custodian, and unitized fractional ownership under SEBI MF Regulations 1996.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - Three-Tier Trust Structure (Sponsor, Trustee, AMC)"
+      },
+      {
+            "timeSec": 420,
+            "label": "07:00 - Unitization & Fractional Ownership Principles"
+      },
+      {
+            "timeSec": 900,
+            "label": "15:00 - Four Historical Phases of the Indian Mutual Fund Industry"
+      },
+      {
+            "timeSec": 1380,
+            "label": "23:00 - Collective Investment Vehicle Advantages vs Direct Holding"
+      }
+]
+					},
 				},
 				{
 					chapterNumber: 3,
@@ -133,6 +222,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Trustees have a fiduciary duty to unit holders and must meet at least once every 2 months (6 times a year).",
 						"AMC directors and trustees cannot invest in schemes without following strict insider trading disclosures.",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/k8jH13r9L0w",
+						title: "Masterclass: SEBI Legal & Regulatory Framework for Mutual Funds",
+						durationMinutes: 35,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "SEBI (Mutual Funds) Regulations 1996, Trustee independence, fiduciary duties, AMFI Code of Ethics, and ARN distributor obligations.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - SEBI (Mutual Funds) Regulations, 1996 Overview"
+      },
+      {
+            "timeSec": 480,
+            "label": "08:00 - Trustee Governance & 2/3rd Independent Trustee Rule"
+      },
+      {
+            "timeSec": 1020,
+            "label": "17:00 - AMFI Code of Ethics & ARN Registration Protocol"
+      },
+      {
+            "timeSec": 1560,
+            "label": "26:00 - Custodian & RTA Statutory Independence Requirements"
+      }
+]
+					},
 				},
 				{
 					chapterNumber: 4,
@@ -152,6 +268,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"If redemption proceeds are delayed beyond statutory limits, the AMC must pay penal interest at 15% p.a. to the investor for the period of delay.",
 						"AMFI Code of Ethics enforces fair business practices, non-rebating of commissions, and client suitability.",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/9Bv_3yG57M8",
+						title: "Masterclass: Offer Documents Architecture: SID, SAI & KIM",
+						durationMinutes: 25,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "Detailed breakdown of Scheme Information Document (SID), Statement of Additional Information (SAI), Key Information Memorandum (KIM), and 6-tier Risk-o-meter.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - Hierarchy of Offer Documents (SID vs SAI vs KIM)"
+      },
+      {
+            "timeSec": 420,
+            "label": "07:00 - Mandatory Material Information & Periodic SAI Updates"
+      },
+      {
+            "timeSec": 840,
+            "label": "14:00 - Key Information Memorandum (KIM) Investor Disclosures"
+      },
+      {
+            "timeSec": 1200,
+            "label": "20:00 - Risk-o-meter Methodology & 6 Regulatory Risk Tiers"
+      }
+]
+					},
 				},
 				{
 					chapterNumber: 5,
@@ -171,6 +314,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"KIM must be updated at least once a year, and within 7 days in case of material changes.",
 						"Material changes in fundamental attributes (investment pattern, fee increase) require 30 days exit window without exit load.",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/6Y0_P2qW6u4",
+						title: "Masterclass: Distribution Channels, Commission Models & Investor Protection",
+						durationMinutes: 28,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "Direct vs Regular plans, ban on upfront commissions, full-trail model under SEBI circulars, and the SCORES grievance redressal mechanism.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - Direct vs Regular Plans: TER Disparity & Compounding Impact"
+      },
+      {
+            "timeSec": 420,
+            "label": "07:00 - Trail Commission Architecture (Full Trail Mandate)"
+      },
+      {
+            "timeSec": 900,
+            "label": "15:00 - Prohibition of Upfront Commissions & B-30 Regulatory Evolution"
+      },
+      {
+            "timeSec": 1320,
+            "label": "22:00 - SCORES Portal & Two-Tier Investor Grievance Escalation"
+      }
+]
+					},
 				},
 				{
 					chapterNumber: 6,
@@ -190,6 +360,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Upfront commission is completely prohibited in India; all distributor fees must be trail-based from the scheme expense ratio.",
 						"EUIN must be quoted on every transaction form involving advice or interaction, even if execution-only (by signing execution-only declaration).",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/4Gq_5L0t8N8",
+						title: "Masterclass: Net Asset Value (NAV), TER & Fund Accounting",
+						durationMinutes: 32,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "NAV computation, SEBI cut-off timings for subscription and redemption, funds realization rule, and Total Expense Ratio (TER) caps under Regulation 52.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - NAV Formula & Valuation of Illiquid Debt / Equity"
+      },
+      {
+            "timeSec": 540,
+            "label": "09:00 - SEBI Cut-Off Timings for Liquid vs Equity Schemes"
+      },
+      {
+            "timeSec": 1080,
+            "label": "18:00 - Realization of Funds Rule (Mandatory across All NAV Allocations)"
+      },
+      {
+            "timeSec": 1500,
+            "label": "25:00 - Total Expense Ratio (TER) Slabs under Regulation 52"
+      }
+]
+					},
 				},
 				{
 					chapterNumber: 7,
@@ -222,6 +419,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Remember: Since Feb 2021, all purchase transactions (equity, debt, hybrid) get the NAV of the day when funds are realized in the AMC bank account before 3:00 PM.",
 						"GST on AMC management fee is charged over and above the base TER but must remain within the overall SEBI TER cap.",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/2vK_9W3q8U0",
+						title: "Masterclass: SEBI Scheme Categorization (36 Master Categories)",
+						durationMinutes: 38,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "SEBI October 2017 Categorization Circular: Large Cap (1-100), Mid Cap (101-250), Small Cap (251+), 16 Debt categories by Macaulay Duration, and Hybrid models.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - SEBI Categorization Framework: Equity, Debt, Hybrid & Solution"
+      },
+      {
+            "timeSec": 600,
+            "label": "10:00 - Large Cap, Mid Cap, and Small Cap Portfolio Thresholds"
+      },
+      {
+            "timeSec": 1200,
+            "label": "20:00 - Macaulay Duration Categorization for 16 Debt Fund Classes"
+      },
+      {
+            "timeSec": 1800,
+            "label": "30:00 - Arbitrage Funds & Dynamic Asset Allocation / Balanced Advantage (BAF)"
+      }
+]
+					},
 				},
 				{
 					chapterNumber: 8,
@@ -249,6 +473,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Exam Favorite: Finance Act 2024 raised the annual LTCG exemption limit from ₹1 Lakh to ₹1.25 Lakh, and the tax rate from 10% to 12.5% without indexation.",
 						"Debt mutual funds with ≤35% equity acquired after 31 March 2023 have NO long-term capital gains status (Section 50AA slab taxation).",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/7Xp_8T2v9K4",
+						title: "Masterclass: Taxation of Mutual Funds (Post-Finance Act 2024)",
+						durationMinutes: 30,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "Comprehensive capital gains taxation: Section 112A (LTCG @ 12.5% above \u20b91.25 Lakh), Section 111A (STCG @ 20%), and debt fund slab rate regime.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - Equity vs Debt Tax Classification (65% Equity Rule)"
+      },
+      {
+            "timeSec": 480,
+            "label": "08:00 - Section 112A: LTCG @ 12.5% (\u20b91.25 Lakh Exemption)"
+      },
+      {
+            "timeSec": 960,
+            "label": "16:00 - Section 111A: STCG @ 20% on Equity Schemes"
+      },
+      {
+            "timeSec": 1380,
+            "label": "23:00 - Specified Mutual Funds (Debt): Slab Rate Taxation without Indexation"
+      }
+]
+					},
 				},
 				{
 					chapterNumber: 9,
@@ -269,6 +520,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Rupee Cost Averaging is the key mathematical benefit of SIP — more units are acquired when NAV is low, fewer when NAV is high.",
 						"Power of Attorney (PoA) investors can transact, but redemption proceeds are ALWAYS credited only to the primary unit holder's verified bank account.",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/3Lq_7V1k8X8",
+						title: "Masterclass: Risk, Return & Performance Evaluation Ratios",
+						durationMinutes: 32,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "Sharpe, Treynor, Jensen's Alpha, Sortino downside ratio, tracking error for ETFs, and standard deviation vs beta interpretation.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - Standard Deviation vs Beta (Total vs Systematic Market Risk)"
+      },
+      {
+            "timeSec": 540,
+            "label": "09:00 - Sharpe Ratio vs Treynor Ratio Application in Portfolios"
+      },
+      {
+            "timeSec": 1140,
+            "label": "19:00 - Jensen's Alpha & Tracking Error / Tracking Difference for ETFs"
+      },
+      {
+            "timeSec": 1560,
+            "label": "26:00 - Sortino Ratio (Downside Semi-Variance & MAR Benchmark)"
+      }
+]
+					},
 				},
 				{
 					chapterNumber: 10,
@@ -309,6 +587,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"When comparing diversified funds, use Sharpe Ratio (total risk). When comparing portfolios that will be added to an already well-diversified portfolio, use Treynor Ratio (systematic risk).",
 						"Sortino is superior to Sharpe when returns are skewed or non-normally distributed.",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/5Nm_8P3k2L0",
+						title: "Masterclass: Scheme Selection, Financial Planning & Model Portfolios",
+						durationMinutes: 26,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "Goal-based financial planning, core-satellite asset allocation, rebalancing frequency, and mitigation of investor behavioral biases.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - Investor Profiling & Goal-Based Horizon Mapping"
+      },
+      {
+            "timeSec": 420,
+            "label": "07:00 - Core and Satellite Portfolio Construction Rules"
+      },
+      {
+            "timeSec": 900,
+            "label": "15:00 - Tactical Asset Allocation vs Rebalancing Triggers"
+      },
+      {
+            "timeSec": 1260,
+            "label": "21:00 - Behavioral Biases (Recency Bias, Loss Aversion, Herd Mentality)"
+      }
+]
+					},
 				},
 				{
 					chapterNumber: 11,
@@ -331,6 +636,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Multi Cap funds MUST hold at least 25% in Large, 25% in Mid, and 25% in Small caps. Flexi Cap funds have no minimum cap restrictions.",
 						"Liquid funds have a graded exit load up to Day 6 of investment; Day 7 onwards exit load is nil.",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/8Kp_3W9q7M4",
+						title: "Masterclass: Basics of Derivatives & Equity Futures Mechanics",
+						durationMinutes: 35,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "Forwards vs Futures, clearing corporation novation, Cost of Carry model, basis risk, contango vs backwardation, and Open Interest trends.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - Forwards vs Futures: Counterparty Risk & Clearing Corp Novation"
+      },
+      {
+            "timeSec": 540,
+            "label": "09:00 - Cost of Carry Model: Futures Price = Spot * e^(r*T)"
+      },
+      {
+            "timeSec": 1140,
+            "label": "19:00 - Basis, Contango & Backwardation Market Regimes"
+      },
+      {
+            "timeSec": 1620,
+            "label": "27:00 - Open Interest (OI) & Price Trend Analysis"
+      }
+]
+					},
 				},
 				{
 					chapterNumber: 12,
@@ -350,6 +682,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Distributors must always recommend schemes that strictly match the investor's risk profile and investment horizon (Suitability Rule).",
 						"Periodic rebalancing enforces buying low and selling high in a disciplined, unemotional manner.",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/1Bv_8K2m4N0",
+						title: "Masterclass: Understanding Equity Options & Payoff Profiles",
+						durationMinutes: 38,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "Calls and Puts, ITM/ATM/OTM moneyness, intrinsic value vs time value, and asymmetric risk-reward payoffs for buyers vs sellers.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - Call Option vs Put Option Fundamental Rights & Obligations"
+      },
+      {
+            "timeSec": 600,
+            "label": "10:00 - ITM, ATM, and OTM Moneyness Classification"
+      },
+      {
+            "timeSec": 1200,
+            "label": "20:00 - Intrinsic Value vs Time Value Decay Dynamics"
+      },
+      {
+            "timeSec": 1740,
+            "label": "29:00 - Linear vs Non-Linear Asymmetric Payoff Curves"
+      }
+]
+					},
 				},
 			],
 		},
@@ -376,6 +735,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"In exchange-traded derivatives, the Clearing Corporation acts as the legal counterparty to every trade via the process of 'Novation'.",
 						"Derivatives are zero-sum games in financial terms: one party's profit is exactly equal to the counterparty's loss (before transaction costs).",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/9Xq_2M5p7L8",
+						title: "Masterclass: Options Trading Strategies (Hedging, Income & Directional)",
+						durationMinutes: 40,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "Protective Put, Covered Call, Bull Call Spread, Bear Put Spread, Straddle, Strangle, and Collar strategies in portfolio management.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - Protective Put & Covered Call Yield Enhancement Mechanics"
+      },
+      {
+            "timeSec": 660,
+            "label": "11:00 - Bull Call Spread & Bear Put Spread Structure"
+      },
+      {
+            "timeSec": 1320,
+            "label": "22:00 - Long Straddle & Strangle for Volatility Expansion"
+      },
+      {
+            "timeSec": 1920,
+            "label": "32:00 - Iron Condor & Collar Strategy in Fund Portfolios"
+      }
+]
+					},
 				},
 				{
 					chapterNumber: 14,
@@ -402,6 +788,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Index futures in India are ALWAYS cash settled, whereas single stock derivatives have physical delivery settlement upon expiry.",
 						"Low impact cost is an absolute prerequisite for a stock to be eligible for the F&O segment and major indices.",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/4Pz_7L3k9V0",
+						title: "Masterclass: Option Pricing, Black-Scholes Model & The Greeks",
+						durationMinutes: 42,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "The 5 determinants of option premiums, Black-Scholes formula intuition, Delta, Gamma, Vega, Theta, and Rho hedging.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - 5 Determinants of Option Premiums (S, K, T, r, IV)"
+      },
+      {
+            "timeSec": 660,
+            "label": "11:00 - Delta (Directional Sensitivity & Hedge Ratio)"
+      },
+      {
+            "timeSec": 1320,
+            "label": "22:00 - Gamma (Curvature Risk) & Vega (Volatility Exposure)"
+      },
+      {
+            "timeSec": 1980,
+            "label": "33:00 - Theta (Time Decay) & Rho (Interest Rate Sensitivity)"
+      }
+]
+					},
 				},
 				{
 					chapterNumber: 15,
@@ -435,6 +848,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"At contract expiration, the Futures price must equal the Spot price (Convergence Principle).",
 						"If an investor fails to maintain maintenance margin, the broker initiates a margin call or liquidates the position.",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/6Yk_8N2m5P4",
+						title: "Masterclass: Trading Mechanisms, Order Types & Algorithmic Execution",
+						durationMinutes: 28,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "NSE NEAT trading system, Limit/Market/Stop-loss orders, Direct Market Access (DMA), algorithmic trading, and Market Wide Position Limits (MWPL).",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - NEAT Trading System: Order Types (Limit, Market, Stop-Loss)"
+      },
+      {
+            "timeSec": 480,
+            "label": "08:00 - IOC, Day, and GTC Order Conditions"
+      },
+      {
+            "timeSec": 960,
+            "label": "16:00 - Algorithmic Trading & Direct Market Access (DMA)"
+      },
+      {
+            "timeSec": 1380,
+            "label": "23:00 - Market Wide Position Limits (MWPL) & Ban Period"
+      }
+]
+					},
 				},
 				{
 					chapterNumber: 16,
@@ -475,6 +915,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"European options can ONLY be exercised on the expiry date (all index and stock options in India are European style, indicated by CE and PE).",
 						"Theta decay accelerates sharply in the final 30 days before expiration, heavily favoring option sellers.",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/2Xm_9P4k8L0",
+						title: "Masterclass: Clearing, Settlement & Margining Architecture (SPAN + Exposure)",
+						durationMinutes: 34,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "Central Counterparty (CCP) guarantee, Standard Portfolio Analysis of Risk (SPAN), Extreme Loss Margin, MTM settlement, and physical delivery.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - NSCCL / NCL Role as Central Counterparty (CCP)"
+      },
+      {
+            "timeSec": 540,
+            "label": "09:00 - SPAN Margin (Standard Portfolio Analysis of Risk)"
+      },
+      {
+            "timeSec": 1140,
+            "label": "19:00 - Exposure Margin & Mark-to-Market (MTM) Settlement"
+      },
+      {
+            "timeSec": 1620,
+            "label": "27:00 - Physical Settlement of Stock Derivatives upon Expiry"
+      }
+]
+					},
 				},
 				{
 					chapterNumber: 17,
@@ -510,6 +977,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"A Protective Put is equivalent to purchasing term insurance for your stock portfolio.",
 						"Short Straddle has unlimited loss potential if a sudden large gap-up or gap-down occurs.",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/7Vn_3K8m5L0",
+						title: "Masterclass: Regulatory & Compliance Framework for Derivatives",
+						durationMinutes: 25,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "L.C. Gupta Committee recommendations, SCRA 1956, client suitability checks, Risk Disclosure Document (RDD), and SEBI investor protection rules.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - L.C. Gupta Committee Recommendations & SCRA 1956"
+      },
+      {
+            "timeSec": 420,
+            "label": "07:00 - Client Registration & Risk Disclosure Document (RDD)"
+      },
+      {
+            "timeSec": 840,
+            "label": "14:00 - SEBI Position Limits for Trading Members, FPIs & MFs"
+      },
+      {
+            "timeSec": 1200,
+            "label": "20:00 - Suitability Rules & Prevention of Retail Speculation"
+      }
+]
+					},
 				},
 			],
 		},
@@ -550,6 +1044,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"Zero-coupon bonds have Macaulay Duration exactly equal to their maturity period.",
 						"Higher coupon bonds have LOWER duration (less interest rate risk) than lower coupon bonds of the same maturity.",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/5Bv_2N9m7K4",
+						title: "Masterclass: Fixed Income Securities, Macaulay Duration & Bond Convexity",
+						durationMinutes: 36,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "Clean price vs dirty price, Macaulay duration, modified duration, dollar duration, and convexity adjustments for bond price volatility.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - Clean Price vs Dirty Price & Accrued Interest Calculation"
+      },
+      {
+            "timeSec": 600,
+            "label": "10:00 - Macaulay Duration: Weighted Average Maturity of Cash Flows"
+      },
+      {
+            "timeSec": 1200,
+            "label": "20:00 - Modified Duration = Macaulay Duration / (1 + YTM/n)"
+      },
+      {
+            "timeSec": 1680,
+            "label": "28:00 - Convexity: Second-Order Price Correction & Taylor Expansion"
+      }
+]
+					},
 				},
 				{
 					chapterNumber: 19,
@@ -576,6 +1097,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"In an IRS or OIS, only the net interest difference is exchanged between parties; the notional principal itself is NEVER exchanged.",
 						"MIBOR (Mumbai Interbank Outright Rate) is administered by Financial Benchmarks India Pvt Ltd (FBIL).",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/8Pm_4K2m9L0",
+						title: "Masterclass: Interest Rate Derivatives (FRAs, IRS & OIS)",
+						durationMinutes: 36,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "Forward Rate Agreements (FRA), plain vanilla Interest Rate Swaps (IRS), Overnight Indexed Swaps (OIS) based on MIBOR, and duration gap hedging.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - Forward Rate Agreements (FRA): Contract Spec & Settlement Payment"
+      },
+      {
+            "timeSec": 600,
+            "label": "10:00 - Plain Vanilla Interest Rate Swaps (Fixed for Floating)"
+      },
+      {
+            "timeSec": 1260,
+            "label": "21:00 - Overnight Indexed Swaps (OIS) & Compounded MIBOR Benchmark"
+      },
+      {
+            "timeSec": 1740,
+            "label": "29:00 - Hedging Duration Gaps on Institutional Balance Sheets"
+      }
+]
+					},
 				},
 				{
 					chapterNumber: 20,
@@ -608,6 +1156,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"The seller of the IRF contract has the legal choice of which deliverable bond to deliver (the Delivery Option).",
 						"When market yields are above 6%, high coupon bonds tend to become the Cheapest-to-Deliver.",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/3Kq_7N2m5V8",
+						title: "Masterclass: 10-Year G-Sec Interest Rate Futures (IRFs) & CTD Bond",
+						durationMinutes: 38,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "10-Year benchmark GoI security futures, Conversion Factor (CF) normalization, Cheapest-to-Deliver (CTD) bond net basis calculation, and delivery settlement.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - 10-Year Benchmark G-Sec Futures Contract Specifications"
+      },
+      {
+            "timeSec": 600,
+            "label": "10:00 - Conversion Factor (CF) Equalizing Deliverable Basket"
+      },
+      {
+            "timeSec": 1260,
+            "label": "21:00 - Cheapest-to-Deliver (CTD) Bond Net Basis Formula"
+      },
+      {
+            "timeSec": 1800,
+            "label": "30:00 - Delivery Settlement vs Cash Settlement Protocols"
+      }
+]
+					},
 				},
 				{
 					chapterNumber: 21,
@@ -627,6 +1202,33 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"A Call Option on an Interest Rate is economically equivalent to a Put Option on a Bond price.",
 						"IRO premiums are quoted in INR per ₹100 face value of the underlying security.",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/9Bn_4K2m7P0",
+						title: "Masterclass: Exchange Traded Interest Rate Options (IROs)",
+						durationMinutes: 30,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "Interest rate call options vs bond put options, cap and floor borrowing protection, European style settlement, and pricing per \u20b9100 face value.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - Interest Rate Call Options vs Bond Put Options Equivalence"
+      },
+      {
+            "timeSec": 540,
+            "label": "09:00 - Hedging Borrowing Rates with Cap and Floor Combinations"
+      },
+      {
+            "timeSec": 1140,
+            "label": "19:00 - European Style Cash Settlement on Final Closing Price"
+      },
+      {
+            "timeSec": 1500,
+            "label": "25:00 - Pricing Conventions per \u20b9100 Face Value"
+      }
+]
+					},
 				},
 				{
 					chapterNumber: 22,
@@ -662,6 +1264,41 @@ export const NISM_VD_CURRICULUM: NismCourseCurriculum = {
 						"NISM-Series-V-D certification is the SOLE mandatory certification that clears distributors for both standard Mutual Funds and Specialized Investment Funds (SIF).",
 						"SIF funds are allowed to use long-short equity and inverse strategies, which are strictly prohibited in standard mutual funds.",
 					],
+					video: {
+						videoUrl: "https://www.youtube-nocookie.com/embed/1Lq_8V3m9P4",
+						title: "Masterclass: SEBI Specialized Investment Fund (SIF) Framework & Master Strategies",
+						durationMinutes: 45,
+						instructor: "Faculty of Capital Markets (NISM & RIA Empaneled)",
+						instructorRole: "Senior Regulatory Faculty",
+						summary: "SEBI New Asset Class (NAC) / SIF framework: \u20b910 Lakhs minimum ticket size per PAN, permissible strategies (Long-Short Equity, Inverse ETFs, Unconstrained Fixed Income), derivative overlays, and mandatory NISM Series V-D dual licensing.",
+						isInstitutionalAccredited: true,
+						keyTimestamps: [
+      {
+            "timeSec": 0,
+            "label": "00:00 - SEBI 'New Asset Class' (NAC) / SIF Regulatory Rationale"
+      },
+      {
+            "timeSec": 420,
+            "label": "07:00 - The \u20b910 Lakhs Minimum Investment Threshold per PAN"
+      },
+      {
+            "timeSec": 960,
+            "label": "16:00 - Permissible Strategies: Long-Short Equity, Inverse ETFs, Unconstrained Fixed Income"
+      },
+      {
+            "timeSec": 1560,
+            "label": "26:00 - Derivative Overlays: Gross Exposure Limits vs Hedging Caps"
+      },
+      {
+            "timeSec": 2100,
+            "label": "35:00 - SIF vs Mutual Funds vs PMS (\u20b950L) vs AIFs (\u20b91 Cr) Comparison Matrix"
+      },
+      {
+            "timeSec": 2460,
+            "label": "41:00 - SIF Distributor Licensing: Mandatory NISM Series V-D Certification"
+      }
+]
+					},
 				},
 			],
 		},

@@ -770,6 +770,35 @@ router.post(
 	}),
 );
 
+// POST /api/knowledge-hub/nism/video-telemetry — Track IEEE xAPI video events (played, paused, seeked, completed)
+router.post(
+	"/nism/video-telemetry",
+	asyncHandler(async (req, res) => {
+		const agentId = (req as any).user?.id || req.body?.agentId || "guest-advisor";
+		const { courseId, chapterNumber, verb, currentTimeSec, durationSec, playbackSpeed, sessionMetadata } = req.body;
+
+		if (!courseId || typeof chapterNumber !== "number" || !verb) {
+			return res.status(400).json({
+				success: false,
+				error: "Missing required fields: courseId, chapterNumber, verb",
+			});
+		}
+
+		const result = await nismLmsService.recordVideoTelemetry({
+			agentId,
+			courseId,
+			chapterNumber,
+			verb,
+			currentTimeSec: Number(currentTimeSec) || 0,
+			durationSec: Number(durationSec) || 0,
+			playbackSpeed: Number(playbackSpeed) || 1,
+			sessionMetadata,
+		});
+
+		res.json(result);
+	}),
+);
+
 // GET /api/knowledge-hub/nism/summary — NISM metrics and CPE summary
 router.get(
 	"/nism/summary",
