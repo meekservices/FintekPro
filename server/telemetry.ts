@@ -101,3 +101,46 @@ export function distributedTracingMiddleware(
 
 	next();
 }
+
+/**
+ * Executes an async operation within a W3C trace span for background tasks and crons.
+ */
+export async function withTraceSpan<T>(
+	operationName: string,
+	fn: (context: TraceContext) => Promise<T>,
+	parentTraceId?: string,
+): Promise<T> {
+	const context: TraceContext = {
+		traceId: parentTraceId || TelemetryTracer.generateTraceId(),
+		spanId: TelemetryTracer.generateSpanId(),
+		traceFlags: "01",
+	};
+
+	const startTime = Date.now();
+	try {
+		const result = await fn(context);
+		const durationMs = Date.now() - startTime;
+		if (durationMs > 2000) {
+			logger.info(`[Tracing] Background operation completed`, {
+				event: "BACKGROUND_SPAN_COMPLETE",
+				operation: operationName,
+				traceId: context.traceId,
+				spanId: context.spanId,
+				durationMs,
+			});
+		}
+		return result;
+	} catch (error: any) {
+		const durationMs = Date.now() - startTime;
+		logger.error(`[Tracing] Background operation failed`, {
+			event: "BACKGROUND_SPAN_FAILED",
+			operation: operationName,
+			traceId: context.traceId,
+			spanId: context.spanId,
+			durationMs,
+			error: error.message || String(error),
+		});
+		throw error;
+	}
+}
+

@@ -11,7 +11,8 @@ export abstract class BaseStrategy implements IPickStrategy {
 		context: StrategyContext,
 	): Promise<DailyPickData | DailyPickData[] | null>;
 	abstract score(instrument: any, enriched?: any): number | Promise<number>;
-	abstract getLivePrice(instrumentId: string): Promise<number | null>;
+	abstract getLivePrice(instrumentId: string, pick?: any): Promise<number | null>;
+	getLiveQuote?(instrumentId: string, pick?: any): Promise<{ price: number; dayHigh?: number; dayLow?: number } | null>;
 
 	protected getTimeHorizon(category: PickCategory): string {
 		switch (category) {

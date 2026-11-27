@@ -21,6 +21,26 @@ export function alignToTick(price: number, tick = 0.05): number {
 	return +(Math.round(price / tick) * tick).toFixed(2);
 }
 
+/**
+ * Square-Root Law Adaptive Market Impact Slippage:
+ * Impact = sigma_daily * sqrt(orderQty / averageDailyVolume)
+ *
+ * @param dailyVolatility - Daily stock volatility (e.g. 0.015 for 1.5%)
+ * @param orderQty - Quantity to execute
+ * @param averageDailyVolume - 20-day Average Daily Volume (ADV)
+ * @returns Estimated market impact percentage (e.g. 0.18%)
+ */
+export function calculateSquareRootImpact(
+	dailyVolatility: number,
+	orderQty: number,
+	averageDailyVolume: number,
+): number {
+	if (averageDailyVolume <= 0 || orderQty <= 0) return 0.05;
+	const participation = Math.min(1, orderQty / averageDailyVolume);
+	const impact = dailyVolatility * Math.sqrt(participation);
+	return +(impact * 100).toFixed(3);
+}
+
 export interface DepthLevel {
 	price: number;
 	quantity: number;

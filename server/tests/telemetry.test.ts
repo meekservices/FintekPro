@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TelemetryTracer } from "../telemetry";
+import { TelemetryTracer, withTraceSpan } from "../telemetry";
 
 describe("TelemetryTracer (W3C Distributed Tracing Standard)", () => {
 	it("generates valid W3C 128-bit trace ID and 64-bit span ID", () => {
@@ -23,5 +23,20 @@ describe("TelemetryTracer (W3C Distributed Tracing Standard)", () => {
 
 		const formatted = TelemetryTracer.formatTraceParent(ctx);
 		expect(formatted.startsWith("00-4bf92f3577b34da6a3ce929d0e0e4736-")).toBe(true);
+	});
+
+	it("executes async operation inside withTraceSpan and propagates context", async () => {
+		let capturedTraceId = "";
+		let capturedSpanId = "";
+
+		const result = await withTraceSpan("test:operation", async (ctx) => {
+			capturedTraceId = ctx.traceId;
+			capturedSpanId = ctx.spanId;
+			return "SUCCESS_VAL";
+		});
+
+		expect(result).toBe("SUCCESS_VAL");
+		expect(capturedTraceId).toHaveLength(32);
+		expect(capturedSpanId).toHaveLength(16);
 	});
 });

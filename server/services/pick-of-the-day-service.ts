@@ -1239,6 +1239,7 @@ export class PickOfTheDayService {
 					if (strategy.getLiveQuote) {
 						const quote = await strategy.getLiveQuote(
 							pick.instrumentId || pick.symbol || "",
+							pick,
 						);
 						if (quote) {
 							livePrice = quote.price;
@@ -1249,6 +1250,7 @@ export class PickOfTheDayService {
 					if (livePrice == null) {
 						livePrice = await strategy.getLivePrice(
 							pick.instrumentId || pick.symbol || "",
+							pick,
 						);
 					}
 

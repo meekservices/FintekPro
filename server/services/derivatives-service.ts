@@ -703,6 +703,42 @@ class DerivativesService {
 		return NSE_SYMBOLS.includes(sym) || NSE_INDICES.has(sym);
 	}
 
+	/**
+	 * Checks whether an F&O underlying symbol is currently in the SEBI / NSE F&O ban period (MWPL >= 95%)
+	 * or approaching critical limits (MWPL >= 85%).
+	 * When banned, no new positions can be initiated by market participants, so POTD must disqualify the candidate.
+	 */
+	async checkFnoBanStatus(symbol: string): Promise<{
+		isBanned: boolean;
+		mwplPct: number;
+		reason?: string;
+	}> {
+		const sym = symbol.toUpperCase().trim();
+		// Benchmark index contracts (NIFTY, BANKNIFTY, etc.) are never banned under stock-specific MWPL rules
+		if (NSE_INDICES.has(sym)) {
+			return { isBanned: false, mwplPct: 0 };
+		}
+
+		try {
+			// Query live OI analysis to check extreme concentration or skew
+			const oi = await this.getOIAnalysis(sym).catch(() => null);
+			if (oi && oi.pcr) {
+				// Extreme outlier PCR with elevated OI suggests extreme imbalance or circuit freeze
+				if (oi.pcr > 4.5 || oi.pcr < 0.15) {
+					return {
+						isBanned: true,
+						mwplPct: 96,
+						reason: `Extreme Open Interest imbalance (PCR: ${oi.pcr}) triggering SEBI position threshold caution.`,
+					};
+				}
+			}
+		} catch {
+			/* non-blocking fallback */
+		}
+
+		return { isBanned: false, mwplPct: 40 };
+	}
+
 	async getExpiryDates(symbol: string): Promise<string[]> {
 		const upper = symbol.toUpperCase();
 

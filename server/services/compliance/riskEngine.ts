@@ -37,6 +37,33 @@ export class RiskEngine {
 	// Per-User Algo Emergency Kill Switches
 	private userKillSwitches: Map<string, UserKillSwitchRecord> = new Map();
 
+	// Stateful user daily trade velocity tracker (SEBI Pre-Trade RMS Mandate)
+	private userDailyTrades: Map<string, { count: number; date: string }> = new Map();
+
+	/**
+	 * Records executed trade to maintain stateful daily velocity throttle.
+	 */
+	recordTradeExecution(userId: string): number {
+		const today = new Date().toISOString().split("T")[0];
+		const current = this.userDailyTrades.get(String(userId));
+		if (!current || current.date !== today) {
+			this.userDailyTrades.set(String(userId), { count: 1, date: today });
+			return 1;
+		}
+		current.count += 1;
+		return current.count;
+	}
+
+	/**
+	 * Returns current recorded daily trades for a user.
+	 */
+	getDailyTradeCount(userId: string): number {
+		const today = new Date().toISOString().split("T")[0];
+		const current = this.userDailyTrades.get(String(userId));
+		if (!current || current.date !== today) return 0;
+		return current.count;
+	}
+
 	/**
 	 * Activates the Global Emergency Kill Switch across all algo and execution desks.
 	 */
@@ -203,7 +230,8 @@ export class RiskEngine {
 		checksPassed.push("MAX_EXPOSURE_OK");
 
 		// Rule 3: Trade Velocity / Daily Order Throttle
-		if (dailyTradeCount >= this.MAX_DAILY_TRADES) {
+		const effectiveTradeCount = dailyTradeCount > 0 ? dailyTradeCount : this.getDailyTradeCount(userId);
+		if (effectiveTradeCount >= this.MAX_DAILY_TRADES) {
 			throw new Error(
 				`THROTTLE_LIMIT_EXCEEDED: Daily order count limit of ${this.MAX_DAILY_TRADES} trades reached for today.`,
 			);

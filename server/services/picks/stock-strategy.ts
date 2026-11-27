@@ -1413,6 +1413,17 @@ export class StockStrategy extends BaseStrategy {
 				}
 			}
 
+			// Gate 8: Corporate Actions & Earnings Announcement Blackout Guardrail (FASP-AI v3.2)
+			// Disqualifies candidates with board meetings, quarterly earnings, or split/bonus ex-dates
+			// scheduled within ±48 hours of today to eliminate binary event overnight gap risk.
+			const eventBlackout = await this.checkCorporateEventBlackout(topStock.symbol, context.today);
+			if (eventBlackout.blacklisted) {
+				logger.warn(
+					`[StockStrategy] 🛡️ Gate 8 Event Blackout VETO: ${topStock.symbol} disqualified due to upcoming binary corporate event (${eventBlackout.reason}). Trying next candidate.`,
+				);
+				continue;
+			}
+
 			const sectorLabel = broadSector.label;
 			let rationale = await context.service.generateRationale({
 				category: "listed_stocks",
@@ -3117,5 +3128,46 @@ export class StockStrategy extends BaseStrategy {
 				marqueeQuotingSummary: fallbackMarqueeSummary,
 			},
 		};
+	}
+
+	/**
+	 * Gate 8: Corporate Actions & Earnings Announcement Blackout Guardrail (FASP-AI v3.2)
+	 * Disqualifies candidates with board meetings, quarterly earnings, or split/bonus ex-dates
+	 * scheduled within ±48 hours of today to eliminate binary event overnight gap risk.
+	 */
+	public async checkCorporateEventBlackout(
+		symbol: string,
+		todayStr: string,
+	): Promise<{ blacklisted: boolean; reason?: string }> {
+		try {
+			const sym = (symbol || "").toUpperCase().trim();
+			if (!sym) return { blacklisted: false };
+
+			const todayDate = new Date(todayStr);
+			const minDateStr = new Date(todayDate.getTime() - 2 * 86400000).toISOString().split("T")[0];
+			const maxDateStr = new Date(todayDate.getTime() + 2 * 86400000).toISOString().split("T")[0];
+
+			// Check upcoming corporate actions ex-dates within ±48 hours window
+			const res = await db.execute(sql`
+				SELECT action_type, purpose, ex_date
+				FROM corporate_actions
+				WHERE symbol = ${sym}
+				  AND ex_date >= ${minDateStr}
+				  AND ex_date <= ${maxDateStr}
+				LIMIT 1
+			`).catch(() => null);
+
+			const rows = (res as any)?.rows || res || [];
+			if (rows.length > 0) {
+				const ev = rows[0];
+				return {
+					blacklisted: true,
+					reason: `High-impact corporate action (${ev.action_type || ev.purpose || "Event"}) on ${ev.ex_date}`,
+				};
+			}
+		} catch {
+			/* non-blocking */
+		}
+		return { blacklisted: false };
 	}
 }

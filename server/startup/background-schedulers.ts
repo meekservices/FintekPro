@@ -22,15 +22,18 @@ import { upstoxMarketDataService } from "../services/upstox-market-data-service"
 import { indianApiService } from "../services/indian-api-service";
 import { unifiedStockPriceService } from "../services/unified-stock-price-service";
 import { withDistributedLock } from "../utils/distributed-lock";
+import { withTraceSpan, type TraceContext } from "../telemetry";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function runStartupTask(name: string, task: () => Promise<void>) {
+async function runStartupTask(name: string, task: (ctx?: TraceContext) => Promise<void>) {
 	try {
 		console.log(`⚙️  [Scheduler] Starting: ${name}`);
-		await task();
+		await withTraceSpan(`startup:${name}`, async (ctx) => {
+			await task(ctx);
+		});
 		console.log(`✅ [Scheduler] Ready:    ${name}`);
 	} catch (error) {
 		console.error(`❌ [Scheduler] Failed:   ${name}`, error);
@@ -44,12 +47,14 @@ async function runStartupTask(name: string, task: () => Promise<void>) {
 async function runWithClusterLock(
 	lockKey: string,
 	ttlSeconds: number,
-	task: () => Promise<void>,
+	task: (ctx?: TraceContext) => Promise<void>,
 ) {
-	const { executed } = await withDistributedLock(lockKey, ttlSeconds, task);
-	if (!executed) {
-		console.log(`🔒 [Scheduler] Contested lock '${lockKey}' active on another instance — skipping`);
-	}
+	await withTraceSpan(`cron:${lockKey}`, async (ctx) => {
+		const { executed } = await withDistributedLock(lockKey, ttlSeconds, () => task(ctx));
+		if (!executed) {
+			console.log(`🔒 [Scheduler] Contested lock '${lockKey}' active on another instance — skipping`);
+		}
+	});
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -514,6 +519,9 @@ async function startDataHealthMonitor() {
 
 async function eodPricingHealthCheck(): Promise<void> {
 	const t0 = Date.now();
+
+	// 0. Proactively evaluate Upstox token age and dispatch alert if nearing yearly expiry
+	upstoxMarketDataService.checkTokenAge();
 
 	// 1. Upstox token probe — single getLTP("RELIANCE") to validate the Bearer token
 	const upstoxStatus = await upstoxMarketDataService.probeToken();

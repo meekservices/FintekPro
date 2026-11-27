@@ -191,6 +191,10 @@ export class CommodityStrategy extends BaseStrategy {
 					selected.exchange === "MCX"
 						? "Both Cash & Tender Physical Delivery"
 						: "Compulsory Staggered Physical Delivery",
+				tenderPeriodWindowDays: 5,
+				isTenderPeriodExcluded: true,
+				deliverySettlementNotice:
+					"Contract tenure strictly exits 5 business days prior to exchange physical tender delivery window to avoid escalating delivery margin requirements.",
 			};
 
 			if (selected.openInterest) keyMetrics.openInterest = selected.openInterest;

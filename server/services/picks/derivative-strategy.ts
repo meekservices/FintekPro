@@ -494,6 +494,21 @@ export class DerivativeStrategy extends BaseStrategy {
 				selectedSymbol.toUpperCase(),
 			);
 
+			// ── SEBI F&O Ban & MWPL Guardrail ──────────────────────────────────────────
+			// Single-stock underlyings exceeding 85% of Market-Wide Position Limit (MWPL)
+			// or currently in the official exchange F&O ban period are disqualified to protect
+			// clients from trade execution rejection or emergency square-off penalty risks.
+			if (!isIndexSymbol) {
+				const banStatus = await derivativesService.checkFnoBanStatus(selectedSymbol);
+				if (banStatus.isBanned) {
+					logger.warn(
+						`[DerivativeStrategy] 🛑 SEBI F&O Ban VETO: ${selectedSymbol} is in F&O ban or exceeds 85% MWPL (${banStatus.reason || "MWPL breached"}). Auto-routing to benchmark NIFTY.`,
+						{ symbol: selectedSymbol, mwplPct: banStatus.mwplPct },
+					);
+					return this.generateFallbackPick(context, "NIFTY");
+				}
+			}
+
 			// Profit-optimized tenure selection:
 			// Option Buyers benefit from Next Month (M2) to avoid rapid final-week theta crush.
 			// Option Sellers benefit from This Month (M1) to maximize theta cash-flow capture.
@@ -1284,8 +1299,103 @@ export class DerivativeStrategy extends BaseStrategy {
 		return 100;
 	}
 
-	async getLivePrice(_instrumentId: string): Promise<number | null> {
-		return null;
+	/**
+	 * Computes live Mark-to-Market (MTM) strategy pricing for derivative positions.
+	 * Evaluates individual option legs against live quotes or Black-Scholes pricing
+	 * to return the real-time total net strategy premium.
+	 */
+	async getLivePrice(instrumentId: string, pick?: any): Promise<number | null> {
+		try {
+			// 1. If pick with keyMetrics.legs is provided, compute live MTM from legs
+			if (pick?.keyMetrics?.legs && Array.isArray(pick.keyMetrics.legs) && pick.keyMetrics.legs.length > 0) {
+				const symbol = (pick.symbol || instrumentId.split(" ")[0] || "NIFTY").toUpperCase();
+				let spotPrice = 0;
+
+				try {
+					spotPrice = await derivativesService.getSpotPrice(symbol);
+				} catch {
+					// Fallback to recorded spot price
+					spotPrice = Number(pick.keyMetrics.spotPrice || pick.recoPrice || 0);
+				}
+
+				if (spotPrice <= 0) {
+					spotPrice = Number(pick.keyMetrics.spotPrice || 0);
+				}
+
+				const targetExpiry = pick.expiryDate || pick.keyMetrics.expiryDate || pick.keyMetrics.expiry;
+				const dteMs = targetExpiry ? new Date(targetExpiry).getTime() - Date.now() : 7 * 86400000;
+				const dte = Math.max(1, Math.ceil(dteMs / 86400000));
+				const iv = Number(pick.keyMetrics.iv || pick.keyMetrics.impliedVolatility || 18);
+				const lotSize = Number(pick.keyMetrics.lotSize || 65);
+
+				// Fetch option chain for real-time market prices of legs
+				const chain = await derivativesService.getOptionsChain(symbol).catch(() => null);
+
+				let netDebit = 0;
+				for (const leg of pick.keyMetrics.legs) {
+					let legPremium = 0;
+					const strikePrice = Number(leg.strikePrice);
+					const legType = leg.type as "CE" | "PE" | "FUT";
+
+					if (chain?.options && strikePrice > 0) {
+						const list = Array.isArray(chain.options)
+							? chain.options.filter((o: any) => (o.optionType || o.type) === legType)
+							: (legType === "CE" ? chain.options.calls : chain.options.puts);
+						const match = list?.find((o: any) => Number(o.strikePrice) === strikePrice);
+						if (match && Number(match.lastPrice) > 0) {
+							legPremium = Number(match.lastPrice);
+						}
+					}
+
+					// Fallback to Black-Scholes theoretical price if exchange quote not present
+					if (legPremium <= 0 && spotPrice > 0 && strikePrice > 0) {
+						legPremium = calculateBlackScholesPrice(
+							spotPrice,
+							strikePrice,
+							dte,
+							iv / 100,
+							legType === "CE" ? "call" : "put",
+						);
+					}
+
+					if (legPremium <= 0) {
+						legPremium = Number(leg.premium || 0.05);
+					}
+
+					legPremium = alignToTick(legPremium);
+					const sign = leg.action === "BUY" ? 1 : -1;
+					netDebit += sign * legPremium * (leg.quantity || 1);
+				}
+
+				netDebit = Math.round(netDebit * 100) / 100;
+				const isCredit = (pick.keyMetrics as any)?.isCreditStrategy === true ||
+					(pick.keyMetrics as any)?.strategyType === "SELLER" ||
+					netDebit < 0;
+
+				const netPremium = isCredit ? Math.max(0.05, Math.abs(netDebit)) : Math.max(0.05, netDebit);
+				const totalNetPremium = Math.round(netPremium * lotSize * 100) / 100;
+
+				return totalNetPremium;
+			}
+
+			// 2. Fallback when only instrumentId is given (e.g. underlying symbol)
+			const cleanSymbol = (instrumentId || "").toUpperCase().split(" ")[0];
+			if (cleanSymbol) {
+				const spot = await derivativesService.getSpotPrice(cleanSymbol).catch(() => null);
+				if (spot && spot > 0) return spot;
+			}
+
+			return null;
+		} catch (err) {
+			logger.warn(`[DerivativeStrategy.getLivePrice] Error computing live MTM price for ${instrumentId}: ${err}`);
+			return null;
+		}
+	}
+
+	async getLiveQuote(instrumentId: string, pick?: any): Promise<{ price: number; dayHigh?: number; dayLow?: number } | null> {
+		const price = await this.getLivePrice(instrumentId, pick);
+		if (price == null || price <= 0) return null;
+		return { price };
 	}
 }
 

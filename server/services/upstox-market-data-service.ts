@@ -496,55 +496,89 @@ class UpstoxMarketDataService {
     });
 
     // ── Proactive yearly-rotation warning ──────────────────────────────────
-    // UPSTOX_TOKEN_ISSUED_AT lets us compute days-since-issued and warn 30
-    // days before the 1-year mark. Set it when rotating the token.
+    this.checkTokenAge();
+  }
+
+  /**
+   * Proactive token age verification and alert dispatch.
+   */
+  checkTokenAge(): {
+    configured: boolean;
+    daysSinceIssued: number | null;
+    daysRemaining: number | null;
+    isExpiringSoon: boolean;
+  } {
     const issuedAtStr = process.env.UPSTOX_TOKEN_ISSUED_AT;
-    if (issuedAtStr) {
-      const issuedAt = new Date(issuedAtStr);
-      if (!Number.isNaN(issuedAt.getTime())) {
-        const daysSince = (Date.now() - issuedAt.getTime()) / 86_400_000;
-        const daysRemaining =
-          UpstoxMarketDataService.TOKEN_LIFETIME_DAYS - daysSince;
-        const warnThreshold =
-          UpstoxMarketDataService.TOKEN_LIFETIME_DAYS -
-          UpstoxMarketDataService.TOKEN_WARN_DAYS_BEFORE;
+    if (!issuedAtStr) {
+      return {
+        configured: this.isReady(),
+        daysSinceIssued: null,
+        daysRemaining: null,
+        isExpiringSoon: false,
+      };
+    }
 
-        logger.info("[Upstox] Token age check", {
-          event: "UPSTOX_TOKEN_AGE_CHECK",
-          issued_at: issuedAtStr,
-          days_since_issued: Math.round(daysSince),
-          days_remaining: Math.round(daysRemaining),
-        });
-
-        if (daysSince > warnThreshold) {
-          const expiryDate = new Date(
-            issuedAt.getTime() +
-              UpstoxMarketDataService.TOKEN_LIFETIME_DAYS * 86_400_000,
-          ).toDateString();
-          // Non-blocking — fire and forget
-          opsAlertService
-            .fire({
-              code: "UPSTOX_TOKEN_EXPIRY_WARNING",
-              severity: "WARNING",
-              title: `⚠️ Upstox Token Expires in ~${Math.ceil(daysRemaining)} Days`,
-              message:
-                `Token issued ${Math.round(daysSince)} days ago. ` +
-                `Estimated expiry: ${expiryDate}. ` +
-                `Rotate before expiry to avoid pricing degradation.`,
-              action:
-                "gcloud run services update fintekpro-app " +
-                "--region=asia-south1 " +
-                '--update-env-vars="UPSTOX_ACCESS_TOKEN=<new_token>,UPSTOX_TOKEN_ISSUED_AT=<today_iso>"',
-            })
-            .catch(() => {/* webhook failure already logged inside opsAlertService */});
-        }
-      } else {
-        logger.warn("[Upstox] UPSTOX_TOKEN_ISSUED_AT is not a valid ISO date — token age check skipped", {
+    const issuedAt = new Date(issuedAtStr);
+    if (Number.isNaN(issuedAt.getTime())) {
+      logger.warn(
+        "[Upstox] UPSTOX_TOKEN_ISSUED_AT is not a valid ISO date — token age check skipped",
+        {
           event: "UPSTOX_TOKEN_ISSUED_AT_INVALID",
           value: issuedAtStr,
-        });
-      }
+        },
+      );
+      return {
+        configured: this.isReady(),
+        daysSinceIssued: null,
+        daysRemaining: null,
+        isExpiringSoon: false,
+      };
     }
+
+    const daysSince = (Date.now() - issuedAt.getTime()) / 86_400_000;
+    const daysRemaining =
+      UpstoxMarketDataService.TOKEN_LIFETIME_DAYS - daysSince;
+    const warnThreshold =
+      UpstoxMarketDataService.TOKEN_LIFETIME_DAYS -
+      UpstoxMarketDataService.TOKEN_WARN_DAYS_BEFORE;
+    const isExpiringSoon = daysSince > warnThreshold;
+
+    logger.info("[Upstox] Token age check", {
+      event: "UPSTOX_TOKEN_AGE_CHECK",
+      issued_at: issuedAtStr,
+      days_since_issued: Math.round(daysSince),
+      days_remaining: Math.round(daysRemaining),
+      is_expiring_soon: isExpiringSoon,
+    });
+
+    if (isExpiringSoon) {
+      const expiryDate = new Date(
+        issuedAt.getTime() +
+          UpstoxMarketDataService.TOKEN_LIFETIME_DAYS * 86_400_000,
+      ).toDateString();
+      opsAlertService
+        .fire({
+          code: "UPSTOX_TOKEN_EXPIRY_WARNING",
+          severity: "WARNING",
+          title: `⚠️ Upstox Token Expires in ~${Math.ceil(daysRemaining)} Days`,
+          message:
+            `Token issued ${Math.round(daysSince)} days ago. ` +
+            `Estimated expiry: ${expiryDate}. ` +
+            `Rotate before expiry to avoid pricing degradation.`,
+          action:
+            "gcloud run services update fintekpro-app " +
+            "--region=asia-south1 " +
+            '--update-env-vars="UPSTOX_ACCESS_TOKEN=<new_token>,UPSTOX_TOKEN_ISSUED_AT=<today_iso>"',
+        })
+        .catch(() => {});
+    }
+
+    return {
+      configured: this.isReady(),
+      daysSinceIssued: Math.round(daysSince),
+      daysRemaining: Math.round(daysRemaining),
+      isExpiringSoon,
+    };
   }
 
   /** Returns true if UPSTOX_ACCESS_TOKEN is configured. */

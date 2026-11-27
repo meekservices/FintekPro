@@ -14,6 +14,7 @@ import { logger } from "../../logger";
 import { telemetryBus } from "../engine-telemetry-bus";
 import { derivativesService } from "../derivatives-service";
 import { upstoxMarketDataService } from "../upstox-market-data-service";
+import { upstoxAdapter } from "../mpal/adapters/upstoxAdapter";
 import { db } from "../../db";
 import { derivativePositions } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -109,13 +110,35 @@ class LongShortAlgoEngine {
 		const t0 = Date.now();
 		const nowStr = new Date().toISOString();
 
-		// Current benchmark & large cap reference quotes
-		const hdfcPrice = 1790.5;
-		const iciciPrice = 1275.2;
-		const tcsPrice = 3980.0;
-		const infyPrice = 1860.0;
-		const niftyFutPrice = 24350.0;
-		const relPrice = 2860.0;
+		// Current benchmark & large cap reference quotes (with dynamic live quote resolution)
+		let hdfcPrice = 1790.5;
+		let iciciPrice = 1275.2;
+		let tcsPrice = 3980.0;
+		let infyPrice = 1860.0;
+		let niftyFutPrice = 24350.0;
+		let relPrice = 2860.0;
+
+		try {
+			if (upstoxMarketDataService.isReady()) {
+				const batchRes = await upstoxMarketDataService.getBatchQuotes([
+					"HDFCBANK", "ICICIBANK", "TCS", "INFY", "RELIANCE", "NIFTY 50",
+				]);
+				if (batchRes.success && batchRes.data) {
+					const getP = (sym: string, def: number) => {
+						const q = batchRes.data?.get(sym.toUpperCase());
+						return (q?.last_price && q.last_price > 0) ? q.last_price : def;
+					};
+					hdfcPrice = getP("HDFCBANK", hdfcPrice);
+					iciciPrice = getP("ICICIBANK", iciciPrice);
+					tcsPrice = getP("TCS", tcsPrice);
+					infyPrice = getP("INFY", infyPrice);
+					relPrice = getP("RELIANCE", relPrice);
+					niftyFutPrice = getP("NIFTY 50", niftyFutPrice);
+				}
+			}
+		} catch (quoteErr: any) {
+			logger.warn(`[LongShortAlgoEngine] Live quote fetch non-fatal fallback: ${quoteErr.message}`);
+		}
 
 		const signals: LongShortAlgoSignal[] = [
 			// 1. STATISTICAL ARBITRAGE: Private Bank Divergence (HDFCBANK vs ICICIBANK)
@@ -517,6 +540,33 @@ class LongShortAlgoEngine {
 				continue;
 			}
 
+			// Optional Upstox live order dispatch when broker adapter is configured
+			let brokerOrderId: string | undefined = undefined;
+			if (upstoxAdapter.isConfigured()) {
+				try {
+					const res = await upstoxAdapter.placeOrder({
+						idempotencyKey: legIdempotencyKey,
+						userId,
+						symbol: leg.tradingsymbol,
+						capability: "EQUITY_IN",
+						side: leg.action.toLowerCase() as "buy" | "sell",
+						type: "limit",
+						qty: leg.totalQuantity,
+						limitPrice: leg.currentPrice,
+						timeInForce: "day",
+						meta: {
+							basketId: basket.basketId,
+							strategyType: basket.strategyType,
+							pairName: basket.pairName,
+							confirmedVia,
+						},
+					});
+					brokerOrderId = res.brokerOrderId;
+				} catch (brokerErr: any) {
+					logger.warn(`[LongShortAlgoEngine] Upstox broker leg dispatch non-fatal: ${brokerErr.message}`);
+				}
+			}
+
 			// Insert position
 			const [position] = await db
 				.insert(derivativePositions)
@@ -536,7 +586,7 @@ class LongShortAlgoEngine {
 					realizedPnl: "0",
 					status: "OPEN",
 					idempotencyKey: legIdempotencyKey,
-					source: "fintekpro_long_short_algo",
+					source: brokerOrderId ? `upstox:${brokerOrderId}` : "fintekpro_long_short_algo",
 				})
 				.returning();
 

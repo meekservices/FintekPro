@@ -515,5 +515,63 @@ describe("POTD Derivative Engine - Multi-Leg & Option Seller Strategies", () => 
 			}
 		});
 	});
+
+	// ── 8. Live Mark-to-Market (MTM) Revaluation & SEBI F&O Ban Guardrail ──
+	describe("8. Live Mark-to-Market (MTM) Revaluation & SEBI F&O Ban Guardrail", () => {
+		it("calculates real-time MTM totalNetPremium when pick with legs is supplied to getLivePrice", async () => {
+			const mockPick = {
+				category: "derivatives",
+				symbol: "NIFTY",
+				recoPrice: 6500,
+				targetPrice: 2275,
+				stoplossPrice: 11700,
+				expiryDate: "2026-12-31",
+				keyMetrics: {
+					isCreditStrategy: true,
+					strategyType: "SELLER",
+					lotSize: 65,
+					spotPrice: 25000,
+					iv: 18,
+					legs: [
+						{ action: "SELL", type: "PE", strikePrice: 25000, quantity: 1, premium: 120 },
+						{ action: "BUY", type: "PE", strikePrice: 24950, quantity: 1, premium: 90 },
+					],
+				},
+			};
+
+			const liveMtm = await strategyEngine.getLivePrice("NIFTY Bull Put Spread", mockPick);
+			expect(liveMtm).toBeDefined();
+			expect(typeof liveMtm).toBe("number");
+			expect(liveMtm).toBeGreaterThan(0);
+		});
+
+		it("returns spot price as fallback when only instrument symbol is provided", async () => {
+			const spot = await strategyEngine.getLivePrice("NIFTY");
+			expect(spot).toBeDefined();
+			expect(typeof spot).toBe("number");
+			expect(spot).toBeGreaterThan(0);
+		});
+
+		it("supports getLiveQuote and wraps MTM price correctly", async () => {
+			const mockPick = {
+				symbol: "NIFTY",
+				keyMetrics: {
+					isCreditStrategy: false,
+					strategyType: "BUYER",
+					lotSize: 65,
+					spotPrice: 25000,
+					iv: 18,
+					legs: [
+						{ action: "BUY", type: "CE", strikePrice: 25000, quantity: 1, premium: 150 },
+						{ action: "SELL", type: "CE", strikePrice: 25100, quantity: 1, premium: 90 },
+					],
+				},
+			};
+
+			const quote = await strategyEngine.getLiveQuote("NIFTY Bull Call Spread", mockPick);
+			expect(quote).toBeDefined();
+			expect(quote?.price).toBeGreaterThan(0);
+		});
+	});
 });
 
