@@ -75,6 +75,49 @@ describe("POTD Cross-Asset Concentration & Bear-Case Critique Agents", () => {
 		expect(resolveCrossAssetTheme(makePick({ category: "commodities", instrumentName: "Gold 24K (MCX LTP)", symbol: "GOLD", sectorCategory: "Precious Metals" }))).toBe("precious_metals");
 	});
 
+	it("prevents AMC brand names from falsely classifying broad index ETFs/Funds as banking", () => {
+		const sbiSensexEtf = makePick({
+			category: "etfs",
+			instrumentName: "SBI BSE SENSEX ETF",
+			symbol: "SBISENSETF",
+			sectorCategory: "Equity - Large Cap",
+		});
+		expect(resolveCrossAssetTheme(sbiSensexEtf)).toBe("broad_index");
+
+		const axisBondMf = makePick({
+			category: "mutual_funds",
+			instrumentName: "Axis Corporate Bond Fund - Regular Plan Growth",
+			symbol: "141593",
+			sectorCategory: "Debt Scheme - Corporate Bond Fund",
+		});
+		expect(resolveCrossAssetTheme(axisBondMf)).not.toBe("banking_financials");
+	});
+
+	it("treats delta-neutral option strategies as market-neutral and exempt from directional equity caps", () => {
+		const acceptedWithTwoBanking: DailyPickData[] = [
+			makePick({ category: "listed_stocks", instrumentName: "LIFE INSURA CORP OF INDIA", symbol: "LICI", sectorCategory: "Banking & Finance" }),
+			makePick({ category: "listed_stocks", instrumentName: "HDFC Bank", symbol: "HDFCBANK", sectorCategory: "Banking" }),
+		];
+
+		const ironButterflyDerivative = makePick({
+			category: "derivatives",
+			instrumentName: "BANKNIFTY Iron Butterfly",
+			symbol: "BANKNIFTY",
+			sectorCategory: "Banking Index Derivatives",
+			keyMetrics: {
+				strategy: "Iron Butterfly",
+				strategyType: "SELLER",
+				outlook: "neutral",
+			},
+		});
+
+		expect(resolveCrossAssetTheme(ironButterflyDerivative)).toBe("derivatives_market_neutral");
+
+		const check = evaluateCrossAssetConcentration(ironButterflyDerivative, acceptedWithTwoBanking);
+		expect(check.allowed).toBe(true);
+		expect(check.normalizedTheme).toBe("derivatives_market_neutral");
+	});
+
 	it("downgrades strong_buy to buy and adjusts confidence when >= 2 bear-case flags trigger", async () => {
 		const stretchedEquity = makePick({
 			category: "listed_stocks",

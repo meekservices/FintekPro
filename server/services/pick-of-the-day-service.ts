@@ -471,7 +471,7 @@ export class PickOfTheDayService {
 						? [result]
 						: [];
 
-				for (const pick of picks) {
+				for (let pick of picks) {
 					// ── FASP-AI v2.0: Compute multi-factor confidence ──────────────────────
 					const rawScore = Math.max(pick.confidenceScore ?? 60, 60);
 					const confidence = FaspAIv2Service.computeConfidence({
@@ -862,7 +862,39 @@ export class PickOfTheDayService {
 					// ── Cross-Asset Concentration Agent ──────────────────────────────────
 					try {
 						const { evaluateCrossAssetConcentration } = await import("./picks/cross-asset-concentration-agent");
-						const crossAsset = evaluateCrossAssetConcentration(pick, generated);
+						let crossAsset = evaluateCrossAssetConcentration(pick, generated);
+						if (!crossAsset.allowed && category === "derivatives" && pick.symbol !== "NIFTY") {
+							// Self-Healing: if a sector-specific derivative (e.g. BANKNIFTY) breached concentration,
+							// fall back to the broad-index benchmark (NIFTY) to avoid dropping the asset class entirely.
+							try {
+								logger.info(
+									`⚠️ [PickOfTheDay] Derivative candidate ${pick.instrumentName} blocked by concentration (${crossAsset.reason}). Retrying with benchmark NIFTY...`,
+								);
+								const altPick = await (strategy as any).generate(
+									{
+										today,
+										regime: regimeForContext,
+										recentIds,
+										service: this,
+										minThreshold: calibratedMinThreshold,
+									},
+									"NIFTY",
+								);
+								if (altPick) {
+									const altCross = evaluateCrossAssetConcentration(altPick, generated);
+									if (altCross.allowed) {
+										logger.info(
+											`✅ [PickOfTheDay] Successfully swapped to benchmark compliant derivative: ${altPick.instrumentName}`,
+										);
+										pick = altPick;
+										crossAsset = altCross;
+									}
+								}
+							} catch (altErr) {
+								logger.warn(`[PickOfTheDay] Derivative concentration fallback to NIFTY failed: ${altErr}`);
+							}
+						}
+
 						if (!crossAsset.allowed) {
 							sectorGateBlocked++;
 							logger.info(`⚠️ [PickOfTheDay] ${crossAsset.reason}`, {
@@ -2778,12 +2810,16 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 			(c) => !existingCategories.has(c),
 		);
 
-		if (missingCritical.length >= 2) {
-			// 2+ critical categories are missing — regenerate to fill gaps
-			// PM-4 FIX: include existingCount so ops can correlate how many picks
-			// were present when regeneration was triggered (helps triage partial failures)
+		const isMarketTradingDay = this.isNSETradingDay(today);
+		const missingDerivativesOnTradingDay = isMarketTradingDay && !existingCategories.has("derivatives");
+
+		if (missingCritical.length >= 2 || missingDerivativesOnTradingDay) {
+			// 2+ critical categories are missing OR derivatives is missing on a market trading day
+			const reason = missingDerivativesOnTradingDay
+				? `trading day missing 'derivatives' pick`
+				: `missing ${missingCritical.length} critical categories: [${missingCritical.join(", ")}]`;
 			logger.info(
-				`🔄 [PickOfTheDay] Missing ${missingCritical.length} critical categories: [${missingCritical.join(", ")}]. existingCount=${existingCount}. Triggering regeneration...`,
+				`🔄 [PickOfTheDay] Catch-up triggered (${reason}). existingCount=${existingCount}. Triggering regeneration...`,
 			);
 			await this.generateDailyPicks();
 		} else {

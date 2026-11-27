@@ -453,7 +453,7 @@ export function selectStrategy(
 export class DerivativeStrategy extends BaseStrategy {
 	category: PickCategory = "derivatives";
 
-	async generate(context: StrategyContext): Promise<DailyPickData | null> {
+	async generate(context: StrategyContext, symbolOverride?: string): Promise<DailyPickData | null> {
 		try {
 			const { lotSizes } = await derivativesService.getAvailableSymbols();
 			const candidateIndices = ["NIFTY", "BANKNIFTY", "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK"];
@@ -462,9 +462,9 @@ export class DerivativeStrategy extends BaseStrategy {
 			);
 			const indexSymbols = freshIndices.length > 0 ? freshIndices : candidateIndices;
 
-			// Deterministic rotation by IST day-of-year
+			// Deterministic rotation by IST day-of-year (honors symbolOverride if passed)
 			const istDay = Math.floor((Date.now() + 5.5 * 3600000) / 86400000);
-			const selectedSymbol = indexSymbols[istDay % indexSymbols.length];
+			const selectedSymbol = symbolOverride || indexSymbols[istDay % indexSymbols.length];
 
 			const chain = await derivativesService.getOptionsChain(selectedSymbol);
 			const spotPrice = chain.underlyingValue;
@@ -704,7 +704,7 @@ export class DerivativeStrategy extends BaseStrategy {
 				"[DerivativeStrategy] NSE API error, using curated fallback with computed legs:",
 				error instanceof Error ? error : new Error(String(error)),
 			);
-			return this.generateFallbackPick(context);
+			return this.generateFallbackPick(context, symbolOverride);
 		}
 	}
 
@@ -1074,6 +1074,7 @@ export class DerivativeStrategy extends BaseStrategy {
 	 */
 	private async generateFallbackPick(
 		context: StrategyContext,
+		symbolOverride?: string,
 	): Promise<DailyPickData | null> {
 		try {
 			const FALLBACK_INDEX = [
@@ -1098,7 +1099,10 @@ export class DerivativeStrategy extends BaseStrategy {
 
 			const istDay = Math.floor((Date.now() + 5.5 * 3600000) / 86400000);
 			const idx = istDay % pool.length;
-			const { symbol, spotPrice, lotSize, sector } = pool[idx];
+			const targetItem = symbolOverride
+				? (FALLBACK_INDEX.find((f) => f.symbol === symbolOverride) || pool[idx])
+				: pool[idx];
+			const { symbol, spotPrice, lotSize, sector } = targetItem;
 
 			const targetExpiry = this.getUpcomingWeeklyExpiry(symbol);
 			const dteMs = new Date(targetExpiry).getTime() - Date.now();
