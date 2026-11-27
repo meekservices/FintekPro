@@ -1,16 +1,16 @@
 {
   "recommendations": [
-    "bradlc.vscode-tailwindcss",
-    "ms-python.python",
-    "ms-azuretools.vscode-docker",
-    "redhat.vscode-yaml",
-    "mikestead.dotenv",
     "biomejs.biome",
-    "tokenlint.tokenlint",
-    "gpt-token-counter-live"
+    "bradlc.vscode-tailwindcss",
+    "mikestead.dotenv",
+    "redhat.vscode-yaml",
+    "ms-python.python",
+    "ms-azuretools.vscode-docker"
   ],
   "unwantedRecommendations": [
     "docker.docker",
-    "redhat.java"
+    "redhat.java",
+    "tokenlint.tokenlint",
+    "gpt-token-counter-live"
   ]
 }
