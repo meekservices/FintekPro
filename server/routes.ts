@@ -58,6 +58,7 @@ import { taskQueueRouter } from "./routes/task-queue-routes";
 import { registerAIStockRecommendationRoutes } from "./routes/ai-stock-recommendation-routes";
 import engineHealthRoutes from "./routes/engine-health-check";
 import engineLearningRoutes from "./routes/engine-learning-routes";
+import openapiRouter from "./routes/openapi-routes";
 import catalogHealthRoutes from "./routes/catalog-health-router";
 import { registerMarketDataRoutes } from "./routes/market-data";
 import { registerMarketNewsRoutes } from "./routes/market-news-routes";
@@ -683,6 +684,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 	// Monte Carlo Goal Simulation: /api/goal-planning/*
 	app.use("/api/goal-planning", monteCarloGoalRouter);
+
+	// OpenAPI 3.1 Specification & Interactive Documentation: /api/v1/openapi.json, /api/v1/docs, /api/v1/health
+	app.use("/api/v1", openapiRouter);
 
 	// Async Background Worker Queue: /api/async-jobs/*
 	app.use("/api/async-jobs", asyncJobsRouter);

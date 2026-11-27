@@ -5,6 +5,7 @@ import { db } from "./db";
 import { goldenPrices } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 import { logger } from "./logger";
+import { FinancialMath } from "./core/finance/math-engine";
 
 export interface YieldMetrics {
 	totalReturn: number;
@@ -149,17 +150,18 @@ export class YieldTrackerService {
 		}
 		// ── end P2-B ──────────────────────────────────────────────────────────────
 
-		const currentValue = Number(tracker.unitsHeld || 0) * livePrice;
-		const totalInvestmentNum = Number(tracker.totalInvestment || 1);
-		const totalDividendsNum = Number(tracker.totalDividends || 0);
-		const totalInterestNum = Number(tracker.totalInterest || 0);
-		const totalChargesNum = Number(tracker.totalCharges || 0);
+		const unitsHeldDec = FinancialMath.d(tracker.unitsHeld || 0);
+		const currentValueDec = FinancialMath.mul(unitsHeldDec, livePrice);
+		const totalInvestmentDec = FinancialMath.d(tracker.totalInvestment || 1);
+		const totalDividendsDec = FinancialMath.d(tracker.totalDividends || 0);
+		const totalInterestDec = FinancialMath.d(tracker.totalInterest || 0);
+		const totalChargesDec = FinancialMath.d(tracker.totalCharges || 0);
 
-		const totalReturn =
-			((currentValue + totalDividendsNum + totalInterestNum - totalChargesNum) /
-				totalInvestmentNum -
-				1) *
-			100;
+		const netValueDec = FinancialMath.add(currentValueDec, totalDividendsDec, totalInterestDec).minus(totalChargesDec);
+		const totalReturnDec = FinancialMath.div(netValueDec, totalInvestmentDec.isZero() ? 1 : totalInvestmentDec).minus(1).times(100);
+
+		const currentValue = currentValueDec.toNumber();
+		const totalReturn = totalReturnDec.toNumber();
 
 		// Update price history
 		const priceHistory = [...(tracker.priceHistory || [])];

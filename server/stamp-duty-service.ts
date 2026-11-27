@@ -42,6 +42,7 @@ import {
 } from "@shared/schema";
 import { eq, and, isNull, lte, or, gte } from "drizzle-orm";
 import { logger } from "./logger";
+import { FinancialMath } from "./core/finance/math-engine";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Engine versioning — bump when any rate or formula changes
@@ -331,10 +332,10 @@ class StampDutyService {
 				: config.rate;
 
 		// Formula: stampDutyAmount = transactionAmount × (rateBps / 10000)
-		// Round to 2 decimal places (paise precision)
+		// Computed via Tier-1 FinancialMath Decimal Engine (zero float drift, Banker's rounding)
 		const stampDutyAmount = config.isExempt
 			? 0
-			: Math.round((transactionAmount * effectiveRate) / 10000 * 100) / 100;
+			: FinancialMath.calculateStampDuty(transactionAmount, effectiveRate).toNumber();
 
 		return {
 			transactionAmount,
