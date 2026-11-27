@@ -29,7 +29,9 @@ import {
 	Lightbulb,
 	XCircle,
 	Search,
+	Calculator,
 } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
 	Card,
 	CardContent,
@@ -62,6 +64,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { NismCurriculumModal } from "@/components/NismCurriculumModal";
+import { NismInstitutionalVideoPlayer } from "@/components/NismInstitutionalVideoPlayer";
 
 interface CertificationLevel {
 	level: number;
@@ -280,7 +283,32 @@ export default function AgentKnowledgeCertifications() {
 	const [nismSelectedPaper, setNismSelectedPaper] = useState<string>("paper-1");
 	const [nismTestType, setNismTestType] = useState<"exam" | "practice">("practice");
 	const [isCurriculumOpen, setIsCurriculumOpen] = useState(false);
-	const [curriculumCourseId, _setCurriculumCourseId] = useState<string>("nism-vd");
+	const [curriculumCourseId, setCurriculumCourseId] = useState<string>("nism-vd");
+
+	// Video Masterclass Hub state
+	const [videoCourseId, setVideoCourseId] = useState<string>("nism-vd");
+	const [videoActiveChapterNum, setVideoActiveChapterNum] = useState<number>(22);
+
+	const { data: videoCurriculumData } = useQuery<{ success: boolean; curriculum: any }>({
+		queryKey: [`/api/knowledge-hub/nism/courses/${videoCourseId}/curriculum`],
+		queryFn: async () => {
+			const res = await apiRequest("GET", `/api/knowledge-hub/nism/courses/${encodeURIComponent(videoCourseId)}/curriculum`);
+			return typeof res?.json === "function" ? await res.json() : res;
+		},
+		staleTime: 1000 * 60 * 60,
+	});
+
+	const videoChapters = useMemo(() => {
+		if (!videoCurriculumData?.curriculum?.modules) return [];
+		return videoCurriculumData.curriculum.modules.flatMap((m: any) => m.chapters || []);
+	}, [videoCurriculumData]);
+
+	const activeVideoChapter = useMemo(() => {
+		return (
+			videoChapters.find((c: any) => c.chapterNumber === videoActiveChapterNum) ||
+			videoChapters[0]
+		);
+	}, [videoChapters, videoActiveChapterNum]);
 
 	// IRDAI Exam state
 	const [pospExamOpen, setPospExamOpen] = useState(false);
@@ -923,7 +951,13 @@ export default function AgentKnowledgeCertifications() {
 					</div>
 				</div>
 
-				<div className="flex items-center gap-2">
+				<div className="flex items-center gap-2 flex-wrap">
+					<Link href="/agent/knowledge-hub/study-notes?courseId=nism-vd">
+						<Badge variant="outline" className="border-amber-500/60 text-amber-600 dark:text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 px-3 py-1 flex items-center gap-1.5 text-xs font-bold cursor-pointer transition-colors shadow-xs">
+							<Play className="h-3.5 w-3.5 fill-current" />
+							🎬 NISM V-D Video Tutorial
+						</Badge>
+					</Link>
 					<Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10 px-3 py-1 flex items-center gap-1.5 text-xs">
 						<Sparkles className="h-3.5 w-3.5" />
 						LTI 1.3 LMS Active
@@ -999,10 +1033,14 @@ export default function AgentKnowledgeCertifications() {
 
 			{/* Main Tabs */}
 			<Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-				<TabsList className="bg-card border border-border p-1 w-full max-w-3xl grid grid-cols-2 sm:grid-cols-4">
+				<TabsList className="bg-card border border-border p-1 w-full max-w-4xl grid grid-cols-2 sm:grid-cols-5">
 					<TabsTrigger value="nism" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white flex items-center gap-1.5 text-xs sm:text-sm">
 						<GraduationCap className="h-4 w-4" />
 						NISM Academy
+					</TabsTrigger>
+					<TabsTrigger value="videos" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white flex items-center gap-1.5 text-xs sm:text-sm font-bold">
+						<Play className="h-4 w-4 fill-current text-amber-300" />
+						Video Masterclass
 					</TabsTrigger>
 					<TabsTrigger value="irdai" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white flex items-center gap-1.5 text-xs sm:text-sm">
 						<LucideShield className="h-4 w-4" />
@@ -1029,6 +1067,63 @@ export default function AgentKnowledgeCertifications() {
 							Launch official NISM courses directly from FintekPro using <strong className="font-semibold text-emerald-950 dark:text-emerald-100">LTI 1.3 Single Sign-On (SSO)</strong>. Course progress, mock quiz completion, and Continuing Professional Education (CPE) hours are synchronized automatically via real-time <strong className="font-semibold text-emerald-950 dark:text-emerald-100">xAPI webhooks</strong>.
 						</AlertDescription>
 					</Alert>
+
+					{/* Featured NISM Series V-D Video Tutorial Showcase Banner */}
+					<div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-card to-emerald-500/15 border-2 border-amber-500/50 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+						<div className="space-y-1.5">
+							<div className="flex items-center gap-2 flex-wrap">
+								<Badge className="bg-amber-600 text-white font-mono text-xs px-2.5 py-0.5">
+									NEW SEBI SIF BENCHMARK (2026)
+								</Badge>
+								<Badge variant="outline" className="border-amber-500/60 bg-amber-500/15 text-amber-600 dark:text-amber-300 font-bold text-xs flex items-center gap-1">
+									<Play className="h-3 w-3 fill-current text-amber-600 dark:text-amber-400" />
+									22 Video Tutorials Active
+								</Badge>
+								<Badge variant="outline" className="border-emerald-500/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold text-xs">
+									SIF & Derivatives Framework
+								</Badge>
+							</div>
+							<h3 className="text-base sm:text-lg font-extrabold text-foreground tracking-tight flex items-center gap-2">
+								NISM Series V-D: Specialized Investment Fund (SIF) Video Tutorial Masterclass
+							</h3>
+							<p className="text-xs sm:text-sm text-muted-foreground max-w-2xl leading-relaxed">
+								SEBI-mandated certification covering Specialized Investment Funds (₹10 Lakhs threshold), Long-Short Equity, Inverse ETFs, 10-Yr G-Sec IRFs, and bond portfolio immunization.
+							</p>
+						</div>
+						<div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+							<Button
+								className="bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm font-bold h-10 px-4 shadow-sm flex items-center gap-2"
+								onClick={() => {
+									setVideoActiveChapterNum(22);
+									setActiveTab("videos");
+								}}
+							>
+								<Play className="h-4 w-4 fill-current" />
+								<span>Watch Video Tutorials (22 Ch.)</span>
+							</Button>
+							<Button
+								variant="outline"
+								className="border-border text-xs sm:text-sm font-semibold h-10 px-3.5 hover:bg-muted"
+								onClick={() => {
+									window.open("/agent/knowledge-hub/study-notes?courseId=nism-vd", "_blank");
+								}}
+							>
+								<ExternalLink className="h-3.5 w-3.5 mr-1 text-amber-500" />
+								<span>Study Notes & Formulas</span>
+							</Button>
+							<Button
+								variant="outline"
+								className="border-border text-xs sm:text-sm font-semibold h-10 px-3.5 hover:bg-muted"
+								onClick={() => {
+									setCurriculumCourseId("nism-vd");
+									setIsCurriculumOpen(true);
+								}}
+							>
+								<BookOpen className="h-4 w-4 mr-1 text-emerald-500" />
+								<span>Curriculum Blueprint</span>
+							</Button>
+						</div>
+					</div>
 
 					{/* Category Filter Pills & Search Bar */}
 					<div className="flex flex-col gap-3.5 bg-card/60 p-4 rounded-xl border border-border/80 shadow-xs">
@@ -1150,6 +1245,12 @@ export default function AgentKnowledgeCertifications() {
 															<Target className="h-3 w-3 text-amber-600 dark:text-amber-400" />
 															{course.availableMocksCount || 3} Mocks Available
 														</Badge>
+														{(course.courseId?.toLowerCase().includes("vd") || course.seriesCode?.toLowerCase().includes("v-d")) && (
+															<Badge className="text-xs bg-amber-500/20 text-amber-600 dark:text-amber-300 border-amber-500/40 flex items-center gap-1 font-bold">
+																<Play className="h-3 w-3 fill-current text-amber-600 dark:text-amber-400" />
+																22 Video Tutorials
+															</Badge>
+														)}
 													</div>
 													<CardTitle className="text-base font-semibold text-foreground leading-snug">
 														{course.title}
@@ -1250,6 +1351,20 @@ export default function AgentKnowledgeCertifications() {
 													<ExternalLink className="h-3 w-3 ml-0.5 opacity-60" />
 												</Button>
 
+												{(course.courseId?.toLowerCase().includes("vd") || course.seriesCode?.toLowerCase().includes("v-d")) && (
+													<Button
+														size="sm"
+														className="bg-amber-600 hover:bg-amber-700 text-white h-8 flex items-center gap-1.5 text-xs font-bold px-3 shadow-xs"
+														onClick={() => {
+															setVideoActiveChapterNum(22);
+															setActiveTab("videos");
+														}}
+													>
+														<Play className="h-3.5 w-3.5 fill-current" />
+														<span>🎬 Video Tutorial</span>
+													</Button>
+												)}
+
 												<Button
 													size="sm"
 													variant="outline"
@@ -1301,7 +1416,213 @@ export default function AgentKnowledgeCertifications() {
 					)}
 				</TabsContent>
 
-				{/* TAB 2: IRDAI POSP 15-Hour Mandatory Training */}
+				{/* TAB: NISM Masterclass Video Hub */}
+				<TabsContent value="videos" className="space-y-6">
+					{/* Institutional Video Header Banner */}
+					<div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-amber-600/20 via-card to-emerald-600/15 border-2 border-amber-500/50 shadow-sm">
+						<div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+							<div className="space-y-2">
+								<div className="flex items-center gap-2 flex-wrap">
+									<Badge className="bg-amber-600 text-white font-mono text-xs px-2.5 py-0.5">
+										SEBI SIF BLUEPRINT (2026)
+									</Badge>
+									<Badge variant="outline" className="border-amber-500/60 bg-amber-500/15 text-amber-600 dark:text-amber-300 font-bold text-xs flex items-center gap-1">
+										<Play className="h-3 w-3 fill-current text-amber-600 dark:text-amber-400" />
+										22 Accredited Video Masterclasses
+									</Badge>
+									<Badge variant="outline" className="border-emerald-500/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold text-xs flex items-center gap-1">
+										<LucideShield className="h-3 w-3 text-emerald-500" />
+										IEEE xAPI Telemetry & Anti-Piracy Watermarking
+									</Badge>
+								</div>
+								<h2 className="text-xl sm:text-2xl font-extrabold text-foreground tracking-tight flex items-center gap-2">
+									<span>NISM Series V-D: Specialized Investment Funds (SIF) Video Masterclass Series</span>
+								</h2>
+								<p className="text-xs sm:text-sm text-muted-foreground max-w-3xl leading-relaxed">
+									Comprehensive institutional masterclasses curated specifically for SEBI&apos;s Specialized Investment Fund distributor certification. Covers the ₹10 Lakhs ticket size mandate, Long-Short strategies, Inverse/Leveraged ETFs, 10-Year G-Sec IRFs, and portfolio immunization.
+								</p>
+							</div>
+
+							<div className="flex items-center gap-2 flex-wrap shrink-0">
+								<Button
+									variant="outline"
+									className="border-amber-500/60 bg-amber-500/10 text-amber-600 dark:text-amber-300 hover:bg-amber-500/20 text-xs sm:text-sm font-semibold h-10 px-3.5"
+									onClick={() => window.open(`/agent/knowledge-hub/study-notes?courseId=nism-vd&chapter=${activeVideoChapter?.chapterNumber || 22}`, "_blank")}
+								>
+									<BookOpen className="h-4 w-4 mr-1.5" />
+									<span>Study Notes & Formulas</span>
+									<ExternalLink className="h-3 w-3 ml-1.5 opacity-70" />
+								</Button>
+								<Button
+									className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold h-10 px-4 shadow-sm flex items-center gap-1.5"
+									onClick={() => handleStartNismPracticeTest("nism-vd", "paper-1", "practice")}
+								>
+									<Target className="h-4 w-4" />
+									<span>Launch SIF Mock Exam</span>
+								</Button>
+							</div>
+						</div>
+					</div>
+
+					{/* Split Screen Masterclass Workspace */}
+					<div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+						{/* Left 8 Cols: Institutional Video Player & Active Chapter Specs */}
+						<div className="lg:col-span-8 space-y-6">
+							{activeVideoChapter?.video ? (
+								<NismInstitutionalVideoPlayer
+									video={activeVideoChapter.video}
+									courseId={videoCourseId}
+									chapterNumber={activeVideoChapter.chapterNumber}
+									chapterTitle={activeVideoChapter.title}
+									moduleTitle={activeVideoChapter.moduleTitle}
+								/>
+							) : (
+								<Card className="p-8 text-center border-border">
+									<p className="text-sm text-muted-foreground">Select a chapter from the playlist to watch the video masterclass.</p>
+								</Card>
+							)}
+
+							{/* Active Chapter Details & Regulatory Focus */}
+							{activeVideoChapter && (
+								<Card className="border-border bg-card/60 shadow-xs">
+									<CardHeader className="pb-3 border-b border-border/50">
+										<div className="flex items-center justify-between gap-2 flex-wrap">
+											<div className="flex items-center gap-2">
+												<Badge className="bg-amber-600 text-white text-xs px-2.5 py-0.5">
+													Module {activeVideoChapter.moduleNumber}: {activeVideoChapter.moduleTitle}
+												</Badge>
+												<Badge variant="outline" className="border-border text-xs px-2 py-0.5">
+													Exam Weightage: {activeVideoChapter.weightage}
+												</Badge>
+											</div>
+											<Badge variant="outline" className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 text-xs">
+												SEBI Accredited Content
+											</Badge>
+										</div>
+										<CardTitle className="text-lg font-bold text-foreground mt-2">
+											Chapter {activeVideoChapter.chapterNumber}: {activeVideoChapter.title}
+										</CardTitle>
+										<CardDescription className="text-xs sm:text-sm leading-relaxed mt-1">
+											{activeVideoChapter.overview}
+										</CardDescription>
+									</CardHeader>
+									<CardContent className="pt-4 space-y-4">
+										{/* Key Concepts */}
+										<div>
+											<h4 className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-2 flex items-center gap-1.5">
+												<Layers className="h-3.5 w-3.5" />
+												Core Exam Concepts & Regulatory Mandates
+											</h4>
+											<div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+												{activeVideoChapter.keyConcepts?.map((concept: string, idx: number) => (
+													<div
+														key={idx}
+														className="p-2.5 rounded-lg bg-card/80 border border-border/70 text-xs flex items-start gap-2 text-foreground font-medium"
+													>
+														<CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
+														<span className="leading-snug">{concept}</span>
+													</div>
+												))}
+											</div>
+										</div>
+
+										{/* Key Formulas if present */}
+										{activeVideoChapter.formulas && activeVideoChapter.formulas.length > 0 && (
+											<div className="pt-2 border-t border-border/50">
+												<h4 className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-1.5">
+													<Calculator className="h-3.5 w-3.5" />
+													Quantitative Formulas & Calculations
+												</h4>
+												<div className="space-y-2">
+													{activeVideoChapter.formulas.map((f: any, idx: number) => (
+														<div key={idx} className="p-3 rounded-lg bg-blue-50/80 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 space-y-1">
+															<div className="flex items-center justify-between text-xs font-bold text-blue-700 dark:text-blue-300">
+																<span>{f.name}</span>
+																<code className="bg-blue-100 dark:bg-blue-900/50 px-1.5 py-0.5 rounded text-[11px] font-mono">{f.formula}</code>
+															</div>
+															<p className="text-[11px] text-muted-foreground">{f.description}</p>
+														</div>
+													))}
+												</div>
+											</div>
+										)}
+									</CardContent>
+								</Card>
+							)}
+						</div>
+
+						{/* Right 4 Cols: 22-Chapter Interactive Playlist */}
+						<div className="lg:col-span-4 space-y-3">
+							<Card className="border-border bg-card shadow-sm sticky top-20">
+								<CardHeader className="pb-3 border-b border-border/60">
+									<div className="flex items-center justify-between">
+										<CardTitle className="text-sm font-bold flex items-center gap-2">
+											<Play className="h-4 w-4 text-amber-500 fill-current" />
+											<span>Course Playlist</span>
+										</CardTitle>
+										<Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-300 text-xs font-mono">
+											{videoChapters.length} Chapters
+										</Badge>
+									</div>
+									<CardDescription className="text-xs">
+										Click any chapter to launch high-definition masterclass
+									</CardDescription>
+								</CardHeader>
+								<CardContent className="p-2">
+									<ScrollArea className="h-[calc(100vh-280px)] max-h-[680px] pr-2">
+										<div className="space-y-1.5">
+											{videoChapters.map((ch: any) => {
+												const isCurrent = ch.chapterNumber === activeVideoChapter?.chapterNumber;
+												return (
+													<button
+														key={ch.chapterNumber}
+														type="button"
+														onClick={() => setVideoActiveChapterNum(ch.chapterNumber)}
+														className={`w-full text-left p-3 rounded-xl text-xs transition-all flex items-start gap-2.5 ${
+															isCurrent
+																? "bg-amber-500/15 border-2 border-amber-500/60 shadow-xs text-foreground"
+																: "bg-muted/30 hover:bg-muted/60 border border-border/50 text-muted-foreground hover:text-foreground"
+														}`}
+													>
+														<div className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center font-mono text-[11px] font-bold ${
+															isCurrent
+																? "bg-amber-600 text-white"
+																: "bg-muted text-muted-foreground"
+														}`}>
+															{isCurrent ? (
+																<Play className="h-3 w-3 fill-current" />
+															) : (
+																ch.chapterNumber
+															)}
+														</div>
+														<div className="flex-1 min-w-0">
+															<div className="flex items-center justify-between gap-1 mb-0.5">
+																<span className="font-semibold truncate text-[11px] text-foreground">
+																	Ch. {ch.chapterNumber}: {ch.title}
+																</span>
+															</div>
+															<div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+																<span>Mod {ch.moduleNumber}</span>
+																<span>•</span>
+																<span>{ch.video?.durationMinutes || 25}m</span>
+																{ch.video?.isInstitutionalAccredited && (
+																	<>
+																		<span>•</span>
+																		<span className="text-emerald-500 font-medium">Accredited</span>
+																	</>
+																)}
+															</div>
+														</div>
+													</button>
+												);
+											})}
+										</div>
+									</ScrollArea>
+								</CardContent>
+							</Card>
+						</div>
+					</div>
+				</TabsContent>
 				<TabsContent value="irdai" className="space-y-6">
 					<Alert className="bg-amber-500/10 border-amber-500/30">
 						<LucideShield className="h-4 w-4 text-amber-400" />
