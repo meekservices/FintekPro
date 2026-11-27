@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { db } from "../db";
+import { logger } from "../logger";
 import {
 	b2bApiKeys,
 	b2bClients,
@@ -111,23 +112,16 @@ export async function b2bAuthMiddleware(
 
 		next();
 	} catch (error) {
-		console.error("[WFIA Auth Error]", error);
+		logger.error("[WFIA Auth Error]", { error });
 		return res
 			.status(500)
 			.json({ error: "Internal Authentication Gateway Error" });
 	}
 }
 
-/**
- * Token Bucket Rate Limiter abstraction tracking specifically B2B throughput.
- * In a fully distributed PaaS, this lives in Redis. In Phase 1, we use an in-memory Map structure for instantaneous access.
- */
-const rateLimitMap = new Map<
-	string,
-	{ tokens: number; lastRefreshed: number }
->();
+import { consumeRateLimitToken } from "./distributed-rate-limiter";
 
-export function b2bRateLimiter(
+export async function b2bRateLimiter(
 	req: B2BRequest,
 	res: Response,
 	next: NextFunction,
@@ -141,29 +135,18 @@ export function b2bRateLimiter(
 	const REFILL_RATE_MS = 1000;
 	const MAX_CAPACITY = tier === "enterprise" ? 50 : 10; // 50 requests/sec vs 10 requests/sec
 
-	const now = Date.now();
+	const limitResult = await consumeRateLimitToken(clientId, {
+		keyPrefix: "b2b",
+		maxCapacity: MAX_CAPACITY,
+		refillRateMs: REFILL_RATE_MS,
+	});
 
-	if (!rateLimitMap.has(clientId)) {
-		rateLimitMap.set(clientId, {
-			tokens: MAX_CAPACITY - 1,
-			lastRefreshed: now,
-		});
+	if (limitResult.allowed) {
+		res.setHeader("X-RateLimit-Remaining", limitResult.remaining);
+		res.setHeader("X-RateLimit-Tier", limitResult.tier);
 		return next();
 	}
 
-	const bucket = rateLimitMap.get(clientId)!;
-	const timePassed = now - bucket.lastRefreshed;
-
-	// Math: Add tokens reflecting time passed, cap at MAX_CAPACITY.
-	const refillTokens = Math.floor((timePassed / REFILL_RATE_MS) * MAX_CAPACITY);
-	bucket.tokens = Math.min(MAX_CAPACITY, bucket.tokens + refillTokens);
-
-	if (bucket.tokens >= 1) {
-		bucket.tokens -= 1;
-		bucket.lastRefreshed = now;
-		rateLimitMap.set(clientId, bucket);
-		return next();
-	}
 	// 429 Too Many Requests
 	const trackingId = uuidv4();
 	db.insert(b2bApiUsageLogs)
@@ -173,10 +156,12 @@ export function b2bRateLimiter(
 			endpoint: req.originalUrl,
 			status: 429,
 		})
-		.execute();
+		.execute()
+		.catch(() => {});
 
+	res.setHeader("Retry-After", Math.ceil(limitResult.retryAfterMs / 1000));
 	return res.status(429).json({
 		error: "Rate Limit Exceeded. Back off.",
-		retryAfterMs: REFILL_RATE_MS,
+		retryAfterMs: limitResult.retryAfterMs,
 	});
 }

@@ -8,4 +8,5 @@ export * from "./distribution.repository";
 export * from "./derivatives.repository";
 export * from "./user.repository";
 export * from "./golden-price.repository";
-
+export * from "./portfolio.repository";
+export * from "./market-data.repository";
