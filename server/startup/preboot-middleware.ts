@@ -7,6 +7,7 @@ import { APP_VERSION } from "../../shared/version";
 import { bootState } from "../utils/boot-state";
 import { globalLimiter } from "../middleware/rate-limiter";
 import { logger } from "../logger";
+import { distributedTracingMiddleware } from "../telemetry";
 
 // ── Allowed CORS origins ────────────────────────────────────────────────────
 const PROD_ORIGINS = [
@@ -104,10 +105,8 @@ export function registerPrebootMiddleware(app: Express) {
 		next();
 	});
 
-	// ── Request ID — end-to-end tracing (M4 fix) ─────────────────────────────
-	// Assigns a UUID to every request. Use res.locals.requestId in logger calls
-	// for full traceability across Cloud Logging → Cloud Run → DB.
-	// Respects upstream X-Request-Id headers (API gateway / Cloud Tasks).
+	// ── Request ID & W3C Distributed Tracing ──────────────────────────────
+	app.use(distributedTracingMiddleware);
 	app.use((req, res, next) => {
 		const requestId =
 			(req.headers["x-request-id"] as string | undefined) ?? randomUUID();

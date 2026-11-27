@@ -8,6 +8,14 @@ import { BaseRepository } from "./base.repository";
 import { users, type User } from "@shared/schema/users";
 
 export class UserRepository extends BaseRepository {
+	private static instance: UserRepository;
+
+	public static getInstance(): UserRepository {
+		if (!UserRepository.instance) {
+			UserRepository.instance = new UserRepository();
+		}
+		return UserRepository.instance;
+	}
 	/**
 	 * Find user by ID
 	 */

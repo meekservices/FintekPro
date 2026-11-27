@@ -791,6 +791,9 @@ export const iciciBankCreditScores = pgTable("icici_bank_credit_scores", {
   recommendations: jsonb("recommendations").default([]),
   requestedAt: timestamp("requested_at").defaultNow(),
   panNumber: varchar("pan_number"),
+  panEncrypted: text("pan_encrypted"),
+  panSearchHash: varchar("pan_search_hash", { length: 64 }),
+  panMasked: varchar("pan_masked", { length: 15 }),
   mobileNumber: varchar("mobile_number"),
   status: varchar("status").default("pending"), // pending/completed/failed
   errorMessage: text("error_message"),

@@ -271,6 +271,12 @@ import connectPg from "connect-pg-simple";
 import MemoryStore from "memorystore";
 import { pool } from "./db";
 import type { IStorage } from "./storage-types";
+import {
+	PortfolioRepository,
+	MarketDataRepository,
+	GoldenPriceRepository,
+	UserRepository,
+} from "./repositories";
 
 export type { IStorage } from "./storage-types";
 
@@ -484,6 +490,12 @@ class CachedPgSessionStore extends PgSessionBase {
 
 export class DatabaseStorage implements IStorage {
 	private _sessionStore: session.Store | null = null;
+
+	// Institutional Domain Repositories (Modular DAL)
+	public readonly portfolios = PortfolioRepository.getInstance();
+	public readonly marketData = MarketDataRepository.getInstance();
+	public readonly goldenPrices = GoldenPriceRepository.getInstance();
+	public readonly userRepo = UserRepository.getInstance();
 
 	public get sessionStore(): session.Store {
 		if (!this._sessionStore) {
