@@ -530,13 +530,13 @@ export async function getLiveInstrumentPrice(
 					const bench = await goldenPricingEngine.getAuthoritativeCommodityBenchmarks();
 					if (commSym === "GOLD" || commSym.includes("GOLD")) {
 						const mcxGold = bench?.gold?.mcxPriceInr;
-						// Dynamic Corridor Clamp: Gold 10g 2026 corridor [₹95,000 to ₹165,000]
-						if (mcxGold && mcxGold >= 95000 && mcxGold <= 165000) {
-							pick.priceDataSource = "MCX India (Golden Engine)";
+						// Dynamic Corridor Clamp: Gold 10g corridor [₹60,000 to ₹115,000]
+						if (mcxGold && mcxGold >= 60000 && mcxGold <= 115000) {
+							pick.priceDataSource = "MCX India (Golden Engine / Angel One)";
 							pick.dataFreshness = "live";
 							return mcxGold;
 						}
-						return 124870; // Canonical spot fallback (2026 MCX spot ~₹1,24,870)
+						return 78250; // Canonical spot fallback
 					}
 					if (commSym === "SILVER" || commSym.includes("SILVER")) {
 						const mcxSilver = bench?.silver?.mcxPriceInr;
@@ -736,11 +736,11 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 		if (pick.category === "commodities" && (symUpper === "GOLD" || nameLower.includes("gold"))) {
 			const curP = Number(pick.currentPrice || 0);
 			const recoP = Number(pick.recoPrice || 0);
-			const canonicalGoldLtp = 124870.0;
+			const canonicalGoldLtp = 78250.0;
 
-			// If recommendation entry was generated with stale 2024 price (< ₹100,000), heal entry/target/SL immediately
-			if (recoP > 0 && recoP < 100000) {
-				const effectivePrice = curP >= 95000 && curP <= 165000 ? curP : canonicalGoldLtp;
+			// If recommendation entry was generated with corrupted/zero price (< ₹50,000), heal entry/target/SL immediately
+			if (recoP > 0 && recoP < 50000) {
+				const effectivePrice = curP >= 60000 && curP <= 115000 ? curP : canonicalGoldLtp;
 				pick.recoPrice = effectivePrice;
 				pick.currentPrice = effectivePrice;
 				pick.targetPrice = Number((effectivePrice * 1.05).toFixed(2));

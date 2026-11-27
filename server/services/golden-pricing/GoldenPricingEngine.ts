@@ -2288,7 +2288,22 @@ export async function syncMacroAndMarketBriefPrices(
 	let commData: any = null;
 	let ccilData: any = null;
 
-	// 1a. Fire MCX persist in background so DB is always up to date (non-blocking)
+	// 1a. Fire MCX quotes retrieval from Angel One SmartAPI (Primary) and Upstox in background
+	try {
+		const { angelOneAdapter } = await import("../adapters/angel-one-adapter");
+		if (angelOneAdapter.isReady()) {
+			angelOneAdapter.getMcxQuotes().then((quotes) => {
+				if (quotes && quotes.length > 0) {
+					logger.info(`[GoldenPricing] Angel One MCX quotes synced: ${quotes.length} instruments`);
+				}
+			}).catch((err: any) => {
+				logger.debug(`[GoldenPricing] Angel One MCX background sync warning: ${err?.message}`);
+			});
+		}
+	} catch (angelInitErr: any) {
+		logger.debug(`[GoldenPricing] Angel One MCX init notice: ${angelInitErr?.message}`);
+	}
+
 	try {
 		const { upstoxMarketDataService } = await import("../upstox-market-data-service");
 		if (upstoxMarketDataService.isReady()) {
@@ -2412,7 +2427,7 @@ export async function syncMacroAndMarketBriefPrices(
 	const brentCfdUsd = commData?.crudeOilBreakevenStatus?.brentUsd ?? fredData?.brentCrude?.price ?? 74.50;
 	const brentMcxInr = commData?.commodities?.find((c: any) => c.id === "CRUDE_OIL")?.mcxPrice ?? 6325;
 	const wtiUsd = fredData?.wtiCrude?.price ?? 70.85;
-	const goldMcxInr = commData?.commodities?.find((c: any) => c.id === "GOLD")?.mcxPrice ?? 124870;
+	const goldMcxInr = commData?.commodities?.find((c: any) => c.id === "GOLD")?.mcxPrice ?? 78250;
 	const silverMcxInr = commData?.commodities?.find((c: any) => c.id === "SILVER")?.mcxPrice ?? 91500;
 	const goldCfdUsd = commData?.commodities?.find((c: any) => c.id === "GOLD")?.cmxPrice ?? 2685.5;
 	const silverCfdUsd = commData?.commodities?.find((c: any) => c.id === "SILVER")?.cmxPrice ?? 31.4;
@@ -3078,8 +3093,8 @@ async function buildSnapshotFromDBRows(): Promise<DailyMarketBriefSnapshot | nul
 	};
 
 	// Sanitized benchmark pricing to guarantee zero distorted outlier leakage
-	const rawGoldMcx = getPrice("MCX_GOLD", getPrice("COMM_GOLD_MCX", 124870));
-	const goldMcxPrice = (rawGoldMcx >= 95000 && rawGoldMcx <= 165000) ? rawGoldMcx : 124870;
+	const rawGoldMcx = getPrice("MCX_GOLD", getPrice("COMM_GOLD_MCX", 78250));
+	const goldMcxPrice = (rawGoldMcx >= 60000 && rawGoldMcx <= 115000) ? rawGoldMcx : 78250;
 
 	const rawBrentCfd = getPrice("ICE_BRENT_USD", getPrice("COMM_BRENT", 74.50));
 	const brentCfdPrice = (rawBrentCfd >= 50 && rawBrentCfd <= 95) ? rawBrentCfd : 74.50;

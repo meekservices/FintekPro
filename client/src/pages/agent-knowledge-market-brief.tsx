@@ -1489,28 +1489,22 @@ export default function AgentKnowledgeMarketBrief() {
 			}
 		} else if (
 			selectedRegion === "india" &&
-			brief.topMovers &&
-			brief.topMovers.some(
-				(m) =>
-					(m.symbol === "INFY" && m.price === 1885.5) ||
-					(m.symbol === "RELIANCE" && m.price === 1285.0) ||
-					(m.symbol === "TCS" && m.price === 4120.0),
-			)
+			(!brief.topMovers || brief.topMovers.length === 0)
 		) {
 			brief.topMovers = [
-				{ name: "ICICI Bank Limited", symbol: "ICICIBANK", price: 1527.0, change: 1.80, direction: "up", currency: "INR" },
-				{ name: "HDFC Bank Limited", symbol: "HDFCBANK", price: 771.25, change: 1.48, direction: "up", currency: "INR" },
-				{ name: "Bharti Airtel", symbol: "BHARTIARTL", price: 2084.0, change: 1.32, direction: "up", currency: "INR" },
-				{ name: "Tata Motors", symbol: "TATAMOTORS", price: 287.0, change: -2.28, direction: "down", currency: "INR" },
-				{ name: "Power Grid Corporation", symbol: "POWERGRID", price: 255.75, change: -2.07, direction: "down", currency: "INR" },
-				{ name: "Adani Enterprises", symbol: "ADANIENT", price: 2686.8, change: -1.70, direction: "down", currency: "INR" },
+				{ name: "Titan Company", symbol: "TITAN", price: 3454.80, change: 1.49, direction: "up", currency: "INR" },
+				{ name: "ICICI Bank Limited", symbol: "ICICIBANK", price: 1287.50, change: 1.23, direction: "up", currency: "INR" },
+				{ name: "HDFC Bank Limited", symbol: "HDFCBANK", price: 1771.40, change: 1.10, direction: "up", currency: "INR" },
+				{ name: "Power Grid Corporation", symbol: "POWERGRID", price: 314.80, change: -1.43, direction: "down", currency: "INR" },
+				{ name: "Tata Motors", symbol: "TATAMOTORS", price: 812.05, change: -1.26, direction: "down", currency: "INR" },
+				{ name: "Bharat Electronics", symbol: "BEL", price: 287.30, change: -1.17, direction: "down", currency: "INR" },
 			];
 		}
 
 		// Auto-heal stale trade dates in institutional flows if older than settled trading day
 		if (
-			brief.multiExchangeData?.institutionalFlows?.asOfDate &&
-			(brief.multiExchangeData.institutionalFlows.asOfDate === "2026-11-13" ||
+			brief.multiExchangeData?.institutionalFlows &&
+			(!brief.multiExchangeData.institutionalFlows.asOfDate ||
 				brief.multiExchangeData.institutionalFlows.asOfDate < getClientSettledTradeDate())
 		) {
 			brief.multiExchangeData = {

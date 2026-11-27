@@ -44,7 +44,7 @@ export interface McxBhavcopyRecord {
 	unit: string;
 	deliveryCenter?: string;
 	isSpot: boolean;
-	source: "MCX_BHAVCOPY" | "MCX_SPOT" | "UPSTOX_MCX";
+	source: "MCX_BHAVCOPY" | "MCX_SPOT" | "UPSTOX_MCX" | "ANGEL_ONE";
 }
 
 export interface McxBhavcopySyncResult {
@@ -76,9 +76,9 @@ export const MCX_POLLED_SPOT_BENCHMARKS: Array<{
 		tradingSymbol: "GOLD SPOT AHM",
 		instrumentKey: "MCX_SPOT|GOLD_AHM",
 		deliveryCenter: "Ahmedabad",
-		price: 124870,
+		price: 78250,
 		unit: "₹ / 10g",
-		prevClose: 124300,
+		prevClose: 77950,
 		cfdUsd: 2685.50,
 	},
 	{
@@ -215,6 +215,48 @@ export class McxBhavcopyService {
 	public async fetchSettledFuturesRecords(tradeDate: string): Promise<McxBhavcopyRecord[]> {
 		const futuresRecords: McxBhavcopyRecord[] = [];
 		try {
+			const { angelOneAdapter } = await import("./adapters/angel-one-adapter");
+			if (angelOneAdapter.isReady()) {
+				const quotes = await angelOneAdapter.getMcxQuotes();
+				for (const q of quotes) {
+					if (!q.ltp || q.ltp <= 0) continue;
+					const sym = q.tradingSymbol.startsWith("GOLD") ? "GOLD"
+						: q.tradingSymbol.startsWith("SILVER") ? "SILVER"
+						: q.tradingSymbol.startsWith("CRUDE") ? "CRUDE_OIL"
+						: q.tradingSymbol.startsWith("NATURAL") ? "NATURAL_GAS"
+						: q.tradingSymbol.startsWith("COPPER") ? "COPPER" : null;
+					if (sym) {
+						futuresRecords.push({
+							tradeDate,
+							commoditySymbol: sym,
+							tradingSymbol: q.tradingSymbol,
+							instrumentKey: `MCX_FO|${q.symbolToken}`,
+							exchange: "MCX",
+							price: q.ltp,
+							openPrice: q.open,
+							highPrice: q.high,
+							lowPrice: q.low,
+							previousClose: q.close,
+							change: q.close > 0 ? Number((q.ltp - q.close).toFixed(2)) : 0,
+							changePercent: q.close > 0 ? Number((((q.ltp - q.close) / q.close) * 100).toFixed(2)) : 0,
+							volume: q.totalTradedVolume,
+							openInterest: q.opnInterest,
+							unit: sym === "GOLD" ? "₹ / 10g" : sym === "SILVER" ? "₹ / 1kg" : sym === "CRUDE_OIL" ? "₹ / bbl" : sym === "NATURAL_GAS" ? "₹ / mmBtu" : "₹ / kg",
+							isSpot: false,
+							source: "ANGEL_ONE",
+						});
+					}
+				}
+			}
+		} catch (angelErr: any) {
+			logger.debug("[McxBhavcopyService] Angel One EOD futures query notice:", angelErr?.message);
+		}
+
+		if (futuresRecords.length > 0) {
+			return futuresRecords;
+		}
+
+		try {
 			const { upstoxMarketDataService } = await import("./upstox-market-data-service");
 			if (upstoxMarketDataService.isReady()) {
 				const mcxRes = await upstoxMarketDataService.getMCXCommodityQuotes({ persistToDb: false });
@@ -286,8 +328,14 @@ export class McxBhavcopyService {
 		let updatedQuotes = 0;
 		let goldenPricesCount = 0;
 
+		// Deterministic sort to avoid deadlocks across concurrent workers
+		const sortedRecords = [...allRecords].sort((a, b) => {
+			const symCmp = (a.commoditySymbol || "").localeCompare(b.commoditySymbol || "");
+			return symCmp !== 0 ? symCmp : (a.instrumentKey || "").localeCompare(b.instrumentKey || "");
+		});
+
 		// Step 2: Upsert into mcx_commodity_quotes
-		for (const r of allRecords) {
+		for (const r of sortedRecords) {
 			try {
 				await db
 					.insert(mcxCommodityQuotes)

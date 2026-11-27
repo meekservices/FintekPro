@@ -387,10 +387,15 @@ export class NseBhavcopyService {
 				prevPriceMap.set(row.isin, parseFloat(row.price));
 			}
 
+			// Deadlock prevention: sort deterministically by ISIN before batching
+			const sortedRecords = [...records]
+				.filter((r) => !!r.isin)
+				.sort((a, b) => (a.isin || "").localeCompare(b.isin || ""));
+
 			// Upsert in batches of 200
 			const gpBatchSize = 200;
-			for (let i = 0; i < records.length; i += gpBatchSize) {
-				const batch = records.slice(i, i + gpBatchSize).filter((r) => !!r.isin);
+			for (let i = 0; i < sortedRecords.length; i += gpBatchSize) {
+				const batch = sortedRecords.slice(i, i + gpBatchSize);
 				if (batch.length === 0) continue;
 
 				const valuesSql = batch.map((r) => {

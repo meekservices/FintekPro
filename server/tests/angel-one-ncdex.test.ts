@@ -10,6 +10,7 @@ import {
   generateTOTP,
   angelOneAdapter,
   ANGEL_NCDEX_BENCHMARK_TOKENS,
+  ANGEL_MCX_BENCHMARK_TOKENS,
 } from "../services/adapters/angel-one-adapter";
 import { ncdexMarketService, NCDEX_BASELINE_COMMODITIES } from "../services/ncdex-market-service";
 import { MarketDataDecisionEngine } from "../services/market-data-decision-matrix";
@@ -38,10 +39,12 @@ describe("Angel One SmartAPI Adapter — RFC 6238 TOTP & Config", () => {
     expect(totp3.length).toBe(6);
   });
 
-  it("reports NCDEX exchange segment support and adapter status", () => {
+  it("reports NCDEX and MCX exchange segment support and adapter status", () => {
     const status = angelOneAdapter.getStatus();
     expect(status.ncdexSupported).toBe(true);
-    expect(status.exchangeSegment).toBe("ncx_fo");
+    expect(status.mcxSupported).toBe(true);
+    expect(status.exchangeSegment).toContain("ncx_fo");
+    expect(status.exchangeSegment).toContain("mcx_fo");
     expect(typeof status.configured).toBe("boolean");
   });
 
@@ -61,6 +64,22 @@ describe("Angel One SmartAPI Adapter — RFC 6238 TOTP & Config", () => {
       expect(ANGEL_NCDEX_BENCHMARK_TOKENS[key].symbolToken).toBeDefined();
       expect(ANGEL_NCDEX_BENCHMARK_TOKENS[key].lotSize).toBeGreaterThan(0);
     }
+  });
+
+  it("defines benchmark contract tokens for all major MCX commodities", () => {
+    const requiredMcx = ["GOLD", "SILVER", "CRUDE_OIL", "NATURAL_GAS", "COPPER"];
+    for (const key of requiredMcx) {
+      expect(ANGEL_MCX_BENCHMARK_TOKENS[key]).toBeDefined();
+      expect(ANGEL_MCX_BENCHMARK_TOKENS[key].symbolToken).toBeDefined();
+      expect(ANGEL_MCX_BENCHMARK_TOKENS[key].lotSize).toBeGreaterThan(0);
+      expect(ANGEL_MCX_BENCHMARK_TOKENS[key].unit).toBeDefined();
+    }
+  });
+
+  it("exposes Angel One MCX quote retrieval and scrip search methods", () => {
+    expect(typeof angelOneAdapter.getMcxQuotes).toBe("function");
+    expect(typeof angelOneAdapter.getMcxQuote).toBe("function");
+    expect(typeof angelOneAdapter.searchScrip).toBe("function");
   });
 });
 

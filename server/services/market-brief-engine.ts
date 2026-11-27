@@ -93,7 +93,7 @@ export const CANONICAL_FALLBACK_SNAPSHOT_INDIA: MarketBriefSnapshot = {
 		],
 	},
 	commodities: {
-		goldMcxPrice: 124870,
+		goldMcxPrice: 78250,
 		goldMcxUnit: "₹ / 10g",
 		goldComexPrice: 2685.50,
 		silverMcxPrice: 91500,
@@ -291,6 +291,18 @@ class InProcessMarketSnapshotStore {
 			snapshot: { ...CANONICAL_FALLBACK_SNAPSHOT_INDIA },
 			fetchedAt: Date.now(),
 		});
+
+		// Subscribe to reactive benchmark updates for instant SWR invalidation
+		try {
+			import("./golden-pricing/pricing-event-bus").then(({ pricingEventBus }) => {
+				pricingEventBus.onBenchmarkUpdate((_event) => {
+					this.snapshotCache.delete("india");
+					this.triggerBackgroundRefresh("india");
+				});
+			}).catch(() => {});
+		} catch {
+			/* non-fatal */
+		}
 	}
 
 	public async getSnapshot(region: string = "india", forceFresh = false): Promise<MarketBriefSnapshot> {
@@ -357,7 +369,7 @@ class InProcessMarketSnapshotStore {
 		try {
 			const { marketMoversCache } = await import("./market-movers-cache");
 			const moversPromise = marketMoversCache.getMarketMovers();
-			const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 800));
+			const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3500));
 			const moversRes = await Promise.race([moversPromise, timeoutPromise]);
 			if (moversRes?.data && (moversRes.data.gainers?.length || moversRes.data.losers?.length)) {
 				const dynamicList: MarketBriefSnapshot["topMovers"] = [];
@@ -411,7 +423,7 @@ class InProcessMarketSnapshotStore {
 				if (gpe.commodities?.brentCrudeMcxInr && gpe.commodities.brentCrudeMcxInr >= 4500 && gpe.commodities.brentCrudeMcxInr <= 9000) {
 					base.commodities.brentMcxInr = gpe.commodities.brentCrudeMcxInr;
 				}
-				if (gpe.commodities?.goldMcxInr && gpe.commodities.goldMcxInr >= 65000 && gpe.commodities.goldMcxInr <= 95000) {
+				if (gpe.commodities?.goldMcxInr && gpe.commodities.goldMcxInr >= 60000 && gpe.commodities.goldMcxInr <= 115000) {
 					base.commodities.goldMcxPrice = gpe.commodities.goldMcxInr;
 				}
 				if (gpe.commodities?.silverMcxInr && gpe.commodities.silverMcxInr >= 70000 && gpe.commodities.silverMcxInr <= 110000) {

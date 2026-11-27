@@ -27,7 +27,7 @@ import { logger } from "../../logger";
 // ─── Interfaces ────────────────────────────────────────────────────────────────
 
 export interface AngelOneQuoteItem {
-  exchange: "NCX";
+  exchange: "NCX" | "MCX" | "NSE" | "BSE" | "NFO";
   tradingSymbol: string;
   symbolToken: string;
   ltp: number;
@@ -227,6 +227,72 @@ export const ANGEL_NCDEX_BENCHMARK_TOKENS: Record<string, NcdexContractMeta> = {
   },
 };
 
+// ─── Baseline MCX Contract Tokens (Angel One MCX segment) ─────────────────────
+// These map benchmark FintekPro commodity IDs to Angel One SmartAPI MCX commodity tokens
+export interface McxContractMeta {
+  id: string; // e.g. "GOLD", "SILVER", "CRUDE_OIL", "NATURAL_GAS", "COPPER"
+  name: string;
+  symbolToken: string;
+  tradingSymbol: string;
+  expiry: string;
+  lotSize: number;
+  tickSize: number;
+  unit: string;
+}
+
+export const ANGEL_MCX_BENCHMARK_TOKENS: Record<string, McxContractMeta> = {
+  GOLD: {
+    id: "GOLD",
+    name: "Gold 24K (MCX)",
+    symbolToken: "426343",
+    tradingSymbol: "GOLD",
+    expiry: "NEAR_MONTH",
+    lotSize: 100,
+    tickSize: 1,
+    unit: "₹ / 10g",
+  },
+  SILVER: {
+    id: "SILVER",
+    name: "Silver (MCX)",
+    symbolToken: "426344",
+    tradingSymbol: "SILVER",
+    expiry: "NEAR_MONTH",
+    lotSize: 30,
+    tickSize: 1,
+    unit: "₹ / 1kg",
+  },
+  CRUDE_OIL: {
+    id: "CRUDE_OIL",
+    name: "Crude Oil (MCX)",
+    symbolToken: "254823",
+    tradingSymbol: "CRUDEOIL",
+    expiry: "NEAR_MONTH",
+    lotSize: 100,
+    tickSize: 1,
+    unit: "₹ / bbl",
+  },
+  NATURAL_GAS: {
+    id: "NATURAL_GAS",
+    name: "Natural Gas (MCX)",
+    symbolToken: "254824",
+    tradingSymbol: "NATURALGAS",
+    expiry: "NEAR_MONTH",
+    lotSize: 1250,
+    tickSize: 0.1,
+    unit: "₹ / mmBtu",
+  },
+  COPPER: {
+    id: "COPPER",
+    name: "Copper (MCX)",
+    symbolToken: "254825",
+    tradingSymbol: "COPPER",
+    expiry: "NEAR_MONTH",
+    lotSize: 2500,
+    tickSize: 0.05,
+    unit: "₹ / kg",
+  },
+};
+
 // ─── RFC 6238 TOTP Generator (Native Node.js Crypto) ───────────────────────────
 
 /**
@@ -314,7 +380,8 @@ export class AngelOneAdapter {
       authenticated: !!this.session && this.session.expiresAt > Date.now(),
       clientCode: process.env.ANGEL_CLIENT_CODE ? `${process.env.ANGEL_CLIENT_CODE.slice(0, 2)}***` : "NOT_SET",
       ncdexSupported: true,
-      exchangeSegment: "ncx_fo",
+      mcxSupported: true,
+      exchangeSegment: "ncx_fo,mcx_fo",
       timestamp: new Date().toISOString(),
     };
   }
@@ -577,6 +644,212 @@ export class AngelOneAdapter {
       const msg = err instanceof Error ? err.message : String(err);
       logger.warn(`[AngelOne] getCandleData failed: ${msg}`);
       return [];
+    }
+  }
+
+  // ── MCX Commodity Market Quotes ─────────────────────────────────────────────
+
+  /**
+   * Discovers contract details (symbolToken, tradingsymbol) dynamically via SmartAPI searchScrip.
+   * Based on: POST /rest/secure/angelbroking/order/v1/searchScrip
+   */
+  public async searchScrip(
+    exchange: "MCX" | "NCX" | "NSE" | "BSE" | "NFO" | string,
+    searchScrip: string
+  ): Promise<Array<{ exchange: string; tradingSymbol: string; symbolToken: string }> | null> {
+    const token = await this.getActiveToken();
+    if (!token) return null;
+
+    try {
+      const apiKey = process.env.ANGEL_API_KEY!;
+      const resp = await axios.post(
+        `${this.baseUrl}/rest/secure/angelbroking/order/v1/searchScrip`,
+        {
+          exchange,
+          searchscrip: searchScrip,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            "X-UserType": "USER",
+            "X-SourceID": "WEB",
+            "X-ClientLocalIP": "127.0.0.1",
+            "X-ClientPublicIP": process.env.ANGEL_STATIC_IP || "8.231.118.86",
+            "X-MACAddress": "02:00:00:00:00:00",
+            "X-PrivateKey": apiKey,
+          },
+          timeout: 6_000,
+        }
+      );
+
+      const d = resp.data?.data;
+      if (resp.data?.status && Array.isArray(d)) {
+        return d.map((item: any) => ({
+          exchange: item.exchange || exchange,
+          tradingSymbol: item.tradingsymbol || item.tradingSymbol || "",
+          symbolToken: item.symboltoken || item.symbolToken || "",
+        }));
+      }
+      return null;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn(`[AngelOne] searchScrip failed for ${exchange}:${searchScrip}: ${msg}`);
+      return null;
+    }
+  }
+
+  /**
+   * Fetches live market quotes for MCX commodity contracts (Gold, Silver, Crude Oil, Natural Gas, Copper).
+   * Based on SmartAPI Market Data API:
+   * POST /rest/secure/angelbroking/market/v1/quote/
+   *
+   * @param tokens Array of Angel One MCX symbol tokens
+   */
+  public async getMcxQuotes(
+    tokens: string[] = Object.values(ANGEL_MCX_BENCHMARK_TOKENS).map((t) => t.symbolToken)
+  ): Promise<AngelOneQuoteItem[]> {
+    const token = await this.getActiveToken();
+    if (!token) {
+      return [];
+    }
+
+    try {
+      const apiKey = process.env.ANGEL_API_KEY!;
+      const payload = {
+        mode: "FULL",
+        exchangeTokens: {
+          MCX: tokens,
+        },
+      };
+
+      const resp = await axios.post(
+        `${this.baseUrl}/rest/secure/angelbroking/market/v1/quote/`,
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            "X-UserType": "USER",
+            "X-SourceID": "WEB",
+            "X-ClientLocalIP": "127.0.0.1",
+            "X-ClientPublicIP": process.env.ANGEL_STATIC_IP || "8.231.118.86",
+            "X-MACAddress": "02:00:00:00:00:00",
+            "X-PrivateKey": apiKey,
+          },
+          timeout: 8_000,
+        }
+      );
+
+      const fetched: any[] = resp.data?.data?.fetched || [];
+      return fetched.map((item) => ({
+        exchange: "MCX",
+        tradingSymbol: item.tradingSymbol || "",
+        symbolToken: item.symbolToken || "",
+        ltp: Number(item.ltp || 0),
+        open: Number(item.open || 0),
+        high: Number(item.high || 0),
+        low: Number(item.low || 0),
+        close: Number(item.close || 0),
+        lastTradedQty: item.lastTradedQty ? Number(item.lastTradedQty) : undefined,
+        exchFeedTime: item.exchFeedTime,
+        totalTradedVolume: item.totalTradedVolume ? Number(item.totalTradedVolume) : undefined,
+        totalTradedValue: item.totalTradedValue ? Number(item.totalTradedValue) : undefined,
+        opnInterest: item.opnInterest ? Number(item.opnInterest) : undefined,
+        totBuyQuan: item.totBuyQuan ? Number(item.totBuyQuan) : undefined,
+        totSellQuan: item.totSellQuan ? Number(item.totSellQuan) : undefined,
+        depth: item.depth,
+      }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn(`[AngelOne] getMcxQuotes failed: ${msg}`);
+      return [];
+    }
+  }
+
+  /**
+   * Fetches a single MCX commodity quote by symbol or benchmark ID.
+   */
+  public async getMcxQuote(
+    commodityId: "GOLD" | "SILVER" | "CRUDE_OIL" | "NATURAL_GAS" | "COPPER" | string
+  ): Promise<{
+    id: string;
+    name: string;
+    tradingSymbol: string;
+    symbolToken: string;
+    price: number;
+    changePercent: number;
+    close: number;
+    open: number;
+    high: number;
+    low: number;
+    volume?: number;
+    source: "ANGEL_ONE";
+  } | null> {
+    if (!this.isReady()) return null;
+
+    const meta = ANGEL_MCX_BENCHMARK_TOKENS[commodityId];
+    let tradingSymbol = meta?.tradingSymbol || commodityId;
+    let symbolToken = meta?.symbolToken;
+
+    if (!symbolToken) {
+      const searchRes = await this.searchScrip("MCX", commodityId);
+      if (searchRes && searchRes.length > 0) {
+        tradingSymbol = searchRes[0].tradingSymbol;
+        symbolToken = searchRes[0].symbolToken;
+      }
+    }
+
+    if (!symbolToken) return null;
+
+    try {
+      const ltpData = await this.getLtpData("MCX", tradingSymbol, symbolToken);
+      if (!ltpData || !ltpData.ltp || ltpData.ltp <= 0) {
+        const batch = await this.getMcxQuotes([symbolToken]);
+        if (batch.length > 0 && batch[0].ltp > 0) {
+          const item = batch[0];
+          const prevClose = item.close || item.open || item.ltp;
+          const changePercent = prevClose > 0 ? Math.round(((item.ltp - prevClose) / prevClose) * 10000) / 100 : 0;
+          return {
+            id: commodityId,
+            name: meta?.name || commodityId,
+            tradingSymbol: item.tradingSymbol,
+            symbolToken,
+            price: item.ltp,
+            changePercent,
+            close: item.close,
+            open: item.open,
+            high: item.high,
+            low: item.low,
+            volume: item.totalTradedVolume,
+            source: "ANGEL_ONE",
+          };
+        }
+        return null;
+      }
+
+      const prevClose = ltpData.close || ltpData.open || ltpData.ltp;
+      const changePercent = prevClose > 0 ? Math.round(((ltpData.ltp - prevClose) / prevClose) * 10000) / 100 : 0;
+
+      return {
+        id: commodityId,
+        name: meta?.name || commodityId,
+        tradingSymbol: ltpData.tradingSymbol,
+        symbolToken,
+        price: ltpData.ltp,
+        changePercent,
+        close: ltpData.close,
+        open: ltpData.open,
+        high: ltpData.high,
+        low: ltpData.low,
+        source: "ANGEL_ONE",
+      };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn(`[AngelOne] getMcxQuote failed for ${commodityId}: ${msg}`);
+      return null;
     }
   }
 

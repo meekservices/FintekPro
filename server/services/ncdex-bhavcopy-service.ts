@@ -231,9 +231,12 @@ export class NcdexBhavcopyService {
 		// Always prioritize Last Traded Price (LTP) from futures over spot records
 		const allRecords = [...futuresRecords, ...spotRecords];
 
+		// Deterministic sort to avoid deadlocks across concurrent workers
+		const sortedRecords = [...allRecords].sort((a, b) => (a.id || "").localeCompare(b.id || ""));
+
 		let goldenPricesCount = 0;
 
-		for (const r of allRecords) {
+		for (const r of sortedRecords) {
 			try {
 				const isins = [`NCDEX_${r.id}_${r.isSpot ? "SPOT" : "FUT"}`];
 				if (r.isSpot) {

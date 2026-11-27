@@ -92,7 +92,7 @@ const BASELINE_COMMODITIES: CommodityItem[] = [
     name: "Gold 24K (MCX LTP)",
     category: "Precious Metals",
     mcxSymbol: "GOLD",
-    mcxPrice: 124870,
+    mcxPrice: 78250,
     mcxUnit: "₹ / 10g",
     mcxChangePercent: 0.35,
     cmxSymbol: "GC=F (COMEX / Global CFD)",
@@ -273,6 +273,15 @@ export class CommodityMarketService {
       if (liveItems && liveItems.length > 0) {
         const snapshot = this.buildSnapshot(liveItems, "LIVE_COMMODITY_FEED");
         await distributedCache.setJson(CACHE_KEY, snapshot, CACHE_TTL_SECONDS);
+
+        // Reactive benchmark update notification
+        import("./golden-pricing/pricing-event-bus").then(({ pricingEventBus }) => {
+          pricingEventBus.emitBenchmarkUpdate({
+            benchmarks: liveItems.map((i) => i.id),
+            source: "LIVE_COMMODITY_FEED",
+            timestamp,
+          });
+        }).catch(() => {});
         return {
           success: true,
           data: snapshot,
@@ -387,24 +396,59 @@ export class CommodityMarketService {
 
   /**
    * Fetches real-time market quotes directly from authoritative market quote feeds:
-   *   - Tier 0: Licensed domestic MCX data via Upstox API v2/v3
+   *   - Tier 0: Direct licensed MCX live quotes via Angel One SmartAPI (Primary)
+   *   - Tier 0.5: Licensed domestic MCX data via Upstox API v2/v3 (Secondary)
    *   - Tier 1: Authoritative global benchmark feeds (COMEX / ICE / NYMEX charts)
    *   - Tier 2: Federal Reserve Bank of St. Louis (FRED) spot series
    */
   private async fetchLiveQuotes(): Promise<CommodityItem[] | null> {
     try {
-      // Tier 0: Direct licensed MCX live quotes from Upstox
-      let upstoxMcxQuotes: Record<string, any> = {};
+      // Tier 0: Direct licensed MCX live quotes via Angel One SmartAPI (Primary)
+      let angelMcxQuotes: Record<string, any> = {};
       try {
-        const { upstoxMarketDataService } = await import("./upstox-market-data-service");
-        if (upstoxMarketDataService.isReady()) {
-          const mcxRes = await upstoxMarketDataService.getMCXCommodityQuotes({ persistToDb: true });
-          if (mcxRes.success && mcxRes.data) {
-            upstoxMcxQuotes = mcxRes.data;
+        const { angelOneAdapter } = await import("./adapters/angel-one-adapter");
+        if (angelOneAdapter.isReady()) {
+          const commodityIds = ["GOLD", "SILVER", "CRUDE_OIL", "NATURAL_GAS", "COPPER"];
+          const angelResults = await Promise.allSettled(
+            commodityIds.map((id) => angelOneAdapter.getMcxQuote(id))
+          );
+          for (const res of angelResults) {
+            if (res.status === "fulfilled" && res.value && res.value.price > 0) {
+              angelMcxQuotes[res.value.id] = {
+                price: res.value.price,
+                changePercent: res.value.changePercent,
+                close: res.value.close,
+                open: res.value.open,
+                high: res.value.high,
+                low: res.value.low,
+                source: "ANGEL_ONE",
+              };
+            }
+          }
+          if (Object.keys(angelMcxQuotes).length > 0) {
+            logger.info("[CommodityMarketService] Fetched live MCX quotes from Angel One SmartAPI", {
+              commodities: Object.keys(angelMcxQuotes),
+            });
           }
         }
-      } catch (upstoxErr: any) {
-        logger.debug("[CommodityMarketService] Upstox MCX fetch notice:", upstoxErr?.message);
+      } catch (angelErr: any) {
+        logger.debug("[CommodityMarketService] Angel One MCX fetch notice:", angelErr?.message);
+      }
+
+      // Tier 0.5: Upstox MCX secondary fallback
+      let upstoxMcxQuotes: Record<string, any> = {};
+      if (Object.keys(angelMcxQuotes).length === 0) {
+        try {
+          const { upstoxMarketDataService } = await import("./upstox-market-data-service");
+          if (upstoxMarketDataService.isReady()) {
+            const mcxRes = await upstoxMarketDataService.getMCXCommodityQuotes({ persistToDb: true });
+            if (mcxRes.success && mcxRes.data) {
+              upstoxMcxQuotes = mcxRes.data;
+            }
+          }
+        } catch (upstoxErr: any) {
+          logger.debug("[CommodityMarketService] Upstox MCX fetch notice:", upstoxErr?.message);
+        }
       }
 
       // Resolve live USD/INR rate for commodity parity conversion
@@ -479,7 +523,7 @@ export class CommodityMarketService {
         const foundIdx = symbolsToFetch.findIndex((s) => s.id === base.id);
         const matchResult = foundIdx !== -1 ? quotes[foundIdx] : null;
         const liveQuote = matchResult && matchResult.status === "fulfilled" ? matchResult.value : null;
-        const mcxLive = upstoxMcxQuotes[base.id];
+        const mcxLive = angelMcxQuotes[base.id] || upstoxMcxQuotes[base.id];
 
         let updatedMcxPrice = mcxLive?.price && mcxLive.price > 0 ? mcxLive.price : base.mcxPrice;
         let updatedMcxChange = mcxLive?.changePercent !== undefined ? mcxLive.changePercent : base.mcxChangePercent;
