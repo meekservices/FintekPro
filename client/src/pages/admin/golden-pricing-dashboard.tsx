@@ -19,6 +19,8 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
+	TableDensityToggle,
+	type TableDensity,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -83,6 +85,7 @@ interface PriceAudit {
 
 export default function GoldenPricingDashboard() {
 	const { toast } = useToast();
+	const [tableDensity, setTableDensity] = useState<TableDensity>("normal");
 	const [searchIsin, setSearchIsin] = useState("");
 	const [auditIsin, setAuditIsin] = useState("");
 	const [overrideData, setOverrideData] = useState<{
@@ -394,19 +397,20 @@ export default function GoldenPricingDashboard() {
 					</div>
 
 					<Card>
-						<CardHeader>
+						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
 							<CardTitle>Source Breakdown</CardTitle>
+							<TableDensityToggle density={tableDensity} onDensityChange={setTableDensity} />
 						</CardHeader>
 						<CardContent>
-							<Table>
+							<Table density={tableDensity}>
 								<TableHeader>
 									<TableRow>
 										<TableHead>Asset Class</TableHead>
-										<TableHead>NSE</TableHead>
-										<TableHead>AMFI</TableHead>
-										<TableHead>FMP</TableHead>
-										<TableHead>Model/Broker</TableHead>
-										<TableHead>Avg Confidence</TableHead>
+										<TableHead align="right">NSE</TableHead>
+										<TableHead align="right">AMFI</TableHead>
+										<TableHead align="right">FMP</TableHead>
+										<TableHead align="right">Model/Broker</TableHead>
+										<TableHead align="right">Avg Confidence</TableHead>
 									</TableRow>
 								</TableHeader>
 								<TableBody>
@@ -422,14 +426,14 @@ export default function GoldenPricingDashboard() {
 												<TableCell className="font-medium uppercase">
 													{row.asset_class}
 												</TableCell>
-												<TableCell>{row.from_nse}</TableCell>
-												<TableCell>{row.from_amfi}</TableCell>
-												<TableCell>{row.from_fmp}</TableCell>
-												<TableCell>
+												<TableCell align="right">{row.from_nse}</TableCell>
+												<TableCell align="right">{row.from_amfi}</TableCell>
+												<TableCell align="right">{row.from_fmp}</TableCell>
+												<TableCell align="right">
 													{Number.parseInt(row.from_model) +
 														Number.parseInt(row.from_broker_quote)}
 												</TableCell>
-												<TableCell>{row.avg_confidence}%</TableCell>
+												<TableCell align="right">{row.avg_confidence}%</TableCell>
 											</TableRow>
 										))
 									)}
@@ -441,21 +445,24 @@ export default function GoldenPricingDashboard() {
 
 				<TabsContent value="flagged" className="space-y-4">
 					<Card>
-						<CardHeader>
-							<CardTitle>Flagged Prices</CardTitle>
-							<CardDescription>
-								Instruments with price deviations {">"} 20% or unusual data
-								patterns
-							</CardDescription>
+						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+							<div>
+								<CardTitle>Flagged Prices</CardTitle>
+								<CardDescription>
+									Instruments with price deviations {">"} 20% or unusual data
+									patterns
+								</CardDescription>
+							</div>
+							<TableDensityToggle density={tableDensity} onDensityChange={setTableDensity} />
 						</CardHeader>
 						<CardContent>
-							<Table>
+							<Table density={tableDensity}>
 								<TableHeader>
 									<TableRow>
 										<TableHead>ISIN</TableHead>
-										<TableHead>Price</TableHead>
-										<TableHead>Prev Price</TableHead>
-										<TableHead>Deviation</TableHead>
+										<TableHead align="right">Price</TableHead>
+										<TableHead align="right">Prev Price</TableHead>
+										<TableHead align="right">Deviation</TableHead>
 										<TableHead>Reason</TableHead>
 										<TableHead>Action</TableHead>
 									</TableRow>
@@ -473,9 +480,9 @@ export default function GoldenPricingDashboard() {
 												<TableCell className="font-mono text-xs">
 													{row.isin}
 												</TableCell>
-												<TableCell>₹{row.price}</TableCell>
-												<TableCell>₹{row.previous_price || "N/A"}</TableCell>
-												<TableCell className="text-red-500 font-bold">
+												<TableCell align="right">₹{row.price}</TableCell>
+												<TableCell align="right">₹{row.previous_price || "N/A"}</TableCell>
+												<TableCell align="right" className="text-red-500 font-bold">
 													{row.deviation_pct}%
 												</TableCell>
 												<TableCell

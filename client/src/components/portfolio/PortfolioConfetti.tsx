@@ -16,17 +16,26 @@ interface PortfolioPerformance {
 interface PortfolioConfettiProps {
 	portfolioId: string;
 	enabled?: boolean;
+	institutionalMode?: boolean;
 }
 
 export function PortfolioConfetti({
 	portfolioId,
-	enabled = true,
+	enabled = false, // Disabled by default for institutional wealth standard
+	institutionalMode = true,
 }: PortfolioConfettiProps) {
 	const [showConfetti, setShowConfetti] = useState(false);
 	const [lastCelebration, setLastCelebration] = useState<string | null>(null);
 	const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
 	const celebrationTimeoutRef = useRef<NodeJS.Timeout>();
 	const previousPerformanceRef = useRef<PortfolioPerformance | null>(null);
+
+	// Check if user has explicitly enabled retail animations in localStorage
+	const isRetailAnimationAllowed = typeof window !== "undefined" 
+		? localStorage.getItem("fintekpro_retail_confetti_enabled") === "true" 
+		: false;
+
+	const effectiveEnabled = enabled && isRetailAnimationAllowed && !institutionalMode;
 
 	// Get window size for confetti canvas
 	useEffect(() => {
@@ -42,11 +51,11 @@ export function PortfolioConfetti({
 		return () => window.removeEventListener("resize", updateWindowSize);
 	}, []);
 
-	// Fetch real-time portfolio performance
+	// Fetch real-time portfolio performance (only when animations enabled)
 	const { data: performance } = useQuery<PortfolioPerformance>({
 		queryKey: ["/api/portfolios", portfolioId, "performance"],
-		refetchInterval: 2000, // Update every 2 seconds for real-time tracking
-		enabled,
+		refetchInterval: 10000, // Reduced from aggressive 2s polling
+		enabled: effectiveEnabled,
 	});
 
 	// Advanced confetti animations for different milestones
@@ -250,7 +259,7 @@ export function PortfolioConfetti({
 
 		// Store current performance for next comparison
 		previousPerformanceRef.current = performance;
-	}, [performance, enabled, lastCelebration, triggerAdvancedConfetti]);
+	}, [performance, effectiveEnabled, lastCelebration, triggerAdvancedConfetti]);
 
 	// Cleanup timeout on unmount
 	useEffect(() => {
@@ -261,7 +270,7 @@ export function PortfolioConfetti({
 		};
 	}, []);
 
-	if (!enabled || !showConfetti) return null;
+	if (!effectiveEnabled || !showConfetti) return null;
 
 	return (
 		<Confetti

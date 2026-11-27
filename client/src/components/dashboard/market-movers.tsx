@@ -179,7 +179,7 @@ export function MarketMovers() {
 									{stock.name}
 								</p>
 							</div>
-							<div className="text-right">
+							<div className="text-right font-mono tabular-nums">
 								<p
 									className="font-bold text-foreground"
 									data-testid={`stock-price-${stock.symbol}`}

@@ -825,11 +825,15 @@ export class DerivativeStrategy extends BaseStrategy {
 			});
 		}
 
-		// Calculate net debit / credit per unit
+		// Calculate net debit / credit per unit with real Bid/Ask spread execution modeling
 		let netDebit = 0;
 		for (const leg of legs) {
 			const sign = leg.action === "BUY" ? 1 : -1;
-			netDebit += sign * leg.premium * leg.quantity;
+			// Real-world execution modeling: buy at Ask price, sell at Bid price when exchange quotes exist
+			const execPrice = leg.action === "BUY"
+				? (leg.askPrice && leg.askPrice > 0 ? leg.askPrice : leg.premium)
+				: (leg.bidPrice && leg.bidPrice > 0 ? leg.bidPrice : leg.premium);
+			netDebit += sign * execPrice * leg.quantity;
 		}
 		netDebit = Math.round(netDebit * 100) / 100;
 

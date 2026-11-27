@@ -422,6 +422,20 @@ export class PickOfTheDayService {
 		let sectorGateBlocked = 0;
 		const categoryResults: GenerationLogEntry["categoryResults"] = {};
 
+		// ── Tier-0 Upgrade: Macro Regime Classification & Tactical Category Weighting ──
+		let macroRegimeData: any = null;
+		try {
+			const { macroRegimeClassifier } = await import("./picks/macro-regime-classifier");
+			macroRegimeData = macroRegimeClassifier.classify({
+				indiaVix: liveVixValue > 0 ? liveVixValue : 14.5,
+			});
+			logger.info(
+				`🌐 [PickOfTheDay] Tier-0 Macro Regime Detected: ${macroRegimeData.regime} (Confidence: ${macroRegimeData.confidenceScore}%) — ${macroRegimeData.rationale}`,
+			);
+		} catch (regimeErr) {
+			logger.warn(`[PickOfTheDay] Macro regime classification fallback (non-fatal): ${regimeErr}`);
+		}
+
 		// Ordered by priority. pre_ipo runs after unlisted so both get fresh picks.
 		let categories: PickCategory[] = [
 			"listed_stocks",
@@ -437,6 +451,12 @@ export class PickOfTheDayService {
 			"derivatives",
 			"commodities",
 		];
+
+		if (macroRegimeData?.categoryWeightMultipliers) {
+			const multipliers = macroRegimeData.categoryWeightMultipliers;
+			// Sort categories dynamically so macro-overweighted asset classes are evaluated first
+			categories.sort((a, b) => (multipliers[b] ?? 1.0) - (multipliers[a] ?? 1.0));
+		}
 
 		if (isBlackSwan || isVixBreached) {
 			logger.warn(
@@ -1009,6 +1029,42 @@ export class PickOfTheDayService {
 			}
 		}
 
+		// ── Tier-0 Upgrade: Cross-Asset Covariance & Portfolio Risk Decomposition ──
+		if (generated.length > 1) {
+			try {
+				const { crossAssetCovarianceEngine } = await import("./picks/cross-asset-covariance-engine");
+				const covarianceReport = crossAssetCovarianceEngine.analyzeBasket(generated);
+				logger.info(
+					`📊 [PickOfTheDay] Tier-0 Basket Covariance Analysis complete: DR=${covarianceReport.diversificationRatio}x (${covarianceReport.diversificationTier}), 1-Day 95% VaR=${covarianceReport.parametricVaR95_1DayPct}%, CVaR=${covarianceReport.conditionalVaR95_1DayPct}%`,
+				);
+				for (const pick of generated) {
+					const contrib = covarianceReport.assetContributions.find(
+						(c) => c.instrumentName === pick.instrumentName,
+					);
+					if (pick.keyMetrics && typeof pick.keyMetrics === "object") {
+						(pick.keyMetrics as any).covarianceRisk = {
+							diversificationRatio: covarianceReport.diversificationRatio,
+							diversificationTier: covarianceReport.diversificationTier,
+							portfolioAnnualVolatilityPct: covarianceReport.portfolioAnnualVolatilityPct,
+							parametricVaR95_1DayPct: covarianceReport.parametricVaR95_1DayPct,
+							conditionalVaR95_1DayPct: covarianceReport.conditionalVaR95_1DayPct,
+							assetRiskContribution: contrib,
+						};
+						if (macroRegimeData) {
+							(pick.keyMetrics as any).macroRegime = {
+								regime: macroRegimeData.regime,
+								confidenceScore: macroRegimeData.confidenceScore,
+								rationale: macroRegimeData.rationale,
+							};
+						}
+						await this.savePick(pick);
+					}
+				}
+			} catch (covErr) {
+				logger.warn(`[PickOfTheDay] Basket covariance analysis failed (non-fatal): ${covErr}`);
+			}
+		}
+
 		const picksCount = generated.length;
 		// BUG-1 FIX: use genStart captured at the top of this method.
 		// Old formula (Date.now() - midnight IST) always returned ~33M ms at 9:20 AM.
@@ -1254,9 +1310,12 @@ export class PickOfTheDayService {
 						);
 					}
 
-					// Non-live yield categories (FDs, unlisted, bonds, SGB) accrue yield monotonically
+					// Non-live yield categories (FDs, unlisted, bonds) accrue yield monotonically
 					// and must not be subjected to equity-style stoploss triggers.
-					const isNonLiveYieldCategory = PickOfTheDayService.NO_LIVE_PRICE_CATEGORIES.has(category) && category !== "derivatives";
+					// Note: SGB has live gold/exchange pricing when available; falls back to yield accrual only if no live price exists.
+					const isNonLiveYieldCategory =
+						(PickOfTheDayService.NO_LIVE_PRICE_CATEGORIES.has(category) && category !== "derivatives" && category !== "sgb") ||
+						(category === "sgb" && livePrice == null);
 
 					if (livePrice != null && !isNonLiveYieldCategory) {
 						// ── Exchange-traded instrument: use actual live price ──────────────
@@ -1419,9 +1478,30 @@ export class PickOfTheDayService {
 							} catch { /* non-fatal */ }
 						}
 
+						// ── Tier-0 Upgrade: Real-Time Alpha Decay & Trailing Thesis Surveillance ──
+						let alphaDecayResult = null;
+						try {
+							const { alphaDecaySurveillanceEngine } = await import("./picks/alpha-decay-surveillance-engine");
+							alphaDecayResult = alphaDecaySurveillanceEngine.evaluate(pick, livePrice, { daysHeldOverride: daysHeld });
+							if (
+								alphaDecayResult.recommendedAction === "TIGHTEN_STOPLOSS" &&
+								alphaDecayResult.updatedTrailingStopLoss != null
+							) {
+								const newSl = alphaDecayResult.updatedTrailingStopLoss;
+								if (!isCreditStrategy && newSl > stoplossPrice && newSl < livePrice) {
+									stoplossPrice = newSl;
+									stoplossAdjusted = true;
+								} else if (isCreditStrategy && newSl < stoplossPrice && newSl > livePrice) {
+									stoplossPrice = newSl;
+									stoplossAdjusted = true;
+								}
+							}
+						} catch { /* non-fatal */ }
+
 						const updatedKeyMetrics = {
 							...((pick.keyMetrics as any) || {}),
 							...(exitAnalysis ? { exitStrategy: exitAnalysis } : {}),
+							...(alphaDecayResult ? { alphaDecaySurveillance: alphaDecayResult } : {}),
 						};
 
 						await db
@@ -1495,9 +1575,11 @@ export class PickOfTheDayService {
 							PickOfTheDayService.NO_LIVE_PRICE_CATEGORIES.has(category); // yield accrual
 
 						if (needsUpdate) {
+							const accruedPrice = (recoPrice * (1 + estimatedReturn / 100)).toFixed(2);
 							await db
 								.update(dailyPicks)
 								.set({
+									currentPrice: accruedPrice,
 									returnPct: estimatedReturn.toFixed(2),
 									daysHeld,
 									status: newStatus,

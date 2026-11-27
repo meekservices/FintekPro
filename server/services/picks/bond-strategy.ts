@@ -281,6 +281,8 @@ export class BondStrategy extends BaseStrategy {
 					ytm,
 					coupon,
 					rating,
+					faceValue: topBond.faceValue ? Number.parseFloat(topBond.faceValue) : undefined,
+					isSeniorSecured: !(topBond.issuerName || "").toLowerCase().includes("subordinated") && !(topBond.issuerName || "").toLowerCase().includes("perpetual"),
 					maturity: topBond.maturityDate,
 					maturityYears: maturityYears
 						? Math.round(maturityYears * 10) / 10
@@ -337,6 +339,23 @@ export class BondStrategy extends BaseStrategy {
 		// Reward bonds with generous risk-adjusted compensation over the benchmark.
 		if (ytm > 0) {
 			score += this.gSecSpreadScore(rating, ytm);
+		}
+
+		// ── Seniority & Capital Structure Guardrail ─────────────
+		const name = String(bond.issuerName || bond.instrumentName || "").toLowerCase();
+		const securityType = String(bond.securityType || "").toLowerCase();
+		if (name.includes("subordinated") || name.includes("tier ii") || name.includes("tier 2") || name.includes("perpetual")) {
+			score -= 15; // Write-down / loss-absorption risk penalty
+		} else if (name.includes("secured") || securityType.includes("secured")) {
+			score += 6; // Senior secured creditor protection
+		}
+
+		// Retail lot size preference: encourage accessible public NCDs (face value <= 10,000)
+		const faceVal = Number.parseFloat(String(bond.faceValue || "0"));
+		if (faceVal > 0 && faceVal <= 10000) {
+			score += 5; // Retail-accessible lot size (SEBI reform compliant)
+		} else if (faceVal >= 1000000) {
+			score -= 8; // Wholesale institutional lot size (₹10 Lakhs ticket hurdle for retail)
 		}
 
 		return score;

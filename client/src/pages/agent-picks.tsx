@@ -10444,6 +10444,68 @@ function PickCard({
 											ISIN: {pick.isin}
 										</span>
 									)}
+									{pick.category === "bonds" && (
+										<div className="flex items-center gap-1.5 flex-wrap">
+											{pick.keyMetrics?.creditRating && (
+												<span className="text-xs px-2 py-0.5 rounded font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+													Rating: {pick.keyMetrics.creditRating}
+												</span>
+											)}
+											{pick.keyMetrics?.ytm && (
+												<span className="text-xs px-2 py-0.5 rounded font-bold font-mono bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+													YTM: {pick.keyMetrics.ytm}%
+												</span>
+											)}
+											{pick.keyMetrics?.seniority && (
+												<span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+													{pick.keyMetrics.seniority}
+												</span>
+											)}
+											{pick.keyMetrics?.maturityYears && (
+												<span className="text-xs text-muted-foreground font-mono">
+													Tenor: {pick.keyMetrics.maturityYears}Y
+												</span>
+											)}
+										</div>
+									)}
+									{pick.category === "fixed_deposits" && (
+										<div className="flex items-center gap-1.5 flex-wrap">
+											<span className="text-xs px-2 py-0.5 rounded font-bold font-mono bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+												<ShieldCheck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+												{pick.keyMetrics?.annualizedYieldAPY || pick.keyMetrics?.interestRate}% APY
+											</span>
+											<span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-medium">
+												DICGC Insured (₹5L)
+											</span>
+											<span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+												{pick.keyMetrics?.compoundingFrequency || "Quarterly"} Compounded
+											</span>
+											{pick.keyMetrics?.tenureMonths && (
+												<span className="text-xs text-muted-foreground font-mono">
+													{pick.keyMetrics.tenureMonths} Months
+												</span>
+											)}
+										</div>
+									)}
+									{pick.category === "etfs" && (
+										<div className="flex items-center gap-1.5 flex-wrap">
+											{pick.keyMetrics?.liquidityTier && (
+												<span className="text-xs px-2 py-0.5 rounded font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+													{pick.keyMetrics.liquidityTier}
+												</span>
+											)}
+											{pick.keyMetrics?.trackingError != null && (
+												<span className="text-xs px-1.5 py-0.5 rounded bg-muted font-mono text-muted-foreground">
+													Tracking Error: {pick.keyMetrics.trackingError}%
+												</span>
+											)}
+											{pick.keyMetrics?.expenseRatio != null && (
+												<span className="text-xs px-1.5 py-0.5 rounded bg-muted font-mono text-muted-foreground">
+													TER: {pick.keyMetrics.expenseRatio}%
+												</span>
+											)}
+										</div>
+									)}
 									{(pick.category === "unlisted" || isPreIpo) && pick.keyMetrics?.cin && (
 										<span className="text-xs text-orange-600 dark:text-orange-400 font-mono">
 											CIN: {pick.keyMetrics.cin}

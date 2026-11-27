@@ -285,6 +285,29 @@ export class MutualFundStrategy extends BaseStrategy {
 		else if (expenseRatio < 2.0) score += 3;   // Typical Regular plan ER
 		else if (expenseRatio > 2.5) score -= 10;  // High-cost Regular plan — drag on returns
 
+		// Multi-Year Compounding Consistency: reward funds that sustain performance, penalize recency-bias spikes
+		if (returns3y !== null && returns3y > 0) {
+			if (returns3y >= 20 && returns1y >= 18) {
+				score += 15; // Sustained multi-year alpha compounder
+			} else if (returns3y >= 15 && returns1y >= 12) {
+				score += 8;
+			} else if (returns3y < 8 && returns1y > 25) {
+				score -= 10; // High-beta speculative spike / recency bias trap
+			}
+		}
+
+		// ── Macro Sector Transmission for Sectoral / Thematic Funds ─────────────
+		try {
+			const catLower = category.toLowerCase();
+			if (catLower.includes("sector") || catLower.includes("thematic") || catLower.includes("energy") || catLower.includes("consumption") || catLower.includes("fmcg")) {
+				const { commoditySectorTransmissionEngine } = require("./commodity-sector-transmission");
+				const impact = commoditySectorTransmissionEngine.evaluateSectorImpact(category, {});
+				if (impact && impact.scoreDelta !== 0) {
+					score += Math.round(impact.scoreDelta * 0.8);
+				}
+			}
+		} catch { /* non-fatal */ }
+
 		return score;
 	}
 

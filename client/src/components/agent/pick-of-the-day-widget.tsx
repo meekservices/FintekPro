@@ -312,52 +312,141 @@ export default function PickOfTheDayWidget() {
 										})()}
 
 										<div className="flex items-center gap-2.5 text-xs text-muted-foreground flex-wrap">
-											{/* Live LTP Pill */}
-											<span
-												className={`inline-flex items-center gap-1 font-mono font-semibold px-2 py-0.5 rounded text-[11px] border ${
-													Number.parseFloat(currentReturn) >= 0
-														? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800"
-														: "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-300 dark:border-red-800"
-												}`}
-												title="Live LTP (Current Market Price)"
-											>
-												<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-												Live LTP {formatPrice(effectiveLtp, pick.category)}
-												<span className="text-[10px] font-medium">
-													({Number.parseFloat(currentReturn) >= 0 ? "+" : ""}{currentReturn}%)
-												</span>
-											</span>
-											<span className="flex items-center gap-1 font-mono text-[11px]">
-												Entry {formatPrice(pick.recoPrice, pick.category)}
-											</span>
-											<span className="flex items-center gap-1 text-[11px]">
-												<Target className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />+{upside}% TGT
-											</span>
-											<span className="flex items-center gap-1 text-[11px]">
-												<LucideShield className="h-3 w-3 text-red-600 dark:text-red-400" />
-												SL {formatPrice(pick.stoplossPrice, pick.category)}
-											</span>
-											{(() => {
-												const r = Number(pick.recoPrice) || 0;
-												const t = Number(pick.targetPrice) || 0;
-												const s = Number(pick.stoplossPrice) || 0;
-												if (r > 0 && t > r && s > 0 && r > s) {
-													const rr = ((t - r) / (r - s)).toFixed(1);
-													return (
-														<span className="text-[10px] px-1.5 py-0.5 rounded bg-muted font-mono font-medium text-emerald-600 dark:text-emerald-400">
-															1:{rr} R/R
+											{pick.category === "fixed_deposits" ? (
+												<>
+													<span className="inline-flex items-center gap-1 font-mono font-semibold px-2 py-0.5 rounded text-[11px] border bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800">
+														<LucideShield className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+														{pick.keyMetrics?.annualizedYieldAPY ? `${pick.keyMetrics.annualizedYieldAPY}% APY` : pick.keyMetrics?.interestRate ? `${pick.keyMetrics.interestRate}% APY` : `${upside}% APY`}
+													</span>
+													<span className="text-[10px] px-1.5 py-0.5 rounded bg-muted font-medium text-foreground">
+														{pick.keyMetrics?.compoundingFrequency || "Quarterly"} Compounded
+													</span>
+													<span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-medium">
+														DICGC Insured (₹5L)
+													</span>
+													{pick.keyMetrics?.tenureMonths && (
+														<span className="text-[10px] text-muted-foreground font-mono">
+															{pick.keyMetrics.tenureMonths}M Term
 														</span>
-													);
-												}
-												if (pick.keyMetrics?.rewardToRiskRatio) {
-													return (
-														<span className="text-[10px] px-1.5 py-0.5 rounded bg-muted font-mono font-medium">
-															R:R {pick.keyMetrics.rewardToRiskRatio}:1
+													)}
+												</>
+											) : pick.category === "bonds" ? (
+												<>
+													<span
+														className={`inline-flex items-center gap-1 font-mono font-semibold px-2 py-0.5 rounded text-[11px] border ${
+															Number.parseFloat(currentReturn) >= 0
+																? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800"
+																: "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-300 dark:border-red-800"
+														}`}
+													>
+														<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+														Clean LTP {formatPrice(effectiveLtp, pick.category)}
+													</span>
+													{pick.keyMetrics?.ytm && (
+														<span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 font-mono font-bold">
+															YTM {pick.keyMetrics.ytm}%
 														</span>
-													);
-												}
-												return null;
-											})()}
+													)}
+													{pick.keyMetrics?.creditRating && (
+														<span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-bold">
+															{pick.keyMetrics.creditRating}
+														</span>
+													)}
+													{pick.keyMetrics?.seniority && (
+														<span className="text-[10px] text-muted-foreground font-medium">
+															{pick.keyMetrics.seniority}
+														</span>
+													)}
+												</>
+											) : pick.category === "sgb" ? (
+												<>
+													<span className="inline-flex items-center gap-1 font-mono font-semibold px-2 py-0.5 rounded text-[11px] border bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800">
+														<Coins className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+														NSE LTP {formatPrice(effectiveLtp, pick.category)}/g
+													</span>
+													<span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 font-medium">
+														+2.5% p.a. Sovereign Coupon
+													</span>
+													<span className="text-[10px] px-1.5 py-0.5 rounded bg-muted font-medium text-emerald-600 dark:text-emerald-400">
+														Tax-Free Maturity (Sec 47)
+													</span>
+												</>
+											) : pick.category === "etfs" ? (
+												<>
+													<span
+														className={`inline-flex items-center gap-1 font-mono font-semibold px-2 py-0.5 rounded text-[11px] border ${
+															Number.parseFloat(currentReturn) >= 0
+																? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800"
+																: "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-300 dark:border-red-800"
+														}`}
+													>
+														<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+														LTP {formatPrice(effectiveLtp, pick.category)}
+													</span>
+													{pick.keyMetrics?.liquidityTier && (
+														<span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-semibold">
+															{pick.keyMetrics.liquidityTier}
+														</span>
+													)}
+													{pick.keyMetrics?.trackingError != null && (
+														<span className="text-[10px] text-muted-foreground font-mono">
+															TE: {pick.keyMetrics.trackingError}%
+														</span>
+													)}
+													<span className="flex items-center gap-1 text-[11px]">
+														<Target className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />+{upside}% TGT
+													</span>
+												</>
+											) : (
+												<>
+													{/* Live LTP Pill */}
+													<span
+														className={`inline-flex items-center gap-1 font-mono font-semibold px-2 py-0.5 rounded text-[11px] border ${
+															Number.parseFloat(currentReturn) >= 0
+																? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800"
+																: "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-300 dark:border-red-800"
+														}`}
+														title="Live LTP (Current Market Price)"
+													>
+														<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+														Live LTP {formatPrice(effectiveLtp, pick.category)}
+														<span className="text-[10px] font-medium">
+															({Number.parseFloat(currentReturn) >= 0 ? "+" : ""}{currentReturn}%)
+														</span>
+													</span>
+													<span className="flex items-center gap-1 font-mono text-[11px]">
+														Entry {formatPrice(pick.recoPrice, pick.category)}
+													</span>
+													<span className="flex items-center gap-1 text-[11px]">
+														<Target className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />+{upside}% TGT
+													</span>
+													<span className="flex items-center gap-1 text-[11px]">
+														<LucideShield className="h-3 w-3 text-red-600 dark:text-red-400" />
+														SL {formatPrice(pick.stoplossPrice, pick.category)}
+													</span>
+													{(() => {
+														const r = Number(pick.recoPrice) || 0;
+														const t = Number(pick.targetPrice) || 0;
+														const s = Number(pick.stoplossPrice) || 0;
+														if (r > 0 && t > r && s > 0 && r > s) {
+															const rr = ((t - r) / (r - s)).toFixed(1);
+															return (
+																<span className="text-[10px] px-1.5 py-0.5 rounded bg-muted font-mono font-medium text-emerald-600 dark:text-emerald-400">
+																	1:{rr} R/R
+																</span>
+															);
+														}
+														if (pick.keyMetrics?.rewardToRiskRatio) {
+															return (
+																<span className="text-[10px] px-1.5 py-0.5 rounded bg-muted font-mono font-medium">
+																	R:R {pick.keyMetrics.rewardToRiskRatio}:1
+																</span>
+															);
+														}
+														return null;
+													})()}
+												</>
+											)}
 										</div>
 										<p className="text-xs text-muted-foreground mt-1 line-clamp-2">
 											{pick.rationale}

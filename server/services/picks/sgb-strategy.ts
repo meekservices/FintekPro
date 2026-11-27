@@ -114,17 +114,29 @@ export class SGBStrategy extends BaseStrategy {
 	}
 
 	/**
-	 * Fetches the live gold price.
-	 * Tier 0: GPE authoritative benchmarks (reads golden_prices internally).
-	 * Tier 1: Direct golden_prices query (SSOT fallback — no commodity_prices).
-	 * Tier 2: Yahoo Finance GC=F conversion.
+	 * Fetches the live gold / SGB secondary price.
+	 * Tier 0: Direct NSE quote for secondary SGB series (e.g. SGBMAR32) via unifiedStockPriceService.
+	 * Tier 1: Authoritative Gold benchmark from Golden Pricing Engine (reads golden_prices internally).
+	 * Tier 2: Direct golden_prices query (SSOT fallback).
+	 * Tier 3: Yahoo Finance GC=F conversion.
 	 *
-	 * @param _instrumentId - Not used; SGB price derived from gold spot
-	 * @returns Gold spot price in INR, or null if unavailable
+	 * @param instrumentId - SGB symbol or ID
+	 * @returns Traded SGB or gold spot price in INR per gram, or null if unavailable
 	 */
 	// line 73: Promise<number | null> — required by BaseStrategy interface
-	async getLivePrice(_instrumentId: string): Promise<number | null> {
-		// Tier 0: Authoritative Gold benchmark from Golden Pricing Engine
+	async getLivePrice(instrumentId: string): Promise<number | null> {
+		// Tier 0: Secondary market NSE quote if symbol starts with SGB
+		if (instrumentId && /^SGB[A-Z0-9]+$/i.test(instrumentId)) {
+			try {
+				const { unifiedStockPriceService } = await import("../unified-stock-price-service");
+				const quote = await unifiedStockPriceService.getPrice(instrumentId.toUpperCase(), "NSE");
+				if (quote?.price && quote.price > 4000 && quote.price < 25000) {
+					return Math.round(quote.price * 100) / 100;
+				}
+			} catch { /* proceed to bullion spot */ }
+		}
+
+		// Tier 1: Authoritative Gold benchmark from Golden Pricing Engine
 		try {
 			const { goldenPricingEngine } = await import("../golden-pricing/GoldenPricingEngine");
 			const bench = await goldenPricingEngine.getAuthoritativeCommodityBenchmarks();
@@ -232,49 +244,56 @@ export class SGBStrategy extends BaseStrategy {
 		}
 
 		// Fallback gold price benchmark (per gram, approximate MCX Gold rate in INR)
-		// Typical gold price range: ₹6,000–9,000/gram. SGB is priced per gram.
-		const currentPrice = goldPrice && goldPrice > 1000 ? goldPrice : 7_400;
+		// Canonical 2026 gold price range: ₹9,500–13,000/gram (MCX 10g benchmark: ₹124,870). SGB is priced per gram.
+		const currentPrice = goldPrice && goldPrice > 1000 ? goldPrice : 12_487;
 
-		// SGB target: gold historically appreciates ~8% p.a. over 8 years
-		const targetPrice = Math.round(currentPrice * 1.1 * 100) / 100;
-		const stoplossPrice = Math.round(currentPrice * 0.92 * 100) / 100;
+		// SGB target: strictly enforce 2:1 Risk-to-Reward invariant via getDynamicTargetStoploss
+		const { targetPct, stoplossPct } = this.getDynamicTargetStoploss("sgb");
+		const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
+		const stoplossPrice = Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
 		const sgbInterestRate = 2.5;
 
 		const SGB_SECONDARY_POOL = [
 			{
-				id: "sgb_2023_24_s4",
-				name: "SGB 2023-24 Series IV",
+				id: "SGBMAR32",
+				symbol: "SGBMAR32",
+				name: "SGB 2023-24 Series IV (SGBMAR32)",
 				series: "2023-24 Series IV",
 				tenureYears: 8,
 			},
 			{
-				id: "sgb_2023_24_s3",
-				name: "SGB 2023-24 Series III",
+				id: "SGBDEC31",
+				symbol: "SGBDEC31",
+				name: "SGB 2023-24 Series III (SGBDEC31)",
 				series: "2023-24 Series III",
 				tenureYears: 7,
 			},
 			{
-				id: "sgb_2023_24_s2",
-				name: "SGB 2023-24 Series II",
+				id: "SGBSEP31",
+				symbol: "SGBSEP31",
+				name: "SGB 2023-24 Series II (SGBSEP31)",
 				series: "2023-24 Series II",
 				tenureYears: 7,
 			},
 			{
-				id: "sgb_2022_23_s4",
-				name: "SGB 2022-23 Series IV",
+				id: "SGBMAR31",
+				symbol: "SGBMAR31",
+				name: "SGB 2022-23 Series IV (SGBMAR31)",
 				series: "2022-23 Series IV",
 				tenureYears: 6,
 			},
 			{
-				id: "sgb_2022_23_s3",
-				name: "SGB 2022-23 Series III",
+				id: "SGBDEC30",
+				symbol: "SGBDEC30",
+				name: "SGB 2022-23 Series III (SGBDEC30)",
 				series: "2022-23 Series III",
 				tenureYears: 6,
 			},
 			{
-				id: "sgb_2021_22_s10",
-				name: "SGB 2021-22 Series X",
-				series: "2021-22 Series X",
+				id: "SGBMAY29",
+				symbol: "SGBMAY29",
+				name: "SGB 2021-22 Series I (SGBMAY29)",
+				series: "2021-22 Series I",
 				tenureYears: 5,
 			},
 		];
@@ -314,6 +333,7 @@ export class SGBStrategy extends BaseStrategy {
 			category: "sgb",
 			instrumentId: chosen.id,
 			instrumentName: chosen.name,
+			symbol: chosen.symbol,
 			recoDate: context.today,
 			recoPrice: currentPrice,
 			targetPrice,

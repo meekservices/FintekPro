@@ -948,12 +948,16 @@ export class StockStrategy extends BaseStrategy {
 			eq(listedStocks.isPublished, true),
 			sql`${listedStocks.currentPrice} IS NOT NULL`,
 			sql`CAST(${listedStocks.currentPrice} AS DECIMAL) > 50`,
-			// Circuit breaker filter: Exclude stocks locked at lower or upper circuit
+			// Circuit breaker filter: Exclude stocks locked at lower or upper circuit (unfillable execution)
 			sql`(
 				${listedStocks.dayChangePercent} IS NULL
 				OR (
 					CAST(${listedStocks.dayChangePercent} AS DECIMAL) > -9.5
 					AND CAST(${listedStocks.dayChangePercent} AS DECIMAL) < 9.5
+					AND NOT (
+						(CAST(${listedStocks.dayChangePercent} AS DECIMAL) >= 4.88 AND CAST(${listedStocks.dayChangePercent} AS DECIMAL) <= 5.10)
+						OR (CAST(${listedStocks.dayChangePercent} AS DECIMAL) >= 9.85 AND CAST(${listedStocks.dayChangePercent} AS DECIMAL) <= 10.10)
+					)
 				)
 			)`,
 			// Exclude zero-volume / illiquid stocks
@@ -961,8 +965,8 @@ export class StockStrategy extends BaseStrategy {
 				${listedStocks.averageVolume} IS NULL
 				OR CAST(${listedStocks.averageVolume} AS DECIMAL) > 0
 			)`,
-			// Exclude Trade-for-Trade / Surveillance series (BE, BZ, SZ)
-			sql`(${listedStocks.nseCode} IS NULL OR ${listedStocks.nseCode} NOT IN ('BE', 'BZ', 'SZ'))`,
+			// Exclude Trade-for-Trade / Surveillance / SME series (BE, BZ, SZ, SM, ST, Z)
+			sql`(${listedStocks.nseCode} IS NULL OR ${listedStocks.nseCode} NOT IN ('BE', 'BZ', 'SZ', 'SM', 'ST', 'Z'))`,
 			baseSectorFilter,
 		);
 
@@ -1635,6 +1639,20 @@ export class StockStrategy extends BaseStrategy {
 		let score = 0;
 		const rsiForScore = rsiOverride ?? enriched?.technicals?.rsi ?? null;
 		const isEarlyStage2 = isEarlyBreakoutFlag ?? this.detectEarlyBreakout(stock, enriched, rsiForScore);
+
+		// ── SEBI Surveillance (ASM/GSM) & Upper Circuit Lock Guardrail ─────────────
+		const series = String((stock as any).series || (stock as any).nseCode || "").toUpperCase();
+		if (["BE", "BZ", "SZ", "SM", "ST", "Z"].includes(series)) {
+			score -= 30; // Heavy penalty for Trade-for-Trade / Surveillance series
+		}
+		const chgPct = Number(stock.dayChangePercent || 0);
+		// If stock is locked at or near Upper Circuit (unfillable buy order risk for retail clients)
+		const isCircuitLocked = (chgPct >= 4.88 && chgPct <= 5.10) ||
+			(chgPct >= 9.85 && chgPct <= 10.10) ||
+			(chgPct >= 19.85 && chgPct <= 20.10);
+		if (isCircuitLocked) {
+			score -= 25; // Heavily penalize locked circuit counters to prevent unfillable buy calls
+		}
 
 		// ── Upgrade #3: Analyst count gate ────────────────────────────────────────
 		// A single small-broker "strong buy" carries the same label as 15-analyst

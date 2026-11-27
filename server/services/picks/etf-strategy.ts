@@ -96,9 +96,25 @@ function scoreETF(etf: any): number {
 
 	// Price-based liquidity proxy: higher-priced ETFs tend to be more established
 	const price = Number.parseFloat(etf.lastPrice || "0");
-	if (price > 500) score += 10;
-	else if (price > 100) score += 6;
-	else if (price > 20) score += 3;
+	if (price > 500) score += 8;
+	else if (price > 100) score += 5;
+	else if (price > 20) score += 2;
+
+	// ── Turnover & Liquidity Scoring (Critical for ETFs in India) ───────────────
+	// In the Indian market, low-turnover ETFs suffer from wide bid-ask spreads and
+	// high impact cost. Daily turnover = lastPrice × volume.
+	const vol = Number.parseFloat(String(etf.volume || etf.tradingVolume || "0"));
+	const turnover = price > 0 && vol > 0 ? (price * vol) : 0;
+	if (turnover >= 50000000) score += 20;       // ₹5 Cr+ daily turnover (super liquid e.g. NIFTYBEES)
+	else if (turnover >= 10000000) score += 14;  // ₹1 Cr+ daily turnover
+	else if (turnover >= 2500000) score += 8;    // ₹25 Lakhs+ daily turnover
+	else if (turnover > 0 && turnover < 1000000) score -= 15; // < ₹10 Lakhs turnover = illiquidity trap
+
+	// Tracking error check (if available in metadata)
+	const trackingError = Number.parseFloat(String(etf.trackingError || "0"));
+	if (trackingError > 0 && trackingError <= 0.15) score += 10;      // Tight index replication
+	else if (trackingError > 0.15 && trackingError <= 0.35) score += 5;
+	else if (trackingError > 0.60) score -= 12;                      // Severe index divergence
 
 	// Expense ratio (lower = better)
 	const expenseRatio = Number.parseFloat(etf.expenseRatio || etf.ter || "1.0");
@@ -269,6 +285,12 @@ export class ETFStrategy extends BaseStrategy {
 						issuer: topEtf.issuer || undefined,
 						etfType,
 						expenseRatio: expenseRatio ? Number.parseFloat(expenseRatio) : null,
+						estimatedTurnoverInr: Math.round(currentPrice * Number.parseFloat(String((topEtf as any).volume || 0))),
+						liquidityTier: (currentPrice * Number.parseFloat(String((topEtf as any).volume || 0))) >= 10000000
+							? "Institutional (High Turnover)"
+							: (currentPrice * Number.parseFloat(String((topEtf as any).volume || 0))) >= 2500000
+								? "Active (Moderate Turnover)"
+								: "Standard",
 						// ── SEBI ETF Trading Framework (Sep 7, 2026) ─────────────────────
 						// Circular: SEBI/HO/47/11/11(1)2026-MRD-POD3/I/13804/2026
 						// Adds price band category, pre-open auction flag, base price method

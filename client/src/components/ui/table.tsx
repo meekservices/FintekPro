@@ -2,18 +2,33 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-const Table = React.forwardRef<
-	HTMLTableElement,
-	React.HTMLAttributes<HTMLTableElement>
->(({ className, ...props }, ref) => (
-	<div className="relative w-full overflow-auto rounded-md border border-border">
-		<table
-			ref={ref}
-			className={cn("w-full caption-bottom text-sm", className)}
-			{...props}
-		/>
-	</div>
-));
+export type TableDensity = "compact" | "normal" | "relaxed";
+
+const TableDensityContext = React.createContext<TableDensity>("normal");
+
+export const useTableDensity = () => React.useContext(TableDensityContext);
+
+export interface TableProps extends React.HTMLAttributes<HTMLTableElement> {
+	density?: TableDensity;
+}
+
+const Table = React.forwardRef<HTMLTableElement, TableProps>(
+	({ className, density = "normal", ...props }, ref) => (
+		<TableDensityContext.Provider value={density}>
+			<div className="relative w-full overflow-auto rounded-md border border-border">
+				<table
+					ref={ref}
+					className={cn(
+						"w-full caption-bottom text-sm tabular-nums",
+						density === "compact" && "text-xs",
+						className,
+					)}
+					{...props}
+				/>
+			</div>
+		</TableDensityContext.Provider>
+	),
+);
 Table.displayName = "Table";
 
 const TableHeader = React.forwardRef<
@@ -22,7 +37,7 @@ const TableHeader = React.forwardRef<
 >(({ className, ...props }, ref) => (
 	<thead
 		ref={ref}
-		className={cn("bg-muted [&_tr]:border-b", className)}
+		className={cn("bg-muted/80 backdrop-blur-sm [&_tr]:border-b", className)}
 		{...props}
 	/>
 ));
@@ -70,31 +85,70 @@ const TableRow = React.forwardRef<
 ));
 TableRow.displayName = "TableRow";
 
-const TableHead = React.forwardRef<
-	HTMLTableCellElement,
-	React.ThHTMLAttributes<HTMLTableCellElement>
->(({ className, ...props }, ref) => (
-	<th
-		ref={ref}
-		className={cn(
-			"h-12 px-4 text-left align-middle font-semibold text-muted-foreground [&:has([role=checkbox])]:pr-0",
-			className,
-		)}
-		{...props}
-	/>
-));
+export interface TableHeadProps
+	extends React.ThHTMLAttributes<HTMLTableCellElement> {
+	align?: "left" | "center" | "right";
+}
+
+const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
+	({ className, align = "left", ...props }, ref) => {
+		const density = useTableDensity();
+		const heightClass =
+			density === "compact"
+				? "h-8 px-2.5 py-1 text-[11px]"
+				: density === "relaxed"
+					? "h-12 px-4 py-3 text-sm"
+					: "h-9 px-3 py-1.5 text-xs";
+
+		return (
+			<th
+				ref={ref}
+				className={cn(
+					heightClass,
+					"align-middle font-semibold text-muted-foreground uppercase tracking-wider [&:has([role=checkbox])]:pr-0",
+					align === "right" && "text-right tabular-nums",
+					align === "center" && "text-center",
+					align === "left" && "text-left",
+					className,
+				)}
+				{...props}
+			/>
+		);
+	},
+);
 TableHead.displayName = "TableHead";
 
-const TableCell = React.forwardRef<
-	HTMLTableCellElement,
-	React.TdHTMLAttributes<HTMLTableCellElement>
->(({ className, ...props }, ref) => (
-	<td
-		ref={ref}
-		className={cn("p-4 align-middle [&:has([role=checkbox])]:pr-0", className)}
-		{...props}
-	/>
-));
+export interface TableCellProps
+	extends React.TdHTMLAttributes<HTMLTableCellElement> {
+	align?: "left" | "center" | "right";
+}
+
+const TableCell = React.forwardRef<HTMLTableCellElement, TableCellProps>(
+	({ className, align = "left", ...props }, ref) => {
+		const density = useTableDensity();
+		const paddingClass =
+			density === "compact"
+				? "p-2 text-xs"
+				: density === "relaxed"
+					? "p-4 text-sm"
+					: "py-2.5 px-3 text-sm";
+
+		return (
+			<td
+				ref={ref}
+				className={cn(
+					paddingClass,
+					"align-middle [&:has([role=checkbox])]:pr-0",
+					align === "right" && "text-right tabular-nums font-mono",
+					align === "center" && "text-center",
+					align === "left" && "text-left",
+					className,
+				)}
+				{...props}
+			/>
+		);
+	},
+);
 TableCell.displayName = "TableCell";
 
 const TableCaption = React.forwardRef<
@@ -108,6 +162,64 @@ const TableCaption = React.forwardRef<
 	/>
 ));
 TableCaption.displayName = "TableCaption";
+
+/** Institutional segmented toggle for switching grid density */
+export function TableDensityToggle({
+	density,
+	onDensityChange,
+	className,
+}: {
+	density: TableDensity;
+	onDensityChange: (d: TableDensity) => void;
+	className?: string;
+}) {
+	return (
+		<div
+			className={cn(
+				"inline-flex items-center rounded-lg border border-border bg-muted/30 p-0.5 text-xs",
+				className,
+			)}
+			data-testid="table-density-toggle"
+		>
+			<button
+				type="button"
+				onClick={() => onDensityChange("compact")}
+				className={cn(
+					"px-2 py-0.5 font-medium rounded transition-colors",
+					density === "compact"
+						? "bg-background shadow-xs text-foreground font-semibold"
+						: "text-muted-foreground hover:text-foreground",
+				)}
+			>
+				Compact
+			</button>
+			<button
+				type="button"
+				onClick={() => onDensityChange("normal")}
+				className={cn(
+					"px-2 py-0.5 font-medium rounded transition-colors",
+					density === "normal"
+						? "bg-background shadow-xs text-foreground font-semibold"
+						: "text-muted-foreground hover:text-foreground",
+				)}
+			>
+				Standard
+			</button>
+			<button
+				type="button"
+				onClick={() => onDensityChange("relaxed")}
+				className={cn(
+					"px-2 py-0.5 font-medium rounded transition-colors",
+					density === "relaxed"
+						? "bg-background shadow-xs text-foreground font-semibold"
+						: "text-muted-foreground hover:text-foreground",
+				)}
+			>
+				Comfortable
+			</button>
+		</div>
+	);
+}
 
 export {
 	Table,

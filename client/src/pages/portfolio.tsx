@@ -37,6 +37,8 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
+	TableDensityToggle,
+	type TableDensity,
 } from "@/components/ui/table";
 import {
 	usePortfoliosByPan,
@@ -605,6 +607,8 @@ function FintekproOrdersSection({
 }
 
 export default function Portfolio() {
+	const [tableDensity, setTableDensity] = useState<TableDensity>("normal");
+	const networkState = useNetworkState();
 	// Get portfolios linked to user's PAN card for enhanced security
 	const {
 		data: portfolios,
@@ -846,8 +850,6 @@ export default function Portfolio() {
 			</div>
 		);
 	}
-
-	const networkState = useNetworkState();
 
 	// Portfolio V3 Dashboard (feature flag controlled)
 	if (portfolioV3Enabled) {
@@ -1578,23 +1580,27 @@ export default function Portfolio() {
 												</div>
 
 												{/* Holdings Table with Source Badges */}
+												<div className="flex justify-between items-center mb-2">
+													<span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Holdings Matrix</span>
+													<TableDensityToggle density={tableDensity} onDensityChange={setTableDensity} />
+												</div>
 												<div className="border rounded-lg overflow-hidden">
-													<Table>
+													<Table density={tableDensity}>
 														<TableHeader>
 															<TableRow>
 																<TableHead>Symbol</TableHead>
 																<TableHead>Source</TableHead>
 																<TableHead>Asset Type</TableHead>
-																<TableHead className="text-right">
+																<TableHead align="right">
 																	Quantity
 																</TableHead>
-																<TableHead className="text-right">
+																<TableHead align="right">
 																	Avg Price
 																</TableHead>
-																<TableHead className="text-right">
+																<TableHead align="right">
 																	Current Value
 																</TableHead>
-																<TableHead className="text-right">
+																<TableHead align="right">
 																	Gain/Loss
 																</TableHead>
 																<TableHead>Exchange</TableHead>
@@ -1885,22 +1891,26 @@ export default function Portfolio() {
 												</div>
 
 												{/* External Holdings Table */}
+												<div className="flex justify-between items-center mb-2">
+													<span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">External Assets</span>
+													<TableDensityToggle density={tableDensity} onDensityChange={setTableDensity} />
+												</div>
 												<div className="border rounded-lg overflow-hidden">
-													<Table>
+													<Table density={tableDensity}>
 														<TableHeader>
 															<TableRow>
 																<TableHead>Symbol</TableHead>
 																<TableHead>Asset Type</TableHead>
-																<TableHead className="text-right">
+																<TableHead align="right">
 																	Quantity
 																</TableHead>
-																<TableHead className="text-right">
+																<TableHead align="right">
 																	Avg Price
 																</TableHead>
-																<TableHead className="text-right">
+																<TableHead align="right">
 																	Current Value
 																</TableHead>
-																<TableHead className="text-right">
+																<TableHead align="right">
 																	Gain/Loss
 																</TableHead>
 																<TableHead>Exchange</TableHead>

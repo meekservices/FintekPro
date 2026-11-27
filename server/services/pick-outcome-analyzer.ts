@@ -125,6 +125,52 @@ const SIGNAL_THRESHOLDS: Record<
     good: (v) => v >= 1,
     bad: (v) => v < 0.5,
   },
+  // ── Multi-Asset Segment Signals ──────────────────────────────────────────
+  // Mutual Funds
+  returns3y: {
+    good: (v) => v >= 18,
+    bad: (v) => v < 10,
+  },
+  returns1y: {
+    good: (v) => v >= 15,
+    bad: (v) => v < 5,
+  },
+  expenseRatio: {
+    good: (v) => v <= 1.5,
+    bad: (v) => v > 2.2,
+  },
+  // Bonds / Fixed Income
+  ytm: {
+    good: (v) => v >= 8.0,
+    bad: (v) => v < 6.8,
+  },
+  maturityYears: {
+    good: (v) => v >= 2 && v <= 5,
+    bad: (v) => v > 10,
+  },
+  // Derivatives (F&O)
+  pop: {
+    good: (v) => v >= 65,
+    bad: (v) => v < 45,
+  },
+  iv: {
+    good: (v) => v >= 14 && v <= 28,
+    bad: (v) => v > 40,
+  },
+  // Fixed Deposits
+  interestRate: {
+    good: (v) => v >= 7.5,
+    bad: (v) => v < 6.5,
+  },
+  annualizedYieldAPY: {
+    good: (v) => v >= 7.8,
+    bad: (v) => v < 6.8,
+  },
+  // ETFs
+  estimatedTurnoverInr: {
+    good: (v) => v >= 2500000,
+    bad: (v) => v < 500000,
+  },
 };
 
 const ENGINE_VERSION = "pick-outcome-analyzer-v3.0";
