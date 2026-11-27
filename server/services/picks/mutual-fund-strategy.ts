@@ -1,6 +1,6 @@
 import { db } from "../../db";
 import { mutualFunds, dailyPicks } from "@shared/schema";
-import { and, eq, sql, gte } from "drizzle-orm";
+import { and, eq, sql, gte, or } from "drizzle-orm";
 import { logger } from "../../logger";
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
@@ -292,7 +292,13 @@ export class MutualFundStrategy extends BaseStrategy {
 		const row = await db
 			.select({ nav: mutualFunds.nav })
 			.from(mutualFunds)
-			.where(eq(mutualFunds.schemeCode, instrumentId))
+			.where(
+				or(
+					eq(mutualFunds.schemeCode, instrumentId),
+					eq(mutualFunds.isin, instrumentId),
+					eq(mutualFunds.id, instrumentId),
+				),
+			)
 			.limit(1);
 		return row[0]?.nav ? Number.parseFloat(row[0].nav) : null;
 	}

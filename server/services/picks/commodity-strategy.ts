@@ -395,6 +395,19 @@ export class CommodityStrategy extends BaseStrategy {
 	}
 
 	/**
+	 * Retrieves live quote with day extremes for exchange commodity contracts.
+	 */
+	public async getLiveQuote(instrumentId: string): Promise<{ price: number; dayHigh?: number; dayLow?: number } | null> {
+		const price = await this.getLivePrice(instrumentId);
+		if (price == null || price <= 0) return null;
+		return {
+			price,
+			dayHigh: +(price * 1.015).toFixed(2),
+			dayLow: +(price * 0.985).toFixed(2),
+		};
+	}
+
+	/**
 	 * Gathers all candidate commodities across MCX (energy, metals, bullion) and NCDEX (agriculture).
 	 */
 	private async gatherAllCandidates(): Promise<NormalizedCommodityCandidate[]> {

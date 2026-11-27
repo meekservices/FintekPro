@@ -1398,6 +1398,32 @@ export class PickOfTheDayService {
 								: ((exitPrice - recoPrice) / recoPrice) * 100;
 						}
 
+						// ── Algorithmic Trailing Exit & Profit Protection Evaluation ─────────
+						let exitAnalysis = null;
+						if (category === "listed_stocks" || category === "etfs" || category === "global_stocks") {
+							try {
+								const { evaluateExitStrategy } = await import("./picks/exit-strategy-engine");
+								exitAnalysis = evaluateExitStrategy({
+									symbol: pick.symbol || pick.instrumentName,
+									entryDate: pick.recoDate,
+									entryPrice: recoPrice,
+									currentPrice: livePrice,
+									quantity: 1,
+									target1Price: targetPrice,
+									initialStopLossPrice: stoplossPrice,
+									bars: [
+										{ high: dayHigh ?? livePrice, low: dayLow ?? livePrice, close: livePrice },
+									],
+									holdingDays: daysHeld,
+								});
+							} catch { /* non-fatal */ }
+						}
+
+						const updatedKeyMetrics = {
+							...((pick.keyMetrics as any) || {}),
+							...(exitAnalysis ? { exitStrategy: exitAnalysis } : {}),
+						};
+
 						await db
 							.update(dailyPicks)
 							.set({
@@ -1406,6 +1432,7 @@ export class PickOfTheDayService {
 								...(stoplossAdjusted ? { stoplossPrice: stoplossPrice.toString() } : {}),
 								daysHeld,
 								status: newStatus,
+								keyMetrics: updatedKeyMetrics,
 								updatedAt: new Date(),
 								...(newStatus !== pick.status
 									? { statusUpdatedAt: new Date() }
@@ -1556,7 +1583,7 @@ export class PickOfTheDayService {
 				let dayLow: number | undefined;
 
 				if (strategy.getLiveQuote) {
-					const quote = await strategy.getLiveQuote(pick.instrumentId || pick.symbol || "");
+					const quote = await strategy.getLiveQuote(pick.instrumentId || pick.symbol || "", pick);
 					if (quote) {
 						livePrice = quote.price;
 						dayHigh = quote.dayHigh;
@@ -1564,17 +1591,27 @@ export class PickOfTheDayService {
 					}
 				}
 				if (livePrice == null) {
-					livePrice = await strategy.getLivePrice(pick.instrumentId || pick.symbol || "");
+					livePrice = await strategy.getLivePrice(pick.instrumentId || pick.symbol || "", pick);
 				}
 				const recoPrice = Number.parseFloat(pick.recoPrice);
 				const targetPrice = Number.parseFloat(pick.targetPrice);
 				const stoplossPrice = Number.parseFloat(pick.stoplossPrice);
 				const currentP = (livePrice != null && livePrice > 0) ? livePrice : Number.parseFloat(pick.currentPrice || pick.recoPrice);
 
-				const returnPct = Number.parseFloat((((currentP - recoPrice) / recoPrice) * 100).toFixed(2));
+				const isCreditStrategy = (pick.keyMetrics as any)?.isCreditStrategy === true ||
+					(pick.category === "derivatives" && targetPrice < recoPrice && recoPrice > 0);
 
-				const hitTarget = (dayHigh != null && dayHigh >= targetPrice) || currentP >= targetPrice;
-				const hitStoploss = (dayLow != null && dayLow <= stoplossPrice) || currentP <= stoplossPrice;
+				const returnPct = isCreditStrategy
+					? Number.parseFloat((((recoPrice - currentP) / recoPrice) * 100).toFixed(2))
+					: Number.parseFloat((((currentP - recoPrice) / recoPrice) * 100).toFixed(2));
+
+				const hitTarget = isCreditStrategy
+					? ((dayLow != null && dayLow <= targetPrice) || currentP <= targetPrice)
+					: ((dayHigh != null && dayHigh >= targetPrice) || currentP >= targetPrice);
+
+				const hitStoploss = isCreditStrategy
+					? ((dayHigh != null && dayHigh >= stoplossPrice) || currentP >= stoplossPrice)
+					: ((dayLow != null && dayLow <= stoplossPrice) || currentP <= stoplossPrice);
 
 				let finalStatus: PickStatus = "expired";
 				let exitPrice = currentP;
@@ -1584,10 +1621,10 @@ export class PickOfTheDayService {
 					exitPrice = stoplossPrice;
 				} else if (hitTarget) {
 					finalStatus = "target_hit";
-					exitPrice = Math.max(currentP, targetPrice);
+					exitPrice = isCreditStrategy ? Math.min(currentP, targetPrice) : Math.max(currentP, targetPrice);
 				} else if (hitStoploss) {
 					finalStatus = "stoploss_hit";
-					exitPrice = Math.min(currentP, stoplossPrice);
+					exitPrice = isCreditStrategy ? Math.max(currentP, stoplossPrice) : Math.min(currentP, stoplossPrice);
 				} else if (returnPct >= 1.0) {
 					finalStatus = "target_hit";
 					exitPrice = currentP;
@@ -1596,7 +1633,9 @@ export class PickOfTheDayService {
 					exitPrice = currentP;
 				}
 
-				const finalReturnPct = Number.parseFloat((((exitPrice - recoPrice) / recoPrice) * 100).toFixed(2));
+				const finalReturnPct = isCreditStrategy
+					? Number.parseFloat((((recoPrice - exitPrice) / recoPrice) * 100).toFixed(2))
+					: Number.parseFloat((((exitPrice - recoPrice) / recoPrice) * 100).toFixed(2));
 
 				await db
 					.update(dailyPicks)
