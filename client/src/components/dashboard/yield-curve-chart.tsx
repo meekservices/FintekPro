@@ -11,8 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-	LineChart,
-	Line,
 	XAxis,
 	YAxis,
 	CartesianGrid,
@@ -25,7 +23,6 @@ import {
 } from "recharts";
 import {
 	TrendingUp,
-	TrendingDown,
 	Calendar,
 	Info,
 	ArrowUpRight,
@@ -68,6 +65,58 @@ const defaultYieldCurveData: YieldCurveData = {
 };
 
 type TimeRange = "1W" | "1M" | "3M" | "6M" | "1Y";
+
+interface YieldCurveTooltipProps {
+	active?: boolean;
+	payload?: any[];
+	showHistorical?: boolean;
+}
+
+function YieldCurveCustomTooltip({
+	active,
+	payload,
+	showHistorical,
+}: YieldCurveTooltipProps) {
+	if (active && payload?.length) {
+		const data = payload[0].payload;
+		return (
+			<div className="bg-card p-4 rounded-lg shadow-lg border border-border">
+				<p className="font-semibold text-foreground mb-2">{data.benchmark}</p>
+				<div className="space-y-1 text-sm font-mono tabular-nums">
+					<div className="flex justify-between gap-4">
+						<span className="text-muted-foreground font-sans">Current Yield:</span>
+						<span className="font-medium text-blue-600 dark:text-blue-400">
+							{data.currentYield.toFixed(2)}%
+						</span>
+					</div>
+					{showHistorical && (
+						<div className="flex justify-between gap-4">
+							<span className="text-muted-foreground font-sans">Historical:</span>
+							<span className="font-medium text-muted-foreground">
+								{(data.historicalYield ?? 0).toFixed(2)}%
+							</span>
+						</div>
+					)}
+					<div className="flex justify-between gap-4 pt-1 border-t border-border">
+						<span className="text-muted-foreground font-sans">Change:</span>
+						<span
+							className={`font-medium flex items-center gap-1 ${(data.change ?? 0) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+						>
+							{(data.change ?? 0) >= 0 ? (
+								<ArrowUpRight className="h-3 w-3" />
+							) : (
+								<ArrowDownRight className="h-3 w-3" />
+							)}
+							{(data.change ?? 0) >= 0 ? "+" : ""}
+							{(data.change ?? 0).toFixed(2)}%
+						</span>
+					</div>
+				</div>
+			</div>
+		);
+	}
+	return null;
+}
 
 export function YieldCurveChart() {
 	const [timeRange, setTimeRange] = useState<TimeRange>("1M");
@@ -112,48 +161,6 @@ export function YieldCurveChart() {
 				return "Unknown";
 		}
 	}, [chartData.summary.curveShape]);
-
-	const CustomTooltip = ({ active, payload, label }: any) => {
-		if (active && payload && payload.length) {
-			const data = payload[0].payload;
-			return (
-				<div className="bg-card p-4 rounded-lg shadow-lg border border-border">
-					<p className="font-semibold text-foreground mb-2">{data.benchmark}</p>
-					<div className="space-y-1 text-sm">
-						<div className="flex justify-between gap-4">
-							<span className="text-muted-foreground">Current Yield:</span>
-							<span className="font-medium text-blue-600">
-								{data.currentYield.toFixed(2)}%
-							</span>
-						</div>
-						{showHistorical && (
-							<div className="flex justify-between gap-4">
-								<span className="text-muted-foreground">Historical:</span>
-								<span className="font-medium text-muted-foreground">
-									{(data.historicalYield ?? 0).toFixed(2)}%
-								</span>
-							</div>
-						)}
-						<div className="flex justify-between gap-4 pt-1 border-t border-border">
-							<span className="text-muted-foreground">Change:</span>
-							<span
-								className={`font-medium flex items-center gap-1 ${(data.change ?? 0) >= 0 ? "text-green-600" : "text-red-600"}`}
-							>
-								{(data.change ?? 0) >= 0 ? (
-									<ArrowUpRight className="h-3 w-3" />
-								) : (
-									<ArrowDownRight className="h-3 w-3" />
-								)}
-								{(data.change ?? 0) >= 0 ? "+" : ""}
-								{(data.change ?? 0).toFixed(2)}%
-							</span>
-						</div>
-					</div>
-				</div>
-			);
-		}
-		return null;
-	};
 
 	if (isLoading) {
 		return (
@@ -265,7 +272,11 @@ export function YieldCurveChart() {
 								tickLine={false}
 								axisLine={{ stroke: "#e5e7eb" }}
 							/>
-							<Tooltip content={<CustomTooltip />} />
+							<Tooltip
+								content={
+									<YieldCurveCustomTooltip showHistorical={showHistorical} />
+								}
+							/>
 							<Legend />
 
 							{showHistorical && (
@@ -311,34 +322,34 @@ export function YieldCurveChart() {
 				<div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-4 border-t border-border">
 					<div className="text-center">
 						<p className="text-sm text-muted-foreground">Short-Term Avg</p>
-						<p className="text-xl font-bold text-foreground">
+						<p className="text-xl font-bold font-mono tabular-nums text-foreground">
 							{chartData.summary.shortTermAvg.toFixed(2)}%
 						</p>
-						<p className="text-xs text-muted-foreground">91D - 1Y</p>
+						<p className="text-xs text-muted-foreground font-mono">91D - 1Y</p>
 					</div>
 					<div className="text-center">
 						<p className="text-sm text-muted-foreground">Long-Term Avg</p>
-						<p className="text-xl font-bold text-foreground">
+						<p className="text-xl font-bold font-mono tabular-nums text-foreground">
 							{chartData.summary.longTermAvg.toFixed(2)}%
 						</p>
-						<p className="text-xs text-muted-foreground">10Y - 30Y</p>
+						<p className="text-xs text-muted-foreground font-mono">10Y - 30Y</p>
 					</div>
 					<div className="text-center">
 						<p className="text-sm text-muted-foreground">Yield Spread</p>
-						<p className="text-xl font-bold text-green-600">
+						<p className="text-xl font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400">
 							+{chartData.summary.spread.toFixed(2)}%
 						</p>
-						<p className="text-xs text-muted-foreground">30Y vs 91D</p>
+						<p className="text-xs text-muted-foreground font-mono">30Y vs 91D</p>
 					</div>
 					<div className="text-center">
 						<p className="text-sm text-muted-foreground">10Y Benchmark</p>
-						<p className="text-xl font-bold text-blue-600">
+						<p className="text-xl font-bold font-mono tabular-nums text-blue-600 dark:text-blue-400">
 							{chartData.data
 								.find((d) => d.maturity === "10Y")
 								?.currentYield.toFixed(2)}
 							%
 						</p>
-						<p className="text-xs text-muted-foreground">G-Sec 10Y</p>
+						<p className="text-xs text-muted-foreground font-mono">G-Sec 10Y</p>
 					</div>
 				</div>
 

@@ -5,6 +5,8 @@ import { GuidedTour } from "@/components/onboarding/guided-tour";
 import { KycUpgradeBanner } from "@/components/KycUpgradeBanner";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { EntityAccountSwitcher } from "./EntityAccountSwitcher";
+import { MarketTickerStrip } from "./MarketTickerStrip";
 import { MobileBottomNav } from "./mobile-bottom-nav";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation } from "wouter";
@@ -26,7 +28,6 @@ import {
 	Settings,
 	ShieldCheck,
 	Briefcase,
-	Building2,
 	ChevronDown,
 } from "lucide-react";
 import type { UserAlert } from "@shared/schema";
@@ -170,6 +171,9 @@ export function AppLayout({ children }: AppLayoutProps) {
 							</div>
 
 							<div className="flex items-center gap-2">
+								{/* Active Demat Entity Switcher */}
+								<EntityAccountSwitcher />
+
 								{/* Quick theme toggle */}
 								<ThemeToggle />
 
@@ -319,6 +323,8 @@ export function AppLayout({ children }: AppLayoutProps) {
 							</div>
 						</div>
 					</div>
+
+					<MarketTickerStrip />
 
 					{!isProfilePage && <KycUpgradeBanner />}
 

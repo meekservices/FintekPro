@@ -11,11 +11,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { useMarketQuote, useMarketIndices } from "@/hooks/use-market-data";
 import { GLOBAL_INDICES } from "@/lib/constants";
-import { useState, useEffect } from "react";
+import { useState, } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -28,21 +28,13 @@ import {
 	TrendingUp,
 	TrendingDown,
 	Activity,
-	Sparkles,
-	Zap,
 	Globe,
 	BarChart3,
 	PieChart,
 	Target,
-	Clock,
 	Eye,
-	Filter,
-	RefreshCw,
 	Bookmark,
 	AlertCircle,
-	IndianRupee,
-	Percent,
-	Volume2,
 	Calendar,
 } from "lucide-react";
 import { AgriculturalTooltip } from "@/components/agricultural-tooltip";
@@ -56,7 +48,6 @@ export default function Markets() {
 	const [currentStory, setCurrentStory] = useState<MarketStoryData | null>(
 		null,
 	);
-	const [activeExchange, setActiveExchange] = useState("nse");
 	const [watchlist, setWatchlist] = useState<string[]>([
 		"^NSEI",
 		"^BSESN",
@@ -195,6 +186,25 @@ export default function Markets() {
 						</div>
 					</div>
 
+					<div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 p-3 bg-muted/30 border border-border/60 rounded-lg text-xs font-mono">
+						<div>
+							<span className="text-muted-foreground block text-[11px] font-sans">Total Volume</span>
+							<span className="font-bold text-foreground tabular-nums text-sm">{marketSummary.totalVolume}</span>
+						</div>
+						<div>
+							<span className="text-muted-foreground block text-[11px] font-sans">Broad Market Mover</span>
+							<span className="font-bold text-emerald-600 dark:text-emerald-400 tabular-nums text-sm">{marketSummary.avgChange}</span>
+						</div>
+						<div>
+							<span className="text-muted-foreground block text-[11px] font-sans">Active Traded Issues</span>
+							<span className="font-bold text-foreground tabular-nums text-sm">{marketSummary.activeStocks}</span>
+						</div>
+						<div>
+							<span className="text-muted-foreground block text-[11px] font-sans">Aggregate Market Cap</span>
+							<span className="font-bold text-foreground tabular-nums text-sm">{marketSummary.marketCap}</span>
+						</div>
+					</div>
+
 					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
 						{GLOBAL_INDICES.map((index) => {
 							const indexData = indices?.find((i) => i.symbol === index.symbol);
@@ -245,7 +255,7 @@ export default function Markets() {
 											{indexData?.price ? (
 												<>
 													<p
-														className="text-2xl font-bold text-foreground"
+														className="text-2xl font-bold font-mono tabular-nums text-foreground"
 														data-testid={`index-price-${index.symbol}`}
 													>
 														<CurrencyDisplay
@@ -254,7 +264,7 @@ export default function Markets() {
 														/>
 													</p>
 													{selectedCurrency !== "INR" && (
-														<p className="text-xs text-muted-foreground">
+														<p className="text-xs text-muted-foreground font-mono tabular-nums">
 															≈ ₹
 															{indexData.price.toLocaleString(undefined, {
 																minimumFractionDigits: 2,
@@ -265,14 +275,14 @@ export default function Markets() {
 													)}
 												</>
 											) : (
-												<p className="text-2xl font-bold text-foreground">
+												<p className="text-2xl font-bold text-foreground font-mono">
 													Loading...
 												</p>
 											)}
 
 											<div className="flex items-center justify-between">
 												<p
-													className={`text-sm font-semibold px-2 py-1 rounded ${
+													className={`text-sm font-semibold font-mono tabular-nums px-2 py-1 rounded ${
 														isPositive
 															? "text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/30"
 															: "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30"
@@ -289,7 +299,7 @@ export default function Markets() {
 													)}
 												</p>
 
-												<p className="text-sm text-muted-foreground">
+												<p className="text-sm font-mono tabular-nums text-muted-foreground">
 													{indexData ? (
 														<>
 															{isPositive ? "+" : ""}
@@ -360,11 +370,27 @@ export default function Markets() {
 
 						{/* Enhanced Stock Quote Details */}
 						<Card className="shadow-xl border-0">
-							<CardHeader className="border-b border-border">
-								<CardTitle className="flex items-center gap-2">
-									<Target className="h-5 w-5 text-blue-600" />
-									Stock Details
-								</CardTitle>
+							<CardHeader className="border-b border-border pb-4">
+								<div className="flex items-center justify-between">
+									<CardTitle className="flex items-center gap-2 text-base font-semibold">
+										<Target className="h-4 w-4 text-blue-600" />
+										Instrument Quote Details
+									</CardTitle>
+								</div>
+								<form onSubmit={handleSearch} className="flex gap-2 mt-3">
+									<div className="relative flex-1">
+										<Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+										<Input
+											placeholder="Symbol (e.g. INFY, RELIANCE)..."
+											value={searchSymbol}
+											onChange={(e) => setSearchSymbol(e.target.value)}
+											className="pl-8 text-sm font-mono h-9"
+										/>
+									</div>
+									<Button type="submit" size="sm" variant="secondary" className="h-9">
+										Look Up
+									</Button>
+								</form>
 							</CardHeader>
 							<CardContent className="p-6">
 								{searchSymbol && symbolQuote ? (
@@ -373,11 +399,11 @@ export default function Markets() {
 											<h3 className="font-bold text-2xl text-foreground mb-2">
 												{searchSymbol.toUpperCase()}
 											</h3>
-											<p className="text-4xl font-bold text-blue-600 mb-2">
+											<p className="text-4xl font-bold font-mono tabular-nums text-blue-600 mb-2">
 												₹{symbolQuote.c?.toFixed(2)}
 											</p>
 											<div
-												className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+												className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold font-mono tabular-nums ${
 													symbolQuote.d >= 0
 														? "text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/30"
 														: "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30"
@@ -390,17 +416,17 @@ export default function Markets() {
 											</div>
 										</div>
 
-										<div className="grid grid-cols-2 gap-4 text-sm">
+										<div className="grid grid-cols-2 gap-4 text-sm font-mono tabular-nums">
 											{[
 												{
 													label: "High",
 													value: `₹${symbolQuote.h?.toFixed(2)}`,
-													color: "text-green-600",
+													color: "text-green-600 dark:text-green-400",
 												},
 												{
 													label: "Low",
 													value: `₹${symbolQuote.l?.toFixed(2)}`,
-													color: "text-red-600",
+													color: "text-red-600 dark:text-red-400",
 												},
 												{
 													label: "Open",
@@ -414,7 +440,7 @@ export default function Markets() {
 												},
 											].map((item, index) => (
 												<div key={index} className="bg-muted rounded-lg p-3">
-													<p className="text-muted-foreground mb-1">
+													<p className="text-muted-foreground mb-1 font-sans text-xs">
 														{item.label}
 													</p>
 													<p className={`font-bold text-lg ${item.color}`}>

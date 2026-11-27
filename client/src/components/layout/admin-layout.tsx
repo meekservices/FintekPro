@@ -874,7 +874,7 @@ const navCategories: NavCategory[] = [
 	},
 ];
 
-const allNavItems = navCategories.flatMap((cat) =>
+const _allNavItems = navCategories.flatMap((cat) =>
 	cat.items.flatMap((item) =>
 		item.children ? [item, ...item.children] : [item],
 	),
@@ -890,17 +890,65 @@ interface Notification {
 	link?: string;
 }
 
+const QUICK_LAUNCH_ITEMS = [
+	{ label: "Pricing", href: "/admin/golden-pricing", badge: "Gold" },
+	{ label: "Compliance", href: "/admin/compliance", badge: "AML" },
+	{ label: "KYC v2", href: "/admin/kyc-v2", badge: "Audit" },
+	{ label: "Health", href: "/admin/system-health", badge: "Live" },
+	{ label: "Flags", href: "/admin/feature-flags", badge: "Config" },
+];
+
 export function AdminLayout({ children }: AdminLayoutProps) {
 	const { user, isLoading } = useAuth();
 	const [location, navigate] = useLocation();
 	const currentSearch = useSearch();
 	const [sidebarOpen, setSidebarOpen] = useState(true);
+	const [sidebarFilter, setSidebarFilter] = useState("");
 	const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
 		new Set(["dashboard"]),
 	);
 	const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+	const filteredCategories = useMemo(() => {
+		if (!sidebarFilter.trim()) return navCategories;
+		const query = sidebarFilter.toLowerCase().trim();
+		return navCategories
+			.map((cat) => {
+				const matchingItems = cat.items
+					.map((item) => {
+						const itemMatches =
+							item.title.toLowerCase().includes(query) ||
+							item.href.toLowerCase().includes(query);
+						const matchingChildren = item.children?.filter(
+							(c) =>
+								c.title.toLowerCase().includes(query) ||
+								c.href.toLowerCase().includes(query),
+						);
+						if (itemMatches || (matchingChildren && matchingChildren.length > 0)) {
+							return {
+								...item,
+								children:
+									matchingChildren && matchingChildren.length > 0
+										? matchingChildren
+										: item.children,
+							};
+						}
+						return null;
+					})
+					.filter(Boolean) as typeof cat.items;
+
+				if (matchingItems.length > 0 || cat.title.toLowerCase().includes(query)) {
+					return {
+						...cat,
+						items: matchingItems.length > 0 ? matchingItems : cat.items,
+					};
+				}
+				return null;
+			})
+			.filter(Boolean) as typeof navCategories;
+	}, [sidebarFilter]);
 
 	const { data: kycResponse } = useQuery<{
 		success: boolean;
@@ -1573,50 +1621,106 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 					)}
 				>
 					{sidebarOpen && (
-						<nav className="p-3 space-y-2">
-							{navCategories.map((category) => {
-								const CategoryIcon = category.icon;
-								const isCategoryExpanded = expandedCategories.has(category.id);
-								const hasActiveItem = category.items.some(
-									(item) =>
-										location === hrefPath(item.href) ||
-										item.children?.some(
-											(child) =>
-												location === hrefPath(child.href) ||
-												location.startsWith(hrefPath(child.href) + "/"),
-										),
-								);
+						<div className="flex flex-col">
+							{/* Quick Launch & Quick Filter */}
+							<div className="p-3 pb-2 space-y-2.5 border-b border-border/50">
+								<div>
+									<div className="flex items-center justify-between mb-1.5 px-0.5">
+										<span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+											Quick Launch
+										</span>
+										<span className="text-[10px] text-emerald-500 font-mono font-medium">Ops Active</span>
+									</div>
+									<div className="grid grid-cols-2 gap-1.5">
+										{QUICK_LAUNCH_ITEMS.map((item) => {
+											const isActive = location === hrefPath(item.href);
+											return (
+												<Link
+													key={item.href}
+													href={item.href}
+													className={cn(
+														"flex items-center justify-between px-2 py-1.5 rounded-md text-xs font-medium border transition-colors",
+														isActive
+															? "bg-blue-600 text-white border-blue-500 shadow-sm"
+															: "bg-muted/30 text-muted-foreground border-border/40 hover:bg-muted hover:text-foreground",
+													)}
+												>
+													<span className="truncate">{item.label}</span>
+													<span className="text-[9px] px-1 py-0.2 rounded bg-background/50 font-mono">
+														{item.badge}
+													</span>
+												</Link>
+											);
+										})}
+									</div>
+								</div>
 
-								return (
-									<div key={category.id} className="space-y-1">
+								<div className="relative">
+									<Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+									<Input
+										type="text"
+										placeholder="Filter admin tools..."
+										value={sidebarFilter}
+										onChange={(e) => setSidebarFilter(e.target.value)}
+										className="h-8 pl-8 pr-7 text-xs bg-muted/40 border-border/60 focus-visible:ring-1 focus-visible:ring-blue-500"
+									/>
+									{sidebarFilter && (
 										<button
-											onClick={() => toggleCategory(category.id)}
-											className={cn(
-												"w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-left",
-												hasActiveItem
-													? "bg-blue-600/10 text-blue-400"
-													: "text-muted-foreground hover:bg-card hover:text-foreground",
-											)}
-											data-testid={`btn-category-${category.id}`}
+											onClick={() => setSidebarFilter("")}
+											className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+											type="button"
+											aria-label="Clear filter"
 										>
-											<CategoryIcon className="h-4 w-4" />
-											<span className="text-sm font-semibold flex-1">
-												{category.title}
-											</span>
-											{isCategoryExpanded ? (
-												<ChevronDown className="h-4 w-4" />
-											) : (
-												<ChevronRight className="h-4 w-4" />
-											)}
+											<X className="h-3.5 w-3.5" />
 										</button>
+									)}
+								</div>
+							</div>
 
-										{isCategoryExpanded && (
-											<div className="ml-2 space-y-0.5">
-												{category.items.map((item) => {
-													const Icon = item.icon;
-													const hasChildren =
-														item.children && item.children.length > 0;
-													const isExpanded = expandedMenus.has(item.title);
+							<nav className="p-3 space-y-2">
+								{filteredCategories.map((category) => {
+									const CategoryIcon = category.icon;
+									const isCategoryExpanded = sidebarFilter.trim() ? true : expandedCategories.has(category.id);
+									const hasActiveItem = category.items.some(
+										(item) =>
+											location === hrefPath(item.href) ||
+											item.children?.some(
+												(child) =>
+													location === hrefPath(child.href) ||
+													location.startsWith(hrefPath(child.href) + "/"),
+											),
+									);
+
+									return (
+										<div key={category.id} className="space-y-1">
+											<button
+												onClick={() => toggleCategory(category.id)}
+												className={cn(
+													"w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-left",
+													hasActiveItem
+														? "bg-blue-600/10 text-blue-400"
+														: "text-muted-foreground hover:bg-card hover:text-foreground",
+												)}
+												data-testid={`btn-category-${category.id}`}
+											>
+												<CategoryIcon className="h-4 w-4" />
+												<span className="text-sm font-semibold flex-1">
+													{category.title}
+												</span>
+												{isCategoryExpanded ? (
+													<ChevronDown className="h-4 w-4" />
+												) : (
+													<ChevronRight className="h-4 w-4" />
+												)}
+											</button>
+
+											{isCategoryExpanded && (
+												<div className="ml-2 space-y-0.5">
+													{category.items.map((item) => {
+														const Icon = item.icon;
+														const hasChildren =
+															item.children && item.children.length > 0;
+														const isExpanded = sidebarFilter.trim() ? true : expandedMenus.has(item.title);
 													const isActive = location === hrefPath(item.href);
 													const isChildActive =
 														hasChildren &&
@@ -1722,7 +1826,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 									</div>
 								);
 							})}
-						</nav>
+							</nav>
+						</div>
 					)}
 				</aside>
 

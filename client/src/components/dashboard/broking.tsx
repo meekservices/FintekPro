@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import {
 	Select,
 	SelectContent,
@@ -369,11 +369,11 @@ export function BrokingDashboard() {
 												>
 													<div>
 														<div className="font-medium">{stock.symbol}</div>
-														<div className="text-sm text-muted-foreground">
+														<div className="text-sm font-mono tabular-nums text-muted-foreground">
 															{formatCurrency(stock.ltp)}
 														</div>
 													</div>
-													<div className="text-right">
+													<div className="text-right font-mono tabular-nums">
 														<div className="text-green-600 font-medium">
 															+{stock.per_chng?.toFixed(2)}%
 														</div>
@@ -411,11 +411,11 @@ export function BrokingDashboard() {
 												>
 													<div>
 														<div className="font-medium">{stock.symbol}</div>
-														<div className="text-sm text-muted-foreground">
+														<div className="text-sm font-mono tabular-nums text-muted-foreground">
 															{formatCurrency(stock.ltp)}
 														</div>
 													</div>
-													<div className="text-right">
+													<div className="text-right font-mono tabular-nums">
 														<div className="text-red-600 font-medium">
 															{stock.per_chng?.toFixed(2)}%
 														</div>
@@ -586,7 +586,7 @@ export function BrokingDashboard() {
 											onChange={(e) =>
 												setOrderForm((prev) => ({
 													...prev,
-													quantity: Number.parseInt(e.target.value) || 0,
+													quantity: Number.parseInt(e.target.value, 10) || 0,
 												}))
 											}
 											data-testid="input-order-quantity"

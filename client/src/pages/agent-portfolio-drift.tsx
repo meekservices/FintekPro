@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
 import {
 	Table,
 	TableBody,
@@ -12,21 +14,18 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
+	TableDensityToggle,
+	type TableDensity,
 } from "@/components/ui/table";
-import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import {
 	Crosshair,
 	RefreshCw,
 	ChevronDown,
 	ChevronRight,
-	ExternalLink,
 	AlertTriangle,
 	CheckCircle2,
 	Activity,
+	Layers,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -123,8 +122,11 @@ function formatCurrency(n: number) {
 }
 
 export default function AgentPortfolioDrift() {
+	const { toast } = useToast();
+	const [tableDensity, setTableDensity] = useState<TableDensity>("normal");
 	const [showHighDriftOnly, setShowHighDriftOnly] = useState(false);
 	const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+	const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(new Set());
 
 	const { data, isLoading, refetch, isFetching } = useQuery<DriftData>({
 		queryKey: ["/api/agent/portfolio-drift"],
@@ -148,6 +150,33 @@ export default function AgentPortfolioDrift() {
 			next.has(id) ? next.delete(id) : next.add(id);
 			return next;
 		});
+
+	const toggleSelectClient = (id: string) => {
+		setSelectedClientIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(id)) {
+				next.delete(id);
+			} else {
+				next.add(id);
+			}
+			return next;
+		});
+	};
+
+	const toggleSelectAll = () => {
+		if (selectedClientIds.size === filtered.length && filtered.length > 0) {
+			setSelectedClientIds(new Set());
+		} else {
+			setSelectedClientIds(new Set(filtered.map((c) => c.clientId)));
+		}
+	};
+
+	const selectedClientsList = clients.filter((c) => selectedClientIds.has(c.clientId));
+	const totalSelectedAum = selectedClientsList.reduce((acc, c) => acc + (c.totalValue || 0), 0);
+	const estimatedTurnover = selectedClientsList.reduce(
+		(acc, c) => acc + (c.totalValue || 0) * (c.driftScore / 100) * 0.45,
+		0,
+	);
 
 	return (
 		<div className="container max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
@@ -214,14 +243,71 @@ export default function AgentPortfolioDrift() {
 				</Card>
 			</div>
 
-			{/* Filter */}
-			<div className="flex items-center gap-3">
-				<Switch
-					checked={showHighDriftOnly}
-					onCheckedChange={setShowHighDriftOnly}
-				/>
-				<Label className="text-sm">Show high drift only (&gt;15%)</Label>
+			{/* Filter & Density Controls */}
+			<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+				<div className="flex items-center gap-3">
+					<Switch
+						checked={showHighDriftOnly}
+						onCheckedChange={setShowHighDriftOnly}
+					/>
+					<Label className="text-sm">Show high drift only (&gt;15%)</Label>
+				</div>
+				<div className="flex items-center gap-3">
+					<TableDensityToggle density={tableDensity} onDensityChange={setTableDensity} />
+				</div>
 			</div>
+
+			{/* Batch Rebalancing Matrix Bar */}
+			{selectedClientIds.size > 0 && (
+				<Card className="border-blue-500/40 bg-blue-500/5 shadow-sm">
+					<CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+						<div className="flex flex-wrap items-center gap-4 sm:gap-6">
+							<div className="flex items-center gap-2">
+								<Badge className="bg-blue-600 text-white font-mono text-xs px-2.5 py-0.5">
+									{selectedClientIds.size} {selectedClientIds.size === 1 ? "Client" : "Clients"} Selected
+								</Badge>
+								<span className="text-xs text-muted-foreground">Ready for batch execution</span>
+							</div>
+							<div className="flex items-center gap-4 text-xs sm:text-sm">
+								<div>
+									<span className="text-muted-foreground mr-1.5">Aggregate AUM:</span>
+									<span className="font-mono tabular-nums font-semibold text-foreground">
+										{formatCurrency(totalSelectedAum)}
+									</span>
+								</div>
+								<div className="border-l pl-4 border-border/60">
+									<span className="text-muted-foreground mr-1.5">Est. Turnover:</span>
+									<span className="font-mono tabular-nums font-semibold text-amber-500">
+										{formatCurrency(estimatedTurnover)}
+									</span>
+								</div>
+							</div>
+						</div>
+						<div className="flex items-center gap-2">
+							<Button
+								variant="ghost"
+								size="sm"
+								className="text-xs h-8 text-muted-foreground"
+								onClick={() => setSelectedClientIds(new Set())}
+							>
+								Clear Selection
+							</Button>
+							<Button
+								size="sm"
+								className="h-8 gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-sm text-xs"
+								onClick={() => {
+									toast({
+										title: "Batch Rebalancing Plan Generated",
+										description: `Generated drift rebalance proposal for ${selectedClientIds.size} accounts with estimated turnover of ${formatCurrency(estimatedTurnover)}.`,
+									});
+								}}
+							>
+								<Layers className="h-3.5 w-3.5" /> Generate Batch Proposal
+							</Button>
+						</div>
+					</CardContent>
+				</Card>
+			)}
 
 			{/* Legend */}
 			<div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -259,14 +345,21 @@ export default function AgentPortfolioDrift() {
 				</Card>
 			) : (
 				<div className="rounded-lg border overflow-x-auto">
-					<Table>
+					<Table density={tableDensity}>
 						<TableHeader>
 							<TableRow>
+								<TableHead className="w-8">
+									<Checkbox
+										checked={filtered.length > 0 && selectedClientIds.size === filtered.length}
+										onCheckedChange={toggleSelectAll}
+										aria-label="Select all clients"
+									/>
+								</TableHead>
 								<TableHead className="w-8" />
 								<TableHead>Client</TableHead>
 								<TableHead>Risk Profile</TableHead>
-								<TableHead>Portfolio Value</TableHead>
-								<TableHead>Drift Score</TableHead>
+								<TableHead className="text-right">Portfolio Value</TableHead>
+								<TableHead className="text-right">Drift Score</TableHead>
 								<TableHead>Last Rebalanced</TableHead>
 								<TableHead className="text-right">Actions</TableHead>
 							</TableRow>
@@ -283,6 +376,13 @@ export default function AgentPortfolioDrift() {
 								return (
 									<>
 										<TableRow key={client.clientId} className={rowBg}>
+											<TableCell className="w-8">
+												<Checkbox
+													checked={selectedClientIds.has(client.clientId)}
+													onCheckedChange={() => toggleSelectClient(client.clientId)}
+													aria-label={`Select ${client.clientName}`}
+												/>
+											</TableCell>
 											<TableCell>
 												<Button
 													variant="ghost"
@@ -305,12 +405,12 @@ export default function AgentPortfolioDrift() {
 													{client.riskProfile}
 												</Badge>
 											</TableCell>
-											<TableCell className="text-sm">
+											<TableCell className="text-sm text-right font-mono tabular-nums font-medium">
 												{client.totalValue > 0
 													? formatCurrency(client.totalValue)
 													: "—"}
 											</TableCell>
-											<TableCell>
+											<TableCell className="text-right font-mono tabular-nums">
 												<DriftBadge score={client.driftScore} />
 											</TableCell>
 											<TableCell className="text-sm text-muted-foreground">
@@ -344,7 +444,7 @@ export default function AgentPortfolioDrift() {
 										</TableRow>
 										{isExpanded && (
 											<TableRow className={rowBg}>
-												<TableCell colSpan={7} className="pb-4 pt-0">
+												<TableCell colSpan={8} className="pb-4 pt-0">
 													<div className="ml-8 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
 														{ASSET_CLASSES.filter(
 															(cls) =>

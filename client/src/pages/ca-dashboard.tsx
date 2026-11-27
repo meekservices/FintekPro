@@ -30,6 +30,8 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
+	TableDensityToggle,
+	type TableDensity,
 } from "@/components/ui/table";
 import {
 	Dialog,
@@ -182,6 +184,8 @@ export default function CADashboard() {
 		return "overview";
 	});
 	const [statusFilter, setStatusFilter] = useState("all");
+	const [casesDensity, setCasesDensity] = useState<TableDensity>("normal");
+	const [clientsDensity, setClientsDensity] = useState<TableDensity>("normal");
 	const [inviteOpen, setInviteOpen] = useState(false);
 	const [inviteName, setInviteName] = useState("");
 	const [inviteEmail, setInviteEmail] = useState("");
@@ -654,27 +658,30 @@ export default function CADashboard() {
 					<TabsContent value="cases" className="mt-6">
 						<Card>
 							<CardHeader>
-								<div className="flex items-center justify-between">
+								<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 									<div>
 										<CardTitle>My Cases</CardTitle>
 										<CardDescription>
 											All your assigned tax cases
 										</CardDescription>
 									</div>
-									<Select value={statusFilter} onValueChange={setStatusFilter}>
-										<SelectTrigger
-											className="w-[180px]"
-											data-testid="select-case-filter"
-										>
-											<SelectValue placeholder="Filter by status" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="all">All Cases</SelectItem>
-											<SelectItem value="active">Active</SelectItem>
-											<SelectItem value="pending">Pending Review</SelectItem>
-											<SelectItem value="completed">Completed</SelectItem>
-										</SelectContent>
-									</Select>
+									<div className="flex items-center gap-3">
+										<TableDensityToggle density={casesDensity} onDensityChange={setCasesDensity} />
+										<Select value={statusFilter} onValueChange={setStatusFilter}>
+											<SelectTrigger
+												className="w-[180px]"
+												data-testid="select-case-filter"
+											>
+												<SelectValue placeholder="Filter by status" />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="all">All Cases</SelectItem>
+												<SelectItem value="active">Active</SelectItem>
+												<SelectItem value="pending">Pending Review</SelectItem>
+												<SelectItem value="completed">Completed</SelectItem>
+											</SelectContent>
+										</Select>
+									</div>
 								</div>
 							</CardHeader>
 							<CardContent>
@@ -689,7 +696,7 @@ export default function CADashboard() {
 										<p>Cases will appear here once assigned to you</p>
 									</div>
 								) : (
-									<Table>
+									<Table density={casesDensity}>
 										<TableHeader>
 											<TableRow>
 												<TableHead>Client</TableHead>
@@ -697,7 +704,7 @@ export default function CADashboard() {
 												<TableHead>Status</TableHead>
 												<TableHead>Priority</TableHead>
 												<TableHead>Due Date</TableHead>
-												<TableHead>Fee</TableHead>
+												<TableHead className="text-right">Fee</TableHead>
 												<TableHead>Actions</TableHead>
 											</TableRow>
 										</TableHeader>
@@ -747,8 +754,8 @@ export default function CADashboard() {
 															? new Date(caseItem.dueDate).toLocaleDateString()
 															: "-"}
 													</TableCell>
-													<TableCell>
-														₹{caseItem.fee?.toLocaleString() || 0}
+													<TableCell className="text-right font-mono tabular-nums font-medium">
+														₹{caseItem.fee?.toLocaleString("en-IN") || 0}
 													</TableCell>
 													<TableCell>
 														<div className="flex items-center gap-1">
@@ -1215,7 +1222,14 @@ export default function CADashboard() {
 							</Card>
 						) : (
 							<Card>
-								<Table>
+								<div className="p-4 pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+									<div>
+										<h4 className="text-sm font-semibold">Client Directory</h4>
+										<p className="text-xs text-muted-foreground">Manage client relationships, filings, and billed revenue</p>
+									</div>
+									<TableDensityToggle density={clientsDensity} onDensityChange={setClientsDensity} />
+								</div>
+								<Table density={clientsDensity}>
 									<TableHeader>
 										<TableRow>
 											<TableHead>Client</TableHead>
@@ -1246,13 +1260,13 @@ export default function CADashboard() {
 														</div>
 													</div>
 												</TableCell>
-												<TableCell className="text-center font-medium">
+												<TableCell className="text-center font-mono tabular-nums font-medium">
 													{client.totalCases}
 												</TableCell>
 												<TableCell className="text-center">
 													<Badge
 														variant="secondary"
-														className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+														className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-mono tabular-nums"
 													>
 														{client.activeCases}
 													</Badge>
@@ -1260,12 +1274,12 @@ export default function CADashboard() {
 												<TableCell className="text-center">
 													<Badge
 														variant="secondary"
-														className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+														className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-mono tabular-nums"
 													>
 														{client.completedCases}
 													</Badge>
 												</TableCell>
-												<TableCell className="text-right font-medium">
+												<TableCell className="text-right font-mono tabular-nums font-semibold">
 													₹{client.totalFees.toLocaleString("en-IN")}
 												</TableCell>
 												<TableCell>

@@ -165,14 +165,27 @@ TableCaption.displayName = "TableCaption";
 
 /** Institutional segmented toggle for switching grid density */
 export function TableDensityToggle({
-	density,
+	density: controlledDensity,
 	onDensityChange,
 	className,
 }: {
-	density: TableDensity;
-	onDensityChange: (d: TableDensity) => void;
+	density?: TableDensity;
+	onDensityChange?: (d: TableDensity) => void;
 	className?: string;
 }) {
+	const [internalDensity, setInternalDensity] = React.useState<TableDensity>(
+		controlledDensity || "normal",
+	);
+	const density = controlledDensity ?? internalDensity;
+
+	const handleDensityChange = (d: TableDensity) => {
+		if (onDensityChange) {
+			onDensityChange(d);
+		} else {
+			setInternalDensity(d);
+		}
+	};
+
 	return (
 		<div
 			className={cn(
@@ -183,7 +196,7 @@ export function TableDensityToggle({
 		>
 			<button
 				type="button"
-				onClick={() => onDensityChange("compact")}
+				onClick={() => handleDensityChange("compact")}
 				className={cn(
 					"px-2 py-0.5 font-medium rounded transition-colors",
 					density === "compact"
@@ -195,7 +208,7 @@ export function TableDensityToggle({
 			</button>
 			<button
 				type="button"
-				onClick={() => onDensityChange("normal")}
+				onClick={() => handleDensityChange("normal")}
 				className={cn(
 					"px-2 py-0.5 font-medium rounded transition-colors",
 					density === "normal"
@@ -207,7 +220,7 @@ export function TableDensityToggle({
 			</button>
 			<button
 				type="button"
-				onClick={() => onDensityChange("relaxed")}
+				onClick={() => handleDensityChange("relaxed")}
 				className={cn(
 					"px-2 py-0.5 font-medium rounded transition-colors",
 					density === "relaxed"

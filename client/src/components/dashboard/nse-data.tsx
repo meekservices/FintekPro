@@ -2,26 +2,15 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import {
 	TrendingUp,
 	TrendingDown,
-	Activity,
 	BarChart3,
 	RefreshCw,
+	Activity,
 } from "lucide-react";
-
-interface NSEQuote {
-	symbol: string;
-	companyName: string;
-	lastPrice: number;
-	change: number;
-	pChange: number;
-	dayHigh: number;
-	dayLow: number;
-	volume: number;
-}
 
 interface NSEData {
 	symbol: string;
@@ -168,13 +157,13 @@ export function NSEData() {
 												<h4 className="font-semibold text-foreground">
 													{index.symbol || `Index ${i + 1}`}
 												</h4>
-												<p className="text-2xl font-bold text-foreground">
+												<p className="text-2xl font-bold font-mono tabular-nums text-foreground">
 													{index.ltp ? index.ltp.toFixed(2) : "N/A"}
 												</p>
 											</div>
-											<div className="text-right">
+											<div className="text-right font-mono tabular-nums">
 												<div
-													className={`flex items-center ${
+													className={`flex items-center justify-end ${
 														(index.chng || 0) >= 0
 															? "text-finance-green"
 															: "text-finance-red"
@@ -194,7 +183,7 @@ export function NSEData() {
 													</span>
 												</div>
 												{index.volume && (
-													<p className="text-sm text-muted-foreground">
+													<p className="text-sm text-muted-foreground font-mono tabular-nums">
 														Vol: {formatNumber(index.volume)}
 													</p>
 												)}
@@ -223,12 +212,12 @@ export function NSEData() {
 												<h4 className="font-semibold text-foreground">
 													{stock.symbol}
 												</h4>
-												<p className="text-lg font-bold text-foreground">
+												<p className="text-lg font-bold font-mono tabular-nums text-foreground">
 													₹{stock.ltp ? stock.ltp.toFixed(2) : "N/A"}
 												</p>
 											</div>
-											<div className="text-right">
-												<div className="flex items-center text-finance-green">
+											<div className="text-right font-mono tabular-nums">
+												<div className="flex items-center justify-end text-finance-green">
 													<TrendingUp className="h-4 w-4 mr-1" />
 													<span className="font-semibold">
 														+{stock.chng ? stock.chng.toFixed(2) : "0.00"} (+
@@ -239,7 +228,7 @@ export function NSEData() {
 													</span>
 												</div>
 												{stock.volume && (
-													<p className="text-sm text-muted-foreground">
+													<p className="text-sm text-muted-foreground font-mono tabular-nums">
 														Vol: {formatNumber(stock.volume)}
 													</p>
 												)}
@@ -268,12 +257,12 @@ export function NSEData() {
 												<h4 className="font-semibold text-foreground">
 													{stock.symbol}
 												</h4>
-												<p className="text-lg font-bold text-foreground">
+												<p className="text-lg font-bold font-mono tabular-nums text-foreground">
 													₹{stock.ltp ? stock.ltp.toFixed(2) : "N/A"}
 												</p>
 											</div>
-											<div className="text-right">
-												<div className="flex items-center text-finance-red">
+											<div className="text-right font-mono tabular-nums">
+												<div className="flex items-center justify-end text-finance-red">
 													<TrendingDown className="h-4 w-4 mr-1" />
 													<span className="font-semibold">
 														{stock.chng ? stock.chng.toFixed(2) : "0.00"} (
@@ -284,7 +273,7 @@ export function NSEData() {
 													</span>
 												</div>
 												{stock.volume && (
-													<p className="text-sm text-muted-foreground">
+													<p className="text-sm text-muted-foreground font-mono tabular-nums">
 														Vol: {formatNumber(stock.volume)}
 													</p>
 												)}

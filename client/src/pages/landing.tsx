@@ -14,6 +14,8 @@ import {
 	Coins,
 	Receipt,
 	Building,
+	Building2,
+	Landmark,
 	Sparkles,
 	Lock,
 	PieChart,
@@ -24,13 +26,10 @@ import {
 	Layers,
 	Briefcase,
 	GraduationCap,
-	Users,
-	FileText,
 	CheckCircle2,
 	ExternalLink,
 	Smartphone,
 	Download,
-	QrCode,
 	Fingerprint,
 	Bell,
 	EyeOff,
@@ -494,12 +493,12 @@ export default function LandingPage() {
 											Unified Net Worth
 										</p>
 										<div className="flex items-baseline gap-3">
-											<h3 className="text-2xl md:text-3xl font-extrabold text-foreground tracking-tight">
+											<h3 className="text-2xl md:text-3xl font-extrabold text-foreground tracking-tight font-mono tabular-nums">
 												₹28,50,000.00
 											</h3>
-											<span className="inline-flex items-center text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+											<span className="inline-flex items-center text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-mono tabular-nums">
 												<TrendingUp className="w-3 h-3 mr-1" />
-												+14.8% XIRR
+												+14.80% XIRR
 											</span>
 										</div>
 									</div>
@@ -510,10 +509,10 @@ export default function LandingPage() {
 											<span className="text-muted-foreground font-medium">
 												NIFTY 50:{" "}
 											</span>
-											<span className="font-bold text-foreground">
+											<span className="font-bold font-mono tabular-nums text-foreground">
 												24,530.45
 											</span>
-											<span className="text-emerald-600 dark:text-emerald-400 font-semibold ml-1.5">
+											<span className="text-emerald-600 dark:text-emerald-400 font-semibold font-mono tabular-nums ml-1.5">
 												+0.46%
 											</span>
 										</div>
@@ -521,10 +520,10 @@ export default function LandingPage() {
 											<span className="text-muted-foreground font-medium">
 												SENSEX:{" "}
 											</span>
-											<span className="font-bold text-foreground">
+											<span className="font-bold font-mono tabular-nums text-foreground">
 												80,320.10
 											</span>
-											<span className="text-emerald-600 dark:text-emerald-400 font-semibold ml-1.5">
+											<span className="text-emerald-600 dark:text-emerald-400 font-semibold font-mono tabular-nums ml-1.5">
 												+0.43%
 											</span>
 										</div>
@@ -575,28 +574,28 @@ export default function LandingPage() {
 													<div className="w-2 h-2 rounded-full bg-primary" />
 													<span>Equities (42%)</span>
 												</div>
-												<p className="font-bold text-foreground">₹11,97,000</p>
+												<p className="font-bold font-mono tabular-nums text-foreground">₹11,97,000</p>
 											</div>
 											<div className="p-2.5 rounded-lg bg-card border border-border/60">
 												<div className="flex items-center gap-1.5 text-muted-foreground mb-1">
 													<div className="w-2 h-2 rounded-full bg-emerald-500" />
 													<span>Bonds (31%)</span>
 												</div>
-												<p className="font-bold text-foreground">₹8,83,500</p>
+												<p className="font-bold font-mono tabular-nums text-foreground">₹8,83,500</p>
 											</div>
 											<div className="p-2.5 rounded-lg bg-card border border-border/60">
 												<div className="flex items-center gap-1.5 text-muted-foreground mb-1">
 													<div className="w-2 h-2 rounded-full bg-purple-500" />
 													<span>Unlisted (17%)</span>
 												</div>
-												<p className="font-bold text-foreground">₹4,84,500</p>
+												<p className="font-bold font-mono tabular-nums text-foreground">₹4,84,500</p>
 											</div>
 											<div className="p-2.5 rounded-lg bg-card border border-border/60">
 												<div className="flex items-center gap-1.5 text-muted-foreground mb-1">
 													<div className="w-2 h-2 rounded-full bg-amber-500" />
 													<span>Liquid (10%)</span>
 												</div>
-												<p className="font-bold text-foreground">₹2,85,000</p>
+												<p className="font-bold font-mono tabular-nums text-foreground">₹2,85,000</p>
 											</div>
 										</div>
 									</div>
@@ -628,6 +627,85 @@ export default function LandingPage() {
 											<span className="font-bold text-foreground">94 / 100</span>
 										</div>
 									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			{/* Institutional Client Segments Section */}
+			<section className="py-20 bg-card border-b border-border/40">
+				<div className="container mx-auto px-6 max-w-6xl">
+					<div className="text-center mb-14 max-w-3xl mx-auto">
+						<Badge variant="outline" className="mb-3 px-3 py-1 text-xs font-semibold text-primary border-primary/30">
+							TAILORED CAPITAL ARCHITECTURE
+						</Badge>
+						<h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
+							Institutional Solutions Across Client Profiles
+						</h2>
+						<p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
+							Engineered for complex wealth mandates with segregated demat custody, bespoke reporting, and automated governance.
+						</p>
+					</div>
+
+					<div className="grid md:grid-cols-3 gap-6">
+						<div className="p-6 rounded-2xl bg-muted/40 border border-border/60 space-y-4 hover:border-primary/40 transition-colors">
+							<div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500">
+								<Building2 className="w-6 h-6" />
+							</div>
+							<h3 className="text-xl font-bold text-foreground">Family Offices &amp; UHNIs</h3>
+							<p className="text-sm text-muted-foreground leading-relaxed">
+								Multi-entity consolidated balance sheets, direct private cap table co-investments, carry tracking, and automated multi-generational inheritance structuring.
+							</p>
+							<div className="pt-3 border-t border-border/40 space-y-2 text-xs text-muted-foreground font-mono">
+								<div className="flex items-center gap-1.5 text-foreground font-medium">
+									<CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+									<span>Multi-custodian CDSL/NSDL sync</span>
+								</div>
+								<div className="flex items-center gap-1.5 text-foreground font-medium">
+									<CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+									<span>Pre-IPO &amp; late-stage allocation</span>
+								</div>
+							</div>
+						</div>
+
+						<div className="p-6 rounded-2xl bg-muted/40 border border-border/60 space-y-4 hover:border-primary/40 transition-colors">
+							<div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-500">
+								<Landmark className="w-6 h-6" />
+							</div>
+							<h3 className="text-xl font-bold text-foreground">Corporate Treasuries</h3>
+							<p className="text-sm text-muted-foreground leading-relaxed">
+								Overnight, liquid, and ultra-short duration surplus optimization. Automated sovereign G-Sec ladders with Maker-Checker dual authorization protocols.
+							</p>
+							<div className="pt-3 border-t border-border/40 space-y-2 text-xs text-muted-foreground font-mono">
+								<div className="flex items-center gap-1.5 text-foreground font-medium">
+									<CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+									<span>CCIL clearing &amp; settlement</span>
+								</div>
+								<div className="flex items-center gap-1.5 text-foreground font-medium">
+									<CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+									<span>TDS &amp; Form 15G/15H automated filing</span>
+								</div>
+							</div>
+						</div>
+
+						<div className="p-6 rounded-2xl bg-muted/40 border border-border/60 space-y-4 hover:border-primary/40 transition-colors">
+							<div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500">
+								<Shield className="w-6 h-6" />
+							</div>
+							<h3 className="text-xl font-bold text-foreground">Private Wealth &amp; Executives</h3>
+							<p className="text-sm text-muted-foreground leading-relaxed">
+								Zero-commission direct mutual funds, curated AAA secondary market corporate bonds, algorithmic tax-loss harvesting, and goal-calibrated retirement runways.
+							</p>
+							<div className="pt-3 border-t border-border/40 space-y-2 text-xs text-muted-foreground font-mono">
+								<div className="flex items-center gap-1.5 text-foreground font-medium">
+									<CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+									<span>Zero distributor commission</span>
+								</div>
+								<div className="flex items-center gap-1.5 text-foreground font-medium">
+									<CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+									<span>Continuous Sharpe &amp; Alpha tracking</span>
 								</div>
 							</div>
 						</div>
